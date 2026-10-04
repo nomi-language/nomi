@@ -1,0 +1,175 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+interface Greet {
+    fn hello(value: self): String
+}
+
+struct Dog {
+    name: String
+}
+
+struct Wrapper<T> where T: Greet {
+    value: T
+}
+
+impl Display for Dog {
+    fn to_string(value: Dog): String {
+        "Dog(" + value.name + ")"
+    }
+}
+
+impl Greet for Dog {
+    fn hello(value: Dog): String {
+        "woof, I am " + value.name
+    }
+}
+
+impl Greet for Wrapper<T> {
+    fn hello(value: Wrapper<T>): String {
+        "wrapped " + T.hello(value.value)
+    }
+}
+
+fn shout<T>(x: T): String where T: Display {
+    T.to_string(x) + "!"
+}
+
+fn greet<T>(x: T): String where T: Greet {
+    T.hello(x)
+}
+
+fn full<T>(x: T): String where T: Display and Greet {
+    T.hello(x) + " - " + T.to_string(x)
+}
+
+fn full_where<T>(x: T): String where T: Display and Greet {
+    T.hello(x) + " - " + T.to_string(x)
+}
+
+test "type-parameter-qualified dispatch resolves through bounds" {
+    assert shout(42) == "42!"
+    assert shout("hi") == "hi!"
+    assert greet(Dog{name: "Rex"}) == "woof, I am Rex"
+    assert full(Dog{name: "Rex"}) == "woof, I am Rex - Dog(Rex)"
+    assert full_where(Dog{name: "Rex"}) == "woof, I am Rex - Dog(Rex)"
+    assert greet(Wrapper{value: Dog{name: "Rex"}}) == "wrapped woof, I am Rex"
+}
+
+test "impl block where clauses constrain generic receiver impls" {
+    diagnostics = compiler.check(
+        """
+          interface Render {
+            fn render(value: self): String
+          }
+
+          struct Wrapped<T> where T: Display {
+            value: T
+          }
+
+          struct Plain {}
+
+          impl Render for Wrapped<T> {
+            fn render(value: Wrapped<T>): String {
+              T.to_string(value.value)
+            }
+          }
+
+          fn main() {
+            _ = Render.render(Wrapped{value: Plain{}})
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Display` for `Plain`")
+}
+
+test "type-parameter-qualified dispatch is ambiguous across duplicate function names" {
+    diagnostics = compiler.check(
+        """
+          interface A {
+            fn tag(value: self): String
+          }
+
+          interface B {
+            fn tag(value: self): String
+          }
+
+          fn f<T>(x: T): String where T: A and B {
+            T.tag(x)
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "is ambiguous")
+}
+
+test "type-parameter-qualified dispatch requires the function on the bound" {
+    diagnostics = compiler.check(
+        """
+          fn f<T>(x: T): String where T: Display {
+            T.nope(x)
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "declares function 'nope'")
+}
+
+test "type-parameter-qualified dispatch requires an interface bound" {
+    diagnostics = compiler.check(
+        """
+          fn f<T>(x: T): String {
+            T.to_string(x)
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "has no interface bound")
+}
+
+test "type-qualified dispatch is ambiguous when multiple interfaces declare the function" {
+    diagnostics = compiler.check(
+        """
+        interface Greeter {
+          fn greet(value: self): String
+        }
+
+        interface Farewell {
+          fn greet(value: self): String
+        }
+
+        struct Person {
+          name: String
+        }
+
+        impl Greeter for Person {
+
+          fn greet(p: Person): String {
+            "Hello, " + p.name
+          }
+        }
+
+        impl Farewell for Person {
+
+          fn greet(p: Person): String {
+            "Goodbye, " + p.name
+          }
+        }
+
+        fn main() {
+          p = Person{name: "Alice"}
+          _ = Person.greet(p)
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "ambiguous")
+}

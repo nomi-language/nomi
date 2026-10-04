@@ -1,0 +1,25 @@
+import {
+    int.Int
+    maybe.Maybe.{self, None}
+}
+
+/// Protocol for values with a well-defined next value.
+///
+/// A discrete type's values come in separate steps rather than a continuous
+/// space: after `1` comes `2`, and after one valid `Codepoint` comes the next
+/// valid `Codepoint`. Dense or successor-less types like `Float` and `String`
+/// can be ordered, but they do not have one obvious next value.
+///
+/// `Range<T>` implements `Iter<T>` when `T` is both `Comparable` and
+/// `Discrete`, so range syntax can produce lazy sequences for discrete domains
+/// like `Int` and `Codepoint` while remaining an interval value for dense or
+/// successor-less domains like `Float` and `String`.
+pub interface Discrete {
+    fn next(value: self): Maybe<self>
+
+    /// Some(n) when the implementation can report the number of `next` steps
+    /// from `start` to `end` without walking them; None otherwise.
+    open fn steps_between(_start: self, _end: self): Maybe<Int> {
+        None
+    }
+}

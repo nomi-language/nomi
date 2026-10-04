@@ -1,0 +1,11 @@
+/// A second carrier, imported by a file that names it only as a
+/// qualifier — never in type position. The import is used, and the
+/// unused-import pass has to see that through the qualifier alone.
+pub struct Signal {
+    id: Int
+}
+
+pub enum Signal.Level {
+    Low
+    High
+}

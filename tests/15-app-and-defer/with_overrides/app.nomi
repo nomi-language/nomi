@@ -1,0 +1,28 @@
+// The entry whose boot the tests name. `main` shows one override lasting to
+// the end of its block.
+import std/io
+
+pub enum Level {
+    Info
+    Debug
+}
+
+pub struct App {
+    context: Context
+    level: Level
+    label: String
+    n: Int
+}
+
+pub fn boot(): App {
+    App{context: Context.root(), level: .Info, label: "base", n: 1}
+}
+
+fn main() {
+    {
+        with App.label = "inner"
+        io.print(App.label)
+    }
+
+    io.print(App.label)
+}

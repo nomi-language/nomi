@@ -1,0 +1,32 @@
+import {
+    std/instant.Instant
+
+    // Clock implementations. The Clock interface itself lives in
+    // effects.nomi.
+    effects.Clock
+}
+
+// FakeClock returns its configured `at` value verbatim. Useful
+// for tests where time should be deterministic.
+pub struct FakeClock {
+    at: Int
+}
+
+impl Clock for FakeClock {
+    fn now(value: FakeClock): Int {
+        value.at
+    }
+}
+
+// SystemClock reads the real wall clock (seconds since the Unix
+// epoch). The production handler.
+// EffectsApp chooses between this and FakeClock by storing a `clock: Clock`
+// value. Callers read the active clock as `EffectsApp.clock`; the impl itself
+// receives all state through `value`.
+pub type SystemClock
+
+impl Clock for SystemClock {
+    fn now(_value: SystemClock): Int {
+        Instant.to_seconds(Instant.now())
+    }
+}

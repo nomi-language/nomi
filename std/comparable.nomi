@@ -1,0 +1,50 @@
+import display.Display
+
+/// Ordering is the result of a three-way comparison: `Less`, `Equal`, or
+/// `Greater`. Returned by `Comparable.compare(a, b)` and by sort
+/// callbacks. Pattern-match on it; do not rely on tag-index ordering.
+pub enum Ordering {
+    Less
+    Equal
+    Greater
+}
+
+derive Display for Ordering
+
+/// Direction selects ascending or descending order along a `Comparable`
+/// type. Used as a modifier on sort APIs (`Iter.sort`, `Iter.sort_by`)
+/// that don't take an explicit comparator. For custom orderings, use
+/// `Iter.sort_with` and encode the direction directly in the
+/// `(T, T) -> Ordering` callback.
+pub enum Direction {
+    Ascending
+    Descending
+}
+
+derive Display for Direction
+
+/// Comparable is the total-ordering protocol. `compare(a, b)` must
+/// return `Less` when `a < b`, `Greater` when `a > b`, and `Equal` when
+/// they are equal under the type's notion of equality (which should
+/// agree with `Equatable.equal?`).
+///
+/// `<`, `<=`, `>`, `>=` desugar to `Comparable.compare(a, b)` followed
+/// by an `Ordering` match. The operators *require* a declared impl:
+/// using them on a type with no `Comparable` impl is a compile-time
+/// missing-impl error (unlike `==`, which falls back to structural
+/// equality — ordering has no canonical structural meaning, so it must
+/// be declared via `derive Comparable` or a hand-written `Comparable`
+/// conformance).
+///
+/// All four primitive types — `Int`, `Float`, `Bool`, `String` —
+/// implement `Comparable`. `Int` uses numeric order. `Float` uses a total
+/// order where NaN compares equal to NaN and greater than every non-NaN value.
+/// `Bool` orders `False < True`. `String` is byte-lexicographic over its
+/// UTF-8 bytes.
+///
+/// `derive Comparable` synthesizes a lexicographic compare for structs
+/// (field-by-field in declaration order), enums (variant-tag-then-payload),
+/// and distinct types (delegating to the inner value).
+pub interface Comparable {
+    fn compare(a: self, b: self): Ordering
+}

@@ -1,0 +1,194 @@
+import std/compiler
+
+interface Numberish {
+    fn label(value: self): String
+}
+
+impl Numberish for Int {
+    fn label(value: Int): String {
+        "n=" + Int.to_string(value)
+    }
+}
+
+interface Speech {
+    fn speak(animal: self): String
+}
+
+struct Dog {
+    name: String
+}
+
+impl Speech for Dog {
+    fn speak(dog: Dog): String {
+        dog.name + " says woof"
+    }
+}
+
+struct Cat {
+    name: String
+}
+
+impl Speech for Cat {
+    fn speak(cat: Cat): String {
+        cat.name + " says meow"
+    }
+}
+
+interface Handler {
+    fn handle(handler: self, input: String): String
+}
+
+type Callback (String) -> String
+
+impl Handler for Callback {
+    fn handle(handler: Callback, input: String): String {
+        handler(input)
+    }
+}
+
+enum Color {
+    Red
+    Green
+    Blue
+}
+
+impl Display for Color {
+    fn to_string(c: Color): String {
+        case c {
+            .Red -> "red"
+            .Green -> "green"
+            .Blue -> "blue"
+        }
+    }
+}
+
+interface Measure {
+    fn area(shape: self): Float
+}
+
+enum Shape {
+    Circle Float
+    Rectangle {width: Float, height: Float}
+}
+
+impl Measure for Shape {
+    fn area(s: Shape): Float {
+        case s {
+            .Circle(r) -> 3.14159 * r * r
+            .Rectangle{width, height} -> width * height
+        }
+    }
+}
+
+interface Identity {
+    fn name(value: self): String
+
+    fn describe(value: self): String {
+        "I am " + Identity.name(value)
+    }
+}
+
+struct Robot {
+    model: String
+}
+
+impl Identity for Robot {
+    fn name(robot: Robot): String {
+        robot.model
+    }
+}
+
+interface Greeter {
+    fn greet(value: self): String
+}
+
+interface Farewell {
+    fn greet(value: self): String
+}
+
+struct Person {
+    name: String
+}
+
+impl Greeter for Person {
+    fn greet(p: Person): String {
+        "Hello, " + p.name
+    }
+}
+
+impl Farewell for Person {
+    fn greet(p: Person): String {
+        "Goodbye, " + p.name
+    }
+}
+
+fn announce(s: Speech): String {
+    Speech.speak(s)
+}
+
+test "interface-qualified dispatch works for structs distinct functions and enums" {
+    h = Callback(|s| "handled: " + s)
+
+    assert Speech.speak(Dog{name: "Rex"}) == "Rex says woof"
+    assert Speech.speak(Cat{name: "Whiskers"}) == "Whiskers says meow"
+    assert Handler.handle(h, "request") == "handled: request"
+    assert Display.to_string(Color.Red) == "red"
+    assert Display.to_string(Color.Blue) == "blue"
+    assert Measure.area(Shape.Circle(5.0)) == 78.53975
+    assert Measure.area(Shape.Rectangle{width: 3.0, height: 4.0}) == 12.0
+}
+
+test "existential interface values dispatch by runtime type" {
+    assert announce(Dog{name: "Rex"}) == "Rex says woof"
+    assert announce(Cat{name: "Whiskers"}) == "Whiskers says meow"
+}
+
+test "interface defaults and same-function disambiguation use interface qualification" {
+    robot = Robot{model: "T-800"}
+    alice = Person{name: "Alice"}
+
+    assert Identity.describe(robot) == "I am T-800"
+    assert Greeter.greet(alice) == "Hello, Alice"
+    assert Farewell.greet(alice) == "Goodbye, Alice"
+}
+
+test "stdlib manifest impls are available without explicit imports" {
+    assert Display.to_string(42) == "42"
+    assert Display.to_string(3.14) == "3.14"
+    assert Display.to_string("hello") == "hello"
+    assert Display.to_string(True) == "True"
+    assert Display.to_string(False) == "False"
+}
+
+test "local interfaces can be implemented for foreign types" {
+    assert Numberish.label(42) == "n=42"
+}
+
+test "type hover lists contextual implementations for foreign types" {
+    hover = compiler.hover(
+        """
+          interface Numberish {
+            fn label(value: self): String
+          }
+
+          impl Numberish for Int {
+            fn label(value: Int): String {
+              Int.to_string(value)
+            }
+          }
+
+          fn double(value: ˇInt): Int {
+            value + value
+          }
+        """
+    )
+
+    case hover {
+        Ok(info) -> {
+            assert String.contains?(info.markdown, "`Numberish`")
+        }
+
+        Err(message) ->
+            assert message == ""
+    }
+}

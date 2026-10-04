@@ -1,0 +1,9 @@
+// The other `Point`, with NO impl. Its `==` would lower structurally.
+pub struct Point {
+    lat: Int
+    lon: Int
+}
+
+pub fn at(lat: Int, lon: Int): Point {
+    Point{lat, lon}
+}

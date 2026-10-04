@@ -1,0 +1,59 @@
+// A USER GENERIC ENUM, MONOMORPHIZED AT TWO ARGUMENT TUPLES IN ONE PROGRAM.
+//
+// The two instantiations are the point rather than the coverage. A generic
+// enum's payload lives in a SLOT, and `assignSlots` lays the slots out per def;
+// ONE instantiation cannot tell a correct layout from a layout that ignored the
+// argument, because there is nothing for it to disagree with. `Wrapper<Int>`
+// beside `Wrapper<String>` can: if the intern key collapsed onto the template,
+// or if the substitution frame leaked, the second instance would carry the
+// first's slot type and its payload would be read at the wrong type.
+//
+// It RENDERS both payloads rather than comparing them. `f(a) == f(b)` is
+// invariant under replacing `f` with any relation-preserving function, so a
+// fixture that only asserted `unwrapped == 42` could not see a wrong payload
+// type that round-trips; printing is what makes the value itself observable.
+//
+// The BARE variant appears only as a `case` PATTERN, and that is a measurement
+// rather than an omission. A pattern resolves through the SUBJECT's def, which
+// is already an instance, so it needs no type arguments — while `Wrapper.Empty`
+// CONSTRUCTED has nothing that binds `T` and is refused by name. The residue is
+// that construction and only that, and
+// TestGenericEnum_BareVariantConstructionIsRefused pins it WITH its firing.
+import std/io
+
+enum Wrapper<T> {
+    Wrapped T
+    Empty
+}
+
+fn unwrap_int(w: Wrapper<Int>): Int {
+    case w {
+        .Wrapped(v) -> v
+        .Empty -> 0
+    }
+}
+
+fn unwrap_text(w: Wrapper<String>): String {
+    case w {
+        .Wrapped(v) -> v
+        .Empty -> "none"
+    }
+}
+
+// A NESTED instantiation: the argument is itself an instance of the same
+// template. It exercises the intern table's recursion — `Wrapper<Wrapper<Int>>`
+// pushes a second substitution frame over the first while the inner def is
+// built — which is `pushGenericSubst`'s stated stack discipline, and which a
+// flat two-instance program does not reach.
+fn depth(w: Wrapper<Wrapper<Int>>): Int {
+    case w {
+        .Wrapped(inner) -> unwrap_int(inner)
+        .Empty -> -1
+    }
+}
+
+fn main() {
+    io.print(Int.to_string(unwrap_int(Wrapper.Wrapped(42))))
+    io.print(unwrap_text(Wrapper.Wrapped("forty-two")))
+    io.print(Int.to_string(depth(Wrapper.Wrapped(Wrapper.Wrapped(7)))))
+}

@@ -1,0 +1,70 @@
+//# A small SQLite binding: open a database, run statements, and read rows
+//# back as lists of strings.
+//#
+//# The Go half (`sqlite.go`) wraps `modernc.org/sqlite`, a pure-Go driver.
+//# Its connection type crosses into Nomi as the private handle `RawConn`, and
+//# the public `Conn` wraps it, so callers never see the Go type.
+//#
+//# Statements take their values as `?` parameters, bound in order from a
+//# `List<String>`. SQLite converts a bound string to a number when the column
+//# is declared `INTEGER`, so ids and counts bind as text too. Errors are the
+//# driver's messages.
+
+gopkg "sqlite"
+
+opaque type RawConn go sqlite.Conn
+
+fn open_raw(path: String): Result<RawConn, String> go sqlite.Open
+
+fn exec_raw(c: RawConn, sql: String, args: List<String>): Result<Unit, String> go sqlite.Exec
+
+fn query_all_raw(
+    c: RawConn,
+    sql: String,
+    args: List<String>,
+): Result<List<List<String>>, String> go sqlite.QueryAll
+
+fn close_raw(c: RawConn): Result<Unit, String> go sqlite.Close
+
+/// An open database.
+pub opaque struct Conn {
+    raw: RawConn
+}
+
+/// Opens the database file at `path`, creating it if it does not exist.
+/// `":memory:"` opens a private in-memory database. Close it with
+/// `defer sqlite.close(conn)` right after opening.
+pub fn open(path: String): Result<Conn, String> {
+    open_raw(path) |> Result.map(|raw| Conn{raw})
+}
+
+/// Runs a statement that returns no rows, such as `CREATE`, `INSERT`,
+/// `UPDATE` or `DELETE`. Each `?` in `sql` takes the next value from `args`.
+pub fn exec(conn: Conn, sql: String, args: List<String>): Result<Unit, String> {
+    exec_raw(conn.raw, sql, args)
+}
+
+/// Runs a query and returns every row as a list of column values. A `NULL`
+/// column reads as `""`. Each `?` in `sql` takes the next value from `args`.
+//! conn = try open(":memory:")
+//! defer close(conn)
+//! try exec(conn, "CREATE TABLE people (name TEXT, born INTEGER)", [])
+//! try exec(conn, "INSERT INTO people VALUES (?, ?)", ["Ada", "1815"])
+//! try exec(conn, "INSERT INTO people VALUES (?, ?)", ["Grace", "1906"])
+//! early = query_all(conn, "SELECT name FROM people WHERE born < ?", ["1900"])
+//! assert early == Ok([["Ada"]])
+//! assert query_all(conn, "SELECT count(*) FROM people", []) == Ok([["2"]])
+//
+pub fn query_all(conn: Conn, sql: String, args: List<String>): Result<List<List<String>>, String> {
+    query_all_raw(conn.raw, sql, args)
+}
+
+/// Closes the database. Closing a closed database does nothing.
+///
+/// It returns `Unit` rather than a `Result` because `defer` takes only a
+/// call that returns `Unit`. A failure to close is dropped: each statement
+/// has already committed by the time it runs.
+pub fn close(conn: Conn) {
+    _ = close_raw(conn.raw)
+    Unit
+}

@@ -1,0 +1,6 @@
+// The other half of ping.nomi's import cycle.
+import ping
+
+pub fn pong<T>(x: T, n: Int): List<T> {
+    [x, ..ping.ping(x, n)]
+}

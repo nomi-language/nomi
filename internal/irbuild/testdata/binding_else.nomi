@@ -1,0 +1,220 @@
+import std/io
+
+enum LoadError {
+    NotFound
+    Broken String
+}
+
+enum Check {
+    Valid {addr: String, score: Int}
+    Invalid String
+}
+
+fn load(id: Int): Result<String, LoadError> {
+    case id {
+        1 -> Ok("ada")
+        2 -> Err(.Broken("disk"))
+        _ -> Err(.NotFound)
+    }
+}
+
+fn why(e: LoadError): String {
+    case e {
+        .NotFound -> "not found"
+        .Broken(s) -> s
+    }
+}
+
+fn email_of(id: Int, email: Maybe<String>): Result<String, String> {
+    Some(e) = email else {
+        return Err("user ${id} has no email")
+    }
+
+    Ok(e)
+}
+
+fn name_of(id: Int): Result<String, String> {
+    Ok(user) = load(id) else {
+        Err(.NotFound) -> return Err("no user ${id}")
+        Err(e) -> return Err("loading user ${id}: ${why(e)}")
+    }
+
+    Ok(user)
+}
+
+fn shown(email: Maybe<String>): String {
+    Some(e) = email else { "none" }
+    e
+}
+
+fn parse_size(text: String): Result<(Int, Int), String> {
+    case text {
+        "big" -> Ok((200, 100))
+        _ -> Err("unknown size ${text}")
+    }
+}
+
+fn area(text: String): Int {
+    Ok((width, height)) = parse_size(text) else {
+        (80, 24)
+    }
+
+    width * height
+}
+
+fn parse_port(text: String): Result<Int, LoadError> {
+    case text {
+        "" -> Err(.NotFound)
+        "x" -> Err(.Broken("x"))
+        _ -> Ok(9000)
+    }
+}
+
+fn port(text: String): Result<Int, String> {
+    Ok(p) = parse_port(text) else {
+        Err(.NotFound) -> 8080
+        Err(e) -> return Err("bad port: ${why(e)}")
+    }
+
+    Ok(p)
+}
+
+fn check(n: Int): Check {
+    if n > 0 {
+        Check.Valid{addr: "a${n}", score: n}
+    } else {
+        Check.Invalid("neg")
+    }
+}
+
+fn describe(n: Int): String {
+    .Valid{addr, score} = check(n) else {
+        .Invalid(_) -> {addr: "unknown", score: 0}
+    }
+
+    "${addr}:${score}"
+}
+
+fn whole(c: Check): Int {
+    .Valid(r) = c else { {addr: "none", score: -1} }
+    r.score
+}
+
+fn first_or(xs: List<Int>): Int {
+    [first, .._rest] = xs else { return -1 }
+    first
+}
+
+fn shadow(name: Maybe<String>): String {
+    Some(name) = name else { return "anon" }
+    "hi ${name}"
+}
+
+fn nested(r: Result<Maybe<Int>, String>): Int {
+    Ok(Some(n)) = r else { return -1 }
+    n
+}
+
+fn guarded(r: Result<Int, String>): Int {
+    Ok(n) = r else {
+        Err(e) when e == "zero" -> 0
+        Err(_) -> return -9
+    }
+
+    n + 1
+}
+
+fn unit_leave(m: Maybe<Int>) {
+    Some(n) = m else { return }
+    io.print("got ${n}")
+}
+
+fn unit_arms(r: Result<Int, String>) {
+    Ok(n) = r else {
+        Err(_) -> return
+    }
+
+    io.print("ok ${n}")
+}
+
+fn lookup(m: Map<String, Int>): Int {
+    {"a" => a} = m else { return 0 }
+    a
+}
+
+fn pair(p: (Maybe<Int>, Int)): Int {
+    (Some(a), b) = p else { return 0 }
+    a + b
+}
+
+fn via_try(r: Result<Int, String>, fallback: Result<Int, String>): Result<Int, String> {
+    Ok(n) = r else { try fallback }
+    Ok(n * 2)
+}
+
+fn tens(xs: List<Maybe<Int>>): List<Int> {
+    xs
+    |> Iter.map(|m| {
+        Some(n) = m else { return 0 }
+        n * 10
+    })
+    |> Iter.to_list()
+}
+
+fn print_sizes(lines: List<String>) {
+    Iter.each(lines, |line| {
+        Ok(size) = parse_size(line) else { continue }
+        io.print(size)
+    })
+}
+
+fn loop_sum(xs: List<Maybe<Int>>): Int {
+    Iter.loop(|state = (0, xs)| {
+        (acc, rest) = state
+        [head, ..tail] = rest else { break (acc, rest) }
+        Some(n) = head else { return (acc, tail) }
+        (acc + n, tail)
+    }).0
+}
+
+fn main() {
+    io.print(email_of(1, Some("a@b")))
+    io.print(email_of(2, None))
+    io.print(name_of(1))
+    io.print(name_of(2))
+    io.print(name_of(3))
+    io.print(shown(None))
+    io.print(shown(Some("x")))
+    io.print(area("big"))
+    io.print(area("small"))
+    io.print(port(""))
+    io.print(port("x"))
+    io.print(port("y"))
+    io.print(describe(3))
+    io.print(describe(-1))
+    io.print(whole(Check.Valid{addr: "x", score: 7}))
+    io.print(whole(Check.Invalid("bad")))
+    io.print(first_or([4, 5]))
+    io.print(first_or([]))
+    io.print(shadow(Some("ada")))
+    io.print(shadow(None))
+    io.print(nested(Ok(Some(3))))
+    io.print(nested(Ok(None)))
+    io.print(guarded(Ok(1)))
+    io.print(guarded(Err("zero")))
+    io.print(guarded(Err("x")))
+    unit_leave(Some(1))
+    unit_leave(None)
+    unit_arms(Ok(2))
+    unit_arms(Err("e"))
+    io.print(lookup({"a" => 5}))
+    io.print(lookup({"b" => 5}))
+    io.print(pair((Some(1), 2)))
+    io.print(pair((None, 2)))
+    io.print(via_try(Ok(1), Ok(5)))
+    io.print(via_try(Err("a"), Ok(5)))
+    io.print(via_try(Err("a"), Err("b")))
+    io.print(tens([Some(1), None, Some(3)]))
+    print_sizes(["big", "no", "big"])
+    io.print(loop_sum([Some(1), None, Some(5)]))
+}

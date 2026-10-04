@@ -1,0 +1,19 @@
+//# Formats items for printing. This file sits in the `internal/` directory at
+//# the module root, so every file in `todo` may import it and no other module
+//# may.
+
+import {
+    item.Item
+    stringkit/pad
+}
+
+/// One line of the list: the id, right-aligned, then the item.
+pub fn row(item: Item): String {
+    id =
+        item
+        |> Item.id()
+        |> Int.to_string()
+        |> pad.pad_left(3, " ")
+
+    "${id}  ${item}"
+}

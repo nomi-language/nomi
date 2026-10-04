@@ -1,0 +1,49 @@
+/// A monotonic counter — `value` only ever moves forward by one each
+/// `bump`, and `increments` records how many times the counter
+/// has been bumped. The opacity guarantees those invariants: outside
+/// callers cannot construct a `Counter` with a negative `value`, cannot
+/// rewrite the `value` field independently of `increments`, and cannot
+/// otherwise desync the two numbers.
+///
+/// `pub opaque struct Counter {...}` hides the fields outside this file
+/// while keeping `Counter` itself visible as a type. From outside this file,
+/// callers can:
+///
+/// - reference Counter as a type (parameter, return, generic arg)
+/// - pass Counter values around
+/// - compare Counter values with == and !=
+/// - call exported file functions: counter.new, counter.bump, etc.
+///
+/// They CANNOT:
+///
+/// - construct directly: `Counter{value: 0, increments: 0}` is rejected
+/// - field-access:        `c.value` is rejected — go through `counter.value(c)`
+/// - destructure:         `case c { Counter{value, ..} -> ... }` is rejected
+///
+/// Inside this file — exactly the same as a regular struct — fields
+/// are constructed and read with the usual struct-literal and
+/// field-access syntax (`Counter{...}`, `c.value`).
+pub opaque struct Counter {
+    value: Int
+    increments: Int
+}
+
+/// Returns a fresh counter at zero.
+pub fn new(): Counter {
+    Counter{value: 0, increments: 0}
+}
+
+/// Returns a new counter with `value` and `increments` both bumped by one.
+pub fn bump(c: Counter): Counter {
+    Counter{value: c.value + 1, increments: c.increments + 1}
+}
+
+/// Reads the counter's current value.
+pub fn value(c: Counter): Int {
+    c.value
+}
+
+/// Reads how many times this counter has been incremented.
+pub fn increments(c: Counter): Int {
+    c.increments
+}

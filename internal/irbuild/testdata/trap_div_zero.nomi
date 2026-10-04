@@ -1,0 +1,11 @@
+import std/io
+
+fn op(a: Int, b: Int): Int {
+    a / b
+}
+
+fn main() {
+    io.print("before")
+    io.print("${op(1, 0)}")
+    io.print("after")
+}

@@ -1,0 +1,109 @@
+// A BLESSED stdlib primitive crossing the generated-package boundary, in both
+// directions.
+//
+// `Byte` and `Bytes` look like a fourth anchor family — std/bytes declares them
+// `pub host type` — and they are not. `analysis/types.go` blesses them as
+// `*PrimitiveType` singletons in the same class as `Int` and `String`, so the
+// front end never builds a nominal declaration for either. See stdhost.go.
+//
+// # Which pairs of independently-derived facts this lets disagree
+//
+// Each row is chosen for a rule two implementations could answer differently
+// rather than for coverage:
+//
+//   - `Bytes.length` counts BYTES. "hé" is two graphemes, two Unicode scalar
+//     values and THREE bytes, so an implementation over `[]rune` prints 2 here
+//     and every other row still passes.
+//   - `Bytes.slice` CLAMPS out-of-range bounds rather than trapping or
+//     returning empty; std/bytes documents that as the definition. `1..99` is
+//     the row, and it is checked by its CONTENT (195, 169) rather than only its
+//     length, so a clamp that took the wrong end is visible.
+//   - INVERTED bounds are empty, not reversed and not a trap. `2..1`.
+//   - `Byte.from_int` is 0 through 255 INCLUSIVE at both ends. Four rows,
+//     because an off-by-one at either boundary is exactly the mistake two
+//     implementations make independently.
+//   - `Bytes.concat` is ORDERED, checked by content: swapping the arguments
+//     gives 98, 97 and a length-only assertion would pass under it.
+//
+// The `Maybe<Byte>` rows carry a second load: they are a prelude instance over
+// an anchored blessed primitive, which is the same package-neutrality question
+// `Maybe<NonZeroInt>` answers for the opaque family in std_maybe_boundary.nomi.
+//
+// # What is deliberately absent, and it is the best row this fixture could have
+//
+// `Bytes.to_string` — the UTF-8 DECODE, whose failure on a half-cut multi-byte
+// character is the sharpest rule in the module, because Go's `string(b)`
+// conversion never fails and silently substitutes U+FFFD. It cannot appear
+// here: std declares `Bytes.to_string` twice for one receiver — inherent,
+// returning `Result<String, String>`, and `impl Display`, returning `String` —
+// and Nomi has no return-type overloading, so `addOverload` correctly refuses
+// BOTH as `ambiguous stdlib method`. Including it would refuse the whole
+// fixture rather than one line. The rule is pinned ABSOLUTELY in
+// rt/bytes_test.go instead, at the representation level.
+import std/io
+
+/// A USER function whose PARAMETER is the stdlib primitive, so `Bytes` is
+/// forced into a function signature rather than only into a local binding.
+/// That is the cross-gen match made explicit: this parameter's kind is built in
+/// the entry module's own gen and the argument's kind came out of the stdlib
+/// index's, and the two must be the same kind for the call to lower at all.
+fn dump(data: Bytes): String {
+    dump_from(data, 0)
+}
+
+fn dump_from(data: Bytes, i: Int): String {
+    if i >= Bytes.length(data) {
+        ""
+    } else {
+        sep = if i == 0 { "" } else { " " }
+
+        case Bytes.at(data, i) {
+            Some(b) -> "${sep}${Byte.to_int(b)}${dump_from(data, i + 1)}"
+            None -> "${sep}?"
+        }
+    }
+}
+
+/// A USER function whose RESULT is the stdlib primitive — the other direction,
+/// and not redundant: a projection can be right in one position and wrong in
+/// the other, which is why hostFnFor checks parameters and results separately.
+fn head_two(data: Bytes): Bytes {
+    Bytes.slice(data, 0, 2)
+}
+
+fn byte_of(n: Int): String {
+    case Byte.from_int(n) {
+        Some(b) -> "${Byte.to_int(b)}"
+        None -> "out of range"
+    }
+}
+
+fn at_or(data: Bytes, i: Int): String {
+    case Bytes.at(data, i) {
+        Some(b) -> "${Byte.to_int(b)}"
+        None -> "none"
+    }
+}
+
+fn main() {
+    data = String.to_bytes("hé")
+    // THREE, not two: the whole point of the type.
+    io.print("length ${Bytes.length(data)}")
+    io.print("all ${dump(data)}")
+    io.print("at9 ${at_or(data, 9)}")
+    // Cuts the two-byte é in half. The decode that would reject it is absent for
+    // the reason in the header; what this row pins is that the CUT is exact.
+    io.print("head ${dump(head_two(data))}")
+    // Out-of-range end clamps to the length; std/bytes documents the clamp.
+    io.print("clamped ${dump(Bytes.slice(data, 1, 99))}")
+    // Inverted bounds are empty rather than a trap or a reversed slice.
+    io.print("empty ${Bytes.length(Bytes.slice(data, 2, 1))}")
+    // Ordered: swapping the arguments gives "98 97".
+    ab = Bytes.concat(String.to_bytes("a"), String.to_bytes("b"))
+    io.print("concat ${dump(ab)}")
+    // Both boundary values and both failures.
+    io.print("b0 ${byte_of(0)}")
+    io.print("b255 ${byte_of(255)}")
+    io.print("bneg ${byte_of(-1)}")
+    io.print("b256 ${byte_of(256)}")
+}

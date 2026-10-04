@@ -1,0 +1,13 @@
+import std/io
+
+// The RHS prints, which is the only way laziness and exactly-once are
+// observable from outside the program. `tag` is read three times below and
+// through two different spellings, and "forcing tag" must appear once.
+pub once tag: String = compute_tag()
+
+fn compute_tag(): String {
+    io.print("forcing tag")
+    "svc"
+}
+
+pub once limit: Int = 3

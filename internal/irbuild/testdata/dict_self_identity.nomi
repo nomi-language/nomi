@@ -1,0 +1,79 @@
+// Dictionary-driven dispatch on a SELF-TYPED position — the shapes that are
+// provably sound, kept beside the four that are not.
+//
+// `At(tid)` selects the implementation from the TYPE ARGUMENT while the self
+// position is unwrapped from the VALUE's own box, and nothing in the kind
+// system makes those the same type: `T` and its bound both lower to
+// `existential(bound)`. So the builder refuses unless it can NAME the identity
+// the value carries, and this fixture is every way it can.
+//
+// Two implementors, because with one a table and a hard-coded direct call are
+// indistinguishable.
+//
+//   - `announce` — one self position at a bare-`T` parameter, called with a
+//     CONCRETE argument. The value's own kind is the identity.
+//   - `rank` — TWO self positions, both bare `T`. `gapMultiSelf` refuses this
+//     on the erased-receiver route and must NOT refuse it here: one dictionary
+//     fixes both positions when both values carry it.
+//   - `relay` — the same two-self call forwarded through a SECOND generic,
+//     whose arguments are already erased to the bound. Its own dictionary is
+//     the identity, which is the inductive step: a callee may trust `x: T`
+//     because every caller was made to establish it.
+//   - the turbofish rows — the identity named explicitly rather than solved.
+import std/io
+
+interface Cmp {
+    fn cmp(a: self, b: self): Int
+    fn shout(v: self): String
+}
+
+struct Dog {
+    weight: Int
+}
+
+struct Cat {
+    weight: Int
+}
+
+impl Cmp for Dog {
+    fn cmp(x: Dog, y: Dog): Int {
+        x.weight - y.weight
+    }
+
+    fn shout(d: Dog): String {
+        "woof at ${d.weight}"
+    }
+}
+
+impl Cmp for Cat {
+    fn cmp(x: Cat, y: Cat): Int {
+        x.weight + y.weight
+    }
+
+    fn shout(c: Cat): String {
+        "meow at ${c.weight}"
+    }
+}
+
+fn announce<T>(x: T): String where T: Cmp {
+    T.shout(x)
+}
+
+fn rank<T>(a: T, b: T): Int where T: Cmp {
+    T.cmp(a, b)
+}
+
+fn relay<U>(a: U, b: U): Int where U: Cmp {
+    rank(a, b) + rank(b, a)
+}
+
+fn main() {
+    io.print(announce(Dog{weight: 30}))
+    io.print(announce(Cat{weight: 4}))
+    io.print(announce<Dog>(Dog{weight: 31}))
+    io.print("${rank(Dog{weight: 30}, Dog{weight: 12})}")
+    io.print("${rank(Cat{weight: 30}, Cat{weight: 12})}")
+    io.print("${rank<Dog>(Dog{weight: 5}, Dog{weight: 1})}")
+    io.print("${relay(Dog{weight: 30}, Dog{weight: 12})}")
+    io.print("${relay(Cat{weight: 30}, Cat{weight: 12})}")
+}

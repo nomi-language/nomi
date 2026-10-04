@@ -1,0 +1,66 @@
+import {
+    std/json.{FromJson, ToJson}
+    std/json.Json.{self, Case.Camel}
+}
+
+struct User {
+    first_name: String
+    age: Int
+}
+
+derive Equatable for User
+derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
+derive FromJson for User with FromJson.Options{rename_all: Json.Case.Camel}
+
+struct Address {
+    city_name: String
+}
+
+derive Equatable for Address
+derive ToJson for Address with ToJson.Options{rename_all: Json.Case.Camel}
+derive FromJson for Address with FromJson.Options{rename_all: Json.Case.Camel}
+
+struct Account {
+    owner_name: String
+    address: Address
+}
+
+derive Equatable for Account
+derive ToJson for Account with ToJson.Options{rename_all: Camel}
+derive FromJson for Account with FromJson.Options{rename_all: Camel}
+
+test "JSON interface decodes primitive values through explicit targets" {
+    assert FromJson.from_json<Int>(Json.Int(42)) == Result.Ok(42)
+    assert FromJson.from_json<Int>(Json.Int(42)) == Result.Ok(42)
+    assert Result.err?(FromJson.from_json<Int>(Json.String("nope")))
+}
+
+test "JSON derives encode and decode structs with options" {
+    user = User{first_name: "Ada", age: 36}
+    encoded = User.to_json(user)
+
+    assert Json.encode(encoded) == "{\"firstName\":\"Ada\",\"age\":36}"
+
+    decoded = User.from_json(Json.Obj{"firstName" => Json.String("Ada"), "age" => Json.Int(36)})
+
+    assert decoded == Result.Ok(user)
+}
+
+test "JSON derive reports missing required fields" {
+    decoded = User.from_json(Json.Obj{"firstName" => Json.String("Ada")})
+
+    assert Result.err?(decoded)
+}
+
+test "JSON derives round-trip nested structs through interface functions" {
+    account = Account{
+        owner_name: "Ada",
+        address: Address{city_name: "London"},
+    }
+
+    encoded = ToJson.to_json(account)
+
+    assert Json.encode(encoded) == "{\"ownerName\":\"Ada\",\"address\":{\"cityName\":\"London\"}}"
+
+    assert FromJson.from_json<Account>(encoded) == Result.Ok(account)
+}

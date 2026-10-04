@@ -1,0 +1,339 @@
+import {
+    std/compiler
+    std/json.Json.{self, Int as JInt, String as JStr}
+    test_helpers
+}
+
+enum VariantShape {
+    Circle Float
+    Square Float
+    Origin
+}
+
+fn area(s: VariantShape): Float {
+    case s {
+        .Circle(r) -> 3.14 * r * r
+        .Square(side) -> side * side
+        .Origin -> 0.0
+    }
+}
+
+fn make_shape(): VariantShape {
+    VariantShape.Circle(2.0)
+}
+
+fn try_describe(s: Maybe<VariantShape>): String {
+    case s {
+        Some(.Circle(r)) -> "circle radius=${r}"
+        Some(_) -> "other shape"
+        None -> "no shape"
+    }
+}
+
+fn classify(n: Int): Result<String, String> {
+    case n {
+        0 -> Ok("zero")
+        x when x > 0 -> Ok("positive")
+        _ -> Err("negative")
+    }
+}
+
+fn json_encode_kind(jv: Json): String {
+    case jv {
+        .Obj(_) -> "obj-with-2"
+        .Null -> "null"
+        _ -> "other"
+    }
+}
+
+test "bare variants resolve in pattern position and owner selector imports" {
+    hand_built = Json.Obj{"name" => JStr("Ada"), "age" => JInt(36)}
+    null_jv: Json = Json.Null
+
+    json_pattern = case hand_built {
+        .Obj(_) -> "got-obj"
+        _ -> "no"
+    }
+
+    classified = case classify(7) {
+        Ok(s) -> "good: ${s}"
+        Err(e) -> "bad: ${e}"
+    }
+
+    assert area(VariantShape.Square(3.0)) == 9.0
+    assert area(make_shape()) == 12.56
+    assert try_describe(Some(VariantShape.Circle(4.0))) == "circle radius=4.0"
+    assert try_describe(None) == "no shape"
+    assert classified == "good: positive"
+    assert json_encode_kind(hand_built) == "obj-with-2"
+    assert json_encode_kind(null_jv) == "null"
+    assert json_pattern == "got-obj"
+}
+
+enum DotColor {
+    Red
+    Green
+    Blue
+}
+
+enum DotShape {
+    Circle Float
+    Square Float
+    Rect {w: Float, h: Float}
+    Origin
+}
+
+enum DotValue {
+    Arr List<Int>
+    Obj Map<String, Int>
+    Nil
+}
+
+struct DotBox {
+    color: DotColor
+    shape: DotShape
+}
+
+fn paint(c: DotColor): Int {
+    case c {
+        DotColor.Red -> 1
+        DotColor.Green -> 2
+        DotColor.Blue -> 3
+    }
+}
+
+fn default_color(): DotColor {
+    .Red
+}
+
+fn id_color(c: DotColor): DotColor {
+    c
+}
+
+test "dot-leading variants resolve from contextual enum types" {
+    c1: DotColor = .Red
+    s1: DotShape = .Circle(1.0)
+    s2: DotShape = .Rect{w: 4.0, h: 3.0}
+    v1: DotValue = .Obj{"k" => 1}
+    v2: DotValue = .Arr[1, 2, 3]
+    v3: DotValue = .Nil
+    b: DotBox = DotBox{color: .Red, shape: .Origin}
+    hit1: Int = paint(.Green)
+    c2: DotColor = default_color()
+    palette: List<DotColor> = [.Red, .Green, .Blue]
+    themes: Map<String, DotColor> = {"a" => .Red, "b" => .Blue}
+    c3: DotColor = if 1 > 0 { .Red } else { .Blue }
+
+    hit2: Int = paint(
+        case 1 {
+            1 -> .Red
+            _ -> .Blue
+        }
+    )
+
+    c4: DotColor = id_color(.Green)
+
+    hit3: Int = case c1 {
+        .Red -> 10
+        .Green -> 20
+        .Blue -> 30
+    }
+
+    hit4: Float = case s1 {
+        .Circle(r) -> r
+        .Square(_) -> 0.0
+        .Rect{w, h: _} -> w
+        .Origin -> -1.0
+    }
+
+    theme =
+        themes
+        |> Map.get("b")
+
+    assert c1 == DotColor.Red
+    assert s2.w == 4.0
+    assert s2.h == 3.0
+    assert v1 == DotValue.Obj{"k" => 1}
+    assert v2 == DotValue.Arr[1, 2, 3]
+    assert v3 == DotValue.Nil
+    assert b.shape == DotShape.Origin
+    assert hit1 == 2
+    assert c2 == DotColor.Red
+    assert palette == [DotColor.Red, DotColor.Green, DotColor.Blue]
+    assert Some(DotColor.Blue) = theme
+    assert c3 == DotColor.Red
+    assert c4 == DotColor.Green
+    assert hit2 == 1
+    assert hit3 == 10
+    assert hit4 == 1.0
+}
+
+enum Input {
+    Quit
+    Guess Int
+}
+
+fn classify_input(s: String): Result<Input, String> {
+    if s == "q" { return Ok(.Quit) }
+
+    guess =
+        String.to_int(s)
+        |> try Result.from_maybe("invalid integer")
+
+    Ok(.Guess(guess))
+}
+
+fn classify_input_case(s: String): Result<Input, String> {
+    case s {
+        "q" ->
+            Ok(.Quit)
+
+        other -> {
+            guess =
+                String.to_int(other)
+                |> try Result.from_maybe("invalid integer")
+
+            Ok(.Guess(guess))
+        }
+    }
+}
+
+fn pick_input(early: Bool): Result<Input, String> {
+    if early { Ok(.Quit) } else { Ok(.Guess(0)) }
+}
+
+fn wrap_input(n: Int): Result<Input, String> {
+    Input.Guess(n) |> Ok()
+}
+
+fn show_input(r: Result<Input, String>): String {
+    case r {
+        Ok(.Quit) -> "quit"
+        Ok(.Guess(n)) -> "guess ${n}"
+        Err(e) -> "error ${e}"
+    }
+}
+
+test "dot-leading variants resolve inside generic variant constructors" {
+    r: Result<Input, String> = Ok(.Quit)
+    classified_q = classify_input("q") |> show_input()
+
+    classified_7 = classify_input("7") |> show_input()
+
+    classified_x = classify_input("x") |> show_input()
+
+    case_q = classify_input_case("q") |> show_input()
+
+    case_3 = classify_input_case("3") |> show_input()
+
+    early = pick_input(True) |> show_input()
+
+    late = pick_input(False) |> show_input()
+
+    guess_result: Result<Input, String> = Ok(.Guess(42))
+    guessed = guess_result |> show_input()
+
+    wrapped = wrap_input(99) |> show_input()
+
+    assert classified_q == "quit"
+    assert classified_7 == "guess 7"
+    assert classified_x == "error invalid integer"
+    assert case_q == "quit"
+    assert case_3 == "guess 3"
+    assert early == "quit"
+    assert late == "guess 0"
+    assert show_input(r) == "quit"
+    assert guessed == "guess 42"
+    assert wrapped == "guess 99"
+}
+
+test "dot-leading variant diagnostics require a contextual enum type" {
+    diagnostics = compiler.check(
+        """
+          enum Color {
+            Red
+            Green
+            Blue
+          }
+
+          struct Box {
+            color: Color
+          }
+
+          fn main() {
+            _c1 = .Red
+            _b: Box = .Red
+            _c2: Color = .Purple
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 3
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        ".Red requires a determinable enum type at this position",
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        ".Red resolves only to enum variants, but the expected type at this position is Box",
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "no variant 'Purple' on enum Color")
+}
+
+test "bare variant construction diagnostics require enum qualification" {
+    diagnostics = compiler.check(
+        """
+          import std/json: Json
+
+          enum Shape {
+            Circle Float
+            Position (Int, Int)
+          }
+
+          enum Container {
+            Items List<Int>
+            Pairs Map<String, Int>
+          }
+
+          fn main() {
+            bad_map = Pairs{"a" => 1}
+            bad_list = Items[1, 2, 3]
+            bad_call = Position(10, 20)
+            bad_imported = Obj{"k" => Json.Null}
+
+            discard(bad_map)
+            discard(bad_list)
+            discard(bad_call)
+            discard(bad_imported)
+          }
+
+          fn discard<T>(_x: T) {
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 4
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "variant 'Pairs' must be qualified through its enum",
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "variant 'Items' must be qualified through its enum",
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "variant 'Position' must be qualified through its enum",
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "variant 'Obj' must be qualified through its enum",
+    )
+}

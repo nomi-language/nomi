@@ -1,0 +1,189 @@
+import {
+    std/channels.{Channel, Receiver, Sender}
+    std/duration.Duration
+    std/io
+    std/supervisors.Supervisor
+    std/tasks.Task
+    std/timer
+}
+
+// A `with` on an app field, read by work that OUTLIVES the overriding scope.
+//
+// The interpreter snapshots the overrides in force into a task at spawn
+// (`propagateEnvOverrides`, eval/supervisor.go:375 and eval/concurrent.go:396),
+// so the task keeps them for its whole life. A backend that put the override in
+// a process-wide cell restored by a Go `defer` on the overriding function's
+// return gives the task the BASE value instead, because the task outlives that
+// return.
+//
+// Deterministic over three runs each: one engine printed
+// `handler-override` and the compiled engine then printed `root`. Every line below
+// is a producer that diverged, plus the two controls that did not.
+type TraceId String
+
+struct Cfg {
+    context: Context
+
+    audit: Supervisor
+    done: Channel<String>
+    tag: String
+}
+
+fn boot(): Cfg {
+    Cfg{
+        context: Context.root(),
+        audit: Supervisor.new(max_running: 4),
+        done: Channel.buffered<String>(8),
+        tag: "root",
+    }
+}
+
+// PRODUCER 1: `Supervisor.spawn`. The supervisor owns the task, not the call
+// that spawned it, so the task runs after `handler` has returned.
+fn supervised_body(): Unit {
+    timer.sleep(Duration.milliseconds(60))
+    _ = Sender.send(Cfg.done.sender, Cfg.tag)
+    Unit
+}
+
+fn supervisor_spawn(): Unit {
+    with Cfg.tag = "handler-override"
+    _ = Supervisor.spawn(Cfg.audit, || supervised_body())
+    Unit
+}
+
+// PRODUCER 2: `Supervisor.spawn_all`, which is the same enrolment per item.
+fn supervised_each(_n: Int): Unit {
+    timer.sleep(Duration.milliseconds(60))
+    _ = Sender.send(Cfg.done.sender, Cfg.tag)
+    Unit
+}
+
+fn supervisor_spawn_all(): Unit {
+    with Cfg.tag = "handler-override"
+    _ = Supervisor.spawn_all(Cfg.audit, [1], supervised_each)
+    Unit
+}
+
+// PRODUCER 3: `Task.spawn` inside a `concurrent` block. This is the case a
+// prior reading recorded as AGREEING, and it agrees only when the `with`
+// lexically encloses the join. Here the handle leaves the overriding function,
+// so the scope exits before the body runs and the shape diverges exactly as the
+// supervised ones do.
+fn task_body(): String {
+    timer.sleep(Duration.milliseconds(60))
+    Cfg.tag
+}
+
+fn spawn_and_return(): Task<String> {
+    with Cfg.tag = "handler-override"
+    Task.spawn(|| task_body())
+}
+
+fn task_outlives_scope(): String {
+    concurrent {
+        t = spawn_and_return()
+        Task.await(t)
+    }
+}
+
+// PRODUCER 4: `Task.spawn_all`, handles leaving the same way.
+fn task_each(_n: Int): String {
+    timer.sleep(Duration.milliseconds(60))
+    Cfg.tag
+}
+
+fn spawn_all_and_return(): List<Task<String>> {
+    with Cfg.tag = "handler-override"
+    Task.spawn_all([1], task_each, max_running: 2)
+}
+
+fn task_all_outlives_scope(): String {
+    results = concurrent {
+        ts = spawn_all_and_return()
+        Task.await_all(ts)
+    }
+
+    case List.head(results) {
+        Some(seen) -> seen
+        None -> "<none>"
+    }
+}
+
+// THE CONTEXT HALF, which is the same mechanism on the other app member. A
+// context VALUE set by the spawner is inherited by supervised work; the
+// spawner's DEADLINE is not, because the supervisor owns the task and the
+// ceiling that call was under is not its ceiling
+// (`detachSupervisorDeadline`, eval/supervisor.go:885-915).
+fn context_body(): Unit {
+    timer.sleep(Duration.milliseconds(60))
+
+    carried = case Context.value(Cfg.context, TraceId) {
+        Some(_) -> "value-inherited"
+        None -> "value-lost"
+    }
+
+    bound = case Context.deadline_remaining(Cfg.context) {
+        Some(_) -> "deadline-inherited"
+        None -> "deadline-detached"
+    }
+
+    _ = Sender.send(Cfg.done.sender, "${carried} ${bound}")
+    Unit
+}
+
+fn context_spawn(): Unit {
+    with Cfg.context = Context.with_timeout(
+        Context.with_value(Cfg.context, TraceId("req-7")),
+        Duration.seconds(30),
+    )
+
+    _ = Supervisor.spawn(Cfg.audit, || context_body())
+    Unit
+}
+
+// CONTROL: a task joined INSIDE the `with` scope. It must see the override in
+// both engines, which is what tells an agreeing producer apart from a backend
+// that lost the override everywhere.
+fn joined_inside_scope(): String {
+    with Cfg.tag = "handler-override"
+
+    concurrent {
+        t = Task.spawn(|| Cfg.tag)
+        Task.await(t)
+    }
+}
+
+// CONTROL: the scope is over, so the base value is the right answer. Without
+// this a backend that ignored `with` entirely would pass the two controls
+// above and fail nothing.
+fn after_the_scope(): String {
+    Cfg.tag
+}
+
+fn drain(label: String): Unit {
+    case Receiver.receive(Cfg.done.receiver) {
+        Some(seen) -> io.print("${label} = ${seen}")
+        None -> io.print("${label} = <nothing>")
+    }
+}
+
+fn main(): Unit {
+    supervisor_spawn()
+    _ = Supervisor.flush(Cfg.audit)
+    drain("Supervisor.spawn")
+
+    supervisor_spawn_all()
+    _ = Supervisor.flush(Cfg.audit)
+    drain("Supervisor.spawn_all")
+
+    io.print("Task.spawn out of scope = ${task_outlives_scope()}")
+    io.print("Task.spawn_all out of scope = ${task_all_outlives_scope()}")
+
+    context_spawn()
+    _ = Supervisor.flush(Cfg.audit)
+    drain("Supervisor.spawn context")
+
+    io.print("joined inside scope = ${joined_inside_scope()}")
+    io.print("after the scope = ${after_the_scope()}")
+}

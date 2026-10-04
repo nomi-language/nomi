@@ -1,0 +1,49 @@
+import std/compiler
+
+test "dbg expression prints source and returns value" {
+    result = compiler.run(
+        """
+        import std/io
+
+        fn main() {
+          x = dbg 41 + 1
+          io.print(x)
+        }
+        """
+    )
+
+    assert result == Ok(
+        """
+        dbg line 4: 41 + 1 = 42
+        42
+
+        """
+    )
+}
+
+test "dbg pipe stage prints source and passes the value through" {
+    result = compiler.run(
+        """
+        import std/io
+
+        fn double(n: Int): Int {
+          n + n
+        }
+
+        fn main() {
+          5
+          |> dbg
+          |> double()
+          |> io.print()
+        }
+        """
+    )
+
+    assert result == Ok(
+        """
+        dbg line 9: 5 = 5
+        10
+
+        """
+    )
+}

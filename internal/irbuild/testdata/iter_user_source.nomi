@@ -1,0 +1,110 @@
+import std/io
+
+// A USER type as an `Iter` source: `impl Iter for Tree`, lowered through
+// rt.UserSeq. Every line prints, so `matched` here means the two paths agreed
+// on OUTPUT rather than on silence.
+//
+// WHAT EACH GROUP'S OBSERVATION IS A FUNCTION OF, because a fixture can only
+// detect what its observation depends on and three of these lines would read
+// green under a wrong lowering if they printed a list alone:
+//
+//   - The ORDER group prints the walk. A `to_list` result is a function of the
+//     traversal order, so an impl walked right-to-left or pre-order fails here.
+//     This is the only group a plain list pins.
+//   - The STOP group is why `note` exists. `Iter.find` and `Iter.take` return
+//     the same VALUE whether or not the consumer's `False` propagates back out
+//     through the implementor's recursion — a walk that ran to completion and
+//     then discarded the rest is indistinguishable from one that stopped, by
+//     the return value alone. So the stop is observed as a SIDE EFFECT: the
+//     `visit` lines that do NOT appear are the assertion. A lowering that
+//     dropped the `False` return of `each_while` prints five visits where three
+//     are expected, and the answer is unchanged.
+//   - The REPLAY group consumes one tree twice. std/iter promises iterators are
+//     replayable; for a user source that means rt.UserSeq must hold the
+//     RECEIVER and re-enter `each_while`, not cache a cursor. A design that
+//     memoized prints the list once and `[]` second.
+//   - The EMPTY group is the base case, `.Leaf`, which is the one arm that
+//     returns True without ever calling `yield` — so it pins that "exhausted"
+//     and "stopped" are not confused when nothing was pushed at all.
+// The `find` and `first` lines print a COMPARISON rather than the `Maybe` they
+// answer, because `rendering a non-scalar value` is a separate refusal that has
+// nothing to do with this source and would keep the fixture out of the sweep.
+// The stop observation is unaffected: it lives in `note`'s output, not in the
+// rendered answer.
+//
+//   - The PROTOCOL group calls `Iter.each_while` DIRECTLY, which is the only
+//     place the protocol's own Bool answer is observable: True when the source
+//     exhausted, False when the consumer stopped it. Those two are the whole
+//     interface, and no other line in this file distinguishes them.
+//
+// The recursive bare `each_while(left, yield)` inside the impl body is a second
+// mechanism this same fixture exercises: it is a call to a member of the
+// enclosing impl block, which is in neither g.funcs nor the module scope. See
+// internal/irbuild/implselfcall.go.
+enum Tree {
+    Leaf
+    Node (Tree, Int, Tree)
+}
+
+impl Iter for Tree {
+    fn each_while(t: Tree, yield: (Int) -> Bool): Bool {
+        case t {
+            .Leaf ->
+                True
+
+            .Node(left, value, right) ->
+                if each_while(left, yield) {
+                    if yield(value) {
+                        each_while(right, yield)
+                    } else {
+                        False
+                    }
+                } else {
+                    False
+                }
+        }
+    }
+}
+
+fn leaf(value: Int): Tree {
+    Tree.Node(Tree.Leaf, value, Tree.Leaf)
+}
+
+// Visiting is announced, so a walk that did not stop is visible as extra
+// output rather than as an unchanged answer.
+fn note(n: Int): Int {
+    io.print("visit ${n}")
+    n
+}
+
+fn main() {
+    // 1, 2, 3, 4, 5 in order.
+    tree = Tree.Node(Tree.Node(leaf(1), 2, leaf(3)), 4, leaf(5))
+
+    // ORDER.
+    io.print("${Iter.to_list(tree)}")
+    io.print("${tree |> Iter.map(|x| x * 10) |> Iter.to_list()}")
+    io.print("${Iter.count(tree)}")
+
+    // STOP. `find` stops at 4, so 5 must never be visited; `take(2)` stops after
+    // 2, so 3, 4 and 5 must never be visited. The absent `visit` lines are the
+    // assertion.
+    io.print("${Iter.find(tree, |x| note(x) > 3) == Some(4)}")
+    io.print("${tree |> Iter.map(|x| note(x)) |> Iter.take(2) |> Iter.to_list()}")
+
+    // REPLAY. The same value consumed twice must answer twice.
+    kept = tree |> Iter.filter(|x| x > 2)
+
+    io.print("${Iter.to_list(kept)}")
+    io.print("${Iter.to_list(kept)}")
+
+    // EMPTY. `.Leaf` pushes nothing and reports exhaustion.
+    io.print("${Iter.to_list(Tree.Leaf)}")
+    io.print("${Iter.count(Tree.Leaf)}")
+    io.print("${Maybe.with_default(Iter.first(Tree.Leaf), -1)}")
+
+    // PROTOCOL. True is "the source ran out", False is "the consumer stopped it".
+    io.print("${Iter.each_while(tree, |_x| True)}")
+    io.print("${Iter.each_while(tree, |x| x < 3)}")
+    io.print("${Iter.each_while(Tree.Leaf, |_x| False)}")
+}

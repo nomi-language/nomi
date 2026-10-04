@@ -1,0 +1,227 @@
+// An enum `embeds` variant's Debug is BARE DELEGATION, and the delegated call
+// has to pick the EMBEDDED type's impl out of a field of widening rivals.
+//
+// # What the gap was, in one line
+//
+// `analysis/derive_synthesis.go:3072-3076` synthesizes the `embeds` arm of a
+// universal `impl Debug` as `Debug.inspect(v0)` on the bound embedded value —
+// no `Variant(...)` wrapping, because "an embedded variant transparently
+// behaves as the embedded type at the value level". At that call site
+// `foreignIfaceCall` scored candidates with `argsFit`, which accepts an exact
+// kind match OR `g.widens`, and `widens` is TRUE for an `embeds` subtype (spec
+// §8: `Worker ≤ Node`). So `Debug.inspect(w)` with `w: Worker` matched BOTH
+// `impl Debug for Worker` (exactly) and `impl Debug for Node` (by widening),
+// the arm refused `ambiguous interface call`, and `buildImpls`' `g.speculate`
+// DISCARDED that refusal — silently dropping the whole synthesized impl, so
+// only the downstream call site reported, as
+// `Debug on an unrepresented receiver | Node`.
+//
+// The fix is tiered selection: an exact fit beats a widened one, which is the
+// interpreter's rule (dispatch is on the value's own type) and is also what
+// makes the delegation TERMINATE instead of recursing into the enum's own impl.
+//
+// # Why this file has THREE embedded shapes and not one
+//
+// Spec §7 gives `embeds` three embedded shapes: a struct (`Worker`), a
+// zero-sized distinct (`Expired`) and a wrapping distinct (`UserId`). Each arm
+// delegates to the embedded type's own Debug — the wrapping distinct's arm
+// rebuilds the `UserId` from the inner value its pattern binds — so each
+// delegated call has a NAMED argument the enum widens from, and each faces the
+// widening rivals below.
+//
+// # TWO widening rivals, not one, and that is the discrimination
+//
+// `Worker` is embedded in `Node` AND in `Other` — legal per §7 ("The embedded
+// type exists independently — it can appear in multiple enums"). So
+// `Debug.inspect(w)` has THREE candidates: one exact and TWO widened. A fix
+// that merely broke the tie by taking the first match would pass a
+// one-rival fixture and pick arbitrarily here; only tiering answers.
+//
+// # The `embeds` arms are LAST on purpose
+//
+// `Node` declares `Origin` and `Ready` above its embeds variants, so the
+// synthesized `case` traverses non-embed arms before reaching the ones under
+// test. A control whose first arm answers never reaches the clause it is
+// supposed to exercise.
+//
+// # Four renderings, kept apart
+//
+// Every struct here declares `zeta` BEFORE `alpha`, so declaration order and
+// alphabetical order DISAGREE and the four renderings cannot collapse:
+//
+//	Debug.inspect(v)      declaration order, honours a hand-written impl
+//	assertion `values:`   value.Inspect — sorts COMPOSED strings, non-overridable
+//	Display / "${v}"      the user's `impl Display`
+//	opaque under Debug    name only, strictly LESS than the structural walk
+//
+// `Custom` carries a hand-written `impl Debug` and is embedded in `Node`, so
+// the delegation is required to honour PRECEDENCE (explicit impl > derive >
+// auto-synthesized) one level down rather than only at the top level.
+//
+// # The `host type` row, and where it went instead
+//
+// This note used to say a `Bool` embed "cannot appear in a differential fixture"
+// because `bool.Bool.inspect` was unbound, and correctly identified the shape as
+// the SAME as `embeds Expired`: `Bool` is `pub enum Bool { embeds False; embeds
+// True }` over two zero-sized `pub host type`s, so the zero-sized rows below are
+// the representable half of it.
+//
+// The other half is bound now, and the rows are in
+// `debug_display_surfaces.nomi` rather than here, because what they exercise is
+// the four SURFACES over one value — including a `case` arm MATERIALIZING the
+// singleton out of a tag — and not `embeds` delegation, which is this file's
+// subject. The zero-sized `embeds` rows below already cover the delegation at
+// that shape.
+import std/io
+
+opaque type Meters Int
+
+// zeta before alpha, in every struct here, deliberately. See above.
+struct Worker {
+    zeta: Int
+    alpha: Int
+}
+
+impl Display for Worker {
+    fn to_string(v: Worker): String {
+        _ = v
+        "WORKER-DISPLAY"
+    }
+}
+
+// A hand-written `impl Debug` on an EMBEDDED type: precedence has to survive
+// the delegation, not just a top-level call.
+struct Custom {
+    zeta: Int
+    alpha: Int
+}
+
+impl Debug for Custom {
+    fn inspect(v: Custom): String {
+        _ = v
+        "CUSTOM-DEBUG"
+    }
+}
+
+// Zero-sized distinct: the variant takes no arguments and the payload has no
+// storage, so the value is RECONSTRUCTED from its type (case.go's payloadValue
+// slot < 0 branch). Renders as its bare name.
+type Expired
+
+// Wrapping distinct: the payload is the INNER type, so the delegated call is on
+// a String. This is the shape that already lowered at the parent.
+type UserId String
+
+enum Node {
+    Origin
+    Ready Int
+    embeds Worker
+    embeds Custom
+    embeds Expired
+    embeds UserId
+}
+
+// `Worker` embedded a SECOND time, so the delegated call has two widening
+// rivals rather than one.
+enum Other {
+    embeds Worker
+    Blank
+}
+
+fn no_node(_v: Node): Bool {
+    False
+}
+
+fn no_worker(_v: Worker): Bool {
+    False
+}
+
+fn no_meters(_v: Meters): Bool {
+    False
+}
+
+test "an embeds variant's Debug delegates to the embedded value, unwrapped" {
+    w = Worker{zeta: 1, alpha: 2}
+    n_worker: Node = Worker{zeta: 1, alpha: 2}
+    n_qual = Node.Worker{zeta: 1, alpha: 2}
+    n_custom: Node = Custom{zeta: 3, alpha: 4}
+    n_expired = Node.Expired
+    n_userid = Node.UserId("ada")
+    o_worker: Other = Worker{zeta: 1, alpha: 2}
+
+    // The delegation is BARE: no `Worker(...)` and no `Node.Worker(...)` wrapping
+    // appears in any of these. That is the assertion, and it is a wrong ANSWER
+    // rather than a build error if it regresses.
+    io.print("1  Debug.inspect(w)         = " + Debug.inspect(w))
+    io.print("2  Debug.inspect(n_worker)  = " + Debug.inspect(n_worker))
+    io.print("3  Debug.inspect(n_qual)    = " + Debug.inspect(n_qual))
+    io.print("4  Debug.inspect(n_custom)  = " + Debug.inspect(n_custom))
+    io.print("5  Debug.inspect(n_expired) = " + Debug.inspect(n_expired))
+    io.print("6  Debug.inspect(n_userid)  = " + Debug.inspect(n_userid))
+    io.print("7  Debug.inspect(o_worker)  = " + Debug.inspect(o_worker))
+    io.print("8  Debug.inspect(Node.Origin) = " + Debug.inspect(Node.Origin))
+    io.print("9  Debug.inspect(Node.Ready(7)) = " + Debug.inspect(Node.Ready(7)))
+    io.print("10 Debug.inspect(Other.Blank) = " + Debug.inspect(Other.Blank))
+
+    // Declaration order, not alphabetical: `zeta` first.
+    assert Debug.inspect(w) == "Worker{zeta: 1, alpha: 2}"
+    // Delegation, unwrapped — identical to the line above even though the static
+    // type is the ENUM. If the enum's own impl were selected this would either
+    // wrap or recurse.
+    assert Debug.inspect(n_worker) == "Worker{zeta: 1, alpha: 2}"
+    // Both construction spellings agree: the coerced bare value and the
+    // qualified variant literal.
+    assert Debug.inspect(n_qual) == "Worker{zeta: 1, alpha: 2}"
+    // PRECEDENCE survives one level down: the hand-written impl wins.
+    assert Debug.inspect(n_custom) == "CUSTOM-DEBUG"
+    // A zero-sized distinct embed renders as its bare name.
+    assert Debug.inspect(n_expired) == "Expired"
+    // A wrapping distinct embed delegates to the distinct: `Node.UserId("ada")`
+    // builds a `UserId`, and it renders as one, exactly as a `UserId` widened
+    // into `Node` does.
+    assert Debug.inspect(n_userid) == "UserId(\"ada\")"
+    // The second enum embedding the same struct answers the same way.
+    assert Debug.inspect(o_worker) == "Worker{zeta: 1, alpha: 2}"
+    // Non-embed arms of the same enum are untouched.
+    assert Debug.inspect(Node.Origin) == "Origin"
+    assert Debug.inspect(Node.Ready(7)) == "Ready(7)"
+
+    // Display is a DIFFERENT rendering and stays the user's impl.
+    assert Display.to_string(w) == "WORKER-DISPLAY"
+    assert "${w}" == "WORKER-DISPLAY"
+
+    refute no_worker(w)
+}
+
+// A `values:` row exists only on a FAILING assertion, so each of these fails on
+// purpose. The row is `value.Inspect` — it SORTS the composed strings and
+// ignores every impl — so it must NOT agree with the Debug rows above.
+test "values row sorts and ignores the hand-written impl" {
+    w = Worker{zeta: 1, alpha: 2}
+    assert no_worker(w)
+}
+
+// The QUALIFIED spelling. It rows as the Worker alone, as the coerced spelling
+// does, and the two assertions here must agree
+// with each other.
+test "values row for a qualified embeds variant" {
+    n = Node.Worker{zeta: 1, alpha: 2}
+    assert no_node(n)
+}
+
+test "values row for a zero-sized embed" {
+    n = Node.Expired
+    assert no_node(n)
+}
+
+// `Node.UserId("ada")` builds a `UserId`: the row, like Debug, renders the
+// distinct, `UserId("ada")`.
+test "values row for a wrapping-distinct embed" {
+    n = Node.UserId("ada")
+    assert no_node(n)
+}
+
+test "values row shows an opaque payload Debug hides" {
+    m = Meters(7)
+    assert no_meters(m)
+}

@@ -1,0 +1,44 @@
+//! assert answer() == 42
+//! assert (answer() + 1) == 43
+//
+fn answer(): Int {
+    42
+}
+
+struct Label {
+    text: String
+}
+
+fn render(label: Label): String {
+    "[" + label.text + "]"
+}
+
+test "renders labels" {
+    assert render(Label{text: "ready"}) == "[ready]"
+}
+
+tests "nested examples" {
+    test "done label" {
+        assert render(Label{text: "done"}) == "[done]"
+    }
+}
+
+//! assert ready_label() == "[ready]"
+//
+fn ready_label(): String {
+    render(Label{text: "ready"})
+}
+
+//! label = Label{text: "done"}
+//! assert render(label) == "[done]"
+//! refute render(label) == "[ready]"
+//
+fn done_label(): String {
+    render(Label{text: "done"})
+}
+
+test "attached test declarations remain ordinary declarations" {
+    assert answer() == 42
+    assert ready_label() == "[ready]"
+    assert done_label() == "[done]"
+}

@@ -1,0 +1,151 @@
+//# A generic function whose type parameters are mentioned at DEPTH, called at
+//# more than one concrete type argument in one program.
+//#
+//# Erasure cannot lower this shape and says why: the box would be at the wrong
+//# DEPTH, because the body builds a container of `any` while the caller wants a
+//# container of the concrete element. So each declaration here is monomorphized
+//# per call site instead, one Go function per argument tuple, and the point of
+//# the fixture is that the two instantiations must not share a representation.
+//#
+//# READ THE `wrapped` / `Debug.inspect` ROWS FIRST. They are the ones a wrong
+//# answer hides in: an erased lowering that boxed to `any` would still COMPILE
+//# and would still return something, and only the rendered string says whether
+//# the element type survived. A row that merely called the function and dropped
+//# the result would pass against a lowering that got the type wrong.
+
+import std/io
+
+pub struct Half<T> {
+    slot: T
+}
+
+pub struct Pair<A, B> {
+    left: A
+    right: B
+}
+
+/// The parameter mentions `T` inside a USER generic struct and the return
+/// mentions it inside a PRELUDE enum. Both are depth positions, and the prelude
+/// one is where the type argument has to survive a construction rather than
+/// merely a pass-through.
+fn recv<T>(r: Half<T>): Maybe<T> {
+    Maybe.Some(r.slot)
+}
+
+/// Pass-through: the container arrives and leaves unchanged. This is the row an
+/// erased lowering could ALMOST do, which is why the fixture also has `wrapped`.
+fn ids<T>(xs: List<T>): List<T> {
+    xs
+}
+
+/// CONSTRUCTION: the body builds the container. This is the row erasure cannot
+/// do at all — the body would build a `*rt.List[any]` and the caller wants a
+/// `*rt.List[int64]` — so it is the direct witness for monomorphization.
+fn wrapped<T>(x: T): List<T> {
+    [x]
+}
+
+/// TWO type parameters, so the instantiation key is a tuple rather than a single
+/// kind. `Pair<Int, String>` and `Pair<String, Int>` are different instances of
+/// one declaration and must not collide.
+fn swap<A, B>(p: Pair<A, B>): Pair<B, A> {
+    Pair{left: p.right, right: p.left}
+}
+
+/// A generic function calling ANOTHER generic function at its own type
+/// parameter. Inside the instance, `T` is concrete, so the inner call is
+/// instantiated at the outer instance's argument — the chain the worklist
+/// exists for.
+fn recv_twice<T>(r: Half<T>): Maybe<T> {
+    recv(r)
+}
+
+/// A tuple is a depth position too, and it is a STRUCTURAL kind rather than a
+/// nominal one, so it exercises kindParts rather than genericArgs.
+fn tag<T>(x: T): (T, Int) {
+    (x, 1)
+}
+
+test "one declaration, two concrete type arguments" {
+    as_int = case recv(Half{slot: 7}) {
+        Some(v) -> v
+        None -> 0
+    }
+
+    as_string = case recv(Half{slot: "seven"}) {
+        Some(v) -> v
+        None -> ""
+    }
+
+    assert as_int == 7
+    assert as_string == "seven"
+}
+
+test "a container passes through at each element type" {
+    assert Debug.inspect(ids([1, 2, 3])) == "[1, 2, 3]"
+    assert Debug.inspect(ids(["a", "b"])) == "[\"a\", \"b\"]"
+    // NOT a `List<Bool>` row. `Debug.inspect` over one refuses
+    // `Debug on an unrepresented receiver (List<Bool>)`, which is a rendering gap
+    // belonging to the Debug surface and nothing to do with monomorphization —
+    // measured while writing this fixture. Naming it here rather than leaving a
+    // silent hole, because the obvious third element type is exactly the one this
+    // row cannot use.
+}
+
+test "a constructed container keeps the caller's element type" {
+    assert Debug.inspect(wrapped(9)) == "[9]"
+    assert Debug.inspect(wrapped("nine")) == "[\"nine\"]"
+}
+
+test "two type parameters instantiate as a tuple, in both orders" {
+    a = swap(Pair{left: 1, right: "one"})
+    b = swap(Pair{left: "two", right: 2})
+
+    assert a.left == "one"
+    assert a.right == 1
+    assert b.left == 2
+    assert b.right == "two"
+}
+
+test "a generic function calls a generic function at its own type parameter" {
+    n = case recv_twice(Half{slot: 11}) {
+        Some(v) -> v
+        None -> 0
+    }
+
+    s = case recv_twice(Half{slot: "eleven"}) {
+        Some(v) -> v
+        None -> ""
+    }
+
+    assert n == 11
+    assert s == "eleven"
+}
+
+test "a tuple return keeps the element type at each instantiation" {
+    assert Debug.inspect(tag(3)) == "(3, 1)"
+    assert Debug.inspect(tag("three")) == "(\"three\", 1)"
+}
+
+test "the same instantiation reached twice is one function" {
+    // Two calls at the SAME type argument. Nothing here can observe the
+    // interning directly — that is TestMonoInstanceIsInternedPerInstantiation's
+    // job — but a table that minted two Go functions with one name would fail to
+    // COMPILE, so this row is the build-level half of that assertion.
+    one = case recv(Half{slot: 1}) {
+        Some(v) -> v
+        None -> 0
+    }
+
+    two = case recv(Half{slot: 2}) {
+        Some(v) -> v
+        None -> 0
+    }
+
+    assert one == 1
+    assert two == 2
+}
+
+fn main() {
+    io.print("generic_mono")
+}

@@ -1,0 +1,17 @@
+import {
+    lists.List
+    maps.Map
+}
+
+//# Explicit inputs supplied to application and test initialization.
+
+/// An immutable snapshot of startup inputs. Environment variables are read
+/// through `Map.get(startup.env, name)` while building application values.
+/// `args` contains the program arguments, excluding the executable or source
+/// path. Both fields default to empty, so `Startup{}` is a Startup with no
+/// environment and no arguments, and a test writes only the inputs it sets:
+/// `Startup{args: ["-v"]}` or `Startup{env: {"PORT" => "8080"}}`.
+pub struct Startup {
+    env: Map<String, String> = Map.empty()
+    args: List<String> = []
+}

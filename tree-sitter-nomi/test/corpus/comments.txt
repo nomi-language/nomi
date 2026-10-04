@@ -1,0 +1,59 @@
+==========
+Bare line comment
+==========
+
+fn f(): Int {
+  //
+  1
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (type_identifier)
+    (body
+      (line_comment)
+      (integer))))
+
+==========
+Four slashes are a line comment
+==========
+
+fn f(): Int {
+  //// not documentation
+  1
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (type_identifier)
+    (body
+      (line_comment)
+      (integer))))
+
+==========
+Bare doc comment
+==========
+
+///
+fn f(): Int {
+  1
+}
+
+---
+
+(source_file
+  (doc_comment)
+  (function_definition
+    (identifier)
+    (parameters)
+    (type_identifier)
+    (body
+      (integer))))

@@ -1,0 +1,130 @@
+// A stdlib record struct whose fields carry DEFAULTS, constructed at a user
+// position with each subset of them omitted.
+//
+// # What this fixture is for
+//
+// `std/assertions.AssertionDetails` is the only one of std/assertions' six
+// public value structs with no stdStructSpecs row, and the only one carrying
+// field defaults:
+//
+//     pub struct AssertionDetails {
+//       reason: String = "assertion failed"
+//       actual: Maybe<String> = None
+//       details: List<AssertionDetail> = []
+//     }
+//
+// Its three field TYPES are each already expressible by the spec table
+// (stdScalarField, stdMaybeField, stdListField). The DEFAULTS are the whole
+// refusal: stdstruct.go's shape check returned false on `f.Default != nil`, so
+// the declaration produced no anchor and every mention refused `stdlib type`.
+//
+// # Why the omitted field is the discriminating row
+//
+// A default is not decoration here. Nomi's own corpus constructs this type as
+//
+//     AssertionDetails{reason: "...", details: [...]}
+//
+// omitting `actual` — so a lowering that ignored defaults and left the Go zero
+// value in place would produce `Maybe`'s zero, whose Tag is 0 and which is
+// therefore NEITHER Some NOR None. That is not a Go compile error and not a
+// crash; it is a value that falls off the end of a `case`. `all_defaults` and
+// `only_reason` below are the rows that see it, because they are the ones that
+// read a field nobody assigned.
+//
+// The zero-value hazard is per-field and each field fails differently, which is
+// why all three are read separately: `reason` would read "" instead of
+// "assertion failed", `actual` would be a tagless Maybe matching neither arm of
+// `shown`, and `details` would be a nil list rather than an empty one.
+//
+// # Why the list is read through a PATTERN and not a count
+//
+// An empty list and a nil list share a count, so a count cannot tell them
+// apart. `labels` matches on the list's SHAPE, which is the observation that
+// separates them: a nil list must still match `[]` and not fall off the end.
+//
+// Debug.inspect would read the whole value in one row and is deliberately NOT
+// used -- `qualified call | Debug.inspect` and `unlowered stdlib function |
+// assertions.AssertionDetails.inspect` are other keys' refusals, and a fixture
+// resting on them would be refused for reasons that have nothing to do with
+// what it is testing.
+//
+// # Identity
+//
+// A stdlib struct crossing into rt has to be the type std declares:
+// every impl lookup keys on the runtime type name, so a bare or empty one
+// misses every impl SILENTLY rather than failing. That is pinned structurally
+// rather than by a rendering row here -- the spec holds `reflect.TypeFor` of
+// rt's Go type and checks every field's name, order and type against std's
+// declaration, so a permuted or renamed field produces no anchor at all. The
+// field reads below are what would disagree if the layout were wrong.
+import {
+    std/assertions.AssertionDetail
+    std/assertions.AssertionDetails
+    std/io
+}
+
+// shown renders a Maybe<String> without depending on Debug's layout, so the
+// `actual` rows stay readable when they are wrong. A tagless zero Maybe matches
+// neither arm, which is the failure this spelling exposes.
+fn shown(m: Maybe<String>): String {
+    case m {
+        Some(s) -> "Some(" + s + ")"
+        None -> "None"
+    }
+}
+
+// labels reads the detail list by SHAPE. An empty list and a nil list share a
+// count, so a count cannot separate them; matching `[]` can, because a nil list
+// that failed to match would fall through to the next arm.
+fn labels(ds: List<AssertionDetail>): String {
+    case ds {
+        [] -> "[]"
+        [one] -> one.label
+        [first, .._] -> first.label + "+more"
+    }
+}
+
+fn main() {
+    // --- EVERY default taken ------------------------------------------------
+    all_defaults = AssertionDetails{}
+    io.print("all.reason = " + all_defaults.reason)
+    io.print("all.actual = " + shown(all_defaults.actual))
+    io.print("all.details = " + labels(all_defaults.details))
+
+    // --- ONE field supplied, two defaulted ----------------------------------
+    //
+    // The corpus's own shape. `actual` and `details` are both untouched here.
+    only_reason = AssertionDetails{reason: "values were not equal"}
+    io.print("only_reason.reason = " + only_reason.reason)
+    io.print("only_reason.actual = " + shown(only_reason.actual))
+    io.print("only_reason.details = " + labels(only_reason.details))
+
+    // --- The corpus's exact spelling: reason + details, `actual` defaulted ---
+    with_details = AssertionDetails{
+        reason: "values were not equal",
+        details: [AssertionDetail{
+            label: "actual",
+            value: "41",
+        }, AssertionDetail{
+            label: "expected",
+            value: "42",
+        }],
+    }
+
+    io.print("with_details.reason = " + with_details.reason)
+    io.print("with_details.actual = " + shown(with_details.actual))
+    io.print("with_details.details = " + labels(with_details.details))
+
+    // --- NOTHING defaulted, so a lowering that dropped defaults still passes
+    //     this row. It is here to separate "defaults are wrong" from "the type
+    //     is wrong".
+    explicit = AssertionDetails{
+        reason: "explicit",
+        actual: Some("41"),
+        details: [],
+    }
+
+    io.print("explicit.reason = " + explicit.reason)
+    io.print("explicit.actual = " + shown(explicit.actual))
+    io.print("explicit.details = " + labels(explicit.details))
+}

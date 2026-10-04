@@ -1,0 +1,82 @@
+import std/io
+
+// Probe: THE PIPE OPERATOR.
+//
+// `x |> f()` is `f(x)`: the left operand becomes the FIRST argument of the
+// right operand's call. Nothing about a pipe survives into the IR —
+// the whole lowering is that splice, handed to the ordinary call path.
+//
+// Two things here are not decoration. The `sub` line is NOT commutative, so an
+// builder that appended the piped value instead of prepending it prints 3
+// where this prints 7. And the `order` line prints from inside both operands,
+// because evalPipe evaluates the LEFT one before it has even resolved the
+// callee (eval/eval.go:6253 against :6372) — a builder that built `f(g(), x)`
+// would be a well-typed program that ran the arguments backwards, and no
+// value-only fixture would catch it.
+fn double(n: Int): Int {
+    n * 2
+}
+
+fn add1(n: Int): Int {
+    n + 1
+}
+
+fn add(a: Int, b: Int): Int {
+    a + b
+}
+
+fn subtract(a: Int, b: Int): Int {
+    a - b
+}
+
+fn between(low: Int, n: Int, high: Int): String {
+    "${low} <= ${n} <= ${high}"
+}
+
+fn loud(tag: String, n: Int): Int {
+    io.print("eval ${tag}")
+    n
+}
+
+fn main() {
+    // One stage.
+    io.print("double = ${5 |> double()}")
+
+    // A multi-stage chain, left-associative: ((5*2)+1)*2.
+    io.print("chain = ${5 |> double() |> add1() |> double()}")
+
+    // A stage with an extra argument. The piped value is argument ONE.
+    io.print("add = ${5 |> add(100)}")
+
+    // Same, with a non-commutative callee, so the argument ORDER is observable
+    // rather than merely plausible: 10 - 3, not 3 - 10.
+    io.print("sub = ${10 |> subtract(3)}")
+
+    // Two extra arguments: the piped value still leads, so it lands in `low`
+    // and the written arguments shift right. Printed as the three parameters
+    // read, which is what makes the placement visible rather than inferred.
+    io.print("between = ${5 |> between(1, 9)}")
+
+    // Evaluation order. `left` must print before `right`, because the piped
+    // value is evaluated first.
+    io.print("order = ${loud("left", 10) |> add(loud("right", 3))}")
+
+    // A bare callable stage — no parentheses. evalPipe calls it with the piped
+    // value as its one argument.
+    io.print("bare = ${7 |> double}")
+
+    // A lambda stage.
+    io.print("lambda = ${21 |> |n: Int| n * 2}")
+
+    // A parenthesised stage is the stage.
+    io.print("grouped = ${6 |> double}")
+
+    // A pipe whose stage is a host function.
+    "piped into print" |> io.print()
+
+    // A pipe as a statement rather than an expression, and as the value of a
+    // binding.
+    total = 1 |> add1() |> add1() |> double()
+
+    io.print("total = ${total}")
+}

@@ -1,0 +1,18 @@
+==========
+Turbofish call with a named argument
+==========
+
+once c = Channel.new<Int>(capacity: 4)
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (call_expression
+      (field_access
+        (type_identifier)
+        (identifier))
+      (type_identifier)
+      (identifier)
+      (integer))))

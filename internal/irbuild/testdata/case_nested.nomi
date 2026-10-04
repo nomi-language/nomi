@@ -1,0 +1,44 @@
+import std/io
+
+struct Inner {
+    v: Int
+}
+
+struct Outer {
+    inner: Inner
+    tag: Int
+}
+
+enum Wrapped {
+    Pair Outer
+    Empty
+}
+
+// Three levels: variant payload -> struct field -> struct field. The inner
+// LITERAL test is the interesting part: when it fails the whole arm must fail
+// and the next arm must be tried, which is what a decision tree that shares
+// the outer tag test between arms gets wrong.
+fn describe(w: Wrapped): String {
+    case w {
+        Wrapped.Pair(Outer{inner: Inner{v: 1}, tag}) -> "one/${tag}"
+        Wrapped.Pair(Outer{inner: Inner{v}, tag: 9}) -> "v${v}/nine"
+        Wrapped.Pair(Outer{inner: Inner{v}, tag}) -> "v${v}/t${tag}"
+        Wrapped.Empty -> "empty"
+    }
+}
+
+// The same nesting reached through field patterns only, with punning at two
+// depths.
+fn total(o: Outer): Int {
+    case o {
+        Outer{inner: Inner{v}, tag} -> v + tag
+    }
+}
+
+fn main() {
+    io.print(describe(Wrapped.Pair(Outer{inner: Inner{v: 1}, tag: 4})))
+    io.print(describe(Wrapped.Pair(Outer{inner: Inner{v: 2}, tag: 9})))
+    io.print(describe(Wrapped.Pair(Outer{inner: Inner{v: 3}, tag: 7})))
+    io.print(describe(Wrapped.Empty))
+    io.print("${total(Outer{inner: Inner{v: 9}, tag: 1})}")
+}

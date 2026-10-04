@@ -1,0 +1,134 @@
+================================================================================
+open default method on interface
+================================================================================
+
+pub interface Logger {
+  fn log(value: self, message: String): Unit
+  open fn info(value: self, message: String): Unit {
+    Logger.log(value, message)
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (interface_definition
+    (pub)
+    name: (type_identifier)
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type))
+        (parameter
+          name: (identifier)
+          (type_identifier)))
+      (type_identifier))
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type))
+        (parameter
+          name: (identifier)
+          (type_identifier)))
+      (type_identifier)
+      (body
+        (call_expression
+          function: (field_access
+            (type_identifier)
+            (identifier))
+          (identifier)
+          (identifier))))))
+
+================================================================================
+field requirement on interface
+================================================================================
+
+pub interface App {
+  field ctx: Context
+  field name: String
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (interface_definition
+    (pub)
+    name: (type_identifier)
+    (interface_field
+      name: (identifier)
+      type: (type_identifier))
+    (interface_field
+      name: (identifier)
+      type: (type_identifier))))
+
+================================================================================
+field and open mixed in interface body
+================================================================================
+
+pub interface Mixed {
+  field id: Int
+  fn render(value: self): String
+  open fn label(value: self): String { "default" }
+  field tag: String
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (interface_definition
+    (pub)
+    name: (type_identifier)
+    (interface_field
+      name: (identifier)
+      type: (type_identifier))
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type)))
+      (type_identifier))
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type)))
+      (type_identifier)
+      (body
+        (string
+          (string_content))))
+    (interface_field
+      name: (identifier)
+      type: (type_identifier))))
+
+================================================================================
+field and open are contextual — usable as identifiers outside interface bodies
+================================================================================
+
+fn make_thing(): String {
+  field = "ok"
+  open = 42
+  field
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (string
+          (string_content)))
+      (binding
+        (identifier)
+        (integer))
+      (identifier))))

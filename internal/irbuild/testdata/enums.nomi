@@ -1,0 +1,94 @@
+import std/io
+
+struct Circle {
+    radius: Float
+}
+
+/// All four variant kinds. `Nothing` is bare, `Line` positional, `Box`
+/// struct-shaped, and `embeds Circle` embedded — the payload is the Circle
+/// itself, constructed with `Shape.Circle{...}`.
+///
+/// The layout this lowers to is the point: `Box`'s two `Int` fields need two
+/// slots because they are live together, while `Line`'s `Float` and
+/// `Circle`'s payload each need their own because their Go types differ. Tags
+/// run 1..4 and 0 is reserved invalid.
+enum Shape {
+    Nothing
+    Line Float
+    Box {w: Int, h: Int}
+    embeds Circle
+}
+
+/// Two Int-carrying variants, which SHARE one slot: only one variant is live
+/// at a time. Contrast `Mixed` below.
+enum Reading {
+    Absent
+    Celsius Int
+    Fahrenheit Int
+}
+
+/// An `Int` variant and a `Float` variant. Identical layout, different Go
+/// type, so they must NOT share a slot — merging them truncates.
+enum Mixed {
+    Whole Int
+    Fraction Float
+}
+
+/// Struct-shaped variant fields take defaults exactly as struct fields do.
+enum Request {
+    Get {path: String, retries: Int = 2}
+}
+
+/// Tag-only: no variant carries anything, so the whole type is the tag — one
+/// byte, the enum decision's cheapest case and the commonest shape the corpus
+/// contains.
+enum Toggle {
+    Off
+    On
+}
+
+fn noisy(n: Int): Int {
+    io.print("eval ${n}")
+    n
+}
+
+fn noisyf(x: Float): Float {
+    io.print("evalf ${x}")
+    x
+}
+
+/// An enum value passes through a signature by value. Nothing in this slice can
+/// read the payload back — that is `case`, which is not lowered — so what the
+/// fixture pins is construction, evaluation order, and agreement.
+fn pass(_s: Shape): Int {
+    7
+}
+
+fn main() {
+    bare = Shape.Nothing
+    io.print("bare = ${pass(bare)}")
+
+    positional = Shape.Line(noisyf(2.5))
+    io.print("positional = ${pass(positional)}")
+
+    shaped = Shape.Box{w: noisy(3), h: noisy(4)}
+    io.print("shaped = ${pass(shaped)}")
+
+    embedded = Shape.Circle{radius: noisyf(1.5)}
+    io.print("embedded = ${pass(embedded)}")
+
+    _absent = Reading.Absent
+    _c = Reading.Celsius(noisy(21))
+    _f = Reading.Fahrenheit(noisy(70))
+
+    _whole = Mixed.Whole(noisy(5))
+    _fraction = Mixed.Fraction(noisyf(0.5))
+
+    _defaulted = Request.Get{path: "/health"}
+    _explicit = Request.Get{path: "/retry", retries: noisy(9)}
+
+    _off = Toggle.Off
+    _on = Toggle.On
+
+    io.print("done")
+}

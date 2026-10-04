@@ -1,0 +1,56 @@
+import strings.String
+
+/// Protocol for producing a structural, developer-facing `String`
+/// representation of a value.
+///
+/// `Debug` is the structural-representation protocol. Implementors
+/// produce a string that "looks like the literal" — round-trippable
+/// Nomi source for the value when feasible, or a faithful structural
+/// rendering otherwise.
+///
+/// Used for developer-facing output: `io.inspect`, `dbg`, debug logs,
+/// and explicit `Debug.inspect(value)` calls. NOT used for user-facing
+/// output — that's `Display`'s job (see `display.nomi`). String
+/// interpolation `"${value}"` calls `Display`, not `Debug`.
+///
+/// `dbg expr` is a language form, not a member of this interface. It evaluates
+/// `expr`, prints the source location, source text, and `Debug.inspect` output,
+/// then returns the original value. The LSP reports every `dbg` as a warning
+/// because it is development-only instrumentation. `io.inspect(value)` is the
+/// ordinary file function for intentionally printing the Debug form as part
+/// of a program's behavior.
+///
+/// Debug's function is `inspect` (distinct from `Display.to_string`) so the two
+/// most prolific interfaces don't collide on a function name. Use
+/// `Display.to_string(value)` for user-facing text and `Debug.inspect(value)`
+/// for developer-facing structure.
+///
+/// Concrete contrast for `String`:
+///
+/// ```nomi
+/// Display.to_string("hello") = hello       (no quotes — UI presentation)
+/// Debug.inspect("hello")     = "hello"     (quoted — looks like the literal)
+/// ```
+///
+/// For `Int`, `Float`, and `Bool`, `Debug.inspect` coincides with
+/// `Display.to_string` because the literal source matches the user-facing form.
+///
+/// `Debug` is **universal and automatic** — every value is `Debug.inspect`-able
+/// with no `derive` or explicit impl required. The compiler synthesizes a
+/// structural `Debug` impl for any declared type that doesn't supply one, so
+/// you write an explicit `impl Debug` conformance only to **customize** a
+/// type's rendering.
+///
+/// Precedence (highest first): explicit `impl Debug` implementation > explicit
+/// `derive Debug` > auto-synthesized structural impl.
+///
+/// **Opaque types** default to a name-only `<opaque T>` (a structural default
+/// would leak exactly the internals `opaque` exists to hide); write an explicit
+/// `impl Debug for T` implementation to expose richer output. **Declared
+/// host types** default to the bare type name (`True` inspects as `True` and
+/// `Unit` as `Unit` — internals are host-side, so there is nothing structural
+/// to render). Value kinds with no declaration render deterministic
+/// placeholders: `<function>`, `<Task>`, `<Channel>`, `<file M>`, `<context>`.
+pub interface Debug {
+    fn inspect(value: self): String
+}

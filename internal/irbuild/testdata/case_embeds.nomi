@@ -1,0 +1,39 @@
+import std/io
+
+struct Circle {
+    radius: Int
+}
+
+struct Rect {
+    width: Int
+    height: Int
+}
+
+enum Shape {
+    embeds Circle
+    embeds Rect
+    Point
+}
+
+fn area(s: Shape): Int {
+    case s {
+        Shape.Circle{radius} -> radius * radius * 3
+        Shape.Rect{width, height} -> width * height
+        Shape.Point -> 0
+    }
+}
+
+fn main() {
+    // Qualified construction: the payload is built and wrapped at the same site.
+    io.print("${area(Shape.Circle{radius: 2})}")
+    // SUBTYPE COERCION, argument position. `embeds Circle` makes Circle a
+    // subtype of Shape (spec §8), so a bare Circle is a legal Shape argument.
+    // The interpreter keeps it a bare struct value and coerces inside the
+    // matcher; a native tree cannot, because the tag it switches on does not
+    // exist yet.
+    io.print("${area(Circle{radius: 3})}")
+    // SUBTYPE COERCION, annotated binding.
+    s: Shape = Rect{width: 4, height: 5}
+    io.print("${area(s)}")
+    io.print("${area(Shape.Point)}")
+}

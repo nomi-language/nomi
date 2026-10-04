@@ -1,0 +1,247 @@
+// A small TSV-backed task store. The example keeps the domain model, Store
+// interface, and FileStore implementation together so the persistence flow is
+// easy to read end to end.
+//
+// The test writes an empty file at the start so re-runs are deterministic.
+import {
+    std/instant.Instant
+    std/io.{self, IOError}
+}
+
+once test_path: String = "/tmp/nomi-file-store-pattern.tsv"
+
+// --- Domain types ------------------------------------------------
+enum Status {
+    Open
+    InProgress
+    Done
+}
+
+derive Equatable for Status
+
+impl Display for Status {
+    fn to_string(value: Status): String {
+        case value {
+            Status.Open -> "open"
+            Status.InProgress -> "in-progress"
+            Status.Done -> "done"
+        }
+    }
+}
+
+enum Priority {
+    Low
+    Medium
+    High
+}
+
+derive Equatable for Priority
+
+impl Display for Priority {
+    fn to_string(value: Priority): String {
+        case value {
+            Priority.Low -> "low"
+            Priority.Medium -> "medium"
+            Priority.High -> "high"
+        }
+    }
+}
+
+struct TodoTask {
+    id: Int
+    title: String
+    created: Instant
+    status: Status = Status.Open
+    priority: Priority = Priority.Medium
+}
+
+fn parse_status(s: String): Maybe<Status> {
+    case s {
+        "open" -> Some(Status.Open)
+        "in-progress" -> Some(Status.InProgress)
+        "done" -> Some(Status.Done)
+        _ -> None
+    }
+}
+
+fn parse_priority(s: String): Maybe<Priority> {
+    case s {
+        "high" -> Some(Priority.High)
+        "medium" -> Some(Priority.Medium)
+        "low" -> Some(Priority.Low)
+        _ -> None
+    }
+}
+
+// --- Store interface + FileStore impl ----------------------------
+interface Store {
+    fn save(value: self, task: TodoTask): Result<TodoTask, String>
+    fn delete(value: self, id: Int): Result<Unit, String>
+    fn load(value: self): Result<Map<Int, TodoTask>, String>
+}
+
+struct FileStore {
+    path: String
+}
+
+impl Store for FileStore {
+    fn load(value: FileStore): Result<Map<Int, TodoTask>, String> {
+        load_map(value.path)
+    }
+
+    fn save(value: FileStore, task: TodoTask): Result<TodoTask, String> {
+        case load_map(value.path) {
+            Err(e) ->
+                Err(e)
+
+            Ok(tasks) ->
+                case write_all(value.path, Map.put(tasks, task.id, task)) {
+                    Err(e) -> Err(e)
+                    Ok(_) -> Ok(task)
+                }
+        }
+    }
+
+    fn delete(value: FileStore, id: Int): Result<Unit, String> {
+        case load_map(value.path) {
+            Err(e) -> Err(e)
+            Ok(tasks) -> write_all(value.path, Map.remove(tasks, id))
+        }
+    }
+}
+
+fn load_map(path: String): Result<Map<Int, TodoTask>, String> {
+    case io.read_file(path) {
+        Ok(content) ->
+            deserialize(content)
+
+        Err(e) ->
+            case e {
+                IOError.NotFound{path: _} -> Ok(Map.empty())
+                IOError.Other{reason} -> Err(reason)
+            }
+    }
+}
+
+fn write_all(path: String, tasks: Map<Int, TodoTask>): Result<Unit, String> {
+    case io.write_file(path, serialize(tasks)) {
+        Ok(_) -> Ok(Unit)
+        Err(e) -> Err(Display.to_string(e))
+    }
+}
+
+fn serialize(tasks: Map<Int, TodoTask>): String {
+    Map.values(tasks)
+    |> Iter.sort_by(.id)
+    |> Iter.map(serialize_one)
+    |> Iter.to_list()
+    |> String.join("\n")
+}
+
+fn serialize_one(t: TodoTask): String {
+    [
+        Display.to_string(t.id),
+        t.title,
+        Display.to_string(Instant.to_seconds(t.created)),
+        Display.to_string(t.status),
+        Display.to_string(t.priority),
+    ]
+    |> String.join("\t")
+}
+
+fn deserialize(content: String): Result<Map<Int, TodoTask>, String> {
+    trimmed = String.trim(content)
+
+    if String.length(trimmed) == 0 {
+        Ok(Map.empty())
+    } else {
+        String.split(trimmed, "\n")
+        |> Iter.reduce(|acc = Ok(Map.empty()), line|
+            case acc {
+                Err(e) ->
+                    Err(e)
+
+                Ok(tasks) ->
+                    case deserialize_one(line) {
+                        Err(e) -> Err(e)
+                        Ok(t) -> Ok(Map.put(tasks, t.id, t))
+                    }
+            }
+        )
+    }
+}
+
+fn deserialize_one(line: String): Result<TodoTask, String> {
+    case String.split(line, "\t") {
+        [id_str, title, secs_str, status_str, pri_str] ->
+            case (
+                String.to_int(id_str),
+                String.to_int(secs_str),
+                parse_status(status_str),
+                parse_priority(pri_str),
+            ) {
+                (Some(id), Some(secs), Some(status), Some(priority)) -> Ok(TodoTask{
+                    id,
+                    title,
+                    created: Instant.from_seconds(secs),
+                    status,
+                    priority,
+                })
+                _ -> Err("malformed task line: '${line}'")
+            }
+
+        _ ->
+            Err("expected 5 tab-separated fields, got: '${line}'")
+    }
+}
+
+// --- Tests -------------------------------------------------------
+test "file store pattern saves reloads and deletes tasks" {
+    // Start from an empty file.
+    case io.write_file(test_path, "") {
+        _ -> Unit
+    }
+
+    fs = FileStore{path: test_path}
+
+    // Load on an empty file.
+    assert Ok(empty) = Store.load(fs)
+    assert Map.size(empty) == 0
+
+    // Save two tasks.
+    t1 = TodoTask{
+        id: 1,
+        title: "buy milk",
+        created: Instant.from_seconds(1_700_000_000),
+    }
+
+    t2 = TodoTask{
+        id: 2,
+        title: "write tests",
+        created: Instant.from_seconds(1_700_000_100),
+        status: Status.InProgress,
+        priority: Priority.High,
+    }
+
+    assert Store.save(fs, t1) == Ok(t1)
+    assert Store.save(fs, t2) == Ok(t2)
+
+    // Reload with a fresh FileStore value pointing at the same path.
+    fs2 = FileStore{path: test_path}
+    assert Ok(loaded) = Store.load(fs2)
+    assert Map.size(loaded) == 2
+    assert Some(loaded_t1) = Map.get(loaded, 1)
+    assert loaded_t1.title == "buy milk"
+    assert Some(loaded_t2) = Map.get(loaded, 2)
+    assert loaded_t2.title == "write tests"
+    assert loaded_t2.status == Status.InProgress
+    assert loaded_t2.priority == Priority.High
+
+    // Delete t1, reload, and expect only t2.
+    assert Store.delete(fs, 1) == Ok(Unit)
+    assert Ok(after) = Store.load(fs)
+    assert Map.size(after) == 1
+    assert Map.get(after, 1) == None
+    assert Some(remaining) = Map.get(after, 2)
+    assert remaining.title == "write tests"
+}

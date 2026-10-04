@@ -1,0 +1,133 @@
+// The Context VALUE STORE, and a test that FAILS on purpose so a Context's
+// `values:` row is compared byte for byte.
+//
+// # Why the failure is necessary
+//
+// untyped_list_report.nomi states it: `tests/` contains no program that
+// fails an assertion, so the sweep compares the passing path exclusively and
+// reads `0 DIFFED` over any amount of wrong failure text. A Context renders as
+// `<context>` in a `values:` row, and the ONLY way to compare that string is to
+// produce one. This file is NOT in the corpus and is never run by
+// `nomi test tests`; the non-zero exit is part of what requireIdentical
+// compares.
+//
+// # TWO NOMI TYPES WITH ONE GO REPRESENTATION, which is the discriminating case
+//
+// `TraceId` and `Subject` are both `type X String`, so both are a Go `string` at
+// run time. The compiled store keys on a `*rt.TypeID` ADDRESS, and this pair is
+// what separates that from every cheaper key: a key derived from the value's Go
+// type would file both under `string` and answer a `Subject` lookup with a
+// `TraceId`. `context_values_test.nomi` in the corpus uses ONE value type, so it
+// cannot see this at all.
+//
+// # A ZERO-SIZED TYPE IS BOTH A WITNESS AND A VALUE
+//
+// `Marker` is used three ways below — as a stored VALUE, as a WITNESS at a
+// `Type<Marker>` parameter, and as an ordinary value compared with `==`. That is
+// the pair the builder has to keep apart: a bare type name at a `Type<T>`
+// parameter is a witness, and everywhere else it is the type's sole inhabitant.
+// Getting it wrong is a WRONG ANSWER rather than a refusal, because
+// markerValue's zero-sized value lowers perfectly well and would pass every
+// type check on the way in.
+import {
+    std/duration.Duration
+    std/io
+}
+
+type TraceId String
+
+type Subject String
+
+type Marker
+
+fn trace_of(c: Context): String {
+    case Context.value(c, TraceId) {
+        Some(TraceId(id)) -> id
+        None -> "none"
+    }
+}
+
+fn subject_of(c: Context): String {
+    case Context.value(c, Subject) {
+        Some(Subject(s)) -> s
+        None -> "none"
+    }
+}
+
+// The witness arrives as a PARAMETER here, so `marker_type` is an ordinary value
+// of type `Type<Marker>` and must NOT be read as a type name. That is the
+// interpreter's own local-binding guard (typeWitnessNameFromExpr) and the
+// builder mirrors it.
+fn marker_of(c: Context, marker_type: Type<Marker>): Maybe<Marker> {
+    Context.value(c, marker_type)
+}
+
+test "two Nomi types over one Go type are two keys" {
+    root = Context.root()
+    traced = Context.with_value(root, TraceId("t-1"))
+
+    assert Context.value(traced, Subject) == None
+    assert trace_of(traced) == "t-1"
+
+    both = Context.with_value(traced, Subject("alice"))
+    assert trace_of(both) == "t-1"
+    assert subject_of(both) == "alice"
+
+    // The parent is untouched by the child's extra binding.
+    assert subject_of(traced) == "none"
+}
+
+test "a child shadows and both ends are read" {
+    root = Context.root()
+    traced = Context.with_value(root, TraceId("t-1"))
+    shadowed = Context.with_value(traced, TraceId("t-2"))
+
+    assert trace_of(shadowed) == "t-2"
+    assert trace_of(traced) == "t-1"
+    assert trace_of(root) == "none"
+}
+
+test "an Int is keyed by Int" {
+    c = Context.with_value(Context.root(), 7)
+
+    assert case Context.value(c, Int) {
+        Some(n) -> n == 7
+        None -> False
+    }
+
+    assert Context.value(c, TraceId) == None
+}
+
+test "a zero-sized type is a value and a witness" {
+    bare = Marker
+    assert bare == Marker
+
+    c = Context.with_value(Context.root(), Marker)
+    assert marker_of(c, Marker) == Some(Marker)
+    assert marker_of(Context.root(), Marker) == None
+}
+
+test "a value survives a deadline derivation" {
+    c = Context.with_value(Context.root(), TraceId("t-1"))
+    bounded = Context.with_timeout(c, Duration.seconds(60))
+    assert trace_of(bounded) == "t-1"
+    io.print("bounded still has a deadline: ${Context.deadline(bounded) != None}")
+}
+
+// THE FAILING CASES. Each puts a Context in an operand position so the report
+// has to render one, and the rendering is what this fixture exists to compare.
+test "a failing assertion renders a Context operand" {
+    root = Context.root()
+    assert trace_of(root) == "t-1"
+}
+
+test "a failing assertion renders a Context on both sides" {
+    root = Context.root()
+    traced = Context.with_value(root, TraceId("t-1"))
+    refute trace_of(traced) == "t-1"
+}
+
+test "a failing marker lookup renders its Context" {
+    c = Context.root()
+    assert marker_of(c, Marker) == Some(Marker)
+}

@@ -1,0 +1,12 @@
+import {
+    std/duration.Duration
+    ffi
+}
+
+test "Go time.Duration projects to Nomi Duration" {
+    assert ffi.timeout() |> Duration.as_millis() == 1500
+}
+
+test "Nomi Duration passes back to Go time.Duration" {
+    assert ffi.timeout() |> ffi.double() |> Duration.as_millis() == 3000
+}

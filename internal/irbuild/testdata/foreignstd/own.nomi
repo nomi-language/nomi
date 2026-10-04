@@ -1,0 +1,10 @@
+// A USER type that shares std's spelling. Nominal identity is (declaring file,
+// name), so this `Diagnostic` and std/compiler's are DISTINCT types, and a
+// cross-file lookup keyed on the bare name would collapse them.
+pub struct Diagnostic {
+    label: String
+}
+
+pub fn label_of(diagnostic: Diagnostic): String {
+    diagnostic.label
+}

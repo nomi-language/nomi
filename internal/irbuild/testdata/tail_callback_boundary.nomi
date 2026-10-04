@@ -1,0 +1,44 @@
+// The two INLINED-callback boundaries, both inside a tail-cycle member.
+//
+// `Iter.reduce`'s callback becomes a real Go func literal (ctrlflow.go), and
+// `Iter.loop`'s becomes an INLINE Go `for` — not a func literal at all. Both
+// have to clear the tail label: for the func literal because a `continue` cannot
+// cross one, and for the inline loop because `continue <tail label>` there WOULD
+// be legal Go and would abandon the wrong loop.
+//
+// A callback body's tail is the CALLBACK's tail, so `walk(0, a + x)` here is an
+// ordinary call to `walk`'s own function, which trampolines itself. `walk` also
+// has a real tail self-call, so the module must contain exactly one hop.
+//
+// A `break` value is deliberately used for the `loop` half: `mark` has no
+// *ast.Break arm, so `break walk(...)` is not tail-marked at all, and this
+// records that rather than leaving a reader to assume the loop arm is covered
+// by the reduce arm.
+import std/io
+
+fn walk(n: Int, acc: Int): Int {
+    if n == 0 {
+        acc
+    } else if n == 1 {
+        Iter.reduce([1, 2], |a = acc, x| walk(0, a + x))
+    } else {
+        walk(n - 1, acc + 1)
+    }
+}
+
+fn spin(n: Int, acc: Int): Int {
+    if n == 0 {
+        acc
+    } else if n == 1 {
+        Iter.loop(|s = 0| { break spin(0, acc + s + 1) })
+    } else {
+        spin(n - 1, acc + 1)
+    }
+}
+
+fn main() {
+    io.print("reduce = ${walk(5, 0)}")
+    io.print("reduce = ${walk(1, 7)}")
+    io.print("loop = ${spin(5, 0)}")
+    io.print("loop = ${spin(1, 7)}")
+}

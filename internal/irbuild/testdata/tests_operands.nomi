@@ -1,0 +1,215 @@
+// Every operand shape an assertion's `values:` row can show, each in a FAILING
+// assertion, because a passing one proves nothing here — both paths pass and any
+// divergence is in the report text nobody printed.
+//
+// The rows are not `impl Display` and they are not `Debug`: they are
+// value.Inspect, which is structural. The List<String> case is the one that
+// makes that visible from the outside — `["a", "b"]` here against `[a, b]` for
+// the same list in `${...}`, which is std/lists.nomi's Display impl.
+struct Point {
+    x: Int
+    y: String
+}
+
+struct Outer {
+    p: Point
+    tag: Int
+}
+
+struct Nothing {}
+
+// Embedded rather than Point, and that is not arbitrary: a struct that is BOTH
+// a field of another struct AND embedded in an enum trips a pre-existing derive
+// bug at cbf494c3 — the synthesized `impl Debug for Outer` widens its `Point`
+// field to `Shape` and calls a Debug impl that was dropped, so `Generate`
+// reports success and emits Go that does not compile. Nothing to do with
+// operand rendering; see docs/feature-status.md.
+struct Wrapped {
+    n: Int
+}
+
+type UserId Int
+type Expired
+
+enum Shape {
+    Dot
+    Sized Int
+    Box {w: Int, h: String}
+    embeds Wrapped
+    embeds Expired
+}
+
+fn no_int(_v: Int): Bool {
+    False
+}
+
+fn no_str(_v: String): Bool {
+    False
+}
+
+fn no_list(_v: List<Int>): Bool {
+    False
+}
+
+fn no_strings(_v: List<String>): Bool {
+    False
+}
+
+fn no_nested(_v: List<List<Int>>): Bool {
+    False
+}
+
+fn no_pair(_v: (Int, String)): Bool {
+    False
+}
+
+fn no_map(_v: Map<String, Int>): Bool {
+    False
+}
+
+fn no_point(_v: Point): Bool {
+    False
+}
+
+fn no_outer(_v: Outer): Bool {
+    False
+}
+
+fn no_nothing(_v: Nothing): Bool {
+    False
+}
+
+fn no_user(_v: UserId): Bool {
+    False
+}
+
+fn no_shape(_v: Shape): Bool {
+    False
+}
+
+fn no_maybe(_v: Maybe<Int>): Bool {
+    False
+}
+
+fn no_result(_v: Result<Int, String>): Bool {
+    False
+}
+
+fn no_maybe_point(_v: Maybe<Point>): Bool {
+    False
+}
+
+test "a list of Int" {
+    xs = [1, 2, 3]
+    assert no_list(xs)
+}
+
+test "a list of String keeps its quotes" {
+    xs = ["a", "b"]
+    assert no_strings(xs)
+}
+
+test "an empty list" {
+    xs: List<Int> = []
+    assert no_list(xs)
+}
+
+test "a nested list" {
+    xs = [[1, 2], [3]]
+    assert no_nested(xs)
+}
+
+test "a tuple" {
+    p = (1, "two")
+    assert no_pair(p)
+}
+
+test "a map" {
+    m = {"a" => 1, "b" => 2}
+    assert no_map(m)
+}
+
+test "an empty map" {
+    m: Map<String, Int> = Map.empty()
+    assert no_map(m)
+}
+
+// NOT named "sorts its fields", which is what this said until 2026-08-22 and
+// what it cannot show: `Point {x, y}` is ALPHABETICAL, so sorted order and
+// declaration order are the same string here and a renderer using either passes.
+// The SORT is genuinely pinned, by the `a struct-shaped enum variant` row below
+// — `Box {w: Int, h: String}` renders `Box(Box{h: "tall", w: 1})`, which only a
+// sorting renderer produces. So this was a misleading NAME, not a coverage hole.
+// `Point` is left alphabetical deliberately rather than reordered: it appears in
+// four other pinned rows here, and the ordering property now has a dedicated
+// home in testdata/debug_display_surfaces.nomi, where `zeta` before `alpha`
+// distinguishes all four renderings at once.
+test "a struct renders every field" {
+    p = Point{x: 1, y: "two"}
+    assert no_point(p)
+}
+
+test "a struct with no fields" {
+    n = Nothing{}
+    assert no_nothing(n)
+}
+
+test "a nested struct" {
+    o = Outer{p: Point{x: 1, y: "two"}, tag: 9}
+    assert no_outer(o)
+}
+
+test "a distinct type" {
+    u = UserId(42)
+    assert no_user(u)
+}
+
+test "a bare enum variant" {
+    s = Shape.Dot
+    assert no_shape(s)
+}
+
+test "a positional enum variant" {
+    s = Shape.Sized(7)
+    assert no_shape(s)
+}
+
+test "a struct-shaped enum variant" {
+    s = Shape.Box{w: 1, h: "tall"}
+    assert no_shape(s)
+}
+
+test "an embedded struct variant" {
+    s = Shape.Wrapped{n: 4}
+    assert no_shape(s)
+}
+
+test "an embedded marker variant carries nothing" {
+    s = Shape.Expired
+    assert no_shape(s)
+}
+
+test "Some" {
+    m = Some(5)
+    assert no_maybe(m)
+}
+
+test "None" {
+    m: Maybe<Int> = None
+    assert no_maybe(m)
+}
+
+test "Ok" {
+    r: Result<Int, String> = Ok(3)
+    assert no_result(r)
+}
+
+test "Err" {
+    r: Result<Int, String> = Err("bad")
+    assert no_result(r)
+}
+
+test "a prelude enum over a struct" {
+    m = Some(Point{x: 1, y: "two"})
+    assert no_maybe_point(m)
+}

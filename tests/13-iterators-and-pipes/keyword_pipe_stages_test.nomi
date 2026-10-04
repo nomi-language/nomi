@@ -1,0 +1,118 @@
+import {
+    std/compiler
+    std/testing
+}
+
+fn parse_id(s: String): Result<Int, String> {
+    case String.to_int(s) {
+        Some(id) -> Ok(id)
+        None -> Err("expected numeric id")
+    }
+}
+
+fn parsed_id(s: String): Result<Int, String> {
+    id = s |> try parse_id()
+
+    Ok(id)
+}
+
+test "head assertions can validate pipeline results" {
+    assert "Ada Lovelace"
+        |> String.contains?("Ada")
+
+    refute "Ada Lovelace"
+        |> String.contains?("Grace")
+
+    result = testing.check(
+        "Ada Lovelace"
+        |> String.contains?("Ada")
+    )
+
+    assert result == Ok(True)
+}
+
+test "keyword-prefixed try unwraps the decorated stage result" {
+    assert parsed_id("42") == Ok(42)
+    assert parsed_id("wat") == Err("expected numeric id")
+}
+
+test "keyword-prefixed if branches on the decorated Bool stage" {
+    label =
+        42
+        |> if Int.equal?(42) { "answer" } else { "other" }
+
+    assert label == "answer"
+}
+
+test "keyword-prefixed if can use multiline branches" {
+    label =
+        "Ada"
+        |> if String.contains?("A") {
+                "initialed"
+            } else {
+                "plain"
+            }
+
+    assert label == "initialed"
+}
+
+test "bare if pipe stages branch on the previous Bool" {
+    label =
+        True
+        |> if { "yes" } else { "no" }
+
+    assert label == "yes"
+}
+
+test "keyword-prefixed case matches the decorated stage result" {
+    value =
+        "42"
+        |> case parse_id() {
+                Ok(id) -> id
+                Err(_) -> 0
+            }
+
+    assert value == 42
+}
+
+test "bare case pipe stages match the previous value" {
+    value =
+        Some(3)
+        |> case {
+                Some(n) -> n
+                None -> 0
+            }
+
+    assert value == 3
+}
+
+test "dbg can inspect a pipeline stage" {
+    result = compiler.run(
+        """
+        import std/io
+
+        fn double(n: Int): Int {
+          n * 2
+        }
+
+        fn main() {
+          value =
+            21
+            |> double()
+            |> dbg
+          io.print(value)
+        }
+        """
+    )
+
+    assert result == Ok(
+        """
+        dbg line 11:
+          21
+          |> double()
+          = 42
+        42
+
+        """
+    )
+}

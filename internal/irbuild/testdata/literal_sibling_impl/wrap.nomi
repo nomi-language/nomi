@@ -1,0 +1,59 @@
+// A SECOND sibling file, so the route is exercised at more than one unit —
+// `siblingLiteralImpl` reads the unit off the index entry and a one-sibling
+// fixture cannot tell that apart from a constant.
+//
+// Its handler returns a NON-SCALAR declared HERE, which is what makes the
+// result's `importKind` load-bearing: `Boxed` is a different `*typeDef`
+// pointer in this package and in the entry's, so a route that skipped the
+// translation would compare two spellings of one type and refuse the call it
+// had just resolved.
+import std/literals.{Fragment, Literal}
+
+pub struct Boxed {
+    text: String
+    slots: Int
+}
+
+/// Zero-sized tag carrier. `Wrap"..."` concatenates the body and counts how
+/// many `${...}` slots it had.
+pub type Wrap
+
+impl Literal for Wrap {
+    fn from_fragments(fragments: List<Fragment<String>>): Boxed {
+        Boxed{
+            text: Iter.reduce(fragments, |acc = "", frag|
+                case frag {
+                    .Static(s) -> acc + s
+                    .Dynamic(v) -> acc + v
+                }
+            ),
+            slots: Iter.reduce(fragments, |acc = 0, frag|
+                case frag {
+                    .Static(_) -> acc
+                    .Dynamic(_) -> acc + 1
+                }
+            ),
+        }
+    }
+}
+
+/// A slot value of a type declared in THIS file. It makes the handler's
+/// parameter — `List<Fragment<Slot>>` — name a nominal type whose `*typeDef`
+/// is a different pointer in the entry's package, which is the shape
+/// `importLiteralSig` translates for.
+pub struct Slot {
+    n: Int
+}
+
+pub type Slots
+
+impl Literal for Slots {
+    fn from_fragments(fragments: List<Fragment<Slot>>): Int {
+        Iter.reduce(fragments, |acc = 0, frag|
+            case frag {
+                .Static(s) -> acc + String.length(s)
+                .Dynamic(v) -> acc + v.n
+            }
+        )
+    }
+}

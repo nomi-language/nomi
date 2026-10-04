@@ -1,0 +1,75 @@
+import std/compiler
+
+test "defer runs on normal exit failed acquire and early return" {
+    result = compiler.run(
+        """
+        import std/io
+
+        struct Conn {
+          name: String
+        }
+
+        fn close(conn: Conn): Unit {
+          io.print("close " + conn.name)
+        }
+
+        fn open(name: String): Result<Conn, String> {
+          if name == "bad" {
+            Err("open failed")
+          } else {
+            Ok(Conn{name})
+          }
+        }
+
+        fn normal_exit(): Result<Unit, String> {
+          {
+            first = try open("first")
+            defer close(first)
+            second = try open("second")
+            defer close(second)
+            io.print("body")
+          }
+          Ok(Unit)
+        }
+
+        fn failed_acquire(): Result<Unit, String> {
+          first = try open("first")
+          defer close(first)
+          _bad = try open("bad")
+          Ok(Unit)
+        }
+
+        fn early_return(): Int {
+          conn = Conn{name: "early"}
+          defer close(conn)
+          return 5
+        }
+
+        fn main() {
+          case normal_exit() {
+            Ok(_) -> io.print("normal done")
+            Err(e) -> io.print(e)
+          }
+          case failed_acquire() {
+            Ok(_) -> io.print("unexpected")
+            Err(e) -> io.print("failed: " + e)
+          }
+          io.inspect(early_return())
+        }
+        """
+    )
+
+    assert result == Ok(
+        """
+        body
+        close second
+        close first
+        normal done
+        close first
+        failed: open failed
+        close early
+        5
+
+        """
+    )
+}

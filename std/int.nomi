@@ -1,0 +1,260 @@
+import {
+    add.Add
+    bool.Bool
+    comparable.Comparable
+    comparable.Ordering.{self, Equal, Greater, Less}
+    debug.Debug
+    discrete.Discrete
+    display.Display
+    divide.Divide
+    equatable.Equatable
+    float.Float
+    hashable.Hashable
+    maybe.Maybe.{self, None, Some}
+    multiply.Multiply
+    steppable.Steppable
+    strings.String
+    subtract.Subtract
+}
+
+//# Operations on the 64-bit signed `Int` type: total division/modulo gated on
+//# the refinement types `NonZeroInt`/`PositiveInt`, conversion to `Float`,
+//# wrapping (modular) arithmetic, bit operations, and the `Int` limits. The
+//# arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/`Comparable` impls give `Int` its
+//# string form, hashing, and total order.
+
+/// 64-bit signed integer.
+pub host type Int
+
+impl Int {
+    /// The greatest value of the 64-bit `Int`.
+    //! assert Int.max_value == 9223372036854775807
+    //
+    pub once max_value = 9223372036854775807
+
+    /// The most negative value of the 64-bit `Int`. `min_value` is unrepresentable
+    /// as a literal (a bare literal parses its magnitude, which overflows), so
+    /// reach for these constants instead of writing the number.
+    //! assert Int.min_value == Int.wrapping_add(Int.max_value, 1)
+    //
+    pub once min_value = Int.wrapping_add(Int.max_value, 1)
+
+    /// Validates that `n` is non-zero and wraps it. Returns None when n == 0.
+    //! assert Int.to_non_zero(5) == Some(NonZeroInt(5))
+    //! assert Int.to_non_zero(-3) == Some(NonZeroInt(-3))
+    //! assert Int.to_non_zero(0) == None
+    //
+    pub fn to_non_zero(n: Int): Maybe<NonZeroInt> {
+        if n == 0 { None } else { Some(NonZeroInt(n)) }
+    }
+
+    /// Validates that `n` is positive (> 0) and wraps it. Returns None for
+    /// zero or negative values.
+    //! assert Int.to_positive(5) == Some(PositiveInt(5))
+    //! assert Int.to_positive(0) == None
+    //! assert Int.to_positive(-3) == None
+    //
+    pub fn to_positive(n: Int): Maybe<PositiveInt> {
+        if n > 0 { Some(PositiveInt(n)) } else { None }
+    }
+
+    /// Converts an Int to a Float. Total — every Int64 maps to a Float64.
+    /// Precision loss is possible for |x| > 2^53 (Float64 has a 52-bit mantissa);
+    /// the result is the nearest representable Float.
+    //! assert Int.to_float(5) == 5.0
+    //! assert Int.to_float(-7) == -7.0
+    //
+    pub host fn to_float(x: Int): Float
+
+    /// Wrapping (modular, two's-complement) addition. Unlike `+`, which traps on
+    /// overflow, this silently wraps — for hashing, checksums, and any algorithm
+    /// that deliberately wants modular arithmetic.
+    //! assert Int.wrapping_add(9223372036854775807, 1) == Int.min_value
+    //
+    pub host fn wrapping_add(a: Int, b: Int): Int
+
+    /// Wrapping (modular, two's-complement) subtraction. See `Int.wrapping_add`.
+    //! assert Int.wrapping_sub(Int.min_value, 1) == Int.max_value
+    //
+    pub host fn wrapping_sub(a: Int, b: Int): Int
+
+    /// Wrapping (modular, two's-complement) multiplication. See `Int.wrapping_add`.
+    //! assert Int.wrapping_mul(9223372036854775807, 2) == -2
+    //
+    pub host fn wrapping_mul(a: Int, b: Int): Int
+
+    /// Bitwise AND of two Ints. Nomi has no bitwise operators; these functions are
+    /// the surface, as in Gleam (`int.bitwise_*`) and Elm (`Bitwise.*`).
+    //! assert Int.bitwise_and(12, 10) == 8
+    //! assert Int.bitwise_or(12, 10) == 14
+    //! assert Int.bitwise_xor(12, 10) == 6
+    //! assert Int.bitwise_not(0) == -1
+    //
+    pub host fn bitwise_and(a: Int, b: Int): Int
+
+    /// See `Int.bitwise_and`.
+    //! assert Int.bitwise_or(12, 10) == 14
+    //
+    pub host fn bitwise_or(a: Int, b: Int): Int
+
+    /// See `Int.bitwise_and`.
+    //! assert Int.bitwise_xor(12, 10) == 6
+    //
+    pub host fn bitwise_xor(a: Int, b: Int): Int
+
+    /// Bitwise NOT (one's complement) of one Int. See `Int.bitwise_and`.
+    //! assert Int.bitwise_not(0) == -1
+    //
+    pub host fn bitwise_not(a: Int): Int
+
+    /// Left shift `a` by `n` bit positions. `n` must be non-negative (a negative
+    /// count is a runtime error); a count >= 64 shifts every bit out, yielding 0.
+    //! assert Int.shift_left(1, 4) == 16
+    //
+    pub host fn shift_left(a: Int, n: Int): Int
+
+    /// Arithmetic (sign-extending) right shift of `a` by `n` bit positions. `n`
+    /// must be non-negative; a count >= 64 yields 0 for non-negative `a` and -1
+    /// for negative `a`.
+    //! assert Int.shift_right(-8, 1) == -4
+    //
+    pub host fn shift_right(a: Int, n: Int): Int
+
+    /// Integer modulo. Total — same shape as `Int.divide`, requires
+    /// `y: NonZeroInt`.
+    //! nz = try Int.to_non_zero(3)
+    //! assert Int.modulo(10, nz) == 1
+    //
+    pub fn modulo(x: Int, y: NonZeroInt): Int {
+        NonZeroInt(n) = y
+        x % n
+    }
+}
+
+impl Display for Int {
+    /// Returns the canonical decimal string form of `n`, matching the runtime
+    /// stringifier used by `io.print` and string interpolation.
+    //! assert Int.to_string(42) == "42"
+    //! assert Int.to_string(-7) == "-7"
+    //
+    host fn to_string(n: Int): String
+}
+
+impl Add<Int, Int> for Int {
+    host fn add(lhs: Int, rhs: Int): Int
+}
+
+impl Subtract<Int, Int> for Int {
+    host fn subtract(lhs: Int, rhs: Int): Int
+}
+
+impl Multiply<Int, Int> for Int {
+    host fn multiply(lhs: Int, rhs: Int): Int
+}
+
+impl Divide<Int, Int> for Int {
+    host fn divide(lhs: Int, rhs: Int): Int
+}
+
+impl Divide<NonZeroInt, Int> for Int {
+    /// Integer division. Total — the type system rules out a zero divisor at
+    /// the call site by requiring `rhs: NonZeroInt`. Rounds toward zero
+    /// (matches the `/` operator). Callers who have an unvalidated Int use
+    /// `Int.to_non_zero` first; the fallibility moves to the validation step,
+    /// where it belongs.
+    //! nz = try Int.to_non_zero(3)
+    //! assert Int.divide(10, nz) == 3
+    //
+    fn divide(lhs: Int, rhs: NonZeroInt): Int {
+        NonZeroInt(n) = rhs
+        lhs / n
+    }
+}
+
+impl Debug for Int {
+    fn inspect(n: Int): String {
+        to_string(n)
+    }
+}
+
+impl Equatable for Int {
+    fn equal?(a: Int, b: Int): Bool {
+        a == b
+    }
+}
+
+impl Hashable for Int {
+    fn hash(n: Int): Int {
+        n
+    }
+}
+
+impl Comparable for Int {
+    fn compare(a: Int, b: Int): Ordering {
+        case {
+            a < b -> Less
+            a == b -> Equal
+            _ -> Greater
+        }
+    }
+}
+
+impl Discrete for Int {
+    fn next(n: Int): Maybe<Int> {
+        if n == Int.max_value {
+            None
+        } else {
+            Some(n + 1)
+        }
+    }
+
+    fn steps_between(start: Int, end: Int): Maybe<Int> {
+        if start > end {
+            Some(0)
+        } else {
+            Some(end - start)
+        }
+    }
+}
+
+impl Steppable for Int {
+    fn step_by(n: Int, by: Int): Maybe<Int> {
+        if by > 0 and n > Int.max_value - by {
+            None
+        } else if by < 0 and n < Int.min_value - by {
+            None
+        } else {
+            Some(n + by)
+        }
+    }
+}
+
+/// An Int proven to be non-zero. The smart constructor `Int.to_non_zero` is
+/// the only way to obtain a value; once you have one, dividing or modding
+/// by it cannot fail.
+pub opaque type NonZeroInt Int
+
+derive Debug for NonZeroInt
+derive Display for NonZeroInt
+
+/// An Int proven to be positive (> 0). Smart constructor: `Int.to_positive`.
+/// Implies non-zero, so a `PositiveInt` can be passed wherever a
+/// `NonZeroInt` is expected via `PositiveInt.to_non_zero`.
+pub opaque type PositiveInt Int
+
+/// Widens a `PositiveInt` to a `NonZeroInt` — every positive Int is non-zero,
+/// so this is total (never fails). Lets a `PositiveInt` flow into a position
+/// that requires `NonZeroInt`, such as `Int.divide`'s divisor.
+//! p = try Int.to_positive(5)
+//! NonZeroInt(n) = PositiveInt.to_non_zero(p)
+//! assert n == 5
+//
+impl PositiveInt {
+    pub fn to_non_zero(p: PositiveInt): NonZeroInt {
+        PositiveInt(n) = p
+        NonZeroInt(n)
+    }
+}
+
+derive Debug for PositiveInt
+derive Display for PositiveInt

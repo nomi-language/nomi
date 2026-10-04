@@ -1,0 +1,72 @@
+// An inspector reached THROUGH a structural component of another inspector's
+// field.
+//
+// `Bag.items` is a `List<Point>`, so rendering a Bag in a `values:` row needs
+// `nomiInspect_Point` — but the field's own kind is a List, not a named type,
+// and the dependency edge used to be recorded only for a component whose own
+// tag was tagNamed. The Point inspector was therefore NAMED in the emitted body
+// and never emitted: `undefined: nomiInspect_Point_10` from `go build`, at
+// bb3f574f, from this program.
+//
+// It is a COMPILE-FAIL rather than a wrong answer, which is why nothing caught
+// it: the corpus contains no struct with a `List<UserStruct>` field, so the
+// sweep read 0 COMPILE-FAIL and was right about the corpus and silent about the
+// language.
+//
+// The FAILING assertions are the point — a `values:` row is only rendered when
+// an assertion fails, so a file whose cases all pass would compile the
+// inspector and never call it, and a mutation that emitted the wrong renderer
+// would still pass. Every case here prints its operand.
+struct Point {
+    x: Int
+}
+
+struct Bag {
+    items: List<Point>
+    label: String
+}
+
+struct Depot {
+    bags: List<Bag>
+}
+
+test "a List of a user struct renders in a failure row" {
+    b = Bag{
+        items: [Point{x: 1}, Point{x: 2}],
+        label: "left",
+    }
+
+    assert b.label == "right"
+    assert Iter.count(b.items) == 9
+}
+
+test "the operand itself is the struct carrying the list" {
+    b = Bag{
+        items: [Point{x: 7}],
+        label: "solo",
+    }
+
+    other = Bag{items: [], label: "empty"}
+    assert b == other
+}
+
+// TWO levels of structural nesting: `Depot.bags` is a `List<Bag>` and each
+// `Bag.items` is a `List<Point>`, so the Point inspector is reached through two
+// structural components and one named one.
+test "nesting a list inside a list inside a struct" {
+    d = Depot{
+        bags: [
+            Bag{
+                items: [
+                    Point{
+                        x: 3,
+                    },
+                ],
+                label: "one",
+            },
+        ],
+    }
+
+    empty = Depot{bags: []}
+    assert d == empty
+}

@@ -1,0 +1,44 @@
+test "tuples expose positional fields" {
+    pair = ("hello", 42)
+
+    assert pair.0 == "hello"
+    assert pair.1 == 42
+}
+
+test "tuple destructuring binds positional values" {
+    (x, y) = (10, 20)
+
+    assert x + y == 30
+}
+
+test "functions can return tuples for destructuring" {
+    (quotient, remainder) = divide(17, 5)
+
+    assert quotient == 3
+    assert remainder == 2
+}
+
+test "tuple patterns match positional shapes" {
+    assert classify((0, 0)) == "origin"
+    assert classify((0, 7)) == "y-axis"
+    assert classify((3, 0)) == "x-axis"
+    assert classify((1, 2)) == "other"
+}
+
+test "tuple equality compares positional values" {
+    assert (1, 2) == (1, 2)
+    refute (1, 2) == (1, 3)
+}
+
+fn divide(a: Int, b: Int): (Int, Int) {
+    (a / b, a % b)
+}
+
+fn classify(point: (Int, Int)): String {
+    case point {
+        (0, 0) -> "origin"
+        (0, _) -> "y-axis"
+        (_, 0) -> "x-axis"
+        _ -> "other"
+    }
+}

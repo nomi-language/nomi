@@ -1,0 +1,20 @@
+import std/io
+
+// A named type reaching ITSELF through an anonymous struct FIELD. No value of
+// this type can be constructed (there is no base case), but the DECLARATION
+// still has to have a Go spelling of finite size — which is what the
+// tagAnonStruct arm in appendInlineDefs decides. Without it the spelling is
+// `type NomiT_Node struct { F_n int64; F_wrap struct { F_depth int64; F_inner NomiT_Node } }`
+// which Go would reject as an invalid recursive type.
+struct Node {
+    n: Int
+    wrap: {inner: Node, depth: Int}
+}
+
+fn depth_of(x: Node): Int {
+    x.wrap.depth
+}
+
+fn main() {
+    io.print("declared")
+}

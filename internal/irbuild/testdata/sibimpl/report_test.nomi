@@ -1,0 +1,17 @@
+// A cross-file TYPE-qualified call inside an assertion SUBJECT. The assertion
+// fails on purpose so the report text is what gets compared: eval records a
+// call's arguments for a type-qualified callee exactly as for a direct one, and
+// a lowering that reached the callee but skipped the recording would agree on
+// the exit status and disagree on every line the programmer reads.
+//
+// The subject NESTS two of them, so the `values:` rows have to carry the inner
+// call's result as well as the outer's.
+import shapes.Status
+
+test "a type-qualified sibling call shows its arguments" {
+    assert Status.is_active(Status.inactive("holiday"))
+}
+
+test "a passing type-qualified sibling call reports nothing extra" {
+    assert Status.is_active(Status.active())
+}

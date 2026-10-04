@@ -1,0 +1,24 @@
+import {
+    std/io
+    internal/report
+    item.Item
+}
+
+fn main() {
+    items = [
+        Item.new(1, "buy milk") |> Item.complete(),
+        Item.new(2, "write the design doc"),
+        Item.new(10, "walk the dog"),
+    ]
+
+    items
+    |> Iter.map(report.row)
+    |> Iter.each(io.print)
+
+    open =
+        items
+        |> Iter.filter(|item| !Item.done?(item))
+        |> Iter.count()
+
+    io.print("${open} open")
+}

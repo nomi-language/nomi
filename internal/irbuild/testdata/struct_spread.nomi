@@ -1,0 +1,97 @@
+// Struct update by spread, `{..base, field: value}`. Every accepted shape
+// (nominal, copy, several fields, anonymous record, interface-typed field,
+// generic struct, impure head, stacked layout) appears once.
+//
+// Three rows are about what the merge does NOT do, and they are checked
+// against the golden record, which states the right answer rather than
+// whatever an implementation happens to print:
+//
+//   - `original` is printed AFTER the update. The base must be unchanged; a
+//     Nomi struct is a value.
+//   - `(built)` appears ONCE. The head is evaluated exactly once. Emitting
+//     `T{x: v, y: base.y, …}` instead would call `build()` per surviving
+//     field.
+//   - `copy` carries the head's TYPE, not merely its field values. `Display`
+//     is the instrument: an anonymous result would render `{x: …, y: …}`.
+import std/io
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+derive Display for Point
+
+interface Speaker {
+    fn say(s: self): String
+}
+
+struct Loud {
+    n: Int
+}
+
+impl Speaker for Loud {
+    fn say(s: Loud): String {
+        "LOUD${Int.to_string(s.n)}"
+    }
+}
+
+struct Quiet {
+    n: Int
+}
+
+impl Speaker for Quiet {
+    fn say(s: Quiet): String {
+        "quiet${Int.to_string(s.n)}"
+    }
+}
+
+struct Stage {
+    who: Speaker
+    seats: Int
+}
+
+struct Box<T> {
+    item: T
+    tag: String
+}
+
+fn build(): Point {
+    io.print("  (built)")
+    Point{x: 1, y: 2}
+}
+
+fn main() {
+    origin = Point{x: 1, y: 2}
+
+    moved = {..origin, x: 9}
+    io.print("nominal ${Display.to_string(moved)}")
+
+    both = {..origin, x: 4, y: 5}
+    io.print("both ${Display.to_string(both)}")
+
+    io.print("original ${Display.to_string(origin)}")
+
+    record = {x: 1, y: 2}
+    shifted = {..record, y: 7}
+    io.print("record ${Int.to_string(shifted.x)}/${Int.to_string(shifted.y)}")
+
+    stage = Stage{who: Loud{n: 1}, seats: 10}
+    quieter = {..stage, who: Quiet{n: 2}}
+    io.print("iface ${Speaker.say(quieter.who)}/${Int.to_string(quieter.seats)}")
+
+    boxed: Box<Int> = Box{item: 3, tag: "old"}
+    rebox = {..boxed, item: 4}
+    io.print("generic ${Int.to_string(rebox.item)}/${rebox.tag}")
+
+    evaled = {..build(), y: 6}
+    io.print("once ${Display.to_string(evaled)}")
+
+    stacked = {
+        ..origin,
+        x: 11,
+        y: 12,
+    }
+
+    io.print("stacked ${Display.to_string(stacked)}")
+}

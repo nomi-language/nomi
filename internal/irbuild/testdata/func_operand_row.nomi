@@ -1,0 +1,118 @@
+// How a FUNCTION-VALUED operand reads in an assertion's `values:` row.
+//
+// The assertions below FAIL ON PURPOSE, because a passing assertion renders no
+// operand at all — so this is the only shape of fixture that can see the row.
+// It is also the only way to see the two surfaces disagree: `Debug.inspect(f)`
+// is the name-free constant `<function>` and the row carries the NAME, and both
+// appear in the report below, a few lines apart.
+//
+// # The spellings, and why a table of expression spellings cannot cover them
+//
+// Only two operand EXPRESSIONS determine the function's name statically, so a
+// builder that answered from the expression would get the first two rows and
+// nothing else. The row carries the name of the runtime VALUE instead, and
+// the other rows are the cases that require it:
+//
+//	double, a module fn ref        <func: double>
+//	|x| x + 1                     dropped: rt.RecordOperand suppresses a
+//	                              lambda
+//	g = double, read through g     <func: double>       NOT <func: g>
+//	String.trim, a std method ref  <builtin: strings.String.trim>
+//	Token.Computation(double)      Computation(<func: double>)
+//	Token.Computation(|x| x + 1)   Computation(<func: <lambda>>)
+//
+// Row three is the one that rules out reading the ident's own text: the answer is
+// the name of the value `g` HOLDS. Row four is a THIRD format under a different
+// word, which is why a registry of bare names read through one `<func: %s>`
+// would be silently wrong for it, and why the registry stores whole row strings.
+// Rows five and six are inside a runtime enum payload, where no node at the
+// recording site names the function at all. No spelling table can reach that
+// shape, and `08-pattern-matching/variant_payloads_test.nomi` relies on it
+// rendering correctly.
+//
+// The lambda rows are the MECHANISM and not a decoration: `rt.InspectFunc`
+// renders an unregistered code pointer as `<func: <lambda>>`, so row six is
+// correct precisely because a lambda's pointer is not any registered function's.
+// A build that registered lambdas, or that failed to register the std
+// thunk, shows up as a wrong string HERE.
+fn double(n: Int): Int {
+    n * 2
+}
+
+fn apply(f: (Int) -> Int, x: Int): Int {
+    f(x)
+}
+
+fn takes_s(f: (String) -> String, x: String): String {
+    f(x)
+}
+
+// `Computation` is deliberately NOT the last variant, which avoids a FRONT-END
+// defect rather than being a style choice: an enum whose LAST variant has a
+// function-typed payload is rejected by analysis with "impl function
+// 'inspect': return type Int does not match interface 'Debug' return type
+// String", because the synthesized universal `impl Debug` picks up the payload
+// function's RETURN type. `enum Token { Eof; Computation (Int) -> Int }` is
+// the whole reproduction.
+enum Token {
+    Eof
+    Computation (Int) -> Int
+    Word String
+}
+
+fn run(t: Token): Int {
+    case t {
+        Token.Computation(f) -> f(5)
+        _ -> 0
+    }
+}
+
+test "a module function reference names itself in the row" {
+    assert apply(double, 7) == 99
+}
+
+test "a lambda literal argument is not recorded at all" {
+    // rt.RecordOperand drops it; the row that survives is the CALL's, not the
+    // lambda's.
+    assert apply(|x| x + 1, 7) == 99
+}
+
+test "a binding holding a function names the VALUE, not the binding" {
+    g = double
+    assert apply(g, 7) == 99
+}
+
+test "a stdlib method reference renders under builtin, not func" {
+    assert takes_s(String.trim, " a ") == "NOPE"
+}
+
+test "a function inside a runtime enum payload carries its name" {
+    t = Token.Computation(double)
+    assert run(t) == 99
+}
+
+test "a lambda inside a runtime enum payload is the registry MISS" {
+    t = Token.Computation(|x| x + 1)
+    assert run(t) == 99
+}
+
+// NO `assert Debug.inspect(double) == ...` ROW HERE, and the absence is a
+// known limit of how the row is recorded, not a gap in this file's
+// coverage.
+//
+// `Debug.inspect(double)` is `"<function>"`. What the row lacks is the call's
+// ARGUMENT: a failing assertion over that call does not record
+// `double = <func: double>`, because inspectQualifiedCall answers the call
+// before recordCallArgs is reached.
+//
+// That is general: it is true of `Debug.inspect(<any non-literal>)` inside a
+// FAILING assertion, for every receiver this builder renders, and it stays
+// out of sight for the reason everything on this surface does: a PASSING
+// assertion renders no operand, and no corpus assertion of that shape
+// fails. It is not about functions, and a fixture row for it here would
+// attribute a general gap to this file rather than to the recording of
+// `Debug.inspect` arguments.
+//
+// The Debug-side constant is not asserted in this file. A passing assertion
+// renders no operand, so it would need a failing row, and that row lacks the
+// argument for the reason above.

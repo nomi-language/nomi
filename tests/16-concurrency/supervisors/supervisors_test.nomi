@@ -1,0 +1,88 @@
+//# Named task groups end to end: work that outlives the call, flushed
+//# at a checkpoint, with failures that go somewhere instead of vanishing.
+//#
+//# The shape here is the one the tour recommends — a group per shutdown
+//# policy, a dead-letter channel beside them in the app's config struct,
+//# and a wrapper function per unit of background work that decides what
+//# failure means.
+
+import {
+    std/supervisors.Supervisor
+    std/tasks.{Outcome, Task}
+    std/testing.Clock
+    app.{self, Config, drain_alerts, record_audit, send_welcome, slow_work}
+}
+
+tests "named task groups" {
+    // Background work is what virtual time is for: every test below either
+    // sleeps or waits for a group, and none of it costs real time. A
+    // cancelled 30-second task unwinds at once rather than being slept
+    // through.
+    clock Clock.Virtual
+
+    boot app.boot()
+
+    test "work outlives the call that started it" {
+        // Nothing is awaited here — the group owns the task, so this
+        // returns immediately.
+        _ = Supervisor.spawn(Config.audit, || record_audit(7))
+
+        // The flush is what makes background work testable. Without it the
+        // alternative is sleeping and hoping.
+        _ = Supervisor.flush(Config.audit)
+
+        assert Iter.any?(drain_alerts(), |m| m == "audited 7")
+    }
+
+    test "a failure nobody awaits still goes somewhere" {
+        _ = Supervisor.spawn(Config.notify, || send_welcome(""))
+        _ = Supervisor.flush(Config.notify)
+
+        assert drain_alerts()
+            |> Iter.any?(|m| String.contains?(m, "no address"))
+    }
+
+    test "a batch is bounded by the group's own limit" {
+        // No max_running on this call: the group's limit is the only one,
+        // because work reaches a group from call sites all over the program.
+        _ = Supervisor.spawn_all(Config.notify, ["a@example.com", "b@example.com"], send_welcome)
+        _ = Supervisor.flush(Config.notify)
+
+        // Both succeeded, so nothing was reported.
+        assert Iter.count(drain_alerts()) == 0
+    }
+
+    test "the handles a batch returns can be awaited on their own" {
+        // Safe for group-owned work in a way it is not for block-owned
+        // tasks: nothing cancels these at block exit, because the group
+        // owns them rather than a block.
+        batch = Supervisor.spawn_all(Config.audit, [1, 2], record_audit)
+        _ = Task.await_all(batch)
+
+        assert Iter.count(drain_alerts()) == 2
+    }
+
+    test "cancelling one grouped task leaves the rest alone" {
+        doomed = Supervisor.spawn(Config.notify, || slow_work())
+        _ = Supervisor.spawn(Config.notify, || send_welcome("keeper@example.com"))
+
+        Task.cancel(doomed)
+        _ = Supervisor.flush(Config.notify)
+
+        // The cancelled task never reported, and the sibling was untouched
+        // — a cancelled task is not a failed one, so nothing was alerted.
+        assert Iter.count(drain_alerts()) == 0
+    }
+
+    test "a cancelled task reports Cancelled rather than Completed" {
+        doomed = Supervisor.spawn(Config.notify, || slow_work())
+        Task.cancel(doomed)
+
+        // `Task.outcome`, not `Task.await`: awaiting a task you cancelled
+        // yourself would propagate a cancellation you asked for.
+        // Annotated because `==` constrains neither side, so the shorthand
+        // has nothing to resolve against.
+        cancelled: Outcome<Unit> = .Cancelled
+        assert Task.outcome(doomed) == cancelled
+    }
+}

@@ -1,0 +1,28 @@
+// Generic types main.nomi renders with Debug.inspect and Display: `Span` and
+// `Tree` through the universal Debug the front end supplies, and `Tagged`
+// through impls written here.
+pub struct Span<T> {
+    start: T
+    stop: T
+}
+
+pub enum Tree<T> {
+    Leaf
+    Node T
+}
+
+pub struct Tagged<T> {
+    tag: T
+}
+
+impl Debug for Tagged<T> {
+    fn inspect(_: Tagged<T>): String {
+        "tagged"
+    }
+}
+
+impl Display for Tagged<T> where T: Display {
+    fn to_string(t: Tagged<T>): String {
+        "#" + Display.to_string(t.tag)
+    }
+}

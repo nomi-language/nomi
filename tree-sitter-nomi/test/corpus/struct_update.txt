@@ -1,0 +1,243 @@
+================================================================================
+Struct update with one override
+================================================================================
+
+once p = {..point, x: 9}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (identifier))
+      (struct_update_field
+        field_name: (identifier)
+        (integer)))))
+
+================================================================================
+Struct update with no overrides is a copy
+================================================================================
+
+once p = {..point}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (identifier)))))
+
+================================================================================
+Spread head is a full expression
+================================================================================
+
+once a = {..App.config, tag: "audit"}
+once b = {..f(x), n: 1}
+once c = {..a.b, n: 1}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (field_access
+          (type_identifier)
+          (identifier)))
+      (struct_update_field
+        field_name: (identifier)
+        (string
+          (string_content)))))
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (call_expression
+          function: (identifier)
+          (identifier)))
+      (struct_update_field
+        field_name: (identifier)
+        (integer))))
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (field_access
+          (identifier)
+          (identifier)))
+      (struct_update_field
+        field_name: (identifier)
+        (integer)))))
+
+================================================================================
+Struct update field may be punned
+================================================================================
+
+once p = {..base, x}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (identifier))
+      (struct_update_field
+        field_name: (identifier)))))
+
+================================================================================
+Struct update accepts a trailing comma
+================================================================================
+
+once p = {..base, x: 9,}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (identifier))
+      (struct_update_field
+        field_name: (identifier)
+        (integer)))))
+
+================================================================================
+Stacked struct update: newline separates the spread from the fields
+================================================================================
+
+once p = {
+  ..base
+  x: 9
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (identifier))
+      (struct_update_field
+        field_name: (identifier)
+        (integer)))))
+
+================================================================================
+Struct update inside a call: the brace is not whitespace-preceded
+================================================================================
+
+once p = take({..base, x: 1})
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (call_expression
+      function: (identifier)
+      (struct_update
+        (struct_update_spread
+          head: (identifier))
+        (struct_update_field
+          field_name: (identifier)
+          (integer))))))
+
+================================================================================
+Nested struct update
+================================================================================
+
+once p = {..{..base, x: 1}, y: 2}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (struct_update
+          (struct_update_spread
+            head: (identifier))
+          (struct_update_field
+            field_name: (identifier)
+            (integer))))
+      (struct_update_field
+        field_name: (identifier)
+        (integer)))))
+
+================================================================================
+An app-field override takes a struct update
+================================================================================
+
+fn f() {
+  with App.config = {..App.config, tag: "audit"}
+  run()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (with_statement
+        (field_access
+          (type_identifier)
+          (identifier))
+        (struct_update
+          (struct_update_spread
+            (field_access
+              (type_identifier)
+              (identifier)))
+          (struct_update_field
+            (identifier)
+            (string
+              (string_content)))))
+      (call_expression
+        (identifier)))))
+
+================================================================================
+List spread stays last and keeps its own shape
+================================================================================
+
+once xs = [0, ..rest]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    (identifier)
+    (list
+      (integer)
+      (identifier))))
+
+================================================================================
+A range is still a range, and a plain anon struct is still a plain anon struct
+================================================================================
+
+once r = 0..3
+once s = {x: 1}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    (identifier)
+    (range_expression
+      (integer)
+      (integer)))
+  (once_binding
+    (identifier)
+    (anon_struct
+      (anon_struct_field
+        (identifier)
+        (integer)))))

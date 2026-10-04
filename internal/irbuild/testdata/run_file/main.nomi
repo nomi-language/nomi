@@ -1,0 +1,124 @@
+// `std/compiler.run_file` and the `std/compiler.RunFile` struct it takes — the
+// row `15-app-and-defer/effects/effects_test.nomi` was sole-blocked on, whose
+// whole item list was one site: `stdlib type | std/compiler.RunFile` at 4:30, a
+// STRUCT-LITERAL CONSTRUCTION in an argument.
+//
+// # What is being crossed here, and it is two boundaries rather than one
+//
+// `run_file` differs from `run` in exactly two ways, and each is a boundary a
+// wrong implementation would get wrong silently:
+//
+//  1. THE SOURCE COMES FROM DISK, resolved as a module path under the current
+//     PROJECT ROOT. `target.nomi` beside this file is that source, and a
+//     compiled artifact reaches the root through the boot shim's
+//     `stdcompilerrun.SetProjectRoot` — so a row that finds the file proves the
+//     shim ran, which no `compiler.run` fixture can show.
+//  2. A SIMULATED PROCESS ENVIRONMENT rides along in `RunFile.env`, visible to
+//     `Map.get(startup.env, ...)` inside the run source. `compiler.run` has no parameter for it and
+//     passes nil.
+//
+// Everything else — the pipeline, the `Result<String, String>` marshalling, the
+// discarding of partial output on a fault — is `compiler.run`'s, reached through
+// the same eval.RunSource, and testdata/compiler_run.nomi already covers it. This
+// fixture deliberately does not re-cover it.
+//
+// # THE `env` DEFAULT IS NOT OBSERVABLE HERE, AND THAT IS WORTH STATING
+//
+// `RunFile.env` is declared `Map<String, String> = Map.empty()`, so the builder
+// must supply a value where a construction site omits the field. It does — see
+// stdEmptyMapDefault — and NO OUTPUT IN THIS FIXTURE CAN TELL whether it did,
+// because an omitted `rt.Map` field's Go zero value IS a perfectly good empty
+// map: nil trie root, zero count. Rows 1 and 2 below are the same observation for
+// two different reasons, deliberately, so that coincidence is recorded rather
+// than mistaken for coverage.
+//
+// This is the failure mode the contract calls "a default whose value is the zero
+// value collapses three derivations into one observation", and the honest answer
+// is that the default is guarded somewhere else: `stdStructSpec.matches` requires
+// std's declared default to have the shape `Map.empty()`, and
+// TestStdStructSpecsMatchStdSource fails if it does not — at which point NO
+// anchor is built and every mention of `RunFile` refuses loudly. So a std edit to
+// that default is caught; a missing builder default is not, and could not be by
+// any program.
+//
+// Contrast `Project.manifest`, whose default is `None`: a zero `Maybe` has Tag 0,
+// which is neither Some nor None and matches no `case` arm, so THAT default is
+// load-bearing against a wrong answer and its fixture can see it.
+import {
+    std/compiler.{self, RunFile}
+    std/io
+}
+
+fn out(r: RunFile): String {
+    case compiler.run_file(r) {
+        Ok(text) -> "[" + text + "]"
+        Err(message) -> "ERR " + message
+    }
+}
+
+/// Whether the Err message mentions `needle`, for the one rejection whose text
+/// is not pinnable.
+///
+/// A module that is simply ABSENT reports the OS's own error, which embeds the
+/// ABSOLUTE path it tried — machine-dependent, so `out` would make this fixture
+/// unpinnable on another checkout. The differential half does not care (both
+/// paths produce the same path, which is itself the property that the compiled
+/// artifact resolved the same project root), so what is dropped here is only the
+/// absolute pin, and only for this row.
+fn err_mentions(r: RunFile, needle: String): String {
+    case compiler.run_file(r) {
+        Ok(_) -> "unexpectedly ok"
+        Err(message) -> "${String.contains?(message, needle)}"
+    }
+}
+
+fn main() {
+    // --- 1. THE FIELD DEFAULT PATH: `env` omitted entirely ------------------
+    // The construction site the corpus writes. `probe=absent` shows the run
+    // source saw no override for that key — which is also what an inherited real
+    // process environment gives, since nothing sets it.
+    io.print("default = " + out(RunFile{entry_point: "target"}))
+
+    // --- 2. THE EXPLICIT-EMPTY PATH, same observation, different derivation --
+    // Identical output to row 1 BY CONSTRUCTION. Present so the coincidence is in
+    // the fixture rather than in a reader's head; see the header.
+    io.print("explicit_empty = " + out(RunFile{entry_point: "target", env: Map.empty()}))
+
+    // --- 3. THE ENV ACTUALLY ARRIVES ---------------------------------------
+    // The only row that distinguishes "env is threaded" from "env is dropped".
+    // `run_file` and `run` differ here and nowhere else in the signature, so a
+    // `run`-shaped implementation of `run_file` passes rows 1 and 2 and fails
+    // this one.
+    io.print("with_env = " + out(RunFile{
+            entry_point: "target",
+            env: {"NOMI_RUN_FILE_FIXTURE_PROBE" => "arrived"},
+        }))
+
+    // --- 4. A SECOND KEY, so the map is a MAP and not one slot -------------
+    // Two entries with only one of them read. A projection that carried the first
+    // entry only, or that overwrote, answers row 3's text here too.
+    io.print("two_keys = " + out(RunFile{
+            entry_point: "target",
+            env: {
+                "NOMI_RUN_FILE_FIXTURE_OTHER" => "ignored",
+                "NOMI_RUN_FILE_FIXTURE_PROBE" => "second",
+            },
+        }))
+
+    // --- 5. THE ENTRY-POINT CONTAINMENT RULES, each its own Err ------------
+    // Four rejections, and each is an `Err(message)` a Nomi program reads rather
+    // than a fault — so the text is observable and both paths must produce it.
+    // They are the whole reason eval.RunFileSource exists as one exported
+    // function instead of the artifact composing the lookup itself: a second copy
+    // of these four messages is a divergence waiting to be written.
+    io.print("empty = " + out(RunFile{entry_point: ""}))
+    io.print("suffixed = " + out(RunFile{entry_point: "target.nomi"}))
+    io.print("escaping = " + out(RunFile{entry_point: "../target"}))
+
+    // The fourth rejection is the OS's own, and its text embeds the ABSOLUTE path
+    // that was tried — so it is read for its shape rather than pinned. See
+    // err_mentions.
+    io.print(
+        "missing = " + err_mentions(RunFile{entry_point: "no_such_module"}, "no_such_module.nomi")
+    )
+}

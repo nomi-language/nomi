@@ -1,0 +1,142 @@
+// An interface DEFAULT body calling a SIBLING REQUIREMENT of the same
+// interface, monomorphized per receiver.
+//
+//	interface Formatted {
+//	  fn label(value: self): String
+//	  fn shout(value: self): String { "${label(value)}!" }
+//	}
+//
+// `label` inside `shout`'s default is a bare name that is neither a top-level
+// `fn` nor anything in the file's module scope, so it used to be refused as
+// `interface default calling a sibling requirement` (barecall.go). A default is
+// emitted once per implementing receiver, so inside each copy the callee is
+// STATIC and this lowers to a direct Go call.
+//
+// # WHAT THIS FIXTURE OBSERVES, and why each part is here
+//
+// A lowering that resolved the sibling WRONGLY would still compile, so the
+// program is built so that a wrong answer is a wrong STRING rather than a Go
+// error. Three properties, each of which a plausible wrong implementation gets
+// wrong on its own:
+//
+//   - TWO IMPLEMENTORS whose `label` answers differently. Resolving the sibling
+//     from the interface rather than from the enclosing impl — or caching the
+//     first receiver's answer — prints one implementor's label for both.
+//   - AN OVERRIDDEN DEFAULT. `brief` is `open`, `Loud` overrides it and `Quiet`
+//     inherits it. The inherited copy must call `Quiet.label`; the override's
+//     own body must reach `Loud.label`. A resolution keyed on the interface's
+//     method list rather than on the impl's items cannot tell these apart.
+//   - A TWO-DEEP CHAIN. `banner` defaults to `shout(value)` — a sibling that is
+//     ITSELF a default — so a single-level resolution that only looks for
+//     required (non-defaulted) methods answers nothing for `banner`.
+//
+// The DISPATCHED spelling is exercised beside the direct one: `render` takes a
+// `Formatted` existential, so each string is produced twice, once through a
+// concrete qualifier and once through the erased table. Both must agree with
+// the interpreter, and they must agree with each OTHER — a monomorphization
+// that is correct only on the direct path is the failure this catches.
+import std/io
+
+interface Formatted {
+    fn label(value: self): String
+    // A requirement with a NON-SELF parameter, so a call to it can carry an
+    // argument with EFFECTS. `at(value, bump())` twice in one expression forces
+    // `callArgs` to spill temporaries, which is the shape the emit-then-decline
+    // ledger in impl.go is about: an arm that emits operands before it knows
+    // whether it will serve the call. Here the lowering is placed AFTER every
+    // resolution question, so there is nothing to roll back — and the printed
+    // ORDER is what says the temporaries were spilled in source order rather
+    // than hoisted.
+    fn at(value: self, n: Int): String
+
+    fn shout(value: self): String {
+        "${label(value)}!"
+    }
+
+    open fn brief(value: self): String {
+        label(value)
+    }
+
+    fn banner(value: self): String {
+        "<" + shout(value) + ">"
+    }
+
+    fn twice(value: self): String {
+        at(value, tick("A", 1)) + "/" + at(value, tick("B", 2))
+    }
+}
+
+// An argument with an EFFECT, and one whose ORDER is observable: the two calls
+// in `twice` must print `eval A` then `eval B`, so a hoist shows up as a
+// reordered stdout rather than as nothing at all.
+//
+// A PRINT rather than a mutated counter, and that is a measured correction:
+// `once counter: Int = 0` plus `counter = counter + 1` inside a function does
+// NOT increment the once binding — the assignment introduces a LOCAL, so both
+// calls answered 1 and the fixture read `L1/L1` whichever order they ran in. A
+// counter that cannot count is the "check that would have shown the same thing
+// if the thing were false" shape, caught here by running it.
+fn tick(tag: String, n: Int): Int {
+    io.print("eval " + tag)
+    n
+}
+
+struct Loud {
+    name: String
+}
+
+impl Formatted for Loud {
+    fn label(value: Loud): String {
+        "LOUD:" + value.name
+    }
+
+    fn at(value: Loud, n: Int): String {
+        _ = value
+        "L${n}"
+    }
+
+    fn brief(value: Loud): String {
+        "brief(" + label(value) + ")"
+    }
+}
+
+struct Quiet {
+    name: String
+}
+
+impl Formatted for Quiet {
+    fn label(value: Quiet): String {
+        "quiet:" + value.name
+    }
+
+    fn at(value: Quiet, n: Int): String {
+        _ = value
+        "q${n}"
+    }
+}
+
+fn render(value: Formatted): String {
+    Formatted.label(value) + " | " + Formatted.shout(value) + " | " + Formatted.brief(
+        value
+    ) + " | " + Formatted.banner(value) + " | " + Formatted.twice(value)
+}
+
+fn main() {
+    loud = Loud{name: "a"}
+    quiet = Quiet{name: "b"}
+
+    io.print(Formatted.label(loud))
+    io.print(Formatted.shout(loud))
+    io.print(Formatted.brief(loud))
+    io.print(Formatted.banner(loud))
+    io.print(Formatted.twice(loud))
+
+    io.print(Formatted.label(quiet))
+    io.print(Formatted.shout(quiet))
+    io.print(Formatted.brief(quiet))
+    io.print(Formatted.banner(quiet))
+    io.print(Formatted.twice(quiet))
+
+    io.print(render(loud))
+    io.print(render(quiet))
+}

@@ -1,0 +1,17 @@
+import {
+    std/duration.Duration
+    std/instant.Instant
+    ffi
+}
+
+test "Go time.Time projects to Nomi Instant" {
+    assert ffi.created_at() |> Instant.to_seconds() == 1700000000
+}
+
+test "Nomi Instant passes back to Go time.Time" {
+    assert Instant.between(
+        ffi.created_at(),
+        ffi.created_at()
+        |> ffi.plus_second(),
+    ) == Duration.seconds(1)
+}

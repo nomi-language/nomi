@@ -1,0 +1,170 @@
+import std/io
+
+// The `Iter` terminals that stop early, observed. Every line prints, so
+// `matched` on this fixture means the two paths agreed on OUTPUT and not merely
+// on silence.
+//
+// Three things are being pinned, and only the first is about types.
+//
+//  1. POLARITY. `any?` is lowered as `!each_while(src, |x| !f(x))`, which
+//     type-checks whichever way the two negations land. A predicate that
+//     matches in the MIDDLE, one that matches NOTHING, one that matches
+//     EVERYTHING, and an EMPTY source are four different answers; a
+//     double-negation error agrees with two of them.
+//  2. The EMPTY source specifically, for every terminal. std reads these
+//     answers out of `reduce`'s seed — the callback's parameter default — and
+//     this lowering claims the seed is exactly "the source ran to exhaustion".
+//     An empty source is where that claim is load-bearing and nowhere else.
+//  3. EARLY EXIT, observably. Two shapes: a noisy finite source, where the
+//     elements not visited are the lines not printed; and an UNBOUNDED source,
+//     where a terminal that drained does not answer slowly, it does not answer.
+fn note(n: Int): Int {
+    io.print("evaluating ${n}")
+    n
+}
+
+fn show(label: String, m: Maybe<Int>) {
+    case m {
+        Some(n) -> io.print("${label} some ${n}")
+        None -> io.print("${label} none")
+    }
+}
+
+fn main() {
+    none: List<Int> = []
+
+    // --- any?: polarity, all four answers ------------------------------------
+    io.print("${[1, 2, 3, 4] |> Iter.any?(|x| x == 3)}")
+    io.print("${[1, 2, 3, 4] |> Iter.any?(|x| x > 99)}")
+    io.print("${[1, 2, 3, 4] |> Iter.any?(|x| x > 0)}")
+    io.print("${none |> Iter.any?(|x| x > 0)}")
+
+    // --- all?: polarity, including a first-element miss ----------------------
+    io.print("${[2, 4, 6] |> Iter.all?(|x| x > 0)}")
+    io.print("${[2, -4, 6] |> Iter.all?(|x| x > 0)}")
+    io.print("${[-1, 2] |> Iter.all?(|x| x > 0)}")
+    io.print("${none |> Iter.all?(|x| x > 0)}")
+
+    // --- empty? / not_empty? -------------------------------------------------
+    io.print("${none |> Iter.empty?()}")
+    io.print("${[1] |> Iter.empty?()}")
+    io.print("${none |> Iter.not_empty?()}")
+    io.print("${[1] |> Iter.not_empty?()}")
+    // Over a LAZY source, where `known_count` answers None on both paths.
+    io.print("${[1, 2, 3] |> Iter.filter(|x| x > 99) |> Iter.empty?()}")
+    io.print("${[1, 2, 3] |> Iter.filter(|x| x > 2) |> Iter.empty?()}")
+
+    // --- first / find --------------------------------------------------------
+    show(
+        "first",
+        [1, 2, 3]
+        |> Iter.first(),
+    )
+
+    show(
+        "first",
+        none
+        |> Iter.first(),
+    )
+
+    show(
+        "find",
+        [1, 2, 3, 4]
+        |> Iter.find(|x| x > 2),
+    )
+
+    show(
+        "find",
+        [1, 2, 3, 4]
+        |> Iter.find(|x| x > 99),
+    )
+
+    show(
+        "find",
+        none
+        |> Iter.find(|x| x > 0),
+    )
+
+    // --- each: every element, in order, and the value is Unit ----------------
+    [10, 20] |> Iter.each(|x| io.print("each ${x}"))
+
+    none |> Iter.each(|x| io.print("each ${x}"))
+
+    // --- count over a LAZY source -------------------------------------------
+    // `known_count` answers None for a `Seq`, so this is the fold arm. A List
+    // still answers from its cached length, which the other fixture pins.
+    io.print("${Iter.from(1) |> Iter.take(5) |> Iter.count()}")
+    io.print("${[1, 2, 3] |> Iter.map(|x| x * 2) |> Iter.count()}")
+    io.print("${[1, 2, 3] |> Iter.filter(|x| x > 99) |> Iter.count()}")
+
+    // --- take_while ----------------------------------------------------------
+    // `[1, 2, 3, 1]` is deliberate: the trailing 1 passes the predicate, so a
+    // `take_while` that resumed after the stop would produce [1, 2, 1].
+    io.print("${[1, 2, 3, 1] |> Iter.take_while(|x| x < 3) |> Iter.to_list()}")
+    io.print("${[1, 2, 3] |> Iter.take_while(|x| x > 99) |> Iter.to_list()}")
+    io.print("${[1, 2, 3] |> Iter.take_while(|x| x > 0) |> Iter.to_list()}")
+    io.print("${none |> Iter.take_while(|x| x > 0) |> Iter.to_list()}")
+
+    // --- drop_while ----------------------------------------------------------
+    // Same list, and the trailing 1 is the point again: the predicate is
+    // consulted only for the LEADING run, so `[3, 1]` and not `[3]`.
+    io.print("${[1, 2, 3, 1] |> Iter.drop_while(|x| x < 3) |> Iter.to_list()}")
+    io.print("${[1, 2, 3] |> Iter.drop_while(|x| x > 0) |> Iter.to_list()}")
+    io.print("${[1, 2, 3] |> Iter.drop_while(|x| x > 99) |> Iter.to_list()}")
+    io.print("${none |> Iter.drop_while(|x| x > 0) |> Iter.to_list()}")
+
+    // --- early exit on a noisy FINITE source ---------------------------------
+    // The list literal is eager, so all three `evaluating` lines come first;
+    // then exactly ONE mapped note, because `any?` stops on the first match.
+    // A terminal that drained the source prints three.
+    io.print(
+        "${[note(1), note(2), note(3)] |> Iter.map(|x| note(x * 10)) |> Iter.any?(|x| x >= 10)}"
+    )
+
+    show(
+        "find",
+        [note(4), note(5)]
+        |> Iter.map(|x| note(x * 10))
+        |> Iter.find(|x| x >= 40),
+    )
+
+    io.print("${[note(6), note(7)] |> Iter.map(|x| note(x * 10)) |> Iter.empty?()}")
+
+    // --- early exit on an UNBOUNDED source -----------------------------------
+    // `Iter.from` never terminates on its own. Each of these answers only
+    // because the terminal refuses the next element; a version that drained
+    // would hang rather than print a wrong answer.
+    io.print("${Iter.from(1) |> Iter.any?(|x| x > 3)}")
+    io.print("${Iter.from(1) |> Iter.all?(|x| x < 3)}")
+    io.print("${Iter.from(1) |> Iter.empty?()}")
+    io.print("${Iter.from(1) |> Iter.not_empty?()}")
+
+    show(
+        "first",
+        Iter.from(5)
+        |> Iter.first(),
+    )
+
+    show(
+        "find",
+        Iter.from(1)
+        |> Iter.find(|x| x == 4),
+    )
+
+    io.print("${Iter.from(1) |> Iter.take_while(|x| x < 4) |> Iter.to_list()}")
+    io.print("${Iter.from(1) |> Iter.drop_while(|x| x < 3) |> Iter.take(2) |> Iter.to_list()}")
+
+    // --- replay --------------------------------------------------------------
+    // std/iter.nomi promises iterators are replayable, which for these two
+    // adapters means their per-run state (`ended`, `started`) lives in the RUN
+    // and not in the sequence value. Hoisted state passes every line above and
+    // makes the second consumption differ.
+    taken = Iter.from(1) |> Iter.take_while(|x| x < 4)
+
+    io.print("${taken |> Iter.to_list()}")
+    io.print("${taken |> Iter.to_list()}")
+    dropped = [1, 2, 3, 1] |> Iter.drop_while(|x| x < 3)
+
+    io.print("${dropped |> Iter.to_list()}")
+    io.print("${dropped |> Iter.to_list()}")
+}

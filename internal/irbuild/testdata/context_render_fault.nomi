@@ -1,0 +1,80 @@
+// `Debug.inspect` on a Context, and the fault a spent deadline produces. Both
+// were live DIFFs between the two backends and neither was visible to anything
+// in the tree.
+//
+// # WHY A FIXTURE AND NOT A CORPUS FILE
+//
+// context_values_report.nomi states half of it: `tests/` contains no
+// program that fails an assertion, so the sweep compares the passing path
+// exclusively and reads `0 DIFFED` over any amount of wrong failure text. This
+// file adds the other half — a program that FAULTS. A fault is not an assertion
+// failure; it ends the run, and the sweep never compares one either.
+//
+// So this file is not in the corpus, is never run by `nomi test tests`,
+// and its non-zero exit is part of what requireIdentical compares.
+//
+// # THE TWO DIFFS this fixture pins
+//
+// (1) `Debug.inspect(ctx)` printed `<context>` under `nomi run` and `Context`
+// from a `nomi build` artifact. `pub host type Context` gets a name-only
+// `impl Debug` from the front end whose body is the static string `"Context"`;
+// the interpreter never reaches it, because `debugPlaceholder` answers for the
+// non-structural value kinds BEFORE dispatch and returns `"<context>"`. One
+// declaration, two implementations, and each backend reached a different one.
+// The row path in inspect.go already agreed — which is exactly why a 222/222
+// sweep could not see this: `Debug.inspect` in ordinary code is not an
+// assertion operand.
+//
+// (2) A spent deadline reaching main-line code reported
+// `deadline exceeded: …` under `nomi run` and
+// `concurrent: cancellation reached a frame with no task to unwind` compiled —
+// a diagnostic about a BUILDER BUG, handed to a user whose program was merely
+// bounded. `rt.EnterDeadline` is a third way a frame's ctx closes, on the main
+// goroutine while the body runs, which is the case `raiseCanceled`'s "not
+// reachable by construction" argument excluded.
+//
+// # AN ALREADY-PAST DEADLINE RATHER THAN A SLEEP THAT OUTLASTS ONE
+//
+// `Instant.from_seconds(0)` is 1970, so the deadline is spent before the
+// `timer.sleep` is entered and the fault is immediate on both paths. A future
+// deadline plus a long sleep reproduces the same two DIFFs and makes the
+// fixture's runtime a race against a wall clock; this way there is nothing to
+// wait for. It also exercises `EnterDeadline`'s already-spent path, which is
+// the one whose `context.Canceled` used to hide the deadline from the fault.
+import {
+    std/duration.Duration
+    std/instant.Instant
+    std/io
+    std/timer
+}
+
+// The context is read and replaced as an application field, which needs a
+// boot to name the application type.
+struct Run {
+    context: Context
+}
+
+fn boot(): Run {
+    Run{context: Context.root()}
+}
+
+type TraceId String
+
+fn main() {
+    // The rendering, at the top level and nested in a container, because the two
+    // reach different builder arms — contextInspectCall and debugInspector's leaf
+    // — and only the first was found by hand.
+    io.print("bare:   ${Debug.inspect(Run.context)}")
+    io.print("nested: ${Debug.inspect([Run.context, Run.context])}")
+
+    // A value link is invisible to the deadline walk, so the rendering is
+    // unchanged by one and the fault below is unaffected by it.
+    traced = Context.with_value(Run.context, TraceId("t-1"))
+    io.print("valued: ${Debug.inspect(traced)}")
+    io.print("value:  ${Debug.inspect(Context.value(traced, TraceId))}")
+
+    with Run.context = Context.with_deadline(Run.context, Instant.from_seconds(0))
+    io.print("spent:  ${Debug.inspect(Context.deadline_remaining(Run.context))}")
+    timer.sleep(Duration.seconds(300))
+    io.print("UNREACHED: the spent deadline did not stop the sleep")
+}

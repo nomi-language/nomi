@@ -1,0 +1,68 @@
+// The `_` placeholder, which is TWO operations under one spelling: it claims
+// the PIPED slot in a pipe stage, and it opens a slot in a PARTIAL
+// APPLICATION. Both are here because both refused under one key.
+//
+// Every `noisy` print is a row about EVALUATION ORDER or COUNT, which is the
+// half a value-only fixture cannot see.
+import std/io
+
+fn noisy(label: String, v: Int): Int {
+    io.print("  eval ${label}")
+    v
+}
+
+fn add(x: Int, y: Int): Int {
+    x + y
+}
+
+fn divide(x: Int, y: Int): Int {
+    x / y
+}
+
+fn apply(f: (Int) -> Int, v: Int): Int {
+    f(v)
+}
+
+fn main() {
+    // A placeholder claims the piped slot INSTEAD of index 0, in both positions.
+    // Prepending would make the arity wrong; a lowering that only ever handled
+    // slot 0 would be indistinguishable from prepending.
+    io.print("slot 1:  ${10 |> divide(100, _)}")
+    io.print("slot 0:  ${10 |> divide(_, 2)}")
+
+    // The piped value is evaluated ONCE however many placeholders name it — one
+    // `eval piped` line, not two.
+    io.print("two holes:")
+    io.print("  = ${noisy("piped", 10) |> add(_, _)}")
+
+    // ORDER. The LEFT operand is evaluated BEFORE any sibling argument, so
+    // `eval left` must precede `eval right`. Splicing the operand's NODE into
+    // the placeholder's slot would reverse these two lines while leaving the
+    // VALUE unchanged, which is why the value alone is not the pin.
+    io.print("order:")
+    io.print("  = ${noisy("left", 100) |> divide(noisy("right", 500), _)}")
+
+    // A partial application is a function VALUE with one parameter per
+    // placeholder, in encounter order, mapped back to that placeholder's slot.
+    add1 = add(1, _)
+    half = divide(_, 2)
+    both = add(_, _)
+    io.print("add1:    ${add1(9)}")
+    io.print("half:    ${half(20)}")
+    io.print("both:    ${both(3, 4)}")
+
+    // The BOUND arguments are evaluated EAGERLY, at creation, exactly once —
+    // one `eval bound` line above the two results, not one per invocation and
+    // not one per placeholder.
+    io.print("eager:")
+    eager = add(noisy("bound", 100), _)
+    io.print("  a = ${eager(1)}")
+    io.print("  b = ${eager(2)}")
+
+    // And it is an ordinary value: passable to a parameter of function type.
+    io.print("passed:  ${apply(add(1, _), 9)}")
+
+    // A placeholder in a pipe stage whose callee is reached through a partial's
+    // own value, so the two operations meet.
+    io.print("chained: ${20 |> half()}")
+}

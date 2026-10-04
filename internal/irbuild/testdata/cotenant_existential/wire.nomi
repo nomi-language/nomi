@@ -1,0 +1,63 @@
+// The co-tenant that does the erasing. Two boxes, and they are two DIFFERENT
+// identity lookups rather than one exercised twice.
+//
+//	loud()    boxes `Prod`, declared HERE — tidRef's local `g.tids` path.
+//	hushed()  boxes `extra.Quiet`, declared in a third co-tenant — tidRef's
+//	          mirror path, `o.unit != g.fileUnit` AND `o.pkg == g.pkg`, which
+//	          is the arm the SCC merge created and which no other fixture in
+//	          this package reaches through an interface-typed field.
+//
+// Both store into `core.App`, whose `logger` field is `core.Logger` and whose
+// `tag` field is this file's OWN `Tagger` — so this one mirror exercises both
+// the ordinary cross-unit arm and the crossing-back arm in one walk.
+import {
+    core.{App, Logger}
+    extra.{self, Quiet}
+    shared.{self, Stamp}
+}
+
+// Declared HERE and used as a FIELD TYPE in core, which is what makes core's
+// `App` mirror point back into this file. See core.nomi's struct comment.
+pub interface Tagger {
+    fn tag(value: self): String
+}
+
+pub struct Prod {
+    prefix: String
+}
+
+pub struct Mark {
+    n: Int
+}
+
+impl Logger for Prod {
+    fn log(p: Prod, message: String): String {
+        "${p.prefix}>${message}"
+    }
+}
+
+impl Tagger for Mark {
+    fn tag(m: Mark): String {
+        "m${m.n}"
+    }
+}
+
+pub once tag: String = "wire"
+
+// A mirror of a type declared OUTSIDE this component. extra.nomi mirrors the
+// SAME type, and the two share one package in the builder — see shared.nomi.
+pub fn mark(): Stamp {
+    shared.stamp("w")
+}
+
+pub fn mark_text(s: Stamp): String {
+    s.s
+}
+
+pub fn loud(): App {
+    App{name: "loud", logger: Prod{prefix: "P"}, tag: Mark{n: 1}}
+}
+
+pub fn hushed(): App {
+    App{name: "hushed", logger: Quiet{level: 3}, tag: extra.plain()}
+}

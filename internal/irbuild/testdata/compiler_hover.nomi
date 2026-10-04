@@ -1,0 +1,162 @@
+// `compiler.hover` — the second std/compiler function a VM program can
+// call, and the whole error surface no corpus program touches.
+//
+// # WHY THIS FIXTURE EXISTS BESIDE 35 CORPUS FILES
+//
+// Thirty-five corpus files were sole-blocked on `compiler.hover` and every one
+// of them reaches it through the identical fourteen-line helper:
+//
+//     case compiler.hover(source) {
+//       Ok(hover) -> hover.signature
+//       Err(message) -> message
+//     }
+//
+// So the corpus exercises exactly TWO of the pipeline's answers — one successful
+// signature, and whichever failure that fixture happens to provoke — and reads
+// exactly ONE of `Hover`'s two fields. Six distinct failure arms and the
+// `markdown` field are unreached by the whole corpus. They are reached here.
+//
+// # WHAT IS AND IS NOT A DIFFERENTIAL HERE
+//
+// Nothing below is a genuine differential and that is deliberate. eval's
+// `compiler.hover` builtin and the VM's `compiler.hover` crossing reach ONE
+// pipeline (nomi/stdcompiler's HoverContent) — that is the invariant the seam is
+// built on, because two marshallings of two pipelines is how a VM program
+// and an interpreted one start disagreeing about a hover string. So
+// `requireIdentical` proves the two paths agree BY CONSTRUCTION for the content,
+// and what it really tests is the LOWERING around it: that
+// `Result<Hover, String>` projects, that `rt.Hover` is the one Go type for the
+// Nomi type, that `case` discriminates the tag, and that `hover.signature` and
+// `hover.markdown` select the right fields in the right order.
+//
+// That last one is the discriminating row. `signature` and `markdown` are BOTH
+// Strings, so a spec that swapped them would still lower, still build, and still
+// compare equal against an interpreter reading the same swapped spec. The
+// ABSOLUTE text in compiler_hover_test.go is the only thing that fails for it,
+// which is why `markdown_starts_fenced` and `signature_is_one_line` are printed
+// as separate rows from two reads of one value.
+import {
+    std/compiler
+    std/io
+}
+
+// signature_of is the corpus helper's shape, kept so this fixture exercises the
+// same `case` over `Result<Hover, String>` that thirty-five files do.
+fn signature_of(source: String): String {
+    case compiler.hover(source) {
+        Ok(hover) -> hover.signature
+        Err(message) -> message
+    }
+}
+
+fn main() {
+    // --- THE SUCCESSFUL ARM, and the three kinds of thing hover names ---------
+    //
+    // A local binding, a function declaration and a stdlib function. Each takes a
+    // different path through the renderer, so a renderer reached with an
+    // unresolved analysis answers about one and not the others.
+    io.print(
+        "binding = " + signature_of(
+            """
+            fn main() {
+              ansˇwer = 42
+              _ = answer
+            }
+            """
+        )
+    )
+
+    io.print(
+        "declaration = " + signature_of(
+            """
+            fn douˇble(n: Int): Int {
+              n * 2
+            }
+
+            fn main() {
+              _ = double(21)
+            }
+            """
+        )
+    )
+
+    io.print(
+        "stdlib = " + signature_of(
+            """
+            fn main() {
+              _ = String.trˇim(" hi ")
+            }
+            """
+        )
+    )
+
+    // --- BOTH FIELDS OF Hover, from ONE value --------------------------------
+    //
+    // The two fields are the same Go type, so a swapped spec is invisible to
+    // every other row here and to the differential comparison. `markdown` is the
+    // renderer's whole answer and opens with a fence; `signature` is its first
+    // line with the fence removed. Printing a PROPERTY of each rather than the
+    // text itself keeps this row stable against a documentation edit in std while
+    // still failing loudly if the two fields trade places.
+    case compiler.hover(
+        """
+        fn main() {
+          totˇal: Int = 0
+          _ = total
+        }
+        """
+    ) {
+        Ok(hover) -> {
+            io.print(
+                "signature_is_one_line = " + Bool.to_string(
+                    !String.contains?(hover.signature, "\n")
+                )
+            )
+
+            io.print(
+                "signature_has_no_fence = " + Bool.to_string(
+                    !String.contains?(hover.signature, "```")
+                )
+            )
+
+            io.print(
+                "markdown_starts_fenced = " + Bool.to_string(
+                    String.starts_with?(hover.markdown, "```")
+                )
+            )
+
+            io.print(
+                "markdown_contains_signature = " + Bool.to_string(
+                    String.contains?(hover.markdown, hover.signature)
+                )
+            )
+        }
+
+        Err(message) ->
+            io.print("both_fields = UNEXPECTED " + message)
+    }
+
+    // --- EVERY FAILURE ARM ---------------------------------------------------
+    //
+    // Six of them, in the order HoverContent decides them. The corpus reaches at
+    // most one. Each is an `Err` payload and NOT a host failure: `hover` has no
+    // fallible-host case, so a VM program that turned one of these into a
+    // panic would diverge from the interpreter on the exit code rather than on
+    // stdout.
+    io.print("no_marker = " + signature_of("fn main() {\n  _ = 1\n}\n"))
+    io.print("two_markers = " + signature_of("fn maˇin() {\n  _ = ˇ1\n}\n"))
+    io.print("parse_error = " + signature_of("fn maˇin( {\n"))
+
+    io.print(
+        "type_error = " + signature_of(
+            """
+            fn main() {
+              couˇnt: Int = "zero"
+              _ = count
+            }
+            """
+        )
+    )
+
+    io.print("no_target = " + signature_of("fn main() {\n  _ = 1\n}\nˇ"))
+}

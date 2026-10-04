@@ -1,0 +1,206 @@
+import std/io
+
+// `break` and `continue` in a LAZY ADAPTER callback, and in `Iter.each`.
+//
+// Every line here is an answer a plausible wrong lowering gets wrong, and the
+// comment above each says which. The lines that matter most are the PAIRS: two
+// programs differing only in whether the `break` carries a value, or only in
+// which adapter the identical callback is passed to. A lowering that shared one
+// answer between a pair prints the same number twice.
+fn main() {
+    // map: `break v` emits `v` as the FINAL ELEMENT and then ends. Dropping the
+    // value prints [10, 20]; emitting it and carrying on prints [10, 20, 999, 40, 50].
+    taken_with_value =
+        [1, 2, 3, 4, 5]
+        |> Iter.map(|x| {
+            if x == 3 { break 999 }
+            x * 10
+        })
+        |> Iter.to_list()
+
+    io.print("map break value emits then ends: ${taken_with_value}")
+
+    // The same shape with a BARE break: nothing is emitted for the breaking
+    // element. Pairs with the line above — one value apart in the source.
+    taken =
+        [1, 2, 3, 4, 5]
+        |> Iter.map(|x| {
+            if x == 3 { break }
+            x * 10
+        })
+        |> Iter.to_list()
+
+    io.print("map bare break emits nothing: ${taken}")
+
+    // map: `continue` skips the element and the source carries on. A lowering
+    // that stopped instead prints [].
+    evens_doubled =
+        [1, 2, 3, 4, 5]
+        |> Iter.map(|x| {
+            if x % 2 != 0 { continue }
+            x * 2
+        })
+        |> Iter.to_list()
+
+    io.print("map continue skips: ${evens_doubled}")
+
+    // filter: the break value is the KEEP/DROP DECISION about the element in
+    // hand, NOT an output element. `break True` keeps 3 then stops. A lowering
+    // that copied map's rule would try to emit `True` into an Int stream.
+    include_until =
+        [1, 2, 3, 4, 5]
+        |> Iter.filter(|x| {
+            if x == 3 { break True }
+            x % 2 == 0
+        })
+        |> Iter.to_list()
+
+    io.print("filter break True keeps then stops: ${include_until}")
+
+    // The same source and the same predicate, `False` instead of `True`: 3 is
+    // dropped. Pairs with the line above.
+    exclude_last =
+        [1, 2, 3, 4, 5]
+        |> Iter.filter(|x| {
+            if x == 3 { break False }
+            x % 2 != 0
+        })
+        |> Iter.to_list()
+
+    io.print("filter break False drops then stops: ${exclude_last}")
+
+    // take_while and filter differ on ONE line: a predicate answering False ENDS
+    // a take_while and merely skips in a filter. The callback here is identical
+    // to the filter above modulo the constant, so the two answers can only differ
+    // if that one line is right.
+    taken_while =
+        [1, 2, 3, 4, 5]
+        |> Iter.take_while(|x| x % 2 != 0)
+        |> Iter.to_list()
+
+    io.print("take_while ends on the first False: ${taken_while}")
+
+    filtered =
+        [1, 2, 3, 4, 5]
+        |> Iter.filter(|x| x % 2 != 0)
+        |> Iter.to_list()
+
+    io.print("filter skips and carries on: ${filtered}")
+
+    // take_while: `continue` skips WITHOUT ending, which is the one signal that
+    // distinguishes it from a False answer. [1, 3] and not [1].
+    skipped =
+        Iter.take_while([1, 2, 3, 4, 5], |x|
+            if x == 2 {
+                continue
+            } else {
+                x < 4
+            }
+        )
+        |> Iter.to_list()
+
+    io.print("take_while continue skips without ending: ${skipped}")
+
+    // The if-EXPRESSION shape rather than the block shape: the `break True` arm
+    // and the `x < 4` arm must reconcile to Bool, which is what pre-settling a
+    // predicate callback's result kind buys.
+    kept_then_stopped =
+        Iter.take_while([1, 2, 3, 4, 5], |x|
+            if x == 2 {
+                break True
+            } else {
+                x < 4
+            }
+        )
+        |> Iter.to_list()
+
+    io.print("take_while break True keeps then stops: ${kept_then_stopped}")
+
+    // A chain: the break has to stop the SOURCE, not merely this stage, and the
+    // downstream stage still sees every element the broken stage emitted.
+    chained =
+        [1, 2, 3, 4, 5, 6]
+        |> Iter.filter(|x| {
+            if x > 4 { break }
+            x % 2 == 0
+        })
+        |> Iter.map(|x| x * 100)
+        |> Iter.to_list()
+
+    io.print("break stops the source through a chain: ${chained}")
+
+    // A break over an UNBOUNDED source. Without the stop reaching the source this
+    // does not terminate.
+    bounded =
+        Iter.from(1)
+        |> Iter.map(|x| {
+            if x > 3 { break }
+            x
+        })
+        |> Iter.to_list()
+
+    io.print("break bounds an unbounded source: ${bounded}")
+
+    // each: a bare `break` ends the walk; `continue` and `return` do not. What
+    // each element PRINTS is the observable, since `each` itself answers Unit —
+    // and it is a better one than the answer would be, because it shows exactly
+    // which elements were visited and in what order.
+    _stop =
+        ["hello", "world", "STOP", "ignored"]
+        |> Iter.each(|s| {
+            if s == "STOP" { break }
+            io.print("each visited: ${s}")
+        })
+
+    // `continue` visits every element and prints only the odd ones. A lowering
+    // that read `continue` as a stop would print `1` alone.
+    _skip =
+        [1, 2, 3, 4, 5]
+        |> Iter.each(|x| {
+            if x % 2 == 0 { continue }
+            io.print("each odd: ${x}")
+        })
+
+    // `return` inside the callback is LAMBDA-scoped: it ends THAT callback and
+    // the walk carries on, so 3 is still visited. If it returned from `main`
+    // instead, nothing below this line would print — which is the wrong ANSWER
+    // the brief warns about rather than a build error.
+    _ret =
+        [1, 2, 3]
+        |> Iter.each(|x| {
+            if x == 2 { return }
+            io.print("each reached: ${x}")
+        })
+
+    // `return v` inside a map callback is the callback's RESULT — the same
+    // program as the tail — so 300 is emitted as the element and the walk carries
+    // on. A non-local `return` would end `main` here and print nothing more.
+    special_mapped =
+        [1, 2, 3, 4, 5]
+        |> Iter.map(|x| {
+            if x == 3 { return 300 }
+            x * 10
+        })
+        |> Iter.to_list()
+
+    io.print("map return is the element: ${special_mapped}")
+
+    // A nested `fn` whose own `return`s are ordinary, called from a reduce
+    // callback. This is the shape that distinguishes "return is lambda-scoped"
+    // from "return is refused inside anything test-shaped".
+    fn classify(n: Int): Int {
+        if n < 0 { return 0 }
+        if n > 100 { return 100 }
+        n
+    }
+
+    sum_classified =
+        [5, -10, 50, 200, 30]
+        |> Iter.reduce(|acc = 0, x| acc + classify(x))
+
+    io.print("nested fn early returns: ${sum_classified}")
+
+    // A `break` inside a lambda NESTED in an adapter callback is still refused,
+    // so this file cannot exercise it; iter_test.go's refusal witnesses do.
+    io.print("done")
+}

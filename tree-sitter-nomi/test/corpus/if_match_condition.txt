@@ -1,0 +1,32 @@
+==========
+If condition can match a pattern
+==========
+
+fn main() {
+  label = if Some(name) = maybe_name {
+    name
+  } else {
+    "unknown"
+  }
+}
+
+---
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (if_expression
+          (if_match_condition
+            pattern: (enum_pattern
+              (type_identifier)
+              (identifier))
+            value: (identifier))
+          (body
+            (identifier))
+          (body
+            (string
+              (string_content))))))))

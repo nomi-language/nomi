@@ -1,0 +1,45 @@
+// `std/toml.Toml` from a module that only IMPORTS it.
+//
+// `pub type Toml String` is a PLAIN distinct, not `pub opaque type`, and that
+// is the whole difference from `Duration`: outside the declaring file anyone
+// may construct one and destructure one. opaque.go used to treat that clause
+// as a representation boundary. It is not one — both spellings are a Go
+// defined type over a scalar — but the use-site surface it admits is real, so
+// this exercises it rather than asserting it.
+//
+// `Toml("x = 1")` must emit an `rt.Toml(...)` conversion and `Toml(raw) = t`
+// a `string(...)` one, from a package that declares neither the type nor any
+// function over it.
+import {
+    std/io
+    std/toml.Toml
+}
+
+fn unwrap(t: Toml): String {
+    Toml(raw) = t
+    "raw:" + raw
+}
+
+fn main() {
+    // Constructed here, in a module that is not std/toml.
+    a = Toml("x = 1")
+    io.print(Toml.text(a))
+    io.print(unwrap(a))
+
+    // And through the typed-literal desugaring, whose handler is std's own
+    // `impl Literal for Toml`. The triple-quote body is dedented at lex time,
+    // so what reaches `from_fragments` is already the final text.
+    b = Toml"""
+        y = 2
+        z = 3
+        """
+
+    io.print(unwrap(b))
+
+    // NOT exercised here, and measured rather than assumed: a `${n}` slot for a
+    // SCALAR is refused as `argument type mismatch (Toml.from_fragments slot is
+    // Display, got Int)`. Widening a scalar into an existential at a slot is its
+    // own gap and predates this row; testdata/typed_literal.nomi's `Doc` handler
+    // already exercises the Dynamic half of `Fragment<Display>` with struct
+    // payloads that carry their own `impl Display`.
+}

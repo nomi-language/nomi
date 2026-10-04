@@ -1,0 +1,108 @@
+import {
+    std/comparable.Ordering.{Equal, Less as Lt}
+    std/io
+    std/json.Json.{self, Int as Arr, Null as JNull, Obj as JObj, String as JStr}
+    std/maybe.Maybe.{None as Nothing, Some as Just}
+    std/results.Result.{Err as Bad, Ok as Good}
+}
+
+// A selectively imported enum variant, with and without an `as` alias.
+//
+// The alias is the reason this fixture exists: the analyzer records the
+// programmer's LOCAL spelling on the reference and the DECLARATION'S OWN name
+// on its resolution, and a builder that reads the local spelling looks the
+// variant up in a list that does not contain it.
+//
+// # THE TRANSPOSED ALIAS IS THE HAZARD, and it is a wrong ANSWER
+//
+// `Int as Arr` above binds the local name `Arr` to `Json.Int`, and `Json`
+// declares a DIFFERENT variant actually called `Arr`. A builder resolving by
+// local spelling would build a `Json.Arr` holding an Int: the wrong tag over
+// the wrong slot. That LOWERS, since the slot is a record field either way, so
+// no lint failure and no refusal count can see it. Only the rendered answer can,
+// which is why every line below is printed rather than asserted.
+//
+// The plain `Arr` spelling is therefore not imported here, and that is
+// deliberate: a fixture importing both the aliased and the unaliased spelling
+// of one variant could not tell "resolved correctly" from "resolved to the name
+// that happened to be right".
+//
+// # The four spellings, and the arm each one lands on
+//
+//   - `JStr("v")`  a CARRYING variant of a monomorphic stdlib enum, named bare.
+//                  native.go's TypeIdent CALL ladder.
+//   - `JNull`      a BARE variant of the same, in value position. native.go's
+//                  TypeIdent VALUE ladder.
+//   - `JObj{...}`  the map literal-ATTACH form with a bare head. attach.go's
+//                  attachLit, which is a second reject site for one key.
+//   - `Just(7)`    a carrying variant of a PRELUDE enum — a different resolver
+//                  (prelude.go) reached from the same call-ladder rung.
+fn describe(j: Json): String {
+    case j {
+        .Obj(_) -> "obj"
+        .Arr(_) -> "arr"
+        .String(s) -> "str:" + s
+        .Int(n) -> "int:${n}"
+        .Float(_) -> "float"
+        .Bool(_) -> "bool"
+        .Null -> "null"
+    }
+}
+
+fn maybe_label(m: Maybe<Int>): String {
+    case m {
+        .Some(v) -> "some:${v}"
+        .None -> "none"
+    }
+}
+
+fn result_label(r: Result<Int, String>): String {
+    case r {
+        .Ok(v) -> "ok:${v}"
+        .Err(e) -> "err:" + e
+    }
+}
+
+fn order_label(o: Ordering): String {
+    case o {
+        .Less -> "lt"
+        .Equal -> "eq"
+        .Greater -> "gt"
+    }
+}
+
+fn nested_label(m: Maybe<Json>): String {
+    case m {
+        .Some(j) -> describe(j)
+        .None -> "none"
+    }
+}
+
+fn main() {
+    // A stdlib enum's carrying variant, reached through an alias.
+    io.print(describe(JStr("v")))
+    // The TRANSPOSED alias. `arr` here is the wrong answer this fixture exists
+    // to catch; the right one is `int:9`.
+    io.print(describe(Arr(9)))
+    // A bare variant through an alias, in value position.
+    io.print(describe(JNull))
+    // The literal-attach form with a bare aliased head, and a nested aliased
+    // construction inside its body.
+    io.print(describe(JObj{"k" => JStr("nested")}))
+
+    // The prelude enums are a second resolver reached from the same rung.
+    io.print(maybe_label(Just(7)))
+    io.print(maybe_label(Nothing))
+    io.print(result_label(Good(1)))
+    io.print(result_label(Bad("boom")))
+
+    // A nested construction: an aliased prelude variant wrapping an aliased
+    // stdlib one.
+    deep: Maybe<Json> = Just(JStr("deep"))
+    io.print(nested_label(deep))
+
+    // A monomorphic stdlib enum whose variants are imported both ways in one
+    // list: `Less as Lt` aliased beside a plain `Equal`.
+    io.print(order_label(Lt))
+    io.print(order_label(Equal))
+}

@@ -1,0 +1,31 @@
+// A SHORT call to a sibling file's interface default — the argument the callee
+// supplies from its own default parameter value.
+//
+// `siblingIfaceCall` finds its candidate by matching the whole argument list
+// against each indexed site's declared parameters, ARITY INCLUDED, so
+// `Powered.describe(e)` against `fn describe(e: self, mode: Mode = .Fast)` used
+// to offer no candidate at all. The route declined, the local
+// `implsByIface` lookup found nothing (the impl is a sibling's), and the call
+// was refused `call to an unlowered impl | Powered.describe for Engine` — which
+// is a true sentence about the wrong thing: the impl IS lowered, one file over.
+//
+// BOTH SPELLINGS ARE HERE, and the pair is the assertion rather than either
+// alone. The full call already lowered through this route at the parent, so it
+// is the control: a change that broke the route would take BOTH rows out, and a
+// change that only reordered arms would move one.
+//
+// The dot-shorthand argument (`Mode.Slow` against the default's `.Fast`) is not
+// decoration either — the default's VALUE is an enum variant resolved in the
+// DECLARING file's scope, so a fill that resolved it in the caller's scope
+// answers `unknown variant` for a program whose `Mode` is not imported.
+import {
+    std/io
+    engine.{Engine, Mode, Powered}
+}
+
+fn main() {
+    e = Engine{name: "v8"}
+    io.print(Powered.describe(e))
+    io.print(Powered.describe(e, Mode.Slow))
+    io.print(Powered.label(e))
+}

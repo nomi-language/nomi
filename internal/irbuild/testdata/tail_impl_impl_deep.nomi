@@ -1,0 +1,31 @@
+// A tail cycle with NO free member at all — two impl functions on two different
+// receivers — at a depth a plain recursive Go call cannot survive.
+//
+// The free/impl fixture beside this one leaves one question open: the driver
+// there is reached from funcDecl, because the module walk meets the free member
+// first. Here every member is an impl function, so the driver is emitted from
+// implFunc, and both entry wrappers are impl functions whose Go names the
+// dispatch tables and every direct call already reference.
+//
+// 1e8 hops: see tail_impl_free_deep.nomi for why that number.
+import std/io
+
+struct Up {}
+
+struct Dn {}
+
+impl Up {
+    fn go(_value: Up, n: Int): Int {
+        if n == 0 { 0 } else { Dn.go(Dn{}, n - 1) }
+    }
+}
+
+impl Dn {
+    fn go(_value: Dn, n: Int): Int {
+        if n == 0 { 0 } else { Up.go(Up{}, n - 1) }
+    }
+}
+
+fn main() {
+    io.print("${Up.go(Up{}, 100000000)}")
+}

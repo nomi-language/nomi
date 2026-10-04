@@ -1,0 +1,113 @@
+// `Result<T, E>` end to end, and the two-type-parameter case `Maybe` cannot
+// exercise.
+//
+// `Ok(v)` names T and says nothing about E; `Err(e)` names E and says nothing
+// about T. Neither argument determines the type on its own, which is why the
+// type arguments come from the instantiated signature the CHECKER solved and
+// not from the argument's kind. A lowering that read only the argument would
+// produce `rt.Result[int64, ?]` and either fail to compile or pick a wrong E —
+// so `both_directions` below builds one Result each way and reads both back.
+import std/io
+
+struct Outcome {
+    parsed: Result<Int, String>
+}
+
+fn parse(s: String): Result<Int, String> {
+    if s == "1" {
+        Ok(1)
+    } else {
+        Err("not one: ${s}")
+    }
+}
+
+fn render(r: Result<Int, String>): String {
+    case r {
+        Ok(v) -> "ok ${v}"
+        Err(e) -> "err ${e}"
+    }
+}
+
+// The qualified spellings, and a payload literal test that MISSES so the arm
+// falls through to a later one with the same tag.
+fn classify(r: Result<Int, String>): String {
+    case r {
+        Result.Ok(0) -> "zero"
+        Result.Ok(n) -> "nonzero ${n}"
+        .Err(m) -> "failed: ${m}"
+    }
+}
+
+// Two distinct instantiations of one declaration, so the builder has to keep
+// `Result<Int, String>` and `Result<String, Int>` apart. Each instantiation
+// gets its own kind, which is the point of instantiating rather than
+// erasing.
+fn flip(r: Result<Int, String>): Result<String, Int> {
+    case r {
+        Ok(v) -> Err(v)
+        Err(e) -> Ok(e)
+    }
+}
+
+// A Result whose two type arguments are the SAME Go type. rt's generic struct
+// carries two fields here where a monomorphic enum would dedup them into one;
+// this reads both back to prove the payloads do not alias.
+fn unflip(r: Result<String, Int>): Result<Int, String> {
+    case r {
+        Ok(s) -> Err(s)
+        Err(n) -> Ok(n)
+    }
+}
+
+fn same_types(pick_left: Bool): Result<Int, Int> {
+    if pick_left { Ok(11) } else { Err(22) }
+}
+
+fn show_same(r: Result<Int, Int>): String {
+    case r {
+        Ok(a) -> "ok ${a}"
+        Err(b) -> "err ${b}"
+    }
+}
+
+// A prelude enum nested in the other one.
+fn maybe_result(m: Maybe<Result<Int, String>>): String {
+    case m {
+        Some(r) -> render(r)
+        None -> "absent"
+    }
+}
+
+fn main(): Unit {
+    io.print(render(parse("1")))
+    io.print(render(parse("2")))
+    io.print(classify(Ok(0)))
+    io.print(classify(Ok(5)))
+    io.print(classify(Err("bad")))
+
+    io.print(render(unflip(flip(Ok(3)))))
+    io.print(render(unflip(flip(Err("e")))))
+
+    io.print(show_same(same_types(True)))
+    io.print(show_same(same_types(False)))
+
+    // A Result as a struct FIELD type, read back out. The value is built by a
+    // function rather than inline because `Outcome{parsed: Ok(9)}` USED TO
+    // record `Result<Int, ?1>` — the checker did not propagate a field's
+    // declared type into the constructor's instantiation, so the builder refused
+    // it under `prelude constructor with an unsolved type argument`.
+    //
+    // b68e508d closed that: the checker now validates a field's VALUE against
+    // its declared type, and the admission it uses unifies, which solves the
+    // hole. The inline spelling lowers today. Left as a call because the
+    // function is what this row reads back and rewriting it would change what
+    // the fixture pins; the refusal it worked around is gone and
+    // TestPrelude_TheUnsolvedTypeArgumentKeyIsUnreachable is where that is
+    // asserted.
+    o = Outcome{parsed: parse("1")}
+    io.print(render(o.parsed))
+
+    io.print(maybe_result(Some(Ok(4))))
+    io.print(maybe_result(Some(Err("inner"))))
+    io.print(maybe_result(None))
+}

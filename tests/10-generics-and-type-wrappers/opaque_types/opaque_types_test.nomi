@@ -1,0 +1,62 @@
+import {
+    counter
+    email.{self, Email}
+    status.Status
+}
+
+fn describe(maybe_email: Maybe<Email>): String {
+    case maybe_email {
+        Some(e) -> "valid: " + email.to_string(e)
+        None -> "invalid"
+    }
+}
+
+test "opaque distinct types expose smart constructors and accessors" {
+    inbox = case email.from_string("inbox@example.com") {
+        Some(e) -> [e]
+        None -> []
+    }
+
+    assert describe(email.from_string("alice@example.com")) == "valid: alice@example.com"
+
+    assert describe(email.from_string("not_an_email")) == "invalid"
+    assert email.from_string("a@b") == email.from_string("a@b")
+    assert email.from_string("a@b") != email.from_string("c@d")
+    assert Iter.count(inbox) == 1
+}
+
+test "opaque structs expose exported constructors updaters and accessors" {
+    c0 = counter.new()
+    c1 = counter.bump(c0)
+
+    assert counter.value(c1) == 1
+    assert counter.increments(c1) == 1
+}
+
+test "opaque enums expose predicates and maybe-returning accessors" {
+    s_active = Status.active()
+    s_off = Status.inactive("on holiday")
+    s_susp = Status.suspend(100, "maintenance")
+
+    off_reason = case Status.inactive_reason(s_off) {
+        Some(reason) -> "off: " + reason
+        None -> "not inactive"
+    }
+
+    suspended_reason = case Status.suspended_reason(s_susp) {
+        Some(reason) -> "suspended: " + reason
+        None -> "not suspended"
+    }
+
+    suspended_until = case Status.suspended_until(s_susp) {
+        Some(until) -> until
+        None -> -1
+    }
+
+    assert Status.is_active(s_active)
+    refute Status.is_active(s_off)
+    assert Status.is_suspended(s_susp)
+    assert off_reason == "off: on holiday"
+    assert suspended_reason == "suspended: maintenance"
+    assert suspended_until == 100
+}

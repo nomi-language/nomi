@@ -1,0 +1,106 @@
+// `std/comparable.Ordering` — the first monomorphic stdlib type this builder
+// has a representation for, and the whole ordering surface of the language.
+//
+// This is a test file rather than a program because everything worth pinning
+// here is a value the two paths could disagree about while both compiling. Four
+// groups, and each exists for a failure the other three cannot see:
+//
+//  1. ALL THREE VARIANTS as values, and a `case` covering all three. Tags run
+//     1..3 with 0 reserved invalid, and a permuted assignment or a slot-dedup
+//     bug is SILENT — a program that only ever constructs and matches `Less`
+//     agrees with itself whatever the numbering is. `Ordering.Equal` is spelled
+//     qualified so the owner check is exercised too.
+//
+//  2. `<` `>` `<=` `>=` on a user type whose `Comparable` impl returns an
+//     Ordering. This is the point of the type: Comparable is the language's
+//     STRONG operator demand, so these operators are the only reason a program
+//     ever names it, and they are lowered as `compare` followed by a rank
+//     comparison rather than as Go's own `<`.
+//
+//  3. Int and String `compare` — two stdlib impls with Nomi bodies, reached
+//     through the type-qualified spelling. `String.compare` matters
+//     specifically: its body calls a private host fn (`string_compare` ->
+//     rt.StringCompare), so it is the shape where the enum crosses from a
+//     stdlib module into this one.
+//
+//  4. FLOAT and NaN. `impl Comparable for Float` is a TOTAL order — `compare`
+//     answers `Equal` for (nan, nan) and `Greater` for (nan, 1.0), which is
+//     what puts NaN last in a sort — while Go answers false to every NaN
+//     comparison and the bare `<` operator agrees with Go on both paths. So
+//     the operators and `compare` DISAGREE with each other by design on this
+//     one input, and a lowering that shortcut `compare` to a native comparison
+//     would pass every other assertion in this file.
+//
+// The variant names are imported explicitly because `Ordering` is in scope
+// unqualified but its VARIANTS are not: a bare `Less` needs
+// `import std/comparable.Ordering.{Less}` and the front end says so.
+import std/comparable.Ordering.{Equal, Greater, Less}
+
+pub struct Priority {
+    level: Int
+}
+
+impl Comparable for Priority {
+    fn compare(a: Priority, b: Priority): Ordering {
+        Int.compare(a.level, b.level)
+    }
+}
+
+/// name renders an Ordering, so the three variants are observable rather than
+/// only comparable. A `case` over every variant plus a qualified head.
+fn name(o: Ordering): String {
+    case o {
+        .Less -> "less"
+        Ordering.Equal -> "equal"
+        .Greater -> "greater"
+    }
+}
+
+test "the three variants are distinct values" {
+    assert name(Less) == "less"
+    assert name(Equal) == "equal"
+    assert name(Greater) == "greater"
+    assert name(Ordering.Less) == "less"
+}
+
+test "Int.compare answers all three" {
+    assert name(Int.compare(1, 2)) == "less"
+    assert name(Int.compare(2, 2)) == "equal"
+    assert name(Int.compare(3, 2)) == "greater"
+}
+
+test "String.compare is byte-lexicographic" {
+    assert name(String.compare("a", "b")) == "less"
+    assert name(String.compare("b", "b")) == "equal"
+    assert name(String.compare("b", "a")) == "greater"
+}
+
+test "the ordering operators dispatch to a user Comparable impl" {
+    low = Priority{level: 1}
+    high = Priority{level: 9}
+    assert low < high
+    refute high < low
+    assert high > low
+    assert low <= high
+    assert low <= Priority{level: 1}
+    assert high >= low
+    refute low >= high
+}
+
+test "Float compare is a total order and the operators are not" {
+    nan = 0.0 / 0.0
+    assert name(Float.compare(nan, nan)) == "equal"
+    assert name(Float.compare(nan, 1.0)) == "greater"
+    assert name(Float.compare(1.0, nan)) == "less"
+    refute nan < nan
+    refute nan <= nan
+    refute nan > 1.0
+    // The INTERFACE-qualified spelling of the same call, which is how
+    // impl_test.go's retired `Comparable.compare on a scalar` row named it.
+    assert name(Comparable.compare(nan, nan)) == "equal"
+    assert name(Comparable.compare(1.0, 2.0)) == "less"
+}
+
+test "a failing ordering comparison renders its operands" {
+    assert Priority{level: 9} < Priority{level: 1}
+}

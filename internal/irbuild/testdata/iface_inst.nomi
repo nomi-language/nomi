@@ -1,0 +1,96 @@
+import std/io
+
+// A generic interface with a REQUIRED function whose result is the type
+// parameter, plus a DEFAULT whose body mentions neither. `announce`'s default
+// parameter is what makes the short call `Announcer.announce(b)` a distinct
+// route from `Announcer.announce(b, True)`.
+interface Announcer<T> {
+    fn item(s: self): T
+
+    fn announce(_s: self, loud: Bool = False): String {
+        base = "item"
+        if loud { base + "!" } else { base }
+    }
+}
+
+struct Box {
+    value: Int
+}
+
+struct Tag {
+    label: String
+}
+
+// TWO instantiations of ONE template, at two different type arguments, so an
+// implementation hard-wired to one argument fails here rather than passing.
+impl Announcer for Box {
+    fn item(s: Box): Int {
+        s.value
+    }
+}
+
+impl Announcer for Tag {
+    fn item(s: Tag): String {
+        s.label
+    }
+}
+
+// A generic interface whose DEFAULT body dispatches back through the interface,
+// so the monomorphized copy has to resolve `Picker.first` for each implementor —
+// plus a default carrying a `where` clause on the INTERFACE's own type
+// parameter, which is ground inside an instantiation and is therefore a
+// constraint the front end has already discharged.
+interface Picker<T> {
+    fn first(p: self): T
+    fn second(p: self): T
+
+    fn pick(p: self): T {
+        Picker.first(p)
+    }
+
+    fn top(p: self): T where T: Comparable {
+        a = Picker.first(p)
+        b = Picker.second(p)
+
+        case Comparable.compare(a, b) {
+            Ordering.Less -> b
+            _ -> a
+        }
+    }
+}
+
+struct Pair {
+    a: Int
+    b: Int
+}
+
+impl Picker for Pair {
+    fn first(p: Pair): Int {
+        p.a
+    }
+
+    fn second(p: Pair): Int {
+        p.b
+    }
+}
+
+fn main() {
+    b = Box{value: 7}
+    t = Tag{label: "hi"}
+    p = Pair{a: 3, b: 9}
+
+    io.print(Int.to_string(Announcer.item(b)))
+    io.print(Announcer.item(t))
+    io.print(Announcer.announce(b))
+    io.print(Announcer.announce(b, True))
+    io.print(Announcer.announce(t))
+
+    // The receiving TYPE as the qualifier reaches the same functions.
+    io.print(Int.to_string(Box.item(b)))
+    io.print(Box.announce(b))
+
+    io.print(Int.to_string(Picker.pick(p)))
+    io.print(Int.to_string(Picker.second(p)))
+    io.print(Int.to_string(Pair.pick(p)))
+    io.print(Int.to_string(Picker.top(p)))
+}

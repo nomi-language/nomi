@@ -1,0 +1,36 @@
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+derive Display for Point
+derive Equatable for Point
+
+pub struct Money {
+    cents: Int
+}
+
+impl Display for Money {
+    fn to_string(m: Money): String {
+        "$${m.cents / 100}.${m.cents % 100}"
+    }
+}
+
+pub enum Color {
+    Red
+    Green
+}
+
+derive Display for Color
+
+pub fn origin(): Point {
+    Point{x: 0, y: 0}
+}
+
+pub fn price(): Money {
+    Money{cents: 1250}
+}
+
+pub fn red(): Color {
+    Color.Red
+}

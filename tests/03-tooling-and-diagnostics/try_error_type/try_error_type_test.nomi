@@ -1,0 +1,139 @@
+// `try` may not launder the error type. Spec §9's boundary rule has three
+// parts and all three are checked at the `try`, naming both sides:
+//
+//   1. the boundary must be a `Result` or a `Maybe` at all;
+//   2. the flavours must agree — `Result` for a `Result`, `Maybe` for a `Maybe`;
+//   3. when both are `Result`s, the ERROR TYPES must be the same type.
+//
+// Without (3), a `try` propagates the operand's variant value untyped, so
+// `try Json.decode(s)` inside a function declaring `Result<_, String>` would
+// be ACCEPTED and the Err path would carry a `Json.DecodeError` out of it,
+// unnoticed until a caller rendered the value and died in
+// `Display.to_string`. The checker rejects these programs at the `try`,
+// naming both error types.
+import {
+    std/compiler
+    test_helpers
+}
+
+test "try may not launder the error type" {
+    diagnostics = compiler.check(
+        """
+          fn parse(s: String): Result<Int, Int> {
+            Err(String.length(s))
+          }
+
+          fn describe(s: String): Result<Int, String> {
+            n = try parse(s)
+
+            Ok(n)
+          }
+
+          fn main() {
+            _ = describe("x")
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+
+    // Both types are named, and the message points at the `try`.
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "try error type mismatch: expected String, got Int",
+    )
+}
+
+test "a matching try error type is clean" {
+    diagnostics = compiler.check(
+        """
+          fn parse(s: String): Result<Int, String> {
+            Err(s)
+          }
+
+          fn describe(s: String): Result<Int, String> {
+            n = try parse(s)
+
+            Ok(n)
+          }
+
+          fn main() {
+            _ = describe("x")
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 0
+}
+
+test "converting the error at the try site is clean" {
+    diagnostics = compiler.check(
+        """
+          fn parse(s: String): Result<Int, Int> {
+            Err(String.length(s))
+          }
+
+          fn describe(s: String): Result<Int, String> {
+            n = try Result.map_err(parse(s), |code| Int.to_string(code))
+
+            Ok(n)
+          }
+
+          fn main() {
+            _ = describe("x")
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 0
+}
+
+test "try on a Maybe may not propagate out of a Result boundary" {
+    diagnostics = compiler.check(
+        """
+          fn find(_s: String): Maybe<Int> {
+            None
+          }
+
+          fn describe(s: String): Result<Int, String> {
+            n = try find(s)
+
+            Ok(n)
+          }
+
+          fn main() {
+            _ = describe("x")
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "`try` on a Maybe cannot propagate out of a function returning Result<Int, String>",
+    )
+}
+
+test "try needs a Result or Maybe boundary to propagate into" {
+    diagnostics = compiler.check(
+        """
+          fn parse(s: String): Result<Int, String> {
+            Err(s)
+          }
+
+          fn describe(s: String): Int {
+            n = try parse(s)
+
+            n
+          }
+
+          fn main() {
+            _ = describe("x")
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "`try` cannot propagate a Result out of a function returning Int",
+    )
+}

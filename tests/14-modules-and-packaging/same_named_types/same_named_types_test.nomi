@@ -1,0 +1,26 @@
+// A type is identified by the file that declares it plus its name, so two
+// files may each declare a `Point` and the two are distinct types. Each keeps
+// its own impls, and neither shadows the other.
+import shapes
+
+struct Point {
+    label: String
+}
+
+impl Display for Point {
+    fn to_string(p: Point): String {
+        "entry(${p.label})"
+    }
+}
+
+test "same-named types in two files are distinct types" {
+    mine = Point{label: "here"}
+
+    assert Display.to_string(mine) == "entry(here)"
+    assert Display.to_string(shapes.origin()) == "shapes(0, 0)"
+}
+
+test "each same-named type keeps its own Debug rendering" {
+    assert Debug.inspect(Point{label: "here"}) == "Point{label: \"here\"}"
+    assert Debug.inspect(shapes.origin()) == "Point{x: 0, y: 0}"
+}

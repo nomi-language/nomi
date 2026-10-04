@@ -1,0 +1,12 @@
+import shapes.Box
+
+impl Debug for Box {
+    fn inspect(b: Box): String {
+        "Box(" + Int.to_string(b.w) + ")"
+    }
+}
+
+test "cross-file explicit Debug impl controls rendering" {
+    rendered = Box.inspect(Box{w: 5})
+    assert rendered == "Box(5)"
+}

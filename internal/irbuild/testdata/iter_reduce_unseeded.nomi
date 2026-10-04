@@ -1,0 +1,39 @@
+import std/io
+
+// An `Iter.reduce` whose callback declares NO default is a different program
+// from a seeded one, and this file pins both halves of the difference.
+//
+// The FIRST element seeds and iteration starts at the second — so `|acc, x|
+// acc` is the first element and `|acc, x| x` is the last, neither of which a
+// fold from a zero value could produce. And an EMPTY source is a FAULT, not a
+// zero: the message below is `nomi run`'s, captured verbatim, and it carries no
+// `line N:` prefix because this fault names no source position on either path.
+//
+// The annotations are load-bearing. Without them the checker leaves the
+// accumulator as the rigid type parameter `U` — measured: `|acc, x| acc + x` is
+// rejected outright with "type parameter U cannot use `+` without an Add bound"
+// — and the builder then has no kind for it and refuses at the parameter. So
+// the reachable unseeded shape is the annotated one, which is what this file
+// exercises.
+fn first_of(xs: List<Int>): Int {
+    Iter.reduce(xs, |acc: Int, _x: Int| acc)
+}
+
+fn last_of(xs: List<Int>): Int {
+    Iter.reduce(xs, |_acc: Int, x: Int| x)
+}
+
+fn total(xs: List<Int>): Int {
+    Iter.reduce(xs, |acc: Int, x: Int| acc + x)
+}
+
+fn main() {
+    io.print("${first_of([4, 5, 6])}")
+    io.print("${last_of([4, 5, 6])}")
+    io.print("${total([4, 5, 6])}")
+    io.print("${total([7])}")
+
+    empty: List<Int> = []
+    io.print("${total(empty)}")
+    io.print("unreachable")
+}

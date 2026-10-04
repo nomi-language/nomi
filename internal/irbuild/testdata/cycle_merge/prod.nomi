@@ -1,0 +1,32 @@
+// Closes the cycle: app imports this file and this file names app's `Config`
+// and app's `Show`. Everything declared here has a same-named twin in
+// test.nomi, and the two land in one Go package.
+import app.{Config, Show}
+
+pub struct Slot {
+    id: Int
+}
+
+impl Show for Slot {
+    fn show(value: Slot): String {
+        "prod-slot-${value.id}"
+    }
+}
+
+pub once tag: String = "prod"
+
+pub fn slot(): Slot {
+    Slot{id: 8080}
+}
+
+pub fn badge(): String {
+    Show.show(slot())
+}
+
+pub fn build(): Config {
+    Config{name: tag, level: 20}
+}
+
+pub fn label(): String {
+    "prod-label"
+}

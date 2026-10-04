@@ -1,0 +1,12 @@
+import std/compiler.{self, Diagnostic}
+
+pub fn has_diagnostic?(diagnostics: List<Diagnostic>, text: String): Bool {
+    Iter.any?(diagnostics, |diagnostic| String.contains?(diagnostic.message, text))
+}
+
+pub fn hover_signature(source: String): String {
+    case compiler.hover(source) {
+        Ok(hover) -> hover.signature
+        Err(message) -> message
+    }
+}

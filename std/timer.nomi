@@ -1,0 +1,17 @@
+//# Scheduling primitives for delaying the current task.
+//#
+//# `timer` is separate from `Instant` and `Duration`: those files describe
+//# time values, while this file performs time-based waiting.
+
+import {
+    duration.Duration
+    unit.Unit
+}
+
+/// Suspends the current task for the given duration.
+///
+/// When called inside a `concurrent { }` block, cancellation of that block's
+/// context ends the sleep early without producing a user-visible error.
+//! assert timer.sleep(Duration.nanoseconds(0)) == Unit
+//
+pub host fn sleep(d: Duration): Unit

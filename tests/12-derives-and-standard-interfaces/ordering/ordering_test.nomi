@@ -1,0 +1,96 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+struct OrderedPoint {
+    x: Int
+    y: Int
+}
+
+derive Debug for OrderedPoint
+derive Comparable for OrderedPoint
+
+test "ordering operators dispatch built-in Comparable impls" {
+    assert "a" < "b"
+    assert "b" > "a"
+    assert "abc" <= "abc"
+    assert False < True
+    refute True <= False
+    assert [1, 2] < [1, 3]
+    assert [1] < [1, 2]
+    assert [2] >= [1, 9]
+}
+
+test "ordering operators and sort work with derived Comparable structs" {
+    ps = [OrderedPoint{x: 2, y: 1}, OrderedPoint{x: 1, y: 9}, OrderedPoint{x: 1, y: 2}]
+    sorted = Iter.sort(ps)
+
+    assert OrderedPoint{x: 1, y: 2} < OrderedPoint{x: 3, y: 4}
+    refute OrderedPoint{x: 1, y: 2} > OrderedPoint{x: 3, y: 4}
+    assert OrderedPoint{x: 1, y: 2} <= OrderedPoint{x: 1, y: 2}
+    refute OrderedPoint{x: 1, y: 9} >= OrderedPoint{x: 2, y: 0}
+
+    assert Debug.inspect(
+        sorted
+    ) == "[OrderedPoint{x: 1, y: 2}, OrderedPoint{x: 1, y: 9}, OrderedPoint{x: 2, y: 1}]"
+}
+
+test "Float equality hashing and ordering handle signed zero and NaN" {
+    assert Float.hash(-0.0) == Float.hash(0.0)
+    assert Float.compare(5.0, Float.nan()) == Ordering.Less
+    assert Float.compare(Float.nan(), 5.0) == Ordering.Greater
+    assert Float.compare(Float.nan(), Float.nan()) == Ordering.Equal
+}
+
+test "ordering operators require Comparable for named structs" {
+    diagnostics = compiler.check(
+        """
+          struct Point {
+            x: Int
+            y: Int
+          }
+
+          fn main() {
+            a = Point{x: 1, y: 2}
+            b = Point{x: 3, y: 4}
+            _ = a < b
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Comparable` for `Point`")
+}
+
+test "ordering operators reject tuple and anonymous structural values" {
+    tuple_diagnostics = compiler.check(
+        """
+          fn main() {
+            a = (1, 2)
+            b = (3, 4)
+            _ = a < b
+          }
+        """
+    )
+
+    anon_diagnostics = compiler.check(
+        """
+          fn main() {
+            a = {x: 1}
+            b = {x: 2}
+            _ = a < b
+          }
+        """
+    )
+
+    assert Iter.count(tuple_diagnostics) == 1
+
+    assert test_helpers.has_diagnostic?(
+        tuple_diagnostics,
+        "tuple types cannot implement `Comparable`",
+    )
+
+    assert Iter.count(anon_diagnostics) == 1
+    assert test_helpers.has_diagnostic?(anon_diagnostics, "no impl of `Comparable` for `{x: Int}`")
+}

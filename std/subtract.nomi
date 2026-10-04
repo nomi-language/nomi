@@ -1,0 +1,19 @@
+/// Protocol for the `-` operator.
+///
+/// `Subtract.subtract(lhs, rhs)` returns the result of `lhs - rhs`. The
+/// left-hand type is the implementor (`self`); the interface type parameters
+/// describe the right-hand operand and the output type. That lets an impl
+/// choose a result that is not necessarily the same type as the left-hand
+/// operand.
+///
+/// ```nomi
+/// pub type DateDay Int
+/// pub type Days Int
+///
+/// impl Subtract<Days, DateDay> for DateDay {
+///     fn subtract(lhs: DateDay, rhs: Days): DateDay { ... }
+/// }
+/// ```
+pub interface Subtract<Rhs, Out> {
+    fn subtract(lhs: self, rhs: Rhs): Out
+}

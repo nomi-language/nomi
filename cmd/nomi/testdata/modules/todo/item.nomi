@@ -1,0 +1,33 @@
+//# One entry on the to-do list. `Item` is opaque: only this file reads or
+//# builds its fields, and every other file goes through the functions below.
+
+pub opaque struct Item {
+    id: Int
+    title: String
+    done: Bool
+}
+
+impl Item {
+    pub fn new(id: Int, title: String): Item {
+        Item{id, title, done: False}
+    }
+
+    pub fn id(item: Item): Int {
+        item.id
+    }
+
+    pub fn done?(item: Item): Bool {
+        item.done
+    }
+
+    pub fn complete(item: Item): Item {
+        {..item, done: True}
+    }
+}
+
+impl Display for Item {
+    fn to_string(item: Item): String {
+        mark = if item.done { "x" } else { " " }
+        "[${mark}] ${item.title}"
+    }
+}

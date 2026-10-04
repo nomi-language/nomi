@@ -1,0 +1,82 @@
+// A STDLIB interface as a generic function's BOUND.
+//
+// `Display` has a `stdIfaceSpecs` row, so it already lowers as a parameter
+// type, as an `impl` header, as an inferred position and as a cross-file kind.
+// The BOUND position was the one lookup site that never got the stdlib arm:
+// dictSeamFor asked `ifaceNamed`, which answers only for this module's own
+// declarations and a sibling file's mirror, so `where T: Display` declined the
+// seam and the whole declaration was refused as `generic function`.
+//
+// TWO implementors of `Display` on purpose, and they are deliberately of
+// DIFFERENT SHAPES — a struct with one field and a struct with two. With one
+// implementor a dispatch table and a hard-coded direct call are
+// indistinguishable, which is dict_bounded_param.nomi's stated reason for
+// having two; with two implementors of the SAME shape a table indexed by the
+// wrong TypeID could still read a valid field offset and print something
+// plausible. Different shapes make a wrong `At(tid)` a wrong ANSWER rather
+// than a lucky one.
+//
+// `shout` is the corpus shape (11-interfaces-and-impls/type_parameter_dispatch,
+// `fn shout<T>(x: T): String where T: Display`), reached through `T.to_string`.
+// `qualified` is the same dispatch written as `Display.to_string(x)` — an
+// interface-qualified call on a value whose static kind is the bound — because
+// those are two different arms and only one of them is dictTypeParamCall.
+//
+// `relay` calls a bounded generic FROM a bounded generic, handing its own type
+// parameter on. That is the enclosing activation's own dictionary answering,
+// which is the property dictArgFor's `byBound` branch exists for; without it a
+// bounded generic could not call another one and this file would refuse rather
+// than diverge.
+//
+// `pair` proves the dispatch is per-ARGUMENT and not per-activation: one
+// activation, two different concrete types flowing through the same bound at
+// two call sites. A builder that cached the first TypeID for the activation
+// prints the same rendering twice here.
+import std/io
+
+struct Meters {
+    amount: Int
+}
+
+struct Label {
+    head: String
+    tail: String
+}
+
+impl Display for Meters {
+    fn to_string(m: Meters): String {
+        Int.to_string(m.amount) + "m"
+    }
+}
+
+impl Display for Label {
+    fn to_string(l: Label): String {
+        l.head + "-" + l.tail
+    }
+}
+
+fn shout<T>(x: T): String where T: Display {
+    T.to_string(x) + "!"
+}
+
+fn qualified<T>(x: T): String where T: Display {
+    Display.to_string(x) + "?"
+}
+
+fn relay<U>(y: U): String where U: Display {
+    shout(y) + " / " + qualified(y)
+}
+
+fn pair(a: Meters, b: Label): String {
+    shout(a) + " & " + shout(b)
+}
+
+fn main() {
+    io.print(shout(Meters{amount: 5}))
+    io.print(shout(Label{head: "a", tail: "b"}))
+    io.print(qualified(Meters{amount: 7}))
+    io.print(qualified(Label{head: "c", tail: "d"}))
+    io.print(relay(Meters{amount: 9}))
+    io.print(relay(Label{head: "e", tail: "f"}))
+    io.print(pair(Meters{amount: 1}, Label{head: "g", tail: "h"}))
+}

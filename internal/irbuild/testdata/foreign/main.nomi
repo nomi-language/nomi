@@ -1,0 +1,64 @@
+// A user type declared in one Nomi FILE, named, constructed, read, matched and
+// passed across a generated-package boundary.
+//
+// The entry declares its OWN `Point` as well, with a different field set, so
+// the two are two Nomi types that happen to share a spelling — which is what
+// makes the cross-file one a real identity question rather than a naming one.
+// A confusion between them is a Go compile error; see
+// TestForeignType_IdentityIsNominal.
+import {
+    std/io
+    geometry.{self, Meters, Point, Reading}
+}
+
+/// The entry file's own `Point`, unrelated to `geometry.Point` beyond the
+/// spelling.
+struct Local {
+    note: String
+}
+
+fn note_of(l: Local): String {
+    l.note
+}
+
+fn main() {
+    // Constructed HERE, from another file's declaration.
+    here = Point{x: 3, y: 4, tag: "here"}
+    io.print("here = ${here.x},${here.y},${here.tag}")
+
+    // Constructed THERE, returned across the boundary, read here.
+    o = geometry.origin()
+    io.print("origin = ${o.x},${o.y},${o.tag}")
+
+    // Passed across the boundary and returned across it.
+    moved = geometry.shift(here, 10)
+    io.print("moved = ${moved.x},${moved.y},${moved.tag}")
+
+    // An enum crossing the boundary, matched HERE on the tag the other package
+    // declared.
+    empty = Reading.Empty
+    whole = Reading.Whole(9)
+    labelled = Reading.Labelled{name: "n", at: o}
+    io.print("match-here = ${tell(empty)}|${tell(whole)}|${tell(labelled)}")
+
+    // The same values described by the DECLARING file, so both directions of the
+    // boundary are exercised on one value.
+    io.print("match-there = ${geometry.describe(whole)}")
+
+    // A distinct type crosses as itself, out and back. NOT unwrapped, in either
+    // file: `case m { Meters(n) -> … }` on an IMPORTED distinct matches nothing
+    // on the interpreter — a front-end defect independent of this boundary and
+    // reproduced in the cross-package identity slice's yield — so the fixture
+    // would be comparing the compiled path against a broken reference.
+    _bounced = geometry.bounce(Meters(200))
+
+    io.print("local = ${note_of(Local{note: "mine"})}")
+}
+
+fn tell(r: Reading): String {
+    case r {
+        Reading.Empty -> "e"
+        Reading.Whole(n) -> "w${n}"
+        Reading.Labelled{name, at} -> "l${name}${at.tag}"
+    }
+}

@@ -1,0 +1,207 @@
+// An ASSERTABLE assertion subject — a user type whose own `Assertable.failure`
+// decides whether the assertion holds, and supplies the report's `details:`
+// rows when it does not.
+//
+// The rule is eval's assertSubject and not a generalisation of it. `failure`
+// answers `Maybe<AssertionDetails>`, and the polarity is the OPPOSITE of a
+// `Maybe` SUBJECT's: `assert` holds on `None` and fails on `Some`, `refute` is
+// the mirror, and either way the assertion's VALUE is the original subject.
+// That inversion is the whole reason the discrimination is
+// `shapeSubjectFailed(answer, !refute)` rather than a second tag comparison
+// written out here.
+//
+// # What is pinned here that nothing else can see
+//
+// An Assertable's ENTIRE contribution to a report is the `details:` block and
+// the `reason` it authored, and both are failure-path only. `tests/`
+// contains no program that fails an assertion, so the differential sweep
+// compares the PASSING path and reads `0 DIFFED` however wrong a failure
+// renders — rt.WriteAssertionFailure had dropped the `details:` block outright
+// and no sweep could ever have said so. So every case below reaches a failure
+// through `testing.check`, which returns it as a value instead of aborting.
+//
+// THREE Assertable types on purpose, because the `reason` has three sources and
+// they are three different rules:
+//
+//   - `Equals` AUTHORS one, and it wins over the site's own words even for a
+//     `check`.
+//   - `Defaulted` leaves every field to its DECLARED DEFAULT, so the reason is
+//     std's `"assertion failed"` — which for a `check` is NOT the site's
+//     `"check failed"`. A lowering that reached for the site first would read
+//     correctly here only by coincidence.
+//   - `Silent` writes `reason: ""` explicitly, the ONLY way a user can reach
+//     AssertionSite.FailedReason through this path, and the one case where the
+//     keyword decides: `check failed` under a check, `assertion failed` under
+//     an assert.
+//
+// The whole rendered report is `assertable_subject_report.nomi`'s subject, plus
+// the non-zero exit a failing case produces.
+// `Some` comes from the prelude, so only std/assertions and std/testing are imported.
+import {
+    std/assertions.Assertable
+    std/assertions.AssertionDetail
+    std/assertions.AssertionDetails
+    std/assertions.AssertionFailure
+    std/testing
+}
+
+struct Equals {
+    actual: Int
+    expected: Int
+}
+
+impl Assertable for Equals {
+    fn failure(e: Equals): Maybe<AssertionDetails> {
+        if e.actual == e.expected { None } else { Some(AssertionDetails{
+                reason: "values were not equal",
+                actual: Some(Debug.inspect(e.actual)),
+                details: [
+                    AssertionDetail{label: "actual", value: Debug.inspect(e.actual)},
+                    AssertionDetail{label: "expected", value: Debug.inspect(e.expected)},
+                ],
+            }) }
+    }
+}
+
+// Every field left to the default std DECLARES, which is the half of the
+// representation that landed before this one: `reason` is a non-empty string,
+// `actual` is `None` whose tag is not zero, and `details` is empty.
+struct Defaulted {
+    ok: Bool
+}
+
+impl Assertable for Defaulted {
+    fn failure(d: Defaulted): Maybe<AssertionDetails> {
+        if d.ok { None } else { Some(AssertionDetails{}) }
+    }
+}
+
+struct Silent {
+    ok: Bool
+}
+
+impl Assertable for Silent {
+    fn failure(s: Silent): Maybe<AssertionDetails> {
+        if s.ok {
+            None
+        } else {
+            Some(AssertionDetails{reason: ""})
+        }
+    }
+}
+
+fn equals(actual: Int, expected: Int): Equals {
+    Equals{actual, expected}
+}
+
+// `assert` and `refute` over an Assertable, reached as VALUES so the failure can
+// be read rather than ending the case. The keyword is what changes the reason,
+// and a `check` cannot produce either of these two.
+fn fails_silently(): Result<Unit, AssertionFailure> {
+    assert Silent{ok: False}
+    Ok(Unit)
+}
+
+fn fails_refutation(): Result<Unit, AssertionFailure> {
+    refute equals(3, 3)
+    Ok(Unit)
+}
+
+test "a passing Assertable holds and its value is the subject" {
+    held = assert equals(7, 7)
+    assert held.actual == 7
+    assert held.expected == 7
+}
+
+test "a refutation holds when the Assertable reports a failure" {
+    refuted = refute equals(1, 2)
+    assert refuted.expected == 2
+}
+
+test "a failing check carries the reason, actual and detail rows it answered" {
+    x = 41
+    y = 42
+    assert Err(failure) = testing.check(equals(x, y))
+    observed: AssertionFailure = failure
+
+    assert observed.line == 124
+    assert observed.keyword == "check"
+    assert observed.expression == "equals(x, y)"
+    // AUTHORED, so it wins over the site's `check failed`.
+    assert observed.reason == "values were not equal"
+    // `actual` is the Assertable's own answer here and not a rendering of the
+    // subject, which is what separates this row from a shape subject's.
+    assert Some(rendered) = observed.actual
+    assert rendered == "41"
+}
+
+test "the report shows the authored details, in the order they were answered" {
+    x = 41
+    y = 42
+    assert Err(failure) = testing.check(equals(x, y))
+
+    assert AssertionFailure.format(failure) == """
+        line 141: values were not equal
+          check equals(x, y)
+          values:
+            x
+              = 41
+            y
+              = 42
+          details:
+            actual
+              = 41
+            expected
+              = 42
+          actual: 41
+        """
+}
+
+test "an Assertable answering the declared defaults reports them" {
+    assert Err(failure) = testing.check(Defaulted{ok: False})
+    // std's field default, NOT the site's `check failed`.
+    assert failure.reason == "assertion failed"
+    // `None`, so the report prints no `actual:` row at all.
+    refute failure.actual
+
+    assert AssertionFailure.format(failure) == """
+        line 161: assertion failed
+          check Defaulted{ok: False}
+        """
+}
+
+test "an explicitly empty reason falls back to the site's own words" {
+    assert Err(failure) = testing.check(Silent{ok: False})
+    assert failure.reason == "check failed"
+
+    assert Err(asserted) = fails_silently()
+    assert asserted.keyword == "assert"
+    assert asserted.reason == "assertion failed"
+}
+
+// A failing refutation carries no `details:` block, and that is structural
+// rather than a choice: `refute` fails exactly when the answer was `None`, so
+// there are no details in existence to print.
+test "a failed refutation says so in its own words" {
+    assert Err(failure) = fails_refutation()
+    assert failure.keyword == "refute"
+    assert failure.reason == "refute failed"
+    refute failure.actual
+
+    assert AssertionFailure.format(failure) == """
+        line 106: refute failed
+          refute equals(3, 3)
+        """
+}
+
+test "a bound Assertable subject carries its defining expression" {
+    comparison = equals(5, 6)
+    assert Err(failure) = testing.check(comparison)
+    assert Some(context) = failure.binding
+    assert context.name == "comparison"
+    assert context.expression == "equals(5, 6)"
+    // The binding's value is the SUBJECT rendered by Inspect — fields sorted by
+    // their composed `name: value` text — where `actual` above was the
+    // Assertable's own string. Two different values in one report.
+    assert context.value == "Equals{actual: 5, expected: 6}"
+}

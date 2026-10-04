@@ -1,0 +1,48 @@
+==========
+Type at the end of an if-condition is not grabbed as a struct literal
+==========
+
+fn m(): Int {
+  if x != Status.Done {
+    1
+  } else {
+    0
+  }
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (type_identifier)
+    (body
+      (if_expression
+        (binary_expression
+          (identifier)
+          (type_field_access
+            (type_identifier)
+            (type_identifier)))
+        (body
+          (integer))
+        (body
+          (integer))))))
+
+==========
+Struct construction (brace hugs the head) still parses
+==========
+
+once p = Point{x: 1, y: 2}
+
+---
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (struct_construction
+      (type_identifier)
+      field_name: (identifier)
+      (integer)
+      field_name: (identifier)
+      (integer))))

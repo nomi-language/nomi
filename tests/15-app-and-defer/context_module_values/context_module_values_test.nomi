@@ -1,0 +1,43 @@
+import {
+    domain.{Marker, Mode, Tag, Token}
+    other
+}
+
+test "a module-declared wrapped type round-trips through a Context" {
+    c = Context.with_value(Context.root(), Token(7))
+    assert Context.value(c, Token) == Some(Token(7))
+}
+
+test "a module-declared zero-sized type round-trips through a Context" {
+    c = Context.with_value(Context.root(), Marker)
+    assert Context.value(c, Marker) == Some(Marker)
+}
+
+test "a module-declared struct round-trips through a Context" {
+    c = Context.with_value(Context.root(), Tag{name: "a"})
+    assert Context.value(c, Tag) == Some(Tag{name: "a"})
+}
+
+test "a module-declared enum round-trips through a Context" {
+    c = Context.with_value(Context.root(), Mode.Fast)
+    assert Context.value(c, Mode) == Some(Mode.Fast)
+}
+
+test "two same-named module types keep separate Context slots" {
+    c = Context.with_value(Context.root(), Token(7))
+    both = Context.with_value(c, other.make("seven"))
+
+    assert Context.value(both, Token) == Some(Token(7))
+    assert other.stored(both) == Some(other.make("seven"))
+}
+
+/// A `Type<T>` PARAMETER is a value already, and must pass through
+/// untouched rather than being re-resolved from the parameter's own name.
+fn stored_token(c: Context, token_type: Type<Token>): Maybe<Token> {
+    Context.value(c, token_type)
+}
+
+test "a Type witness passed as a parameter still resolves" {
+    c = Context.with_value(Context.root(), Token(7))
+    assert stored_token(c, Token) == Some(Token(7))
+}

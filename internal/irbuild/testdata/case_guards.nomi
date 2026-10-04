@@ -1,0 +1,47 @@
+import std/io
+
+enum Box {
+    Num Int
+    Text String
+}
+
+// loud prints, so the fixture pins not just WHICH arm won but how many guards
+// ran and in what order. A tree that evaluated guards before their pattern
+// bound, or evaluated a later arm's guard eagerly, would print a different
+// transcript with the same answer.
+fn loud(label: String, ok: Bool): Bool {
+    io.print("guard ${label}")
+    ok
+}
+
+// A failing guard must fall through to a LATER arm whose pattern also matches.
+// Arm 1 and arm 3 have identical patterns and only the guard separates them.
+fn describe(b: Box): String {
+    case b {
+        Box.Num(n) when loud("big", n > 100) -> "big ${n}"
+        Box.Num(n) when loud("neg", n < 0) -> "negative ${n}"
+        Box.Num(n) -> "plain ${n}"
+        Box.Text(s) when loud("empty", s == "") -> "empty text"
+        Box.Text(s) -> "text ${s}"
+    }
+}
+
+// The guard sees the pattern's bindings, so it cannot be hoisted above them.
+fn tier(n: Int): String {
+    case n {
+        x when x > 10 -> "high ${x}"
+        x when x > 5 -> "mid ${x}"
+        x -> "low ${x}"
+    }
+}
+
+fn main() {
+    io.print(describe(Box.Num(500)))
+    io.print(describe(Box.Num(-3)))
+    io.print(describe(Box.Num(7)))
+    io.print(describe(Box.Text("")))
+    io.print(describe(Box.Text("hi")))
+    io.print(tier(50))
+    io.print(tier(7))
+    io.print(tier(1))
+}

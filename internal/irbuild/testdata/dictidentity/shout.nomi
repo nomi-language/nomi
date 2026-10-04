@@ -1,0 +1,6 @@
+// The interface, alone in its own file — so its dispatch table belongs to
+// THIS file's unit package, and both implementing files bind their own
+// same-named `Widget` into that one variable. One table, two identities.
+pub interface Shout {
+    fn shout(v: self): String
+}

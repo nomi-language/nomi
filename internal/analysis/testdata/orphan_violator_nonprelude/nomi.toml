@@ -1,0 +1,3 @@
+[module]
+name = "orphan_violator_nonprelude"
+entry_points = ["main"]

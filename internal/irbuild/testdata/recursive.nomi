@@ -1,0 +1,38 @@
+import std/io
+
+/// `Link` carries a `Chain`, so a flat inline struct would have infinite size
+/// and Go would reject it. The payload slot is a pointer and construction
+/// allocates; see types.go's boxing rule, which boxes every payload that can
+/// reach its own container.
+enum Chain {
+    End
+    Link Chain
+}
+
+/// Mutual recursion through a struct: `Cell` holds a `Chain`, and one of
+/// `Chain`'s variants holds a `Cell`. Neither edge is direct, so a rule that
+/// only looked one level deep would emit two Go types of infinite size.
+struct Cell {
+    next: Loop
+    weight: Int
+}
+
+enum Loop {
+    Stop
+    Go Cell
+}
+
+fn depth(_c: Chain): Int {
+    2
+}
+
+fn main() {
+    one = Chain.Link(Chain.End)
+    two = Chain.Link(one)
+    io.print("depth = ${depth(two)}")
+
+    stop = Loop.Stop
+    cell = Cell{next: stop, weight: 5}
+    _looped = Loop.Go(cell)
+    io.print("weight = ${cell.weight}")
+}

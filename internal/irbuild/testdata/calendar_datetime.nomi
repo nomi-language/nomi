@@ -1,0 +1,118 @@
+// std/calendar's zoned `DateTime`, as a Go struct declared in rt.
+//
+// The corpus reaches this type through ONE file
+// (05-calendar-and-time/datetime_zone_changes_test.nomi), and everything below
+// the first two lines is unreachable from it — so a fixture is the only guard
+// on the rest. `DIFFED` reading 0 says nothing about a shape no corpus program
+// exercises.
+//
+// The DISCRIMINATING line is `ny == tokyo`. Equality and ordering on a DateTime
+// are INSTANT-ONLY: the same moment displayed in two zones is one value, and
+// the zone is display metadata. std/calendar.nomi hand-writes
+// `impl Equatable for DateTime` over `instant_nanos` alone to make that so, and
+// Go's `==` on `rt.DateTime` compares the Zone string too and answers False.
+// So a structural lowering of `==` on this type is a WRONG ANSWER rather than a
+// slower right one, and this line is where it shows.
+//
+// Everything else pins a projection THROUGH the zone: Tokyo's calendar day is
+// the 16th where New York's is the 15th, and the offsets differ. A fixture that
+// only round-tripped one formatted string could not catch a re-zoning that lost
+// the instant.
+import {
+    std/calendar.{DateTime, Error}
+    std/duration.Duration
+    std/instant.Instant
+    std/io
+}
+
+// `try` inside `fn main()` is refused by the builder (`try boundary mismatch`,
+// a Unit-returning body cannot propagate), so the fallible half lives in a
+// Result-returning function and main discharges it with a `case`. That is a
+// property of `main`, not of these types.
+fn run(): Result<Unit, Error> {
+    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
+
+    // Two zones, one instant. The renderings differ and the values do not.
+    io.print("ny = " + DateTime.to_string(ny))
+    io.print("tokyo = " + DateTime.to_string(tokyo))
+    io.print("equal = " + Bool.to_string(ny == tokyo))
+
+    io.print(
+        "seconds_equal = " + Bool.to_string(
+            Instant.to_seconds(DateTime.to_instant(ny)) == Instant.to_seconds(
+                DateTime.to_instant(tokyo)
+            )
+        )
+    )
+
+    // Accessors project through the TARGET zone, so the calendar day and the
+    // hour both move.
+    io.print("ny_day = " + Int.to_string(DateTime.day(ny)))
+    io.print("tokyo_day = " + Int.to_string(DateTime.day(tokyo)))
+    io.print("ny_hour = " + Int.to_string(DateTime.hour(ny)))
+    io.print("tokyo_hour = " + Int.to_string(DateTime.hour(tokyo)))
+
+    // The remaining DateParts/TimeParts readers, so a mis-wired accessor is
+    // visible rather than masked by the two above.
+    io.print("year = " + Int.to_string(DateTime.year(tokyo)))
+    io.print("month = " + Int.to_string(DateTime.month(tokyo)))
+    io.print("minute = " + Int.to_string(DateTime.minute(tokyo)))
+    io.print("second = " + Int.to_string(DateTime.second(tokyo)))
+    io.print("nanosecond = " + Int.to_string(DateTime.nanosecond(tokyo)))
+
+    // The zone's effective UTC offset at this instant: -4h in New York in June
+    // (EDT, not EST), +9h in Tokyo. A DST-unaware lookup would say -5h.
+    io.print("ny_offset = " + Duration.to_string(DateTime.offset(ny)))
+    io.print("tokyo_offset = " + Duration.to_string(DateTime.offset(tokyo)))
+
+    // An unknown IANA name is an Err, not a panic and not a silent UTC. The
+    // VARIANT is matched and the payload bound, rather than routed through
+    // `Display.to_string(e)`: rendering a std enum through its impl is a separate
+    // gap (`rendering a non-scalar value`), and matching the variant is the
+    // stronger claim anyway — it pins WHICH error, where a rendered string could
+    // come from any of the five.
+    case DateTime.with_zone(ny, "Not/A_Zone") {
+        Ok(_d) -> io.print("bad_zone = unexpectedly ok")
+        Err(Error.UnknownZone(z)) -> io.print("bad_zone = unknown zone: " + z)
+        Err(_other) -> io.print("bad_zone = wrong variant")
+    }
+
+    // The bracket suffix is required: a bare-offset string is an OffsetDateTime
+    // and inventing a zone for it would be a silent wrong answer.
+    case DateTime.parse("2026-06-15T12:00:00-04:00") {
+        Ok(_d) -> io.print("bare_offset = unexpectedly ok")
+        Err(Error.InvalidFormat(m)) -> io.print("bare_offset = invalid format: " + m)
+        Err(_other) -> io.print("bare_offset = wrong variant")
+    }
+
+    // `from_instant_in` is total once the zone is known, and the epoch renders
+    // in UTC as itself.
+    epoch = try DateTime.from_instant_in(Instant.from_seconds(0), "UTC")
+    io.print("epoch = " + DateTime.to_string(epoch))
+
+    // Debug goes through Display for this type, and the type is OPAQUE — so it
+    // is the RFC 9557 string rather than the structural `{instant_nanos: …}`
+    // form the auto-derived Debug would produce for a transparent struct.
+    io.print("inspect = " + Debug.inspect(tokyo))
+
+    // Inequality goes through the SAME Equatable impl, so a different moment in
+    // the same zone is not equal while the same moment in another zone is.
+    //
+    // `<` is deliberately absent: `calendar.DateTime.compare` is
+    // `unlowered stdlib function` in the std index, so ordering on this type does
+    // not lower yet. rt/calendar_test.go pins the instant-only ORDER at the
+    // representation level instead, and putting it here would refuse the whole
+    // fixture rather than one line.
+    earlier = try DateTime"2026-06-15T11:00:00-04:00[America/New_York]"
+    io.print("earlier_ne = " + Bool.to_string(earlier != ny))
+    io.print("tokyo_ne = " + Bool.to_string(tokyo != ny))
+    Ok(Unit)
+}
+
+fn main() {
+    case run() {
+        Ok(_u) -> Unit
+        Err(_e) -> io.print("FAILED")
+    }
+}

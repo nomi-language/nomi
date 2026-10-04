@@ -1,0 +1,174 @@
+%YAML 1.2
+---
+name: Nomi
+file_extensions: [nomi]
+scope: source.nomi
+
+variables:
+  ident: '[a-z_][a-zA-Z0-9_]*\??'
+  type_ident: '[A-Z][a-zA-Z0-9_]*'
+  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|todo|try|type(alias)?|where|with'
+
+contexts:
+  main:
+    - include: comments
+    - include: strings
+    - include: numbers
+    - include: keywords
+    - include: operators
+    - include: identifiers
+    - include: punctuation
+
+  comments:
+    - match: '///.*$'
+      scope: comment.block.documentation.nomi
+    - match: '//.*$'
+      scope: comment.line.double-slash.nomi
+
+  strings:
+    - match: '`'
+      scope: punctuation.definition.string.begin.nomi
+      push: raw_string
+    - match: '"""'
+      scope: punctuation.definition.string.begin.nomi
+      push: triple_string
+    # A codepoint literal: one character or one escape in single quotes,
+    # `'a'`, `'\n'`, `'\''`, `'\u{7F}'`.
+    - match: '('')(?:(\\(?:[nt\\'']|u\{[0-9a-fA-F]+\}))|[^''\\\n])('')'
+      scope: constant.character.nomi
+      captures:
+        1: punctuation.definition.string.begin.nomi
+        2: constant.character.escape.nomi
+        3: punctuation.definition.string.end.nomi
+    - match: '"'
+      scope: punctuation.definition.string.begin.nomi
+      push: string
+
+  string:
+    - meta_scope: string.quoted.double.nomi
+    - match: '\\u\{[0-9a-fA-F]+\}'
+      scope: constant.character.escape.unicode.nomi
+    - match: '\\([nt\\"]|\$\{)'
+      scope: constant.character.escape.nomi
+    - match: '\$\{'
+      scope: punctuation.section.interpolation.begin.nomi
+      push: interpolation
+    - match: '"'
+      scope: punctuation.definition.string.end.nomi
+      pop: true
+
+  triple_string:
+    - meta_scope: string.quoted.triple.nomi
+    # No escape processing except `\${`, a literal `${`.
+    - match: '\\\$\{'
+      scope: constant.character.escape.nomi
+    - match: '\$\{'
+      scope: punctuation.section.interpolation.begin.nomi
+      push: interpolation
+    - match: '"""'
+      scope: punctuation.definition.string.end.nomi
+      pop: true
+
+  raw_string:
+    - meta_scope: string.quoted.other.nomi
+    - match: '`'
+      scope: punctuation.definition.string.end.nomi
+      pop: true
+
+  interpolation:
+    - meta_scope: meta.interpolation.nomi
+    - match: '\}'
+      scope: punctuation.section.interpolation.end.nomi
+      pop: true
+    - include: main
+
+  numbers:
+    - match: '\b0x[0-9a-fA-F][0-9a-fA-F_]*\b'
+      scope: constant.numeric.integer.hex.nomi
+    - match: '\b0b[01][01_]*\b'
+      scope: constant.numeric.integer.binary.nomi
+    - match: '\b[0-9][0-9_]*(\.[0-9][0-9_]*)?[dD]\b'
+      scope: constant.numeric.decimal.nomi
+    - match: '\b[0-9][0-9_]*\.[0-9][0-9_]*([eE][+-]?[0-9][0-9_]*)?\b'
+      scope: constant.numeric.float.nomi
+    - match: '\b[0-9][0-9_]*\b'
+      scope: constant.numeric.integer.nomi
+
+  keywords:
+    - match: '(^\s*)(//!)(\s*)'
+      captures:
+        2: comment.line.prompt.nomi
+        3: comment.line.prompt.nomi
+    # Keyword-shaped import path segments are filenames, not language syntax:
+    # `std/structs.Struct` should color `structs` like a path segment while the
+    # trailing `export` modifier still colors as a keyword.
+    - match: '\b({{import_path_keyword}})\b(?=/)|(?<=/)\b({{import_path_keyword}})\b'
+      scope: variable.other.nomi
+    - match: '\bhost\b(?=\s+(fn|type)\b)'
+      scope: keyword.declaration.nomi
+    # `field`, `variant`, `open`, and `derive` are CONTEXTUAL keywords in Nomi
+    # — `field`/`variant` only carry meaning inside interface bodies
+    # (`field name: T`, `variant Name`), `open` inside interface bodies, and
+    # `derive` in `derive Iface for T`.
+    # Sublime-syntax is
+    # regex-based with no easy body context-stack, so we match them
+    # globally as keywords. Bare uses outside those bodies (e.g.
+    # `field = 42`) are conventionally rare; the test programs only
+    # mention them inside comments, which the `comments` context already
+    # swallows before this rule can fire.
+    - match: '\b(pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|tests|setup|self|field|variant|open)\b'
+      scope: keyword.declaration.nomi
+    # `clock` and `boot` are keywords only as a test group's lines
+    # (`clock Clock.Virtual`, `boot server.boot(startup())`); `MyApp.clock`,
+    # `server.boot` and a `clock` binding stay names.
+    - match: '^\s*(clock|boot)\b(?=[ \t]+[A-Za-z_(])'
+      captures:
+        1: keyword.declaration.nomi
+    # `internal` path segment in imports — Phase 1 packaging convention
+    # for sub-tree access barriers. Matches `internal` only when
+    # followed by `/`, so bare `internal` identifiers (rare; not a
+    # reserved word in Nomi) aren't affected. Scope chosen for
+    # visual distinctness in common bat themes; semantically it's
+    # access-scope metadata, not a namespace name.
+    - match: '\binternal(?=/)'
+      scope: entity.other.attribute-name.nomi
+    - match: '\b(if|else|case|when|break|continue|return|concurrent|try|assert|refute|dbg|todo)\b'
+      scope: keyword.control.nomi
+    - match: '\b(and|or)\b'
+      scope: keyword.operator.word.nomi
+    - match: '\b(true|false)\b'
+      scope: constant.language.nomi
+
+  operators:
+    - match: '\|>|->|=>|==|!=|<=|>=|\.\.=|\.\.'
+      scope: keyword.operator.nomi
+    - match: '[+\-*/%<>!=|]'
+      scope: keyword.operator.nomi
+
+  identifiers:
+    # Dot-leading variant shorthand: `.Red`, `.Circle(1.0)`, `.Obj{...}`.
+    # Listed first (first-wins per the syntect priority order) so the
+    # leading dot + identifier pair is scoped together, with the
+    # identifier itself reading as a type/constructor consistent with
+    # the qualified `Color.Red` form below. The dot is scoped as
+    # punctuation to match other separator tokens.
+    - match: '(\.)({{type_ident}})\b'
+      captures:
+        1: punctuation.separator.nomi
+        2: storage.type.nomi
+    - match: '\b{{type_ident}}\b'
+      scope: storage.type.nomi
+    - match: '\b_(?!_)[a-zA-Z0-9_]*\??\b'
+      scope: comment.discard.nomi
+    - match: '\b{{ident}}(?=\s*\()'
+      scope: variable.function.nomi
+    - match: '\b{{ident}}'
+      scope: variable.other.nomi
+
+  punctuation:
+    - match: '#(?=[\[\{])'
+      scope: punctuation.section.nomi
+    - match: '[,.:;]'
+      scope: punctuation.separator.nomi
+    - match: '[(){}\[\]]'
+      scope: punctuation.section.nomi

@@ -1,0 +1,21 @@
+/// "leaf" file that defines the public APIs the facade re-exports.
+/// Consumers don't import leaf directly; they go through facade.
+pub fn double(x: Int): Int {
+    x * 2
+}
+
+pub fn add(a: Int, b: Int): Int {
+    a + b
+}
+
+pub struct Box {
+    value: Int
+}
+
+pub fn make_box(n: Int): Box {
+    Box{value: n}
+}
+
+pub fn open_box(b: Box): Int {
+    b.value
+}

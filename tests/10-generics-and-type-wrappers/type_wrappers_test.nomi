@@ -1,0 +1,84 @@
+type Id Int
+type Expired
+type Kvs Map<String, Int>
+type Pair (Int, String)
+type Triple (Int, Int, Int)
+
+typealias Handler (String, String) -> Result<String, String>
+
+fn run(handler: Handler): Result<String, String> {
+    handler("request", "/home")
+}
+
+test "distinct types construct unwrap destructure and compare" {
+    id = Id(42)
+    n = Int(id)
+
+    result = case id {
+        Id(x) -> x + 1
+    }
+
+    Id(unwrapped) = id
+
+    assert Debug.inspect(id) == "Id(42)"
+    assert n == 42
+    assert Debug.inspect(Expired) == "Expired"
+    assert result == 43
+    assert unwrapped == 42
+    assert Id(1) == Id(1)
+    assert Id(1) != Id(2)
+}
+
+test "type aliases can name function shapes" {
+    result = run(|method, path| Ok(method + " " + path))
+
+    assert result == Ok("request /home")
+}
+
+test "map distinct wrappers support literal attach and destructuring" {
+    kv = Kvs{"a" => 1, "b" => 2}
+
+    kv2 =
+        {"c" => 3}
+        |> Kvs()
+
+    flat = case kv {
+        Kvs{"a" => v} -> "got a=${v}"
+        _ -> "no a"
+    }
+
+    nested = case kv {
+        Kvs({"b" => v}) -> "got b=${v}"
+        _ -> "no b"
+    }
+
+    assert Debug.inspect(kv) == "Kvs({\"a\" => 1, \"b\" => 2})"
+    assert Debug.inspect(kv2) == "Kvs({\"c\" => 3})"
+    assert flat == "got a=1"
+    assert nested == "got b=2"
+}
+
+test "tuple distinct wrappers support literal attach and destructuring" {
+    p1 = Pair(1, "hello")
+    p2 = Pair((2, "world"))
+    t = Triple(1, 2, 3)
+
+    flat = case p1 {
+        Pair(a, b) -> "flat: ${a}, ${b}"
+    }
+
+    nested = case p1 {
+        Pair((c, d)) -> "nested: ${c}, ${d}"
+    }
+
+    triple = case t {
+        Triple(x, y, z) -> "triple: ${x}, ${y}, ${z}"
+    }
+
+    assert Debug.inspect(p1) == "Pair(1, \"hello\")"
+    assert Debug.inspect(p2) == "Pair(2, \"world\")"
+    assert Debug.inspect(t) == "Triple(1, 2, 3)"
+    assert flat == "flat: 1, hello"
+    assert nested == "nested: 1, hello"
+    assert triple == "triple: 1, 2, 3"
+}

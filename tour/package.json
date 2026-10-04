@@ -1,0 +1,20 @@
+{
+  "name": "nomi-tour",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT OR Apache-2.0",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build && node prehighlight.mjs dist && node csp-audit.mjs dist && node check-dist.mjs dist",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.39.2",
+    "astro": "^6.3.1",
+    "sharp": "^0.34.5",
+    "shiki": "4.1.0"
+  }
+}

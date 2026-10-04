@@ -1,0 +1,12 @@
+import {
+    std/instant.Instant
+    std/io
+    ffi
+}
+
+fn main() {
+    ffi.created_at()
+    |> ffi.plus_second()
+    |> Instant.to_seconds()
+    |> io.print()
+}

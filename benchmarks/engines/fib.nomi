@@ -1,0 +1,18 @@
+//# Engine benchmark. Recursive calls and Int arithmetic: fib(27) is 635,621 activations.
+//#
+//# One of six programs that `TestEngineBench` (vmhost/engine_bench_test.go)
+//# loads and runs on the VM. It reports the median load time (front end and
+//# lowering) and the median run time separately, over five runs each.
+//#
+//# Run it with `NOMI_ENGINE_BENCH=1 go test ./vmhost
+//# -run TestEngineBench -v -count=1`.
+
+import std/io
+
+fn fib(n: Int): Int {
+    if n < 2 { n } else { fib(n - 1) + fib(n - 2) }
+}
+
+fn main() {
+    fib(27) |> io.print()
+}

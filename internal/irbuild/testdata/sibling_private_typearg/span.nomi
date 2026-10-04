@@ -1,0 +1,19 @@
+// Public generics whose instances main.nomi builds over its own private
+// `Point`. Every instance is built here, in the declaring file.
+pub fn ident<T>(x: T): T {
+    x
+}
+
+pub fn shown<T>(x: T): String where T: Display {
+    "<${Display.to_string(x)}>"
+}
+
+pub struct Span<T> {
+    start: T
+    stop: T
+}
+
+pub enum Slot<T> {
+    Empty
+    Full T
+}

@@ -1,0 +1,36 @@
+// A field default declared ONE FILE OVER, on a struct and on a struct-shaped
+// enum variant, taken at construction sites here.
+//
+// This file declares its own `label` with a different value, and lib.nomi
+// declares one too. `lib.origin()` reads lib's own `label` through an ordinary
+// cross-file call and must still answer "lib". A default that names one of
+// lib's own declarations is testdata/sibling_field_defaults.
+import {
+    std/io
+    lib.{Backoff, Limits, origin}
+}
+
+once label = "entry"
+
+fn describe(b: Backoff): String {
+    case b {
+        Backoff.Exponential{max_restarts, max_elapsed} -> "${max_restarts}/${max_elapsed}"
+        Backoff.Off -> "off"
+    }
+}
+
+fn main() {
+    io.print(describe(Backoff.Exponential{max_restarts: 3}))
+    io.print(describe(Backoff.Exponential{}))
+    io.print(describe(Backoff.Off))
+
+    io.print(describe(.Exponential{max_elapsed: 5}))
+
+    l = Limits{}
+    io.print("${l.soft}/${l.hard}")
+    n = Limits{hard: 1}
+    io.print("${n.soft}/${n.hard}")
+
+    io.print(origin())
+    io.print(label)
+}

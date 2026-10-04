@@ -1,0 +1,71 @@
+import priority.{self, Priority}
+
+interface Chooser<T> {
+    fn left(p: self): T
+    fn right(p: self): T
+
+    fn pick(p: self): T {
+        Chooser.left(p)
+    }
+
+    fn top(p: self): T where T: Comparable {
+        a = Chooser.left(p)
+        b = Chooser.right(p)
+
+        case Comparable.compare(a, b) {
+            Ordering.Less -> b
+            _ -> a
+        }
+    }
+}
+
+struct Pair<E> {
+    a: E
+    b: E
+}
+
+impl Chooser for Pair<E> {
+    fn left(p: Pair<E>): E {
+        p.a
+    }
+
+    fn right(p: Pair<E>): E {
+        p.b
+    }
+}
+
+fn first<T, I>(it: I): Maybe<T> where I: Iter<T> {
+    Iter.reduce(it, |_acc: Maybe<T> = None, x| { break Some(x) })
+}
+
+// Calls the `Iter` protocol function itself through the same bound:
+// `each_while` answers False when a consumer stopped the source, so refusing
+// every element makes "did this source have anything" a one-liner.
+fn saw_any?<T, I>(it: I): Bool where I: Iter<T> {
+    Iter.each_while(it, |_x| False) == False
+}
+
+fn label<T>(prefix: String, m: Maybe<T>): String where T: Display {
+    case m {
+        Some(v) -> prefix + Display.to_string(v)
+        None -> prefix + "none"
+    }
+}
+
+test "generic interface type arguments infer from concrete implementing types" {
+    picked = Chooser.pick(Pair{a: 10, b: 20})
+    best = Chooser.top(Pair{a: Priority{rank: 2}, b: Priority{rank: 9}})
+
+    assert picked == 10
+    assert priority.rank(best) == 9
+}
+
+test "generic interface type arguments project through bounds" {
+    empty: List<Int> = []
+
+    assert label("first int: ", first([10, 20, 30])) == "first int: 10"
+    assert label("first str: ", first(["a", "b"])) == "first str: a"
+    assert label("empty: ", first(empty)) == "empty: none"
+    assert saw_any?([10, 20, 30])
+    refute saw_any?(empty)
+}

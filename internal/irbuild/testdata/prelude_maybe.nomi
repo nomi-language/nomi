@@ -1,0 +1,123 @@
+// `Maybe<T>` end to end: declaration (in std), all of its construction
+// spellings, `case` matching, and use as a parameter, a return and a field
+// type.
+//
+// Every line here is written to be observable. The transcript this pins is in
+// prelude_test.go, spelled out rather than compared, because a fixture that
+// only compares interpreted against compiled output cannot see a bug in
+// anything implemented once — and the Go type `Maybe` lowers to lives in rt.
+import std/io
+
+struct Box {
+    slot: Maybe<Int>
+}
+
+fn pick(flag: Bool): Maybe<Int> {
+    if flag { Some(7) } else { None }
+}
+
+// The qualified spelling of both constructors, which is a different AST shape
+// from the bare one: `Maybe.Some(x)` is a call through a field access.
+fn pick_qualified(flag: Bool): Maybe<String> {
+    if flag { Maybe.Some("yes") } else { Maybe.None }
+}
+
+// A Maybe as a PARAMETER type, matched with the bare pattern head.
+fn or_zero(m: Maybe<Int>): Int {
+    case m {
+        Some(v) -> v
+        None -> 0
+    }
+}
+
+// The qualified pattern head, and the dotted one, against the same type.
+fn describe(m: Maybe<String>): String {
+    case m {
+        Maybe.Some(s) -> "some ${s}"
+        .None -> "none"
+    }
+}
+
+// Nesting: `Maybe<Maybe<Int>>` is two instantiations, and the inner one is a
+// payload of the outer. A representation that flattened them would answer the
+// same for `Some(None)` and `None`.
+fn depth(m: Maybe<Maybe<Int>>): String {
+    case m {
+        Some(inner) ->
+            case inner {
+                Some(v) -> "some some ${v}"
+                None -> "some none"
+            }
+
+        None ->
+            "none"
+    }
+}
+
+// A literal INSIDE the payload pattern, so the arm can fail on the payload
+// after the tag matched and fall through to a later arm.
+fn is_one(m: Maybe<Int>): String {
+    case m {
+        Some(1) -> "one"
+        Some(other) -> "other ${other}"
+        None -> "nothing"
+    }
+}
+
+fn main(): Unit {
+    io.print("${or_zero(pick(True))}")
+    io.print("${or_zero(pick(False))}")
+    io.print(describe(pick_qualified(True)))
+    io.print(describe(pick_qualified(False)))
+
+    // A Maybe in a struct field, built both ways.
+    full = Box{slot: Some(41)}
+    empty = Box{slot: None}
+    io.print("${or_zero(full.slot)}")
+    io.print("${or_zero(empty.slot)}")
+
+    io.print(depth(Some(Some(3))))
+    io.print(depth(Some(None)))
+    io.print(depth(None))
+
+    io.print(is_one(Some(1)))
+    io.print(is_one(Some(2)))
+    io.print(is_one(None))
+
+    // An annotated binding is the third position a bare `None` is discharged at,
+    // after an argument and a return.
+    held: Maybe<String> = None
+    io.print(describe(held))
+
+    // A Maybe of a Float, so the payload is a kind whose equality is NOT Go's.
+    // Nothing here compares two Maybes — that is refused — but the payload has
+    // to survive being carried and read back.
+    f: Maybe<Float> = Some(0.5)
+
+    case f {
+        Some(x) -> io.print("${x}")
+        None -> io.print("no float")
+    }
+
+    // A NaN payload, carried and read back. `==` on a Maybe is REFUSED
+    // (`equality on a named type`) precisely because the interpreter dispatches
+    // it to `impl Equatable for Maybe<T>`, which recurses into T's own
+    // Equatable — so no bare Go `==` on the struct is ever emitted, and a NaN
+    // inside one cannot be compared by IEEE rules where Nomi's are reflexive.
+    // What this pins is the other half: the payload survives the round trip
+    // through the tagged struct unchanged.
+    n: Maybe<Float> = Some(0.0 / 0.0)
+
+    case n {
+        Some(x) -> io.print("${x}")
+        None -> io.print("no nan")
+    }
+
+    // A Maybe of a List, the other kind Go's `==` gets wrong. Same reason.
+    xs: Maybe<List<Int>> = Some([1, 2, 3])
+
+    case xs {
+        Some(l) -> io.print("${l}")
+        None -> io.print("no list")
+    }
+}

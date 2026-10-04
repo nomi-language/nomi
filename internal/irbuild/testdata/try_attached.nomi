@@ -1,0 +1,53 @@
+// A `try` inside a `//!` prompt case, which was a live COMPILE-FAIL from
+// ordinary source until tryBoundaryRefusal admitted the checker's SECOND
+// spelling for a test activation.
+//
+// The checker writes `test %q` for a `test "name"` declaration and
+// `attached test for <owner>` for a prompt case (testBoundaryOverride), and both
+// are one activation: the case aborts and the run continues. Matching only the
+// first classified this `try` as a FUNCTION boundary, so tryGuard looked at
+// g.result — kindInvalid, because a test body declares no result — and
+// SUPPRESSED rather than refused. A suppression records no refusal, so Generate
+// had nothing to discard the lowering for, and the file went out with the guard
+// missing and its binding unread: `declared and not used`.
+//
+// Why the guards already in place could not see it. The corpus reads 0
+// COMPILE-FAIL because no corpus file has a `try` in a prompt case, and
+// TestIRBuild_EveryEmittedFileParsesAsGo cannot see a TYPE error — an unused local
+// parses perfectly well as Go. So this is a differential fixture, which builds
+// what it emits.
+//
+// What each case discriminates:
+//
+//   - `propagating` — the prompt PROPAGATES. The case must FAIL, and its report
+//     is an EarlyReturnFailure carrying the `try`'s own line, the expression as
+//     the formatter renders it, and the propagated variant as value.Inspect
+//     renders it. A guard emitted at the wrong boundary either fails to compile
+//     (the shape above) or, worse, returns from something that is not the case.
+//   - `passing` — the same shape with an `Ok`, so the binding is read and the
+//     prompt passes. Without it a lowering that always exited early would pass
+//     the fixture's failing half.
+//   - the file-scope `test` — an ordinary `test "name"` boundary beside the
+//     prompt ones, so the two spellings are exercised in one program.
+//! v = try parse(1)
+//! assert v == 1
+//
+fn passing(n: Int): Int {
+    n
+}
+
+//! bad = try parse(-1)
+//! assert bad == 0
+//
+fn propagating(n: Int): Int {
+    n
+}
+
+fn parse(n: Int): Result<Int, String> {
+    if n < 0 { Err("negative") } else { Ok(n) }
+}
+
+test "an ordinary test declaration is the other test boundary spelling" {
+    ok = try parse(2)
+    assert ok == 2
+}

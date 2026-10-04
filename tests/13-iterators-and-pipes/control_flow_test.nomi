@@ -1,0 +1,162 @@
+test "reduce supports break and continue" {
+    partial_sum =
+        [10, 20, 30, 40, 50]
+        |> Iter.reduce(|total = 0, x| {
+            if total + x > 60 { break }
+            total + x
+        })
+
+    partial_sum_with_break_value =
+        [10, 20, 30, 40, 50]
+        |> Iter.reduce(|total = 0, x| {
+            new_total = total + x
+            if new_total > 60 { break new_total }
+            new_total
+        })
+
+    sum_positives =
+        [1, -2, 3, -4, 5]
+        |> Iter.reduce(|total = 0, x| {
+            if x < 0 { continue }
+            total + x
+        })
+
+    processed =
+        [5, -1, 3, -2, 0, 7, 8]
+        |> Iter.reduce(|total = 0, x| {
+            if x < 0 { continue }
+            if x == 0 { break }
+            total + x
+        })
+
+    assert partial_sum == 60
+    assert partial_sum_with_break_value == 100
+    assert sum_positives == 9
+    assert processed == 8
+}
+
+test "map supports break and continue" {
+    taken =
+        [1, 2, 3, 4, 5]
+        |> Iter.map(|x| {
+            if x > 3 { break }
+            x * 10
+        })
+        |> Iter.to_list()
+
+    taken_with_value =
+        [1, 2, 3, 4, 5]
+        |> Iter.map(|x| {
+            if x == 3 { break 999 }
+            x * 10
+        })
+        |> Iter.to_list()
+
+    evens_doubled =
+        [1, 2, 3, 4, 5]
+        |> Iter.map(|x| {
+            if x % 2 != 0 { continue }
+            x * 2
+        })
+        |> Iter.to_list()
+
+    assert taken == [10, 20, 30]
+    assert taken_with_value == [10, 20, 999]
+    assert evens_doubled == [4, 8]
+}
+
+test "filter supports break values" {
+    first_few_evens =
+        [1, 2, 3, 4, 5, 6, 7, 8]
+        |> Iter.filter(|x| {
+            if x > 5 { break }
+            x % 2 == 0
+        })
+        |> Iter.to_list()
+
+    include_until =
+        [1, 2, 3, 4, 5]
+        |> Iter.filter(|x| {
+            if x == 3 { break True }
+            x % 2 == 0
+        })
+        |> Iter.to_list()
+
+    exclude_last =
+        [1, 2, 3, 4, 5]
+        |> Iter.filter(|x| {
+            if x == 3 { break False }
+            x % 2 != 0
+        })
+        |> Iter.to_list()
+
+    assert first_few_evens == [2, 4]
+    assert include_until == [2, 3]
+    assert exclude_last == [1]
+}
+
+test "find returns Maybe values" {
+    found =
+        [1, 2, 3, 4, 5]
+        |> Iter.find(|x| x == 3)
+
+    not_found =
+        [1, 2, 3]
+        |> Iter.find(|x| x > 10)
+
+    assert found == Some(3)
+    assert not_found == None
+}
+
+test "each accepts break continue and return in callbacks" {
+    stop_at_sentinel =
+        ["hello", "world", "STOP", "ignored"]
+        |> Iter.each(|s|
+            if s == "STOP" {
+                break
+            }
+        )
+
+    skip_even =
+        [1, 2, 3, 4, 5]
+        |> Iter.each(|x|
+            if x % 2 == 0 {
+                continue
+            }
+        )
+
+    return_from_callback =
+        [1, 2, 3]
+        |> Iter.each(|x|
+            if x == 2 {
+                return
+            }
+        )
+
+    assert stop_at_sentinel == Unit
+    assert skip_even == Unit
+    assert return_from_callback == Unit
+}
+
+test "return inside iter callbacks is lambda scoped" {
+    special_mapped =
+        [1, 2, 3, 4, 5]
+        |> Iter.map(|x| {
+            if x == 3 { return 300 }
+            x * 10
+        })
+        |> Iter.to_list()
+
+    fn classify(n: Int): Int {
+        if n < 0 { return 0 }
+        if n > 100 { return 100 }
+        n
+    }
+
+    sum_classified =
+        [5, -10, 50, 200, 30]
+        |> Iter.reduce(|acc = 0, x| acc + classify(x))
+
+    assert special_mapped == [10, 20, 300, 40, 50]
+    assert sum_classified == 185
+}

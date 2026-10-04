@@ -1,0 +1,38 @@
+// A `Point` that coexists with the entry file's same-named type, each with its
+// own `impl Display` and `impl Comparable`.
+//
+// A type is identified by the file that declares it plus its name, so this
+// `Point` and the entry's are two different types. They lower to two Go types
+// in two Go packages with two `rt.TypeID` variables — and BOTH bind into the
+// SAME `rt.MDisplayToString`, because a stdlib interface has exactly one table
+// in the whole artifact.
+//
+// That combination is what makes this fixture load-bearing and what makes it
+// new. A user interface's table belongs to the package that declared it, so
+// two packages binding one name into it was already impossible by construction.
+// rt's table is shared by every package, so it is possible here for the first
+// time — and the only thing keeping the two apart is that the key is an ADDRESS.
+pub struct Point {
+    tag: String
+    weight: Int
+}
+
+impl Display for Point {
+    fn to_string(p: Point): String {
+        "${p.tag}(${p.weight})"
+    }
+}
+
+impl Comparable for Point {
+    fn compare(a: Point, b: Point): Ordering {
+        Int.compare(a.weight, b.weight)
+    }
+}
+
+pub fn theirs(): Display {
+    Point{tag: "theirs", weight: 7}
+}
+
+pub fn theirs_ordered(): Comparable {
+    Point{tag: "theirs", weight: 7}
+}

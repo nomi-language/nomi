@@ -1,0 +1,10 @@
+import {
+    std/io
+    settings.Settings
+}
+
+// Reading an application field requires an entry boot that returns its type.
+// expect type-error: `Settings.tag` reads an application field only when an entry boot returns `Settings`
+fn main() {
+    io.print("tag=${Settings.tag}")
+}

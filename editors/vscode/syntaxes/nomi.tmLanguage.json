@@ -1,0 +1,415 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Nomi",
+  "scopeName": "source.nomi",
+  "fileTypes": [
+    "nomi"
+  ],
+  "comment": "Derived from editors/bat/nomi.sublime-syntax (same regex model). Keep the two in step: a keyword, literal or operator change goes in both. See editors/vscode/README.md.",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#identifiers"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "comment": "An attached test: `//!` then a Nomi statement, highlighted as code.",
+          "name": "meta.attached-test.nomi",
+          "begin": "^\\s*(//!)",
+          "beginCaptures": {
+            "1": {
+              "name": "comment.line.prompt.nomi punctuation.definition.comment.nomi"
+            }
+          },
+          "end": "$",
+          "contentName": "meta.embedded.line.nomi",
+          "patterns": [
+            {
+              "include": "$self"
+            }
+          ]
+        },
+        {
+          "comment": "`///` documents the next declaration; `//#` documents the file.",
+          "name": "comment.line.documentation.nomi",
+          "match": "(///|//#).*$",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.comment.nomi"
+            }
+          }
+        },
+        {
+          "name": "comment.line.double-slash.nomi",
+          "match": "(//).*$",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.comment.nomi"
+            }
+          }
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "comment": "Raw string, optionally a typed literal: `...`, Regex`\\d+`. No escapes, no interpolation.",
+          "name": "string.quoted.other.raw.nomi",
+          "begin": "(?:\\b([A-Z][A-Za-z0-9_]*))?(`)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.type.literal.nomi"
+            },
+            "2": {
+              "name": "punctuation.definition.string.begin.nomi"
+            }
+          },
+          "end": "`",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.nomi"
+            }
+          }
+        },
+        {
+          "comment": "Triple-quoted string, optionally a typed literal. Only `\\${` escapes.",
+          "name": "string.quoted.triple.nomi",
+          "begin": "(?:\\b([A-Z][A-Za-z0-9_]*))?(\"\"\")",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.type.literal.nomi"
+            },
+            "2": {
+              "name": "punctuation.definition.string.begin.nomi"
+            }
+          },
+          "end": "\"\"\"",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.nomi"
+            }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.nomi",
+              "match": "\\\\\\$\\{"
+            },
+            {
+              "include": "#interpolation"
+            }
+          ]
+        },
+        {
+          "comment": "Codepoint literal: 'a', '\\n', '\\'', '\\u{7F}'.",
+          "name": "constant.character.nomi",
+          "match": "(')(?:(\\\\(?:[nt\\\\']|u\\{[0-9a-fA-F]+\\}))|[^'\\\\\\n])(')",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.string.begin.nomi"
+            },
+            "2": {
+              "name": "constant.character.escape.nomi"
+            },
+            "3": {
+              "name": "punctuation.definition.string.end.nomi"
+            }
+          }
+        },
+        {
+          "comment": "Single-line string, optionally a typed literal: \"...\", Date\"2026-05-04\".",
+          "name": "string.quoted.double.nomi",
+          "begin": "(?:\\b([A-Z][A-Za-z0-9_]*))?(\")",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.type.literal.nomi"
+            },
+            "2": {
+              "name": "punctuation.definition.string.begin.nomi"
+            }
+          },
+          "end": "(\")|(?=$)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.string.end.nomi"
+            }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.unicode.nomi",
+              "match": "\\\\u\\{[0-9a-fA-F]+\\}"
+            },
+            {
+              "name": "constant.character.escape.nomi",
+              "match": "\\\\(?:[nt\\\\\"]|\\$\\{)"
+            },
+            {
+              "name": "invalid.illegal.escape.nomi",
+              "match": "\\\\."
+            },
+            {
+              "include": "#interpolation"
+            }
+          ]
+        }
+      ]
+    },
+    "interpolation": {
+      "name": "meta.interpolation.nomi",
+      "begin": "\\$\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.interpolation.begin.nomi"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.interpolation.end.nomi"
+        }
+      },
+      "contentName": "meta.embedded.line.nomi",
+      "patterns": [
+        {
+          "include": "#braces"
+        },
+        {
+          "include": "$self"
+        }
+      ]
+    },
+    "braces": {
+      "comment": "Balanced braces inside an interpolation, so a map or block does not close it.",
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.braces.begin.nomi"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.braces.end.nomi"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#braces"
+        },
+        {
+          "include": "$self"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.integer.hex.nomi",
+          "match": "\\b0x[0-9a-fA-F][0-9a-fA-F_]*\\b"
+        },
+        {
+          "name": "constant.numeric.integer.binary.nomi",
+          "match": "\\b0b[01][01_]*\\b"
+        },
+        {
+          "name": "constant.numeric.decimal.nomi",
+          "match": "\\b[0-9][0-9_]*(?:\\.[0-9][0-9_]*)?[dD]\\b"
+        },
+        {
+          "name": "constant.numeric.float.nomi",
+          "match": "\\b[0-9][0-9_]*\\.[0-9][0-9_]*(?:[eE][+-]?[0-9][0-9_]*)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.nomi",
+          "match": "\\b[0-9][0-9_]*\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "comment": "Keyword-shaped import path segments are file names: `std/structs.Struct`.",
+          "name": "variable.other.nomi",
+          "match": "\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|todo|try|type(?:alias)?|where|with)\\b(?=/)|(?<=/)\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|todo|try|type(?:alias)?|where|with)\\b"
+        },
+        {
+          "comment": "A function definition: `fn name`.",
+          "match": "\\b(fn)\\s+([a-z_][A-Za-z0-9_]*\\??)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.nomi"
+            },
+            "2": {
+              "name": "entity.name.function.nomi"
+            }
+          }
+        },
+        {
+          "name": "keyword.declaration.nomi",
+          "match": "\\bhost\\b(?=\\s+(?:fn|type)\\b)"
+        },
+        {
+          "comment": "`field`, `variant`, `open` and `derive` are contextual keywords; like the bat syntax, match them everywhere.",
+          "name": "keyword.declaration.nomi",
+          "match": "\\b(?:pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|tests|setup|self|field|variant|open)\\b"
+        },
+        {
+          "comment": "`clock` and `boot` are keywords only as a test group's lines.",
+          "match": "^\\s*(clock|boot)\\b(?=[ \\t]+[A-Za-z_(])",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.nomi"
+            }
+          }
+        },
+        {
+          "name": "entity.other.attribute-name.nomi",
+          "match": "\\binternal(?=/)"
+        },
+        {
+          "name": "keyword.control.nomi",
+          "match": "\\b(?:if|else|case|when|break|continue|return|concurrent|try|assert|refute|dbg|todo)\\b"
+        },
+        {
+          "name": "keyword.operator.word.nomi",
+          "match": "\\b(?:and|or)\\b"
+        },
+        {
+          "name": "constant.language.boolean.nomi",
+          "match": "\\b(?:true|false)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.pipe.nomi",
+          "match": "\\|>"
+        },
+        {
+          "name": "keyword.operator.arrow.nomi",
+          "match": "->|=>"
+        },
+        {
+          "name": "keyword.operator.comparison.nomi",
+          "match": "==|!=|<=|>="
+        },
+        {
+          "name": "keyword.operator.range.nomi",
+          "match": "\\.\\.=|\\.\\."
+        },
+        {
+          "name": "keyword.operator.nomi",
+          "match": "[+\\-*/%<>!=|]"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "comment": "Variant shorthand: `.Red`, `.Circle(1.0)`. A dot after a name or closer is qualification instead.",
+          "match": "(?<![A-Za-z0-9_)\\]])(\\.)([A-Z][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": {
+              "name": "punctuation.accessor.nomi"
+            },
+            "2": {
+              "name": "variable.other.enummember.nomi"
+            }
+          }
+        },
+        {
+          "comment": "Field accessor shorthand: `.name`, the function `|x| x.name`.",
+          "match": "(?<![A-Za-z0-9_)\\]])(\\.)([a-z_][A-Za-z0-9_]*\\??)",
+          "captures": {
+            "1": {
+              "name": "punctuation.accessor.nomi"
+            },
+            "2": {
+              "name": "variable.other.property.nomi"
+            }
+          }
+        },
+        {
+          "comment": "A qualified call: `Int.to_string(n)`, `io.print(x)`.",
+          "match": "(\\.)([a-z_][A-Za-z0-9_]*\\??)(?=\\s*\\()",
+          "captures": {
+            "1": {
+              "name": "punctuation.accessor.nomi"
+            },
+            "2": {
+              "name": "entity.name.function.nomi"
+            }
+          }
+        },
+        {
+          "comment": "Field access: `point.x`.",
+          "match": "(\\.)([a-z_][A-Za-z0-9_]*\\??)",
+          "captures": {
+            "1": {
+              "name": "punctuation.accessor.nomi"
+            },
+            "2": {
+              "name": "variable.other.property.nomi"
+            }
+          }
+        },
+        {
+          "name": "entity.name.type.nomi",
+          "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+        },
+        {
+          "name": "comment.discard.nomi",
+          "match": "\\b_(?!_)[a-zA-Z0-9_]*\\??"
+        },
+        {
+          "name": "entity.name.function.nomi",
+          "match": "\\b[a-z_][A-Za-z0-9_]*\\??(?=\\s*\\()"
+        },
+        {
+          "name": "variable.other.nomi",
+          "match": "\\b[a-z_][A-Za-z0-9_]*\\??"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.section.nomi",
+          "match": "#(?=[\\[{])"
+        },
+        {
+          "name": "punctuation.separator.nomi",
+          "match": "[,:;]"
+        },
+        {
+          "name": "punctuation.accessor.nomi",
+          "match": "\\."
+        },
+        {
+          "name": "punctuation.section.bracket.nomi",
+          "match": "[(){}\\[\\]]"
+        }
+      ]
+    }
+  }
+}

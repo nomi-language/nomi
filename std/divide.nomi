@@ -1,0 +1,18 @@
+/// Protocol for the `/` operator.
+///
+/// `Divide.divide(lhs, rhs)` returns the result of `lhs / rhs`. The left-hand
+/// type is the implementor (`self`); the interface type parameters describe
+/// the right-hand operand and the output type. That lets an impl choose a
+/// result that is not necessarily the same type as the left-hand operand.
+///
+/// ```nomi
+/// pub type Ratio Decimal
+/// pub type Scale Decimal
+///
+/// impl Divide<Scale, Ratio> for Ratio {
+///     fn divide(lhs: Ratio, rhs: Scale): Ratio { ... }
+/// }
+/// ```
+pub interface Divide<Rhs, Out> {
+    fn divide(lhs: self, rhs: Rhs): Out
+}

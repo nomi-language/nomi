@@ -1,0 +1,10 @@
+import std/toml.Toml
+
+test "Toml literal preserves source text" {
+    manifest = Toml"""
+        [module]
+        name = "demo"
+        """
+
+    assert String.contains?(Toml.text(manifest), "name = \"demo\"")
+}

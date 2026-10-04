@@ -1,0 +1,99 @@
+// Nomi's lexicographic order on `List<T>` — `List.compare` and the four
+// ordering operators, which are the same operation.
+//
+// Int and Float elements only, and that is not a scope choice: the INTERPRETER
+// faults on every other element type, because `impl Comparable for List<T>`
+// dispatches at the type parameter and nothing pre-loads the impl. See
+// orderingOf's comment for the five measurements, and
+// TestInterpreterListOrderServesIntAndFloatOnly for the pin.
+//
+// Every group below names the wrong implementation it catches, because a
+// differential comparison alone cannot see one: the compiled path calls
+// `rt.ListCompare` with an element comparator built out of std's own
+// `Int.compare` / `Float.compare`, and the interpreter runs the Nomi body that
+// reaches those same impls. So the skeleton is the only thing that could
+// diverge, and the reference bytes are pinned absolutely in lists_test.go.
+import std/io
+
+/// Two structurally equal `List<Int>` built SEPARATELY, so no cons cell is
+/// shared. `rt.ListCompare` short-circuits on POINTER identity — sound, because
+/// compare is reflexive at every type it serves — and Go compares pointers
+/// happily, so a fixture that compared one list against itself would pass with
+/// the element walk entirely broken. Built through a function so the front end
+/// cannot fold the two calls into one value.
+fn ints(a: Int, b: Int, c: Int): List<Int> {
+    [a, b, c]
+}
+
+fn label(o: Bool): String {
+    if o { "T" } else { "F" }
+}
+
+fn main() {
+    // --- equal, and NOT by address -------------------------------------------
+    // Both operands are fresh chains carrying the same values. Under a broken
+    // element walk the pointer short-circuit does not fire and this is not Equal.
+    io.print(
+        case List.compare(ints(1, 2, 3), ints(1, 2, 3)) {
+            .Less -> "less"
+            .Equal -> "equal"
+            .Greater -> "greater"
+        }
+    )
+
+    // --- differing LENGTH, both directions -----------------------------------
+    // A proper PREFIX is Less. An implementation that returned early on the first
+    // exhausted chain without distinguishing which one gets one of these wrong.
+    io.print("${List.compare([1, 2], [1, 2, 3])}")
+    io.print("${List.compare([1, 2, 3], [1, 2])}")
+
+    // --- length must NOT decide ----------------------------------------------
+    // `[2]` is Greater than `[1, 9]` even though it is SHORTER. Anything that
+    // consults the cached `Len` before walking answers Less here, which is why
+    // rt.ListCompare does not consult it at all — the one place it deliberately
+    // differs from rt.ListEqual beyond the return type.
+    io.print("${List.compare([2], [1, 9])}")
+    io.print("${List.compare([1, 9], [2])}")
+
+    // --- the FIRST difference decides, not the last --------------------------
+    // Chosen so the two rules DISAGREE. First difference is at index 1 (9 > 2,
+    // Greater); last difference is at index 2 (1 < 9, Less). A pair like
+    // `[1, 9, 9]` vs `[1, 2, 2]` would answer Greater under either rule and
+    // assert nothing.
+    io.print("${List.compare([1, 9, 1], [1, 2, 9])}")
+
+    // --- empty against non-empty, both directions ----------------------------
+    // An untyped `[]` on one side of an OPERATOR is a front-end type error
+    // (`comparison type mismatch: List<?1> vs List<Int>`), so these are written
+    // through `compare`, where the argument coerces to the other side's kind.
+    // `List.compare([], [])` is deliberately absent: with NO typed side there is
+    // no element type to instantiate the rt call at, so it refuses under the
+    // existing `List function over an untyped empty list` — the same key
+    // `List.head([])` reports, for the same reason.
+    io.print("${List.compare([], [1])}")
+    io.print("${List.compare([1], [])}")
+
+    // --- all four operators, which desugar to exactly this compare -----------
+    // Bool results, so these observe the Ordering through rt.OrderingRank rather
+    // than through Display.
+    io.print(label([1, 2] < [1, 3]))
+    io.print(label([1, 2] > [1, 3]))
+    io.print(label(ints(1, 2, 3) <= ints(1, 2, 3)))
+    io.print(label(ints(1, 2, 3) >= ints(1, 2, 3)))
+    io.print(label([1, 2] <= [1, 2, 3]))
+    io.print(label([2] >= [1, 9]))
+
+    // --- Float elements, INCLUDING NaN --------------------------------------
+    // std/float's `Comparable.compare` is a TOTAL order with NaN at the top:
+    // `compare(nan, nan)` is Equal and `compare(nan, x)` is Greater for every
+    // non-NaN x, including +Infinity. That is deliberately NOT what `<` on two
+    // Floats does, so building the element comparator out of Go's `<` would
+    // answer differently for exactly these four lines.
+    io.print("${List.compare([1.0, 2.0], [1.0, 3.0])}")
+    io.print("${List.compare([Float.nan()], [Float.nan()])}")
+    io.print("${List.compare([Float.nan()], [Float.positive_infinity()])}")
+    io.print("${List.compare([Float.positive_infinity()], [Float.nan()])}")
+    // -0.0 and +0.0 compare Equal, which agrees with `==` and with IEEE.
+    io.print(label([0.0] <= [-0.0]))
+    io.print(label([-0.0] <= [0.0]))
+}

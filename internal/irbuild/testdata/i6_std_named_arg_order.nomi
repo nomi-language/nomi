@@ -1,0 +1,56 @@
+import {
+    std/calendar.{Error, Time}
+    std/io
+}
+
+// ARGUMENT EVALUATION ORDER FOR A NAMED ARGUMENT TO A STDLIB CALLEE.
+//
+// THIS FIXTURE OBSERVES A SIDE EFFECT AND NOT A RETURN VALUE, and that is the
+// whole reason it exists. `Time.new(minute: 30, hour: 10)` and
+// `Time.new(hour: 10, minute: 30)` return the SAME Time, so a fixture that
+// printed only the result would read green under any permutation of the
+// arguments — which is exactly how two ordering mutants survived in an earlier
+// batch. `tick` prints, so the order is a function of what the program DOES.
+//
+// THREE ORDERS ARE IN PLAY AND NO TWO COINCIDE HERE:
+//
+//   written      as the programmer typed it
+//   evaluation   resolveArgs PARTITIONS into positionals-then-named, draining
+//                each partition in written order
+//   SLOT         std's own parameter order: hour, minute, second, nanosecond
+//
+// The builder hoists each argument's statements as it walks, so walking slot
+// order would print these in a different sequence from the interpreter. Nothing
+// about the returned Time would change.
+fn tick(n: Int, tag: String): Int {
+    io.print("eval ${tag}")
+    n
+}
+
+fn render(label: String, r: Result<Time, Error>): Unit {
+    case r {
+        Ok(t) -> io.print("${label}=${Time.hour(t)}:${Time.minute(t)}:${Time.second(t)}")
+        Err(_) -> io.print("${label}=err")
+    }
+
+    Unit
+}
+
+fn main() {
+    // ALL NAMED, WRITTEN BACKWARDS. Written and evaluation order are both
+    // minute-then-hour; slot order is hour-then-minute. So this prints
+    // `eval B` before `eval A`, and a slot-order walk prints the reverse.
+    render("backwards", Time.new(minute: tick(30, "B"), hour: tick(10, "A")))
+
+    // ONE POSITIONAL, THEN TWO NAMED. The positional partition drains first, so
+    // `eval P` comes before both names even though `second:` is written before
+    // nothing and `nanosecond:` after. Slot order would be P, then second, then
+    // nanosecond — which happens to agree here, so this case is about the
+    // PARTITION rather than about the permutation.
+    render("mixed", Time.new(tick(11, "P"), 45, second: tick(1, "S"), nanosecond: tick(2, "N")))
+
+    // A NAMED ARGUMENT WRITTEN FIRST, BEFORE AN EFFECTFUL POSITIONAL. This is the
+    // shape the interpreter's partition makes counter-intuitive: the positional is
+    // evaluated FIRST despite being written second.
+    render("named-first", Time.new(minute: tick(59, "Y"), tick(23, "X")))
+}

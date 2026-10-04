@@ -1,0 +1,42 @@
+// The project's dependency contracts. Each interface declares what the
+// program needs from the outside world; concrete
+// implementations live in their own files (log.nomi, clocks.nomi,
+// console.nomi) and an EffectsApp field picks the active
+// handler. App reads (`EffectsApp.logger`) and scoped overrides
+// (`with EffectsApp.logger = X`) thread these
+// through the call chain.
+//
+// Each interface here is a project-local choice — another project's
+// Logger might split log into info/warn/error, another's Console
+// might add flush, another's Clock might expose now_ms alongside
+// now. Stdlib doesn't dictate the shape; this file does.
+//
+// Boot installs the project's EffectsApp value.
+pub interface Clock {
+    fn now(value: self): Int
+}
+
+pub interface Console {
+    fn writeln(value: self, msg: String): Unit
+}
+
+// Logger has one required function (log) plus convenience helpers built
+// on top. `info` is marked `open` — TaggedLogger overrides it to lift
+// the level into the tag prefix, while ProdLogger inherits the default
+// (which routes through `log` at "INFO"). `warn` is a final default —
+// no impl is allowed to redefine it; every Logger gets the same
+// "[WARN] ..." routing through whichever `log` impl the type provides.
+//
+// This contrast shows the default-function rule in practice: defaults are final
+// unless the interface marks them `open`.
+pub interface Logger {
+    fn log(value: self, level: String, message: String): Unit
+
+    open fn info(value: self, message: String): Unit {
+        Logger.log(value, "INFO", message)
+    }
+
+    fn warn(value: self, message: String): Unit {
+        Logger.log(value, "WARN", message)
+    }
+}

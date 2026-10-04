@@ -1,0 +1,31 @@
+//# Engine benchmark. 300,000 constructions and field reads of a four-field struct, driven by a range reduce.
+//#
+//# One of six programs that `TestEngineBench` (vmhost/engine_bench_test.go)
+//# loads and runs on the VM. It reports the median load time (front end and
+//# lowering) and the median run time separately, over five runs each.
+//#
+//# Run it with `NOMI_ENGINE_BENCH=1 go test ./vmhost
+//# -run TestEngineBench -v -count=1`.
+
+import std/io
+
+struct Particle {
+    x: Int
+    y: Int
+    dx: Int
+    dy: Int
+}
+
+fn step(p: Particle): Particle {
+    nx = p.x + p.dx
+    ny = p.y + p.dy
+    ndx = if nx > 1000 or nx < 0 { 0 - p.dx } else { p.dx }
+    ndy = if ny > 1000 or ny < 0 { 0 - p.dy } else { p.dy }
+    Particle{x: nx, y: ny, dx: ndx, dy: ndy}
+}
+
+fn main() {
+    start = Particle{x: 1, y: 2, dx: 3, dy: 5}
+    last = Iter.reduce(1..=300000, |p = start, _i| step(p))
+    io.print(last.x + last.y)
+}

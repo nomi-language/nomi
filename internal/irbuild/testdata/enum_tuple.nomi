@@ -1,0 +1,159 @@
+import std/io
+
+// A TUPLE-PAYLOAD variant, in every position the corpus reaches it: constructed
+// FLAT and with an explicit tuple, pattern-matched both ways, rendered through
+// the synthesized universal Debug, and nested inside another tuple variant and
+// inside a prelude `Maybe`.
+//
+// FOUR HAZARDS THIS FIXTURE IS SHAPED AROUND, each of which would let a real
+// defect survive:
+//
+//  1. THE TWO TAG ENCODINGS MUST NOT COINCIDE. `variantDef.tag` is 1-BASED
+//     (types.go, `tag: len(d.variants) + 1`) and derive Hashable's variant index
+//     is 0-BASED — two encodings of one concept, deliberately. `Pos` is the
+//     THIRD variant, so its tag is 3 and its index 2 and no off-by-one agrees.
+//
+//  2. A POSITIONAL SWAP MUST CHANGE THE OUTPUT. A tuple is addressed only by
+//     position, so a fixture whose components are distinguishable ONLY by type
+//     lets a transposition fail to COMPILE instead of failing the assertion —
+//     which reads as coverage and is not. `Pos` is `(Int, Int)`, same type both
+//     sides, holding 10 and 20: an F0/F1 transposition compiles and prints
+//     `Pos(20, 10)`. `Span` adds a third position with a String in the middle,
+//     so a 0<->2 swap also compiles and also changes the text.
+//
+//  3. THE RECURSIVE TUPLE IS THE LAYOUT RISK, not a stress case. `Node`
+//     stores a tuple whose components ARE the enum, so the slot must be a
+//     POINTER or the Go type has infinite size. Struct FIELDS have been boxed
+//     through appendInlineDefs since anon_recursive.nomi; enum SLOTS read the
+//     payload's own `def`, which is nil for a structural kind, so a tuple
+//     reaches assignSlots with nothing for that rule to follow. The Go type
+//     it spells is then an "invalid recursive type", a layout defect rather
+//     than a refusal.
+//
+//  4. A CONTAINER PAYLOAD BESIDE THE TUPLE. `Bag` carries a `List<Int>`, which
+//     is what makes the synthesized `impl Debug` reach inspectcall.go's
+//     container arm at all — the arm the `inSynthImpl` exclusion used to skip
+//     for every synthesized body rather than only for a distinct receiver.
+//
+// NOTE ON COMMENT PLACEMENT, because it looks like an omission: no comment sits
+// immediately above a `.Variant` case arm anywhere in this file. A line comment
+// there is a FRONT-END parse error ("unexpected token ARROW"), reproduced at
+// this head and reported; the qualified `Point.Pos(...)` spelling and `_` are
+// unaffected. So the per-arm notes live above each `case` instead.
+enum Point {
+    Origin
+    One Int
+    Pos (Int, Int)
+    Span (Int, String, Int)
+    Bag List<Int>
+}
+
+// The DERIVES sit on their own enum, and the reason is a measurement rather
+// than tidiness. `derive Equatable for Point` synthesizes
+// `Equatable.equal?(a0, b0)` per payload, which for `Bag List<Int>` is
+// `List.equal?` — a `qualified call` this builder does not lower, and nothing to
+// do with tuples. Measured both ways: the same derive over
+// `{Origin, One Int, Pos (Int, Int), Span (Int, String, Int)}` LOWERS, and over
+// `{Origin, Bag List<Int>}` alone it refuses. So `Key` carries the derives and
+// `Point` keeps the container payload, and each hazard is exercised by the
+// declaration that can hold it.
+enum Key {
+    Nothing
+    Single Int
+    Pos (Int, Int)
+}
+
+derive Equatable for Key
+derive Hashable for Key
+
+// Recursive through a TUPLE payload. No value is ever built deeper than one
+// level, and none needs to be: the failure this pins is in the DECLARATION.
+enum Node {
+    Leaf Int
+    Branch (Node, Int, Node)
+}
+
+// Arms, in order: bare, single payload, FLAT tuple destructure, EXPLICIT tuple
+// destructure at arity 3 whose middle component is a String, container payload.
+fn describe(p: Point): String {
+    case p {
+        .Origin -> "origin"
+        .One(n) -> "one ${n}"
+        .Pos(x, y) -> "pos ${x},${y}"
+        .Span((lo, label, hi)) -> "span ${label} ${lo}..${hi}"
+        .Bag(xs) -> "bag ${Iter.count(xs)}"
+    }
+}
+
+// The OTHER spelling of each of the two tuple patterns above — explicit at
+// arity 2, flat at arity 3 — so the file holds both forms of each rather than
+// one form of each.
+fn describe_explicit(p: Point): String {
+    case p {
+        .Pos((x, y)) -> "pos ${x},${y}"
+        .Span(lo, label, hi) -> "span ${label} ${lo}..${hi}"
+        _ -> "other"
+    }
+}
+
+// A flat destructure whose payload components are the enum itself, so the boxed
+// slot is dereferenced rather than merely declared.
+fn total(n: Node): Int {
+    case n {
+        .Leaf(v) -> v
+        .Branch(l, v, r) -> total(l) + v + total(r)
+    }
+}
+
+fn main() {
+    // CONSTRUCTION, flat and explicit, at both arities. The two spellings build
+    // the same value, which is the property each pair exists to state.
+    flat = Point.Pos(10, 20)
+    call = Point.Pos((10, 20))
+    io.print(describe(flat))
+    io.print(describe(call))
+    io.print("${Equatable.equal?(Key.Pos(10, 20), Key.Pos((10, 20)))}")
+
+    flat3 = Point.Span(1, "mid", 9)
+    call3 = Point.Span((1, "mid", 9))
+    io.print(describe(flat3))
+    io.print(describe_explicit(call3))
+    io.print(describe_explicit(flat))
+    io.print("${Equatable.equal?(Key.Single(1), Key.Pos(1, 1))}")
+
+    // RENDERING through the synthesized universal Debug. The tuple's own
+    // parentheses become the variant's, so this is `Pos(10, 20)` and NOT
+    // `Pos((10, 20))` — a rendering decision this builder must not reinvent.
+    io.print(Debug.inspect(flat))
+    io.print(Debug.inspect(flat3))
+    io.print(Debug.inspect(Point.Origin))
+    io.print(Debug.inspect(Point.One(7)))
+    io.print(Debug.inspect(Point.Bag([1, 2, 3])))
+
+    // NESTED: a tuple variant inside a prelude Maybe, which is the shape that
+    // makes `Maybe<Point>` a solvable type argument at all.
+    wrapped = Some(Point.Pos(3, 4))
+    io.print(Debug.inspect(wrapped))
+
+    inner = case wrapped {
+        Some(.Pos(a, b)) -> a * b
+        _ -> 0
+    }
+
+    io.print("${inner}")
+
+    // RECURSIVE, one level down each side.
+    tree = Node.Branch((Node.Leaf(1), 2, Node.Leaf(3)))
+    io.print("${total(tree)}")
+    io.print(Debug.inspect(tree))
+
+    // EQUALITY and HASH over a tuple payload, on the derive-carrying enum, so
+    // both tag encodings are exercised rather than only the tag. The transposed
+    // pair is the positional hazard stated as an assertion: it must not compare or
+    // hash equal. `Pos` is `Key`'s third variant too, so tag 3 against index 2.
+    io.print("${Equatable.equal?(Key.Pos(10, 20), Key.Pos(20, 10))}")
+    io.print("${Hashable.hash(Key.Pos(10, 20)) == Hashable.hash(Key.Pos(10, 20))}")
+    io.print("${Hashable.hash(Key.Pos(10, 20)) == Hashable.hash(Key.Pos(20, 10))}")
+    io.print("${Hashable.hash(Key.Pos(10, 20)) == Hashable.hash(Key.Single(10))}")
+    io.print(Debug.inspect(Key.Pos(10, 20)))
+}

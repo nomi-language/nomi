@@ -1,0 +1,15 @@
+import std/io
+
+// ONE LINE PER ACTIVATION, and the line carries its activation's number.
+//
+// That shape is what makes the writer test COUNT rather than clock: N
+// activations of `emit` must produce exactly N lines, and each line is
+// distinguishable, so a lost line and a torn line are different failures
+// rather than one blurred one.
+fn emit(n: Int) {
+    io.print("line ${n}")
+}
+
+fn main() {
+    emit(0)
+}

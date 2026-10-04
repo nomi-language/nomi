@@ -1,0 +1,5 @@
+import a
+
+pub fn ping(x: Int): Int {
+    a.pong(x * 2)
+}

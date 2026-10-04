@@ -1,0 +1,84 @@
+// `io.inspect` IS THE THIRD CALLER OF `debugRendering`, AND THIS FIXTURE IS THE
+// PAIR THAT PROVES IT RATHER THAN THE CLAIM THAT IT IS.
+//
+// `dbg_surfaces.nomi` established that a value has several renderings and that
+// reaching for the nearest one passes every existing assertion. `io.inspect` was
+// the one Debug SPELLING with no fixture, because it did not lower: `stdFreeCall`
+// answered `io.print` directly and left `io.inspect` — its declared PAIR in
+// std/io — to the stdlib index, which files every `<T>` declaration under
+// `stdlib generic function` from the declaration's shape alone.
+//
+// THE TOUR IS WHAT FOUND THAT, and it is the reason this file exists. The corpus
+// reaches this rendering through `Debug.inspect(x)` and `dbg`, both of which
+// already lowered, so it never noticed. The tour reaches it through `io.inspect`
+// in `modules-and-imports.md`'s FIRST runnable example and in
+// `bindings-and-expressions.md`'s — the second chapter a reader reads.
+//
+// Every line below is a value on which the DEBUG rendering and the DISPLAY one
+// disagree, printed through both spellings so the difference is a diff:
+//
+//	value                io.inspect says          io.print says
+//	"hi"                 "hi"                     hi
+//	Rev{zeta:1,alpha:2}  Rev{zeta: 1, alpha: 2}   Rev(...) — no Display impl
+//	Custom{…}            CUSTOM-DEBUG             (no Display impl)
+//	Meters(7)            <opaque Meters>          (no Display impl)
+//
+// The struct rows are FIELD ORDER (declaration versus sorted), which is why
+// `Rev` declares `zeta` before `alpha`: with `Point {x, y}` the two orders are
+// one string and this file would be vacuous.
+// `TestIoInspect_DeclarationOrderIsNotSortedOrder` is the anti-vacuity guard, the
+// same one dbg_surfaces.nomi carries for the same reason.
+//
+// THE ALIASED IMPORT IS NOT DECORATION. `stdFreeCall` keys on the CANONICAL
+// module name, and the tour's own first example writes `import std/io as
+// console` then `console.inspect(parsed)`. A version of this arm keyed on the
+// local spelling passes every unaliased case and refuses that one — which is a
+// bug std/io already had once, recorded in stdFreeCall's header for `o.print`.
+import std/io as console
+
+opaque type Meters Int
+
+// zeta before alpha, deliberately. See above.
+struct Rev {
+    zeta: Int
+    alpha: Int
+}
+
+struct Custom {
+    zeta: Int
+    alpha: Int
+}
+
+impl Debug for Custom {
+    fn inspect(v: Custom): String {
+        _ = v
+        "CUSTOM-DEBUG"
+    }
+}
+
+fn main() {
+    // A String is the cheapest Debug/Display disagreement there is: Debug quotes
+    // and Display does not, so these two lines differ by two characters and one
+    // of them is the whole routing question.
+    console.inspect("hi")
+    console.print("hi")
+
+    console.inspect(42)
+    console.inspect(True)
+
+    // DECLARATION order, not sorted order.
+    console.inspect(Rev{zeta: 1, alpha: 2})
+    // A hand-written impl Debug WINS. The assertion row's renderer ignores it.
+    console.inspect(Custom{zeta: 1, alpha: 2})
+    // An opaque type renders name-only. The row shows the payload.
+    console.inspect(Meters(7))
+
+    // Containers and prelude instances, composed from the same leaf renderings.
+    console.inspect([Rev{zeta: 1, alpha: 2}])
+    console.inspect((1, "two"))
+    console.inspect(Some(42))
+    none: Maybe<Int> = None
+    console.inspect(none)
+    console.inspect({a: 1, a0: 2})
+    console.inspect(["a", "b"])
+}

@@ -1,0 +1,82 @@
+// `dbg`'s THREE LAYOUT SHAPES, which are decided by the operand's SOURCE TEXT
+// and not by its value.
+//
+// This fixture exists because the corpus cannot produce it. `dbg` appears 72
+// times across the tour's runnable blocks and barely at all under
+// `tests/`, so a differential sweep over the corpus would have reported
+// `0 DIFFED` with two of the three shapes never executed. That asymmetry is the
+// whole reason the `dbg` slice existed, and this file is its record.
+//
+//	single-line   dbg line 9: 41 + 1 = 42
+//	multi-line    dbg line N:
+//	                Rev{
+//	                  zeta: 100000001,
+//	                }
+//	                = Rev{zeta: 100000001, alpha: 100000002}
+//	empty         dbg line N: = 42        NOT reachable from source; see below
+//
+// The MULTI-LINE shape is reached by making the FORMATTER wrap, not by writing
+// a newline: `format.RenderNode` re-prints the operand from the AST, so the
+// shape depends on the rendered width rather than on how the source was typed.
+// The two wide operands below are wide on purpose and their literals must stay
+// long enough to wrap — `TestDbg_MultiLineShapeIsExercised` fails with a reason
+// if a later edit shortens them, because a fixture that silently stops
+// exercising a shape is worse than no fixture.
+//
+// The EMPTY shape is not here, and its absence is the measurement rather than a
+// gap: the pipe form renders `n.Left`, and `format.RenderNode` of a real node is
+// never empty, so no Nomi source produces it. It is pinned directly on rt.Dbg
+// in rt/dbg_test.go.
+//
+// The PIPE rows are the other half. `21 |> double() |> dbg` renders the LEFT
+// operand — the text of the thing piped IN — and `5 |> dbg double()` is the
+// SAME shape because the parser desugars a keyword-prefixed stage into
+// `(5 |> double()) |> dbg`. The formatter re-sugars a pipe, so both render as
+// pipes, and both paths call one function on one node.
+import std/io
+
+struct Rev {
+    zeta: Int
+    alpha: Int
+}
+
+fn double(n: Int): Int {
+    n * 2
+}
+
+fn main() {
+    a = dbg 41 + 1
+    io.print("a=${a}")
+
+    r = Rev{zeta: 1, alpha: 2}
+    b = dbg r
+    io.print("b=${b.zeta}")
+
+    _c = dbg [1, 2, 3]
+
+    d = 21 |> double() |> dbg
+
+    io.print("d=${d}")
+
+    _e = dbg [
+        100000001,
+        100000002,
+        100000003,
+        100000004,
+        100000005,
+        100000006,
+        100000007,
+        100000008,
+        100000009,
+        100000010,
+    ]
+
+    f = dbg Rev{
+        zeta: 100000001,
+        alpha: 100000002,
+    }
+    io.print("f=${f.zeta}")
+
+    g = 5 |> dbg double()
+    io.print("g=${g}")
+}

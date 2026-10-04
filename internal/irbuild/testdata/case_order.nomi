@@ -1,0 +1,61 @@
+import std/io
+
+enum Level {
+    Low
+    Mid
+    High
+}
+
+// Deliberately overlapping arms. The ident arms match EVERY Int, so the literal
+// arms above them must still win and the literal arm below them can never run —
+// which is only true if the tree tries arms in source order.
+//
+// This is the subset-reachable half of testdata/case_ordering.nomi, which the
+// boxed lowering used for the same job and which this builder still refuses for
+// an independent reason (its `nested` takes a `Maybe<Result<Int, String>>`).
+// The guard arms sit BETWEEN literal arms deliberately: a tree that hoisted
+// unguarded tests above guarded ones would answer the later arm.
+fn classify(n: Int): String {
+    case n {
+        0 -> "zero"
+        1 -> "one"
+        m when m < 0 -> "negative: ${m}"
+        m when m > 100 -> "huge"
+        m -> "other: ${m}"
+        2 -> "unreachable"
+    }
+}
+
+// A wildcard placed FIRST shadows everything after it. A tree that reordered
+// arms for efficiency — putting the cheap literal test first, say — would print
+// the later answer.
+fn wildcard_first(n: Int): String {
+    case n {
+        _ -> "wildcard"
+        0 -> "zero"
+    }
+}
+
+// Same shape over an enum, where the natural lowering is an integer switch on
+// the tag: `_` sits BETWEEN two tag arms, so a switch that hoisted every tag
+// case above the default would answer "unreachable" here instead of "not low".
+fn level(l: Level): String {
+    case l {
+        .Low -> "low"
+        _ -> "not low"
+        .High -> "unreachable"
+    }
+}
+
+fn main() {
+    io.print(classify(0))
+    io.print(classify(1))
+    io.print(classify(2))
+    io.print(classify(-7))
+    io.print(classify(500))
+    io.print(wildcard_first(0))
+    io.print(wildcard_first(9))
+    io.print(level(Level.Low))
+    io.print(level(Level.Mid))
+    io.print(level(Level.High))
+}

@@ -1,0 +1,87 @@
+/// A status enum with three variants: `Active`, `Inactive` (carrying a
+/// reason string), and `Suspended` (carrying a struct with `until` and
+/// `reason` fields). The opacity hides the variant set from outside
+/// callers, which means representation flexibility — adding, removing,
+/// or restructuring variants tomorrow doesn't break callers today.
+///
+/// `pub opaque enum Status { ... }` hides the variant set outside this file.
+/// That makes the opacity tax heavier than for a struct: outside callers can't
+/// construct variants, pattern match, or reach payloads. The owning file
+/// typically exports:
+///
+/// - one *smart constructor* per variant (`active`, `inactive`, `suspend`)
+/// - one *predicate* per variant of interest (`is_active`, `is_suspended`)
+/// - a `Maybe<T>`-returning *accessor* for each payload of interest
+/// (`inactive_reason`, `suspended_reason`, `suspended_until`)
+///
+/// The `Maybe<T>` accessor is the standard idiom because outside callers
+/// can't `case` over the value themselves — `None` stands in for "the
+/// value isn't this variant," and `Some(payload)` for "it is, here's the
+/// payload."
+///
+/// Inside this file — exactly as for any regular enum — variants are
+/// constructed and pattern-matched with the usual syntax.
+pub opaque enum Status {
+    Active
+    Inactive String
+    Suspended {until: Int, reason: String}
+}
+
+impl Status {
+    /// Smart constructor for the `Active` variant.
+    pub fn active(): Status {
+        Status.Active
+    }
+
+    /// Smart constructor for the `Inactive` variant — captures the reason
+    /// the entity went inactive.
+    pub fn inactive(reason: String): Status {
+        Status.Inactive(reason)
+    }
+
+    /// Smart constructor for the `Suspended` variant — captures the
+    /// timestamp the suspension lifts at and the reason for the suspension.
+    pub fn suspend(until: Int, reason: String): Status {
+        Status.Suspended{until, reason}
+    }
+
+    /// True iff `s` is the `Active` variant.
+    pub fn is_active(s: Status): Bool {
+        case s {
+            .Active -> True
+            _ -> False
+        }
+    }
+
+    /// True iff `s` is the `Suspended` variant.
+    pub fn is_suspended(s: Status): Bool {
+        case s {
+            .Suspended{until, reason} -> True
+            _ -> False
+        }
+    }
+
+    /// Returns `Some(reason)` if `s` is `Inactive`, otherwise `None`.
+    pub fn inactive_reason(s: Status): Maybe<String> {
+        case s {
+            .Inactive(r) -> Some(r)
+            _ -> None
+        }
+    }
+
+    /// Returns `Some(reason)` if `s` is `Suspended`, otherwise `None`.
+    pub fn suspended_reason(s: Status): Maybe<String> {
+        case s {
+            .Suspended{until, reason} -> Some(reason)
+            _ -> None
+        }
+    }
+
+    /// Returns `Some(until)` if `s` is `Suspended`, otherwise `None`.
+    pub fn suspended_until(s: Status): Maybe<Int> {
+        case s {
+            .Suspended{until, reason} -> Some(until)
+            _ -> None
+        }
+    }
+}

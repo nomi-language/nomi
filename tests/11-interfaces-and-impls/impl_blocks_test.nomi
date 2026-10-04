@@ -1,0 +1,220 @@
+import {
+    std/compiler.{self, Project}
+    std/literals.{Fragment, Literal}
+    test_helpers
+}
+
+interface Speech {
+    fn speak(animal: self): String
+}
+
+struct Dog {
+    name: String
+    breed: String
+}
+
+fn rename(d: Dog, new_name: String): Dog {
+    Dog{name: new_name, breed: d.breed}
+}
+
+fn describe(d: Dog): String {
+    d.name + " the " + d.breed
+}
+
+fn loud_name(d: Dog): String {
+    String.to_upper(d.name)
+}
+
+derive Equatable for Dog
+derive Hashable for Dog
+
+impl Speech for Dog {
+    fn speak(d: Dog): String {
+        d.name + " says woof"
+    }
+}
+
+struct Cat {
+    name: String
+}
+
+impl Speech for Cat {
+    fn speak(c: Cat): String {
+        c.name + " says meow"
+    }
+}
+
+enum Status {
+    Active
+    Pending Int
+}
+
+fn is_active(s: Status): Bool {
+    case s {
+        .Active -> True
+        _ -> False
+    }
+}
+
+impl Display for Status {
+    fn to_string(s: Status): String {
+        case s {
+            .Active -> "active"
+            .Pending(n) -> "pending (" + Int.to_string(n) + " ahead)"
+        }
+    }
+}
+
+interface Describe {
+    fn describe(value: self): String
+}
+
+struct Point {
+    x: Int
+}
+
+impl Describe for Point {
+    fn describe(p: Point): String {
+        "Point(" + Int.to_string(p.x) + ")"
+    }
+}
+
+struct Wrapped<T> {
+    value: T
+}
+
+fn get<T>(b: Wrapped<T>): T {
+    b.value
+}
+
+impl Describe for Wrapped<T> {
+    fn describe(b: Wrapped<T>): String {
+        "Wrapped(" + Describe.describe(b.value) + ")"
+    }
+}
+
+type Sql
+
+impl Literal for Sql {
+    fn from_fragments(fragments: List<Fragment<String>>): String {
+        Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + "'" + v + "'"
+            }
+        )
+    }
+}
+
+test "impl blocks and file functions work on structs" {
+    rex = Dog{name: "Rex", breed: "lab"}
+    whiskers = Cat{name: "Whiskers"}
+    fido = rename(rex, "Fido")
+
+    assert Speech.speak(rex) == "Rex says woof"
+    assert Speech.speak(whiskers) == "Whiskers says meow"
+    assert Dog.speak(rex) == "Rex says woof"
+    assert describe(rex) == "Rex the lab"
+    assert describe(fido) == "Fido the lab"
+}
+
+test "impl blocks and file functions work on enums" {
+    assert Display.to_string(Status.Active) == "active"
+    assert Display.to_string(Status.Pending(3)) == "pending (3 ahead)"
+    assert is_active(Status.Active)
+    refute is_active(Status.Pending(1))
+}
+
+test "impl blocks on generic types carry enclosing type parameters" {
+    boxed = Wrapped{value: Point{x: 7}}
+    unboxed = get(boxed)
+
+    assert Describe.describe(boxed) == "Wrapped(Point(7))"
+    assert Wrapped.describe(boxed) == "Wrapped(Point(7))"
+    assert Point.describe(unboxed) == "Point(7)"
+}
+
+test "derive declarations coexist with impl blocks and file functions" {
+    rex = Dog{name: "Rex", breed: "lab"}
+    rex_again = Dog{name: "Rex", breed: "lab"}
+    fido = Dog{name: "Fido", breed: "lab"}
+
+    assert Equatable.equal?(rex, rex_again)
+    refute Equatable.equal?(rex, fido)
+    assert Speech.speak(rex) == "Rex says woof"
+    assert loud_name(fido) == "FIDO"
+}
+
+test "Literal impl blocks back typed literals" {
+    name = "Ada"
+
+    assert Sql"select * from users where name = ${name}" == "select * from users where name = 'Ada'"
+}
+
+test "functions in type bodies are rejected" {
+    diagnostics = compiler.check_project(Project{
+        entry_point: "main",
+        files: {
+            "main" => """
+                struct Thing {
+                  name: String
+
+                  fn name(t: Thing): String {
+                    t.name
+                  }
+
+                  fn name_again(t: Thing): String {
+                    String.to_upper(t.name)
+                  }
+
+                  fn name(t: Thing): String {
+                    "duplicate"
+                  }
+                }
+
+                fn main() {
+                  Unit
+                }
+                """,
+        },
+    })
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "functions are declarations outside type bodies",
+    )
+}
+
+test "old inherent impl block syntax is rejected" {
+    diagnostics = compiler.check_project(Project{
+        entry_point: "main",
+        files: {
+            "main" => """
+                import {
+                  api: api
+                  model: Thing
+                }
+
+                fn main() {
+                  Unit
+                }
+                """,
+            "model" => """
+                pub struct Thing {
+                  name: String
+                }
+                """,
+            "api" => """
+                import model: Thing
+
+                impl Thing {
+                  pub fn shout(t: Thing): String {
+                    String.to_upper(t.name)
+                  }
+                }
+                """,
+        },
+    })
+
+    assert test_helpers.has_diagnostic?(diagnostics, "orphan impl: inherent `impl Thing")
+}

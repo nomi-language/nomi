@@ -1,0 +1,28 @@
+// ConfigApp is the project's configuration struct: app data fields at one
+// level; dependency handlers would sit here too. `load` builds the effective
+// configuration for the chosen deployment by starting from defaults and
+// layering deployment-specific overrides on top. Process environment
+// variables would normally be read here too (NOMI_ENV, PORT, DATABASE_URL,
+// etc.); this example takes the deployment name as a parameter since that
+// stdlib surface isn't available yet.
+import {
+    prod
+    test as test_env
+}
+
+pub struct ConfigApp {
+    deployment: String = "dev"
+    port: Int = 3000
+    database_url: String = "postgres://localhost/myapp_dev"
+    max_connections: Int = 5
+}
+
+pub fn load(deployment: String): ConfigApp {
+    base = ConfigApp{}
+
+    case deployment {
+        "prod" -> prod.configure(base)
+        "test" -> test_env.configure(base)
+        _ -> base
+    }
+}

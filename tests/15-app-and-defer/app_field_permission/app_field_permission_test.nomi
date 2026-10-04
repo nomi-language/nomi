@@ -1,0 +1,16 @@
+import std/compiler.{self, RunFile}
+
+test "application field reads name the imported application type" {
+    result = compiler.run_file(RunFile{entry_point: "main"})
+
+    assert result == Ok(
+        """
+        no-name=the-real-root
+        own-app=the-real-root
+        imports-app=the-real-root
+        own-local=helpers-own-app
+        own-decls=7:3
+
+        """
+    )
+}

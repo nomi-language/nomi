@@ -1,0 +1,57 @@
+// TWO instantiations of ONE generic-interface impl block, in ONE file.
+//
+// This is the shape an intra-file identity collapse hides in, and the reason it
+// needs a fixture of its own is that `TestCorpus_DifferentialSweep` CANNOT see
+// it: the sweep reports the union of a file's blockers per file, so two
+// instantiations that share one set of bindings are structurally invisible there
+// when both live in the same file — which they always do for this shape.
+//
+// `impl Chooser for Pair<E>` is ONE block. `registerInstanceImpls` registers it
+// once per instantiation, so the monomorphization key has to be
+// (impl block, RECEIVER) and not the block alone. Keyed on the block, `Pair<Int>`
+// and `Pair<String>` share bindings.
+//
+// Every call below is type-qualified through the INTERFACE, so each one has to
+// select its own instantiation's binding: `pick` is an inherited default and
+// `left`/`right` are requirements, which are two different registration paths to
+// the same question.
+//
+// The two instantiations are deliberately at types with DIFFERENT Go
+// representations (int64 and a string), so a collapse cannot coincidentally
+// produce the right bytes.
+interface Chooser<T> {
+    fn left(p: self): T
+    fn right(p: self): T
+
+    fn pick(p: self): T {
+        Chooser.left(p)
+    }
+}
+
+struct Pair<E> {
+    a: E
+    b: E
+}
+
+impl Chooser for Pair<E> {
+    fn left(p: Pair<E>): E {
+        p.a
+    }
+
+    fn right(p: Pair<E>): E {
+        p.b
+    }
+}
+
+test "two instantiations of one impl block keep their own bindings" {
+    ints = Pair{a: 10, b: 20}
+    strs = Pair{a: "x", b: "y"}
+
+    assert Chooser.pick(ints) == 10
+    assert Chooser.right(ints) == 20
+    assert Chooser.left(ints) == 10
+
+    assert Chooser.pick(strs) == "x"
+    assert Chooser.right(strs) == "y"
+    assert Chooser.left(strs) == "x"
+}

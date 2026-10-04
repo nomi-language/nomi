@@ -1,0 +1,127 @@
+// `dbg` RENDERS THROUGH `Debug.inspect`, NOT THROUGH THE ASSERTION ROW — and
+// this fixture puts both renderings of the SAME value in one transcript so the
+// difference is a diff rather than a claim.
+//
+// `debug_display_surfaces.nomi` established that a value has four spellings and
+// that three of them were indistinguishable in every fixture before it. This is
+// the FIFTH surface, and it needed its own file for the reason that one needed
+// its own: reaching for the nearest renderer passes every existing assertion.
+//
+// The interpreter's `dbg` calls `debugInspectString`, which IS
+// `dispatchDebugInspect` — real Nomi dispatch. inspect.go's `inspector` is
+// `value.Inspect`, a structural walk. The builder's `dbg` therefore routes
+// through `debugRendering` (inspectcall.go), the same decision procedure
+// `Debug.inspect(x)` takes, and NOT through `inspectCode`. That is mutant 1 in
+// debugdisplay_test.go's mutation note, and every pair of lines below is a value
+// on which the two answers differ:
+//
+//	value                dbg says                 the values: row says
+//	Rev{zeta:1,alpha:2}  Rev{zeta: 1, alpha: 2}   Rev{alpha: 2, zeta: 1}
+//	Custom{…}            CUSTOM-DEBUG             CUSTOM-DEBUG (its hand-written impl)
+//	Meters(7)            <opaque Meters>          Meters(7)
+//	double               <function>               <func: double>
+//
+// The struct rows are FIELD ORDER (declaration versus sorted), which is why
+// every struct here declares `zeta` before `alpha` — with `Point {x, y}` the two
+// orders are one string and the whole file would be vacuous.
+// `TestDbg_DeclarationOrderIsNotSortedOrder` is the anti-vacuity guard.
+//
+// # A `dbg` INSIDE A TEST BODY IS ITS OWN CASE, and that is the last two tests
+//
+// A test's output and the reporter's share ONE stream, so a `dbg` in a test body
+// is observable twice over: for its own bytes, and for its POSITION relative to
+// the `ok`/`FAIL` line of the case it ran in. The two paths get there
+// differently — the interpreter writes both into `env.Output()`, and a compiled
+// binary writes `rt.Dbg` and `rt.NewTestReporter(os.Stdout)` to the same fd —
+// so agreeing on the order is a property rather than a tautology. The last test
+// FAILS on purpose so a `values:` block follows its `dbg` lines and the
+// interleaving of all three is in the transcript.
+import std/io
+
+opaque type Meters Int
+
+// zeta before alpha, deliberately. See above.
+struct Rev {
+    zeta: Int
+    alpha: Int
+}
+
+struct Custom {
+    zeta: Int
+    alpha: Int
+}
+
+impl Debug for Custom {
+    fn inspect(v: Custom): String {
+        _ = v
+        "CUSTOM-DEBUG"
+    }
+}
+
+fn double(n: Int): Int {
+    n * 2
+}
+
+fn no_rev(_v: Rev): Bool {
+    False
+}
+
+fn no_custom(_v: Custom): Bool {
+    False
+}
+
+fn no_meters(_v: Meters): Bool {
+    False
+}
+
+test "dbg renders a struct in declaration order" {
+    r = dbg Rev{zeta: 1, alpha: 2}
+    refute no_rev(r)
+}
+
+test "the values row for the same struct sorts it" {
+    r = Rev{zeta: 1, alpha: 2}
+    assert no_rev(r)
+}
+
+test "dbg honours a hand-written impl Debug" {
+    c = dbg Custom{zeta: 1, alpha: 2}
+    refute no_custom(c)
+}
+
+test "the values row for the same value honours that impl" {
+    c = Custom{zeta: 1, alpha: 2}
+    assert no_custom(c)
+}
+
+test "dbg shows an opaque type name-only" {
+    m = dbg Meters(7)
+    refute no_meters(m)
+}
+
+test "the values row for the same opaque value shows the payload" {
+    m = Meters(7)
+    assert no_meters(m)
+}
+
+test "dbg over containers and prelude instances" {
+    _list = dbg [Rev{zeta: 1, alpha: 2}]
+    _pair = dbg (1, "two")
+    _some = dbg Some(42)
+    _none: Maybe<Int> = dbg None
+    _rec = dbg {a: 1, a0: 2}
+    _fn = dbg double
+    refute no_rev(Rev{zeta: 0, alpha: 0})
+}
+
+test "a dbg in a test body prints above its own result line" {
+    x = dbg 7
+    io.print("after the dbg, before the report")
+    refute no_rev(Rev{zeta: x, alpha: x})
+}
+
+test "a dbg above a FAILING assertion, so all three interleave" {
+    r = dbg Rev{zeta: 3, alpha: 4}
+    io.print("printed before the failure")
+    assert no_rev(r)
+}

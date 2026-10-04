@@ -1,0 +1,131 @@
+// `AssertionFailure.format(failure)` — the assertion report as a Nomi String.
+//
+// Every case here FAILS an assertion on purpose and then asserts on the rendered
+// text. That is the whole point of the fixture: the corpus never fails an
+// assertion, so `nomi test tests` reporting 583 passed / 0 failed and
+// the sweep reporting 0 DIFFED are both statements about the PASSING path. The
+// rendering of a FAILURE has no coverage anywhere except a file like this one.
+//
+// The expected text is written out in full rather than compared against a
+// second computation, so the fixture says what the two paths agree ON and not
+// merely that they agree.
+//
+// Deliberately absent: any PIPELINE stage. A binding whose defining expression
+// is a pipe, and a `check` over a pipe, are the `assertion pipe stage` key and
+// they are a different slice's; the stage-recording path is known to drop the
+// block on the compiled side today. The renderer's pipeline branches are pinned
+// as absolute text in rt/assertionformat_test.go instead, where no lowering is
+// involved. An Assertable's `details:` block is absent for the same kind of
+// reason — an Assertable subject is refused, so it cannot be reached from a
+// lowered program at all.
+import {
+    std/assertions.AssertionFailure
+    std/io
+    std/testing
+}
+
+// Declared `zed` BEFORE `alpha`, which is the point of the type. An assertion's
+// `values:` row is `value.Inspect` — the structural rendering, which sorts the
+// whole composed `name: value` string — so a correct report reads
+// `Point{alpha: 1, zed: 2}` and one that used DECLARATION order (which is what
+// `Debug.inspect` uses, and what a struct's Go field order gives you for free)
+// would read `Point{zed: 2, alpha: 1}`. Two renderings of one value, pinned
+// apart, and this is the one an assertion shows.
+struct Point {
+    zed: Int
+    alpha: Int
+}
+
+fn same_alpha?(left: Point, right: Point): Bool {
+    left.alpha == right.alpha
+}
+
+fn fails_pattern_binding(): Result<Unit, AssertionFailure> {
+    assert [_, _] = [1]
+    Ok(Unit)
+}
+
+// A failure whose keyword is `refute`, which no `check` can produce: `refute`
+// says so in its own words rather than reusing "assertion failed", and the
+// renderer prints whichever keyword the failure carries.
+fn fails_refutation(): Result<Unit, AssertionFailure> {
+    refute True
+    Ok(Unit)
+}
+
+test "a bare Bool failure renders the header and the assertion" {
+    assert Err(failure) = testing.check(False)
+
+    assert AssertionFailure.format(failure) == """
+        line 57: check failed
+          check False
+        """
+}
+
+test "a failed comparison renders both operands in the order they were seen" {
+    actual = "Ada"
+    expected = "Grace"
+    assert Err(failure) = testing.check(actual == expected)
+
+    assert AssertionFailure.format(failure) == """
+        line 68: check failed
+          check actual == expected
+          values:
+            actual
+              = "Ada"
+            expected
+              = "Grace"
+        """
+}
+
+test "a struct-valued operand renders with its fields sorted, not declared" {
+    left = Point{zed: 2, alpha: 1}
+    right = Point{zed: 2, alpha: 9}
+    assert Err(failure) = testing.check(same_alpha?(left, right))
+
+    assert AssertionFailure.format(failure) == """
+        line 84: check failed
+          check same_alpha?(left, right)
+          values:
+            left
+              = Point{alpha: 1, zed: 2}
+            right
+              = Point{alpha: 9, zed: 2}
+        """
+}
+
+test "a bound-name subject renders the expression it was defined as" {
+    alpha_matches = same_alpha?(Point{zed: 0, alpha: 3}, Point{zed: 0, alpha: 4})
+    assert Err(failure) = testing.check(alpha_matches)
+
+    assert AssertionFailure.format(failure) == """
+        line 99: check failed
+          check alpha_matches
+          defined as:
+            same_alpha?(Point{zed: 0, alpha: 3}, Point{zed: 0, alpha: 4})
+        """
+}
+
+test "a pattern assertion renders its own keyword once and shows actual" {
+    assert Err(failure) = fails_pattern_binding()
+
+    assert AssertionFailure.format(failure) == """
+        line 44: pattern did not match
+          assert [_, _] = [1]
+          actual: [1]
+        """
+}
+
+test "a failed refutation carries the refute keyword and its own reason" {
+    assert Err(failure) = fails_refutation()
+
+    assert AssertionFailure.format(failure) == """
+        line 52: refute failed
+          refute True
+        """
+}
+
+test "the rendered text is an ordinary String and can be printed" {
+    assert Err(failure) = testing.check(1 == 2)
+    io.print(AssertionFailure.format(failure))
+}

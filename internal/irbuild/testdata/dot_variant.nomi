@@ -1,0 +1,75 @@
+//# The leading-dot variant shorthand in every EXPRESSION position it has:
+//# `.V{...}`, bare `.V`, `.V(payload)`, and a parameter DEFAULT.
+//#
+//# The discriminator is the RESOLUTION. A dot variant carries only the
+//# variant's NAME; which ENUM it belongs to comes from the expected type at the
+//# position. So the two enums below have DISJOINT variant names and a shared
+//# field name with different defaults: resolving `.Go` against `Gear` finds no
+//# such variant and resolving `.Drive` against `Signal` finds none either, so a
+//# wrong pick cannot become a plausible answer.
+//#
+//# THE SHARPER FORM IS NOW AVAILABLE and lives in variant_name_collision.nomi.
+//# The discriminating pair one wants here is two enums each declaring a `Go`
+//# variant with different field defaults, so a name-keyed resolution answers a
+//# wrong NUMBER rather than failing. That fixture was unwritable until
+//# 2026-08-25, because the INTERPRETER got it wrong: eval.go looked a
+//# struct-shaped variant's declaration up by the VARIANT NAME ALONE, so two
+//# enums declaring a `Go` shared one registration and the later declaration
+//# won — `Signal.Go{}.n` answered 7 where 3 is right, fully QUALIFIED, so it
+//# was never about the shorthand. Both sides agree now, so that pair is an
+//# ordinary differential fixture rather than a divergence, and THIS file keeps
+//# its DISJOINT names because resolution is what it tests, not defaults.
+//#
+//# `Halt` and `Park` exist so neither enum is single-variant: a one-variant
+//# enum would make the expected type recoverable from the variant name alone.
+
+import std/io
+
+enum Signal {
+    Go {n: Int = 3}
+    Halt
+}
+
+enum Gear {
+    Drive {n: Int = 7}
+    Park
+}
+
+enum Reading {
+    Exact Int
+    Missing
+}
+
+fn signal(s: Signal): String {
+    case s {
+        Signal.Go{n} -> "signal-go-${n}"
+        Signal.Halt -> "signal-halt"
+    }
+}
+
+fn gear(g: Gear = .Drive{}): String {
+    case g {
+        Gear.Drive{n} -> "gear-drive-${n}"
+        Gear.Park -> "gear-park"
+    }
+}
+
+fn reading(r: Reading): String {
+    case r {
+        Reading.Exact(v) -> "exact-${v}"
+        Reading.Missing -> "missing"
+    }
+}
+
+fn main() {
+    io.print(signal(.Go{n: 1}))
+    io.print(signal(.Go{}))
+    io.print(signal(.Halt))
+
+    io.print(gear(.Drive{n: 2}))
+    io.print(gear(.Park))
+    io.print(gear())
+
+    io.print(reading(.Exact(42)))
+    io.print(reading(.Missing))
+}

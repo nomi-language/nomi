@@ -1,0 +1,163 @@
+import std/io
+
+// A prelude constructor whose instantiation the checker left HALF solved.
+//
+// `Ok(v)` names T and says nothing about E; `Err(e)` names E and says nothing
+// about T. So a `Result` built by one constructor and never given a second
+// source of information reaches the builder as `Result<Int, ?7>` or
+// `Result<?11, String>` — well typed, with one type argument no part of the
+// program ever names.
+//
+// # Why a constant is the right answer here, and where it stops being one
+//
+// The open side is information-free: no value of that type exists anywhere in
+// the program, because if one did the variable would have been solved by it.
+// `case Ok(4) { Ok(n) -> n }` binds 4 and `Result.equal?(Ok(4), Ok(4))` is True
+// at EVERY instantiation of the open side. Same answer at two instantiations,
+// so the answer does not depend on the choice.
+//
+// The corpus settles this rather than the prose: `Result.equal?(Ok(4),
+// Err("bad"))` does NOT refuse anywhere in tests, because `equal?`'s two
+// parameters share one E and `Err` supplies what `Ok` left open. Wherever a
+// sibling position holds the missing half the front end has already closed it.
+// `mixed` below is that case, kept so the boundary is exercised rather than
+// asserted about.
+//
+// It stops being a constant the moment a DECLARED type is waiting: a struct
+// field or an annotation of `Result<Int, String>` fixes E, and defaulting there
+// would put a `rt.Result[int64, rt.Unit]` into a `rt.Result[int64, string]`
+// slot. `annotated` and `declared` are those positions and they must come out as
+// the DECLARED type, not the default.
+//
+// # BOTH POSITIONS, which is why every group below is written twice
+//
+// The hole is at type-argument index 1 for `Ok` and at index 0 for `Err` —
+// different iterations of the same loop. A fixture built only out of `Ok`
+// witnesses one of them, and the corpus would not have caught the other either,
+// since its `Err`-open sites are the minority.
+//
+// # IDENTITY
+//
+// `first` and `second` are two independent `Ok(4)` sites, so two independent
+// projections of the same instantiation, and they are compared to EACH OTHER.
+// If the two defaulted holes were interned separately there would be no type at
+// which the comparison could happen, so the interning rule is under test here
+// and not merely the printing.
+//
+// # Nothing here is rendered by Debug.inspect and nothing calls Result.map
+//
+// Deliberately. `Debug.inspect` is `qualified call` and `Result.map`'s callback
+// result is a second type parameter (`unlowered prelude function`); both are
+// other slices' keys, and a fixture that used them could not witness this one.
+// Every value is destructured by `case`, which is the stronger check anyway: it
+// proves the payload is reachable through the tag rather than merely printable.
+struct Outcome {
+    parsed: Result<Int, String>
+}
+
+fn main() {
+    // --- hole at index 1: E open, from Ok ------------------------------------
+    first = Ok(4)
+    second = Ok(4)
+
+    io.print(
+        "ok arm = ${case first {
+            Ok(n) -> n
+            Err(_) -> -1
+        }}"
+    )
+
+    io.print("ok equal = ${Result.equal?(first, second)}")
+    io.print("ok differs = ${Result.equal?(first, Ok(5))}")
+
+    // --- hole at index 0: T open, from Err -----------------------------------
+    bad = Err("bad")
+    worse = Err("bad")
+
+    io.print(
+        "err arm = ${case bad {
+            Ok(_) -> "unexpected"
+            Err(e) -> e
+        }}"
+    )
+
+    io.print("err equal = ${Result.equal?(bad, worse)}")
+    io.print("err differs = ${Result.equal?(bad, Err("other"))}")
+
+    // --- the boundary: a sibling position supplies the missing half ----------
+    // Nothing is open here, and it must keep working exactly as it does today.
+    io.print("mixed = ${Result.equal?(Ok(4), Err("bad"))}")
+
+    // --- a hole under another type constructor -------------------------------
+    // `Some(Ok(42))` is `Maybe<Result<Int, ?>>`. In the corpus this reports
+    // TWICE: once as the constructor's own refusal, and once as the enclosing
+    // `Some`'s `non-scalar type argument`, because projecting the inner type
+    // answered kindInvalid. One gap under two key names.
+    nested = Some(Ok(42))
+
+    io.print(
+        "nested = ${case nested {
+            Some(Ok(n)) -> n
+            Some(Err(_)) -> -1
+            None -> 0
+        }}"
+    )
+
+    // The Err side of the same nesting, so index 0 is covered under a
+    // constructor too and not only at the top level.
+    nested_err = Some(Err("deep"))
+
+    io.print(
+        "nested_err = ${case nested_err {
+            Some(Ok(_)) -> "unexpected"
+            Some(Err(e)) -> e
+            None -> "none"
+        }}"
+    )
+
+    // --- the declared positions that DO reach the builder already solved ----
+    // MEASURED, and it was the finding this fixture pinned: an ANNOTATED BINDING
+    // arrives solved. The checker propagates the annotation into the
+    // constructor's instantiation, so `Ok(11)` here is `Result<Int, String>` and
+    // no hole is defaulted. A struct FIELD did NOT, for the same well-typed
+    // program, and that half was pinned as a refusal instead of lowered.
+    //
+    // IT ARRIVES SOLVED TOO SINCE b68e508d, which made the checker validate a
+    // field's VALUE against its declared type — the admission it uses unifies,
+    // which solves the hole. So the struct-field asymmetry this fixture recorded
+    // is gone and the refusal it named has no witness; see
+    // TestPrelude_TheUnsolvedTypeArgumentKeyIsUnreachable.
+    //
+    // Their printed output would be the same either way, so the check that
+    // matters for these three is that each LOWERS: a defaulted hole in a
+    // declared slot would be a kind mismatch in the builder.
+    annotated: Result<Int, String> = Ok(11)
+
+    io.print(
+        "annotated = ${case annotated {
+            Ok(n) -> n
+            Err(_) -> -1
+        }}"
+    )
+
+    annotated_err: Result<Int, String> = Err("no")
+
+    io.print(
+        "annotated_err = ${case annotated_err {
+            Ok(_) -> "unexpected"
+            Err(e) -> e
+        }}"
+    )
+
+    // A DECLARED slot fed from a hole-carrying LOCAL rather than from a literal
+    // constructor. The coercion has to reach the binding's value, not just an
+    // argument written in place.
+    moved: Result<Int, String> = first
+
+    io.print(
+        "moved = ${case moved {
+            Ok(n) -> n
+            Err(_) -> -1
+        }}"
+    )
+}

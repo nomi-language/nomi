@@ -1,0 +1,11 @@
+pub fn double(x: Int): Int {
+    x * 2
+}
+
+pub fn add(a: Int, b: Int): Int {
+    a + b
+}
+
+fn internal_helper(x: Int): Int {
+    x + 1
+}

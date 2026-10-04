@@ -1,0 +1,101 @@
+import {
+    std/calendar.{Days, Error, Hours, Minutes, Months, Nanoseconds, Seconds}
+    std/calendar.Date
+    std/calendar.NaiveDateTime
+    std/calendar.Time
+    std/duration.Duration
+}
+
+test "naive datetimes parse and display without zone information" {
+    dt = try NaiveDateTime"2026-05-04T14:30:00"
+
+    assert NaiveDateTime.to_string(dt) == "2026-05-04T14:30:00"
+}
+
+test "naive datetime accessors expose date and time parts" {
+    dt = try NaiveDateTime"2026-05-04T14:30:45"
+
+    assert NaiveDateTime.year(dt) == 2026
+    assert NaiveDateTime.month(dt) == 5
+    assert NaiveDateTime.day(dt) == 4
+    assert NaiveDateTime.hour(dt) == 14
+    assert NaiveDateTime.minute(dt) == 30
+    assert NaiveDateTime.second(dt) == 45
+}
+
+test "dates and times combine into naive datetimes" {
+    assert Ok(d) = Date"2026-05-04"
+    assert Ok(t) = Time"14:30:00"
+
+    dt = NaiveDateTime.at(d, t)
+
+    assert NaiveDateTime.to_string(dt) == "2026-05-04T14:30:00"
+    assert NaiveDateTime.to_date(dt) == d
+    assert NaiveDateTime.to_time(dt) == t
+}
+
+test "dates convert to midnight naive datetimes" {
+    assert Ok(d) = Date"2026-05-04"
+    assert Ok(midnight_time) = Time"00:00:00"
+
+    midnight = NaiveDateTime.at_midnight(d)
+
+    assert NaiveDateTime.to_string(midnight) == "2026-05-04T00:00:00"
+    assert NaiveDateTime.to_time(midnight) == midnight_time
+}
+
+test "naive datetimes support duration arithmetic" {
+    late = try NaiveDateTime"2026-05-04T23:30:00"
+
+    assert late + Duration.hours(2) == try NaiveDateTime"2026-05-05T01:30:00"
+
+    assert Add.add(late, Duration.hours(2)) == try NaiveDateTime"2026-05-05T01:30:00"
+
+    assert late - Duration.minutes(45) == try NaiveDateTime"2026-05-04T22:45:00"
+}
+
+test "naive datetimes support calendar arithmetic" {
+    jan31 = try NaiveDateTime"2026-01-31T09:00:00"
+    nye = try NaiveDateTime"2026-12-31T23:59:59"
+
+    assert jan31 + Months(1) == try NaiveDateTime"2026-02-28T09:00:00"
+    assert jan31 - Months(1) == try NaiveDateTime"2025-12-31T09:00:00"
+
+    assert nye + Days(1) == try NaiveDateTime"2027-01-01T23:59:59"
+    assert nye - Days(1) == try NaiveDateTime"2026-12-30T23:59:59"
+}
+
+test "naive datetimes support civil sub-day arithmetic" {
+    dt = try NaiveDateTime"2026-05-04T14:30:00"
+    late = try NaiveDateTime"2026-05-04T23:30:00"
+
+    assert dt + Hours(2) == try NaiveDateTime"2026-05-04T16:30:00"
+    assert late + Hours(2) == try NaiveDateTime"2026-05-05T01:30:00"
+    assert dt + Minutes(45) == try NaiveDateTime"2026-05-04T15:15:00"
+    assert dt + Seconds(90) == try NaiveDateTime"2026-05-04T14:31:30"
+    assert dt + Nanoseconds(500_000_000) == try NaiveDateTime"2026-05-04T14:30:00.5"
+
+    assert dt + Hours(-5) == try NaiveDateTime"2026-05-04T09:30:00"
+    assert dt - Minutes(45) == try NaiveDateTime"2026-05-04T13:45:00"
+}
+
+test "naive datetimes sort chronologically" {
+    a = try NaiveDateTime"2026-05-04T09:30:00"
+    b = try NaiveDateTime"2025-12-31T23:59:59"
+    c = try NaiveDateTime"2026-05-04T10:00:00"
+
+    sorted = Iter.sort([a, b, c])
+
+    assert List.head(sorted) == Some(b)
+}
+
+test "naive datetime differences return durations" {
+    start = try NaiveDateTime"2026-05-04T09:00:00"
+    end = try NaiveDateTime"2026-05-04T11:30:00"
+
+    assert NaiveDateTime.between(start, end) == Duration.minutes(150)
+}
+
+test "naive datetime construction validates component combinations" {
+    assert Err(Error.InvalidValue(_)) = NaiveDateTime.new(2026, 2, 30, 12, 0)
+}

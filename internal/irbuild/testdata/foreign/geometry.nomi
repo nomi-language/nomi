@@ -1,0 +1,76 @@
+// A sibling FILE whose TYPES cross the file boundary, not just its functions.
+//
+// A `Point` named in main.nomi is a type declared in another file. The
+// builder resolves it to this file's declaration through a mirror in the
+// referencing module, so both files hold one type, not a copy, and the
+// same declaration identity (module plus name) at run time. See
+// internal/irbuild/foreign.go.
+//
+// `tag` is deliberately a field name here: an enum's generated tag field is
+// `Tag` and a struct field is `F_tag`, so the two cannot collide however the
+// Nomi program is spelled. The lexer forbids an uppercase letter in a field
+// name, so `Tag` is not a Nomi field name at all and there is no second case.
+pub struct Point {
+    x: Int
+    y: Int
+    tag: String
+}
+
+// An enum crossing the boundary: `case` on one of these in main.nomi reads
+// this package's `Tag` field and its payload slots.
+pub enum Reading {
+    Empty
+    Whole Int
+    Labelled {name: String, at: Point}
+}
+
+// A distinct type is a Go DEFINED type, so it crosses as itself.
+pub type Meters Int
+
+pub fn origin(): Point {
+    Point{x: 0, y: 0, tag: "origin"}
+}
+
+pub fn shift(p: Point, by: Int): Point {
+    Point{x: p.x + by, y: p.y + by, tag: p.tag}
+}
+
+pub fn describe(r: Reading): String {
+    case r {
+        Reading.Empty -> "empty"
+        Reading.Whole(n) -> "whole ${n}"
+        Reading.Labelled{name, at} -> "labelled ${name} at ${at.x}"
+    }
+}
+
+// A distinct type crosses as itself, because a Nomi distinct is a Go DEFINED
+// type. It is only PASSED here: unwrapping it with `case m { Meters(n) -> … }`
+// inside a project-loaded sibling file does not match on the interpreter (a
+// pre-existing front-end defect, reproduced in the yield of the cross-package
+// identity slice), so the fixture unwraps it in the ENTRY, where it does.
+pub fn bounce(m: Meters): Meters {
+    m
+}
+
+// A field DEFAULT naming this file's private `seed`. A literal in another file
+// that omits `n` calls this file's accessor for it; see
+// foreignfielddefault.go.
+pub struct Defaulted {
+    n: Int = seed()
+}
+
+fn seed(): Int {
+    7
+}
+
+// Not `pub`: file-private, and a reference from another file is an analyzer
+// error. The builder refuses it by name anyway, so a reference that got past
+// the analyzer would still not reach this type.
+// See foreign.go's `private sibling file type`.
+struct Hidden {
+    n: Int
+}
+
+pub fn hidden_count(): Int {
+    Hidden{n: 3}.n
+}

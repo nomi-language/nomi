@@ -1,0 +1,9 @@
+import {
+    std/io
+    seedlib.seed
+}
+
+fn main() {
+    io.print("start")
+    io.print("${seed}")
+}

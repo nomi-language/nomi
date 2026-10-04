@@ -1,0 +1,37 @@
+import bool.Bool
+
+/// Protocol for structural equality between two values of the same type.
+///
+/// `Equatable.equal?(a, b)` returns `True` iff `a` and `b` are equal under
+/// the implementor's notion of equality, and is always the explicit way to
+/// reach an implementor's own equality.
+///
+/// The `==` operator is narrower: it routes through a registered
+/// `Equatable.equal?` for a **struct** type, and otherwise compares
+/// structurally without dispatching. So a hand-written impl on a struct
+/// overrides `==`, while one on an enum, a distinct type or a primitive is
+/// reached by `Equatable.equal?` and by generic `<T: Equatable>` code but
+/// NOT by `==`, which keeps the structural or direct-comparison path.
+/// `!=` is the negation of whichever path `==` takes.
+///
+/// All four primitive types — `Int`, `Float`, `Bool`, `String` —
+/// implement `Equatable` using the underlying primitive equality. To
+/// implement it for a custom type:
+///
+/// ```nomi
+/// pub struct Point {
+///     x: Int
+///     y: Int
+/// }
+///
+/// impl Equatable for Point {
+///     fn equal?(a: Point, b: Point): Bool { a.x == b.x and a.y == b.y }
+/// }
+/// ```
+///
+/// `derive Equatable` synthesizes pairwise field equality for structs,
+/// variant-then-payload comparison for enums, and inner-value delegation for
+/// distinct types.
+pub interface Equatable {
+    fn equal?(a: self, b: self): Bool
+}

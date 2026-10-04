@@ -1,0 +1,154 @@
+import std/io
+
+// A map pattern whose KEY EXPRESSION is not the map's K, which is legal Nomi
+// with a defined answer: the interpreter looks the key up, misses, and the arm
+// falls through.
+//
+// Three properties, and only one of them is a function of a returned value:
+//
+//   - WHICH ANSWER. The arm falls through, so the `_` arm's value is what comes
+//     out. Observable from the result.
+//   - THAT THE KEY WAS STILL EVALUATED. `value.Equal` is reached only after
+//     `evalNode(entry.Key, childEnv)` (eval.go:13598), so a mismatched key's
+//     expression RUNS and can print, trap, or diverge. A returned value cannot
+//     see this: the arm's answer is `fell through` whether or not the key ran.
+//     So every key here is built by `note`, which PRINTS. The observation is a
+//     function of the side effect, which is the only thing it can be.
+//   - THAT LATER ENTRIES WERE NOT EVALUATED. Same reason, same instrument: the
+//     interpreter breaks out of its entry loop at the first miss, so an entry
+//     after a missing one never runs. Only a print can tell "not evaluated"
+//     from "evaluated and ignored".
+//
+// The four mismatches below are the four ways value/equality.go can be shown to
+// answer false, one per line of it that matters:
+//
+//   Color   vs Bool    *VariantVal  vs *VariantVal, ShortTypeName differs (:114)
+//   Q       vs P       *StructVal   vs *StructVal, ShortTypeName differs (:101)
+//                      — and the FIELDS ARE IDENTICAL, so a structural
+//                        comparison would have matched. The name is the whole
+//                        difference.
+//   Id(5)   vs 5       *DistinctVal vs IntVal, different arms of the switch
+//   "5"     vs 5       StringVal    vs IntVal, different arms
+//
+// What is NOT here, deliberately: any structural key. Two EMPTY lists compare
+// equal in value/equality.go whatever their element types, so `List<Int>`
+// against `Map<List<String>, V>` MATCHES on the interpreter — measured, and
+// pinned as a counterexample in TestMapKeyClass_StructuralKeysAreNotDecidable.
+// The builder refuses those rather than lowering them, and that fixture is what
+// says why.
+type Id Int
+
+enum Color {
+    Red
+    Blue
+}
+
+struct P {
+    x: Int
+}
+
+struct Q {
+    x: Int
+}
+
+fn note_color(tag: String, c: Color): Color {
+    io.print("  eval ${tag}")
+    c
+}
+
+fn note_bool(tag: String, b: Bool): Bool {
+    io.print("  eval ${tag}")
+    b
+}
+
+fn note_id(tag: String, n: Int): Id {
+    io.print("  eval ${tag}")
+    Id(n)
+}
+
+fn note_text(tag: String, s: String): String {
+    io.print("  eval ${tag}")
+    s
+}
+
+fn main() {
+    both = {True => "yes", False => "no"}
+    only_true = {True => "yes"}
+    points = {P{x: 1} => "p"}
+    numbers = {5 => "five"}
+
+    // A variant key against a Bool-keyed map. The key runs, then misses.
+    io.print("variant vs Bool:")
+
+    a = case both {
+        {note_color("k", Color.Blue) => v} -> "matched ${v}"
+        _ -> "fell through"
+    }
+
+    io.print("  answer = ${a}")
+
+    // A struct key whose FIELDS match and whose NAME does not.
+    io.print("struct name:")
+
+    b = case points {
+        {Q{x: 1} => v} -> "matched ${v}"
+        _ -> "fell through"
+    }
+
+    io.print("  answer = ${b}")
+
+    // A distinct key against an Int-keyed map: different arms of the switch.
+    io.print("distinct vs Int:")
+
+    c = case numbers {
+        {note_id("k", 5) => v} -> "matched ${v}"
+        _ -> "fell through"
+    }
+
+    io.print("  answer = ${c}")
+
+    // A String key against an Int-keyed map.
+    io.print("String vs Int:")
+
+    d = case numbers {
+        {note_text("k", "5") => v} -> "matched ${v}"
+        _ -> "fell through"
+    }
+
+    io.print("  answer = ${d}")
+
+    // ORDER: entry 0 is PRESENT, so entry 1's mismatched key is still reached and
+    // still evaluated. Two `eval` lines, then fall through.
+    io.print("present then mismatch:")
+
+    e = case both {
+        {note_bool("k0", True) => v, note_color("k1", Color.Blue) => w} -> "matched ${v}${w}"
+        _ -> "fell through"
+    }
+
+    io.print("  answer = ${e}")
+
+    // ORDER: entry 0 is ABSENT, so the loop breaks and entry 1's key is NEVER
+    // evaluated. ONE `eval` line — the absence of the second is the whole point,
+    // and a lowering that hoisted the keys would print both.
+    io.print("absent then mismatch:")
+
+    f = case only_true {
+        {note_bool("k0", False) => v, note_color("k1", Color.Blue) => w} -> "matched ${v}${w}"
+        _ -> "fell through"
+    }
+
+    io.print("  answer = ${f}")
+
+    // A mismatched arm does not shadow a LATER arm that does match, and the
+    // matching arm's bindings are its own.
+    io.print("later arm still matches:")
+
+    g = case both {
+        {note_color("k", Color.Blue) => v} -> "matched ${v}"
+        {True => v} -> "second arm ${v}"
+        _ -> "fell through"
+    }
+
+    io.print("  answer = ${g}")
+}

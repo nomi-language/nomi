@@ -1,0 +1,9 @@
+pub fn call(): String {
+    "called"
+}
+
+pub once value: Int = 42
+
+pub fn ok(): String {
+    "ok"
+}

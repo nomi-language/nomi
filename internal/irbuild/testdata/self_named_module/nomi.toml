@@ -1,0 +1,3 @@
+[module]
+name = "thing"
+entry_points = ["main"]

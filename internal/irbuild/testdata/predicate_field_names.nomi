@@ -1,0 +1,40 @@
+import std/io
+
+// A predicate field name beside its underscore-suffixed twin. Both are legal
+// Nomi, they are two DISTINCT fields, and before predSpelling they reached one
+// Go-spelled identifier, so both reads resolved to the first field. No corpus
+// program writes this shape, which is why the builder
+// shipped it.
+struct Flags {
+    ok?: Int
+    ok_: Int
+}
+
+// The same collision one level out: a predicate function beside its twin.
+fn ready?(): Int {
+    10
+}
+
+fn ready_(): Int {
+    20
+}
+
+impl Flags {
+    fn score?(f: Flags): Int {
+        f.ok?
+    }
+
+    fn score_(f: Flags): Int {
+        f.ok_
+    }
+}
+
+fn main() {
+    f = Flags{ok?: 1, ok_: 2}
+    io.print("ok? = " + Int.to_string(f.ok?))
+    io.print("ok_ = " + Int.to_string(f.ok_))
+    io.print("sum = " + Int.to_string(f.ok? + f.ok_))
+    io.print("fns = " + Int.to_string(ready?() + ready_()))
+    io.print("impl = " + Int.to_string(Flags.score?(f) + Flags.score_(f)))
+    io.print("debug = " + Debug.inspect(f))
+}

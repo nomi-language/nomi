@@ -1,0 +1,3 @@
+[module]
+name = "inline_go_block_app"
+entry_points = ["main"]

@@ -1,0 +1,60 @@
+import std/io
+
+struct Circle {
+    radius: Int
+}
+
+struct Rect {
+    width: Int
+    height: Int
+}
+
+enum Shape {
+    embeds Circle
+    embeds Rect
+    Point
+}
+
+// A heterogeneous list of `embeds` subtypes. `embeds T` makes T a subtype of the
+// enum embedding it (spec §8), so this list's element type is `Shape` — and the
+// element that already IS a Shape is the LAST one, which is why the builder
+// cannot take the first element's type as the answer.
+//
+// The order is deliberate: a `Circle` first, a `Rect` second (which does not
+// widen into `Circle`), and `Shape.Point` last.
+fn main() {
+    shapes: List<Shape> = [Circle{radius: 5}, Rect{width: 3, height: 4}, Shape.Point]
+
+    io.print("${count(shapes)}")
+    io.print("${areas(shapes)}")
+
+    // The same list built with every element already widened, so the two
+    // construction spellings meet at one representation.
+    tagged: List<Shape> = [Shape.Circle{radius: 5}, Shape.Rect{width: 3, height: 4}, Shape.Point]
+    io.print("${areas(tagged)}")
+
+    // One element, and it is the widest: the degenerate case of the same rule.
+    io.print("${areas([Shape.Point])}")
+}
+
+fn count(xs: List<Shape>): Int {
+    case xs {
+        [] -> 0
+        [_, ..t] -> 1 + count(t)
+    }
+}
+
+fn areas(xs: List<Shape>): String {
+    case xs {
+        [] -> "."
+        [h, ..t] -> "${area(h)} ${areas(t)}"
+    }
+}
+
+fn area(s: Shape): Int {
+    case s {
+        Shape.Circle{radius} -> 3 * radius * radius
+        Shape.Rect{width, height} -> width * height
+        Shape.Point -> 0
+    }
+}

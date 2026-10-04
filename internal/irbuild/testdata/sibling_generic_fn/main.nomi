@@ -1,0 +1,44 @@
+// Calls to generic functions another file declares, file-qualified
+// (`zeta.ident(4)`) and selectively imported (`ident("bare")`, and `run` for
+// `apply`), at several type arguments, including a struct from each file.
+// zulu.nomi and alpha.nomi are lowered in an order that makes some instances
+// arrive after their declaring file's own walk.
+import {
+    std/io
+    alpha
+    ping
+    zeta
+    zeta.{Tag, apply as run, ident}
+    zulu
+}
+
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+impl Display for Point {
+    fn to_string(p: Point): String {
+        "(${p.x}, ${p.y})"
+    }
+}
+
+fn main() {
+    io.print(Int.to_string(zeta.ident(4)))
+    io.print(ident("bare"))
+    p = zeta.ident(Point{x: 1, y: 2})
+    io.print("point ${p.x},${p.y}")
+    tag = ident(Tag{name: "kit"})
+    io.print("tag ${tag.name}")
+    io.print("pair ${zeta.pair(7)}")
+    io.print("apply ${zeta.apply(20, |n| n + 1)}")
+    io.print(run("x", |s| "${s}!"))
+    io.print(zeta.show(5))
+    io.print(zeta.show(Point{x: 3, y: 4}))
+    io.print("boxed ${zeta.boxed("b")}")
+    io.print("boxed ${zeta.boxed(2)}")
+    io.print("wrapped ${alpha.wrap(True)}")
+    io.print(zulu.floats())
+    io.print("ping ${ping.ping("p", 2)}")
+    io.print("ping ${ping.ping(Point{x: 0, y: 1}, 1)}")
+}

@@ -1,0 +1,355 @@
+import {
+    std/compiler
+    engine.{Engine, Mode, Powered}
+    priority
+    test_helpers
+}
+
+interface Announcer<T> {
+    fn item(s: self): T
+
+    fn announce(_s: self, loud: Bool = False): String {
+        base = "item"
+        if loud { base + "!" } else { base }
+    }
+}
+
+struct Box {
+    value: Int
+}
+
+impl Announcer for Box {
+    fn item(s: Box): Int {
+        s.value
+    }
+}
+
+interface IdentityWithDefaults {
+    fn name(value: self): String
+
+    fn describe(value: self): String {
+        "I am " + IdentityWithDefaults.name(value)
+    }
+
+    open fn greeting(value: self): String {
+        "Hello from " + IdentityWithDefaults.name(value)
+    }
+}
+
+struct Robot {
+    model: String
+}
+
+impl IdentityWithDefaults for Robot {
+    fn name(robot: Robot): String {
+        robot.model
+    }
+}
+
+struct User {
+    handle: String
+}
+
+impl IdentityWithDefaults for User {
+    fn name(u: User): String {
+        u.handle
+    }
+
+    fn greeting(u: User): String {
+        "hey, it's " + u.handle
+    }
+}
+
+interface Formatted {
+    fn label(value: self): String
+
+    fn shout(value: self): String {
+        "${label(value)}!"
+    }
+
+    open fn brief(value: self): String {
+        label(value)
+    }
+}
+
+struct FormattedUser {
+    name: String
+}
+
+impl Formatted for FormattedUser {
+    fn label(u: FormattedUser): String {
+        u.name
+    }
+
+    fn brief(u: FormattedUser): String {
+        "user:${u.name}"
+    }
+}
+
+struct Holder<T> {
+    item: T
+}
+
+impl Ranked for Holder<T> {
+    fn item(h: Holder<T>): T {
+        h.item
+    }
+}
+
+interface Ranked<T> {
+    fn item(r: self): T
+
+    fn prefer<K>(_r: self, lhs: K, rhs: K): Bool where K: Comparable {
+        case Comparable.compare(lhs, rhs) {
+            .Less -> False
+            _ -> True
+        }
+    }
+}
+
+interface Chooser<T> {
+    fn item(c: self): T
+    fn choose<K>(c: self, lhs: K, rhs: K): K where K: Comparable
+}
+
+struct ChoiceBox<T> {
+    item: T
+}
+
+impl Chooser for ChoiceBox<T> {
+    fn item(c: ChoiceBox<T>): T {
+        c.item
+    }
+
+    fn choose<K>(_c: ChoiceBox<T>, lhs: K, rhs: K): K where K: Comparable {
+        case Comparable.compare(lhs, rhs) {
+            .Greater -> lhs
+            _ -> rhs
+        }
+    }
+}
+
+struct DisplayBox<T> {
+    value: T
+}
+
+derive Display for DisplayBox<T> where T: Display
+
+test "interface default functions can have default parameters" {
+    b = Box{value: 7}
+
+    assert Announcer.announce(b) == "item"
+    assert Announcer.announce(b, True) == "item!"
+    assert Box.announce(b) == "item"
+}
+
+test "type-qualified dispatch reaches inherited defaults and open overrides" {
+    r = Robot{model: "T-800"}
+    u = User{handle: "alice"}
+
+    assert IdentityWithDefaults.describe(r) == "I am T-800"
+    assert Robot.describe(r) == "I am T-800"
+    assert Robot.greeting(r) == "Hello from T-800"
+    assert IdentityWithDefaults.greeting(u) == "hey, it's alice"
+    assert User.greeting(u) == "hey, it's alice"
+}
+
+test "open default overrides coexist with inherited final defaults" {
+    alice = FormattedUser{name: "Alice"}
+
+    assert Formatted.label(alice) == "Alice"
+    assert Formatted.shout(alice) == "Alice!"
+    assert Formatted.brief(alice) == "user:Alice"
+}
+
+test "default parameter dot shorthand works from imported modules" {
+    e = Engine{name: "v8"}
+
+    assert Powered.describe(e) == "v8 (fast)"
+    assert Powered.describe(e, Mode.Slow) == "v8 (slow)"
+}
+
+test "function-level where clauses on defaults are enforced and load imported impls" {
+    h = Holder{item: "ignored"}
+
+    assert Ranked.prefer(h, priority.make(5), priority.make(1))
+    refute Ranked.prefer(h, priority.make(1), priority.make(5))
+}
+
+test "function-level where clauses on required interface functions are enforced" {
+    c = ChoiceBox{item: "ignored"}
+
+    assert Chooser.choose(c, priority.make(5), priority.make(1)) == priority.make(5)
+
+    assert Chooser.choose(c, priority.make(1), priority.make(5)) == priority.make(5)
+}
+
+test "derive where clauses constrain synthesized impls" {
+    assert DisplayBox.to_string(DisplayBox{value: "ok"}) == "DisplayBox{value: ok}"
+}
+
+test "required interface functions cannot have parameter defaults" {
+    diagnostics = compiler.check(
+        """
+          interface Greeter<T> {
+            fn greet(s: self, excited: Bool = False): String
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "a default parameter value is only allowed on a default function with a Nomi body",
+    )
+}
+
+test "interface default parameter values must match parameter types" {
+    diagnostics = compiler.check(
+        """
+        struct Engine {
+          name: String
+        }
+
+        impl Powered for Engine {
+
+          fn label(e: Engine): String {
+            e.name
+          }
+        }
+
+        interface Powered {
+          fn label(e: self): String
+
+          fn describe(e: self, _count: Int = "nope"): String {
+            Powered.label(e)
+          }
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "default value for parameter '_count'")
+}
+
+test "function-level where clauses on defaults reject unsatisfied arguments" {
+    diagnostics = compiler.check(
+        """
+        	    struct Plain {
+        	      tag: String
+        	    }
+
+        struct Holder<T> {
+          item: T
+        }
+
+        impl Ranked for Holder<T> {
+
+          fn item(h: Holder<T>): T {
+            h.item
+          }
+        }
+
+        interface Ranked<T> {
+          fn item(r: self): T
+
+          fn prefer<K>(_r: self, lhs: K, rhs: K): Bool where K: Comparable {
+            case Comparable.compare(lhs, rhs) {
+              .Less -> False
+              _ -> True
+            }
+          }
+        }
+
+        fn main() {
+          h = Holder{item: 0}
+          _result = Ranked.prefer(h, Plain{tag: "a"}, Plain{tag: "b"})
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "does not implement Comparable")
+}
+
+test "function-level where clauses on required signatures reject unsatisfied arguments" {
+    diagnostics = compiler.check(
+        """
+
+
+        interface Chooser<T> {
+          fn item(c: self): T
+
+          fn choose<K>(c: self, lhs: K, rhs: K): K where K: Comparable
+        }
+
+        struct ChoiceBox<T> {
+          item: T
+        }
+
+        struct Plain {
+          tag: String
+        }
+
+        impl Chooser for ChoiceBox<T> {
+
+          fn item(c: ChoiceBox<T>): T {
+            c.item
+          }
+
+          fn choose<K>(_c: ChoiceBox<T>, lhs: K, rhs: K): K where K: Comparable {
+            _ = rhs
+            lhs
+          }
+        }
+
+        fn main() {
+          _ = Chooser.choose(ChoiceBox{item: "ignored"}, Plain{tag: "a"}, Plain{tag: "b"})
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "does not implement Comparable")
+}
+
+test "interface method-local generics must be declared explicitly" {
+    diagnostics = compiler.check(
+        """
+        import std/comparable: Comparable
+
+        interface Chooser<T> {
+          fn item(c: self): T
+
+          fn choose(c: self, lhs: K, rhs: K): K where K: Comparable
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) > 0
+    assert test_helpers.has_diagnostic?(diagnostics, "where` names unknown type variable `K`")
+}
+
+test "derive where clauses reject unsatisfied receiver arguments" {
+    diagnostics = compiler.check(
+        """
+        struct DisplayBox<T> {
+          value: T
+        }
+
+        struct Plain {
+          tag: String
+        }
+
+        derive Display for DisplayBox<T> where T: Display
+
+        fn main() {
+          _ = DisplayBox.to_string(DisplayBox{value: Plain{tag: "a"}})
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "does not implement Display")
+}

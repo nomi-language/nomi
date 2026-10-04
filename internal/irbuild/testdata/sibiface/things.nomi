@@ -1,0 +1,117 @@
+// A sibling FILE whose impl blocks are reached by INTERFACE qualifier rather
+// than by the receiving type's name: `Display.to_string(things.origin())` from
+// main.nomi, not `Point.to_string(...)`.
+//
+// TWO types each implementing `Display`, and the bodies differ, because the
+// receiver's DECLARATION and the method NAME are derived from different places
+// — the argument and the call — and a route keyed on the method alone answers
+// one of them with the other's body.
+//
+// `Loud` and `Soft` both declare `say` for ONE receiver. That is legal (the
+// orphan rule admits `impl I for T` in T's module, and coherence only forbids
+// two impls of ONE interface for one type), and it is the pair that makes the
+// INTERFACE NAME load-bearing: a route that resolved by (receiver, method) has
+// two answers here and no reason to prefer either.
+//
+// `Tagger` puts `self` at position ONE. Every other interface in this fixture
+// dispatches on argument zero, so without this row a route that hardcoded the
+// receiver's position would be indistinguishable from one that read it off the
+// signature.
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+impl Display for Point {
+    fn to_string(p: Point): String {
+        "things(${Int.to_string(p.x)}, ${Int.to_string(p.y)})"
+    }
+}
+
+pub struct Quiet {
+    n: Int
+}
+
+impl Display for Quiet {
+    fn to_string(q: Quiet): String {
+        "quiet#${Int.to_string(q.n)}"
+    }
+}
+
+pub interface Loud {
+    fn say(x: self): String
+}
+
+pub interface Soft {
+    fn say(x: self): String
+}
+
+impl Loud for Quiet {
+    fn say(q: Quiet): String {
+        "LOUD${Int.to_string(q.n)}"
+    }
+}
+
+impl Soft for Quiet {
+    fn say(q: Quiet): String {
+        "soft${Int.to_string(q.n)}"
+    }
+}
+
+pub interface Tagger {
+    fn tag(label: String, target: self): String
+}
+
+impl Tagger for Point {
+    fn tag(label: String, target: Point): String {
+        label + ":" + Int.to_string(target.x)
+    }
+}
+
+/// `Bare` carries a WRITTEN `impl Debug`, and `Point` above carries none — so
+/// `Debug.inspect(bare())` reaches the block below across the file boundary
+/// while `Debug.inspect(origin())` reaches the front end's SYNTHESIZED
+/// universal derive. One route, two bodies, and the pair is what makes the
+/// route's output readable rather than merely present.
+///
+/// The RANKING between the two is not pinned here and cannot be: the front end
+/// emits no synthesized Debug for a type whose own file writes one, so the two
+/// shapes never meet under one key in this fixture. testdata/sibiface_rival
+/// puts them in three files, which is the only arrangement in which
+/// `writtenImplMembers` has anything to choose.
+pub struct Bare {
+    tag: String
+}
+
+impl Debug for Bare {
+    fn inspect(b: Bare): String {
+        "bare<" + b.tag + ">"
+    }
+}
+
+/// An OPAQUE type, whose synthesized universal Debug is the degenerate
+/// NAME-ONLY form — a structural default would leak the hidden Int that
+/// `opaque` exists to hide. Here because the corpus reaches exactly this shape
+/// through the interface qualifier:
+/// `12-derives-and-standard-interfaces/universal_debug` calls
+/// `Debug.inspect(token.make(99))` on a sibling file's `pub opaque type Token`,
+/// and it lowered the moment this route existed. testdata/sibimpl pins the
+/// TYPE-qualified spelling of the same rendering (`Status.inspect`), so the two
+/// spellings of one body are pinned against each other rather than separately.
+pub opaque type Hidden Int
+
+pub fn hide(n: Int): Hidden {
+    Hidden(n)
+}
+
+pub fn origin(): Point {
+    Point{x: 0, y: 7}
+}
+
+pub fn quiet(n: Int): Quiet {
+    Quiet{n}
+}
+
+pub fn bare(t: String): Bare {
+    Bare{tag: t}
+}

@@ -1,0 +1,21 @@
+import {
+    std/duration.Duration
+    std/instant.Instant
+}
+
+test "instants add durations" {
+    start = Instant.from_seconds(100)
+
+    assert Instant.to_seconds(start + Duration.seconds(5)) == 105
+}
+
+test "instants subtract durations and other instants" {
+    start = Instant.from_seconds(100)
+    later = Instant.from_seconds(130)
+
+    assert start - Duration.seconds(5) == Instant.from_seconds(95)
+    assert later - start == Duration.seconds(30)
+    assert start - later == Duration.seconds(-30)
+    assert later - start == Instant.between(start, later)
+    assert start + (later - start) == later
+}

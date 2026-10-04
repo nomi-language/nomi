@@ -1,0 +1,3 @@
+[module]
+name = "todo"
+entry_points = ["main", "tools/seed"]

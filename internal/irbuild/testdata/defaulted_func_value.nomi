@@ -1,0 +1,46 @@
+import std/io
+
+// A function with a defaulted parameter is used as a one-parameter function
+// through a lambda or a partial application, which leave the default to the
+// call. Named bare, it has both parameters and fits no one-parameter type,
+// which the checker rejects (analysis/func_value_defaults.go).
+fn parse(s: String, strict: Bool = False): Maybe<Int> {
+    if strict and String.starts_with?(s, "+") {
+        None
+    } else {
+        String.to_int(s)
+    }
+}
+
+fn apply(f: (String) -> Maybe<Int>, s: String): Maybe<Int> {
+    f(s)
+}
+
+fn main() {
+    words = ["1", "+2", "x"]
+
+    io.print(
+        Debug.inspect(
+            Iter.map(words, |w| parse(w))
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        Debug.inspect(
+            Iter.map(words, parse(_))
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        Debug.inspect(
+            Iter.map(words, parse(_, strict: True))
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(Debug.inspect(Maybe.flat_map(Some("3"), |s| parse(s))))
+    lenient: (String) -> Maybe<Int> = parse(_)
+    io.print(Debug.inspect(apply(lenient, "+4")))
+}

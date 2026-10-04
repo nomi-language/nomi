@@ -1,0 +1,140 @@
+==========
+Codepoint literal
+==========
+
+once letter = 'a'
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (codepoint
+      (codepoint_content))))
+
+==========
+Codepoint literal escapes
+==========
+
+once quote = '\''
+once backslash = '\\'
+once newline = '\n'
+once tab = '\t'
+once del = '\u{7F}'
+once dquote = '"'
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (codepoint
+      (escape_sequence)))
+  (once_binding
+    (identifier)
+    (codepoint
+      (escape_sequence)))
+  (once_binding
+    (identifier)
+    (codepoint
+      (escape_sequence)))
+  (once_binding
+    (identifier)
+    (codepoint
+      (escape_sequence)))
+  (once_binding
+    (identifier)
+    (codepoint
+      (escape_sequence)))
+  (once_binding
+    (identifier)
+    (codepoint
+      (codepoint_content))))
+
+==========
+Codepoint literal range
+==========
+
+once letters = 'a'..='z'
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (range_expression
+      (codepoint
+        (codepoint_content))
+      (codepoint
+        (codepoint_content)))))
+
+==========
+Codepoint literal patterns
+==========
+
+fn kind(cp: Codepoint): Int {
+    case cp {
+        '(' -> 1
+        '\n' -> 2
+        _ -> 3
+    }
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (codepoint
+            (codepoint_content))
+          (integer))
+        (case_branch
+          (codepoint
+            (escape_sequence))
+          (integer))
+        (case_branch
+          (integer))))))
+
+==========
+Codepoint literal nested patterns
+==========
+
+fn kind(m: Maybe<Codepoint>): Int {
+    case m {
+        Some('x') -> 1
+        _ -> 2
+    }
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (enum_pattern
+            (type_identifier)
+            (codepoint
+              (codepoint_content)))
+          (integer))
+        (case_branch
+          (integer))))))

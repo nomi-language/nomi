@@ -1,0 +1,144 @@
+import {
+    add.Add
+    bool.Bool
+    comparable.Comparable
+    comparable.Ordering.{self, Equal, Greater, Less}
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+    iter.Iter
+    maybe.Maybe.{self, None, Some}
+    strings.String
+}
+
+//# Operations on the immutable random-access `Vector<T>` type. Use `List<T>`
+//# for cons-style recursion and cheap prepends; use `Vector<T>` when indexed
+//# lookup and push-at-end are the natural operations. Generic iteration goes
+//# through `Iter`, and `Iter.to_vector` materializes any iterator into one.
+
+/// Immutable random-access sequence of elements.
+pub host type Vector<T>
+
+impl Vector<T> {
+    /// Returns an empty vector.
+    //! v: Vector<Int> = Vector.empty()
+    //! assert Vector.length(v) == 0
+    //
+    pub host fn empty<T>(): Vector<T>
+
+    /// Returns the number of elements. O(1).
+    //! assert Vector.length(#["a", "b"]) == 2
+    //
+    pub host fn length<T>(vector: Vector<T>): Int
+
+    /// Returns the element at zero-based `index`, or None when out of bounds.
+    //! assert Vector.at(#["a", "b"], 1) == Some("b")
+    //! assert Vector.at(#["a", "b"], 9) == None
+    //
+    pub host fn at<T>(vector: Vector<T>, index: Int): Maybe<T>
+
+    /// Returns a new vector with `item` appended to the end.
+    //! assert Vector.push(#[1, 2], 3) == #[1, 2, 3]
+    //
+    pub host fn push<T>(vector: Vector<T>, item: T): Vector<T>
+
+    /// Returns a new vector with `item` replacing the element at `index`, or None
+    /// when the index is out of bounds.
+    //! assert Vector.set(#["a", "b"], 1, "z") == Some(#["a", "z"])
+    //
+    pub host fn set<T>(vector: Vector<T>, index: Int, item: T): Maybe<Vector<T>>
+
+    /// Concatenates two vectors.
+    //! assert Vector.concat(#[1, 2], #[3]) == #[1, 2, 3]
+    //
+    pub host fn concat<T>(a: Vector<T>, b: Vector<T>): Vector<T>
+
+    /// Returns the next element and remaining vector, or None if empty. Drives the
+    /// `Iter` implementation for `Vector`.
+    //! assert Vector.next_item(#[1, 2]) == Some((1, #[2]))
+    //! assert Vector.next_item(#[]) == None
+    //
+    pub host fn next_item<T>(vector: Vector<T>): Maybe<(T, Vector<T>)>
+}
+
+impl Iter for Vector<T> {
+    // Host-side: a Vector is a windowed slice, so the push loop is an index
+    // walk with no per-element view to rebuild.
+    host fn each_while(vector: Vector<T>, yield: (T) -> Bool): Bool
+
+    fn known_count(vector: Vector<T>): Maybe<Int> {
+        Some(length(vector))
+    }
+}
+
+impl Add<Vector<T>, Vector<T>> for Vector<T> {
+    /// `a + b` is `Vector.concat(a, b)`.
+    //! assert #[1, 2] + #[3] == #[1, 2, 3]
+    //! assert #["a"] + #[] == #["a"]
+    //
+    fn add(lhs: Vector<T>, rhs: Vector<T>): Vector<T> {
+        concat(lhs, rhs)
+    }
+}
+
+impl Display for Vector<T> {
+    fn to_string(vector: Vector<T>): String {
+        body =
+            vector
+            |> Iter.map(|item| "${item}")
+            |> String.join(", ")
+
+        "#[" + body + "]"
+    }
+}
+
+impl Debug for Vector<T> {
+    fn inspect(vector: Vector<T>): String {
+        body =
+            vector
+            |> Iter.map(|item| Debug.inspect(item))
+            |> String.join(", ")
+
+        "#[" + body + "]"
+    }
+}
+
+impl Equatable for Vector<T> {
+    fn equal?(a: Vector<T>, b: Vector<T>): Bool {
+        a == b
+    }
+}
+
+impl Hashable for Vector<T> {
+    fn hash(vector: Vector<T>): Int {
+        Iter.reduce(vector, |acc = 19, x|
+            Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
+        )
+    }
+}
+
+impl Comparable for Vector<T> where T: Comparable {
+    fn compare(a: Vector<T>, b: Vector<T>): Ordering {
+        case Vector.next_item(a) {
+            None ->
+                case Vector.next_item(b) {
+                    None -> Equal
+                    _ -> Less
+                }
+
+            Some((ha, ta)) ->
+                case Vector.next_item(b) {
+                    None ->
+                        Greater
+
+                    Some((hb, tb)) ->
+                        case Comparable.compare(ha, hb) {
+                            Equal -> compare(ta, tb)
+                            other -> other
+                        }
+                }
+        }
+    }
+}

@@ -1,0 +1,26 @@
+// `==` on a mirror whose owner DOES declare an `impl Equatable`: refused, by
+// name, at the comparison.
+//
+// The impl lives in another generated package and this one cannot call it — an
+// impl function is a package-local Go function and cross-package impl dispatch
+// is not lowered. Falling through to the structural comparator instead would
+// answer False where the interpreter answers True, which is a silent wrong
+// answer rather than a refusal. So the fall-through is only taken when absence
+// is ESTABLISHED, and here it is established that an impl exists.
+//
+// Refused rather than lowered, and never run: the whole program is refused, so
+// there is no compiled output to compare.
+import {
+    std/io
+    money.{self, Money}
+}
+
+fn same(a: Money, b: Money): Bool {
+    a == b
+}
+
+fn main() {
+    a = money.at(1, "x")
+    b = money.at(1, "y")
+    io.print("eq = ${Bool.to_string(same(a, b))}")
+}

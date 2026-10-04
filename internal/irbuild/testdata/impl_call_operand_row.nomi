@@ -1,0 +1,153 @@
+// What an assertion's `values:` rows say when the subject is an IMPL CALL.
+//
+// The assertions below FAIL ON PURPOSE. That is not a stylistic choice, it is
+// the only way this surface is observable at all: a PASSING assertion renders
+// no operand, and every assertion in the corpus passes, which is exactly why
+// `directImplCall records no argument rows` sat unnoticed. The whole
+// differential sweep is blind to it.
+//
+// # What differed at the parent
+//
+// Every other call path routes its arguments through `recordCallArgs` —
+// native.go's user-function path, the stdlib path, lists/maps/sets/ranges,
+// the prelude paths, the channel and concurrency paths. `directImplCallAt`
+// did not, so a failing assertion whose subject reached an impl produced a
+// report with the CALL's row and none of its ARGUMENTS', while the
+// interpreter (eval's recordAssertionCallSlots) produced both.
+//
+// # The four spellings, and why all four are here
+//
+// One route (`directImplCallAt`) is reached by four different syntaxes, and a
+// fix placed at any one call site rather than inside the shared function would
+// serve some and not others. Each row below enters through a different door:
+//
+//	Counter.bump(c, 3)          type-qualified          typeQualifiedCall
+//	Bumper.bump(c, 3)           interface-qualified     interfaceCall
+//	bump(c, 3)                  bare, same owner        implSelfCall / barecall
+//	Boxer.wrap(b, 2)            generic impl template   genericImplCall
+//
+// # The LITERAL rule, which is the part a careless fix gets wrong
+//
+// `recordCallArgs` includes literal arguments only when the callee returns
+// Bool — a predicate's literal inputs are what the reader wants (`assert
+// even?(5)` shows `5 = 5`), an ordinary call's are noise (`assert double(3) ==
+// 7` must not print `3 = 3`). The interpreter decides that from the call's
+// runtime result and the builder from the callee's declared return type, so
+// the two agree only if the builder reads the SELECTED implementation's
+// result. `bump` returns Int and `even_sum?` returns Bool, so the `3` is
+// dropped in one report and printed in the other, a few lines apart.
+interface Bumper {
+    fn bump(c: self, by: Int): Int
+    fn even_sum?(c: self, by: Int): Bool
+}
+
+struct Counter {
+    n: Int
+}
+
+impl Bumper for Counter {
+    fn bump(c: Counter, by: Int): Int {
+        c.n + by
+    }
+
+    fn even_sum?(c: Counter, by: Int): Bool {
+        (c.n + by) % 2 == 0
+    }
+}
+
+interface Wrapper {
+    fn wrap(b: self, by: Int): Int
+}
+
+struct Boxer<T> {
+    item: T
+    seed: Int
+}
+
+impl Wrapper for Boxer<T> {
+    fn wrap(b: Boxer<T>, by: Int): Int {
+        b.seed * by
+    }
+}
+
+// A NON-LITERAL second argument, so the row appears under the Int-returning
+// callee too — where the literal rule would have dropped a literal. Without
+// this the Int rows could only ever show the receiver, and a fix that recorded
+// the receiver alone would look complete.
+fn step(): Int {
+    2
+}
+
+test "a type-qualified impl call records its arguments" {
+    c = Counter{n: 5}
+    assert Counter.bump(c, step()) == 99
+}
+
+test "an interface-qualified impl call records its arguments" {
+    c = Counter{n: 5}
+    assert Bumper.bump(c, step()) == 99
+}
+
+test "a Bool-returning impl call records its LITERAL arguments too" {
+    c = Counter{n: 5}
+    assert Bumper.even_sum?(c, 2)
+}
+
+test "an Int-returning impl call drops its literal argument" {
+    c = Counter{n: 5}
+    assert Counter.bump(c, 3) == 99
+}
+
+test "a generic impl template's call records its arguments" {
+    b = Boxer{item: "x", seed: 4}
+    assert Boxer.wrap(b, step()) == 99
+}
+
+// The OPERATOR interface written out as a CALL. It reaches
+// `directImplCallAt` through operCall / operTypeQualifiedCall, which are the
+// fifth and sixth doors, and it is here because the argument-row recording is
+// gated on the node being an `*ast.Call`: the `a + b` spelling arrives as an
+// `*ast.Binary`, has no argument list, and records through binary()'s own
+// `recordComparisonOperands`, so these two spellings are the only operator
+// routes the recording can reach.
+//
+// A SINGLE unambiguous impl on purpose. A second `impl Add<Days, X> for Day`
+// differing only in the OUTPUT type analyses clean and then panics at load
+// ("impl-dispatch collision: Add.add for Day\x00Days registered twice"), which
+// is a separate open defect and not this fixture's subject.
+type Day Int
+
+type Days Int
+
+fn day_value(day: Day): Int {
+    Day(n) = day
+    n
+}
+
+fn days_value(days: Days): Int {
+    Days(n) = days
+    n
+}
+
+impl Add<Days, Day> for Day {
+    fn add(lhs: Day, rhs: Days): Day {
+        Day(day_value(lhs) + days_value(rhs))
+    }
+}
+
+// Both arguments are BOUND rather than written as constructor calls, and that
+// is a measured avoidance rather than tidiness: `Days(step())` makes the
+// interpreter record the inner `step() = 2` while the builder's constructor
+// path does not, which is a SEPARATE gap on the constructor argument recording
+// and not this one. Bundling it here would attribute two gaps to one fix.
+test "the operator interface written as a call records its arguments" {
+    ten = Day(10)
+    four = Days(4)
+    assert day_value(Add.add(ten, four)) == 99
+}
+
+test "the operator impl named by its type records its arguments" {
+    ten = Day(10)
+    four = Days(4)
+    assert day_value(Day.add(ten, four)) == 99
+}

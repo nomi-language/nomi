@@ -1,0 +1,9 @@
+// `refute` holds when its subject does not, and says "refute failed" rather
+// than "assertion failed" when it is the one that broke.
+test "refuting something false" {
+    refute 1 > 2
+}
+
+test "refuting something true" {
+    refute 2 > 1
+}

@@ -1,0 +1,58 @@
+import std/io
+
+// A MODULE-LEVEL `typealias` is TRANSPARENT: it introduces no type, so an
+// annotation naming it wants the TARGET's kind and there is nothing to emit.
+//
+// The block-local form has said exactly this since block-local types landed;
+// the module-level table was simply never asked. The refusal that stood here
+// argued that admitting an alias "would make a callable-valued parameter
+// reachable through a second spelling" — which is true and is not an objection,
+// because the FIRST spelling already lowers. `run_direct` below is that first
+// spelling and `run_alias` the second, so a change that serves one and not the
+// other shows up as a difference between two adjacent lines.
+typealias Count Int
+typealias Handler (String, String) -> Result<String, String>
+typealias Pairs List<(Int, String)>
+typealias Row {name: String, size: Int}
+typealias Answer Maybe<Int>
+
+fn bump(n: Count): Count {
+    n + 1
+}
+
+fn run_alias(handler: Handler): Result<String, String> {
+    handler("request", "/home")
+}
+
+fn run_direct(handler: (String, String) -> Result<String, String>): Result<String, String> {
+    handler("request", "/home")
+}
+
+fn total(rows: Pairs): Int {
+    Iter.count(rows)
+}
+
+fn label(r: Row): String {
+    "${r.name}:${r.size}"
+}
+
+fn unwrap_or(a: Answer, fallback: Int): Int {
+    case a {
+        Some(v) -> v
+        None -> fallback
+    }
+}
+
+fn main() {
+    io.print("bump=${bump(41)}")
+
+    aliased = run_alias(|method, path| Ok(method + " " + path))
+    direct = run_direct(|method, path| Ok(method + " " + path))
+    io.print("alias-and-direct-agree=${Bool.to_string(aliased == direct)}")
+    io.print("aliased=${Debug.inspect(aliased)}")
+
+    io.print("total=${total([(1, "a"), (2, "b")])}")
+    io.print("row=${label({name: "disk", size: 3})}")
+    io.print("some=${unwrap_or(Some(7), 0)}")
+    io.print("none=${unwrap_or(None, 9)}")
+}

@@ -1,0 +1,47 @@
+// Field defaults the constructing file (main.nomi) omits. Each is lowered by
+// this file's gen, so the defaults may name this file's private once,
+// function and enum, none of which main.nomi imports.
+import std/io
+
+once greeting = "lib"
+
+enum Rarity {
+    Common
+    Rare
+}
+
+pub enum Item {
+    Key
+    Coin
+}
+
+fn base(): Int {
+    io.print("base")
+    41
+}
+
+pub struct Loot {
+    name: String
+    drops: Maybe<Int> = None
+    held: Maybe<Item> = Some(Item.Key)
+    tags: List<String> = []
+    item: Item = Item.Coin
+    hello: String = greeting
+    weight: Int = base() + 1
+    rare: Bool = rarity() == Rarity.Rare
+}
+
+fn rarity(): Rarity {
+    Rarity.Common
+}
+
+pub struct Box<T> {
+    value: T
+    extra: List<T> = []
+    label: Maybe<String> = None
+}
+
+pub enum Shape {
+    Tagged {name: String, tags: List<String> = [], at: Maybe<Int> = None}
+    Plain
+}

@@ -1,0 +1,81 @@
+// All THREE typed-literal handler routes in one program, because
+// literal.go:117-121 keeps them under ONE key on purpose and a fixture holding
+// only the broken one cannot see the working ones regress.
+//
+//   - `Local"..."`   this file's own impl block           (NEGATIVE CONTROL)
+//   - `Date"..."`    a stdlib impl block                  (NEGATIVE CONTROL)
+//   - `Tally"..."`   a sibling file's impl block          (the route added here)
+//   - `Wrap"..."`    a SECOND sibling's, non-scalar result
+//
+// The two controls are what stop "the sibling arm works" being the whole
+// claim. Both already lowered before the sibling arm existed, both go through
+// the same `lowerTaggedLiteral`, and an ordering mistake in `literalImpl`'s
+// three-route chain would take one of them out while every sibling row stayed
+// green.
+//
+// The last three lines are side effects printed from INSIDE the slots. The
+// desugaring builds a right-nested cons chain, so a lowering that let the
+// slots evaluate in nesting order rather than source order prints them
+// backwards.
+import {
+    std/calendar.Date
+    std/io
+    std/literals.{Fragment, Literal}
+    tally.Tally
+    wrap.{Slot, Slots, Wrap}
+}
+
+pub type Local
+
+impl Literal for Local {
+    fn from_fragments(fragments: List<Fragment<String>>): String {
+        Iter.reduce(fragments, |acc = "<", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + "[" + v + "]"
+            }
+        ) + ">"
+    }
+}
+
+fn shout(s: String): String {
+    io.print("slot/" + s)
+    s
+}
+
+fn main() {
+    name = "ada"
+
+    // NEGATIVE CONTROL: this file's own handler, three spellings.
+    io.print(Local"hi ${name}!")
+    io.print(Local`raw ${name}`)
+
+    io.print(
+        Local"""
+        over
+        two ${name}
+        """
+    )
+
+    // NEGATIVE CONTROL: a stdlib handler, reached through the anchor.
+    case Date"2026-01-01" {
+        Ok(d) -> io.print(Date.to_string(d))
+        Err(_) -> io.print("unparsed")
+    }
+
+    // THE ROUTE: a sibling handler at `Fragment<Int>`, where a swapped payload
+    // is a Go compile error rather than an identical transcript.
+    io.print(Int.to_string(Tally"ab${3}cd${4}ef"))
+    io.print(Int.to_string(Tally"no slots"))
+
+    // A SECOND sibling, returning a struct declared in that sibling.
+    b = Wrap"x${name}y${name}z"
+    io.print(b.text + "/" + Int.to_string(b.slots))
+
+    // The handler's PARAMETER names a nominal type declared in the sibling, so
+    // the element's `*typeDef` is a different pointer here than there.
+    io.print(Int.to_string(Slots"pq${Slot{n: 5}}r${Slot{n: 6}}"))
+
+    // SOURCE ORDER, printed from inside the slots.
+    io.print(Local"${shout("a")}${shout("b")}${shout("c")}")
+}

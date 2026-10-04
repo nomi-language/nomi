@@ -1,0 +1,64 @@
+enum Direction {
+    North
+    South
+    East
+    West
+}
+
+enum Shape {
+    Circle Float
+    Point
+}
+
+enum Error {
+    HttpError {status: Int, message: String, retryable: Bool = False}
+    Timeout
+    ConnectionRefused
+}
+
+struct Circle2 {
+    radius: Float
+}
+
+enum Drawable {
+    embeds Circle2
+    Line
+}
+
+test "enum variants construct and compare by value" {
+    assert Direction.North == Direction.North
+    refute Direction.North == Direction.South
+    assert Shape.Circle(5.0) == Shape.Circle(5.0)
+}
+
+test "enum tuple payloads match and bind their contents" {
+    shape = Shape.Circle(3.0)
+
+    area = case shape {
+        Shape.Point -> 0.0
+        Shape.Circle(r) -> r * r * 3.14
+    }
+
+    assert area == 28.26
+}
+
+test "enum struct variants expose fields and defaults" {
+    err = Error.HttpError{status: 404, message: "not found"}
+
+    result = case err {
+        Error.HttpError{retryable: True} -> "retry"
+        Error.HttpError{message} -> message
+        Error.Timeout -> "timeout"
+        Error.ConnectionRefused -> "refused"
+    }
+
+    assert err.status == 404
+    refute err.retryable
+    assert result == "not found"
+}
+
+test "embedded enum variants expose embedded fields" {
+    c = Drawable.Circle2{radius: 5.0}
+
+    assert c.radius == 5.0
+}

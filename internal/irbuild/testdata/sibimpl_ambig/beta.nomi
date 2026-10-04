@@ -1,0 +1,11 @@
+import thing.{Beta, Thing}
+
+impl Beta for Thing {
+    fn go(x: Thing): Int {
+        x.n + 2
+    }
+}
+
+pub fn touch(): Int {
+    2
+}

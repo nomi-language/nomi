@@ -1,0 +1,3 @@
+[module]
+name = "derive_interface_only"
+entry_points = ["main"]

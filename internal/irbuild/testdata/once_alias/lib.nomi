@@ -1,0 +1,3 @@
+pub once config: Int = 7
+
+pub once spare: Int = 5

@@ -1,0 +1,88 @@
+// A type whose `impl Comparable` is written HERE and whose orderings are
+// demanded in main.nomi. See main.nomi for what the split is for.
+pub struct Widget {
+    weight: Int
+}
+
+pub fn make(weight: Int): Widget {
+    Widget{weight}
+}
+
+impl Comparable for Widget {
+    fn compare(a: Widget, b: Widget): Ordering {
+        Int.compare(a.weight, b.weight)
+    }
+}
+
+// A SECOND INTERFACE DECLARING `compare` FOR THE SAME RECEIVER, ordering the
+// OPPOSITE way.
+//
+// This is the negative half of the interface selection, and it took two attempts
+// to find a REACHABLE shape. Both rejects are recorded because each is a real
+// property of the tree:
+//
+//  1. A type with NO `impl Comparable` cannot reach the builder at all — the
+//     front end rejects `Iter.sort` over it with "does not implement Comparable
+//     (required by `where T: Comparable`)". So the discriminator has to be a
+//     rival CANDIDATE, not an absent one.
+//  2. An INHERENT `impl Widget { pub fn compare(...) }` beside `impl Comparable
+//     for Widget` makes `Widget.compare` refuse `ambiguous type-qualified call`
+//     — MEASURED, and from INSIDE the declaring file too, because a
+//     type-qualified call takes every impl block for the receiver and two
+//     candidates is exactly what it must not resolve silently. Correct and
+//     pre-existing; it also makes the rival unobservable from any caller.
+//
+// A second INTERFACE is the shape that works, and it is sibiface.nomi's own
+// `Loud.say`/`Soft.say` pair one interface over: `implMemberKey` is (receiver
+// declaration, method name), so BOTH `compare` members land under one key and
+// only the `iface` field separates them — "Comparable" and "Ranked". Both return
+// `Ordering`, so a lookup ignoring `iface` selects by index order and emits
+// WELL-TYPED GO WITH THE WRONG BODY, which nothing downstream can catch.
+//
+// And an interface-qualified call CAN name which one it wants, so `Ranked.compare`
+// is resolvable where `Widget.compare` is not.
+pub interface Ranked {
+    fn compare(a: self, b: self): Ordering
+}
+
+impl Ranked for Widget {
+    fn compare(a: Widget, b: Widget): Ordering {
+        Int.compare(b.weight, a.weight)
+    }
+}
+
+// A SECOND type in the same file, ordered by a DIFFERENT rule — descending on
+// its own field. Two receivers of one interface in one file, so a lookup keyed
+// on the METHOD rather than on (receiver declaration, interface) answers one with
+// the other's body and the two rows below disagree.
+pub struct Backwards {
+    n: Int
+}
+
+pub fn back(n: Int): Backwards {
+    Backwards{n}
+}
+
+impl Comparable for Backwards {
+    fn compare(a: Backwards, b: Backwards): Ordering {
+        Int.compare(b.n, a.n)
+    }
+}
+
+// A type with NO `impl Comparable`, reached only by `Equatable`. It exists so
+// the widened lookup can be shown NOT to answer for an interface the type does
+// not implement — a lookup that ignored `iface` would find `equal?` and offer it
+// where `compare` was wanted.
+pub struct Unordered {
+    tag: String
+}
+
+pub fn plain(tag: String): Unordered {
+    Unordered{tag}
+}
+
+impl Equatable for Unordered {
+    fn equal?(a: Unordered, b: Unordered): Bool {
+        a.tag == b.tag
+    }
+}

@@ -1,0 +1,10 @@
+// The type's own file, declaring NO impl. Everything this file can see says
+// `Money` has no `impl Equatable`.
+pub struct Money {
+    cents: Int
+    note: String
+}
+
+pub fn at(cents: Int, note: String): Money {
+    Money{cents, note}
+}

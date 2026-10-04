@@ -1,0 +1,69 @@
+import std/io
+
+// Probe: DEFAULT PARAMETER VALUES.
+//
+// Go has no default arguments, so something at the call has to supply the
+// value — which makes this look like call-site sugar and it is not. invokeFunc
+// (eval/eval.go:7359-7375) evaluates `Defaults[i]` in `childEnv`: a fresh
+// environment off the FUNCTION'S OWN closure, after parameters 0..i-1 have
+// been bound into it. Three consequences, one probe each, and each one is a
+// different answer from what a naive call-site expansion would produce.
+//
+//  1. `counted` — the default is a CALL WITH A SIDE EFFECT, so how often it
+//     runs is observable. Once per call that omits it, never for a call that
+//     supplies it. A builder that hoisted it to a constant, or evaluated it
+//     eagerly at every call, prints a different number of lines.
+//  2. `following` — a default may name an EARLIER PARAMETER, including one
+//     that was itself defaulted. `following(1)` therefore threads a -> b -> c.
+//  3. `offset` — a default names a module function that the CALLER shadows
+//     with a local of another type. The default is evaluated in the callee's
+//     scope, so it reaches the module's `base` and not the caller's Int; an
+//     builder resolving it in the caller's scope cannot even lower the call.
+fn shout(tag: String): Int {
+    io.print("default ${tag} ran")
+    7
+}
+
+fn base(): Int {
+    100
+}
+
+fn greet(name: String, greeting: String = "Hello", punctuation: String = "!"): String {
+    greeting + ", " + name + punctuation
+}
+
+fn counted(a: Int, b: Int = shout("b")): Int {
+    a + b
+}
+
+fn following(a: Int, b: Int = a + 1, c: Int = b * 10): Int {
+    a * 1000 + b * 100 + c
+}
+
+fn offset(a: Int, b: Int = base()): Int {
+    a + b
+}
+
+fn main() {
+    // Filling the suffix, one parameter at a time.
+    io.print(greet("world"))
+    io.print(greet("world", "Hi"))
+    io.print(greet("world", "Hi", "?"))
+
+    // The side effect says how often the default ran, and in what order against
+    // the surrounding prints.
+    io.print("counted omitted = ${counted(1)}")
+    io.print("counted supplied = ${counted(1, 2)}")
+    io.print("counted twice = ${counted(1) + counted(2)}")
+
+    // Each default sees the parameters bound before it.
+    io.print("following all = ${following(1)}")
+    io.print("following two = ${following(1, 5)}")
+    io.print("following none = ${following(1, 5, 9)}")
+
+    // A local shadowing the name the default calls. `offset`'s default runs in
+    // the callee's scope, so this local is invisible to it.
+    base = 1
+    io.print("offset = ${offset(5)}")
+    io.print("shadowed base = ${base}")
+}

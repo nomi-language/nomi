@@ -1,0 +1,19 @@
+// A two-member tail cycle at a depth an untrampolined lowering cannot survive.
+//
+// Go has no tail-call elimination at all, and no Go function can hand control
+// to another without a frame, so this shape is the one that needs a shared
+// driver rather than a loop rewrite. 1e8 hops: see tail_self_deep.nomi for why
+// that number.
+import std/io
+
+fn is_even(n: Int): Bool {
+    if n == 0 { True } else { is_odd(n - 1) }
+}
+
+fn is_odd(n: Int): Bool {
+    if n == 0 { False } else { is_even(n - 1) }
+}
+
+fn main() {
+    io.print("${is_even(100000000)}")
+}

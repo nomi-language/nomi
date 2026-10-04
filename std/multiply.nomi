@@ -1,0 +1,19 @@
+/// Protocol for the `*` operator.
+///
+/// `Multiply.multiply(lhs, rhs)` returns the result of `lhs * rhs`. The
+/// left-hand type is the implementor (`self`); the interface type parameters
+/// describe the right-hand operand and the output type. That lets an impl
+/// choose a result that is not necessarily the same type as the left-hand
+/// operand.
+///
+/// ```nomi
+/// pub type Quantity Int
+/// pub type Scale Int
+///
+/// impl Multiply<Scale, Quantity> for Quantity {
+///     fn multiply(lhs: Quantity, rhs: Scale): Quantity { ... }
+/// }
+/// ```
+pub interface Multiply<Rhs, Out> {
+    fn multiply(lhs: self, rhs: Rhs): Out
+}

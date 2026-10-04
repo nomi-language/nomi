@@ -1,0 +1,102 @@
+//# Contract test for `Json.decode`'s error text.
+//#
+//# These strings ARE a designed contract. Every message below is written in
+//# `eval/json_builtins.go`, in Nomi's own vocabulary, built from the parser's
+//# structured facts — a byte offset, and end-of-input vs. bad-character —
+//# and never from the host parser's message. The vocabulary is closed and
+//# documented on `Json.DecodeError` in `std/json.nomi`; changing any of it is
+//# a deliberate change to Nomi's observable behaviour, and this file is what
+//# makes that change deliberate.
+//#
+//# It was not always so. This file began as a CHARACTERIZATION test pinned on
+//# Go 1.26.3, before the 1.27 upgrade, when everything after the position
+//# prefix was Go's `encoding/json` text forwarded verbatim, which made a Go
+//# detail observable. Go 1.27 backs `encoding/json` with v2 and its release notes warn
+//# "the exact text of error messages may differ"; for these inputs it happened
+//# not to, which is precisely why the drift would have been silent. The pin
+//# was written BEFORE the upgrade on purpose: one added afterwards would have
+//# blessed whatever the new text happened to be.
+//#
+//# What changed with the fix, visible below: the character-level "why" Go
+//# supplied (`in literal null (expecting 'u')`) is gone — Nomi names the
+//# offending character but cannot say what the parser wanted there without
+//# owning the scanner. In exchange the end-of-input cases gained a position
+//# (Go reported none, so they all read `line 1, col 1`) and every message is
+//# now stable across host-toolchain upgrades.
+
+import std/json.Json
+
+fn decode_error(src: String): String {
+    case Json.decode(src) {
+        Ok(_) -> "unexpectedly parsed"
+        Err(e) -> Json.DecodeError.to_string(e)
+    }
+}
+
+tests "Json.decode error text (Nomi-owned contract)" {
+    test "an unexpected character is named, and located at itself" {
+        assert decode_error(
+            "not json"
+        ) == "json decode error at line 1, col 2: unexpected character 'o'"
+    }
+
+    test "a bad string escape reports the escaped character" {
+        assert decode_error(
+            "\"\\q\""
+        ) == "json decode error at line 1, col 3: unexpected character 'q'"
+    }
+
+    test "the position tracks lines, not just columns" {
+        assert decode_error(
+            "{\n  bad}"
+        ) == "json decode error at line 2, col 3: unexpected character 'b'"
+    }
+
+    test "a truncated object reports where the input ran out" {
+        assert decode_error(
+            "{\"a\":"
+        ) == "json decode error at line 1, col 6: unexpected end of input: incomplete JSON value"
+    }
+
+    test "a truncated array reports where the input ran out" {
+        assert decode_error(
+            "[1, 2"
+        ) == "json decode error at line 1, col 6: unexpected end of input: incomplete JSON value"
+    }
+
+    test "an unterminated string reports where the input ran out" {
+        assert decode_error(
+            "\"unterminated"
+        ) == "json decode error at line 1, col 14: unexpected end of input: incomplete JSON value"
+    }
+
+    test "empty input is distinguished from a truncated value" {
+        assert decode_error(
+            ""
+        ) == "json decode error at line 1, col 1: unexpected end of input: expected a JSON value"
+    }
+
+    test "blank input is empty input" {
+        assert decode_error(
+            "   "
+        ) == "json decode error at line 1, col 4: unexpected end of input: expected a JSON value"
+    }
+
+    test "trailing content is reported with its column" {
+        assert decode_error(
+            "{} extra"
+        ) == "json decode error at line 1, col 4: trailing content after JSON value"
+    }
+
+    test "a leading zero is rejected as trailing content" {
+        assert decode_error(
+            "01"
+        ) == "json decode error at line 1, col 2: trailing content after JSON value"
+    }
+
+    test "a well-formed but unrepresentable number reports its lexeme" {
+        assert decode_error(
+            "1e999"
+        ) == "json decode error at line 1, col 1: number out of range: 1e999"
+    }
+}

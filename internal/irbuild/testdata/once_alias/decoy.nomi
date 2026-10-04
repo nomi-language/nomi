@@ -1,0 +1,8 @@
+// Sorts BEFORE lib, and declares a `once` of the SAME NAME. Nothing in main
+// imports this name: it exists so that resolving the aliased reference by NAME
+// across units picks the wrong declaration and prints 99 where 7 is correct.
+pub once config: Int = 99
+
+pub fn reveal(): Int {
+    config
+}

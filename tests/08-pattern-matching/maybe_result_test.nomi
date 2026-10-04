@@ -1,0 +1,49 @@
+fn double(x: Int): Int {
+    x * 2
+}
+
+test "maybe and result values render their variant shapes" {
+    assert Some(42)
+        |> Debug.inspect()
+        |> String.equal?("Some(42)")
+
+    assert None
+        |> Debug.inspect()
+        |> String.equal?("None")
+
+    assert Ok("success")
+        |> Debug.inspect()
+        |> String.equal?("Ok(\"success\")")
+
+    assert Err("fail")
+        |> Debug.inspect()
+        |> String.equal?("Err(\"fail\")")
+}
+
+test "maybe helpers map and default values" {
+    some =
+        Some(5)
+        |> Maybe.map(double)
+        |> Maybe.with_default(0)
+
+    none =
+        None
+        |> Maybe.with_default(99)
+
+    assert some == 10
+    assert none == 99
+}
+
+test "result helpers map and default values" {
+    ok =
+        Ok(7)
+        |> Result.map(double)
+        |> Result.with_default(0)
+
+    err =
+        Err("oops")
+        |> Result.with_default(0)
+
+    assert ok == 14
+    assert err == 0
+}

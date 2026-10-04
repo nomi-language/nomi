@@ -1,0 +1,87 @@
+test "maps expose size lookup insert keys and empty construction" {
+    ages = {"alice" => 30, "bob" => 25}
+    updated = Map.put(ages, "carol", 28)
+    keys = Map.keys(ages)
+    empty: Map<String, Int> = Map.empty()
+
+    assert Map.size(ages) == 2
+    assert Map.get(ages, "alice") == Some(30)
+    assert Map.size(updated) == 3
+    assert keys == ["alice", "bob"]
+    assert Map.size(empty) == 0
+}
+
+test "map patterns match keys literals and wildcard values" {
+    config = {"host" => "localhost", "port" => "8080", "mode" => "debug"}
+    grid = {0 => "first", 1 => "second"}
+
+    by_key = case config {
+        {"mode" => "debug", "port" => p} -> "debug on port ${p}"
+        {"port" => p} -> "port ${p}"
+        _ -> "no port"
+    }
+
+    by_value = case config {
+        {"host" => "localhost"} -> "local"
+        {"host" => h} -> "remote: ${h}"
+        _ -> "no host"
+    }
+
+    int_key = case grid {
+        {0 => val} -> val
+        _ -> "missing"
+    }
+
+    has_key = case config {
+        {"mode" => _} -> "mode key present"
+        _ -> "no mode key"
+    }
+
+    assert by_key == "debug on port 8080"
+    assert by_value == "local"
+    assert int_key == "first"
+    assert has_key == "mode key present"
+}
+
+test "map destructuring binds requested keys" {
+    config = {"host" => "localhost", "port" => "8080", "mode" => "debug"}
+
+    {"host" => host, "port" => port} = config
+
+    assert host == "localhost"
+    assert port == "8080"
+}
+
+test "maps iterate as key value tuples" {
+    mapped =
+        {"x" => 10, "y" => 20}
+        |> Iter.map(|pair| {
+            (_, v) = pair
+            v * 2
+        })
+        |> Iter.to_list()
+
+    assert mapped == [20, 40]
+}
+
+test "map bulk construction and transforms preserve insertion behavior" {
+    m = {"a" => 1, "b" => 2}
+    doubled = Map.map_values(m, |v| v * 10)
+    dup = {"x" => 1, "x" => 9}
+
+    assert Map.size(m) == 2
+    assert Map.get(doubled, "a") == Some(10)
+    assert Map.get(dup, "x") == Some(9)
+}
+
+test "maps merge with +" {
+    defaults = {"host" => "localhost", "port" => "8080"}
+    overrides = {"port" => "9090", "user" => "ada"}
+    empty: Map<String, String> = Map.empty()
+
+    assert defaults + overrides == {"host" => "localhost", "port" => "9090", "user" => "ada"}
+    assert defaults + overrides == Map.merge(defaults, overrides)
+    assert overrides + defaults == {"port" => "8080", "user" => "ada", "host" => "localhost"}
+    assert defaults + empty == defaults
+    assert defaults + {"host" => "example.com"} == Map.put(defaults, "host", "example.com")
+}

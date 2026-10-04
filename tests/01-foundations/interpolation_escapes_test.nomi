@@ -1,0 +1,25 @@
+// `${` is the only special pair in a string: it opens an interpolation, and
+// `\${` writes it as text. `$`, `$$`, `#`, `##` and `#{` are ordinary text.
+test "a backslash writes a literal interpolation opener" {
+    name = "Ada"
+    assert "\${name}" == "$" + "{name}"
+    assert "\${name} is ${name}" == "$" + "{name} is Ada"
+}
+
+test "a dollar or hash alone is text" {
+    n = 5
+    assert "$${n}" == "$5"
+    assert "#{n} ## $$" == "#" + "{n} #" + "# $" + "$"
+}
+
+test "a triple-quoted string reads only the escaped opener" {
+    text = """
+        echo \${HOME} \d #{x}
+        """
+
+    assert text == "echo $" + "{HOME} \\d #" + "{x}"
+}
+
+test "an interpolation holds a set literal" {
+    assert "${Set.size(#{1, 2})}" == "2"
+}

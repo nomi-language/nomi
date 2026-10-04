@@ -1,0 +1,86 @@
+import std/json.{FromJson, Json}
+
+// `FromJson.from_json(json: Json)` declares `self` only in its return type, so
+// no argument value carries the type being decoded. The call-site type
+// argument is the whole answer, and for a generic impl it also binds that
+// impl's own type parameters — without which `impl FromJson for List<T>`,
+// `Maybe<T>`, and `Map<String, V>` are unreachable.
+fn decode<T>(source: String): Result<T, Json.ShapeError> where T: FromJson {
+    case Json.decode(source) {
+        Ok(parsed) -> FromJson.from_json<T>(parsed)
+        Err(_) -> Err(Json.ShapeError{path: [], expected: "json", got: "invalid"})
+    }
+}
+
+test "scalar decode still resolves through the call-site type argument" {
+    assert Ok(parsed) = Json.decode("42")
+    assert FromJson.from_json<Int>(parsed) == Ok(42)
+
+    assert Ok(text) = Json.decode("\"hi\"")
+    assert FromJson.from_json<String>(text) == Ok("hi")
+}
+
+test "List decode binds the element type from the type argument" {
+    assert Ok(parsed) = Json.decode("[1, 2, 3]")
+    assert FromJson.from_json<List<Int>>(parsed) == Ok([1, 2, 3])
+
+    assert Ok(empty) = Json.decode("[]")
+    assert FromJson.from_json<List<Int>>(empty) == Ok([])
+
+    assert Ok(words) = Json.decode("[\"a\", \"b\"]")
+    assert FromJson.from_json<List<String>>(words) == Ok(["a", "b"])
+}
+
+test "Maybe decode binds the payload type and maps null to None" {
+    assert Ok(nothing) = Json.decode("null")
+    assert FromJson.from_json<Maybe<Int>>(nothing) == Ok(None)
+
+    assert Ok(something) = Json.decode("7")
+    assert FromJson.from_json<Maybe<Int>>(something) == Ok(Some(7))
+}
+
+test "Map decode binds the value type" {
+    assert Ok(parsed) = Json.decode("{\"a\": 1, \"b\": 2}")
+    assert Ok(decoded) = FromJson.from_json<Map<String, Int>>(parsed)
+
+    assert Map.get(decoded, "a") == Some(1)
+    assert Map.get(decoded, "b") == Some(2)
+    assert Map.size(decoded) == 2
+}
+
+test "nested containers bind an inner type parameter at each level" {
+    nested: List<List<Int>> = [[1, 2], [], [3]]
+    assert Ok(parsed) = Json.decode("[[1, 2], [], [3]]")
+    assert FromJson.from_json<List<List<Int>>>(parsed) == Ok(nested)
+
+    optional: List<Maybe<Int>> = [Some(1), None, Some(3)]
+    assert Ok(maybes) = Json.decode("[1, null, 3]")
+    assert FromJson.from_json<List<Maybe<Int>>>(maybes) == Ok(optional)
+
+    assert Ok(nested_map) = Json.decode("{\"xs\": [1, 2]}")
+    assert Ok(decoded) = FromJson.from_json<Map<String, List<Int>>>(nested_map)
+    assert Map.get(decoded, "xs") == Some([1, 2])
+}
+
+test "container decode failures report the offending path" {
+    assert Ok(bad_list) = Json.decode("[1, \"two\", 3]")
+    assert Err(list_error) = FromJson.from_json<List<Int>>(bad_list)
+    assert Display.to_string(list_error) == "[1]: expected int, got string"
+
+    assert Ok(bad_map) = Json.decode("{\"a\": true}")
+    assert Err(map_error) = FromJson.from_json<Map<String, Int>>(bad_map)
+    assert Display.to_string(map_error) == "a: expected int, got bool"
+
+    assert Ok(bad_nested) = Json.decode("[[1], [\"x\"]]")
+    assert Err(nested_error) = FromJson.from_json<List<List<Int>>>(bad_nested)
+    assert Display.to_string(nested_error) == "[1].[0]: expected int, got string"
+
+    assert Ok(not_an_array) = Json.decode("{}")
+    assert Err(shape_error) = FromJson.from_json<List<Int>>(not_an_array)
+    assert Display.to_string(shape_error) == "expected array, got object"
+}
+
+test "a bound type parameter carries its concrete argument into the callee" {
+    assert decode<List<Int>>("[4, 5]") == Ok([4, 5])
+    assert decode<Maybe<String>>("\"x\"") == Ok(Some("x"))
+}

@@ -1,0 +1,5 @@
+import std/io.inspect
+
+fn main() {
+    inspect(42)
+}

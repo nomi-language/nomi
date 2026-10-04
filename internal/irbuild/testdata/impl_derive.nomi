@@ -1,0 +1,47 @@
+import std/io
+
+// A DERIVED impl, observed through an operator and through printing.
+//
+// `analysis.SynthesizeDerives` has already run by the time codegen sees this
+// file, so `derive Equatable for Point` arrives as an ordinary
+// `impl Equatable for Point { ... }` whose body is ordinary Nomi. It lowers
+// through exactly the path the hand-written `impl Display for Point` below
+// takes. Nothing here special-cases a derive, and nothing interprets the
+// generated Nomi — doing either would make every derive agree with the
+// interpreter trivially and prove nothing about the lowering.
+//
+// `==` on a named type is the observation: it dispatches to the derived
+// `equal?`. Divergence-ledger row 11 lives on this operator — the
+// interpreter's NO-IMPL fallback compares base names only, so
+// `shapes.Point == geometry.Point` is true there — and it cannot be written
+// here, because two same-named types from two modules are two kinds and
+// the builder refuses a mixed-kind operator before the arm is reached.
+//
+// Fields are Int deliberately. Nomi's `==` on Float is reflexive for NaN and
+// Go's is IEEE, which is a live divergence in the shared `==` arm and not
+// this slice's to fix or to hide inside a derived body.
+struct Point {
+    x: Int
+    y: Int
+}
+
+derive Equatable for Point
+
+impl Display for Point {
+    fn to_string(p: Point): String {
+        "(${p.x}, ${p.y})"
+    }
+}
+
+fn main() {
+    a = Point{x: 1, y: 2}
+    b = Point{x: 1, y: 2}
+    c = Point{x: 9, y: 2}
+
+    io.print("a == b: ${a == b}")
+    io.print("a == c: ${a == c}")
+    io.print("a != c: ${a != c}")
+    io.print("a is ${a}")
+    io.print(Display.to_string(c))
+    io.print(Point.to_string(c))
+}

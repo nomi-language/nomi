@@ -1,0 +1,37 @@
+import std/literals.{Fragment, Literal}
+
+/// A SQL query produced by a `SQL"..."` typed literal: the
+/// placeholder-shaped statement plus the heterogeneous list of
+/// parameter values to bind. Real drivers would take the two halves
+/// and pass them to a prepared statement; this example stops at the
+/// shaping step.
+pub struct Query {
+    sql: String
+    params: List<Display>
+}
+
+/// Zero-sized tag carrier. `SQL"..."` resolves the tag to this type and
+/// dispatches its `Literal` impl — Static fragments become SQL
+/// text verbatim; Dynamic fragments become `?` placeholders, with the
+/// slot value pushed onto the params list in source order.
+pub type SQL
+
+impl Literal for SQL {
+    fn from_fragments(fragments: List<Fragment<Display>>): Query {
+        Query{
+            sql: Iter.reduce(fragments, |acc = "", frag|
+                case frag {
+                    .Static(s) -> acc + s
+                    .Dynamic(_) -> acc + "?"
+                }
+            ),
+            params: Iter.flat_map(fragments, |frag|
+                case frag {
+                    .Static(_) -> []
+                    .Dynamic(v) -> [v]
+                }
+            )
+            |> Iter.to_list(),
+        }
+    }
+}

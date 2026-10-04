@@ -1,0 +1,253 @@
+import {
+    add.Add
+    bool.Bool
+    comparable.{Comparable, Ordering}
+    debug.Debug
+    display.Display
+    divide.Divide
+    equatable.Equatable
+    float.Float
+    hashable.Hashable
+    int.Int
+    maybe.Maybe.{self, None, Some}
+    multiply.Multiply
+    steppable.Steppable
+    strings.String
+    subtract.Subtract
+}
+
+//# Operations on the arbitrary-precision, exact base-10 `Decimal` type:
+//# conversions to/from `Int`/`Float`/`String`, explicit-rounding division and
+//# quantization (every rounding op names a `RoundingMode`), sign/scale/abs
+//# helpers, and the value-based (scale-insensitive) arithmetic/`Equatable`/`Comparable`/
+//# `Hashable` impls. `+ - *` are exact; only `Decimal.divide` and
+//# `Decimal.round` round.
+
+/// Arbitrary-precision exact base-10 number. The third blessed numeric type
+/// alongside `Int` and `Float`: `+ - *` are always exact, `/` is exact-or-trap,
+/// and there is no implicit conversion to/from `Int` or `Float`. Literals carry
+/// a `d` suffix (`1.50d`); scale is significant for display (`1.50d` prints
+/// "1.50") but equality is scale-insensitive (`1.50d == 1.5d`).
+pub host type Decimal
+
+impl Decimal {
+    /// Exact conversion of an Int to a Decimal (scale 0). Total.
+    //! assert Decimal.from_int(42) == 42d
+    //! assert Decimal.from_int(-7) == -7d
+    //
+    pub host fn from_int(n: Int): Decimal
+
+    /// Parses a plain base-10 numeric string into a Decimal. Accepts an optional
+    /// sign, `_` digit separators, and a single fractional part; the number of
+    /// digits after the `.` becomes the scale (`"1.50"` → scale 2). Exponent
+    /// notation is NOT accepted. Returns None for empty or malformed input.
+    //! assert Decimal.from_string("1.50") == Some(1.50d)
+    //! assert Decimal.from_string("1_000") == Some(1000d)
+    //! assert Decimal.from_string("oops") == None
+    //
+    pub host fn from_string(s: String): Maybe<Decimal>
+
+    /// Converts a Decimal to an Int by truncating toward zero. Returns None when
+    /// the truncated value falls outside Int64's range (~±9.22e18). Use
+    /// `Decimal.round` first if a different rounding rule is needed.
+    //! assert Decimal.to_int(3.7d) == Some(3)
+    //! assert Decimal.to_int(-3.7d) == Some(-3)
+    //
+    pub host fn to_int(d: Decimal): Maybe<Int>
+
+    /// Converts a Decimal to a Float. Total and lossy-by-nature (Float is binary64,
+    /// so most base-10 fractions are not exactly representable). Magnitudes beyond
+    /// Float's range become ±Infinity. Explicit by design — there is no implicit
+    /// Decimal→Float coercion.
+    //! assert Decimal.to_float(1.50d) == 1.5
+    //
+    pub host fn to_float(d: Decimal): Float
+
+    /// Converts a Float to a Decimal at exactly the requested `scale`, rounding the
+    /// Float's exact binary value with `mode`. Requires an explicit scale and mode
+    /// so it can never silently hand back `0.1000…0055`. Returns None for NaN and
+    /// ±Infinity. A runtime error results only when `mode` is `Unnecessary` and
+    /// rounding would lose information.
+    //! assert Decimal.from_float(0.1, 2, RoundingMode.HalfEven) == Some(0.10d)
+    //! assert Decimal.from_float(3.14159, 2, RoundingMode.Floor) == Some(3.14d)
+    //
+    pub host fn from_float(f: Float, scale: Int, mode: RoundingMode): Maybe<Decimal>
+
+    /// Divides `a / b` to exactly `scale` fractional digits, rounding the quotient
+    /// with `mode`. This is the explicit-rounding division path — unlike the `/`
+    /// operator (exact-or-trap), `divide` always returns a value at the named scale.
+    /// Runtime error on a zero `b`, or when `mode` is `Unnecessary` and the exact
+    /// quotient does not fit at `scale`.
+    //! assert Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven) == 3.33d
+    //! assert Decimal.divide(10.00d, 4d, 2, RoundingMode.Down) == 2.50d
+    //
+    pub host fn divide(a: Decimal, b: Decimal, scale: Int, mode: RoundingMode): Decimal
+
+    /// Quantizes `d` to exactly `scale` fractional digits using `mode`. Increasing
+    /// the scale pads trailing zeros (always exact); decreasing it rounds. A
+    /// negative scale rounds to tens/hundreds/… A runtime error results only when
+    /// `mode` is `Unnecessary` and rounding would lose information.
+    //! assert Decimal.round(3.14159d, 2, RoundingMode.HalfEven) == 3.14d
+    //! assert Decimal.round(2.5d, 0, RoundingMode.HalfEven) == 2d
+    //! assert Decimal.round(1d, 2, RoundingMode.Up) == 1.00d
+    //
+    pub host fn round(d: Decimal, scale: Int, mode: RoundingMode): Decimal
+
+    /// Strips trailing fractional zeros, returning the value at its minimal scale.
+    /// Integer magnitude is never reduced (`100d` stays `100d`, scale 0). Zero
+    /// normalizes to scale 0. Equality/hashing already treat scale-equal values as
+    /// equal; `normalize` is for when you want the minimal-scale
+    /// representation for display.
+    //! assert Decimal.normalize(1.50d) == 1.5d
+    //! assert Decimal.normalize(100.00d) == 100d
+    //
+    pub host fn normalize(d: Decimal): Decimal
+
+    /// Returns the scale (number of fractional digits) of `d`. Scale is
+    /// display-significant — `1.50d` has scale 2, `1.5d` has scale 1 — even though
+    /// the two are `==`-equal.
+    //! assert Decimal.scale(1.50d) == 2
+    //! assert Decimal.scale(5d) == 0
+    //
+    pub host fn scale(d: Decimal): Int
+
+    /// Returns |d| (scale preserved).
+    //! assert Decimal.abs(-1.50d) == 1.50d
+    //
+    pub fn abs(d: Decimal): Decimal {
+        if d < 0d { 0d - d } else { d }
+    }
+
+    /// Returns -d (scale preserved). Negating zero stays zero.
+    //! assert Decimal.negate(1.50d) == -1.50d
+    //
+    pub fn negate(d: Decimal): Decimal {
+        0d - d
+    }
+
+    /// Returns the sign of `d` as -1, 0, or +1 (by mathematical value).
+    //! assert Decimal.sign(-1.50d) == -1
+    //! assert Decimal.sign(0.00d) == 0
+    //! assert Decimal.sign(1.50d) == 1
+    //
+    pub fn sign(d: Decimal): Int {
+        case {
+            d < 0d -> -1
+            d > 0d -> 1
+            _ -> 0
+        }
+    }
+
+    /// True if `d` is exactly zero (at any scale: `0d`, `0.00d` are both zero).
+    //! assert Decimal.zero?(0.00d)
+    //! refute Decimal.zero?(1.50d)
+    //
+    pub fn zero?(d: Decimal): Bool {
+        d == 0d
+    }
+
+    /// Returns the lesser of `a` and `b` (by value; ties return `a`).
+    //! assert Decimal.min(1.50d, 2d) == 1.50d
+    //
+    pub fn min(a: Decimal, b: Decimal): Decimal {
+        if a <= b { a } else { b }
+    }
+
+    /// Returns the greater of `a` and `b` (by value; ties return `a`).
+    //! assert Decimal.max(1.50d, 2d) == 2d
+    //
+    pub fn max(a: Decimal, b: Decimal): Decimal {
+        if a >= b { a } else { b }
+    }
+}
+
+impl Display for Decimal {
+    /// Returns the canonical scale-preserving string form of `d`, matching the
+    /// runtime stringifier used by `io.print` and string interpolation. Trailing
+    /// zeros are kept (`1.50d` → `"1.50"`).
+    //! assert Decimal.to_string(1.50d) == "1.50"
+    //! assert Decimal.to_string(100d) == "100"
+    //
+    host fn to_string(d: Decimal): String
+}
+
+impl Add<Decimal, Decimal> for Decimal {
+    host fn add(lhs: Decimal, rhs: Decimal): Decimal
+}
+
+impl Subtract<Decimal, Decimal> for Decimal {
+    host fn subtract(lhs: Decimal, rhs: Decimal): Decimal
+}
+
+impl Multiply<Decimal, Decimal> for Decimal {
+    host fn multiply(lhs: Decimal, rhs: Decimal): Decimal
+}
+
+impl Divide<Decimal, Decimal> for Decimal {
+    host fn divide(lhs: Decimal, rhs: Decimal): Decimal
+}
+
+impl Debug for Decimal {
+    // Round-trippable, scale-faithful form: the canonical string plus the `d`
+    // suffix, so the REPL distinguishes a Decimal from a Float and the output can
+    // be pasted back as a literal.
+    fn inspect(d: Decimal): String {
+        to_string(d) + "d"
+    }
+}
+
+impl Equatable for Decimal {
+    // Scale-insensitive Decimal equality — agrees with `hash`, so
+    // `1.50d == 1.5d` AND both hash equally. The host implementation is shared
+    // with the runtime's map-key equality (`value.DecimalEqual` in Go), so the
+    // operator path, `Equatable.equal?`, and map keys all converge on one
+    // function.
+    host fn equal?(a: Decimal, b: Decimal): Bool
+}
+
+impl Hashable for Decimal {
+    // The normalized value is hashed, so `==`-equal decimals hash
+    // equally regardless of scale (`1.50d` and `1.5d` agree). Keeps Map/Set keys
+    // coherent.
+    host fn hash(d: Decimal): Int
+}
+
+impl Comparable for Decimal {
+    // Compares by mathematical value, scale-insensitively:
+    // `Decimal.compare(1.50d, 1.5d) == Equal`.
+    host fn compare(a: Decimal, b: Decimal): Ordering
+}
+
+impl Steppable for Decimal {
+    /// Returns `value + by`. Decimal stepping is exact because Decimal is
+    /// arbitrary-precision base-10.
+    //! assert Decimal.step_by(1.0d, 0.1d) == Some(1.1d)
+    //
+    fn step_by(value: Decimal, by: Decimal): Maybe<Decimal> {
+        Some(value + by)
+    }
+}
+
+/// Rounding policy for decimal division and quantization. There is no default:
+/// every rounding operation names its mode explicitly.
+///
+/// - `Up` — away from zero
+/// - `Down` — toward zero (truncate)
+/// - `Ceiling` — toward +∞
+/// - `Floor` — toward −∞
+/// - `HalfUp` — nearest; ties away from zero
+/// - `HalfDown` — nearest; ties toward zero
+/// - `HalfEven` — nearest; ties to even (banker's rounding)
+/// - `Unnecessary` — assert exactness; runtime error if rounding is needed
+pub enum RoundingMode {
+    Up
+    Down
+    Ceiling
+    Floor
+    HalfUp
+    HalfDown
+    HalfEven
+    Unnecessary
+}
+
+derive Display for RoundingMode

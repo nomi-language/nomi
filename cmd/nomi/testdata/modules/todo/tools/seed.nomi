@@ -1,0 +1,14 @@
+//# The module's second entry point, listed in `nomi.toml`. It prints the
+//# sample list.
+
+import {
+    std/io
+    internal/report
+    tools/internal/samples
+}
+
+fn main() {
+    samples.items()
+    |> Iter.map(report.row)
+    |> Iter.each(io.print)
+}

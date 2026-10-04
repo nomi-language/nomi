@@ -1,0 +1,70 @@
+import std/io
+
+// Interface DEFAULTS, inherited and overridden.
+//
+// `warn` is a final default and `info` is an `open` one. ProdLogger supplies
+// only `log` and inherits both; TaggedLogger overrides `info` and still
+// inherits `warn`. The transcript is what distinguishes the two: an inherited
+// default that resolved to the overriding copy, or an override that lost to
+// the default, would still print the same number of lines.
+//
+// The inherited copy is lowered ONCE PER IMPLEMENTING TYPE with `self` bound
+// to that type, so `Logger.log(value, "WARN", message)` inside it is itself a
+// direct call. That is why `TaggedLogger`'s inherited `warn` routes through
+// the tagged `log` and `ProdLogger`'s routes through the plain one, from one
+// interface body.
+//
+// `shout` is the same rule reached through an EXISTENTIAL: the inherited copy
+// is bound into the dispatch table under the receiver's identity exactly as a
+// written function would be, so an erased value inherits too.
+interface Logger {
+    fn log(value: self, level: String, message: String): Unit
+
+    open fn info(value: self, message: String): Unit {
+        Logger.log(value, "INFO", message)
+    }
+
+    fn warn(value: self, message: String): Unit {
+        Logger.log(value, "WARN", message)
+    }
+}
+
+pub type ProdLogger
+
+pub struct TaggedLogger {
+    tag: String
+}
+
+impl Logger for ProdLogger {
+    fn log(value: ProdLogger, level: String, message: String): Unit {
+        _ = value
+        io.print("[${level}] ${message}")
+    }
+}
+
+impl Logger for TaggedLogger {
+    fn log(value: TaggedLogger, level: String, message: String): Unit {
+        io.print("[${value.tag}|${level}] ${message}")
+    }
+
+    fn info(value: TaggedLogger, message: String): Unit {
+        io.print("[${value.tag}] ${message}")
+    }
+}
+
+fn shout(l: Logger): Unit {
+    Logger.warn(l, "erased")
+}
+
+fn main() {
+    prod = ProdLogger
+    tagged = TaggedLogger{tag: "app"}
+
+    Logger.info(prod, "inherited default")
+    Logger.warn(prod, "final default")
+    Logger.info(tagged, "override")
+    Logger.warn(tagged, "final default")
+
+    shout(prod)
+    shout(tagged)
+}

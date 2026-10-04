@@ -1,0 +1,114 @@
+import {
+    std/compiler.{self, Project}
+    std/io
+    std/toml.Toml
+}
+
+/// `compiler.check_project` end to end, and the `Some(Toml"…")` manifest field
+/// beside it, because the two are one file's whole blocker set and neither
+/// finishes it alone.
+///
+/// Every line printed here is a fact about a project the ANALYZER decided, so a
+/// backend that lowered the call to something plausible cannot fake any of it:
+/// the counts come from real visibility and entry-point rules, and the message
+/// text is the analyzer's own.
+///
+/// The Some/None pair is the point of the second and third blocks rather than
+/// repetition. `manifest` is a `Maybe<Toml>` with a `None` DEFAULT, so the
+/// omitted spelling and the `Some` spelling must both work and must disagree
+/// about the answer — one project, two manifests, two diagnostic counts.
+fn main() {
+    private_import = compiler.check_project(Project{
+        entry_point: "main",
+        files: {
+            "main" => """
+                import api.ping
+
+                fn main(): String {
+                  ping()
+                }
+                """,
+            "api" => """
+                fn ping(): String {
+                  "pong"
+                }
+                """,
+        },
+    })
+
+    io.print("private import count is 1: ${Iter.count(private_import) == 1}")
+
+    io.print(
+        "private import says private: ${Iter.any?(private_import, |d|
+            String.contains?(d.message, "'ping' is private and cannot be imported")
+        )}"
+    )
+
+    entry_points_ok = compiler.check_project(Project{
+        entry_point: "main",
+        files: {
+            "main" => """
+                import other
+
+                fn main() {
+                  other.helper()
+                  Unit
+                }
+                """,
+            "other" => """
+                pub fn helper(): Unit {
+                  Unit
+                }
+                """,
+        },
+    })
+
+    io.print("no manifest is clean: ${Iter.count(entry_points_ok) == 0}")
+
+    entry_points_wrong = compiler.check_project(Project{
+        entry_point: "main",
+        manifest: Some(
+            Toml"""
+            [module]
+            name = "demo"
+            entry_points = ["other"]
+            """
+        ),
+        files: {
+            "main" => """
+                import other
+
+                fn main() {
+                  other.helper()
+                  Unit
+                }
+                """,
+            "other" => """
+                pub fn helper(): Unit {
+                  Unit
+                }
+                """,
+        },
+    })
+
+    io.print("a manifest naming the wrong entry gives 2: ${Iter.count(entry_points_wrong) == 2}")
+
+    io.print(
+        "it names main: ${Iter.any?(entry_points_wrong, |d|
+            String.contains?(d.message, "entry callback in main but file is not declared")
+        )}"
+    )
+
+    io.print(
+        "it names other: ${Iter.any?(entry_points_wrong, |d|
+            String.contains?(d.message, "other is declared in nomi.toml entry_points")
+        )}"
+    )
+
+    first = Iter.first(private_import)
+
+    case first {
+        Some(d) -> io.print("first diagnostic line is ${d.line}, col ${d.col}")
+        None -> io.print("no first diagnostic")
+    }
+}

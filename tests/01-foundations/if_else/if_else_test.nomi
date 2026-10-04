@@ -1,0 +1,121 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+test "if else is an expression" {
+    x = 42
+    label = if x > 50 { "big" } else { "small" }
+    assert label == "small"
+}
+
+test "if without else returns Unit either way" {
+    when_true = if True { Unit }
+    when_false = if False { Unit }
+
+    assert when_true == Unit
+    assert when_false == Unit
+}
+
+test "if without else rejects non-Unit branch results" {
+    diagnostics = compiler.check(
+        """
+          fn main() {
+            if True { 1 }
+            Unit
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "if without else returns Unit")
+}
+
+test "if without else allows Unit side effects" {
+    fake_side_effect = || {
+        // Imagine an io.print side effect here
+        Unit
+    }
+
+    result = if True { fake_side_effect() }
+
+    assert result == Unit
+}
+
+test "if without else allows early return branches" {
+    assert parse_id("") == Err("empty")
+    assert parse_id("42") == Ok(42)
+}
+
+test "nested if expressions return branch values" {
+    x = 42
+
+    result = if x == 42 {
+        "the answer"
+    } else {
+        "not the answer"
+    }
+
+    assert result == "the answer"
+}
+
+test "if can match and bind a pattern" {
+    maybe_name = Some("Ada")
+
+    label = if Some(name) = maybe_name {
+        name
+    } else {
+        "unknown"
+    }
+
+    assert label == "Ada"
+}
+
+test "if pattern mismatch evaluates else" {
+    maybe_name: Maybe<String> = None
+
+    label = if Some(name) = maybe_name {
+        name
+    } else {
+        "unknown"
+    }
+
+    assert label == "unknown"
+}
+
+test "if pattern bindings are scoped to the then branch" {
+    diagnostics = compiler.check(
+        """
+          fn main() {
+            maybe_name = Some("Ada")
+            if Some(name) = maybe_name { Unit }
+            name
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "undefined variable 'name'")
+}
+
+test "else if chains select the first matching branch" {
+    x = 42
+
+    bucket = if x < 0 {
+        "negative"
+    } else if x < 10 {
+        "small"
+    } else if x < 100 {
+        "medium"
+    } else {
+        "large"
+    }
+
+    assert bucket == "medium"
+}
+
+fn parse_id(input: String): Result<Int, String> {
+    if String.length(input) == 0 {
+        return Err("empty")
+    }
+
+    Ok(42)
+}

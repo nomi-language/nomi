@@ -1,0 +1,61 @@
+// THE NAME COLLISION between a namespaced TYPE and a PascalCase IMPL FUNCTION,
+// and the reason it needs a fixture of its own.
+//
+// `type Day.Hours Int` and `impl Day { fn Hours(d: Day): Int }` are BOTH legal
+// and both declare the spelling `Day.Hours`. MEASURED on the interpreter:
+//
+//   - This file, with only the FUNCTION spelling used, PASSES. So
+//     `Day.Hours(Day(3))` resolves to the impl function.
+//   - A file using BOTH spellings is a FRONT-END ERROR — "argument 1: expected
+//     Day, got Int" and "argument 1: expected Day.Hours, got Int" at one
+//     position, the checker reporting both candidates. That is why the
+//     constructor cases live in dotted_distinct.nomi and this file has none: the
+//     two spellings cannot coexist in one program, so they cannot be one
+//     fixture.
+//
+// WHAT IT DISCRIMINATES. native.go asks implCall BEFORE the namespaced-
+// constructor arm. Without this file that ordering is UNOBSERVABLE: moving the
+// arm above implCall survived every guard in the package, measured, because
+// every other dotted callee in the corpus and in the fixtures ends in a
+// snake_case member name that can never be a type. A PascalCase impl function
+// is the one shape where the two namespaces really do collide, and with the arm
+// above implCall this program is claimed as a constructor and refused
+// `argument type mismatch | Day.Hours wraps Int, got Day` — a refusal on a
+// program the interpreter runs.
+//
+// So the surviving mutant was a MISSING TEST rather than a free arm, which is
+// the reading differential_test.go's header lists second of five.
+type Day Int
+
+type Day.Hours Int
+
+fn day_value(d: Day): Int {
+    Day(n) = d
+    n
+}
+
+fn hours_value(h: Day.Hours): Int {
+    Day.Hours(n) = h
+    n
+}
+
+impl Day {
+    fn Hours(d: Day): Int {
+        day_value(d)
+    }
+}
+
+test "a PascalCase impl function wins over a same-named namespaced type" {
+    assert Day.Hours(Day(3)) == 3
+    assert Day.Hours(Day(41)) == 41
+}
+
+test "the namespaced type is still usable as a TYPE under the collision" {
+    // The collision is about the CALL spelling only. `hours_value` above is
+    // annotated `Day.Hours` and destructures it, so the TYPE side and the pattern
+    // side are both lowered in this file even though no constructor call can
+    // appear in it. Its result is unobservable here by construction, so this case
+    // asserts only that the file containing it runs — the type-side coverage is
+    // the declaration, not the assertion.
+    assert day_value(Day(5)) == 5
+}

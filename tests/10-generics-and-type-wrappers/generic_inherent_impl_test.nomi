@@ -1,0 +1,70 @@
+struct Span<T> {
+    start: T
+    stop: T
+}
+
+impl Span<T> {
+    fn new<T>(start: T, stop: T): Span<T> {
+        Span{start, stop}
+    }
+
+    fn first<T>(span: Span<T>): T {
+        span.start
+    }
+
+    fn swap<T>(span: Span<T>): Span<T> {
+        Span{start: span.stop, stop: span.start}
+    }
+
+    fn longer?<T>(span: Span<T>, other: Span<T>): Bool where T: Comparable {
+        span.stop > other.stop
+    }
+
+    fn map<T, U>(span: Span<T>, f: (T) -> U): Span<U> {
+        Span{start: f(span.start), stop: f(span.stop)}
+    }
+
+    fn ends<T>(span: Span<T>): List<T> {
+        [Span.first(span), span.stop]
+    }
+}
+
+enum Tree<T> {
+    Leaf
+    Node T
+}
+
+impl Tree<T> {
+    fn value_or<T>(tree: Tree<T>, fallback: T): T {
+        case tree {
+            Tree.Node(value) -> value
+            Tree.Leaf -> fallback
+        }
+    }
+}
+
+test "a generic struct with an inherent impl builds from a literal" {
+    numbers = Span{start: 1, stop: 5}
+    assert Span.first(numbers) == 1
+    assert Span.longer?(numbers, Span{start: 1, stop: 3})
+    assert Span.first(Span.swap(numbers)) == 5
+}
+
+test "one inherent impl serves every instance" {
+    words = Span{start: "x", stop: "y"}
+    assert Span.first(words) == "x"
+    assert Span.ends(words) == ["x", "y"]
+    assert Span.map(words, |w| String.length(w)).stop == 1
+}
+
+test "an inherent function with no receiver operand takes the solved instance" {
+    assert Span.new(7, 8) |> Span.first() == 7
+    assert Span.new("a", "b").stop == "b"
+}
+
+test "a generic enum with an inherent impl" {
+    node: Tree<Int> = Tree.Node(3)
+    leaf: Tree<String> = Tree.Leaf
+    assert Tree.value_or(node, 0) == 3
+    assert Tree.value_or(leaf, "none") == "none"
+}

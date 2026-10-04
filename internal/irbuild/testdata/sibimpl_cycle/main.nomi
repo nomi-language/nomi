@@ -1,0 +1,10 @@
+// Refused for `sibling file import cycle`, so never run by the harness — but a
+// real program: it terminates, and the interpreter prints 0.
+import {
+    std/io
+    decls.{self, Thing}
+}
+
+fn main() {
+    io.print("go = ${Int.to_string(Thing.go(decls.thing(3)))}")
+}

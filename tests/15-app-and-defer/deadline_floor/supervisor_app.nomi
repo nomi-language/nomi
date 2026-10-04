@@ -1,0 +1,46 @@
+import {
+    std/channels.{Channel, Receiver, Sender}
+    std/duration.Duration
+    std/io
+    std/supervisors.Supervisor
+    std/timer
+}
+
+pub struct Config {
+    context: Context
+
+    audit: Supervisor
+    done: Channel<Int>
+}
+
+pub fn boot(): Config {
+    Config{
+        context: Context.root(),
+        audit: Supervisor.new(max_running: 4),
+        done: Channel.buffered<Int>(4),
+    }
+}
+
+fn background(): Unit {
+    timer.sleep(Duration.milliseconds(150))
+    _ = Sender.send(Config.done.sender, 1)
+    Unit
+}
+
+/// Bounds itself to 20ms, as request work does, and hands background work
+/// that takes longer to the supervisor.
+pub fn handler(): Unit {
+    with Config.context = Context.with_timeout(Config.context, Duration.milliseconds(20))
+    _ = Supervisor.spawn(Config.audit, || background())
+    Unit
+}
+
+fn main() {
+    handler()
+    _ = Supervisor.flush(Config.audit)
+
+    case Receiver.receive(Config.done.receiver) {
+        Some(n) -> io.print("background work finished: ${n}")
+        None -> io.print("background work vanished")
+    }
+}

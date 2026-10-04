@@ -1,0 +1,26 @@
+//# Engine benchmark. 50,000 Map.put calls into a Map<Int, Int>, then 50,000 Map.get lookups.
+//#
+//# One of six programs that `TestEngineBench` (vmhost/engine_bench_test.go)
+//# loads and runs on the VM. It reports the median load time (front end and
+//# lowering) and the median run time separately, over five runs each.
+//#
+//# Run it with `NOMI_ENGINE_BENCH=1 go test ./vmhost
+//# -run TestEngineBench -v -count=1`.
+
+import std/io
+
+fn main() {
+    empty: Map<Int, Int> = Map.empty()
+    m = Iter.reduce(0..=49999, |acc = empty, i| Map.put(acc, i, i * 7))
+
+    total = Iter.reduce(0..=49999, |acc = 0, i| {
+        v = case Map.get(m, i) {
+            Some(x) -> x
+            None -> 0
+        }
+
+        acc + v
+    })
+
+    io.print(total)
+}

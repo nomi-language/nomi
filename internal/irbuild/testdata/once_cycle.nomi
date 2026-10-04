@@ -1,0 +1,24 @@
+// A cyclic `once` THROUGH A FUNCTION CALL, which is the case the lineage
+// cons-list exists for — a directly self-referential `once seed = seed` is the
+// easy half and a static dependency graph would catch it.
+//
+// Forcing `seed` calls `read_seed`, which reads `seed` again. The re-entry is
+// visible only because the frame the force created is the frame `read_seed`
+// received, so the answer is the same on both paths: the raw diagnostic on
+// stderr and exit 1, with "start" already on stdout.
+//
+// A `sync.Once`-shaped lowering with no cycle test would DEADLOCK here rather
+// than report, which is why rt.OnceCell tests the lineage before taking the
+// lock.
+import std/io
+
+fn read_seed(): Int {
+    seed
+}
+
+once seed: Int = read_seed() + 1
+
+fn main() {
+    io.print("start")
+    io.print("seed ${seed}")
+}

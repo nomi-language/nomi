@@ -1,0 +1,13 @@
+pub struct User {
+    name: String
+    age: Int
+}
+
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+pub interface Greeting {
+    fn greet(value: self): String
+}

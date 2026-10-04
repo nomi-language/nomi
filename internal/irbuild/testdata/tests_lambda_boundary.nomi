@@ -1,0 +1,54 @@
+// The assertion trace boundary at a LAMBDA, which is the one place where
+// lexical containment and activation come apart.
+//
+// A lambda body is lexically inside the assertion's subject, so the builder's
+// lowering-time rule — record what is lexically inside the subject — would
+// instrument it. The interpreter runs it as a separate ACTIVATION behind
+// `assertionTraceBoundary`, so nothing it compares reaches the caller's report.
+// gen.suspendTrace is what makes the two agree, and this file is what says so.
+//
+// Every assertion here FAILS on purpose. Both paths agree on a pass, so a
+// passing assertion could not see this: the divergence is entirely in the
+// `values:` rows of the failure report.
+fn applies?(v: Int, f: (Int) -> Bool): Bool {
+    f(v)
+}
+
+fn count_if(v: Int, f: (Int) -> Bool): Int {
+    if f(v) { 1 } else { 0 }
+}
+
+test "a lambda body's comparison stays out of the report" {
+    assert applies?(2, |x| x * 5 > 90)
+}
+
+test "the enclosing comparison is still recorded" {
+    assert count_if(7, |x| x * 5 > 90) == 1
+}
+
+test "a lambda that ran contributes nothing" {
+    seen = applies?(4, |x| x + 1000 > 0)
+    assert seen and 2 > 3
+}
+
+// A `case` records its SCRUTINEE, which is a second recording path and not the
+// comparison one — so a lambda body containing a `case` is the check that the
+// boundary is a property of the body rather than of one operator. The
+// interpreter shows no `v` row here; neither may the artifact.
+test "a case scrutinee inside a lambda body stays out too" {
+    assert applies?(2, |v|
+        case v {
+            1 -> True
+            _ -> v > 90
+        }
+    )
+}
+
+// Calling a function VALUE, which is the other half of the same seam: the
+// interpreter has ONE recording site for a call and does not care whether the
+// callee came from a `fn` or from a binding, so `w` must appear.
+test "a call through a function value records its arguments" {
+    small? = |n: Int| n > 90
+    w = 5
+    assert small?(w)
+}

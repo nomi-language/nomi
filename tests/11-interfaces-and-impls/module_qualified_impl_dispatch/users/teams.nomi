@@ -1,0 +1,13 @@
+pub struct Member {
+    name: String
+}
+
+pub fn member(name: String): Member {
+    Member{name}
+}
+
+impl Debug for Member {
+    fn inspect(member: Member): String {
+        "member:" + member.name
+    }
+}

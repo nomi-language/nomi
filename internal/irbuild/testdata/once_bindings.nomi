@@ -1,0 +1,43 @@
+// `once` bindings, and the three guarantees that make them more than a
+// package-level `var`. Every line of output below is an answer some plausible
+// wrong lowering gets wrong.
+//
+//   - LAZY, and therefore order-independent. `total` is declared ABOVE the
+//     `base` it reads. An eager Go `var` ordered by Go's own initialization
+//     graph would either reorder this or run it at a moment the program never
+//     asked for.
+//   - EXACTLY ONCE, with an observable side effect. `compute_greeting` prints,
+//     so "forcing greeting" appearing once while "hello" appears twice is the
+//     only way to see caching from outside. It appearing BEFORE "before any
+//     force" would mean the RHS ran eagerly.
+//   - SHADOWABLE. An ordinary local binding shadows a file `once`, so
+//     `shadowed()` must answer 1 and the module binding must be untouched.
+import std/io
+
+once total: Int = base + 1
+once base: Int = 5
+
+fn compute_greeting(): String {
+    io.print("forcing greeting")
+    "hello"
+}
+
+once greeting: String = compute_greeting()
+
+once port: Int = 8080
+once label: String = "svc"
+
+fn shadowed(): Int {
+    port = 1
+    port
+}
+
+fn main() {
+    io.print("before any force")
+    io.print(greeting)
+    io.print(greeting)
+    io.print("total ${total}")
+    io.print("base ${base}")
+    io.print("port ${port} label ${label}")
+    io.print("shadowed ${shadowed()} port still ${port}")
+}

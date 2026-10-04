@@ -1,0 +1,80 @@
+test "primitive literals infer their basic types" {
+    x = 42
+    y = 3.14
+    name = "Nomi"
+    active = True
+
+    assert x == 42
+    assert y == 3.14
+    assert name == "Nomi"
+    assert active
+}
+
+test "arithmetic and interpolation produce expected values" {
+    x = 42
+    y = 3.14
+    name = "Nomi"
+
+    sum = x + 8
+    assert "sum = ${sum}" == "sum = 50"
+
+    assert "Hello, ${name}!" == "Hello, Nomi!"
+    assert "x is ${x}, y is ${y}" == "x is 42, y is 3.14"
+    assert "1 + 2 = ${1 + 2}" == "1 + 2 = 3"
+}
+
+test "string concatenation joins strings" {
+    greeting = "Hello" + " " + "World"
+    assert greeting == "Hello World"
+}
+
+test "comparisons and logic return booleans" {
+    x = 42
+    active = True
+
+    assert x > 10
+    assert active and True
+    assert !False
+}
+
+test "unary minus works on numeric expressions" {
+    assert -5 == -5
+    assert -(3 + 4) == -7
+}
+
+test "numeric literal forms parse to their numeric values" {
+    // Digit separators, alternative radices, and scientific notation all parse
+    // to the same numeric value as their plain-decimal counterparts. The
+    // formatter preserves the source form, so `1_000_000` stays grouped.
+    assert 1_000_000 == 1000000
+    assert 1_000_000_000 == 1000000000
+    assert 0xFF == 255
+    assert 0xDEAD_BEEF == 3735928559
+    assert 0b1010 == 10
+    assert 0b1010_0101 == 165
+    assert 0o77 == 63
+    assert 1_000.123_456 == 1000.123456
+    assert 1.0e10 == 10000000000.0
+    assert 2.5e-3 == 0.0025
+}
+
+test "float debug boundaries use the intended notation" {
+    // Float `inspect` boundaries. Floats expand to plain decimal in the
+    // everyday range, then fall back to scientific notation when the
+    // magnitude is so large or small that the expanded form would obscure
+    // the value rather than reveal it.
+    assert Debug.inspect(1.0e20) == "100000000000000000000.0"
+    assert Debug.inspect(1.0e21) == "1.0e21"
+    assert Debug.inspect(0.0001) == "0.0001"
+    assert Debug.inspect(0.00001) == "1.0e-5"
+}
+
+test "block expressions return their final value" {
+    result = {
+        a = 10
+        b = 20
+        a + b
+    }
+
+    assert result == 30
+}

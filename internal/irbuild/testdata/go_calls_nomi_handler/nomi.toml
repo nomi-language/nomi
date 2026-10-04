@@ -1,0 +1,3 @@
+[module]
+name = "nomihandler"
+entry_points = ["main"]

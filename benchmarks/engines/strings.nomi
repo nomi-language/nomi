@@ -1,0 +1,21 @@
+//# Engine benchmark. 200,000 string interpolations and String.length calls (grapheme counting).
+//#
+//# One of six programs that `TestEngineBench` (vmhost/engine_bench_test.go)
+//# loads and runs on the VM. It reports the median load time (front end and
+//# lowering) and the median run time separately, over five runs each.
+//#
+//# Run it with `NOMI_ENGINE_BENCH=1 go test ./vmhost
+//# -run TestEngineBench -v -count=1`.
+
+import std/io
+
+fn grow(acc: String, n: Int): String {
+    s = "${acc}${n},"
+    if String.length(s) > 60 { "x" } else { s }
+}
+
+fn main() {
+    total = Iter.reduce(1..=100000, |t = 0, n| t + String.length(grow("ab", n)))
+    last = Iter.reduce(1..=100000, |acc = "", n| grow(acc, n))
+    io.print(total + String.length(last))
+}

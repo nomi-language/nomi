@@ -1,0 +1,22 @@
+//# Engine benchmark. A 300,000-element List<Int> through Iter.map, Iter.filter and a seeded Iter.reduce.
+//#
+//# One of six programs that `TestEngineBench` (vmhost/engine_bench_test.go)
+//# loads and runs on the VM. It reports the median load time (front end and
+//# lowering) and the median run time separately, over five runs each.
+//#
+//# Run it with `NOMI_ENGINE_BENCH=1 go test ./vmhost
+//# -run TestEngineBench -v -count=1`.
+
+import std/io
+
+fn main() {
+    xs = 1..=300000 |> Iter.to_list()
+
+    total =
+        xs
+        |> Iter.map(|x| x * 3)
+        |> Iter.filter(|x| x % 2 == 0)
+        |> Iter.reduce(|acc = 0, x| acc + x)
+
+    io.print(total)
+}

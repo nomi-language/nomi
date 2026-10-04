@@ -1,0 +1,102 @@
+import std/strings.NormalForm.{NFC, NFD}
+
+test "strings report length containment and slices" {
+    assert String.length("hello") == 5
+    assert String.contains?("hello world", "world")
+    refute String.contains?("hello world", "nomi")
+    assert String.slice("hello world", 0, 5) == "hello"
+}
+
+test "strings join and split text" {
+    assert String.join(["a", "b", "c"], "-") == "a-b-c"
+    assert String.join([], "-") == ""
+
+    assert String.split("a,b,c", ",") == ["a", "b", "c"]
+    assert String.split("a, b, c", ", ") == ["a", "b", "c"]
+    assert String.split("hello", "") == ["h", "e", "l", "l", "o"]
+    assert String.split(",a,", ",") == ["", "a", ""]
+}
+
+test "strings expose bytes, graphemes, and codepoints" {
+    assert String.to_bytes("hello")
+    |> Iter.map(Byte.to_int)
+    |> Iter.to_list() == [104, 101, 108, 108, 111]
+
+    assert String.to_bytes("café")
+    |> Iter.map(Byte.to_int)
+    |> Iter.to_list() == [99, 97, 102, 195, 169]
+
+    assert Iter.to_list("abc") == ["a", "b", "c"]
+
+    assert "abc"
+        |> String.to_codepoints()
+        |> Iter.map(Codepoint.to_int)
+        |> Iter.to_list()
+        |> List.equal?([97, 98, 99])
+}
+
+test "prefixes and suffixes can be stripped when present" {
+    assert String.strip_prefix("hello world", "hello ") == Some("world")
+    assert String.strip_prefix("hello", "xyz") == None
+    assert String.strip_suffix("file.txt", ".txt") == Some("file")
+    assert String.strip_suffix("file.txt", ".md") == None
+}
+
+test "trim removes outer whitespace and preserves inner whitespace" {
+    assert String.trim("  hello  ") == "hello"
+    assert String.trim("\n\tworld\n") == "world"
+    assert String.trim("a  b") == "a  b"
+}
+
+test "strings parse signed integers or return none" {
+    assert String.to_int("42") == Some(42)
+    assert String.to_int("-7") == Some(-7)
+    assert String.to_int("  3  ") == Some(3)
+    assert String.to_int("abc") == None
+    assert String.to_int("") == None
+}
+
+test "grapheme transforms materialize back to strings" {
+    assert "abc"
+        |> Iter.map(|g| g + g)
+        |> String.join()
+        |> String.equal?("aabbcc")
+
+    assert "a1b2c3"
+        |> Iter.filter(|g| g == "1" or g == "2" or g == "3")
+        |> String.join()
+        |> String.equal?("123")
+}
+
+test "normalization is explicit before byte-based equality" {
+    nfc = "é"
+    nfd = "é"
+
+    refute nfc == nfd
+    assert String.normalize(nfc, NFC) == String.normalize(nfd, NFC)
+    assert String.normalize(nfc, NFD) == nfd
+}
+
+fn slash_joined(parts: Iter<String>): String {
+    String.join(parts, "/")
+}
+
+test "join reads any iterator of strings and defaults to no separator" {
+    assert String.join(["he", "llo"]) == "hello"
+    assert #{"solo"} |> String.join(", ") == "solo"
+    assert #["x", "y", "z"] |> String.join("+") == "x+y+z"
+    assert "héllo" |> String.join(".") == "h.é.l.l.o"
+    assert "héllo" |> Iter.map(String.to_upper) |> String.join() == "HÉLLO"
+    assert 1..=3 |> Iter.map(Int.to_string) |> String.join("-") == "1-2-3"
+
+    assert Iter.from(1)
+        |> Iter.filter(|n| n % 2 == 0)
+        |> Iter.map(Int.to_string)
+        |> Iter.take(3)
+        |> String.join(" ")
+        |> String.equal?("2 4 6")
+
+    assert {"k" => 1} |> Iter.map(|(k, v)| k + "=" + Int.to_string(v)) |> String.join("&") == "k=1"
+    assert slash_joined(["p", "q"]) == "p/q"
+    assert slash_joined(#{"r"}) == "r"
+}

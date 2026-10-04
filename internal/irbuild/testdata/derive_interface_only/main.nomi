@@ -1,0 +1,45 @@
+import {
+    std/io
+    std/json.{FromJson, Json, ToJson}
+    shapes.{Meters, Point, Shape, Tagged}
+}
+
+fn main() {
+    a = Point{x: 1, y: 2}
+    b = Point{x: 1, y: 3}
+    io.print(Bool.to_string(a == b))
+    io.print(Bool.to_string(Hashable.hash(a) == Hashable.hash(a)))
+    io.print(Debug.inspect(Comparable.compare(a, b)))
+    io.print(Display.to_string(a))
+
+    io.print(
+        ToJson.to_json(a)
+        |> Json.encode
+    )
+
+    all = [Shape.Dot, Shape.Circle(2), Shape.Pair(3, 4), Shape.Box{w: 5, h: 6}]
+
+    io.print(
+        ToJson.to_json(all)
+        |> Json.encode
+    )
+
+    p: Result<Point, Json.ShapeError> = FromJson.from_json(
+        Json.Obj{"x" => Json.Int(7), "y" => Json.Int(8)}
+    )
+
+    io.print(Debug.inspect(p))
+    t: Result<Tagged, Json.ShapeError> = FromJson.from_json(Json.Obj{"name" => Json.String("n")})
+    io.print(Debug.inspect(t))
+    missing: Result<Tagged, Json.ShapeError> = FromJson.from_json(Json.Obj{"count" => Json.Int(1)})
+    io.print(Debug.inspect(missing))
+    wrong: Result<Point, Json.ShapeError> = FromJson.from_json(Json.Int(1))
+    io.print(Debug.inspect(wrong))
+    m: Result<Meters, Json.ShapeError> = FromJson.from_json(Json.Int(4))
+    io.print(Debug.inspect(m))
+
+    io.print(
+        ToJson.to_json(Meters(9))
+        |> Json.encode
+    )
+}

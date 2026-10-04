@@ -1,0 +1,142 @@
+NODE22_BIN ?= /opt/homebrew/opt/node@22/bin
+
+.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-lsp build-cli build-zed build-helix install-helix build-nvim build-nvim-parser install-nvim build-vscode install-vscode test-vscode dev-editors dev-nvim dev-helix dev-zed enable-hooks
+
+test: test-std test-programs test-go
+
+build: build-tour-grammar-wasm
+	./scripts/build-tour-wasm.sh
+	$(MAKE) build-lsp
+	$(MAKE) build-cli
+	$(MAKE) build-zed
+	$(MAKE) build-helix
+	$(MAKE) build-nvim
+
+test-go:
+	go test ./...
+
+test-std:
+	go run ./cmd/nomi test std
+
+test-programs:
+	go run ./cmd/nomi test tests
+
+# TestTourWasm* read the STAGED bundle in tour/public/nomi/, which is a
+# gitignored build artifact: absent, they skip with a log rather than failing a
+# fresh clone. This target has just been told to check the tour, so absence is
+# a failure here — NOMI_REQUIRE_TOUR_WASM=1 says so.
+#
+# TestTourGrammar* / TestTourRunWorker* read only COMMITTED files — the grammar
+# wasm, src/parser.c, the twelve .scm queries, run-worker.js — so they have no
+# skip condition and need no bundle. They get their own invocation to keep that
+# difference visible: the day one of them needs the env var, the split is wrong.
+test-tour:
+	go test ./vmhost -run TestTourDoctests
+	NOMI_REQUIRE_TOUR_WASM=1 go test ./vmhost -run TestTourWasm
+	go test ./vmhost -run 'TestTourGrammar|TestTourRunWorker'
+	go test ./internal/wasmsmoke
+
+fmt:
+	go run ./cmd/nomi fmt -w std tests
+
+build-tour-grammar-wasm:
+	PATH="$(NODE22_BIN):$$PATH" npx -y tree-sitter-cli@latest build --wasm -o tree-sitter-nomi/tree-sitter-nomi.wasm tree-sitter-nomi
+
+# The gate runs AFTER the build script and BEFORE npm, so a bundle that does
+# not match this source tree cannot reach the published site. The grammar rows
+# run here too: build-tour-wasm.sh COPIES the committed grammar wasm rather
+# than building it, so a wasm older than the queries would otherwise be
+# published without anything reading it.
+deploy-tour:
+	./scripts/build-tour-wasm.sh
+	NOMI_REQUIRE_TOUR_WASM=1 go test ./vmhost -run TestTourWasm
+	go test ./vmhost -run 'TestTourGrammar|TestTourRunWorker'
+	PATH="$(NODE22_BIN):$$PATH" npm --prefix tour ci
+	PATH="$(NODE22_BIN):$$PATH" npm --prefix tour run build
+
+start-tour: tour/node_modules/.package-lock.json
+	./scripts/build-tour-wasm.sh
+	PATH="$(NODE22_BIN):$$PATH" npm --prefix tour run dev
+
+# npm ci writes node_modules/.package-lock.json, so the tour's dependencies are
+# installed when node_modules is missing or the lockfile is newer than it.
+tour/node_modules/.package-lock.json: tour/package-lock.json
+	PATH="$(NODE22_BIN):$$PATH" npm --prefix tour ci
+
+build-lsp:
+	go install ./cmd/nomi-lsp
+
+build-cli:
+	go build -o nomi ./cmd/nomi
+	go install ./cmd/nomi
+
+build-zed:
+	./scripts/sync-zed-grammar.sh
+	cargo build --manifest-path editors/zed/Cargo.toml --target wasm32-wasip2
+
+build-helix:
+	./scripts/sync-helix-runtime.sh
+
+# Snapshot install for people who use Nomi: copies the queries into the Helix
+# config and builds the grammar from this checkout. To work on Nomi, use
+# `make dev-helix`, which links the queries instead.
+install-helix:
+	./scripts/sync-helix-runtime.sh --install
+	hx --health nomi
+
+# Neovim: editors/nvim/queries/nomi/*.scm are generated from Zed's highlights and
+# Helix's other queries (see scripts/sync-nvim-runtime.sh). The parser is
+# rebuilt too, so a plugin loaded straight from this checkout never pairs new
+# queries with an old parser.
+build-nvim: build-nvim-parser
+	./scripts/sync-nvim-runtime.sh
+
+# Compile the parser into editors/nvim/parser/ (gitignored) for running the plugin
+# straight from this checkout, e.g. a lazy.nvim `dir =` spec.
+build-nvim-parser:
+	./scripts/sync-nvim-runtime.sh --parser editors/nvim/parser
+
+# Snapshot install for people who use Nomi: copies the plugin and a freshly
+# compiled parser into ${XDG_DATA_HOME:-~/.local/share}/nvim/site/pack/nomi/start/nomi.
+# To work on Nomi, load editors/nvim from this checkout and use `make dev-nvim`.
+install-nvim:
+	./scripts/sync-nvim-runtime.sh --install
+
+# VS Code: package editors/vscode as editors/vscode/nomi.vsix (needs Node 22+
+# and npm; nothing is published). Its TextMate grammar is derived from
+# editors/bat/nomi.sublime-syntax, not from tree-sitter.
+build-vscode:
+	npm --prefix editors/vscode ci
+	npm --prefix editors/vscode run package
+
+install-vscode: build-vscode
+	code --install-extension editors/vscode/nomi.vsix --force
+
+# Unit tests (test-at-cursor scanning, grammar over tests/ and std/)
+# and the grammar's assertion file. `npm --prefix editors/vscode run
+# test:smoke` also runs the extension in a downloaded VS Code.
+test-vscode:
+	npm --prefix editors/vscode ci
+	npm --prefix editors/vscode test
+
+# Working on Nomi: make this machine's editors follow this checkout
+# (scripts/dev-editors.sh). dev-editors also installs nomi and nomi-lsp.
+# scripts/git-hooks/post-merge runs the parts a merge into main needs; enable
+# it with `make enable-hooks`.
+dev-editors:
+	./scripts/dev-editors.sh
+
+dev-nvim:
+	./scripts/dev-editors.sh nvim
+
+dev-helix:
+	./scripts/dev-editors.sh helix
+
+dev-zed:
+	./scripts/dev-editors.sh zed
+
+# core.hooksPath gets an absolute path: a relative one resolves against the
+# git directory, which for a clone with worktrees is the shared one, not this
+# checkout.
+enable-hooks:
+	git config core.hooksPath "$(CURDIR)/scripts/git-hooks"

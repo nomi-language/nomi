@@ -1,0 +1,28 @@
+import {
+    std/io
+    std/regex.Regex
+}
+
+struct Holder {
+    name: String
+    re: Regex
+}
+
+fn main() {
+    case Regex.compile("\\d+") {
+        .Ok(re) -> {
+            dbg re
+            io.print(Debug.inspect(re))
+            io.print(Debug.inspect(Holder{name: "digits", re}))
+            dbg (Holder{name: "digits", re})
+            io.print(Debug.inspect(Some(re)))
+            io.print(Debug.inspect([re]))
+            io.print(Debug.inspect((re, 1)))
+        }
+
+        .Err(e) ->
+            io.print(e)
+    }
+
+    io.print(Debug.inspect(Regex.compile("a`b")))
+}

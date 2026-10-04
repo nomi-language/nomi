@@ -1,0 +1,4 @@
+// A sibling file whose `pub fn` is called from an interpolation hole.
+pub fn shout(s: String): String {
+    s
+}

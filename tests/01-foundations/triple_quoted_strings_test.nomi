@@ -1,0 +1,71 @@
+test "triple-quoted strings strip shared indentation" {
+    sql = """
+          SELECT *
+        FROM users
+        """
+
+    assert sql == "  SELECT *\nFROM users"
+}
+
+test "triple-quoted strings interpolate expressions" {
+    name = "Alice"
+
+    greeting = """
+        Hello, ${name}!
+        Welcome.
+        """
+
+    assert greeting == "Hello, Alice!\nWelcome."
+}
+
+test "triple-quoted strings can include literal interpolation syntax" {
+    shell = """
+        echo \${HOME}
+        """
+
+    assert shell == "echo \${HOME}"
+}
+
+test "triple-quoted strings preserve bare braces" {
+    json = """
+        {
+            "key": "value"
+        }
+        """
+
+    assert json == "{\n    \"key\": \"value\"\n}"
+}
+
+test "triple-quoted strings preserve backslashes" {
+    regex = """
+        \d{3,4}
+        """
+
+    assert regex == "\\d{3,4}"
+}
+
+test "triple-quoted strings mix interpolation and literal interpolation syntax" {
+    name = "Alice"
+
+    mixed = """
+        Hello, ${name}! Use \${HOME}.
+        """
+
+    assert mixed == "Hello, Alice! Use \${HOME}."
+}
+
+test "triple-quoted strings can be empty" {
+    empty = """
+
+        """
+
+    assert empty == ""
+}
+
+test "single-line triple-quoted bodies produce their body text" {
+    compact = """
+        body
+        """
+
+    assert compact == "body"
+}

@@ -1,0 +1,15 @@
+//# Padding for fixed-width text columns.
+
+/// Left-pads `s` with copies of `fill` until it is at least `width`
+/// characters long. An empty `fill` leaves `s` as it is.
+//! assert pad.pad_left("7", 3, "0") == "007"
+//! assert pad.pad_left("1234", 3, "0") == "1234"
+//! assert pad.pad_left("7", 3, "") == "7"
+//
+pub fn pad_left(s: String, width: Int, fill: String): String {
+    if String.length(s) >= width or fill == "" {
+        s
+    } else {
+        pad_left(fill + s, width, fill)
+    }
+}

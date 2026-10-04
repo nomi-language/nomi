@@ -1,0 +1,28 @@
+//# `Struct` — the interface every struct satisfies, named or anonymous. Its
+//# sole function, `update`, returns a copy of a struct with selected fields
+//# replaced, and is reached type-qualified: `Struct.update(original, updates)`.
+
+/// The universal struct interface. Every struct value — a named `struct` type
+/// or an anonymous `{...}` — satisfies `Struct`, so its functions are callable on
+/// any of them; no non-struct type satisfies it. `Struct` is also usable as a
+/// bound (`fn f<T>(x: T): T where T: Struct`) and an existential (`fn f(s: Struct)`).
+pub interface Struct {
+    // `Partial<T>` (used below) is a compiler-known built-in type operator — a
+    // deep partial of struct T, valid only in parameter position. It has no
+    // import and no declaration anywhere in stdlib (unlike `List`/`Map`, which
+    // are real `host type`s): it has no inhabitants, so it's recognized by name
+    // in the resolver (analysis/type_resolver.go's `case "Partial"`) and lowers
+    // to the deep-partial matcher.
+    /// Returns a new struct with fields from `updates` merged into `original`.
+    /// Non-overlapping fields on the original are preserved; fields present on
+    /// both take the value from `updates`. `updates` is a deep partial
+    /// (`Partial<self>`): it may omit fields, and a nested struct field may
+    /// itself be patched recursively (an anonymous struct merges; a concrete
+    /// struct replaces the field wholesale).
+    ///
+    /// ```nomi
+    /// original = Point{x: 1, y: 2}
+    /// Struct.update(original, {x: 10})   // → Point{x: 10, y: 2}
+    /// ```
+    host fn update(original: self, updates: Partial<self>): self
+}

@@ -1,0 +1,61 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+test "spawn is only allowed inside concurrent blocks" {
+    diagnostics = compiler.check(
+        """
+        import std/tasks.Task
+
+        fn main(): Int {
+          t = Task.spawn(|| 42)
+          Task.await(t)
+        }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "spawn outside concurrent block")
+}
+
+test "task values cannot escape their concurrent block" {
+    diagnostics = compiler.check(
+        """
+        import std/tasks.Task
+
+        fn spawn_one(): Task<Int> {
+          concurrent {
+            Task.spawn(|| 42)
+          }
+        }
+
+        fn main(): Int {
+          _ = spawn_one()
+          0
+        }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "Task<T> cannot escape its enclosing concurrent block",
+    )
+}
+
+test "task bindings must be awaited" {
+    diagnostics = compiler.check(
+        """
+        import std/tasks.Task
+
+        fn main(): Int {
+          concurrent {
+            t = Task.spawn(|| 42)
+            0
+          }
+        }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "binding 't' is never read")
+    assert test_helpers.has_diagnostic?(diagnostics, "Task bound to 't' is never awaited")
+}

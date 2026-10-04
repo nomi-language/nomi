@@ -1,0 +1,13 @@
+// And back again: `Thing.go`'s impl block is in hop.nomi, which this file
+// neither imports nor mentions either. TWO unrecorded edges, hop -> back and
+// back -> hop, so the Go import graph has a cycle that no recorded reference
+// closes — and the cycle check reads the TARGET's outgoing edges, so one
+// unrecorded edge alone is still caught by the other end. Two are not. That is
+// what makes this the fixture the `T.member` edge exists for.
+import decls.{self, Beta, Other, Thing}
+
+impl Beta for Other {
+    fn beta(x: Other): Int {
+        Thing.go(decls.thing(x.n))
+    }
+}

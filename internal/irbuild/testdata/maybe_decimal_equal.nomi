@@ -1,0 +1,23 @@
+import std/io
+
+// `Maybe.equal?` and `Result.equal?` over a Decimal payload. Maybe's derived
+// Equatable reaches Decimal's through `Equatable.equal?`, whose host body is
+// rt.EqDecimal, the same function `==` runs; so the two must agree, including
+// across scales (`1.50d` against `1.5d`).
+fn main() {
+    a = Some(1.50d)
+    b = Some(1.5d)
+    c = Some(2d)
+    none: Maybe<Decimal> = None
+    io.print("equal? across scales = ${Maybe.equal?(a, b)}")
+    io.print("== across scales = ${a == b}")
+    io.print("equal? different = ${Maybe.equal?(a, c)}")
+    io.print("equal? some none = ${Maybe.equal?(a, none)}")
+    io.print("equal? none none = ${Maybe.equal?(none, None)}")
+
+    ok: Result<Decimal, String> = Ok(0.10d)
+    also: Result<Decimal, String> = Ok(0.1d)
+    err: Result<Decimal, String> = Err("no")
+    io.print("result equal? across scales = ${Result.equal?(ok, also)}")
+    io.print("result equal? ok err = ${Result.equal?(ok, err)}")
+}

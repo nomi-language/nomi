@@ -1,0 +1,38 @@
+import std/io
+
+pub enum Mode {
+    Keep
+    Shift
+}
+
+fn base(): Int {
+    io.print("base")
+    100
+}
+
+pub fn add(a: Int, b: Int = 1): Int {
+    a + b
+}
+
+/// A default naming an earlier parameter.
+pub fn twice(a: Int, b: Int = a * 2): Int {
+    a + b
+}
+
+/// Defaults naming this file's private function and a type the caller never
+/// imports by name.
+pub fn offset(x: Int, by: Int = base(), mode: Mode = Mode.Shift): Int {
+    case mode {
+        .Keep -> x
+        .Shift -> x + by
+    }
+}
+
+pub fn label(tag: String, n: Int = String.length(tag), suffix: String = "!"): String {
+    "${tag}:${n}${suffix}"
+}
+
+/// A generic function with defaults, one of whose types mentions `T`.
+pub fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False): List<T> {
+    if twice { [x, x, ..xs] } else { [x, ..xs] }
+}

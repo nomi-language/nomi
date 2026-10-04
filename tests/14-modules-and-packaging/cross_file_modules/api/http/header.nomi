@@ -1,0 +1,5 @@
+pub fn canonical_name(name: String): String {
+    name
+}
+
+pub once default_name: String = canonical_name("content-type")

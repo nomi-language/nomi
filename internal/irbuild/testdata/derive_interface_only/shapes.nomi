@@ -1,0 +1,39 @@
+// Every derivable interface, in a file that imports only ToJson and FromJson:
+// the prelude supplies the other five, and the code `derive ToJson` and
+// `derive FromJson` synthesize reaches `Json` and `Json.ShapeError` without
+// this file naming them.
+import std/json.{FromJson, ToJson}
+
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+derive Equatable for Point
+derive Hashable for Point
+derive Comparable for Point
+derive Display for Point
+derive ToJson for Point
+derive FromJson for Point
+
+pub enum Shape {
+    Dot
+    Circle Int
+    Pair (Int, Int)
+    Box {w: Int, h: Int}
+}
+
+derive ToJson for Shape
+
+pub struct Tagged {
+    name: String
+    count: Int = 3
+}
+
+derive ToJson for Tagged
+derive FromJson for Tagged
+
+pub type Meters Int
+
+derive ToJson for Meters
+derive FromJson for Meters

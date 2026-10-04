@@ -1,0 +1,172 @@
+//# A single long-lived worker owning mutable state, driven by messages.
+//#
+//# This is the shape you reach for when several callers need to share
+//# state that has to change: instead of guarding it, give it to one task
+//# and talk to that task. Nothing else can reach the state, and one task
+//# handles one message at a time, so there is nothing to guard.
+//#
+//# **The server is a value started by a helper.** `start()` builds
+//# the inbox, the group, and the worker, and hands back the one field the
+//# app's config struct stores. Callers touch neither a channel nor a group.
+//#
+//# Owning its group is what lets the server declare `Restart.Permanent`
+//# — a worker meant to run until something stops it has failed if it
+//# returns on its own. A group shared with one-shot work could not say
+//# that, since for that work returning is exactly the point.
+//#
+//# The state lives in `Iter.loop`'s accumulator, inside the task. That is
+//# what makes it private: a binding inside a running task is not
+//# reachable from anywhere else, so "who else might be writing this?" has
+//# one answer, and it is nobody.
+
+import {
+    std/channels.{Channel, Receiver, Sender}
+    std/duration.Duration
+    std/io
+    std/supervisors.{Backoff, Restart, Supervisor}
+}
+
+/// What callers can ask the worker to do.
+///
+/// `Increment` is fire-and-forget. `Get` needs an answer, so it carries
+/// the channel to answer on — a request wanting a reply brings its own
+/// return address, since a channel only goes one way.
+pub enum Request {
+    Increment Int
+    Get {reply: Channel<Int>}
+    Explode
+}
+
+/// A running counter. Holding one is how you address the worker; the
+/// channel inside is an implementation detail callers never see.
+pub struct Counter {
+    inbox: Channel<Request>
+}
+
+/// Create the inbox, the group, and the worker. One call, and the
+/// caller stores one field.
+///
+/// Creating the group here is legal because `boot` calls this — the
+/// rule is that groups are created *during* boot, not that the call is
+/// written inside it. Calling `start()` from anywhere boot does not reach is a
+/// compile error.
+///
+/// Owning its own group is what lets the server set
+/// `Restart.Permanent`. A shared group cannot: permanence says
+/// returning is a failure, which is right for this worker and wrong for
+/// the one-shot work that would sit beside it.
+fn start(): Counter {
+    inbox = Channel.buffered<Request>(16)
+
+    // The group handle is not kept. Every group is registered with the
+    // runtime when it is created, and shutdown drains all of them, so
+    // holding one only matters if you want to `Supervisor.flush` on it —
+    // which for a permanent worker you cannot do anyway, since it never
+    // finishes.
+    _ =
+        Supervisor.new(
+            shutdown_timeout: Duration.seconds(5),
+            max_running: 1,
+            restart: Restart.Permanent,
+            backoff: Backoff.Exponential{
+                max_restarts: 3,
+                max_elapsed: Duration.minutes(5),
+            },
+        )
+        |> Supervisor.spawn(|| serve(inbox))
+
+    Counter{inbox}
+}
+
+/// The worker. Runs until its inbox closes or shutdown cancels it.
+///
+/// `count` is the state. It is an ordinary loop accumulator, so each
+/// branch returns the next value: updating the state and returning from
+/// the handler are the same act, and there is no way to forget one.
+///
+/// What serializes the work is that exactly one of these runs per
+/// inbox — not the group's `max_running`, which is about how much of
+/// the group's whole workload runs at once.
+fn serve(inbox: Channel<Request>): Unit {
+    _final = Iter.loop(|count = 0|
+        case Receiver.receive(inbox.receiver) {
+            Some(Request.Increment(n)) ->
+                count + n
+
+            Some(Request.Get{reply}) -> {
+                // Best-effort: a caller that gave up is not worth crashing over.
+                _ = Sender.send(reply.sender, count)
+                count
+            }
+
+            // Stands in for a handler with a bug in it.
+            Some(Request.Explode) ->
+                count / 0
+
+            // The inbox closed and drained: no more work is coming.
+            None ->
+                break count
+        }
+    )
+
+    Unit
+}
+
+/// Fire-and-forget: returns as soon as the message is queued.
+pub fn increment(counter: Counter, n: Int): Unit {
+    case Sender.send(counter.inbox.sender, Request.Increment(n)) {
+        Ok(_) -> Unit
+        Err(_) -> Unit
+    }
+}
+
+/// Ask and wait. The reply channel is made per call, so two callers in
+/// flight can never take each other's answer.
+///
+/// Capacity 1 so the worker never blocks handing the reply back, even
+/// if this caller has already given up and stopped listening.
+pub fn get(counter: Counter): Int {
+    reply = Channel.buffered<Int>(1)
+    _ = Sender.send(counter.inbox.sender, Request.Get{reply})
+
+    case Receiver.receive(reply.receiver) {
+        Some(v) -> v
+        None -> 0
+    }
+}
+
+pub fn explode(counter: Counter): Unit {
+    case Sender.send(counter.inbox.sender, Request.Explode) {
+        Ok(_) -> Unit
+        Err(_) -> Unit
+    }
+}
+
+// There is deliberately no `flush` here.
+//
+// `Supervisor.flush` waits for a group's tasks to *finish*, and a
+// permanent worker never does — waiting on this server's group blocks
+// until shutdown cancels it, which under a virtual clock is reported as
+// a deadlock. It is the right answer to the wrong question.
+//
+// `get` is the synchronisation point instead: it round-trips through
+// the worker, so everything queued before it has necessarily been
+// handled by the time it returns. A request that wants an answer is
+// also a barrier.
+pub struct Config {
+    context: Context
+
+    // One field. The server owns its inbox, its group, and its policy, so
+    // adding a second server adds one more field and nothing else.
+    counter: Counter
+}
+
+pub fn boot(): Config {
+    Config{context: Context.root(), counter: start()}
+}
+
+fn main() {
+    increment(Config.counter, 5)
+    increment(Config.counter, 7)
+    io.print("count=${get(Config.counter)}")
+}

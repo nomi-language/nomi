@@ -1,0 +1,66 @@
+// The scalar stdlib surface, on both paths.
+//
+// Every line here is a call INTO `std/` — the thing a compiled program could not
+// do at all before this fixture existed. Three shapes, deliberately mixed,
+// because they resolve through three different mechanisms and a fixture that
+// exercised one would pass while the others were wrong:
+//
+//   - a concrete type qualifier onto a `host fn` (`String.contains?`), which
+//     lowers to a direct `rt` call;
+//   - a concrete type qualifier onto a NOMI-BODIED stdlib function
+//     (`Float.infinite?`, `Float.finite?`), which lowers to a call into a
+//     retained body built from `std/float.nomi` itself;
+//   - an interface qualifier over a scalar receiver (`Debug.inspect`,
+//     `Hashable.hash`), which statically names one impl because the receiver's
+//     kind is known at the call site.
+//
+// Four lines exist to catch a specific wrong lowering rather than to add breadth:
+//
+//   - `Float.round(2.5)` is 2.0, not 3.0. Nomi rounds half-to-EVEN and Go's
+//     `math.Round` rounds half-away-from-zero, so the obvious Go spelling is the
+//     wrong answer and this is the only place in the mapped surface where it is.
+//   - `Int.wrapping_add(9223372036854775807, 1)` must WRAP, not trap — the whole point
+//     of the wrapping family, and lowering it to the trapping helper would turn a
+//     deliberate wrap into a spurious crash.
+//   - `Hashable.hash(0.0 - 0.0)` goes through a Nomi body with a three-way `if`
+//     that normalizes signed zero, so it pins that a lowered stdlib body's
+//     control flow survives and not merely its arithmetic.
+//   - `Debug.inspect(2.5)` renders through `impl Debug for Float`, whose body
+//     calls `to_string` — a SIBLING of a different impl block on the same
+//     receiver. That resolution is what makes a lowered stdlib body able to reach
+//     its own type's method table.
+import std/io
+
+fn main() {
+    io.print("contains: ${String.contains?("hello world", "o w")}")
+    io.print("starts: ${String.starts_with?("hello", "he")}")
+    io.print("ends: ${String.ends_with?("hello.txt", ".txt")}")
+    io.print("upper: ${String.to_upper("café")}")
+    io.print("lower: ${String.to_lower("CAFÉ")}")
+    io.print("replace: ${String.replace("a.b.c", ".", "-")}")
+    io.print("repeat: ${String.repeat("ab", 3)}")
+    io.print("trim: [${String.trim("  hi  ")}]")
+    io.print("hash: ${Hashable.hash("nomi")}")
+
+    io.print("to_float: ${Int.to_float(-7)}")
+    io.print("wrap: ${Int.wrapping_add(9223372036854775807, 1)}")
+    io.print("and: ${Int.bitwise_and(12, 10)}")
+    io.print("or: ${Int.bitwise_or(12, 10)}")
+    io.print("xor: ${Int.bitwise_xor(12, 10)}")
+    io.print("not: ${Int.bitwise_not(0)}")
+    io.print("shl: ${Int.shift_left(1, 4)}")
+    io.print("shr: ${Int.shift_right(-8, 1)}")
+
+    io.print("round: ${Float.round(2.5)} ${Float.round(3.5)}")
+    io.print("floor: ${Float.floor(-3.2)}")
+    io.print("ceil: ${Float.ceil(3.2)}")
+    io.print("trunc: ${Float.trunc(-3.7)}")
+    io.print("nan?: ${Float.nan?(Float.nan())}")
+    io.print("infinite?: ${Float.infinite?(Float.positive_infinity())}")
+    io.print("finite?: ${Float.finite?(42.0)} ${Float.finite?(Float.nan())}")
+
+    io.print("inspect int: ${Debug.inspect(42)}")
+    io.print("inspect float: ${Debug.inspect(2.5)}")
+    io.print("hash zero: ${Hashable.hash(0.0 - 0.0)}")
+    io.print("hash int: ${Hashable.hash(7)}")
+}

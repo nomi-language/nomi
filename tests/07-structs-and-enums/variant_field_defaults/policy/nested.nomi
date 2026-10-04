@@ -1,0 +1,5 @@
+/// A defaulted variant declared in a sibling file, so importing code checks
+/// that defaults travel across explicit file boundaries.
+pub enum Timeout {
+    After {seconds: Int = 30, label: String = "nested"}
+}

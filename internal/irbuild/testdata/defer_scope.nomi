@@ -1,0 +1,41 @@
+// `defer`: the three rules, each MEASURED against the interpreter rather than
+// read off the construct's name. See internal/irbuild/appfield.go.
+//
+//  1. A deferred call runs at the enclosing BLOCK's exit, not the function's —
+//     `cleanup inner-b` and `cleanup inner-a` both print before `block-left`.
+//     Go's own `defer` is function-scoped, so the lowering emits at both
+//     boundaries behind a guard that makes the call exactly once.
+//  2. Reverse registration order.
+//  3. The arguments are captured when the `defer` STATEMENT executes, not when
+//     the call runs — `cleanup first`, not the shadowed value.
+import std/io
+
+fn note(s: String): Unit {
+    io.print("cleanup ${s}")
+}
+
+fn inner(): Unit {
+    io.print("block-enter")
+
+    {
+        defer note("inner-a")
+        defer note("inner-b")
+        io.print("block-body")
+        Unit
+    }
+
+    io.print("block-left")
+}
+
+fn captured(): Unit {
+    x = "first"
+    defer note(x)
+    y = "${x}-shadowed"
+    io.print("captured-body ${y}")
+}
+
+fn main() {
+    inner()
+    captured()
+    io.print("done")
+}

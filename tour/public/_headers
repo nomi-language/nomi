@@ -1,0 +1,95 @@
+# HTTP response headers for static hosting (Netlify / Cloudflare Pages /
+# Vercel-equivalent). Astro copies files in `public/` to `dist/` at build
+# time, so this file lands at the site root and is picked up
+# automatically by the host's `_headers` convention.
+#
+# THIS FILE IS ENFORCED BY THE BUILD. `prehighlight.mjs` (the last step of
+# `npm run build`) parses the CSP below, walks every built HTML file, and
+# fails the build if the page contains an inline <script> whose hash is not
+# listed here, or an inline <style> element at all. So an Astro/Starlight
+# upgrade that changes a boot script breaks the *build*, not the deployed
+# site. When it does, the failure prints the corrected `script-src` to paste.
+#
+# CSP audit, 2026-09-07, measured against the 69 built HTML pages and every
+# JS/CSS asset in `dist/` (not assumed):
+#
+# - `script-src` lists nine sha256 hashes instead of `'unsafe-inline'`. All
+#   nine are Starlight's own boot scripts (theme provider + picker, search
+#   shortcut key, language select, sidebar state persistence + scroll
+#   restore, mobile menu button). None is ours: the tour client loads as
+#   `<script type="module" src="/nomi/tour-client.mjs">`, so it is covered by
+#   `'self'`. The bodies carry no per-page or content-hashed text, so the
+#   nine hashes cover all 69 pages.
+# - `script-src 'wasm-unsafe-eval'` is required by the Go interpreter wasm,
+#   the tree-sitter wasm, and Pagefind's search wasm. `'unsafe-eval'` is NOT
+#   required: the only `eval` in the vendored `web-tree-sitter.js` is
+#   Emscripten's EM_ASM/EM_JS support, and our grammar wasm has no such
+#   section.
+# - `style-src-elem 'self'` — zero inline <style> elements in the build, and
+#   nothing injects one at runtime. (Pagefind ships a
+#   `pagefind-highlight.js` that would, but nothing in the build references
+#   it.) Browsers without `style-src-elem` (Firefox) fall back to
+#   `style-src`, so the tightening is additive and never breaks a browser.
+# - `style-src-attr 'unsafe-inline'` is forced by 8752 inline `style="..."`
+#   attributes across the build, 19 distinct values: Starlight's sidebar
+#   `--depth`, its `--sl-icon-size` / `--sl-select-width` custom properties,
+#   and Shiki's per-token `color:` on the Go code blocks. Attribute hashes
+#   would need `'unsafe-hashes'`, which is not supported everywhere and buys
+#   nothing against 19 build-generated values.
+# - `style-src 'self' 'unsafe-inline'` remains only as the fallback for
+#   browsers that do not implement the `-elem`/`-attr` split.
+# - `img-src data:` is forced by 18 `url("data:image/svg+xml...")`
+#   backgrounds in the built CSS (Starlight's `common.css`, Pagefind's UI
+#   CSS). CSS background images are fetched under `img-src`.
+# - `worker-src 'self'` covers both workers, each constructed from a
+#   same-origin URL: the tour's `/nomi/run-worker.js` and Pagefind's
+#   `/pagefind/pagefind-worker.js`. No `blob:` needed.
+# - `connect-src 'self'` blocks data exfiltration if the worker or wasm
+#   ever fetches an attacker URL. The only legitimate fetches are
+#   same-origin loads of /nomi/*.{wasm,js,scm,mjs} and Pagefind's index
+#   fragments.
+# - `base-uri 'none'`, `form-action 'none'`, `frame-src 'none'`: the build
+#   contains zero <base>, <form>, <iframe>, <object> and <embed> elements
+#   and no script creates one. (DOMPurify constructs a detached <form> for
+#   its DOM-clobbering check and never submits it, so `form-action 'none'`
+#   is safe.)
+# - If a third-party service is added later (analytics, fonts on a CDN,
+#   embed iframes), expand the relevant directive.
+#
+# What a visitor's program can reach, audited 2026-09-29 (roadmap "Tour
+# public-deployment hardening"): nothing outside its worker. The stdlib has no
+# networking module, and io.read_file/io.write_file are refused by the browser
+# build itself (internal/stdio/file_browser.go, held by cmd/nomi-wasm's
+# browser_build_test.go), so `connect-src 'self'` is a second wall rather
+# than the only one. The wasm's memory is capped at 1 GiB
+# (internal/wasmmem) and the page kills a run after 6 s.
+#
+# The other headers:
+# - `frame-ancestors 'none'` plus `X-Frame-Options: DENY` for browsers that
+#   predate CSP 2: the tour has no reason to be framed, and editable code
+#   boxes are a clickjacking target.
+# - `Cross-Origin-Resource-Policy: same-origin`: no other site may embed the
+#   Nomi wasm (nomi.wasm.gz) or any other asset. Every fetch the site makes is
+#   same-origin, so nothing here is affected.
+# - `Cross-Origin-Opener-Policy: same-origin` severs window.opener from
+#   cross-origin openers. COEP is deliberately NOT set: `require-corp` would
+#   make the page cross-origin isolated, which unlocks SharedArrayBuffer and
+#   high-resolution timers that nothing here uses and that only widen what a
+#   page running visitors' code exposes.
+# - `Permissions-Policy` turns off every powerful feature the site never uses.
+#   Only feature names Chromium recognizes are listed, because an unknown one
+#   is logged as a console error on every page.
+#
+# SRI is deliberately skipped — `marked` / `DOMPurify` / `web-tree-sitter`
+# are all vendored same-origin (see `scripts/build-tour-wasm.sh`), so the
+# same-origin guarantee + deployment integrity covers what SRI would.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-VWo5Wp4aqSj6nSgMpeAp9cKieaoIfwFUAunAVugI5gA=' 'sha256-f/zAUE74ucc3JYp4r4QQvkJofoQdkOIhHYK+jeZ6eko=' 'sha256-GkZBRnvSuhtx/cvzvukVkX2JJZW+DdPlVr7BX8Tefqo=' 'sha256-ijttFDel9I45Iy4QIFEAjeSz8jIoT+BkBu2/ERAo6DY=' 'sha256-w78n7W12c94ck4KhBCBA4NrjqkbDvSutqee+u+no0Tg=' 'sha256-8JLcQFZQruxl3jMUwogr3y5/GMmZPAc+j2mNi7gywmw=' 'sha256-9YPKRPlDWSzDLTFd2ymgbR36hwtVSzb6TjfD00W5B3Y=' 'sha256-wX2yOADeV+NMngflD5uYi3vl50SHC4sfM1EmylVjlX4=' 'sha256-7eCV4jtsr4t4knb3c4FCRPeu7GGZeOUGE3XvWix0XOQ='; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; worker-src 'self'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; base-uri 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  Permissions-Policy: accelerometer=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains

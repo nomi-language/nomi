@@ -1,0 +1,21 @@
+// `==` on a mirror whose impl lives in NEITHER this file nor the type's own:
+// refused, because the question is asked of the whole PROGRAM.
+//
+// `rules.ping()` is here so rules.nomi is genuinely part of the program's
+// reference graph rather than an inert file beside it.
+import {
+    std/io
+    money.{self, Money}
+    rules
+}
+
+fn same(a: Money, b: Money): Bool {
+    a == b
+}
+
+fn main() {
+    a = money.at(1, "x")
+    b = money.at(1, "y")
+    io.print("ping = ${rules.ping()}")
+    io.print("eq = ${Bool.to_string(same(a, b))}")
+}

@@ -1,0 +1,164 @@
+import {
+    add.Add
+    bool.Bool.{self, True}
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+    iter.Iter
+    maps.Map
+    maybe.Maybe.{self, Some}
+    strings.String
+    subtract.Subtract
+}
+
+/// Immutable collection of unique `T` values. `a + b` is the union and `a - b`
+/// the difference; a single element is `s + #{x}`.
+pub opaque struct Set<T> {
+    items: Map<T, Bool>
+}
+
+impl Set<T> {
+    /// The empty set.
+    //! s: Set<Int> = Set.new()
+    //! assert Set.size(s) == 0
+    //
+    pub fn new<T>(): Set<T> {
+        Set{items: Map.empty()}
+    }
+
+    /// Returns a new set with `elem` added (no-op if already present).
+    //! assert Set.insert(#{1, 2}, 3) == #{1, 2, 3}
+    //! assert Set.insert(#{1, 2}, 2) == #{1, 2}
+    //
+    pub fn insert<T>(s: Set<T>, elem: T): Set<T> {
+        Set{items: Map.put(s.items, elem, True)}
+    }
+
+    /// Returns a new set with `elem` removed (no-op if absent).
+    //! assert Set.remove(#{1, 2, 3}, 2) == #{1, 3}
+    //! assert Set.remove(#{1, 2}, 9) == #{1, 2}
+    //
+    pub fn remove<T>(s: Set<T>, elem: T): Set<T> {
+        Set{items: Map.remove(s.items, elem)}
+    }
+
+    /// True if `elem` is a member of the set.
+    //! assert Set.contains?(#{1, 2}, 1)
+    //! refute Set.contains?(#{1, 2}, 9)
+    //
+    pub fn contains?<T>(s: Set<T>, elem: T): Bool {
+        Map.contains_key?(s.items, elem)
+    }
+
+    /// The number of elements. O(1) — the set's own count; the generic count is
+    /// `Iter.count`.
+    //! assert Set.size(#{1, 2, 3}) == 3
+    //
+    pub fn size<T>(s: Set<T>): Int {
+        Map.size(s.items)
+    }
+
+    /// All elements in either set. `a + b` is the same call.
+    //! assert Set.union(#{1, 2}, #{2, 3}) == #{1, 2, 3}
+    //
+    pub fn union<T>(a: Set<T>, b: Set<T>): Set<T> {
+        Set{items: Map.merge(a.items, b.items)}
+    }
+
+    /// Elements in both sets.
+    //! assert Set.intersection(#{1, 2}, #{2, 3}) == #{2}
+    //
+    pub fn intersection<T>(a: Set<T>, b: Set<T>): Set<T> {
+        Iter.filter(a, |e| Set.contains?(b, e)) |> Iter.to_set()
+    }
+
+    /// Elements in `a` but not `b`. `a - b` is the same call.
+    //! assert Set.difference(#{1, 2, 3}, #{2}) == #{1, 3}
+    //
+    pub fn difference<T>(a: Set<T>, b: Set<T>): Set<T> {
+        Iter.filter(a, |e| !Set.contains?(b, e)) |> Iter.to_set()
+    }
+
+    /// True if every element of `a` is also in `b`.
+    //! assert Set.subset?(#{1, 2}, #{1, 2, 3})
+    //! refute Set.subset?(#{1, 4}, #{1, 2, 3})
+    //
+    pub fn subset?<T>(a: Set<T>, b: Set<T>): Bool {
+        Iter.to_list(a) |> Iter.all?(|e| Set.contains?(b, e))
+    }
+}
+
+impl Iter for Set<T> {
+    /// Pushes each element to `yield` in insertion order (matching `to_list`),
+    /// stopping as soon as `yield` returns `False`. Drives the backing map's own
+    /// push loop and drops the `present` half of each entry.
+    fn each_while(s: Set<T>, yield: (T) -> Bool): Bool {
+        Iter.each_while(s.items, |entry| {
+            (elem, _present) = entry
+            yield(elem)
+        })
+    }
+
+    // A Set stores its element count, so report it directly (O(1)).
+    fn known_count(s: Set<T>): Maybe<Int> {
+        Some(Set.size(s))
+    }
+}
+
+impl Display for Set<T> {
+    fn to_string(s: Set<T>): String {
+        inner =
+            Iter.map(s, |e| "${e}")
+            |> String.join(", ")
+
+        "#{" + inner + "}"
+    }
+}
+
+impl Debug for Set<T> {
+    fn inspect(s: Set<T>): String {
+        inner =
+            Iter.map(s, |e| Debug.inspect(e))
+            |> String.join(", ")
+
+        "#{" + inner + "}"
+    }
+}
+
+impl Equatable for Set<T> {
+    fn equal?(a: Set<T>, b: Set<T>): Bool {
+        a == b
+    }
+}
+
+impl Hashable for Set<T> {
+    // The hash of the backing `Map<T, Bool>`: each element is an entry whose
+    // value is True (hash 31), combined with the same commutative `+`.
+    fn hash(s: Set<T>): Int {
+        Iter.reduce(s, |acc = 0, x|
+            Int.wrapping_add(acc, Int.wrapping_add(Int.wrapping_mul(Hashable.hash(x), 31), 31))
+        )
+    }
+}
+
+impl Add<Set<T>, Set<T>> for Set<T> {
+    /// `a + b` is `Set.union(a, b)`.
+    //! assert #{1, 2} + #{2, 3} == #{1, 2, 3}
+    //! assert #{1} + #{2} == #{1, 2}
+    //
+    fn add(a: Set<T>, rhs: Set<T>): Set<T> {
+        Set.union(a, rhs)
+    }
+}
+
+impl Subtract<Set<T>, Set<T>> for Set<T> {
+    /// `a - b` is `Set.difference(a, b)`.
+    //! assert #{1, 2, 3} - #{2} == #{1, 3}
+    //! assert #{1, 2} - #{9} == #{1, 2}
+    //
+    fn subtract(a: Set<T>, rhs: Set<T>): Set<T> {
+        Set.difference(a, rhs)
+    }
+}

@@ -1,0 +1,12 @@
+// The OPERATOR spelling of the same overflow, as the control: `big + 1` is on
+// line 7, and the operator path has always carried a real position.
+import std/io
+
+fn overflow_via_operator(): Int {
+    big = 9223372036854775807
+    big + 1
+}
+
+fn main() {
+    io.print(Int.to_string(overflow_via_operator()))
+}

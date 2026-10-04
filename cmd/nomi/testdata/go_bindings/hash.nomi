@@ -1,0 +1,15 @@
+//# SHA-256 and hex encoding from Go's `crypto/sha256` and `encoding/hex`,
+//# through the Go functions in `hash.go`. `Bytes` crosses as a Go `[]byte`.
+
+gopkg "gobindings"
+
+/// The SHA-256 digest of `data`, 32 bytes long.
+pub fn sha256(data: Bytes): Bytes go gobindings.SHA256
+
+/// Encodes `data` as lowercase hexadecimal.
+//! assert "nomi" |> String.to_bytes() |> hash.to_hex() == "6e6f6d69"
+//
+pub fn to_hex(data: Bytes): String go gobindings.HexEncode
+
+/// Decodes hexadecimal text back into bytes.
+pub fn from_hex(text: String): Result<Bytes, String> go gobindings.HexDecode

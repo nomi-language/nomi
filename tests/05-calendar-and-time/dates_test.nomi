@@ -1,0 +1,98 @@
+import {
+    std/calendar.Error
+    std/calendar.{Days, Months, Weeks, Years}
+    std/calendar.Date
+}
+
+test "dates parse and expose components" {
+    assert Ok(d) = Date"2026-05-04"
+
+    assert Date.year(d) == 2026
+    assert Date.month(d) == 5
+    assert Date.day(d) == 4
+}
+
+test "date literals support interpolation" {
+    month = "07"
+    assert Ok(d) = Date"2026-${month}-04"
+
+    assert Date.month(d) == 7
+}
+
+test "date parser is shared by literals and explicit parse" {
+    assert Ok(d) = Date.parse("2026-02-15")
+
+    assert Date.year(d) == 2026
+}
+
+test "date parse failures preserve error shape" {
+    assert Err(Error.InvalidFormat(_)) = Date"not-a-date"
+    assert Err(Error.InvalidFormat(_)) = Date"garbage"
+    assert Err(Error.InvalidValue(_)) = Date"2026-13-04"
+    assert Err(Error.InvalidValue(_)) = Date"2026-02-29"
+}
+
+test "date day counts are signed" {
+    assert Ok(start) = Date"2026-01-01"
+    assert Ok(end) = Date"2026-12-31"
+    assert Ok(later) = Date"2026-05-10"
+    assert Ok(earlier) = Date"2026-05-01"
+
+    assert Date.days_between(start, end) == 364
+    assert Date.days_between(later, earlier) == -9
+}
+
+test "date day counts include leap days" {
+    assert Ok(leap_start) = Date"2024-01-01"
+    assert Ok(leap_end) = Date"2025-01-01"
+
+    assert Date.days_between(leap_start, leap_end) == 366
+}
+
+test "date day and week shifts cross calendar boundaries" {
+    d1 = try Date"2026-05-04"
+    d2 = try Date"2026-05-29"
+    dec30 = try Date"2026-12-30"
+
+    assert d1 + Days(10) == try Date"2026-05-14"
+    assert d2 + Days(5) == try Date"2026-06-03"
+    assert d1 + Weeks(2) == try Date"2026-05-18"
+    assert d2 + Weeks(1) == try Date"2026-06-05"
+    assert dec30 + Days(5) == try Date"2027-01-04"
+    assert d1 - Days(3) == try Date"2026-05-01"
+    assert d1 - Weeks(1) == try Date"2026-04-27"
+}
+
+test "date month shifts clamp invalid month days" {
+    jan31_26 = try Date"2026-01-31"
+    jan31_24 = try Date"2024-01-31"
+    mar31 = try Date"2026-03-31"
+    mar15 = try Date"2026-03-15"
+
+    assert jan31_26 + Months(1) == try Date"2026-02-28"
+    assert jan31_24 + Months(1) == try Date"2024-02-29"
+    assert mar31 + Months(1) == try Date"2026-04-30"
+    assert mar15 + Months(-2) == try Date"2026-01-15"
+    assert jan31_26 - Months(1) == try Date"2025-12-31"
+}
+
+test "date year shifts clamp leap days when needed" {
+    feb29 = try Date"2024-02-29"
+
+    assert feb29 + Years(1) == try Date"2025-02-28"
+    assert feb29 + Years(4) == try Date"2028-02-29"
+    assert feb29 - Years(1) == try Date"2023-02-28"
+}
+
+test "date adds calendar units with plus" {
+    may4 = try Date"2026-05-04"
+    jan31_26 = try Date"2026-01-31"
+    feb29 = try Date"2024-02-29"
+
+    assert may4 + Days(10) == try Date"2026-05-14"
+    assert may4 + Weeks(2) == try Date"2026-05-18"
+    assert jan31_26 + Months(1) == try Date"2026-02-28"
+    assert feb29 + Years(1) == try Date"2025-02-28"
+    assert Add.add(may4, Weeks(1)) == try Date"2026-05-11"
+    assert Add.add(may4, Months(1)) == try Date"2026-06-04"
+}

@@ -1,0 +1,55 @@
+// Float `==` and `/` — the two places Go's operators are NOT Nomi's.
+//
+// `==` is reflexive on NaN in Nomi and IEEE in Go, so a bare Go `==` is a
+// silent wrong answer here rather than a compile error. `/` agrees on values
+// but not on what is WRITEABLE: Go constant-folds a constant divide and
+// rejects a zero divisor, so `0.0 / 0.0` inline does not compile at all.
+//
+// Both operands are built through locals deliberately: inlining them back into
+// the expressions reproduces the compile failure in one step.
+import std/io
+
+fn main() {
+    zero = 0.0
+    one = 1.0
+
+    nan = zero / zero
+    inf = one / zero
+    neg_inf = (0.0 - one) / zero
+
+    io.print("nan: ${nan}")
+    io.print("inf: ${inf}")
+    io.print("neg_inf: ${neg_inf}")
+
+    // The reflexive-NaN rule, which Go's `==` gets wrong.
+    io.print("nan == nan: ${nan == nan}")
+    io.print("nan != nan: ${nan != nan}")
+
+    // Not NaN-specific: ordinary Float equality still has to work.
+    io.print("one == 1.0: ${one == 1.0}")
+    io.print("one == zero: ${one == zero}")
+
+    // Signed zero compares equal, as it does in both languages.
+    neg_zero = 0.0 - 0.0
+    io.print("0.0 == -0.0: ${zero == neg_zero}")
+
+    // Ordering is IEEE on both paths — every one of these is False for NaN,
+    // including the reflexive one, which is what makes `==` and `<=` disagree.
+    io.print("nan <= nan: ${nan <= nan}")
+    io.print("nan > one: ${nan > one}")
+    io.print("one < nan: ${one < nan}")
+    // Infinity is ordinary in arithmetic and ordering.
+    io.print("inf > one: ${inf > one}")
+    io.print("inf == inf: ${inf == inf}")
+
+    // LITERAL zero divides. These four lines are the regression guard that a
+    // divide of two literals follows rt.DivFloat's semantics exactly as a
+    // divide of two locals does, so a builder that folded constant divides
+    // some other way would print a different answer here. That is the reason
+    // the cases live here as literals rather than through the locals above.
+    //
+    io.print("0.0 / 0.0: ${0.0 / 0.0}")
+    io.print("1.0 / 0.0: ${1.0 / 0.0}")
+    io.print("-1.0 / 0.0: ${-1.0 / 0.0}")
+    io.print("literal nan == itself: ${(0.0 / 0.0) == (0.0 / 0.0)}")
+}

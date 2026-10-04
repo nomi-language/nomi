@@ -1,0 +1,46 @@
+// A FAILING assertion inside a group, which is the half a passing fixture
+// cannot reach.
+//
+// The passing path proves the name path and the setup values. It says
+// nothing about the REPORT, and the report is the contract: the `FAIL` line
+// carries the joined case name, the header carries the assertion's absolute
+// source line, and the `values:` rows carry the operands — including a value
+// that came out of a `setup` rather than out of the case's own body, which is
+// the one operand a setup lowering can get wrong while every passing case
+// still passes.
+//
+// The last failing case is deliberately a BARE NAME: `enough?` is a name a
+// binding introduced, so the report adds a `defined as:` row carrying the
+// defining expression's source text. The builder records that text at the
+// binding and the interpreter renders it off the AST, so it is two statements
+// of one rule — and the defining expression here reads a value that came out
+// of a `setup`, which is the seam this fixture exists for.
+tests "totals" {
+    setup {want: 7}
+
+    test "a failure names its group and its own line", {want} {
+        assert (3 + 3) == want
+    }
+
+    test "an operand bound from the setup is rendered like any other", {want} {
+        got = want * 2
+        assert got == 15
+    }
+
+    test "a bare name shows how it was defined", {want} {
+        enough? = want > 100
+        assert enough?
+    }
+
+    test "a passing case beside a failing one still reports ok", {want} {
+        assert want == 7
+    }
+}
+
+tests "inner" {
+    setup 8
+
+    test "a failure names the group of a name pattern", want {
+        assert (2 * 3) == want
+    }
+}

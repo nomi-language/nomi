@@ -1,0 +1,15 @@
+/// A `Point` that coexists with the entry file's same-named type. A type is
+/// identified by the file that declares it plus its name, so this `Point` and
+/// the entry's are two different types even though both are spelled `Point`.
+///
+/// This module is lowered to its own Go package, so its `Point` is a different
+/// GO type as well — see TestNamedTypeIdentityIsAGoCompileError, which proves
+/// the two cannot be confused by making the confusion a compile error.
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+pub fn origin_x(): Int {
+    Point{x: 0, y: 7}.x
+}

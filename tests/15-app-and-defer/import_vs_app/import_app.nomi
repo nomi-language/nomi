@@ -1,0 +1,22 @@
+// import_app.nomi — the entry file whose boot the test group names. Its app
+// carries a Clock that the test overrides with `with`.
+import {
+    std/instant.Instant
+    std/io
+    helper
+    wallclock.{Clock, FakeClock}
+}
+
+pub struct ImportApp {
+    context: Context
+
+    clock: Clock
+}
+
+pub fn boot(): ImportApp {
+    ImportApp{context: Context.root(), clock: FakeClock{at: Instant.from_seconds(1234)}}
+}
+
+fn main() {
+    io.print(helper.format(Clock.now(ImportApp.clock)))
+}

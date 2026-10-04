@@ -1,0 +1,83 @@
+// `xs == ys` and `List.equal?(xs, ys)` must AGREE, for every shape.
+//
+// The two are one operation — `impl Equatable for List<T>` (std/lists.nomi:125)
+// is written `a == b`, so the method delegates to the built-in rather than
+// defining a second rule — and the builder now shares one lowering for both
+// (collections.go's listEqual). This file asserts the agreement DIRECTLY rather
+// than pinning each side's answer independently, because two independent
+// assertions both keep passing if the paths are re-split and then drift
+// together; an agreement assertion cannot.
+//
+// It is deliberately redundant with the shared helper, and that redundancy is
+// the point: the helper makes disagreement unrepresentable TODAY, and this file
+// is what fails if a later change re-splits them.
+//
+// Every row is `assert (a == b) == List.equal?(a, b)`, so a row passes only when
+// both spellings answer the same thing — including when both answer False.
+import std/io
+
+fn main() {
+    xs = [1, 2, 3]
+    nan = 0.0 / 0.0
+
+    agree("lit-lit", xs, [1, 2, 3])
+    // A DIFFERENT cons chain with the same elements. Go compares cells by
+    // address, so this is the row a Go `==` would fail.
+    agree("lit-built", xs, List.concat([1], [2, 3]))
+    agree("differing", xs, [1, 2, 4])
+    agree("shorter", xs, [1, 2])
+    agree("longer", xs, [1, 2, 3, 4])
+    // The untyped empty list has no agreement row, though `xs == []` is
+    // accepted by both spellings.
+    // It cannot be a row here
+    // because `agree` DECLARES `List<Int>`, so `[]` discharges at the argument
+    // and asks nothing of the operator. untyped_equality.nomi asks it directly.
+    agree("self", xs, xs)
+
+    agree_f("nan", [nan], [0.0 / 0.0])
+    agree_f("nan-mixed", [1.0, nan], [1.0, 0.0 / 0.0])
+    agree_f("nan-vs-num", [nan], [1.0])
+    agree_f("zeroes", [0.0], [-0.0])
+    agree_f("plain", [1.5, 2.5], [1.5, 2.5])
+
+    agree_n("nested", [[1], [2, 3]], [[1], [2, 3]])
+    agree_n("nested-diff", [[1], [2, 3]], [[1], [2, 4]])
+    agree_n("nested-built", [[1], [2, 3]], List.concat([[1]], [[2, 3]]))
+
+    agree_t("tuples", [(1, "a")], [(1, "a")])
+    agree_t("tuples-diff", [(1, "a")], [(1, "b")])
+
+    agree_ft("tup-nan", [(1, nan)], [(1, 0.0 / 0.0)])
+    agree_ft("tup-nan-no", [(1, nan)], [(1, 1.0)])
+
+    io.print("all rows agree")
+}
+
+fn agree(label: String, a: List<Int>, b: List<Int>) {
+    report(label, a == b, List.equal?(a, b))
+}
+
+fn agree_f(label: String, a: List<Float>, b: List<Float>) {
+    report(label, a == b, List.equal?(a, b))
+}
+
+fn agree_n(label: String, a: List<List<Int>>, b: List<List<Int>>) {
+    report(label, a == b, List.equal?(a, b))
+}
+
+fn agree_t(label: String, a: List<(Int, String)>, b: List<(Int, String)>) {
+    report(label, a == b, List.equal?(a, b))
+}
+
+fn agree_ft(label: String, a: List<(Int, Float)>, b: List<(Int, Float)>) {
+    report(label, a == b, List.equal?(a, b))
+}
+
+// Prints only on DISAGREEMENT, and prints the two answers when it does. A row
+// that agrees is silent, so the pinned output is one line and any divergence
+// shows which spelling said what.
+fn report(label: String, operator: Bool, method: Bool) {
+    if operator != method {
+        io.print("DISAGREE ${label}: == said ${operator}, List.equal? said ${method}")
+    }
+}

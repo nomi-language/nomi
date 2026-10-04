@@ -1,0 +1,69 @@
+test "integer range literals materialize their bounds" {
+    assert Iter.to_list(1..5) == [1, 2, 3, 4]
+    assert Iter.to_list(1..=5) == [1, 2, 3, 4, 5]
+
+    assert Iter.to_list(0..5) == [0, 1, 2, 3, 4]
+    assert Iter.to_list(0..=5) == [0, 1, 2, 3, 4, 5]
+}
+
+test "unbounded integer ranges are bounded by iterator adapters" {
+    assert Range.from(1)
+        |> Iter.take(5)
+        |> Iter.to_list()
+        |> List.equal?([1, 2, 3, 4, 5])
+
+    assert Range.naturals()
+        |> Iter.take(3)
+        |> Iter.to_list()
+        |> List.equal?([0, 1, 2])
+}
+
+test "reversed bounded ranges are empty" {
+    assert Iter.to_list(5..1) == []
+    assert Iter.to_list(5..=1) == []
+}
+
+test "explicit steps turn ranges into lazy iterables" {
+    assert 1..=9
+        |> Range.step_by(3)
+        |> Iter.to_list()
+        |> List.equal?([1, 4, 7])
+
+    assert 1..=9
+        |> Range.step_by(0)
+        |> Iter.to_list()
+        |> List.equal?([])
+}
+
+test "known count distinguishes bounded and unbounded ranges" {
+    assert Iter.known_count(1..5) == Some(4)
+    assert Iter.known_count(1..=5) == Some(5)
+    assert Iter.known_count(Range.from(1)) == None
+}
+
+test "range containment respects inclusive and unbounded endpoints" {
+    assert Range.contains?(1..5, 3)
+    refute Range.contains?(1..5, 5)
+    assert Range.contains?(1..=5, 5)
+    assert Range.contains?(Range.from(1), 100)
+}
+
+test "string and float ranges can be queried for containment" {
+    assert Range.contains?("a".."m", "h")
+    refute Range.contains?("a".."m", "z")
+    assert Range.contains?(0.0..=1.0, 1.0)
+}
+
+test "bounded range predicate distinguishes bounded and unbounded ranges" {
+    assert Range.bounded?(1..5)
+    refute Range.bounded?(Range.from(1))
+}
+
+test "ranges compose with iterator pipelines" {
+    assert Iter.reduce(1..=10, |acc = 0, x| acc + x) == 55
+
+    assert 0..10
+        |> Iter.filter(|x| x % 2 == 0)
+        |> Iter.to_list()
+        |> List.equal?([0, 2, 4, 6, 8])
+}

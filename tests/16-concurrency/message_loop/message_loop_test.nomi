@@ -1,0 +1,63 @@
+// Exercises the message-driven counter in counter_app.nomi, booted as that
+// entry file boots it.
+import {
+    std/testing.Clock
+    counter_app.{self, Config, explode, get, increment}
+}
+
+tests "a message-driven worker" {
+    // Nothing here sleeps, but the worker blocks on its inbox and the group
+    // drains at the end of every case — all of which a virtual clock makes
+    // instant and repeatable.
+    clock Clock.Virtual
+
+    boot counter_app.boot()
+
+    test "messages accumulate into state a caller can read back" {
+        increment(Config.counter, 5)
+        increment(Config.counter, 7)
+
+        assert get(Config.counter) == 12
+    }
+
+    test "each caller gets its own reply" {
+        increment(Config.counter, 1)
+        first = get(Config.counter)
+        increment(Config.counter, 1)
+        second = get(Config.counter)
+
+        assert first == 1
+        assert second == 2
+    }
+
+    test "a handler that breaks restarts the worker with fresh state" {
+        increment(Config.counter, 5)
+        explode(Config.counter) // the handler divides by zero
+        increment(Config.counter, 7)
+
+        // The group re-invoked the spawn's closure, so the loop started over
+        // from 0 and only the message after the crash counts. Restarting
+        // rebuilds state, exactly as re-running the function would — there is
+        // nothing else it could do, since the closure is the only description
+        // of the work.
+        //
+        // Note what survived: the inbox. The closure captured it, so the
+        // restarted worker reads the same channel and messages queued during
+        // the crash are still there. The failed message itself is gone,
+        // consumed before the handler broke, so a poison message cannot loop.
+        assert get(Config.counter) == 7
+    }
+
+    test "a call observes every cast queued before it" {
+        // Casts return as soon as the message is queued, so nothing here has
+        // necessarily run yet.
+        increment(Config.counter, 1)
+        increment(Config.counter, 2)
+        increment(Config.counter, 3)
+
+        // The inbox is FIFO and one worker drains it, so this reply cannot
+        // come back before all three have been applied. That ordering is the
+        // whole reason to put state behind a single task.
+        assert get(Config.counter) == 6
+    }
+}

@@ -1,0 +1,18 @@
+// One type, two interfaces, and each interface implemented in a DIFFERENT
+// sibling file. That is legal: the orphan rule admits `impl I for T` in T's
+// module, and a Nomi module is several files.
+pub struct Thing {
+    n: Int
+}
+
+pub interface Alpha {
+    fn go(x: self): Int
+}
+
+pub interface Beta {
+    fn go(x: self): Int
+}
+
+pub fn thing(n: Int): Thing {
+    Thing{n}
+}

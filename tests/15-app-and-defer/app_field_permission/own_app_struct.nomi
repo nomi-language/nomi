@@ -1,0 +1,14 @@
+import settings.Settings
+
+struct App {
+    name: String
+}
+
+pub fn read(): String {
+    Settings.tag
+}
+
+pub fn local_name(): String {
+    own = App{name: "helpers-own-app"}
+    own.name
+}

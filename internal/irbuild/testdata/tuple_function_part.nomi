@@ -1,0 +1,50 @@
+import std/io
+
+// A tuple or anonymous record holding a function value. It is built,
+// projected, destructured, matched, passed and returned, and the held function
+// is called. Its Debug renders the function as `<function>`. `==` over such a
+// value stays a compile error (functions have no equality), so no row
+// compares one.
+struct Pt {
+    x: Int
+}
+
+fn scaler(n: Int): (Int, (Int) -> Int) {
+    (n, |x: Int| x * n)
+}
+
+fn apply(p: (Int, (Int) -> Int)): Int {
+    (n, f) = p
+    f(n)
+}
+
+fn main() {
+    p = (1, |x: Int| x + 1)
+    (n, f) = p
+    io.print("destructured = ${f(n)}")
+    g = p.1
+    io.print("projected = ${g(10)}")
+    io.print("returned and passed = ${apply(scaler(7))}")
+
+    case p {
+        (0, _) -> io.print("zero")
+        (a, fa) -> io.print("matched = ${fa(a)}")
+    }
+
+    offset = 100
+    (label, add) = ("captured", |x: Int| x + offset)
+    io.print("${label} = ${add(1)}")
+    scaled = [scaler(2), scaler(3)] |> Iter.map(|q| apply(q)) |> Iter.to_list()
+
+    io.print("list = ${scaled}")
+
+    r = {n: 3, f: |x: Int| x * 2}
+    h = r.f
+    io.print("record = ${h(r.n)}")
+    {n: m, f: k} = r
+    io.print("record destructured = ${k(m)}")
+
+    io.print("debug = ${Debug.inspect(p)}")
+    io.print("record debug = ${Debug.inspect(r)}")
+    io.print("nested debug = ${Debug.inspect((Pt{x: 1}, |x: Int| x))}")
+}

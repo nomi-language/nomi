@@ -1,0 +1,63 @@
+import std/io
+
+// Probe: IRREFUTABLE DESTRUCTURING ON A LAMBDA PARAMETER.
+//
+// Spec §5 lets a lambda parameter be a pattern rather than a name, with an
+// optional annotation the self-typing rule usually makes redundant. Go has no
+// destructuring at all, so the value arrives whole in one anonymous parameter
+// and every name the pattern introduces is read back out of it — which is what
+// the interpreter's applyDestructure does too, minus the runtime checks the
+// pattern's irrefutability removes.
+//
+// Three of the four pattern families are here. Tuple patterns are absent on
+// purpose: a tuple has no representation in the builder yet, so the pattern is
+// refused for the type rather than for the pattern, and pinning that here would
+// pin somebody else's gap.
+struct Point {
+    x: Int
+    y: Int
+}
+
+struct Segment {
+    from: Point
+    to: Point
+}
+
+type Meters Int
+
+// Exactly one variant, which is what makes the pattern irrefutable: with two,
+// `Wrapper.Only(n)` could fail to match and would need a `case`.
+enum Wrapper {
+    Only Int
+}
+
+fn main() {
+    // Punning: each field binds to its own name. Self-typed by the head, so no
+    // annotation.
+    norm = |Point{x, y}| x * x + y * y
+    io.print("norm = ${norm(Point{x: 3, y: 4})}")
+
+    // Renaming: the binding differs from the field name, which is the case that
+    // catches a builder reading the wrong one of the two.
+    flip = |Point{x: a, y: b}| "(${b}, ${a})"
+    io.print("flip = ${flip(Point{x: 1, y: 2})}")
+
+    // Nested: a struct pattern inside a struct pattern, with a wildcard beside
+    // it. Nothing may be bound for `to`.
+    startx = |Segment{from: Point{x, y: _}, to: _}| x
+    io.print("startx = ${startx(Segment{from: Point{x: 7, y: 8}, to: Point{x: 9, y: 10}})}")
+
+    // A wrapping distinct unwraps to its inner value.
+    plus = |Meters(m)| m + 1
+    io.print("plus = ${plus(Meters(41))}")
+
+    // A single-variant enum unwraps to its payload.
+    twice = |Wrapper.Only(n)| n * 2
+    io.print("twice = ${twice(Wrapper.Only(21))}")
+
+    // A destructuring parameter captures like any other: `base` is closed over
+    // while `x` comes out of the pattern.
+    base = 100
+    offset = |Point{x, y: _}| x + base
+    io.print("offset = ${offset(Point{x: 5, y: 0})}")
+}

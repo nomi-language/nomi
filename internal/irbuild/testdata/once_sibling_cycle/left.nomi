@@ -1,0 +1,17 @@
+// Reads right's `once` through a bare selective import, and right reads this
+// file's the same way. So BOTH edges of the pair are bare `once` mentions and
+// neither has any other spelling to fall back on — which is what makes this the
+// witness that the edge is load-bearing rather than belt-and-braces. Drop the
+// *ast.OnceBinding registration from fileIndex.byDecl and the reference graph
+// sees no cycle at all.
+//
+// The reads are inside functions rather than in the `once` RHSs, so the program
+// has no VALUE cycle: only the two files' reference graph is cyclic, and Nomi
+// permits that deliberately.
+import right.seed
+
+pub once ours: Int = 3
+
+pub fn from_left(): Int {
+    seed + ours
+}

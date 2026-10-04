@@ -1,0 +1,104 @@
+// Target-typed struct literals: a brace literal with no type name and no
+// spread builds the nominal struct its position expects. Where no struct is
+// expected it stays an anonymous struct.
+import {
+    std/compiler
+    test_helpers
+}
+
+struct Address {
+    street: String
+    city: String
+    zip: String = "00000"
+}
+
+struct Person {
+    name: String
+    address: Address
+}
+
+struct Box<T> {
+    item: T
+}
+
+fn city_of(address: Address): String {
+    address.city
+}
+
+fn home(): Address {
+    {street: "3 Ret", city: "York"}
+}
+
+test "a brace literal builds the annotated struct" {
+    address: Address = {street: "1 Main", city: "Bath"}
+    assert address == Address{street: "1 Main", city: "Bath"}
+    assert address.zip == "00000"
+}
+
+test "a brace literal builds a struct field, an argument and a return value" {
+    ada = Person{name: "Ada", address: {street: "1 Main", city: "Bath"}}
+    assert ada.address.city == "Bath"
+    assert city_of({street: "2 Arg", city: "Ely"}) == "Ely"
+    assert home().city == "York"
+}
+
+test "a brace literal builds the element type of a typed list" {
+    people: List<Person> = [
+        {
+            name: "Ada",
+            address: {
+                street: "1 Main",
+                city: "Bath",
+            },
+        },
+    ]
+
+    assert Iter.map(people, .address.city) |> Iter.to_list() == ["Bath"]
+}
+
+test "a brace literal builds a generic struct at its known argument" {
+    boxed: Box<Int> = {item: 3}
+    assert boxed == Box{item: 3}
+}
+
+test "a spread keeps the patch rule at a struct-typed field" {
+    ada: Person = {name: "Ada", address: {street: "1 Main", city: "Bath"}}
+    moved = {..ada, address: {city: "NYC"}}
+    assert moved.address == Address{street: "1 Main", city: "NYC"}
+}
+
+test "a partial brace literal names the missing field of the struct" {
+    diagnostics = compiler.check(
+        """
+          struct Address {
+            street: String
+            city: String
+          }
+
+          fn main() {
+            address: Address = {city: "Bath"}
+            dbg address
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "missing field 'street' of Address")
+}
+
+test "an unknown field names the struct" {
+    diagnostics = compiler.check(
+        """
+          struct Address {
+            street: String
+            city: String
+          }
+
+          fn main() {
+            address: Address = {street: "1 Main", city: "Bath", postcode: "BA1"}
+            dbg address
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "Address has no field 'postcode'")
+}

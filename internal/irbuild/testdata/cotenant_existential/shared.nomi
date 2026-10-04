@@ -1,0 +1,26 @@
+// A type declared OUTSIDE the cycle and mirrored by TWO co-tenants of the
+// merged package. Nothing here is an existential; this file exists for the
+// alias-collision arm alone.
+//
+// A mirror is named by a Go ALIAS — `type NomiT_Stamp = nomimodN.NomiT_Stamp`
+// (foreign.go's qualifyGoName) — and that alias used to be deduplicated per
+// GEN, which is one FILE, while the Go package it was written into was one
+// strongly-connected COMPONENT. So two co-tenants mirroring this one type wrote
+// the declaration twice into one package: `NomiT_Stamp redeclared in this block`.
+//
+// MEASURED as four Go compile failures on `tests/15-app-and-defer/effects/`,
+// whose `dev`/`prod`/`test` co-tenants each mirror `log.ProdLogger`,
+// `console.StdConsole` and `clocks.FakeClock` from outside their component. It
+// was unreachable until those files stopped being refused, so it was latent
+// rather than absent — and it is nothing to do with interfaces, which is why it
+// needs its own arm here rather than riding on `App`.
+//
+// This file must NOT import a cycle member, or it joins the component and there
+// is no cross-package alias left to collide.
+pub struct Stamp {
+    s: String
+}
+
+pub fn stamp(s: String): Stamp {
+    Stamp{s}
+}

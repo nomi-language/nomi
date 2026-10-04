@@ -1,0 +1,15 @@
+// An orphan impl on a std type outside the prelude: `Display` and `Date` are
+// both declared in std, so the impl is rejected even though `Date` reaches
+// this file only through an explicit import.
+// expect type-error: orphan impl: `Display`
+import std/calendar.Date
+
+impl Display for Date {
+    fn to_string(_d: Date): String {
+        "fake"
+    }
+}
+
+fn main() {
+    Unit
+}

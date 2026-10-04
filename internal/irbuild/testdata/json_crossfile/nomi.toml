@@ -1,0 +1,3 @@
+[module]
+name = "json_crossfile"
+entry_points = ["main"]

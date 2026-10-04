@@ -1,0 +1,12 @@
+// The line-0 reproduction, as a `fn main` program the three engines can each
+// run. Line numbers matter here: `Add.add` is on line 7.
+import std/io
+
+fn overflow_via_impl(): Int {
+    big = 9223372036854775807
+    Add.add(big, 1)
+}
+
+fn main() {
+    io.print(Int.to_string(overflow_via_impl()))
+}

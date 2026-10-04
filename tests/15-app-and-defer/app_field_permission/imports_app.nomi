@@ -1,0 +1,9 @@
+import settings.Settings
+
+pub fn read(): String {
+    Settings.tag
+}
+
+pub fn payload_of(value: Int): Int {
+    value
+}

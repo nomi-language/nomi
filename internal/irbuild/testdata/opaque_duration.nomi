@@ -1,0 +1,21 @@
+import {
+    std/duration.Duration
+    std/io
+    std/timer
+}
+
+fn main(): Unit {
+    d = Duration.seconds(3)
+    io.print("d = ${Duration.to_string(d)}")
+    io.print("nanos = ${Int.to_string(Duration.as_nanos(d))}")
+    io.print("millis = ${Int.to_string(Duration.as_millis(Duration.milliseconds(1500)))}")
+    io.print("sum = ${Duration.to_string(Duration.hours(1) + Duration.minutes(30))}")
+    io.print("diff = ${Duration.to_string(Duration.seconds(5) - Duration.milliseconds(1500))}")
+    io.print("scaled = ${Duration.to_string(Duration.milliseconds(250) * 6)}")
+    io.print("split = ${Duration.to_string(Duration.seconds(9) / 2)}")
+    io.print("negative = ${Duration.to_string(Duration.seconds(0) - Duration.seconds(5))}")
+    io.print("zero = ${Duration.to_string(Duration.nanoseconds(0))}")
+    io.print("interp = ${Duration.microseconds(2)}")
+    timer.sleep(Duration.nanoseconds(0))
+    io.print("slept")
+}

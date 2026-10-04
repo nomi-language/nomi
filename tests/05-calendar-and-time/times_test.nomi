@@ -1,0 +1,54 @@
+import {
+    std/calendar.Error
+    std/calendar.Time
+    std/duration.Duration
+}
+
+test "times parse and expose components" {
+    assert Ok(t) = Time"09:30:00"
+
+    assert Time.to_string(t) == "09:30:00"
+    assert Time.hour(t) == 9
+    assert Time.minute(t) == 30
+    assert Time.second(t) == 0
+}
+
+test "time display preserves meaningful subsecond precision" {
+    assert Ok(frac) = Time"23:45:12.5"
+
+    assert Time.to_string(frac) == "23:45:12.5"
+}
+
+test "times support duration arithmetic with midnight wrapping" {
+    assert Ok(base) = Time"09:30:00"
+    assert Ok(late) = Time"23:30:00"
+    assert Ok(early) = Time"00:30:00"
+    assert Ok(morning) = Time"11:30:00"
+    assert Ok(after_midnight) = Time"01:30:00"
+    assert Ok(before_midnight) = Time"23:30:00"
+
+    assert base + Duration.hours(2) == morning
+    assert late + Duration.hours(2) == after_midnight
+    assert early + Duration.hours(-1) == before_midnight
+    assert base - Duration.minutes(45) == try Time"08:45:00"
+}
+
+test "time equality uses time of day" {
+    assert Ok(a) = Time"09:30:00"
+    assert Ok(b) = Time"09:30:00"
+
+    assert a == b
+}
+
+test "times sort chronologically" {
+    assert Ok(t1) = Time"09:30:00"
+    assert Ok(t2) = Time"08:15:00"
+    assert Ok(t3) = Time"10:00:00"
+
+    sorted = Iter.sort([t1, t2, t3])
+    assert List.head(sorted) == Some(t2)
+}
+
+test "time construction rejects invalid components" {
+    assert Err(Error.InvalidValue(_)) = Time.new(25, 0, 0)
+}

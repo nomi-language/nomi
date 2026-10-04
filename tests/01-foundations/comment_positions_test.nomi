@@ -1,0 +1,117 @@
+// Leading-of-file comments attach to the first declaration.
+// Standalone comments between top-level declarations attach to the next
+// declaration. Struct body comments attach either to the following field or to
+// the end of the body.
+pub struct Point {
+    x: Int
+    // Inter-field comment.
+    y: Int
+    // Trailing comment inside struct body.
+}
+
+// Enum comments attach to the next variant or the end of the body.
+pub enum Color {
+    Red
+    // Inter-variant comment.
+    Green
+    Blue
+    // Trailing comment inside enum body.
+}
+
+// Struct-shaped variant comments attach to the next field or the end of the
+// variant body.
+pub enum Shape {
+    Circle Float
+    Rect {
+        width: Float,
+        // Inter-field comment inside the variant body.
+        height: Float,
+        // Trailing comment inside struct-shaped variant body.
+    }
+}
+
+// Interface body comments attach to the next function or the end of the body.
+pub interface Speech {
+    fn speak(s: Int): Int
+    // Inter-function comment.
+    fn shout(s: Int): Int
+    // Trailing comment inside interface body.
+}
+
+fn add(a: Int, b: Int): Int {
+    // Leading comment inside a block body.
+    sum = a + b
+    // Mid-body standalone comment between two statements.
+    sum
+    // Trailing in-block comment after the last statement.
+}
+
+fn greet(p: {
+    name: String,
+    // Inter-field comment in an anonymous struct type.
+    age: Int,
+    // Trailing comment inside anon struct type body.
+}): String {
+    p.name
+}
+
+test "comments are accepted around declarations and expressions" {
+    // Nominal struct literal comments attach to the next field or end of body.
+    p = Point{
+        x: 3,
+        // Inter-field comment in a nominal struct literal.
+        y: 4,
+        // Trailing comment inside struct literal body.
+    }
+
+    // Anonymous struct literal comments use the same trivia paths.
+    _q = {
+        name: greet({name: "alice", age: 30}),
+        // Inter-field comment in an anonymous struct literal.
+        age: 30,
+        // Trailing comment inside anon struct literal body.
+    }
+
+    // Map literal trailing comments attach to the map literal.
+    m = {
+        "first" => 1,
+        "second" => 2,
+        // Trailing comment inside map literal body.
+    }
+
+    // List literal trailing comments attach to the list literal.
+    l = [
+        1,
+        2,
+        3,
+        // Trailing comment inside list literal body.
+    ]
+
+    // Map and list patterns exercise the same comment paths on destructuring.
+    first = case m {
+        {
+            "first" => v,
+            // Trailing comment inside map pattern body.
+        } -> v
+        _ -> 0
+    }
+
+    list_first = case l {
+        [
+            head,
+            _,
+            _,
+            // Trailing comment inside list pattern body.
+        ] -> head
+        _ -> 0
+    }
+
+    assert add(p.x, p.y) == 7
+    assert first == 1
+    assert list_first == 1
+}
+
+// Trailing top-level comments after the last declaration attach to file-end
+// trivia and survive formatting.
+//
+// A second line verifies multi-line continuation and the blank above it.

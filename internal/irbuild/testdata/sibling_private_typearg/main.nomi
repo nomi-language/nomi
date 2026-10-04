@@ -1,0 +1,35 @@
+// A file's private struct as the type argument of another file's public
+// generic function, struct and enum. Only this file names `Point`, so the
+// program is legal, and span.nomi builds each instance over it.
+import {
+    std/io
+    span
+}
+
+struct Point {
+    x: Int
+}
+
+impl Display for Point {
+    fn to_string(p: Point): String {
+        "p${p.x}"
+    }
+}
+
+fn describe(slot: span.Slot<Point>): String {
+    case slot {
+        span.Slot.Full(q) -> "full ${q.x}"
+        span.Slot.Empty -> "empty"
+    }
+}
+
+fn main() {
+    p = span.ident(Point{x: 1})
+    io.print("ident ${p.x}")
+    io.print(span.shown(Point{x: 2}))
+    s = span.Span{start: Point{x: 3}, stop: Point{x: 4}}
+    io.print("span ${s.start.x}..${s.stop.x}")
+    io.print(Debug.inspect(s))
+    io.print(describe(span.Slot.Full(Point{x: 5})))
+    io.print(describe(span.Slot.Empty))
+}

@@ -1,0 +1,119 @@
+import std/io
+
+// `Debug.inspect` over a CONTAINER, with the two element kinds whose leaves come
+// from different places: a scalar (std's own `Debug.inspect` at that receiver)
+// and a NAMED type (the `impl Debug` this module registered).
+//
+// # Why the struct's fields are named to DISAGREE with the row's order
+//
+// This is the fixture's whole point and it is not incidental. `Debug.inspect`
+// renders a struct in DECLARATION order; an assertion's `values:` row sorts the
+// COMPOSED `name: value` strings (`rt.InspectStruct`). For most field names the
+// two coincide, so a Debug renderer wrongly built out of inspect.go's row
+// renderer passes every ordinary fixture.
+//
+// `Pt` below is declared `zz` then `a`. Declaration order gives `Pt{zz: 1, a: 2}`
+// and the composed sort gives `Pt{a: 2, zz: 1}`, so the two orders are DIFFERENT
+// STRINGS and this file fails if the leaf is the row's function. The permutation
+// is the test.
+//
+// # And why a nested list, and a tuple
+//
+// A one-level list would not see a leaf that fails to compose: the recursion
+// has to reach a second container before `debugInspector`'s element call is
+// exercised against its own output rather than against a leaf.
+//
+// # A `List<Bool>` LIVES IN debug_display_surfaces.nomi, NOT HERE
+//
+// This note used to say a `List<Bool>` was deliberately absent because
+// `Debug.inspect([True, False])` refused: the LEAF was missing, and reaching
+// for `rt.InspectBool` in the container arm "would make
+// `Debug.inspect([True, False])` lower while `Debug.inspect(True)` kept
+// refusing, which is an asymmetry between two spellings of one operation".
+//
+// That warning named the right condition and it was honoured. The leaf was fixed
+// at the leaf — `std/bool`'s `True`/`False` singletons took `stdHostSpecs` rows,
+// so std's own `bool.Bool.inspect` lowers and the container composes through it
+// — and the container arm here was not touched at all.
+//
+// The rows live in `debug_display_surfaces.nomi` because that is where the
+// SCALAR spelling is pinned beside them, which is the pair the warning was
+// about. Splitting them would recreate exactly the asymmetry it described.
+struct Pt {
+    zz: Int
+    a: Int
+}
+
+derive Debug for Pt
+
+// A HAND-WRITTEN `impl Debug`, which is the case no structural renderer can
+// reproduce: it returns text bearing no relation to the fields, so a fixture
+// that only used derived impls could not tell a dispatch from a re-derivation.
+struct Tag {
+    n: Int
+}
+
+impl Debug for Tag {
+    fn inspect(t: Tag): String {
+        "TAG#${t.n}"
+    }
+}
+
+// A typed `None`. A bare `None` in a list literal is `list element type
+// mismatch` — an untyped-empty widening this file does not own — so the empty
+// variant reaches a container through a function's declared return type
+// instead. The point is to render a bare variant NESTED, and this is the
+// spelling that gets there.
+fn no_int(): Maybe<Int> {
+    None
+}
+
+fn main() {
+    io.print(Debug.inspect([1, 2, 3]))
+    io.print(Debug.inspect(["a", "b"]))
+    io.print(Debug.inspect([1.5, 2.0]))
+
+    // The permuted struct, alone and inside a list.
+    io.print(Debug.inspect(Pt{zz: 1, a: 2}))
+    io.print(Debug.inspect([Pt{zz: 1, a: 2}, Pt{zz: 3, a: 4}]))
+
+    // A hand-written impl, reached through the container.
+    io.print(Debug.inspect([Tag{n: 7}, Tag{n: 8}]))
+
+    // Nested containers, so the element renderer is applied to its own output.
+    io.print(Debug.inspect([[1, 2], [3]]))
+
+    io.print(Debug.inspect([
+            [
+                Pt{
+                    zz: 5,
+                    a: 6,
+                },
+            ],
+        ]))
+
+    // A tuple, and a tuple inside a list.
+    io.print(Debug.inspect((1, "x")))
+    io.print(Debug.inspect((Pt{zz: 9, a: 8}, 5.5)))
+    io.print(Debug.inspect([(1, "x"), (2, "y")]))
+
+    // An empty list, whose rendering comes from its type alone.
+    io.print(Debug.inspect([]))
+
+    // The PRELUDE instances, whose rendering was measured on the interpreter
+    // rather than derived (see debugPreludeInspector): a bare variant is its own
+    // name, a carrying one is `Name(payload)`, and the payload goes through
+    // Debug — so a String inside is QUOTED where Display would not quote it.
+    io.print(Debug.inspect(Some(42)))
+    io.print(Debug.inspect(None))
+    io.print(Debug.inspect(Ok("s")))
+    io.print(Debug.inspect(Err("f")))
+    io.print(Debug.inspect(Some(Some(1))))
+    io.print(Debug.inspect(Some(Pt{zz: 1, a: 2})))
+
+    // A prelude instance INSIDE a container and a container inside one, so the
+    // two recursions compose in both directions.
+    maybes = [Some(1), no_int()]
+    io.print(Debug.inspect(maybes))
+    io.print(Debug.inspect(Some([1, 2])))
+}

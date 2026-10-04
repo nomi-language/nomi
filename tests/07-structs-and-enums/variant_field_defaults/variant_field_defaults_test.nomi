@@ -1,0 +1,105 @@
+//# Field defaults on struct-shaped enum variants, across file boundaries
+//# and through the dot-shorthand.
+//#
+//# A variant like `Exponential {max_restarts: Int = 10}` is one
+//# of the few places a default has to travel: the defaults live with the
+//# declaration, but the construction happens wherever the enum is
+//# imported. Both halves of that used to be broken in the same silent
+//# way — the construction produced a value that matched no `case` branch
+//# and reported nothing, rather than failing where the mistake was.
+
+import {
+    std/compiler
+    policy.{Backoff, Retry}
+    policy/nested.Timeout
+}
+
+test "an omitted field takes its declared default across a file boundary" {
+    case Backoff.Exponential{max_restarts: 3} {
+        Backoff.Exponential{max_restarts, max_elapsed} -> {
+            assert max_restarts == 3
+            // Not named at the construction site, so it comes from the
+            // declaration in policy.nomi.
+            assert max_elapsed == 900
+        }
+
+        Backoff.Off ->
+            assert False
+    }
+}
+
+test "naming no fields at all takes every default" {
+    case Backoff.Exponential{} {
+        Backoff.Exponential{max_restarts, max_elapsed} -> {
+            assert max_restarts == 10
+            assert max_elapsed == 900
+        }
+
+        Backoff.Off ->
+            assert False
+    }
+}
+
+test "a variant declared in a sibling file keeps its defaults too" {
+    case Timeout.After{label: "explicit"} {
+        Timeout.After{seconds, label} -> {
+            assert seconds == 30
+            assert label == "explicit"
+        }
+    }
+}
+
+test "the dot-shorthand constructs a variant, not a bare struct" {
+    // `.Exponential{...}` resolves against the expected type. It reached
+    // the evaluator as a struct literal whose type name happened to be a
+    // dot-variant, and the evaluator had no branch for that shape, so it
+    // built a plain struct that no branch below could match.
+    assert describe(.Exponential{max_restarts: 2}) == "2/900"
+    assert describe(.Off) == "off"
+}
+
+test "a dot-shorthand param default is a variant" {
+    assert describe() == "7/900"
+}
+
+fn describe(b: Backoff = .Exponential{max_restarts: 7}): String {
+    case b {
+        Backoff.Exponential{max_restarts, max_elapsed} ->
+            Display.to_string(max_restarts) + "/" + Display.to_string(max_elapsed)
+
+        Backoff.Off ->
+            "off"
+    }
+}
+
+test "a field with no default is still required" {
+    // The missing-field check reads the same declaration the defaults come
+    // from, so when that declaration went missing across a boundary this
+    // check went quiet with it — the construction succeeded and produced a
+    // short payload. The tests above prove the declaration is found; this
+    // one proves the check that rides on it still fires.
+    case compiler.run(
+        """
+        pub enum Retry {
+          Bounded {limit: Int, note: String = "bounded"}
+        }
+
+        fn main(): Unit {
+          _ = Retry.Bounded{note: "no limit"}
+          Unit
+        }
+        """
+    ) {
+        Ok(out) -> assert out == "unreachable: constructing without 'limit' should have failed"
+        Err(message) -> assert String.contains?(message, "missing field 'limit'")
+    }
+}
+
+test "a defaulted field is kept when it is named" {
+    case Retry.Bounded{limit: 5, note: "kept"} {
+        Retry.Bounded{limit, note} -> {
+            assert limit == 5
+            assert note == "kept"
+        }
+    }
+}

@@ -1,0 +1,277 @@
+// std/calendar's FIXED-OFFSET type, and the eleven-member overload set that
+// shares one spelling.
+//
+// `OffsetDateTime` took a stdStructSpecs row so that
+// `calendar.DateTime.to_offset` could lower — the only corpus file whose whole
+// blocker set was one detail of `stdlib function outside the scalar subset`
+// needed exactly that function. Anchoring the type made sixteen `host fn`s and
+// twenty-six Nomi bodies lowerable at once, and this fixture is where the ones
+// no corpus program reaches are exercised.
+//
+// # THE OVERLOAD SET IS THE POINT OF THE SECOND HALF
+//
+// `impl Add<Unit, OffsetDateTime>` is written ELEVEN times in std/calendar.nomi
+// and every one of them spells `OffsetDateTime.add`. Two are `host fn`s bound to
+// DIFFERENT rt symbols (`Years` -> rt.OffsetDateTimePlusYears, `Months` ->
+// rt.OffsetDateTimePlusMonths) and nine are Nomi bodies. So a table that used
+// the SPELLING as a declaration's identity would answer about the group when
+// asked about a member — which is the defect that made eleven
+// `Add<X, NaiveDateTime>` rungs read as settled and handed out a Go name for ten
+// bodies that never lowered.
+//
+// Every rung below therefore prints a DIFFERENT value from every other rung on
+// the same base, so a collapse is a wrong date rather than a refusal. The
+// `Subtract` counterparts are there for the same reason in the other direction.
+//
+// # WHAT IS AND IS NOT A DIFFERENTIAL HERE
+//
+// eval calls DOWN into rt for this whole type (eval/calendar_zoned.go boxes
+// rt/calendar_offset.go), so `requireIdentical` is blind to a bug in the wall
+// projection, the ±18h cap, the whole-second offset rule, the ISO rendering and
+// the month clamp — both paths run the same Go. The ABSOLUTE text in
+// calendar_offset_test.go is the assertion for those, and rt's own
+// calendar_offset_test.go pins them at the representation level.
+//
+// What IS genuinely two implementations: the nine Nomi-bodied `Add` rungs, all
+// ten `Subtract` rungs, `equal?`, `hash`, `compare`, `between`, `inspect` and
+// `from_fragments` are lowered Nomi in a generated stdlib package on one side
+// and interpreted AST on the other. `- Months(1)` reaching the wrong
+// `+ Months(-1)` is a real differential.
+import {
+    std/calendar.{
+        Days,
+        Error,
+        Hours,
+        Microseconds,
+        Milliseconds,
+        Minutes,
+        Months,
+        Nanoseconds,
+        Seconds,
+        Weeks,
+        Years
+    }
+    std/calendar.DateTime
+    std/calendar.NaiveDateTime
+    std/calendar.OffsetDateTime
+    std/duration.Duration
+    std/instant.Instant
+    std/io
+}
+
+fn run(): Result<Unit, Error> {
+    // --- CONSTRUCTION, and the three ways in ---------------------------------
+    //
+    // The typed literal goes through `impl Literal for OffsetDateTime`, whose
+    // `from_fragments` is a Nomi body over `List<Fragment<String>>`; `parse` is
+    // the `host fn` underneath it; `with_offset` asserts a WALL READING at an
+    // offset and `from_instant` names a MOMENT at one. The last two differ in
+    // totality, which is why std declares one returning a Result and the other
+    // not.
+    literal = try OffsetDateTime"2026-05-04T14:30:00.25-05:00"
+    parsed = try OffsetDateTime.parse("2026-05-04T14:30:00.25-05:00")
+    io.print("literal = " + OffsetDateTime.to_string(literal))
+    io.print("parsed_equal = " + Bool.to_string(literal == parsed))
+
+    built = try OffsetDateTime.with_offset(
+        try NaiveDateTime"2026-05-04T09:00:00",
+        Duration.hours(-5),
+    )
+
+    io.print("with_offset = " + OffsetDateTime.to_string(built))
+
+    io.print(
+        "from_instant = " + OffsetDateTime.to_string(
+            OffsetDateTime.from_instant(Instant.from_seconds(0), Duration.hours(0))
+        )
+    )
+
+    // `Z` is a spelling of `+00:00` on the way in and renders as `+00:00` on the
+    // way out, which is asymmetric on purpose: the type stores seconds and has no
+    // memory of how the offset was written.
+    io.print("zulu = " + OffsetDateTime.to_string(try OffsetDateTime"1985-04-12T23:20:50.52Z"))
+
+    // --- THE TWO REJECTIONS, both about the OFFSET and neither about the
+    // reading, because the reading arrives already validated ------------------
+    //
+    // A sub-second offset is REFUSED rather than truncated: neither IANA nor
+    // Go's fixed zones carry one, so truncating would answer about a different
+    // offset than the caller named. Beyond ±18h is refused against the same cap
+    // Temporal uses.
+    io.print(
+        "sub_second_offset = " + describe(
+            OffsetDateTime.with_offset(
+                try NaiveDateTime"2026-05-04T09:00:00",
+                Duration.milliseconds(500),
+            )
+        )
+    )
+
+    io.print(
+        "offset_too_large = " + describe(
+            OffsetDateTime.with_offset(try NaiveDateTime"2026-05-04T09:00:00", Duration.hours(19))
+        )
+    )
+
+    io.print("no_offset_suffix = " + describe(OffsetDateTime.parse("2026-05-04T14:30:00")))
+
+    // --- ACCESSORS project through the OFFSET, not through UTC ---------------
+    //
+    // The stored instant is 19:30 UTC. Every line below would differ by five
+    // hours if the projection dropped the offset, and `day` would differ by one
+    // for a reading either side of midnight — which the second block checks.
+    io.print("year = " + Int.to_string(OffsetDateTime.year(literal)))
+    io.print("month = " + Int.to_string(OffsetDateTime.month(literal)))
+    io.print("day = " + Int.to_string(OffsetDateTime.day(literal)))
+    io.print("hour = " + Int.to_string(OffsetDateTime.hour(literal)))
+    io.print("minute = " + Int.to_string(OffsetDateTime.minute(literal)))
+    io.print("second = " + Int.to_string(OffsetDateTime.second(literal)))
+    io.print("nanosecond = " + Int.to_string(OffsetDateTime.nanosecond(literal)))
+
+    crossing = try OffsetDateTime"2026-05-04T23:30:00-05:00"
+    io.print("crossing_day = " + Int.to_string(OffsetDateTime.day(crossing)))
+    io.print("crossing_hour = " + Int.to_string(OffsetDateTime.hour(crossing)))
+
+    // --- THE Anchored REQUIREMENTS -------------------------------------------
+    //
+    // `offset` is READ here where DateTime's is COMPUTED from the tzdb, and
+    // that difference is the whole distinction between the two types.
+    io.print(
+        "instant_seconds = " + Int.to_string(Instant.to_seconds(OffsetDateTime.to_instant(literal)))
+    )
+
+    io.print(
+        "offset_seconds = " + Int.to_string(Duration.as_seconds(OffsetDateTime.offset(literal)))
+    )
+
+    // --- DateTime.to_offset: the function this whole row exists for ----------
+    //
+    // A zoned value carries a RULE and an offset value carries a NUMBER, so the
+    // projection resolves the zone at that instant and then forgets it. The
+    // discriminating pair is one zone at two instants either side of a DST
+    // transition: the same `America/New_York` gives -05:00 in January and -04:00
+    // in June, so a projection that read a constant offset would print one of
+    // these twice.
+    winter = try DateTime"2026-01-15T12:00:00-05:00[America/New_York]"
+    summer = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    io.print("to_offset_winter = " + OffsetDateTime.to_string(DateTime.to_offset(winter)))
+    io.print("to_offset_summer = " + OffsetDateTime.to_string(DateTime.to_offset(summer)))
+
+    // And the projection is instant-preserving: the offset value names the same
+    // moment as the zoned one it came from.
+    projected = Instant.to_seconds(OffsetDateTime.to_instant(DateTime.to_offset(summer)))
+    zoned = Instant.to_seconds(DateTime.to_instant(summer))
+    io.print("to_offset_same_instant = " + Bool.to_string(projected == zoned))
+
+    // --- ELEVEN RUNGS, ONE SPELLING ------------------------------------------
+    //
+    // All eleven are `OffsetDateTime.add`. January 31st is chosen because it makes
+    // the two HOST rungs clamp — `+ Months(1)` is February 28th and `+ Years(1)`
+    // is 2027-01-31 — while every civil sub-day rung and the `Duration` rung move
+    // the reading by a different amount. No two lines below may print the same
+    // text.
+    eom = try OffsetDateTime"2026-01-31T09:15:00-05:00"
+    io.print("add_years = " + OffsetDateTime.to_string(eom + Years(1)))
+    io.print("add_months = " + OffsetDateTime.to_string(eom + Months(1)))
+    io.print("add_weeks = " + OffsetDateTime.to_string(eom + Weeks(2)))
+    io.print("add_days = " + OffsetDateTime.to_string(eom + Days(3)))
+    io.print("add_hours = " + OffsetDateTime.to_string(eom + Hours(4)))
+    io.print("add_minutes = " + OffsetDateTime.to_string(eom + Minutes(5)))
+    io.print("add_seconds = " + OffsetDateTime.to_string(eom + Seconds(6)))
+    io.print("add_millis = " + OffsetDateTime.to_string(eom + Milliseconds(7)))
+    io.print("add_micros = " + OffsetDateTime.to_string(eom + Microseconds(8)))
+    io.print("add_nanos = " + OffsetDateTime.to_string(eom + Nanoseconds(9)))
+    io.print("add_duration = " + OffsetDateTime.to_string(eom + Duration.hours(10)))
+
+    // The leap-year variant of the same clamp, so `add_months` cannot be a
+    // lowering that clamps to a constant 28.
+    leap = try OffsetDateTime"2024-01-31T09:15:00-05:00"
+    io.print("add_months_leap = " + OffsetDateTime.to_string(leap + Months(1)))
+
+    io.print(
+        "add_years_leap = " + OffsetDateTime.to_string(
+            try OffsetDateTime"2024-02-29T09:15:00-05:00" + Years(1)
+        )
+    )
+
+    // --- TEN SUBTRACT RUNGS, all Nomi bodies over their Add counterpart ------
+    //
+    // Every one of these is a real differential: lowered Nomi against interpreted
+    // AST. March 31st going back a month is the negative-direction clamp, where
+    // the month index has to floor rather than normalize forward.
+    march = try OffsetDateTime"2026-03-31T09:15:00-05:00"
+    io.print("sub_months = " + OffsetDateTime.to_string(march - Months(1)))
+    io.print("sub_years = " + OffsetDateTime.to_string(march - Years(2)))
+    io.print("sub_weeks = " + OffsetDateTime.to_string(march - Weeks(1)))
+    io.print("sub_days = " + OffsetDateTime.to_string(march - Days(2)))
+    io.print("sub_hours = " + OffsetDateTime.to_string(march - Hours(10)))
+    io.print("sub_minutes = " + OffsetDateTime.to_string(march - Minutes(20)))
+    io.print("sub_seconds = " + OffsetDateTime.to_string(march - Seconds(30)))
+    io.print("sub_millis = " + OffsetDateTime.to_string(march - Milliseconds(40)))
+    io.print("sub_micros = " + OffsetDateTime.to_string(march - Microseconds(50)))
+    io.print("sub_nanos = " + OffsetDateTime.to_string(march - Nanoseconds(60)))
+    // `- Duration.minutes(90)` rather than `- Hours(10)`, so this line differs
+    // from `sub_hours`: a fixed offset makes the civil and physical answers
+    // IDENTICAL below a month, so reusing the amount would have made one of the
+    // two lines carry no information. The agreement itself is pinned just below,
+    // where it is the claim rather than an accident.
+    io.print("sub_duration = " + OffsetDateTime.to_string(march - Duration.minutes(90)))
+
+    // A fixed offset has NO transitions, so the civil and the physical answer
+    // agree below a month — `+ Days(1)` and `+ Duration.hours(24)` are the same
+    // value here and they differ for `DateTime` across a spring-forward. Pinning
+    // the agreement is what stops a reader concluding the two ladders are one.
+    day_base = try OffsetDateTime"2026-03-07T12:00:00-05:00"
+    io.print("civil_day = " + OffsetDateTime.to_string(day_base + Days(1)))
+    io.print("physical_day = " + OffsetDateTime.to_string(day_base + Duration.hours(24)))
+
+    // --- IDENTITY IS THE INSTANT, NOT THE OFFSET -----------------------------
+    //
+    // Go's `==` on `rt.OffsetDateTime` compares OffsetSeconds too and answers
+    // False for the pair below, so these two lines fail for a structural lowering
+    // of `==` and for nothing else. `hash` has to agree with it, and `compare`
+    // has to order by the instant as well.
+    ny = try OffsetDateTime"2026-05-04T14:30:00-05:00"
+    london = try OffsetDateTime"2026-05-04T20:30:00+01:00"
+    io.print("same_moment = " + Bool.to_string(ny == london))
+
+    io.print(
+        "same_hash = " + Bool.to_string(OffsetDateTime.hash(ny) == OffsetDateTime.hash(london))
+    )
+
+    io.print("different_moment = " + Bool.to_string(ny == march))
+    io.print("ordered = " + Bool.to_string(ny < march))
+    io.print("not_ordered = " + Bool.to_string(march < ny))
+    io.print("neither_way = " + Bool.to_string(ny < london))
+
+    // `between` is a Nomi body reading both `instant_nanos` fields, so it is
+    // offset-blind by construction — six hours apart on the clock, zero elapsed.
+    io.print("between_same = " + Duration.to_string(OffsetDateTime.between(ny, london)))
+
+    io.print(
+        "between_hours = " + Duration.to_string(OffsetDateTime.between(ny, ny + Duration.hours(3)))
+    )
+
+    // `inspect` is a Nomi body delegating to `Display.to_string`, so it must not
+    // print a struct dump.
+    io.print("inspect = " + Debug.inspect(ny))
+
+    Ok(Unit)
+}
+
+// describe renders either arm of a `Result<OffsetDateTime, Error>` as text, so a
+// rejection is an OBSERVABLE line rather than an early return. `Error`'s own
+// `Display` impl is a Nomi body over five variants, which this reaches.
+fn describe(r: Result<OffsetDateTime, Error>): String {
+    case r {
+        Ok(odt) -> OffsetDateTime.to_string(odt)
+        Err(e) -> Display.to_string(e)
+    }
+}
+
+fn main() {
+    case run() {
+        Ok(_u) -> Unit
+        Err(_e) -> io.print("FAILED")
+    }
+}

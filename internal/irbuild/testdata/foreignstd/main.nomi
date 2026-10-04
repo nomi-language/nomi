@@ -1,0 +1,18 @@
+import {
+    std/compiler
+    std/io
+    checks
+    own.{self, Diagnostic}
+}
+
+fn main() {
+    // The entry NEVER names std/compiler's `Diagnostic`. Its only mention of the
+    // module is the call, and the `List<Diagnostic>` it hands across the file
+    // boundary is a type this file has nothing in scope for.
+    io.print("broken = ${checks.any?(compiler.check("fn main() { nope }"))}")
+    io.print("clean = ${checks.any?(compiler.check("fn main() { }"))}")
+    io.print("clean-first = ${checks.first_message(compiler.check("fn main() { }"))}")
+    // `Diagnostic` HERE is own.nomi's struct. A cross-file lookup keyed on the
+    // bare name would hand this one to a signature expecting std's.
+    io.print("own = ${own.label_of(Diagnostic{label: "mine"})}")
+}

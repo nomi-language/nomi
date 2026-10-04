@@ -1,0 +1,39 @@
+[
+  {
+    "label": "nomi: build",
+    "command": "go build -o ./nomi ./cmd/nomi",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "nomi: run",
+    "command": "go build -o ./nomi ./cmd/nomi && if [[ \"$ZED_FILE\" == *_test.nomi ]]; then ./nomi test \"$ZED_FILE\"; else ./nomi run \"$ZED_FILE\"; fi",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "tags": ["nomi-run"]
+  },
+  {
+    "label": "nomi: test",
+    "command": "go build -o ./nomi ./cmd/nomi && ./nomi test",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "nomi: test file",
+    "command": "go build -o ./nomi ./cmd/nomi && ./nomi test \"$ZED_FILE\"",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "nomi: test at cursor",
+    "command": "go build -o ./nomi ./cmd/nomi && ./nomi test \"$ZED_FILE\" --line \"$ZED_ROW\"",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "tags": ["nomi-test"]
+  }
+]

@@ -1,0 +1,25 @@
+==========
+Negative integer key in map pattern
+==========
+
+once r = case m {
+  {-2 => v} -> v
+  _ -> "no"
+}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (case_expression
+      (identifier)
+      (case_branch
+        (struct_pattern
+          (unary_expression
+            (integer))
+          (identifier))
+        (identifier))
+      (case_branch
+        (string
+          (string_content))))))

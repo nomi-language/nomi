@@ -1,0 +1,83 @@
+//# Two second spellings of a struct — the destructuring STATEMENT and the
+//# CALL form — plus `Debug.inspect` on a record.
+//#
+//# Every case here is chosen so that two independently-derived facts are
+//# allowed to contradict each other. A fixture that merely exercised the
+//# feature would go quiet on all three.
+//#
+//#   - A record's Go layout is CANONICAL (sorted by Nomi field name) while a
+//#     destructure names its fields in SOURCE order. `{y: 1, x: 2}` makes those
+//#     two orders disagree, so a positional read answers x=1 y=2.
+//#   - A field's NAME and its BINDING are two different strings, and binding by
+//#     the wrong one is the IDENTITY for `{x, y}`. `{x: y, y: x}` is a swap, so
+//#     the wrong choice is a wrong VALUE rather than a compile error.
+//#   - `Debug.inspect` sorts the COMPOSED `name: value` strings while `${…}`
+//#     and `Display.to_string` sort by FIELD NAME. Those agree for `{x, y}` and
+//#     disagree for `{a, a0}`, because '0' is below ':'.
+//#
+//# The call form's discriminator is a TYPE crossing rather than a value one:
+//# `Rev`'s declared order is `z` then `a` and the record's canonical order is
+//# `a` then `z`, with an Int against a String, so a positional copy is a Go
+//# compile error rather than a silent answer.
+
+import std/io
+
+struct User {
+    name: String
+    age: Int
+}
+
+struct Rev {
+    z: Int
+    a: String
+}
+
+struct Defaulted {
+    a: Int
+    b: String = "default"
+}
+
+struct AllDefaults {
+    p: Int = 1
+    q: String = "q"
+}
+
+fn main() {
+    p = {y: 1, x: 2}
+
+    {x, y} = p
+    io.print("x=${x} y=${y}")
+
+    {x: y, y: x} = p
+    io.print("swapped x=${x} y=${y}")
+
+    u = User{name: "Ada", age: 36}
+    {age, name} = u
+    io.print("${name}/${age}")
+
+    // The rename on a NOMINAL receiver. Without it, the nominal field reader is
+    // exercised only by PUNNED fields — where the field name and the binding name
+    // are the same string, so binding the wrong one is invisible. Measured: a
+    // mutation of structFieldArms SURVIVED the punned line alone.
+    {name: who, age: yrs} = u
+    io.print("${who}#${yrs}")
+
+    r = Rev({a: "s", z: 1})
+    io.print("${r.z}${r.a}")
+
+    d = Defaulted({a: 7})
+    io.print("${d.a}/${d.b}")
+
+    e = Defaulted({a: 8, b: "named"})
+    io.print("${e.a}/${e.b}")
+
+    // `AllDefaults({})` — the empty form, whose argument parses as a
+    // zero-statement Block rather than as a StructLit. It is the one shape
+    // `checkStructCallForm` accommodates separately, so it needs its own line.
+    z = AllDefaults({})
+    io.print("${z.p}${z.q}")
+
+    q = {a: 1, a0: 2}
+    io.print(Debug.inspect(q))
+    io.print(Display.to_string(q))
+}

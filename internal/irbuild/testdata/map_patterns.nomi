@@ -1,0 +1,214 @@
+import std/io
+
+// Map patterns in `case`, in all three spellings, plus the four rules that are
+// each a wrong answer if missed.
+//
+// A map pattern is PARTIAL: it names the keys it cares about and says nothing
+// about the rest, which is the opposite of a list pattern whose arity is part of
+// the match. So there is no size test anywhere in the lowering, and `two_of`
+// below matches a three-key map on two keys to pin that.
+//
+// The part that cannot be argued in prose is ORDER-INDEPENDENCE. `Map` is a
+// persistent hash trie whose iteration order depends on how it was built, so
+// a lowering that WALKED entries instead of PROBING them could answer
+// correctly for one insertion order and wrongly for another, and one fixture
+// built one way could not tell the two apart. `forward` and `backward` hold
+// the same three bindings inserted in opposite orders, and `two_of` must give
+// one answer for both.
+//
+// The keys are EXPRESSIONS, not literals: `computed` reads a local bound
+// outside the `case` and adds to it, and `by_pair` / `by_colour` / `by_id`
+// use a tuple, an enum variant and a distinct as keys. Each is exercised with
+// a key built FRESH in the
+// pattern rather than with the bound name, so a lowering that compared by
+// address rather than structurally fails on the answer.
+type Kvs Map<String, Int>
+
+enum Colour {
+    Red
+    Green
+}
+
+enum JV {
+    Num Int
+    Obj Map<String, JV>
+}
+
+fn main() {
+    config = {"host" => "localhost", "port" => "8080", "mode" => "debug"}
+
+    // ONE KEY, and a value position that is a full pattern rather than a name:
+    // the "debug" literal has to be tested, and its failure has to abandon the
+    // whole arm.
+    io.print("one key = ${single(config)}")
+    io.print("one key miss = ${single({"mode" => "release"})}")
+
+    // TWO KEYS in one pattern, against a THREE-key map — partial, and both
+    // entries must hold.
+    io.print("two keys = ${two_of(config)}")
+    io.print("two keys short = ${two_of({"host" => "h", "port" => "1"})}")
+
+    // ORDER-INDEPENDENCE. Same three bindings, opposite insertion orders.
+    forward = {"host" => "h", "port" => "p", "mode" => "m"}
+    backward = {"mode" => "m", "port" => "p", "host" => "h"}
+    io.print("forward = ${two_of(forward)}")
+    io.print("backward = ${two_of(backward)}")
+    io.print("orders agree = ${two_of(forward) == two_of(backward)}")
+    // And the maps really are ordered differently, so the agreement above is a
+    // property of the match and not of two identical values.
+    io.print("forward render = ${forward}")
+    io.print("backward render = ${backward}")
+
+    // A MISS FALLS THROUGH TO THE NEXT ARM, and the arm after that binds.
+    io.print("fallthrough = ${first_of({"c" => 3})}")
+    io.print("fallthrough a = ${first_of({"a" => 1})}")
+    io.print("fallthrough b = ${first_of({"b" => 2})}")
+
+    // A LATER ENTRY'S KEY IS NOT EVALUATED once an earlier key missed. Matching
+    // stops at the first missing key, so `noisy(2)` must not print for the second
+    // call below.
+    io.print("both keys = ${noisy_pair({1 => "x", 2 => "y"})}")
+    io.print("first key absent = ${noisy_pair({2 => "y"})}")
+
+    // Keys that are expressions over the surrounding scope.
+    base = 1
+
+    computed = case {2 => "computed"} {
+        {base + 1 => v} -> v
+        _ -> "?"
+    }
+
+    io.print("computed key = ${computed}")
+
+    io.print("pair key = ${by_pair({(1, 2) => "a", (3, 4) => "b"})}")
+    io.print("colour key = ${by_colour({Colour.Green => "g"})}")
+    io.print("id key = ${by_id({Id(5) => "five"})}")
+
+    // NESTED map patterns: a map pattern in the value position of a map pattern,
+    // and one inside a variant payload two levels down.
+    io.print("nested = ${nested({"data" => {"k" => 42}})}")
+    io.print("nested miss = ${nested({"data" => {"other" => 42}})}")
+
+    // The VARIANT literal-attach PATTERN spelling, dotted and qualified. The
+    // construction side stays in CALL form here, not because the attach form is
+    // refused — attach.go lowers it, and testdata/typed_attach.nomi is where the
+    // two forms are compared — but so this fixture keeps testing only patterns.
+    io.print("variant = ${variant(JV.Obj({"a" => JV.Num(1)}))}")
+    io.print("variant nested = ${variant(JV.Obj({"a" => JV.Obj({"b" => JV.Num(7)})}))}")
+    io.print("variant other = ${variant(JV.Num(9))}")
+
+    // The three MAP-DISTINCT spellings. Flat and call-form are literal-attach; the
+    // call form is an enum pattern whose payload is an anonymous map pattern, so
+    // those two reach the same code by different routes. The BARE form has no
+    // type prefix at all: checker.go unwraps a map-distinct scrutinee to its
+    // inner MapType unconditionally, so the runtime has to unwrap it too rather
+    // than gate the unwrap on the type prefix. A runtime that gated it would
+    // answer no-match silently, which only an output comparison sees, so the
+    // bare form is checked here against its golden record.
+    kv = Kvs({"a" => 1, "b" => 2})
+    io.print("distinct flat = ${distinct_flat(kv)}")
+    io.print("distinct call = ${distinct_call(kv)}")
+    io.print("distinct bare = ${distinct_bare(kv)}")
+    io.print("distinct bare miss = ${distinct_bare(Kvs({"z" => 9}))}")
+}
+
+// `single` is one entry whose value is a literal PATTERN. A tree that treated a
+// value position as a binding would match "release" too.
+fn single(m: Map<String, String>): String {
+    case m {
+        {"mode" => "debug"} -> "debug"
+        _ -> "not debug"
+    }
+}
+
+fn two_of(m: Map<String, String>): String {
+    case m {
+        {"host" => h, "mode" => md} -> "${h}/${md}"
+        _ -> "incomplete"
+    }
+}
+
+// Three arms testing three different single keys. The first two miss for a map
+// holding only "c", so the answer proves the fall-through rather than the order.
+fn first_of(m: Map<String, Int>): String {
+    case m {
+        {"a" => n} -> "a=${n}"
+        {"b" => n} -> "b=${n}"
+        _ -> "neither"
+    }
+}
+
+fn noisy_pair(m: Map<Int, String>): String {
+    case m {
+        {noisy(1) => a, noisy(2) => b} -> "${a}${b}"
+        _ -> "no pair"
+    }
+}
+
+fn noisy(n: Int): Int {
+    io.print("evaluating key ${n}")
+    n
+}
+
+fn by_pair(m: Map<(Int, Int), String>): String {
+    case m {
+        {(3, 4) => v} -> v
+        _ -> "?"
+    }
+}
+
+fn by_colour(m: Map<Colour, String>): String {
+    case m {
+        {Colour.Green => v} -> v
+        _ -> "?"
+    }
+}
+
+type Id Int
+
+fn by_id(m: Map<Id, String>): String {
+    case m {
+        {Id(5) => v} -> v
+        _ -> "?"
+    }
+}
+
+fn nested(m: Map<String, Map<String, Int>>): String {
+    case m {
+        {"data" => {"k" => n}} -> "k=${n}"
+        _ -> "no k"
+    }
+}
+
+fn variant(j: JV): String {
+    case j {
+        .Obj{"a" => .Obj{"b" => .Num(n)}} -> "deep ${n}"
+        JV.Obj{"a" => .Num(n)} -> "flat ${n}"
+        .Obj(_) -> "obj"
+        .Num(n) -> "num ${n}"
+    }
+}
+
+fn distinct_flat(kv: Kvs): String {
+    case kv {
+        Kvs{"a" => v} -> "a=${v}"
+        _ -> "?"
+    }
+}
+
+fn distinct_call(kv: Kvs): String {
+    case kv {
+        Kvs({"b" => v}) -> "b=${v}"
+        _ -> "?"
+    }
+}
+
+// No type prefix at all, against a map-distinct scrutinee. The `_` arm is what
+// would make a wrong unwrap SILENT: the arm above would simply never win, and
+// nothing would report it.
+fn distinct_bare(kv: Kvs): String {
+    case kv {
+        {"a" => v} -> "bare a=${v}"
+        _ -> "bare miss"
+    }
+}

@@ -1,0 +1,74 @@
+// A NAMESPACED DISTINCT TYPE, constructed and unwrapped, beside the two
+// constructs whose route it must not steal.
+//
+// The three declarations are chosen so the arm's decline conditions are
+// EXERCISED rather than merely argued: `Day.Hours` is the namespaced distinct
+// this lowers, `Probe.Reading` is a namespaced ENUM whose variants must keep
+// dottedqual.go's route, and `Day.add` is a type-qualified CALL on the same node
+// shape that implCall must still claim first.
+type Day Int
+
+type Day.Hours Int
+
+type Day.Minutes Int
+
+pub struct Probe {
+    id: Int
+}
+
+pub enum Probe.Reading {
+    Steady
+    Spike Int
+}
+
+fn day_value(d: Day): Int {
+    Day(n) = d
+    n
+}
+
+fn hours_value(h: Day.Hours): Int {
+    Day.Hours(n) = h
+    n
+}
+
+fn minutes_value(m: Day.Minutes): Int {
+    Day.Minutes(n) = m
+    n
+}
+
+impl Day {
+    fn shift(d: Day, by: Day.Hours): Day {
+        Day(day_value(d) + hours_value(by) / 24)
+    }
+}
+
+fn reading_text(r: Probe.Reading): String {
+    case r {
+        Probe.Reading.Steady -> "steady"
+        Probe.Reading.Spike(n) -> "spike ${n}"
+    }
+}
+
+test "a namespaced distinct type constructs and unwraps" {
+    assert hours_value(Day.Hours(48)) == 48
+    assert minutes_value(Day.Minutes(90)) == 90
+    // Two namespaced distincts under ONE namespace, so the arm is keyed on the
+    // whole spelling rather than on the leading segment.
+    assert hours_value(Day.Hours(1)) + minutes_value(Day.Minutes(2)) == 3
+}
+
+test "a namespaced distinct passes through a type-qualified call" {
+    // `Day.shift` is a CALL on the same FieldAccess shape the constructor takes,
+    // and implCall must claim it before the constructor arm sees it.
+    assert day_value(Day.shift(Day(10), Day.Hours(48))) == 12
+}
+
+test "a namespaced enum's variants keep the variant route" {
+    assert reading_text(Probe.Reading.Steady) == "steady"
+    assert reading_text(Probe.Reading.Spike(3)) == "spike 3"
+}
+
+test "the unwrap direction still reaches the inner scalar" {
+    h = Day.Hours(7)
+    assert Int(h) == 7
+}

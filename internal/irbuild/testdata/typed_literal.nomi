@@ -1,0 +1,101 @@
+import {
+    std/io
+    std/literals.{Fragment, Literal}
+}
+
+type Sql
+
+impl Literal for Sql {
+    fn from_fragments(fragments: List<Fragment<String>>): String {
+        Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + "'" + v + "'"
+            }
+        )
+    }
+}
+
+type Sum
+
+impl Literal for Sum {
+    fn from_fragments(fragments: List<Fragment<Int>>): String {
+        Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + "[" + s + "]"
+                .Dynamic(n) -> acc + "{" + Int.to_string(n) + "}"
+            }
+        )
+    }
+}
+
+struct Doc {
+    body: String
+}
+
+struct Tick {
+    n: Int
+}
+
+impl Display for Tick {
+    fn to_string(t: Tick): String {
+        "tick" + Int.to_string(t.n)
+    }
+}
+
+struct Tag {
+    name: String
+}
+
+impl Display for Tag {
+    fn to_string(t: Tag): String {
+        "#" + t.name
+    }
+}
+
+impl Literal for Doc {
+    fn from_fragments(fragments: List<Fragment<Display>>): Doc {
+        body = Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + "<" + Display.to_string(v) + ">"
+            }
+        )
+
+        Doc{body}
+    }
+}
+
+fn shout(s: String): String {
+    io.print("slot " + s)
+    s
+}
+
+fn main() {
+    name = "Ada"
+    io.print(Sql"select * from users where name = ${name}")
+    io.print(Sql"no slots")
+    io.print(Sql`raw ${name}`)
+
+    io.print(
+        Sql"""
+        line one ${name}
+        line two
+        """
+    )
+
+    // A non-String instantiation. `Static`'s payload is a String at every T and
+    // `Dynamic`'s is the type argument, so this is the shape where a spec with
+    // the two swapped stops compiling.
+    io.print(Sum"abc${4}de${5}")
+    io.print(Sum"just text")
+
+    // Heterogeneous slots through an existential: two DIFFERENT types in one
+    // list, each dispatching its own `impl Display`.
+    d = Doc"a=${Tick{n: 7}} b=${Tag{name}}"
+    io.print(d.body)
+
+    // Source order: each slot prints as it is evaluated, so a chain built right
+    // to left without temporaries reverses this transcript.
+    io.print(Sql"${shout("a")}|${shout("b")}|${shout("c")}")
+}

@@ -1,0 +1,37 @@
+// TWO SAME-NAMED TYPES FROM DIFFERENT FILES, both dispatched through one
+// bounded type parameter.
+//
+// The seam's part (a) picks the table from the BOUND — one variable, declared
+// in shout.nomi, bound into from two files. Part (b) picks the implementation
+// from a `*rt.TypeID`, and the two `Widget`s have two of those because a type's
+// identity is its declaring file plus its name. A name-keyed table would have
+// one slot for both and the answer would be decided by Go's package
+// initialization order.
+//
+// Neither `announce` call carries a turbofish, so each dictionary is solved
+// from the ARGUMENT's static kind — the same path a name-keyed builder would
+// take, which is what makes this a test of identity rather than of plumbing.
+import {
+    std/io
+    other.other_announced
+    shout.Shout
+}
+
+fn announce<T>(x: T): String where T: Shout {
+    T.shout(x)
+}
+
+struct Widget {
+    label: String
+}
+
+impl Shout for Widget {
+    fn shout(w: Widget): String {
+        "entry widget ${w.label}"
+    }
+}
+
+fn main() {
+    io.print(announce(Widget{label: "here"}))
+    io.print(other_announced())
+}

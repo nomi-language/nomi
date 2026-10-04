@@ -1,0 +1,123 @@
+struct Circle {
+    radius: Float
+}
+
+struct Rectangle {
+    width: Float
+    height: Float
+}
+
+enum Shape {
+    embeds Circle
+    embeds Rectangle
+    Point
+}
+
+type UserId String
+
+enum Identifier {
+    embeds UserId
+    Anonymous
+}
+
+type Expired
+
+enum SessionState {
+    embeds Expired
+    Active
+}
+
+type NumericUserId Int
+
+enum NumericIdentifier {
+    embeds NumericUserId
+}
+
+struct IntCircle {
+    r: Int
+}
+
+enum IntShape {
+    embeds IntCircle
+}
+
+fn make_circle(r: Float): Circle {
+    Circle{radius: r}
+}
+
+fn circle_area(c: Circle): Float {
+    3.14 * c.radius * c.radius
+}
+
+fn area(s: Shape): Float {
+    case s {
+        Shape.Point -> 0.0
+        Shape.Rectangle{width, height} -> width * height
+        Shape.Circle{radius} -> 3.14 * radius * radius
+    }
+}
+
+fn label(id: Identifier): String {
+    case id {
+        Identifier.UserId(name) -> name
+        Identifier.Anonymous -> "anonymous"
+    }
+}
+
+fn describe(state: SessionState): String {
+    case state {
+        .Expired -> "session has expired"
+        SessionState.Active -> "session is active"
+    }
+}
+
+fn id_value(NumericIdentifier.NumericUserId(n)): Int {
+    n
+}
+
+fn int_area(IntShape.IntCircle{r}): Int {
+    r * r
+}
+
+test "embedded structs coerce to their containing enum" {
+    raw_circle = make_circle(5.0)
+    c: Shape = Circle{radius: 5.0}
+    r: Shape = Rectangle{width: 3.0, height: 4.0}
+    c2 = Shape.Circle{radius: 1.0}
+
+    shapes: List<Shape> = [Circle{radius: 5.0}, Rectangle{width: 3.0, height: 4.0}, Shape.Point]
+
+    areas =
+        shapes
+        |> Iter.map(area)
+        |> Iter.to_list()
+
+    assert circle_area(raw_circle) == 78.5
+    assert area(c2) == 3.14
+    assert c.radius == 5.0
+    assert r.width == 3.0
+    assert areas == [78.5, 12.0, 0.0]
+}
+
+test "embedded distinct types coerce and destructure through enum variants" {
+    alice: Identifier = UserId("alice")
+    guest = Identifier.Anonymous
+    bob = Identifier.UserId("bob")
+
+    expired: SessionState = Expired
+    active = SessionState.Active
+
+    assert label(alice) == "alice"
+    assert label(guest) == "anonymous"
+    assert label(bob) == "bob"
+    assert describe(expired) == "session has expired"
+    assert describe(active) == "session is active"
+}
+
+test "embedded variants can destructure directly in parameter position" {
+    coerced: NumericIdentifier = NumericUserId(3)
+
+    assert id_value(NumericIdentifier.NumericUserId(7)) == 7
+    assert id_value(coerced) == 3
+    assert int_area(IntShape.IntCircle{r: 4}) == 16
+}

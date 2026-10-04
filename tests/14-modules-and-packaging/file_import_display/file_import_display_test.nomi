@@ -1,0 +1,27 @@
+import {
+    std/compiler.{self, RunFile}
+    shapes
+}
+
+test "io.print renders a type another file declares, imported as a file" {
+    result = compiler.run_file(RunFile{entry_point: "main"})
+
+    assert result == Ok(
+        """
+        Point{x: 0, y: 0}
+        $12.50
+        Red
+        at Point{x: 0, y: 0} for $12.50
+        [$12.50, $12.50]
+        Point{x: 0, y: 0}
+        Red
+
+        """
+    )
+}
+
+test "interpolation and Display reach the declaring file's impl" {
+    assert "${shapes.price()}" == "$12.50"
+    assert Display.to_string(shapes.origin()) == "Point{x: 0, y: 0}"
+    assert "${[shapes.red(), shapes.red()]}" == "[Red, Red]"
+}

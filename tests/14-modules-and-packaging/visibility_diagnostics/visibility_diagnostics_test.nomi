@@ -1,0 +1,86 @@
+import {
+    std/compiler.{self, Project}
+    test_helpers
+}
+
+test "private functions cannot be imported" {
+    diagnostics = compiler.check_project(Project{
+        entry_point: "main",
+        files: {
+            "main" => """
+                import api.ping
+
+                fn main(): String {
+                  ping()
+                }
+                """,
+            "api" => """
+                fn ping(): String {
+                  "pong"
+                }
+                """,
+        },
+    })
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "ping' is private and cannot be imported")
+}
+
+test "private types cannot be imported through public modules" {
+    diagnostics = compiler.check_project(Project{
+        entry_point: "main",
+        files: {
+            "main" => """
+                import api.Hidden
+
+                fn main(): Hidden {
+                  Hidden{name: "Ada"}
+                }
+                """,
+            "api" => """
+                struct Hidden {
+                  name: String
+                }
+                """,
+        },
+    })
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "Hidden' is private and cannot be imported")
+}
+
+test "private helpers are hidden from imported modules" {
+    diagnostics = compiler.check_project(Project{
+        entry_point: "main",
+        files: {
+            "main" => """
+                import api.{self, Widget}
+
+                fn main(): String {
+                  w: Widget = api.make("Ada")
+                  api.secret(w)
+                }
+                """,
+            "api" => """
+                pub struct Widget {
+                  name: String
+                }
+
+                pub fn label(w: Widget): String {
+                  w.name
+                }
+
+                fn secret(w: Widget): String {
+                  "secret " + w.name
+                }
+
+                pub fn make(name: String): Widget {
+                  Widget{name}
+                }
+                """,
+        },
+    })
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "file 'api' has no member 'secret'")
+}

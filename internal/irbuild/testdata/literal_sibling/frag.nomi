@@ -1,0 +1,40 @@
+// The only file in this program that NAMES `Fragment`.
+//
+// Its signatures are what put a `std/literals.Fragment<T>` into the entry's
+// hands, so the entry has values of that type while mentioning it nowhere. See
+// main.nomi.
+import std/literals.Fragment
+
+pub fn static_string(s: String): Fragment<String> {
+    Fragment.Static<String>(s)
+}
+
+pub fn dynamic_string(s: String): Fragment<String> {
+    Fragment.Dynamic(s)
+}
+
+pub fn static_int(s: String): Fragment<Int> {
+    Fragment.Static<Int>(s)
+}
+
+pub fn dynamic_int(n: Int): Fragment<Int> {
+    Fragment.Dynamic(n)
+}
+
+pub fn show_string(f: Fragment<String>): String {
+    case f {
+        .Static(s) -> "static/" + s
+        .Dynamic(v) -> "dynamic/" + v
+    }
+}
+
+pub fn show_int(f: Fragment<Int>): String {
+    case f {
+        .Static(s) -> "static/" + s
+        .Dynamic(n) -> "dynamic/" + Int.to_string(n)
+    }
+}
+
+pub fn join(fs: List<Fragment<String>>): String {
+    Iter.reduce(fs, |acc = "", f| acc + "|" + show_string(f))
+}

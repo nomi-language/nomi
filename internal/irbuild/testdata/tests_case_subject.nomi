@@ -1,0 +1,39 @@
+// A `case` in an assertion subject, which records through a path of its own.
+//
+// eval's evalCaseMatchWithValue records the SCRUTINEE before it tries a single
+// branch, and it does so unconditionally — so a subject built out of a `case`
+// shows a row no comparison produced. The arms are the same activation as the
+// assertion, so an arm's own comparison IS part of the report; only a lambda
+// body is excluded. Both facts are pinned here, and both assertions fail so the
+// report text is what gets compared.
+fn classify(n: Int): Int {
+    case n {
+        1 -> 10
+        _ -> 20
+    }
+}
+
+test "a case in a subject shows its scrutinee" {
+    n = 2
+
+    assert case n {
+        1 -> True
+        _ -> False
+    }
+}
+
+test "an arm's own comparison is part of the same activation" {
+    n = 3
+
+    assert case n {
+        1 -> False
+        _ -> n > 90
+    }
+}
+
+// A `case` inside a CALLEE is behind the interpreter's per-call boundary and is
+// a separate declaration for the builder, so `classify`'s scrutinee never
+// appears — only the call's own argument does.
+test "a callee's case scrutinee stays inside it" {
+    assert classify(4) == 10
+}

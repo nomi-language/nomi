@@ -1,0 +1,78 @@
+// A stdlib error must render through its own `impl Display`.
+//
+// Runtime type identity is (declaring file, name), spelled into the value's
+// runtime type name — `random.Error`, not `Error`. Two std modules declare
+// an `Error` (calendar and random), so a value stamped with the BARE name
+// matches two registered impls, and dispatch correctly refuses to guess
+// between them: `Display.to_string: no implementation for type 'Error'`.
+//
+// Until 2026-08-30 exactly one construction shape got this wrong. A
+// STRUCT-SHAPED variant literal (`Error.InvalidIntRange{from, to}`) stamped
+// the enum as SPELLED at the construction site, while bare and positional
+// variants read the declared enum's qualified name. So one enum produced two
+// identities depending on which variant you built, and only one could
+// dispatch. Both shapes are pinned below for that reason.
+import {
+    std/calendar
+    std/random.Generator
+}
+
+test "a struct-shaped stdlib error variant renders" {
+    case Generator.int(6, 1) {
+        Ok(_) -> assert False
+        Err(e) -> assert Display.to_string(e) == "invalid integer range: 6..=1"
+    }
+}
+
+test "a bare stdlib error variant renders" {
+    case Generator.weighted((0.0, "never"), []) {
+        Ok(_) ->
+            assert False
+
+        Err(e) ->
+            assert Display.to_string(
+                e
+            ) == "random weights must include at least one positive weight"
+    }
+}
+
+// The shape a caller writes first. Interpolation goes through Display, so it
+// trapped for exactly the same reason.
+test "interpolation renders a stdlib error" {
+    case Generator.int(6, 1) {
+        Ok(_) -> assert False
+        Err(e) -> assert "${e}" == "invalid integer range: 6..=1"
+    }
+}
+
+test "Debug.inspect renders a stdlib error" {
+    case Generator.int(6, 1) {
+        Ok(_) -> assert False
+        Err(e) -> assert Debug.inspect(e) != ""
+    }
+}
+
+// A second module's same-named Error keeps its OWN impl. Both resolve, and
+// they resolve to different text — which is what shows the two identities are
+// being told apart rather than one of them winning.
+test "two modules' same-named errors each get their own impl" {
+    case calendar.Date.parse("05/04/2026") {
+        Ok(_) ->
+            assert False
+
+        Err(calendar_error) ->
+            case Generator.int(6, 1) {
+                Ok(_) ->
+                    assert False
+
+                Err(random_error) -> {
+                    assert Display.to_string(
+                        calendar_error
+                    ) == "invalid format: expected YYYY-MM-DD, got \"05/04/2026\""
+
+                    assert Display.to_string(random_error) == "invalid integer range: 6..=1"
+                    refute Display.to_string(calendar_error) == Display.to_string(random_error)
+                }
+            }
+    }
+}

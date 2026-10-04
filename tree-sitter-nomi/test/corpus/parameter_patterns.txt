@@ -1,0 +1,120 @@
+==================
+Distinct destructuring parameters (self-typed)
+==================
+
+fn subtract(Dur(x), Dur(y)): Dur {
+  x
+}
+
+---
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (enum_pattern
+          (type_identifier)
+          (identifier)))
+      (parameter
+        name: (enum_pattern
+          (type_identifier)
+          (identifier))))
+    (type_identifier)
+    (body
+      (identifier))))
+
+==================
+Typed struct destructuring parameter
+==================
+
+fn sum_pt(Point{x, y}): Int {
+  x
+}
+
+---
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (struct_pattern
+          (type_identifier)
+          (pattern_field
+            name: (identifier))
+          (pattern_field
+            name: (identifier)))))
+    (type_identifier)
+    (body
+      (identifier))))
+
+==================
+Tuple destructuring parameter with annotation
+==================
+
+fn add_pair((a, b): (Int, Int)): Int {
+  a
+}
+
+---
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (tuple_pattern
+          (identifier)
+          (identifier))
+        (tuple_type
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (identifier))))
+
+==================
+Qualified single-variant enum destructuring parameter
+==================
+
+fn qualified(E.V(x)): Int {
+  x
+}
+
+---
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (enum_pattern
+          (type_identifier)
+          (type_identifier)
+          (identifier))))
+    (type_identifier)
+    (body
+      (identifier))))
+
+==================
+Distinct destructuring lambda parameters
+==================
+
+once sub = |Dur(x), Dur(y)| x
+
+---
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (lambda
+      (lambda_parameter
+        name: (enum_pattern
+          (type_identifier)
+          (identifier)))
+      (lambda_parameter
+        name: (enum_pattern
+          (type_identifier)
+          (identifier)))
+      body: (identifier))))

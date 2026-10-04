@@ -1,0 +1,38 @@
+// A test that FAILS on purpose, so the whole failure REPORT of a shape-subject
+// `testing.check` is compared byte for byte.
+//
+// # Why a deliberately red fixture exists at all
+//
+// `tests/` contains no program that fails an assertion. The differential
+// sweep therefore compares only what a passing case prints, and reads `0 DIFFED`
+// no matter how wrong a failure renders — three live divergences were found in
+// this exact surface on the day this was written, all of them invisible to the
+// sweep. The only way to compare failure output is to produce some.
+//
+// This file is NOT in the corpus and is never run by `nomi test tests`.
+// It is reached only by TestPinned_CheckShapeFailureReport, whose whole subject
+// is that the two paths agree about a NON-ZERO exit and the text above it.
+//
+// # What it compares that check_shape.nomi cannot
+//
+// check_shape.nomi reads the failure's FIELDS, which pins each value. This one
+// pins the whole rendered object: the second case destructures a failing check
+// with `assert Ok(_) = …`, so the report's `actual:` row is `value.Inspect` of
+// the entire `AssertionFailure` VALUE — eight fields including two `Maybe`s and
+// two `List`s, composed and SORTED, built independently by
+// value.StructVal.Display and by rt.InspectStruct. That is the widest
+// disagreement surface in the family and no field-by-field assertion reaches it.
+import std/testing
+
+fn find_name(id: Int): Maybe<String> {
+    if id == 1 { Some("Ada") } else { None }
+}
+
+test "a shape check that holds keeps the whole file honest" {
+    assert Ok(found) = testing.check(find_name(1))
+    assert found
+}
+
+test "a failing shape check renders its own failure value" {
+    assert Ok(_) = testing.check(find_name(2))
+}

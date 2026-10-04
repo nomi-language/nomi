@@ -1,0 +1,41 @@
+// A defaulted `DateTime.in_zone` call from a file that CANNOT SEE the default's
+// type, which is the shape that decides where a stdlib default may be filled.
+//
+// `mode: Disambiguation = Disambiguation.Compatible` is declared in
+// std/calendar.nomi. This file imports `DateTime`, `Error` and `NaiveDateTime`
+// and NOT `Disambiguation` — legal Nomi, and the corpus contains it
+// (05-calendar-and-time/datetime_test.nomi). So filling the default in the
+// CALLER's package would have to lower `Disambiguation.Compatible` against a
+// type registry that has never heard the name, and this file would refuse for
+// no reason a programmer could act on.
+//
+// It is filled in the stdlib's own generated package instead, by an
+// arity-reduced wrapper, and this file only ever spells a shorter arity. See
+// internal/irbuild/stdlib.go's emitStdDefaultWrappers, and
+// TestStdDefaultWrapperIsEmittedAndCalled for the assertion over the emitted
+// text.
+//
+// Kept separate from calendar_fold.nomi rather than folded into it, because
+// that file has to import `Disambiguation` to name the other three modes — so
+// it cannot be this witness, and a fixture that could not fail for the reason
+// it exists is worse than no fixture.
+import {
+    std/calendar.{DateTime, Error, NaiveDateTime}
+    std/io
+}
+
+fn run(): Result<Unit, Error> {
+    // The fold again, so the answer here is comparable with calendar_fold.nomi's
+    // `fold_default` line by eye: 01:30-04:00, the pre-transition occurrence.
+    fold = try NaiveDateTime"2026-11-01T01:30:00"
+    zoned = try DateTime.in_zone(fold, "America/New_York")
+    io.print("defaulted = " + DateTime.to_string(zoned))
+    Ok(Unit)
+}
+
+fn main() {
+    case run() {
+        Ok(_u) -> Unit
+        Err(_e) -> io.print("FAILED")
+    }
+}

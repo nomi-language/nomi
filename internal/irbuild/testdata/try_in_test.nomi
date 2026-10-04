@@ -1,0 +1,100 @@
+// `try` inside a `test` body, which is a boundary of its own and not a harder
+// case of the `fn`/lambda one.
+//
+// MEASURED against `nomi test` before any of it was lowered: a `try` whose
+// operand is `Err`/`None` does not return a value anywhere — it FAILS THE CASE,
+// with `line N: test returned early`, the `try` expression as the formatter
+// renders it, and the propagated variant as value.Inspect renders it. The run
+// then continues with the next case. So the observable difference between
+// lowering this right and lowering it as an ordinary `return` is the whole
+// report block plus the pass/fail tally plus the exit status, and the absolute
+// pin below is what asserts it — a differential comparison alone would pass if
+// both sides silently reported nothing.
+//
+// Four properties this file exists to pin, each in a case:
+//
+//   - The success path unwraps and the case runs on (`try succeeds`).
+//   - The propagate path ends the case where the `try` is, so a print AFTER it
+//     does not happen while a print BEFORE it does (`try propagates`).
+//   - The `try`'s own line is reported even when it is nested inside an `if`
+//     several statements down (`try inside a nested construct`).
+//   - A `try` inside a LAMBDA in a test body unwinds the LAMBDA, so the case
+//     keeps running and observes the failure as an ordinary value
+//     (`try inside a lambda`). That is the row a lowering which hoisted every
+//     test-body `try` to the test function would fail, and it fails on the
+//     ANSWER: the case would go from `ok` to `FAIL`.
+//
+// The two spellings' TEXT differs and both are pinned: the prefix arm renders
+// the `try` node (`try parse(-1)`) and the pipe arm renders the whole pipe
+// (`-1 |> try parse()`), matching eval.go's two arms.
+import std/io
+
+fn parse(n: Int): Result<Int, String> {
+    if n < 0 {
+        Err("negative ${n}")
+    } else {
+        Ok(n * 2)
+    }
+}
+
+fn find(n: Int): Maybe<Int> {
+    if n == 3 { Some(30) } else { None }
+}
+
+test "try succeeds" {
+    v = try parse(4)
+
+    assert v == 8
+}
+
+test "try propagates" {
+    io.print("before the try")
+    v = try parse(-1)
+
+    io.print("after the try")
+    assert v == 0
+}
+
+test "try propagates None" {
+    v = try find(4)
+
+    assert v == 0
+}
+
+test "try inside a nested construct" {
+    base = try parse(2)
+
+    if base > 0 {
+        inner = try parse(-7)
+
+        assert inner == 0
+    } else {
+        assert base == 0
+    }
+}
+
+test "try in pipe position" {
+    v = -1 |> try parse()
+
+    assert v == 0
+}
+
+test "try inside a lambda" {
+    f = |x: Int| {
+        v = try parse(x)
+
+        Ok(v + 7)
+    }
+
+    inner = f(-4)
+    io.print("after the lambda")
+
+    case inner {
+        Ok(_) -> assert False
+        Err(e) -> assert e == "negative -4"
+    }
+}
+
+test "the case after a propagating one still runs" {
+    assert 1 == 1
+}

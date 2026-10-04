@@ -1,0 +1,561 @@
+/* Tour theming: Zed's authoritative "One Light" / "One Dark" palettes mapped
+   onto Starlight's chrome (--sl-* vars) AND the tour's code palette (--tok-* /
+   --tour-*), keyed off Starlight's data-theme so light/dark just flips. Fonts:
+   Inter for prose/headings (harmonizes with Starlight's UI chrome), JetBrains
+   Mono for code (self-hosted, see public/fonts/NOTICE.txt). Code blocks are
+   highlighted + made interactive client-side by /nomi/tour-client.mjs. */
+
+/* Self-hosted fonts. */
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 400;
+  font-display: swap; src: url("/fonts/inter-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 700;
+  font-display: swap; src: url("/fonts/inter-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono"; font-style: normal; font-weight: 400;
+  font-display: swap; src: url("/fonts/jetbrains-mono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono"; font-style: normal; font-weight: 700;
+  font-display: swap; src: url("/fonts/jetbrains-mono-700.woff2") format("woff2");
+}
+
+:root {
+  --sl-font: "Inter", system-ui, -apple-system, sans-serif;
+  --sl-font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root[data-theme="light"] {
+  /* Starlight chrome — One Light. */
+  --sl-color-bg: #fafafa;
+  --sl-color-bg-sidebar: #f0f1f4;
+  --sl-color-bg-nav: #f0f1f4;
+  --sl-color-text: #383a42;
+  --sl-color-white: #242529; /* headings / strong */
+  --sl-color-accent: #5b79e3;
+  --sl-color-text-accent: #5b79e3;
+  --sl-color-accent-low: #dde4fb;
+  --sl-color-accent-high: #2a3f7a;
+  --sl-color-hairline: #e4e6ea;
+  --sl-color-hairline-light: #e4e6ea;
+  --sl-color-hairline-shade: #d8dbe0;
+  --sl-color-bg-inline-code: #eceef1;
+  /* Tour code palette. */
+  --tour-bg: #fafafa; --tour-fg: #242529; --tour-out-bg: #f0f1f4;
+  --tour-divider: #e4e6ea; --tour-caret: #242529; --tour-err: #d3604f; --tour-ok: #43834a;
+  --tok-kw: #a449ab; --tok-str: #649f57; --tok-num: #ad6e25; --tok-comment: #a2a3a7;
+  --tok-type: #3882b7; --tok-fn: #5b79e3; --tok-variant: #c18401; --tok-prop: #d3604f;
+  --tok-plain: #242529;
+  --nomi-ref-muted: #8f949d;
+}
+:root[data-theme="dark"] {
+  /* Starlight chrome — One Dark. */
+  --sl-color-bg: #282c33;
+  --sl-color-bg-sidebar: #21252b;
+  --sl-color-bg-nav: #21252b;
+  --sl-color-text: #acb2be;
+  --sl-color-white: #d7dae0; /* headings / strong */
+  --sl-color-accent: #73ade9;
+  --sl-color-text-accent: #73ade9;
+  --sl-color-accent-low: #1f3147;
+  --sl-color-accent-high: #cfe1f7;
+  --sl-color-hairline: #3a3f4b;
+  --sl-color-hairline-light: #3a3f4b;
+  --sl-color-hairline-shade: #1c1f24;
+  --sl-color-bg-inline-code: #2f343d;
+  /* Tour code palette. */
+  --tour-bg: #282c33; --tour-fg: #acb2be; --tour-out-bg: #21252b;
+  --tour-divider: #464b57; --tour-caret: #acb2be; --tour-err: #d07277; --tour-ok: #98c379;
+  --tok-kw: #b477cf; --tok-str: #a1c181; --tok-num: #bf956a; --tok-comment: #5d636f;
+  --tok-type: #6eb4bf; --tok-fn: #73ade9; --tok-variant: #dfc184; --tok-prop: #d07277;
+  --tok-plain: #acb2be;
+  --nomi-ref-muted: var(--sl-color-gray-3);
+}
+
+/* Code blocks. */
+pre.nomi-tour {
+  background: var(--tour-bg);
+  color: var(--tour-fg);
+  padding: 0.75em 1em;
+  margin: 1em 0;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-feature-settings: "calt" 1, "liga" 1;
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: pre;
+}
+pre.nomi-tour.nomi-code-nomi,
+pre.nomi-tour.nomi-code-go {
+  position: relative;
+  padding-right: 4.75em;
+}
+pre.nomi-tour.nomi-code-nomi::before,
+pre.nomi-tour.nomi-code-go::before {
+  position: absolute;
+  top: 0.55em;
+  right: 0.75em;
+  padding: 0.2em 0.5em;
+  border-radius: 3px;
+  color: #fff;
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1.2;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+pre.nomi-tour.nomi-code-nomi::before {
+  content: "Nomi";
+  background: #5b79e3;
+}
+pre.nomi-tour.nomi-code-go::before {
+  content: "Go";
+  background: #25845f;
+}
+/* SSR'd runnable blocks keep an inner <code> until the client enhances them;
+   keep it flush with the surrounding .nomi-tour (no Starlight code styling). */
+.nomi-tour > code {
+  font: inherit;
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+.nomi-tour .tok-kw      { color: var(--tok-kw); }
+.nomi-tour .tok-str     { color: var(--tok-str); }
+.nomi-tour .tok-num     { color: var(--tok-num); }
+.nomi-tour .tok-comment { color: var(--tok-comment); }
+.nomi-tour .tok-type    { color: var(--tok-type); }
+.nomi-tour .tok-fn      { color: var(--tok-fn); }
+.nomi-tour .tok-variant { color: var(--tok-variant); }
+.nomi-tour .tok-prop    { color: var(--tok-prop); }
+.nomi-tour .tok-special { color: var(--tok-prop); }
+.nomi-tour .tok-ns      { color: var(--tok-type); }
+.nomi-tour .tok-param   { color: var(--tok-prop); }
+.nomi-tour .tok-var     { color: var(--tok-plain); }
+.nomi-tour .nomi-trailing-space {
+  color: var(--tok-comment);
+  opacity: 0.55;
+}
+:root[data-theme="dark"] .nomi-tour span[style*="--shiki-dark"] {
+  color: var(--shiki-dark) !important;
+}
+.nomi-out .tok-kw       { color: var(--tok-kw); }
+.nomi-out .tok-str      { color: var(--tok-str); }
+.nomi-out .tok-num      { color: var(--tok-num); }
+.nomi-out .tok-comment  { color: var(--tok-comment); }
+.nomi-out .tok-type     { color: var(--tok-type); }
+.nomi-out .tok-fn       { color: var(--tok-fn); }
+.nomi-out .tok-variant  { color: var(--tok-variant); }
+.nomi-out .tok-prop     { color: var(--tok-prop); }
+.nomi-out .tok-ns       { color: var(--tok-type); }
+.nomi-out .tok-param,
+.nomi-out .tok-var      { color: var(--tok-plain); }
+.nomi-out .nomi-dbg-label { color: var(--tok-type); }
+.nomi-out .nomi-dbg-loc   { color: var(--tok-comment); }
+
+/* ─── Interactive examples (tour-interactive.mjs, wired in the next stage) ─── */
+.nomi-interactive {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr; /* code on top, output stacked below */
+  gap: 1px;
+  margin: 1em 0;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--tour-divider);
+}
+.nomi-live-controls {
+  position: absolute;
+  top: 0;
+  right: 0.45em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  z-index: 3;
+}
+/* Live indicator on every runnable widget — a pulsing accent dot at
+   top-right with a hover tooltip explaining the interactive behavior.
+   Static `language-nomi` snippets keep their bare `pre.nomi-tour` look. */
+.nomi-live {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  cursor: help;
+  border-radius: 50%;
+}
+.nomi-live::before {
+  content: "";
+  position: absolute;
+  inset: 6px; /* 6px inset on an 18px box = 6px dot */
+  border-radius: 50%;
+  background: var(--sl-color-accent);
+  animation: nomi-pulse 1.8s ease-in-out infinite;
+}
+.nomi-live:focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 1px;
+}
+.nomi-formatting {
+  display: none;
+  align-items: center;
+  gap: 0.35em;
+  height: 18px;
+  padding: 0 0.55em;
+  border: 1px solid color-mix(in srgb, var(--sl-color-accent) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tour-bg) 88%, var(--sl-color-accent) 12%);
+  color: var(--sl-color-accent);
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-size: 0.66em;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-1px);
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+.nomi-formatting::before {
+  content: "";
+  width: 0.62em;
+  height: 0.62em;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1.5px solid var(--sl-color-accent);
+  border-top-color: transparent;
+  opacity: 0.85;
+  animation: nomi-spin 0.75s linear infinite;
+}
+.nomi-interactive.is-formatting .nomi-formatting {
+  display: inline-flex;
+  opacity: 1;
+  transform: translateY(0);
+}
+.nomi-stdlib-test {
+  margin: 0.75em 0 1.25em;
+}
+.nomi-ref-exports {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.85rem;
+  margin: 0.75rem 0 2rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 8px;
+  background: var(--tour-out-bg);
+}
+.nomi-ref-exports p {
+  margin: 0 0 0.35rem;
+  color: var(--sl-color-gray-3);
+  font-size: 0.78em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.nomi-ref-exports ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.nomi-ref-exports li {
+  margin: 0.18rem 0;
+}
+.nomi-ref-exports a {
+  text-decoration: none;
+}
+.nomi-ref-exports a:hover {
+  text-decoration: underline;
+}
+.nomi-ref-owner,
+.nomi-ref-detail,
+.nomi-ref-context {
+  color: var(--sl-color-gray-3);
+}
+.sl-heading-wrapper .nomi-ref-owner,
+.sl-heading-wrapper .nomi-ref-detail {
+  color: var(--nomi-ref-muted);
+}
+.sl-markdown-content .sl-heading-wrapper.level-h2:has(.nomi-ref-detail):has(.nomi-ref-name) {
+  margin-top: 2.25rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--sl-color-hairline);
+}
+.sl-markdown-content .sl-heading-wrapper.level-h2:has(.nomi-ref-owner):has(.nomi-ref-name) {
+  font-size: var(--sl-text-h3);
+}
+.sl-markdown-content .sl-heading-wrapper.level-h2:has(.nomi-ref-owner):has(.nomi-ref-name) > h2 {
+  font-size: var(--sl-text-h3);
+}
+.nomi-ref-owner,
+.nomi-ref-detail {
+  font-weight: 600;
+}
+.nomi-ref-context {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0.35rem 0 1rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.35rem;
+  background: var(--tour-out-bg);
+  font-family: var(--sl-font-mono);
+  font-size: var(--sl-text-xs);
+}
+.nomi-ref-test-label {
+  margin: 1.1em 0 0.45em;
+  color: var(--sl-color-gray-3);
+  font-size: 0.78em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.nomi-test-program-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 1rem 0 2rem;
+}
+.nomi-test-program-nav a {
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 6px;
+  color: var(--sl-color-text);
+  font-size: 0.86rem;
+  line-height: 1.2;
+  padding: 0.38rem 0.58rem;
+  text-decoration: none;
+}
+.nomi-test-program-nav a:hover {
+  border-color: var(--sl-color-accent);
+  color: var(--sl-color-text-accent);
+}
+.nomi-test-program-path {
+  margin: -0.2rem 0 0.55rem;
+  color: var(--sl-color-gray-3);
+  font-size: 0.84rem;
+}
+.nomi-test-program-path code {
+  color: inherit;
+}
+@keyframes nomi-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+@keyframes nomi-spin {
+  to { transform: rotate(1turn); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nomi-live::before { animation: none; opacity: 0.7; }
+  .nomi-formatting::before { animation: none; }
+}
+.nomi-editor {
+  display: grid;
+  overflow-x: auto;
+  background: var(--tour-bg);
+}
+.nomi-editor > pre.nomi-tour,
+.nomi-editor > textarea.nomi-src {
+  grid-area: 1 / 1;
+  margin: 0;
+  padding: 0.75em 1em;
+  border: 0;
+  border-radius: 0;
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-feature-settings: "calt" 1, "liga" 1;
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: visible;
+  tab-size: 2;
+}
+.nomi-editor > pre.nomi-tour { pointer-events: none; }
+.nomi-editor > textarea.nomi-src {
+  /* Lift the textarea above the <pre> so its caret/selection show through. */
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  /* field-sizing: content makes the textarea's box equal its content,
+     so it never scrolls internally — the highlight <pre> underneath stays
+     pixel-aligned with the caret regardless of how many lines the user
+     types. (Chrome 123+, Safari 17.4+; graceful fallback to grid-stretch
+     where unsupported, which is what single-file relies on.) */
+  field-sizing: content;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--tour-caret);
+  resize: none;
+  outline: none;
+}
+.nomi-out {
+  margin: 0;
+  padding: 0.6em 1em;
+  border: 0;
+  background: var(--tour-out-bg);
+  color: var(--tour-fg);
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  min-height: 1.5em;
+}
+.nomi-out .nomi-err { color: var(--tour-err); }
+.nomi-out .nomi-test-fail { color: var(--tour-err); }
+.nomi-out .nomi-test-ok { color: var(--tour-ok); }
+.nomi-out .nomi-test-detail { color: var(--tok-comment); }
+.nomi-out .nomi-test-code,
+.nomi-out .nomi-inline-code { color: var(--tour-fg); }
+
+/* Multi-file tabs (// FILE: markers split a block into per-file panes). */
+.nomi-tabs {
+  display: flex;
+  background: var(--tour-out-bg);
+  overflow-x: auto;
+  margin: 0;
+  padding: 0;
+}
+.nomi-tab {
+  font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
+  font-size: 0.82em;
+  background: transparent;
+  color: var(--tour-fg);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin: 0;
+  padding: 0.45em 1em;
+  cursor: pointer;
+  white-space: nowrap;
+  opacity: 0.65;
+}
+.nomi-tab:hover {
+  opacity: 1;
+}
+.nomi-tab.is-active {
+  opacity: 1;
+  border-bottom-color: var(--tour-caret);
+}
+.nomi-tab:focus-visible {
+  outline: 2px solid var(--tour-caret);
+  outline-offset: -2px;
+}
+.nomi-editors {
+  display: grid;
+  grid-template-columns: 1fr;
+  background: var(--tour-bg);
+  margin: 0;
+}
+.nomi-editors > .nomi-editor {
+  margin: 0;
+}
+.nomi-editors > .nomi-editor[hidden] {
+  display: none !important;
+}
+
+/* Hover tooltip (LSP hover via nomiHover) — same content as Zed. */
+.nomi-hover {
+  position: fixed;
+  z-index: 50;
+  display: none;
+  max-width: min(48ch, 90vw);
+  padding: 0.9em 1.15em;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-text);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  font-size: 0.85em;
+  line-height: 1.5;
+  overflow: hidden;
+}
+.nomi-hover p { margin: 0.4em 0; }
+.nomi-hover p:first-child { margin-top: 0; }
+.nomi-hover p:last-child { margin-bottom: 0; }
+/* Code inside the hover sits flush in the tooltip — no nested card, just the
+   vertical spacing — and matches the tooltip's text size (the global
+   pre.nomi-tour / code sizes are smaller, and em would compound). */
+.nomi-hover pre.nomi-tour {
+  margin: 0.35em 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 1em;
+}
+.nomi-hover code { font-family: var(--sl-font-mono); font-size: 1em; }
+
+/* Starlight asides (`:::note`, `:::tip`, etc.) — give the container more
+   breathing room above so it reads as a clear pause from the main content,
+   not a continuation. */
+.sl-markdown-content .starlight-aside {
+  margin-top: 2.5rem;
+}
+
+/* HOME HERO — stack the wordmark above the copy and let it run wider.
+
+   Starlight's default hero is two columns from 50rem up, with the image on the
+   right capped at 25rem beside the heading. That framing suits a square mascot;
+   it does not suit a WORDMARK, which is 733x252 and reads as a title rather
+   than as an illustration sitting beside one. So: single column at every
+   width, mark first, centered.
+
+   Scoped to `.hero`, which Starlight renders only on a page that declares one.
+   This file is loaded on EVERY page, so an unscoped `img` rule here would
+   reach the whole tour. */
+.hero {
+  grid-template-columns: 100%;
+  justify-items: center;
+  /* Starlight's 1rem was tuned for a hero whose image sits BESIDE the copy.
+     Stacked, and at this scale, 1rem leaves the sentence almost touching the
+     letterforms — the mark's viewBox has very little bottom bearing. */
+  gap: 1.75rem;
+  /* Starlight's `padding-block: clamp(2.5rem, 1rem + 10vmin, 10rem)` from 50rem
+     up is sized for a hero that is the whole viewport — a mascot beside a
+     display-size title and a row of buttons. Measured at 1568x715 it puts
+     87.5rem-worth of air (87.5px) above AND below a mark only 176px tall, so
+     the padding is half the artwork again on each side and the first paragraph
+     lands 112px under the sentence.
+
+     Roughly halved. 3vmin still scales with the viewport, so a short window
+     tightens and a tall one opens up, but the ceiling stops it well short of
+     pushing the prose below the fold. This overrides the media-query value
+     without repeating the media query because tour.css is UNLAYERED and
+     Starlight's rule sits in `@layer starlight.core` — unlayered styles win
+     over layered ones regardless of specificity, which is the same reason the
+     grid and `order` overrides above take effect. */
+  padding-block: clamp(1.5rem, calc(1rem + 3vmin), 3.5rem);
+}
+
+.hero > img {
+  /* Beats Starlight's `order: 2`, which moves the image into the right column
+     at wide widths. -1 keeps it above the copy at every width. */
+  order: -1;
+  /* Wider than the 25rem default because the aspect ratio is ~2.9:1: at 25rem
+     the letterforms stand only about 8rem tall in a hero with room for more.
+     Capped in `rem` rather than `%` so it stops growing on a very wide
+     viewport instead of dominating the page. */
+  width: min(100%, 32rem);
+}
+
+.hero .stack,
+.hero .copy {
+  text-align: center;
+  align-items: center;
+}
+
+/* The h1 on the home page is a sentence, not a name, so the `6xl` ceiling of
+   Starlight's clamp overshoots it — it wraps to three lines and competes with
+   the mark above it. Hold it to subtitle size. */
+.hero h1 {
+  font-size: clamp(var(--sl-text-xl), calc(0.25rem + 2.5vw), var(--sl-text-3xl));
+  font-weight: 500;
+  color: var(--sl-color-text);
+  /* No `max-width` here on purpose. Starlight already caps `.copy > *` at
+     50ch, and this sentence is 45 characters — a tighter cap only forces a
+     wrap that orphans the last word under the mark. */
+}

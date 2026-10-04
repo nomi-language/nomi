@@ -1,0 +1,72 @@
+// Range literals over user element types: a struct, an enum, and another
+// file's distinct type. Each is ordered by its own Comparable impl and stepped
+// by its own Steppable impl.
+import {
+    std/io
+    units
+}
+
+struct Meters {
+    n: Int
+}
+
+derive Comparable for Meters
+
+impl Steppable<Int> for Meters {
+    fn step_by(value: Meters, by: Int): Maybe<Meters> {
+        if value.n + by > 9 {
+            None
+        } else {
+            Some(Meters{n: value.n + by})
+        }
+    }
+}
+
+enum Level {
+    Low
+    Mid
+    High
+}
+
+derive Comparable for Level
+
+impl Steppable<Int> for Level {
+    fn step_by(value: Level, by: Int): Maybe<Level> {
+        case (value, by) {
+            (_, 0) -> Some(value)
+            (Level.Low, _) -> Some(Level.Mid)
+            (Level.Mid, _) -> Some(Level.High)
+            (Level.High, _) -> None
+        }
+    }
+}
+
+fn main() {
+    r = Meters{n: 1}..=Meters{n: 7}
+    io.print(Debug.inspect(r))
+    io.print(Bool.to_string(Range.contains?(r, Meters{n: 7})))
+    io.print(Bool.to_string(Range.contains?(r, Meters{n: 8})))
+    open = Meters{n: 1}..Meters{n: 7}
+    io.print(Bool.to_string(Range.contains?(open, Meters{n: 7})))
+    by_two = r |> Range.step_by(2) |> Iter.to_list()
+
+    io.print(Debug.inspect(by_two))
+    // The step leaves the type's domain past 9: the last element is the one
+    // with no further step.
+    wide = Meters{n: 5}..=Meters{n: 20}
+    by_three = wide |> Range.step_by(3) |> Iter.to_list()
+
+    io.print(Debug.inspect(by_three))
+    io.print(Debug.inspect(Steppable.step_by(Meters{n: 1}, 4)))
+    io.print(Debug.inspect(Meters.step_by(Meters{n: 8}, 4)))
+    levels = Level.Low..=Level.High |> Range.step_by(1) |> Iter.to_list()
+
+    io.print(Debug.inspect(levels))
+    io.print(Bool.to_string(Range.contains?(Level.Mid..Level.High, Level.High)))
+    g = units.grams(1)..units.grams(4)
+    grams = g |> Range.step_by(1) |> Iter.to_list()
+
+    io.print(Debug.inspect(grams))
+    io.print(Bool.to_string(Range.contains?(g, units.grams(3))))
+    io.print(Bool.to_string(Range.contains?(g, units.grams(4))))
+}

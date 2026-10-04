@@ -1,0 +1,135 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+struct User {
+    name: String
+    age: Int
+}
+
+struct Response {
+    status: Int = 200
+    body: String = ""
+}
+
+struct Address {
+    city: String
+    zip: String
+}
+
+struct Person {
+    name: String
+    address: Address
+}
+
+struct Foo {
+    a: Int
+    b: String
+}
+
+struct Defaulted {
+    a: Int
+    b: String = "default"
+}
+
+test "struct literals expose named fields" {
+    user = User{name: "Alice", age: 30}
+
+    assert user.name == "Alice"
+    assert user.age == 30
+}
+
+test "struct update preserves omitted fields" {
+    user = User{name: "Alice", age: 30}
+    updated = Struct.update(user, {name: "Bob"})
+
+    assert updated.name == "Bob"
+    assert updated.age == 30
+}
+
+test "nested struct update merges anonymous field updates" {
+    person = Person{
+        name: "Alice",
+        address: Address{city: "Boston", zip: "02101"},
+    }
+
+    moved = Struct.update(person, {address: {city: "NYC"}})
+    replaced = Struct.update(person, {address: Address{city: "NYC", zip: "10001"}})
+
+    assert moved.address.city == "NYC"
+    assert moved.address.zip == "02101"
+    assert replaced.address.city == "NYC"
+    assert replaced.address.zip == "10001"
+}
+
+test "struct patterns match and bind fields" {
+    user = User{name: "Alice", age: 30}
+
+    greeting = case user {
+        User{name: "Alice"} -> "Hi Alice!"
+        User{name} -> "Hello " + name
+    }
+
+    assert greeting == "Hi Alice!"
+}
+
+test "struct literals support field defaults and punning" {
+    ok = Response{}
+    not_found = Response{status: 404}
+    name = "Bob"
+    age = 25
+    bob = User{name, age}
+
+    assert ok.status == 200
+    assert ok.body == ""
+    assert not_found.status == 404
+    assert bob.name == "Bob"
+    assert bob.age == 25
+}
+
+test "struct call form builds from anonymous struct values" {
+    f1 = Foo{a: 1, b: "x"}
+    f2 = Foo({a: 2, b: "y"})
+    d = Defaulted({a: 7})
+
+    assert f1.a == 1
+    assert f1.b == "x"
+    assert f2.a == 2
+    assert f2.b == "y"
+    assert d.a == 7
+    assert d.b == "default"
+}
+
+test "missing struct fields report diagnostics" {
+    diagnostics = compiler.check(
+        """
+          struct Point {
+            x: Int
+            y: Int
+          }
+
+          fn main() {
+            p = Point{x: 1, y: 2}
+            dbg p.z
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "struct 'Point' has no field 'z'")
+}
+
+test "Struct.update requires a struct value" {
+    diagnostics = compiler.check(
+        """
+          fn main() {
+            dbg Struct.update(5, 5)
+            Unit
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "Int does not implement Struct")
+}

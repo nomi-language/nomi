@@ -1,0 +1,32 @@
+import {
+    std/io
+    shapes.{self, Board}
+}
+
+// An alias named through its file's qualifier.
+fn flat_size(cells: shapes.Flat): Int {
+    Set.size(cells)
+}
+
+// The same, over an alias whose target names another alias.
+fn board_size(cells: shapes.Board): Int {
+    Set.size(cells)
+}
+
+// An imported alias whose target names `Cell`, which this file never imports.
+fn weight(cells: Board): Int {
+    Iter.reduce(cells, |sum: Int = 0, (x, y)| sum + x * y)
+}
+
+// A qualified alias over a struct the declaring file owns.
+fn total_x(points: shapes.Points): Int {
+    Iter.reduce(points, |sum: Int = 0, p| sum + p.x)
+}
+
+fn main() {
+    cells = #{(1, 2), (3, 4)}
+    io.print(flat_size(cells))
+    io.print(board_size(cells))
+    io.print(weight(cells))
+    io.print(total_x([shapes.Point{x: 1, y: 2}, shapes.Point{x: 5, y: 0}]))
+}

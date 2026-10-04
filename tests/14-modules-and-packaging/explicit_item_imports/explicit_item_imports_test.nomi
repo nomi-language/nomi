@@ -1,0 +1,13 @@
+import {
+    helper.{self, call, value}
+    helper as h
+    helper as nested_helper
+}
+
+test "whole-file imports expose root public items" {
+    assert helper.call() == "called"
+    assert h.value == 42
+    assert call() == "called"
+    assert value == 42
+    assert nested_helper.ok() == "ok"
+}

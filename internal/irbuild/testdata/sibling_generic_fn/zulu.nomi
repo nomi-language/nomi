@@ -1,0 +1,8 @@
+// Lowered after zeta.nomi, so the instance of `boxed` it asks for is built
+// after zeta.nomi's walk, and that instance's own call to alpha.nomi's `wrap`
+// arrives after alpha.nomi's.
+import zeta
+
+pub fn floats(): String {
+    "floats ${zeta.boxed(1.5)}"
+}

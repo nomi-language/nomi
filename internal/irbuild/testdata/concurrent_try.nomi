@@ -1,0 +1,111 @@
+// A `try` inside a `concurrent` block, in a TEST body — the boundary try.go
+// flagged as having moved "from a tally question to a correctness one" the
+// moment a test body lowered.
+//
+// The three boundaries a `try` can have here are lexically adjacent and produce
+// three DIFFERENT programs, so a fixture that exercised one would pass on an
+// builder that confused it with either other:
+//
+//   - `try` in the BLOCK        ends the block; the statement after it runs.
+//   - `try` in a LAMBDA         ends the lambda; the block continues.
+//   - `try` in the TEST body    ends the CASE as an early-return failure.
+//
+// Every line below is printed, so getting any boundary wrong changes the text
+// rather than only the tally. The `after ...` lines are the discriminators: an
+// builder that let a block's `try` end the enclosing function would drop them.
+//
+// Deliberately NO task and NO channel — a task would make the ordering a
+// scheduling question, and the subject here is purely where a `return` lands.
+import std/io
+
+fn fails(): Result<Int, String> {
+    Err("nope")
+}
+
+fn works(): Result<Int, String> {
+    Ok(3)
+}
+
+// The `try` propagates out of the CONCURRENT BLOCK, so the block's value is the
+// Err and `after block` still prints. If the boundary were the function, `after
+// block` would vanish and the report would show it.
+fn block_boundary(): String {
+    outcome = concurrent {
+        v = try fails()
+
+        Ok(v + 1)
+    }
+
+    io.print("after block")
+
+    case outcome {
+        Ok(n) -> "ok ${n}"
+        Err(e) -> "err ${e}"
+    }
+}
+
+// The same shape with a successful operand, so the Ok path through the block's
+// own guard is exercised too. A guard emitted with an inverted condition passes
+// the Err case and fails this one.
+fn block_boundary_ok(): String {
+    outcome = concurrent {
+        v = try works()
+
+        Ok(v + 1)
+    }
+
+    case outcome {
+        Ok(n) -> "ok ${n}"
+        Err(e) -> "err ${e}"
+    }
+}
+
+// A `try` in a LAMBDA nested inside the block. The checker calls this boundary
+// `lambda`, not `concurrent`, and the builder's cross-check is IDENTITY on the
+// result inference rather than a flag precisely so this case selects the lambda
+// arm. The lambda's Err becomes an ordinary value and the block runs on.
+fn lambda_boundary(): String {
+    inner = concurrent {
+        f = |n: Int| {
+            v = try fails()
+
+            Ok(v + n)
+        }
+
+        r = f(10)
+
+        io.print("after lambda call")
+
+        r
+    }
+
+    case inner {
+        Ok(n) -> "ok ${n}"
+        Err(e) -> "err ${e}"
+    }
+}
+
+test "a try in a concurrent block ends the block" {
+    assert block_boundary() == "err nope"
+}
+
+test "a try in a concurrent block with an Ok operand runs on" {
+    assert block_boundary_ok() == "ok 4"
+}
+
+test "a try in a lambda inside a block ends only the lambda" {
+    assert lambda_boundary() == "err nope"
+}
+
+// The block's value is the whole of what the block produces, and a block with no
+// `try` at all still has to route its tail. Kept because the two guards above
+// would both pass on a builder that always returned the Err.
+test "a concurrent block with no try produces its tail" {
+    value = concurrent {
+        io.print("in block")
+
+        7
+    }
+
+    assert value == 7
+}

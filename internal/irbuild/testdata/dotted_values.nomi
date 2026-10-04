@@ -1,0 +1,117 @@
+import std/io
+
+// The VALUE side of a NAMESPACED (dotted) type name, which
+// testdata/namespaced_types.nomi deliberately left out: it declares and
+// consumes `Probe.Reading` through signatures and never CONSTRUCTS one, because
+// no construction form for a dotted enum lowered when it was written.
+//
+// This file is the other half, and it is observable rather than a signature
+// witness: every line below is printed, so a lowering that resolved the dotted
+// name and then picked the wrong variant, or picked the right variant and lost
+// its payload, fails HERE rather than in the corpus.
+//
+// # Every spelling, and why each is a separate row
+//
+// The refusals this file removes were THREE different tally keys over one gap,
+// selected by whether the leading segment resolved and whether the variant
+// carried data — see dottedqual.go for the measurement. So a fixture with one
+// spelling would not see a fix that composed for that spelling and not the
+// others, and the three are deliberately all here:
+//
+//	Signal.Level.Low        nullary, owner ABSENT     was `type-qualified reference`
+//	Probe.Reading.Steady    nullary, owner a STRUCT   was `type-qualified member`
+//	Probe.Reading.Spike(3)  positional, with payload  was `qualified call` (EMPTY detail)
+//
+// The struct-shaped variant literal and every pattern spelling already lowered
+// before this file existed, and they are here anyway: they are what a fix to the
+// reference and call arms could plausibly break, and a fixture that only covered
+// the newly-lowered spellings could not tell.
+// The namespace owner, a STRUCT — so `Probe.Reading` is also a legal
+// type-qualified MEMBER read and the ambiguity the value side has to resolve is
+// really present.
+pub struct Probe {
+    id: Int
+}
+
+pub enum Probe.Reading {
+    Steady
+    Spike Int
+    Blip {at: Int}
+}
+
+// A dotted enum whose OWNER IS NOT DECLARED AT ALL. This is the corpus's own
+// shape and it is the one a lookup keyed on the leading segment gets wrong:
+// `import telemetry.Probe.Reading` binds the dotted name and never binds
+// `Probe`, so nothing resolves `Signal` here either.
+pub enum Signal.Level {
+    Low
+    High
+}
+
+fn severity(r: Probe.Reading): Int {
+    case r {
+        .Steady -> 0
+        .Spike(n) -> n
+        .Blip{at} -> at
+    }
+}
+
+// The dotted qualifier in PATTERN position, spelled in full rather than through
+// the dot shorthand — the form the corpus file writes.
+fn severity_qualified(r: Probe.Reading): Int {
+    case r {
+        Probe.Reading.Steady -> 0
+        Probe.Reading.Spike(n) -> n
+        Probe.Reading.Blip{at} -> at
+    }
+}
+
+fn level_name(l: Signal.Level): String {
+    case l {
+        Signal.Level.Low -> "low"
+        Signal.Level.High -> "high"
+    }
+}
+
+// A dotted value NESTED inside a prelude variant, so the descent reaches it
+// rather than stopping at the `Maybe`.
+fn inner_severity(m: Maybe<Probe.Reading>): Int {
+    case m {
+        Some(Probe.Reading.Steady) -> 0
+        Some(Probe.Reading.Spike(n)) -> n
+        Some(Probe.Reading.Blip{at}) -> at
+        None -> -1
+    }
+}
+
+fn main() {
+    steady = Probe.Reading.Steady
+    spike = Probe.Reading.Spike(3)
+    blip = Probe.Reading.Blip{at: 9}
+
+    io.print("steady = ${severity(steady)}")
+    io.print("spike = ${severity(spike)}")
+    io.print("blip = ${severity(blip)}")
+
+    io.print("qualified steady = ${severity_qualified(steady)}")
+    io.print("qualified spike = ${severity_qualified(spike)}")
+    io.print("qualified blip = ${severity_qualified(blip)}")
+
+    // The dotted name as a payload, and inside a container, so the value is
+    // carried through positions a constructor-only fix would not reach.
+    io.print("inner = ${inner_severity(Some(Probe.Reading.Spike(7)))}")
+    io.print("inner none = ${inner_severity(None)}")
+    io.print("total = ${severity(steady) + severity(spike) + severity(blip)}")
+
+    // Owner absent, both variants.
+    io.print("low = ${level_name(Signal.Level.Low)}")
+    io.print("high = ${level_name(Signal.Level.High)}")
+
+    // Equality over two dotted values, one built through each spelling, so the
+    // reference arm and the call arm are shown to produce the SAME value rather
+    // than two that merely print alike.
+    io.print("same = ${Probe.Reading.Spike(3) == spike}")
+    io.print("differ = ${Probe.Reading.Spike(4) == spike}")
+    io.print("bare same = ${Probe.Reading.Steady == steady}")
+    io.print("cross = ${Probe.Reading.Steady == spike}")
+}

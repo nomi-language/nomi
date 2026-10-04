@@ -1,0 +1,23 @@
+import {
+    std/duration.Duration
+    std/io
+    std/supervisors.Backoff
+    std/supervisors.Backoff.Exponential
+}
+
+// A std enum's struct-shaped variant imported by name and built from a bare
+// brace literal, beside the qualified spelling of the same value.
+fn restarts(b: Backoff): Int {
+    case b {
+        Backoff.Exponential{max_restarts, max_elapsed: _} -> max_restarts
+    }
+}
+
+fn main() {
+    defaults = Exponential{}
+    three = Exponential{max_restarts: 3, max_elapsed: Duration.minutes(1)}
+    io.print(Debug.inspect(defaults))
+    io.print(Debug.inspect(three))
+    io.print(Debug.inspect(Backoff.Exponential{max_restarts: 3}))
+    io.print("${restarts(defaults)} ${restarts(three)}")
+}

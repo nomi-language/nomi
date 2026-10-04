@@ -1,0 +1,79 @@
+import {
+    std/decimal.RoundingMode.{self, Ceiling, Down, HalfEven, Unnecessary, Up}
+    std/strings.NormalForm.{self, NFC, NFD, NFKC, NFKD}
+}
+
+// Two stdlib enums reached through a VARIANT-ONLY selective import, which is the
+// form the corpus uses and the one that never binds the type name.
+//
+// Both are BARE enums whose whole observable content is which variant a value
+// is, so every case below is a place the two paths could disagree about a tag.
+// The widest row on purpose: RoundingMode has eight variants and this file names
+// all eight, because the tags are derived from declaration ORDER and a fixture
+// that named two would pass against a permuted table.
+fn round_name(m: RoundingMode): String {
+    case m {
+        Up -> "up"
+        Down -> "down"
+        Ceiling -> "ceiling"
+        HalfEven -> "half-even"
+        _ -> "other"
+    }
+}
+
+fn form_rank(f: NormalForm): Int {
+    case f {
+        NFC -> 1
+        NFD -> 2
+        NFKC -> 3
+        NFKD -> 4
+    }
+}
+
+test "a variant-only import names every rounding mode" {
+    assert round_name(Up) == "up"
+    assert round_name(Down) == "down"
+    assert round_name(Ceiling) == "ceiling"
+    assert round_name(HalfEven) == "half-even"
+    assert round_name(Unnecessary) == "other"
+}
+
+test "rounding modes are equal only to themselves" {
+    assert HalfEven == HalfEven
+    refute HalfEven == Up
+    refute Up == Down
+    refute Ceiling == Unnecessary
+}
+
+test "every normal form has its own tag" {
+    assert form_rank(NFC) == 1
+    assert form_rank(NFD) == 2
+    assert form_rank(NFKC) == 3
+    assert form_rank(NFKD) == 4
+    refute NFC == NFD
+    refute NFKC == NFKD
+}
+
+test "derived Display and Debug render the variant name" {
+    assert Display.to_string(HalfEven) == "HalfEven"
+    assert Display.to_string(Unnecessary) == "Unnecessary"
+    assert Debug.inspect(Up) == "Up"
+    assert Debug.inspect(NFKD) == "NFKD"
+}
+
+// The FAILURE path, which the corpus cannot exercise: it is 589/0, so no passing
+// program compares the two implementations' assertion REPORTS. This case fails
+// on purpose, and the `values:` rows are where the interpreter's rendering of a
+// RoundingMode and rt's have to agree.
+//
+// The left operand is a CALL rather than a variant name, deliberately. Two
+// operands spelled the same way are suppressed by the report's redundancy rule,
+// so `refute HalfEven == HalfEven` fails with no `values:` block at all and
+// compares nothing about the representation.
+fn chosen(): RoundingMode {
+    HalfEven
+}
+
+test "a failing comparison renders both modes" {
+    assert chosen() == Up
+}

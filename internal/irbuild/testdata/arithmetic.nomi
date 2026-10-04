@@ -1,0 +1,34 @@
+import std/io
+
+fn double(n: Int): Int {
+    n * 2
+}
+
+fn describe(n: Int): String {
+    if n > 10 { "big" } else { "small" }
+}
+
+fn main() {
+    a = 6
+    b = 7
+    n = double(a) + b % 4
+    io.print("n = ${n}")
+    io.print("double(n) = ${double(n)}")
+    io.print(describe(n))
+    io.print(describe(3))
+    ratio = 1.5 / 0.5
+    io.print("ratio = ${ratio}")
+    flag = n > 10 and a < b
+    io.print("flag = ${flag}")
+    io.print("neg = ${-n}")
+    io.print("eq = ${a == b}")
+    io.print("not = ${!flag}")
+
+    if flag {
+        io.print("branch taken")
+    } else {
+        io.print("branch missed")
+    }
+
+    io.print("joined: ${a} ${b} ${describe(b)}")
+}

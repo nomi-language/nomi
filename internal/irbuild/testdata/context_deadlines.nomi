@@ -1,0 +1,162 @@
+import {
+    std/duration.Duration
+    std/instant.Instant
+    std/io
+}
+
+// `Context`'s deadline chain, end to end.
+//
+// The corpus files this representation unblocked — `config_pattern/*.nomi` —
+// carry a `context: Context` field and call `Context.root()`, and NEVER READ A
+// DEADLINE. So they prove the type has a representation and prove nothing about
+// what it MEANS, and a `type Context struct{}` with five functions returning
+// zero values would match every one of them. This file is the other half.
+//
+// The pairs each row is chosen to let disagree:
+//
+//   - EARLIEST against NEAREST, which is the rule and is the one thing here a
+//     plausible implementation gets wrong. `Context.deadline*` resolves to the
+//     earliest deadline along the WHOLE parent chain, not to the first one it
+//     finds. `child of past, own deadline is looser` is the discriminating row:
+//     the child's own deadline is a day out and its parent's has passed, so
+//     EARLIEST answers `Some(0s)` and NEAREST answers a live span that also
+//     differs between the two runs. `child of live, own deadline is tighter` is
+//     its CONTROL — there the two rules agree — so the pair shows the rule is
+//     earliest-along-the-chain rather than either row alone showing it.
+//   - CLAMPING against SIGN. A deadline in the past is `Some(0s)`, not
+//     `Some(-1s)`. std/context documents `Some(0)` as "it has passed", and
+//     `DurationToString` renders a negative span with a leading `-`, so a
+//     missing clamp is a different STRING and not a different number. Reached
+//     through BOTH derivers (`with_deadline` at epoch, `with_timeout` of a
+//     negative span) so a sign error in one shows up on its own row.
+//   - ROOT against DERIVED. `Context.root()` must report None from both
+//     accessors, which is the row that fails if the zero value is NOT the root.
+//   - `deadline` against `deadline_remaining`. Two accessors over one walk, asked
+//     at the same contexts, so one wired to a different node disagrees with the
+//     other rather than both being quietly wrong.
+//   - A LIVE chain against a saturated one. `day is further out than hour` is the
+//     only row where neither deadline has passed, so it fails for an
+//     implementation that clamped or dropped a deadline it should have kept —
+//     which every `Some(0s)` row above would tolerate.
+//   - A STRUCT FIELD and a SIGNATURE, in both directions: the shape every corpus
+//     file this unblocked actually has.
+//
+// WHAT THIS CANNOT DISTINGUISH, stated rather than implied, because the first
+// draft of this header claimed it could. A push-and-walk implementation and one
+// that computed `min(parent, new)` EAGERLY at each deriver are observationally
+// IDENTICAL — min is associative, so folding it incrementally gives the same
+// answer as folding it at read time. The push design is justified by matching
+// `value.ContextVal`'s own shape, not by anything a fixture can see, and
+// claiming a pair here that does not exist would have been exactly the vacuous
+// row this file's opening paragraph is complaining about.
+//
+// TIME-INDEPENDENT ON PURPOSE, and that is what makes it a differential rather
+// than a flake. Nothing prints an Instant or a raw remaining span: an absolute
+// deadline is a wall-clock value the two paths cannot agree on, and a remaining
+// span shrinks between the two runs. Every row prints either a presence
+// (`Some`/`None`), a rendered span at a deliberately SATURATED value (a deadline
+// far in the past clamps to exactly `0s` on both paths), or an ORDERING between
+// two spans measured on the same path.
+fn main() {
+    root = Context.root()
+    io.print("root deadline = ${present(Context.deadline(root))}")
+    io.print("root remaining = ${span(Context.deadline_remaining(root))}")
+
+    // A deadline in the far past: remaining CLAMPS, so the rendered span is exact
+    // on both paths and the row is not a race.
+    past = Context.with_deadline(root, Instant.from_seconds(0))
+    io.print("past deadline = ${present(Context.deadline(past))}")
+    io.print("past remaining = ${span(Context.deadline_remaining(past))}")
+
+    // with_timeout of a NEGATIVE duration: same clamp, reached through the other
+    // deriver, so a deriver wired to the wrong sign shows up here and not above.
+    expired = Context.with_timeout(root, Duration.seconds(-3600))
+    io.print("expired remaining = ${span(Context.deadline_remaining(expired))}")
+
+    // INHERITANCE: a child with no deadline of its own. Derived by pushing a
+    // node from an already-expired parent, so the answer is the parent's and the
+    // clamp makes it exact.
+    inherited = Context.with_timeout(past, Duration.seconds(86400))
+
+    io.print(
+        "child of past, own deadline is looser = ${span(Context.deadline_remaining(inherited))}"
+    )
+
+    // THE ROW THAT SEPARATES THE TWO IMPLEMENTATIONS. `inherited` above pushed a
+    // LOOSER deadline onto an expired parent and the parent still wins; here a
+    // TIGHTER one is pushed onto a live parent and the child wins. An eager
+    // min() passes the second and fails the first.
+    live = Context.with_timeout(root, Duration.seconds(86400))
+    tightened = Context.with_timeout(live, Duration.seconds(-1))
+
+    io.print(
+        "child of live, own deadline is tighter = ${span(Context.deadline_remaining(tightened))}"
+    )
+
+    // And the ORDERING, measured on one path so no wall clock crosses the
+    // comparison: a one-day deadline must be further out than a one-hour one.
+    hour = Context.with_timeout(root, Duration.seconds(3600))
+    day = Context.with_timeout(root, Duration.seconds(86400))
+    io.print("day is further out than hour = ${further(day, hour)}")
+
+    // A Context on a STRUCT FIELD and across a signature boundary in both
+    // directions, which is the shape every corpus file that unblocked has.
+    app = App{
+        context: Context.with_timeout(root, Duration.seconds(-1)),
+        name: "svc",
+    }
+
+    io.print("field remaining = ${span(Context.deadline_remaining(app.context))}")
+    io.print("passed remaining = ${remaining_of(app)}")
+    io.print("returned remaining = ${span(Context.deadline_remaining(fresh()))}")
+    io.print("name = ${app.name}")
+}
+
+struct App {
+    context: Context
+    name: String
+}
+
+fn remaining_of(a: App): String {
+    span(Context.deadline_remaining(a.context))
+}
+
+fn fresh(): Context {
+    Context.with_timeout(Context.root(), Duration.seconds(-1))
+}
+
+// present renders only whether a deadline EXISTS. An absolute Instant is a
+// wall-clock value, so printing one would make this fixture disagree with itself
+// between two runs, never mind between two paths.
+fn present(m: Maybe<Instant>): String {
+    case m {
+        Some(_) -> "Some"
+        None -> "None"
+    }
+}
+
+// span renders a remaining Duration, and every call site above is arranged so
+// the value is CLAMPED to zero — the one span two independently-timed runs
+// agree on exactly.
+fn span(m: Maybe<Duration>): String {
+    case m {
+        Some(d) -> "Some(${Duration.to_string(d)})"
+        None -> "None"
+    }
+}
+
+// further compares two remaining spans measured on ONE path, so no wall clock
+// crosses the comparison and the answer is a fact about the chain rather than
+// about scheduling.
+fn further(a: Context, b: Context): Bool {
+    case Context.deadline_remaining(a) {
+        Some(da) ->
+            case Context.deadline_remaining(b) {
+                Some(db) -> Duration.as_nanos(da) > Duration.as_nanos(db)
+                None -> False
+            }
+
+        None ->
+            False
+    }
+}

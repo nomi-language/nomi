@@ -1,0 +1,261 @@
+// `Decimal` end to end: exact base-10 arithmetic, scale-insensitive equality
+// and ordering against scale-SIGNIFICANT rendering, and both rounding paths.
+//
+// EVERY CASE HERE IS CHOSEN AS A PAIR OF DERIVATIONS THE CODE KEEPS SEPARATE.
+// A fixture that merely "exercises Decimal" would be satisfied by a float64
+// with a `d` suffix, which is precisely the implementation this type exists to
+// not be. The pairs:
+//
+//   - EXACTNESS against BINARY FLOATING POINT. `0.1d + 0.2d` must render
+//     "0.3". Under a float64 it renders "0.30000000000000004", and under a
+//     decimal that normalises too eagerly it renders "0.3" from the wrong
+//     mantissa. This is the single most discriminating row in the file.
+//   - EQUALITY against SCALE. `1.50d == 1.5d` is TRUE while their scales are 2
+//     and 1. An implementation that compared mantissa-and-scale would pass
+//     every rendering case and fail here; one that normalised on construction
+//     would pass here and fail every rendering case. Neither derivation alone
+//     can see the other's bug.
+//   - `Display` against `Debug`. `to_string` is the canonical renderer;
+//     `inspect` is `to_string(d) + "d"`. The `d` IS the difference and it is
+//     deliberate — a Decimal must be distinguishable from a Float in a REPL
+//     and must paste back as a literal. Both appear on one value here so a
+//     shared-renderer mistake cannot hide.
+//   - ORDERING against EQUALITY. `compare` must answer Equal exactly where
+//     `==` answers true, including across unequal scales.
+//   - BOTH DIRECTIONS at every asymmetric rule. Negative halves, negative
+//     signs, negative scales. A forward-only family was measured going green
+//     while a negative correction was deleted.
+//   - THE EXTREME ROW. Int64's minimum, which Nomi cannot write as a literal
+//     (`-9223372036854775808` does not parse: the `-` is an operator applied
+//     to an out-of-range literal), so it is COMPUTED. Decimal is
+//     arbitrary-precision, so this must round-trip exactly, and one step
+//     beyond it must fail to convert rather than wrap.
+import {
+    std/comparable.Ordering.{Equal, Greater, Less}
+    std/decimal.RoundingMode.{Ceiling, Down, Floor, HalfDown, HalfEven, HalfUp, Unnecessary, Up}
+}
+
+test "literals keep their scale and render it" {
+    assert Decimal.to_string(1.50d) == "1.50"
+    assert Decimal.to_string(1.5d) == "1.5"
+    assert Decimal.to_string(5d) == "5"
+    assert Decimal.to_string(1_000.00d) == "1000.00"
+    assert Decimal.to_string(-0.001d) == "-0.001"
+    assert Decimal.to_string(0d) == "0"
+    assert Decimal.to_string(-0.0d) == "0.0"
+}
+
+test "arithmetic is exact, which is what a Float cannot be" {
+    // The row that a float64 implementation fails and nothing else does.
+    assert Decimal.to_string(0.1d + 0.2d) == "0.3"
+    assert Decimal.to_string(0.1d + 0.2d + 0.3d) == "0.6"
+
+    // Scale GROWS to whatever exactness needs and is never silently reduced.
+    assert Decimal.to_string(1.50d + 1.5d) == "3.00"
+    assert Decimal.to_string(2.50d - 1d) == "1.50"
+    assert Decimal.to_string(1.50d * 1.5d) == "2.250"
+    assert Decimal.to_string(10.00d / 4d) == "2.50"
+
+    // Negative direction, and a subtraction that crosses zero.
+    assert Decimal.to_string(1d - 2.5d) == "-1.5"
+    assert Decimal.to_string(-1.5d * -2d) == "3.0"
+    assert Decimal.to_string(-1.5d * 2d) == "-3.0"
+
+    // A mantissa far beyond any machine word.
+    big = 12345678901234567890.12345d * 100000d
+    assert Decimal.to_string(big) == "1234567890123456789012345.00000"
+}
+
+test "equality is scale-insensitive while scale is significant" {
+    assert 1.50d == 1.5d
+    assert 1.50d == 1.500d
+    assert 0d == 0.00d
+    refute 1.50d == 2.0d
+    refute 1.50d == -1.50d
+
+    // The other half of the pair: the same two values differ in scale.
+    assert Decimal.scale(1.50d) == 2
+    assert Decimal.scale(1.5d) == 1
+    assert Decimal.scale(5d) == 0
+}
+
+test "ordering agrees with equality across scales, in both directions" {
+    assert Decimal.compare(1.50d, 1.5d) == Equal
+    assert Decimal.compare(1.50d, 2d) == Less
+    assert Decimal.compare(3.00d, 2.999d) == Greater
+    assert Decimal.compare(-1d, 1d) == Less
+    assert Decimal.compare(1d, -1d) == Greater
+    assert Decimal.compare(-0.0d, 0d) == Equal
+}
+
+test "Debug appends d where Display does not, and that is the point" {
+    assert Decimal.to_string(1.50d) == "1.50"
+    assert Debug.inspect(1.50d) == "1.50d"
+    assert Debug.inspect(5d) == "5d"
+    assert Debug.inspect(-0.001d) == "-0.001d"
+    assert Debug.inspect(0d) == "0d"
+}
+
+test "sign, abs and negate preserve scale in both directions" {
+    assert Decimal.sign(-1.50d) == -1
+    assert Decimal.sign(0.00d) == 0
+    assert Decimal.sign(1.50d) == 1
+    assert Decimal.to_string(Decimal.abs(-1.50d)) == "1.50"
+    assert Decimal.to_string(Decimal.abs(1.50d)) == "1.50"
+    assert Decimal.to_string(Decimal.negate(1.50d)) == "-1.50"
+    assert Decimal.to_string(Decimal.negate(-1.50d)) == "1.50"
+    assert Decimal.to_string(Decimal.negate(0.00d)) == "0.00"
+    assert Decimal.zero?(0.00d)
+    refute Decimal.zero?(-0.001d)
+}
+
+test "normalize strips fractional zeros only" {
+    assert Decimal.to_string(Decimal.normalize(1.50d)) == "1.5"
+    assert Decimal.to_string(Decimal.normalize(100.00d)) == "100"
+    assert Decimal.to_string(Decimal.normalize(0.00d)) == "0"
+    assert Decimal.to_string(Decimal.normalize(-1.500d)) == "-1.5"
+}
+
+test "every rounding mode, on a tie and on both signs" {
+    // A positive tie: 2.5 -> 0 digits. Each mode resolves it differently, and
+    // the whole set is here because a family is only as strong as its extremes.
+    assert Decimal.to_string(Decimal.round(2.5d, 0, Up)) == "3"
+    assert Decimal.to_string(Decimal.round(2.5d, 0, Down)) == "2"
+    assert Decimal.to_string(Decimal.round(2.5d, 0, Ceiling)) == "3"
+    assert Decimal.to_string(Decimal.round(2.5d, 0, Floor)) == "2"
+    assert Decimal.to_string(Decimal.round(2.5d, 0, HalfUp)) == "3"
+    assert Decimal.to_string(Decimal.round(2.5d, 0, HalfDown)) == "2"
+    assert Decimal.to_string(Decimal.round(2.5d, 0, HalfEven)) == "2"
+
+    // The NEGATIVE tie, which is where Up/Down and Ceiling/Floor stop agreeing.
+    assert Decimal.to_string(Decimal.round(-2.5d, 0, Up)) == "-3"
+    assert Decimal.to_string(Decimal.round(-2.5d, 0, Down)) == "-2"
+    assert Decimal.to_string(Decimal.round(-2.5d, 0, Ceiling)) == "-2"
+    assert Decimal.to_string(Decimal.round(-2.5d, 0, Floor)) == "-3"
+    assert Decimal.to_string(Decimal.round(-2.5d, 0, HalfEven)) == "-2"
+
+    // HalfEven ties to EVEN, so 3.5 goes the other way from 2.5.
+    assert Decimal.to_string(Decimal.round(3.5d, 0, HalfEven)) == "4"
+
+    // Increasing the scale pads and is always exact; Unnecessary permits it.
+    assert Decimal.to_string(Decimal.round(1d, 2, Up)) == "1.00"
+    assert Decimal.to_string(Decimal.round(1.5d, 3, Unnecessary)) == "1.500"
+    assert Decimal.to_string(Decimal.round(3.14159d, 2, HalfEven)) == "3.14"
+
+    // A NEGATIVE scale rounds to tens and hundreds.
+    assert Decimal.to_string(Decimal.round(1234d, -2, HalfEven)) == "1200"
+    assert Decimal.to_string(Decimal.round(1250d, -2, HalfEven)) == "1200"
+    assert Decimal.to_string(Decimal.round(1350d, -2, HalfEven)) == "1400"
+}
+
+test "divide rounds at a named scale where the operator is exact-or-trap" {
+    assert Decimal.to_string(Decimal.divide(10d, 3d, 4, HalfEven)) == "3.3333"
+    assert Decimal.to_string(Decimal.divide(10d, 3d, 0, HalfEven)) == "3"
+    assert Decimal.to_string(Decimal.divide(10.00d, 4d, 2, Down)) == "2.50"
+    assert Decimal.to_string(Decimal.divide(-10d, 3d, 4, HalfEven)) == "-3.3333"
+    assert Decimal.to_string(Decimal.divide(1d, 8d, 3, Unnecessary)) == "0.125"
+}
+
+test "conversions are explicit and total only where they can be" {
+    assert Decimal.to_string(Decimal.from_int(42)) == "42"
+    assert Decimal.to_string(Decimal.from_int(-7)) == "-7"
+    assert Decimal.from_string("1.50") == Some(1.50d)
+    assert Decimal.from_string("1_000") == Some(1000d)
+    assert Decimal.from_string("oops") == None
+    assert Decimal.from_string("") == None
+    assert Decimal.from_string("1e5") == None
+    assert Decimal.to_int(3.7d) == Some(3)
+    assert Decimal.to_int(-3.7d) == Some(-3)
+    assert Decimal.to_float(1.50d) == 1.5
+    assert Decimal.from_float(0.1, 2, HalfEven) == Some(0.10d)
+    assert Decimal.from_float(3.14159, 2, Floor) == Some(3.14d)
+}
+
+test "Int64's boundary round-trips, and one step past it does not" {
+    // Nomi cannot write Int64's minimum as a literal: `-9223372036854775808` is
+    // a unary minus applied to a literal one past Int64's maximum, so it is the
+    // LITERAL that is out of range. Computed instead.
+    min_int = -9223372036854775807 - 1
+    max_int = 9223372036854775807
+
+    assert Decimal.to_string(Decimal.from_int(min_int)) == "-9223372036854775808"
+    assert Decimal.to_string(Decimal.from_int(max_int)) == "9223372036854775807"
+    assert Decimal.to_int(Decimal.from_int(min_int)) == Some(min_int)
+    assert Decimal.to_int(Decimal.from_int(max_int)) == Some(max_int)
+
+    // Decimal is arbitrary-precision, so it holds values Int cannot. Converting
+    // one back must answer None rather than wrap — the extreme row.
+    past_max = Decimal.from_int(max_int) + 1d
+    past_min = Decimal.from_int(min_int) - 1d
+    assert Decimal.to_string(past_max) == "9223372036854775808"
+    assert Decimal.to_string(past_min) == "-9223372036854775809"
+    assert Decimal.to_int(past_max) == None
+    assert Decimal.to_int(past_min) == None
+
+    // The SHARPEST row in the file, and it is not the one this comment first
+    // claimed. Truncation is toward ZERO, so a value strictly OUTSIDE Int64's
+    // range can truncate to a value INSIDE it: -9223372036854775808.5 is below
+    // the minimum, yet truncating toward zero lands exactly on it. So the order
+    // of operations is observable — truncate THEN range-check answers Some,
+    // range-check THEN truncate answers None — and only a half-step past a
+    // boundary can tell the two apart.
+    assert Decimal.to_int(Decimal.from_int(min_int) - 0.5d) == Some(min_int)
+    assert Decimal.to_int(Decimal.from_int(max_int) + 0.5d) == Some(max_int)
+
+    // And the other direction of the same rule: a half-step INSIDE the boundary
+    // truncates toward zero, so it moves off the boundary by one.
+    assert Decimal.to_int(Decimal.from_int(min_int) + 0.5d) == Some(min_int + 1)
+    assert Decimal.to_int(Decimal.from_int(max_int) - 0.5d) == Some(max_int - 1)
+}
+
+test "min and max pick by value, not by scale" {
+    assert Decimal.to_string(Decimal.min(1.50d, 2d)) == "1.50"
+    assert Decimal.to_string(Decimal.max(1.50d, 2d)) == "2"
+    // Ties return the FIRST argument, and its scale comes with it.
+    assert Decimal.to_string(Decimal.min(1.50d, 1.5d)) == "1.50"
+    assert Decimal.to_string(Decimal.max(1.50d, 1.5d)) == "1.50"
+}
+
+// A decimal literal PATTERN, which is scale-insensitive like `==` and unlike
+// every other literal pattern in the language.
+//
+// The discriminating pair: `1.5d` as a pattern must match a `1.50d` subject,
+// while `1.5d` and `1.50d` are DIFFERENT representations. A pattern compiled to
+// a comparison of the representation passes every other case in this file and
+// fails only here — and the arm order below is what makes a too-eager match
+// visible too, since a first arm that matched everything would answer 1 for all
+// four calls.
+fn classify(d: Decimal): Int {
+    case d {
+        1.5d -> 1
+        2d -> 2
+        -0.001d -> 3
+        _ -> 0
+    }
+}
+
+test "a decimal literal pattern matches by value, not by scale" {
+    assert classify(1.5d) == 1
+    assert classify(1.50d) == 1
+    assert classify(1.500d) == 1
+    assert classify(2d) == 2
+    assert classify(2.00d) == 2
+    assert classify(-0.001d) == 3
+    assert classify(-0.0010d) == 3
+    assert classify(1.6d) == 0
+    assert classify(0.001d) == 0
+}
+
+// A DELIBERATELY FAILING CASE, and it is not padding.
+//
+// A Decimal reaching an assertion's operand recorder is a THIRD renderer,
+// independent of both `Display` and `Debug`: the report's `values:` rows are
+// built by the assertion machinery, not by either impl. Nothing above this can
+// see a mistake in it, because every case above passes and a passing assertion
+// renders nothing. So the fault text below is part of the contract, and the
+// two paths must produce it identically.
+test "a failing Decimal comparison renders both operands" {
+    left = 1.50d
+    right = 2.25d
+    assert left == right
+}

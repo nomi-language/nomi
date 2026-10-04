@@ -1,0 +1,48 @@
+struct Point {
+    x: Int
+    y: Int
+}
+
+type UserId Int
+
+enum ParseError {
+    Invalid String
+}
+
+test "assert can destructure list tuple struct map type and enum patterns" {
+    assert [first, second] = [1, 2]
+    assert first == 1
+    assert second == 2
+
+    assert (left, right) = ("Ada", 36)
+    assert left == "Ada"
+    assert right == 36
+
+    assert {name, age} = {name: "Grace", age: 37}
+    assert name == "Grace"
+    assert age == 37
+
+    assert {"name" => map_name, "role" => map_role} = {
+        "name" => "Katherine",
+        "role" => "mathematician",
+    }
+
+    assert map_name == "Katherine"
+    assert map_role == "mathematician"
+
+    assert Point{x, y} = Point{x: 3, y: 4}
+    assert x == 3
+    assert y == 4
+
+    assert UserId(id) = UserId(42)
+    assert id == 42
+
+    assert ParseError.Invalid(message) = ParseError.Invalid("bad id")
+    assert message == "bad id"
+}
+
+test "assert can match literal patterns" {
+    assert "Ada" = "Ada"
+    assert 42 = 42
+    assert -7 = -7
+}

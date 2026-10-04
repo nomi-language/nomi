@@ -1,0 +1,32 @@
+import std/io
+
+fn main() {
+    xs = [1, 2, 3]
+
+    m: Maybe<Int> = List.head([])
+    mt: Maybe<List<Int>> = List.tail([])
+    ys: List<String> = List.concat([], [])
+
+    io.print("head-eq      ${List.head([]) == None} ${None == List.head([])}")
+    io.print("head-ne      ${List.head([]) != None} ${None != List.head([])}")
+    io.print("tail-eq      ${List.tail([]) == None} ${None == List.tail([])}")
+    io.print("tail-ne      ${List.tail([]) != None}")
+
+    io.print("concat-eq    ${List.concat([], []) == []} ${[] == List.concat([], [])}")
+    io.print("concat-ne    ${List.concat([], []) != []}")
+    io.print("concat-show  ${List.concat([], [])}")
+
+    io.print("compare-both ${List.compare([], [])}")
+    io.print("compare-l    ${List.compare([], [1])}")
+    io.print("compare-r    ${List.compare([1], [])}")
+
+    io.print("nested-head  ${List.head(List.concat([], [])) == None}")
+    io.print("nested-tail  ${List.tail(List.concat([], [])) == None}")
+    io.print("nested-cc    ${List.concat(List.concat([], []), [1, 2])}")
+
+    io.print("mixed-l      ${List.concat([], xs)}")
+    io.print("mixed-r      ${List.concat(xs, [])}")
+
+    io.print("discharged   ${m == None} ${mt == None} ${ys == []} ${ys}")
+    io.print("equal-both   ${List.equal?([], [])}")
+}

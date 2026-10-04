@@ -1,0 +1,8 @@
+import {
+    app.EffectsApp
+    effects.Logger
+}
+
+pub fn greet(name: String) {
+    Logger.log(EffectsApp.logger, "INFO", "hello, ${name}")
+}

@@ -1,0 +1,27 @@
+// `shapes` is re-exported rather than called: a module-qualified call is not
+// lowered by this slice, and an unused import is an analysis error, so a
+// re-export is the one way to make a second module part of this program while
+// keeping both modules inside the subset.
+import {
+    std/io
+    shapes export
+}
+
+/// The entry file's own `Point`, unrelated to `shapes.Point` beyond the
+/// spelling. Different field set, so a mix-up would also be observable — but
+/// the point of the fixture is that a mix-up is not REPRESENTABLE: the two
+/// lower to two Go types in two Go packages.
+struct Point {
+    label: String
+    weight: Int
+}
+
+fn heavier(p: Point): Int {
+    p.weight + 1
+}
+
+fn main() {
+    mine = Point{label: "here", weight: 41}
+    io.print("label = ${mine.label}")
+    io.print("heavier = ${heavier(mine)}")
+}

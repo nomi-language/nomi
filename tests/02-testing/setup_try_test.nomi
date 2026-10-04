@@ -1,0 +1,70 @@
+fn parse(s: String): Result<Int, String> {
+    case s {
+        "" -> Err("empty")
+        _ -> Ok(String.length(s))
+    }
+}
+
+fn find(s: String): Maybe<Int> {
+    case s {
+        "" -> None
+        _ -> Some(String.length(s))
+    }
+}
+
+tests "try on a Result in setup" {
+    setup {
+        n = try parse("abc")
+        {n: n}
+    }
+
+    test "the setup's value reaches the case", {n} {
+        assert n == 3
+    }
+}
+
+tests "try on a Maybe in setup" {
+    setup {
+        n = try find("abcd")
+        {n: n}
+    }
+
+    test "the setup's value reaches the case", {n} {
+        assert n == 4
+    }
+}
+
+tests "try in a pipe stage in setup" {
+    setup {
+        n = "ab" |> try parse()
+
+        {n: n}
+    }
+
+    test "the setup's value reaches the case", {n} {
+        assert n == 2
+    }
+}
+
+tests "try after other statements in setup" {
+    setup {
+        base = 10
+        extra = try parse("abcde")
+        {total: base + extra}
+    }
+
+    test "the setup's earlier bindings reach the try's result", {total} {
+        assert total == 15
+    }
+}
+
+tests "assert in setup" {
+    setup {
+        assert parse("ab") == Ok(2)
+        {n: 2}
+    }
+
+    test "the setup's assertion held", {n} {
+        assert n == 2
+    }
+}

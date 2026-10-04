@@ -1,0 +1,57 @@
+// The tail-call family, at depths the INTERPRETER can also afford, so the two
+// paths can be compared byte for byte.
+//
+// `count` and `fact` are self-recursion, lowered as a loop. `is_even`/`is_odd`
+// are a two-member cycle, lowered as one shared driver with a member selector.
+// `sum_up_to` is the control that must NOT be trampolined: its recursive call
+// is an OPERAND of `+`, so it is not in tail position, MarkTailCalls never
+// marks it, and it stays ordinary Go recursion — which is the whole point,
+// because trampolining it would be a wrong answer, not a faster one.
+//
+// The stack property these programs exist for is NOT visible here: 1e6 hops of
+// direct Go recursion survive on 16 MB of stack, so this file agrees whether or
+// not anything was lowered. The depth that discriminates is in
+// tail_self_deep.nomi, tail_mutual_deep.nomi and tail_impl_deep.nomi, and those
+// are asserted absolutely rather than differentially.
+import std/io
+
+fn count(n: Int): Int {
+    if n == 0 { 0 } else { count(n - 1) }
+}
+
+fn fact(n: Int, acc: Int): Int {
+    if n <= 1 {
+        acc
+    } else {
+        fact(n - 1, Int.wrapping_mul(acc, n))
+    }
+}
+
+fn is_even(n: Int): Bool {
+    if n == 0 { True } else { is_odd(n - 1) }
+}
+
+fn is_odd(n: Int): Bool {
+    if n == 0 { False } else { is_even(n - 1) }
+}
+
+fn sum_up_to(n: Int): Int {
+    if n == 0 { 0 } else { 1 + sum_up_to(n - 1) }
+}
+
+// Every argument reads a parameter the hop is about to overwrite, in both
+// directions, so a rebind that skipped the temporaries would corrupt one of
+// them. `swap(3, 8, 4)` must answer 3-8 unchanged after an even number of hops.
+fn swap(a: Int, b: Int, n: Int): Int {
+    if n == 0 { a - b } else { swap(b, a, n - 1) }
+}
+
+fn main() {
+    io.print("count = ${count(1000000)}")
+    io.print("fact = ${fact(20, 1)}")
+    io.print("even = ${is_even(1000001)}")
+    io.print("odd = ${is_odd(1000001)}")
+    io.print("sum = ${sum_up_to(1000)}")
+    io.print("swap even = ${swap(3, 8, 4)}")
+    io.print("swap odd = ${swap(3, 8, 5)}")
+}

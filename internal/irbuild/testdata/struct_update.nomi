@@ -1,0 +1,103 @@
+// `Struct.update` — the universal struct patch, whose `Partial<self>` has no
+// inhabitants and therefore no representation. See structupdate.go for why the
+// lowering is at the CALL SITE and not at the signature.
+//
+// # Which pairs of independently-derived facts this lets disagree
+//
+//   - OMITTED FIELDS SURVIVE. `{name: …}` on a two-field struct leaves `age`
+//     alone, so an implementation that built a fresh literal from the update
+//     alone prints a zero value here.
+//   - A NESTED ANONYMOUS literal MERGES and a NESTED NOMINAL one REPLACES.
+//     std/structs.nomi states both halves and the two lines below are adjacent
+//     on purpose: after lowering, `{city: "NYC"}` and `Address{city: "NYC",
+//     zip: "10001"}` have the SAME KIND, so an implementation that recursed on
+//     the value's kind rather than on its SYNTAX makes these two rows agree.
+//     `zip` is what tells them apart — it survives the merge and is replaced by
+//     the nominal form.
+//   - THE ORIGINAL IS UNCHANGED. Nomi structs are values; `updated` is a copy.
+//     Printed after both updates so an implementation that patched in place
+//     through a pointer is visible.
+//   - THE ORIGINAL IS EVALUATED ONCE. `bump()` increments a counter and returns
+//     a struct, and the counter is printed: building `T{a: v, b: orig.b, …}`
+//     instead of a copy-and-assign would evaluate the original once PER
+//     SURVIVING FIELD, so this row reads 1 against 3.
+//   - AN EMPTY PATCH is the original, not a zero value.
+//   - A DEEPER-THAN-ONE nest, so the recursion is exercised past the base case
+//     that a single level would also satisfy.
+import std/io
+
+struct Address {
+    city: String
+    zip: String
+}
+
+struct Person {
+    name: String
+    age: Int
+    address: Address
+}
+
+struct Wrapper {
+    label: String
+    person: Person
+}
+
+/// Prints on every evaluation, which is how the ONCE claim is observed: a
+/// merge built as `T{a: v, b: orig.b, …}` would evaluate its original once per
+/// SURVIVING field, so this line would appear three times where it appears
+/// once. `io.print` rather than a counter because Nomi has no mutable
+/// bindings, so the trace IS the count.
+fn bump(): Person {
+    io.print("  (built)")
+
+    Person{
+        name: "Alice",
+        age: 30,
+        address: Address{city: "Boston", zip: "02101"},
+    }
+}
+
+fn show(p: Person): String {
+    "${p.name}/${p.age}/${p.address.city}/${p.address.zip}"
+}
+
+fn main() {
+    original = bump()
+    io.print("original ${show(original)}")
+
+    // Omitted fields survive.
+    renamed = Struct.update(original, {name: "Bob"})
+    io.print("renamed ${show(renamed)}")
+
+    // A nested ANONYMOUS literal MERGES: zip survives.
+    moved = Struct.update(original, {address: {city: "NYC"}})
+    io.print("moved ${show(moved)}")
+
+    // A nested NOMINAL literal REPLACES: zip changes wholesale.
+    replaced = Struct.update(original, {address: Address{city: "NYC", zip: "10001"}})
+    io.print("replaced ${show(replaced)}")
+
+    // The original is untouched by any of the three.
+    io.print("after ${show(original)}")
+
+    // An EMPTY patch has no row here, and the reason is a front-end fact worth
+    // recording rather than a gap: `Struct.update(original, {})` does not
+    // analyse — "argument 2: expected Partial<Person>, got Unit", because `{}`
+    // is the unit value and not an empty record. So structMerge's zero-field
+    // arm is unreachable from Nomi source; it is kept because it is the base
+    // case of the recursion, not because a program can write it.
+    // Two levels of anonymous nesting, and a sibling field patched beside the
+    // nested one so the recursion is not the only thing happening.
+    w = Wrapper{label: "one", person: original}
+
+    deep = Struct.update(w, {
+        label: "two",
+        person: {address: {zip: "99999"}},
+    })
+
+    io.print("deep ${deep.label}/${show(deep.person)}")
+
+    // Several fields at once, including one that is itself a patch target above.
+    both = Struct.update(original, {name: "Cara", age: 41})
+    io.print("both ${show(both)}")
+}

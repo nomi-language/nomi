@@ -1,0 +1,159 @@
+import {
+    std/io
+    std/iter.Iter.loop
+}
+
+/// `if pattern = expr` — the refutable match outside a `case`.
+///
+/// Each function below defeats one specific wrong lowering, because the corpus
+/// exercise (01-foundations/if_else/if_else_test.nomi) is two `Some(name)` arms
+/// and cannot tell most of them apart.
+enum Shape {
+    Dot
+    Circle {radius: Int}
+    Rect {w: Int, h: Int}
+}
+
+/// The two-armed form. Nothing subtle; it is the control the rest are read
+/// against.
+fn label(m: Maybe<String>): String {
+    if Some(name) = m { name } else { "unknown" }
+}
+
+/// NO else arm. The then-arm runs on a hit and NOT on a miss, and control
+/// continues past the `if` either way — the "after" line is what says so. The
+/// value is Unit on both paths, which the `== Unit` is for: an `if` with no
+/// else whose then-arm is not Unit is a front-end error (if_else_test.nomi's
+/// "if without else returns Unit"), so Unit is the only answer it can have and
+/// the assertion is that the MISS produces one too.
+fn side_effect(m: Maybe<Int>): Bool {
+    result = if Some(n) = m { io.print("hit ${n}") }
+
+    io.print("after")
+    result == Unit
+}
+
+/// A pattern that opens THREE nested blocks: variant tag, then a struct field
+/// pattern, then a literal test at the bottom that MISSES on the second call.
+/// An `else` attached to the outermost block instead of a labeled break would
+/// run the then-arm's tail after a deep miss.
+fn deep(s: Maybe<Shape>): String {
+    if Some(Shape.Circle{radius: 5}) = s {
+        "unit circle"
+    } else {
+        "something else"
+    }
+}
+
+/// The subject is evaluated ONCE and unconditionally, even when the pattern
+/// misses. The print is the assertion: exactly one line per call, and it appears
+/// for the miss too.
+fn noisy(n: Int): Maybe<Int> {
+    io.print("subject ${n}")
+    if n > 0 { return Some(n) }
+
+    None
+}
+
+fn once_only(n: Int): String {
+    if Some(v) = noisy(n) {
+        "got ${v}"
+    } else {
+        "nothing"
+    }
+}
+
+/// A pattern-if whose else arm is another pattern-if, then a Bool `else if`,
+/// then a plain else. Four arms, one destination, and the bindings of each arm
+/// must not be visible in the next.
+fn chain(a: Maybe<Int>, b: Maybe<String>, n: Int): String {
+    if Some(x) = a {
+        "a=${x}"
+    } else if Some(y) = b {
+        "b=${y}"
+    } else if n > 10 {
+        "big"
+    } else {
+        "none"
+    }
+}
+
+/// A Nomi `break` inside a pattern-if inside a loop. The emitted pattern-if is
+/// itself a Go `for`, so an UNLABELED Go break would be swallowed by it and the
+/// loop would spin forever; ctrlflow.go emits labeled breaks and this pins that
+/// the two loops stay distinct.
+fn first_hit(start: Int): Int {
+    loop(|state = start| {
+        if Some(v) = halve(state) { break v }
+
+        state - 1
+    })
+}
+
+fn halve(n: Int): Maybe<Int> {
+    if n == 4 { return Some(n / 2) }
+
+    None
+}
+
+/// A pattern-if inside a LAMBDA, with a `return` in the then-arm. Nomi's
+/// `return` is lambda-scoped, so this must leave the
+/// LAMBDA and not the enclosing function — the caller's own answer is appended
+/// after it, which is what proves it.
+fn in_lambda(m: Maybe<Int>): String {
+    f = |v: Maybe<Int>| {
+        if Some(n) = v { return "lambda:${n}" }
+
+        "lambda:none"
+    }
+
+    "${f(m)}/done"
+}
+
+/// A wildcard pattern always matches, so the else arm is dead. A lowering that
+/// tested something would take the else.
+fn always(n: Int): String {
+    if _ = n { "matched" } else { "impossible" }
+}
+
+/// An ident pattern also always matches, and it BINDS. `Err` is never reached.
+fn bind_all(r: Result<Int, String>): String {
+    if whole = r {
+        case whole {
+            Ok(v) -> "ok ${v}"
+            Err(e) -> "err ${e}"
+        }
+    } else {
+        "impossible"
+    }
+}
+
+fn main() {
+    io.print(label(Some("Ada")))
+    io.print(label(None))
+
+    io.print("${side_effect(Some(1))}")
+    io.print("${side_effect(None)}")
+
+    io.print(deep(Some(Shape.Circle{radius: 5})))
+    io.print(deep(Some(Shape.Circle{radius: 9})))
+    io.print(deep(Some(Shape.Dot)))
+    io.print(deep(None))
+
+    io.print(once_only(3))
+    io.print(once_only(-3))
+
+    io.print(chain(Some(1), Some("x"), 0))
+    io.print(chain(None, Some("x"), 0))
+    io.print(chain(None, None, 50))
+    io.print(chain(None, None, 0))
+
+    io.print("${first_hit(6)}")
+
+    io.print(in_lambda(Some(8)))
+    io.print(in_lambda(None))
+
+    io.print(always(0))
+    io.print(bind_all(Ok(2)))
+    io.print(bind_all(Err("bad")))
+}

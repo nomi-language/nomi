@@ -1,0 +1,18 @@
+[language-server.nomi-lsp]
+command = "nomi-lsp"
+
+[[language]]
+name = "nomi"
+language-id = "nomi"
+scope = "source.nomi"
+injection-regex = "nomi"
+file-types = ["nomi"]
+roots = ["nomi.toml", "go.mod", ".git"]
+comment-tokens = ["//", "///", "//!"]
+indent = { tab-width = 4, unit = "    " }
+formatter = { command = "nomi", args = ["fmt"] }
+language-servers = ["nomi-lsp"]
+
+[[grammar]]
+name = "nomi"
+source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "4afe002fb367c6faf38b6f0cd00807419a89ecd4" }

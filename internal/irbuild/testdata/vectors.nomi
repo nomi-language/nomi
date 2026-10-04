@@ -1,0 +1,262 @@
+import std/io
+
+// `Vector<T>` — the first GENERIC STD HOST TYPE with an operation surface, and
+// the OPPOSITE case to sets.nomi.
+//
+// A `Set` was `pub opaque struct Set<T> { items: Map<T, Bool> }` over a trie the
+// builder already had, so its fixture is about a wrapper's identity going
+// missing. A `Vector` is `pub host type Vector<T>` with nine `pub host fn`s and no
+// Nomi body anywhere, so rt/vector.go is a real data structure and this fixture
+// is about a data structure being wrong in a way that still answers.
+//
+// The pairs each row is chosen to let disagree:
+//
+//   - `Vector.length` against `Iter.count`. Two derivations of one number:
+//     `length` is the window's stored `Len` (std documents it O(1)) and `count`
+//     walks unless `known_count` answers. A `known_count` that declined would
+//     still print 3 here and be O(n) behind a name promising O(1); one answering
+//     from the BACKING SLICE rather than the WINDOW disagrees with `length` the
+//     moment a tail has been taken — which `next_item` below does.
+//   - THE WINDOW, which is the representation and the thing no single row can
+//     see. `Vector.next_item` returns a tail in O(1) by advancing `Start`, so the
+//     backing slice stays LONGER than the window. Every row after a `next_item`
+//     is therefore a row over a non-zero `Start`, and a function indexing
+//     `Items[i]` instead of `Items[Start+i]` passes every row before it and fails
+//     these. `after_tail_*` are those rows.
+//   - `Vector.push` and `Vector.set` against the ORIGINAL. Both copy, because the
+//     backing slice is SHARED with every view taken from the same parent (a
+//     window advance shares it by construction). An in-place append or write
+//     compiles, answers correctly for the new value, and mutates a value another
+//     binding still holds — so `original` is re-printed AFTER both.
+//   - `Vector.compare` at a PREFIX and at a FIRST DIFFERENCE, in both directions.
+//     `#[2]` is Greater than `#[1, 9]`, so a length test before the element walk
+//     inverts exactly those pairs and is a wrong answer rather than a fast path.
+//     rt.ListCompare states the same rule; a Vector needs its own witness because
+//     it is a second implementation of it.
+//   - `Vector.compare` over a STRING element. That is the row that reaches the
+//     element comparator through `sortComparator` — the same resolution
+//     `Iter.sort` uses — so it is the one that shows the "dictionary seam"
+//     discharged at a concrete element kind rather than at a bare `T`.
+//   - `Display` against `Debug`. `impl Display for Vector<T>` joins
+//     `Display.to_string` and `impl Debug` joins `Debug.inspect`, so the String
+//     vector is the discriminating one: `#[a, b]` versus `#["a", "b"]`. A single
+//     shared renderer prints one of them twice.
+//   - `Vector.hash` on two EQUAL vectors and on two DIFFERENT ones. std's mix is
+//     `Int.wrapping_add(Int.wrapping_mul(acc, 31), …)` from a seed of 19, and both
+//     operations WRAP — a checked `*` would TRAP on a long vector where the
+//     interpreter answers. The `wrapping` row is a 40-element vector of large
+//     Ints, which overflows the accumulator many times over: it prints a number
+//     on both sides or it faults on one.
+//   - `==` against `Vector.equal?`. The operator has to be CLAIMED by
+//     vectorEquality, because a Vector's def is `rtOpaque` and `rt.Vector[T]`
+//     holds a slice — so an unclaimed `==` is a Go compile error rather than a
+//     wrong answer. Both spellings are read so the claim and the method cannot
+//     drift.
+//   - a Vector CROSSING A SIGNATURE BOUNDARY, in both directions. `total` takes
+//     one and `pair_of` returns one, so a representation that is only correct at
+//     a construction site fails here.
+//   - the untyped `#[]`, which has no element type at the literal and gets one
+//     from an ANNOTATION, from a SIBLING ARGUMENT to `concat`, and from an `==`.
+//     Three separate discharge points, and `empty_len` is the one that would
+//     print `0` from a wrong element type just as happily.
+//   - a NESTED `Vector<Vector<Int>>`, so the element operations are asked about a
+//     Vector rather than a scalar: `nested_eq` needs `vectorEq` at a Vector
+//     element and `nested_debug` needs the inspector to recurse.
+//   - `Iter` over a Vector at THREE stages, not one. `Iter.map |> Iter.to_list`
+//     is a two-stage chain and `Iter.map |> Iter.filter |> Iter.to_list` a
+//     three-stage one; a source that composes with a terminal directly can still
+//     fail to compose with an adapter.
+// The three `Maybe`-returning rows are read through these rather than
+// interpolated, for the reason stated at their call sites.
+fn at_or(v: Vector<Int>, i: Int): Int {
+    case Vector.at(v, i) {
+        Some(n) -> n
+        None -> -1
+    }
+}
+
+fn head_or(v: Vector<Int>): Int {
+    case Vector.next_item(v) {
+        Some((n, _)) -> n
+        None -> -1
+    }
+}
+
+fn set_or(v: Vector<Int>, i: Int, n: Int): Vector<Int> {
+    case Vector.set(v, i, n) {
+        Some(out) -> out
+        None -> #[]
+    }
+}
+
+fn total(v: Vector<Int>): Int {
+    Iter.reduce(v, |acc = 0, n| acc + n)
+}
+
+fn pair_of(a: String, b: String): Vector<String> {
+    Vector.push(Vector.push(Vector.empty(), a), b)
+}
+
+fn main() {
+    none_v: Vector<Int> = #[]
+
+    // --- construction and the two indexed operations -------------------------
+    v = #[1, 2, 3]
+    io.print("len ${Vector.length(v)}")
+    io.print("count ${Iter.count(v)}")
+    // A `Maybe` is read through a `case` rather than interpolated: `${Some(1)}`
+    // refuses `rendering a non-scalar value (Maybe<Int>)`, which is a prelude
+    // rendering gap and not a Vector one. The bounds behaviour is what these rows
+    // are for and a case match shows all of it.
+    io.print("at0 ${at_or(v, 0)}")
+    io.print("at2 ${at_or(v, 2)}")
+    io.print("at neg ${at_or(v, -1)}")
+    io.print("at over ${at_or(v, 3)}")
+    io.print("to_list ${Iter.to_list(v)}")
+    io.print("to_vector ${Iter.to_vector([4, 5])}")
+
+    // --- the WINDOW: every row below `tail` runs over a non-zero Start --------
+    io.print("next head ${head_or(v)}")
+    io.print("next empty ${head_or(none_v)}")
+
+    tail = case Vector.next_item(v) {
+        Some((_, rest)) -> rest
+        None -> #[]
+    }
+
+    io.print("after_tail len ${Vector.length(tail)}")
+    io.print("after_tail count ${Iter.count(tail)}")
+    io.print("after_tail at0 ${at_or(tail, 0)}")
+    io.print("after_tail list ${Iter.to_list(tail)}")
+    io.print("after_tail push ${Vector.push(tail, 9)}")
+    io.print("after_tail concat ${Vector.concat(tail, #[7])}")
+    io.print("after_tail show ${tail}")
+    io.print("after_tail cmp ${Vector.compare(tail, #[2, 3])}")
+
+    // --- copying, and the ORIGINAL re-read after both ------------------------
+    original = #[1, 2]
+    pushed = Vector.push(original, 3)
+    io.print("pushed ${pushed}")
+    io.print("updated ${set_or(pushed, 1, 20)}")
+    io.print("set over ${set_or(pushed, 9, 99)}")
+    io.print("original after ${original}")
+    io.print("concat ${Vector.concat(#[1, 2], #[3, 4])}")
+
+    // --- ordering: prefix and first-difference, both directions --------------
+    io.print("cmp eq ${Vector.compare(#[1, 2], #[1, 2])}")
+    io.print("cmp prefix ${Vector.compare(#[1], #[1, 2])}")
+    io.print("cmp prefix rev ${Vector.compare(#[1, 2], #[1])}")
+    io.print("cmp first ${Vector.compare(#[1, 9], #[2])}")
+    io.print("cmp first rev ${Vector.compare(#[2], #[1, 9])}")
+    io.print("cmp empty ${Vector.compare(none_v, none_v)}")
+    // NO String or nested row here, and their ABSENCE is the finding. Measured on
+    // the interpreter: `Vector.compare(#["a"], #["b"])` FAULTS with
+    // `Comparable.compare: no implementation for type 'String'`, and
+    // `Vector.compare(#[#[1]], #[#[2]])` faults naming 'Vector' — while
+    // `Iter.sort(#["c", "a"])` ANSWERS. Same element type, two spellings, two
+    // answers, because `Vector.compare` raises the demand inside std's own generic
+    // body and `Iter.sort` raises it at a concrete call site. So `Vector.compare`
+    // is Int and Float only, which is `orderingOf`'s boundary reached
+    // independently, and TestVector_CompareIsIntAndFloatOnly asserts the refusal
+    // this fixture therefore cannot contain.
+    // --- Display against Debug, on the element type where they differ --------
+    io.print("show int ${v}")
+    io.print("to_string ${Vector.to_string(v)}")
+    io.print("inspect ${Vector.inspect(#["a", "b"])}")
+    io.print("show str ${#["a", "b"]}")
+    io.print("show empty ${none_v}")
+
+    // --- identity ------------------------------------------------------------
+    io.print("op eq ${#[1, 2, 3] == #[1, 2, 3]}")
+    io.print("op neq ${#[1, 2, 3] == #[1, 2, 4]}")
+    io.print("op ne ${#[1, 2] != #[1, 2]}")
+    io.print("equal? ${Vector.equal?(#[1, 2, 3], #[1, 2, 3])}")
+    io.print("equal? no ${Vector.equal?(#[1, 2, 3], #[1, 2, 4])}")
+    io.print("equal? len ${Vector.equal?(#[1, 2], #[1, 2, 3])}")
+    io.print("hash same ${Vector.hash(#[1, 2, 3]) == Vector.hash(#[1, 2, 3])}")
+    io.print("hash diff ${Vector.hash(#[1, 2, 3]) == Vector.hash(#[1, 2, 4])}")
+
+    // WRAPPING. Forty large Ints, so std's `Int.wrapping_mul(acc, 31)` overflows
+    // many times over. A checked `*` TRAPS here where the interpreter answers.
+    big = Iter.to_vector(
+        Iter.map(1..41, |n| n * 1000000000000000)
+        |> Iter.to_list()
+    )
+
+    io.print("wrapping ${Vector.hash(big) == Vector.hash(big)}")
+
+    // --- the untyped `#[]`, discharged three ways ----------------------------
+    empty: Vector<Int> = #[]
+    io.print("empty_len ${Vector.length(empty)}")
+    io.print("empty_at ${at_or(empty, 0)}")
+    io.print("empty eq ${empty == #[]}")
+    io.print("empty concat ${Vector.concat(#[], #[1, 2])}")
+    io.print("empty concat rev ${Vector.concat(#[1, 2], #[])}")
+
+    // --- a Vector ELEMENT, so the element operations recurse -----------------
+    nested = #[#[1, 2], #[3]]
+    io.print("nested len ${Vector.length(nested)}")
+    io.print("nested eq ${nested == #[#[1, 2], #[3]]}")
+    io.print("nested debug ${Vector.inspect(nested)}")
+    io.print("nested show ${nested}")
+
+    // --- a Vector inside a PRELUDE PAYLOAD, and a Vector as a MAP KEY --------
+    //
+    // These are the rows the CORPUS needs and the recovered fixture did not have.
+    // `06-collections/vectors_test.nomi:38` is `Vector.set(pushed, 9, 99) == None`,
+    // and with the recovery alone that whole file was left refusing exactly one
+    // position: `equality on a named type | Maybe<Vector<Int>>`. So `==` reached
+    // `valueEqual` over the PAYLOAD kind, which declined for a Vector by design.
+    //
+    // The MAP KEY rows are here because widening `valueEqual` without widening
+    // `valueHash` in step is the one failure that is silent. Equality decides
+    // whether two keys are the SAME and the hash decides which BUCKET each lands
+    // in; disagree and an entry is written and then unreachable, which is a lost
+    // value rather than a wrong answer. `TestMapKeyOpsAgreeOnTheirDomain` holds the
+    // two functions in step over the shapes its table lists, and a table is only as
+    // wide as its enumeration.
+    //
+    // `key window` and `key tail` are the discriminating pair, and they discriminate
+    // the same representation fact the `after_tail_*` rows above do. `tail` has
+    // `Start == 1` and `Len == 2` over a backing slice of three, so a hash folding
+    // over `Items[i]` rather than `Items[Start+i]` buckets it as `#[1, 2, 3]` while
+    // equality still answers True against `#[2, 3]` — the lookup MISSES and every
+    // row above passes. `key window` is the mirror: a vector built by `concat` has
+    // `Start == 0` and must land in the same bucket as the literal.
+    keys = {#[1, 2] => "a", #[3] => "b"}
+    io.print("maybe eq none ${Vector.set(pushed, 9, 99) == None}")
+    io.print("maybe eq some ${Vector.set(pushed, 1, 20) == Some(#[1, 20, 3])}")
+    io.print("maybe eq no ${Vector.set(pushed, 1, 20) == Some(#[9, 9, 9])}")
+    io.print("maybe scalar ${Vector.at(v, 0) == Some(1)}")
+    io.print("key hit ${Map.get(keys, #[1, 2]) == Some("a")}")
+    io.print("key miss ${Map.get(keys, #[9]) == None}")
+    io.print("key window ${Map.get(keys, Vector.concat(#[1], #[2])) == Some("a")}")
+    io.print("key tail ${Map.get({tail => "t"}, #[2, 3]) == Some("t")}")
+    io.print("key nested ${Map.get({#[#[1]] => 5}, #[#[1]]) == Some(5)}")
+
+    // --- signature boundary, both directions --------------------------------
+    io.print("total ${total(v)}")
+    io.print("pair ${pair_of("x", "y")}")
+
+    // --- Iter over a Vector at two and three stages -------------------------
+    io.print("iter2 ${#[1, 2, 3] |> Iter.map(|n| n * 2) |> Iter.to_list()}")
+
+    io.print(
+        "iter3 ${#[1, 2, 3, 4]
+        |> Iter.map(|n| n * 2)
+        |> Iter.filter(|n| n > 4)
+        |> Iter.to_list()}"
+    )
+
+    // `Iter.find` returns a `Maybe<String>`, and interpolating one refuses
+    // `rendering a non-scalar value` — a PRELUDE rendering gap, not a Vector one,
+    // and out of this slice's scope. Counted instead, which reads the same
+    // predicate over the same Vector source through the same adapter chain.
+    io.print(
+        "iter filter ${#["ada", "grace"]
+        |> Iter.filter(|s| String.contains?(s, "ace"))
+        |> Iter.count()}"
+    )
+
+    io.print("iter sort ${Iter.sort(#[3, 1, 2]) |> Iter.to_list()}")
+}

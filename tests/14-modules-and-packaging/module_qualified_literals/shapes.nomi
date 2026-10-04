@@ -1,0 +1,35 @@
+/// A plain struct, reached from the importer as `shapes.Circle`.
+pub struct Circle {
+    r: Int
+}
+
+/// An enum with one variant of each payload shape, so the brace form and
+/// the call form can be compared at the same depth.
+pub enum Shape {
+    Ring {r: Int}
+    Square Int
+}
+
+/// A list-payload variant, for the bracket spelling of literal-attach.
+pub enum Bag {
+    Items List<Int>
+}
+
+/// A GENERIC enum whose struct variant has to get its type argument
+/// inferred across a module boundary.
+pub enum Holder<T> {
+    Of {value: T}
+}
+
+pub fn ring_radius(s: Shape): Int {
+    case s {
+        .Ring{r} -> r
+        .Square(n) -> n
+    }
+}
+
+pub fn holder_int(h: Holder<Int>): Int {
+    case h {
+        .Of{value} -> value
+    }
+}

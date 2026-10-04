@@ -1,0 +1,57 @@
+interface Showable {
+    fn show(value: self): String
+}
+
+interface Tagged {
+    fn tag(value: self): String
+}
+
+typealias ShowAndTag Showable and Tagged
+
+struct User {
+    name: String
+}
+
+impl Showable for User {
+    fn show(value: User): String {
+        "user:" + value.name
+    }
+}
+
+impl Tagged for User {
+    fn tag(_value: User): String {
+        "[user]"
+    }
+}
+
+struct Tag {
+    label: String
+}
+
+impl Showable for Tag {
+    fn show(value: Tag): String {
+        "tag:" + value.label
+    }
+}
+
+fn announce<T>(value: T): String where T: Showable {
+    "announce(" + Showable.show(value) + ")"
+}
+
+fn describe<T>(value: T): String where T: Showable and Tagged {
+    Tagged.tag(value) + " " + Showable.show(value)
+}
+
+fn describe_alias<T>(value: T): String where T: ShowAndTag {
+    Tagged.tag(value) + " " + Showable.show(value)
+}
+
+test "interface bounds constrain generic functions" {
+    assert announce(User{name: "Alice"}) == "announce(user:Alice)"
+    assert announce(Tag{label: "v1.0"}) == "announce(tag:v1.0)"
+    assert describe(User{name: "Bob"}) == "[user] user:Bob"
+}
+
+test "interface-bound aliases name reusable bound conjunctions" {
+    assert describe_alias(User{name: "Bob"}) == "[user] user:Bob"
+}

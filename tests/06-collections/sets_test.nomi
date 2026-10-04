@@ -1,0 +1,119 @@
+test "set literals deduplicate inserted values" {
+    s = #{1, 2, 3, 2, 1}
+
+    assert Set.size(s) == 3
+    assert Set.contains?(s, 2)
+    refute Set.contains?(s, 9)
+}
+
+test "singleton and empty set literals are sets" {
+    one = #{42}
+    empty: Set<Int> = #{}
+
+    assert Set.size(one) == 1
+    assert Set.contains?(one, 42)
+    assert Set.size(empty) == 0
+}
+
+test "sets support insertion and algebra operations" {
+    a = #{1, 2, 3}
+    b = #{2, 3, 4}
+
+    inserted =
+        Set.insert(a, 9)
+        |> Set.size()
+
+    union_size =
+        Set.union(a, b)
+        |> Set.size()
+
+    intersection_size =
+        Set.intersection(a, b)
+        |> Set.size()
+
+    difference_size =
+        Set.difference(a, b)
+        |> Set.size()
+
+    assert Set.subset?(#{1, 2}, a)
+
+    assert inserted == 4
+    assert union_size == 4
+    assert intersection_size == 2
+    assert difference_size == 1
+}
+
+test "sets deduplicate structural values" {
+    ts = #{(1, 2), (3, 4), (1, 2)}
+
+    assert Set.size(ts) == 2
+}
+
+test "sets are iterable in insertion order" {
+    assert #{3, 1, 2}
+        |> Iter.to_list()
+        |> List.equal?([3, 1, 2])
+
+    size =
+        [5, 5, 6]
+        |> Iter.to_set()
+        |> Iter.count()
+
+    assert size == 2
+}
+
+test "set iter pipelines can materialize back into sets" {
+    xs = #{1, 2, 3}
+
+    assert xs
+        |> Iter.map(|x| x * 10)
+        |> Iter.to_list()
+        |> List.equal?([10, 20, 30])
+
+    doubled =
+        #{1, 2, 3}
+        |> Iter.map(|x| x * 2)
+        |> Iter.to_set()
+
+    parity =
+        #{1, 2, 3, 4}
+        |> Iter.map(|x| x % 2)
+        |> Iter.to_set()
+
+    filtered =
+        #{1, 2, 3, 4}
+        |> Iter.filter(|x| x > 2)
+        |> Iter.to_set()
+
+    assert Set.size(doubled) == 3
+    assert Set.contains?(doubled, 2)
+    assert Set.contains?(doubled, 4)
+    assert Set.contains?(doubled, 6)
+
+    assert Set.size(parity) == 2
+    assert Set.contains?(parity, 0)
+    assert Set.contains?(parity, 1)
+
+    assert Set.size(filtered) == 2
+    assert Set.contains?(filtered, 3)
+    assert Set.contains?(filtered, 4)
+}
+
+test "sets can feed iter reductions" {
+    total =
+        #{1, 2, 3, 4}
+        |> Iter.reduce(|acc = 0, x| acc + x)
+
+    assert total == 10
+}
+
+test "sets combine with + and -" {
+    a = #{1, 2, 3}
+    b = #{2, 3, 4}
+
+    assert a + b == #{1, 2, 3, 4}
+    assert a - b == #{1}
+    assert a + #{} == a
+    assert a + #{9} == Set.insert(a, 9)
+    assert a - #{2} == Set.remove(a, 2)
+}

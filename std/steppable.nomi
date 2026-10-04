@@ -1,0 +1,17 @@
+import maybe.Maybe
+
+/// Protocol for values that can move by a caller-provided step.
+///
+/// `Discrete.next` is for types with a canonical next value. `Steppable` is
+/// for types where the caller supplies the step, such as Decimal values
+/// stepping by `0.1d` or Codepoints stepping by an Int count.
+pub interface Steppable<S> {
+    /// Returns `value` moved by `by`, or None when that step leaves the type's
+    /// valid domain.
+    ///
+    /// ```nomi
+    /// Steppable.step_by(1, 2)      // → Some(3)
+    /// Steppable.step_by(1.0d, 0.1d) // → Some(1.1d)
+    /// ```
+    fn step_by(value: self, by: S): Maybe<self>
+}

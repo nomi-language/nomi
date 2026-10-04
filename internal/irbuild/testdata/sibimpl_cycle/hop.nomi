@@ -1,0 +1,14 @@
+// Calls `Other.beta`, whose impl block is in back.nomi — a file this one
+// neither imports nor mentions. So the builder reaches back's package on the
+// strength of a spelling that names no file.
+import decls.{self, Alpha, Other, Thing}
+
+impl Alpha for Thing {
+    fn go(x: Thing): Int {
+        if x.n <= 0 {
+            0
+        } else {
+            Other.beta(decls.other(x.n - 1))
+        }
+    }
+}

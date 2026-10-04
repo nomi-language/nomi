@@ -1,0 +1,53 @@
+// The POSITIVE control for spec §9's `try` error-type rule: a `try` whose
+// operand's error type differs from the boundary's is legal once it is
+// CONVERTED at the site, and the converted form runs and propagates exactly
+// the declared error type.
+//
+// This is the shape every laundering site converts to — `Result.map_err` is
+// the language's answer (spec §9 gained it for this purpose), not an implicit
+// widening at the boundary.
+enum ParseError {
+    NotANumber String
+    OutOfRange Int
+}
+
+fn error_text(err: ParseError): String {
+    case err {
+        ParseError.NotANumber(s) -> "not a number: " + s
+        ParseError.OutOfRange(n) -> "out of range: " + Int.to_string(n)
+    }
+}
+
+fn parse_small(s: String): Result<Int, ParseError> {
+    case s {
+        "7" -> Ok(7)
+        "999" -> Err(ParseError.OutOfRange(999))
+        _ -> Err(ParseError.NotANumber(s))
+    }
+}
+
+// The operand fails with a `ParseError`; this function declares `String`. The
+// conversion is written at the `try`.
+fn describe(s: String): Result<String, String> {
+    n = try Result.map_err(parse_small(s), |err| error_text(err))
+
+    Ok("parsed " + Int.to_string(n))
+}
+
+// The matching case needs no conversion: both sides are `Result<_, String>`.
+fn describe_twice(s: String): Result<String, String> {
+    first = try describe(s)
+
+    Ok(first + " / " + first)
+}
+
+test "a converted try propagates the DECLARED error type" {
+    assert describe("7") == Ok("parsed 7")
+    assert describe("abc") == Err("not a number: abc")
+    assert describe("999") == Err("out of range: 999")
+}
+
+test "a matching try needs no conversion" {
+    assert describe_twice("7") == Ok("parsed 7 / parsed 7")
+    assert describe_twice("abc") == Err("not a number: abc")
+}

@@ -1,0 +1,51 @@
+// std's generic JSON impls at a user element type. Each instance's body calls
+// back into the program through a bounded call with no receiver operand
+// (`T.from_json(item)` in `impl FromJson for List<T>`), or through the
+// interface on a nested container (`ToJson.to_json(item)` in
+// `List.to_json<List<Note>>`).
+import std/json.{FromJson, Json, ToJson}
+
+struct Note {
+    title: String
+}
+
+derive FromJson for Note
+derive ToJson for Note
+derive Hashable for Note
+
+impl Comparable for Note {
+    fn compare(a: Note, b: Note): Ordering {
+        String.compare(a.title, b.title)
+    }
+}
+
+fn shape(text: String): Json {
+    case Json.decode(text) {
+        Ok(j) -> j
+        Err(_) -> Json.Null
+    }
+}
+
+fn main(): Result<Unit, Json.ShapeError> {
+    notes: List<Note> = try FromJson.from_json(shape("[{\"title\": \"b\"}, {\"title\": \"a\"}]"))
+    dbg notes
+    turbo = try FromJson.from_json<List<Note>>(shape("[{\"title\": \"c\"}]"))
+    dbg turbo
+    by_key: Map<String, Note> = try FromJson.from_json(shape("{\"k\": {\"title\": \"d\"}}"))
+    dbg by_key
+    maybe: Maybe<Note> = try FromJson.from_json(shape("{\"title\": \"e\"}"))
+    dbg maybe
+    none: Maybe<Note> = try FromJson.from_json(Json.Null)
+    dbg none
+    nested: List<List<Note>> = try FromJson.from_json(shape("[[{\"title\": \"f\"}], []]"))
+    dbg nested
+    bad: Result<List<Note>, Json.ShapeError> = FromJson.from_json(shape("[{\"title\": 1}]"))
+    dbg bad
+    dbg Json.encode(ToJson.to_json(notes))
+    dbg Json.encode(ToJson.to_json(nested))
+    dbg Json.encode(ToJson.to_json([by_key]))
+    dbg Json.encode(ToJson.to_json([maybe, none]))
+    dbg Iter.sort(notes)
+    dbg Iter.to_set(notes) |> Set.contains?(Note{title: "a"})
+    Ok(Unit)
+}

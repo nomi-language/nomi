@@ -1,0 +1,25 @@
+test "bindings can shadow earlier bindings in the same scope" {
+    greeting = "Jane"
+    assert greeting == "Jane"
+
+    greeting = "John"
+    assert greeting == "John"
+}
+
+test "bindings can shadow parameters and locals" {
+    fn double_then_inc(x: Int): Int {
+        x = x + x
+        x = x + 1
+        x
+    }
+
+    assert double_then_inc(10) == 21
+}
+
+test "bindings can shadow with a different type" {
+    value = 1
+    assert value == 1
+
+    value = "one"
+    assert value == "one"
+}

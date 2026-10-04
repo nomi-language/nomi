@@ -1,0 +1,39 @@
+// Logger implementations. The Logger interface itself lives in
+// effects.nomi.
+import {
+    std/io
+    effects.Logger
+}
+
+// ProdLogger writes through io.print to actual stdout. The
+// production handler. EffectsApp stores it behind `logger: Logger`; callers
+// read the active logger as `EffectsApp.logger`.
+pub type ProdLogger
+
+impl Logger for ProdLogger {
+    fn log(_value: ProdLogger, level: String, message: String): Unit {
+        io.print("[${level}] ${message}")
+    }
+}
+
+// TaggedLogger prefixes output with a recognizable label, making it easy to
+// tell which app configuration produced a line.
+pub struct TaggedLogger {
+    tag: String
+}
+
+impl Logger for TaggedLogger {
+    fn log(value: TaggedLogger, level: String, message: String): Unit {
+        io.print("[${value.tag}|${level}] ${message}")
+    }
+
+    // Override the open `info` default. ProdLogger inherits the default and is
+    // unaffected.
+    //
+    // The matching final `warn` default cannot be overridden — the
+    // interface omitted `open` deliberately, so any `fn warn(...)` here
+    // would error with "mark it `open` on the interface to allow overriding."
+    fn info(value: TaggedLogger, message: String): Unit {
+        io.print("[${value.tag}] ${message}")
+    }
+}

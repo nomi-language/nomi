@@ -1,0 +1,126 @@
+import std/io
+
+// A NAMESPACED type name: a declaration whose own name carries a dot, declared
+// beside the type it is named after. The parser admits it
+// (parseQualifiedTypeDeclName), buildTypes has always registered it under the
+// whole dotted spelling, and `tests/14-modules-and-packaging/
+// dotted_type_names/signal.nomi` has matched the interpreter since named types
+// landed — but only because nothing in that file ever NAMED the type in a
+// signature. typeOf read *ast.SimpleType, and `r: Probe.Reading` arrives as an
+// *ast.QualifiedType, so every use in a parameter or a return was refused under
+// a position-shaped key.
+//
+// This fixture is the reason that mattered rather than an illustration of it.
+// `tests/14-modules-and-packaging/dotted_type_names/telemetry.nomi` is
+// one of only six corpus files whose entire blocker set was the two signature
+// keys; rewritten with the dot removed it lowered whole, `case` included, which
+// is how the gap was isolated to the READ rather than to the representation.
+//
+// # What is deliberately NOT here
+//
+// The VALUE side of a dotted name is a different set of arms and a different
+// slice: `Probe.Reading.Steady` refuses as `type-qualified reference`,
+// `Probe.Reading.Spike(7)` as `qualified call`, and `.Steady` in an annotated
+// position as `dot variant`. All three were measured against this builder, not
+// assumed. The one construction form this file needed to become OBSERVABLE — a
+// namespaced STRUCT literal — is lowered here, because structLit's
+// *ast.QualifiedType arm read `A.B{...}` only as `Enum.Variant` and a dotted
+// struct name is a second, more specific reading of the same syntax.
+//
+// So the dotted ENUM below is declared and consumed through a signature but
+// never constructed, which is exactly telemetry.nomi's shape and exactly what
+// makes that file finishable.
+// The namespace owner. A struct, so `Probe.X` is also a legal type-qualified
+// MEMBER read — which is what the value-side refusals above are: the ambiguity
+// is real and the type position is where it resolves unambiguously, because a
+// variant is not a type.
+pub struct Probe {
+    id: Int
+}
+
+// The dotted enum, in every variant shape the builder represents: bare,
+// positional and struct-shaped. Each is reached through a dot-variant pattern
+// in `severity`, so a lowering that resolved the TYPE and then lost the
+// variants would fail here rather than in the corpus.
+pub enum Probe.Reading {
+    Steady
+    Spike Int
+    Blip {at: Int}
+}
+
+// A dotted STRUCT and a dotted zero-sized marker. Neither is an enum, so a fix
+// that only reached `g.types` for enums would pass the arm above and fail here.
+//
+// A dotted DISTINCT (`pub type Probe.Sample Int`) is absent, and its absence is
+// a measured fact rather than an oversight: the INTERPRETER cannot destructure
+// one — `case s { Probe.Sample(n) -> … }` and the bare `Sample(n)` both fall
+// through to `no matching case branch` — so a distinct declared under a dotted
+// name has no way to yield its inner value in EITHER path. That is a front-end
+// gap, and putting it in a differential fixture would pin agreement on a shape
+// neither side can express.
+pub struct Probe.Config {
+    retries: Int
+}
+
+pub type Probe.Absent
+
+// PARAMETER position on the dotted ENUM — the one the whole slice is about.
+// Never called: no construction form for a dotted enum lowers yet, so calling
+// it would refuse for a reason that is not this file's subject. The signature
+// still has to resolve, and TestNamespacedTypeNamesReachEverySignaturePosition
+// is what asserts it does.
+pub fn severity(r: Probe.Reading): Int {
+    case r {
+        .Steady -> 0
+        .Spike(n) -> n
+        .Blip{at} -> at
+    }
+}
+
+// RETURN position on the dotted enum. A dotted name was refused identically in
+// both, and the two were separate reject sites, so both need a witness.
+pub fn worst(a: Probe.Reading, b: Probe.Reading): Probe.Reading {
+    if severity(a) >= severity(b) { a } else { b }
+}
+
+// A dotted name INSIDE a container, so the descent through `List<...>` reaches
+// it rather than stopping at the container.
+pub fn total(rs: List<Probe.Reading>): Int {
+    Iter.reduce(rs, |acc = 0, r| acc + severity(r))
+}
+
+// The marker in a signature. It stores nothing, which is exactly the case a
+// lookup keyed on "has a payload" would get wrong.
+pub fn absent_is(_m: Probe.Absent): String {
+    "absent"
+}
+
+// The dotted STRUCT in parameter and return position, constructed, with field
+// access — the observable half.
+pub fn tune(c: Probe.Config, by: Int): Probe.Config {
+    Probe.Config{retries: c.retries * by}
+}
+
+pub fn retries_of(c: Probe.Config): Int {
+    c.retries
+}
+
+// A dotted struct inside a container, and in a tuple, so the composite descent
+// is exercised on the reachable half too.
+pub fn total_retries(cs: List<Probe.Config>): Int {
+    Iter.reduce(cs, |acc = 0, c| acc + retries_of(c))
+}
+
+pub fn widen(_pair: (Probe.Config, Int)): Probe.Config {
+    Probe.Config{retries: 0}
+}
+
+fn main() {
+    base = Probe.Config{retries: 2}
+
+    io.print("base = ${retries_of(base)}")
+    io.print("tuned = ${retries_of(tune(base, 3))}")
+    io.print("chained = ${retries_of(tune(tune(base, 3), 5))}")
+    io.print("total = ${total_retries([base, tune(base, 4), Probe.Config{retries: 9}])}")
+    io.print("widened = ${retries_of(widen((base, 1)))}")
+}

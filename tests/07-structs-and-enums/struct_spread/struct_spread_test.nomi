@@ -1,0 +1,523 @@
+// Struct update by spread — `{..base, field: value}`.
+//
+// It is sugar over `Struct.update(base, {field: value})`, and both spellings
+// are part of the language: `Struct` is a real universal interface and
+// `Struct.update` is the form reachable by name.
+//
+// The two position rules differ ON PURPOSE and the difference is the reason
+// this file states both. A LIST spread must be LAST, because a `List` is cons
+// cells: prepending is O(1) and appending is O(n), so `[0, ..xs]` is the cheap
+// direction and `[..xs, 0]` is not. A RECORD spread must be FIRST, because
+// order in a record update is pure notation and base-then-overrides is the
+// only order under which "a later field wins" is true.
+//
+// The result takes the SPREAD HEAD's type — nominal in, nominal out; anonymous
+// in, anonymous out. It is the same rule as `Struct.update`'s signature,
+// `Struct.update(original: self, updates: Partial<self>): self`, which
+// returns the base's type.
+//
+// Two rules of the shared struct-literal validator change in a patch, and
+// nowhere else. A MISSING field is not an error, because the spread supplies
+// every field. And a bare `{…}` at a STRUCT-TYPED field is itself a PATCH,
+// applied recursively — so these two are the same operation:
+//
+//   Struct.update(user, {address: {city: "NYC"}})
+//   {..user, address: {city: "NYC"}}
+//
+// Everything else at a field position is a VALUE: a nominal literal
+// (`Inner{a: 9, b: 8}`), a binding, a call, and a NESTED SPREAD
+// (`{..user.address, city: "NYC"}`), which is already a complete value of the
+// field's type. The nested-spread spelling is legal and equivalent.
+//
+// An INTERFACE-TYPED FIELD TAKES VALUES ONLY, because you cannot patch
+// through an interface that does not name its fields — `Partial<T>` stops
+// there too, and that is forced rather than arbitrary. Unknown names and
+// value types are checked by the same validator
+// (`checkStructLitAgainstStruct`), one level down, which is why the
+// diagnostics below name the NESTED type.
+//
+// So the update is DEEP where a field value is a bare `{…}`, and replaces the
+// field wherever the value is anything else; the tests below cover both sides
+// of that line.
+import {
+    std/compiler
+    test_helpers
+}
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+derive Display for Point
+
+interface Speaker {
+    fn say(s: self): String
+}
+
+struct Loud {
+    n: Int
+}
+
+impl Speaker for Loud {
+    fn say(s: Loud): String {
+        "LOUD${Int.to_string(s.n)}"
+    }
+}
+
+struct Quiet {
+    n: Int
+}
+
+impl Speaker for Quiet {
+    fn say(s: Quiet): String {
+        "quiet${Int.to_string(s.n)}"
+    }
+}
+
+struct Stage {
+    who: Speaker
+    seats: Int
+}
+
+struct Box<T> {
+    item: T
+    tag: String
+}
+
+fn make_point(n: Int): Point {
+    Point{x: n, y: 0}
+}
+
+// --- the deep-patch declarations -------------------------------------------
+struct Address {
+    street: String
+    city: String
+}
+
+struct Person {
+    name: String
+    address: Address
+}
+
+derive Display for Address
+
+derive Display for Person
+
+struct Rec {
+    rec: {a: Int, b: Int}
+    k: Int
+}
+
+struct Deep {
+    person: Person
+    n: Int
+}
+
+// --- the four accepted shapes ----------------------------------------------
+test "a nominal head gives a nominal result" {
+    origin = Point{x: 1, y: 2}
+    moved = {..origin, x: 9}
+
+    assert moved.x == 9
+    assert moved.y == 2
+    // NOMINAL IDENTITY, not merely the same field values: an anonymous result
+    // would miss `Point`'s impls silently, so `Display` is the instrument.
+    assert Display.to_string(moved) == "Point{x: 9, y: 2}"
+    assert moved == Point{x: 9, y: 2}
+}
+
+test "an anonymous head gives an anonymous result" {
+    base = {x: 1, y: 2}
+    moved = {..base, y: 7}
+
+    assert moved.x == 1
+    assert moved.y == 7
+    assert moved == {x: 1, y: 7}
+}
+
+test "an explicit field overrides the spread's value" {
+    origin = Point{x: 1, y: 2}
+    moved = {..origin, x: 42}
+
+    assert origin.x == 1
+    assert moved.x == 42
+}
+
+// --- the four rejected shapes ----------------------------------------------
+test "an unknown field is rejected" {
+    diagnostics = compiler.check(
+        """
+          struct Point {
+            x: Int
+            y: Int
+          }
+
+          fn main() {
+            origin = Point{x: 1, y: 2}
+            dbg {..origin, z: 3}
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "Point has no field 'z'")
+}
+
+test "a field value of the wrong type is rejected" {
+    diagnostics = compiler.check(
+        """
+          struct Point {
+            x: Int
+            y: Int
+          }
+
+          fn main() {
+            origin = Point{x: 1, y: 2}
+            dbg {..origin, x: "nine"}
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "field 'x' of Point: expected Int, got String")
+}
+
+test "a spread that is not the first element is rejected" {
+    diagnostics = compiler.check(
+        """
+          struct Point {
+            x: Int
+            y: Int
+          }
+
+          fn main() {
+            origin = Point{x: 1, y: 2}
+            dbg {x: 9, ..origin}
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "struct spread `..` must be the first element")
+}
+
+test "two spreads are rejected" {
+    diagnostics = compiler.check(
+        """
+          struct Point {
+            x: Int
+            y: Int
+          }
+
+          fn main() {
+            origin = Point{x: 1, y: 2}
+            other = Point{x: 3, y: 4}
+            dbg {..origin, ..other}
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "struct spread `..` must be the first element")
+}
+
+// --- leniency ---------------------------------------------------------------
+test "an interface-typed field stays as lenient as in an ordinary literal" {
+    before = Stage{who: Loud{n: 1}, seats: 10}
+    after = {..before, who: Quiet{n: 2}}
+
+    assert Speaker.say(before.who) == "LOUD1"
+    assert Speaker.say(after.who) == "quiet2"
+    assert after.seats == 10
+}
+
+test "a type-parameter field stays as lenient as in an ordinary literal" {
+    before: Box<Int> = Box{item: 3, tag: "old"}
+    after = {..before, item: 4}
+
+    assert after.item == 4
+    assert after.tag == "old"
+}
+
+// --- the head is an expression ----------------------------------------------
+test "the spread head is an arbitrary expression" {
+    moved = {..make_point(5), y: 6}
+
+    assert moved.x == 5
+    assert moved.y == 6
+}
+
+// --- the deep patch --------------------------------------------------------
+// The claim is that these two spellings are ONE OPERATION, so every test
+// below asserts the spread's result EQUAL to `Struct.update`'s rather than
+// asserting each separately. Two implementations that drifted the same way
+// would pass a pair of separate assertions.
+test "a bare brace at a struct field patches it, and equals Struct.update" {
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
+
+    spread = {..ada, address: {city: "NYC"}}
+    patch = Struct.update(ada, {address: {city: "NYC"}})
+
+    // `street` survives: the brace is a patch and not a value.
+    assert spread.address.city == "NYC"
+    assert spread.address.street == "1 Main"
+    assert spread == patch
+
+    // NOMINAL IDENTITY all the way down. An anonymous inner result would
+    // compare equal on fields and miss every `Address` impl, so `Display` is
+    // the instrument here for the same reason it is at the top level: it
+    // renders `Address{...}` for the nominal type and `{...}` for a record.
+    // `Display` does not quote a String, which is why `Ada` is bare.
+    assert Display.to_string(
+        spread
+    ) == "Person{name: Ada, address: Address{street: 1 Main, city: NYC}}"
+}
+
+test "a nominal literal at a struct field replaces it, and equals Struct.update" {
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
+
+    spread = {..ada, address: Address{street: "2 Oak", city: "NYC"}}
+    patch = Struct.update(ada, {address: Address{street: "2 Oak", city: "NYC"}})
+
+    assert spread.address.street == "2 Oak"
+    assert spread == patch
+}
+
+test "a nested spread is a value, and its own head is the base" {
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
+    bob = Person{name: "Bob", address: Address{street: "9 Elm", city: "Reno"}}
+
+    // The SAME base. This is the shape the tour and this file both reached for
+    // first, and it is the one case where discarding the nested head is
+    // invisible — `ada.address` is the field being written.
+    same = {..ada, address: {..ada.address, city: "NYC"}}
+    assert same.address.city == "NYC"
+    assert same.address.street == "1 Main"
+    assert same == Struct.update(ada, {address: {city: "NYC"}})
+
+    // A FOREIGN base, which is the case that distinguishes them. `street` must
+    // come from `bob`, so this is NOT a patch of `ada.address`. The compiled
+    // engine answered `1 Main` here until `updateValue` stopped recursing on a
+    // literal that carries its own spread.
+    foreign = {..ada, address: {..bob.address, city: "NYC"}}
+    assert foreign.address.street == "9 Elm"
+    assert foreign.address.city == "NYC"
+    assert foreign == Struct.update(ada, {address: {..bob.address, city: "NYC"}})
+}
+
+test "the patch reaches three levels down" {
+    d = Deep{
+        person: Person{
+            name: "Ada",
+            address: Address{street: "1 Main", city: "Boston"},
+        },
+        n: 7,
+    }
+
+    spread = {
+        ..d,
+        person: {address: {city: "NYC"}},
+    }
+
+    patch = Struct.update(d, {
+        person: {
+            address: {
+                city: "NYC",
+            },
+        },
+    })
+
+    assert spread.person.address.city == "NYC"
+    assert spread.person.address.street == "1 Main"
+    assert spread.person.name == "Ada"
+    assert spread.n == 7
+    assert spread == patch
+}
+
+test "a deep patch and a shallow one in the same literal" {
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
+
+    spread = {..ada, name: "Ada L", address: {city: "NYC"}}
+
+    assert spread.name == "Ada L"
+    assert spread.address.city == "NYC"
+    assert spread.address.street == "1 Main"
+    assert spread == Struct.update(ada, {name: "Ada L", address: {city: "NYC"}})
+}
+
+test "an anonymous-typed field takes a partial and a complete brace alike" {
+    r = Rec{rec: {a: 1, b: 2}, k: 3}
+
+    // A COMPLETE brace at an anonymous-typed field is both a whole value and a
+    // whole patch. It takes the patch route, and the two routes have to agree
+    // or the change is not a strict extension for this one shape.
+    part = {..r, rec: {a: 9}}
+    full = {..r, rec: {a: 9, b: 8}}
+
+    assert part.rec.a == 9
+    assert part.rec.b == 2
+    assert full.rec.a == 9
+    assert full.rec.b == 8
+    assert full.rec == {a: 9, b: 8}
+    assert part == Struct.update(r, {rec: {a: 9}})
+    assert full == Struct.update(r, {rec: {a: 9, b: 8}})
+}
+
+test "a field generic over a struct patches once the argument is solved" {
+    before: Box<Address> = Box{
+        item: Address{street: "1 Main", city: "Boston"},
+        tag: "old",
+    }
+
+    after = {..before, item: {city: "NYC"}}
+
+    assert after.item.city == "NYC"
+    assert after.item.street == "1 Main"
+    assert after.tag == "old"
+    assert after == Struct.update(before, {item: {city: "NYC"}})
+}
+
+test "the base is unchanged by a deep patch" {
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
+    _moved = {..ada, address: {city: "NYC"}}
+
+    assert ada.address.city == "Boston"
+}
+
+// --- the deep diagnostics --------------------------------------------------
+// THE DIAGNOSTIC MUST NAME THE TYPE THE MISTAKE IS IN. A patch that reports
+// the wrong type is worse than a rejection, because the reader goes looking
+// at the outer struct. Both of these said `field 'address' of Person:
+// expected Address, got {…}` before the depth existed.
+test "an unknown nested field names the NESTED type" {
+    diagnostics = compiler.check(
+        """
+          struct Address {
+            street: String
+            city: String
+          }
+
+          struct Person {
+            name: String
+            address: Address
+          }
+
+          fn main() {
+            ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
+            dbg {..ada, address: {zip: "10001"}}
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "Address has no field 'zip'")
+}
+
+test "a wrong nested value type names the NESTED field" {
+    diagnostics = compiler.check(
+        """
+          struct Address {
+            street: String
+            city: String
+          }
+
+          struct Person {
+            name: String
+            address: Address
+          }
+
+          fn main() {
+            ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
+            dbg {..ada, address: {city: 10001}}
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "field 'city' of Address: expected String, got Int",
+    )
+}
+
+// AN INTERFACE-TYPED FIELD TAKES VALUES ONLY. `Stage.who: Speaker` names no
+// fields, so there is nothing to patch through, and `Partial<T>` stops at the
+// same place. The implementer-as-value case is in the leniency section above.
+test "a brace at an interface-typed field is rejected" {
+    diagnostics = compiler.check(
+        """
+          interface Speaker {
+            fn say(s: self): String
+          }
+
+          struct Loud {
+            n: Int
+          }
+
+          impl Speaker for Loud {
+            fn say(_s: Loud): String {
+              "loud"
+            }
+          }
+
+          struct Stage {
+            who: Speaker
+            seats: Int
+          }
+
+          fn main() {
+            s = Stage{who: Loud{n: 1}, seats: 3}
+            dbg {..s, who: {n: 2}}
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "field 'who' of Stage: expected Speaker, got {n: Int}",
+    )
+}
+
+// THE DEPTH EXISTS ONLY UNDERNEATH A SPREAD. `Person{address: {city: "NYC"}}`
+// has no base for `address.street` to come from, so it is not a patch: the
+// brace builds an Address and reports Address's missing field. Without this
+// the rule would be "a bare brace at a struct field is always a patch".
+test "ordinary construction is not a patch" {
+    diagnostics = compiler.check(
+        """
+          struct Address {
+            street: String
+            city: String
+          }
+
+          struct Person {
+            name: String
+            address: Address
+          }
+
+          fn main() {
+            dbg Person{name: "Ada", address: {city: "NYC"}}
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "missing field 'street' of Address")
+}
+
+// A spread that changes no field is its base value: values are immutable and
+// have no identity, so a copy could do nothing the value itself does not.
+test "a spread with no fields is rejected" {
+    diagnostics = compiler.check(
+        """
+          struct Point {
+            x: Int
+            y: Int
+          }
+
+          fn main() {
+            origin = Point{x: 1, y: 2}
+            dbg {..origin}
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "a struct spread with no fields is its base value; write `origin`",
+    )
+}

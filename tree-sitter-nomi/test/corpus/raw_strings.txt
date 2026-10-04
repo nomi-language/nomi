@@ -1,0 +1,44 @@
+==========
+Raw backtick string
+==========
+
+pattern = `\d{3,4}`
+
+---
+
+(source_file
+  (binding
+    (identifier)
+    (raw_string
+      (raw_string_content))))
+
+==========
+Multi-line raw backtick string
+==========
+
+script = `
+  echo ${HOME}
+  `
+
+---
+
+(source_file
+  (binding
+    (identifier)
+    (raw_string
+      (raw_string_content))))
+
+==========
+Raw typed backtick literal
+==========
+
+pattern = Regex`\d+`
+
+---
+
+(source_file
+  (binding
+    (identifier)
+    (raw_tagged_string
+      tag: (type_identifier)
+      (raw_string_content))))

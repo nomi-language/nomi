@@ -1,0 +1,86 @@
+// A `fn` declared inside a body — Go has no nested named function, so this
+// fixture observes the encoding decision rather than merely exercising it.
+//
+// Four claims, and each would survive a wrong answer in a DIFFERENT way, which
+// is why they are separate lines of output rather than one program:
+//
+//  1. **SHADOWING a module-level declaration.** A nested `fn helper` sits beside
+//     a top-level `fn helper`, and the nested one must win. This is the case a
+//     lift-to-package-level encoding gets wrong — the lifted `Nomi_helper`
+//     either collides with the top-level one or leaves the call site choosing
+//     between two same-named candidates. As a local, directCall finds it first,
+//     because it consults locals before g.funcs.
+//
+//     Note what is NOT here, and it corrects a premise: a nested `fn` may not
+//     shadow a LOCAL. Measured against the interpreter — a binding, a parameter
+//     or another nested `fn` of the same name in any enclosing scope is an
+//     analyzer error ("'label' is already defined in this scope as a binding" /
+//     "as a parameter" / "as a function"). Only a module-level declaration can
+//     be shadowed, so that is the shadowing case that exists.
+//
+//  2. **CAPTURE.** `adjust` reads `offset`, a local of the enclosing function
+//     that is REBOUND after `adjust` is created. A closure captures the value
+//     a name holds when it is made (spec §23), and the rebinding is a new
+//     binding it never sees, so the call prints 130, not 140. A closure that
+//     read the name when called would print 140, a plausible wrong answer.
+//
+//  3. **A nested `fn` that shadows a module `once`**, so the shadowing rule is
+//     pinned for both kinds of module-level name rather than just for `fn`.
+//
+//  4. **NON-TAIL recursion lowers.** `fact` calls itself inside `n * fact(...)`,
+//     which is not a tail call and grows the stack on the interpreter too. It is
+//     what forces the `var f T; f = func` split: Go forbids naming a variable
+//     inside its own initializer, so `f := func(){ f() }` does not compile.
+//     A TAIL call to a nested `fn` is refused by name instead — see nestedfn.go,
+//     because valueCall has no tail-position check.
+import std/io
+
+once base: Int = 7
+
+fn helper(x: Int): Int {
+    x + 1
+}
+
+fn shadows_a_module_fn(): Int {
+    fn helper(x: Int): Int {
+        x + 100
+    }
+
+    helper(1)
+}
+
+fn shadows_a_module_once(): Int {
+    fn base(x: Int): Int {
+        x * 3
+    }
+
+    base(2)
+}
+
+fn captures_a_rebound_local(): String {
+    offset = 30
+
+    fn adjust(x: Int): Int {
+        x + offset
+    }
+
+    offset = 40
+    "adjust(100) = ${adjust(100)}, offset = ${offset}"
+}
+
+fn factorial(n: Int): Int {
+    fn fact(k: Int): Int {
+        if k <= 1 { 1 } else { k * fact(k - 1) }
+    }
+
+    fact(n)
+}
+
+fn main() {
+    io.print("module helper(1) = ${helper(1)}")
+    io.print("nested helper wins = ${shadows_a_module_fn()}")
+    io.print("module once base = ${base}")
+    io.print("nested base wins = ${shadows_a_module_once()}")
+    io.print(captures_a_rebound_local())
+    io.print("factorial(5) = ${factorial(5)}")
+}

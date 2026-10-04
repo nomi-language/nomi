@@ -1,0 +1,65 @@
+import std/testing
+
+fn find_name(id: Int): Maybe<String> {
+    if id == 1 { Some("Ada") } else { None }
+}
+
+fn parse_id(s: String): Result<Int, String> {
+    case String.to_int(s) {
+        Some(id) -> Ok(id)
+        None -> Err("expected a numeric id")
+    }
+}
+
+test "maybe values can be asserted directly" {
+    assert find_name(1) == Some("Ada")
+    assert find_name(2) == None
+}
+
+test "maybe shape can be asserted with predicates" {
+    assert Maybe.some?(find_name(1))
+    assert Maybe.none?(find_name(2))
+}
+
+test "assert checks maybe success shape" {
+    assert find_name(1)
+
+    assert Some(name) = find_name(1)
+    assert name == "Ada"
+}
+
+test "refute checks maybe empty shape" {
+    none = refute find_name(2)
+    assert none == None
+}
+
+test "result values can be asserted directly" {
+    assert parse_id("42") == Ok(42)
+    assert parse_id("wat") == Err("expected a numeric id")
+}
+
+test "result shape can be asserted with predicates" {
+    assert Result.ok?(parse_id("42"))
+    assert Result.err?(parse_id("wat"))
+}
+
+test "assert checks result ok shape" {
+    assert parse_id("42")
+
+    assert Ok(id) = parse_id("42")
+    assert id == 42
+}
+
+test "refute checks result err shape" {
+    error = refute parse_id("wat")
+    assert Err(message) = error
+    assert message == "expected a numeric id"
+}
+
+test "check returns assertion results with original subject values" {
+    parsed = testing.check(parse_id("42"))
+    found = testing.check(find_name(1))
+
+    assert parsed == Ok(Ok(42))
+    assert found == Ok(Some("Ada"))
+}

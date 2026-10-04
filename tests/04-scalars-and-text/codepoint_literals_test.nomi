@@ -1,0 +1,95 @@
+fn token_kind(cp: Codepoint): String {
+    case cp {
+        '(' -> "open"
+        ')' -> "close"
+        ' ' -> "space"
+        '\n' -> "newline"
+        _ -> "other"
+    }
+}
+
+test "a codepoint literal is the codepoint of its ASCII character" {
+    assert Codepoint.to_int('a') == 97
+    assert Codepoint.to_int('A') == 65
+    assert Codepoint.to_int('0') == 48
+    assert Codepoint.to_int(' ') == 32
+    assert Codepoint.to_int('~') == 126
+    assert Codepoint.from_int(97) == Some('a')
+}
+
+test "escapes are the string escapes with the single quote in place of the double" {
+    assert Codepoint.to_int('\n') == 10
+    assert Codepoint.to_int('\t') == 9
+    assert Codepoint.to_int('\\') == 92
+    assert Codepoint.to_int('\'') == 39
+    assert Codepoint.to_int('"') == 34
+    assert Codepoint.to_int('\u{0}') == 0
+    assert Codepoint.to_int('\u{D}') == 13
+    assert Codepoint.to_int('\u{7F}') == 127
+}
+
+test "a codepoint literal displays as its character and inspects as Codepoint(n)" {
+    assert Codepoint.to_string('a') == "a"
+    assert "${'a'}" == "a"
+    assert Debug.inspect('a') == "Codepoint(97)"
+}
+
+test "codepoint literals compare with other codepoints" {
+    assert 'a' == 'a'
+    assert 'a' != 'b'
+    assert 'a' < 'b'
+    assert 'Z' < 'a'
+    assert Iter.sort(['c', 'a', 'b']) == ['a', 'b', 'c']
+}
+
+test "ranges over codepoint literals iterate as codepoints" {
+    letters =
+        'a'..='e'
+        |> Iter.map(Codepoint.to_string)
+        |> String.join()
+
+    digits =
+        '0'..'9'
+        |> Iter.map(Codepoint.to_int)
+        |> Iter.to_list()
+
+    assert letters == "abcde"
+    assert digits == [48, 49, 50, 51, 52, 53, 54, 55, 56]
+    assert Range.contains?('a'..='z', 'q')
+    refute Range.contains?('a'..='z', 'Q')
+}
+
+test "codepoint literals are case patterns" {
+    kinds =
+        String.to_codepoints("(a )\n")
+        |> Iter.map(token_kind)
+        |> Iter.to_list()
+
+    assert kinds == ["open", "other", "space", "close", "newline"]
+}
+
+test "codepoint literals match inside variant and tuple patterns" {
+    found = case List.head(['x', 'y']) {
+        Some('x') -> "x first"
+        Some(_) -> "other first"
+        None -> "empty"
+    }
+
+    signed = case ('-', 3) {
+        ('-', n) -> -n
+        (_, n) -> n
+    }
+
+    assert found == "x first"
+    assert signed == -3
+}
+
+test "a scanner splits on a codepoint" {
+    fields =
+        String.to_codepoints("a,bc,,d")
+        |> Iter.filter(|cp| cp != ',')
+        |> Iter.map(Codepoint.to_string)
+        |> String.join()
+
+    assert fields == "abcd"
+}

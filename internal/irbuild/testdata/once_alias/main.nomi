@@ -1,0 +1,19 @@
+// The BRACED selective import with an alias — `lib.{config as cfg, spare}` —
+// which is the spelling `nomi fmt` keeps once the list has more than one item,
+// and the one the corpus's explicit_item_imports_test.nomi uses.
+//
+// `cfg` is the case that matters: it is bound locally while the declaration is
+// `config`, and decoy.nomi declares its own `pub once config` and sorts BEFORE
+// lib.nomi. So a resolution that read the local spelling MISSES, and one that
+// searched units by the declared name answers 99 where 7 is correct.
+import {
+    std/io
+    decoy
+    lib.{config as cfg, spare}
+}
+
+fn main() {
+    io.print("${cfg}")
+    io.print("${spare}")
+    io.print("${decoy.reveal()}")
+}

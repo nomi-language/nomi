@@ -1,0 +1,61 @@
+==========
+Anon-struct value with a type-rooted field value
+==========
+
+once z = {a: Map.put(x)}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (anon_struct
+      (anon_struct_field
+        (identifier)
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))
+          (identifier))))))
+
+==========
+Map literal as a case scrutinee
+==========
+
+once r = case {1 => 2} {
+  _ -> 0
+}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (case_expression
+      (map_literal
+        (map_entry
+          (integer)
+          (integer)))
+      (case_branch
+        (integer)))))
+
+==========
+Block whose comment holds => is not classified as a map
+==========
+
+fn f(): Int {
+  // x => y
+  foo()
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (type_identifier)
+    (body
+      (line_comment)
+      (call_expression
+        (identifier)))))

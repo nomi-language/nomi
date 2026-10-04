@@ -1,0 +1,31 @@
+# build output
+dist/
+# generated types
+.astro/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# environment variables
+.env
+.env.production
+
+# macOS-specific files
+.DS_Store
+
+# Staged Nomi wasm/highlighting assets (from scripts/build-tour-wasm.sh)
+/public/nomi/
+
+# Generated stdlib API reference (cmd/nomi-docgen, via build-tour-wasm.sh)
+/src/content/docs/reference/
+
+# scripts/build-tour-wasm.sh's build and vendoring directory, staged from here
+# into public/nomi/
+/.wasm-build/

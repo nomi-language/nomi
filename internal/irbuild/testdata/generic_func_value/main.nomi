@@ -1,0 +1,68 @@
+// Generic functions named as values, each instantiated against the function
+// type its position expects: a same-file generic, a bounded one, one in
+// another file (qualified and selectively imported), `io.print` and
+// `io.inspect`, an annotated binding, and a generic body passing its own
+// type parameter on.
+import {
+    std/io
+    span
+    span.twice
+}
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+impl Display for Point {
+    fn to_string(p: Point): String {
+        "(${p.x}, ${p.y})"
+    }
+}
+
+fn ident<T>(x: T): T {
+    x
+}
+
+fn show<T>(x: T): String where T: Display {
+    "<${Display.to_string(x)}>"
+}
+
+fn pair<A, B>(a: A, b: B): (A, B) {
+    (a, b)
+}
+
+fn apply(f: (Int) -> Int, x: Int): Int {
+    f(x)
+}
+
+fn all_shown<T>(xs: List<T>): List<String> where T: Display {
+    xs |> Iter.map(show) |> Iter.to_list()
+}
+
+fn main() {
+    ["x", "y"] |> Iter.each(io.print)
+
+    [1, 2] |> Iter.map(ident) |> Iter.each(io.print)
+
+    [Point{x: 1, y: 2}] |> Iter.map(show) |> Iter.each(io.print)
+
+    [3, 4] |> Iter.map(span.ident) |> Iter.each(io.print)
+
+    ["a"] |> Iter.map(twice) |> Iter.each(io.inspect)
+
+    [5] |> Iter.map(span.double) |> Iter.each(io.print)
+
+    io.print(
+        Iter.zip([1, 2], ["p", "q"])
+        |> Iter.map(ident)
+        |> Iter.to_list()
+    )
+
+    f: (Int) -> Int = ident
+    io.print(f(6))
+    io.print(apply(ident, 7))
+    g: (String, Int) -> (String, Int) = pair
+    io.print(g("k", 8))
+    io.print(all_shown([9, 10]))
+}

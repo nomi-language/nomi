@@ -1,0 +1,122 @@
+// Tail cycles that CROSS the impl/free boundary, at depths the INTERPRETER can
+// also afford, so the two paths can be compared byte for byte.
+//
+// The stack property these programs exist for is NOT visible here: 1e6 hops of
+// direct Go recursion survive on 16 MB of stack, so this file agrees whether or
+// not anything was lowered. The depths that discriminate are in
+// tail_impl_free_deep.nomi and tail_impl_impl_deep.nomi, asserted absolutely.
+//
+// What IS visible here is every way a driver holding an impl body could be
+// wrong while still producing a number. The receivers CARRY DATA on purpose: a
+// driver that held the members' bodies but skipped rebinding a receiver would
+// leave the zero value in that slot, and `base` is read on every single hop.
+import std/io
+
+struct Ping {
+    base: Int
+}
+
+struct Pong {
+    base: Int
+}
+
+interface Bounce {
+    fn hop(value: self, n: Int, acc: Int): Int
+}
+
+// One member of the cycle is an impl function reached through its interface's
+// name with a CONCRETE receiver, which is the spelling implCall resolves
+// statically; the other is an ordinary free function.
+impl Bounce for Ping {
+    fn hop(value: Ping, n: Int, acc: Int): Int {
+        if n == 0 {
+            acc
+        } else {
+            pong(Pong{base: value.base + 1}, n - 1, acc + value.base)
+        }
+    }
+}
+
+fn pong(value: Pong, n: Int, acc: Int): Int {
+    if n == 0 {
+        acc
+    } else {
+        Bounce.hop(Ping{base: value.base + 1}, n - 1, acc + value.base)
+    }
+}
+
+// A cycle with NO free member at all, on two different receivers, through two
+// INHERENT impl blocks — so the driver's parameter union holds two distinct
+// struct types and the receiver spelling is the type's own name.
+struct Up {
+    step: Int
+}
+
+struct Dn {
+    step: Int
+}
+
+impl Up {
+    fn go(value: Up, n: Int): Int {
+        if n == 0 {
+            value.step
+        } else {
+            Dn.go(Dn{step: value.step + 1}, n - 1)
+        }
+    }
+}
+
+impl Dn {
+    fn go(value: Dn, n: Int): Int {
+        if n == 0 {
+            value.step
+        } else {
+            Up.go(Up{step: value.step + 1}, n - 1)
+        }
+    }
+}
+
+// Evaluation order across the boundary. Every argument reads a parameter the
+// hop is about to overwrite, in both directions, so a rebind that skipped the
+// temporaries would corrupt one of them. An EVEN number of hops restores the
+// original order and an odd number reverses it; both are read below, because
+// each alone is satisfied by a lowering that never swaps at all.
+struct Flip {}
+
+interface Swap {
+    fn flip(value: self, a: Int, b: Int, n: Int): Int
+}
+
+impl Swap for Flip {
+    fn flip(value: Flip, a: Int, b: Int, n: Int): Int {
+        _ = value
+        if n == 0 { a - b } else { swapper(b, a, n - 1) }
+    }
+}
+
+fn swapper(a: Int, b: Int, n: Int): Int {
+    if n == 0 {
+        a - b
+    } else {
+        Swap.flip(Flip{}, b, a, n - 1)
+    }
+}
+
+// The dispatch TABLE still reaches the member, and the member is now an entry
+// wrapper rather than the body. `bindImpl` binds `it.goName`, the wrapper keeps
+// that name, so a table entry trampolines without knowing a cycle is there.
+// NOT in tail position — `1 +` makes it an operand — because a tail-position
+// existential dispatch into a cycle is refused for an unrelated reason: the
+// receiver is erased, so there is no member to select.
+fn through_table(b: Bounce, n: Int): Int {
+    1 + Bounce.hop(b, n, 0)
+}
+
+fn main() {
+    io.print("bounce = ${Bounce.hop(Ping{base: 1}, 6, 0)}")
+    io.print("pong = ${pong(Pong{base: 1}, 6, 0)}")
+    io.print("impl only = ${Up.go(Up{step: 0}, 7)}")
+    io.print("swap even = ${swapper(3, 8, 4)}")
+    io.print("swap odd = ${swapper(3, 8, 5)}")
+    io.print("table = ${through_table(Ping{base: 2}, 3)}")
+}

@@ -1,0 +1,28 @@
+test "maybe values support type-qualified equality" {
+    assert Maybe.equal?(Some(4), Some(4))
+    refute Maybe.equal?(Some(4), Some(5))
+    refute Maybe.equal?(Some(4), None)
+    assert Maybe.equal?(None, None)
+}
+
+test "result values support type-qualified equality" {
+    assert Result.equal?(Ok(4), Ok(4))
+    refute Result.equal?(Ok(4), Ok(5))
+    refute Result.equal?(Ok(4), Err("bad"))
+    assert Result.equal?(Err("bad"), Err("bad"))
+}
+
+test "maybe and result values support structural hashing" {
+    assert Maybe.hash(Some(4)) == Maybe.hash(Some(4))
+    assert Maybe.hash(None) == Maybe.hash(None)
+
+    assert Result.hash(Ok(4)) == Result.hash(Ok(4))
+    assert Result.hash(Err("bad")) == Result.hash(Err("bad"))
+}
+
+test "maybe equality works as a pipeline predicate" {
+    assert 3.7
+        |> Float.round()
+        |> Float.to_int()
+        |> Maybe.equal?(Some(4))
+}

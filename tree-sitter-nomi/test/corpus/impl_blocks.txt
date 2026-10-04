@@ -1,0 +1,180 @@
+================================================================================
+top-level impl-for foreign block with a plain method
+================================================================================
+
+impl Speech for Dog {
+  fn speak(d: Dog): String {
+    "woof"
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (impl_block
+    (type_identifier)
+    (type_identifier)
+    (function_definition
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (type_identifier)))
+      (type_identifier)
+      (body
+        (string
+          (string_content))))))
+
+================================================================================
+generic impl-for block with bound
+================================================================================
+
+impl<T> Iter for List<T> where T: Bound {
+  fn next(xs: List<T>): T {
+    xs
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (impl_block
+    (type_parameters
+      (type_parameter
+        (type_parameter_identifier
+          (type_identifier))))
+    (type_identifier)
+    (generic_type
+      (type_identifier)
+      (type_identifier))
+    (where_clause
+      (where_constraint
+        (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))
+    (function_definition
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (generic_type
+            (type_identifier)
+            (type_identifier))))
+      (type_identifier)
+      (body
+        (identifier)))))
+
+================================================================================
+impl-for block with host fn and fn items
+================================================================================
+
+impl Clock for Date {
+  host fn new(year: Int): Result<Date, Error>
+
+  fn today(): Date {
+    Date.new(2026)
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (impl_block
+    (type_identifier)
+    (type_identifier)
+    (extern_func_definition
+      (host_keyword)
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (type_identifier)))
+      (generic_type
+        (type_identifier)
+        (type_identifier)
+        (type_identifier)))
+    (function_definition
+      (identifier)
+      (parameters)
+      (type_identifier)
+      (body
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))
+          (integer))))))
+
+================================================================================
+impl-for block with type-qualified call in function
+================================================================================
+
+impl Shifter for Point {
+  fn twice(p: Point): Point {
+    Point.shift(p)
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (impl_block
+    (type_identifier)
+    (type_identifier)
+    (function_definition
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (type_identifier)))
+      (type_identifier)
+      (body
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))
+          (identifier))))))
+
+================================================================================
+inherent impl block with host fn, fn, and once items
+================================================================================
+
+impl Request {
+  pub once Empty = Request{}
+
+  pub host fn new(url: String): Request
+
+  pub fn path(request: Request): String {
+    "/"
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (impl_block
+    (type_identifier)
+    (once_binding
+      (pub)
+      (type_identifier)
+      (struct_construction
+        (type_identifier)))
+    (extern_func_definition
+      (pub)
+      (host_keyword)
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (type_identifier)))
+      (type_identifier))
+    (function_definition
+      (pub)
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (type_identifier)))
+      (type_identifier)
+      (body
+        (string
+          (string_content))))))

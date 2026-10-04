@@ -1,0 +1,62 @@
+==========
+Negation in expression position
+==========
+
+once a = -2
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (unary_expression
+      (integer))))
+
+==========
+Negation binds tighter than multiplication
+==========
+
+once c = -2 * 3
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (binary_expression
+      (unary_expression
+        (integer))
+      (integer))))
+
+==========
+Binary minus then negation
+==========
+
+once d = x - -y
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (binary_expression
+      (identifier)
+      (unary_expression
+        (identifier)))))
+
+==========
+Negative value in map literal
+==========
+
+once m = {1 => -2}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (map_literal
+      (map_entry
+        (integer)
+        (unary_expression
+          (integer))))))

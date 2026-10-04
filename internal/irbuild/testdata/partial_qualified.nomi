@@ -1,0 +1,55 @@
+import std/io
+
+// `_` partial application over an interface-qualified call, an
+// owner-qualified call, a generic function and a stdlib owner function. Each
+// is a function of its open slots.
+interface Console {
+    fn write_line(c: self, line: String): Unit
+}
+
+struct Stdout {
+    prefix: String
+}
+
+impl Console for Stdout {
+    fn write_line(c: Stdout, line: String): Unit {
+        io.print("${c.prefix}${line}")
+    }
+}
+
+struct App {
+    console: Console
+    context: Context
+}
+
+fn boot(): App {
+    App{console: Stdout{prefix: "app> "}, context: Context.root()}
+}
+
+fn pair<T>(a: T, b: T): (T, T) {
+    (a, b)
+}
+
+fn main() {
+    c = Stdout{prefix: "> "}
+    Iter.each(["a", "b"], Console.write_line(c, _))
+    write: (String) -> Unit = Console.write_line(c, _)
+    write("c")
+    Iter.each(["d"], Stdout.write_line(c, _))
+    Iter.each(["e", "f"], Console.write_line(App.console, _))
+    with_one: (Int) -> (Int, Int) = pair(1, _)
+    io.print(Debug.inspect(with_one(2)))
+
+    io.print(
+        [3, 4]
+        |> Iter.map(pair(0, _))
+        |> Iter.to_list()
+        |> Debug.inspect()
+    )
+
+    io.print(
+        Iter.map(["x"], String.repeat(_, 3))
+        |> Iter.to_list()
+        |> Debug.inspect()
+    )
+}

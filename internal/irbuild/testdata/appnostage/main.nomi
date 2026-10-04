@@ -1,0 +1,13 @@
+// This boot schema is available when main.nomi is the execution entry.
+import {
+    std/io
+    settings.Settings
+}
+
+fn boot(): Settings {
+    Settings{context: Context.root(), tag: "booted"}
+}
+
+fn main() {
+    io.print("main tag=${Settings.tag}")
+}

@@ -1,0 +1,58 @@
+import std/io
+
+// A statically-known receiver takes a DIRECT call, whichever way the call is
+// qualified. `Speech.speak(rex)` and `Dog.speak(rex)` name one function
+// between them, and neither reaches a dispatch table — that is the whole
+// claim, and the transcript is what pins that both spellings agree.
+//
+// `Greeter.greet` and `Farewell.greet` on one type are the reason the impl
+// function's Go name carries the INTERFACE as well as the receiver. A
+// dispatch keyed on the method name alone has one slot for two answers, and
+// which one it returns would be arbitrary.
+interface Speech {
+    fn speak(animal: self): String
+}
+
+interface Greeter {
+    fn greet(value: self): String
+}
+
+interface Farewell {
+    fn greet(value: self): String
+}
+
+struct Dog {
+    name: String
+}
+
+struct Person {
+    name: String
+}
+
+impl Speech for Dog {
+    fn speak(d: Dog): String {
+        "${d.name} says woof"
+    }
+}
+
+impl Greeter for Person {
+    fn greet(p: Person): String {
+        "Hello, ${p.name}"
+    }
+}
+
+impl Farewell for Person {
+    fn greet(p: Person): String {
+        "Goodbye, ${p.name}"
+    }
+}
+
+fn main() {
+    rex = Dog{name: "Rex"}
+    alice = Person{name: "Alice"}
+
+    io.print(Speech.speak(rex))
+    io.print(Dog.speak(rex))
+    io.print(Greeter.greet(alice))
+    io.print(Farewell.greet(alice))
+}

@@ -1,0 +1,36 @@
+================================================================================
+Bare todo is a function body
+================================================================================
+
+fn parse(text: String): Int {
+    todo
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (todo_expression))))
+
+================================================================================
+Todo with a reason
+================================================================================
+
+once a: Int = todo "parse the header"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    type: (type_identifier)
+    value: (todo_expression
+      reason: (string
+        (string_content)))))

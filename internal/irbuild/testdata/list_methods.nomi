@@ -1,0 +1,87 @@
+// The `impl List<T>` method surface, reached type-qualified.
+//
+// Every `List.equal?` row here is paired with the same comparison written as
+// `==`, because the two ARE one operation — std/lists.nomi:125 defines the
+// method as `a == b` — and the builder shares one lowering for both
+// (collections.go's listEqual). The pairing is what pins that: two independent
+// rows would still pass if the paths were re-split and drifted.
+//
+// Three shapes are load-bearing rather than decorative:
+//
+//   - `built` is assembled by List.concat, so it is a DIFFERENT cons chain from
+//     the literal it is compared against. Go compares cons cells by ADDRESS, so
+//     an emitted `==` would answer False here — quietly, because pointers are
+//     comparable in Go and nothing would fail to build.
+//   - `nan` is reflexive in Nomi (`nan == nan` is True) and IEEE in Go. A list
+//     containing one answers True only through rt.EqFloat.
+//   - the nested lists exercise the comparator's recursion: an inner list needs
+//     its own rt.ListEqual, not an address test one level down.
+import std/io
+
+fn main() {
+    xs = [1, 2, 3]
+    ys = [1, 2, 3]
+    built = List.concat([1], [2, 3])
+    nan = 0.0 / 0.0
+
+    io.print("lit-lit   ${List.equal?(xs, ys)} ${xs == ys}")
+    io.print("lit-built ${List.equal?(xs, built)} ${xs == built}")
+    io.print("differing ${List.equal?(xs, [1, 2, 4])} ${xs == [1, 2, 4]}")
+    io.print("shorter   ${List.equal?(xs, [1, 2])} ${xs == [1, 2]}")
+    // This row carried the METHOD ALONE until 2026-08-24, on the grounds that
+    // `List.equal?` has declared parameter types so the untyped `[]` widens at an
+    // argument position, while `xs == []` reached binary()'s mixed-kind guard
+    // "with no declared type to widen towards". That reason was wrong: the
+    // operator has a type to widen towards — the other operand's — and simply
+    // never asked. It asks now (types.go's coerceUntypedOperands), so the
+    // asymmetry is gone and the operator spelling is restored here, which is what
+    // makes the pairing cover the untyped case at all.
+    io.print("empty     ${List.equal?(xs, [])} ${xs == []}")
+
+    io.print("nan       ${List.equal?([nan], [0.0 / 0.0])} ${[nan] == [0.0 / 0.0]}")
+    io.print("nan-mixed ${List.equal?([1.0, nan], [1.0, 0.0 / 0.0])}")
+    io.print("float     ${List.equal?([1.5], [1.5])} ${[1.5] == [1.5]}")
+    io.print("neg-zero  ${List.equal?([0.0], [-0.0])} ${[0.0] == [-0.0]}")
+
+    io.print(
+        "nested    ${List.equal?([[1], [2, 3]], [[1], [2, 3]])} ${[[1], [2, 3]] == [[1], [2, 3]]}"
+    )
+
+    io.print("nested-no ${List.equal?([[1], [2, 3]], [[1], [2, 4]])}")
+    strs = ["a", "b"]
+    strs2 = List.concat(["a"], ["b"])
+    tups = [(1, "a")]
+    tups2 = List.concat([(1, "a")], [])
+    io.print("strings   ${List.equal?(strs, strs2)} ${strs == strs2}")
+    io.print("tuples    ${List.equal?(tups, tups2)} ${tups == tups2}")
+    io.print("tup-float ${List.equal?([(1, nan)], [(1, 0.0 / 0.0)])}")
+    io.print("bools     ${List.equal?([True, False], [True, False])}")
+
+    io.print("concat    ${List.concat([1, 2], [3, 4])}")
+    io.print("concat-l0 ${List.concat([], [3, 4])}")
+    io.print("concat-r0 ${List.concat([1, 2], [])}")
+    io.print("concat-sh ${List.concat(xs, ys)}")
+
+    // head/tail return a Maybe, so they are compared rather than rendered:
+    // rendering a Maybe is a separate gap (prelude.go) and not this fixture's
+    // subject. `case` reads the payload without needing Maybe equality.
+    io.print("head      ${head_text(xs)}")
+    io.print("head-0    ${head_text([])}")
+    io.print("tail      ${tail_text(xs)}")
+    io.print("tail-1    ${tail_text([9])}")
+    io.print("tail-0    ${tail_text([])}")
+}
+
+fn head_text(xs: List<Int>): String {
+    case List.head(xs) {
+        .Some(h) -> "Some(${h})"
+        .None -> "None"
+    }
+}
+
+fn tail_text(xs: List<Int>): String {
+    case List.tail(xs) {
+        .Some(t) -> "Some(${t})"
+        .None -> "None"
+    }
+}

@@ -1,0 +1,93 @@
+import std/io
+
+// A list literal printed, an empty list, a nested list, the spread form, and
+// `==`. Prints from inside the element expressions so a reordering cannot pass:
+// a cons chain nests the LAST element innermost, and if that decided evaluation
+// order these lines would come out backwards.
+fn main() {
+    io.print("${[1, 2, 3]}")
+    io.print("${["hello", "world"]}")
+    io.print("${[True, 4.5 > 1.0]}")
+
+    empty: List<Int> = []
+    io.print("${empty}")
+    io.print("${[]}")
+
+    io.print("${[[1, 2], [3]]}")
+
+    io.print("${[
+        [
+            [
+                "deep",
+            ],
+        ],
+    ]}")
+
+    tail = [4, 5]
+    io.print("${[3, ..tail]}")
+    io.print("${[1, ..[2, 3]]}")
+    io.print("${[1, ..[]]}")
+    io.print("${[1, 2, ..[3, 4]]}")
+
+    io.print("${[1, 2, 3] == [1, 2, 3]}")
+    io.print("${[1, 2] == [1, 2, 3]}")
+    io.print("${["a"] == ["a"]}")
+    io.print("${[[1], [2]] == [[1], [2]]}")
+    io.print("${[[1], [2]] != [[1], [3]]}")
+
+    // Float equality is reflexive for NaN in Nomi and IEEE in Go, so a list of
+    // Floats compared with Go's own `==` would answer False here.
+    //
+    // NaN is built through a LOCAL rather than as `0.0 / 0.0`, so the divide
+    // runs on a Float value rather than on two literals.
+    //
+    // Through a local the expression is a runtime divide and answers NaN, as
+    // Nomi does, and the comparison below then reads two NaN elements.
+    //
+    zero = 0.0
+    nan = zero / zero
+    io.print("${[nan] == [nan]}")
+
+    io.print("${sum([1, 2, 3, 4, 5])}")
+    io.print("${describe([])}")
+    io.print("${describe([9])}")
+    io.print("${describe([9, 8])}")
+    io.print("${describe([9, 8, 7])}")
+    io.print("${flagged(["--verbose", "file.txt"])}")
+    io.print("${flagged(["file.txt"])}")
+    io.print("${order([note(1), note(2), note(3)])}")
+}
+
+fn note(n: Int): Int {
+    io.print("evaluating ${n}")
+    n
+}
+
+fn order(xs: List<Int>): String {
+    "${xs}"
+}
+
+fn sum(xs: List<Int>): Int {
+    case xs {
+        [] -> 0
+        [h, ..t] -> h + sum(t)
+    }
+}
+
+// Exact-length arms sit between spread arms deliberately: arm order is
+// observable, and `[a, b]` must NOT match a three-element list.
+fn describe(xs: List<Int>): String {
+    case xs {
+        [] -> "empty"
+        [a] -> "one: ${a}"
+        [a, b] -> "two: ${a} and ${b}"
+        [a, ..rest] -> "first ${a}, rest ${rest}"
+    }
+}
+
+fn flagged(args: List<String>): String {
+    case args {
+        ["--verbose", ..rest] -> "verbose with ${rest}"
+        _ -> "plain ${args}"
+    }
+}

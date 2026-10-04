@@ -1,0 +1,6 @@
+import thing
+
+test "a test file reaches the file named after its module" {
+    assert thing.answer() == 42
+    assert thing.greet("ada") == "hello, ada"
+}

@@ -1,0 +1,77 @@
+import {
+    std/dynamic.Dynamic
+    std/json.Json
+}
+
+fn describe_root(jv: Json): String {
+    case jv {
+        .Obj{"name" => .String(n), "tags" => .Arr(ts)} ->
+            "obj with name=${n}, ${Iter.count(ts)} tags"
+
+        .Obj(_) ->
+            "obj (unexpected shape)"
+
+        .Arr(_) ->
+            "array"
+
+        .String(s) ->
+            "string: " + s
+
+        .Int(n) ->
+            "int: ${n}"
+
+        .Float(_) ->
+            "float"
+
+        .Bool(_) ->
+            "bool"
+
+        .Null ->
+            "null"
+    }
+}
+
+fn extract_first_tag(jv: Json): Maybe<String> {
+    case jv {
+        .Obj{"tags" => .Arr[.String(t), .._]} -> Some(t)
+        _ -> None
+    }
+}
+
+fn sample_json(): String {
+    """
+        {
+          "name": "Ada",
+          "age": 36,
+          "active": true,
+          "tags": ["admin", "user"],
+          "address": {"city": "London", "zip": "EC1"},
+          "favorite": null
+        }
+        """
+}
+
+test "Json decode supports nested pattern matching and encode round trip" {
+    assert Ok(parsed) = Json.decode(sample_json())
+
+    assert describe_root(parsed) == "obj with name=Ada, 2 tags"
+    assert extract_first_tag(parsed) == Some("admin")
+
+    assert Json.encode(
+        parsed
+    ) == "{\"active\":true,\"address\":{\"city\":\"London\",\"zip\":\"EC1\"},\"age\":36,\"favorite\":null,\"name\":\"Ada\",\"tags\":[\"admin\",\"user\"]}"
+}
+
+test "Json values can be constructed and encoded by hand" {
+    hand_built = Json.Obj{"x" => Json.Int(1), "y" => Json.Float(2.5), "ok" => Json.Bool(True)}
+
+    assert Json.encode(hand_built) == "{\"x\":1,\"y\":2.5,\"ok\":true}"
+}
+
+test "Json to_dynamic interops with Dynamic extractors" {
+    greeting = Json.String("hello-from-dynamic")
+    dyn = Json.to_dynamic(greeting)
+
+    assert Debug.inspect(dyn) == "\"hello-from-dynamic\""
+    assert Dynamic.as_string(dyn) == Ok("hello-from-dynamic")
+}

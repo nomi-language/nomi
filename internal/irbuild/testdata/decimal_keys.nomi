@@ -1,0 +1,133 @@
+import std/io
+
+// A `Decimal` as a MAP KEY and a SET ELEMENT — the one position where Decimal's
+// scale rule stops being a rendering question and becomes a bucketing question.
+//
+// `1.50d == 1.5d` is TRUE while their scales are 2 and 1, and `Decimal.to_string`
+// keeps the scale, so equality and rendering already disagree by design (see
+// decimal.nomi). A map key adds a THIRD derivation that has to agree with
+// equality and not with rendering: the HASH. Get that wrong in the fine
+// direction and a key stored at one scale is unreachable at another — a wrong
+// BUCKET, which is a silently lost entry rather than a wrong answer, and no
+// amount of exercising Decimal arithmetic can see it.
+//
+// EVERY ROW BELOW IS A PAIR OF DERIVATIONS THE CODE KEEPS SEPARATE. A fixture
+// using only distinct decimals as keys would pass under a scale-sensitive hash,
+// under a scale-insensitive one, and under Go's own `==` on a mantissa and a
+// scale. The pairs:
+//
+//   - BUCKET against MATCH. `read at a third scale` stores under `1.50d` and
+//     reads with `1.500d`. Equality is already correct in the tree (rt.EqDecimal
+//     ships and value.Equal calls it), so this row can only fail for the hash,
+//     and it fails for nothing else. IT IS THE REASON THIS FILE EXISTS.
+//   - COLLAPSE against RETENTION. `{1.50d => "a", 1.5d => "b"}` is two spellings
+//     of ONE key, and the three facts about the survivor are derived
+//     independently. Size 1 says they collapsed. The VALUE says which write won
+//     (the last). The rendered KEY says which SPELLING was retained — and it is
+//     the LAST one, at scale 1, because `MapVal.With` rebinds the key it was
+//     handed while keeping the existing entry's POSITION. That last clause was
+//     written the other way round here first and the interpreter contradicted
+//     it, which is the whole reason the row prints the map instead of its size:
+//     a map that normalised keys on insert prints `1.5` too and would have gone
+//     green against the guess. POSITION is a fourth fact and needs a third
+//     entry to be visible at all, so `positioned` below has one.
+//   - THE TOP-LEVEL KEY against a NESTED one. `(Decimal, String)` and
+//     `List<Decimal>` reach the Decimal hasher through the tuple fold and the
+//     list walk instead of directly. A fix that answered only for a bare
+//     Decimal key passes every row above and fails these two.
+//   - SET against MAP. A set literal reaches the same hash/equality pair through
+//     `setElem` rather than through a map literal's key kind — a second call
+//     path to one decision.
+//   - SIGNED ZERO against SCALE. `0d`, `-0.0d` and `0.00d` are one value at
+//     three scales with a sign on one of them; they are ONE element, retrieved
+//     at a fourth scale. Signed zero is where a normalisation that drops the
+//     sign and one that drops the scale give the same wrong answer.
+//   - A SIGNATURE BOUNDARY, both directions. `total_for` takes a
+//     `Map<Decimal, Int>` and `prices` returns one, so a representation correct
+//     only at a construction site fails here.
+//
+// WHAT THIS FIXTURE CANNOT PIN, stated rather than implied: a hash that is too
+// COARSE. `1.5d`, `15d` and `0.15d` normalise to one mantissa and three scales,
+// so a hash that ignored the scale entirely would bucket all three together —
+// and still answer correctly, because equality disambiguates a collision. That
+// is a performance bug with no observable output, so no differential row can
+// catch it. The `three scales one mantissa` row below therefore pins the thing
+// it CAN pin: that equality keeps them apart.
+fn main() {
+    // BUCKET against MATCH. Stored at scale 2, read at scale 3.
+    by_price = {1.50d => "a", 2.25d => "b"}
+    io.print("read at a third scale = ${found(by_price, 1.500d)}")
+    io.print("read at the stored scale = ${found(by_price, 1.50d)}")
+    io.print("read at a shorter scale = ${found(by_price, 1.5d)}")
+    io.print("miss = ${found(by_price, 1.51d)}")
+
+    // COLLAPSE against RETENTION: size, winning value, retained spelling.
+    collapsed = {1.50d => "a", 1.5d => "b"}
+    io.print("collapsed size = ${Map.size(collapsed)}")
+    io.print("collapsed = ${collapsed}")
+    io.print("collapsed get = ${found(collapsed, 1.5d)}")
+
+    // POSITION, which a one-entry map cannot show: the collapsed key keeps the
+    // FIRST write's slot while carrying the LAST write's spelling.
+    positioned = {3d => "x", 1.50d => "a", 4d => "y", 1.5d => "b"}
+    io.print("positioned = ${positioned}")
+
+    // Three scales, one normalised mantissa: equality keeps them apart.
+    io.print("three scales one mantissa = ${Map.size({1.5d => 1, 15d => 2, 0.15d => 3})}")
+
+    // SIGNED ZERO against SCALE. One element at three spellings, read at a fourth.
+    zeros = {0d => "z", -0.0d => "n", 0.00d => "p"}
+    io.print("zeros size = ${Map.size(zeros)}")
+    io.print("zeros = ${zeros}")
+    io.print("zeros get = ${found(zeros, 0.000d)}")
+
+    // A NESTED Decimal: the tuple fold and the list walk.
+    pairs = {(1.50d, "eur") => 1, (2d, "usd") => 2}
+    io.print("tuple key = ${Map.size(pairs)}")
+    io.print("tuple get = ${found_int(pairs, (1.5d, "eur"))}")
+    io.print("tuple miss = ${found_int(pairs, (1.5d, "usd"))}")
+
+    lists = {[1.50d, 2d] => 1}
+    io.print("list get = ${found_list(lists, [1.5d, 2.00d])}")
+    io.print("list miss = ${found_list(lists, [1.5d])}")
+
+    // SET against MAP: the same pair reached through a set literal.
+    s = #{1.50d, 1.5d, 2.00d}
+    io.print("set size = ${Set.size(s)}")
+    io.print("set = ${s}")
+    io.print("set has other scale = ${Set.contains?(s, 1.500d)}")
+    io.print("set has absent = ${Set.contains?(s, 3d)}")
+
+    // A SIGNATURE BOUNDARY, both directions.
+    io.print("returned = ${prices()}")
+    io.print("total = ${total_for(prices())}")
+}
+
+fn found(m: Map<Decimal, String>, k: Decimal): String {
+    case Map.get(m, k) {
+        Some(v) -> "Some(${v})"
+        None -> "None"
+    }
+}
+
+fn found_int(m: Map<(Decimal, String), Int>, k: (Decimal, String)): String {
+    case Map.get(m, k) {
+        Some(v) -> "Some(${v})"
+        None -> "None"
+    }
+}
+
+fn found_list(m: Map<List<Decimal>, Int>, k: List<Decimal>): String {
+    case Map.get(m, k) {
+        Some(v) -> "Some(${v})"
+        None -> "None"
+    }
+}
+
+fn prices(): Map<Decimal, Int> {
+    {0.99d => 1, 19.99d => 2}
+}
+
+fn total_for(m: Map<Decimal, Int>): Int {
+    Map.size(m)
+}

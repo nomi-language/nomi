@@ -1,0 +1,88 @@
+import {
+    bool.Bool.{self, False, True}
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+}
+
+/// A value that may or may not be present.
+//! assert Maybe.Some(42)
+//!     |> case {
+//!             .Some(v) -> v
+//!             .None -> 0
+//!         }
+//!     |> Int.equal?(42)
+//
+pub enum Maybe<T> {
+    Some T
+    None
+}
+
+impl Maybe<T> {
+    /// Returns True when the value is Some.
+    //! assert Maybe.some?(Maybe.Some(3))
+    //! refute Maybe.some?(Maybe.None)
+    //
+    pub fn some?<T>(maybe: Maybe<T>): Bool {
+        case maybe {
+            Some(_) -> True
+            None -> False
+        }
+    }
+
+    /// Returns True when the value is None.
+    //! refute Maybe.none?(Maybe.Some(3))
+    //! assert Maybe.none?(Maybe.None)
+    //
+    pub fn none?<T>(maybe: Maybe<T>): Bool {
+        case maybe {
+            Some(_) -> False
+            None -> True
+        }
+    }
+
+    /// Transforms the value inside Some, passes None through.
+    //! assert Maybe.map(Maybe.Some(3), |x| x * 2) == Maybe.Some(6)
+    //! assert Maybe.map(Maybe.None, |x| x * 2) == Maybe.None
+    //
+    pub fn map<T, U>(maybe: Maybe<T>, f: (T) -> U): Maybe<U> {
+        case maybe {
+            Some(v) -> Maybe.Some(f(v))
+            None -> Maybe.None
+        }
+    }
+
+    /// Returns the value inside Some, or the default if None.
+    //! assert Maybe.with_default(Maybe.Some(5), 0) == 5
+    //! assert Maybe.with_default(Maybe.None, 0) == 0
+    //
+    pub fn with_default<T>(maybe: Maybe<T>, default: T): T {
+        case maybe {
+            Some(v) -> v
+            None -> default
+        }
+    }
+
+    /// Like map, but the function returns a Maybe. Flattens the result.
+    //! safe_div = |a: Int, b: Int|
+    //!     if b == 0 {
+    //!         Maybe.None
+    //!     } else {
+    //!         Maybe.Some(a / b)
+    //!     }
+    //!
+    //! assert Maybe.flat_map(Maybe.Some(10), |x| safe_div(x, 2)) == Maybe.Some(5)
+    //! assert Maybe.flat_map(Maybe.Some(10), |x| safe_div(x, 0)) == Maybe.None
+    //
+    pub fn flat_map<T, U>(maybe: Maybe<T>, f: (T) -> Maybe<U>): Maybe<U> {
+        case maybe {
+            Some(v) -> f(v)
+            None -> Maybe.None
+        }
+    }
+}
+
+derive Display for Maybe<T>
+derive Equatable for Maybe<T>
+derive Hashable for Maybe<T>

@@ -1,0 +1,76 @@
+import std/compiler.{self, RunFile}
+
+struct Pair<A, B> {
+    first: A
+    second: B
+}
+
+struct Box<T> {
+    value: T
+}
+
+derive Display for Box<T>
+
+enum Tree<T> {
+    Leaf
+    Node {left: Tree<T>, value: T, right: Tree<T>}
+}
+
+enum Opt<T> {
+    Nothing
+    Just T
+}
+
+struct Labeled<T> {
+    label: String
+    item: T
+}
+
+impl Debug for Labeled<T> {
+    fn inspect(labeled: Labeled<T>): String {
+        "<${labeled.label}>"
+    }
+}
+
+test "io.inspect, io.print and dbg of generic types in a program" {
+    result = compiler.run_file(RunFile{entry_point: "main"})
+
+    assert result == Ok(
+        """
+        Box{value: 42}
+        Box{value: 42}
+        boxed: Box{value: hi}
+        Node{left: Leaf, value: 5, right: Leaf}
+        dbg line 22: box = Box{value: 42}
+
+        """
+    )
+}
+
+test "Debug.inspect of a generic struct at each instance" {
+    pair = Pair{first: 1, second: "two"}
+    nested = Box{value: Box{value: 1.5}}
+    boxes = [Box{value: 1}, Box{value: 2}]
+    assert Debug.inspect(pair) == "Pair{first: 1, second: \"two\"}"
+    assert Debug.inspect(nested) == "Box{value: Box{value: 1.5}}"
+    assert Debug.inspect(boxes) == "[Box{value: 1}, Box{value: 2}]"
+}
+
+test "Debug.inspect of a generic enum" {
+    leaf: Tree<String> = Tree.Leaf
+    tree: Tree<String> = Tree.Node{left: leaf, value: "x", right: leaf}
+    assert Debug.inspect(tree) == "Node{left: Leaf, value: \"x\", right: Leaf}"
+    just: Opt<Int> = Opt.Just(3)
+    assert Debug.inspect(just) == "Just(3)"
+}
+
+test "a hand-written Debug on a generic type wins" {
+    assert Debug.inspect(Labeled{label: "x", item: 1}) == "<x>"
+}
+
+test "a derived Display on a generic struct" {
+    box = Box{value: "hi"}
+    assert Display.to_string(box) == "Box{value: hi}"
+    assert Box.to_string(Box{value: 7}) == "Box{value: 7}"
+    assert "${box}" == "Box{value: hi}"
+}

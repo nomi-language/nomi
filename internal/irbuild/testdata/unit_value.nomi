@@ -1,0 +1,29 @@
+// `Unit` named as a VALUE, which is the largest single group inside the
+// `type reference` blocker: 12 corpus files, 31 sites, all of this shape.
+//
+// The failing case at the bottom is the reason this is a test file rather than
+// a program. A comparison inside an assertion subject records both operands,
+// and `Unit` is the shape where the VM and the interpreter could disagree
+// silently: the interpreter classifies a bare type name as an operand that
+// explains nothing, and rt.RecordOperand independently suppresses a row whose
+// expression text reads exactly like its value. Two rules, one answer — so the
+// report has to be compared, not assumed.
+fn nothing(): Unit {
+    Unit
+}
+
+test "Unit is the value of a branch with no else" {
+    when_true = if True { Unit }
+    when_false = if False { Unit }
+    assert when_true == Unit
+    assert when_false == Unit
+    refute when_true != Unit
+}
+
+test "Unit crosses a function boundary" {
+    assert nothing() == Unit
+}
+
+test "a failing Unit comparison renders its operands" {
+    refute nothing() == Unit
+}

@@ -1,0 +1,12 @@
+// Production deployment overrides. Every field listed here replaces
+// the corresponding default from ConfigApp; unlisted fields
+// (e.g. port) keep their defaults.
+import app.ConfigApp
+
+pub fn configure(app: ConfigApp): ConfigApp {
+    Struct.update(app, {
+        deployment: "prod",
+        database_url: "postgres://prod-host/myapp",
+        max_connections: 20,
+    })
+}

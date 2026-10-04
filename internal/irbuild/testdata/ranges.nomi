@@ -1,0 +1,365 @@
+// `std/ranges.Range<T>` as an anchored GENERIC stdlib struct: the literal, the
+// five `impl Range<T>` functions, `impl Iter for Range<T> where T: Discrete`,
+// `StepByRange`, and the rendering.
+//
+// # What a differential comparison can and cannot see here
+//
+// Almost every line of behaviour in this file is std's own Nomi source on BOTH
+// sides. `Range.contains?` and `bounded?` are `case r.end` in std/ranges.nomi;
+// `Discrete.next`, `Discrete.steps_between` and `Steppable.step_by` at each
+// element type are ordinary Nomi in std/int.nomi, std/codepoints.nomi and
+// std/decimal.nomi and they LOWER, so the VM runs the same Nomi
+// successor predicate the interpreter does rather than a Go copy. What is Go is
+// rt/range.go: three fields, four walks and a formatter.
+//
+// So the differential half is strong for the WALKS — a wrong bound polarity, a
+// dropped last element, a lost zero-step guard are all visible — and says nothing
+// about the value's identity or about which element method each walk was handed.
+// That is why ranges_test.go pins the reference bytes.
+//
+// # Every group below is a rule with a WRONG IMPLEMENTATION attached
+//
+// A differential comparison cannot distinguish "both sides are right" from "both
+// sides are wrong the same way", so each group names the plausible mistake it
+// would catch. The tempting wrong implementations for a range are all
+// off-by-one-shaped, and there are five distinct ones:
+//
+//  1. inclusive/exclusive confused at the upper bound;
+//  2. the reversed range walked rather than empty;
+//  3. the SATURATED element dropped instead of yielded;
+//  4. a zero step spinning or emitting once instead of stopping silently;
+//  5. `known_count` walking (or diverging) instead of answering the protocol.
+//
+// # ASYMMETRIES ARE COVERED IN BOTH DIRECTIONS, and one is not coverable
+//
+// Contract: cover both orders of anything asymmetric. Done for the bound polarity
+// (`..` and `..=` at identical endpoints), for the degenerate range (`3..3` is
+// empty, `3..=3` is one element — the one place the two differ at the SAME
+// operands), for reversal (`5..1` and `5..=1`), for `contains?` at the lower bound
+// against the upper (the lower is always inclusive and the upper is not), and for
+// `steps_between`'s argument order.
+//
+// NOT COVERABLE, stated rather than quietly skipped: rt.StepByRangeSeq's `moved`
+// test asks `next < start or next > start`, and only the `>` side is reachable.
+// A step that moves DOWNWARD out of an ascending range makes the bound test pass
+// forever — `Range.step_by(1..=9, -1)` walks 1, 0, -1, … and never terminates, on
+// BOTH paths, because std's `step_by` has no direction guard. Putting it in a
+// fixture would hang the suite rather than fail it. Same class as an unbounded
+// range through a consuming terminal, and handled the same way: bounded first, or
+// not at all.
+import std/io
+
+// --- rendering helpers, so every answer is one printed line -----------------
+fn show_ints(xs: List<Int>): String {
+    case List.head(xs) {
+        None ->
+            "."
+
+        Some(x) -> {
+            rest = case List.tail(xs) {
+                Some(more) -> show_ints(more)
+                None -> "."
+            }
+
+            "${x}-${rest}"
+        }
+    }
+}
+
+fn show_count(m: Maybe<Int>): String {
+    case m {
+        Some(n) -> "Some(${n})"
+        None -> "None"
+    }
+}
+
+fn show_bool(b: Bool): String {
+    "${b}"
+}
+
+/// Two Codepoints and a stepped walk over the range between them, rendered as
+/// their scalar values so ORDER and LENGTH are both in the output.
+fn cp_steps(from: Int, to: Int, by: Int): Maybe<String> {
+    a = try Codepoint.from_int(from)
+    b = try Codepoint.from_int(to)
+
+    Some(
+        show_ints(
+            Range.step_by(a..=b, by)
+            |> Iter.map(Codepoint.to_int)
+            |> Iter.to_list()
+        )
+    )
+}
+
+/// The plain inclusive walk over a Codepoint range, same rendering.
+fn cp_walk(from: Int, to: Int): Maybe<String> {
+    a = try Codepoint.from_int(from)
+    b = try Codepoint.from_int(to)
+
+    Some(
+        show_ints(
+            a..=b
+            |> Iter.map(Codepoint.to_int)
+            |> Iter.to_list()
+        )
+    )
+}
+
+fn show_maybe_str(m: Maybe<String>): String {
+    case m {
+        Some(s) -> s
+        None -> "None"
+    }
+}
+
+fn main() {
+    // --- 1. THE BOUND POLARITY, at identical endpoints -----------------------
+    // The whole exclusive/inclusive distinction, and the only thing that differs
+    // between each pair is the operator. An implementation that confused the two
+    // gets every line of this group wrong and nothing else in the file.
+    io.print(show_ints(Iter.to_list(1..5)))
+    io.print(show_ints(Iter.to_list(1..=5)))
+    io.print(show_ints(Iter.to_list(0..5)))
+    io.print(show_ints(Iter.to_list(0..=5)))
+
+    // --- 2. THE DEGENERATE RANGE, both polarities ---------------------------
+    // `3..3` is EMPTY and `3..=3` is ONE ELEMENT. The only operands at which the
+    // two spellings differ in LENGTH rather than in the last element, so a
+    // polarity bug that survived group 1 by being off by one in the other
+    // direction still shows here.
+    io.print(show_ints(Iter.to_list(3..3)))
+    io.print(show_ints(Iter.to_list(3..=3)))
+
+    // --- 3. REVERSED RANGES ARE EMPTY, both polarities ----------------------
+    // `5..1` must not walk downward and must not walk upward from 5 forever. Both
+    // spellings, because the bound test differs between them and "empty" has to
+    // come out of each.
+    io.print(show_ints(Iter.to_list(5..1)))
+    io.print(show_ints(Iter.to_list(5..=1)))
+
+    // --- 4. SATURATION: the last element is YIELDED, not dropped ------------
+    // `Discrete.next(Int.max_value)` is None, and std yields `r.start` one last
+    // time rather than stopping. Rendered as an OFFSET from max_value so the
+    // output does not depend on the platform's Int width being printed in full.
+    // Inclusive gets three elements and exclusive two — the same polarity
+    // distinction, at the one place where the walk exits through the SATURATION
+    // branch instead of the bound branch.
+    io.print(
+        show_ints(
+            Int.max_value - 2..=Int.max_value
+            |> Iter.map(|n| Int.max_value - n)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        show_ints(
+            Int.max_value - 2..Int.max_value
+            |> Iter.map(|n| Int.max_value - n)
+            |> Iter.to_list()
+        )
+    )
+
+    // --- 5. known_count IS THE PROTOCOL, and answers None when unbounded ----
+    // `Iter.count` consults this before folding, so an unbounded range answering
+    // anything but None makes `Iter.count(Range.from(1))` a non-terminating
+    // program. The reversed row is `Some(0)` from the start>end short-circuit and
+    // NOT from steps_between, which is why it is here rather than in group 3.
+    io.print(show_count(Iter.known_count(1..5)))
+    io.print(show_count(Iter.known_count(1..=5)))
+    io.print(show_count(Iter.known_count(3..3)))
+    io.print(show_count(Iter.known_count(3..=3)))
+    io.print(show_count(Iter.known_count(5..1)))
+    io.print(show_count(Iter.known_count(Range.from(1))))
+    io.print(show_count(Iter.known_count(Range.naturals())))
+
+    // `Iter.count` over a bounded range takes the O(1) answer through the same
+    // protocol, and over 20_000 elements a WALK would still answer correctly — so
+    // this row is about the count and the next one is about the walk.
+    io.print("${Iter.count(1..=200_000)}")
+
+    // --- 6. A LONG WALK IS A LOOP, NOT RECURSION ----------------------------
+    // std recurses per element in tail position and says stack-safety depends on
+    // it; rt.RangeEachWhile is a loop. 20_000 elements through map and reduce is
+    // where a per-element Go frame accumulates rather than being reused.
+    //
+    // 20_000 rather than the 200_000 `13-iterators-and-pipes/iter_test.nomi`
+    // drives, and the reason is the INTERPRETED side: this fixture is run on both
+    // paths on every suite run, and 200_000 elements through the tree-walker cost
+    // ~44 of the 46 seconds the whole file took. The property under test is "the
+    // walk does not consume a frame per element", and 20_000 shows that as well as
+    // 200_000 does — the corpus keeps the larger drive.
+    io.print("${1..=20_000 |> Iter.map(|x| x) |> Iter.reduce(|acc = 0, x| acc + x)}")
+
+    // --- 7. UNBOUNDED SOURCES, BOUNDED BEFORE CONSUMPTION -------------------
+    // `Range.from` and `Range.naturals` differ only in their start. Neither may
+    // reach a consuming terminal unbounded — `Iter.take` first, always.
+    io.print(
+        show_ints(
+            Range.from(1)
+            |> Iter.take(5)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        show_ints(
+            Range.naturals()
+            |> Iter.take(3)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        show_ints(
+            Range.from(1)
+            |> Iter.take(0)
+            |> Iter.to_list()
+        )
+    )
+
+    // --- 8. bounded? NEEDS NO ELEMENT METHOD -------------------------------
+    // `case r.end` and nothing more, which is the observable form of "a Range
+    // value needs no dictionary".
+    io.print(show_bool(Range.bounded?(1..5)))
+    io.print(show_bool(Range.bounded?(1..=5)))
+    io.print(show_bool(Range.bounded?(Range.from(1))))
+    io.print(show_bool(Range.bounded?(Range.naturals())))
+
+    // --- 9. contains? AT BOTH BOUNDS, and the bounds are ASYMMETRIC ---------
+    // The LOWER bound is always inclusive; the UPPER depends on the operator. So
+    // `1` is in every range starting at 1, and `5` is in `1..=5` but not `1..5`.
+    // Both sides of both bounds, plus one value outside each.
+    io.print(show_bool(Range.contains?(1..5, 0)))
+    io.print(show_bool(Range.contains?(1..5, 1)))
+    io.print(show_bool(Range.contains?(1..5, 3)))
+    io.print(show_bool(Range.contains?(1..5, 5)))
+    io.print(show_bool(Range.contains?(1..5, 6)))
+    io.print(show_bool(Range.contains?(1..=5, 5)))
+    io.print(show_bool(Range.contains?(1..=5, 6)))
+    // An unbounded range checks only the lower bound.
+    io.print(show_bool(Range.contains?(Range.from(1), 0)))
+    io.print(show_bool(Range.contains?(Range.from(1), 1)))
+    io.print(show_bool(Range.contains?(Range.from(1), 100)))
+
+    // --- 10. NON-DISCRETE ELEMENTS ARE INTERVAL VALUES ---------------------
+    // `String` and `Float` are Comparable and NOT Discrete, so these ranges can
+    // be queried and cannot be iterated — std's documented point, and the reason
+    // `contains?` takes the ordering and no successor. Both bounds again.
+    io.print(show_bool(Range.contains?("a".."m", "a")))
+    io.print(show_bool(Range.contains?("a".."m", "h")))
+    io.print(show_bool(Range.contains?("a".."m", "m")))
+    io.print(show_bool(Range.contains?("a".."m", "z")))
+    io.print(show_bool(Range.contains?("a"..="m", "m")))
+    io.print(show_bool(Range.contains?(0.0..1.0, 1.0)))
+    io.print(show_bool(Range.contains?(0.0..=1.0, 1.0)))
+    io.print(show_bool(Range.contains?(0.0..=1.0, -0.5)))
+
+    // --- 11. step_by, AND THE ZERO STEP THAT STOPS WITHOUT EMITTING --------
+    // `Range.step_by(1..=9, 0)` is `[]` — not `[1]`, and not a hang. That is the
+    // one exit in this whole type that is not about the bound, and std comments it
+    // at the impl. The `3` rows show a step that does not divide the span evenly,
+    // so the last element is below the end rather than on it.
+    io.print(
+        show_ints(
+            1..=9
+            |> Range.step_by(3)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        show_ints(
+            1..9
+            |> Range.step_by(3)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        show_ints(
+            1..=9
+            |> Range.step_by(0)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        show_ints(
+            1..=9
+            |> Range.step_by(1)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        show_ints(
+            9..=1
+            |> Range.step_by(1)
+            |> Iter.to_list()
+        )
+    )
+
+    // A stepped range is a `Seq`, which overrides nothing — so `known_count`
+    // declines even though the underlying range could answer. That disagreement
+    // is std's (`impl Iter for StepByRange` declares only `each_while`) and it is
+    // worth reading beside row 5.
+    io.print(
+        show_count(
+            Iter.known_count(
+                1..=9
+                |> Range.step_by(3)
+            )
+        )
+    )
+
+    // --- 12. Codepoint: THE ELEMENT'S OWN PREDICATE, NOT A GO COPY ---------
+    // `Discrete.next` at Codepoint SKIPS the UTF-16 surrogate block, and
+    // `Steppable.step_by` skips it in both directions. 55_295 and 57_344 are the
+    // neighbours across the block, so a naive `n + 1` answers a different list —
+    // and `Codepoint.from_int` would refuse the value it produced, which is why a
+    // wrong successor shows up as a SHORT list rather than a wrong one.
+    io.print(show_maybe_str(cp_walk(97, 100)))
+    io.print(show_maybe_str(cp_walk(55_295, 57_344)))
+    io.print(show_maybe_str(cp_steps(97, 100, 2)))
+    io.print(show_maybe_str(cp_steps(55_295, 57_344, 1)))
+    io.print(show_maybe_str(cp_steps(97, 100, 0)))
+
+    // --- 13. RENDERING: THE ENDPOINTS GO THROUGH Debug, NOT Display -------
+    // std comments the choice at `impl Display for Range<T>` and `impl Debug` is
+    // then literally `to_string(r)`. So a STRING range renders WITH quotes under
+    // both, where `${["a"]}` is `[a]`. That is the one place this type differs
+    // from every other container, and passing the Display renderer would be a
+    // wrong answer at exactly these rows.
+    io.print("${1..5}")
+    io.print("${1..=5}")
+    io.print("${Range.from(1)}")
+    io.print("${Range.naturals()}")
+    io.print("${"a".."m"}")
+    io.print("${0.0..=1.0}")
+    io.print(Debug.inspect(1..=5))
+    io.print(Debug.inspect("a".."m"))
+
+    // --- 14. PIPELINES, so the Range reaches the ordinary Iter surface ----
+    io.print("${Iter.reduce(1..=10, |acc = 0, x| acc + x)}")
+
+    io.print(
+        show_ints(
+            0..10
+            |> Iter.filter(|x| x % 2 == 0)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        show_ints(
+            1..=5
+            |> Iter.map(|x| x * x)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print("${1..=5 |> Iter.any?(|x| x == 3)}")
+    io.print("${1..5 |> Iter.all?(|x| x < 5)}")
+}

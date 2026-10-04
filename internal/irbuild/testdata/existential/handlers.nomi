@@ -1,0 +1,47 @@
+// The implementors, in a THIRD file — so an impl binds into a table declared
+// somewhere else, which is the half of cross-package dispatch that the
+// declaring file cannot do for itself.
+//
+// Two implementors per interface, because with one the table and a hard-coded
+// call are indistinguishable.
+import effects.{Clock, Logger}
+
+pub struct Prod {
+    prefix: String
+}
+
+pub struct Tagged {
+    tag: String
+}
+
+pub struct Fixed {
+    at: Int
+}
+
+// A zero-sized marker, so one of the boxed values carries no storage at all.
+pub type Zero
+
+impl Logger for Prod {
+    fn log(p: Prod, message: String): String {
+        "${p.prefix}: ${message}"
+    }
+}
+
+impl Logger for Tagged {
+    fn log(t: Tagged, message: String): String {
+        "[${t.tag}] ${message}"
+    }
+}
+
+impl Clock for Fixed {
+    fn now(f: Fixed): Int {
+        f.at
+    }
+}
+
+impl Clock for Zero {
+    fn now(z: Zero): Int {
+        _ = z
+        0
+    }
+}

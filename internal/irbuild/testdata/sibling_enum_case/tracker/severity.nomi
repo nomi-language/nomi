@@ -1,0 +1,16 @@
+// An enum declared in another Nomi module, which app/ imports as
+// `tracker/severity`.
+pub enum Severity {
+    Low
+    High Int
+    Custom {label: String}
+}
+
+pub fn of(n: Int): Severity {
+    case n {
+        0 -> Severity.Low
+        1 -> Severity.High(9)
+        2 -> Severity.High(2)
+        _ -> Severity.Custom{label: "odd"}
+    }
+}

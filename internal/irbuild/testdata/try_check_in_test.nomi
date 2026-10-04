@@ -1,0 +1,93 @@
+// `try testing.check(...)` in a test body — a `try` whose propagated payload is
+// itself an AssertionFailure.
+//
+// Run under `nomi test` and as a compiled binary, the two
+// they DISAGREED. The interpreter reports the check's own failure:
+//
+//     line N: check failed
+//       1 == 2
+//     values:
+//       ...
+//
+// The compiled binary reported the generic early exit instead:
+//
+//     line N: test returned early
+//       try testing.check(1 == 2)
+//       returned:
+//         Err(AssertionFailure{...})
+//
+// So the same source produced a DIFFERENT DIAGNOSIS on the two paths — not a
+// formatting difference, a different answer about what went wrong. A reader of
+// the compiled report is told the test exited early and handed a struct dump;
+// the interpreter tells them which assertion failed and what the values were.
+//
+// The rule the interpreter states, and the one that had no counterpart here:
+// `EarlyReturnFailureFromError` DECLINES when the propagated value is an
+// AssertionFailure (eval.go), so the assertion arm wins at all three of its
+// call sites. `try` carrying an assertion failure is an ASSERTION failure that
+// happens to have travelled through a `try`; the `try` is transport, not the
+// diagnosis.
+//
+// Four cases, and the fourth is the one that catches an over-broad fix:
+//
+//   - A passing `try testing.check` unwraps and the case runs on.
+//   - A failing one reports the CHECK's failure, with its own line and values,
+//     and NOT `test returned early`.
+//   - A failing check over a SHAPE subject (a Result) does the same. This is
+//     reachable only since `CheckJudged` landed; before that a shape subject was
+//     refused outright, so the wider input set is newer than the bug.
+//   - An ordinary `try` over a plain `Err` in the SAME FILE still reports
+//     `test returned early`. A fix that routed every test-body `try` through
+//     the assertion arm would break this row, and it would break it silently
+//     on the compiled side only — which is exactly the shape of the bug being
+//     fixed, inverted.
+import {
+    std/io
+    std/testing
+}
+
+fn parse(n: Int): Result<Int, String> {
+    if n < 0 {
+        Err("negative ${n}")
+    } else {
+        Ok(n * 2)
+    }
+}
+
+fn shape(n: Int): Result<Int, String> {
+    if n < 0 { Err("bad ${n}") } else { Ok(n) }
+}
+
+test "a passing check unwraps and the case runs on" {
+    passed = try testing.check(1 == 1)
+    io.print("after the passing check")
+
+    assert passed
+}
+
+test "a failing check reports the check and not an early return" {
+    io.print("before the failing check")
+    passed = try testing.check(1 == 2)
+
+    io.print("this line must not run")
+
+    assert passed
+}
+
+test "a failing check over a shape subject reports the check" {
+    v = try testing.check(shape(-3))
+
+    io.print("this line must not run either")
+
+    assert v == Ok(3)
+}
+
+test "an ordinary try still reports test returned early" {
+    v = try parse(-1)
+
+    assert v == 0
+}
+
+test "the case after a propagating one still runs" {
+    assert 1 == 1
+}

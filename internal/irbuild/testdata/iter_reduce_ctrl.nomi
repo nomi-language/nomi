@@ -1,0 +1,93 @@
+import std/io
+
+// `Iter.reduce` whose callback carries a control signal — the ONE place in the
+// push protocol where a Nomi `break` really has to become a value, because the
+// callback is driven by the source's own `each_while` and there is no Go loop
+// for a Go `break` to target. The encoding is a second return value,
+// `(acc, keepGoing)`; see rt/seqctl.go.
+//
+// The four shapes are lifted from tests/13-iterators-and-pipes/
+// control_flow_test.nomi, which is where the corpus exercises them, and each
+// answer distinguishes a specific wrong lowering:
+//
+//   - bare `break` leaves the accumulator ALONE and stops: 60, not 100. A
+//     lowering that folded the current element in first would answer 100.
+//   - `break v` makes v the answer: 100. A lowering that dropped the value and
+//     kept the accumulator would answer 60 — the same number the line above
+//     produces, which is why both are here.
+//   - `continue` skips the element and the SOURCE still advances: 9. This is
+//     the terminating half of the quirk. A lowering that set the accumulator
+//     to the callback's value would answer something else; a lowering that
+//     retried the same element (`Iter.loop`'s rule, wrongly applied here)
+//     would not terminate at all.
+//   - `continue` and `break` in one callback: 8. The negatives skip, the 0
+//     stops, and 5 + 3 is the answer — so the accumulator carried across a
+//     skipped element rather than being reset.
+//
+// Then two shapes the corpus does not have and the encoding still owes an
+// answer for: `return v` inside the callback (the same program as the tail,
+// because the interpreter reads both as ctrlReturnWith), and an UNSEEDED fold
+// with a `break` (rt.SeqReduceFirstCtl, where the first element seeds).
+fn main() {
+    partial_sum =
+        [10, 20, 30, 40, 50]
+        |> Iter.reduce(|total = 0, x| {
+            if total + x > 60 { break }
+            total + x
+        })
+
+    io.print("bare break keeps the accumulator: ${partial_sum}")
+
+    with_break_value =
+        [10, 20, 30, 40, 50]
+        |> Iter.reduce(|total = 0, x| {
+            new_total = total + x
+            if new_total > 60 { break new_total }
+            new_total
+        })
+
+    io.print("break value wins: ${with_break_value}")
+
+    sum_positives =
+        [1, -2, 3, -4, 5]
+        |> Iter.reduce(|total = 0, x| {
+            if x < 0 { continue }
+            total + x
+        })
+
+    io.print("continue skips the element: ${sum_positives}")
+
+    processed =
+        [5, -1, 3, -2, 0, 7, 8]
+        |> Iter.reduce(|total = 0, x| {
+            if x < 0 { continue }
+            if x == 0 { break }
+            total + x
+        })
+
+    io.print("continue then break: ${processed}")
+
+    via_return =
+        [1, 2, 3, 4]
+        |> Iter.reduce(|total = 0, x| {
+            if x == 3 { break total }
+            return total + x
+        })
+
+    io.print("return advances the accumulator: ${via_return}")
+
+    unseeded =
+        [4, 5, 6, 7]
+        |> Iter.reduce(|acc: Int, x: Int| {
+            if x == 6 { break acc }
+            acc + x
+        })
+
+    io.print("unseeded fold, first element seeds: ${unseeded}")
+
+    // A `break` in a NESTED lambda is a different program on the interpreter —
+    // its value is local and its termination is not — so the builder refuses it
+    // rather than encoding it, and this file deliberately contains none. See
+    // TestReduceCtrlRefusesANestedLambdaSignal.
+    io.print("done")
+}

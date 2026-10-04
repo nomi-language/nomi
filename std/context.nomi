@@ -1,0 +1,77 @@
+import {
+    duration.Duration
+    instant.Instant
+    maybe.Maybe
+    type.Type
+}
+
+/// Per-life execution context, threaded by the runtime through every
+/// call stack. An application that wants one builds it in `boot` with
+/// `Context.root()` and returns it in a field of the application struct, read
+/// as `MyApp.context` (whatever the field is named).
+/// `with MyApp.context = Context.with_X(MyApp.context, ...)` derives a child
+/// context from that line to the end of the enclosing block.
+///
+/// Opaque: user code cannot construct a `Context` value directly.
+/// Only `Context.root()`, the language
+/// runtime, and the `Context.with_*` derivers produce them.
+pub host type Context
+
+impl Context {
+    /// Construct a fresh root Context — no deadline, not canceled, no parent.
+    /// A boot that wants a context field builds it with this, or with a child
+    /// derived from it (`Context.with_timeout(Context.root(), d)`).
+    //! root = Context.root()
+    //! assert Context.deadline(root) == Maybe.None
+    //
+    pub host fn root(): Context
+
+    /// Absolute deadline of this context, if any.
+    //! assert Context.deadline(Context.root()) == Maybe.None
+    //
+    pub host fn deadline(c: Context): Maybe<Instant>
+
+    /// Time until the deadline, if there is one. `None` means no deadline
+    /// is set; `Some(0)` means it has passed.
+    //! assert Context.deadline_remaining(Context.root()) == Maybe.None
+    //
+    pub host fn deadline_remaining(c: Context): Maybe<Duration>
+
+    /// Child context with deadline at `at`. If the parent has a tighter
+    /// deadline already, the parent's deadline wins (no-op).
+    //! child = Context.with_deadline(Context.root(), Instant.from_seconds(0))
+    //! assert Context.deadline_remaining(child) == Maybe.Some(Duration.seconds(0))
+    //
+    pub host fn with_deadline(c: Context, at: Instant): Context
+
+    /// Child context with deadline at `now() + dur`. If the parent has
+    /// a tighter deadline already, the parent's deadline wins.
+    //! child = Context.with_timeout(Context.root(), Duration.seconds(-1))
+    //! assert Context.deadline_remaining(child) == Maybe.Some(Duration.seconds(0))
+    //
+    pub host fn with_timeout(c: Context, dur: Duration): Context
+
+    /// Return a child context with `value` stored under its Nomi type.
+    ///
+    /// Context values are intended for request- or execution-scoped metadata
+    /// such as trace IDs, auth subjects, or locale. Prefer explicit app
+    /// fields (`MyApp.store`, `MyApp.logger`) for dependencies,
+    /// and prefer domain types (`TraceId`, `Subject`) over raw scalars.
+    //! type TraceId String
+    //! traced = Context.with_value(Context.root(), TraceId("trace-123"))
+    //! assert Context.value(traced, TraceId) == Maybe.Some(TraceId("trace-123"))
+    //
+    pub host fn with_value<T>(c: Context, value: T): Context
+
+    /// Look up the nearest value of type `T`, walking through parent
+    /// contexts when this context has not overridden that type.
+    ///
+    /// ```nomi
+    /// Context.value(context, TraceId)
+    /// ```
+    //! type TraceId String
+    //! root = Context.root()
+    //! assert Context.value(root, TraceId) == Maybe.None
+    //
+    pub host fn value<T>(c: Context, value_type: Type<T>): Maybe<T>
+}

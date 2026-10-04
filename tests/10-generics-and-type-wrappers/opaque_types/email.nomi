@@ -1,0 +1,29 @@
+/// An email address that has been validated as containing "@". The
+/// smart constructor `from_string` is the only way to build an
+/// `Email` value; the wrapped String is read back via `to_string`.
+///
+/// `pub opaque type Email` means: outside this file, callers can
+/// refer to `Email` as a type (in signatures, return types, generics)
+/// but cannot construct values via `Email(s)`, cannot unwrap via
+/// `String(e)`, and cannot destructure via pattern matching. Outside
+/// callers go through the exported file functions.
+///
+/// This is the canonical "smart constructor" idiom — the type system
+/// guarantees that any `Email` value in scope has been validated.
+pub opaque type Email String
+
+/// Validates `s` and returns Some(Email) if it contains "@", or None.
+pub fn from_string(s: String): Maybe<Email> {
+    if String.contains?(s, "@") {
+        Some(Email(s))
+    } else {
+        None
+    }
+}
+
+/// Reads the underlying string. Inside the owning file, `String(e)`
+/// works as the standard distinct-type unwrap; outside callers must
+/// go through this `pub` accessor.
+pub fn to_string(e: Email): String {
+    String(e)
+}

@@ -1,0 +1,221 @@
+// `std/codepoints.Codepoint` as an ANCHORED stdlib opaque newtype: the whole
+// Nomi-bodied surface plus the two rt externs over it.
+//
+// The point of the fixture is that almost nothing here is an rt implementation.
+// `Codepoint.from_int`'s validation, `next`, `step_by` and `steps_between` are
+// ordinary Nomi source in std/codepoints.nomi and LOWER, so the VM runs the
+// interpreter's own predicate rather than a Go copy of it. Only
+// `Codepoint.to_string` (rt.CodepointToString) and `String.to_codepoints`
+// (rt.StringToCodepoints) are Go, and both are one expression.
+//
+// So the differential half is genuinely strong for the LOWERING — a wrong opaque
+// width, a lost nominal identity, a dropped `Maybe` are all visible — and says
+// nothing about the two rt functions beyond the inputs named below. That is why
+// codepoint_test.go checks the rt side's widths directly.
+//
+// # Why every Codepoint arrives inside a `Maybe`
+//
+// The values under test are mostly outside ASCII, where `Codepoint.from_int`
+// is the only constructor reachable from outside std/codepoints, and it
+// answers `Maybe<Codepoint>` because the type validates. A codepoint literal
+// (`'a'`) builds an ASCII one directly; codepoint_literal.nomi covers it. `try`
+// only propagates out of a function that returns `Maybe`/`Result`, so each
+// group below is a small `Maybe`-returning helper plus a rendering that
+// supplies a visible sentinel for `None`, and every helper takes an Int so the
+// same validation runs on both sides of each boundary.
+import std/io
+
+// --- the surface, one helper per declaration -------------------------------
+fn to_int_of(n: Int): Maybe<Int> {
+    Some(Codepoint.to_int(try Codepoint.from_int(n)))
+}
+
+fn to_string_of(n: Int): Maybe<String> {
+    Some(Codepoint.to_string(try Codepoint.from_int(n)))
+}
+
+fn inspect_of(n: Int): Maybe<String> {
+    Some(Codepoint.inspect(try Codepoint.from_int(n)))
+}
+
+fn next_of(n: Int): Maybe<Codepoint> {
+    Codepoint.next(try Codepoint.from_int(n))
+}
+
+fn steps_of(a: Int, b: Int): Maybe<Int> {
+    Codepoint.steps_between(try Codepoint.from_int(a), try Codepoint.from_int(b))
+}
+
+fn step_by_of(n: Int, by: Int): Maybe<Codepoint> {
+    Codepoint.step_by(try Codepoint.from_int(n), by)
+}
+
+/// Two Codepoints from SEPARATE `from_int` calls, so nothing shares a value.
+fn equal_of(a: Int, b: Int): Maybe<Bool> {
+    Some(Codepoint.equal?(try Codepoint.from_int(a), try Codepoint.from_int(b)))
+}
+
+/// `String.to_codepoints("abc")`'s result, built SEPARATELY by the program out
+/// of three separately validated Codepoints.
+///
+/// Two chains of cons cells with no cell in common: one built inside rt by
+/// `rt.StringToCodepoints`, one built by the program's list literal. That is the
+/// crossing this fixture exists for — an rt-built list of Codepoints and
+/// a VM-built one have to hold the same values with the same identity, and
+/// nothing but a comparison across the boundary shows it.
+///
+/// The Codepoints arrive as PARAMETERS rather than being unwrapped here, because
+/// a `Maybe<List<Codepoint>>` return annotation is refused under
+/// `non-scalar type argument` — a user-side prelude-over-structural annotation,
+/// unrelated to this slice's key, and worth staying clear of rather than
+/// dragging into the fixture.
+fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint): List<Codepoint> {
+    [a, b, c]
+}
+
+/// The rt-built chain for `s` against the VM-built one, compared ELEMENT BY
+/// ELEMENT and in order through `join_points`.
+///
+/// Written as a comparison of renderings rather than `List.equal?`, and the
+/// reason is a measurement rather than convenience: `List.equal?` on a
+/// `List<Codepoint>` is REFUSED — `equality on a List of an incomparable
+/// element` — because g.comparator answers no for a NAMED element type, which is
+/// the same decision `==` on a named type takes. The
+/// interpreter answers it, so this is a newly-reachable position that refuses
+/// LOUDLY rather than a wrong answer, and widening it belongs to whoever owns
+/// that key. Rendering both chains compares them structurally with no pointer
+/// anywhere in the path, which is what this fixture needs.
+fn same_as_literal(s: String): Maybe<Bool> {
+    a = try Codepoint.from_int(97)
+    b = try Codepoint.from_int(98)
+    c = try Codepoint.from_int(99)
+    Some(join_points(String.to_codepoints(s)) == join_points(literal_abc(a, b, c)))
+}
+
+// --- rendering, with a visible sentinel for None ---------------------------
+fn show_cp(m: Maybe<Codepoint>): String {
+    case m {
+        Some(cp) -> "Some(${Codepoint.to_int(cp)})"
+        None -> "None"
+    }
+}
+
+fn show_int(m: Maybe<Int>): String {
+    case m {
+        Some(n) -> "Some(${n})"
+        None -> "None"
+    }
+}
+
+fn show_str(m: Maybe<String>): String {
+    case m {
+        Some(s) -> s
+        None -> "None"
+    }
+}
+
+fn show_bool(m: Maybe<Bool>): String {
+    case m {
+        Some(b) -> "${b}"
+        None -> "None"
+    }
+}
+
+/// Renders a `List<Codepoint>` as its code points in order, `-` separated and
+/// `.`-terminated, so both the ORDER and the LENGTH are in the output.
+///
+/// Explicit recursion over `List.head` / `List.tail` rather than an `Iter`
+/// pipeline, which is refused for its own reasons and would take the whole
+/// fixture with it. `List.tail` answers `Maybe<List<T>>`, so an empty tail and
+/// an empty list are the same base case.
+fn join_points(cps: List<Codepoint>): String {
+    case List.head(cps) {
+        None ->
+            "."
+
+        Some(cp) -> {
+            rest = case List.tail(cps) {
+                Some(more) -> join_points(more)
+                None -> "."
+            }
+
+            "${Codepoint.to_int(cp)}-${rest}"
+        }
+    }
+}
+
+fn main() {
+    // --- from_int VALIDATES, and the predicate is Nomi source that lowered ----
+    // A naive int64 newtype admits every one of these. The two range bounds and
+    // the two surrogate-block bounds are the four inputs where a missing
+    // predicate is a wrong ANSWER rather than a missing refusal.
+    io.print(show_int(to_int_of(65)))
+    io.print(show_int(to_int_of(0)))
+    io.print(show_int(to_int_of(1_114_111)))
+    io.print(show_int(to_int_of(1_114_112)))
+    io.print(show_int(to_int_of(-1)))
+    // The UTF-16 surrogate block D800..DFFF holds no Unicode scalar value, and
+    // Go's `string(rune(0xD800))` is "\uFFFD" — so admitting one would make
+    // `Codepoint.to_string` answer the replacement character for a value the type
+    // claims to hold. Both edges of the block and both neighbours outside it.
+    io.print(show_int(to_int_of(55_295)))
+    io.print(show_int(to_int_of(55_296)))
+    io.print(show_int(to_int_of(57_343)))
+    io.print(show_int(to_int_of(57_344)))
+
+    // --- to_string is rt.CodepointToString -----------------------------------
+    // ASCII, a two-byte Latin-1 point, a three-byte CJK point and a four-byte
+    // astral point, so a `byte` or `int32` truncation anywhere in the chain shows
+    // as text rather than as a silent range error.
+    io.print(show_str(to_string_of(65)))
+    io.print(show_str(to_string_of(233)))
+    io.print(show_str(to_string_of(20_320)))
+    io.print(show_str(to_string_of(128_169)))
+
+    // --- inspect is a Nomi body over interpolation ----------------------------
+    io.print(show_str(inspect_of(65)))
+    io.print(show_str(inspect_of(1_114_111)))
+
+    // --- next SKIPS the surrogate block, which is why it is not `n + 1` -------
+    io.print(show_cp(next_of(65)))
+    io.print(show_cp(next_of(55_295)))
+    io.print(show_cp(next_of(1_114_111)))
+
+    // --- steps_between DISCOUNTS the 2048 surrogates -------------------------
+    // Chosen so a naive `b - a` and the correct answer DISAGREE: 57_344 - 55_295
+    // is 2_049 raw and 1 after the skip.
+    io.print(show_int(steps_of(97, 100)))
+    io.print(show_int(steps_of(55_295, 57_344)))
+    io.print(show_int(steps_of(100, 97)))
+
+    // --- step_by, forwards and backwards across the block --------------------
+    io.print(show_cp(step_by_of(65, 2)))
+    io.print(show_cp(step_by_of(55_295, 1)))
+    io.print(show_cp(step_by_of(57_344, -1)))
+    io.print(show_cp(step_by_of(65, 1_114_112)))
+
+    // --- equal? is `derive Equatable`, over the anchored def ------------------
+    io.print(show_bool(equal_of(65, 65)))
+    io.print(show_bool(equal_of(65, 66)))
+
+    // --- String.to_codepoints is rt.StringToCodepoints -----------------------
+    // ORDER is observable and it is the one thing a back-to-front build gets
+    // wrong, so every element is printed in order rather than only counted.
+    // "héllo" is 6 BYTES and 5 code points, so a `[]byte` walk answers a
+    // different string here; "💩" is one astral point and four bytes.
+    io.print(join_points(String.to_codepoints("hello")))
+    io.print(join_points(String.to_codepoints("héllo")))
+    io.print(join_points(String.to_codepoints("")))
+    io.print(join_points(String.to_codepoints("💩")))
+
+    // --- the rt-built chain against the VM-built one -------------------------
+    // Two structurally equal `List<Codepoint>` with no cons cell in common. A
+    // wrong element width, a wrong order, a dropped element or a lost nominal
+    // identity all show. The last three rows are the NEGATIVE half: one differing
+    // element, one short chain, one long chain — without them a comparison that
+    // answered True unconditionally would pass.
+    io.print(show_bool(same_as_literal("abc")))
+    io.print(show_bool(same_as_literal("abd")))
+    io.print(show_bool(same_as_literal("ab")))
+    io.print(show_bool(same_as_literal("abcd")))
+}

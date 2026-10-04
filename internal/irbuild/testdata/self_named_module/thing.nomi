@@ -1,0 +1,7 @@
+pub fn answer(): Int {
+    42
+}
+
+pub fn greet(name: String, greeting: String = "hello"): String {
+    "${greeting}, ${name}"
+}

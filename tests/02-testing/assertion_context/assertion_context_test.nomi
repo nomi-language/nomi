@@ -1,0 +1,72 @@
+import {
+    std/assertions.AssertionFailure
+    std/testing
+    test_helpers
+}
+
+test "equality assertions record compared values" {
+    actual = "Ada"
+    expected = "Grace"
+    assert Err(failure) = testing.check(actual == expected)
+    observed_failure: AssertionFailure = failure
+    assert observed_failure.expression == "actual == expected"
+
+    assert [left, right] = observed_failure.values
+    assert left.expression == "actual"
+    assert left.value == "\"Ada\""
+    assert right.expression == "expected"
+    assert right.value == "\"Grace\""
+}
+
+test "predicate assertions record call arguments" {
+    body = "created"
+    assert Err(failure) = testing.check(String.contains?(body, "ok"))
+    observed_failure: AssertionFailure = failure
+    assert observed_failure.expression == "String.contains?(body, \"ok\")"
+
+    assert [observed, needle] = observed_failure.values
+    assert observed.expression == "body"
+    assert observed.value == "\"created\""
+    assert needle.expression == "\"ok\""
+    assert needle.value == "\"ok\""
+}
+
+test "length assertions show the source, observed length, and expected value" {
+    items = [1, 2]
+    expected = 3
+    assert Err(failure) = testing.check(Iter.count(items) == expected)
+    observed_failure: AssertionFailure = failure
+
+    assert [source, observed, wanted] = observed_failure.values
+    assert source.expression == "items"
+    assert source.value == "[1, 2]"
+    assert observed.expression == "Iter.count(items)"
+    assert observed.value == "2"
+    assert wanted.expression == "expected"
+    assert wanted.value == "3"
+}
+
+test "pattern assertion bindings expose field hovers" {
+    signature = test_helpers.hover_signature(
+        """
+        import {
+          std/assertions.AssertionFailure
+          std/testing
+        }
+
+        test "equality assertions record compared values" {
+          actual = "Ada"
+          expected = "Grace"
+          assert Err(failure) = testing.check(actual == expected)
+          observed_failure: AssertionFailure = failure
+
+          assert observed_failure.expression == "actual == expected"
+          assert [left, _] = observed_failure.values
+
+          assert left.expˇression == "actual"
+        }
+        """
+    )
+
+    assert signature == "expression: String"
+}

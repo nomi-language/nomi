@@ -1,0 +1,63 @@
+==========
+Vector literal
+==========
+
+once xs = #[1, 2, 3]
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (vector
+      (integer)
+      (integer)
+      (integer))))
+
+==========
+Empty vector literal
+==========
+
+once xs: Vector<Int> = #[]
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (generic_type
+      (type_identifier)
+      (type_identifier))
+    (vector)))
+
+==========
+Set literal
+==========
+
+once xs = #{1, 2, 3}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (set
+      (integer)
+      (integer)
+      (integer))))
+
+==========
+Empty set literal
+==========
+
+once xs: Set<Int> = #{}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (generic_type
+      (type_identifier)
+      (type_identifier))
+    (set)))

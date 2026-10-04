@@ -1,0 +1,94 @@
+==========
+Field accessor as a call argument
+==========
+
+once names = Iter.map(users, .name)
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (call_expression
+      (field_access
+        (type_identifier)
+        (identifier))
+      (identifier)
+      (field_accessor
+        (identifier)))))
+
+==========
+Field accessor chain and tuple index
+==========
+
+once cities = Iter.map(users, .address.city)
+once seconds = Iter.map(pairs, .1)
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (call_expression
+      (field_access
+        (type_identifier)
+        (identifier))
+      (identifier)
+      (field_accessor
+        (identifier)
+        (identifier))))
+  (once_binding
+    (identifier)
+    (call_expression
+      (field_access
+        (type_identifier)
+        (identifier))
+      (identifier)
+      (field_accessor
+        (integer)))))
+
+==========
+Field accessor in a pipe stage's arguments
+==========
+
+once names = users |> Iter.map(.name) |> Iter.to_list()
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (pipe_expression
+      (pipe_expression
+        (identifier)
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))
+          (field_accessor
+            (identifier))))
+      (call_expression
+        (field_access
+          (type_identifier)
+          (identifier))))))
+
+==========
+Field accessor as a function's tail
+==========
+
+fn name_of(): (User) -> String {
+    .name
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (function_type
+      (type_identifier)
+      (type_identifier))
+    (body
+      (field_accessor
+        (identifier)))))

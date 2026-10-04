@@ -1,0 +1,7 @@
+// Lowered after tree.nomi, so the `Span<Float>` it builds is a new instance
+// tree.nomi's gen is asked for after its own walk.
+import tree
+
+pub fn floats(): String {
+    Debug.inspect(tree.Span{start: 1.5, stop: 2.5})
+}

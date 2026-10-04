@@ -1,0 +1,85 @@
+import std/io
+
+/// `Int.max_value` / `Int.min_value` — the two `once` bindings std declares, at
+/// the boundary where they matter.
+///
+/// The corpus exercise (01-foundations/once_bindings/once_bindings_test.nomi)
+/// asserts `Int.max_value == 9223372036854775807` and
+/// `Int.min_value == Int.wrapping_add(Int.max_value, 1)`. Both of those are true
+/// of a value that is off by nothing and of nothing else, but they are equality
+/// checks: they do not run the value through ARITHMETIC, and arithmetic is where
+/// the two paths could disagree without either constant being wrong.
+///
+/// `min_value` is the one that cannot be written down. A bare literal parses its
+/// MAGNITUDE, and 9223372036854775808 overflows, so the language has no spelling
+/// for it — which is exactly why the builder must not carry its own copy. Here
+/// the value comes from lowering the Nomi RHS, `Int.wrapping_add(max_value, 1)`.
+/// Trapping arithmetic AT the boundary. `+ 1` on max_value and `- 1` on
+/// min_value both overflow, and overflow is a Nomi FAULT whose text lives in rt
+/// and is shared by both paths (rt/arith.go). Reached through a runtime value so
+/// no constant folding can answer it.
+fn over(n: Int): Int {
+    n + 1
+}
+
+fn under(n: Int): Int {
+    n - 1
+}
+
+/// Wrapping arithmetic at the boundary, which does NOT fault: it is the pair of
+/// identities std/int documents (int.nomi:71, :76).
+fn wrap_round_trip(): Bool {
+    Int.wrapping_add(Int.max_value, 1) == Int.min_value and Int.wrapping_sub(
+        Int.min_value,
+        1,
+    ) == Int.max_value
+}
+
+/// The distance between the two limits, computed WITHOUT overflowing: if either
+/// constant were off by one this changes.
+fn span(): Int {
+    Int.wrapping_sub(Int.max_value, Int.min_value)
+}
+
+/// `Discrete.next` and `Steppable.step_by` read `Int.max_value` in their own
+/// bodies, so both were refused until these bindings lowered. Their boundary
+/// answers are the cascade's observable half.
+fn next_of(n: Int): String {
+    show(Int.next(n))
+}
+
+fn step_of(n: Int, by: Int): String {
+    show(Int.step_by(n, by))
+}
+
+/// Rendered by hand rather than through `Debug.inspect`, which does not lower
+/// for a `Maybe<Int>` yet — a blocker of somebody else's, and borrowing it here
+/// would make this fixture refuse for a reason that has nothing to do with what
+/// it pins.
+fn show(m: Maybe<Int>): String {
+    case m {
+        Some(v) -> "Some(${v})"
+        None -> "None"
+    }
+}
+
+fn main() {
+    io.print("${Int.max_value}")
+    io.print("${Int.min_value}")
+    io.print("${wrap_round_trip()}")
+    io.print("${span()}")
+
+    io.print(next_of(Int.max_value))
+    io.print(next_of(0))
+    io.print(step_of(Int.max_value, 1))
+    io.print(step_of(Int.min_value, -1))
+    io.print(step_of(5, 3))
+
+    // Away from the boundary these are ordinary arithmetic.
+    io.print("${over(1)}")
+    io.print("${under(1)}")
+
+    // And this one faults. Last, because the fault ends the program, and it is
+    // stderr plus a non-zero exit on both paths.
+    io.print("${over(Int.max_value)}")
+}

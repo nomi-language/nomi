@@ -1,0 +1,226 @@
+type UserId Int
+type Pair (Int, Int)
+type Kvs Map<String, Int>
+type Items List<Int>
+type Expired
+
+struct Circle {
+    radius: Float
+}
+
+struct Rect {
+    width: Float
+    height: Float
+}
+
+interface Renderable {
+    fn render(value: self): String
+}
+
+struct Person {
+    name: String
+}
+
+impl Renderable for Person {
+    fn render(value: Person): String {
+        "person:${value.name}"
+    }
+}
+
+struct Robot {
+    id: Int
+}
+
+impl Renderable for Robot {
+    fn render(value: Robot): String {
+        "robot:${value.id}"
+    }
+}
+
+enum Token {
+    Eof
+    Number Int
+    Word String
+    Flag Bool
+    User UserId
+    Position (Int, Int)
+    Coord Pair
+    Bag Map<String, Int>
+    Counts Kvs
+    Sequence List<Int>
+    Many Items
+    Tagged Circle
+    Card {rank: Int, suit: String}
+    Computation (Int) -> Int
+    Inner Maybe<Int>
+    Render Renderable
+    embeds Rect
+    embeds Expired
+}
+
+fn double(n: Int): Int {
+    n * 2
+}
+
+test "variant payloads support every payload shape" {
+    fn_token = Token.Computation(double)
+
+    computed = case fn_token {
+        Token.Computation(f) -> f(5)
+        _ -> 0
+    }
+
+    r: Token = Rect{width: 4.0, height: 5.0}
+    e: Token = Expired
+
+    bag_payload = {"a" => 1}
+
+    assert Token.Eof
+        |> Debug.inspect()
+        |> String.equal?("Eof")
+
+    assert 42
+        |> Token.Number()
+        |> Debug.inspect()
+        |> String.equal?("Number(42)")
+
+    assert "hi"
+        |> Token.Word()
+        |> Debug.inspect()
+        |> String.equal?("Word(\"hi\")")
+
+    assert True
+        |> Token.Flag()
+        |> Debug.inspect()
+        |> String.equal?("Flag(True)")
+
+    assert 7
+        |> UserId()
+        |> Token.User()
+        |> Debug.inspect()
+        |> String.equal?("User(UserId(7))")
+
+    assert (10, 20)
+        |> Token.Position()
+        |> Debug.inspect()
+        |> String.equal?("Position(10, 20)")
+
+    assert (1, 2)
+        |> Pair()
+        |> Token.Coord()
+        |> Debug.inspect()
+        |> String.equal?("Coord(Pair(1, 2))")
+
+    assert bag_payload
+        |> Token.Bag()
+        |> Debug.inspect()
+        |> String.equal?("Bag({\"a\" => 1})")
+
+    assert {"b" => 2}
+        |> Kvs()
+        |> Token.Counts()
+        |> Debug.inspect()
+        |> String.equal?("Counts(Kvs({\"b\" => 2}))")
+
+    assert [1, 2, 3]
+        |> Token.Sequence()
+        |> Debug.inspect()
+        |> String.equal?("Sequence([1, 2, 3])")
+
+    assert [4, 5, 6]
+        |> Items()
+        |> Token.Many()
+        |> Debug.inspect()
+        |> String.equal?("Many(Items([4, 5, 6]))")
+
+    assert Circle{radius: 3.0}
+        |> Token.Tagged()
+        |> Debug.inspect()
+        |> String.equal?("Tagged(Circle{radius: 3.0})")
+
+    assert Token.Card{rank: 7, suit: "hearts"}
+        |> Debug.inspect()
+        |> String.equal?("Card{rank: 7, suit: \"hearts\"}")
+
+    assert computed == 10
+
+    assert Some(99)
+        |> Token.Inner()
+        |> Debug.inspect()
+        |> String.equal?("Inner(Some(99))")
+
+    assert None
+        |> Token.Inner()
+        |> Debug.inspect()
+        |> String.equal?("Inner(None)")
+
+    assert Person{name: "Alice"}
+        |> Token.Render()
+        |> Debug.inspect()
+        |> String.equal?("Render(Person{name: \"Alice\"})")
+
+    assert Robot{id: 42}
+        |> Token.Render()
+        |> Debug.inspect()
+        |> String.equal?("Render(Robot{id: 42})")
+
+    assert r
+        |> Debug.inspect()
+        |> String.equal?("Rect{width: 4.0, height: 5.0}")
+
+    assert e
+        |> Debug.inspect()
+        |> String.equal?("Expired")
+}
+
+fn describe(t: Token): String {
+    case t {
+        Token.Eof -> "end"
+        Token.Number(n) -> "n=${n}"
+        Token.Word(w) -> "word=${w}"
+        Token.Flag(b) -> "flag=${b}"
+        Token.User(UserId(id)) -> "user=${id}"
+        Token.Position((x, y)) -> "pos=(${x}, ${y})"
+        Token.Coord(Pair((a, b))) -> "coord=(${a}, ${b})"
+        Token.Bag(m) -> "bag-size=${Map.size(m)}"
+        Token.Counts(Kvs(c)) -> "counts-size=${Map.size(c)}"
+        Token.Sequence(xs) -> "seq-len=${Iter.count(xs)}"
+        Token.Many(Items(xs)) -> "many-len=${Iter.count(xs)}"
+        Token.Tagged(c) -> "tagged-r=${c.radius}"
+        Token.Card{rank, suit} -> "card=${rank}-of-${suit}"
+        Token.Computation(f) -> "computed=${f(7)}"
+        Token.Inner(Some(v)) -> "inner-some=${v}"
+        Token.Inner(None) -> "inner-none"
+        Token.Render(r) -> "render=${Renderable.render(r)}"
+        Token.Rect{width, height} -> "rect=${width}x${height}"
+        Token.Expired -> "expired"
+    }
+}
+
+test "variant payloads can be pattern matched by shape" {
+    assert describe(Token.Eof) == "end"
+    assert describe(Token.Number(42)) == "n=42"
+    assert describe(Token.Word("hi")) == "word=hi"
+    assert describe(Token.Flag(True)) == "flag=True"
+    assert describe(Token.User(UserId(7))) == "user=7"
+    assert describe(Token.Position((10, 20))) == "pos=(10, 20)"
+    assert describe(Token.Coord(Pair(3, 4))) == "coord=(3, 4)"
+
+    bag_payload = {"a" => 1}
+
+    bag = Token.Bag(bag_payload)
+
+    assert describe(bag) == "bag-size=1"
+    assert describe(Token.Counts(Kvs{"x" => 1})) == "counts-size=1"
+    assert describe(Token.Sequence([1, 2, 3])) == "seq-len=3"
+    assert describe(Token.Many(Items([4, 5]))) == "many-len=2"
+    assert describe(Token.Tagged(Circle{radius: 3.0})) == "tagged-r=3.0"
+    assert describe(Token.Card{rank: 7, suit: "hearts"}) == "card=7-of-hearts"
+    assert describe(Token.Computation(double)) == "computed=14"
+    assert describe(Token.Inner(Some(99))) == "inner-some=99"
+    assert describe(Token.Inner(None)) == "inner-none"
+    assert describe(Token.Render(Person{name: "Bob"})) == "render=person:Bob"
+    assert describe(Token.Render(Robot{id: 99})) == "render=robot:99"
+    assert describe(Rect{width: 4.0, height: 5.0}) == "rect=4.0x5.0"
+    assert describe(Expired) == "expired"
+}

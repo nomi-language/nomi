@@ -1,0 +1,133 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+pub once max_retries = 3
+once default_port = 8080
+pub once timeout = 30 * 1000
+pub once later_value = 99
+once doubled = 21 * 2
+once greeting = "Hello, " + "World"
+once seq = [1, 2, 3]
+
+pub struct Box {
+    value: Int
+}
+
+pub enum Status {
+    Ready
+}
+
+pub type UserId Int
+
+once default_box: Box = Box{value: 7}
+once fallback_status: Status = Status.Ready
+once root_user_id: UserId = UserId(1)
+
+test "once bindings are available across the file" {
+    assert max_retries == 3
+    assert default_port == 8080
+    assert timeout == 30000
+    assert doubled == 42
+    assert greeting == "Hello, World"
+    assert seq == [1, 2, 3]
+
+    assert retry_message(1) == "Attempt 1 of 3"
+    assert retry_message(max_retries) == "Attempt 3 of 3"
+
+    assert uses_later_value() == 100
+}
+
+test "once bindings can hold declared values" {
+    assert fallback_status == Status.Ready
+    assert root_user_id == UserId(1)
+    assert Int.max_value == 9223372036854775807
+    assert Int.min_value == Int.wrapping_add(Int.max_value, 1)
+}
+
+test "ordinary local bindings can shadow file once bindings" {
+    max_retries = 5
+    assert max_retries == 5
+}
+
+test "duplicate same-scope once bindings are rejected" {
+    diagnostics = compiler.check(
+        """
+          once dup = 1
+          once dup = 2
+
+          fn main() {
+            Unit
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "'dup' is already defined in this scope")
+}
+
+test "type body once bindings are rejected" {
+    diagnostics = compiler.check(
+        """
+          struct Box<T> {
+            value: T
+
+            pub once nope: Int = 1
+          }
+
+          fn main() {
+            Unit
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "once bindings are declarations outside type bodies",
+    )
+}
+
+test "impl block once bindings are rejected" {
+    diagnostics = compiler.check(
+        """
+          struct Box {
+            value: Int
+          }
+
+          impl Debug for Box {
+            once nope: Int = 1
+          }
+
+          fn main() {
+            Unit
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "interface impl blocks hold only `fn` / `host fn` implementation items",
+    )
+}
+
+test "compiler hover can assert once signatures with a marker" {
+    signature = test_helpers.hover_signature(
+        """
+          once defaultˇ_port = 8080
+
+          fn main() {
+            Unit
+          }
+        """
+    )
+
+    assert signature == "once default_port: Int = 8080"
+}
+
+fn retry_message(attempt: Int): String {
+    "Attempt ${attempt} of ${max_retries}"
+}
+
+fn uses_later_value(): Int {
+    later_value + 1
+}

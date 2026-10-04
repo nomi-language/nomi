@@ -1,0 +1,77 @@
+// Field access on an EXISTENTIAL, through a `field` requirement the interface
+// declares.
+//
+// `interface H { field name: String }` obliges every implementor to declare a
+// field of that name and that exact type (ast.InterfaceField says so), and the
+// checker admits `h.name` for `h: H` on exactly that ground and admits nothing
+// else through an interface value. So the read is total over the implementors
+// and the only thing missing at run time is WHERE the field sits: two
+// implementors are two Go structs with two layouts, and an `rt.Dyn` carries an
+// identity rather than an offset.
+//
+// The same read through a BOUNDED TYPE PARAMETER is the same thing, not a
+// second feature: `fn f<T>(x: T) where T: H` lowers `T` to `existential(H)`,
+// which is the kind `h: H` already had. Both spellings are pinned below
+// because the refusal they shared was filed under a name that described
+// neither — `field access on a scalar`, whose operand was the interface.
+//
+// TWO implementors with DIFFERENT layouts, on purpose. One would let a wrong
+// lowering that read a fixed offset pass: `Person` puts `name` first and
+// `Robot` puts it third, so a table keyed on identity and a hard-coded offset
+// give different answers.
+interface Named {
+    field name: String
+}
+
+struct Person {
+    name: String
+    age: Int
+}
+
+struct Robot {
+    serial: Int
+    active: Bool
+    name: String
+}
+
+impl Named for Person
+
+impl Named for Robot
+
+fn greet(n: Named): String {
+    "Hi " + n.name
+}
+
+fn shout<T>(x: T): String where T: Named {
+    x.name + "!"
+}
+
+// The widening is a BINDING rather than an assertion subject on purpose: an
+// erased value inside an assertion is refused as `recording an existential
+// operand`, which is a different key on a different slice's account, and
+// pinning it here would make this fixture measure that gap instead of this one.
+test "an interface-typed parameter reads its field requirement" {
+    ada = greet(Person{name: "Ada", age: 36})
+
+    assert ada == "Hi Ada"
+}
+
+test "a second implementor with a different layout reads the same field" {
+    bolt = greet(Robot{serial: 7, active: True, name: "Bolt"})
+
+    assert bolt == "Hi Bolt"
+}
+
+test "a bounded type parameter reads the bound's field requirement" {
+    assert shout(Person{name: "Ada", age: 36}) == "Ada!"
+}
+
+test "the bounded read follows the argument's own type" {
+    assert shout(Robot{serial: 7, active: True, name: "Bolt"}) == "Bolt!"
+}
+
+test "an interface-typed local reads through the box it was widened into" {
+    n: Named = Robot{serial: 1, active: False, name: "Rex"}
+
+    assert n.name == "Rex"
+}

@@ -1,0 +1,95 @@
+// A DERIVE-SYNTHESIZED impl function reached type-qualified, and `==` on a
+// struct whose `derive Equatable` lives in another file.
+//
+// Two gaps, one program, and the program is here because either one alone leaves
+// the other invisible.
+//
+// GAP ONE. `derive FromJson for T` synthesizes `fn from_json(json: Json):
+// Result<T, Json.ShapeError>`. Every node of that signature carries a position
+// in derive synthesis' fake band (`synthLineBase = 1<<30`), and
+// analysis/builder.go DELIBERATELY keeps that band out of `fa.References` so LSP
+// rename and find-references cannot emit an unnavigable position. `preludeTypeOf`
+// resolved the prelude anchor by reading `fa.References` at the node's position,
+// so `Result<...>` answered kindInvalid, `implItemSig` refused the whole block
+// `generic type`, and `T.from_json(...)` then found no candidate and was reported
+// at the CALL as `type-qualified member | T.from_json: T is a struct`.
+//
+// Both halves are here on purpose: `Local` derives in THIS file and `Away`
+// derives in a SIBLING. The two reach the callee by different routes —
+// `typeQualifiedCall` scans this gen, `siblingImplCall` reads the program-wide
+// index — and a fix that only unblocks the registration would light up one of
+// them while the other kept refusing. `to_json` beside each is the CONTROL: its
+// synthesized signature `(value: self): Json` contains no generic type at all,
+// so it lowered before this change and must still.
+//
+// GAP TWO. `assert away == away_copy` compares two `Away`s, and `Away`'s
+// `derive Equatable` is in models.nomi. `equalCall` reads only the gen being
+// lowered, a mirror carries none of the owner's impl table, and
+// `declaresEquatable` correctly says an impl EXISTS — so the comparison refused
+// `equality on a named type | Away` rather than silently falling back to the
+// structural comparator. `local == local_copy` beside it is the control: same
+// shape, impl in THIS file, worked before.
+//
+// The Err direction uses a MISSING FIELD and not a non-object, and that is a
+// deliberate avoidance rather than a choice of convenience: `T.from_json` over a
+// NON-OBJECT `Json` fails on the INTERPRETER at the parent —
+// `unknown builtin 'json.shape_error_root'`, reported at a synth-band line —
+// because the derived body's not-an-object arm calls a std `pub fn` the evaluator
+// does not resolve. Seen on a two-declaration program, so it is
+// pre-existing, unrelated to this change, and unreachable from the corpus (no
+// corpus file hands a derived `from_json` a non-object). A fixture cannot pin
+// that shape at all, because `requireIdentical` needs a reference run.
+//
+// The rendered strings are absolute, not merely identical to the interpreter.
+// `requireIdentical` proves the two backends agree and cannot prove either is
+// right: every line below would be identical-and-wrong if a decode returned the
+// wrong variant, or if `==` answered structurally where an impl should have run.
+import {
+    std/io
+    std/json.{FromJson, Json, ToJson}
+    models.{self, Away}
+}
+
+struct Local {
+    label: String
+}
+
+derive Equatable for Local
+derive ToJson for Local
+derive FromJson for Local
+
+fn render(r: Result<Local, Json.ShapeError>): String {
+    case r {
+        Ok(v) -> "ok:" + v.label
+        Err(_) -> "err"
+    }
+}
+
+fn render_away(r: Result<Away, Json.ShapeError>): String {
+    case r {
+        Ok(v) -> "ok:" + models.name_of(v)
+        Err(_) -> "err"
+    }
+}
+
+fn main() {
+    local = Local{label: "here"}
+    local_copy = Local{label: "here"}
+    away = models.away("there")
+    away_copy = models.away("there")
+
+    // The controls: `to_json` on both routes, and `==` on a LOCAL struct.
+    io.print(Json.encode(Local.to_json(local)))
+    io.print(Json.encode(Away.to_json(away)))
+    io.print("local eq ${Bool.to_string(local == local_copy)}")
+
+    // Gap one, entry-file route and sibling route.
+    io.print(render(Local.from_json(Json.Obj{"label" => Json.String("x")})))
+    io.print(render(Local.from_json(Json.Obj{"nope" => Json.Int(1)})))
+    io.print(render_away(Away.from_json(Json.Obj{"name" => Json.String("y")})))
+    io.print(render_away(Away.from_json(Json.Obj{"nope" => Json.Int(2)})))
+
+    // Gap two.
+    io.print("away eq ${Bool.to_string(away == away_copy)}")
+    io.print("away ne ${Bool.to_string(away == models.away("other"))}")
+}

@@ -1,0 +1,15 @@
+// One of two sibling files declaring `Point`. THIS one carries the impl.
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+pub fn at(x: Int, y: Int): Point {
+    Point{x, y}
+}
+
+impl Equatable for Point {
+    fn equal?(a: Point, b: Point): Bool {
+        a.x == b.x
+    }
+}

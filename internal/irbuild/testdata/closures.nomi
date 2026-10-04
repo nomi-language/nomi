@@ -1,0 +1,44 @@
+import std/io
+
+// Probe: CLOSURE CAPTURE.
+//
+// A closure captures the VALUE each name holds when the closure is made (spec
+// §23). A later rebinding of the name, in the same scope or a nested one, is a
+// new binding (spec §2) that the closure never sees.
+// The closure outlives the scope that built it.
+fn adder(n: Int): (Int) -> Int {
+    |x: Int| x + n
+}
+
+fn main() {
+    add5 = adder(5)
+    add100 = adder(100)
+    io.print("add5(1) = ${add5(1)}")
+    io.print("add100(1) = ${add100(1)}")
+
+    // Same-scope rebinding: a new binding, so a lambda made before it keeps
+    // the value it captured.
+    x = 1
+    seen = |_ignored: Int| x
+    io.print("before rebind: ${seen(0)}")
+    x = 2
+    io.print("direct x = ${x}")
+    io.print("after rebind: ${seen(0)}")
+
+    // Nested-scope shadowing: also a new binding, and the lambda still sees the
+    // value it captured.
+    y = 10
+    outer = |k: Int| y + k
+
+    if True {
+        y = 900
+        io.print("inner y = ${y}")
+    } else {
+        io.print("unreachable")
+    }
+
+    io.print("outer(1) = ${outer(1)}")
+
+    // Capture of a parameter, which is never rebound.
+    io.print("adder(3)(4) = ${adder(3)(4)}")
+}

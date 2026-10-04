@@ -1,0 +1,57 @@
+import std/iter.Iter.loop
+
+test "loop advances state through callback return values" {
+    result = loop(|n = 1| {
+        if n % 3 == 0 { break n }
+        return n + 1
+    })
+
+    (_, steps) = loop(|state = (27, 0)| {
+        (n, count) = state
+        if n == 1 { break state }
+
+        if n % 2 == 0 {
+            (n / 2, count + 1)
+        } else {
+            (n * 3 + 1, count + 1)
+        }
+    })
+
+    assert result == 3
+    assert steps == 111
+}
+
+test "bare loop break returns Unit" {
+    assert loop(|| { break }) == Unit
+}
+
+test "loop break value returns the break value" {
+    countdown = loop(|n = 5| {
+        if n == 0 { break n }
+        n - 1
+    })
+
+    fib = loop(|state = (0, 1)| {
+        (a, b) = state
+        if b > 100 { break (a, b) }
+        (b, a + b)
+    })
+
+    assert countdown == 0
+    assert fib == (89, 144)
+}
+
+test "stateless loop infers its state type from a break value" {
+    answer = loop(|| { break 42 })
+
+    assert answer == 42
+}
+
+test "generic break values pin the loop state type" {
+    assert first(7) == 7
+    assert first("value") == "value"
+}
+
+fn first<T>(x: T): T {
+    loop(|| { break x })
+}

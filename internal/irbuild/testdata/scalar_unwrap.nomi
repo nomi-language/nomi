@@ -1,0 +1,65 @@
+import std/io
+
+// Probe: UNWRAPPING a distinct type by applying its inner type's name.
+//
+// `String(e)` is not a conversion and Nomi has none. `Int`, `Float` and
+// `String` are bound in the root environment to a builtin that answers
+// `DistinctVal.Inner` and errors on anything else (`eval.Bootstrap`), so:
+//
+//   - `Int(Meters(5))` is the unwrap, and `Int(5)` would be a RUNTIME ERROR —
+//     which is why the builder admits only a distinct argument.
+//   - `Bool` is deliberately absent from that builtin loop, so `Bool(f)` on a
+//     `type Flag Bool` is not spellable and is not lowered here either.
+//   - The set is exactly three names, read as a closed vocabulary.
+//
+// `Email` is the same operation on an OPAQUE newtype, inside its declaring
+// scope where the owner's own unwrap is legal — the shape
+// `tests/10-generics-and-type-wrappers/opaque_types/email.nomi` is
+// built from. `roundtrip` is what makes the unwrap observable rather than
+// merely compiled: wrap, unwrap, and compare against the literal.
+type Meters Int
+
+type Ratio Float
+
+opaque type Email String
+
+fn wrap(n: Int): Meters {
+    Meters(n)
+}
+
+fn depth(m: Meters): Int {
+    Int(m)
+}
+
+fn as_float(r: Ratio): Float {
+    Float(r)
+}
+
+fn address(e: Email): String {
+    String(e)
+}
+
+test "the inner type's name unwraps a distinct value" {
+    m = wrap(5)
+
+    io.print("depth = ${depth(m)}")
+    io.print("ratio = ${as_float(Ratio(1.5))}")
+
+    assert depth(m) == 5
+    assert depth(wrap(-3)) == -3
+    assert as_float(Ratio(1.5)) == 1.5
+}
+
+test "an opaque newtype unwraps inside its declaring scope" {
+    e = Email("ada@example.com")
+
+    io.print("email = ${address(e)}")
+
+    assert address(e) == "ada@example.com"
+    assert address(Email("")) == ""
+}
+
+test "unwrapping is one level and round-trips" {
+    assert depth(wrap(depth(wrap(41)) + 1)) == 42
+    assert address(Email(address(Email("x")))) == "x"
+}

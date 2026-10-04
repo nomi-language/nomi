@@ -1,0 +1,74 @@
+import {
+    std/calendar.Error
+    std/calendar.{DateTime, Days, Disambiguation, Hours}
+    std/calendar.NaiveDateTime
+    std/duration.Duration
+}
+
+test "DST gap compatible disambiguation advances to the next valid instant" {
+    naive = try NaiveDateTime"2026-03-08T02:30:00"
+    adjusted = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Compatible)
+    adjusted_text = DateTime.to_string(adjusted)
+
+    assert adjusted_text == "2026-03-08T03:30:00-04:00[America/New_York]"
+}
+
+test "DST gap reject disambiguation reports a nonexistent wall reading" {
+    naive = try NaiveDateTime"2026-03-08T02:30:00"
+
+    assert Err(Error.Nonexistent(_)) = DateTime.in_zone(
+        naive,
+        "America/New_York",
+        Disambiguation.Reject,
+    )
+}
+
+test "DST spring-forward civil day shifts preserve wall time" {
+    start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+    civil = start + Days(1)
+    start_text = DateTime.to_string(start)
+    civil_text = DateTime.to_string(civil)
+
+    assert start_text == "2026-03-07T12:00:00-05:00[America/New_York]"
+    assert civil_text == "2026-03-08T12:00:00-04:00[America/New_York]"
+}
+
+test "DST spring-forward civil day shifts may cover less than twenty-four hours" {
+    start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+    civil = start + Days(1)
+
+    civil_hours =
+        start
+        |> DateTime.between(civil)
+        |> Duration.as_hours()
+
+    assert civil_hours == 23
+}
+
+test "DST spring-forward physical duration shifts preserve elapsed time" {
+    start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+    physical = start + Duration.hours(24)
+    physical_text = DateTime.to_string(physical)
+
+    physical_hours =
+        start
+        |> DateTime.between(physical)
+        |> Duration.as_hours()
+
+    assert physical_text == "2026-03-08T13:00:00-04:00[America/New_York]"
+    assert physical_hours == 24
+}
+
+test "DST spring-forward civil hour shifts preserve wall time" {
+    start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+    civil = start + Hours(24)
+    civil_text = DateTime.to_string(civil)
+
+    civil_hours =
+        start
+        |> DateTime.between(civil)
+        |> Duration.as_hours()
+
+    assert civil_text == "2026-03-08T12:00:00-04:00[America/New_York]"
+    assert civil_hours == 23
+}

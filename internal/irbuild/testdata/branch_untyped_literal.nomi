@@ -1,0 +1,216 @@
+import std/io
+
+// Probe: AN UNTYPED LITERAL IN THE FIRST BRANCH OF A `case` OR `if`.
+//
+// `case x { A -> [] , B -> [v] }` was refused as
+// `case branches with different types (List<_> and List<Display>)`, and the
+// refusal is ORDER-DEPENDENT rather than general — which is the whole finding.
+// The reconciliation lowers branch one with the caller's `want`, adopts its kind
+// as `result`, and lowers every later branch with `result` as ITS want, so
+// gen.assign's coerce discharges an untyped literal that arrives SECOND and
+// nothing discharges one that arrives FIRST.
+//
+// So the same two arms in the other order already lowered, and both orders are
+// here. A fixture with only the failing order cannot see a "fix" that broke the
+// working one.
+//
+// THE FOUR UNTYPED LITERALS, NOT THE ONE THE CORPUS NEEDED. `[]`, `None`,
+// `Map.empty()` and `#{}` are the four values whose type the CHECKER solves from
+// context (types.go's untypedLiteral), and the widening delegates to gen.coerce
+// rather than restating a list of tags — so all four are exercised, because a
+// table-driven guard is only as wide as its table and a rule that named only
+// `tagEmptyList` would be a list of one wearing a general name.
+//
+// WHICH DERIVATIONS ARE LET DISAGREE HERE
+//
+//   - THE BRANCH THAT DECIDES THE KIND vs THE BRANCH THAT SUPPLIES THE VALUE.
+//     `first_empty` takes its kind from arm TWO and its emitted value for arm
+//     ONE from a line already written, so the retype has to reach BACKWARDS. If
+//     it did not, the Go would not compile — `*rt.List[rt.Unit]` is not
+//     assignable to `*rt.List[int64]` — and the sweep reads a compile failure as
+//     a codegen bug rather than as a refusal.
+//   - THE POSITION OF THE UNTYPED ARM. `middle_empty` puts it between two typed
+//     arms and `last_empty` puts it last, so a fix keyed on "the first arm"
+//     rather than on "an untyped arm" answers one and not the others.
+//   - `case` vs `if`. Two separate reconciliations (case.go's caseInto and
+//     native.go's ifInto) with two separate keys, sharing one helper. Both are
+//     here so they cannot disagree about the same literal.
+//   - THE CASCADE. `Bag` is the corpus shape: a struct literal whose FIELD VALUE
+//     is such a `case`. litFieldValues suppresses a field whose value has no
+//     kind and then reports that same field as ABSENT, so one gap presented as
+//     `case branches with different types` AND `struct literal missing field`.
+//     The second row is a cascade and `bag` is what proves it: fixing the cause
+//     retires both.
+//   - AN EXISTENTIAL ELEMENT. `describe` widens `[]` into `List<Shown>` rather
+//     than `List<Int>`, mirroring the corpus's own element type
+//     (17-typed-literals/typed_literals/sql.nomi's `params: List<Display>`; the
+//     name here is a user interface because `Display` is reserved).
+//     An erased element is where a retype could plausibly need a conversion
+//     rather than a nil, so it is not left to the Int case to stand for.
+enum Tag {
+    Keep
+    Drop
+}
+
+struct Bag {
+    items: List<Int>
+    label: String
+}
+
+interface Shown {
+    fn to_string(v: self): String
+}
+
+struct Amount {
+    cents: Int
+}
+
+impl Shown for Amount {
+    fn to_string(a: Amount): String {
+        "${a.cents}c"
+    }
+}
+
+// The failing order: the untyped literal FIRST.
+fn first_empty(t: Tag, n: Int): List<Int> {
+    case t {
+        Tag.Drop -> []
+        Tag.Keep -> [n]
+    }
+}
+
+// The order that already lowered, so a regression in it is visible.
+fn last_empty(t: Tag, n: Int): List<Int> {
+    case t {
+        Tag.Keep -> [n]
+        Tag.Drop -> []
+    }
+}
+
+// The untyped arm BETWEEN two typed ones.
+fn middle_empty(n: Int): List<Int> {
+    case n {
+        0 -> [0]
+        1 -> []
+        _ -> [n, n]
+    }
+}
+
+// `if` rather than `case`, untyped arm first.
+fn if_empty(keep: Bool, n: Int): List<Int> {
+    if keep { [] } else { [n] }
+}
+
+// An `else if` chain, so the untyped arm is reconciled through ifInto's
+// recursive else route rather than through its block route.
+fn if_chain(n: Int): List<Int> {
+    if Int.equal?(n, 0) {
+        []
+    } else if Int.equal?(n, 1) {
+        [1]
+    } else {
+        [n, n]
+    }
+}
+
+// A bare `None` first.
+fn first_none(t: Tag, n: Int): Maybe<Int> {
+    case t {
+        Tag.Drop -> None
+        Tag.Keep -> Some(n)
+    }
+}
+
+// An empty MAP first.
+fn first_empty_map(t: Tag, n: Int): Map<String, Int> {
+    case t {
+        Tag.Drop -> Map.empty()
+        Tag.Keep -> {"n" => n}
+    }
+}
+
+// An `if` in a WANT-FREE position: a local binding with no annotation, so
+// ifInto is entered with want == kindInvalid and the then arm's kind is what
+// would otherwise be handed to the else arm.
+//
+// THIS ROW EXISTS BECAUSE A MUTANT SURVIVED WITHOUT IT. Dropping
+// `!untypedLiteral(thenKind)` from ifInto's elseWant rule left every other row
+// in this fixture green: `if_empty` and `if_chain` are function BODIES, so
+// their `want` is the declared return kind and the kindInvalid branch is never
+// taken. A real coverage gap, not a redundancy — and the two are told apart by
+// asking which `want` each arrival carries, not by how the mutant presented.
+fn bound(keep: Bool, n: Int): String {
+    ys = if keep { [] } else { [n] }
+
+    "${ys}"
+}
+
+// An empty SET first.
+fn first_empty_set(t: Tag, n: Int): Set<Int> {
+    case t {
+        Tag.Drop -> #{}
+        Tag.Keep -> #{n}
+    }
+}
+
+// The existential element: `[]` widened into a list of an INTERFACE type.
+//
+// The typed arm's element is ALREADY `Shown` rather than a concrete `Amount`,
+// and that is not decoration. `[a]` with `a: Amount` is `List<Amount>` to this
+// builder, and reconciling it with `List<Shown>` is list-element COVARIANCE —
+// a different gap (`list element type mismatch`), somebody else's, and one this
+// fixture must not trip over. The corpus witness has the same shape: in
+// 17-typed-literals/typed_literals/sql.nomi the arm is `[v]` where `v` is
+// already the interface-typed payload of `.Dynamic(v)`.
+fn describe(t: Tag, s: Shown): List<Shown> {
+    case t {
+        Tag.Drop -> []
+        Tag.Keep -> [s]
+    }
+}
+
+// The CASCADE shape: the case is a struct literal's FIELD VALUE.
+fn bag(t: Tag, n: Int): Bag {
+    Bag{
+        items: case t {
+            Tag.Drop -> []
+            Tag.Keep -> [n]
+        },
+        label: "b",
+    }
+}
+
+// A `Maybe` is not a renderable value in this builder (`rendering a non-scalar
+// value`), so it is shown through a `case` rather than interpolated — the same
+// reason `Result` is in testdata/pipe_keyword_stages.nomi.
+fn show_maybe(m: Maybe<Int>): String {
+    case m {
+        Some(n) -> "Some(${n})"
+        None -> "None"
+    }
+}
+
+fn main() {
+    io.print("first_empty = ${first_empty(Tag.Drop, 5)} ${first_empty(Tag.Keep, 5)}")
+    io.print("last_empty = ${last_empty(Tag.Drop, 5)} ${last_empty(Tag.Keep, 5)}")
+    io.print("middle_empty = ${middle_empty(0)} ${middle_empty(1)} ${middle_empty(3)}")
+    io.print("if_empty = ${if_empty(True, 7)} ${if_empty(False, 7)}")
+    io.print("if_chain = ${if_chain(0)} ${if_chain(1)} ${if_chain(4)}")
+    io.print("bound = ${bound(True, 5)} ${bound(False, 5)}")
+
+    io.print(
+        "first_none = ${show_maybe(first_none(Tag.Drop, 2))} ${show_maybe(first_none(Tag.Keep, 2))}"
+    )
+
+    io.print("first_empty_map = ${first_empty_map(Tag.Drop, 3)} ${first_empty_map(Tag.Keep, 3)}")
+    io.print("first_empty_set = ${first_empty_set(Tag.Drop, 4)} ${first_empty_set(Tag.Keep, 4)}")
+
+    shown =
+        describe(Tag.Keep, Amount{cents: 99})
+        |> Iter.map(|d: Shown| Shown.to_string(d))
+        |> Iter.to_list()
+
+    io.print("describe = ${shown} ${Iter.count(describe(Tag.Drop, Amount{cents: 1}))}")
+
+    io.print("bag = ${bag(Tag.Drop, 8).items} ${bag(Tag.Keep, 8).items} ${bag(Tag.Keep, 8).label}")
+}

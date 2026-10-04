@@ -1,0 +1,9 @@
+// The cycle closes through an ordinary function CALL, inside this file, and it
+// is FORCED from another file's bare selectively-imported read. So the forcing
+// lineage has to survive the generated package boundary: main's frame is handed
+// to seedlib's getter, which conses this cell onto it before calling the RHS.
+pub once seed: Int = grow()
+
+pub fn grow(): Int {
+    seed + 1
+}

@@ -1,0 +1,6 @@
+// A generic function zeta.nomi's generic `boxed` calls. This file is lowered
+// before zeta.nomi, so the instance `boxed` asks for arrives after this
+// file's own walk.
+pub fn wrap<T>(x: T): List<T> {
+    [x, x, x]
+}

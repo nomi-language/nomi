@@ -1,0 +1,25 @@
+==========
+Qualified enum variant with a struct payload in a case
+==========
+
+once r = case e {
+  IoError.NotFound{path} -> path
+  _ -> ""
+}
+
+---
+
+(source_file
+  (once_binding
+      (identifier)
+      (case_expression
+        (identifier)
+        (case_branch
+        (struct_construction
+          (type_field_access
+            (type_identifier)
+            (type_identifier))
+          (identifier))
+        (identifier))
+      (case_branch
+        (string)))))

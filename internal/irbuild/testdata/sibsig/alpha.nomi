@@ -1,0 +1,50 @@
+// One of two sibling files declaring a type called `Point`, and the file whose
+// SIGNATURES cross the boundary in every shape the builder admits.
+//
+// The names below are the four positions `non-scalar sibling file signature`
+// used to refuse at the call site — parameter, return, container ELEMENT either
+// way — plus a destructuring parameter, which the sibling path refused outright
+// while the declaring file's own funcDecl lowered it. See siblings.go's
+// typeFileFunc.
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+pub fn at(x: Int, y: Int): Point {
+    Point{x, y}
+}
+
+/// A sibling type in RETURN position.
+pub fn origin(): Point {
+    Point{x: 0, y: 0}
+}
+
+/// A sibling type in PARAMETER position, and in the return.
+pub fn shift(p: Point, by: Int): Point {
+    Point{x: p.x + by, y: p.y + by}
+}
+
+/// A sibling type as a container ELEMENT, in parameter position. `List<Point>`
+/// is interned in the DECLARING gen against its own rendering of `Point`, and
+/// re-interned in the caller's against the caller's alias for it — which is why
+/// a mirror exists rather than one shared def. See foreign.go's importKind.
+pub fn spread(ps: List<Point>): Int {
+    case ps {
+        [a, b] -> (b.x - a.x) + (b.y - a.y)
+        _ -> 0
+    }
+}
+
+/// A sibling type as a container ELEMENT, in RETURN position.
+pub fn twice(p: Point): List<Point> {
+    [p, p]
+}
+
+/// A DESTRUCTURING parameter, self-typed by its pattern head. paramKind is the
+/// one implementation of "which parameters resolve" and it answers this; the
+/// sibling path used to run its own walk and refuse it, so a call the declaring
+/// file compiled was refused at the call site.
+pub fn sum(Point{x, y}): Int {
+    x + y
+}

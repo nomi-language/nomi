@@ -1,0 +1,9 @@
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+pub typealias Cell (Int, Int)
+pub typealias Board Set<Cell>
+pub typealias Flat Set<(Int, Int)>
+pub typealias Points List<Point>

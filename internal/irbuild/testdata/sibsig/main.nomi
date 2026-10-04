@@ -1,0 +1,60 @@
+// A sibling file's SIGNATURE crossing the generated-package boundary in every
+// shape, and `==` on a MIRROR of a sibling file's struct.
+//
+// Two same-named types reach ONE generated package here, one under its own name
+// and one aliased, so this package holds two mirrors whose Nomi name is `Point`
+// in both owners' tables. That is the only place a name-keyed lookup can
+// collapse two declarations — a Nomi file declares each name once, so a single
+// package cannot collide with itself — and it is why the alias is here rather
+// than for readability.
+//
+// `==` through a mirror was refused until the mirror's owner could be asked
+// whether the PROGRAM declares an `impl Equatable` for the type. Absence has to
+// be POSITIVELY established: a missing impl is exactly when the interpreter
+// runs value.Equal, and an impl that exists is when it calls something, so a
+// structural answer is right in the first case and a silent wrong answer in the
+// second. testdata/sibsig_impl and testdata/sibsig_orphan are the two negative
+// halves. See foreign.go's foreignNoEquatableImpl.
+import {
+    std/io
+    alpha.{self, Point}
+    beta.{self, Point as Coord}
+}
+
+/// `==` on a MIRROR, in this file's own function rather than in the declaring
+/// file's: the comparator is emitted HERE, against this package's alias.
+fn same_point(a: Point, b: Point): Bool {
+    a == b
+}
+
+fn same_coord(a: Coord, b: Coord): Bool {
+    a == b
+}
+
+fn main() {
+    p = alpha.at(1, 2)
+    q = alpha.at(4, 6)
+
+    o = alpha.origin()
+    io.print("origin = ${o.x},${o.y}")
+
+    moved = alpha.shift(p, 10)
+    io.print("shift  = ${moved.x},${moved.y}")
+
+    io.print("spread = ${alpha.spread([p, q])}")
+    io.print("twice  = ${alpha.spread(alpha.twice(p))}")
+    io.print("sum    = ${alpha.sum(q)}")
+
+    io.print("p == p = ${Bool.to_string(same_point(p, alpha.at(1, 2)))}")
+    io.print("p == q = ${Bool.to_string(same_point(p, q))}")
+
+    // Nomi's Float equality is reflexive on NaN and Go's is not, so this line
+    // fails under a Go `==` on the struct and passes under rt.EqFloat.
+    zero = 0.0
+    nan = zero / zero
+    io.print("nan    = ${Bool.to_string(same_coord(beta.at(nan, 1.0), beta.at(nan, 1.0)))}")
+    io.print("c == d = ${Bool.to_string(same_coord(beta.at(1.5, 1.0), beta.at(2.5, 1.0)))}")
+
+    t = beta.pair(beta.at(1.5, 2.5))
+    io.print("tuple  = ${t.1}")
+}

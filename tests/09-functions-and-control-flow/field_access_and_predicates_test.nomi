@@ -1,0 +1,89 @@
+pub struct Inner {
+    value: Int
+}
+
+pub struct Mid {
+    inner: Inner
+}
+
+pub struct Outer {
+    mid: Mid
+}
+
+pub struct Box<T> {
+    item: T
+}
+
+pub struct Crate<T> {
+    box: Box<T>
+}
+
+fn even?(n: Int): Bool {
+    n % 2 == 0
+}
+
+interface Validatable {
+    fn valid?(value: self): Bool
+}
+
+struct Password {
+    text: String
+}
+
+impl Validatable for Password {
+    fn valid?(p: Password): Bool {
+        String.length(p.text) >= 6
+    }
+}
+
+test "field-access chains resolve through structs and generics" {
+    o = Outer{
+        mid: Mid{
+            inner: Inner{
+                value: 42,
+            },
+        },
+    }
+
+    c = Crate{
+        box: Box{
+            item: Inner{
+                value: 7,
+            },
+        },
+    }
+
+    p = Outer{
+        mid: Mid{
+            inner: Inner{
+                value: 100,
+            },
+        },
+    }
+
+    pair = (p.mid.inner.value, p.mid.inner.value)
+
+    assert o.mid.inner.value == 42
+    assert c.box.item.value == 7
+    assert pair == (100, 100)
+}
+
+test "predicate-named functions and bindings stay callable" {
+    nums = [1, 2, 3, 4, 5, 6]
+
+    evens =
+        nums
+        |> Iter.filter(even?)
+        |> Iter.to_list()
+
+    any_even? = Iter.any?(nums, even?)
+    empty? = Iter.empty?(nums)
+
+    assert even?(4)
+    refute even?(5)
+    assert evens == [2, 4, 6]
+    assert any_even?
+    refute empty?
+    assert Validatable.valid?(Password{text: "hunter2"})
+    refute Validatable.valid?(Password{text: "no"})
+}

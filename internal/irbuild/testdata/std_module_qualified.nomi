@@ -1,0 +1,95 @@
+// Std types named only through their module's qualifier, in a file that
+// declares its own `Task`, `Channel`, `Supervisor` and `Error`. The qualifier
+// is the only spelling left for std's, so each must resolve by the
+// declaration the analyzer bound it to, not by the bare name.
+import {
+    std/channels
+    std/duration.Duration
+    std/io
+    std/json
+    std/random
+    std/supervisors
+    std/tasks
+}
+
+struct Task {
+    name: String
+}
+
+struct Channel {
+    id: Int
+}
+
+struct Supervisor {
+    name: String
+}
+
+enum Error {
+    Mine
+}
+
+impl Task {
+    fn label(t: Task): String {
+        "task ${t.name}"
+    }
+}
+
+pub struct App {
+    context: Context
+
+    audit: supervisors.Supervisor
+}
+
+fn boot(): App {
+    App{
+        context: Context.root(),
+        audit: supervisors.Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
+    }
+}
+
+fn twice(t: tasks.Task<Int>): Int {
+    tasks.Task.await(t) * 2
+}
+
+fn describe(e: random.Error): String {
+    case e {
+        random.Error.OsEntropy{reason} -> "entropy: ${reason}"
+        random.Error.InvalidWeight{weight: w} -> "weight: ${w}"
+        _ -> "other"
+    }
+}
+
+fn mine(e: Error): String {
+    case e {
+        Error.Mine -> "my error"
+    }
+}
+
+fn main() {
+    io.print(Task.label(Task{name: "mine"}))
+    io.print(Channel{id: 3}.id)
+    io.print(Supervisor{name: "local"}.name)
+    io.print(mine(Error.Mine))
+
+    n = concurrent {
+        t = tasks.Task.spawn(|| 20 + 1)
+        twice(t)
+    }
+
+    io.print(n)
+    ch: channels.Channel<String> = channels.Channel.buffered<String>(1)
+    _ = channels.Sender.send(ch.sender, "hi")
+    io.print(channels.Receiver.receive(ch.receiver))
+    audited: tasks.Task<Unit> = supervisors.Supervisor.spawn(App.audit, || io.print("supervised"))
+
+    concurrent {
+        _ = tasks.Task.outcome(audited)
+        Unit
+    }
+
+    io.print(describe(random.Error.OsEntropy{reason: "x"}))
+    io.print(describe(random.Error.InvalidWeight{weight: 0.5}))
+    io.print(describe(random.Error.ZeroWeightTotal))
+    io.print(Display.to_string(random.Error.OsEntropy{reason: "a"}))
+    io.print(json.Json.encode(json.Json.Arr([json.Json.Int(3), json.Json.Null])))
+}

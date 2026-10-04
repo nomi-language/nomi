@@ -1,0 +1,16 @@
+test "strings implement Iter over graphemes" {
+    indexed =
+        "abc"
+        |> Iter.with_index()
+        |> Iter.to_list()
+
+    assert Iter.first("hello") == Some("h")
+    assert Iter.last("hello") == Some("o")
+    assert Iter.at("hello", 1) == Some("e")
+    assert indexed == [(0, "a"), (1, "b"), (2, "c")]
+}
+
+test "String-specific reverse and length stay distinct from generic Iter forms" {
+    assert String.reverse("abc") == "cba"
+    assert String.length("abc") == 3
+}

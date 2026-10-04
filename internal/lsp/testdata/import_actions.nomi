@@ -1,0 +1,36 @@
+// Import code-actions fixture. Demonstrates the LSP's import management:
+// "Remove unused import" / "Add import" quick-fixes plus the
+// source.organizeImports and source.fixAll actions. The integration tests drive
+// the edits described below and assert that the server returns the documented
+// actions.
+//
+// The file compiles as-is. Each experiment is an edit the test makes before
+// asking the server for quick-fixes or source actions. Keep the instruction
+// comments above the import block; a comment inside the block makes the
+// whole-region source actions decline.
+//
+//   ADD IO   Delete the `std/io` line. `io.print` and `io.inspect` go
+//            undefined -> "Add import std/io" / fixAll re-adds it as a
+//            block entry, preserving the import block style.
+//   ADD DURATION
+//            Delete the `std/duration.Duration` line. `Duration.seconds` goes
+//            undefined -> "Add import std/duration.Duration" / fixAll
+//            re-adds it as a block entry.
+//   REMOVE   Add a line `  std/lists.List` to the block. Unused -> "Remove unused
+//            import" / fixAll drops it.
+//   FIXALL   Several edits at once, then save with fixAll-on-save: one pass
+//            removes the unused imports and re-adds the missing ones.
+import {
+    std/duration.Duration
+    std/io
+}
+
+fn main() {
+    ["a", "b", "c"]
+    |> String.join()
+    |> io.print()
+
+    5
+    |> Duration.seconds()
+    |> io.inspect()
+}

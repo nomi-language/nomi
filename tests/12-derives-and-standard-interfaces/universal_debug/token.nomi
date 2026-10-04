@@ -1,0 +1,10 @@
+// An opaque distinct type in its own file. Its auto-default Debug is the
+// name-only `<opaque Token>` — a structural default would leak the hidden Int
+// representation, which is exactly what `opaque` exists to prevent. Even
+// `make` (the exported constructor) hands back a value that renders name-only
+// from outside this file.
+pub opaque type Token Int
+
+pub fn make(n: Int): Token {
+    Token(n)
+}

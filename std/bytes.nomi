@@ -1,0 +1,208 @@
+import {
+    add.Add
+    bool.Bool
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+    iter.Iter
+    lists.List
+    maybe.Maybe
+    maybe.Maybe.{None, Some}
+    results.Result
+    results.Result.Ok
+}
+
+//# Immutable byte buffers and their `Byte` element type. `Bytes` is the FFI
+//# boundary for Go `[]byte`; convert to `List<Byte>` only when Nomi code needs
+//# to inspect or transform individual bytes.
+
+/// A single byte, 0 through 255.
+pub host type Byte
+
+impl Byte {
+    /// Converts an Int to a Byte when it is in range 0..255.
+    //! b = try Byte.from_int(65)
+    //! assert Byte.from_int(65) == Some(b)
+    //! assert Byte.from_int(-1) == None
+    //! assert Byte.from_int(256) == None
+    //
+    pub host fn from_int(n: Int): Maybe<Byte>
+
+    /// Converts a Byte to its Int value.
+    //! b = try Byte.from_int(255)
+    //! assert Byte.to_int(b) == 255
+    //
+    pub host fn to_int(b: Byte): Int
+}
+
+impl Display for Byte {
+    fn to_string(b: Byte): String {
+        b |> Byte.to_int() |> Int.to_string()
+    }
+}
+
+impl Debug for Byte {
+    fn inspect(b: Byte): String {
+        "${b}"
+    }
+}
+
+impl Equatable for Byte {
+    fn equal?(a: Byte, b: Byte): Bool {
+        a == b
+    }
+}
+
+impl Hashable for Byte {
+    fn hash(b: Byte): Int {
+        Byte.to_int(b)
+    }
+}
+
+/// Immutable byte buffer.
+pub host type Bytes
+
+impl Bytes {
+    /// Number of bytes in the buffer.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! assert Bytes.length(Bytes.from_list([a, b])) == 2
+    //
+    pub host fn length(data: Bytes): Int
+
+    /// Returns the byte at index, or None when index is out of range.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! data = Bytes.from_list([a, b])
+    //! assert data |> Bytes.at(0) |> Maybe.map(Byte.to_int) == Some(97)
+    //! assert Bytes.at(data, 2) == None
+    //
+    pub host fn at(data: Bytes, index: Int): Maybe<Byte>
+
+    /// Returns bytes from start index to end index (start inclusive, end
+    /// exclusive). Out-of-range bounds are clamped.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! c = try Byte.from_int(99)
+    //! d = try Byte.from_int(100)
+    //! assert Bytes.slice(Bytes.from_list([a, b, c, d]), 1, 3) == Bytes.from_list([b, c])
+    //
+    pub host fn slice(data: Bytes, start: Int, end: Int): Bytes
+
+    /// Concatenates two byte buffers.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! c = try Byte.from_int(99)
+    //! d = try Byte.from_int(100)
+    //!
+    //! assert Bytes.concat(Bytes.from_list([a, b]), Bytes.from_list([c, d])) == Bytes.from_list(
+    //!     [a, b, c, d]
+    //! )
+    //
+    pub host fn concat(a: Bytes, b: Bytes): Bytes
+
+    /// Materializes a byte buffer as a list of Byte values.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //!
+    //! assert Bytes.from_list([a, b])
+    //! |> Bytes.to_list()
+    //! |> Iter.map(Byte.to_int)
+    //! |> Iter.to_list() == [97, 98]
+    //
+    pub host fn to_list(data: Bytes): List<Byte>
+
+    /// Builds a byte buffer from a list of Byte values.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! assert Bytes.from_list([a, b]) |> Bytes.to_list() == [a, b]
+    //
+    pub host fn from_list(items: List<Byte>): Bytes
+
+    /// Decodes bytes as UTF-8 text.
+    //! h = try Byte.from_int(104)
+    //! e = try Byte.from_int(195)
+    //! accent = try Byte.from_int(169)
+    //! assert Bytes.from_list([h, e, accent]) |> Bytes.to_string() == Ok("hé")
+    //
+    pub host fn to_string(data: Bytes): Result<String, String>
+}
+
+impl Iter for Bytes {
+    /// Pushes each byte to `yield`, stopping when it returns False.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //!
+    //! assert Bytes.from_list([a, b])
+    //! |> Iter.map(Byte.to_int)
+    //! |> Iter.to_list() == [97, 98]
+    //
+    host fn each_while(data: Bytes, yield: (Byte) -> Bool): Bool
+}
+
+impl Add<Bytes, Bytes> for Bytes {
+    /// Concatenates two byte buffers.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! c = try Byte.from_int(99)
+    //! d = try Byte.from_int(100)
+    //! assert Bytes.from_list([a, b]) + Bytes.from_list([c, d]) == Bytes.from_list([a, b, c, d])
+    //
+    fn add(lhs: Bytes, rhs: Bytes): Bytes {
+        Bytes.concat(lhs, rhs)
+    }
+}
+
+impl Display for Bytes {
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! assert Display.to_string(Bytes.from_list([a, b])) == "Bytes(2)"
+    //
+    fn to_string(data: Bytes): String {
+        "Bytes(${Bytes.length(data)})"
+    }
+}
+
+impl Debug for Bytes {
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! assert Debug.inspect(Bytes.from_list([a, b])) == "<<97, 98>>"
+    //! assert Debug.inspect(Bytes.from_list([])) == "<<>>"
+    //
+    fn inspect(data: Bytes): String {
+        inner =
+            data
+            |> Bytes.to_list()
+            |> Iter.map(|b: Byte| Byte.to_int(b))
+            |> Iter.map(|n: Int| Int.to_string(n))
+            |> Iter.to_list()
+            |> join_debug_parts()
+
+        "<<${inner}>>"
+    }
+}
+
+fn join_debug_parts(parts: List<String>): String {
+    case parts {
+        [] -> ""
+        [head] -> head
+        [head, ..tail] -> head + ", " + join_debug_parts(tail)
+    }
+}
+
+impl Equatable for Bytes {
+    fn equal?(a: Bytes, b: Bytes): Bool {
+        a == b
+    }
+}
+
+impl Hashable for Bytes {
+    /// FNV-1a 64-bit hash of the octets, reinterpreted as an Int, as
+    /// `String`'s is. Stable within one runtime process.
+    //! a = try Byte.from_int(97)
+    //! assert Hashable.hash(Bytes.from_list([a])) == Hashable.hash(Bytes.from_list([a]))
+    //
+    host fn hash(data: Bytes): Int
+}

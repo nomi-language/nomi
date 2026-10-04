@@ -1,0 +1,39 @@
+import std/io
+
+type UserId String
+type Score Int
+
+enum Identifier {
+    embeds UserId
+    Anonymous
+}
+
+// `Identifier.UserId(name)` binds the distinct's INNER value, not the distinct
+// itself — the type-checker contract is that an `embeds` variant's payload type
+// is the wrapped type. The corpus shape lives in
+// tests/12-derives-and-standard-interfaces/derives_test.nomi, which
+// stays refused for an independent reason (derive).
+fn label(id: Identifier): String {
+    case id {
+        Identifier.UserId(name) -> "user:${name}"
+        Identifier.Anonymous -> "anonymous"
+    }
+}
+
+// The plain top-level form: the pattern head names the distinct type itself,
+// and the payload destructures the wrapped value.
+fn points(s: Score): Int {
+    case s {
+        Score(n) -> n * 2
+    }
+}
+
+fn main() {
+    // Coerced in as a bare distinct.
+    alice: Identifier = UserId("alice")
+    io.print(label(alice))
+    // Constructed through the variant, whose argument is the inner String.
+    io.print(label(Identifier.UserId("bob")))
+    io.print(label(Identifier.Anonymous))
+    io.print("${points(Score(21))}")
+}

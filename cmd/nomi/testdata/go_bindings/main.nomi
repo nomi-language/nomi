@@ -1,0 +1,25 @@
+import {
+    std/io
+    hash
+    urls
+}
+
+fn main(): Result<Unit, String> {
+    url = try urls.parse("https://example.com/search?tag=go&tag=nomi&q=hello+world")
+
+    tags =
+        url.query
+        |> Map.get("tag")
+        |> Maybe.with_default([])
+
+    io.print("${url.host}${url.path} tags=${tags}")
+
+    digest =
+        "nomi"
+        |> String.to_bytes()
+        |> hash.sha256()
+        |> hash.to_hex()
+
+    io.print("sha256(nomi) = ${digest}")
+    Ok(Unit)
+}

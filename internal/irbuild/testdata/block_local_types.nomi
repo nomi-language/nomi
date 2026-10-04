@@ -1,0 +1,106 @@
+import std/io
+
+// Two nominal types spelled `Point`, one in each of `first` and `second`, with
+// different field sets — so a bare-name identity cannot serve both and the
+// observable output says which one was used.
+//
+// A FILE-LEVEL `Point` beside these is deliberately absent: MEASURED, the
+// analyzer resolves a struct literal against the module declaration even inside
+// a block that declares its own, so `struct Point { label: String }` here makes
+// `Point{x: 3, y: 4}` below "struct 'Point' has no field 'x'". A block-local
+// type does not shadow a module-level one today, so that third type is not a
+// Nomi program and cannot be a fixture.
+fn first(): Int {
+    struct Point {
+        x: Int
+        y: Int
+    }
+
+    p = Point{x: 3, y: 4}
+    p.x + p.y
+}
+
+fn second(): String {
+    struct Point {
+        name: String
+    }
+
+    Point{name: "second"}.name
+}
+
+// A block-local struct with a field DEFAULT, so the default expression is
+// resolved against the block-local declaration rather than a module-level one.
+fn defaulted(): Int {
+    struct Defaulted {
+        v: Int = 99
+    }
+
+    d = Defaulted{}
+    d.v
+}
+
+// A block-local enum, matched by a `case` over its own variants, reached through
+// a nested `fn` whose declared return type is the block-local enum.
+fn colored(): String {
+    enum Color {
+        Red
+        Green
+        Blue
+    }
+
+    fn pick(): Color {
+        Color.Green
+    }
+
+    case pick() {
+        Color.Red -> "red"
+        Color.Green -> "green"
+        Color.Blue -> "blue"
+    }
+}
+
+// A block-local alias is TRANSPARENT: `Count` is `Int`, and an `Int` flows into
+// a `Count` position without a conversion.
+fn counted(): Int {
+    typealias Count Int
+
+    fn make(n: Int): Count {
+        n
+    }
+
+    make(5)
+}
+
+// A block-local distinct is NOT transparent: it takes a conversion in each
+// direction, which is what separates it from the alias above.
+fn wrapped(): Int {
+    type UserId Int
+
+    uid = UserId(42)
+    Int(uid)
+}
+
+// A block-local NOMINAL struct beside a structurally identical ANONYMOUS one.
+// Anonymous structs lower as canonical-order Go records and are STRUCTURAL, so
+// the two must not be interned together — the nominal one is a distinct Go type
+// however identical its field list is.
+fn nominal_vs_anon(): String {
+    struct Pair {
+        a: Int
+        b: Int
+    }
+
+    nominal = Pair{a: 1, b: 2}
+    anon = {a: 3, b: 4}
+    "${nominal.a + nominal.b} ${anon.a + anon.b}"
+}
+
+fn main() {
+    io.print("${first()}")
+    io.print(second())
+    io.print("${defaulted()}")
+    io.print(colored())
+    io.print("${counted()}")
+    io.print("${wrapped()}")
+    io.print(nominal_vs_anon())
+}

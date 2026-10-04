@@ -1,0 +1,7 @@
+// A bare binding as the assertion's subject: the report shows the expression
+// the name was bound to, several lines above the failure. That text is the one
+// thing a compiled binary must carry Nomi source for.
+test "a bare binding as the subject" {
+    holds = 3 > 4
+    assert holds
+}

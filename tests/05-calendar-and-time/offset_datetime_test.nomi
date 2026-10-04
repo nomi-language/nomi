@@ -1,0 +1,82 @@
+import {
+    std/calendar.{Hours, Minutes, Months, Seconds}
+    std/calendar.NaiveDateTime
+    std/calendar.OffsetDateTime
+    std/duration.Duration
+    std/instant.Instant
+}
+
+test "offset datetimes parse and display fixed offsets" {
+    odt = try OffsetDateTime"2026-05-04T14:30:00-05:00"
+
+    assert OffsetDateTime.to_string(odt) == "2026-05-04T14:30:00-05:00"
+}
+
+test "offset datetimes can be built from wall readings and offsets" {
+    naive = try NaiveDateTime"2026-05-04T09:00:00"
+    built = try OffsetDateTime.with_offset(naive, Duration.hours(-5))
+
+    assert OffsetDateTime.to_string(built) == "2026-05-04T09:00:00-05:00"
+}
+
+test "offset datetime accessors expose fixed-offset wall time" {
+    odt = try OffsetDateTime"2026-05-04T14:30:00-05:00"
+
+    assert OffsetDateTime.year(odt) == 2026
+    assert OffsetDateTime.month(odt) == 5
+    assert OffsetDateTime.day(odt) == 4
+    assert OffsetDateTime.hour(odt) == 14
+    assert OffsetDateTime.minute(odt) == 30
+    assert OffsetDateTime.second(odt) == 0
+}
+
+test "offset datetimes expose their instant and fixed offset" {
+    odt = try OffsetDateTime"2026-05-04T14:30:00-05:00"
+
+    seconds =
+        odt
+        |> OffsetDateTime.to_instant()
+        |> Instant.to_seconds()
+
+    offset_seconds =
+        odt
+        |> OffsetDateTime.offset()
+        |> Duration.as_seconds()
+
+    assert seconds == 1777923000
+    assert offset_seconds == -18000
+}
+
+test "offset datetime equality is instant-only" {
+    a = try OffsetDateTime"2026-05-04T14:30:00-05:00"
+    b = try OffsetDateTime"2026-05-04T20:30:00+01:00"
+
+    assert a == b
+    assert OffsetDateTime.to_string(a) == "2026-05-04T14:30:00-05:00"
+    assert OffsetDateTime.to_string(b) == "2026-05-04T20:30:00+01:00"
+}
+
+test "offset datetime calendar shifts preserve fixed offsets" {
+    eom = try OffsetDateTime"2026-01-31T12:00:00-05:00"
+
+    assert eom + Months(1) == try OffsetDateTime"2026-02-28T12:00:00-05:00"
+}
+
+test "offset datetimes add durations with fixed-offset physical time" {
+    start = try OffsetDateTime"2026-05-04T23:30:00-05:00"
+
+    assert start + Duration.hours(2) == try OffsetDateTime"2026-05-05T01:30:00-05:00"
+
+    assert start - Duration.minutes(45) == try OffsetDateTime"2026-05-04T22:45:00-05:00"
+}
+
+test "offset datetimes support civil sub-day arithmetic" {
+    start = try OffsetDateTime"2026-05-04T23:30:00-05:00"
+
+    assert start + Hours(2) == try OffsetDateTime"2026-05-05T01:30:00-05:00"
+    assert start + Minutes(45) == try OffsetDateTime"2026-05-05T00:15:00-05:00"
+
+    assert start + Seconds(90) == try OffsetDateTime"2026-05-04T23:31:30-05:00"
+
+    assert start - Hours(2) == try OffsetDateTime"2026-05-04T21:30:00-05:00"
+}

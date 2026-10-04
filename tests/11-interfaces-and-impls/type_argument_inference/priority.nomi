@@ -1,0 +1,14 @@
+//# A `Comparable` type in a sibling file. The main test uses it through a
+//# generic interface default, showing that interface type arguments still infer
+//# correctly across file boundaries.
+
+pub struct Priority {
+    rank: Int
+}
+
+pub fn rank(p: Priority): Int {
+    p.rank
+}
+
+derive Comparable for Priority
+derive Debug for Priority

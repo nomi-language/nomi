@@ -1,0 +1,25 @@
+import {
+    std/instant.Instant
+    std/io
+}
+
+fn main(): Unit {
+    epoch = Instant.from_seconds(0)
+    a = Instant.from_seconds(10)
+    b = Instant.from_seconds(15)
+    io.print("epoch = ${Int.to_string(Instant.to_seconds(epoch))}")
+    io.print("a = ${Int.to_string(Instant.to_seconds(a))}")
+    io.print("roundtrip = ${Int.to_string(Instant.to_seconds(Instant.from_seconds(42)))}")
+    io.print("before = ${Bool.to_string(Instant.before?(a, b))}")
+    io.print("after = ${Bool.to_string(Instant.before?(b, a))}")
+    io.print("reflexive = ${Bool.to_string(Instant.before?(a, a))}")
+    // Instant.now() is a wall-clock read, so its VALUE cannot be pinned. What
+    // can be pinned is that it is a real Instant on the same scale: later than
+    // the epoch, and later than a 1970 timestamp.
+    now = Instant.now()
+    io.print("now after epoch = ${Bool.to_string(Instant.before?(epoch, now))}")
+
+    io.print(
+        "now after 2020 = ${Bool.to_string(Instant.before?(Instant.from_seconds(1577836800), now))}"
+    )
+}

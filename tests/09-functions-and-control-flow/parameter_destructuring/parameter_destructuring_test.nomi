@@ -1,0 +1,78 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+type Dur Int
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+enum Wrapper {
+    Only Int
+}
+
+fn subtract(Dur(x), Dur(y)): Dur {
+    Dur(x - y)
+}
+
+fn sum_point(Point{x, y}): Int {
+    x + y
+}
+
+fn scale_point({x, y}: Point): Int {
+    x * y
+}
+
+fn add_pair((a, b): (Int, Int)): Int {
+    a + b
+}
+
+fn unwrap(Wrapper.Only(n)): Int {
+    n
+}
+
+test "function parameters destructure irrefutable patterns" {
+    Dur(diff) = subtract(Dur(10), Dur(3))
+
+    assert diff == 7
+    assert sum_point(Point{x: 4, y: 5}) == 9
+    assert scale_point(Point{x: 6, y: 7}) == 42
+    assert add_pair((20, 22)) == 42
+    assert unwrap(Wrapper.Only(99)) == 99
+}
+
+test "lambda parameters destructure irrefutable patterns" {
+    values =
+        [Dur(1), Dur(2), Dur(3)]
+        |> Iter.map(|Dur(n)| n * 10)
+        |> Iter.to_list()
+
+    assert values == [10, 20, 30]
+}
+
+test "refutable parameter patterns report diagnostics" {
+    diagnostics = compiler.check(
+        """
+          enum Shape {
+            Circle Int
+            Square Int
+          }
+
+          fn radius(Shape.Circle(r)): Int {
+            r
+          }
+
+          fn main() {}
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "refutable pattern in parameter; bind the parameter and use a `case` in the body",
+    )
+}

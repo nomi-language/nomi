@@ -1,0 +1,80 @@
+// Pipeline stages in a failure report.
+//
+// Every assertion here FAILS on purpose, and that is the whole point of the
+// fixture: a pipeline's stages are collected while it runs and read only when
+// something fails, so a program in which everything passes cannot observe them
+// at all. The corpus is such a program — 583 cases, none of them failing — and
+// that is why the block being dropped was invisible to the differential sweep
+// while being wrong in ordinary user source.
+//
+// Two shapes, one per collector the interpreter switches on (eval.go:2964 and
+// eval.go:5128), and they print differently from the same stage list:
+//
+//   - a pipe-valued BINDING, whose stages print under `defined as:` and are
+//     printed UNCOMPACTED, every row carrying its whole prefix's source;
+//   - a piped `testing.check` argument, whose stages ride on a `values:` row
+//     for the whole subject and ARE compacted by the report.
+//
+// Both are here because a recorder that pre-compacted would be right through
+// one and wrong through the other, and only the pair can tell.
+//
+// # What the third and fourth cases pin, and why they are shaped that way
+//
+// The compacted RENDERING is reachable from exactly two places, and neither is
+// available to this file: `AssertionFailure.format`, and a `try` on a check
+// inside a test body — which has a divergence of its own, unrelated to
+// pipelines and present before any of this (the interpreter reports the
+// check's own failure, the lowered body reports `test returned early`). So what is
+// pinned here is the STAGE LIST rather than its compacted rendering: a pattern
+// assertion whose `actual:` row inspects the whole AssertionFailure, which
+// spells out `pipeline: [...]` with every stage's expression and value in
+// order. Two independent recorders produce it and the comparison is byte for
+// byte.
+import {
+    std/assertions.AssertionFailure
+    std/testing
+}
+
+fn shout(s: String): String {
+    String.to_upper(s)
+}
+
+fn piped_check(): Result<Bool, AssertionFailure> {
+    found = try testing.check(
+        "Ada Lovelace"
+        |> String.contains?("Grace")
+    )
+
+    Ok(found)
+}
+
+fn unpiped_check(): Result<Bool, AssertionFailure> {
+    found = try testing.check(String.contains?("Ada Lovelace", "Grace"))
+
+    Ok(found)
+}
+
+test "a pipeline-bound name prints its stages uncompacted" {
+    found =
+        "Ada Lovelace"
+        |> String.contains?("Grace")
+
+    assert found
+}
+
+test "a three-stage binding prints one row per cumulative prefix" {
+    shouted =
+        "ada"
+        |> shout()
+        |> String.contains?("GRACE")
+
+    assert shouted
+}
+
+test "a piped check carries its stages on the whole-subject row" {
+    assert Ok(True) = piped_check()
+}
+
+test "an unpiped check beside it carries no pipeline at all" {
+    assert Ok(True) = unpiped_check()
+}

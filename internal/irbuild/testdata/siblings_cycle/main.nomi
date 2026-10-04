@@ -1,0 +1,10 @@
+// main -> a is NOT part of the cycle and lowers; the a <-> b edges are, and
+// each is refused at the position of the reference that closes it.
+import {
+    std/io
+    a
+}
+
+fn main() {
+    io.print("${a.start(3)}")
+}

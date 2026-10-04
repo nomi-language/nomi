@@ -1,0 +1,91 @@
+import {
+    display.Display
+    equatable.Equatable
+    results.Result
+    strings.String
+    unit.Unit
+}
+
+/// Distinguishable filesystem error variants returned by `read_file` and
+/// `write_file`. `NotFound` carries the path so callers can decide whether
+/// to treat absence as expected (e.g., first run of an app that creates
+/// its data file on demand). `Other` wraps any other failure with its
+/// raw error message.
+pub enum IOError {
+    NotFound {path: String}
+    Other {reason: String}
+}
+
+derive Equatable for IOError
+
+impl Display for IOError {
+    fn to_string(e: IOError): String {
+        case e {
+            IOError.NotFound{path} -> "file not found: ${path}"
+            IOError.Other{reason} -> reason
+        }
+    }
+}
+
+/// Prints a value's user-facing representation to stdout, followed by a
+/// newline. The argument may be any value whose type implements `Display` —
+/// via an `impl Display for T` block or `derive Display` — and is stringified via
+/// `Display.to_string`. `String` implements `Display` as the identity, so
+/// `io.print("hello")` prints `hello` unchanged; no need to pre-stringify
+/// other values. Use `io.inspect` for the developer-facing `Debug` form.
+///
+/// ```nomi
+/// io.print("hello")   // prints: hello
+/// io.print(42)        // prints: 42
+/// ```
+pub host fn print<T>(value: T): Unit where T: Display
+
+/// Writes a value's user-facing representation to stdout with no trailing
+/// newline. It renders exactly as `io.print` does, through
+/// `Display.to_string`. Use it for a prompt that the user answers on the
+/// same line, or to build one line of output from several writes.
+///
+/// ```nomi
+/// io.write("> ")      // prints: > (and no newline)
+/// io.read_line()      // the user types on the same line
+/// ```
+pub host fn write<T>(value: T): Unit where T: Display
+
+/// Prints a value's runtime representation to stdout via `Debug.inspect`.
+/// `Debug` is universal — every value is inspectable with no
+/// `derive`/`impl` required (a structural impl is auto-synthesized for any
+/// type that doesn't supply its own; opaque types render `<opaque T>`), so
+/// `inspect` carries no `Debug` bound. Write an explicit `impl Debug`
+/// implementation only to customize the rendering. Use `dbg` when you want to inspect a value
+/// while preserving it in an expression or pipeline.
+///
+/// ```nomi
+/// io.inspect([1, 2, 3])   // prints: [1, 2, 3]
+/// ```
+pub host fn inspect<T>(value: T): Unit
+
+/// Reads a line from stdin. Returns Ok(line) with the newline stripped, or
+/// Err("eof") when stdin is closed.
+///
+/// ```nomi
+/// case io.read_line() {
+///     Ok(line) -> io.print("got: " + line)
+///     Err(_) -> io.print("done")
+/// }
+/// ```
+pub host fn read_line(): Result<String, String>
+
+/// Reads the entire contents of `path` into a String.
+///
+/// ```nomi
+/// io.read_file("notes.txt")   // Ok("...") or Err(io.IOError.NotFound{...})
+/// ```
+pub host fn read_file(path: String): Result<String, IOError>
+
+/// Writes `content` to `path`, replacing any existing file. The parent
+/// directory must exist; missing parents do not get auto-created.
+///
+/// ```nomi
+/// io.write_file("notes.txt", "hello")
+/// ```
+pub host fn write_file(path: String, content: String): Result<Unit, IOError>

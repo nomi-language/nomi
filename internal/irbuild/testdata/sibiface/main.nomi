@@ -1,0 +1,79 @@
+// An INTERFACE-qualified call whose only implementation lives in a SIBLING
+// FILE.
+//
+// `Display.to_string(things.origin())` is not `Point.to_string(...)`: the
+// qualifier names the INTERFACE, so the receiver is decided by the argument's
+// type and the implementation has to be found by (receiver declaration,
+// interface, method). Before this fixture the builder's interface route
+// consulted `g.implsByIface`, which is the file BEING LOWERED, so a sibling's
+// block was invisible and the call fell through the whole `implCall` chain to
+// be refused — as `qualified call` for a STDLIB interface qualifier
+// (`Display`, `Debug`), and as `call to an unlowered impl` for a USER one
+// (`Loud`, `Soft`, `Tagger`) whose mirror resolves but whose impl does not.
+// Two keys, one gap.
+//
+// The LOCAL `Point` beside it is the control. It shares the sibling's name and
+// has its own `impl Display`, so a route that resolved by NAME rather than by
+// declaration would print one of these two lines twice.
+import {
+    std/io
+    things.{self, Loud, Soft, Tagger}
+}
+
+struct Point {
+    label: String
+}
+
+impl Display for Point {
+    fn to_string(p: Point): String {
+        "entry(" + p.label + ")"
+    }
+}
+
+fn main() {
+    mine = Point{label: "here"}
+    far = things.origin()
+    q = things.quiet(3)
+
+    // The local impl still wins.
+    io.print(Display.to_string(mine))
+    io.print(Debug.inspect(mine))
+
+    // The sibling's WRITTEN `impl Display`, twice, for two different receivers:
+    // the same interface and method reaching two different bodies.
+    io.print(Display.to_string(far))
+    io.print(Display.to_string(q))
+
+    // The sibling's SYNTHESIZED universal Debug, a WRITTEN one beside it, and the
+    // OPAQUE one whose synthesized body is the degenerate name-only form. Three
+    // renderings of one route: structural, hand-written, and deliberately blind.
+    io.print(Debug.inspect(far))
+    io.print(Debug.inspect(things.bare("z")))
+    io.print(Debug.inspect(things.hide(99)))
+
+    // One receiver, two interfaces, one method name. The interface qualifier is
+    // the only thing that distinguishes these two lines.
+    io.print(Loud.say(q))
+    io.print(Soft.say(q))
+
+    // `self` at position ONE.
+    io.print(Tagger.tag("lab", far))
+
+    // The same value reached through a sibling function in ARGUMENT position, so
+    // the receiver is not a binding the builder could have typed from an
+    // annotation.
+    io.print(Display.to_string(things.origin()))
+    io.print(Tagger.tag("arg", things.origin()))
+
+    // NO ALIASED SPELLING HERE, and its absence is the point. This fixture used
+    // to bind `Point as TPoint` and dispatch on the annotated binding; the
+    // aliased-import guard in siblingiface.go now refuses any receiver whose def
+    // this file binds under a name other than its declared one, and it refuses
+    // this too — conservatively, because the guard asks which NAMES the file
+    // binds and not which name a VALUE carries. The interpreter does not trap
+    // here (the value's runtime tag is `Point`, from `things.origin()`), so this
+    // is a shape the subset gives up rather than a divergence it avoids, and it
+    // is recorded rather than worked around: a refusal is never a wrong answer.
+    // testdata/dictalias is the case the guard exists for, and
+    // TestDict_AnAliasedTypeImportBreaksInterpreterDispatch is its gate.
+}

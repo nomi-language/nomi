@@ -1,0 +1,40 @@
+test "generic iterator adapters infer element types from concrete sources" {
+    xs = [1, 2, 3]
+
+    assert xs
+        |> Iter.with_index()
+        |> Iter.to_list()
+        |> List.equal?([(0, 1), (1, 2), (2, 3)])
+
+    assert Iter.find(xs, |x| x > 1) == Some(2)
+    assert Iter.find(xs, |x| x > 1) == Some(2)
+}
+
+test "custom iterable-backed adapters infer inline lambda parameter types" {
+    from_lazy =
+        Iter.from(0)
+        |> Iter.take(4)
+        |> Iter.map(|x| x * 10)
+        |> Iter.to_list()
+
+    s = #{1, 2, 3, 4}
+
+    from_set =
+        s
+        |> Iter.map(|x| x * 2)
+        |> Iter.to_list()
+
+    filtered_set =
+        s
+        |> Iter.filter(|x| x % 2 == 0)
+        |> Iter.to_list()
+
+    set_sum =
+        s
+        |> Iter.reduce(|acc = 0, x| acc + x)
+
+    assert from_lazy == [0, 10, 20, 30]
+    assert from_set == [2, 4, 6, 8]
+    assert filtered_set == [2, 4]
+    assert set_sum == 10
+}

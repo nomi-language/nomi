@@ -1,0 +1,259 @@
+import {
+    add.Add
+    bool.Bool
+    bytes.{Byte, Bytes}
+    codepoints.Codepoint
+    comparable.Comparable
+    comparable.Ordering.{self, Equal, Greater, Less}
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+    iter.Iter
+    lists.List
+    maybe.Maybe.{self, None, Some}
+}
+
+//# String operations including text-specific ops (`split`, `replace`, `join`,
+//# `reverse`, ...) and the grapheme-cluster iterator used to drive lazy `iter`
+//# pipelines over a `String`. Transform graphemes with `Iter.map(s, f) |>
+//# String.join()`; join any `Iter<String>` back into one string with `String.join`.
+
+/// UTF-8 encoded string.
+pub host type String
+
+impl String {
+    /// Returns true if the string contains the substring.
+    //! assert String.contains?("hello world", "world")
+    //! refute String.contains?("hello", "xyz")
+    //
+    pub host fn contains?(s: String, substr: String): Bool
+
+    /// True if `s` begins with the given prefix.
+    //! assert String.starts_with?("hello", "he")
+    //
+    pub host fn starts_with?(s: String, prefix: String): Bool
+
+    /// True if `s` ends with the given suffix.
+    //! assert String.ends_with?("hello.txt", ".txt")
+    //
+    pub host fn ends_with?(s: String, suffix: String): Bool
+
+    /// Upper-cases `s` (Unicode-aware, locale-independent).
+    //! assert String.to_upper("café") == "CAFÉ"
+    //
+    pub host fn to_upper(s: String): String
+
+    /// Lower-cases `s` (Unicode-aware, locale-independent).
+    //! assert String.to_lower("CAFÉ") == "café"
+    //
+    pub host fn to_lower(s: String): String
+
+    /// Replaces every non-overlapping occurrence of `old` with `new`.
+    //! assert String.replace("a.b.c", ".", "-") == "a-b-c"
+    //
+    pub host fn replace(s: String, old: String, new: String): String
+
+    /// Concatenates `count` copies of `s`. A negative `count` is a runtime error.
+    //! assert String.repeat("ab", 3) == "ababab"
+    //
+    pub host fn repeat(s: String, count: Int): String
+
+    /// Reverses `s` by grapheme cluster, so multi-code-point clusters (combining
+    /// marks, ZWJ emoji) stay intact.
+    //! assert String.reverse("abc") == "cba"
+    //
+    pub host fn reverse(s: String): String
+
+    /// Returns `s` in the given Unicode normalization form.
+    //! assert String.normalize("é", NormalForm.NFC) == "é"
+    //! assert String.normalize("é", NormalForm.NFD) == "é"
+    //
+    pub host fn normalize(s: String, form: NormalForm): String
+
+    /// Returns a substring from start index to end index (grapheme-based,
+    /// start inclusive, end exclusive).
+    //! assert String.slice("hello", 1, 4) == "ell"
+    //
+    pub host fn slice(s: String, start: Int, end: Int): String
+
+    /// Joins the strings of any `Iter<String>` (a List, Set or Vector, a
+    /// String's graphemes, or a lazy adapter chain) with `separator` between
+    /// each element and nowhere else. The source is driven once, with no
+    /// intermediate List. The separator defaults to "", so
+    /// `String.join(parts)` concatenates.
+    //! assert String.join(["a", "b", "c"], ", ") == "a, b, c"
+    //! assert String.join([], ", ") == ""
+    //! assert String.join(["he", "llo"]) == "hello"
+    //! assert "héllo" |> Iter.map(String.to_upper) |> String.join() == "HÉLLO"
+    //! assert 1..=3 |> Iter.map(Int.to_string) |> String.join("-") == "1-2-3"
+    //! assert #["x", "y"] |> String.join("+") == "x+y"
+    //! assert #{"solo"} |> String.join(", ") == "solo"
+    //
+    pub host fn join(parts: Iter<String>, separator: String = ""): String
+
+    /// Splits a string into a list of substrings on every occurrence of
+    /// `separator`. The separator itself is consumed and never appears in
+    /// the output. Adjacent occurrences of `separator` produce empty-string
+    /// entries. An empty `separator` splits at every UTF-8 codepoint
+    /// boundary (one entry per codepoint). Inverse of `String.join`.
+    //! assert String.split("a,b,c", ",") == ["a", "b", "c"]
+    //! assert String.split("a, b, c", ", ") == ["a", "b", "c"]
+    //! assert String.split(",a,", ",") == ["", "a", ""]
+    //! assert String.split("hello", "") == ["h", "e", "l", "l", "o"]
+    //
+    pub host fn split(s: String, separator: String): List<String>
+
+    /// Returns `s` with leading and trailing whitespace removed (spaces,
+    /// tabs, newlines, carriage returns — Go's `strings.TrimSpace` rules).
+    /// Inner whitespace is preserved.
+    //! assert String.trim("  hello  ") == "hello"
+    //! assert String.trim("\n\tworld\n") == "world"
+    //! assert String.trim("a  b") == "a  b"
+    //
+    pub host fn trim(s: String): String
+
+    /// Parses `s` as a base-10 signed integer. Returns Some(n) on success,
+    /// None on any failure (non-digit characters, empty string, out-of-range
+    /// value). Leading/trailing whitespace is tolerated.
+    //! assert String.to_int("42") == Some(42)
+    //! assert String.to_int("-7") == Some(-7)
+    //! assert String.to_int("  3  ") == Some(3)
+    //! assert String.to_int("abc") == None
+    //! assert String.to_int("") == None
+    //
+    pub host fn to_int(s: String): Maybe<Int>
+
+    /// Returns the raw bytes of the string (UTF-8 encoded).
+    //! assert String.to_bytes("ab")
+    //! |> Bytes.to_list()
+    //! |> Iter.map(Byte.to_int)
+    //! |> Iter.to_list() == [97, 98]
+    //
+    pub host fn to_bytes(s: String): Bytes
+
+    /// Returns the Unicode codepoints of the string as scalar values.
+    //! assert "ab"
+    //!     |> String.to_codepoints()
+    //!     |> Iter.map(Codepoint.to_int)
+    //!     |> Iter.to_list()
+    //!     |> List.equal?([97, 98])
+    //
+    pub host fn to_codepoints(s: String): List<Codepoint>
+
+    /// Strips a prefix from the string. Returns Some(rest) if the prefix matches,
+    /// or None otherwise.
+    //! assert String.strip_prefix("hello world", "hello ") == Some("world")
+    //! assert String.strip_prefix("hello", "xyz") == None
+    //
+    pub fn strip_prefix(s: String, prefix: String): Maybe<String> {
+        if starts_with?(s, prefix) {
+            new_start = length(prefix)
+
+            slice(s, new_start, length(s)) |> Some()
+        } else {
+            None
+        }
+    }
+
+    /// Strips a suffix from the string. Returns Some(rest) if the suffix matches,
+    /// or None otherwise.
+    //! assert String.strip_suffix("hello.txt", ".txt") == Some("hello")
+    //! assert String.strip_suffix("hello", "xyz") == None
+    //
+    pub fn strip_suffix(s: String, suffix: String): Maybe<String> {
+        if ends_with?(s, suffix) {
+            new_end = length(s) - length(suffix)
+
+            slice(s, 0, new_end) |> Some()
+        } else {
+            None
+        }
+    }
+
+    /// Number of grapheme clusters in the string. Scans the text without
+    /// materializing clusters. Grapheme-based, not byte-based:
+    /// `String.length("héllo")` is 5. (`String` keeps its own `length` because the
+    /// generic count, `Iter.count`, is the fold; this is the fast path.)
+    //! assert String.length("héllo") == 5
+    //! assert String.length("") == 0
+    //
+    pub host fn length(s: String): Int
+}
+
+/// Byte-lexicographic comparison of UTF-8 bytes. Returns -1 if `a < b`,
+/// 1 if `a > b`, 0 if equal. Private helper backing the `Comparable` impl.
+host fn string_compare(a: String, b: String): Int
+
+impl Iter for String {
+    /// A String iterates by grapheme cluster, one per user-visible character:
+    /// `Iter.to_list("héllo")` is `["h", "é", "l", "l", "o"]`. Pushes each
+    /// cluster to `yield`, stopping when it returns False.
+    host fn each_while(s: String, yield: (String) -> Bool): Bool
+}
+
+impl Display for String {
+    fn to_string(s: String): String {
+        s
+    }
+}
+
+impl Add<String, String> for String {
+    host fn add(lhs: String, rhs: String): String
+}
+
+impl Debug for String {
+    fn inspect(s: String): String {
+        escaped =
+            Iter.map(s, |g|
+                if g == "\\" {
+                    "\\\\"
+                } else if g == "\"" {
+                    "\\\""
+                } else {
+                    g
+                }
+            )
+            |> String.join()
+
+        "\"" + escaped + "\""
+    }
+}
+
+impl Equatable for String {
+    fn equal?(a: String, b: String): Bool {
+        a == b
+    }
+}
+
+impl Hashable for String {
+    /// FNV-1a 64-bit hash of the UTF-8 bytes, reinterpreted as an Int. Stable
+    /// within one runtime process; not cryptographic, not stable across runs.
+    host fn hash(s: String): Int
+}
+
+impl Comparable for String {
+    fn compare(a: String, b: String): Ordering {
+        n = string_compare(a, b)
+
+        case {
+            n < 0 -> Less
+            n > 0 -> Greater
+            _ -> Equal
+        }
+    }
+}
+
+/// Unicode normalization forms (UAX #15). Equality and hashing are byte-based,
+/// so two visually identical strings in different forms — a precomposed "é"
+/// (U+00E9) vs a decomposed "e" + U+0301 — are *not* `==`. Normalize to a
+/// common form first when comparing text from mixed sources.
+pub enum NormalForm {
+    NFC
+    NFD
+    NFKC
+    NFKD
+}
+
+derive Display for NormalForm

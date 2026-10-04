@@ -1,0 +1,126 @@
+// `testing.check` end to end: the judgement, the Nomi-shaped failure value,
+// and every field of it a program can read.
+//
+// A TEST file rather than a program, because that is the only place `assert`
+// runs — and the point of every case here is that `check` and the `assert`
+// beside it agree about the same subject.
+//
+// ONE shape is deliberately ABSENT and is a gap elsewhere, not here:
+// `Debug.inspect` refuses as `qualified call`. Two others were until
+// 2026-08-24 — `failure.actual == None`/`xs == []`, and `Result.ok?` — and both
+// lower now; substitutes stay, and so must this block's LENGTH: pins count it.
+import {
+    std/assertions.AssertionBinding
+    std/assertions.AssertionFailure
+    std/assertions.AssertionValue
+    std/testing
+}
+
+test "a passing subject is Ok carrying the subject itself" {
+    assert Ok(passed) = testing.check(1 == 1)
+    assert passed
+}
+
+test "a failing comparison records both operands, in order" {
+    actual = "Ada"
+    expected = "Grace"
+    assert Err(failure) = testing.check(actual == expected)
+    observed: AssertionFailure = failure
+
+    // The LINE is the `check` keyword's own, not the statement's — eval reads it
+    // off the field position (testingCheckKeywordPos) and a report header shows
+    // it. Both paths must pick the same one.
+    assert observed.line == 27
+    assert observed.keyword == "check"
+    assert observed.expression == "actual == expected"
+    // `check failed`, NOT `assertion failed`: the reason is a function of the
+    // keyword, and rt.AssertionSite.FailedReason is the one implementation of it.
+    assert observed.reason == "check failed"
+
+    assert [left, right] = observed.values
+    first: AssertionValue = left
+    assert first.expression == "actual"
+    assert first.value == "\"Ada\""
+    assert right.expression == "expected"
+    assert right.value == "\"Grace\""
+}
+
+// A LITERAL operand that reads exactly like its value explains nothing, and
+// rt.RecordOperand drops it. Both sides apply that rule, so a check whose
+// operands are both literals records nothing at all.
+test "a redundant literal operand is not recorded" {
+    assert Err(failure) = testing.check(1 == 2)
+    assert Iter.count(failure.values) == 0
+}
+
+// `actual` is `Maybe<String>` on the Nomi side and a plain Go string on the
+// reporter's, and EMPTY MEANS ABSENT rather than the empty string. A Bool
+// subject never sets it, so a lowering that wrote Some("") would answer
+// differently here.
+test "an absent actual is None rather than an empty string" {
+    assert Err(failure) = testing.check(2 > 3)
+
+    absent = case failure.actual {
+        None -> True
+        Some(_) -> False
+    }
+
+    assert absent
+    // `details` is the second `List<…>` instantiation the failure carries, at a
+    // different element type from `values`.
+    assert Iter.count(failure.details) == 0
+}
+
+// A bare NAME as the subject carries the expression it was bound to, which is
+// the report's `defined as:` row. `binding` is `Maybe<AssertionBinding>` — a
+// prelude instance over another std record struct, the deepest shape in the
+// family — and its `pipeline` is the THIRD `List<…>` instantiation.
+test "a bound-name subject carries its defining expression" {
+    valid = 3 > 4
+    assert Err(failure) = testing.check(valid)
+    assert Some(context) = failure.binding
+    bound: AssertionBinding = context
+    assert bound.name == "valid"
+    assert bound.expression == "3 > 4"
+    assert bound.value == "False"
+    assert Iter.count(bound.pipeline) == 0
+}
+
+// A predicate CALL shows its arguments, literals included, because for a Bool
+// result the literal inputs are the interesting part.
+test "a predicate subject records its call arguments" {
+    body = "created"
+    assert Err(failure) = testing.check(String.contains?(body, "ok"))
+    assert failure.expression == "String.contains?(body, \"ok\")"
+    assert [observed, needle] = failure.values
+    assert observed.expression == "body"
+    assert observed.value == "\"created\""
+    assert needle.expression == "\"ok\""
+    assert needle.value == "\"ok\""
+}
+
+// One check's operands never reach another's report: eval swaps
+// `env.assertionTrace` for the duration of the subject and the VM keeps each
+// check's recorded stages to that check. The outer failure below must
+// carry exactly its OWN operand.
+test "a check's operands stay in its own failure" {
+    a = 1
+    b = 2
+    assert Err(inner) = testing.check(a == b)
+    assert Err(outer) = testing.check(inner.expression == "nope")
+    // ONE row, not two: the literal operand reads exactly like its value, so
+    // rt.RecordOperand drops it. The row that survives is the outer subject's
+    // own, and none of the inner check's two.
+    assert [only] = outer.values
+    assert only.expression == "inner.expression"
+    assert only.value == "\"a == b\""
+    assert Iter.count(inner.values) == 2
+}
+
+// `check` is a VALUE, so a passing one composes: the subject flows out through
+// `Ok` and the same `assert` judges it.
+test "a check result is an ordinary value" {
+    n = 41
+    assert Ok(held) = testing.check(n + 1 == 42)
+    assert held
+}

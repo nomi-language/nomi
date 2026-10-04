@@ -1,0 +1,71 @@
+import std/io
+
+// The one call shape that needs a table: the parameter's type is an
+// INTERFACE, so the concrete type is erased at the call and the callee is a
+// run-time fact.
+//
+// Two implementors, so the transcript can tell dispatch from a fixed answer —
+// with one implementor a table and a hard-coded call are indistinguishable.
+// `describe` reaches `Speech.speak` through the erased value and `Int.label`
+// proves the same table serves an impl for a BUILTIN, which is the case a Go
+// method could not express at all.
+interface Speech {
+    fn speak(animal: self): String
+}
+
+interface Numberish {
+    fn label(value: self, prefix: String): String
+}
+
+struct Dog {
+    name: String
+}
+
+struct Cat {
+    name: String
+}
+
+impl Speech for Dog {
+    fn speak(d: Dog): String {
+        "${d.name} says woof"
+    }
+}
+
+impl Speech for Cat {
+    fn speak(c: Cat): String {
+        "${c.name} says meow"
+    }
+}
+
+impl Numberish for Int {
+    fn label(value: Int, prefix: String): String {
+        "${prefix}=${value}"
+    }
+}
+
+fn announce(s: Speech): String {
+    Speech.speak(s)
+}
+
+// Erasure through a RETURN as well as through a parameter: both functions
+// widen a concrete type into one interface-typed result, and `announce` can
+// no longer see which.
+fn as_speech_dog(name: String): Speech {
+    Dog{name}
+}
+
+fn as_speech_cat(name: String): Speech {
+    Cat{name}
+}
+
+fn tag(n: Numberish): String {
+    Numberish.label(n, "n")
+}
+
+fn main() {
+    io.print(announce(Dog{name: "Rex"}))
+    io.print(announce(Cat{name: "Whiskers"}))
+    io.print(announce(as_speech_dog("Rex")))
+    io.print(announce(as_speech_cat("Whiskers")))
+    io.print(tag(42))
+}

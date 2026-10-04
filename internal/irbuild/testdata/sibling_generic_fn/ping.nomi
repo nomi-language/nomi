@@ -1,0 +1,7 @@
+// One half of two files that import each other, whose generics call each
+// other's at the same type argument.
+import pong
+
+pub fn ping<T>(x: T, n: Int): List<T> {
+    if n <= 0 { [x] } else { pong.pong(x, n - 1) }
+}

@@ -1,0 +1,11 @@
+import std/io
+
+// A file with BOTH `fn main` and tests. `nomi test` runs the tests and never
+// calls main, so a compiled test binary must not either.
+fn main() {
+    io.print("main ran")
+}
+
+test "the tests are what runs" {
+    assert 1 == 1
+}

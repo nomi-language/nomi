@@ -1,0 +1,44 @@
+import {
+    hash
+    urls
+}
+
+test "query parsing returns a map of lists" {
+    values = try urls.parse_query("tag=go&tag=nomi&page=1")
+
+    assert Map.get(values, "tag") == Some(["go", "nomi"])
+    assert Map.get(values, "page") == Some(["1"])
+}
+
+test "URL parsing returns a Nomi struct" {
+    url = try urls.parse("https://example.com/search?tag=go&tag=nomi&q=hello+world")
+
+    assert url.scheme == "https"
+    assert url.host == "example.com"
+    assert url.path == "/search"
+    assert url.raw_query == "tag=go&tag=nomi&q=hello+world"
+    assert Map.get(url.query, "q") == Some(["hello world"])
+}
+
+test "a malformed URL is an Err" {
+    assert Err(_) = urls.parse("http://[::1")
+}
+
+test "bytes cross to Go and back" {
+    expected = "0f937e60148316557dbe0dce3e862e77d4d8157bfea24ae4b4c1fa367297c2d9"
+
+    digest =
+        "nomi"
+        |> String.to_bytes()
+        |> hash.sha256()
+
+    assert Bytes.length(digest) == 32
+    assert hash.to_hex(digest) == expected
+}
+
+test "hex decoding returns a Result" {
+    decoded = try hash.from_hex("6e6f6d69")
+
+    assert Bytes.to_string(decoded) == Ok("nomi")
+    assert Err(_) = hash.from_hex("not hex")
+}

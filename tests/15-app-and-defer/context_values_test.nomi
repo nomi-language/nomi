@@ -1,0 +1,46 @@
+type TraceId String
+
+type Marker
+
+test "context values are keyed by their Nomi type" {
+    root = Context.root()
+
+    // A fresh root has no TraceId.
+    assert Context.value(root, TraceId) == None
+
+    // `with_value` returns a child context; the stored value keeps its domain
+    // type instead of becoming a raw String.
+    traced = Context.with_value(root, TraceId("trace-123"))
+
+    assert case Context.value(traced, TraceId) {
+        Some(TraceId(id)) -> id == "trace-123"
+        None -> False
+    }
+
+    // Storing another TraceId shadows the parent value for the child only.
+    shadowed = Context.with_value(traced, TraceId("trace-456"))
+
+    assert case Context.value(shadowed, TraceId) {
+        Some(TraceId(id)) -> id == "trace-456"
+        None -> False
+    }
+
+    // Parent contexts are immutable; adding values to children does not mutate
+    // the original root.
+    assert Context.value(root, TraceId) == None
+}
+
+fn accepts_marker(marker: Marker): Bool {
+    marker == Marker
+}
+
+fn lookup_marker(c: Context, marker_type: Type<Marker>): Maybe<Marker> {
+    Context.value(c, marker_type)
+}
+
+test "type witnesses do not replace zero-sized values" {
+    assert accepts_marker(Marker)
+
+    context = Context.with_value(Context.root(), Marker)
+    assert lookup_marker(context, Marker) == Some(Marker)
+}

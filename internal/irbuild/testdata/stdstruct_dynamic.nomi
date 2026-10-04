@@ -1,0 +1,96 @@
+// A stdlib record struct whose field element type is a stdlib ENUM.
+//
+// # What this fixture is for
+//
+// `std/dynamic.DecodeError` was the `stdlib type` key's group A at ac7fa1d8: 3
+// sites in one file, needing NO new capability at all. Every field was already
+// expressible and it carries no default. What was missing was the spec row, and
+// the enum row its `path` element names:
+//
+//     pub enum PathSegment { Field String; Index Int }
+//     pub struct DecodeError {
+//       path: List<PathSegment>
+//       expected: String
+//       got: String
+//     }
+//
+// It is the first struct row whose field reaches the ENUM spec table rather than
+// another struct row, and PathSegment is the first enum row whose two payloads
+// are DIFFERENT Go types -- calendar.Error's five variants all carry a String
+// and share one slot, while `Field String` and `Index Int` cannot share.
+//
+// # The discriminating rows
+//
+// `path.first` and `path.second` read the two variants back through a `case`.
+// Both payload positions are read because the two variants store into DIFFERENT
+// rt fields: a spec that pointed both at one field would still lower, still
+// build, and would return the String payload for an Index or a zero for a Field.
+// One row cannot see that; two can.
+//
+// `tag_order` reads the variants in the order std declares them. Tags are
+// assigned from the spec's variant order and nothing else, so a spec that
+// swapped them would send `Field` down the `Index` arm -- which is a wrong
+// ANSWER and not a refusal, because both arms typecheck.
+//
+// # The IDENTITY row
+//
+// `display` is the load-bearing one, and it is not about layout. A stdlib struct
+// crossing into lowered code has to carry the module-qualified type identity std
+// declares, because every impl lookup keys on it. `impl Display for DecodeError`
+// is ordinary Nomi in std/dynamic.nomi, so this row only prints the expected
+// text if the lowered value resolves to THAT impl. An empty or bare identity
+// misses it SILENTLY -- Display would render the anonymous struct form rather
+// than failing, which is the failure mode a type check cannot see.
+//
+// `derive Display for PathSegment` is the same question one level down, and
+// `seg_display` asks it of the enum.
+import {
+    std/dynamic.DecodeError
+    std/dynamic.PathSegment
+    std/io
+}
+
+// seg renders a segment through a `case`, so both payload positions are read.
+fn seg(s: PathSegment): String {
+    case s {
+        PathSegment.Field(name) -> "field:" + name
+        PathSegment.Index(i) -> "index:" + Int.to_string(i)
+    }
+}
+
+fn main() {
+    e = DecodeError{
+        path: [PathSegment.Field("user"), PathSegment.Index(3)],
+        expected: "Int",
+        got: "String",
+    }
+
+    // --- The plain scalar fields, so a wholly broken row fails here first ----
+    io.print("expected = " + e.expected)
+    io.print("got = " + e.got)
+
+    // --- BOTH variants, read back out of the list ----------------------------
+    case e.path {
+        [first, second] -> {
+            io.print("path.first = " + seg(first))
+            io.print("path.second = " + seg(second))
+        }
+
+        [] ->
+            io.print("path = UNEXPECTED empty")
+
+        [_, .._] ->
+            io.print("path = UNEXPECTED length")
+    }
+
+    // --- Tag ORDER, independent of the list ----------------------------------
+    io.print("tag_order = " + seg(PathSegment.Field("a")) + "/" + seg(PathSegment.Index(1)))
+
+    // --- IDENTITY: std's own impls, reached through the lowered value --------
+    io.print("display = " + Display.to_string(e))
+    io.print("seg_display = " + Display.to_string(PathSegment.Field("k")))
+
+    // --- An EMPTY path, which is the nil *List ------------------------------
+    empty = DecodeError{path: [], expected: "List", got: "Int"}
+    io.print("empty.display = " + Display.to_string(empty))
+}

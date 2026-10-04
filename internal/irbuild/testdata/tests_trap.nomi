@@ -1,0 +1,10 @@
+// A Nomi fault inside a test fails that case and lets the run continue. The
+// interpreter returns the error; a compiled binary panics and rt.RunTests
+// recovers it, so both hand the same text to the same reporter.
+test "an overflow inside a test" {
+    assert 9223372036854775807 + 1 == 0
+}
+
+test "the next case still runs" {
+    assert 1 == 1
+}

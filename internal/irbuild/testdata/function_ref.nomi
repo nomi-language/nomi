@@ -1,0 +1,173 @@
+import std/io
+
+// Probe: A FUNCTION MENTIONED WITHOUT BEING CALLED.
+//
+// Nomi has no `.method()` postfix dispatch — `x.field` is field access and a
+// qualified call is `Type.method(x)` — so a name in value position is never a
+// receiver-bound thing. It is a VALUE, and this program is about the ways a
+// value can travel that a dispatch cannot.
+//
+// The pairs of independently-derived facts this fixture lets disagree, one per
+// section, because a fixture that only wrote `Iter.map(double)` unifies all of
+// them by accident:
+//
+//  1. The reference's KIND comes from the callee's DECLARED signature; the slot
+//     it fills comes from the CONSUMER's. `sub` and `flip` are the same Go type
+//     and different functions, so a reference that resolved to "whichever
+//     function this argument position wants" still type-checks and prints the
+//     wrong number.
+//  2. ARGUMENT ORDER. Every single-parameter shape agrees with its own reverse.
+//     `sub(10, 3)` reached through a value must be 7 and not -7.
+//  3. A VALUE, not a call site. `chosen` is picked at RUN TIME, so a lowering
+//     that rewrote `apply(double, 4)` into a direct call to whatever the site
+//     spells cannot produce it at all.
+//  4. COMPOSITION. `pick` RETURNS a named function and `twice` takes one and
+//     applies it twice; a wrapper that is right once and wrong under nesting
+//     shows up here and nowhere above.
+//  5. SLOT versus POSITION. `scale(5, double)` under-fills, so the trailing
+//     named function moves to the last slot and `factor` takes its default.
+//     Reading the argument's declared type off its POSITION instead type-checks
+//     `double` as an Int; reading the SLOT off the position when the two agree
+//     cannot tell the difference, so `scale full` is written beside it.
+//  6. A stdlib METHOD reference beside a free `fn` in one pipeline, which is
+//     the shape the corpus refuses under one key today and used to refuse under
+//     two — `Iter.map(Codepoint.to_int)` and `Iter.map(double)`.
+//  7. A function inside a LIST, so the value survives a container round trip
+//     rather than only an argument slot.
+fn double(x: Int): Int {
+    x * 2
+}
+
+fn triple(x: Int): Int {
+    x * 3
+}
+
+fn sub(a: Int, b: Int): Int {
+    a - b
+}
+
+fn flip(a: Int, b: Int): Int {
+    b - a
+}
+
+fn shout(s: String): String {
+    s + "!"
+}
+
+fn apply(f: (Int) -> Int, x: Int): Int {
+    f(x)
+}
+
+fn apply2(f: (Int, Int) -> Int, a: Int, b: Int): Int {
+    f(a, b)
+}
+
+// HETEROGENEOUS parameters, so the reference's parameter ORDER is observable.
+// `sub`/`flip` above cannot see a reversal: `(Int, Int) -> Int` reversed is the
+// same Go type and the same slots. `(String, Int) -> String` reversed is not a
+// type the consumer's slot accepts, so Go rejects it at build time.
+fn tag(s: String, n: Int): String {
+    s + "#" + Display.to_string(n)
+}
+
+fn apply_sn(f: (String, Int) -> String, s: String, n: Int): String {
+    f(s, n)
+}
+
+// A MULTI-PARAMETER stdlib method reference, which the one-parameter
+// `Codepoint.to_int` below cannot stand in for: the std side is a THUNK that
+// forwards its own parameters, and a thunk forwarding one argument agrees with
+// every permutation of itself. Both directions of the discriminator are here on
+// purpose — `String.slice` is heterogeneous so a reversal is a Go TYPE error,
+// and `String.contains?` is homogeneous so a reversal is a wrong ANSWER that
+// only the output comparison can see. Measured: with neither of these, reversing
+// the thunk's argument list left the whole guard set green.
+fn apply3(f: (String, Int, Int) -> String, s: String, a: Int, b: Int): String {
+    f(s, a, b)
+}
+
+fn apply_ss(f: (String, String) -> Bool, a: String, b: String): Bool {
+    f(a, b)
+}
+
+fn twice(f: (Int) -> Int, x: Int): Int {
+    f(f(x))
+}
+
+// A named function RETURNED as a value, chosen at run time.
+fn pick(which: String): (Int) -> Int {
+    if which == "double" { double } else { triple }
+}
+
+// The trailing-named-function routing rule: an argument whose own slot does not
+// take a function, while the LAST parameter does, moves to the last slot and
+// the slot it skipped falls back to its default. So this reads `factor = 3`.
+fn scale(x: Int, factor: Int = 3, f: (Int) -> Int): Int {
+    f(x) * factor
+}
+
+fn main() {
+    // 1. Two functions of ONE Go type, told apart only by which name was written.
+    io.print("sub via value    = ${apply2(sub, 10, 3)}")
+    io.print("flip via value   = ${apply2(flip, 10, 3)}")
+    tagged = apply_sn(tag, "row", 4)
+    io.print("tag via value    = ${tagged}")
+
+    // 2. A binding holds it, and the call happens later.
+    f = double
+    g = shout
+    greeted = g("hi")
+    io.print("f(21)            = ${f(21)}")
+    io.print("g of hi          = ${greeted}")
+
+    // 3. Selected at RUN TIME, so no call site names the callee.
+    flag = 4 > 3
+    chosen = if flag { double } else { triple }
+    io.print("chosen(5)        = ${chosen(5)}")
+    io.print("apply(triple, 5) = ${apply(triple, 5)}")
+
+    // 4. Returned from a function, and nested through a higher-order one.
+    d = pick("double")
+    t = pick("triple")
+    io.print("pick double      = ${d(7)}")
+    io.print("pick triple      = ${t(7)}")
+    io.print("twice(double, 3) = ${twice(double, 3)}")
+    nested = twice(t, 3)
+    io.print("twice(pick, 3)   = ${nested}")
+
+    // 5. Trailing-named-function routing: `factor` defaults, `double` lands last.
+    io.print("scale(5, double) = ${scale(5, double)}")
+    io.print("scale full       = ${scale(5, 10, double)}")
+
+    // 6. Through an iterator pipeline, free function and stdlib METHOD alike.
+    doubled =
+        [1, 2, 3]
+        |> Iter.map(double)
+        |> Iter.to_list()
+
+    io.print("Iter.map(double) = ${Display.to_string(doubled)}")
+
+    codes =
+        "abc"
+        |> String.to_codepoints()
+        |> Iter.map(Codepoint.to_int)
+        |> Iter.to_list()
+
+    io.print("codepoints       = ${Display.to_string(codes)}")
+
+    sliced = apply3(String.slice, "hello world", 0, 5)
+    has = apply_ss(String.contains?, "hello world", "world")
+    missing = apply_ss(String.contains?, "world", "hello world")
+    io.print("slice via value  = ${sliced}")
+    io.print("contains? value  = ${has}")
+    io.print("reversed         = ${missing}")
+
+    // 7. Held in a data structure and read back out.
+    fns = [double, triple]
+    first = List.head(fns)
+
+    case first {
+        Some(h) -> io.print("fns[0](6)        = ${h(6)}")
+        None -> io.print("fns[0](6)        = none")
+    }
+}

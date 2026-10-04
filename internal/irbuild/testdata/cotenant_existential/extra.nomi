@@ -1,0 +1,51 @@
+// The THIRD co-tenant: it declares a type and its impl, and nothing here boxes
+// anything. Its whole job is to own an identity variable that a SIBLING gen has
+// to name from inside the same Go-spelled package.
+//
+// Its `log` answer shares no character with wire's, so a dispatch that landed
+// on the wrong table entry is a wrong string rather than a missing one.
+import {
+    core.Logger
+    shared.{self, Stamp}
+    wire.Tagger
+}
+
+pub struct Quiet {
+    level: Int
+}
+
+// A zero-sized MARKER, so one of the boxed values carries no storage at all —
+// the shape where a wrongly-shared address would be hardest to see.
+pub type Blank
+
+impl Logger for Quiet {
+    fn log(q: Quiet, message: String): String {
+        "q${q.level}:${message}"
+    }
+}
+
+// The SECOND `Tagger` implementor, and it is the reason the `tag` field's
+// answers are evidence of dispatch rather than of a fixed call: with one
+// implementor a table probe and a hard-coded call are indistinguishable.
+impl Tagger for Blank {
+    fn tag(b: Blank): String {
+        _ = b
+        "blank"
+    }
+}
+
+pub once tag: String = "extra"
+
+pub fn plain(): Blank {
+    Blank
+}
+
+// The SECOND mirror of shared.Stamp, in a CO-TENANT of wire's package. One of
+// the two aliases is the one that used to be a duplicate declaration.
+pub fn other(): Stamp {
+    shared.stamp("x")
+}
+
+pub fn other_text(s: Stamp): String {
+    s.s
+}

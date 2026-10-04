@@ -1,0 +1,84 @@
+// `==` on a named type: which rule applies where.
+//
+// A hand-written `impl Equatable` decides `==` for its type wherever a value
+// of that type is compared: at the top, or as a field or payload of a value
+// compared structurally. Every line below is one consequence of that
+// sentence, and each is written so the two possible answers DIFFER — a
+// fixture where the impl and the structural walk agree would pass under
+// either rule.
+import std/io
+
+struct Point {
+    x: Int
+    y: Float
+}
+
+struct Money {
+    cents: Int
+    note: String
+}
+
+// Hand-written and deliberately NOT structural: `note` is ignored. A struct is
+// the one shape the operator dispatches for, so this MUST be honoured.
+impl Equatable for Money {
+    fn equal?(a: Money, b: Money): Bool {
+        a.cents == b.cents
+    }
+}
+
+struct Wallet {
+    owner: String
+    balance: Money
+}
+
+enum Shape {
+    Circle Float
+    Square Int
+    Dot
+}
+
+type Id Int
+
+type Expired
+
+fn main(): Unit {
+    zero = 0.0
+    nan = zero / zero
+
+    // No impl at all: structural, field by field.
+    io.print("point same:    ${Bool.to_string(Point{x: 1, y: 2.5} == Point{x: 1, y: 2.5})}")
+    io.print("point diff:    ${Bool.to_string(Point{x: 1, y: 2.5} == Point{x: 1, y: 2.6})}")
+    // Nomi's Float equality is REFLEXIVE on NaN and Go's `==` is not, so a
+    // struct compared with Go's own `==` would answer False here.
+    io.print("point nan:     ${Bool.to_string(Point{x: 1, y: nan} == Point{x: 1, y: nan})}")
+
+    // A struct WITH an impl: the impl decides, and it ignores `note`.
+    io.print(
+        "money impl:    ${Bool.to_string(Money{cents: 5, note: "a"} == Money{cents: 5, note: "b"})}"
+    )
+
+    io.print(
+        "money ne:      ${Bool.to_string(Money{cents: 5, note: "a"} != Money{cents: 6, note: "a"})}"
+    )
+
+    // Wallet has no impl, so it compares structurally — and the structural
+    // comparison compares its `balance` field with Money's impl. Same cents,
+    // different note: the FIELD comparison is True, and so is the WHOLE.
+    a = Wallet{owner: "kim", balance: Money{cents: 5, note: "a"}}
+    b = Wallet{owner: "kim", balance: Money{cents: 5, note: "b"}}
+    io.print("wallet field:  ${Bool.to_string(a.balance == b.balance)}")
+    io.print("wallet whole:  ${Bool.to_string(a == b)}")
+
+    // An enum: tag, then payload.
+    io.print("enum same:     ${Bool.to_string(Shape.Circle(1.5) == Shape.Circle(1.5))}")
+    io.print("enum payload:  ${Bool.to_string(Shape.Circle(1.5) == Shape.Circle(2.5))}")
+    io.print("enum tag:      ${Bool.to_string(Shape.Circle(1.0) == Shape.Square(1))}")
+    io.print("enum bare:     ${Bool.to_string(Shape.Dot == Shape.Dot)}")
+    io.print("enum nan:      ${Bool.to_string(Shape.Circle(nan) == Shape.Circle(nan))}")
+
+    // An opaque newtype, and a zero-sized marker whose two values are the same
+    // value — a comparison with no storage to read.
+    io.print("id same:       ${Bool.to_string(Id(7) == Id(7))}")
+    io.print("id diff:       ${Bool.to_string(Id(7) == Id(8))}")
+    io.print("marker:        ${Bool.to_string(Expired == Expired)}")
+}

@@ -1,0 +1,28 @@
+// Engine and Powered live in a sibling file. The default parameter
+// `mode: Mode = .Fast` shows dot shorthand working from an imported interface
+// default.
+pub enum Mode {
+    Fast
+    Slow
+}
+
+pub struct Engine {
+    name: String
+}
+
+impl Powered for Engine {
+    fn label(e: Engine): String {
+        e.name
+    }
+}
+
+pub interface Powered {
+    fn label(e: self): String
+
+    fn describe(e: self, mode: Mode = .Fast): String {
+        case mode {
+            .Fast -> Powered.label(e) + " (fast)"
+            .Slow -> Powered.label(e) + " (slow)"
+        }
+    }
+}

@@ -1,0 +1,63 @@
+// A stdlib function whose RESULT is a `Maybe` crossing the generated-package
+// boundary, at two DIFFERENT instantiations in one program.
+//
+// Two is the point. A single instantiation passes even if the process-wide
+// intern table were keyed on the base name `rt.Maybe` — the collapsed key would
+// simply always answer the one entry — so the fixture would bless exactly the
+// defect it exists to catch. `Maybe<Int>` and `Maybe<String>` both cross here,
+// and `Maybe<NonZeroInt>` crosses at an opaque newtype, which is the third
+// neutral shape.
+//
+// `String.strip_prefix` is deliberately absent even though its SIGNATURE is now
+// inside the boundary: its body reaches the grapheme-based `String.slice`, which
+// has no rt symbol, so it refuses as `unlowered stdlib function`. Including it
+// would make this fixture assert the body half of a change that is only about
+// signatures.
+//
+// The `case` arms are how the payload TYPE is observed rather than only the tag:
+// a collapsed key would hand `String.to_int` the `Maybe<String>` def and the
+// graph would read the wrong payload, and the payload printed
+// here would be the wrong one.
+import std/io
+
+fn describe_int(text: String): String {
+    case String.to_int(text) {
+        Some(n) -> "int ${n}"
+        None -> "int none"
+    }
+}
+
+fn describe_trunc(x: Float): String {
+    case Float.to_int(x) {
+        Some(n) -> "trunc ${n}"
+        None -> "trunc none"
+    }
+}
+
+fn describe_non_zero(n: Int): String {
+    case Int.to_non_zero(n) {
+        Some(nz) -> "non-zero ${nz}"
+        None -> "zero"
+    }
+}
+
+fn describe_positive(n: Int): String {
+    case Int.to_positive(n) {
+        Some(p) -> "positive ${p}"
+        None -> "not positive"
+    }
+}
+
+fn main() {
+    io.print(describe_int("42"))
+    io.print(describe_int("  -7  "))
+    io.print(describe_int("0x10"))
+    io.print(describe_int(""))
+    io.print(describe_trunc(3.7))
+    io.print(describe_trunc(-3.7))
+    io.print(describe_trunc(0.0 / 0.0))
+    io.print(describe_non_zero(5))
+    io.print(describe_non_zero(0))
+    io.print(describe_positive(3))
+    io.print(describe_positive(-3))
+}

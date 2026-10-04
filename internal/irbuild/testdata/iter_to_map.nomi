@@ -1,0 +1,78 @@
+// `Iter.to_map` over a List of key-value pairs: the map built in the list's
+// order.
+//
+// The rows that are load-bearing rather than decorative:
+//
+//   - `dup` pins BOTH of MapPut's rules at once, and they are separable: the
+//     later entry's VALUE wins, and it inherits the earlier entry's POSITION. A
+//     to_map that rebuilt the map in reverse would get the value right and
+//     the rendering wrong.
+//   - the tuple, Bool and List keys are keys Go's `comparable` would reject.
+//     A Nomi map key is hashed STRUCTURALLY and there is no `K: Hashable`
+//     bound, so these are the point rather than an
+//     edge: a `map[K]V` representation could not express any of them.
+//   - `order` pins that insertion order is the list's order, which is what makes
+//     the rendering deterministic.
+//
+// Every map is bound to a local first: a `\"` inside a `${...}` is not
+// expressible, so the literals live outside the interpolation.
+import std/io
+
+fn main() {
+    pairs = Iter.to_map([("a", 1), ("b", 2)])
+    dup = Iter.to_map([("x", 1), ("x", 9)])
+    dup3 = Iter.to_map([("x", 1), ("y", 2), ("x", 9)])
+    order = Iter.to_map([("z", 1), ("a", 2), ("m", 3)])
+    one = Iter.to_map([(1, 10)])
+    intkeys = Iter.to_map([(3, "c"), (1, "a"), (2, "b")])
+    boolkey = Iter.to_map([(True, 1), (False, 0)])
+    tupkey = Iter.to_map([((1, 2), "a"), ((3, 4), "b")])
+    listkey = Iter.to_map([([1, 2], "a"), ([3], "b")])
+    floatk = Iter.to_map([(1.5, "a")])
+    nankey = Iter.to_map([(0.0 / 0.0, "nan")])
+    dupsize = Iter.to_map([("a", 1), ("b", 2), ("a", 3)])
+    single = Iter.to_map([("a", 1)])
+    // `Map.get` returns a `Maybe`, and `==` on a prelude enum is a separate gap
+    // (prelude.go) rather than this fixture's subject, so the payload is read
+    // with `case`. Reading it is also the stronger assertion: it distinguishes
+    // Some("a") from Some("b"), which a bare `some?` would not.
+    nan_hit = found(Map.get(nankey, 0.0 / 0.0), "nan")
+    get_hit = found_int(Map.get(single, "a"), 1)
+    get_miss = found_int(Map.get(single, "z"), 1)
+    // A List key is exercised through `get` rather than through the rendering:
+    // the interpreter cannot Display a List KEY (`Display.to_string: no
+    // implementation for type 'List'`), which is a std gap and not this
+    // fixture's subject. Retrieval is the property that matters — it is what
+    // proves the key was hashed and compared STRUCTURALLY.
+    list_hit = found(Map.get(listkey, [1, 2]), "a")
+
+    io.print("pairs   ${pairs}")
+    io.print("dup     ${dup}")
+    io.print("dup3    ${dup3}")
+    io.print("order   ${order}")
+    io.print("one     ${one}")
+    io.print("intkeys ${intkeys}")
+    io.print("boolkey ${boolkey}")
+    io.print("tupkey  ${tupkey}")
+    io.print("listkey ${list_hit}")
+    io.print("floatk  ${floatk}")
+    io.print("nankey  ${nan_hit}")
+    io.print("size    ${Map.size(dupsize)}")
+    io.print("get     ${get_hit}")
+    io.print("miss    ${get_miss}")
+    io.print("empty   ${Map.size(Iter.to_map([(1, 2)])) == 1}")
+}
+
+fn found(got: Maybe<String>, want: String): Bool {
+    case got {
+        .Some(v) -> v == want
+        .None -> False
+    }
+}
+
+fn found_int(got: Maybe<Int>, want: Int): Bool {
+    case got {
+        .Some(v) -> v == want
+        .None -> False
+    }
+}

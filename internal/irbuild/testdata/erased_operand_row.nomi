@@ -1,0 +1,107 @@
+// How an EXISTENTIAL reads in an assertion's `values:` row when the ERASURE IS
+// NOT IN VIEW at the recording site.
+//
+// The assertions FAIL ON PURPOSE, because a passing one renders no operand.
+// A wrong rendering here COMPILES and runs — showing the box (`<Speech>`) instead
+// of what was erased into it is a plausible string, not an error — so only a
+// failing differential can see it.
+//
+// # Three positions, and each one defeated a different shortcut
+//
+//	d: Speech = Dog{…}         a BINDING. The Go variable holds an `rt.Dyn`; the
+//	                           erasure happened at the binding, so nothing at the
+//	                           read names Dog.
+//	a parameter typed Speech   the CALLER erased it; this body never saw a
+//	                           concrete value at all.
+//	Kennel{pet: Speech}        a FIELD. The box is inside a value that is itself
+//	                           the operand, so the operand's own kind is the
+//	                           struct and the existential is two levels down.
+//
+// erasedop.go closes the fourth position — an ARGUMENT being widened at the call
+// site — with no machinery at all, because there the pre-erasure value is still
+// in hand. It is included below as the CONTROL: if the two routes ever disagree
+// about one value, this fixture says so rather than each being separately
+// plausible.
+//
+// # TWO implementors, deliberately
+//
+// One implementor cannot distinguish "dispatches on the identity in the box" from
+// "hard-codes the only type it ever saw". Dog and Cat have DIFFERENT field names,
+// so a renderer that picked the wrong arm produces `Cat{name: …}` for a Dog and
+// the strings differ.
+import std/io
+
+interface Speech {
+    fn speak(animal: self): String
+}
+
+struct Dog {
+    name: String
+}
+
+impl Speech for Dog {
+    fn speak(dog: Dog): String {
+        dog.name + " says woof"
+    }
+}
+
+struct Cat {
+    lives: Int
+}
+
+impl Speech for Cat {
+    fn speak(cat: Cat): String {
+        _ = cat
+        "meow"
+    }
+}
+
+struct Kennel {
+    pet: Speech
+}
+
+fn announce(s: Speech): String {
+    Speech.speak(s)
+}
+
+fn no_speech(_s: Speech): Bool {
+    False
+}
+
+fn no_kennel(_k: Kennel): Bool {
+    False
+}
+
+test "the erasure IS in view: an argument widened at the call site" {
+    // erasedop.go's route, with no runtime lookup involved. The CONTROL.
+    d = Dog{name: "Rex"}
+    assert announce(d) == "NOPE"
+}
+
+test "a BINDING declared at the interface type" {
+    d: Speech = Dog{name: "Rex"}
+    assert no_speech(d)
+}
+
+test "the OTHER implementor, through the same binding shape" {
+    c: Speech = Cat{lives: 9}
+    assert no_speech(c)
+}
+
+test "an interface-typed FIELD, two levels down from the operand" {
+    k = Kennel{pet: Dog{name: "Ada"}}
+    assert no_kennel(k)
+}
+
+test "the same field holding the other implementor" {
+    k = Kennel{pet: Cat{lives: 7}}
+    assert no_kennel(k)
+}
+
+test "a value crossing a function boundary as a parameter" {
+    // The caller erased it, so `announce`'s own body never held a concrete value.
+    // Its operand row is the one this position exists to pin.
+    d: Speech = Dog{name: "Bo"}
+    io.print(announce(d))
+    assert no_speech(d)
+}

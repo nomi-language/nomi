@@ -1,0 +1,52 @@
+import {
+    std/io
+    handler.{self, Request, Response}
+}
+
+fn main() {
+    paths = ["/", "/echo", "/missing", "/fail", "/echo", "/", "/fail", "/missing"]
+
+    case handler.serve_concurrently(paths, handle) {
+        Ok(lines) -> Iter.each(lines, |line| io.print(line))
+        Err(e) -> io.print("error: ${e}")
+    }
+}
+
+fn handle(req: Request): Result<Response, String> {
+    n =
+        req.query
+        |> Map.get("n")
+        |> Maybe.with_default("?")
+
+    case req.path {
+        "/" ->
+            Ok(text(200, "hello ${req.method} n=${n}"))
+
+        "/echo" ->
+            Ok(Response{
+                status: 200,
+                headers: {"content-type" => "application/octet-stream"},
+                body: req.body,
+            })
+
+        "/fail" -> {
+            index =
+                req.headers
+                |> Map.get("X-Index")
+                |> Maybe.with_default("?")
+
+            Err("refused request ${index}")
+        }
+
+        _ ->
+            Ok(text(404, "not found"))
+    }
+}
+
+fn text(status: Int, body: String): Response {
+    Response{
+        status,
+        headers: {"content-type" => "text/plain"},
+        body: String.to_bytes(body),
+    }
+}

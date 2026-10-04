@@ -1,0 +1,222 @@
+// std/calendar's two CIVIL types: `Date` (no time, no zone) and `Time` (no
+// date, no zone), reached through the `Date"…"` / `Time"…"` typed literal that
+// `call to an unlowered impl` used to refuse.
+//
+// # Which lines are a real differential, and which are the pinned text
+//
+// `requireIdentical` compares the interpreter against the artifact, so it is
+// blind to a bug in code BOTH paths reach. rt owns the calendar semantics and
+// eval calls DOWN into it, so the parse, the clamp, the day count, the midnight
+// wrap and both renderings are ONE implementation on both sides — for those the
+// `want` string in calendar_date_time_test.go is the assertion and the
+// comparison proves only that one implementation agrees with itself.
+//
+// What IS genuinely two implementations: the four `Date.Subtract<Unit, Date>`
+// rungs, `Add<Weeks, Date>`, `Subtract<Duration, Time>`, `impl Literal` for both
+// types, every `DateParts`/`TimeParts` accessor, `Time.new`, `Time.between`,
+// `NaiveDateTime.at` and `at_midnight`, and the three derived
+// `Equatable`/`Comparable` impls. Each is a Nomi body — lowered Go in a
+// generated stdlib package on one side, interpreted AST on the other — so a
+// `- Days(3)` that reached the wrong `+ Days(-3)`, or an accessor that read the
+// wrong field, is a real disagreement this fixture catches.
+//
+// # The pair this fixture lets contradict itself
+//
+// `Time` WRAPS around midnight and `NaiveDateTime` ROLLS OVER to the next day,
+// from the same operator with the same operand and the same elapsed
+// nanoseconds. Both answers are correct and they are decided entirely by the
+// receiver's type: a time-of-day has no day to carry, a wall reading does. That
+// is the `Date`/`Time` rung of the civil-versus-physical divergence
+// calendar_civil_rungs.nomi makes across a DST transition, and it is the reason
+// the wrap is a RULE: a `Time` that saturated at 23:59:59.999999999, or one that
+// silently became a NaiveDateTime, would each pass an "advance by two hours"
+// check that looked at only one type.
+//
+// The second contradictable pair is the ROUND TRIP. `Date"2026-05-04"` is parsed
+// by `Date.parse` and rendered by `Display.to_string`, which are different
+// functions in different places, so a fraction-suppression or zero-padding bug
+// shows up as text rather than as a failure.
+import {
+    std/calendar.{Date, Days, Error, Months, NaiveDateTime, Time, Weeks, Years}
+    std/duration.Duration
+    std/io
+}
+
+fn run(): Result<Unit, Error> {
+    // --- THE TYPED LITERAL AND ITS ACCESSORS ---------------------------------
+    //
+    // `Date"…"` desugars to `Literal.from_fragments` over a `List<Fragment<String>>`
+    // and lands in `Date.parse`. The accessors are `impl DateParts for Date`,
+    // ordinary Nomi bodies reading the three fields — so a lowering that permuted
+    // the struct layout prints 5 for the year rather than failing to compile.
+    d = try Date"2026-05-04"
+    io.print("year = " + Int.to_string(Date.year(d)))
+    io.print("month = " + Int.to_string(Date.month(d)))
+    io.print("day = " + Int.to_string(Date.day(d)))
+    io.print("date_text = " + Date.to_string(d))
+
+    t = try Time"09:30:00"
+    io.print("hour = " + Int.to_string(Time.hour(t)))
+    io.print("minute = " + Int.to_string(Time.minute(t)))
+    io.print("second = " + Int.to_string(Time.second(t)))
+    io.print("time_text = " + Time.to_string(t))
+
+    // Interpolation, so the fragment list has a Dynamic member and not only
+    // Static ones. A lowering that dropped the dynamic arm parses "2026--04".
+    mm = "07"
+    july = try Date"2026-${mm}-04"
+    io.print("interpolated = " + Date.to_string(july))
+
+    // --- RENDERING ROUND TRIPS ------------------------------------------------
+    //
+    // Sub-second precision renders only when NONZERO, so these two rows exercise
+    // both arms of `ISOTimeText`. A renderer that always emitted `.000` agrees
+    // with the second row and fails the first.
+    io.print("time_whole = " + Time.to_string(try Time"09:30:00"))
+    io.print("time_frac = " + Time.to_string(try Time"23:45:12.5"))
+    io.print("time_max_frac = " + Time.to_string(try Time"23:59:59.999999999"))
+    io.print("date_padded = " + Date.to_string(try Date"0001-01-01"))
+
+    // --- THE THREE PARSE FAULT SHAPES ----------------------------------------
+    //
+    // These messages MOVED from eval into rt/calendar_civil.go with the types,
+    // because two of the three arms existed nowhere a compiled artifact could
+    // reach. They are user-visible, so printing them makes a drift a wrong ANSWER
+    // rather than an invisible one. Shape, non-numeric and value are three
+    // different arms and only the third comes from the validator.
+    io.print("shape = " + fault_text(Date.parse("05/04/2026")))
+    io.print("nonnumeric = " + fault_text(Date.parse("2026-ab-04")))
+    io.print("bad_day = " + fault_text(Date.parse("2026-02-29")))
+    io.print("bad_month = " + fault_text(Date.parse("2026-13-04")))
+    io.print("time_shape = " + time_fault_text(Time.parse("nope")))
+    io.print("bad_hour = " + time_fault_text(Time.parse("24:00:00")))
+
+    // --- CIVIL ARITHMETIC ON A DATE ------------------------------------------
+    //
+    // `Add<Years|Months|Days>` are `host fn`s bound to rt; `Add<Weeks>` and all
+    // four `Subtract` rungs are Nomi bodies over them, which is where the real
+    // disagreement can live. The 2011/2012 January-31 pair is the discriminator
+    // for the clamp: a clamp to a constant 28 prints the same date for both.
+    io.print("clamp_common = " + Date.to_string(try Date"2011-01-31" + Months(1)))
+    io.print("clamp_leap = " + Date.to_string(try Date"2012-01-31" + Months(1)))
+    io.print("clamp_thirty = " + Date.to_string(try Date"2026-03-31" + Months(1)))
+    io.print("clamp_back = " + Date.to_string(try Date"2026-01-31" - Months(1)))
+    io.print("leap_off = " + Date.to_string(try Date"2024-02-29" + Years(1)))
+    io.print("leap_onto = " + Date.to_string(try Date"2024-02-29" + Years(4)))
+    io.print("leap_back = " + Date.to_string(try Date"2024-02-29" - Years(1)))
+    io.print("cross_year = " + Date.to_string(try Date"2026-12-30" + Days(5)))
+    io.print("weeks = " + Date.to_string(try Date"2026-05-04" + Weeks(2)))
+    io.print("sub_days = " + Date.to_string(try Date"2026-05-04" - Days(3)))
+    io.print("sub_weeks = " + Date.to_string(try Date"2026-05-04" - Weeks(1)))
+
+    // --- THE SIGNED DAY COUNT ------------------------------------------------
+    //
+    // Both signs, because std promises a signed count and the truncation
+    // direction is what a reimplementation gets wrong. The leap row is the one
+    // that a count ignoring February 29 would fail while agreeing everywhere else.
+    io.print("fwd = " + Int.to_string(Date.days_between(d, try Date"2026-05-07")))
+    io.print("back = " + Int.to_string(Date.days_between(try Date"2026-05-07", d)))
+
+    io.print(
+        "common_year = " + Int.to_string(
+            Date.days_between(try Date"2026-01-01", try Date"2026-12-31")
+        )
+    )
+
+    io.print(
+        "leap_year = " + Int.to_string(
+            Date.days_between(try Date"2024-01-01", try Date"2025-01-01")
+        )
+    )
+
+    // --- THE DIVERGENCE, AND BOTH ANSWERS ARE RIGHT --------------------------
+    //
+    // Same operator, same `Duration`, same elapsed nanoseconds. `Time` wraps
+    // because a time-of-day has no day to carry; `NaiveDateTime` rolls the date
+    // over because a wall reading does. `wrapped_tod` is the negative control:
+    // the two agree on the CLOCK, so the divergence is shown to be the DATE.
+    late_tod = try Time"23:30:00"
+    late_wall = try NaiveDateTime"2026-05-04T23:30:00"
+    io.print("tod_wraps = " + Time.to_string(late_tod + Duration.hours(2)))
+    io.print("wall_rolls_over = " + NaiveDateTime.to_string(late_wall + Duration.hours(2)))
+
+    io.print(
+        "wrapped_tod = " + Time.to_string(NaiveDateTime.to_time(late_wall + Duration.hours(2)))
+    )
+
+    // A full day is the identity on a time-of-day and a date change on a wall
+    // reading — the same claim at the boundary, where an off-by-one in the
+    // modular reduction would surface.
+    io.print("tod_full_day = " + Time.to_string(late_tod + Duration.hours(24)))
+    io.print("wall_full_day = " + NaiveDateTime.to_string(late_wall + Duration.hours(24)))
+
+    // Backwards across midnight. Go's `%` keeps the sign of the DIVIDEND, so
+    // without the explicit correction in `rt.TimePlusDuration` this prints a
+    // negative hour. Every forward row above passes under that mutant.
+    io.print("tod_wraps_back = " + Time.to_string(try Time"00:30:00" + Duration.hours(-1)))
+    io.print("tod_sub = " + Time.to_string(try Time"09:30:00" - Duration.minutes(45)))
+
+    // --- COMBINING AND SPLITTING ---------------------------------------------
+    //
+    // `NaiveDateTime.at` / `at_midnight` are Nomi bodies that read all seven
+    // components through the accessors, and `to_date` / `to_time` are the rt
+    // projections back. A round trip through both is what catches a projection
+    // that dropped or duplicated a field.
+    combined = NaiveDateTime.at(d, t)
+    io.print("combined = " + NaiveDateTime.to_string(combined))
+    io.print("split_date = " + Date.to_string(NaiveDateTime.to_date(combined)))
+    io.print("split_time = " + Time.to_string(NaiveDateTime.to_time(combined)))
+    io.print("midnight = " + NaiveDateTime.to_string(NaiveDateTime.at_midnight(d)))
+
+    // --- EQUALITY AND ORDERING, BOTH DERIVED --------------------------------
+    //
+    // `derive Equatable`/`Comparable` generate over the fields that EXIST, which
+    // is the whole reason `Date` and `Time` are two structs. The cross-type rows
+    // are absent because the checker makes them impossible — that is the point:
+    // a shared representation would have made them expressible and equal.
+    io.print("date_eq = " + Bool.to_string(d == try Date"2026-05-04"))
+    io.print("date_ne = " + Bool.to_string(d == try Date"2026-05-05"))
+    io.print("time_eq = " + Bool.to_string(t == try Time"09:30:00"))
+    io.print("time_ne = " + Bool.to_string(t == try Time"09:30:01"))
+    io.print("date_lt = " + Bool.to_string(d < try Date"2026-05-05"))
+    io.print("time_lt = " + Bool.to_string(t < try Time"10:00:00"))
+
+    // `Time.new` is a Nomi body with `second: Int = 0, nanosecond: Int = 0`, so
+    // the short call goes through the stdlib's arity-reduced wrapper. The
+    // rejection row exercises its validation rather than rt's parser.
+    io.print("built = " + Time.to_string(try Time.new(8, 30)))
+    io.print("built_full = " + Time.to_string(try Time.new(8, 30, 15, 250000000)))
+    io.print("rejected = " + time_fault_text(Time.new(25, 0, 0)))
+
+    // `Time.between` is a Nomi body over the module-private `day_nanos`, so it is
+    // genuinely two implementations and a real differential row.
+    io.print(
+        "between = " + Duration.to_string(Time.between(try Time"08:30:00", try Time"08:33:00"))
+    )
+
+    Ok(Unit)
+}
+
+// fault_text renders the error side of a `Result<Date, Error>` so the parse
+// messages are OBSERVABLE. Without this they would be compared but never
+// printed, and a fixture that cannot print a value cannot pin it.
+fn fault_text(r: Result<Date, Error>): String {
+    case r {
+        Ok(d) -> "unexpectedly parsed: " + Date.to_string(d)
+        Err(e) -> Display.to_string(e)
+    }
+}
+
+fn time_fault_text(r: Result<Time, Error>): String {
+    case r {
+        Ok(t) -> "unexpectedly parsed: " + Time.to_string(t)
+        Err(e) -> Display.to_string(e)
+    }
+}
+
+fn main() {
+    case run() {
+        Ok(_u) -> Unit
+        Err(e) -> io.print("FAULT: " + Display.to_string(e))
+    }
+}

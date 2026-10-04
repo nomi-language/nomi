@@ -1,0 +1,60 @@
+// The LOAD-BEARING fixture: an interface function with NO self-position
+// parameter, dispatched through a bounded type parameter.
+//
+// `Zero.zero(): self` mentions self only in its RETURN, which is the
+// `FromJson.from_json(json: Json): Result<self, …>` shape — the one that proved
+// interface bound NAMES are not a dictionary. A bounds-only implementation
+// cannot pass this: there is no receiver anywhere in the call from which to
+// recover which implementation to run, so the only thing that can answer is the
+// concrete type ARGUMENT the call site supplied.
+//
+// Two implementors, for the reason dict_bounded_param.nomi has two.
+//
+// `scaled` is the same call one level down, forwarding its own type parameter
+// through a turbofish — eval's genericCallEnv resolving a type argument through
+// the caller's own bindings, which is the only way a separate generic helper
+// ever sees the binding.
+import std/io
+
+interface Zero {
+    fn zero(): self
+}
+
+struct Meters {
+    n: Int
+}
+
+struct Feet {
+    n: Int
+}
+
+impl Zero for Meters {
+    fn zero(): Meters {
+        Meters{n: 0}
+    }
+}
+
+impl Zero for Feet {
+    fn zero(): Feet {
+        Feet{n: 100}
+    }
+}
+
+fn origin<T>(): T where T: Zero {
+    T.zero()
+}
+
+fn scaled<U>(): U where U: Zero {
+    origin<U>()
+}
+
+fn main() {
+    m = origin<Meters>()
+    f = origin<Feet>()
+    io.print("meters ${m.n}")
+    io.print("feet ${f.n}")
+    m2 = scaled<Meters>()
+    f2 = scaled<Feet>()
+    io.print("scaled meters ${m2.n}")
+    io.print("scaled feet ${f2.n}")
+}

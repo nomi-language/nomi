@@ -1,0 +1,95 @@
+// `std/literals.Fragment<T>` at concrete, package-neutral type arguments.
+//
+// Written to defeat two failure modes the corpus cannot see, because no corpus
+// program instantiates Fragment at anything but `String`:
+//
+//  1. TAG ASSIGNMENT. Every `case` below discriminates BOTH variants and prints
+//     a different string for each, so permuting Static=1/Dynamic=2 changes the
+//     transcript rather than reordering an equality that happens to hold.
+//  2. SLOT IDENTITY. `Fragment<String>` has two payloads of the SAME Go type
+//     (`Static`'s is always `string`), so a def that deduped them — or an
+//     intern key that dropped the type arguments — would let one payload read
+//     the other's storage. Every `Fragment<String>` value here carries a
+//     payload that names which variant built it.
+//
+// And `Fragment<Int>` is the discriminating instantiation: there `Static`'s
+// `string` and `Dynamic`'s `int64` are different Go types, so a spec with the
+// two payload kinds swapped cannot produce this transcript.
+import {
+    std/io
+    std/literals.Fragment
+}
+
+fn describe_string(f: Fragment<String>): String {
+    case f {
+        .Static(s) -> "static/" + s
+        .Dynamic(v) -> "dynamic/" + v
+    }
+}
+
+fn describe_int(f: Fragment<Int>): String {
+    case f {
+        .Static(s) -> "static/" + s
+        .Dynamic(n) -> "dynamic/" + Int.to_string(n)
+    }
+}
+
+fn describe_bool(f: Fragment<Bool>): String {
+    case f {
+        .Static(s) -> "static/" + s
+        .Dynamic(b) -> if b { "dynamic/yes" } else { "dynamic/no" }
+    }
+}
+
+// A nested instantiation, so the intern key is exercised at a type argument
+// that is itself an instance rather than a scalar.
+fn describe_nested(f: Fragment<Maybe<Int>>): String {
+    case f {
+        .Static(s) ->
+            "static/" + s
+
+        .Dynamic(m) ->
+            case m {
+                Some(n) -> "dynamic/some/" + Int.to_string(n)
+                None -> "dynamic/none"
+            }
+    }
+}
+
+fn main() {
+    // `Static` carries a concrete `String`, so nothing in its ARGUMENT
+    // constrains `T` and the checker does not instantiate the constructor from
+    // it. The turbofish is what makes the type argument written rather than
+    // inferred, and it is the only spelling of a concrete-payload variant the
+    // front end solves. `Dynamic` needs none: its payload IS the type argument.
+    io.print(describe_string(Fragment.Static<String>("a")))
+    io.print(describe_string(Fragment.Dynamic("b")))
+
+    io.print(describe_int(Fragment.Static<Int>("c")))
+    io.print(describe_int(Fragment.Dynamic(7)))
+
+    io.print(describe_bool(Fragment.Static<Bool>("d")))
+    io.print(describe_bool(Fragment.Dynamic(True)))
+    io.print(describe_bool(Fragment.Dynamic(False)))
+
+    io.print(describe_nested(Fragment.Static<Maybe<Int>>("e")))
+    io.print(describe_nested(Fragment.Dynamic(Some(9))))
+    io.print(describe_nested(Fragment.Dynamic(None)))
+
+    // A list of fragments — the shape every `from_fragments` handler receives,
+    // and the reason Fragment needs a representation at all.
+    parts: List<Fragment<String>> = [
+        Fragment.Static<String>("<p>"),
+        Fragment.Dynamic("hi"),
+        Fragment.Static<String>("</p>"),
+    ]
+
+    io.print(
+        Iter.reduce(parts, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + "[" + v + "]"
+            }
+        )
+    )
+}

@@ -1,0 +1,35 @@
+import std/io
+
+// Named arguments to a generic function fill the parameter they name, in a
+// direct call and in a pipe, in any order.
+fn spread<T>(x: T, xs: List<T> = [], twice: Bool = False): List<T> {
+    base = [x, ..xs]
+    if twice { [x, ..base] } else { base }
+}
+
+fn g(x: Int, y: Int = 0): Int {
+    x * 10 + y
+}
+
+fn main() {
+    io.print(Debug.inspect(spread(1, twice: True)))
+
+    io.print(
+        Debug.inspect(
+            1
+            |> spread(twice: True)
+        )
+    )
+
+    io.print(Debug.inspect(spread(1, xs: [2], twice: True)))
+    io.print(Debug.inspect(spread(1, twice: True, xs: [2, 3])))
+    io.print(Debug.inspect(spread(x: 4, xs: [5])))
+    io.print(Debug.inspect(spread("a", twice: False, xs: ["b"])))
+
+    io.print(
+        Debug.inspect(
+            1
+            |> g(y: 2)
+        )
+    )
+}

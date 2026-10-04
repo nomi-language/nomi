@@ -1,0 +1,73 @@
+// Probe: `assert pattern = expr`.
+//
+// The only refutable pattern in the language outside a `case`. Two properties,
+// and the fixture exists for both:
+//
+//  1. **The bindings escape.** `assert n = compute()` puts `n` in the ENCLOSING
+//     scope, so the lines after it can read it. The interpreter matches into a
+//     child env and copies every binding UP (eval/eval.go:2987-2989); Go has no
+//     such move, because a local declared inside the `if` chain a match compiles
+//     to is scoped to that chain — so the declarations are hoisted above the
+//     match and the match only assigns. A fixture that never READ a bound name
+//     afterwards would pass under a builder that scoped them wrongly.
+//  2. **A pattern that does not match is an assertion FAILURE**, with its own
+//     reason line — `pattern did not match` — and the value that did not match
+//     shown as `actual`. That text is the observable, so the last two cases fail
+//     on purpose. A fixture with only matching patterns pins the report at
+//     nothing at all.
+//
+// The last two cases carry a NON-SCALAR scrutinee, which was the limit this
+// fixture used to record: the failure report renders the unmatched value through
+// the same Inspect the `values:` rows use, and that was scalar-only. It is not
+// any more — the rendering is structural rather than a Nomi `impl Display`, so
+// it is chosen from the kind (internal/irbuild/inspect.go) — and
+// `assert Ok(d) = parse(s)`, which is what the construct is actually for in the
+// corpus, is here.
+fn compute(): Int {
+    7
+}
+
+fn label(): String {
+    "ok"
+}
+
+test "an identifier pattern always matches and binds into the enclosing scope" {
+    assert n = compute()
+    assert n == 7
+    assert n * 2 == 14
+}
+
+test "a bound name survives several statements and a rebinding" {
+    assert first = compute()
+    doubled = first * 2
+    assert second = doubled
+    assert first == 7
+    assert second == 14
+}
+
+test "literal patterns that match bind nothing and hold" {
+    assert 7 = compute()
+    assert "ok" = label()
+}
+
+test "a literal pattern that does not match reports the value it saw" {
+    assert 3 = compute()
+}
+
+test "a String that does not match shows its quotes in the report" {
+    assert "no" = label()
+}
+
+fn parse(s: String): Result<Int, String> {
+    Err("not a number: " + s)
+}
+
+test "a prelude-enum pattern that does not match shows the value it saw" {
+    assert Ok(d) = parse("x")
+    assert d == 1
+}
+
+test "a List pattern that does not match shows the whole list" {
+    assert [a, b] = ["one"]
+    assert a == b
+}

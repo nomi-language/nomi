@@ -1,0 +1,47 @@
+// The DECLARING file, and the reason it is separate from the impl below.
+//
+// `Box` is declared here and nowhere else, so the front end appends its
+// SYNTHESIZED universal `impl Debug for Box` to THIS module — measured: a type
+// that carries a written `impl Debug` in its own file gets no synthesized one,
+// so the two shapes can only meet across a file boundary. extra.nomi writes
+// the real one.
+pub struct Box {
+    w: Int
+}
+
+// TWO RECEIVERS, ONE INTERFACE, ONE METHOD, and the same ARITY. The second
+// parameter is a concrete `B` for both, so `Combine.combine(a(1), b(2))`
+// produces a candidate from EACH argument: `A`'s from position zero and `B`'s
+// from position one. Only the declared parameter at position zero separates
+// them, which is the entire content of namedPositionsFit.
+pub struct A {
+    n: Int
+}
+
+pub struct B {
+    n: Int
+}
+
+pub interface Combine {
+    fn combine(a: self, b: B): String
+}
+
+impl Combine for A {
+    fn combine(a: A, b: B): String {
+        "A" + Int.to_string(a.n) + Int.to_string(b.n)
+    }
+}
+
+impl Combine for B {
+    fn combine(a: B, b: B): String {
+        "B" + Int.to_string(a.n) + Int.to_string(b.n)
+    }
+}
+
+pub fn a(n: Int): A {
+    A{n}
+}
+
+pub fn b(n: Int): B {
+    B{n}
+}

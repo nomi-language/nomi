@@ -1,0 +1,6 @@
+/// Opaque witness for a Nomi type.
+///
+/// A type name can be used as a `Type<T>` value only when the expected type
+/// asks for a witness. This keeps zero-sized values and constructors intact
+/// while still allowing typed APIs such as `Context.value(context, TraceId)`.
+pub host type Type<T>

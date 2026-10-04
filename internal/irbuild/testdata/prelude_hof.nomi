@@ -1,0 +1,228 @@
+// The HIGHER-ORDER half of `impl Maybe<T>` and `impl Result<T, E>`: `map` and
+// `flat_map` on both enums, and `map_err`.
+//
+// A TEST file rather than a program, and genuinely differential rather than two
+// callers of one implementation: the interpreter answers every call below by
+// running the Nomi `case` body in std/maybe.nomi or std/results.nomi, and the
+// compiled artifact answers it through rt/preludehof.go. Two independent
+// constructions, which is the condition this project records as the thing that
+// makes `requireIdentical` non-vacuous.
+//
+// # THE ABSENT CASE IS WHERE A WRONG ANSWER HIDES, SO EVERY METHOD HAS ONE
+//
+// Nomi has no zero values and Go has one for every type, so the arm that does
+// NOT run the callback is the arm a lowering can get wrong while type-checking
+// perfectly. Three distinct wrong answers are foreclosed here and none is
+// visible in the lowered code to a reader:
+//
+//   - CALLING THE CALLBACK ANYWAY. `MaybeMap` on a None would pass Go's zero
+//     value and answer `Some(0)`, so every absent row asserts the result equals
+//     the absent value rather than merely that it is absent.
+//   - DROPPING THE UNTOUCHED PAYLOAD. `Result.map` leaves `E` alone and
+//     `map_err` leaves `T` alone, so an `Err("oops")` mapped over its Ok side
+//     must still carry `"oops"` and an `Ok(3)` mapped over its Err side must
+//     still carry `3`. A lowering that rebuilt the struct without copying the
+//     other field would answer `Err("")` and `Ok(0)`.
+//   - NAMING THE VARIANT INSTEAD OF COPYING THE TAG. rt/preludehof.go's header
+//     argues this at length; the observable half is that both variants of both
+//     enums round-trip.
+//
+// # WHY EVERY CALLBACK HERE IS A LAMBDA, AND WHY TWO ARE NOT
+//
+// A lambda's lowering is more than an inline expression. impl.go's
+// `callArgs` ledger records a double-lowering class that has shipped twice
+// in this package: an arm that lowers its arguments and then declines
+// leaves that work behind for a later arm to lower a second time. That
+// class is invisible for as long as every argument is inline, which is
+// exactly how it got shipped both times, so the callbacks here are lambdas
+// ON PURPOSE. If the route to preludeHofCall is ever moved below
+// preludefn.go's own `callArgs`, this fixture is where that should
+// show.
+//
+// Two rows use a bare FUNCTION REFERENCE instead, because that is the spelling
+// `08-pattern-matching/maybe_result_test.nomi` actually writes and a fixture
+// covering only lambdas would not exercise it. A funcref lowers to the same
+// function kind as a lambda of its signature, so the two spellings
+// are one shape here — but that is a claim about the builder, and the two rows
+// stop it being an assumption.
+//
+// # DELIBERATELY ABSENT
+//
+// `x == None` and `xs == []` refuse as `mixed-type operator`, somebody else's
+// key, so every absent comparison is written against a typed `None`-valued
+// helper. A callback answering an UNTYPED literal (`|x| []`, `|x| None`) is
+// refused by name as `prelude function over an unsolved instance` and is
+// asserted in preludehof_test.go rather than here, because a refused construct
+// cannot appear in a differential fixture at all.
+fn none_int(): Maybe<Int> {
+    None
+}
+
+fn none_string(): Maybe<String> {
+    None
+}
+
+fn double(x: Int): Int {
+    x * 2
+}
+
+fn err_int(): Result<Int, String> {
+    Err("oops")
+}
+
+fn positive_half(x: Int): Maybe<Int> {
+    if x > 0 { Some(x / 2) } else { none_int() }
+}
+
+fn checked_double(x: Int): Result<Int, String> {
+    if x > 0 { Ok(x * 2) } else { err_int() }
+}
+
+test "Maybe.map transforms a Some and leaves a None alone" {
+    some: Maybe<Int> = Some(5)
+
+    assert Maybe.map(some, |x| x * 2) == Some(10)
+    assert Maybe.map(none_int(), |x| x * 2) == none_int()
+    assert Maybe.none?(Maybe.map(none_int(), |x| x * 2))
+    assert Maybe.some?(Maybe.map(some, |x| x * 2))
+}
+
+test "Maybe.map may change the payload TYPE" {
+    some: Maybe<Int> = Some(7)
+
+    assert Maybe.map(some, |x| Int.to_string(x)) == Some("7")
+    assert Maybe.map(none_int(), |x| Int.to_string(x)) == none_string()
+}
+
+// The FUNCTION-REFERENCE spelling, in a BINDING rather than as an assertion
+// operand — and the binding is the corpus spelling as well as the necessary one.
+//
+// A funcref written directly inside an `assert` is refused as
+// `recording a non-scalar operand ((Int) -> Int)`, which is somebody else's key
+// and a position this lowering newly reaches: the interpreter prints
+// `double = <func: double>` in its `values:` rows and the builder has no
+// rendering for a function value. `08-pattern-matching/maybe_result_test.nomi`
+// writes both of its `map` calls in a binding for its own reasons, so the corpus
+// does not reach that position and this fixture does not manufacture it.
+test "Maybe.map takes a function reference, which is the corpus spelling" {
+    some: Maybe<Int> = Some(5)
+    mapped = Maybe.map(some, double)
+
+    piped =
+        some
+        |> Maybe.map(double)
+        |> Maybe.with_default(0)
+
+    absent =
+        none_int()
+        |> Maybe.map(double)
+        |> Maybe.with_default(0)
+
+    assert mapped == Some(10)
+    assert piped == 10
+    assert absent == 0
+}
+
+test "a bare None receiver takes its type from the callback's parameter" {
+    n =
+        None
+        |> Maybe.map(|x| x * 2)
+        |> Maybe.with_default(0)
+
+    assert n == 0
+    assert Maybe.none?(Maybe.map(None, |x: Int| x * 2))
+}
+
+test "Maybe.flat_map flattens rather than nesting" {
+    some: Maybe<Int> = Some(10)
+
+    assert Maybe.flat_map(some, |x| positive_half(x)) == Some(5)
+    assert Maybe.flat_map(none_int(), |x| positive_half(x)) == none_int()
+}
+
+test "Maybe.flat_map can turn a present value into an absent one" {
+    negative: Maybe<Int> = Some(-4)
+
+    assert Maybe.flat_map(negative, |x| positive_half(x)) == none_int()
+    assert Maybe.none?(Maybe.flat_map(negative, |x| positive_half(x)))
+}
+
+test "Result.map transforms an Ok and carries the Err VALUE across" {
+    good: Result<Int, String> = Ok(7)
+
+    assert Result.map(good, |x| x * 2) == Ok(14)
+    assert Result.map(err_int(), |x| x * 2) == Err("oops")
+    assert Result.err?(Result.map(err_int(), |x| x * 2))
+    assert Result.with_default(Result.map(err_int(), |x| x * 2), 0) == 0
+}
+
+test "Result.map may change the Ok TYPE and still carry the Err value" {
+    good: Result<Int, String> = Ok(7)
+    mapped: Result<String, String> = Result.map(err_int(), |x| Int.to_string(x))
+
+    assert Result.map(good, |x| Int.to_string(x)) == Ok("7")
+    assert mapped == Err("oops")
+}
+
+test "Result.map takes a function reference, which is the corpus spelling" {
+    good: Result<Int, String> = Ok(7)
+    mapped = Result.map(good, double)
+
+    piped =
+        good
+        |> Result.map(double)
+        |> Result.with_default(0)
+
+    failed =
+        err_int()
+        |> Result.map(double)
+        |> Result.with_default(0)
+
+    assert mapped == Ok(14)
+    assert piped == 14
+    assert failed == 0
+}
+
+test "Result.flat_map flattens and can turn an Ok into an Err" {
+    good: Result<Int, String> = Ok(7)
+    negative: Result<Int, String> = Ok(-1)
+
+    assert Result.flat_map(good, |x| checked_double(x)) == Ok(14)
+    assert Result.flat_map(negative, |x| checked_double(x)) == Err("oops")
+    assert Result.flat_map(err_int(), |x| checked_double(x)) == Err("oops")
+}
+
+test "Result.map_err transforms the error and carries the Ok PAYLOAD across" {
+    good: Result<Int, String> = Ok(3)
+
+    assert Result.map_err(good, |e: String| e + "!") == Ok(3)
+    assert Result.map_err(err_int(), |e: String| e + "!") == Err("oops!")
+    assert Result.ok?(Result.map_err(good, |e: String| e + "!"))
+}
+
+test "Result.map_err may change the error TYPE" {
+    good: Result<Int, String> = Ok(3)
+    flagged: Result<Int, Bool> = Result.map_err(err_int(), |e: String| e == "oops")
+
+    assert flagged == Err(True)
+    assert Result.map_err(good, |e: String| e == "oops") == Ok(3)
+}
+
+test "the higher-order half composes with the rest of the surface" {
+    some: Maybe<Int> = Some(4)
+
+    chained =
+        some
+        |> Maybe.map(double)
+        |> Maybe.flat_map(|x| positive_half(x))
+        |> Maybe.with_default(0)
+
+    lifted = Result.from_maybe(Maybe.map(some, double), "missing")
+    dropped = Result.to_maybe(Result.map(err_int(), double))
+    through = Maybe.map(Result.to_maybe(Ok(5)), double)
+
+    assert chained == 4
+    assert lifted == Ok(8)
+    assert dropped == none_int()
+    assert through == Some(10)
+}

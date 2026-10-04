@@ -1,0 +1,230 @@
+import {
+    bool.Bool.{self, False, True}
+    comparable.Comparable
+    debug.Debug
+    discrete.Discrete
+    display.Display
+    int.Int
+    iter.Iter
+    lists.List
+    maybe.Maybe.{self, None, Some}
+    steppable.Steppable
+    strings.String
+}
+
+/// Comparable `Range`. Bounded range literals desugar to this single struct:
+/// `1..5`, `"a".."z"`, and `0.0..=1.0` carry their start/end values and whether
+/// the end is inclusive. `end` is `None` only for integer ranges built via
+/// `Range.from(N)` or `Range.naturals()`; in that case `inclusive` carries no
+/// meaning and is canonically `False`.
+///
+/// `Range<T>` impls `Iter<T>` when `T` also impls `Discrete`. Generic
+/// ranges over non-discrete comparable values are still useful as
+/// containment/interval values.
+pub opaque struct Range<T> where T: Comparable {
+    start: T
+    end: Maybe<T>
+    inclusive: Bool
+}
+
+impl Range<T> {
+    /// Returns an unbounded ascending integer range starting at `n`.
+    /// Pair with `Iter.take(N)` before materializing.
+    //! assert Range.contains?(Range.from(1), 100)
+    //! refute Range.bounded?(Range.from(1))
+    //
+    pub fn from(n: Int): Range<Int> {
+        Range{start: n, end: None, inclusive: False}
+    }
+
+    /// Returns an unbounded ascending integer range starting at 0.
+    /// Pair with `Iter.take(N)` before materializing.
+    //! assert Range.contains?(Range.naturals(), 0)
+    //! refute Range.contains?(Range.naturals(), -1)
+    //
+    pub fn naturals(): Range<Int> {
+        Range{start: 0, end: None, inclusive: False}
+    }
+
+    /// Returns a lazy iterable that advances through the range by `by`.
+    ///
+    /// Plain ranges are iterable only when their endpoint type is `Discrete`;
+    /// `step_by` is for domains where the caller supplies the step. Decimal
+    /// steps are exact. For example, `Range<Int>` can step by `Int`, while a
+    /// custom calendar type can step by `Days` when it implements
+    /// `Steppable<Days>`.
+    //! assert 1.0d..=1.3d
+    //!     |> Range.step_by(0.1d)
+    //!     |> Iter.to_list()
+    //!     |> List.equal?([1.0d, 1.1d, 1.2d, 1.3d])
+    //
+    pub fn step_by<T, S>(r: Range<T>, by: S): Iter<T> where T: Comparable and Steppable<S> {
+        StepByRange{range: r, by}
+    }
+
+    /// Whether `n` falls inside the range. Unbounded integer ranges check only
+    /// the lower bound.
+    //! assert Range.contains?(1..5, 3)
+    //! refute Range.contains?(1..5, 5)
+    //! assert Range.contains?(1..=5, 5)
+    //! assert Range.contains?(1.25d..=2.50d, 1.50d)
+    //
+    pub fn contains?<T>(r: Range<T>, n: T): Bool {
+        case r.end {
+            Some(e) -> {
+                if r.inclusive {
+                    n >= r.start and n <= e
+                } else {
+                    n >= r.start and n < e
+                }
+            }
+
+            None ->
+                n >= r.start
+        }
+    }
+
+    /// True iff the range has an upper bound. Useful as a guard before
+    /// passing an integer range to `Iter.to_list`.
+    //! assert Range.bounded?(1..5)
+    //! refute Range.bounded?(Range.from(1))
+    //
+    pub fn bounded?<T>(r: Range<T>): Bool {
+        case r.end {
+            Some(_) -> True
+            None -> False
+        }
+    }
+}
+
+impl Display for Range<T> {
+    // Use Debug for endpoints so every comparable value can be rendered, even
+    // if it has no user-facing Display impl.
+    fn to_string(r: Range<T>): String {
+        start_str = Debug.inspect(r.start)
+
+        case r.end {
+            Some(e) -> {
+                sep = if r.inclusive { "..=" } else { ".." }
+                start_str + sep + Debug.inspect(e)
+            }
+
+            None ->
+                start_str + ".."
+        }
+    }
+}
+
+impl Debug for Range<T> {
+    fn inspect(r: Range<T>): String {
+        to_string(r)
+    }
+}
+
+opaque struct StepByRange<T, S> where T: Comparable {
+    range: Range<T>
+    by: S
+}
+
+impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
+    fn each_while(s: StepByRange<T, S>, yield: (T) -> Bool): Bool {
+        r = s.range
+
+        in_bounds = case r.end {
+            Some(e) ->
+                if r.inclusive {
+                    r.start <= e
+                } else {
+                    r.start < e
+                }
+
+            None ->
+                True
+        }
+
+        if in_bounds == False {
+            True
+        } else {
+            case T.step_by(r.start, s.by) {
+                // No further step exists (the element type saturated): `r.start` is
+                // the last element.
+                None ->
+                    yield(r.start)
+
+                Some(next) -> {
+                    moved = next < r.start or next > r.start
+
+                    if moved == False {
+                        // A zero step would spin forever; stop without emitting, which is
+                        // what the pull form's `None` meant here.
+                        True
+                    } else {
+                        if yield(r.start) {
+                            each_while(StepByRange{
+                                range: Range{
+                                    start: next,
+                                    end: r.end,
+                                    inclusive: r.inclusive,
+                                },
+                                by: s.by,
+                            }, yield)
+                        } else {
+                            False
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl Iter for Range<T> where T: Discrete {
+    fn known_count(r: Range<T>): Maybe<Int> {
+        case r.end {
+            Some(e) -> {
+                if r.start > e {
+                    Some(0)
+                } else {
+                    case Discrete.steps_between(r.start, e) {
+                        Some(n) -> Some(if r.inclusive { n + 1 } else { n })
+                        None -> None
+                    }
+                }
+            }
+
+            None ->
+                None
+        }
+    }
+
+    fn each_while(r: Range<T>, yield: (T) -> Bool): Bool {
+        done = case r.end {
+            Some(e) ->
+                if r.inclusive {
+                    r.start > e
+                } else {
+                    r.start >= e
+                }
+
+            None ->
+                False
+        }
+
+        if done {
+            True
+        } else {
+            case Discrete.next(r.start) {
+                // The element type saturated: `r.start` is the last element.
+                None ->
+                    yield(r.start)
+
+                Some(next) ->
+                    if yield(r.start) {
+                        each_while(Range{start: next, end: r.end, inclusive: r.inclusive}, yield)
+                    } else {
+                        False
+                    }
+            }
+        }
+    }
+}

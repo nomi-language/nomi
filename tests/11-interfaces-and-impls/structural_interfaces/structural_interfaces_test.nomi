@@ -1,0 +1,120 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+interface HasName {
+    field name: String
+}
+
+struct Person {
+    name: String
+}
+
+impl HasName for Person
+
+struct Dog {
+    name: String
+}
+
+struct Cat {
+    lives: Int
+}
+
+struct Click {
+    id: Int
+}
+
+enum Event {
+    Idle
+    Ready Int
+    Card {rank: Int, suit: String}
+    embeds Click
+}
+
+fn greet(h: HasName): String {
+    "Hi " + h.name
+}
+
+fn echo_struct<T>(x: T): T where T: Struct {
+    x
+}
+
+fn count_shapes(shapes: List<Struct>): Int {
+    Iter.count(shapes)
+}
+
+test "interface field requirements are accessible through existential values" {
+    assert greet(Person{name: "Ada"}) == "Hi Ada"
+}
+
+test "an enum's variant shapes render through Debug" {
+    ready = Event.Ready(4)
+    card = Event.Card{rank: 2, suit: "hearts"}
+    click: Event = Click{id: 7}
+
+    assert Debug.inspect(Event.Idle) == "Idle"
+    assert Debug.inspect(ready) == "Ready(4)"
+    assert Debug.inspect(card) == "Card{rank: 2, suit: \"hearts\"}"
+    assert Debug.inspect(click) == "Click{id: 7}"
+}
+
+test "Struct is a universal interface for named and anonymous structs" {
+    shapes: List<Struct> = [Dog{name: "Fido"}, Cat{lives: 9}, {tag: "anon"}]
+    moved = Struct.update(Dog{name: "Rex"}, {name: "Max"})
+
+    assert Debug.inspect(echo_struct(Dog{name: "Rex"})) == "Dog{name: \"Rex\"}"
+    assert Debug.inspect(echo_struct({x: 1, y: 2})) == "{x: 1, y: 2}"
+    assert count_shapes(shapes) == 3
+    assert moved.name == "Max"
+}
+
+test "Struct existentials do not expose undeclared fields" {
+    diagnostics = compiler.check(
+        """
+          fn get_x(s: Struct): Int {
+            s.x
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "interface 'Struct' has no field 'x'")
+}
+
+test "Struct bounds reject non-struct values" {
+    diagnostics = compiler.check(
+        """
+          fn echo_struct<T>(x: T): T where T: Struct {
+            x
+          }
+
+          fn main() {
+            _ = echo_struct(5)
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "Int does not implement Struct")
+}
+
+test "Struct cannot be implemented by hand" {
+    diagnostics = compiler.check(
+        """
+        struct Foo {
+          x: Int
+        }
+
+        impl Struct for Foo
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "`Struct` is a built-in structural marker and cannot be implemented",
+    )
+}
+

@@ -1,0 +1,20 @@
+// A free function in a SIBLING FILE, called across the file boundary.
+//
+// This is what `file-qualified call` was: the callee lives in helpers.nomi, so
+// a builder handed only this file's checked AST has nothing to lower the call
+// to. Three shapes here and each pins a different half — an Int result, a
+// String result, a Unit result whose body prints from inside the other file,
+// and a transitive hop (helpers -> deeper) that makes the reference
+// graph two edges deep rather than one.
+import {
+    std/io
+    helpers
+}
+
+fn main() {
+    io.print("double(21) = ${helpers.double(21)}")
+    io.print(helpers.shout("hi"))
+    io.print("tripled(4) = ${helpers.tripled(4)}")
+    helpers.announce()
+    io.print("main is done")
+}

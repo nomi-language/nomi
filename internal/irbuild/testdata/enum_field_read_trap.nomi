@@ -1,0 +1,67 @@
+// The fault side of field access on an enum: the tag is not one the field
+// belongs to.
+//
+// This is reachable from type-correct source and is NOT a checker hole. The
+// checker types `s.radius` from the FIRST variant that declares `radius`, so a
+// value that turns out to be some other variant type-checks and then has
+// nowhere to read from. The interpreter's answer is an error, and WHICH error
+// depends on the subject variant's payload:
+//
+//   - the payload is a struct that lacks the name →
+//     `variant 'X' has no field 'f'`
+//   - the payload is not a struct at all, or there is none →
+//     `cannot access field 'f' on variant 'X'`
+//
+// So the message is a per-variant fact, which is why a lowering cannot emit one
+// trap for the whole switch.
+//
+// A name NO variant provides is a different thing entirely and is not here: the
+// checker rejects it outright (`enum 'Shape' has no field 'other'`), so the
+// builder never sees one.
+//
+// THIS FIXTURE PINS ITS OWN LINE NUMBERS. Every error text below embeds the
+// line the access sits on. Adding or removing a line above the last test moves
+// them.
+struct Circle {
+    radius: Float
+}
+
+type Marker Int
+
+enum Shape {
+    Rect {height: Int}
+    Wrap Circle
+    Num Int
+    embeds Marker
+    Point
+}
+
+test "struct-shaped payload without the name" {
+    s = Shape.Rect{height: 2}
+
+    assert s.radius == 0.0
+}
+
+test "positional struct payload without the name" {
+    s = Shape.Wrap(Circle{radius: 1.0})
+
+    assert s.height == 2
+}
+
+test "a scalar payload has no fields at all" {
+    s = Shape.Num(3)
+
+    assert s.height == 2
+}
+
+test "an embeds of a distinct carries no struct" {
+    s = Shape.Marker(7)
+
+    assert s.height == 2
+}
+
+test "a bare variant carries nothing" {
+    s = Shape.Point
+
+    assert s.height == 2
+}

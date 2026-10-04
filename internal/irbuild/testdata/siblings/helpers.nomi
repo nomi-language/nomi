@@ -1,0 +1,31 @@
+// A sibling FILE of main.nomi, inside the same Nomi module. `pub` is what
+// makes each of these reachable from main.nomi; `scaled` below is not `pub`
+// and is file-private, so main.nomi cannot name it and the compiled program
+// must not be able to either.
+import {
+    std/io
+    deeper
+}
+
+pub fn double(x: Int): Int {
+    scaled(x, 2)
+}
+
+pub fn shout(name: String): String {
+    name + "!"
+}
+
+pub fn announce() {
+    io.print("announced from a sibling file")
+}
+
+// A cross-file call whose callee is itself in a third file: the reference
+// graph is main -> helpers -> deeper, and the builder's unit import graph has
+// to be the same shape.
+pub fn tripled(x: Int): Int {
+    deeper.times(x, 3)
+}
+
+fn scaled(x: Int, by: Int): Int {
+    x * by
+}

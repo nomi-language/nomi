@@ -1,0 +1,45 @@
+// A `List<String>` crossing the stdlib boundary in both directions.
+//
+// `String.split` RETURNS one and `String.join` TAKES one, so the value produced
+// inside a generated stdlib package is consumed by a call from the entry
+// module's own package. That is exactly the comparison that could never succeed
+// before structural interning became process-wide: a stdFunc's kinds are built
+// once and compared BY POINTER against a call site's argument kinds in a
+// different gen, so the two `List<String>` were two unequal kinds and both
+// functions refused as "stdlib function outside the scalar subset".
+import std/io
+
+/// A USER function whose parameter type is the same `List<String>` the stdlib
+/// produces. This is the cross-gen match made explicit: the parameter's kind is
+/// built in the entry module's own gen and the argument's kind came out of the
+/// stdlib index's, and they must be the same kind for this call to lower at all.
+/// It also forces the type into a function SIGNATURE, which a plain binding
+/// does not.
+fn dashed(parts: List<String>): String {
+    String.join(parts, "-")
+}
+
+/// A `List<Int>` beside the `List<String>`, so the two live in ONE program.
+/// Without this the base-name mutation — keying the intern table on `*rt.List`
+/// instead of `*rt.List[string]` — would be invisible in this file, and the
+/// mutation is the only thing that shows the key carries the type ARGUMENTS.
+/// The body ignores the list on purpose: what is under test is the TYPE, and a
+/// fold would drag in `Iter` and measure that instead.
+fn tally(ns: List<Int>): String {
+    _ = ns
+    "ints"
+}
+
+fn main() {
+    parts = String.split("a,b,c", ",")
+    io.print(dashed(parts))
+    io.print(tally([1, 2, 3]))
+    // Adjacent separators produce empty entries, and the empty separator splits
+    // at every codepoint: both are documented in std/strings as the definition,
+    // so both are pinned rather than left to Go's default.
+    io.print(String.join(String.split(",a,", ","), "|"))
+    io.print(String.join(String.split("hey", ""), "."))
+    // The empty list joins to "", which is the nil cons cell and not a case
+    // anything special-cases.
+    io.print("[${String.join(String.split("", "x"), "-")}]")
+}

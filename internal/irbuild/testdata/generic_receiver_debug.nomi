@@ -1,0 +1,169 @@
+import {
+    std/io
+    std/tasks.{Failure, Outcome}
+}
+
+// `Debug.inspect` over three receivers that each need their own rendering, and
+// an INTRA-FILE IDENTITY-COLLAPSE check that no corpus file can carry.
+//
+// # What each group is for
+//
+// A VECTOR. Its element leaf is Debug's own, not Display's and not the
+// assertion row's: std's `impl Debug for Vector<T>` and `impl Display for
+// Vector<T>` sit twenty lines apart in std/vectors.nomi and differ in exactly
+// one call. The tour's `collections.md:L54` (`dbg names` at
+// `names: Vector<String>`) has this shape.
+//
+// A STD GENERIC ENUM. `Outcome<T>`, as in the tour's `concurrency.md:L657`
+// (`dbg outcome`). The variant walk is all-or-nothing, so the OUTER type
+// renders only when `Failed`'s payload type `Failure` has a renderer of its
+// own.
+//
+// A FUNCTION-VALUED FIELD, CALLED. `g.run(1)` is a call through a value, and
+// that has nothing to do with genericity: the monomorphic `Mono` below is the
+// control that settles it.
+//
+// # THE IDENTITY-COLLAPSE CHECK, AND WHAT IT OBSERVES
+//
+// Every renderer here is built PER KIND, and two instantiations of one generic
+// are two kinds over ONE def. So the failure mode is a renderer keyed on the
+// def: `Outcome<Int>` and `Outcome<String>` would collapse onto whichever was
+// built first, and `Vector<Int>` and `Vector<String>` likewise.
+//
+// A per-file report of refusals cannot see that, and the reason is structural
+// rather than a matter of corpus coverage: both instantiations live in the
+// SAME FILE, and a collapse produces no refusal at all. It produces a WRONG
+// STRING from a file that lowers, builds and runs. A key one axis short
+// (`Pair<Int>` and `Pair<Priority>` sharing bindings) has exactly this
+// shape. Only an unrelated check would otherwise notice it, which is why
+// this file pins it directly.
+//
+// WHAT THIS FILE OBSERVES: each generic appears at TWO instantiations whose
+// element renderings are DIFFERENT STRINGS, in one file, next to each other.
+// `Int` renders bare and `String` renders QUOTED under Debug, so a collapse
+// cannot be silent: one of the pair renders the other's leaf and the text
+// diverges from the golden record. The `Int`/`String` pairing is chosen for
+// exactly that: it is the cheapest pair of element types whose Debug renderings
+// differ by more than their digits.
+//
+// # Why a PERMUTED struct is inside a Vector
+//
+// debug_containers.nomi's argument, applied to the Vector arm. `Pt` is declared
+// `zz` then `a`: `Debug.inspect` renders declaration order (`Pt{zz: 1, a: 2}`)
+// and an assertion's `values:` row sorts the COMPOSED strings
+// (`Pt{a: 2, zz: 1}`). Those are different strings, so a Vector arm that
+// rendered its elements the way the assertion row does fails HERE, and still
+// passes every fixture whose elements are scalars, since a scalar renders the
+// same way in both.
+struct Pt {
+    zz: Int
+    a: Int
+}
+
+derive Debug for Pt
+
+// A generic struct holding a FUNCTION, which is `std/random.Generator<T>`'s
+// shape with the seed replaced by an Int. Present at two instantiations for the
+// collapse pin.
+struct Gen<T> {
+    run: (Int) -> (T, Int)
+}
+
+// The MONOMORPHIC twin. A call through a function-valued field is the same
+// operation with genericity removed, so a fixture carrying only the generic
+// form would leave the general half unpinned.
+struct Mono {
+    run: (Int) -> (Int, Int)
+}
+
+fn int_gen(): Gen<Int> {
+    Gen{run: |s| (s + 1, s)}
+}
+
+fn text_gen(): Gen<String> {
+    Gen{run: |s| ("v${s}", s)}
+}
+
+fn mono(): Mono {
+    Mono{run: |s| (s * 2, s)}
+}
+
+fn cancelled_int(): Outcome<Int> {
+    Outcome.Cancelled
+}
+
+fn cancelled_text(): Outcome<String> {
+    Outcome.Cancelled
+}
+
+fn main() {
+    // --- Vector, at two instantiations ------------------------------------
+    io.print(Debug.inspect(#[1, 2, 3]))
+    io.print(Debug.inspect(#["Ada", "Grace"]))
+
+    // Display beside Debug on ONE value, which is the pin that the element leaf
+    // is Debug's: these two strings differ only in the quoting.
+    io.print(Display.to_string(#["Ada", "Grace"]))
+
+    // The permuted struct as an element, and a nested Vector so the element
+    // renderer is applied to its own output.
+    io.print(Debug.inspect(#[Pt{zz: 1, a: 2}]))
+    io.print(Debug.inspect(#[#["a"], #["b"]]))
+    io.print(Debug.inspect([#[1], #[2]]))
+    io.print(Debug.inspect(#[Some(1), Some(2)]))
+
+    // The tour's own shape: a pushed Vector, rendered through `dbg`.
+    names =
+        #["Ada", "Grace"]
+        |> Vector.push("Katherine")
+
+    dbg names
+
+    // --- the std generic enum, at two instantiations ----------------------
+    io.print(Debug.inspect(Outcome.Completed(7)))
+    io.print(Debug.inspect(Outcome.Completed("7")))
+    io.print(Debug.inspect(cancelled_int()))
+    io.print(Debug.inspect(cancelled_text()))
+
+    // The named payload enum on its own. Without a renderer for it the whole
+    // `Outcome<T>` walk fails, so it is pinned directly and not only through
+    // its carrier.
+    io.print(Debug.inspect(Failure.Errored("boom")))
+    io.print(Debug.inspect(Failure.Panicked("aiee")))
+
+    // A std generic enum inside a container, and a Vector of one, so the two
+    // arms compose with each other in both directions.
+    io.print(Debug.inspect([Outcome.Completed(1), Outcome.Completed(2)]))
+    io.print(Debug.inspect(#[cancelled_int()]))
+
+    // --- a function-valued field, called ---------------------------------
+    ig = int_gen()
+    (n, seed) = ig.run(1)
+    io.print(Debug.inspect((n, seed)))
+
+    tg = text_gen()
+    (s, _) = tg.run(4)
+    io.print(Debug.inspect(s))
+
+    m = mono()
+    (d, _) = m.run(21)
+    io.print(Debug.inspect(d))
+
+    // --- the TWO SPELLINGS of one operation ------------------------------
+    //
+    // `Vector.inspect(v)` and `Debug.inspect(v)` are two spellings of the SAME
+    // operation: `inspect` is the method name of std's `impl Debug for
+    // Vector<T>`, so both must answer through that one body and give the same
+    // string: `#[Pt{zz: 1, a: 2}]`, in declaration order, as the golden record
+    // holds.
+    //
+    // They are pinned side by side because the builder reaches them by different
+    // routes and could give them different ELEMENT leaves, which for the permuted
+    // struct is a different string (`#[Pt{a: 2, zz: 1}]`) and therefore a live
+    // DIFF rather than a refusal. Nothing in the corpus renders a Vector of a
+    // permuted struct by either spelling, so this pair is the only thing that
+    // holds the two routes together.
+    pv = #[Pt{zz: 1, a: 2}]
+    io.print(Debug.inspect(pv))
+    io.print(Vector.inspect(pv))
+}

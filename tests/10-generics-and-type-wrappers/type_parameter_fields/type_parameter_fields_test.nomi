@@ -1,0 +1,37 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+interface HasName {
+    field name: String
+}
+
+struct Tag {
+    name: String
+}
+
+impl HasName for Tag
+
+fn name_of<T>(x: T): String where T: HasName {
+    x.name
+}
+
+test "bounded type parameters expose fields declared by their interface bounds" {
+    assert name_of(Tag{name: "Ada"}) == "Ada"
+}
+
+test "unbounded type parameters do not expose arbitrary fields" {
+    diagnostics = compiler.check(
+        """
+          fn first_field<T>(x: T): Int {
+            x.name
+          }
+
+          fn main() {}
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "type parameter `T` has no field 'name'")
+}

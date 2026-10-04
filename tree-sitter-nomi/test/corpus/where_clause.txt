@@ -1,0 +1,336 @@
+================================================================================
+Where clause with single constraint
+================================================================================
+
+interface Sortable<T> {
+  fn sort<K>(source: self, key: (T) -> K): List<T> where T: Comparable, K: Hashable {
+    source
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (interface_definition
+    name: (type_identifier)
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (interface_method
+      name: (identifier)
+      (type_parameters
+        (type_parameter
+          name: (type_parameter_identifier
+            (type_identifier))))
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type))
+        (parameter
+          name: (identifier)
+          (function_type
+            (type_identifier)
+            (type_identifier))))
+      (generic_type
+        (type_identifier)
+        (type_identifier))
+      (where_clause
+        (where_constraint
+          name: (type_parameter_identifier
+            (type_identifier))
+          (type_identifier))
+        (where_constraint
+          name: (type_parameter_identifier
+            (type_identifier))
+          (type_identifier)))
+      (body
+        (identifier)))))
+
+================================================================================
+Where clause on impl block
+================================================================================
+
+impl Iter for Range<T> where T: Discrete {
+  fn next(r: Range<T>): Maybe<(T, Range<T>)> {
+    None
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (impl_block
+    interface: (type_identifier)
+    receiver: (generic_type
+      (type_identifier)
+      (type_identifier))
+    (where_clause
+      (where_constraint
+        name: (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))
+    (function_definition
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (generic_type
+            (type_identifier)
+            (type_identifier))))
+      (generic_type
+        (type_identifier)
+        (tuple_type
+          (type_identifier)
+          (generic_type
+            (type_identifier)
+            (type_identifier))))
+      (body
+        (type_identifier)))))
+
+================================================================================
+Where clause on ordinary function
+================================================================================
+
+fn step_by<T, S>(r: Range<T>, by: S): Iter<T> where T: Comparable and Steppable<S> {
+  r
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier)))
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (parameters
+      (parameter
+        name: (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)))
+      (parameter
+        name: (identifier)
+        (type_identifier)))
+    (generic_type
+      (type_identifier)
+      (type_identifier))
+    (where_clause
+      (where_constraint
+        name: (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    (body
+      (identifier))))
+
+================================================================================
+Where clause on type declarations
+================================================================================
+
+struct Box<T> where T: Display {
+  value: T
+}
+
+enum MaybeBox<T> where T: Display {
+  Empty
+  Full Box<T>
+}
+
+interface Renderable<T> where T: Display {
+  fn render(value: self): String
+}
+
+host type Handle<T> where T: Display
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (where_clause
+      (where_constraint
+        name: (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))
+    (struct_body
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))))
+  (enum_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (where_clause
+      (where_constraint
+        name: (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))
+    (enum_body
+      (enum_variant
+        name: (type_identifier))
+      (enum_variant
+        name: (type_identifier)
+        (type_identifier)
+        (type_identifier))))
+  (interface_definition
+    name: (type_identifier)
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (where_clause
+      (where_constraint
+        name: (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type)))
+      (type_identifier)))
+  (extern_type_definition
+    (host_keyword)
+    name: (qualified_type_identifier
+      (type_identifier))
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (where_clause
+      (where_constraint
+        name: (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))))
+
+================================================================================
+Where clause on required interface method
+================================================================================
+
+interface Sortable<T> {
+  fn sort<K>(source: self, key: (T) -> K): List<T> where T: Comparable, K: Hashable
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (interface_definition
+    name: (type_identifier)
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (interface_method
+      name: (identifier)
+      (type_parameters
+        (type_parameter
+          name: (type_parameter_identifier
+            (type_identifier))))
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type))
+        (parameter
+          name: (identifier)
+          (function_type
+            (type_identifier)
+            (type_identifier))))
+      (generic_type
+        (type_identifier)
+        (type_identifier))
+      (where_clause
+        (where_constraint
+          name: (type_parameter_identifier
+            (type_identifier))
+          (type_identifier))
+        (where_constraint
+          name: (type_parameter_identifier
+            (type_identifier))
+          (type_identifier))))))
+
+================================================================================
+Where clause on derive declaration
+================================================================================
+
+derive Display for Box<T> where T: Display
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (derive_conformance
+    interface: (type_identifier)
+    receiver: (generic_type
+      (type_identifier)
+      (type_identifier))
+    (where_clause
+      (where_constraint
+        name: (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))))
+
+================================================================================
+Where clause with multiple constraints and and-joined bounds
+================================================================================
+
+interface Keyed<T> {
+  fn group<K>(source: self, key: (T) -> K): List<T> where T: Comparable, K: Hashable and Equatable {
+    source
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (interface_definition
+    name: (type_identifier)
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (interface_method
+      name: (identifier)
+      (type_parameters
+        (type_parameter
+          name: (type_parameter_identifier
+            (type_identifier))))
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type))
+        (parameter
+          name: (identifier)
+          (function_type
+            (type_identifier)
+            (type_identifier))))
+      (generic_type
+        (type_identifier)
+        (type_identifier))
+      (where_clause
+        (where_constraint
+          name: (type_parameter_identifier
+            (type_identifier))
+          (type_identifier))
+        (where_constraint
+          name: (type_parameter_identifier
+            (type_identifier))
+          (type_identifier)
+          (type_identifier)))
+      (body
+        (identifier)))))

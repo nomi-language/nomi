@@ -1,0 +1,120 @@
+// SYNTAX TEST "source.nomi" "Nomi TextMate grammar"
+
+//# File-level documentation.
+// <--- comment.line.documentation.nomi punctuation.definition.comment.nomi
+// <~~~~---------- comment.line.documentation.nomi
+/// Doubles n.
+// <--- comment.line.documentation.nomi punctuation.definition.comment.nomi
+// <~~~~------- comment.line.documentation.nomi
+//! assert double(2) == 4
+// <--- meta.attached-test.nomi comment.line.prompt.nomi
+// <~~~~------ meta.attached-test.nomi meta.embedded.line.nomi keyword.control.nomi
+// <~~~~~~~~~~~------ meta.embedded.line.nomi entity.name.function.nomi
+// <~~~~~~~~~~~~~~~~~~~~~-- meta.embedded.line.nomi keyword.operator.comparison.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~- meta.embedded.line.nomi constant.numeric.integer.nomi
+pub fn double?(n: Int): Int { todo }
+// <--- keyword.declaration.nomi
+// <~~~~-- keyword.declaration.nomi
+// <~~~~~~~------- entity.name.function.nomi
+// <~~~~~~~~~~~~~~~- variable.other.nomi
+// <~~~~~~~~~~~~~~~~~~--- entity.name.type.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~---- keyword.control.nomi
+x = 1 // trailing comment
+// <~~~~~~-- comment.line.double-slash.nomi punctuation.definition.comment.nomi
+// <~~~~~~~~~-------- comment.line.double-slash.nomi
+greeting = "hi ${name}!\n \u{1F600} \${ \q"
+// <~~~~~~~~~~~- string.quoted.double.nomi punctuation.definition.string.begin.nomi
+// <~~~~~~~~~~~~-- string.quoted.double.nomi
+// <~~~~~~~~~~~~~~~-- string.quoted.double.nomi meta.interpolation.nomi punctuation.section.interpolation.begin.nomi
+// <~~~~~~~~~~~~~~~~~---- meta.interpolation.nomi meta.embedded.line.nomi variable.other.nomi
+// <~~~~~~~~~~~~~~~~~~~~~- meta.interpolation.nomi punctuation.section.interpolation.end.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~-- string.quoted.double.nomi constant.character.escape.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~--------- string.quoted.double.nomi constant.character.escape.unicode.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--- string.quoted.double.nomi constant.character.escape.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- string.quoted.double.nomi invalid.illegal.escape.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- string.quoted.double.nomi punctuation.definition.string.end.nomi
+m = "${Map.get(ages, #{"a": 1})}"
+// <~~~~~~~--- meta.embedded.line.nomi entity.name.type.nomi
+// <~~~~~~~~~~~--- meta.embedded.line.nomi entity.name.function.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~--- meta.embedded.line.nomi string.quoted.double.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~- meta.embedded.line.nomi constant.numeric.integer.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- meta.interpolation.nomi punctuation.section.interpolation.end.nomi
+day = Date"2026-05-04"
+// <~~~~~~---- string.quoted.double.nomi entity.name.type.literal.nomi
+// <~~~~~~~~~~~---------- string.quoted.double.nomi
+spaced = Date "not a typed literal"
+// <~~~~~~~~~---- entity.name.type.nomi
+digits = Regex`\d{3,4}`
+// <~~~~~~~~~----- string.quoted.other.raw.nomi entity.name.type.literal.nomi
+// <~~~~~~~~~~~~~~- string.quoted.other.raw.nomi punctuation.definition.string.begin.nomi
+// <~~~~~~~~~~~~~~~------- string.quoted.other.raw.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~- string.quoted.other.raw.nomi punctuation.definition.string.end.nomi
+raw = `no ${interpolation} \n here`
+// <~~~~~~~~~~---------------- string.quoted.other.raw.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~-- string.quoted.other.raw.nomi
+query = Sql"""
+// <~~~~~~~~--- string.quoted.triple.nomi entity.name.type.literal.nomi
+// <~~~~~~~~~~~--- string.quoted.triple.nomi punctuation.definition.string.begin.nomi
+    SELECT * FROM users WHERE id = ${id} \n \${
+// <~~~~------ string.quoted.triple.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- string.quoted.triple.nomi meta.interpolation.nomi meta.embedded.line.nomi variable.other.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- string.quoted.triple.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--- string.quoted.triple.nomi constant.character.escape.nomi
+    """
+// <~~~~--- string.quoted.triple.nomi punctuation.definition.string.end.nomi
+quote = '\''
+// <~~~~~~~~---- constant.character.nomi
+// <~~~~~~~~~-- constant.character.nomi constant.character.escape.nomi
+n = 1_000_000 + 0xFF_FF + 0b1010 + 1.5e3 + 2.50d
+// <~~~~--------- constant.numeric.integer.nomi
+// <~~~~~~~~~~~~~~~~------- constant.numeric.integer.hex.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~------ constant.numeric.integer.binary.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~----- constant.numeric.float.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~----- constant.numeric.decimal.nomi
+names = people |> Iter.map(.name) |> Iter.to_list()
+// <~~~~~~~~~~~~~~~-- keyword.operator.pipe.nomi
+// <~~~~~~~~~~~~~~~~~~---- entity.name.type.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~--- entity.name.function.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~- punctuation.accessor.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~---- variable.other.property.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~------- entity.name.function.nomi
+adults = Iter.filter(people, |p| p.age >= 18)
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- keyword.operator.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--- variable.other.property.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.comparison.nomi
+shape = .Circle(1.0)
+// <~~~~~~~~- punctuation.accessor.nomi
+// <~~~~~~~~~------ variable.other.enummember.nomi
+// <~~~~~~~~~~~~~~~~--- constant.numeric.float.nomi
+color = Color.Red
+// <~~~~~~~~----- entity.name.type.nomi
+// <~~~~~~~~~~~~~~--- entity.name.type.nomi
+case shape { .Circle(r) => r, _ => 0.0 }
+// <---- keyword.control.nomi
+// <~~~~~~~~~~~~~~------ variable.other.enummember.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.arrow.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- comment.discard.nomi
+span = 0..=10
+// <~~~~~~~~--- keyword.operator.range.nomi
+import std/test.Thing
+// <------ keyword.declaration.nomi
+// <~~~~~~~~~~~---- variable.other.nomi
+// <~~~~~~~~~~~~~~~~----- entity.name.type.nomi
+host fn now(): Int
+// <---- keyword.declaration.nomi
+// <~~~~~~~~--- entity.name.function.nomi
+tests "group" {
+// <----- keyword.declaration.nomi
+// <~~~~~~------- string.quoted.double.nomi
+    clock Clock.Virtual
+// <~~~~----- keyword.declaration.nomi
+    test "adds", db {
+// <~~~~---- keyword.declaration.nomi
+// <~~~~~~~~~~~~~~~~~-- variable.other.nomi
+        assert true and not_done? or false
+// <~~~~~~~~------ keyword.control.nomi
+// <~~~~~~~~~~~~~~~---- constant.language.boolean.nomi
+// <~~~~~~~~~~~~~~~~~~~~--- keyword.operator.word.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~--------- variable.other.nomi
+    }
+}

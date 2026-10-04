@@ -1,0 +1,19 @@
+// The subject's type is never spelled in this file: it comes from
+// `ticket.make`. The patterns name the selectively imported `Status`, so the
+// qualifier `Status` is resolved for the first time by a pattern.
+import ticket.{self, Status}
+
+pub fn describe(n: Int): String {
+    case ticket.make(n) {
+        Status.Open -> "open"
+        Status.Assigned("nobody") -> "assigned to nobody"
+        Status.Assigned(name) -> "assigned to ${name}"
+        Status.Blocked(k) when k > 3 -> "blocked on ${k} tickets"
+        Status.Blocked(k) -> "blocked on a few (${k})"
+        Status.Paired((a, b)) -> "paired ${a}+${b}"
+        Status.Noted(ticket.Note{text}) -> "noted: ${text}"
+        Status.Closed{reason: "duplicate"} -> "closed as a duplicate"
+        Status.Closed{reason, days: 0} -> "closed today: ${reason}"
+        Status.Closed{reason, days} -> "closed ${days} days ago: ${reason}"
+    }
+}

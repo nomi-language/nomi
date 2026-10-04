@@ -1,0 +1,81 @@
+import {
+    std/duration.Duration
+    std/io
+    app.{self, EffectsApp}
+    clocks.FakeClock
+    effects.{Clock, Console, Logger}
+    greeter
+}
+
+struct SetupHandle {
+    label: String
+}
+
+fn close(_value: SetupHandle): Unit {
+    Unit
+}
+
+pub fn boot(startup: Startup): EffectsApp {
+    deployment = case Map.get(startup.env, "NOMI_ENV") {
+        Some(value) -> value
+        None -> "dev"
+    }
+
+    app.load(deployment, Context.root())
+}
+
+fn main() {
+    io.print("deployment=${EffectsApp.deployment}")
+    io.print("port=${EffectsApp.port}")
+    io.print("database=${EffectsApp.database_url}")
+    io.print("max=${EffectsApp.max_connections}")
+
+    prod = app.load("prod", EffectsApp.context)
+
+    io.print(
+        "loaded-prod=${prod.deployment}:${prod.port}:${prod.database_url}:${prod.max_connections}"
+    )
+
+    io.print("active-app-after-load=${EffectsApp.deployment}")
+
+    io.print("fake-clock=${Clock.now(FakeClock{at: 12345})}")
+
+    handle = SetupHandle{label: "ready"}
+    defer close(handle)
+    io.print("cleanup=${handle.label}")
+
+    io.print("clock-before=${Clock.now(EffectsApp.clock)}")
+
+    {
+        with EffectsApp.clock = FakeClock{at: 4242}
+        io.print("clock-inside=${Clock.now(EffectsApp.clock)}")
+    }
+
+    io.print("clock-after=${Clock.now(EffectsApp.clock)}")
+
+    io.print(
+        "context-before=${Context.deadline_remaining(EffectsApp.context) == Some(
+            Duration.seconds(0)
+        )}"
+    )
+
+    {
+        with EffectsApp.context = Context.with_timeout(EffectsApp.context, Duration.seconds(0))
+
+        io.print(
+            "context-inside=${Context.deadline_remaining(EffectsApp.context) == Some(
+                Duration.seconds(0)
+            )}"
+        )
+    }
+
+    io.print(
+        "context-after=${Context.deadline_remaining(EffectsApp.context) == Some(
+            Duration.seconds(0)
+        )}"
+    )
+
+    greeter.greet("Ada")
+    Logger.warn(EffectsApp.logger, "config checked")
+    Console.writeln(EffectsApp.console, "console ready")
+}

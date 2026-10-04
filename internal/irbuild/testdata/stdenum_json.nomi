@@ -1,0 +1,177 @@
+// `std/json.Json` end to end: construction, pattern matching including the
+// nested map-pattern form, `decode`, `encode`, and Display/Debug rendering.
+//
+// # WHY THIS FIXTURE HAS TO EXIST RATHER THAN A UNIT TEST
+//
+// `Json` is the FIRST SELF-REFERENTIAL type in any of the shared-def families --
+// `Arr List<Json>` and `Obj Map<String, Json>` name the type being declared --
+// and the reflection guards beside it (TestStdEnumSlotsMatchRT,
+// TestStdEnumDefsArePackageNeutral) check the LAYOUT without ever building a
+// value. What they cannot see is whether a `case` over seven variants reads the
+// right rt field back out, whether a Map payload's entries survive the boundary
+// in insertion order, or whether the emitted value resolves to std's own
+// `impl Display for Json` rather than to something of the same shape.
+//
+// # WHAT IS PROVED HERE AND NOWHERE ELSE, per section
+//
+//   - Six payload positions, one per rt field. `CalendarError`'s five variants
+//     share one `Msg`, so no existing fixture distinguishes a spec that pointed
+//     two variants at one field. Here every field is a different Go type, so a
+//     collapsed pair does not compile -- and the read-back below is what proves
+//     each `case` arm names the field its own variant stores into.
+//   - The NESTED MAP PATTERN. `Obj({"name" => String(n)})` is the whole point of
+//     std/json being a typed tagged enum rather than `Dynamic`: it descends a
+//     Map payload, matches a String key, and matches the VARIANT of the value
+//     found there. Three mechanisms in one arm.
+//   - TWO KEY ORDERINGS, which is the pair a single-direction test cannot see.
+//     `decode` inserts object keys SORTED and `encode` emits a Map's INSERTION
+//     order, so a decoded object re-encodes sorted while a hand-built one keeps
+//     its own spelling. Both are asserted, and they disagree on purpose.
+//   - DISPLAY AND DEBUG. `12-derives-and-standard-interfaces/display_debug_test.nomi`
+//     asserts `Display.to_string(Json.Int(42)) == "42"`, so a wrong rendering is
+//     a wrong ANSWER in the corpus and not a missing feature. `impl Display for
+//     Json` is `Json.encode(jv)` in std/json.nomi, so this row only reads
+//     correctly if the emitted value reaches THAT impl.
+//   - `Json.DecodeError`, through the TYPE-QUALIFIED spelling
+//     `Json.DecodeError.to_string(e)`. That spelling skipped `implCall`
+//     entirely until this slice -- a dotted qualifier was not one of the callee
+//     shapes the guard enumerated -- so `Display.to_string(e)` lowered and this
+//     one did not. It is the spelling the corpus file uses.
+//
+// # THE NEGATIVE CONTROL
+//
+// `Local` is an enum declared HERE, with a container payload of its own, and
+// `describe_local` reads it. It is not decoration: every arm above routes
+// through the process-wide std def, so a change that made the std path the ONLY
+// path would leave this fixture green while breaking every user enum. The
+// control fails in that case and nothing else here would.
+//
+// Deliberately absent: `Json.to_dynamic`. `Dynamic` is a `pub host type` with no
+// rt representation, so it refuses by name, and a fixture that reached for it
+// would fail for a reason it is not about.
+import {
+    std/io
+    std/json.Json
+}
+
+// A user enum with a container payload, so the local route is exercised beside
+// the shared-def one.
+enum Local {
+    Items List<Int>
+    Named Map<String, Int>
+    Empty
+}
+
+fn describe_local(l: Local): String {
+    case l {
+        .Items(xs) -> "items:${Iter.count(xs)}"
+        .Named(m) -> "named:${Map.size(m)}"
+        .Empty -> "empty"
+    }
+}
+
+// Every variant, so all six payload fields plus the bare one are read back.
+fn describe(jv: Json): String {
+    case jv {
+        Json.String(s) -> "string:" + s
+        Json.Int(n) -> "int:${n}"
+        Json.Float(f) -> "float:${f}"
+        Json.Bool(b) -> "bool:${b}"
+        Json.Arr(items) -> "arr:${Iter.count(items)}"
+        Json.Obj(fields) -> "obj:${Map.size(fields)}"
+        Json.Null -> "null"
+    }
+}
+
+// The nested map pattern: descend an Obj, match a String key, match the
+// VARIANT of the value bound there.
+fn name_of(jv: Json): String {
+    case jv {
+        Json.Obj({"name" => Json.String(n)}) -> "named " + n
+        Json.Obj(_) -> "object without a String name"
+        _ -> "not an object"
+    }
+}
+
+fn decode_error(src: String): String {
+    case Json.decode(src) {
+        Ok(_) -> "unexpectedly parsed"
+        Err(e) -> Json.DecodeError.to_string(e)
+    }
+}
+
+fn decode_kind(src: String): String {
+    case Json.decode(src) {
+        Ok(jv) -> Json.kind(jv)
+        Err(_) -> "error"
+    }
+}
+
+fn main() {
+    // --- every payload position, read back out of its own rt field ----------
+    io.print(describe(Json.String("hi")))
+    io.print(describe(Json.Int(7)))
+    io.print(describe(Json.Float(2.5)))
+    io.print(describe(Json.Bool(True)))
+    io.print(describe(Json.Arr[Json.Int(1), Json.Int(2), Json.Int(3)]))
+    io.print(describe(Json.Obj{"a" => Json.Int(1), "b" => Json.Null}))
+    io.print(describe(Json.Null))
+
+    // --- the empty container shapes: a nil List and a zero Map --------------
+    //
+    // The empty Obj is reached through `decode` rather than through a literal.
+    // `Json.Obj{}` is REJECTED by the interpreter (`Map.size: argument must be a
+    // map`) because an empty brace literal in variant position has no key or value
+    // type to solve from, so the spelling is a front-end/eval limitation and not
+    // this builder's -- a fixture written over it would fail for a reason it is
+    // not about. Decoding `{}` produces the same zero Map and is a spelling both
+    // paths accept.
+    io.print(describe(Json.Arr[]))
+
+    case Json.decode("{}") {
+        Ok(jv) -> io.print(describe(jv))
+        Err(_) -> io.print("decode failed")
+    }
+
+    // --- the nested map pattern ---------------------------------------------
+    io.print(name_of(Json.Obj{"name" => Json.String("Ada"), "age" => Json.Int(36)}))
+    io.print(name_of(Json.Obj{"age" => Json.Int(36)}))
+    io.print(name_of(Json.Int(1)))
+
+    // --- encode: a hand-built object keeps its INSERTION order --------------
+    io.print(
+        Json.encode(Json.Obj{"x" => Json.Int(1), "y" => Json.Float(2.5), "ok" => Json.Bool(True)})
+    )
+
+    // The documented lossiness: a whole Float loses its point.
+    io.print(Json.encode(Json.Float(36.0)))
+    io.print(Json.encode(Json.Arr[Json.Null, Json.String("q\"r")]))
+
+    // --- decode, then encode: object keys come back SORTED ------------------
+    io.print(decode_kind("{\"b\": 2, \"a\": 1}"))
+
+    case Json.decode("{\"b\": 2, \"a\": 1, \"c\": [true, null]}") {
+        Ok(jv) -> io.print(Json.encode(jv))
+        Err(_) -> io.print("decode failed")
+    }
+
+    // Int and Float are split at parse time by the LEXEME, not by the value.
+    io.print(decode_kind("36"))
+    io.print(decode_kind("36.0"))
+
+    // --- the error vocabulary, through the type-qualified spelling ----------
+    io.print(decode_error("not json"))
+    io.print(decode_error("{\"a\":"))
+    io.print(decode_error(""))
+    io.print(decode_error("{} extra"))
+    io.print(decode_error("1e999"))
+
+    // --- Display and Debug both route through std's own impls --------------
+    io.print("display:" + Display.to_string(Json.Int(42)))
+    io.print("display_obj:" + Display.to_string(Json.Obj{"k" => Json.Bool(False)}))
+
+    // --- the negative control: a user enum with a container payload --------
+    io.print(describe_local(Local.Items[1, 2]))
+    io.print(describe_local(Local.Named{"k" => 9}))
+    io.print(describe_local(Local.Empty))
+}

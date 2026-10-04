@@ -1,0 +1,36 @@
+//# Where the time comes from and where lines are read and written.
+
+import {
+    std/instant.Instant
+    std/io
+}
+
+pub interface Clock {
+    fn now(clock: self): Instant
+}
+
+pub type SystemClock
+
+impl Clock for SystemClock {
+    fn now(_clock: SystemClock): Instant {
+        Instant.now()
+    }
+}
+
+pub interface Console {
+    fn read_line(console: self): Maybe<String>
+    fn write_line(console: self, line: String)
+}
+
+/// Standard input and output.
+pub type Terminal
+
+impl Console for Terminal {
+    fn read_line(_console: Terminal): Maybe<String> {
+        io.read_line() |> Result.to_maybe()
+    }
+
+    fn write_line(_console: Terminal, line: String) {
+        io.print(line)
+    }
+}

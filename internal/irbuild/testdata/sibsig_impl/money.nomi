@@ -1,0 +1,21 @@
+// A sibling file that declares a struct AND an `impl Equatable` for it.
+//
+// The impl is deliberately NOT structural — `note` is ignored — so the two
+// candidate answers DIFFER: the interpreter dispatches to this body and answers
+// True for two Moneys with equal cents and different notes, while the
+// structural comparator answers False. A fixture whose impl and structural walk
+// agreed would pass under either rule and prove nothing.
+pub struct Money {
+    cents: Int
+    note: String
+}
+
+pub fn at(cents: Int, note: String): Money {
+    Money{cents, note}
+}
+
+impl Equatable for Money {
+    fn equal?(a: Money, b: Money): Bool {
+        a.cents == b.cents
+    }
+}

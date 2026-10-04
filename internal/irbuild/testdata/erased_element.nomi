@@ -1,0 +1,122 @@
+// Two interfaces in ONE module, each appearing as a structural COMPONENT.
+//
+// Every interface existential renders the same Go type — `rt.Dyn` — so
+// `List<Alpha>` and `List<Beta>` render `*rt.List[rt.Dyn]` and `Maybe<Alpha>`
+// and `Maybe<Beta>` render `rt.Maybe[rt.Dyn]`. An intern table keyed on that
+// text alone meets each pair as ONE entry with two Nomi spellings. With such
+// a table the list pair killed the compiler with `panic: irbuild: Go type
+// *rt.List[rt.Dyn] interned for two Nomi types`, and the Maybe pair was
+// quieter and worse — it collapsed silently and the second one's payload then
+// refused with `existential of another interface (Beta.b wants Beta, got
+// Alpha)`, a reason that is simply false about the program.
+//
+// The interpreter runs this correctly and always did, and no corpus program
+// reaches either shape.
+//
+// The transcript is what makes this more than a lowering check. Each interface
+// prints a DIFFERENT string for the same receiver, and two receivers implement
+// both — so a run in which one interface's table answered for the other is a
+// different transcript rather than an equal one, and a builder that merely
+// stopped crashing does not pass.
+import std/io
+
+pub interface Alpha {
+    fn a(value: self): String
+}
+
+pub interface Beta {
+    fn b(value: self): String
+}
+
+struct P {
+    n: Int
+}
+
+impl Alpha for P {
+    fn a(value: P): String {
+        "A/P" + Int.to_string(value.n)
+    }
+}
+
+impl Beta for P {
+    fn b(value: P): String {
+        "B/P" + Int.to_string(value.n)
+    }
+}
+
+struct Q {
+    s: String
+}
+
+impl Alpha for Q {
+    fn a(value: Q): String {
+        "A/Q" + value.s
+    }
+}
+
+impl Beta for Q {
+    fn b(value: Q): String {
+        "B/Q" + value.s
+    }
+}
+
+// The LIST pair. Declared Alpha-first so the interning order is the one that
+// crashed: the second spelling is the one that found an entry already there.
+//
+// The element is dispatched through a separate parameter rather than inside a
+// lambda over the list, because a lambda parameter whose inferred type is a
+// user interface is refused in its own right (`unrepresentable inferred
+// type`) and this fixture is not about that gap. The LIST TYPE is what has to
+// reach the intern table, and a parameter annotation is what puts it there.
+fn join_alphas(xs: List<Alpha>, extra: Alpha): String {
+    Int.to_string(Iter.count(xs)) + "/" + Alpha.a(extra)
+}
+
+fn join_betas(xs: List<Beta>, extra: Beta): String {
+    Int.to_string(Iter.count(xs)) + "/" + Beta.b(extra)
+}
+
+// The MAYBE pair, which is the same collision in the prelude table.
+//
+// Both parameter annotations intern an instance, which is all the collision
+// needs — and the `Some` arms are the assertion that the two instances stayed
+// apart, because the collapsed def made `Beta.b(v)` refuse with `existential
+// of another interface (Beta.b wants Beta, got Alpha)`. They are LOWERED here
+// and not executed: `Some(pa)` at a `Maybe<Alpha>` is refused in its own right
+// (`non-scalar type argument`), so main can only reach the None arms. The
+// transcript therefore proves the None side and the lowering proves the Some
+// side; the unit test beside this reads the two instances' type arguments
+// back directly.
+fn show_alpha(m: Maybe<Alpha>): String {
+    case m {
+        Some(v) -> Alpha.a(v)
+        None -> "A/none"
+    }
+}
+
+fn show_beta(m: Maybe<Beta>): String {
+    case m {
+        Some(v) -> Beta.b(v)
+        None -> "B/none"
+    }
+}
+
+fn main() {
+    p = P{n: 7}
+    q = Q{s: "z"}
+
+    // Widened one at a time: a list LITERAL whose elements need widening to an
+    // existential is a separate gap (`list element type mismatch`), and this
+    // fixture is about the intern key rather than that.
+    pa: Alpha = p
+    qa: Alpha = q
+    pb: Beta = p
+    qb: Beta = q
+    alphas: List<Alpha> = [pa, qa]
+    betas: List<Beta> = [pb, qb]
+    io.print(join_alphas(alphas, qa))
+    io.print(join_betas(betas, qb))
+
+    io.print(show_alpha(None))
+    io.print(show_beta(None))
+}

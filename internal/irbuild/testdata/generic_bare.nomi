@@ -1,0 +1,49 @@
+import std/io
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+/// A bound-free generic function whose every type-parameter mention is a bare
+/// type parameter. ONE declaration, and the program below instantiates it at
+/// eight different types — a fixture with a single instantiation would pass
+/// under a representation that collapsed them all into one.
+fn first<T>(x: T): T {
+    x
+}
+
+/// Two type parameters, so the two identities have to stay apart: the result is
+/// `A` and never `B`, and a call binding them to different types must not be
+/// able to confuse the slots.
+fn pick<A, B>(a: A, _b: B): A {
+    a
+}
+
+/// A generic function whose RESULT mentions no type parameter, so the call site
+/// has nothing to assert back. The type parameter is still carried.
+fn tally<T>(_value: T, n: Int): Int {
+    n + 1
+}
+
+fn main() {
+    io.print("${first(7)}")
+    io.print("${first("value")}")
+    io.print(if first(True) { "yes" } else { "no" })
+    io.print("${first(2.5)}")
+    io.print("${first([1, 2, 3])}")
+    io.print("${first((4, "five"))}")
+    io.print("${first(Point{x: 1, y: 2}).x}")
+    io.print("${first(first(11))}")
+
+    io.print("${pick(1, "b")}")
+    io.print("${pick("a", 2)}")
+    io.print("${pick(Point{x: 6, y: 7}, pick(3, 4.5)).x}")
+
+    io.print("${tally("anything", 1)}")
+    io.print("${tally(9, 2)}")
+
+    io.print("${first<Int>(13)}")
+    io.print("${first<String>("turbofish")}")
+    io.print("${pick<Int, String>(14, "unused")}")
+}

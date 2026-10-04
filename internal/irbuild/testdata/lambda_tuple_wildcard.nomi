@@ -1,0 +1,75 @@
+import std/io
+
+fn vals<K, V>(m: Map<K, V>): List<V> {
+    Iter.map(m, |(_, v)| v) |> Iter.to_list()
+}
+
+fn main() {
+    m = {"a" => 1, "b" => 2}
+    pairs = [("x", 10), ("y", 20)]
+    nested = [(1, (2, 3)), (4, (5, 6))]
+
+    io.inspect(
+        m
+        |> Iter.map(|(_, v)| v)
+        |> Iter.to_list()
+    )
+
+    io.inspect(
+        m
+        |> Iter.map(|(k, _)| k)
+        |> Iter.to_list()
+    )
+
+    io.inspect(
+        m
+        |> Iter.map(|(_, _)| 0)
+        |> Iter.to_list()
+    )
+
+    io.inspect(
+        pairs
+        |> Iter.map(|(_, v)| v)
+        |> Iter.to_list()
+    )
+
+    io.inspect(
+        pairs
+        |> Iter.map(|(k, _)| k)
+        |> Iter.to_list()
+    )
+
+    io.inspect(
+        nested
+        |> Iter.map(|(_, (a, _))| a)
+        |> Iter.to_list()
+    )
+
+    io.inspect(
+        m
+        |> Iter.filter(|(_, v)| v > 1)
+        |> Iter.to_list()
+    )
+
+    io.inspect(
+        pairs
+        |> Iter.filter(|(_, v)| v > 10)
+        |> Iter.to_list()
+    )
+
+    io.inspect(
+        m
+        |> Iter.reduce(|acc = 0, (_, v)| acc + v)
+    )
+
+    io.inspect(
+        pairs
+        |> Iter.reduce(|acc = 0, (_, v)| acc + v)
+    )
+
+    m |> Iter.each(|(_, v)| io.inspect(v))
+
+    pairs |> Iter.each(|(k, _)| io.print(k))
+
+    io.inspect(vals(m))
+}

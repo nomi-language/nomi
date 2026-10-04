@@ -1,0 +1,11 @@
+import std/io
+
+fn op(a: Int, b: Int): Int {
+    a - b
+}
+
+fn main() {
+    io.print("before")
+    io.print("${op(-9223372036854775807 - 1, 1)}")
+    io.print("after")
+}

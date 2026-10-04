@@ -1,0 +1,25 @@
+// A typed-literal handler in a SIBLING file, at the DISCRIMINATING
+// instantiation.
+//
+// `Fragment<Int>` is the instantiation where a swapped payload is a Go compile
+// error rather than an identical transcript: `Static`'s payload is `string` at
+// every instantiation and `Dynamic`'s is `int64` here, so a lowering that read
+// the two the other way round cannot build. At `T = String` — which is what
+// most of the corpus writes — the two are the same Go type and the swap is
+// invisible.
+import std/literals.{Fragment, Literal}
+
+/// Zero-sized tag carrier. `Tally"..."` sums the `${...}` slots and counts the
+/// characters of the static text around them.
+pub type Tally
+
+impl Literal for Tally {
+    fn from_fragments(fragments: List<Fragment<Int>>): Int {
+        Iter.reduce(fragments, |acc = 0, frag|
+            case frag {
+                .Static(s) -> acc + String.length(s)
+                .Dynamic(n) -> acc + n
+            }
+        )
+    }
+}

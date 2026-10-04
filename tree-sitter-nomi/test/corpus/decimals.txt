@@ -1,0 +1,65 @@
+==========
+Decimal literal (lowercase d)
+==========
+
+once price = 1.50d
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (decimal)))
+
+==========
+Decimal literal integer mantissa
+==========
+
+once n = 5d
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (decimal)))
+
+==========
+Decimal literal uppercase D
+==========
+
+once x = 1.50D
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (decimal)))
+
+==========
+Decimal with underscore separators
+==========
+
+once big = 1_000.00d
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (decimal)))
+
+==========
+Float with exponent then ident is not a decimal
+==========
+
+once e = 1.5e3d
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (float))
+  (identifier))

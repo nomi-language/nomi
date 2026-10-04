@@ -1,0 +1,32 @@
+import {
+    std/instant.Instant
+    std/io
+}
+
+// Probe: a generated stdlib package reached ONLY TRANSITIVELY.
+//
+// Every name in this program belongs to std/instant. The Duration that
+// `Instant.between` returns is built by std/duration and consumed by
+// std/instant's own `impl Add<Duration, Instant>`, so nothing here names a
+// `Duration.` function and `std/duration` is never a DIRECT use.
+//
+// The generated artifact must contain std/duration's package all the same,
+// which is what makes Generate's transitive closure over `pkgDeps` load-bearing
+// rather than decorative. It has to be its own file: put this beside a test
+// that calls `Duration.seconds` and the package becomes a direct use, the
+// closure stops mattering, and the mutation that removes it is invisible.
+// MEASURED — removing the closure leaves `named_type_arith.nomi` compiling and
+// breaks only this one.
+fn shift(base: Instant, from: Instant, to: Instant): Instant {
+    base + Instant.between(from, to)
+}
+
+fn main() {
+    base = Instant.from_seconds(100)
+    a = Instant.from_seconds(10)
+    b = Instant.from_seconds(15)
+
+    io.print("forward = ${Int.to_string(Instant.to_seconds(shift(base, a, b)))}")
+    io.print("backward = ${Int.to_string(Instant.to_seconds(shift(base, b, a)))}")
+    io.print("zero = ${Int.to_string(Instant.to_seconds(shift(base, a, a)))}")
+}

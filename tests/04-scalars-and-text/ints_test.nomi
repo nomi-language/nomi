@@ -1,0 +1,43 @@
+import std/int.PositiveInt
+
+test "ints convert to floats" {
+    assert Int.to_float(5) == 5.0
+    assert Int.to_float(-7) == -7.0
+    assert Int.to_float(0) == 0.0
+}
+
+test "non-zero refinement validates divisors" {
+    assert Int.to_non_zero(5)
+    assert Int.to_non_zero(-3)
+    assert Int.to_non_zero(0) == None
+}
+
+test "non-zero integers make division and modulo total" {
+    assert Some(divisor) = Int.to_non_zero(3)
+    assert Some(negative_divisor) = Int.to_non_zero(2)
+
+    assert Int.divide(10, divisor) == 3
+    assert Int.divide(-7, negative_divisor) == -3
+    assert Int.modulo(10, divisor) == 1
+}
+
+test "positive refinement is stricter than non-zero" {
+    assert Int.to_positive(5)
+    assert Int.to_positive(0) == None
+    assert Int.to_positive(-3) == None
+}
+
+fn divide_by_positive(x: Int, divisor: Int): Int {
+    case Int.to_positive(divisor) {
+        .Some(p) -> Int.divide(x, PositiveInt.to_non_zero(p))
+        .None -> 0
+    }
+}
+
+test "positive integers can be used as non-zero divisors" {
+    assert divide_by_positive(20, 6) == 3
+}
+
+test "positive refinement rejects zero divisors" {
+    assert divide_by_positive(20, 0) == 0
+}

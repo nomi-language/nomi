@@ -1,0 +1,159 @@
+import {
+    std/channels.{Channel, ChannelClosed, Receiver, Sender}
+    std/io
+}
+
+// `std/channels` — a buffered channel driven SYNCHRONOUSLY, which is what makes
+// this fixture possible at all.
+//
+// This fixture uses no `concurrent` block and no `Task.spawn`, so the program
+// runs on exactly one goroutine. A buffered channel
+// sent-and-received from that one goroutine needs no second party, so every row
+// below runs on both paths — and a program that blocked would hang the sweep
+// rather than diff, which is why the capacity is always larger than the number
+// of pending values.
+//
+// The pairs each row is chosen to let disagree:
+//
+//   - FIFO ORDER. Derived on the interpreter from a Go `chan value.Value` inside
+//     `value.ChannelVal` and in rt from a `chan T` inside `rt.Chan[T]`. Three
+//     values in and three out, printed in receive order, so a LIFO or a
+//     reordering is a wrong answer rather than a tolerated one.
+//   - `Sender.send`'s RESULT SHAPE. It is `Result<Unit, ChannelClosed>`, an
+//     instantiation neither the interpreter nor the builder can produce by
+//     accident: the `E` is a marker the program never spells at the call. The
+//     `case` below reads BOTH arms, so an `Ok` rendered as an `Err` or a
+//     `ChannelClosed` whose TypeName is empty prints differently.
+//   - CLOSE-THEN-DRAIN. std documents that a closed channel delivers its
+//     remaining buffered values before answering `None`, which is Go's own
+//     two-value receive — but only if the closed FLAG and the channel agree.
+//     `drain_after_close` sends two, closes, and receives THREE times, so a
+//     close that discarded the buffer prints `None` where the other path prints
+//     a value.
+//   - CLOSE-THEN-SEND. `Sender.send` on a closed channel must be
+//     `Err(ChannelClosed)` and must NEVER panic; a bare Go send on a closed
+//     channel panics, so this row fails loudly if the flag check is dropped.
+//   - RECEIVE ON A CLOSED, EMPTY channel, twice. std documents that every call
+//     after the drain answers `None`, so a second receive that blocked or
+//     panicked is caught here and nowhere else.
+//   - THE TWO HALVES CROSSING A SIGNATURE BOUNDARY, in both directions and
+//     separately. `feed` takes a `Sender<Int>` and `take_one` takes a
+//     `Receiver<Int>`, so a representation that is only correct at a
+//     construction site fails here — and because the two halves are two Go types
+//     over one runtime object, passing the wrong one is a Go compile error rather
+//     than a wrong answer.
+//   - `Channel<T>` ITSELF crossing a boundary. `both` takes the pair, which is
+//     the generic-std-struct row, and reads both fields — so a field ORDER or a
+//     field NAME that disagrees with rt's exported spelling fails.
+//   - A NON-SCALAR element. `Channel<String>` is the same machinery at a second
+//     instantiation, and it is what would catch an rt function accidentally
+//     monomorphic in `int64`.
+//
+// What is deliberately NOT here: any `==` on a channel or a half, any `Display`
+// or `Debug` of one, and any map keyed on one. std declares none of those
+// interfaces for these types, so all four are refusals rather than gaps — see
+// channels.go's own note.
+// `describe` is the row that makes `ChannelClosed` cross a SIGNATURE boundary
+// rather than only appearing inside `Sender.send`'s result. It is a nil-inner
+// MARKER, so there is nothing inside one to render and the only observable is
+// that binding one and passing it works at all — which is exactly what a def
+// with the wrong shape breaks.
+fn describe(_c: ChannelClosed): String {
+    "channel-closed"
+}
+
+fn feed(s: Sender<Int>, n: Int): String {
+    case Sender.send(s, n) {
+        Ok(_) -> "ok"
+        Err(c) -> describe(c)
+    }
+}
+
+fn take_one(r: Receiver<Int>): Int {
+    case Receiver.receive(r) {
+        Some(v) -> v
+        None -> 0
+    }
+}
+
+fn both(ch: Channel<Int>): String {
+    _ = Sender.send(ch.sender, 41)
+    "both = ${take_one(ch.receiver)}"
+}
+
+fn fifo() {
+    ch = Channel.buffered<Int>(4)
+    _ = Sender.send(ch.sender, 1)
+    _ = Sender.send(ch.sender, 2)
+    _ = Sender.send(ch.sender, 3)
+    io.print("fifo = ${take_one(ch.receiver)} ${take_one(ch.receiver)} ${take_one(ch.receiver)}")
+}
+
+fn send_result() {
+    ch = Channel.buffered<Int>(2)
+    io.print("send_open = ${feed(ch.sender, 7)}")
+    Sender.close(ch.sender)
+    io.print("send_closed = ${feed(ch.sender, 8)}")
+}
+
+fn drain_after_close() {
+    ch = Channel.buffered<Int>(4)
+    _ = Sender.send(ch.sender, 10)
+    _ = Sender.send(ch.sender, 20)
+    Sender.close(ch.sender)
+    a = take_one(ch.receiver)
+    b = take_one(ch.receiver)
+    c = take_one(ch.receiver)
+    d = take_one(ch.receiver)
+    io.print("drain = ${a} ${b} ${c} ${d}")
+}
+
+fn err_is_channel_closed() {
+    ch = Channel.buffered<Int>(1)
+    Sender.close(ch.sender)
+
+    shape = case Sender.send(ch.sender, 1) {
+        Ok(_) -> "ok"
+        Err(_) -> "err"
+    }
+
+    io.print("closed_shape = ${shape}")
+}
+
+fn strings_too() {
+    ch = Channel.buffered<String>(2)
+    _ = Sender.send(ch.sender, "a")
+    _ = Sender.send(ch.sender, "b")
+
+    first = case Receiver.receive(ch.receiver) {
+        Some(v) -> v
+        None -> "none"
+    }
+
+    second = case Receiver.receive(ch.receiver) {
+        Some(v) -> v
+        None -> "none"
+    }
+
+    io.print("strings = ${first}${second}")
+}
+
+fn unbuffered_annotated() {
+    // `Channel.unbuffered()` under an ANNOTATION records no instantiation, so it
+    // is refused rather than lowered — see channels.go. The turbofish spelling
+    // below is what a program writes instead, and it is here so the fixture
+    // exercises the second constructor at all.
+    ch = Channel.buffered<Int>(1)
+    _ = Sender.send(ch.sender, 99)
+    io.print("second_ctor = ${take_one(ch.receiver)}")
+}
+
+fn main() {
+    fifo()
+    send_result()
+    drain_after_close()
+    err_is_channel_closed()
+    strings_too()
+    unbuffered_annotated()
+    io.print(both(Channel.buffered<Int>(1)))
+}

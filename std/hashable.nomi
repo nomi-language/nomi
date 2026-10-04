@@ -1,0 +1,31 @@
+import int.Int
+
+/// Protocol for producing an `Int` hash that respects structural equality.
+///
+/// `Hashable.hash(value)` returns an Int such that
+/// `Equatable.equal?(a, b)` implies `Hashable.hash(a) == Hashable.hash(b)`.
+/// Used by hash-based collections (`Map` and friends) to bucket values by
+/// structural identity. The hash is **not** cryptographic and may change
+/// between runs of the runtime; it is suitable only for in-process
+/// bucketing.
+///
+/// All four primitive types — `Int`, `Float`, `Bool`, `String` —
+/// implement `Hashable`. To implement it for a custom type:
+///
+/// ```nomi
+/// pub struct Point {
+///     x: Int
+///     y: Int
+/// }
+///
+/// impl Hashable for Point {
+///     fn hash(p: Point): Int { Hashable.hash(p.x) + Hashable.hash(p.y) * 31 }
+/// }
+/// ```
+///
+/// `derive Hashable` synthesizes a structural hash for structs (mixing all
+/// field hashes), enums (mixing the variant tag and payload), and distinct
+/// types (delegating to the inner value).
+pub interface Hashable {
+    fn hash(value: self): Int
+}

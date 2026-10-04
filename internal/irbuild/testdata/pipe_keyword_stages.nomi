@@ -1,0 +1,232 @@
+import std/io
+
+// Probe: `if` AND `case` AS PIPE STAGES.
+//
+// These are two refusal keys and ONE gap, and the gap is a PARSER fact rather
+// than a feature. parsePipeIfStage and parsePipeCaseStage
+// (parser/parser.go:1628, :1687) already desugar the keyword-prefixed spellings:
+//
+//	x |> if C { A } else { B }   ->   (x |> C) |> ast.If{Cond: nil, …}
+//	x |> case V { arms }         ->   (x |> V) |> ast.Case{Value: nil, …}
+//
+// so the builder only ever meets a BARE keyword node whose missing Cond/Value
+// IS the piped operand. The lowering is therefore the splice gen.pipeCall
+// already performs, one field over — and the bare spellings `x |> if { … }` and
+// `x |> case { … }` are the SAME node with no inner pipe in front of it.
+//
+// BOTH SPELLINGS OF BOTH KEYWORDS ARE HERE ON PURPOSE. The keyword-prefixed
+// form produces a two-node chain and the bare form a one-node chain, so a
+// lowering that spliced the whole pipe instead of its left operand passes one
+// and fails the other. Nothing in a fixture holding only the bare form could
+// see it.
+//
+// WHICH DERIVATIONS ARE LET DISAGREE HERE
+//
+//   - ONCE vs REPEATEDLY. `case` tests its scrutinee against every arm in turn,
+//     and eval evaluates the piped value exactly once (evalPipe computes
+//     pipedVal, then hands it to evalCaseMatchWithValue). Every scrutinee below
+//     comes from `loud`, which PRINTS — so a builder that spliced the operand
+//     NODE into each arm's test would print `eval …` two or three times where
+//     this prints it once. A literal scrutinee cannot show that.
+//   - THE PIPED VALUE'S POSITION. For `if` the piped value is the CONDITION and
+//     for `case` it is the SCRUTINEE; those are different fields of different
+//     nodes, so `mixed` runs an `if` stage and a `case` stage in ONE chain and
+//     a lowering that confused the two cannot pass both halves.
+//   - USING the piped value vs IGNORING it. `matched` binds the scrutinee's
+//     payload into the arm (`Some(n) -> n`); `ignored` answers from a `_` arm
+//     and from `if` bodies that never mention the condition. A stage whose value
+//     is dropped is where a builder can silently skip evaluating it.
+//   - ARM ORDER. `overlap` has a `_` arm BETWEEN two tag arms, so a lowering
+//     that hoisted the tag tests would answer the third arm where Nomi answers
+//     the second.
+//   - LAMBDA-SCOPED vs FUNCTION-SCOPED EARLY EXIT. A `return` inside a pipe
+//     stage body leaves the enclosing FUNCTION (`early`), and a `return` inside
+//     a pipe stage body that is itself inside a LAMBDA leaves the LAMBDA
+//     (`lambda_early`), which is observable because the caller keeps printing.
+//     `try` in the same two positions unwinds to the same two boundaries
+//     (`propagate`, `lambda_try`). Those four are the interaction this shape
+//     makes reachable for the first time, and getting one wrong is a wrong
+//     ANSWER rather than a refusal.
+fn parse_id(s: String): Result<Int, String> {
+    case String.to_int(s) {
+        Some(id) -> Ok(id)
+        None -> Err("not a number: ${s}")
+    }
+}
+
+fn loud_int(tag: String, n: Int): Int {
+    io.print("eval ${tag}")
+    n
+}
+
+fn loud_maybe(tag: String, n: Int): Maybe<Int> {
+    io.print("eval ${tag}")
+    Some(n)
+}
+
+fn loud_bool(tag: String, b: Bool): Bool {
+    io.print("eval ${tag}")
+    b
+}
+
+// The keyword-prefixed `if`: the condition is itself a pipe stage, so this is a
+// two-node chain.
+fn label(n: Int): String {
+    n
+    |> if Int.equal?(42) { "answer" } else { "other" }
+}
+
+// The BARE `if`: one node, and the piped value is already the Bool.
+fn yes_no(b: Bool): String {
+    b
+    |> if { "yes" } else { "no" }
+}
+
+// Multiline branches, and an `else if` — parsePipeIfStage routes the `else if`
+// through parseIf, which requires a condition, so the tail of the chain is an
+// ORDINARY `if` and only its head is a pipe stage.
+fn size(n: Int): String {
+    n
+    |> if Int.equal?(0) {
+            "zero"
+        } else if n > 100 {
+            "big"
+        } else {
+            "some"
+        }
+}
+
+// The keyword-prefixed `case`, with an arm that USES the scrutinee.
+fn matched(s: String): Int {
+    s
+    |> case parse_id() {
+            Ok(id) -> id
+            Err(_) -> 0
+        }
+}
+
+// The BARE `case`, with an arm that IGNORES the scrutinee.
+fn ignored(m: Maybe<Int>): String {
+    m
+    |> case {
+            Some(_) -> "something"
+            None -> "nothing"
+        }
+}
+
+// A `_` arm BETWEEN two tag arms: arm order is observable.
+fn overlap(n: Int): String {
+    n
+    |> case {
+            0 -> "zero"
+            _ -> "other"
+            1 -> "one"
+        }
+}
+
+// An `if` stage and a `case` stage in ONE chain.
+//
+// The condition is a CALL rather than `n > 10`, and that is a language rule
+// rather than taste: the keyword form desugars the condition into a pipe stage
+// of its own, so `x |> if n > 10 { … }` becomes `x |> (n > 10)` and evalPipe
+// rejects it at run time with "right side of |> must be a function call or
+// function reference". Measured on this fixture.
+fn big?(n: Int): Bool {
+    n > 10
+}
+
+fn mixed(n: Int): String {
+    n
+    |> if big?() { Some("large") } else { None }
+    |> case {
+            Some(word) -> "yes:${word}"
+            None -> "no"
+        }
+}
+
+// A `return` inside a pipe stage body leaves the FUNCTION.
+fn early(n: Int): String {
+    tag =
+        n
+        |> if Int.equal?(7) {
+                return "returned early"
+            } else {
+                "fell through"
+            }
+
+    "tag=${tag}"
+}
+
+// `try` inside a pipe stage body unwinds to the FUNCTION's boundary.
+fn propagate(s: String): Result<Int, String> {
+    doubled =
+        s
+        |> case {
+                "" -> 0
+                _ -> try parse_id(s)
+            }
+
+    Ok(doubled * 2)
+}
+
+// Rendered through a `case` rather than interpolated directly: a `Result` is
+// not a renderable value in this builder (`rendering a non-scalar value`), and
+// that is somebody else's gap — a fixture that tripped over it would fail for a
+// reason it is not about.
+fn show(r: Result<Int, String>): String {
+    case r {
+        Ok(n) -> "Ok(${n})"
+        Err(e) -> "Err(${e})"
+    }
+}
+
+fn main() {
+    io.print("label 42 = ${label(42)}")
+    io.print("label 7 = ${label(7)}")
+    io.print("yes_no = ${yes_no(True)} ${yes_no(False)}")
+    io.print("size = ${size(0)} ${size(500)} ${size(5)}")
+    io.print("matched = ${matched("42")} ${matched("wat")}")
+    io.print("ignored = ${ignored(Some(1))} ${ignored(None)}")
+    io.print("overlap = ${overlap(0)} ${overlap(1)} ${overlap(2)}")
+    io.print("mixed = ${mixed(11)} ${mixed(2)}")
+    io.print("early = ${early(7)}")
+    io.print("early = ${early(8)}")
+    io.print("propagate = ${show(propagate("21"))}")
+    io.print("propagate = ${show(propagate("nope"))}")
+
+    // ONCE-ness, for all three stage shapes. Each `loud_*` prints one line, and
+    // exactly one, however many arms the stage tests.
+    io.print("once case = ${loud_maybe("case", 3) |> case {
+                Some(n) -> n
+                None -> 0
+            }}")
+
+    io.print("once if = ${loud_bool("if", True) |> if { "t" } else { "f" }}")
+    io.print("once kw = ${loud_int("kw", 42) |> if Int.equal?(42) { "eq" } else { "ne" }}")
+
+    // A LAMBDA whose body is a pipe stage carrying a `return`: the `return` is
+    // LAMBDA-scoped, so `Iter.map` receives its value and the loop continues.
+    words =
+        [1, 7, 9]
+        |> Iter.map(|n: Int| {
+            n
+            |> if Int.equal?(7) {
+                    return "seven"
+                } else {
+                    "n${n}"
+                }
+        })
+        |> Iter.to_list()
+
+    io.print("lambda_early = ${words}")
+
+    // A pipe-valued binding whose stage is a keyword stage. The interpreter
+    // records one pipeline stage per cumulative prefix for this shape (measured,
+    // and the reason pipeStagesRecordable admits it), so `assert flag` on the
+    // bare name would print all three rows.
+    flag =
+        12
+        |> if Int.equal?(12) { True } else { False }
+
+    io.print("flag = ${flag}")
+}

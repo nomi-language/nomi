@@ -1,0 +1,233 @@
+import std/compiler
+
+test "a task group created in a plain function is rejected" {
+    diagnostics = compiler.check(
+        """
+        import {
+          std/duration.Duration
+          std/supervisors.Supervisor
+        }
+
+        fn make_group(): Supervisor {
+          Supervisor.new(shutdown_timeout: Duration.seconds(5), max_running: 4)
+        }
+
+        fn main() {
+          Unit
+        }
+        """
+    )
+
+    assert diagnostics
+        |> Iter.any?(|diagnostic|
+            String.contains?(
+                diagnostic.message,
+                "the bound would be per call rather than per downstream",
+            )
+        )
+}
+
+test "boot can create task groups" {
+    diagnostics = compiler.check(
+        """
+        import {
+          std/duration.Duration
+          std/supervisors.Supervisor
+        }
+
+        pub struct BootApp {
+          context: Context
+
+          audit: Supervisor
+        }
+
+        fn boot(): BootApp {
+          BootApp{
+            context: Context.root(),
+            audit: Supervisor.new(
+              shutdown_timeout: Duration.seconds(30),
+              max_running: 4,
+            ),
+          }
+        }
+
+        fn main() {
+          Unit
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 0
+}
+
+// A field default is not lexically inside any function, so the boot-only
+// check must not reject it. It is still a declaration site rather than a
+// request handler, which is what the rule actually cares about.
+test "a struct field default may create a task group" {
+    diagnostics = compiler.check(
+        """
+        import {
+          std/duration.Duration
+          std/supervisors.Supervisor
+        }
+
+        pub struct BootApp {
+          context: Context
+
+          audit: Supervisor = Supervisor.new(
+            shutdown_timeout: Duration.seconds(30),
+            max_running: 4,
+          )
+        }
+
+        fn boot(): BootApp {
+          BootApp{context: Context.root()}
+        }
+
+        fn main() {
+          Unit
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 0
+}
+
+// Nobody is obliged to await group-owned work, so a returned value has
+// nowhere to go — and for a Result that means a silently discarded Err,
+// the most common fire-and-forget bug in every language with the feature.
+test "a group-owned body must return Unit" {
+    diagnostics = compiler.check(
+        """
+        import {
+          std/duration.Duration
+          std/supervisors.Supervisor
+        }
+
+        pub struct BootApp {
+          context: Context
+
+          notify: Supervisor
+        }
+
+        fn boot(): BootApp {
+          BootApp{
+            context: Context.root(),
+            notify: Supervisor.new(
+              shutdown_timeout: Duration.seconds(5),
+              max_running: 4,
+            ),
+          }
+        }
+
+        fn send(to: String): Result<Unit, String> {
+          Err("no route to " + to)
+        }
+
+        fn main() {
+          _ = Supervisor.spawn(BootApp.notify, || send("ada@example.com"))
+        }
+        """
+    )
+
+    assert diagnostics
+        |> Iter.any?(|diagnostic|
+            String.contains?(
+                diagnostic.message,
+                "expected () -> Unit, got () -> Result<Unit, String>",
+            )
+        )
+}
+
+// The requirement is temporal — created *during* boot — so a constructor
+// that boot calls is fine even though it is not lexically boot. This is
+// the shape a server type uses to own its own group, which the earlier
+// lexical check rejected.
+test "a constructor boot calls may create its own group" {
+    diagnostics = compiler.check(
+        """
+        import {
+          std/channels.Channel
+          std/duration.Duration
+          std/supervisors.Supervisor
+        }
+
+        pub struct Counter {
+          inbox: Channel<Int>
+        }
+
+        fn start(): Counter {
+          inbox = Channel.buffered<Int>(4)
+          _ = Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 1)
+          Counter{inbox}
+        }
+
+        pub struct BootApp {
+          context: Context
+
+          counter: Counter
+        }
+
+        fn boot(): BootApp {
+          BootApp{context: Context.root(), counter: start()}
+        }
+
+        fn main() {
+          Unit
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 0
+}
+
+// The same constructor called from somewhere boot does not reach. The
+// error lands on the offending call, not on the constructor, which is
+// used correctly elsewhere.
+test "calling that constructor outside boot is rejected" {
+    diagnostics = compiler.check(
+        """
+        import {
+          std/channels.Channel
+          std/duration.Duration
+          std/supervisors.Supervisor
+        }
+
+        pub struct Counter {
+          inbox: Channel<Int>
+        }
+
+        fn start(): Counter {
+          inbox = Channel.buffered<Int>(4)
+          _ = Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 1)
+          Counter{inbox}
+        }
+
+        pub struct BootApp {
+          context: Context
+
+          counter: Counter
+        }
+
+        fn boot(): BootApp {
+          BootApp{context: Context.root(), counter: start()}
+        }
+
+        fn handler(): Counter {
+          start()
+        }
+
+        fn main() {
+          _c = handler()
+        }
+        """
+    )
+
+    assert diagnostics
+        |> Iter.any?(|diagnostic|
+            String.contains?(
+                diagnostic.message,
+                "the bound would be per call rather than per downstream",
+            )
+        )
+}

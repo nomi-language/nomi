@@ -1,0 +1,26 @@
+// The entry is OUTSIDE the cycle: it imports all three, none imports it. So
+// main is its own unit package and every call below crosses a package
+// boundary INTO the merged one — the direction `load` and `badges` do not
+// exercise.
+//
+// Both directions are needed. `load` resolves `build` from inside the merged
+// package, where a colliding name is spelled bare; main resolves `label` from
+// outside it, where the same name is spelled `nomimodN.Nomi_label…`. A fixture
+// with only one direction would leave the other's mangling unverified, and the
+// asymmetry is real: the bare spelling is minted by callSibling's same-package
+// arm and the qualified one by its other arm.
+import {
+    std/io
+    app
+    prod
+    test as t
+}
+
+fn main() {
+    io.print(app.stamp(app.load("prod")))
+    io.print(app.stamp(app.load("dev")))
+    io.print(app.badges())
+    io.print(app.origin())
+    io.print("${app.label()}|${prod.label()}|${t.label()}")
+    io.print("${app.tag}|${prod.tag}|${t.tag}")
+}

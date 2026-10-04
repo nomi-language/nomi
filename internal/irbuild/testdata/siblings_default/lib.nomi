@@ -1,0 +1,13 @@
+// The DECLARING file of the interface. `tag` is a module binding here, and the
+// entry file declares its own `tag` with a different value — which is the whole
+// point: the interpreter answers THIS file's value, because a parameter default
+// is evaluated in the declaring module's scope.
+once tag = "sibling"
+
+pub interface Powered {
+    fn label(w: self): String
+
+    fn tagged(w: self, suffix: String = tag): String {
+        Powered.label(w) + ":" + suffix
+    }
+}

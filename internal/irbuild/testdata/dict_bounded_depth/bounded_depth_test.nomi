@@ -1,0 +1,59 @@
+// A BOUNDED type parameter at DEPTH in a parameter annotation.
+//
+// `fn hear<T>(r: Half<T>): String where T: Shout` — `T` is bounded and never
+// appears as a bare `x: T`. The dictionary route cannot serve this: part (a)
+// makes a bounded type parameter an existential over its bound, so the signature
+// demands `Half<Shout>` and no caller can construct one. An explicit turbofish
+// refuses identically, because the SIGNATURE is the wall
+// and not the solve.
+//
+// `dictSeamFor`'s fourth decline hands the shape to monomorphization instead,
+// where the bound dissolves rather than being handled: `T` is `Dog` and
+// `Shout.shout(r.slot)` is an ordinary concrete dispatch.
+//
+// This file replaces the `a where clause` row of
+// `TestMonoTemplateGateRejectsEachExcludedShape`, which asserted the shape stays
+// REFUSED under `type-parameter dispatch without a type argument`. That witness
+// was voided by making it lower, so it is repointed to the stronger claim: the
+// program's OUTPUT matches the interpreter byte for byte.
+//
+// The second instantiation is what makes this more than a smoke test. One
+// generic function reached at TWO different bounded arguments has to select each
+// one's own implementation; sharing an instance would answer `Cat`'s call with
+// `Dog`'s method or refuse outright.
+interface Shout {
+    fn shout(v: self): String
+}
+
+struct Dog {
+    name: String
+}
+
+impl Shout for Dog {
+    fn shout(d: Dog): String {
+        "woof from " + d.name
+    }
+}
+
+struct Cat {
+    name: String
+}
+
+impl Shout for Cat {
+    fn shout(c: Cat): String {
+        "meow from " + c.name
+    }
+}
+
+struct Half<T> {
+    slot: T
+}
+
+fn hear<T>(r: Half<T>): String where T: Shout {
+    Shout.shout(r.slot)
+}
+
+test "a bounded type parameter at depth is monomorphized per instantiation" {
+    assert hear(Half{slot: Dog{name: "rex"}}) == "woof from rex"
+    assert hear(Half{slot: Cat{name: "mia"}}) == "meow from mia"
+}

@@ -1,0 +1,49 @@
+//# TOML source text values. `Toml"..."` and `Toml"""..."""` preserve TOML
+//# as data while giving callers and editor tooling a format-specific type.
+
+import {
+    display.Display
+    iter.Iter
+    lists.List
+    literals.{Fragment, Literal}
+    strings.String
+}
+
+/// TOML source text as a distinct value.
+///
+/// Use `Toml"""..."""` when an API expects TOML content rather than an
+/// arbitrary `String`.
+pub type Toml String
+
+impl Toml {
+    /// Returns the literal TOML text.
+    //! assert Toml.text(
+    //!     Toml"""
+    //!     [module]
+    //!     name = "demo"
+    //!     """
+    //! ) == """
+    //!     [module]
+    //!     name = "demo"
+    //!     """
+    //!
+    //! assert Toml.text(Toml"title = 'demo'") == "title = 'demo'"
+    //
+    pub fn text(source: Toml): String {
+        Toml(raw) = source
+        raw
+    }
+}
+
+impl Literal for Toml {
+    fn from_fragments(fragments: List<Fragment<Display>>): Toml {
+        body = Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + Display.to_string(v)
+            }
+        )
+
+        Toml(body)
+    }
+}

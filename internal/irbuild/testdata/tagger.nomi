@@ -1,0 +1,112 @@
+// A self position that is NOT argument zero.
+//
+// MEASURED over `std/`, `tests/` and `examples/`: 88 interface method
+// declarations, and the number with exactly one self position at an index other
+// than 0 is ZERO. Every stdlib interface happens to declare `self` first, which
+// is why the analyzer (scanning every position, `isSelfPositionParam`) and the
+// evaluator (`runtimeTypeName(args[0])`) agreed for as long as they did — a
+// coincidence of the population, not a property of either rule. So nothing in
+// this repository exercises the difference and this fixture is the only guard.
+//
+// The mutation that proves it: force the receiver position to 0 in
+// `tableCall`/`interfaceCall` and this fixture fails. Nothing else does, which
+// is the point.
+//
+//   - `Tagger.tag(label: String, target: self)` — self at ONE.
+//   - `Tagger.wrap(prefix: String, suffix: String, target: self)` — self at
+//     TWO, so "index 1" cannot be hard-coded either.
+//   - `describe` is an interface DEFAULT at self@1, monomorphized once per
+//     implementing type, and its body dispatches at a receiver that is concrete
+//     by construction.
+//   - `Shelf.item` is an existential FIELD, so the box is built at one position
+//     and dispatched at another.
+//   - Two implementors throughout: with one, a table and a hard-coded direct
+//     call are indistinguishable.
+import std/io
+
+interface Tagger {
+    fn tag(label: String, target: self): String
+    fn wrap(prefix: String, suffix: String, target: self): String
+
+    open fn describe(label: String, target: self): String {
+        "<" + Tagger.tag(label, target) + ">"
+    }
+}
+
+struct Box {
+    n: Int
+}
+
+struct Cup {
+    n: Int
+}
+
+struct Shelf {
+    item: Tagger
+}
+
+impl Tagger for Box {
+    fn tag(label: String, b: Box): String {
+        "${label}:${b.n}"
+    }
+
+    fn wrap(prefix: String, suffix: String, b: Box): String {
+        _ = b
+        prefix + "box" + suffix
+    }
+}
+
+impl Tagger for Cup {
+    fn tag(label: String, c: Cup): String {
+        "${label}=${c.n}"
+    }
+
+    fn wrap(prefix: String, suffix: String, c: Cup): String {
+        _ = c
+        prefix + "cup" + suffix
+    }
+
+    fn describe(label: String, c: Cup): String {
+        "[" + Tagger.tag(label, c) + "]"
+    }
+}
+
+fn as_box(n: Int): Tagger {
+    Box{n}
+}
+
+fn as_cup(n: Int): Tagger {
+    Cup{n}
+}
+
+fn tag_erased(t: Tagger): String {
+    Tagger.tag("erased", t)
+}
+
+fn wrap_erased(t: Tagger): String {
+    Tagger.wrap("<", ">", t)
+}
+
+fn shelf_tag(s: Shelf): String {
+    Tagger.tag("shelf", s.item)
+}
+
+fn main() {
+    // The concrete qualifier: a direct call, receiver statically typed.
+    io.print(Tagger.tag("direct", Box{n: 1}))
+    io.print(Tagger.wrap("(", ")", Cup{n: 2}))
+    // The erased receiver: a table probe keyed on the box's identity, with the
+    // receiver read from the position the SIGNATURE declared.
+    io.print(tag_erased(as_box(3)))
+    io.print(tag_erased(as_cup(4)))
+    io.print(wrap_erased(as_box(5)))
+    io.print(wrap_erased(as_cup(6)))
+    // The inherited default, and Cup's override of it.
+    io.print(Tagger.describe("d", Box{n: 7}))
+    io.print(Tagger.describe("d", Cup{n: 8}))
+    io.print(Tagger.describe("e", as_box(9)))
+    io.print(Tagger.describe("e", as_cup(10)))
+    // An existential field: boxed at one position, dispatched at another.
+    io.print(shelf_tag(Shelf{item: Box{n: 11}}))
+    io.print(shelf_tag(Shelf{item: Cup{n: 12}}))
+}

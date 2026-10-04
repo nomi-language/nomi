@@ -1,0 +1,68 @@
+//# A literal body attaches to a MODULE-QUALIFIED name.
+//#
+//# `shapes.Circle{r: 1}` names a type through the module that exports it,
+//# and the brace is that type's body — not a separate anonymous struct
+//# beside a member access. Same for a variant's brace and for the bracket
+//# spelling of a list payload.
+//#
+//# NONE OF THESE PARSED AS A LITERAL before 2026-09-18, and no fixture
+//# covered any of them. `shapes.Shape.Ring{r: 1}` reported `non-final
+//# expression has type {r: Int}`; a std enum's struct variant reported
+//# `return type mismatch: expected Error, got {reason: String}`. The
+//# neighbouring `dotted_type_names` fixture looks like it covers this and
+//# does not: `Probe.Reading` is ONE name containing a dot, so its literals
+//# start at an uppercase segment and take a different parser path.
+//#
+//# THE CALL FORM IS THE CONTROL and it is in this file for that reason.
+//# `shapes.Shape.Square(4)` worked at every depth throughout, because a
+//# call is a postfix form; the brace and the bracket are literal-attach
+//# forms that only the primary parser builds. Without that row, a fixture
+//# here could not tell a brace-path defect from module qualification being
+//# broken generally.
+
+import shapes
+
+test "a module-qualified struct literal" {
+    c = shapes.Circle{r: 1}
+    assert c.r == 1
+}
+
+test "a module-qualified struct-VARIANT literal, three segments" {
+    s = shapes.Shape.Ring{r: 2}
+    assert shapes.ring_radius(s) == 2
+}
+
+test "CONTROL — the call form at the same depth, which always worked" {
+    s = shapes.Shape.Square(4)
+    assert shapes.ring_radius(s) == 4
+}
+
+test "a module-qualified list-attach literal equals its call form" {
+    // The bracket spelling and the call spelling construct the same value,
+    // which is the whole claim: the bracket is literal-attach for a
+    // list-payload variant, not an index into a member access.
+    assert shapes.Bag.Items[1, 2, 3] == shapes.Bag.Items([1, 2, 3])
+}
+
+test "the module-qualified variant is the same value the dot form builds" {
+    a = shapes.Shape.Ring{r: 7}
+    b: shapes.Shape = .Ring{r: 7}
+    assert a == b
+}
+
+test "a GENERIC enum's struct variant infers its argument across a module" {
+    // Bare `shapes.Holder.Of{value: 5}` with no annotation: the argument is
+    // solved from the field, so it satisfies a `Holder<Int>` parameter.
+    h = shapes.Holder.Of{value: 5}
+    assert shapes.holder_int(h) == 5
+}
+
+test "the inferred argument is the field's type, not the declaration's" {
+    h = shapes.Holder.Of{value: 9}
+
+    got = case h {
+        shapes.Holder.Of{value} -> value + 1
+    }
+
+    assert got == 10
+}

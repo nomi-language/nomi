@@ -1,0 +1,18 @@
+// The same calls inside assertion subjects, whose failure report shows each
+// written argument.
+import {
+    lib
+    lib.add
+}
+
+test "defaults filled in an assertion" {
+    assert lib.add(1) == 2
+    assert add(1, b: 5) == 6
+    assert lib.twice(2) == 6
+    assert lib.spread(1) == [1]
+}
+
+test "a failing report names the written arguments" {
+    x = 2
+    assert lib.add(x, b: x) == 5
+}

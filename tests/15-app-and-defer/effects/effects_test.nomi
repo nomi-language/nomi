@@ -1,0 +1,28 @@
+import std/compiler.{self, RunFile}
+
+test "effects app prints configured output" {
+    result = compiler.run_file(RunFile{entry_point: "main"})
+
+    assert result == Ok(
+        """
+        deployment=test
+        port=3000
+        database=postgres://localhost/myapp_test
+        max=2
+        loaded-prod=prod:8080:postgres://prod-host/myapp:20
+        active-app-after-load=test
+        fake-clock=12345
+        cleanup=ready
+        clock-before=0
+        clock-inside=4242
+        clock-after=0
+        context-before=False
+        context-inside=True
+        context-after=False
+        [test|INFO] hello, Ada
+        [test|WARN] config checked
+        console ready
+
+        """
+    )
+}

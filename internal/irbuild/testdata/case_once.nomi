@@ -1,0 +1,31 @@
+import std/io
+
+enum Box {
+    Num Int
+    Text String
+}
+
+// The scrutinee prints, so the transcript pins that a `case` evaluates it
+// EXACTLY ONCE however many arms test it. A tree that inlined the scrutinee's
+// text into each arm's test would print `built` four times and still answer
+// correctly.
+fn build(n: Int): Box {
+    io.print("built ${n}")
+    Box.Num(n)
+}
+
+fn describe(n: Int): String {
+    case build(n) {
+        Box.Num(0) -> "zero"
+        Box.Num(1) -> "one"
+        Box.Num(m) when m > 100 -> "huge"
+        Box.Num(m) -> "n=${m}"
+        Box.Text(s) -> s
+    }
+}
+
+fn main() {
+    io.print(describe(0))
+    io.print(describe(7))
+    io.print(describe(500))
+}

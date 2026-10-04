@@ -1,0 +1,27 @@
+// The WRITTEN `impl Debug for Box`, in neither the declaring file nor the
+// calling one. `12-derives-and-standard-interfaces/cross_file_debug` is the
+// corpus program with exactly this orphan shape and it reaches it through the
+// TYPE-qualified spelling (`Box.inspect`); main.nomi here reaches the same
+// index entry through the INTERFACE-qualified one.
+//
+// Three files rather than two because the index needs BOTH a synthesized site
+// and a written one under the same (receiver declaration, method) key, and a
+// written impl in the DECLARING file suppresses the synthesis — measured, so
+// the two shapes can only meet across a file boundary.
+//
+// `boxed` lives here rather than beside the struct so that main.nomi has a
+// reason to import this file. A project is the import closure of its entry,
+// and an impl block exports no name: with nothing imported from here the
+// written block was simply absent from the program, and the fixture asserted
+// the rule it was built to break.
+import parts.Box
+
+impl Debug for Box {
+    fn inspect(x: Box): String {
+        "written<" + Int.to_string(x.w) + ">"
+    }
+}
+
+pub fn boxed(w: Int): Box {
+    Box{w}
+}

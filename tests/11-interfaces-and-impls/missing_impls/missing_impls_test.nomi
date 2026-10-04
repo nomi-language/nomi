@@ -1,0 +1,115 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+test "direct interface calls report missing implementations" {
+    diagnostics = compiler.check(
+        """
+          interface Greeter {
+            fn hello(value: self): String
+          }
+
+          struct Visitor {
+            name: String
+          }
+
+          fn main() {
+            _ = Greeter.hello(Visitor{name: "Ada"})
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Greeter` for `Visitor`")
+}
+
+test "derive reports missing field implementations" {
+    diagnostics = compiler.check(
+        """
+          struct C {
+            n: Int
+          }
+
+          struct B {
+            c: C
+
+          }
+          derive Display for B
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Display` for `C`")
+}
+
+test "nested derive chains report the innermost missing field implementation" {
+    diagnostics = compiler.check(
+        """
+          struct C {
+            n: Int
+          }
+
+          struct B {
+            c: C
+
+          }
+          derive Display for B
+
+          struct A {
+            b: B
+
+          }
+          derive Display for A
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Display` for `C`")
+}
+
+test "generic bound recursion reports missing element implementations" {
+    diagnostics = compiler.check(
+        """
+          struct Foo {
+            n: Int
+          }
+
+          fn show<T>(value: T): String where T: Display {
+            Display.to_string(value)
+          }
+
+          fn main() {
+            _ = show([Foo{n: 1}, Foo{n: 2}])
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Display` for `Foo`")
+}
+
+test "generic wrapper derive attributes missing impls to the instantiation field" {
+    diagnostics = compiler.check(
+        """
+          struct C {
+            n: Int
+          }
+
+          struct Wrapper<T> {
+            value: T
+
+          }
+          derive Display for Wrapper
+
+          struct Holder {
+            w: Wrapper<C>
+
+          }
+          derive Display for Holder
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Display` for `C`")
+}

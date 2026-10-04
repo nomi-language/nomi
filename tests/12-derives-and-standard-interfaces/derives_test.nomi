@@ -1,0 +1,217 @@
+struct Empty {}
+
+derive Debug for Empty
+derive Equatable for Empty
+derive Comparable for Empty
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+derive Debug for Point
+derive Equatable for Point
+derive Hashable for Point
+derive Comparable for Point
+
+enum Shape {
+    Circle Float
+    Pair (Int, Int)
+    Rect {w: Float, h: Float}
+    None
+}
+
+derive Debug for Shape
+derive Equatable for Shape
+derive Hashable for Shape
+derive Comparable for Shape
+
+type Id Int
+
+derive Debug for Id
+derive Equatable for Id
+derive Hashable for Id
+derive Comparable for Id
+
+type Coord (Int, Int)
+
+derive Debug for Coord
+derive Equatable for Coord
+derive Hashable for Coord
+derive Comparable for Coord
+
+type Expired
+
+derive Debug for Expired
+derive Equatable for Expired
+derive Hashable for Expired
+derive Comparable for Expired
+
+fn show_order(o: Ordering): String {
+    case o {
+        .Less -> "L"
+        .Equal -> "E"
+        .Greater -> "G"
+    }
+}
+
+test "derive Debug renders structs enums and distinct types structurally" {
+    assert Debug.inspect(Empty{}) == "Empty{}"
+    assert Debug.inspect(Point{x: 1, y: 2}) == "Point{x: 1, y: 2}"
+    assert Debug.inspect(Shape.None) == "None"
+    assert Debug.inspect(Shape.Circle(1.5)) == "Circle(1.5)"
+    assert Debug.inspect(Shape.Pair((1, 2))) == "Pair(1, 2)"
+    assert Debug.inspect(Shape.Rect{w: 1.0, h: 2.0}) == "Rect{w: 1.0, h: 2.0}"
+    assert Debug.inspect(Id(7)) == "Id(7)"
+    assert Debug.inspect(Coord(3, 4)) == "Coord(3, 4)"
+    assert Debug.inspect(Expired) == "Expired"
+}
+
+test "derive Equatable compares structs enums and distinct types structurally" {
+    assert Equatable.equal?(Empty{}, Empty{})
+    assert Equatable.equal?(Point{x: 1, y: 2}, Point{x: 1, y: 2})
+    refute Equatable.equal?(Point{x: 1, y: 2}, Point{x: 1, y: 3})
+    assert Equatable.equal?(Shape.None, Shape.None)
+    assert Equatable.equal?(Shape.Circle(1.0), Shape.Circle(1.0))
+    refute Equatable.equal?(Shape.Circle(1.0), Shape.Circle(2.0))
+    assert Equatable.equal?(Shape.Pair((1, 2)), Shape.Pair((1, 2)))
+    refute Equatable.equal?(Shape.Pair((1, 2)), Shape.Pair((1, 3)))
+    assert Equatable.equal?(Shape.Rect{w: 1.0, h: 2.0}, Shape.Rect{w: 1.0, h: 2.0})
+
+    refute Equatable.equal?(Shape.Rect{w: 1.0, h: 2.0}, Shape.Circle(1.0))
+    assert Equatable.equal?(Id(7), Id(7))
+    refute Equatable.equal?(Id(7), Id(9))
+    assert Equatable.equal?(Coord(1, 2), Coord(1, 2))
+    refute Equatable.equal?(Coord(1, 2), Coord(1, 3))
+    assert Equatable.equal?(Expired, Expired)
+}
+
+test "derive Hashable agrees for equal values and distinguishes representative differences" {
+    assert Hashable.hash(Point{x: 1, y: 2}) == Hashable.hash(Point{x: 1, y: 2})
+    refute Hashable.hash(Point{x: 1, y: 2}) == Hashable.hash(Point{x: 1, y: 3})
+    assert Hashable.hash(Shape.None) == Hashable.hash(Shape.None)
+    assert Hashable.hash(Shape.Circle(1.0)) == Hashable.hash(Shape.Circle(1.0))
+    refute Hashable.hash(Shape.None) == Hashable.hash(Shape.Circle(1.0))
+    refute Hashable.hash(Shape.Circle(1.0)) == Hashable.hash(Shape.Circle(2.0))
+    assert Hashable.hash(Id(7)) == Hashable.hash(Id(7))
+    refute Hashable.hash(Id(7)) == Hashable.hash(Id(9))
+    assert Hashable.hash(Coord(1, 2)) == Hashable.hash(Coord(1, 2))
+    refute Hashable.hash(Coord(1, 2)) == Hashable.hash(Coord(1, 3))
+    assert Hashable.hash(Expired) == Hashable.hash(Expired)
+}
+
+test "derive Comparable orders structs enums and distinct types lexicographically" {
+    assert show_order(Comparable.compare(Empty{}, Empty{})) == "E"
+    assert show_order(Comparable.compare(Point{x: 1, y: 9}, Point{x: 2, y: 0})) == "L"
+
+    assert show_order(Comparable.compare(Point{x: 2, y: 0}, Point{x: 1, y: 9})) == "G"
+
+    assert show_order(Comparable.compare(Point{x: 1, y: 1}, Point{x: 1, y: 2})) == "L"
+
+    assert show_order(Comparable.compare(Point{x: 1, y: 2}, Point{x: 1, y: 1})) == "G"
+
+    assert show_order(Comparable.compare(Point{x: 1, y: 1}, Point{x: 1, y: 1})) == "E"
+
+    assert show_order(Comparable.compare(Shape.Circle(99.0), Shape.Pair((1, 2)))) == "L"
+
+    assert show_order(Comparable.compare(Shape.Pair((1, 2)), Shape.Circle(99.0))) == "G"
+
+    assert show_order(Comparable.compare(Shape.Rect{w: 1.0, h: 1.0}, Shape.None)) == "L"
+
+    assert show_order(Comparable.compare(Shape.None, Shape.None)) == "E"
+    assert show_order(Comparable.compare(Shape.Circle(1.0), Shape.Circle(2.0))) == "L"
+
+    assert show_order(Comparable.compare(Shape.Pair((1, 2)), Shape.Pair((1, 3)))) == "L"
+
+    assert show_order(Comparable.compare(Id(1), Id(2))) == "L"
+    assert show_order(Comparable.compare(Id(2), Id(1))) == "G"
+    assert show_order(Comparable.compare(Coord(1, 9), Coord(2, 0))) == "L"
+    assert show_order(Comparable.compare(Expired, Expired)) == "E"
+}
+
+type Off
+
+derive Comparable for Off
+derive Equatable for Off
+derive Hashable for Off
+
+type On
+
+derive Comparable for On
+derive Equatable for On
+derive Hashable for On
+
+enum Switch {
+    embeds Off
+    embeds On
+}
+
+derive Comparable for Switch
+derive Equatable for Switch
+derive Hashable for Switch
+
+struct Worker {
+    id: Int
+}
+
+derive Comparable for Worker
+derive Equatable for Worker
+derive Hashable for Worker
+
+struct Leaf {
+    tag: Int
+}
+
+derive Comparable for Leaf
+derive Equatable for Leaf
+derive Hashable for Leaf
+
+enum Node {
+    embeds Worker
+    embeds Leaf
+}
+
+derive Comparable for Node
+derive Equatable for Node
+derive Hashable for Node
+
+fn use_off(_o: Off): String {
+    "bound an Off"
+}
+
+test "standard derives handle enums with embedded variants" {
+    w1: Node = Node.Worker{id: 1}
+    w2: Node = Node.Worker{id: 2}
+    l1: Node = Node.Leaf{tag: 0}
+    s: Switch = Switch.Off
+    c: Switch = Off
+
+    from_variant = case s {
+        Switch.Off(x) -> use_off(x)
+        _ -> "nope"
+    }
+
+    from_coerced = case c {
+        Switch.Off(x) -> use_off(x)
+        _ -> "nope"
+    }
+
+    assert show_order(Comparable.compare(Switch.Off, Switch.On)) == "L"
+    assert show_order(Comparable.compare(Switch.On, Switch.Off)) == "G"
+    assert show_order(Comparable.compare(Switch.On, Switch.On)) == "E"
+    assert Switch.On <= Switch.On
+    assert Equatable.equal?(Switch.Off, Switch.Off)
+    refute Equatable.equal?(Switch.Off, Switch.On)
+    assert Hashable.hash(Switch.On) == Hashable.hash(Switch.On)
+    assert Debug.inspect(Switch.On) == "On"
+    assert show_order(Comparable.compare(w1, w2)) == "L"
+    assert show_order(Comparable.compare(w2, w1)) == "G"
+    assert show_order(Comparable.compare(w1, w1)) == "E"
+    assert show_order(Comparable.compare(w2, l1)) == "L"
+    assert Equatable.equal?(w1, w1)
+    refute Equatable.equal?(w1, w2)
+    assert Hashable.hash(w1) == Hashable.hash(w1)
+    assert Debug.inspect(w1) == "Worker{id: 1}"
+    assert from_variant == "bound an Off"
+    assert from_coerced == "bound an Off"
+}

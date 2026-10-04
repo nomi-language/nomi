@@ -1,0 +1,31 @@
+// Literals of a generic struct declared in another file, named through a
+// selective import (`Span{...}`) and through the file's qualifier
+// (`span.Span{...}`). Both spellings reach the one template span.nomi
+// declares, so a value built one way passes where the other is annotated.
+import {
+    std/io
+    span.{self, Span}
+}
+
+fn width(s: Span<Int>): Int {
+    s.stop - s.start
+}
+
+fn label(s: span.Span<String>): String {
+    "${s.start}..${s.stop}"
+}
+
+fn widen(s: Span<Int>, by: Int): Span<Int> {
+    Span{start: s.start - by, stop: s.stop + by}
+}
+
+fn main() {
+    bare = Span{start: 1, stop: 5}
+    qualified = span.Span{start: 2, stop: 9}
+    io.print("bare width = ${width(bare)}")
+    io.print("qualified width = ${width(qualified)}")
+    io.print("widened = ${width(widen(qualified, 3))}")
+    io.print("label = ${label(span.Span{start: "a", stop: "z"})}")
+    io.print("label bare = ${label(Span{start: "m", stop: "n"})}")
+    io.print("equal = ${bare == span.Span{start: 1, stop: 5}}")
+}

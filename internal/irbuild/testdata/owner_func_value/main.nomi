@@ -1,0 +1,67 @@
+// Functions named as values through an owner or another file: an inherent
+// function of a local type, of another file's type, an interface function over
+// scalars, over a local type and over another file's type, a two-parameter
+// interface function, and another file's plain function through a `self`
+// import.
+import {
+    std/io
+    shapes.{self, Square}
+}
+
+struct Todo {
+    title: String
+    done: Bool
+}
+
+impl Todo {
+    fn render(t: Todo): String {
+        mark = if t.done { "x" } else { " " }
+        "[${mark}] ${t.title}"
+    }
+}
+
+impl Display for Todo {
+    fn to_string(t: Todo): String {
+        t.title
+    }
+}
+
+fn main() {
+    todos = [Todo{title: "milk", done: True}, Todo{title: "eggs", done: False}]
+    todos |> Iter.map(Todo.render) |> Iter.each(io.print)
+
+    io.print(
+        [Square{side: 2}, Square{side: 3}]
+        |> Iter.map(Square.area)
+        |> Iter.to_list()
+    )
+
+    ints: List<String> = [1, 2] |> Iter.map(Display.to_string) |> Iter.to_list()
+
+    io.print(ints)
+    floats: List<String> = [1.5] |> Iter.map(Display.to_string) |> Iter.to_list()
+
+    io.print(floats)
+    titles: List<String> = todos |> Iter.map(Display.to_string) |> Iter.to_list()
+
+    io.print(titles)
+    squares: List<String> = [Square{side: 4}] |> Iter.map(Display.to_string) |> Iter.to_list()
+
+    io.print(squares)
+
+    io.print(
+        ["a"]
+        |> Iter.map(Debug.inspect)
+        |> Iter.to_list()
+    )
+
+    show: (Int) -> String = Display.to_string
+    io.print(show(5))
+
+    io.print(Iter.sort_with([3, 1, 2], Comparable.compare))
+
+    io.inspect(
+        Some("hi")
+        |> Maybe.map(shapes.shout)
+    )
+}

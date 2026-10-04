@@ -1,0 +1,49 @@
+// Instances of tree.nomi's generic types at positions the checker types and
+// the program never annotates: lambda parameters over a list of them, the
+// argument of a generic function, a Maybe's payload. Tree and Span are also
+// instantiated at this file's own Point.
+import {
+    std/io
+    tree
+    tree.Tree
+    zz
+}
+
+pub struct Point {
+    x: Int
+}
+
+fn label(t: Tree<String>): String {
+    case t {
+        Tree.Node(s) -> s
+        Tree.Leaf -> "-"
+    }
+}
+
+fn main() {
+    names =
+        [Tree.Node("a"), Tree.Leaf, Tree.Node("b")]
+        |> Iter.map(|t| label(t))
+        |> Iter.to_list()
+
+    io.print("names ${names}")
+    spans = [tree.Span{start: 1, stop: 2}, tree.Span{start: 5, stop: 9}]
+    io.print("widths ${spans |> Iter.map(|s| s.stop - s.start) |> Iter.to_list()}")
+    io.print("first ${tree.first(tree.Span{start: 5, stop: 6})}")
+    io.print(Debug.inspect(Maybe.Some(tree.Span{start: 5, stop: 6})))
+
+    xs =
+        [Tree.Node(Point{x: 1}), Tree.Leaf, Tree.Node(Point{x: 4})]
+        |> Iter.map(|t|
+            case t {
+                Tree.Node(p) -> p.x
+                Tree.Leaf -> 0
+            }
+        )
+        |> Iter.to_list()
+
+    io.print("points ${xs}")
+    corner = tree.Span{start: Point{x: 2}, stop: Point{x: 3}}
+    io.print("corner ${tree.first(corner).x}")
+    io.print(zz.floats())
+}

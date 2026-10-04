@@ -1,0 +1,68 @@
+import {
+    commands.{self, Command}
+    store.{SqliteStore, Store}
+    system.{Clock, Console, SystemClock, Terminal}
+    task.Task
+}
+
+/// What the program runs with, read anywhere as `App.console`, `App.clock`
+/// and `App.store`. Swapping one here changes it for the whole program.
+struct App {
+    console: Console
+    clock: Clock
+    store: Store
+}
+
+fn boot(): App {
+    App{
+        console: Terminal,
+        clock: SystemClock,
+        store: SqliteStore{path: "tasks.db"},
+    }
+}
+
+fn main(): Result<Unit, String> {
+    tasks = try Store.load(App.store)
+    Console.write_line(App.console, "tasks. type 'help' for commands.")
+
+    _ = Iter.loop(|tasks = tasks| {
+        // The end of the input quits too.
+        command =
+            Console.read_line(App.console)
+            |> Maybe.map(commands.parse)
+            |> Maybe.with_default(Ok(Command.Quit))
+
+        case command {
+            Ok(Command.Quit) -> {
+                Console.write_line(App.console, "bye.")
+                break
+            }
+
+            Ok(command) ->
+                step(command, tasks)
+
+            Err(e) -> {
+                Console.write_line(App.console, "error: ${e}")
+                tasks
+            }
+        }
+    })
+
+    Ok(Unit)
+}
+
+/// Runs one command and shows its output. After an error the tasks stay as
+/// they were.
+fn step(command: Command, tasks: Map<Int, Task>): Map<Int, Task> {
+    case commands.run(command, tasks, App.store, App.clock) {
+        Ok((tasks, lines)) -> {
+            Iter.each(lines, |line| Console.write_line(App.console, line))
+            tasks
+        }
+
+        Err(e) -> {
+            Console.write_line(App.console, "error: ${e}")
+            tasks
+        }
+    }
+}

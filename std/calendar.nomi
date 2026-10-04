@@ -1,0 +1,1719 @@
+//# Calendar dates, times, civil periods, machine-time projections, and
+//# IANA-zone-aware date-time arithmetic.
+
+import {
+    add.Add
+    bool.Bool
+    comparable.{Comparable, Ordering}
+    debug.Debug
+    display.Display
+    duration.Duration
+    equatable.Equatable
+    hashable.Hashable
+    instant.Instant
+    int.Int
+    iter.Iter
+    lists.List
+    literals.{Fragment, Literal}
+    results.Result.{self, Err, Ok}
+    strings.String
+    subtract.Subtract
+}
+
+/// `Error` — what went wrong constructing or projecting a calendar value.
+///
+/// The first two variants (`InvalidFormat`, `InvalidValue`) cover parsing
+/// and construction across every civil type. The last three
+/// (`UnknownZone`, `Nonexistent`, `Ambiguous`) are only surfaced by the
+/// anchored projection cluster (`OffsetDateTime`, `DateTime`):
+/// `UnknownZone` when the zone name isn't in the embedded tzdb;
+/// `Nonexistent` when a wall-clock reading falls in a spring-forward
+/// gap with `mode = Reject`; `Ambiguous` when a wall-clock reading
+/// falls in a fall-back fold with `mode = Reject`. (Other
+/// disambiguation modes resolve gaps/folds silently.)
+pub enum Error {
+    InvalidFormat String
+    InvalidValue String
+    UnknownZone String
+    Nonexistent String
+    Ambiguous String
+}
+
+derive Equatable for Error
+
+impl Display for Error {
+    fn to_string(e: Error): String {
+        case e {
+            Error.InvalidFormat(s) -> "invalid format: " + s
+            Error.InvalidValue(s) -> "invalid value: " + s
+            Error.UnknownZone(s) -> "unknown zone: " + s
+            Error.Nonexistent(s) -> "nonexistent local time: " + s
+            Error.Ambiguous(s) -> "ambiguous local time: " + s
+        }
+    }
+}
+
+// ============================================================================
+// Civil Periods
+// ============================================================================
+/// Whole calendar years for civil calendar arithmetic on date-bearing values.
+pub type Years Int
+
+derive Equatable for Years
+derive Hashable for Years
+derive Comparable for Years
+derive Display for Years
+
+/// Whole calendar months for civil calendar arithmetic on date-bearing values.
+pub type Months Int
+
+derive Equatable for Months
+derive Hashable for Months
+derive Comparable for Months
+derive Display for Months
+
+/// Whole calendar weeks for civil calendar arithmetic on date-bearing values.
+pub type Weeks Int
+
+derive Equatable for Weeks
+derive Hashable for Weeks
+derive Comparable for Weeks
+derive Display for Weeks
+
+/// Whole calendar days for civil calendar arithmetic on date-bearing values.
+pub type Days Int
+
+derive Equatable for Days
+derive Hashable for Days
+derive Comparable for Days
+derive Display for Days
+
+/// Whole civil hours for date-time wall-clock arithmetic.
+pub type Hours Int
+
+derive Equatable for Hours
+derive Hashable for Hours
+derive Comparable for Hours
+derive Display for Hours
+
+/// Whole civil minutes for date-time wall-clock arithmetic.
+pub type Minutes Int
+
+derive Equatable for Minutes
+derive Hashable for Minutes
+derive Comparable for Minutes
+derive Display for Minutes
+
+/// Whole civil seconds for date-time wall-clock arithmetic.
+pub type Seconds Int
+
+derive Equatable for Seconds
+derive Hashable for Seconds
+derive Comparable for Seconds
+derive Display for Seconds
+
+/// Whole civil milliseconds for date-time wall-clock arithmetic.
+pub type Milliseconds Int
+
+derive Equatable for Milliseconds
+derive Hashable for Milliseconds
+derive Comparable for Milliseconds
+derive Display for Milliseconds
+
+/// Whole civil microseconds for date-time wall-clock arithmetic.
+pub type Microseconds Int
+
+derive Equatable for Microseconds
+derive Hashable for Microseconds
+derive Comparable for Microseconds
+derive Display for Microseconds
+
+/// Whole civil nanoseconds for date-time wall-clock arithmetic.
+pub type Nanoseconds Int
+
+derive Equatable for Nanoseconds
+derive Hashable for Nanoseconds
+derive Comparable for Nanoseconds
+derive Display for Nanoseconds
+
+/// Date-bearing values expose their `year`/`month`/`day` components.
+/// Impls: `Date`, `NaiveDateTime`, `OffsetDateTime`, `DateTime`.
+pub interface DateParts {
+    fn year(value: self): Int
+    fn month(value: self): Int
+    fn day(value: self): Int
+}
+
+/// Time-of-day values expose their `hour`/`minute`/`second`/
+/// `nanosecond` components. Impls: `Time`, `NaiveDateTime`,
+/// `OffsetDateTime`, `DateTime`.
+pub interface TimeParts {
+    fn hour(value: self): Int
+    fn minute(value: self): Int
+    fn second(value: self): Int
+    fn nanosecond(value: self): Int
+}
+
+/// Anchored-to-a-moment values expose their underlying `Instant`
+/// plus the effective UTC offset at that instant. Impls:
+/// `OffsetDateTime`, `DateTime`.
+pub interface Anchored {
+    fn to_instant(value: self): Instant
+    fn offset(value: self): Duration
+}
+
+/// A calendar date — year/month/day, no time-of-day, no zone. Construct
+/// via `Date.new(y, m, d)` (validating), `Date.parse`, or the
+/// `Date"…"` typed literal. Components reachable via `year`/`month`/`day`
+/// (or the `DateParts` interface).
+pub opaque struct Date {
+    year: Int
+    month: Int
+    day: Int
+}
+
+impl Date {
+    /// Construct a `Date`, validating the combination (no Feb 30,
+    /// leap-year aware). Returns `Err(.InvalidValue(...))` for impossible
+    /// dates.
+    //! assert try Date.new(2026, 5, 4) == try Date"2026-05-04"
+    //! assert Err(Error.InvalidValue(_msg)) = Date.new(2026, 2, 30)
+    //
+    pub fn new(year: Int, month: Int, day: Int): Result<Date, Error> {
+        attempt = date_new_raw(year, month, day)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Parse an ISO-8601 date string (`YYYY-MM-DD`) into a `Date`. Backs
+    /// the `Date"…"` typed literal and is exported for callers parsing
+    /// from arbitrary string sources.
+    //! assert try Date.parse("2026-05-04") == try Date"2026-05-04"
+    //! assert Err(Error.InvalidFormat(_msg)) = Date.parse("05/04/2026")
+    //
+    pub fn parse(s: String): Result<Date, Error> {
+        attempt = date_parse_raw(s)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Number of whole days between two `Date`s — positive if `later` is
+    /// after `earlier`, negative if before. (Calendar-day count, ignoring
+    /// any sub-day time of day.)
+    //! assert Date.days_between(try Date"2026-05-04", try Date"2026-05-07") == 3
+    //! assert Date.days_between(try Date"2026-05-07", try Date"2026-05-04") == -3
+    //
+    pub host fn days_between(earlier: Date, later: Date): Int
+}
+
+derive Equatable for Date
+derive Hashable for Date
+derive Comparable for Date
+
+impl Literal for Date {
+    fn from_fragments(fragments: List<Fragment<String>>): Result<Date, Error> {
+        body = Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        )
+
+        Date.parse(body)
+    }
+}
+
+impl Display for Date {
+    /// ISO-8601 date string (`YYYY-MM-DD`).
+    host fn to_string(d: Date): String
+}
+
+impl Debug for Date {
+    fn inspect(d: Date): String {
+        "${d}"
+    }
+}
+
+impl DateParts for Date {
+    fn year(value: Date): Int {
+        value.year
+    }
+
+    fn month(value: Date): Int {
+        value.month
+    }
+
+    fn day(value: Date): Int {
+        value.day
+    }
+}
+
+impl Add<Years, Date> for Date {
+    /// Add whole calendar years, clamping leap days when needed.
+    fn add(lhs: Date, Years(n)): Date {
+        date_add_years(lhs, n)
+    }
+}
+
+impl Add<Months, Date> for Date {
+    /// Add whole calendar months, clamping end-of-month.
+    //! assert try Date"2011-01-31" + Months(1) == try Date"2011-02-28"
+    //! assert try Date"2012-01-31" + Months(1) == try Date"2012-02-29"
+    //
+    fn add(lhs: Date, Months(n)): Date {
+        date_add_months(lhs, n)
+    }
+}
+
+impl Add<Weeks, Date> for Date {
+    /// Add whole calendar weeks.
+    fn add(lhs: Date, Weeks(n)): Date {
+        lhs + Days(n * 7)
+    }
+}
+
+impl Add<Days, Date> for Date {
+    /// Add whole calendar days.
+    fn add(lhs: Date, Days(n)): Date {
+        date_add_days(lhs, n)
+    }
+}
+
+impl Subtract<Years, Date> for Date {
+    /// Subtract whole calendar years, clamping leap days when needed.
+    fn subtract(lhs: Date, Years(n)): Date {
+        lhs + Years(-n)
+    }
+}
+
+impl Subtract<Months, Date> for Date {
+    /// Subtract whole calendar months, clamping end-of-month.
+    fn subtract(lhs: Date, Months(n)): Date {
+        lhs + Months(-n)
+    }
+}
+
+impl Subtract<Weeks, Date> for Date {
+    /// Subtract whole calendar weeks.
+    fn subtract(lhs: Date, Weeks(n)): Date {
+        lhs + Weeks(-n)
+    }
+}
+
+impl Subtract<Days, Date> for Date {
+    /// Subtract whole calendar days.
+    fn subtract(lhs: Date, Days(n)): Date {
+        lhs + Days(-n)
+    }
+}
+
+// ============================================================================
+// Time
+// ============================================================================
+/// A time-of-day — hour/minute/second/nanosecond, no date, no zone.
+/// Construct via `Time.new(h, m, s, ns)` (validating), `Time.parse`,
+/// or the `Time"…"` typed literal. Components reachable via
+/// `hour`/`minute`/`second`/`nanosecond` (or the `TimeParts` interface).
+pub opaque struct Time {
+    hour: Int
+    minute: Int
+    second: Int
+    nanosecond: Int
+}
+
+impl Time {
+    /// Construct a `Time`, validating each component (hour 0..=23,
+    /// minute/second 0..=59, nanosecond 0..=999_999_999).
+    //! assert try Time.new(8, 30) == try Time"08:30:00"
+    //! assert try Time.new(8, 30, 15, 250_000_000) == try Time"08:30:15.25"
+    //! assert Err(Error.InvalidValue(_msg)) = Time.new(24, 0)
+    //
+    pub fn new(hour: Int, minute: Int, second: Int = 0, nanosecond: Int = 0): Result<Time, Error> {
+        if hour < 0 or hour > 23 {
+            Err(Error.InvalidValue("hour out of range: " + Int.to_string(hour)))
+        } else if minute < 0 or minute > 59 {
+            Err(Error.InvalidValue("minute out of range: " + Int.to_string(minute)))
+        } else if second < 0 or second > 59 {
+            Err(Error.InvalidValue("second out of range: " + Int.to_string(second)))
+        } else if nanosecond < 0 or nanosecond > 999_999_999 {
+            Err(Error.InvalidValue("nanosecond out of range: " + Int.to_string(nanosecond)))
+        } else {
+            Ok(Time{hour, minute, second, nanosecond})
+        }
+    }
+
+    /// Parse a time-of-day string (`HH:MM:SS` or `HH:MM:SS.fff…`).
+    //! assert try Time.parse("08:30:00") == try Time"08:30:00"
+    //! assert Err(Error.InvalidFormat(_msg)) = Time.parse("nope")
+    //
+    pub fn parse(s: String): Result<Time, Error> {
+        attempt = time_parse_raw(s)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Exact duration from `earlier` to `later`, measured within one civil day.
+    //! assert Time.between(try Time"08:30:00", try Time"08:33:00") == Duration.minutes(3)
+    //
+    pub fn between(earlier: Time, later: Time): Duration {
+        Duration.nanoseconds(day_nanos(later) - day_nanos(earlier))
+    }
+}
+
+/// Total nanoseconds since midnight. Module-private — backs `Time.between`.
+//! assert try Time"08:33:00" |> day_nanos() == 30780000000000
+//
+fn day_nanos(t: Time): Int {
+    t.hour * 3_600_000_000_000 + t.minute * 60_000_000_000 + t.second * 1_000_000_000 + t.nanosecond
+}
+
+derive Equatable for Time
+derive Hashable for Time
+derive Comparable for Time
+
+impl Literal for Time {
+    fn from_fragments(fragments: List<Fragment<String>>): Result<Time, Error> {
+        body = Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        )
+
+        Time.parse(body)
+    }
+}
+
+impl Display for Time {
+    /// ISO time string. Sub-second precision renders as a trailing `.fff…`
+    /// only when nonzero (so `09:30:00`, not `09:30:00.000`).
+    host fn to_string(t: Time): String
+}
+
+impl Debug for Time {
+    fn inspect(t: Time): String {
+        "${t}"
+    }
+}
+
+impl TimeParts for Time {
+    fn hour(value: Time): Int {
+        value.hour
+    }
+
+    fn minute(value: Time): Int {
+        value.minute
+    }
+
+    fn second(value: Time): Int {
+        value.second
+    }
+
+    fn nanosecond(value: Time): Int {
+        value.nanosecond
+    }
+}
+
+impl Add<Duration, Time> for Time {
+    /// Add an exact `Duration`, wrapping around midnight.
+    //! assert try Time"08:33:00" + Duration.minutes(3) == try Time"08:36:00"
+    //
+    fn add(lhs: Time, rhs: Duration): Time {
+        time_add_nanos(lhs, Duration.as_nanos(rhs))
+    }
+}
+
+impl Subtract<Duration, Time> for Time {
+    /// Subtract an exact `Duration`, wrapping around midnight.
+    //! assert try Time"08:36:00" - Duration.minutes(3) == try Time"08:33:00"
+    //
+    fn subtract(lhs: Time, rhs: Duration): Time {
+        lhs + rhs * -1
+    }
+}
+
+// ============================================================================
+// NaiveDateTime
+// ============================================================================
+/// A naive date+time — a wall-clock reading like `2026-05-04T14:30:00`,
+/// with no zone or offset. **Looks like a complete timestamp but
+/// isn't**: a wall reading without a zone doesn't name a real moment in
+/// history. Reach for `DateTime` (IANA-zoned) when you need a real
+/// instant; reach for `NaiveDateTime` only when the value is genuinely
+/// a wall reading (calendar templates, schedule patterns, dates with a
+/// "local time of day" that will be resolved into a zone later).
+pub opaque struct NaiveDateTime {
+    year: Int
+    month: Int
+    day: Int
+    hour: Int
+    minute: Int
+    second: Int
+    nanosecond: Int
+}
+
+impl NaiveDateTime {
+    /// Combine a `Date` and a `Time`. Both parts are already valid, so
+    /// this is infallible.
+    //! assert NaiveDateTime.at(
+    //!     try Date"2026-05-04",
+    //!     try Time"14:30:00",
+    //! ) == try NaiveDateTime"2026-05-04T14:30:00"
+    //
+    pub fn at(d: Date, t: Time): NaiveDateTime {
+        NaiveDateTime{
+            year: Date.year(d),
+            month: Date.month(d),
+            day: Date.day(d),
+            hour: Time.hour(t),
+            minute: Time.minute(t),
+            second: Time.second(t),
+            nanosecond: Time.nanosecond(t),
+        }
+    }
+
+    /// A `NaiveDateTime` at midnight (00:00:00) on the given date.
+    //! assert NaiveDateTime.at_midnight(try Date"2026-05-04") == try NaiveDateTime"2026-05-04T00:00:00"
+    //
+    pub fn at_midnight(d: Date): NaiveDateTime {
+        NaiveDateTime{
+            year: Date.year(d),
+            month: Date.month(d),
+            day: Date.day(d),
+            hour: 0,
+            minute: 0,
+            second: 0,
+            nanosecond: 0,
+        }
+    }
+
+    /// The date component.
+    //! assert NaiveDateTime.to_date(try NaiveDateTime"2026-05-04T14:30:00") == try Date"2026-05-04"
+    //
+    pub host fn to_date(dt: NaiveDateTime): Date
+
+    /// The time-of-day component.
+    //! assert NaiveDateTime.to_time(try NaiveDateTime"2026-05-04T14:30:00") == try Time"14:30:00"
+    //
+    pub host fn to_time(dt: NaiveDateTime): Time
+
+    /// Construct from seven integers, validating each component AND the
+    /// year/month/day combination.
+    //! assert try NaiveDateTime.new(2026, 5, 4, 14, 30) == try NaiveDateTime"2026-05-04T14:30:00"
+    //! assert Err(Error.InvalidValue(_msg)) = NaiveDateTime.new(2026, 2, 30, 12, 0)
+    //
+    pub fn new(
+        year: Int,
+        month: Int,
+        day: Int,
+        hour: Int,
+        minute: Int,
+        second: Int = 0,
+        nanosecond: Int = 0,
+    ): Result<NaiveDateTime, Error> {
+        NaiveDateTime.new_exact(year, month, day, hour, minute, second, nanosecond)
+    }
+
+    // The seven-component constructor, with no defaults of its own.
+    //
+    // The split exists so that `second: Int = 0` above has exactly ONE owner.
+    // The Go half it reaches takes seven arguments and pads nothing, so a
+    // default can only be written on a Nomi declaration, where the IR builder
+    // reads it. Two layers, one encoding.
+    //
+    // `DateTime.in_zone` over `in_zone_resolve` below is this shape already.
+    fn new_exact(
+        year: Int,
+        month: Int,
+        day: Int,
+        hour: Int,
+        minute: Int,
+        second: Int,
+        nanosecond: Int,
+    ): Result<NaiveDateTime, Error> {
+        attempt = naive_new_exact_raw(year, month, day, hour, minute, second, nanosecond)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Parse an ISO naive datetime string (`YYYY-MM-DDTHH:MM:SS[.fff…]`).
+    /// Allows a single space instead of `T` between the date and time.
+    //! assert try NaiveDateTime.parse("2026-05-04T14:30:00") == NaiveDateTime.at(
+    //!     try Date"2026-05-04",
+    //!     try Time"14:30:00",
+    //! )
+    //!
+    //! assert try NaiveDateTime.parse("2026-05-04 14:30:00") == try NaiveDateTime"2026-05-04T14:30:00"
+    //
+    pub fn parse(s: String): Result<NaiveDateTime, Error> {
+        attempt = naive_parse_raw(s)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Difference (later − earlier), computed as if both were UTC wall-readings.
+    //! assert NaiveDateTime.between(
+    //!     try NaiveDateTime"2026-05-04T09:00:00",
+    //!     try NaiveDateTime"2026-05-04T11:30:00",
+    //! ) == Duration.minutes(150)
+    //
+    pub fn between(earlier: NaiveDateTime, later: NaiveDateTime): Duration {
+        Duration.nanoseconds(naive_between_nanos(earlier, later))
+    }
+}
+
+derive Equatable for NaiveDateTime
+derive Hashable for NaiveDateTime
+derive Comparable for NaiveDateTime
+
+impl Literal for NaiveDateTime {
+    fn from_fragments(fragments: List<Fragment<String>>): Result<NaiveDateTime, Error> {
+        body = Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        )
+
+        NaiveDateTime.parse(body)
+    }
+}
+
+impl Display for NaiveDateTime {
+    /// ISO datetime string (`YYYY-MM-DDTHH:MM:SS[.fff…]`).
+    host fn to_string(dt: NaiveDateTime): String
+}
+
+impl Debug for NaiveDateTime {
+    fn inspect(dt: NaiveDateTime): String {
+        "${dt}"
+    }
+}
+
+impl DateParts for NaiveDateTime {
+    fn year(value: NaiveDateTime): Int {
+        value.year
+    }
+
+    fn month(value: NaiveDateTime): Int {
+        value.month
+    }
+
+    fn day(value: NaiveDateTime): Int {
+        value.day
+    }
+}
+
+impl TimeParts for NaiveDateTime {
+    fn hour(value: NaiveDateTime): Int {
+        value.hour
+    }
+
+    fn minute(value: NaiveDateTime): Int {
+        value.minute
+    }
+
+    fn second(value: NaiveDateTime): Int {
+        value.second
+    }
+
+    fn nanosecond(value: NaiveDateTime): Int {
+        value.nanosecond
+    }
+}
+
+impl Add<Years, NaiveDateTime> for NaiveDateTime {
+    /// Add whole calendar years, clamping leap days when needed.
+    fn add(lhs: NaiveDateTime, Years(n)): NaiveDateTime {
+        naive_add_years(lhs, n)
+    }
+}
+
+impl Add<Months, NaiveDateTime> for NaiveDateTime {
+    /// Add whole calendar months, clamping end-of-month.
+    fn add(lhs: NaiveDateTime, Months(n)): NaiveDateTime {
+        naive_add_months(lhs, n)
+    }
+}
+
+impl Add<Weeks, NaiveDateTime> for NaiveDateTime {
+    /// Add whole calendar weeks.
+    fn add(lhs: NaiveDateTime, Weeks(n)): NaiveDateTime {
+        lhs + Days(n * 7)
+    }
+}
+
+impl Add<Days, NaiveDateTime> for NaiveDateTime {
+    /// Add whole calendar days.
+    fn add(lhs: NaiveDateTime, Days(n)): NaiveDateTime {
+        naive_add_days(lhs, n)
+    }
+}
+
+impl Add<Hours, NaiveDateTime> for NaiveDateTime {
+    /// Add whole civil hours.
+    fn add(lhs: NaiveDateTime, Hours(n)): NaiveDateTime {
+        lhs + Duration.hours(n)
+    }
+}
+
+impl Add<Minutes, NaiveDateTime> for NaiveDateTime {
+    /// Add whole civil minutes.
+    fn add(lhs: NaiveDateTime, Minutes(n)): NaiveDateTime {
+        lhs + Duration.minutes(n)
+    }
+}
+
+impl Add<Seconds, NaiveDateTime> for NaiveDateTime {
+    /// Add whole civil seconds.
+    fn add(lhs: NaiveDateTime, Seconds(n)): NaiveDateTime {
+        lhs + Duration.seconds(n)
+    }
+}
+
+impl Add<Milliseconds, NaiveDateTime> for NaiveDateTime {
+    /// Add whole civil milliseconds.
+    fn add(lhs: NaiveDateTime, Milliseconds(n)): NaiveDateTime {
+        lhs + Duration.milliseconds(n)
+    }
+}
+
+impl Add<Microseconds, NaiveDateTime> for NaiveDateTime {
+    /// Add whole civil microseconds.
+    fn add(lhs: NaiveDateTime, Microseconds(n)): NaiveDateTime {
+        lhs + Duration.microseconds(n)
+    }
+}
+
+impl Add<Nanoseconds, NaiveDateTime> for NaiveDateTime {
+    /// Add whole civil nanoseconds.
+    fn add(lhs: NaiveDateTime, Nanoseconds(n)): NaiveDateTime {
+        lhs + Duration.nanoseconds(n)
+    }
+}
+
+impl Add<Duration, NaiveDateTime> for NaiveDateTime {
+    /// Add an exact `Duration`.
+    fn add(lhs: NaiveDateTime, rhs: Duration): NaiveDateTime {
+        naive_add_nanos(lhs, Duration.as_nanos(rhs))
+    }
+}
+
+impl Subtract<Years, NaiveDateTime> for NaiveDateTime {
+    /// Subtract whole calendar years, clamping leap days when needed.
+    fn subtract(lhs: NaiveDateTime, Years(n)): NaiveDateTime {
+        lhs + Years(-n)
+    }
+}
+
+impl Subtract<Months, NaiveDateTime> for NaiveDateTime {
+    /// Subtract whole calendar months, clamping end-of-month.
+    fn subtract(lhs: NaiveDateTime, Months(n)): NaiveDateTime {
+        lhs + Months(-n)
+    }
+}
+
+impl Subtract<Weeks, NaiveDateTime> for NaiveDateTime {
+    /// Subtract whole calendar weeks.
+    fn subtract(lhs: NaiveDateTime, Weeks(n)): NaiveDateTime {
+        lhs + Weeks(-n)
+    }
+}
+
+impl Subtract<Days, NaiveDateTime> for NaiveDateTime {
+    /// Subtract whole calendar days.
+    fn subtract(lhs: NaiveDateTime, Days(n)): NaiveDateTime {
+        lhs + Days(-n)
+    }
+}
+
+impl Subtract<Hours, NaiveDateTime> for NaiveDateTime {
+    /// Subtract whole civil hours.
+    fn subtract(lhs: NaiveDateTime, Hours(n)): NaiveDateTime {
+        lhs + Hours(-n)
+    }
+}
+
+impl Subtract<Minutes, NaiveDateTime> for NaiveDateTime {
+    /// Subtract whole civil minutes.
+    fn subtract(lhs: NaiveDateTime, Minutes(n)): NaiveDateTime {
+        lhs + Minutes(-n)
+    }
+}
+
+impl Subtract<Seconds, NaiveDateTime> for NaiveDateTime {
+    /// Subtract whole civil seconds.
+    fn subtract(lhs: NaiveDateTime, Seconds(n)): NaiveDateTime {
+        lhs + Seconds(-n)
+    }
+}
+
+impl Subtract<Milliseconds, NaiveDateTime> for NaiveDateTime {
+    /// Subtract whole civil milliseconds.
+    fn subtract(lhs: NaiveDateTime, Milliseconds(n)): NaiveDateTime {
+        lhs + Milliseconds(-n)
+    }
+}
+
+impl Subtract<Microseconds, NaiveDateTime> for NaiveDateTime {
+    /// Subtract whole civil microseconds.
+    fn subtract(lhs: NaiveDateTime, Microseconds(n)): NaiveDateTime {
+        lhs + Microseconds(-n)
+    }
+}
+
+impl Subtract<Nanoseconds, NaiveDateTime> for NaiveDateTime {
+    /// Subtract whole civil nanoseconds.
+    fn subtract(lhs: NaiveDateTime, Nanoseconds(n)): NaiveDateTime {
+        lhs + Nanoseconds(-n)
+    }
+}
+
+impl Subtract<Duration, NaiveDateTime> for NaiveDateTime {
+    /// Subtract an exact `Duration`.
+    fn subtract(lhs: NaiveDateTime, rhs: Duration): NaiveDateTime {
+        lhs + rhs * -1
+    }
+}
+
+// ============================================================================
+// OffsetDateTime
+// ============================================================================
+/// A date+time anchored at a fixed UTC offset (`-05:00`), with no DST
+/// awareness. The right type for ISO-8601 timestamps from APIs that
+/// include an offset but not a zone (`2026-05-04T14:30:00-05:00`).
+/// For DST-aware semantics, reach for `DateTime` instead — `DateTime`
+/// is the recommended default for real moments-in-time; an
+/// `OffsetDateTime` deliberately can't tell you which zone you were
+/// in, so converting back to `DateTime` requires re-naming the zone.
+///
+/// Equality and ordering are **instant-only**: two `OffsetDateTime`
+/// values with the same underlying nanos but different offsets are
+/// equal (they're the same moment in real history; the offset is
+/// display metadata). Construct via `OffsetDateTime.with_offset(naive,
+/// offset)`, `OffsetDateTime.from_instant(instant, offset)`,
+/// `OffsetDateTime.parse`, or the `OffsetDateTime"…"` typed literal.
+pub opaque struct OffsetDateTime {
+    instant_nanos: Int
+    offset_seconds: Int
+}
+
+impl OffsetDateTime {
+    /// Combine a `NaiveDateTime` wall-reading with a fixed UTC offset.
+    /// Returns `Err(.InvalidValue(...))` if the offset is outside the
+    /// IANA-acceptable range (`±18:00`).
+    //! assert try OffsetDateTime.with_offset(
+    //!     try NaiveDateTime"2026-05-04T09:00:00",
+    //!     Duration.hours(-5),
+    //! ) == try OffsetDateTime"2026-05-04T09:00:00-05:00"
+    //
+    pub fn with_offset(dt: NaiveDateTime, offset: Duration): Result<OffsetDateTime, Error> {
+        attempt = offset_with_offset_raw(dt, Duration.as_nanos(offset))
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Attach a fixed offset to an absolute `Instant`. Always total —
+    /// every instant has a representation at every fixed offset.
+    //! assert OffsetDateTime.from_instant(
+    //!     Instant.from_seconds(0),
+    //!     Duration.hours(0),
+    //! ) == try OffsetDateTime"1970-01-01T00:00:00Z"
+    //
+    pub fn from_instant(i: Instant, offset: Duration): OffsetDateTime {
+        offset_from_instant_nanos(Instant.as_nanos(i), Duration.as_nanos(offset))
+    }
+
+    /// Parse an ISO-8601 timestamp with offset suffix
+    /// (`YYYY-MM-DDTHH:MM:SS[.fff…][±HH:MM|Z]`).
+    //! assert try OffsetDateTime.parse(
+    //!     "2026-05-04T14:30:00-05:00"
+    //! ) == try OffsetDateTime"2026-05-04T14:30:00-05:00"
+    //!
+    //! assert Err(Error.InvalidFormat(_msg)) = OffsetDateTime.parse("2026-05-04T14:30:00")
+    //
+    pub fn parse(s: String): Result<OffsetDateTime, Error> {
+        attempt = offset_parse_raw(s)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Exact duration between two fixed-offset date-times, comparing their
+    /// underlying instants rather than their displayed wall readings.
+    //! assert OffsetDateTime.between(
+    //!     try OffsetDateTime"2026-05-04T14:30:00-05:00",
+    //!     try OffsetDateTime"2026-05-04T20:30:00+00:00",
+    //! ) == Duration.hours(1)
+    //
+    pub fn between(earlier: OffsetDateTime, later: OffsetDateTime): Duration {
+        Duration.nanoseconds(later.instant_nanos - earlier.instant_nanos)
+    }
+}
+
+impl Literal for OffsetDateTime {
+    fn from_fragments(fragments: List<Fragment<String>>): Result<OffsetDateTime, Error> {
+        body = Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        )
+
+        OffsetDateTime.parse(body)
+    }
+}
+
+impl Display for OffsetDateTime {
+    /// ISO-8601 datetime + offset string (`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM`).
+    host fn to_string(odt: OffsetDateTime): String
+}
+
+impl Debug for OffsetDateTime {
+    fn inspect(odt: OffsetDateTime): String {
+        "${odt}"
+    }
+}
+
+impl DateParts for OffsetDateTime {
+    // `DateParts`/`TimeParts` accessors are Go projections through
+    // `time.Unix(0, instant_nanos).In(time.FixedZone("", offset_seconds))` — the
+    // extern IS the interface function (no wrapper).
+    host fn year(value: OffsetDateTime): Int
+    host fn month(value: OffsetDateTime): Int
+    host fn day(value: OffsetDateTime): Int
+}
+
+impl TimeParts for OffsetDateTime {
+    host fn hour(value: OffsetDateTime): Int
+    host fn minute(value: OffsetDateTime): Int
+    host fn second(value: OffsetDateTime): Int
+    host fn nanosecond(value: OffsetDateTime): Int
+}
+
+impl Anchored for OffsetDateTime {
+    /// The underlying instant.
+    ///
+    /// A field read rather than a Go call: the instant IS the stored
+    /// representation, and the offset is display metadata that a projection
+    /// onto a moment drops.
+    fn to_instant(odt: OffsetDateTime): Instant {
+        Instant.from_nanos(odt.instant_nanos)
+    }
+
+    /// The fixed UTC offset.
+    ///
+    /// Read rather than computed, which is the difference from `DateTime`: a
+    /// zoned value has to ask the tzdb what its offset is at that instant, and a
+    /// fixed-offset value carries the answer.
+    fn offset(odt: OffsetDateTime): Duration {
+        Duration.seconds(odt.offset_seconds)
+    }
+}
+
+impl Add<Duration, OffsetDateTime> for OffsetDateTime {
+    /// Add an exact `Duration`.
+    fn add(lhs: OffsetDateTime, rhs: Duration): OffsetDateTime {
+        OffsetDateTime{
+            instant_nanos: lhs.instant_nanos + Duration.as_nanos(rhs),
+            offset_seconds: lhs.offset_seconds,
+        }
+    }
+}
+
+impl Add<Years, OffsetDateTime> for OffsetDateTime {
+    /// Add whole calendar years, clamping leap days when needed.
+    fn add(lhs: OffsetDateTime, Years(n)): OffsetDateTime {
+        offset_add_years(lhs, n)
+    }
+}
+
+impl Add<Months, OffsetDateTime> for OffsetDateTime {
+    /// Add whole calendar months, clamping end-of-month.
+    fn add(lhs: OffsetDateTime, Months(n)): OffsetDateTime {
+        offset_add_months(lhs, n)
+    }
+}
+
+impl Add<Weeks, OffsetDateTime> for OffsetDateTime {
+    /// Add whole calendar weeks.
+    fn add(lhs: OffsetDateTime, Weeks(n)): OffsetDateTime {
+        lhs + Duration.hours(n * 24 * 7)
+    }
+}
+
+impl Add<Days, OffsetDateTime> for OffsetDateTime {
+    /// Add whole calendar days.
+    fn add(lhs: OffsetDateTime, Days(n)): OffsetDateTime {
+        lhs + Duration.hours(n * 24)
+    }
+}
+
+impl Add<Hours, OffsetDateTime> for OffsetDateTime {
+    /// Add whole civil hours.
+    fn add(lhs: OffsetDateTime, Hours(n)): OffsetDateTime {
+        lhs + Duration.hours(n)
+    }
+}
+
+impl Add<Minutes, OffsetDateTime> for OffsetDateTime {
+    /// Add whole civil minutes.
+    fn add(lhs: OffsetDateTime, Minutes(n)): OffsetDateTime {
+        lhs + Duration.minutes(n)
+    }
+}
+
+impl Add<Seconds, OffsetDateTime> for OffsetDateTime {
+    /// Add whole civil seconds.
+    fn add(lhs: OffsetDateTime, Seconds(n)): OffsetDateTime {
+        lhs + Duration.seconds(n)
+    }
+}
+
+impl Add<Milliseconds, OffsetDateTime> for OffsetDateTime {
+    /// Add whole civil milliseconds.
+    fn add(lhs: OffsetDateTime, Milliseconds(n)): OffsetDateTime {
+        lhs + Duration.milliseconds(n)
+    }
+}
+
+impl Add<Microseconds, OffsetDateTime> for OffsetDateTime {
+    /// Add whole civil microseconds.
+    fn add(lhs: OffsetDateTime, Microseconds(n)): OffsetDateTime {
+        lhs + Duration.microseconds(n)
+    }
+}
+
+impl Add<Nanoseconds, OffsetDateTime> for OffsetDateTime {
+    /// Add whole civil nanoseconds.
+    fn add(lhs: OffsetDateTime, Nanoseconds(n)): OffsetDateTime {
+        lhs + Duration.nanoseconds(n)
+    }
+}
+
+impl Subtract<Duration, OffsetDateTime> for OffsetDateTime {
+    /// Subtract an exact `Duration`.
+    fn subtract(lhs: OffsetDateTime, rhs: Duration): OffsetDateTime {
+        lhs + rhs * -1
+    }
+}
+
+impl Subtract<Years, OffsetDateTime> for OffsetDateTime {
+    /// Subtract whole calendar years, clamping leap days when needed.
+    fn subtract(lhs: OffsetDateTime, Years(n)): OffsetDateTime {
+        lhs + Years(-n)
+    }
+}
+
+impl Subtract<Months, OffsetDateTime> for OffsetDateTime {
+    /// Subtract whole calendar months, clamping end-of-month.
+    fn subtract(lhs: OffsetDateTime, Months(n)): OffsetDateTime {
+        lhs + Months(-n)
+    }
+}
+
+impl Subtract<Weeks, OffsetDateTime> for OffsetDateTime {
+    /// Subtract whole calendar weeks.
+    fn subtract(lhs: OffsetDateTime, Weeks(n)): OffsetDateTime {
+        lhs + Weeks(-n)
+    }
+}
+
+impl Subtract<Days, OffsetDateTime> for OffsetDateTime {
+    /// Subtract whole calendar days.
+    fn subtract(lhs: OffsetDateTime, Days(n)): OffsetDateTime {
+        lhs + Days(-n)
+    }
+}
+
+impl Subtract<Hours, OffsetDateTime> for OffsetDateTime {
+    /// Subtract whole civil hours.
+    fn subtract(lhs: OffsetDateTime, Hours(n)): OffsetDateTime {
+        lhs + Hours(-n)
+    }
+}
+
+impl Subtract<Minutes, OffsetDateTime> for OffsetDateTime {
+    /// Subtract whole civil minutes.
+    fn subtract(lhs: OffsetDateTime, Minutes(n)): OffsetDateTime {
+        lhs + Minutes(-n)
+    }
+}
+
+impl Subtract<Seconds, OffsetDateTime> for OffsetDateTime {
+    /// Subtract whole civil seconds.
+    fn subtract(lhs: OffsetDateTime, Seconds(n)): OffsetDateTime {
+        lhs + Seconds(-n)
+    }
+}
+
+impl Subtract<Milliseconds, OffsetDateTime> for OffsetDateTime {
+    /// Subtract whole civil milliseconds.
+    fn subtract(lhs: OffsetDateTime, Milliseconds(n)): OffsetDateTime {
+        lhs + Milliseconds(-n)
+    }
+}
+
+impl Subtract<Microseconds, OffsetDateTime> for OffsetDateTime {
+    /// Subtract whole civil microseconds.
+    fn subtract(lhs: OffsetDateTime, Microseconds(n)): OffsetDateTime {
+        lhs + Microseconds(-n)
+    }
+}
+
+impl Subtract<Nanoseconds, OffsetDateTime> for OffsetDateTime {
+    /// Subtract whole civil nanoseconds.
+    fn subtract(lhs: OffsetDateTime, Nanoseconds(n)): OffsetDateTime {
+        lhs + Nanoseconds(-n)
+    }
+}
+
+impl Equatable for OffsetDateTime {
+    fn equal?(a: OffsetDateTime, b: OffsetDateTime): Bool {
+        a.instant_nanos == b.instant_nanos
+    }
+}
+
+impl Hashable for OffsetDateTime {
+    fn hash(value: OffsetDateTime): Int {
+        value.instant_nanos
+    }
+}
+
+impl Comparable for OffsetDateTime {
+    fn compare(a: OffsetDateTime, b: OffsetDateTime): Ordering {
+        Int.compare(a.instant_nanos, b.instant_nanos)
+    }
+}
+
+// ============================================================================
+// Disambiguation
+// ============================================================================
+/// How `DateTime.in_zone` resolves wall-clock readings that fall in a DST
+/// spring-forward **gap** (the wall time never exists — clocks
+/// jumped over it) or a fall-back **fold** (the wall time exists
+/// twice — clocks rolled back). Modeled on Temporal's
+/// `disambiguation` option.
+///
+/// The four modes:
+///
+/// - **`Compatible`** (the default — pass no `mode` argument and
+///   you get this) — "do the obvious thing", always returning an
+///   instant. In a fold, picks the **earlier** instant (the
+///   pre-transition occurrence). In a gap, advances **forward**
+///   through the gap so `02:30` becomes `03:30` post-transition.
+///   Matches the intuition that "30 minutes after the gap started"
+///   means "30 minutes of wall time after the gap's start". Reach
+///   for this unless you have a specific reason not to.
+///
+/// - **`Earlier`** — pick the earlier instant in both transitions.
+///   In a fold, same as `Compatible` (the pre-transition
+///   occurrence). In a gap, the instant *just before* the
+///   transition: `02:30` in a spring-forward gap resolves to `01:30`
+///   pre-transition. Useful when "earlier is safer" — e.g.
+///   scheduling a deadline or notification where the earlier
+///   interpretation prevents a missed event.
+///
+/// - **`Later`** — pick the later instant in both transitions. In a
+///   fold, the post-transition occurrence (`01:30` EST after the
+///   fall-back). In a gap, the post-transition instant (same as
+///   `Compatible` for gaps). Useful when "later is safer" — e.g.
+///   expirations and grace periods, where the later interpretation
+///   gives the user the benefit of the doubt.
+///
+/// - **`Reject`** — surface DST anomalies as `Err` instead of
+///   resolving silently: `Err(Ambiguous ...)` for folds,
+///   `Err(Nonexistent ...)` for gaps. The strict mode for code
+///   that should never silently disambiguate — typically when the
+///   wall reading came from a user (UI form, API request) and the
+///   right answer is to bounce the ambiguity back to them.
+pub enum Disambiguation {
+    Compatible
+    Earlier
+    Later
+    Reject
+}
+
+// ============================================================================
+// DateTime (IANA-zoned, DST-aware)
+// ============================================================================
+/// A date+time anchored to an IANA time zone (`America/New_York`),
+/// fully DST-aware. The default type for real moments in history —
+/// short name, attractive-by-design, the right choice for almost
+/// every timestamp a program handles. Backed by `time/tzdata`
+/// embedded in the runtime, so IANA-zone lookups work on every
+/// host without external tzdata.
+///
+/// Equality and ordering are **instant-only**: same moment in two
+/// different zones compares equal. The zone is display metadata,
+/// not identity.
+///
+/// Construct via `DateTime.in_zone(naive, zone, mode)` (the fallible
+/// wall→instant projection — see `Disambiguation` for the gap/fold
+/// modes), `DateTime.from_instant_in(instant, zone)` (always total),
+/// `DateTime.now_in(zone)` (the system clock projected into a zone),
+/// `DateTime.parse`, or the `DateTime"…"` typed literal (RFC 9557
+/// bracket form).
+pub opaque struct DateTime {
+    instant_nanos: Int
+    zone: String
+}
+
+impl DateTime {
+    /// Project a naive wall-reading into an IANA zone, returning a
+    /// `DateTime` anchored at the resolved instant. Fails on
+    /// `UnknownZone` always, and — only when `mode = Reject` — on
+    /// `Nonexistent` (gap) or `Ambiguous` (fold). The three resolving
+    /// modes (`Compatible`/`Earlier`/`Later`) always land on an instant.
+    //! assert try DateTime.in_zone(
+    //!     try NaiveDateTime"2026-06-15T12:00:00",
+    //!     "America/New_York",
+    //! ) == try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    //!
+    //! assert Err(Error.UnknownZone(_zone)) = DateTime.in_zone(
+    //!     try NaiveDateTime"2026-06-15T12:00:00",
+    //!     "Mars/Base",
+    //! )
+    //
+    pub fn in_zone(
+        dt: NaiveDateTime,
+        zone: String,
+        mode: Disambiguation = Disambiguation.Compatible,
+    ): Result<DateTime, Error> {
+        DateTime.in_zone_resolve(dt, zone, mode)
+    }
+
+    fn in_zone_resolve(
+        dt: NaiveDateTime,
+        zone: String,
+        mode: Disambiguation,
+    ): Result<DateTime, Error> {
+        mode_tag = case mode {
+            Disambiguation.Compatible -> 1
+            Disambiguation.Earlier -> 2
+            Disambiguation.Later -> 3
+            Disambiguation.Reject -> 4
+        }
+
+        attempt = zoned_in_zone_raw(dt, zone, mode_tag)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Project an absolute `Instant` into an IANA zone. Always total
+    /// once the zone is known. Fails only on `UnknownZone`.
+    //! assert try DateTime.from_instant_in(
+    //!     Instant.from_seconds(0),
+    //!     "UTC",
+    //! ) == try DateTime"1970-01-01T00:00:00Z[UTC]"
+    //
+    pub fn from_instant_in(i: Instant, zone: String): Result<DateTime, Error> {
+        attempt = zoned_from_instant_in_raw(Instant.as_nanos(i), zone)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Read the current wall clock and project into a zone. Sugar for
+    /// `DateTime.from_instant_in(Instant.now(), zone)`.
+    //! assert Err(Error.UnknownZone(_zone)) = DateTime.now_in("Mars/Base")
+    //
+    pub fn now_in(zone: String): Result<DateTime, Error> {
+        DateTime.from_instant_in(Instant.now(), zone)
+    }
+
+    /// Freeze the zone's current offset at this instant — produces an
+    /// `OffsetDateTime` carrying the offset effective at the `DateTime`'s
+    /// instant. Lossy: the result no longer remembers the IANA zone.
+    //! assert DateTime.to_offset(
+    //!     try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    //! ) == try OffsetDateTime"2026-06-15T12:00:00-04:00"
+    //
+    pub host fn to_offset(d: DateTime): OffsetDateTime
+
+    /// Same instant, different IANA zone — re-project the wall reading
+    /// through a new zone. Fails only on `UnknownZone`.
+    //! assert try DateTime.with_zone(
+    //!     try DateTime"2026-06-15T12:00:00-04:00[America/New_York]",
+    //!     "Europe/Paris",
+    //! ) == try DateTime"2026-06-15T18:00:00+02:00[Europe/Paris]"
+    //
+    pub fn with_zone(d: DateTime, zone: String): Result<DateTime, Error> {
+        attempt = zoned_with_zone_raw(d, zone)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Parse an RFC 9557 datetime-with-zone string
+    /// (`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM[Zone/Name]`). The IANA-zone
+    /// bracket suffix is required — bare offset forms parse via
+    /// `OffsetDateTime.parse` instead.
+    //! assert try DateTime.parse("2026-06-15T12:00:00-04:00[America/New_York]") == try DateTime.in_zone(
+    //!     try NaiveDateTime"2026-06-15T12:00:00",
+    //!     "America/New_York",
+    //! )
+    //!
+    //! assert Err(Error.InvalidFormat(_msg)) = DateTime.parse("2026-06-15T12:00:00-04:00")
+    //
+    pub fn parse(s: String): Result<DateTime, Error> {
+        attempt = zoned_parse_raw(s)
+
+        if attempt.kind == 0 {
+            Ok(attempt.value)
+        } else {
+            Err(Error.of(attempt.kind, attempt.reason))
+        }
+    }
+
+    /// Exact duration between two zoned date-times, comparing their underlying
+    /// instants rather than their displayed wall readings.
+    //! assert DateTime.between(
+    //!     try DateTime"2026-06-15T12:00:00-04:00[America/New_York]",
+    //!     try DateTime"2026-06-15T18:30:00+02:00[Europe/Paris]",
+    //! ) == Duration.minutes(30)
+    //
+    pub fn between(earlier: DateTime, later: DateTime): Duration {
+        Duration.nanoseconds(later.instant_nanos - earlier.instant_nanos)
+    }
+}
+
+impl Literal for DateTime {
+    fn from_fragments(fragments: List<Fragment<String>>): Result<DateTime, Error> {
+        body = Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        )
+
+        DateTime.parse(body)
+    }
+}
+
+impl Display for DateTime {
+    /// RFC 9557 datetime+zone string.
+    host fn to_string(d: DateTime): String
+}
+
+impl Debug for DateTime {
+    fn inspect(d: DateTime): String {
+        "${d}"
+    }
+}
+
+impl DateParts for DateTime {
+    // `DateParts`/`TimeParts` accessors project through
+    // `time.Unix(0, instant_nanos).In(loc)` (the IANA-loaded location) — the
+    // extern IS the interface function.
+    host fn year(value: DateTime): Int
+    host fn month(value: DateTime): Int
+    host fn day(value: DateTime): Int
+}
+
+impl TimeParts for DateTime {
+    host fn hour(value: DateTime): Int
+    host fn minute(value: DateTime): Int
+    host fn second(value: DateTime): Int
+    host fn nanosecond(value: DateTime): Int
+}
+
+impl Anchored for DateTime {
+    /// The underlying instant.
+    ///
+    /// A field read rather than a Go call: the instant IS the stored
+    /// representation and the zone is display metadata.
+    fn to_instant(d: DateTime): Instant {
+        Instant.from_nanos(d.instant_nanos)
+    }
+
+    /// The effective UTC offset at this instant.
+    ///
+    /// COMPUTED, unlike `OffsetDateTime.offset`: the answer depends on where
+    /// this moment falls among the zone's transitions, so it is a tzdb read.
+    fn offset(d: DateTime): Duration {
+        Duration.nanoseconds(zoned_offset_nanos(d))
+    }
+}
+
+impl Add<Duration, DateTime> for DateTime {
+    /// Add an exact `Duration`.
+    fn add(lhs: DateTime, rhs: Duration): DateTime {
+        DateTime{
+            instant_nanos: lhs.instant_nanos + Duration.as_nanos(rhs),
+            zone: lhs.zone,
+        }
+    }
+}
+
+impl Add<Years, DateTime> for DateTime {
+    /// Add whole calendar years, clamping leap days when needed.
+    fn add(lhs: DateTime, Years(n)): DateTime {
+        zoned_add_years(lhs, n)
+    }
+}
+
+impl Add<Months, DateTime> for DateTime {
+    /// Add whole calendar months, clamping end-of-month.
+    fn add(lhs: DateTime, Months(n)): DateTime {
+        zoned_add_months(lhs, n)
+    }
+}
+
+impl Add<Weeks, DateTime> for DateTime {
+    /// Add whole calendar weeks.
+    fn add(lhs: DateTime, Weeks(n)): DateTime {
+        lhs + Days(n * 7)
+    }
+}
+
+impl Add<Days, DateTime> for DateTime {
+    /// Add whole calendar days.
+    fn add(lhs: DateTime, Days(n)): DateTime {
+        zoned_add_days(lhs, n)
+    }
+}
+
+impl Add<Hours, DateTime> for DateTime {
+    /// Add whole civil hours.
+    fn add(lhs: DateTime, Hours(n)): DateTime {
+        zoned_add_hours(lhs, n)
+    }
+}
+
+impl Add<Minutes, DateTime> for DateTime {
+    /// Add whole civil minutes.
+    fn add(lhs: DateTime, Minutes(n)): DateTime {
+        zoned_add_minutes(lhs, n)
+    }
+}
+
+impl Add<Seconds, DateTime> for DateTime {
+    /// Add whole civil seconds.
+    fn add(lhs: DateTime, Seconds(n)): DateTime {
+        zoned_add_seconds(lhs, n)
+    }
+}
+
+impl Add<Milliseconds, DateTime> for DateTime {
+    /// Add whole civil milliseconds.
+    fn add(lhs: DateTime, Milliseconds(n)): DateTime {
+        zoned_add_milliseconds(lhs, n)
+    }
+}
+
+impl Add<Microseconds, DateTime> for DateTime {
+    /// Add whole civil microseconds.
+    fn add(lhs: DateTime, Microseconds(n)): DateTime {
+        zoned_add_microseconds(lhs, n)
+    }
+}
+
+impl Add<Nanoseconds, DateTime> for DateTime {
+    /// Add whole civil nanoseconds.
+    fn add(lhs: DateTime, Nanoseconds(n)): DateTime {
+        zoned_add_nanoseconds(lhs, n)
+    }
+}
+
+impl Subtract<Duration, DateTime> for DateTime {
+    /// Subtract an exact `Duration`.
+    fn subtract(lhs: DateTime, rhs: Duration): DateTime {
+        lhs + rhs * -1
+    }
+}
+
+impl Subtract<Years, DateTime> for DateTime {
+    /// Subtract whole calendar years, clamping leap days when needed.
+    fn subtract(lhs: DateTime, Years(n)): DateTime {
+        lhs + Years(-n)
+    }
+}
+
+impl Subtract<Months, DateTime> for DateTime {
+    /// Subtract whole calendar months, clamping end-of-month.
+    fn subtract(lhs: DateTime, Months(n)): DateTime {
+        lhs + Months(-n)
+    }
+}
+
+impl Subtract<Weeks, DateTime> for DateTime {
+    /// Subtract whole calendar weeks.
+    fn subtract(lhs: DateTime, Weeks(n)): DateTime {
+        lhs + Weeks(-n)
+    }
+}
+
+impl Subtract<Days, DateTime> for DateTime {
+    /// Subtract whole calendar days.
+    fn subtract(lhs: DateTime, Days(n)): DateTime {
+        lhs + Days(-n)
+    }
+}
+
+impl Subtract<Hours, DateTime> for DateTime {
+    /// Subtract whole civil hours.
+    fn subtract(lhs: DateTime, Hours(n)): DateTime {
+        lhs + Hours(-n)
+    }
+}
+
+impl Subtract<Minutes, DateTime> for DateTime {
+    /// Subtract whole civil minutes.
+    fn subtract(lhs: DateTime, Minutes(n)): DateTime {
+        lhs + Minutes(-n)
+    }
+}
+
+impl Subtract<Seconds, DateTime> for DateTime {
+    /// Subtract whole civil seconds.
+    fn subtract(lhs: DateTime, Seconds(n)): DateTime {
+        lhs + Seconds(-n)
+    }
+}
+
+impl Subtract<Milliseconds, DateTime> for DateTime {
+    /// Subtract whole civil milliseconds.
+    fn subtract(lhs: DateTime, Milliseconds(n)): DateTime {
+        lhs + Milliseconds(-n)
+    }
+}
+
+impl Subtract<Microseconds, DateTime> for DateTime {
+    /// Subtract whole civil microseconds.
+    fn subtract(lhs: DateTime, Microseconds(n)): DateTime {
+        lhs + Microseconds(-n)
+    }
+}
+
+impl Subtract<Nanoseconds, DateTime> for DateTime {
+    /// Subtract whole civil nanoseconds.
+    fn subtract(lhs: DateTime, Nanoseconds(n)): DateTime {
+        lhs + Nanoseconds(-n)
+    }
+}
+
+impl Equatable for DateTime {
+    fn equal?(a: DateTime, b: DateTime): Bool {
+        a.instant_nanos == b.instant_nanos
+    }
+}
+
+impl Hashable for DateTime {
+    fn hash(value: DateTime): Int {
+        value.instant_nanos
+    }
+}
+
+impl Comparable for DateTime {
+    fn compare(a: DateTime, b: DateTime): Ordering {
+        Int.compare(a.instant_nanos, b.instant_nanos)
+    }
+}
+
+// ============================================================================
+// The Go boundary
+// ============================================================================
+//
+// Every declaration below is module-private and takes or returns only `Int`,
+// `String` and the calendar structs themselves — the types the FFI
+// projection carries directly, so each Go function is one adapter row.
+// `stdcalendar/boundary.go`'s header names the three types it does not
+// carry directly and states what each costs here.
+//
+// The twenty-one declarations bound INLINE above rather than through this
+// section are the ones whose public signature was already agreeable:
+// `Date.days_between`, the four `Display` renderings, `NaiveDateTime.to_date`
+// / `to_time`, `DateTime.to_offset`, and the fourteen `DateParts`/`TimeParts`
+// accessors on the two anchored types. A wrapper for those would be a second
+// name and nothing else.
+/// One fallible `Date` construction as the Go half reports it.
+///
+/// `kind` is 0 on success, otherwise the ordinal of the `Error` variant in its
+/// declaration order. `reason` is that variant's payload. On failure `value`
+/// is untouched and never read, because `Date.of` branches on `kind` first.
+struct DateAttempt {
+    value: Date
+    kind: Int
+    reason: String
+}
+
+/// One fallible `Time` construction as the Go half reports it.
+struct TimeAttempt {
+    value: Time
+    kind: Int
+    reason: String
+}
+
+/// One fallible `NaiveDateTime` construction as the Go half reports it.
+struct NaiveAttempt {
+    value: NaiveDateTime
+    kind: Int
+    reason: String
+}
+
+/// One fallible `OffsetDateTime` construction as the Go half reports it.
+struct OffsetAttempt {
+    value: OffsetDateTime
+    kind: Int
+    reason: String
+}
+
+/// One fallible `DateTime` construction as the Go half reports it.
+struct ZonedAttempt {
+    value: DateTime
+    kind: Int
+    reason: String
+}
+
+/// The ordinal-to-variant pairing, in one place.
+///
+/// IMPL-OWNED rather than a free function, and that is a lowering constraint
+/// rather than taste: the IR builder refuses a call to a module-private free
+/// function inside a stdlib module (`stdlib file-qualified call`), so
+/// `Error.of(kind, reason)` made `Date.parse` unlowerable and took the
+/// `Date"…"` typed literal with it. `Error.of` is a qualified call and lowers.
+/// The same applies to the five lifts below and to `Disambiguation.tag`.
+impl Error {
+    /// `Error` has five variants and a caller matches on which one — a DST gap
+    /// is `Nonexistent`, a bad string is `InvalidFormat` — so the classification
+    /// has to survive the boundary. A trailing Go `error` projects to
+    /// `Result<_, String>` and would leave it to be recovered by parsing a
+    /// message; `runtime/extern_validate.go` refuses a typed `E` outright. So
+    /// the Go half reports an ordinal and this is the only place it is read.
+    /// `rt`'s `TagInvalidFormat` … `TagAmbiguous` constants are the other half.
+    ///
+    /// A `kind` outside 1..=5 cannot arise: the Go side writes only those five
+    /// tags, and 0 is handled by the lifts below before they reach here. The
+    /// final arm is `Ambiguous` because the chain needs a total answer, not
+    /// because 5 is a fallback.
+    fn of(kind: Int, reason: String): Error {
+        if kind == 1 {
+            Error.InvalidFormat(reason)
+        } else if kind == 2 {
+            Error.InvalidValue(reason)
+        } else if kind == 3 {
+            Error.UnknownZone(reason)
+        } else if kind == 4 {
+            Error.Nonexistent(reason)
+        } else {
+            Error.Ambiguous(reason)
+        }
+    }
+}
+
+// --- Date -------------------------------------------------------------------
+host fn date_new_raw(year: Int, month: Int, day: Int): DateAttempt
+
+host fn date_parse_raw(s: String): DateAttempt
+
+host fn date_add_years(d: Date, n: Int): Date
+
+host fn date_add_months(d: Date, n: Int): Date
+
+host fn date_add_days(d: Date, n: Int): Date
+
+// --- Time -------------------------------------------------------------------
+host fn time_parse_raw(s: String): TimeAttempt
+
+host fn time_add_nanos(t: Time, nanos: Int): Time
+
+// --- NaiveDateTime ----------------------------------------------------------
+host fn naive_new_exact_raw(
+    year: Int,
+    month: Int,
+    day: Int,
+    hour: Int,
+    minute: Int,
+    second: Int,
+    nanosecond: Int,
+): NaiveAttempt
+
+host fn naive_parse_raw(s: String): NaiveAttempt
+
+host fn naive_between_nanos(earlier: NaiveDateTime, later: NaiveDateTime): Int
+
+host fn naive_add_years(dt: NaiveDateTime, n: Int): NaiveDateTime
+
+host fn naive_add_months(dt: NaiveDateTime, n: Int): NaiveDateTime
+
+host fn naive_add_days(dt: NaiveDateTime, n: Int): NaiveDateTime
+
+host fn naive_add_nanos(dt: NaiveDateTime, nanos: Int): NaiveDateTime
+
+// --- OffsetDateTime ---------------------------------------------------------
+host fn offset_with_offset_raw(dt: NaiveDateTime, offset_nanos: Int): OffsetAttempt
+
+host fn offset_from_instant_nanos(instant_nanos: Int, offset_nanos: Int): OffsetDateTime
+
+host fn offset_parse_raw(s: String): OffsetAttempt
+
+host fn offset_add_years(odt: OffsetDateTime, n: Int): OffsetDateTime
+
+host fn offset_add_months(odt: OffsetDateTime, n: Int): OffsetDateTime
+
+// --- DateTime ---------------------------------------------------------------
+host fn zoned_in_zone_raw(dt: NaiveDateTime, zone: String, mode: Int): ZonedAttempt
+
+host fn zoned_from_instant_in_raw(instant_nanos: Int, zone: String): ZonedAttempt
+
+host fn zoned_with_zone_raw(d: DateTime, zone: String): ZonedAttempt
+
+host fn zoned_parse_raw(s: String): ZonedAttempt
+
+host fn zoned_offset_nanos(d: DateTime): Int
+
+host fn zoned_add_years(d: DateTime, n: Int): DateTime
+
+host fn zoned_add_months(d: DateTime, n: Int): DateTime
+
+host fn zoned_add_days(d: DateTime, n: Int): DateTime
+
+host fn zoned_add_hours(d: DateTime, n: Int): DateTime
+
+host fn zoned_add_minutes(d: DateTime, n: Int): DateTime
+
+host fn zoned_add_seconds(d: DateTime, n: Int): DateTime
+
+host fn zoned_add_milliseconds(d: DateTime, n: Int): DateTime
+
+host fn zoned_add_microseconds(d: DateTime, n: Int): DateTime
+
+host fn zoned_add_nanoseconds(d: DateTime, n: Int): DateTime

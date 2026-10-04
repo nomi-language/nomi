@@ -1,0 +1,68 @@
+import std/io
+
+// Probe: pattern-match ORDERING and nesting.
+//
+// The corpus files this slice was scoped from all contain one two-arm
+// `Ok`/`Err` case, which cannot tell a shared matcher from an open-coded
+// decision tree. These arms can: several of them match the same value, so the
+// printed answer is decided by arm ORDER, and the nested arms bind through two
+// layers of variant unwrapping.
+fn classify(n: Int): String {
+    case n {
+        0 -> "zero"
+        1 -> "one"
+        x when x < 0 -> "negative ${x}"
+        x when x > 100 -> "huge ${x}"
+        x -> "plain ${x}"
+    }
+}
+
+// Every arm below matches `Some(Ok(5))`. Only the first may fire.
+fn nested(v: Maybe<Result<Int, String>>): String {
+    case v {
+        Some(Ok(0)) -> "some ok zero"
+        Some(Ok(n)) when n > 3 -> "some ok big ${n}"
+        Some(Ok(n)) -> "some ok ${n}"
+        Some(Err(e)) -> "some err ${e}"
+        None -> "none"
+        _ -> "unreachable"
+    }
+}
+
+// A wildcard placed FIRST shadows everything after it. An open-coded tree that
+// reordered arms for efficiency would print the later answer.
+fn wildcard_first(n: Int): String {
+    case n {
+        _ -> "wildcard"
+        0 -> "zero"
+    }
+}
+
+fn main() {
+    io.print(classify(0))
+    io.print(classify(1))
+    io.print(classify(-7))
+    io.print(classify(500))
+    io.print(classify(42))
+
+    io.print(nested(Some(Ok(0))))
+    io.print(nested(Some(Ok(5))))
+    io.print(nested(Some(Ok(2))))
+    io.print(nested(Some(Err("bad"))))
+    io.print(nested(None))
+
+    io.print(wildcard_first(0))
+    io.print(wildcard_first(9))
+
+    // An ad-hoc `case` is an if-chain over conditions, and it is ordered too.
+    n = 5
+
+    label = case {
+        n > 100 -> "big"
+        n > 3 -> "medium"
+        n > 0 -> "small"
+        _ -> "other"
+    }
+
+    io.print(label)
+}

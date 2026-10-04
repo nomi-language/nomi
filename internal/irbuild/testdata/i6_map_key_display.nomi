@@ -1,0 +1,50 @@
+import std/io
+
+// THE ABSENT-KEY FAULT TEXT RENDERS A KEY THE WAY `value.Display()` DOES, WHICH
+// IS NOT THE WAY `impl Display` DOES.
+//
+// This fixture is the COUNTEREXAMPLE to the rule the builder used to apply, and
+// it is a fact about the language rather than about either implementation, so it
+// cannot expire. eval's applyDestructure passes `keyVal.Display()`
+// (eval.go:13728) — a method on the VALUE. It does not dispatch to a Nomi
+// `impl Display`, so the impl below is NOT consulted:
+//
+//	interpreter  line N: key Meters(2.5) not found in map
+//	builder before this fixture existed
+//	             line N: key 2.5m not found in map
+//
+// `Meters` has an `impl Display` returning `"${v}m"` for exactly that reason: a
+// distinct with no impl renders structurally under either rule, so it cannot
+// tell the two apart. Only a type whose impl DISAGREES with the structural text
+// discriminates, and this is the smallest such program.
+//
+// THE CORPUS IS STRUCTURALLY BLIND TO THIS. No file in `tests` reaches
+// a missing destructuring key over a Display-impl'd named type, so
+// `DIFFED = 0` over the whole sweep said nothing about it, in either direction.
+// That is the same blindness the maps fixture's header describes: an observable
+// rule with one encoding on each side and no program comparing them.
+//
+// THE `hit` LINE IS THE POSITIVE CONTROL and not decoration. Its VALUE is also a
+// Meters, so `"hit = ${hit}"` prints `9.5m` — string interpolation IS
+// `impl Display`, so this line proves the impl is live and reachable in this
+// very program. Without it the fixture is consistent with the impl being dead,
+// in which case the miss line below would agree under either rule and the
+// comparison would establish nothing. A destructuring that HITS also never
+// reaches the report, so the partial stdout is what proves the machinery ran.
+type Meters Float
+
+impl Display for Meters {
+    fn to_string(m: Meters): String {
+        case m {
+            Meters(v) -> "${v}m"
+        }
+    }
+}
+
+fn main() {
+    m = {Meters(1.5) => Meters(9.5)}
+    {Meters(1.5) => hit} = m
+    io.print("hit = ${hit}")
+    {Meters(2.5) => miss} = m
+    io.print("unreachable ${miss}")
+}

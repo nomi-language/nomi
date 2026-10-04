@@ -1,0 +1,52 @@
+// The struct CALL form takes a record VALUE, not only a record literal.
+//
+// `MyApp({context: c, port: 8080})` always worked. `MyApp(defaults())` — the
+// same coercion with the field set arriving as a value — was a type error:
+// `checkStructCallForm` read the argument SYNTACTICALLY and reported
+// "MyApp expects an anonymous struct literal {...} matching its fields, got
+// {port: Int, context: Context}", naming as unacceptable a type that is
+// exactly MyApp's own field set.
+//
+// The restriction was the CHECKER's alone. The evaluator's constructor takes
+// any struct value, copies its fields into a NAME-keyed map, fills the
+// declaration's defaults and brands the result with the module-qualified
+// type name — so the run-time behaviour asserted below was already correct
+// under the rejected spelling, and the checker was refusing a program its
+// own evaluator ran.
+//
+// Three properties are asserted together because each is a way the coercion
+// could be wrong and only one of them is visible by reading:
+//
+//   - FIELD ORDER. `Config` declares `{host, port, retries}` and `defaults`
+//     returns `{retries, host}` — a different order and a subset. The match
+//     is by name, so neither matters. A positional copy would put a String
+//     where an Int goes.
+//   - DEFAULTS. `retries` is supplied and `port` is not, so `port` comes
+//     from the declaration. Omitting a field with no default is an error
+//     naming that field, exactly as the literal form reports it.
+//   - NOMINAL IDENTITY. The result must be indistinguishable from the same
+//     value built with `Config{...}`, or it misses every impl silently:
+//     `==` degrades to a structural comparison that answers False on the
+//     mismatched name, and `Display` renders the anonymous form.
+struct Config {
+    host: String
+    port: Int = 8080
+    retries: Int
+}
+
+derive Display for Config
+
+fn defaults(): {retries: Int, host: String} {
+    {retries: 3, host: "localhost"}
+}
+
+test "the struct call form accepts a record value" {
+    built = Config(defaults())
+    attached = Config{host: "localhost", port: 8080, retries: 3}
+
+    assert built.host == "localhost"
+    assert built.port == 8080
+    assert built.retries == 3
+    assert built == attached
+    assert Display.to_string(built) == "Config{host: localhost, port: 8080, retries: 3}"
+}

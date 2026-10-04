@@ -1,0 +1,24 @@
+==========
+Trailing comma in a multi-line parameter list
+==========
+
+pub host fn f(
+  a: Int,
+  b: Int,
+): Int
+
+---
+
+(source_file
+  (extern_func_definition
+    (pub)
+    (host_keyword)
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier))
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)))

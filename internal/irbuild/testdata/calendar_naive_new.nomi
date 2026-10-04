@@ -1,0 +1,123 @@
+// `NaiveDateTime.new` — seven Int components, the last two defaulted, and the
+// one std declaration whose default was owned by GO rather than by the
+// declaration that documents it.
+//
+// # What this fixture is for
+//
+// It lands BEFORE the restructure it guards, against unmoved code, so the
+// pinned values below are the interpreter's answers with
+// `pub host fn new(..., second: Int = 0, nanosecond: Int = 0)` still padded in
+// Go by eval's `calendarNaiveDateTimeBuiltin`. After the restructure the same
+// text has to come back out of both paths. That is what makes the move a move
+// rather than a rewrite: `git diff -M` shows no literal in here changed.
+//
+// # Which two derivations this lets disagree
+//
+// The interesting pair is NOT "does the default get filled". It is:
+//
+//   - (A) the ARITY CONTRACT — how many arguments a call may spell, which the
+//     declaration's two `= 0` markers decide;
+//   - (B) the SLOT a written argument lands in, which position decides.
+//
+// A fixture that only ever spells the SHORTEST arity unifies A and B by
+// accident, and that is the whole trap here: with both trailing values zero,
+// "read `= 0` from the declaration", "pad with Go zeros" and even "silently
+// drop the last two arguments" produce byte-identical output. `0` is the one
+// value at which every wrong implementation is right.
+//
+// So the rows are chosen to put a WRITTEN argument in a slot a default would
+// otherwise fill:
+//
+//   - `arity6` writes `second = 45` and defaults only `nanosecond`. A slot swap
+//     renders `14:30:00.000000045` instead of `14:30:45`.
+//   - `arity6_rejects` writes `second = 99`. This is the CONTRADICTION row: an
+//     implementation that ignored the written `second` and padded zero would
+//     SUCCEED here. Nothing else in the family can see that.
+//   - `nanos_reject` puts an out-of-range value in the LAST slot, so validation
+//     is shown to receive slot seven rather than a zero. Paired with
+//     `nanos_max`, which is the accepted boundary one below it — a family of
+//     rejections with no accepted neighbour pins a bound in one direction only.
+//   - `matches_literal` makes the defaulted call agree with the typed literal,
+//     which is a second, independently written constructor for the same value.
+//
+// The date half (`arity5_rejects`) is the corpus's own row —
+// 05-calendar-and-time/naive_datetime_test.nomi spells exactly it — and it is
+// here so this file covers what that program covers plus the five arities and
+// bounds it does not.
+import {
+    std/calendar.{Error, NaiveDateTime}
+    std/io
+}
+
+// `try` inside `fn main()` is refused by the builder (`try boundary mismatch`:
+// a Unit-returning body cannot propagate), so the fallible half lives here and
+// main discharges it. A property of `main`, not of these types.
+fn run(): Result<Unit, Error> {
+    // --- every spellable arity, with a written value in a defaultable slot ----
+    // All seven written, nanosecond non-zero: the full path, and the fraction
+    // rendering that a truncation to six arguments would silently drop.
+    arity7 = try NaiveDateTime.new(2026, 5, 4, 14, 30, 45, 250_000_000)
+    // Six written: `second` supplied, `nanosecond` defaulted. A slot swap shows
+    // up here and nowhere else.
+    arity6 = try NaiveDateTime.new(2026, 5, 4, 14, 30, 45)
+    // Five written: both defaults filled. The shape the corpus spells.
+    arity5 = try NaiveDateTime.new(2026, 5, 4, 14, 30)
+
+    io.print("arity7 = " + NaiveDateTime.to_string(arity7))
+    io.print("arity6 = " + NaiveDateTime.to_string(arity6))
+    io.print("arity5 = " + NaiveDateTime.to_string(arity5))
+
+    // The defaulted call and the typed literal are two independently written
+    // constructors for one value, so this row is a contradiction between them
+    // rather than a restatement of the line above.
+    io.print(
+        "matches_literal = " + Bool.to_string(arity5 == try NaiveDateTime"2026-05-04T14:30:00")
+    )
+
+    // And the six-argument call is NOT the five-argument one, which is what makes
+    // `second` observable at all.
+    io.print("arity6_is_arity5 = " + Bool.to_string(arity6 == arity5))
+
+    // --- bounds, in both directions ------------------------------------------
+    // The accepted boundary in the last slot, one below the rejection below it.
+    nanos_max = try NaiveDateTime.new(2026, 5, 4, 14, 30, 45, 999_999_999)
+    io.print("nanos_max = " + NaiveDateTime.to_string(nanos_max))
+
+    // --- the rejections ------------------------------------------------------
+    // The VARIANT is matched rather than routed through `Display.to_string(e)`:
+    // rendering a std enum through its impl is a separate gap, and the variant is
+    // the stronger claim anyway — it pins WHICH error where a rendered string
+    // could come from any of the five.
+    // THE CONTRADICTION ROW. `second = 99` is written into a slot that carries a
+    // default. An implementation that filled the default over the written
+    // argument, or padded the list before reading it, returns Ok here.
+    case NaiveDateTime.new(2026, 5, 4, 14, 30, 99) {
+        Ok(_d) -> io.print("arity6_rejects = unexpectedly ok")
+        Err(Error.InvalidValue(m)) -> io.print("arity6_rejects = " + m)
+        Err(_other) -> io.print("arity6_rejects = wrong variant")
+    }
+
+    // The last slot, out of range: validation is shown to receive slot seven.
+    case NaiveDateTime.new(2026, 5, 4, 14, 30, 45, 1_000_000_000) {
+        Ok(_d) -> io.print("nanos_reject = unexpectedly ok")
+        Err(Error.InvalidValue(m)) -> io.print("nanos_reject = " + m)
+        Err(_other) -> io.print("nanos_reject = wrong variant")
+    }
+
+    // The DATE half, at the shortest arity: the corpus's own row. Feb 30 is a
+    // combination no single component check rejects.
+    case NaiveDateTime.new(2026, 2, 30, 12, 0) {
+        Ok(_d) -> io.print("arity5_rejects = unexpectedly ok")
+        Err(Error.InvalidValue(m)) -> io.print("arity5_rejects = " + m)
+        Err(_other) -> io.print("arity5_rejects = wrong variant")
+    }
+
+    Ok(Unit)
+}
+
+fn main() {
+    case run() {
+        Ok(_u) -> Unit
+        Err(_e) -> io.print("FAILED")
+    }
+}

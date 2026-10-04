@@ -1,0 +1,24 @@
+import std/dynamic.{DecodeError, PathSegment}
+
+test "DecodeError display renders root field and index paths" {
+    empty = DecodeError{path: [], expected: "Object", got: "List"}
+    assert DecodeError.to_string(empty) == "decode error at <root>: expected Object, got List"
+
+    single = DecodeError{
+        path: [PathSegment.Field("age")],
+        expected: "Int",
+        got: "String",
+    }
+
+    assert DecodeError.to_string(single) == "decode error at age: expected Int, got String"
+
+    nested = DecodeError{
+        path: [PathSegment.Field("user"), PathSegment.Field("emails"), PathSegment.Index(0)],
+        expected: "String",
+        got: "Null",
+    }
+
+    assert DecodeError.to_string(
+        nested
+    ) == "decode error at user.emails[0]: expected String, got Null"
+}

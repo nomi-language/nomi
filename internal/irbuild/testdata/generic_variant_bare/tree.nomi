@@ -1,0 +1,6 @@
+// A generic enum another file names through its selective import and its
+// qualifier.
+pub enum Tree<T> {
+    Leaf
+    Node T
+}

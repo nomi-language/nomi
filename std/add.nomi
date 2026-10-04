@@ -1,0 +1,18 @@
+/// Protocol for the `+` operator.
+///
+/// `Add.add(lhs, rhs)` returns the result of `lhs + rhs`. The left-hand
+/// type is the implementor (`self`); the interface type parameters describe
+/// the right-hand operand and the output type. That lets an impl choose a
+/// result that is not necessarily the same type as the left-hand operand.
+///
+/// ```nomi
+/// pub type DateDay Int
+/// pub type Days Int
+///
+/// impl Add<Days, DateDay> for DateDay {
+///     fn add(lhs: DateDay, rhs: Days): DateDay { ... }
+/// }
+/// ```
+pub interface Add<Rhs, Out> {
+    fn add(lhs: self, rhs: Rhs): Out
+}

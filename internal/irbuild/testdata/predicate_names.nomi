@@ -1,0 +1,100 @@
+// Every position that mints a Go-spelled name, reached from a `?`-suffixed
+// Nomi name — because `?` is the one identifier character Nomi admits and Go
+// does not. The builder still computes Go-spelled names for its `expr` text,
+// so every minting site has to sanitize the `?`.
+//
+// The fixture exists because one did not: `tailDriver` named the shared
+// mutual-recursion driver `"nomiTail_" + fn.Name`, so `even?`/`odd?` minted
+// `nomiTail_even?`, which is not a Go identifier.
+// Every other minting site already routed through `goLocal`, `goIdent`,
+// `goFuncName` or `sanitizeIdent`; one did not, and no fixture and no corpus
+// program contained the shape, so nothing built it.
+//
+// It is a run fixture: its output is checked against its golden record, so
+// every predicate below has to lower and answer, not merely avoid a refusal.
+// Each declaration below names the minting site it reaches and the
+// sanitizer that site routes through.
+import std/io
+
+// A free predicate: goFuncName, which strips the `?` to `_PRED`.
+fn positive?(n: Int): Bool {
+    n > 0
+}
+
+// A self-recursive predicate: the loop rewrite, no driver, no wrapper.
+fn zero_after?(n: Int): Bool {
+    if n == 0 { True } else { zero_after?(n - 1) }
+}
+
+// A mutual pair: one shared driver named from a member, plus two wrappers.
+fn even?(n: Int): Bool {
+    if n == 0 { True } else { odd?(n - 1) }
+}
+
+fn odd?(n: Int): Bool {
+    if n == 0 { False } else { even?(n - 1) }
+}
+
+// An interface method and an impl item: the rt.Method table variable and the
+// impl function's own name.
+interface Gate {
+    fn open?(value: self): Bool
+}
+
+struct Door {
+    latched: Bool
+}
+
+impl Gate for Door {
+    fn open?(value: Door): Bool {
+        if value.latched { False } else { True }
+    }
+}
+
+// An inherent impl item, whose name has no interface component.
+impl Door {
+    fn shut?(value: Door): Bool {
+        if Gate.open?(value) { False } else { True }
+    }
+}
+
+// A local binding and a lambda parameter carrying `?`: goLocal.
+fn describe(d: Door): String {
+    ready? = Gate.open?(d)
+    check = |flag?: Bool| if flag? { "open" } else { "shut" }
+
+    check(ready?)
+}
+
+// A `once` binding: goOnceName through sanitizeIdent.
+once ready?: Bool = True
+
+// An impl item in a MUTUAL cycle across the impl/free boundary, with `?` on
+// both members — the driver name and both wrapper names at once.
+struct Tick {}
+
+interface Beat {
+    fn tick?(value: self, n: Int): Bool
+}
+
+impl Beat for Tick {
+    fn tick?(value: Tick, n: Int): Bool {
+        if n == 0 { True } else { tock?(value, n - 1) }
+    }
+}
+
+fn tock?(value: Tick, n: Int): Bool {
+    Beat.tick?(value, n)
+}
+
+fn main() {
+    io.print("positive = ${positive?(3)}")
+    io.print("zero after = ${zero_after?(5)}")
+    io.print("even = ${even?(10)}")
+    io.print("odd = ${odd?(10)}")
+    io.print("open = ${Gate.open?(Door{latched: False})}")
+    io.print("shut = ${Door.shut?(Door{latched: True})}")
+    io.print("describe = ${describe(Door{latched: False})}")
+    io.print("once = ${ready?}")
+    io.print("beat = ${tock?(Tick{}, 7)}")
+}

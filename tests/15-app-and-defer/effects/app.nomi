@@ -1,0 +1,37 @@
+// EffectsApp is the project's app payload struct. It holds configuration data
+// and dependency handlers for logging, time, and console output. Reads like
+// `EffectsApp.logger` reach the active app value.
+//
+// Dependency fields (logger, clock, console) are interface-typed because
+// that is the shape this project wants. App access treats them the same
+// as data fields: code reads the fields it needs as `EffectsApp.field`.
+//
+// `load` dispatches by deployment name; each builder returns a fully-constructed
+// EffectsApp with both data fields and dependency handlers.
+import {
+    dev
+    effects.{Clock, Console, Logger}
+    prod
+    test as test_env
+}
+
+// Boot passes a root Context to the selected application constructor.
+pub struct EffectsApp {
+    context: Context
+
+    deployment: String = "dev"
+    port: Int = 3000
+    database_url: String = "postgres://localhost/myapp_dev"
+    max_connections: Int = 5
+    logger: Logger
+    clock: Clock
+    console: Console
+}
+
+pub fn load(deployment: String, context: Context): EffectsApp {
+    case deployment {
+        "prod" -> prod.build(context)
+        "test" -> test_env.build(context)
+        _ -> dev.build(context)
+    }
+}

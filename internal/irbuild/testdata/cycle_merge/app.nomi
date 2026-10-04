@@ -1,0 +1,84 @@
+// A REAL Nomi import cycle, and the shape both corpus witnesses have: an
+// app-root file declaring the config type plus a dispatching `load`, and one
+// deployment file per environment, each of which names the root's type. app
+// references prod and test; prod and test each reference app. Nomi permits
+// this deliberately — the analyzer resolves names whole-program, so import
+// order never matters and adding an import cannot produce a circular-dependency
+// error — and Go forbids a package import cycle absolutely.
+//
+// The three files are ONE strongly-connected component and therefore ONE
+// builder package (component.go). This fixture exists to force a collision
+// in every package-level namespace at once, with a DIFFERENT observable value
+// behind each colliding name, so that a name resolved to the wrong declaration
+// is a wrong ANSWER on stdout rather than a refusal. A refusal
+// would be caught by anything; a wrong answer is caught only by comparing
+// against the recorded output.
+//
+//	`label`  declared THREE times (app, prod, test), each called from OUTSIDE
+//	         the merged package by main
+//	`build`  declared TWICE (prod, test), each called from INSIDE the merged
+//	         package by `load` below
+//	`slot`   declared TWICE, returning each file's own `Slot`
+//	`tag`    a `once` declared THREE times, read from inside the package by
+//	         `origin` and from outside by main
+//	`Slot`   a type declared twice (prod, test), so its Go-spelled type name
+//	         and its runtime type identity collide too
+//	`Show`   one interface declared here, impl'd for BOTH `Slot`s, so the two
+//	         impl functions and the dispatch-table binding collide
+import {
+    prod
+    test as t
+}
+
+pub interface Show {
+    fn show(value: self): String
+}
+
+pub struct Config {
+    name: String
+    level: Int
+}
+
+pub once tag: String = "app"
+
+pub fn stamp(c: Config): String {
+    "${c.name}/${c.level}"
+}
+
+// Calls BOTH `build`s — the two declarations that wanted one Go identifier —
+// from inside the package they share. A collapsed resolution prints prod's
+// Config where test's belongs.
+pub fn load(which: String): Config {
+    if which == "prod" {
+        prod.build()
+    } else {
+        t.build()
+    }
+}
+
+// Both `badge`s, each of which dispatches `Show.show` onto its OWN `Slot`. Two
+// declarations of `impl Show for Slot` wanted one Go identifier for their impl
+// function, and app's interface owns the dispatch table that both of them bind
+// into from other files. The table name must be spelled BARE from those files —
+// qualifying it `nomimod1.NomiX_…` from inside nomimod1 is a Go self-import,
+// and a table reference that resolved while naming the wrong package would be a
+// silent wrong answer, since a table is only ever bound and compared.
+//
+// Dispatch is kept local to each deployment file on purpose: a type-qualified
+// call onto a CO-TENANT's type is still `call to an unlowered impl`, which is a
+// sibling-function plumbing gap this change does not touch and which would make
+// the fixture refuse for somebody else's reason.
+pub fn badges(): String {
+    "${prod.badge()}|${t.badge()}"
+}
+
+// This file's own `once` and then BOTH siblings' — three getters that all
+// wanted the identifier `NomiOnce_tag`, resolved from inside the one package
+// that holds all three.
+pub fn origin(): String {
+    "${tag}+${prod.tag}+${t.tag}"
+}
+
+pub fn label(): String {
+    "app-label"
+}

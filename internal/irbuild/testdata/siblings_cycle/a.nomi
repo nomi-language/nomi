@@ -1,0 +1,13 @@
+// a and b reference each other. Nomi's analyzer resolves names whole-program,
+// so a cyclic file import graph is legal and order never matters. The builder
+// has to lower both files and link each one's calls into the other whichever
+// it walks first.
+import b
+
+pub fn start(x: Int): Int {
+    b.ping(x)
+}
+
+pub fn pong(x: Int): Int {
+    x + 1
+}

@@ -1,0 +1,54 @@
+//# Typed literals — the machinery behind `Date"2026-01-01"` and
+//# `Sql"SELECT * FROM users WHERE id = ${id}"`. A typed literal is a
+//# string-shaped expression prefixed by a PascalCase type name; the
+//# compiler desugars `<Type>"..."` to `<Type>.from_fragments([...])`,
+//# so the prefix type's `Literal` impl decides what the body means and
+//# what value comes back. `Fragment` is the handler's input — the
+//# literal body split into `Static` text segments and `Dynamic`
+//# `${...}` slot values. Stdlib implementors include the `std/calendar`
+//# types (`Date"…"`, `DateTime"…"`, …); user types opt in with an
+//# `impl Literal for Type { ... }` block and a `from_fragments` function of
+//# their own.
+
+import strings.String
+
+/// One piece of a typed-literal body — either a `Static` text segment
+/// from the source between interpolation slots, or a `Dynamic` value
+/// from inside a `${...}` slot. A literal's type impl
+/// `Literal`'s `from_fragments(fragments: List<Fragment<I>>): R`
+/// to consume a typed literal; the `I` parameter pins the interface
+/// every dynamic slot must satisfy.
+///
+/// User code rarely constructs `Fragment` directly — the typed-literal
+/// syntax (`Date"..."`, `Sql"..."`) builds the list at the call site.
+/// The variants are defined here so every type's `from_fragments`
+/// composes uniformly, and so user-written handlers can pattern-match
+/// on the variants explicitly.
+pub enum Fragment<T> {
+    Static String
+    Dynamic T
+}
+
+/// Compiler-known interface backing typed literals. A `<Type>"..."` site
+/// resolves `Type` to a type in scope, demands its `Literal` impl,
+/// and desugars to `Type.from_fragments(fragments)` — so coherence, the
+/// orphan rule, and dispatch are ordinary interface-impl machinery. `I` is the
+/// interface every `${...}` slot value must satisfy
+/// (used existentially — heterogeneous slots, each implementing `I` its
+/// own way); `R` is the literal's static type (often `Result<T, E>` for a
+/// fallible parse, or the produced domain value for a builder). The impl
+/// is free to choose `I` and `R`; `from_fragments` takes no value typed
+/// `self` — the literal's type supplies the implementation, not an argument.
+///
+/// ```nomi
+/// pub opaque struct Date {
+///     // ...fields...
+/// }
+///
+/// impl Literal for Date {
+///     fn from_fragments(fragments: List<Fragment<String>>): Result<Date, Error> { ... }
+/// }
+/// ```
+pub interface Literal<I, R> {
+    fn from_fragments(fragments: List<Fragment<I>>): R
+}

@@ -1,0 +1,32 @@
+// `dbg` over values of another file's types, alone and inside containers,
+// beside `Debug.inspect` of the same values.
+import {
+    std/io
+    notes
+}
+
+fn main() {
+    n = notes.Note{title: "x"}
+    m = notes.Mood.Loud(3)
+    d = notes.meters(4)
+    s = notes.secret("k")
+    w = notes.Shown{n: 5}
+    b = notes.Box{v: 1}
+    dbg n
+    dbg m
+    dbg d
+    dbg s
+    dbg w
+    dbg b
+    dbg [n]
+    dbg [d]
+    dbg (n, w)
+    dbg (b, n)
+    dbg Some(m)
+    dbg {"k" => w}
+    n |> dbg
+
+    same = dbg n
+    io.print(Debug.inspect(same))
+    io.print(Debug.inspect((n, w)))
+}

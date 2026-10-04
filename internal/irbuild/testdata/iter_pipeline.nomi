@@ -1,0 +1,95 @@
+import std/io
+
+// The lowered `Iter` surface, observed. Every line prints, so `matched` on this
+// fixture means the two paths agreed on OUTPUT and not merely on silence.
+fn note(n: Int): Int {
+    io.print("evaluating ${n}")
+    n
+}
+
+fn shout(n: Int): Unit {
+    io.print("side ${n}")
+}
+
+fn main() {
+    // The representative depth-1 pipeline: a concrete source, one lazy adapter,
+    // one materializing terminal.
+    io.print("${[1, 2, 3] |> Iter.map(|x| x * 10) |> Iter.to_list()}")
+
+    // The same call written directly rather than piped. The pipe is a
+    // desugaring, so these must agree — and a piped call records no assertion
+    // argument rows while a direct one does, which is why both spellings are
+    // pinned.
+    io.print("${Iter.to_list(Iter.map([1, 2, 3], |x: Int| x * 10))}")
+
+    // `to_list` of something that already IS a List is the identity, on both
+    // paths: the interpreter type-tests at run time and the builder answers from
+    // the source's static kind.
+    io.print("${[7, 8] |> Iter.to_list()}")
+    io.print("${[] |> Iter.to_list()}")
+
+    // filter, and a predicate that keeps nothing.
+    io.print("${[1, 2, 3, 4] |> Iter.filter(|x| x > 2) |> Iter.to_list()}")
+    io.print("${[1, 2, 3] |> Iter.filter(|x| x > 99) |> Iter.to_list()}")
+
+    // An unbounded source, bounded. This is the shape that makes laziness
+    // observable rather than incidental: `Iter.from` never terminates on its own,
+    // so a `take` that did not stop the source would hang instead of printing.
+    io.print("${Iter.from(1) |> Iter.take(4) |> Iter.to_list()}")
+    io.print("${Iter.from(10) |> Iter.take(0) |> Iter.to_list()}")
+
+    // The corpus's only genuine depth-3 chain, in the order it is written at
+    // 13-iterators-and-pipes/iter_test.nomi:32.
+    io.print(
+        "${Iter.from(1)
+        |> Iter.map(|x| x * 2)
+        |> Iter.filter(|x| x > 4)
+        |> Iter.take(3)
+        |> Iter.to_list()}"
+    )
+
+    // `take` bounded by the SOURCE rather than by its own count: a three-element
+    // list under `take(9)` ends because the list ran out.
+    io.print("${[1, 2, 3] |> Iter.take(9) |> Iter.to_list()}")
+
+    // A mapped element type that is not the source's.
+    named = [1, 2, 3] |> Iter.map(|x| "n${x}") |> Iter.to_list()
+
+    io.print("${named}")
+    // A Float element, so the mapped type is neither the source's nor a String.
+    io.print("${[1, 2, 3] |> Iter.map(|x| 0.5 * Int.to_float(x)) |> Iter.to_list()}")
+
+    // A callback returning Unit. The interpreter surfaces that as `ctrlReturn`
+    // and yields Unit as the ELEMENT, which is what a lowered callback returning
+    // `rt.Unit{}` does too — so the two agree on a shape it would be easy to
+    // lower as "skip". A `List<Unit>` has no Display impl on either path, so the
+    // observable is its LENGTH: 2 means each element produced one, 0 would mean
+    // the Unit answer was read as a skip.
+    units = [1, 2] |> Iter.map(|x| shout(x)) |> Iter.to_list()
+
+    io.print("${units |> Iter.count()}")
+
+    // `Iter.count` through the `known_count` protocol: O(1) on a List, on both
+    // paths.
+    io.print("${[1, 2, 3, 4, 5] |> Iter.count()}")
+    io.print("${[] |> Iter.count()}")
+
+    // Laziness is per-ELEMENT, and this is the line that observes it. A source
+    // that printed all three before the adapter ran would still produce the same
+    // list, so only the interleaving distinguishes a fused push pipeline from a
+    // materialize-then-map one.
+    io.print("${[note(1), note(2)] |> Iter.map(|x| note(x * 100)) |> Iter.to_list()}")
+
+    // A pipeline bound to a name and consumed TWICE. std/iter.nomi promises
+    // iterators are replayable, which for `take` means its counter has to live
+    // in the run and not in the sequence.
+    bounded = Iter.from(1) |> Iter.take(3)
+
+    io.print("${bounded |> Iter.to_list()}")
+    io.print("${bounded |> Iter.to_list()}")
+
+    // Early termination stops the SOURCE. `take(2)` over a noisy list must print
+    // two `evaluating` lines from the list literal — which is eager — and then
+    // exactly two mapped notes, never three.
+    io.print("${[note(4), note(5)] |> Iter.map(|x| note(x)) |> Iter.take(1) |> Iter.to_list()}")
+}

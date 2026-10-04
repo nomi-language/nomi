@@ -1,0 +1,126 @@
+// App fields: staging by `boot`, `with` statements, and the flow to a deep
+// callee that never mentions the field.
+//
+// Every assertion here is a rule read off eval and pinned against it rather
+// than reasoned from the construct's name. See internal/irbuild/appfield.go.
+pub struct Settings {
+    context: Context
+
+    label: String
+    size: Int
+}
+
+pub fn boot(): Settings {
+    Settings{context: Context.root(), label: "booted", size: 1}
+}
+
+fn main() {}
+
+// deep never mentions an app field of its own and is two calls from any
+// `with`, which is the property AGENTS.md states and a struct-passing lowering
+// cannot express: overrides flow down the call chain to callees that read the
+// field even when intermediates never mention it.
+fn deep(): String {
+    Settings.label
+}
+
+fn middle(): String {
+    deep()
+}
+
+fn sized(): Int {
+    Settings.size
+}
+
+// A `with` followed by an early return: the override is in force for the
+// returned call and ends with the function.
+fn early(on: Bool): String {
+    with Settings.label = "early"
+    if on { return middle() }
+    "late ${middle()}"
+}
+
+// A `with` in a lambda's body holds for that call of the lambda.
+fn in_lambda(): List<String> {
+    ["a", "b"]
+    |> Iter.map(|tag| {
+        with Settings.label = "lambda ${tag}"
+        middle()
+    })
+    |> Iter.to_list()
+}
+
+// A closure returned after a `with` line reads the field in force where it
+// is called, not where it was made.
+fn closure(): () -> String {
+    with Settings.label = "made"
+    || middle()
+}
+
+tests "app fields" {
+    boot boot()
+
+    test "a read with no override sees the booted value" {
+        assert Settings.label == "booted"
+        assert Settings.size == 1
+    }
+
+    test "an override reaches a deep callee through an intermediate" {
+        assert middle() == "booted"
+
+        with Settings.label = "scoped"
+        assert middle() == "scoped"
+    }
+
+    test "the value reads the field in force where its line runs" {
+        with Settings.label = Settings.label + "-once"
+        assert Settings.label == "booted-once"
+
+        with Settings.label = Settings.label + "-twice"
+        assert Settings.label == "booted-once-twice"
+    }
+
+    test "an override in a block ends with the block" {
+        if True {
+            with Settings.label = "a"
+            with Settings.size = 9
+            assert sized() == 9
+            assert Settings.label == "a"
+            _ = Settings.label
+        }
+
+        assert Settings.label == "booted"
+        assert sized() == 1
+    }
+
+    test "a with in a lambda and before an early return" {
+        assert in_lambda() == ["lambda a", "lambda b"]
+        assert early(True) == "early"
+        assert early(False) == "late early"
+        assert middle() == "booted"
+    }
+
+    test "a closure does not carry the override it was made under" {
+        f = closure()
+        assert f() == "booted"
+        with Settings.label = "caller"
+        assert f() == "caller"
+    }
+
+    test "a later case does not see an earlier case's override" {
+        assert Settings.label == "booted"
+    }
+}
+
+tests "an override in a setup" {
+    boot boot()
+
+    setup {
+        with Settings.label = "from-setup"
+    }
+
+    test "reaches the test body" {
+        assert Settings.label == "from-setup"
+        assert middle() == "from-setup"
+    }
+}

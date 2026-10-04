@@ -1,0 +1,32 @@
+// `Fragment` is named NOWHERE in this file, and that is the whole fixture.
+//
+// Every value below has a `std/literals.Fragment<T>` type the CHECKER solved
+// off a sibling's signature, so `preludeAnchorsOf` — which builds an anchor
+// only from `ModuleScope.Lookup` — has nothing to find here. What authorizes
+// the layout is the type's own Origin plus std's own validated declaration.
+// See preludeorigin.go.
+//
+// Both instantiations are present because at `T = String` a `Fragment`'s two
+// payloads are the same Go type: a spec with them swapped is invisible there
+// and puts a `string` where an `int64` belongs at `T = Int`.
+import {
+    std/io
+    frag
+}
+
+fn main() {
+    a = frag.static_string("a")
+    b = frag.dynamic_string("b")
+    io.print(frag.show_string(a))
+    io.print(frag.show_string(b))
+
+    c = frag.static_int("c")
+    d = frag.dynamic_int(7)
+    io.print(frag.show_int(c))
+    io.print(frag.show_int(d))
+
+    // A LIST of them, built here and handed back: importKind recurses through
+    // the container, so the element's anchor is resolved at this file's spelling
+    // rather than borrowed from the owner's.
+    io.print(frag.join([a, b, frag.static_string("z")]))
+}

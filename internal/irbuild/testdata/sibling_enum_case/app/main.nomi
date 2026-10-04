@@ -1,0 +1,38 @@
+// A `case` over an enum declared somewhere else: `ticket.Status` in a sibling
+// file of this module, `severity.Severity` in another module. by_import,
+// by_module and dotted each spell the sibling enum's patterns one way;
+// `rank` below does the same for the other module's enum.
+//
+// Every pattern shape a `case` over a local enum takes appears: a bare
+// variant, a positional payload bound and tested against a literal, a tuple
+// payload, a struct payload destructured, a struct-shaped variant with field
+// sub-patterns, and a guard over a payload binding.
+import {
+    std/io
+    by_import
+    by_module
+    dotted
+    ticket
+    tracker/severity.{self, Severity}
+}
+
+fn rank(n: Int): String {
+    case severity.of(n) {
+        Severity.Low -> "low"
+        severity.Severity.High(x) when x > 5 -> "very high ${x}"
+        .High(x) -> "high ${x}"
+        .Custom{label} -> "custom ${label}"
+    }
+}
+
+fn main() {
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    |> Iter.each(|n| {
+        long = by_import.describe(n)
+        short = by_module.short(ticket.make(n))
+        io.print("${long} | ${short} | ${dotted.flags(n)}")
+    })
+
+    [0, 1, 2, 3]
+    |> Iter.each(|n| io.print(rank(n)))
+}

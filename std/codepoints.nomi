@@ -1,0 +1,129 @@
+import {
+    comparable.Comparable
+    debug.Debug
+    discrete.Discrete
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+    maybe.Maybe.{self, None, Some}
+    steppable.Steppable
+    strings.String
+}
+
+//# Unicode scalar values. `String` iterates by grapheme cluster for text
+//# workflows; use `String.to_codepoints` when code needs to inspect the scalar
+//# values that make up a string. An ASCII codepoint is written as a literal,
+//# `'a'` or `'\n'`; every other scalar value comes from `Codepoint.from_int`.
+
+/// A Unicode code point / scalar value: `0..=0x10FFFF`, excluding UTF-16
+/// surrogate code points. Backed by `Int`, but validated at construction.
+/// The 128 ASCII codepoints have a literal: `'a'`, `'\''`, `'\u{7F}'`.
+pub opaque type Codepoint Int
+
+impl Codepoint {
+    /// Validates `n` and wraps it as a Codepoint.
+    //! assert Codepoint.from_int(65) == Some('A')
+    //! assert Codepoint.from_int(55_296) == None
+    //
+    pub fn from_int(n: Int): Maybe<Codepoint> {
+        if n < 0 or n > 1_114_111 {
+            None
+        } else if n >= 55_296 and n <= 57_343 {
+            None
+        } else {
+            Some(Codepoint(n))
+        }
+    }
+
+    /// Returns the numeric Unicode scalar value.
+    //! assert Codepoint.to_int('A') == 65
+    //
+    pub fn to_int(Codepoint(n)): Int {
+        n
+    }
+}
+
+derive Equatable for Codepoint
+derive Hashable for Codepoint
+derive Comparable for Codepoint
+
+impl Display for Codepoint {
+    /// Returns a one-codepoint string containing `cp`.
+    //! assert Codepoint.to_string('A') == "A"
+    //
+    host fn to_string(cp: Codepoint): String
+}
+
+impl Debug for Codepoint {
+    /// Returns the developer-facing representation, e.g. `Codepoint(65)`.
+    //! assert Codepoint.inspect('A') == "Codepoint(65)"
+    //
+    fn inspect(cp: Codepoint): String {
+        "Codepoint(${Codepoint.to_int(cp)})"
+    }
+}
+
+impl Discrete for Codepoint {
+    /// Returns the next valid Codepoint, skipping the UTF-16 surrogate block.
+    /// Returns None after the largest Unicode scalar value.
+    //! assert Codepoint.next('A') == Some('B')
+    //! assert Codepoint.next(try Codepoint.from_int(0x10FFFF)) == None
+    //
+    fn next(cp: Codepoint): Maybe<Codepoint> {
+        n = Codepoint.to_int(cp)
+
+        if n == 1_114_111 {
+            None
+        } else if n == 55_295 {
+            Codepoint.from_int(57_344)
+        } else {
+            Codepoint.from_int(n + 1)
+        }
+    }
+
+    /// Counts how many `next` steps move from the first Codepoint to the
+    /// second, skipping invalid surrogate values without walking the range.
+    //! assert Codepoint.steps_between('a', 'd') == Some(3)
+    //
+    fn steps_between(Codepoint(a), Codepoint(b)): Maybe<Int> {
+        if a > b {
+            Some(0)
+        } else {
+            skipped = if a <= 55_295 and b >= 57_344 {
+                2_048
+            } else {
+                0
+            }
+
+            Some(b - a - skipped)
+        }
+    }
+}
+
+impl Steppable for Codepoint {
+    /// Steps by a count of valid Unicode scalar values, skipping the UTF-16
+    /// surrogate block. Returns None if the destination is outside the
+    /// Codepoint domain.
+    //! assert Codepoint.step_by('A', 2) == Some('C')
+    //
+    fn step_by(cp: Codepoint, by: Int): Maybe<Codepoint> {
+        n = Codepoint.to_int(cp)
+
+        if by > 1_114_111 or by < -1_114_111 {
+            None
+        } else {
+            raw = n + by
+
+            adjusted = if by > 0 and n <= 55_295 and raw >= 55_296 {
+                raw + 2_048
+            } else if by < 0 and n >= 57_344 and raw <= 57_343 {
+                raw - 2_048
+            } else {
+                raw
+            }
+
+            Codepoint.from_int(adjusted)
+        }
+    }
+}

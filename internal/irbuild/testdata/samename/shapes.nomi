@@ -1,0 +1,19 @@
+// One of two files declaring a type called `Point`. See main.nomi.
+//
+// Its fields are deliberately NOTHING like geometry.Point's: if the builder
+// ever keyed a type's identity on the bare name `Point`, one of the two
+// declarations would answer for the other and the lowered comparator would
+// read fields the other type does not have.
+pub struct Point {
+    x: Int
+    y: Int
+}
+
+pub fn at(x: Int, y: Int): Point {
+    Point{x, y}
+}
+
+/// `==` on shapes.Point, resolved against SHAPES' declaration.
+pub fn same(a: Point, b: Point): Bool {
+    a == b
+}

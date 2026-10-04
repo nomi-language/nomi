@@ -1,0 +1,231 @@
+import {
+    bool.Bool
+    debug.Debug
+    display.Display
+    float.Float
+    int.Int
+    iter.Iter
+    lists.List
+    maps.Map
+    maybe.Maybe.{self, None, Some}
+    results.Result.{self, Err, Ok}
+    strings.String
+}
+
+/// Opaque wrapper for a value of unknown shape returned by an extern function
+/// or decoded from an external source such as JSON, YAML, RPC payloads, or
+/// database rows.
+///
+/// `Dynamic` values are produced by externs that declare `Dynamic` in their
+/// return type. Pure Nomi code cannot construct one directly. To pass a typed
+/// Nomi value to host code as a dynamic value, call an extern that accepts a
+/// `Dynamic` argument and let its adapter hand it to the host.
+///
+/// Inspect via `Dynamic.field`/`index`/`path` navigators and
+/// `Dynamic.as_string`/`as_int`/... extractors. Each step returns
+/// `Result<_, DecodeError>` with a structured path; chain with `try` to
+/// propagate.
+pub host type Dynamic
+
+impl Dynamic {
+    /// Drill into a struct/dict-shaped Dynamic by field name. Fails with
+    /// `expected="object with field <name>"` if d is a dict but doesn't have the
+    /// field, or `expected="object"` if d is not a dict at all.
+    pub host fn field(d: Dynamic, name: String): Result<Dynamic, DecodeError>
+
+    /// Drill into a list-shaped Dynamic by zero-based index. Fails with
+    /// `expected="list with at least <i+1> elements"` if d is a list but the index
+    /// is out of bounds, or `expected="list"` if d is not a list at all.
+    pub host fn index(d: Dynamic, i: Int): Result<Dynamic, DecodeError>
+
+    /// Convenience: dotted-path navigator. `Dynamic.path(d, "a.b.c")` is
+    /// equivalent to
+    /// `d |> Dynamic.field("a") |> try |> Dynamic.field("b") |> try |> Dynamic.field("c")`.
+    /// Does NOT support index notation (use `index` directly for lists). Empty
+    /// segments (e.g. `"a..b"`) error.
+    pub host fn path(d: Dynamic, dotted: String): Result<Dynamic, DecodeError>
+
+    /// Extract a Dynamic as a String. Err on type mismatch.
+    pub host fn as_string(d: Dynamic): Result<String, DecodeError>
+
+    /// Extract a Dynamic as an Int. Accepts integer-shaped Floats (e.g. JSON's
+    /// number 36.0) but rejects values with a fractional part.
+    pub host fn as_int(d: Dynamic): Result<Int, DecodeError>
+
+    /// Extract a Dynamic as a Float. Accepts Ints (widening) and Floats.
+    pub host fn as_float(d: Dynamic): Result<Float, DecodeError>
+
+    /// Extract a Dynamic as a Bool. Err on type mismatch.
+    pub host fn as_bool(d: Dynamic): Result<Bool, DecodeError>
+
+    /// Extract a Dynamic as `List<Dynamic>` -- each element is still wrapped, so
+    /// per-element decoding composes through `as_list`. Err if d is not a list.
+    pub host fn as_list(d: Dynamic): Result<List<Dynamic>, DecodeError>
+
+    /// Extract a Dynamic as `Map<String, Dynamic>` -- each value is still
+    /// wrapped, so per-value decoding composes. Err if d is not a dict/object.
+    pub host fn as_dict(d: Dynamic): Result<Map<String, Dynamic>, DecodeError>
+
+    /// True iff d represents a null/nil value at the source (JSON null, Go nil,
+    /// etc.). Never errors.
+    pub host fn null?(d: Dynamic): Bool
+
+    /// True iff d is a dict and contains the named field. False otherwise
+    /// (including when d is not a dict). Never errors.
+    pub host fn has?(d: Dynamic, name: String): Bool
+
+    /// Apply `sub` to d only if d is non-null. Null -> Ok(None); present ->
+    /// Ok(Some(try sub(d))).
+    ///
+    /// The ergonomic helper for JSON's ubiquitous nullable fields.
+    ///
+    /// ```nomi
+    /// d
+    /// |> Dynamic.as_maybe(Dynamic.as_string)
+    /// |> try
+    /// // -> Maybe<String> from the value (or None if null).
+    /// ```
+    pub fn as_maybe<T>(
+        d: Dynamic,
+        sub: (Dynamic) -> Result<T, DecodeError>,
+    ): Result<Maybe<T>, DecodeError> {
+        if Dynamic.null?(d) {
+            Ok(None)
+        } else {
+            case sub(d) {
+                Ok(v) -> Ok(Some(v))
+                Err(e) -> Err(e)
+            }
+        }
+    }
+
+    /// Navigate into a struct/dict field AND apply a sub-decoder, accumulating the
+    /// path segment on any error the sub-decoder returns. The chain
+    ///
+    /// ```nomi
+    /// d |> Dynamic.at_field("user", |inner| inner
+    ///     |> Dynamic.at_field("address", |inner2| inner2
+    ///         |> Dynamic.at_field("zip", Dynamic.as_int)))
+    /// ```
+    ///
+    /// produces a `DecodeError` with `path = [Field("user"), Field("address"),
+    /// Field("zip")]` if `as_int` fails, vs. the raw form
+    ///
+    /// ```nomi
+    /// d
+    ///     |> Dynamic.field("user")
+    ///     |> try
+    ///     |> Dynamic.field("address")
+    ///     |> try
+    ///     |> Dynamic.field("zip")
+    ///     |> try
+    ///     |> Dynamic.as_int()
+    /// ```
+    ///
+    /// which produces an empty-path error because `try` returns Err unchanged. Use
+    /// this when you want path-rich diagnostics; the raw form stays available when
+    /// you don't.
+    ///
+    /// Field-missing failures from the navigator itself pass through unchanged --
+    /// they already carry `[Field(name)]` from `field`'s own error, so the path is
+    /// not doubled.
+    pub fn at_field<T>(
+        d: Dynamic,
+        name: String,
+        sub: (Dynamic) -> Result<T, DecodeError>,
+    ): Result<T, DecodeError> {
+        case Dynamic.field(d, name) {
+            Err(e) ->
+                Err(e)
+
+            Ok(inner) ->
+                case sub(inner) {
+                    Ok(v) -> Ok(v)
+                    Err(e) -> Err(DecodeError{
+                        path: [PathSegment.Field(name), ..e.path],
+                        expected: e.expected,
+                        got: e.got,
+                    })
+                }
+        }
+    }
+
+    /// List-index counterpart to `at_field`. Same path-accumulation behaviour:
+    /// prepends `Index(i)` to any error the sub-decoder returns; navigator failures
+    /// (out-of-bounds, non-list) pass through unchanged.
+    pub fn at_index<T>(
+        d: Dynamic,
+        i: Int,
+        sub: (Dynamic) -> Result<T, DecodeError>,
+    ): Result<T, DecodeError> {
+        case Dynamic.index(d, i) {
+            Err(e) ->
+                Err(e)
+
+            Ok(inner) ->
+                case sub(inner) {
+                    Ok(v) -> Ok(v)
+                    Err(e) -> Err(DecodeError{
+                        path: [PathSegment.Index(i), ..e.path],
+                        expected: e.expected,
+                        got: e.got,
+                    })
+                }
+        }
+    }
+}
+
+impl Debug for Dynamic {
+    // Wired Go-side to the runtime's reflective stringifier; produces a
+    // human-readable rendering of the wrapped value (`null`, `42`, `"hello"`,
+    // `[1, 2, 3]`, `{"k": "v"}`, etc.) so `io.inspect(some_dynamic)` works
+    // during development.
+    host fn inspect(d: Dynamic): String
+}
+
+/// One segment of a `DecodeError`'s path. `Field` for a dict-key navigation,
+/// `Index` for a list-index navigation.
+pub enum PathSegment {
+    Field String
+    Index Int
+}
+
+derive Display for PathSegment
+
+/// Structured decode failure. `path` locates the failure site; one segment per
+/// navigator that contributed to this error. Raw `try` chains short-circuit on
+/// `Err` unchanged, so a chain like
+/// `d |> Dynamic.field("a") |> try |> Dynamic.field("b") |> try |> Dynamic.as_int()`
+/// produces an empty-path error if `as_int` fails -- the outer navigators never
+/// see the inner error to prepend their segment. Use `at_field` / `at_index`
+/// when you want path-rich diagnostics; those combinators wrap a navigator +
+/// sub-extractor and prepend the path segment on any error the sub-extractor
+/// returns. `expected` and `got` name the type mismatch.
+pub struct DecodeError {
+    path: List<PathSegment>
+    expected: String
+    got: String
+}
+
+impl Display for DecodeError {
+    fn to_string(e: DecodeError): String {
+        // Render the path as `a.b[3].c` for Field/Index sequences; an empty
+        // path renders as `<root>`. The path direction is "outer-to-inner"
+        // (root first); reduce walks left-to-right and prepends the right
+        // separator for each segment.
+        path_str = case e.path {
+            [] ->
+                "<root>"
+
+            _ ->
+                Iter.reduce(e.path, |acc = "", seg|
+                    case seg {
+                        .Field(name) -> if acc == "" { name } else { acc + "." + name }
+                        .Index(i) -> acc + "[" + Int.to_string(i) + "]"
+                    }
+                )
+        }
+
+        "decode error at " + path_str + ": expected " + e.expected + ", got " + e.got
+    }
+}

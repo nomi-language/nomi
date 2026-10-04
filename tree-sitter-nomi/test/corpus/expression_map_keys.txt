@@ -1,0 +1,78 @@
+==========
+Variant expression key in map pattern
+==========
+
+once r = case m {
+  {Color.Red => v} -> v
+  _ -> "no"
+}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (case_expression
+      (identifier)
+      (case_branch
+        (struct_pattern
+          (type_field_access
+            (type_identifier)
+            (type_identifier))
+          (identifier))
+        (identifier))
+      (case_branch
+        (string
+          (string_content))))))
+
+==========
+Tuple expression key in map pattern
+==========
+
+once r = case m {
+  {(1, 2) => v} -> v
+  _ -> "no"
+}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (case_expression
+      (identifier)
+      (case_branch
+        (struct_pattern
+          (tuple_expression
+            (integer)
+            (integer))
+          (identifier))
+        (identifier))
+      (case_branch
+        (string
+          (string_content))))))
+
+==========
+Computed (identifier) key in map pattern
+==========
+
+once r = case m {
+  {k => v} -> v
+  _ -> "no"
+}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (case_expression
+      (identifier)
+      (case_branch
+        (struct_pattern
+          (identifier)
+          (identifier))
+        (identifier))
+      (case_branch
+        (string
+          (string_content))))))

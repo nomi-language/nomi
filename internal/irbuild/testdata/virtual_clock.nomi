@@ -1,0 +1,94 @@
+// The virtual clock, and the thing about it that OUTPUT CANNOT SEE.
+//
+// Every case here sleeps for wall-clock time nobody would wait for — 30
+// seconds, 5 minutes, an hour — and the whole file returns in milliseconds
+// because `clock Clock.Virtual` runs each case in a `testing/synctest` bubble
+// whose clock advances the moment every goroutine in it is durably blocked.
+//
+// # WHY THE COMPANION TEST ASSERTS WALL TIME AND NOT ONLY OUTPUT
+//
+// A differential over output alone is BLIND to the only property this fixture
+// exists for. If the emitted `timer.sleep` reached a real `time.Sleep` outside
+// a bubble, every assertion below would still pass and the two paths would
+// still agree byte for byte — they would just take an hour and forty minutes of
+// real time to do it. `f(a) == f(b)` is invariant under replacing `f`, and here
+// `f` is "the output of the program": the clock is not a function of it.
+//
+// So TestClock_VirtualTimeIsSpentVirtually asserts the WALL CLOCK. The sleeps
+// are deliberately absurd, because that is what makes the assertion sharp: a
+// ceiling of a few seconds cannot be met by accident on any real clock.
+//
+// # WHY EACH SLEEP IS OBSERVED RATHER THAN JUST PERFORMED
+//
+// A sleep whose result nothing reads could be optimised or reordered without
+// anything noticing. `elapsed_ms` reads `Instant.now` on both sides of each
+// sleep and prints the difference, so the fake clock's ADVANCE is in the output
+// too — which means the differential covers the amount of virtual time as well
+// as the fact that time passed. Inside a bubble the fake clock starts at
+// midnight UTC 2000-01-01 and advances by exactly the sleep, so these numbers
+// are deterministic on both paths; a real clock would produce 30001 or 30004
+// and DIFF.
+import {
+    std/duration.Duration
+    std/instant.Instant
+    std/io
+    std/testing.Clock
+    std/timer
+}
+
+/// Sleep for `d` and report how much time the clock says passed.
+fn elapsed_ms(d: Duration): Int {
+    before = Instant.now()
+    timer.sleep(d)
+    after = Instant.now()
+    Duration.as_millis(Instant.between(before, after))
+}
+
+tests "virtual time" {
+    clock Clock.Virtual
+
+    test "a thirty-second sleep costs no real time" {
+        assert elapsed_ms(Duration.seconds(30)) == 30000
+    }
+
+    test "so does five minutes" {
+        assert elapsed_ms(Duration.minutes(5)) == 300000
+    }
+
+    test "sleeps compose, and the clock is monotonic across them" {
+        first = elapsed_ms(Duration.hours(1))
+        second = elapsed_ms(Duration.seconds(1))
+        io.print("slept " + Display.to_string(first) + " then " + Display.to_string(second))
+        assert first == 3600000
+        assert second == 1000
+    }
+}
+
+// A second group with the clause. The bubble is per CASE, not per group, so
+// each case of each group declaring it runs in one.
+tests "virtual time again" {
+    clock Clock.Virtual
+
+    test "another group's virtual clock still bubbles" {
+        assert elapsed_ms(Duration.minutes(90)) == 5400000
+    }
+}
+
+// The real clock declared explicitly, beside the virtual groups. This is the
+// row that would break if the clock were a per-FILE fact rather than the
+// group's own declaration.
+tests "back on the system clock" {
+    clock Clock.System
+
+    test "a tiny real sleep still works" {
+        assert elapsed_ms(Duration.milliseconds(1)) >= 1
+    }
+}
+
+// A group with NO clause at all, so the file carries both table shapes: entries
+// with a Bubble and entries without, in one generated table.
+tests "no clause" {
+    test "the real clock is the default" {
+        assert elapsed_ms(Duration.milliseconds(1)) >= 1
+    }
+}

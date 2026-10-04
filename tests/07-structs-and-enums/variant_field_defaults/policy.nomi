@@ -1,0 +1,21 @@
+/// Enums whose struct-shaped variants carry field defaults, declared
+/// here so the importing file exercises them across a file boundary.
+///
+/// The boundary is the point. Field defaults on a variant used to be
+/// registered only in the defining file's environment and left out of
+/// the file's exports, so an importer constructing one found no
+/// definition — and the construction path reads a missing definition as
+/// "no fields to default and none to require". The result was a variant
+/// whose payload was missing fields, matching no `case` branch, with
+/// nothing reported anywhere.
+pub enum Backoff {
+    Exponential {max_restarts: Int = 10, max_elapsed: Int = 900}
+    Off
+}
+
+/// A required field beside a defaulted one, to check that omitting the
+/// required one is still an error across the boundary rather than
+/// silently producing a short payload.
+pub enum Retry {
+    Bounded {limit: Int, note: String = "bounded"}
+}

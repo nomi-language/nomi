@@ -1,0 +1,586 @@
+================================================================================
+Group with clock, boot and setup
+================================================================================
+
+tests "math" {
+  clock Clock.Virtual
+  boot server.boot(startup())
+
+  setup {
+    with App.mailer = FakeMailer{}
+    base = 2
+    base
+  }
+
+  test "adds", base {
+    assert base + 2 == 4
+    refute base == 5
+    Testing.check(base == 2)
+    dbg base
+    base |> dbg
+  }
+
+  test "ignores the setup value" {
+    assert True
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (tests_declaration
+    (string
+      (string_content))
+    (tests_body
+      (clock_block
+        (type_field_access
+          (type_identifier)
+          (type_identifier)))
+      (boot_block
+        (call_expression
+          (field_access
+            (identifier)
+            (identifier))
+          (call_expression
+            (identifier))))
+      (setup_block
+        (body
+          (with_statement
+            (field_access
+              (type_identifier)
+              (identifier))
+            (struct_construction
+              (type_identifier)))
+          (binding
+            (identifier)
+            (integer))
+          (identifier)))
+      (test_declaration
+        (string
+          (string_content))
+        (identifier)
+        (body
+          (assertion
+            (binary_expression
+              (binary_expression
+                (identifier)
+                (integer))
+              (integer)))
+          (assertion
+            (binary_expression
+              (identifier)
+              (integer)))
+          (call_expression
+            (field_access
+              (type_identifier)
+              (identifier))
+            (binary_expression
+              (identifier)
+              (integer)))
+          (dbg_expression
+            (identifier))
+          (pipe_expression
+            (identifier)
+            (dbg_expression))))
+      (test_declaration
+        (string
+          (string_content))
+        (body
+          (assertion
+            (type_identifier)))))))
+
+================================================================================
+Setup expression bound by a tuple pattern and a name
+================================================================================
+
+tests "env" {
+  boot boot(Startup{env: Map.empty(), args: []})
+  setup (Env{mode: "test"}, 2)
+
+  test "tuple", (env, n) {
+    assert n == 2
+  }
+
+  test "name", pair {
+    assert pair == pair
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (tests_declaration
+    (string
+      (string_content))
+    (tests_body
+      (boot_block
+        (call_expression
+          (identifier)
+          (struct_construction
+            (type_identifier)
+            (identifier)
+            (call_expression
+              (field_access
+                (type_identifier)
+                (identifier)))
+            (identifier)
+            (list))))
+      (setup_block
+        (tuple_expression
+          (struct_construction
+            (type_identifier)
+            (identifier)
+            (string
+              (string_content)))
+          (integer)))
+      (test_declaration
+        (string
+          (string_content))
+        (tuple_pattern
+          (identifier)
+          (identifier))
+        (body
+          (assertion
+            (binary_expression
+              (identifier)
+              (integer)))))
+      (test_declaration
+        (string
+          (string_content))
+        (identifier)
+        (body
+          (assertion
+            (binary_expression
+              (identifier)
+              (identifier))))))))
+
+================================================================================
+Setup anonymous struct value bound by a struct pattern
+================================================================================
+
+tests "user labels" {
+  setup {name: "Ada", role: "admin"}
+
+  test "uses setup", {name, role} {
+    assert name == "Ada"
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (tests_declaration
+    (string
+      (string_content))
+    (tests_body
+      (setup_block
+        (anon_struct
+          (anon_struct_field
+            (identifier)
+            (string
+              (string_content)))
+          (anon_struct_field
+            (identifier)
+            (string
+              (string_content)))))
+      (test_declaration
+        (string
+          (string_content))
+        (struct_pattern
+          (pattern_field
+            (identifier))
+          (pattern_field
+            (identifier)))
+        (body
+          (assertion
+            (binary_expression
+              (identifier)
+              (string
+                (string_content)))))))))
+
+================================================================================
+A boot outside a group stays an ordinary name
+================================================================================
+
+pub fn boot(startup: Startup): App {
+  App{context: Context.root()}
+}
+
+fn restart(): App {
+  boot(startup())
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (pub)
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (struct_construction
+        (type_identifier)
+        (identifier)
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))))))
+  (function_definition
+    (identifier)
+    (parameters)
+    (type_identifier)
+    (body
+      (call_expression
+        (identifier)
+        (call_expression
+          (identifier))))))
+
+================================================================================
+Assertion with type-qualified call
+================================================================================
+
+test "type-qualified assertion" {
+  assert Label.render(x) == y
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (test_declaration
+    name: (string
+      (string_content))
+    (body
+      (assertion
+        value: (binary_expression
+          (call_expression
+            function: (field_access
+              (type_identifier)
+              (identifier))
+            (identifier))
+          (identifier))))))
+
+================================================================================
+Pattern assertion binding
+================================================================================
+
+test "shape" {
+  assert [left, right] = [1]
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (test_declaration
+    name: (string
+      (string_content))
+    (body
+      (pattern_assertion_binding
+        pattern: (list_pattern
+          (identifier)
+          (identifier))
+        value: (list
+          (integer))))))
+
+================================================================================
+Qualified enum pattern assertion binding
+================================================================================
+
+test "shape" {
+  assert Err(Error.InvalidFormat(_)) = error
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (test_declaration
+    name: (string
+      (string_content))
+    (body
+      (pattern_assertion_binding
+        pattern: (enum_pattern
+          (type_identifier)
+          (enum_pattern
+            (type_identifier)
+            (type_identifier)))
+        value: (identifier)))))
+
+================================================================================
+Attached test on host function
+================================================================================
+
+//! assert 42 == 42
+host fn to_string(n: self): String
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (decorated_item
+    (attached_test_prompt
+      (attached_comment_test_prompt_marker)
+      body: (assertion
+        value: (binary_expression
+          (integer)
+          (integer))))
+    (extern_func_definition
+      (host_keyword)
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type)))
+      (type_identifier))))
+
+================================================================================
+Attached test body on function
+================================================================================
+
+//! value = answer()
+//! assert value == 42
+fn answer(): Int { 42 }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (decorated_item
+    (attached_test_prompt
+      (attached_comment_test_prompt_marker)
+      body: (binding
+        (identifier)
+        (call_expression
+          function: (identifier)))
+      (attached_comment_test_line_prompt)
+      body: (assertion
+        value: (binary_expression
+          (identifier)
+          (integer))))
+    (function_definition
+      name: (identifier)
+      (parameters)
+      (type_identifier)
+      (body
+        (integer)))))
+
+================================================================================
+Attached test with prompted triple string
+================================================================================
+
+//! source = """
+//!   fn main() {
+//!     IO.print("ok")
+//!   }
+//! """
+//! assert String.not_empty?(source)
+fn fixture(): String { "" }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (decorated_item
+    (attached_test_prompt
+      (attached_comment_test_prompt_marker)
+      body: (binding
+        (identifier)
+        (triple_string
+          (attached_comment_test_line_prompt)
+          (triple_string_content)
+          (attached_comment_test_line_prompt)
+          (triple_string_content)
+          (attached_comment_test_line_prompt)
+          (triple_string_content)
+          (attached_comment_test_line_prompt)))
+      (attached_comment_test_line_prompt)
+      body: (assertion
+        value: (call_expression
+          function: (field_access
+            (type_identifier)
+            (identifier))
+          (identifier))))
+    (function_definition
+      name: (identifier)
+      (parameters)
+      (type_identifier)
+      (body
+        (string)))))
+
+================================================================================
+Top-level test declaration after a type
+================================================================================
+
+struct Label {
+  text: String
+}
+
+test "renders" {
+  assert True
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (struct_body
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))))
+  (test_declaration
+    name: (string
+      (string_content))
+    (body
+      (assertion
+        value: (type_identifier)))))
+
+================================================================================
+Boot with no parameter or a defaulted Startup, called with no argument
+================================================================================
+
+fn boot(): App {
+  App{}
+}
+
+fn boot(startup: Startup = Startup{}): App {
+  App{}
+}
+
+tests "defaulted" {
+  boot server.boot()
+
+  test "runs" {
+    assert True
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (type_identifier)
+    (body
+      (struct_construction
+        (type_identifier))))
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier)
+        (struct_construction
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (struct_construction
+        (type_identifier))))
+  (tests_declaration
+    name: (string
+      (string_content))
+    (tests_body
+      (boot_block
+        boot: (call_expression
+          function: (field_access
+            (identifier)
+            (identifier))))
+      (test_declaration
+        name: (string
+          (string_content))
+        (body
+          (assertion
+            value: (type_identifier)))))))
+
+================================================================================
+Group lines in any order, between and after tests
+================================================================================
+
+tests "any order" {
+  test "first" {
+    assert True
+  }
+  setup 2
+  test "second", n {
+    assert n == 2
+  }
+  boot server.boot()
+  clock Clock.Virtual
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (tests_declaration
+    name: (string
+      (string_content))
+    (tests_body
+      (test_declaration
+        name: (string
+          (string_content))
+        (body
+          (assertion
+            value: (type_identifier))))
+      (setup_block
+        body: (integer))
+      (test_declaration
+        name: (string
+          (string_content))
+        pattern: (identifier)
+        (body
+          (assertion
+            value: (binary_expression
+              (identifier)
+              (integer)))))
+      (boot_block
+        boot: (call_expression
+          function: (field_access
+            (identifier)
+            (identifier))))
+      (clock_block
+        clock: (type_field_access
+          (type_identifier)
+          (type_identifier))))))
+
+================================================================================
+Group setup before boot and clock
+================================================================================
+
+tests "setup before boot" {
+  setup fixture()
+  boot server.boot()
+  clock Clock.Virtual
+  test "t", n {
+    assert n == 2
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (tests_declaration
+    name: (string
+      (string_content))
+    (tests_body
+      (setup_block
+        body: (call_expression
+          function: (identifier)))
+      (boot_block
+        boot: (call_expression
+          function: (field_access
+            (identifier)
+            (identifier))))
+      (clock_block
+        clock: (type_field_access
+          (type_identifier)
+          (type_identifier)))
+      (test_declaration
+        name: (string
+          (string_content))
+        pattern: (identifier)
+        (body
+          (assertion
+            value: (binary_expression
+              (identifier)
+              (integer))))))))

@@ -1,0 +1,35 @@
+// A tail self-call inside an `impl` block, at a depth that a plain recursive Go
+// call CANNOT survive.
+//
+// The depth is the load-bearing part of this fixture. Direct Go recursion holds
+// this shape to 1e6 on 16 MB of stack and to 1e7 on 256 MB, so a shallow
+// version of this program passes whether or not the tail call is lowered
+// correctly — which is exactly why the defect it guards survived six corpus
+// sweeps reporting `0 RUN-FAIL`. At 1e8 the untrampolined lowering dies with
+// `fatal error: stack overflow` and exit 2.
+//
+// The interpreter runs it in constant stack: `analysis.MarkTailCalls` has an
+// `*ast.ImplBlock` arm precisely so that TCO fires inside an impl block.
+import std/io
+
+interface Stepper {
+    fn step(value: self, n: Int): Int
+}
+
+struct Down {}
+
+impl Stepper for Down {
+    fn step(value: Down, n: Int): Int {
+        if n == 0 {
+            0
+        } else {
+            Stepper.step(value, n - 1)
+        }
+    }
+}
+
+fn main() {
+    s = Down{}
+
+    io.print("${Stepper.step(s, 100000000)}")
+}

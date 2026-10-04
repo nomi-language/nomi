@@ -1,0 +1,44 @@
+//# Testing helpers built on the assertion runtime.
+//#
+//# `testing.check(expr)` uses the same assertion machinery as `assert expr`,
+//# but returns `Result<Subject, AssertionFailure>` instead of propagating the
+//# failure. It is useful when tests need to inspect or render a failure value.
+
+import {
+    assertions.AssertionFailure
+    results.Result
+}
+
+/// Which clock a `tests` group runs under, declared as `clock Clock.Virtual`
+/// or `clock Clock.System` beside the group's `boot` and `setup`.
+///
+/// Tests that wait are slow when they pass and unreliable when the machine
+/// is busy. A virtual clock jumps forward whenever every task in the test
+/// is blocked, so waiting costs nothing and takes the same path every run,
+/// and work that can never finish is reported as a deadlock rather than
+/// hanging.
+///
+/// It is not the default, because a virtual clock changes behaviour:
+/// waiting on something outside the program (reading input, a real network
+/// call) never lets the clock move and is reported as a deadlock;
+/// background work still running when a test ends is an error rather than
+/// something that carries into the next test; and `Instant.now` starts at
+/// midnight on 1 January 2000.
+///
+/// A group without a `clock` line runs under `System`, so each group that
+/// wants virtual time declares it.
+pub enum Clock {
+    /// The real clock. The default, and what every test used before this
+    /// existed.
+    System
+
+    /// A clock that only advances when every task in the test is blocked.
+    Virtual
+}
+
+/// Returns `Ok(subject)` when `subject` would pass `assert`; otherwise returns
+/// `Err(failure)` with the same structured assertion context used by
+/// `nomi test`.
+//! refute testing.check(1 == 2)
+//
+pub host fn check<T>(subject: T): Result<T, AssertionFailure>

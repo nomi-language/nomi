@@ -1,0 +1,153 @@
+import {
+    add.Add
+    bool.Bool
+    comparable.Comparable
+    comparable.Ordering.{self, Equal, Greater, Less}
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+    iter.Iter
+    maybe.Maybe.{self, None, Some}
+    strings.String
+}
+
+//# Operations on the persistent linked `List<T>` type. Container-specific ops
+//# (`concat`, `head`, `tail`) live here; generic iteration — including
+//# `Iter.count` (O(1) via the `known_count` protocol) — goes through
+//# `Iter`: `Iter.map(xs, f) |> Iter.to_list()` for the strict,
+//# List-returning form.
+
+/// Ordered, immutable sequence of elements.
+pub host type List<T>
+
+fn list_next<T>(list: List<T>): Maybe<(T, List<T>)> {
+    case list {
+        [h, ..t] -> Some((h, t))
+        [] -> None
+    }
+}
+
+impl List<T> {
+    /// Returns the next element and remaining list, or None if empty. Drives the
+    /// `Iter` implementation for `List`.
+    //! assert List.next_item([1, 2, 3]) == Some((1, [2, 3]))
+    //! assert List.next_item([]) == None
+    //
+    pub fn next_item<T>(list: List<T>): Maybe<(T, List<T>)> {
+        list_next(list)
+    }
+
+    /// Concatenates two lists, yielding all elements of `a` followed by all of `b`.
+    //! assert List.concat([1, 2], [3, 4]) == [1, 2, 3, 4]
+    //
+    pub host fn concat<T>(a: List<T>, b: List<T>): List<T>
+
+    /// Returns the first element, or None if the list is empty. The cons-list idiom,
+    /// paired with `tail`; the stream-vocabulary equivalent is the free function
+    /// `Iter.first`.
+    //! assert List.head([1, 2, 3]) == Some(1)
+    //! assert List.head([]) == None
+    //
+    pub fn head<T>(list: List<T>): Maybe<T> {
+        case list {
+            [head, .._] -> Some(head)
+            [] -> None
+        }
+    }
+
+    /// Returns all elements except the first, or None if the list is empty.
+    //! assert List.tail([1, 2, 3]) == Some([2, 3])
+    //! assert List.tail([]) == None
+    //
+    pub fn tail<T>(list: List<T>): Maybe<List<T>> {
+        case list {
+            [_, ..tail] -> Some(tail)
+            [] -> None
+        }
+    }
+}
+
+impl Iter for List<T> {
+    // Host-side because walking the cons chain in Go beats one Nomi frame per
+    // element, and a List is the single most-iterated source in the language.
+    host fn each_while(list: List<T>, yield: (T) -> Bool): Bool
+
+    // A List tracks its element count, so report it directly (O(1)) instead of
+    // folding through the generic default.
+    host fn known_count(list: List<T>): Maybe<Int>
+}
+
+impl Add<List<T>, List<T>> for List<T> {
+    fn add(lhs: List<T>, rhs: List<T>): List<T> {
+        concat(lhs, rhs)
+    }
+}
+
+impl Display for List<T> {
+    fn to_string(value: List<T>): String {
+        // Render `[v1, v2, v3]`, or `[]` when empty.
+        body =
+            value
+            |> Iter.map(|item| "${item}")
+            |> String.join(", ")
+
+        "[" + body + "]"
+    }
+}
+
+impl Debug for List<T> {
+    fn inspect(value: List<T>): String {
+        body =
+            value
+            |> Iter.map(|item| Debug.inspect(item))
+            |> String.join(", ")
+
+        "[" + body + "]"
+    }
+}
+
+impl Equatable for List<T> {
+    // Structural equality via the built-in `==` (recursive, element-wise). Lets a
+    // record with a List field `derive Equatable`.
+    fn equal?(a: List<T>, b: List<T>): Bool {
+        a == b
+    }
+}
+
+impl Hashable for List<T> {
+    // FNV-style fold; agrees with `==` (equal lists hash equally) and requires the
+    // element type to be Hashable. Wrapping arithmetic — hashes are modular.
+    fn hash(list: List<T>): Int {
+        Iter.reduce(list, |acc = 17, x|
+            Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
+        )
+    }
+}
+
+impl Comparable for List<T> where T: Comparable {
+    // Lexicographic order: the first differing element decides; a proper prefix is
+    // Less. Requires the element type to be Comparable.
+    fn compare(a: List<T>, b: List<T>): Ordering {
+        case list_next(a) {
+            .None ->
+                case list_next(b) {
+                    .None -> Equal
+                    _ -> Less
+                }
+
+            .Some((ha, ta)) ->
+                case list_next(b) {
+                    .None ->
+                        Greater
+
+                    .Some((hb, tb)) ->
+                        case Comparable.compare(ha, hb) {
+                            .Equal -> compare(ta, tb)
+                            other -> other
+                        }
+                }
+        }
+    }
+}

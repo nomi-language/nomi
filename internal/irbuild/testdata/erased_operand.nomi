@@ -1,0 +1,86 @@
+// An operand in an EXISTENTIAL position, and a call through a value whose type
+// is a DISTINCT over a function type.
+//
+// Both halves have to be read from the RENDERED REPORT rather than from the
+// build succeeding, and the two reasons are different:
+//
+//   - The `values:` row for an existential-position argument is the CONCRETE
+//     type's rendering and never names the interface. Getting that wrong is a
+//     WRONG ANSWER, not a build error, so the assertions below fail ON PURPOSE
+//     and the report is the fixture's real output. A passing assertion renders
+//     nothing at all.
+//   - `rt.RecordOperand` drops a row that reads exactly like its own expression
+//     text, so `announce(Dog{name: "Rex"})` — a struct LITERAL argument —
+//     builds the rendering and then prints no row. Every operand this fixture
+//     wants to SEE is therefore a BINDING, whose expression text is a bare name
+//     and whose value is the structure.
+//
+// The field names are chosen so that two plausible derivations cannot coincide.
+// The row is `rt.InspectStruct`, which sorts the fields by NAME, and:
+//
+//   - `Dog{name, age}` separates sorted order from DECLARATION order: the row
+//     is `Dog{age: 3, name: "Rex"}` and declaration order would print `name`
+//     first.
+//   - `Cat{a, a0}` separates sorting the FIELD NAME from sorting the composed
+//     `name: value` string: '0' sorts below ':', so the composed sort would put
+//     `a0: 2` before `a: 1`, where the name sort, and `Debug.inspect`, put `a`
+//     first.
+interface Speech {
+    fn speak(animal: self): String
+}
+
+struct Dog {
+    name: String
+    age: Int
+}
+
+impl Speech for Dog {
+    fn speak(d: Dog): String {
+        d.name + " says woof"
+    }
+}
+
+struct Cat {
+    a: Int
+    a0: Int
+}
+
+impl Speech for Cat {
+    fn speak(c: Cat): String {
+        "meow x" + Int.to_string(c.a)
+    }
+}
+
+fn announce(s: Speech): String {
+    Speech.speak(s)
+}
+
+interface Handler {
+    fn handle(handler: self, input: String): String
+}
+
+type Callback (String) -> String
+
+impl Handler for Callback {
+    fn handle(handler: Callback, input: String): String {
+        handler(input)
+    }
+}
+
+test "a value of a distinct-over-function type is callable" {
+    h = Callback(|s| "handled: " + s)
+
+    assert Handler.handle(h, "request") == "handled: request"
+}
+
+test "an existential-position argument renders as its concrete type" {
+    d = Dog{name: "Rex", age: 3}
+
+    assert announce(d) == "not what Rex says"
+}
+
+test "the row sorts by field name and not by composed string" {
+    c = Cat{a: 1, a0: 2}
+
+    assert announce(c) == "not what the cat says"
+}

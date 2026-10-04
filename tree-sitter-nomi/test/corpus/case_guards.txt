@@ -1,0 +1,94 @@
+==========
+Scrutinee-less case with a Type.method guard
+==========
+
+once r = case {
+  Float.is_nan(a) -> 0
+  a < b -> 1
+  _ -> 2
+}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (case_expression
+      (guard_branch
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))
+          (identifier))
+        (integer))
+      (guard_branch
+        (binary_expression
+          (identifier)
+          (identifier))
+        (integer))
+      (guard_branch
+        (identifier)
+        (integer)))))
+
+==========
+Scrutinee-full case still matches patterns
+==========
+
+once r = case m {
+  None -> 0
+  Some(x) -> x
+}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (case_expression
+      (identifier)
+      (case_branch
+        (type_identifier)
+        (integer))
+      (case_branch
+        (enum_pattern
+          (type_identifier)
+          (identifier))
+        (identifier)))))
+
+==========
+Arm body ending in a call does not swallow the next .Variant arm
+==========
+
+once r = case d {
+  .A ->
+    sort(xs, |a, b| cmp(a, b))
+  .B ->
+    other
+}
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (case_expression
+      (identifier)
+      (case_branch
+        (dot_variant
+          (type_identifier))
+        (call_expression
+          (identifier)
+          (identifier)
+          (lambda
+            (lambda_parameter
+              (identifier))
+            (lambda_parameter
+              (identifier))
+            (call_expression
+              (identifier)
+              (identifier)
+              (identifier)))))
+      (case_branch
+        (dot_variant
+          (type_identifier))
+        (identifier)))))

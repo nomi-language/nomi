@@ -1,0 +1,110 @@
+//# Assertion failure values produced by `assert`, `refute`, and
+//# `testing.check`.
+//#
+//# `assert condition` returns `True` when a Bool condition is `True`. When the
+//# condition is `False`, the runtime constructs an `AssertionFailure` and
+//# propagates it as `Result.Err`, the same way `try` propagates an `Err`.
+//# `refute condition` returns `False` when the condition is `False`.
+//#
+//# `assert result` requires `Ok(_)`, while `refute result` requires `Err(_)`.
+//# `assert maybe` requires `Some(_)`, while `refute maybe` requires `None`.
+//# These forms return the original subject value; use `assert Pattern = expr`
+//# when you want to extract payloads.
+//#
+//# `testing.check(expr)` builds the same success or failure as an ordinary
+//# `Result<Subject, AssertionFailure>` value instead of propagating.
+
+import {
+    int.Int
+    lists.List
+    maybe.Maybe.{self, None}
+    strings.String
+}
+
+/// One observed value while evaluating an assertion expression.
+pub struct AssertionValue {
+    expression: String
+    value: String
+    pipeline: List<AssertionPipelineStage>
+}
+
+/// One observed value in a pipeline expression.
+pub struct AssertionPipelineStage {
+    expression: String
+    value: String
+}
+
+/// Extra context for failures such as `assert valid`, where the asserted
+/// expression is a binding. `expression` is the source expression that produced
+/// the binding's value.
+pub struct AssertionBinding {
+    name: String
+    expression: String
+    value: String
+    pipeline: List<AssertionPipelineStage>
+}
+
+/// One assertion-authored detail row.
+pub struct AssertionDetail {
+    label: String
+    value: String
+}
+
+/// Additional details supplied by custom assertion values.
+///
+/// `Bool` remains the ordinary assertion value: `False` becomes an assertion
+/// failure and `True` succeeds. Types that implement `Assertable` can supply
+/// richer failure details while the runtime still adds source location,
+/// expression text, binding context, and observed sub-expression values.
+pub struct AssertionDetails {
+    reason: String = "assertion failed"
+    actual: Maybe<String> = None
+    details: List<AssertionDetail> = []
+}
+
+/// Custom values that can be used with `assert`, `refute`, and
+/// `testing.check`.
+///
+/// `failure(value)` returns `None` when the value passes, or `Some(details)`
+/// when it fails. The runtime wraps those details in an `AssertionFailure`.
+pub interface Assertable {
+    fn failure(value: self): Maybe<AssertionDetails>
+}
+
+/// Structured failure produced by `assert`, `refute`, and `testing.check`.
+///
+/// `actual` is present when the failure report should show the whole assertion
+/// subject value, such as a non-matching Result or Maybe shape.
+/// `binding` is present when the assertion was made against a bound name and
+/// the runtime can show where that value came from. `values` captures observed
+/// sub-expressions such as the left and right sides of a comparison, plus
+/// value-bearing arguments to predicate calls. `details` captures custom
+/// explanation rows supplied by an `Assertable` value.
+pub struct AssertionFailure {
+    line: Int
+    keyword: String
+    expression: String
+    reason: String
+    actual: Maybe<String>
+    binding: Maybe<AssertionBinding>
+    values: List<AssertionValue>
+    details: List<AssertionDetail>
+}
+
+impl AssertionFailure {
+    /// Render this failure the same way `nomi test` and `nomi run` report it.
+    //! failure = AssertionFailure{
+    //!     line: 7,
+    //!     keyword: "assert",
+    //!     expression: "False",
+    //!     reason: "expected truth",
+    //!     actual: None,
+    //!     binding: None,
+    //!     values: [],
+    //!     details: [],
+    //! }
+    //!
+    //! assert String.contains?(AssertionFailure.format(failure), "assert False")
+    //
+    pub host fn format(failure: AssertionFailure): String
+}

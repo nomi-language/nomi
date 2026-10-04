@@ -1,0 +1,164 @@
+struct Feed {
+    name: String
+    items: Iter<Int>
+}
+
+impl Equatable for Feed {
+    fn equal?(a: Feed, b: Feed): Bool {
+        a.name == b.name
+    }
+}
+
+enum Source {
+    Lazy Iter<Int>
+    Empty
+}
+
+struct Countdown {
+    from: Int
+}
+
+impl Iter for Countdown {
+    fn each_while(c: Countdown, yield: (Int) -> Bool): Bool {
+        if c.from == 0 {
+            True
+        } else if yield(c.from) {
+            each_while(Countdown{from: c.from - 1}, yield)
+        } else {
+            False
+        }
+    }
+}
+
+fn total(xs: Iter<Int>): Int {
+    Iter.reduce(xs, |acc = 0, x| acc + x)
+}
+
+fn doubled(xs: List<Int>): Iter<Int> {
+    xs |> Iter.map(|x| x * 2)
+}
+
+fn evens(): Iter<Int> {
+    [2, 4, 6]
+}
+
+fn first_of<T>(xs: Iter<T>): Maybe<T> {
+    Iter.first(xs)
+}
+
+test "an Iter is a struct field" {
+    feed = Feed{name: "odds", items: [1, 3, 5] |> Iter.map(|x| x + 1)}
+
+    assert Iter.to_list(feed.items) == [2, 4, 6]
+}
+
+test "a struct field takes any source" {
+    feed = Feed{name: "list", items: [1, 2]}
+
+    assert total(feed.items) == 3
+}
+
+test "an Iter is a tuple part and a record field" {
+    pair = (1, [1, 2] |> Iter.map(|x| x * 10))
+    (_, tens) = pair
+    record = {label: "r", items: [3] |> Iter.map(|x| x + 1)}
+
+    assert Iter.to_list(tens) == [10, 20]
+    assert Iter.to_list(record.items) == [4]
+}
+
+test "an Iter is a Some and an Ok payload" {
+    bumped = [1, 2] |> Iter.map(|x| x + 1)
+
+    found = Some(bumped)
+    checked: Result<Iter<Int>, String> = Ok([7, 8])
+
+    assert found |> Maybe.map(|it| Iter.to_list(it)) == Some([2, 3])
+    assert checked |> Result.map(|it| Iter.count(it)) == Ok(2)
+}
+
+test "an Iter is an enum payload" {
+    large = [4, 5] |> Iter.filter(|x| x > 4)
+
+    source = Source.Lazy(large)
+
+    case source {
+        .Lazy(it) -> assert Iter.to_list(it) == [5]
+        .Empty -> assert False
+    }
+}
+
+test "an Iter is a parameter and a return type" {
+    rest = ["a", "b"] |> Iter.drop(1)
+
+    assert total(doubled([1, 2, 3])) == 12
+    assert Iter.to_list(evens()) == [2, 4, 6]
+    assert first_of(rest) == Some("b")
+}
+
+test "a list holds Iters" {
+    streams: List<Iter<Int>> = [[1] |> Iter.map(|x| x * 3), [4, 5]]
+
+    assert streams |> Iter.flat_map(|s| s) |> Iter.to_list() == [3, 4, 5]
+}
+
+test "a closure captures an Iter" {
+    squares = [1, 2, 3] |> Iter.map(|x| x * x)
+
+    sum_squares = || total(squares)
+
+    assert sum_squares() == 14
+}
+
+test "a lambda parameter is an Iter" {
+    size = |xs: Iter<Int>| Iter.count(xs)
+
+    assert size([1, 2, 3]) == 3
+}
+
+test "every source enters an Iter parameter" {
+    v: Vector<Int> = #[1, 2]
+
+    assert total([1, 2]) == 3
+    assert total([]) == 0
+    assert total(1..4) == 6
+    assert total(#{5, 6}) == 11
+    assert total(v) == 3
+    assert total(Countdown{from: 3}) == 6
+}
+
+test "storing an Iter does not consume it" {
+    feed = Feed{name: "twice", items: [1, 2] |> Iter.map(|x| x * 5)}
+
+    assert Iter.to_list(feed.items) == [5, 10]
+    assert Iter.to_list(feed.items) == [5, 10]
+}
+
+test "an Iter over a source keeps the source's count" {
+    known = |xs: Iter<Int>| Iter.known_count(xs)
+    mapped = [1, 2] |> Iter.map(|x| x)
+
+    assert known([1, 2, 3]) == Some(3)
+    assert known(1..4) == Some(3)
+    assert known(#{1, 2}) == Some(2)
+    assert known(Countdown{from: 2}) == None
+    assert known(mapped) == None
+}
+
+test "an Iter over a collection inspects as the collection" {
+    shown = |xs: Iter<Int>| Debug.inspect(xs)
+    mapped = [1, 2] |> Iter.map(|x| x)
+
+    feed = Feed{name: "f", items: [1] |> Iter.map(|x| x)}
+
+    assert shown([1, 2]) == "[1, 2]"
+    assert shown(mapped) == "<iter>"
+    assert Debug.inspect(feed) == "Feed{name: \"f\", items: <iter>}"
+}
+
+test "a struct holding an Iter compares through its own Equatable" {
+    a = Feed{name: "same", items: [1]}
+    b = Feed{name: "same", items: [2, 3]}
+
+    assert a == b
+}

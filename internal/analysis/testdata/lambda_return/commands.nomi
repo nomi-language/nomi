@@ -1,0 +1,20 @@
+pub enum Command {
+    Done {id: Int}
+    Start {id: Int}
+    Unknown {reason: String}
+}
+
+pub fn parse(words: List<String>): Command {
+    case words {
+        ["done", id] -> with_id(id, |id| Command.Done{id})
+        ["start", id] -> with_id(id, |id| Command.Start{id})
+        _ -> Command.Unknown{reason: "unknown command"}
+    }
+}
+
+fn with_id(text: String, build: (Int) -> Command): Command {
+    case String.to_int(text) {
+        Some(id) -> build(id)
+        None -> Command.Unknown{reason: "expected a numeric id, got '${text}'"}
+    }
+}

@@ -1,0 +1,56 @@
+// A test that FAILS on purpose, so an assertion whose subject compares against
+// an UNTYPED literal has its whole failure REPORT compared byte for byte.
+//
+// # Why this is a separate fixture from untyped_equality.nomi
+//
+// Every one of the 19 corpus sites of this construct is inside an `assert`, and
+// an assertion subject is not an ordinary expression: `g.traceVar` is set, so
+// binary() hoists its right operand and calls recordComparisonOperands, which
+// renders BOTH operands into the failure's `values:` rows. A bare `None` has no
+// payload type of its own, so whatever it is discharged to is what gets
+// rendered — meaning the discharge is observable in the REPORT and not only in
+// the answer. untyped_equality.nomi compares the answer and cannot see this at
+// all.
+//
+// # Why it has to fail
+//
+// `tests/` contains no program that fails an assertion, so the
+// differential sweep compares the passing path exclusively and reads
+// `0 DIFFED` over any amount of wrong failure text. The only way to compare an
+// operand rendering is to produce one. This file is NOT in the corpus and is
+// never run by `nomi test tests`; it is reached only by
+// TestPinned_UntypedEqualityFailureReport, and the non-zero exit is part of
+// what requireIdentical compares.
+//
+// Both operand positions fail, because binary() emits the left operand and the
+// right operand through different paths and the recorded rendering of a
+// discharged literal has to be right in both.
+//
+// The failing operands are BOUND NAMES and CALLS rather than literals, and that
+// is required rather than stylistic: the report suppresses a redundant literal,
+// so `assert Some(7) == None` renders no `values:` row at all and would compare
+// nothing. A name forces the row.
+fn to_maybe(n: Int): Maybe<Int> {
+    if n > 0 { Some(n) } else { None }
+}
+
+test "an equality against an untyped literal that holds" {
+    absent: Maybe<Int> = None
+    assert absent == None
+    assert None == absent
+}
+
+test "a failing equality renders the untyped operand on the right" {
+    present = to_maybe(7)
+    assert present == None
+}
+
+test "a failing equality renders the untyped operand on the left" {
+    present = to_maybe(7)
+    assert None == present
+}
+
+test "a failing list equality renders the untyped operand" {
+    xs = [1, 2]
+    assert xs == []
+}

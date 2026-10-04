@@ -1,0 +1,147 @@
+import {
+    std/comparable.Direction
+    std/io
+    widget.{self, Backwards, Ranked, Unordered, Widget}
+}
+
+// ORDERING RESOLVED FROM A KIND, when the `impl Comparable` is in a SIBLING FILE
+// — and the SCALAR operators beside it, because the two are one arm's worth of
+// change apart and a fixture holding only one of them cannot see the other break.
+//
+// # The gap this fixture is the witness for
+//
+// `compareResult` (stdenum.go) asked `g.implsByIface["Comparable"][k]`, the impl
+// blocks of the file BEING LOWERED, so a sibling's block was invisible. Three
+// separate consumers read that lookup and each refused under its own name:
+//
+//	Iter.sort(ws)                Iter.sort over an unorderable element | Widget
+//	Iter.sort_by(ws, |w| w)      Iter.sort_by over an unorderable key   | Widget
+//	a < b                        comparison outside Int and Float       | Widget
+//
+// One gap, three keys — siblingiface.go's "one gap under three keys" reached from
+// a KIND rather than from a CALL SITE. `Comparable.compare(a, b)` written out
+// already worked, through `siblingIfaceCall`, which is what shows the route
+// existed at the call site and not at the kind.
+//
+// # THE ORDERING RULE IS THE THING THAT CAN GO SILENTLY WRONG, so every row is
+// half of a pair that disagrees
+//
+//   - `Widget` ASCENDING against `Backwards` DESCENDING. Two receivers of one
+//     interface in ONE sibling file, so a lookup keyed on the method name alone
+//     answers one with the other's body — and both answers are well-typed Go.
+//     The two `sorted_*` rows are the only thing that separates them.
+//   - `Iter.sort` against `Iter.sort_by` at the SAME element. `sort` orders the
+//     element and `sort_by` orders a PROJECTED key, so they reach
+//     `sortComparator` at different kinds; the projection here is the IDENTITY,
+//     which is what makes the two rows directly comparable and a mixed-up
+//     comparator visible.
+//   - `Direction.Descending` against the default. std spells descending by
+//     SWAPPING the comparator's arguments rather than negating its answer, which
+//     with a stable sort is not the same thing; `desc_widgets` and
+//     `sorted_widgets` are exact reverses only if that is honoured.
+//   - STABILITY, observable only through a projection that COLLIDES. Three
+//     widgets with two distinct weights: a non-stable sort may print a correctly
+//     ordered list in the wrong original order.
+//   - `<` `>` `<=` `>=` on a sibling named type against `Comparable.compare` on
+//     the same pair. Two spellings of one ordering; they diverge if the operator
+//     takes a different route from the call.
+//   - `"a" < "b"` and `False < True` — the SCALAR gate, which is a different gap
+//     in the same arm (`compareCall`'s tag test, not the lookup's scope). Bool is
+//     the load-bearing one: `False < True` is only true if Nomi's Bool ordering
+//     puts False first, and Go's own `<` is not defined on bool at all, so this
+//     row cannot be satisfied by an accidental native comparison.
+//   - `Unordered` reached through `==` ONLY. It has an `impl Equatable` in the
+//     same sibling file and NO `impl Comparable`, so a widened lookup that
+//     ignored the interface would find `equal?` where `compare` was wanted. The
+//     `==` row proves the type is reachable, and there is deliberately NO
+//     ordering row for it: `Iter.sort` over a type with no `impl Comparable` is
+//     a FRONT-END error ("Unordered does not implement Comparable (required by
+//     `where T: Comparable`)"), so the builder never sees it and a test asserting
+//     a builder refusal there would be asserting an unreachable branch.
+//     TestSortScope_TheNoImplCaseBelongsToTheFrontEnd owns that boundary, and
+//     the `inherent` row below is the reachable interface-selection
+//     discriminator that replaces it.
+// Each imported type crosses a SIGNATURE boundary as well as appearing at a
+// construction site, because a representation that is only correct where a value
+// is built fails here — `sets.nomi`'s rule for the same reason.
+fn weights(ws: List<Widget>): List<Int> {
+    Iter.sort(ws) |> Iter.map(|w| w.weight) |> Iter.to_list()
+}
+
+fn backwards_ns(bs: List<Backwards>): List<Int> {
+    Iter.sort(bs) |> Iter.map(|b| b.n) |> Iter.to_list()
+}
+
+fn tag_of(u: Unordered): String {
+    u.tag
+}
+
+fn main() {
+    ws = [widget.make(3), widget.make(1), widget.make(2)]
+    bs = [widget.back(3), widget.back(1), widget.back(2)]
+
+    sorted_widgets = weights(ws)
+    sorted_backwards = backwards_ns(bs)
+    io.print("sort widget ${sorted_widgets}")
+    io.print("sort backwards ${sorted_backwards}")
+
+    by_widget = Iter.sort_by(ws, |w| w) |> Iter.map(|w| w.weight) |> Iter.to_list()
+
+    io.print("sort_by widget ${by_widget}")
+
+    desc_widgets =
+        Iter.sort(ws, Direction.Descending)
+        |> Iter.map(|w| w.weight)
+        |> Iter.to_list()
+
+    io.print("sort widget desc ${desc_widgets}")
+
+    desc_by_widget =
+        Iter.sort_by(ws, Direction.Descending, |w| w)
+        |> Iter.map(|w| w.weight)
+        |> Iter.to_list()
+
+    io.print("sort_by widget desc ${desc_by_widget}")
+
+    // STABILITY: two widgets of weight 1 and one of weight 2, distinguished by
+    // nothing the comparator can see. A non-stable sort may swap the first two.
+    stable = [widget.make(1), widget.make(1), widget.make(2)]
+
+    io.print(
+        "stable ${Iter.sort_by(stable, |w| w)
+        |> Iter.map(|w| w.weight)
+        |> Iter.to_list()}"
+    )
+
+    a = widget.make(1)
+    b = widget.make(2)
+    io.print("lt ${a < b}")
+    io.print("gt ${a > b}")
+    io.print("le ${a <= a}")
+    io.print("ge ${a >= b}")
+    io.print("compare ${Comparable.compare(a, b)}")
+
+    // The SCALAR gate. Bool has no Go `<` at all, so this row cannot be satisfied
+    // by a native comparison sneaking through.
+    io.print("str lt ${"a" < "b"}")
+    io.print("str ge ${"abc" >= "abc"}")
+    io.print("bool lt ${False < True}")
+    io.print("bool le ${True <= False}")
+
+    // THE INHERENT RIVAL. `Widget.compare` is the sibling's inherent `compare`,
+    // which orders DESCENDING; every `sort widget` row above is ASCENDING through
+    // `impl Comparable for Widget`. Both return Ordering, so a lookup that ignored
+    // the INTERFACE emits well-typed Go with the wrong body and only these two
+    // rows together can see it.
+    io.print("ranked ${Ranked.compare(a, b)}")
+
+    // Reachable, ordered by nothing — through the FIELD rather than through `==`
+    // on the value. `Unordered == Unordered` is refused `equality on a named type`,
+    // which is the SAME sibling-scope gap one interface over (`impl Equatable` in a
+    // sibling is invisible to impl.go's per-file lookup) and is deliberately NOT
+    // fixed here: `noEquatableImpl` is a wrong-ANSWER fence rather than a lowering
+    // gate, so widening the lookup without widening the fence in step would let
+    // `==` answer structurally for a type whose hand-written `Equatable` was never
+    // called.
+    io.print("tag ${tag_of(widget.plain("x"))}")
+}

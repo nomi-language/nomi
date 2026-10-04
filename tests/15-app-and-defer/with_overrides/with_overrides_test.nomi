@@ -1,0 +1,59 @@
+// `with App.field = value` replaces an application field from that line to
+// the end of the enclosing block, for every function called there.
+import app.{self, App, Level}
+
+fn label(): String {
+    App.label
+}
+
+fn labelled(on: Bool): String {
+    if on {
+        with App.label = "branch"
+        label()
+    } else {
+        label()
+    }
+}
+
+fn debug_level(): Level {
+    with App.level = .Debug
+    App.level
+}
+
+fn sequential(): (Int, String) {
+    with App.n = 2
+    with App.label = "n was ${App.n}"
+    (App.n, label())
+}
+
+fn labeller(): () -> String {
+    with App.label = "made"
+    || label()
+}
+
+tests "with" {
+    boot app.boot()
+
+    test "a .Variant value takes the field's enum" {
+        assert debug_level() == Level.Debug
+        assert App.level == Level.Info
+    }
+
+    test "a later with line sees the overrides above it" {
+        assert sequential() == (2, "n was 2")
+        assert App.n == 1
+    }
+
+    test "a closure reads the fields in force when it is called" {
+        read = labeller()
+
+        assert read() == "base"
+        with App.label = "caller"
+        assert read() == "caller"
+    }
+
+    test "a with in a branch ends with the branch" {
+        assert labelled(True) == "branch"
+        assert labelled(False) == "base"
+    }
+}

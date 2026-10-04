@@ -1,0 +1,18 @@
+import std/io
+
+// Passing and failing cases in one file: they run in declaration order, a
+// case's own output lands above its result line because both share one stream,
+// and a failed assertion ends its case without touching the next.
+test "first passes" {
+    assert 1 == 1
+}
+
+test "second fails partway" {
+    io.print("before the failure")
+    assert 1 == 2
+    io.print("never printed")
+}
+
+test "third still runs" {
+    assert 2 == 2
+}

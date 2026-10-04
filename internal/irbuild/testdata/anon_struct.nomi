@@ -1,0 +1,70 @@
+import std/io
+
+// Anonymous structs — a RECORD — in every position the builder lowers, plus
+// the two renderings, in one run.
+//
+// The property under test is that a Nomi record is UNORDERED while a Go struct
+// type is ordered: the two field orderings below must be ONE type on both
+// sides. The `a`/`a0` pair is not decoration — `a` is a prefix of `a0`, which
+// is the shape where sorting the composed `name: value` strings ('0' sorts
+// below ':') disagrees with sorting by NAME. `${…}` and an assertion's
+// `values:` row both sort by name, and this pair is what shows it.
+//
+// This fixture is the ONLY coverage that exists for that
+// disagreement. Across the 197 corpus programs the front end accepts there are
+// 30 anonymous struct literals, 0 anonymous struct type annotations, and 0
+// field-name pairs where the two sorts disagree. So the divergence is LATENT in
+// the corpus, and two things follow: the differential sweep cannot regress on
+// it, and it cannot VALIDATE a fix for it either. Anyone changing either
+// renderer is working against this file and nothing else.
+fn greet(p: {name: String, age: Int}): String {
+    "Hi " + p.name + ", you are " + Int.to_string(p.age)
+}
+
+fn no(_v: {a: Int, a0: Int}): Bool {
+    False
+}
+
+test "records are structural, ordered by nothing the programmer wrote" {
+    point = {x: 10, y: 20}
+    io.print(Int.to_string(point.x + point.y))
+
+    // Same fields, two orderings, one type — equal by value, and each usable
+    // where the other is.
+    forward = {x: 1, y: 2}
+    backward = {y: 2, x: 1}
+    assert forward == backward
+    refute forward == {x: 1, y: 3}
+
+    // A parameter typed by a record, called with both orderings.
+    io.print(greet({name: "Bob", age: 42}))
+    io.print(greet({age: 30, name: "Carol"}))
+
+    // `${…}` renders each field through Display, so the String is unquoted.
+    who = {name: "Ada", n: 1}
+    io.print("${who}")
+
+    // Nesting, and a field whose value is itself a record.
+    nested = {outer: {inner: 1, label: "hi"}, count: 3}
+    io.print("${nested}")
+    io.print(Int.to_string(nested.outer.inner))
+
+    // Matched inside a `case`, punned and renamed. The STATEMENT form
+    // `{x, y} = point` is a different construct (`struct destructuring`, which
+    // is unlowered for a nominal struct too) and is deliberately not here.
+    label = case point {
+        {x: 10, y} -> "x is ten, y is ${y}"
+        _ -> "other"
+    }
+
+    io.print(label)
+
+    renamed = case point {
+        {x: a, y: b} -> a + b
+    }
+
+    io.print(Int.to_string(renamed))
+
+    // The failing assertion prints the `values:` row, which is the OTHER sort.
+    assert no({a: 1, a0: 2})
+}

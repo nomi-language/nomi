@@ -1,0 +1,95 @@
+fn safe_div(a: Int, b: Int): Result<Int, String> {
+    if b == 0 {
+        Err("div by zero")
+    } else {
+        Ok(a / b)
+    }
+}
+
+fn calc(a: Int, b: Int): Result<Int, String> {
+    result = try safe_div(a, b)
+    Ok(result + 1)
+}
+
+fn int_result(): Result<Int, String> {
+    Ok(41)
+}
+
+fn bool_result(): Result<Bool, String> {
+    Ok(True)
+}
+
+fn try_arithmetic(): Result<Int, String> {
+    Ok(try int_result() + 1)
+}
+
+fn try_multiple_operands(): Result<Int, String> {
+    Ok(try int_result() + try int_result() + 2)
+}
+
+fn try_boolean_expression(): Result<Bool, String> {
+    value = try bool_result() and 1 == 1 and (2 > 1 or 4 == 5)
+    Ok(value)
+}
+
+fn find(list: List<Int>, target: Int): Maybe<Int> {
+    if list == [] {
+        None
+    } else {
+        Iter.reduce(list, |acc = None, x|
+            case acc {
+                Some(v) -> Some(v)
+                None -> if x == target { Some(x) } else { None }
+            }
+        )
+    }
+}
+
+fn process(list: List<Int>): Maybe<Int> {
+    val = try find(list, 3)
+    Some(val * 10)
+}
+
+fn pipe_unwrap(m: Maybe<Int>): Result<Int, String> {
+    n =
+        m
+        |> try Result.from_maybe("missing")
+
+    Ok(n * 10)
+}
+
+fn double(x: Int): Int {
+    x * 2
+}
+
+fn pipe_chain(m: Maybe<Int>): Result<Int, String> {
+    doubled =
+        m
+        |> try Result.from_maybe("missing")
+        |> double()
+
+    Ok(doubled)
+}
+
+test "try unwraps Result values and propagates Err values" {
+    assert calc(10, 2) == Ok(6)
+    assert calc(10, 0) == Err("div by zero")
+}
+
+test "try unwraps only its immediate operand in surrounding expressions" {
+    assert try_arithmetic() == Ok(42)
+    assert try_multiple_operands() == Ok(84)
+    assert try_boolean_expression() == Ok(True)
+}
+
+test "try unwraps Maybe values and propagates None" {
+    assert process([1, 2, 3, 4]) == Some(30)
+    assert process([1, 2, 4, 5]) == None
+}
+
+test "try can unwrap the previous pipe stage" {
+    assert pipe_unwrap(Some(4)) == Ok(40)
+    assert pipe_unwrap(None) == Err("missing")
+    assert pipe_chain(Some(7)) == Ok(14)
+    assert pipe_chain(None) == Err("missing")
+}

@@ -1,0 +1,30 @@
+import {
+    std/io
+    std/iter.Iter.loop
+}
+
+/// 13-iterators-and-pipes/loop_control_test.nomi's residual, in isolation.
+///
+/// The value does not merely pass through: it is captured by a lambda, carried
+/// out of the callback as a `break` value, and answered by an inline Go `for`
+/// whose answer slot is declared at the type parameter's Go type. So this pins
+/// that the box survives a control-flow boundary, which a plain `fn first<T>(x:
+/// T): T { x }` does not exercise.
+fn first<T>(x: T): T {
+    loop(|| { break x })
+}
+
+/// The same shape with the type parameter threaded as the loop's own STATE, so
+/// the state type, the break type and the result type are one type three times
+/// over. std's `loop` is `fn loop<S>(f: (S) -> S): S`, and iterLoop depends on
+/// exactly that — the loop's answer and its state are one Go local.
+fn echo_state<T>(x: T): T {
+    loop(|state = x| { break state })
+}
+
+fn main() {
+    io.print("${first(7)}")
+    io.print("${first("value")}")
+    io.print("${first((1, 2))}")
+    io.print("${echo_state(42)}")
+}

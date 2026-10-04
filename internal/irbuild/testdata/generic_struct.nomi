@@ -1,0 +1,140 @@
+import std/io
+
+// A USER generic struct, MONOMORPHIZED per instantiation.
+//
+// Four things are pinned here and each one fails differently, which is why they
+// are one fixture rather than four assertions in a Go test:
+//
+//  1. THE RENDERED NAME IS THE BARE DECLARATION NAME. Two instantiations of one
+//     template must BOTH render as `Box`, because that is what the interpreter
+//     says — measured, not reasoned. An instance def carrying `Box<Int>` as its
+//     Nomi name (which is what stdgenstruct.go's genStructNames chooses for the
+//     STD family) would render `Box<Int>{item: 1}` and DIFF.
+//
+//     Read from a FAILING assertion's `values:` row and NOT from
+//     `Debug.inspect`. Measured: `Debug.inspect` on any nominal struct is
+//     refused at HEAD — inspectcall.go handles only a Set, a Range and a record
+//     — because the interpreter re-dispatches it to the type's synthesized impl
+//     and this package has no Debug-side renderer for one. The `values:` row is
+//     `value.Inspect`, which IS what namedInspector reproduces, so the row is
+//     the surface where the name is observable at all. A passing assertion
+//     renders nothing, which is why three of the six tests below fail on
+//     purpose.
+//
+//  2. THE TYPE ARGUMENT IS RECOVERED BY FIELD NAME, NOT BY POSITION. `Pair`'s
+//     literal below is written second-then-first, at two DIFFERENT argument
+//     types. Recovering positionally binds A to String and B to Int, the
+//     instance's field `first` has kind String, and the literal's `first: 7`
+//     then refuses — so the whole fixture stops lowering rather than answering
+//     wrongly. Written in declaration order the two recoveries coincide and the
+//     pin would be vacuous.
+//
+//  3. THE ARGUMENT KEEPS ITS OWN DISPATCH THROUGH THE INSTANCE.
+//     `Display.to_string(b.item)` resolves `implsByIface["Display"]` at the kind
+//     of a field whose declared type is the type PARAMETER `T`. It resolves only
+//     if substitution produced exactly `Inner`'s kind; a near-miss is a refusal
+//     and a wrong hit would print the other impl's text.
+//
+//  4. A SAME-SHAPED MONOMORPHIC TWIN STAYS A DIFFERENT TYPE. `Twin` and
+//     `Box<Int>` both lower to a Go struct with one `F_item int64`. The pin is
+//     DIFFERENTIAL rather than textual for anon_vs_nominal.nomi's reason: two
+//     defs collapsed into one produces Go that PARSES, so only building and
+//     running can see it — and the two failing rows below then show the names
+//     apart.
+pub struct Inner {
+    value: Int
+}
+
+pub struct Box<T> {
+    item: T
+}
+
+pub struct Crate<T> {
+    box: Box<T>
+}
+
+pub struct Pair<A, B> {
+    first: A
+    second: B
+}
+
+// The same shape as `Box<Int>`, declared monomorphically.
+pub struct Twin {
+    item: Int
+}
+
+impl Display for Inner {
+    fn to_string(i: Inner): String {
+        "inner:${Int.to_string(i.value)}"
+    }
+}
+
+fn no_box(_b: Box<Int>): Bool {
+    False
+}
+
+fn no_pair(_p: Pair<Int, String>): Bool {
+    False
+}
+
+fn no_twin(_t: Twin): Bool {
+    False
+}
+
+fn crate_value(c: Crate<Inner>): Int {
+    c.box.item.value
+}
+
+fn no_box_text(_b: Box<String>): Bool {
+    False
+}
+
+fn no_crate(_c: Crate<Inner>): Bool {
+    False
+}
+
+test "a second instantiation of one template renders as the same Nomi type" {
+    assert no_box_text(Box{item: "s"})
+}
+
+test "and a nested instantiation renders as its own declaration" {
+    assert no_crate(Crate{
+        box: Box{
+            item: Inner{
+                value: 7,
+            },
+        },
+    })
+}
+
+test "a nested instantiation resolves through an annotation" {
+    c = Crate{
+        box: Box{
+            item: Inner{
+                value: 41,
+            },
+        },
+    }
+
+    io.print(Int.to_string(crate_value(c)))
+    assert c.box.item.value == 41
+}
+
+test "the argument keeps its own dispatch through the instance" {
+    b = Box{item: Inner{value: 7}}
+    io.print(Display.to_string(b.item))
+    assert Display.to_string(b.item) == "inner:7"
+}
+
+test "type arguments come from field names and not from field order" {
+    p = Pair{second: "s", first: 7}
+    assert no_pair(p)
+}
+
+test "a same-shaped monomorphic twin stays a different type" {
+    assert no_box(Box{item: 1})
+}
+
+test "and the twin says so too" {
+    assert no_twin(Twin{item: 1})
+}

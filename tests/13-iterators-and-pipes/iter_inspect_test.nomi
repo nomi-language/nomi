@@ -1,0 +1,21 @@
+test "inspecting a lazy Iter prints a placeholder" {
+    doubled = [1, 2, 3] |> Iter.map(|x| x * 2)
+
+    assert Debug.inspect(doubled) == "<iter>"
+    assert Debug.inspect([doubled]) == "[<iter>]"
+}
+
+test "inspecting a lazy Iter does not consume it" {
+    doubled = [1, 2, 3] |> Iter.map(|x| x * 2)
+
+    _text = Debug.inspect(doubled)
+
+    assert Iter.to_list(doubled) == [2, 4, 6]
+}
+
+test "inspecting an infinite Iter terminates" {
+    naturals = Iter.from(0)
+
+    assert Debug.inspect(naturals) == "<iter>"
+    assert naturals |> Iter.take(3) |> Iter.to_list() == [0, 1, 2]
+}

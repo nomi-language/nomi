@@ -1,0 +1,36 @@
+// Types main.nomi renders with `dbg`: each one's Debug impl, universal or
+// written, lives here.
+pub struct Note {
+    title: String
+}
+
+pub enum Mood {
+    Calm
+    Loud Int
+}
+
+pub type Meters Int
+
+pub fn meters(n: Int): Meters {
+    Meters(n)
+}
+
+pub opaque type Secret String
+
+pub fn secret(s: String): Secret {
+    Secret(s)
+}
+
+pub struct Shown {
+    n: Int
+}
+
+impl Debug for Shown {
+    fn inspect(s: Shown): String {
+        "Shown<${s.n}>"
+    }
+}
+
+pub struct Box<T> {
+    v: T
+}

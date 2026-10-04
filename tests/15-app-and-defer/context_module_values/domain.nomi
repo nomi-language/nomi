@@ -1,0 +1,23 @@
+/// Context-carried domain types declared in a MODULE rather than in the
+/// entry file.
+///
+/// The distinction is the whole point of the sibling test: a module-declared
+/// type's values carry a module-qualified nominal identity (`domain.Token`),
+/// while the name written at a use site is bare (`Token`). A `Type<T>` witness
+/// that kept the bare spelling could not be matched against a stored value's
+/// identity, so `Context.value` answered `None` for every module-declared type
+/// while working in an entry file.
+pub type Token Int
+
+/// A zero-sized type — bound directly to a value rather than to a
+/// constructor, so it reaches the witness resolver by a different route.
+pub type Marker
+
+pub struct Tag {
+    name: String
+}
+
+pub enum Mode {
+    Fast
+    Slow
+}

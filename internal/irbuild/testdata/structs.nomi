@@ -1,0 +1,72 @@
+import std/io
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+struct Segment {
+    from: Point
+    to: Point
+}
+
+/// `Marker` is zero-sized: every field it has is zero-sized, and it has none.
+struct Marker {}
+
+struct Tagged {
+    mark: Marker
+    n: Int
+}
+
+/// Defaults, including one that calls a module function. Field order here is
+/// what decides the order the defaults are evaluated in.
+struct Config {
+    retries: Int = fallback()
+    label: String = "default"
+    scale: Float
+}
+
+/// The evaluation-order pin: `noisy` prints, so the interpreter and the
+/// compiled binary must agree on WHEN each field expression runs. Literal
+/// fields go in source order, then the defaults in declaration order.
+struct Ordered {
+    a: Int = noisy(100)
+    b: Int = noisy(200)
+    c: Int
+    d: Int
+}
+
+fn fallback(): Int {
+    3
+}
+
+fn noisy(n: Int): Int {
+    io.print("eval ${n}")
+    n
+}
+
+fn dx(s: Segment): Int {
+    s.to.x - s.from.x
+}
+
+fn origin(): Point {
+    Point{x: 0, y: 0}
+}
+
+fn main() {
+    s = Segment{from: origin(), to: Point{x: 4, y: 9}}
+    io.print("dx = ${dx(s)}")
+    io.print("to.y = ${s.to.y}")
+    io.print("from.x = ${s.from.x}")
+
+    c = Config{scale: 1.5}
+    io.print("defaults = ${c.retries} ${c.label} ${c.scale}")
+    full = Config{retries: 7, label: "custom", scale: 0.5}
+    io.print("given = ${full.retries} ${full.label} ${full.scale}")
+
+    t = Tagged{mark: Marker{}, n: 12}
+    io.print("tagged = ${t.n}")
+
+    o = Ordered{d: noisy(1), c: noisy(2)}
+    io.print("ordered = ${o.a} ${o.b} ${o.c} ${o.d}")
+}

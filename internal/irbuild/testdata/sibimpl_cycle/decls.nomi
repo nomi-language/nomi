@@ -1,0 +1,38 @@
+// Two types and two interfaces, with each impl block in a DIFFERENT sibling
+// file. The two bare imports below reference nothing of either file and are
+// what makes those impl blocks visible at all — MEASURED: without them,
+// `Thing.go` is "type 'Thing' has no member 'go'". They contribute no
+// reference-graph edge, which is the whole point of this fixture.
+//
+// Neither import names anything, and neither is unused: an import of a file
+// counts as used when the program uses an impl block that file declares for a
+// type declared elsewhere. `Thing.go` (main.nomi, back.nomi) resolves to hop's
+// block and `Other.beta` (hop.nomi) to back's.
+import {
+    back
+    hop
+}
+
+pub struct Thing {
+    n: Int
+}
+
+pub struct Other {
+    n: Int
+}
+
+pub interface Alpha {
+    fn go(x: self): Int
+}
+
+pub interface Beta {
+    fn beta(x: self): Int
+}
+
+pub fn thing(n: Int): Thing {
+    Thing{n}
+}
+
+pub fn other(n: Int): Other {
+    Other{n}
+}

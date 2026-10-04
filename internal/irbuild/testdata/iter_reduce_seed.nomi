@@ -1,0 +1,71 @@
+import std/io
+
+// note prints as a side effect and returns its input, so a line's ORDER is
+// observable where its value alone would not be.
+fn note(tag: String, n: Int): Int {
+    io.print("  ${tag} ${n}")
+    n
+}
+
+fn main() {
+    // The headline: a seed that is NOT the zero value. A lowering that dropped
+    // the callback's default would print 6 here and pass every other comparison
+    // in this file that happens to seed from zero — which is the bug this
+    // fixture exists to make loud.
+    io.print("${Iter.reduce([1, 2, 3], |acc = 100, x| acc + x)}")
+    io.print("${Iter.reduce([1, 2, 3], |acc = 0, x| acc + x)}")
+
+    // Every scalar accumulator, each with a seed the fold cannot reach on its
+    // own: a multiplicative identity is 1 and not 0, a String seed is a prefix,
+    // and a Bool seed of True is what makes an `and` fold vacuous rather than
+    // dead.
+    io.print("${Iter.reduce([1, 2, 3], |acc = 1, x| acc * x)}")
+    io.print("${Iter.reduce(["a", "b"], |acc = "seed:", s| acc + s)}")
+    io.print("${Iter.reduce([1.5, 2.5], |acc = 10.0, x| acc + x)}")
+    io.print("${Iter.reduce([1, 2, 3], |acc = True, x| acc and x > 0)}")
+
+    // An EMPTY source answers the seed. This is the line a Go zero value gets
+    // right by accident for `0` and wrong for everything else.
+    empty: List<Int> = []
+    io.print("${Iter.reduce(empty, |acc = 42, x| acc + x)}")
+
+    // Through a lazy pipeline, so the seed survives an erased source.
+    io.print("${[1, 2, 3] |> Iter.map(|x| x * 10) |> Iter.reduce(|acc = 5, x| acc + x)}")
+    io.print("${Iter.from(1) |> Iter.take(4) |> Iter.reduce(|acc = 1000, x| acc + x)}")
+
+    // A COMPOSITE seed. `[9]` is a non-empty list, so a dropped seed prints
+    // [3, 2, 1] and a seed lowered as a typed nil prints the same — only a real
+    // one prints the 9.
+    io.print("${Iter.reduce([1, 2, 3], |acc = [9], x| [x, ..acc])}")
+
+    // A DESTRUCTURING first parameter carries a seed too — `|(a, b) = (0, 0), x|`
+    // runs on the interpreter — so the claim is on the parameter's DEFAULT and
+    // not on it having a plain name. It is not exercised here because a
+    // destructuring lambda parameter is refused for its own unrelated reason
+    // (`destructuring parameter`, and `parameter without a declared type`
+    // without the annotation); both spellings are pinned as refusals in
+    // iter_test.go so the day that key lifts, the seed half is already right.
+    // The seed is evaluated in the lambda's CLOSURE and not in its parameter
+    // scope: the `x` in the seed is the OUTER one, so this is 5 + 1 + 2 + 3.
+    // Lowering the seed inside the func literal would resolve it to the
+    // parameter and answer 6.
+    x = 5
+    io.print("${Iter.reduce([1, 2, 3], |acc = x, x| acc + x)}")
+
+    // NESTED. Each boundary must read its OWN seed. If the inner reduce resolved
+    // against the outer's, the inner fold would start at 1000 and this would be
+    // 3060 instead of 1074.
+    io.print(
+        "${Iter.reduce([1, 2], |outer = 1000, _a|
+            outer + Iter.reduce([10, 20], |inner = 7, b| inner + b)
+        )}"
+    )
+
+    // Order and count. The list literal is eager, so both source elements print
+    // first; then the seed, ONCE, before any element is folded.
+    io.print("order:")
+
+    io.print(
+        "${Iter.reduce([note("src", 1), note("src", 2)], |acc = note("seed", 100), x| acc + x)}"
+    )
+}

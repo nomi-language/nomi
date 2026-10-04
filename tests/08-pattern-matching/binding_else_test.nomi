@@ -1,0 +1,176 @@
+//# A binding whose pattern can fail, `Pattern = value else { ... }`: the else
+//# leaves, or supplies a fallback for the pattern's payload.
+
+enum LoadError {
+    NotFound
+    Broken String
+}
+
+enum Check {
+    Valid {addr: String, score: Int}
+    Invalid String
+}
+
+fn load(id: Int): Result<String, LoadError> {
+    case id {
+        1 -> Ok("ada")
+        2 -> Err(.Broken("disk"))
+        _ -> Err(.NotFound)
+    }
+}
+
+fn reason(e: LoadError): String {
+    case e {
+        .NotFound -> "not found"
+        .Broken(why) -> why
+    }
+}
+
+fn email_of(id: Int, email: Maybe<String>): Result<String, String> {
+    Some(address) = email else {
+        return Err("user ${id} has no email")
+    }
+
+    Ok(address)
+}
+
+fn name_of(id: Int): Result<String, String> {
+    Ok(user) = load(id) else {
+        Err(.NotFound) -> return Err("no user ${id}")
+        Err(e) -> return Err("loading user ${id}: ${reason(e)}")
+    }
+
+    Ok(user)
+}
+
+fn shown(email: Maybe<String>): String {
+    Some(address) = email else { "none" }
+    address
+}
+
+fn parse_size(text: String): Result<(Int, Int), String> {
+    case text {
+        "big" -> Ok((200, 100))
+        _ -> Err("unknown size ${text}")
+    }
+}
+
+fn area(text: String): Int {
+    Ok((width, height)) = parse_size(text) else {
+        (80, 24)
+    }
+
+    width * height
+}
+
+fn parse_port(text: String): Result<Int, LoadError> {
+    case text {
+        "" -> Err(.NotFound)
+        "x" -> Err(.Broken("x"))
+        _ -> Ok(9000)
+    }
+}
+
+fn port(text: String): Result<Int, String> {
+    Ok(p) = parse_port(text) else {
+        Err(.NotFound) -> 8080
+        Err(e) -> return Err("bad port: ${reason(e)}")
+    }
+
+    Ok(p)
+}
+
+fn check(n: Int): Check {
+    if n > 0 {
+        Check.Valid{addr: "a${n}", score: n}
+    } else {
+        Check.Invalid("negative")
+    }
+}
+
+fn describe(n: Int): String {
+    .Valid{addr, score} = check(n) else {
+        .Invalid(_) -> {addr: "unknown", score: 0}
+    }
+
+    "${addr}:${score}"
+}
+
+fn first_or(xs: List<Int>, default: Int): Int {
+    [first, .._rest] = xs else { return default }
+    first
+}
+
+fn sizes(lines: List<String>): List<(Int, Int)> {
+    lines
+    |> Iter.map(|line| {
+        Ok(size) = parse_size(line) else { return (0, 0) }
+        size
+    })
+    |> Iter.to_list()
+}
+
+fn print_sizes(lines: List<String>): Int {
+    Iter.reduce(lines, |count = 0, line| {
+        Ok(_) = parse_size(line) else { continue }
+        count + 1
+    })
+}
+
+test "a block that leaves" {
+    assert email_of(1, Some("a@b")) == Ok("a@b")
+    assert email_of(2, None) == Err("user 2 has no email")
+}
+
+test "arms over the value that did not match" {
+    assert name_of(1) == Ok("ada")
+    assert name_of(2) == Err("loading user 2: disk")
+    assert name_of(3) == Err("no user 3")
+}
+
+test "a fallback stands in for the payload" {
+    assert shown(Some("x")) == "x"
+    assert shown(None) == "none"
+    assert area("big") == 20000
+    assert area("small") == 1920
+}
+
+test "arms mixing a fallback with leaving" {
+    assert port("") == Ok(8080)
+    assert port("x") == Err("bad port: x")
+    assert port("y") == Ok(9000)
+}
+
+test "a struct variant's fields fall back as a record" {
+    assert describe(3) == "a3:3"
+    assert describe(-1) == "unknown:0"
+}
+
+test "a list pattern's else leaves" {
+    assert first_or([4, 5], 0) == 4
+    assert first_or([], 7) == 7
+}
+
+test "return in a lambda's else exits the lambda" {
+    assert sizes(["big", "no"]) == [(200, 100), (0, 0)]
+}
+
+test "continue in a callback's else skips the item" {
+    assert print_sizes(["big", "no", "big"]) == 2
+}
+
+test "an else in a test body" {
+    Some(n) = Some(4) else { return }
+    assert n == 4
+
+    Ok(m) = Err("x") else { 7 }
+    assert m == 7
+}
+
+test "an else arm's return ends the case" {
+    Ok(n) = Err("e") else {
+        Err(_) -> return
+    }
+
+    assert n == 1
+}

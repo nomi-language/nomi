@@ -1,0 +1,54 @@
+import {
+    std/assertions.AssertionFailure
+    std/testing
+}
+
+test "assert and refute accept expected booleans" {
+    assert True
+    refute False
+    refute 1 == 2
+
+    truth = assert True
+    falsity = refute False
+
+    assert truth == True
+    assert falsity == False
+}
+
+fn fails_assertion(): Result<Unit, AssertionFailure> {
+    assert 1 == 2
+    Ok(Unit)
+}
+
+fn fails_check(): Result<Bool, AssertionFailure> {
+    checked = try testing.check(1 == 2)
+    Ok(checked)
+}
+
+test "assertion failures are Result.Err values" {
+    assert Err(failure) = fails_assertion()
+
+    assert failure.line == 19
+    assert failure.keyword == "assert"
+    assert failure.expression == "1 == 2"
+    assert failure.reason == "assertion failed"
+}
+
+test "check returns assertion Result values without propagating" {
+    check_result = testing.check(1 == 1)
+    assert check_result == Ok(True)
+
+    assert Err(failure) = testing.check(1 == 2)
+    assert failure.line == 41
+    assert failure.keyword == "check"
+    assert failure.expression == "1 == 2"
+    assert failure.reason == "check failed"
+}
+
+test "try check propagates assertion failures" {
+    assert Err(failure) = fails_check()
+
+    assert failure.line == 24
+    assert failure.keyword == "check"
+    assert failure.reason == "check failed"
+}

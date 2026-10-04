@@ -1,0 +1,129 @@
+import {
+    int.Int
+    maybe.Maybe
+    results.Result
+    tasks.Task
+    unit.Unit
+}
+
+/// Typed FIFO channel for communication between tasks, held as its two
+/// halves. Producers `Sender.send` values; consumers `Receiver.receive` them
+/// in arrival order.
+///
+/// The halves are what you pass around. A worker that reads its inbox
+/// takes a `Receiver<T>` and cannot send on it; the callers hold the
+/// `Sender<T>` and cannot read what they wrote. Handing over a whole
+/// `Channel<T>` hands over both, which is right for the code that
+/// created it and rarely right for anything downstream.
+///
+/// A channel is either buffered or not, and that is a choice about
+/// coupling rather than a size: `Channel.buffered` lets a producer run
+/// ahead by up to `capacity` values, while `Channel.unbuffered` makes
+/// every `send` a rendezvous that waits for a paired `receive`. There is
+/// no `Channel.new` — there is no third thing a channel could be.
+///
+/// Channels live independent of any specific `concurrent { }` block:
+/// a channel can be created in one block, returned out of it, and
+/// consumed by a later block. They are garbage-collected by the
+/// host runtime when no Nomi reference remains.
+//
+pub struct Channel<T> {
+    /// The writing half. Give this to whoever produces values.
+    sender: Sender<T>
+
+    /// The reading half. Give this to whoever consumes them.
+    receiver: Receiver<T>
+}
+
+/// The writing half of a `Channel<T>`, and the half that can close it.
+///
+/// Closing is a producer's statement that nothing more is coming, which
+/// is why it lives here and not on `Receiver`: a consumer closing what it
+/// reads ends the conversation for everyone still writing, and it is a
+/// mistake that reads like ordinary cleanup. There is no way to write it
+/// now.
+pub host type Sender<T>
+
+/// The reading half of a `Channel<T>`. Receiving is all it does — a
+/// consumer holding one can neither write to the channel nor close it.
+pub host type Receiver<T>
+
+impl Channel<T> {
+    /// Construct a `Channel<T>` that buffers up to `capacity` pending values, so a
+    /// producer can run that far ahead of its consumer before `send` blocks.
+    ///
+    /// `capacity` must be at least 1. Zero is not a small buffer, it is a
+    /// different mode, and it has its own constructor -- passing 0 here is rejected
+    /// rather than quietly aliased to `Channel.unbuffered`.
+    //! ch = Channel.buffered<Int>(1)
+    //! assert Ok(_) = Sender.send(ch.sender, 7)
+    //! assert Receiver.receive(ch.receiver) == Maybe.Some(7)
+    //
+    pub host fn buffered<T>(capacity: Int): Channel<T>
+
+    /// Construct a `Channel<T>` with no buffer, where every `send` waits for a
+    /// paired `receive` and vice versa.
+    ///
+    /// This couples the two sides' schedules: a send is a rendezvous, not a
+    /// hand-off, so it does not return until somebody is on the other end. That
+    /// makes it a poor fit for reporting work nobody is waiting on, and it
+    /// deadlocks outright if the same task sends and then receives. Under `clock
+    /// Clock.Virtual` that deadlock is reported; on the system clock it simply
+    /// hangs.
+    //! ch = Channel.unbuffered<Int>()
+    //!
+    //! sent = concurrent {
+    //!     w = Task.spawn(|| Sender.send(ch.sender, 7))
+    //!     got = Receiver.receive(ch.receiver)
+    //!     _ = Task.await(w)
+    //!     got
+    //! }
+    //!
+    //! assert sent == Maybe.Some(7)
+    //
+    pub host fn unbuffered<T>(): Channel<T>
+}
+
+impl Sender<T> {
+    /// Send a value on the channel. Blocks until the value is taken (for
+    /// unbuffered channels) or capacity is available (for buffered). Returns
+    /// `Err(ChannelClosed)` if the channel was closed at send time.
+    /// Cancellation-aware: when called from inside a `concurrent { }` block whose
+    /// context fires (via deadline or upstream cancellation), the send unwinds
+    /// silently -- user code observes ancestor cancellation through other
+    /// cancellation-aware sites, not here.
+    //! ch = Channel.buffered<Int>(1)
+    //! assert Ok(_) = Sender.send(ch.sender, 7)
+    //
+    pub host fn send<T>(sender: Sender<T>, value: T): Result<Unit, ChannelClosed>
+
+    /// Close the channel. Subsequent `send` calls return `Err(ChannelClosed)`;
+    /// pending blocked sends panic at runtime (the program is responsible for
+    /// sequencing close so there are no blocked senders at close time).
+    /// Double-close is a runtime error.
+    //! ch = Channel.buffered<Int>(1)
+    //! Sender.close(ch.sender)
+    //! assert Receiver.receive(ch.receiver) == Maybe.None
+    //! assert Sender.send(ch.sender, 7) == Result.Err(ChannelClosed)
+    //
+    pub host fn close<T>(sender: Sender<T>): Unit
+}
+
+impl Receiver<T> {
+    /// Receive the next value from the channel. Blocks until a value arrives, the
+    /// channel is closed and drained (returns `None`), or the enclosing concurrent
+    /// block's context fires (silent unwind). After close, any remaining buffered
+    /// values are delivered to subsequent `receive` calls; thereafter every call
+    /// returns `None`.
+    //! ch = Channel.buffered<Int>(1)
+    //! assert Ok(_) = Sender.send(ch.sender, 7)
+    //! assert Receiver.receive(ch.receiver) == Maybe.Some(7)
+    //
+    pub host fn receive<T>(receiver: Receiver<T>): Maybe<T>
+}
+
+/// Returned by `Sender.send` when the channel was closed at the time
+/// the send attempted to enqueue. `Sender.close` itself is a one-shot
+/// operation (panics on double-close, matching Go); user code should
+/// plan shutdown so close happens exactly once.
+pub type ChannelClosed

@@ -1,0 +1,361 @@
+import {
+    bool.Bool.{self, True}
+    debug.Debug
+    display.Display
+    dynamic.Dynamic
+    equatable.Equatable
+    float.Float
+    int.Int
+    iter.Iter
+    lists.List
+    maps.Map
+    maybe.Maybe.{self, None, Some}
+    results.Result
+    results.Result.{Err, Ok}
+    strings.String
+}
+
+/// Tagged enum representing a parsed JSON value.
+///
+/// Variant names align with the Nomi-side type names rather than the
+/// JSON spec's vocabulary — `String String`, `Int Int`, `Float Float`,
+/// `Bool Bool` keep the payload type visible at the pattern site so
+/// `case jv { Int(n) -> ... }` reads as the obvious shape match.
+///
+/// **Number representation note:** JSON has a single number type. `Json`
+/// distinguishes `Int(Int)` from `Float(Float)` at parse time based on whether
+/// the source has a decimal point, exponent, or would overflow `Int`. This
+/// makes integer fields easy to pattern-match while still preserving fractional
+/// values. Text round-trips are not representation-preserving for this split:
+/// `encode(Json.Float(36.0))` emits `36`.
+pub enum Json {
+    String String
+    Int Int
+    Float Float
+    Bool Bool
+    Arr List<Json>
+    Obj Map<String, Json>
+    Null
+}
+
+impl Json {
+    /// Parse a JSON document into a `Json` tree. Returns `Err` with
+    /// a structured `Json.DecodeError` on syntax errors, type errors, or
+    /// trailing content past the first value.
+    ///
+    /// Numbers are decoded as `Int` when they fit in int64 with no
+    /// fractional part / exponent; otherwise as `Float`. See the
+    /// `Json` doc-comment for the rationale.
+    //! assert Json.decode("{\"ok\":true,\"n\":42}") == Result.Ok(
+    //!     Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)}
+    //! )
+    //!
+    //! assert Result.err?(Json.decode("{"))
+    //
+    pub host fn decode(source: String): Result<Json, Json.DecodeError>
+
+    /// Serialize a `Json` tree as compact JSON text (no whitespace
+    /// between tokens).
+    ///
+    /// Number-rendering note: `Float(36.0)` renders as `"36"`, not `"36.0"`.
+    /// The `Int`/`Float` distinction captured by `decode` therefore does
+    /// not necessarily survive a text round-trip.
+    //! assert Json.encode(
+    //!     Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)}
+    //! ) == "{\"ok\":true,\"n\":42}"
+    //
+    pub host fn encode(jv: Json): String
+
+    /// Converts a `Json` tree to `Dynamic`, preserving the same shape: strings,
+    /// numbers, booleans, arrays, objects, and null.
+    //! dyn = Json.to_dynamic(Json.String("hello"))
+    //! assert Dynamic.as_string(dyn) == Result.Ok("hello")
+    //
+    pub host fn to_dynamic(jv: Json): Dynamic
+
+    /// Human-readable shape name used in `Json.ShapeError` messages.
+    pub fn kind(jv: Json): String {
+        case jv {
+            Json.String(_) -> "string"
+            Json.Int(_) -> "int"
+            Json.Float(_) -> "float"
+            Json.Bool(_) -> "bool"
+            Json.Arr(_) -> "array"
+            Json.Obj(_) -> "object"
+            Json.Null -> "null"
+        }
+    }
+}
+
+// The element decoder arrives as a closure rather than being reached through
+// `T.from_json`: a type parameter's concrete binding lives on the activation
+// that supplied the type argument, so it is visible to a lambda written in
+// the impl body but not to a separate generic helper the impl calls.
+fn decode_list<T>(
+    items: List<Json>,
+    index: Int,
+    acc: List<T>,
+    decode_item: (Json) -> Result<T, Json.ShapeError>,
+): Result<List<T>, Json.ShapeError> {
+    case items {
+        [] ->
+            Ok(acc)
+
+        [head, ..tail] ->
+            case decode_item(head) {
+                Ok(value) -> decode_list(tail, index + 1, List.concat(acc, [value]), decode_item)
+                Err(e) -> Err(shape_error_prepend(e, "[${index}]"))
+            }
+    }
+}
+
+impl Display for Json {
+    fn to_string(jv: Json): String {
+        Json.encode(jv)
+    }
+}
+
+impl Debug for Json {
+    fn inspect(jv: Json): String {
+        to_string(jv)
+    }
+}
+
+/// Structured decode failure from `decode`. `line` and `col` are 1-based
+/// source coordinates for human display; `offset` is the 0-based byte
+/// position of the same spot, for programmatic tooling, and it points AT
+/// the offending character rather than one past it.
+///
+/// `message` is Nomi's own text, not the host JSON parser's. That is a
+/// designed contract, not an accident: the messages `decode` can produce
+/// are exactly
+///
+/// - `unexpected character 'x'` — a locatable byte that cannot appear there
+/// - `unexpected byte 0xff` — that byte begins no valid UTF-8 rune
+/// - `unexpected end of input: incomplete JSON value` — input stopped mid-value
+/// - `unexpected end of input: expected a JSON value` — input was empty or blank
+/// - `trailing content after JSON value` — a second value follows the first
+/// - `number out of range: <lexeme>` — well-formed number, unrepresentable
+/// - `malformed JSON` — a failure shape with no position to report
+///
+/// and they are stable across host-toolchain upgrades. Code may match on
+/// them; the host parser's own wording never appears here. A
+/// hand-constructed `Json.DecodeError` may of course carry any message.
+///
+/// Named with the `Json` prefix so it is distinct from decode errors returned
+/// by other modules.
+pub struct Json.DecodeError {
+    message: String
+    line: Int
+    col: Int
+    offset: Int
+}
+
+impl Display for Json.DecodeError {
+    fn to_string(e: Json.DecodeError): String {
+        "json decode error at line ${e.line}, col ${e.col}: ${e.message}"
+    }
+}
+
+/// Field-name casing for derived JSON object keys.
+pub enum Json.Case {
+    Snake
+    Camel
+    Pascal
+    Kebab
+    ScreamingSnake
+}
+
+derive Display for Json.Case
+derive Equatable for Json.Case
+
+/// Compile-time options accepted by `derive ToJson for T with ...`.
+pub struct ToJson.Options {
+    rename_all: Json.Case = Json.Case.Snake
+}
+
+derive Equatable for ToJson.Options
+
+/// Compile-time options accepted by `derive FromJson for T with ...`.
+pub struct FromJson.Options {
+    rename_all: Json.Case = Json.Case.Snake
+}
+
+derive Equatable for FromJson.Options
+
+/// Shape mismatch while converting an already-parsed `Json` tree into a typed
+/// Nomi value. Parse errors stay `Json.DecodeError`; shape errors describe the
+/// path inside the JSON tree where the typed conversion failed.
+pub struct Json.ShapeError {
+    path: List<String>
+    expected: String
+    got: String
+}
+
+pub fn shape_error_root(expected: String, got: Json): Json.ShapeError {
+    Json.ShapeError{
+        path: [],
+        expected,
+        got: Json.kind(got),
+    }
+}
+
+pub fn shape_error_prepend(e: Json.ShapeError, segment: String): Json.ShapeError {
+    Json.ShapeError{
+        path: [segment] + e.path,
+        expected: e.expected,
+        got: e.got,
+    }
+}
+
+impl Display for Json.ShapeError {
+    fn to_string(e: Json.ShapeError): String {
+        message = "expected ${e.expected}, got ${e.got}"
+
+        if e.path == [] {
+            message
+        } else {
+            path = String.join(e.path, ".")
+            "${path}: ${message}"
+        }
+    }
+}
+
+pub interface ToJson {
+    fn to_json(value: self): Json
+}
+
+pub interface FromJson {
+    fn from_json(json: Json): Result<self, Json.ShapeError>
+}
+
+impl ToJson for Int {
+    fn to_json(value: Int): Json {
+        Json.Int(value)
+    }
+}
+
+impl FromJson for Int {
+    fn from_json(json: Json): Result<Int, Json.ShapeError> {
+        case json {
+            Json.Int(value) -> Ok(value)
+            _ -> Err(shape_error_root("int", json))
+        }
+    }
+}
+
+impl ToJson for Float {
+    fn to_json(value: Float): Json {
+        Json.Float(value)
+    }
+}
+
+impl FromJson for Float {
+    fn from_json(json: Json): Result<Float, Json.ShapeError> {
+        case json {
+            Json.Float(value) -> Ok(value)
+            _ -> Err(shape_error_root("float", json))
+        }
+    }
+}
+
+impl ToJson for String {
+    fn to_json(value: String): Json {
+        Json.String(value)
+    }
+}
+
+impl FromJson for String {
+    fn from_json(json: Json): Result<String, Json.ShapeError> {
+        case json {
+            Json.String(value) -> Ok(value)
+            _ -> Err(shape_error_root("string", json))
+        }
+    }
+}
+
+impl ToJson for Bool {
+    fn to_json(value: Bool): Json {
+        Json.Bool(value)
+    }
+}
+
+impl FromJson for Bool {
+    fn from_json(json: Json): Result<Bool, Json.ShapeError> {
+        case json {
+            Json.Bool(value) -> Ok(value)
+            _ -> Err(shape_error_root("bool", json))
+        }
+    }
+}
+
+impl ToJson for List<T> where T: ToJson {
+    fn to_json(value: List<T>): Json {
+        Json.Arr(
+            Iter.map(value, |item| ToJson.to_json(item))
+            |> Iter.to_list()
+        )
+    }
+}
+
+impl FromJson for List<T> where T: FromJson {
+    fn from_json(json: Json): Result<List<T>, Json.ShapeError> {
+        case json {
+            Json.Arr(items) -> decode_list(items, 0, [], |item| T.from_json(item))
+            _ -> Err(shape_error_root("array", json))
+        }
+    }
+}
+
+impl ToJson for Maybe<T> where T: ToJson {
+    fn to_json(value: Maybe<T>): Json {
+        case value {
+            Some(inner) -> ToJson.to_json(inner)
+            None -> Json.Null
+        }
+    }
+}
+
+impl FromJson for Maybe<T> where T: FromJson {
+    fn from_json(json: Json): Result<Maybe<T>, Json.ShapeError> {
+        case json {
+            Json.Null ->
+                Ok(None)
+
+            _ ->
+                case T.from_json(json) {
+                    Ok(value) -> Ok(Some(value))
+                    Err(e) -> Err(e)
+                }
+        }
+    }
+}
+
+impl ToJson for Map<String, V> where V: ToJson {
+    fn to_json(value: Map<String, V>): Json {
+        Json.Obj(Map.map_values(value, |item| ToJson.to_json(item)))
+    }
+}
+
+impl FromJson for Map<String, V> where V: FromJson {
+    fn from_json(json: Json): Result<Map<String, V>, Json.ShapeError> {
+        case json {
+            Json.Obj(items) ->
+                Iter.reduce(items, |state = Ok(Map.empty()), (key, value)|
+                    case state {
+                        Err(e) ->
+                            break Err(e)
+
+                        Ok(acc) ->
+                            case V.from_json(value) {
+                                Ok(decoded) -> Ok(Map.put(acc, key, decoded))
+                                Err(e) -> break Err(shape_error_prepend(e, key))
+                            }
+                    }
+                )
+
+            _ ->
+                Err(shape_error_root("object", json))
+        }
+    }
+}

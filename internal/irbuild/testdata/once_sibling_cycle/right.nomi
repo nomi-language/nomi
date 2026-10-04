@@ -1,0 +1,7 @@
+import left.ours
+
+pub once seed: Int = 7
+
+pub fn from_right(): Int {
+    ours
+}

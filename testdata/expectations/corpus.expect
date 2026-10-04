@@ -1,0 +1,2492 @@
+# nomi golden outputs — do not hand-edit
+#
+# The VM's output is checked against this file: a written-down answer,
+# not another engine's.
+# See internal/expectation/expectation.go for what is masked and why.
+# Regenerate with NOMI_REGENERATE_EXPECTATIONS=1 and name the reason for
+# every moved record in the commit message.
+#
+# C <id> / E <exit> / N <declared cases> / H <sha256 of transcript>
+# S <source line>, only for a record that carries its own program
+# T <transcript line>, verbatim
+population corpus
+what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
+records 262
+declared-cases 771
+failing 0
+C 01-foundations/block_scoping/block_scoping_test.nomi
+E 0
+N 3
+H 3167f00750ffebbaa941bc7f36163dd24560a815865d3e73ee1b966103be25e7
+T ok <root>/tests/01-foundations/block_scoping/block_scoping_test.nomi :: block-scoped declarations are visible inside their enclosing block
+T ok <root>/tests/01-foundations/block_scoping/block_scoping_test.nomi :: nested functions do not leak outside their enclosing function
+T ok <root>/tests/01-foundations/block_scoping/block_scoping_test.nomi :: imports can be declared inside function bodies
+T test result: ok. 3 passed, 0 failed
+T
+C 01-foundations/block_scoping/test_helpers.nomi
+E 1
+N 0
+H 1199a70d2f6557aa61d48dc9a5c1ebd7d3e74f44e37d8a2563f31af6dc87386e
+T --- stderr ---
+T nomi run: <root>/tests/01-foundations/block_scoping/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 01-foundations/comment_positions_test.nomi
+E 0
+N 1
+H 0df4e18e55ebb0e72e613dc4dd41522d5a6f9b3763a032f34c8cd7cd1d42590e
+T ok <root>/tests/01-foundations/comment_positions_test.nomi :: comments are accepted around declarations and expressions
+T test result: ok. 1 passed, 0 failed
+T
+C 01-foundations/if_else/if_else_test.nomi
+E 0
+N 10
+H 9b15f6f7b25388b54e217ca7963938ad80f6c07e1dec8ee1bc70b25bb4bfe170
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if else is an expression
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else returns Unit either way
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else rejects non-Unit branch results
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else allows Unit side effects
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if without else allows early return branches
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: nested if expressions return branch values
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if can match and bind a pattern
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if pattern mismatch evaluates else
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: if pattern bindings are scoped to the then branch
+T ok <root>/tests/01-foundations/if_else/if_else_test.nomi :: else if chains select the first matching branch
+T test result: ok. 10 passed, 0 failed
+T
+C 01-foundations/if_else/test_helpers.nomi
+E 1
+N 0
+H 44b98f996f305163b8c566dad3525dece325cb908231721aa02e2c1bc11399c9
+T --- stderr ---
+T nomi run: <root>/tests/01-foundations/if_else/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 01-foundations/inline_annotations/inline_annotations_test.nomi
+E 0
+N 7
+H 7c32264e155220d14ab61e60683b4cd28c7113ec48c085122482f95f6181d010
+T ok <root>/tests/01-foundations/inline_annotations/inline_annotations_test.nomi :: concrete annotations assert the inferred type
+T ok <root>/tests/01-foundations/inline_annotations/inline_annotations_test.nomi :: annotations drive otherwise-unconstrained generic inference
+T ok <root>/tests/01-foundations/inline_annotations/inline_annotations_test.nomi :: function annotations drive lambda parameter types
+T ok <root>/tests/01-foundations/inline_annotations/inline_annotations_test.nomi :: variant constructors compose with annotations
+T ok <root>/tests/01-foundations/inline_annotations/inline_annotations_test.nomi :: user-defined type annotations preserve the intended type
+T ok <root>/tests/01-foundations/inline_annotations/inline_annotations_test.nomi :: annotation mismatches are rejected
+T ok <root>/tests/01-foundations/inline_annotations/inline_annotations_test.nomi :: annotated bindings expose the annotated hover signature
+T test result: ok. 7 passed, 0 failed
+T
+C 01-foundations/inline_annotations/test_helpers.nomi
+E 1
+N 0
+H 20fbe259b922012a4e788dc2e9a7c61b859eb80763a2c1429cb3aab2048fdadc
+T --- stderr ---
+T nomi run: <root>/tests/01-foundations/inline_annotations/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 01-foundations/interpolation_escapes_test.nomi
+E 0
+N 4
+H 7c63ae5222edb845b07ae7b24f46eb22ac6fa0782a55d4a5aeb7ae56c1572388
+T ok <root>/tests/01-foundations/interpolation_escapes_test.nomi :: a backslash writes a literal interpolation opener
+T ok <root>/tests/01-foundations/interpolation_escapes_test.nomi :: a dollar or hash alone is text
+T ok <root>/tests/01-foundations/interpolation_escapes_test.nomi :: a triple-quoted string reads only the escaped opener
+T ok <root>/tests/01-foundations/interpolation_escapes_test.nomi :: an interpolation holds a set literal
+T test result: ok. 4 passed, 0 failed
+T
+C 01-foundations/literals_test.nomi
+E 0
+N 8
+H 6060c625ef7403e5ac0958a4c4a2ead7a0160e14f2d3eaef8a80fd376b9ba31a
+T ok <root>/tests/01-foundations/literals_test.nomi :: primitive literals infer their basic types
+T ok <root>/tests/01-foundations/literals_test.nomi :: arithmetic and interpolation produce expected values
+T ok <root>/tests/01-foundations/literals_test.nomi :: string concatenation joins strings
+T ok <root>/tests/01-foundations/literals_test.nomi :: comparisons and logic return booleans
+T ok <root>/tests/01-foundations/literals_test.nomi :: unary minus works on numeric expressions
+T ok <root>/tests/01-foundations/literals_test.nomi :: numeric literal forms parse to their numeric values
+T ok <root>/tests/01-foundations/literals_test.nomi :: float debug boundaries use the intended notation
+T ok <root>/tests/01-foundations/literals_test.nomi :: block expressions return their final value
+T test result: ok. 8 passed, 0 failed
+T
+C 01-foundations/once_bindings/once_bindings_test.nomi
+E 0
+N 7
+H a118f8a046b2818a2f43612ab84b63df1bd453946ed190d86a3c4aaf580642d9
+T ok <root>/tests/01-foundations/once_bindings/once_bindings_test.nomi :: once bindings are available across the file
+T ok <root>/tests/01-foundations/once_bindings/once_bindings_test.nomi :: once bindings can hold declared values
+T ok <root>/tests/01-foundations/once_bindings/once_bindings_test.nomi :: ordinary local bindings can shadow file once bindings
+T ok <root>/tests/01-foundations/once_bindings/once_bindings_test.nomi :: duplicate same-scope once bindings are rejected
+T ok <root>/tests/01-foundations/once_bindings/once_bindings_test.nomi :: type body once bindings are rejected
+T ok <root>/tests/01-foundations/once_bindings/once_bindings_test.nomi :: impl block once bindings are rejected
+T ok <root>/tests/01-foundations/once_bindings/once_bindings_test.nomi :: compiler hover can assert once signatures with a marker
+T test result: ok. 7 passed, 0 failed
+T
+C 01-foundations/once_bindings/test_helpers.nomi
+E 1
+N 0
+H acf3f538796bb13ec8b36ed79c7994a63ae8174696561494c3cf44ce86f8f917
+T --- stderr ---
+T nomi run: <root>/tests/01-foundations/once_bindings/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 01-foundations/raw_strings_test.nomi
+E 0
+N 6
+H 438c8dfed08c07d13a14d984cedbf194eddee500c1849e523c746515d451c8e2
+T ok <root>/tests/01-foundations/raw_strings_test.nomi :: raw single-line strings preserve interpolation-looking text
+T ok <root>/tests/01-foundations/raw_strings_test.nomi :: raw single-line strings preserve backslashes
+T ok <root>/tests/01-foundations/raw_strings_test.nomi :: raw single-line strings preserve doubled dollar signs
+T ok <root>/tests/01-foundations/raw_strings_test.nomi :: multi-line raw strings preserve multiline regex text
+T ok <root>/tests/01-foundations/raw_strings_test.nomi :: multi-line raw strings preserve shell interpolation syntax
+T ok <root>/tests/01-foundations/raw_strings_test.nomi :: multi-line raw strings preserve doubled dollar signs
+T test result: ok. 6 passed, 0 failed
+T
+C 01-foundations/redeclarations/redeclarations_test.nomi
+E 0
+N 1
+H 7afa4776c28ad43811ea69beb79506dce4eb2afdd2873730ba8d46d2720f004e
+T ok <root>/tests/01-foundations/redeclarations/redeclarations_test.nomi :: duplicate same-scope top-level declarations are rejected
+T test result: ok. 1 passed, 0 failed
+T
+C 01-foundations/redeclarations/test_helpers.nomi
+E 1
+N 0
+H 100ad387e2f3e1c9e8319770fbc347390323e14459624237cce8910f7c1d0517
+T --- stderr ---
+T nomi run: <root>/tests/01-foundations/redeclarations/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 01-foundations/shadowing_test.nomi
+E 0
+N 3
+H 123475af1cf2ffb9dfe978df7dd0ff624751c78c60c9be48c31b9dabd7275c54
+T ok <root>/tests/01-foundations/shadowing_test.nomi :: bindings can shadow earlier bindings in the same scope
+T ok <root>/tests/01-foundations/shadowing_test.nomi :: bindings can shadow parameters and locals
+T ok <root>/tests/01-foundations/shadowing_test.nomi :: bindings can shadow with a different type
+T test result: ok. 3 passed, 0 failed
+T
+C 01-foundations/triple_quoted_strings_test.nomi
+E 0
+N 8
+H 85fffb8ad0238abd79596170a55558423941fc669198f04316e4cbb4909f75d6
+T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: triple-quoted strings strip shared indentation
+T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: triple-quoted strings interpolate expressions
+T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: triple-quoted strings can include literal interpolation syntax
+T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: triple-quoted strings preserve bare braces
+T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: triple-quoted strings preserve backslashes
+T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: triple-quoted strings mix interpolation and literal interpolation syntax
+T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: triple-quoted strings can be empty
+T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: single-line triple-quoted bodies produce their body text
+T test result: ok. 8 passed, 0 failed
+T
+C 02-testing/assert_refute_test.nomi
+E 0
+N 4
+H 04c88df305af915a1917c9884f2cb6114ec2e91c08962b715840c7cca3b6f20d
+T ok <root>/tests/02-testing/assert_refute_test.nomi :: assert and refute accept expected booleans
+T ok <root>/tests/02-testing/assert_refute_test.nomi :: assertion failures are Result.Err values
+T ok <root>/tests/02-testing/assert_refute_test.nomi :: check returns assertion Result values without propagating
+T ok <root>/tests/02-testing/assert_refute_test.nomi :: try check propagates assertion failures
+T test result: ok. 4 passed, 0 failed
+T
+C 02-testing/assertable_test.nomi
+E 0
+N 3
+H 1803c82019d46a47c88ce06e523cde76fac06dd89b3dd03da821385b781c43de
+T ok <root>/tests/02-testing/assertable_test.nomi :: custom Assertable values can pass assertions
+T ok <root>/tests/02-testing/assertable_test.nomi :: custom Assertable values can be refuted
+T ok <root>/tests/02-testing/assertable_test.nomi :: custom Assertable failures use the standard report shape
+T test result: ok. 3 passed, 0 failed
+T
+C 02-testing/assertion_context/assertion_context_test.nomi
+E 0
+N 4
+H 3a17f619fd456ea0e127d6c2c4e7e79844008269d5819fce5a2ad0001a73d29e
+T ok <root>/tests/02-testing/assertion_context/assertion_context_test.nomi :: equality assertions record compared values
+T ok <root>/tests/02-testing/assertion_context/assertion_context_test.nomi :: predicate assertions record call arguments
+T ok <root>/tests/02-testing/assertion_context/assertion_context_test.nomi :: length assertions show the source, observed length, and expected value
+T ok <root>/tests/02-testing/assertion_context/assertion_context_test.nomi :: pattern assertion bindings expose field hovers
+T test result: ok. 4 passed, 0 failed
+T
+C 02-testing/assertion_context/test_helpers.nomi
+E 1
+N 0
+H d768e792656a7e097d4d6c8dd2746d97a715406958aa9aaf6586e1e5e9485880
+T --- stderr ---
+T nomi run: <root>/tests/02-testing/assertion_context/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 02-testing/assertion_pattern_destructuring_test.nomi
+E 0
+N 2
+H e1ebe049936aea096474d1acc766cc0d89f4d05a3573199f6d60e39c09860331
+T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can destructure list tuple struct map type and enum patterns
+T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can match literal patterns
+T test result: ok. 2 passed, 0 failed
+T
+C 02-testing/assertion_pipe_test.nomi
+E 0
+N 4
+H 8f7c68b561e60d1bac9d9313efb0bb2e2e0d09f76b65c48381448a9b0fc98eb0
+T ok <root>/tests/02-testing/assertion_pipe_test.nomi :: assert can check the Bool produced by a pipeline
+T ok <root>/tests/02-testing/assertion_pipe_test.nomi :: refute can check the Bool produced by a pipeline
+T ok <root>/tests/02-testing/assertion_pipe_test.nomi :: check can return the pipeline Bool as a Result
+T ok <root>/tests/02-testing/assertion_pipe_test.nomi :: pipeline values can feed pattern assertions
+T test result: ok. 4 passed, 0 failed
+T
+C 02-testing/assertion_rendering_test.nomi
+E 0
+N 7
+H 736f381946bf7bf8f4516f649dc642ba0486e9287828fa95e1c06da5551468ab
+T ok <root>/tests/02-testing/assertion_rendering_test.nomi :: rendered comparison failure can be asserted as text
+T ok <root>/tests/02-testing/assertion_rendering_test.nomi :: rendered pattern binding failure shows the expected shape
+T ok <root>/tests/02-testing/assertion_rendering_test.nomi :: rendered predicate failure shows direct inputs
+T ok <root>/tests/02-testing/assertion_rendering_test.nomi :: rendered binding failure includes the binding source
+T ok <root>/tests/02-testing/assertion_rendering_test.nomi :: rendered pipe-stage check includes pipeline source and values
+T ok <root>/tests/02-testing/assertion_rendering_test.nomi :: a Set reads in the values row as its Debug form
+T ok <root>/tests/02-testing/assertion_rendering_test.nomi :: a lazy Iter reads in the values row as a placeholder
+T test result: ok. 7 passed, 0 failed
+T
+C 02-testing/assertion_unwrap_test.nomi
+E 0
+N 9
+H 455cbf2d3513809fcf25b9bccebada882620cf40a8b22a8431859f2d11e45c88
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: maybe values can be asserted directly
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: maybe shape can be asserted with predicates
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: assert checks maybe success shape
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: refute checks maybe empty shape
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: result values can be asserted directly
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: result shape can be asserted with predicates
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: assert checks result ok shape
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: refute checks result err shape
+T ok <root>/tests/02-testing/assertion_unwrap_test.nomi :: check returns assertion results with original subject values
+T test result: ok. 9 passed, 0 failed
+T
+C 02-testing/attached_tests_test.nomi
+E 0
+N 6
+H e6b20e3bcebd40a135f4808bcc883b9bb1c03007578b42747f346070d2489b3c
+T ok <root>/tests/02-testing/attached_tests_test.nomi :: answer //! test lines 1-2
+T ok <root>/tests/02-testing/attached_tests_test.nomi :: renders labels
+T ok <root>/tests/02-testing/attached_tests_test.nomi :: nested examples / done label
+T ok <root>/tests/02-testing/attached_tests_test.nomi :: ready_label //! test line 26
+T ok <root>/tests/02-testing/attached_tests_test.nomi :: done_label //! test lines 32-34
+T ok <root>/tests/02-testing/attached_tests_test.nomi :: attached test declarations remain ordinary declarations
+T test result: ok. 6 passed, 0 failed
+T
+C 02-testing/setup_semantics_test.nomi
+E 0
+N 3
+H d681845edc8a822b3282159b36edbe267f2cf60253bdcef9303af38430d1b456
+T ok <root>/tests/02-testing/setup_semantics_test.nomi :: setup semantics / setup value is bound by the test's pattern
+T ok <root>/tests/02-testing/setup_semantics_test.nomi :: setup semantics / a sibling group's setup does not leak into this group
+T ok <root>/tests/02-testing/setup_semantics_test.nomi :: derived setup / a sibling group derives its setup from a shared function
+T test result: ok. 3 passed, 0 failed
+T
+C 02-testing/setup_try_test.nomi
+E 0
+N 5
+H c8c1822011287e6ad4a4108d05cfa48fc0314f64020caf41d268e600f9786177
+T ok <root>/tests/02-testing/setup_try_test.nomi :: try on a Result in setup / the setup's value reaches the case
+T ok <root>/tests/02-testing/setup_try_test.nomi :: try on a Maybe in setup / the setup's value reaches the case
+T ok <root>/tests/02-testing/setup_try_test.nomi :: try in a pipe stage in setup / the setup's value reaches the case
+T ok <root>/tests/02-testing/setup_try_test.nomi :: try after other statements in setup / the setup's earlier bindings reach the try's result
+T ok <root>/tests/02-testing/setup_try_test.nomi :: assert in setup / the setup's assertion held
+T test result: ok. 5 passed, 0 failed
+T
+C 03-tooling-and-diagnostics/compiler_project/compiler_project_test.nomi
+E 0
+N 2
+H e2ba2bae1a783a85ac9e77bb72513d551d07a564db5a5bb6b566c1cdc95067f5
+T ok <root>/tests/03-tooling-and-diagnostics/compiler_project/compiler_project_test.nomi :: compiler can check diagnostics across an in-memory project
+T ok <root>/tests/03-tooling-and-diagnostics/compiler_project/compiler_project_test.nomi :: compiler project checks manifest entry points
+T test result: ok. 2 passed, 0 failed
+T
+C 03-tooling-and-diagnostics/compiler_project/test_helpers.nomi
+E 1
+N 0
+H 3e1771cbe1df250bbfc54d5e2cbd58c1a70c7d4ccb60175faf3f60afd1d5ae74
+T --- stderr ---
+T nomi run: <root>/tests/03-tooling-and-diagnostics/compiler_project/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 03-tooling-and-diagnostics/dbg_test.nomi
+E 0
+N 2
+H e8851cd4f65624286cdae86746f9b3e914d35d1040938c091bff585a340f938c
+T ok <root>/tests/03-tooling-and-diagnostics/dbg_test.nomi :: dbg expression prints source and returns value
+T ok <root>/tests/03-tooling-and-diagnostics/dbg_test.nomi :: dbg pipe stage prints source and passes the value through
+T test result: ok. 2 passed, 0 failed
+T
+C 03-tooling-and-diagnostics/formatting_test.nomi
+E 0
+N 1
+H ce35548a726bd3b754002da2fddeb54c5ad2ce52a86ff3cac09ce505af0c8fd9
+T ok <root>/tests/03-tooling-and-diagnostics/formatting_test.nomi :: formatter showcase declarations remain executable
+T test result: ok. 1 passed, 0 failed
+T
+C 03-tooling-and-diagnostics/try_error_type/test_helpers.nomi
+E 1
+N 0
+H 6aeab325fd54b08a419445f26c3c35fbcddde52f889cfbe679577ba5568c2321
+T --- stderr ---
+T nomi run: <root>/tests/03-tooling-and-diagnostics/try_error_type/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi
+E 0
+N 5
+H 712708a1ee25c9ef66377c9aa594ac53857b3ef3c806bf1ff72e81cb28ef0ef7
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: try may not launder the error type
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: a matching try error type is clean
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: converting the error at the try site is clean
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: try on a Maybe may not propagate out of a Result boundary
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: try needs a Result or Maybe boundary to propagate into
+T test result: ok. 5 passed, 0 failed
+T
+C 03-tooling-and-diagnostics/type_qualified_missing_member/test_helpers.nomi
+E 1
+N 0
+H 613a3fe9cb672b8214d1a19c62f071653fb86cb1714a704a94abcbb3a876057e
+T --- stderr ---
+T nomi run: <root>/tests/03-tooling-and-diagnostics/type_qualified_missing_member/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 03-tooling-and-diagnostics/type_qualified_missing_member/type_qualified_missing_member_test.nomi
+E 0
+N 1
+H e9094329d8a45197d88408103526062e5c728518fc333997f97539e5172a04cb
+T ok <root>/tests/03-tooling-and-diagnostics/type_qualified_missing_member/type_qualified_missing_member_test.nomi :: type-qualified missing member reports a diagnostic
+T test result: ok. 1 passed, 0 failed
+T
+C 03-tooling-and-diagnostics/type_qualified_missing_variant/test_helpers.nomi
+E 1
+N 0
+H ce5fa987c3be6067b1d8f4ccb512af68a38e699feb95be1ee5f7c4c28d59ab18
+T --- stderr ---
+T nomi run: <root>/tests/03-tooling-and-diagnostics/type_qualified_missing_variant/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 03-tooling-and-diagnostics/type_qualified_missing_variant/type_qualified_missing_variant_test.nomi
+E 0
+N 1
+H 4076f475bf5b54bd0dad7f083eedda50d93a2eed5ea536fe566be207abc72209
+T ok <root>/tests/03-tooling-and-diagnostics/type_qualified_missing_variant/type_qualified_missing_variant_test.nomi :: type-qualified missing variant reports a diagnostic
+T test result: ok. 1 passed, 0 failed
+T
+C 03-tooling-and-diagnostics/unused_import/test_helpers.nomi
+E 1
+N 0
+H dade72472d9f85199d39484e0b06e45c97bdb56a5b12b8d24b57f27a16047827
+T --- stderr ---
+T nomi run: <root>/tests/03-tooling-and-diagnostics/unused_import/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 03-tooling-and-diagnostics/unused_import/unused_import_test.nomi
+E 0
+N 1
+H 23f903203043afbad4094cb4f65ee0f3862f4f4a01e424c8cef64441d0ed804b
+T ok <root>/tests/03-tooling-and-diagnostics/unused_import/unused_import_test.nomi :: unused imports report the unused item
+T test result: ok. 1 passed, 0 failed
+T
+C 04-scalars-and-text/codepoint_literals_test.nomi
+E 0
+N 8
+H 7eea77e0d9fdc14e05a431fd38316addefce8ed87866b8523bc101a7efe0ef6c
+T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: a codepoint literal is the codepoint of its ASCII character
+T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: escapes are the string escapes with the single quote in place of the double
+T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: a codepoint literal displays as its character and inspects as Codepoint(n)
+T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: codepoint literals compare with other codepoints
+T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: ranges over codepoint literals iterate as codepoints
+T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: codepoint literals are case patterns
+T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: codepoint literals match inside variant and tuple patterns
+T ok <root>/tests/04-scalars-and-text/codepoint_literals_test.nomi :: a scanner splits on a codepoint
+T test result: ok. 8 passed, 0 failed
+T
+C 04-scalars-and-text/codepoints_test.nomi
+E 0
+N 4
+H 9a2acafef8e549ae1bc8a6083a85f365a915c548db912ec9d693b22fe4b20b65
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoints convert to and from integers and strings
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint construction rejects surrogate values
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint ranges iterate over scalar values
+T ok <root>/tests/04-scalars-and-text/codepoints_test.nomi :: codepoint ranges skip surrogate values
+T test result: ok. 4 passed, 0 failed
+T
+C 04-scalars-and-text/decimals/decimals_test.nomi
+E 0
+N 11
+H b7007d081e538d175a57999ccffadcffce7d47979c9692e19db1599b1f4d33df
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal literals preserve display scale
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal operators are exact when the result terminates
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal rounding and shaping functions are explicit
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal conversions are explicit
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal debug and comparisons are scale insensitive where appropriate
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal ranges can be queried and stepped
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal set and map keys are scale insensitive
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal arithmetic supports money-shaped totals
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal arithmetic rejects mixed numeric types
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division by zero is a runtime error
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: non-terminating decimal division is a runtime error
+T test result: ok. 11 passed, 0 failed
+T
+C 04-scalars-and-text/decimals/test_helpers.nomi
+E 1
+N 0
+H 03f1d0876ce038445b175018fc9b0d6da38944b10f23c46fb6b13d56f8efb8a5
+T --- stderr ---
+T nomi run: <root>/tests/04-scalars-and-text/decimals/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 04-scalars-and-text/floats_test.nomi
+E 0
+N 7
+H 78ff54e0b9e563be35ec871a7cd3eb914d01c233346c44eaef17c6936e12adb3
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: floats convert to ints by truncating toward zero
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float to int rejects overflow and special values
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float rounding helpers return integer-valued floats
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float rounding can feed int conversion through pipes
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float special values can be produced and classified
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float equality treats NaN reflexively
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float special values propagate through arithmetic and rounding
+T test result: ok. 7 passed, 0 failed
+T
+C 04-scalars-and-text/ints_test.nomi
+E 0
+N 6
+H 6861a66659693607f496e9011a86b3839e6c7c305057a9ff91eb0b297184ab27
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: ints convert to floats
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero refinement validates divisors
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero integers make division and modulo total
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement is stricter than non-zero
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive integers can be used as non-zero divisors
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement rejects zero divisors
+T test result: ok. 6 passed, 0 failed
+T
+C 04-scalars-and-text/random_test.nomi
+E 0
+N 5
+H 422311789570825e3080c77395752b43a10ae9473e8cea84770449680c3911fc
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: seeded generators produce deterministic values
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: random generators compose dependent draws
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: invalid integer ranges return an error
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators require positive total weight
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators reject negative weights
+T test result: ok. 5 passed, 0 failed
+T
+C 04-scalars-and-text/ranges_test.nomi
+E 0
+N 9
+H 4eb0a75f5e13c3f789176834b12ea7e4536400e7a909566ae0667c1b7c97f26c
+T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: integer range literals materialize their bounds
+T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: unbounded integer ranges are bounded by iterator adapters
+T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: reversed bounded ranges are empty
+T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: explicit steps turn ranges into lazy iterables
+T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: known count distinguishes bounded and unbounded ranges
+T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: range containment respects inclusive and unbounded endpoints
+T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: string and float ranges can be queried for containment
+T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: bounded range predicate distinguishes bounded and unbounded ranges
+T ok <root>/tests/04-scalars-and-text/ranges_test.nomi :: ranges compose with iterator pipelines
+T test result: ok. 9 passed, 0 failed
+T
+C 04-scalars-and-text/strings_test.nomi
+E 0
+N 9
+H 872536747ce63a7d695192ef532e7ab4cfde6b31d1a9eb57f1ea188d18dafe36
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings report length containment and slices
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings join and split text
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings expose bytes, graphemes, and codepoints
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: prefixes and suffixes can be stripped when present
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: trim removes outer whitespace and preserves inner whitespace
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings parse signed integers or return none
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: grapheme transforms materialize back to strings
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: normalization is explicit before byte-based equality
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: join reads any iterator of strings and defaults to no separator
+T test result: ok. 9 passed, 0 failed
+T
+C 05-calendar-and-time/dates_test.nomi
+E 0
+N 10
+H 22aaac0e162d89e2b9fef23670142d3340cdc37619c25084c0d9a8f2caaedc26
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: dates parse and expose components
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date literals support interpolation
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date parser is shared by literals and explicit parse
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date parse failures preserve error shape
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date day counts are signed
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date day counts include leap days
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date day and week shifts cross calendar boundaries
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date month shifts clamp invalid month days
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date year shifts clamp leap days when needed
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date adds calendar units with plus
+T test result: ok. 10 passed, 0 failed
+T
+C 05-calendar-and-time/datetime_test.nomi
+E 0
+N 8
+H ee380d58aa26b6466496ef0400f2bd85cd5258264b3ce12857b2ccbbcd379814
+T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes parse and display RFC 9557 bracket form
+T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes can be built from wall readings and zones
+T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetime components project through the stored zone
+T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes expose their instant and effective offset
+T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetime equality is instant-only
+T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes can be projected to fixed offset datetimes
+T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes add durations as physical elapsed time
+T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes support civil sub-day arithmetic
+T test result: ok. 8 passed, 0 failed
+T
+C 05-calendar-and-time/datetime_zone_changes_test.nomi
+E 0
+N 4
+H eba07a1f31ba1dfa362970dfa995f99819867f2ca36094c1b306c698657380d7
+T ok <root>/tests/05-calendar-and-time/datetime_zone_changes_test.nomi :: zoned datetimes can be reprojected through another IANA zone
+T ok <root>/tests/05-calendar-and-time/datetime_zone_changes_test.nomi :: zone changes preserve the represented instant
+T ok <root>/tests/05-calendar-and-time/datetime_zone_changes_test.nomi :: zone changes project accessors through the target zone
+T ok <root>/tests/05-calendar-and-time/datetime_zone_changes_test.nomi :: zone changes reject unknown IANA zone names
+T test result: ok. 4 passed, 0 failed
+T
+C 05-calendar-and-time/dst_fall_back_test.nomi
+E 0
+N 7
+H e2de96329f1fea4e7b4825b8c38ec71daccbe9751ce99684dd6616122ba2d505
+T ok <root>/tests/05-calendar-and-time/dst_fall_back_test.nomi :: DST fall-back can choose the earlier repeated wall reading
+T ok <root>/tests/05-calendar-and-time/dst_fall_back_test.nomi :: DST fall-back can choose the later repeated wall reading
+T ok <root>/tests/05-calendar-and-time/dst_fall_back_test.nomi :: DST fall-back repeated readings are distinct instants
+T ok <root>/tests/05-calendar-and-time/dst_fall_back_test.nomi :: fold compatible disambiguation chooses the earlier instant
+T ok <root>/tests/05-calendar-and-time/dst_fall_back_test.nomi :: fold earlier and later disambiguations choose distinct offsets
+T ok <root>/tests/05-calendar-and-time/dst_fall_back_test.nomi :: fold earlier and later instants are one hour apart
+T ok <root>/tests/05-calendar-and-time/dst_fall_back_test.nomi :: fold reject disambiguation reports ambiguity
+T test result: ok. 7 passed, 0 failed
+T
+C 05-calendar-and-time/dst_spring_forward_test.nomi
+E 0
+N 6
+H 0e7a4454b8566b346da0c627744277ae34b9ab1ab2829a9982391a6c14781698
+T ok <root>/tests/05-calendar-and-time/dst_spring_forward_test.nomi :: DST gap compatible disambiguation advances to the next valid instant
+T ok <root>/tests/05-calendar-and-time/dst_spring_forward_test.nomi :: DST gap reject disambiguation reports a nonexistent wall reading
+T ok <root>/tests/05-calendar-and-time/dst_spring_forward_test.nomi :: DST spring-forward civil day shifts preserve wall time
+T ok <root>/tests/05-calendar-and-time/dst_spring_forward_test.nomi :: DST spring-forward civil day shifts may cover less than twenty-four hours
+T ok <root>/tests/05-calendar-and-time/dst_spring_forward_test.nomi :: DST spring-forward physical duration shifts preserve elapsed time
+T ok <root>/tests/05-calendar-and-time/dst_spring_forward_test.nomi :: DST spring-forward civil hour shifts preserve wall time
+T test result: ok. 6 passed, 0 failed
+T
+C 05-calendar-and-time/durations_test.nomi
+E 0
+N 5
+H 4ad60ae0dd960197eb29f4f6ed670965d8dcf166e0196d16f01f3f987832d6b0
+T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: durations construct from named units
+T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: duration debug matches display
+T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: durations expose total units
+T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: durations support arithmetic
+T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: duration equality uses nanosecond magnitude
+T test result: ok. 5 passed, 0 failed
+T
+C 05-calendar-and-time/instant_test.nomi
+E 0
+N 2
+H e59ec8b6a4ae06b9255c82b2dea249e9a64a4b05a5d7a01dbe85c7e8233ba830
+T ok <root>/tests/05-calendar-and-time/instant_test.nomi :: instants add durations
+T ok <root>/tests/05-calendar-and-time/instant_test.nomi :: instants subtract durations and other instants
+T test result: ok. 2 passed, 0 failed
+T
+C 05-calendar-and-time/naive_datetime_test.nomi
+E 0
+N 10
+H 7adee6ef82543b97af8154b8b1d63c77deed35ed884bc84b57a0c4fe4fb38860
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetimes parse and display without zone information
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetime accessors expose date and time parts
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: dates and times combine into naive datetimes
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: dates convert to midnight naive datetimes
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetimes support duration arithmetic
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetimes support calendar arithmetic
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetimes support civil sub-day arithmetic
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetimes sort chronologically
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetime differences return durations
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetime construction validates component combinations
+T test result: ok. 10 passed, 0 failed
+T
+C 05-calendar-and-time/offset_datetime_test.nomi
+E 0
+N 8
+H a0d4434a3e5db1f9c65b05980a63276ae468d12dd769c46b889a6f08b8afa2dd
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetimes parse and display fixed offsets
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetimes can be built from wall readings and offsets
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetime accessors expose fixed-offset wall time
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetimes expose their instant and fixed offset
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetime equality is instant-only
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetime calendar shifts preserve fixed offsets
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetimes add durations with fixed-offset physical time
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetimes support civil sub-day arithmetic
+T test result: ok. 8 passed, 0 failed
+T
+C 05-calendar-and-time/times_test.nomi
+E 0
+N 6
+H 5a242feb1b2b2c350e19ad6a5c4ad2e842a7122e56e954fa838d1710a5ef9c83
+T ok <root>/tests/05-calendar-and-time/times_test.nomi :: times parse and expose components
+T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time display preserves meaningful subsecond precision
+T ok <root>/tests/05-calendar-and-time/times_test.nomi :: times support duration arithmetic with midnight wrapping
+T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time equality uses time of day
+T ok <root>/tests/05-calendar-and-time/times_test.nomi :: times sort chronologically
+T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time construction rejects invalid components
+T test result: ok. 6 passed, 0 failed
+T
+C 06-collections/lists_test.nomi
+E 0
+N 6
+H fe9e38b17a18a1ce43ca3dbe678e8dbaa0b809893aad175afcd99d9408b91f6f
+T ok <root>/tests/06-collections/lists_test.nomi :: list literals and equality work by value
+T ok <root>/tests/06-collections/lists_test.nomi :: list cons syntax prepends heads onto tails
+T ok <root>/tests/06-collections/lists_test.nomi :: list head and tail expose cons-list structure
+T ok <root>/tests/06-collections/lists_test.nomi :: list concat concatenates two lists
+T ok <root>/tests/06-collections/lists_test.nomi :: list patterns match empty cons and exact-length shapes
+T ok <root>/tests/06-collections/lists_test.nomi :: recursive functions can consume list cons patterns
+T test result: ok. 6 passed, 0 failed
+T
+C 06-collections/maps_test.nomi
+E 0
+N 6
+H cef0c5a511198a092394ec41a2e917a578cf39746d5de559a0a475a0b892d2f2
+T ok <root>/tests/06-collections/maps_test.nomi :: maps expose size lookup insert keys and empty construction
+T ok <root>/tests/06-collections/maps_test.nomi :: map patterns match keys literals and wildcard values
+T ok <root>/tests/06-collections/maps_test.nomi :: map destructuring binds requested keys
+T ok <root>/tests/06-collections/maps_test.nomi :: maps iterate as key value tuples
+T ok <root>/tests/06-collections/maps_test.nomi :: map bulk construction and transforms preserve insertion behavior
+T ok <root>/tests/06-collections/maps_test.nomi :: maps merge with +
+T test result: ok. 6 passed, 0 failed
+T
+C 06-collections/sets_test.nomi
+E 0
+N 8
+H c109d792d26a235dc9c13db8e32539ab8e99aac954841353ba6671f3eaf12cb5
+T ok <root>/tests/06-collections/sets_test.nomi :: set literals deduplicate inserted values
+T ok <root>/tests/06-collections/sets_test.nomi :: singleton and empty set literals are sets
+T ok <root>/tests/06-collections/sets_test.nomi :: sets support insertion and algebra operations
+T ok <root>/tests/06-collections/sets_test.nomi :: sets deduplicate structural values
+T ok <root>/tests/06-collections/sets_test.nomi :: sets are iterable in insertion order
+T ok <root>/tests/06-collections/sets_test.nomi :: set iter pipelines can materialize back into sets
+T ok <root>/tests/06-collections/sets_test.nomi :: sets can feed iter reductions
+T ok <root>/tests/06-collections/sets_test.nomi :: sets combine with + and -
+T test result: ok. 8 passed, 0 failed
+T
+C 06-collections/tuples_test.nomi
+E 0
+N 5
+H 55c3587c63b171f8a0ad26fac9795cdd39b64fbd3d8e3183599b58a313493b98
+T ok <root>/tests/06-collections/tuples_test.nomi :: tuples expose positional fields
+T ok <root>/tests/06-collections/tuples_test.nomi :: tuple destructuring binds positional values
+T ok <root>/tests/06-collections/tuples_test.nomi :: functions can return tuples for destructuring
+T ok <root>/tests/06-collections/tuples_test.nomi :: tuple patterns match positional shapes
+T ok <root>/tests/06-collections/tuples_test.nomi :: tuple equality compares positional values
+T test result: ok. 5 passed, 0 failed
+T
+C 06-collections/vectors_test.nomi
+E 0
+N 10
+H 48419146ff077a9513f1ba9b2e7fc9463b8ed57b240ac279c0f4aca4d449b442
+T ok <root>/tests/06-collections/vectors_test.nomi :: vector literals construct vectors
+T ok <root>/tests/06-collections/vectors_test.nomi :: vectors convert to lists
+T ok <root>/tests/06-collections/vectors_test.nomi :: vectors convert from lists
+T ok <root>/tests/06-collections/vectors_test.nomi :: vectors support random access
+T ok <root>/tests/06-collections/vectors_test.nomi :: vectors push set and concat return new vectors
+T ok <root>/tests/06-collections/vectors_test.nomi :: empty vectors need type context
+T ok <root>/tests/06-collections/vectors_test.nomi :: vectors iterate with generic Iter operations
+T ok <root>/tests/06-collections/vectors_test.nomi :: vectors compare display debug and hash structurally
+T ok <root>/tests/06-collections/vectors_test.nomi :: vectors concatenate with +
+T ok <root>/tests/06-collections/vectors_test.nomi :: Iter.to_vector materializes any iterator into a vector
+T test result: ok. 10 passed, 0 failed
+T
+C 07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi
+E 0
+N 4
+H d96d5b8461a96beb968d91b40f16b3b325b2bfe46a74f2b6095eca16baf1d919
+T ok <root>/tests/07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi :: anonymous structs expose fields and render structurally
+T ok <root>/tests/07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi :: anonymous structs destructure and match by field name
+T ok <root>/tests/07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi :: anonymous struct parameters match by field set
+T ok <root>/tests/07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi :: anonymous struct parameter mismatches report diagnostics
+T test result: ok. 4 passed, 0 failed
+T
+C 07-structs-and-enums/anonymous_structs/test_helpers.nomi
+E 1
+N 0
+H 832afd6c866905827ab0235ba2894078cdb02aa0d3157fb327dbd9d6a3130db2
+T --- stderr ---
+T nomi run: <root>/tests/07-structs-and-enums/anonymous_structs/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi
+E 0
+N 6
+H 3586dfc121b97cf577c1f04548ede0e8f82b534dcc91785408ea705bc68ce15a
+T ok <root>/tests/07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi :: a hand-written Equatable on a distinct answers ==
+T ok <root>/tests/07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi :: the operator and the by-name call agree on a distinct
+T ok <root>/tests/07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi :: != is the negation of the hand-written impl, not of the structural one
+T ok <root>/tests/07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi :: an opaque distinct's impl answers == in the refuting direction too
+T ok <root>/tests/07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi :: a derived distinct still compares structurally, both ways
+T ok <root>/tests/07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi :: a distinct with no impl at all still compares structurally
+T test result: ok. 6 passed, 0 failed
+T
+C 07-structs-and-enums/embeds_positional_match_test.nomi
+E 0
+N 6
+H cc56fe6e0cb1ac2fff13022120c7bdfb0bf2b14e773d3a085cd5abd010d6c69d
+T ok <root>/tests/07-structs-and-enums/embeds_positional_match_test.nomi :: a bare struct reaching an embeds enum / the positional pattern matches the bare spelling
+T ok <root>/tests/07-structs-and-enums/embeds_positional_match_test.nomi :: a bare struct reaching an embeds enum / the positional pattern matches the enum spelling
+T ok <root>/tests/07-structs-and-enums/embeds_positional_match_test.nomi :: a bare struct reaching an embeds enum / the struct-field pattern matches the bare spelling
+T ok <root>/tests/07-structs-and-enums/embeds_positional_match_test.nomi :: a bare struct reaching an embeds enum / the struct-field pattern matches the enum spelling
+T ok <root>/tests/07-structs-and-enums/embeds_positional_match_test.nomi :: a bare struct reaching an embeds enum / a destructure of the bare spelling binds its payload
+T ok <root>/tests/07-structs-and-enums/embeds_positional_match_test.nomi :: a bare struct reaching an embeds enum / the other variant still selects its own arm
+T test result: ok. 6 passed, 0 failed
+T
+C 07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi
+E 0
+N 5
+H f99a103f9a77f92efcc664744b3c409c7687ac10ebbd7c3cde1eee1ad1bdb56d
+T ok <root>/tests/07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi :: a hand-written Equatable on an enum answers ==
+T ok <root>/tests/07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi :: the operator and the by-name call agree
+T ok <root>/tests/07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi :: != is the negation of the hand-written impl
+T ok <root>/tests/07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi :: a derived enum still compares structurally, both ways
+T ok <root>/tests/07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi :: the prelude enums keep their answers
+T test result: ok. 5 passed, 0 failed
+T
+C 07-structs-and-enums/enums_test.nomi
+E 0
+N 4
+H f8d769ffb3bb11ffff58ad5dd91b4c8ffa4387f39019e2d96c06496786248f11
+T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum variants construct and compare by value
+T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum tuple payloads match and bind their contents
+T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum struct variants expose fields and defaults
+T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: embedded enum variants expose embedded fields
+T test result: ok. 4 passed, 0 failed
+T
+C 07-structs-and-enums/field_default_types/field_default_types_test.nomi
+E 0
+N 5
+H 7df4ec9f8d09795a5f49072a31738cb6c03dedc8691d309e742663079ca8bc46
+T ok <root>/tests/07-structs-and-enums/field_default_types/field_default_types_test.nomi :: a scalar default of the wrong type is refused at the declaration
+T ok <root>/tests/07-structs-and-enums/field_default_types/field_default_types_test.nomi :: an interface-typed default that does not implement is refused at the declaration
+T ok <root>/tests/07-structs-and-enums/field_default_types/field_default_types_test.nomi :: an enum record variant's field default is checked too
+T ok <root>/tests/07-structs-and-enums/field_default_types/field_default_types_test.nomi :: a concrete default for a type-parameter field is refused
+T ok <root>/tests/07-structs-and-enums/field_default_types/field_default_types_test.nomi :: correct defaults still construct, dispatch and solve through a type parameter
+T test result: ok. 5 passed, 0 failed
+T
+C 07-structs-and-enums/recursive_structs_test.nomi
+E 0
+N 5
+H 67e94fc4346c2ceaaf9fc4d49cb9f4af618c39bcde86cfbf832baac8bddee263
+T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: a struct holds itself through a List
+T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: a struct holds itself through a Maybe
+T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: a struct holds itself through a Map
+T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: a struct holds itself through an Iter
+T ok <root>/tests/07-structs-and-enums/recursive_structs_test.nomi :: two structs hold each other through lists
+T test result: ok. 5 passed, 0 failed
+T
+C 07-structs-and-enums/struct_call_form_record_test.nomi
+E 0
+N 1
+H ca9751c01312a0c6652173f551619df7ead2ef1c1a7c294ad0547a6237097c1a
+T ok <root>/tests/07-structs-and-enums/struct_call_form_record_test.nomi :: the struct call form accepts a record value
+T test result: ok. 1 passed, 0 failed
+T
+C 07-structs-and-enums/struct_spread/struct_spread_test.nomi
+E 0
+N 23
+H 766eafd2079d3eb7d627b867c8c3cda8d50b65416410793ef96808b8eb2cb8af
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a nominal head gives a nominal result
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an anonymous head gives an anonymous result
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an explicit field overrides the spread's value
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an unknown field is rejected
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a field value of the wrong type is rejected
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a spread that is not the first element is rejected
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: two spreads are rejected
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an interface-typed field stays as lenient as in an ordinary literal
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a type-parameter field stays as lenient as in an ordinary literal
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: the spread head is an arbitrary expression
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a bare brace at a struct field patches it, and equals Struct.update
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a nominal literal at a struct field replaces it, and equals Struct.update
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a nested spread is a value, and its own head is the base
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: the patch reaches three levels down
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a deep patch and a shallow one in the same literal
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an anonymous-typed field takes a partial and a complete brace alike
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a field generic over a struct patches once the argument is solved
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: the base is unchanged by a deep patch
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an unknown nested field names the NESTED type
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a wrong nested value type names the NESTED field
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a brace at an interface-typed field is rejected
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: ordinary construction is not a patch
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a spread with no fields is rejected
+T test result: ok. 23 passed, 0 failed
+T
+C 07-structs-and-enums/struct_spread/test_helpers.nomi
+E 1
+N 0
+H 5f11cf459acebff421cc0599957759e20ac8e42b7f7ace6e1ec46276361e6c5e
+T --- stderr ---
+T nomi run: <root>/tests/07-structs-and-enums/struct_spread/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 07-structs-and-enums/structs/structs_test.nomi
+E 0
+N 8
+H dd02505a5589bb8bd5f4ac9ded6ad203a66040a858815ae94e000f7542462880
+T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: struct literals expose named fields
+T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: struct update preserves omitted fields
+T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: nested struct update merges anonymous field updates
+T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: struct patterns match and bind fields
+T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: struct literals support field defaults and punning
+T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: struct call form builds from anonymous struct values
+T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: missing struct fields report diagnostics
+T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: Struct.update requires a struct value
+T test result: ok. 8 passed, 0 failed
+T
+C 07-structs-and-enums/structs/target_typed_test.nomi
+E 0
+N 7
+H 9fad70af786ece30b485452b7bf45bf3d8088605caa5cf5ae0ad173f8ed97dd6
+T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a brace literal builds the annotated struct
+T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a brace literal builds a struct field, an argument and a return value
+T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a brace literal builds the element type of a typed list
+T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a brace literal builds a generic struct at its known argument
+T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a spread keeps the patch rule at a struct-typed field
+T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a partial brace literal names the missing field of the struct
+T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: an unknown field names the struct
+T test result: ok. 7 passed, 0 failed
+T
+C 07-structs-and-enums/structs/test_helpers.nomi
+E 1
+N 0
+H cad132c1734829d89fa8479f034b5a83f853acf4cba599c3c24d7d496ddcba85
+T --- stderr ---
+T nomi run: <root>/tests/07-structs-and-enums/structs/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 07-structs-and-enums/variant_field_defaults/policy.nomi
+E 1
+N 0
+H 3664ec0a9536fc93fe63abfc6ba45e58058fe4e069598e602848e0ab79bd7b75
+T --- stderr ---
+T nomi run: <root>/tests/07-structs-and-enums/variant_field_defaults/policy.nomi declares no `fn main`, so there is no program to run
+T
+C 07-structs-and-enums/variant_field_defaults/policy/nested.nomi
+E 1
+N 0
+H bcad30ce89bef94692308a7bca73d778ba6ebcd7de618f2331ad43215a009f78
+T --- stderr ---
+T nomi run: <root>/tests/07-structs-and-enums/variant_field_defaults/policy/nested.nomi declares no `fn main`, so there is no program to run
+T
+C 07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi
+E 0
+N 7
+H 09e070e9a5a986fd38a962248576a292a6b6968c3a6ab4a4f67138dcc35348f4
+T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: an omitted field takes its declared default across a file boundary
+T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: naming no fields at all takes every default
+T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: a variant declared in a sibling file keeps its defaults too
+T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: the dot-shorthand constructs a variant, not a bare struct
+T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: a dot-shorthand param default is a variant
+T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: a field with no default is still required
+T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: a defaulted field is kept when it is named
+T test result: ok. 7 passed, 0 failed
+T
+C 08-pattern-matching/binding_else_test.nomi
+E 0
+N 10
+H 77064e2be1d1780f2a1cd0b15e0f6bc5a28461242979cb78091732458fe08b99
+T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: a block that leaves
+T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: arms over the value that did not match
+T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: a fallback stands in for the payload
+T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: arms mixing a fallback with leaving
+T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: a struct variant's fields fall back as a record
+T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: a list pattern's else leaves
+T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: return in a lambda's else exits the lambda
+T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: continue in a callback's else skips the item
+T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: an else in a test body
+T ok <root>/tests/08-pattern-matching/binding_else_test.nomi :: an else arm's return ends the case
+T test result: ok. 10 passed, 0 failed
+T
+C 08-pattern-matching/case_patterns_test.nomi
+E 0
+N 5
+H b891936eaeb0452369770c6dc3a8ab74a87d40d2d42193bb356e5d43fdbf19d5
+T ok <root>/tests/08-pattern-matching/case_patterns_test.nomi :: case expressions can match conditions values and guards
+T ok <root>/tests/08-pattern-matching/case_patterns_test.nomi :: enum case expressions cover variants and nested payloads
+T ok <root>/tests/08-pattern-matching/case_patterns_test.nomi :: nested variant patterns destructure recursive payloads
+T ok <root>/tests/08-pattern-matching/case_patterns_test.nomi :: nested struct patterns work inside variants tuples and fields
+T ok <root>/tests/08-pattern-matching/case_patterns_test.nomi :: negative numeric literals can appear in pattern positions
+T test result: ok. 5 passed, 0 failed
+T
+C 08-pattern-matching/compound_patterns_test.nomi
+E 0
+N 1
+H 9bf2bf2aad5db4068aa73d2f6956330cfe671f305f0a1ef70b9d242e1f9cc92f
+T ok <root>/tests/08-pattern-matching/compound_patterns_test.nomi :: compound patterns can match nested maps without wrappers counting as depth
+T test result: ok. 1 passed, 0 failed
+T
+C 08-pattern-matching/map_patterns_test.nomi
+E 0
+N 5
+H 1074a0dfdf82c852231489e732902d02f3b1884c30b20a168216250da19c695e
+T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: maps can use structurally keyable values
+T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: map literals support composite expression keys
+T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: map patterns match composite expression keys
+T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: map destructuring binds composite expression keys
+T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: negative numeric literals can be map pattern keys
+T test result: ok. 5 passed, 0 failed
+T
+C 08-pattern-matching/maybe_result_test.nomi
+E 0
+N 3
+H 5f40e65b1b11507be8634bddf9715358f750f56d9727bd9fcb462be1a3b64ae0
+T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: maybe and result values render their variant shapes
+T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: maybe helpers map and default values
+T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: result helpers map and default values
+T test result: ok. 3 passed, 0 failed
+T
+C 08-pattern-matching/try_error_conversion_test.nomi
+E 0
+N 2
+H 1f1d77c1b30096381d5c085a8c540c7f5bc7fa679214daf43cbb3023ca534065
+T ok <root>/tests/08-pattern-matching/try_error_conversion_test.nomi :: a converted try propagates the DECLARED error type
+T ok <root>/tests/08-pattern-matching/try_error_conversion_test.nomi :: a matching try needs no conversion
+T test result: ok. 2 passed, 0 failed
+T
+C 08-pattern-matching/try_test.nomi
+E 0
+N 4
+H 4110fb11f1db60e18090d6fd5e0a4c9340721d9bd4175e0171c7234488498e86
+T ok <root>/tests/08-pattern-matching/try_test.nomi :: try unwraps Result values and propagates Err values
+T ok <root>/tests/08-pattern-matching/try_test.nomi :: try unwraps only its immediate operand in surrounding expressions
+T ok <root>/tests/08-pattern-matching/try_test.nomi :: try unwraps Maybe values and propagates None
+T ok <root>/tests/08-pattern-matching/try_test.nomi :: try can unwrap the previous pipe stage
+T test result: ok. 4 passed, 0 failed
+T
+C 08-pattern-matching/variant_literal_attach_test.nomi
+E 0
+N 3
+H 20c59284941f72102e73b29d91cfc4d245fd8496b4d45526c8fea665ad8bec58
+T ok <root>/tests/08-pattern-matching/variant_literal_attach_test.nomi :: variant payloads can attach map list and tuple literals
+T ok <root>/tests/08-pattern-matching/variant_literal_attach_test.nomi :: variant literal-attach patterns destructure payloads
+T ok <root>/tests/08-pattern-matching/variant_literal_attach_test.nomi :: nested literal-attach patterns work inside wrapped variants
+T test result: ok. 3 passed, 0 failed
+T
+C 08-pattern-matching/variant_payloads_test.nomi
+E 0
+N 2
+H 3ded11e505b0cafed05c33bede76d621ddf258497449cfb2bdf590ce16f090c0
+T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: variant payloads support every payload shape
+T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: variant payloads can be pattern matched by shape
+T test result: ok. 2 passed, 0 failed
+T
+C 08-pattern-matching/variant_resolution/test_helpers.nomi
+E 1
+N 0
+H 866d2311053447b8194508f7e5bdbdd4da00d54e36012d9c9ef7478b4527f50d
+T --- stderr ---
+T nomi run: <root>/tests/08-pattern-matching/variant_resolution/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 08-pattern-matching/variant_resolution/variant_resolution_test.nomi
+E 0
+N 5
+H 9eb05fdfcf0c1810217a5ea5194c9bacac08e4c1321c4b68927023d8e13992d4
+T ok <root>/tests/08-pattern-matching/variant_resolution/variant_resolution_test.nomi :: bare variants resolve in pattern position and owner selector imports
+T ok <root>/tests/08-pattern-matching/variant_resolution/variant_resolution_test.nomi :: dot-leading variants resolve from contextual enum types
+T ok <root>/tests/08-pattern-matching/variant_resolution/variant_resolution_test.nomi :: dot-leading variants resolve inside generic variant constructors
+T ok <root>/tests/08-pattern-matching/variant_resolution/variant_resolution_test.nomi :: dot-leading variant diagnostics require a contextual enum type
+T ok <root>/tests/08-pattern-matching/variant_resolution/variant_resolution_test.nomi :: bare variant construction diagnostics require enum qualification
+T test result: ok. 5 passed, 0 failed
+T
+C 09-functions-and-control-flow/call_semantics_test.nomi
+E 0
+N 8
+H 846bb761bac7113e6435a56cd07762185044f2ddad5ab3da976deaa4ac54c6db
+T ok <root>/tests/09-functions-and-control-flow/call_semantics_test.nomi :: functions call return recurse and pass as values
+T ok <root>/tests/09-functions-and-control-flow/call_semantics_test.nomi :: default arguments fill omitted slots
+T ok <root>/tests/09-functions-and-control-flow/call_semantics_test.nomi :: named arguments reorder skip and pipe into calls
+T ok <root>/tests/09-functions-and-control-flow/call_semantics_test.nomi :: partial application preserves open argument names and defaults
+T ok <root>/tests/09-functions-and-control-flow/call_semantics_test.nomi :: lambdas as callees support defaults names partials and trailing callbacks
+T ok <root>/tests/09-functions-and-control-flow/call_semantics_test.nomi :: a trailing named function routes like a trailing lambda
+T ok <root>/tests/09-functions-and-control-flow/call_semantics_test.nomi :: a positional before a named argument does not skip its slot
+T ok <root>/tests/09-functions-and-control-flow/call_semantics_test.nomi :: trailing lambdas route across defaulted parameters and pipes
+T test result: ok. 8 passed, 0 failed
+T
+C 09-functions-and-control-flow/closures_and_lambdas_test.nomi
+E 0
+N 3
+H e7b38929f216595278860def17731239d724c5ae967af841e9429356d44954f9
+T ok <root>/tests/09-functions-and-control-flow/closures_and_lambdas_test.nomi :: closures capture values and lambdas infer local parameter types
+T ok <root>/tests/09-functions-and-control-flow/closures_and_lambdas_test.nomi :: lambdas compose through iterator pipelines
+T ok <root>/tests/09-functions-and-control-flow/closures_and_lambdas_test.nomi :: lambda defaults drive parameter inference
+T test result: ok. 3 passed, 0 failed
+T
+C 09-functions-and-control-flow/field_access_and_predicates_test.nomi
+E 0
+N 2
+H e9611de855cd0c0559de35662d73cdb23818eb41203699c3d30ddf45a1e3a541
+T ok <root>/tests/09-functions-and-control-flow/field_access_and_predicates_test.nomi :: field-access chains resolve through structs and generics
+T ok <root>/tests/09-functions-and-control-flow/field_access_and_predicates_test.nomi :: predicate-named functions and bindings stay callable
+T test result: ok. 2 passed, 0 failed
+T
+C 09-functions-and-control-flow/nested_fn_try_test.nomi
+E 0
+N 4
+H 7cc80b16dcf4d290f25c7152ccabd0a21442f86c429f92f4e2b5723b189ec265
+T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: try in a nested fn leaves the nested fn
+T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: try on a Maybe in a nested fn
+T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a nested fn's try inside a named fn
+T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a recursive nested fn with try
+T test result: ok. 4 passed, 0 failed
+T
+C 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi
+E 0
+N 3
+H a10f81b706baa6fc35fc8954918a92f1acf96833745d1d7080d8cf12412c24cd
+T ok <root>/tests/09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi :: function parameters destructure irrefutable patterns
+T ok <root>/tests/09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi :: lambda parameters destructure irrefutable patterns
+T ok <root>/tests/09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi :: refutable parameter patterns report diagnostics
+T test result: ok. 3 passed, 0 failed
+T
+C 09-functions-and-control-flow/parameter_destructuring/test_helpers.nomi
+E 1
+N 0
+H 2421b6cdb73e0ba29369f3f2a2ece45a32a632c6699d585ecca077fa4c9e8602
+T --- stderr ---
+T nomi run: <root>/tests/09-functions-and-control-flow/parameter_destructuring/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 09-functions-and-control-flow/tail_calls_test.nomi
+E 0
+N 5
+H aa6e0ade8afd3665bdd3e03ac20a79f11864f2d0bfbabbd12c3028de5bf08522
+T ok <root>/tests/09-functions-and-control-flow/tail_calls_test.nomi :: tail calls run in constant stack for self recursion
+T ok <root>/tests/09-functions-and-control-flow/tail_calls_test.nomi :: tail calls run in constant stack for accumulator recursion
+T ok <root>/tests/09-functions-and-control-flow/tail_calls_test.nomi :: tail calls run in constant stack for mutual recursion
+T ok <root>/tests/09-functions-and-control-flow/tail_calls_test.nomi :: ordinary non-tail recursion still computes normally
+T ok <root>/tests/09-functions-and-control-flow/tail_calls_test.nomi :: tail calls run through interface dispatch
+T test result: ok. 5 passed, 0 failed
+T
+C 09-functions-and-control-flow/todo_test.nomi
+E 0
+N 4
+H 5cfa48f277de7de156b3773a8a70c642371e87a8dbbacdee24add778fd80c94a
+T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: a todo on a path the run does not take never traps
+T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: a todo checks wherever a value is expected
+T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: reaching a todo stops the program with its place and reason
+T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: an unannotated binding of a todo asks for a type
+T test result: ok. 4 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/bound_type_params_test.nomi
+E 0
+N 2
+H 14f5a3e3162d5982fdd02c6cb39129667d5982e16be56e140d7b2c3611941bc9
+T ok <root>/tests/10-generics-and-type-wrappers/bound_type_params_test.nomi :: a nested instantiation keeps its own type argument through an inferred scrutinee
+T ok <root>/tests/10-generics-and-type-wrappers/bound_type_params_test.nomi :: an annotated scrutinee agrees with an inferred one
+T test result: ok. 2 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/bounds_test.nomi
+E 0
+N 2
+H 4eedaa746d02362d160584f27a3efcd0ea8b04e45bffc775dd78a4f98cb736a4
+T ok <root>/tests/10-generics-and-type-wrappers/bounds_test.nomi :: interface bounds constrain generic functions
+T ok <root>/tests/10-generics-and-type-wrappers/bounds_test.nomi :: interface-bound aliases name reusable bound conjunctions
+T test result: ok. 2 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/embedded_variants_test.nomi
+E 0
+N 3
+H 0872630930fc008847661450f0e5f293289de73ac59a3181a81e97e3a67ca169
+T ok <root>/tests/10-generics-and-type-wrappers/embedded_variants_test.nomi :: embedded structs coerce to their containing enum
+T ok <root>/tests/10-generics-and-type-wrappers/embedded_variants_test.nomi :: embedded distinct types coerce and destructure through enum variants
+T ok <root>/tests/10-generics-and-type-wrappers/embedded_variants_test.nomi :: embedded variants can destructure directly in parameter position
+T test result: ok. 3 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi
+E 0
+N 4
+H 448cf2ca06e2601322d9a049237b7ec2806df6dcd27c5afa5de1a8d375320780
+T ok <root>/tests/10-generics-and-type-wrappers/generic_inherent_impl_test.nomi :: a generic struct with an inherent impl builds from a literal
+T ok <root>/tests/10-generics-and-type-wrappers/generic_inherent_impl_test.nomi :: one inherent impl serves every instance
+T ok <root>/tests/10-generics-and-type-wrappers/generic_inherent_impl_test.nomi :: an inherent function with no receiver operand takes the solved instance
+T ok <root>/tests/10-generics-and-type-wrappers/generic_inherent_impl_test.nomi :: a generic enum with an inherent impl
+T test result: ok. 4 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/generics_test.nomi
+E 0
+N 1
+H 035bb3d608d5d046af74da14a1c9585c6706ec2c9d298b991eb626ca3f987edc
+T ok <root>/tests/10-generics-and-type-wrappers/generics_test.nomi :: generic structs enums interfaces and functions preserve types
+T test result: ok. 1 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/opaque_types/counter.nomi
+E 1
+N 0
+H 028a7ff2daec1a827d2070c64015fbaf689aafab06f8080be86ec182df77c25a
+T --- stderr ---
+T nomi run: <root>/tests/10-generics-and-type-wrappers/opaque_types/counter.nomi declares no `fn main`, so there is no program to run
+T
+C 10-generics-and-type-wrappers/opaque_types/email.nomi
+E 1
+N 0
+H 48bf5e16de843dbe7873e76ada8bc5821245fd2e47f1ab15f0b4421f808a4443
+T --- stderr ---
+T nomi run: <root>/tests/10-generics-and-type-wrappers/opaque_types/email.nomi declares no `fn main`, so there is no program to run
+T
+C 10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi
+E 0
+N 3
+H 3081a4e8d5ec14855d60334fc0849048486fbc9d6eb3e3567790612703f8b3ec
+T ok <root>/tests/10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi :: opaque distinct types expose smart constructors and accessors
+T ok <root>/tests/10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi :: opaque structs expose exported constructors updaters and accessors
+T ok <root>/tests/10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi :: opaque enums expose predicates and maybe-returning accessors
+T test result: ok. 3 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/opaque_types/status.nomi
+E 1
+N 0
+H 0ef8acd590713201da9feae80bfd8f745db519b3b41c25693a378be935094c0b
+T --- stderr ---
+T nomi run: <root>/tests/10-generics-and-type-wrappers/opaque_types/status.nomi declares no `fn main`, so there is no program to run
+T
+C 10-generics-and-type-wrappers/turbofish_test.nomi
+E 0
+N 1
+H 3bd451d9e13f957dbfbb5006ccc6bc8ffc57a4e60c58c93b0648ec31e71b1c78
+T ok <root>/tests/10-generics-and-type-wrappers/turbofish_test.nomi :: explicit type arguments pin otherwise undetermined type parameters
+T test result: ok. 1 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi
+E 1
+N 0
+H 6c605f2bc9929d232792d2539f31eea62283193ca6f4d3b68dcf1e9d1946b538
+T --- stderr ---
+T nomi run: <root>/tests/10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi
+E 0
+N 2
+H 2984e04a7e7602512d2a0170e30b2e796f4ce851384e5d4609922a97f1b99e48
+T ok <root>/tests/10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi :: bounded type parameters expose fields declared by their interface bounds
+T ok <root>/tests/10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi :: unbounded type parameters do not expose arbitrary fields
+T test result: ok. 2 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/type_wrappers_test.nomi
+E 0
+N 4
+H 4210d8f0885ba9a1d9a30bb278b2b228845559750446a28f23839186e83f0c3d
+T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: distinct types construct unwrap destructure and compare
+T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: type aliases can name function shapes
+T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: map distinct wrappers support literal attach and destructuring
+T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: tuple distinct wrappers support literal attach and destructuring
+T test result: ok. 4 passed, 0 failed
+T
+C 11-interfaces-and-impls/impl_blocks_test.nomi
+E 0
+N 7
+H 11c82472c46d5caa691870c2be99b23222bec10d7e418c9fa25ae655a562fe6f
+T ok <root>/tests/11-interfaces-and-impls/impl_blocks_test.nomi :: impl blocks and file functions work on structs
+T ok <root>/tests/11-interfaces-and-impls/impl_blocks_test.nomi :: impl blocks and file functions work on enums
+T ok <root>/tests/11-interfaces-and-impls/impl_blocks_test.nomi :: impl blocks on generic types carry enclosing type parameters
+T ok <root>/tests/11-interfaces-and-impls/impl_blocks_test.nomi :: derive declarations coexist with impl blocks and file functions
+T ok <root>/tests/11-interfaces-and-impls/impl_blocks_test.nomi :: Literal impl blocks back typed literals
+T ok <root>/tests/11-interfaces-and-impls/impl_blocks_test.nomi :: functions in type bodies are rejected
+T ok <root>/tests/11-interfaces-and-impls/impl_blocks_test.nomi :: old inherent impl block syntax is rejected
+T test result: ok. 7 passed, 0 failed
+T
+C 11-interfaces-and-impls/interface_defaults/engine.nomi
+E 1
+N 0
+H 56b4ff5e45f99ab1f261d7a9c18e92234e6de2b7c89027485cf9071beb663345
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/interface_defaults/engine.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi
+E 0
+N 13
+H 9061295c3b3d124fff23f0432e47edc851a18ed9dc908be934760705d7f8898e
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: interface default functions can have default parameters
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: type-qualified dispatch reaches inherited defaults and open overrides
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: open default overrides coexist with inherited final defaults
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: default parameter dot shorthand works from imported modules
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: function-level where clauses on defaults are enforced and load imported impls
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: function-level where clauses on required interface functions are enforced
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: derive where clauses constrain synthesized impls
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: required interface functions cannot have parameter defaults
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: interface default parameter values must match parameter types
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: function-level where clauses on defaults reject unsatisfied arguments
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: function-level where clauses on required signatures reject unsatisfied arguments
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: interface method-local generics must be declared explicitly
+T ok <root>/tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi :: derive where clauses reject unsatisfied receiver arguments
+T test result: ok. 13 passed, 0 failed
+T
+C 11-interfaces-and-impls/interface_defaults/priority.nomi
+E 1
+N 0
+H 2006d38b3a62a415aedacc94812d3fefccf970b58d9c704f1452db2a0a942bb5
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/interface_defaults/priority.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/interface_defaults/test_helpers.nomi
+E 1
+N 0
+H 8c35b1ec9476393acf58976bafddd9b7affaccc456d86b3432918da0f87cce5c
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/interface_defaults/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/interface_diagnostics/interface_diagnostics_test.nomi
+E 0
+N 3
+H 8b502af387fac4cf12a5f339778d4d2ff9476a980311aa494b8ee293306af6e2
+T ok <root>/tests/11-interfaces-and-impls/interface_diagnostics/interface_diagnostics_test.nomi :: duplicate impl blocks report coherence diagnostics
+T ok <root>/tests/11-interfaces-and-impls/interface_diagnostics/interface_diagnostics_test.nomi :: package-local types can use impl blocks
+T ok <root>/tests/11-interfaces-and-impls/interface_diagnostics/interface_diagnostics_test.nomi :: duplicate type-owned functions report coherence diagnostics
+T test result: ok. 3 passed, 0 failed
+T
+C 11-interfaces-and-impls/interface_diagnostics/test_helpers.nomi
+E 1
+N 0
+H e4c2dab313e4d263850a6284b5aaea18eebdcfe1390e545c5ccf7e8e7e356cf5
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/interface_diagnostics/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/interface_dispatch_test.nomi
+E 0
+N 6
+H eafd7e687a37422449b876928b0bbb420d90506e890b1b713c7246c397fbf7a9
+T ok <root>/tests/11-interfaces-and-impls/interface_dispatch_test.nomi :: interface-qualified dispatch works for structs distinct functions and enums
+T ok <root>/tests/11-interfaces-and-impls/interface_dispatch_test.nomi :: existential interface values dispatch by runtime type
+T ok <root>/tests/11-interfaces-and-impls/interface_dispatch_test.nomi :: interface defaults and same-function disambiguation use interface qualification
+T ok <root>/tests/11-interfaces-and-impls/interface_dispatch_test.nomi :: stdlib manifest impls are available without explicit imports
+T ok <root>/tests/11-interfaces-and-impls/interface_dispatch_test.nomi :: local interfaces can be implemented for foreign types
+T ok <root>/tests/11-interfaces-and-impls/interface_dispatch_test.nomi :: type hover lists contextual implementations for foreign types
+T test result: ok. 6 passed, 0 failed
+T
+C 11-interfaces-and-impls/interface_field_update_test.nomi
+E 0
+N 8
+H 63cf500cd34a1247389925d81d507d998156d030c1dabd4081b2032454c3bdc4
+T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: a struct literal admits a concrete implementer at an interface field
+T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: an update patch admits a concrete implementer at an interface field
+T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: an update patch admits a different implementer than the original
+T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: an update patch leaves untouched fields alone
+T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: a value already widened to the interface is still admitted
+T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: the widening applies at depth in a nested patch
+T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: a nested patch preserves the sibling field it does not name
+T ok <root>/tests/11-interfaces-and-impls/interface_field_update_test.nomi :: dispatch through the patched field selects the new impl
+T test result: ok. 8 passed, 0 failed
+T
+C 11-interfaces-and-impls/missing_impls/missing_impls_test.nomi
+E 0
+N 5
+H 70d0e5a7b2a4df1f51d9b6b13413ece43f476b476da063661e2659fc965c54b3
+T ok <root>/tests/11-interfaces-and-impls/missing_impls/missing_impls_test.nomi :: direct interface calls report missing implementations
+T ok <root>/tests/11-interfaces-and-impls/missing_impls/missing_impls_test.nomi :: derive reports missing field implementations
+T ok <root>/tests/11-interfaces-and-impls/missing_impls/missing_impls_test.nomi :: nested derive chains report the innermost missing field implementation
+T ok <root>/tests/11-interfaces-and-impls/missing_impls/missing_impls_test.nomi :: generic bound recursion reports missing element implementations
+T ok <root>/tests/11-interfaces-and-impls/missing_impls/missing_impls_test.nomi :: generic wrapper derive attributes missing impls to the instantiation field
+T test result: ok. 5 passed, 0 failed
+T
+C 11-interfaces-and-impls/missing_impls/test_helpers.nomi
+E 1
+N 0
+H b3c0f50b22d7a3c6256ea35b8688c7198b55561ef08557d6ac09a3898e47c993
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/missing_impls/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/module_qualified_impl_dispatch/module_qualified_impl_dispatch_test.nomi
+E 0
+N 4
+H bbe4e14cca4d1f13bc4c5df54f32c918a9dc5a1b1c3177e4c201b44bbad61bef
+T ok <root>/tests/11-interfaces-and-impls/module_qualified_impl_dispatch/module_qualified_impl_dispatch_test.nomi :: type-qualified impl methods dispatch by receiver
+T ok <root>/tests/11-interfaces-and-impls/module_qualified_impl_dispatch/module_qualified_impl_dispatch_test.nomi :: type-qualified impl methods pipe through dispatch
+T ok <root>/tests/11-interfaces-and-impls/module_qualified_impl_dispatch/module_qualified_impl_dispatch_test.nomi :: type-qualified generic impl methods can use explicit targets
+T ok <root>/tests/11-interfaces-and-impls/module_qualified_impl_dispatch/module_qualified_impl_dispatch_test.nomi :: nested type-qualified impl methods dispatch by receiver
+T test result: ok. 4 passed, 0 failed
+T
+C 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi
+E 1
+N 0
+H d8eb63f7c0dae1275f08ce4cc863b4827de4983bcf331d61d95a4916257d637d
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/module_qualified_impl_dispatch/users/teams.nomi
+E 1
+N 0
+H 5f7c12367be673f9cd6b123dfda2b6e85f10f5e77e8766c6c9a2aff89fb3fe70
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/module_qualified_impl_dispatch/users/teams.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi
+E 0
+N 3
+H a507c7f704464d9bd36f2f1c98b6083a941bb9343b1b9144a293bb324e47e305
+T ok <root>/tests/11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi :: a local type and a stdlib type may share a name
+T ok <root>/tests/11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi :: a local type does not shadow a stdlib type's members
+T ok <root>/tests/11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi :: a local type-owned function may share a stdlib one's name
+T test result: ok. 3 passed, 0 failed
+T
+C 11-interfaces-and-impls/same_owner_calls/same_owner_calls_test.nomi
+E 0
+N 3
+H c21222c5389e9e4546b270d2a10c89e336acfa4d62d643e3ee62ab1a63c5567b
+T ok <root>/tests/11-interfaces-and-impls/same_owner_calls/same_owner_calls_test.nomi :: same-owner calls are bare inside impl blocks
+T ok <root>/tests/11-interfaces-and-impls/same_owner_calls/same_owner_calls_test.nomi :: self is not an expression qualifier
+T ok <root>/tests/11-interfaces-and-impls/same_owner_calls/same_owner_calls_test.nomi :: ambiguous same-owner interface functions require qualification
+T test result: ok. 3 passed, 0 failed
+T
+C 11-interfaces-and-impls/same_owner_calls/test_helpers.nomi
+E 1
+N 0
+H d1d2b93bf18fa99a62ac66145bc077d8b22aa3b56157b02bf81e9e20d033a0eb
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/same_owner_calls/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/stdlib_error_display/stdlib_error_display_test.nomi
+E 0
+N 5
+H 3a1fc2f26c4c39727ae676bfa9e1486b845eb0a35ee84b970d35b5396348c064
+T ok <root>/tests/11-interfaces-and-impls/stdlib_error_display/stdlib_error_display_test.nomi :: a struct-shaped stdlib error variant renders
+T ok <root>/tests/11-interfaces-and-impls/stdlib_error_display/stdlib_error_display_test.nomi :: a bare stdlib error variant renders
+T ok <root>/tests/11-interfaces-and-impls/stdlib_error_display/stdlib_error_display_test.nomi :: interpolation renders a stdlib error
+T ok <root>/tests/11-interfaces-and-impls/stdlib_error_display/stdlib_error_display_test.nomi :: Debug.inspect renders a stdlib error
+T ok <root>/tests/11-interfaces-and-impls/stdlib_error_display/stdlib_error_display_test.nomi :: two modules' same-named errors each get their own impl
+T test result: ok. 5 passed, 0 failed
+T
+C 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi
+E 0
+N 6
+H cfc9f8465dd90cfc0cad6be0cd40bdd2b9724c387e55de74cf07f6e968fd1de0
+T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: interface field requirements are accessible through existential values
+T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: an enum's variant shapes render through Debug
+T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: Struct is a universal interface for named and anonymous structs
+T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: Struct existentials do not expose undeclared fields
+T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: Struct bounds reject non-struct values
+T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: Struct cannot be implemented by hand
+T test result: ok. 6 passed, 0 failed
+T
+C 11-interfaces-and-impls/structural_interfaces/test_helpers.nomi
+E 1
+N 0
+H 53d75fe8531a70cef307c89e325b2468c05680b3e56bdef8c966b46c7de86558
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/structural_interfaces/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/test_helpers.nomi
+E 1
+N 0
+H c94a8ae181364144edb24cb08db43cbce29ca6ab23738db72214df46581fe0f9
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/type_argument_inference/priority.nomi
+E 1
+N 0
+H 649c1117f5c725282f2cedea21e0fd534d2f69383903ad50bed453a57e8002a6
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/type_argument_inference/priority.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi
+E 0
+N 2
+H f1734ead82a75e0fb2150222f82cf18efc89a9ca0eb2d740cb19f75177d35b6c
+T ok <root>/tests/11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi :: generic interface type arguments infer from concrete implementing types
+T ok <root>/tests/11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi :: generic interface type arguments project through bounds
+T test result: ok. 2 passed, 0 failed
+T
+C 11-interfaces-and-impls/type_parameter_dispatch/test_helpers.nomi
+E 1
+N 0
+H 584470fbcc7cc22115344a7c1d2be1019a291a4b2f35cb09ac4da35116f84a75
+T --- stderr ---
+T nomi run: <root>/tests/11-interfaces-and-impls/type_parameter_dispatch/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 11-interfaces-and-impls/type_parameter_dispatch/type_parameter_dispatch_test.nomi
+E 0
+N 6
+H 2ffcad800594350ac0aa8b23eee4fe598da1abca4957e0b1a3f7a58e5f36ff5f
+T ok <root>/tests/11-interfaces-and-impls/type_parameter_dispatch/type_parameter_dispatch_test.nomi :: type-parameter-qualified dispatch resolves through bounds
+T ok <root>/tests/11-interfaces-and-impls/type_parameter_dispatch/type_parameter_dispatch_test.nomi :: impl block where clauses constrain generic receiver impls
+T ok <root>/tests/11-interfaces-and-impls/type_parameter_dispatch/type_parameter_dispatch_test.nomi :: type-parameter-qualified dispatch is ambiguous across duplicate function names
+T ok <root>/tests/11-interfaces-and-impls/type_parameter_dispatch/type_parameter_dispatch_test.nomi :: type-parameter-qualified dispatch requires the function on the bound
+T ok <root>/tests/11-interfaces-and-impls/type_parameter_dispatch/type_parameter_dispatch_test.nomi :: type-parameter-qualified dispatch requires an interface bound
+T ok <root>/tests/11-interfaces-and-impls/type_parameter_dispatch/type_parameter_dispatch_test.nomi :: type-qualified dispatch is ambiguous when multiple interfaces declare the function
+T test result: ok. 6 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/add_test.nomi
+E 0
+N 6
+H f0c54ad2cdfb4d4e931741b5716038ce3721d976e609540510a1c91895252456
+T ok <root>/tests/12-derives-and-standard-interfaces/add_test.nomi :: Add powers plus for custom types
+T ok <root>/tests/12-derives-and-standard-interfaces/add_test.nomi :: operator interfaces power custom arithmetic
+T ok <root>/tests/12-derives-and-standard-interfaces/add_test.nomi :: primitive operator interface functions dispatch directly
+T ok <root>/tests/12-derives-and-standard-interfaces/add_test.nomi :: Add can choose a different rhs type
+T ok <root>/tests/12-derives-and-standard-interfaces/add_test.nomi :: Add impl identity includes rhs type
+T ok <root>/tests/12-derives-and-standard-interfaces/add_test.nomi :: generic operators use their interface output type
+T test result: ok. 6 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/collections_test.nomi
+E 0
+N 3
+H e2ca1c9b35a1e8cb941b2e9e5ab9abcec5281b2f4731dd6bf58b77441d9cb462
+T ok <root>/tests/12-derives-and-standard-interfaces/collections_test.nomi :: collections support structural equality through derived containing types
+T ok <root>/tests/12-derives-and-standard-interfaces/collections_test.nomi :: collections support hashing through derived containing types
+T ok <root>/tests/12-derives-and-standard-interfaces/collections_test.nomi :: lists compare lexicographically
+T test result: ok. 3 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/cross_file_debug/cross_file_debug_test.nomi
+E 0
+N 1
+H 62dbe5cc587d178a3ffd7bf6b6104b4fb4b25bc985a76dd8f7c46cf2af7c00f7
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_debug/cross_file_debug_test.nomi :: cross-file explicit Debug impl controls rendering
+T test result: ok. 1 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/cross_file_debug/shapes.nomi
+E 1
+N 0
+H aa03f2a3f1ed7da63eac5b737834b99e3df15cfba1b98185cbb7a2265c8f1321
+T --- stderr ---
+T nomi run: <root>/tests/12-derives-and-standard-interfaces/cross_file_debug/shapes.nomi declares no `fn main`, so there is no program to run
+T
+C 12-derives-and-standard-interfaces/derives_test.nomi
+E 0
+N 5
+H 489239dc2cfde740dddc996aefae680b80fc6cd95404aabe7a340a1210eef9f2
+T ok <root>/tests/12-derives-and-standard-interfaces/derives_test.nomi :: derive Debug renders structs enums and distinct types structurally
+T ok <root>/tests/12-derives-and-standard-interfaces/derives_test.nomi :: derive Equatable compares structs enums and distinct types structurally
+T ok <root>/tests/12-derives-and-standard-interfaces/derives_test.nomi :: derive Hashable agrees for equal values and distinguishes representative differences
+T ok <root>/tests/12-derives-and-standard-interfaces/derives_test.nomi :: derive Comparable orders structs enums and distinct types lexicographically
+T ok <root>/tests/12-derives-and-standard-interfaces/derives_test.nomi :: standard derives handle enums with embedded variants
+T test result: ok. 5 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/display_debug_test.nomi
+E 0
+N 4
+H 959ba80db7138eafc8bfdb9ca694e7cbcb19bbe42d102ed2509a7318ddb30e01
+T ok <root>/tests/12-derives-and-standard-interfaces/display_debug_test.nomi :: Debug renders primitive literal shapes
+T ok <root>/tests/12-derives-and-standard-interfaces/display_debug_test.nomi :: Display renders primitive user-facing strings
+T ok <root>/tests/12-derives-and-standard-interfaces/display_debug_test.nomi :: Display renders standard enum and structured values
+T ok <root>/tests/12-derives-and-standard-interfaces/display_debug_test.nomi :: extern singleton Debug routes through embedded Bool values
+T test result: ok. 4 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi
+E 0
+N 5
+H 9a31ad8cf0aa7bd92af120c07920fd2e2cfdebbcb3737493437325cd881dfa77
+T ok <root>/tests/12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi :: io.inspect, io.print and dbg of generic types in a program
+T ok <root>/tests/12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi :: Debug.inspect of a generic struct at each instance
+T ok <root>/tests/12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi :: Debug.inspect of a generic enum
+T ok <root>/tests/12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi :: a hand-written Debug on a generic type wins
+T ok <root>/tests/12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi :: a derived Display on a generic struct
+T test result: ok. 5 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/generic_debug/main.nomi
+E 0
+N 0
+H b6560753a61b40cff408a159d5d32d140bf9986479ad1ce08e6387fd2b882e70
+T Box{value: 42}
+T Box{value: 42}
+T boxed: Box{value: hi}
+T Node{left: Leaf, value: 5, right: Leaf}
+T dbg line 22: box = Box{value: 42}
+T
+C 12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi
+E 0
+N 4
+H 47bbdd27f7dff2c2aaea0d58aa511b114d4a6ab1cbaa2024d95cdf8b72369840
+T ok <root>/tests/12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi :: maybe values support type-qualified equality
+T ok <root>/tests/12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi :: result values support type-qualified equality
+T ok <root>/tests/12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi :: maybe and result values support structural hashing
+T ok <root>/tests/12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi :: maybe equality works as a pipeline predicate
+T test result: ok. 4 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/ordering/ordering_test.nomi
+E 0
+N 5
+H c92fd029bcc089180becc88a4afdda223930441a1efbd8c7ad426dd3feee3bf4
+T ok <root>/tests/12-derives-and-standard-interfaces/ordering/ordering_test.nomi :: ordering operators dispatch built-in Comparable impls
+T ok <root>/tests/12-derives-and-standard-interfaces/ordering/ordering_test.nomi :: ordering operators and sort work with derived Comparable structs
+T ok <root>/tests/12-derives-and-standard-interfaces/ordering/ordering_test.nomi :: Float equality hashing and ordering handle signed zero and NaN
+T ok <root>/tests/12-derives-and-standard-interfaces/ordering/ordering_test.nomi :: ordering operators require Comparable for named structs
+T ok <root>/tests/12-derives-and-standard-interfaces/ordering/ordering_test.nomi :: ordering operators reject tuple and anonymous structural values
+T test result: ok. 5 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/ordering/test_helpers.nomi
+E 1
+N 0
+H 237c5977cadc3f265580afb495787a9124ed0dcd2f04f9edad205da1586c69e9
+T --- stderr ---
+T nomi run: <root>/tests/12-derives-and-standard-interfaces/ordering/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 12-derives-and-standard-interfaces/set_debug_test.nomi
+E 0
+N 3
+H e3cfc2c7a53b39a65946c8b06a111f7c2c1da4f9d64849e8c43ee558843185b1
+T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Set of enum values inspects each member through its Debug
+T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Set of structs inspects each member through its Debug
+T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Set of declared members nested in other values inspects
+T test result: ok. 3 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/universal_debug/token.nomi
+E 1
+N 0
+H 55bf313b5de70b0cdf139a6912cdd4413d76a450eb740886624195a950677ec8
+T --- stderr ---
+T nomi run: <root>/tests/12-derives-and-standard-interfaces/universal_debug/token.nomi declares no `fn main`, so there is no program to run
+T
+C 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi
+E 0
+N 2
+H 8e0b4cda33bad8c75a6f672390fe5d7e38ab53e4ed0e62f42ea96c84424c2e8b
+T ok <root>/tests/12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi :: universal Debug renders declared types structurally
+T ok <root>/tests/12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi :: universal Debug works for opaque values generics and existentials
+T test result: ok. 2 passed, 0 failed
+T
+C 13-iterators-and-pipes/constrained_sort/constrained_sort_test.nomi
+E 0
+N 2
+H 549210b2267b85821ec311f5d8a82477053437124d0de5f8192ffe0366311f36
+T ok <root>/tests/13-iterators-and-pipes/constrained_sort/constrained_sort_test.nomi :: sort records Comparable demands for imported element impls
+T ok <root>/tests/13-iterators-and-pipes/constrained_sort/constrained_sort_test.nomi :: sort_by records Comparable demands for imported key impls
+T test result: ok. 2 passed, 0 failed
+T
+C 13-iterators-and-pipes/constrained_sort/named_widget.nomi
+E 1
+N 0
+H 907edb47a785ead5402a546a8bd53f87d15d18b6aa31240318a76940c7c925ea
+T --- stderr ---
+T nomi run: <root>/tests/13-iterators-and-pipes/constrained_sort/named_widget.nomi declares no `fn main`, so there is no program to run
+T
+C 13-iterators-and-pipes/constrained_sort/sort_widget.nomi
+E 1
+N 0
+H 0dfd78d3bf610eb92575d64c641dc787412a8001b1e5fb7a7fd76c4d24ed5484
+T --- stderr ---
+T nomi run: <root>/tests/13-iterators-and-pipes/constrained_sort/sort_widget.nomi declares no `fn main`, so there is no program to run
+T
+C 13-iterators-and-pipes/control_flow_test.nomi
+E 0
+N 6
+H 8c440dbfc5a5ce87b0c0f7ad14b99cb7f0c44b521d7064c893ab3f7a6c4ab156
+T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: reduce supports break and continue
+T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: map supports break and continue
+T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: filter supports break values
+T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: find returns Maybe values
+T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: each accepts break continue and return in callbacks
+T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: return inside iter callbacks is lambda scoped
+T test result: ok. 6 passed, 0 failed
+T
+C 13-iterators-and-pipes/iter_equality_test.nomi
+E 0
+N 4
+H 9fcf0a355ccde658cd1973204a8d5e084918e71d374f0ef8aea22b9b468a8b06
+T ok <root>/tests/13-iterators-and-pipes/iter_equality_test.nomi :: an Iter has no equality
+T ok <root>/tests/13-iterators-and-pipes/iter_equality_test.nomi :: a value holding an Iter has no equality
+T ok <root>/tests/13-iterators-and-pipes/iter_equality_test.nomi :: a function value has no equality
+T ok <root>/tests/13-iterators-and-pipes/iter_equality_test.nomi :: a type with its own Equatable impl compares through it
+T test result: ok. 4 passed, 0 failed
+T
+C 13-iterators-and-pipes/iter_inspect_test.nomi
+E 0
+N 3
+H 692b33c8bb528bd7ffc63b23cc3d8ccad80a8938307b5472d42ffbc9dea2cb60
+T ok <root>/tests/13-iterators-and-pipes/iter_inspect_test.nomi :: inspecting a lazy Iter prints a placeholder
+T ok <root>/tests/13-iterators-and-pipes/iter_inspect_test.nomi :: inspecting a lazy Iter does not consume it
+T ok <root>/tests/13-iterators-and-pipes/iter_inspect_test.nomi :: inspecting an infinite Iter terminates
+T test result: ok. 3 passed, 0 failed
+T
+C 13-iterators-and-pipes/iter_test.nomi
+E 0
+N 18
+H 4f0873ddbc3679d18ac670b47f468f1fe779264c004e0ec61dc0284c8150f998
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter constructors produce lazy values that can be bounded
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter terminals inspect positions and size
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: lazy adapters fuse over bounded infinite sources
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: drop take and while adapters preserve order
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: cycle concat and with_index materialize expected sequences
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: zip pairs values and stops at the shorter input
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter mapping filtering flat mapping and reducing work over lists
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter search predicates short circuit
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter flattening materializes nested lists
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter chunking groups adjacent values
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter materializers collect to maps strings and sorted lists
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter partition and group_by collect list values
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter pipelines can combine lazy adapters and terminals
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter loop supports explicit state and break values
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iterators are replayable values
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: a custom type implements Iter by pushing its own elements
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: zip advances two unbounded sources in lockstep
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: a range pushes a long run without exhausting the stack
+T test result: ok. 18 passed, 0 failed
+T
+C 13-iterators-and-pipes/iter_values_test.nomi
+E 0
+N 14
+H ecb52387cf2fccf0b991c4a86646b0d97a3bf61d65b9750529db38a6aafa87a3
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: an Iter is a struct field
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: a struct field takes any source
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: an Iter is a tuple part and a record field
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: an Iter is a Some and an Ok payload
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: an Iter is an enum payload
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: an Iter is a parameter and a return type
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: a list holds Iters
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: a closure captures an Iter
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: a lambda parameter is an Iter
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: every source enters an Iter parameter
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: storing an Iter does not consume it
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: an Iter over a source keeps the source's count
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: an Iter over a collection inspects as the collection
+T ok <root>/tests/13-iterators-and-pipes/iter_values_test.nomi :: a struct holding an Iter compares through its own Equatable
+T test result: ok. 14 passed, 0 failed
+T
+C 13-iterators-and-pipes/iterator_inference_test.nomi
+E 0
+N 2
+H 649da4a9287480d98ef1d0d49c111d270de149ade57d8a58456971c3fdfda36e
+T ok <root>/tests/13-iterators-and-pipes/iterator_inference_test.nomi :: generic iterator adapters infer element types from concrete sources
+T ok <root>/tests/13-iterators-and-pipes/iterator_inference_test.nomi :: custom iterable-backed adapters infer inline lambda parameter types
+T test result: ok. 2 passed, 0 failed
+T
+C 13-iterators-and-pipes/keyword_pipe_stages_test.nomi
+E 0
+N 8
+H 9a02f436e173046caf3101213cfe593f03e8c39c9268249989a50a088acad0f5
+T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: head assertions can validate pipeline results
+T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: keyword-prefixed try unwraps the decorated stage result
+T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: keyword-prefixed if branches on the decorated Bool stage
+T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: keyword-prefixed if can use multiline branches
+T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: bare if pipe stages branch on the previous Bool
+T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: keyword-prefixed case matches the decorated stage result
+T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: bare case pipe stages match the previous value
+T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: dbg can inspect a pipeline stage
+T test result: ok. 8 passed, 0 failed
+T
+C 13-iterators-and-pipes/loop_control_test.nomi
+E 0
+N 5
+H 3ba88929879953e9313c9915445f82c1ab035e178812f70af85d1d62b7743379
+T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: loop advances state through callback return values
+T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: bare loop break returns Unit
+T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: loop break value returns the break value
+T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: stateless loop infers its state type from a break value
+T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: generic break values pin the loop state type
+T test result: ok. 5 passed, 0 failed
+T
+C 13-iterators-and-pipes/pipe_lambda_test.nomi
+E 0
+N 2
+H cda8e3272c3f2e95b21d26edb64fe1262fe68ba9e08424693663e7d4c5cf0ffc
+T ok <root>/tests/13-iterators-and-pipes/pipe_lambda_test.nomi :: pipe lambda stages receive the previous value
+T ok <root>/tests/13-iterators-and-pipes/pipe_lambda_test.nomi :: pipe lambda stages can compose with regular pipe stages
+T test result: ok. 2 passed, 0 failed
+T
+C 13-iterators-and-pipes/pipes_test.nomi
+E 0
+N 4
+H 80991e31ce298d88a435924217296bd778c922c5b6ceb910fd519c2c6533f94a
+T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: pipes thread the previous value into call stages
+T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: partial applications leave placeholder arguments open
+T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: bare dbg pipe stages inspect and pass through the previous value
+T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: pipes into dispatch functions preserve interface dispatch
+T test result: ok. 4 passed, 0 failed
+T
+C 13-iterators-and-pipes/sort_keys_test.nomi
+E 0
+N 4
+H 25695f8f322868f05c0cbf50e0bd58fc07d1c1600363f22d2a78bcb8e3f94b71
+T ok <root>/tests/13-iterators-and-pipes/sort_keys_test.nomi :: sort_by takes a container key
+T ok <root>/tests/13-iterators-and-pipes/sort_keys_test.nomi :: sort_by takes a scalar key of any ordered type
+T ok <root>/tests/13-iterators-and-pipes/sort_keys_test.nomi :: sort and sort_by take a std type's own compare
+T ok <root>/tests/13-iterators-and-pipes/sort_keys_test.nomi :: positional terminals answer a declared element type
+T test result: ok. 4 passed, 0 failed
+T
+C 13-iterators-and-pipes/string_iterators_test.nomi
+E 0
+N 2
+H ec00c71dc90d0411c1794e6f82ce3e325897a9d6737c8c2bee0f8b81fe4efeb6
+T ok <root>/tests/13-iterators-and-pipes/string_iterators_test.nomi :: strings implement Iter over graphemes
+T ok <root>/tests/13-iterators-and-pipes/string_iterators_test.nomi :: String-specific reverse and length stay distinct from generic Iter forms
+T test result: ok. 2 passed, 0 failed
+T
+C 13-iterators-and-pipes/take_drop_test.nomi
+E 0
+N 3
+H 09f32a3771950da99cfb5e4b98b8e3326fb3ab1299b96150ced188d08798d1e7
+T ok <root>/tests/13-iterators-and-pipes/take_drop_test.nomi :: take drop and take_while materialize expected values
+T ok <root>/tests/13-iterators-and-pipes/take_drop_test.nomi :: take_while callbacks can continue or break with keep decisions
+T ok <root>/tests/13-iterators-and-pipes/take_drop_test.nomi :: filter break values decide whether to keep the current element
+T test result: ok. 3 passed, 0 failed
+T
+C 14-modules-and-packaging/cross_file_modules/api.nomi
+E 1
+N 0
+H 2ca6eb765c1028d88f343f9274ff158770e6f8c1b6514b805b4b5c5c79bee1be
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/cross_file_modules/api.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/cross_file_modules/api/http/header.nomi
+E 1
+N 0
+H c8f5935957767846a51e32db4ed46f8f4824dbafe4f64e5306f0b1f664285333
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/cross_file_modules/api/http/header.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/cross_file_modules/cross_file_modules_test.nomi
+E 0
+N 2
+H 0048b2650fa3735369289e002719e1715f4d0ea1bc8a0fc7d67e9c9722afeb84
+T ok <root>/tests/14-modules-and-packaging/cross_file_modules/cross_file_modules_test.nomi :: cross-file modules expose public functions types and interfaces
+T ok <root>/tests/14-modules-and-packaging/cross_file_modules/cross_file_modules_test.nomi :: public visibility chains allow drilled imports through modules and helpers
+T test result: ok. 2 passed, 0 failed
+T
+C 14-modules-and-packaging/cross_file_modules/math.nomi
+E 1
+N 0
+H 754ac9dfa8eddacd4fe51158d8e4a82b360cfbc71874ddc282ca794bf4649df8
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/cross_file_modules/math.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/cross_file_modules/models.nomi
+E 1
+N 0
+H 2ef8bcf68d32e33827f81e4f19893abe68936b761259546a96a9fa3609fc3d78
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/cross_file_modules/models.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi
+E 0
+N 9
+H e446d5257c4a0e2ee74473b04687aeb32d05b3c51aa6ed493212ad55b0184669
+T ok <root>/tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi :: a variant reached through its imported dotted enum name
+T ok <root>/tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi :: a data-carrying variant through the same qualifier
+T ok <root>/tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi :: the dot-shorthand still reads the annotation
+T ok <root>/tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi :: a dotted name declared in this file resolves the same way
+T ok <root>/tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi :: a stdlib dotted enum takes its own name as the qualifier
+T ok <root>/tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi :: naming a dotted import only as a qualifier still uses the import
+T ok <root>/tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi :: a dotted name is the qualifier in pattern position too
+T ok <root>/tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi :: a struct-shaped variant of a dotted enum, built and matched
+T ok <root>/tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi :: nested inside another pattern, and a stdlib dotted enum
+T test result: ok. 9 passed, 0 failed
+T
+C 14-modules-and-packaging/dotted_type_names/signal.nomi
+E 1
+N 0
+H de9f8c8160271b39537306d4ff8fee9d85e07d9f501e2db1f1e094e045e4671d
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/dotted_type_names/signal.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/dotted_type_names/telemetry.nomi
+E 1
+N 0
+H cae55eb00981fc17c4e53a283c255f2f91f02398f043dbaa134398f01d871a37
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/dotted_type_names/telemetry.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/explicit_item_imports/explicit_item_imports_test.nomi
+E 0
+N 1
+H 25b46da700a2d8bc2c0dd52b169ea0d61c2c33ec6e53d220c9d35495c92e9e2a
+T ok <root>/tests/14-modules-and-packaging/explicit_item_imports/explicit_item_imports_test.nomi :: whole-file imports expose root public items
+T test result: ok. 1 passed, 0 failed
+T
+C 14-modules-and-packaging/explicit_item_imports/helper.nomi
+E 1
+N 0
+H f0cf6a70e38d80de6e60458e34f1b5130f6f354e9067a2de316d2d4953010941
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/explicit_item_imports/helper.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/file_import_display/file_import_display_test.nomi
+E 0
+N 2
+H f506edcf34b70667af7e54746520a1d692b85807c5f7306523a9cd6bd7abdade
+T ok <root>/tests/14-modules-and-packaging/file_import_display/file_import_display_test.nomi :: io.print renders a type another file declares, imported as a file
+T ok <root>/tests/14-modules-and-packaging/file_import_display/file_import_display_test.nomi :: interpolation and Display reach the declaring file's impl
+T test result: ok. 2 passed, 0 failed
+T
+C 14-modules-and-packaging/file_import_display/main.nomi
+E 0
+N 0
+H 716e684e2017f6e12700d3db5a389840842433c62b72959cb2dcb8d93521009d
+T Point{x: 0, y: 0}
+T $12.50
+T Red
+T at Point{x: 0, y: 0} for $12.50
+T [$12.50, $12.50]
+T Point{x: 0, y: 0}
+T Red
+T
+C 14-modules-and-packaging/file_import_display/shapes.nomi
+E 1
+N 0
+H 22a3b69deeaec626631e49f1a558c9c61fdea78129f50a3152b3c2a051524e74
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/file_import_display/shapes.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/imports_and_modules_test.nomi
+E 0
+N 3
+H 5e9b853e63da9c3ba883323f31e1447b1cba6646d5787a2e450d593174985f33
+T ok <root>/tests/14-modules-and-packaging/imports_and_modules_test.nomi :: import aliases rename modules functions and variant constructors
+T ok <root>/tests/14-modules-and-packaging/imports_and_modules_test.nomi :: inline visibility keeps private helpers usable within the file
+T ok <root>/tests/14-modules-and-packaging/imports_and_modules_test.nomi :: file-scope declarations can contain types functions and once values
+T test result: ok. 3 passed, 0 failed
+T
+C 14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi
+E 0
+N 7
+H b4c5f6950014830c8609d9344c34227056d86273da7b89748cabfdf8543c9b7c
+T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: a module-qualified struct literal
+T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: a module-qualified struct-VARIANT literal, three segments
+T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: CONTROL — the call form at the same depth, which always worked
+T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: a module-qualified list-attach literal equals its call form
+T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: the module-qualified variant is the same value the dot form builds
+T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: a GENERIC enum's struct variant infers its argument across a module
+T ok <root>/tests/14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi :: the inferred argument is the field's type, not the declaration's
+T test result: ok. 7 passed, 0 failed
+T
+C 14-modules-and-packaging/module_qualified_literals/shapes.nomi
+E 1
+N 0
+H 33ec1bff8d3f7269ce7e6f18fa738171f17570162d885cf053e40571fe20d016
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/module_qualified_literals/shapes.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/re_export_facade/facade.nomi
+E 1
+N 0
+H e77cf6300ccf215c389cc9281cbf74223cc6900b40d8b6c5989bbc619c4b1b6a
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/re_export_facade/facade.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/re_export_facade/leaf.nomi
+E 1
+N 0
+H 466442ac09cc72732be82f7e40090dcce4514e57a1901d30d7a7cb6e07c2c02a
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/re_export_facade/leaf.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/re_export_facade/parser_lib.nomi
+E 1
+N 0
+H 0212908a37818bfe7bb788751dc1a3125704861ee8684d9bdcbf99acfae91d94
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/re_export_facade/parser_lib.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/re_export_facade/re_export_facade_test.nomi
+E 0
+N 1
+H 00cee39b31f55fbf3a1b8d54f3ef3ef61ae61af369520da2ea089ce65279db76
+T ok <root>/tests/14-modules-and-packaging/re_export_facade/re_export_facade_test.nomi :: re-export facade exposes leaf and parser modules
+T test result: ok. 1 passed, 0 failed
+T
+C 14-modules-and-packaging/same_named_types/same_named_types_test.nomi
+E 0
+N 2
+H 3b71d740af54d1505d2f9384a85767951b89061f398ab1ad32017b0ee3832d96
+T ok <root>/tests/14-modules-and-packaging/same_named_types/same_named_types_test.nomi :: same-named types in two files are distinct types
+T ok <root>/tests/14-modules-and-packaging/same_named_types/same_named_types_test.nomi :: each same-named type keeps its own Debug rendering
+T test result: ok. 2 passed, 0 failed
+T
+C 14-modules-and-packaging/same_named_types/shapes.nomi
+E 1
+N 0
+H 795a3e2511a39466bdcb16ad95a86b49aaa45bc7f1aeb48257d169c65925462d
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/same_named_types/shapes.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/visibility_diagnostics/test_helpers.nomi
+E 1
+N 0
+H e618282b3b6bb6a78d3b848831fde5490e5a0ba766041b054f4261a06405e15e
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/visibility_diagnostics/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/visibility_diagnostics/visibility_diagnostics_test.nomi
+E 0
+N 3
+H 971d68d6e02e436bc5b2cd1516e72b26dc411548a45bcc7bdb68bc905a0b05c1
+T ok <root>/tests/14-modules-and-packaging/visibility_diagnostics/visibility_diagnostics_test.nomi :: private functions cannot be imported
+T ok <root>/tests/14-modules-and-packaging/visibility_diagnostics/visibility_diagnostics_test.nomi :: private types cannot be imported through public modules
+T ok <root>/tests/14-modules-and-packaging/visibility_diagnostics/visibility_diagnostics_test.nomi :: private helpers are hidden from imported modules
+T test result: ok. 3 passed, 0 failed
+T
+C 15-app-and-defer/app_field_permission/app_field_permission_test.nomi
+E 0
+N 1
+H 1f4a7ccd75040b5fbe5efdaeaea19c1f471af78877ed6376db4093549ed0db7a
+T ok <root>/tests/15-app-and-defer/app_field_permission/app_field_permission_test.nomi :: application field reads name the imported application type
+T test result: ok. 1 passed, 0 failed
+T
+C 15-app-and-defer/app_field_permission/imports_app.nomi
+E 1
+N 0
+H 0aa4bbcc7a7d133ada62d4709015253994e711f401339fd8271d77dbeaf0c50c
+T --- stderr ---
+T error: `Settings.tag` reads an application field only when an entry boot returns `Settings`, and no `fn boot` in this project does; check the entry file that boots it
+T  --> <root>/tests/15-app-and-defer/app_field_permission/imports_app.nomi:4:14
+T   |
+T 4 |     Settings.tag
+T   |              ^^^
+T
+C 15-app-and-defer/app_field_permission/main.nomi
+E 0
+N 0
+H eef7fa7adf07ab3ad0ff40fe5c0a9ffd89e67ea632c618850973b6ddb1e3cc76
+T no-name=the-real-root
+T own-app=the-real-root
+T imports-app=the-real-root
+T own-local=helpers-own-app
+T own-decls=7:3
+T
+C 15-app-and-defer/app_field_permission/no_app_name.nomi
+E 1
+N 0
+H bf3c06647f04d1a0b4731233cbfc1c3e297f5093b1919bddb2b993584231731a
+T --- stderr ---
+T error: `Settings.tag` reads an application field only when an entry boot returns `Settings`, and no `fn boot` in this project does; check the entry file that boots it
+T  --> <root>/tests/15-app-and-defer/app_field_permission/no_app_name.nomi:8:14
+T   |
+T 8 |     Settings.tag
+T   |              ^^^
+T
+C 15-app-and-defer/app_field_permission/own_app_struct.nomi
+E 1
+N 0
+H 2fd9e1e64b30935210ed44d58a766dd686929a9d3995c0008d522bcefbced7c4
+T --- stderr ---
+T error: `Settings.tag` reads an application field only when an entry boot returns `Settings`, and no `fn boot` in this project does; check the entry file that boots it
+T  --> <root>/tests/15-app-and-defer/app_field_permission/own_app_struct.nomi:8:14
+T   |
+T 8 |     Settings.tag
+T   |              ^^^
+T
+C 15-app-and-defer/app_field_permission/settings.nomi
+E 1
+N 0
+H f5d6c32ffbd765e4bb5a5d212ecf460a201f28c6e774b28aa7fef050bc8c390c
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/app_field_permission/settings.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/app_root_identity_test.nomi
+E 0
+N 10
+H 37fb8f699a7975038668aa2567c442db40a5cc8887bc6c9dc86a161fbd54130f
+T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: an ordinary named application exposes scoped fields
+T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: an application may rename its Context field
+T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: an anonymous application boots, and code that reads no field runs under it
+T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: an unavailable field is rejected
+T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: an application needs no Context field
+T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: boot rejects two Context fields
+T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: boot takes no Context parameter
+T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: field replacement preserves the declared field type
+T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: boot takes at most one Startup
+T ok <root>/tests/15-app-and-defer/app_root_identity_test.nomi :: boot may take no parameter, or a Startup with a default
+T test result: ok. 10 passed, 0 failed
+T
+C 15-app-and-defer/config_pattern/app.nomi
+E 1
+N 0
+H 1eeabe00641e24b382cc8ef2b582ed1aa67dac63f5d64a146efdbcc346f102ad
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/config_pattern/app.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/config_pattern/config_pattern_test.nomi
+E 0
+N 1
+H aa61e35114eef27d11e2192a960856745a7c5a9da17d310f1f29ff1c9d6f6188
+T ok <root>/tests/15-app-and-defer/config_pattern/config_pattern_test.nomi :: config pattern overlays deployment-specific values
+T test result: ok. 1 passed, 0 failed
+T
+C 15-app-and-defer/config_pattern/prod.nomi
+E 1
+N 0
+H d606b84d21c12f17d5823a6bd93ef1fd46eb9bd40bf8eb2214037fd8ec792be9
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/config_pattern/prod.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/config_pattern/test.nomi
+E 1
+N 0
+H 2501f3b1ffab26dfc669db5770e0cc868b125fa9b6cb931148516ea95d4dc3dd
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/config_pattern/test.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/context_module_values/context_module_values_test.nomi
+E 0
+N 6
+H 02b057978694cbd10f3b12dccdf7ad061fde0012cd154e12ccf836afb2e0d9a7
+T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared wrapped type round-trips through a Context
+T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared zero-sized type round-trips through a Context
+T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared struct round-trips through a Context
+T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared enum round-trips through a Context
+T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: two same-named module types keep separate Context slots
+T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a Type witness passed as a parameter still resolves
+T test result: ok. 6 passed, 0 failed
+T
+C 15-app-and-defer/context_module_values/domain.nomi
+E 1
+N 0
+H ae9604936b1f0da18adf0bb4861e13aaf34b92fc0499ab802a0cc1aef984d7a3
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/context_module_values/domain.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/context_module_values/other.nomi
+E 1
+N 0
+H 2bb5b62d6c26bb6871afc3066ca4b52ee7456a405796d99832c8ff8f1dc5c068
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/context_module_values/other.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/context_values_test.nomi
+E 0
+N 2
+H a100728ba01fd4490dfe6be585dfc40ae5a03a857d39eb5e207ff59549cc037d
+T ok <root>/tests/15-app-and-defer/context_values_test.nomi :: context values are keyed by their Nomi type
+T ok <root>/tests/15-app-and-defer/context_values_test.nomi :: type witnesses do not replace zero-sized values
+T test result: ok. 2 passed, 0 failed
+T
+C 15-app-and-defer/deadline_floor/deadline_floor_test.nomi
+E 0
+N 4
+H 93e942735595e69381bd86d6046b4f621f4375673b55a5645111bad326e83789
+T ok <root>/tests/15-app-and-defer/deadline_floor/deadline_floor_test.nomi :: Context.root() cannot widen an inherited deadline
+T ok <root>/tests/15-app-and-defer/deadline_floor/deadline_floor_test.nomi :: a root stashed in boot cannot widen an inherited deadline
+T ok <root>/tests/15-app-and-defer/deadline_floor/deadline_floor_test.nomi :: a nested deadline still tightens
+T ok <root>/tests/15-app-and-defer/deadline_floor/deadline_floor_test.nomi :: supervisor work and the spawner's deadline / background work does not inherit the spawner's deadline
+T test result: ok. 4 passed, 0 failed
+T
+C 15-app-and-defer/deadline_floor/supervisor_app.nomi
+E 0
+N 0
+H 7900aacd4b3378be3cd65223ec4eda2f45230d661d70e83fb4ae60ff60b25729
+T background work finished: 1
+T
+C 15-app-and-defer/defer_cleanup_test.nomi
+E 0
+N 1
+H 38af0e0623a4501930ac81951b0feca1ffd3949ca735e0fb80c557eda832efb0
+T ok <root>/tests/15-app-and-defer/defer_cleanup_test.nomi :: defer runs on normal exit failed acquire and early return
+T test result: ok. 1 passed, 0 failed
+T
+C 15-app-and-defer/effects/app.nomi
+E 1
+N 0
+H c51380d2345a6ba28a86819379cbb7a1947dd79988659de6590ff24999580d33
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/effects/app.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/effects/clocks.nomi
+E 1
+N 0
+H f72ecaec5ae92e7b03b7c040441106bbe17d0d3e639acd84706b42c5592c1db9
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/effects/clocks.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/effects/console.nomi
+E 1
+N 0
+H ea788d9964a04e8f93960edf388a099b20a37b616ede29d16dc933b207c173bf
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/effects/console.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/effects/dev.nomi
+E 1
+N 0
+H 3ea51c416c746b1da808f9b26d6964e089082ef267a484e19eec5162fb411c7d
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/effects/dev.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/effects/effects.nomi
+E 1
+N 0
+H ccab742de3aa77ee0b15c690517d64d31ee9bc03eb5a229448715d6668d6bdde
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/effects/effects.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/effects/effects_test.nomi
+E 0
+N 1
+H 0c8c7cabde24eb96f2fae1d148d97407f86aacc1ff0c3cba5001e4c3966fb18d
+T ok <root>/tests/15-app-and-defer/effects/effects_test.nomi :: effects app prints configured output
+T test result: ok. 1 passed, 0 failed
+T
+C 15-app-and-defer/effects/greeter.nomi
+E 1
+N 0
+H dee521ef1f6819b148f5074f775e6721b0127823759bceda59291d997f4b11fc
+T --- stderr ---
+T error: `EffectsApp.logger` reads an application field only when an entry boot returns `EffectsApp`, and no `fn boot` in this project does; check the entry file that boots it
+T  --> <root>/tests/15-app-and-defer/effects/greeter.nomi:7:27
+T   |
+T 7 |     Logger.log(EffectsApp.logger, "INFO", "hello, ${name}")
+T   |                           ^^^^^^
+T
+C 15-app-and-defer/effects/log.nomi
+E 1
+N 0
+H 050a536cfbfe508efd28cf0038244bd5223646ff41849ca6693ee282b7a174ec
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/effects/log.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/effects/main.nomi
+E 0
+N 0
+H 8e835e79d2fe27c7feabcfd38fff8829d60a226662ccab1c3822542f98020511
+T deployment=dev
+T port=3000
+T database=postgres://localhost/myapp_dev
+T max=5
+T loaded-prod=prod:8080:postgres://prod-host/myapp:20
+T active-app-after-load=dev
+T fake-clock=12345
+T cleanup=ready
+T clock-before=0
+T clock-inside=4242
+T clock-after=0
+T context-before=False
+T context-inside=True
+T context-after=False
+T [INFO] hello, Ada
+T [WARN] config checked
+T console ready
+T
+C 15-app-and-defer/effects/prod.nomi
+E 1
+N 0
+H 9931a8e485b0a94ecfb5093793ecbb6dcfaecefeb0c9c913dcc43848714a19c8
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/effects/prod.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/effects/test.nomi
+E 1
+N 0
+H 391d24512888ffe44f741bc90dcbc31a320f22948bdfea60288d14721f16d797
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/effects/test.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/file_store_pattern_test.nomi
+E 0
+N 1
+H 2806f23425b3768bbd9ba00cbd4f86b172be2a158628e6907c4f9743cea976b0
+T ok <root>/tests/15-app-and-defer/file_store_pattern_test.nomi :: file store pattern saves reloads and deletes tasks
+T test result: ok. 1 passed, 0 failed
+T
+C 15-app-and-defer/import_vs_app/helper.nomi
+E 1
+N 0
+H 0e09dfb8186de18979eac6163e3da98f8cd6d1f8df671a3ab6cd652313696f87
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/import_vs_app/helper.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/import_vs_app/import_app.nomi
+E 0
+N 0
+H 44dad9beb466ead2de1c55b89f1f74511c9acc088614036057cbfc11087b3b13
+T epoch=1234
+T
+C 15-app-and-defer/import_vs_app/import_vs_app_test.nomi
+E 0
+N 1
+H 26e31dc9e9452cf468de4fd12ea69cc011dbab6ddb75d0e56c9c1a16c7d044b3
+T ok <root>/tests/15-app-and-defer/import_vs_app/import_vs_app_test.nomi :: imported helpers stay independent of active app fields / active app fields do not disturb pure imported helpers
+T test result: ok. 1 passed, 0 failed
+T
+C 15-app-and-defer/import_vs_app/wallclock.nomi
+E 1
+N 0
+H c8260ec373f772b0253dd11098a70eacd89dc486d26a848686a7c8d709e4175d
+T --- stderr ---
+T nomi run: <root>/tests/15-app-and-defer/import_vs_app/wallclock.nomi declares no `fn main`, so there is no program to run
+T
+C 15-app-and-defer/os_env_boot_only_test.nomi
+E 0
+N 2
+H dadf61177537a56cd752077a83e62b182207247e2c6a256b6bd287c3e23108ab
+T ok <root>/tests/15-app-and-defer/os_env_boot_only_test.nomi :: startup environment can be passed to ordinary helpers
+T ok <root>/tests/15-app-and-defer/os_env_boot_only_test.nomi :: startup has no ambient instance
+T test result: ok. 2 passed, 0 failed
+T
+C 15-app-and-defer/supervisor_boot_only_test.nomi
+E 0
+N 6
+H 6b525b15eb1422f7f3d3fc0c8c3d9f9108350f127bcdfc1d6cf1c332beee085e
+T ok <root>/tests/15-app-and-defer/supervisor_boot_only_test.nomi :: a task group created in a plain function is rejected
+T ok <root>/tests/15-app-and-defer/supervisor_boot_only_test.nomi :: boot can create task groups
+T ok <root>/tests/15-app-and-defer/supervisor_boot_only_test.nomi :: a struct field default may create a task group
+T ok <root>/tests/15-app-and-defer/supervisor_boot_only_test.nomi :: a group-owned body must return Unit
+T ok <root>/tests/15-app-and-defer/supervisor_boot_only_test.nomi :: a constructor boot calls may create its own group
+T ok <root>/tests/15-app-and-defer/supervisor_boot_only_test.nomi :: calling that constructor outside boot is rejected
+T test result: ok. 6 passed, 0 failed
+T
+C 15-app-and-defer/with_overrides/app.nomi
+E 0
+N 0
+H e52eb4edb7c1673e1cd0f9f80f3f50eb50e742537cb25b203eee962f32be717c
+T inner
+T base
+T
+C 15-app-and-defer/with_overrides/with_overrides_test.nomi
+E 0
+N 4
+H cff594e117a44a75b05decf92b8fe32dcc792fc9d628f346a61ce5d1916d0f29
+T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a .Variant value takes the field's enum
+T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a later with line sees the overrides above it
+T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a closure reads the fields in force when it is called
+T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in a branch ends with the branch
+T test result: ok. 4 passed, 0 failed
+T
+C 16-concurrency/concurrent_diagnostics/concurrent_diagnostics_test.nomi
+E 0
+N 3
+H 134a6abfae5aa8c75ca356120ea1ea6f10154d7ae1af893f0a30b9daf9ddcb95
+T ok <root>/tests/16-concurrency/concurrent_diagnostics/concurrent_diagnostics_test.nomi :: spawn is only allowed inside concurrent blocks
+T ok <root>/tests/16-concurrency/concurrent_diagnostics/concurrent_diagnostics_test.nomi :: task values cannot escape their concurrent block
+T ok <root>/tests/16-concurrency/concurrent_diagnostics/concurrent_diagnostics_test.nomi :: task bindings must be awaited
+T test result: ok. 3 passed, 0 failed
+T
+C 16-concurrency/concurrent_diagnostics/test_helpers.nomi
+E 1
+N 0
+H 2962a033371453c0812a268c516d58dc3a8c4116d2b9076f9175074d18ce035d
+T --- stderr ---
+T nomi run: <root>/tests/16-concurrency/concurrent_diagnostics/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 16-concurrency/concurrent_runtime_test.nomi
+E 0
+N 9
+H ec8c830df5504205b9d4ce6d6ef1912603aed2960823ad43f1558073d23b2605
+T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: buffered rejects a capacity that is not a buffer
+T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: unbuffered send and receive meet across two tasks
+T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: producer consumer pipeline drains after channel close
+T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: parallel sleepers complete inside concurrent block
+T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: failed task cancels long sibling tasks
+T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: nested concurrent blocks observe parent cancellation
+T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: env context timeout cancels blocked channel receives
+T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: sibling cancellation is observable under a virtual clock / a short-circuit cancels its siblings instead of waiting for them
+T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: sibling cancellation is observable under a virtual clock / cancellation reaches tasks nested inside a cancelled sibling
+T test result: ok. 9 passed, 0 failed
+T
+C 16-concurrency/message_loop/counter_app.nomi
+E 0
+N 0
+H 1dc6dafbfcd3a3b2e557e558823e82a38e5365840f428194b7236d338c233f77
+T count=12
+T
+C 16-concurrency/message_loop/message_loop_test.nomi
+E 0
+N 4
+H de13dfe5bf2085442747e05a09ef6ba7f221179eed5edf2ce834e85117586478
+T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / messages accumulate into state a caller can read back
+T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / each caller gets its own reply
+T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / a handler that breaks restarts the worker with fresh state
+T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / a call observes every cast queued before it
+T test result: ok. 4 passed, 0 failed
+T --- stderr ---
+T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
+T
+C 16-concurrency/supervisors/app.nomi
+E 0
+N 0
+H dc6b4b40e6ccca201c4fcf961650cc6d1c19fe3b9431bc0069b4784ee56cf984
+T audited 7
+T
+C 16-concurrency/supervisors/supervisors_test.nomi
+E 0
+N 6
+H 43f3ab04404503fefc371d1c6ccc35fc4a34b2945bdff8ae811f5a662b7f6313
+T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / work outlives the call that started it
+T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / a failure nobody awaits still goes somewhere
+T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / a batch is bounded by the group's own limit
+T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / the handles a batch returns can be awaited on their own
+T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / cancelling one grouped task leaves the rest alone
+T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / a cancelled task reports Cancelled rather than Completed
+T test result: ok. 6 passed, 0 failed
+T
+C 17-typed-literals/toml_literal_test.nomi
+E 0
+N 1
+H 826a2698f20f0b1fa76e77c28b02db0e7f61b752f88ee1dabaf69469f5a867f3
+T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: Toml literal preserves source text
+T test result: ok. 1 passed, 0 failed
+T
+C 17-typed-literals/typed_literals/html_tags.nomi
+E 1
+N 0
+H 8aacf2f75708e9c1938db91b735c5eb428f871af034d6fe4d6552cf848145a57
+T --- stderr ---
+T nomi run: <root>/tests/17-typed-literals/typed_literals/html_tags.nomi declares no `fn main`, so there is no program to run
+T
+C 17-typed-literals/typed_literals/joiner.nomi
+E 1
+N 0
+H 6a6b12dd386b525a40a28a5cd3d27f03d72a91746425ea7f410ecb9af848922a
+T --- stderr ---
+T nomi run: <root>/tests/17-typed-literals/typed_literals/joiner.nomi declares no `fn main`, so there is no program to run
+T
+C 17-typed-literals/typed_literals/sql.nomi
+E 1
+N 0
+H 801005c617ebbe238f6fdcd1fe8005b42f63627abfa8e6042858266fd0f98c99
+T --- stderr ---
+T nomi run: <root>/tests/17-typed-literals/typed_literals/sql.nomi declares no `fn main`, so there is no program to run
+T
+C 17-typed-literals/typed_literals/test_helpers.nomi
+E 1
+N 0
+H 92fe1428129c43ccc408068f1a8010ea0245590c56b981e9587485817db8e294
+T --- stderr ---
+T nomi run: <root>/tests/17-typed-literals/typed_literals/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 17-typed-literals/typed_literals/typed_literals_test.nomi
+E 0
+N 7
+H 30bdc4a943bf02b74d21d5a3b3bb1d992a8bfd2a096970024b84949ae8dfd10a
+T ok <root>/tests/17-typed-literals/typed_literals/typed_literals_test.nomi :: Fragment variants can be constructed and matched directly
+T ok <root>/tests/17-typed-literals/typed_literals/typed_literals_test.nomi :: compiler checks plain source strings
+T ok <root>/tests/17-typed-literals/typed_literals/typed_literals_test.nomi :: typed literals pass static and dynamic fragments to tag impls
+T ok <root>/tests/17-typed-literals/typed_literals/typed_literals_test.nomi :: different tag impls in one file apply different fragment policies
+T ok <root>/tests/17-typed-literals/typed_literals/typed_literals_test.nomi :: SQL typed literal turns dynamic slots into ordered params
+T ok <root>/tests/17-typed-literals/typed_literals/typed_literals_test.nomi :: type-attached literals can construct ordinary user types
+T ok <root>/tests/17-typed-literals/typed_literals/typed_literals_test.nomi :: Regex typed literals use the standard adapter
+T test result: ok. 7 passed, 0 failed
+T
+C 18-ffi-and-dynamic/callback_ffi_app/ffi.nomi
+E 1
+N 0
+H 0a8c5d03c53d6a571ec736fef77d18b342882420131caf44063a896a8c10d128
+T --- stderr ---
+T nomi run: <root>/tests/18-ffi-and-dynamic/callback_ffi_app/ffi.nomi declares no `fn main`, so there is no program to run
+T
+C 18-ffi-and-dynamic/callback_ffi_app/main.nomi
+E 0
+N 0
+H aebba5eeaaad4d5655cae740b65162c4e1f35297e7eb77f51c1cf9429f2230ee
+T ha!!
+T
+C 18-ffi-and-dynamic/callback_ffi_app/main_test.nomi
+E 0
+N 1
+H 99b5f411d2d84ba4f9b46ff3981a5c05f3ef25b082bb6166328066285df7dc8a
+T ok <root>/tests/18-ffi-and-dynamic/callback_ffi_app/main_test.nomi :: Go callback parameter can call Nomi lambda
+T test result: ok. 1 passed, 0 failed
+T
+C 18-ffi-and-dynamic/duration_ffi_app/ffi.nomi
+E 1
+N 0
+H 834a4da869f98331b726204231cab96065668e6757d981ad72c0213e67b91e71
+T --- stderr ---
+T nomi run: <root>/tests/18-ffi-and-dynamic/duration_ffi_app/ffi.nomi declares no `fn main`, so there is no program to run
+T
+C 18-ffi-and-dynamic/duration_ffi_app/main.nomi
+E 0
+N 0
+H f5aee7df0c39c9481508d69657ba4a0d39b7198bf97969ad11d50207a7f60228
+T 3000
+T
+C 18-ffi-and-dynamic/duration_ffi_app/main_test.nomi
+E 0
+N 2
+H 2b2a869c0bdcc0a047724da3e4005c96e379b8b1bb69e9ee29638aad6108ce1b
+T ok <root>/tests/18-ffi-and-dynamic/duration_ffi_app/main_test.nomi :: Go time.Duration projects to Nomi Duration
+T ok <root>/tests/18-ffi-and-dynamic/duration_ffi_app/main_test.nomi :: Nomi Duration passes back to Go time.Duration
+T test result: ok. 2 passed, 0 failed
+T
+C 18-ffi-and-dynamic/dynamic_decoder_test.nomi
+E 0
+N 1
+H 56f0e51e107a31d74a1a6a5f589f2c35e637a617b3a32ae9f1d371140dbe67a5
+T ok <root>/tests/18-ffi-and-dynamic/dynamic_decoder_test.nomi :: DecodeError display renders root field and index paths
+T test result: ok. 1 passed, 0 failed
+T
+C 18-ffi-and-dynamic/inline_go_block_app/ffi.nomi
+E 1
+N 0
+H 18af813622b7a32246ae60b599a85b3021b8c1453f78b3c67bb08f7a431eda54
+T --- stderr ---
+T nomi run: <root>/tests/18-ffi-and-dynamic/inline_go_block_app/ffi.nomi declares no `fn main`, so there is no program to run
+T
+C 18-ffi-and-dynamic/inline_go_block_app/main.nomi
+E 0
+N 0
+H 271860cdb285fa3ae37448a7f9b4855c0da46fd853985fa2ffce46193f0603f3
+T INLINE
+T
+C 18-ffi-and-dynamic/inline_go_block_app/main_test.nomi
+E 0
+N 2
+H 31ca40b86e95276419a7d560e35f54ec7aa5e53fba9aa770eab5797b4627352a
+T ok <root>/tests/18-ffi-and-dynamic/inline_go_block_app/main_test.nomi :: local Go package functions are available
+T ok <root>/tests/18-ffi-and-dynamic/inline_go_block_app/main_test.nomi :: local Go package types can back opaque Nomi types
+T test result: ok. 2 passed, 0 failed
+T
+C 18-ffi-and-dynamic/json_container_decode_test.nomi
+E 0
+N 7
+H 9a0ac6a2f79ce663bd3f920559783977bb1f930db2243f9b297b675325c98654
+T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: scalar decode still resolves through the call-site type argument
+T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: List decode binds the element type from the type argument
+T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: Maybe decode binds the payload type and maps null to None
+T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: Map decode binds the value type
+T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: nested containers bind an inner type parameter at each level
+T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: container decode failures report the offending path
+T ok <root>/tests/18-ffi-and-dynamic/json_container_decode_test.nomi :: a bound type parameter carries its concrete argument into the callee
+T test result: ok. 7 passed, 0 failed
+T
+C 18-ffi-and-dynamic/json_decode_error_text_test.nomi
+E 0
+N 11
+H a5607a3de28f07bbb76a3fb9b51c1db72ccd9b13817f4e945a2ab624a00919c1
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / an unexpected character is named, and located at itself
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a bad string escape reports the escaped character
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / the position tracks lines, not just columns
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a truncated object reports where the input ran out
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a truncated array reports where the input ran out
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / an unterminated string reports where the input ran out
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / empty input is distinguished from a truncated value
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / blank input is empty input
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / trailing content is reported with its column
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a leading zero is rejected as trailing content
+T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a well-formed but unrepresentable number reports its lexeme
+T test result: ok. 11 passed, 0 failed
+T
+C 18-ffi-and-dynamic/json_derive_test.nomi
+E 0
+N 4
+H 528155bd3a3a1e6e448dbca0a460248fbc4aef93fa00ed96c6711fd644373850
+T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON interface decodes primitive values through explicit targets
+T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON derives encode and decode structs with options
+T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON derive reports missing required fields
+T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON derives round-trip nested structs through interface functions
+T test result: ok. 4 passed, 0 failed
+T
+C 18-ffi-and-dynamic/json_test.nomi
+E 0
+N 3
+H 57ffc3195a16e04bec63b002f01f5700758f4ea42ee50bbf1309450bc667cfe4
+T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Json decode supports nested pattern matching and encode round trip
+T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Json values can be constructed and encoded by hand
+T ok <root>/tests/18-ffi-and-dynamic/json_test.nomi :: Json to_dynamic interops with Dynamic extractors
+T test result: ok. 3 passed, 0 failed
+T
+C 18-ffi-and-dynamic/tagged_ffi_app/ffi.nomi
+E 1
+N 0
+H 6c079c8e9a9c351e7d8782432570002d029b9e989db268634c168ecff0761dfe
+T --- stderr ---
+T nomi run: <root>/tests/18-ffi-and-dynamic/tagged_ffi_app/ffi.nomi declares no `fn main`, so there is no program to run
+T
+C 18-ffi-and-dynamic/tagged_ffi_app/main.nomi
+E 0
+N 0
+H 2ec2acf8040dbe2ed520d24e2d45e08377277414a1222416bc393e5efa74270b
+T FIXTURE
+T
+C 18-ffi-and-dynamic/tagged_ffi_app/main_test.nomi
+E 0
+N 2
+H 3bc2db0f25ae25f6933417abaa4a495bf483cfc5a12efb9903e10046e7280f3e
+T ok <root>/tests/18-ffi-and-dynamic/tagged_ffi_app/main_test.nomi :: project-local Go export is available to tests
+T ok <root>/tests/18-ffi-and-dynamic/tagged_ffi_app/main_test.nomi :: project-local Go type binding is available to tests
+T test result: ok. 2 passed, 0 failed
+T
+C 18-ffi-and-dynamic/time_ffi_app/ffi.nomi
+E 1
+N 0
+H 4ea082a7625d8fcf8f95d64f4a703e04b18d2bbde4489366f7c1cb2d377ab7d9
+T --- stderr ---
+T nomi run: <root>/tests/18-ffi-and-dynamic/time_ffi_app/ffi.nomi declares no `fn main`, so there is no program to run
+T
+C 18-ffi-and-dynamic/time_ffi_app/main.nomi
+E 0
+N 0
+H 0f6d4e23546a0d1431b6afb6990d50d80b3548b18660634b7f8cc5e02c4ab26f
+T 1700000001
+T
+C 18-ffi-and-dynamic/time_ffi_app/main_test.nomi
+E 0
+N 2
+H f6aed4f1296b2ae2d5f4c1ee9b973692d81678385d8fb423610cca4d9632996d
+T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Go time.Time projects to Nomi Instant
+T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Nomi Instant passes back to Go time.Time
+T test result: ok. 2 passed, 0 failed
+T

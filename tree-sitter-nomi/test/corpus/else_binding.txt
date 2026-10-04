@@ -1,0 +1,155 @@
+==========
+A binding else takes a block
+==========
+
+fn main() {
+  Some(email) = user.email else {
+    return Err("none")
+  }
+  Some(e) = m else { "none" }
+  Ok((w, h)) = parse(text) else { (80, 24) }
+  [first, ..rest] = xs else { return 0 }
+  .Valid(r) = c else { {addr: "none", score: 0} }
+  {"a" => a} = m else { return 0 }
+}
+
+---
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (else_binding
+        pattern: (call_expression
+          function: (type_identifier)
+          (identifier))
+        value: (field_access
+          (identifier)
+          (identifier))
+        else: (body
+          (return_statement
+            (call_expression
+              function: (type_identifier)
+              (string
+                (string_content))))))
+      (else_binding
+        pattern: (call_expression
+          function: (type_identifier)
+          (identifier))
+        value: (identifier)
+        else: (body
+          (string
+            (string_content))))
+      (else_binding
+        pattern: (call_expression
+          function: (type_identifier)
+          (tuple_expression
+            (identifier)
+            (identifier)))
+        value: (call_expression
+          function: (identifier)
+          (identifier))
+        else: (body
+          (tuple_expression
+            (integer)
+            (integer))))
+      (else_binding
+        pattern: (list
+          (identifier)
+          (identifier))
+        value: (identifier)
+        else: (body
+          (return_statement
+            (integer))))
+      (else_binding
+        pattern: (call_expression
+          function: (dot_variant
+            (type_identifier))
+          (identifier))
+        value: (identifier)
+        else: (body
+          (anon_struct
+            (anon_struct_field
+              (identifier)
+              (string
+                (string_content)))
+            (anon_struct_field
+              (identifier)
+              (integer)))))
+      (else_binding
+        binding: (destructuring_binding
+          (string
+            (string_content))
+          binding: (identifier)
+          value: (identifier))
+        else: (body
+          (return_statement
+            (integer)))))))
+
+==========
+A binding else takes case arms, and an if keeps its own else
+==========
+
+fn main() {
+  Ok(user) = load(id) else {
+    Err(.NotFound) -> return Err("no user")
+    Err(e) when e == "x" -> 8080
+    .Invalid{reason} -> continue
+    _ -> break
+  }
+  label = if ok { "a" } else { "b" }
+}
+
+---
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (else_binding
+        pattern: (call_expression
+          function: (type_identifier)
+          (identifier))
+        value: (call_expression
+          function: (identifier)
+          (identifier))
+        else: (else_arms
+          (else_arm
+            (enum_pattern
+              (type_identifier)
+              (dot_variant
+                (type_identifier)))
+            (return_statement
+              (call_expression
+                function: (type_identifier)
+                (string
+                  (string_content)))))
+          (else_arm
+            (enum_pattern
+              (type_identifier)
+              (identifier))
+            (binary_expression
+              (identifier)
+              (string
+                (string_content)))
+            (integer))
+          (else_arm
+            (struct_construction
+              (dot_variant
+                (type_identifier))
+              field_name: (identifier))
+            (continue_statement))
+          (else_arm
+            (break_statement))))
+      (binding
+        (identifier)
+        (if_expression
+          (identifier)
+          (body
+            (string
+              (string_content)))
+          (body
+            (string
+              (string_content))))))))

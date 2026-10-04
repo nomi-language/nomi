@@ -1,0 +1,51 @@
+import std/io
+
+/// A distinct type whose `Hashable` and `Equatable` impls say every two Ids
+/// are one value, used as a Map key.
+///
+/// `hash` returns a constant, and `equal?` says every two Ids are equal. A Map
+/// buckets on `Hashable.hash` and matches on `Equatable.equal?` (spec,
+/// `Map<K, V>`), so this map holds one entry: the literal's second key is the
+/// first one again, which keeps its position and takes the later value, and
+/// every `Map.get` answers `Some(two)`.
+type Id Int
+
+impl Hashable for Id {
+    fn hash(x: Id): Int {
+        _ = x
+        0
+    }
+}
+
+impl Equatable for Id {
+    fn equal?(a: Id, b: Id): Bool {
+        _ = b
+        _ = a
+        True
+    }
+}
+
+fn main() {
+    // The impls are live, not dead declarations: dispatching to them explicitly
+    // shows they answer as written.
+    io.print("user hash of Id(1) = ${Hashable.hash(Id(1))}")
+    io.print("user hash of Id(2) = ${Hashable.hash(Id(2))}")
+    io.print("user equal? Id(1) Id(2) = ${Equatable.equal?(Id(1), Id(2))}")
+
+    // And the map keys by both.
+    m = {Id(1) => "one", Id(2) => "two"}
+    io.print("size = ${Map.size(m)}")
+    io.print("get Id(1) = ${found(m, Id(1))}")
+    io.print("get Id(2) = ${found(m, Id(2))}")
+    io.print("get Id(3) = ${found(m, Id(3))}")
+}
+
+// `Map.get` returns `Maybe<String>`, and rendering a Maybe is another slice's
+// gap, so the result goes through a `case` — which also makes the Some/None
+// distinction explicit rather than hidden in a Display impl.
+fn found(m: Map<Id, String>, key: Id): String {
+    case Map.get(m, key) {
+        Some(v) -> "Some(${v})"
+        None -> "None"
+    }
+}

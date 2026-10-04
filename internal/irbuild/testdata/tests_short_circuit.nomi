@@ -1,0 +1,9 @@
+// What `and` and `or` show when they fail is not symmetric: `and` hides a left
+// operand that did not decide the answer, `or` shows its left either way.
+test "and hides a left that did not decide" {
+    assert 1 < 2 and 3 < 2
+}
+
+test "or shows both" {
+    assert 1 > 2 or 3 < 2
+}

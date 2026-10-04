@@ -1,0 +1,11 @@
+import {
+    std/io
+    ffi.apply_twice
+}
+
+fn main() {
+    case apply_twice("ha", |s| Ok("${s}!")) {
+        Err(e) -> io.print("error: ${e}")
+        Ok(v) -> io.print(v)
+    }
+}

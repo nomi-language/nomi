@@ -1,0 +1,133 @@
+// The three stdlib families the KEY COLLAPSE used to hide, and the one it
+// still does.
+//
+// `stdKey` was `<module>.<recv>.<name>` and dropped the interface's type
+// arguments, so eleven `impl Add<X, NaiveDateTime>` blocks all answered to
+// `calendar.NaiveDateTime.add` and every call site was refused as ambiguous.
+// The key now carries the instantiation and the call-site spelling is an
+// OVERLOAD SET selected by the argument kinds. Every line below is a routing
+// claim: the wrong member of a set is a WRONG ANSWER, not a slower right one.
+//
+// Zero corpus programs reach any of it, so the sweep's `0 DIFFED` says nothing
+// here and this fixture is the only guard.
+//
+// AND ONE LINE OF IT IS DELIBERATELY VACUOUS AS A DIFFERENTIAL. The interpreter
+// and the builder now reach ONE implementation of `+ Duration` on a naive value
+// (`rt.NaiveDateTimePlusDuration`), so comparing them cannot detect a bug in the
+// shared code — the ABSOLUTE pinned text in stdkey_test.go is the assertion
+// there, and rt/calendar_test.go pins the same rule at the representation level.
+// Everything else below is genuinely two implementations.
+//
+// What is NOT here, and it has MOVED rather than stayed out: the ten CIVIL
+// rungs (`+ Months(1)` and its end-of-month clamp, `+ Days(1)` and its DST
+// divergence). This note used to say their operands `Years`…`Nanoseconds` are
+// declared `pub type Years Int` — PLAIN std distincts, not `pub opaque type` —
+// and that "opaqueSpecs admits only the opaque form, so they have no
+// representation at all". The first half is still true and the second is not:
+// opaqueSpec gained a `form` field, all ten took rows, and every rung is now
+// lowerable. They are exercised in testdata/calendar_civil_rungs.nomi and
+// pinned in calendar_civil_test.go, beside the representation-level pins in
+// rt/calendar_test.go (TestCalendarEndOfMonthClamping,
+// TestCalendarCivilAndPhysicalDivergeAcrossSpringForward).
+import {
+    std/calendar.{Error, NaiveDateTime}
+    std/duration.Duration
+    std/instant.Instant
+    std/io
+}
+
+fn run(): Result<Unit, Error> {
+    // --- `NaiveDateTime.add`: eleven declarations, one spelling ---------------
+    //
+    // The 31st of January is the discriminating start. `+ Duration.hours(24)`
+    // is EXACT arithmetic and lands on February 1st; the civil `+ Months(1)`
+    // would clamp to February 28th. Routing to a civil sibling would therefore
+    // print a different date rather than fail, which is why the operand is a
+    // Duration and the date is a month end.
+    start = try NaiveDateTime"2011-01-31T12:00:00"
+    io.print("op = " + NaiveDateTime.to_string(start + Duration.hours(24)))
+
+    // The same impl through the OTHER route into the overload set: the operator
+    // reaches it via byIface, an explicit qualified call via byType. Both must
+    // select the Duration member out of the eleven, so they are separate claims.
+    io.print("call = " + NaiveDateTime.to_string(NaiveDateTime.add(start, Duration.hours(24))))
+
+    // The leap-year variant, on the rung that lowers. Two hours past 23:00 on
+    // February 28th is the 29th in 2012 and March 1st in 2011, and the month
+    // length comes from the same computation the interpreter uses rather than
+    // from a table either side wrote.
+    leap = try NaiveDateTime"2012-02-28T23:00:00"
+    common = try NaiveDateTime"2011-02-28T23:00:00"
+    io.print("leap = " + NaiveDateTime.to_string(leap + Duration.hours(2)))
+    io.print("common = " + NaiveDateTime.to_string(common + Duration.hours(2)))
+
+    // Negative, which borrows across the month boundary the other way.
+    io.print("back = " + NaiveDateTime.to_string(start + Duration.hours(-24)))
+
+    // And the inverse, so a shift that lost the nanoseconds is visible.
+    io.print(
+        "between = " + Duration.to_string(NaiveDateTime.between(start, start + Duration.hours(24)))
+    )
+
+    // --- `Int.divide`: two declarations, one spelling -------------------------
+    //
+    // `impl Divide<Int, Int> for Int` is an unbound `host fn`; `impl
+    // Divide<NonZeroInt, Int> for Int` is an ordinary Nomi body. Both answered to
+    // `int.Int.divide`, so BOTH were refused and the total one was unreachable.
+    // Rounding is toward zero, which is the line that separates it from a floor.
+    case Int.to_non_zero(3) {
+        Some(nz) -> {
+            io.print("div = " + Int.to_string(Int.divide(10, nz)))
+            io.print("div_neg = " + Int.to_string(Int.divide(-10, nz)))
+        }
+
+        None ->
+            io.print("div = unreachable: 3 is not zero")
+    }
+
+    // --- the operator impls whose Go NAMES moved -----------------------------
+    //
+    // `impl Add<Duration, Duration> for Duration` lowered before this change as
+    // `NomiStd_Duration_Add_add` and now as
+    // `NomiStd_Duration_Add_Duration_Duration_add`, because the minted name has
+    // to carry the instantiation once two impls of one generic interface can both
+    // lower. Five std functions were renamed; these lines are what proves the
+    // rename is complete rather than half-applied, since a stale caller would be
+    // a Go compile error in the generated stdlib.
+    d = Duration.hours(3)
+    io.print("dur_add = " + Duration.to_string(d + Duration.minutes(30)))
+    io.print("dur_sub = " + Duration.to_string(d - Duration.minutes(30)))
+    io.print("dur_mul = " + Duration.to_string(d * 2))
+    io.print("dur_div = " + Duration.to_string(d / 2))
+
+    io.print(
+        "inst = " + Int.to_string(
+            Instant.to_seconds(Instant.from_seconds(1000) + Duration.hours(1))
+        )
+    )
+
+    // --- `Error.to_string`: three MODULES, one spelling, and NOT exercisable --
+    //
+    // Not a key collapse: the builtin key carries the module, so calendar's,
+    // json's and results' `impl Display for Error` never collided there. They
+    // collide in the CALL-SITE spelling, and the overload set resolves it — only
+    // calendar's `Error` has a representation, so it is the one selectable member
+    // and it became lowerable with this change (131 -> 134 lowerable std
+    // declarations, this being the third).
+    //
+    // There is no line here because the FRONT END cannot express the call.
+    // `Error.to_string(e)` with `std/calendar.Error` imported is refused
+    // `argument 1: expected Error, got Error` — the checker resolves the
+    // qualifier to a different module's `Error` and then reports a mismatch
+    // between two types with the same printed name. That is the same three-way
+    // clash one layer up, it is not this slice's, and writing the line anyway
+    // would refuse the whole fixture rather than one row.
+    Ok(Unit)
+}
+
+fn main() {
+    case run() {
+        Ok(_u) -> Unit
+        Err(_e) -> io.print("FAILED")
+    }
+}

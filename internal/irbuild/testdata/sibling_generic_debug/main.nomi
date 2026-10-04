@@ -1,0 +1,25 @@
+// Debug.inspect and Display of instances of generic types span.nomi declares.
+// Each call reaches the impl span.nomi's gen built for that instantiation,
+// directly, inside a tuple or record, and per element of a list.
+import {
+    std/io
+    span
+    span.Tree
+}
+
+fn main() {
+    io.print(Debug.inspect(span.Span{start: 1, stop: 2}))
+    io.print(Debug.inspect(span.Span{start: "a", stop: "b"}))
+    io.print(Debug.inspect(Tree.Node(3)))
+    leaf: Tree<String> = Tree.Leaf
+    io.print(Debug.inspect(leaf))
+    io.print(Debug.inspect(span.Tagged{tag: 1}))
+    io.print(Display.to_string(span.Tagged{tag: 7}))
+    io.print("${span.Tagged{tag: "x"}}")
+    io.print(Debug.inspect((span.Span{start: 1, stop: 2}, 9)))
+    io.print(Debug.inspect({s: span.Tagged{tag: 1}}))
+    io.print(Debug.inspect([span.Span{start: 1, stop: 2}]))
+    io.print(Debug.inspect([span.Span{start: "p", stop: "q"}]))
+    io.print("${[span.Tagged{tag: 1}]}")
+    io.print("${[span.Tagged{tag: "s"}]}")
+}

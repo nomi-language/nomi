@@ -1,0 +1,65 @@
+import {
+    std/assertions.Assertable
+    std/assertions.AssertionDetail
+    std/assertions.AssertionDetails
+    std/assertions.AssertionFailure
+    std/testing
+}
+
+struct EqualsAssertion {
+    actual: Int
+    expected: Int
+}
+
+impl Assertable for EqualsAssertion {
+    fn failure(assertion: EqualsAssertion): Maybe<AssertionDetails> {
+        if assertion.actual == assertion.expected {
+            None
+        } else {
+            Some(AssertionDetails{
+                reason: "values were not equal",
+                details: [AssertionDetail{
+                    label: "actual",
+                    value: Debug.inspect(assertion.actual),
+                }, AssertionDetail{
+                    label: "expected",
+                    value: Debug.inspect(assertion.expected),
+                }],
+            })
+        }
+    }
+}
+
+fn my_equals(actual: Int, expected: Int): EqualsAssertion {
+    EqualsAssertion{actual, expected}
+}
+
+test "custom Assertable values can pass assertions" {
+    assert my_equals(42, 42)
+}
+
+test "custom Assertable values can be refuted" {
+    refute my_equals(41, 42)
+}
+
+test "custom Assertable failures use the standard report shape" {
+    x = 41
+    y = 42
+    assert Err(failure) = testing.check(my_equals(x, y))
+    observed_failure: AssertionFailure = failure
+
+    assert AssertionFailure.format(observed_failure) == """
+        line 48: values were not equal
+          check my_equals(x, y)
+          values:
+            x
+              = 41
+            y
+              = 42
+          details:
+            actual
+              = 41
+            expected
+              = 42
+        """
+}

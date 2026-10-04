@@ -1,0 +1,135 @@
+import {
+    std/compiler
+    std/literals.Literal
+    std/literals.Fragment.{self, Dynamic, Static}
+    std/regex.Regex
+    html_tags.{Raw, Safe}
+    joiner.Joiner
+    sql.{Query, SQL}
+    test_helpers
+}
+
+fn render_fragment(f: Fragment<Int>): String {
+    case f {
+        .Static(s) -> "static: ${s}"
+        .Dynamic(n) -> "dynamic: ${n}"
+    }
+}
+
+struct Box {
+    contents: String
+}
+
+impl Display for Box {
+    fn to_string(b: Box): String {
+        "Box(" + b.contents + ")"
+    }
+}
+
+impl Literal for Box {
+    fn from_fragments(fragments: List<Fragment<String>>): Box {
+        body = Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        )
+
+        Box{contents: body}
+    }
+}
+
+fn param_strings(q: Query): List<String> {
+    q.params
+    |> Iter.map(|p| Display.to_string(p))
+    |> Iter.to_list()
+}
+
+test "Fragment variants can be constructed and matched directly" {
+    f1 = Static<Int>("hello")
+    f2 = Dynamic<Int>(42)
+
+    assert render_fragment(f1) == "static: hello"
+    assert render_fragment(f2) == "dynamic: 42"
+}
+
+test "compiler checks plain source strings" {
+    diagnostics = compiler.check(
+        """
+          import std/io
+          fn main() {
+            io.print(List.empty())
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "type 'List' has no member 'empty'")
+}
+
+test "typed literals pass static and dynamic fragments to tag impls" {
+    name = "Alice"
+    age = 30
+
+    assert Joiner"hello, ${name}!" == "hello, Alice!"
+    assert Joiner"name: ${name}, age: ${age}" == "name: Alice, age: 30"
+    assert Joiner"static text" == "static text"
+
+    msg = Joiner"""
+        Hello, ${name}!
+        You are ${age} years old.
+        """
+
+    assert msg == "Hello, Alice!\nYou are 30 years old."
+
+    raw = Joiner`literal: ${name}`
+    assert raw == "literal: $" + "{name}"
+}
+
+test "different tag impls in one file apply different fragment policies" {
+    user_input = "<script>alert('xss')</script>"
+
+    assert Safe"<p>${user_input}</p>" == "<p>&lt;script&gt;alert('xss')&lt;/script&gt;</p>"
+    assert Raw"<p>${user_input}</p>" == "<p><script>alert('xss')</script></p>"
+}
+
+test "SQL typed literal turns dynamic slots into ordered params" {
+    user_id = 42
+    name = "Alice"
+
+    q1 = SQL"SELECT * FROM users WHERE id = ${user_id}"
+    assert q1.sql == "SELECT * FROM users WHERE id = ?"
+    assert param_strings(q1) == ["42"]
+
+    q2 = SQL"SELECT * FROM users WHERE id = ${user_id} AND name = ${name}"
+    assert q2.sql == "SELECT * FROM users WHERE id = ? AND name = ?"
+    assert param_strings(q2) == ["42", "Alice"]
+
+    q3 = SQL"SELECT COUNT(*) FROM users"
+    assert q3.sql == "SELECT COUNT(*) FROM users"
+    assert param_strings(q3) == []
+
+    q4 = SQL"""
+        INSERT INTO users (id, name)
+        VALUES (${user_id}, ${name})
+        """
+
+    assert q4.sql == "INSERT INTO users (id, name)\nVALUES (?, ?)"
+    assert param_strings(q4) == ["42", "Alice"]
+}
+
+test "type-attached literals can construct ordinary user types" {
+    b = Box"hello"
+
+    assert Display.to_string(b) == "Box(hello)"
+}
+
+test "Regex typed literals use the standard adapter" {
+    digits = try Regex`\d+`
+
+    assert Regex.pattern(digits) == "\\d+"
+    assert Regex.match?(digits, "room 42")
+    assert Regex.find(digits, "room 42") == Some("42")
+    assert Regex.find_all(digits, "a12b34") == ["12", "34"]
+    assert Regex.replace_all(digits, "a12b34", "#") == "a#b#"
+}

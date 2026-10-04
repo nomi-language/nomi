@@ -1,0 +1,37 @@
+//# Engine benchmark. 300,000 enum constructions and case matches on payload variants.
+//#
+//# One of six programs that `TestEngineBench` (vmhost/engine_bench_test.go)
+//# loads and runs on the VM. It reports the median load time (front end and
+//# lowering) and the median run time separately, over five runs each.
+//#
+//# Run it with `NOMI_ENGINE_BENCH=1 go test ./vmhost
+//# -run TestEngineBench -v -count=1`.
+
+import std/io
+
+enum Shape {
+    Circle Int
+    Square Int
+    Dot
+}
+
+fn area(s: Shape): Int {
+    case s {
+        Shape.Circle(r) -> 3 * r * r
+        Shape.Square(w) -> w * w
+        Shape.Dot -> 1
+    }
+}
+
+fn pick(i: Int): Shape {
+    case i % 3 {
+        0 -> Shape.Circle(i % 17)
+        1 -> Shape.Square(i % 13)
+        _ -> Shape.Dot
+    }
+}
+
+fn main() {
+    total = Iter.reduce(0..=299999, |acc = 0, i| acc + area(pick(i)))
+    io.print(total)
+}

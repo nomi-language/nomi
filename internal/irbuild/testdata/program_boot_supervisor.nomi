@@ -1,0 +1,52 @@
+// A PROGRAM whose `boot` creates a Supervisor, which is the shape that makes
+// `rt.EnterBoot` load-bearing on the program-boot path.
+//
+// WHY THIS FIXTURE EXISTS, measured rather than assumed. Dropping
+// `fr = rt.EnterBoot(fr)` from appfield.go's stageApp SURVIVED the whole
+// program-boot suite and survived every `-run` over the supervisor tests,
+// because `15-app-and-defer/effects/main.nomi` builds no supervisor and the
+// corpus's boot-with-supervisor programs are `compiler.check` STRINGS — they are
+// analyzed and never run, so nothing executed the staging frame.
+//
+// `Supervisor.new` traps outside the boot window with rt's own message ("a
+// supervisor here would be a new one every time this runs ... Create it while
+// `boot` builds the app value"). The frame flag is what opens that window, and
+// the requirement is TEMPORAL rather than lexical — see rt/frame.go's inBoot —
+// so `Supervisor.new` reached through a constructor `boot` calls must work too.
+// `describe` below is that case: it is an ordinary function, called from boot,
+// and it builds the supervisor.
+//
+// The interpreter reaches the same window with a process-wide counter around the
+// boot callback (eval/supervisor.go's bootPhase), so the two agree and this file
+// is a differential rather than a Go-side unit test.
+import {
+    std/duration.Duration
+    std/io
+    std/supervisors.Supervisor
+}
+
+pub struct BootApp {
+    context: Context
+
+    audit: Supervisor
+    label: String = "staged"
+    tier: Int = 7
+}
+
+// build is called BY boot and creates the supervisor, so the window this
+// exercises is the temporal one rather than the lexical one.
+fn build(context: Context): BootApp {
+    BootApp{
+        context,
+        audit: Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
+    }
+}
+
+fn boot(): BootApp {
+    build(Context.root())
+}
+
+fn main() {
+    io.print("label=${BootApp.label}")
+    io.print("tier=${BootApp.tier}")
+}

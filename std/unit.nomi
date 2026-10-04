@@ -1,0 +1,11 @@
+//# The `Unit` type — "no meaningful value."
+//#
+//# `Unit` is the return type of side-effecting operations (`io.print`,
+//# `timer.sleep`, `Iter.each`) and the value produced by a bare
+//# `break`. There is exactly one `Unit` value and it carries no
+//# information, so there is nothing to construct or inspect — a function
+//# returning `Unit` is called for its effect.
+
+/// No meaningful value. Returned by side-effecting functions such as
+/// `io.print`; produced by bare `break`.
+pub host type Unit

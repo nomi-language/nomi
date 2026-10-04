@@ -1,0 +1,131 @@
+// `DateTime.in_zone` — the wall-reading-to-instant projection, and the only
+// stdlib function in the corpus whose lowering turns on a parameter DEFAULT.
+//
+// # Why a fixture, when the corpus reaches this
+//
+// 05-calendar-and-time/dst_fall_back_test.nomi does exercise the fold, and it
+// MATCHES as of the commit this fixture arrived with. What it cannot do is fail
+// usefully: it is one of 213 corpus programs and its refusal set is a number in
+// a sweep, so a wrong answer here shows up as a count moving. This file names
+// each answer.
+//
+// It also covers what that program does not, and the gap is not decoration —
+// see the GAP section below for why a fold-only fixture cannot pin the default
+// at all.
+//
+// # The two discriminating families
+//
+// **The DEFAULT.** `mode: Disambiguation = Disambiguation.Compatible` is
+// declared in std/calendar.nomi and filled by an arity-reduced wrapper built
+// in the STDLIB's own module (internal/irbuild/stdlib.go's
+// emitStdDefaultWrappers). A wrong default value is not a refusal and not
+// a crash — it is a different instant. Three lines pin it, and it takes all
+// three:
+//
+//   - `fold_default_is_compatible` and `fold_default_is_later` together rule out
+//     `Later` and `Reject` in a FOLD;
+//   - `gap_default_is_earlier` rules out `Earlier`, which a fold CANNOT do,
+//     because `Compatible` and `Earlier` are documented to agree in a fold and
+//     measurably do. So mutating the lowered `rt.Disambiguation{Tag: 1}` to
+//     `Tag: 2` changes nothing observable in a fold and changes `gap_default`
+//     from 03:30 to 01:30.
+//
+// **Instant-only identity.** `tokyo_equals_later` is the same moment in two
+// zones and it is True. Go's `==` on `rt.DateTime` compares the Zone string too
+// and answers False, so a structural lowering of `==` on this type is a WRONG
+// ANSWER rather than a slower right one. testdata/calendar_datetime.nomi pins
+// that for a parsed value; here the value came out of `in_zone`, which is the
+// path this change added.
+//
+// requireIdentical cannot see either property: rt owns the semantics and eval
+// calls down into it (rt/calendar.go), so both paths share any bug in the
+// projection. The pinned text in stdfold_test.go is the guard.
+import {
+    std/calendar.{DateTime, Disambiguation, Error, NaiveDateTime}
+    std/instant.Instant
+    std/io
+}
+
+// `try` inside `fn main()` is refused by the builder (`try boundary mismatch`:
+// a Unit-returning body cannot propagate), so the fallible half lives here and
+// main discharges it. A property of `main`, not of these types.
+fn run(): Result<Unit, Error> {
+    // 2026-11-01 01:30 in New York is the FOLD: clocks go back at 02:00 EDT, so
+    // this wall reading happens twice, an hour apart.
+    fold = try NaiveDateTime"2026-11-01T01:30:00"
+    // 2026-03-08 02:30 in New York is the GAP: clocks jump 02:00 EST -> 03:00
+    // EDT, so this wall reading never happens at all.
+    gap = try NaiveDateTime"2026-03-08T02:30:00"
+
+    // --- the fold, under every resolving mode plus the default ---------------
+    fold_default = try DateTime.in_zone(fold, "America/New_York")
+    fold_compatible = try DateTime.in_zone(fold, "America/New_York", Disambiguation.Compatible)
+    fold_earlier = try DateTime.in_zone(fold, "America/New_York", Disambiguation.Earlier)
+    fold_later = try DateTime.in_zone(fold, "America/New_York", Disambiguation.Later)
+
+    // The offsets are the observable: -04:00 is EDT (before the transition),
+    // -05:00 is EST (after it). Same wall reading in every line.
+    io.print("fold_default = " + DateTime.to_string(fold_default))
+    io.print("fold_compatible = " + DateTime.to_string(fold_compatible))
+    io.print("fold_earlier = " + DateTime.to_string(fold_earlier))
+    io.print("fold_later = " + DateTime.to_string(fold_later))
+
+    // The DEFAULTED call and the EXPLICIT `Compatible` call are one answer, and
+    // the defaulted call is not `Later`. Both go through the Equatable impl, so
+    // they compare INSTANTS.
+    io.print("fold_default_is_compatible = " + Bool.to_string(fold_default == fold_compatible))
+    io.print("fold_default_is_later = " + Bool.to_string(fold_default == fold_later))
+
+    // Two distinct instants an hour apart, which is what makes the fold a fold.
+    later_seconds = Instant.to_seconds(DateTime.to_instant(fold_later))
+    earlier_seconds = Instant.to_seconds(DateTime.to_instant(fold_earlier))
+    io.print("fold_gap_seconds = " + Int.to_string(later_seconds - earlier_seconds))
+
+    // `Reject` is the fourth mode and the only one that does not resolve. The
+    // VARIANT is matched rather than routed through `Display.to_string(e)`:
+    // rendering a std enum through its impl is a separate gap (`rendering a
+    // non-scalar value`), and the variant is the stronger claim anyway — it pins
+    // WHICH error where a rendered string could come from any of the five.
+    case DateTime.in_zone(fold, "America/New_York", Disambiguation.Reject) {
+        Ok(_d) -> io.print("fold_reject = unexpectedly ok")
+        Err(Error.Ambiguous(m)) -> io.print("fold_reject = ambiguous: " + m)
+        Err(_other) -> io.print("fold_reject = wrong variant")
+    }
+
+    // --- the gap, which is the only place the DEFAULT is distinguishable -----
+    gap_default = try DateTime.in_zone(gap, "America/New_York")
+    gap_earlier = try DateTime.in_zone(gap, "America/New_York", Disambiguation.Earlier)
+    gap_later = try DateTime.in_zone(gap, "America/New_York", Disambiguation.Later)
+
+    io.print("gap_default = " + DateTime.to_string(gap_default))
+    io.print("gap_earlier = " + DateTime.to_string(gap_earlier))
+    io.print("gap_later = " + DateTime.to_string(gap_later))
+
+    // `Compatible` advances FORWARD through the gap (02:30 becomes 03:30), so it
+    // agrees with `Later` here and differs from `Earlier` — the exact opposite of
+    // the fold, and the reason both sections exist.
+    io.print("gap_default_is_earlier = " + Bool.to_string(gap_default == gap_earlier))
+    io.print("gap_default_is_later = " + Bool.to_string(gap_default == gap_later))
+
+    case DateTime.in_zone(gap, "America/New_York", Disambiguation.Reject) {
+        Ok(_d) -> io.print("gap_reject = unexpectedly ok")
+        Err(Error.Nonexistent(m)) -> io.print("gap_reject = nonexistent: " + m)
+        Err(_other) -> io.print("gap_reject = wrong variant")
+    }
+
+    // --- two zones, one instant ---------------------------------------------
+    // Re-projecting the post-transition reading into Tokyo changes every
+    // rendered component and changes the value not at all.
+    tokyo = try DateTime.with_zone(fold_later, "Asia/Tokyo")
+    io.print("tokyo = " + DateTime.to_string(tokyo))
+    io.print("tokyo_equals_later = " + Bool.to_string(tokyo == fold_later))
+    io.print("tokyo_equals_earlier = " + Bool.to_string(tokyo == fold_earlier))
+    Ok(Unit)
+}
+
+fn main() {
+    case run() {
+        Ok(_u) -> Unit
+        Err(_e) -> io.print("FAILED")
+    }
+}

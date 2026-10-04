@@ -1,0 +1,79 @@
+test "list literals and equality work by value" {
+    empty: List<Int> = []
+    ints = [1, 2, 3]
+    words = ["hello", "world"]
+
+    assert Iter.empty?(empty)
+    assert ints == [1, 2, 3]
+    refute [1, 2] == [1, 2, 3]
+    assert words == ["hello", "world"]
+}
+
+test "list cons syntax prepends heads onto tails" {
+    tail = [4, 5]
+
+    assert [1, ..[2, 3]] == [1, 2, 3]
+    assert [1, ..[]] == [1]
+    assert [1, 2, ..[3, 4]] == [1, 2, 3, 4]
+    assert [1, ..[2, ..[3, ..[]]]] == [1, 2, 3]
+    assert [3, ..tail] == [3, 4, 5]
+}
+
+test "list head and tail expose cons-list structure" {
+    xs = [1, 2, 3, 4, 5]
+
+    assert List.head(xs) == Some(1)
+    assert List.tail(xs) == Some([2, 3, 4, 5])
+    assert List.head([]) == None
+    assert List.tail([]) == None
+}
+
+test "list concat concatenates two lists" {
+    assert [1, 2]
+        |> List.concat([3, 4])
+        |> List.equal?([1, 2, 3, 4])
+}
+
+test "list patterns match empty cons and exact-length shapes" {
+    empty_match = case [] {
+        [] -> "empty"
+        _ -> "not empty"
+    }
+
+    head_tail = case [1, 2, 3] {
+        [h, ..t] -> "head: ${h}, tail: ${t}"
+        _ -> "nope"
+    }
+
+    heads_rest = case [1, 2, 3, 4] {
+        [a, b, ..rest] -> "first: ${a}, second: ${b}, rest: ${rest}"
+        _ -> "nope"
+    }
+
+    exact_len = case [1, 2] {
+        [a, b] -> "${a} and ${b}"
+        _ -> "nope"
+    }
+
+    literal_head = case ["--verbose", "file.txt"] {
+        ["--verbose", ..rest] -> "verbose with ${rest}"
+        _ -> "other"
+    }
+
+    assert empty_match == "empty"
+    assert head_tail == "head: 1, tail: [2, 3]"
+    assert heads_rest == "first: 1, second: 2, rest: [3, 4]"
+    assert exact_len == "1 and 2"
+    assert literal_head == "verbose with [file.txt]"
+}
+
+test "recursive functions can consume list cons patterns" {
+    assert sum([1, 2, 3, 4, 5]) == 15
+}
+
+fn sum(xs: List<Int>): Int {
+    case xs {
+        [] -> 0
+        [h, ..t] -> h + sum(t)
+    }
+}

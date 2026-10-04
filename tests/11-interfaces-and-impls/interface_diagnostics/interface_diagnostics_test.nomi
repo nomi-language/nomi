@@ -1,0 +1,106 @@
+import {
+    std/compiler.{self, Project}
+    std/toml.Toml
+    test_helpers
+}
+
+test "duplicate impl blocks report coherence diagnostics" {
+    diagnostics = compiler.check(
+        """
+        struct Dog {
+          name: String
+        }
+
+        impl Display for Dog {
+          fn to_string(d: Dog): String {
+            d.name
+          }
+        }
+
+        impl Display for Dog {
+          fn to_string(d: Dog): String {
+            "duplicate " + d.name
+          }
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "duplicate impl: `Display` is implemented for `Dog`",
+    )
+}
+
+test "package-local types can use impl blocks" {
+    diagnostics = compiler.check_project(Project{
+        entry_point: "main",
+        manifest: Some(
+            Toml"""
+            [module]
+            name = "demo"
+            entry_points = ["main"]
+            """
+        ),
+        files: {
+            "main" => """
+                interface Label {
+                  fn label(value: self): String
+                }
+
+                struct Thing {
+                  name: String
+                }
+
+                impl Label for Thing {
+                  fn label(value: Thing): String { value.name }
+                }
+
+                fn main() {
+                  Unit
+                }
+                """,
+        },
+    })
+
+    assert Iter.count(diagnostics) == 0
+}
+
+// The NEGATIVE CONTROL for nominal identity in the inherent-impl manifest.
+// Keying that manifest by `(declaring file, name)` rather than by bare name
+// let a local `Seed.from_int` coexist with `random.Seed.from_int` (the positive
+// direction, pinned by same_named_stdlib_type/) — and it must NOT have
+// disabled this: two type-owned functions of one name on ONE type are still
+// one ambiguous slot, and are still rejected.
+test "duplicate type-owned functions report coherence diagnostics" {
+    diagnostics = compiler.check_project(Project{
+        entry_point: "main",
+        files: {
+            "main" => """
+                struct Cookie {
+                  flavor: String
+                }
+
+                impl Cookie {
+                  pub fn new(flavor: String): Cookie {
+                    Cookie{flavor: flavor}
+                  }
+
+                  pub fn new(other: String): Cookie {
+                    Cookie{flavor: other}
+                  }
+                }
+
+                fn main() {
+                  Unit
+                }
+                """,
+        },
+    })
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "duplicate type-owned function: `Cookie.new` is defined 2 times",
+    )
+}

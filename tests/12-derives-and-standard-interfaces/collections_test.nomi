@@ -1,0 +1,40 @@
+struct Holder {
+    items: List<Int>
+    tags: Map<String, Int>
+}
+
+derive Equatable for Holder
+
+struct Bag {
+    items: List<Int>
+    tags: Map<String, Int>
+}
+
+derive Equatable for Bag
+derive Hashable for Bag
+
+test "collections support structural equality through derived containing types" {
+    a = Holder{items: [1, 2, 3], tags: {"x" => 1}}
+    b = Holder{items: [1, 2, 3], tags: {"x" => 1}}
+    c = Holder{items: [1, 2], tags: {"x" => 1}}
+
+    assert Equatable.equal?(a, b)
+    refute Equatable.equal?(a, c)
+}
+
+test "collections support hashing through derived containing types" {
+    a = Bag{items: [1, 2, 3], tags: {"x" => 1}}
+    b = Bag{items: [1, 2, 3], tags: {"x" => 1}}
+    m1 = {"a" => 1, "b" => 2}
+    m2 = {"b" => 2, "a" => 1}
+
+    assert Hashable.hash(a) == Hashable.hash(b)
+    assert Map.hash(m1) == Map.hash(m2)
+}
+
+test "lists compare lexicographically" {
+    assert List.compare([1, 2, 3], [1, 2, 4]) == Ordering.Less
+    assert List.compare([1, 2], [1, 2, 3]) == Ordering.Less
+    assert List.compare([2], [1, 9]) == Ordering.Greater
+    assert List.compare([1, 2, 3], [1, 2, 3]) == Ordering.Equal
+}

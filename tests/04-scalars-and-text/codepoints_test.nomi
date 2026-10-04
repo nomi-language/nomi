@@ -1,0 +1,52 @@
+test "codepoints convert to and from integers and strings" {
+    assert Some(a) = Codepoint.from_int(65)
+
+    assert Codepoint.to_int(a) == 65
+    assert Codepoint.to_string(a) == "A"
+}
+
+test "codepoint construction rejects surrogate values" {
+    assert Codepoint.from_int(55_296) == None
+}
+
+test "codepoint ranges iterate over scalar values" {
+    assert Some(start) = Codepoint.from_int(97)
+    assert Some(end) = Codepoint.from_int(100)
+
+    exclusive_values =
+        start..end
+        |> Iter.map(Codepoint.to_int)
+        |> Iter.to_list()
+
+    inclusive_values =
+        start..=end
+        |> Iter.map(Codepoint.to_int)
+        |> Iter.to_list()
+
+    stepped_values =
+        Range.step_by(start..=end, 2)
+        |> Iter.map(Codepoint.to_int)
+        |> Iter.to_list()
+
+    assert exclusive_values == [97, 98, 99]
+    assert inclusive_values == [97, 98, 99, 100]
+    assert stepped_values == [97, 99]
+}
+
+test "codepoint ranges skip surrogate values" {
+    assert Some(before_surrogates) = Codepoint.from_int(55_295)
+    assert Some(after_surrogates) = Codepoint.from_int(57_344)
+
+    inclusive_values =
+        before_surrogates..=after_surrogates
+        |> Iter.map(Codepoint.to_int)
+        |> Iter.to_list()
+
+    stepped_values =
+        Range.step_by(before_surrogates..=after_surrogates, 1)
+        |> Iter.map(Codepoint.to_int)
+        |> Iter.to_list()
+
+    assert inclusive_values == [55_295, 57_344]
+    assert stepped_values == [55_295, 57_344]
+}

@@ -1,0 +1,87 @@
+// `assert e` / `refute e` where `e` is a `Result` or a `Maybe` — a SHAPE
+// subject, judged on which variant it is rather than converted to a Bool.
+//
+// The file EXITS 1. Five of its eight cases fail on purpose, because the whole
+// difference between this arm and the Bool one is in the REPORT: a shape
+// failure carries an `actual:` row that a Bool failure does not, rendered by
+// value.Inspect on the interpreter's side and by rt's renderer on the VM's.
+// Those are two independent renderers, so this is exactly the
+// place a lowering can judge correctly and still diverge.
+//
+// What each case discriminates:
+//
+//   - `assert` on a None and on an Err — the failing direction, with the
+//     `actual:` row for a payload-less variant (`None`) and for one carrying a
+//     string (`Err("not a number")`). A lowering that inspected the PAYLOAD
+//     rather than the variant prints `not a number`.
+//   - `assert` on a Some — the passing direction, and the VALUE: the assertion
+//     evaluates to the original `Maybe<String>`, not to a Bool and not to the
+//     unwrapped payload, so `found == Some("Ada")` type-checks and holds.
+//   - `refute` on a Some and on an Ok — the mirror failing direction. Its reason
+//     is `refute failed` and not `assertion failed`, which is
+//     rt.AssertionSite.ShapeFailure's one rule; a lowering that reused
+//     FailedReason for both prints the wrong header.
+//   - `refute` on a None — the mirror passing direction, again carrying the
+//     variant through, so `empty == None` holds.
+//   - a BOUND shape subject — the `defined as:` row sits ABOVE the `actual:` row.
+//     Two report sections from one failure, so a builder that wrote them in the
+//     other order diverges even though both are present.
+fn find(id: Int): Maybe<String> {
+    if id == 1 { Some("Ada") } else { None }
+}
+
+fn parse(s: String): Result<Int, String> {
+    if s == "42" {
+        Ok(42)
+    } else {
+        Err("not a number")
+    }
+}
+
+test "a Maybe subject that is None fails" {
+    assert find(2)
+}
+
+test "a Maybe subject that is Some passes and carries the variant through" {
+    found = assert find(1)
+
+    assert found == Some("Ada")
+}
+
+test "refuting a Some fails in its own words" {
+    refute find(1)
+}
+
+test "refuting a None passes and carries the None through" {
+    empty = refute find(2)
+
+    // Discriminated by `case`, not `empty == None`, which was once a refused
+    // `mixed-type operator`. It lowers since 2026-08-24, so the `case` now earns
+    // its place by testing that the subject is CARRIED. Keep this block's LENGTH.
+    tag = case empty {
+        Some(_) -> 1
+        None -> 0
+    }
+
+    assert tag == 0
+}
+
+test "a Result subject that is Err fails" {
+    assert parse("wat")
+}
+
+test "a Result subject that is Ok passes and carries the variant through" {
+    parsed = assert parse("42")
+
+    assert parsed == Ok(42)
+}
+
+test "refuting an Ok fails in its own words" {
+    refute parse("42")
+}
+
+test "a bound shape subject shows its defining expression above its value" {
+    looked_up = find(2)
+
+    assert looked_up
+}

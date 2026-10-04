@@ -1,0 +1,41 @@
+// A `//!` prompt test is a real runnable case attached to the declaration
+// below it, and its NAME embeds the source lines the prompt occupies. Both are
+// part of the report's byte-for-byte contract, so this pin is differential:
+// a label off by one line, or a case collected at the wrong position in the
+// table, is invisible to a type check and loud here.
+//
+// What each declaration discriminates:
+//
+//   - `doubled` — two contiguous prompt lines are ONE case spanning them, so
+//     the label reads `lines 1-2` and not `line 1` or two separate cases.
+//   - `tagged` — a prompt may bind before it asserts, and may `refute`.
+//   - `failing` — a prompt that FAILS reports through the same path an
+//     ordinary case does, with the prompt's own label as the case name.
+//   - the ORDER. `nomi test` collects a prompt at its declaration's position,
+//     so `doubled`'s case precedes the file-scope `test` written above
+//     `tagged`, which precedes `tagged`'s own. A table built by emitting every
+//     prompt first, or last, reorders the report.
+//! assert doubled(3) == 6
+//! assert doubled(0) == 0
+//
+fn doubled(n: Int): Int {
+    n * 2
+}
+
+test "a file-scope case is collected in declaration order with the prompts" {
+    assert doubled(4) == 8
+}
+
+//! label = tagged("x")
+//! assert label == "[x]"
+//! refute label == "x"
+//
+fn tagged(s: String): String {
+    "[" + s + "]"
+}
+
+//! assert failing() == 1
+//
+fn failing(): Int {
+    2
+}

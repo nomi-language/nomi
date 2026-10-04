@@ -1,0 +1,53 @@
+// A type-qualified call to an impl function declared in a SIBLING FILE.
+//
+// `Status.active()` is neither a variant construction nor a file-qualified
+// call: the qualifier names a TYPE this file imported, and the function lives
+// in that type's inherent impl block over in shapes.nomi. Before this fixture
+// the builder's qualifier route consulted only the file being lowered, so the
+// call fell through to the enum-variant lookup and was refused as
+// `type-qualified member | Status.active` — a key naming the site that reported
+// it rather than the call that arrived.
+//
+// Seven shapes, each pinning a different half: a zero-argument constructor, a
+// one-String constructor, a two-argument one, a Bool predicate, a
+// `Maybe<String>` accessor whose result crosses the package boundary as a
+// prelude instance, and an INTERFACE impl function (`Tag.inspect`) whose Go
+// name is minted from the interface as well as the receiver. The file-qualified
+// `shapes.tag` beside them is the control: that route already worked, and a
+// change that broke it while fixing the others would show up here.
+//
+// The last is the SYNTHESIZED universal `Debug` derive, reached type-qualified
+// from another file, and it is here because two renderings of one value DIFFER
+// and the difference is not obvious. MEASURED on the interpreter:
+// `Status.inspect` on a `pub opaque enum` is `<opaque Status>`, name-only, while
+// the assertion `values:` row for that same value is `Inactive("holiday")`,
+// structural. A builder sharing one renderer across the two would get exactly
+// one of them wrong, and report_test.nomi beside this pins the other half.
+//
+// `Tag.inspect` is the contrast: an EXPLICIT `impl Debug for Tag` overrides the
+// derive, so the same spelling reaches a hand-written body in the sibling.
+import {
+    std/io
+    shapes.{self, Status, Tag}
+}
+
+fn describe(s: Status): String {
+    case Status.reason(s) {
+        Some(r) -> "reason: " + r
+        None -> "no reason"
+    }
+}
+
+fn main() {
+    active = Status.active()
+    off = Status.inactive("holiday")
+    susp = Status.suspend(100, "maintenance")
+
+    io.print("active? ${Bool.to_string(Status.is_active(active))}")
+    io.print("off active? ${Bool.to_string(Status.is_active(off))}")
+    io.print(describe(active))
+    io.print(describe(off))
+    io.print(describe(susp))
+    io.print(Tag.inspect(shapes.tag("x")))
+    io.print(Status.inspect(off))
+}

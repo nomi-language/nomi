@@ -1,0 +1,25 @@
+// The interface, alone in its own file — so its dispatch TABLE is a variable
+// in this file's Go-spelled package and every other file has to name it
+// there rather than mint a second one.
+//
+// This is the shape `tests/15-app-and-defer/effects` uses: the
+// interface in one file, each implementor in its own, and a struct in a fourth
+// holding whichever one was wired in.
+pub interface Logger {
+    fn log(value: self, message: String): String
+
+    // A DEFAULT, and the reason it is here: a default is monomorphized into the
+    // implementing package rather than called across the boundary, so its body's
+    // names resolve in the implementing FILE's scope. This body mentions exactly
+    // one module-level name, `Logger`, and both files resolve it to this
+    // declaration — which is what makes copying it faithful rather than merely
+    // convenient. A body that mentioned a name the two files disagreed about
+    // would be refused as `sibling file interface default`.
+    open fn twice(value: self, message: String): String {
+        "${Logger.log(value, message)}/${Logger.log(value, message)}"
+    }
+}
+
+pub interface Clock {
+    fn now(value: self): Int
+}

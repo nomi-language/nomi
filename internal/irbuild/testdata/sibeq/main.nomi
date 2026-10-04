@@ -1,0 +1,38 @@
+// The NEGATIVE half of the sibling-equality route: a sibling file declares an
+// `equal?` for this type under an interface that is NOT `Equatable`, and `==`
+// must NOT reach it.
+//
+// `siblingEqualCall` resolves through `fileIndex.implMembers`, which is keyed on
+// `(declaration node, method)` and says nothing about the interface — two blocks
+// may legally provide one method name for one receiver, and only the qualifier
+// says which. So without the `iface != "Equatable"` skip the operator would call
+// `Loose.equal?`, whose body deliberately answers True for values the structural
+// comparator calls different. That is a WRONG ANSWER rather than a refusal, and
+// no compile check sees it.
+//
+// `Loose.equal?(a, b)` written out beside it is the control: the interface
+// qualifier IS the thing that says "run this one", so that spelling must reach
+// the body the operator must not.
+import {
+    std/io
+    shapes.{self, Loose, Point}
+}
+
+fn tag(p: Point): String {
+    Int.to_string(p.x)
+}
+
+fn main() {
+    a = shapes.point(1, 2)
+    b = shapes.point(1, 9)
+
+    // The operator: structural, because no `impl Equatable for Point` exists
+    // anywhere in this program.
+    io.print("op ${Bool.to_string(a == b)}")
+    io.print("op self ${Bool.to_string(a == shapes.point(1, 2))}")
+
+    // The written spelling: reaches the sibling's Loose impl, which compares only
+    // the first field.
+    io.print("loose ${Bool.to_string(Loose.equal?(a, b))}")
+    io.print("tag ${tag(a)}")
+}

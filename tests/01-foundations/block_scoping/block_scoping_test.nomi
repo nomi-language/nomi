@@ -1,0 +1,114 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+test "block-scoped declarations are visible inside their enclosing block" {
+    fn double(n: Int): Int {
+        n * 2
+    }
+
+    assert double(21) == 42
+
+    scale_factor = 10
+
+    fn scale(n: Int): Int {
+        n * scale_factor
+    }
+
+    assert scale(7) == 70
+
+    struct Point {
+        x: Int
+        y: Int
+    }
+
+    fn make_point(): Point {
+        Point{x: 3, y: 4}
+    }
+
+    p = make_point()
+    assert p.x + p.y == 7
+
+    struct Defaulted {
+        v: Int = 99
+    }
+
+    d = Defaulted{}
+    assert d.v == 99
+
+    typealias Count Int
+
+    fn make_count(n: Int): Count {
+        n
+    }
+
+    assert make_count(5) == 5
+
+    type UserId Int
+    uid = UserId(42)
+    assert Int(uid) == 42
+
+    enum Color {
+        Red
+        Green
+        Blue
+    }
+
+    fn pick(): Color {
+        Color.Green
+    }
+
+    result = case pick() {
+        Color.Red -> "red"
+        Color.Green -> "green"
+        Color.Blue -> "blue"
+    }
+
+    assert result == "green"
+
+    base = 100
+
+    fn add_base(n: Int): Int {
+        n + base
+    }
+
+    assert add_base(5) == 105
+}
+
+test "nested functions do not leak outside their enclosing function" {
+    diagnostics = compiler.check(
+        """
+          fn main() {
+            fn helper(): Int {
+              1
+            }
+
+            _ = helper()
+          }
+
+          fn other(): Int {
+            helper()
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "undefined variable 'helper'")
+}
+
+test "imports can be declared inside function bodies" {
+    fn first(): Maybe<Int> {
+        import std/maybe.Maybe as Local
+
+        Local.Some(1)
+    }
+
+    fn second(): Result<Int, String> {
+        import std/results.Result as Local
+
+        Local.Ok(2)
+    }
+
+    assert first() == Some(1)
+    assert second() == Ok(2)
+}

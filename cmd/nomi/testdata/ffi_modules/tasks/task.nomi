@@ -1,0 +1,57 @@
+//# One task on the list and its status.
+
+import std/instant.Instant
+
+pub struct Task {
+    id: Int
+    title: String
+    created: Instant
+    status: Status = Status.Open
+}
+
+impl Task {
+    /// One line of a task list: a status box, the id and the title.
+    //! open = Task{id: 3, title: "ship it", created: Instant.from_seconds(0)}
+    //! assert Task.render(open) == "[ ] 3 ship it"
+    //! assert Task.render({..open, status: Status.Done}) == "[x] 3 ship it"
+    //
+    pub fn render(task: Task): String {
+        box = case task.status {
+            Status.Open -> "[ ]"
+            Status.Started -> "[~]"
+            Status.Done -> "[x]"
+        }
+
+        "${box} ${task.id} ${task.title}"
+    }
+}
+
+pub enum Status {
+    Open
+    Started
+    Done
+}
+
+impl Status {
+    //! assert Status.parse("done") == Some(Status.Done)
+    //! assert Status.parse("finished") == None
+    //
+    pub fn parse(text: String): Maybe<Status> {
+        case text {
+            "open" -> Some(Status.Open)
+            "started" -> Some(Status.Started)
+            "done" -> Some(Status.Done)
+            _ -> None
+        }
+    }
+}
+
+impl Display for Status {
+    fn to_string(status: Status): String {
+        case status {
+            Status.Open -> "open"
+            Status.Started -> "started"
+            Status.Done -> "done"
+        }
+    }
+}

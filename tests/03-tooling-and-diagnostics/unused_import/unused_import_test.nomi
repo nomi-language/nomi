@@ -1,0 +1,23 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+test "unused imports report the unused item" {
+    diagnostics = compiler.check(
+        """
+        import {
+          std/io
+          std/lists: List
+        }
+
+        fn main() {
+          io.print("imports must earn their keep")
+        }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "imported name 'List' is unused")
+
+    refute test_helpers.has_diagnostic?(diagnostics, "imported name 'IO' is unused")
+}

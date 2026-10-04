@@ -1,0 +1,21 @@
+// The DECLARING file. Each default here is a literal or an operator tree over
+// literals (`soft: 2 + 3`), lowered in this file's accessor when the entry
+// file omits it.
+//
+// `label` is declared here as well, and the entry file declares its own with a
+// different value.
+once label = "lib"
+
+pub enum Backoff {
+    Exponential {max_restarts: Int = 10, max_elapsed: Int = 900}
+    Off
+}
+
+pub struct Limits {
+    soft: Int = 2 + 3
+    hard: Int = 50
+}
+
+pub fn origin(): String {
+    label
+}

@@ -1,0 +1,67 @@
+// The filesystem pair end to end: write, read back, and both IOError variants
+// reached by pattern.
+//
+// The path is under /tmp and is TRUNCATED FIRST, so a re-run and the two paths
+// of the differential see the same starting state. Both paths write to the same
+// path deliberately: the interpreter runs, then the compiled artifact runs, and
+// each begins by replacing the file.
+//
+// `NotFound` is reached by reading a path nothing creates. `Other` is reached by
+// writing INTO a path whose parent is a regular file, which is ENOTDIR rather
+// than ENOENT — chosen because ENOENT on a write is classified `Other` too and
+// this fixture should not depend on which of the two produced it.
+import std/io.{self, IOError}
+
+once path: String = "/tmp/nomi-io-files-fixture.txt"
+
+fn describe(e: IOError): String {
+    case e {
+        IOError.NotFound{path} -> "missing:${path}"
+        IOError.Other{reason: _} -> "other"
+    }
+}
+
+test "write_file then read_file round-trips the contents" {
+    assert io.write_file(path, "alpha\nbeta") == Ok(Unit)
+    assert io.read_file(path) == Ok("alpha\nbeta")
+}
+
+test "write_file replaces rather than appending" {
+    assert io.write_file(path, "one") == Ok(Unit)
+    assert io.write_file(path, "two") == Ok(Unit)
+    assert io.read_file(path) == Ok("two")
+}
+
+test "a missing file reads as NotFound carrying the path verbatim" {
+    missing = "/tmp/nomi-io-files-fixture-absent.txt"
+
+    case io.read_file(missing) {
+        Ok(_) -> assert False
+        Err(e) -> assert describe(e) == "missing:/tmp/nomi-io-files-fixture-absent.txt"
+    }
+}
+
+test "IOError renders through its Display impl" {
+    case io.read_file("/tmp/nomi-io-files-fixture-absent.txt") {
+        Ok(_) ->
+            assert False
+
+        Err(e) ->
+            assert Display.to_string(e) == "file not found: /tmp/nomi-io-files-fixture-absent.txt"
+    }
+}
+
+test "a write whose parent is not a directory reports Other" {
+    assert io.write_file(path, "parent") == Ok(Unit)
+
+    case io.write_file(path + "/child", "x") {
+        Ok(_) -> assert False
+        Err(e) -> assert describe(e) == "other"
+    }
+}
+
+test "IOError values compare by variant and payload" {
+    assert IOError.NotFound{path: "a"} == IOError.NotFound{path: "a"}
+    refute IOError.NotFound{path: "a"} == IOError.NotFound{path: "b"}
+    refute IOError.NotFound{path: "a"} == IOError.Other{reason: "a"}
+}

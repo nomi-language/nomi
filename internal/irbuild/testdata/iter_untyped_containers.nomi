@@ -1,0 +1,84 @@
+import std/io
+
+// The two untyped empty containers that reached `Iter` and `Map`, lowered.
+//
+// These two refusals read like one gap under two names and are NOT one, which
+// is the whole point of this fixture holding both. What each group's observation
+// is a function of:
+//
+//   - EMPTY LIST. An untyped `[]` driven as an `Iter` source yields nothing, so
+//     its element type is unobservable and the walk answers the same at every
+//     instantiation. The lines below are a function of the SOURCE being empty
+//     and of nothing else, which is exactly why a placeholder element type is
+//     sound here.
+//   - EMPTY MAP. `Map.empty() |> Map.put(k, v)` is the opposite case: the key
+//     and value types are DETERMINED by the arguments, and the map is then READ
+//     BACK. So these lines are a function of the key type being right — a
+//     placeholder key would hash as the wrong type and `Map.get` would answer
+//     the default for a key that is present. That is why the `lookup` results
+//     are printed rather than the map's size: size is invariant under a wrong
+//     key type and lookup is not.
+//
+// NOT here, and MEASURED rather than omitted: a CALLBACK over an untyped `[]`
+// (`Iter.each_while([], |_x| False)`) refuses, and under somebody else's key —
+// `unrepresentable inferred type (_x: ?12)`. The checker leaves the callback
+// parameter's type variable unsolved because nothing constrains it, so the
+// placeholder in iter.go's source arm does not reach it: that arm supplies an
+// element type for the WALK, not for a lambda's parameter. Both corpus sites of
+// this key are callback-free (`Iter.empty?([])` and `[] |> Iter.chunks(2)`), so
+// nothing is left unfinished by that boundary — it is written down so the next
+// reader does not read the placeholder as covering more than it does.
+//
+// The key types are deliberately awkward, copied from
+// 08-pattern-matching/map_patterns_test.nomi: a List key (structural), NaN
+// (which Nomi's Float equality makes reflexive) and
+// -0.0 (which must find the 0.0 entry). Each is a key whose hashing a wrong
+// instantiation would get wrong in a different way.
+fn lookup(m: Map<List<Int>, String>, key: List<Int>): String {
+    Map.get(m, key) |> Maybe.with_default("?")
+}
+
+fn lookup_f(m: Map<Float, String>, key: Float): String {
+    Map.get(m, key) |> Maybe.with_default("?")
+}
+
+fn main() {
+    // EMPTY LIST as an Iter source. Every terminal must answer for an empty
+    // walk.
+    io.print("${Iter.empty?([])}")
+    io.print("${Iter.not_empty?([])}")
+    io.print("${Iter.count([])}")
+    io.print("${[] |> Iter.chunks(2) |> Iter.to_list() |> List.equal?([])}")
+    io.print("${[] |> Iter.to_list() |> List.equal?([])}")
+
+    // EMPTY MAP, built by `put` and read back.
+    list_keyed =
+        Map.empty()
+        |> Map.put([1, 2, 3], "lst")
+
+    io.print("${lookup(list_keyed, [1, 2, 3])}")
+    io.print("${lookup(list_keyed, [9])}")
+    io.print("${Map.size(list_keyed)}")
+
+    nan_keyed =
+        Map.empty()
+        |> Map.put(Float.nan(), "n")
+
+    io.print("${lookup_f(nan_keyed, Float.nan())}")
+
+    zero_keyed =
+        Map.empty()
+        |> Map.put(-0.0, "z")
+
+    io.print("${lookup_f(zero_keyed, 0.0)}")
+
+    // Chained puts on the same solved receiver.
+    two =
+        Map.empty()
+        |> Map.put([1], "a")
+        |> Map.put([2], "b")
+
+    io.print("${lookup(two, [1])}")
+    io.print("${lookup(two, [2])}")
+    io.print("${Map.size(two)}")
+}

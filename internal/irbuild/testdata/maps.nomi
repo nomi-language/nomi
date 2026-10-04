@@ -1,0 +1,144 @@
+import std/io
+
+// Map literals, the six rt-backed `Map.` functions, and `==`.
+//
+// The load-bearing part is the KEY types. A Nomi map key is any keyable value
+// compared structurally, so `[1, 2]` and `(1, 2)` are
+// legal keys — and a `*rt.List[T]` is Go-comparable BY ADDRESS, which means a Go
+// `map` would take these keys, compile clean, and never find one again. Every
+// lookup below is written with a FRESH literal rather than the bound name, so an
+// address-keyed map fails on the ANSWER and not on a type error.
+//
+// `Map.get` returns `Maybe<V>`, and rendering a Maybe is a different slice's
+// gap, so each get goes through a `case` that turns it into text. That keeps the
+// fixture's blocker set to Map and makes the Some/None distinction explicit
+// rather than hidden in a Display impl.
+fn main() {
+    m = {"a" => 1, "b" => 2}
+    io.print("m = ${m}")
+    io.print("size = ${Map.size(m)}")
+    io.print("get a = ${found(m, "a")}")
+    io.print("get z = ${found(m, "z")}")
+    io.print("has a = ${Map.contains_key?(m, "a")}")
+    io.print("has z = ${Map.contains_key?(m, "z")}")
+
+    // put over a NEW key appends; put over an existing key keeps its position.
+    io.print("put c = ${Map.put(m, "c", 3)}")
+    io.print("put a = ${Map.put(m, "a", 9)}")
+    // remove then put moves the key to the END — the sequence counter does not
+    // roll back, which is observable and easy to get wrong.
+    io.print("remove+put a = ${Map.put(Map.remove(m, "a"), "a", 7)}")
+    io.print("remove z = ${Map.remove(m, "z")}")
+    io.print("merge = ${Map.merge({"a" => 1}, {"b" => 2, "a" => 9})}")
+    // The original survives all of it.
+    io.print("m still = ${m}")
+
+    // A duplicate key inside one literal: last write wins, first position kept.
+    io.print("dup = ${{"a" => 1, "b" => 2, "a" => 9}}")
+
+    // Order-insensitive equality.
+    io.print("eq unordered = ${{"a" => 1, "b" => 2} == {"b" => 2, "a" => 1}}")
+    io.print("neq value = ${{"a" => 1} != {"a" => 2}}")
+    io.print("neq size = ${{"a" => 1} != {"a" => 1, "b" => 2}}")
+
+    // Int keys. A Map whose VALUES are Lists is deliberately not rendered here:
+    // the interpreter cannot do it — `${{"xs" => [1, 2]}}` fails with
+    // "Display.to_string: no implementation for type 'List'", because `impl
+    // Display for Map<K, V>` dispatches `Display.to_string` on a type parameter
+    // and the interpreter does not resolve the List impl through it. A found-out
+    // front-end gap, not this slice's, and not worked around: the composite
+    // VALUE type is still exercised, through Map.size and Map.get below.
+    io.print("ints = ${{1 => "one", 2 => "two"}}")
+    io.print("nested size = ${Map.size({"xs" => [1, 2], "ys" => [3]})}")
+
+    // `Map.empty()` before any context has fixed K and V, and after. The untyped
+    // form renders `{=>}` from its type alone; the annotated one is discharged
+    // into a real `rt.Map[string, int64]` by coerce, the same way `[]` is.
+    io.print("bare empty = ${Map.empty()}")
+    annotated: Map<String, Int> = Map.empty()
+    io.print("annotated empty = ${annotated}")
+    io.print("annotated size = ${Map.size(annotated)}")
+    io.print("filled from empty = ${Map.put(annotated, "k", 1)}")
+    io.print("returned empty = ${blank()}")
+
+    // LIST keys — the case a Go map gets silently wrong. Not rendered whole, for
+    // the same interpreter gap noted above: `Display.to_string` on a type
+    // parameter does not reach `impl Display for List<T>`, so `${lists}` fails on
+    // the interpreter. Every read below uses a FRESH list, which is the part that
+    // matters: under Go's address equality these all answer None.
+    lists = {[1, 2] => "x", [3] => "y"}
+    io.print("list size = ${Map.size(lists)}")
+    io.print("list get = ${found_by_list(lists, [1, 2])}")
+    io.print("list get miss = ${found_by_list(lists, [1, 2, 3])}")
+    io.print("list put over = ${Map.size(Map.put(lists, [1, 2], "x2"))}")
+    io.print("list remove = ${Map.size(Map.remove(lists, [3]))}")
+    // NOT here: `{[] => "empty"}`. The key kind is the UNTYPED empty list, and
+    // widening a `Map<List<_>, V>` into a `Map<List<Int>, V>` would mean
+    // rehashing every key, which coerce cannot do to a built trie the way it can
+    // retype a nil list. Refused as an `argument type mismatch` today; found and
+    // deliberately not fixed.
+    // TUPLE keys.
+    pairs = {(1, 2) => "a", (3, 4) => "b"}
+    io.print("pair size = ${Map.size(pairs)}")
+    io.print("pair get = ${found_by_pair(pairs, (3, 4))}")
+    io.print("pair get miss = ${found_by_pair(pairs, (4, 3))}")
+
+    // A Float key. Nomi's `==` on Float is reflexive for NaN and collapses
+    // signed zero, so both must be retrievable — and a Map is where that law
+    // becomes visible, because an IEEE hash would lose the NaN key entirely.
+    zero = 0.0
+    nan = zero / zero
+    io.print("nan key = ${Map.contains_key?({nan => 1}, nan)}")
+    io.print("neg zero key = ${Map.contains_key?({zero => 1}, -zero)}")
+    io.print("nan is one key = ${Map.size({nan => 1, nan => 2})}")
+
+    // Bool keys: two inhabitants, and they must not collide.
+    io.print("bools = ${{True => 1, False => 2}}")
+
+    // A Map-typed parameter and return, and a Map-keyed Map.
+    io.print("counted = ${total({"a" => 1, "b" => 2, "c" => 3})}")
+    io.print("built = ${build()}")
+    io.print("map keyed = ${Map.size({{"a" => 1} => "inner"})}")
+    io.print("map key found = ${Map.contains_key?({{"a" => 1} => "inner"}, {"a" => 1})}")
+
+    // Evaluation ORDER: entries left to right, key before value.
+    io.print("order = ${{note("k1") => note("v1"), note("k2") => note("v2")}}")
+}
+
+fn note(s: String): String {
+    io.print("evaluating ${s}")
+    s
+}
+
+fn found(m: Map<String, Int>, key: String): String {
+    case Map.get(m, key) {
+        Some(v) -> "Some(${v})"
+        None -> "None"
+    }
+}
+
+fn found_by_list(m: Map<List<Int>, String>, key: List<Int>): String {
+    case Map.get(m, key) {
+        Some(v) -> "Some(${v})"
+        None -> "None"
+    }
+}
+
+fn found_by_pair(m: Map<(Int, Int), String>, key: (Int, Int)): String {
+    case Map.get(m, key) {
+        Some(v) -> "Some(${v})"
+        None -> "None"
+    }
+}
+
+fn total(m: Map<String, Int>): Int {
+    Map.size(m) * 10
+}
+
+fn build(): Map<String, Int> {
+    Map.put(Map.put({"seed" => 0}, "one", 1), "two", 2)
+}
+
+fn blank(): Map<String, Int> {
+    Map.empty()
+}

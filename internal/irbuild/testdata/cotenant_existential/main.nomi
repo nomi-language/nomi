@@ -1,0 +1,30 @@
+// The entry is OUTSIDE the cycle, so it is its own gen unit and
+// every call below crosses INTO the merged one. That is the second direction:
+// main also mirrors `App`, so the interface-typed field is imported both by a
+// CO-TENANT (wire, same package, bare spelling) and by a stranger (here,
+// qualified spelling), and a fix that served only one of the two would pass
+// half of this file.
+//
+// `banner` is called on both apps, so the same interface-typed field is read
+// twice with a different implementor behind it. The two answers differ in every
+// character on purpose — see core.nomi.
+import {
+    std/io
+    core.{self, Logger}
+    extra.{self}
+    wire.{self}
+}
+
+fn main() {
+    io.print(core.banner(wire.loud()))
+    io.print(core.banner(wire.hushed()))
+    io.print(core.origin())
+    // The field read back out and passed on WITHOUT being re-boxed, so the
+    // identity has to travel with the value across a package boundary rather than
+    // be re-derived at the use site.
+    a = wire.hushed()
+    io.print(Logger.log(a.logger, "again"))
+    // Both mirrors of `shared.Stamp` read from OUTSIDE the merged package, so the
+    // alias each co-tenant declares is exercised rather than merely emitted.
+    io.print("${wire.mark_text(wire.mark())}${extra.other_text(extra.other())}")
+}

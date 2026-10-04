@@ -1,0 +1,98 @@
+import {
+    std/duration.Duration
+    std/instant.Instant
+    std/io
+}
+
+// Probe: ARITHMETIC ON A NAMED TYPE, across two stdlib modules.
+//
+// `a + d` IS `Add.add(a, d)`: the interpreter resolves an operator through the
+// receiver type's `impl Add`, so a direct call to that impl is the semantics
+// rather than an approximation. Two things make this file more than a repeat of
+// `opaque_duration.nomi`:
+//
+//  1. The RHS TYPE is part of the impl's identity.
+//     `impl Add<Duration, Instant> for Instant` takes a Duration and answers an
+//     Instant; `impl Add<Duration, Duration> for Duration` answers a Duration;
+//     `impl Multiply<Int, Duration> for Duration` takes an Int. So `a + d`,
+//     `d + d` and `d * 3` select three different functions with three different
+//     result types, and a builder that keyed on the operator and the LEFT
+//     operand alone would pick wrongly here.
+//  2. `Instant.add`'s body is `Instant(nanos + Duration.as_nanos(rhs))` — a
+//     CROSS-MODULE stdlib reference. It is the whole reason this refused until
+//     the generated stdlib packages were allowed to import each other in one
+//     fixed direction; std/instant reaches std/duration and nothing reaches
+//     back. `Instant.between` is the same edge in the other spelling, returning
+//     a Duration built by `Duration.nanoseconds`.
+//
+// Every number below is checked against a whole-second Int, so an off-by-a-
+// factor-of-1e9 lowering of either module's constructor fails rather than
+// agreeing.
+fn seconds_between(a: Instant, b: Instant): Int {
+    Duration.as_seconds(Instant.between(a, b))
+}
+
+test "an Instant plus a Duration is an Instant" {
+    start = Instant.from_seconds(100)
+
+    io.print("plus 5s = ${Int.to_string(Instant.to_seconds(start + Duration.seconds(5)))}")
+    io.print("minus 5s = ${Int.to_string(Instant.to_seconds(start + Duration.seconds(-5)))}")
+
+    assert Instant.to_seconds(start + Duration.seconds(5)) == 105
+    assert Instant.to_seconds(start + Duration.seconds(-5)) == 95
+    assert Instant.to_seconds(start + Duration.minutes(2)) == 220
+}
+
+test "the rhs type selects the impl, and the impl decides the result type" {
+    d = Duration.seconds(2)
+
+    // Duration + Duration -> Duration; Duration * Int -> Duration.
+    assert Duration.as_seconds(d + Duration.seconds(3)) == 5
+    assert Duration.as_seconds(d - Duration.seconds(3)) == -1
+    assert Duration.as_seconds(d * 3) == 6
+    assert Duration.as_seconds(d / 2) == 1
+
+    // Instant + Duration -> Instant, which is a different type entirely.
+    assert Instant.to_seconds(Instant.from_seconds(7) + d) == 9
+}
+
+test "Instant.between returns a Duration across the module boundary" {
+    a = Instant.from_seconds(10)
+    b = Instant.from_seconds(15)
+
+    io.print("between = ${Int.to_string(seconds_between(a, b))}")
+
+    assert seconds_between(a, b) == 5
+    assert seconds_between(b, a) == -5
+    assert seconds_between(a, a) == 0
+    assert Duration.as_nanos(Instant.between(a, b)) == 5_000_000_000
+}
+
+test "adding a Duration is associative with building one" {
+    start = Instant.from_seconds(0)
+
+    assert Instant.to_seconds(start + Duration.seconds(1) + Duration.seconds(2)) == 3
+
+    assert Instant.to_seconds(start + (Duration.seconds(1) + Duration.seconds(2))) == 3
+}
+
+test "std/duration's package is pulled in transitively, with no Duration call here" {
+    base = Instant.from_seconds(100)
+    a = Instant.from_seconds(10)
+    b = Instant.from_seconds(15)
+
+    // Every name here is std/instant's. The Duration that `Instant.between`
+    // returns is built by std/duration and consumed by std/instant's own `add`,
+    // so this program NEVER names a `Duration.` function — yet the generated
+    // artifact must still contain std/duration's package.
+    //
+    // That makes Generate's transitive closure load-bearing rather than
+    // decorative. MEASURED: with the closure removed, the tests above still
+    // build (they call `Duration.seconds`, so the package is a DIRECT use) and
+    // only this one fails to compile. A fixture without it cannot see the
+    // mutation at all.
+    io.print("shifted = ${Int.to_string(Instant.to_seconds(base + Instant.between(a, b)))}")
+
+    assert Instant.to_seconds(base + Instant.between(a, b)) == 105
+    assert Instant.to_seconds(base + Instant.between(b, a)) == 95
+}

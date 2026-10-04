@@ -1,0 +1,6 @@
+gopkg "callbackffiapp" as ffi
+
+pub fn apply_twice(
+    s: String,
+    f: (String) -> Result<String, String>,
+): Result<String, String> go ffi.ApplyTwice

@@ -1,0 +1,14 @@
+import thing.{Alpha, Thing}
+
+impl Alpha for Thing {
+    fn go(x: Thing): Int {
+        x.n + 1
+    }
+}
+
+// The import in main.nomi has to be USED or the analyzer refuses the file, and
+// `Thing.go` does not count as a use of this file. So there is something else
+// to call.
+pub fn touch(): Int {
+    1
+}

@@ -1,0 +1,228 @@
+import std/compiler
+
+fn add(x: Int, y: Int): Int {
+    x + y
+}
+
+fn double(x: Int): Int {
+    x * 2
+}
+
+fn greet(name: String, greeting: String = "Hello", punctuation: String = "!"): String {
+    greeting + ", " + name + punctuation
+}
+
+fn abs(x: Int): Int {
+    if x < 0 { return -x }
+    x
+}
+
+fn fib(n: Int): Int {
+    if n < 2 { n } else { fib(n - 1) + fib(n - 2) }
+}
+
+fn trailing(host: String, port: Int = 8080, timeout: Int = 30): String {
+    "${host}:${port}:${timeout}"
+}
+
+fn middle_default(a: Int, b: Int = 10, c: Int): Int {
+    a * 100 + b * 10 + c
+}
+
+fn many_defaults(a: Int = 1, b: Int = 2, c: Int = 3, d: Int = 4): Int {
+    a * 1000 + b * 100 + c * 10 + d
+}
+
+fn transform(x: Int, factor: Int = 1, f: (Int) -> Int): Int {
+    f(x * factor)
+}
+
+fn divide(a: Int, b: Int): Int {
+    a / b
+}
+
+fn add3(a: Int, b: Int, c: Int): Int {
+    a + b + c
+}
+
+fn one_skip(_opt: String = "x", cb: (Int) -> Int): Int {
+    cb(1)
+}
+
+fn two_skip(req: Int, _opt_a: String = "a", opt_b: Int = 2, cb: (Int) -> Int): Int {
+    cb(req + opt_b)
+}
+
+fn no_skip(req: Int, cb: (Int) -> Int): Int {
+    cb(req)
+}
+
+test "functions call return recurse and pass as values" {
+    f = double
+
+    assert add(3, 4) == 7
+    assert double(5) == 10
+    assert f(3) == 6
+    assert abs(-42) == 42
+    assert abs(10) == 10
+    assert fib(10) == 55
+}
+
+test "default arguments fill omitted slots" {
+    assert greet("World") == "Hello, World!"
+    assert greet("World", "Hi") == "Hi, World!"
+    assert trailing("h") == "h:8080:30"
+    assert trailing("h", 3000) == "h:3000:30"
+    assert trailing("h", 3000, 10) == "h:3000:10"
+    assert trailing("h", timeout: 10) == "h:8080:10"
+    assert trailing("h", port: 3000) == "h:3000:30"
+    assert middle_default(1, 2, 3) == 123
+    assert middle_default(1, c: 3) == 203
+    assert middle_default(a: 1, c: 3) == 203
+    assert middle_default(a: 1, b: 5, c: 3) == 153
+    assert many_defaults() == 1234
+    assert many_defaults(9) == 9234
+    assert many_defaults(d: 7) == 1237
+    assert many_defaults(b: 5, d: 7) == 1537
+    assert many_defaults(9, 8, 7, 6) == 9876
+}
+
+test "named arguments reorder skip and pipe into calls" {
+    result =
+        "localhost"
+        |> trailing(timeout: 10)
+
+    assert trailing("localhost") == "localhost:8080:30"
+    assert trailing("localhost", timeout: 10) == "localhost:8080:10"
+    assert trailing(host: "localhost", port: 3000, timeout: 5) == "localhost:3000:5"
+
+    assert greet("Bob", punctuation: "?") == "Hello, Bob?"
+    assert transform(5, factor: 3, f: |x| x + 1) == 16
+    assert result == "localhost:8080:10"
+    assert divide(b: 5, a: 100) == 20
+}
+
+test "partial application preserves open argument names and defaults" {
+    half = divide(_, 2)
+    divide_from_10 = divide(10, _)
+    ab = add3(_, _, 100)
+    with_h = trailing("h", _, 10)
+    port_only = trailing("h", _)
+    named_port = trailing("h", port: _, timeout: 10)
+    hp = trailing(_, port: _)
+
+    assert half(20) == 10
+    assert half(a: 20) == 10
+    assert divide_from_10(2) == 5
+    assert divide_from_10(b: 5) == 2
+    assert ab(1, 2) == 103
+    assert ab(b: 2, a: 1) == 103
+    assert with_h(3000) == "h:3000:10"
+    assert port_only(3000) == "h:3000:30"
+    assert port_only() == "h:8080:30"
+    assert named_port(3000) == "h:3000:10"
+    assert named_port(port: 3000) == "h:3000:10"
+    assert hp("localhost", 3000) == "localhost:3000:30"
+    assert hp("localhost") == "localhost:8080:30"
+}
+
+test "lambdas as callees support defaults names partials and trailing callbacks" {
+    f1 = |x: Int| x + 1
+    f2 = |x = 100, y: Int| x + y
+    f3 = |x: Int, y = 10| x + y
+    g = |a = 1, b = 2| a + b
+    h = |x: Int, y: Int| x * 10 + y
+    half = h(_, 5)
+    fix_x = h(x: _, y: 9)
+    port_only = g(_, b: 100)
+    caller = |a: Int, _label = "z", cb: (Int) -> Int| cb(a)
+
+    assert f1(10) == 11
+    assert f2(7, 8) == 15
+    assert f2(y: 5) == 105
+    assert f3(5) == 15
+    assert f3(5, 20) == 25
+    assert g() == 3
+    assert g(b: 5) == 6
+    assert g(9) == 11
+    assert h(x: 1, y: 2) == 12
+    assert h(y: 2, x: 1) == 12
+    assert h(1, y: 2) == 12
+    assert half(2) == 25
+    assert half(x: 2) == 25
+    assert fix_x(3) == 39
+    assert port_only(7) == 107
+    assert port_only() == 101
+    assert caller(7, |x| x * 2) == 14
+    assert caller(7, _label: "tag", |x| x + 100) == 107
+}
+
+// A trailing *function* routes like a trailing lambda. The rule is about
+// which parameter slot is still open, not about which syntax the argument
+// was written in — so a named function passed by reference lands where an
+// inline lambda would.
+test "a trailing named function routes like a trailing lambda" {
+    assert one_skip(double) == 2
+    assert two_skip(5, double) == 14
+    assert no_skip(9, double) == 18
+    assert two_skip(5, opt_b: 100, double) == 210
+    assert two_skip(5, _opt_a: "z", double) == 14
+    assert two_skip(req: 5, double) == 14
+
+    piped =
+        5
+        |> two_skip(opt_b: 100, double)
+
+    assert piped == 210
+}
+
+// A positional written *before* a named argument still means the slot it
+// sits in, so naming that same slot is the duplicate it reads as — the skip
+// that makes `two_skip(5, opt_b: 100, double)` work must not reinterpret
+// this one as `sum(b: 1, a: 2)`.
+test "a positional before a named argument does not skip its slot" {
+    result =
+        """
+            import std/io
+            fn sum(a: Int, b: Int): Int { a + b }
+
+            fn main() {
+              io.print(Display.to_string(sum(1, a: 2)))
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains?(message, "already has a value")
+}
+
+test "trailing lambdas route across defaulted parameters and pipes" {
+    no_skip_result =
+        9
+        |> no_skip(|x| x * 2)
+
+    two_skip_result =
+        5
+        |> two_skip(|x| x * 10)
+
+    with_opt_b =
+        5
+        |> two_skip(opt_b: 100, |x| x)
+
+    with_opt_a =
+        5
+        |> two_skip(_opt_a: "z", |x| x)
+
+    assert one_skip(|x| x + 100) == 101
+    assert two_skip(5, |x| x * 10) == 70
+    assert no_skip(9, |x| x * 2) == 18
+    assert two_skip(5, opt_b: 100, |x| x) == 105
+    assert two_skip(5, _opt_a: "z", |x| x) == 7
+    assert two_skip(5, opt_b: 100, cb: |x| x) == 105
+    assert two_skip(req: 3, cb: |x| x + 1) == 6
+    assert two_skip(req: 5, |x| x) == 7
+    assert no_skip_result == 18
+    assert two_skip_result == 70
+    assert with_opt_b == 105
+    assert with_opt_a == 7
+}

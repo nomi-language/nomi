@@ -1,0 +1,114 @@
+//# Where tasks are kept between runs. `Store` is what the commands use;
+//# `SqliteStore` keeps tasks in a SQLite file.
+
+import {
+    std/instant.Instant
+    sql_literals/sql.{Query, Sql}
+    sqlite/sqlite
+    task.{Status, Task}
+}
+
+pub interface Store {
+    fn load(store: self): Result<Map<Int, Task>, String>
+    fn save(store: self, task: Task): Result<Unit, String>
+    fn delete(store: self, id: Int): Result<Unit, String>
+}
+
+/// Tasks in the SQLite database at `path`. Each operation opens the database
+/// and closes it before it returns.
+pub struct SqliteStore {
+    path: String
+}
+
+impl Store for SqliteStore {
+    fn load(store: SqliteStore): Result<Map<Int, Task>, String> {
+        conn = try connect(store.path)
+        defer sqlite.close(conn)
+
+        rows = try query_all(conn, Sql"SELECT id, title, created, status FROM tasks")
+
+        Iter.reduce(rows, |tasks = Ok(Map.empty()), row| {
+            tasks = try tasks
+            task = try parse_row(row)
+            Ok(Map.put(tasks, task.id, task))
+        })
+    }
+
+    fn save(store: SqliteStore, task: Task): Result<Unit, String> {
+        conn = try connect(store.path)
+        defer sqlite.close(conn)
+
+        created = Instant.to_seconds(task.created)
+
+        // `try` and then `Ok`, rather than ending on the `exec(...)` call: a call
+        // in tail position runs after the deferred close.
+        try exec(
+            conn,
+            Sql"""
+            INSERT OR REPLACE INTO tasks (id, title, created, status)
+            VALUES (${task.id}, ${task.title}, ${created}, ${task.status})
+            """,
+        )
+
+        Ok(Unit)
+    }
+
+    fn delete(store: SqliteStore, id: Int): Result<Unit, String> {
+        conn = try connect(store.path)
+        defer sqlite.close(conn)
+
+        try exec(conn, Sql"DELETE FROM tasks WHERE id = ${id}")
+        Ok(Unit)
+    }
+}
+
+fn connect(path: String): Result<sqlite.Conn, String> {
+    conn = try sqlite.open(path)
+
+    created = exec(
+        conn,
+        Sql"""
+        CREATE TABLE IF NOT EXISTS tasks (
+          id INTEGER PRIMARY KEY,
+          title TEXT NOT NULL,
+          created INTEGER NOT NULL,
+          status TEXT NOT NULL
+        )
+        """,
+    )
+
+    case created {
+        Ok(_) ->
+            Ok(conn)
+
+        Err(e) -> {
+            sqlite.close(conn)
+            Err("create the tasks table: ${e}")
+        }
+    }
+}
+
+fn parse_row(row: List<String>): Result<Task, String> {
+    malformed = "malformed task row: ${row}"
+
+    case row {
+        [id, title, created, status] -> Ok(Task{
+            id: id |> String.to_int() |> try Result.from_maybe(malformed),
+            title,
+            created: created
+            |> String.to_int()
+            |> Maybe.map(Instant.from_seconds)
+            |> try Result.from_maybe(malformed),
+            status: status |> Status.parse() |> try Result.from_maybe(malformed),
+        })
+        _ -> Err(malformed)
+    }
+}
+
+fn exec(conn: sqlite.Conn, query: Query): Result<Unit, String> {
+    sqlite.exec(conn, query.sql, query.args)
+}
+
+fn query_all(conn: sqlite.Conn, query: Query): Result<List<List<String>>, String> {
+    sqlite.query_all(conn, query.sql, query.args)
+}

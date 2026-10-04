@@ -1,0 +1,21 @@
+gopkg "inlinegoblockapp" as ffi
+
+opaque type RawBox go ffi.Box
+
+pub fn echo_upper(s: String): String go ffi.EchoUpper
+
+fn make_box_raw(label: String): RawBox go ffi.MakeBox
+
+fn box_label_raw(box: RawBox): String go ffi.BoxLabel
+
+pub opaque struct Box {
+    raw: RawBox
+}
+
+pub fn make_box(label: String): Box {
+    Box{raw: make_box_raw(label)}
+}
+
+pub fn box_label(box: Box): String {
+    box_label_raw(box.raw)
+}

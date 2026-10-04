@@ -1,0 +1,109 @@
+//# A dotted type name is one name in expression position too.
+//#
+//# `Probe.Reading` is a single name whose spelling contains a dot, so the
+//# qualifier in `Probe.Reading.Steady` is the whole thing — not `Probe`
+//# with `Reading` looked up inside it. Crossing a file boundary is where
+//# that has to be true rather than merely tidy: the importer binds
+//# `Probe.Reading` and never binds `Probe`, so walking into the leading
+//# segment finds nothing to walk into.
+
+import {
+    std/tasks.Outcome
+    signal.Signal.Level
+    telemetry
+    telemetry.Probe.Reading
+}
+
+/// The same shape declared locally, so both routes to a dotted name — one
+/// declared here, one imported — are checked against each other.
+pub enum Probe.Local {
+    On
+    Off
+}
+
+fn local_on?(l: Probe.Local): Bool {
+    case l {
+        .On -> True
+        .Off -> False
+    }
+}
+
+test "a variant reached through its imported dotted enum name" {
+    r = Probe.Reading.Steady
+    assert telemetry.severity(r) == 0
+}
+
+test "a data-carrying variant through the same qualifier" {
+    r = Probe.Reading.Spike(3)
+    assert telemetry.severity(r) == 3
+}
+
+test "the dot-shorthand still reads the annotation" {
+    r: Probe.Reading = .Spike(5)
+    assert telemetry.severity(r) == 5
+}
+
+test "a dotted name declared in this file resolves the same way" {
+    l = Probe.Local.On
+    assert local_on?(l)
+    refute local_on?(Probe.Local.Off)
+}
+
+test "a stdlib dotted enum takes its own name as the qualifier" {
+    cancelled: Outcome<Unit> = Outcome.Cancelled
+    done: Outcome<Int> = Outcome.Completed(42)
+
+    assert cancelled == Outcome.Cancelled
+    assert done == Outcome.Completed(42)
+}
+
+test "naming a dotted import only as a qualifier still uses the import" {
+    // No annotation anywhere spells `Signal.Level` — the qualifier is the
+    // only mention, and it is a use.
+    assert Signal.Level.Low == Signal.Level.Low
+    refute Signal.Level.Low == Signal.Level.High
+}
+
+test "a dotted name is the qualifier in pattern position too" {
+    // All but the last segment names the owner, so the variant here belongs
+    // to `Probe.Reading` — matching what construction spells.
+    got = case Probe.Reading.Spike(4) {
+        Probe.Reading.Steady -> 0
+        Probe.Reading.Spike(n) -> n
+        Probe.Reading.Blip{at} -> at
+    }
+
+    assert got == 4
+}
+
+test "a struct-shaped variant of a dotted enum, built and matched" {
+    b = Probe.Reading.Blip{at: 9}
+
+    got = case b {
+        Probe.Reading.Blip{at} -> at
+        Probe.Reading.Steady -> 0
+        Probe.Reading.Spike(n) -> n
+    }
+
+    assert got == 9
+}
+
+test "nested inside another pattern, and a stdlib dotted enum" {
+    inner = case Maybe.Some(Probe.Reading.Steady) {
+        Some(Probe.Reading.Steady) -> 1
+        Some(Probe.Reading.Spike(n)) -> n
+        Some(Probe.Reading.Blip{at}) -> at
+        None -> 0
+    }
+
+    outcome: Outcome<Int> = Outcome.Completed(42)
+
+    got = case outcome {
+        Outcome.Completed(v) -> v
+        Outcome.Cancelled -> 0
+        Outcome.Failed(_) -> 0
+    }
+
+    assert inner == 1
+    assert got == 42
+}

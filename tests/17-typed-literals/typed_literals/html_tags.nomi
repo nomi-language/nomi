@@ -1,0 +1,53 @@
+import std/literals.{Fragment, Literal}
+
+// Two tag types in one file — `Safe` and `Raw` live side by side,
+// dispatching to opposite escaping policies through their own
+// `Literal` impls.
+//
+// Both impls exercise the per-fragment Static/Dynamic distinction
+// — a property the Fragment ADT exposes that a plain `fn(s: String)`
+// can't see, since the caller would have already concatenated
+// everything before the call. The same `${user_input}` reaches `Safe`
+// HTML-escaped and `Raw` verbatim.
+/// `Safe"<p>${input}</p>"` — Static text is trusted (verbatim);
+/// Dynamic slots are HTML-escaped before concatenation. The impl
+/// sees Static vs Dynamic separately, which is how it tells trusted
+/// template chrome apart from untrusted user input.
+pub type Safe
+
+/// HTML-escape a single piece of untrusted text. Static fragments
+/// (literal source text) bypass this — only Dynamic slots flow
+/// through.
+fn escape(s: String): String {
+    String.replace(s, "&", "&amp;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
+    |> String.replace("\"", "&quot;")
+}
+
+impl Literal for Safe {
+    fn from_fragments(fragments: List<Fragment<String>>): String {
+        Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + escape(v)
+            }
+        )
+    }
+}
+
+/// `Raw"<p>${html}</p>"` — same shape, opposite policy: everything is
+/// trusted, no escaping. The contrast with `Safe` is the point — same
+/// source, same fragments list, different impl semantics.
+pub type Raw
+
+impl Literal for Raw {
+    fn from_fragments(fragments: List<Fragment<String>>): String {
+        Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        )
+    }
+}

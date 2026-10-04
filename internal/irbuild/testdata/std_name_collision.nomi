@@ -1,0 +1,339 @@
+// User types named after stdlib types, which this file does not import.
+//
+// A type's identity is its declaring file and its name, so each of these is
+// this file's own type and every call on it is this file's function. The
+// builder once recognised `Task.*`, `Channel.*`, `Sender.*`, `Receiver.*` and
+// `Supervisor.spawn` by spelling and lowered them as std/tasks, std/channels
+// and std/supervisors calls, which declined; and the checker applied
+// std/tasks' concurrent-block rule to a user `Task.spawn` and
+// std/supervisors' boot rule to a user `Supervisor.new`. The second group of
+// functions carries exactly those std names.
+import std/io
+
+struct Duration {
+    n: Int
+}
+
+impl Duration {
+    fn value(x: Duration): Int {
+        x.n
+    }
+}
+
+impl Display for Duration {
+    fn to_string(x: Duration): String {
+        "Duration(${x.n})"
+    }
+}
+
+struct Date {
+    n: Int
+}
+
+impl Date {
+    fn value(x: Date): Int {
+        x.n
+    }
+}
+
+impl Display for Date {
+    fn to_string(x: Date): String {
+        "Date(${x.n})"
+    }
+}
+
+struct Request {
+    n: Int
+}
+
+impl Request {
+    fn value(x: Request): Int {
+        x.n
+    }
+}
+
+impl Display for Request {
+    fn to_string(x: Request): String {
+        "Request(${x.n})"
+    }
+}
+
+struct Response {
+    n: Int
+}
+
+impl Response {
+    fn value(x: Response): Int {
+        x.n
+    }
+}
+
+impl Display for Response {
+    fn to_string(x: Response): String {
+        "Response(${x.n})"
+    }
+}
+
+struct Header {
+    n: Int
+}
+
+impl Header {
+    fn value(x: Header): Int {
+        x.n
+    }
+}
+
+impl Display for Header {
+    fn to_string(x: Header): String {
+        "Header(${x.n})"
+    }
+}
+
+struct Json {
+    n: Int
+}
+
+impl Json {
+    fn value(x: Json): Int {
+        x.n
+    }
+}
+
+impl Display for Json {
+    fn to_string(x: Json): String {
+        "Json(${x.n})"
+    }
+}
+
+struct Seed {
+    n: Int
+}
+
+impl Seed {
+    fn value(x: Seed): Int {
+        x.n
+    }
+}
+
+impl Display for Seed {
+    fn to_string(x: Seed): String {
+        "Seed(${x.n})"
+    }
+}
+
+struct Task {
+    n: Int
+}
+
+impl Task {
+    fn value(x: Task): Int {
+        x.n
+    }
+
+    fn spawn(n: Int): Task {
+        Task{n: n * 10}
+    }
+
+    fn spawn_all(x: Task): Int {
+        x.n + 1
+    }
+
+    fn await(x: Task): Int {
+        x.n + 1
+    }
+}
+
+impl Display for Task {
+    fn to_string(x: Task): String {
+        "Task(${x.n})"
+    }
+}
+
+struct Sender {
+    n: Int
+}
+
+impl Sender {
+    fn value(x: Sender): Int {
+        x.n
+    }
+
+    fn send(x: Sender): Int {
+        x.n + 1
+    }
+}
+
+impl Display for Sender {
+    fn to_string(x: Sender): String {
+        "Sender(${x.n})"
+    }
+}
+
+struct Receiver {
+    n: Int
+}
+
+impl Receiver {
+    fn value(x: Receiver): Int {
+        x.n
+    }
+
+    fn receive(x: Receiver): Int {
+        x.n + 1
+    }
+}
+
+impl Display for Receiver {
+    fn to_string(x: Receiver): String {
+        "Receiver(${x.n})"
+    }
+}
+
+struct Channel {
+    n: Int
+}
+
+impl Channel {
+    fn value(x: Channel): Int {
+        x.n
+    }
+
+    fn buffered(n: Int): Channel {
+        Channel{n: n * 10}
+    }
+}
+
+impl Display for Channel {
+    fn to_string(x: Channel): String {
+        "Channel(${x.n})"
+    }
+}
+
+struct Supervisor {
+    n: Int
+}
+
+impl Supervisor {
+    fn value(x: Supervisor): Int {
+        x.n
+    }
+
+    fn new(n: Int): Supervisor {
+        Supervisor{n: n * 10}
+    }
+
+    fn spawn(n: Int): Supervisor {
+        Supervisor{n: n * 10}
+    }
+
+    fn spawn_all(x: Supervisor): Int {
+        x.n + 1
+    }
+}
+
+impl Display for Supervisor {
+    fn to_string(x: Supervisor): String {
+        "Supervisor(${x.n})"
+    }
+}
+
+fn main() {
+    v_duration = Duration{n: 3}
+    v_duration |> Duration.value() |> io.print()
+
+    io.print(v_duration.n)
+    io.print(Display.to_string(v_duration))
+    io.print("${v_duration}")
+    io.print(Debug.inspect(v_duration))
+    v_date = Date{n: 3}
+    v_date |> Date.value() |> io.print()
+
+    io.print(v_date.n)
+    io.print(Display.to_string(v_date))
+    io.print("${v_date}")
+    io.print(Debug.inspect(v_date))
+    v_request = Request{n: 3}
+    v_request |> Request.value() |> io.print()
+
+    io.print(v_request.n)
+    io.print(Display.to_string(v_request))
+    io.print("${v_request}")
+    io.print(Debug.inspect(v_request))
+    v_response = Response{n: 3}
+    v_response |> Response.value() |> io.print()
+
+    io.print(v_response.n)
+    io.print(Display.to_string(v_response))
+    io.print("${v_response}")
+    io.print(Debug.inspect(v_response))
+    v_header = Header{n: 3}
+    v_header |> Header.value() |> io.print()
+
+    io.print(v_header.n)
+    io.print(Display.to_string(v_header))
+    io.print("${v_header}")
+    io.print(Debug.inspect(v_header))
+    v_json = Json{n: 3}
+    v_json |> Json.value() |> io.print()
+
+    io.print(v_json.n)
+    io.print(Display.to_string(v_json))
+    io.print("${v_json}")
+    io.print(Debug.inspect(v_json))
+    v_seed = Seed{n: 3}
+    v_seed |> Seed.value() |> io.print()
+
+    io.print(v_seed.n)
+    io.print(Display.to_string(v_seed))
+    io.print("${v_seed}")
+    io.print(Debug.inspect(v_seed))
+    v_task = Task{n: 3}
+    v_task |> Task.value() |> io.print()
+
+    io.print(v_task.n)
+    io.print(Display.to_string(v_task))
+    io.print("${v_task}")
+    io.print(Debug.inspect(v_task))
+    v_sender = Sender{n: 3}
+    v_sender |> Sender.value() |> io.print()
+
+    io.print(v_sender.n)
+    io.print(Display.to_string(v_sender))
+    io.print("${v_sender}")
+    io.print(Debug.inspect(v_sender))
+    v_receiver = Receiver{n: 3}
+    v_receiver |> Receiver.value() |> io.print()
+
+    io.print(v_receiver.n)
+    io.print(Display.to_string(v_receiver))
+    io.print("${v_receiver}")
+    io.print(Debug.inspect(v_receiver))
+    v_channel = Channel{n: 3}
+    v_channel |> Channel.value() |> io.print()
+
+    io.print(v_channel.n)
+    io.print(Display.to_string(v_channel))
+    io.print("${v_channel}")
+    io.print(Debug.inspect(v_channel))
+    v_supervisor = Supervisor{n: 3}
+    v_supervisor |> Supervisor.value() |> io.print()
+
+    io.print(v_supervisor.n)
+    io.print(Display.to_string(v_supervisor))
+    io.print("${v_supervisor}")
+    io.print(Debug.inspect(v_supervisor))
+    io.print(Task.spawn(4))
+    Task{n: 4} |> Task.spawn_all() |> io.print()
+
+    Task{n: 4} |> Task.await() |> io.print()
+
+    Sender{n: 4} |> Sender.send() |> io.print()
+
+    Receiver{n: 4} |> Receiver.receive() |> io.print()
+
+    io.print(Channel.buffered(4))
+    io.print(Supervisor.new(4))
+    io.print(Supervisor.spawn(4))
+    Supervisor{n: 4} |> Supervisor.spawn_all() |> io.print()
+}

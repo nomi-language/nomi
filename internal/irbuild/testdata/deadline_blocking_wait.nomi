@@ -1,0 +1,130 @@
+// A REBOUND DEADLINE MUST BOUND WHAT A SCOPE WAITS ON, not only what it reads.
+//
+// `with Run.context = Context.with_timeout(…) { … }` writes the tightened Context into the
+// app-field cell, where `Context.deadline_remaining` reads it. Every BLOCKING
+// operation has to observe it as well. Eight of them select on the frame's Go
+// context: `timer.sleep`, `Sender.send`, `Receiver.receive`, `Task.await`,
+// `Task.outcome`, the `concurrent` scope wait, `Supervisor.flush`, and the
+// `CancelIfDone` safe point. So the rebound Nomi deadline has to reach that
+// Go context too.
+//
+// Getting this wrong is invisible to most output comparisons, because a
+// deadline that is only too LOOSE produces no wrong string: a blocking call
+// that consulted the unfloored deadline would simply wait too long.
+// `rt.ContextWithFloor` and `rt/context.go` state the same requirement from
+// the runtime side.
+//
+// The shape is the tour's `concurrency.md:L812`, which bounds a five-minute
+// sleep with a 50ms deadline and answers in a fraction of a second. The corpus
+// carries the shape as well, so the check does not depend on the tour.
+//
+// A run that ignores the rebound deadline prints no wrong line here either. It
+// hangs for the hour `slow` sleeps, and the harness's timeout is what reports
+// it; the output rows below then say which scope was waiting and which was
+// not.
+//
+// # THE REAL CLOCK, DELIBERATELY, AND NOT A COUNTER
+//
+// No `clock Clock.Virtual` and no `tests` group that would put this in a
+// `testing/synctest` bubble. Virtual time makes a sleep INSTANT, so this file
+// would pass under it whether the deadline is observed or not — the bug
+// survives precisely where the sleep is real. The trade is that the file takes
+// real milliseconds; the sleeps are sized so a correct implementation finishes
+// in well under a second and a broken one takes an hour.
+//
+// It is also not a counter. Nothing here asserts "cancellation was polled N
+// times": the observable is that a bounded wait RESOLVES EARLY and reports
+// `Cancelled`, which is what a reader of std/timer is promised
+// ("cancellation of that block's context ends the sleep early without
+// producing a user-visible error") and what no safe point can deliver, because
+// a blocking sleep reaches none of the three.
+//
+// The unbounded control is what makes the bounded rows non-vacuous: without it
+// a build that reported `Cancelled` for every task would pass.
+import {
+    std/duration.Duration
+    std/io
+    std/tasks.{Outcome, Task}
+    std/timer
+}
+
+// The context is read and replaced as an application field, which needs a
+// boot to name the application type.
+struct Run {
+    context: Context
+}
+
+fn boot(): Run {
+    Run{context: Context.root()}
+}
+
+// An hour, so a wait that is not bounded cannot finish inside any timeout.
+fn slow(): Int {
+    timer.sleep(Duration.hours(1))
+    1
+}
+
+fn quick(): Int {
+    timer.sleep(Duration.milliseconds(1))
+    2
+}
+
+// The deadline covers `slow` and nothing else. `Task.outcome` sits outside it.
+fn slow_bounded(): Int {
+    with Run.context = Context.with_timeout(Run.context, Duration.milliseconds(20))
+    slow()
+}
+
+// A deadline the work fits inside, so the bounded case is not "always
+// cancelled". Same construct, opposite answer.
+fn quick_bounded(): Int {
+    with Run.context = Context.with_timeout(Run.context, Duration.seconds(30))
+    quick()
+}
+
+fn describe(label: String, outcome: Outcome<Int>): Unit {
+    case outcome {
+        .Completed(v) -> io.print(label + ": completed " + Display.to_string(v))
+        .Cancelled -> io.print(label + ": cancelled")
+        .Failed(_) -> io.print(label + ": failed")
+    }
+}
+
+fn main() {
+    // BOUNDED AND EXCEEDED: the sleep must end early and the task unwind.
+    bounded = concurrent {
+        t = Task.spawn(|| slow_bounded())
+        Task.outcome(t)
+    }
+
+    describe("bounded", bounded)
+
+    // BOUNDED AND MET: the same construct with room to finish. The control that
+    // stops the row above from passing for a build that cancels everything.
+    met = concurrent {
+        t = Task.spawn(|| quick_bounded())
+        Task.outcome(t)
+    }
+
+    describe("met", met)
+
+    // NO REBIND AT ALL: a deadline-free scope must still complete, so the frame
+    // the rebind installs is shown to be scoped rather than sticky.
+    plain = concurrent {
+        t = Task.spawn(|| quick())
+        Task.outcome(t)
+    }
+
+    describe("plain", plain)
+
+    // AFTER the bounded scope has exited, in the SAME activation: the caller's
+    // own waits must not have inherited the child's deadline. This is what the
+    // frame restore buys, and a build that installed the deadline without
+    // restoring it would print `cancelled` here.
+    after = concurrent {
+        t = Task.spawn(|| quick())
+        Task.outcome(t)
+    }
+
+    describe("after", after)
+}

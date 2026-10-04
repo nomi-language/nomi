@@ -1,0 +1,44 @@
+import std/io
+
+// Probe: `return` INSIDE A LAMBDA IS LAMBDA-SCOPED.
+//
+// This is a Nomi-specific rule and the single most likely place a compiled
+// engine silently gets its host language's answer instead. Both failure modes are observable here: if
+// the lambda's `return` escaped to the enclosing function, the print below it
+// would never run and the function's result would be the bare word rather than
+// the wrapped one.
+fn scoped(n: Int): String {
+    classify = |x: Int|
+        if x > 0 {
+            return "positive"
+        } else {
+            "non-positive"
+        }
+
+    inner = classify(n)
+    io.print("  lambda returned ${inner}")
+    "wrapped(${inner})"
+}
+
+// A `return` in a nested lambda exits only the INNER lambda.
+fn nested(n: Int): String {
+    outer = |x: Int| {
+        inner = |y: Int|
+            if y > 0 {
+                return "inner-positive"
+            } else {
+                "inner-other"
+            }
+
+        "outer(${inner(x)})"
+    }
+
+    "fn(${outer(n)})"
+}
+
+fn main() {
+    io.print(scoped(1))
+    io.print(scoped(-1))
+    io.print(nested(1))
+    io.print(nested(-1))
+}

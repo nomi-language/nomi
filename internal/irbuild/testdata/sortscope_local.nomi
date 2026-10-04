@@ -1,0 +1,72 @@
+import {
+    std/comparable.Direction
+    std/io
+}
+
+// The CONTROL for testdata/sortscope/, differing in exactly ONE thing: the
+// `impl Comparable` is written in THIS file rather than in a sibling.
+//
+// It lowered before the widening and lowers after it, and that is its whole job.
+// A one-sided fixture cannot tell "the sibling lookup was added" from "the
+// ordering path was widened for everything" — the first is the change, the second
+// would be a divergence, since the interpreter's ordering is not total over every
+// kind (see orderingOf's measured Int/Float boundary). Keeping the two files
+// row-for-row parallel is what makes the difference between them attributable.
+//
+// Deliberately NOT a copy of the sibling file's rows: the SCALAR rows live only
+// in sortscope/main.nomi, because the scalar gate has nothing to do with where an
+// impl is written and duplicating it here would make a scalar regression fail two
+// tests and locate neither.
+pub struct Widget {
+    weight: Int
+}
+
+pub fn make(weight: Int): Widget {
+    Widget{weight}
+}
+
+impl Comparable for Widget {
+    fn compare(a: Widget, b: Widget): Ordering {
+        Int.compare(a.weight, b.weight)
+    }
+}
+
+pub struct Backwards {
+    n: Int
+}
+
+pub fn back(n: Int): Backwards {
+    Backwards{n}
+}
+
+impl Comparable for Backwards {
+    fn compare(a: Backwards, b: Backwards): Ordering {
+        Int.compare(b.n, a.n)
+    }
+}
+
+fn main() {
+    ws = [make(3), make(1), make(2)]
+    bs = [back(3), back(1), back(2)]
+
+    io.print("sort widget ${Iter.sort(ws) |> Iter.map(|w| w.weight) |> Iter.to_list()}")
+    io.print("sort backwards ${Iter.sort(bs) |> Iter.map(|b| b.n) |> Iter.to_list()}")
+
+    io.print(
+        "sort_by widget ${Iter.sort_by(ws, |w| w)
+        |> Iter.map(|w| w.weight)
+        |> Iter.to_list()}"
+    )
+
+    io.print(
+        "sort widget desc ${Iter.sort(ws, Direction.Descending)
+        |> Iter.map(|w| w.weight)
+        |> Iter.to_list()}"
+    )
+
+    a = make(1)
+    b = make(2)
+    io.print("lt ${a < b}")
+    io.print("ge ${a >= b}")
+    io.print("compare ${Comparable.compare(a, b)}")
+}

@@ -1,0 +1,189 @@
+================================================================================
+With one override, then the statements it covers
+================================================================================
+
+fn one() {
+  with MyApp.logger = Silent
+  run()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (with_statement
+        (field_access
+          (type_identifier)
+          (identifier))
+        (type_identifier))
+      (call_expression
+        (identifier)))))
+
+================================================================================
+With on consecutive lines
+================================================================================
+
+fn several() {
+  with MyApp.a = 1
+  with MyApp.b = MyApp.a + 1
+  run()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (with_statement
+        (field_access
+          (type_identifier)
+          (identifier))
+        (integer))
+      (with_statement
+        (field_access
+          (type_identifier)
+          (identifier))
+        (binary_expression
+          (field_access
+            (type_identifier)
+            (identifier))
+          (integer)))
+      (call_expression
+        (identifier)))))
+
+================================================================================
+With a file-qualified target and an unparenthesized struct literal
+================================================================================
+
+fn qualified() {
+  with app.MyApp.logger = Silent
+  with MyApp.store = FakeStore{}
+  with MyApp.clock = FakeClock{at: 1}
+  run()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (with_statement
+        (field_access
+          (type_field_access
+            (identifier)
+            (type_identifier))
+          (identifier))
+        (type_identifier))
+      (with_statement
+        (field_access
+          (type_identifier)
+          (identifier))
+        (struct_construction
+          (type_identifier)))
+      (with_statement
+        (field_access
+          (type_identifier)
+          (identifier))
+        (struct_construction
+          (type_identifier)
+          (identifier)
+          (integer)))
+      (call_expression
+        (identifier)))))
+
+================================================================================
+With in a branch, a lambda body and a block statement
+================================================================================
+
+fn nested(quiet: Bool) {
+  if quiet {
+    with MyApp.logger = Silent
+    run()
+  }
+  f = || {
+    with MyApp.logger = Silent
+    run()
+  }
+  {
+    with MyApp.logger = Silent
+    run()
+  }
+  MyApp.logger
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (body
+      (if_expression
+        (identifier)
+        (body
+          (with_statement
+            (field_access
+              (type_identifier)
+              (identifier))
+            (type_identifier))
+          (call_expression
+            (identifier))))
+      (binding
+        (identifier)
+        (lambda
+          (body
+            (with_statement
+              (field_access
+                (type_identifier)
+                (identifier))
+              (type_identifier))
+            (call_expression
+              (identifier)))))
+      (body
+        (with_statement
+          (field_access
+            (type_identifier)
+            (identifier))
+          (type_identifier))
+        (call_expression
+          (identifier)))
+      (field_access
+        (type_identifier)
+        (identifier)))))
+
+================================================================================
+With as a function body's last line
+================================================================================
+
+fn last() {
+  run()
+  with MyApp.clock = FakeClock{at: 1}
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (call_expression
+        (identifier))
+      (with_statement
+        (field_access
+          (type_identifier)
+          (identifier))
+        (struct_construction
+          (type_identifier)
+          (identifier)
+          (integer))))))

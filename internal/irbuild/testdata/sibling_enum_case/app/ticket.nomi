@@ -1,0 +1,30 @@
+// The enum every other file in this module matches on. Each of those files
+// names it a different way, and each is its own file so that no spelling in
+// one can have been resolved by a signature in another.
+pub struct Note {
+    text: String
+}
+
+pub enum Status {
+    Open
+    Assigned String
+    Blocked Int
+    Paired (Int, Int)
+    Noted Note
+    Closed {reason: String, days: Int}
+}
+
+pub fn make(n: Int): Status {
+    case n {
+        0 -> Status.Open
+        1 -> Status.Assigned("nobody")
+        2 -> Status.Assigned("Ada")
+        3 -> Status.Blocked(7)
+        4 -> Status.Blocked(2)
+        5 -> Status.Paired((3, 4))
+        6 -> Status.Noted(Note{text: "see thread"})
+        7 -> Status.Closed{reason: "duplicate", days: 4}
+        8 -> Status.Closed{reason: "fixed", days: 0}
+        _ -> Status.Closed{reason: "stale", days: 45}
+    }
+}

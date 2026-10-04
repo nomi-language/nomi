@@ -1,0 +1,21 @@
+import {
+    std/io
+    imports_app
+    no_app_name
+    own_app_struct
+    settings.Settings
+}
+
+pub fn boot(): Settings {
+    Settings{context: Context.root(), tag: "the-real-root"}
+}
+
+fn main() {
+    io.print("no-name=${no_app_name.read()}")
+    io.print("own-app=${own_app_struct.read()}")
+    io.print("imports-app=${imports_app.read()}")
+    // One identifier, two declarations, one expression: the sibling's own `App`
+    // is still its own type in the same file that reads the program's root.
+    io.print("own-local=${own_app_struct.local_name()}")
+    io.print("own-decls=${no_app_name.ruler_size()}:${imports_app.payload_of(3)}")
+}

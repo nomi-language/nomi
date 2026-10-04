@@ -1,0 +1,40 @@
+import {
+    api.{Widget, label, make, make_token, reveal}
+    api/http/header.{self, canonical_name}
+    math
+    models.{Greeting, Point, User}
+}
+
+struct Guest {
+    name: String
+}
+
+impl Greeting for Guest {
+    fn greet(guest: Guest): String {
+        "Welcome, " + guest.name + "!"
+    }
+}
+
+test "cross-file modules expose public functions types and interfaces" {
+    user = User{name: "Alice", age: 30}
+    point = Point{x: 3, y: 4}
+    guest = Guest{name: "Bob"}
+
+    assert math.double(21) == 42
+    assert math.add(10, 20) == 30
+    assert user.name == "Alice"
+    assert point.x == 3
+    assert Greeting.greet(guest) == "Welcome, Bob!"
+}
+
+test "public visibility chains allow drilled imports through modules and helpers" {
+    w = make("Ada")
+    typed: Widget = w
+    t = make_token("abc")
+
+    assert label(w) == "Ada"
+    assert typed.name == "Ada"
+    assert reveal(t) == "abc"
+    assert header.default_name == "content-type"
+    assert canonical_name("accept") == "accept"
+}

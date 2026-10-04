@@ -1,0 +1,89 @@
+import {
+    std/calendar.Error
+    std/calendar.DateTime
+    std/calendar.Disambiguation
+    std/calendar.NaiveDateTime
+    std/instant.Instant
+}
+
+test "DST fall-back can choose the earlier repeated wall reading" {
+    naive = try NaiveDateTime"2026-11-01T01:30:00"
+    earlier = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)
+
+    assert DateTime.to_string(earlier) == "2026-11-01T01:30:00-04:00[America/New_York]"
+}
+
+test "DST fall-back can choose the later repeated wall reading" {
+    naive = try NaiveDateTime"2026-11-01T01:30:00"
+    later = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)
+
+    assert DateTime.to_string(later) == "2026-11-01T01:30:00-05:00[America/New_York]"
+}
+
+test "DST fall-back repeated readings are distinct instants" {
+    naive = try NaiveDateTime"2026-11-01T01:30:00"
+    earlier = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)
+    later = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)
+
+    earlier_seconds =
+        earlier
+        |> DateTime.to_instant()
+        |> Instant.to_seconds()
+
+    later_seconds =
+        later
+        |> DateTime.to_instant()
+        |> Instant.to_seconds()
+
+    assert later_seconds - earlier_seconds == 3600
+    refute earlier == later
+}
+
+test "fold compatible disambiguation chooses the earlier instant" {
+    naive = try NaiveDateTime"2026-11-01T01:30:00"
+    compatible = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Compatible)
+    earlier = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)
+    compatible_text = DateTime.to_string(compatible)
+
+    assert compatible_text == "2026-11-01T01:30:00-04:00[America/New_York]"
+    assert compatible == earlier
+}
+
+test "fold earlier and later disambiguations choose distinct offsets" {
+    naive = try NaiveDateTime"2026-11-01T01:30:00"
+    earlier = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)
+    later = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)
+    earlier_text = DateTime.to_string(earlier)
+    later_text = DateTime.to_string(later)
+
+    assert earlier_text == "2026-11-01T01:30:00-04:00[America/New_York]"
+    assert later_text == "2026-11-01T01:30:00-05:00[America/New_York]"
+}
+
+test "fold earlier and later instants are one hour apart" {
+    naive = try NaiveDateTime"2026-11-01T01:30:00"
+    earlier = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)
+    later = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)
+
+    earlier_seconds =
+        earlier
+        |> DateTime.to_instant()
+        |> Instant.to_seconds()
+
+    later_seconds =
+        later
+        |> DateTime.to_instant()
+        |> Instant.to_seconds()
+
+    assert later_seconds - earlier_seconds == 3600
+}
+
+test "fold reject disambiguation reports ambiguity" {
+    naive = try NaiveDateTime"2026-11-01T01:30:00"
+
+    assert Err(Error.Ambiguous(_)) = DateTime.in_zone(
+        naive,
+        "America/New_York",
+        Disambiguation.Reject,
+    )
+}

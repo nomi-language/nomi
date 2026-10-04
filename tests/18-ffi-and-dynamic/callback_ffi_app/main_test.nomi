@@ -1,0 +1,7 @@
+import ffi.apply_twice
+
+test "Go callback parameter can call Nomi lambda" {
+    result = apply_twice("ha", |s| Ok("${s}!"))
+
+    assert result == Ok("ha!!")
+}

@@ -1,0 +1,84 @@
+// A test that FAILS on purpose over an ASSERTABLE subject, so the whole
+// rendered report and the non-zero exit are compared byte for byte.
+//
+// # Why a deliberately red fixture exists at all
+//
+// `tests/` contains no program that fails an assertion. The differential
+// sweep therefore compares only what a passing case prints, and reads `0 DIFFED`
+// no matter how wrong a failure renders. For an Assertable that is not a corner:
+// its ENTIRE contribution to a report is the `details:` block, which only a
+// failure prints — rt.WriteAssertionFailure had dropped that block outright and
+// nothing in this repository could have said so.
+//
+// This file is NOT in the corpus and is never run by `nomi test tests`.
+// It is reached only by TestPinned_AssertableFailureReport.
+//
+// # What it compares that assertable_subject.nomi cannot
+//
+// assertable_subject.nomi reads the failure's FIELDS through `testing.check`,
+// which pins each value but never renders a report to stdout. This one pins the
+// runner's own output: the `details:` rows in the order the Assertable answered
+// them, the `actual:` row the Assertable authored (which a Bool subject has none
+// of and a shape subject computes differently), the AUTHORED reason on the
+// header line in place of `assertion failed`, and the exit status.
+//
+// Both keywords appear, because `refute` over an Assertable is a different rule
+// and not the mirror of the same one: it fails exactly when the answer was
+// `None`, so its failure carries no details at all and says `refute failed` in
+// its own words.
+import {
+    std/assertions.Assertable
+    std/assertions.AssertionDetail
+    std/assertions.AssertionDetails
+}
+
+struct Equals {
+    actual: Int
+    expected: Int
+}
+
+impl Assertable for Equals {
+    fn failure(e: Equals): Maybe<AssertionDetails> {
+        if e.actual == e.expected { None } else { Some(AssertionDetails{
+                reason: "values were not equal",
+                actual: Some(Debug.inspect(e.actual)),
+                details: [
+                    AssertionDetail{label: "actual", value: Debug.inspect(e.actual)},
+                    AssertionDetail{label: "expected", value: Debug.inspect(e.expected)},
+                ],
+            }) }
+    }
+}
+
+fn equals(actual: Int, expected: Int): Equals {
+    Equals{actual, expected}
+}
+
+test "an Assertable that holds keeps the whole file honest" {
+    assert equals(7, 7)
+    refute equals(1, 2)
+}
+
+test "a failing Assertable assertion renders the rows it authored" {
+    left = 41
+    right = 42
+    assert equals(left, right)
+}
+
+test "a failing refutation of an Assertable says so in its own words" {
+    refute equals(9, 9)
+}
+
+// A BOUND subject at an `assert`, which is the position no other case here or in
+// assertable_subject.nomi reaches: that file's bound case goes through
+// `testing.check`, whose context is built at a DIFFERENT call site. Added
+// because a mutation that dropped the assert arm's binding context SURVIVED
+// every other guard in this slice — the two arms are two calls and only one of
+// them was covered.
+//
+// APPENDED BELOW every pinned line above on purpose: the two cases before this
+// one carry absolute line numbers in assertable_test.go.
+test "a failing Assertable assertion on a bound name shows where it came from" {
+    comparison = equals(5, 6)
+    assert comparison
+}

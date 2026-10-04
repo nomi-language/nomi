@@ -1,0 +1,88 @@
+// A hand-written `impl Equatable` on a DISTINCT must answer `==`, not just
+// `Equatable.equal?`.
+//
+// This is the sibling of `enum_equatable_impl/`, and it was the same defect
+// under the same gate. Until 2026-08-30 the operator's dispatch path required
+// a StructVal on both sides, so a hand-written impl on an enum OR a distinct
+// was reachable by name and unreachable by operator — one question with two
+// answers, and no diagnostic. The enum half closed that day; the distinct
+// half stayed open until 2026-09-18 and was measured live on both engines:
+// `Equatable.equal?(Slug("A"), Slug("a"))` True against
+// `Slug("A") == Slug("a")` False, interpreted and compiled alike.
+//
+// `Slug`'s impl is deliberately COARSER than structural equality — it folds
+// case — so a structural fallback cannot pass these tests by accident, and
+// `Marker`'s is deliberately FINER, answering False for two values structural
+// comparison calls equal. A witness that only went one way would pass under a
+// rule that dispatched sometimes.
+//
+type Slug String
+
+impl Equatable for Slug {
+    fn equal?(a: Slug, b: Slug): Bool {
+        String.to_lower(String(a)) == String.to_lower(String(b))
+    }
+}
+
+test "a hand-written Equatable on a distinct answers ==" {
+    assert Slug("Home") == Slug("home")
+    assert Slug("HOME") == Slug("hOmE")
+    refute Slug("home") == Slug("away")
+}
+
+test "the operator and the by-name call agree on a distinct" {
+    assert Equatable.equal?(Slug("Home"), Slug("home")) == (Slug("Home") == Slug("home"))
+
+    assert Equatable.equal?(Slug("home"), Slug("away")) == (Slug("home") == Slug("away"))
+}
+
+test "!= is the negation of the hand-written impl, not of the structural one" {
+    refute Slug("Home") != Slug("home")
+    assert Slug("home") != Slug("away")
+}
+
+opaque type Marker Int
+
+// FINER than structural: no two Markers are ever equal, including a value
+// and itself. Structural comparison cannot produce False here, so this is the
+// row that fails if the operator silently keeps the structural answer while
+// `Equatable.equal?` runs the impl.
+impl Equatable for Marker {
+    fn equal?(_a: Marker, _b: Marker): Bool {
+        False
+    }
+}
+
+test "an opaque distinct's impl answers == in the refuting direction too" {
+    refute Marker(1) == Marker(1)
+    assert Marker(1) != Marker(1)
+    assert Equatable.equal?(Marker(1), Marker(1)) == (Marker(1) == Marker(1))
+}
+
+type Derived Int
+
+derive Equatable for Derived
+
+// A DERIVED impl keeps comparing structurally, on a distinct for the same
+// reason as on an enum. `std/duration` and `std/instant` are
+// `pub opaque type … Int` carrying `derive Equatable`, so routing a
+// synthesized impl would put a Nomi function call on every `Duration` and
+// `Instant` comparison for no change in answer.
+test "a derived distinct still compares structurally, both ways" {
+    assert Derived(1) == Derived(1)
+    refute Derived(1) == Derived(2)
+    assert Equatable.equal?(Derived(1), Derived(1))
+    refute Equatable.equal?(Derived(1), Derived(2))
+}
+
+type Bare Int
+
+// The WEAK half of the operator's asymmetry, which this change must not
+// disturb. A type with no `impl Equatable` at all compares structurally and
+// is NOT a missing-impl error — unlike `<`, where the absence of a
+// `Comparable` impl is refused at compile time.
+test "a distinct with no impl at all still compares structurally" {
+    assert Bare(1) == Bare(1)
+    refute Bare(1) == Bare(2)
+    assert Bare(1) != Bare(2)
+}

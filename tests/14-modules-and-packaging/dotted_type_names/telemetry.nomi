@@ -1,0 +1,21 @@
+/// A type whose name is the qualifier of another declaration below.
+pub struct Probe {
+    id: Int
+}
+
+/// A dotted type name declared beside its owner, with functions of its
+/// own shape — the same naming shape used by `Outcome`.
+pub enum Probe.Reading {
+    Steady
+    Spike Int
+    Blip {at: Int}
+}
+
+/// A helper for readings.
+pub fn severity(r: Probe.Reading): Int {
+    case r {
+        .Steady -> 0
+        .Spike(n) -> n
+        .Blip{at} -> at
+    }
+}

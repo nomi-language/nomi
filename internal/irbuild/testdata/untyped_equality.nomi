@@ -1,0 +1,88 @@
+// `==` against an UNTYPED literal — `x == None`, `xs == []`, `m == Map.empty()`.
+//
+// # What this fixture is actually about, because the tally key misnames it
+//
+// These comparisons were refused under `mixed-type operator`, and nothing here
+// mixes two types. Both sides of every row below name the SAME type
+// constructor. `Maybe<_>.None`, `List<_>` and `Map<_, _>` are how kind.nomi()
+// renders tagBareNone, tagEmptyList and tagEmptyMap — the language's three
+// untyped literals, whose type the CHECKER solves from context and which
+// coerce discharges at the one place a wanted type is known. Every other such
+// place already asks: an annotated binding, an argument, a return, a field, a
+// variant payload, a `case` arm, an `if` arm, a spread tail. `==` is a place
+// where the wanted type is known too — it is the other operand — and it was
+// the one place that never asked.
+//
+// # Why each row is here and not decoration
+//
+//   - BOTH ORDERS of every comparison. `binary()` emits its left operand
+//     through g.operand and its right through g.expr, so `absent == None` and
+//     `None == absent` are two different code paths and a fix to one is not a
+//     fix to the other. `blank == ""`-style symmetry cannot be assumed.
+//   - `!=` beside `==`. The negation is applied after the comparison is built,
+//     so a discharge that produced the WRONG value would still negate
+//     consistently and a `==`-only fixture would read as agreement.
+//   - `Maybe<String>` beside `Maybe<Int>`. The discharge materializes the
+//     wanted type's own `None` variant, so a payload type that is not Int is
+//     the check that the wanted kind is what is consulted rather than a
+//     hardcoded instantiation.
+//   - `empty == []` where `empty` is an annotated, genuinely EMPTY `List<Int>`.
+//     This is the row that answers True, and without it every list row answers
+//     False and a discharge that always answered False would pass.
+//   - `built == []` where `built` came from List.concat, so the True/False
+//     answer cannot come from a pointer identity test: a Go `==` on
+//     two `*rt.List[int64]` compiles and answers by ADDRESS.
+//   - `Some(1) == None` compares a constructor call directly, with no binding
+//     in between, so the operand is not a local the builder already typed.
+//   - `Map.empty()`, the THIRD untyped literal, which has ZERO corpus sites at
+//     this position and reached exactly the same refusal. It is here because a
+//     fix aimed only at the two shapes the corpus happens to contain would
+//     leave a hole with no principle behind it, and nothing would have failed.
+//
+// A row that is deliberately ABSENT: `None == None`. The checker rejects it —
+// neither side determines a type — so it is a front-end error and not this
+// builder's business.
+import std/io
+
+fn to_maybe(n: Int): Maybe<Int> {
+    if n > 0 { Some(n) } else { None }
+}
+
+fn name_of(id: Int): Maybe<String> {
+    if id == 1 { Some("Ada") } else { None }
+}
+
+fn main() {
+    present = to_maybe(3)
+    absent = to_maybe(0)
+    named = name_of(1)
+    nameless = name_of(2)
+
+    xs = [1, 2, 3]
+    empty: List<Int> = []
+    built = List.concat([1], [2, 3])
+    drained = List.concat(empty, empty)
+    empty_m: Map<String, Int> = Map.empty()
+    filled_m = {"a" => 1}
+
+    io.print("absent-eq    ${absent == None} ${None == absent}")
+    io.print("present-eq   ${present == None} ${None == present}")
+    io.print("absent-ne    ${absent != None} ${None != absent}")
+    io.print("present-ne   ${present != None} ${None != present}")
+
+    io.print("named-eq     ${named == None} ${None == named}")
+    io.print("nameless-eq  ${nameless == None} ${None == nameless}")
+    io.print("nameless-ne  ${nameless != None} ${None != nameless}")
+
+    io.print("direct-eq    ${Some(1) == None} ${None == Some(1)}")
+
+    io.print("xs-eq        ${xs == []} ${[] == xs}")
+    io.print("empty-eq     ${empty == []} ${[] == empty}")
+    io.print("built-eq     ${built == []} ${[] == built}")
+    io.print("drained-eq   ${drained == []} ${[] == drained}")
+    io.print("xs-ne        ${xs != []} ${empty != []}")
+
+    io.print("map-empty-eq ${empty_m == Map.empty()} ${Map.empty() == empty_m}")
+    io.print("map-full-eq  ${filled_m == Map.empty()} ${Map.empty() == filled_m}")
+    io.print("map-ne       ${filled_m != Map.empty()} ${Map.empty() != empty_m}")
+}

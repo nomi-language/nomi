@@ -1,0 +1,3 @@
+[module]
+name = "dbg_crossfile"
+entry_points = ["main"]

@@ -1,0 +1,10 @@
+// The second faulting extern, and it is here because its text is qualified
+// DIFFERENTLY from `String.repeat`'s: `Int.shift_left: …` where the other reads
+// `strings.String.repeat: …`. Both are transcribed from the interpreter rather
+// than normalized, because the normalized version is a divergence.
+import std/io
+
+fn main() {
+    io.print("before")
+    io.print("${Int.shift_left(1, 0 - 1)}")
+}

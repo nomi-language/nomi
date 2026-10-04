@@ -1,0 +1,29 @@
+import {
+    std/io
+    lib.{Box, Loot, Shape}
+}
+
+// The same name as lib's private once, with a different value: lib's
+// `hello` default must still read lib's.
+once greeting = "main"
+
+struct Local {
+    x: Int
+}
+
+fn inferred(): Shape {
+    .Tagged{name: "inferred"}
+}
+
+fn main() {
+    l = Loot{name: "a"}
+    io.inspect(l)
+    io.inspect(Loot{name: "b", drops: Some(3), weight: 7})
+    io.inspect({..l, name: "c"})
+    io.inspect(Box{value: 1})
+    io.inspect(Box{value: "s", label: Some("x")})
+    io.inspect(Box{value: Local{x: 1}})
+    io.inspect(Shape.Tagged{name: "t"})
+    io.inspect(inferred())
+    io.print(greeting)
+}

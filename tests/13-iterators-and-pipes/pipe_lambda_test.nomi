@@ -1,0 +1,16 @@
+test "pipe lambda stages receive the previous value" {
+    doubled =
+        21
+        |> |n| n * 2
+
+    assert doubled == 42
+}
+
+test "pipe lambda stages can compose with regular pipe stages" {
+    value =
+        10
+        |> |n| n + 5
+        |> |n| n * 2
+
+    assert value == 30
+}

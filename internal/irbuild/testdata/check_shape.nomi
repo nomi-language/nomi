@@ -1,0 +1,178 @@
+// `testing.check` over a SHAPE subject — a `Maybe` or a `Result` — end to end.
+//
+// The rule is eval's assertSubject and not a generalisation of it: a check over
+// a shape holds on the CARRYING variant (`Some`, `Ok`) and its success value is
+// the ORIGINAL SUBJECT, so `testing.check(find_name(1))` answers
+// `Ok(Some("Ada"))` and never `Ok(True)`. That is why the emitted result type is
+// `Result<subject, AssertionFailure>` rather than `Result<Bool, …>`.
+//
+// # What is pinned here that nothing else can see
+//
+// The FAILING cases, and they are the load-bearing half. `tests/`
+// contains no program that fails an assertion, so the differential sweep only
+// ever compares the PASSING path and reads `0 DIFFED` however wrong a failure
+// renders. Everything below the first two cases is failure-path behaviour that
+// no corpus file reaches.
+//
+// The `actual:` row is where a shape subject differs from a Bool one, and it is
+// a RENDERING: `value.Inspect` of the whole subject on the interpreter's side,
+// `rt.Inspect*`/`InspectStruct` on the compiled one. Two independent
+// implementations of one string, which is exactly the shape a differential
+// fixture can still see — unlike a renderer both paths share.
+//
+// FOUR instantiations appear on purpose and none of them may collapse:
+// `Maybe<String>`, `Maybe<Int>`, `Result<Int, String>` and the
+// `Result<subject, AssertionFailure>` each check returns. Every one goes through
+// the shared prelude intern table; a table keyed on the constructor's rendered
+// name rather than on the whole instantiation would hand one entry back for two
+// of them, and a compiled `check` would then read the wrong payload out of its
+// own result.
+import {
+    std/assertions.AssertionFailure
+    std/testing
+}
+
+fn find_name(id: Int): Maybe<String> {
+    if id == 1 { Some("Ada") } else { None }
+}
+
+fn score(id: Int): Maybe<Int> {
+    if id == 1 { Some(41) } else { None }
+}
+
+fn parse_id(s: String): Result<Int, String> {
+    case String.to_int(s) {
+        Some(id) -> Ok(id)
+        None -> Err("expected a numeric id")
+    }
+}
+
+// This file's OWN type, so `Maybe<Marker>` and `Result<Marker, Marker>` cannot
+// live in the process-wide prelude table. Two fields on purpose: the `actual:`
+// row sorts the composed `name: value` strings, which one field cannot witness.
+struct Marker {
+    label: String
+    count: Int
+}
+
+fn marker(id: Int): Maybe<Marker> {
+    if id == 1 {
+        Some(Marker{label: "one", count: 1})
+    } else {
+        None
+    }
+}
+
+fn missing_marker(): Result<Int, Marker> {
+    Err(Marker{label: "two", count: 2})
+}
+
+test "a passing Maybe check is Ok carrying the Some, not Ok(True)" {
+    assert Ok(found) = testing.check(find_name(1))
+    assert Some(name) = found
+    assert name == "Ada"
+}
+
+test "a passing Result check is Ok carrying the Ok" {
+    assert Ok(parsed) = testing.check(parse_id("42"))
+    assert Ok(id) = parsed
+    assert id == 42
+}
+
+// A `None` subject does not hold, and the failure it produces is the same one
+// `assert find_name(2)` would build: same reason words, same `actual:`
+// rendering, because both reach rt.AssertionSite.ShapeFailure.
+test "a failing Maybe check renders the whole subject as actual" {
+    assert Err(failure) = testing.check(find_name(2))
+    observed: AssertionFailure = failure
+
+    assert observed.line == 86
+    assert observed.keyword == "check"
+    assert observed.expression == "find_name(2)"
+    // `check failed`, not `assertion failed`: the reason is a function of the
+    // keyword and rt.AssertionSite.FailedReason is its one implementation.
+    assert observed.reason == "check failed"
+    // The rendering. A Bool subject carries no `actual` at all, so this row is
+    // the whole difference between the two arms.
+    assert Some(rendered) = observed.actual
+    assert rendered == "None"
+}
+
+// The other prelude shape, at a payload the Maybe cases do not use, so the two
+// `Result<…, AssertionFailure>` instantiations in this file are distinct.
+test "a failing Result check renders the Err payload with its quotes" {
+    assert Err(failure) = testing.check(parse_id("wat"))
+    assert failure.expression == "parse_id(\"wat\")"
+    assert failure.reason == "check failed"
+    // Inspect quotes a String where Display would not, so a lowering that reached
+    // for the Display renderer would print Err(expected a numeric id) here.
+    assert Some(rendered) = failure.actual
+    assert rendered == "Err(\"expected a numeric id\")"
+}
+
+// A THIRD element type through the same machinery. `Maybe<Int>` and
+// `Maybe<String>` are two Go types and two kinds; if the intern table collapsed
+// them, the `actual:` row below would render through the wrong inspector.
+test "a failing Maybe check at a second payload type does not collapse" {
+    assert Err(failure) = testing.check(score(2))
+    assert Some(rendered) = failure.actual
+    assert rendered == "None"
+    assert Ok(held) = testing.check(score(1))
+    assert Some(n) = held
+    assert n == 41
+}
+
+// A subject carrying THIS FILE's own type, which the process-wide prelude table
+// cannot hold: `rt.Maybe[NomiT_Marker]` renders differently in every generated
+// package, so the instance is interned per package instead. Reaching for the
+// shared table alone made this refuse `stdlib type`, naming a std declaration
+// that anchors perfectly — so the case is here to keep the two tables' division
+// of labour honest rather than to add a payload type.
+//
+// The `actual:` row also exercises the struct rendering: `InspectStruct` sorts
+// the COMPOSED `name: value` strings, and value.StructVal.Display states the
+// same rule independently.
+test "a shape check over a package-local payload uses the per-package instance" {
+    assert Ok(found) = testing.check(marker(1))
+    assert Some(m) = found
+    assert m.label == "one"
+
+    assert Err(failure) = testing.check(marker(0))
+    assert Some(rendered) = failure.actual
+    assert rendered == "None"
+
+    assert Err(nested) = testing.check(missing_marker())
+    assert Some(shown) = nested.actual
+    assert shown == "Err(Marker{count: 2, label: \"two\"})"
+}
+
+// A bound NAME as the subject: the `defined as:` context, which a shape subject
+// carries exactly as a Bool one does. The binding's own `value` is the same
+// Inspect rendering as `actual`, computed at a different place, so a lowering
+// that used Display for one and Inspect for the other disagrees here.
+test "a bound shape subject carries its defining expression" {
+    looked_up = find_name(3)
+    assert Err(failure) = testing.check(looked_up)
+    assert Some(context) = failure.binding
+    assert context.name == "looked_up"
+    assert context.expression == "find_name(3)"
+    assert context.value == "None"
+}
+
+// A check is an ordinary VALUE, so a shape check composes: the subject flows out
+// through `Ok` and the `assert` beside it judges the same thing.
+test "a shape check result is an ordinary value" {
+    assert Ok(inner) = testing.check(find_name(1))
+    assert inner
+}
+
+// The `assert` and the `check` must agree, which is the whole reason
+// shapeSubjectFailed is one function reached by both. A corpus that never fails
+// an assertion cannot notice an inverted tag comparison on the failing side, so
+// both sides of the judgement are stated here.
+test "check and assert agree about which shapes hold" {
+    assert Ok(_) = testing.check(find_name(1))
+    assert Err(_) = testing.check(find_name(2))
+    assert Ok(_) = testing.check(parse_id("42"))
+    assert Err(_) = testing.check(parse_id("wat"))
+}

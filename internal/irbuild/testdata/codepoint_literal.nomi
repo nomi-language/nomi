@@ -1,0 +1,73 @@
+// Codepoint literals (`'a'`) lowered as std's `Codepoint`: the value, its
+// Display and Debug, equality and order, ranges, and every pattern position a
+// literal can stand in. `Codepoint` is in the prelude, so neither the
+// parameter annotations nor the literals need an import.
+import std/io
+
+fn kind(cp: Codepoint): String {
+    case cp {
+        'a' -> "a"
+        '\n' -> "newline"
+        '\'' -> "quote"
+        '\\' -> "backslash"
+        '\u{0}' -> "nul"
+        _ -> "other"
+    }
+}
+
+fn first(m: Maybe<Codepoint>): String {
+    case m {
+        Some('x') -> "some x"
+        Some(_) -> "some other"
+        None -> "none"
+    }
+}
+
+fn pair(p: (Codepoint, Int)): String {
+    case p {
+        ('-', n) -> "minus ${n}"
+        (_, n) -> "other ${n}"
+    }
+}
+
+fn main() {
+    io.print(Codepoint.to_string('A'))
+    io.inspect('A')
+    io.print(Codepoint.to_int('\u{7F}'))
+    io.print(Codepoint.to_int('\t'))
+    io.print('a' == 'a')
+    io.print('a' == 'b')
+    io.print('a' < 'b')
+    io.print('Z' >= 'a')
+    io.print(Some('a') == Codepoint.from_int(97))
+    io.print(kind('a'))
+    io.print(kind('\n'))
+    io.print(kind('\''))
+    io.print(kind('\\'))
+    io.print(kind('\u{0}'))
+    io.print(kind('b'))
+    io.print(first(Some('x')))
+    io.print(first(Some('y')))
+    io.print(first(None))
+    io.print(pair(('-', 3)))
+    io.print(pair(('+', 4)))
+
+    io.print(
+        'a'..='e'
+        |> Iter.map(Codepoint.to_string)
+        |> String.join()
+    )
+
+    io.inspect(
+        '0'..'5'
+        |> Iter.map(Codepoint.to_int)
+        |> Iter.to_list()
+    )
+
+    io.print(
+        String.to_codepoints("a,b,,c")
+        |> Iter.filter(|cp| cp != ',')
+        |> Iter.map(Codepoint.to_string)
+        |> String.join()
+    )
+}

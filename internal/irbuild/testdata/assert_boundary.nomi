@@ -1,0 +1,96 @@
+// An assertion in EXPRESSION position, and an assertion whose failure leaves an
+// ordinary `fn` instead of aborting a test case.
+//
+// Differential rather than a text assertion on lowered text, because what has to
+// agree is the failure the interpreter builds and the one the VM
+// builds — and for the `fn` boundary that means the same eight-field NOMI VALUE
+// `testing.check` goes through (rt's AssertionFailure.NomiFailure), read here by
+// field selector instead of by a renderer.
+//
+// The file EXITS 1 on purpose. Two of its cases fail, and their reports are the
+// part of this fixture that is hardest to get right: a failing assertion's
+// rendered `values:` and `defined as:` rows are observable behaviour, and a
+// lowering that judged correctly while rendering differently would pass every
+// self-consistency check and diverge from `nomi test`. Both halves — passing and
+// failing — because a lowering that always exited early would satisfy the
+// failing half alone.
+//
+// What each case discriminates:
+//
+//   - `a failing assertion in a plain fn is that fn's Err` — the boundary. eval
+//     has ONE exit for a failed assertion and it carries `Result.Err` of
+//     std/assertions' `AssertionFailure`; outside a test that value IS the
+//     function's result, so `line`, `keyword`, `expression` and `reason` are read
+//     off it. The LINE is the assertion's own and not the caller's.
+//   - `a failing pattern assertion in a plain fn is that fn's Err` — the same
+//     boundary reached from `assert pattern = value`, which is a different
+//     lowering with the same exit. Its `reason` is "pattern did not match", so a
+//     lowering that reused the Bool reason is caught.
+//   - `a passing assertion in a plain fn falls through to Ok` — the branch NOT
+//     taken. Without it a guard that always propagated would pass the two above.
+//   - `an assertion is an expression whose value is its subject` — `assert` and
+//     `refute` as a binding's initializer. eval's Assertion arm returns
+//     `success`, so the value is the SUBJECT and not Unit; `refute` binds the
+//     False it refuted.
+//   - `a failing assertion renders its operands` — the `values:` rows, in the
+//     order they were recorded, for a comparison whose two sides are both names.
+//   - `a failing assertion on a name an assertion defined shows its source` — the
+//     `defined as:` row for a binding whose initializer is itself an assertion.
+//     The builder bakes that text in at build time (gen.binding's debugExpr) and
+//     the interpreter renders it from the AST at failure time, so this is the one
+//     case where the expression-position lowering has to agree with the formatter
+//     about how `assert 1 == 1` reads.
+import std/assertions.AssertionFailure
+
+fn checked_equal(a: Int, b: Int): Result<Unit, AssertionFailure> {
+    assert a == b
+    Ok(Unit)
+}
+
+fn first_pair(xs: List<Int>): Result<Unit, AssertionFailure> {
+    assert [_, _] = xs
+    Ok(Unit)
+}
+
+test "a failing assertion in a plain fn is that fn's Err" {
+    assert Err(failure) = checked_equal(1, 2)
+
+    assert failure.line == 46
+    assert failure.keyword == "assert"
+    assert failure.expression == "a == b"
+    assert failure.reason == "assertion failed"
+}
+
+test "a failing pattern assertion in a plain fn is that fn's Err" {
+    assert Err(failure) = first_pair([1])
+
+    assert failure.line == 51
+    assert failure.keyword == "assert"
+    assert failure.reason == "pattern did not match"
+}
+
+test "a passing assertion in a plain fn falls through to Ok" {
+    assert Ok(_) = checked_equal(3, 3)
+    assert Ok(_) = first_pair([1, 2])
+}
+
+test "an assertion is an expression whose value is its subject" {
+    truth = assert 1 == 1
+    falsity = refute 2 == 1
+
+    assert truth == True
+    assert falsity == False
+}
+
+test "a failing assertion renders its operands" {
+    left = 41
+    right = 42
+
+    assert left == right
+}
+
+test "a failing assertion on a name an assertion defined shows its source" {
+    truth = assert 1 == 1
+
+    refute truth
+}

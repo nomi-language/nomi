@@ -1,0 +1,22 @@
+import std/io
+
+struct Count {
+    n: Int
+}
+
+impl Count {
+    once zero: Count = Count{n: 0}
+}
+
+fn bump(by: Int, c: Count = Count.zero): Count {
+    Count{n: c.n + by}
+}
+
+fn main() {
+    total = Iter.reduce([1, 2], |c: Count = Count.zero, x| Count{n: c.n + x})
+    io.print(total.n)
+    io.print(bump(5).n)
+    io.print(bump(5, Count{n: 10}).n)
+    add = |by: Int, c: Count = Count.zero| Count{n: c.n + by}
+    io.print(add(7).n)
+}

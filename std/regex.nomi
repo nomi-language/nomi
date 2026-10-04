@@ -1,0 +1,102 @@
+//# Regular expressions backed by Go's RE2-compatible `regexp` engine.
+//# Use raw typed literals for readable patterns, such as ``Regex`\d+``.
+
+import {
+    bool.Bool.False
+    debug.Debug
+    display.Display
+    iter.Iter
+    lists.List
+    literals.{Fragment, Literal}
+    maybe.Maybe
+    results.Result
+    strings.String
+}
+
+/// A compiled regular expression.
+///
+/// Nomi regexes use Go's `regexp` package, so matching is RE2-style:
+/// predictable and non-backtracking, without lookaround or backreferences.
+/// Prefer raw typed literals for patterns so regex escapes stay readable:
+/// `` try Regex`\d+` ``.
+pub host type Regex
+
+impl Regex {
+    /// Compile a pattern into a `Regex`.
+    //! assert Regex.pattern(try Regex.compile("a+")) == "a+"
+    //! assert Err(_msg) = Regex.compile("(")
+    //
+    pub host fn compile(pattern: String): Result<Regex, String>
+
+    /// Return the source pattern for a compiled regex.
+    //! assert Regex.pattern(try Regex`\d+`) == "\\d+"
+    //
+    pub host fn pattern(re: Regex): String
+
+    /// True if the regex matches anywhere in `value`.
+    //! assert Regex.match?(try Regex`\d+`, "order 66")
+    //! assert Regex.match?(try Regex`\d+`, "room") == False
+    //
+    pub host fn match?(re: Regex, value: String): Bool
+
+    /// Return the first matching substring.
+    //! assert Regex.find(try Regex`\d+`, "order 66, aisle 7") == Maybe.Some("66")
+    //! assert Regex.find(try Regex`\d+`, "none") == Maybe.None
+    //
+    pub host fn find(re: Regex, value: String): Maybe<String>
+
+    /// Return every non-overlapping matching substring.
+    //! assert Regex.find_all(try Regex`\d+`, "order 66, aisle 7") == ["66", "7"]
+    //
+    pub host fn find_all(re: Regex, value: String): List<String>
+
+    /// Replace every non-overlapping match with `replacement`.
+    ///
+    /// Replacement text follows Go's `regexp` rules, so `$1`, `${name}`, and
+    /// friends expand capture groups.
+    //! assert Regex.replace_all(try Regex`\d+`, "order 66", "#") == "order #"
+    //! assert Regex.replace_all(try Regex`(\w+)@(\w+)`, "ann@home", "$2:$1") == "home:ann"
+    //
+    pub host fn replace_all(re: Regex, value: String, replacement: String): String
+
+    /// Split around every non-overlapping match.
+    //! assert Regex.split(try Regex`,\s*`, "a, b,c") == ["a", "b", "c"]
+    //
+    pub host fn split(re: Regex, value: String): List<String>
+}
+
+impl Literal for Regex {
+    fn from_fragments(fragments: List<Fragment<String>>): Result<Regex, String> {
+        body = Iter.reduce(fragments, |acc = "", frag|
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        )
+
+        Regex.compile(body)
+    }
+}
+
+impl Display for Regex {
+    /// The source pattern.
+    fn to_string(re: Regex): String {
+        Regex.pattern(re)
+    }
+}
+
+impl Debug for Regex {
+    /// The typed literal that builds this regex: raw, unless the pattern holds
+    /// a backtick, which a raw literal cannot.
+    //! assert Debug.inspect(try Regex`\d+`) == "Regex`\\d+`"
+    //! assert Debug.inspect(try Regex.compile("a`b")) == "Regex\"a`b\""
+    fn inspect(re: Regex): String {
+        pattern = Regex.pattern(re)
+
+        if String.contains?(pattern, "`") {
+            "Regex${Debug.inspect(pattern)}"
+        } else {
+            "Regex`${pattern}`"
+        }
+    }
+}

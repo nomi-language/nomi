@@ -1,0 +1,37 @@
+import std/io
+
+// Grapheme clusters, and the four inputs where a byte count, a code-point count
+// and a cluster count are three different numbers.
+//
+// Nothing here is exotic. A combining acute is how "héllo" is written when
+// the accent is not precomposed, and std/strings uses exactly that string to
+// DEFINE String.length. The other three are an emoji ZWJ sequence, a
+// regional-indicator flag pair, and a four-person family — the shapes a
+// code-point implementation gets wrong.
+fn report(label: String, s: String) {
+    io.print(
+        "${label}: length=${Int.to_string(String.length(s))} reverse=${String.reverse(
+            s
+        )} slice(0,1)=${String.slice(s, 0, 1)}"
+    )
+}
+
+fn main() {
+    report("combining acute", "héllo")
+    report("zwj family", "👩\u{200d}👧")
+    report("flag", "🇺🇸")
+    report("four-person family", "👨\u{200d}👩\u{200d}👧\u{200d}👦")
+
+    // The clamping and inversion cases, which std/strings declares no error for.
+    io.print(String.slice("hello", 1, 4))
+    io.print(String.slice("hello", 3, 1))
+    io.print(String.slice("hello", 0, 99))
+    io.print(String.slice("hello", -2, 2))
+    io.print(String.slice("", 0, 1))
+    io.print(Int.to_string(String.length("")))
+    io.print(String.reverse(""))
+
+    // Clusters stay attached to what they modify: reversing this by code point
+    // moves the accent onto the wrong base letter.
+    io.print(String.reverse("héllo"))
+}

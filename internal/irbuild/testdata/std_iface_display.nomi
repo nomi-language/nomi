@@ -1,0 +1,148 @@
+import std/io
+
+// A STDLIB interface in a TYPE position, in each of the four positions the
+// census verified were negative at `d896a447`: a PARAMETER, a RETURN, a TYPE
+// ARGUMENT, and a struct FIELD — plus DISPATCH on the erased receiver, which is
+// the only one of the five that needs a table.
+//
+// Two interfaces, because a one-row mechanism proves nothing: `Display` has one
+// self-typed parameter and returns a String, `Comparable` has TWO self-typed
+// parameters and returns a type rt declares. An implementation hardcoded to
+// "one receiver, a string back" passes every Display assertion below and fails
+// every Comparable one.
+//
+// Two implementors of each, because with one implementor a dispatch table and a
+// hard-coded call print the same bytes.
+//
+// What none of this exercises, deliberately: the interface-QUALIFIED call on a
+// statically-known receiver. `Display.to_string(t)` where `t` is a `Tag`, and
+// `Display.to_string(42)`, both already lowered before this fixture existed —
+// to a direct Go call and to the stdlib function index respectively — and they
+// still take those routes. testdata/debug_display_surfaces.nomi is where that
+// half lives. `interface_dispatch = ` below is the census that says so.
+struct Tag {
+    name: String
+}
+
+struct Count {
+    n: Int
+}
+
+impl Display for Tag {
+    fn to_string(t: Tag): String {
+        "tag(${t.name})"
+    }
+}
+
+impl Display for Count {
+    fn to_string(c: Count): String {
+        "count(${c.n})"
+    }
+}
+
+impl Comparable for Tag {
+    fn compare(a: Tag, b: Tag): Ordering {
+        String.compare(a.name, b.name)
+    }
+}
+
+impl Comparable for Count {
+    fn compare(a: Count, b: Count): Ordering {
+        Int.compare(a.n, b.n)
+    }
+}
+
+// PARAMETER, and the DISPATCH: `d`'s concrete type is gone by the time this
+// runs, so the answer is decided by the identity the box carries.
+fn render(d: Display): String {
+    Display.to_string(d)
+}
+
+// RETURN. The value is boxed at the `return` position — where the checker
+// accepted the widening — and unboxed by nobody: it stays erased across the
+// call boundary and is dispatched at the caller.
+fn a_tag(name: String): Display {
+    Tag{name}
+}
+
+fn a_count(n: Int): Display {
+    Count{n}
+}
+
+fn pick(flag: Bool): Display {
+    case flag {
+        True -> a_tag("yes")
+        False -> a_count(0)
+    }
+}
+
+// TYPE ARGUMENT: a prelude enum instantiated at an existential.
+fn render_maybe(m: Maybe<Display>): String {
+    case m {
+        Some(d) -> render(d)
+        None -> "none"
+    }
+}
+
+// A struct FIELD, which is the position that erases for the LIFETIME of the
+// value rather than for the length of one call — and the census's own
+// `non-scalar field type | Box.v: Display` row.
+struct Slot {
+    label: String
+    held: Display
+}
+
+fn describe(s: Slot): String {
+    "${s.label}=${render(s.held)}"
+}
+
+// `Comparable` in a TYPE position, which lowers, WITHOUT dispatching on the
+// erased receiver, which does not.
+//
+// `Comparable.compare(a: self, b: self)` selects its implementation from ONE
+// receiver and then needs every other self position to hold that same concrete
+// type. Nothing makes that true, and MEASURED the interpreter ANSWERS where a
+// Go artifact cannot: `Comparable.compare` over two same-named `Point`s from
+// two files prints `less`, because eval dispatches on argument zero and reads
+// the second operand's fields structurally. So the erased-receiver route is
+// refused by name — `interface function with more than one self-typed
+// parameter`, pinned by TestStdIface_MultiSelfErasedDispatchIsRefused — while
+// the type position, the boxing, and the CONCRETE-qualifier call below all
+// lower.
+fn boxed_count(_c: Comparable): Int {
+    1
+}
+
+// The concrete qualifier, on both a NAMED receiver and a SCALAR one. Neither
+// goes near the table: the first is a direct call into this module's own impl,
+// the second is the stdlib function index. Both lowered before this slice and
+// both must keep the route they had — a peer measured a mutation in which
+// giving stdlib interfaces an owner turned `Display.to_string(Cat{...})` from
+// a lowering into a refusal, and no corpus file could see it.
+fn direct(): String {
+    same = case Comparable.compare(Count{n: 1}, Count{n: 1}) {
+        Ordering.Less -> "less"
+        Ordering.Equal -> "equal"
+        Ordering.Greater -> "greater"
+    }
+
+    "${Display.to_string(Tag{name: "direct"})}/${Display.to_string(42)}/${same}"
+}
+
+fn main() {
+    io.print(render(Tag{name: "alpha"}))
+    io.print(render(Count{n: 7}))
+
+    io.print(render(pick(True)))
+    io.print(render(pick(False)))
+
+    io.print(render_maybe(Some(a_tag("wrapped"))))
+    io.print(render_maybe(Some(a_count(3))))
+    io.print(render_maybe(None))
+
+    io.print(describe(Slot{label: "one", held: Tag{name: "held"}}))
+    io.print(describe(Slot{label: "two", held: Count{n: 99}}))
+
+    io.print("${boxed_count(Count{n: 5}) + boxed_count(Tag{name: "x"})}")
+    io.print(direct())
+}

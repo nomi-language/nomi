@@ -1,0 +1,7 @@
+import std/duration.Duration
+
+gopkg "durationffiapp" as ffi
+
+pub fn timeout(): Duration go ffi.Timeout
+
+pub fn double(d: Duration): Duration go ffi.Double

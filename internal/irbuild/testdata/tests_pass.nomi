@@ -1,0 +1,32 @@
+// Every assertion holds, so the report is all `ok` lines and a passing
+// summary. The point is the shape of a test binary, not a failure: a file that
+// declares tests compiles to something `nomi test` and the artifact agree on
+// even when nothing goes wrong.
+fn double(n: Int): Int {
+    n * 2
+}
+
+fn even?(n: Int): Bool {
+    n % 2 == 0
+}
+
+test "arithmetic" {
+    assert 1 + 1 == 2
+    assert double(21) == 42
+}
+
+test "predicates" {
+    assert even?(4)
+    refute even?(5)
+}
+
+test "bindings and text" {
+    total = double(5)
+    assert total == 10
+    assert "ab" + "c" == "abc"
+}
+
+test "logical operators" {
+    assert 1 < 2 and 3 > 2
+    assert 1 > 2 or 2 > 1
+}

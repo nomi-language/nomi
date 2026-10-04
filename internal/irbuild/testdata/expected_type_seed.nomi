@@ -1,0 +1,45 @@
+//# A generic call whose arguments hold dot variants or empty literals, in
+//# positions with a known expected type. The checker solves the call's type
+//# parameters from that type before checking the arguments, and the IR builder
+//# lowers each call at the instantiation it recorded.
+
+import std/io
+
+pub enum Direction {
+    North
+    East
+}
+
+pub enum Place {
+    Cave
+    Hall
+}
+
+struct Room {
+    exits: Map<Direction, Place>
+}
+
+struct Index {
+    words: Map<String, List<Int>>
+}
+
+fn piped(): Map<Direction, Place> {
+    [(.North, .Cave)] |> Iter.to_map()
+}
+
+fn arm(d: Direction): Map<Direction, Place> {
+    case d {
+        .North -> Iter.to_map([(.North, .Cave)])
+        .East -> Iter.to_map([])
+    }
+}
+
+fn main() {
+    io.inspect(Room{exits: Iter.to_map([(.North, .Cave), (.East, .Hall)])})
+    io.inspect(Index{words: Iter.to_map([])})
+    empty: Map<String, List<Int>> = Iter.to_map([])
+    io.inspect(empty)
+    io.inspect(piped())
+    io.inspect(arm(Direction.North))
+    io.inspect(arm(Direction.East))
+}

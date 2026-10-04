@@ -1,0 +1,30 @@
+// Two same-named sibling types mirrored into ONE package, exactly one of which
+// declares an `impl Equatable`, and both compared.
+//
+// The pinned answer is a SET OF ONE: `equality on a named type` for alpha's
+// Point and nothing for beta's. That is what makes this a discriminator rather
+// than a restatement — the two mirrors carry the Nomi name `Point` in both
+// owners' tables, so a lookup that resolved the owner by NAME would answer with
+// alpha's declaration for beta's type and refuse both, or with beta's for
+// alpha's and refuse neither. Only the declaration NODE separates them, and the
+// mirror carries the owner's node verbatim (foreign.go's importDef).
+//
+// Refused as a whole, so it is never run.
+import {
+    std/io
+    alpha.{self, Point}
+    beta.{self, Point as Coord}
+}
+
+fn same_point(a: Point, b: Point): Bool {
+    a == b
+}
+
+fn same_coord(a: Coord, b: Coord): Bool {
+    a == b
+}
+
+fn main() {
+    io.print("alpha = ${Bool.to_string(same_point(alpha.at(1, 2), alpha.at(1, 3)))}")
+    io.print("beta  = ${Bool.to_string(same_coord(beta.at(1, 2), beta.at(1, 3)))}")
+}

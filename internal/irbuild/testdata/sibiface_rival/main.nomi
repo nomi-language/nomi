@@ -1,0 +1,30 @@
+// TWO RIVAL-SHAPED CHOICES THAT sibiface/main.nomi CANNOT MAKE, because that
+// fixture offers exactly one candidate per call: a check that answered "yes"
+// to every arity-compatible site and a rule that ranked a synthesized impl
+// beside a written one would both print its twelve lines unchanged.
+//
+// Here each call has TWO candidates in the index and the builder has to pick
+// one. Getting it wrong is not a wrong string — it is an `ambiguous interface
+// call` refusal, so both rows fail LOUDLY rather than drifting.
+import {
+    std/io
+    extra.{self}
+    parts.{self, Combine}
+}
+
+fn main() {
+    // namedPositionsFit. `Combine.combine` is provided for A and for B, same
+    // arity, and BOTH arguments are named types with an entry under this
+    // method — so the loop produces a candidate from each. Only the declared
+    // parameter at position zero says which: A's `fn combine(a: A, b: B)` fits
+    // the argument list and B's `fn combine(a: B, b: B)` does not.
+    io.print(Combine.combine(parts.a(1), parts.b(2)))
+
+    // writtenImplMembers. `Box` is declared in parts.nomi, which therefore
+    // carries the front end's SYNTHESIZED universal `impl Debug for Box`, while
+    // extra.nomi carries a WRITTEN one — two sites under one (declaration,
+    // method) key, in two different units, neither of them this file's. The
+    // written block is what callers observe; treating the synthesized one as a
+    // rival makes the call ambiguous instead.
+    io.print(Debug.inspect(extra.boxed(5)))
+}

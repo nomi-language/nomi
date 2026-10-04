@@ -1,0 +1,7 @@
+import std/instant.Instant
+
+gopkg "timeffiapp" as ffi
+
+pub fn created_at(): Instant go ffi.CreatedAt
+
+pub fn plus_second(t: Instant): Instant go ffi.PlusSecond

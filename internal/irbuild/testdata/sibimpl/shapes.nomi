@@ -1,0 +1,67 @@
+// A sibling FILE whose functions are reached by TYPE qualifier rather than by
+// file qualifier: `Status.active()` and `Tag.inspect(t)` from main.nomi.
+//
+// `pub` on an INHERENT impl function is load-bearing, and it is the ANALYZER's
+// rule rather than this builder's caution. MEASURED on a two-file program:
+// calling a non-`pub` inherent impl function across a file boundary is
+// "type 'Status' has no member 'bare'", a front-end error — so `bare` below can
+// never reach the builder from main.nomi at all. An INTERFACE impl function
+// needs no `pub`, measured the same way, which is why `inspect` carries none and
+// is still callable as `Tag.inspect`.
+//
+// The enum is `opaque` on purpose: outside this file the variant set is hidden,
+// so smart constructors and `Maybe`-returning accessors are the ONLY way in.
+// That is what makes a type-qualified call to an inherent impl function the
+// whole interface of the type rather than a convenience.
+pub opaque enum Status {
+    Active
+    Inactive String
+    Suspended {until: Int, reason: String}
+}
+
+impl Status {
+    pub fn active(): Status {
+        Status.Active
+    }
+
+    pub fn inactive(reason: String): Status {
+        Status.Inactive(reason)
+    }
+
+    pub fn suspend(until: Int, reason: String): Status {
+        Status.Suspended{until, reason}
+    }
+
+    pub fn is_active(s: Status): Bool {
+        case s {
+            .Active -> True
+            _ -> False
+        }
+    }
+
+    pub fn reason(s: Status): Maybe<String> {
+        case s {
+            .Inactive(r) -> Some(r)
+            .Suspended{until, reason} -> Some(reason)
+            _ -> None
+        }
+    }
+
+    fn bare(): Int {
+        0
+    }
+}
+
+pub struct Tag {
+    label: String
+}
+
+pub fn tag(label: String): Tag {
+    Tag{label}
+}
+
+impl Debug for Tag {
+    fn inspect(t: Tag): String {
+        "tag:" + t.label
+    }
+}

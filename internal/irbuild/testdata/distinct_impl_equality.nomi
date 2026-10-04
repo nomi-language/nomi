@@ -1,0 +1,59 @@
+// `==` on an ENUM or a DISTINCT DOES reach that type's hand-written
+// `impl Equatable`, and a DERIVED one it deliberately does not.
+//
+// This file's header used to say the opposite, and both halves of that
+// changed under it: eval.customEqualityImpl gated the whole Equatable lookup
+// on the runtime value being a *StructVal, so the two impls below were
+// declared, registered and never called by the operator. The enum arm landed
+// 2026-08-30 and the distinct arm 2026-09-18. Both impls are still
+// deliberately WRONG as equality (`True` for every pair) so that a backend
+// which does NOT call them cannot produce the same answer by luck — the
+// discrimination just runs the other way now.
+//
+// `Duration` is the line that still carries a negative claim, and it is why
+// it is here: `pub opaque type Duration Int` carries
+// `derive Equatable for Duration`, so it is a distinct whose impl is
+// SYNTHESIZED, and provenance keeps it on the structural path. Routing it
+// would cost a Nomi function call per comparison for an answer structural
+// comparison already gives, measured once as `matched 51 -> 50`. A derive is
+// not reliably structural either — it recurses through `Equatable.equal?`,
+// so a distinct wrapping a struct with a custom impl diverges under a derive
+// too; that is a separate open item and not what this fixture pins.
+import {
+    std/duration.Duration
+    std/io
+}
+
+enum Color {
+    Red
+    Green
+    Blue
+}
+
+impl Equatable for Color {
+    fn equal?(a: Color, b: Color): Bool {
+        _ = b
+        _ = a
+        True
+    }
+}
+
+type Tag Int
+
+impl Equatable for Tag {
+    fn equal?(a: Tag, b: Tag): Bool {
+        _ = b
+        _ = a
+        True
+    }
+}
+
+fn main(): Unit {
+    io.print("enum same: ${Bool.to_string(Color.Red == Color.Red)}")
+    io.print("enum diff: ${Bool.to_string(Color.Red == Color.Green)}")
+    io.print("enum ne:   ${Bool.to_string(Color.Red != Color.Blue)}")
+    io.print("distinct same: ${Bool.to_string(Tag(7) == Tag(7))}")
+    io.print("distinct diff: ${Bool.to_string(Tag(7) == Tag(8))}")
+    io.print("duration eq: ${Bool.to_string(Duration.seconds(5) == Duration.milliseconds(5000))}")
+    io.print("duration ne: ${Bool.to_string(Duration.seconds(5) != Duration.seconds(6))}")
+}

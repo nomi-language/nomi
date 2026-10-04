@@ -1,0 +1,43 @@
+import {
+    comparable.Comparable
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+}
+
+/// Singleton type representing the boolean true value; a variant of `Bool`.
+pub host type True
+
+derive Comparable for True
+derive Display for True
+derive Equatable for True
+derive Hashable for True
+
+/// Singleton type representing the boolean false value; a variant of `Bool`.
+pub host type False
+
+derive Comparable for False
+derive Display for False
+derive Equatable for False
+derive Hashable for False
+
+/// Boolean enum with True and False variants.
+//! assert True == True
+//! refute True == False
+//
+pub enum Bool {
+    embeds False
+    embeds True
+}
+
+derive Comparable for Bool
+derive Display for Bool
+derive Equatable for Bool
+derive Hashable for Bool
+
+impl Debug for Bool {
+    fn inspect(b: Bool): String {
+        Bool.to_string(b)
+    }
+}

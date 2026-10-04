@@ -1,0 +1,14 @@
+import {
+    std/io
+    shapes
+}
+
+fn main() {
+    io.print(shapes.origin())
+    io.print(shapes.price())
+    io.print(shapes.red())
+    io.print("at ${shapes.origin()} for ${shapes.price()}")
+    io.print([shapes.price(), shapes.price()])
+    io.inspect(shapes.origin())
+    io.inspect(shapes.red())
+}

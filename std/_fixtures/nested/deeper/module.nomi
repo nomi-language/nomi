@@ -1,0 +1,3 @@
+// Test-only nested embedded source. Production stdlib enumeration excludes
+// the _fixtures subtree so this cannot become a public standard module.
+pub type Fixture

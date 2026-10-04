@@ -1,0 +1,22 @@
+// The sibling file every bare spelling in main.nomi reaches, plus a name that
+// must NOT be reachable: `hidden` is not `pub`, so a selective import of it is
+// an analyzer error and the builder must never resolve one.
+pub struct Widget {
+    name: String
+}
+
+pub fn make(name: String): Widget {
+    Widget{name}
+}
+
+pub fn label(w: Widget): String {
+    w.name
+}
+
+pub fn twice(x: Int): Int {
+    x + x
+}
+
+fn hidden(x: Int): Int {
+    x * 100
+}

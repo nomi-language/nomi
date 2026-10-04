@@ -1,0 +1,45 @@
+import {
+    std/calendar.DateTime
+    std/instant.Instant
+}
+
+test "zoned datetimes can be reprojected through another IANA zone" {
+    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
+
+    assert DateTime.to_string(ny) == "2026-06-15T12:00:00-04:00[America/New_York]"
+
+    assert DateTime.to_string(tokyo) == "2026-06-16T01:00:00+09:00[Asia/Tokyo]"
+}
+
+test "zone changes preserve the represented instant" {
+    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
+
+    ny_seconds =
+        ny
+        |> DateTime.to_instant()
+        |> Instant.to_seconds()
+
+    tokyo_seconds =
+        tokyo
+        |> DateTime.to_instant()
+        |> Instant.to_seconds()
+
+    assert ny_seconds == tokyo_seconds
+    assert ny == tokyo
+}
+
+test "zone changes project accessors through the target zone" {
+    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
+
+    assert DateTime.day(tokyo) == 16
+    assert DateTime.hour(tokyo) == 1
+}
+
+test "zone changes reject unknown IANA zone names" {
+    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+
+    assert Err(_) = DateTime.with_zone(ny, "Not/A_Zone")
+}

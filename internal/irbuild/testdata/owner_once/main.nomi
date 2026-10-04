@@ -1,0 +1,76 @@
+import {
+    std/io
+    std/tasks.Task
+    limits.{self, Shade}
+}
+
+// Owner-level `once` bindings, read through their owner.
+struct Policy {
+    retries: Int
+}
+
+impl Policy {
+    pub once default: Policy = Policy{retries: announce("Policy.default", 3)}
+
+    // Private, read in the declaring file, and built from another owner-level once.
+    once doubled: Int = Policy.default.retries * 2
+
+    pub fn with_retries(policy: Policy, retries: Int): Policy {
+        {..policy, retries}
+    }
+}
+
+enum Mode {
+    Fast
+    Slow
+}
+
+impl Mode {
+    pub once preferred: Mode = Mode.Slow
+    once label = "mode"
+}
+
+struct Box<T> {
+    item: T
+}
+
+impl Box<T> {
+    once size: Int = announce("Box.size", 7)
+}
+
+fn announce(name: String, n: Int): Int {
+    io.print("forcing ${name}")
+    n
+}
+
+fn mode_name(m: Mode): String {
+    case m {
+        Mode.Fast -> "fast"
+        Mode.Slow -> "slow"
+    }
+}
+
+fn main() {
+    io.print("start")
+
+    // Two tasks race to force the same binding; its initializer runs once.
+    total = concurrent {
+        a = Task.spawn(|| Policy.default.retries)
+        b = Task.spawn(|| Policy.default.retries)
+        Task.await(a) + Task.await(b)
+    }
+
+    io.print(Int.to_string(total))
+    io.print(Int.to_string(Policy.default.retries))
+    io.print(Int.to_string(Policy.doubled))
+    io.print(Int.to_string(Policy.with_retries(Policy.default, 5).retries))
+    io.print(mode_name(Mode.preferred))
+    io.print(Mode.label)
+    io.print("box not read yet")
+    io.print(Int.to_string(Box.size))
+    io.print(Int.to_string(Box.size))
+    io.print(Int.to_string(limits.Limits.cap))
+    io.print(Int.to_string(limits.Limits.twice))
+    io.print(limits.Shade.name)
+    io.print(Shade.name)
+}

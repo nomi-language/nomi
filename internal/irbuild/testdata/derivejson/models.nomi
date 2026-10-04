@@ -1,0 +1,33 @@
+// The SIBLING half of testdata/derivejson: a struct whose `derive FromJson` and
+// `derive Equatable` are declared here and reached from main.nomi.
+import std/json.{FromJson, Json, ToJson}
+
+pub struct Away {
+    name: String
+}
+
+pub fn away(name: String): Away {
+    Away{name}
+}
+
+pub fn name_of(a: Away): String {
+    a.name
+}
+
+// `Json` has to be USED here and not merely imported, and the reason is a real
+// constraint rather than tidiness: the builder needs `Json` resolvable in THIS
+// file's scope, because `derive FromJson for Away` synthesizes a signature that
+// names it — while `nomi/lsp`'s workspace-fixture check requires every `.nomi`
+// under the tree to publish no diagnostics, and an imported-but-unused name is
+// one. Dropping the import satisfies the LSP and makes the derive refuse; this
+// function satisfies both.
+pub fn is_null?(j: Json): Bool {
+    case j {
+        Json.Null -> True
+        _ -> False
+    }
+}
+
+derive Equatable for Away
+derive ToJson for Away
+derive FromJson for Away

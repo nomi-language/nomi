@@ -1,0 +1,29 @@
+// Mutual tail recursion between two PREDICATES, which is what the shared
+// driver's generated NAME is about.
+//
+// The driver used to be named from the first member's raw Nomi name, so this
+// program emitted `func nomiTail_even?(...)`. `?` is not a Go identifier
+// character: Generate succeeded with zero refusals and `go build` answered
+// `invalid character U+003F '?'`. No corpus program does mutual tail recursion
+// between predicates, so the sweep's `0 COMPILE-FAIL` never saw it — the same
+// corpus-boundedness that hid the impl-function self-call.
+//
+// `even?`/`odd?` is the idiomatic Nomi spelling of the canonical mutual
+// recursion, so this is a shape somebody writes rather than one constructed to
+// break a builder. The fixture's job is that it LOWERS; the stack property
+// lives in tail_mutual_deep.nomi.
+import std/io
+
+fn even?(n: Int): Bool {
+    if n == 0 { True } else { odd?(n - 1) }
+}
+
+fn odd?(n: Int): Bool {
+    if n == 0 { False } else { even?(n - 1) }
+}
+
+fn main() {
+    io.print("even = ${even?(1000)}")
+    io.print("odd = ${odd?(1000)}")
+    io.print("even odd = ${even?(1001)}")
+}

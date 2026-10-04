@@ -1,0 +1,2 @@
+# Compiled tree-sitter parser (`make build-nvim-parser`); never committed.
+/parser/

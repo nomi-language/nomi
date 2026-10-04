@@ -1,0 +1,84 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+test "anonymous structs expose fields and render structurally" {
+    point = {x: 10, y: 20}
+    nested = {outer: {inner: 1, label: "hi"}, count: 3}
+
+    assert point.x == 10
+    assert point.y == 20
+    assert Debug.inspect(point) == "{x: 10, y: 20}"
+    assert Display.to_string(point) == "{x: 10, y: 20}"
+    assert Debug.inspect(nested) == "{count: 3, outer: {inner: 1, label: \"hi\"}}"
+}
+
+test "anonymous structs destructure and match by field name" {
+    point = {x: 10, y: 20}
+
+    {x, y} = point
+    {x: a, y: b} = point
+
+    label = case point {
+        {x: 10, y} -> "x is ten, y is ${y}"
+        _ -> "other"
+    }
+
+    assert x + y == 30
+    assert a + b == 30
+    assert label == "x is ten, y is 20"
+}
+
+test "anonymous struct parameters match by field set" {
+    assert greet({name: "Bob", age: 42}) == "Hi Bob, you are 42"
+    assert greet({age: 30, name: "Carol"}) == "Hi Carol, you are 30"
+}
+
+fn greet(p: {name: String, age: Int}): String {
+    "Hi " + p.name + ", you are " + Int.to_string(p.age)
+}
+
+test "anonymous struct parameter mismatches report diagnostics" {
+    diagnostics = compiler.check(
+        """
+          fn greet(p: {name: String, age: Int}): String {
+            p.name
+          }
+
+          struct Person {
+            name: String
+            age: Int
+          }
+
+          fn main() {
+            _missing = greet({name: "Bob"})
+            _extra = greet({name: "Bob", age: 42, x: 0})
+            _wrong = greet({name: "Bob", age: "42"})
+            _nominal = greet(Person{name: "Bob", age: 42})
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 4
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "expected {name: String, age: Int}, got {name: String}",
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "expected {name: String, age: Int}, got {name: String, age: Int, x: Int}",
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "expected {name: String, age: Int}, got {name: String, age: String}",
+    )
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "expected {name: String, age: Int}, got Person",
+    )
+}

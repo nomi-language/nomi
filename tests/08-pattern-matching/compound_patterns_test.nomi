@@ -1,0 +1,52 @@
+enum JV {
+    Str String
+    Num Int
+    Obj Map<String, JV>
+    Arr List<JV>
+}
+
+test "compound patterns can match nested maps without wrappers counting as depth" {
+    one = JV.Obj{"name" => JV.Str("Ada")}
+    two = JV.Obj{"data" => JV.Obj{"k" => JV.Num(42)}}
+    wrapped = Some(JV.Obj{"k" => JV.Num(7)})
+
+    three = Ok(JV.Obj{
+        "a" => JV.Obj{
+            "b" => JV.Obj{
+                "c" => JV.Num(99),
+            },
+        },
+    })
+
+    one_result = case one {
+        .Obj{"name" => .Str(n)} -> n
+        _ -> "miss"
+    }
+
+    two_result = case two {
+        .Obj{"data" => .Obj{"k" => .Num(n)}} -> n
+        _ -> 0
+    }
+
+    wrapped_result = case wrapped {
+        Some(.Obj{"k" => .Num(n)}) -> n
+        Some(_) -> 0
+        None -> -1
+    }
+
+    three_result = case three {
+        Ok(.Obj{
+            "a" => .Obj{
+                "b" => .Obj{
+                    "c" => .Num(n),
+                },
+            },
+        }) -> n
+        _ -> 0
+    }
+
+    assert one_result == "Ada"
+    assert two_result == 42
+    assert wrapped_result == 7
+    assert three_result == 99
+}

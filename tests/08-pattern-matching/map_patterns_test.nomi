@@ -1,0 +1,182 @@
+type Id Int
+
+enum Color {
+    Red
+    Green
+    Blue
+}
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+fn lookup<K>(m: Map<K, String>, key: K): String {
+    Map.get(m, key) |> Maybe.with_default("?")
+}
+
+test "maps can use structurally keyable values" {
+    tuple_keyed = {(1, 2) => "a", (3, 4) => "b"}
+
+    list_keyed =
+        Map.empty()
+        |> Map.put([1, 2, 3], "lst")
+
+    nan_keyed =
+        Map.empty()
+        |> Map.put(Float.nan(), "n")
+
+    zero_keyed =
+        Map.empty()
+        |> Map.put(-0.0, "z")
+
+    assert lookup(tuple_keyed, (3, 4)) == "b"
+    assert lookup(list_keyed, [1, 2, 3]) == "lst"
+    assert lookup(nan_keyed, Float.nan()) == "n"
+    assert lookup(zero_keyed, 0.0) == "z"
+}
+
+test "map literals support composite expression keys" {
+    points = {(1, 2) => "a", (3, 4) => "b"}
+    colors = {Color.Red => "r", Color.Green => "g"}
+    flags = {True => "yes", False => "no"}
+    lists = {[1, 2] => "x", [3] => "y"}
+    by_point = {Point{x: 1, y: 2} => "p"}
+    ids = {Id(5) => "five"}
+    base = 1
+    numbers = {base + 1 => "computed"}
+
+    assert lookup(points, (3, 4)) == "b"
+    assert lookup(colors, Color.Red) == "r"
+    assert lookup(flags, False) == "no"
+    assert lookup(lists, [1, 2]) == "x"
+    assert lookup(by_point, Point{x: 1, y: 2}) == "p"
+    assert lookup(ids, Id(5)) == "five"
+    assert lookup(numbers, 2) == "computed"
+}
+
+test "map patterns match composite expression keys" {
+    flags = {True => "yes", False => "no"}
+    colors = {Color.Red => "r", Color.Green => "g"}
+    options = {Some(2) => "two", Some(3) => "three"}
+    points = {(1, 2) => "a", (3, 4) => "b"}
+    lists = {[1, 2] => "x", [3] => "y"}
+    struct_keyed = {Point{x: 1, y: 2} => "p"}
+    ids = {Id(5) => "five"}
+    base = 1
+    numbers = {2 => "computed"}
+
+    by_bool = case flags {
+        {True => v} -> v
+        _ -> "?"
+    }
+
+    by_color = case colors {
+        {Color.Green => v} -> v
+        _ -> "?"
+    }
+
+    by_payload = case options {
+        {Some(2) => v} -> v
+        _ -> "?"
+    }
+
+    by_tuple = case points {
+        {(3, 4) => v} -> v
+        _ -> "?"
+    }
+
+    by_list = case lists {
+        {[1, 2] => v} -> v
+        _ -> "?"
+    }
+
+    by_struct = case struct_keyed {
+        {Point{x: 1, y: 2} => v} -> v
+        _ -> "?"
+    }
+
+    by_id = case ids {
+        {Id(5) => v} -> v
+        _ -> "?"
+    }
+
+    by_computed = case numbers {
+        {base + 1 => v} -> v
+        _ -> "?"
+    }
+
+    fallthrough = case flags {
+        {Color.Blue => v} -> v
+        _ -> "fallthrough"
+    }
+
+    assert by_bool == "yes"
+    assert by_color == "g"
+    assert by_payload == "two"
+    assert by_tuple == "b"
+    assert by_list == "x"
+    assert by_struct == "p"
+    assert by_id == "five"
+    assert by_computed == "computed"
+    assert fallthrough == "fallthrough"
+}
+
+test "map destructuring binds composite expression keys" {
+    flags = {True => "yes", False => "no"}
+    points = {(1, 2) => "a", (3, 4) => "b"}
+    ids = {Id(5) => "five"}
+    numbers = {2 => "computed"}
+    shift = 1
+
+    {True => bound_bool} = flags
+    {(3, 4) => bound_tuple} = points
+    {Id(5) => bound_id} = ids
+    {shift + 1 => bound_computed} = numbers
+
+    assert bound_bool == "yes"
+    assert bound_tuple == "b"
+    assert bound_id == "five"
+    assert bound_computed == "computed"
+}
+
+fn lookup_negative_int(m: Map<Int, String>): String {
+    case m {
+        {-2 => v} -> v
+        _ -> "no match"
+    }
+}
+
+fn lookup_mixed(m: Map<Int, String>): String {
+    case m {
+        {-1 => a, 2 => b} -> a + "/" + b
+        _ -> "no match"
+    }
+}
+
+fn lookup_nested(x: Maybe<Map<Int, String>>): String {
+    case x {
+        Some({-2 => v}) -> v
+        _ -> "no match"
+    }
+}
+
+test "negative numeric literals can be map pattern keys" {
+    {-2 => destructured} = {-2 => "via destructure"}
+
+    negative = {-2 => "found neg"}
+
+    positive = {2 => "pos"}
+
+    mixed = {-1 => "a", 2 => "b"}
+
+    nested =
+        {-2 => "nested"}
+        |> Some()
+
+    assert lookup_negative_int(negative) == "found neg"
+    assert lookup_negative_int(positive) == "no match"
+    assert lookup_mixed(mixed) == "a/b"
+    assert lookup_nested(nested) == "nested"
+    assert destructured == "via destructure"
+}

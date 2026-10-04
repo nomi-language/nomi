@@ -1,0 +1,5 @@
+// A generic struct that main.nomi builds by literal, under both spellings.
+pub struct Span<T> {
+    start: T
+    stop: T
+}

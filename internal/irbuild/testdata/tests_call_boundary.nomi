@@ -1,0 +1,13 @@
+// The assertion trace boundary. `holds?` compares inside its own body; the
+// report must show the call and its arguments, never the callee's comparison.
+//
+// The interpreter enforces that per call, at run time. The builder enforces it
+// by construction: a callee is a separate declaration and is never lexically
+// inside an assertion, so it emits no recording at all.
+fn holds?(a: Int, b: Int): Bool {
+    a < b and b < a
+}
+
+test "a callee's comparisons stay inside it" {
+    assert holds?(3, 4)
+}

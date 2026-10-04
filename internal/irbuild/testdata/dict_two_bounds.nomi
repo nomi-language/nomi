@@ -1,0 +1,110 @@
+// TWO bounds on ONE type parameter: `where T: Display and Greet`.
+//
+// One type parameter, two contracts, and the method decides which dispatch
+// table — which is `typeParamDispatchIface` scanning a type parameter's bounds
+// "for one whose interface declares the method". The dictionary is still ONE
+// `*rt.TypeID`, because part (b) answers "which TYPE" and the two bounds do not
+// disagree about that.
+//
+// This is the corpus shape from
+// tests/11-interfaces-and-impls/type_parameter_dispatch:
+// `fn full<T>(x: T): String where T: Display and Greet`.
+//
+// TWO implementors of BOTH interfaces, of different shapes, for the reason
+// dict_bounded_param.nomi has two: with one, a table and a hard-coded direct
+// call are indistinguishable.
+//
+// The properties this pins that a single-bound fixture cannot:
+//
+//   - `both` calls a method from EACH bound on the same value in one
+//     expression. A value of `T` is boxed under one bound (the repr bound), so
+//     the OTHER bound's call has to accept that box and retag it. A builder
+//     that compared the box's interface against the declaring bound refuses
+//     here.
+//   - `reversed` writes the same two bounds in the OPPOSITE order, so the repr
+//     bound is `Greet` rather than `Display`. Both must lower and both must
+//     print the same thing: if the repr bound were load-bearing for anything but
+//     bookkeeping, exactly one of these two would work.
+//   - `only_second` calls ONLY the non-repr bound's method, so a fixture that
+//     happened to touch the repr bound first cannot mask a missing retag.
+//   - `relay` hands the two-bound type parameter to another two-bound generic,
+//     which is the enclosing dictionary answering for a value already erased.
+//   - `mixed` puts a two-bound generic and a one-bound generic on the same
+//     value, so the one-bound path is exercised beside the new one rather than
+//     assumed unaffected.
+import std/io
+
+interface Greet {
+    fn hello(value: self): String
+}
+
+struct Meters {
+    amount: Int
+}
+
+struct Label {
+    head: String
+    tail: String
+}
+
+impl Display for Meters {
+    fn to_string(m: Meters): String {
+        Int.to_string(m.amount) + "m"
+    }
+}
+
+impl Greet for Meters {
+    fn hello(m: Meters): String {
+        _ = m
+        "hi meters"
+    }
+}
+
+impl Display for Label {
+    fn to_string(l: Label): String {
+        l.head + "-" + l.tail
+    }
+}
+
+impl Greet for Label {
+    fn hello(l: Label): String {
+        "hi " + l.head
+    }
+}
+
+fn both<T>(x: T): String where T: Display and Greet {
+    T.hello(x) + " - " + T.to_string(x)
+}
+
+fn reversed<T>(x: T): String where T: Greet and Display {
+    T.hello(x) + " - " + T.to_string(x)
+}
+
+fn only_second<T>(x: T): String where T: Display and Greet {
+    T.hello(x)
+}
+
+fn relay<U>(y: U): String where U: Display and Greet {
+    both(y) + " / " + reversed(y)
+}
+
+fn one_bound<T>(x: T): String where T: Display {
+    T.to_string(x)
+}
+
+fn mixed<T>(x: T): String where T: Display and Greet {
+    one_bound(x) + " | " + T.hello(x)
+}
+
+fn main() {
+    io.print(both(Meters{amount: 3}))
+    io.print(both(Label{head: "a", tail: "b"}))
+    io.print(reversed(Meters{amount: 4}))
+    io.print(reversed(Label{head: "c", tail: "d"}))
+    io.print(only_second(Meters{amount: 5}))
+    io.print(only_second(Label{head: "e", tail: "f"}))
+    io.print(relay(Meters{amount: 6}))
+    io.print(relay(Label{head: "g", tail: "h"}))
+    io.print(mixed(Meters{amount: 7}))
+    io.print(mixed(Label{head: "i", tail: "j"}))
+}

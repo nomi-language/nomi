@@ -1,0 +1,254 @@
+import std/compiler.{self, Diagnostic}
+
+fn has_diagnostic?(diagnostics: List<Diagnostic>, text: String): Bool {
+    Iter.any?(diagnostics, |diagnostic| String.contains?(diagnostic.message, text))
+}
+
+test "an ordinary named application exposes scoped fields" {
+    assert Ok(output) = compiler.run(
+        """
+        import {
+          std/io
+        }
+
+        struct Settings {
+          tag: String
+          context: Context
+        }
+
+        fn boot(): Settings {
+          Settings{tag: "base", context: Context.root()}
+        }
+
+        fn show() {
+          io.print(Settings.tag)
+        }
+
+        fn inner() {
+          with Settings.tag = "inner"
+          show()
+        }
+
+        fn main() {
+          show()
+          inner()
+          show()
+        }
+        """
+    )
+
+    assert output == "base\ninner\nbase\n"
+}
+
+test "an application may rename its Context field" {
+    assert Ok(output) = compiler.run(
+        """
+        import {
+          std/io
+        }
+
+        struct Named {
+          tag: String
+          execution: Context
+        }
+
+        fn boot(): Named {
+          Named{tag: "named", execution: Context.root()}
+        }
+
+        fn main() {
+          _ = Context.deadline(Named.execution)
+          io.print(Named.tag)
+        }
+        """
+    )
+
+    assert output == "named\n"
+}
+
+test "an anonymous application boots, and code that reads no field runs under it" {
+    assert Ok(output) = compiler.run(
+        """
+        import {
+          std/io
+        }
+
+        fn boot(): {tag: String, execution: Context} {
+          {tag: "anonymous", execution: Context.root()}
+        }
+
+        fn main() {
+          io.print("ran")
+        }
+        """
+    )
+
+    assert output == "ran\n"
+}
+
+test "an unavailable field is rejected" {
+    diagnostics = compiler.check(
+        """
+        struct App {
+          context: Context
+        }
+
+        fn boot(): App {
+          App{context: Context.root()}
+        }
+
+        fn main() {
+          _ = App.missing
+        }
+        """
+    )
+
+    assert has_diagnostic?(diagnostics, "type 'App' has no member 'missing'")
+}
+
+test "an application needs no Context field" {
+    assert Ok(output) = compiler.run(
+        """
+        import {
+          std/io
+        }
+
+        struct App {
+          tag: String
+        }
+
+        fn boot(): App {
+          App{tag: "no context"}
+        }
+
+        fn main() {
+          io.print(App.tag)
+        }
+        """
+    )
+
+    assert output == "no context\n"
+}
+
+test "boot rejects two Context fields" {
+    diagnostics = compiler.check(
+        """
+        struct App {
+          first: Context
+          second: Context
+        }
+
+        fn boot(): App {
+          App{first: Context.root(), second: Context.root()}
+        }
+
+        fn main() {}
+        """
+    )
+
+    assert has_diagnostic?(
+        diagnostics,
+        "an application struct may have at most one Context-typed field",
+    )
+}
+
+test "boot takes no Context parameter" {
+    diagnostics = compiler.check(
+        """
+        struct App {
+          context: Context
+        }
+
+        fn boot(context: Context): App {
+          App{context}
+        }
+
+        fn main() {}
+        """
+    )
+
+    assert has_diagnostic?(
+        diagnostics,
+        "boot must be `fn boot(): App` or `fn boot(startup: Startup): App`, taking no parameter or one Startup and returning the application struct",
+    )
+}
+
+test "field replacement preserves the declared field type" {
+    diagnostics = compiler.check(
+        """
+        import {
+          std/io
+        }
+
+        struct App {
+          tag: String
+          context: Context
+        }
+
+        fn boot(): App {
+          App{tag: "base", context: Context.root()}
+        }
+
+        fn main() {
+          with App.tag = 42
+          io.print(App.tag)
+        }
+        """
+    )
+
+    assert has_diagnostic?(diagnostics, "`App.tag` replacement expects String, got Int")
+}
+
+test "boot takes at most one Startup" {
+    diagnostics = compiler.check(
+        """
+        struct App {
+          port: Int
+        }
+
+        fn boot(startup: Startup, _port: Int): App {
+          App{port: Iter.count(startup.args)}
+        }
+
+        fn main() {}
+        """
+    )
+
+    assert has_diagnostic?(
+        diagnostics,
+        "boot must be `fn boot(): App` or `fn boot(startup: Startup): App`, taking no parameter or one Startup and returning the application struct",
+    )
+}
+
+test "boot may take no parameter, or a Startup with a default" {
+    no_parameter = compiler.check(
+        """
+        struct App {
+          port: Int
+        }
+
+        fn boot(): App {
+          App{port: 8080}
+        }
+
+        fn main() {}
+        """
+    )
+
+    defaulted = compiler.check(
+        """
+        struct App {
+          port: Int
+        }
+
+        fn boot(startup: Startup = Startup{}): App {
+          App{port: Iter.count(startup.args)}
+        }
+
+        fn main() {}
+        """
+    )
+
+    assert no_parameter == []
+    assert defaulted == []
+}

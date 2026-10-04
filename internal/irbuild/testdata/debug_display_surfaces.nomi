@@ -1,0 +1,219 @@
+// FOUR renderings of one value, and the two inputs that tell them apart.
+//
+// A value has four spellings in Nomi and they are NOT interchangeable. Every
+// fixture in this tree before this one used an ALPHABETICAL struct and had no
+// hand-written `impl Debug` anywhere, so three of the four were indistinguishable
+// from each other by construction and a wrongly-wired renderer would have passed
+// every one of them. Measured before this file existed: `Debug.inspect` appeared
+// in testdata/ only as `Debug.inspect(42)` and `Debug.inspect(2.5)` — scalars —
+// so rendering a NAMED type through it was live builder behaviour with no guard.
+//
+// The four, and who decides each:
+//
+//	Display.to_string(v)   the user's `impl Display`         REV-DISPLAY
+//	"${v}"                 the same `impl Display`           REV-DISPLAY
+//	Debug.inspect(v)       Nomi dispatch on `impl Debug`     Rev{zeta: 1, alpha: 2}
+//	assertion `values:`    value.Inspect, structural         Rev{alpha: 2, zeta: 1}
+//
+// # Field ORDER is the load-bearing assertion in this file
+//
+// Every struct here declares `zeta` BEFORE `alpha`. That is the whole point.
+// `Debug.inspect` renders in DECLARATION order, because it is real dispatch into
+// the `impl Debug` body — the one `SynthesizeUniversalDebug` appends for every
+// declared type, whose body names the fields in the order they were written. The
+// assertion row renders SORTED, because it is `value.Inspect` (eval.go's
+// recordAssertionText), a structural walk with no Nomi dispatch in it, and
+// rt.InspectStruct sorts to match. With `Point {x, y}` those two are the same
+// string and the difference is invisible; with `zeta` before `alpha` they are
+// `{zeta: 1, alpha: 2}` and `{alpha: 2, zeta: 1}` and only one wiring passes.
+//
+// # A hand-written `impl Debug` is the other distinguishing input
+//
+// `Custom` has one. It WINS for `Debug.inspect` — precedence is explicit impl >
+// `derive Debug` > auto-synthesized — and the `values:` row HONOURS it too,
+// saying `CUSTOM-DEBUG` where a struct with no hand-written impl reads
+// structurally with sorted fields. A user controls how a type reads in a
+// failure report, as Rust's `assert_eq!` prints through `Debug`. It is pinned
+// here rather than merely described, so changing it becomes a test failure and
+// not a silent change.
+//
+// # `Debug` is universal; `Display` is not
+//
+// `Plain` has neither impl. `Debug.inspect(p)` still answers, because Debug is
+// auto-synthesized for every declared type and the checker treats it as
+// satisfied by everything. `${p}` and `Display.to_string(p)` are CHECKER ERRORS
+// for the same type, so they cannot appear in this file at all — which is itself
+// the observation, and the reason `Plain` has fewer rows than `Rev`. That
+// asymmetry is a FRONT-END one: `DetectMissingImpls` exempts Debug and rejects
+// the missing Display. The builder treats the two identically.
+//
+// # The opaque row is a fourth distinct answer, not a repeat
+//
+// `Debug.inspect(Meters(7))` is `<opaque Meters>` — name only, no payload,
+// because `analysis.synthesizeOpaqueNameOnlyDebug` appends the degenerate body
+// for an opaque type. The `values:` row for the SAME value is `Meters(7)`, with
+// the payload. So opaque is the one row where Debug shows LESS than the
+// structural walk, and a renderer swap in either direction is visible on it.
+//
+// # THE `host type` ROW IS NOW HERE, and its absence was the whole of the note
+// this replaces
+//
+// That note said `Debug.inspect(True)` is REFUSED, "so it cannot appear in a
+// differential fixture", and pinned the refusal by name in debugdisplay_test.go
+// instead. It also named the two prerequisites — the payload binding must
+// materialize a marker, AND `True.inspect` / `False.inspect` must stop being
+// refused for a non-scalar signature. Both are discharged, so the rows are here
+// and the refusal pin is gone rather than weakened.
+//
+// `Bool` is the sharpest row in this file, because it is the one type whose
+// value has NO Go representation of its own: `Bool` collapses to a Go `bool`
+// (native.go's one compiler special case) and its two variants are zero-width
+// `pub host type`s, so `Debug.inspect(True)` renders a value the builder stores
+// nowhere. `case b { Bool.False(x) -> … }` then MATERIALIZES the singleton from
+// the tag, and `Debug.inspect(x)` renders the materialized value — which is the
+// only row in this tree where the thing being rendered was reconstructed rather
+// than read.
+//
+// `List<Bool>` is beside it because the container arm composes through the same
+// leaf and used to refuse under a THIRD key name
+// (`Debug on an unrepresented receiver | List<Bool>`), so a regression in the
+// leaf shows here twice under two spellings.
+import std/io
+
+opaque type Meters Int
+
+// zeta before alpha, in all three structs, deliberately. See above.
+struct Rev {
+    zeta: Int
+    alpha: Int
+}
+
+impl Display for Rev {
+    fn to_string(v: Rev): String {
+        _ = v
+        "REV-DISPLAY"
+    }
+}
+
+// Both impls, so `Debug.inspect` and Display can be observed disagreeing on one
+// value, and so the `values:` row can be observed ignoring both.
+struct Custom {
+    zeta: Int
+    alpha: Int
+}
+
+impl Display for Custom {
+    fn to_string(v: Custom): String {
+        _ = v
+        "CUSTOM-DISPLAY"
+    }
+}
+
+impl Debug for Custom {
+    fn inspect(v: Custom): String {
+        _ = v
+        "CUSTOM-DEBUG"
+    }
+}
+
+// Neither impl: only the universal synthesized Debug.
+struct Plain {
+    zeta: Int
+    alpha: Int
+}
+
+fn no_rev(_v: Rev): Bool {
+    False
+}
+
+fn no_custom(_v: Custom): Bool {
+    False
+}
+
+fn no_plain(_v: Plain): Bool {
+    False
+}
+
+fn no_meters(_v: Meters): Bool {
+    False
+}
+
+fn no_bool(_v: Bool): Bool {
+    False
+}
+
+fn no_bools(_v: List<Bool>): Bool {
+    False
+}
+
+test "the four renderings of one value" {
+    r = Rev{zeta: 1, alpha: 2}
+    c = Custom{zeta: 1, alpha: 2}
+    p = Plain{zeta: 1, alpha: 2}
+    m = Meters(7)
+
+    // Display: the user impl, for both types that have one.
+    io.print("1 Display.to_string(r) = " + Display.to_string(r))
+    io.print("2 interpolated r       = ${r}")
+    io.print("3 Display.to_string(c) = " + Display.to_string(c))
+    io.print("4 interpolated c       = ${c}")
+
+    // Debug: declaration order for a synthesized impl, and the hand-written one
+    // winning for the type that has one.
+    io.print("5 Debug.inspect(r)     = " + Debug.inspect(r))
+    io.print("6 Debug.inspect(c)     = " + Debug.inspect(c))
+    io.print("7 Debug.inspect(p)     = " + Debug.inspect(p))
+    io.print("8 Debug.inspect(m)     = " + Debug.inspect(m))
+
+    // The `host type` rows. `b` is a Bool whose two variants are zero-width
+    // singletons; `singleton` is the MATERIALIZED payload of the one the tag
+    // selected, so line 12 renders a value the builder stores nowhere.
+    b: Bool = False
+
+    singleton = case b {
+        Bool.False(x) -> Debug.inspect(x)
+        _ -> "UNREACHED"
+    }
+
+    io.print("9 Debug.inspect(True)  = " + Debug.inspect(True))
+    io.print("10 Debug.inspect(b)    = " + Debug.inspect(b))
+    io.print("11 Debug.inspect(list) = " + Debug.inspect([True, False]))
+    io.print("12 materialized payload = " + singleton)
+
+    // The twelve lines above are this block's observation; a `test` must contain
+    // an assertion, and this one PASSES so it adds no `values:` row to the
+    // transcript. `no_rev` returns False for every input.
+    refute no_rev(r)
+}
+
+// One failing assertion per type, because a `values:` row only exists on a
+// FAILING assertion — a passing one renders nothing and would pin nothing.
+test "values row for a struct with an impl Display" {
+    r = Rev{zeta: 1, alpha: 2}
+    assert no_rev(r)
+}
+
+test "values row honours a hand-written impl Debug" {
+    c = Custom{zeta: 1, alpha: 2}
+    assert no_custom(c)
+}
+
+test "values row for a struct with no impls at all" {
+    p = Plain{zeta: 1, alpha: 2}
+    assert no_plain(p)
+}
+
+test "values row for a Bool" {
+    b: Bool = True
+    assert no_bool(b)
+}
+
+test "values row for a list of Bool" {
+    bs = [True, False]
+    assert no_bools(bs)
+}
+
+test "values row shows an opaque payload Debug hides" {
+    m = Meters(7)
+    assert no_meters(m)
+}

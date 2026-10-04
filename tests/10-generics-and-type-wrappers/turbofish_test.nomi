@@ -1,0 +1,13 @@
+import std/channels.{Channel, Receiver, Sender}
+
+test "explicit type arguments pin otherwise undetermined type parameters" {
+    ch = Channel.buffered<Int>(4)
+    _r = Sender.send(ch.sender, 7)
+
+    received = case Receiver.receive(ch.receiver) {
+        Some(v) -> v
+        None -> 0
+    }
+
+    assert received == 7
+}

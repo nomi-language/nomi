@@ -1,0 +1,70 @@
+import std/compiler
+
+fn reports?(source: String, text: String): Bool {
+    compiler.check(source) |> Iter.any?(|d| String.contains?(d.message, text))
+}
+
+test "an Iter has no equality" {
+    source = """
+        fn main() {
+          xs = [1] |> Iter.map(|x| x)
+          _same = xs == xs
+        }
+        """
+
+    assert reports?(source, "`==` cannot compare `Iter<Int>`: an Iter has no equality")
+}
+
+test "a value holding an Iter has no equality" {
+    source = """
+        struct Feed {
+          items: Iter<Int>
+        }
+
+        fn main() {
+          feed = Feed{items: [1]}
+          _same = (1, feed) != (1, feed)
+        }
+        """
+
+    assert reports?(
+        source,
+        "`!=` cannot compare `(Int, Feed)`: it holds `Iter<Int>`, and an Iter has no equality",
+    )
+}
+
+test "a function value has no equality" {
+    source = """
+        fn main() {
+          f = |x: Int| x
+          _same = [f] == [f]
+        }
+        """
+
+    assert reports?(
+        source,
+        "`==` cannot compare `List<(Int) -> Int>`: it holds `(Int) -> Int`, and a function value has no equality",
+    )
+}
+
+test "a type with its own Equatable impl compares through it" {
+    source = """
+        struct Feed {
+          name: String
+          items: Iter<Int>
+        }
+
+        impl Equatable for Feed {
+          fn equal?(a: Feed, b: Feed): Bool {
+            a.name == b.name
+          }
+        }
+
+        fn main() {
+          feed = Feed{name: "f", items: [1]}
+          _same = feed == feed
+        }
+        """
+
+    assert compiler.check(source) == []
+}

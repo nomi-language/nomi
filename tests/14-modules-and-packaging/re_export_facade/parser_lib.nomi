@@ -1,0 +1,8 @@
+/// A second leaf file used by facade.nomi to demonstrate re-exports.
+pub fn shout(name: String): String {
+    name + "!"
+}
+
+pub fn greet(name: String): String {
+    "Hello, " + name
+}

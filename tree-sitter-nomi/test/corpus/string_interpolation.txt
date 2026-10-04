@@ -1,0 +1,120 @@
+==========
+Interpolation opens with ${
+==========
+
+a = "x ${n + 1} y"
+
+---
+
+(source_file
+  (binding
+    (identifier)
+    (string
+      (string_content)
+      (string_interpolation
+        (binary_expression
+          (identifier)
+          (integer)))
+      (string_content))))
+
+==========
+Escaped interpolation and ordinary # and $ text
+==========
+
+b = "cost \${price} #{tag} ## $ $$ #"
+
+---
+
+(source_file
+  (binding
+    (identifier)
+    (string
+      (string_content)
+      (escape_sequence)
+      (string_content))))
+
+==========
+Triple-quoted string interpolates and keeps \${ as content
+==========
+
+c = """
+  hi ${name}
+  \${literal} #{set} \d $x
+  """
+
+---
+
+(source_file
+  (binding
+    (identifier)
+    (triple_string
+      (triple_string_content)
+      (string_interpolation
+        (identifier))
+      (triple_string_content))))
+
+==========
+Raw strings keep ${ and \${ verbatim
+==========
+
+d = `raw ${x} \${y}`
+e = Regex`a\${b}`
+
+---
+
+(source_file
+  (binding
+    (identifier)
+    (raw_string
+      (raw_string_content)))
+  (binding
+    (identifier)
+    (raw_tagged_string
+      (type_identifier)
+      (raw_string_content))))
+
+==========
+Tagged literals interpolate with ${
+==========
+
+e = Sql"select ${col} from t \${z}"
+f = Html"""
+  <p>${body}</p>
+  """
+
+---
+
+(source_file
+  (binding
+    (identifier)
+    (tagged_type_string
+      (type_identifier)
+      (string_content)
+      (string_interpolation
+        (identifier))
+      (string_content)
+      (escape_sequence)
+      (string_content)))
+  (binding
+    (identifier)
+    (tagged_type_triple_string
+      (type_identifier)
+      (triple_string_content)
+      (string_interpolation
+        (identifier))
+      (triple_string_content))))
+
+==========
+A #{ outside a string is still a set literal
+==========
+
+g = #{1, 2}
+
+---
+
+(source_file
+  (binding
+    (identifier)
+    (set
+      (integer)
+      (integer))))

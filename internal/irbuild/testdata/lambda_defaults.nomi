@@ -1,0 +1,109 @@
+// A lambda parameter's DEFAULT value, and the cases that tell a correct
+// lowering from three plausible wrong ones.
+//
+// Every line here exists to fail for a specific wrong mechanism rather than to
+// add coverage:
+//
+//   - `zero:` — an EXPLICIT zero passed into a defaulted slot. A lowering that
+//     decides absence by testing the incoming value against its type's zero
+//     cannot tell `fi(0)` from `fi()`, and answers the default for both. All
+//     four scalars have a reachable zero literal, so all four are here.
+//   - `earlier:` — a default that names an EARLIER PARAMETER. The interpreter
+//     binds parameters 0..i-1 before evaluating default i, so 304 is the
+//     answer; a supplier that ignored the already-supplied arguments would
+//     have no `a` to read.
+//   - `count:` — a default whose expression PRINTS. It must fire once per
+//     omitting call and not at all when the argument is supplied, so the exact
+//     interleaving is the assertion. A default hoisted to a constant prints
+//     once; one evaluated per call regardless prints three times.
+//   - `shadow:` — a SHADOW between the declaration and the call. The default
+//     names `x`; an inner block rebinds `x` to 7 and calls again. The answer is
+//     5 all three times, because the default is evaluated in the LAMBDA's
+//     closure. A lowering that emitted the default expression at the call site
+//     would resolve the inner `x` and answer 7 in the middle.
+//   - `rebind:` — a REBIND in the same scope, the case `shadow:` does not
+//     reach. The answer is still 5 both times: a closure captures the value
+//     `y` held when it was made (spec §23), and `y = 99` is a new binding. A
+//     lowering that read `y` at the call would answer 99 the second time.
+//   - `higher:` — a defaulted lambda passed where a plain function is expected.
+//     Its Go type must still be its Nomi type, so this is what a presence-mask
+//     parameter in the signature would break.
+//   - `multi:` — more than one omitted slot, and the fully-supplied call beside
+//     it.
+import std/io
+
+fn counted(): Int {
+    io.print("count: default ran")
+    7
+}
+
+fn apply_one(f: (Int) -> Int): Int {
+    f(1)
+}
+
+fn main() {
+    fi = |x = 5| x
+    fs = |s = "hi"| s
+    fb = |b = True| b
+    ff = |q = 1.5| q
+
+    io.print("zero: int ${fi(0)} vs ${fi()}")
+    io.print("zero: str [" + fs("") + "] vs [" + fs() + "]")
+    io.print("zero: bool ${fb(False)} vs ${fb()}")
+    io.print("zero: float ${ff(0.0)} vs ${ff()}")
+
+    earlier = |a: Int, b = a + 1| a * 100 + b
+    io.print("earlier: ${earlier(3)} and ${earlier(3, 9)}")
+
+    // `twice:` — an IMPURE argument that a later slot's default also reads.
+    // The supplier for slot 1 takes slot 0 as its own argument, so an unforced
+    // argument would be emitted into BOTH the lambda call and the supplier call
+    // and `counted()` would run twice. It must print once.
+    io.print("twice: ${earlier(counted())}")
+
+    // `routed:` — a TRAILING LAMBDA that skips a defaulted parameter. The last
+    // argument goes to the last SLOT and the middle one takes its default, so
+    // this is the case where the omitted slot is in the MIDDLE rather than at the
+    // end — and where checking an argument against its written POSITION instead
+    // of its slot would type `|x| x * 2` against a String.
+    routing = |a: Int, label = "z", cb: (Int) -> Int| cb(a) + String.length(label)
+    io.print("routed: ${routing(7, |x| x * 2)}")
+    io.print("routed: full ${routing(7, "tag", |x| x * 2)}")
+
+    c = |x = counted()| x
+    io.print("count: supplied ${c(1)}")
+    io.print("count: omitted ${c()}")
+    io.print("count: omitted again ${c()}")
+
+    x = 5
+    shadowed = |a = x| a
+    io.print("shadow: ${shadowed()}")
+
+    if True {
+        x = 7
+        io.print("shadow: inner ${shadowed()} with x now ${x}")
+    }
+
+    io.print("shadow: ${shadowed()}")
+
+    y = 5
+    rebound = |a = y| a
+    io.print("rebind: ${rebound()}")
+    y = 99
+    io.print("rebind: ${rebound()} with y now ${y}")
+
+    io.print("higher: ${apply_one(|q = 9| q)}")
+
+    multi = |a = 1, b = 2| a + b
+    io.print("multi: ${multi()} ${multi(9)} ${multi(9, 8)}")
+
+    // A default NOBODY READS, which used to be pinned as a refusal in
+    // iterseed_test.go and is pinned here as an ANSWER now that it lowers.
+    // `Iter.reduce` reads Defaults[0] as its seed and never looks past it, and
+    // `Iter.map` reads no default at all — so the `= 9` and the `= 5` below are
+    // ignored by both paths. The seeded row beside them is what proves the
+    // FIRST-parameter default is still read while the second is not.
+    io.print("unread: ${Iter.reduce([1, 2], |acc = 0, x = 9| acc + x)}")
+    io.print("unread: ${[1, 2] |> Iter.map(|x = 5| x * 2) |> Iter.to_list()}")
+    io.print("unread: ${Iter.reduce([1, 2], |acc = 100, x = 9| acc + x)}")
+}

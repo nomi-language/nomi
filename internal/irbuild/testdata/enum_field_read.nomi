@@ -1,0 +1,87 @@
+// Field access on a value whose STATIC type is an enum. `x.f` is pure field
+// access in Nomi — there is no `.method()` postfix dispatch — so the whole
+// question is which VARIANT the value turns out to be, and only the runtime
+// tag answers it.
+//
+// Three shapes reach here, and they are three shapes rather than one because
+// each stores its payload differently, while the language's rule is uniform in
+// a way the storage is not: the read unwraps the variant, and finds the name in
+// the payload only when the payload is a struct or the variant is
+// struct-shaped.
+//
+//   - a STRUCT-SHAPED variant (`Rect {width: Int, ...}`) — one slot per field.
+//   - an `embeds` of a struct — ONE slot holding the whole struct.
+//   - a POSITIONAL payload whose type happens to be a struct (`Wrap Circle`) —
+//     also one slot holding the whole struct, and indistinguishable from the
+//     previous case at runtime, which is why the same rule answers for it.
+//
+// A field name may be provided by SEVERAL variants. The checker types the
+// access from the FIRST provider in declaration order; the program answers
+// from whichever variant the value actually is. Both are pinned below, and
+// their disagreement is the reason a tag switch cannot be collapsed into a
+// single slot read.
+//
+// NOT PINNED HERE, deliberately: a bare struct annotated into the enum
+// (`s: Shape = Circle{radius: 1.0}`). That crosses the embeds coercion site,
+// where the question is how the bare struct is wrapped into its variant rather
+// than how a field is read. Field access agrees however it is wrapped, so
+// pinning it here would tie this fixture to the coercion instead of to field
+// access.
+import std/io
+
+struct Circle {
+    radius: Float
+}
+
+struct Square {
+    radius: Float
+}
+
+enum Shape {
+    Wrap Circle
+    Rect {radius: Float, height: Int}
+    embeds Square
+    Point
+}
+
+test "a struct-shaped variant's field reads through the tag" {
+    s = Shape.Rect{radius: 1.5, height: 3}
+
+    assert s.radius == 1.5
+    assert s.height == 3
+}
+
+test "an embeds variant's field reads through the embedded struct" {
+    s = Shape.Square{radius: 9.0}
+
+    assert s.radius == 9.0
+}
+
+test "a positional struct payload's field reads through the tag" {
+    s = Shape.Wrap(Circle{radius: 4.0})
+
+    assert s.radius == 4.0
+}
+
+test "the tag decides which provider answers, not the declaration order" {
+    wrapped = Shape.Wrap(Circle{radius: 4.0})
+    squared = Shape.Square{radius: 9.0}
+
+    assert wrapped.radius + squared.radius == 13.0
+}
+
+// A call as the subject. The read needs the tag AND a slot, so a lowering that
+// SPELLS the subject twice calls this twice — which is observable here and is
+// invisible to every other test in this file, because a local is pure and every
+// other subject above is one. Without this test, a lowering that drops the
+// single-evaluation binding passes every other test in the package.
+fn announce(): Shape {
+    io.print("picked")
+    Shape.Rect{radius: 1.5, height: 3}
+}
+
+test "the subject is evaluated once, however impure it is" {
+    r = announce().radius
+
+    assert r == 1.5
+}

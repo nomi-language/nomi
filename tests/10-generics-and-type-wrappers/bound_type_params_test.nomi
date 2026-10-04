@@ -1,0 +1,78 @@
+//# A generic type's parameter is bound by its own type arguments.
+//#
+//# `Chan<Int>` means the same thing wherever it appears, including nested
+//# inside a value whose type is still being inferred. Reaching it through an
+//# inferred scrutinee used to rewrite its fields with the *scrutinee's* type
+//# argument while leaving `<Int>` in place, so `reply.sender` came back as
+//# `Half<Request>` — the type's own arguments and its fields disagreeing
+//# about the same parameter.
+
+pub struct Half<T> {
+    slot: T
+}
+
+pub struct Chan<T> {
+    sender: Half<T>
+    receiver: Half<T>
+}
+
+fn recv<T>(r: Half<T>): Maybe<T> {
+    Maybe.Some(r.slot)
+}
+
+/// The reply channel is `Chan<Int>` regardless of what the outer channel
+/// carries — the shape where a request brings its own return address.
+pub enum Request {
+    Get {reply: Chan<Int>}
+    Stop
+}
+
+fn inbox_of(): Chan<Request> {
+    reply = Chan{sender: Half{slot: 7}, receiver: Half{slot: 7}}
+    msg = Request.Get{reply}
+    Chan{sender: Half{slot: msg}, receiver: Half{slot: msg}}
+}
+
+test "a nested instantiation keeps its own type argument through an inferred scrutinee" {
+    inbox: Chan<Request> = inbox_of()
+
+    // The scrutinee is a generic call whose type parameter is solved here,
+    // rather than an annotated binding. That is what made this differ.
+    got = case recv(inbox.receiver) {
+        Some(Request.Get{reply}) -> {
+            out: Half<Int> = reply.sender
+
+            case recv(out) {
+                Some(v) -> v
+                None -> 0
+            }
+        }
+
+        Some(Request.Stop) ->
+            0
+
+        None ->
+            0
+    }
+
+    assert got == 7
+}
+
+test "an annotated scrutinee agrees with an inferred one" {
+    scrutinee: Maybe<Request> = recv(inbox_of().receiver)
+
+    got = case scrutinee {
+        Some(Request.Get{reply}) -> {
+            out: Half<Int> = reply.receiver
+            out.slot
+        }
+
+        Some(Request.Stop) ->
+            0
+
+        None ->
+            0
+    }
+
+    assert got == 7
+}

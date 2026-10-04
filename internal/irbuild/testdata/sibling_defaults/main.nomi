@@ -1,0 +1,46 @@
+// Calls into another file's functions with defaulted parameters: every
+// argument written, a default used, a named argument, a named argument that
+// skips a default, a default naming an earlier parameter, defaults naming the
+// declaring file's private function and its type, a generic function with
+// defaults, the bare spelling after a selective import, and a same-file
+// generic with a default.
+import {
+    std/io
+    lib
+    lib.{add, label, spread}
+}
+
+fn note(s: String): String {
+    io.print("arg ${s}")
+    s
+}
+
+fn pick<T>(a: T, b: T, first: Bool = True): T {
+    if first { a } else { b }
+}
+
+fn main() {
+    io.print(lib.add(1, 2))
+    io.print(lib.add(1))
+    io.print(lib.add(1, b: 5))
+    io.print(lib.add(b: 7, a: 1))
+    io.print(add(1, 2))
+    io.print(add(4))
+    io.print(add(1, b: 9))
+    io.print(lib.twice(3))
+    io.print(lib.twice(3, 1))
+    io.print(lib.offset(1))
+    io.print(lib.offset(1, 2))
+    io.print(lib.offset(1, mode: lib.Mode.Keep))
+    io.print(label("abc"))
+    io.print(label("abc", suffix: "?"))
+    io.print(label(suffix: note("."), tag: note("xy")))
+    io.print(lib.label(note("q")))
+    io.inspect(lib.spread(1))
+    io.inspect(lib.spread("a", ["b"]))
+    io.inspect(spread(1, [2], twice: True))
+    io.inspect(spread(True))
+    io.print(pick(1, 2))
+    io.print(pick("x", "y", False))
+    io.print(pick("x", "y", first: False))
+}

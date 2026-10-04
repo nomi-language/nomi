@@ -1,0 +1,84 @@
+import std/io
+
+// A user enum whose payload is a List of a user struct, positionally and as a
+// struct-shaped variant's field, and an enum that reaches itself back through
+// such a list (Tree -> List<Grove> -> List<Tree>).
+struct Point {
+    x: Int
+    y: Int
+}
+
+enum Shape {
+    Poly List<Point>
+    Path {points: List<Point>, name: String}
+    Empty
+}
+
+enum Tree {
+    Leaf Int
+    Branch List<Grove>
+}
+
+struct Grove {
+    trees: List<Tree>
+}
+
+fn width(s: Shape): Int {
+    case s {
+        Shape.Poly(ps) -> ps |> Iter.map(|p: Point| p.x) |> Iter.reduce(|acc = 0, x| acc + x)
+        Shape.Path{points, name} -> Iter.count(points) + String.length(name)
+        Shape.Empty -> 0
+    }
+}
+
+fn total(t: Tree): Int {
+    case t {
+        Tree.Leaf(n) -> n
+        Tree.Branch(groves) -> groves |> Iter.map(grove_total) |> Iter.reduce(|acc = 0, x| acc + x)
+    }
+}
+
+fn grove_total(g: Grove): Int {
+    g.trees |> Iter.map(total) |> Iter.reduce(|acc = 0, x| acc + x)
+}
+
+fn main() {
+    poly = Shape.Poly([Point{x: 1, y: 2}, Point{x: 3, y: 4}])
+
+    path = Shape.Path{
+        points: [Point{
+            x: 5,
+            y: 6,
+        }],
+        name: "ab",
+    }
+
+    io.print("${width(poly)} ${width(path)} ${width(Shape.Empty)}")
+    io.print(Debug.inspect(poly))
+    io.print(Debug.inspect(path))
+    io.print("${poly == Shape.Poly([Point{x: 1, y: 2}, Point{x: 3, y: 4}])}")
+    io.print("${poly == Shape.Poly([])}")
+
+    tree = Tree.Branch([
+        Grove{
+            trees: [
+                Tree.Leaf(1),
+                Tree.Leaf(2),
+            ],
+        },
+        Grove{
+            trees: [
+                Tree.Branch([
+                    Grove{
+                        trees: [
+                            Tree.Leaf(4),
+                        ],
+                    },
+                ]),
+            ],
+        },
+    ])
+
+    io.print("${total(tree)}")
+    io.print(Debug.inspect(tree))
+}

@@ -1,0 +1,96 @@
+import {
+    std/instant.Instant
+    commands.{self, Command}
+    store.Store
+    system.Clock
+    task.{Status, Task}
+}
+
+once noon = Instant.from_seconds(1_700_000_000)
+
+/// A clock that always reads `at`.
+struct FixedClock {
+    at: Instant
+}
+
+impl Clock for FixedClock {
+    fn now(clock: FixedClock): Instant {
+        clock.at
+    }
+}
+
+/// A store that keeps nothing. It accepts every change, or refuses every
+/// change with `error`.
+struct FakeStore {
+    error: Maybe<String> = None
+}
+
+impl Store for FakeStore {
+    fn load(_store: FakeStore): Result<Map<Int, Task>, String> {
+        Ok(Map.empty())
+    }
+
+    fn save(store: FakeStore, task: Task): Result<Unit, String> {
+        _ = task
+        outcome(store)
+    }
+
+    fn delete(store: FakeStore, id: Int): Result<Unit, String> {
+        _ = id
+        outcome(store)
+    }
+}
+
+fn outcome(store: FakeStore): Result<Unit, String> {
+    case store.error {
+        None -> Ok(Unit)
+        Some(error) -> Err(error)
+    }
+}
+
+/// Runs each line in turn, starting from no tasks, and returns the tasks and
+/// the lines the last command showed.
+fn run_lines(lines: List<String>): Result<(Map<Int, Task>, List<String>), String> {
+    Iter.reduce(lines, |state = Ok((Map.empty(), [])), line| {
+        (tasks, _shown) = try state
+        command = try commands.parse(line)
+        commands.run(command, tasks, FakeStore{}, FixedClock{at: noon})
+    })
+}
+
+test "words become commands" {
+    assert commands.parse("") == Ok(Command.Blank)
+    assert commands.parse("list done") == Ok(Command.List{status: Some(Status.Done)})
+
+    assert commands.parse("delete 4") == Ok(Command.Delete{id: 4})
+}
+
+test "malformed lines are errors" {
+    assert commands.parse("add") == Err("unknown command 'add', try 'help'")
+    assert commands.parse("list later") == Err("unknown status 'later'")
+}
+
+test "added tasks are numbered from 1 and stamped by the clock" {
+    (tasks, _shown) = try run_lines(["add first", "add second"])
+
+    assert Map.get(tasks, 2) == Some(Task{id: 2, title: "second", created: noon})
+}
+
+test "list shows the tasks with a status, in id order" {
+    (_tasks, shown) = try run_lines(
+        ["add a", "add b", "add c", "done 3", "start 2", "done 1", "list done"]
+    )
+
+    assert shown == ["[x] 1 a", "[x] 3 c"]
+}
+
+test "an unknown id is an error" {
+    assert run_lines(["add a", "done 7"]) == Err("no task with id 7")
+}
+
+test "a failed save is an error" {
+    store = FakeStore{error: Some("disk full")}
+    result = commands.run(Command.Add{title: "a"}, Map.empty(), store, FixedClock{at: noon})
+
+    assert result == Err("disk full")
+}

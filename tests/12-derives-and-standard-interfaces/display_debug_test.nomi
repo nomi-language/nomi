@@ -1,0 +1,65 @@
+import {
+    std/calendar.Error
+    std/comparable.Direction
+    std/decimal.RoundingMode
+    std/dynamic.PathSegment
+    std/json.Json
+    std/strings.NormalForm
+}
+
+struct Greeter {
+    name: String
+}
+
+impl Display for Greeter {
+    fn to_string(g: Greeter): String {
+        "hi ${g.name}"
+    }
+}
+
+test "Debug renders primitive literal shapes" {
+    assert Debug.inspect(42) == "42"
+    assert Debug.inspect(-7) == "-7"
+    assert Debug.inspect(3.14) == "3.14"
+    assert Debug.inspect(True) == "True"
+    assert Debug.inspect(False) == "False"
+    assert Debug.inspect("hello") == "\"hello\""
+    assert Debug.inspect("") == "\"\""
+}
+
+test "Display renders primitive user-facing strings" {
+    assert Int.to_string(42) == "42"
+    assert Int.to_string(-7) == "-7"
+    assert Float.to_string(3.14) == "3.14"
+    assert Bool.to_string(True) == "True"
+    assert Bool.to_string(False) == "False"
+    assert String.to_string("hello") == "hello"
+    assert String.inspect("hello") == "\"hello\""
+    assert Display.to_string(Greeter{name: "Alice"}) == "hi Alice"
+}
+
+test "Display renders standard enum and structured values" {
+    assert Display.to_string(Ordering.Less) == "Less"
+    assert Display.to_string(Direction.Ascending) == "Ascending"
+    assert Display.to_string(RoundingMode.HalfUp) == "HalfUp"
+    assert Display.to_string(NormalForm.NFC) == "NFC"
+    assert Display.to_string(PathSegment.Field("name")) == "Field(name)"
+    assert Display.to_string(PathSegment.Index(2)) == "Index(2)"
+    assert Display.to_string(Error.InvalidFormat("2026-13-01")) == "invalid format: 2026-13-01"
+
+    assert Display.to_string(Json.Int(42)) == "42"
+}
+
+test "extern singleton Debug routes through embedded Bool values" {
+    b: Bool = False
+
+    singleton = case b {
+        Bool.False(x) -> Debug.inspect(x)
+        _ -> "nope"
+    }
+
+    assert Debug.inspect(True) == "True"
+    assert Debug.inspect(b) == "False"
+    assert singleton == "False"
+    assert Debug.inspect([True, False]) == "[True, False]"
+}

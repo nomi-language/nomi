@@ -1,0 +1,51 @@
+// An interface-typed FIELD whose interface is declared in one sibling file and
+// whose value's type is declared in another, boxed here in a third.
+//
+// Three files, each its own gen, and each of the three things a cross-file
+// existential needs is exercised by a different pair of them:
+//
+//   - the field's TYPE comes from effects.nomi, so `typeOf` has to resolve an
+//     interface it did not declare;
+//   - the boxed value's IDENTITY belongs to handlers.nomi, so this package has
+//     to name that package's `rt.TypeID` variable rather than mint a second
+//     one for the same Nomi type;
+//   - the dispatch TABLE belongs to effects.nomi, and `impl Logger for Prod`
+//     in handlers.nomi binds into that same variable — one interface, one
+//     table, three packages.
+//
+// Two implementors are stored into each field, which is what makes the answers
+// below evidence of dispatch rather than of a fixed call.
+import {
+    std/io
+    effects.{Clock, Logger}
+    handlers.{Fixed, Prod, Tagged, Zero}
+}
+
+struct App {
+    name: String
+    logger: Logger
+    clock: Clock
+}
+
+fn banner(a: App): String {
+    "${a.name}/${Clock.now(a.clock)}: ${Logger.log(a.logger, "ready")}"
+}
+
+// The field read back out and passed on WITHOUT being re-boxed: the identity
+// travels with the value.
+fn relay(l: Logger, message: String): String {
+    Logger.log(l, message)
+}
+
+fn main() {
+    prod = App{name: "prod", logger: Prod{prefix: "P"}, clock: Fixed{at: 7}}
+    staging = App{name: "staging", logger: Tagged{tag: "T"}, clock: Zero}
+    io.print(banner(prod))
+    io.print(banner(staging))
+    io.print(relay(prod.logger, "again"))
+    io.print(relay(staging.logger, "again"))
+    // The interface DEFAULT, inherited by a type declared in a third file and
+    // dispatched here through the table the first file declared.
+    io.print(Logger.twice(prod.logger, "twice"))
+    io.print(Logger.twice(staging.logger, "twice"))
+}

@@ -1,0 +1,28 @@
+// A lambda inside a tail-cycle member, whose body calls that same member.
+//
+// `walk(0, acc + x)` is tail-marked — MarkTailCalls walks a lambda body with
+// tail=true at its boundary — but it is the LAMBDA's tail, not `walk`'s. A hop
+// there would emit `continue <label>` inside a Go func literal with no
+// enclosing loop, which does not compile; the correct lowering is an ordinary
+// call to `walk`'s own function, which trampolines itself.
+//
+// So this file is the fixture for the boundary discipline: g.tail must be
+// cleared wherever a Go func literal is opened, exactly as g.ctrl already is.
+// `walk` also has a REAL tail self-call, so the emitted module must contain
+// exactly one hop.
+import std/io
+
+fn walk(n: Int, acc: Int): Int {
+    if n == 0 {
+        acc
+    } else if n == 1 {
+        Iter.count(Iter.map([1, 2], |x: Int| walk(0, acc + x)))
+    } else {
+        walk(n - 1, acc + 1)
+    }
+}
+
+fn main() {
+    io.print("${walk(5, 0)}")
+    io.print("${walk(1, 7)}")
+}

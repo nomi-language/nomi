@@ -1,0 +1,52 @@
+import std/io
+
+// Probe: WHICH SLOT AN ARGUMENT FILLS IS NOT ITS POSITION.
+//
+// resolveArgs (eval/eval.go:5873-5886) takes the last positional argument of an
+// under-filled call and, when it is a lambda or a block — or a bare name whose
+// own slot does not take a function while the last parameter does — MOVES it to
+// the last slot, leaving the slot it would have filled to its default. That is
+// what makes the options-then-callback shape work.
+//
+// `pick({ 5 })` is the load-bearing line and the reason this fixture exists.
+// Both parameters are Int, so the misplacement is WELL TYPED: positional filling
+// puts 5 in `a`, defaults `b` to 2 and answers 52, where the interpreter routes
+// 5 to `b`, defaults `a` to 1 and answers 15. No type error, no compile error —
+// just a different number. Every other shape here is caught by the type checker
+// if the routing is wrong, so without this line the guard would look tested and
+// would not be.
+fn pick(a: Int = 1, b: Int = 2): Int {
+    a * 10 + b
+}
+
+fn transform(x: Int, factor: Int = 3, f: (Int) -> Int): Int {
+    f(x * factor)
+}
+
+fn labelled(tag: String = "t", n: Int = 0, f: (Int) -> Int): String {
+    "${tag}:${f(n)}"
+}
+
+fn main() {
+    // A block as the trailing argument, routed past a defaulted slot of the SAME
+    // type. Positional filling answers 52; routing answers 15.
+    io.print("pick = ${pick({ 5 })}")
+
+    // Full arity: the move is a no-op, so both readings agree. Here to pin that
+    // the routing rule does NOT fire when nothing is omitted.
+    io.print("pick full = ${pick(5, 6)}")
+
+    // A trailing lambda routed past a defaulted Int.
+    io.print("transform = ${transform(5, |n: Int| n + 100)}")
+
+    // The same with two defaulted slots skipped at once.
+    io.print("labelled = ${labelled(|n: Int| n + 7)}")
+
+    // The bare-function-NAME form of the same rule — `transform(5, double)`,
+    // which the interpreter answers 30 for — is deliberately absent: a bare
+    // module-function reference is not an expression this builder lowers yet (it
+    // reports `unbound name`, since module functions live in g.funcs and not in
+    // any scope), so including it would refuse the whole fixture for somebody
+    // else's gap. argSlots implements that arm and TestArgSlots_BareNameRouting
+    // covers it directly instead.
+}

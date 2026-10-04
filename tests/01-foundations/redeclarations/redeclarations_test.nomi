@@ -1,0 +1,24 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+test "duplicate same-scope top-level declarations are rejected" {
+    diagnostics = compiler.check(
+        """
+          fn helper(): Int {
+            1
+          }
+
+          fn helper(): Int {
+            2
+          }
+
+          fn main() {
+            Unit
+          }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "'helper' is already defined in this scope")
+}

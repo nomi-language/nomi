@@ -1,0 +1,154 @@
+//# The commands a user types, how a line becomes a `Command`, and what each
+//# command does to the task list.
+
+import {
+    store.Store
+    system.Clock
+    task.{Status, Task}
+}
+
+once help = [
+    "add <title>     add a task",
+    "list [status]   list the tasks, or only the open, started or done ones",
+    "start <id>      mark a task started",
+    "done <id>       mark a task done",
+    "delete <id>     delete a task",
+    "quit            leave",
+]
+
+pub enum Command {
+    Help
+    Add {title: String}
+    List {status: Maybe<Status>}
+    Mark {id: Int, status: Status}
+    Delete {id: Int}
+    Quit
+    Blank
+}
+
+/// Reads one input line as a command by matching its words against list
+/// patterns.
+//! assert parse("add buy  milk") == Ok(Command.Add{title: "buy milk"})
+//! assert parse("done 2") == Ok(Command.Mark{id: 2, status: Status.Done})
+//! assert parse("done two") == Err("expected a task id, got 'two'")
+//
+pub fn parse(line: String): Result<Command, String> {
+    words =
+        line
+        |> String.split(" ")
+        |> Iter.filter(|word| word != "")
+        |> Iter.to_list()
+
+    case words {
+        [] ->
+            Ok(Command.Blank)
+
+        ["help"] ->
+            Ok(Command.Help)
+
+        ["quit"] ->
+            Ok(Command.Quit)
+
+        ["add", first, ..rest] ->
+            Ok(Command.Add{title: String.join([first, ..rest], " ")})
+
+        ["list"] ->
+            Ok(Command.List{status: None})
+
+        ["list", status] ->
+            status
+            |> Status.parse()
+            |> Maybe.map(|status| Command.List{status: Some(status)})
+            |> Result.from_maybe("unknown status '${status}'")
+
+        ["start", id] ->
+            parse_id(id) |> Result.map(|id| Command.Mark{id, status: Status.Started})
+
+        ["done", id] ->
+            parse_id(id) |> Result.map(|id| Command.Mark{id, status: Status.Done})
+
+        ["delete", id] ->
+            parse_id(id) |> Result.map(|id| Command.Delete{id})
+
+        _ ->
+            Err("unknown command '${line}', try 'help'")
+    }
+}
+
+/// Runs a command against the current tasks and returns the tasks afterwards
+/// with the lines to show. A change is saved to `store` before it is made,
+/// so a failed save changes nothing. New tasks are stamped by `clock`.
+pub fn run(
+    command: Command,
+    tasks: Map<Int, Task>,
+    store: Store,
+    clock: Clock,
+): Result<(Map<Int, Task>, List<String>), String> {
+    case command {
+        Command.Help ->
+            Ok((tasks, help))
+
+        Command.Add{title} -> {
+            task = Task{id: next_id(tasks), title, created: Clock.now(clock)}
+            try Store.save(store, task)
+            Ok((Map.put(tasks, task.id, task), ["added ${Task.render(task)}"]))
+        }
+
+        Command.List{status} ->
+            Ok((tasks, list(tasks, status)))
+
+        Command.Mark{id, status} -> {
+            task = {..try find(tasks, id), status}
+            try Store.save(store, task)
+            Ok((Map.put(tasks, id, task), [Task.render(task)]))
+        }
+
+        Command.Delete{id} -> {
+            task = try find(tasks, id)
+            try Store.delete(store, id)
+            Ok((Map.remove(tasks, id), ["deleted ${Task.render(task)}"]))
+        }
+
+        Command.Quit ->
+            Ok((tasks, []))
+
+        Command.Blank ->
+            Ok((tasks, []))
+    }
+}
+
+fn list(tasks: Map<Int, Task>, status: Maybe<Status>): List<String> {
+    lines =
+        tasks
+        |> Map.values()
+        |> Iter.filter(shown?(_, status))
+        |> Iter.sort_by(.id)
+        |> Iter.map(|task| Task.render(task))
+        |> Iter.to_list()
+
+    if lines == [] { ["no tasks"] } else { lines }
+}
+
+fn shown?(task: Task, status: Maybe<Status>): Bool {
+    case status {
+        None -> True
+        Some(status) -> task.status == status
+    }
+}
+
+fn find(tasks: Map<Int, Task>, id: Int): Result<Task, String> {
+    Map.get(tasks, id) |> Result.from_maybe("no task with id ${id}")
+}
+
+fn next_id(tasks: Map<Int, Task>): Int {
+    highest =
+        tasks
+        |> Map.keys()
+        |> Iter.reduce(|highest = 0, id| if id > highest { id } else { highest })
+
+    highest + 1
+}
+
+fn parse_id(text: String): Result<Int, String> {
+    String.to_int(text) |> Result.from_maybe("expected a task id, got '${text}'")
+}

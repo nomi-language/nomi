@@ -1,0 +1,177 @@
+import {
+    std/io
+    std/tasks.{Failure, Outcome}
+}
+
+// `std/tasks.Outcome<T>` in expression and pattern position — a GENERIC std
+// enum whose three variants use all three payload shapes at once: parametric
+// (`Completed T`), absent (`Cancelled`), and CONCRETE-BUT-NAMED
+// (`Failed Failure`). See internal/irbuild/taskoutcome.go.
+//
+// OBSERVABLE rather than a signature witness, for testdata/dotted_values.nomi's
+// reason and a sharper one. This lowering has three ways to be silently wrong
+// that no refusal count can see, and every one produces compiling Go:
+//
+//   - select the wrong VARIANT (the tags come from declaration order, and a
+//     permuted spec renumbers construction and `case` consistently, so only a
+//     printed value disagrees);
+//   - select the right variant and drop its PAYLOAD;
+//   - discharge the bare `Cancelled` sentinel into the WRONG SPEC. That last one
+//     is the reason this file exists at all: before the sentinel became
+//     per-spec, `Outcome.Cancelled` would have been emitted as `rt.None`, which
+//     is a `Maybe` for a type that is not one.
+//
+// # EVERY SPELLING, and why each is a separate row
+//
+// One absent representation was reported under TWO tally keys, selected by
+// nothing but whether the variant carried data — `Outcome.Cancelled` as
+// `type-qualified reference` and `Outcome.Completed` as `qualified call`. So a
+// fixture with one spelling could not see a fix that composed for that spelling
+// and not the other, and both are here in every position:
+//
+//	Outcome.Cancelled       nullary, qualified      was `type-qualified reference`
+//	Outcome.Completed(42)   positional, qualified   was `qualified call`
+//	.Cancelled / .Completed dot shorthand           already lowered
+//	Outcome.Failed(...)     NAMED payload           the fourth payload shape
+//
+// The dot-shorthand rows and the pattern rows already lowered before this file
+// existed. They are here anyway, for the reason dotted_values.nomi gives: they
+// are what a fix to the reference and call arms could plausibly break, and a
+// fixture covering only the newly-lowered spellings could not tell.
+//
+// `Task<T>` is deliberately absent. It is a `pub host type` with no runtime
+// representation, so `Task.outcome` — the only std function that PRODUCES an
+// Outcome — is still refused, and a fixture that reached for it would be
+// measuring somebody else's gap.
+// Read the payload back out, so a construction that dropped it fails here.
+fn value_of(o: Outcome<Int>): Int {
+    case o {
+        Outcome.Completed(v) -> v
+        Outcome.Cancelled -> -1
+        Outcome.Failed(_) -> -2
+    }
+}
+
+// The DOT SHORTHAND in pattern position, which reads the parameter's annotation
+// rather than a written qualifier.
+fn tag_of(o: Outcome<Int>): String {
+    case o {
+        .Completed(_) -> "completed"
+        .Cancelled -> "cancelled"
+        .Failed(_) -> "failed"
+    }
+}
+
+// The NAMED payload, destructured. `Failure` has no representation of its own
+// outside this type, so reading its variants is what shows the payload enum's
+// tags and its single shared `Msg` slot are right.
+fn why(o: Outcome<Int>): String {
+    case o {
+        Outcome.Failed(.Panicked(m)) -> "panicked:${m}"
+        Outcome.Failed(.Errored(m)) -> "errored:${m}"
+        Outcome.Completed(_) -> "none"
+        Outcome.Cancelled -> "none"
+    }
+}
+
+// A DIFFERENT type argument, so the instantiation is not the only one in the
+// file: a shared intern keyed on the base name rather than on the rendered Go
+// type would collapse these two and this row would print the wrong thing.
+fn label(o: Outcome<String>): String {
+    case o {
+        Outcome.Completed(s) -> s
+        Outcome.Cancelled -> "(cancelled)"
+        Outcome.Failed(_) -> "(failed)"
+    }
+}
+
+// The bare variant NESTED inside a prelude variant, so the descent reaches it
+// rather than stopping at the `Maybe` — and so the two sentinels (`None` and
+// `Outcome.Cancelled`) are both live in one expression.
+fn nested(m: Maybe<Outcome<Int>>): Int {
+    case m {
+        Some(Outcome.Completed(v)) -> v
+        Some(Outcome.Cancelled) -> -1
+        Some(Outcome.Failed(_)) -> -2
+        None -> -3
+    }
+}
+
+// `Failed` is built in a RETURN position rather than at an annotated binding,
+// and the difference is a PRE-EXISTING gap this file deliberately does not
+// reach for. A concrete-payload variant constructor carries no `T` in its
+// argument, so the builder takes the type argument from the analyzer's solved
+// type at the CALL — which a return annotation supplies and a binding
+// annotation does not.
+//
+// MEASURED at this head, with an independent control from another spec:
+//
+//	Fragment.Static("x")  return position    LOWERS
+//	Fragment.Static("x")  annotated binding  refused `prelude constructor with no solved type`
+//	Fragment.Dynamic(1)   annotated binding  LOWERS   (parametric: solvable from the argument)
+//	Outcome.Failed(...)   annotated binding  refused, identically
+//	Outcome.Completed(1)  annotated binding  LOWERS   (parametric)
+//
+// So the limitation is the CONCRETE-payload constructor's and not this type's,
+// it predates this file, and `Fragment` has it too. Recorded here and asserted
+// by TestOutcome_ConcretePayloadBindingIsAPreExistingGap rather than worked
+// around silently.
+fn broke_with(msg: String): Outcome<Int> {
+    Outcome.Failed(Failure.Errored(msg))
+}
+
+fn panicked_with(msg: String): Outcome<Int> {
+    Outcome.Failed(Failure.Panicked(msg))
+}
+
+fn main() {
+    done: Outcome<Int> = Outcome.Completed(42)
+    stopped: Outcome<Int> = Outcome.Cancelled
+    broke = broke_with("boom")
+
+    io.print("done = ${value_of(done)}")
+    io.print("stopped = ${value_of(stopped)}")
+    io.print("broke = ${value_of(broke)}")
+
+    io.print("done tag = ${tag_of(done)}")
+    io.print("stopped tag = ${tag_of(stopped)}")
+    io.print("broke tag = ${tag_of(broke)}")
+
+    io.print("why done = ${why(done)}")
+    io.print("why broke = ${why(broke)}")
+    io.print("why panicked = ${why(panicked_with("oops"))}")
+
+    // The DOT SHORTHAND in EXPRESSION position is deliberately absent. It
+    // refuses `dot variant`, a pre-existing key that predates this slice — the
+    // shorthand reads the annotation for the VARIANT and this builder has no arm
+    // for it on a prelude enum. Asserted by
+    // TestOutcome_ConcretePayloadBindingIsAPreExistingGap rather than worked
+    // around here, so the refusal is on record with its operand.
+    //
+    // The dot shorthand in PATTERN position DOES lower and is exercised above,
+    // by `tag_of`. That asymmetry is the reason both are named rather than one
+    // being assumed from the other.
+    qualified_done: Outcome<Int> = Outcome.Completed(7)
+    io.print("qualified done = ${value_of(qualified_done)}")
+
+    // A second type argument.
+    io.print("label = ${label(Outcome.Completed("hello"))}")
+    io.print("label cancelled = ${label(Outcome.Cancelled)}")
+
+    // Nested inside a prelude variant, with both sentinels live.
+    io.print("nested done = ${nested(Some(Outcome.Completed(5)))}")
+    io.print("nested stopped = ${nested(Some(Outcome.Cancelled))}")
+    io.print("nested none = ${nested(None)}")
+
+    // EQUALITY over values built through each spelling, so the reference arm and
+    // the call arm are shown to produce the SAME value rather than two that
+    // merely print alike. `bare same` is the row that would fail if the sentinel
+    // were discharged into the wrong spec.
+    io.print("same = ${Outcome.Completed(42) == done}")
+    io.print("differ = ${Outcome.Completed(43) == done}")
+    io.print("bare same = ${Outcome.Cancelled == stopped}")
+    io.print("cross = ${Outcome.Cancelled == done}")
+    io.print("qualified agrees = ${qualified_done == Outcome.Completed(7)}")
+    io.print("failed same = ${broke_with("boom") == broke}")
+    io.print("failed differ = ${panicked_with("boom") == broke}")
+}

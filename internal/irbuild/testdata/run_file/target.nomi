@@ -1,0 +1,23 @@
+// RunFile supplies the immutable Startup environment consumed by boot.
+import std/io
+
+struct Probe {
+    context: Context
+
+    value: String
+}
+
+fn boot(startup: Startup): Probe {
+    found = case Map.get(startup.env, "NOMI_RUN_FILE_FIXTURE_PROBE") {
+        Some(v) -> v
+        None -> "absent"
+    }
+
+    Probe{context: Context.root(), value: found}
+}
+
+fn main() {
+    io.print("target ran")
+    io.print("probe=${Probe.value}")
+    io.print("trimmed=" + String.trim("  x  "))
+}

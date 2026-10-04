@@ -1,0 +1,9 @@
+import ffi
+
+test "project-local Go export is available to tests" {
+    assert ffi.echo_upper("fixture") == "FIXTURE"
+}
+
+test "project-local Go type binding is available to tests" {
+    assert ffi.box_label(ffi.make_box("opaque")) == "opaque"
+}

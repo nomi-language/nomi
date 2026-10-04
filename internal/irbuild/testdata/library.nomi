@@ -1,0 +1,12 @@
+// A library module: no `fn main`. Exists so the build path for a non-entry
+// package is exercised — `go build .` compiles only what the main package can
+// reach, so a module nobody imports is emitted and never type-checked unless
+// renderBoot blank-imports it. See TestNonEntryPackageIsCompiled.
+pub struct Pair {
+    left: Int
+    right: Int
+}
+
+pub fn sum(p: Pair): Int {
+    p.left + p.right
+}

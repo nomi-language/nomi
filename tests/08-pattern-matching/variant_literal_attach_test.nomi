@@ -1,0 +1,116 @@
+enum JV {
+    Str String
+    Num Int
+    Obj Map<String, JV>
+    Arr List<JV>
+    Pos (Int, Int)
+}
+
+test "variant payloads can attach map list and tuple literals" {
+    obj_flat = JV.Obj{"a" => JV.Num(1)}
+    obj_call = JV.Obj({"b" => JV.Num(2)})
+    arr_flat = JV.Arr[JV.Num(1), JV.Num(2), JV.Num(3)]
+    arr_call = JV.Arr([JV.Num(4), JV.Num(5)])
+    pos_flat = JV.Pos(10, 20)
+    pos_call = JV.Pos((30, 40))
+
+    assert obj_flat
+        |> Debug.inspect()
+        |> String.equal?("Obj({\"a\" => Num(1)})")
+
+    assert obj_call
+        |> Debug.inspect()
+        |> String.equal?("Obj({\"b\" => Num(2)})")
+
+    assert arr_flat
+        |> Debug.inspect()
+        |> String.equal?("Arr([Num(1), Num(2), Num(3)])")
+
+    assert arr_call
+        |> Debug.inspect()
+        |> String.equal?("Arr([Num(4), Num(5)])")
+
+    assert pos_flat
+        |> Debug.inspect()
+        |> String.equal?("Pos(10, 20)")
+
+    assert pos_call
+        |> Debug.inspect()
+        |> String.equal?("Pos(30, 40)")
+}
+
+test "variant literal-attach patterns destructure payloads" {
+    obj_flat = JV.Obj{"a" => JV.Num(1)}
+    obj_call = JV.Obj({"b" => JV.Num(2)})
+    arr_flat = JV.Arr[JV.Num(1), JV.Num(2), JV.Num(3)]
+    pos_flat = JV.Pos(10, 20)
+    pos_call = JV.Pos((30, 40))
+
+    flat_obj = case obj_flat {
+        .Obj{"a" => .Num(n)} -> "flat-obj: a=${n}"
+        _ -> "no match"
+    }
+
+    call_obj = case obj_call {
+        .Obj({"b" => .Num(n)}) -> "call-obj: b=${n}"
+        _ -> "no match"
+    }
+
+    flat_arr = case arr_flat {
+        .Arr[.Num(a), .Num(b), .Num(c)] -> "flat-arr: ${a}, ${b}, ${c}"
+        _ -> "no match"
+    }
+
+    call_arr = case arr_flat {
+        .Arr([.Num(_), ..rest]) -> "call-arr len: ${Iter.count(rest)}"
+        _ -> "no match"
+    }
+
+    flat_pos = case pos_flat {
+        .Pos(x, y) -> "flat-pos: ${x}, ${y}"
+        _ -> "no match"
+    }
+
+    call_pos = case pos_call {
+        .Pos((x, y)) -> "call-pos: ${x}, ${y}"
+        _ -> "no match"
+    }
+
+    spread = case arr_flat {
+        .Arr[.Num(head), ..rest] -> "spread: head=${head} rest-len=${Iter.count(rest)}"
+        _ -> "no match"
+    }
+
+    assert flat_obj == "flat-obj: a=1"
+    assert call_obj == "call-obj: b=2"
+    assert flat_arr == "flat-arr: 1, 2, 3"
+    assert call_arr == "call-arr len: 2"
+    assert flat_pos == "flat-pos: 10, 20"
+    assert call_pos == "call-pos: 30, 40"
+    assert spread == "spread: head=1 rest-len=2"
+}
+
+test "nested literal-attach patterns work inside wrapped variants" {
+    qual_obj = JV.Obj{"k" => JV.Num(7)}
+    wrapped = Some(JV.Obj{"k" => JV.Num(1)})
+    wrapped_arr = Some(JV.Arr[JV.Num(1), JV.Num(2)])
+
+    map_size = case qual_obj {
+        .Obj(m) -> Map.size(m)
+        _ -> 0
+    }
+
+    nested_flat = case wrapped {
+        Some(.Obj{"k" => .Num(n)}) -> n
+        _ -> 0
+    }
+
+    nested_arr = case wrapped_arr {
+        Some(.Arr[.Num(a), .Num(b)]) -> "${a}, ${b}"
+        _ -> "no match"
+    }
+
+    assert map_size == 1
+    assert nested_flat == 1
+    assert nested_arr == "1, 2"
+}

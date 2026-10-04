@@ -1,0 +1,160 @@
+//# Compiler and analyzer operations for test tooling.
+
+import {
+    int.Int
+    lists.List
+    maps.Map
+    maybe.Maybe.{self, None}
+    results.Result
+    strings.String
+    toml.Toml
+}
+
+/// A compiler diagnostic with 1-based source coordinates.
+pub struct Diagnostic {
+    line: Int
+    col: Int
+    message: String
+}
+
+/// Hover text returned by the same renderer used by the editor.
+pub struct Hover {
+    /// The first rendered signature line, with markdown removed.
+    signature: String
+
+    /// The full markdown hover body.
+    markdown: String
+}
+
+/// An in-memory Nomi project for compiler tests.
+///
+/// `entry_point` names the file in `files` to check as the entry file.
+/// File keys are import paths without `.nomi`, so `"main"` represents
+/// `main.nomi` and `"api/user"` represents `api/user.nomi`.
+///
+/// `manifest` is optional `nomi.toml` content. When present, checks that
+/// depend on package metadata, such as `entry_points`, use it.
+pub struct Project {
+    entry_point: String
+    files: Map<String, String>
+    manifest: Maybe<Toml> = None
+}
+
+/// Options for running a `.nomi` file under the current test project root.
+pub struct RunFile {
+    /// Module path without `.nomi`, such as `"main"` or `"tools/seed"`.
+    entry_point: String
+
+    /// Process environment overrides included in `startup.env` when `boot`
+    /// builds the app value. Missing keys inherit the current test process env.
+    env: Map<String, String> = Map.empty()
+}
+
+/// Checks `source` as a standalone Nomi entry file and returns every
+/// diagnostic as data.
+//! import std/compiler
+//! import std/strings.String
+//!
+//! diagnostics = compiler.check(
+//!     """
+//!     fn main() {
+//!       dbg missing
+//!     }
+//!     """
+//! )
+//!
+//! assert [diagnostic] = diagnostics
+//! assert String.contains?(diagnostic.message, "undefined variable 'missing'")
+//
+pub host fn check(source: String): List<Diagnostic>
+
+/// Runs `source` as a standalone Nomi entry file and captures stdout.
+///
+/// `Err(message)` is returned for parse, analysis, or runtime errors. A
+/// runtime error is what `nomi run` reports for the same source, including a
+/// deadline that runs out while `main` blocks; output printed before it is
+/// not returned.
+/// Use `compiler.check` when the diagnostic itself is the behavior under
+/// test; use `compiler.run` when output is the behavior under test.
+//! import std/compiler
+//! import std/strings.String
+//!
+//! case compiler.run(
+//!     """
+//!     fn main() {
+//!       _ = dbg 41 + 1
+//!     }
+//!     """
+//! ) {
+//!     Ok(out) -> assert String.contains?(out, "41 + 1 = 42")
+//!     Err(e) -> assert String.contains?(e, "unreachable: the program above runs")
+//! }
+//
+pub host fn run(source: String): Result<String, String>
+
+/// Runs a `.nomi` file under the current test project root and captures
+/// stdout.
+pub host fn run_file(run: RunFile): Result<String, String>
+
+/// Returns hover content for the single `ˇ` marker in `source`.
+///
+/// The marker is removed before parsing. Use it only in compiler/editor tests,
+/// where it marks the cursor position without making the fixture depend on
+/// line and column numbers.
+//! import std/compiler
+//!
+//! hover = try compiler.hover(
+//!     """
+//!     fn main() {
+//!       ansˇwer = 42
+//!       _ = answer
+//!     }
+//!     """
+//! )
+//!
+//! assert hover.signature == "answer: Int"
+//
+pub host fn hover(source: String): Result<Hover, String>
+
+/// Checks an in-memory project and returns every diagnostic as data.
+//! import std/compiler
+//! import std/strings.String
+//!
+//! diagnostics = compiler.check_project(Project{
+//!     entry_point: "main",
+//!     manifest: Maybe.Some(
+//!         Toml"""
+//!         [module]
+//!         name = "demo"
+//!         entry_points = ["main"]
+//!         """
+//!     ),
+//!     files: {
+//!         "main" => """
+//!             import api.{Widget, make}
+//!
+//!             fn main() {
+//!               w = make("Ada")
+//!               Widget.secret(w)
+//!             }
+//!             """,
+//!         "api" => """
+//!             pub struct Widget {
+//!               name: String
+//!             }
+//!
+//!             fn secret(w: Widget): String {
+//!               "secret " + w.name
+//!             }
+//!
+//!             pub fn make(name: String): Widget {
+//!               Widget{name}
+//!             }
+//!             """,
+//!     },
+//! })
+//!
+//! assert [diagnostic] = diagnostics
+//! assert String.contains?(diagnostic.message, "no member 'secret'")
+//
+pub host fn check_project(project: Project): List<Diagnostic>

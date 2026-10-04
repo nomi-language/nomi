@@ -1,0 +1,92 @@
+// A distinct type over a TUPLE and over a CONTAINER.
+//
+// Two things that were separately refused and turn out to share a file:
+//
+//   - `Coord(3, 4)` — the FLAT construction spelling of a tuple-shaped inner.
+//     The front end accepts it and the builder required exactly one argument,
+//     so it refused under `call arity`, a key holding no arity errors at all.
+//   - `Debug.inspect(items)` for `type Items List<Int>` — the synthesized
+//     universal `impl Debug` for a DISTINCT receiver, whose body unwraps
+//     the inner value. That unwrap is spelled with a conversion in the
+//     builder's `expr` text (`convertTo`).
+//
+// The container half is the one worth exercising at RUN time, because a wrong
+// unwrap is invisible to a refusal count: the body lowers either way and only
+// the printed answer differs.
+//
+// Every unwrap route is spelled below — Debug, a `case` arm, a
+// destructuring binding, a map KEY (hash and equality), and an interpolation —
+// so a site that regresses to the bare spelling fails here rather than in a
+// corpus file three categories away.
+import std/io
+
+type Coord (Int, Int)
+type Triple (Int, Int, Int)
+type Items List<Int>
+type Kvs Map<String, Int>
+
+enum Shape {
+    Pos (Int, Int)
+    Tagged Coord
+}
+
+fn main() {
+    // FLAT construction, and the explicit one-tuple spelling beside it. Nomi has
+    // no 1-tuple, so the two arities can never collide.
+    flat = Coord(3, 4)
+    explicit = Coord((3, 4))
+    three = Triple(1, 2, 3)
+
+    io.print("flat=${Debug.inspect(flat)}")
+    io.print("explicit=${Debug.inspect(explicit)}")
+    io.print("equal=${Bool.to_string(flat == explicit)}")
+    io.print("three=${Debug.inspect(three)}")
+
+    // The variant spelling of the same rule, which already worked, kept here so
+    // the two cannot drift: one helper serves both.
+    io.print("variant-flat=${Debug.inspect(Shape.Pos(10, 20))}")
+    io.print("variant-explicit=${Debug.inspect(Shape.Pos((10, 20)))}")
+    io.print("variant-over-distinct=${Debug.inspect(Shape.Tagged(Coord(7, 8)))}")
+
+    // A distinct over a POINTER-SHAPED inner. `List` is `*rt.List[T]` in Go and
+    // `Map` is a value struct, which is exactly why one of them exercised the
+    // conversion bug and the other never could.
+    items = Items([4, 5, 6])
+    kvs = Kvs{"a" => 1, "b" => 2}
+
+    io.print("items=${Debug.inspect(items)}")
+    io.print("kvs=${Debug.inspect(kvs)}")
+
+    // The `case` unwrap route.
+    n = case items {
+        Items(xs) -> Iter.count(xs)
+    }
+
+    io.print("case-unwrap=${n}")
+
+    // The destructuring-binding unwrap route.
+    Items(bound) = items
+    io.print("bind-unwrap=${Iter.count(bound)}")
+
+    parts = case flat {
+        Coord(cx, cy) -> "${cx},${cy}"
+    }
+
+    io.print("coord-parts=${parts}")
+
+    nested = case flat {
+        Coord((cx, cy)) -> "${cx}/${cy}"
+    }
+
+    io.print("coord-nested=${nested}")
+
+    // A distinct over a container used as a MAP KEY, which reaches the hash and
+    // the equality unwrap — two more sites that spelled the conversion bare.
+    keyed = {Items([1, 2]) => "one-two"}
+    hit = Map.get(keyed, Items([1, 2])) |> Maybe.with_default("?")
+
+    miss = Map.get(keyed, Items([9])) |> Maybe.with_default("?")
+
+    io.print("keyed=${hit}")
+    io.print("keyed-miss=${miss}")
+}

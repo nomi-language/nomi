@@ -1,0 +1,438 @@
+==========
+Simple module import
+==========
+
+import math
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))))
+
+==========
+Import block remains import-only
+==========
+
+import {
+  std/io
+  std/duration.Duration
+}
+
+---
+
+(source_file
+  (import_block
+    (module_path
+      (identifier)
+      (identifier))
+    (module_path
+      (identifier)
+      (identifier))
+    (type_identifier)))
+
+==========
+Go block
+==========
+
+go {
+  import (
+    "database/sql"
+    sqlite "modernc.org/sqlite"
+    _ "github.com/lib/pq"
+  )
+
+  type Conn struct {
+    db *sql.DB
+  }
+}
+
+---
+
+(source_file
+  (go_block
+    (go_raw_content
+      (go_raw_content))))
+
+==========
+Inline Go bindings
+==========
+
+go {
+  import ffi "example.com/app/ffi"
+}
+
+opaque type RawConn go {
+  ffi.Conn
+}
+
+fn echo_upper(s: String): String go {
+  return ffi.EchoUpper(s)
+}
+
+---
+
+(source_file
+  (go_block
+    (go_raw_content))
+  (type_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (go_inline_body
+      (go_raw_content)))
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (go_inline_body
+      (go_raw_content))))
+
+==========
+Slash-separated module path
+==========
+
+import http/request
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier))))
+
+==========
+Single value selector
+==========
+
+import http/request.get
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier))
+    (import_value_selector
+      (identifier))))
+
+==========
+Colon selector list
+==========
+
+import clock: Clock, SystemClock
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (import_selector
+      (import_selector_clause
+        (import_selector_path
+          (type_identifier)))
+      (import_selector_clause
+        (import_selector_path
+          (type_identifier))))))
+
+==========
+Colon owner selector list
+==========
+
+import api: PublicApi.{self, some_child}, InternalApi.{self, another_child}
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (import_selector
+      (import_selector_clause
+        (type_identifier)
+        (import_names
+          (import_self)
+          (import_entry
+            (identifier))))
+      (import_selector_clause
+        (type_identifier)
+        (import_names
+          (import_self)
+          (import_entry
+            (identifier)))))))
+
+==========
+Colon owner selector list with dotted item
+==========
+
+import std/json: FromJson, ToJson, Json.{self, Case.Camel}
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier))
+    (import_selector
+      (import_selector_clause
+        (import_selector_path
+          (type_identifier)))
+      (import_selector_clause
+        (import_selector_path
+          (type_identifier)))
+      (import_selector_clause
+        (type_identifier)
+        (import_names
+          (import_self)
+          (import_entry
+            (type_identifier)
+            (type_identifier)))))))
+
+==========
+Drill-through type import
+==========
+
+import std/maybe.Maybe.{Some, None}
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier))
+    (type_identifier)
+    (import_names
+      (import_entry
+        (type_identifier))
+      (import_entry
+        (type_identifier)))))
+
+==========
+Module import with alias
+==========
+
+import some_mod as sm
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (identifier)))
+
+==========
+Selective import
+==========
+
+import models.{User, Point}
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (import_names
+      (import_entry
+        (type_identifier))
+      (import_entry
+        (type_identifier)))))
+
+==========
+Selective import with rename
+==========
+
+import models.{User as U, Point}
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (import_names
+      (import_entry
+        (type_identifier)
+        (type_identifier))
+      (import_entry
+        (type_identifier)))))
+
+==========
+Line-level export on simple import
+==========
+
+import some_mod export
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))))
+
+==========
+Line-level export with alias
+==========
+
+import some_mod as sm export as Public
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (identifier)
+    (type_identifier)))
+
+==========
+Line-level export on selective import
+==========
+
+import models.{User, Point} export
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (import_names
+      (import_entry
+        (type_identifier))
+      (import_entry
+        (type_identifier)))))
+
+==========
+Per-item export modifier
+==========
+
+import models.{User export, Point}
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (import_names
+      (import_entry
+        (type_identifier))
+      (import_entry
+        (type_identifier)))))
+
+==========
+Per-item export with alias
+==========
+
+import models.{User as U export as Pub, Point}
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (import_names
+      (import_entry
+        (type_identifier)
+        (type_identifier)
+        (type_identifier))
+      (import_entry
+        (type_identifier)))))
+
+==========
+Mixed per-item modifiers (line-level export plus per-item rename)
+==========
+
+import models.{User as Local export as Pub, Point export} export
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (import_names
+      (import_entry
+        (type_identifier)
+        (type_identifier)
+        (type_identifier))
+      (import_entry
+        (type_identifier)))))
+
+==========
+Existing imports unaffected (sanity)
+==========
+
+import a
+import b/c
+import b.{X, Y}
+import b.{X as Y}
+import b as bb
+
+---
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier)))
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier)))
+  (import_statement
+    (module_path
+      (identifier))
+    (import_names
+      (import_entry
+        (type_identifier))
+      (import_entry
+        (type_identifier))))
+  (import_statement
+    (module_path
+      (identifier))
+    (import_names
+      (import_entry
+        (type_identifier)
+        (type_identifier))))
+  (import_statement
+    (module_path
+      (identifier))
+    (identifier)))
+
+==================
+Import block (multi-import braces)
+==================
+
+import {
+  std/io
+  std/lists as l
+  models.{User} export
+}
+
+---
+
+(source_file
+  (import_block
+    (module_path
+      (identifier)
+      (identifier))
+    (module_path
+      (identifier)
+      (identifier))
+    (identifier)
+    (module_path
+      (identifier))
+    (import_names
+      (import_entry
+        (type_identifier)))))

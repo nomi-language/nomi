@@ -1,0 +1,56 @@
+// A payload-free variant of a user generic enum where no expected type names
+// the instance: a list or tuple element, an `if` branch, an operand of `==`.
+// The checker records the instance it solved at each site, and the builder
+// builds the variant there. Both a local enum and another file's, named both
+// ways, run.
+import {
+    std/io
+    tree.{self, Tree}
+}
+
+enum Box<T> {
+    Empty
+    Full T
+}
+
+fn value_or(t: Tree<String>, d: String): String {
+    case t {
+        Tree.Leaf -> d
+        Tree.Node(v) -> v
+    }
+}
+
+fn filled(b: Box<Int>): Int {
+    case b {
+        Box.Empty -> 0
+        Box.Full(n) -> n
+    }
+}
+
+fn value_or_box(b: Box<String>): String {
+    case b {
+        Box.Empty -> "empty"
+        Box.Full(s) -> s
+    }
+}
+
+fn pick(flag: Bool): Box<Int> {
+    b = if flag { Box.Empty } else { Box.Full(1) }
+    b
+}
+
+fn main() {
+    boxes = [Box.Empty, Box.Full(2), Box.Empty]
+    io.print("boxes = ${Iter.count(boxes)}")
+    io.print("equal lists = ${boxes == [Box.Empty, Box.Full(2), Box.Empty]}")
+    io.print("empty == full = ${Box.Empty == Box.Full(5)}")
+    io.print("picked = ${filled(pick(True))}, ${filled(pick(False))}")
+    pair = (Box.Empty, Box.Full("p"))
+    io.print(value_or_box(pair.0))
+    io.print("pair full = ${pair.1 == Box.Full("p")}")
+
+    io.print(value_or(Tree.Leaf, "none"))
+    io.print(value_or(tree.Tree.Leaf, "qualified none"))
+    trees = [Tree.Leaf, tree.Tree.Node("x"), tree.Tree.Leaf]
+    io.print("trees = ${trees |> Iter.map(|t: Tree<String>| value_or(t, "-")) |> String.join()}")
+}

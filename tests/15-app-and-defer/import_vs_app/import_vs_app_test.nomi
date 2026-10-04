@@ -1,0 +1,21 @@
+import {
+    std/instant.Instant
+    helper
+    import_app.{self, ImportApp}
+    wallclock.{Clock, FakeClock}
+}
+
+tests "imported helpers stay independent of active app fields" {
+    boot import_app.boot()
+
+    // The override is LOAD-BEARING: `boot` sets 1234 and the `with`
+    // installs 4321, so deleting the override fails this assertion with
+    // `epoch=1234`. It used to install the same value `boot` did, which made
+    // the whole case vacuous — deleting the line left it passing, confirmed by
+    // mutation twice.
+    test "active app fields do not disturb pure imported helpers" {
+        with ImportApp.clock = FakeClock{at: Instant.from_seconds(4321)}
+        now = Clock.now(ImportApp.clock)
+        assert helper.format(now) == "epoch=4321"
+    }
+}

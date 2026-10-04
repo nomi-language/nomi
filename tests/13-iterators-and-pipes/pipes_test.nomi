@@ -1,0 +1,88 @@
+import std/compiler
+
+fn double(x: Int): Int {
+    x * 2
+}
+
+fn add(x: Int, y: Int): Int {
+    x + y
+}
+
+fn divide(x: Int, y: Int): Int {
+    x / y
+}
+
+test "pipes thread the previous value into call stages" {
+    result =
+        5
+        |> double()
+        |> add(1)
+
+    placed =
+        10
+        |> divide(100, _)
+
+    doubled =
+        5
+        |> double()
+
+    added =
+        5
+        |> add(3)
+
+    assert doubled == 10
+    assert added == 8
+    assert result == 11
+    assert placed == 10
+}
+
+test "partial applications leave placeholder arguments open" {
+    add1 = add(1, _)
+    half = divide(_, 2)
+
+    assert add1(9) == 10
+    assert half(20) == 10
+}
+
+test "bare dbg pipe stages inspect and pass through the previous value" {
+    result = compiler.run(
+        """
+          import std/io
+
+          fn double(x: Int): Int {
+            x * 2
+          }
+
+          fn main() {
+            value =
+              5
+              |> dbg
+              |> double()
+
+            io.print(value)
+          }
+        """
+    )
+
+    assert result == Ok(
+        """
+        dbg line 10: 5 = 5
+        10
+
+        """
+    )
+}
+
+test "pipes into dispatch functions preserve interface dispatch" {
+    int_text =
+        5
+        |> Int.to_string()
+
+    set_text =
+        [1, 2, 3]
+        |> Iter.to_set()
+        |> Display.to_string()
+
+    assert int_text == "5"
+    assert set_text == "#{1, 2, 3}"
+}

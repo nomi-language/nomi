@@ -1,0 +1,219 @@
+import {
+    std/comparable.Direction
+    std/io
+}
+
+fn note(label: String, n: Int): Int {
+    io.print("${label} ${n}")
+    n
+}
+
+// `Maybe<Int>` has no Display on either path — string interpolation refuses it
+// as `rendering a non-scalar value`, which is a renderer gap and not an `Iter`
+// one. Spelling the two arms out keeps this fixture about the iteration.
+fn show(m: Maybe<Int>): String {
+    case m {
+        Some(n) -> "Some(${n})"
+        None -> "None"
+    }
+}
+
+fn main() {
+    // --- String as a push source -----------------------------------------------
+    // Grapheme CLUSTERS, not bytes and not code points: "e" plus U+0301 is one
+    // element. A walk over runes prints six here and a walk over bytes seven.
+    io.print("${"héllo" |> Iter.to_list()}")
+    io.print("${"héllo" |> Iter.count()}")
+
+    // A FUSED chain over a String. Three lazy stages compose into one walk, and
+    // the element type changes on the way through.
+    labelled =
+        "abcde"
+        |> Iter.drop(1)
+        |> Iter.with_index()
+        |> Iter.map(|pair| {
+            (i, c) = pair
+            "${i}${c}"
+        })
+        |> Iter.to_list()
+
+    io.print("${labelled}")
+
+    // The empty String yields nothing rather than one empty element.
+    io.print("${"" |> Iter.to_list()}")
+
+    // --- Map as a push source --------------------------------------------------
+    // Insertion order, which is what the interpreter's OrderedEntries promises.
+    scores: Map<String, Int> = {"b" => 2, "a" => 1, "c" => 3}
+    io.print("${scores |> Iter.to_list()}")
+    io.print("${scores |> Iter.count()}")
+
+    rendered =
+        scores
+        |> Iter.map(|pair| {
+            (k, v) = pair
+            "${k}=${v}"
+        })
+        |> Iter.to_list()
+
+    io.print("${rendered}")
+
+    // --- known_count: the O(1) protocol, and where it answers None -------------
+    io.print(
+        show(
+            [1, 2, 3]
+            |> Iter.known_count()
+        )
+    )
+
+    io.print(
+        show(
+            scores
+            |> Iter.known_count()
+        )
+    )
+
+    io.print(
+        show(
+            "abc"
+            |> Iter.known_count()
+        )
+    )
+
+    io.print(
+        show(
+            [1, 2, 3]
+            |> Iter.map(|x| x)
+            |> Iter.known_count()
+        )
+    )
+
+    // --- each_while: the protocol primitive ------------------------------------
+    io.print("${Iter.each_while([1, 2, 3], |x| x < 9)}")
+    io.print("${Iter.each_while([1, 2, 3], |x| x < 2)}")
+
+    // --- positional terminals --------------------------------------------------
+    io.print(
+        show(
+            [10, 20, 30]
+            |> Iter.last()
+        )
+    )
+
+    io.print(
+        show(
+            [10, 20, 30]
+            |> Iter.at(1)
+        )
+    )
+
+    io.print(
+        show(
+            [10, 20, 30]
+            |> Iter.at(9)
+        )
+    )
+
+    io.print(
+        show(
+            [10, 20, 30]
+            |> Iter.at(-1)
+        )
+    )
+
+    // --- the lazy adapters this slice adds -------------------------------------
+    io.print("${[1, 2, 3, 4] |> Iter.drop(2) |> Iter.to_list()}")
+    io.print("${[1, 2] |> Iter.drop(9) |> Iter.to_list()}")
+    io.print("${Iter.concat([1, 2], [3, 4]) |> Iter.to_list()}")
+    io.print("${[1, 2, 3] |> Iter.cycle() |> Iter.take(7) |> Iter.to_list()}")
+    io.print("${Iter.repeat("ha") |> Iter.take(3) |> Iter.to_list()}")
+    io.print("${Iter.iterate(1, |x| x * 2) |> Iter.take(4) |> Iter.to_list()}")
+    io.print("${[1, 2, 3] |> Iter.flat_map(|x| [x, x * 10]) |> Iter.to_list()}")
+    io.print("${[1, 2, 3, 4, 5] |> Iter.chunks(2) |> Iter.to_list()}")
+    io.print("${[1, 1, 2, 2, 1] |> Iter.chunk_by(|x| x) |> Iter.to_list()}")
+
+    io.print(
+        "${["ant", "ape", "bee"]
+        |> Iter.chunk_by(|s| String.length(s))
+        |> Iter.to_list()}"
+    )
+
+    // --- the three whose declaration carries a `where` bound -------------------
+    // The bound is discharged by the CONCRETE type argument at each call site,
+    // so these are `sort_with` plus a comparator built from the element's own
+    // `Comparable.compare`. Four element kinds and a projected key, because the
+    // comparator is resolved per kind and one of them proving nothing about the
+    // others is the whole point.
+    io.print("${Iter.sort([3, 1, 2])}")
+    io.print("${Iter.sort([3.5, 1.5, 2.5])}")
+    io.print("${Iter.sort(["c", "a", "b"])}")
+    io.print("${Iter.sort([[2], [1]])}")
+    io.print("${Iter.sort([3, 1, 2], Direction.Descending)}")
+    io.print("${Iter.sort([3, 1, 2], Direction.Ascending)}")
+    // STABILITY, and it is only observable through a projection that collides:
+    // three distinct strings with two distinct lengths. A non-stable sort may
+    // print `[a, cc, bb]`, which is correctly ordered by key and wrong.
+    io.print("${Iter.sort_by(["bb", "a", "cc"], |s| String.length(s))}")
+    io.print("${Iter.sort_by(["bb", "a", "cc"], Direction.Descending, |s| String.length(s))}")
+
+    // --- materializers ---------------------------------------------------------
+    io.print("${[1, 2, 3] |> Iter.reverse()}")
+    io.print("${["he", "llo"] |> String.join()}")
+    io.print("${Iter.flatten([[1, 2], [3], [4, 5]])}")
+    io.print("${[1, 2, 3, 4] |> Iter.partition(|x| x > 2)}")
+    io.print("${[3, 1, 2] |> Iter.sort_with(|a, b| Int.compare(a, b))}")
+    descending = Iter.map([3, 1, 2], |x| x * 2)
+    io.print("${descending |> Iter.sort_with(|a, b| Int.compare(b, a))}")
+
+    // --- FUSION, which is the property a single-stage fixture cannot see -------
+    // Four lazy stages over an UNBOUNDED source. Nothing here terminates unless
+    // every wrapper forwards the consumer's "stop" all the way up; a stage that
+    // swallowed it would hang rather than print a wrong answer.
+    bounded =
+        Iter.from(1)
+        |> Iter.drop(2)
+        |> Iter.with_index()
+        |> Iter.map(|pair| {
+            (i, n) = pair
+            i + n
+        })
+        |> Iter.take(4)
+        |> Iter.to_list()
+
+    io.print("${bounded}")
+
+    // Per-element interleaving through the NEW wrappers. A chain that
+    // materialized between stages would print the same list and a different
+    // order of notes.
+    fused =
+        [1, 2, 3]
+        |> Iter.map(|x| note("outer", x))
+        |> Iter.flat_map(|x| [x, x * 10])
+        |> Iter.with_index()
+        |> Iter.map(|pair| {
+            (i, n) = pair
+            note("inner", i * 1000 + n)
+        })
+        |> Iter.take(3)
+        |> Iter.to_list()
+
+    io.print("${fused}")
+
+    // Replay. std/iter promises a bound pipeline consumed twice yields the same
+    // sequence, so every counter and buffer these wrappers keep must live in the
+    // RUN and not in the sequence value. `drop`, `with_index`, `chunks` and
+    // `cycle` each hold one.
+    replayable =
+        [1, 2, 3, 4, 5]
+        |> Iter.drop(1)
+        |> Iter.with_index()
+        |> Iter.chunks(2)
+
+    io.print("${replayable |> Iter.to_list()}")
+    io.print("${replayable |> Iter.to_list()}")
+
+    cycled = [1, 2] |> Iter.cycle() |> Iter.take(3)
+
+    io.print("${cycled |> Iter.to_list()}")
+    io.print("${cycled |> Iter.to_list()}")
+}

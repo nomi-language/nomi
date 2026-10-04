@@ -1,0 +1,157 @@
+// The DEEP struct-update spread — `{..base, field: {nested: value}}` — as a
+// differential fixture, plus the two silent wrong answers found while landing
+// it.
+//
+// `{..base, f: v}` and `Struct.update(base, {f: v})` are one operation, so
+// every row here is written in both spellings and the two must print the same
+// thing. The equality lines are the assertion: `Display` output alone would
+// bless a result that had lost its nominal type.
+//
+// # THE TWO ROWS THAT WERE WRONG ON THE COMPILED SIDE
+//
+// `foreign` and `foreign_update` are the regression. `updateValue` recursed
+// into `structMerge` on any `*ast.StructLit` with a nil `TypeName`, and
+// `structMerge` reads only `lit.Fields` — so a nested literal's OWN spread
+// head was discarded and the patch was applied to the enclosing field
+// instead. With `o.inner = {a:1,b:2}` and
+// `p.inner = {a:100,b:200}`:
+//
+//	nomi run   a=9 b=200      correct: the base is p.inner
+//	artifact   a=9 b=2        wrong:  merged over o.inner
+//
+// Exit 0 on both sides, differing only in a field value, so the differential
+// read `0 DIFFED` throughout — no corpus program wrote the shape. The reason
+// it had never been written is visible in this file: `same` is the shape
+// everyone reaches for, and it is the one case where discarding the head is
+// invisible, because the head and the field are the same value.
+//
+// So `same` is the control and `foreign` is the question. A build with the
+// old condition prints `b=2` for `foreign` on the compiled side and `b=200`
+// on the interpreted side, and this fixture DIFFS.
+import std/io
+
+struct Inner {
+    a: Int
+    b: Int
+}
+
+struct Outer {
+    inner: Inner
+    k: Int
+}
+
+derive Display for Inner
+
+derive Display for Outer
+
+struct L3 {
+    v: Int
+    w: Int
+}
+
+struct L2 {
+    l3: L3
+    m: Int
+}
+
+struct L1 {
+    l2: L2
+    n: Int
+}
+
+derive Display for L3
+
+derive Display for L2
+
+derive Display for L1
+
+struct Rec {
+    rec: {a: Int, b: Int}
+    k: Int
+}
+
+struct Box<T> {
+    item: T
+    tag: String
+}
+
+fn main() {
+    o = Outer{inner: Inner{a: 1, b: 2}, k: 3}
+    p = Outer{inner: Inner{a: 100, b: 200}, k: 40}
+
+    // ONE LEVEL. The patch names `a`; `b` survives from the base.
+    deep = {..o, inner: {a: 9}}
+    deep_update = Struct.update(o, {inner: {a: 9}})
+    io.print("deep ${Display.to_string(deep)}")
+    io.print("deep_same ${Bool.to_string(deep == deep_update)}")
+
+    // A NOMINAL literal REPLACES rather than patching, so `b` does NOT
+    // survive. The two lines beside each other are the whole discrimination.
+    whole = {..o, inner: Inner{a: 9, b: 8}}
+    whole_update = Struct.update(o, {inner: Inner{a: 9, b: 8}})
+    io.print("whole ${Display.to_string(whole)}")
+    io.print("whole_same ${Bool.to_string(whole == whole_update)}")
+
+    // THE CONTROL for the regression: a nested spread over the SAME base. Its
+    // answer is the same whether the head is honoured or discarded.
+    same = {..o, inner: {..o.inner, a: 9}}
+    io.print("same ${Display.to_string(same)}")
+
+    // THE QUESTION: a nested spread over a FOREIGN base. `b` must come from
+    // `p.inner`, so `b=200` and not `b=2`.
+    foreign = {..o, inner: {..p.inner, a: 9}}
+    foreign_update = Struct.update(o, {inner: {..p.inner, a: 9}})
+    io.print("foreign ${Display.to_string(foreign)}")
+    io.print("foreign_same ${Bool.to_string(foreign == foreign_update)}")
+
+    // THREE LEVELS, with the untouched siblings printed at every level.
+    tall = L1{
+        l2: L2{
+            l3: L3{
+                v: 1,
+                w: 2,
+            },
+            m: 3,
+        },
+        n: 4,
+    }
+
+    sunk = {
+        ..tall,
+        l2: {l3: {v: 9}},
+    }
+
+    sunk_update = Struct.update(tall, {
+        l2: {
+            l3: {
+                v: 9,
+            },
+        },
+    })
+
+    io.print("sunk ${Display.to_string(sunk)}")
+    io.print("sunk_same ${Bool.to_string(sunk == sunk_update)}")
+
+    // A DEEP PATCH BESIDE A SHALLOW ONE in the same literal.
+    mixed = {..o, inner: {a: 9}, k: 4}
+    io.print("mixed ${Display.to_string(mixed)}")
+
+    // AN ANONYMOUS-TYPED FIELD, patched partially and then completely. The
+    // complete brace is both a whole value and a whole patch; it takes the
+    // patch route and has to give the same answer either way.
+    r = Rec{rec: {a: 1, b: 2}, k: 3}
+    part = {..r, rec: {a: 9}}
+    full = {..r, rec: {a: 9, b: 8}}
+    io.print("part ${Int.to_string(part.rec.a)}/${Int.to_string(part.rec.b)}")
+    io.print("full ${Int.to_string(full.rec.a)}/${Int.to_string(full.rec.b)}")
+
+    // A FIELD GENERIC OVER A STRUCT, with the type argument solved. The field
+    // shape is read through the substitution, so `T := Inner` patches.
+    boxed: Box<Inner> = Box{item: Inner{a: 1, b: 2}, tag: "old"}
+    rebox = {..boxed, item: {a: 9}}
+    io.print("generic ${Display.to_string(rebox.item)}/${rebox.tag}")
+
+    // THE BASE IS UNCHANGED by any of it. A Nomi struct is a value.
+    io.print("origin ${Display.to_string(o)}")
+    io.print("other ${Display.to_string(p)}")
+}

@@ -1,0 +1,5 @@
+// `Box` is declared in one file while its custom Debug implementation lives
+// in another. The explicit implementation is the one callers observe.
+pub struct Box {
+    w: Int
+}

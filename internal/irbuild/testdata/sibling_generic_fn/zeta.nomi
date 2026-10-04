@@ -1,0 +1,32 @@
+// Generic functions main.nomi calls across the file boundary. `pair` calls
+// this file's private generic `both`, which calls `ident`, and `boxed` calls
+// alpha.nomi's `wrap`.
+import alpha
+
+pub struct Tag {
+    name: String
+}
+
+pub fn ident<T>(x: T): T {
+    x
+}
+
+pub fn pair<T>(x: T): List<T> {
+    both(x, x)
+}
+
+fn both<T>(a: T, b: T): List<T> {
+    [ident(a), ident(b)]
+}
+
+pub fn apply<T, U>(x: T, f: (T) -> U): U {
+    f(x)
+}
+
+pub fn show<T>(x: T): String where T: Display {
+    "<${Display.to_string(x)}>"
+}
+
+pub fn boxed<T>(x: T): List<T> {
+    alpha.wrap(x)
+}

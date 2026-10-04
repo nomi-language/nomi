@@ -1,0 +1,25 @@
+// An ALIASED type import, and nothing else unusual — the name it aliases is
+// unique, so there is no collision to blame.
+//
+// This program CHECKS CLEAN and TRAPS at run time on the interpreter:
+//
+//     Shout.shout: no implementation for type 'Doodad'
+//
+// The interpreter's dispatch key is the value's runtime type NAME, and an
+// aliased import puts the ALIAS there, so no impl is registered under it. That
+// is a name deciding a lookup.
+//
+// It is kept as a fixture rather than fixed here because it is a REFERENCE
+// defect, and because this builder keys on a `*rt.TypeID` address with no name
+// in the path — so a lowered program would answer where the interpreter
+// traps, and being more correct than the reference is a DIFF. See
+// TestDict_AnAliasedTypeImportBreaksInterpreterDispatch, which fails when the
+// interpreter stops mis-keying and is therefore the gate on admitting this.
+import {
+    std/io
+    gadget.{Gadget as Doodad, Shout}
+}
+
+fn main() {
+    io.print(Shout.shout(Doodad{n: 3}))
+}

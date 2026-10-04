@@ -1,0 +1,132 @@
+import {
+    bool.Bool.{self, False, True}
+    display.Display
+    equatable.Equatable
+    hashable.Hashable
+    maybe.Maybe.{self, None, Some}
+}
+
+/// Uninhabited type — no values can be constructed. Useful as the error type
+/// of a `Result` that cannot fail.
+pub host type Infallible
+
+/// A value that is either a success (Ok) or a failure (Err).
+//! parse = |s: String|
+//!     if s == "" {
+//!         Result.Err("empty")
+//!     } else {
+//!         Result.Ok(s)
+//!     }
+//!
+//! value = case parse("hi") {
+//!     .Ok(v) -> v
+//!     .Err(_) -> "?"
+//! }
+//!
+//! assert value == "hi"
+//
+pub enum Result<T, E> {
+    Ok T
+    Err E
+}
+
+impl Result<T, E> {
+    /// Returns True when the value is Ok.
+    //! assert Result.ok?(Result.Ok(3))
+    //! refute Result.ok?(Result.Err("bad"))
+    //
+    pub fn ok?<T, E>(result: Result<T, E>): Bool {
+        case result {
+            Ok(_) -> True
+            Err(_) -> False
+        }
+    }
+
+    /// Returns True when the value is Err.
+    //! refute Result.err?(Result.Ok(3))
+    //! assert Result.err?(Result.Err("bad"))
+    //
+    pub fn err?<T, E>(result: Result<T, E>): Bool {
+        case result {
+            Ok(_) -> False
+            Err(_) -> True
+        }
+    }
+
+    /// Transforms the Ok value, passes Err through.
+    //! assert Result.map(Result.Ok(3), |x| x * 2) == Result.Ok(6)
+    //! assert Result.map(Result.Err("bad"), |x| x * 2) == Result.Err("bad")
+    //
+    pub fn map<T, E, U>(result: Result<T, E>, f: (T) -> U): Result<U, E> {
+        case result {
+            Ok(v) -> Result.Ok(f(v))
+            Err(e) -> Result.Err(e)
+        }
+    }
+
+    /// Returns the Ok value, or the default if Err.
+    //! assert Result.with_default(Result.Ok(5), 0) == 5
+    //! assert Result.with_default(Result.Err("bad"), 0) == 0
+    //
+    pub fn with_default<T, E>(result: Result<T, E>, default: T): T {
+        case result {
+            Ok(v) -> v
+            Err(_) -> default
+        }
+    }
+
+    /// Like map, but the function returns a Result. Flattens the result.
+    //! parse_int = |s: String|
+    //!     if s == "1" {
+    //!         Result.Ok(1)
+    //!     } else {
+    //!         Result.Err("nope")
+    //!     }
+    //!
+    //! assert Result.flat_map(Result.Ok("1"), |s| parse_int(s)) == Result.Ok(1)
+    //! assert Result.flat_map(Result.Ok("x"), |s| parse_int(s)) == Result.Err("nope")
+    //
+    pub fn flat_map<T, E, U>(result: Result<T, E>, f: (T) -> Result<U, E>): Result<U, E> {
+        case result {
+            Ok(v) -> f(v)
+            Err(e) -> Result.Err(e)
+        }
+    }
+
+    /// Transforms the Err value, passes Ok through.
+    //! assert Result.map_err(Result.Err("bad"), |e| "error: " + e) == Result.Err("error: bad")
+    //! assert Result.map_err(Result.Ok(3), |e| "error: " + e) == Result.Ok(3)
+    //
+    pub fn map_err<T, E, F>(result: Result<T, E>, f: (E) -> F): Result<T, F> {
+        case result {
+            Ok(v) -> Result.Ok(v)
+            Err(e) -> Result.Err(f(e))
+        }
+    }
+
+    /// Converts Result to Maybe. Err becomes None; the error value is discarded.
+    //! assert Result.to_maybe(Result.Ok(3)) == Some(3)
+    //! assert Result.to_maybe(Result.Err("bad")) == None
+    //
+    pub fn to_maybe<T, E>(result: Result<T, E>): Maybe<T> {
+        case result {
+            Ok(v) -> Maybe.Some(v)
+            Err(_) -> Maybe.None
+        }
+    }
+
+    /// Converts Maybe to Result. None becomes Err(error).
+    //! assert Result.from_maybe(Some(3), "missing") == Result.Ok(3)
+    //! assert Result.from_maybe(None, "missing") == Result.Err("missing")
+    //
+    pub fn from_maybe<T, E>(maybe: Maybe<T>, error: E): Result<T, E> {
+        case maybe {
+            Some(v) -> Result.Ok(v)
+            None -> Result.Err(error)
+        }
+    }
+}
+
+derive Display for Result<T, E>
+derive Equatable for Result<T, E>
+derive Hashable for Result<T, E>

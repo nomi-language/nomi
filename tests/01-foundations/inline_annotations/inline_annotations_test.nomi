@@ -1,0 +1,86 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+enum Direction {
+    North
+    South
+    East
+    West
+}
+
+test "concrete annotations assert the inferred type" {
+    count: Int = 0
+    greeting: String = "hello"
+    active: Bool = True
+
+    assert count == 0
+    assert greeting == "hello"
+    assert active
+}
+
+test "annotations drive otherwise-unconstrained generic inference" {
+    ages: Map<String, Int> = Map.empty()
+    scores: List<Int> = []
+    buckets: List<Map<String, Int>> = []
+
+    assert Map.size(ages) == 0
+    assert Iter.count(scores) == 0
+    assert Iter.count(buckets) == 0
+}
+
+test "function annotations drive lambda parameter types" {
+    add_one: (Int) -> Int = |x| x + 1
+
+    assert add_one(41) == 42
+}
+
+test "variant constructors compose with annotations" {
+    opt: Maybe<Int> = Some(7)
+    res: Result<Int, String> = Ok(42)
+
+    assert opt == Some(7)
+    assert res == Ok(42)
+}
+
+test "user-defined type annotations preserve the intended type" {
+    origin: Point = Point{x: 0, y: 0}
+    facing: Direction = Direction.North
+
+    assert origin.x == 0
+    assert facing == Direction.North
+}
+
+test "annotation mismatches are rejected" {
+    diagnostics = compiler.check(
+        """
+        fn main(): Int {
+          count: Int = "zero"
+          count
+        }
+        """
+    )
+
+    assert test_helpers.has_diagnostic?(diagnostics, "type mismatch: expected Int, got String")
+}
+
+test "annotated bindings expose the annotated hover signature" {
+    signature = test_helpers.hover_signature(
+        """
+        fn main() {
+          scoˇres: List<Int> = []
+          length = Iter.count(scores)
+          _ = length
+          Unit
+        }
+        """
+    )
+
+    assert signature == "scores: List<Int>"
+}

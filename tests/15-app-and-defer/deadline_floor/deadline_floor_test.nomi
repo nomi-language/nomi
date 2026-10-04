@@ -1,0 +1,117 @@
+import {
+    std/channels.Receiver
+    std/compiler
+    std/supervisors.Supervisor
+    supervisor_app.{self, Config}
+}
+
+// A deadline is a ceiling on a region, and it can only ever tighten.
+// That held for derivation alone: rebinding the context field to one
+// carrying no deadline of its own reinstated an unbounded wait underneath
+// a caller that had asked for a bounded one.
+//
+// `Context.root()` is the obvious spelling. A root minted in `boot` and
+// stashed in a field is the one that survives any rule about where roots
+// may be constructed — which is why the fix is a floor on the rebind
+// rather than a restriction on `Context.root`.
+//
+// Each program's `main` blocks in a sleep under a deadline that runs out
+// first. `compiler.run` reports that fault as `Err`, as `nomi run` does, and
+// the fault's text names the context in force when `main` blocked, so a
+// passing assertion means the work really reached the sleep and was cut
+// short there, not that the program failed early for some unrelated reason.
+fn escape_program(attempt: String): String {
+    """
+          import {
+            std/duration.Duration
+            std/io
+            std/timer
+          }
+
+          struct Config {
+            context: Context
+
+            spare: {context: Context}
+          }
+
+          fn boot(): Config {
+            Config{context: Context.root(), spare: {context: Context.root()}}
+          }
+
+          fn inner() {
+            with Config.context = ${attempt}
+            io.print("entered")
+            timer.sleep(Duration.seconds(5))
+            io.print("escaped the deadline")
+          }
+
+          fn main() {
+            with Config.context = Context.with_timeout(
+              Config.context,
+              Duration.milliseconds(20),
+            )
+            inner()
+          }
+        """
+}
+
+test "Context.root() cannot widen an inherited deadline" {
+    assert Err(fault) = compiler.run(escape_program("Context.root()"))
+    assert String.contains?(fault, "the context in force when `main` blocked")
+}
+
+test "a root stashed in boot cannot widen an inherited deadline" {
+    assert Err(fault) = compiler.run(escape_program("Config.spare.context"))
+    assert String.contains?(fault, "the context in force when `main` blocked")
+}
+
+// The floor is a floor, not a freeze: a tighter inner bound still wins.
+test "a nested deadline still tightens" {
+    assert Err(fault) = compiler.run(
+        """
+        import {
+          std/duration.Duration
+          std/io
+          std/timer
+        }
+
+        struct Empty {
+          context: Context
+        }
+
+        fn boot(): Empty {
+          Empty{context: Context.root()}
+        }
+
+        fn inner() {
+          with Empty.context = Context.with_timeout(Empty.context, Duration.milliseconds(20))
+          io.print("entered")
+          timer.sleep(Duration.seconds(5))
+          io.print("outlasted the inner bound")
+        }
+
+        fn main() {
+          with Empty.context = Context.with_timeout(Empty.context, Duration.seconds(30))
+          inner()
+        }
+        """
+    )
+
+    assert String.contains?(fault, "the context in force when `main` blocked")
+}
+
+// Work handed to a Supervisor outlives the call that spawned it, so the
+// ceiling that call was under is not its ceiling. A handler bounding
+// itself is the ordinary shape for request work; it used to kill the
+// background task it had just spawned, while `Supervisor.flush` reported
+// success and the work vanished. `supervisor_app.handler` is that handler.
+tests "supervisor work and the spawner's deadline" {
+    boot supervisor_app.boot()
+
+    test "background work does not inherit the spawner's deadline" {
+        supervisor_app.handler()
+        _ = Supervisor.flush(Config.audit)
+
+        assert Receiver.receive(Config.done.receiver) == Some(1)
+    }
+}

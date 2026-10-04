@@ -1,0 +1,129 @@
+import std/io
+
+// `Map.keys` / `Map.values` / `Map.map_values`, and map destructuring.
+//
+// These four are one fixture because they let the SAME two independently-derived
+// facts contradict each other: the ORDER a Map yields its entries in, derived on
+// the interpreter from `value.MapVal`'s seq counter and in rt from
+// `rt.MapEntries`. Every assertion below is order-sensitive on purpose —
+// `Map.keys` returns a LIST, so an unordered answer is a wrong answer and not a
+// tolerated one — which is what makes a second ordering rule impossible to add
+// silently.
+//
+// The pairs each row is chosen to let disagree:
+//
+//   - keys/values vs the rendered map. Two derivations of one order, printed
+//     side by side. A trie walk in hash order renders `{a => 1, b => 2}`
+//     correctly (FormatMap sorts by seq) and answers `["b", "a"]` here.
+//   - remove-then-put vs keys. The sequence counter does not roll back, so the
+//     re-inserted key belongs at the END. A `keys` built by re-numbering from
+//     zero, or by a fresh walk that closed the gap, gets this one row wrong and
+//     nothing else.
+//   - `map_values` vs `values`. `map_values` REBUILDS the map through
+//     `Iter.to_map`, so it re-derives the order from scratch; `values` reads it.
+//     Applying them to the same map is what makes a rebuild that loses position
+//     visible.
+//   - a duplicate key inside one literal. Last write wins and FIRST position is
+//     kept, so `keys` may not report the second position.
+//   - destructuring vs `Map.get`. Two lookup paths over one structural key
+//     comparison. The LIST key is the load-bearing one: `*rt.List[T]` is
+//     Go-comparable BY ADDRESS, so a lookup that used Go equality compiles
+//     clean and answers "missing" for a key that is present — and the
+//     destructuring form TRAPS on missing, so that bug shows up as an exit
+//     status rather than as a subtly wrong string.
+fn main() {
+    m = {"a" => 1, "b" => 2, "c" => 3}
+    io.print("m = ${m}")
+    io.print("keys = ${Map.keys(m)}")
+    io.print("values = ${Map.values(m)}")
+
+    // The rebuild path and the read path over one map.
+    io.print("map_values = ${Map.map_values(m, |v| v * 10)}")
+    io.print("map_values keys = ${Map.keys(Map.map_values(m, |v| v * 10))}")
+    io.print("map_values values = ${Map.values(Map.map_values(m, |v| v * 10))}")
+
+    // A callback whose result type is NOT the value type: `(Int) -> String`. The
+    // result map's value kind comes from the callback and not from the receiver,
+    // which is the one thing a row copied from `Map.put` would get wrong.
+    io.print("retyped = ${Map.map_values(m, |v| "n${v}")}")
+    io.print("retyped values = ${Map.values(Map.map_values(m, |v| "n${v}"))}")
+
+    // The sequence counter does not roll back.
+    io.print("reinserted keys = ${Map.keys(Map.put(Map.remove(m, "a"), "a", 7))}")
+    io.print("reinserted values = ${Map.values(Map.put(Map.remove(m, "a"), "a", 7))}")
+
+    // Duplicate key in one literal: last value, first position.
+    io.print("dup keys = ${Map.keys({"a" => 1, "b" => 2, "a" => 9})}")
+    io.print("dup values = ${Map.values({"a" => 1, "b" => 2, "a" => 9})}")
+
+    // put over a new key appends.
+    io.print("appended = ${Map.keys(Map.put(m, "d", 4))}")
+    // merge keeps a's order for the keys it had and appends b's new ones.
+    io.print("merged = ${Map.keys(Map.merge({"a" => 1}, {"b" => 2, "a" => 9}))}")
+
+    // Empty map: an empty list, not a fault.
+    blank: Map<String, Int> = Map.empty()
+    io.print("blank keys = ${Map.keys(blank)}")
+    io.print("blank values = ${Map.values(blank)}")
+    io.print("blank map_values = ${Map.map_values(blank, |v| v + 1)}")
+
+    // Int keys, so the key type is not always String.
+    io.print("int keys = ${Map.keys({2 => "two", 1 => "one"})}")
+    io.print("int values = ${Map.values({2 => "two", 1 => "one"})}")
+
+    // --- map destructuring -----------------------------------------------------
+    cfg = {"host" => "localhost", "port" => "8080", "mode" => "debug"}
+    {"host" => host, "port" => port} = cfg
+    io.print("host = ${host}")
+    io.print("port = ${port}")
+
+    // The bindings escape into THIS scope and survive a second destructuring of
+    // the same map, which is what makes them ordinary locals rather than a
+    // block-scoped match.
+    {"mode" => mode} = cfg
+    io.print("mode = ${mode} host still = ${host}")
+
+    // A key that is an arbitrary EXPRESSION, not a literal, and one bound name
+    // reused as a key. Both are evaluated against the enclosing scope.
+    prefix = "ho"
+    {"${prefix}st" => interpolated} = cfg
+    io.print("interpolated = ${interpolated}")
+
+    // A wildcard value pattern binds nothing and still requires the key.
+    {"mode" => _} = cfg
+    io.print("wildcard ok")
+
+    // An Int-keyed map, so key coercion is not always String.
+    grid = {0 => "first", 1 => "second"}
+    {1 => second, 0 => first} = grid
+    io.print("grid = ${first} ${second}")
+
+    // A LIST key, compared structurally. The lookup uses a FRESH list, so an
+    // address comparison traps instead of binding.
+    by_list = {[1, 2] => "x", [3] => "y"}
+    {[1, 2] => from_list} = by_list
+    io.print("list key = ${from_list}")
+
+    // A TUPLE key.
+    by_pair = {(1, 2) => "p", (3, 4) => "q"}
+    {(3, 4) => from_pair} = by_pair
+    io.print("pair key = ${from_pair}")
+
+    // Entries are read LEFT TO RIGHT, and each key expression is evaluated once.
+    {note("host") => a, note("mode") => b} = cfg
+    io.print("ordered = ${a} ${b}")
+
+    // Destructuring inside a nested function, so the emitted form is not only
+    // valid at the top of `main`.
+    io.print("nested = ${pick(cfg)}")
+}
+
+fn note(s: String): String {
+    io.print("evaluating ${s}")
+    s
+}
+
+fn pick(m: Map<String, String>): String {
+    {"port" => p} = m
+    p
+}

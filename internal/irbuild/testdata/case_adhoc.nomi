@@ -1,0 +1,42 @@
+import std/io
+
+// The scrutinee-less form. Every arm's PATTERN is an ordinary Bool expression
+// evaluated in order, `_` matches unconditionally, and a `when` guard on top
+// of a condition has to pass as well.
+fn classify(n: Int): String {
+    case {
+        n > 100 -> "huge"
+        n > 10 -> "big"
+        n == 0 -> "zero"
+        _ -> "small"
+    }
+}
+
+fn loud(label: String, ok: Bool): Bool {
+    io.print("test ${label}")
+    ok
+}
+
+// Conditions must be evaluated lazily and in order: arm 2's condition must not
+// run when arm 1's answered True, and arm 3's must run when arm 2's guard
+// failed.
+fn pick(n: Int): String {
+    case {
+        loud("a", n > 100) -> "a"
+        loud("b", n > 10) when n != 50 -> "b"
+        _ when loud("c", n > 0) -> "c"
+        _ -> "d"
+    }
+}
+
+fn main() {
+    io.print(classify(500))
+    io.print(classify(50))
+    io.print(classify(0))
+    io.print(classify(3))
+    io.print(pick(500))
+    io.print(pick(50))
+    io.print(pick(20))
+    io.print(pick(1))
+    io.print(pick(-1))
+}

@@ -1,0 +1,59 @@
+==========
+Qualified bare variant pattern (no payload)
+==========
+
+once r = case s {
+  Status.Open -> 1
+  _ -> 0
+}
+
+---
+
+(source_file
+  (once_binding
+      (identifier)
+      (case_expression
+        (identifier)
+        (case_branch
+        (type_field_access
+          (type_identifier)
+          (type_identifier))
+        (integer))
+      (case_branch
+        (integer)))))
+
+==========
+Map destructuring binding
+==========
+
+fn m() { {"a" => x} = cfg }
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (destructuring_binding
+        (string
+          (string_content))
+        (identifier)
+        (identifier)))))
+
+==========
+Type-prefixed list literal
+==========
+
+once y = Arr[1, 2]
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (typed_list
+      (type_identifier)
+      (list
+        (integer)
+        (integer)))))

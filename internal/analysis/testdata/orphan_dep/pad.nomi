@@ -1,0 +1,7 @@
+//# A type declared in another module, for the orphan_violator fixture to
+//# implement a foreign interface on.
+
+pub struct Pad {
+    width: Int
+    fill: String
+}

@@ -1,0 +1,126 @@
+// An interface-typed struct field must admit a concrete implementer through
+// EVERY admission path, not only the struct literal. `Struct.update`'s
+// `Partial<T>` walk is a separate check from the literal's, and it used to test
+// each patch field with bare unification — which does not know about
+// interface impls, because that rule lives in the checker's interface branch.
+// The literal accepted `FakeClock` where the field is typed `Clock` and the
+// patch refused the same value.
+//
+// This matters beyond convenience. `with MyApp.clock = X` admits an
+// implementer for an interface-typed app field as well, so every path that
+// replaces such a field has to agree with the literal.
+interface Clock {
+    fn at(c: self): Int
+}
+
+struct FakeClock {
+    t: Int
+}
+
+impl Clock for FakeClock {
+    fn at(c: FakeClock): Int {
+        c.t
+    }
+}
+
+struct RealClock {
+    base: Int
+    offset: Int
+}
+
+impl Clock for RealClock {
+    fn at(c: RealClock): Int {
+        c.base + c.offset
+    }
+}
+
+struct Cfg {
+    clock: Clock
+    port: Int
+}
+
+struct Inner {
+    clock: Clock
+    tag: String
+}
+
+struct Outer {
+    inner: Inner
+    port: Int
+}
+
+fn base_cfg(): Cfg {
+    Cfg{clock: FakeClock{t: 1}, port: 80}
+}
+
+test "a struct literal admits a concrete implementer at an interface field" {
+    assert Clock.at(base_cfg().clock) == 1
+}
+
+test "an update patch admits a concrete implementer at an interface field" {
+    patched = Struct.update(base_cfg(), {clock: FakeClock{t: 4242}})
+    assert Clock.at(patched.clock) == 4242
+}
+
+test "an update patch admits a different implementer than the original" {
+    patched = Struct.update(base_cfg(), {clock: RealClock{base: 40, offset: 2}})
+    assert Clock.at(patched.clock) == 42
+}
+
+test "an update patch leaves untouched fields alone" {
+    patched = Struct.update(base_cfg(), {clock: FakeClock{t: 9}})
+    assert patched.port == 80
+}
+
+test "a value already widened to the interface is still admitted" {
+    widened: Clock = FakeClock{t: 7}
+    patched = Struct.update(base_cfg(), {clock: widened})
+    assert Clock.at(patched.clock) == 7
+}
+
+test "the widening applies at depth in a nested patch" {
+    base = Outer{
+        inner: Inner{
+            clock: FakeClock{t: 1},
+            tag: "a",
+        },
+        port: 80,
+    }
+
+    patched = Struct.update(base, {
+        inner: {
+            clock: RealClock{
+                base: 100,
+                offset: 5,
+            },
+        },
+    })
+
+    assert Clock.at(patched.inner.clock) == 105
+}
+
+test "a nested patch preserves the sibling field it does not name" {
+    base = Outer{
+        inner: Inner{
+            clock: FakeClock{t: 1},
+            tag: "keep",
+        },
+        port: 80,
+    }
+
+    patched = Struct.update(base, {
+        inner: {
+            clock: FakeClock{
+                t: 2,
+            },
+        },
+    })
+
+    assert patched.inner.tag == "keep"
+}
+
+test "dispatch through the patched field selects the new impl" {
+    patched = Struct.update(base_cfg(), {clock: RealClock{base: 1, offset: 1}})
+    assert Clock.at(patched.clock) == 2
+    assert Clock.at(base_cfg().clock) == 1
+}

@@ -1,0 +1,81 @@
+# Tag-triggered release. Push a `v*` tag and this builds every platform from a
+# single runner and attaches the archives plus their checksum manifest to a
+# GitHub release.
+#
+# This is the repository's first CI workflow — there was none before, so there
+# is no existing matrix, cache, or job naming to follow.
+#
+# One runner, not a matrix: Go cross-compiles with GOOS/GOARCH and needs no
+# cross-toolchain, and scripts/release.sh reads each artifact's own recorded
+# GOOS/GOARCH back off the binary to prove the environment took effect. Five
+# per-OS runners would be slower, would need an extra job to merge the checksum
+# manifest, and would prove nothing extra.
+#
+# Each archive holds nomi, nomi-lsp and nomi-runner, built from one commit.
+# `nomi build` uses the runner beside nomi, and for `--target` another
+# platform it downloads that platform's archive from this release and checks
+# it against the checksum manifest, so both the archives and the manifest must
+# be attached under the names scripts/release.sh gives them.
+#
+# The workflow is a thin wrapper on purpose: the same script produces the same
+# archives on a laptop, so a release can be cut by hand if Actions is down and
+# the artifacts are reproducible off CI.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version string for a dry-run build (no release is published)"
+        required: true
+        default: "dev"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # scripts/release.sh falls back to `git describe`, which needs tags.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          # The toolchain line in go.mod is authoritative. Reading it
+          # here rather than pinning a version in this file keeps one source of
+          # truth: the release binaries are built by the version the module declares.
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Build the release matrix
+        run: ./scripts/release.sh "${{ github.event.inputs.version || github.ref_name }}"
+
+      - name: Verify the published checksums against the archives
+        # The manifest is what Homebrew's `sha256` and Scoop's `hash` will
+        # quote, and what part two of the roadmap's binary-distribution entry
+        # needs as a precedent for verifying a downloaded Go toolchain. A
+        # manifest nobody re-checks is a manifest that can go stale silently.
+        working-directory: dist
+        run: sha256sum --check --strict nomi_*_checksums.txt
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*_checksums.txt
+          generate_release_notes: true
+
+      - uses: actions/upload-artifact@v4
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        with:
+          name: nomi-release-dryrun
+          path: dist/

@@ -1,0 +1,30 @@
+//# URL parsing and query escaping from Go's `net/url`, through the Go
+//# functions in `urls.go`.
+
+gopkg "gobindings"
+
+/// A parsed URL. Go's `ParsedURL` struct fills it field by field.
+pub struct ParsedURL {
+    scheme: String
+    host: String
+    path: String
+    raw_query: String
+    query: Map<String, List<String>>
+}
+
+/// Escapes `value` for use in a URL query.
+//! assert urls.escape_query("a b+c") == "a+b%2Bc"
+//
+pub fn escape_query(value: String): String go gobindings.EscapeQuery
+
+/// Reverses `escape_query`. Go's `error` result becomes the `Err` side.
+//! assert urls.unescape_query("a+b%2Bc") == Ok("a b+c")
+//! assert Err(_) = urls.unescape_query("%zz")
+//
+pub fn unescape_query(value: String): Result<String, String> go gobindings.UnescapeQuery
+
+/// Parses a query string. A key may repeat, so each maps to a list of values.
+pub fn parse_query(raw: String): Result<Map<String, List<String>>, String> go gobindings.ParseQuery
+
+/// Parses a URL.
+pub fn parse(raw: String): Result<ParsedURL, String> go gobindings.Parse

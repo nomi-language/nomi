@@ -1,0 +1,63 @@
+fn count(n: Int): Int {
+    if n == 0 { 0 } else { count(n - 1) }
+}
+
+fn fact(n: Int, acc: Int): Int {
+    if n <= 1 {
+        acc
+    } else {
+        fact(n - 1, Int.wrapping_mul(acc, n))
+    }
+}
+
+fn is_even(n: Int): Bool {
+    if n == 0 { True } else { is_odd(n - 1) }
+}
+
+fn is_odd(n: Int): Bool {
+    if n == 0 { False } else { is_even(n - 1) }
+}
+
+fn sum_up_to(n: Int): Int {
+    if n == 0 { 0 } else { 1 + sum_up_to(n - 1) }
+}
+
+interface Stepper {
+    fn step(value: self, n: Int): Int
+}
+
+struct Down {}
+
+impl Stepper for Down {
+    fn step(value: Down, n: Int): Int {
+        if n == 0 {
+            0
+        } else {
+            Stepper.step(value, n - 1)
+        }
+    }
+}
+
+test "tail calls run in constant stack for self recursion" {
+    assert count(1000000) == 0
+}
+
+test "tail calls run in constant stack for accumulator recursion" {
+    _ = fact(100000, 1)
+
+    assert True
+}
+
+test "tail calls run in constant stack for mutual recursion" {
+    assert is_even(1000000)
+}
+
+test "ordinary non-tail recursion still computes normally" {
+    assert sum_up_to(1000) == 1000
+}
+
+test "tail calls run through interface dispatch" {
+    s = Down{}
+
+    assert Stepper.step(s, 100000) == 0
+}

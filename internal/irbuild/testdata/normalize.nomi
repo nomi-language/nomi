@@ -1,0 +1,31 @@
+// `String.normalize` end to end, which is also the first artifact to link a host
+// package with an EXTERNAL dependency (golang.org/x/text, through
+// nomi/stdstrings). So this fixture pins two things at once: the four forms'
+// answers, and that the generated module builds at all with that require in it.
+import std/strings.NormalForm
+
+test "NFC composes and NFD decomposes" {
+    composed = "\u{00e9}"
+    decomposed = "e\u{0301}"
+
+    assert String.normalize(decomposed, NormalForm.NFC) == composed
+    assert String.normalize(composed, NormalForm.NFD) == decomposed
+}
+
+test "the compatibility forms fold a ligature" {
+    ligature = "\u{fb01}"
+
+    assert String.normalize(ligature, NormalForm.NFKC) == "fi"
+    assert String.normalize(ligature, NormalForm.NFKD) == "fi"
+    assert String.normalize(ligature, NormalForm.NFC) == ligature
+}
+
+test "normalization changes the byte length of an equal-looking string" {
+    composed = "\u{00e9}"
+    decomposed = "e\u{0301}"
+
+    refute composed == decomposed
+    nfc_composed = String.normalize(composed, NormalForm.NFC)
+    nfc_decomposed = String.normalize(decomposed, NormalForm.NFC)
+    assert nfc_composed == nfc_decomposed
+}

@@ -1,0 +1,310 @@
+// std/dynamic across the boundary: every one of the thirteen operations the
+// `pub host type Dynamic` row armed, on BOTH answers where there are two.
+//
+// WHY THIS FIXTURE IS ABOUT WIRING AND NOT ABOUT SEMANTICS. The rules behind
+// these calls live in rt/dynamicops.go and BOTH paths reach them, so
+// requireIdentical cannot see a wrong answer from any of them — the absolute
+// pins in rt/dynamicops_test.go are what cover that. What this fixture CAN
+// catch, and what nothing else can, is a mis-WIRED registry row: `as_int` bound
+// to rt.DynamicAsFloat, or `field` and `index` transposed, or an argument order
+// reversed. The interpreter calls its own builtin and a compiled program calls
+// the bound symbol, so those two disagree and show up as a DIFF. Agreement is
+// not wiring, and this is the wiring half.
+//
+// The only source of a Dynamic in pure Nomi is `Json.to_dynamic`, which is the
+// bridge row, so every value below is built through it — meaning a broken bridge
+// fails every case rather than one.
+//
+// BOTH ARMS OF EVERY FALLIBLE OPERATION. An extractor that returned Err
+// unconditionally would pass a fixture that only checked the Err path, and one
+// that never failed would pass a fixture that only checked Ok. The Err rows also
+// print `expected`/`got`, which is where the vocabulary is observable.
+import {
+    std/dynamic.{DecodeError, Dynamic}
+    std/io
+    std/json.Json
+}
+
+fn describe(label: String, r: Result<String, DecodeError>): String {
+    case r {
+        Ok(s) -> label + " = " + s
+        Err(e) -> label + " ! " + Display.to_string(e)
+    }
+}
+
+fn sample(): Dynamic {
+    assert_ok = Json.decode(
+        """
+        {
+          "name": "Ada",
+          "age": 36,
+          "score": 99.5,
+          "active": true,
+          "tags": ["admin", "user"],
+          "nested": {"deep": {"leaf": "found"}},
+          "nothing": null
+        }
+        """
+    )
+
+    case assert_ok {
+        Ok(jv) -> Json.to_dynamic(jv)
+        Err(_) -> Json.to_dynamic(Json.Null)
+    }
+}
+
+fn main(): Unit {
+    root = sample()
+
+    // --- Debug.inspect, the rendering ---------------------------------------
+    // A scalar first, because the whole-object rendering is long and a failure in
+    // it should not hide a failure in the simple case.
+    io.print("inspect scalar: " + Debug.inspect(Json.to_dynamic(Json.Int(7))))
+
+    io.print(
+        "inspect list: " + Debug.inspect(
+            Json.to_dynamic(Json.Arr([Json.Int(1), Json.String("x"), Json.Bool(True)]))
+        )
+    )
+
+    // Keys come out SORTED. Supplied out of alphabetical order in the source
+    // above, so an unsorted walk renders differently.
+    io.print("inspect obj: " + Debug.inspect(root))
+
+    // --- navigators, both arms ----------------------------------------------
+    case Dynamic.field(root, "name") {
+        Ok(d) -> io.print("field ok: " + Debug.inspect(d))
+        Err(e) -> io.print("field err: " + Display.to_string(e))
+    }
+
+    case Dynamic.field(root, "missing") {
+        Ok(d) -> io.print("field ok: " + Debug.inspect(d))
+        Err(e) -> io.print("field err: " + Display.to_string(e))
+    }
+
+    case Dynamic.field(Json.to_dynamic(Json.Int(1)), "name") {
+        Ok(d) -> io.print("field on non-object ok: " + Debug.inspect(d))
+        Err(e) -> io.print("field on non-object err: " + Display.to_string(e))
+    }
+
+    case Dynamic.field(root, "tags") {
+        Ok(tags) ->
+            case Dynamic.index(tags, 1) {
+                Ok(d) -> io.print("index ok: " + Debug.inspect(d))
+                Err(e) -> io.print("index err: " + Display.to_string(e))
+            }
+
+        Err(e) ->
+            io.print("tags err: " + Display.to_string(e))
+    }
+
+    case Dynamic.field(root, "tags") {
+        Ok(tags) ->
+            case Dynamic.index(tags, 9) {
+                Ok(d) -> io.print("index oob ok: " + Debug.inspect(d))
+                Err(e) -> io.print("index oob err: " + Display.to_string(e))
+            }
+
+        Err(e) ->
+            io.print("tags err: " + Display.to_string(e))
+    }
+
+    // A negative index takes the out-of-bounds arm, not a third one.
+    case Dynamic.index(Json.to_dynamic(Json.Arr([Json.Int(1)])), -1) {
+        Ok(d) -> io.print("index neg ok: " + Debug.inspect(d))
+        Err(e) -> io.print("index neg err: " + Display.to_string(e))
+    }
+
+    // `path` walks dotted FIELD segments only. Three arms: a deep hit, a
+    // malformed empty segment, and a miss part-way down.
+    case Dynamic.path(root, "nested.deep.leaf") {
+        Ok(d) -> io.print("path ok: " + Debug.inspect(d))
+        Err(e) -> io.print("path err: " + Display.to_string(e))
+    }
+
+    case Dynamic.path(root, "nested..leaf") {
+        Ok(d) -> io.print("path empty-seg ok: " + Debug.inspect(d))
+        Err(e) -> io.print("path empty-seg err: " + Display.to_string(e))
+    }
+
+    case Dynamic.path(root, "nested.absent.leaf") {
+        Ok(d) -> io.print("path miss ok: " + Debug.inspect(d))
+        Err(e) -> io.print("path miss err: " + Display.to_string(e))
+    }
+
+    case Dynamic.path(root, "") {
+        Ok(d) -> io.print("path empty ok: " + Debug.inspect(d))
+        Err(e) -> io.print("path empty err: " + Display.to_string(e))
+    }
+
+    // --- extractors, both arms ----------------------------------------------
+    // as_string, which is the operation 18-ffi-and-dynamic/json_test.nomi reaches.
+    case Dynamic.field(root, "name") {
+        Ok(d) -> io.print(describe("as_string", Dynamic.as_string(d)))
+        Err(_) -> io.print("as_string: no field")
+    }
+
+    case Dynamic.field(root, "age") {
+        Ok(d) -> io.print(describe("as_string on Int", Dynamic.as_string(d)))
+        Err(_) -> io.print("as_string on Int: no field")
+    }
+
+    // as_int accepts an integral Float and REFUSES a fractional one, which is the
+    // rule that makes JSON's `36` work without losing `99.5`.
+    case Dynamic.field(root, "age") {
+        Ok(d) ->
+            case Dynamic.as_int(d) {
+                Ok(n) -> io.print("as_int ok: ${n}")
+                Err(e) -> io.print("as_int err: " + Display.to_string(e))
+            }
+
+        Err(_) ->
+            io.print("as_int: no field")
+    }
+
+    case Dynamic.field(root, "score") {
+        Ok(d) ->
+            case Dynamic.as_int(d) {
+                Ok(n) -> io.print("as_int fractional ok: ${n}")
+                Err(e) -> io.print("as_int fractional err: " + Display.to_string(e))
+            }
+
+        Err(_) ->
+            io.print("as_int fractional: no field")
+    }
+
+    // as_float widens an Int the way `Float(n)` would, and refuses a String.
+    case Dynamic.field(root, "score") {
+        Ok(d) ->
+            case Dynamic.as_float(d) {
+                Ok(f) -> io.print("as_float ok: ${f}")
+                Err(e) -> io.print("as_float err: " + Display.to_string(e))
+            }
+
+        Err(_) ->
+            io.print("as_float: no field")
+    }
+
+    case Dynamic.field(root, "age") {
+        Ok(d) ->
+            case Dynamic.as_float(d) {
+                Ok(f) -> io.print("as_float widened ok: ${f}")
+                Err(e) -> io.print("as_float widened err: " + Display.to_string(e))
+            }
+
+        Err(_) ->
+            io.print("as_float widened: no field")
+    }
+
+    case Dynamic.field(root, "name") {
+        Ok(d) ->
+            case Dynamic.as_float(d) {
+                Ok(f) -> io.print("as_float on String ok: ${f}")
+                Err(e) -> io.print("as_float on String err: " + Display.to_string(e))
+            }
+
+        Err(_) ->
+            io.print("as_float on String: no field")
+    }
+
+    // as_bool is strict: no truthiness.
+    case Dynamic.field(root, "active") {
+        Ok(d) ->
+            case Dynamic.as_bool(d) {
+                Ok(b) -> io.print("as_bool ok: ${b}")
+                Err(e) -> io.print("as_bool err: " + Display.to_string(e))
+            }
+
+        Err(_) ->
+            io.print("as_bool: no field")
+    }
+
+    case Dynamic.field(root, "age") {
+        Ok(d) ->
+            case Dynamic.as_bool(d) {
+                Ok(b) -> io.print("as_bool on Int ok: ${b}")
+                Err(e) -> io.print("as_bool on Int err: " + Display.to_string(e))
+            }
+
+        Err(_) ->
+            io.print("as_bool on Int: no field")
+    }
+
+    // --- the two CONTAINER results ------------------------------------------
+    // These were the two rows least expected to project, so the fixture reads
+    // their CONTENTS rather than only their success: a container whose elements
+    // were dropped or reordered still answers Ok.
+    //
+    // `it: Dynamic` below is ANNOTATED on purpose. An origin-identified
+    // `stdHostSpecs` row is deliberately absent from the INFERRED channel
+    // (stdhost.go's stdHostKindOfPrimitive): a solved type arrives with no scope to
+    // consult and a `*PrimitiveType` carries only a NAME, so the only available
+    // test would be a string match, and that would let a user's own FFI
+    // `pub host type Dynamic` adopt rt's representation, which would be
+    // a wrong ANSWER rather than a coverage gap. Dropping the
+    // annotation refuses `unrepresentable inferred type (it: Dynamic)`, which is
+    // that rule working, and TestStdDynamicInferredPositionStillRefuses pins it.
+    case Dynamic.field(root, "tags") {
+        Ok(d) ->
+            case Dynamic.as_list(d) {
+                Ok(items) ->
+                    io.print(
+                        "as_list ok: ${Iter.count(
+                            items
+                        )} " + Iter.reduce(items, |acc = "", it: Dynamic|
+                            acc + "<" + Debug.inspect(it) + ">"
+                        )
+                    )
+
+                Err(e) ->
+                    io.print("as_list err: " + Display.to_string(e))
+            }
+
+        Err(_) ->
+            io.print("as_list: no field")
+    }
+
+    case Dynamic.field(root, "name") {
+        Ok(d) ->
+            case Dynamic.as_list(d) {
+                Ok(items) -> io.print("as_list on String ok: ${Iter.count(items)}")
+                Err(e) -> io.print("as_list on String err: " + Display.to_string(e))
+            }
+
+        Err(_) ->
+            io.print("as_list on String: no field")
+    }
+
+    case Dynamic.field(root, "nested") {
+        Ok(d) ->
+            case Dynamic.as_dict(d) {
+                Ok(m) -> io.print("as_dict ok: ${Map.size(m)} " + Debug.inspect(m))
+                Err(e) -> io.print("as_dict err: " + Display.to_string(e))
+            }
+
+        Err(_) ->
+            io.print("as_dict: no field")
+    }
+
+    case Dynamic.as_dict(Json.to_dynamic(Json.Int(3))) {
+        Ok(m) -> io.print("as_dict on Int ok: ${Map.size(m)}")
+        Err(e) -> io.print("as_dict on Int err: " + Display.to_string(e))
+    }
+
+    // --- predicates, which never fail ---------------------------------------
+    case Dynamic.field(root, "nothing") {
+        Ok(d) -> io.print("null? on null: ${Dynamic.null?(d)}")
+        Err(_) -> io.print("null?: no field")
+    }
+
+    io.print("null? on Int: ${Dynamic.null?(Json.to_dynamic(Json.Int(0)))}")
+    // The key is bound rather than spelled inside the interpolation: an escaped
+    // quote is not legal inside `${...}`, which the parser says as
+    // `unexpected token ILLEGAL`.
+    present = "name"
+    absent = "nope"
+    io.print("has? present: ${Dynamic.has?(root, present)}")
+    io.print("has? absent: ${Dynamic.has?(root, absent)}")
+    // False for a non-dict too, which is the deliberate conflation.
+    io.print("has? on Int: ${Dynamic.has?(Json.to_dynamic(Json.Int(0)), present)}")
+}

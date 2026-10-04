@@ -1,0 +1,160 @@
+// A struct field's default initialiser is type-checked against the field's
+// declared type. It was not, and the gap was a soundness hole rather than a
+// missing convenience: the default expression was walked for scoping and
+// recorded as "this field has a default", and its type was never compared to
+// anything.
+//
+// The two shapes below are the reproductions, and both ANALYZED CLEAN before
+// this landed:
+//
+//   port: Int = "not an int"      ran, and printed `port=not an int`
+//   clock: Clock = NoClock{...}   ran, and trapped at the first dispatch with
+//                                 `Clock.at: no implementation for type 'NoClock'`
+//
+// The second is the one worth reading twice. `NoClock` carries no
+// `impl Clock`, the mistake is fully visible in the declaration, and the
+// program still reached a run-time trap.
+//
+// The check is not a new rule. It calls `argMatchesParam`, the same admission
+// the two constructor-call record forms use for a field, which reaches
+// `ifaceParamAdmits` for an interface-typed one — so the other four paths that
+// admit a value into a field and this one now answer the same question with
+// the same code. The wording is the constructor-call phrasing verbatim, which
+// is the only one of the two existing phrasings that can describe a non-
+// interface mismatch.
+import std/compiler.{self, Diagnostic}
+
+// Local rather than in a sibling `test_helpers.nomi` the way the
+// `03-tooling-and-diagnostics` cases spell it: those share the helper across
+// several files, this one does not, and a sibling file is its own corpus
+// record.
+fn has_diagnostic?(diagnostics: List<Diagnostic>, text: String): Bool {
+    Iter.any?(diagnostics, |diagnostic| String.contains?(diagnostic.message, text))
+}
+
+interface Clock {
+    fn at(c: self): Int
+}
+
+struct FakeClock {
+    t: Int
+}
+
+impl Clock for FakeClock {
+    fn at(c: FakeClock): Int {
+        c.t
+    }
+}
+
+// An interface-typed field whose default DOES implement the interface. The
+// only difference from the refused reproduction is the impl block above, which
+// is what makes this the control for that refusal rather than a separate
+// scenario.
+struct Configured {
+    clock: Clock = FakeClock{t: 11}
+    port: Int = 8080
+}
+
+// A generic struct with a default that solves THROUGH the type parameter: the
+// empty list's element type variable binds to `T`. The refused half — a
+// concrete default for a `T`-typed field — is the fourth test below.
+struct Box<T> {
+    items: List<T> = []
+    label: String = "unnamed"
+    inner: T
+}
+
+test "a scalar default of the wrong type is refused at the declaration" {
+    diagnostics = compiler.check(
+        """
+          struct Cfg {
+            port: Int = "not an int"
+          }
+
+          fn main() {
+            _ = Cfg{}.port
+          }
+        """
+    )
+
+    // One diagnostic, not merely at least one: the rule reports at the
+    // declaration and must not also cascade into the construction site.
+    assert Iter.count(diagnostics) == 1
+    assert has_diagnostic?(diagnostics, "field 'port' of Cfg: expected Int, got String")
+}
+
+test "an interface-typed default that does not implement is refused at the declaration" {
+    diagnostics = compiler.check(
+        """
+          interface Ticker {
+            fn tick(t: self): Int
+          }
+
+          struct NoTicker {
+            t: Int
+          }
+
+          struct Cfg {
+            ticker: Ticker = NoTicker{t: 7}
+          }
+
+          fn main() {
+            _ = Cfg{}
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert has_diagnostic?(diagnostics, "field 'ticker' of Cfg: expected Ticker, got NoTicker")
+}
+
+test "an enum record variant's field default is checked too" {
+    diagnostics = compiler.check(
+        """
+          enum Status {
+            Active {since: Int = "bad"}
+            Gone
+          }
+
+          fn main() {
+            _ = Status.Gone
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert has_diagnostic?(diagnostics, "field 'since' of Status.Active: expected Int, got String")
+}
+
+// A default for a field typed by a bare type parameter cannot be checked
+// against anything concrete, so accepting it unchecked is unsound: a
+// `Holder<String>` built with no argument would hold an Int in a String field.
+// It is refused, and the refusal needs no special case — there is nothing to
+// unify, because `Int` carries no type variable.
+test "a concrete default for a type-parameter field is refused" {
+    diagnostics = compiler.check(
+        """
+          struct Holder<T> {
+            v: T = 0
+          }
+
+          fn main() {
+            _ = 1
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert has_diagnostic?(diagnostics, "field 'v' of Holder: expected T, got Int")
+}
+
+test "correct defaults still construct, dispatch and solve through a type parameter" {
+    c = Configured{}
+    assert Clock.at(c.clock) == 11
+    assert c.port == 8080
+
+    b = Box{inner: 7}
+    assert Iter.count(b.items) == 0
+    assert b.label == "unnamed"
+    assert b.inner == 7
+}

@@ -1,0 +1,49 @@
+//# A typed literal for SQL: `Sql"..."` turns each `${...}` slot into a `?`
+//# placeholder and collects the slot values as the query's arguments, so a
+//# value is never spliced into the SQL text.
+//#
+//# The compiler rewrites `Sql"..."` to a call of `Sql.from_fragments`, which
+//# receives the literal split into static text and slot values.
+
+import std/literals.{Fragment, Literal}
+
+/// A SQL statement and the values for its `?` placeholders, in order.
+pub struct Query {
+    sql: String
+    args: List<String>
+}
+
+/// The `Sql"..."` literal. A slot takes any `Display` value and passes it as
+/// text.
+//! title = "Ada's note"
+//! query = Sql"SELECT id FROM notes WHERE title = ${title} AND id > ${3}"
+//! assert query.sql == "SELECT id FROM notes WHERE title = ? AND id > ?"
+//! assert query.args == ["Ada's note", "3"]
+//
+pub type Sql
+
+impl Literal for Sql {
+    fn from_fragments(fragments: List<Fragment<Display>>): Query {
+        sql =
+            fragments
+            |> Iter.map(|fragment|
+                case fragment {
+                    .Static(text) -> text
+                    .Dynamic(_) -> "?"
+                }
+            )
+            |> String.join()
+
+        args =
+            fragments
+            |> Iter.flat_map(|fragment|
+                case fragment {
+                    .Static(_) -> []
+                    .Dynamic(value) -> [Display.to_string(value)]
+                }
+            )
+            |> Iter.to_list()
+
+        Query{sql, args}
+    }
+}

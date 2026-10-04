@@ -1,0 +1,50 @@
+import std/random.{Generator, Seed}
+
+test "seeded generators produce deterministic values" {
+    seed = Seed.from_int(123)
+    assert Ok(die) = Generator.int(1, 6)
+
+    (roll, seed) = die |> Generator.step(seed)
+
+    assert roll == 2
+
+    (hand, seed) =
+        die
+        |> Generator.list(3)
+        |> Generator.step(seed)
+
+    assert hand == [1, 5, 2]
+
+    (choice, _) =
+        Generator.uniform("rock", ["paper", "scissors"])
+        |> Generator.step(seed)
+
+    assert choice == "scissors"
+}
+
+test "random generators compose dependent draws" {
+    seed = Seed.from_int(123)
+    assert Ok(size) = Generator.int(1, 4)
+
+    (sized, _) =
+        size
+        |> Generator.flat_map(|n| Generator.list(Generator.bool(), n))
+        |> Generator.step(seed)
+
+    assert sized == [False, False, True, False]
+}
+
+test "invalid integer ranges return an error" {
+    assert Generator.int(6, 1)
+        |> Result.err?()
+}
+
+test "weighted generators require positive total weight" {
+    assert Generator.weighted((0.0, "never"), [])
+        |> Result.err?()
+}
+
+test "weighted generators reject negative weights" {
+    assert Generator.weighted((-1.0, "bad"), [])
+        |> Result.err?()
+}

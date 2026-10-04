@@ -1,0 +1,18 @@
+Tour fonts
+==========
+
+The language tour self-hosts two typefaces (latin subset, regular + bold),
+both under the SIL Open Font License 1.1, whose full text is bundled beside
+these files in OFL.txt (also served at /fonts/OFL.txt), and obtained via
+@fontsource (https://fontsource.org):
+
+JetBrains Mono — the code font.
+  jetbrains-mono-400.woff2, jetbrains-mono-700.woff2
+  Copyright 2020 The JetBrains Mono Project Authors
+  (https://github.com/JetBrains/JetBrainsMono)
+  @fontsource/jetbrains-mono
+
+Inter — the prose + heading font.
+  inter-400.woff2, inter-700.woff2
+  Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
+  @fontsource/inter

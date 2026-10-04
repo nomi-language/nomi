@@ -1,0 +1,94 @@
+import std/io
+
+// `Set<T>` — the first GENERIC stdlib STRUCT to be lowered, and the surface that
+// lets two independently-derived facts about it contradict each other.
+//
+// A `Set` is `pub opaque struct Set<T> { items: Map<T, Bool> }`, so nothing here
+// is a new data structure: every row is the SAME persistent hash trie reached
+// through a one-field wrapper. What that makes cheap it also makes easy to get
+// silently wrong, because a wrapper is exactly the kind of type whose identity
+// can go missing without a Go compile error.
+//
+// The pairs each row is chosen to let disagree:
+//
+//   - ITERATION ORDER against the literal. Derived on the interpreter from
+//     `value.MapVal`'s seq counter (a Set is a StructVal over a MapVal) and in rt
+//     from `rt.MapEntries`. `Iter.to_list` returns a LIST, so an unordered answer
+//     is a wrong answer and not a tolerated one.
+//   - DEDUPLICATION keeping the FIRST position. `#{1, 2, 2, 1}` has size 2 either
+//     way; only the order says whether the re-inserted element moved to the end.
+//   - `Set.size` against `Iter.count`. Two derivations of one number: `size` is
+//     the map's stored count (O(1), std documents it as such) and `count` walks
+//     unless `known_count` answers. A `known_count` that declined would still
+//     print 3 here and would be O(n) behind a name that promises O(1); a
+//     `known_count` that answered from the WRONG map disagrees with `size`.
+//   - `==` against the rendered form. `impl Equatable for Set<T>` is
+//     `a.items == b.items`, which is ORDER-INSENSITIVE. Go's own `==` on a
+//     one-field struct over a trie compares the trie POINTER and answers False
+//     for `#{1, 2} == #{2, 1}`, so that row fails for a structural degradation
+//     and for nothing else.
+//   - `Display` against `Debug`. `to_string` renders elements with
+//     `Display.to_string` and `inspect` with `Debug.inspect`, so the String set
+//     is the discriminating one: `{a, b}` versus `{"a", "b"}`. An empty or bare
+//     `TypeName` on a compiled Set misses every impl SILENTLY and renders the
+//     anonymous struct form instead of either.
+//   - a Set CROSSING A SIGNATURE BOUNDARY, in both directions. `size_of` takes
+//     one and `singleton` returns one, so a representation that is only correct
+//     at a construction site fails here.
+//   - a TUPLE element. The wrapper's key type is the element type, so this is
+//     `mapOps` over a tuple key reached through a new position.
+//   - the untyped `#{}`, which has no element type at the literal and gets one
+//     from the annotation — the third untyped literal's rule applied to a fourth.
+fn size_of(s: Set<Int>): Int {
+    Set.size(s)
+}
+
+fn singleton(n: Int): Set<Int> {
+    Set.insert(Set.new(), n)
+}
+
+fn main() {
+    s = #{3, 1, 2}
+    io.print("order = ${Iter.to_list(s)}")
+    io.print("size = ${Set.size(s)}")
+    io.print("count = ${Iter.count(s)}")
+
+    dup = #{1, 2, 2, 1}
+    io.print("dup_order = ${Iter.to_list(dup)}")
+    io.print("dup_size = ${Set.size(dup)}")
+
+    io.print("member = ${Set.contains?(s, 2)}")
+    io.print("absent = ${Set.contains?(s, 9)}")
+
+    empty: Set<Int> = #{}
+    io.print("empty_size = ${Set.size(empty)}")
+    io.print("empty_order = ${Iter.to_list(empty)}")
+
+    io.print("permuted_equal = ${#{1, 2} == #{2, 1}}")
+    io.print("different = ${#{1, 2} == #{1, 3}}")
+
+    words = #{"a", "b"}
+    io.print("display = ${Display.to_string(words)}")
+    io.print("inspect = ${Debug.inspect(words)}")
+
+    io.print("boundary_in = ${size_of(#{5, 6, 7})}")
+    io.print("boundary_out = ${Set.size(singleton(9))}")
+    io.print("boundary_round = ${size_of(singleton(9))}")
+
+    io.print("inserted = ${Iter.to_list(Set.insert(s, 9))}")
+    io.print("removed = ${Iter.to_list(Set.remove(s, 1))}")
+    io.print("union = ${Iter.to_list(Set.union(#{1, 2}, #{2, 3}))}")
+    io.print("intersection = ${Iter.to_list(Set.intersection(#{1, 2, 3}, #{3, 1}))}")
+    io.print("difference = ${Iter.to_list(Set.difference(#{1, 2, 3}, #{2}))}")
+    io.print("subset = ${Set.subset?(#{1, 2}, #{1, 2, 3})}")
+    io.print("not_subset = ${Set.subset?(#{1, 4}, #{1, 2, 3})}")
+    io.print("list_to_set = ${Iter.to_list(Iter.to_set([5, 5, 6]))}")
+
+    tuples = #{(1, 2), (3, 4), (1, 2)}
+    io.print("tuple_size = ${Set.size(tuples)}")
+    io.print("tuple_order = ${Iter.to_list(tuples)}")
+
+    io.print("mapped = ${Iter.to_list(Iter.map(s, |x| x * 10))}")
+    io.print("to_set = ${Iter.to_list(Iter.to_set(Iter.map(s, |x| x % 2)))}")
+    io.print("reduced = ${Iter.reduce(s, |acc = 0, x| acc + x)}")
+}

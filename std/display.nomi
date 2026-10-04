@@ -1,0 +1,27 @@
+import strings.String
+
+/// Protocol for converting a value to a human-readable `String`.
+///
+/// `Display` is the canonical "stringify" interface. The runtime
+/// stringifier (used by `io.print` and string interpolation
+/// `"${value}"`) produces the same form an impl of
+/// `Display` must reproduce, so user types interoperate with the
+/// built-in path uniformly. Typed-literal handler types require the
+/// per-slot value-type interface to extend `Display` so every
+/// interpolated value has a canonical rendering.
+///
+/// All four primitive types — `Int`, `Float`, `Bool`, `String` —
+/// implement `Display`. To implement it for a custom type:
+///
+/// ```nomi
+/// pub struct Greeter {
+///     name: String
+/// }
+///
+/// impl Display for Greeter {
+///     fn to_string(g: Greeter): String { "hi ${g.name}" }
+/// }
+/// ```
+pub interface Display {
+    fn to_string(value: self): String
+}

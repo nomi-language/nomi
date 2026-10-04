@@ -1,0 +1,72 @@
+import std/io
+
+// Probe: IRREFUTABLE DESTRUCTURING ON A `fn` PARAMETER.
+//
+// The lambda half of this landed first (testdata/lambda_destructure.nomi); the
+// same pattern in a `fn` parameter list routes through the same destructure(),
+// which is what its doc said it was written for. One Nomi parameter is one
+// anonymous Go parameter holding the whole value, and every name the pattern
+// introduces is an ordinary local read out of it — which is what the
+// interpreter's applyDestructure does, minus the runtime checks the pattern's
+// irrefutability removes.
+//
+// Tuple patterns are absent for the same reason they are absent from the lambda
+// fixture: a tuple parameter's type has no representation in this builder yet,
+// so the pattern would be refused for the type rather than for the pattern.
+struct Point {
+    x: Int
+    y: Int
+}
+
+struct Segment {
+    from: Point
+    to: Point
+}
+
+type Meters Int
+
+// Exactly one variant, which is what makes the pattern irrefutable.
+enum Wrapper {
+    Only Int
+}
+
+// Punning: self-typed by the head, so no annotation is needed.
+fn norm(Point{x, y}): Int {
+    x * x + y * y
+}
+
+// Renaming: the binding differs from the field name, which is the case that
+// catches a builder reading the wrong one of the two.
+fn flip(Point{x: a, y: b}): String {
+    "(${b}, ${a})"
+}
+
+// Nested, with a wildcard beside it. Nothing may be bound for `to`.
+fn startx(Segment{from: Point{x, y: _}, to: _}): Int {
+    x
+}
+
+// A wrapping distinct unwraps to its inner value.
+fn plus(Meters(m)): Int {
+    m + 1
+}
+
+// A single-variant enum unwraps to its payload.
+fn twice(Wrapper.Only(n)): Int {
+    n * 2
+}
+
+// A destructuring parameter beside ordinary ones, in a non-leading position:
+// the anonymous Go parameter has to land in the right slot.
+fn weighted(scale: Int, Point{x, y}, bias: Int): Int {
+    scale * (x + y) + bias
+}
+
+fn main() {
+    io.print("norm = ${norm(Point{x: 3, y: 4})}")
+    io.print("flip = ${flip(Point{x: 1, y: 2})}")
+    io.print("startx = ${startx(Segment{from: Point{x: 7, y: 8}, to: Point{x: 9, y: 10}})}")
+    io.print("plus = ${plus(Meters(41))}")
+    io.print("twice = ${twice(Wrapper.Only(21))}")
+    io.print("weighted = ${weighted(10, Point{x: 1, y: 2}, 5)}")
+}

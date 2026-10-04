@@ -1,0 +1,40 @@
+import std/io
+
+// A map destructuring whose key is ABSENT — the one place this construct
+// produces observable output of its own.
+//
+// It is a TRAP and not an assertion failure, and that is the distinction worth
+// pinning: `assert {"a" => v} = m` would report through the assertion channel,
+// while `{"a" => v} = m` goes through applyDestructure and faults with
+// `line N: key K not found in map`. The two exits are different and the
+// statement forms sit next to each other in stmtInto, so nothing but a test
+// keeps them apart.
+//
+// The key is rendered by `Display`, not by `Debug` — `keyVal.Display()` on the
+// interpreter side — so a String key prints BARE with no quotes. A VM path
+// that reached for the inspect spelling would produce `"z"` here and agree on
+// everything else.
+//
+// The missing key is a SIDE-EFFECTING EXPRESSION, and that is the second thing
+// this fixture pins. The fault text needs the key rendered, so the key is read
+// twice — once by the lookup and once by the report — and a lowering that
+// spelled the expression at both sites would print `evaluating z` TWICE on a
+// path the interpreter walks once. That divergence is invisible on any
+// destructuring that HITS, because the report lives inside the miss branch, so
+// it can only be caught here.
+//
+// Both paths must produce the same partial stdout, the same error text and exit
+// 1, and the text has ONE implementation (rt.MapKeyMissingError, which eval
+// calls down into) so a test comparing two copies cannot pass while they drift.
+fn main() {
+    m = {"a" => 1, "b" => 2}
+    {note("a") => present} = m
+    io.print("present = ${present}")
+    {note("z") => absent} = m
+    io.print("unreachable ${absent}")
+}
+
+fn note(s: String): String {
+    io.print("evaluating ${s}")
+    s
+}

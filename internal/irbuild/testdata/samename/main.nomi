@@ -1,0 +1,72 @@
+// Two files each declare `Point`, and they are DISTINCT Nomi types. Nominal
+// identity is (declaring file, name), never the name alone — in the builder it
+// is the `*typeDef` POINTER a declaration produced, and kind equality is Go
+// pointer equality on it.
+//
+// This program is what makes that keying FALSIFIABLE instead of asserted. Both
+// Points reach the builder, each with its own structural comparator; a bare-name
+// key would let one declaration answer for the other, and the comparator built
+// for `{x: Int, y: Int}` would be applied to `{lat: Float, lon: Float}`.
+// namedequality_test.go carries the measurement.
+//
+// The comparison of two same-named types, `shapes.Point ==
+// geometry.Point` — is NOT here, because it cannot be written: the CHECKER
+// rejects it (`equality type mismatch: Point vs Point`) before any backend sees
+// it. namedequality_test.go stages that program into a temp dir and asserts the
+// rejection, so nominal identity has two fences and the builder's is the
+// second. It is staged rather than kept here because a permanently-erroring
+// `.nomi` file in the repository makes the LSP's workspace-quiet test fail.
+import {
+    std/io
+    geometry
+    shapes
+}
+
+// A THIRD `Point`, declared right here, so ONE gen holds a local
+// declaration and a MIRROR of a sibling's under the same bare name. That is the
+// only place a name-keyed lookup can collapse two declarations — a Nomi file
+// declares each name once, so a single package cannot collide with itself.
+struct Point {
+    label: String
+}
+
+fn local_same(a: Point, b: Point): Bool {
+    a == b
+}
+
+fn main(): Unit {
+    zero = 0.0
+    nan = zero / zero
+
+    io.print("shapes same: ${Bool.to_string(shapes.same(shapes.at(1, 2), shapes.at(1, 2)))}")
+    io.print("shapes diff: ${Bool.to_string(shapes.same(shapes.at(1, 2), shapes.at(1, 3)))}")
+
+    io.print(
+        "geo same:    ${Bool.to_string(
+            geometry.same(geometry.at(1.5, 2.5), geometry.at(1.5, 2.5))
+        )}"
+    )
+
+    io.print(
+        "geo diff:    ${Bool.to_string(
+            geometry.same(geometry.at(1.5, 2.5), geometry.at(1.5, 2.6))
+        )}"
+    )
+
+    // Reflexive on NaN, which is Nomi's rule and not Go's.
+    io.print(
+        "geo nan:     ${Bool.to_string(
+            geometry.same(geometry.at(nan, 1.0), geometry.at(nan, 1.0))
+        )}"
+    )
+
+    // `Point` here is MAIN's own declaration, resolved in a gen
+    // that also holds a MIRROR of shapes.Point. `==` on the mirror itself is not
+    // here, and the reason CHANGED: it used to be that this gen could not see
+    // whether shapes declares an `impl Equatable`, so a foreign struct refused.
+    // The answer is now established program-wide off the declaration node, and a
+    // mirror's `==` lowers — see testdata/sibsig, which is where the mirror
+    // comparison and its two negative halves live.
+    io.print("local same:  ${Bool.to_string(local_same(Point{label: "a"}, Point{label: "a"}))}")
+    io.print("local diff:  ${Bool.to_string(local_same(Point{label: "a"}, Point{label: "b"}))}")
+}

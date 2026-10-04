@@ -1,0 +1,63 @@
+// A `tests` group prefixes case NAMES and hands its `setup` value to each of
+// its cases. Both halves are pinned here, and the pin is DIFFERENTIAL rather
+// than an assertion about the retained IR because what could go wrong is a
+// wrong VALUE or a wrong NAME, and neither is visible in a type-checked file.
+//
+// What each case discriminates:
+//
+//   - the name path. Every `ok` line below prints the joined path, so a
+//     lowering that dropped the group or joined with the wrong separator
+//     fails on the name rather than on an assertion.
+//   - the pattern. A setup value binds through a struct pattern, a name, a
+//     tuple pattern, and no pattern at all, and a setup may answer Unit.
+//   - NON-leakage. Each setup runs inside each case, so the names it binds
+//     are the case's only through its pattern: a sibling group declared after
+//     another must still see its own setup's value.
+tests "config" {
+    setup {limit: 12, label: "root"}
+
+    test "a case reads the value its group produced", {limit, label} {
+        assert limit == 12
+        assert label == "root"
+    }
+
+    test "a case may ignore the value entirely" {
+        assert (1 + 1) == 2
+    }
+
+    test "a name binds the whole value", config {
+        assert config.limit == 12
+        assert config.label == "root"
+    }
+}
+
+tests "scaled" {
+    setup {
+        limit = 12 * 2
+        (limit, "root/scaled", True)
+    }
+
+    test "a tuple pattern binds each part", (limit, label, extra) {
+        assert limit == 24
+        assert label == "root/scaled"
+        assert extra
+    }
+
+    test "a nested tuple of parts", (limit, _, _) {
+        assert limit + 1 == 25
+    }
+}
+
+tests "unit" {
+    setup {
+        _ = 1 + 1
+    }
+
+    test "a setup may answer Unit" {
+        assert (3 - 1) == 2
+    }
+}
+
+test "a file-scope case stands beside a group" {
+    assert (2 * 3) == 6
+}

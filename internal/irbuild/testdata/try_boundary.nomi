@@ -1,0 +1,158 @@
+// `try` and the boundary it unwinds to.
+//
+// The interesting half of this fixture is the LAMBDA rows. `try` sends the
+// whole `Err(e)` / `None` value out through the interpreter's early-return
+// channel, and that channel is caught at the innermost ACTIVATION — so a `try`
+// inside a lambda unwinds the LAMBDA and the enclosing function keeps running
+// as Nomi's `try` is lambda-scoped. A lowering that hoisted the unwind to the
+// enclosing `fn` would be a well-typed program that prints differently, which
+// is why `through_lambda` and `nested_lambda` both print from OUTSIDE the
+// lambda that failed and then re-label the error they observed. Two observable
+// differences per row, not one.
+//
+// The rest is the value side: unwrap on the success variant, and construct the
+// propagated value at the BOUNDARY's instantiation rather than forward the
+// operand's. `positive?` is why that is not optional — it tries a
+// `Result<Int, String>` inside a function returning `Result<Bool, String>`, and
+// those are two Go types.
+import std/io
+
+fn parse(n: Int): Result<Int, String> {
+    if n < 0 {
+        Err("negative ${n}")
+    } else {
+        Ok(n * 2)
+    }
+}
+
+fn find(n: Int): Maybe<Int> {
+    if n == 3 { Some(30) } else { None }
+}
+
+// The plain shape: unwrap on `Ok`, propagate on `Err`.
+fn calc(n: Int): Result<Int, String> {
+    v = try parse(n)
+
+    Ok(v + 1)
+}
+
+// The boundary's SUCCESS type differs from the operand's.
+fn positive?(n: Int): Result<Bool, String> {
+    v = try parse(n)
+
+    Ok(v > 0)
+}
+
+// Two `try`s in one expression. The left guard has to run before the right
+// operand is evaluated at all, which the second row observes: `parse(-2)` is
+// never reached because `parse(-1)` already unwound.
+fn sum_two(a: Int, b: Int): Result<Int, String> {
+    Ok(try parse(a) + try parse(b))
+}
+
+// `Maybe` propagates `None`, which carries nothing.
+fn scaled(n: Int): Maybe<Int> {
+    v = try find(n)
+
+    Some(v + 1)
+}
+
+// The two pipe spellings. `n |> try parse()` is desugared by the parser into
+// `(n |> parse()) |> try`, so both of these are one shape by the time the
+// builder sees them.
+fn piped(n: Int): Result<Int, String> {
+    v = n |> try parse()
+
+    Ok(v + 100)
+}
+
+fn piped_bare(r: Result<Int, String>): Result<Int, String> {
+    v = r |> try
+
+    Ok(v + 1000)
+}
+
+// THE BOUNDARY. `try` unwinds the lambda, so `after the lambda` prints on both
+// paths and the enclosing function observes the failure as an ordinary value.
+fn through_lambda(n: Int): Result<Int, String> {
+    f = |x: Int| {
+        v = try parse(x)
+
+        Ok(v + 7)
+    }
+
+    inner = f(n)
+    io.print("after the lambda")
+
+    case inner {
+        Ok(v) -> Ok(v)
+        Err(e) -> Err("outer saw ${e}")
+    }
+}
+
+// The innermost boundary, and a `try` whose own boundary is not settled when it
+// is emitted: `outer`'s result is decided by its tail, which comes after its
+// `try`.
+fn nested_lambda(n: Int): Result<Int, String> {
+    outer = |x: Int| {
+        inner = |y: Int| {
+            v = try parse(y)
+
+            Ok(v + 1)
+        }
+
+        io.print("outer body ran")
+        got = try inner(x)
+
+        Ok(got * 10)
+    }
+
+    outer(n)
+}
+
+fn show(r: Result<Int, String>): String {
+    case r {
+        Ok(v) -> "ok ${v}"
+        Err(e) -> "err ${e}"
+    }
+}
+
+fn show_bool(r: Result<Bool, String>): String {
+    case r {
+        Ok(v) -> "ok ${v}"
+        Err(e) -> "err ${e}"
+    }
+}
+
+fn show_maybe(m: Maybe<Int>): String {
+    case m {
+        Some(v) -> "some ${v}"
+        None -> "none"
+    }
+}
+
+fn main() {
+    io.print(show(calc(4)))
+    io.print(show(calc(-1)))
+
+    io.print(show_bool(positive?(4)))
+    io.print(show_bool(positive?(-1)))
+
+    io.print(show(sum_two(1, 2)))
+    io.print(show(sum_two(-1, -2)))
+
+    io.print(show_maybe(scaled(3)))
+    io.print(show_maybe(scaled(4)))
+
+    io.print(show(piped(1)))
+    io.print(show(piped(-1)))
+
+    io.print(show(piped_bare(Ok(1))))
+    io.print(show(piped_bare(Err("given"))))
+
+    io.print(show(through_lambda(1)))
+    io.print(show(through_lambda(-1)))
+
+    io.print(show(nested_lambda(1)))
+    io.print(show(nested_lambda(-1)))
+}

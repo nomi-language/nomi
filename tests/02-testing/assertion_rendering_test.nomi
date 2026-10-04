@@ -1,0 +1,133 @@
+import {
+    std/assertions.AssertionFailure
+    std/testing
+}
+
+fn fails_pattern_binding(): Result<Unit, AssertionFailure> {
+    assert [_, _] = [1]
+    Ok(Unit)
+}
+
+test "rendered comparison failure can be asserted as text" {
+    actual = "Ada"
+    expected = "Grace"
+    assert Err(failure) = testing.check(actual == expected)
+
+    assert AssertionFailure.format(failure) == """
+        line 14: check failed
+          check actual == expected
+          values:
+            actual
+              = "Ada"
+            expected
+              = "Grace"
+        """
+}
+
+test "rendered pattern binding failure shows the expected shape" {
+    assert Err(failure) = fails_pattern_binding()
+
+    assert AssertionFailure.format(failure) == """
+        line 7: pattern did not match
+          assert [_, _] = [1]
+          actual: [1]
+        """
+}
+
+test "rendered predicate failure shows direct inputs" {
+    items = [1, 2, 3]
+    assert Err(failure) = testing.check(Iter.any?(items, |n| n == 4))
+
+    assert AssertionFailure.format(failure) == """
+        line 39: check failed
+          check Iter.any?(items, |n| n == 4)
+          values:
+            items
+              = [1, 2, 3]
+        """
+}
+
+test "rendered binding failure includes the binding source" {
+    has_four =
+        [1, 2, 3]
+        |> Iter.any?(|n| n == 4)
+
+    assert Err(failure) = testing.check(has_four)
+
+    assert AssertionFailure.format(failure) == """
+        line 55: check failed
+          check has_four
+          defined as:
+            [1, 2, 3]
+            |> Iter.any?(|n| n == 4)
+          pipeline values:
+            [1, 2, 3]
+              = [1, 2, 3]
+            [1, 2, 3]
+            |> Iter.any?(|n| n == 4)
+              = False
+        """
+}
+
+test "rendered pipe-stage check includes pipeline source and values" {
+    result = testing.check(
+        [1, 2, 3]
+        |> Iter.any?(|n| n == 4)
+    )
+
+    assert Err(failure) = result
+
+    assert AssertionFailure.format(failure) == """
+        line 73: check failed
+          check [1, 2, 3]
+          |> Iter.any?(|n| n == 4)
+          pipeline values:
+            [1, 2, 3]
+              = [1, 2, 3]
+            |> Iter.any?(|n| n == 4)
+              = False
+        """
+}
+
+test "a Set reads in the values row as its Debug form" {
+    small = #{1, 2}
+    nested = [#{"a"}]
+    assert Err(failure) = testing.check(Set.size(small) == Iter.count(nested))
+
+    assert AssertionFailure.format(failure) == """
+        line 95: check failed
+          check Set.size(small) == Iter.count(nested)
+          values:
+            small
+              = #{1, 2}
+            nested
+              = [#{"a"}]
+            Set.size(small)
+              = 2
+            Iter.count(nested)
+              = 1
+        """
+}
+
+test "a lazy Iter reads in the values row as a placeholder" {
+    doubled = [1, 2, 3] |> Iter.map(|x| x * 2)
+
+    wrapped = [doubled]
+    assert Err(failure) = testing.check(Iter.count(doubled) == Iter.count(wrapped))
+
+    assert AssertionFailure.format(failure) == """
+        line 116: check failed
+          check Iter.count(doubled) == Iter.count(wrapped)
+          values:
+            doubled
+              = <iter>
+            wrapped
+              = [<iter>]
+            Iter.count(doubled)
+              = 3
+            Iter.count(wrapped)
+              = 1
+        """
+
+    assert Iter.to_list(doubled) == [2, 4, 6]
+}

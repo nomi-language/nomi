@@ -1,0 +1,28 @@
+import {
+    std/json.Json
+    users.{self, Admin, User}
+    users/teams.{self, Member}
+}
+
+test "type-qualified impl methods dispatch by receiver" {
+    assert User.inspect(users.user("Ada")) == "user:Ada"
+    assert Admin.inspect(users.admin("Grace")) == "admin:Grace"
+}
+
+test "type-qualified impl methods pipe through dispatch" {
+    assert users.user("Lin") |> User.inspect() == "user:Lin"
+    assert users.admin("Margaret") |> Admin.inspect() == "admin:Margaret"
+}
+
+test "type-qualified generic impl methods can use explicit targets" {
+    encoded = User.to_json(users.user("Ada"))
+    decoded: User = try User.from_json(encoded)
+
+    assert Json.encode(encoded) == "{\"name\":\"Ada\"}"
+    assert decoded == users.user("Ada")
+    assert User.from_json(Json.Obj{"name" => Json.String("Ada")}) == Ok(users.user("Ada"))
+}
+
+test "nested type-qualified impl methods dispatch by receiver" {
+    assert Member.inspect(teams.member("Katherine")) == "member:Katherine"
+}

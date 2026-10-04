@@ -1,0 +1,96 @@
+// Two gaps that turned out to be one shape each, and the answers that pin them.
+//
+// # `untyped:` — an UNTYPED LITERAL nested inside a tuple
+//
+// `[]`, `Map.empty()`, `#{}`, `#[]` and a bare `None` have no type of their own;
+// the checker solves each from context. `coerce` discharged them at the TOP
+// LEVEL only, so `(0, [])` flowing into a `(Int, List<Int>)` position was never
+// discharged — and the same absence was reported under THREE different key
+// names depending on where the tuple sat: `Iter.reduce seed type mismatch`,
+// `binding type mismatch`, and `argument type mismatch`. All three lines below
+// are the same gap and one fix closed them; the three positions are here so a
+// regression in any one of them is visible separately.
+//
+// The nested row matters on its own: a tuple inside a tuple has to discharge by
+// the same rule recursively, which is a property of the recursion rather than of
+// a second case.
+//
+// # `pattern:` — a DESTRUCTURING lambda parameter with no annotation
+//
+// A lambda's unannotated parameter is solved by the checker from the expected
+// type at the call site. A DESTRUCTURING one has no name, so the lookup that
+// reads that answer back could never match it and the parameter was refused as
+// `parameter without a declared type`. The names the PATTERN introduces each
+// carry a recorded type, so the parameter's type is assembled from those.
+//
+// `(k, v)` is the shape that occurs; the nested `(a, (b, c))` row is here
+// because assembling a tuple out of parts is only correct if it recurses, and
+// the `_` row is here because a WILDCARD introduces no name and therefore no
+// recorded type — so it must keep refusing rather than guess. That last one is
+// commented out precisely because it is a REFUSAL and this file pins answers;
+// its refusal is asserted in coercetuple_test.go instead.
+import std/io
+
+fn take_pair(t: (Int, List<Int>)): Int {
+    (n, _rest) = t
+    n
+}
+
+fn main() {
+    // Position 1: an annotated binding.
+    bound: (Int, List<Int>) = (0, [])
+    (b0, b1) = bound
+    io.print("untyped: binding ${b0} ${b1}")
+
+    // Position 2: an argument.
+    io.print("untyped: argument ${take_pair((7, []))}")
+
+    // Position 3: an `Iter.reduce` SEED, which is where this was found. The
+    // accumulator is (Int, List<Int>) and the seed is written (0, []).
+    taken = Iter.reduce([10, 20, 30, 40], |state = (0, []), x| {
+        (count, acc) = state
+
+        if count >= 2 {
+            break (count, acc)
+        } else {
+            (count + 1, [x, ..acc])
+        }
+    })
+
+    (kept_count, kept) = taken
+    io.print("untyped: seed ${kept_count} ${Iter.reverse(kept)}")
+
+    // A tuple nested in a tuple, discharged by the same rule recursively.
+    nested: (Int, (Int, List<Int>)) = (1, (2, []))
+    (n0, inner) = nested
+    (n1, n2) = inner
+    io.print("untyped: nested ${n0} ${n1} ${n2}")
+
+    // A non-empty list beside the empty one, so the rebuild is shown not to lose
+    // elements it should keep.
+    keeps: (Int, List<Int>) = (9, [1, 2, 3])
+    (k0, k1) = keeps
+    io.print("untyped: keeps ${k0} ${k1}")
+
+    // An unannotated DESTRUCTURING lambda parameter, typed from the names the
+    // pattern introduces.
+    counts =
+        [("a", 1), ("b", 2), ("a", 3)]
+        |> Iter.reduce(|acc = Map.empty(), (k, v)|
+            case Map.get(acc, k) {
+                Some(prev) -> Map.put(acc, k, prev + v)
+                None -> Map.put(acc, k, v)
+            }
+        )
+
+    // Compared rather than interpolated: `"${a_Maybe}"` is a separate gap
+    // (`rendering a non-scalar value`) and this file is not about that one.
+    io.print("pattern: a4=${Map.get(counts, "a") == Some(4)} b2=${Map.get(counts, "b") == Some(2)}")
+
+    // A nested pattern, which only works if the assembly recurses.
+    sums =
+        [(1, (2, 3)), (4, (5, 6))]
+        |> Iter.reduce(|acc = 0, (a, (b, c))| acc + a + b + c)
+
+    io.print("pattern: nested ${sums}")
+}

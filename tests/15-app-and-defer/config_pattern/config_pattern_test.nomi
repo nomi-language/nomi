@@ -1,0 +1,20 @@
+import app
+
+test "config pattern overlays deployment-specific values" {
+    prod = app.load("prod")
+    test_deployment = app.load("test")
+    dev = app.load("dev")
+
+    assert prod.deployment == "prod"
+    assert prod.port == 3000
+    assert prod.database_url == "postgres://prod-host/myapp"
+    assert prod.max_connections == 20
+
+    assert test_deployment.deployment == "test"
+    assert test_deployment.database_url == "postgres://localhost/myapp_test"
+    assert test_deployment.max_connections == 2
+
+    assert dev.deployment == "dev"
+    assert dev.database_url == "postgres://localhost/myapp_dev"
+    assert dev.max_connections == 5
+}

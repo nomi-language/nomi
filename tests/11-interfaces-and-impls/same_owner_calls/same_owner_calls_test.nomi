@@ -1,0 +1,123 @@
+import {
+    std/compiler
+    test_helpers
+}
+
+struct Counter {
+    value: Int
+}
+
+fn bump(c: Counter): Counter {
+    Counter{value: c.value + 1}
+}
+
+fn bump_twice(c: Counter): Counter {
+    bump(bump(c))
+}
+
+interface Label {
+    fn label(value: self): String
+}
+
+struct Tagged {
+    name: String
+}
+
+fn display(t: Tagged): String {
+    Label.label(t)
+}
+
+fn bracket(t: Tagged): String {
+    "[" + t.name + "]"
+}
+
+impl Label for Tagged {
+    fn label(t: Tagged): String {
+        bracket(t)
+    }
+}
+
+test "same-owner calls are bare inside impl blocks" {
+    c = bump_twice(Counter{value: 1})
+
+    assert c.value == 3
+    assert display(Tagged{name: "ready"}) == "[ready]"
+}
+
+test "self is not an expression qualifier" {
+    diagnostics = compiler.check(
+        """
+          struct Box {
+            value: Int
+          }
+
+          fn get(b: Box): Int {
+            b.value
+          }
+
+          fn read(b: Box): Int {
+            self.get(b)
+          }
+
+          fn main(): Int {
+            read(Box{value: 1})
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "`self` is an interface type placeholder, not an expression qualifier",
+    )
+}
+
+test "ambiguous same-owner interface functions require qualification" {
+    diagnostics = compiler.check(
+        """
+        interface Greeter {
+          fn greet(value: self): String
+        }
+
+        interface Farewell {
+          fn greet(value: self): String
+        }
+
+        interface Message {
+          fn message(value: self): String
+        }
+
+        struct Person {
+          name: String
+        }
+
+        impl Greeter for Person {
+
+          fn greet(p: Person): String {
+            "Hello, " + p.name
+          }
+        }
+
+        impl Farewell for Person {
+
+          fn greet(p: Person): String {
+            "Goodbye, " + p.name
+          }
+        }
+
+        impl Message for Person {
+          fn message(p: Person): String {
+            greet(p)
+          }
+        }
+
+        fn main(): String {
+          Message.message(Person{name: "Ada"})
+        }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "ambiguous")
+}

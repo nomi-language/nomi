@@ -1,0 +1,26 @@
+//# Bindings to the Go caller in `handler.go`.
+
+gopkg "nomihandler"
+
+/// A request Go hands the handler.
+pub struct Request {
+    method: String
+    path: String
+    query: Map<String, String>
+    headers: Map<String, String>
+    body: Bytes
+}
+
+/// What the handler gives back to Go.
+pub struct Response {
+    status: Int
+    headers: Map<String, String>
+    body: Bytes
+}
+
+/// Calls `handler` once per path, each call from its own goroutine, and
+/// answers one line per path describing what came back.
+pub fn serve_concurrently(
+    paths: List<String>,
+    handler: (Request) -> Result<Response, String>,
+): Result<List<String>, String> go nomihandler.ServeConcurrently

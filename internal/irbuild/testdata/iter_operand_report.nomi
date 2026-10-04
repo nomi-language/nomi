@@ -1,0 +1,54 @@
+// A test that FAILS on purpose, so an `Iter<T>` operand has its whole failure
+// REPORT compared byte for byte.
+//
+// # Why it has to fail
+//
+// A PASSING assertion renders no operand at all, so there is no other way to
+// observe an operand rendering. `tests/` contains no program that fails
+// an assertion, so the differential sweep compares the passing path exclusively
+// and would read `0 DIFFED` over any amount of wrong failure text. This file is
+// NOT in the corpus and is never run by `nomi test tests`; it is reached
+// only by TestPinned_IterOperandReport, and the non-zero exit is part of what
+// requireIdentical compares. Same standing, and the same reason, as
+// untyped_list_report.nomi.
+//
+// # Every operand is a NAME, deliberately
+//
+// The report suppresses an operand whose rendering reads exactly like its source
+// text. An `Iter` expression written inline would therefore produce no row at
+// all and this fixture would compare nothing. A BINDING forces the row, because
+// `x` and `<iter>` do not read alike.
+//
+// # WHAT MAKES THE INFINITE CASE THE IMPORTANT ONE
+//
+// rt.IterInspectText is a CONSTANT rather than a rendering of the elements, and the
+// second assertion is what makes that a testable property instead of a comment:
+// `endless` is `Iter.from(0)`, an unbounded source. An inspector that rendered
+// its elements would not produce wrong text — IT WOULD NOT RETURN. So this line
+// distinguishes "the report shows a constant" from "the report shows the
+// elements" in a way no finite source can, because over a finite source both
+// designs terminate and only the string differs.
+//
+// The third assertion nests the sequence inside a List, which is the composite
+// path: firstUninspectable reports the INNERMOST component with no inspector, so
+// before rt.InspectSeq existed a `List<Iter<Int>>` was refused for the Iter and
+// not for the list. With it, the list inspector composes over the element.
+test "an Iter operand renders" {
+    x = [1, 2, 3, 4, 5] |> Iter.filter(|n| n > 2)
+
+    assert Iter.to_list(x) == [3, 4, 5, 9]
+}
+
+test "an unbounded Iter operand renders without being consumed" {
+    endless = Iter.from(0)
+
+    assert Iter.count(Iter.take(endless, 3)) == 99
+}
+
+test "an Iter nested in a List renders" {
+    x = [1, 2] |> Iter.map(|n| n * 2)
+
+    pair = [x, x]
+
+    assert Iter.count(pair) == 99
+}

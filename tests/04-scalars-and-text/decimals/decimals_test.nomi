@@ -1,0 +1,154 @@
+import {
+    std/comparable.Ordering.{Equal, Greater, Less}
+    std/compiler
+    std/decimal.RoundingMode.{Floor, HalfEven, Up}
+    test_helpers
+}
+
+test "decimal literals preserve display scale" {
+    assert Decimal.to_string(1.50d) == "1.50"
+    assert Decimal.to_string(5d) == "5"
+    assert Decimal.to_string(1_000.00d) == "1000.00"
+}
+
+test "decimal operators are exact when the result terminates" {
+    assert Decimal.to_string(1.50d + 1.5d) == "3.00"
+    assert Decimal.to_string(2.50d - 1d) == "1.50"
+    assert Decimal.to_string(1.50d * 1.5d) == "2.250"
+    assert Decimal.to_string(10.00d / 4d) == "2.50"
+}
+
+test "decimal rounding and shaping functions are explicit" {
+    thirds =
+        10d
+        |> Decimal.divide(3d, 4, HalfEven)
+        |> Decimal.to_string()
+
+    rounded_pi =
+        3.14159d
+        |> Decimal.round(2, HalfEven)
+        |> Decimal.to_string()
+
+    half_even =
+        2.5d
+        |> Decimal.round(0, HalfEven)
+        |> Decimal.to_string()
+
+    scaled_up =
+        1d
+        |> Decimal.round(2, Up)
+        |> Decimal.to_string()
+
+    normalized =
+        100.00d
+        |> Decimal.normalize()
+        |> Decimal.to_string()
+
+    assert thirds == "3.3333"
+    assert rounded_pi == "3.14"
+    assert half_even == "2"
+    assert scaled_up == "1.00"
+    assert normalized == "100"
+    assert Decimal.scale(1.50d) == 2
+    assert Decimal.abs(-1.50d) == 1.50d
+    assert Decimal.negate(1.50d) == -1.50d
+    assert Decimal.sign(-1.50d) == -1
+    assert Decimal.zero?(0.00d)
+    assert Decimal.min(1.50d, 2d) == 1.50d
+    assert Decimal.max(1.50d, 2d) == 2d
+}
+
+test "decimal conversions are explicit" {
+    assert 42
+        |> Decimal.from_int()
+        |> Decimal.to_string()
+        |> String.equal?("42")
+
+    assert Decimal.from_string("1.50") == Some(1.50d)
+    assert Decimal.from_string("oops") == None
+    assert Decimal.to_string(1.50d) == "1.50"
+    assert Decimal.to_int(3.7d) == Some(3)
+    assert Decimal.to_int(-3.7d) == Some(-3)
+    assert Decimal.to_float(1.50d) == 1.5
+    assert Decimal.from_float(0.1, 2, HalfEven) == Some(0.10d)
+    assert Decimal.from_float(3.14159, 2, Floor) == Some(3.14d)
+}
+
+test "decimal debug and comparisons are scale insensitive where appropriate" {
+    assert Debug.inspect(1.50d) == "1.50d"
+    assert 1.50d == 1.5d
+    refute 1.50d == 2.0d
+    assert Decimal.compare(1.50d, 2d) == Less
+    assert Decimal.compare(1.50d, 1.5d) == Equal
+    assert Decimal.compare(3.00d, 2.999d) == Greater
+}
+
+test "decimal ranges can be queried and stepped" {
+    assert Range.contains?(1.25d..=2.50d, 1.50d)
+    refute Range.contains?(1.25d..=2.50d, 3d)
+
+    assert 1.0d..=1.3d
+        |> Range.step_by(0.1d)
+        |> Iter.to_list()
+        |> List.equal?([1.0d, 1.1d, 1.2d, 1.3d])
+}
+
+test "decimal set and map keys are scale insensitive" {
+    assert #{1.50d, 1.5d, 2.00d}
+        |> Set.size()
+        |> Int.equal?(2)
+
+    by_price: Map<Decimal, String> = {1.50d => "a", 1.5d => "b"}
+    stored = by_price |> Map.get(1.500d)
+
+    assert Map.size(by_price) == 1
+    assert stored == Some("b")
+}
+
+test "decimal arithmetic supports money-shaped totals" {
+    subtotal = Iter.reduce([19.99d, 5.00d, 2.50d, 0.99d], |acc = 0d, item| acc + item)
+    tax_base = subtotal * 875d
+    tax = Decimal.divide(tax_base, 10000d, 4, HalfEven)
+    total = Decimal.round(subtotal + tax, 2, HalfEven)
+
+    assert Decimal.to_string(subtotal) == "28.48"
+    assert Decimal.to_string(total) == "30.97"
+}
+
+test "decimal arithmetic rejects mixed numeric types" {
+    diagnostics =
+        """
+            fn main() {
+              dbg 1 + 1.50d
+            }
+            """
+        |> compiler.check()
+
+    assert test_helpers.has_diagnostic?(diagnostics, "binary + type mismatch: Int vs Decimal")
+}
+
+test "decimal division by zero is a runtime error" {
+    result =
+        """
+            fn main(): Decimal {
+              1d / 0d
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains?(message, "decimal division by zero")
+}
+
+test "non-terminating decimal division is a runtime error" {
+    result =
+        """
+            fn main(): Decimal {
+              10d / 3d
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains?(message, "non-terminating decimal division")
+}

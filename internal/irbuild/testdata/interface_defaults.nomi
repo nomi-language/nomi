@@ -1,0 +1,136 @@
+import std/io
+
+// Probe: DEFAULT PARAMETER VALUES ON AN INTERFACE METHOD.
+//
+// `defaults.nomi` is the same question for a module-level `fn`, and the two
+// share one implementation (`fillParamDefaults`). Sharing is only correct if
+// the semantics are identical, so this file exists to MEASURE that rather than
+// to assume it — each `test` below is an answer that came off the interpreter
+// first, and each would print or judge differently under the other rule.
+//
+//  1. `Powered.describe(e)` — the default `mode: Mode = Mode.Fast` names an
+//     enum declared beside the interface. Supplying the argument takes the
+//     other branch, so the two lines distinguish a filled default from an
+//     ignored one. Spelled QUALIFIED rather than as the dot shorthand
+//     `.Fast`: a default's expression is lowered at every call that omits it,
+//     and `dot variant` is a separate refusal this file does not cover. The
+//     corpus file that motivated this work
+//     (`tests/11-interfaces-and-impls/interface_defaults/engine.nomi`)
+//     does use `.Fast` and lowers anyway, because nothing in that file CALLS
+//     the defaulted method — the declaration and the fill are two questions.
+//  2. `tagged` — the default names a MODULE binding (`once tag`) that the
+//     CALLER shadows with a local of a different value. The default is
+//     evaluated in the DECLARING module's scope, so it reads `declaring` and
+//     never `caller-local`. This is the discriminating case: a call-site-scope
+//     rule would print `caller-local`, and the local is printed on the next
+//     line so the shadow is provably live.
+//  3. `Quiet` OVERRIDES `describe`'s default value. `Powered.describe(q)` and
+//     `Quiet.describe(q)` therefore answer with the OVERRIDE's default, not
+//     the interface's — which is why the builder reads defaults off the
+//     selected implementation. With one implementor this would be
+//     indistinguishable, so there are two.
+//  4. `counted` — the default is a call WITH A SIDE EFFECT, so how often it
+//     runs is observable. Once per call that omits it, never for a call that
+//     supplies it; a lowering that hoisted it to a constant prints a different
+//     number of lines.
+once tag = "declaring"
+
+enum Mode {
+    Fast
+    Slow
+}
+
+fn ping(): Int {
+    io.print("default ran")
+    7
+}
+
+struct Engine {
+    name: String
+}
+
+struct Quiet {
+    name: String
+}
+
+interface Powered {
+    fn label(e: self): String
+
+    open fn describe(e: self, mode: Mode = Mode.Fast): String {
+        case mode {
+            .Fast -> Powered.label(e) + " (fast)"
+            .Slow -> Powered.label(e) + " (slow)"
+        }
+    }
+
+    fn tagged(e: self, suffix: String = tag): String {
+        Powered.label(e) + ":" + suffix
+    }
+
+    fn counted(_e: self, n: Int = ping()): Int {
+        n
+    }
+}
+
+impl Powered for Engine {
+    fn label(e: Engine): String {
+        e.name
+    }
+}
+
+impl Powered for Quiet {
+    fn label(q: Quiet): String {
+        q.name
+    }
+
+    fn describe(q: Quiet, mode: Mode = Mode.Slow): String {
+        case mode {
+            .Fast -> q.name + " (quiet-fast)"
+            .Slow -> q.name + " (quiet-slow)"
+        }
+    }
+}
+
+test "an interface default's parameter default is filled, and supplying it is not" {
+    e = Engine{name: "v8"}
+
+    io.print(Powered.describe(e))
+    io.print(Powered.describe(e, Mode.Slow))
+    io.print(Engine.describe(e))
+
+    assert Powered.describe(e) == "v8 (fast)"
+    assert Powered.describe(e, Mode.Slow) == "v8 (slow)"
+    assert Engine.describe(e) == "v8 (fast)"
+}
+
+test "a default is evaluated in the declaring module's scope, not the caller's" {
+    e = Engine{name: "v8"}
+    tag = "caller-local"
+
+    io.print(Powered.tagged(e))
+    io.print(tag)
+
+    assert Powered.tagged(e) == "v8:declaring"
+    assert tag == "caller-local"
+    assert Powered.tagged(e, "given") == "v8:given"
+}
+
+test "an impl override supplies its own default value" {
+    q = Quiet{name: "hush"}
+
+    io.print(Powered.describe(q))
+    io.print(Quiet.describe(q))
+    io.print(Powered.describe(q, Mode.Fast))
+
+    assert Powered.describe(q) == "hush (quiet-slow)"
+    assert Quiet.describe(q) == "hush (quiet-slow)"
+    assert Powered.describe(q, Mode.Fast) == "hush (quiet-fast)"
+}
+
+test "a defaulted argument is evaluated once per call that omits it" {
+    e = Engine{name: "v8"}
+
+    assert Powered.counted(e) == 7
+    assert Powered.counted(e, 3) == 3
+    assert Powered.counted(e) + Powered.counted(e) == 14
+}

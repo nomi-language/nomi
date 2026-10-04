@@ -1,0 +1,159 @@
+// std/calendar's CIVIL arithmetic, on the rungs whose operands are
+// `Years`…`Nanoseconds`.
+//
+// Twelve `host fn` rungs and the Nomi bodies that route through them became
+// lowerable when those ten types took opaqueSpecs rows. Every line below is a
+// SEMANTICS claim rather than a coverage one: civil arithmetic and physical
+// arithmetic diverge deliberately, and a lowering that quietly turned one into
+// the other would print a different date rather than fail.
+//
+// # Two of these lines are vacuous as a differential, deliberately, and the
+// pinned text in calendar_civil_test.go is where they are actually checked
+//
+// `requireIdentical` compares the interpreter against the artifact, so it is
+// blind to a bug in code BOTH reach — and both now reach `rt.CivilShift` and
+// `rt.DateTimeCivilShift`, because eval calls DOWN into rt for every calendar
+// rule and the builder binds the same symbols. That inversion deletes a class of
+// bug (two implementations drifting) by deleting the disagreement, and it costs
+// the comparison its power over exactly the rules it unified. So the `want`
+// string is the assertion for the clamp and the divergence, and
+// rt/calendar_test.go pins both at the representation level as well.
+//
+// What IS genuinely two implementations here: every `Subtract` rung and the
+// seven Nomi-bodied `Add` rungs are lowered Nomi in a generated stdlib package
+// on one side and interpreted AST on the other, so `- Months(1)` reaching the
+// wrong `+ Months(-1)` is a real differential.
+import {
+    std/calendar.{
+        DateTime,
+        Days,
+        Error,
+        Hours,
+        Microseconds,
+        Milliseconds,
+        Minutes,
+        Months,
+        NaiveDateTime,
+        Nanoseconds,
+        Seconds,
+        Weeks,
+        Years
+    }
+    std/duration.Duration
+    std/io
+}
+
+fn run(): Result<Unit, Error> {
+    // --- END-OF-MONTH CLAMPING, with the leap-year variant --------------------
+    //
+    // The 31st of January has no counterpart in February, so `+ Months(1)` must
+    // CLAMP to the last day of the target month rather than normalize forward
+    // into March. The leap year is the discriminating pair: a lowering that
+    // clamped to a constant 28 would print the same answer for both years, and a
+    // lowering that used Go's `time.AddDate` directly would print `2011-03-03`
+    // and `2012-03-02`.
+    common = try NaiveDateTime"2011-01-31T09:15:00"
+    leap = try NaiveDateTime"2012-01-31T09:15:00"
+    io.print("clamp_common = " + NaiveDateTime.to_string(common + Months(1)))
+    io.print("clamp_leap = " + NaiveDateTime.to_string(leap + Months(1)))
+
+    // The same clamp reached through `Years` — February 29th has no counterpart
+    // in a common year, so it clamps to the 28th — and through the NEGATIVE
+    // direction, where the month index has to floor toward negative infinity:
+    // March 31st minus one month is February 28th, not a normalized March 3rd.
+    feb29 = try NaiveDateTime"2012-02-29T09:15:00"
+    io.print("clamp_year = " + NaiveDateTime.to_string(feb29 + Years(1)))
+    io.print("clamp_year_back = " + NaiveDateTime.to_string(feb29 - Years(4)))
+    march = try NaiveDateTime"2011-03-31T09:15:00"
+    io.print("clamp_back = " + NaiveDateTime.to_string(march - Months(1)))
+
+    // Clamping is ORDER-dependent and the order is load-bearing: clamp first,
+    // then shift the day. `Jan 31 + 1 month + 1 day` is March 1st (clamp to Feb
+    // 28, then +1) and not March 4th (Jan 31 + 1 day, then +1 month with nothing
+    // left to clamp).
+    io.print("clamp_then_day = " + NaiveDateTime.to_string(common + Months(1) + Days(1)))
+
+    // --- CIVIL versus PHYSICAL across a spring-forward -----------------------
+    //
+    // Noon on March 7th in New York. `+ Days(1)` preserves the WALL READING and
+    // therefore covers 23 hours of elapsed time; `+ Duration.hours(24)` preserves
+    // the ELAPSED TIME and therefore lands an hour later on the clock. Both are
+    // correct and they cannot both hold across a transition, which is the whole
+    // reason std/calendar has two ladders.
+    //
+    // `+ Hours(24)` is the third answer and it agrees with `+ Days(24 hours'
+    // worth)` rather than with the Duration: a civil hour shifts the wall reading
+    // like every other civil unit.
+    ny = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+    io.print("civil_day = " + DateTime.to_string(ny + Days(1)))
+    io.print("physical_day = " + DateTime.to_string(ny + Duration.hours(24)))
+    io.print("civil_hours = " + DateTime.to_string(ny + Hours(24)))
+    io.print("elapsed_civil = " + Duration.to_string(DateTime.between(ny, ny + Days(1))))
+
+    io.print(
+        "elapsed_physical = " + Duration.to_string(DateTime.between(ny, ny + Duration.hours(24)))
+    )
+
+    // A naive value names no instant, so there is nothing for the two to diverge
+    // over and they agree. That agreement is a fact about the absence of a zone,
+    // not a sign the operations are the same one — pinning it is what stops a
+    // future lowering from "simplifying" the naive civil rungs into Durations.
+    naive = try NaiveDateTime"2026-03-07T12:00:00"
+    io.print("naive_civil = " + NaiveDateTime.to_string(naive + Days(1)))
+    io.print("naive_physical = " + NaiveDateTime.to_string(naive + Duration.hours(24)))
+
+    // --- TWO ZONES, ONE INSTANT, EQUAL ---------------------------------------
+    //
+    // `DateTime`'s identity is its INSTANT and not its zone, so the same moment
+    // displayed in New York and in Los Angeles compares equal and hashes the
+    // same. Go's struct `==` is what a naive lowering emits and it is WRONG here:
+    // the two values differ in the `Zone` field.
+    la = try DateTime"2026-03-07T09:00:00-08:00[America/Los_Angeles]"
+    io.print("same_moment = " + Bool.to_string(ny == la))
+    io.print("ny_text = " + DateTime.to_string(ny))
+    io.print("la_text = " + DateTime.to_string(la))
+
+    // And the negative control, so `same_moment` cannot be a lowering that says
+    // True for everything.
+    later = try DateTime"2026-03-07T10:00:00-08:00[America/Los_Angeles]"
+    io.print("different_moment = " + Bool.to_string(ny == later))
+
+    // --- THE REST OF THE LADDER ----------------------------------------------
+    //
+    // Weeks is a Nomi body over `Days(n * 7)`; Hours through Nanoseconds on a
+    // naive value are Nomi bodies over `Duration`; every `Subtract` rung is a
+    // Nomi body that calls its `Add` counterpart with a negated operand. None of
+    // them has an rt symbol and none should: an rt function nothing calls is
+    // scaffolding. They lower through the ordinary path, and these lines are what
+    // proves that path is wired rather than merely admitted.
+    base = try NaiveDateTime"2026-05-04T14:30:00.500000000"
+    io.print("weeks = " + NaiveDateTime.to_string(base + Weeks(2)))
+    io.print("hours = " + NaiveDateTime.to_string(base + Hours(3)))
+    io.print("minutes = " + NaiveDateTime.to_string(base + Minutes(45)))
+    io.print("seconds = " + NaiveDateTime.to_string(base + Seconds(90)))
+    io.print("millis = " + NaiveDateTime.to_string(base + Milliseconds(250)))
+    io.print("micros = " + NaiveDateTime.to_string(base + Microseconds(250)))
+    io.print("nanos = " + NaiveDateTime.to_string(base + Nanoseconds(250)))
+
+    io.print("sub_weeks = " + NaiveDateTime.to_string(base - Weeks(2)))
+    io.print("sub_days = " + NaiveDateTime.to_string(base - Days(4)))
+    io.print("sub_hours = " + NaiveDateTime.to_string(base - Hours(15)))
+    io.print("sub_seconds = " + NaiveDateTime.to_string(base - Seconds(90)))
+    io.print("sub_nanos = " + NaiveDateTime.to_string(base - Nanoseconds(250)))
+
+    // The zoned sub-second rungs, which are the ones whose unit conversion could
+    // be off by a factor of a thousand and still look plausible.
+    io.print("zoned_millis = " + DateTime.to_string(ny + Milliseconds(1500)))
+    io.print("zoned_micros = " + DateTime.to_string(ny + Microseconds(1500)))
+    io.print("zoned_nanos = " + DateTime.to_string(ny + Nanoseconds(1500)))
+    io.print("zoned_sub = " + DateTime.to_string(ny - Minutes(90)))
+
+    Ok(Unit)
+}
+
+fn main() {
+    case run() {
+        Ok(_u) -> Unit
+        Err(_e) -> io.print("FAILED")
+    }
+}

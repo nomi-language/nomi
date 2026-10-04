@@ -1,0 +1,52 @@
+import std/io
+
+// Probe: A NAMED ARGUMENT IS A SLOT ASSIGNMENT, AND ITS EVALUATION ORDER IS NOT
+// ITS WRITTEN ORDER.
+//
+// resolveArgs (eval/eval.go:5704) PARTITIONS a call's written arguments into
+// `positionalNodes` and `namedNodes` (:5721-5729) and then drains them in
+// sequence. So every positional is evaluated before any named argument, and a
+// named argument written FIRST is evaluated LAST.
+//
+// `order` is the load-bearing line and the reason this fixture exists. irbuild's
+// directCall hoists each argument's statements as it walks, so walking the
+// written argument slice emits `eval B` before `eval A` — a DIFF, not a
+// refusal, and one that only appears when an argument has a side effect. Every
+// other line here is caught by the type checker or by an answer if placement is
+// wrong; this one is caught only by the ORDER of two prints.
+fn order(a: String, b: String): String {
+    a + "/" + b
+}
+
+fn p(tag: String): String {
+    io.print("eval " + tag)
+    tag
+}
+
+// A defaulted middle slot, so a named argument has to skip past one.
+fn opts(x: Int, factor: Int = 10, label: String = "L"): String {
+    label + Display.to_string(x * factor)
+}
+
+fn main() {
+    // THE ORDERING WITNESS. `b:` is written first and must be evaluated second.
+    // Expected: `eval A`, then `eval B`, then `A/B`.
+    io.print(order(b: p("B"), p("A")))
+
+    // A named argument reaching the LAST slot past a defaulted middle one.
+    io.print(opts(3, label: "z"))
+
+    // AN EXPLICIT ZERO INTO A DEFAULTED SLOT. This is the line that discriminates
+    // a presence mask from a zero-value test: `factor: 0` must FILL the slot and
+    // answer 0, not fall back to 10 and answer 20. `""` and `False` have the same
+    // hazard for their types; Int is the one this signature can spell.
+    io.print(opts(2, factor: 0))
+
+    // Every argument named, written in REVERSE of declaration order. Placement is
+    // by name, so the answer is `aa/bb` and not `bb/aa`.
+    io.print(order(b: "bb", a: "aa"))
+
+    // A named argument whose value is a COMPOUND expression, so the recorded
+    // operand is the expression and not the NamedArg wrapper.
+    io.print(order(a: "x" + "y", b: "z"))
+}

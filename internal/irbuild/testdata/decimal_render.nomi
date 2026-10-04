@@ -1,0 +1,46 @@
+// Every Decimal rendering rule as one stdout blob, so the pin over it carries
+// NO NUMERAL that is a function of its neighbours.
+//
+// A program rather than a test file on purpose. `decimal.nomi` beside this one
+// is the test-declaring fixture and its report embeds a failing LINE, which
+// makes the whole blob move whenever a comment above it grows. This file has no
+// assertions, so its output is a function of the rendering rules and of nothing
+// else — which is what an absolute pin should be.
+//
+// It is also the pin that has to survive `value/decimal.go` moving down into
+// `rt`. After that move both the interpreter and a compiled artifact reach ONE
+// implementation and can no longer disagree, so the differential goes blind
+// over exactly these rules and this text is what remains.
+import std/io
+
+fn main() {
+    // Exactness. Under a float64 the first line reads
+    // "0.30000000000000004" and the third "0.6000000000000001".
+    io.print(Decimal.to_string(0.1d + 0.2d))
+    io.print(Decimal.to_string(0.1d * 0.2d))
+    io.print(Decimal.to_string(0.1d + 0.2d + 0.3d))
+
+    // Scale is preserved by rendering and grows with arithmetic.
+    io.print(Decimal.to_string(1.50d))
+    io.print(Decimal.to_string(1.50d + 1.5d))
+    io.print(Decimal.to_string(1.50d * 1.5d))
+    io.print(Decimal.to_string(10.00d / 4d))
+
+    // Display against Debug on ONE value: the `d` is the whole difference.
+    io.print(Decimal.to_string(1.50d))
+    io.print(Debug.inspect(1.50d))
+
+    // Zero, negative zero and a negative fraction, because sign and scale
+    // interact and a renderer can lose either.
+    io.print(Decimal.to_string(0d))
+    io.print(Decimal.to_string(-0.0d))
+    io.print(Decimal.to_string(-0.001d))
+    io.print(Debug.inspect(-0.001d))
+
+    // A mantissa far past any machine word, rendered exactly.
+    io.print(Decimal.to_string(12345678901234567890.12345d * 100000d))
+
+    // Int64's boundary. The literal cannot be written, so it is computed.
+    io.print(Decimal.to_string(Decimal.from_int(-9223372036854775807 - 1)))
+    io.print(Decimal.to_string(Decimal.from_int(-9223372036854775807 - 1) - 1d))
+}

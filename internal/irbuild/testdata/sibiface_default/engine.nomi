@@ -1,0 +1,29 @@
+// The sibling half: a public interface whose DEFAULT function carries a
+// DEFAULT PARAMETER, plus an implementor. Deliberately shaped after
+// tests/11-interfaces-and-impls/interface_defaults/engine.nomi, which is
+// the corpus site this fixture exists for.
+pub enum Mode {
+    Fast
+    Slow
+}
+
+pub struct Engine {
+    name: String
+}
+
+impl Powered for Engine {
+    fn label(e: Engine): String {
+        e.name
+    }
+}
+
+pub interface Powered {
+    fn label(e: self): String
+
+    fn describe(e: self, mode: Mode = .Fast): String {
+        case mode {
+            .Fast -> Powered.label(e) + " (fast)"
+            .Slow -> Powered.label(e) + " (slow)"
+        }
+    }
+}

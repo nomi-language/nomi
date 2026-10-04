@@ -1,0 +1,117 @@
+// `Debug.inspect` on a receiver whose concrete type is chosen at RUN TIME: a
+// bare type parameter and an existential. The four Debug/Display renderings
+// `debug_display_surfaces.nomi` pins apart at a CONCRETE receiver, asked again
+// through the erased route — because getting Debug wrong is a wrong ANSWER and
+// not a build error, so only the rendered text can see it.
+//
+// Every type here is deliberately hostile to the nearest wrong renderer:
+//
+//   - `Rev {zeta, alpha}` is NON-ALPHABETICAL, so declaration order and sorted
+//     order are two different strings. `Debug.inspect` must answer declaration
+//     order; the assertion `values:` row must answer sorted order.
+//   - `Custom` carries a HAND-WRITTEN `impl Debug`, so a structural renderer
+//     reached through the table is visible as `Custom{...}` instead of
+//     `CUSTOM-DEBUG`.
+//   - `Meters` is OPAQUE, so Debug must show LESS than the structural walk.
+//   - `Int` and `String` are SCALARS, whose `impl Debug` is std's own.
+//
+// THE NEGATIVE CONTROL is the concrete column. Every value is inspected twice —
+// once directly and once through the erased route — and the two must agree. A
+// fixture holding only the erased case cannot see the direct case regress, and
+// the direct case is what `stdiface.go` declined a Debug table to protect.
+import std/io
+
+struct Rev {
+    zeta: Int
+    alpha: Int
+}
+
+struct Custom {
+    zeta: Int
+    alpha: Int
+}
+
+impl Debug for Custom {
+    fn inspect(c: Custom): String {
+        _ = c
+        "CUSTOM-DEBUG"
+    }
+}
+
+opaque type Meters Int
+
+interface Tagged {
+    fn tag_of(value: self): String
+}
+
+impl Tagged for Rev {
+    fn tag_of(r: Rev): String {
+        _ = r
+        "rev"
+    }
+}
+
+impl Tagged for Custom {
+    fn tag_of(c: Custom): String {
+        _ = c
+        "custom"
+    }
+}
+
+// The BARE type parameter: no bound written, which is the whole point. A
+// developer inspecting a value writes no ceremony, and the bound is sound to
+// infer only because every type satisfies Debug.
+fn erased_param<T>(value: T): String {
+    Debug.inspect(value)
+}
+
+// The EXISTENTIAL: the concrete type is chosen by the caller and erased at the
+// boundary.
+fn erased_iface(value: Tagged): String {
+    Debug.inspect(value)
+}
+
+fn no_rev(_r: Rev): Bool {
+    False
+}
+
+test "the four renderings of one value survive erasure" {
+    r = Rev{zeta: 1, alpha: 2}
+    c = Custom{zeta: 3, alpha: 4}
+    m = Meters(7)
+
+    // Surface 3 through a BARE TYPE PARAMETER. Declaration order for a
+    // synthesized body, the hand-written impl where there is one, name-only for
+    // the opaque type, and std's own rendering for a scalar.
+    io.print("1 param  Rev    = " + erased_param(r))
+    io.print("2 param  Custom = " + erased_param(c))
+    io.print("3 param  Meters = " + erased_param(m))
+    io.print("4 param  Int    = " + erased_param(42))
+    io.print("5 param  String = " + erased_param("hi"))
+
+    // Surface 3 through an EXISTENTIAL. Only the two Tagged implementors reach
+    // here, and `Custom` is the one that proves the table honours a hand-written
+    // impl rather than re-deriving a structural string.
+    io.print("6 iface  Rev    = " + erased_iface(r))
+    io.print("7 iface  Custom = " + erased_iface(c))
+
+    // THE NEGATIVE CONTROL: the direct route, which must not change. Same values,
+    // same strings.
+    io.print("8 direct Rev    = " + Debug.inspect(r))
+    io.print("9 direct Custom = " + Debug.inspect(c))
+    io.print("10 direct Meters = " + Debug.inspect(m))
+    io.print("11 direct Int    = " + Debug.inspect(42))
+    io.print("12 direct String = " + Debug.inspect("hi"))
+
+    // The single most load-bearing string, asserted rather than only printed:
+    // DECLARATION order through the erased route. Sorted order is
+    // `Rev{alpha: 2, zeta: 1}` and is what the `values:` row below answers, so
+    // this one comparison separates the two renderers on its own.
+    assert erased_param(r) == "Rev{zeta: 1, alpha: 2}"
+}
+
+test "the values row is a different renderer from Debug" {
+    r = Rev{zeta: 1, alpha: 2}
+
+    assert no_rev(r)
+}

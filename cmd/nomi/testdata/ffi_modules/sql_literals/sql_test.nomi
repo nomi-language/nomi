@@ -1,0 +1,17 @@
+import sql.Sql
+
+test "a literal with no slots is its own SQL" {
+    query = Sql"SELECT 1"
+
+    assert query.sql == "SELECT 1"
+    assert query.args == []
+}
+
+test "each slot becomes a placeholder and an argument" {
+    name = "Robert'); DROP TABLE notes;--"
+    body = "hi"
+    query = Sql"INSERT INTO notes (title, body) VALUES (${name}, ${body})"
+
+    assert query.sql == "INSERT INTO notes (title, body) VALUES (?, ?)"
+    assert query.args == [name, body]
+}

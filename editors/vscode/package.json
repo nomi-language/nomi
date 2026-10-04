@@ -1,0 +1,168 @@
+{
+  "name": "nomi",
+  "displayName": "Nomi",
+  "description": "Nomi language support: highlighting, the nomi-lsp language server, and run and test commands.",
+  "version": "0.1.0",
+  "publisher": "nomi-language",
+  "license": "(MIT OR Apache-2.0)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nomi-language/nomi.git",
+    "directory": "editors/vscode"
+  },
+  "private": true,
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./out/src/extension.js",
+  "activationEvents": [
+    "onLanguage:nomi"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "nomi",
+        "aliases": [
+          "Nomi",
+          "nomi"
+        ],
+        "extensions": [
+          ".nomi"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "nomi",
+        "scopeName": "source.nomi",
+        "path": "./syntaxes/nomi.tmLanguage.json"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "nomi",
+        "required": [
+          "args"
+        ],
+        "properties": {
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Arguments to the nomi CLI, e.g. [\"test\", \"main.nomi\"]."
+          }
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "nomi.runFile",
+        "title": "Run File",
+        "category": "Nomi"
+      },
+      {
+        "command": "nomi.testFile",
+        "title": "Test File",
+        "category": "Nomi"
+      },
+      {
+        "command": "nomi.testAtCursor",
+        "title": "Test at Cursor",
+        "category": "Nomi"
+      },
+      {
+        "command": "nomi.restartLanguageServer",
+        "title": "Restart Language Server",
+        "category": "Nomi"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "nomi.runFile",
+          "when": "editorLangId == nomi"
+        },
+        {
+          "command": "nomi.testFile",
+          "when": "editorLangId == nomi"
+        },
+        {
+          "command": "nomi.testAtCursor",
+          "when": "editorLangId == nomi"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Nomi",
+      "properties": {
+        "nomi.path": {
+          "type": "string",
+          "default": "nomi",
+          "scope": "machine-overridable",
+          "description": "The nomi CLI that the run and test commands invoke: a name looked up on PATH, or an absolute path."
+        },
+        "nomi.lsp.path": {
+          "type": "string",
+          "default": "nomi-lsp",
+          "scope": "machine-overridable",
+          "description": "The language server to launch: a name looked up on PATH, or an absolute path."
+        },
+        "nomi.attachedTests.dim": {
+          "type": "boolean",
+          "default": true,
+          "description": "Draw `//!` attached tests dimmed, so they do not compete with the code they test. Diagnostics in them stay at full strength."
+        },
+        "nomi.attachedTests.style": {
+          "type": "string",
+          "enum": ["comment", "opacity"],
+          "enumDescriptions": [
+            "Draw the test's text in one muted colour, as a comment reads.",
+            "Keep the test's syntax colours at reduced opacity (nomi.attachedTests.dimOpacity)."
+          ],
+          "default": "comment",
+          "description": "How dimmed attached tests are drawn."
+        },
+        "nomi.attachedTests.revealUnderCursor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Draw the attached test under the cursor (or touched by a selection) at full strength."
+        },
+        "nomi.attachedTests.dimOpacity": {
+          "type": "number",
+          "default": 0.5,
+          "minimum": 0.1,
+          "maximum": 1,
+          "description": "With the opacity style, the opacity of dimmed attached tests' text, from 0.1 to 1."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "test": "npm run compile && npm run test:unit && npm run test:grammar",
+    "test:unit": "node --test \"out/test/unit/*.test.js\"",
+    "test:grammar": "vscode-tmgrammar-test -g syntaxes/nomi.tmLanguage.json \"test/grammar/*.nomi-test\"",
+    "test:smoke": "npm run compile && node out/test/smoke/run.js",
+    "package": "vsce package --skip-license --out nomi.vsix",
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^10.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "~1.91.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "typescript": "~5.9.3",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2",
+    "vscode-tmgrammar-test": "^0.1.3"
+  }
+}

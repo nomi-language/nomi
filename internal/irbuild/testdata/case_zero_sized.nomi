@@ -1,0 +1,44 @@
+import std/io
+
+// A zero-sized marker embedded in an enum. The corpus shape this pins lives in
+// tests/10-generics-and-type-wrappers/embedded_variants_test.nomi,
+// which stays refused for an independent reason (generics), so without this
+// fixture the rule would ship unexercised.
+type Expired
+
+enum SessionState {
+    embeds Expired
+    Active
+}
+
+// Taking the materialized marker as an argument is what proves it is a real
+// value of the marker type and not a placeholder: the payload has no storage
+// (nothing to read a slot from), so `SessionState.Expired(e)` has to
+// RECONSTRUCT `e` from its type alone.
+fn marker_label(_e: Expired): String {
+    "expired"
+}
+
+fn describe(s: SessionState): String {
+    case s {
+        SessionState.Expired(e) -> marker_label(e)
+        .Active -> "active"
+    }
+}
+
+// The same variant matched with no binding at all, which must not depend on
+// the materialization path.
+fn expired?(s: SessionState): Bool {
+    case s {
+        .Expired -> True
+        _ -> False
+    }
+}
+
+fn main() {
+    expired: SessionState = Expired
+    io.print(describe(expired))
+    io.print(describe(SessionState.Active))
+    io.print("${expired?(expired)}")
+    io.print("${expired?(SessionState.Active)}")
+}

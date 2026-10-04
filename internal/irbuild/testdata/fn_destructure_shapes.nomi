@@ -1,0 +1,182 @@
+import std/io
+
+// Probe: THE TWO DESTRUCTURING-PARAMETER SHAPES THAT HAD NO ARM — an ANONYMOUS
+// STRUCT pattern over a NAMED struct, and a TUPLE pattern.
+//
+// testdata/fn_destructure.nomi and fn_destructure_variant.nomi cover the shapes
+// that already lowered: a distinct `Meters(m)`, a typed `Point{x, y}`, and a
+// single-variant enum in both its tuple and brace spellings. The two here
+// reached lambda.go's refusals instead:
+//
+//	{x, y}: Point       destructureStruct's p.TypeName == nil arm, which asked
+//	                    for tagAnonStruct and refused a NAMED struct under
+//	                    `anonymous struct type`
+//	(a, b): (Int, Int)  destructure's default arm, `destructuring parameter`
+//
+// The self-typing rule is why the annotation is mandatory on both: a pattern
+// whose head NAMES a type is its own annotation, and neither of these has a
+// head, so Nomi requires `: Type` and patternParamKind reads the kind off it.
+//
+// WHICH DERIVATIONS ARE LET DISAGREE HERE
+//
+//   - BY NAME vs BY POSITION. `{y, x}: Point` is PERMUTED against
+//     `struct Point { x, y }` and read back through a non-commutative
+//     expression, so a by-position field lookup answers 704 where a by-name one
+//     answers 407. Measured on the sibling fixture: written in declaration
+//     order the two readings coincide and the mutant survives by construction.
+//     Every multi-field pattern below is permuted for that reason, and the
+//     tuple patterns — whose lookup IS by position — are read back
+//     non-commutatively so a reversal is visible too.
+//   - A SUBSET vs THE WHOLE FIELD SET. `{x}: Point` names ONE of two fields,
+//     which is the property that makes this a different feature from a record
+//     destructure: a record pattern's field set is the whole of its type's, a
+//     named struct's is a subset. `only_x` is that case.
+//   - THE NAMED STRUCT PATH vs THE RECORD PATH. `{x, y}: Point` and
+//     `{x, y}: {x: Int, y: Int}` are the SAME NODE with different annotations,
+//     dispatched on src.k.tag. Both are here, so a lowering that routed one
+//     into the other's helper answers wrongly for the other.
+//   - COMPOSITION. Four nestings, each mixing the two new shapes with each
+//     other and with the shapes that already lowered: an anon struct inside an
+//     anon struct, a tuple inside an anon struct, an anon struct inside a
+//     tuple, and a tuple inside a tuple. A fixture with one shape cannot see a
+//     helper that fails to compose, and destructure() recurses through ONE
+//     switch, so the crossings are where a missing arm shows.
+struct Point {
+    x: Int
+    y: Int
+}
+
+struct Frame {
+    at: Point
+    scale: Int
+}
+
+struct Boxed {
+    pair: (Int, Int)
+    tag: String
+}
+
+type Dur Int
+
+// The typed-struct spelling. Lowers already; here so the pair is visible and so
+// a "fix" that moved it onto a different answer is caught.
+fn typed(Point{x, y}): Int {
+    x * 100 + y
+}
+
+// The anonymous-struct spelling over the SAME named struct, PERMUTED.
+fn anon({y, x}: Point): Int {
+    x * 100 + y
+}
+
+// A SUBSET of the declared fields.
+fn only_x({x}: Point): Int {
+    x
+}
+
+// Renamed as well as permuted.
+fn renamed({y: b, x: a}: Point): String {
+    "${a}/${b}"
+}
+
+// A wildcard beside a binding.
+fn dropped({x, y: _}: Point): Int {
+    x
+}
+
+// The RECORD path: the same node, annotated with an anonymous struct TYPE
+// rather than a named one, so src.k.tag is tagAnonStruct.
+fn record({y, x}: {x: Int, y: Int}): Int {
+    x * 100 + y
+}
+
+// A tuple pattern, read back non-commutatively.
+fn pair((a, b): (Int, Int)): Int {
+    a - b
+}
+
+// A three-element tuple with a wildcard in the middle.
+fn triple((a, _, c): (Int, String, Int)): Int {
+    a * 10 + c
+}
+
+// An anon struct pattern nested inside an anon struct pattern, over a named
+// struct at BOTH levels.
+fn nested_struct({scale, at: {y, x}}: Frame): Int {
+    (x * 100 + y) * scale
+}
+
+// A tuple pattern nested inside an anon struct pattern.
+fn nested_tuple({tag, pair: (a, b)}: Boxed): String {
+    "${tag}:${a - b}"
+}
+
+// An anon struct pattern nested inside a tuple pattern.
+fn tuple_of_struct(({y, x}, n): (Point, Int)): Int {
+    (x * 100 + y) + n
+}
+
+// A tuple nested inside a tuple.
+fn tuple_of_tuple(((a, b), c): ((Int, Int), Int)): Int {
+    (a - b) * c
+}
+
+// A distinct type nested inside a tuple — one new shape crossed with one that
+// already lowered.
+fn tuple_of_dur((Dur(d), n): (Dur, Int)): Int {
+    d - n
+}
+
+// Non-leading position, so the anonymous Go parameter has to land in the right
+// slot with an ordinary parameter on each side.
+fn between(k: Int, {y, x}: Point, (a, b): (Int, Int)): Int {
+    k * 1000 + (x * 100 + y) + (a - b)
+}
+
+fn main() {
+    io.print("typed = ${typed(Point{x: 4, y: 7})}")
+    io.print("anon = ${anon(Point{x: 4, y: 7})}")
+    io.print("only_x = ${only_x(Point{x: 9, y: 2})}")
+    io.print("renamed = ${renamed(Point{x: 3, y: 8})}")
+    io.print("dropped = ${dropped(Point{x: 6, y: 1})}")
+    io.print("record = ${record({x: 5, y: 2})}")
+    io.print("pair = ${pair((20, 3))}")
+    io.print("triple = ${triple((4, "mid", 9))}")
+    io.print("nested_struct = ${nested_struct(Frame{at: Point{x: 1, y: 2}, scale: 3})}")
+    io.print("nested_tuple = ${nested_tuple(Boxed{pair: (30, 4), tag: "t"})}")
+    io.print("tuple_of_struct = ${tuple_of_struct((Point{x: 2, y: 5}, 11))}")
+    io.print("tuple_of_tuple = ${tuple_of_tuple(((30, 4), 2))}")
+    io.print("tuple_of_dur = ${tuple_of_dur((Dur(40), 6))}")
+    io.print("between = ${between(2, Point{x: 3, y: 4}, (10, 1))}")
+
+    // The LAMBDA entry point into the same destructure(), for both new shapes.
+    points = [Point{x: 1, y: 2}, Point{x: 3, y: 4}]
+
+    codes =
+        points
+        |> Iter.map(|{y, x}: Point| x * 100 + y)
+        |> Iter.to_list()
+
+    io.print("lambda_anon = ${codes}")
+
+    pairs = [(10, 1), (20, 3)]
+
+    diffs =
+        pairs
+        |> Iter.map(|(a, b): (Int, Int)| a - b)
+        |> Iter.to_list()
+
+    io.print("lambda_tuple = ${diffs}")
+
+    // A DESTRUCTURING SEED. `Iter.reduce` reads a callback's first-parameter
+    // default as its seed (AGENTS.md documents that as the way to give a fold
+    // its initial state), and until now a destructuring first parameter was
+    // REFUSED — iterseed_test.go pinned the refusal and predicted, correctly,
+    // that the seed half would already be covered when the pattern lifted.
+    //
+    // This row is where that pin MOVED: it compares the ANSWER rather than the
+    // refusal. `(a + x, b)` is non-commutative in its slots, so a seed read into
+    // the wrong element answers `(0, 3)` instead of `(3, 0)`.
+    seeded = Iter.reduce([1, 2], |(a, b): (Int, Int) = (0, 0), x| (a + x, b))
+    io.print("seeded = ${seeded}")
+}

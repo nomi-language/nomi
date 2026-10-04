@@ -1,0 +1,52 @@
+// `T.method(x)` on a BOUNDED type parameter, with a self-position receiver.
+//
+// TWO implementors on purpose. With one, a dispatch table and a hard-coded
+// direct call are indistinguishable, so the fixture would pass for a builder
+// that resolved `T.shout` to whichever impl it found first.
+//
+// The last two calls are the part that is NOT about the table: `announce` is
+// called through a second generic, and once through one that hands its own type
+// parameter on. That is eval's genericCallEnv "resolving each argument through
+// the caller's own bindings first" — the builder's version is the enclosing
+// activation's own dictionary, and without it a bounded generic could not call
+// another one.
+import std/io
+
+interface Shout {
+    fn shout(v: self): String
+}
+
+struct Dog {
+    name: String
+}
+
+struct Cat {
+    name: String
+}
+
+impl Shout for Dog {
+    fn shout(d: Dog): String {
+        "woof from " + d.name
+    }
+}
+
+impl Shout for Cat {
+    fn shout(c: Cat): String {
+        "meow from " + c.name
+    }
+}
+
+fn announce<T>(x: T): String where T: Shout {
+    T.shout(x)
+}
+
+fn twice<U>(y: U): String where U: Shout {
+    announce(y) + " / " + announce(y)
+}
+
+fn main() {
+    io.print(announce(Dog{name: "rex"}))
+    io.print(announce(Cat{name: "mia"}))
+    io.print(twice(Dog{name: "rex"}))
+    io.print(twice(Cat{name: "mia"}))
+}

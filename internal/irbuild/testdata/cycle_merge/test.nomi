@@ -1,0 +1,33 @@
+// test.nomi is prod.nomi's twin, and every value it produces differs from
+// prod's. That is the whole point: `build`, `slot`, `label`, `tag`, `Slot` and
+// `impl Show for Slot` all collide by NAME with prod's, so a name bound to the
+// wrong declaration prints prod's answer where test's belongs.
+import app.{Config, Show}
+
+pub struct Slot {
+    id: Int
+}
+
+impl Show for Slot {
+    fn show(value: Slot): String {
+        "test-slot-${value.id}"
+    }
+}
+
+pub once tag: String = "test"
+
+pub fn slot(): Slot {
+    Slot{id: 9090}
+}
+
+pub fn badge(): String {
+    Show.show(slot())
+}
+
+pub fn build(): Config {
+    Config{name: tag, level: 2}
+}
+
+pub fn label(): String {
+    "test-label"
+}
