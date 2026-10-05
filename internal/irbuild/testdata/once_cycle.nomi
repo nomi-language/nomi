@@ -4,7 +4,7 @@
 //
 // Forcing `seed` calls `read_seed`, which reads `seed` again. The re-entry is
 // visible only because the frame the force created is the frame `read_seed`
-// received, so the answer is the same on both paths: the raw diagnostic on
+// received, so the answer is the raw diagnostic on
 // stderr and exit 1, with "start" already on stdout.
 //
 // A `sync.Once`-shaped lowering with no cycle test would DEADLOCK here rather

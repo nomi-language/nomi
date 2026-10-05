@@ -119,11 +119,11 @@ func TestDiagnosticShape(t *testing.T) {
 			hints:   []string{"`_` stands for a missing argument only in a call, as in add(1, _)"},
 		},
 		{
-			name:    "lambda stage boundary",
-			src:     "fn f(): Int {\n  [1, 2]\n  |> |xs| xs |> Iter.filter(|x| x > Iter.count(xs))\n  |> Iter.count()\n}\n",
-			message: "'xs' is the parameter of the lambda stage on line 3, whose body ends at the next `|>`",
-			span:    "3:48-3:50",
-			hints:   []string{"write `|xs| { ... }` to keep the pipe inside it"},
+			name:    "then stage boundary",
+			src:     "fn f(): Int {\n  [1, 2]\n  |> then |xs| xs |> Iter.filter(|x| x > Iter.count(xs))\n  |> Iter.count()\n}\n",
+			message: "'xs' is the parameter of the `then` stage on line 3, whose body ends at the next `|>`",
+			span:    "3:53-3:55",
+			hints:   []string{"write `then |xs| { ... }` to keep the pipe inside it"},
 		},
 		{
 			name:    "self render",

@@ -1,9 +1,8 @@
 // `+` on two lists is CONCATENATION, and the untyped `[]` is the interesting
 // half rather than an edge case.
 //
-// The operator shares one AST node with arithmetic, so it arrived at `arith` and
-// was refused `arithmetic on a non-numeric`. The interpreter never gets there:
-// `BinaryOp` tries `evalCombination` before `evalArithmetic`, exactly as it does
+// The operator shares one AST node with arithmetic, so the builder has to
+// route it to concatenation before it reaches `arith`, exactly as it does
 // for `"a" + "b"`.
 //
 // Five shapes, and each one pins a different clause. Two typed lists is the
@@ -15,7 +14,7 @@
 // `empty` demonstrates by being annotated at the binding. And `List<String>`
 // beside `List<Int>` is here because the lowered call is generic in the element
 // type, so a single-element-type fixture could not tell a correct lowering from
-// one that hard-codes int64.
+// one that hard-codes Int.
 //
 // The chained form is the shape `std/json.shape_error_prepend` actually writes
 // (`[segment] + e.path`), which is why this exists at all: it was the ONLY

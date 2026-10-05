@@ -4,21 +4,19 @@
 // # Why the failure is necessary
 //
 // untyped_list_report.nomi states it: `tests/` contains no program that
-// fails an assertion, so the sweep compares the passing path exclusively and
-// reads `0 DIFFED` over any amount of wrong failure text. A Context renders as
-// `<context>` in a `values:` row, and the ONLY way to compare that string is to
-// produce one. This file is NOT in the corpus and is never run by
-// `nomi test tests`; the non-zero exit is part of what requireIdentical
-// compares.
+// fails an assertion, so the corpus checks only the passing path. A Context
+// renders as `<context>` in a `values:` row, and the only way to check that
+// string is to produce one. This file is NOT in the corpus and is never run
+// by `nomi test tests`; the non-zero exit is part of the recorded golden.
 //
-// # TWO NOMI TYPES WITH ONE GO REPRESENTATION, which is the discriminating case
+// # Two Nomi types with one runtime representation
 //
-// `TraceId` and `Subject` are both `type X String`, so both are a Go `string` at
-// run time. The compiled store keys on a `*rt.TypeID` ADDRESS, and this pair is
-// what separates that from every cheaper key: a key derived from the value's Go
-// type would file both under `string` and answer a `Subject` lookup with a
-// `TraceId`. `context_values_test.nomi` in the corpus uses ONE value type, so it
-// cannot see this at all.
+// `TraceId` and `Subject` are both `type X String`, so both are a plain string
+// at run time. The store keys on a `*rt.TypeID` address, and this pair is
+// what separates that from every cheaper key: a key derived from the value's
+// runtime representation would file both under string and answer a `Subject`
+// lookup with a `TraceId`. `context_values_test.nomi` in the corpus uses one
+// value type, so it cannot see this at all.
 //
 // # A ZERO-SIZED TYPE IS BOTH A WITNESS AND A VALUE
 //
@@ -56,8 +54,7 @@ fn subject_of(c: Context): String {
 
 // The witness arrives as a PARAMETER here, so `marker_type` is an ordinary value
 // of type `Type<Marker>` and must NOT be read as a type name. That is the
-// interpreter's own local-binding guard (typeWitnessNameFromExpr) and the
-// builder mirrors it.
+// builder's local-binding guard for a type witness, and it must hold here.
 fn marker_of(c: Context, marker_type: Type<Marker>): Maybe<Marker> {
     Context.value(c, marker_type)
 }

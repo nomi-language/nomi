@@ -151,9 +151,9 @@ fn calculate(x: Int, y: Int): Result<Int, String> {
     Ok(ratio + 1)
 }
 
-fn main(): Result<Int, String> {
+fn main() {
     dbg calculate(100, 5)
-    dbg calculate(100, 0)
+    _ = dbg calculate(100, 0)
 }
 
 ```
@@ -162,9 +162,58 @@ dbg line 16: calculate(100, 5) = Ok(11)
 dbg line 17: calculate(100, 0) = Err("div by zero")
 -->
 
+`main` may return a `Result` too, and then `try` works in it. A `main` that
+returns `Err` fails the program: it prints `error: ` and the error to stderr
+and exits with status 1. The error prints through `Display` when its type
+has one, so a `String` prints as itself, and through `Debug` otherwise.
+
+```nomi
+fn main(): Result<Unit, String> {
+    ratio = try calculate(100, 0)
+    dbg ratio
+    Ok(Unit)
+}
+```
+
+This `main` prints `error: div by zero` to stderr and exits 1.
+
 `try` is **lambda-scoped**: inside a lambda, `try` bubbles to the lambda's own
 boundary (like `return`), not the enclosing function. Nomi has no non-local
 returns.
+
+To parse a list of inputs, map each one to a `Result` and finish the pipe with
+`try Result.collect()`. It gives the list of values when every input parsed,
+and otherwise passes the first `Err` up; it stops reading at that error. When
+you want every error rather than the first, `Result.partition` splits the
+results into the values and the errors. `Maybe.collect` and `Maybe.values` do
+the same for `Maybe`.
+
+```nomi-run
+fn parse(text: String): Result<Int, String> {
+    Maybe.to_result(String.to_int(text), "not a number: " + text)
+}
+
+fn total(inputs: List<String>): Result<Int, String> {
+    numbers = inputs |> Iter.map(|s| parse(s)) |> try Result.collect()
+
+    Ok(Iter.reduce(numbers, |acc = 0, n| acc + n))
+}
+
+fn main() {
+    dbg total(["1", "2", "3"])
+    dbg total(["1", "x", "y"])
+    (numbers, errors) = ["1", "x", "y"] |> Iter.map(|s| parse(s)) |> Result.partition()
+
+    dbg numbers
+    _ = dbg errors
+}
+```
+<!-- expect
+dbg line 12: total(["1", "2", "3"]) = Ok(6)
+dbg line 13: total(["1", "x", "y"]) = Err("not a number: x")
+dbg line 16: numbers = [1]
+dbg line 17: errors = ["not a number: x", "not a number: y"]
+-->
 
 ## Binding with `else`
 

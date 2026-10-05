@@ -1,11 +1,10 @@
 // A user type declared in one Nomi FILE, named, constructed, read, matched and
-// passed across a generated-package boundary.
+// passed across a file boundary.
 //
 // The entry declares its OWN `Point` as well, with a different field set, so
 // the two are two Nomi types that happen to share a spelling — which is what
 // makes the cross-file one a real identity question rather than a naming one.
-// A confusion between them is a Go compile error; see
-// TestForeignType_IdentityIsNominal.
+// A confusion between them would print the wrong type's fields or name.
 import {
     std/io
     geometry.{self, Meters, Point, Reading}
@@ -45,11 +44,8 @@ fn main() {
     // boundary are exercised on one value.
     io.print("match-there = ${geometry.describe(whole)}")
 
-    // A distinct type crosses as itself, out and back. NOT unwrapped, in either
-    // file: `case m { Meters(n) -> … }` on an IMPORTED distinct matches nothing
-    // on the interpreter — a front-end defect independent of this boundary and
-    // reproduced in the cross-package identity slice's yield — so the fixture
-    // would be comparing the compiled path against a broken reference.
+    // A distinct type crosses as itself, out and back. It is not unwrapped in
+    // either file; this fixture is about the crossing, not the pattern.
     _bounced = geometry.bounce(Meters(200))
 
     io.print("local = ${note_of(Local{note: "mine"})}")

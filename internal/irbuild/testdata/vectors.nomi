@@ -44,14 +44,14 @@ import std/io
 //   - `Vector.hash` on two EQUAL vectors and on two DIFFERENT ones. std's mix is
 //     `Int.wrapping_add(Int.wrapping_mul(acc, 31), …)` from a seed of 19, and both
 //     operations WRAP — a checked `*` would TRAP on a long vector where the
-//     interpreter answers. The `wrapping` row is a 40-element vector of large
+//     wrapping mix answers. The `wrapping` row is a 40-element vector of large
 //     Ints, which overflows the accumulator many times over: it prints a number
-//     on both sides or it faults on one.
-//   - `==` against `Vector.equal?`. The operator has to be CLAIMED by
-//     vectorEquality, because a Vector's def is `rtOpaque` and `rt.Vector[T]`
-//     holds a slice — so an unclaimed `==` is a Go compile error rather than a
-//     wrong answer. Both spellings are read so the claim and the method cannot
-//     drift.
+//     or it faults.
+//   - `==` against `Vector.equal?`. The operator has to be CLAIMED by the
+//     builder's vector equality, because a Vector holds a slice that no
+//     plain comparison can judge. Both spellings are read so the claim and
+//     the method cannot drift.
+//
 //   - a Vector CROSSING A SIGNATURE BOUNDARY, in both directions. `total` takes
 //     one and `pair_of` returns one, so a representation that is only correct at
 //     a construction site fails here.
@@ -149,16 +149,12 @@ fn main() {
     io.print("cmp first ${Vector.compare(#[1, 9], #[2])}")
     io.print("cmp first rev ${Vector.compare(#[2], #[1, 9])}")
     io.print("cmp empty ${Vector.compare(none_v, none_v)}")
-    // NO String or nested row here, and their ABSENCE is the finding. Measured on
-    // the interpreter: `Vector.compare(#["a"], #["b"])` FAULTS with
-    // `Comparable.compare: no implementation for type 'String'`, and
-    // `Vector.compare(#[#[1]], #[#[2]])` faults naming 'Vector' — while
-    // `Iter.sort(#["c", "a"])` ANSWERS. Same element type, two spellings, two
-    // answers, because `Vector.compare` raises the demand inside std's own generic
-    // body and `Iter.sort` raises it at a concrete call site. So `Vector.compare`
-    // is Int and Float only, which is `orderingOf`'s boundary reached
-    // independently, and TestVector_CompareIsIntAndFloatOnly asserts the refusal
-    // this fixture therefore cannot contain.
+    // NO String or nested row here. `Vector.compare` raises the Comparable
+    // demand inside std's own generic body, where `Iter.sort` raises it at a
+    // concrete call site, so `Vector.compare` is Int and Float only, which is
+    // `orderingOf`'s boundary reached independently. A String or nested row
+    // would refuse this whole fixture.
+    //
     // --- Display against Debug, on the element type where they differ --------
     io.print("show int ${v}")
     io.print("to_string ${Vector.to_string(v)}")
@@ -177,7 +173,7 @@ fn main() {
     io.print("hash diff ${Vector.hash(#[1, 2, 3]) == Vector.hash(#[1, 2, 4])}")
 
     // WRAPPING. Forty large Ints, so std's `Int.wrapping_mul(acc, 31)` overflows
-    // many times over. A checked `*` TRAPS here where the interpreter answers.
+    // many times over. A checked `*` would TRAP here.
     big = Iter.to_vector(
         Iter.map(1..41, |n| n * 1000000000000000)
         |> Iter.to_list()

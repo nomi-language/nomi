@@ -173,7 +173,7 @@ fn long_sleep(): Result<Int, String> {
     Ok(0)
 }
 
-fn main(): Result<Int, String> {
+fn main() {
     outcome = concurrent {
         short = Task.spawn(|| short_fail())
         long = Task.spawn(|| long_sleep())
@@ -182,7 +182,7 @@ fn main(): Result<Int, String> {
         Ok(n)
     }
 
-    dbg outcome
+    _ = dbg outcome
 }
 
 ```

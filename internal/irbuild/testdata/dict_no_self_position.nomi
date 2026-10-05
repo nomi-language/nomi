@@ -11,9 +11,9 @@
 // Two implementors, for the reason dict_bounded_param.nomi has two.
 //
 // `scaled` is the same call one level down, forwarding its own type parameter
-// through a turbofish — eval's genericCallEnv resolving a type argument through
-// the caller's own bindings, which is the only way a separate generic helper
-// ever sees the binding.
+// through a turbofish, resolving a type argument through the caller's own
+// bindings, which is the only way a separate generic helper ever sees the
+// binding.
 import std/io
 
 interface Zero {

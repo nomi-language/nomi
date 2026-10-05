@@ -187,7 +187,7 @@ func Run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string,
 	}
 	// `nomi build` refused a program the VM would block, so this is a
 	// runner that does not match its image (an FFI binding it lacks).
-	if found := m.Unretained([]*ir.Func{mainFn}, boots); len(found) > 0 {
+	if found := m.Unretained(vm.MainRoots(entry, mainFn), boots); len(found) > 0 {
 		reasons := make([]string, len(found))
 		for i, u := range found {
 			reasons[i] = unretainedReason(u)
@@ -257,9 +257,11 @@ func checkHostKeys(keys []string, tables []HostTable) error {
 	return nil
 }
 
-// WriteBlocked prints the grep-friendly report `nomi run` prints for a
-// program the VM cannot run: one `BLOCKED <label> <reason>` line per reason,
-// then a closing line.
+// WriteBlocked prints the report for a program the VM cannot run for a
+// reason that has no source diagnostic (a Go binding a runner lacks, a
+// machine limit): one `BLOCKED <label> <reason>` line per reason, then a
+// closing line. A body the compiler could not lower is reported by
+// vmhost.Blocked.Write as `nomi check` reports it, before anything is built.
 func WriteBlocked(w io.Writer, label string, reasons []string) {
 	for _, reason := range reasons {
 		fmt.Fprintf(w, "BLOCKED %s %s\n", label, reason)

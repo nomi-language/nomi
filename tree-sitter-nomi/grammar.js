@@ -124,7 +124,11 @@ module.exports = grammar({
   ],
 
   rules: {
-    source_file: $ => repeat($._item),
+    // A `#!` interpreter line, allowed only as the file's first line, so a
+    // script runs as `./hi.nomi`. The compiler's lexer skips it.
+    source_file: $ => seq(optional($.shebang), repeat($._item)),
+
+    shebang: _ => token(seq('#!', /.*/)),
 
     _item: $ => choice(
       $.decorated_item,
@@ -260,7 +264,7 @@ module.exports = grammar({
       alias($._import_path_keyword, $.identifier),
     ),
 
-    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|todo|try|type(alias)?|where|with/)),
+    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|then|todo|try|type(alias)?|where|with/)),
 
     import_selector: $ => prec.right(seq(
       ':',
@@ -930,7 +934,22 @@ module.exports = grammar({
     // Lambdas live in their own rule (|params| body) and no longer share `{}`.
     body: $ => seq('{', repeat(seq(choice($._item, $.map_entry, $.anon_struct_field), optional(','))), '}'),
 
+    // A lambda's body runs to the end of its expression, a `|>` included:
+    // `|s| f(s) |> g()` pipes inside the body.
     lambda: $ => prec.right(3, seq(
+      '|',
+      optional(commaSep1($.lambda_parameter)),
+      '|',
+      field('body', prec(2, $._expression)),
+    )),
+
+    // The pipe stage `x |> then |v| body` applies the lambda to the piped
+    // value. Its lambda's body ends at the next `|>` of the pipeline, so it
+    // is parsed from `_lambda_body_expression`, which has no pipe; braces
+    // keep a pipe inside it.
+    then_stage: $ => seq('then', field('lambda', alias($._then_lambda, $.lambda))),
+
+    _then_lambda: $ => prec.right(3, seq(
       '|',
       optional(commaSep1($.lambda_parameter)),
       '|',
@@ -1717,7 +1736,7 @@ module.exports = grammar({
     // parser, which already represents `-x` as a unary expression.
     unary_expression: $ => prec(10, choice(seq('!', $._expression), seq('-', $._expression))),
     lambda_body_unary_expression: $ => prec(10, choice(seq('!', $._lambda_body_expression), seq('-', $._lambda_body_expression))),
-    pipe_expression: $ => prec.left(6, seq($._expression, '|>', choice($.bare_assertion, $.assertion, $._expression, $.pipe_if_expression))),
+    pipe_expression: $ => prec.left(6, seq($._expression, '|>', choice($.bare_assertion, $.assertion, $._expression, $.pipe_if_expression, $.then_stage))),
     // Error propagation. Prefix `try expr` unwraps one postfix-level operand;
     // bare `try` is also valid as a pipe stage (`value |> try`), where the
     // previous pipe value supplies the operand.
@@ -1807,7 +1826,7 @@ module.exports = grammar({
     ))),
 
     // `self` is admitted as a field-access object (`self.method(x)`, the
-    // in-block type-qualified call, design §4/§5) but NOT as a general
+    // in-block type-qualified call) but NOT as a general
     // expression — a bare `self` only ever appears as the object of a
     // qualified call inside an impl-block body, so scoping it here (rather
     // than adding self_type to _expression) avoids the type-vs-expression

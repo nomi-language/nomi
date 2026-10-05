@@ -27,7 +27,7 @@ func TestFFIRun_RoundTrip(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
 	projectRoot := t.TempDir()
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 
 	// binding lives at <projectRoot>/echobinding/. echobinding.go
 	// declares a normal exported `EchoUpper(s) -> upper(s)` impl.
@@ -147,7 +147,7 @@ func TestFFIRun_SourceBindingRoundTrip(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
 	projectRoot := t.TempDir()
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 
 	bindingDir := filepath.Join(projectRoot, "taggedbinding")
 	if err := os.MkdirAll(bindingDir, 0o755); err != nil {
@@ -251,7 +251,7 @@ func TestFFIRun_TupleReturnRoundTrip(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
 	projectRoot := t.TempDir()
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 
 	bindingDir := filepath.Join(projectRoot, "taggedbinding")
 	if err := os.MkdirAll(bindingDir, 0o755); err != nil {
@@ -355,7 +355,7 @@ func TestFFIRun_ProjectLocalSourceBindingRoundTrip(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
 	projectRoot := t.TempDir()
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 
 	mustWriteHelper(t, filepath.Join(projectRoot, "go.mod"), fmt.Sprintf(`module localbindingtest
 
@@ -427,7 +427,7 @@ func TestFFIRun_TestProgramTaggedFFIApp(t *testing.T) {
 	}
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 	entryPath := filepath.Join(
 		nomiRoot,
 		"tests",
@@ -488,7 +488,7 @@ func TestFFIRun_CallbackSourceBindingRoundTrip(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
 	projectRoot := t.TempDir()
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 
 	bindingDir := filepath.Join(projectRoot, "callbackbinding")
 	if err := os.MkdirAll(bindingDir, 0o755); err != nil {
@@ -579,7 +579,7 @@ func TestFFIRun_TimeDurationProjectsToDuration(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
 	projectRoot := t.TempDir()
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 
 	bindingDir := filepath.Join(projectRoot, "durationbinding")
 	if err := os.MkdirAll(bindingDir, 0o755); err != nil {
@@ -670,7 +670,7 @@ func TestFFIRun_TimeTimeProjectsToInstant(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
 	projectRoot := t.TempDir()
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 
 	bindingDir := filepath.Join(projectRoot, "timebinding")
 	if err := os.MkdirAll(bindingDir, 0o755); err != nil {
@@ -764,7 +764,7 @@ func TestFFIRun_SQLiteSourceBindings(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
 	projectRoot := t.TempDir()
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 	sqliteRoot, err := filepath.Abs(filepath.Join("testdata", "sqlite"))
 	if err != nil {
 		t.Fatal(err)
@@ -857,7 +857,7 @@ func TestFFIRun_PreservesCWD(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
 	projectRoot := t.TempDir()
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 
 	bindingDir := filepath.Join(projectRoot, "cwdbinding")
 	if err := os.MkdirAll(bindingDir, 0o755); err != nil {
@@ -958,7 +958,7 @@ func mustWriteHelper(t *testing.T, path, content string) {
 	}
 }
 
-func findNomiLangRoot(t *testing.T) string {
+func repoRoot(t *testing.T) string {
 	t.Helper()
 	wd, err := os.Getwd()
 	if err != nil {
@@ -980,7 +980,7 @@ func findNomiLangRoot(t *testing.T) string {
 // TestFFIRun_FastPathNoGoMod confirms that an entry file outside any
 // Go module tree returns FastPath=true with empty discovered list.
 // This is the single-file `nomi run main.nomi` UX preservation
-// check: Phase 5 must NOT route bare Nomi files through the build
+// check: bare Nomi files must NOT be routed through the build
 // path.
 func TestFFIRun_FastPathNoGoMod(t *testing.T) {
 	// Use a path that we KNOW has no go.mod above it. /tmp/<random>

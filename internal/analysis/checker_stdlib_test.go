@@ -311,8 +311,8 @@ func checkSourceWithStdlib(src string) (*analysis.FileAnalysis, []analysis.TypeE
 	lib := std.Load()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	// AttachStdlibProjectImpls builds a stdlib-only ProjectImplIndex
-	// from lib.Files and assigns it as fa.ProjectImpls. Post-stdlib-
-	// globals-retirement (Task 8), the checker's implsContext /
+	// from lib.Files and assigns it as fa.ProjectImpls. The checker's
+	// implsContext /
 	// typeImplementsInterface consult ProjectImpls for cross-file
 	// stdlib conformances; without this attach the single-file path
 	// would miss "Int impl Display" etc. and surface spurious

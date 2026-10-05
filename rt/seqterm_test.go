@@ -9,14 +9,14 @@ import (
 //
 // internal/irbuild's iter_terminals.nomi already pins the expected text
 // absolutely against its golden record. What that comparison is structurally
-// blind to is anything that does not change output: a terminal that DRAINED
+// blind to is anything that does not change output: a terminal that drained
 // its source would print the same answer for every finite case, and a
 // per-element allocation shows up in no diff. So this file asserts the two things only a runtime
 // test can see — how many elements the source was asked for, and how many
 // allocations the drive cost — plus the answers themselves, spelled out, because
 // two paths that agree on a wrong answer agree.
 
-// countingSeq is an UNBOUNDED ascending source that records how many elements it
+// countingSeq is an unbounded ascending source that records how many elements it
 // was asked for. Unbounded on purpose: a terminal that fails to stop does not
 // return a wrong count here, it does not return, and the guard turns that into
 // a failure rather than a hang.
@@ -50,9 +50,9 @@ func finiteSeq(n int64) Seq[int64] {
 //
 // `SeqAny` is `!Run(|x| !pred(x))`, which type-checks with the two negations in
 // either place, and three of the four wrong arrangements answer correctly for
-// SOME input. So each terminal is asked four questions whose answers differ:
+// some input. So each terminal is asked four questions whose answers differ:
 // a predicate matching in the middle, one matching nothing, one matching
-// everything, and an EMPTY source — the last being the one std reads out of
+// everything, and an empty source — the last being the one std reads out of
 // `reduce`'s seed, and the whole claim of this lowering is that the seed is the
 // same fact as "the source ran to exhaustion".
 func TestTerminalAnswersArePinnedAbsolutely(t *testing.T) {
@@ -112,7 +112,7 @@ func TestTerminalAnswersArePinnedAbsolutely(t *testing.T) {
 		t.Errorf("SeqNotEmpty over 1..4 = %v, want true", got)
 	}
 
-	// A Maybe's Tag is what distinguishes None from the Go ZERO value, which is
+	// A Maybe's Tag is what distinguishes None from the Go zero value, which is
 	// neither Some nor None by construction (prelude.go reserves tag 0). So the
 	// tag is asserted and not only the payload: `Maybe[int64]{}` has payload 0
 	// too, and a caller that forgot to seed the local would produce it.
@@ -157,7 +157,7 @@ func TestTerminalAnswersArePinnedAbsolutely(t *testing.T) {
 // can only observe indirectly.
 //
 // Every one of these terminals answers correctly whether or not it stops early
-// — draining a finite source produces the same Bool. So the ANSWER cannot be
+// — draining a finite source produces the same Bool. So the answer cannot be
 // the assertion; the number of elements the source was asked for is. The source
 // is unbounded, so a terminal that does not stop fails rather than running slow.
 func TestShortCircuitingTerminalsStopTheSource(t *testing.T) {
@@ -192,8 +192,8 @@ func TestShortCircuitingTerminalsStopTheSource(t *testing.T) {
 // distinction take_while keeps, and the only observable it has.
 //
 // `take_while` answers the protocol's Bool, and the two ways it can finish must
-// answer differently: the PREDICATE saying stop means "my stream ended
-// normally" (true), while the DOWNSTREAM consumer refusing an element means
+// answer differently: the predicate saying stop means "my stream ended
+// normally" (true), while the downstream consumer refusing an element means
 // "someone above me stopped this" (false). Collapsing them into one answer is
 // invisible in every list a pipeline produces and changes what a following
 // `Iter.concat` does — `concat` drives its second source only when the first
@@ -217,23 +217,21 @@ func TestTakeWhileEndsItsOwnStreamRatherThanTheConsumers(t *testing.T) {
 }
 
 // TestTakeWhileBoolIsObservableThroughConcat is the previous test's property
-// again, as a wrong LIST rather than a wrong Bool.
+// again, as a wrong list rather than a wrong Bool.
 //
 // Asserting `Run(...) == true` in isolation pins the property but does not show
-// what it is FOR, and a property whose only test is "this Bool is true" is the
+// what it is for, and a property whose only test is "this Bool is true" is the
 // kind that gets simplified away by the next reader — the collapse mutation
 // looks like removing dead bookkeeping. `Iter.concat` is the one consumer that
 // can see it: its whole body is `if Iter.each_while(a, yield) { each_while(b,
 // yield) } else { False }` (std/iter.nomi:437), so a `take_while` that reported
-// its own predicate-stop as "the consumer stopped me" makes concat SKIP its
+// its own predicate-stop as "the consumer stopped me" makes concat skip its
 // second source entirely.
 //
-// `Iter.concat` is not lowered — it is refused by name, and there is no
-// rt.SeqConcat to call — so the rule is reproduced here rather than imported.
-// That is stated plainly because it is the weaker of the two options: this test
-// asserts that std's concat rule, applied to this Bool, yields the right
-// elements; it does not exercise a lowered concat. When `concat` lowers, this
-// belongs in a program fixture and this test should be replaced by it.
+// The rule is written out here rather than calling rt.SeqConcat (seqsrc.go),
+// so the test states the exact rule it relies on. It asserts that std's concat
+// rule, applied to this Bool, yields the right elements; it does not exercise
+// std's own concat body.
 func TestTakeWhileBoolIsObservableThroughConcat(t *testing.T) {
 	fr := NewFrame(nil)
 	// std/iter.nomi:437, transcribed.
@@ -272,9 +270,9 @@ func TestTakeWhileBoolIsObservableThroughConcat(t *testing.T) {
 // every input where the dropped elements happen to be a prefix.
 //
 // `[1, 2, 3, 1] |> Iter.drop_while(|x| x < 3)` is `[3, 1]`: the trailing 1 is
-// KEPT, because the predicate is never asked again once the run has ended. A
+// kept, because the predicate is never asked again once the run has ended. A
 // version that kept testing produces `[3]` — a plausible-looking answer, and
-// the reason the predicate's call COUNT is asserted here as well as the list.
+// the reason the predicate's call count is asserted here as well as the list.
 func TestDropWhileConsultsThePredicateOnlyForTheLeadingRun(t *testing.T) {
 	fr := NewFrame(nil)
 	calls := 0
@@ -301,8 +299,8 @@ func TestDropWhileConsultsThePredicateOnlyForTheLeadingRun(t *testing.T) {
 }
 
 // TestWhileAdaptersAreReplayable pins std/iter.nomi's own promise for the two
-// adapters added here: their per-run state (`ended`, `started`) lives in the
-// RUN and not in the sequence value.
+// adapters in seqterm.go: their per-run state (`ended`, `started`) lives in the
+// run and not in the sequence value.
 //
 // State hoisted into SeqTakeWhile's or SeqDropWhile's closure passes every other
 // test in this file and makes the second consumption of a bound pipeline differ.
@@ -325,13 +323,13 @@ func TestWhileAdaptersAreReplayable(t *testing.T) {
 }
 
 // TestTerminalsAllocateNothingPerElement is TestSeqAllocatesNothingPerElement's
-// claim extended to everything this slice adds to a pipeline, and it is stated
-// the same way: as INDEPENDENCE of the element count rather than as an absolute
+// claim extended to every terminal and adapter in seqterm.go, and it is stated
+// the same way: as independence of the element count rather than as an absolute
 // number.
 //
-// A drive is entitled to a fixed number of allocations when the chain is BUILT
+// A drive is entitled to a fixed number of allocations when the chain is built
 // — one closure per stage, plus one for a captured accumulator — and the
-// question is whether it pays any PER ELEMENT. Driven over 1,000 and 100,000
+// question is whether it pays any per element. Driven over 1,000 and 100,000
 // elements; a single per-element allocation makes the second figure 99,000
 // higher and no tolerance can hide it.
 //
@@ -381,9 +379,8 @@ func TestTerminalsAllocateNothingPerElement(t *testing.T) {
 		measure := func(n int64) float64 {
 			return testing.AllocsPerRun(5, func() {
 				// The result is consumed through a data-dependent branch, so
-				// the drive is not dead code the compiler may delete outright —
-				// which is exactly how a benchmark in this repo came to measure
-				// nothing.
+				// the drive is not dead code the compiler may delete outright,
+				// which would leave nothing to count.
 				if d.drive(n) < 0 {
 					t.Fatal("unreachable")
 				}

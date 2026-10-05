@@ -8,6 +8,10 @@ import (
 )
 
 // Lex tokenizes the source string into a slice of tokens.
+//
+// A shebang line (see Shebang) yields no token: it is for the operating
+// system, not part of the program. The lexer still steps over it, so every
+// token after it keeps its source line and column.
 func Lex(source string) []token.Token {
 	l := &lexer{
 		source: source,
@@ -15,8 +19,22 @@ func Lex(source string) []token.Token {
 		line:   1,
 		col:    1,
 	}
+	for range len(Shebang(source)) {
+		l.advance()
+	}
 	l.scan()
 	return l.tokens
+}
+
+// Shebang returns the source's `#!` interpreter line without its line
+// ending, or "" when there is none. Only the first line can be one: `#!`
+// must start at byte offset 0. Anywhere else `#!` is a lexical error.
+func Shebang(source string) string {
+	if !strings.HasPrefix(source, "#!") {
+		return ""
+	}
+	line, _, _ := strings.Cut(source, "\n")
+	return strings.TrimSuffix(line, "\r")
 }
 
 // IsComplete checks whether the input appears to be a complete expression,
@@ -924,6 +942,7 @@ var keywords = map[string]token.TokenType{
 	"todo":      token.TODO,
 	"self":      token.SELF,
 	"try":       token.TRY,
+	"then":      token.THEN,
 	// `field`, `variant`, and `open` are contextual keywords, recognized
 	// by lexeme inside specific bodies only:
 	//   - `field` in interface bodies (field requirements);

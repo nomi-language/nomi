@@ -49,8 +49,8 @@ func (o observed) transcript() string {
 	return expectation.Transcript(o.stdout, o.stderr)
 }
 
-// nomiLang is the repository root, this package's ../..
-func nomiLang(t *testing.T) string {
+// repoRoot is the repository root, this package's ../..
+func repoRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
@@ -171,7 +171,7 @@ func TestExpectation_APreparationFailureIsNeverRecorded(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 
 	const rel = "18-ffi-and-dynamic/callback_ffi_app/main_test.nomi"
-	path := filepath.Join(nomiLang(t), "tests", filepath.FromSlash(rel))
+	path := filepath.Join(repoRoot(t), "tests", filepath.FromSlash(rel))
 	if _, err := ffirun.Prepare(path); err == nil {
 		t.Fatalf("preparing %s succeeded with an unusable cache root, so this test "+
 			"measures nothing", rel)
@@ -276,7 +276,7 @@ func TestExpectation_Corpus(t *testing.T) {
 		t.Skip("integration; runs every corpus program; -short")
 	}
 	pinRecorderEnv(t)
-	root := filepath.Join(nomiLang(t), "tests")
+	root := filepath.Join(repoRoot(t), "tests")
 	wtRoot, err := expectation.Root()
 	if err != nil {
 		t.Fatal(err)
@@ -350,7 +350,7 @@ func stdlibModulesWithPrompts(t *testing.T) []string {
 // tourChapters is every tour chapter, sorted.
 func tourChapters(t *testing.T) (root string, chapters []string) {
 	t.Helper()
-	root = filepath.Join(nomiLang(t), "tour", "src", "content", "docs")
+	root = filepath.Join(repoRoot(t), "tour", "src", "content", "docs")
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -526,7 +526,7 @@ func TestExpectation_Failure(t *testing.T) {
 		t.Skip("integration; runs the deliberately-red fixtures; -short")
 	}
 	pinRecorderEnv(t)
-	root := filepath.Join(nomiLang(t), "internal", "irbuild", "testdata")
+	root := filepath.Join(repoRoot(t), "internal", "irbuild", "testdata")
 	wtRoot, err := expectation.Root()
 	if err != nil {
 		t.Fatal(err)
@@ -566,7 +566,7 @@ func TestExpectation_FailureCensus(t *testing.T) {
 		t.Skip("slow; set NOMI_EXPECTATION_CENSUS=1 to re-derive failureFixtures")
 	}
 	pinRecorderEnv(t)
-	root := filepath.Join(nomiLang(t), "internal", "irbuild", "testdata")
+	root := filepath.Join(repoRoot(t), "internal", "irbuild", "testdata")
 	recorded := map[string]bool{}
 	for _, rel := range failureFixtures {
 		recorded[rel] = true

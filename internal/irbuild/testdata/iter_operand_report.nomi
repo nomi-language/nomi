@@ -5,12 +5,10 @@
 //
 // A PASSING assertion renders no operand at all, so there is no other way to
 // observe an operand rendering. `tests/` contains no program that fails
-// an assertion, so the differential sweep compares the passing path exclusively
-// and would read `0 DIFFED` over any amount of wrong failure text. This file is
-// NOT in the corpus and is never run by `nomi test tests`; it is reached
-// only by TestPinned_IterOperandReport, and the non-zero exit is part of what
-// requireIdentical compares. Same standing, and the same reason, as
-// untyped_list_report.nomi.
+// an assertion, so the corpus never checks failure text. This file is
+// NOT in the corpus and is never run by `nomi test tests`; it is run by an
+// internal/irbuild test, and the non-zero exit is part of the recorded golden.
+// Same standing, and the same reason, as untyped_list_report.nomi.
 //
 // # Every operand is a NAME, deliberately
 //

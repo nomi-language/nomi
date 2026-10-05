@@ -30,7 +30,6 @@ fn main() {
   io.print(Reading{label: "a", value: 1.0} != Reading{label: "b", value: 1.0})
   m = {Reading{label: "a", value: 1.0} => 1, Reading{label: "b", value: 2.0} => 2, Reading{label: "a", value: 1.0} => 3}
   _ = dbg m
-  return
 }
 `, "True\nFalse\nTrue\ndbg line 13: m = {Reading{label: \"a\", value: 1.0} => 3, Reading{label: \"b\", value: 2.0} => 2}\n")
 }

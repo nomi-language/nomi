@@ -2,9 +2,9 @@
 //
 // `import lib.{make, label}` puts a SIBLING FILE's `pub fn` in this file's own
 // module scope, so `make("Ada")` is spelled exactly like a call to a local
-// function — and was reported as `call to an unlowered function`, which named
-// neither the construct nor the gap: the function is not unlowered, a bare name
-// simply had no resolution path into the file index.
+// function, and has to resolve through the file index rather than be
+// reported as `call to an unlowered function`, which would name neither the
+// construct nor the gap.
 //
 // The ALIAS is the case that matters and it is why this fixture exists. `twice
 // as doubled` binds `doubled` locally while lib.nomi's own table is keyed
@@ -16,9 +16,9 @@
 // TYPE's method reached bare, routed to the same implCall the qualified
 // spelling `String.contains?` reaches, so the two cannot answer differently.
 //
-// And `std/io.{print}` is a stdlib FILE's free function reached bare — the
-// spelling that used to report `call to an unlowered function` for the one host
-// function this builder does lower.
+// And `std/io.{print}` is a stdlib FILE's free function reached bare, the
+// spelling that would otherwise report `call to an unlowered function` for
+// the one host function this builder does lower.
 import {
     std/io.print
     std/strings.String.{contains? as has}

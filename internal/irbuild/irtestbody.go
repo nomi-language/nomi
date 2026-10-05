@@ -158,6 +158,7 @@ func (g *gen) irTestBodyBuild(c testCaseDecl, name string) (*irScalarPlan, ir.Te
 		if p, ok := g.irTestBodyAttempt(c, name, group, irTestGrouped(c)); ok {
 			return p, group, irTestBodyBuilt
 		}
+		irDeclineClose()
 		return nil, ir.TestGroup{}, irTestBodyDeclined
 	}
 	// AN UNGROUPED CASE IS BUILT AFTER THE MODULE WALK IS COMPLETE. It resolves
@@ -211,6 +212,8 @@ func (g *gen) irRetryWalkOnlyTestBodiesWith(setup func(testCaseDecl) func()) {
 		var fn *ir.Func
 		if ok {
 			fn = p.fn
+		} else {
+			irDeclineClose()
 		}
 		if irTestBodyObserved != nil {
 			irTestBodyObserved(r.name, fn)
@@ -436,6 +439,9 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 		case *ast.Block:
 			return bl.testBlock(e)
 		}
+		if bl.testTail && bl.setupExit != nil {
+			return bl.setupValue(st, st.Expr)
+		}
 		val, k, _, ok := bl.lower(st.Expr)
 		if !ok {
 			return false
@@ -460,6 +466,10 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 // not lowered (testStmts stops), and the builder continues in a fresh block
 // no edge reaches: an enclosing arm's jump or the body's exit terminates it.
 func (bl *irScalarBuilder) testReturn(r *ast.Return) bool {
+	if bl.setupExit != nil {
+		// A `return` in a group's setup ends the setup, not the case.
+		return bl.setupValue(r, r.Value)
+	}
 	if bl.recording > 0 {
 		irDeclineNote("a return in a test body the builder reads back")
 		return false
@@ -548,6 +558,7 @@ func (bl *irScalarBuilder) testBlock(block *ast.Block) bool {
 	bl.testDeferScope = scope
 	ws := &irWithScope{saved: ir.NoTemp}
 	bl.testWithScope = ws
+	defer bl.pushSetupFrame(scope, ws)()
 	if !bl.testStmts(block.Stmts) {
 		return false
 	}
@@ -574,6 +585,7 @@ func (bl *irScalarBuilder) testArm(exit *ir.Block, body ast.Node) (kind, bool) {
 	bl.testDeferScope = scope
 	ws := &irWithScope{saved: ir.NoTemp}
 	bl.testWithScope = ws
+	defer bl.pushSetupFrame(scope, ws)()
 	var stmts []ast.Node
 	switch t := body.(type) {
 	case *ast.Block:

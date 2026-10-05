@@ -6,28 +6,21 @@ import (
 	"github.com/rivo/uniseg"
 )
 
-// The `Iter` SOURCES beyond List, the lazy adapters that carry per-run state,
+// The `Iter` sources beyond List, the lazy adapters that carry per-run state,
 // and the materializing terminals.
 //
-// # What this file is answering
+// # What this file holds
 //
-// Before it, a lowered pipeline could start at a List, at `Iter.from`, or at
-// another pipeline, and nothing else — a String or a Map refused as
-// `Iter over an unlowered source` with the type in the detail. And of std's
-// twenty-four `Iter` functions, nine were lowered; the other fifteen refused
-// with their own name in the detail.
-//
-// Both refusals were honest and neither was a representation problem. A source
-// needs a Go `each_while` and every one of these needs the same three lines;
-// an adapter needs a wrapper whose per-run state is a local. See
+// A source needs a Go `each_while`, and every one of these needs the same
+// three lines; an adapter needs a wrapper whose per-run state is a local. See
 // internal/irbuild/iter.go for the builder half.
 //
-// # Per-run state is what makes these different from seq.go's six
+// # Per-run state is what makes these different from seq.go's adapters
 //
 // `map` and `filter` are stateless: their whole wrapper is one call. `drop`,
 // `with_index`, `cycle` and `chunks` each carry a counter or a buffer, and
 // std/iter.nomi promises a bound pipeline consumed twice yields the same
-// sequence. So the state lives INSIDE `Run` and never in the closure over the
+// sequence. So the state lives inside `Run` and never in the closure over the
 // `Seq` — the rule seq.go's `TakeEach` states and the one thing about this file
 // a reader must not undo. A counter hoisted one scope out passes every
 // single-consumption test and prints an empty list for the second consumption.
@@ -44,16 +37,16 @@ import (
 // EachGraphemeCluster walks s's grapheme clusters, handing each to yield, and
 // reports whether it ran to exhaustion.
 //
-// Frame-free and error-free on purpose: this is the boundary RULE, and each
+// Frame-free and error-free on purpose: this is the boundary rule, and each
 // caller wraps it in its own protocol (`StringEachWhile` below is one). One
-// encoding, which is the whole reason `String.length` / `slice` / `reverse`
+// encoding, which is the reason `String.length` / `slice` / `reverse`
 // live in grapheme.go too — see that file's header. A second copy of a UAX #29
 // walk is a divergence waiting for the input the fixtures do not name.
 //
-// The segmentation state is THREADED between calls, which is what uniseg's API
-// asks for. Measured over regional-indicator pairs, ZWJ sequences, CRLF, a Thai
-// vowel sign and a tag-sequence flag, a restarted state agrees on all ten — so
-// this is not a bug fix, it is the removal of a question.
+// The segmentation state is threaded between calls, which is what uniseg's API
+// asks for. Restarting the state at each cluster gives the same clusters on
+// regional-indicator pairs, ZWJ sequences, CRLF, a Thai vowel sign and a
+// tag-sequence flag, but threading it means no input depends on that.
 func EachGraphemeCluster(s string, yield func(cluster string) bool) bool {
 	state := -1
 	for len(s) > 0 {
@@ -84,16 +77,16 @@ func StringSeq(s string) Seq[string] {
 // BytesEachWhile is `impl Iter for Bytes`'s
 // `host fn each_while(data: Bytes, yield: (Byte) -> Bool): Bool`.
 //
-// OCTETS, not grapheme clusters and not runes, and the distinction from
-// StringSeq above is the whole
+// Octets, not grapheme clusters and not runes, and the distinction from
+// StringSeq above is the
 // reason the two are separate walks over what is, in this package, the same Go
 // `string`: `rt.Bytes` is a `string` for the reasons rt/bytes.go gives.
 //
-// `for i := range len(data)` and NOT `for i := range data`, which is the one
+// `for i := range len(data)` and not `for i := range data`, which is the one
 // mistake this function exists in order not to make: `range` over a Go string
-// yields `(byteIndex, rune)` at rune BOUNDARIES, so it would silently skip the
+// yields `(byteIndex, rune)` at rune boundaries, so it would silently skip the
 // continuation bytes of every multi-byte sequence. `String.to_bytes("café")` is
-// five octets and four runes, and that is exactly the case the corpus checks —
+// five octets and four runes, and the corpus checks exactly that case —
 // 04-scalars-and-text/strings_test.nomi expects `[99, 97, 102, 195, 169]`,
 // which a rune walk renders as `[99, 97, 102, 233]`.
 func BytesEachWhile(fr *Frame, data Bytes, yield func(fr *Frame, item Byte) bool) bool {
@@ -119,10 +112,10 @@ func BytesSeq(data Bytes) Seq[Byte] {
 // `host fn each_while(m: Map<K, V>, yield: ((K, V)) -> Bool): Bool`.
 //
 // `pair` builds the caller's `(K, V)` tuple, because a Nomi tuple lowers to an
-// ANONYMOUS Go struct generated per package and rt cannot name it. The closure
+// anonymous Go struct generated per package and rt cannot name it. The closure
 // is allocated once when the pipeline is built, not per element.
 //
-// The order is `MapEntries`', which is INSERTION order and is the single
+// The order is `MapEntries`', which is insertion order and is the single
 // ordered accessor in this package: `FormatMap` and `MapEqual` read it too.
 // Walking
 // the trie directly here would be a third order and it would be wrong.
@@ -152,7 +145,7 @@ func MapSeq[K, V, P any](m Map[K, V], pair func(K, V) P) Seq[P] {
 // `Iter.count` O(1) on a List or a Map and O(n) on everything else
 // (std/iter.nomi's `count` is a `case` over exactly this).
 //
-// internal/irbuild answers from the source's STATIC kind, so these are three
+// internal/irbuild answers from the source's static kind, so these are three
 // separate functions rather than one dispatch. That is strictly better than a
 // runtime protocol call and it is the same choice `Iter.count` already makes.
 
@@ -165,7 +158,7 @@ func ListCellKnownCount[T any, N ListCellShape[T, N]](xs *N) Maybe[int64] {
 // MapKnownCount is `impl Iter for Map<K, V>`'s override, `Some(size(m))`.
 func MapKnownCount[K, V any](m Map[K, V]) Maybe[int64] { return Some(MapSize(m)) }
 
-// SeqKnownCount and StringKnownCount are the interface DEFAULT, and the two
+// SeqKnownCount and StringKnownCount are the interface default, and the two
 // sources that inherit it.
 //
 // A `Seq` inherits it, unless it views a source with an override (Seq.Count),
@@ -174,22 +167,22 @@ func MapKnownCount[K, V any](m Map[K, V]) Maybe[int64] { return Some(MapSize(m))
 // source would never answer at all.
 //
 // A String inherits it for a different reason, and the difference matters:
-// std/strings declares `each_while` and NO `known_count`, because a grapheme
+// std/strings declares `each_while` and no `known_count`, because a grapheme
 // cluster count is inherently O(n) — the boundary rule has to be run. Answering
-// `Some(int64(len(s)))` here would be O(1) and WRONG (bytes are not clusters),
+// `Some(int64(len(s)))` here would be O(1) and wrong (bytes are not clusters),
 // and answering `Some(StringLength(s))` would be a correct number obtained by
 // doing exactly the work `known_count` exists to avoid, which would make
 // `Iter.known_count` on text a silent O(n) where a caller chose it to be sure
 // of O(1). `String.length` is the spelling for the count; this is the spelling
 // for "ask me and I will decline".
 //
-// Each TAKES its source and ignores it, and the parameter is not decorative: a
+// Each takes its source and ignores it, and the parameter is not decorative: a
 // no-argument `NoKnownCount()` would let a caller drop the source expression
 // entirely, and building a pipeline is not free of effects — the list literal
 // is evaluated, the lambdas are closed over. Nomi evaluates the argument and
 // then calls the protocol default, so these evaluate it exactly once and then
 // decline. It is also the difference between
-// declining and CONSUMING: neither calls `Run`, which is what makes
+// declining and consuming: neither calls `Run`, which is what makes
 // `known_count` the safe probe on an infinite source.
 func SeqKnownCount[T any](fr *Frame, src Seq[T]) Maybe[int64] {
 	if src.Count != nil {
@@ -215,7 +208,7 @@ func SeqEachWhile[T any](fr *Frame, src Seq[T], yield func(fr *Frame, item T) bo
 // SeqLast is `pub fn last<T>(source: Iter<T>): Maybe<T>`, whose std body is
 // `reduce(source, |_acc = None, item| Some(item))`.
 //
-// It consumes the WHOLE source — there is no way to know an element is the last
+// It consumes the whole source — there is no way to know an element is the last
 // until the next one fails to arrive — so it does not terminate on an infinite
 // source. std says so and this reproduces it rather than guarding it:
 // infiniteness is undecidable, so nothing detects it.
@@ -230,7 +223,7 @@ func SeqLast[T any](fr *Frame, src Seq[T]) Maybe[T] {
 
 // SeqAt is `pub fn at<T>(source: Iter<T>, index: Int): Maybe<T>`.
 //
-// A NEGATIVE index is None without touching the source, which is std's own
+// A negative index is None without touching the source, which is std's own
 // `if index < 0 { None }` guard and is observable: the source may have effects.
 // Otherwise the walk stops as soon as the element is found, which is std's
 // `break (0, Some(item))`.
@@ -255,7 +248,7 @@ func SeqAt[T any](fr *Frame, src Seq[T], index int64) Maybe[T] {
 
 // DropEach is `host fn drop_each<T>(source: Iter<T>, n: Int, yield): Bool`.
 //
-// `skip` counts elements the SOURCE produced, not elements the consumer
+// `skip` counts elements the source produced, not elements the consumer
 // accepted, and it is decremented before the consumer is ever consulted — so a
 // dropped element is not offered downstream and does not count against a
 // downstream `take`.
@@ -282,7 +275,7 @@ func SeqDrop[T any](src Seq[T], n int64) Seq[T] {
 // `pair` builds the `(Int, T)` tuple for the same reason MapEachWhile takes
 // one: the tuple is an anonymous Go struct rt cannot name.
 //
-// The index is incremented for every element the SOURCE produced, whether or
+// The index is incremented for every element the source produced, whether or
 // not the consumer accepted it — which is the only reading that makes
 // `drop(1) |> with_index()` start at 0 and `with_index() |> filter(...)` keep
 // the original positions. So the index increments before yielding.
@@ -320,7 +313,7 @@ func SeqConcat[T any](a, b Seq[T]) Seq[T] {
 //
 // The empty-source guard is the load-bearing line: a source that yields nothing
 // must answer True immediately rather than spinning forever asking it again.
-// `any` is per PASS, not per cycle, so a source that empties later still stops.
+// `any` is per pass, not per cycle, so a source that empties later still stops.
 func CycleEach[T any](fr *Frame, src Seq[T], yield func(fr *Frame, item T) bool) bool {
 	for {
 		any := false
@@ -366,8 +359,8 @@ func SeqRepeat[T any](x T) Seq[T] {
 
 // IterateEach is `host fn iterate_each<T>(seed: T, step: (T) -> T, yield): Bool`.
 //
-// The element yielded is the CURRENT state and the callback's answer is the
-// NEXT one, so `iterate(1, |x| x * 2)` yields 1 before it yields 2. Getting
+// The element yielded is the current state and the callback's answer is the
+// next one, so `iterate(1, |x| x * 2)` yields 1 before it yields 2. Getting
 // that backwards produces a sequence that is right in every element but the
 // first, which is the kind of off-by-one a `take(4)` fixture catches and a
 // `first()` one does not.
@@ -391,7 +384,7 @@ func IterateEach[T any](fr *Frame, seed T, step func(fr *Frame, state T) T, yiel
 //
 // The step runs before the current state is emitted, as IterateEach's does.
 // CtlEmit emits the current state and advances to the answer; CtlEmitStop
-// (`break v`) emits the ANSWER, not the current state, and stops; CtlStop
+// (`break v`) emits the answer, not the current state, and stops; CtlStop
 // (bare `break`) stops without emitting. CtlSkip has no next state to fall forward to, so the caller refuses it
 // before answering; here it stops.
 func IterateEachCtl[T any](fr *Frame, seed T, step func(fr *Frame, state T) (T, Ctl), yield func(fr *Frame, item T) bool) bool {
@@ -428,7 +421,7 @@ func SeqIterate[T any](seed T, step func(fr *Frame, state T) T) Seq[T] {
 
 // FlatMapEach is `host fn flat_map_each<T, U>(source, f: (T) -> Iter<U>, yield): Bool`.
 //
-// The inner source's "consumer stopped" answer is the OUTER one: a downstream
+// The inner source's "consumer stopped" answer is the outer one: a downstream
 // `take` that fills up inside an inner sequence must shut the outer source down
 // too, so the inner Run's answer is returned straight through.
 func FlatMapEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) Seq[U], yield func(fr *Frame, item U) bool) bool {
@@ -444,11 +437,11 @@ func SeqFlatMap[T, U any](src Seq[T], f func(fr *Frame, item T) Seq[U]) Seq[U] {
 	}}
 }
 
-// FlatMapListEach is FlatMapEach for a callback that answers a LIST.
+// FlatMapListEach is FlatMapEach for a callback that answers a List.
 //
 // `Iter.flat_map(xs, |x| [x, x * 10])` is the common spelling and its callback's
 // declared result is `Iter<U>`, which a `List<U>` satisfies. Wrapping each
-// returned list in a `Seq` would allocate a closure PER ELEMENT of the outer
+// returned list in a `Seq` would allocate a closure per element of the outer
 // source; walking the cons chain here allocates nothing. Two entry points
 // rather than one because the caller knows statically which it has.
 func FlatMapListEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) *List[U], yield func(fr *Frame, item U) bool) bool {
@@ -468,9 +461,9 @@ func SeqFlatMapList[T, U any](src Seq[T], f func(fr *Frame, item T) *List[U]) Se
 //
 // Three details are observable:
 //
-//   - a non-positive size yields NOTHING and answers True without touching the
+//   - a non-positive size yields nothing and answers True without touching the
 //     source, so `chunks(0)` terminates over an unbounded one.
-//   - the TRAILING short chunk is emitted after the source exhausts, and only
+//   - the trailing short chunk is emitted after the source exhausts, and only
 //     when the source exhausted — a consumer that stopped mid-buffer must not
 //     then receive a partial chunk it did not ask for.
 //   - the buffer is copied into each chunk. `buf = buf[:0]` reuses the backing
@@ -508,7 +501,7 @@ func SeqChunks[T any](src Seq[T], size int64) Seq[*List[T]] {
 
 // --- zip, the one adapter push cannot express directly -----------------------
 
-// seqPull turns a push sequence into a PULL cursor: `next` yields the following
+// seqPull turns a push sequence into a pull cursor: `next` yields the following
 // element, `stop` abandons the rest.
 //
 // `iter.Pull` from Go's standard library, which is a coroutine plus a handoff
@@ -517,16 +510,16 @@ func SeqChunks[T any](src Seq[T], size int64) Seq[*List[T]] {
 // costs a coroutine plus a handoff per element" — so this is std's own stated
 // cost rather than an implementation choice made here.
 //
-// STOP IS NOT OPTIONAL. A cursor abandoned without it leaks its coroutine, and
+// Stop is not optional. A cursor abandoned without it leaks its coroutine, and
 // for an unbounded source that coroutine is parked forever. `SeqZip` defers it
 // on every exit, which is what makes
 // `Iter.zip(Iter.from(0), Iter.from(100)) |> Iter.first()` — one pair taken from
 // two infinite sources — terminate and clean up rather than strand the pulled
 // side.
 //
-// The Frame handed to the inner yield is DROPPED and the enclosing `fr` is used
+// The Frame handed to the inner yield is dropped and the enclosing `fr` is used
 // instead, deliberately: `iter.Seq`'s yield carries no frame, and a pulled
-// element is a VALUE — the position a fault should report is the zip consumer's,
+// element is a value — the position a fault should report is the zip consumer's,
 // which is where `fr` comes from.
 func seqPull[U any](fr *Frame, src Seq[U]) (next func() (U, bool), stop func()) {
 	return iter.Pull(func(yield func(U) bool) {
@@ -536,21 +529,21 @@ func seqPull[U any](fr *Frame, src Seq[U]) (next func() (U, bool), stop func()) 
 
 // SeqZip is `pub fn zip<T, U>(a: Iter<T>, b: Iter<U>): Iter<(T, U)>`.
 //
-// The LEFT source drives and the right becomes a pull cursor, because two push
+// The left source drives and the right becomes a pull cursor, because two push
 // sources cannot both be in charge of the loop. That asymmetry is the reason zip
 // is "the lone adapter a push protocol cannot express directly" in std's own
-// words, and it is why zip keeps working when EITHER side is infinite: a
+// words, and it is why zip keeps working when either side is infinite: a
 // materializing right side would never return, and an abandoned cursor would
 // hang the left.
 //
-// THE ANSWER IS `completed || exhausted`, which is worth spelling out because two of its three cases answer TRUE:
+// The answer is `completed || exhausted`, which is worth spelling out because two of its three cases answer true:
 //
 //	left ran out          completed  -> true   the zip exhausted
 //	right ran out first   exhausted  -> true   the zip exhausted
 //	a consumer stopped    neither    -> false  somebody refused another element
 //
 // The middle row is the one that is easy to get wrong. When the right cursor is
-// spent, this stops the LEFT source by returning false into it — the same signal
+// spent, this stops the left source by returning false into it — the same signal
 // a consumer stop uses — so `completed` is false while the zip genuinely
 // exhausted. Reporting `completed` alone would tell every enclosing adapter that
 // a consumer had refused an element, which is the protocol's other meaning.
@@ -632,12 +625,12 @@ func SeqSortWithCells[T any, N ListCellShape[T, N]](fr *Frame, src Seq[T], compa
 
 // ChunkByEach is `host fn chunk_by_each<T, K>(source, key_fn, yield): Bool`.
 //
-// ADJACENT runs only: unlike `group_by` it never reorders or merges
+// Adjacent runs only: unlike `group_by` it never reorders or merges
 // non-adjacent elements, so one key and one buffer is the whole state. The
 // trailing run is emitted on exhaustion and only on exhaustion, which is
 // ChunksEach's rule.
 //
-// The key equality is the CALLER's, built from the projected key's kind by
+// The key equality is the caller's, built from the projected key's kind by
 // maps.go's valueEqual — the same function `==` and a Map key use, so a Nomi
 // key that compares equal here compares equal everywhere.
 func ChunkByEach[T, K any](fr *Frame, src Seq[T], key func(fr *Frame, item T) K, eq func(K, K) bool, yield func(fr *Frame, item *List[T]) bool) bool {

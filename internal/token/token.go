@@ -88,6 +88,7 @@ const (
 	TODO        // todo — placeholder expression for unwritten code; traps when reached
 	SELF        // self — keyword for the implementing type in interface signatures and for import self-markers
 	TRY         // try — prefix error-propagation keyword (unwrap Result/Maybe or short-circuit)
+	THEN        // then — pipe stage that applies a lambda to the piped value
 	DOC_COMMENT // /// doc comment text
 	COMMENT     // // line comment
 	TEST_PROMPT // //! attached test line prompt
@@ -234,6 +235,7 @@ var tokenNames = [...]string{
 	TODO:                             "TODO",
 	SELF:                             "SELF",
 	TRY:                              "TRY",
+	THEN:                             "THEN",
 	DOC_COMMENT:                      "DOC_COMMENT",
 	COMMENT:                          "COMMENT",
 	TEST_PROMPT:                      "TEST_PROMPT",

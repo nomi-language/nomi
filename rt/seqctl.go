@@ -2,14 +2,14 @@ package rt
 
 // `Iter.reduce` whose callback carries a control signal.
 //
-// This is the ONE place in the push protocol where a Nomi `break` really has to
+// This is the one place in the push protocol where a Nomi `break` really has to
 // become a value: the callback is driven by the source's own `each_while`, so
 // there is no Go loop for a Go `break` to target. `Iter.loop` is not like this —
 // it has no source at all and its callback is inlined into a real `for` — which
 // is why only these two functions exist rather than a control-carrying variant
 // of every terminal.
 //
-// The encoding is a SECOND RETURN VALUE, `(acc, keepGoing)`, and it is chosen
+// The encoding is a second return value, `(acc, keepGoing)`, and it is chosen
 // against two alternatives:
 //
 //   - a sentinel accumulator value, which needs a value no accumulator can be.
@@ -23,11 +23,11 @@ package rt
 //     lexically, and everything else keeps the plain `func(fr, acc, item) U`.
 //
 // Two register returns cost nothing per element: TestSeqCtlAllocatesNothingPerElement
-// pins the count as INDEPENDENT of the element count, which is the same
+// pins the count as independent of the element count, which is the same
 // statement TestSeqAllocatesNothingPerElement makes about the protocol itself
 // and the only form of it that distinguishes "allocates once per pipeline"
-// (fine) from "allocates once per element" (a regression in the thing the whole
-// Iter effort measured).
+// (fine) from "allocates once per element" (a regression in the push
+// protocol's main cost property).
 //
 // The mapping from a callback's control flow, one line each:
 //
@@ -39,7 +39,7 @@ package rt
 
 // SeqReduceCtl folds src from seed with a callback that may stop the fold.
 //
-// The `false` answer stops the SOURCE, not merely this stage: it is returned
+// The `false` answer stops the source, not merely this stage: it is returned
 // straight out of the yield, which is what `Iter.take` relies on and what makes
 // `break` over an unbounded source terminate. The accumulator at the moment of
 // the stop is the answer.
@@ -55,7 +55,7 @@ func SeqReduceCtl[T, U any](fr *Frame, src Seq[T], seed U,
 }
 
 // SeqReduceFirstCtl is SeqReduceCtl for a callback with no seed, where the
-// FIRST element seeds the accumulator and the callback never runs for it.
+// first element seeds the accumulator and the callback never runs for it.
 //
 // An empty source faults with the same text as the seedless fold without
 // control flow, from the same place — there is one encoding of that message

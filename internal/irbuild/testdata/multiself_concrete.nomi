@@ -1,11 +1,8 @@
 // TWO self-typed positions, on every route that is sound.
 //
 // `Cmp.cmp(a: self, b: self)` selects its implementation from ONE receiver and
-// then needs every OTHER self position to hold that same concrete type — the
-// table entry unwraps them all with a Go type assertion. On an ERASED receiver
-// nothing makes that true, and it panicked at HEAD until `b4e538b2` refused it:
-// interpreter `exit=0 "3"`, artifact `exit=2 panic: interface conversion:
-// interface {} is NomiT_B, not NomiT_A`.
+// then needs every OTHER self position to hold that same concrete type. On an
+// ERASED receiver nothing makes that true, so the builder refuses that route.
 //
 // This fixture is the other half, and it exists because a refusal widened past
 // its reason is this project's other recurring failure. Three routes keep
@@ -20,7 +17,7 @@
 //     override of it, because the override winning is what makes the default
 //     per-type rather than shared.
 //
-// TestMultiSelf_ErasedDispatchIsRefused holds the refused route. The DICTIONARY
+// The refused route cannot appear here without refusing the program. The DICTIONARY
 // route is dict_self_identity.nomi.
 import std/io
 

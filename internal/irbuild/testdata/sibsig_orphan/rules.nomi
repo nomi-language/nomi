@@ -4,7 +4,7 @@
 //
 // This file is the whole point of the fixture. Asking only the type's OWN file
 // whether the program declares an impl answers "no impl" here, takes the
-// structural fall-through, and emits False where the interpreter answers True.
+// structural fall-through, and answers False where the impl answers True.
 // MUTATION-VERIFIED: narrowing foreignNoEquatableImpl to the owner's own gen
 // makes this program LOWER instead of refuse.
 import money.Money

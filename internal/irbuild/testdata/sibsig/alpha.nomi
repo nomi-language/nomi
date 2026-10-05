@@ -1,10 +1,10 @@
 // One of two sibling files declaring a type called `Point`, and the file whose
 // SIGNATURES cross the boundary in every shape the builder admits.
 //
-// The names below are the four positions `non-scalar sibling file signature`
-// used to refuse at the call site — parameter, return, container ELEMENT either
-// way — plus a destructuring parameter, which the sibling path refused outright
-// while the declaring file's own funcDecl lowered it. See siblings.go's
+// The names below are the four positions a sibling file signature can take
+// at the call site (parameter, return, container ELEMENT either way) plus a
+// destructuring parameter, which the sibling path resolves through the same
+// funcDecl rules the declaring file uses. See siblings.go's
 // typeFileFunc.
 pub struct Point {
     x: Int
@@ -43,8 +43,8 @@ pub fn twice(p: Point): List<Point> {
 
 /// A DESTRUCTURING parameter, self-typed by its pattern head. paramKind is the
 /// one implementation of "which parameters resolve" and it answers this; the
-/// sibling path used to run its own walk and refuse it, so a call the declaring
-/// file compiled was refused at the call site.
+/// sibling path uses the same answer, so a call the declaring file lowers
+/// also lowers at the call site.
 pub fn sum(Point{x, y}): Int {
     x + y
 }

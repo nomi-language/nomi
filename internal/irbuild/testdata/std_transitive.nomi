@@ -3,20 +3,18 @@ import {
     std/io
 }
 
-// Probe: a generated stdlib package reached ONLY TRANSITIVELY.
+// Probe: a stdlib module reached ONLY TRANSITIVELY.
 //
 // Every name in this program belongs to std/instant. The Duration that
 // `Instant.between` returns is built by std/duration and consumed by
 // std/instant's own `impl Add<Duration, Instant>`, so nothing here names a
 // `Duration.` function and `std/duration` is never a DIRECT use.
 //
-// The generated artifact must contain std/duration's package all the same,
-// which is what makes Generate's transitive closure over `pkgDeps` load-bearing
-// rather than decorative. It has to be its own file: put this beside a test
-// that calls `Duration.seconds` and the package becomes a direct use, the
-// closure stops mattering, and the mutation that removes it is invisible.
-// MEASURED — removing the closure leaves `named_type_arith.nomi` compiling and
-// breaks only this one.
+// The linked program must contain std/duration's bodies all the same,
+// which is what makes the transitive closure over reachable stdlib bodies
+// load-bearing. It has to be its own file: put this beside a test
+// that calls `Duration.seconds` and std/duration becomes a direct use, the
+// closure stops mattering, and a mutation that removes it is invisible.
 fn shift(base: Instant, from: Instant, to: Instant): Instant {
     base + Instant.between(from, to)
 }

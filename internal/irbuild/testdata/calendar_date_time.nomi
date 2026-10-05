@@ -1,24 +1,19 @@
-// std/calendar's two CIVIL types: `Date` (no time, no zone) and `Time` (no
-// date, no zone), reached through the `Date"…"` / `Time"…"` typed literal that
-// `call to an unlowered impl` used to refuse.
+// std/calendar's two civil types: `Date` (no time, no zone) and `Time` (no
+// date, no zone), reached through the `Date"…"` / `Time"…"` typed literals.
 //
-// # Which lines are a real differential, and which are the pinned text
+// # Where each rule is checked
 //
-// `requireIdentical` compares the interpreter against the artifact, so it is
-// blind to a bug in code BOTH paths reach. rt owns the calendar semantics and
-// eval calls DOWN into it, so the parse, the clamp, the day count, the midnight
-// wrap and both renderings are ONE implementation on both sides — for those the
-// `want` string in calendar_date_time_test.go is the assertion and the
-// comparison proves only that one implementation agrees with itself.
+// rt owns the calendar semantics, so the parse, the clamp, the day count, the
+// midnight wrap and both renderings are rt code. For those the `want` string
+// in calendar_date_time_test.go is the assertion.
 //
-// What IS genuinely two implementations: the four `Date.Subtract<Unit, Date>`
+// The rest are Nomi bodies: the four `Date.Subtract<Unit, Date>`
 // rungs, `Add<Weeks, Date>`, `Subtract<Duration, Time>`, `impl Literal` for both
 // types, every `DateParts`/`TimeParts` accessor, `Time.new`, `Time.between`,
 // `NaiveDateTime.at` and `at_midnight`, and the three derived
-// `Equatable`/`Comparable` impls. Each is a Nomi body — lowered Go in a
-// generated stdlib package on one side, interpreted AST on the other — so a
-// `- Days(3)` that reached the wrong `+ Days(-3)`, or an accessor that read the
-// wrong field, is a real disagreement this fixture catches.
+// `Equatable`/`Comparable` impls. A `- Days(3)` that reached the wrong
+// `+ Days(-3)`, or an accessor that read the wrong field, prints a wrong
+// value here.
 //
 // # The pair this fixture lets contradict itself
 //
@@ -79,10 +74,9 @@ fn run(): Result<Unit, Error> {
 
     // --- THE THREE PARSE FAULT SHAPES ----------------------------------------
     //
-    // These messages MOVED from eval into rt/calendar_civil.go with the types,
-    // because two of the three arms existed nowhere a compiled artifact could
-    // reach. They are user-visible, so printing them makes a drift a wrong ANSWER
-    // rather than an invisible one. Shape, non-numeric and value are three
+    // These messages live in rt/calendar_civil.go with the types. They are
+    // user-visible, so printing them makes a drift a wrong answer rather than
+    // an invisible one. Shape, non-numeric and value are three
     // different arms and only the third comes from the validator.
     io.print("shape = " + fault_text(Date.parse("05/04/2026")))
     io.print("nonnumeric = " + fault_text(Date.parse("2026-ab-04")))
@@ -188,8 +182,8 @@ fn run(): Result<Unit, Error> {
     io.print("built_full = " + Time.to_string(try Time.new(8, 30, 15, 250000000)))
     io.print("rejected = " + time_fault_text(Time.new(25, 0, 0)))
 
-    // `Time.between` is a Nomi body over the module-private `day_nanos`, so it is
-    // genuinely two implementations and a real differential row.
+    // `Time.between` is a Nomi body over the module-private `day_nanos`, so this
+    // row checks a lowered body rather than an rt function.
     io.print(
         "between = " + Duration.to_string(Time.between(try Time"08:30:00", try Time"08:33:00"))
     )

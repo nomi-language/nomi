@@ -1,28 +1,28 @@
 //go:build !(js && wasm)
 
-// Package stdio is std/io's FILESYSTEM host implementation, and it is
+// Package stdio is std/io's filesystem host implementation, and it is
 // deliberately not in rt.
 //
-// `io.read_file` and `io.write_file` do NOT go into rt: rt is linked by
+// `io.read_file` and `io.write_file` do not go into rt: rt is linked by
 // everything that runs Nomi, so an rt implementation would entrench in the
 // runtime library exactly the thing that ought to move out of the language.
 // internal/stdlibbindings binds ReadFile and WriteFile as `RtFuncs` rows.
 //
-//   - rt is UNCHANGED as to effect. It gains the IOError VALUE (rt/ioerror.go),
-//     which is data, and no filesystem call. TestRuntimeImportsOnlyItsAllowlist
-//     and TestRuntimeArtifactLinksNoFrontEnd hold unchanged.
+//   - rt makes no filesystem call. It holds the IOError value (rt/ioerror.go),
+//     which is data. TestRuntimeImportsOnlyItsAllowlist
+//     and TestRuntimeArtifactLinksNoFrontEnd hold.
 //   - This package imports `os`, `errors`, `io/fs` and rt and nothing else, so
 //     it is a leaf.
 //
-// # THE GO ERROR STRING STILL REACHES NOMI-OBSERVABLE OUTPUT, and this does not fix it
+// # The Go error string still reaches Nomi-observable output
 //
 // `Other{reason}` carries `err.Error()`, which is `os`/`io/fs` text. Having one
 // implementation makes that text consistent, and it does not make the text
 // Nomi's. The real fix is a `std` API change: `IOError` would have to
 // name the failures it means (`PermissionDenied`, `IsADirectory`, …) instead of
 // having an `Other` variant whose payload is a foreign runtime's prose. Wording
-// the Go string differently would only move the leak. Recorded here rather than
-// papered over, because this is the file that would have to change.
+// the Go string differently would only move the leak. This is the file that
+// would have to change.
 package stdio
 
 import (

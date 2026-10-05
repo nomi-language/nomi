@@ -289,7 +289,7 @@ func TestCache_AbsolutizesReplaces(t *testing.T) {
 func TestCache_StagesCompilerModuleAndGoFloor(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	projectRoot := t.TempDir()
-	goMod := "module cachetest\n\ngo 1.22\n\nrequire github.com/nomi-language/nomi v0.0.0\n\nreplace github.com/nomi-language/nomi => " + findNomiLangRoot(t) + "\n"
+	goMod := "module cachetest\n\ngo 1.22\n\nrequire github.com/nomi-language/nomi v0.0.0\n\nreplace github.com/nomi-language/nomi => " + repoRoot(t) + "\n"
 	if err := os.WriteFile(filepath.Join(projectRoot, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("write go.mod: %v", err)
 	}
@@ -360,7 +360,7 @@ func TestCache_WarmWrapperBinaryReused(t *testing.T) {
 	}
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	root := stageSourceBindingProject(t)
-	mustWriteHelper(t, filepath.Join(root, "go.mod"), "module testproject\n\ngo 1.26.3\n\nrequire example.com/binding/source v0.0.0\n\nrequire github.com/nomi-language/nomi v0.0.0\n\nreplace example.com/binding/source => ./binding\n\nreplace github.com/nomi-language/nomi => "+findNomiLangRoot(t)+"\n")
+	mustWriteHelper(t, filepath.Join(root, "go.mod"), "module testproject\n\ngo 1.26.3\n\nrequire example.com/binding/source v0.0.0\n\nrequire github.com/nomi-language/nomi v0.0.0\n\nreplace example.com/binding/source => ./binding\n\nreplace github.com/nomi-language/nomi => "+repoRoot(t)+"\n")
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
 fn echo_upper(s: String): String go binding.EchoUpper
@@ -401,7 +401,7 @@ func TestCache_ConcurrentWrapperBinaryBuildsDoNotShareTempPath(t *testing.T) {
 	}
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	root := stageSourceBindingProject(t)
-	mustWriteHelper(t, filepath.Join(root, "go.mod"), "module testproject\n\ngo 1.26.3\n\nrequire example.com/binding/source v0.0.0\n\nrequire github.com/nomi-language/nomi v0.0.0\n\nreplace example.com/binding/source => ./binding\n\nreplace github.com/nomi-language/nomi => "+findNomiLangRoot(t)+"\n")
+	mustWriteHelper(t, filepath.Join(root, "go.mod"), "module testproject\n\ngo 1.26.3\n\nrequire example.com/binding/source v0.0.0\n\nrequire github.com/nomi-language/nomi v0.0.0\n\nreplace example.com/binding/source => ./binding\n\nreplace github.com/nomi-language/nomi => "+repoRoot(t)+"\n")
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
 
 fn echo_upper(s: String): String go binding.EchoUpper

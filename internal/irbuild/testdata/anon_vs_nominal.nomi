@@ -3,15 +3,12 @@ import std/io
 // A nominal struct and a record of the IDENTICAL shape must not unify.
 //
 // Nominal identity is (declaring file, name) and never the shape, so `Point`
-// lowers to a Go DEFINED type and `{x: Int, y: Int}` to a bare Go struct — two
-// Go types, which Go will not assign across without a conversion nobody emits.
+// and `{x: Int, y: Int}` are two types, and a value of one is not a value of
+// the other.
 //
-// The pin is DIFFERENTIAL rather than a text assertion because the failure mode
-// is a Go TYPE error: emitting the record as `NomiT_Point`, or the nominal as a
-// bare `struct { F_x int64; F_y int64 }`, produces Go that PARSES, so
-// TestIRBuild_EveryEmittedFileParsesAsGo could not see it. Only building can.
-// The two failing assertions then show the values apart at run time: the
-// nominal row carries its type name and the record's does not.
+// The two failing assertions show the values apart at run time: the
+// nominal row carries its type name and the record's does not. The VM's
+// output is checked against the recorded golden.
 struct Point {
     x: Int
     y: Int

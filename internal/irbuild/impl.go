@@ -273,6 +273,12 @@ type implDef struct {
 	// implwithhold_test.go).
 	gaps map[string]implGap
 
+	// typeScope is the block whose type declarations the block's receiver
+	// is, for the universal Debug of a block-local type
+	// (registerBlockLocalDebug). Pushed while the block is resolved and
+	// emitted, since the receiver's name is visible only there.
+	typeScope *blockTypeDecls
+
 	lowerable bool
 	why       string
 	whyDetail string
@@ -651,7 +657,13 @@ func (g *gen) buildImpls(nodes []ast.Node) {
 		}
 		g.registerImpl(ib)
 	}
-	for _, d := range g.implOrder {
+	g.registerBlockLocalDebug(g.blockTypeOrder)
+	g.emitSynthImpls(g.implOrder)
+}
+
+// emitSynthImpls lowers the synthesized blocks among impls.
+func (g *gen) emitSynthImpls(impls []*implDef) {
+	for _, d := range impls {
 		if !d.synth || !d.lowerable {
 			continue
 		}
@@ -836,6 +848,10 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		if !ok {
 			d.lowerable, d.why, d.whyDetail = false, "host-backed impl function", constructName(item)
 			return
+		}
+		if g.expansiveImplItem(d, fd) && d.mayWithhold(fd.Name) {
+			d.noteGap(fd.Name, implGap{why: "expansive impl function", detail: implMemberLabel(d, fd.Name)})
+			continue
 		}
 		it, gap := g.implItemSig(d, fd)
 		switch {
@@ -1278,6 +1294,10 @@ func (g *gen) implFor(ib *ast.ImplBlock) *implDef {
 // same for a generic RECEIVER's frame, and the two nest rather than conflict:
 // they bind different names and genericSubstKind scans innermost-first.
 func (g *gen) emitImpl(d *implDef) {
+	if d.typeScope != nil {
+		g.pushTypeScope(d.typeScope)
+		defer g.popTypeScope()
+	}
 	if d.ifaceSubst != nil {
 		g.pushIfaceSubst(d.ifaceSubst)
 		defer g.popIfaceSubst()

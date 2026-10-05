@@ -486,6 +486,12 @@ type cfgEdge struct {
 	fault    bool
 }
 
+// Reachable reports, per block id, whether control can reach the block from
+// the entry, by the same edges lint uses: terminator successors, except from a
+// block ending in NoMatch, and fault edges. A block not yet terminated
+// contributes no edge.
+func Reachable(f *Func) []bool { return buildCFG(f).reachable }
+
 func buildCFG(f *Func) *cfg {
 	blocks := f.Blocks()
 	c := &cfg{blocks: blocks, preds: make([][]cfgEdge, len(blocks)),

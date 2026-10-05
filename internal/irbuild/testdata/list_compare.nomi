@@ -1,23 +1,18 @@
 // Nomi's lexicographic order on `List<T>` — `List.compare` and the four
 // ordering operators, which are the same operation.
 //
-// Int and Float elements only, and that is not a scope choice: the INTERPRETER
-// faults on every other element type, because `impl Comparable for List<T>`
-// dispatches at the type parameter and nothing pre-loads the impl. See
-// orderingOf's comment for the five measurements, and
-// TestInterpreterListOrderServesIntAndFloatOnly for the pin.
+// Int and Float elements only. See orderingOf's comment for the element
+// types the ordering serves.
 //
-// Every group below names the wrong implementation it catches, because a
-// differential comparison alone cannot see one: the compiled path calls
+// Every group below names the wrong implementation it catches. The VM calls
 // `rt.ListCompare` with an element comparator built out of std's own
-// `Int.compare` / `Float.compare`, and the interpreter runs the Nomi body that
-// reaches those same impls. So the skeleton is the only thing that could
-// diverge, and the reference bytes are pinned absolutely in lists_test.go.
+// `Int.compare` / `Float.compare`, so the skeleton is what this fixture
+// checks, and the reference bytes are pinned absolutely in lists_test.go.
 import std/io
 
 /// Two structurally equal `List<Int>` built SEPARATELY, so no cons cell is
 /// shared. `rt.ListCompare` short-circuits on POINTER identity — sound, because
-/// compare is reflexive at every type it serves — and Go compares pointers
+/// compare is reflexive at every type it serves — and pointers compare
 /// happily, so a fixture that compared one list against itself would pass with
 /// the element walk entirely broken. Built through a function so the front end
 /// cannot fold the two calls into one value.
@@ -87,7 +82,7 @@ fn main() {
     // std/float's `Comparable.compare` is a TOTAL order with NaN at the top:
     // `compare(nan, nan)` is Equal and `compare(nan, x)` is Greater for every
     // non-NaN x, including +Infinity. That is deliberately NOT what `<` on two
-    // Floats does, so building the element comparator out of Go's `<` would
+    // Floats does, so building the element comparator out of `<` would
     // answer differently for exactly these four lines.
     io.print("${List.compare([1.0, 2.0], [1.0, 3.0])}")
     io.print("${List.compare([Float.nan()], [Float.nan()])}")

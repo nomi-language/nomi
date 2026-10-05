@@ -10,7 +10,7 @@ func TestVMMonoCall_TourMatchesRecordedAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{"generics.md:L17"}, vmPathResolver(t, "tour"))
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "generics.md", `dbg pair("age", 30)`)}, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("generic Tour program incomplete: %v", refused)
 	}

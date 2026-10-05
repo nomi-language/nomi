@@ -1140,6 +1140,11 @@ func (g *gen) emitModule(m *Module) ([]Unsupported, []Suppression) {
 			g.rejectWhole(constructName(n), "", n)
 		}
 	}
+	// The entry's `main failure` renderer, before the flushes below, since
+	// rendering a generic error type can ask for an instance.
+	// See mainfailure.go.
+	g.irBuildMainFailure()
+
 	// Monomorphized generic function instances, BEFORE every flush below.
 	// Lowering an instance body is ordinary body lowering, so it can intern a
 	// new generic STRUCT instance (`Half<Int>`). See genericmono.go.
@@ -1289,7 +1294,7 @@ func (g *gen) funcDecl(fd *ast.FuncDef) {
 	// funcDecl is reached from probe() while a body is being walked. Without
 	// this a `break` inside a refused nested `fn` would find the enclosing
 	// loop's boundary and go unreported — a masked blocker, not a wrong answer,
-	// but the tally is the roadmap. See ctrlflow.go.
+	// and the tally must count every blocker. See ctrlflow.go.
 	prevCtrl, prevTail := g.ctrl, g.tail
 	g.ctrl, g.tail = nil, nil
 	defer func() { g.ctrl, g.tail = prevCtrl, prevTail }()

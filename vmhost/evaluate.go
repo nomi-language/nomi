@@ -45,13 +45,13 @@ func (p *Program) Evaluate(ctx context.Context, name string, lim EvalLimits) (Va
 	f := p.entryFunc(name)
 	if f == nil {
 		if p.declares(name) {
-			return nil, &Blocked{Reasons: []string{p.notRetained(name)}}
+			return nil, p.blockedName(name)
 		}
 		return nil, fmt.Errorf("the program declares no function %s without parameters", name)
 	}
 	m := p.machine(io.Discard)
-	if reasons := p.reasons(m.Unretained([]*ir.Func{f}, nil)); len(reasons) > 0 {
-		return nil, &Blocked{Reasons: reasons}
+	if found := m.Unretained([]*ir.Func{f}, nil); len(found) > 0 {
+		return nil, p.blocked(found)
 	}
 	if effects := m.Effects(f); len(effects) > 0 {
 		return nil, &Effectful{Effects: effects}
@@ -60,7 +60,7 @@ func (p *Program) Evaluate(ctx context.Context, name string, lim EvalLimits) (Va
 	if errors.Is(err, vm.ErrLimit) {
 		return nil, ErrEvalLimit
 	}
-	failure, limit := vm.ProgramFailure(err)
+	failure, limit := programFailure(err)
 	if limit {
 		return nil, &Blocked{Reasons: []string{machineLimit(failure)}}
 	}

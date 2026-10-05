@@ -239,7 +239,7 @@ func TestReplVM_AnInputImportsAndCallsTogether(t *testing.T) {
 func TestReplVM_ImportingAnInherentFunctionByNameIsRejected(t *testing.T) {
 	replExpect(t, "import std/duration.{seconds}\nx = 1\nx\n",
 		"1\n",
-		"file 'std.duration' has no exported name 'seconds'")
+		"file 'std/duration' has no exported name 'seconds'")
 }
 
 // A value the session cannot carry is reported and the input still runs.

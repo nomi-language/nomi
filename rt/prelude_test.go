@@ -2,7 +2,7 @@ package rt
 
 import "testing"
 
-// The prelude enums are called by ONE implementation, so a test that compares
+// The prelude enums are called by one implementation, so a test that compares
 // two computations over them compares two paths that both end here. Every
 // assertion below therefore spells out the expected answer.
 
@@ -14,7 +14,7 @@ func TestMaybeZeroValueIsDetectablyInvalid(t *testing.T) {
 	if m.Tag == TagSome || m.Tag == TagNone {
 		t.Fatal("an unconstructed Maybe is indistinguishable from a variant")
 	}
-	// The reservation's whole point: a slice of them is n never-constructed
+	// The reason for the reservation: a slice of them is n never-constructed
 	// values, not n copies of the first variant.
 	for i, v := range make([]Maybe[int64], 3) {
 		if v.Tag != 0 {
@@ -92,24 +92,24 @@ func TestPreludeValuesAreComparableAndCopied(t *testing.T) {
 	}
 }
 
-// ResultFromMaybe, pinned absolutely.
+// MaybeToResult, pinned absolutely.
 //
-// A NEVER-CONSTRUCTED receiver is caught only here, because no Nomi program
+// A never-constructed receiver is caught only here, because no Nomi program
 // can produce one and no golden-file fixture can therefore reach it.
 func TestPreludeMethodHelpers(t *testing.T) {
-	if got := ResultFromMaybe(Some[int64](3), "missing"); got != Ok[int64, string](3) {
-		t.Fatalf("ResultFromMaybe(Some(3)) = %+v, want Ok(3)", got)
+	if got := MaybeToResult(Some[int64](3), "missing"); got != Ok[int64, string](3) {
+		t.Fatalf("MaybeToResult(Some(3)) = %+v, want Ok(3)", got)
 	}
-	if got := ResultFromMaybe(None[int64](), "missing"); got != Err[int64, string]("missing") {
-		t.Fatalf("ResultFromMaybe(None) = %+v, want Err(\"missing\")", got)
+	if got := MaybeToResult(None[int64](), "missing"); got != Err[int64, string]("missing") {
+		t.Fatalf("MaybeToResult(None) = %+v, want Err(\"missing\")", got)
 	}
 
-	// A NEVER-CONSTRUCTED receiver — Tag 0, which is neither variant. No Nomi
+	// A never-constructed receiver — Tag 0, which is neither variant. No Nomi
 	// program can produce one, so a program fixture cannot reach this
 	// and only an absolute assertion can. Each helper must take the branch that
-	// does NOT invent a payload out of a Go zero value.
+	// does not invent a payload out of a Go zero value.
 	var zeroMaybe Maybe[int64]
-	if got := ResultFromMaybe(zeroMaybe, "e"); got != Err[int64, string]("e") {
-		t.Fatalf("ResultFromMaybe(never-constructed) = %+v, want Err", got)
+	if got := MaybeToResult(zeroMaybe, "e"); got != Err[int64, string]("e") {
+		t.Fatalf("MaybeToResult(never-constructed) = %+v, want Err", got)
 	}
 }

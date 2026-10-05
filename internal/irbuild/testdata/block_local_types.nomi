@@ -81,8 +81,8 @@ fn wrapped(): Int {
 }
 
 // A block-local NOMINAL struct beside a structurally identical ANONYMOUS one.
-// Anonymous structs lower as canonical-order Go records and are STRUCTURAL, so
-// the two must not be interned together — the nominal one is a distinct Go type
+// Anonymous structs are structural and lowered in canonical field order, so
+// the two must not be interned together: the nominal one is a distinct type
 // however identical its field list is.
 fn nominal_vs_anon(): String {
     struct Pair {

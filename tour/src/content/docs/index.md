@@ -71,6 +71,10 @@ nomi build app.nomi     # write a standalone executable
 run. Build for another platform with `--target`, for example
 `--target linux/amd64`.
 
+A file can also run as a script. Start it with a `#!/usr/bin/env nomi` line,
+make it executable, and `./hi.nomi a b` runs it as `nomi run hi.nomi a b`
+would; `nomi hi.nomi a b` does the same.
+
 ### The Nomi VM
 
 Nomi compiles your program to bytecode and runs it on its own virtual machine,

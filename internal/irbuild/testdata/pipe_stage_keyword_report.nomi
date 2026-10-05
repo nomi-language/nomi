@@ -1,17 +1,13 @@
 // Probe: THE `pipeline values:` BLOCK FOR A KEYWORD PIPE STAGE.
 //
-// EVERY ASSERTION IN THIS FILE FAILS ON PURPOSE. The sweep compares the stdout
-// of runs where every assertion PASSES, so a failure-report divergence is
-// invisible to it by construction — the same reason testdata/pipe_stages.nomi
-// exists. What is compared here is the REPORT TEXT.
+// EVERY ASSERTION IN THIS FILE FAILS ON PURPOSE. The corpus runs only
+// passing assertions, so it never shows a failure report; that is the same
+// reason testdata/pipe_stages.nomi exists. What is checked here is the
+// REPORT TEXT.
 //
-// pipestage.go excluded `|> if` and `|> case` from the recordable shapes, on the
-// recorded reason that each "consume the piped value through their own
-// machinery, and three of the four are already refused as pipe stages in their
-// own right". That reason rested on the refusal, and this slice lifted it — so
-// the exclusion was re-DERIVED against the interpreter rather than re-checked.
+// pipestage.go admits `|> if` and `|> case` among the recordable shapes.
 //
-// The answer: eval's `finish` calls env.recordPipelineStage for EVERY stage
+// The rule: the run records a pipeline stage for EVERY stage
 // shape, so the stage list is a function of the spine here exactly as it is for
 // a call chain. Both spellings are below because they produce different chains:
 // the keyword form desugars to TWO pipe nodes and therefore THREE rows (the
@@ -27,20 +23,18 @@
 // Note the rendered text of a keyword stage's last row is the KEYWORD spelling
 // (`|> if Int.equal?(12) { False } else { True }`), not the desugared double
 // pipe — the formatter renders the parser's two nodes back to the one the user
-// wrote, and both sides go through the same formatter — the reference through
-// format.RenderNode and the artifact through renderNode at build time.
+// wrote, through format.RenderNode.
 //
 // THE LAST TWO TESTS ARE A DIFFERENT CONTRACT and they are the pair that makes
-// gen.pipedCase observable. evalCaseMatchWithValue records the SCRUTINEE as a
-// `values:` row — but only `if n.Value != nil` (eval.go:13251), and a BARE pipe
-// stage's node has a nil Value. So the interpreter shows the scrutinee for a
-// directly written `case` and NOT for the piped spelling, and a builder that
-// spliced Value in without exempting the node would record a row the
-// interpreter does not print.
+// gen.pipedCase observable. A directly written `case` records its SCRUTINEE
+// as a `values:` row, and a BARE pipe stage's node has a nil Value, so the
+// piped spelling records no such row. A builder that spliced Value in
+// without exempting the node would record a row the piped spelling must
+// not have.
 //
-// The scrutinee is `wrap(3)` rather than `Some(3)` deliberately: rt and eval
-// both drop a row whose operand text reads exactly like its value, so
-// `Some(3) = Some(3)` is suppressed on BOTH paths and the two spellings would
+// The scrutinee is `wrap(3)` rather than `Some(3)` deliberately: the report
+// drops a row whose operand text reads exactly like its value, so
+// `Some(3) = Some(3)` would be suppressed in both spellings and they would
 // present identically. `wrap(3) = Some(3)` is the row that distinguishes them.
 fn wrap(n: Int): Maybe<Int> {
     Some(n)

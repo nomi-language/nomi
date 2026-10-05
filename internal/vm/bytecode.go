@@ -43,8 +43,8 @@ package vm
 // iteration, assertions, construction of structs, records, tuples and
 // collections, projections off them, `try`, defers, once cells, app fields,
 // Context, Debug and Display rendering, dispatched, indirect and host calls.
-// Slice 2 moves their values onto `rt` records and collections; the boxing
-// seam is here so it can move one instruction kind at a time.
+// The boxing seam is here so an instruction kind can move from `opIR` to a
+// typed opcode one kind at a time.
 
 import (
 	"fmt"
@@ -260,9 +260,15 @@ type compiler struct {
 // compile turns f into bytecode. It cannot fail: an instruction the typed
 // opcodes do not cover runs through its handler, and a graph fault the
 // walker reported at run time (a missing block, a missing terminator) is an
-// opFail raised when control arrives there, with the walker's text.
-func (m *Machine) compile(f *ir.Func) *code {
-	c := &code{fn: f}
+// opFail raised when control arrives there, with the walker's text. A panic
+// while compiling is a compiler bug; the body raises it as a *CompilePanic
+// (compilepanic.go).
+func (m *Machine) compile(f *ir.Func) (c *code) {
+	defer recoverCompile(f, &c)
+	if CompileHook != nil {
+		CompileHook(f)
+	}
+	c = &code{fn: f}
 	cp := &compiler{m: m, c: c, blocks: map[ir.BlockID]int{},
 		ksIndex: map[string]uint32{}, kwIndex: map[uint64]uint32{}, calleeI: map[*ir.Func]uint32{}}
 	cp.assignRegisters()

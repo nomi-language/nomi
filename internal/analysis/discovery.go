@@ -50,7 +50,7 @@ type Project struct {
 // through the same path as any sibling-module dep.
 //
 // Loader errors for individual files are tolerated (the builder
-// surfaces them later as "module not found"); only truly fatal
+// reports the import as "no module `x`" at its path); only truly fatal
 // errors return non-nil error. With a nil loader this returns an
 // empty project.
 //
@@ -180,7 +180,7 @@ func DiscoverProjectWithManifest(entryNodes []ast.Node, projectRoot string, load
 		p.FilePaths[wi.key] = ResolveModulePath(wi.root, wi.modPath)
 		// Sibling-module imports inside a freshly-loaded sibling
 		// module are walked relative to ITS module index, not the
-		// importing project's. Stage 1 supports only one-hop deps
+		// importing project's. Only one-hop deps are supported
 		// (entry's go.mod is the index), so siblings' transitive
 		// imports re-use the entry's currentModuleName / module index
 		// when classifying — practical effect: the sibling can still

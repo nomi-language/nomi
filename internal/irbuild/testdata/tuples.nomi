@@ -1,9 +1,9 @@
 import std/io
 
 // A tuple constructed and read, a heterogeneous tuple, tuple patterns, tuple
-// destructuring, and the equality cases where Go's own `==` on the generated
-// struct would answer WRONG: a tuple holding a list (Go compares cell
-// addresses) and a tuple holding a NaN (Go's Float `==` is not reflexive).
+// destructuring, and the equality cases where a field-by-field machine `==`
+// would answer WRONG: a tuple holding a list (an address comparison of
+// cells) and a tuple holding a NaN (IEEE `==` is not reflexive).
 fn main() {
     pair = ("hello", 42)
     io.print("${pair.0} / ${pair.1}")
@@ -29,19 +29,18 @@ fn main() {
     io.print("${(1, 2) != (1, 3)}")
     io.print("${("a", True) == ("a", True)}")
 
-    // Two structurally equal tuples over two SEPARATE cons chains. Go's `==` on
-    // the generated struct compares the list fields by address and would say
-    // False; Nomi's value.Equal is structural and says True.
+    // Two structurally equal tuples over two SEPARATE cons chains. An address
+    // comparison of the list fields would say False; Nomi's equality is
+    // structural and says True.
     io.print("${(1, [2, 3]) == (1, [2, 3])}")
     io.print("${(1, [2, 3]) == (1, [2, 4])}")
     io.print("${([1], ([2], 3)) == ([1], ([2], 3))}")
 
-    // Nomi's Float equality is reflexive for NaN; Go's is not, so a native
-    // struct `==` would answer False for both of these.
+    // Nomi's Float equality is reflexive for NaN and IEEE's is not, so a
+    // field-by-field IEEE `==` would answer False for both of these.
     //
-    // NaN through a LOCAL, not `0.0 / 0.0`: a Float literal lowers to an untyped
-    // Go constant, and a constant divide by zero is a Go compile error, so the
-    // inline spelling emits a file that does not build. See lists.nomi.
+    // NaN is built through a LOCAL rather than `0.0 / 0.0`, so the divide runs
+    // on a Float value rather than on two literals. See lists.nomi.
     zero = 0.0
     nan = zero / zero
     io.print("${(1, nan) == (1, nan)}")

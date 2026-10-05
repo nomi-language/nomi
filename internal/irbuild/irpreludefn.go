@@ -28,12 +28,12 @@ func (bl *irScalarBuilder) preludeWithDefaultPlan(t *ast.Call, args irQualArgs, 
 	return &irQualPlan{token: key, name: key, result: payload, host: true}
 }
 
-// preludeFromMaybePlan plans `Result.from_maybe(m, e)`: a host crossing to
-// `rt.ResultFromMaybe` whose result is `Result<T, E>`, with T the receiving
+// preludeToResultPlan plans `Maybe.to_result(m, e)`: a host crossing to
+// `rt.MaybeToResult` whose result is `Result<T, E>`, with T the receiving
 // Maybe's argument and E the error operand's own kind. An error operand whose
 // kind preludeArgUsable rejects, such as an untyped literal, declines.
-func (bl *irScalarBuilder) preludeFromMaybePlan(t *ast.Call, args irQualArgs) *irQualPlan {
-	const key = "Result.from_maybe"
+func (bl *irScalarBuilder) preludeToResultPlan(t *ast.Call, args irQualArgs) *irQualPlan {
+	const key = "Maybe.to_result"
 	fn := preludeFns[key]
 	if !args.ok || len(args.kinds) != fn.args || bl.rowsUnrecorded(t) {
 		return nil

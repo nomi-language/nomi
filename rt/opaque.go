@@ -13,17 +13,17 @@ import (
 //
 // std declares `pub opaque type Duration Int` and `pub opaque type Instant Int`.
 // Neither is a `host type`: there is no handle, no descriptor and nothing the
-// runtime holds on the Nomi side's behalf. A Duration IS a count of nanoseconds
-// and an Instant IS a count of nanoseconds since the Unix epoch. `opaque` is a
-// USE-SITE rule — user code outside the declaring file cannot write
+// runtime holds on the Nomi side's behalf. A Duration is a count of nanoseconds
+// and an Instant is a count of nanoseconds since the Unix epoch. `opaque` is a
+// use-site rule — user code outside the declaring file cannot write
 // `Duration(n)` or destructure one — enforced entirely by the front end, plus
 // one rendering rule (`<opaque T>` for a type with no explicit Debug) that the
 // analyzer synthesizes as ordinary Nomi source.
 //
-// So the representation is a Go DEFINED type over int64, which is what a Nomi
+// So the representation is a Go defined type over int64, which is what a Nomi
 // distinct type lowers to everywhere else (internal/irbuild's distinctDecl).
 //
-// # Why these are declared HERE
+// # Why these are declared here
 //
 // Two reasons, and the second is the one that forces it:
 //
@@ -31,21 +31,21 @@ import (
 //     declaration produced, and a std type needs one Go type every module's
 //     code can name. rt is that one place. Same answer prelude.go gives for
 //     `rt.Maybe[T]`.
-//   - The externs below have Duration and Instant IN THEIR SIGNATURES, and the
+//   - The externs below have Duration and Instant in their signatures, and the
 //     host binding tables derive every signature from the Go function value by
 //     reflection, so the type has to be a Go type rt can write down.
 //
-// This applies to a STDLIB opaque type only. rt knows nothing about user
+// This applies to a stdlib opaque type only. rt knows nothing about user
 // declarations and must not: a user type in here would be a user declaration
 // inside the runtime library.
 //
-// # The Go zero value is a REAL value, deliberately
+// # The Go zero value is a real value, deliberately
 //
 // rt.Maybe reserves tag 0 so a Go zero value is detectably invalid. That is the
 // opposite of the decision here, and the difference is not taste: tag 0 is not a
 // legal Nomi tag, so an enum had a spare state to reserve. int64 has none —
 // every one of its values is a legal Duration, and `Duration.nanoseconds(0)` is
-// an ordinary Nomi value that a program writes. `Duration(0)` IS that value.
+// an ordinary Nomi value that a program writes. `Duration(0)` is that value.
 //
 // Making a zero value detectable would mean `struct { ns int64; set bool }`,
 // doubling a value that rides every deadline computation, to detect a state no
@@ -93,7 +93,7 @@ func DurationToString(d Duration) string {
 }
 
 // durationUnits is the largest-to-smallest unit ladder DurationToString walks.
-// The order IS the format: reordering it changes Nomi-observable output.
+// The order is the format: reordering it changes Nomi-observable output.
 var durationUnits = [...]struct {
 	factor int64
 	suffix string
@@ -124,8 +124,8 @@ func InstantNow() Instant { return Instant(time.Now().UnixNano()) }
 // without producing a user-visible error", and the frame is where the context
 // that cancellation travels on is kept.
 //
-// A CANCELLED SLEEP UNWINDS THE TASK, which unwinds the enclosing block.
-// Returning Unit instead would let a cancelled task RUN ON past its sleep:
+// A cancelled sleep unwinds the task, which unwinds the enclosing block.
+// Returning Unit instead would let a cancelled task run on past its sleep:
 // `Task.spawn(|| { timer.sleep(Duration.hours(1)); io.print("done") })` would
 // print, and `Task.outcome` would report `Completed` where std says
 // `Cancelled`. `16-concurrency/supervisors/supervisors_test.nomi`
@@ -144,8 +144,8 @@ func TimerSleep(fr *Frame, d Duration) Unit {
 // cancelled.
 //
 // Exported for callers outside rt that have to tell the two outcomes apart.
-// The timer handling, including the drain-on-stop below, is ONE implementation
-// rather than two that agree today.
+// The timer handling, including the drain-on-stop below, is one implementation
+// rather than two that happen to agree.
 func SleepCtx(ctx context.Context, d Duration) bool {
 	timer := time.NewTimer(time.Duration(d))
 	defer func() {

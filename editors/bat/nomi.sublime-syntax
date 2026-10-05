@@ -7,7 +7,7 @@ scope: source.nomi
 variables:
   ident: '[a-z_][a-zA-Z0-9_]*\??'
   type_ident: '[A-Z][a-zA-Z0-9_]*'
-  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|todo|try|type(alias)?|where|with'
+  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|then|todo|try|type(alias)?|where|with'
 
 contexts:
   main:
@@ -20,6 +20,10 @@ contexts:
     - include: punctuation
 
   comments:
+    # A `#!` interpreter line. The compiler accepts it only as the first
+    # line; syntect matches line by line, so this cannot tell line 1 apart.
+    - match: '^#!.*$'
+      scope: comment.line.shebang.nomi
     - match: '///.*$'
       scope: comment.block.documentation.nomi
     - match: '//.*$'
@@ -124,7 +128,7 @@ contexts:
     - match: '^\s*(clock|boot)\b(?=[ \t]+[A-Za-z_(])'
       captures:
         1: keyword.declaration.nomi
-    # `internal` path segment in imports — Phase 1 packaging convention
+    # `internal` path segment in imports — the packaging convention
     # for sub-tree access barriers. Matches `internal` only when
     # followed by `/`, so bare `internal` identifiers (rare; not a
     # reserved word in Nomi) aren't affected. Scope chosen for
@@ -132,7 +136,7 @@ contexts:
     # access-scope metadata, not a namespace name.
     - match: '\binternal(?=/)'
       scope: entity.other.attribute-name.nomi
-    - match: '\b(if|else|case|when|break|continue|return|concurrent|try|assert|refute|dbg|todo)\b'
+    - match: '\b(if|else|case|when|break|continue|return|concurrent|try|then|assert|refute|dbg|todo)\b'
       scope: keyword.control.nomi
     - match: '\b(and|or)\b'
       scope: keyword.operator.word.nomi

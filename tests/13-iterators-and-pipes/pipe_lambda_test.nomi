@@ -1,16 +1,42 @@
-test "pipe lambda stages receive the previous value" {
+test "then stages apply a lambda to the previous value" {
     doubled =
         21
-        |> |n| n * 2
+        |> then |n| n * 2
 
     assert doubled == 42
 }
 
-test "pipe lambda stages can compose with regular pipe stages" {
+test "then stages compose with regular pipe stages" {
     value =
         10
-        |> |n| n + 5
-        |> |n| n * 2
+        |> then |n| n + 5
+        |> then |n| n * 2
 
     assert value == 30
+}
+
+test "a then stage's braced body holds its own pipe" {
+    count =
+        [1, 2, 3, 4]
+        |> then |xs| { xs |> Iter.filter(|x| x > 2) |> Iter.count() }
+        |> then |n| n * 10
+
+    assert count == 20
+}
+
+test "a then stage destructures its parameter" {
+    sum =
+        (3, 4)
+        |> then |(a, b)| a + b
+
+    assert sum == 7
+}
+
+test "a lambda's body runs past a pipe inside call parentheses" {
+    numbers =
+        ["1", "x", "3"]
+        |> Iter.map(|s| String.to_int(s) |> Maybe.with_default(0))
+        |> Iter.to_list()
+
+    assert numbers == [1, 0, 3]
 }

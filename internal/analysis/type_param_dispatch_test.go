@@ -119,12 +119,12 @@ fn main() { Unit }`,
 }
 
 // A type-parameter-qualified member taken BARE — not the direct callee of a
-// call — reached neither validator at 1517b166. checkTypeParamQualifiedCall
+// call — used to reach neither validator. checkTypeParamQualifiedCall
 // runs from checkCall only, and checkFieldAccess's terminal deliberately
 // skipped a type-param qualifier because its comment credited that function
 // with the case. So `T.<anything>` in value position typed as a permissive
 // nil for ANY member name, `nomi check` said ok, and the program died on
-// `unknown builtin 'T.<member>'`. Measured at 1517b166 with the real binary:
+// `unknown builtin 'T.<member>'`. With the real binary:
 //
 //	fn start<T>(): T where T: Machine { T.Nonexistent }
 //	  nomi check -> ok
@@ -197,7 +197,7 @@ fn main() { Unit }`,
 			// The second cause, independent of position: `T` appears in
 			// neither a parameter nor the return, so collectTypeParamsByName
 			// did not carry it and BOTH validators answered "not a type
-			// parameter". Measured at 1517b166 — `nomi check` ok, then
+			// parameter": `nomi check` ok, then
 			// `line 5: unknown builtin 'T.nope'` — while the same function
 			// with `T` in a parameter was rejected at compile time.
 			name: "where-clause-only parameter, callee position",
@@ -261,7 +261,7 @@ fn called<T>(x: T): String where T: Display and Greet {
 }
 
 fn piped<T>(x: T): String where T: Greet {
-  x |> T.hello
+  x |> T.hello()
 }
 
 fn bound<T>(x: T): String where T: Greet {

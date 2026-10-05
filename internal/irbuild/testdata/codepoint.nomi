@@ -3,14 +3,13 @@
 //
 // The point of the fixture is that almost nothing here is an rt implementation.
 // `Codepoint.from_int`'s validation, `next`, `step_by` and `steps_between` are
-// ordinary Nomi source in std/codepoints.nomi and LOWER, so the VM runs the
-// interpreter's own predicate rather than a Go copy of it. Only
+// ordinary Nomi source in std/codepoints.nomi and lower to IR. Only
 // `Codepoint.to_string` (rt.CodepointToString) and `String.to_codepoints`
-// (rt.StringToCodepoints) are Go, and both are one expression.
+// (rt.StringToCodepoints) are rt functions, and both are one expression.
 //
-// So the differential half is genuinely strong for the LOWERING — a wrong opaque
-// width, a lost nominal identity, a dropped `Maybe` are all visible — and says
-// nothing about the two rt functions beyond the inputs named below. That is why
+// So the fixture is strong for the lowering (a wrong opaque width, a lost
+// nominal identity, a dropped `Maybe` are all visible) and says nothing about
+// the two rt functions beyond the inputs named below. That is why
 // codepoint_test.go checks the rt side's widths directly.
 //
 // # Why every Codepoint arrives inside a `Maybe`
@@ -80,11 +79,11 @@ fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint): List<Codepoint> {
 /// reason is a measurement rather than convenience: `List.equal?` on a
 /// `List<Codepoint>` is REFUSED — `equality on a List of an incomparable
 /// element` — because g.comparator answers no for a NAMED element type, which is
-/// the same decision `==` on a named type takes. The
-/// interpreter answers it, so this is a newly-reachable position that refuses
-/// LOUDLY rather than a wrong answer, and widening it belongs to whoever owns
-/// that key. Rendering both chains compares them structurally with no pointer
-/// anywhere in the path, which is what this fixture needs.
+/// the same decision `==` on a named type takes. So this position refuses
+/// loudly rather than giving a wrong answer, and widening it belongs to
+/// whoever owns that key. Rendering both chains compares them structurally
+/// with no pointer anywhere in the path, which is what this fixture needs;
+/// both chains are built from the same input string.
 fn same_as_literal(s: String): Maybe<Bool> {
     a = try Codepoint.from_int(97)
     b = try Codepoint.from_int(98)

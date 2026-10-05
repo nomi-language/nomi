@@ -1,6 +1,6 @@
 package irbuild
 
-// The planted positive behind the HOST pins' zeros.
+// The planted positive behind the empty HOST buckets of both retained lists.
 
 import (
 	"io"
@@ -13,7 +13,8 @@ import (
 var v11pos = ir.At("v11.nomi", 1, 1)
 
 // TestVMCoverage_TheHostClassifierCatchesItsPlant is the planted positive for
-// `vmWantHostFailures == 0` and `vmStdWantHostFailures == 0`.
+// the empty HOST bucket in testdata/expectations/vm-retained.txt and
+// vm-std-retained.txt.
 //
 // No retained body in either population lands in the HOST bucket, and a zero
 // nothing validates is indistinguishable from a classifier that stopped
@@ -51,8 +52,8 @@ func TestVMCoverage_TheHostClassifierCatchesItsPlant(t *testing.T) {
 			"would make the HOST bucket unreachable and both zeros vacuous")
 	}
 	if got := vmClassify(err); got != "HOST: crosses into Go with no binding" {
-		t.Errorf("vmClassify answered %q for %v; both HOST pins read that exact string, "+
-			"so a zero in either would be a zero in a bucket nothing can reach", got, err)
+		t.Errorf("vmClassify answered %q for %v; both retained lists record that exact string, "+
+			"so an empty bucket in either would be one nothing can reach", got, err)
 	}
 	// It must be a hard failure, because `vmHardFailure` is what stops the
 	// population tests trying the next argument shape. A HOST failure that read

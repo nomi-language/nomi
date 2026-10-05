@@ -97,7 +97,7 @@ func TestIRHeldValue_PerInstructionClass(t *testing.T) {
 }
 
 // TestVMCoverage_TheLinkingClassifierCatchesItsPlant is the planted positive
-// for `vmWantLinkingFailures`.
+// for the LINKING bucket in testdata/expectations/vm-retained.txt.
 //
 // A low count that nothing validates is indistinguishable from a classifier
 // that stopped recognising the failure. So this builds a module whose function
@@ -144,8 +144,8 @@ func TestVMCoverage_TheLinkingClassifierCatchesItsPlant(t *testing.T) {
 			"FuncFor answered, which would make the LINKING bucket unreachable")
 	}
 	if got := vmClassify(err); got != "LINKING: a declaration this module did not retain" {
-		t.Errorf("vmClassify answered %q for %v; the LINKING pin reads that exact "+
-			"string, so a zero in the pin would be a zero in a bucket nothing can "+
+		t.Errorf("vmClassify answered %q for %v; the retained lists record that exact "+
+			"string, so an empty bucket there would be one nothing can "+
 			"reach", got, err)
 	}
 }

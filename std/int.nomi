@@ -242,14 +242,14 @@ derive Display for NonZeroInt
 /// `NonZeroInt` is expected via `PositiveInt.to_non_zero`.
 pub opaque type PositiveInt Int
 
-/// Widens a `PositiveInt` to a `NonZeroInt` — every positive Int is non-zero,
-/// so this is total (never fails). Lets a `PositiveInt` flow into a position
-/// that requires `NonZeroInt`, such as `Int.divide`'s divisor.
-//! p = try Int.to_positive(5)
-//! NonZeroInt(n) = PositiveInt.to_non_zero(p)
-//! assert n == 5
-//
 impl PositiveInt {
+    /// Widens a `PositiveInt` to a `NonZeroInt` — every positive Int is non-zero,
+    /// so this is total (never fails). Lets a `PositiveInt` flow into a position
+    /// that requires `NonZeroInt`, such as `Int.divide`'s divisor.
+    //! p = try Int.to_positive(5)
+    //! NonZeroInt(n) = PositiveInt.to_non_zero(p)
+    //! assert n == 5
+    //
     pub fn to_non_zero(p: PositiveInt): NonZeroInt {
         PositiveInt(n) = p
         NonZeroInt(n)

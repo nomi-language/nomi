@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/vmhost"
 	"github.com/nomi-language/nomi/vmrunner"
 )
@@ -154,5 +156,35 @@ func TestReadImage_ADamagedTrailerIsAnError(t *testing.T) {
 	}
 	if _, err := vmrunner.ReadImage(path); err == nil || !strings.Contains(err.Error(), "trailer is damaged") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// A panic in the VM's bytecode compiler, planted through vm.CompileHook, is
+// reported by a built executable as an internal compiler error with a request
+// to report it, not as a Go crash or a BLOCKED machine limit.
+func TestRun_ACompilePanicIsAnInternalCompilerError(t *testing.T) {
+	img := image(t, "import std/io\n\nfn planted_compile_panic_target(): Int {\n  1\n}\n\n"+
+		"fn main() {\n  io.print(\"before\")\n  io.print(planted_compile_panic_target())\n}\n")
+	vm.CompileHook = func(f *ir.Func) {
+		if f.Name() == "planted_compile_panic_target" {
+			panic("planted compile panic")
+		}
+	}
+	t.Cleanup(func() { vm.CompileHook = nil })
+	var out, errOut bytes.Buffer
+	code := vmrunner.Run(img, &out, &errOut, strings.NewReader(""), nil, false)
+	if code != 1 || out.String() != "before\n" {
+		t.Fatalf("exit %d, stdout %q, stderr %q", code, out.String(), errOut.String())
+	}
+	for _, want := range []string{
+		"internal compiler error: vm: compiling planted_compile_panic_target to bytecode: planted compile panic",
+		"please report it at https://github.com/nomi-language/nomi/issues",
+	} {
+		if !strings.Contains(errOut.String(), want) {
+			t.Errorf("stderr %q does not contain %q", errOut.String(), want)
+		}
+	}
+	if strings.Contains(errOut.String(), "BLOCKED") {
+		t.Errorf("stderr %q reports the panic as BLOCKED", errOut.String())
 	}
 }

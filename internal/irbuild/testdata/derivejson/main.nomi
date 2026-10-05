@@ -30,20 +30,13 @@
 // structural comparator. `local == local_copy` beside it is the control: same
 // shape, impl in THIS file, worked before.
 //
-// The Err direction uses a MISSING FIELD and not a non-object, and that is a
-// deliberate avoidance rather than a choice of convenience: `T.from_json` over a
-// NON-OBJECT `Json` fails on the INTERPRETER at the parent —
-// `unknown builtin 'json.shape_error_root'`, reported at a synth-band line —
-// because the derived body's not-an-object arm calls a std `pub fn` the evaluator
-// does not resolve. Seen on a two-declaration program, so it is
-// pre-existing, unrelated to this change, and unreachable from the corpus (no
-// corpus file hands a derived `from_json` a non-object). A fixture cannot pin
-// that shape at all, because `requireIdentical` needs a reference run.
+// The Err direction uses a missing field and not a non-object. A non-object
+// reaches a different arm of the derived body (`json.shape_error_root`), and
+// no corpus file hands a derived `from_json` a non-object.
 //
-// The rendered strings are absolute, not merely identical to the interpreter.
-// `requireIdentical` proves the two backends agree and cannot prove either is
-// right: every line below would be identical-and-wrong if a decode returned the
-// wrong variant, or if `==` answered structurally where an impl should have run.
+// The rendered strings are absolute: every line below would be wrong if a
+// decode returned the wrong variant, or if `==` answered structurally where an
+// impl should have run.
 import {
     std/io
     std/json.{FromJson, Json, ToJson}

@@ -6748,6 +6748,10 @@
             "named": true
           },
           {
+            "type": "binary_expression",
+            "named": true
+          },
+          {
             "type": "body",
             "named": true
           },
@@ -6848,6 +6852,14 @@
             "named": true
           },
           {
+            "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "range_expression",
+            "named": true
+          },
+          {
             "type": "raw_string",
             "named": true
           },
@@ -6909,6 +6921,10 @@
           },
           {
             "type": "typed_list",
+            "named": true
+          },
+          {
+            "type": "unary_expression",
             "named": true
           },
           {
@@ -9389,6 +9405,10 @@
           "named": true
         },
         {
+          "type": "then_stage",
+          "named": true
+        },
+        {
           "type": "todo_expression",
           "named": true
         },
@@ -10477,6 +10497,10 @@
         },
         {
           "type": "set",
+          "named": true
+        },
+        {
+          "type": "shebang",
           "named": true
         },
         {
@@ -11818,6 +11842,22 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "then_stage",
+    "named": true,
+    "fields": {
+      "lambda": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "lambda",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -13719,6 +13759,10 @@
     "named": false
   },
   {
+    "type": "shebang",
+    "named": true
+  },
+  {
     "type": "string_content",
     "named": true
   },
@@ -13732,6 +13776,10 @@
   },
   {
     "type": "tests",
+    "named": false
+  },
+  {
+    "type": "then",
     "named": false
   },
   {

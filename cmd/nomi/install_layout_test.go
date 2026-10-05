@@ -13,16 +13,15 @@ import (
 // builds it and runs a stdlib-using program with the compiler's source tree
 // out of reach and no `go` on PATH.
 //
-// THIS EXISTS BECAUSE OF A COVERAGE HOLE, not a hypothesis. Every other test
-// in this tree runs under `go test`, where analysis.StdlibPath()'s
-// runtime.Caller probe resolves to the in-repo std/ directory, so
-// the installed layout — where that probe misses — is a state nothing could
-// observe. It was broken once: a loader propagated StdlibPath's error instead
-// of reading it as "this file is not stdlib source", and since every entry
-// file reaches it, a downloaded `nomi` could not run any program at all,
-// including one with no imports. The whole tree was green.
+// Every other test in this tree runs under `go test`, where
+// analysis.StdlibPath()'s runtime.Caller probe resolves to the in-repo std/
+// directory, so the installed layout, where that probe misses, is a state
+// nothing else observes. A loader that propagates StdlibPath's error instead
+// of reading it as "this file is not stdlib source" breaks every program a
+// downloaded `nomi` runs, including one with no imports, while every other
+// test stays green.
 //
-// `-trimpath` is what reproduces it here: it rewrites runtime.Caller's answer
+// `-trimpath` is what reproduces the installed layout here: it rewrites runtime.Caller's answer
 // to a module-relative path, so the probe looks for `nomi/std` under the
 // process's working directory and misses, exactly as it misses on a user's
 // machine where the build path does not exist. Releases pass -trimpath anyway
@@ -145,7 +144,7 @@ fn main() {
 // adapters generated for the user's bindings), so `go build` compiles them
 // from source. A versioned `nomi` fetches that source through Go
 // (TestVersionedInstallRunsAGoFFIProject); a development build has no version
-// to fetch. So it fails, and what is asserted is that it NAMES the situation
+// to fetch. So it fails, and what is asserted is that it names the situation
 // instead of reporting a stat on a path the user never wrote, and that the way
 // out it names, NOMI_COMPILER_SOURCE, works.
 func TestDevelopmentBuildWithoutSourceRunsAGoFFIProjectOnlyWithACheckout(t *testing.T) {
@@ -238,7 +237,7 @@ func buildTrimmedNomi(t *testing.T) (bin, dir string) {
 
 // installedEnv is the environment a `nomi build` runs under in these tests:
 // HOME inside the scratch directory, `go` reachable and nothing else on PATH,
-// and NOTHING inherited — NOMI_STD_PATH is set by this package's test setup and
+// and nothing inherited: NOMI_STD_PATH is set by this package's test setup and
 // inheriting it would hand the child the source tree whose absence is the
 // subject.
 //
@@ -246,10 +245,10 @@ func buildTrimmedNomi(t *testing.T) (bin, dir string) {
 // to land under the scratch HOME. Two reasons, and neither weakens what is
 // being tested. The module cache holds rt's one dependency, so a private one
 // would make every run of this test fetch github.com/rivo/uniseg from the
-// network. And Go writes the module cache READ-ONLY, which made t.TempDir's
-// cleanup fail with `unlinkat .../uniseg@v0.4.7/properties.go: permission
-// denied` — a test failure with nothing to do with the subject. The subject is
-// the COMPILER's source tree; Go's own caches are orthogonal and a real
+// network. And Go writes the module cache read-only, so t.TempDir's cleanup
+// of a private one fails with `permission denied`, a test failure with
+// nothing to do with the subject. The subject is
+// the compiler's source tree; Go's own caches are orthogonal and a real
 // installation has them too.
 func installedEnv(t *testing.T, dir, goBin string) []string {
 	t.Helper()

@@ -10,7 +10,8 @@ This repository is a read-only mirror. The grammar is developed in the
 Send issues and pull requests to that repository.
 
 The generated parser (`src/parser.c`, `src/scanner.c`) is committed, so editors
-can compile it without running `tree-sitter generate`. `queries/` holds the
+can compile it without running `tree-sitter generate`. It is generated with
+tree-sitter-cli 0.20.8 (language ABI 14), the version `package.json` pins. `queries/` holds the
 reference highlight and injection queries; each editor's own queries live
 under `editors/` in the main repository.
 

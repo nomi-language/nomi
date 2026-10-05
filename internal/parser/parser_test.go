@@ -549,7 +549,7 @@ func TestUnmatchedParen(t *testing.T) {
 	}
 }
 
-// Spec §7 (line 501) and §15 (line 1757): "No single-element tuples —
+// Spec §7 *Tuples* and §15 *Built-in Types*: "No single-element tuples —
 // `(x)` is just grouping." The trailing-comma form `(x,)` was silently
 // constructing a 1-tuple value at runtime even though the type form
 // `(T,)` doesn't parse — value-side acceptance was a bug.
@@ -3270,7 +3270,7 @@ func TestParser_StructLit_TypePrefixed_StillWorks(t *testing.T) {
 	}
 }
 
-// A LITERAL BODY ATTACHES TO A MODULE-QUALIFIED NAME. At 41a60d35 none of
+// A LITERAL BODY ATTACHES TO A MODULE-QUALIFIED NAME. Without that, none of
 // these parsed as a literal: the chain stopped at the member access and the
 // body became a separate anonymous struct or list, which the checker then
 // reported as `non-final expression has type {r: Int}`.
@@ -7293,5 +7293,26 @@ func TestParseImplBlock_BodylessInherentImplRejected(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "expected `{` for an inherent impl block or `for Type`") {
 		t.Errorf("expected a missing-`{` inherent impl rejection, got %q", err.Error())
+	}
+}
+
+// A same-line comment ends a bare `return`, `break` or `continue` as a
+// newline does; it used to be read as the start of an operand.
+func TestParseBareControlFollowedByComment(t *testing.T) {
+	for _, tc := range []struct {
+		kw   string
+		bare func(ast.Node) bool
+	}{
+		{"return", func(n ast.Node) bool { r, ok := n.(*ast.Return); return ok && r.Value == nil }},
+		{"break", func(n ast.Node) bool { b, ok := n.(*ast.Break); return ok && b.Value == nil }},
+		{"continue", func(n ast.Node) bool { c, ok := n.(*ast.Continue); return ok && c.Value == nil }},
+	} {
+		t.Run(tc.kw, func(t *testing.T) {
+			nodes := parse(t, "fn f() {\n    "+tc.kw+" // done\n}")
+			fd := nodes[0].(*ast.FuncDef)
+			if len(fd.Body.Stmts) != 1 || !tc.bare(fd.Body.Stmts[0]) {
+				t.Fatalf("body = %#v, want one bare %s", fd.Body.Stmts, tc.kw)
+			}
+		})
 	}
 }

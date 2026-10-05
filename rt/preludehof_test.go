@@ -6,7 +6,7 @@ import "testing"
 //
 // What a program cannot reach is the never-constructed value: Nomi has no zero
 // values, so no Nomi program can produce a `Result[T, E]` with `TagInvalid`,
-// and the property that a Go zero value stays DETECTABLY unconstructed rather
+// and the property that a Go zero value stays detectably unconstructed rather
 // than being promoted to a legitimate variant has to be asserted absolutely.
 // That is what this file is for, and it is the reason the driver copies the tag
 // instead of naming a variant.
@@ -30,7 +30,7 @@ func TestHofAbsentArmPreservesTheTag(t *testing.T) {
 
 // TestHofDoesNotCallTheCallbackOnTheAbsentArm is the property that a Go zero
 // value makes possible to get wrong and impossible to see from the answer
-// alone. map_err's absent arm is the OK one, which is the mirror and the
+// alone. map_err's absent arm is the Ok one, which is the mirror and the
 // easiest to get backwards: a driver testing `TagErr` where it meant `TagOk`
 // inverts both arms and still type-checks.
 func TestHofDoesNotCallTheCallbackOnTheAbsentArm(t *testing.T) {
@@ -47,7 +47,7 @@ func TestHofDoesNotCallTheCallbackOnTheAbsentArm(t *testing.T) {
 	}
 }
 
-// TestHofCarriesTheUntouchedPayloadAcross pins the field the driver does NOT
+// TestHofCarriesTheUntouchedPayloadAcross pins the field the driver does not
 // transform: `map_err` leaves `T` alone, and a driver that rebuilt the struct
 // without copying it would answer `Ok(0)`.
 func TestHofCarriesTheUntouchedPayloadAcross(t *testing.T) {

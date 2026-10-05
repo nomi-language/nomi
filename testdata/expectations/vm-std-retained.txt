@@ -1,0 +1,399 @@
+# Every function the builder retains over the cached std modules, and whether the VM
+# ran it on synthesized arguments (internal/irbuild's
+# TestIRRetainedStdPopulationRuns). A line that leaves `ran` is a regression;
+# name the cause of every moved line. Regenerate with:
+#   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild -run '^TestIRRetainedStdPopulationRuns$' -count=1
+assertions.nomi:AssertionBinding.inspect	ran
+assertions.nomi:AssertionDetail.inspect	ran
+assertions.nomi:AssertionDetails.inspect	ran
+assertions.nomi:AssertionFailure.inspect	ran
+assertions.nomi:AssertionPipelineStage.inspect	ran
+assertions.nomi:AssertionValue.inspect	ran
+bool.nomi:Bool.compare	ran
+bool.nomi:Bool.equal?	ran
+bool.nomi:Bool.hash	ran
+bool.nomi:Bool.inspect	ran
+bool.nomi:Bool.to_string	ran
+bool.nomi:False.compare	ran
+bool.nomi:False.equal?	ran
+bool.nomi:False.hash	ran
+bool.nomi:False.inspect	ran
+bool.nomi:False.to_string	ran
+bool.nomi:True.compare	ran
+bool.nomi:True.equal?	ran
+bool.nomi:True.hash	ran
+bool.nomi:True.inspect	ran
+bool.nomi:True.to_string	ran
+bytes.nomi:Byte.equal?	ran
+bytes.nomi:Byte.hash	ran
+bytes.nomi:Byte.inspect	ran
+bytes.nomi:Byte.to_string	ran
+bytes.nomi:Bytes.Add<Bytes, Bytes>.add	ran
+bytes.nomi:Bytes.equal?	ran
+bytes.nomi:Bytes.inspect	ran
+bytes.nomi:join_debug_parts	ran
+bytes.nomi:to_string	ran
+calendar.nomi:Date.Add<Days, Date>.add	ran
+calendar.nomi:Date.Add<Months, Date>.add	ran
+calendar.nomi:Date.Add<Weeks, Date>.add	ran
+calendar.nomi:Date.Add<Years, Date>.add	ran
+calendar.nomi:Date.Subtract<Days, Date>.subtract	ran
+calendar.nomi:Date.Subtract<Months, Date>.subtract	ran
+calendar.nomi:Date.Subtract<Weeks, Date>.subtract	ran
+calendar.nomi:Date.Subtract<Years, Date>.subtract	ran
+calendar.nomi:Date.compare	ran
+calendar.nomi:Date.day	ran
+calendar.nomi:Date.equal?	ran
+calendar.nomi:Date.from_fragments	ran
+calendar.nomi:Date.hash	ran
+calendar.nomi:Date.inspect	ran
+calendar.nomi:Date.month	ran
+calendar.nomi:Date.new	ran
+calendar.nomi:Date.parse	ran
+calendar.nomi:Date.year	ran
+calendar.nomi:DateAttempt.inspect	ran
+calendar.nomi:DateTime.Add<Days, DateTime>.add	ran
+calendar.nomi:DateTime.Add<Duration, DateTime>.add	ran
+calendar.nomi:DateTime.Add<Hours, DateTime>.add	ran
+calendar.nomi:DateTime.Add<Microseconds, DateTime>.add	ran
+calendar.nomi:DateTime.Add<Milliseconds, DateTime>.add	ran
+calendar.nomi:DateTime.Add<Minutes, DateTime>.add	ran
+calendar.nomi:DateTime.Add<Months, DateTime>.add	ran
+calendar.nomi:DateTime.Add<Nanoseconds, DateTime>.add	ran
+calendar.nomi:DateTime.Add<Seconds, DateTime>.add	ran
+calendar.nomi:DateTime.Add<Weeks, DateTime>.add	ran
+calendar.nomi:DateTime.Add<Years, DateTime>.add	ran
+calendar.nomi:DateTime.Subtract<Days, DateTime>.subtract	ran
+calendar.nomi:DateTime.Subtract<Duration, DateTime>.subtract	ran
+calendar.nomi:DateTime.Subtract<Hours, DateTime>.subtract	ran
+calendar.nomi:DateTime.Subtract<Microseconds, DateTime>.subtract	ran
+calendar.nomi:DateTime.Subtract<Milliseconds, DateTime>.subtract	ran
+calendar.nomi:DateTime.Subtract<Minutes, DateTime>.subtract	ran
+calendar.nomi:DateTime.Subtract<Months, DateTime>.subtract	ran
+calendar.nomi:DateTime.Subtract<Nanoseconds, DateTime>.subtract	ran
+calendar.nomi:DateTime.Subtract<Seconds, DateTime>.subtract	ran
+calendar.nomi:DateTime.Subtract<Weeks, DateTime>.subtract	ran
+calendar.nomi:DateTime.Subtract<Years, DateTime>.subtract	ran
+calendar.nomi:DateTime.between	ran
+calendar.nomi:DateTime.compare	ran
+calendar.nomi:DateTime.equal?	ran
+calendar.nomi:DateTime.from_fragments	ran
+calendar.nomi:DateTime.from_instant_in	ran
+calendar.nomi:DateTime.hash	ran
+calendar.nomi:DateTime.in_zone	ran
+calendar.nomi:DateTime.in_zone_resolve	ran
+calendar.nomi:DateTime.inspect	ran
+calendar.nomi:DateTime.now_in	ran
+calendar.nomi:DateTime.offset	ran
+calendar.nomi:DateTime.parse	ran
+calendar.nomi:DateTime.to_instant	ran
+calendar.nomi:DateTime.with_zone	ran
+calendar.nomi:Days.compare	ran
+calendar.nomi:Days.equal?	ran
+calendar.nomi:Days.hash	ran
+calendar.nomi:Days.inspect	ran
+calendar.nomi:Days.to_string	ran
+calendar.nomi:Disambiguation.inspect	ran
+calendar.nomi:Error.equal?	ran
+calendar.nomi:Error.inspect	ran
+calendar.nomi:Error.of	ran
+calendar.nomi:Error.to_string	ran
+calendar.nomi:Hours.compare	ran
+calendar.nomi:Hours.equal?	ran
+calendar.nomi:Hours.hash	ran
+calendar.nomi:Hours.inspect	ran
+calendar.nomi:Hours.to_string	ran
+calendar.nomi:Microseconds.compare	ran
+calendar.nomi:Microseconds.equal?	ran
+calendar.nomi:Microseconds.hash	ran
+calendar.nomi:Microseconds.inspect	ran
+calendar.nomi:Microseconds.to_string	ran
+calendar.nomi:Milliseconds.compare	ran
+calendar.nomi:Milliseconds.equal?	ran
+calendar.nomi:Milliseconds.hash	ran
+calendar.nomi:Milliseconds.inspect	ran
+calendar.nomi:Milliseconds.to_string	ran
+calendar.nomi:Minutes.compare	ran
+calendar.nomi:Minutes.equal?	ran
+calendar.nomi:Minutes.hash	ran
+calendar.nomi:Minutes.inspect	ran
+calendar.nomi:Minutes.to_string	ran
+calendar.nomi:Months.compare	ran
+calendar.nomi:Months.equal?	ran
+calendar.nomi:Months.hash	ran
+calendar.nomi:Months.inspect	ran
+calendar.nomi:Months.to_string	ran
+calendar.nomi:NaiveAttempt.inspect	ran
+calendar.nomi:NaiveDateTime.Add<Days, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Add<Duration, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Add<Hours, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Add<Microseconds, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Add<Milliseconds, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Add<Minutes, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Add<Months, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Add<Nanoseconds, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Add<Seconds, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Add<Weeks, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Add<Years, NaiveDateTime>.add	ran
+calendar.nomi:NaiveDateTime.Subtract<Days, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.Subtract<Duration, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.Subtract<Hours, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.Subtract<Microseconds, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.Subtract<Milliseconds, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.Subtract<Minutes, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.Subtract<Months, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.Subtract<Nanoseconds, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.Subtract<Seconds, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.Subtract<Weeks, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.Subtract<Years, NaiveDateTime>.subtract	ran
+calendar.nomi:NaiveDateTime.at	ran
+calendar.nomi:NaiveDateTime.at_midnight	ran
+calendar.nomi:NaiveDateTime.between	ran
+calendar.nomi:NaiveDateTime.compare	ran
+calendar.nomi:NaiveDateTime.day	ran
+calendar.nomi:NaiveDateTime.equal?	ran
+calendar.nomi:NaiveDateTime.from_fragments	ran
+calendar.nomi:NaiveDateTime.hash	ran
+calendar.nomi:NaiveDateTime.hour	ran
+calendar.nomi:NaiveDateTime.inspect	ran
+calendar.nomi:NaiveDateTime.minute	ran
+calendar.nomi:NaiveDateTime.month	ran
+calendar.nomi:NaiveDateTime.nanosecond	ran
+calendar.nomi:NaiveDateTime.new	ran
+calendar.nomi:NaiveDateTime.new_exact	ran
+calendar.nomi:NaiveDateTime.parse	ran
+calendar.nomi:NaiveDateTime.second	ran
+calendar.nomi:NaiveDateTime.year	ran
+calendar.nomi:Nanoseconds.compare	ran
+calendar.nomi:Nanoseconds.equal?	ran
+calendar.nomi:Nanoseconds.hash	ran
+calendar.nomi:Nanoseconds.inspect	ran
+calendar.nomi:Nanoseconds.to_string	ran
+calendar.nomi:OffsetAttempt.inspect	ran
+calendar.nomi:OffsetDateTime.Add<Days, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Add<Duration, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Add<Hours, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Add<Microseconds, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Add<Milliseconds, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Add<Minutes, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Add<Months, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Add<Nanoseconds, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Add<Seconds, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Add<Weeks, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Add<Years, OffsetDateTime>.add	ran
+calendar.nomi:OffsetDateTime.Subtract<Days, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.Subtract<Duration, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.Subtract<Hours, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.Subtract<Microseconds, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.Subtract<Milliseconds, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.Subtract<Minutes, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.Subtract<Months, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.Subtract<Nanoseconds, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.Subtract<Seconds, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.Subtract<Weeks, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.Subtract<Years, OffsetDateTime>.subtract	ran
+calendar.nomi:OffsetDateTime.between	ran
+calendar.nomi:OffsetDateTime.compare	ran
+calendar.nomi:OffsetDateTime.equal?	ran
+calendar.nomi:OffsetDateTime.from_fragments	ran
+calendar.nomi:OffsetDateTime.from_instant	ran
+calendar.nomi:OffsetDateTime.hash	ran
+calendar.nomi:OffsetDateTime.inspect	ran
+calendar.nomi:OffsetDateTime.offset	ran
+calendar.nomi:OffsetDateTime.parse	ran
+calendar.nomi:OffsetDateTime.to_instant	ran
+calendar.nomi:OffsetDateTime.with_offset	ran
+calendar.nomi:Seconds.compare	ran
+calendar.nomi:Seconds.equal?	ran
+calendar.nomi:Seconds.hash	ran
+calendar.nomi:Seconds.inspect	ran
+calendar.nomi:Seconds.to_string	ran
+calendar.nomi:Time.Add<Duration, Time>.add	ran
+calendar.nomi:Time.Subtract<Duration, Time>.subtract	ran
+calendar.nomi:Time.between	ran
+calendar.nomi:Time.compare	ran
+calendar.nomi:Time.equal?	ran
+calendar.nomi:Time.from_fragments	ran
+calendar.nomi:Time.hash	ran
+calendar.nomi:Time.hour	ran
+calendar.nomi:Time.inspect	ran
+calendar.nomi:Time.minute	ran
+calendar.nomi:Time.nanosecond	ran
+calendar.nomi:Time.new	ran
+calendar.nomi:Time.parse	ran
+calendar.nomi:Time.second	ran
+calendar.nomi:TimeAttempt.inspect	ran
+calendar.nomi:Weeks.compare	ran
+calendar.nomi:Weeks.equal?	ran
+calendar.nomi:Weeks.hash	ran
+calendar.nomi:Weeks.inspect	ran
+calendar.nomi:Weeks.to_string	ran
+calendar.nomi:Years.compare	ran
+calendar.nomi:Years.equal?	ran
+calendar.nomi:Years.hash	ran
+calendar.nomi:Years.inspect	ran
+calendar.nomi:Years.to_string	ran
+calendar.nomi:ZonedAttempt.inspect	ran
+calendar.nomi:calendar.DateTime.in_zone arity 2	ran
+calendar.nomi:calendar.DateTime.in_zone default 3	ran
+calendar.nomi:calendar.NaiveDateTime.new arity 5	ran
+calendar.nomi:calendar.NaiveDateTime.new arity 6	ran
+calendar.nomi:calendar.NaiveDateTime.new default 6	ran
+calendar.nomi:calendar.NaiveDateTime.new default 7	ran
+calendar.nomi:calendar.Time.new arity 2	ran
+calendar.nomi:calendar.Time.new arity 3	ran
+calendar.nomi:calendar.Time.new default 3	ran
+calendar.nomi:calendar.Time.new default 4	ran
+calendar.nomi:day_nanos	ran
+codepoints.nomi:Codepoint.compare	ran
+codepoints.nomi:Codepoint.equal?	ran
+codepoints.nomi:Codepoint.from_int	ran
+codepoints.nomi:Codepoint.hash	ran
+codepoints.nomi:Codepoint.inspect	ran
+codepoints.nomi:Codepoint.next	ran
+codepoints.nomi:Codepoint.step_by	ran
+codepoints.nomi:Codepoint.steps_between	ran
+codepoints.nomi:Codepoint.to_int	ran
+comparable.nomi:Direction.inspect	ran
+comparable.nomi:Direction.to_string	ran
+comparable.nomi:Ordering.inspect	ran
+comparable.nomi:Ordering.to_string	ran
+compiler.nomi:Diagnostic.inspect	ran
+compiler.nomi:Hover.inspect	ran
+compiler.nomi:Project.inspect	ran
+compiler.nomi:RunFile.inspect	ran
+context.nomi:Context.inspect	ran
+decimal.nomi:Decimal.abs	ran
+decimal.nomi:Decimal.inspect	ran
+decimal.nomi:Decimal.max	ran
+decimal.nomi:Decimal.min	ran
+decimal.nomi:Decimal.negate	ran
+decimal.nomi:Decimal.sign	ran
+decimal.nomi:Decimal.step_by	ran
+decimal.nomi:Decimal.zero?	ran
+decimal.nomi:RoundingMode.inspect	ran
+decimal.nomi:RoundingMode.to_string	ran
+duration.nomi:Duration.Add<Duration, Duration>.add	ran
+duration.nomi:Duration.Divide<Int, Duration>.divide	ran
+duration.nomi:Duration.Multiply<Int, Duration>.multiply	ran
+duration.nomi:Duration.Subtract<Duration, Duration>.subtract	ran
+duration.nomi:Duration.as_hours	ran
+duration.nomi:Duration.as_micros	ran
+duration.nomi:Duration.as_millis	ran
+duration.nomi:Duration.as_minutes	ran
+duration.nomi:Duration.as_nanos	ran
+duration.nomi:Duration.as_seconds	ran
+duration.nomi:Duration.compare	ran
+duration.nomi:Duration.equal?	ran
+duration.nomi:Duration.hash	ran
+duration.nomi:Duration.hours	ran
+duration.nomi:Duration.inspect	ran
+duration.nomi:Duration.microseconds	ran
+duration.nomi:Duration.milliseconds	ran
+duration.nomi:Duration.minutes	ran
+duration.nomi:Duration.nanoseconds	ran
+duration.nomi:Duration.seconds	ran
+dynamic.nomi:DecodeError.inspect	ran
+dynamic.nomi:DecodeError.to_string	ran
+dynamic.nomi:PathSegment.inspect	ran
+dynamic.nomi:PathSegment.to_string	ran
+float.nomi:Float.compare	ran
+float.nomi:Float.equal?	ran
+float.nomi:Float.finite?	ran
+float.nomi:Float.hash	ran
+float.nomi:Float.infinite?	ran
+float.nomi:Float.inspect	ran
+instant.nomi:Instant.Add<Duration, Instant>.add	ran
+instant.nomi:Instant.Subtract<Duration, Instant>.subtract	ran
+instant.nomi:Instant.Subtract<Instant, Duration>.subtract	ran
+instant.nomi:Instant.as_nanos	ran
+instant.nomi:Instant.before?	ran
+instant.nomi:Instant.between	ran
+instant.nomi:Instant.from_nanos	ran
+instant.nomi:Instant.from_seconds	ran
+instant.nomi:Instant.inspect	ran
+instant.nomi:Instant.to_seconds	ran
+int.nomi:Int.Divide<NonZeroInt, Int>.divide	ran
+int.nomi:Int.compare	ran
+int.nomi:Int.equal?	ran
+int.nomi:Int.hash	ran
+int.nomi:Int.inspect	ran
+int.nomi:Int.modulo	ran
+int.nomi:Int.next	ran
+int.nomi:Int.step_by	ran
+int.nomi:Int.steps_between	ran
+int.nomi:Int.to_non_zero	ran
+int.nomi:Int.to_positive	ran
+int.nomi:NonZeroInt.inspect	ran
+int.nomi:NonZeroInt.to_string	ran
+int.nomi:PositiveInt.inspect	ran
+int.nomi:PositiveInt.to_non_zero	ran
+int.nomi:PositiveInt.to_string	ran
+io.nomi:IOError.equal?	ran
+io.nomi:IOError.inspect	ran
+io.nomi:IOError.to_string	ran
+json.nomi:Bool.from_json	ran
+json.nomi:Bool.to_json	ran
+json.nomi:Float.from_json	ran
+json.nomi:Float.to_json	ran
+json.nomi:Int.from_json	ran
+json.nomi:Int.to_json	ran
+json.nomi:Json.DecodeError.inspect	ran
+json.nomi:Json.DecodeError.to_string	ran
+json.nomi:Json.ShapeError.inspect	ran
+json.nomi:Json.ShapeError.to_string	ran
+json.nomi:Json.inspect	ran
+json.nomi:Json.kind	ran
+json.nomi:Json.to_string	ran
+json.nomi:String.from_json	ran
+json.nomi:String.to_json	ran
+json.nomi:shape_error_prepend	ran
+json.nomi:shape_error_root	ran
+random.nomi:Error.equal?	ran
+random.nomi:Error.inspect	ran
+random.nomi:Error.to_string	ran
+random.nomi:Generator.float	ran
+random.nomi:Generator.int	ran
+random.nomi:Seed.from_int	ran
+random.nomi:Seed.from_os	ran
+random.nomi:Seed.inspect	ran
+random.nomi:below	ran
+random.nomi:unit_float	ran
+random.nomi:unsafe_float	ran
+random.nomi:unsafe_int	ran
+ranges.nomi:Range.from	ran
+ranges.nomi:Range.naturals	ran
+regex.nomi:Regex.from_fragments	ran
+regex.nomi:Regex.inspect	ran
+regex.nomi:Regex.to_string	ran
+startup.nomi:Startup.inspect	ran
+strings.nomi:NormalForm.inspect	ran
+strings.nomi:NormalForm.to_string	ran
+strings.nomi:String.compare	ran
+strings.nomi:String.equal?	ran
+strings.nomi:String.inspect	ran
+strings.nomi:String.strip_prefix	ran
+strings.nomi:String.strip_suffix	ran
+strings.nomi:String.to_string	ran
+supervisors.nomi:Backoff.inspect	ran
+supervisors.nomi:FlushOutcome.inspect	ran
+supervisors.nomi:GiveUp.inspect	ran
+supervisors.nomi:Restart.inspect	ran
+supervisors.nomi:Supervisor.flush	ran
+supervisors.nomi:Supervisor.inspect	ran
+supervisors.nomi:Supervisor.new	BOOT: creatable only while boot runs
+supervisors.nomi:Wait.inspect	ran
+supervisors.nomi:supervisors.Supervisor.flush arity 1	ran
+supervisors.nomi:supervisors.Supervisor.flush default 2	ran
+supervisors.nomi:supervisors.Supervisor.new arity 1	BOOT: creatable only while boot runs
+supervisors.nomi:supervisors.Supervisor.new arity 2	BOOT: creatable only while boot runs
+supervisors.nomi:supervisors.Supervisor.new arity 3	BOOT: creatable only while boot runs
+supervisors.nomi:supervisors.Supervisor.new arity 4	BOOT: creatable only while boot runs
+supervisors.nomi:supervisors.Supervisor.new default 2	ran
+supervisors.nomi:supervisors.Supervisor.new default 3	ran
+supervisors.nomi:supervisors.Supervisor.new default 4	ran
+supervisors.nomi:supervisors.Supervisor.new default 5	ran
+toml.nomi:Toml.from_fragments	ran
+toml.nomi:Toml.inspect	ran
+toml.nomi:Toml.text	ran
+unit.nomi:Unit.inspect	ran

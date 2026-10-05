@@ -2,8 +2,8 @@
 // projection the FFI boundary is defined by (spec: "Go binding signatures
 // project Nomi ...").
 //
-// The table is REPRESENTATION-NEUTRAL: it is expressed in Nomi type names
-// and Go SOURCE spellings, and nothing in this file mentions reflect or
+// The table is representation-neutral: it is expressed in Nomi type names
+// and Go source spellings, and nothing in this file mentions reflect or
 // go/ast. Each consumer is a thin adapter over it:
 //
 //   - runtime asks whether the reflect.Type registered under a `host fn`
@@ -13,7 +13,7 @@
 //   - internal/ffirun walks a Go signature as go/ast and asks which Nomi
 //     type each Go spelling projects to, so it can compare that against
 //     the text of the declaration. See NomiForGoIdent.
-//   - internal/ffirun also reads the table in the GENERATIVE direction: the
+//   - internal/ffirun also reads the table in the generative direction: the
 //     Go type the generated FFI wrapper writes for a declared Nomi type is
 //     projected from the declaration. Expect returns that projection as a
 //     GoType it can render directly.
@@ -24,7 +24,7 @@
 //
 // # Direction, and why it is the safe one
 //
-// Checking runs the projection FORWARD: from the DECLARED NOMI TYPE to the
+// Checking runs the projection forward: from the declared Nomi type to the
 // Go type it expects. The inverse (a Go type -> the Nomi type it must be)
 // is lossy and would false-reject legal declarations: `int64` is `Int` but
 // is equally every opaque distinct type over `Int`; `any` is `Dynamic` but

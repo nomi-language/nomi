@@ -6,10 +6,10 @@
 // matches two registered impls, and dispatch correctly refuses to guess
 // between them: `Display.to_string: no implementation for type 'Error'`.
 //
-// Until 2026-08-30 exactly one construction shape got this wrong. A
-// STRUCT-SHAPED variant literal (`Error.InvalidIntRange{from, to}`) stamped
-// the enum as SPELLED at the construction site, while bare and positional
-// variants read the declared enum's qualified name. So one enum produced two
+// Every construction shape must stamp the same identity. A struct-shaped
+// variant literal (`Error.InvalidIntRange{from, to}`) that stamped the enum
+// as spelled at the construction site, while bare and positional variants
+// read the declared enum's qualified name, would give one enum two
 // identities depending on which variant you built, and only one could
 // dispatch. Both shapes are pinned below for that reason.
 import {

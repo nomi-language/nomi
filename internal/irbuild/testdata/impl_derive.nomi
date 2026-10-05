@@ -2,24 +2,20 @@ import std/io
 
 // A DERIVED impl, observed through an operator and through printing.
 //
-// `analysis.SynthesizeDerives` has already run by the time codegen sees this
+// `analysis.SynthesizeDerives` has already run by the time the builder sees this
 // file, so `derive Equatable for Point` arrives as an ordinary
 // `impl Equatable for Point { ... }` whose body is ordinary Nomi. It lowers
 // through exactly the path the hand-written `impl Display for Point` below
-// takes. Nothing here special-cases a derive, and nothing interprets the
-// generated Nomi — doing either would make every derive agree with the
-// interpreter trivially and prove nothing about the lowering.
+// takes. Nothing here special-cases a derive: the derived body is lowered and
+// run like any hand-written one.
 //
 // `==` on a named type is the observation: it dispatches to the derived
-// `equal?`. Divergence-ledger row 11 lives on this operator — the
-// interpreter's NO-IMPL fallback compares base names only, so
-// `shapes.Point == geometry.Point` is true there — and it cannot be written
-// here, because two same-named types from two modules are two kinds and
-// the builder refuses a mixed-kind operator before the arm is reached.
+// `equal?`. Two same-named types from two modules cannot be compared here,
+// because they are two kinds and the builder refuses a mixed-kind operator
+// before the arm is reached.
 //
-// Fields are Int deliberately. Nomi's `==` on Float is reflexive for NaN and
-// Go's is IEEE, which is a live divergence in the shared `==` arm and not
-// this slice's to fix or to hide inside a derived body.
+// Fields are Int deliberately. Nomi's `==` on Float is reflexive for NaN, which
+// float_semantics.nomi covers, and that rule is not this fixture's subject.
 struct Point {
     x: Int
     y: Int

@@ -2,20 +2,16 @@
 // field.
 //
 // `Bag.items` is a `List<Point>`, so rendering a Bag in a `values:` row needs
-// `nomiInspect_Point` — but the field's own kind is a List, not a named type,
-// and the dependency edge used to be recorded only for a component whose own
-// tag was tagNamed. The Point inspector was therefore NAMED in the emitted body
-// and never emitted: `undefined: nomiInspect_Point_10` from `go build`, at
-// bb3f574f, from this program.
+// the Point renderer, but the field's own kind is a List, not a named type.
+// The dependency on the Point renderer has to be followed through the List's
+// element, not only through a component whose own tag is tagNamed.
 //
-// It is a COMPILE-FAIL rather than a wrong answer, which is why nothing caught
-// it: the corpus contains no struct with a `List<UserStruct>` field, so the
-// sweep read 0 COMPILE-FAIL and was right about the corpus and silent about the
-// language.
+// The corpus contains no struct with a `List<UserStruct>` field, so only this
+// fixture reaches that path.
 //
 // The FAILING assertions are the point — a `values:` row is only rendered when
-// an assertion fails, so a file whose cases all pass would compile the
-// inspector and never call it, and a mutation that emitted the wrong renderer
+// an assertion fails, so a file whose cases all pass would never call the
+// renderer, and a mutation that picked the wrong renderer
 // would still pass. Every case here prints its operand.
 struct Point {
     x: Int

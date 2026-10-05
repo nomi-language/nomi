@@ -9,9 +9,9 @@ import (
 )
 
 // The concurrency runtime, tested for the four properties a corpus golden file
-// CANNOT see and the one it can.
+// cannot see and the one it can.
 //
-// # WHY THESE ARE HERE AND NOT ONLY IN internal/irbuild
+// # Why these are here and not only in internal/irbuild
 //
 // The corpus file that exercises this runtime
 // (16-concurrency/concurrent_runtime_test.nomi) matches its golden record byte
@@ -22,11 +22,11 @@ import (
 //   - `close(done)` raced the outcome write,
 //   - `ScopeExit` returned before its tasks finished.
 //
-// Each is asserted below AS A POSITIVE — a demonstrated firing, a non-zero
+// Each is asserted below as a positive — a demonstrated firing, a non-zero
 // count, a value read — rather than as "nothing went wrong", because "nothing
 // went wrong" is what a runtime that was never entered also reports.
 //
-// # RUN THESE UNDER -race
+// # Run these under -race
 //
 //	go test -race ./rt -run TestConcurrent
 //
@@ -63,11 +63,11 @@ func TestConcurrent_SpawnAndAwaitCarryTheValue(t *testing.T) {
 }
 
 // TestConcurrent_APanickingTaskDoesNotKillTheProcess is the property the file
-// header names first, and it is asserted by REACHING THE LINE AFTER IT.
+// header names first, and it is asserted by reaching the line after it.
 //
 // A test that merely called `TaskOutcomeOf` and checked the tag would pass on a
 // runtime that re-panicked, because the re-panic would fail the test rather than
-// the process — so the assertion has to be that the SIBLING work and the
+// the process — so the assertion has to be that the sibling work and the
 // enclosing test both survive.
 func TestConcurrent_APanickingTaskDoesNotKillTheProcess(t *testing.T) {
 	fr, exit := scopeFixture(t)
@@ -90,14 +90,14 @@ func TestConcurrent_APanickingTaskDoesNotKillTheProcess(t *testing.T) {
 	if !strings.Contains(o.Failed.Msg, "deliberate") {
 		t.Errorf("the failure message is %q and does not name the panic value", o.Failed.Msg)
 	}
-	// THE POSITIVE: a sibling ran to completion and this line was reached.
+	// The positive: a sibling ran to completion and this line was reached.
 	if got := TaskAwait(fr, good); got != 7 {
 		t.Errorf("the sibling of a panicking task returned %d, want 7", got)
 	}
 }
 
 // TestConcurrent_ANomiFaultIsErroredAndAwaitInheritsIt pins the mapping the file
-// header MEASURED, in both directions:
+// header states, in both directions:
 //
 //	Task.outcome -> Failed(Errored(<the fault's own text>)), program continues
 //	Task.await   -> the fault propagates with that exact text
@@ -114,7 +114,7 @@ func TestConcurrent_ANomiFaultIsErroredAndAwaitInheritsIt(t *testing.T) {
 		if o.Tag != TagFailed || o.Failed.Tag != TagErrored {
 			t.Fatalf("outcome is %+v, want Failed(Errored(...))", o)
 		}
-		// VERBATIM, including the `line N:` prefix. The report is the body's
+		// Verbatim, including the `line N:` prefix. The report is the body's
 		// own fault text with nothing wrapping it, so a wrapper here
 		// would be a differing output rather than a differing structure.
 		if o.Failed.Msg != text {
@@ -139,12 +139,10 @@ func TestConcurrent_ANomiFaultIsErroredAndAwaitInheritsIt(t *testing.T) {
 // `TimerSleep`'s raise exists for, and it is the one a corpus fixture would
 // report as a mere timing difference.
 //
-// THE DISCRIMINATOR IS THE SIDE EFFECT. A test asserting only
-// `Tag == TagCancelled` would pass on a runtime whose sleep returned Unit and
-// let the body run on, because the body would then have completed and... no: it
-// would report Completed. It would NOT pass. What such a test would miss is the
-// case where the raise happens but the body ran its effect first, so the flag is
-// checked too.
+// The discriminator is the side effect. A runtime whose sleep returned Unit
+// would let the body complete and report Completed, which the tag check
+// catches. What a tag check alone would miss is a raise that happens after the
+// body ran its effect, so the flag is checked too.
 func TestConcurrent_CancelledSleepUnwindsAndReportsCancelled(t *testing.T) {
 	fr, exit := scopeFixture(t)
 	defer exit()
@@ -173,10 +171,10 @@ func TestConcurrent_CancelledSleepUnwindsAndReportsCancelled(t *testing.T) {
 
 // TestConcurrent_ScopeExitCancelsAndWaitsForUnawaitedTasks is the corpus's own
 // shape, in Go: `nested_outer_body` binds two five-second sleepers and never
-// awaits them, so the block completes NORMALLY with both in flight.
+// awaits them, so the block completes normally with both in flight.
 //
-// TWO assertions, because each catches a different half:
-//   - ScopeExit RETURNED, and the tasks had settled by then. A cancel with no
+// Two assertions, because each catches a different half:
+//   - ScopeExit returned, and the tasks had settled by then. A cancel with no
 //     wait passes an outcome check and leaves a goroutine behind — which a
 //     synctest bubble reports as leftover work and a plain test does not.
 //   - It took no real time. A wait with no cancel would sit out the hour.
@@ -190,7 +188,7 @@ func TestConcurrent_ScopeExitCancelsAndWaitsForUnawaitedTasks(t *testing.T) {
 	ScopeExit(fr)
 	elapsed := time.Since(start)
 
-	// SETTLED, read without waiting: the outcome is available immediately
+	// Settled, read without waiting: the outcome is available immediately
 	// because ScopeExit already waited. A non-blocking read is what makes this
 	// an assertion about ScopeExit rather than about TaskOutcomeOf.
 	select {
@@ -209,9 +207,9 @@ func TestConcurrent_ScopeExitCancelsAndWaitsForUnawaitedTasks(t *testing.T) {
 // TestConcurrent_AwaitAllShortCircuitsOnAFailureAndNotOnAnErr is std's rule, and
 // the two halves are what make it a rule rather than a behaviour.
 //
-// The SHORT-CIRCUIT half is timed: item 0 sleeps for an hour and item 1 fails at
-// once, so a loop that awaited in order would not return. The NOT-ON-ERR half
-// uses a body that RETURNS a value — the stand-in for `Err(e)`, which
+// The short-circuit half is timed: item 0 sleeps for an hour and item 1 fails at
+// once, so a loop that awaited in order would not return. The not-on-err half
+// uses a body that returns a value — the stand-in for `Err(e)`, which
 // is an ordinary value at this level — and asserts every element arrives.
 func TestConcurrent_AwaitAllShortCircuitsOnAFailureAndNotOnAnErr(t *testing.T) {
 	t.Run("a failure short-circuits", func(t *testing.T) {
@@ -234,7 +232,7 @@ func TestConcurrent_AwaitAllShortCircuitsOnAFailureAndNotOnAnErr(t *testing.T) {
 		if err.Msg != "boom" {
 			t.Errorf("propagated %q, want the failing task's own text", err.Msg)
 		}
-		// THE POSITIVE THAT MAKES THIS A SHORT-CIRCUIT: it did not wait for
+		// The positive that makes this a short-circuit: it did not wait for
 		// item 0, which is first in the batch and sleeps for an hour.
 		if elapsed > 5*time.Second {
 			t.Errorf("await_all took %s, so it waited out the earlier task instead of short-circuiting", elapsed)
@@ -252,7 +250,7 @@ func TestConcurrent_AwaitAllShortCircuitsOnAFailureAndNotOnAnErr(t *testing.T) {
 		if len(got) != 3 {
 			t.Fatalf("await_all returned %d values, want 3", len(got))
 		}
-		// IN SPAWN ORDER, which is std's documented contract and the thing a
+		// In spawn order, which is std's documented contract and the thing a
 		// cons-list fold gets backwards if the reversal is dropped.
 		for i, want := range []int64{0, 10, 20} {
 			if got[i] != want {
@@ -262,13 +260,13 @@ func TestConcurrent_AwaitAllShortCircuitsOnAFailureAndNotOnAnErr(t *testing.T) {
 	})
 }
 
-// TestConcurrent_StrayCancellationIsAFault DEMONSTRATES raiseCanceled's guard
+// TestConcurrent_StrayCancellationIsAFault demonstrates raiseCanceled's guard
 // firing.
 //
 // The arm is unreachable from a correct lowering: a cancellation with no task
 // and no deadline in force has no explanation. An arm never shown to fire
 // cannot be told from one that cannot: this fires it directly, so the claim is
-// that the arm is unreachable FROM THE VM rather than dead.
+// that the arm is unreachable from the VM rather than dead.
 func TestConcurrent_StrayCancellationIsAFault(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -314,7 +312,7 @@ func TestConcurrent_ATaskOutlivesNeitherItsScopeNorItsSiblings(t *testing.T) {
 //
 // Only an *Error is caught. A cancellation unwind or a Go panic escapes and
 // fails the test with its traceback, which is what should happen: this helper
-// exists to assert a FAULT, and swallowing everything would make "no fault" and
+// exists to assert a fault, and swallowing everything would make "no fault" and
 // "the wrong panic" indistinguishable.
 func recoverFault(f func()) (err *Error) {
 	defer func() {
@@ -334,17 +332,14 @@ func recoverFault(f func()) (err *Error) {
 
 // TestConcurrent_ABlockedChannelOperationObservesCancellation covers the two
 // cancel arms in channel.go, a parked receive and a parked send. The corpus
-// does not reach them: with both `raiseCanceled(fr)` calls replaced by a trap,
-// `16-concurrency/concurrent_runtime_test.nomi` prints the same output.
-//
-// Why the corpus misses them: the one corpus case that blocks a receive under a deadline —
-// "env context timeout cancels blocked channel receives" — writes its program
-// inside a triple-quoted string handed to `compiler.run`, so that receive runs
-// in a nested program, not in the file under test. Nothing else in the corpus
-// abandons a task parked on a channel.
+// does not reach them. The one corpus case that blocks a receive under a
+// deadline ("env context timeout cancels blocked channel receives") writes its
+// program inside a triple-quoted string handed to `compiler.run`, so that
+// receive runs in a nested program, not in the file under test. Nothing else in
+// the corpus abandons a task parked on a channel.
 //
 // Both directions, because the two arms have different shapes: a receive parks
-// on an empty open channel, and a send parks only once the BUFFER IS FULL — a
+// on an empty open channel, and a send parks only once the buffer is full — a
 // send with room takes SenderSend's non-blocking fast path, which has no cancel
 // arm at all and must not grow one (see SenderSend's own comment on why the
 // cancel arm is only in step 3).
@@ -403,29 +398,19 @@ func TestConcurrent_ABlockedChannelOperationObservesCancellation(t *testing.T) {
 			t.Error("the statement after the parked send executed, so the send returned instead of unwinding")
 		}
 	})
-	// THE PAIRED NEGATIVE, and MY FIRST VERSION OF IT ASSERTED SOMETHING FALSE.
-	// The correction is the reason this comment is long.
+	// The paired negative: a channel operation that can complete does complete,
+	// even on a frame whose context is already cancelled. Nomi observes
+	// cancellation where a task waits rather than poisoning work already
+	// possible.
 	//
-	// The claim was: a channel operation that CAN complete does complete, even on
-	// a frame whose context is already cancelled — Nomi observes cancellation
-	// where a task WAITS rather than poisoning work already possible. That is
-	// true of SEND and false of RECEIVE, and the asymmetry is structural:
+	// `SenderSend` tries a non-blocking send first, in a `select` whose other
+	// arm is `default`. There is no ctx arm on that path, so a send with room
+	// completes deterministically. Only the send half is asserted here, and it
+	// is asserted repeatedly: a single send would pass on a nondeterministic
+	// send by luck.
 	//
-	//   - `SenderSend` tries a NON-BLOCKING send first, in a `select` whose
-	//     other arm is `default`. There is no ctx arm on that path, so a send
-	//     with room completes deterministically. Asserted below.
-	//   - `ReceiverReceive` has no fast path: its ctx arm is a PEER of the
-	//     receive arm, so when a value is ready AND the context is done, Go
-	//     picks randomly. MEASURED — the first version of this test asserted
-	//     `Some(9)` and failed on the first run, unwinding instead.
-	//
-	// The asymmetry is NOT a defect to fix here: when a value is ready AND the
-	// context is done, the language leaves the answer open, so the
-	// nondeterminism is not a wrong answer.
-	//
-	// So the receive half is deliberately unasserted, and the send half is
-	// asserted REPEATEDLY: once would pass on a nondeterministic send by luck,
-	// which is exactly the mistake above in the other direction.
+	// The receive half is not asserted. When a value is ready and the context
+	// is done, the language leaves the answer open.
 	t.Run("a send with room completes on a cancelled frame", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()

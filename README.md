@@ -1,5 +1,7 @@
 # Nomi
 
+[![test](https://github.com/nomi-language/nomi/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/nomi-language/nomi/actions/workflows/test.yml)
+
 Nomi is a statically typed, immutable language for writing expression-shaped
 programs that stay explicit as they grow.
 
@@ -84,6 +86,7 @@ Then set up your editor from [Editor support](#editor-support) below.
 
 ```sh
 nomi run app.nomi                          # run a program
+./app.nomi a b                             # run a file whose first line is #!/usr/bin/env nomi
 nomi test                                  # run every test under the current directory
 nomi                                       # an interactive REPL
 nomi build app.nomi                        # write a standalone executable
@@ -122,12 +125,7 @@ To work on Nomi itself, run `make dev-editors` instead. It installs `nomi` and
 `nomi-lsp` from the checkout and makes each installed editor read the
 checkout: Helix's queries are linked rather than copied, Neovim loads
 `editors/nvim` through lazy.nvim with a parser compiled beside it, and it says
-when Zed's dev extension needs reinstalling. To repeat that after every merge
-into `main`, enable the hook once:
-
-```sh
-make enable-hooks
-```
+when Zed's dev extension needs reinstalling.
 
 ## Contributing
 

@@ -21,25 +21,22 @@ package rt
 // is the language's pure-push iteration protocol, which is also Go 1.23's own
 // `iter.Seq` shape, and the type argument is the element type.
 //
-// Why the Go type lives HERE is the reason prelude.go gives for `Maybe` and
+// Why the Go type lives here is the reason prelude.go gives for `Maybe` and
 // `Result`: a named Nomi type's identity in internal/irbuild is the declaration
 // pointer its `*typeDef` came from, and a std type needs one Go type every
 // module's code can name.
 //
 // # The existential is a closure, and under push that is not a box
 //
-// The existential representation was chosen after measuring a
-// "closure" encoding as no better than boxing — 2 allocations per ELEMENT at
-// depth 1. That measurement was of the PULL protocol, whose `next` returns
-// `Self`, so every step had to rebuild a wrapper. It does not transfer, and the
-// iter-protocol decision says why in as many words: with no `Self` anywhere in
-// the signature, nothing is erased.
+// Under a pull protocol, whose `next` returns `Self`, a closure encoding is no
+// better than boxing: every step has to rebuild a wrapper, which allocates per
+// element. Under push there is no `Self` anywhere in the signature, so nothing
+// is erased per step.
 //
-// Concretely: erasing a `*List[T]` to a `Seq[T]` allocates one closure, ONCE,
+// Concretely: erasing a `*List[T]` to a `Seq[T]` allocates one closure, once,
 // when the pipeline is built. Composing an adapter allocates one more. Nothing
 // allocates per element. That is why `Seq[T]` can be the uniform carrier for
-// `Iter<T>` without the specialize-on-upstream machinery the pull protocol
-// needed — the machinery push deleted.
+// `Iter<T>` without specializing each adapter on its upstream source.
 //
 // # What a `Seq` carries beyond `Run`
 //
@@ -49,7 +46,7 @@ package rt
 // mapped or filtered sequence is `None`, and such a `Seq` has no Src and no
 // Count.
 //
-// A VIEW is different. A List, Map, Set, Vector, String, Bytes, Range or a
+// A view is different. A List, Map, Set, Vector, String, Bytes, Range or a
 // value whose own type implements `Iter` becomes a `Seq` where it enters a
 // declared `Iter<T>` position (a parameter, a field, a payload): an `Iter<T>`
 // holding that source is still that source, so its `known_count` is the
@@ -61,7 +58,7 @@ package rt
 // Seq is `opaque struct Seq<T> { run: ((T) -> Bool) -> Bool }`.
 //
 // Run drives the source, handing each element to yield, and reports whether the
-// source ran to EXHAUSTION (true) or a consumer stopped it early (false). A
+// source ran to exhaustion (true) or a consumer stopped it early (false). A
 // yield returning false is the protocol's "stop"; it is not an error.
 type Seq[T any] struct {
 	Run func(fr *Frame, yield func(fr *Frame, item T) bool) bool
@@ -88,11 +85,11 @@ func ListEachWhile[T any](fr *Frame, xs *List[T], yield func(fr *Frame, item T) 
 // recursion and threads the consumer's stop decision back out through it.
 //
 // The impl's `each_while` is passed in rather than reached through a
-// dispatch table, because the caller selected it STATICALLY: the source's kind
+// dispatch table, because the caller selected it statically: the source's kind
 // named exactly one impl block. So this costs the same one closure
 // ListCellSeq costs and nothing per element, and the walk is a direct Go call.
 //
-// Two type parameters rather than one, with the element FIRST so the call site
+// Two type parameters rather than one, with the element first so the call site
 // can write `rt.UserSeq[int64](tree, …)` and let Go infer the receiver. R is
 // not constrained to anything: a Nomi `impl` receiver may be a struct, an enum
 // pointer or a newtype, and every one of them is just the first argument of the
@@ -147,7 +144,7 @@ func SeqFrom(start int64) Seq[int64] {
 //
 // The `ended`/`completed` bookkeeping keeps a load-bearing distinction: True means "my stream
 // ended" (the upstream exhausted, or the callback asked to stop producing) and
-// False means "the DOWNSTREAM consumer refused another element". That is what
+// False means "the downstream consumer refused another element". That is what
 // lets a `take(3)` shut a whole chain down while `concat` still moves on to its
 // second source.
 
@@ -176,7 +173,7 @@ func SeqMap[T, U any](src Seq[T], f func(fr *Frame, item T) U) Seq[U] {
 
 // FilterEach is `host fn filter_each<T>(source: Iter<T>, pred: (T) -> Bool, yield: (T) -> Bool): Bool`.
 //
-// Note which value is forwarded: the ELEMENT, not the predicate's answer. In
+// Note which value is forwarded: the element, not the predicate's answer. In
 // `filter` the callback's value is the keep/drop decision, which is the one
 // place `filter_each` and `map_each` differ beyond the type.
 func FilterEach[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool, yield func(fr *Frame, item T) bool) bool {
@@ -199,9 +196,9 @@ func SeqFilter[T any](src Seq[T], pred func(fr *Frame, item T) bool) Seq[T] {
 //
 // Two details are observable:
 //
-//   - `n <= 0` yields NOTHING and answers True. It does not touch the source,
+//   - `n <= 0` yields nothing and answers True. It does not touch the source,
 //     which is what makes `Iter.from(1) |> Iter.take(0)` terminate.
-//   - the element is yielded BEFORE the counter is decremented, so `take(3)`
+//   - the element is yielded before the counter is decremented, so `take(3)`
 //     over a three-element source stops on its own rather than asking the
 //     source for a fourth element. The answer is `completed || bounded`: the
 //     stream ended either because the source ran out or because the bound was
@@ -209,7 +206,7 @@ func SeqFilter[T any](src Seq[T], pred func(fr *Frame, item T) bool) Seq[T] {
 //     concerned.
 //
 // `remaining` lives inside Run and not in the closure over the Seq, which is
-// what keeps a `Seq` REPLAYABLE — std/iter.nomi's header promises that binding
+// what keeps a `Seq` replayable — std/iter.nomi's header promises that binding
 // a pipeline and consuming it twice yields the same sequence. A counter hoisted
 // into SeqTake's closure would make the second run yield nothing.
 func TakeEach[T any](fr *Frame, src Seq[T], n int64, yield func(fr *Frame, item T) bool) bool {
@@ -242,27 +239,27 @@ func SeqTake[T any](src Seq[T], n int64) Seq[T] {
 // --- terminals --------------------------------------------------------------
 
 // SeqReduce is `pub host fn reduce<T, U>(source: Iter<T>, f: (U, T) -> U): U`
-// where the callback declares a first-parameter DEFAULT — the SEED.
+// where the callback declares a first-parameter default — the seed.
 //
 // # Why the seed is a parameter here and not a field of anything
 //
 // In Nomi the seed is written inside the callback: `Iter.reduce(xs, |acc = 0,
 // x| acc + x)`. It is not an ordinary default, because nothing is applied on an
-// arity mismatch — the CALLEE reads it out of the function value and
+// arity mismatch — the callee reads it out of the function value and
 // evaluates it off the lambda's own closure. A Go func value has nowhere to
-// carry that, so the caller lifts the default out at the CALL SITE and hands
+// carry that, so the caller lifts the default out at the call site and hands
 // it here.
 //
 // It is an argument to this function rather than a field on `Seq` for a reason
 // that is a correctness one and not a tidiness one: the seed belongs to the
-// CALLBACK, not to the source. The same `Seq` may be reduced twice with two
+// callback, not to the source. The same `Seq` may be reduced twice with two
 // different seeds, and std/iter declares `Seq` with exactly one field, so a
 // second one would be a type std does not have.
 //
 // The Bool `Run` answers is deliberately dropped. Under the push protocol False
 // means a consumer refused the next element, and this consumer never does: a
 // callback that says `break` is refused at the call site (internal/irbuild/iter.go),
-// so the only way the loop ends early is the SOURCE ending it, and the
+// so the only way the loop ends early is the source ending it, and the
 // accumulator is the answer either way.
 func SeqReduce[T, U any](fr *Frame, src Seq[T], seed U, f func(fr *Frame, acc U, item T) U) U {
 	acc := seed
@@ -273,21 +270,20 @@ func SeqReduce[T, U any](fr *Frame, src Seq[T], seed U, f func(fr *Frame, acc U,
 	return acc
 }
 
-// SeqReduceFirst is the same terminal over a callback with NO default: the
-// FIRST element seeds the accumulator and iteration starts at the second, which
+// SeqReduceFirst is the same terminal over a callback with no default: the
+// first element seeds the accumulator and iteration starts at the second, which
 // is what std/iter.nomi:146 documents.
 //
-// Measured rather than inferred from the doc comment, because the two halves
-// disagree in an interesting way. `Iter.reduce([4, 5, 6], |acc, x| acc)` is 4
-// and `|acc, x| x` is 6, so the first element really does seed
-// rather than being folded in. An EMPTY source is a fault, not a zero:
+// `Iter.reduce([4, 5, 6], |acc, x| acc)` is 4 and `|acc, x| x` is 6, so the
+// first element really does seed rather than being folded in. An empty source
+// is a fault, not a zero:
 //
 //	Iter.reduce: cannot reduce empty collection without initial value
 //
-// captured verbatim off `nomi run` (stderr, exit 1, no `line N:` prefix — this
-// fault names no source position).
+// `nomi run` prints that text verbatim to stderr and exits 1, with no
+// `line N:` prefix — this fault names no source position.
 //
-// The accumulator's type is the ELEMENT's here, which it is not in SeqReduce:
+// The accumulator's type is the element's here, which it is not in SeqReduce:
 // with the first element seeding, U and T are the same type by construction.
 func SeqReduceFirst[T any](fr *Frame, src Seq[T], f func(fr *Frame, acc T, item T) T) T {
 	var acc T

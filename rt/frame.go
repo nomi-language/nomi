@@ -19,62 +19,58 @@ import (
 //
 // # Threading it must not allocate per call
 //
-// This is the design's one hard constraint, not a preference. Iter callback
-// dispatch is a cancellation safe point, so the frame rides the iterator hot
-// loop, and the existential-representation decision measured zero allocations
-// per element with no frame parameter at all. A frame allocated per call would
-// silently put ~2 allocations per element back — a performance regression rather
-// than a wrong answer, which is the hardest kind to notice. Measured at 1000
-// elements: threading a pointer and polling ctx.Done() per element costs ~1% and
-// allocates nothing; allocating a frame per call costs 22% and 1001 allocations.
+// This is the design's one hard constraint. Iter callback dispatch is a
+// cancellation safe point, so the frame rides the iterator hot loop, which
+// allocates nothing per element. Threading a pointer and polling ctx.Done()
+// per element keeps it that way. A frame allocated per call would add
+// allocations on every element: a performance regression rather than a wrong
+// answer, which makes it easy to miss.
 //
-// # A Frame is allocated only where the scope genuinely changes
+// # A Frame is allocated only where the scope changes
 //
 // A new Frame belongs at a scoped replacement (installing the value in force), forcing a
-// `once` (extending a forcing cons-list), entering an `assert`/`refute`
-// (setting a trace), and `concurrent`/`spawn` (a task gets its own frame over
-// the parent's context). A program with none of those still allocates exactly
-// one Frame, in Main, and every call passes the same pointer down unchanged.
+// `once` (extending a forcing cons-list), and `concurrent`/`spawn` (a task
+// gets its own frame over the parent's context). A program with none of those
+// still allocates exactly one Frame, in Main, and every call passes the same
+// pointer down unchanged.
 //
-// `trace` is still absent because a cons-list head's only correct
-// implementation depends on the construct that pushes onto it — `trace` needs
-// the assertion renderer's collection boundary — and declaring it empty would
-// ship a field no code reads and no test can constrain, fixing its shape
-// before the construct that determines it exists.
+// Frame has no assertion trace. Which operands an assertion records is decided
+// when the IR is built, and the trace is a local slice in the lowered body
+// (see assertion_test.go), so nothing pushes one onto the frame.
 type Frame struct {
 	ctx context.Context
 	// forcing is this lineage's stack of `once` cells whose RHS is currently
 	// being evaluated, as an immutable cons-list. Nil on every frame except
 	// the ones a force created, which is every frame in almost every program.
-	// It is DYNAMIC context — propagated caller-to-callee by the frame pointer
+	// It is dynamic context — propagated caller-to-callee by the frame pointer
 	// rather than lexically — because that is what makes a cycle through an
 	// ordinary function call visible at the re-entry. See once.go.
 	forcing *forcing
 	// scope is the innermost `concurrent { }` block this lineage is inside, or
-	// nil. DYNAMIC context for `forcing`'s reason and more sharply: a
+	// nil. Dynamic context for `forcing`'s reason and more sharply: a
 	// `Task.spawn` in a helper function called from inside a block has no
 	// lexical route to the block. See concurrent.go, which records the three
 	// alternatives to this field and why each is worse.
 	scope *Scope
-	// inTask marks a frame running INSIDE a spawned task body, which is the
+	// inTask marks a frame running inside a spawned task body, which is the
 	// one place a cooperative cancellation may be raised as a panic — because
 	// the task's own goroutine wrapper is the only thing that recovers one.
 	//
 	// A bool rather than "scope != nil": a task body has no scope of its own
-	// until it opens a nested `concurrent` block, and a block on the MAIN
+	// until it opens a nested `concurrent` block, and a block on the main
 	// goroutine has a scope while having nothing above it to unwind to. The
-	// two questions are genuinely different. See raiseCanceled.
+	// two questions are different. See raiseCanceled.
 	inTask bool
-	// inBoot marks a frame running WHILE the app value is being constructed,
+	// inBoot marks a frame running while the app value is being constructed,
 	// which is the one window `Supervisor.new` may be called in.
 	//
-	// THE REQUIREMENT IS TEMPORAL, NOT LEXICAL, and a frame flag is what makes
-	// it so. It was once a lexical `currentFnName != "boot"` check and that was
-	// wrong: it rejected a server type creating its own supervisor in a
-	// constructor `boot` calls, which cost a second app-struct field per server
-	// and made `Restart.Permanent` unusable, since one shared supervisor cannot
+	// The requirement is temporal, not lexical, and a frame flag is what makes
+	// it so. A lexical `currentFnName != "boot"` check would be wrong: it would
+	// reject a server type creating its own supervisor in a constructor `boot`
+	// calls, which would cost a second app-struct field per server and make
+	// `Restart.Permanent` unusable, since one shared supervisor cannot
 	// be permanent for some of its work and not the rest. The rule is that
-	// supervisors are created WHILE boot runs, not that the call is written
+	// supervisors are created while boot runs, not that the call is written
 	// inside it — and a flag propagated caller-to-callee by the frame pointer
 	// is exactly that, because every call passes the frame down.
 	//
@@ -82,16 +78,16 @@ type Frame struct {
 	// callback would be: a goroutine started during boot does not inherit it,
 	// because a task body's frame is built by rt and sets only `inTask`.
 	inBoot bool
-	// underDeadline marks a frame whose `ctx` ends because a NOMI DEADLINE in
+	// underDeadline marks a frame whose `ctx` ends because a Nomi deadline in
 	// force here ran out, rather than because something cancelled it. Set only
 	// by EnterDeadline, so it is exactly "a `with MyApp.context = …` rebind is
 	// in scope and it carried a deadline".
 	//
-	// It exists because `raiseCanceled`'s `!inTask` arm has TWO causes. A
+	// It exists because `raiseCanceled`'s `!inTask` arm has two causes. A
 	// frame's ctx is closed by a Scope's `cancel`, a Task's, or EnterDeadline,
-	// and the last closes it on the MAIN goroutine, WHILE the body runs.
+	// and the last closes it on the main goroutine, while the body runs.
 	// Without the flag an ordinary program (`with MyApp.context =
-	// Context.with_timeout(…)`, then a `timer.sleep` past it) reached a fault
+	// Context.with_timeout(…)`, then a `timer.sleep` past it) would reach a fault
 	// that reads as a lowering bug instead of the deadline. A flag rather than
 	// reading `fr.ctx.Err()`, so the cause is recorded where the deadline is
 	// installed rather than reconstructed from the error afterwards.
@@ -102,13 +98,13 @@ type Frame struct {
 	// not.
 	underDeadline bool
 	// park is the supervisor tracker a supervised task's blocking waits report
-	// to, or nil. Read only by the DRAIN, to tell "still working" from "nothing
+	// to, or nil. Read only by the drain, to tell "still working" from "nothing
 	// left to wait for" — see supervisor.go's drainOnce.
 	park *parkTracker
 	// scopedFields are immutable snapshots inherited by child frames.
 	scopedFields  map[string]any
 	scopedContext *Context
-	// booted is what boot PUBLISHED, which no `with` override changes. It is
+	// booted is what boot published, which no `with` override changes. It is
 	// what a `once` initializer reads instead of the forcer's scoped fields;
 	// see forcingOnce. Every frame built by hand must carry it across.
 	booted      *bootedApp
@@ -118,7 +114,7 @@ type Frame struct {
 
 // EnterBoot returns the frame the app value is constructed on.
 //
-// A CHILD frame rather than a mutation, for EnterScope's reason: the parent
+// A child frame rather than a mutation, for EnterScope's reason: the parent
 // outlives the construction and must not report `inBoot` afterwards. Everything
 // else is carried across, because a boot expression is an ordinary expression
 // that may force a `once` or read a context.
@@ -130,33 +126,33 @@ func EnterBoot(parent *Frame) *Frame {
 
 // EnterDeadline returns the frame a `with MyApp.context = next` scope runs on:
 // a child whose Go context carries `next`'s effective deadline, plus a release
-// the caller MUST invoke at scope exit.
+// the caller must invoke at scope exit.
 //
-// # WHY THIS EXISTS, AND WHY ITS ABSENCE IS INVISIBLE
+// # Why this exists
 //
-// A Nomi deadline has two halves. `Context` is a pure deadline CHAIN that
+// A Nomi deadline has two halves. `Context` is a pure deadline chain that
 // readers walk (`Context.deadline_remaining`), and `ContextWithFloor` installs
 // a tightened one into the app-field cell. But every blocking operation in
-// this package selects on `fr.ctx` — NINE sites: `TimerSleep`, `SenderSend`,
+// this package selects on `fr.ctx` — nine sites: `TimerSleep`, `SenderSend`,
 // `ReceiverReceive`, `TaskAwait`, `TaskOutcome`, `CancelIfDone`, the scope
 // wait in `ScopeExit`, `SupervisorFlush`, and the batch semaphore in
 // `spawnScopeTask`. Without this function nothing puts the Nomi deadline onto
-// that context, so a rebind bounds what a program can READ and nothing it can
-// WAIT on.
+// that context, so a rebind bounds what a program can read and nothing it can
+// wait on.
 //
-// That failure produces no wrong string until something waits on it:
-// `concurrency.md:L800` bounds a five-minute `timer.sleep` with a 50ms
+// That failure produces no wrong string until something waits on it: the
+// tour's concurrency chapter bounds a five-minute `timer.sleep` with a 50ms
 // deadline and must answer "timed out, falling back" in well under a second.
 // A missing deadline there sleeps for the full five minutes.
 //
-// # ONE CHOKEPOINT, NOT NINE PATCHES
+// # One chokepoint
 //
 // Two things can stop blocking work. The *structural* context comes from the
 // enclosing `concurrent { }` block or task. The *ambient* context is the Nomi
 // `Context` value in the app's `context` field. A blocking operation answers
 // to both.
 //
-// This composes them at the one place the ambient deadline CHANGES rather than
+// This composes them at the one place the ambient deadline changes rather than
 // at each of the nine places it is read. The structural context is
 // `parent.ctx`; the ambient deadline is derived onto it here; and every
 // existing `fr.ctx` read is then already correct, with no per-operation change
@@ -167,20 +163,20 @@ func EnterBoot(parent *Frame) *Frame {
 // allocate a context and a timer per Iter element, which frame.go's own hard
 // constraint forbids.
 //
-// ALREADY SPENT rather than skipped: a deadline in the past must yield a
+// Already spent rather than skipped: a deadline in the past must yield a
 // context that is already Done, so the first blocking operation cancels
 // instead of starting a wait that is over before it began.
 //
-// `context.WithDeadline` DOES THAT ITSELF, checked against Go 1.27 rather than
-// reasoned from the docs: `context.WithDeadline(bg, time.Now().Add(-time.Hour))`
+// `context.WithDeadline` does that itself:
+// `context.WithDeadline(bg, time.Now().Add(-time.Hour))`
 // comes back with `Done()` already closed and `Err()` already
 // `context.DeadlineExceeded`, because the constructor compares the deadline to
 // now and cancels inline rather than arming a timer. A `WithCancel`-then-cancel
-// special case would buy nothing and COST the cause (`context.Canceled` in
+// special case would buy nothing and cost the cause (`context.Canceled` in
 // place of `context.DeadlineExceeded`), which is a distinction
 // `raiseCanceled` needs.
 //
-// NO DEADLINE returns the parent unchanged and a no-op release, so a program
+// No deadline returns the parent unchanged and a no-op release, so a program
 // that rebinds a deadline-free context neither allocates nor loses the
 // structural context it was already under. ContextWithFloor guarantees the
 // stored value can only be tighter than what was in force, so the value read
@@ -203,7 +199,7 @@ func NewFrame(ctx context.Context) *Frame {
 	return &Frame{ctx: ctx, bootCleanup: new(bootCleanupState), startup: &startup}
 }
 
-// Context is the cancellation and deadline carrier. Idiomatic Go, which is the
-// point: Nomi's deadlines interoperate with Go libraries for free, and a
+// Context is the cancellation and deadline carrier. It is idiomatic Go, so
+// Nomi's deadlines interoperate with Go libraries for free, and a
 // debugger reads the active context off a real Go struct.
 func (fr *Frame) Context() context.Context { return fr.ctx }

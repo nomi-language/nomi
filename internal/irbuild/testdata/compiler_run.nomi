@@ -17,7 +17,7 @@ import {
 // brackets keep this fixture a witness for `stdlib host function` alone.
 //
 // This fixture pins no line number about itself, so lines may be added at the
-// end freely. See differential_test.go's fixture().
+// end freely.
 fn out(source: String): String {
     case compiler.run(source) {
         Ok(text) -> "[" + text + "]"
@@ -84,7 +84,7 @@ fn main() {
     )
 
     // DERIVES ARE SYNTHESIZED for the run source. `Debug.inspect` on a struct
-    // with no hand-written impl needs the synthesis passes, not just eval.
+    // with no hand-written impl needs the synthesis passes, not just evaluation.
     io.print(
         "derive = " + out(
             "import std/io\n\nstruct P {\n  x: Int\n}\n\nfn main() {\n  io.print(Debug.inspect(P{x: 1}))\n}\n"

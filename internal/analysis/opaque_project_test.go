@@ -13,7 +13,7 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// Cross-module tests for opaque distinct types (spec §15.3).
+// Cross-module tests for opaque distinct types (spec §15, *Opaque distinct types*).
 //
 // Single-file tests of opacity bookkeeping live in opaque_test.go;
 // these tests need a real two-file project to exercise the boundary.

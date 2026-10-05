@@ -1,12 +1,11 @@
-// Float `==` and `/` — the two places Go's operators are NOT Nomi's.
+// Float `==` and `/`, the two places IEEE hardware operators are not Nomi's.
 //
-// `==` is reflexive on NaN in Nomi and IEEE in Go, so a bare Go `==` is a
-// silent wrong answer here rather than a compile error. `/` agrees on values
-// but not on what is WRITEABLE: Go constant-folds a constant divide and
-// rejects a zero divisor, so `0.0 / 0.0` inline does not compile at all.
+// `==` is reflexive on NaN in Nomi and not in IEEE, so a bare hardware
+// comparison is a silent wrong answer here. `/` by zero must produce the IEEE
+// result at run time rather than fail.
 //
-// Both operands are built through locals deliberately: inlining them back into
-// the expressions reproduces the compile failure in one step.
+// Both operands are built through locals deliberately, so the operations run
+// on values rather than on constants.
 import std/io
 
 fn main() {
@@ -21,7 +20,7 @@ fn main() {
     io.print("inf: ${inf}")
     io.print("neg_inf: ${neg_inf}")
 
-    // The reflexive-NaN rule, which Go's `==` gets wrong.
+    // The reflexive-NaN rule, which IEEE `==` does not follow.
     io.print("nan == nan: ${nan == nan}")
     io.print("nan != nan: ${nan != nan}")
 
@@ -33,7 +32,7 @@ fn main() {
     neg_zero = 0.0 - 0.0
     io.print("0.0 == -0.0: ${zero == neg_zero}")
 
-    // Ordering is IEEE on both paths — every one of these is False for NaN,
+    // Ordering is IEEE: every one of these is False for NaN,
     // including the reflexive one, which is what makes `==` and `<=` disagree.
     io.print("nan <= nan: ${nan <= nan}")
     io.print("nan > one: ${nan > one}")
@@ -47,7 +46,6 @@ fn main() {
     // divide of two locals does, so a builder that folded constant divides
     // some other way would print a different answer here. That is the reason
     // the cases live here as literals rather than through the locals above.
-    //
     io.print("0.0 / 0.0: ${0.0 / 0.0}")
     io.print("1.0 / 0.0: ${1.0 / 0.0}")
     io.print("-1.0 / 0.0: ${-1.0 / 0.0}")

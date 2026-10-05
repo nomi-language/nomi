@@ -59,14 +59,6 @@ package irbuild
 // observable. `Maybe.hash(Some(4))` is 4 and `Result.hash(Err("bad"))` is
 // 31 + StringHash("bad"); routing either to valueHash would produce a
 // different Int for the same program. See preludeHashCall below.
-//
-// # `Result.from_maybe`'s receiver is a Maybe, and the table says so
-//
-// `from_maybe(maybe: Maybe<T>, error: E): Result<T, E>` is declared in
-// `impl Result<T, E>`, so its OWNER is `Result` while its first argument
-// instantiates `Maybe`. `to_maybe` is the mirror. Deriving the receiving spec
-// from the owner would read the wrong argument for both, so each row names
-// the spec its first argument must instantiate.
 
 // preludeFnRecv names which prelude enum a method's FIRST argument instantiates.
 type preludeFnRecv uint8
@@ -124,7 +116,7 @@ var preludeFns = map[string]preludeFn{
 	"Result.err?":         {recv: recvResult, args: 1, res: resBool, variant: "Err"},
 	"Maybe.with_default":  {recv: recvMaybe, args: 2, res: resPayload, rtCall: "rt.MaybeWithDefault"},
 	"Result.with_default": {recv: recvResult, args: 2, res: resPayload, rtCall: "rt.ResultWithDefault"},
-	"Result.from_maybe":   {recv: recvMaybe, args: 2, res: resResultOfMaybe, rtCall: "rt.ResultFromMaybe"},
+	"Maybe.to_result":     {recv: recvMaybe, args: 2, res: resResultOfMaybe, rtCall: "rt.MaybeToResult"},
 	"Result.to_maybe":     {recv: recvResult, args: 1, res: resMaybeOfResult, rtCall: "rt.ResultToMaybe"},
 }
 
@@ -152,7 +144,7 @@ func preludeSpecNamed(nomi string) *preludeSpec {
 // stated there: `[]`, a bare `None`, `Map.empty()` and `#{}` have no type of their own,
 // so binding one would fix the artifact's element type from a literal whose real
 // type the program decides elsewhere. Here that would make
-// `Result.from_maybe(m, [])` produce a `Result<T, List<Unit>>`.
+// `Maybe.to_result(m, [])` produce a `Result<T, List<Unit>>`.
 func preludeArgUsable(k kind) bool {
 	switch k.tag {
 	case tagEmptyList, tagEmptyMap, tagBareNone, tagEmptySet, tagEmptyVector:

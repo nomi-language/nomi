@@ -7,7 +7,7 @@
 // machine into something instant and deterministic. A genuine deadlock is
 // *detected* rather than silently hanging.
 //
-// # WHY THIS IS ITS OWN PACKAGE AND NOT PART OF rt
+// # Why this is its own package and not part of rt
 //
 // It imports `testing` and `testing/synctest`. `nomi/rt` is linked by
 // everything that runs a Nomi program, including a hello world, and
@@ -20,12 +20,11 @@
 // elimination does not get it back.
 //
 // So this is a sub-package of the same module — no go.mod change, no new
-// require — and `internal/irbuild` emits an import of it ONLY for a program that
-// declares `clock Clock.Virtual`. A program with no virtual-clock group links
-// nothing from here. That is the same conditional shape `needsCompilerModule`
-// already uses for the compiler module.
+// require — and rt itself does not import it. Its importer is the VM's test
+// runner (internal/vm/testrun.go), which runs a case under
+// `clock Clock.Virtual` through RunCase.
 //
-// # WHY THIS NEEDS A FABRICATED *testing.T
+// # Why this needs a fabricated *testing.T
 //
 // The only bubble entry point Go exposes is
 // `synctest.Test(t *testing.T, f func(*testing.T))`. There is no
@@ -37,8 +36,8 @@
 // run's reporting and exit handling to the testing package.
 //
 // So the bubble is opened with a zero-value `testing.T`, under a discipline
-// that keeps every failure mode returnable. Each of the four layers was
-// verified against its alternative:
+// that keeps every failure mode returnable. Each of the four layers closes one
+// failure mode:
 //
 //  1. **Never call a method on the T.** A zero-value T has nil internals;
 //     `t.Fatalf` calls `runtime.Goexit`, which leaves `synctest.Test` waiting
@@ -56,7 +55,7 @@
 //     test finishes in milliseconds no matter how much virtual time it spends,
 //     so a multi-second real-time ceiling cannot produce a false positive.
 //
-// # WHAT A BUBBLE CHANGES
+// # What a bubble changes
 //
 // It is opt-in — a `tests` group says `clock Clock.Virtual`, and its tests
 // run in a bubble — rather than the default, because a bubble genuinely

@@ -7,10 +7,10 @@
 //     later entry's VALUE wins, and it inherits the earlier entry's POSITION. A
 //     to_map that rebuilt the map in reverse would get the value right and
 //     the rendering wrong.
-//   - the tuple, Bool and List keys are keys Go's `comparable` would reject.
-//     A Nomi map key is hashed STRUCTURALLY and there is no `K: Hashable`
-//     bound, so these are the point rather than an
-//     edge: a `map[K]V` representation could not express any of them.
+//   - the tuple, Bool and List keys are hashed STRUCTURALLY, and there is no
+//     `K: Hashable` bound, so these keys are the point rather than an edge
+//     case: a key type with no special support must still hash and compare
+//     by value.
 //   - `order` pins that insertion order is the list's order, which is what makes
 //     the rendering deterministic.
 //
@@ -39,10 +39,8 @@ fn main() {
     nan_hit = found(Map.get(nankey, 0.0 / 0.0), "nan")
     get_hit = found_int(Map.get(single, "a"), 1)
     get_miss = found_int(Map.get(single, "z"), 1)
-    // A List key is exercised through `get` rather than through the rendering:
-    // the interpreter cannot Display a List KEY (`Display.to_string: no
-    // implementation for type 'List'`), which is a std gap and not this
-    // fixture's subject. Retrieval is the property that matters — it is what
+    // A List key is exercised through `get` rather than through the
+    // rendering, because retrieval is the property that matters: it is what
     // proves the key was hashed and compared STRUCTURALLY.
     list_hit = found(Map.get(listkey, [1, 2]), "a")
 

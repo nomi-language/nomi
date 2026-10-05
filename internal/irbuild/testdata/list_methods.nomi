@@ -1,18 +1,18 @@
 // The `impl List<T>` method surface, reached type-qualified.
 //
 // Every `List.equal?` row here is paired with the same comparison written as
-// `==`, because the two ARE one operation — std/lists.nomi:125 defines the
+// `==`, because the two ARE one operation — std/lists.nomi defines the
 // method as `a == b` — and the builder shares one lowering for both
-// (collections.go's listEqual). The pairing is what pins that: two independent
+// spellings. The pairing is what pins that: two independent
 // rows would still pass if the paths were re-split and drifted.
 //
 // Three shapes are load-bearing rather than decorative:
 //
 //   - `built` is assembled by List.concat, so it is a DIFFERENT cons chain from
-//     the literal it is compared against. Go compares cons cells by ADDRESS, so
-//     an emitted `==` would answer False here — quietly, because pointers are
-//     comparable in Go and nothing would fail to build.
-//   - `nan` is reflexive in Nomi (`nan == nan` is True) and IEEE in Go. A list
+//     the literal it is compared against. An address comparison of cons cells
+//     would answer False here, and quietly, because nothing about it fails to
+//     lower.
+//   - `nan` is reflexive in Nomi (`nan == nan` is True) and not in IEEE. A list
 //     containing one answers True only through rt.EqFloat.
 //   - the nested lists exercise the comparator's recursion: an inner list needs
 //     its own rt.ListEqual, not an address test one level down.
@@ -28,14 +28,10 @@ fn main() {
     io.print("lit-built ${List.equal?(xs, built)} ${xs == built}")
     io.print("differing ${List.equal?(xs, [1, 2, 4])} ${xs == [1, 2, 4]}")
     io.print("shorter   ${List.equal?(xs, [1, 2])} ${xs == [1, 2]}")
-    // This row carried the METHOD ALONE until 2026-08-24, on the grounds that
-    // `List.equal?` has declared parameter types so the untyped `[]` widens at an
-    // argument position, while `xs == []` reached binary()'s mixed-kind guard
-    // "with no declared type to widen towards". That reason was wrong: the
-    // operator has a type to widen towards — the other operand's — and simply
-    // never asked. It asks now (types.go's coerceUntypedOperands), so the
-    // asymmetry is gone and the operator spelling is restored here, which is what
-    // makes the pairing cover the untyped case at all.
+    // The operator spelling sits beside the method here. The operator widens
+    // the untyped `[]` towards the other operand's type, just as the method
+    // widens it at an argument position, so the pairing covers the untyped
+    // case too.
     io.print("empty     ${List.equal?(xs, [])} ${xs == []}")
 
     io.print("nan       ${List.equal?([nan], [0.0 / 0.0])} ${[nan] == [0.0 / 0.0]}")

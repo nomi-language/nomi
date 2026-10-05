@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// What an `assert`/`refute` failure IS, and the rules that decide one.
+// What an `assert`/`refute` failure is, and the rules that decide one.
 //
 // An assertion failure's text is a hard contract: `nomi test` prints it and
 // the golden files pin it byte for byte. So "which subjects hold", "what the
@@ -77,7 +77,7 @@ func (e *AssertionFailure) Error() string {
 //
 // Expr is the ending expression as the formatter renders it and Value is the
 // value it produced, already rendered: for a `try` that is the row rendering
-// (RowText) of the whole `Err(e)`/`None`, which is the STRUCTURAL rendering (sorted struct
+// (RowText) of the whole `Err(e)`/`None`, which is the structural rendering (sorted struct
 // fields, strings quoted) and not Display and not Debug.
 type EarlyReturnFailure struct {
 	Line  int
@@ -95,7 +95,7 @@ func (e *EarlyReturnFailure) Error() string {
 // TestFailure is how a lowered test body ends when it does not pass, and
 // exactly two types inhabit it: *AssertionFailure and *EarlyReturnFailure.
 //
-// Those are the two non-passing exits a test body has as a VALUE — an assertion
+// Those are the two non-passing exits a test body has as a value — an assertion
 // judged false, and an early return out of the body (`try` propagating an
 // `Err`/`None`, and a plain `return`). Every other way a case can fail is a
 // Nomi fault, which arrives as a panic and is recovered by runTest, so it never
@@ -103,17 +103,16 @@ func (e *EarlyReturnFailure) Error() string {
 //
 // # Why a method and not `error`
 //
-// Test.Fn used to be typed `func(*Frame) *AssertionFailure` precisely so that
-// `error` could not be used: a nil *AssertionFailure boxed into an error
-// interface compares NON-nil, and the case would be reported as failed with no
-// failure in it. Widening the signature has to carry that property rather than
-// drop it, and Failure() is how it is carried — it is declared with a
-// NIL-RECEIVER answer, so an interface value holding a typed nil answers nil
-// and the case passes. A bare `!= nil` on the interface cannot make that
-// distinction, which is why runTest asks the method instead.
+// Test.Fn does not return `error` because a nil *AssertionFailure boxed into
+// an error interface compares non-nil, and the case would be reported as
+// failed with no failure in it. TestFailure has the same trap, and Failure()
+// is what avoids it: it is declared with a nil-receiver answer, so an
+// interface value holding a typed nil answers nil and the case passes. A bare
+// `!= nil` on the interface cannot make that distinction, which is why runTest
+// asks the method instead.
 //
-// TestTypedNilTestFailureIsAPass is the pin, and it fails on the ANSWER (a case
-// reported FAIL) rather than on a type, so removing the nil-receiver guard is
+// TestTypedNilTestFailureIsAPass is the pin, and it fails on the answer (a case
+// reported fail) rather than on a type, so removing the nil-receiver guard is
 // visible as wrong output.
 type TestFailure interface {
 	// Failure is the error the reporter renders, or nil for a pass.
@@ -186,7 +185,7 @@ func (s AssertionSite) Failure(reason, actual string, binding *AssertionBindingC
 // or did not hold on its own terms: `assert` needs the subject, `refute` needs
 // its negation.
 //
-// Extracted so a CALLER can ask the question before paying to build a report
+// Extracted so a caller can ask the question before paying to build a report
 // it may not need — the same trade ShapeFailure's header describes for
 // `actual`, one argument over. JudgeBool and JudgeAssertable both call it, so
 // there is still exactly one statement of the rule and a caller that
@@ -211,10 +210,10 @@ func (s AssertionSite) JudgeBool(subject bool, binding *AssertionBindingContext,
 }
 
 // ShapeFailure is the failure for a `Result` or `Maybe` subject that did not
-// hold: `assert` needs the CARRYING variant (Ok/Some) and `refute` needs the
+// hold: `assert` needs the carrying variant (Ok/Some) and `refute` needs the
 // other one.
 //
-// Only the WORDS are here, not the judgement: the caller discriminates the
+// Only the words are here, not the judgement: the caller discriminates the
 // variant on its own representation. What is here is the part that has one
 // answer: which reason text a failed `assert` and a failed `refute` each use.
 // That is the same thing JudgeBool centralises for a Bool subject.
@@ -223,8 +222,8 @@ func (s AssertionSite) JudgeBool(subject bool, binding *AssertionBindingContext,
 // of the JudgeBool shape beside it. `actual` is the subject as an assertion
 // report renders it, which a Bool subject does not carry and this one does —
 // so a Judge-shaped function taking `actual` eagerly would build and throw away
-// a string on every PASSING shape assertion, and rt's
-// TestPassingAssertionAllocatesNothing is a measurement of exactly that path.
+// a string on every passing shape assertion, and rt's
+// TestPassingAssertionAllocatesAtMostOnce counts the allocations on that path.
 // Callers therefore make the cheap variant test themselves and come here only
 // when they have already lost.
 func (s AssertionSite) ShapeFailure(actual string, binding *AssertionBindingContext, values []AssertionValueContext) *AssertionFailure {
@@ -246,8 +245,8 @@ func Binding(name, expr, value string) *AssertionBindingContext {
 // that reads exactly like its value explains nothing, so `assert 1 == 2` does
 // not print `1 = 1`.
 //
-// suppressRedundantLiteral is off for a predicate call whose result is a Bool, where the literal inputs ARE the
-// interesting part.
+// suppressRedundantLiteral is off for a predicate call whose result is a
+// Bool, where the literal inputs are what the reader needs to see.
 func RecordOperand(trace *[]AssertionValueContext, expr, value string, suppressRedundantLiteral bool) {
 	if suppressRedundantLiteral && expr == value {
 		return
@@ -263,70 +262,66 @@ func RecordOperand(trace *[]AssertionValueContext, expr, value string, suppressR
 // kinds; it calls down here for the scalar rows rather than restating them, so
 // the quoting rule has one home.
 //
-// # Inspect is NOT `impl Display`, and it is not `Debug` either
+// # Inspect is not `impl Display`, and it is not `Debug` either
 //
-// Worth stating here because the assumption cost a slice its design once, and
-// because the two really are different renderings of the same value. A
-// `values:` row is RowText, a purely STRUCTURAL rendering with no Nomi dispatch
-// in it at all. A user's `impl Display for Point` changes `${p}` and does not
-// change the row, which stays `Point{x: 1, y: 2}`; a user's `impl Debug for
-// Point` does not change it either. Measured, not inferred.
+// The two are different renderings of the same value. A `values:` row is
+// RowText, a purely structural rendering with no Nomi dispatch in it at all. A
+// user's `impl Display for Point` changes `${p}` and does not change the row,
+// which stays `Point{x: 1, y: 2}`; a user's `impl Debug for Point` does not
+// change it either.
 //
-// The consequence for a composite is that the STRUCTURE is shared with Format*
+// The consequence for a composite is that the structure is shared with Format*
 // and only the element rendering differs: `FormatListCells(xs, InspectString)`
 // is exactly a List's Inspect, and `FormatListCells(xs, FormatInt)` is exactly
 // its Display. So there is no InspectList and there must not be one — the two
 // spellings of `[a, b, c]` would be one rule in two places. What a composite
-// genuinely needs beyond a renderer argument is below.
+// needs beyond a renderer argument is below.
 func InspectString(v string) string { return `"` + v + `"` }
 
 // InspectUnit is how the one `Unit` value reads in a `values:` row, and it is
-// the ONLY spelling of it: RowText calls this. The text is the Unit literal,
+// the only spelling of it: RowText calls this. The text is the Unit literal,
 // `Unit`, which is also what `Debug.inspect` renders for it.
 func InspectUnit(Unit) string { return "Unit" }
 
 // ChannelInspectText is how a `Sender<T>` or a `Receiver<T>` reads in a
-// `values:` row, and it is the ONLY spelling of it. The VM's channel halves
+// `values:` row, and it is the only spelling of it. The VM's channel halves
 // answer it as their OpaqueText, and so do the two typed wrappers below, so no
 // report can drift from another.
 //
-// A CONSTANT, and MEASURED off a deliberately failing assertion rather than
-// derived from the type's name:
+// A constant, not derived from the type's name. The failing assertion
 //
 //	ch = Channel.buffered<Int>(1)
 //	h = Holder{s: ch.sender}
 //	assert tag(h) == 2
 //
-// reports `h = Holder{s: <channel>}`. Two things about that are the natural
-// guess and both are wrong. It is NOT the host-type bare name: `Sender` and
+// reports `h = Holder{s: <channel>}`. It is not the host-type bare name: `Sender` and
 // `Receiver` are `pub host type` declarations and the auto-Debug for those is
-// a bare name, which would give `Sender`. And it does NOT
+// a bare name, which would give `Sender`. And it does not
 // distinguish the two halves — a `Receiver<T>` reads `<channel>` as well —
 // because both are one channel at runtime and the direction is purely static.
 //
-// The ELEMENT TYPE is absent for InspectSeq's reason, one degree stronger: a
-// channel's contents are not merely expensive to read, reading them CONSUMES
+// The element type is absent for InspectSeq's reason, one degree stronger: a
+// channel's contents are not merely expensive to read, reading them consumes
 // them, so rendering an operand would change the program's behaviour.
 func ChannelInspectText() string { return "<channel>" }
 
 // TaskInspectText is how a `Task<T>` reads in a `values:` row, and it is the
-// ONLY spelling of it: the VM's task values answer it as their OpaqueText.
+// only spelling of it: the VM's task values answer it as their OpaqueText.
 //
-// MEASURED off a deliberately failing assertion, like ChannelInspectText above:
-// the report prints `h = <task>`. The PAYLOAD is absent, and for a reason
-// one step short of the channel's — reading a task's result does not consume it,
-// but it does BLOCK until the task finishes, so rendering an operand would make
+// A failing assertion over a task operand prints `h = <task>`. The payload is
+// absent, and for a reason one step short of the channel's — reading a task's result does not consume it,
+// but it does block until the task finishes, so rendering an operand would make
 // a failing assertion wait on unrelated work and could deadlock a report on a
 // task that never completes.
 func TaskInspectText() string { return "<task>" }
 
 // IterInspectText is how an unmaterialized `Iter<T>` (a lazy rt.Seq) reads
 // in every rendering: `Debug.inspect`/`io.inspect`/`dbg` and a `values:` row,
-// at the top or nested in a container. It is the ONLY spelling of it, and it
+// at the top or nested in a container. It is the only spelling of it, and it
 // has the form of the other non-structural placeholders (`<function>`,
 // `<task>`, `<channel>`, `<context>`).
 //
-// The ELEMENTS are deliberately not rendered: that would CONSUME the sequence,
+// The elements are deliberately not rendered: that would consume the sequence,
 // which for `Iter.from(0)` does not terminate, and infiniteness is undecidable,
 // so there is nothing to detect and nothing to try. Inspecting leaves the
 // iterator as it was; materialize with `Iter.to_list` to see the elements.
@@ -343,14 +338,14 @@ func InspectSeq[T any](Seq[T]) string { return IterInspectText() }
 // InspectStruct is how a struct-shaped value reads in a `values:` row:
 // `Point{x: 1, y: 2}`, and `Empty{}` for one with no fields. typeName is the
 // declared name with any module qualifier already removed — nothing user-facing
-// shows the qualifier (ShortTypeName). A struct-shaped ENUM VARIANT is the
-// same shape under the VARIANT's name: `Rect(Rect{height: "z", width: 1})`.
+// shows the qualifier (ShortTypeName). A struct-shaped enum variant is the
+// same shape under the variant's name: `Rect(Rect{height: "z", width: 1})`.
 //
 // fields are `name: value` pairs already rendered by the caller. They are
-// ordered by field NAME, which is the order `Debug.inspect` renders an
-// anonymous record in. Sorting the whole composed strings instead put `a0: 2`
-// before `a: 1` (the digit sorts before the `:`), so one record read
-// `{a: 1, a0: 2}` from `Debug.inspect` and `{a0: 2, a: 1}` in a `values:` row.
+// ordered by field name, which is the order `Debug.inspect` renders an
+// anonymous record in. Sorting the whole composed strings instead would put
+// `a0: 2` before `a: 1` (the digit sorts before the `:`), so one record would
+// read `{a: 1, a0: 2}` from `Debug.inspect` and `{a0: 2, a: 1}` in a `values:` row.
 // RowText calls this, so a record has one rule.
 //
 // The slice is sorted in place. Callers build it for this call and drop it.

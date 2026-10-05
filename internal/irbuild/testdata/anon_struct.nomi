@@ -3,20 +3,16 @@ import std/io
 // Anonymous structs — a RECORD — in every position the builder lowers, plus
 // the two renderings, in one run.
 //
-// The property under test is that a Nomi record is UNORDERED while a Go struct
-// type is ordered: the two field orderings below must be ONE type on both
-// sides. The `a`/`a0` pair is not decoration — `a` is a prefix of `a0`, which
+// The property under test is that a Nomi record is unordered: the two field
+// orderings below must be one type. The `a`/`a0` pair is not decoration. `a` is
+// a prefix of `a0`, which
 // is the shape where sorting the composed `name: value` strings ('0' sorts
-// below ':') disagrees with sorting by NAME. `${…}` and an assertion's
+// below ':') disagrees with sorting by name. `${…}` and an assertion's
 // `values:` row both sort by name, and this pair is what shows it.
 //
-// This fixture is the ONLY coverage that exists for that
-// disagreement. Across the 197 corpus programs the front end accepts there are
-// 30 anonymous struct literals, 0 anonymous struct type annotations, and 0
-// field-name pairs where the two sorts disagree. So the divergence is LATENT in
-// the corpus, and two things follow: the differential sweep cannot regress on
-// it, and it cannot VALIDATE a fix for it either. Anyone changing either
-// renderer is working against this file and nothing else.
+// The test corpus has no field-name pair where the two sorts disagree, so this
+// fixture is the only coverage for that case. Anyone changing either renderer
+// should check this file's recorded output.
 fn greet(p: {name: String, age: Int}): String {
     "Hi " + p.name + ", you are " + Int.to_string(p.age)
 }

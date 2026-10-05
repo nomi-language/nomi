@@ -42,8 +42,8 @@ func TestCheck_AttachedTestUsesCountForImports(t *testing.T) {
 }
 
 // Every stdlib source file checks clean on its own, as std.Load analyzes it
-// (TestStdlib_AnalyzesWithoutErrors). The two used to disagree: Check stripped
-// `//!` tests, so an import only the tests used read as unused.
+// (TestStdlib_AnalyzesWithoutErrors). The two must agree: a Check that strips
+// `//!` tests reads an import only the tests use as unused.
 func TestCheck_EveryStdlibFileChecksClean(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join("..", "std", "*.nomi"))
 	if err != nil {

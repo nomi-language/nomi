@@ -106,7 +106,7 @@ func TestRunFile_StdlibFileIsRefused(t *testing.T) {
 	if err == nil {
 		t.Fatalf("nomi run on a std file exited 0:\n%s", out)
 	}
-	if !strings.Contains(out, "a stdlib module is not a program the VM lowers") {
+	if !strings.Contains(out, "is a stdlib module, not a program; to run its tests, use `nomi test ") {
 		t.Fatalf("nomi run on a std file was not refused as a stdlib module:\n%s", out)
 	}
 	if strings.Contains(out, "module short-name collision") ||
@@ -388,7 +388,7 @@ func TestRunFile_FFIStructProjectionRoundTrip(t *testing.T) {
 }
 
 // TestSyntaxErrorRefusedByRun is the hard edge of the LSP's
-// resilient parsing (roadmap Track 3). The editor recovers from a syntax
+// resilient parsing (parser.ParseResilient). The editor recovers from a syntax
 // error inside a function body so completion still has scopes to offer;
 // `nomi run` must not. They go through parser.Parse, which stops
 // at the first error and produces no AST, and this pins both the refusal
@@ -400,7 +400,7 @@ func TestSyntaxErrorRefusedByRun(t *testing.T) {
 	}
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "main.nomi")
-	// `|x| n + ` with the operand not yet typed, from the roadmap entry.
+	// `|x| n + ` with the operand not yet typed, as mid-edit in an editor.
 	mustWrite(t, entry, `import std/io
 
 fn compute(n: Int): Int {
@@ -527,6 +527,42 @@ func TestCheckCommand_PureNomiSingleFile_FastPath(t *testing.T) {
 	}
 }
 
+// A tail `else if` chain whose every arm returns once panicked `nomi run`
+// with an ir.Lint violation. `nomi check` and `nomi run` both accept it.
+func TestCheckAndRun_ReturningElseIfChain(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	cacheRoot := t.TempDir()
+	entry := filepath.Join(t.TempDir(), "main.nomi")
+	mustWrite(t, entry, `import std/io
+
+fn sign(x: Int): Int {
+  if x < 0 {
+    return -1
+  } else if x == 0 {
+    return 0
+  } else {
+    return 1
+  }
+}
+
+fn main() {
+  io.print(sign(-5))
+  io.print(sign(0))
+  io.print(sign(5))
+}
+`)
+	out, err := runNomi(t, cacheRoot, "check", entry)
+	if err != nil || !strings.Contains(out, "ok ") {
+		t.Fatalf("nomi check: %v\n%s", err, out)
+	}
+	out, err = runNomi(t, cacheRoot, "run", entry)
+	if err != nil || out != "-1\n0\n1\n" {
+		t.Fatalf("nomi run: %v\n%s", err, out)
+	}
+}
+
 func TestCheckCommand_FFIRoundTrip(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -568,12 +604,174 @@ fn main() {
 	if err != nil {
 		t.Fatalf("nomi check dir: %v\nstdout/stderr:\n%s", err, out)
 	}
-	if !strings.Contains(out, "main.nomi") || !strings.Contains(out, "helper.nomi") {
-		t.Fatalf("expected both files in check output, got:\n%s", out)
+	for _, want := range []string{
+		"ok " + filepath.Join(dir, "main.nomi"),
+		"ok " + filepath.Join(dir, "helper.nomi") + " (through main.nomi)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("nomi check output lacks %q:\n%s", want, out)
+		}
 	}
 	entries, _ := os.ReadDir(cacheRoot)
 	if len(entries) != 0 {
 		t.Errorf("expected empty cache root for pure directory check; got %d entries", len(entries))
+	}
+}
+
+// A directory check judges a file another file in the directory imports
+// through that importer, as `nomi run` loads it. A helper that reads an
+// application field is valid only under an entry whose boot returns the
+// application, so it is not checked on its own; an error in a helper is still
+// reported, by its importer's check; and a file nothing imports is checked on
+// its own.
+func TestCheckCommand_DirectoryChecksHelpersThroughImporters(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	cacheRoot := t.TempDir()
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "settings.nomi"), `pub struct Settings {
+    context: Context
+
+    tag: String
+}
+`)
+	mustWrite(t, filepath.Join(dir, "reader.nomi"), `import settings.Settings
+
+pub fn read(): String {
+    Settings.tag
+}
+`)
+	mustWrite(t, filepath.Join(dir, "main.nomi"), `import {
+    std/io
+    reader
+    settings.Settings
+}
+
+pub fn boot(): Settings {
+    Settings{context: Context.root(), tag: "root"}
+}
+
+fn main() {
+    io.print(reader.read())
+}
+`)
+	// On its own, reader.nomi is an error: no entry boot returns Settings.
+	if out, err := runNomi(t, cacheRoot, "check", filepath.Join(dir, "reader.nomi")); err == nil {
+		t.Fatalf("nomi check passed reader.nomi on its own; the directory case below proves nothing:\n%s", out)
+	}
+	out, err := runNomi(t, cacheRoot, "check", dir)
+	if err != nil {
+		t.Fatalf("nomi check dir: %v\n%s", err, out)
+	}
+	for _, want := range []string{
+		"ok " + filepath.Join(dir, "main.nomi"),
+		"ok " + filepath.Join(dir, "reader.nomi") + " (through main.nomi)",
+		"ok " + filepath.Join(dir, "settings.nomi") + " (through main.nomi)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("nomi check output lacks %q:\n%s", want, out)
+		}
+	}
+
+	// A type error in the helper is its importer's failure, located in the
+	// helper.
+	mustWrite(t, filepath.Join(dir, "reader.nomi"), `import settings.Settings
+
+pub fn read(): String {
+    Settings.tag + 1
+}
+`)
+	// A file nothing imports is checked on its own.
+	mustWrite(t, filepath.Join(dir, "orphan.nomi"), `fn lonely(): Int {
+    "not an int"
+}
+`)
+	out, err = runNomi(t, cacheRoot, "check", dir)
+	if err == nil {
+		t.Fatalf("nomi check passed a directory with a type error in a helper:\n%s", out)
+	}
+	for _, want := range []string{
+		"FAIL " + filepath.Join(dir, "main.nomi"),
+		"reader.nomi:4:",
+		"FAIL " + filepath.Join(dir, "orphan.nomi"),
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("nomi check output lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, filepath.Join(dir, "reader.nomi")+" (through") {
+		t.Errorf("nomi check reported reader.nomi ok through an importer that failed:\n%s", out)
+	}
+}
+
+// `nomi check` takes test files: a directory's test files are checked with
+// its other files, and each case is lowered as `nomi test` lowers it, so a
+// type error in a case and a case `nomi test` would report BLOCKED are both
+// errors. A module's test files are checked with its entries.
+func TestCheckCommand_TestFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	cacheRoot := t.TempDir()
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "main.nomi"), `fn main() {}
+`)
+	mustWrite(t, filepath.Join(dir, "passes_test.nomi"), `test "passes" {
+  assert 1 + 1 == 2
+}
+`)
+	// skip_odd's `continue` cannot be lowered inside a callback; the case
+	// type-checks, so its error is the lowering's.
+	mustWrite(t, filepath.Join(dir, "lowering_test.nomi"), `fn skip_odd(n: Int): Int {
+  if n % 2 == 1 {
+    continue
+  }
+  n
+}
+
+test "evens" {
+  assert Iter.map([1, 2], |x| skip_odd(x)) |> Iter.to_list() == [2]
+}
+`)
+	mustWrite(t, filepath.Join(dir, "types_test.nomi"), `test "collect" {
+  dbg Result.collect([])
+  assert True
+}
+`)
+	out, err := runNomi(t, cacheRoot, "check", dir)
+	if err == nil {
+		t.Fatalf("nomi check passed a directory with a type error and a blocked case:\n%s", out)
+	}
+	for _, want := range []string{
+		"ok " + filepath.Join(dir, "main.nomi"),
+		"ok " + filepath.Join(dir, "passes_test.nomi"),
+		"FAIL " + filepath.Join(dir, "lowering_test.nomi"),
+		"this call to `skip_odd` is not supported yet, so test \"evens\" cannot run",
+		"FAIL " + filepath.Join(dir, "types_test.nomi"),
+		"the element type of `[]` is not determined",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("nomi check output lacks %q:\n%s", want, out)
+		}
+	}
+
+	// One test file, checked on its own, exits as an ordinary file does.
+	if out, err := runNomi(t, cacheRoot, "check", filepath.Join(dir, "passes_test.nomi")); err != nil {
+		t.Fatalf("nomi check on a passing test file: %v\n%s", err, out)
+	}
+
+	// A module checks its test files with its entries.
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"checktests\"\nentry_points = [\"main\"]\n")
+	out, _ = runNomi(t, cacheRoot, "check", dir)
+	for _, want := range []string{
+		"ok " + filepath.Join(dir, "main.nomi"),
+		"ok " + filepath.Join(dir, "passes_test.nomi"),
+		"FAIL " + filepath.Join(dir, "types_test.nomi"),
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("nomi check on a module lacks %q:\n%s", want, out)
+		}
 	}
 }
 
@@ -2029,86 +2227,56 @@ test "inline add test" {
 	}
 }
 
-// vmCorpusPin is what `nomi test tests` reads on the VM: passed,
-// failed and blocked, exactly. A blocked case is one the VM cannot run yet;
-// its reason is the BLOCKED line of the same run. Raise the pin in the change
-// that makes more cases pass, and name the cases and the cause in the commit
-// message. Never lower it without a named cause.
-var vmCorpusPin = struct{ passed, failed, blocked int }{passed: 771, failed: 0, blocked: 0}
-
-// TestTestCommand_VMCorpusRatchet runs the corpus on the VM and pins its three
-// counts exactly. It is a RATCHET: when retention grows, passed rises and
-// blocked falls, and the pin is raised in the same change. It is never lowered
-// without a named cause, and failed stays 0 — a failing case is a wrong
-// answer, not backlog.
-func TestTestCommand_VMCorpusRatchet(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration; -short")
-	}
-	root := repoRoot(t)
-	out, _ := runNomi(t, t.TempDir(), "test", filepath.Join(root, "tests"))
-	summary := regexp.MustCompile(`test result: \S+\. (\d+) passed, (\d+) failed(?:, (\d+) blocked)?`).
-		FindStringSubmatch(termcolor.StripANSI(out))
-	if summary == nil {
-		t.Fatalf("no summary line in the VM corpus run:\n%s", out)
-	}
-	count := func(s string) int {
-		n, _ := strconv.Atoi(s)
-		return n
-	}
-	passed, failed, blocked := count(summary[1]), count(summary[2]), count(summary[3])
-	if passed != vmCorpusPin.passed || failed != vmCorpusPin.failed || blocked != vmCorpusPin.blocked {
-		t.Fatalf("the VM corpus reads %d passed, %d failed, %d blocked; the pin is %d, %d, %d.\n"+
-			"If passed rose and blocked fell, raise the pin (vmCorpusPin) in this change. "+
-			"Never lower it without naming the cause, and a failure is a wrong answer to fix, "+
-			"not backlog.\n\nBLOCKED lines and failures:\n%s",
-			passed, failed, blocked, vmCorpusPin.passed, vmCorpusPin.failed, vmCorpusPin.blocked,
-			vmCorpusNonPassing(out))
-	}
+// TestTestCommand_VMCorpus runs `nomi test tests` on the VM. Every case must
+// pass: a blocked case is one the VM cannot run (its reason is the BLOCKED
+// line of the same run), and a failing case is a wrong answer. The run must
+// also cover every case corpus.expect declares, so a case the VM's plan drops
+// cannot pass unnoticed. TestExpectation_Corpus checks each case's output.
+func TestTestCommand_VMCorpus(t *testing.T) {
+	checkVMTestRun(t, "tests", "corpus")
 }
 
-// vmStdlibPin is what `nomi test std` reads on the VM: every stdlib module's
-// `//!` prompt cases, built in the module's own scope against the cached
-// stdlib lowering (internal/irbuild/stdtests.go). internal/expectation's
-// TestExpectation_Stdlib holds every case to stdlib.expect. The pin moves
-// under the same rule as vmCorpusPin.
-var vmStdlibPin = struct{ passed, failed, blocked int }{passed: 285, failed: 0, blocked: 0}
+// TestTestCommand_VMStdlib runs `nomi test std` on the VM: every stdlib
+// module's `//!` prompt cases, built in the module's own scope against the
+// cached stdlib lowering (internal/irbuild/stdtests.go), under
+// TestTestCommand_VMCorpus's rule. TestExpectation_Stdlib checks each case's
+// output.
+func TestTestCommand_VMStdlib(t *testing.T) {
+	checkVMTestRun(t, "std", "stdlib")
+}
 
-// TestTestCommand_VMStdlibRatchet runs the stdlib's prompt cases on the VM and
-// pins its three counts exactly, under TestTestCommand_VMCorpusRatchet's rule:
-// raise the pin in the change that raises passed, never lower it without a
-// named cause, and a failure is a wrong answer.
-func TestTestCommand_VMStdlibRatchet(t *testing.T) {
+// checkVMTestRun runs `nomi test` over the repository directory dir and
+// requires no failed or blocked case and exactly the case count the
+// expectation population declares.
+func checkVMTestRun(t *testing.T, dir, population string) {
+	t.Helper()
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
 	root := repoRoot(t)
-	out, _ := runNomi(t, t.TempDir(), "test", filepath.Join(root, "std"))
+	out, _ := runNomi(t, t.TempDir(), "test", filepath.Join(root, dir))
 	summary := regexp.MustCompile(`test result: \S+\. (\d+) passed, (\d+) failed(?:, (\d+) blocked)?`).
 		FindStringSubmatch(termcolor.StripANSI(out))
 	if summary == nil {
-		t.Fatalf("no summary line in the VM stdlib run:\n%s", out)
+		t.Fatalf("no summary line in `nomi test %s`:\n%s", dir, out)
 	}
 	count := func(s string) int {
 		n, _ := strconv.Atoi(s)
 		return n
 	}
 	passed, failed, blocked := count(summary[1]), count(summary[2]), count(summary[3])
-	if passed != vmStdlibPin.passed || failed != vmStdlibPin.failed || blocked != vmStdlibPin.blocked {
-		t.Fatalf("the VM stdlib run reads %d passed, %d failed, %d blocked; the pin is %d, %d, %d.\n"+
-			"If passed rose and blocked fell, raise the pin (vmStdlibPin) in this change. "+
-			"Never lower it without naming the cause, and a failure is a wrong answer to fix, "+
-			"not backlog.\n\nBLOCKED lines and failures:\n%s",
-			passed, failed, blocked, vmStdlibPin.passed, vmStdlibPin.failed, vmStdlibPin.blocked,
-			vmCorpusNonPassing(out))
+	if failed != 0 || blocked != 0 {
+		t.Fatalf("`nomi test %s` reads %d passed, %d failed, %d blocked; every case must pass.\n\n"+
+			"BLOCKED lines and failures:\n%s", dir, passed, failed, blocked, vmCorpusNonPassing(out))
 	}
-	recorded, err := expectation.Load("stdlib")
+	recorded, err := expectation.Load(population)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total := recorded.TotalCases(); passed+failed+blocked != total {
-		t.Fatalf("the VM stdlib run reports %d cases and stdlib.expect declares %d; "+
-			"a case is missing from the VM's plan", passed+failed+blocked, total)
+	if total := recorded.TotalCases(); passed == 0 || passed != total {
+		t.Fatalf("`nomi test %s` passed %d cases and %s.expect declares %d; "+
+			"regenerate the expectations if cases were added or removed, "+
+			"otherwise a case is missing from the VM's plan", dir, passed, population, total)
 	}
 }
 
@@ -2417,34 +2585,33 @@ fn main() {
 }
 
 // stageCrossModuleSqliteFixture stages a two-Nomi-module project that holds
-// testdata/ffi_modules/sqlite's opaque connection handle in its OWN struct,
+// testdata/ffi_modules/sqlite's opaque connection handle in its own struct,
 // naming it through the module qualifier.
 //
 // # Why it points at the repo's real binding rather than a stub
 //
-// The claim under test is that a USER's Go-backed handle crosses a Nomi MODULE
+// The claim under test is that a user's Go-backed handle crosses a Nomi module
 // boundary, and the module graph is half of that. testdata/ffi_modules/sqlite is a
 // separate Go module whose package imports `modernc.org/sqlite`, so the
-// generated artifact's go.mod must require and replace it by absolute path AND
+// generated artifact's go.mod must require and replace it by absolute path and
 // resolve that module's own requires — which renderGoMod does by mirroring the
 // user module's replaces absolutized. A synthetic binding with no third-party
 // dependency would exercise the mirror and skip the graph.
 //
 // # Every module-qualified position the fixture uses, and why each is here
 //
-//	pub struct Store { conn: sqlite.Conn }              the FIELD
-//	pub fn open_raw(...): Result<sqlite.Conn, String>   the RETURN under a prelude
-//	                                                    enum — tasks/store.nomi's shape
+//	pub struct Store { conn: sqlite.Conn }              the field
+//	pub fn open_raw(...): Result<sqlite.Conn, String>   the return under a prelude
+//	                                                    enum, tasks/store.nomi's shape
 //
-// Those are the two spellings user projects were refused for, reproduced in a
-// fixture this test owns so a change to the tasks fixture cannot silently stop
-// measuring them.
+// Those are the two spellings this test covers, reproduced in a fixture it
+// owns so a change to the tasks fixture cannot silently stop covering them.
 //
 // # No lambdas, and that is deliberate rather than stylistic
 //
-// `Iter.map` over `List<List<String>>` with an inferred lambda parameter is an
-// UNRELATED open gap (`lambda parameter with no inferred type`, then `Iter over
-// an unlowered source`), measured on the first draft of this fixture. Writing
+// `Iter.map` over `List<List<String>>` with an inferred lambda parameter hits
+// an unrelated open gap (`lambda parameter with no inferred type`, then `Iter
+// over an unlowered source`). Writing
 // the row walk with `Iter.at` and `case` keeps the test aimed at the handle
 // instead of failing for a reason it does not measure.
 func stageCrossModuleSqliteFixture(t *testing.T) (string, string) {

@@ -3,15 +3,14 @@
 //
 // # Why a deliberately red fixture exists at all
 //
-// `tests/` contains no program that fails an assertion. The differential
-// sweep therefore compares only what a passing case prints, and reads `0 DIFFED`
-// no matter how wrong a failure renders. For an Assertable that is not a corner:
-// its ENTIRE contribution to a report is the `details:` block, which only a
-// failure prints — rt.WriteAssertionFailure had dropped that block outright and
-// nothing in this repository could have said so.
+// `tests/` contains no program that fails an assertion, so the corpus checks
+// only what a passing case prints. For an Assertable that is not a corner:
+// its entire contribution to a report is the `details:` block, which only a
+// failure prints. rt.WriteAssertionFailure once dropped that block, and the
+// corpus could not have shown it.
 //
 // This file is NOT in the corpus and is never run by `nomi test tests`.
-// It is reached only by TestPinned_AssertableFailureReport.
+// It is run by TestIRAssertSubject_RepositoryFixturesRunWhole.
 //
 // # What it compares that assertable_subject.nomi cannot
 //

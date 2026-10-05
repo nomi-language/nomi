@@ -18,14 +18,13 @@ import (
 //
 //   - the tag-column math without the `- len(Tag)`, which turns the analyzer
 //     lookup into a silent MISS: every literal falls back to naming the
-//     keyword, no test outside this file fails, and the sweep stays at
-//     0 COMPILE-FAIL / 0 RUN-FAIL / 0 DIFFED.
+//     keyword, and no test outside this file fails.
 //   - reading the handler's RESULT rather than its fragment PARAMETER, which
 //     names a true refusal about the wrong POSITION.
 //
-// A typed literal is LOWERED now, so requireIdentical finally has something to
-// say about the construct — see TestPinned_TypedLiteral. This file keeps the
-// refusal half, which is still where most of the corpus lands.
+// A typed literal lowers to its handler call, and the programs that use one
+// are checked against their golden records like any other. This file keeps
+// the position arithmetic the refusal text depends on.
 
 // TestTypedLiteral_TagPositionIsTheTagAndNotTheQuote pins the one piece of
 // arithmetic this file owns.

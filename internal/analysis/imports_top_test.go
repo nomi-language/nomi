@@ -84,9 +84,8 @@ func TestImports_FunctionBody_TopAllowed(t *testing.T) {
 
 // The rule recurses into nested function declarations: a `fn helper`
 // declared inside `fn main` must follow the same "imports at top
-// of body" rule. The spec at §21 documents this; the original
-// implementation only walked top-level function bodies, so nested
-// late-imports went unchecked.
+// of body" rule (spec §14). Walking only top-level function bodies
+// would leave nested late-imports unchecked.
 func TestImports_NestedFunctionBody_RejectsImportAfterStatement(t *testing.T) {
 	src := `fn main() {
   fn helper(): Int {

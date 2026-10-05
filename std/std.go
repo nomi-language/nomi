@@ -16,16 +16,13 @@ import (
 	"sync/atomic"
 )
 
-// The stdlib is ONE Nomi module: every public module is a flat `<name>.nomi`
+// The stdlib is one Nomi module: every public module is a flat `<name>.nomi`
 // here, which `*.nomi` covers, plus the one `nomi.toml` that declares it.
 // `all:_fixtures` covers the one nested tree, which is test-only source under
-// a `_`-prefixed directory that `embed` otherwise skips.
-//
-// It used to be `all:*`, because four adapter directories — `calendar/`,
-// `http/`, `random/`, `regex/` — held Go support and their DIRECTORY ENTRIES
-// were what FirstPartyModulePaths read. Those packages are siblings now
-// (`nomi/stdcalendar` and friends) and `std/` holds Nomi source and this file,
-// so the pattern names what it wants instead of everything.
+// a `_`-prefixed directory that `embed` otherwise skips. The Go support for
+// Go-backed modules lives in sibling packages (`nomi/stdcalendar` and
+// friends), so `std/` holds Nomi source and this file, and the pattern names
+// what it wants instead of everything.
 //
 //go:embed *.nomi nomi.toml all:_fixtures
 var stdlibFS embed.FS
@@ -35,29 +32,24 @@ var stdlibFS embed.FS
 // The process-wide writes to analysis.TypeBool, TypeOrdering and
 // TypeAssertionFailure happen inside BuildProjectWithCache
 // (analysis.installCanonicalStdTypes), under sync.Once. A sync.Once orders its
-// function against other Do CALLERS only. Another goroutine's Load reads
+// function against other Do callers only. Another goroutine's Load reads
 // TypeBool in analysis.NewTypeRegistry without calling Do, so two concurrent
-// Loads race. Measured under the harness in
-// internal/irbuild/concurrentemit_test.go when the write lived here in std:
+// Loads race.
 //
-//	WRITE  std.stdDeriveSingletons.func1  std.go:404  (analysis.TypeBool)
-//	READ   analysis.NewTypeRegistry       type_registry.go:15
-//
-// WHY A MUTEX HERE RATHER THAN ACCESSORS IN analysis. The three variables have
-// about forty read sites across analysis/checker.go, type_registry.go,
-// type_builder.go, internal/hoverdoc and internal/irbuild; turning each into an
-// atomic accessor is the textbook fix and would be a forty-site refactor of a
-// package this change has no other business in. It is also aimed at the wrong
-// thing: the write happens in exactly ONE place, once per process, and the
+// The lock is here rather than as accessors in analysis because the three
+// variables have about forty read sites across analysis/checker.go,
+// type_registry.go, type_builder.go, internal/hoverdoc and internal/irbuild,
+// and turning each into an atomic accessor would be a forty-site refactor.
+// It is also aimed at the wrong
+// thing: the write happens in exactly one place, once per process, and the
 // racing read happens inside the same call to Load. Making Load a critical
 // section puts both accesses under one lock, and a reader outside Load is
 // ordered by its own Load — every analysis pass in the repository gets its
 // *StdLib from one.
 //
-// PRICED, not assumed: Load is 38ms and is not memoized (measured, four
-// consecutive loads: 39.6, 37.9, 38.2, 39.3ms). Serializing it costs at most
-// 38ms of overlap per concurrent caller, against the ~3.3s a single stdlib
-// lowering took when measured and the 1006s this repository's slowest package spends.
+// Load takes tens of milliseconds and is not memoized, so serializing it
+// costs a concurrent caller at most one Load's wait, which is small next to
+// a stdlib lowering.
 //
 // Load itself still builds a fresh analysis per call; the memoized one is
 // Shared, which the front end and internal/irbuild read.
@@ -68,19 +60,17 @@ var loadCount atomic.Int64
 
 // LoadCount reports how many times Load has run in this process.
 //
-// Load is a full stdlib parse and analysis, about 57ms, and a caller that asks
-// it a fixed question per module or per signature multiplies that: on
-// 2026-09-26 one `nomi run hello.nomi` under the VM ran it 169 times and spent
-// most of its 10s there. Tests read this to hold the count to a small constant
+// Load is a full stdlib parse and analysis, and a caller that asks it a fixed
+// question per module or per signature multiplies that cost by the number of
+// modules or signatures. Tests read this to hold the count to a small constant
 // (internal/irbuild/stdloadcount_test.go).
 func LoadCount() int64 { return loadCount.Load() }
 
 // StdLib holds the parsed stdlib data — the prelude scope and per-module scopes.
 type StdLib struct {
-	// Primitives is the prelude module scope (loaded from stdlib/prelude.nomi).
-	// Historical naming — used as the parent scope for every user file. Stdlib
-	// modules themselves do NOT receive it; they import their dependencies
-	// explicitly.
+	// Primitives is the prelude module scope (loaded from std/prelude.nomi),
+	// the parent scope for every user file. Stdlib modules themselves do not
+	// receive it; they import their dependencies explicitly.
 	Primitives *analysis.Scope
 	Modules    map[string]*analysis.Scope
 	Files      map[string]*analysis.FileAnalysis
@@ -364,7 +354,7 @@ var Shared = sync.OnceValue(Load)
 // BuildProjectWithCache orchestrate the sweeps. The entry FA is
 // discarded; we repackage the per-stdlib cache into *StdLib.
 //
-// SERIALIZED for the whole body: both the write to analysis.TypeBool and the
+// Serialized for the whole body: both the write to analysis.TypeBool and the
 // racing read of it are inside BuildProjectWithCache. See loadMu.
 func Load() *StdLib {
 	loadMu.Lock()
@@ -379,8 +369,8 @@ func Load() *StdLib {
 	}
 
 	// Synthesize an internal entry whose imports cover every stdlib module,
-	// making DiscoverProject walk them all. Bare module imports are no longer
-	// a surface syntax, but the bootstrapper still needs a dependency-only
+	// making DiscoverProject walk them all. Bare module imports are not
+	// surface syntax, but the bootstrapper still needs a dependency-only
 	// edge that doesn't bind an API name in user code.
 	var entryNodes []ast.Node
 	line := 1
@@ -401,26 +391,24 @@ func Load() *StdLib {
 	// comes from MakeLoader which reads embed first.
 	_, cache, extendedNodes := analysis.BuildProjectWithCache(
 		entryNodes,
-		nil, // primitives: we're BUILDING the prelude scope right now
-		nil, // modules:    we're BUILDING the per-module scopes right now
-		nil, // stdlibFAs:  we're BUILDING the stdlib FAs right now
+		nil, // primitives: we're building the prelude scope right now
+		nil, // modules:    we're building the per-module scopes right now
+		nil, // stdlibFAs:  we're building the stdlib FAs right now
 		"",
 		loader,
 	)
 
 	// analysis.TypeBool, TypeOrdering and TypeAssertionFailure are installed by
 	// BuildProjectWithCache above, between its type-shell sweep and its
-	// BuildTypes sweep (analysis.installCanonicalStdTypes). They used to be
-	// installed HERE, after BuildProjectWithCache returned, which made the first
-	// load in a process different from every later one: BuildTypes resolves
-	// every std file's `Bool` through NewTypeRegistry, which reads TypeBool, so
-	// the first load's std signatures carried the hand-written fallback Bool
-	// from analysis/types.go (no Origin, no `embeds` payloads). internal/irbuild
-	// caches one stdlib lowering per process, so a process that lowered std
-	// before analyzing any program kept that state: std/json lost
-	// `impl FromJson for Bool`, and a derived FromJson for a struct with a Bool
-	// field was refused. Moving the install only as far as "before CheckTypes"
-	// did not fix it, because BuildTypes had already run.
+	// BuildTypes sweep (analysis.installCanonicalStdTypes). They must be in
+	// place before BuildTypes: it resolves every std file's `Bool` through
+	// NewTypeRegistry, which reads TypeBool, and an install after it would
+	// give the first load in a process std signatures carrying the
+	// hand-written fallback Bool from analysis/types.go (no Origin, no
+	// `embeds` payloads). internal/irbuild caches one stdlib lowering per
+	// process, so a process that lowered std before analyzing any program
+	// would keep that state: std/json would lose `impl FromJson for Bool`,
+	// and a derived FromJson for a struct with a Bool field would be refused.
 	// TestStdOrder_LoweringStdFirstMatchesAnalyzingFirst guards it.
 	names := make([]string, 0, len(cache))
 	for key := range cache {
@@ -434,10 +422,7 @@ func Load() *StdLib {
 		lib.Nodes[name] = extendedNodes[key]
 	}
 	// Sorted so the checking order is a function of the stdlib and not of map
-	// iteration. The previous loop's order was already the map's, and two fresh
-	// loads were measured byte-identical through it, so this is not a fix for an
-	// observed fault — it is one fewer place a later fault could hide, in a
-	// function whose whole defect above was an ordering one.
+	// iteration, which leaves one fewer place an ordering fault could hide.
 	sort.Strings(names)
 
 	// CheckTypes per stdlib FA. BuildProjectWithCache stops after Sweep

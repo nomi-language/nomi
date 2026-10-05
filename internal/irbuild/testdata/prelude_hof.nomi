@@ -1,21 +1,19 @@
 // The HIGHER-ORDER half of `impl Maybe<T>` and `impl Result<T, E>`: `map` and
 // `flat_map` on both enums, and `map_err`.
 //
-// A TEST file rather than a program, and genuinely differential rather than two
-// callers of one implementation: the interpreter answers every call below by
-// running the Nomi `case` body in std/maybe.nomi or std/results.nomi, and the
-// compiled artifact answers it through rt/preludehof.go. Two independent
-// constructions, which is the condition this project records as the thing that
-// makes `requireIdentical` non-vacuous.
+// A TEST file rather than a program. The VM answers `map`, `flat_map` and
+// `map_err` through rt/preludehof.go, while std/maybe.nomi and
+// std/results.nomi state the same rules as Nomi `case` bodies; the asserted
+// answers below are what both must agree with.
 //
 // # THE ABSENT CASE IS WHERE A WRONG ANSWER HIDES, SO EVERY METHOD HAS ONE
 //
-// Nomi has no zero values and Go has one for every type, so the arm that does
+// Nomi has no zero values but a host representation does, so the arm that does
 // NOT run the callback is the arm a lowering can get wrong while type-checking
 // perfectly. Three distinct wrong answers are foreclosed here and none is
 // visible in the lowered code to a reader:
 //
-//   - CALLING THE CALLBACK ANYWAY. `MaybeMap` on a None would pass Go's zero
+//   - CALLING THE CALLBACK ANYWAY. `MaybeMap` on a None would pass a zero
 //     value and answer `Some(0)`, so every absent row asserts the result equals
 //     the absent value rather than merely that it is absent.
 //   - DROPPING THE UNTOUCHED PAYLOAD. `Result.map` leaves `E` alone and
@@ -29,15 +27,12 @@
 //
 // # WHY EVERY CALLBACK HERE IS A LAMBDA, AND WHY TWO ARE NOT
 //
-// A lambda's lowering is more than an inline expression. impl.go's
-// `callArgs` ledger records a double-lowering class that has shipped twice
-// in this package: an arm that lowers its arguments and then declines
-// leaves that work behind for a later arm to lower a second time. That
-// class is invisible for as long as every argument is inline, which is
-// exactly how it got shipped both times, so the callbacks here are lambdas
-// ON PURPOSE. If the route to preludeHofCall is ever moved below
-// preludefn.go's own `callArgs`, this fixture is where that should
-// show.
+// A lambda's lowering is more than an inline expression. An arm that lowers
+// its arguments and then declines leaves that work behind for a later arm to
+// lower a second time. That double lowering is invisible for as long as every
+// argument is inline, so the callbacks here are lambdas ON PURPOSE. If the
+// route to preludeHofCall is ever moved below preludefn.go's own `callArgs`,
+// this fixture is where that should show.
 //
 // Two rows use a bare FUNCTION REFERENCE instead, because that is the spelling
 // `08-pattern-matching/maybe_result_test.nomi` actually writes and a fixture
@@ -48,12 +43,12 @@
 //
 // # DELIBERATELY ABSENT
 //
-// `x == None` and `xs == []` refuse as `mixed-type operator`, somebody else's
-// key, so every absent comparison is written against a typed `None`-valued
-// helper. A callback answering an UNTYPED literal (`|x| []`, `|x| None`) is
+// Every absent comparison is written against a typed `None`-valued helper
+// rather than against a bare `None`. A callback answering an UNTYPED
+// literal (`|x| []`, `|x| None`) is
 // refused by name as `prelude function over an unsolved instance` and is
 // asserted in preludehof_test.go rather than here, because a refused construct
-// cannot appear in a differential fixture at all.
+// cannot appear in a run fixture at all.
 fn none_int(): Maybe<Int> {
     None
 }
@@ -99,8 +94,8 @@ test "Maybe.map may change the payload TYPE" {
 //
 // A funcref written directly inside an `assert` is refused as
 // `recording a non-scalar operand ((Int) -> Int)`, which is somebody else's key
-// and a position this lowering newly reaches: the interpreter prints
-// `double = <func: double>` in its `values:` rows and the builder has no
+// and a position this lowering newly reaches: the builder has no
+// rendering for a function value in a `values:` row, so it declines the
 // rendering for a function value. `08-pattern-matching/maybe_result_test.nomi`
 // writes both of its `map` calls in a binding for its own reasons, so the corpus
 // does not reach that position and this fixture does not manufacture it.
@@ -217,7 +212,7 @@ test "the higher-order half composes with the rest of the surface" {
         |> Maybe.flat_map(|x| positive_half(x))
         |> Maybe.with_default(0)
 
-    lifted = Result.from_maybe(Maybe.map(some, double), "missing")
+    lifted = Maybe.to_result(Maybe.map(some, double), "missing")
     dropped = Result.to_maybe(Result.map(err_int(), double))
     through = Maybe.map(Result.to_maybe(Ok(5)), double)
 

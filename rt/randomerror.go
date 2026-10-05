@@ -3,24 +3,23 @@ package rt
 // RandomError is Nomi's `std/random.Error`: why a generator could not be
 // constructed or drawn from.
 //
-// # WHY THIS TYPE EXISTS, WHICH IS NOT "TO REPRESENT AN ENUM"
+// # Why this type exists, which is not "to represent an enum"
 //
 // It is the result half of every fallible `std/random` constructor —
 // `Generator.int`, `Generator.float` and `Generator.weighted` all return
-// `Result<Generator<T>, Error>` — so without a representation for it NO random
-// signature projects, whatever else is represented. `Generator<T>` has had an
-// `rt` type and a `stdGenStructSpecs` row since the tuple projection landed;
-// this was the other half.
+// `Result<Generator<T>, Error>` — so without a representation for it no random
+// signature projects, whatever else is represented. `Generator<T>` has an
+// `rt` type and a `stdGenStructSpecs` row; this is the other half.
 //
 // That is `CalendarError`'s reason and its header says so in the same words: a
 // fallible constructor's error type is not optional scenery.
 //
-// # THE SLOT LAYOUT, AND WHY IT IS NOT ONE FIELD
+// # The slot layout, and why it is not one field
 //
 // `CalendarError` shares a single `Msg` across all five of its variants because
 // all five carry exactly one String. This enum cannot, and internal/irbuild's
-// dedup rule is what decides it: a slot is shared across VARIANTS whose payloads have
-// the same Go type, and never WITHIN one variant, because a struct-shaped
+// dedup rule is what decides it: a slot is shared across variants whose payloads have
+// the same Go type, and never within one variant, because a struct-shaped
 // variant's fields are live at the same time.
 //
 //	InvalidIntRange   {from: Int,   to: Int}     two int64, both live

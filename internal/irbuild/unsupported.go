@@ -428,6 +428,7 @@ var constructNames = map[string]string{
 	"Continue":        "continue",
 	"Dbg":             "dbg",
 	"Todo":            "todo",
+	"Then":            "then stage",
 	"CodepointLit":    "codepoint literal",
 	"DecimalLit":      "decimal literal",
 	// Decorators reach the tally two ways — funcDecl refuses a decorated

@@ -1,0 +1,112 @@
+enum ParseError {
+    Blank
+    NotANumber String
+}
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+fn parse(text: String): Result<Int, ParseError> {
+    if text == "" {
+        Err(.Blank)
+    } else {
+        case String.to_int(text) {
+            .Some(n) -> Ok(n)
+            .None -> Err(.NotANumber(text))
+        }
+    }
+}
+
+fn parse_message(text: String): Result<Int, String> {
+    Result.map_err(parse(text), |_e| "bad: " + text)
+}
+
+fn point_at(n: Int): Maybe<Point> {
+    if n >= 0 {
+        Some(Point{x: n, y: n * 2})
+    } else {
+        None
+    }
+}
+
+fn sum_all(texts: List<String>): Result<Int, ParseError> {
+    numbers = texts |> Iter.map(|t| parse(t)) |> try Result.collect()
+
+    Ok(Iter.reduce(numbers, |acc = 0, n| acc + n))
+}
+
+test "Result.collect keeps every Ok value in order" {
+    parsed = ["3", "1", "2"] |> Iter.map(|t| parse_message(t)) |> Result.collect()
+
+    assert parsed == Ok([3, 1, 2])
+}
+
+test "Result.collect returns the first Err" {
+    parsed = ["1", "x", "", "y"] |> Iter.map(|t| parse(t)) |> Result.collect()
+
+    assert parsed == Err(ParseError.NotANumber("x"))
+}
+
+test "Result.collect accepts a list, a vector and an empty input" {
+    assert Result.collect([Ok(1), Err("a")]) == Err("a")
+    assert Result.collect(#[Ok(1), Ok(2)]) == Ok([1, 2])
+
+    none: List<Result<Int, String>> = []
+    assert Result.collect(none) == Ok([])
+}
+
+test "Result.collect stops pulling at the first Err" {
+    stopped =
+        Range.naturals()
+        |> Iter.map(|n| if n < 3 { Ok(n) } else { Err(n) })
+        |> Result.collect()
+
+    assert stopped == Err(3)
+}
+
+test "Result.collect under try" {
+    assert sum_all(["1", "2", "3"]) == Ok(6)
+    assert sum_all(["1", "", "3"]) == Err(ParseError.Blank)
+}
+
+test "Result.partition keeps input order on both sides" {
+    (numbers, errors) =
+        ["1", "x", "2", "", "3"]
+        |> Iter.map(|t| parse(t))
+        |> Result.partition()
+
+    assert numbers == [1, 2, 3]
+    assert errors == [ParseError.NotANumber("x"), ParseError.Blank]
+
+    (oks, messages) = #["4", "z"] |> Iter.map(|t| parse_message(t)) |> Result.partition()
+
+    assert oks == [4]
+    assert messages == ["bad: z"]
+}
+
+test "Maybe.collect of a user struct" {
+    points = [0, 1, 2] |> Iter.map(|n| point_at(n)) |> Maybe.collect()
+
+    assert points == Some([Point{x: 0, y: 0}, Point{x: 1, y: 2}, Point{x: 2, y: 4}])
+
+    missing = [0, -1, 2] |> Iter.map(|n| point_at(n)) |> Maybe.collect()
+
+    assert missing == None
+}
+
+test "Maybe.collect stops pulling at the first None" {
+    stopped =
+        Range.naturals()
+        |> Iter.map(|n| point_at(2 - n))
+        |> Maybe.collect()
+
+    assert stopped == None
+}
+
+test "Maybe.values drops every None" {
+    xs = #[0, -1, 2, -3] |> Iter.map(|n| point_at(n)) |> Maybe.values()
+
+    assert xs == [Point{x: 0, y: 0}, Point{x: 2, y: 4}]
+}

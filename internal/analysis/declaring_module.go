@@ -12,12 +12,10 @@ import "strings"
 // Inputs:
 //
 //   - files: per-file FileAnalysis keyed by module key. "" is the
-//     entry file; non-empty keys are siblings or cross-module deps
-//     (Stage 1 Task 7 contract).
+//     entry file; non-empty keys are siblings or cross-module deps.
 //   - entryModuleName: the entry module's short name, read from
 //     nomi.toml's [module].name.
-//   - stdlibInterfaces, stdlibTypes: vestigial params post-Task-7
-//     cutover; production passes nil but the seeding path remains
+//   - stdlibInterfaces, stdlibTypes: production passes nil but the seeding path remains
 //     for unit-test exercise (the impl_orphan_test.go hand-rolled
 //     callers seed entries here rather than building a project's
 //     worth of files). Now that the stdlib-globals retirement is

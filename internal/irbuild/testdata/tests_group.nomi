@@ -1,7 +1,7 @@
 // A `tests` group prefixes case NAMES and hands its `setup` value to each of
-// its cases. Both halves are pinned here, and the pin is DIFFERENTIAL rather
-// than an assertion about the retained IR because what could go wrong is a
-// wrong VALUE or a wrong NAME, and neither is visible in a type-checked file.
+// its cases. Both halves are pinned here by the recorded output, because what
+// could go wrong is a wrong VALUE or a wrong NAME, and neither is visible in a
+// type-checked file.
 //
 // What each case discriminates:
 //

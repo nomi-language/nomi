@@ -9,8 +9,8 @@ import {
 // It lowered before the widening and lowers after it, and that is its whole job.
 // A one-sided fixture cannot tell "the sibling lookup was added" from "the
 // ordering path was widened for everything" — the first is the change, the second
-// would be a divergence, since the interpreter's ordering is not total over every
-// kind (see orderingOf's measured Int/Float boundary). Keeping the two files
+// would be a wrong answer, since ordering is not total over every
+// kind (see orderingOf's Int/Float boundary). Keeping the two files
 // row-for-row parallel is what makes the difference between them attributable.
 //
 // Deliberately NOT a copy of the sibling file's rows: the SCALAR rows live only

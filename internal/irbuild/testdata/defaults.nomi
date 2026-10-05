@@ -2,11 +2,9 @@ import std/io
 
 // Probe: DEFAULT PARAMETER VALUES.
 //
-// Go has no default arguments, so something at the call has to supply the
-// value — which makes this look like call-site sugar and it is not. invokeFunc
-// (eval/eval.go:7359-7375) evaluates `Defaults[i]` in `childEnv`: a fresh
-// environment off the FUNCTION'S OWN closure, after parameters 0..i-1 have
-// been bound into it. Three consequences, one probe each, and each one is a
+// Default values look like call-site sugar and they are not. A default is
+// evaluated in a fresh scope inside the callee, after the parameters before
+// it have been bound. Three consequences, one probe each, and each one is a
 // different answer from what a naive call-site expansion would produce.
 //
 //  1. `counted` — the default is a CALL WITH A SIDE EFFECT, so how often it

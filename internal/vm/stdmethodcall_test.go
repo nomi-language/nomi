@@ -10,7 +10,7 @@ func TestVMStdMethodCall_TourMatchesRecordedAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{"dates-and-times.md:L101"}, vmPathResolver(t, "tour"))
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "dates-and-times.md", `Instant.between(start, later)`)}, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("instant/duration Tour program incomplete: %v", refused)
 	}
@@ -24,7 +24,7 @@ func TestVMStringHosts_TourMatchesRecordedAnswers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids := []string{"pipes.md:L144"}
+	ids := []string{tourBlock(t, "pipes.md", `|> try String.to_int()`)}
 	got, refused := vmSubsetOf(t, "tour", ids, vmPathResolver(t, "tour"))
 	if len(got.Cases) != len(ids) || len(refused) != 0 {
 		t.Fatalf("string host Tour programs incomplete: %v", refused)

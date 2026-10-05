@@ -253,7 +253,7 @@ test "a decimal literal pattern matches by value, not by scale" {
 // built by the assertion machinery, not by either impl. Nothing above this can
 // see a mistake in it, because every case above passes and a passing assertion
 // renders nothing. So the fault text below is part of the contract, and the
-// two paths must produce it identically.
+// recorded golden pins it.
 test "a failing Decimal comparison renders both operands" {
     left = 1.50d
     right = 2.25d

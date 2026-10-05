@@ -6,10 +6,8 @@
 // same declaration identity (module plus name) at run time. See
 // internal/irbuild/foreign.go.
 //
-// `tag` is deliberately a field name here: an enum's generated tag field is
-// `Tag` and a struct field is `F_tag`, so the two cannot collide however the
-// Nomi program is spelled. The lexer forbids an uppercase letter in a field
-// name, so `Tag` is not a Nomi field name at all and there is no second case.
+// `tag` is deliberately a field name here: a struct field named `tag` must not
+// collide with an enum's variant tag, however the Nomi program is spelled.
 pub struct Point {
     x: Int
     y: Int
@@ -24,7 +22,7 @@ pub enum Reading {
     Labelled {name: String, at: Point}
 }
 
-// A distinct type is a Go DEFINED type, so it crosses as itself.
+// A distinct type crosses as itself.
 pub type Meters Int
 
 pub fn origin(): Point {
@@ -43,11 +41,8 @@ pub fn describe(r: Reading): String {
     }
 }
 
-// A distinct type crosses as itself, because a Nomi distinct is a Go DEFINED
-// type. It is only PASSED here: unwrapping it with `case m { Meters(n) -> … }`
-// inside a project-loaded sibling file does not match on the interpreter (a
-// pre-existing front-end defect, reproduced in the yield of the cross-package
-// identity slice), so the fixture unwraps it in the ENTRY, where it does.
+// A distinct type crosses as itself. It is only passed here; the fixture
+// unwraps it in the entry.
 pub fn bounce(m: Meters): Meters {
     m
 }

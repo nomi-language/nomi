@@ -62,7 +62,7 @@ func buildAndCollectTypeErrors(t *testing.T, src string) []analysis.TypeError {
 // diagnostic about a SYNTHESIZED impl body reports a position a programmer can
 // navigate to.
 //
-// Both rows are measured reproductions at 9d904954, where they read:
+// Both rows are reproductions; without the fix they read:
 //
 //	derive FromJson  ->  line 1432010752, col 84: unknown type "Json.ShapeError"
 //	derive ToJson    ->  line 1431994368, col 7:  undefined type Json.Obj

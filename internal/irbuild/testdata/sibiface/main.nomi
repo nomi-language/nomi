@@ -65,15 +65,10 @@ fn main() {
     io.print(Display.to_string(things.origin()))
     io.print(Tagger.tag("arg", things.origin()))
 
-    // NO ALIASED SPELLING HERE, and its absence is the point. This fixture used
-    // to bind `Point as TPoint` and dispatch on the annotated binding; the
-    // aliased-import guard in siblingiface.go now refuses any receiver whose def
-    // this file binds under a name other than its declared one, and it refuses
-    // this too — conservatively, because the guard asks which NAMES the file
-    // binds and not which name a VALUE carries. The interpreter does not trap
-    // here (the value's runtime tag is `Point`, from `things.origin()`), so this
-    // is a shape the subset gives up rather than a divergence it avoids, and it
-    // is recorded rather than worked around: a refusal is never a wrong answer.
-    // testdata/dictalias is the case the guard exists for, and
-    // TestDict_AnAliasedTypeImportBreaksInterpreterDispatch is its gate.
+    // NO ALIASED SPELLING HERE. The aliased-import guard in siblingiface.go
+    // refuses any receiver whose def this file binds under a name other than
+    // its declared one, conservatively, because the guard asks which NAMES the
+    // file binds and not which name a VALUE carries. So an aliased spelling
+    // would refuse this fixture, and a refusal is never a wrong answer.
+    // testdata/dictalias is the case the guard exists for.
 }

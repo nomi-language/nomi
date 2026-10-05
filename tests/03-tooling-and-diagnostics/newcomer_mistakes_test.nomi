@@ -1,0 +1,116 @@
+import std/compiler
+
+// Mistakes from a newcomer's first program. Each one passed `nomi check`
+// and then failed or was refused at run time; each is now a check error at
+// the mistake.
+test "a bare name is not a pipe stage" {
+    diagnostics =
+        """
+            import std/io
+
+            fn double(n: Int): Int {
+              n * 2
+            }
+
+            fn main() {
+              3 |> double |> io.print
+            }
+            """
+        |> compiler.check()
+
+    places = Iter.map(diagnostics, |d| (d.line, d.col)) |> Iter.to_list()
+
+    assert places == [(8, 8), (8, 18)]
+
+    assert Iter.any?(diagnostics, |d|
+        String.starts_with?(d.message, "a pipe stage is a call: write `double()`")
+    )
+
+    assert Iter.any?(diagnostics, |d|
+        String.starts_with?(d.message, "a pipe stage is a call: write `io.print()`")
+    )
+}
+
+test "a type name is not a conversion function" {
+    diagnostics =
+        """
+            fn main() {
+              n = Int("4")
+              s = String(4)
+              _ = (n, s)
+            }
+            """
+        |> compiler.check()
+
+    assert Iter.count(diagnostics) == 2
+
+    assert Iter.any?(diagnostics, |d|
+        String.starts_with?(d.message, "`Int` is a type, not a function") and String.contains?(
+            d.message,
+            "`String.to_int`",
+        )
+    )
+
+    assert Iter.any?(diagnostics, |d|
+        String.starts_with?(d.message, "`String` is a type, not a function")
+    )
+}
+
+test "the conversions the errors point to" {
+    diagnostics =
+        """
+            fn main() {
+              n = String.to_int("4") |> Maybe.with_default(0)
+              s = Display.to_string(n)
+              _ = s
+            }
+            """
+        |> compiler.check()
+
+    assert diagnostics == []
+}
+
+test "a pipe inside a lambda's parentheses stays in the lambda" {
+    diagnostics =
+        """
+            fn main() {
+              nums: List<Int> = ["1", "x"]
+                |> Iter.map(|s| String.to_int(s) |> Maybe.with_default(0))
+                |> Iter.to_list()
+              _ = nums
+            }
+            """
+        |> compiler.check()
+
+    assert diagnostics == []
+}
+
+test "a lambda is not a pipe stage" {
+    diagnostics =
+        """
+            fn main() {
+              n = 3 |> |v| v + 1
+              _ = n
+            }
+            """
+        |> compiler.check()
+
+    assert Iter.any?(diagnostics, |d|
+        String.contains?(d.message, "a lambda is not a pipe stage: write `then |v| ...`")
+    )
+}
+
+test "a braced lambda keeps the pipe inside its body" {
+    diagnostics =
+        """
+            fn main() {
+              nums: List<Int> = ["1", "x"]
+                |> Iter.map(|s| { String.to_int(s) |> Maybe.with_default(0) })
+                |> Iter.to_list()
+              _ = nums
+            }
+            """
+        |> compiler.check()
+
+    assert diagnostics == []
+}

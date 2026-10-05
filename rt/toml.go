@@ -7,16 +7,16 @@ package rt
 // There is no extern over Toml. Every function std declares for it —
 // `Toml.text`, `Toml.from_fragments` — is an ordinary Nomi body that lowers
 // into std/toml's generated package. What a Go type in rt buys is the thing
-// opaque.go's header says a spec row is FOR: letting a stdlib SIGNATURE name
+// opaque.go's header says a spec row is for: letting a stdlib signature name
 // the type. `Toml.from_fragments(fragments: List<Fragment<Display>>): Toml`
 // cannot be admitted while `Toml` has no representation a call site in another
 // generated package can compare against, because a stdFunc's kinds are built
-// once and compared by POINTER across gens.
+// once and compared by pointer across gens.
 //
-// # A PLAIN distinct, and that is the difference from Duration
+// # A plain distinct, and that is the difference from Duration
 //
 // std declares `pub type Toml String`, not `pub opaque type`. `opaque` is a
-// USE-SITE rule the front end enforces — outside the declaring file nobody may
+// use-site rule the front end enforces — outside the declaring file nobody may
 // write `Duration(n)` or destructure one — and dropping it changes nothing
 // about the representation: a Nomi distinct over a scalar is a Go defined type
 // over that scalar either way. What it does change is the surface, and the

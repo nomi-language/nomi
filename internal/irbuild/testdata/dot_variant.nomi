@@ -8,17 +8,17 @@
 //# such variant and resolving `.Drive` against `Signal` finds none either, so a
 //# wrong pick cannot become a plausible answer.
 //#
-//# THE SHARPER FORM IS NOW AVAILABLE and lives in variant_name_collision.nomi.
-//# The discriminating pair one wants here is two enums each declaring a `Go`
-//# variant with different field defaults, so a name-keyed resolution answers a
-//# wrong NUMBER rather than failing. That fixture was unwritable until
-//# 2026-08-25, because the INTERPRETER got it wrong: eval.go looked a
-//# struct-shaped variant's declaration up by the VARIANT NAME ALONE, so two
-//# enums declaring a `Go` shared one registration and the later declaration
-//# won — `Signal.Go{}.n` answered 7 where 3 is right, fully QUALIFIED, so it
-//# was never about the shorthand. Both sides agree now, so that pair is an
-//# ordinary differential fixture rather than a divergence, and THIS file keeps
-//# its DISJOINT names because resolution is what it tests, not defaults.
+//# The sharper form lives in variant_name_collision.nomi: two enums each
+//# declaring a `Go` variant with different field defaults, so a name-keyed
+//# resolution answers a wrong number rather than failing. This file keeps
+//# its disjoint names because resolution is what it tests, not defaults.
+//#
+//#
+//#
+//#
+//#
+//#
+//#
 //#
 //# `Halt` and `Park` exist so neither enum is single-variant: a one-variant
 //# enum would make the expected type recoverable from the variant name alone.

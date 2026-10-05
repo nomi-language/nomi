@@ -3,11 +3,10 @@
 //
 // The failing case at the bottom is the reason this is a test file rather than
 // a program. A comparison inside an assertion subject records both operands,
-// and `Unit` is the shape where the VM and the interpreter could disagree
-// silently: the interpreter classifies a bare type name as an operand that
-// explains nothing, and rt.RecordOperand independently suppresses a row whose
-// expression text reads exactly like its value. Two rules, one answer — so the
-// report has to be compared, not assumed.
+// and `Unit` is a shape where the report could go wrong silently: a bare type
+// name is an operand that explains nothing, and rt.RecordOperand suppresses a
+// row whose expression text reads exactly like its value. The report has to
+// be compared, not assumed.
 fn nothing(): Unit {
     Unit
 }

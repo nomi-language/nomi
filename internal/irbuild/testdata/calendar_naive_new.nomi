@@ -1,15 +1,11 @@
-// `NaiveDateTime.new` — seven Int components, the last two defaulted, and the
-// one std declaration whose default was owned by GO rather than by the
-// declaration that documents it.
+// `NaiveDateTime.new`: seven Int components, the last two defaulted by the
+// declaration that documents them,
+// `pub host fn new(..., second: Int = 0, nanosecond: Int = 0)`.
 //
 // # What this fixture is for
 //
-// It lands BEFORE the restructure it guards, against unmoved code, so the
-// pinned values below are the interpreter's answers with
-// `pub host fn new(..., second: Int = 0, nanosecond: Int = 0)` still padded in
-// Go by eval's `calendarNaiveDateTimeBuiltin`. After the restructure the same
-// text has to come back out of both paths. That is what makes the move a move
-// rather than a rewrite: `git diff -M` shows no literal in here changed.
+// It pins the values each arity produces, so a change to where the defaults
+// are filled has to produce the same text.
 //
 // # Which two derivations this lets disagree
 //
@@ -21,7 +17,7 @@
 //
 // A fixture that only ever spells the SHORTEST arity unifies A and B by
 // accident, and that is the whole trap here: with both trailing values zero,
-// "read `= 0` from the declaration", "pad with Go zeros" and even "silently
+// "read `= 0` from the declaration", "pad with zeros" and even "silently
 // drop the last two arguments" produce byte-identical output. `0` is the one
 // value at which every wrong implementation is right.
 //

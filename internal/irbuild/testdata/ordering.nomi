@@ -2,7 +2,7 @@
 // has a representation for, and the whole ordering surface of the language.
 //
 // This is a test file rather than a program because everything worth pinning
-// here is a value the two paths could disagree about while both compiling. Four
+// here is a value a lowering could get wrong while still running. Four
 // groups, and each exists for a failure the other three cannot see:
 //
 //  1. ALL THREE VARIANTS as values, and a `case` covering all three. Tags run
@@ -15,7 +15,7 @@
 //     Ordering. This is the point of the type: Comparable is the language's
 //     STRONG operator demand, so these operators are the only reason a program
 //     ever names it, and they are lowered as `compare` followed by a rank
-//     comparison rather than as Go's own `<`.
+//     comparison rather than as a native `<`.
 //
 //  3. Int and String `compare` — two stdlib impls with Nomi bodies, reached
 //     through the type-qualified spelling. `String.compare` matters
@@ -25,8 +25,8 @@
 //
 //  4. FLOAT and NaN. `impl Comparable for Float` is a TOTAL order — `compare`
 //     answers `Equal` for (nan, nan) and `Greater` for (nan, 1.0), which is
-//     what puts NaN last in a sort — while Go answers false to every NaN
-//     comparison and the bare `<` operator agrees with Go on both paths. So
+//     what puts NaN last in a sort, while IEEE answers false to every NaN
+//     comparison and the bare `<` operator follows IEEE. So
 //     the operators and `compare` DISAGREE with each other by design on this
 //     one input, and a lowering that shortcut `compare` to a native comparison
 //     would pass every other assertion in this file.
@@ -95,8 +95,7 @@ test "Float compare is a total order and the operators are not" {
     refute nan < nan
     refute nan <= nan
     refute nan > 1.0
-    // The INTERFACE-qualified spelling of the same call, which is how
-    // impl_test.go's retired `Comparable.compare on a scalar` row named it.
+    // The INTERFACE-qualified spelling of the same call.
     assert name(Comparable.compare(nan, nan)) == "equal"
     assert name(Comparable.compare(1.0, 2.0)) == "less"
 }

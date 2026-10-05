@@ -2,7 +2,7 @@
 // civil periods, machine-time projections, and IANA-zone-aware date-time
 // arithmetic.
 //
-// # ONE implementation
+// # One implementation
 //
 // A rule set whose input space is every wall reading in every IANA zone
 // across every transition rule has exactly one implementation, and it is here.
@@ -10,19 +10,19 @@
 // resolved; `PlusMonthsClamped` is the one place a shorter target month clamps;
 // `ParseDate` / `ParseTime` / `ParseNaiveDateTime` / `ParseOffsetDateTime` /
 // `ParseZonedDateTime` are the one place each spelling is accepted. The VM
-// reaches them through the FFI projection: std/calendar.nomi declares 56 bare
+// reaches them through the FFI projection: std/calendar.nomi declares bare
 // `host fn`s, internal/stdlibbindings pairs each with the FFI-shaped wrapper
 // in ffi.go, and internal/stdlibadapters generates the VM's adapter for each.
 // The pairing is held to the declarations by
 // internal/hostpair.TestEveryHostDeclarationInAGoBackedModuleIsRegistered.
 //
-// Everything about these functions is pinned by ABSOLUTE assertions in the
-// tests beside this file — the two-zones-one-instant equality, the
+// Everything about these functions is pinned by absolute assertions in the
+// tests beside this file (the two-zones-one-instant equality, the
 // civil-versus-physical DST divergence, end-of-month clamping, and each
-// `Disambiguation` mode — and the corpus's own 02-scalars-and-time/dst_*.nomi
+// `Disambiguation` mode), and the corpus's own 02-scalars-and-time/dst_*.nomi
 // programs exercise them through the VM.
 //
-// # What the move buys, measured
+// # Why the time-zone database is linked here and not in rt
 //
 // `time/tzdata` is blank-imported below. Its registration runs in `init`, so
 // the linker cannot drop it, so every binary that links this package pays its
@@ -31,7 +31,7 @@
 //
 // # Two layers in two files
 //
-// This file is the SEMANTICS, typed in rt's shapes:
+// This file is the semantics, typed in rt's shapes:
 // `rt.Result[T, rt.CalendarError]`, `rt.Duration`, `rt.Instant`, `rt.Years`.
 // boundary.go is the FFI-shaped surface, and every function there is a
 // projection onto one of these. The split exists because the FFI projection

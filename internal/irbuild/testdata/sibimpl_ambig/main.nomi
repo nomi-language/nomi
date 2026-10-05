@@ -1,9 +1,8 @@
-// `Thing.go` names one function and two files provide it. MEASURED on the
-// interpreter: this RUNS and answers beta's body, resolving by file order with
-// no diagnostic — so a builder that picked its single local candidate, or the
-// first indexed one, would be silently right or silently wrong depending on the
-// sort. Refused instead. registerImpl's rule, one level out: never let ordering
-// decide.
+// `Thing.go` names one function and two files provide it. A builder that
+// picked its single local candidate, or the first indexed one, would be
+// silently right or silently wrong depending on the sort, and no diagnostic
+// would say so. Refused instead. registerImpl's rule, one level out: never
+// let ordering decide.
 //
 // Refused, so never run on the VM: there is no VM output to compare.
 import {

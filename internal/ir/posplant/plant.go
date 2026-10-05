@@ -12,7 +12,7 @@
 // `go vet ./internal/...` do not see it, because the go tool skips a package
 // whose files are all excluded by build constraints.
 //
-// EVERY LINE NUMBER HERE IS LOAD-BEARING. The test names them.
+// Every line number here is load-bearing. The test names them.
 package posplant
 
 import "github.com/nomi-language/nomi/internal/ir"

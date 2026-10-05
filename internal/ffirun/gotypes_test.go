@@ -2,7 +2,6 @@ package ffirun
 
 import (
 	"bytes"
-	"path/filepath"
 	"reflect"
 	gruntime "runtime"
 	"strings"
@@ -22,7 +21,7 @@ import (
 // Go maps with slice values. ffxadapters' own suite holds those adapters to
 // recorded outcomes.
 func TestGoSourceTypesGenerateTheReflectedAdapters(t *testing.T) {
-	root := nomiLangRoot(t)
+	root := repoRoot(t)
 	const fixturePkg = "github.com/nomi-language/nomi/internal/hostgen/fixture"
 	want, err := hostgen.Generate(fixture.Table())
 	if err != nil {
@@ -75,13 +74,4 @@ func TestGoSourceTypesGenerateTheReflectedAdapters(t *testing.T) {
 	if len(tb.Funcs) != 25 {
 		t.Fatalf("%d fixture bindings, want 25", len(tb.Funcs))
 	}
-}
-
-func nomiLangRoot(t *testing.T) string {
-	t.Helper()
-	_, file, _, ok := gruntime.Caller(0)
-	if !ok {
-		t.Fatal("no caller")
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 }

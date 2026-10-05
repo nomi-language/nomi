@@ -12,7 +12,7 @@ import (
 // # Why this file exists rather than a map of names
 //
 // Nomi guarantees constant-stack tail calls with no annotation and no
-// diagnostic (spec §12.7). Go eliminates none, so a tail-call CYCLE among
+// diagnostic (spec §12, *Tail-call optimization*). Go eliminates none, so a tail-call CYCLE among
 // compiled functions is either lowered explicitly or refused by name — never
 // lowered into a plain recursive Go call, which works until its input grows
 // and then dies as `fatal error: stack overflow` rather than as a Nomi error.

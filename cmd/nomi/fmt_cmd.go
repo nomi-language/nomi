@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/format"
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
@@ -24,6 +25,9 @@ func reportFormatError(file string, err error) {
 	var pe parser.ParseError
 	if errors.As(err, &pe) {
 		fmt.Fprintf(os.Stderr, "%s:%d:%d: %s\n", file, pe.Line, pe.Col, pe.Message)
+		for _, h := range pe.Hints {
+			fmt.Fprintf(os.Stderr, "%s:%d:%d: help: %s\n", file, pe.Line, pe.Col, frontend.OneLineHint(h))
+		}
 		return
 	}
 	fmt.Fprintf(os.Stderr, "%s: %v\n", file, err)

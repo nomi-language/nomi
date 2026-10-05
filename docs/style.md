@@ -27,6 +27,17 @@ s
 |> Iter.to_set()
 ```
 
+**Every stage is a call.** The pipe passes its value as the first argument
+of the call after `|>`, so a stage keeps its parentheses even when nothing
+else goes in them: `|> Iter.to_list()`, `|> io.print()`, `|> Ok()`. A name
+without parentheses is a function reference, as it is in
+`Iter.map(xs, io.print)`, so `x |> io.print` is a compile error that names
+the call to write. The exceptions are the keyword stages (`|> dbg`,
+`|> try`, `|> if`, `|> case`, `|> todo`) and `|> then |v| ...`, which
+applies a lambda to the value. Reach for `then` for a small step no named
+function covers; once the step has a name worth giving, write the function
+and call it.
+
 **Inline or stacked is your choice, and `fmt` keeps it.** Write a pipe on one
 line and it stays inline; write it across several lines and it stays stacked,
 each `|>` aligned with the subject. `fmt` breaks an inline chain only when it
@@ -67,8 +78,10 @@ Inline is still fine for a short expression where the call itself is the point:
 `Set.size(s) |> io.print()`. Prefer the stacked form once the chain is doing
 real pipeline work, when a lambda makes a stage multi-line, or when starting
 from the subject makes the data flow easier to scan. `fmt` stacks every
-pipeline that has a lambda stage: a lambda stage's body ends at the next `|>`,
-and a line per stage shows where.
+pipeline that has a `then` stage: a `then` lambda's body ends at the next
+`|>`, and a line per stage shows where. Any other lambda's body runs to the
+end of its expression, so `Iter.map(xs, |s| String.to_int(s) |> Maybe.with_default(0))`
+needs no braces.
 
 **Lift a composite-literal seed to its own stage.** When the innermost subject
 is a composite literal (a list, map, set, tuple or struct literal), give it its
@@ -387,10 +400,10 @@ impl Speech for Dog {
 **`io.print` takes any `Display` value; don't pre-stringify.** It dispatches
 `Display.to_string` itself (the same path `${...}` interpolation uses), so write
 `x |> io.print()` or `io.print(x)`, not `x |> Int.to_string() |> io.print()`.
-Two cases still stringify before printing: feeding `+` concatenation
-(`io.print("n=" + Int.to_string(n))`, which needs a `String`), and a value whose
-static type is the `Display` interface itself, where the interface-qualified
-`Display.to_string(v)` is required. `io.inspect(x)` is the parallel shorthand
+That includes a value whose static type is the `Display` interface itself:
+`io.print(v)` and `"${v}"` render it through the value's own impl. The one
+case that stringifies before printing is feeding `+` concatenation
+(`io.print("n=" + Int.to_string(n))`, which needs a `String`). `io.inspect(x)` is the parallel shorthand
 for the Debug rendering and returns `Unit`. Use `dbg` (§10) to inspect a value
 without breaking an expression or pipeline.
 
@@ -533,7 +546,7 @@ pipeline compute the assertion subject and put `assert` or `refute` at the
 head. Prefer an existing predicate or equality function (`String.contains?`,
 `String.equal?`, `Result.ok?`) over a throwaway lambda. When a predicate has
 semantic weight or several conditions, give it a `?`-suffixed name and assert
-that instead; keep lambda stages for tiny local transformations. Indent the
+that instead; keep `then` stages for tiny local transformations. Indent the
 stages under the asserted operand, which distinguishes it from a statement-level
 pipeline:
 
@@ -1206,3 +1219,48 @@ Keep the lambda when its body does more than read fields: a computation
 (`|u| u.age + 1`), a call (`|u| String.to_upper(u.name)`), or a condition
 (`|u| u.age > 18`). Don't pipe into an accessor; read the field from the
 value: `user.name`, not `user |> .name`, which is an error.
+
+## 22. Pass a constructor, not `|x| Some(x)`
+
+Where a function only wraps its argument, pass the constructor itself (spec,
+*Constructors as Function Values*): a positional variant (`Some`, `Ok`,
+`Shape.Circle`) or a distinct type that wraps a value (`Id` for
+`type Id Int`). The lambda says the same thing with a parameter name to
+invent:
+
+```nomi
+ids = rows |> Iter.map(.id) |> Iter.map(UserId) |> Iter.to_list()
+somes: List<Maybe<Int>> = Iter.map(ns, Some) |> Iter.to_list()
+labelled = Result.map_err(result, ParseError)
+```
+
+Keep the lambda when it does more than wrap: a computation inside the
+constructor (`|n| Id(n + 1)`), a struct-shaped variant, which has no function
+value (`|w| Shape.Rect{w: w, h: w}`), or a positional variant over a tuple
+whose parts arrive as separate arguments.
+
+## 23. `return` is for leaving early
+
+A block's last expression is its value, so a function or lambda ends with
+the value, not `return value`. Keep `return` for an exit before the end:
+
+```nomi
+fn clamp(n: Int): Int {
+    if n < 0 { return 0 }
+    if n > 100 { return 100 }
+    n
+}
+```
+
+`fmt` applies this for you. It removes a `return` that is the last thing a
+function, lambda or test body does, including the last expression of each
+branch of a tail `if` and each arm of a tail `case`; a brace value such as
+`return {..p, x: 0}` becomes `{..p, x: 0}`. A bare `return` at the end of a
+`Unit` body goes too when an expression statement comes before it. In a test
+body, a tail `if` or `case` keeps its `return value`s, since its branches'
+values need not share a type there.
+
+A bare `return` that `fmt` leaves at the end of a body, alone in it, after a
+binding, or carrying a comment, is a compiler error, as is a final
+`if done { return }`. Delete it; write `todo` in a body you have not written
+yet.

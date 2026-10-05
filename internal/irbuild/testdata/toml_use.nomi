@@ -2,13 +2,12 @@
 //
 // `pub type Toml String` is a PLAIN distinct, not `pub opaque type`, and that
 // is the whole difference from `Duration`: outside the declaring file anyone
-// may construct one and destructure one. opaque.go used to treat that clause
-// as a representation boundary. It is not one — both spellings are a Go
-// defined type over a scalar — but the use-site surface it admits is real, so
-// this exercises it rather than asserting it.
+// may construct one and destructure one. Both spellings are a distinct over a
+// scalar at run time, but the use-site surface a plain distinct admits is real,
+// so this exercises it rather than asserting it.
 //
-// `Toml("x = 1")` must emit an `rt.Toml(...)` conversion and `Toml(raw) = t`
-// a `string(...)` one, from a package that declares neither the type nor any
+// `Toml("x = 1")` must lower to a wrap of the String and `Toml(raw) = t` to an
+// unwrap, from a module that declares neither the type nor any
 // function over it.
 import {
     std/io

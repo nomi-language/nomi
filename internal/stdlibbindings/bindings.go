@@ -24,38 +24,36 @@
 //
 // # Why this is hand-written, and what stops it drifting
 //
-// It was generated, by cmd/nomi-stdlibbindings, from the `gopkg` handles and
-// `go alias.Symbol` selectors the four facades used to carry. Those are gone:
-// every std declaration is a `host fn` or a `host type` now, so no Nomi source
-// names a Go symbol. Other candidate sources for the SYMBOL half were
-// measured and are closed — see internal/hostpair's symbolsource_test.go for
-// the numbers:
+// Every std declaration is a `host fn` or a `host type`, so no Nomi source
+// names a Go symbol. The other candidate sources for the symbol half do not
+// work; internal/hostpair's symbolsource_test.go checks each:
 //
-//   - Pairing by SIGNATURE against the adapter package is not a function: 34
-//     of its 66 FFI-shaped exports share a signature with another, and nine
-//     `func(d DateTime, n int64) DateTime` adders are indistinguishable.
-//   - Computing the Go name from the Nomi name accounts for 44 of 66 rows.
-//     The 22 exceptions are not typos: `random.os_state` is `FFIFromOS`,
-//     `Regex.compile` drops its receiver, and every `_raw` or `_state` row
-//     drops its suffix.
+//   - Pairing by signature against the adapter package is not a function:
+//     about half of its FFI-shaped exports share a signature with another,
+//     and nine `func(d DateTime, n int64) DateTime` adders are
+//     indistinguishable.
+//   - Computing the Go name from the Nomi name misses about a third of the
+//     rows, and the exceptions are not typos: `random.os_state` is
+//     `FFIFromOS`, `Regex.compile` drops its receiver, and every `_raw` or
+//     `_state` row drops its suffix.
 //
-// It holds FUNCTION VALUES rather than names, for this reason. A pair of STRINGS ("this Nomi name" -> "call
+// It holds function values rather than names, for this reason. A pair of strings ("this Nomi name" -> "call
 // go_regex.Compile") is a lookup decided by a name: a rename on
 // the Go side gives a name that resolves to nothing, silently. Holding the
-// FUNCTION VALUE removes the failure mode — a renamed or deleted symbol is a Go
+// function value removes the failure mode: a renamed or deleted symbol is a Go
 // compile error in this file, and the signature is reflected over rather than
 // restated. So the only hand-written thing is the Nomi key.
 //
-// # A WRONG OR MISSING KEY IS QUIET, and that is why there is a test
+// # A wrong or missing key is quiet, so a test checks the keys
 //
 // Nothing at load time checks a std `host fn` against this table: a stdlib
 // declaration with no row is simply not retained, so a program reaching it is
 // BLOCKED, far from the omission and without naming the missing row. The
-// function values prevent silent resolution on the GO side. The NOMI key is
+// function values prevent silent resolution on the Go side. The Nomi key is
 // the only half that remains derivable from source, so that is where the
 // check is:
 // internal/hostpair.TestEveryHostDeclarationInAGoBackedModuleIsRegistered
-// derives all 67 keys from `std/*.nomi` and requires this table to be a
+// derives every key from `std/*.nomi` and requires this table to be a
 // bijection with them, reporting a missing key, a misspelling (both halves)
 // and an orphaned row.
 //
@@ -63,17 +61,17 @@
 //
 // Two things would: a `go alias.Symbol` selector back in the facade, or a
 // marker comment on each Go function naming its Nomi key. The first is the
-// arrangement 8fd1c886 deliberately ended — a `gopkg` handle in a std facade
+// arrangement this package deliberately avoids — a `gopkg` handle in a std facade
 // makes the module a discoverable co-located adapter again, and every program
 // importing it then needs `go` on PATH (internal/ffirun's
 // hostkeyword_toolchain_test.go). The second keeps `host fn` and the
-// toolchain-free path, but the derived symbol would be a STRING in a comment:
+// toolchain-free path, but the derived symbol would be a string in a comment:
 // a Go rename invalidates it silently and nothing catches it, which is the
 // exact failure the `Fn any` field above exists to remove. So the reason this
 // table holds function values is also the reason the last route to generating
 // it is closed.
 //
-// A generator that emitted the KEYS and left `Fn:` to a human would be
+// A generator that emitted the keys and left `Fn:` to a human would be
 // strictly worse than the test: same errors caught, plus a build step and a
 // generated file to keep in sync.
 package stdlibbindings
@@ -126,8 +124,7 @@ func Types() []TypeBinding {
 // interchangeable with it in either direction: measured, 13 of 14 rt-shaped symbols
 // either error at this boundary or hand Nomi a different value (a struct where
 // the declaration says a tuple, `{tag, ok, err}` where it says a Result). The
-// VM's generated adapters call the FFI-shaped half too, so one Go function
-// serves both engines.
+// VM's generated adapters call the FFI-shaped half.
 func Funcs() []Binding {
 	return []Binding{
 		{Name: "Date.days_between", Fn: stdcalendar.FFIDateDaysBetween},
@@ -214,6 +211,8 @@ func RtFuncs() []Binding {
 		{Name: "strings.string_compare", Fn: rt.StringCompare},
 		{Name: "strings.String.to_int", Fn: rt.StringToInt},
 		{Name: "strings.String.split", Fn: rt.StringSplit},
+		{Name: "strings.String.words", Fn: rt.StringWords},
+		{Name: "strings.String.lines", Fn: rt.StringLines},
 		{Name: "strings.String.length", Fn: rt.StringLength},
 		{Name: "strings.String.slice", Fn: rt.StringSlice},
 		{Name: "strings.String.reverse", Fn: rt.StringReverse},

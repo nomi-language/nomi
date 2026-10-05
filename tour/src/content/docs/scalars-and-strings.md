@@ -130,6 +130,12 @@ built-in scalar impls cover numeric arithmetic; `+` also covers string
 concatenation. Custom types can implement the same interfaces when the operator
 is the clearest domain operation.
 
+To take text apart, [`String.split`](/reference/strings/#stringsplit) cuts at
+an exact separator, [`String.words`](/reference/strings/#stringwords) splits on
+any run of whitespace, and [`String.lines`](/reference/strings/#stringlines)
+splits into lines. The [`String` reference](/reference/strings/) lists the
+rest.
+
 ## Text model
 
 Nomi's text model has three pieces:

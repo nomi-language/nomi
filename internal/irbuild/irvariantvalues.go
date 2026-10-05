@@ -389,6 +389,11 @@ func irRetainedPreludePayload(k kind) bool {
 		// A tuple of retained values (`List.next_item`'s `(T, List<T>)`).
 		return true
 	}
+	if k.tag == tagNamed && irCompositeDistinct(k.def) {
+		// A distinct over a tuple, a list, a map or a function
+		// (`Maybe<Pair>` for `type Pair (Int, String)`), held as its record.
+		return true
+	}
 	if irRetainedSeqKind(k) {
 		// A lowered sequence (`Some(xs |> Iter.map(f))`), held as its closure.
 		return true

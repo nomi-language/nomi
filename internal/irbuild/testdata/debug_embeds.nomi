@@ -3,7 +3,7 @@
 //
 // # What the gap was, in one line
 //
-// `analysis/derive_synthesis.go:3072-3076` synthesizes the `embeds` arm of a
+// `analysis/derive_synthesis.go` synthesizes the `embeds` arm of a
 // universal `impl Debug` as `Debug.inspect(v0)` on the bound embedded value —
 // no `Variant(...)` wrapping, because "an embedded variant transparently
 // behaves as the embedded type at the value level". At that call site
@@ -17,7 +17,7 @@
 // `Debug on an unrepresented receiver | Node`.
 //
 // The fix is tiered selection: an exact fit beats a widened one, which is the
-// interpreter's rule (dispatch is on the value's own type) and is also what
+// language's rule (dispatch is on the value's own type) and is also what
 // makes the delegation TERMINATE instead of recursing into the enum's own impl.
 //
 // # Why this file has THREE embedded shapes and not one
@@ -50,7 +50,7 @@
 // alphabetical order DISAGREE and the four renderings cannot collapse:
 //
 //	Debug.inspect(v)      declaration order, honours a hand-written impl
-//	assertion `values:`   value.Inspect — sorts COMPOSED strings, non-overridable
+//	assertion `values:`   structural walk, sorts the composed strings
 //	Display / "${v}"      the user's `impl Display`
 //	opaque under Debug    name only, strictly LESS than the structural walk
 //
@@ -58,20 +58,15 @@
 // the delegation is required to honour PRECEDENCE (explicit impl > derive >
 // auto-synthesized) one level down rather than only at the top level.
 //
-// # The `host type` row, and where it went instead
+// # The `host type` row lives elsewhere
 //
-// This note used to say a `Bool` embed "cannot appear in a differential fixture"
-// because `bool.Bool.inspect` was unbound, and correctly identified the shape as
-// the SAME as `embeds Expired`: `Bool` is `pub enum Bool { embeds False; embeds
-// True }` over two zero-sized `pub host type`s, so the zero-sized rows below are
-// the representable half of it.
-//
-// The other half is bound now, and the rows are in
-// `debug_display_surfaces.nomi` rather than here, because what they exercise is
-// the four SURFACES over one value — including a `case` arm MATERIALIZING the
-// singleton out of a tag — and not `embeds` delegation, which is this file's
-// subject. The zero-sized `embeds` rows below already cover the delegation at
-// that shape.
+// A `Bool` embed has the same shape as `embeds Expired`: `Bool` is `pub enum
+// Bool { embeds False; embeds True }` over two zero-sized `pub host type`s, so
+// the zero-sized rows below are the representable half of it. The `Bool` rows
+// themselves are in `debug_display_surfaces.nomi`, because what they exercise
+// is the four surfaces over one value, including a `case` arm materializing
+// the singleton out of a tag, and not `embeds` delegation, which is this
+// file's subject.
 import std/io
 
 opaque type Meters Int
@@ -104,8 +99,8 @@ impl Debug for Custom {
 }
 
 // Zero-sized distinct: the variant takes no arguments and the payload has no
-// storage, so the value is RECONSTRUCTED from its type (case.go's payloadValue
-// slot < 0 branch). Renders as its bare name.
+// storage, so the value is reconstructed from its type when the case binds it.
+// Renders as its bare name.
 type Expired
 
 // Wrapping distinct: the payload is the INNER type, so the delegated call is on
@@ -194,8 +189,8 @@ test "an embeds variant's Debug delegates to the embedded value, unwrapped" {
 }
 
 // A `values:` row exists only on a FAILING assertion, so each of these fails on
-// purpose. The row is `value.Inspect` — it SORTS the composed strings and
-// ignores every impl — so it must NOT agree with the Debug rows above.
+// purpose. The row is a structural walk that sorts the composed strings, so
+// it must not agree with the Debug rows above.
 test "values row sorts and ignores the hand-written impl" {
     w = Worker{zeta: 1, alpha: 2}
     assert no_worker(w)

@@ -28,11 +28,11 @@ import (
 // leave the arm untested. This fails with a reason instead.
 func TestDbg_MultiLineShapeIsExercised(t *testing.T) {
 	got := vmReference(fixture("dbg_shapes.nomi"))
-	if !strings.Contains(got.stdout, "dbg line 61:\n  [\n") {
+	if !strings.Contains(got.stdout, "dbg line 60:\n  [\n") {
 		t.Fatalf("the multi-line LIST operand does not wrap, so that arm of "+
 			"rt.Dbg is untested — lengthen the literals in dbg_shapes.nomi\n%s", got.stdout)
 	}
-	if !strings.Contains(got.stdout, "dbg line 74:\n  Rev{\n") {
+	if !strings.Contains(got.stdout, "dbg line 73:\n  Rev{\n") {
 		t.Fatalf("the multi-line STRUCT operand does not wrap, so that arm of "+
 			"rt.Dbg rests on one operand type\n%s", got.stdout)
 	}
@@ -40,7 +40,7 @@ func TestDbg_MultiLineShapeIsExercised(t *testing.T) {
 	// other direction: a formatter change that stopped wrapping ANYTHING would
 	// satisfy neither check above, and one that started wrapping everything
 	// would satisfy both and leave the single-line arm dark.
-	if !strings.Contains(got.stdout, "dbg line 48: 41 + 1 = 42\n") {
+	if !strings.Contains(got.stdout, "dbg line 47: 41 + 1 = 42\n") {
 		t.Fatalf("the single-line shape is not reached\n%s", got.stdout)
 	}
 }

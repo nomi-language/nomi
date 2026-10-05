@@ -4,9 +4,8 @@
 // The file EXITS 1. Five of its eight cases fail on purpose, because the whole
 // difference between this arm and the Bool one is in the REPORT: a shape
 // failure carries an `actual:` row that a Bool failure does not, rendered by
-// value.Inspect on the interpreter's side and by rt's renderer on the VM's.
-// Those are two independent renderers, so this is exactly the
-// place a lowering can judge correctly and still diverge.
+// rt's renderer. That row is where a lowering can judge correctly and still
+// report the wrong text.
 //
 // What each case discriminates:
 //
@@ -55,9 +54,8 @@ test "refuting a Some fails in its own words" {
 test "refuting a None passes and carries the None through" {
     empty = refute find(2)
 
-    // Discriminated by `case`, not `empty == None`, which was once a refused
-    // `mixed-type operator`. It lowers since 2026-08-24, so the `case` now earns
-    // its place by testing that the subject is CARRIED. Keep this block's LENGTH.
+    // Discriminated by `case`, not `empty == None`, so the block also tests
+    // that the subject is carried through the assertion unchanged.
     tag = case empty {
         Some(_) -> 1
         None -> 0

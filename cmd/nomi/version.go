@@ -8,11 +8,11 @@ import (
 	"github.com/nomi-language/nomi/internal/ffirun"
 )
 
-// WHY THIS READS BUILD INFO AND CARRIES NO `-ldflags` PLUMBING FOR THE REVISION.
+// Why this reads build info and carries no `-ldflags` plumbing for the revision.
 //
 // Go stamps the VCS revision, the commit time and a dirtiness flag into every
 // main package it builds from a repository, and it does so for all three ways
-// this binary is produced. Measured at e8635380 with `go version -m`, which
+// this binary is produced, as `go version -m` shows; it
 // reads the artifact's own build-info section:
 //
 //	go build -o nomi ./cmd/nomi              vcs.revision + vcs.modified present
@@ -24,23 +24,23 @@ import (
 // to be threaded through the Makefile, release.sh and every ad-hoc `go build`
 // a contributor types, in exchange for information the toolchain already
 // provides. `-s -w` strips the symbol table and DWARF, not the build-info
-// section, and `-trimpath` leaves it alone too — the latter already recorded
+// section, and `-trimpath` leaves it alone too; the latter is also recorded
 // at internal/irbuild/irbuild.go's goDirective.
 //
-// ONE `-X` EXISTS, for the one thing build info cannot hold: the release tag.
+// One `-X` exists, for the one thing build info cannot hold: the release tag.
 // scripts/release.sh sets internal/ffirun.ReleaseVersion, because
 // `nomi build --target` downloads the other platform's runner from the release
 // by its tag, and a commit does not name a tag. A binary built any other way
 // leaves it empty and is unaffected.
 //
-// WHICH VERSION IS PRINTED. From a checkout, Go also stamps a module version
+// Which version is printed. From a checkout, Go also stamps a module version
 // derived from the nearest tag (`v0.1.0+dirty`, or a pseudo-version past it).
 // That names a tag, not the commit, so the revision is printed instead. A
 // build from the module proxy (`go install ...@v0.2.0`) has no revision and
 // prints its module version.
 //
-// A build with no VCS information at all — `-buildvcs=false`, or a build from
-// an unpacked source archive — reports `unknown`. That is a real state, so it
+// A build with no VCS information at all (`-buildvcs=false`, or a build from
+// an unpacked source archive) reports `unknown`. That is a real state, so it
 // is named rather than rendered as an empty token.
 
 // revisionAbbrev is how many hex digits of the revision the version token

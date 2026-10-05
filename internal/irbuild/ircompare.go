@@ -337,7 +337,11 @@ func (g *gen) irPreludeEqualityKind(k kind) bool {
 			// A Decimal payload compares with rt.EqDecimal under both: it is
 			// the host body of std's `impl Equatable for Decimal`, and
 			// rt.Equal calls it for a Decimal.
-			if !irScalarLeafKind(p.k) && p.k != kindUnit && !failure && !irEqualityContainerKind(p.k) && !isDecimalKind(p.k) {
+			// A distinct over a tuple or a container compares through its
+			// inner value under the derived impl, and rt.Equal does the same;
+			// a hand-written impl on it answers through vm/keys.go either way.
+			composite := p.k.tag == tagNamed && irCompositeDistinct(p.k.def) && p.k.def.inner.tag != tagFunc
+			if !irScalarLeafKind(p.k) && p.k != kindUnit && !failure && !irEqualityContainerKind(p.k) && !isDecimalKind(p.k) && !composite {
 				return false
 			}
 		}

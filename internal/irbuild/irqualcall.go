@@ -550,8 +550,8 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 		}
 		if ti.Name == "Result" && method == "map_err" {
 			plan = bl.resultMapErrPlan(t, args)
-		} else if ti.Name == "Result" && method == "from_maybe" {
-			plan = bl.preludeFromMaybePlan(t, args)
+		} else if ti.Name == "Maybe" && method == "to_result" {
+			plan = bl.preludeToResultPlan(t, args)
 		} else if (ti.Name == "Maybe" || ti.Name == "Result") && method == "with_default" {
 			plan = bl.preludeWithDefaultPlan(t, args, ti.Name)
 		} else if (ti.Name == "List" || ti.Name == "Vector") && method == "compare" {
@@ -595,7 +595,7 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 		// `CalleeIndirect` and a different resolution.
 		return no()
 	default:
-		plan = bl.qualFilePlan(t, args, obj.Name, method)
+		plan = bl.qualFilePlan(t, args, obj, method)
 	}
 	if plan == nil {
 		return no()
@@ -617,7 +617,7 @@ func (bl *irScalarBuilder) qualPreResolve(ti *ast.TypeIdent, obj *ast.Ident, isT
 	if g.files == nil || irQualIsLocal(bl, obj.Name) {
 		return
 	}
-	to, isSibling := g.files.lookupQualifier(g.fa, obj.Name)
+	to, isSibling := g.files.lookupQualifier(g.fa, obj)
 	if !isSibling {
 		return
 	}
@@ -997,16 +997,17 @@ func (bl *irScalarBuilder) siblingDefaultArgs(t *ast.Call, args irQualArgs, f *f
 //
 // SIBLING BEFORE STDLIB, which is `qualifiedCall`'s own order and its own
 // reason — "`io` is a stdlib file and never resolves here".
-func (bl *irScalarBuilder) qualFilePlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
+func (bl *irScalarBuilder) qualFilePlan(t *ast.Call, args irQualArgs, ownerID *ast.Ident, method string) *irQualPlan {
+	owner := ownerID.Name
 	if bl.g.files != nil {
-		if to, isSibling := bl.g.files.lookupQualifier(bl.g.fa, owner); isSibling {
+		if to, isSibling := bl.g.files.lookupQualifier(bl.g.fa, ownerID); isSibling {
 			return bl.qualSiblingPlan(t, args, to, method)
 		}
 	}
 	// Stdlib file APIs have separate generic, testing and host-call routes.
 	// They are outside the concrete type-qualified method path, except the
 	// hosts with VM adapters (RtFuncs rows, with or without the frame).
-	std, isStd := stdFileQualifier(bl.g.fa, owner)
+	std, isStd := stdFileQualifier(bl.g.fa, ownerID)
 	if !isStd {
 		std, isStd = bl.stdOwnFileQualifier(owner)
 	}
@@ -1388,7 +1389,7 @@ func (bl *irScalarBuilder) qualDottedOwner(n ast.Node) (owner, stdModule string,
 	if !isIdent || irQualIsLocal(bl, mod.Name) {
 		return "", "", false
 	}
-	std, isStd := stdFileQualifier(bl.g.fa, mod.Name)
+	std, isStd := stdFileQualifier(bl.g.fa, mod)
 	if !isStd {
 		return "", "", false
 	}

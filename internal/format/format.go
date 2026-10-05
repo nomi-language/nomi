@@ -3,6 +3,8 @@ package format
 import (
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/token"
+	"strings"
 )
 
 // Layout parameters: 4-space indentation at 100 columns, rustfmt's defaults.
@@ -35,5 +37,31 @@ func Format(src string) (string, error) {
 		return src, err
 	}
 	nodes = normalizeImportLayout(nodes)
-	return emitFile(nodes, fileEndTrivia), nil
+	normalizeBodies(nodes)
+	return withShebang(src, tokens, emitFile(nodes, fileEndTrivia)), nil
+}
+
+// withShebang puts src's `#!` line, which the lexer skips, back in front of
+// the formatted body, byte for byte apart from trailing whitespace. A blank
+// line after it in src stays as one blank line; no blank line stays none.
+func withShebang(src string, tokens []token.Token, body string) string {
+	shebang := strings.TrimRight(lexer.Shebang(src), " \t")
+	if shebang == "" {
+		return body
+	}
+	if body == "" {
+		return shebang + "\n"
+	}
+	// The first token after the shebang tells whether a blank line came
+	// between: line 2 means none.
+	for _, tok := range tokens {
+		if tok.Type == token.NEWLINE || tok.Type == token.BLANK_LINE {
+			continue
+		}
+		if tok.Type != token.EOF && tok.Line > 2 {
+			return shebang + "\n\n" + body
+		}
+		break
+	}
+	return shebang + "\n" + body
 }

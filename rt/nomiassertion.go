@@ -1,7 +1,7 @@
 package rt
 
-// The assertion failure as a NOMI VALUE, which is a different thing from the
-// assertion failure as a REPORT.
+// The assertion failure as a Nomi value, which is a different thing from the
+// assertion failure as a report.
 //
 // # Why there are two types and not one
 //
@@ -10,7 +10,7 @@ package rt
 // early-return channel a failing `assert` uses. Nothing user-written ever holds
 // one.
 //
-// std/assertions declares a DIFFERENT type under the same name — an ordinary
+// std/assertions declares a different type under the same name — an ordinary
 // Nomi `pub struct` whose `actual` is `Maybe<String>`, whose `binding` is
 // `Maybe<AssertionBinding>` and whose `values` is `List<AssertionValue>`. That
 // is what `testing.check` hands back, what a program annotates a binding with,
@@ -34,12 +34,12 @@ package rt
 // which is not a rule anybody can apply to the sixth. So the whole family
 // carries it and the rule is: `Nomi`-prefixed is the type a Nomi program sees.
 //
-// # The layout is a CONTRACT with internal/irbuild
+// # The layout is a contract with internal/irbuild
 //
 // internal/irbuild/stdstruct.go names every field of every type here, in
 // declaration order, with the Nomi name it answers to — and refuses to anchor
 // anything whose std declaration disagrees. A rename here is a Go compile error
-// there (the spec holds reflect.TypeFor of each type), and a REORDER or a
+// there (the spec holds reflect.TypeFor of each type), and a reorder or a
 // retype produces no anchor, so every mention refuses loudly instead of
 // lowering against a layout nobody wrote.
 
@@ -72,7 +72,7 @@ type NomiAssertionDetail struct {
 
 // NomiAssertionDetails is std/assertions' `AssertionDetails`.
 //
-// The one type in this family whose std declaration carries FIELD DEFAULTS:
+// The one type in this family whose std declaration carries field defaults:
 //
 //	pub struct AssertionDetails {
 //	  reason: String = "assertion failed"
@@ -80,7 +80,7 @@ type NomiAssertionDetail struct {
 //	  details: List<AssertionDetail> = []
 //	}
 //
-// The defaults are NOT here, and that is deliberate rather than an omission.
+// The defaults are not here, and that is deliberate rather than an omission.
 // They live in internal/irbuild/stdstruct.go's spec row, which internal/irbuild
 // applies at each construction site that omits the field, and whose shape check refuses
 // to anchor this type at all if std's declared defaults stop being the ones the
@@ -88,7 +88,7 @@ type NomiAssertionDetail struct {
 // drift silently — a Go zero value is a plausible wrong answer for two of these
 // three fields and a correct one for the third.
 //
-// Only one of the three defaults IS the Go zero value: an empty `*List` is nil.
+// Only one of the three defaults is the Go zero value: an empty `*List` is nil.
 // `Reason` defaults to a non-empty string and `Actual` to `None`, whose Tag is
 // TagNone and not 0 — a zero `Maybe` is neither Some nor None and matches no arm
 // of a `case`.
@@ -112,7 +112,7 @@ type NomiAssertionFailure struct {
 
 // NomiFailure converts a report into the value a Nomi program sees.
 //
-// The rules: an EMPTY `Actual` is `None` rather than `Some("")`, a nil binding
+// The rules: an empty `Actual` is `None` rather than `Some("")`, a nil binding
 // is `None`, and each slice becomes a List in the order it was recorded. A
 // second rule anywhere would be a divergence a golden file can only catch on
 // the cases a corpus happens to hold.
@@ -183,10 +183,10 @@ func nomiAssertionDetails(ds []AssertionDetailContext) *List[NomiAssertionDetail
 // FormatNomiAssertionFailure is std/assertions' `AssertionFailure.format`: the
 // report as a String, from the value a Nomi program holds.
 //
-// It is the ONE renderer with the Nomi-facing type in front of it, and the two
+// It is the one renderer with the Nomi-facing type in front of it, and the two
 // halves are separated on purpose. Rendering is FormatAssertionFailure, shared
 // with `nomi test`'s report by construction rather than by agreement. Reading
-// the Nomi value back into a report is `Report` below, which is a CONVERSION and
+// the Nomi value back into a report is `Report` below, which is a conversion and
 // not a second rule.
 //
 // The registry binds `assertions.AssertionFailure.format` to this function, and

@@ -664,7 +664,7 @@ func TestCheckAndOrInvalid(t *testing.T) {
 // Pipe operator
 func TestCheckPipeValid(t *testing.T) {
 	src := `fn double(n: Int): Int { n + n }
-fn f(): Int { 5 |> double }`
+fn f(): Int { 5 |> double() }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -932,7 +932,7 @@ fn main(): Int { apply(5, |n| n + 1) }
 	expectNoErrors(t, errs)
 }
 
-// Trailing-lambda routing (spec §5 "Default Parameter Values") must apply
+// Trailing-lambda routing (spec §5, *Lambdas at Call Sites*) must apply
 // to GENERIC callees too: a lambda passed as the final positional argument
 // routes into the last param slot, skipping a defaulted middle param. The
 // non-generic path (computePositionalSlots) and the pipe path
@@ -1039,7 +1039,7 @@ fn main(): Int { add(1, 2) }`
 func TestGenericCallSite_PipeChain(t *testing.T) {
 	src := `fn identity<T>(x: T): T { x }
 fn main(): Int {
-	42 |> identity
+	42 |> identity()
 }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -1069,24 +1069,24 @@ fn main(): Int {
 	}
 }
 
-func TestPipeLambdaStageReceivesPipedValue(t *testing.T) {
+func TestPipeThenStageReceivesPipedValue(t *testing.T) {
 	src := `fn main(): Int {
-	21 |> |n| n * 2
+	21 |> then |n| n * 2
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
-func TestPipeLambdaStageRejectsWrongArity(t *testing.T) {
-	src := `fn main(): Int {
-	21 |> || 42
-}`
-	_, errs := checkSource(src)
-	if len(errs) == 0 {
-		t.Fatal("expected lambda pipe arity diagnostic")
-	}
-	if !strings.Contains(errs[0].Message, "pipe supplies 1") {
-		t.Fatalf("expected pipe arity diagnostic, got %v", errs)
+func TestPipeThenStageRejectsWrongArity(t *testing.T) {
+	for _, stage := range []string{"then || 42", "then |a, b| a + b"} {
+		src := "fn main(): Int {\n\t21 |> " + stage + "\n}"
+		_, errs := checkSource(src)
+		if len(errs) == 0 {
+			t.Fatalf("%s: expected a then arity diagnostic", stage)
+		}
+		if !strings.Contains(errs[0].Message, "a `then` lambda takes one parameter, the piped value") {
+			t.Fatalf("%s: expected a then arity diagnostic, got %v", stage, errs)
+		}
 	}
 }
 
@@ -2336,8 +2336,7 @@ fn main(): Int {
 // pointing at the tuple-shape mismatch (the inner is a 2-tuple).
 //
 // Note: 1-pattern `Pair(a)` is NOT an arity error — it binds the entire
-// inner tuple to `a` (the existing payload-binding fast path). That form
-// is unchanged by Task 2.
+// inner tuple to `a` (the payload-binding fast path).
 func TestCheck_TupleDistinct_FlatDestructure_WrongArity(t *testing.T) {
 	src := `type Pair (Int, String)
 fn main() {
@@ -2721,7 +2720,7 @@ fn main(): Int {
 }
 
 // The zero-sized embeds counterpart stays accepted: the variant's payload
-// is the zero-sized distinct itself (spec §7), so `Switch.Off(x)` binds
+// is the zero-sized distinct itself (spec §8, *Embedded Types*), so `Switch.Off(x)` binds
 // x: Off.
 func TestCheckEnumPatternBindingOnZeroSizedEmbedAccepted(t *testing.T) {
 	src := `type Off
@@ -2835,7 +2834,7 @@ fn calc(a: Int, b: Int): Result<Int, String> {
 func TestCheckTryOpBarePipeStage(t *testing.T) {
 	src := `enum Maybe<T> { Some T; None }
 enum Result<T, E> { Ok T; Err E }
-fn from_maybe(m: Maybe<Int>): Result<Int, String> {
+fn to_result(m: Maybe<Int>): Result<Int, String> {
   case m {
     Some(n) -> Result.Ok(n)
     None -> Result.Err("missing")
@@ -2844,7 +2843,7 @@ fn from_maybe(m: Maybe<Int>): Result<Int, String> {
 fn main(m: Maybe<Int>): Result<Int, String> {
   n =
     m
-    |> from_maybe()
+    |> to_result()
     |> try
   Result.Ok(n + 1)
 }`
@@ -2855,14 +2854,14 @@ fn main(m: Maybe<Int>): Result<Int, String> {
 func TestCheckTryOpPipeStageAcceptsOperand(t *testing.T) {
 	src := `enum Maybe<T> { Some T; None }
 enum Result<T, E> { Ok T; Err E }
-fn from_maybe(m: Maybe<Int>): Result<Int, String> {
+fn to_result(m: Maybe<Int>): Result<Int, String> {
   case m {
     Some(n) -> Result.Ok(n)
     None -> Result.Err("missing")
   }
 }
 fn main(m: Maybe<Int>): Result<Int, String> {
-  n = m |> try from_maybe()
+  n = m |> try to_result()
   Result.Ok(n)
 }`
 	_, errs := checkSource(src)
@@ -4785,7 +4784,7 @@ fn main(): Int {
 	expectNoErrors(t, errs)
 }
 
-// A QUALIFIED STRUCT-VARIANT LITERAL IS TYPE-CHECKED AT ALL. At 41a60d35 the
+// A QUALIFIED STRUCT-VARIANT LITERAL IS TYPE-CHECKED AT ALL. Before this, the
 // `Enum.Variant{...}` branch of checkStructLit walked each field value with a
 // bare checkNode and returned the enum's declared type, so it validated
 // NOTHING: not the field names, not the field types, and not the enum's type

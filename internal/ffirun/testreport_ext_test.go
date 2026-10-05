@@ -71,7 +71,7 @@ func TestWrapperTestReportIsTheCommandsOwnReport(t *testing.T) {
 
 	root := t.TempDir()
 	write(t, filepath.Join(root, "go.mod"),
-		"module testproject\n\ngo 1.26.3\n\nrequire github.com/nomi-language/nomi v0.0.0\n\nreplace github.com/nomi-language/nomi => "+nomiLangRoot(t)+"\n")
+		"module testproject\n\ngo 1.26.3\n\nrequire github.com/nomi-language/nomi v0.0.0\n\nreplace github.com/nomi-language/nomi => "+repoRoot(t)+"\n")
 	write(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"testproject\"\n")
 	// A user's own `gopkg` binding is what puts this project on the wrapper
 	// path, and it is declared by a SIBLING file rather than by the test file
@@ -172,10 +172,10 @@ func write(t *testing.T, path, content string) {
 	}
 }
 
-// nomiLangRoot is the compiler module's directory. The staged project's go.mod
+// repoRoot is the compiler module's directory. The staged project's go.mod
 // replaces the compiler module with it, which the wrapper does not need (it adds that
 // replace itself) but must tolerate.
-func nomiLangRoot(t *testing.T) string {
+func repoRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {

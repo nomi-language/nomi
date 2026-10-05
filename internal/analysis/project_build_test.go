@@ -415,7 +415,7 @@ replace stringkit => ../stringkit
 }
 
 // TestBuildProject_CrossModuleImportResolves is the happy-path test
-// for Task 7: an `import stringkit/pad` in todo/main.nomi must resolve
+// for cross-module imports: an `import stringkit/pad` in todo/main.nomi must resolve
 // against ../stringkit/pad.nomi (per todo/go.mod's replace directive)
 // and bring pad.nomi's symbols into the import-time scope of main.nomi.
 //
@@ -482,9 +482,8 @@ fn main() {
 
 // TestBuildProject_CrossModuleInternalRejected confirms that the
 // internal/ access check actively rejects cross-module imports into
-// another module's internal/ subtree. Task 5 wired the check with
-// sameModule=true unconditionally because we had no module index to
-// distinguish intra- from cross-module; Task 7 flips that. A cross-
+// another module's internal/ subtree; the module index is what
+// distinguishes intra- from cross-module. A cross-
 // module import of an internal/ path must produce a type error.
 func TestBuildProject_CrossModuleInternalRejected(t *testing.T) {
 	// stringkit exposes an internal helper; todo tries to reach across
@@ -619,7 +618,7 @@ fn main() {
 }
 
 // TestOrphanImpl_CrossModuleRejected exercises the orphan-rule check
-// wired into BuildProjectWithCache (Stage 2 Task 4): the todo entry
+// wired into BuildProjectWithCache: the todo entry
 // module declares `impl Display for Pad { fn to_string(p: pad.Pad) }` — Display
 // belongs to stdlib, Pad belongs to the stringkit sibling module, so
 // neither side anchors the impl in todo. The build must surface a
@@ -841,8 +840,8 @@ fn main() {
 // TestBuildProject_UnknownCrossModuleErrorsCleanly confirms that when
 // no module index entry matches the import head, the build doesn't
 // crash; it produces a normal "module not found"-style error path.
-// (The existing single-file flow already handles this — the test
-// proves Task 7's wiring doesn't break it.)
+// (The single-file flow handles this too — the test proves the
+// cross-module wiring doesn't break it.)
 func TestBuildProject_UnknownCrossModuleErrorsCleanly(t *testing.T) {
 	tmp := t.TempDir()
 	mustWrite := func(rel, content string) string {

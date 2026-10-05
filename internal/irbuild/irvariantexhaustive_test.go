@@ -19,7 +19,7 @@ fn number(s: Signal): Int {
     .Value(n) -> n
   }
 }
-fn main() { _ = number(Signal.Idle) return }
+fn main() { _ = number(Signal.Idle) }
 `)
 	if err != nil {
 		t.Fatal(err)

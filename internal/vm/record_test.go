@@ -15,7 +15,7 @@ func TestVMRecord_TourMatchesRecordedAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{"structs-enums-distinct.md:L94"}, vmPathResolver(t, "tour"))
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "structs-enums-distinct.md", `dbg point.x + point.y`)}, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("record Tour program incomplete: %v", refused)
 	}

@@ -48,9 +48,9 @@ fn main() {
     io.print("variant-explicit=${Debug.inspect(Shape.Pos((10, 20)))}")
     io.print("variant-over-distinct=${Debug.inspect(Shape.Tagged(Coord(7, 8)))}")
 
-    // A distinct over a POINTER-SHAPED inner. `List` is `*rt.List[T]` in Go and
-    // `Map` is a value struct, which is exactly why one of them exercised the
-    // conversion bug and the other never could.
+    // A distinct over a reference-typed inner. `List` is `*rt.List[T]` and
+    // `Map` is a value struct (`rt.Map`), so the two exercise different
+    // conversion paths.
     items = Items([4, 5, 6])
     kvs = Kvs{"a" => 1, "b" => 2}
 

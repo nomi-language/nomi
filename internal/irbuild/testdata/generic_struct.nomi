@@ -6,20 +6,13 @@ import std/io
 // are one fixture rather than four assertions in a Go test:
 //
 //  1. THE RENDERED NAME IS THE BARE DECLARATION NAME. Two instantiations of one
-//     template must BOTH render as `Box`, because that is what the interpreter
-//     says — measured, not reasoned. An instance def carrying `Box<Int>` as its
-//     Nomi name (which is what stdgenstruct.go's genStructNames chooses for the
-//     STD family) would render `Box<Int>{item: 1}` and DIFF.
+//     template must BOTH render as `Box`. An instance def carrying `Box<Int>`
+//     as its Nomi name (which is what stdgenstruct.go's genStructNames chooses
+//     for the STD family) would render `Box<Int>{item: 1}` instead.
 //
-//     Read from a FAILING assertion's `values:` row and NOT from
-//     `Debug.inspect`. Measured: `Debug.inspect` on any nominal struct is
-//     refused at HEAD — inspectcall.go handles only a Set, a Range and a record
-//     — because the interpreter re-dispatches it to the type's synthesized impl
-//     and this package has no Debug-side renderer for one. The `values:` row is
-//     `value.Inspect`, which IS what namedInspector reproduces, so the row is
-//     the surface where the name is observable at all. A passing assertion
-//     renders nothing, which is why three of the six tests below fail on
-//     purpose.
+//     Read from a FAILING assertion's `values:` row, the surface where the
+//     name is observable. A passing assertion renders nothing, which is why
+//     three of the six tests below fail on purpose.
 //
 //  2. THE TYPE ARGUMENT IS RECOVERED BY FIELD NAME, NOT BY POSITION. `Pair`'s
 //     literal below is written second-then-first, at two DIFFERENT argument
@@ -36,11 +29,9 @@ import std/io
 //     and a wrong hit would print the other impl's text.
 //
 //  4. A SAME-SHAPED MONOMORPHIC TWIN STAYS A DIFFERENT TYPE. `Twin` and
-//     `Box<Int>` both lower to a Go struct with one `F_item int64`. The pin is
-//     DIFFERENTIAL rather than textual for anon_vs_nominal.nomi's reason: two
-//     defs collapsed into one produces Go that PARSES, so only building and
-//     running can see it — and the two failing rows below then show the names
-//     apart.
+//     `Box<Int>` both lower to a struct with one Int `item`. Two defs
+//     collapsed into one would still lower and run, and the two failing rows
+//     below then show the names apart.
 pub struct Inner {
     value: Int
 }

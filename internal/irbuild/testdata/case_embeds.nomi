@@ -28,9 +28,8 @@ fn main() {
     io.print("${area(Shape.Circle{radius: 2})}")
     // SUBTYPE COERCION, argument position. `embeds Circle` makes Circle a
     // subtype of Shape (spec §8), so a bare Circle is a legal Shape argument.
-    // The interpreter keeps it a bare struct value and coerces inside the
-    // matcher; a native tree cannot, because the tag it switches on does not
-    // exist yet.
+    // The builder wraps the bare Circle in its Shape variant at the call, so
+    // the `case` in `area` has a tag to switch on.
     io.print("${area(Circle{radius: 3})}")
     // SUBTYPE COERCION, annotated binding.
     s: Shape = Rect{width: 4, height: 5}

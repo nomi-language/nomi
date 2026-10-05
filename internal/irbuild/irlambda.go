@@ -241,6 +241,11 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			child.b.SetTerm(ir.NewReturn(bl.g.irNodePos(body), answer))
 		}
 	}
+	if ok && k == kindDiverged {
+		// Every arm of the tail region returned: the lambda's result is
+		// what those returns settled.
+		k = child.returnKind
+	}
 	if !ok || (!irCallableValueKind(k) && k != kindUnit) {
 		if ok {
 			irDeclineNote("a lambda result outside the domain: " + k.nomi())
@@ -446,7 +451,7 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	sig := bl.g.funcs[t.Name]
 	if sig == nil && bl.g.files != nil {
 		// `ident` after `import span.{ident}`.
-		if site, ok := bl.g.files.lookupBare(bl.g.fa, t.Name); ok && site.fn != nil && site.unit != bl.g.fileUnit {
+		if site, ok := bl.g.files.lookupBare(bl.g.fa, t); ok && site.fn != nil && site.unit != bl.g.fileUnit {
 			return bl.siblingFuncRef(t, site.unit, site.fn, site.host)
 		}
 	}

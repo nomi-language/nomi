@@ -208,6 +208,10 @@ type irScalarBuilder struct {
 	// statement is. A value there that is an `Err(AssertionFailure)` is the
 	// case's verdict (testVerdict).
 	testTail bool
+	// setupExit is set while a group's `setup` that holds a `return` is
+	// lowered: where its value goes and where control leaves it
+	// (irtestsetup.go).
+	setupExit *irSetupExit
 	// discarded is the expression a statement is lowering only for its
 	// effect (`e` as a statement, `_ = e`), or nil. An `Iter.loop` whose value
 	// is discarded admits a bare `break`, whose Unit answer nothing reads.
@@ -339,7 +343,9 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			if k, ok := bl.bareVariantOwnKind(t); ok {
 				return bl.preludeBareValue(t, k)
 			}
-			return ir.NoTemp, kindInvalid, false, false
+			// `Some`, `Ok`, or a distinct's `Id`, named as a function
+			// value (ownerfuncref.go).
+			return bl.ctorFuncRef(t)
 		}
 		c := ir.NewBool(bl.g.irPos(line, col), bl.f.NewTemp(), v)
 		bl.b.Append(c)
@@ -501,6 +507,11 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 					}
 				}
 			}
+			// `ids.UserId`: another file's distinct type named as its
+			// constructor function (ownerfuncref.go).
+			if !irQualIsLocal(bl, owner.Name) && bl.g.distinctCtorRef(t) {
+				return bl.callFuncValue(t, owner.Name+"."+t.Field.Name)
+			}
 			// `span.ident`, `io.print`: another file's function as a value.
 			if dst, k, mobile, ok, handled := bl.fileFuncRef(t, owner); handled {
 				return dst, k, mobile, ok
@@ -539,8 +550,16 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		if fa, ok := t.Func.(*ast.FieldAccess); ok && fa.Field != nil {
 			// `Day.Hours(48)`: the constructor of a namespaced distinct, whose
 			// whole dotted name is the type's.
+			// `ids.UserId(3)`: a distinct named through its file's
+			// qualifier, which modulequaltype.go resolves by that spelling.
+			qualifier := ""
 			if owner, isType := fa.Object.(*ast.TypeIdent); isType {
-				name := owner.Name + "." + fa.Field.Name
+				qualifier = owner.Name
+			} else if owner, isIdent := fa.Object.(*ast.Ident); isIdent && !irQualIsLocal(bl, owner.Name) {
+				qualifier = owner.Name
+			}
+			if qualifier != "" {
+				name := qualifier + "." + fa.Field.Name
 				if d, found := bl.g.namedType(name); found && d.isDistinct {
 					ti := &ast.TypeIdent{Name: name, Line: fa.Line, Col: fa.Col}
 					if dst, k, mobile, ok := bl.distinctMake(t, ti); ok {
@@ -610,7 +629,7 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	if !mobile {
 		// An impure left operand is forced into a temporary
 		// so a later operand's statements cannot be hoisted ahead of it. THE
-		// COPY IS THE NODE FOR THAT, which is disagreement-set item 4, and
+		// COPY IS THE NODE FOR THAT, and
 		// its position is the operand's own — the construct being
 		// materialized, not the operator.
 		c := ir.NewCopy(bl.g.irNodePos(t.Left), bl.f.NewTemp(), lhs)
@@ -796,7 +815,7 @@ func (bl *irScalarBuilder) stdIntrinsicOwner(fa *ast.FieldAccess) string {
 		if !isIdent || q.Field == nil || irQualIsLocal(bl, mod.Name) {
 			return ""
 		}
-		sym = resolvedScopeSymbol(moduleScopeOf(bl.g.fa, mod.Name), q.Field.Name)
+		sym = resolvedScopeSymbol(qualifierScope(bl.g.fa, mod), q.Field.Name)
 	}
 	if sym == nil || sym.Node == nil {
 		return ""
@@ -972,7 +991,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 		return bl.qualCall(t, fa)
 	}
-	if id, ok := t.Func.(*ast.Ident); ok && !hasNamed && bl.bareIterLoop(id.Name) {
+	if id, ok := t.Func.(*ast.Ident); ok && !hasNamed && bl.bareIterLoop(id) {
 		// `import std/iter.Iter.{loop}` then `loop(...)`: Iter.loop.
 		return bl.iterLoop(t)
 	}
@@ -1042,7 +1061,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	// file's scope; the bare call reaches the same impl plan the qualified
 	// spelling reaches.
 	if _, local := bl.g.funcs[callee.Name]; !local && !hasNamed && bl.g.std != nil {
-		if sym := resolvedBareSymbol(bl.g.fa, callee.Name); sym != nil && sym.OwningType != "" && sym.Name != "" &&
+		if sym := resolvedBareSymbolAt(bl.g.fa, callee); sym != nil && sym.OwningType != "" && sym.Name != "" &&
 			len(bl.g.std.byType[sym.OwningType+"."+sym.Name]) != 0 {
 			_, localType := bl.g.types[sym.OwningType]
 			_, localIface := bl.g.ifaces[sym.OwningType]
@@ -1066,17 +1085,17 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	}
 	sig := bl.g.funcs[callee.Name]
 	if sig == nil && !hasNamed {
-		if key, output := stdBareOutputKey(bl.g.fa, callee.Name); output {
+		if key, output := stdBareOutputKey(bl.g.fa, callee); output {
 			// `import std/io.print` then `print(x)`: io.print itself.
 			return bl.hostOutputKey(t, key)
 		}
 	}
 	if sig == nil && bl.g.files != nil {
-		if site, ok := bl.g.files.lookupBare(bl.g.fa, callee.Name); ok && site.fn != nil && site.unit != bl.g.fileUnit {
+		if site, ok := bl.g.files.lookupBare(bl.g.fa, callee); ok && site.fn != nil && site.unit != bl.g.fileUnit {
 			return bl.siblingCall(t, site)
 		}
 	}
-	if sig == nil && !hasNamed && bl.recording == 0 && bl.sameImplName(callee.Name) {
+	if sig == nil && !hasNamed && bl.recording == 0 && bl.sameImplName(callee) {
 		if p := bl.sameImplPlan(callee.Name); p != nil {
 			args := bl.irQualLowerArgs(t)
 			it := p.token.(*implItem)
@@ -1236,7 +1255,8 @@ func (bl *irScalarBuilder) structFromRecord(t *ast.Call, d *typeDef) (ir.Temp, k
 
 // bareIterLoop reports whether a bare callee name is std's Iter.loop brought
 // into scope by a selective import, and not a local or a file function.
-func (bl *irScalarBuilder) bareIterLoop(name string) bool {
+func (bl *irScalarBuilder) bareIterLoop(id *ast.Ident) bool {
+	name := id.Name
 	if _, local := bl.g.funcs[name]; local {
 		return false
 	}
@@ -1245,7 +1265,7 @@ func (bl *irScalarBuilder) bareIterLoop(name string) bool {
 			return false
 		}
 	}
-	sym := resolvedBareSymbol(bl.g.fa, name)
+	sym := resolvedBareSymbolAt(bl.g.fa, id)
 	return sym != nil && sym.OwningType == "Iter" && sym.Name == "loop" && bl.g.iterOwns("Iter")
 }
 
@@ -1260,7 +1280,7 @@ func (bl *irScalarBuilder) hostOutput(t *ast.Call, fa *ast.FieldAccess) (ir.Temp
 	if _, shadowed := bl.g.lookup(owner.Name); shadowed {
 		return no()
 	}
-	std, isStd := stdFileQualifier(bl.g.fa, owner.Name)
+	std, isStd := stdFileQualifier(bl.g.fa, owner)
 	key := std + "." + fa.Field.Name
 	if !isStd || !isOutputKey(key) {
 		return no()
@@ -1270,8 +1290,8 @@ func (bl *irScalarBuilder) hostOutput(t *ast.Call, fa *ast.FieldAccess) (ir.Temp
 
 // stdBareOutputKey is the host key of a bare call to std/io's print, write
 // or inspect brought into scope by a selective import (`import std/io.print`).
-func stdBareOutputKey(fa *analysis.FileAnalysis, name string) (string, bool) {
-	sym := resolvedBareSymbol(fa, name)
+func stdBareOutputKey(fa *analysis.FileAnalysis, id *ast.Ident) (string, bool) {
+	sym := resolvedBareSymbolAt(fa, id)
 	if sym == nil || fa.StdlibModuleScopes == nil {
 		return "", false
 	}
@@ -1543,6 +1563,14 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		// does after a binding statement.
 		return append(lead, b), &ast.TypeIdent{Name: "Unit", Line: b.Line, Col: b.Col}
 	}
+	switch st := n.(type) {
+	case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.MapDestructure, *ast.PatternBinding:
+		// A destructuring binding ending a block, `(_, _) = pair`: the value
+		// is evaluated and matched, and the block answers Unit, as it does
+		// after any binding statement.
+		line, col := nodePos(st)
+		return append(lead, st), &ast.TypeIdent{Name: "Unit", Line: line, Col: col}
+	}
 	return lead, n
 }
 
@@ -1757,9 +1785,24 @@ func (bl *irScalarBuilder) tailIf(t *ast.If, sig irFuncSig) (kind, bool) {
 	}
 	k, ok := bl.ifRegion(t, sig)
 	if ok {
-		bl.b.SetTerm(ir.NewReturn(bl.g.irNodePos(t), bl.sh.result))
+		bl.exitReturn(t)
 	}
 	return k, ok
+}
+
+// exitReturn terminates a tail region's exit, which returns the result slot
+// its arms wrote. When every arm left the activation (an `else if` chain or a
+// `case` whose arms all end in `return`), no arm reaches the exit and none
+// wrote the slot, so a `return` of it would read a temporary nothing defines.
+// That exit is unreachable, and it jumps to itself: a terminator that reads
+// nothing.
+func (bl *irScalarBuilder) exitReturn(n ast.Node) {
+	pos := bl.g.irNodePos(n)
+	if !ir.Reachable(bl.f)[bl.b.ID()] {
+		bl.b.SetTerm(ir.NewJump(pos, bl.b.ID()))
+		return
+	}
+	bl.b.SetTerm(ir.NewReturn(pos, bl.sh.result))
 }
 
 // ifRegion leaves its join open for the caller's return or enclosing jump.
@@ -1812,8 +1855,11 @@ func (bl *irScalarBuilder) ifRegion(t *ast.If, sig irFuncSig) (kind, bool) {
 }
 
 // kindDiverged is the kind armInto answers for an arm that leaves the
-// activation (`return v`) and so writes no value to its region. It never
-// escapes a region: irJoinArms resolves it against the other arms.
+// activation (`return v`), or whose nested region's arms all do, and so
+// writes no value to its region. irJoinArms resolves it against the other
+// arms. It escapes a region only when every arm diverged and the region has
+// no declared result: the region's own caller then decides what that means
+// (a lambda or `concurrent` body takes the kind its returns settled).
 var kindDiverged = kind{tag: tagNamed, def: &typeDef{nomi: "<diverged>"}}
 
 // laterArmSig is the signature an inferred region's later arm is lowered
@@ -1833,12 +1879,13 @@ func (bl *irScalarBuilder) laterArmSig(sig irFuncSig, prior kind) irFuncSig {
 
 // irJoinArms is the kind of a region with arms of kinds a and b, where an
 // arm that diverged takes the other's. When every arm diverged the region's
-// exit is unreachable and it answers the declared result, when there is one.
+// exit is unreachable and it answers the declared result, or kindDiverged
+// when the result is inferred.
 func irJoinArms(a, b kind, sig irFuncSig) (kind, bool) {
 	switch {
 	case a == kindDiverged && b == kindDiverged:
 		if sig.inferResult {
-			return kindInvalid, false
+			return kindDiverged, true
 		}
 		return sig.result, true
 	case a == kindDiverged:
@@ -1989,6 +2036,13 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		if !ok {
 			return kindInvalid, false
 		}
+		if k == kindDiverged || !ir.Reachable(bl.f)[bl.b.ID()] {
+			// Every arm of the nested region left the activation, so its
+			// exit is unreachable and this arm, like a `return` arm, writes
+			// no value: `else if c { return 1 } else { return 2 }`.
+			bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(body), bl.b.ID()))
+			return kindDiverged, true
+		}
 		bl.closeDefers(scope, body)
 		bl.closeWithScope(ws, body)
 		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(body), exit.ID()))
@@ -2028,7 +2082,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 func (bl *irScalarBuilder) tailCase(t *ast.Case, sig irFuncSig) (kind, bool) {
 	k, ok := bl.caseRegion(t, sig)
 	if ok {
-		bl.b.SetTerm(ir.NewReturn(bl.g.irNodePos(t), bl.sh.result))
+		bl.exitReturn(t)
 	}
 	return k, ok
 }

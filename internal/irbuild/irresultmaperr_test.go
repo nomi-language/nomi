@@ -97,25 +97,25 @@ fn main() {
 `, "Err(\"bad!\")\nOk([1, 2])\n")
 }
 
-// Result.from_maybe is a host call to rt.ResultFromMaybe, prefix and piped
+// Maybe.to_result is a host call to rt.MaybeToResult, prefix and piped
 // under `try`, with an enum error payload beside the String one.
-func TestIRResultFromMaybe_PrefixAndPipedTry(t *testing.T) {
+func TestIRMaybeToResult_PrefixAndPipedTry(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 enum Why { Missing; Empty }
 fn tenfold(m: Maybe<Int>): Result<Int, String> {
  n =
   m
-  |> try Result.from_maybe("missing")
+  |> try Maybe.to_result("missing")
 
  Ok(n * 10)
 }
 fn why(m: Maybe<String>): Result<String, Why> {
- Result.from_maybe(m, Why.Missing)
+ Maybe.to_result(m, Why.Missing)
 }
 fn main() {
  io.inspect(tenfold(Some(4)))
  io.inspect(tenfold(None))
- io.inspect(Result.from_maybe(Some("a"), 0))
+ io.inspect(Maybe.to_result(Some("a"), 0))
  io.inspect(why(None))
  io.inspect(why(Some("b")))
 }

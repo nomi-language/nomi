@@ -45,25 +45,24 @@ import {
 // draft of this header claimed it could. A push-and-walk implementation and one
 // that computed `min(parent, new)` EAGERLY at each deriver are observationally
 // IDENTICAL — min is associative, so folding it incrementally gives the same
-// answer as folding it at read time. The push design is justified by matching
-// `value.ContextVal`'s own shape, not by anything a fixture can see, and
-// claiming a pair here that does not exist would have been exactly the vacuous
-// row this file's opening paragraph is complaining about.
+// answer as folding it at read time. Nothing a fixture can see chooses between
+// them, and claiming a pair here that does not exist would be exactly the
+// vacuous row this file's opening paragraph is complaining about.
 //
-// TIME-INDEPENDENT ON PURPOSE, and that is what makes it a differential rather
-// than a flake. Nothing prints an Instant or a raw remaining span: an absolute
-// deadline is a wall-clock value the two paths cannot agree on, and a remaining
-// span shrinks between the two runs. Every row prints either a presence
-// (`Some`/`None`), a rendered span at a deliberately SATURATED value (a deadline
-// far in the past clamps to exactly `0s` on both paths), or an ORDERING between
-// two spans measured on the same path.
+// The fixture is time-independent on purpose, so its output can be recorded.
+// Nothing prints an Instant or a raw remaining span: an absolute deadline is a
+// wall-clock value that differs between runs, and a remaining span shrinks
+// while the program runs. Every row prints either a presence
+// (`Some`/`None`), a rendered span at a deliberately saturated value (a deadline
+// far in the past clamps to exactly `0s`), or an ordering between two spans
+// measured in the same run.
 fn main() {
     root = Context.root()
     io.print("root deadline = ${present(Context.deadline(root))}")
     io.print("root remaining = ${span(Context.deadline_remaining(root))}")
 
     // A deadline in the far past: remaining CLAMPS, so the rendered span is exact
-    // on both paths and the row is not a race.
+    // and the row is not a race.
     past = Context.with_deadline(root, Instant.from_seconds(0))
     io.print("past deadline = ${present(Context.deadline(past))}")
     io.print("past remaining = ${span(Context.deadline_remaining(past))}")
@@ -127,7 +126,7 @@ fn fresh(): Context {
 
 // present renders only whether a deadline EXISTS. An absolute Instant is a
 // wall-clock value, so printing one would make this fixture disagree with itself
-// between two runs, never mind between two paths.
+// between two runs.
 fn present(m: Maybe<Instant>): String {
     case m {
         Some(_) -> "Some"

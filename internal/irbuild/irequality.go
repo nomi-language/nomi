@@ -426,10 +426,13 @@ func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Tem
 }
 
 // irEqualityListKind is a list `==` compares with rt.Equal: equality never
-// dispatches on a list, whatever its elements, so every list
-// the builder represents compares structurally.
+// dispatches on a list, whatever its elements, so every list the builder
+// represents compares structurally, with an element of a declared type
+// compared through its own impl (vm/keys.go). That includes a list of a
+// distinct over a tuple, which only irRetainedValueKind admits. A list of
+// functions has no equality, so the checker rejects `==` before this.
 func irEqualityListKind(k kind) bool {
-	return k.tag == tagList && (irRetainedListKind(k) || irListTransportKind(k))
+	return k.tag == tagList && (irRetainedListKind(k) || irListTransportKind(k) || irRetainedValueKind(k))
 }
 
 // irEqualityContainerKind is a list, vector, map or set `==` compares with

@@ -803,7 +803,7 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 			//                              `case` arm binds its INNER value,
 			//                              because the checker's contract is
 			//                              that the variant's payload type is
-			//                              the wrapped type (spec §7)
+			//                              the wrapped type (spec §8)
 			//   embeds <marker>            payload is the marker, which is
 			//                              zero-sized, so it gets no slot and
 			//                              a binding must materialize it

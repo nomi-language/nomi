@@ -133,6 +133,20 @@ xs = [1, 2, 3] // ✓ List<Int>
 
 This is deliberately stricter than full inference: a binding's type is *not* rescued by a later use, even though the checker could solve it from that use. The local-readability requirement is a policy, independent of how far inference reaches. Turbofish itself is an ordinary call form — usable anywhere a call is, required only where a binding would otherwise be wholly unresolved.
 
+#### Determined type arguments
+
+A generic function runs at the type arguments of each call (§13), so a call must determine every type argument its function makes values of, wherever the call appears: an argument, a `dbg`, an `assert`, a pipe stage. A function makes values of a type parameter that its signature mentions inside a function type, or two levels inside a parameter type when its result holds that parameter in a collection: `Result.collect` takes `Iter<Result<T, E>>` and returns `Result<List<T>, E>`, so it makes Ts. A type argument nothing in the enclosing declaration fixes, by the end of it, is a compile error at the argument that carries it:
+
+```nomi
+dbg Result.collect([]) // ✗ the element type of `[]` is not determined
+
+dbg Maybe.values([None]) // ✗ the type argument T of `Maybe.values` is not determined
+
+dbg Iter.map([], |x| x) // ✗ the element type of `[]` is not determined: x has it
+```
+
+An unsolved type argument that no value has is not an error: the element of an empty collection (`dbg []`, `Iter.to_list([])`, `List.head([])`, `Vector.empty()`) or the variant a value is not (`Ok(1)`, `Result.collect([Ok(1)])`, whose E only passes an error through). Fix the error as a binding: annotate the empty value (`xs: List<Result<Int, String>> = []`) or give the call its type arguments (`Result.collect<Int, String>([])`).
+
 ### `once` Bindings
 
 `once name [: T] = expression` declares a value that is computed lazily and cached forever. It appears at file scope or in an inherent `impl` block. The right-hand side evaluates the first time the binding is accessed; the result is stored and reused on every subsequent access. Use sites read like ordinary values — `config.value`, `Int.max_value`, not `config.value()` or `Int.max_value()`. `once` is the language's only "set once, never changes" declaration; trivial constants and lazily-computed values share the same syntax.
@@ -292,7 +306,7 @@ fn add(x: Int, y: Int): Int {
 - Types inferred within function body
 - Function bodies always render across multiple lines — `fn add(x, y) { x + y }` reformats to the multi-line shape shown above. This matches the dominant convention from gofmt, Prettier, dart format, zig fmt, swift-format, and rustfmt's default. Empty bodies stay flat as `{}`. The rule applies to top-level `fn`s, impl-block functions, and interface default functions; inline expression-position blocks like `if cond { x }` keep their flat form (see §11).
 - Last expression is the return value
-- `return` keyword for early exit — `return value` exits the nearest function boundary with `value`. This applies equally to named functions (`fn`) and lambdas (`|...| ...`) — no non-local returns. Bare `return` is valid when the function returns `Unit`. A statement after `return`, `break` or `continue` in the same block can never run, and is a compiler error (`unreachable code after return`) at that statement.
+- `return` keyword for early exit — `return value` exits the nearest function boundary with `value`. This applies equally to named functions (`fn`) and lambdas (`|...| ...`) — no non-local returns. Bare `return` is valid when the function returns `Unit`. A bare `return` that the body would reach its end without is a compiler error: one that is the last statement of a function, lambda or test body, reached through the last statement of a block, either branch of a final `if` or any arm of a final `case` (`` this `return` does nothing: it is the last statement of `reset` ``), and a final `if` or `case` whose every branch is empty or a bare `return` (`` this `if` does nothing: every branch returns and nothing follows it ``). A bare `return` after a `dbg`, or after an assertion outside a test body, is not one: it discards that statement's value. A tail `return value` is legal, and `nomi fmt` rewrites it to `value`. A statement after one that always exits can never run, and is a compiler error at that statement whose help is "remove it". A statement always exits when it is a `return`, `break` or `continue` (`unreachable code after return`); an `if` with an `else` whose every branch always exits (`` unreachable code: the `if` above returns in every branch ``); a `case` whose every arm always exits (`` unreachable code: the `case` above returns in every arm ``); or a block statement that holds one (`unreachable code: the block above always returns`). A `todo` statement is `Unit` and does not exit, so code after a stub stays legal while it is written, and a call never counts as an exit.
 - `try x` is sugar for `case x { Ok(val) -> val, Err(e) -> return Err(e) }` (and similarly for `Maybe`). Since `return` exits the nearest function boundary, `try` inside a lambda returns from that lambda, not from an outer function.
 - `:` separates parameters from return type
 - Data-first convention — the primary data argument comes first (works naturally with `|>`)
@@ -663,7 +677,7 @@ fn area(shape: Shape): Float {
 
 ## 6. Pipe Operator
 
-Left-to-right piping with `|>`. By default, the piped value fills the **first argument**. Use `_` to override placement:
+Left-to-right piping with `|>`. A stage is a call, and by default the piped value fills its **first argument**. Use `_` to override placement:
 
 ```nomi
 // default: fills the first argument
@@ -680,16 +694,46 @@ value
     }
 ```
 
-**Lambda stages:** a stage can be a lambda, which receives the current pipe
-value as its argument. A lambda stage's body ends at the next `|>`, so
-`xs |> |v| v |> Iter.count()` is two stages, and `Iter.count()` cannot see `v`.
-To pipe inside a lambda, give it a block body:
+**A stage is a call.** `x |> f()` is `f(x)` and `x |> f(a)` is `f(x, a)`:
+the pipe inserts its value into the call that follows it. A name without
+parentheses is a function reference wherever it stands, as in
+`Iter.map(xs, io.print)`, so it is not a stage. `x |> f`, `x |> io.print`,
+`x |> Ok` and `x |> Shape.area` are errors that name the call to write
+(`` a pipe stage is a call: write `io.print()` ``), and the language server
+offers a quick fix that appends the `()`. A `.Variant` stage is a call
+written through its enum (`x |> Shape.Dot()`), since a bare `.Variant`
+stage cannot see its enum (§8). The stages that are not calls are the
+`then` stage and the keyword stages below.
+
+**A lambda's body runs to the end of its expression,** or to the `)`, `]`,
+`}` or `,` that closes the construct it stands in. A `|>` inside it belongs
+to the body: `Iter.map(xs, |s| String.to_int(s) |> Maybe.with_default(0))`
+maps each string to an `Int`, and `|n| n * 2 |> dbg` is a lambda whose body
+ends in `dbg`. The one exception is the lambda of a `then` stage.
+
+**The `then` stage:** `x |> then |v| body` applies the lambda to the piped
+value, as `(|v| body)(x)` would. The lambda takes one parameter, which may
+be a destructuring pattern (`then |(a, b)| a + b`). Its body ends at the next
+`|>` of the pipeline, so the stages after it stay in the pipeline:
 
 ```nomi
-xs
-|> |v| { v |> Iter.filter(|x| x > 1) |> Iter.count() }
-|> dbg
+total =
+    orders
+    |> Iter.filter(.paid?)
+    |> then |paid| Iter.count(paid) * 100 / Iter.count(orders)
+    |> dbg
 ```
+
+Braces keep a pipe inside the body:
+`|> then |v| { v |> Iter.filter(.paid?) |> Iter.count() }`. A parameter of a
+bare `then` body used in a later stage is an error that says where the body
+ended. A lambda is not a stage without `then`: `xs |> |n| n * 2` is the error
+`` a lambda is not a pipe stage: write `then |n| ...` ``, and the language
+server offers a quick fix that inserts the `then`. `then` is a reserved word
+and stands only after `|>`; a keyword stage does not prefix it
+(`|> try then |v| ...` is an error), so a `try` after a `then` is its own
+stage. `nomi fmt` puts each stage of a pipeline with a `then` stage on its
+own line.
 
 **Keyword stages:** `dbg` and `try` are unary pipe stages. Read them as
 built-in one-argument functions over the current pipe value, written without
@@ -701,8 +745,8 @@ value
 |> try
 ```
 
-When the keyword consumes the result of a single call or lambda stage, prefix
-that stage. The formatter normalizes a trailing bare keyword into this form:
+When the keyword consumes the result of a single call stage, prefix that
+stage. The formatter normalizes a trailing bare keyword into this form:
 
 ```nomi
 id
@@ -1340,6 +1384,29 @@ fn encode<T>(v: T): Json where T: ToJson {
 }
 ```
 
+### Constructors as Function Values
+
+A name that builds a value from one argument is a function value. A positional variant named without a call is its constructor: `Shape.Circle` is a `(Float) -> Shape`, and `Some` is a `(T) -> Maybe<T>`. So is a distinct type that wraps a value (§15 *Distinct Types*): `Id` for `type Id Int` is an `(Int) -> Id`. A value built through the function is the value the call builds: it compares equal and renders the same.
+
+```nomi
+enum Shape {
+    Circle Float
+    Segment (Int, Int)
+    Point
+}
+
+circles = Iter.map([1.0, 2.5], Shape.Circle) |> Iter.to_list()
+
+somes: List<Maybe<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
+```
+
+- **A generic constructor is instantiated as a generic function used as a value is** (§5): its type parameters are solved from the function type its position expects. `Iter.map(ns, Some)` solves `T` from the elements. `Ok` and `Err` leave the other parameter to the result, so `Iter.map(ns, Ok)` needs an annotated destination (`rs: List<Result<Int, String>> = Iter.map(ns, Ok) |> Iter.to_list()`) or an annotated function (`f: (String) -> Result<Int, String> = Err`). With nothing to solve it from, `f = Some` is the error "cannot infer type parameter T of generic constructor 'Some' used as a value".
+- **A variant over a tuple takes the tuple.** A variant has one payload, so its function takes one argument. `Shape.Segment` is a `((Int, Int)) -> Shape`, and `Iter.map(pairs, Shape.Segment)` builds one from each tuple. The flat call `Shape.Segment(1, 2)` is a call form of that one tuple, not a second parameter list, and a tuple-distinct (`type Pair (Int, String)`) works the same way.
+- **A payload-free variant is a value, not a function.** `Shape.Point` is a `Shape`.
+- **A struct-shaped variant is not a function value**, as a struct is not: `Iter.map(records, Shape.Rectangle)` is an error naming the brace and record forms.
+- **`.Variant` is not a function value.** A dot-leading variant resolves only where the expected type is its enum (*Variant Resolution* below), and a function type is not an enum: `f: (Float) -> Shape = .Circle` is an error whose hint names `Shape.Circle`.
+- **An opaque type's constructor stays private.** Naming it as a value outside its file is the same error as calling it.
+
 ### Pattern Matching
 
 Patterns inside a `case` arm use the dot-leading form `.Variant` or the fully-qualified form `Shape.Variant`. Bare variant names are rejected for non-prelude variants — the rule is symmetric with construction. The dot-leading form is the idiomatic choice; qualified is the disambiguation/explicit alternative.
@@ -1630,6 +1697,7 @@ fn none?(maybe: Maybe<T>): Bool
 fn map(maybe: Maybe<T>, f: (T) -> U): Maybe<U>
 fn flat_map(maybe: Maybe<T>, f: (T) -> Maybe<U>): Maybe<U>
 fn with_default(maybe: Maybe<T>, default: T): T
+fn to_result(maybe: Maybe<T>, error: E): Result<T, E>
 ```
 
 ### Result Functions
@@ -1644,7 +1712,6 @@ fn map_err(result: Result<T, E>, f: (E) -> F): Result<T, F>
 fn flat_map(result: Result<T, E>, f: (T) -> Result<U, E>): Result<U, E>
 fn with_default(result: Result<T, E>, default: T): T
 fn to_maybe(result: Result<T, E>): Maybe<T>
-fn from_maybe(maybe: Maybe<T>, error: E): Result<T, E>
 ```
 
 ### The `try` Keyword
@@ -3302,7 +3369,7 @@ pub fn handle(req: HttpRequest): HttpResponse {
 
 ### Import forms
 
-**Path separator rule:** Import-path segments are separated by `/` (mirroring the filesystem layout under `std/` and any user package tree). A path-only import binds the final path segment as a file API object (`import http/request` binds `request`). A dot after the path imports a single selected item (`import task_parser.parse`). A brace selector after a path or owner imports several children from that left-hand side (`import std/maps.{self, Map}`, `import shape.Shape.{Circle, Rectangle}`).
+**Path separator rule:** Import-path segments are separated by `/` (mirroring the filesystem layout under `std/` and any user package tree). A path-only import binds the final path segment as a file API object (`import http/request` binds `request`). A dot after the path imports a single selected item (`import task_parser.parse`). A brace selector after a path or owner imports several children from that left-hand side (`import std/maps.{self, Map}`, `import shape.Shape.{Circle, Rectangle}`). Braces select names from a file; a path cannot be grouped. `import std/{io, regex.Regex}` is a syntax error at the `{`, and several files go in an import block, one path per line.
 
 **Two forms — bare statements and the block.** An import may be written as a bare per-line statement or, when several are imported together, grouped in a brace block:
 
@@ -3425,6 +3492,8 @@ Real value cycles in `once` bindings — where forcing one binding transitively 
 ### File Rules
 
 - One import source per file, derived from the file path (no declaration)
+- An import path that names no file is a compile-time error at the path, in every import form, whether or not the file uses the import: `import lib` with no `lib.nomi` reports ``no module `lib`: no file lib.nomi in this file's directory``. The message names the directory searched, relative to the importing file, and a hint names a sibling file the path is a misspelling of, or a file inside a directory the path names (`sub` is a directory, not a file). `import std/x` with no standard library module `x` is the same error. A selected name the file does not export is an error at the name: `file 'std/io' has no exported name 'nosuchname'`.
+- The `/`-joined segments always name the file: `import utils/inner.Thing` needs `utils/inner.nomi`, and is not a lookup of `inner` inside `utils.nomi`.
 - Files cannot be reopened or split across files
 - Importing `http` does not import `http/request` — each must be imported separately. A facade file can flatten this for its own consumers via re-exports (see §3 *Re-exporting imported names*).
 - Visibility rules apply: declarations carrying `pub` are public, everything else is private (see §3)
@@ -3592,6 +3661,10 @@ Id(_) = id         // assert type without binding
 ```
 
 The call form takes the one value the type wraps, checked against the wrapped type, prefix or piped: `Id(42)` and `42 |> Id()` build an `Id`, and `Id("42")` is an error naming both (`Id wraps Int, so Id(...) takes an Int; got String`). A tuple-distinct also takes its elements flat (`Pair(1, "x")`).
+
+`Int(id)`, `Float(d)` and `String(s)` unwrap a distinct that wraps exactly that type, one level. They are not conversions: `Int("4")` and `String(4)` are errors (`` `Int` is a type, not a function ``) whose hint names the conversion to call, `String.to_int` (a `Maybe<Int>`), `Int.to_float`, `Float.to_int`, or interpolation `"${x}"` for a String. Calling any other type name is an error too (`Dir(1)`, `Maybe(3)`, `Display(x)`); the type names with a call form are a struct (`Point({x: 1})`), a distinct type, and these three unwraps.
+
+A distinct type that wraps a value, named without a call, is its constructor as a function value: `Id` is an `(Int) -> Id`, so `Iter.map(ns, Id)` builds an `Id` from each Int, `f = Id` binds the function, and `Id` passes where an `(Int) -> Id` is expected. A tuple-distinct's function takes the tuple (`((Int, String)) -> Pair`); §8 *Constructors as Function Values* states the rule for variants too. Any other type name is not a value: `f = Int`, `x = Point` and `Iter.map(xs, String)` are errors (`` `Int` is a type, not a value ``), and `Int(id)` stays a call-only unwrap. The other names that are values are an enum variant (`Dir.North`, and a positional variant as its constructor), a zero-sized type (`Expired`), `True`, `False` and `Unit`, and a type name where a `Type<T>` witness is expected (`Context.value(c, TraceId)`).
 
 Distinct types can implement interfaces, just like structs and enums — write an `impl Iface for Type { ... }` block:
 
@@ -4456,8 +4529,9 @@ Iters are lazy by design; rendering the elements would have to consume the itera
 For a declared type, the compile error names the type that lacks an impl, so the fix (add an `impl Display for T { ... }` block or `derive Display`) is clear from the message.
 
 > **Status: not yet implemented.** For a function value or a lazy `Iter`,
-> `"${f}"` and `io.print(f)` pass the checker; the program is then refused
-> before it runs with a `BLOCKED` line rather than a compile error.
+> `"${f}"` and `io.print(f)` pass the type checker; the program is then
+> refused before it runs with a "not supported yet" error (§25) rather than
+> a type error.
 
 ## 17. Error Handling
 
@@ -4543,6 +4617,26 @@ generator (`cmd/nomi-docgen`) collects a module's `//#` lines as its page intro:
 
 /// Returns the next element and remaining list, or None if empty.
 pub fn list_next(list: List<T>): Maybe<(T, List<T>)> { ... }
+```
+
+### Shebang line
+
+A file may begin with a `#!` line so that it runs as an executable script
+(§26, *Scripts*). The `#!` must be the file's first two bytes; the compiler
+ignores the rest of that line, and line numbers count it, so everything after
+it keeps its source position in diagnostics, test reports and the editor.
+`#!` anywhere else is a syntax error (`` a `#!` line is allowed only as the
+first line of a file ``). `nomi fmt` keeps the line as written, minus trailing
+whitespace; a blank line after it stays one blank line, and no blank line
+stays none.
+
+```nomi
+#!/usr/bin/env nomi
+import std/io
+
+fn main() {
+    io.print("hi")
+}
 ```
 
 ## 19. Collections
@@ -5403,7 +5497,9 @@ fn outbox_worker(): Unit {
 
 ## 21. Imports
 
-Import syntax and its rules are in §14 *Files and Imports*.
+Import syntax and its rules are in §14 *Files and Imports*, including that an
+import of a file that does not exist is a compile-time error (§14 *File
+Rules*).
 
 ## 22. Operators
 
@@ -5599,13 +5695,13 @@ Implementation language: **Go**
 
 ### Execution engines
 
-One engine runs a Nomi program: the VM, for `nomi run`, `nomi test`, the REPL and the tour playground. The compiler parses, analyzes and type-checks the program and lowers each function it can to IR; the VM compiles that IR to bytecode and runs it over the runtime library (`rt`). A program that reaches a function that was not retained fails before its first effect, and `nomi run` prints one `BLOCKED <file> [<function>] <reason>` line per such function; the reason is the compiler's own. `nomi check` lowers the program the same way without running it and reports each function `main` or a test reaches that would be `BLOCKED` as an error at the code the compiler stopped at, such as ``this call to `skip_odd` is not supported yet, so `fn evens` cannot run``. `nomi test` runs every case it can, reports each case it cannot as `BLOCKED <file> :: <case> [<function>] <reason>`, and appends `, K blocked` to its summary when K is not zero; it exits nonzero when anything failed or was blocked. The REPL compiles each input as a new program that sees the declarations and top-level bindings of the inputs before it, and runs it on one live VM. An earlier input never runs again: a later input reads the value an earlier binding computed, and a closure keeps the value it captured. Redefining a function or type affects later inputs only; an input that fails to check, faults or is blocked prints its error and changes nothing.
+One engine runs a Nomi program: the VM, for `nomi run`, `nomi test`, the REPL and the tour playground. The compiler parses, analyzes and type-checks the program and lowers each function it can to IR; the VM compiles that IR to bytecode and runs it over the runtime library (`rt`). A program that reaches a function the compiler could not lower fails before its first effect: `nomi run` prints an error at the code the compiler stopped at, with its source line and any hint, such as ``this call to `skip_odd` is not supported yet, so `fn evens` cannot run``, and exits 1. `nomi check` lowers the program the same way without running it and reports the same errors for everything `main` or a test reaches. `nomi test` runs every case it can, reports each case it cannot as `BLOCKED <file> :: <case> <path>:<line>:<col>: <message>`, with any hint indented on the line below, and appends `, K blocked` to its summary when K is not zero; it exits nonzero when anything failed or was blocked. A run stopped by something other than code the compiler could not lower (a Go crossing nothing binds, or a VM limit) prints `BLOCKED <file> [<function>] <reason>` lines instead. Setting `NOMI_DEBUG_LOWERING=1` adds the compiler's own reason to each of these errors as a hint. The REPL compiles each input as a new program that sees the declarations and top-level bindings of the inputs before it, and runs it on one live VM. An earlier input never runs again: a later input reads the value an earlier binding computed, and a closure keeps the value it captured. Redefining a function or type affects later inputs only; an input that fails to check, faults or is blocked prints its error and changes nothing.
 
 ### Standalone executables
 
 `nomi build <file> [-o <out>] [--target <goos>/<goarch>]` writes one executable: a VM runner binary with the program's lowered IR appended to it, the way `deno compile` and `bun build --compile` work. At startup the runner reads the IR from its own file and runs `main` exactly as `nomi run` does: the same arguments, standard input, signal handling, output and exit status. The binary skips the front end and the lowering, so a hello-world program starts in a few milliseconds, and then runs on the same VM at `nomi run` speed. It is not native code.
 
-A program `nomi run` would refuse is refused at build time with the same text, and nothing is written: a front-end error, or one `BLOCKED` line per function the VM cannot run. A file without `fn main` has nothing to build. A program with a `todo` or a `dbg` in any of its files is refused with one list of every `todo` (§5, *Unwritten Code*) and every `dbg` (§6, *Debugging pipes*), whether or not a run would reach it. `--target`, or `GOOS`/`GOARCH` in the environment, picks the platform. The runner comes from, in order:
+A program `nomi run` would refuse is refused at build time with the same text, and nothing is written: a front-end error, or an error at each piece of code the compiler cannot lower. A file without `fn main` has nothing to build. A program with a `todo` or a `dbg` in any of its files is refused with one list of every `todo` (§5, *Unwritten Code*) and every `dbg` (§6, *Debugging pipes*), whether or not a run would reach it. `--target`, or `GOOS`/`GOARCH` in the environment, picks the platform. The runner comes from, in order:
 
 1. `nomi-runner` beside `nomi` (or beside the file a symlinked `nomi` resolves to), built for the target. Every release archive ships one.
 2. A source checkout of the compiler: the runner is built with `go build` and cached. This is how `go install` and a development tree work, with no release involved.
@@ -5627,7 +5723,7 @@ A native backend could come back as a reader of the typed IR if native compilati
 
 ## 26. Entry Point
 
-Nomi programs can be run in two ways:
+Nomi programs can be run in two ways, file mode and project mode; a script is file mode:
 
 ### File mode: `nomi run <file>`
 
@@ -5646,6 +5742,63 @@ nomi run app.nomi
 ```
 
 This is the simplest way to run Nomi — no config file needed. Good for scripts, small projects, and getting started quickly.
+
+### Scripts: `nomi <file>`
+
+`nomi <file> [args]` is `nomi run <file> [args]`. Together with a shebang line
+(§18, *Shebang line*) it lets a file run as a command:
+
+```sh
+$ cat hi.nomi
+#!/usr/bin/env nomi
+import std/io
+
+fn main() {
+    io.print("hi")
+}
+$ chmod +x hi.nomi
+$ ./hi.nomi a b
+```
+
+The operating system runs `./hi.nomi a b` as `nomi ./hi.nomi a b`. Every
+argument after the file, flags included, is the program's own: `boot` reads
+them as `startup.args` (§27), here `["a", "b"]`.
+
+Subcommand names are matched first. After them, the first argument is a file
+when it ends in `.nomi`, whether or not it exists, so a missing `x.nomi` is
+reported as a missing file; no subcommand name ends in `.nomi`, so `nomi test`
+is the command and `nomi test.nomi` runs that file. Any other argument is a
+file only when it exists and its first two bytes are `#!`; otherwise it is an
+unknown command.
+
+A `.nomi` script runs exactly as `nomi run` would run it, including the
+project root discovery below. A script alone in a directory such as `~/bin` is
+its own project, and sibling scripts do not affect it unless it imports them.
+A `.nomi` script inside a module (a `nomi.toml` above it) is held to that
+module's `entry_points`, so it must be listed there.
+
+**Extensionless scripts.** A file without the `.nomi` extension is a program
+when it starts with `#!`, so a command can be named like any other:
+
+```sh
+$ head -1 ~/bin/greet
+#!/usr/bin/env nomi
+$ greet world        # runs as nomi /home/me/bin/greet world
+```
+
+`nomi run`, `nomi check`, `nomi test` and `nomi build` accept such a file by
+path. Its project root is its own directory: root discovery looks for
+`nomi.toml` or `main.nomi` there and nowhere above, so a `main.nomi` in a home
+directory or a module around the script never changes what a command on
+`PATH` does. It imports `.nomi` files from its own directory and below, as
+`import greeting` reads `greeting.nomi` beside it, and nothing above it. Its
+module name is the file name, so a `greet.nomi` beside `greet` is a different
+file that `import greet` would read. A script in a module's subdirectory is
+not one of the module's entries and needs no `entry_points` line; one beside
+the module's `nomi.toml` is, and is listed by its bare name. `nomi check` and
+`nomi test` on a directory still look only at `.nomi` files. Go FFI
+discovery reads only `.nomi` files, so a `gopkg` binding needs a `.nomi`
+file.
 
 ### Project mode: `nomi run <package>/<entry>`
 
@@ -5706,7 +5859,17 @@ The walk stops at any workspace bound the host has supplied (the editor's open f
 
 ### Entry callbacks
 
-`fn main` always takes zero positional parameters. It may optionally return a `Result`; a failed `fn main` prints the error and exits non-zero. `fn boot` is optional and belongs to the same entry file as `fn main` (§27). A program with no boot runs under a root context and publishes no application fields.
+`fn main` always takes zero positional parameters. It may return a `Result`. A `main` that returns `Err(e)` fails the program: `nomi run` (and an executable from `nomi build`) prints `error: ` followed by `e`'s text to stderr and exits with status 1. The text is `Display.to_string(e)` when `e`'s type implements `Display`, so a `String` prints as itself without quotes, and `Debug.inspect(e)` otherwise. An `Err` holding an `AssertionFailure`, which a failed `assert` in `main` returns, prints as that failed assertion instead. A `main` that returns `Ok`, or a value of any other type, `Maybe` included, exits 0.
+
+```
+fn main(): Result<Unit, String> {
+    Err("config file not found")
+}
+```
+
+prints `error: config file not found` to stderr and exits 1.
+
+`fn boot` is optional and belongs to the same entry file as `fn main` (§27). A program with no boot runs under a root context and publishes no application fields.
 
 ```nomi
 // simplest — no env reach
@@ -6195,14 +6358,24 @@ module importable under its `[module].name`.
 The `nomi` CLI is the single tool:
 
 - `nomi run <file>` — file mode (single-file scripts).
+- `nomi <file> [args]` — the same as `nomi run`, for a file that ends in
+  `.nomi` or starts with `#!`; a `#!/usr/bin/env nomi` script runs as this
+  (see §26, *Scripts*).
 - `nomi run <module>/<entry>` — project mode (a module with
   `nomi.toml`'s entry_points; see §26).
 - `nomi test [path] [--line N] [--format text|json]` — run tests in a
   `.nomi` file or discover tests under a directory; see §36.
 - `nomi` — the REPL.
 - `nomi check <path>` — type-check and compile without running; code
-  the program reaches that `nomi run` or `nomi test` would refuse as
-  `BLOCKED` is an error at its source.
+  the program reaches that the compiler cannot lower is the error at its
+  source that `nomi run` would stop with and `nomi test` would report as
+  `BLOCKED`. A test file is checked as `nomi test` loads it, each case
+  lowered and none run, and a directory's test files, and a module's beside
+  its entries, are checked with the rest.
+  In a directory without `entry_points`, a file that another file there
+  imports is checked through that importer, as `nomi run` loads it, and
+  listed as `ok <file> (through <importer>)`; a file nothing there imports
+  is checked on its own.
 - `nomi build <file> [-o <binary>] [--target <goos>/<goarch>]` — one
   executable: a VM runner with the program's IR appended. It runs at
   `nomi run` speed without the startup lowering; it is not native code
@@ -6533,7 +6706,7 @@ summary record comes last:
 ```json
 {"type":"test","file":"/abs/path/a_test.nomi","line":14,"end_line":17,"name":"a_test.nomi :: fails","status":"failed","message":"  line 16: assertion failed\n    assert x == 4","error_line":16}
 {"type":"file","file":"/abs/path/b_test.nomi","name":"b_test.nomi","status":"failed","message":"..."}
-{"type":"test","file":"/abs/path/a_test.nomi","line":20,"end_line":22,"name":"a_test.nomi :: counts","status":"blocked","message":"[count] not retained: qualified call, file.fn: io.print"}
+{"type":"test","file":"/abs/path/a_test.nomi","line":20,"end_line":22,"name":"a_test.nomi :: counts","status":"blocked","message":"a_test.nomi:9:20: this call to `skip_odd` is not supported yet, so `fn evens` cannot run","error_line":9}
 {"type":"summary","passed":3,"failed":2,"blocked":1}
 ```
 
@@ -6542,11 +6715,13 @@ summary record comes last:
   `file` and `line`: `name` is the label the text report prints, and an
   attached test's label embeds display wording and line numbers.
 - `status` is `passed`, `failed` or `blocked`. `blocked` marks a test the
-  VM could not run (see §25); its `message` is the reasons the text report's
-  `BLOCKED` lines give, one per line, such as `[helper] not retained:
-  qualified call, file.fn: io.print`. `nomi check` reports the same code as
-  an error at its source. The summary's
-  `blocked` counts those tests.
+  VM could not run (see §25); its `message` is what the text report's
+  `BLOCKED` lines give: for code the compiler could not lower, the error
+  `nomi check` reports, as `<path>:<line>:<col>: <message>` with a
+  `<path>:<line>:<col>: help: ...` line per hint, the path relative to the
+  working directory when it is under it. Its `error_line` is that code's
+  line when it is in the test's own file. The summary's `blocked` counts
+  those tests.
 - `message` is the block the text report prints under a failing test,
   without colour; it is empty for a passing test. `error_line` is the line
   the failure points at and is omitted when there is none.
@@ -6719,7 +6894,10 @@ and cannot read application fields.
 
 `setup expr`, or `setup { ... }` with statements before its final value,
 produces the value the group's tests receive. It may be any value; a setup
-whose last line is a statement, such as a `with` line, produces `Unit`. A test
+whose last line is a statement, such as a `with` line, produces `Unit`.
+`return value` inside a setup ends the setup, not the test, with that value,
+as it ends a function; the setup's type is the type its final value and every
+`return` agree on. A test
 binds the value with a pattern after its name: a name
 (`test "loads rows", db`), a tuple (`test "pair", (left, right)`), or a record
 (`test "default user", {name}`). A test with no pattern ignores the value. The
@@ -7028,7 +7206,7 @@ An attached test prompt sits above the declaration it exercises.
 
 ### 38.1 `derive` — Compile-time impl synthesis
 
-> **Limitations.** A derive over a struct with an anonymous-struct field (e.g. `value: {x: Int, y: Int}`) type-checks, but the synthesized body is not lowered, so a program that calls it is reported `BLOCKED` (§25). Interface-typed fields (existentials) are skipped at the `derive` site — the static check can't know the runtime concrete type, so missing inner impls surface as runtime "no impl found" rather than at the `derive` site. The Hashable mix is `*31 + h` (Java-string-style) — fine for in-process bucketing, but collisions are easy to construct (e.g. `Hashable.hash(Point{x: 0, y: 31}) == Hashable.hash(Point{x: 1, y: 0}) == 31`); upgrade to FNV-1a / SipHash if a real workload demands it.
+> **Limitations.** A derive over a struct with an anonymous-struct field (e.g. `value: {x: Int, y: Int}`) type-checks, but the synthesized body is not lowered, so a program that calls it is refused with a "not supported yet" error (§25). Interface-typed fields (existentials) are skipped at the `derive` site — the static check can't know the runtime concrete type, so missing inner impls surface as runtime "no impl found" rather than at the `derive` site. The Hashable mix is `*31 + h` (Java-string-style) — fine for in-process bucketing, but collisions are easy to construct (e.g. `Hashable.hash(Point{x: 0, y: 31}) == Hashable.hash(Point{x: 1, y: 0}) == 31`); upgrade to FNV-1a / SipHash if a real workload demands it.
 
 > **`derive Debug` is redundant.** Debug is **universal and automatic** (§38.2) — the compiler auto-synthesizes a structural Debug impl, byte-identical to `derive Debug`, for every declared type that lacks one. So you never need to write `derive Debug`; the only reason to mention Debug in `impl Debug` is to *override* the default (e.g. a **structural** override on an opaque type, whose auto default is name-only `<opaque T>` — see Opaque types below). `derive Debug` remains valid (it's just the explicit form of what happens automatically); the examples in this section keep it for illustration.
 

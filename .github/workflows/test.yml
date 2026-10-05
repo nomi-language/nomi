@@ -1,0 +1,86 @@
+# Runs on every push to main and every pull request.
+#
+# internal/irbuild is its own job: it is the longest single package (about
+# 100 s on a laptop), and run alongside cmd/nomi, internal/analysis and
+# internal/lsp it would set the wall time of the whole run. Node 22 is installed so the
+# tests that run a js/wasm build under node (cmd/nomi-wasm,
+# internal/wasmsmoke) run instead of skipping.
+#
+# The tour job builds the tour's wasm bundle, which the go job lacks (the
+# TestTourWasm* tests skip there), and checks it as `make test-tour` does.
+#
+# Not covered here: the tree-sitter grammar tests (scripts/tree-sitter.sh
+# test) and the VS Code smoke test, which downloads VS Code.
+
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: go vet and go test (all but irbuild)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: go vet ./...
+      - name: go test
+        run: go test -count=1 -timeout 40m $(go list ./... | grep -v '/internal/irbuild$')
+
+  irbuild:
+    name: go test ./internal/irbuild
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -count=1 -timeout 40m ./internal/irbuild
+
+  vscode:
+    name: VS Code extension
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+      - run: npm --prefix editors/vscode ci
+      - run: npm --prefix editors/vscode test
+
+  tour:
+    name: tour wasm bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: ./scripts/build-tour-wasm.sh
+      - run: go test -count=1 ./vmhost -run TestTourWasm
+        env:
+          NOMI_REQUIRE_TOUR_WASM: "1"

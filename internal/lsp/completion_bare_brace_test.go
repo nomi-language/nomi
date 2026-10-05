@@ -201,7 +201,8 @@ func TestBraceMayOpenLiteral(t *testing.T) {
 		{"fn f(): Address {", false},
 		{"if c {", false},
 		{"case n {", false},
-		{"xs |> |x| {", false},
+		{"xs |> then |x| {", false},
+		{"f(|x| {", false},
 		{"{", false},
 		{"noreturn {", false},
 	}

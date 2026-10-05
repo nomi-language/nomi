@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// TestVersionToken pins the FORMAT, in isolation from any build.
+// TestVersionToken pins the format, in isolation from any build.
 //
 // The clean/dirty pair is the reason this table exists rather than only the
 // end-to-end test below: an implementation that read `vcs.revision` and
@@ -129,7 +129,7 @@ func TestVersionRequested(t *testing.T) {
 // and a version read out of the binary is exactly the kind of thing that would
 // plausibly go with them. It does not: build info lives in its own section.
 //
-// EVERY ARM COMPUTES ITS OWN EXPECTATION from `go version -m`, the toolchain's
+// Every arm computes its own expectation from `go version -m`, the toolchain's
 // own reader of the artifact's build-info section, so a `versionToken` that
 // returned a constant fails all four. The 40-hex-digit requirement on the
 // parsed revision is what keeps that honest: without it a parser that matched
@@ -221,11 +221,11 @@ func TestVersionFlag_EveryBuildPathReportsItsRevision(t *testing.T) {
 // section with `go version -m` — the toolchain's own reader, independent of the
 // debug.ReadBuildInfo call under test.
 //
-// A `build` row is TWO tab-separated fields, `build` and `key=value`, unlike a
-// `dep` row's three. scripts/release.sh:106 reads GOOS the same way. Written
-// with three fields first, this parser matched nothing, returned the empty
-// revision, and made every containment assertion hold for a binary that was in
-// fact stamped correctly — which is what the 40-digit guard below exists for.
+// A `build` row is two tab-separated fields, `build` and `key=value`, unlike a
+// `dep` row's three. scripts/release.sh reads GOOS the same way. A parser
+// expecting three fields would match nothing and return the empty revision,
+// and every containment assertion would then hold vacuously; the 40-digit
+// guard below exists to catch that.
 func stampedVCS(t *testing.T, bin string) (revision string, modified bool) {
 	t.Helper()
 	out, err := exec.Command("go", "version", "-m", bin).Output()

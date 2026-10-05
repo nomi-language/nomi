@@ -87,7 +87,7 @@ func TestDetectImplCollisions_OperatorImplsDifferingOnlyInOutputCollide(t *testi
 // ships eleven `Add` impls for `NaiveDateTime`, eleven for `OffsetDateTime`,
 // eleven for `DateTime` and four for `Date`, each at a different right-hand
 // type. A census of every `impl` header under std/, tests/ and
-// examples/ at f3e3c504 found 107 operator impl headers falling into 107
+// examples/ found 107 operator impl headers falling into 107
 // distinct (interface, receiver, right-hand base) groups — so nothing shipping
 // is a member of the rejected shape.
 func TestDetectImplCollisions_OperatorLadderAtDistinctRhsIsFine(t *testing.T) {
@@ -123,7 +123,7 @@ func TestDetectImplCollisions_OperatorLadderAtDistinctRhsIsFine(t *testing.T) {
 // argument from the runtime key — not just the output. A coherence key that
 // kept the full header would miss this shape too.
 //
-// A census over std/, tests/ and examples/ at f3e3c504 found that the
+// A census over std/, tests/ and examples/ found that the
 // only interfaces ever instantiated in an impl header are Add, Subtract,
 // Multiply and Divide — 107 headers, four names — so widening this axis rejects
 // no program in the tree. Had a fifth name existed the census would have listed

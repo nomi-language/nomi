@@ -18,7 +18,7 @@
 //
 // A program the engine cannot run at all (a function the VM does not retain)
 // answers *Unrunnable. The VM's `compiler.run` host returns that as a machine
-// limit, so the CALLING case is reported blocked with the nested program's
+// limit, so the calling case is reported blocked with the nested program's
 // reasons rather than failing with them as its `Err` payload.
 package stdcompilerrun
 

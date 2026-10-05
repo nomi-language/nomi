@@ -16,7 +16,8 @@
 # Several targets may be named at once. An editor that is not installed is
 # skipped. This is the setup for working on Nomi; `make install-nvim` and
 # `make install-helix` instead copy a snapshot for people who only use it.
-# scripts/git-hooks/post-merge runs this after a merge into main.
+# scripts/git-hooks/post-merge runs this after a merge into main, or into a
+# branch listed in git config nomi.editorBranches.
 
 set -uo pipefail
 

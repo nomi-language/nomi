@@ -2,8 +2,8 @@
 //
 // Different field NAMES and different field TYPES from shapes.Point, and the
 // Float is load-bearing twice over: a bare-name collapse cannot compile against
-// it, and its comparison must be rt.EqFloat rather than Go's `==` so that
-// `nan == nan` is True here and False under a Go struct comparison.
+// it, and its comparison must be rt.EqFloat rather than IEEE `==` so that
+// `nan == nan` is True here and False under a field-by-field IEEE comparison.
 pub struct Point {
     lat: Float
     lon: Float

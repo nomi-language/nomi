@@ -1,15 +1,15 @@
 package rt
 
-// The LAZY ADAPTERS whose callback carries a control signal, and `Iter.each`.
+// The lazy adapters whose callback carries a control signal, and `Iter.each`.
 //
 // seqctl.go's header explains why `Iter.reduce` needs a value encoding at all —
 // the callback is driven by the source's own `each_while`, so there is no Go
 // loop for a Go `break` to target — and every word of it applies here. What is
-// different is that a reduce callback has an ACCUMULATOR to answer with, so two
+// different is that a reduce callback has an accumulator to answer with, so two
 // register returns `(acc, keepGoing)` say everything: `continue` and a bare
 // `break` both answer the accumulator unchanged and differ only in the bool.
 //
-// An adapter has no accumulator. `continue` in a `map` callback must produce NO
+// An adapter has no accumulator. `continue` in a `map` callback must produce no
 // element, and there is no value it could name instead — Nomi has no zero values,
 // so the sentinel that would collapse this back to
 // two returns does not exist. The signal therefore needs a third and fourth
@@ -24,32 +24,32 @@ package rt
 // Four states rather than a struct or an error for the same reason seqctl.go
 // gives for two: `(V, Ctl)` is two registers, so
 // TestSeqAdapterCtlAllocatesNothingPerElement can pin the allocation count as
-// INDEPENDENT of the element count, and internal/irbuild widens only the callbacks
+// independent of the element count, and internal/irbuild widens only the callbacks
 // whose bodies can actually signal (internal/irbuild/ctrlflow.go's ctrlSignalIn).
 // Every other lowered lambda keeps the bare Go func literal Go's inliner sees
 // through.
 //
-// # What "use the value" means is per family, and it is NOT uniform
+// # What "use the value" means is per family, and it is not uniform
 //
 // This is the one place a shared encoding could quietly produce a wrong answer,
 // so it is spelled out per family rather than generalised:
 //
-//   - in `map` the value is the OUTPUT ELEMENT. `break v` emits `v` and then
+//   - in `map` the value is the output element. `break v` emits `v` and then
 //     ends.
-//   - in `filter` and `take_while` the value is the KEEP/DROP DECISION about the
-//     CURRENT INPUT element, not an output element. `break True` keeps the
+//   - in `filter` and `take_while` the value is the keep/drop decision about the
+//     current input element, not an output element. `break True` keeps the
 //     current item then stops; `break False` drops it then stops.
-//   - `filter` and `take_while` then differ from EACH OTHER on `CtlEmit false`:
-//     filter skips the element and asks for another, take_while ENDS. That one
+//   - `filter` and `take_while` then differ from each other on `CtlEmit false`:
+//     filter skips the element and asks for another, take_while ends. That one
 //     line is the whole difference between the two functions and it is why they
 //     are two functions here rather than one with a flag.
 //
 // # The `Run` answer is `completed || ended`, and the distinction is load-bearing
 //
-// `Seq.Run` reports whether the source ran to EXHAUSTION rather than being
+// `Seq.Run` reports whether the source ran to exhaustion rather than being
 // stopped by a consumer. A callback's `break` is not a downstream consumer
 // refusing an element — it is this stage finishing — so it answers true.
-// `ended` is set from the DOWNSTREAM yield's own answer in the emitting
+// `ended` is set from the downstream yield's own answer in the emitting
 // cases (`ended = yield(...)`), so a `break v` whose element the consumer
 // refuses answers false and a `take(3)` upstream of everything still shuts the
 // whole chain down. Getting that backwards is invisible in a one-stage pipeline
@@ -73,7 +73,7 @@ const (
 
 // SeqMapCtl is `Iter.map(src, f)` whose callback can `break` or `continue`.
 //
-// The value is the OUTPUT ELEMENT, so `break v` emits `v` as the final element.
+// The value is the output element, so `break v` emits `v` as the final element.
 func SeqMapCtl[T, U any](src Seq[T], f func(fr *Frame, item T) (U, Ctl)) Seq[U] {
 	return Seq[U]{Run: func(fr *Frame, yield func(fr *Frame, item U) bool) bool {
 		ended := false
@@ -99,7 +99,7 @@ func SeqMapCtl[T, U any](src Seq[T], f func(fr *Frame, item T) (U, Ctl)) Seq[U] 
 // SeqFilterCtl is `Iter.filter(src, pred)` whose predicate can `break` or
 // `continue`.
 //
-// The value is the KEEP/DROP DECISION about the current INPUT element, never an
+// The value is the keep/drop decision about the current input element, never an
 // output element — see the file header's per-family table.
 func SeqFilterCtl[T any](src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
@@ -133,7 +133,7 @@ func SeqFilterCtl[T any](src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) Seq[
 // SeqTakeWhileCtl is `Iter.take_while(src, pred)` whose predicate can `break` or
 // `continue`.
 //
-// SeqFilterCtl differs on ONE line: a `CtlEmit false` here ENDS the sequence
+// SeqFilterCtl differs on one line: a `CtlEmit false` here ends the sequence
 // where filter skips the element and carries on. That is the whole of what
 // distinguishes the two functions.
 func SeqTakeWhileCtl[T any](src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) Seq[T] {

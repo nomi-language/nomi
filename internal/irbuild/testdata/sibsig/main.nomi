@@ -1,7 +1,7 @@
-// A sibling file's SIGNATURE crossing the generated-package boundary in every
+// A sibling file's SIGNATURE crossing the file boundary in every
 // shape, and `==` on a MIRROR of a sibling file's struct.
 //
-// Two same-named types reach ONE generated package here, one under its own name
+// Two same-named types reach ONE builder package here, one under its own name
 // and one aliased, so this package holds two mirrors whose Nomi name is `Point`
 // in both owners' tables. That is the only place a name-keyed lookup can
 // collapse two declarations — a Nomi file declares each name once, so a single
@@ -10,8 +10,8 @@
 //
 // `==` through a mirror was refused until the mirror's owner could be asked
 // whether the PROGRAM declares an `impl Equatable` for the type. Absence has to
-// be POSITIVELY established: a missing impl is exactly when the interpreter
-// runs value.Equal, and an impl that exists is when it calls something, so a
+// be POSITIVELY established: a missing impl is exactly when `==` is
+// structural, and an impl that exists is when it calls the impl, so a
 // structural answer is right in the first case and a silent wrong answer in the
 // second. testdata/sibsig_impl and testdata/sibsig_orphan are the two negative
 // halves. See foreign.go's foreignNoEquatableImpl.
@@ -48,8 +48,8 @@ fn main() {
     io.print("p == p = ${Bool.to_string(same_point(p, alpha.at(1, 2)))}")
     io.print("p == q = ${Bool.to_string(same_point(p, q))}")
 
-    // Nomi's Float equality is reflexive on NaN and Go's is not, so this line
-    // fails under a Go `==` on the struct and passes under rt.EqFloat.
+    // Nomi's Float equality is reflexive on NaN and IEEE's is not, so this line
+    // fails under a field-by-field IEEE `==` and passes under rt.EqFloat.
     zero = 0.0
     nan = zero / zero
     io.print("nan    = ${Bool.to_string(same_coord(beta.at(nan, 1.0), beta.at(nan, 1.0)))}")

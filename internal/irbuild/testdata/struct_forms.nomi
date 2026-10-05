@@ -5,7 +5,7 @@
 //# allowed to contradict each other. A fixture that merely exercised the
 //# feature would go quiet on all three.
 //#
-//#   - A record's Go layout is CANONICAL (sorted by Nomi field name) while a
+//#   - A record's layout is CANONICAL (sorted by Nomi field name) while a
 //#     destructure names its fields in SOURCE order. `{y: 1, x: 2}` makes those
 //#     two orders disagree, so a positional read answers x=1 y=2.
 //#   - A field's NAME and its BINDING are two different strings, and binding by
@@ -17,8 +17,8 @@
 //#
 //# The call form's discriminator is a TYPE crossing rather than a value one:
 //# `Rev`'s declared order is `z` then `a` and the record's canonical order is
-//# `a` then `z`, with an Int against a String, so a positional copy is a Go
-//# compile error rather than a silent answer.
+//# `a` then `z`, with an Int against a String, so a positional copy is a
+//# type error rather than a silent answer.
 
 import std/io
 

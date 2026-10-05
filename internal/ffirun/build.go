@@ -44,7 +44,7 @@ const compilerModulePath = "github.com/nomi-language/nomi"
 // versioned `nomi` gets that source from the module proxy. A development build
 // has only the tree runtime.Caller names, which -trimpath hides and a moved
 // checkout loses; both report errNoCompilerSource rather than the stat that
-// failed, which at 390b9c46 read
+// failed, which read
 //
 //	nomi run: ffirun: locating nomi module root: stat nomi/go.mod: no such file or directory
 func nomiModuleRoot() (string, error) {

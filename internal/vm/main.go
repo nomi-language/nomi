@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/nomi-language/nomi/internal/ir"
@@ -21,18 +22,34 @@ import (
 // The error is either the program's own failure or this machine's limit;
 // ProgramFailure tells them apart.
 func (m *Machine) Main(ctx context.Context, args []string, handleSignals bool) error {
-	result, err := m.entry(ctx, args, handleSignals, func(run *Machine) (any, error) { return run.Run("main") })
-	if err != nil {
-		return err
-	}
-	return mainResultError(result)
+	_, err := m.entry(ctx, args, handleSignals, func(run *Machine) (any, error) {
+		result, err := run.Run("main")
+		if err != nil {
+			return nil, err
+		}
+		// Rendered here, before shutdown, so a Display impl that reads an
+		// application field still finds the app boot published.
+		return nil, run.mainResultError(result)
+	})
+	return err
 }
+
+// MainError is a `fn main` that returned `Err`: the program's failure, which
+// `nomi run` prints to stderr before exiting 1. Text is the payload's Display
+// rendering when its type implements Display (a String is itself), and its
+// Debug rendering otherwise.
+type MainError struct {
+	Text string
+}
+
+// Error is the line `nomi run` prints: `error: ` and the payload's text.
+func (e *MainError) Error() string { return "error: " + e.Text }
 
 // mainResultError is the failure `main`'s own result reports, or nil. A
 // failed `assert` whose boundary is `main` makes main return
-// `Err(AssertionFailure)`, and that is the program failing, reported as the
-// assertion. Any other `Err` main returns is ordinary data and exits 0.
-func mainResultError(result any) error {
+// `Err(AssertionFailure)`, reported as the assertion. Any other `Err` is a
+// *MainError carrying the payload's text.
+func (m *Machine) mainResultError(result any) error {
 	e, isRec := enumRecord(result)
 	if !isRec || !isEnum(e, "results.Result") || variantName(e) != "Err" {
 		return nil
@@ -44,7 +61,35 @@ func mainResultError(result any) error {
 	if f, isFailure := nomiFailureOf(payload); isFailure {
 		return &assertFailure{failure: f.Report()}
 	}
-	return nil
+	text, err := m.mainFailureText(payload)
+	if err != nil {
+		return err
+	}
+	return &MainError{Text: text}
+}
+
+// mainFailureText renders an `Err` payload main returned through the entry
+// module's `main failure` function (ir.Module.SetMainFailure). A module with
+// none, because the builder could not render main's error type, gets the
+// payload's structural text.
+func (m *Machine) mainFailureText(payload any) (string, error) {
+	sym := m.mod.MainFailure()
+	if sym == nil {
+		return rt.RowText(payload), nil
+	}
+	fn, err := m.resolveFunc(sym, "main")
+	if err != nil {
+		return rt.RowText(payload), nil
+	}
+	out, err := m.call(fn, []any{payload})
+	if err != nil {
+		return "", err
+	}
+	text, ok := out.(string)
+	if !ok {
+		return "", fmt.Errorf("vm: %s returned %T, not a String", sym.Name(), out)
+	}
+	return text, nil
 }
 
 // Call runs f with args as an embedding host calls a Nomi function: boot,
@@ -97,6 +142,9 @@ func (m *Machine) entry(ctx context.Context, args []string, handleSignals bool, 
 			if failed, isFailed := bootErr.(*bootFailed); isFailed {
 				return nil, &Fault{err: failed}
 			}
+			if _, internal := AsCompilePanic(bootErr); internal {
+				return nil, bootErr
+			}
 			if _, isLimit := ProgramFailure(bootErr); isLimit {
 				return nil, bootErr
 			}
@@ -121,11 +169,32 @@ func ProgramFailure(err error) (failure error, limit bool) {
 	if err == nil {
 		return nil, false
 	}
+	if cp, internal := AsCompilePanic(err); internal {
+		// A compiler bug: neither the program's failure nor a limit.
+		return cp, false
+	}
 	if a, isAssertion := asAssertFailure(err); isAssertion {
 		return a, false
 	}
 	if _, isFault := asFault(err); isFault {
 		return err, false
 	}
+	var mainErr *MainError
+	if errors.As(err, &mainErr) {
+		return err, false
+	}
 	return err, true
+}
+
+// MainRoots are the functions a run of main can call first, which is what a
+// reachability check over a run starts from: main, and the entry module's
+// `main failure` renderer when it has one (ir.Module.SetMainFailure).
+func MainRoots(entry *ir.Module, main *ir.Func) []*ir.Func {
+	roots := []*ir.Func{main}
+	if sym := entry.MainFailure(); sym != nil {
+		if f := entry.FuncFor(sym); f != nil {
+			roots = append(roots, f)
+		}
+	}
+	return roots
 }

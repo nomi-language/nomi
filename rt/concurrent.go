@@ -10,7 +10,7 @@ import (
 // `concurrent { }` and `std/tasks` — the structured-concurrency runtime the VM
 // calls.
 //
-// # THE FRAME IS THE MECHANISM
+// # The frame is the mechanism
 //
 // Cancellation has to reach `timer.sleep` inside a plain function called from
 // a task body. frame.go says how: every activation carries a `*Frame`, and the
@@ -20,29 +20,28 @@ import (
 // `fr.Context().Done()`. So this file adds a field and two constructors to that
 // mechanism rather than a threading pass.
 //
-// THREE ALTERNATIVES WERE MEASURED AND REJECTED, and the reasons are worth
-// keeping because each is what a reader will propose:
+// Three alternatives do not work, and each is what a reader will propose:
 //
 //   - **Thread ctx through every signature.** Correct and enormous: it changes
 //     every call site, every sibling and stdlib signature, every impl method
-//     and every lambda. It is also what the frame already IS, so it would be a
+//     and every lambda. It is also what the frame already is, so it would be a
 //     second copy of it.
 //   - **A goroutine-local keyed by goroutine id.** No public API exposes one.
 //     `runtime.Stack` parsing is the usual trick and costs ~1µs per read; a
 //     cancellation safe point at every function entry would then cost more
-//     than the call itself. (Go's goids ARE monotone and never reused, so the
-//     correctness half of that design is sound — it is the price that kills it.)
+//     than the call itself. (Go's goids are monotone and never reused, so that
+//     design would be correct; its cost rules it out.)
 //   - **A package-level current-scope cell.** Wrong under concurrency by
 //     construction: two sibling tasks would share one cell.
 //
-// # THE UNWIND IS A PANIC, WHICH IS THE ONE GO MECHANISM FOR "STOP NOW"
+// # The unwind is a panic, which is the one Go mechanism for "STOP NOW"
 //
 // rt's operations return plain values with no error channel (trap.go's
 // decision), so there is no return value a cancellation could ride. It
 // therefore rides a panic, exactly as a Nomi fault does, and is recovered at
-// the ONE boundary that can act on it: the task goroutine's own wrapper.
+// the one boundary that can act on it: the task goroutine's own wrapper.
 //
-// A PANICKING TASK MUST NOT KILL THE PROCESS, and it is safe to swallow one
+// A panicking task must not kill the process, and it is safe to swallow one
 // here for a reason specific to Nomi rather than a general one: Nomi values are
 // immutable, so a task that died partway cannot have left shared state
 // half-written, and the one piece of mutable state a task can see — the app
@@ -50,28 +49,27 @@ import (
 // combination by name). So a failed task's effects are confined to what it
 // printed, which is what `Failure` reports.
 //
-// # THE FAILURE TAXONOMY IS std's, AND ITS EDGE IS THE INTERESTING PART
+// # The failure taxonomy is std's
 //
 // `Completed | Cancelled | Failed(Panicked | Errored)`. An `Err` a body returned
-// DELIBERATELY is `Completed(Err(e))` and is not a failure — std/tasks.nomi says
-// so in as many words, and it is the point of the enum. `Failed` is the
+// deliberately is `Completed(Err(e))` and is not a failure — std/tasks.nomi says
+// so in as many words, and that distinction is why the enum exists. `Failed` is the
 // unplanned.
 //
-// MEASURED at d9c2873d (`/tmp/i2probe/failout.nomi`), so the mapping below is
-// a reading rather than a guess:
+// The mapping below is what a program observes:
 //
 //	Task.outcome on a body doing `1 / 0`  ->  Failed(Errored("line 7: division by zero"))
-//	                                          program CONTINUES, exit 0
+//	                                          program continues, exit 0
 //	Task.await   on the same body         ->  `line 7: division by zero`, exit 1
 //
-// So `Errored` carries the fault text VERBATIM including its `line N:` prefix,
+// So `Errored` carries the fault text verbatim including its `line N:` prefix,
 // and awaiting a failed task reproduces exactly what running the body inline
-// would have printed. A Nomi fault IS a panic carrying `*Error`, so `*Error`
+// would have printed. A Nomi fault is a panic carrying `*Error`, so `*Error`
 // maps to `Errored` and any other panic to `Panicked`: `Panicked` is reserved
 // for a Go-level panic, and nothing in Nomi source panics on demand, so an
 // end-to-end program cannot exercise it.
 //
-// # AWAITING A TASK THE CALLER CANCELLED
+// # Awaiting a task the caller cancelled
 //
 // std/tasks.nomi: "Awaiting a task you cancelled propagates the cancellation".
 // Inside a task the awaiter unwinds and settles Cancelled; on the main line
@@ -84,7 +82,7 @@ import (
 // Read-only after construction. `wg`,
 // `cancel` and `ctx` are concurrency primitives the goroutines drive directly,
 // and Go's own implementations are goroutine-safe, so there is no surrounding
-// mutex — the two fields that DO need one are `failed`/`firstFailure`, and they
+// mutex — the two fields that do need one are `failed`/`firstFailure`, and they
 // take a `sync.Once` rather than a mutex because they are written exactly once.
 type Scope struct {
 	ctx    context.Context
@@ -94,7 +92,7 @@ type Scope struct {
 	// failedOnce guards the pair below, which together are "some task in this
 	// scope has failed, and here is which one failed first".
 	//
-	// It exists for `Task.await_all`, whose documented rule is that a FAILURE
+	// It exists for `Task.await_all`, whose documented rule is that a failure
 	// short-circuits while an `Err` does not: "a batch where item 3 fails
 	// instantly does not wait out items 1 and 2 first". Watching every task
 	// would otherwise need one watcher goroutine per task, which a synctest
@@ -115,7 +113,7 @@ func (s *Scope) Context() context.Context { return s.ctx }
 // noteFailure records the first failure in this scope and wakes every
 // `await_all` waiting on it.
 //
-// The write happens INSIDE the Once and before the close, so a reader that
+// The write happens inside the Once and before the close, so a reader that
 // observed the closed channel is guaranteed to see the value — the close is the
 // happens-before edge, which is what makes `firstFailure` safe to read without
 // a lock.
@@ -129,7 +127,7 @@ func (s *Scope) noteFailure(f Failure) {
 // EnterScope opens a `concurrent { }` block and returns the frame its body
 // runs on.
 //
-// A CHILD frame rather than a mutation of the parent, because the parent frame
+// A child frame rather than a mutation of the parent, because the parent frame
 // outlives the block and must not observe the block's cancellation afterwards.
 // `forcing` and `app` are carried across for the reason frame.go gives them:
 // they are dynamic context propagated caller-to-callee, and a `once` being
@@ -142,9 +140,9 @@ func (s *Scope) noteFailure(f Failure) {
 //
 // `underDeadline` is inherited for the same reason. The block's ctx is a child
 // of the parent's, so a deadline EnterDeadline put on the parent ends the
-// block's ctx too, and the awaits in the body raise on THIS frame. Dropping the
-// flag here made a `with App.context = Context.with_timeout(…)` rebind wrapping a
-// block report the lowering-bug Trap instead of the deadline;
+// block's ctx too, and the awaits in the body raise on this frame. Without the
+// flag, a `with App.context = Context.with_timeout(…)` rebind wrapping a
+// block would report the lowering-bug Trap instead of the deadline;
 // TestEnterScope_InheritsDeadline pins it.
 func EnterScope(parent *Frame) *Frame {
 	ctx, cancel := context.WithCancel(parent.ctx)
@@ -156,11 +154,11 @@ func EnterScope(parent *Frame) *Frame {
 // ScopeExit ends a `concurrent { }` block: cancel every task still running,
 // then wait for all of them.
 //
-// CANCEL-THEN-WAIT ON EVERY PATH, normal and not. The normal path is not an
+// Cancel-then-wait on every path, normal and not. The normal path is not an
 // exception: the derived ctx runs its deferred cleanup even when no goroutines
 // are mid-flight, where `Wait()` is then a no-op. The corpus depends on it: `nested_outer_body` in concurrent_runtime_test.nomi binds its
 // two five-second sleepers with `_ia = inner_a` and never awaits them, so the
-// block completes NORMALLY with both in flight and the cancel here is the only
+// block completes normally with both in flight and the cancel here is the only
 // thing that stops them.
 //
 // Called behind a Go `defer`, so it also runs while a panic unwinds — a `try`
@@ -168,8 +166,8 @@ func EnterScope(parent *Frame) *Frame {
 // ancestor. The panic continues afterwards, so the exit signal is re-raised
 // outward for free.
 //
-// WAITING IS UNBOUNDED, deliberately. A task that never reaches a safe point
-// hangs the block on every path; the `drain:` budget that bounds a SUPERVISOR's
+// Waiting is unbounded, deliberately. A task that never reaches a safe point
+// hangs the block on every path; the `drain:` budget that bounds a supervisor's
 // shutdown is a supervisor concept and a block has no equivalent, because a
 // block's tasks are all awaited by Rule 2.
 func ScopeExit(fr *Frame) {
@@ -202,40 +200,39 @@ type canceled struct{}
 
 // raiseCanceled unwinds the current task because its context ended.
 //
-// THE GUARD IS THE INTERESTING PART. A raise is only correct where something up
-// the stack recovers it, and the only recoverer is TaskSpawn's wrapper — so
+// A raise is only correct where something up the stack recovers it, and the
+// only recoverer is TaskSpawn's wrapper — so
 // raising on a frame that is not inside a task would reach the top-level
 // recover, which re-panics anything that is not an `*Error` in order to keep
 // the Go traceback for a runtime bug. That is the right answer for a runtime
 // bug and the wrong one for a program.
 //
-// # THE `!inTask` ARM HAS TWO CAUSES
+// # The `!inTask` arm has two causes
 //
 // A frame's ctx is closed by a Scope's `cancel` (only in ScopeExit, after its
 // body has finished), by a Task's, or by `rt.EnterDeadline` (frame.go). The
-// last closes the ctx on the MAIN goroutine, WHILE the body runs.
+// last closes the ctx on the main goroutine, while the body runs.
 //
-// MEASURED on an ordinary program — `with Prog.context =
+// Take an ordinary program: `with Prog.context =
 // Context.with_timeout(Prog.context, Duration.milliseconds(50))` followed by
 // `timer.sleep(Duration.seconds(300))`. The right report is
 //
 //	deadline exceeded: the context in force when `main` blocked ran out, so
 //	the remaining work was not run
 //
-// and without the deadline arm the program reported `concurrent: cancellation
-// reached a frame with no task to unwind`, a diagnostic about a lowering bug,
-// handed to a user whose program was merely bounded. A corpus run cannot see
-// this, because it compares runs where every case PASSED, so a wrong FAILURE
-// string is outside what it can see.
+// and without the deadline arm the program would report `concurrent:
+// cancellation reached a frame with no task to unwind`, a diagnostic about a
+// lowering bug, to a user whose program was merely bounded. A corpus run cannot
+// catch this, because it compares runs where every case passed.
 //
 // So the two causes are separated by `fr.underDeadline` and each gets its own
-// answer. The lowering-bug Trap is KEPT rather than replaced: a cancellation
+// answer. The lowering-bug Trap is kept rather than replaced: a cancellation
 // that arrives with no task and no deadline in force still has no explanation,
 // and TestConcurrent_StrayCancellationIsAFault constructs exactly that and must
-// still see it. Reporting the deadline unconditionally would have named a
-// deadline that never existed.
+// still see it. Reporting the deadline unconditionally would name a
+// deadline that does not exist.
 //
-// The deadline arm also requires the ctx to have ended BY its deadline. Inside
+// The deadline arm also requires the ctx to have ended by its deadline. Inside
 // a block the flag alone is not enough: awaiting a task that `Task.cancel`
 // stopped raises here with the block's ctx still live, and naming the deadline
 // then would report one that has not run out.
@@ -249,7 +246,7 @@ func raiseCanceled(fr *Frame) {
 	if !fr.inTask {
 		if fr.underDeadline && errors.Is(fr.ctx.Err(), context.DeadlineExceeded) {
 			// Nothing else can cancel main-line code, so a
-			// cancellation arriving here IS the deadline it was given. It has to
+			// cancellation arriving here is the deadline it was given. It has to
 			// be reported or the program exits having silently skipped the rest
 			// of its work.
 			Trap(MainDeadlineFault)
@@ -272,10 +269,10 @@ func AwaitedCancelledTaskText() string {
 // std/tasks.nomi: the cancellation "propagates up the ownership chain rather
 // than being returned, the same way it would have surfaced had the body run
 // inline". Inside a task that is the ordinary unwind, and the awaiting task
-// settles Cancelled. On the MAIN LINE there is no owner above, so the program
+// settles Cancelled. On the main line there is no owner above, so the program
 // fails, and neither of raiseCanceled's two answers is the reason: nothing
 // cancelled the caller's context and no deadline ran out — `Task.cancel` stopped
-// the awaited task. A caller whose own context HAS ended (a deadline that also
+// the awaited task. A caller whose own context has ended (a deadline that also
 // cancelled the task, say) is raiseCanceled's case and keeps its text.
 func raiseAwaitedCancel(fr *Frame) {
 	if !fr.inTask && fr.ctx.Err() == nil {
@@ -289,7 +286,7 @@ func raiseAwaitedCancel(fr *Frame) {
 //
 // Exported for the blocking operations in this package that are declared in
 // other files — `TimerSleep` in opaque.go, the channel pair in channel.go — so
-// the raise has ONE implementation and its guard cannot be forgotten at a
+// the raise has one implementation and its guard cannot be forgotten at a
 // fourth call site.
 func CancelIfDone(fr *Frame) {
 	select {
@@ -303,8 +300,8 @@ func CancelIfDone(fr *Frame) {
 
 // task is one in-flight or completed task's state.
 //
-// `value`, `tag` and `fail` are written by the task goroutine BEFORE it closes
-// `done`, and read by an awaiter only AFTER receiving on `done`. The close is
+// `value`, `tag` and `fail` are written by the task goroutine before it closes
+// `done`, and read by an awaiter only after receiving on `done`. The close is
 // the happens-before edge, so no mutex is needed and the race detector agrees —
 // which is asserted rather than assumed, see the `-race` fixtures in
 // concurrent_test.go.
@@ -321,7 +318,7 @@ type task[T any] struct {
 //
 // A one-field struct over an unexported pointer, which is `Sender[T]`'s
 // arrangement and is chosen for its two reasons: the field stays unreachable
-// from another package, and the VALUE is copyable so `rt.Task[int64]` can be
+// from another package, and the value is copyable so `rt.Task[int64]` can be
 // the Go type a `stdGenHostSpecs` row names without every position having to
 // spell a pointer.
 type Task[T any] struct {
@@ -348,11 +345,11 @@ func TaskSpawn[T any](fr *Frame, body func(*Frame) T) Task[T] {
 
 // spawnScopeTask enrols one task in a scope and returns its handle.
 //
-// SHARED by `Task.spawn` and `Task.spawn_all`, which differ only in what they
+// Shared by `Task.spawn` and `Task.spawn_all`, which differ only in what they
 // hand it: `spawn` a body closing over nothing and no limit, `spawn_all` a body
 // that applies the caller's function to one item, plus a semaphore shared across
 // the batch. It is shared because the four deferred actions below decide how a task's
-// outcome is CLASSIFIED, and two copies of that classification are two things
+// outcome is classified, and two copies of that classification are two things
 // that can disagree about whether a Go panic is `Panicked` or `Errored`.
 //
 // # The goroutine's four deferred actions, in the order they run
@@ -360,7 +357,7 @@ func TaskSpawn[T any](fr *Frame, body func(*Frame) T) Task[T] {
 // Go runs deferred functions LIFO, so they are registered in reverse. The order
 // matters and each step depends on the one before it:
 //
-//  1. RECOVER, and classify. This must be innermost: it is what stops a task's
+//  1. Recover, and classify. This must be innermost: it is what stops a task's
 //     panic from killing the process, and it is where the outcome is decided.
 //  2. `close(done)`, which publishes the outcome. After the recover, so an
 //     awaiter never observes a `done` channel whose task has not settled.
@@ -371,22 +368,22 @@ func TaskSpawn[T any](fr *Frame, body func(*Frame) T) Task[T] {
 //
 // # The body's frame
 //
-// A fresh Frame over the TASK's context, not the scope's, so `Task.cancel` on
+// A fresh Frame over the task's context, not the scope's, so `Task.cancel` on
 // this task alone reaches this body and no sibling's. `inTask` is set here and
 // nowhere else: it is the fact that makes a cancellation raisable, and this
 // wrapper is the thing that recovers it.
 //
-// # THE SEMAPHORE, when there is one
+// # The semaphore, when there is one
 //
-// `sem` bounds how many of a BATCH run at once and is nil for a lone `spawn`.
-// The worker takes a slot INSIDE the goroutine and releases it when its body
+// `sem` bounds how many of a batch run at once and is nil for a lone `spawn`.
+// The worker takes a slot inside the goroutine and releases it when its body
 // ends, so the spawn itself never blocks: `Task.spawn_all` hands every handle
-// back at once and only EXECUTION is throttled. std/tasks.nomi states that
+// back at once and only execution is throttled. std/tasks.nomi states that
 // contract ("`max_running` throttles execution, not enqueueing").
 //
-// A task still queued when the block unwinds NEVER RUNS and settles
+// A task still queued when the block unwinds never runs and settles
 // `Cancelled` — starting work the block is about to cancel helps nobody. The
-// select is on the TASK's `ctx`, which is the `fr.ctx` of the frame this body
+// select is on the task's `ctx`, which is the `fr.ctx` of the frame this body
 // will run on, so this wait obeys the one deadline chokepoint like every other
 // blocking operation in this package rather than reading a second clock.
 func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Frame) T) Task[T] {
@@ -404,8 +401,8 @@ func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Fr
 				t.tag = TagCancelled
 			case *Error:
 				// A Nomi fault. `Errored` rather than `Panicked` because a Nomi
-				// runtime error is reported that way — measured, see the file
-				// header — and because `Panicked` is std's name for
+				// runtime error is reported that way (see the file
+				// header), and because `Panicked` is std's name for
 				// a bug rather than for arithmetic.
 				t.tag = TagFailed
 				t.fail = Errored(r.Msg)
@@ -438,7 +435,7 @@ func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Fr
 				return
 			}
 		}
-		// `app` is carried from the SPAWN SITE's frame: a snapshot taken at
+		// `app` is carried from the spawn site's frame: a snapshot taken at
 		// spawn. A block task keeps the spawner's deadline,
 		// unlike a supervised one, because the block joins it — see
 		// supervisorEnrol.
@@ -451,15 +448,15 @@ func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Fr
 // TaskAwait is `Task.await(task)`: block until the task settles and return its
 // value, inheriting anything that is not a completion.
 //
-// TWO CHANNELS, which is std/tasks.nomi's own framing. The VALUE channel is
+// Two channels, which is std/tasks.nomi's own framing. The value channel is
 // ordinary — an `Err` the body returned deliberately arrives here as a value and
-// `try Task.await(t)` propagates it like any other Result. The FAILURE channel
+// `try Task.await(t)` propagates it like any other Result. The failure channel
 // is out of band: there is no `Err` to match on because the task never chose to
-// produce one, so awaiting a failed task fails the AWAITER with the fault the
-// body raised. MEASURED: the report is exactly the body's own fault text, so
+// produce one, so awaiting a failed task fails the awaiter with the fault the
+// body raised. The report is exactly the body's own fault text, so
 // `Trap(fail.Msg)` and not a wrapped one.
 //
-// A SINGLE await deliberately does NOT react to a sibling's failure. Only
+// A single await deliberately does not react to a sibling's failure. Only
 // `await_all` short-circuits, because a caller holding one handle may be about
 // to absorb that sibling's failure with `Task.outcome` — reacting here would
 // take that decision away from them.
@@ -491,7 +488,7 @@ func TaskAwait[T any](fr *Frame, h Task[T]) T {
 	panic("unreachable")
 }
 
-// TaskOutcomeOf is `Task.outcome(task)`: wait for the task and hand back HOW it
+// TaskOutcomeOf is `Task.outcome(task)`: wait for the task and hand back how it
 // ended, rather than inheriting it.
 //
 // `outcome` is the primitive and `await` is this plus propagation of the two
@@ -520,7 +517,7 @@ func TaskOutcomeOf[T any](fr *Frame, h Task[T]) Outcome[T] {
 // TaskCancel is `Task.cancel(task)`: ask one task to stop, leaving its siblings
 // alone.
 //
-// It does NOT release the caller from awaiting — Rule 2 still holds, so there
+// It does not release the caller from awaiting — Rule 2 still holds, so there
 // are still no orphan tasks — but the await returns promptly instead of waiting
 // for work that will never finish.
 //
@@ -535,33 +532,33 @@ func TaskCancel[T any](h Task[T]) Unit {
 // item of `source`, running at most `maxRunning` of them at once, and hand back
 // a handle for each.
 //
-// # TERMINAL, NOT LAZY, and that is load-bearing rather than incidental
+// # Terminal, not lazy
 //
-// The source is drained COMPLETELY before the first handle is returned,
-// because a lazy sequence of tasks would spawn AFTER its block had exited, with the bodies never running. So this consumes the whole
+// The source is drained completely before the first handle is returned,
+// because a lazy sequence of tasks would spawn after its block had exited, with the bodies never running. So this consumes the whole
 // `Iter` and returns a materialized `List<Task<U>>`, and it inherits
-// `Iter.to_list`'s infinite-source hazard — `max_running` throttles EXECUTION,
+// `Iter.to_list`'s infinite-source hazard — `max_running` throttles execution,
 // not enqueueing, so memory still grows on an endless source. std/tasks.nomi
 // says exactly that and it is not a gap here.
 //
-// # THE DRAIN RUNS ON THE CALLER'S FRAME, the bodies do not
+// # The drain runs on the caller's frame, the bodies do not
 //
 // `src.Run(fr, ...)` is the caller's own work: a `Seq` is a push pipeline whose
 // stages are ordinary functions, so draining it must see the caller's frame and
-// its cancellation, exactly as `rt.SeqToListCells` does. Each BODY then runs on the
-// per-task frame `spawnScopeTask` builds. That split is the whole reason
+// its cancellation, exactly as `rt.SeqToListCells` does. Each body then runs on the
+// per-task frame `spawnScopeTask` builds. That split is why
 // `spawn_all` accepts a plain module function where `spawn` demands a lambda
-// written at the call site: the frame a body needs is supplied HERE rather than
+// written at the call site: the frame a body needs is supplied here rather than
 // captured at the call site, so there is no frame for a callback to get wrong.
 //
-// # ONE SEMAPHORE FOR THE BATCH
+// # One semaphore for the batch
 //
 // Sized by the limit and shared by every task, so the tasks contend with each
 // other and with nothing else. Spawning stays eager — the caller gets all the
 // handles at once — and only execution is throttled; `spawnScopeTask` holds a
 // slot for the duration of one body.
 //
-// `maxRunning < 1` is a FAULT rather than a clamp. Clamping to 1 would run a
+// `maxRunning < 1` is a fault rather than a clamp. Clamping to 1 would run a
 // program whose bound is meaningless.
 func TaskSpawnAll[T, U any](fr *Frame, src Seq[T], f func(*Frame, T) U, maxRunning int64) *List[Task[U]] {
 	s := fr.scope
@@ -583,7 +580,7 @@ func TaskSpawnAll[T, U any](fr *Frame, src Seq[T], f func(*Frame, T) U, maxRunni
 	sem := make(chan struct{}, int(maxRunning))
 	out := make([]Task[U], 0, len(items))
 	for _, item := range items {
-		// `item` is captured by VALUE into this closure, which is what makes
+		// `item` is captured by value into this closure, which is what makes
 		// each body see its own element. Go 1.22+ scopes a range variable per
 		// iteration, but the parameter here is explicit rather than relying on
 		// that: this closure outlives the loop by construction.
@@ -597,13 +594,13 @@ func TaskSpawnAll[T, U any](fr *Frame, src Seq[T], f func(*Frame, T) U, maxRunni
 // TaskAwaitAll is `Task.await_all(tasks)`: wait for every task and collect their
 // values, in the order the tasks were spawned.
 //
-// AN `Err` DOES NOT SHORT-CIRCUIT and a FAILURE DOES, which is std's rule and
-// the whole reason this is not a loop over `TaskAwait`. What happens to the
+// An `Err` does not short-circuit and a failure does, which is std's rule and
+// the reason this is not a loop over `TaskAwait`. What happens to the
 // other tasks when item 3 returns `Err` is a policy a program should decide
 // deliberately, so the Err arrives as a value; a failure settles the outcome, so
 // waiting buys nothing and the batch surfaces it at once.
 //
-// The short-circuit reads the SCOPE's first-failure record rather than watching
+// The short-circuit reads the scope's first-failure record rather than watching
 // each task, so it needs no watcher goroutine — see Scope.failedOnce, including
 // the cost std documents for it.
 //
@@ -615,17 +612,17 @@ func TaskAwaitAll[T any](fr *Frame, tasks *List[Task[T]]) *List[T] {
 	out := make([]T, 0, len(handles))
 	for _, h := range handles {
 		t := h.t
-		// TWO WAITS, and which one applies is decided by whether this frame is
+		// Two waits, and which one applies is decided by whether this frame is
 		// inside a `concurrent` block.
 		//
-		// A BLOCK-OWNED batch short-circuits on the SCOPE's failure: some task
+		// A block-owned batch short-circuits on the scope's failure: some task
 		// in the scope died, it may or may not be this one, and either way the
 		// batch is settled — so the caller inherits the first failure recorded.
 		// That is `Task.await_all`'s stated rule and the reason it watches every
 		// task rather than awaiting in order.
 		//
-		// A GROUP-OWNED batch — handles from `Supervisor.spawn_all` — has NO
-		// SCOPE, and none is required. std permits awaiting these outside any
+		// A group-owned batch — handles from `Supervisor.spawn_all` — has no
+		// scope, and none is required. std permits awaiting these outside any
 		// block because nothing cancels them at block exit: the supervisor owns
 		// them (16-concurrency/supervisors_test.nomi: "Safe for group-owned work
 		// in a way it is not for block-owned tasks"). Trapping here with

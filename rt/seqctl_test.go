@@ -4,14 +4,14 @@ import "testing"
 
 // TestSeqCtlAllocatesNothingPerElement is the same claim
 // TestSeqAllocatesNothingPerElement makes about the protocol, made about the
-// WIDENED callback shape — and it is the acceptance criterion for the encoding
+// widened callback shape — and it is the acceptance criterion for the encoding
 // rather than a nicety.
 //
 // A single element count cannot distinguish the two outcomes that matter: an
-// encoding that allocates once per PIPELINE is fine, and one that allocates
-// once per ELEMENT destroys the headline result of the whole Iter effort.
+// encoding that allocates once per pipeline is fine, and one that allocates
+// once per element loses the push protocol's main cost property.
 // Those look identical at one count. So the same fold is driven over 1,000 and
-// 100,000 elements and the counts must be EQUAL; the equality is the proof and
+// 100,000 elements and the counts must be equal; the equality is the proof and
 // the absolute number is incidental.
 //
 // It is also a property no output comparison can see: a slow run prints the
@@ -19,7 +19,7 @@ import "testing"
 //
 // A second return value is two registers, so the expected answer is that the
 // widened shape costs exactly what the plain one does. Asserted as equality
-// between the two SHAPES as well, so a future change that boxed the signal
+// between the two shapes as well, so a future change that boxed the signal
 // fails here rather than in a benchmark nobody runs.
 func TestSeqCtlAllocatesNothingPerElement(t *testing.T) {
 	fr := NewFrame(nil)
@@ -62,7 +62,7 @@ func TestSeqCtlAllocatesNothingPerElement(t *testing.T) {
 		small, large, plain(1_000))
 }
 
-// TestSeqReduceCtlStopsTheSource pins that `false` reaches the SOURCE rather
+// TestSeqReduceCtlStopsTheSource pins that `false` reaches the source rather
 // than merely ending this stage, which is what makes `break` over an unbounded
 // source terminate at all. Counted, not timed.
 func TestSeqReduceCtlStopsTheSource(t *testing.T) {
@@ -101,7 +101,7 @@ func TestSeqReduceCtlStopsTheSource(t *testing.T) {
 // answering a zero the language does not have.
 func TestSeqReduceFirstCtlSeedsFromTheFirstElement(t *testing.T) {
 	fr := NewFrame(nil)
-	// `|acc, x| acc` answers the FIRST element if and only if the first element
+	// `|acc, x| acc` answers the first element if and only if the first element
 	// seeded rather than being folded into a zero value.
 	if got := SeqReduceFirstCtl(fr, intSeq(5),
 		func(fr *Frame, acc int64, x int64) (int64, bool) { return acc, true }); got != 0 {

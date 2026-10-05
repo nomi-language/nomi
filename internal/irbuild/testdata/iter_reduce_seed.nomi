@@ -24,8 +24,8 @@ fn main() {
     io.print("${Iter.reduce([1.5, 2.5], |acc = 10.0, x| acc + x)}")
     io.print("${Iter.reduce([1, 2, 3], |acc = True, x| acc and x > 0)}")
 
-    // An EMPTY source answers the seed. This is the line a Go zero value gets
-    // right by accident for `0` and wrong for everything else.
+    // An EMPTY source answers the seed. This is the line a zero-value default
+    // gets right by accident for `0` and wrong for everything else.
     empty: List<Int> = []
     io.print("${Iter.reduce(empty, |acc = 42, x| acc + x)}")
 
@@ -38,13 +38,10 @@ fn main() {
     // one prints the 9.
     io.print("${Iter.reduce([1, 2, 3], |acc = [9], x| [x, ..acc])}")
 
-    // A DESTRUCTURING first parameter carries a seed too — `|(a, b) = (0, 0), x|`
-    // runs on the interpreter — so the claim is on the parameter's DEFAULT and
-    // not on it having a plain name. It is not exercised here because a
-    // destructuring lambda parameter is refused for its own unrelated reason
-    // (`destructuring parameter`, and `parameter without a declared type`
-    // without the annotation); both spellings are pinned as refusals in
-    // iter_test.go so the day that key lifts, the seed half is already right.
+    // A DESTRUCTURING first parameter carries a seed too (`|(a, b) = (0, 0),
+    // x|`), so the claim is on the parameter's DEFAULT and not on it having a
+    // plain name. fn_destructure_shapes.nomi exercises that seed.
+    //
     // The seed is evaluated in the lambda's CLOSURE and not in its parameter
     // scope: the `x` in the seed is the OUTER one, so this is 5 + 1 + 2 + 3.
     // Lowering the seed inside the func literal would resolve it to the

@@ -28,7 +28,7 @@
 // carries this exact shape twice (`Ranked.prefer<K>`, `Chooser.choose<K>`), so
 // the residue is a corpus population and not an invented one.
 //
-// This program is REFUSED and never runs; there is no compiled output to
+// This program is REFUSED and never runs; there is no VM output to
 // compare. What it pins is the blocker SET.
 //
 // The `Display.to_string(1)` beside it is the control, the same one

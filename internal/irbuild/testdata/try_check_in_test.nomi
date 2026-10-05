@@ -1,30 +1,27 @@
 // `try testing.check(...)` in a test body — a `try` whose propagated payload is
 // itself an AssertionFailure.
 //
-// Run under `nomi test` and as a compiled binary, the two
-// they DISAGREED. The interpreter reports the check's own failure:
+// The report names the check's own failure:
 //
 //     line N: check failed
 //       1 == 2
 //     values:
 //       ...
 //
-// The compiled binary reported the generic early exit instead:
+// and not the generic early exit:
 //
 //     line N: test returned early
 //       try testing.check(1 == 2)
 //       returned:
 //         Err(AssertionFailure{...})
 //
-// So the same source produced a DIFFERENT DIAGNOSIS on the two paths — not a
-// formatting difference, a different answer about what went wrong. A reader of
-// the compiled report is told the test exited early and handed a struct dump;
-// the interpreter tells them which assertion failed and what the values were.
+// The second is a different diagnosis, not a formatting difference: it tells
+// the reader the test exited early and hands them a struct dump, where the
+// first says which assertion failed and what the values were.
 //
-// The rule the interpreter states, and the one that had no counterpart here:
-// `EarlyReturnFailureFromError` DECLINES when the propagated value is an
-// AssertionFailure (eval.go), so the assertion arm wins at all three of its
-// call sites. `try` carrying an assertion failure is an ASSERTION failure that
+// The rule: when the propagated value is an AssertionFailure, the early-return
+// report declines and the assertion report wins, at every site a test body
+// can propagate from. `try` carrying an assertion failure is an ASSERTION failure that
 // happens to have travelled through a `try`; the `try` is transport, not the
 // diagnosis.
 //
@@ -33,14 +30,11 @@
 //   - A passing `try testing.check` unwraps and the case runs on.
 //   - A failing one reports the CHECK's failure, with its own line and values,
 //     and NOT `test returned early`.
-//   - A failing check over a SHAPE subject (a Result) does the same. This is
-//     reachable only since `CheckJudged` landed; before that a shape subject was
-//     refused outright, so the wider input set is newer than the bug.
+//   - A failing check over a SHAPE subject (a Result) does the same.
+//
 //   - An ordinary `try` over a plain `Err` in the SAME FILE still reports
 //     `test returned early`. A fix that routed every test-body `try` through
-//     the assertion arm would break this row, and it would break it silently
-//     on the compiled side only — which is exactly the shape of the bug being
-//     fixed, inverted.
+//     the assertion arm would break this row.
 import {
     std/io
     std/testing

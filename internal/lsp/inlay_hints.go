@@ -269,6 +269,8 @@ func (c *hintCollector) walkNode(node ast.Node) {
 
 	case *ast.Dbg:
 		c.walkNode(n.Expr)
+	case *ast.Then:
+		c.walkNode(n.Lambda)
 
 	case *ast.TestDecl:
 		c.walkNode(n.Setup)

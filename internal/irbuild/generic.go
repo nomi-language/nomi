@@ -225,7 +225,7 @@ func (g *gen) genericSignature(fd *ast.FuncDef) (params []kind, result kind, tps
 //
 // The obstacle is real and reachable rather than defensive.
 // `fn count<T>(x: T, n: Int): Int { if n == 0 { 0 } else { count(x, n - 1) } }`
-// is a tail self-call under Nomi's constant-stack guarantee (spec §12.7), and
+// is a tail self-call under Nomi's constant-stack guarantee (spec §12, *Tail-call optimization*), and
 // decideTailPlan marks a single-member component `ok` WITHOUT calling
 // tailMemberSig — so nothing else would stop it becoming unbounded Go
 // recursion. Pinned by testdata/generic_tail_self.nomi.

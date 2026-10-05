@@ -10,9 +10,9 @@ import (
 	"testing"
 )
 
-// The half-typed body from the roadmap's Track 3 "Resilient parsing"
-// entry, with the dangling operator at the end of the body so the parse
-// genuinely fails. (The entry's literal snippet — `|x| n + ` with another
+// A half-typed body, as an editor sees it mid-edit, with the dangling
+// operator at the end of the body so the parse genuinely fails. (The
+// snippet `|x| n + ` with another
 // statement below — parses: `+` continues onto the next line and takes
 // that statement as its right operand.)
 const halfTypedBody = "fn compute(n: Int): Int {\n" +
@@ -68,10 +68,9 @@ func findErrorNodes(roots []ast.Node) []*ast.ErrorNode {
 	return found
 }
 
-// TestParseResilient_KeepsFunctionWithHalfTypedBody is the roadmap
-// entry's reproduction, inverted. Before this change ParseWithRecovery
-// returned zero top-level nodes for this source, so the builder never saw
-// `compute` at all.
+// TestParseResilient_KeepsFunctionWithHalfTypedBody: ParseWithRecovery
+// returns zero top-level nodes for this source, so without resilient
+// parsing the builder would never see `compute` at all.
 func TestParseResilient_KeepsFunctionWithHalfTypedBody(t *testing.T) {
 	// Control: the strict recovery parse still discards the function.
 	// This is the "before" half of the reproduction, kept as an
@@ -94,7 +93,7 @@ func TestParseResilient_KeepsFunctionWithHalfTypedBody(t *testing.T) {
 		t.Fatalf("parse errors: want %d (same as strict), got %d: %+v", len(strictErrs), len(errs), errs)
 	}
 	for i := range errs {
-		if errs[i] != strictErrs[i] {
+		if !reflect.DeepEqual(errs[i], strictErrs[i]) {
 			t.Fatalf("parse error %d differs from the strict parse\nstrict: %+v\n  ours: %+v", i, strictErrs[i], errs[i])
 		}
 	}

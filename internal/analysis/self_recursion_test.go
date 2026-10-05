@@ -169,7 +169,7 @@ fn branches(x: Int, s: String): Int {
 }
 
 fn piped(x: Int): Int {
-    x |> piped
+    x |> piped()
 }
 
 struct Foo {

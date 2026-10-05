@@ -3,32 +3,31 @@ package rt
 import "testing"
 
 // TestSeqAdapterCtlAllocatesNothingPerElement is
-// TestSeqCtlAllocatesNothingPerElement's claim about the FOUR-STATE signal.
+// TestSeqCtlAllocatesNothingPerElement's claim about the four-state signal.
 //
 // The same reasoning holds and the same reasoning is why it is repeated rather
 // than assumed: a single element count cannot distinguish "allocates once per
-// pipeline" (fine) from "allocates once per element" (the regression that would
-// undo the headline result of the whole Iter effort), so the identical fold is
-// driven over 1,000 and 100,000 elements and the counts must be EQUAL.
+// pipeline" (fine) from "allocates once per element" (a regression in the push
+// protocol's main cost property), so the identical fold is driven over 1,000
+// and 100,000 elements and the counts must be equal.
 //
-// TWO assertions, because the second is weaker than seqctl_test.go's and saying
-// so is the point. `rt.Ctl` is a `uint8`, so `(U, Ctl)` is two registers exactly
-// as `(U, bool)` is and the SIGNAL is free — but an adapter needs ONE BIT of
-// per-Run state that a reduce does not: `ended`, which distinguishes "this stage
-// finished" from "a downstream consumer refused an element". It is captured by
-// the yield closure `src.Run` is called with, that closure escapes through an
-// indirect call, and so the bit is heap-allocated: ONE allocation per Run,
-// measured, constant in the element count.
+// Two assertions, because the second is weaker than seqctl_test.go's. `rt.Ctl`
+// is a `uint8`, so `(U, Ctl)` is two registers exactly as `(U, bool)` is and
+// the signal is free — but an adapter needs one bit of per-Run state that a
+// reduce does not: `ended`, which distinguishes "this stage finished" from "a
+// downstream consumer refused an element". It is captured by the yield closure
+// `src.Run` is called with, that closure escapes through an indirect call, and
+// so the bit is heap-allocated: one allocation per Run, constant in the element
+// count.
 //
 // It could be removed by hoisting the flag into the `Seq`'s own closure
 // environment, where it would share the record that already holds `src` and `f`.
-// That is NOT done, and the reason is worth more than the allocation: it would
-// make a `Seq` STATEFUL ACROSS RUNS, so the same pipeline consumed twice — or
-// once from two goroutines — would share the bit. One allocation per pipeline
-// against the first data race in the protocol is not a trade worth taking.
+// That is not done, because it would make a `Seq` stateful across runs: the
+// same pipeline consumed twice — or once from two goroutines — would share the
+// bit. One allocation per pipeline is cheaper than a data race in the protocol.
 //
 // So the strict claim is element-independence, and the delta against the plain
-// adapter is asserted as EXACTLY ONE rather than zero. A change that boxed the
+// adapter is asserted as exactly one rather than zero. A change that boxed the
 // signal, or moved the state per element, fails one of the two.
 func TestSeqAdapterCtlAllocatesNothingPerElement(t *testing.T) {
 	fr := NewFrame(nil)
@@ -74,7 +73,7 @@ func TestSeqAdapterCtlAllocatesNothingPerElement(t *testing.T) {
 		small, large, base)
 }
 
-// TestSeqAdapterCtlStopsTheSource pins that a `break` reaches the SOURCE rather
+// TestSeqAdapterCtlStopsTheSource pins that a `break` reaches the source rather
 // than merely ending this stage, which is what makes a `break` over an unbounded
 // source terminate at all. Counted, not timed — one per driver, because each has
 // its own `return false` and a copy-paste that dropped one would still pass
@@ -160,14 +159,14 @@ func TestSeqAdapterCtlStopsTheSource(t *testing.T) {
 // asserted one cell at a time.
 //
 // Three drivers share a Go signature and differ only in what they do with the
-// value, so these cells are the ONLY protection against a copy-paste that
-// collapsed two of them. Every row is a PAIR differing in one input, which is
+// value, so these cells are the only protection against a copy-paste that
+// collapsed two of them. Every row is a pair differing in one input, which is
 // what makes a wrongly-shared answer visible:
 //
-//	map        CtlEmitStop v -> emits v, then ends         (v is an ELEMENT)
-//	filter     CtlEmitStop T -> emits the ITEM, then ends  (v is a DECISION)
-//	filter     CtlEmit     F -> skips, CARRIES ON
-//	take_while CtlEmit     F -> ENDS                       <- the one line that differs
+//	map        CtlEmitStop v -> emits v, then ends         (v is an element)
+//	filter     CtlEmitStop T -> emits the item, then ends  (v is a decision)
+//	filter     CtlEmit     F -> skips, carries on
+//	take_while CtlEmit     F -> ends                       <- the one line that differs
 func TestSeqAdapterCtlPerFamilyRules(t *testing.T) {
 	fr := NewFrame(nil)
 	src := func() Seq[int64] { return ListSeq(int64List(1, 2, 3, 4, 5)) }
@@ -180,7 +179,7 @@ func TestSeqAdapterCtlPerFamilyRules(t *testing.T) {
 		return out
 	}
 
-	// map: the break value is the OUTPUT ELEMENT, so 999 appears where the
+	// map: the break value is the output element, so 999 appears where the
 	// element would have.
 	got := drain(SeqMapCtl(src(), func(fr *Frame, x int64) (int64, Ctl) {
 		if x == 3 {
@@ -192,7 +191,7 @@ func TestSeqAdapterCtlPerFamilyRules(t *testing.T) {
 		t.Errorf("map CtlEmitStop gave %v, want %v (the value is an element)", got, want)
 	}
 
-	// filter: the break value is the DECISION, so the ITEM appears and never the
+	// filter: the break value is the decision, so the item appears and never the
 	// bool. `true` keeps 3; `false` drops it. The pair is one input apart.
 	got = drain(SeqFilterCtl(src(), func(fr *Frame, x int64) (bool, Ctl) {
 		if x == 3 {
@@ -223,7 +222,7 @@ func TestSeqAdapterCtlPerFamilyRules(t *testing.T) {
 		t.Errorf("take_while with a false decision gave %v, want %v (end)", got, want)
 	}
 
-	// CtlSkip in a take_while skips WITHOUT ending, which is the whole reason
+	// CtlSkip in a take_while skips without ending, which is the reason
 	// `continue` is a separate state from a false decision.
 	got = drain(SeqTakeWhileCtl(src(), func(fr *Frame, x int64) (bool, Ctl) {
 		if x == 2 {
@@ -239,8 +238,8 @@ func TestSeqAdapterCtlPerFamilyRules(t *testing.T) {
 // TestSeqAdapterCtlRunAnswer pins `completed || ended` — the answer a one-stage
 // pipeline cannot observe.
 //
-// `Seq.Run` reports EXHAUSTION rather than "nothing stopped me". A callback's
-// break is this stage FINISHING, so it answers true; a DOWNSTREAM consumer
+// `Seq.Run` reports exhaustion rather than "nothing stopped me". A callback's
+// break is this stage finishing, so it answers true; a downstream consumer
 // refusing an element answers false. Backwards, and `concat(map(a, f), b)`
 // silently stops at `a`.
 func TestSeqAdapterCtlRunAnswer(t *testing.T) {

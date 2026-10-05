@@ -45,17 +45,17 @@ func noCaseMatchText(line int) string {
 	return fmt.Sprintf("line %d: no matching case branch", line)
 }
 
-// MapKeyMissingError is the failure a map DESTRUCTURING reports when a key it
+// MapKeyMissingError is the failure a map destructuring reports when a key it
 // names is absent.
 //
 // Here for the reason NoCaseMatchError is: an observable string has one owner.
 //
-// A map destructuring is REFUTABLE and this is its miss, which is what makes it
-// a TRAP rather than an assertion failure — the sibling statement form
+// A map destructuring is refutable and this is its miss, which is what makes it
+// a trap rather than an assertion failure — the sibling statement form
 // `assert {"a" => v} = m` reports through the assertion channel instead, and
 // nothing but the two call sites keeps the exits apart.
 //
-// `key` arrives already rendered, by DISPLAY and not by Debug, so a String key
+// `key` arrives already rendered, by Display and not by Debug, so a String key
 // prints bare with no quotes. Taking the text rather than a value is what lets
 // one function serve every caller whatever the key's Go type.
 func MapKeyMissingError(line int, key string) error {
@@ -110,14 +110,14 @@ func EnumFieldAccessError(line int, variant, field string) error {
 // process: nothing recovers it, so `nomi test` cannot fail one case and go on,
 // a task cannot settle as Failed, and a test binary dies with it.
 //
-// THE NUMBER IS MEASURED AGAINST THE VM, WHICH CHECKS IT.
-// Measured on darwin/arm64 with no limit: plain non-tail recursion
-// survived 250,000 nested calls and overflowed at 300,000 (about 1.9 KB of Go
-// stack per activation), and recursion through an `Iter.map` callback, which
-// puts rt's iteration driver between every two activations, survived 60,000
-// levels (120,000 activations) and overflowed at 100,000 levels (about 3.4 KB
-// per activation). 100,000 keeps the heavier path at roughly 340 MB, under the
-// 512 MiB ceiling with room for a longer chain of host frames per activation.
+// The VM enforces this count. The number comes from the Go stack
+// each activation uses on darwin/arm64: plain non-tail recursion takes about
+// 1.9 KB per activation and overflows the default stack between 250,000 and
+// 300,000 nested calls, and recursion through an `Iter.map` callback, which
+// puts rt's iteration driver between every two activations, takes about
+// 3.4 KB per activation. 100,000 keeps the heavier path at roughly 340 MB,
+// under the 512 MiB ceiling with room for a longer chain of host frames per
+// activation.
 // It is a count and not a byte budget because Go exposes no cheap reading of
 // the current goroutine's stack size, so a sufficiently long chain of Go
 // frames between two activations can still overflow first.

@@ -30,11 +30,10 @@ func runFileVM(path string, args ...string) {
 		os.Exit(1)
 	}
 	if isStdlibTestPath(absPath) {
-		// A stdlib file is analyzed by the stdlib-aware single-file front end,
-		// which the IR lowering does not run.
-		(&vmhost.Blocked{Reasons: []string{
-			"[stdlib] a stdlib module is not a program the VM lowers",
-		}}).Write(os.Stderr, vmhost.DisplayPath(absPath))
+		// A stdlib file is a module, not a program: it has no `main` to run,
+		// and its `//!` prompts are tests.
+		fmt.Fprintf(os.Stderr, "nomi run: %s is a stdlib module, not a program; to run its tests, use `nomi test %s`\n",
+			vmhost.DisplayPath(absPath), vmhost.DisplayPath(absPath))
 		os.Exit(1)
 	}
 	// The CLI owns the process, so it installs the signal handler.

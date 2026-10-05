@@ -1,0 +1,60 @@
+==========
+Shebang first line
+==========
+
+#!/usr/bin/env nomi
+import std/io
+
+fn main() {
+  io.print("hi")
+}
+
+---
+
+(source_file
+  (shebang)
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier)))
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (call_expression
+        (field_access
+          (identifier)
+          (identifier))
+        (string
+          (string_content))))))
+
+==========
+Shebang alone
+==========
+
+#!/usr/bin/env -S nomi run
+
+---
+
+(source_file
+  (shebang))
+
+==========
+Shebang after the first line is an error
+==========
+
+fn main() {
+  1
+}
+#!/usr/bin/env nomi
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (integer)))
+  (ERROR
+    (shebang)))

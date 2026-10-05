@@ -1,10 +1,8 @@
 // The filesystem pair end to end: write, read back, and both IOError variants
 // reached by pattern.
 //
-// The path is under /tmp and is TRUNCATED FIRST, so a re-run and the two paths
-// of the differential see the same starting state. Both paths write to the same
-// path deliberately: the interpreter runs, then the compiled artifact runs, and
-// each begins by replacing the file.
+// The path is under /tmp and is TRUNCATED FIRST, so a re-run sees the same
+// starting state: each run begins by replacing the file.
 //
 // `NotFound` is reached by reading a path nothing creates. `Other` is reached by
 // writing INTO a path whose parent is a regular file, which is ENOTDIR rather

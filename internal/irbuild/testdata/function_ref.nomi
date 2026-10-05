@@ -12,7 +12,7 @@ import std/io
 // them by accident:
 //
 //  1. The reference's KIND comes from the callee's DECLARED signature; the slot
-//     it fills comes from the CONSUMER's. `sub` and `flip` are the same Go type
+//     it fills comes from the CONSUMER's. `sub` and `flip` are the same function type
 //     and different functions, so a reference that resolved to "whichever
 //     function this argument position wants" still type-checks and prints the
 //     wrong number.
@@ -30,8 +30,8 @@ import std/io
 //     `double` as an Int; reading the SLOT off the position when the two agree
 //     cannot tell the difference, so `scale full` is written beside it.
 //  6. A stdlib METHOD reference beside a free `fn` in one pipeline, which is
-//     the shape the corpus refuses under one key today and used to refuse under
-//     two — `Iter.map(Codepoint.to_int)` and `Iter.map(double)`.
+//     a shape the corpus writes, mixing two kinds of reference in one chain:
+//     `Iter.map(Codepoint.to_int)` and `Iter.map(double)`.
 //  7. A function inside a LIST, so the value survives a container round trip
 //     rather than only an argument slot.
 fn double(x: Int): Int {
@@ -64,8 +64,8 @@ fn apply2(f: (Int, Int) -> Int, a: Int, b: Int): Int {
 
 // HETEROGENEOUS parameters, so the reference's parameter ORDER is observable.
 // `sub`/`flip` above cannot see a reversal: `(Int, Int) -> Int` reversed is the
-// same Go type and the same slots. `(String, Int) -> String` reversed is not a
-// type the consumer's slot accepts, so Go rejects it at build time.
+// same function type and the same slots. `(String, Int) -> String` reversed is
+// not a type the consumer's slot accepts, so a reversal fails to type.
 fn tag(s: String, n: Int): String {
     s + "#" + Display.to_string(n)
 }
@@ -78,7 +78,7 @@ fn apply_sn(f: (String, Int) -> String, s: String, n: Int): String {
 // `Codepoint.to_int` below cannot stand in for: the std side is a THUNK that
 // forwards its own parameters, and a thunk forwarding one argument agrees with
 // every permutation of itself. Both directions of the discriminator are here on
-// purpose — `String.slice` is heterogeneous so a reversal is a Go TYPE error,
+// purpose: `String.slice` is heterogeneous so a reversal is a type error,
 // and `String.contains?` is homogeneous so a reversal is a wrong ANSWER that
 // only the output comparison can see. Measured: with neither of these, reversing
 // the thunk's argument list left the whole guard set green.
@@ -107,7 +107,7 @@ fn scale(x: Int, factor: Int = 3, f: (Int) -> Int): Int {
 }
 
 fn main() {
-    // 1. Two functions of ONE Go type, told apart only by which name was written.
+    // 1. Two functions of ONE function type, told apart only by which name was written.
     io.print("sub via value    = ${apply2(sub, 10, 3)}")
     io.print("flip via value   = ${apply2(flip, 10, 3)}")
     tagged = apply_sn(tag, "row", 4)

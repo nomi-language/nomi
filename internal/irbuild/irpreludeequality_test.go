@@ -30,10 +30,10 @@ fn mark(s: String): Maybe<String> { io.print(s) Some(s) }
 fn main() {
   expected = Some("left")
   answer = mark("left")
-    |> |name| name == expected
+    |> then |name| name == expected
   io.print(answer)
   io.print(mark("first") != mark("second"))
-  io.print(40 |> (|n| n + 2))
+  io.print(40 |> then |n| n + 2)
 }
 `, "left\nTrue\nfirst\nsecond\nTrue\n42\n")
 }

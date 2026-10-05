@@ -14,7 +14,7 @@ import (
 // would make the contract depend on which code path you ran. So the enablement rule and the escape codes live
 // here, and nomi/internal/termcolor calls down into them.
 //
-// What does NOT live here is Nomi syntax highlighting, which runs the lexer.
+// What does not live here is Nomi syntax highlighting, which runs the lexer.
 // See Highlight.
 
 const (
@@ -29,8 +29,8 @@ const (
 // ColorEnabledFor reports whether colour should be written to w.
 //
 // The precedence — explicit NOMI_COLOR, then NO_COLOR/TERM=dumb, then
-// CLICOLOR_FORCE, then "is it a character device" — is the rule the compiler
-// shipped with, moved rather than restated.
+// CLICOLOR_FORCE, then "is it a character device" — is stated only here, and
+// nomi/internal/termcolor calls it.
 func ColorEnabledFor(w io.Writer) bool {
 	switch strings.ToLower(os.Getenv("NOMI_COLOR")) {
 	case "always", "1", "true", "yes", "force":
@@ -87,16 +87,16 @@ func BoldFor(w io.Writer, s string) string { return ColorFor(w, ansiBold, s) }
 // termcolor's real highlighter here at init and gets coloured source lines
 // inside an assertion failure; a host that does not install one leaves the
 // hook nil and prints the same source lines uncoloured. Every other byte of
-// the report — the ok/FAIL markers, the summary, the dim labels, the line
+// the report — the ok/fail markers, the summary, the dim labels, the line
 // numbers, the operand values — is the same either way, and when stdout is not
 // a terminal the two are identical outright, because highlighting is off.
 //
 // # The option not taken
 //
-// Highlighting COULD work without a lexer if the caller carried the
-// TOKENIZATION of each asserted expression (spans plus token kinds, computed
-// ahead of time) for rt to colour with no parser at all. It was judged not
-// worth it: the cost is a per-assertion span table plus a second rendering
+// Highlighting could work without a lexer if the caller carried the
+// tokenization of each asserted expression (spans plus token kinds, computed
+// ahead of time) for rt to colour with no parser at all. It is not done,
+// because the cost is a per-assertion span table plus a second rendering
 // path in rt, and the benefit is a cosmetic that only appears when a host
 // without the lexer runs a failing test on a terminal. Piped output, which is
 // what CI and the golden files see, is already byte-identical.

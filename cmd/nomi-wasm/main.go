@@ -90,7 +90,8 @@ func run(this js.Value, args []js.Value) (res any) {
 }
 
 // formatCaseResults renders the VM's case results as `nomi test` does: a case the
-// VM could not run prints one `BLOCKED <case> <reason>` line per reason and
+// VM could not run prints one `BLOCKED <case> <blocker>` line per blocker (the
+// diagnostic `nomi check` gives, its hints indented under it) and
 // counts toward the summary's blocked number.
 func formatCaseResults(cases []vmhost.CaseResult) string {
 	if len(cases) == 0 {
@@ -106,8 +107,13 @@ func formatCaseResults(cases []vmhost.CaseResult) string {
 		switch {
 		case c.Blocked != nil:
 			blocked++
-			for _, reason := range c.Blocked {
-				fmt.Fprintf(&report, "BLOCKED %s %s\n", name, reason)
+			for _, blocker := range c.Blocked {
+				first, more, _ := strings.Cut(blocker, "\n")
+				fmt.Fprintf(&report, "BLOCKED %s %s\n", name, first)
+				if more != "" {
+					report.WriteString(indent(more, "  "))
+					report.WriteByte('\n')
+				}
 			}
 		case c.Err != nil:
 			failed++
@@ -273,7 +279,7 @@ func semTokensSrc(this js.Value, args []js.Value) (res any) {
 // 1-based — in args[0], or "" if there's nothing to show. It runs the same
 // renderer the LSP runs (internal/hoverdoc) over the same analysis the LSP
 // builds for a single pathless buffer (highlight.Analyze, which builds the
-// project). It does NOT call lsp.HoverAt — the LSP framework is deliberately
+// project). It does not call lsp.HoverAt — the LSP framework is deliberately
 // out of this binary — and the agreement with Zed holds only for a snippet:
 // there are no sibling files here and no filesystem to read them from.
 func hoverSrc(this js.Value, args []js.Value) (res any) {

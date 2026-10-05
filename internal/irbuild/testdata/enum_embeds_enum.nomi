@@ -1,26 +1,17 @@
 // AN ENUM THAT EMBEDS ANOTHER ENUM.
 //
-// # THE THREE SPELLINGS, MEASURED IN BOTH ENGINES RATHER THAN ARGUED
+// # The three spellings
 //
-// The slice that admitted this shape first predicted it was DECLARATION-ONLY —
-// that no program could build a value — on the strength of two `nomi run`
-// transcripts. That was wrong, and the correction is what this fixture pins:
-//
-//	Drawable.Shape{}                   CONSTRUCTS. interpreter "shape", and the
-//	                                   VM agrees byte for byte
-//	Drawable.Shape(Shape.Circle(1.5))  the front end ACCEPTS it, the interpreter
-//	                                   TRAPS at run time ("cannot call Shape"),
-//	                                   and this builder refuses by name
+//	Drawable.Shape{}                   constructs, and prints "shape"
+//	Drawable.Shape(Shape.Circle(1.5))  the front end accepts it, and this
+//	                                   builder refuses it by name
 //	                                   (`variant construction`)
 //	f(Shape.Circle(1.5))               a front-end error: an embedded ENUM does
 //	                                   not widen the way an embedded STRUCT does
 //	                                   ("argument 1: expected Drawable, got Shape")
 //
-// The first row is the one that matters and it is the one the wrong prediction
-// missed: the value IS reachable, so admitting the declaration is not a bet on
-// an empty population. It had to be checked rather than reasoned about, because
-// "the interpreter rejected the two spellings I tried" and "no spelling works"
-// are different claims and only the second licenses the admission.
+// The first row is the one that matters: a value of the embedding enum is
+// reachable, so the declaration is not admitted for an empty population.
 //
 // The `Drawable.Point` arm is the CONTROL. Without it this fixture would show
 // an enum-embedding declaration lowering and say nothing about whether the

@@ -29,12 +29,15 @@ fn next(n: Int): Int {
 fn main() {
   next(4) |> io.print()
 }`, "returning\n5\n"},
-		{"named bare return", `import std/io
-fn done() {
-  io.print("done")
+		{"named bare return after dbg", `fn done() {
+  dbg "done"
   return
 }
-fn main() { done() }`, "done\n"},
+fn main() { done() }`, "dbg line 2: \"done\" = \"done\"\n"},
+		{"lambda bare return after dbg", `fn main() {
+  done = || { dbg "done" return }
+  done()
+}`, "dbg line 2: \"done\" = \"done\"\n"},
 		{"lambda valued return and guard", `import std/io
 fn use(read: (Bool) -> Int) {
   read(True) |> io.print()
@@ -48,11 +51,6 @@ fn main() {
     return value
   })
 }`, "8\n9\n"},
-		{"lambda bare return", `import std/io
-fn main() {
-  done = || { io.print("done") return }
-  done()
-}`, "done\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

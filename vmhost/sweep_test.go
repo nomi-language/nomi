@@ -11,7 +11,7 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// THE CONSTRUCT SWEEP: ordinary constructs at a spread of element types, each
+// The construct sweep: ordinary constructs at a spread of element types, each
 // case a self-checking assertion, all run on the VM. It exists to find the next
 // BLOCKED function before a user does. One generated test file per element
 // type, one case per construct, so a gap names both.
@@ -255,7 +255,7 @@ func TestSweep_OrdinaryConstructsRunOnTheVM(t *testing.T) {
 			seen[key] = true
 			switch {
 			case c.Blocked != nil:
-				reason := strings.Join(c.Blocked, "; ")
+				reason := strings.Join(c.Reasons, "; ")
 				want, known := sweepKnown[key]
 				if !known || !strings.Contains(reason, want) {
 					blocked = append(blocked, key+": "+reason)

@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 262
-declared-cases 771
+records 268
+declared-cases 807
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -317,6 +317,18 @@ H ce35548a726bd3b754002da2fddeb54c5ad2ce52a86ff3cac09ce505af0c8fd9
 T ok <root>/tests/03-tooling-and-diagnostics/formatting_test.nomi :: formatter showcase declarations remain executable
 T test result: ok. 1 passed, 0 failed
 T
+C 03-tooling-and-diagnostics/newcomer_mistakes_test.nomi
+E 0
+N 6
+H 35bd88bad1b05cd54eb7b32a7007dea95ece70a64ac80fc7a799084aebbc33c3
+T ok <root>/tests/03-tooling-and-diagnostics/newcomer_mistakes_test.nomi :: a bare name is not a pipe stage
+T ok <root>/tests/03-tooling-and-diagnostics/newcomer_mistakes_test.nomi :: a type name is not a conversion function
+T ok <root>/tests/03-tooling-and-diagnostics/newcomer_mistakes_test.nomi :: the conversions the errors point to
+T ok <root>/tests/03-tooling-and-diagnostics/newcomer_mistakes_test.nomi :: a pipe inside a lambda's parentheses stays in the lambda
+T ok <root>/tests/03-tooling-and-diagnostics/newcomer_mistakes_test.nomi :: a lambda is not a pipe stage
+T ok <root>/tests/03-tooling-and-diagnostics/newcomer_mistakes_test.nomi :: a braced lambda keeps the pipe inside its body
+T test result: ok. 6 passed, 0 failed
+T
 C 03-tooling-and-diagnostics/try_error_type/test_helpers.nomi
 E 1
 N 0
@@ -438,6 +450,16 @@ T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float equality treats 
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float special values propagate through arithmetic and rounding
 T test result: ok. 7 passed, 0 failed
 T
+C 04-scalars-and-text/interpolate_display_value_test.nomi
+E 0
+N 4
+H 2e294402ca6a4a831fcc214f19109143a29837fc370ad771a2797ef595ce3392
+T ok <root>/tests/04-scalars-and-text/interpolate_display_value_test.nomi :: a Display parameter interpolates through the value's own impl
+T ok <root>/tests/04-scalars-and-text/interpolate_display_value_test.nomi :: a type parameter bounded by Display interpolates
+T ok <root>/tests/04-scalars-and-text/interpolate_display_value_test.nomi :: a lambda over a list of Display values interpolates each
+T ok <root>/tests/04-scalars-and-text/interpolate_display_value_test.nomi :: a Toml literal writes each hole through Display
+T test result: ok. 4 passed, 0 failed
+T
 C 04-scalars-and-text/ints_test.nomi
 E 0
 N 6
@@ -490,6 +512,16 @@ T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: grapheme transforms m
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: normalization is explicit before byte-based equality
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: join reads any iterator of strings and defaults to no separator
 T test result: ok. 9 passed, 0 failed
+T
+C 04-scalars-and-text/words_and_lines_test.nomi
+E 0
+N 4
+H 700c95e12ae766ebddd0a2f68e55ad8e7f9d7576e599ed0bcc9cacd277e5ea5d
+T ok <root>/tests/04-scalars-and-text/words_and_lines_test.nomi :: words splits a line of numbers on any whitespace
+T ok <root>/tests/04-scalars-and-text/words_and_lines_test.nomi :: words treats Unicode spaces as whitespace and keeps non-ASCII words whole
+T ok <root>/tests/04-scalars-and-text/words_and_lines_test.nomi :: lines counts the non-empty lines of a text
+T ok <root>/tests/04-scalars-and-text/words_and_lines_test.nomi :: lines differs from split on a trailing newline
+T test result: ok. 4 passed, 0 failed
 T
 C 05-calendar-and-time/dates_test.nomi
 E 0
@@ -1000,6 +1032,16 @@ T ok <root>/tests/09-functions-and-control-flow/closures_and_lambdas_test.nomi :
 T ok <root>/tests/09-functions-and-control-flow/closures_and_lambdas_test.nomi :: lambda defaults drive parameter inference
 T test result: ok. 3 passed, 0 failed
 T
+C 09-functions-and-control-flow/constructor_values_test.nomi
+E 0
+N 4
+H 4fb3668c39cf3f04921b70447a8ad0539ea459753f4098775a7056c68dcf949d
+T ok <root>/tests/09-functions-and-control-flow/constructor_values_test.nomi :: a distinct type named as a value is its constructor
+T ok <root>/tests/09-functions-and-control-flow/constructor_values_test.nomi :: a std variant named as a value is its constructor
+T ok <root>/tests/09-functions-and-control-flow/constructor_values_test.nomi :: a positional variant over a tuple takes the tuple
+T ok <root>/tests/09-functions-and-control-flow/constructor_values_test.nomi :: a type name and a generic constructor with nothing to solve it stay errors
+T test result: ok. 4 passed, 0 failed
+T
 C 09-functions-and-control-flow/field_access_and_predicates_test.nomi
 E 0
 N 2
@@ -1079,6 +1121,18 @@ T ok <root>/tests/10-generics-and-type-wrappers/embedded_variants_test.nomi :: e
 T ok <root>/tests/10-generics-and-type-wrappers/embedded_variants_test.nomi :: embedded distinct types coerce and destructure through enum variants
 T ok <root>/tests/10-generics-and-type-wrappers/embedded_variants_test.nomi :: embedded variants can destructure directly in parameter position
 T test result: ok. 3 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/expansive_impl_member_test.nomi
+E 0
+N 6
+H 4dca5121dc60275bb667000f4f25713533e6feffc07fb9b5c2f91c9d707431aa
+T ok <root>/tests/10-generics-and-type-wrappers/expansive_impl_member_test.nomi :: a member with no type parameters of its own builds per call
+T ok <root>/tests/10-generics-and-type-wrappers/expansive_impl_member_test.nomi :: a nested instance gathers
+T ok <root>/tests/10-generics-and-type-wrappers/expansive_impl_member_test.nomi :: a generic caller gathers twice
+T ok <root>/tests/10-generics-and-type-wrappers/expansive_impl_member_test.nomi :: a pipe stage gathers
+T ok <root>/tests/10-generics-and-type-wrappers/expansive_impl_member_test.nomi :: a member with its own type parameter from a generic caller
+T ok <root>/tests/10-generics-and-type-wrappers/expansive_impl_member_test.nomi :: a bounded type parameter dispatches to an expansive interface impl
+T test result: ok. 6 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi
 E 0
@@ -1521,6 +1575,21 @@ T ok <root>/tests/12-derives-and-standard-interfaces/universal_debug/universal_d
 T ok <root>/tests/12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi :: universal Debug works for opaque values generics and existentials
 T test result: ok. 2 passed, 0 failed
 T
+C 13-iterators-and-pipes/collect_results_test.nomi
+E 0
+N 9
+H b927349cca695a334d9ba4c549eb5ef2a6493544375094a904d4cfacb1de1f8b
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect keeps every Ok value in order
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect returns the first Err
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect accepts a list, a vector and an empty input
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect stops pulling at the first Err
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect under try
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.partition keeps input order on both sides
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Maybe.collect of a user struct
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Maybe.collect stops pulling at the first None
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Maybe.values drops every None
+T test result: ok. 9 passed, 0 failed
+T
 C 13-iterators-and-pipes/constrained_sort/constrained_sort_test.nomi
 E 0
 N 2
@@ -1653,11 +1722,14 @@ T test result: ok. 5 passed, 0 failed
 T
 C 13-iterators-and-pipes/pipe_lambda_test.nomi
 E 0
-N 2
-H cda8e3272c3f2e95b21d26edb64fe1262fe68ba9e08424693663e7d4c5cf0ffc
-T ok <root>/tests/13-iterators-and-pipes/pipe_lambda_test.nomi :: pipe lambda stages receive the previous value
-T ok <root>/tests/13-iterators-and-pipes/pipe_lambda_test.nomi :: pipe lambda stages can compose with regular pipe stages
-T test result: ok. 2 passed, 0 failed
+N 5
+H 32ddc988a09d1b74a0ad99ee822829f0af5874e219f67eb430104c4e1d201a47
+T ok <root>/tests/13-iterators-and-pipes/pipe_lambda_test.nomi :: then stages apply a lambda to the previous value
+T ok <root>/tests/13-iterators-and-pipes/pipe_lambda_test.nomi :: then stages compose with regular pipe stages
+T ok <root>/tests/13-iterators-and-pipes/pipe_lambda_test.nomi :: a then stage's braced body holds its own pipe
+T ok <root>/tests/13-iterators-and-pipes/pipe_lambda_test.nomi :: a then stage destructures its parameter
+T ok <root>/tests/13-iterators-and-pipes/pipe_lambda_test.nomi :: a lambda's body runs past a pipe inside call parentheses
+T test result: ok. 5 passed, 0 failed
 T
 C 13-iterators-and-pipes/pipes_test.nomi
 E 0

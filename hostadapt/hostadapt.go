@@ -19,7 +19,7 @@
 // A record an adapter builds needs a *rt.TypeDesc, and the descriptor is not
 // the adapter's to invent: an engine that reads a field at a fixed offset or
 // matches a variant by descriptor pointer needs the adapter to build with the
-// SAME descriptor it built at link time. So generated code carries a static
+// same descriptor it built at link time. So generated code carries a static
 // DescSpec per record shape, derived from the Nomi declaration in declaration
 // order, and asks the Env for the descriptor once, when the adapters are bound.
 // Env's default interns a descriptor per spec; an engine supplies Resolve to
@@ -37,7 +37,7 @@ import (
 
 // Func is one bound adapter: the caller's frame and its operands in, one
 // result out. The error is an engine-level failure (an operand of the wrong
-// shape, a panic in the Go function); a Go `error` the host function RETURNS
+// shape, a panic in the Go function); a Go `error` the host function returns
 // is data, a `Result.Err`, and never reaches this error.
 //
 // The frame is the calling activation's. A Go function whose first parameter

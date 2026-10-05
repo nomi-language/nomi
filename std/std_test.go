@@ -142,10 +142,9 @@ func TestNestedStdlibSourceVisibility(t *testing.T) {
 // TestFileURI_UsesTheWorktreeSource pins that jump-to-definition on an adapter
 // module lands in the checkout rather than in the ~/.cache materialization.
 //
-// `regex` is the subject because it is one of the four modules with a Go
-// support directory beside it. Its facade used to be nested at
-// `std/regex/regex.nomi`, and FileURI had a second lookup shape for that; now
-// every stdlib module is a flat `std/<name>.nomi` and there is one shape.
+// `regex` is the subject because it is a Go-backed module, and a Go-backed
+// module's facade is a flat `std/<name>.nomi` like every other, found by the
+// one lookup shape.
 func TestFileURI_UsesTheWorktreeSource(t *testing.T) {
 	lib := &StdLib{}
 	uri := lib.FileURI("regex")
@@ -185,22 +184,18 @@ func TestStdlibFuncTypesResolved(t *testing.T) {
 	}
 }
 
-// TestLoad_CrossModuleReturnTypesResolved pins the std.Load refactor's
-// key behavior: cross-module function return types must resolve to their
+// TestLoad_CrossModuleReturnTypesResolved pins a key behavior of std.Load:
+// cross-module function return types must resolve to their
 // declared types (e.g. Maybe<T>, Result<T, E>) rather than degrading to
 // Unit when the producer module hasn't loaded a referenced type yet.
 //
-// Pre-refactor, std.Load was a linear loadModule loop that built each
-// module in StdlibLoadOrder. Cyclic imports (A imports B AND B imports
-// A) broke because the second-loaded module's import of the first
-// resolved at parse time when the first wasn't fully built. The
-// refactor delegates to BuildProjectWithCache, whose two-pass Sweep
+// std.Load delegates to BuildProjectWithCache, whose two-pass Sweep
 // A/B/C machinery registers all symbol stubs before any annotation
-// resolution, eliminating the file-order dependency.
+// resolution, so no module depends on file order and cyclic imports
+// (A imports B and B imports A) resolve.
 //
-// This test asserts the acyclic-but-cross-module case still works
-// post-refactor (regression guard) and that the cycle-supporting
-// path is in use. Cycle-specific tests live in
+// This test asserts the acyclic-but-cross-module case works and that the
+// cycle-supporting path is in use. Cycle-specific tests live in
 // analysis/project_build_test.go::TestBuildProject_ResolvesTypeLevelCycles
 // and friends; std.Load inherits their coverage transitively.
 func TestLoad_CrossModuleReturnTypesResolved(t *testing.T) {
@@ -213,9 +208,9 @@ func TestLoad_CrossModuleReturnTypesResolved(t *testing.T) {
 		// Maybe in its return type. If Maybe weren't resolved when
 		// result was processed, return type would be Unit.
 		{"results", "to_maybe", true},
-		// Result.from_maybe(m: Maybe<T>, e: E): Result<T, E> — same
-		// direction, different shape.
-		{"results", "from_maybe", true},
+		// Maybe.to_result(m: Maybe<T>, e: E): Result<T, E> — the
+		// mirror: maybe uses Result in its return type.
+		{"maybe", "to_result", true},
 		// Iter.to_map(src: Iter<(K, V)>): Map<K, V> — a free function
 		// (constructor/materializer) with a cross-module Map return.
 		{"iter", "to_map", true},
@@ -374,7 +369,7 @@ func TestPreludeExposesUniversalNames(t *testing.T) {
 		"Bool",
 		"True", "False",
 		// The std/literals cluster (Literal, Fragment, and the Fragment
-		// Static/Dynamic variants) is NOT prelude-exported — typed-literal
+		// Static/Dynamic variants) is not prelude-exported; typed-literal
 		// handler modules import it explicitly via
 		// std/literals.{Fragment, Literal} (+ Fragment.{Static, Dynamic}).
 		// maybe / result
@@ -407,11 +402,11 @@ func TestPreludeExposesUniversalNames(t *testing.T) {
 }
 
 // TestStdlib_AnalyzesWithoutErrors fails on any diagnostic the stdlib's own
-// analysis produces. Load used to discard them, and that is how std/json's
-// `Json.String`, `Json.Int` and `Json.Float` variants silently took the
-// module-scope slots of its `strings.String`, `int.Int` and `float.Float`
-// imports: the redeclaration errors went nowhere and json's impls for those
-// receivers took their identity from the variants.
+// analysis produces. A discarded diagnostic hides real faults: a variant such
+// as std/json's `Json.String` can silently take the module-scope slot of an
+// import such as `strings.String`, and then the redeclaration error goes
+// nowhere and json's impls for that receiver take their identity from the
+// variant.
 func TestStdlib_AnalyzesWithoutErrors(t *testing.T) {
 	lib := Load()
 	if len(lib.Files) == 0 {

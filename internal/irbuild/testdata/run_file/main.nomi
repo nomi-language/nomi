@@ -9,17 +9,17 @@
 // wrong implementation would get wrong silently:
 //
 //  1. THE SOURCE COMES FROM DISK, resolved as a module path under the current
-//     PROJECT ROOT. `target.nomi` beside this file is that source, and a
-//     compiled artifact reaches the root through the boot shim's
-//     `stdcompilerrun.SetProjectRoot` — so a row that finds the file proves the
-//     shim ran, which no `compiler.run` fixture can show.
+//     PROJECT ROOT. `target.nomi` beside this file is that source, so a row
+//     that finds the file proves the project root reached the run, which no
+//     `compiler.run` fixture can show.
+//
 //  2. A SIMULATED PROCESS ENVIRONMENT rides along in `RunFile.env`, visible to
 //     `Map.get(startup.env, ...)` inside the run source. `compiler.run` has no parameter for it and
 //     passes nil.
 //
 // Everything else — the pipeline, the `Result<String, String>` marshalling, the
 // discarding of partial output on a fault — is `compiler.run`'s, reached through
-// the same eval.RunSource, and testdata/compiler_run.nomi already covers it. This
+// the same stdcompilerrun.RunSource, and compiler_run.nomi already covers it. This
 // fixture deliberately does not re-cover it.
 //
 // # THE `env` DEFAULT IS NOT OBSERVABLE HERE, AND THAT IS WORTH STATING
@@ -27,7 +27,7 @@
 // `RunFile.env` is declared `Map<String, String> = Map.empty()`, so the builder
 // must supply a value where a construction site omits the field. It does — see
 // stdEmptyMapDefault — and NO OUTPUT IN THIS FIXTURE CAN TELL whether it did,
-// because an omitted `rt.Map` field's Go zero value IS a perfectly good empty
+// because an omitted `rt.Map` field's zero value IS a perfectly good empty
 // map: nil trie root, zero count. Rows 1 and 2 below are the same observation for
 // two different reasons, deliberately, so that coincidence is recorded rather
 // than mistaken for coverage.
@@ -61,9 +61,9 @@ fn out(r: RunFile): String {
 ///
 /// A module that is simply ABSENT reports the OS's own error, which embeds the
 /// ABSOLUTE path it tried — machine-dependent, so `out` would make this fixture
-/// unpinnable on another checkout. The differential half does not care (both
-/// paths produce the same path, which is itself the property that the compiled
-/// artifact resolved the same project root), so what is dropped here is only the
+/// unpinnable on another checkout. The row checks only that the message
+/// mentions the missing module, which still shows the run resolved the
+/// project root, so what is dropped here is only the
 /// absolute pin, and only for this row.
 fn err_mentions(r: RunFile, needle: String): String {
     case compiler.run_file(r) {
@@ -107,10 +107,9 @@ fn main() {
 
     // --- 5. THE ENTRY-POINT CONTAINMENT RULES, each its own Err ------------
     // Four rejections, and each is an `Err(message)` a Nomi program reads rather
-    // than a fault — so the text is observable and both paths must produce it.
-    // They are the whole reason eval.RunFileSource exists as one exported
-    // function instead of the artifact composing the lookup itself: a second copy
-    // of these four messages is a divergence waiting to be written.
+    // than a fault, so the text is observable and the golden pins it.
+    // They are the whole reason stdcompilerrun.RunFileSource exists as one
+    // exported function: a second copy of these four messages would drift.
     io.print("empty = " + out(RunFile{entry_point: ""}))
     io.print("suffixed = " + out(RunFile{entry_point: "target.nomi"}))
     io.print("escaping = " + out(RunFile{entry_point: "../target"}))

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ffirun"
 
 	"github.com/nomi-language/nomi/rt"
@@ -41,7 +42,12 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	irDeclineUnnamed = recordUnnamedDecline
 	code := m.Run()
+	if msg := unnamedDeclineViolation(); msg != "" {
+		fmt.Fprintln(os.Stderr, "irbuild: "+msg)
+		code = 1
+	}
 	if msg := flushIRBuildGolden(); msg != "" {
 		fmt.Fprintln(os.Stderr, "irbuild: "+msg)
 		code = 1
@@ -58,10 +64,10 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// observation is everything a differential run compares: what the program
-// wrote, where it wrote it, and how it exited. Nothing else about a Nomi
-// program is observable from outside it, so agreement on these three is the
-// definition of the backend being right.
+// observation is everything a run is checked on: what the program wrote,
+// where it wrote it, and how it exited. Nothing else about a Nomi program is
+// observable from outside it, so matching the golden record on these three is
+// the definition of the run being right.
 type observation struct {
 	stdout string
 	stderr string
@@ -112,18 +118,18 @@ func vmReference(path string) (obs observation) {
 }
 
 // vmKnownBlockers are the tests whose pinned literal the VM cannot run yet,
-// by test name, with the text of the BLOCKED line that stops it. The literal
+// by test name, with the text of the line that stops it. The literal
 // stays pinned and is checked on the VM once the VM runs the program.
 var vmKnownBlockers = map[string]string{}
 
 // vmSkipIfKnownBlocked skips t when obs is the VM command refusing the
-// program with the BLOCKED line vmKnownBlockers lists for t, and fails t when
+// program with the line vmKnownBlockers lists for t, and fails t when
 // the VM is blocked by anything else. A listed test the VM now runs fails too,
 // so the entry is removed and the literal is checked.
 func vmSkipIfKnownBlocked(t *testing.T, obs observation) {
 	t.Helper()
 	blocker, listed := vmKnownBlockers[t.Name()]
-	blocked := strings.HasPrefix(obs.stderr, "BLOCKED ")
+	_, blocked := expectation.VMGap(obs.stderr)
 	switch {
 	case blocked && listed && strings.Contains(obs.stderr, blocker):
 		t.Skipf("the VM cannot run this program yet (%s); the pinned literal is checked "+

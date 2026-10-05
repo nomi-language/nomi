@@ -3,11 +3,9 @@
 //
 // # Why a fixture, when the corpus reaches this
 //
-// 05-calendar-and-time/dst_fall_back_test.nomi does exercise the fold, and it
-// MATCHES as of the commit this fixture arrived with. What it cannot do is fail
-// usefully: it is one of 213 corpus programs and its refusal set is a number in
-// a sweep, so a wrong answer here shows up as a count moving. This file names
-// each answer.
+// 05-calendar-and-time/dst_fall_back_test.nomi does exercise the fold. What it
+// cannot do is fail usefully: it is one corpus program among many, so a wrong
+// answer there shows up as one more failed case. This file names each answer.
 //
 // It also covers what that program does not, and the gap is not decoration —
 // see the GAP section below for why a fold-only fixture cannot pin the default
@@ -17,7 +15,7 @@
 //
 // **The DEFAULT.** `mode: Disambiguation = Disambiguation.Compatible` is
 // declared in std/calendar.nomi and filled by an arity-reduced wrapper built
-// in the STDLIB's own module (internal/irbuild/stdlib.go's
+// in the stdlib's own lowering (internal/irbuild/stdlib.go's
 // emitStdDefaultWrappers). A wrong default value is not a refusal and not
 // a crash — it is a different instant. Three lines pin it, and it takes all
 // three:
@@ -33,13 +31,11 @@
 // **Instant-only identity.** `tokyo_equals_later` is the same moment in two
 // zones and it is True. Go's `==` on `rt.DateTime` compares the Zone string too
 // and answers False, so a structural lowering of `==` on this type is a WRONG
-// ANSWER rather than a slower right one. testdata/calendar_datetime.nomi pins
-// that for a parsed value; here the value came out of `in_zone`, which is the
-// path this change added.
+// answer rather than a slower right one. testdata/calendar_datetime.nomi pins
+// that for a parsed value; here the value comes out of `in_zone`.
 //
-// requireIdentical cannot see either property: rt owns the semantics and eval
-// calls down into it (rt/calendar.go), so both paths share any bug in the
-// projection. The pinned text in stdfold_test.go is the guard.
+// rt owns the projection (rt/calendar.go), so the pinned text in
+// stdfold_test.go is the guard for both properties.
 import {
     std/calendar.{DateTime, Disambiguation, Error, NaiveDateTime}
     std/instant.Instant

@@ -337,6 +337,9 @@ func (bl *irScalarBuilder) emptyCollection(t *ast.Call) (ir.Temp, kind, bool, bo
 	if want == empty {
 		return c.Dst(), empty, true, true
 	}
+	// The literal feeds the retyping Copy and is never returned, so the
+	// wrapper in `bl.lower` does not store its type; it is stored here.
+	bl.g.irTypeTemp(bl.f, c.Dst(), empty)
 	v, k, ok := bl.coerceEmpty(t, c.Dst(), empty, want)
 	return v, k, true, ok
 }

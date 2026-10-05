@@ -53,7 +53,7 @@ func TestIRVariantValues_QualifiedConstructedIdentity(t *testing.T) {
 }
 fn bare(): Signal { Signal.Idle }
 fn payload(): Signal { Signal.Value(42) }
-fn main() { _ = bare() _ = payload() return }
+fn main() { _ = bare() _ = payload() }
 `
 	verifyLambdaProgram(t, src, "")
 	path := filepath.Join(t.TempDir(), "signals.nomi")

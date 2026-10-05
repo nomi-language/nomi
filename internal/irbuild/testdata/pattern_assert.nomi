@@ -4,23 +4,21 @@
 // and the fixture exists for both:
 //
 //  1. **The bindings escape.** `assert n = compute()` puts `n` in the ENCLOSING
-//     scope, so the lines after it can read it. The interpreter matches into a
-//     child env and copies every binding UP (eval/eval.go:2987-2989); Go has no
-//     such move, because a local declared inside the `if` chain a match compiles
-//     to is scoped to that chain — so the declarations are hoisted above the
-//     match and the match only assigns. A fixture that never READ a bound name
+//     scope, so the lines after it can read it. A local declared inside the
+//     branch a match lowers to would be scoped to that branch, so the
+//     declarations are hoisted above the match and the match only assigns.
+//     A fixture that never READ a bound name
 //     afterwards would pass under a builder that scoped them wrongly.
+//
 //  2. **A pattern that does not match is an assertion FAILURE**, with its own
 //     reason line — `pattern did not match` — and the value that did not match
 //     shown as `actual`. That text is the observable, so the last two cases fail
 //     on purpose. A fixture with only matching patterns pins the report at
 //     nothing at all.
 //
-// The last two cases carry a NON-SCALAR scrutinee, which was the limit this
-// fixture used to record: the failure report renders the unmatched value through
-// the same Inspect the `values:` rows use, and that was scalar-only. It is not
-// any more — the rendering is structural rather than a Nomi `impl Display`, so
-// it is chosen from the kind (internal/irbuild/inspect.go) — and
+// The last two cases carry a NON-SCALAR scrutinee: the failure report renders
+// the unmatched value through the same structural rendering the `values:`
+// rows use, chosen from the value's kind, and
 // `assert Ok(d) = parse(s)`, which is what the construct is actually for in the
 // corpus, is here.
 fn compute(): Int {

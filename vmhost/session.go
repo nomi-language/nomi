@@ -17,7 +17,7 @@ import (
 )
 
 // Session is a REPL session: a sequence of programs, one per input, run on
-// ONE live machine that each program extends (vm.Machine.Extend). Nothing an
+// one live machine that each program extends (vm.Machine.Extend). Nothing an
 // earlier program computed is computed again, and a function value an
 // earlier program built keeps running its own code on the same machine.
 //
@@ -221,10 +221,10 @@ func (s *Session) Run(ctx context.Context, p *Program) error {
 	if boot := p.entry.Boot(); boot != nil {
 		boots = append(boots, boot)
 	}
-	if reasons := p.reasons(s.m.Unretained([]*ir.Func{mainFn}, boots)); len(reasons) > 0 {
+	if reasons := p.reasons(s.m.Unretained(vm.MainRoots(p.entry, mainFn), boots)); len(reasons) > 0 {
 		return &Blocked{Reasons: reasons}
 	}
-	failure, limit := vm.ProgramFailure(s.m.Main(ctx, nil, false))
+	failure, limit := programFailure(s.m.Main(ctx, nil, false))
 	if limit {
 		return &Blocked{Reasons: []string{machineLimit(failure)}}
 	}

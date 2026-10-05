@@ -44,21 +44,21 @@ func resultMapErrHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 	return errValue(result.Err), nil
 }
 
-// resultFromMaybeHost is `Result.from_maybe(m, e)`: Some(v) becomes Ok(v) and
+// maybeToResultHost is `Maybe.to_result(m, e)`: Some(v) becomes Ok(v) and
 // None becomes Err(e), through rt's function for it.
-func resultFromMaybeHost(_ *Machine, _ ir.Pos, args []any) (any, error) {
+func maybeToResultHost(_ *Machine, _ ir.Pos, args []any) (any, error) {
 	if len(args) != 2 {
-		return nil, fmt.Errorf("vm: Result.from_maybe: expected 2 operands, got %d", len(args))
+		return nil, fmt.Errorf("vm: Maybe.to_result: expected 2 operands, got %d", len(args))
 	}
 	payload, isSome, ok := maybeParts(args[0])
 	if !ok {
-		return nil, fmt.Errorf("vm: Result.from_maybe: operand 1 must be a Maybe")
+		return nil, fmt.Errorf("vm: Maybe.to_result: operand 1 must be a Maybe")
 	}
 	src := rt.Maybe[any]{Tag: rt.TagNone}
 	if isSome {
 		src = rt.Some(payload)
 	}
-	result := rt.ResultFromMaybe(src, args[1])
+	result := rt.MaybeToResult(src, args[1])
 	if result.Tag == rt.TagOk {
 		return okValue(result.Ok), nil
 	}

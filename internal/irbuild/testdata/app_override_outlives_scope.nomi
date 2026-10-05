@@ -9,16 +9,13 @@ import {
 
 // A `with` on an app field, read by work that OUTLIVES the overriding scope.
 //
-// The interpreter snapshots the overrides in force into a task at spawn
-// (`propagateEnvOverrides`, eval/supervisor.go:375 and eval/concurrent.go:396),
-// so the task keeps them for its whole life. A backend that put the override in
-// a process-wide cell restored by a Go `defer` on the overriding function's
-// return gives the task the BASE value instead, because the task outlives that
-// return.
+// A task spawned inside the scope keeps the overrides in force at spawn for
+// its whole life. A lowering that kept the override in one process-wide
+// cell, restored when the overriding function returns, would give the task the
+// base value instead, because the task outlives that return.
 //
-// Deterministic over three runs each: one engine printed
-// `handler-override` and the compiled engine then printed `root`. Every line below
-// is a producer that diverged, plus the two controls that did not.
+// Each line below is a producer that reads the override after the scope ends,
+// plus two controls.
 type TraceId String
 
 struct Cfg {
@@ -114,7 +111,7 @@ fn task_all_outlives_scope(): String {
 // context VALUE set by the spawner is inherited by supervised work; the
 // spawner's DEADLINE is not, because the supervisor owns the task and the
 // ceiling that call was under is not its ceiling
-// (`detachSupervisorDeadline`, eval/supervisor.go:885-915).
+// ceiling that call was under is not its ceiling.
 fn context_body(): Unit {
     timer.sleep(Duration.milliseconds(60))
 
@@ -143,7 +140,7 @@ fn context_spawn(): Unit {
 }
 
 // CONTROL: a task joined INSIDE the `with` scope. It must see the override in
-// both engines, which is what tells an agreeing producer apart from a backend
+// the VM, which is what tells a correct producer apart from a lowering
 // that lost the override everywhere.
 fn joined_inside_scope(): String {
     with Cfg.tag = "handler-override"
@@ -155,7 +152,7 @@ fn joined_inside_scope(): String {
 }
 
 // CONTROL: the scope is over, so the base value is the right answer. Without
-// this a backend that ignored `with` entirely would pass the two controls
+// this a lowering that ignored `with` entirely would pass the two controls
 // above and fail nothing.
 fn after_the_scope(): String {
     Cfg.tag

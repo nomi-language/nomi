@@ -10,7 +10,7 @@ func TestVMUserOperator_TourMatchesRecordedAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{"interfaces-and-dispatch.md:L401"}, vmPathResolver(t, "tour"))
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "interfaces-and-dispatch.md", `impl Add<Score, Score> for Score`)}, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("user-operator Tour program incomplete: %v", refused)
 	}

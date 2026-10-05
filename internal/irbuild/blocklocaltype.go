@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -239,6 +240,59 @@ func (g *gen) declareCaseBlockTypes(bodies []*ast.Block) {
 	}
 	g.blockLocalOrder = append(g.blockLocalOrder, order...)
 	g.settleLowerable(order)
+	// buildImpls has already run for the module, so these blocks' Debug
+	// impls are registered and lowered here.
+	g.emitSynthImpls(g.registerBlockLocalDebug(added))
+}
+
+// registerBlockLocalDebug gives every block-local struct, enum and distinct
+// the universal Debug a module-level one gets.
+//
+// The front end's SynthesizeUniversalDebug walks module-level declarations
+// only, and an `impl` is a module-level declaration that cannot name a
+// block-local type, so no impl reaches this builder for one. The checker
+// still treats the type as Debug, as it treats every type, so
+// `Debug.inspect`, `dbg` and `io.inspect` over it are legal programs. The
+// impl is the one SynthesizeUniversalDebug would write for the same
+// declaration at module level, registered with the declaring block's
+// overlay active (implDef.typeScope), where its receiver's name resolves.
+// It answers the impls it registered, in order.
+func (g *gen) registerBlockLocalDebug(blocks []*ast.Block) []*implDef {
+	var out []*implDef
+	for _, b := range blocks {
+		scope := g.blockTypes[b]
+		for _, d := range scope.orderedDefs() {
+			if len(typeDeclTypeParams(d.decl)) > 0 || g.implsByIface["Debug"][named(d)] != nil {
+				// A generic declaration's synthesized impl is generic, which
+				// registerImpl refuses at module level too.
+				continue
+			}
+			for _, n := range analysis.SynthesizeUniversalDebug([]ast.Node{d.decl}) {
+				ib, ok := n.(*ast.ImplBlock)
+				if !ok {
+					continue
+				}
+				impl := &implDef{decl: ib, synth: true, items: map[string]*implItem{}, lowerable: true, typeScope: scope}
+				g.implOrder = append(g.implOrder, impl)
+				out = append(out, impl)
+				g.pushTypeScope(scope)
+				g.resolveImplDef(impl, ib, named(d))
+				g.popTypeScope()
+			}
+		}
+	}
+	return out
+}
+
+// typeDeclTypeParams is a struct's or enum's declared type parameters.
+func typeDeclTypeParams(n ast.Node) []ast.TypeParam {
+	switch t := n.(type) {
+	case *ast.StructDef:
+		return t.TypeParams
+	case *ast.EnumDef:
+		return t.TypeParams
+	}
+	return nil
 }
 
 // resolveBlockTypeDecls fills in the components of every block-local shell,

@@ -2,26 +2,26 @@ package rt
 
 import "time"
 
-// The POLICY vocabulary of `std/supervisors`: the four enums a
+// The policy vocabulary of `std/supervisors`: the four enums a
 // `Supervisor.new` call names. `Restart` is next door in restart.go.
 //
-// # WHY THESE ARE HERE RATHER THAN IN A GENERATED PACKAGE
+// # Why these are here rather than in a generated package
 //
 // NormalForm's and RoundingMode's reason, which restart.go states: each is
 // declared in a std module and named from user packages, so no generated
 // package can own the type. internal/irbuild/stdenum.go anchors them.
 //
-// # `Backoff`'S SHAPE
+// # `Backoff`'s shape
 //
-// `Backoff.Exponential` is a STRUCT-SHAPED variant of TWO named fields
-// carrying DEFAULTS. internal/irbuild has a struct-fields payload form that
-// carries per-field Go defaults. The defaults are stated in Go here AND in
+// `Backoff.Exponential` is a struct-shaped variant of two named fields
+// carrying defaults. internal/irbuild has a struct-fields payload form that
+// carries per-field Go defaults. The defaults are stated in Go here and in
 // Nomi in std/supervisors.nomi, which is two encodings of one fact, held equal
 // by TestBackoffDefaultsMatchTheStdDeclaration, exactly as
 // TestStdEnumTagsMatchRT holds the tag numbering.
 
-// Backoff is `std/supervisors.Backoff`: WHEN a stopped task runs again and how
-// many times, which is a separate question from `Restart`'s WHETHER.
+// Backoff is `std/supervisors.Backoff`: when a stopped task runs again and how
+// many times, which is a separate question from `Restart`'s whether.
 //
 // A flat struct rather than a sum with a payload pointer, for Failure's reason:
 // only one variant is live at a time, so the fields of the others are dead
@@ -33,7 +33,7 @@ type Backoff struct {
 	Tag uint8
 	// MaxRestarts and MaxElapsed are `Exponential`'s two fields.
 	//
-	// `max_restarts` counts RESTARTS rather than runs, which std states and
+	// `max_restarts` counts restarts rather than runs, which std states and
 	// which the loop in supervisor.go honours: `max_restarts: 3` runs the body
 	// at most four times.
 	MaxRestarts int64
@@ -46,7 +46,7 @@ const TagExponential uint8 = 1
 // The built-in schedule's two bounds: ten restarts or fifteen minutes,
 // whichever comes first.
 //
-// These are the SECOND encoding of `Backoff.Exponential`'s declared field
+// These are the second encoding of `Backoff.Exponential`'s declared field
 // defaults — std/supervisors.nomi carries the first, and a caller meets it
 // there. Two encodings because rt's own callers and a Go embedder can hand in
 // a never-constructed Backoff, which never went through the declaration; held
@@ -124,7 +124,7 @@ func backoffOrDefault(b Backoff) Backoff {
 	}
 }
 
-// restartsOnReturn reports whether a task that RETURNED on its own counts as a
+// restartsOnReturn reports whether a task that returned on its own counts as a
 // failure. Only `Permanent` says yes; everywhere else returning is how work
 // finishes.
 func restartsOnReturn(r Restart) bool { return r.Tag == TagPermanent }

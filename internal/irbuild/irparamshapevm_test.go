@@ -14,7 +14,8 @@ package irbuild
 //     still run. `vmArgShapes` tries every leaf and counts a function runnable
 //     if any completes. This runs each function with the leaf the declaration
 //     names, so a wrong scalar shape feeds, say, a String where the body adds,
-//     the machine refuses, and the count falls below vmWantRunnable.
+//     the machine refuses, and the count falls below the committed list's
+//     `ran` count (vmRetainedList.ranCount).
 //
 //  2. The structure the shaper derived must agree with the shape the
 //     declaration records. Check 1 cannot see a wrong composite shape:
@@ -330,7 +331,7 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 // population TestIRRetainedPopulationRuns probes.
 func TestIRParamShapeAgreesWithTheVM(t *testing.T) {
 	entries, _, _ := vmCorpusPopulation(t)
-	v12RunWithRecordedShapes(t, "corpus", entries, vmWantRunnable, nil)
+	v12RunWithRecordedShapes(t, "corpus", entries, vmRetainedCorpus.ranCount(t), nil)
 }
 
 // TestIRParamShapeAgreesWithTheVMForStd is the same oracle for `std`,
@@ -369,5 +370,5 @@ func TestIRParamShapeAgreesWithTheVMForStd(t *testing.T) {
 			kinds[body] = f.params[:slot]
 		}
 	}
-	v12RunWithRecordedShapes(t, "std", entries, vmStdWantRunnable, kinds)
+	v12RunWithRecordedShapes(t, "std", entries, vmRetainedStd.ranCount(t), kinds)
 }

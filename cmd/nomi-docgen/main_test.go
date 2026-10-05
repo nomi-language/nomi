@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/expectation"
 	nomiformat "github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
@@ -21,22 +22,20 @@ import (
 // list in the docs pipeline against the one thing that generates its targets.
 //
 // docgen writes <out>/<module>.md for every non-skipped stdlib module with at
-// least one public declaration, and NEVER PRUNES, while the tour's navigation
-// is a literal array of module names in tour/astro.config.mjs. Nothing
-// connected the two, so the list silently rotted: at the time this test was
-// written `bytes`, `http`, `random`, `regex` and `supervisors` all had a
-// generated page that no navigation entry reached — five unreachable orphans,
-// one of them a module the tour had never mentioned at all.
+// least one public declaration, and never prunes, while the tour's navigation
+// is a literal array of module names in tour/astro.config.mjs. Without this
+// test the list drifts silently, leaving generated pages no navigation entry
+// reaches.
 //
-// A comment could not have noticed that. The check runs in BOTH directions
+// The check runs in both directions
 // because the two failures are different and both are real:
 //
-//   - a generated page with no sidebar entry is an ORPHAN: reachable only by
-//     typing the URL, so a new stdlib module is invisible by default. This is
-//     the direction that actually rotted, and it rots on every module added.
-//   - a sidebar entry with no generated page is a DEAD LINK: Starlight
+//   - a generated page with no sidebar entry is an orphan: reachable only by
+//     typing the URL, so a new stdlib module is invisible by default. This
+//     direction drifts on every module added.
+//   - a sidebar entry with no generated page is a dead link: Starlight
 //     validates internal links at build time, so this one already fails
-//     `npm run build` — but it fails there in a browser-shaped error message
+//     `npm run build`, but it fails there in a browser-shaped error message
 //     long after the edit, and it fails here in Go, in the package that owns
 //     the page set.
 func TestTourSidebarListsEveryGeneratedReferencePage(t *testing.T) {
@@ -104,22 +103,17 @@ func generatedReferenceModules(t *testing.T) []string {
 	return written
 }
 
-// TestEveryDocumentedInterfaceMethodReachesItsPage pins the one doc-comment
-// position whose text was parsed, kept, re-emitted by `nomi fmt -w`, and then
-// dropped by every consumer.
+// TestEveryDocumentedInterfaceMethodReachesItsPage pins the doc comment on a
+// method inside an interface body: the parser keeps it and `nomi fmt -w`
+// re-emits it, and every consumer must carry it through.
 //
-// A `///` above a method INSIDE an interface body reached nothing. Three
-// places had to copy it and none did: the two Symbol constructions in
+// Three places copy it: the two Symbol constructions in
 // analysis/builder.go, both *ast.InterfaceMethod arms in
-// internal/hoverdoc, and lsp/signature_help.go's arm, which returned "" for
-// the doc where its FuncDef and ExternFunc siblings return n.Doc. So the
-// reference page and the editor hover both showed a bare signature. Measured
-// population when this was found: FOUR methods, 1019 bytes of authored prose
-// — Struct.update (487), Iter.known_count (213), Steppable.step_by (190),
-// Discrete.steps_between (129). Three of the four were on pages that already
-// existed, so the missing std/structs page was not the whole of it.
+// internal/hoverdoc, and lsp/signature_help.go's arm, beside its FuncDef and
+// ExternFunc siblings that return n.Doc. If any of them drops it, the
+// reference page and the editor hover show a bare signature.
 //
-// The population is DERIVED from the tree, not listed, so a fifth documented
+// The population is derived from the tree, not listed, so a newly documented
 // interface method is covered the day it is written. It Fatals on an empty
 // population, because "no documented interface methods" would make every
 // assertion below vacuous and is exactly what a regression here looks like.
@@ -310,6 +304,10 @@ func TestRenderModuleIncludesPublicNamespaceAndTypeBodyAPIs(t *testing.T) {
 }
 
 type referenceTest struct {
+	// Label names the editor on its page: the heading of the entry it sits
+	// under, that entry's impl context when it has one, and `#n` for the
+	// entry's second and later editors.
+	Label   string
 	Body    string
 	Context string
 }
@@ -317,12 +315,20 @@ type referenceTest struct {
 func referenceTestBodies(page, module string) []referenceTest {
 	open := fmt.Sprintf(`<pre data-nomi-stdlib-module=%q`, module)
 	var tests []referenceTest
+	seen := map[string]int{}
+	offset := 0
 	for {
-		start := strings.Index(page, open)
-		if start < 0 {
+		at := strings.Index(page[offset:], open)
+		if at < 0 {
 			return tests
 		}
-		start += len(open)
+		entry := referenceEntryLabel(page[:offset+at])
+		seen[entry]++
+		label := entry
+		if n := seen[entry]; n > 1 {
+			label = fmt.Sprintf("%s #%d", entry, n)
+		}
+		start := offset + at + len(open)
 		rest := page[start:]
 		preEnd := strings.Index(rest, ">")
 		if preEnd < 0 {
@@ -341,11 +347,44 @@ func referenceTestBodies(page, module string) []referenceTest {
 			return tests
 		}
 		tests = append(tests, referenceTest{
+			Label:   label,
 			Body:    html.UnescapeString(codeRest[:end]),
 			Context: referenceTestContextAttr(attrs),
 		})
-		page = codeRest[end+len("</code></pre>"):]
+		offset = start + codeStart + end + len("</code></pre>")
 	}
+}
+
+var htmlTag = regexp.MustCompile(`<[^>]*>`)
+
+// referenceEntryLabel names the API entry the page text before an editor ends
+// in: its last `##`/`###` heading with the markup stripped (`Byte.from_int`,
+// `type Bool`), plus the impl context line that directly follows that heading
+// (`Date.add (impl Add<Duration> for Date)`), which is what tells one owner's
+// several impls of one method apart.
+func referenceEntryLabel(before string) string {
+	lines := strings.Split(before, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		heading, ok := strings.CutPrefix(lines[i], "### ")
+		if !ok {
+			heading, ok = strings.CutPrefix(lines[i], "## ")
+		}
+		if !ok {
+			continue
+		}
+		label := html.UnescapeString(htmlTag.ReplaceAllString(heading, ""))
+		for _, next := range lines[i+1:] {
+			if strings.TrimSpace(next) == "" {
+				continue
+			}
+			if ctx, ok := strings.CutPrefix(next, `<p class="nomi-ref-context">`); ok {
+				label += " (" + html.UnescapeString(strings.TrimSuffix(ctx, "</p>")) + ")"
+			}
+			break
+		}
+		return label
+	}
+	return "(no heading)"
 }
 
 func referenceTestContextAttr(attrs string) string {
@@ -364,10 +403,20 @@ func referenceTestContextAttr(attrs string) string {
 }
 
 // TestReferenceInteractiveTestsOnTheVM runs every stdlib reference editor the
-// way the tour's worker does (vmhost.StdlibReference) and reports how many
-// run, fail and are blocked. A reference editor is a `//!` prompt re-hosted
-// as a `test` appended to its module, so it may block where the prompt
-// itself does; it must never fail.
+// way the tour's worker does (vmhost.StdlibReference) and checks the run
+// against testdata/expectations/reference.expect. A reference editor is a
+// `//!` prompt re-hosted as a `test` appended to its module; it must never
+// fail or block.
+//
+// The golden file is what records which editors exist. The editors are not
+// stdlib.expect's `//!` cases: a reference page renders only the attached
+// tests of the public API entries it documents, so a prompt on a private
+// function or on an `impl` block itself runs under `nomi test std` and has no
+// editor, and an editor runs re-hosted with its page's context rather than in
+// place. So a dropped, added, renamed or newly failing editor is a diff here,
+// and adding a `//!` example needs only
+//
+//	NOMI_REGENERATE_EXPECTATIONS=1 go test ./cmd/nomi-docgen -run TestReferenceInteractiveTestsOnTheVM -count=1
 func TestReferenceInteractiveTestsOnTheVM(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; runs every reference editor on the VM; -short")
@@ -379,49 +428,94 @@ func TestReferenceInteractiveTestsOnTheVM(t *testing.T) {
 	}
 	sort.Strings(names)
 	links := referenceLinksForModules(lib, names)
-	passed, blocked := 0, 0
-	reasons := map[string]int{}
+	got := &expectation.Set{
+		Population: "reference",
+		What: "one record per stdlib reference page carrying interactive tests, each editor " +
+			"run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an " +
+			"editor's outcome and its label: the entry heading, its impl context, and #n " +
+			"for an entry's later editors. N is the page's editor count.",
+	}
+	bad := 0
 	for _, name := range names {
 		page := renderModuleWithLinks(lib, name, links)
-		for i, test := range referenceTestBodies(page, name) {
-			cases, err := vmhost.StdlibReference(name, test.Body, test.Context, io.Discard)
-			if err != nil {
-				t.Errorf("%s/reference_%02d: %v", name, i+1, err)
-				continue
-			}
-			if len(cases) != 1 {
-				t.Errorf("%s/reference_%02d: %d cases selected, want 1", name, i+1, len(cases))
-				continue
-			}
-			switch c := cases[0]; {
-			case c.Blocked != nil:
-				blocked++
-				reasons[c.Blocked[0]]++
-			case c.Err != nil:
-				t.Errorf("%s/reference_%02d failed on the VM:\n%s\n\n%v", name, i+1, test.Body, c.Err)
-			default:
-				passed++
-			}
+		tests := referenceTestBodies(page, name)
+		if len(tests) == 0 {
+			continue
 		}
+		var lines []string
+		exit := 0
+		for _, test := range tests {
+			outcome := "ok"
+			cases, err := vmhost.StdlibReference(name, test.Body, test.Context, io.Discard)
+			switch {
+			case err != nil:
+				outcome = "FAIL"
+				t.Errorf("%s :: %s does not load:\n%s\n\n%v", name, test.Label, test.Body, err)
+			case len(cases) != 1:
+				outcome = "FAIL"
+				t.Errorf("%s :: %s: %d cases selected, want 1", name, test.Label, len(cases))
+			case cases[0].Blocked != nil:
+				outcome = "BLOCKED"
+				t.Errorf("%s :: %s is blocked on the VM: %s", name, test.Label, cases[0].Blocked[0])
+			case cases[0].Err != nil:
+				outcome = "FAIL"
+				t.Errorf("%s :: %s failed on the VM:\n%s\n\n%v", name, test.Label, test.Body, cases[0].Err)
+			}
+			if outcome != "ok" {
+				bad++
+				exit = 1
+			}
+			lines = append(lines, outcome+" "+test.Label)
+		}
+		got.Add(expectation.NewCase(name, exit, len(tests), strings.Join(lines, "\n")))
 	}
-	var lines []string
-	for r, n := range reasons {
-		lines = append(lines, fmt.Sprintf("%4d %s", n, r))
-	}
-	sort.Strings(lines)
-	t.Logf("reference editors on the VM: %d passed, %d blocked\n%s", passed, blocked, strings.Join(lines, "\n"))
-	if passed != referenceVMPin.passed || blocked != referenceVMPin.blocked {
-		t.Errorf("reference editors on the VM: %d passed, %d blocked; the pin is %d, %d. "+
-			"Raise it in the change that raises passed; never lower it without a named cause",
-			passed, blocked, referenceVMPin.passed, referenceVMPin.blocked)
-	}
+	got.Sort()
+	checkOrRecordReference(t, got, bad)
 }
 
-// referenceVMPin is what TestReferenceInteractiveTestsOnTheVM reads: the 283
-// reference editors the tour renders, run as its worker runs them. A blocked
-// editor would block for the reason `nomi test std` reports for the
-// same prompt. Every editor runs.
-var referenceVMPin = struct{ passed, blocked int }{passed: 283, blocked: 0}
+// checkOrRecordReference writes got over the committed reference golden file
+// under NOMI_REGENERATE_EXPECTATIONS=1, unless an editor failed or blocked, and
+// otherwise requires the committed file to be byte-identical to it.
+func checkOrRecordReference(t *testing.T, got *expectation.Set, bad int) {
+	t.Helper()
+	t.Logf("%s: %d pages, %d editors", got.Population, len(got.Cases), got.TotalCases())
+	if expectation.RegenerateRequested() {
+		if bad > 0 {
+			t.Fatalf("%s: not rewriting the golden file over %d editor(s) that failed or blocked",
+				got.Population, bad)
+		}
+		if err := expectation.Store(got); err != nil {
+			t.Fatalf("storing %s: %v", got.Population, err)
+		}
+		t.Logf("%s: REWROTE the committed golden file because NOMI_REGENERATE_EXPECTATIONS=1. "+
+			"Review the diff and name the reason for every moved record in the commit message.",
+			got.Population)
+		return
+	}
+	path, err := expectation.Path(got.Population)
+	if err != nil {
+		t.Fatal(err)
+	}
+	committed, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading the committed golden file for %s: %v", got.Population, err)
+	}
+	if string(committed) == string(got.Render()) {
+		return
+	}
+	want, err := expectation.Parse(committed)
+	if err != nil {
+		t.Fatalf("the committed golden file for %s does not parse: %v", got.Population, err)
+	}
+	diffs := want.Compare(got)
+	if len(diffs) == 0 {
+		diffs = []string{"no record moved, but the rendered file differs from the committed " +
+			"one (header, ordering or format); regenerate it"}
+	}
+	t.Errorf("%s: the reference editors do not match the committed golden file; %d difference(s):\n%s\n"+
+		"If the change is intended, regenerate with NOMI_REGENERATE_EXPECTATIONS=1 and name the reason.",
+		got.Population, len(diffs), strings.Join(diffs, "\n"))
+}
 
 // TestEveryImplOfOneMethodReachesItsPage pins the impls that the checker's
 // TypeMethods table collapses. It keys methods by (owner, name), so an owner
@@ -506,6 +600,44 @@ func TestEveryImplOfOneMethodReachesItsPage(t *testing.T) {
 		if editors == 0 {
 			t.Errorf("std/%s: none of %s's Add/Subtract impls carried an editor; the editor check is vacuous",
 				tc.module, tc.owner)
+		}
+	}
+}
+
+// A `//!` test's own leading imports stay in its editor, spelled as a user
+// program spells them, so the example can be copied out as it stands.
+// Maybe.collect's case imports std/ranges.Range, which std/maybe does not.
+func TestReferenceEditorShowsTheTestsOwnImports(t *testing.T) {
+	lib := std.Load()
+	page := renderModuleWithLinks(lib, "maybe", nil)
+	var collect *referenceTest
+	tests := referenceTestBodies(page, "maybe")
+	for i := range tests {
+		if strings.Contains(tests[i].Body, "Maybe.collect(") {
+			collect = &tests[i]
+			break
+		}
+	}
+	if collect == nil {
+		t.Fatalf("std/maybe reference has no Maybe.collect editor\n%s", page)
+	}
+	if !strings.HasPrefix(collect.Body, "import std/ranges.Range\n") {
+		t.Errorf("Maybe.collect editor does not open with `import std/ranges.Range`:\n%s", collect.Body)
+	}
+	if strings.Contains(collect.Context, "ranges.Range") {
+		t.Errorf("the editor's hidden context repeats the import it shows: %q", collect.Context)
+	}
+	names := make([]string, 0, len(lib.Files))
+	for name := range lib.Files {
+		names = append(names, name)
+	}
+	for _, name := range names {
+		for _, tc := range referenceTestBodies(renderModuleWithLinks(lib, name, nil), name) {
+			for _, line := range strings.Split(tc.Body, "\n") {
+				if imp, ok := strings.CutPrefix(line, "import "); ok && !strings.HasPrefix(imp, "std/") {
+					t.Errorf("std/%s %s: an editor opens with a stdlib import a user program cannot write: %q", name, tc.Label, line)
+				}
+			}
 		}
 	}
 }

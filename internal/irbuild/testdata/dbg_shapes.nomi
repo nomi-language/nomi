@@ -2,10 +2,9 @@
 // and not by its value.
 //
 // This fixture exists because the corpus cannot produce it. `dbg` appears 72
-// times across the tour's runnable blocks and barely at all under
-// `tests/`, so a differential sweep over the corpus would have reported
-// `0 DIFFED` with two of the three shapes never executed. That asymmetry is the
-// whole reason the `dbg` slice existed, and this file is its record.
+// times across the tour's runnable blocks and barely at all under `tests/`,
+// so the corpus leaves two of the three shapes unexecuted. This file covers
+// them.
 //
 //	single-line   dbg line 9: 41 + 1 = 42
 //	multi-line    dbg line N:
@@ -32,7 +31,7 @@
 // operand — the text of the thing piped IN — and `5 |> dbg double()` is the
 // SAME shape because the parser desugars a keyword-prefixed stage into
 // `(5 |> double()) |> dbg`. The formatter re-sugars a pipe, so both render as
-// pipes, and both paths call one function on one node.
+// pipes, and both call one function on one node.
 import std/io
 
 struct Rev {

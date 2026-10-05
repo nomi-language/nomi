@@ -14,7 +14,7 @@ import (
 // The lie: defineImport is annotation-side and BuildProject runs every file's
 // declaration stubs before any file's annotations, so a selective import's
 // scope.Define always wrote LAST and silently replaced whatever the file
-// declared under that name. Measured at f38f464f, for every declaring kind —
+// declared under that name. For every declaring kind —
 // interface, struct, enum, function — `import std/json.{ToJson}` beside a local
 // `ToJson` declaration left ModuleScope pointing at the ImportStmt symbol, with
 // the only diagnostic being "imported name 'ToJson' is unused". That message

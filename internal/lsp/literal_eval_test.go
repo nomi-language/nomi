@@ -78,6 +78,30 @@ func TestLiteralDiagnostics_ValidDateHasNoneAndHoversItsValue(t *testing.T) {
 	}
 }
 
+// Literal evaluation loads the whole file on the VM, so a function the IR
+// builder lowered into an invalid graph (a tail `else if` chain whose every
+// arm returns, which panicked on ir.Lint) took the language server down with
+// it. The literal is evaluated and hovers its value.
+func TestLiteralDiagnostics_FileWithReturningElseIfChainIsEvaluated(t *testing.T) {
+	src := "import {\n    std/calendar.Date\n    std/io\n}\n\n" +
+		"fn sign(x: Int): Int {\n    if x < 0 {\n        return -1\n    } else if x == 0 {\n        return 0\n    } else {\n        return 1\n    }\n}\n\n" +
+		"fn main() {\n    _ = Date\"2026-05-04\"\n    io.print(sign(2))\n}\n"
+	s, snap := openLiteralDoc(t, src)
+	if diags := s.literalDiagnostics(snap, true); len(diags) != 0 {
+		t.Fatalf("a valid literal is reported: %+v", diags)
+	}
+	res, err := s.textDocumentHover(nil, &protocol.HoverParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(snap.URI)},
+		Position:     protocol.Position{Line: 16, Character: 15},
+	}})
+	if err != nil || res == nil {
+		t.Fatalf("no hover: %v", err)
+	}
+	if got := res.Contents.(protocol.MarkupContent).Value; !strings.Contains(got, "Ok(2026-05-04)") {
+		t.Errorf("the literal was not evaluated; hover =\n%s", got)
+	}
+}
+
 // A Regex is a host handle; its hover renders the Ok payload through std's
 // `impl Debug for Regex`, which failed at run time before the VM's Debug
 // dispatched on a host handle.

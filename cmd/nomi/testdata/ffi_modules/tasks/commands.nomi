@@ -59,7 +59,7 @@ pub fn parse(line: String): Result<Command, String> {
             status
             |> Status.parse()
             |> Maybe.map(|status| Command.List{status: Some(status)})
-            |> Result.from_maybe("unknown status '${status}'")
+            |> Maybe.to_result("unknown status '${status}'")
 
         ["start", id] ->
             parse_id(id) |> Result.map(|id| Command.Mark{id, status: Status.Started})
@@ -137,7 +137,7 @@ fn shown?(task: Task, status: Maybe<Status>): Bool {
 }
 
 fn find(tasks: Map<Int, Task>, id: Int): Result<Task, String> {
-    Map.get(tasks, id) |> Result.from_maybe("no task with id ${id}")
+    Map.get(tasks, id) |> Maybe.to_result("no task with id ${id}")
 }
 
 fn next_id(tasks: Map<Int, Task>): Int {
@@ -150,5 +150,5 @@ fn next_id(tasks: Map<Int, Task>): Int {
 }
 
 fn parse_id(text: String): Result<Int, String> {
-    String.to_int(text) |> Result.from_maybe("expected a task id, got '${text}'")
+    String.to_int(text) |> Maybe.to_result("expected a task id, got '${text}'")
 }

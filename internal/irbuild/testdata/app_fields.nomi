@@ -1,8 +1,8 @@
 // App fields: staging by `boot`, `with` statements, and the flow to a deep
 // callee that never mentions the field.
 //
-// Every assertion here is a rule read off eval and pinned against it rather
-// than reasoned from the construct's name. See internal/irbuild/appfield.go.
+// Every assertion here pins a rule of the language rather than one reasoned
+// from the construct's name. See internal/irbuild/appfield.go.
 pub struct Settings {
     context: Context
 

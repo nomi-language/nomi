@@ -14,19 +14,17 @@ import (
 // stdlibImportEntries returns every import entry declared at the top level of
 // every embedded stdlib source file, paired with the file it was written in.
 //
-// It walks the PARSER's nodes rather than the source lines, because the
-// line-oriented reading of this population is wrong by two orders of
-// magnitude. Of the 338 entries in the tree, 8 are standalone `import x`
-// statements and 330 are entries inside a brace block:
+// It walks the parser's nodes rather than the source lines, because most
+// entries are inside a brace block rather than standalone `import x`
+// statements, and a line-oriented reading misses them:
 //
 //	import {
 //	  iter.{Iter}
 //	  maps
 //	}
 //
-// A `^import\s+(\S+)` pattern sees the 8 and misses the 330, and that exact
-// mistake produced a false conclusion about this population before the block
-// form was accounted for. ImportBlock is a separate AST node whose Entries are
+// A `^import\s+(\S+)` pattern sees only the standalone statements.
+// ImportBlock is a separate AST node whose Entries are
 // *ImportStmt with the shape they would have standalone, so flattening it here
 // is what makes the walk complete.
 //
@@ -73,7 +71,7 @@ func importPathOf(imp *ast.ImportStmt) string {
 	return strings.Join(segs, "/")
 }
 
-// TestStdlibNamesItsSiblingsBare is the surface half of "the stdlib is ONE Nomi
+// TestStdlibNamesItsSiblingsBare is the surface half of "the stdlib is one Nomi
 // module": inside it, a sibling is named bare.
 //
 // A `std/`-spelled sibling would resolve, because the compiler qualifies the
@@ -156,15 +154,11 @@ func TestStdlibHasOneManifestAndNoNestedSource(t *testing.T) {
 	if len(nested) != 0 {
 		t.Errorf("nested stdlib source found: %v; every public stdlib module is a flat std/<name>.nomi", nested)
 	}
-	// THE VACUITY CONTROL, and it had to be repointed. It used to be
-	// FirstPartyModulePaths() — the four adapter directories proved the walk
-	// was looking at a tree with subdirectories in it. Those directories are
-	// gone (their Go is `nomi/stdcalendar` and friends now), and with a flat
-	// tree "no nested .nomi" and "the walk never descended" are the same
-	// observation.
+	// The vacuity control. With a flat tree, "no nested .nomi" and "the walk
+	// never descended" are the same observation.
 	//
-	// `_fixtures` is the remaining subdirectory and it holds nested `.nomi` on
-	// purpose, so seeing its files proves the walk descends AND that the `_`
+	// `_fixtures` is the one subdirectory and it holds nested `.nomi` on
+	// purpose, so seeing its files proves the walk descends and that the `_`
 	// skip above is doing work rather than never firing.
 	skipped := 0
 	_ = fs.WalkDir(stdlibFS, "_fixtures", func(p string, d fs.DirEntry, err error) error {

@@ -144,6 +144,9 @@ type Module struct {
 	// boot is the program boot this unit declares, or nil. It may name a
 	// declaration the unit did not retain.
 	boot *Symbol
+	// mainFailure renders the payload of an `Err` this unit's `fn main`
+	// returns, or nil. See SetMainFailure.
+	mainFailure *Symbol
 	// testBoots are the boots this unit's `tests` groups declare. Each may
 	// name a declaration the unit did not retain.
 	testBoots []*Symbol
@@ -297,6 +300,25 @@ func (m *Module) SetBoot(sym *Symbol) {
 		panic("ir.Module.SetBoot(nil)")
 	}
 	m.boot = sym
+}
+
+// SetMainFailure records sym as the function that renders the payload of an
+// `Err` this unit's `fn main` returns: one parameter of main's error type,
+// answering a String. A run whose main returns `Err` prints that String and
+// fails. The builder records it only when it retained the function.
+func (m *Module) SetMainFailure(sym *Symbol) {
+	if sym == nil {
+		panic("ir.Module.SetMainFailure(nil)")
+	}
+	m.mainFailure = sym
+}
+
+// MainFailure is the function SetMainFailure recorded, or nil.
+func (m *Module) MainFailure() *Symbol {
+	if m == nil {
+		return nil
+	}
+	return m.mainFailure
 }
 
 // AddTestBoot records sym as a boot one of this unit's `tests` groups

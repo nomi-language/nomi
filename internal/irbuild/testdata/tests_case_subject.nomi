@@ -1,6 +1,6 @@
 // A `case` in an assertion subject, which records through a path of its own.
 //
-// eval's evalCaseMatchWithValue records the SCRUTINEE before it tries a single
+// A `case` in an assertion subject records its SCRUTINEE before it tries a single
 // branch, and it does so unconditionally — so a subject built out of a `case`
 // shows a row no comparison produced. The arms are the same activation as the
 // assertion, so an arm's own comparison IS part of the report; only a lambda
@@ -31,7 +31,7 @@ test "an arm's own comparison is part of the same activation" {
     }
 }
 
-// A `case` inside a CALLEE is behind the interpreter's per-call boundary and is
+// A `case` inside a CALLEE is behind the per-call trace boundary and is
 // a separate declaration for the builder, so `classify`'s scrutinee never
 // appears — only the call's own argument does.
 test "a callee's case scrutinee stays inside it" {

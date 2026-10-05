@@ -27,10 +27,9 @@ type stdHostDeclarations struct {
 	// internal/stdlibbindings' hand-written row is not a third copy of a derivable
 	// fact, it is the ONLY place the fact exists.
 	Silent []string
-	// SilentFuncs is the `host fn` half of Silent. Split out because the
-	// roadmap's 273-extern and 235-host-fn figures count functions, and a
-	// total that folds in `host type` declarations is not comparable to
-	// either.
+	// SilentFuncs is the `host fn` half of Silent. Split out because a
+	// count of functions and a total that folds in `host type` declarations
+	// are not comparable.
 	SilentFuncs []string
 	// BoundFuncs is the `host fn` half of Bound, for the same reason.
 	BoundFuncs []string

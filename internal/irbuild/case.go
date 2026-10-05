@@ -18,7 +18,7 @@ import (
 //     has one inhabitant and no instruction computes it.
 //   - `embeds` OF A WRAPPING DISTINCT unwraps. The slot holds the distinct, but
 //     the pattern must see the INNER value: the checker's contract is that the
-//     variant's payload type is the wrapped type (spec §7), so
+//     variant's payload type is the wrapped type (spec §8), so
 //     `Identifier.UserId(name)` binds a String.
 //   - A BOXED payload is behind a pointer, because its type can reach its own
 //     container.

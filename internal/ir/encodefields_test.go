@@ -25,7 +25,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Region]():        "pos label blocks owner",
 	reflect.TypeFor[ir.Func]():          "Region name sym next defs params types",
 	reflect.TypeFor[ir.Param]():         "Sym Temp Shape",
-	reflect.TypeFor[ir.Module]():        "name funcs cells tests boot testBoots impls displays rowDebugs equates hashes lint",
+	reflect.TypeFor[ir.Module]():        "name funcs cells tests boot mainFailure testBoots impls displays rowDebugs equates hashes lint",
 	reflect.TypeFor[ir.Cell]():          "owner sym ty initializer",
 	reflect.TypeFor[ir.TestCase]():      "name fn group",
 	reflect.TypeFor[ir.TestGroup]():     "Boot Startup VirtualClock",

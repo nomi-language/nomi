@@ -36,8 +36,8 @@ package analysis
 // winner (`byKey` losing 13 of 706 declarations; `stdKey` dropping interface
 // type arguments and losing 69 of 80; the runtime dispatch key still spelling
 // the interface's bare name beside the receiver's qualified identity). The
-// direct precedent is `c2afa942`, which fixed nondeterministic namespaced
-// dispatch caused by a `ShortTypeName` collapse: same shape, same mechanism,
+// direct precedent is the rt.TypeID dispatch key (rt/dispatch.go), which
+// replaced nondeterministic namespaced dispatch caused by a `ShortTypeName` collapse: same shape, same mechanism,
 // a different table.
 //
 // # Why a PARALLEL map, and not a re-key

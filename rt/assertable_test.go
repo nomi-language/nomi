@@ -5,24 +5,21 @@ import (
 	"testing"
 )
 
-// THE ASSERTABLE RULE, WRITTEN DOWN AS ABSOLUTE VALUES.
+// The assertable rule, written down as absolute values.
 //
-// AssertionSite.JudgeAssertable is the ONE implementation of "what does an
-// `Assertable` subject's answer mean". Every expectation below was captured at
-// 2b0c5602 by running internal/irbuild/testdata/assertable_subject.nomi and
+// AssertionSite.JudgeAssertable is the one implementation of "what does an
+// `Assertable` subject's answer mean". Every expectation below was captured
+// by running internal/irbuild/testdata/assertable_subject.nomi and
 // assertable_subject_report.nomi under `nomi test`.
 //
-// An absolute table is what can catch this function CHANGING. Two callers of
-// one function agree byte for byte however wrong that function is: measured
-// elsewhere in this repository, mutating a separator inside a shared traversal
-// left every comparison fixture passing while an absolute table failed on
-// eight cases.
+// An absolute table is what can catch this function changing. Two callers of
+// one function agree byte for byte however wrong that function is, so a test
+// that compares them cannot see a change to the function they share.
 //
-// THE CORPUS CANNOT HELP HERE AT ALL, and that is a property of the corpus rather
-// than of this rule. `nomi test tests` reports 583 passed / 0 failed, so
-// its golden records hold the stdout of runs in which everything passed.
-// An Assertable's ENTIRE contribution to a report — its authored `reason`, its
-// `details:` rows, its `actual` — exists only on the failing path.
+// The test corpus cannot check this rule. Every corpus case passes, so its
+// golden records hold only the stdout of passing runs, and an Assertable's
+// contribution to a report (its authored `reason`, its `details:` rows, its
+// `actual`) exists only on the failing path.
 //
 // One row per branch, not a sample: `assert` and `refute` against each answer,
 // the three sources a `reason` can come from, and `actual` present and absent.
@@ -41,8 +38,8 @@ func TestJudgeAssertableIsPinned(t *testing.T) {
 		answer *AssertableDetails
 		want   *AssertionFailure
 	}{{
-		// `assert` holds on NO answer. The polarity is the OPPOSITE of a
-		// `Maybe` SUBJECT's, where `assert` needs `Some` — inverting it is
+		// `assert` holds on no answer. The polarity is the opposite of a
+		// `Maybe` subject's, where `assert` needs `Some` — inverting it is
 		// invisible to any comparison of passing runs, which is every
 		// comparison this repository's corpus can make.
 		name:   "assert holds when the subject answered nothing",
@@ -50,14 +47,14 @@ func TestJudgeAssertableIsPinned(t *testing.T) {
 		answer: nil,
 		want:   nil,
 	}, {
-		// The mirror. `refute equals(1, 2)` holds because the subject DID
+		// The mirror. `refute equals(1, 2)` holds because the subject did
 		// report a failure.
 		name:   "refute holds when the subject answered details",
 		site:   AssertionSite{Line: 117, Refute: true, Expr: "equals(1, 2)"},
 		answer: authored,
 		want:   nil,
 	}, {
-		// The authored reason WINS over the site's own words, and `check` is
+		// The authored reason wins over the site's own words, and `check` is
 		// where that is observable: a site-first rule would print
 		// `check failed` here.
 		name:   "an authored reason wins over the site, even for a check",
@@ -72,9 +69,9 @@ func TestJudgeAssertableIsPinned(t *testing.T) {
 			},
 		},
 	}, {
-		// std DECLARES `reason: String = "assertion failed"`, so an Assertable
+		// std declares `reason: String = "assertion failed"`, so an Assertable
 		// that omits the field answers that string and it arrives here intact.
-		// Under a CHECK it is therefore `assertion failed` and not
+		// Under a check it is therefore `assertion failed` and not
 		// `check failed`, and this is the one row that
 		// distinguishes std's default from the site's fallback.
 		name:   "std's declared default arrives as an authored reason",
@@ -85,7 +82,7 @@ func TestJudgeAssertableIsPinned(t *testing.T) {
 			Reason: "assertion failed",
 		},
 	}, {
-		// An EXPLICITLY empty reason is the only route to FailedReason, and the
+		// An explicitly empty reason is the only route to FailedReason, and the
 		// only case where the keyword decides the words.
 		name:   "an empty reason falls through to the check's own words",
 		site:   AssertionSite{Line: 172, Check: true, Expr: "Silent{ok: False}"},
@@ -103,7 +100,7 @@ func TestJudgeAssertableIsPinned(t *testing.T) {
 			Reason: "assertion failed",
 		},
 	}, {
-		// A failing `refute` carries NO details and cannot: the answer that
+		// A failing `refute` carries no details and cannot: the answer that
 		// made it fail was absence. So it says so in its own words and its
 		// `actual` is empty, which the renderer treats as no row at all.
 		name:   "a failing refutation says so in its own words and reads no details",
@@ -116,7 +113,7 @@ func TestJudgeAssertableIsPinned(t *testing.T) {
 	}, {
 		// The binding and value context are carried through untouched. Passed
 		// here rather than assumed, because the Assertable arm is the one arm
-		// that builds a failure from a value the SUBJECT supplied, and dropping
+		// that builds a failure from a value the subject supplied, and dropping
 		// the site's own context while copying the subject's is the plausible
 		// mistake.
 		name: "the site's binding and observed values survive",
@@ -205,15 +202,13 @@ func TestAssertableDetailsOfIsPinned(t *testing.T) {
 	}
 }
 
-// TestAssertableReportIsPinned is the rendered text, captured at 2b0c5602 by
+// TestAssertableReportIsPinned is the rendered text, captured by
 // running
 // internal/irbuild/testdata/assertable_subject_report.nomi under `nomi test`.
 //
 // The fields above and the text here are two independent claims. A judgement
 // that built the right failure and a renderer that dropped its `details:` block
-// would pass the first and fail this one — which is not hypothetical: that block
-// WAS dropped, by a second copy of this renderer, with nothing in this
-// repository able to say so.
+// would pass the first and fail this one.
 func TestAssertableReportIsPinned(t *testing.T) {
 	site := AssertionSite{Line: 66, Expr: "assert equals(left, right)"}
 	failure := site.JudgeAssertable(&AssertableDetails{

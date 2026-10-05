@@ -6,7 +6,7 @@
 // checker admits `h.name` for `h: H` on exactly that ground and admits nothing
 // else through an interface value. So the read is total over the implementors
 // and the only thing missing at run time is WHERE the field sits: two
-// implementors are two Go structs with two layouts, and an `rt.Dyn` carries an
+// implementors are two structs with two layouts, and an `rt.Dyn` carries an
 // identity rather than an offset.
 //
 // The same read through a BOUNDED TYPE PARAMETER is the same thing, not a

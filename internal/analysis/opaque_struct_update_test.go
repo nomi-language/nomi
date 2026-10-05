@@ -17,7 +17,7 @@ import (
 // The rule is on the PATCH, not on `Struct.update`'s receiver: a patch may not
 // name a field of an opaque struct from outside that struct's defining file.
 // See spec §7 ("Opacity restricts the operation, not the conformance") and
-// §15.3's table.
+// the table in §15 *Opaque distinct types*.
 //
 // Every negative below is paired with a positive that an over-broad rule would
 // break. A fix that refuses `Struct.update` outright, or that refuses any
@@ -342,7 +342,7 @@ fn ok(o: Open): Int { read(o) }
 // The OWNER exposing its own representation through a field requirement, from
 // inside the defining file. Refusing this means the rule dropped the positional
 // half and made `opaque` mean "no field requirement ever", which no other entry
-// in §15.3's table does.
+// in the table in spec §15, *Opaque distinct types*, does.
 func TestOpaqueUpdate_FieldRequirementInsideTheDefiningFileStillWorks(t *testing.T) {
 	files := opaquePatchFiles(`import inner
 

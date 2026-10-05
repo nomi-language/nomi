@@ -1,0 +1,50 @@
+// Debug over types declared inside a body.
+//
+// An `impl` is a module-level declaration and cannot name a block-local type,
+// so the front end's universal Debug writes none for one; the builder
+// registers the same impl with the block's declarations in scope
+// (registerBlockLocalDebug). Every line below must read as it would for the
+// same declaration at module level. `Pt` declares its fields out of
+// alphabetical order, so declaration order and sorted order differ.
+import std/io
+
+fn main() {
+    type Token String
+    type Coord (Int, Int)
+    type Items List<Int>
+
+    struct Pt {
+        y: Int
+        x: Int
+        tok: Token
+    }
+
+    enum Shape {
+        Dot
+        Circle Float
+        Rect {w: Int, h: Int}
+    }
+
+    io.print(Debug.inspect(Token("x")))
+    io.print(Debug.inspect(Coord(1, 2)))
+    io.print(Debug.inspect(Items([1, 2])))
+    io.print(Debug.inspect(Pt{y: 2, x: 1, tok: Token("t")}))
+    io.print(Debug.inspect(Shape.Dot))
+    io.print(Debug.inspect(Shape.Circle(1.5)))
+    io.print(Debug.inspect(Shape.Rect{w: 1, h: 2}))
+    io.print(Debug.inspect([Shape.Dot, Shape.Circle(2.0)]))
+    io.print(Debug.inspect(Some(Token("m"))))
+    io.inspect(Token("i"))
+    _ = dbg Token("d")
+    io.print(second())
+}
+
+// A second `Pt` in another body, with another field set: each renders
+// through its own declaration's impl.
+fn second(): String {
+    struct Pt {
+        name: String
+    }
+
+    Debug.inspect(Pt{name: "second"})
+}

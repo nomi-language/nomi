@@ -197,12 +197,13 @@ func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, limits []stri
 
 // testFn is one case's body as `rt.Test.Fn`.
 //
-// THE THREE OUTCOMES ARE SORTED HERE and nowhere else, which is the whole of
+// THE OUTCOMES ARE SORTED HERE and nowhere else, which is the whole of
 // this file's judgement:
 //
 //	no error                 the case passed
 //	*rt.AssertionFailure     the case failed; the failure IS the report
 //	*vm.Fault                a Nomi fault; `rt` converts it from a panic
+//	*vm.CompilePanic         a compiler bug; the case fails with it
 //	anything else            THIS MACHINE'S LIMIT, not the case's result
 //
 // The last is recorded into the caller's list and the case is reported as
@@ -262,6 +263,11 @@ func (m *Machine) testFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]string) 
 			}
 			return &rt.EarlyReturnFailure{Line: early.at.Pos().Line(), Expr: early.at.Text(),
 				Value: rt.RowText(early.value)}
+		}
+		if cp, internal := AsCompilePanic(err); internal {
+			// A compiler bug is the case's failure, reported as one; it is
+			// neither the program's fault nor a limit that blocks the case.
+			return cp
 		}
 		if failure, isAssertion := asAssertFailure(err); isAssertion {
 			return failure

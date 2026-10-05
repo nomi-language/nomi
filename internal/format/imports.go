@@ -86,6 +86,8 @@ func normalizeNestedImportLayout(node ast.Node) {
 		}
 	case *ast.Dbg:
 		normalizeNestedImportLayout(n.Expr)
+	case *ast.Then:
+		normalizeNestedImportLayout(n.Lambda)
 	case *ast.Assertion:
 		normalizeNestedImportLayout(n.Expr)
 	case *ast.With:

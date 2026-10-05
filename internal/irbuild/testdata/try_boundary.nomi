@@ -1,7 +1,7 @@
 // `try` and the boundary it unwinds to.
 //
 // The interesting half of this fixture is the LAMBDA rows. `try` sends the
-// whole `Err(e)` / `None` value out through the interpreter's early-return
+// whole `Err(e)` / `None` value out through an early-return
 // channel, and that channel is caught at the innermost ACTIVATION — so a `try`
 // inside a lambda unwinds the LAMBDA and the enclosing function keeps running
 // as Nomi's `try` is lambda-scoped. A lowering that hoisted the unwind to the
@@ -14,7 +14,7 @@
 // propagated value at the BOUNDARY's instantiation rather than forward the
 // operand's. `positive?` is why that is not optional — it tries a
 // `Result<Int, String>` inside a function returning `Result<Bool, String>`, and
-// those are two Go types.
+// those are two types.
 import std/io
 
 fn parse(n: Int): Result<Int, String> {

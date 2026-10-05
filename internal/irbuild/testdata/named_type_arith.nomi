@@ -6,7 +6,7 @@ import {
 
 // Probe: ARITHMETIC ON A NAMED TYPE, across two stdlib modules.
 //
-// `a + d` IS `Add.add(a, d)`: the interpreter resolves an operator through the
+// `a + d` IS `Add.add(a, d)`: an operator resolves through the
 // receiver type's `impl Add`, so a direct call to that impl is the semantics
 // rather than an approximation. Two things make this file more than a repeat of
 // `opaque_duration.nomi`:
@@ -19,9 +19,9 @@ import {
 //     result types, and a builder that keyed on the operator and the LEFT
 //     operand alone would pick wrongly here.
 //  2. `Instant.add`'s body is `Instant(nanos + Duration.as_nanos(rhs))` — a
-//     CROSS-MODULE stdlib reference. It is the whole reason this refused until
-//     the generated stdlib packages were allowed to import each other in one
-//     fixed direction; std/instant reaches std/duration and nothing reaches
+//     CROSS-MODULE stdlib reference.
+//     The edge runs in one fixed direction:
+//     std/instant reaches std/duration and nothing reaches
 //     back. `Instant.between` is the same edge in the other spelling, returning
 //     a Duration built by `Duration.nanoseconds`.
 //
@@ -83,14 +83,12 @@ test "std/duration's package is pulled in transitively, with no Duration call he
 
     // Every name here is std/instant's. The Duration that `Instant.between`
     // returns is built by std/duration and consumed by std/instant's own `add`,
-    // so this program NEVER names a `Duration.` function — yet the generated
-    // artifact must still contain std/duration's package.
+    // so this program never names a `Duration.` function, yet the linked
+    // program must still contain std/duration's bodies.
     //
-    // That makes Generate's transitive closure load-bearing rather than
-    // decorative. MEASURED: with the closure removed, the tests above still
-    // build (they call `Duration.seconds`, so the package is a DIRECT use) and
-    // only this one fails to compile. A fixture without it cannot see the
-    // mutation at all.
+    // That makes the transitive closure of reachable stdlib bodies
+    // load-bearing: the tests above call `Duration.seconds` directly, so only
+    // this one depends on the closure.
     io.print("shifted = ${Int.to_string(Instant.to_seconds(base + Instant.between(a, b)))}")
 
     assert Instant.to_seconds(base + Instant.between(a, b)) == 105

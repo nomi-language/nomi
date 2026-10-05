@@ -2,6 +2,7 @@ package vmhost
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,8 +17,8 @@ import (
 
 // Unsupported reports, as front-end diagnostics, every body the program
 // reaches that the compiler accepted and cannot lower for the VM: exactly
-// what `nomi run` and `nomi test` would refuse with BLOCKED, found without
-// running anything. The roots are `main` and its boot, and every test case
+// what `nomi run` would stop with and `nomi test` would report BLOCKED,
+// found without running anything. The roots are `main` and its boot, and every test case
 // with its group's boot. Each diagnostic sits at the expression the lowering
 // stopped at, or at the declaration when the body was refused as a whole,
 // and is worded for the program's author: it names the construct, never the
@@ -52,7 +53,7 @@ func (p *Program) Unsupported() error {
 			if boot := p.entry.Boot(); boot != nil {
 				boots = append(boots, boot)
 			}
-			reach([]*ir.Func{mainFn}, boots)
+			reach(vm.MainRoots(p.entry, mainFn), boots)
 		}
 	}
 	if p.prog.HasTests {
@@ -79,8 +80,14 @@ func (p *Program) Unsupported() error {
 	if len(found) == 0 {
 		return nil
 	}
+	return p.declineDiagnostics(found)
+}
+
+// declineDiagnostics are the diagnostics for the declarations names, which
+// the lowering declined, in source order.
+func (p *Program) declineDiagnostics(names []string) frontend.Diagnostics {
 	var ds frontend.Diagnostics
-	for _, name := range found {
+	for _, name := range names {
 		ds = append(ds, p.unsupportedDiagnostic(name))
 	}
 	sort.SliceStable(ds, func(i, j int) bool {
@@ -107,6 +114,11 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 	path, line, col := "", 0, 0
 	if d != nil && d.Line > 0 {
 		path, line, col = d.Path, d.Line, d.Col
+		if path == "" {
+			// An in-memory program's analysis has no file path: the
+			// decline is in whichever of its files has a node there.
+			path = p.moduleWithNodeAt(line, col)
+		}
 	}
 	if line == 0 {
 		path, line, col = p.declarationOf(name)
@@ -128,14 +140,61 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 			}
 		}
 	}
-	diag := frontend.NewDiagnostic(path, "", line, col,
+	diag := frontend.NewDiagnostic(path, p.sources[path], line, col,
 		fmt.Sprintf("%s is not supported yet, so %s cannot run", construct, what))
 	if d != nil {
 		if hint := unsupportedHint(d.Reason); hint != "" {
 			diag.Hints = append(diag.Hints, hint)
 		}
 	}
+	if DebugLowering() {
+		diag.Hints = append(diag.Hints, "the lowering's reason: ["+name+"] "+p.decline(name))
+	}
 	return diag
+}
+
+// DebugLowering reports whether NOMI_DEBUG_LOWERING is set to a non-empty
+// value other than 0. Each diagnostic for a body the compiler cannot lower
+// then carries the lowering's own reason, in the compiler's terms, as a hint:
+// `nomi check`, `nomi run`, `nomi test` and the language server all show it.
+func DebugLowering() bool {
+	v := os.Getenv("NOMI_DEBUG_LOWERING")
+	return v != "" && v != "0"
+}
+
+// blocked is the *Blocked for the declarations found that a machine cannot
+// run. Each body the lowering declined is a diagnostic at its source, the
+// one `nomi check` reports; a crossing into Go nothing binds and a dispatched
+// call with no implementation keep their reason.
+func (p *Program) blocked(found []vm.Unretained) *Blocked {
+	b := &Blocked{Reasons: p.reasons(found), rest: []string{}}
+	var names []string
+	for _, u := range found {
+		if u.Kind == vm.NotRetained || u.Kind == vm.OnceNotRetained {
+			names = append(names, u.Name)
+			continue
+		}
+		b.rest = append(b.rest, p.reasons([]vm.Unretained{u})...)
+	}
+	b.diags = p.declineDiagnostics(names)
+	return b
+}
+
+// blockedName is the *Blocked for one declaration, name, that the lowering
+// did not retain.
+func (p *Program) blockedName(name string) *Blocked {
+	return &Blocked{Reasons: []string{p.notRetained(name)}, diags: p.declineDiagnostics([]string{name}), rest: []string{}}
+}
+
+// blockedMessages are b's blockers for a test report, one entry each: a
+// diagnostic's short form (`path:line:col: message`, then a line per hint),
+// or a reason that has no source position.
+func blockedMessages(b *Blocked) []string {
+	var out []string
+	for _, d := range b.diags {
+		out = append(out, d.String())
+	}
+	return append(out, b.others()...)
 }
 
 // unsupportedHint is advice for the declines whose cause the author can act
@@ -248,6 +307,21 @@ func (p *Program) declarationOf(name string) (string, int, int) {
 		}
 	}
 	return entry.Path, 0, 0
+}
+
+// moduleWithNodeAt is the path of the program's first file, entry first, with
+// a node that starts at line and col; "" when none has one.
+func (p *Program) moduleWithNodeAt(line, col int) string {
+	entry := p.prog.Entry()
+	if nodeAt(entry, line, col) != nil {
+		return entry.Path
+	}
+	for i := range p.prog.Modules {
+		if nodeAt(&p.prog.Modules[i], line, col) != nil {
+			return p.prog.Modules[i].Path
+		}
+	}
+	return ""
 }
 
 // nodeAt is the outermost node of mod that starts at line and col, or nil.

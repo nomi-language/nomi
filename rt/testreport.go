@@ -103,22 +103,26 @@ func (r *TestReporter) Add(passed, failed int) {
 	r.failed += failed
 }
 
-// Blocked reports one case the VM could not run, with one line per reason:
+// Blocked reports one case the VM could not run, with one line per blocker:
 //
-//	BLOCKED <name> <reason>
+//	BLOCKED <name> <blocker>
 //
-// A reason names what stopped the case and why, e.g. `[helper] not retained:
-// a tail plan`. ONE LINE PER REASON so the blocked population is a grep:
-// `grep '^BLOCKED'` lists every blocker with its case, and the text after the
-// case name ranks the backlog with `sort | uniq -c`. A blocked case is neither
-// passed nor failed; Summary counts it separately.
+// A blocker is what stopped the case. For code the compiler could not lower
+// it is the diagnostic `nomi check` reports, in its short form, such as
+// "main_test.nomi:18:20: this call to `skip_odd` is not supported yet, so
+// `fn evens` cannot run". A blocker of several lines (a diagnostic with a
+// hint) prints its later lines under the first, indented by two spaces. One
+// BLOCKED line per blocker, so the blocked population is a grep:
+// `grep '^BLOCKED'` lists every blocker with its case. A blocked case is
+// neither passed nor failed; Summary counts it separately.
 func (r *TestReporter) Blocked(name string, reasons []string) {
 	r.BlockedAt(TestLocation{}, name, reasons)
 }
 
 // BlockedAt is Blocked for a case whose position is known. The text report is
 // Blocked's; the JSON record is a test record with status "blocked" whose
-// message is the reasons, one per line.
+// message is the blockers, one after another, and whose `error_line` is
+// loc.ErrorLine when it is not zero.
 func (r *TestReporter) BlockedAt(loc TestLocation, name string, reasons []string) {
 	r.blocked++
 	if len(reasons) == 0 {
@@ -126,18 +130,23 @@ func (r *TestReporter) BlockedAt(loc TestLocation, name string, reasons []string
 	}
 	if r.format == TestFormatJSON {
 		r.writeRecord(testRecord{
-			Type:    "test",
-			File:    loc.File,
-			Line:    loc.Line,
-			EndLine: loc.EndLine,
-			Name:    name,
-			Status:  TestStatusBlocked,
-			Message: strings.Join(reasons, "\n"),
+			Type:      "test",
+			File:      loc.File,
+			Line:      loc.Line,
+			EndLine:   loc.EndLine,
+			Name:      name,
+			Status:    TestStatusBlocked,
+			Message:   strings.Join(reasons, "\n"),
+			ErrorLine: loc.ErrorLine,
 		})
 		return
 	}
 	for _, reason := range reasons {
-		fmt.Fprintf(r.w, "BLOCKED %s %s\n", name, reason)
+		first, more, _ := strings.Cut(reason, "\n")
+		fmt.Fprintf(r.w, "BLOCKED %s %s\n", name, first)
+		if more != "" {
+			fmt.Fprintf(r.w, "  %s\n", strings.ReplaceAll(more, "\n", "\n  "))
+		}
 	}
 }
 
@@ -224,7 +233,7 @@ func writeEarlyReturnFailure(w io.Writer, earlyErr *EarlyReturnFailure) {
 // See Highlight for why a compiled binary leaves it uncoloured.
 func nomiSource(src string) string { return highlight(os.Stdout, src) }
 
-// ONE traversal renders an assertion failure, and there are two callers with
+// One traversal renders an assertion failure, and there are two callers with
 // two presentations of it.
 //
 // WriteAssertionFailure is the block a test report nests under a FAIL line:
@@ -235,19 +244,19 @@ func nomiSource(src string) string { return highlight(os.Stdout, src) }
 //
 // # Why they are one function and not two
 //
-// Two renderers of one failure drift: a second copy once printed an Assertable
-// value's `details:` rows while this one silently dropped them. Nothing could
-// have caught it. THE CORPUS NEVER FAILS AN ASSERTION, so a comparison of
-// corpus runs is a statement about the PASSING path only. Failure rendering has
-// no coverage except the fixtures that name it.
+// Two renderers of one failure drift: one can print an Assertable value's
+// `details:` rows while the other silently drops them, and nothing would catch
+// it. The corpus never fails an assertion, so a comparison of corpus runs is a
+// statement about the passing path only. Failure rendering has no coverage
+// except the fixtures that name it.
 //
 // So there is one renderer, and `format` is bound to FormatNomiAssertionFailure
 // here, so a test report and a Nomi program cannot render one failure
 // differently.
 
 // assertionReportStyle is everything the two presentations differ by, and it is
-// only three things: how far the whole block is indented, how a LABEL is
-// decorated (`values:`, `=`, the `line N:` header), and how a SOURCE fragment or
+// only three things: how far the whole block is indented, how a label is
+// decorated (`values:`, `=`, the `line N:` header), and how a source fragment or
 // a rendered value is decorated.
 //
 // Both decorators are the identity for the plain form, which is what makes
@@ -276,7 +285,7 @@ func WriteAssertionFailure(w io.Writer, assertionErr *AssertionFailure) {
 }
 
 // FormatAssertionFailure is the same report as a string with no decoration and
-// no leading indent, and with no trailing newline: it is a VALUE a Nomi program
+// no leading indent, and with no trailing newline: it is a value a Nomi program
 // can compare, embed or print, not a block being written into a report.
 //
 // This is std/assertions' `AssertionFailure.format`. Its output is pinned as
@@ -317,7 +326,7 @@ func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionRe
 		fmt.Fprintf(w, "%s  %s\n", p, st.label("defined as:"))
 		st.writeSource(w, p+"    ", failure.Binding.Expr)
 		if len(failure.Binding.Pipeline) > 0 {
-			// A BINDING's stages are not compacted, where an observed value's
+			// A binding's stages are not compacted, where an observed value's
 			// are. Deliberate and pinned both ways: this block already shows the
 			// defining expression whole just above it, so a stage that repeats
 			// its own prefix reads as the pipeline it is.
@@ -329,7 +338,7 @@ func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionRe
 		}
 	}
 	if len(failure.Values) > 0 {
-		// Every DIRECT row under `values:` first, then every pipeline row under
+		// Every direct row under `values:` first, then every pipeline row under
 		// `pipeline values:`, whatever order the two kinds were recorded in — so
 		// the trace is walked twice rather than partitioned into a slice nobody
 		// needs afterwards.
@@ -371,9 +380,8 @@ func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionRe
 		}
 	}
 	if len(failure.Details) > 0 {
-		// An Assertable value's own rows, and the block this renderer dropped
-		// while there were two of it. Neither half goes through `source`: a
-		// detail label and its value are PROSE the user authored in an `impl
+		// An Assertable value's own rows. Neither half goes through `source`: a
+		// detail label and its value are prose the user authored in an `impl
 		// Assertable`, not source the runtime rendered, so highlighting them
 		// would colour words inside a sentence. Not split on "\n" either, for
 		// the same reason `actual:` is not — a label is a label.
@@ -384,7 +392,7 @@ func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionRe
 		}
 	}
 	if failure.Actual != "" {
-		// An EMPTY Actual is absence and not an empty row, the same rule
+		// An empty Actual is absence and not an empty row, the same rule
 		// nomiMaybeString applies when it turns "" into `None`.
 		fmt.Fprintf(w, "%s  %s %s\n", p, st.label("actual:"), st.source(failure.Actual))
 	}
@@ -489,19 +497,18 @@ func DefaultTestEnv() (func(), error) {
 // Test is one lowered `test "name" { ... }` declaration.
 //
 // Fn returns the failure that ended the body, or nil. A TestFailure rather than
-// an error, and rather than the *AssertionFailure this used to be: a test body
-// now has two value-shaped exits, because `try` propagating an `Err`/`None`
-// inside one ends the case as an EarlyReturnFailure and not as an assertion.
+// an error or a concrete *AssertionFailure: a test body has two value-shaped
+// exits, because `try` propagating an `Err`/`None` inside one ends the case as
+// an EarlyReturnFailure and not as an assertion.
 //
-// The concrete pointer type was chosen originally to stop a nil
-// *AssertionFailure from being boxed into a non-nil error interface, and that
-// constraint is not traded away for the second exit — see TestFailure, whose
-// single method is declared with a nil-receiver answer so the hazard stays
-// closed through the widening.
+// A nil *AssertionFailure boxed into an error interface is non-nil, and
+// TestFailure must not reintroduce that hazard. Its single method is declared
+// with a nil-receiver answer, so a nil failure of either concrete type still
+// reads as a pass.
 type Test struct {
 	Name string
 	Fn   func(fr *Frame) TestFailure
-	// Bubble wraps the case, and nil means the REAL clock.
+	// Bubble wraps the case, and nil means the real clock.
 	//
 	// `clock Clock.Virtual` on the declaring `tests` group sets this to
 	// nomi/rt/vclock.RunCase, which runs the body inside a testing/synctest
@@ -510,7 +517,7 @@ type Test struct {
 	// no emitted text and no linked package, and there is only one code path
 	// for "not bubbled".
 	//
-	// A FUNCTION FIELD rather than a `Virtual bool` plus a registration hook,
+	// A function field rather than a `Virtual bool` plus a registration hook,
 	// and the reason is a dependency direction rather than taste: the bubble
 	// imports `testing` and `testing/synctest`, which must not be linked into
 	// every artifact (see the vclock package header), so it cannot live here.
@@ -520,39 +527,29 @@ type Test struct {
 	// binary; a field is per case, which is what the language rule is —
 	// `clock` is per group.
 	//
-	// The second parameter is the in-bubble cleanup. Nothing supplies one yet:
-	// rt has no supervisor registry to drain, because the 16-concurrency
-	// runtime is not built. It is in the signature rather than added later
-	// because the drain has to happen INSIDE the bubble to spend virtual time,
-	// and a signature without it would have to be changed by the slice that
-	// builds supervisors — in rt, in internal/irbuild, and in every caller's
-	// table at once.
+	// The second parameter is the in-bubble cleanup: runTest passes
+	// ResetSupervisors, the per-case supervisor drain. It is a parameter
+	// because the drain has to happen inside the bubble to spend virtual time.
 	Bubble func(body func() error, cleanup func()) error
 }
 
-// RunTestsLabelled is the same run with the LABEL a case is reported under
-// supplied, and it exists because the repository already has two labellings
-// and only one of them was reachable from here.
+// RunTestsLabelled is the same run with the label a case is reported under
+// supplied, because there are two labellings:
 //
 //	`nomi test <file>`   `<path> :: <case>`, which is TestName's
 //	the tour playground  `<case>`, bare
 //
 // The second has no path at all, because a playground block has no file a
-// reader could open. Both labellings are in `testdata/expectations/` — 232 of
-// the 239 report-shaped records carry the first and the tour's 14 carry the
-// second — so a run compared against those artifacts needs both, and `TestName`
-// cannot produce the bare form for any argument (`DisplayPath("")` is not
-// empty).
+// reader could open. Both labellings are in `testdata/expectations/` (the
+// tour's records carry the bare form), so a run compared against those
+// records needs both, and `TestName` cannot produce the bare form for any
+// argument (`DisplayPath("")` is not empty).
 //
-// MEASURED RATHER THAN ANTICIPATED, which is the test this parameter had to
-// pass: `internal/vm` produced `bindings-and-expressions.md:L143` and
-// `testing.md:L16` with the path label and neither digest matched; with the
-// bare label both matched the committed record EXACTLY. So the whole
-// difference between the two compositions is this function, and the
-// alternative was a second reporting loop inside `internal/vm` — which is the
-// "comparison of formatters" this file's header exists to refuse.
+// Supplying the label here keeps one reporting loop. The alternative is a
+// second loop inside `internal/vm`, which is the "comparison of formatters"
+// this file's header refuses.
 //
-// A FUNCTION RATHER THAN A `bare bool`, because the two labellings are not a
+// A function rather than a `bare bool`, because the two labellings are not a
 // switch: `TestName` composes a DisplayPath with a separator, and a third
 // caller with a third labelling would otherwise add a third boolean. The
 // caller that has the label is the caller that knows how its command reports.
@@ -580,7 +577,7 @@ func RunTestsLabelled(ctx context.Context, w io.Writer, label func(string) strin
 	return 0
 }
 
-// RunTestCases is the RUN half of RunTestsLabelled: every case in order, each
+// RunTestCases is the run half of RunTestsLabelled: every case in order, each
 // on its own frame and clock with rt's per-case supervisor drain and boot
 // cleanup, answering each case's error (nil when it passed). It reports
 // nothing and does not default NOMI_ENV, so a caller that feeds several files'
@@ -598,18 +595,18 @@ func RunTestCases(ctx context.Context, tests []Test) []error {
 // runTest runs one test body, on the real clock or inside a virtual-time bubble
 // as the case's `clock` declaration decided.
 //
-// THE NOMI-FAULT RECOVER IS INSIDE THE BUBBLE, AND THAT PLACEMENT IS THE WHOLE
-// REASON THIS SPLIT EXISTS. A Nomi trap reaches a test as a panic carrying
+// The Nomi-fault recover is inside the bubble, and that placement is the
+// reason this split exists. A Nomi trap reaches a test as a panic carrying
 // *Error, and runTestBody converts it to the case's error — the text
-// `nomi test` prints. vclock's layer 2 recovers ANY panic and renders it as
+// `nomi test` prints. vclock's layer 2 recovers any panic and renders it as
 // "test panicked: …". So wrapping `t.Fn` directly would let layer 2 see the
 // *Error first and report a trap under different text inside a bubble than
-// outside one: a DIFFERING OUTPUT, not a refusal, on every bubbled case that
+// outside one: a differing output, not a refusal, on every bubbled case that
 // traps. Converting first means a bubbled trap and an unbubbled trap produce
 // the same error value by construction rather than by two agreeing formatters.
 //
 // One behaviour deliberately differs, and only for a bug in rt or its caller:
-// outside a bubble a panic that is NOT a Nomi fault is re-panicked so it keeps
+// outside a bubble a panic that is not a Nomi fault is re-panicked so it keeps
 // its Go traceback, and inside one vclock converts it instead. Re-panicking
 // there is not available — it would reach synctest's own handler, which
 // dereferences the zero-value testing.T's nil internals and kills the process
@@ -625,7 +622,7 @@ func runTest(fr *Frame, t Test) error {
 		defer ResetSupervisors()
 		return runTestBody(fr, t)
 	}
-	// INSIDE the bubble, which is the whole reason Test.Bubble has a second
+	// Inside the bubble, which is the reason Test.Bubble has a second
 	// parameter. A drain budget spent out here would be real seconds, and a
 	// supervisor still holding a goroutine when the bubble closes is a hard
 	// error — synctest reports "main bubble goroutine has exited but blocked

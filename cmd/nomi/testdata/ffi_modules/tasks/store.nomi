@@ -93,13 +93,13 @@ fn parse_row(row: List<String>): Result<Task, String> {
 
     case row {
         [id, title, created, status] -> Ok(Task{
-            id: id |> String.to_int() |> try Result.from_maybe(malformed),
+            id: id |> String.to_int() |> try Maybe.to_result(malformed),
             title,
             created: created
             |> String.to_int()
             |> Maybe.map(Instant.from_seconds)
-            |> try Result.from_maybe(malformed),
-            status: status |> Status.parse() |> try Result.from_maybe(malformed),
+            |> try Maybe.to_result(malformed),
+            status: status |> Status.parse() |> try Maybe.to_result(malformed),
         })
         _ -> Err(malformed)
     }

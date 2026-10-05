@@ -6,9 +6,9 @@
 // beside it agree about the same subject.
 //
 // ONE shape is deliberately ABSENT and is a gap elsewhere, not here:
-// `Debug.inspect` refuses as `qualified call`. Two others were until
-// 2026-08-24 — `failure.actual == None`/`xs == []`, and `Result.ok?` — and both
-// lower now; substitutes stay, and so must this block's LENGTH: pins count it.
+// `Debug.inspect` refuses as `qualified call`. `failure.actual == None`,
+// `xs == []` and `Result.ok?` all lower; substitutes stay anyway, and so must
+// this block's LENGTH: pins count it.
 import {
     std/assertions.AssertionBinding
     std/assertions.AssertionFailure
@@ -27,9 +27,9 @@ test "a failing comparison records both operands, in order" {
     assert Err(failure) = testing.check(actual == expected)
     observed: AssertionFailure = failure
 
-    // The LINE is the `check` keyword's own, not the statement's — eval reads it
-    // off the field position (testingCheckKeywordPos) and a report header shows
-    // it. Both paths must pick the same one.
+    // The LINE is the `check` keyword's own, not the statement's. The builder
+    // reads it off the field position (testingCheckKeywordPos) and a report
+    // header shows it.
     assert observed.line == 27
     assert observed.keyword == "check"
     assert observed.expression == "actual == expected"
@@ -53,7 +53,7 @@ test "a redundant literal operand is not recorded" {
     assert Iter.count(failure.values) == 0
 }
 
-// `actual` is `Maybe<String>` on the Nomi side and a plain Go string on the
+// `actual` is `Maybe<String>` on the Nomi side and a plain string on the
 // reporter's, and EMPTY MEANS ABSENT rather than the empty string. A Bool
 // subject never sets it, so a lowering that wrote Some("") would answer
 // differently here.
@@ -99,9 +99,9 @@ test "a predicate subject records its call arguments" {
     assert needle.value == "\"ok\""
 }
 
-// One check's operands never reach another's report: eval swaps
-// `env.assertionTrace` for the duration of the subject and the VM keeps each
-// check's recorded stages to that check. The outer failure below must
+// One check's operands never reach another's report: the VM keeps each
+// check's recorded stages to that check, for the duration of its subject.
+// The outer failure below must
 // carry exactly its OWN operand.
 test "a check's operands stay in its own failure" {
     a = 1

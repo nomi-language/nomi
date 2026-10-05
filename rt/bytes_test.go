@@ -2,16 +2,16 @@ package rt
 
 import "testing"
 
-// ABSOLUTE pins for the three byte rules.
+// Absolute pins for the three byte rules.
 //
 // Two independent reasons, and they cover different rows:
 //
-//  1. ByteInRange, BytesSliceBounds and BytesDecode are the ONE implementation
-//     of each rule. A comparison between two callers detects DISAGREEMENT, and
+//  1. ByteInRange, BytesSliceBounds and BytesDecode are the one implementation
+//     of each rule. A comparison between two callers detects disagreement, and
 //     one implementation cannot disagree with itself, so only absolute values
 //     say what it answers.
 //
-//  2. `Bytes.to_string` cannot appear in a builder fixture AT ALL. std
+//  2. `Bytes.to_string` cannot appear in a builder fixture at all. std
 //     declares it twice for one receiver (inherent, returning
 //     `Result<String, String>`, and `impl Display`, returning `String`) and
 //     Nomi has no return-type overloading, so `addOverload` refuses both as
@@ -34,7 +34,7 @@ func TestByteInRangeIsInclusiveAtBothEnds(t *testing.T) {
 }
 
 func TestBytesSliceBoundsClampsAndEmptiesInvertedRanges(t *testing.T) {
-	// std/bytes documents "out-of-range bounds are clamped" as the DEFINITION,
+	// std/bytes documents "out-of-range bounds are clamped" as the definition,
 	// so these are specified answers rather than implementation detail.
 	for _, row := range []struct {
 		name               string
@@ -45,7 +45,7 @@ func TestBytesSliceBoundsClampsAndEmptiesInvertedRanges(t *testing.T) {
 		{"negative start clamps up", 4, -5, 2, 0, 2},
 		{"end past the buffer clamps down", 4, 1, 99, 1, 4},
 		{"both ends clamp", 4, -5, 99, 0, 4},
-		// INVERTED: empty, and specifically 0,0 rather than a reversed or
+		// Inverted: empty, and specifically 0,0 rather than a reversed or
 		// negative-length range. A Go slice expression with start > end panics,
 		// so answering this wrong is a crash and not a wrong value.
 		{"inverted is empty", 4, 3, 1, 0, 0},
@@ -65,7 +65,7 @@ func TestBytesSliceBoundsClampsAndEmptiesInvertedRanges(t *testing.T) {
 
 // TestBytesToStringRejectsIllFormedUTF8 is the pin the fixture could not carry.
 //
-// The failure is the whole point. Go's `string(b)` conversion NEVER fails — it
+// The failure is what this pins. Go's `string(b)` conversion never fails — it
 // substitutes U+FFFD for each ill-formed sequence — so an implementation that
 // reached for the obvious conversion returns a successful, silently corrupted
 // string where Nomi's signature says `Result`. Cutting a two-byte character in
@@ -116,7 +116,7 @@ func TestBytesToStringCarriesTheOneFaultLiteral(t *testing.T) {
 // TestBytesIsImmutableAcrossASlice is the property the `string` representation
 // buys and a `[]byte` one cannot.
 //
-// A slice of a `[]byte` ALIASES its parent, so a later append into the parent's
+// A slice of a `[]byte` aliases its parent, so a later append into the parent's
 // spare capacity mutates a value Nomi calls immutable. This representation
 // cannot have the bug, and that is a reason for the choice rather than a
 // consequence of it.

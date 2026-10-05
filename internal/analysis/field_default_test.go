@@ -25,7 +25,7 @@ import (
 // match may come from a bad CONSTRUCTION as well as from a bad DEFAULT. That
 // is deliberate — the two positions were given one wording on purpose — and the
 // census below is a clean instrument anyway, because the constructor forms were
-// already policed at b078da60 and the four trees carry no violation of either.
+// already policed and the four trees carry no violation of either.
 // TestFieldDefault_TreeIsClean plants a positive and requires this pattern to
 // match it, so the pattern and the message cannot drift apart silently.
 var fieldDefaultDiagnostic = regexp.MustCompile(`^field '[^']+' of [^:]+: expected .+, got .+$`)
@@ -49,7 +49,7 @@ fn main() {
 // passes and FinalizeCoherence into one TypeErrors slice — over every `.nomi`
 // file in std/ and tests/, plus every fenced Nomi block in the tour.
 //
-// MEASURED at b078da60, before the rule rejected anything, with the check
+// Before the rule rejected anything, with the check
 // diverted into a recording sink so no rejection could cascade: 46 field
 // defaults across the four trees and ZERO that a correct check refuses.
 //
@@ -229,8 +229,8 @@ func TestFieldDefault_TreeIsClean(t *testing.T) {
 // TestFieldDefault_RejectsAtTheDeclaration pins the rule: WHICH positions it
 // fires at, and WHERE the diagnostic lands.
 //
-// The position is the whole point. Both reproductions analyzed CLEAN at
-// b078da60. The scalar one ran and printed `port=not an int`; the interface one
+// The position is the whole point. Without this rule both reproductions
+// analyzed CLEAN. The scalar one ran and printed `port=not an int`; the interface one
 // ran and trapped with `Clock.at: no implementation for type 'NoClock'` — a
 // run-time failure for a mistake fully visible in the declaration.
 func TestFieldDefault_RejectsAtTheDeclaration(t *testing.T) {
@@ -394,9 +394,9 @@ fn main() { _ = Cfg{}.port }
 		},
 		{
 			// The same shape on a GENERIC struct — `App<T>`'s exact
-			// form. 15a0957a taught the generic-std-struct family to
+			// form. The generic-std-struct family is taught to
 			// model a field default rather than refuse one, which is
-			// what makes this position newly reachable in the backend.
+			// what makes this position reachable in the IR builder.
 			name: "a call default beside a required type-parameter field",
 			src: `
 pub struct MyApp<T> {
@@ -587,18 +587,18 @@ fn main() {
 }
 
 // fieldDefaultDenominator is the number of struct/variant field defaults each
-// tree carried at b078da60, counted by an instrument INDEPENDENT of the rule:
+// tree carries, counted by an instrument INDEPENDENT of the rule:
 // a reflection walk over the parsed AST for every `ast.StructField` with a
 // non-nil `Default`.
 //
 // It is here because TestFieldDefault_TreeIsClean's zero can only speak for
 // positions the checker visits. A field default sitting somewhere the walk
 // never reaches records nothing and reads as clean by construction. These
-// numbers are the denominator that zero divides; at b078da60 they matched the
+// numbers are the denominator that zero divides; they match the
 // checker's examined count bucket for bucket, which is what makes the zero a
 // measurement rather than an absence of measurement.
 //
-// `tests` reads 27 rather than the 23 measured at b078da60 because this
+// `tests` reads 27 rather than 23 because this
 // slice's own corpus case,
 // `07-structs-and-enums/field_default_types/field_default_types_test.nomi`,
 // declares four of them (Configured.clock, Configured.port, Box.items,
@@ -783,7 +783,7 @@ func fieldDefaultsInAST(nodes []ast.Node) []string {
 //     Whether the ANALYZER draws the same distinction where this rule runs was
 //     the open question.
 //   - `Context` is canonicalised PER BUILD and compared by pointer. A
-//     regression of exactly that shape shipped at d6794fe0: a `*StructType`
+//     regression of exactly that shape has shipped before: a `*StructType`
 //     carried between builds brought the wrong `Context` instance and produced
 //     `expected Context, got Context` — identical names, unequal pointers.
 //

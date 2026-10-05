@@ -1,6 +1,6 @@
 // Closes the cycle: app imports this file and this file names app's `Config`
 // and app's `Show`. Everything declared here has a same-named twin in
-// test.nomi, and the two land in one Go package.
+// test.nomi, and the two land in one builder package.
 import app.{Config, Show}
 
 pub struct Slot {

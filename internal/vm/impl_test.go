@@ -8,8 +8,8 @@ import (
 
 func TestVMImpl_TourProgramsMatchRecordedAnswers(t *testing.T) {
 	ids := []string{
-		"interfaces-and-dispatch.md:L25",
-		"structs-enums-distinct.md:L392",
+		tourBlock(t, "interfaces-and-dispatch.md", `"${c.name} says meow"`),
+		tourBlock(t, "structs-enums-distinct.md", `User.rename(alice, "Augusta")`),
 	}
 	recorded, err := expectation.Load("tour")
 	if err != nil {

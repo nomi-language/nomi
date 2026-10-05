@@ -1,33 +1,28 @@
-// The DEEP struct-update spread — `{..base, field: {nested: value}}` — as a
-// differential fixture, plus the two silent wrong answers found while landing
-// it.
+// The DEEP struct-update spread — `{..base, field: {nested: value}}` — and
+// the two rows where discarding a nested literal's own spread head would be
+// a silent wrong answer.
 //
 // `{..base, f: v}` and `Struct.update(base, {f: v})` are one operation, so
 // every row here is written in both spellings and the two must print the same
 // thing. The equality lines are the assertion: `Display` output alone would
 // bless a result that had lost its nominal type.
 //
-// # THE TWO ROWS THAT WERE WRONG ON THE COMPILED SIDE
+// # THE ROWS THAT CATCH A DISCARDED SPREAD HEAD
 //
-// `foreign` and `foreign_update` are the regression. `updateValue` recursed
-// into `structMerge` on any `*ast.StructLit` with a nil `TypeName`, and
-// `structMerge` reads only `lit.Fields` — so a nested literal's OWN spread
-// head was discarded and the patch was applied to the enclosing field
-// instead. With `o.inner = {a:1,b:2}` and
+// `foreign` and `foreign_update` are the question. A nested literal's OWN
+// spread head must be kept: merging the patch over the enclosing field
+// instead is a silent wrong answer. With `o.inner = {a:1,b:2}` and
 // `p.inner = {a:100,b:200}`:
 //
-//	nomi run   a=9 b=200      correct: the base is p.inner
-//	artifact   a=9 b=2        wrong:  merged over o.inner
+//	correct   a=9 b=200      the base is p.inner
+//	wrong     a=9 b=2        merged over o.inner
 //
-// Exit 0 on both sides, differing only in a field value, so the differential
-// read `0 DIFFED` throughout — no corpus program wrote the shape. The reason
-// it had never been written is visible in this file: `same` is the shape
-// everyone reaches for, and it is the one case where discarding the head is
-// invisible, because the head and the field are the same value.
+// Both exit 0 and differ only in a field value, and no corpus program writes
+// the shape. `same` is the shape everyone reaches for, and it is the one case
+// where discarding the head is invisible, because the head and the field are
+// the same value.
 //
-// So `same` is the control and `foreign` is the question. A build with the
-// old condition prints `b=2` for `foreign` on the compiled side and `b=200`
-// on the interpreted side, and this fixture DIFFS.
+// So `same` is the control and `foreign` is the question.
 import std/io
 
 struct Inner {

@@ -110,7 +110,7 @@ func (m *Machine) Evaluate(ctx context.Context, f *ir.Func, args []any, lim Limi
 // belongs here. Intrinsics come first, then the generated stdlib adapters
 // (internal/stdlibbindings).
 var pureCrossings = map[string]bool{
-	"Result.map_err": true, "Result.from_maybe": true,
+	"Result.map_err": true, "Maybe.to_result": true,
 	"Maybe.with_default": true, "Result.with_default": true,
 	"List.head": true, "List.tail": true, "List.concat": true, "List.compare": true,
 	"Vector.compare": true, "vm.unreachable": true,

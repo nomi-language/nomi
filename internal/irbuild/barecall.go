@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // A call SPELLED like a call to a local function, whose callee is not one.
@@ -74,4 +75,22 @@ func resolvedBareSymbol(fa *analysis.FileAnalysis, name string) *analysis.Symbol
 		return nil
 	}
 	return resolveSymbol(fa.ModuleScope.Lookup(name))
+}
+
+// resolvedBareSymbolAt is resolvedBareSymbol for the name written at id. A
+// name the module scope does not bind may still be imported at the top of an
+// enclosing block (`import std/io.print`, which testImport admits); the
+// checker's reference at id is then that import's binding.
+func resolvedBareSymbolAt(fa *analysis.FileAnalysis, id *ast.Ident) *analysis.Symbol {
+	if sym := resolvedBareSymbol(fa, id.Name); sym != nil || fa == nil || fa.ModuleScope == nil {
+		return sym
+	}
+	ref := fa.References[analysis.Pos{Line: id.Line, Col: id.Col}]
+	if ref == nil {
+		return nil
+	}
+	if _, imported := ref.Node.(*ast.ImportStmt); !imported {
+		return nil
+	}
+	return resolveSymbol(ref)
 }

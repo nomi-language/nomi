@@ -25,10 +25,10 @@ import std/io
 //
 //   - THE BRANCH THAT DECIDES THE KIND vs THE BRANCH THAT SUPPLIES THE VALUE.
 //     `first_empty` takes its kind from arm TWO and its emitted value for arm
-//     ONE from a line already written, so the retype has to reach BACKWARDS. If
-//     it did not, the Go would not compile — `*rt.List[rt.Unit]` is not
-//     assignable to `*rt.List[int64]` — and the sweep reads a compile failure as
-//     a codegen bug rather than as a refusal.
+//     ONE from a line already written, so the retype has to reach backwards. If
+//     it did not, arm one would hold a `List<Unit>` where the case's kind is
+//     `List<Int>`.
+//
 //   - THE POSITION OF THE UNTYPED ARM. `middle_empty` puts it between two typed
 //     arms and `last_empty` puts it last, so a fix keyed on "the first arm"
 //     rather than on "an untyped arm" answers one and not the others.

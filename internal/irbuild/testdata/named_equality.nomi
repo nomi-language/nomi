@@ -48,8 +48,8 @@ fn main(): Unit {
     // No impl at all: structural, field by field.
     io.print("point same:    ${Bool.to_string(Point{x: 1, y: 2.5} == Point{x: 1, y: 2.5})}")
     io.print("point diff:    ${Bool.to_string(Point{x: 1, y: 2.5} == Point{x: 1, y: 2.6})}")
-    // Nomi's Float equality is REFLEXIVE on NaN and Go's `==` is not, so a
-    // struct compared with Go's own `==` would answer False here.
+    // Nomi's Float equality is REFLEXIVE on NaN and IEEE `==` is not, so a
+    // struct compared field by field with IEEE `==` would answer False here.
     io.print("point nan:     ${Bool.to_string(Point{x: 1, y: nan} == Point{x: 1, y: nan})}")
 
     // A struct WITH an impl: the impl decides, and it ignores `note`.

@@ -11,11 +11,7 @@
 // where the bound dissolves rather than being handled: `T` is `Dog` and
 // `Shout.shout(r.slot)` is an ordinary concrete dispatch.
 //
-// This file replaces the `a where clause` row of
-// `TestMonoTemplateGateRejectsEachExcludedShape`, which asserted the shape stays
-// REFUSED under `type-parameter dispatch without a type argument`. That witness
-// was voided by making it lower, so it is repointed to the stronger claim: the
-// program's OUTPUT matches the interpreter byte for byte.
+// The program's output is checked against the recorded golden.
 //
 // The second instantiation is what makes this more than a smoke test. One
 // generic function reached at TWO different bounded arguments has to select each

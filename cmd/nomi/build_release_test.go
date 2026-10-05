@@ -188,9 +188,9 @@ func TestBuildFromRelease_TheInstalledRunnerBuildsEveryProgram(t *testing.T) {
 
 // TestBuildFromRelease_AVariantNamedLikeAnInterfaceBuilds: a release nomi has
 // no stdlib source tree on disk, and it must resolve names as a checkout's
-// does. It used to skip the prelude imports there, so a variant named `Debug`
-// shadowed the interface and the build failed with "impl block: 'Debug' is
-// not an interface".
+// does. Skipping the prelude imports there would let a variant named `Debug`
+// shadow the interface, and the build would fail with "impl block: 'Debug'
+// is not an interface".
 func TestBuildFromRelease_AVariantNamedLikeAnInterfaceBuilds(t *testing.T) {
 	b := releaseBuild(t)
 	dir := t.TempDir()

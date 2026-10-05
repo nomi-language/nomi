@@ -8,6 +8,9 @@
   "comment": "Derived from editors/bat/nomi.sublime-syntax (same regex model). Keep the two in step: a keyword, literal or operator change goes in both. See editors/vscode/README.md.",
   "patterns": [
     {
+      "include": "#shebang"
+    },
+    {
       "include": "#comments"
     },
     {
@@ -30,6 +33,16 @@
     }
   ],
   "repository": {
+    "shebang": {
+      "comment": "A `#!` interpreter line. `\\A` matches only at the start of the document, the one place the compiler accepts it.",
+      "name": "comment.line.shebang.nomi",
+      "match": "\\A(#!).*$",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.comment.nomi"
+        }
+      }
+    },
     "comments": {
       "patterns": [
         {
@@ -249,7 +262,7 @@
         {
           "comment": "Keyword-shaped import path segments are file names: `std/structs.Struct`.",
           "name": "variable.other.nomi",
-          "match": "\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|todo|try|type(?:alias)?|where|with)\\b(?=/)|(?<=/)\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|todo|try|type(?:alias)?|where|with)\\b"
+          "match": "\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|then|todo|try|type(?:alias)?|where|with)\\b(?=/)|(?<=/)\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|then|todo|try|type(?:alias)?|where|with)\\b"
         },
         {
           "comment": "A function definition: `fn name`.",
@@ -287,7 +300,7 @@
         },
         {
           "name": "keyword.control.nomi",
-          "match": "\\b(?:if|else|case|when|break|continue|return|concurrent|try|assert|refute|dbg|todo)\\b"
+          "match": "\\b(?:if|else|case|when|break|continue|return|concurrent|try|then|assert|refute|dbg|todo)\\b"
         },
         {
           "name": "keyword.operator.word.nomi",

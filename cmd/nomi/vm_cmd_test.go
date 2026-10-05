@@ -58,15 +58,29 @@ func TestRunCommand_VMRefusesABlockedProgram(t *testing.T) {
 	if err == nil {
 		t.Fatalf("nomi run on a blocked program exited 0:\n%s", out)
 	}
-	if !strings.Contains(out, "BLOCKED ") ||
-		!strings.Contains(out, "[count] not retained: a struct literal: Node") {
-		t.Fatalf("nomi run did not name the blocked function and its reason:\n%s", out)
+	want := "error: this struct literal is not supported yet, so `fn count` cannot run\n" +
+		" --> " + entry + ":7:11\n" +
+		"  |\n" +
+		"7 |     weigh(Node{f: Map.empty()}) + 3\n" +
+		"  |           ^^^^\n"
+	if termcolor.StripANSI(out) != want {
+		t.Fatalf("nomi run printed:\n%s\nwant the diagnostic `nomi check` gives:\n%s", out, want)
 	}
-	if strings.Contains(out, "before") {
-		t.Fatalf("a blocked program ran part of main:\n%s", out)
+	// The builder's own reason is shown only on request.
+	for _, internal := range []string{"BLOCKED", "not retained", "a struct literal: Node"} {
+		if strings.Contains(out, internal) {
+			t.Fatalf("nomi run names compiler internals (%q):\n%s", internal, out)
+		}
 	}
-	if !strings.HasSuffix(out, "the VM cannot run this program\n") {
-		t.Fatalf("the refusal does not end with its closing line:\n%s", out)
+	check, err := runNomi(t, t.TempDir(), "check", entry)
+	if err == nil || check != out {
+		t.Fatalf("nomi check (%v) printed:\n%s\nnomi run printed:\n%s", err, check, out)
+	}
+	cmd := exec.Command(nomiBin, "run", entry)
+	cmd.Env = append(cmd.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_DEBUG_LOWERING=1")
+	debug, _ := cmd.CombinedOutput()
+	if !strings.Contains(string(debug), "= help: the lowering's reason: [count] a struct literal: Node\n") {
+		t.Fatalf("NOMI_DEBUG_LOWERING=1 nomi run did not add the lowering's reason:\n%s", debug)
 	}
 }
 
@@ -83,7 +97,7 @@ func TestTestCommand_VMReportsBlockedCases(t *testing.T) {
 		t.Fatalf("nomi test with a blocked case exited 0:\n%s", plain)
 	}
 	for _, want := range []string{
-		":: counts [count] not retained: a struct literal: Node\n",
+		":: counts " + entry + ":7:11: this struct literal is not supported yet, so `fn count` cannot run\n",
 		"ok " + entry + " :: adds\n",
 		"test result: BLOCKED. 1 passed, 0 failed, 1 blocked\n",
 	} {
@@ -165,7 +179,8 @@ func TestCommands_RejectUnknownFlags(t *testing.T) {
 }
 
 // `nomi test --format json` on the VM: a passing case is a "passed" record, a
-// case the VM cannot run is a "blocked" record whose message is its reasons,
+// case the VM cannot run is a "blocked" record whose message is the diagnostic
+// `nomi check` gives and whose error_line is that diagnostic's line,
 // and the summary counts it. The flags are accepted in any order.
 func TestTestCommand_VMJSONFormatReportsBlocked(t *testing.T) {
 	if testing.Short() {
@@ -189,7 +204,8 @@ func TestTestCommand_VMJSONFormatReportsBlocked(t *testing.T) {
 	blocked := records[0]
 	if blocked.Type != "test" || blocked.File != path || blocked.Line != 16 || blocked.EndLine != 18 ||
 		blocked.Status != "blocked" || blocked.Message == nil ||
-		*blocked.Message != "[count] not retained: a struct literal: Node" {
+		*blocked.Message != "main.nomi:7:11: this struct literal is not supported yet, so `fn count` cannot run" ||
+		blocked.ErrorLine != 7 {
 		t.Errorf("blocked record = %+v", blocked)
 	}
 	if passed := records[1]; passed.Status != "passed" || passed.Line != 20 || passed.EndLine != 22 {

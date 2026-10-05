@@ -22,7 +22,7 @@ fn label(m: Maybe<String>): String {
 
 /// NO else arm. The then-arm runs on a hit and NOT on a miss, and control
 /// continues past the `if` either way — the "after" line is what says so. The
-/// value is Unit on both paths, which the `== Unit` is for: an `if` with no
+/// value is Unit either way, which the `== Unit` is for: an `if` with no
 /// else whose then-arm is not Unit is a front-end error (if_else_test.nomi's
 /// "if without else returns Unit"), so Unit is the only answer it can have and
 /// the assertion is that the MISS produces one too.
@@ -78,10 +78,10 @@ fn chain(a: Maybe<Int>, b: Maybe<String>, n: Int): String {
     }
 }
 
-/// A Nomi `break` inside a pattern-if inside a loop. The emitted pattern-if is
-/// itself a Go `for`, so an UNLABELED Go break would be swallowed by it and the
-/// loop would spin forever; ctrlflow.go emits labeled breaks and this pins that
-/// the two loops stay distinct.
+/// A Nomi `break` inside a pattern-if inside a loop. The lowered pattern-if
+/// has its own control flow, so a `break` that targeted it would be swallowed
+/// and the loop would spin forever. This pins that the `break` leaves the
+/// loop.
 fn first_hit(start: Int): Int {
     loop(|state = start| {
         if Some(v) = halve(state) { break v }

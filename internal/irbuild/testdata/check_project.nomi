@@ -9,7 +9,7 @@ import {
 /// finishes it alone.
 ///
 /// Every line printed here is a fact about a project the ANALYZER decided, so a
-/// backend that lowered the call to something plausible cannot fake any of it:
+/// lowering that did something merely plausible with the call cannot fake any of it:
 /// the counts come from real visibility and entry-point rules, and the message
 /// text is the analyzer's own.
 ///

@@ -21,29 +21,25 @@ import std/io
 // through the tag, which value equality would not distinguish from two equal
 // blobs.
 //
-// # The asymmetry this fixture exists to cover
+// # The four positions this fixture covers
 //
-// The two containers were not in the same state, and neither were the two sides
-// of either one:
+// Each container has a producing side and a consuming side:
 //
-//   - map literal `JV.Obj{...}` refused, map pattern `.Obj{...}` LOWERED
-//     (maps.go's mapPatternSubject already resolved all three head spellings).
-//   - list literal `JV.Arr[...]` refused AND list pattern `.Arr[...]` refused.
+//   - map literal `JV.Obj{...}` and map pattern `.Obj{...}`, the pattern
+//     taking all three head spellings.
+//   - list literal `JV.Arr[...]` and list pattern `.Arr[...]`.
 //
-// So the map half had a live consumer and no producer, and the list half had
-// neither. A fixture exercising only the map half, or only the producing side,
-// leaves three of those four positions unwitnessed — and the precedent for
-// caring is exact: a prior slice disabled an entire operand position and the
-// whole corpus sweep came back BYTE-IDENTICAL, because 18 of its 19 corpus
-// sites were the one order it kept.
+// A fixture exercising only the map half, or only the producing side, leaves
+// three of those four positions unwitnessed, and a corpus that writes one
+// order of a shape cannot see the others.
 //
 // # All three HEAD spellings
 //
 // A head is `JV.Obj` (QualifiedType), `.Obj` (DotVariantType, resolved by the
 // analyzer against the expected type) or `Kvs` (SimpleType, a distinct).
-// dotvariant.go's header named the map and list attach forms as deliberately NOT
-// routed through it; they are now, so the bare dot has to be exercised or that
-// claim is untested. `expect_jv` and the annotated bindings are what give a bare
+// dotvariant.go routes the map and list attach forms through it, so the bare
+// dot has to be exercised or that route is untested. `expect_jv` and the
+// annotated bindings are what give a bare
 // dot an expected type.
 //
 // # Recursion

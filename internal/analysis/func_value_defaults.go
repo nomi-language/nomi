@@ -9,8 +9,8 @@ import (
 // A function's default parameter values apply to a call. They do not shorten
 // its type: `fn parse(s: String, strict: Bool = False)` named as a value is a
 // `(String, Bool) -> Maybe<Int>`, and passing or binding it where a
-// `(String) -> Maybe<Int>` is expected is a mismatch (spec §5, "Default
-// parameters and function values"). A lambda that calls it states which
+// `(String) -> Maybe<Int>` is expected is a mismatch (spec §5, *Default
+// Arguments*: "Defaults apply to calls, not to function values"). A lambda that calls it states which
 // arguments the defaults fill.
 
 // defaultedFuncValueHint is the hint appended to a mismatch between an

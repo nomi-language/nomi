@@ -2,25 +2,25 @@
 // five `impl Range<T>` functions, `impl Iter for Range<T> where T: Discrete`,
 // `StepByRange`, and the rendering.
 //
-// # What a differential comparison can and cannot see here
+// # What the recorded output can and cannot see here
 //
-// Almost every line of behaviour in this file is std's own Nomi source on BOTH
-// sides. `Range.contains?` and `bounded?` are `case r.end` in std/ranges.nomi;
+// Almost every line of behaviour in this file is std's own Nomi source.
+// `Range.contains?` and `bounded?` are `case r.end` in std/ranges.nomi;
 // `Discrete.next`, `Discrete.steps_between` and `Steppable.step_by` at each
 // element type are ordinary Nomi in std/int.nomi, std/codepoints.nomi and
-// std/decimal.nomi and they LOWER, so the VM runs the same Nomi
-// successor predicate the interpreter does rather than a Go copy. What is Go is
+// std/decimal.nomi and they LOWER, so the VM runs std's own successor
+// predicate rather than a copy of it. What is rt code is
 // rt/range.go: three fields, four walks and a formatter.
 //
-// So the differential half is strong for the WALKS — a wrong bound polarity, a
+// So the output is strong for the WALKS — a wrong bound polarity, a
 // dropped last element, a lost zero-step guard are all visible — and says nothing
 // about the value's identity or about which element method each walk was handed.
 // That is why ranges_test.go pins the reference bytes.
 //
 // # Every group below is a rule with a WRONG IMPLEMENTATION attached
 //
-// A differential comparison cannot distinguish "both sides are right" from "both
-// sides are wrong the same way", so each group names the plausible mistake it
+// A passing run says nothing about which plausible mistake was avoided, so
+// each group names the plausible mistake it
 // would catch. The tempting wrong implementations for a range are all
 // off-by-one-shaped, and there are five distinct ones:
 //
@@ -42,8 +42,8 @@
 // NOT COVERABLE, stated rather than quietly skipped: rt.StepByRangeSeq's `moved`
 // test asks `next < start or next > start`, and only the `>` side is reachable.
 // A step that moves DOWNWARD out of an ascending range makes the bound test pass
-// forever — `Range.step_by(1..=9, -1)` walks 1, 0, -1, … and never terminates, on
-// BOTH paths, because std's `step_by` has no direction guard. Putting it in a
+// forever: `Range.step_by(1..=9, -1)` walks 1, 0, -1, … and never terminates,
+// because std's `step_by` has no direction guard. Putting it in a
 // fixture would hang the suite rather than fail it. Same class as an unbounded
 // range through a consuming terminal, and handled the same way: bounded first, or
 // not at all.
@@ -182,14 +182,12 @@ fn main() {
     // --- 6. A LONG WALK IS A LOOP, NOT RECURSION ----------------------------
     // std recurses per element in tail position and says stack-safety depends on
     // it; rt.RangeEachWhile is a loop. 20_000 elements through map and reduce is
-    // where a per-element Go frame accumulates rather than being reused.
+    // where a per-element frame accumulates rather than being reused.
     //
     // 20_000 rather than the 200_000 `13-iterators-and-pipes/iter_test.nomi`
-    // drives, and the reason is the INTERPRETED side: this fixture is run on both
-    // paths on every suite run, and 200_000 elements through the tree-walker cost
-    // ~44 of the 46 seconds the whole file took. The property under test is "the
-    // walk does not consume a frame per element", and 20_000 shows that as well as
-    // 200_000 does — the corpus keeps the larger drive.
+    // drives, to keep this fixture fast. The property under test is "the
+    // walk does not consume a frame per element", and 20_000 shows that as
+    // well as 200_000 does; the corpus keeps the larger drive.
     io.print("${1..=20_000 |> Iter.map(|x| x) |> Iter.reduce(|acc = 0, x| acc + x)}")
 
     // --- 7. UNBOUNDED SOURCES, BOUNDED BEFORE CONSUMPTION -------------------
@@ -314,7 +312,7 @@ fn main() {
         )
     )
 
-    // --- 12. Codepoint: THE ELEMENT'S OWN PREDICATE, NOT A GO COPY ---------
+    // --- 12. Codepoint: THE ELEMENT'S OWN PREDICATE, NOT A COPY ------------
     // `Discrete.next` at Codepoint SKIPS the UTF-16 surrogate block, and
     // `Steppable.step_by` skips it in both directions. 55_295 and 57_344 are the
     // neighbours across the block, so a naive `n + 1` answers a different list —

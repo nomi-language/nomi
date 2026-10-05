@@ -9,7 +9,7 @@ package rt
 // std type needs one Go type every module's code can name.
 //
 // Ordering has a second, sharper reason. It is what `Comparable.compare`
-// RETURNS, and the compare impls live in std — `Int.compare` in std/int.nomi,
+// returns, and the compare impls live in std — `Int.compare` in std/int.nomi,
 // `String.compare` in std/strings.nomi, `Float.compare` in std/float.nomi —
 // while the callers live in the user's own modules. The value crosses that
 // boundary on every `<`, so there is no arrangement in which one module owns
@@ -18,11 +18,11 @@ package rt
 // # The layout is the shared enum representation, not a new one
 //
 // A tagged struct with
-// tag 0 RESERVED INVALID, so `var o Ordering` is detectably never-constructed
+// tag 0 reserved as invalid, so `var o Ordering` is detectably never-constructed
 // rather than silently being the first variant. Three bare variants, so there
 // are no payload fields at all — an Ordering is one byte.
 //
-// # The rank mapping has ONE implementation
+// # The rank mapping has one implementation
 //
 // `<`, `>`, `<=`, `>=` desugar to `Comparable.compare(a, b)` followed by an
 // Ordering match (std/comparable.nomi's own doc comment). Two switches that
@@ -55,7 +55,7 @@ type Ordering struct {
 	Tag uint8
 }
 
-// OrderingTag is the tag a variant NAME names, and the only place that pairing
+// OrderingTag is the tag a variant name names, and the only place that pairing
 // exists. TagInvalid for anything else, which is what keeps an unexpected
 // variant ranking as Equal while still being distinguishable from a real
 // Equal.

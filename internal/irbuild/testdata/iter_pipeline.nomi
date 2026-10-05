@@ -1,7 +1,7 @@
 import std/io
 
-// The lowered `Iter` surface, observed. Every line prints, so `matched` on this
-// fixture means the two paths agreed on OUTPUT and not merely on silence.
+// The lowered `Iter` surface, observed. Every line prints, so the recorded
+// output pins answers and not merely silence.
 fn note(n: Int): Int {
     io.print("evaluating ${n}")
     n
@@ -22,9 +22,8 @@ fn main() {
     // pinned.
     io.print("${Iter.to_list(Iter.map([1, 2, 3], |x: Int| x * 10))}")
 
-    // `to_list` of something that already IS a List is the identity, on both
-    // paths: the interpreter type-tests at run time and the builder answers from
-    // the source's static kind.
+    // `to_list` of something that already IS a List is the identity: the
+    // builder answers from the source's static kind.
     io.print("${[7, 8] |> Iter.to_list()}")
     io.print("${[] |> Iter.to_list()}")
 
@@ -59,12 +58,10 @@ fn main() {
     // A Float element, so the mapped type is neither the source's nor a String.
     io.print("${[1, 2, 3] |> Iter.map(|x| 0.5 * Int.to_float(x)) |> Iter.to_list()}")
 
-    // A callback returning Unit. The interpreter surfaces that as `ctrlReturn`
-    // and yields Unit as the ELEMENT, which is what a lowered callback returning
-    // `rt.Unit{}` does too — so the two agree on a shape it would be easy to
-    // lower as "skip". A `List<Unit>` has no Display impl on either path, so the
-    // observable is its LENGTH: 2 means each element produced one, 0 would mean
-    // the Unit answer was read as a skip.
+    // A callback returning Unit yields Unit as the ELEMENT, which is a shape it
+    // would be easy to lower as "skip". A `List<Unit>` has no Display impl, so
+    // the observable is its LENGTH: 2 means each element produced one, 0 would
+    // mean the Unit answer was read as a skip.
     units = [1, 2] |> Iter.map(|x| shout(x)) |> Iter.to_list()
 
     io.print("${units |> Iter.count()}")

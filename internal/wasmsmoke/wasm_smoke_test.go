@@ -1,24 +1,21 @@
 // Package wasmsmoke checks that the front end and VM still work when built
 // for the browser.
 //
-// The tour playground does not run the code in this repository — it runs
-// `nomi.wasm`, a gitignored build artifact. Nothing connected the two, so
-// `make test-tour` could pass while the playground was months stale: it
-// once served a stdlib with no `Restart.Permanent` and the pre-boot_scope
-// lexical check, and the only thing that surfaced it was a person
-// clicking Run.
+// The tour playground does not run the code in this repository; it runs
+// `nomi.wasm`, a gitignored build artifact, which can go stale while
+// `make test-tour` passes.
 //
 // This builds the wasm fresh and runs a program through it under Node,
 // which is the same path the browser takes. Skipped when Node is absent
 // so it never blocks a plain `go test ./...`.
 //
-// WHAT IT DOES NOT CHECK: the wasm it runs is the one it just BUILT, in a
+// What it does not check: the wasm it runs is the one it just built, in a
 // temp directory it deletes. It never reads
-// `tour/public/nomi/nomi.wasm`. So it answers "the wasm TARGET still
+// `tour/public/nomi/nomi.wasm`. So it answers "the wasm target still
 // works", and a stale staged bundle passes it. The staged bundle is the
 // subject of
-// runtime.TestTourWasmBundleIsTheCurrentSources and
-// runtime.TestTourWasmAnswersTheTourBlocks; keep the two questions
+// vmhost.TestTourWasmBundleIsTheCurrentSources and
+// vmhost.TestTourWasmAnswersTheTourBlocks; keep the two questions
 // separate rather than assuming either covers the other.
 package wasmsmoke
 

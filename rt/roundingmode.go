@@ -10,18 +10,14 @@ import "fmt"
 // packages, so no generated package can own it without two packages owning one
 // Nomi type. See internal/irbuild/stdenum.go.
 //
-// It carries no behaviour of its own. The MODE is an argument a rounding
+// It carries no behaviour of its own. The mode is an argument a rounding
 // operation takes, and the arithmetic that reads it lives with the decimal
-// representation — which, as of the Decimal anchor, is rt's: see decimal.go's
-// Round and DivRound. Until then this comment said the arithmetic "belongs
-// with the decimal representation, which this runtime does not have yet", and
-// that is now discharged rather than deleted, because it is the reason the
-// eight values below are HERE and not in a second enum beside the arithmetic.
+// representation, which is rt's: see decimal.go's Round and DivRound. Both
+// live in rt, so the eight values below are here and not in a second enum
+// beside the arithmetic.
 //
-// What the type buys, and it was true before the arithmetic arrived: measured
-// at c0169d1a, six of the sixteen `type reference` sites in the corpus are
-// `HalfEven` and two more are `Up` and `Floor`, and every one of them was
-// refused because this enum had no representation.
+// The type also lets Nomi code name a mode as a value (`HalfEven`, `Up`,
+// `Floor`).
 type RoundingMode struct {
 	// Tag is 1..8 in std/decimal.nomi's declaration order. 0 means never
 	// constructed.
@@ -33,7 +29,7 @@ type RoundingMode struct {
 // Spelled out rather than derived, for rt/prelude_test.go's reason: a test
 // that compares two computations cannot see a bug in a table both read.
 // internal/irbuild
-// derives its own tags from stdEnumSpecs' variant ORDER, so these constants and
+// derives its own tags from stdEnumSpecs' variant order, so these constants and
 // that list are two independently-written encodings of one fact and
 // TestStdEnumTagsMatchRT holds them equal.
 const (
@@ -47,14 +43,14 @@ const (
 	TagRoundUnnecessary uint8 = 8
 )
 
-// The eight modes as VALUES, which is what a switch in decimal.go compares
+// The eight modes as values, which is what a switch in decimal.go compares
 // against. Vars rather than consts because the type is a struct — Go has no
 // struct constants — and that is the price of the Tag representation being the
 // one internal/irbuild lowers to.
 //
-// ONE encoding, deliberately: the process holds one type for the eight modes.
+// One encoding, deliberately: the process holds one type for the eight modes.
 //
-// The zero value is NOT a mode. With an iota encoding `RoundUp` would be 0, so
+// The zero value is not a mode. With an iota encoding `RoundUp` would be 0, so
 // a forgotten assignment would silently mean "round away from zero"; here Tag 0
 // is never constructed and every switch over a mode falls through its cases, which
 // is the truncating answer — wrong in a way a test can see rather than wrong in
@@ -71,7 +67,7 @@ var (
 )
 
 // String renders a mode for diagnostics and test output, in std/decimal.nomi's
-// spelling. The variant NAMES rather than the tags, because a rounding error
+// spelling. The variant names rather than the tags, because a rounding error
 // message quoting "RoundingMode(7)" is unactionable.
 func (m RoundingMode) String() string {
 	switch m {

@@ -31,20 +31,19 @@ import "fmt"
 // `impl Numberish for Int` in user code, while Go cannot add a method to a type
 // in another package and cannot add one to a builtin at all.
 //
-// A Go interface used purely as a BOX for an erased value is a different
+// A Go interface used purely as a box for an erased value is a different
 // question, and Dyn.V is exactly that.
 //
-// # Identity is a pointer, and that is the whole point
+// # Identity is a pointer
 //
-// Divergence-ledger row 16 records six silent bugs in one session, every one of
-// them caused by a Nomi type's runtime identity being a STRING assembled at
-// construction sites and re-parsed at lookup sites. `c2afa942` is the sharpest:
-// a short-type-name helper cut a type name at its LAST dot, so the namespaced
-// `json.Json.DecodeError` came out as `DecodeError` — which is `std/dynamic`'s
-// type — two impls came to share one dispatch slot, and Go's map iteration
-// order decided which one won. The failure was intermittent and nothing raised.
+// A Nomi type's runtime identity must not be a string assembled at
+// construction sites and re-parsed at lookup sites. A short-type-name helper
+// that cuts a type name at its last dot turns the namespaced
+// `json.Json.DecodeError` into `DecodeError`, which is `std/dynamic`'s type.
+// Two impls then share one dispatch slot, Go's map iteration order decides
+// which one wins, and the failure is intermittent with nothing raised.
 //
-// Here a type's identity IS the address of its TypeID. A caller makes exactly
+// Here a type's identity is the address of its TypeID. A caller makes exactly
 // one per type, keys the table on its address, and never compares a name. Two
 // same-named types in two modules are two TypeIDs, so they are two addresses
 // and cannot be confused however their names are spelled, shortened, or cut.
@@ -53,14 +52,14 @@ import "fmt"
 // Two Go-specific hazards sit under that claim, both in the same family, and
 // both are designed against rather than assumed away:
 //
-//  1. Two package-level variables of a ZERO-SIZED type may legally share an
-//     address. A `struct{}` TypeID would therefore have silently merged two
-//     types' identities — the same bug, reintroduced by the fix. TypeID carries
-//     a field, so it is never zero-sized.
-//  2. Two variables with byte-identical CONTENTS are a candidate for merging by
+//  1. Two package-level variables of a zero-sized type may legally share an
+//     address. A `struct{}` TypeID could therefore merge two types'
+//     identities, which is the same bug. TypeID carries a field, so it is
+//     never zero-sized.
+//  2. Two variables with byte-identical contents are a candidate for merging by
 //     a sufficiently aggressive toolchain. Go does not merge package-level
-//     variables today, and "does not today" is precisely the reasoning that
-//     would have lost to hazard 1 — so a TypeID carries the MODULE-QUALIFIED
+//     variables, but relying on that is the same reasoning hazard 1 defeats,
+//     so a TypeID carries the module-qualified
 //     name (`shapes.Point`, `geometry.Point`), which differs by construction
 //     for any two distinct types and is the better diagnostic anyway.
 //
@@ -68,25 +67,25 @@ import "fmt"
 //
 // # Failure is loud
 //
-// A missing implementation traps and a duplicate binding panics. Four of row
-// 16's six bugs degraded to a plausible-looking wrong answer instead of
-// failing, and the third property that would have removed the class was "an
-// identity that does not resolve should be an error, not a fallback".
+// A missing implementation traps and a duplicate binding panics. An identity
+// that does not resolve should be an error, not a fallback, because a fallback
+// turns a dispatch bug into a plausible-looking wrong answer.
 
-// TypeID is one Nomi type's runtime identity. Its ADDRESS is the identity; the
+// TypeID is one Nomi type's runtime identity. Its address is the identity; the
 // value carries nothing a lookup reads.
 //
-// Nomi is the type's module-qualified Nomi name and is DIAGNOSTIC ONLY. Nothing
-// in this file compares it, and nothing may start: the moment a name decides a
-// lookup, this is `c2afa942` again. See the two hazards in the file comment for
-// why the field exists at all and why it must be qualified.
+// Nomi is the type's module-qualified Nomi name and is diagnostic only. Nothing
+// in this file compares it, and nothing may start: once a name decides a
+// lookup, the collapse described above can happen again. See the two hazards
+// in the file comment for why the field exists at all and why it must be
+// qualified.
 type TypeID struct {
 	Nomi string
 }
 
 // The identities of the types the compiler represents directly rather than
 // declaring. They live here, once, because `impl Numberish for Int` is legal
-// under the orphan rule in any module and every such impl must key on the SAME
+// under the orphan rule in any module and every such impl must key on the same
 // Int — one canonical variable is how that is guaranteed rather than hoped for.
 var (
 	TIDInt    = TypeID{Nomi: "Int"}
@@ -128,9 +127,9 @@ func NewMethod[F any](key string) *Method[F] {
 
 // Bind registers one implementation.
 //
-// A second binding for one type PANICS rather than overwriting. An overwrite
-// would hand the answer to the order the bindings ran in, which is the shape
-// `c2afa942` failed in. Nomi's
+// A second binding for one type panics rather than overwriting. An overwrite
+// would hand the answer to the order the bindings ran in, which is the
+// short-name collapse above. Nomi's
 // coherence check already rejects duplicate impls at compile time; this is the
 // backstop that makes a hole in it loud instead of arbitrary.
 func (m *Method[F]) Bind(tid *TypeID, fn F) {
@@ -149,13 +148,13 @@ func (m *Method[F]) Get(d Dyn) F { return m.At(d.TID) }
 
 // At returns the implementation tid binds, trapping when there is none.
 //
-// The DICTIONARY-driven route, and the reason it exists rather than being
+// The dictionary-driven route, and the reason it exists rather than being
 // folded into Get. `T.method(x)` on a bounded type parameter is keyed by the
 // concrete type argument the call site solved, not by a receiver — and for a
 // method with no self-position parameter (`FromJson.from_json(json: Json)`,
 // where self occurs only in the return) there is no receiver to key on at all.
 //
-// Get delegates here so there is exactly ONE map probe and ONE trap message in
+// Get delegates here so there is exactly one map probe and one trap message in
 // the runtime. Two encodings of a lookup is the shape whose failure mode is a
 // later correction landing in only one of them.
 //
@@ -183,7 +182,7 @@ func (m *Method[F]) At(tid *TypeID) F {
 // reason: an observable string has one copy. `At` prints it through here too.
 //
 // The caller that needs it is irbuild's preludeHashCall: `Result.hash(Ok(4))`
-// gives the Result's E side no information, so that position is an UNSOLVED type
+// gives the Result's E side no information, so that position is an unsolved type
 // argument and the tag switch still has to carry an `Err` arm. No value of an
 // unsolved position exists in the program, so the arm is unreachable.
 func NoImplFor(key, nomi string) { Trap(noImplText(key, nomi)) }

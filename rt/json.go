@@ -14,58 +14,54 @@ import (
 // `std/json`'s value tree and its decode failure, as Go types, plus the one
 // implementation of `decode`, `encode` and the Dynamic projection.
 //
-// This file declares NO `init`. That matters because everything that runs
+// This file declares no `init`. That matters because everything that runs
 // Nomi links `nomi/rt`, so an `init` here would run in every such process;
-// nothing in rt has one today and this does not start.
+// nothing in rt has one, and this file does not add one.
 //
-// # Json is the FIRST SELF-REFERENTIAL type in any of the shared-def families
+// # Json is self-referential
 //
-// `Arr List<Json>` and `Obj Map<String, Json>` name the enclosing type, which
-// four separate comments in internal/irbuild said made `Json` ineligible for
-// stdenum.go — "that family admits only a SCALAR payload, and the reason is the
-// whole safety argument for sharing a *typeDef process-wide". That reason is
-// wrong, and the correction belongs here because this file is the thing it was
-// wrong about.
+// `Arr List<Json>` and `Obj Map<String, Json>` name the enclosing type. That
+// does not make `Json` ineligible for stdenum.go's shared-def family.
 //
-// The safety argument is foreign.go's, and it is about RENDERING: a shared def
+// The safety argument for sharing a def is foreign.go's, and it is about rendering: a shared def
 // is only correct if every component kind renders to the same Go text wherever
 // the builder names it, which is `kind.packageNeutral`. `Json` is `rtDeclared`, so
 // `named(jsonDef)` is neutral by that predicate's own `rtDeclared` arm — and
 // therefore so are `*rt.List[rt.Json]` and `rt.Map[string, rt.Json]`, which name
-// rt and nothing else. Neutrality is SATISFIED, not violated.
+// rt and nothing else. Neutrality is satisfied, not violated.
 //
-// What the self-reference really costs is BOOTSTRAP ORDER: the payload kinds
-// cannot be built until the def exists, and the def is what the payload kinds
-// are part of. stdstruct.go had already solved exactly that with a two-pass
-// build — every shell first, every field kind second — and stdenum.go now does
-// the same. So the obstacle was one level of indirection in a table's
-// constructor, not a property of the type.
+// What the self-reference costs is bootstrap order: the payload kinds cannot
+// be built until the def exists, and the def is what the payload kinds are
+// part of. stdstruct.go and stdenum.go both solve that with a two-pass build,
+// every shell first and every field kind second, so the cost is one level of
+// indirection in a table's constructor, not a property of the type.
 //
-// # The Go layout is legal because both recursive payloads are INDIRECT
+// # The Go layout is legal because both recursive payloads are indirect
 //
 // `*List[Json]` is a pointer. `Map[string, Json]` is a value struct whose only
 // path back to `Json` is through `root *mapNode[string, Json]`, also a pointer.
 // So `Json` has a finite size and Go accepts the declaration. Neither type
 // argument introduces a new instantiation either — both are fixed at `Json` — so
 // there is no generic instantiation cycle. A payload that reached `Json` through
-// a TUPLE or a record would not be indirect and Go would reject it; std declares
+// a tuple or a record would not be indirect and Go would reject it; std declares
 // none, and stdenum.go's shape check admits only the annotations spelled below.
 //
-// # Every observable string here is Nomi's, and there is ONE copy of each
+// # Every observable string here is Nomi's, and there is one copy of each
 //
 // `decode`'s error vocabulary is a designed contract, pinned by
 // tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi, and it
 // lives here once, for rt/trap.go's stated reason: an observable string has
-// one copy. The same goes for the Int/Float split at parse time, the SORTED
+// one copy. The same goes for the Int/Float split at parse time, the sorted
 // object key order `decode` produces, and `encode`'s float format — each is
 // one function rather than two that have to agree.
 //
-// `encoding/json`'s error TEXT is never forwarded. Only its structured facts are
+// `encoding/json`'s error text is never forwarded. Only its structured facts are
 // read: a `*json.SyntaxError`'s offset, and `io.EOF` vs `io.ErrUnexpectedEOF`.
 // Go 1.27 backs `encoding/json` with v2 and its release notes warn that "the
 // exact text of error messages may differ", so forwarding it would make a Go
-// implementation detail part of Nomi's observable behaviour. The invariant is grep-checkable and TestJsonNeverForwardsHostErrorText
-// checks it: nothing in this file calls `.Error()` on a host error.
+// implementation detail part of Nomi's observable behaviour.
+// TestJsonNeverForwardsHostErrorText checks the invariant: nothing in this
+// file calls `.Error()` on a host error.
 
 // Tag values, written out rather than left implicit at the construction sites
 // because they are the one thing a reader has to be able to check against
@@ -85,10 +81,10 @@ const (
 //
 // Tag and every payload field are exported because code in other Go packages
 // writes the composite literal and reads the payload back. The fields are named
-// after the Nomi VARIANTS rather than after the builder's slot spelling, for
+// after the Nomi variants rather than after the builder's slot spelling, for
 // prelude.go's reason: this file is read by people.
 //
-// Seven variants and SIX payload fields, one per variant that carries data.
+// Seven variants and six payload fields, one per variant that carries data.
 // Unlike `CalendarError` — whose five variants all carry a String and share one
 // `Msg` — no two of these have the same Go type, so none can share a slot.
 type Json struct {
@@ -106,7 +102,7 @@ type Json struct {
 	Bool bool
 	// Arr is the payload of `Arr List<Json>`. A nil *List is the empty array.
 	Arr *List[Json]
-	// Obj is the payload of `Obj Map<String, Json>`. The ZERO Map is the empty
+	// Obj is the payload of `Obj Map<String, Json>`. The zero Map is the empty
 	// object, so an `Obj` with no entries needs no constructor.
 	Obj Map[string, Json]
 }
@@ -114,10 +110,10 @@ type Json struct {
 // JsonDecodeError is Nomi's `std/json.Json.DecodeError`: a structured decode
 // failure.
 //
-// Field order and Go names are a CONTRACT with internal/irbuild/stdstruct.go,
+// Field order and Go names are a contract with internal/irbuild/stdstruct.go,
 // which writes field selectors from its own spec and refuses to anchor a
 // declaration that disagrees. `Line` and `Col` are 1-based for display; `Offset`
-// is the 0-based byte position of the same spot and points AT the offending
+// is the 0-based byte position of the same spot and points at the offending
 // character rather than one past it.
 type JsonDecodeError struct {
 	Message string
@@ -130,9 +126,9 @@ type JsonDecodeError struct {
 // converting an already-parsed `Json` tree into a typed Nomi value.
 //
 // Distinct from JsonDecodeError and std says why: a parse error is `DecodeError`
-// and a shape error describes the PATH inside a well-formed tree where the typed
+// and a shape error describes the path inside a well-formed tree where the typed
 // conversion failed. One record with both field sets would let the builder
-// construct either shape for either function, which is a wrong ANSWER rather
+// construct either shape for either function, which is a wrong answer rather
 // than a compile error — the same argument rt.Project and rt.RunFile rest on.
 //
 // `Path` is a `List<String>`, which is why this type needs no new machinery:
@@ -140,7 +136,7 @@ type JsonDecodeError struct {
 // package-neutral and stdstruct.go's stdListField covers it.
 //
 // It is here for the `Result<..., Json.ShapeError>` in `ToJson`/`FromJson`'s
-// declared signatures. Nothing in rt CONSTRUCTS one: `shape_error_root` and
+// declared signatures. Nothing in rt constructs one: `shape_error_root` and
 // `shape_error_prepend` are ordinary Nomi in std/json.nomi and lower through the
 // ordinary path, so there is one builder rather than a Go copy of it.
 type JsonShapeError struct {
@@ -154,7 +150,7 @@ type JsonShapeError struct {
 // JsonDecode is `std/json.Json.decode`: parse JSON text into a `Json` tree.
 //
 // Numbers are decoded as `Int` when they fit in int64 with no fractional part or
-// exponent, otherwise as `Float`. Object keys are inserted in SORTED order,
+// exponent, otherwise as `Float`. Object keys are inserted in sorted order,
 // which is what makes `encode(decode(s))` reproducible — Go's map iteration is
 // randomized, so the sort is the determinism and not a nicety.
 func JsonDecode(source string) Result[Json, JsonDecodeError] {
@@ -179,7 +175,7 @@ func JsonDecode(source string) Result[Json, JsonDecodeError] {
 }
 
 // JsonDecodeErrorFor builds a decode failure from a parser error against the
-// original source, reading the parser's STRUCTURED facts only.
+// original source, reading the parser's structured facts only.
 //
 // Exported so a caller that builds a decode error in its own value shape can
 // reuse the classification without this Go type.
@@ -190,7 +186,7 @@ func JsonDecode(source string) Result[Json, JsonDecodeError] {
 //	unexpected end of input: expected a JSON value  io.EOF — empty/blank source
 //	malformed JSON                                  no structured fact to go on
 //
-// A `*json.SyntaxError`'s Offset counts bytes CONSUMED, so the offending byte is
+// A `*json.SyntaxError`'s Offset counts bytes consumed, so the offending byte is
 // the one before it, and that is what the reported offset points at — the
 // character the message names, which is also what an editor wants to underline.
 // The two end-of-input shapes carry no position at all from encoding/json, so
@@ -220,7 +216,7 @@ func JsonDecodeErrorAt(message, source string, offset int) JsonDecodeError {
 // offsets, so there is no position to report and inventing one would be a lie.
 //
 // The only reachable case is a number token the tokenizer accepted but that
-// neither int64 nor float64 can represent (`1e999`). Its lexeme arrives TYPED so
+// neither int64 nor float64 can represent (`1e999`). Its lexeme arrives typed so
 // the Nomi message is written here rather than lifted off Go's strconv range
 // error. Anything else is a bug in jsonFromAny's shape switch — unreachable for
 // encoding/json output — and gets the generic message rather than a Go type
@@ -262,7 +258,7 @@ func jsonDecodeFailure(err error, source string) (string, int) {
 // jsonUnexpectedByte names the offending byte at the head of rest.
 //
 // A valid UTF-8 rune is rendered as a Go-syntax rune literal by
-// strconv.QuoteRune — a FORMAT Nomi pins, the same way encode pins
+// strconv.QuoteRune — a format Nomi pins, the same way encode pins
 // strconv.FormatFloat, not a message it inherits. A byte that begins no valid
 // rune is reported numerically instead, because quoting it would print U+FFFD
 // and hide which byte was actually there.
@@ -307,7 +303,7 @@ func (e *jsonNumberRangeError) Error() string {
 }
 
 // JsonFromNumber is the Int-or-Float decision for one JSON number token, and the
-// ONLY place that decision exists.
+// only place that decision exists.
 //
 // Int64 first — that preserves a whole-number source as `Int`. The Float64
 // fallback handles fractional and exponent forms, and integers that overflow
@@ -376,7 +372,7 @@ func jsonFromAny(v any) (Json, error) {
 
 // JsonSortedKeys is the key order `decode` inserts an object's entries in.
 //
-// Exported and factored out because it is OBSERVABLE: an object's insertion
+// Exported and factored out because it is observable: an object's insertion
 // order is the order `encode` emits, so `Json.encode(Json.decode(s))` produces
 // sorted keys and that text is asserted in the corpus. Go's map iteration is
 // randomized, so without this the output would differ run to run.
@@ -394,15 +390,15 @@ func JsonSortedKeys(m map[string]any) []string {
 // JsonEncode is `std/json.Json.encode`: compact JSON text with no whitespace
 // between tokens.
 //
-// Object keys are emitted in the Map's own INSERTION order (MapEntries), which
+// Object keys are emitted in the Map's own insertion order (MapEntries), which
 // is why a hand-built `Json.Obj{"x" => …, "y" => …}` round-trips its own
 // spelling while a decoded object comes out sorted — decode inserts sorted.
 //
 // Number rendering: `Float(36.0)` renders as `36`, not `36.0`, because 'g' with
 // -1 precision emits the shortest form that round-trips to the same float64. The
 // Int/Float distinction decode captures therefore does not survive a text round
-// trip, which std/json.nomi's own doc comment states. Deliberately NOT
-// rt.FormatFloat: that is Nomi's Float DISPLAY, which renders 36.0 as "36.0",
+// trip, which std/json.nomi's own doc comment states. Deliberately not
+// rt.FormatFloat: that is Nomi's Float display, which renders 36.0 as "36.0",
 // and JSON is a different format.
 func JsonEncode(jv Json) string {
 	var sb strings.Builder
@@ -452,7 +448,7 @@ func jsonEncodeInto(sb *strings.Builder, jv Json) {
 	}
 }
 
-// The four LEAF renderings, exported because they are exactly the observable
+// The four leaf renderings, exported because they are exactly the observable
 // formats: the escape set, the integer base, the float shortest-round-trip form
 // and the two boolean spellings. An encoder that walks some other value shape
 // and cannot call jsonEncodeInto still shares these, which keeps "one

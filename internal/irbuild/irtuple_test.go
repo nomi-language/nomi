@@ -78,7 +78,7 @@ fn make(n: Int): (Int, Int) {
 fn main() {
   io.print(make(10).1)
   (_, _) = make(20)
-  return
+  Unit
 }`, "10\n11\n20\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })

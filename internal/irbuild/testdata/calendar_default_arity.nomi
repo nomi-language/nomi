@@ -9,11 +9,10 @@
 // type registry that has never heard the name, and this file would refuse for
 // no reason a programmer could act on.
 //
-// It is filled in the stdlib's own generated package instead, by an
-// arity-reduced wrapper, and this file only ever spells a shorter arity. See
+// It is filled in the stdlib's own lowering instead, by an arity-reduced
+// wrapper, and this file only ever spells a shorter arity. See
 // internal/irbuild/stdlib.go's emitStdDefaultWrappers, and
-// TestStdDefaultWrapperIsEmittedAndCalled for the assertion over the emitted
-// text.
+// TestStdDefaultWrapperIsEmittedAndCalled.
 //
 // Kept separate from calendar_fold.nomi rather than folded into it, because
 // that file has to import `Disambiguation` to name the other three modes — so

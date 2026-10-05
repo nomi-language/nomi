@@ -5,9 +5,9 @@
 //# beside a member access. Same for a variant's brace and for the bracket
 //# spelling of a list payload.
 //#
-//# NONE OF THESE PARSED AS A LITERAL before 2026-09-18, and no fixture
-//# covered any of them. `shapes.Shape.Ring{r: 1}` reported `non-final
-//# expression has type {r: Int}`; a std enum's struct variant reported
+//# A parser that stops the chain at the member access takes the body as
+//# a separate literal: `shapes.Shape.Ring{r: 1}` then reports `non-final
+//# expression has type {r: Int}`, and a std enum's struct variant reports
 //# `return type mismatch: expected Error, got {reason: String}`. The
 //# neighbouring `dotted_type_names` fixture looks like it covers this and
 //# does not: `Probe.Reading` is ONE name containing a dot, so its literals

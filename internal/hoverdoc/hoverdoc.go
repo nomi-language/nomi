@@ -368,7 +368,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 	result := fmt.Sprintf("```nomi\n%s\n```", sig)
 	// Surface opacity in hover so consumers see "this type is opaque"
 	// alongside its signature. Real symbol kinds only — type-parameter
-	// hovers return earlier and skip this branch. See §15.3 of the spec.
+	// hovers return earlier and skip this branch. See spec §15, *Opaque distinct types*.
 	real := sym
 	if real.Resolved != nil {
 		real = real.Resolved
@@ -1772,6 +1772,8 @@ func renderControlFlowHover(sym *analysis.Symbol) string {
 		} else {
 			b.WriteString("Checks branch guards in order. Branch bodies must produce compatible values.")
 		}
+	case "then":
+		b.WriteString("Applies the lambda to the piped value. Its body ends at the next `|>`; braces keep a pipe inside it.")
 	default:
 		b.WriteString("Expression keyword.")
 	}

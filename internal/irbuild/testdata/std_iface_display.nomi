@@ -1,7 +1,7 @@
 import std/io
 
-// A STDLIB interface in a TYPE position, in each of the four positions the
-// census verified were negative at `d896a447`: a PARAMETER, a RETURN, a TYPE
+// A STDLIB interface in a TYPE position, in each of the four positions an
+// interface type can take: a PARAMETER, a RETURN, a TYPE
 // ARGUMENT, and a struct FIELD — plus DISPATCH on the erased receiver, which is
 // the only one of the five that needs a table.
 //
@@ -16,10 +16,9 @@ import std/io
 //
 // What none of this exercises, deliberately: the interface-QUALIFIED call on a
 // statically-known receiver. `Display.to_string(t)` where `t` is a `Tag`, and
-// `Display.to_string(42)`, both already lowered before this fixture existed —
-// to a direct Go call and to the stdlib function index respectively — and they
-// still take those routes. testdata/debug_display_surfaces.nomi is where that
-// half lives. `interface_dispatch = ` below is the census that says so.
+// `Display.to_string(42)`, lower to a direct call and to the stdlib function
+// index respectively. testdata/debug_display_surfaces.nomi is where that half
+// lives. `interface_dispatch = ` below records which route each took.
 struct Tag {
     name: String
 }
@@ -85,7 +84,7 @@ fn render_maybe(m: Maybe<Display>): String {
 }
 
 // A struct FIELD, which is the position that erases for the LIFETIME of the
-// value rather than for the length of one call — and the census's own
+// value rather than for the length of one call, the shape behind the
 // `non-scalar field type | Box.v: Display` row.
 struct Slot {
     label: String
@@ -101,13 +100,12 @@ fn describe(s: Slot): String {
 //
 // `Comparable.compare(a: self, b: self)` selects its implementation from ONE
 // receiver and then needs every other self position to hold that same concrete
-// type. Nothing makes that true, and MEASURED the interpreter ANSWERS where a
-// Go artifact cannot: `Comparable.compare` over two same-named `Point`s from
-// two files prints `less`, because eval dispatches on argument zero and reads
-// the second operand's fields structurally. So the erased-receiver route is
-// refused by name — `interface function with more than one self-typed
-// parameter`, pinned by TestStdIface_MultiSelfErasedDispatchIsRefused — while
-// the type position, the boxing, and the CONCRETE-qualifier call below all
+// type. Nothing makes that true, and two same-named `Point`s from two
+// files are exactly the pair where it fails: dispatch on argument zero
+// would read the second operand's fields as if it were the first type.
+// So the erased-receiver route is refused by name, as `interface
+// function with more than one self-typed parameter`, while the type
+// position, the boxing, and the CONCRETE-qualifier call below all
 // lower.
 fn boxed_count(_c: Comparable): Int {
     1

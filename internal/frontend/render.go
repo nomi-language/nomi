@@ -68,6 +68,8 @@ func (d Diagnostic) render(w io.Writer) {
 		fmt.Fprintf(w, "%s %s %s\n", gutter, bar, d.underline(w))
 	}
 	for _, h := range d.Hints {
+		// A hint's later lines line up under its first.
+		h = strings.ReplaceAll(h, "\n", "\n"+pad+strings.Repeat(" ", len(" = help: ")))
 		fmt.Fprintf(w, "%s %s %s %s\n", pad, rt.CyanFor(w, "="), rt.BoldFor(w, "help:"), h)
 	}
 	for _, r := range d.Related {

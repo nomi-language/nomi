@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# post-merge: after a merge into main, bring this machine's editors up to date
+# post-merge: after a merge into main (or another followed branch), bring this machine's editors up to date
 # with what the merge changed (scripts/dev-editors.sh).
 #
 # Enable it once per clone with `make enable-hooks`, which sets core.hooksPath
@@ -8,12 +8,17 @@
 # hook would never be found.
 #
 # core.hooksPath is shared by every worktree of a clone, so the hook acts only
-# when the checked-out branch is main. A merge or fast-forward in a feature or
-# agent worktree changes nothing outside that worktree.
+# when the checked-out branch is one the editors follow: main, or the
+# space-separated list in `git config nomi.editorBranches` (for example
+# "main next" when day-to-day work lands on a local branch). A merge or
+# fast-forward in a feature or agent worktree changes nothing outside that
+# worktree.
 
 set -uo pipefail
 
-[[ "$(git symbolic-ref --short -q HEAD)" == "main" ]] || exit 0
+branch="$(git symbolic-ref --short -q HEAD)" || exit 0
+followed="$(git config --get nomi.editorBranches || echo main)"
+[[ " $followed " == *" $branch "* ]] || exit 0
 root="$(git rev-parse --show-toplevel)"
 changed="$(git diff --name-only ORIG_HEAD HEAD 2>/dev/null)" || exit 0
 

@@ -10,7 +10,7 @@ func TestVMDotVariant_TourMatchesRecordedAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{"structs-enums-distinct.md:L350"}, vmPathResolver(t, "tour"))
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "structs-enums-distinct.md", `dbg describe(.West)`)}, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("dot-variant Tour program incomplete: %v", refused)
 	}

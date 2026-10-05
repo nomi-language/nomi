@@ -2,23 +2,23 @@
 // both dispatched through it.
 //
 // The entry's `Point` and `shapes.Point` are different types that share a
-// spelling. Each gets its own `rt.TypeID` variable in its own generated
-// package, and each `impl Display for Point` binds that ADDRESS into
-// `rt.MDisplayToString` — one table for the whole artifact, two slots.
+// spelling. Each gets its own `rt.TypeID`, and each `impl Display for Point`
+// binds that ADDRESS into `rt.MDisplayToString`: one table for the whole
+// program, two slots.
 //
 // Key the table on the NAME instead and the two collapse: `rt.Method.Bind`
 // panics on the second binding rather than answering wrongly, so the mutation
 // is loud. `render` below would otherwise be a coin flip between two
-// implementations, decided by Go's `init` order across packages — which is
+// implementations, decided by registration order, which is
 // a type identity decided by a name.
 //
 // `Comparable` is here as well as `Display`, in a TYPE position only: it has
 // TWO self-typed positions, and dispatching one on an erased receiver is
 // refused by name because the implementation is selected from argument zero
-// while the Go table entry asserts EVERY self position to that same concrete
-// type — and these two `Point`s are exactly the pair that makes the assertion
-// false. The interpreter ANSWERS there and a Go artifact cannot; see
-// `interface function with more than one self-typed parameter` in impl.go.
+// while every other self position must hold that same concrete
+// type, and these two `Point`s are exactly the pair that makes that
+// false. See `interface function with more than one self-typed parameter`
+// in impl.go.
 import {
     std/io
     shapes.{theirs, theirs_ordered}

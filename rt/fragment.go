@@ -5,11 +5,11 @@ package rt
 // # Why it is here at all, and why it is not in prelude.go
 //
 // prelude.go's argument for putting `Maybe` and `Result` in rt is about
-// IDENTITY and applies unchanged: the IR builder (internal/irbuild) gives a
+// identity and applies unchanged: the IR builder (internal/irbuild) gives a
 // generic std enum one Go type, and that type has to live in a package every
 // caller shares, or one Nomi type would be N mutually unassignable Go types.
 //
-// What does NOT carry over is the word "prelude". `Maybe` and `Result` are in
+// What does not carry over is the word "prelude". `Maybe` and `Result` are in
 // every file's scope whether it imports them or not; `Fragment` is an ordinary
 // `pub enum` in std/literals that a file has to import. The builder's
 // `preludeSpecs` table is really "the generic std enums whose Go type rt
@@ -19,20 +19,20 @@ package rt
 // no anchor for it and refuses every mention, which is the same rule that keeps
 // a user's own `Maybe` out.
 //
-// # Why the corpus needs it
+// # Why the builder needs it
 //
 // `<Type>"…"` desugars to `<Type>.from_fragments([Fragment.Static(…),
 // Fragment.Dynamic(…), …])`, so `Fragment` is the parameter type of every typed
-// literal's handler. Measured over the repo at 0f2ee1de: all 14 `from_fragments`
-// declarations take `List<Fragment<I>>` (the checker's `checkTaggedString`
-// rejects any other parameter shape), 11 of them at `I = String`. Without this
-// type the builder refused `Fragment` under `generic type` in 26 corpus files.
+// literal's handler: every `from_fragments` declaration takes
+// `List<Fragment<I>>`, because the checker's `checkTaggedString` rejects any
+// other parameter shape. Without this type the builder cannot lower a typed
+// literal.
 //
-// # The layout is prelude.go's decision, with one thing prelude.go never had
+// # The layout is prelude.go's, with mixed payload kinds
 //
 // A tagged struct, tag 0 reserved invalid, one payload field per variant.
 //
-// The new thing is that Fragment MIXES payload kinds. std/literals.nomi
+// Unlike `Maybe` and `Result`, Fragment mixes payload kinds. std/literals.nomi
 // declares
 //
 //	pub enum Fragment<T> {
@@ -40,13 +40,13 @@ package rt
 //	  Dynamic T
 //	}
 //
-// so `Static`'s payload is CONCRETE and `Dynamic`'s is PARAMETRIC. `Maybe` and
-// `Result` are uniformly parametric, so nothing before this had to tell the two
-// apart — and at `T = String`, which is the only instantiation the corpus
-// contains, they are INDISTINGUISHABLE by layout: both fields are `string`.
+// so `Static`'s payload is concrete and `Dynamic`'s is parametric. `Maybe` and
+// `Result` are uniformly parametric, so their layout never has to tell the two
+// apart. At `T = String`, the instantiation typed literals usually use, the
+// two are indistinguishable by layout: both fields are `string`.
 // Swap them and `Fragment[int64]` gets a `string` where it needs an `int64`,
 // which is a wrong answer that no corpus program and no `Fragment[string]`
-// fixture can see. That is why the builder checks the DECLARATION's payload
+// fixture can see. That is why the builder checks the declaration's payload
 // type expression rather than the rendered field type, and why the layout guard
 // (internal/irbuild's TestFragmentLayoutMatchesRT) reflects over
 // `Fragment[int64]` and not `Fragment[string]`.

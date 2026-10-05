@@ -51,7 +51,7 @@ type HostHandle struct {
 }
 
 // EmbeddedPayload returns the value an `embeds` variant carries, or v itself
-// for any other value. An `embeds` variant IS its payload for equality,
+// for any other value. An `embeds` variant is its payload for equality,
 // hashing and the `values:` row.
 func EmbeddedPayload(v any) any {
 	if r, ok := v.(*Record); ok && r.Desc.Kind == KindEnum && r.Desc.Variants[r.Tag].Shape == VariantEmbedded {
@@ -62,7 +62,7 @@ func EmbeddedPayload(v any) any {
 
 // Equal is Nomi's structural equality over Values. Reflexive on NaN,
 // -0.0 == 0.0, Decimal by mathematical value, Maps order-insensitive, an
-// `embeds` variant equal to its payload, and nominal identity by the SHORT
+// `embeds` variant equal to its payload, and nominal identity by the short
 // type name. User `Equatable` impls are the VM's to dispatch before this, or
 // to hand in through Keys.
 func Equal(a, b any) bool { return (*Keys)(nil).Equal(a, b) }
@@ -162,7 +162,7 @@ func (k *Keys) Equal(a, b any) bool {
 }
 
 // recordsEqual has no identity shortcut: a record holding a Dynamic or an
-// opaque value is unequal to ITSELF, because those are unequal to themselves.
+// opaque value is unequal to itself, because those are unequal to themselves.
 func (k *Keys) recordsEqual(a, b *Record) bool {
 	af, bf := a.Desc.Kind.family(), b.Desc.Kind.family()
 	if af != bf {
@@ -383,7 +383,7 @@ func (k *Keys) hashRecord(r *Record) uint64 {
 	return k.hashFields(r, r.Desc.Short)
 }
 
-// hashFields is a struct's hash: its short name, plus an ORDER-INSENSITIVE
+// hashFields is a struct's hash: its short name, plus an order-insensitive
 // sum over its fields, because Equal compares fields by name.
 func (k *Keys) hashFields(r *Record, short string) uint64 {
 	h := HashString(short)

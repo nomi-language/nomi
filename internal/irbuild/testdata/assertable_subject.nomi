@@ -2,7 +2,7 @@
 // decides whether the assertion holds, and supplies the report's `details:`
 // rows when it does not.
 //
-// The rule is eval's assertSubject and not a generalisation of it. `failure`
+// The rule is the runtime's assertSubject and not a generalisation of it. `failure`
 // answers `Maybe<AssertionDetails>`, and the polarity is the OPPOSITE of a
 // `Maybe` SUBJECT's: `assert` holds on `None` and fails on `Some`, `refute` is
 // the mirror, and either way the assertion's VALUE is the original subject.
@@ -13,11 +13,10 @@
 // # What is pinned here that nothing else can see
 //
 // An Assertable's ENTIRE contribution to a report is the `details:` block and
-// the `reason` it authored, and both are failure-path only. `tests/`
-// contains no program that fails an assertion, so the differential sweep
-// compares the PASSING path and reads `0 DIFFED` however wrong a failure
-// renders — rt.WriteAssertionFailure had dropped the `details:` block outright
-// and no sweep could ever have said so. So every case below reaches a failure
+// the `reason` it authored, and both are failure-path only. The test corpus
+// contains no program that fails an assertion, so it exercises only the
+// passing path. rt.WriteAssertionFailure once dropped the `details:` block, and
+// nothing in the corpus showed it. So every case below reaches a failure
 // through `testing.check`, which returns it as a value instead of aborting.
 //
 // THREE Assertable types on purpose, because the `reason` has three sources and
@@ -124,7 +123,7 @@ test "a failing check carries the reason, actual and detail rows it answered" {
     assert Err(failure) = testing.check(equals(x, y))
     observed: AssertionFailure = failure
 
-    assert observed.line == 124
+    assert observed.line == 123
     assert observed.keyword == "check"
     assert observed.expression == "equals(x, y)"
     // AUTHORED, so it wins over the site's `check failed`.
@@ -141,7 +140,7 @@ test "the report shows the authored details, in the order they were answered" {
     assert Err(failure) = testing.check(equals(x, y))
 
     assert AssertionFailure.format(failure) == """
-        line 141: values were not equal
+        line 140: values were not equal
           check equals(x, y)
           values:
             x
@@ -165,7 +164,7 @@ test "an Assertable answering the declared defaults reports them" {
     refute failure.actual
 
     assert AssertionFailure.format(failure) == """
-        line 161: assertion failed
+        line 160: assertion failed
           check Defaulted{ok: False}
         """
 }
@@ -189,7 +188,7 @@ test "a failed refutation says so in its own words" {
     refute failure.actual
 
     assert AssertionFailure.format(failure) == """
-        line 106: refute failed
+        line 105: refute failed
           refute equals(3, 3)
         """
 }

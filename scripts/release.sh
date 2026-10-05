@@ -44,11 +44,8 @@
 #	dist/nomi_<version>_<os>_<arch>.tar.gz   (.zip on windows)
 #	dist/nomi_<version>_checksums.txt
 #
-# The checksum manifest is not tidiness. Part two of the roadmap's
-# "Distributing the `nomi` binary itself" entry fetches a pinned Go toolchain
-# and wants that download verified against a manifest; publishing checksums for
-# our own artifacts from day one is the same discipline applied to ourselves,
-# and it is what Homebrew's `sha256` field and Scoop's `hash` field consume.
+# `nomi build --target` downloads another platform's archive from the release
+# and checks it against the checksum manifest.
 
 set -euo pipefail
 

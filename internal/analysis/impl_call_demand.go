@@ -107,8 +107,8 @@ func (c *checker) recordTypeQualifiedImplDemand(n *ast.Call, fa *ast.FieldAccess
 	//
 	// Hence: record NOTHING when a bound is declared. That makes this
 	// function an exact no-op wherever the parent already had a route,
-	// and the fix only where the parent had none — which is the case the
-	// roadmap entry is about, `impl Comparable for Vector<T>`,
+	// and the fix only where the parent had none — which is the case of
+	// `impl Comparable for Vector<T>`,
 	// dispatching Comparable on a `T` that nothing declares.
 	if declaresInterfaceBound(ft, subs, ifaceName) {
 		return

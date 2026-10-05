@@ -63,6 +63,11 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 			child.b.SetTerm(ir.NewReturn(bl.g.irNodePos(body), answer))
 		}
 	}
+	if ok && k == kindDiverged {
+		// Every arm of the tail region returned: the body's result is what
+		// those returns settled.
+		k = child.returnKind
+	}
 	if !ok || (!irCallableValueKind(k) && k != kindUnit) {
 		return no()
 	}

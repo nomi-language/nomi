@@ -48,14 +48,15 @@ func rtFault(f func()) (err error) {
 // such as a callee the producer did not retain, is not a Nomi fault, so the
 // block and the task operations report it once the tasks have settled rather
 // than letting a program observe it as a failed task. The machine spells its
-// own errors "vm: ...", and a Nomi fault's text is rt's.
+// own errors "vm: ...", and a Nomi fault's text is rt's. A compile panic
+// (compilepanic.go) is reported the same way.
 type taskLimit struct {
 	mu  sync.Mutex
 	err error
 }
 
 func (l *taskLimit) note(err error) {
-	if !strings.HasPrefix(err.Error(), "vm: ") {
+	if _, internal := AsCompilePanic(err); !internal && !strings.HasPrefix(err.Error(), "vm: ") {
 		return
 	}
 	l.mu.Lock()

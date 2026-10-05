@@ -9,8 +9,9 @@
 // `nomi run`, `nomi test`, `nomi check`, the REPL, the tour and an FFI
 // project's wrapper all run through this package.
 //
-// A program that reaches a function the VM cannot run fails with a *Blocked naming each such function and why it
-// was not retained, before the program's first effect.
+// A program that reaches a function the VM cannot run fails with a *Blocked
+// before the program's first effect: for each body the compiler could not
+// lower, the diagnostic `nomi check` reports at its source.
 //
 // Go functions a program calls are host tables (WithHosts) of hostadapt.Func
 // values over the VM's own Values: an FFI wrapper generates one from the
@@ -47,6 +48,9 @@ type Program struct {
 	// declineDetails are the same declines with the file and position each
 	// was taken at, which Unsupported reports them by.
 	declineDetails []*irbuild.Decline
+	// sources are the texts of the program's in-memory files by module path,
+	// which a diagnostic quotes its source line from (a file on disk is read).
+	sources map[string]string
 	// hosts are the host tables every machine binds beside its own stdlib
 	// adapters: std/compiler's, then the tables WithHosts gave.
 	hosts []HostTable
@@ -66,21 +70,67 @@ type Program struct {
 // generated for the project's Go bindings; an embedder writes one.
 type HostTable = vm.HostTable
 
+// MainError is the error Run answers when `main` returns `Err`. Its Text is
+// the payload's Display rendering when the payload's type implements Display
+// (a String is its own text), and its Debug rendering otherwise; Error() is
+// `error: ` and that text, the line `nomi run` prints to stderr before
+// exiting 1.
+type MainError = vm.MainError
+
 // Blocked is the error a program answers when it reaches something the VM
-// cannot run. Each reason is one line of the form `[<name>] <why>`.
+// cannot run.
+//
+// A body the compiler accepted and could not lower is reported as `nomi
+// check` reports it: a diagnostic at the code the lowering stopped at, worded
+// for the program's author. Anything else that stops a run (a crossing into
+// Go that nothing binds, a dispatched call with no implementation, a machine
+// limit) keeps its reason.
 type Blocked struct {
+	// Reasons is every blocker in the compiler's own terms, one line of the
+	// form `[<name>] <why>` each: the lowering's reason for a declined body,
+	// which the author is never shown (NOMI_DEBUG_LOWERING adds it to the
+	// diagnostic as a hint).
 	Reasons []string
+	// diags are the declined bodies, located and worded for the author.
+	diags frontend.Diagnostics
+	// rest are the Reasons diags does not cover. Nil means all of them, for a
+	// Blocked built from Reasons alone.
+	rest []string
 }
 
+// others are the blockers with no diagnostic.
+func (b *Blocked) others() []string {
+	if b.rest == nil && b.diags == nil {
+		return b.Reasons
+	}
+	return b.rest
+}
+
+// Error is each declined body's diagnostic in its short form
+// (`path:line:col: message`), then any other blocker's reason.
 func (b *Blocked) Error() string {
-	return "the VM cannot run this program:\n  " + strings.Join(b.Reasons, "\n  ")
+	var parts []string
+	if len(b.diags) > 0 {
+		parts = append(parts, b.diags.Error())
+	}
+	if others := b.others(); len(others) > 0 {
+		parts = append(parts, "the VM cannot run this program:\n  "+strings.Join(others, "\n  "))
+	}
+	return strings.Join(parts, "\n")
 }
 
-// Write prints the grep-friendly report `nomi run` prints: one
-// `BLOCKED <label> <reason>` line per reason, then a closing line.
-// It is vmrunner's, so a built binary reports what `nomi run` reports.
+// Write prints what `nomi run` prints for a program it cannot run: each
+// declined body's diagnostic with its source line, as `nomi check` prints
+// it, then one `BLOCKED <label> <reason>` line per other blocker and a
+// closing line (vmrunner's, so a built binary reports what `nomi run`
+// reports).
 func (b *Blocked) Write(w io.Writer, label string) {
-	vmrunner.WriteBlocked(w, label, b.Reasons)
+	if len(b.diags) > 0 {
+		b.diags.Render(w)
+	}
+	if others := b.others(); len(others) > 0 {
+		vmrunner.WriteBlocked(w, label, others)
+	}
 }
 
 // Disassemble is the VM bytecode of the entry's function named name.
@@ -122,8 +172,10 @@ func (p *Program) machine(out io.Writer) *vm.Machine {
 // program with no `fn main` runs nothing.
 //
 // The error is a *Blocked when the program reaches something the VM cannot
-// run, and otherwise the program's own failure, which
-// WriteFailure renders as `nomi run` does.
+// run, and otherwise the program's own failure, which WriteFailure renders as
+// `nomi run` does: a fault, a failed assertion, or a *MainError when `main`
+// returns `Err`. A main that returns `Ok`, or any value that is not a Result,
+// succeeds.
 func (p *Program) Run(ctx context.Context, out io.Writer, args []string, handleSignals bool) error {
 	return p.run(ctx, out, args, handleSignals, p.env)
 }
@@ -136,17 +188,17 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 	}
 	mainFn := p.entryFunc("main")
 	if mainFn == nil {
-		return &Blocked{Reasons: []string{p.notRetained("main")}}
+		return p.blockedName("main")
 	}
 	m := p.machine(out).WithHostEnv(hostEnv)
 	var boots []*ir.Symbol
 	if boot := p.entry.Boot(); boot != nil {
 		boots = append(boots, boot)
 	}
-	if reasons := p.reasons(m.Unretained([]*ir.Func{mainFn}, boots)); len(reasons) > 0 {
-		return &Blocked{Reasons: reasons}
+	if found := m.Unretained(vm.MainRoots(p.entry, mainFn), boots); len(found) > 0 {
+		return p.blocked(found)
 	}
-	failure, limit := vm.ProgramFailure(m.Main(ctx, args, handleSignals))
+	failure, limit := programFailure(m.Main(ctx, args, handleSignals))
 	if limit {
 		return &Blocked{Reasons: []string{machineLimit(failure)}}
 	}
@@ -165,6 +217,9 @@ func (p *Program) Test(out io.Writer, rep *TestReport, file string, opts TestOpt
 	for _, c := range p.Cases(out, opts) {
 		loc := TestLocation{File: file, Line: c.Line, EndLine: c.EndLine}
 		if c.Blocked != nil {
+			if c.BlockedPath == file {
+				loc.ErrorLine = c.BlockedLine
+			}
 			rep.BlockedAt(loc, label(c.Name), c.Blocked)
 			continue
 		}
@@ -179,7 +234,31 @@ type CaseResult struct {
 	Line    int
 	EndLine int
 	Err     error
+	// Blocked is each blocker as `nomi test` reports it: for a body the
+	// compiler could not lower, the diagnostic `nomi check` gives in its
+	// short form (`path:line:col: message`, then a line per hint); for
+	// anything else, its reason.
 	Blocked []string
+	// Reasons are the same blockers in the compiler's own terms,
+	// `[<name>] <why>`, which the report never shows.
+	Reasons []string
+	// BlockedPath and BlockedLine locate the first blocker that has a
+	// source position (a path as the front end names the file); 0 when none
+	// has one.
+	BlockedPath string
+	BlockedLine int
+}
+
+// blockedBy fills r's blocker fields from b.
+func (r *CaseResult) blockedBy(b *Blocked) {
+	r.Blocked = blockedMessages(b)
+	r.Reasons = b.Reasons
+	for _, d := range b.diags {
+		if d.Line > 0 {
+			r.BlockedPath, r.BlockedLine = d.Path, d.Line
+			break
+		}
+	}
 }
 
 // Cases runs the entry's runnable test cases, writing their own output to
@@ -205,7 +284,7 @@ func (p *Program) Cases(out io.Writer, opts TestOptions) []CaseResult {
 		m = p.machine(out)
 	}
 	type outcome struct {
-		blocked []string
+		blocked *Blocked
 		err     error
 		run     int // index into the runnable slice, or -1
 	}
@@ -219,15 +298,19 @@ func (p *Program) Cases(out io.Writer, opts TestOptions) []CaseResult {
 		}
 		c, ok := retained[tc.FullName()]
 		if !ok || p.entry == nil {
-			outcomes[i].blocked = []string{p.testNotRetained(tc.FullName())}
+			outcomes[i].blocked = &Blocked{
+				Reasons: []string{p.testNotRetained(tc.FullName())},
+				diags:   p.declineDiagnostics([]string{"test body: " + tc.FullName()}),
+				rest:    []string{},
+			}
 			continue
 		}
 		var boots []*ir.Symbol
 		if b := c.Group().Boot; b != nil {
 			boots = append(boots, b, c.Group().Startup)
 		}
-		if reasons := p.reasons(m.Unretained([]*ir.Func{c.Fn()}, boots)); len(reasons) > 0 {
-			outcomes[i].blocked = reasons
+		if found := m.Unretained([]*ir.Func{c.Fn()}, boots); len(found) > 0 {
+			outcomes[i].blocked = p.blocked(found)
 			continue
 		}
 		outcomes[i].run = len(runnable)
@@ -244,11 +327,11 @@ func (p *Program) Cases(out io.Writer, opts TestOptions) []CaseResult {
 		results[i].Name, results[i].Line, results[i].EndLine = tc.FullName(), tc.Line, tc.LastLine()
 		switch {
 		case o.blocked != nil:
-			results[i].Blocked = o.blocked
+			results[i].blockedBy(o.blocked)
 		case o.run >= 0 && limits[o.run] != "":
-			results[i].Blocked = []string{"[vm] machine limit: " + limits[o.run]}
+			results[i].blockedBy(&Blocked{Reasons: []string{"[vm] machine limit: " + limits[o.run]}})
 		case o.run >= 0:
-			results[i].Err = failures[o.run]
+			results[i].Err = internalError(failures[o.run])
 		default:
 			results[i].Err = o.err
 		}

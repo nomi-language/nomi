@@ -56,10 +56,35 @@ func (d Diagnostic) String() string {
 	at := location(d.Path, d.Line, d.Col)
 	b.WriteString(at + ": " + d.Message)
 	for _, h := range d.Hints {
-		b.WriteString("\n" + at + ": help: " + h)
+		b.WriteString("\n" + at + ": help: " + OneLineHint(h))
 	}
 	for _, r := range d.Related {
 		b.WriteString("\n" + location(r.Path, r.Line, r.Col) + ": note: " + r.Message)
+	}
+	return b.String()
+}
+
+// OneLineHint is hint on one line, for the short form: its lines trimmed and
+// joined with "; ", except that a line ending in ':' or '{', or a line that
+// is only '}', joins with a space. The import-block hint reads
+// `... an import block: import { std/io; std/regex.Regex }`.
+func OneLineHint(hint string) string {
+	var b strings.Builder
+	prev := ""
+	for _, line := range strings.Split(hint, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if prev != "" {
+			if strings.HasSuffix(prev, ":") || strings.HasSuffix(prev, "{") || line == "}" {
+				b.WriteString(" ")
+			} else {
+				b.WriteString("; ")
+			}
+		}
+		b.WriteString(line)
+		prev = line
 	}
 	return b.String()
 }
@@ -139,7 +164,7 @@ func NewDiagnostic(path, src string, line, col int, message string) Diagnostic {
 func parseDiagnostics(path, src string, errs []parser.ParseError) Diagnostics {
 	tes := make([]analysis.TypeError, len(errs))
 	for i, e := range errs {
-		tes[i] = analysis.TypeError{Line: e.Line, Col: e.Col, Message: e.Message}
+		tes[i] = analysis.TypeError{Line: e.Line, Col: e.Col, Message: e.Message, Hints: e.Hints}
 	}
 	return typeDiagnostics(path, src, tes)
 }

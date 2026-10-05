@@ -2,7 +2,7 @@ import std/io
 
 // Probe: WHICH SLOT AN ARGUMENT FILLS IS NOT ITS POSITION.
 //
-// resolveArgs (eval/eval.go:5873-5886) takes the last positional argument of an
+// Argument resolution takes the last positional argument of an
 // under-filled call and, when it is a lambda or a block — or a bare name whose
 // own slot does not take a function while the last parameter does — MOVES it to
 // the last slot, leaving the slot it would have filled to its default. That is
@@ -10,8 +10,8 @@ import std/io
 //
 // `pick({ 5 })` is the load-bearing line and the reason this fixture exists.
 // Both parameters are Int, so the misplacement is WELL TYPED: positional filling
-// puts 5 in `a`, defaults `b` to 2 and answers 52, where the interpreter routes
-// 5 to `b`, defaults `a` to 1 and answers 15. No type error, no compile error —
+// puts 5 in `a`, defaults `b` to 2 and answers 52, where the rule routes
+// 5 to `b`, defaults `a` to 1 and answers 15. No type error, no compile error,
 // just a different number. Every other shape here is caught by the type checker
 // if the routing is wrong, so without this line the guard would look tested and
 // would not be.
@@ -43,7 +43,7 @@ fn main() {
     io.print("labelled = ${labelled(|n: Int| n + 7)}")
 
     // The bare-function-NAME form of the same rule — `transform(5, double)`,
-    // which the interpreter answers 30 for — is deliberately absent: a bare
+    // which answers 30 under the same rule, is deliberately absent: a bare
     // module-function reference is not an expression this builder lowers yet (it
     // reports `unbound name`, since module functions live in g.funcs and not in
     // any scope), so including it would refuse the whole fixture for somebody

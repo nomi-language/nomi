@@ -29,6 +29,10 @@ func parseErrorsToDiagnostics(errs []parser.ParseError) []protocol.Diagnostic {
 		if e.Col > 0 {
 			col = uint32(e.Col - 1)
 		}
+		msg := e.Message
+		for _, h := range e.Hints {
+			msg += "\nhelp: " + h
+		}
 		diags = append(diags, protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{Line: line, Character: col},
@@ -36,7 +40,7 @@ func parseErrorsToDiagnostics(errs []parser.ParseError) []protocol.Diagnostic {
 			},
 			Severity: &severity,
 			Source:   &source,
-			Message:  e.Message,
+			Message:  msg,
 		})
 	}
 	return diags
@@ -222,7 +226,8 @@ func (s *Server) publish(notify glsp.NotifyFunc, uri string) {
 
 // publishSnapshot publishes snap's diagnostics: the parser's and the
 // analysis's, then the static typed literals whose handler rejects them
-// (literal_eval.go). The literals' part never waits on an evaluation: what is
+// (literal_eval.go), then an open document's code the compiler cannot lower,
+// as its last open or save found it (lowering.go). Neither part waits: what is
 // not cached yet is evaluated in the background, which publishes again.
 func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnapshot) {
 	// An open document's tokens come from the server's cache, which inlay
@@ -238,6 +243,9 @@ func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnaps
 			d.Range = lines.utf16Range(d.Range)
 			diags = append(diags, d)
 		}
+	}
+	if snap.Open {
+		diags = append(diags, s.lowering.diagnostics(snap.URI)...)
 	}
 	notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 		URI:         protocol.DocumentUri(snap.URI),

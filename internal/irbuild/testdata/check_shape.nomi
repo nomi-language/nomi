@@ -1,6 +1,6 @@
 // `testing.check` over a SHAPE subject — a `Maybe` or a `Result` — end to end.
 //
-// The rule is eval's assertSubject and not a generalisation of it: a check over
+// The rule is the runtime's assertSubject and not a generalisation of it: a check over
 // a shape holds on the CARRYING variant (`Some`, `Ok`) and its success value is
 // the ORIGINAL SUBJECT, so `testing.check(find_name(1))` answers
 // `Ok(Some("Ada"))` and never `Ok(True)`. That is why the emitted result type is
@@ -8,17 +8,14 @@
 //
 // # What is pinned here that nothing else can see
 //
-// The FAILING cases, and they are the load-bearing half. `tests/`
-// contains no program that fails an assertion, so the differential sweep only
-// ever compares the PASSING path and reads `0 DIFFED` however wrong a failure
-// renders. Everything below the first two cases is failure-path behaviour that
-// no corpus file reaches.
+// The failing cases, and they are the load-bearing half. `tests/`
+// contains no program that fails an assertion, so the corpus covers only the
+// passing path. Everything below the first two cases is failure-path behaviour
+// that no corpus file reaches.
 //
 // The `actual:` row is where a shape subject differs from a Bool one, and it is
-// a RENDERING: `value.Inspect` of the whole subject on the interpreter's side,
-// `rt.Inspect*`/`InspectStruct` on the compiled one. Two independent
-// implementations of one string, which is exactly the shape a differential
-// fixture can still see — unlike a renderer both paths share.
+// a rendering of the whole subject by `rt.Inspect*`/`InspectStruct`. The
+// recorded golden pins that text.
 //
 // FOUR instantiations appear on purpose and none of them may collapse:
 // `Maybe<String>`, `Maybe<Int>`, `Result<Int, String>` and the
@@ -86,7 +83,7 @@ test "a failing Maybe check renders the whole subject as actual" {
     assert Err(failure) = testing.check(find_name(2))
     observed: AssertionFailure = failure
 
-    assert observed.line == 86
+    assert observed.line == 83
     assert observed.keyword == "check"
     assert observed.expression == "find_name(2)"
     // `check failed`, not `assertion failed`: the reason is a function of the
@@ -111,7 +108,7 @@ test "a failing Result check renders the Err payload with its quotes" {
 }
 
 // A THIRD element type through the same machinery. `Maybe<Int>` and
-// `Maybe<String>` are two Go types and two kinds; if the intern table collapsed
+// `Maybe<String>` are two kinds; if the intern table collapsed
 // them, the `actual:` row below would render through the wrong inspector.
 test "a failing Maybe check at a second payload type does not collapse" {
     assert Err(failure) = testing.check(score(2))
@@ -123,15 +120,13 @@ test "a failing Maybe check at a second payload type does not collapse" {
 }
 
 // A subject carrying THIS FILE's own type, which the process-wide prelude table
-// cannot hold: `rt.Maybe[NomiT_Marker]` renders differently in every generated
-// package, so the instance is interned per package instead. Reaching for the
-// shared table alone made this refuse `stdlib type`, naming a std declaration
-// that anchors perfectly — so the case is here to keep the two tables' division
-// of labour honest rather than to add a payload type.
+// cannot hold: a Maybe of this file's own type is a different instance in
+// every program, so the instance is interned per program instead. The case
+// keeps the two tables' division of labour honest rather than adding a
+// payload type.
 //
 // The `actual:` row also exercises the struct rendering: `InspectStruct` sorts
-// the COMPOSED `name: value` strings, and value.StructVal.Display states the
-// same rule independently.
+// the composed `name: value` strings.
 test "a shape check over a package-local payload uses the per-package instance" {
     assert Ok(found) = testing.check(marker(1))
     assert Some(m) = found
@@ -169,7 +164,7 @@ test "a shape check result is an ordinary value" {
 // The `assert` and the `check` must agree, which is the whole reason
 // shapeSubjectFailed is one function reached by both. A corpus that never fails
 // an assertion cannot notice an inverted tag comparison on the failing side, so
-// both sides of the judgement are stated here.
+// both directions of the judgement are stated here.
 test "check and assert agree about which shapes hold" {
     assert Ok(_) = testing.check(find_name(1))
     assert Err(_) = testing.check(find_name(2))

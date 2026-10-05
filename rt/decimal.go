@@ -20,14 +20,14 @@ import (
 // Arithmetic is exact-by-default: Add/Sub/Mul never round (scale grows as
 // needed); only DivRound/Round round, and they always name a RoundingMode --
 // which is rt's own `std/decimal.RoundingMode`, in roundingmode.go. There is
-// exactly ONE encoding of the eight modes in this process, and it is the one
+// exactly one encoding of the eight modes in this process, and it is the one
 // the Nomi enum lowers to.
 type Decimal struct {
 	Mantissa *big.Int
 	Scale    int32
 }
 
-// Small big.Int constants reused read-only across the package. NEVER mutate
+// Small big.Int constants reused read-only across the package. Never mutate
 // these in place — any code path that needs a mutable copy must
 // new(big.Int).Set(...) first. bigTen is the base used for every scale shift.
 var (
@@ -70,7 +70,7 @@ func stripFactor(n, p *big.Int) (stripped *big.Int, count int32) {
 //	"1.50"  "5"  "-0.001"  "1_000.00"  "+5"  "0"
 //
 // The number of digits after the '.' becomes Scale (so "1.50" has scale 2,
-// "5" has scale 0). Exponent notation is NOT accepted. This is the shared
+// "5" has scale 0). Exponent notation is not accepted. This is the shared
 // parser behind both the `1.50d` literal evaluator and `Decimal.from_string`,
 // so it rejects empty/garbage input rather than guessing.
 func ParseDecimal(s string) (Decimal, error) {
@@ -131,7 +131,7 @@ func ParseDecimal(s string) (Decimal, error) {
 	return Decimal{Mantissa: mant, Scale: int32(len(fracDigits))}, nil
 }
 
-// ParseDecimalLexeme parses a Nomi decimal LITERAL — the token as the source
+// ParseDecimalLexeme parses a Nomi decimal literal — the token as the source
 // spells it, `d` suffix and all, and possibly with a leading `-` from a negated
 // pattern literal.
 //
@@ -222,7 +222,7 @@ func (v Decimal) Display() string {
 	return body
 }
 
-// Normalize strips trailing FRACTIONAL zeros: it divides factors of 10 out of
+// Normalize strips trailing fractional zeros: it divides factors of 10 out of
 // the mantissa while Scale > 0, so 1.50 → mantissa 15 scale 1 and 100.00 →
 // mantissa 100 scale 0. Integer magnitude is never reduced — 100 (scale 0)
 // stays mantissa 100 scale 0 (Display "100"). Zero normalizes to mantissa 0,

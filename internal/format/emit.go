@@ -560,6 +560,8 @@ func emit(n ast.Node) Doc {
 		))
 	case *ast.Lambda:
 		return emitLambda(v)
+	case *ast.Then:
+		return emitThen(v)
 	case *ast.FieldAccess:
 		return Concat(emit(v.Object), Text("."), Text(v.Field.Name))
 	case *ast.NamedArg:
@@ -886,7 +888,7 @@ func emitStringInterp(v *ast.StringInterp) Doc {
 }
 
 // emitInterpolatedExpr renders the expression of a `${...}`. A pipeline
-// there keeps the line layout it was written with: a lambda stage stacks a
+// there keeps the line layout it was written with: a `then` stage stacks a
 // pipeline elsewhere, but a line break would split a one-line string.
 func emitInterpolatedExpr(n ast.Node) Doc {
 	if pipe, ok := n.(*ast.Binary); ok && pipe.Op == "|>" {
@@ -1384,7 +1386,7 @@ func emitTodo(v *ast.Todo) Doc {
 	return Concat(Text("todo "), emit(v.Reason))
 }
 
-// emitConcurrentBlock renders `concurrent { body }` — spec §20 layer 1's
+// emitConcurrentBlock renders `concurrent { body }` — spec §20's
 // structured-concurrency scope. An atomic body (one statement that fits on a
 // line, like `concurrent { 42 }`) stays inline; anything multi-statement breaks
 // the body onto its own lines.
@@ -2548,18 +2550,25 @@ func emitCall(v *ast.Call) Doc {
 // single ExprStmt — the bare-expression lambda shape (`|x| x + 1`, `|x| if … {…}`)
 // that emitLambda renders without block braces. Block-bodied lambdas (multi-
 // statement, a single break/return/continue the parser wrapped in `{}`, or a
-// single pipe, whose braces cannot go) return false; those keep the hugged `)`.
+// pipe written in braces, which keep them) return false; those keep the
+// hugged `)`.
 func lambdaSingleExpr(lam *ast.Lambda) (ast.Node, bool) {
 	if lam.Body == nil || len(lam.Body.Stmts) != 1 {
 		return nil, false
 	}
 	es, ok := lam.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok || isPipeExpr(es.Expr) {
-		// A pipe body keeps its braces (see emitLambda), so it hugs `})`
-		// like a block body.
+	if !ok || (isPipeExpr(es.Expr) && authoredLambdaBlock(lam)) {
+		// A braced pipe body keeps its braces (see emitLambda), so it hugs
+		// `})` like a block body.
 		return nil, false
 	}
 	return es.Expr, true
+}
+
+// authoredLambdaBlock reports whether lam's body was written in braces. The
+// parser wraps a bare body in a Block with no closing line.
+func authoredLambdaBlock(lam *ast.Lambda) bool {
+	return lam.Body != nil && lam.Body.EndLine != 0
 }
 
 // emitTypeArgs renders a turbofish type-argument list, `<Int>` /
@@ -2695,6 +2704,19 @@ func emitCallArg(n ast.Node) Doc {
 //     flat-or-break via Group.
 //   - Otherwise: emit a block ("|params| {\n  stmt1\n  stmt2\n}").
 func emitLambda(v *ast.Lambda) Doc {
+	return emitLambdaKeepingBraces(v, false)
+}
+
+// emitThen renders a `then` stage. Its lambda keeps the braces it was
+// written with: the body of a bare `then` lambda ends at the next `|>`, so
+// braces around a body that holds a pipe cannot go.
+func emitThen(v *ast.Then) Doc {
+	return Concat(Text("then "), emitLambdaKeepingBraces(v.Lambda, true))
+}
+
+// emitLambdaKeepingBraces is emitLambda. With keepBraces, a one-expression
+// body written in braces keeps them; otherwise only a braced pipe body does.
+func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
 	header := emitLambdaHeader(v.Params)
 
 	body := v.Body
@@ -2717,10 +2739,12 @@ func emitLambda(v *ast.Lambda) Doc {
 					Nest(defaultIndent, Concat(HardLine(), emitLambdaSingleExprBody(es.Expr))),
 				)
 			}
-			if isPipeExpr(es.Expr) {
-				// A lambda body never extends over a pipe: `|y| xs |> f()` is
-				// `(|y| xs) |> f()`. So a pipe body keeps its braces, flat or
-				// broken; dropping them changes what the program means.
+			if authoredLambdaBlock(v) && (keepBraces || isPipeExpr(es.Expr)) {
+				// Braces the author wrote around a pipe stay. A lambda body
+				// runs to the end of its expression, so they are not
+				// needed there, but removing them is not the formatter's
+				// call. A `then` lambda's braces always stay, since its bare
+				// body ends at the next `|>`.
 				return Group(Concat(
 					header,
 					Text(" {"),
@@ -4219,7 +4243,7 @@ func isMethodImplBlock(n ast.Node) bool {
 // The body is always multi-line when non-empty. A single space
 // separates the type name (or type-params) from the opening `{`. `pub`
 // precedes `opaque` when both are present; `opaque` is emitted before
-// `struct` whenever the AST carries the flag (see spec §15.3).
+// `struct` whenever the AST carries the flag (see spec §15, *Opaque distinct types*).
 func emitStructDef(v *ast.StructDef) Doc {
 	// Doc-comment first, then any decorators the derive lowering attached.
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
@@ -4294,7 +4318,7 @@ func emitEnumDeclVariant(v ast.EnumVariant) Doc {
 // enum is unreachable for well-formed input but renders as `enum Name {}`
 // for resilience. `pub` precedes `opaque` when both are present; `opaque`
 // is emitted before `enum` whenever the AST carries the flag (see spec
-// §15.3).
+// §15, *Opaque distinct types*).
 func emitEnumDef(v *ast.EnumDef) Doc {
 	// Doc-comment first, then decorators — see emitStructDef for the parser
 	// constraint that drives this order.
@@ -5159,7 +5183,7 @@ type pipeStackMode int
 
 const (
 	// pipeStackRules stacks a pipeline the author wrote across lines or
-	// one with a lambda stage (pipeChainStacked).
+	// one with a `then` stage (pipeChainStacked).
 	pipeStackRules pipeStackMode = iota
 	// pipeStackAlways stacks every pipeline (a call argument).
 	pipeStackAlways
@@ -5185,7 +5209,7 @@ func emitPipeChainWithMode(n *ast.Binary, mode pipeStackMode) Doc {
 	}
 	// Stack when the source wrote the chain across multiple lines (any step
 	// on a different line than the source; mirrors structLitUserMultiLine's
-	// `.Line` comparison), or when it has a lambda stage.
+	// `.Line` comparison), or when it has a `then` stage.
 	var authoredMultiline bool
 	switch mode {
 	case pipeStackAlways:
@@ -5259,17 +5283,17 @@ func collectPipeChain(n *ast.Binary) (ast.Node, []ast.Node) {
 }
 
 // pipeChainStacked reports whether a pipeline puts each stage on its own
-// line: when the author wrote it across lines, or when it has a lambda stage.
-// A bare lambda body ends at the next `|>`, which one line hides
-// (`5 |> |n| n + 1 |> |n| n * 2` reads as one lambda); a line per stage shows
-// where each body ends.
+// line: when the author wrote it across lines, or when it has a `then`
+// stage. A `then` lambda's bare body ends at the next `|>`, which one line
+// hides (`5 |> then |n| n + 1 |> then |n| n * 2` reads as one lambda); a
+// line per stage shows where each body ends.
 func pipeChainStacked(source ast.Node, steps []ast.Node) bool {
-	return pipeChainAuthoredMultiline(source, steps) || pipeChainHasLambdaStage(steps)
+	return pipeChainAuthoredMultiline(source, steps) || pipeChainHasThenStage(steps)
 }
 
-func pipeChainHasLambdaStage(steps []ast.Node) bool {
+func pipeChainHasThenStage(steps []ast.Node) bool {
 	for _, step := range steps {
-		if _, ok := step.(*ast.Lambda); ok {
+		if _, ok := step.(*ast.Then); ok {
 			return true
 		}
 	}
@@ -5372,6 +5396,11 @@ func pipeStageWantsNestedContinuation(stage ast.Node) bool {
 }
 
 func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node) (Doc, bool) {
+	if _, ok := stage.(*ast.Then); ok {
+		// A keyword does not prefix a `then` stage: `|> then |v| f(v)`
+		// and `|> try` stay two stages.
+		return nil, false
+	}
 	switch kw := keyword.(type) {
 	case *ast.TryOp:
 		if kw.Expr != nil {

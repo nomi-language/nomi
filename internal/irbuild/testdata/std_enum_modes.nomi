@@ -7,7 +7,7 @@ import {
 // form the corpus uses and the one that never binds the type name.
 //
 // Both are BARE enums whose whole observable content is which variant a value
-// is, so every case below is a place the two paths could disagree about a tag.
+// is, so every case below is a place a lowering could get a tag wrong.
 // The widest row on purpose: RoundingMode has eight variants and this file names
 // all eight, because the tags are derived from declaration ORDER and a fixture
 // that named two would pass against a permuted table.
@@ -61,10 +61,10 @@ test "derived Display and Debug render the variant name" {
     assert Debug.inspect(NFKD) == "NFKD"
 }
 
-// The FAILURE path, which the corpus cannot exercise: it is 589/0, so no passing
-// program compares the two implementations' assertion REPORTS. This case fails
-// on purpose, and the `values:` rows are where the interpreter's rendering of a
-// RoundingMode and rt's have to agree.
+// The FAILURE path, which the corpus cannot exercise: no corpus program fails
+// an assertion. This case fails
+// on purpose, and the `values:` rows are where rt's rendering of a
+// RoundingMode is observable.
 //
 // The left operand is a CALL rather than a variant name, deliberately. Two
 // operands spelled the same way are suppressed by the report's redundancy rule,

@@ -1,18 +1,18 @@
 package rt
 
-// std/calendar's Go TYPE DECLARATIONS, and nothing else.
+// std/calendar's Go type declarations, and nothing else.
 //
 // The semantics (DST gap/fold resolution, end-of-month clamping, RFC 9557 and
 // ISO parsing, the renderings, the whole civil ladder) live in the first-party
-// adapter package `nomi/stdcalendar`, so there is exactly ONE implementation of
+// adapter package `nomi/stdcalendar`, so there is exactly one implementation of
 // each rule. `time/tzdata` is a blank import whose registration runs in
 // `init`, and it is the adapter's import, so its binary size is paid only by a
 // binary that links the adapter.
 //
-// # Why the TYPES live here and not with the implementation
+// # Why the types live here and not with the implementation
 //
 // `rtTypeName` requires `PkgPath() == rtModulePath`, so a `stdStructSpecs` or
-// `stdEnumSpecs` row can only name a Go type declared HERE. Those rows are
+// `stdEnumSpecs` row can only name a Go type declared here. Those rows are
 // what give a calendar value a representation in the IR builder
 // (internal/irbuild). Move a type and the builder loses the representation.
 //
@@ -28,7 +28,7 @@ package rt
 // return `Result<_, calendar.Error>`, a five-variant enum, and collapsing that
 // to String would lose the classification a caller matches on
 // (`Err(Error.Nonexistent(_))` is a DST gap; `Err(Error.InvalidFormat(_))` is
-// a bad string). So the Go side reports the failure as DATA in a carrier and
+// a bad string). So the Go side reports the failure as data in a carrier and
 // the Nomi facade rebuilds the variant.
 
 // Calendar error tags, in std/calendar.nomi's declaration order. 0 is
@@ -58,7 +58,7 @@ const (
 // CalendarError is Nomi's `std/calendar.Error`.
 //
 // Every one of the five variants carries a single `String`, so the payload gets
-// ONE slot shared across them, which is the builder's own dedup rule for a
+// one slot shared across them, which is the builder's own dedup rule for a
 // monomorphic enum (internal/irbuild/types.go's slotDef: one slot per distinct
 // underlying Go type, reused across variants because only one variant is live
 // at a time). Stated here because rt's other tagged structs are the generic
@@ -87,7 +87,7 @@ type Disambiguation struct {
 // declares them separately with separate `derive Equatable`/`Hashable`/
 // `Comparable`. A single struct would make `Date"2026-05-04"` and
 // `NaiveDateTime"2026-05-04T00:00:00"` structurally equal, which is a wrong
-// ANSWER rather than a wasted field — `derive` generates the comparison over
+// answer rather than a wasted field — `derive` generates the comparison over
 // the fields that exist.
 type Date struct {
 	Year  int64
@@ -106,11 +106,11 @@ type Time struct {
 // NaiveDateTime is Nomi's `std/calendar.NaiveDateTime`: a wall reading with no
 // zone and no offset.
 //
-// The seven components ARE the representation — std declares
+// The seven components are the representation — std declares
 // `pub opaque struct NaiveDateTime { year: Int; month: Int; ... }` and its
 // Equatable/Hashable/Comparable come from `derive`, i.e. structurally over
-// these fields. That is correct for this type and WRONG for DateTime, and the
-// difference is the whole reason the two are not one struct: a wall reading is
+// these fields. That is correct for this type and wrong for DateTime, and the
+// difference is why the two are not one struct: a wall reading is
 // its components, and a moment is its instant.
 //
 // Fields are `int64` because the Nomi fields are `Int`, and the adapter
@@ -131,8 +131,8 @@ type NaiveDateTime struct {
 // # InstantNanos is the identity and Zone is not
 //
 // std/calendar.nomi hand-writes `impl Equatable`, `impl Hashable` and
-// `impl Comparable` for this type over `instant_nanos` ALONE, so the same
-// moment rendered in two zones compares EQUAL and hashes the same. Go's `==` on
+// `impl Comparable` for this type over `instant_nanos` alone, so the same
+// moment rendered in two zones compares equal and hashes the same. Go's `==` on
 // this struct would compare Zone too and answer False, which is why Nomi's
 // `==` is never Go's here: `==` on a named type routes through the stdlib's
 // Equatable impl (internal/irbuild/stdlib.go's stdlibEquality) and refuses when
@@ -148,19 +148,19 @@ type DateTime struct {
 }
 
 // OffsetDateTime is Nomi's `std/calendar.OffsetDateTime`: a moment, plus the
-// FIXED UTC offset it is displayed at.
+// fixed UTC offset it is displayed at.
 //
 // The instant is the identity here for the same reason it is DateTime's —
 // std/calendar hand-writes Equatable, Hashable and Comparable over
 // `instant_nanos` alone, so `2026-05-04T14:30:00-05:00` and
-// `2026-05-04T20:30:00+01:00` are ONE value and Go's `==` on this struct would
+// `2026-05-04T20:30:00+01:00` are one value and Go's `==` on this struct would
 // answer False. Nomi's `==` is never Go's here: it routes through the
 // stdlib's Equatable impl (internal/irbuild/stdlib.go's stdlibEquality).
 //
 // The difference from DateTime is DST, not layout. A fixed offset has no
 // transitions, so there is no gap, no fold and no civil-versus-physical
 // divergence below a month: `+ Days(1)` and `+ Duration.hours(24)` agree here
-// and disagree for DateTime. Only the MONTH and YEAR rungs need a wall-reading
+// and disagree for DateTime. Only the month and year rungs need a wall-reading
 // shift, which is why the adapter carries exactly two.
 type OffsetDateTime struct {
 	// InstantNanos is Unix nanoseconds: the moment, and the whole of the
@@ -171,11 +171,11 @@ type OffsetDateTime struct {
 	OffsetSeconds int64
 }
 
-// std/calendar's ten CIVIL PERIODS — `Years` through `Nanoseconds`.
+// std/calendar's ten civil periods — `Years` through `Nanoseconds`.
 //
 // # These are the plain-distinct half of the opaque family
 //
-// std declares them `pub type Years Int`, NOT `pub opaque type`, so they are
+// std declares them `pub type Years Int`, not `pub opaque type`, so they are
 // constructible and destructurable from any file that imports std/calendar
 // (`Days(n * 7)` appears inside std/calendar itself, and a user writes
 // `dt + Hours(3)`). That is a use-site rule the front end enforces and it is
@@ -186,34 +186,33 @@ type OffsetDateTime struct {
 // # Why they are declared here
 //
 // Same reason opaque.go gives for Duration: the builder's kind for a signature
-// that mentions them NAMES a Go type, and that type has to live in a package
+// that mentions them names a Go type, and that type has to live in a package
 // everything links.
 //
-// They appear in no BOUND Go signature. `internal/ffitypes` is a closed projection
+// They appear in no bound Go signature. `internal/ffitypes` is a closed projection
 // table — String, Bool, Byte, Int, Float, Bytes, Duration, Instant, Dynamic,
 // Unit — with no clause for a Nomi distinct over Int, so `fn add(lhs: Date,
 // rhs: Years): Date go pkg.Sym` cannot bind: the boundary reports "parameter 2
 // projects to Int, but Nomi declares Years". Each ladder rung is therefore a
-// NOMI body that destructures its period (`Years(n)`) and calls an
-// `Int`-taking adapter function, which is the shape std/calendar already used
-// for `Add<Weeks, Date>`. The old worry that two rungs would collide on one Go
-// signature — `Add<Hours, DateTime>` and `Add<Minutes, DateTime>` both being
-// `(DateTime, int64) DateTime` — cannot arise, because a Nomi body is lowered
-// rather than dispatched through stdPick.
+// Nomi body that destructures its period (`Years(n)`) and calls an
+// `Int`-taking adapter function, which is the shape std/calendar uses for
+// `Add<Weeks, Date>`. Two rungs cannot collide on one Go signature
+// (`Add<Hours, DateTime>` and `Add<Minutes, DateTime>` would both be
+// `(DateTime, int64) DateTime`), because a Nomi body is lowered rather than
+// dispatched through stdPick.
 //
 // # The width is int64 and TestOpaqueGoWidthMatchesTheDeclaredInner checks it
 //
 // Every row's declared inner is `Int`, which is int64. A narrower Go type would
-// pass every test that runs a small value through it and truncate a large one,
-// which is the mutant that survived the whole suite for `Codepoint`.
+// pass every test that runs a small value through it and truncate a large one.
 //
-// # CIVIL, not physical, and the divergence is the point
+// # Civil, not physical
 //
-// Nothing here is a duration in disguise. `Days(1)` advances the DAY and leaves
+// Nothing here is a duration in disguise. `Days(1)` advances the day and leaves
 // the wall clock reading where it was; `Duration.hours(24)` advances the
-// INSTANT by 24 hours. Across a DST transition those land on different wall
+// instant by 24 hours. Across a DST transition those land on different wall
 // times and neither is a rounding error in the other — see the adapter's
-// DateTimeCivilShift. Months and years additionally CLAMP end-of-month before
+// DateTimeCivilShift. Months and years additionally clamp end-of-month before
 // anything else moves, which is why `2011-01-31 + Months(1)` is `2011-02-28`
 // and `2012-01-31 + Months(1)` is `2012-02-29`.
 type (
@@ -223,7 +222,7 @@ type (
 	Months int64
 	// Weeks is `std/calendar.Weeks`: whole calendar weeks. std lowers
 	// `+ Weeks(n)` to `+ Days(n * 7)` in Nomi; the type is here because a
-	// SIGNATURE names it, which is what an opaqueSpecs row is for.
+	// signature names it, which is what an opaqueSpecs row is for.
 	Weeks int64
 	// Days is `std/calendar.Days`: whole calendar days.
 	Days int64

@@ -9,29 +9,27 @@ package rt
 // NonZeroInt is an Int that has been checked against 0, and `Int.divide` /
 // `Int.modulo` take one so the division cannot trap. Nothing about them is a
 // runtime handle, so — exactly like `Duration` and `Instant` in opaque.go — the
-// representation is a Go DEFINED type over int64.
+// representation is a Go defined type over int64.
 //
-// They are declared HERE for the reason opaque.go gives: a named type's
+// They are declared here for the reason opaque.go gives: a named type's
 // identity in internal/irbuild is the *typeDef its declaration produced, and a
 // std type needs one Go type every module's code can name.
 //
-// NO extern anywhere takes or returns either of them, and that is a difference
-// from opaque.go worth stating rather than glossing. Every function
-// over them in std is ORDINARY NOMI — `Int.to_non_zero(n)` is
+// No extern anywhere takes or returns either of them, which is a difference
+// from opaque.go. Every function over them in std is ordinary Nomi —
+// `Int.to_non_zero(n)` is
 // `if n == 0 { None } else { Some(NonZeroInt(n)) }`, and `Int.divide` is a
-// destructure plus `/` — so what the Go types are needed for is the SIGNATURE of
-// those Nomi bodies, not an implementation. They were unreachable until
-// `Maybe<T>` gained a package-neutral identity (internal/irbuild/stdprelude.go);
-// opaque.go's comment named exactly that as the obstacle.
+// destructure plus `/` — so what the Go types are needed for is the signature of
+// those Nomi bodies, not an implementation. Those signatures also need
+// `Maybe<T>`'s package-neutral identity (internal/irbuild/stdprelude.go).
 //
 // # No Go constructor, and that is deliberate
 //
-// A `NewNonZeroInt(int64) (NonZeroInt, bool)` here would be a SECOND encoding of
-// the refinement rule, and std/int.nomi already has the first one in Nomi. rt
-// implementing it too is how the two drift — the failure this project has hit
-// five times, most recently a shared `listEqual` where an agreement fixture
-// between two spellings was vacuous. So there is one implementation, it is the
-// Nomi source, and the VM runs it.
+// A `NewNonZeroInt(int64) (NonZeroInt, bool)` here would be a second encoding of
+// the refinement rule, and std/int.nomi already has the first one in Nomi. If rt
+// implemented it too, the two could drift, and an agreement test between the
+// two spellings passes when both are wrong the same way. So there is one
+// implementation, it is the Nomi source, and the VM runs it.
 
 // NonZeroInt is Nomi's `std/int.NonZeroInt`: an Int proven not to be 0.
 //

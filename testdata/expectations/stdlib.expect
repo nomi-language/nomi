@@ -12,7 +12,7 @@
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
 records 29
-declared-cases 285
+declared-cases 291
 failing 0
 C assertions
 E 0
@@ -212,7 +212,7 @@ T
 C int
 E 0
 N 18
-H a61e26f3470866b45e71c1011ee921e59c0fc403d5844fd63855060e9b41efe1
+H bb1036c5aad6145930bd260f6a9d9e77eaede394c5d83fa4fbf38b79ae1d88a2
 T ok <root>/std/int.nomi :: impl / max_value //! test line 31
 T ok <root>/std/int.nomi :: impl / min_value //! test line 38
 T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 43-45
@@ -230,7 +230,7 @@ T ok <root>/std/int.nomi :: impl / shift_right //! test line 119
 T ok <root>/std/int.nomi :: impl / modulo //! test lines 125-126
 T ok <root>/std/int.nomi :: impl / to_string //! test lines 137-138
 T ok <root>/std/int.nomi :: impl / divide //! test lines 165-166
-T ok <root>/std/int.nomi :: impl //! test lines 248-250
+T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 249-251
 T test result: ok. 18 passed, 0 failed
 T
 C iter
@@ -318,15 +318,18 @@ T test result: ok. 13 passed, 0 failed
 T
 C maybe
 E 0
-N 6
-H c3a79aed8ffd92bab6b1be644e56969e91dda7beb63b19ee836761d6e05a0352
-T ok <root>/std/maybe.nomi :: Maybe //! test lines 10-15
-T ok <root>/std/maybe.nomi :: impl / some? //! test lines 24-25
-T ok <root>/std/maybe.nomi :: impl / none? //! test lines 35-36
-T ok <root>/std/maybe.nomi :: impl / map //! test lines 46-47
-T ok <root>/std/maybe.nomi :: impl / with_default //! test lines 57-58
-T ok <root>/std/maybe.nomi :: impl / flat_map //! test lines 68-76
-T test result: ok. 6 passed, 0 failed
+N 9
+H 48383ed36742ec4b6c629be9fd3c010313fef335a3df53a0e7e9c85c58ac7448
+T ok <root>/std/maybe.nomi :: Maybe //! test lines 13-18
+T ok <root>/std/maybe.nomi :: impl / some? //! test lines 27-28
+T ok <root>/std/maybe.nomi :: impl / none? //! test lines 38-39
+T ok <root>/std/maybe.nomi :: impl / map //! test lines 49-50
+T ok <root>/std/maybe.nomi :: impl / with_default //! test lines 60-61
+T ok <root>/std/maybe.nomi :: impl / to_result //! test lines 71-72
+T ok <root>/std/maybe.nomi :: impl / flat_map //! test lines 82-90
+T ok <root>/std/maybe.nomi :: impl / collect //! test lines 101-127
+T ok <root>/std/maybe.nomi :: impl / values //! test lines 141-159
+T test result: ok. 9 passed, 0 failed
 T
 C random
 E 0
@@ -372,18 +375,19 @@ T test result: ok. 8 passed, 0 failed
 T
 C results
 E 0
-N 9
-H a6be67cb8636dffb9918abbccfac2f19572d9fa73a9cbaec6963af72c5bd1352
-T ok <root>/std/results.nomi :: Result //! test lines 14-26
-T ok <root>/std/results.nomi :: impl / ok? //! test lines 35-36
-T ok <root>/std/results.nomi :: impl / err? //! test lines 46-47
-T ok <root>/std/results.nomi :: impl / map //! test lines 57-58
-T ok <root>/std/results.nomi :: impl / with_default //! test lines 68-69
-T ok <root>/std/results.nomi :: impl / flat_map //! test lines 79-87
-T ok <root>/std/results.nomi :: impl / map_err //! test lines 97-98
-T ok <root>/std/results.nomi :: impl / to_maybe //! test lines 108-109
-T ok <root>/std/results.nomi :: impl / from_maybe //! test lines 119-120
-T test result: ok. 9 passed, 0 failed
+N 10
+H ebd7be30a89b8ffce48f42c2c60d0333b571f4041a512702b7cb62b4fc7fb114
+T ok <root>/std/results.nomi :: Result //! test lines 16-28
+T ok <root>/std/results.nomi :: impl / ok? //! test lines 37-38
+T ok <root>/std/results.nomi :: impl / err? //! test lines 48-49
+T ok <root>/std/results.nomi :: impl / map //! test lines 59-60
+T ok <root>/std/results.nomi :: impl / with_default //! test lines 70-71
+T ok <root>/std/results.nomi :: impl / flat_map //! test lines 81-89
+T ok <root>/std/results.nomi :: impl / map_err //! test lines 99-100
+T ok <root>/std/results.nomi :: impl / to_maybe //! test lines 110-111
+T ok <root>/std/results.nomi :: impl / collect //! test lines 122-148
+T ok <root>/std/results.nomi :: impl / partition //! test lines 163-180
+T test result: ok. 10 passed, 0 failed
 T
 C sets
 E 0
@@ -404,8 +408,8 @@ T test result: ok. 11 passed, 0 failed
 T
 C strings
 E 0
-N 19
-H 3791c36aabaf73c6db646cc982e11528c386fadaff214ca521db42a1e7955b28
+N 21
+H 58a9b57a633e95f3bfc97b5bbf91d58fe968fde16e6b5aa96c02e4355bc0f048
 T ok <root>/std/strings.nomi :: impl / contains? //! test lines 28-29
 T ok <root>/std/strings.nomi :: impl / starts_with? //! test line 34
 T ok <root>/std/strings.nomi :: impl / ends_with? //! test line 39
@@ -418,14 +422,16 @@ T ok <root>/std/strings.nomi :: impl / normalize //! test lines 70-71
 T ok <root>/std/strings.nomi :: impl / slice //! test line 77
 T ok <root>/std/strings.nomi :: impl / join //! test lines 86-92
 T ok <root>/std/strings.nomi :: impl / split //! test lines 101-104
-T ok <root>/std/strings.nomi :: impl / trim //! test lines 111-113
-T ok <root>/std/strings.nomi :: impl / to_int //! test lines 120-124
-T ok <root>/std/strings.nomi :: impl / to_bytes //! test lines 129-132
-T ok <root>/std/strings.nomi :: impl / to_codepoints //! test lines 137-141
-T ok <root>/std/strings.nomi :: impl / strip_prefix //! test lines 147-148
-T ok <root>/std/strings.nomi :: impl / strip_suffix //! test lines 162-163
-T ok <root>/std/strings.nomi :: impl / length //! test lines 179-180
-T test result: ok. 19 passed, 0 failed
+T ok <root>/std/strings.nomi :: impl / words //! test lines 111-115
+T ok <root>/std/strings.nomi :: impl / lines //! test lines 122-127
+T ok <root>/std/strings.nomi :: impl / trim //! test lines 134-136
+T ok <root>/std/strings.nomi :: impl / to_int //! test lines 143-147
+T ok <root>/std/strings.nomi :: impl / to_bytes //! test lines 152-155
+T ok <root>/std/strings.nomi :: impl / to_codepoints //! test lines 160-164
+T ok <root>/std/strings.nomi :: impl / strip_prefix //! test lines 170-171
+T ok <root>/std/strings.nomi :: impl / strip_suffix //! test lines 185-186
+T ok <root>/std/strings.nomi :: impl / length //! test lines 202-203
+T test result: ok. 21 passed, 0 failed
 T
 C tasks
 E 0

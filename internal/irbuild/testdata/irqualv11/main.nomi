@@ -2,7 +2,7 @@
 //
 // The hole is a SIBLING FILE's `fn`, which is impure, and it is not the last
 // part of the interpolation — so `gen.interp` takes `g.operand` for it and
-// hoists it into a Go temporary. The retained path has to place the same
+// hoists it into a temporary. The retained path has to place the same
 // `ir.Copy` or the call is spliced inline and evaluated where the walk
 // evaluates a temporary.
 import {

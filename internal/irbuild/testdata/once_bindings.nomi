@@ -1,10 +1,10 @@
 // `once` bindings, and the three guarantees that make them more than a
-// package-level `var`. Every line of output below is an answer some plausible
+// module-level value. Every line of output below is an answer some plausible
 // wrong lowering gets wrong.
 //
 //   - LAZY, and therefore order-independent. `total` is declared ABOVE the
-//     `base` it reads. An eager Go `var` ordered by Go's own initialization
-//     graph would either reorder this or run it at a moment the program never
+//     `base` it reads. An eager initializer run in declaration order would
+//     either read `base` too early or run at a moment the program never
 //     asked for.
 //   - EXACTLY ONCE, with an observable side effect. `compute_greeting` prints,
 //     so "forcing greeting" appearing once while "hello" appears twice is the

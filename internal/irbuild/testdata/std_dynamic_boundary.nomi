@@ -2,14 +2,11 @@
 // `pub host type Dynamic` row armed, on BOTH answers where there are two.
 //
 // WHY THIS FIXTURE IS ABOUT WIRING AND NOT ABOUT SEMANTICS. The rules behind
-// these calls live in rt/dynamicops.go and BOTH paths reach them, so
-// requireIdentical cannot see a wrong answer from any of them — the absolute
-// pins in rt/dynamicops_test.go are what cover that. What this fixture CAN
+// these calls live in rt/dynamicops.go, and the absolute pins in
+// rt/dynamicops_test.go cover them. What this fixture CAN
 // catch, and what nothing else can, is a mis-WIRED registry row: `as_int` bound
 // to rt.DynamicAsFloat, or `field` and `index` transposed, or an argument order
-// reversed. The interpreter calls its own builtin and a compiled program calls
-// the bound symbol, so those two disagree and show up as a DIFF. Agreement is
-// not wiring, and this is the wiring half.
+// reversed. Each of those prints a wrong value against the recorded golden.
 //
 // The only source of a Dynamic in pure Nomi is `Json.to_dynamic`, which is the
 // bridge row, so every value below is built through it — meaning a broken bridge
@@ -243,7 +240,7 @@ fn main(): Unit {
     // `pub host type Dynamic` adopt rt's representation, which would be
     // a wrong ANSWER rather than a coverage gap. Dropping the
     // annotation refuses `unrepresentable inferred type (it: Dynamic)`, which is
-    // that rule working, and TestStdDynamicInferredPositionStillRefuses pins it.
+    // that rule working.
     case Dynamic.field(root, "tags") {
         Ok(d) ->
             case Dynamic.as_list(d) {

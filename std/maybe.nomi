@@ -4,6 +4,9 @@ import {
     equatable.Equatable
     hashable.Hashable
     int.Int
+    iter.Iter
+    lists.List
+    results.Result
 }
 
 /// A value that may or may not be present.
@@ -64,6 +67,17 @@ impl Maybe<T> {
         }
     }
 
+    /// Converts Maybe to Result. None becomes Err(error).
+    //! assert Maybe.to_result(Maybe.Some(3), "missing") == Result.Ok(3)
+    //! assert Maybe.to_result(Maybe.None, "missing") == Result.Err("missing")
+    //
+    pub fn to_result<T, E>(maybe: Maybe<T>, error: E): Result<T, E> {
+        case maybe {
+            Some(v) -> Result.Ok(v)
+            None -> Result.Err(error)
+        }
+    }
+
     /// Like map, but the function returns a Maybe. Flattens the result.
     //! safe_div = |a: Int, b: Int|
     //!     if b == 0 {
@@ -80,6 +94,79 @@ impl Maybe<T> {
             Some(v) -> f(v)
             None -> Maybe.None
         }
+    }
+
+    /// Returns Some of every value in order when every element is Some, and
+    /// otherwise None. It stops consuming the iterator at the first None.
+    //! import std/ranges.Range
+    //!
+    //! assert Maybe.collect([Maybe.Some(1), Maybe.Some(2)]) == Maybe.Some([1, 2])
+    //! assert Maybe.collect([Maybe.Some(1), Maybe.None, Maybe.Some(3)]) == Maybe.None
+    //! none: List<Maybe<Int>> = []
+    //! assert Maybe.collect(none) == Maybe.Some([])
+    //!
+    //! halved =
+    //!     [4, 2, 8]
+    //!     |> Iter.map(|n|
+    //!         if n % 2 == 0 {
+    //!             Maybe.Some(n / 2)
+    //!         } else {
+    //!             Maybe.None
+    //!         }
+    //!     )
+    //!     |> Maybe.collect()
+    //!
+    //! assert halved == Maybe.Some([2, 1, 4])
+    //!
+    //! // An infinite source ends: collect stops pulling at the first None.
+    //! stopped =
+    //!     Range.naturals()
+    //!     |> Iter.map(|n| if n < 3 { Maybe.Some(n) } else { Maybe.None })
+    //!     |> Maybe.collect()
+    //!
+    //! assert stopped == Maybe.None
+    //
+    pub fn collect<T>(maybes: Iter<Maybe<T>>): Maybe<List<T>> {
+        reversed = Iter.reduce(maybes, |acc: Maybe<List<T>> = Maybe.Some([]), item|
+            case item {
+                Some(v) -> Maybe.map(acc, |vs| [v, ..vs])
+                None -> break Maybe.None
+            }
+        )
+
+        Maybe.map(reversed, |vs| Iter.reverse(vs))
+    }
+
+    /// Returns the Some values in order and drops every None.
+    //! assert Maybe.values([Maybe.Some(1), Maybe.None, Maybe.Some(3)]) == [1, 3]
+    //! nones: List<Maybe<Int>> = [Maybe.None, Maybe.None]
+    //! assert Maybe.values(nones) == []
+    //!
+    //! empty: List<Maybe<Int>> = []
+    //! assert Maybe.values(empty) == []
+    //!
+    //! halves =
+    //!     [4, 3, 8]
+    //!     |> Iter.map(|n|
+    //!         if n % 2 == 0 {
+    //!             Maybe.Some(n / 2)
+    //!         } else {
+    //!             Maybe.None
+    //!         }
+    //!     )
+    //!     |> Maybe.values()
+    //!
+    //! assert halves == [2, 4]
+    //
+    pub fn values<T>(maybes: Iter<Maybe<T>>): List<T> {
+        reversed = Iter.reduce(maybes, |acc: List<T> = [], item|
+            case item {
+                Some(v) -> [v, ..acc]
+                None -> acc
+            }
+        )
+
+        Iter.reverse(reversed)
     }
 }
 

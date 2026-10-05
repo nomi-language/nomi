@@ -23,8 +23,8 @@ import std/io
 // WHICH DERIVATIONS ARE LET DISAGREE HERE
 //
 //   - ONCE vs REPEATEDLY. `case` tests its scrutinee against every arm in turn,
-//     and eval evaluates the piped value exactly once (evalPipe computes
-//     pipedVal, then hands it to evalCaseMatchWithValue). Every scrutinee below
+//     and the piped value is evaluated exactly once, before the arms are
+//     tried. Every scrutinee below
 //     comes from `loud`, which PRINTS — so a builder that spliced the operand
 //     NODE into each arm's test would print `eval …` two or three times where
 //     this prints it once. A literal scrutinee cannot show that.
@@ -220,9 +220,9 @@ fn main() {
 
     io.print("lambda_early = ${words}")
 
-    // A pipe-valued binding whose stage is a keyword stage. The interpreter
-    // records one pipeline stage per cumulative prefix for this shape (measured,
-    // and the reason pipeStagesRecordable admits it), so `assert flag` on the
+    // A pipe-valued binding whose stage is a keyword stage. One pipeline
+    // stage is recorded per cumulative prefix for this shape (the reason
+    // pipeStagesRecordable admits it), so `assert flag` on the
     // bare name would print all three rows.
     flag =
         12

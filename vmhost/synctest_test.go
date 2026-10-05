@@ -56,7 +56,7 @@ func (b *lockedBuffer) String() string {
 }
 
 // runInBubble loads src, runs it inside a synctest bubble, checks every want
-// appears in its output, and returns the output and the REAL time the run took.
+// appears in its output, and returns the output and the real time the run took.
 func runInBubble(t *testing.T, src string, wants ...string) (string, time.Duration) {
 	t.Helper()
 	var diag lockedBuffer

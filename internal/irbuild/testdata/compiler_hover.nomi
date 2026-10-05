@@ -16,23 +16,18 @@
 // exactly ONE of `Hover`'s two fields. Six distinct failure arms and the
 // `markdown` field are unreached by the whole corpus. They are reached here.
 //
-// # WHAT IS AND IS NOT A DIFFERENTIAL HERE
+// # What this fixture checks
 //
-// Nothing below is a genuine differential and that is deliberate. eval's
-// `compiler.hover` builtin and the VM's `compiler.hover` crossing reach ONE
-// pipeline (nomi/stdcompiler's HoverContent) — that is the invariant the seam is
-// built on, because two marshallings of two pipelines is how a VM program
-// and an interpreted one start disagreeing about a hover string. So
-// `requireIdentical` proves the two paths agree BY CONSTRUCTION for the content,
-// and what it really tests is the LOWERING around it: that
-// `Result<Hover, String>` projects, that `rt.Hover` is the one Go type for the
-// Nomi type, that `case` discriminates the tag, and that `hover.signature` and
+// The VM's `compiler.hover` calls the one pipeline (nomi/stdcompiler's
+// HoverContent), so the hover text itself is that pipeline's. What this
+// fixture tests is the lowering around it: that `Result<Hover, String>`
+// projects, that `rt.Hover` is the one representation of the Nomi type, that
+// `case` discriminates the tag, and that `hover.signature` and
 // `hover.markdown` select the right fields in the right order.
 //
-// That last one is the discriminating row. `signature` and `markdown` are BOTH
-// Strings, so a spec that swapped them would still lower, still build, and still
-// compare equal against an interpreter reading the same swapped spec. The
-// ABSOLUTE text in compiler_hover_test.go is the only thing that fails for it,
+// That last one is the discriminating row. `signature` and `markdown` are both
+// Strings, so a spec that swapped them would still lower and still run. The
+// absolute text in compiler_hover_test.go is what fails for it,
 // which is why `markdown_starts_fenced` and `signature_is_one_line` are printed
 // as separate rows from two reads of one value.
 import {
@@ -92,8 +87,8 @@ fn main() {
 
     // --- BOTH FIELDS OF Hover, from ONE value --------------------------------
     //
-    // The two fields are the same Go type, so a swapped spec is invisible to
-    // every other row here and to the differential comparison. `markdown` is the
+    // The two fields have the same type, so a swapped spec is invisible to
+    // every other row here. `markdown` is the
     // renderer's whole answer and opens with a fence; `signature` is its first
     // line with the fence removed. Printing a PROPERTY of each rather than the
     // text itself keeps this row stable against a documentation edit in std while
@@ -141,7 +136,7 @@ fn main() {
     // Six of them, in the order HoverContent decides them. The corpus reaches at
     // most one. Each is an `Err` payload and NOT a host failure: `hover` has no
     // fallible-host case, so a VM program that turned one of these into a
-    // panic would diverge from the interpreter on the exit code rather than on
+    // panic would fail on the exit code rather than print the `Err` text on
     // stdout.
     io.print("no_marker = " + signature_of("fn main() {\n  _ = 1\n}\n"))
     io.print("two_markers = " + signature_of("fn maˇin() {\n  _ = ˇ1\n}\n"))

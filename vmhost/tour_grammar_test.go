@@ -15,27 +15,27 @@ import (
 // This file checks that the committed grammar wasm matches the committed
 // parser source and that every committed query names only nodes it has.
 //
-// tour_bundle_test.go compares the STAGED grammar wasm against the COMMITTED
+// tour_bundle_test.go compares the staged grammar wasm against the committed
 // one (`TestTourWasmBundleIsTheCurrentSources`, the
-// `tree-sitter-nomi.wasm` row). It does not ask whether the COMMITTED one is
+// `tree-sitter-nomi.wasm` row). It does not ask whether the committed one is
 // what `tree-sitter-nomi/src/` currently generates. This file does.
 //
-// The check is needed because scripts/build-tour-wasm.sh COPIES the committed
+// The check is needed because scripts/build-tour-wasm.sh copies the committed
 // grammar wasm instead of building it: recent tree-sitter-cli binaries want a
 // newer glibc than Cloudflare's build image, and older ones want
-// Docker/Emscripten. So `tree-sitter generate` does NOT refresh the committed
+// Docker/Emscripten. So `tree-sitter generate` does not refresh the committed
 // wasm, and scripts/sync-zed-grammar.sh does not either. A grammar change can
 // leave it stale, and it keeps working only while no query names a node the
 // stale parser lacks.
 //
 // When a query does name such a node, the failure is total. A tree-sitter
-// query naming a node the language does not have fails to COMPILE, and
+// query naming a node the language does not have fails to compile, and
 // `ts_query_new` returning an error takes every other pattern in the file
 // down with it: the tour renders as unhighlighted plain text, not as "one
 // rule missing". TestTourWasmBundleIsTheCurrentSources cannot catch this,
 // because the staged copy is a faithful copy of the stale committed original.
 //
-// SKIP-VERSUS-FAIL, which is the reason for the host choice below.
+// Skip versus fail decides the host choice below.
 //
 // The obvious way to check "can this wasm compile this query" is to do it:
 // load both under node with web-tree-sitter and call `new Query`. That is
@@ -45,57 +45,56 @@ import (
 // web-tree-sitter is npm-vendored into `tour/public/nomi/` by
 // build-tour-wasm.sh, and `public/nomi/` is gitignored. A node-hosted check
 // therefore has to skip when that directory is absent. A fresh clone has no
-// bundle AND could have a stale committed wasm at the same time, so the skip
-// condition and the failure condition OVERLAP, so a skipped check would hide
+// bundle and could have a stale committed wasm at the same time, so the skip
+// condition and the failure condition overlap, and a skipped check would hide
 // the failure it exists to catch; tour_bundle_test.go avoids the same shape
 // for the absent-bundle case. Fetching web-tree-sitter
 // from npm inside a test instead makes the row need the network, which is a
 // worse version of the same problem: it skips (or flakes) offline.
 //
-// So the checks below read the wasm in pure Go and have NO skip condition at
-// all. Both inputs — `tree-sitter-nomi/tree-sitter-nomi.wasm` and
-// `tree-sitter-nomi/src/parser.c` — are committed files in this repository.
+// So the checks below read the wasm in pure Go and have no skip condition at
+// all. Both inputs, `tree-sitter-nomi/tree-sitter-nomi.wasm` and
+// `tree-sitter-nomi/src/parser.c`, are committed files in this repository.
 // The only way to reach a missing input is a broken checkout, and that is a
-// FAIL here, never a skip. There is no tree-sitter CLI, no node, no browser,
+// failure here, never a skip. There is no tree-sitter CLI, no node, no browser,
 // no emscripten and no network in the path.
 //
-// WHAT "READ THE WASM IN PURE GO" MEANS, since it sounds harder than it is.
+// Reading the wasm in pure Go is simpler than it sounds.
 // A tree-sitter grammar wasm is an emscripten side module exporting
 // `tree_sitter_nomi()`, whose whole body is `global.get __memory_base;
-// i32.const ADDR; i32.add; return` — the address of a static `TSLanguage`.
+// i32.const ADDR; i32.add; return`: the address of a static `TSLanguage`.
 // The struct layout is committed right here in
 // `tree-sitter-nomi/src/tree_sitter/parser.h`, and its first field is the ABI
 // version. So: find the export, decode the constant, read the struct out of
 // the data segment, follow `symbol_names` and `field_names`. Roughly 150
-// lines, and it recovers the parser's ACTUAL node vocabulary rather than a
+// lines, and it recovers the parser's actual node vocabulary rather than a
 // proxy for it.
 //
 // Reading the vocabulary rather than grepping the wasm for strings matters.
-// A NUL-terminated-string scan over the data segment is a SUPERSET test:
+// A NUL-terminated-string scan over the data segment is a superset test:
 // short token names like `and`, `pub`, `+` appear in a 1.2MB emscripten
 // binary for reasons unrelated to the grammar, so a scan can report a node
 // present that the parser does not have. The struct walk cannot: it reads
 // the same pointer array `ts_language_symbol_for_name` reads.
 //
-// THE LAYOUT ASSUMPTION IS SELF-CHECKING. If the offsets below were wrong,
+// The layout assumption checks itself. If the offsets below were wrong,
 // the fields would not read as the values parser.c defines. The header check
 // requires version/symbol_count/alias_count/token_count/external_token_count/
 // state_count/large_state_count/production_id_count/field_count/
 // max_alias_sequence_length to all equal the committed `#define`s, so the
 // probability of a wrong layout producing ten correct numbers is nil.
 //
-// DO NOT RENAME THIS FILE TO ANYTHING ENDING `_wasm_test.go`. Go reads the
+// Do not rename this file to anything ending `_wasm_test.go`. Go reads the
 // suffix before `_test` as an implicit GOARCH constraint, so `grammar_wasm_
-// test.go` compiles only for GOARCH=wasm: `go test ./runtime` reported "no
-// tests to run" with the file sitting right there. The first draft was named
-// that and was invisible for one run. The same trap catches `_js_test.go`,
-// `_linux_test.go` and every other GOOS/GOARCH name.
+// test.go` compiles only for GOARCH=wasm, and `go test` reports "no
+// tests to run" with the file sitting right there. The same trap catches
+// `_js_test.go`, `_linux_test.go` and every other GOOS/GOARCH name.
 
 // grammarDir is the tree-sitter grammar package, a sibling of .
 const grammarDir = "../tree-sitter-nomi"
 
 // grammarQueryDirs holds every directory in the repository containing
-// committed tree-sitter queries for Nomi. All three sets run against the SAME
+// committed tree-sitter queries for Nomi. All three sets run against the same
 // grammar — the tour and Helix read tree-sitter-nomi/queries directly, Zed
 // keeps a reverse-priority copy — so one symbol table validates all of them.
 var grammarQueryDirs = []string{
@@ -121,37 +120,32 @@ const grammarRebuildInstruction = "run `make build-tour-grammar-wasm` and commit
 //
 // That is the parser's entire externally-visible vocabulary, and it is where
 // a query resolves its names, so it covers the whole class that breaks
-// highlighting. What it does NOT cover is the parse tables and the external
+// highlighting. What it does not cover is the parse tables and the external
 // scanner: a grammar edit that reshuffles states, or an edit to
 // src/scanner.c, can leave every count and every name identical.
 //
-// THE STRONGER CHECK — rebuild the wasm and compare bytes — WAS PRICED AND
-// DECLINED, on evidence rather than on the cost of writing it:
+// Rebuilding the wasm and comparing bytes would be a stronger check. It is
+// not done, for these reasons:
 //
-//   - It works and it is reproducible. Deleting the committed wasm and
-//     rebuilding with the CLI vendored in tree-sitter-nomi/node_modules
-//     reproduced 448e2b2f's artifact byte for byte (sha256 7e718c68...,
-//     1247633 bytes) in 11 seconds.
+//   - The rebuild is reproducible: rebuilding with the CLI vendored in
+//     tree-sitter-nomi/node_modules reproduces the committed artifact byte
+//     for byte.
 //   - It needs Docker or emscripten. The whole reason
-//     scripts/build-tour-wasm.sh:41-45 COPIES the wasm is that the
+//     scripts/build-tour-wasm.sh copies the wasm is that the
 //     deployment image cannot build one, and `make deploy-tour` runs on a
 //     developer machine, so a required rebuild would make deploying
 //     impossible on any machine without Docker.
-//   - So it would have to SKIP when the toolchain is absent, and unlike
+//   - So it would have to skip when the toolchain is absent, and unlike
 //     tour_bundle_test.go's absent-bundle skip, the skip condition cannot
 //     be made disjoint from the failure condition. Staleness lives in the
 //     artifact and the skip lives in the toolchain; they are independent,
 //     so a machine with no Docker and a stale wasm is silent. The
 //     NOMI_REQUIRE_TOUR_WASM escape does not rescue it either, for the
 //     deploy-path reason above.
-//   - What it would ADD, measured over this repository's history: of 167
-//     commits that changed src/parser.c's content, 158 moved one of the ten
-//     counts or a name in the two tables and 9 did not; three further
-//     commits changed src/scanner.c alone. So the rebuild would catch 12
-//     changes out of about 170, and every one of those 12 is a parse-table
-//     or lexer change that leaves the node vocabulary intact — it cannot
-//     break query compilation, which is the failure that took the tour down
-//     twice.
+//   - What it would add is changes to the parse tables or the external
+//     scanner that leave the node vocabulary intact. Those are rare next to
+//     changes that move a header count or a name, and they cannot break query
+//     compilation, which is the failure this file guards against.
 //
 // A developer who wants the byte answer already has it without any test:
 // `make build-tour-grammar-wasm && git diff --stat tree-sitter-nomi/`.
@@ -238,11 +232,11 @@ Fix: %s`, what, grammarDir, len(diffs), len(wasm), strings.Join(shown, "\n"), gr
 }
 
 // TestTourGrammarQueriesNameRealNodes fails when a committed `.scm` names a
-// node, anonymous token or field the COMMITTED grammar wasm does not have.
+// node, anonymous token or field the committed grammar wasm does not have.
 //
 // This is the user-visible failure stated in its own terms. The browser
 // compiles queries/highlights.scm against tree-sitter-nomi.wasm on every tour
-// page, and one unknown name makes `ts_query_new` fail, which drops ALL
+// page, and one unknown name makes `ts_query_new` fail, which drops all
 // highlighting rather than one rule. The same names are also what Zed and
 // Helix compile, so all twelve query files are checked against the same
 // table, rather than relying on validating them by hand.
@@ -348,7 +342,7 @@ Fix the name, or if the grammar has it: %s`,
 // grammarQueryFiles enumerates the committed `.scm` files. Globbing rather
 // than listing them means a query file added later is covered without anyone
 // remembering this test; an empty or missing directory is a failure, so a
-// MOVED query directory cannot make the row pass vacuously by matching
+// moved query directory cannot make the row pass vacuously by matching
 // nothing.
 func grammarQueryFiles(t *testing.T) []string {
 	t.Helper()
@@ -376,7 +370,7 @@ func sortedKeys(m map[string]bool) []string {
 	return out
 }
 
-// TestTourRunWorkerImportsAreExplicitlyRelative pins ONE defect. It is not
+// TestTourRunWorkerImportsAreExplicitlyRelative pins one defect. It is not
 // coverage of the class the defect belongs to, and it should not be read as
 // such.
 //
@@ -384,10 +378,10 @@ func sortedKeys(m map[string]bool) []string {
 // repository exercises". run-worker.js is a classic Web Worker; the only
 // thing that ever executes its `importScripts` is a browser.
 // TestTourWasmAnswersTheTourBlocks loads the same staged bundle under node
-// and reaches nomi.wasm without going through importScripts at all, so when
-// `importScripts("wasm_exec.js")` was rejected by Chromium as an invalid bare
-// specifier — killing every runnable block in the dev server and in the built
-// dist — every instrument in the repository stayed green. Covering the class
+// and reaches nomi.wasm without going through importScripts at all. When
+// Chromium rejects `importScripts("wasm_exec.js")` as an invalid bare
+// specifier, every runnable block in the dev server and in the built dist
+// stops working, and every other test in the repository stays green. Covering the class
 // needs a browser, and a browser dependency is not worth it for a page with
 // one worker.
 //
@@ -396,13 +390,12 @@ func sortedKeys(m map[string]bool) []string {
 // worker's importScripts argument is resolved as a URL, and a bare word is
 // not a valid relative URL in Chromium.
 //
-// COMMENTS ARE STRIPPED FIRST, and the first draft of this test proves why.
-// run-worker.js:20-27 explains the defect by QUOTING it —
-// `importScripts("wasm_exec.js")` appears in the explanatory comment two
-// lines above the fixed call. A plain scan of the file text reported the
-// comment as the violation, so the row was red against a file that is
-// correct. Stripping first also removes the opposite error, where a fix
-// commented out still reads as present.
+// Comments are stripped first. run-worker.js explains the defect by quoting
+// it: `importScripts("wasm_exec.js")` appears in the explanatory comment two
+// lines above the fixed call, and a plain scan of the file text would report
+// that comment as the violation against a file that is correct. Stripping
+// first also removes the opposite error, where a fix commented out still
+// reads as present.
 func TestTourRunWorkerImportsAreExplicitlyRelative(t *testing.T) {
 	const worker = "../tour/src/lib/run-worker.js"
 	raw, err := os.ReadFile(worker)
@@ -1116,7 +1109,7 @@ type queryRef struct {
 
 // queryWildcards are the names a query may use that the symbol table does not
 // hold. `_` is the wildcard; `ERROR` and `MISSING` are built-ins the query
-// compiler resolves itself, and both are confirmed ABSENT from this grammar's
+// compiler resolves itself, and both are absent from this grammar's
 // ts_symbol_names, so exempting them is required for the check to be correct
 // rather than a convenience.
 var queryWildcards = map[string]bool{"_": true, "ERROR": true, "MISSING": true}

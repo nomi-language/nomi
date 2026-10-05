@@ -2,9 +2,9 @@
 // app-root file declaring the config type plus a dispatching `load`, and one
 // deployment file per environment, each of which names the root's type. app
 // references prod and test; prod and test each reference app. Nomi permits
-// this deliberately — the analyzer resolves names whole-program, so import
+// this deliberately: the analyzer resolves names whole-program, so import
 // order never matters and adding an import cannot produce a circular-dependency
-// error — and Go forbids a package import cycle absolutely.
+// error.
 //
 // The three files are ONE strongly-connected component and therefore ONE
 // builder package (component.go). This fixture exists to force a collision
@@ -21,7 +21,7 @@
 //	`slot`   declared TWICE, returning each file's own `Slot`
 //	`tag`    a `once` declared THREE times, read from inside the package by
 //	         `origin` and from outside by main
-//	`Slot`   a type declared twice (prod, test), so its Go-spelled type name
+//	`Slot`   a type declared twice (prod, test), so its spelled type name
 //	         and its runtime type identity collide too
 //	`Show`   one interface declared here, impl'd for BOTH `Slot`s, so the two
 //	         impl functions and the dispatch-table binding collide
@@ -45,7 +45,7 @@ pub fn stamp(c: Config): String {
     "${c.name}/${c.level}"
 }
 
-// Calls BOTH `build`s — the two declarations that wanted one Go identifier —
+// Calls both `build`s, the two declarations that share one name,
 // from inside the package they share. A collapsed resolution prints prod's
 // Config where test's belongs.
 pub fn load(which: String): Config {
@@ -57,10 +57,10 @@ pub fn load(which: String): Config {
 }
 
 // Both `badge`s, each of which dispatches `Show.show` onto its OWN `Slot`. Two
-// declarations of `impl Show for Slot` wanted one Go identifier for their impl
+// declarations of `impl Show for Slot` share one name for their impl
 // function, and app's interface owns the dispatch table that both of them bind
 // into from other files. The table name must be spelled BARE from those files —
-// qualifying it `nomimod1.NomiX_…` from inside nomimod1 is a Go self-import,
+// qualifying it with the merged package's own name from inside that package is wrong,
 // and a table reference that resolved while naming the wrong package would be a
 // silent wrong answer, since a table is only ever bound and compared.
 //

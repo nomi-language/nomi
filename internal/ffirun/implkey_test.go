@@ -25,7 +25,7 @@ import (
 func stageImplKeyProject(t *testing.T, goSrc, nomiSrc string) (projectRoot, entryPath string) {
 	t.Helper()
 	projectRoot = t.TempDir()
-	nomiRoot := findNomiLangRoot(t)
+	nomiRoot := repoRoot(t)
 
 	bindingDir := filepath.Join(projectRoot, "implbinding")
 	if err := os.MkdirAll(bindingDir, 0o755); err != nil {

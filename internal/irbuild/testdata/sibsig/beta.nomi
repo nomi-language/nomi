@@ -4,13 +4,13 @@
 // That is the discriminator, and its wrong answer is a field read that names
 // nothing rather than a comparison that comes out badly: main.nomi holds a
 // mirror of BOTH declarations under one Nomi name, and the structural
-// comparator built for `{x: Int, y: Int}` reads `F_x` off a struct that
-// has only `F_lat`. Nominal identity is (declaring file, name) — in the builder
+// comparator built for `{x: Int, y: Int}` reads `x` off a struct that
+// has only `lat`. Nominal identity is (declaring file, name) — in the builder
 // the `*typeDef` POINTER, and across the boundary the declaration NODE the
 // mirror carries verbatim.
 //
 // The Float is load-bearing twice over: it makes the two comparators textually
-// different, and Nomi's `==` on Float is REFLEXIVE ON NaN where Go's is IEEE,
+// different, and Nomi's `==` on Float is REFLEXIVE ON NaN where IEEE's is not,
 // so `nan == nan` must be True through the mirror as well.
 pub struct Point {
     lat: Float

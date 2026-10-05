@@ -7,31 +7,30 @@ import {
 // this fixture possible at all.
 //
 // This fixture uses no `concurrent` block and no `Task.spawn`, so the program
-// runs on exactly one goroutine. A buffered channel
-// sent-and-received from that one goroutine needs no second party, so every row
-// below runs on both paths — and a program that blocked would hang the sweep
-// rather than diff, which is why the capacity is always larger than the number
-// of pending values.
+// runs on one task. A buffered channel sent-and-received from that one task
+// needs no second party, and a program that blocked would hang the test
+// rather than fail, which is why the capacity is always larger than the
+// number of pending values.
 //
-// The pairs each row is chosen to let disagree:
+// What each row checks:
 //
-//   - FIFO ORDER. Derived on the interpreter from a Go `chan value.Value` inside
-//     `value.ChannelVal` and in rt from a `chan T` inside `rt.Chan[T]`. Three
+//   - FIFO order. `rt.Chan[T]` holds a `chan T`. Three
 //     values in and three out, printed in receive order, so a LIFO or a
 //     reordering is a wrong answer rather than a tolerated one.
+//
 //   - `Sender.send`'s RESULT SHAPE. It is `Result<Unit, ChannelClosed>`, an
-//     instantiation neither the interpreter nor the builder can produce by
+//     instantiation the builder cannot produce by
 //     accident: the `E` is a marker the program never spells at the call. The
 //     `case` below reads BOTH arms, so an `Ok` rendered as an `Err` or a
 //     `ChannelClosed` whose TypeName is empty prints differently.
 //   - CLOSE-THEN-DRAIN. std documents that a closed channel delivers its
-//     remaining buffered values before answering `None`, which is Go's own
-//     two-value receive — but only if the closed FLAG and the channel agree.
-//     `drain_after_close` sends two, closes, and receives THREE times, so a
-//     close that discarded the buffer prints `None` where the other path prints
-//     a value.
+//     remaining buffered values before answering `None`, but only if the
+//     closed flag and the channel agree.
+//     `drain_after_close` sends two, closes, and receives three times, so a
+//     close that discarded the buffer prints `None` where a value is expected.
+//
 //   - CLOSE-THEN-SEND. `Sender.send` on a closed channel must be
-//     `Err(ChannelClosed)` and must NEVER panic; a bare Go send on a closed
+//     `Err(ChannelClosed)` and must never panic; a bare send on a closed
 //     channel panics, so this row fails loudly if the flag check is dropped.
 //   - RECEIVE ON A CLOSED, EMPTY channel, twice. std documents that every call
 //     after the drain answers `None`, so a second receive that blocked or
@@ -39,9 +38,9 @@ import {
 //   - THE TWO HALVES CROSSING A SIGNATURE BOUNDARY, in both directions and
 //     separately. `feed` takes a `Sender<Int>` and `take_one` takes a
 //     `Receiver<Int>`, so a representation that is only correct at a
-//     construction site fails here — and because the two halves are two Go types
-//     over one runtime object, passing the wrong one is a Go compile error rather
-//     than a wrong answer.
+//     construction site fails here. The two halves are two types over one
+//     runtime object, so passing the wrong one is a type error rather than a
+//     wrong answer.
 //   - `Channel<T>` ITSELF crossing a boundary. `both` takes the pair, which is
 //     the generic-std-struct row, and reads both fields — so a field ORDER or a
 //     field NAME that disagrees with rt's exported spelling fails.

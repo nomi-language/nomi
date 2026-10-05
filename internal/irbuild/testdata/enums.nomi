@@ -10,7 +10,7 @@ struct Circle {
 ///
 /// The layout this lowers to is the point: `Box`'s two `Int` fields need two
 /// slots because they are live together, while `Line`'s `Float` and
-/// `Circle`'s payload each need their own because their Go types differ. Tags
+/// `Circle`'s payload each need their own because their value types differ. Tags
 /// run 1..4 and 0 is reserved invalid.
 enum Shape {
     Nothing
@@ -27,8 +27,8 @@ enum Reading {
     Fahrenheit Int
 }
 
-/// An `Int` variant and a `Float` variant. Identical layout, different Go
-/// type, so they must NOT share a slot — merging them truncates.
+/// An `Int` variant and a `Float` variant. Identical layout, different value
+/// type, so they must NOT share a slot.
 enum Mixed {
     Whole Int
     Fraction Float

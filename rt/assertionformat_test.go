@@ -2,21 +2,19 @@ package rt
 
 import "testing"
 
-// THE CONTRACT, WRITTEN DOWN AS ABSOLUTE TEXT.
+// The contract, written down as absolute text.
 //
 // FormatAssertionFailure is the text `AssertionFailure.format(failure)` returns
 // to a Nomi program and the text the wasm entry point reports a failed run with.
-// Every literal below was captured at cbc4956d.
+// Every literal below was captured from a real run.
 //
-// # Why ABSOLUTE text
+// # Why absolute text
 //
-// THE CORPUS NEVER FAILS AN ASSERTION. `nomi test tests` reports 583
-// passed / 0 failed, so assertion FAILURE rendering is exercised by none of the
-// corpus's cases, and a clean corpus run is a statement about the PASSING path
-// only. rt.WriteAssertionFailure once dropped the `details:` block this
-// renderer prints, measured, and no corpus run could have said so. Only
-// absolute text proves what the renderer prints, which is why the
-// expectations below are spelled out.
+// No corpus case fails an assertion, so assertion failure rendering is
+// exercised by none of them, and a clean corpus run says nothing about the
+// failing path. A renderer that dropped the `details:` block would pass every
+// corpus run. Only absolute text proves what the renderer prints, which is why
+// the expectations below are spelled out.
 //
 // One row per shape the renderer has a branch for. Not a sample of plausible
 // failures: the header, the two expr-header spellings, the binding block with
@@ -46,7 +44,7 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 		want: "line 9: refutation failed\n" +
 			"  refute True",
 	}, {
-		// The expression ALREADY opens with the keyword, so the header must not
+		// The expression already opens with the keyword, so the header must not
 		// print it twice. This is the `assert Pattern = value` spelling, whose
 		// Expr is rendered from a node carrying the pattern and the value.
 		name: "expr already includes the keyword",
@@ -119,9 +117,9 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			"    expected\n" +
 			`      = "Grace"`,
 	}, {
-		// A STRUCT-VALUED operand. The row is RowText, the structural
-		// rendering, sorted by the whole composed `name: value` string and NOT
-		// by declaration order — so a `Point` declared `b` before `a` reads
+		// A struct-valued operand. The row is RowText, the structural
+		// rendering, sorted by field name and not by declaration order, so a
+		// `Point` declared `b` before `a` reads
 		// with `a` first. The renderer does not compose that string and it must
 		// not reformat it either; this row is what would catch one that did.
 		name: "struct-valued operands",
@@ -168,8 +166,8 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			"    Score{points: 3}\n" +
 			"  actual: 3",
 	}, {
-		// The binding block WITH pipeline stages. The stage list is not
-		// compacted here — compaction is applied to an observed VALUE's
+		// The binding block with pipeline stages. The stage list is not
+		// compacted here — compaction is applied to an observed value's
 		// pipeline and not to a binding's, which is a difference between the two
 		// blocks rather than an oversight, and this row and the next pin both
 		// halves of it.
@@ -197,7 +195,7 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			"    |> Iter.any?(|n| n == 4)\n" +
 			"      = False",
 	}, {
-		// An observed value's pipeline IS compacted: a stage whose expression is
+		// An observed value's pipeline is compacted: a stage whose expression is
 		// the previous stage's plus one `|> ` line shows only the new line, so
 		// the block reads as a pipeline rather than repeating its own prefix.
 		name: "observed pipeline is compacted",
@@ -220,7 +218,7 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			"    |> Iter.any?(|n| n == 4)\n" +
 			"      = False",
 	}, {
-		// Compaction is by the IMMEDIATELY preceding stage only, so a stage that
+		// Compaction is by the immediately preceding stage only, so a stage that
 		// is not an extension of its predecessor prints whole.
 		name: "pipeline stage that is not an extension",
 		failure: &AssertionFailure{
@@ -241,7 +239,7 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			"    |> f()\n" +
 			"      = 2",
 	}, {
-		// BOTH blocks, and the ordering rule between them: every direct row
+		// Both blocks, and the ordering rule between them: every direct row
 		// under `values:` first, then every pipeline row under `pipeline
 		// values:`, regardless of the order the two kinds were recorded in.
 		name: "direct and pipeline values interleaved on input",
@@ -265,10 +263,10 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			"      = 2",
 	}, {
 		// The details block: an Assertable value's own explanation rows, which
-		// is the ONE block this renderer has and the test report's does not.
-		// Measured at cbc4956d with a failing `impl Assertable`: `format` prints
-		// these rows and `nomi test` silently drops them, and nothing in the
-		// corpus could have said so because no corpus assertion fails.
+		// is the one block this renderer has and the test report's does not.
+		// With a failing `impl Assertable`, `format` prints
+		// these rows and `nomi test` drops them. No corpus assertion fails, so
+		// this row is what covers the block.
 		name: "details",
 		failure: &AssertionFailure{
 			Line: 31, Keyword: "check", Expr: "low", Reason: "score too low", Actual: "3",
@@ -324,7 +322,7 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 			"      = two rows, in order\n" +
 			"  actual: Wrong{}",
 	}, {
-		// An EMPTY Actual is absence, not an empty row. Same rule the Nomi-value
+		// An empty Actual is absence, not an empty row. Same rule the Nomi-value
 		// conversion applies when it turns "" into `None`.
 		name: "empty actual prints no row",
 		failure: &AssertionFailure{

@@ -7,7 +7,7 @@ package rt
 // function rather than a fast path beside a mapping one that would have to
 // agree about the element rule forever. Go inlines the identity literal.
 //
-// Built from the TAIL forward, because a cons list is cheap to prepend to and
+// Built from the tail forward, because a cons list is cheap to prepend to and
 // `Cons` caches the length as it goes — so this is one pass and n allocations,
 // with no reversal.
 func ListFromGo[G, T any](xs []G, elem func(G) T) *List[T] {

@@ -2126,7 +2126,7 @@ func TestHover_SelfMarkerDrillThrough(t *testing.T) {
 		t.Fatal("doc not in manager after Open")
 	}
 	// Find the `self` definition whose Resolved enum is Color — the
-	// auto-prepended std prelude chain (Task 6 cutover) also emits
+	// auto-prepended std prelude chain also emits
 	// drill-through self markers for Bool/Maybe/Result, so a plain
 	// "first self" lookup is ambiguous; filter by the enum's name.
 	var sym *analysis.Symbol
@@ -3127,7 +3127,7 @@ fn main() {
 			label:     "inner",
 		},
 		{
-			name: "CONTROL — the struct literal, correct since 48cc2bbe",
+			name: "CONTROL — the struct literal",
 			src: `struct Box<T> {
   value: T
 }
@@ -3181,4 +3181,12 @@ func variantLitBindingCursor(t *testing.T, src string) protocol.Position {
 	}
 	t.Fatalf("no binding line found in:\n%s", src)
 	return protocol.Position{}
+}
+
+func TestHover_ThenKeyword(t *testing.T) {
+	got := hoverText(t, "then", "fn label(n: Int): String {\n  n\n  |> ▮then |v| Int.to_string(v + 1)\n}\n")
+	expected := "```nomi\nthen: Int -> String\n```\n\nApplies the lambda to the piped value. Its body ends at the next `|>`; braces keep a pipe inside it."
+	if got != expected {
+		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
+	}
 }

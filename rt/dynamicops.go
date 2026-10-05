@@ -19,19 +19,19 @@ import (
 // `rt.FormatAssertionFailure` the assertion renderer. rt/trap.go states the
 // reason for `NoCaseMatchError`: an observable string has one copy.
 //
-// # The guard is ABSOLUTE
+// # The guard is absolute
 //
 // A comparison between two callers cannot see a bug in code both reach, so the
-// assertion for these strings is ABSOLUTE: rt/dynamicops_test.go pins the
+// assertion for these strings is absolute: rt/dynamicops_test.go pins the
 // renderings and the type vocabulary as literal tables.
 
 // Dynamic is Nomi's `std/dynamic.Dynamic`: a value of unknown shape that crossed
 // an FFI boundary.
 //
 // A one-field struct over `any` rather than a bare `any`, and the wrapper is
-// load-bearing rather than stylistic. `stdHostKindOfGoType` identifies this
+// needed. `stdHostKindOfGoType` identifies this
 // family by `reflect.Type`, so a binding whose parameter were `any` would
-// project onto EVERY declaration whose parameter has no representation — the
+// project onto every declaration whose parameter has no representation — the
 // same failure `rt.Bytes` avoids by not being a plain `string`
 // (internal/irbuild/stdhost.go says so in those terms). Identity on the named
 // type, never on the underlying shape.
@@ -80,7 +80,7 @@ func dynamicTypeName(v any) string {
 // `path` is nil for a terminal extractor and one segment for a navigator, which
 // is std/dynamic.nomi's documented single-segment policy: each navigator's error
 // carries only the segment it generated, and `at_field`/`at_index` are the
-// combinators that accumulate. A `nil *List` IS the empty list, so the two cases
+// combinators that accumulate. A `nil *List` is the empty list, so the two cases
 // need no separate constructor.
 func dynamicErr(path *List[DynamicPathSegment], expected, got string) Result[Dynamic, DynamicDecodeError] {
 	return Err[Dynamic](DynamicDecodeError{Path: path, Expected: expected, Got: got})
@@ -149,11 +149,11 @@ func DynamicIndex(d Dynamic, i int64) Result[Dynamic, DynamicDecodeError] {
 
 // DynamicPath is `std/dynamic.Dynamic.path`: the dotted-path navigator.
 //
-// Every segment is a FIELD navigation; index notation is deliberately absent
+// Every segment is a field navigation; index notation is deliberately absent
 // (std/dynamic.nomi says so) because `a.0.b` would be ambiguous against a dict
 // whose key is "0", and `index` is available for a list.
 //
-// An empty string and an empty segment are separate messages with NO path,
+// An empty string and an empty segment are separate messages with no path,
 // because neither names a navigation that was attempted — the input was
 // malformed before any drilling started.
 func DynamicPath(d Dynamic, dotted string) Result[Dynamic, DynamicDecodeError] {
@@ -195,12 +195,11 @@ func DynamicAsString(d Dynamic) Result[string, DynamicDecodeError] {
 // dynamicIntFromFloat is the shared float-to-Int path, for both float64 and
 // (widened) float32.
 //
-// THE RANGE GUARD'S FORM IS LOAD-BEARING and the naive spelling is wrong.
-// math.MaxInt64 (2^63 - 1) has no exact float64, and converting it rounds UP to
-// 2^63 — so `n > math.MaxInt64` is FALSE for n == 2^63 even though the int64
+// The naive spelling of the range guard is wrong.
+// math.MaxInt64 (2^63 - 1) has no exact float64, and converting it rounds up to
+// 2^63 — so `n > math.MaxInt64` is false for n == 2^63 even though the int64
 // cast overflows. Testing `>= float64(1<<63)` compares against the rounded-up
-// boundary directly, which is what rejects 2^63. Moved with the comment because
-// the comment is why the code is not simpler.
+// boundary directly, which is what rejects 2^63.
 func dynamicIntFromFloat(n float64) Result[int64, DynamicDecodeError] {
 	if math.IsNaN(n) || math.IsInf(n, 0) {
 		return dynamicErrOf[int64](nil, "Int", "Float (NaN/Inf)")
@@ -223,7 +222,7 @@ func dynamicIntFromFloat(n float64) Result[int64, DynamicDecodeError] {
 //
 // The three unsigned guards are not decoration. uint64 — and uint/uintptr on a
 // 64-bit platform — can hold values above MaxInt64 whose top bit becomes the
-// SIGN bit under an int64 cast, so an unguarded conversion answers a negative
+// sign bit under an int64 cast, so an unguarded conversion answers a negative
 // number for a positive input. uint8/uint16/uint32 fit losslessly and need no
 // guard, which is why they have none.
 func DynamicAsInt(d Dynamic) Result[int64, DynamicDecodeError] {
@@ -273,8 +272,8 @@ func DynamicAsInt(d Dynamic) Result[int64, DynamicDecodeError] {
 //
 // No range guard on the unsigned widths here, and the asymmetry with DynamicAsInt
 // is deliberate rather than an omission: every uint64 has a float64 that
-// represents it approximately, so the conversion is lossy in PRECISION but never
-// wrong in SIGN, and refusing it would refuse a value the caller asked to see as
+// represents it approximately, so the conversion is lossy in precision but never
+// wrong in sign, and refusing it would refuse a value the caller asked to see as
 // a Float.
 func DynamicAsFloat(d Dynamic) Result[float64, DynamicDecodeError] {
 	switch n := d.Inner.(type) {
@@ -309,7 +308,7 @@ func DynamicAsFloat(d Dynamic) Result[float64, DynamicDecodeError] {
 
 // DynamicAsBool is `std/dynamic.Dynamic.as_bool`. Strict: only a Go bool.
 //
-// No truthiness. A numeric or string coercion here would be a wrong ANSWER on
+// No truthiness. A numeric or string coercion here would be a wrong answer on
 // the first `0`-means-false source, and std/dynamic.nomi calls the strictness
 // deliberate.
 func DynamicAsBool(d Dynamic) Result[bool, DynamicDecodeError] {
@@ -322,7 +321,7 @@ func DynamicAsBool(d Dynamic) Result[bool, DynamicDecodeError] {
 
 // DynamicAsList is `std/dynamic.Dynamic.as_list`.
 //
-// Each element stays WRAPPED, so per-element decoding composes. Built back to
+// Each element stays wrapped, so per-element decoding composes. Built back to
 // front over `Cons` so the shared-tail invariant holds and `Len` is right at
 // every cell.
 func DynamicAsList(d Dynamic) Result[*List[Dynamic], DynamicDecodeError] {
@@ -339,9 +338,9 @@ func DynamicAsList(d Dynamic) Result[*List[Dynamic], DynamicDecodeError] {
 
 // DynamicAsDict is `std/dynamic.Dynamic.as_dict`.
 //
-// Keys are inserted in SORTED order, and that is an observable decision rather
+// Keys are inserted in sorted order, and that is an observable decision rather
 // than tidiness: Go map iteration is randomized, and `rt.MapEntries` reports
-// INSERTION order, so an unsorted walk would give a Nomi `Map` whose rendering
+// insertion order, so an unsorted walk would give a Nomi `Map` whose rendering
 // differed between runs of one program.
 func DynamicAsDict(d Dynamic) Result[Map[string, Dynamic], DynamicDecodeError] {
 	raw, ok := d.Inner.(map[string]any)
@@ -367,8 +366,8 @@ func DynamicIsNull(d Dynamic) bool { return d.Inner == nil }
 
 // DynamicHas is `std/dynamic.Dynamic.has?`: True iff d is a dict with that key.
 //
-// False for a non-dict and for a missing key alike, and the conflation is the
-// point — the use case is "decode if present", where allocating a DecodeError to
+// False for a non-dict and for a missing key alike, and the conflation is
+// deliberate: the use case is "decode if present", where allocating a DecodeError to
 // discriminate two shapes the caller treats identically is waste.
 func DynamicHas(d Dynamic, name string) bool {
 	dict, ok := d.Inner.(map[string]any)
@@ -383,9 +382,9 @@ func DynamicHas(d Dynamic, name string) bool {
 
 // DynamicInspect backs `impl Debug for Dynamic`.
 //
-// JSON-shaped, because the commonest source of a Dynamic IS a JSON parser and
+// JSON-shaped, because the commonest source of a Dynamic is a JSON parser and
 // reading the rendering against the source document is the likeliest diagnostic
-// activity. It is a development aid and NOT a serialization API — `Json.encode`
+// activity. It is a development aid and not a serialization API — `Json.encode`
 // is that — which is why it renders an unknown Go type as `<%T>` instead of
 // failing.
 func DynamicInspect(d Dynamic) string { return dynamicRender(d.Inner) }
@@ -461,10 +460,9 @@ func dynamicRender(v any) string {
 func JsonToDynamic(jv Json) Dynamic { return Dynamic{Inner: JsonToAny(jv)} }
 
 // InspectDynamic is how an assertion's `values:` row shows a Dynamic, and it is
-// NOT DynamicInspect.
+// not DynamicInspect.
 //
-// MEASURED rather than reasoned from the type, which is the rule inspect.go's Decimal arm states and the reason this function exists at
-// all. A failing `assert Debug.inspect(dyn) == "…"` over a Dynamic wrapping the
+// A failing `assert Debug.inspect(dyn) == "…"` over a Dynamic wrapping the
 // string "hello" reports:
 //
 //	values:
@@ -473,13 +471,13 @@ func JsonToDynamic(jv Json) Dynamic { return Dynamic{Inner: JsonToAny(jv)} }
 //	  Debug.inspect(dyn)
 //	    = ""hello""
 //
-// Two renderings of ONE value, in ONE assertion, two lines apart. So this is the
-// sharpest instance of the four-renderings rule in the tree: `Debug.inspect` is
-// the payload and the row is the WRAPPER's Go type, and reaching for Debug here —
-// the natural mistake, since `impl Debug for Dynamic` exists and is bound — would
-// be a wrong ANSWER that only a deliberately failing fixture could catch.
+// Two renderings of one value, in one assertion, two lines apart:
+// `Debug.inspect` renders the payload and the row renders the wrapper's Go
+// type. Calling Debug here, which is easy to do because `impl Debug for
+// Dynamic` exists and is bound, would give a wrong answer that only a
+// deliberately failing fixture could catch.
 //
-// ONE OWNER FOR THE FORMAT: RowText reaches this `%T` for a Dynamic, and
+// One owner for the format: RowText reaches this `%T` for a Dynamic, and
 // `JsonToAny` produces string/int64/float64/bool/[]any/map[string]any, so the
 // `%T` a program sees is fixed by construction.
 func InspectDynamic(d Dynamic) string { return fmt.Sprintf("<dynamic: %T>", d.Inner) }

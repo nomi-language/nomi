@@ -1,13 +1,13 @@
-// A mapped stdlib extern that FAULTS, on both paths.
+// A mapped stdlib extern that FAULTS.
 //
 // `String.repeat` with a negative count is a runtime error, and a builtin's
 // error text reaches the user VERBATIM — no `line N:` prefix, unlike an
-// arithmetic trap. So the text is a contract between the interpreter and rt, and
+// arithmetic trap. So the text is a contract rt owns, and
 // the `strings.String.repeat:` qualification (which `Int.shift_left`'s does NOT
 // share) is part of it rather than something to tidy.
 //
 // The print before the fault is the other half of the fixture: stdout must carry
-// `before` on both paths before the error reaches stderr, which is what rt.Print
+// `before` before the error reaches stderr, which is what rt.Print
 // writing unbuffered straight to fd 1 buys.
 import std/io
 

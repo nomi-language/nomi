@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// Tests for opaque distinct types (spec §15.3).
+// Tests for opaque distinct types (spec §15, *Opaque distinct types*).
 
 func TestOpaque_SymbolFlagSet(t *testing.T) {
 	src := `pub opaque type PositiveInt Int`

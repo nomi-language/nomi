@@ -1,8 +1,8 @@
 // `==` against an UNTYPED literal — `x == None`, `xs == []`, `m == Map.empty()`.
 //
-// # What this fixture is actually about, because the tally key misnames it
+// # What this fixture is about
 //
-// These comparisons were refused under `mixed-type operator`, and nothing here
+// These comparisons look like `mixed-type operator` cases, and nothing here
 // mixes two types. Both sides of every row below name the SAME type
 // constructor. `Maybe<_>.None`, `List<_>` and `Map<_, _>` are how kind.nomi()
 // renders tagBareNone, tagEmptyList and tagEmptyMap — the language's three
@@ -10,8 +10,8 @@
 // coerce discharges at the one place a wanted type is known. Every other such
 // place already asks: an annotated binding, an argument, a return, a field, a
 // variant payload, a `case` arm, an `if` arm, a spread tail. `==` is a place
-// where the wanted type is known too — it is the other operand — and it was
-// the one place that never asked.
+// where the wanted type is known too: it is the other operand, so `==`
+// asks as well.
 //
 // # Why each row is here and not decoration
 //
@@ -30,8 +30,8 @@
 //     This is the row that answers True, and without it every list row answers
 //     False and a discharge that always answered False would pass.
 //   - `built == []` where `built` came from List.concat, so the True/False
-//     answer cannot come from a pointer identity test: a Go `==` on
-//     two `*rt.List[int64]` compiles and answers by ADDRESS.
+//     answer cannot come from a pointer identity test: comparing two
+//     `*rt.List` values by address would answer False.
 //   - `Some(1) == None` compares a constructor call directly, with no binding
 //     in between, so the operand is not a local the builder already typed.
 //   - `Map.empty()`, the THIRD untyped literal, which has ZERO corpus sites at

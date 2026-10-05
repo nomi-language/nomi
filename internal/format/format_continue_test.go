@@ -17,3 +17,17 @@ func TestFormat_ContinueKeepsAWrittenValue(t *testing.T) {
 		t.Errorf("got:\n%s\nwant:\n%s", got, bare)
 	}
 }
+
+// A comment after a bare `return`, `break` or `continue` stays on its line.
+func TestFormat_BareControlKeepsItsComment(t *testing.T) {
+	src := "fn f(n: Int) {\n    if n > 1 {\n        return // done\n    }\n\n" +
+		"    _ = Iter.reduce(1..=n, |acc = 0, x| {\n        if x > 3 {\n            break // stop\n        }\n\n" +
+		"        if x == 2 {\n            continue // skip\n        }\n\n        acc + x\n    })\n}\n"
+	got, err := Format(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != src {
+		t.Errorf("got:\n%s\nwant:\n%s", got, src)
+	}
+}

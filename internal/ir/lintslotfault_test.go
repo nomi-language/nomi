@@ -427,8 +427,8 @@ func TestMatchLit_TheAnswerIsOptional(t *testing.T) {
 	}
 }
 
-// TestCall_TheCrossingIsMarkedAndItsBoundaryIsStated pins the marker
-// `docs/roadmap.md`'s debugger entry asks to be preserved, and pins what it
+// TestCall_TheCrossingIsMarkedAndItsBoundaryIsStated pins the marker a VM
+// debugger (`docs/roadmap.md`) needs at a host crossing, and pins what it
 // does NOT cover, so the gap is a recorded one rather than a surprise.
 func TestCall_TheCrossingIsMarkedAndItsBoundaryIsStated(t *testing.T) {
 	callee := NewSymbol("io.print")

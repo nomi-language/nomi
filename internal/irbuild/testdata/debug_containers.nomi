@@ -9,7 +9,7 @@ import std/io
 // This is the fixture's whole point and it is not incidental. `Debug.inspect`
 // renders a struct in DECLARATION order; an assertion's `values:` row sorts the
 // COMPOSED `name: value` strings (`rt.InspectStruct`). For most field names the
-// two coincide, so a Debug renderer wrongly built out of inspect.go's row
+// two coincide, so a Debug renderer wrongly built out of the `values:` row's
 // renderer passes every ordinary fixture.
 //
 // `Pt` below is declared `zz` then `a`. Declaration order gives `Pt{zz: 1, a: 2}`
@@ -23,22 +23,13 @@ import std/io
 // has to reach a second container before `debugInspector`'s element call is
 // exercised against its own output rather than against a leaf.
 //
-// # A `List<Bool>` LIVES IN debug_display_surfaces.nomi, NOT HERE
+// # A `List<Bool>` lives in debug_display_surfaces.nomi
 //
-// This note used to say a `List<Bool>` was deliberately absent because
-// `Debug.inspect([True, False])` refused: the LEAF was missing, and reaching
-// for `rt.InspectBool` in the container arm "would make
-// `Debug.inspect([True, False])` lower while `Debug.inspect(True)` kept
-// refusing, which is an asymmetry between two spellings of one operation".
-//
-// That warning named the right condition and it was honoured. The leaf was fixed
-// at the leaf — `std/bool`'s `True`/`False` singletons took `stdHostSpecs` rows,
-// so std's own `bool.Bool.inspect` lowers and the container composes through it
-// — and the container arm here was not touched at all.
-//
-// The rows live in `debug_display_surfaces.nomi` because that is where the
-// SCALAR spelling is pinned beside them, which is the pair the warning was
-// about. Splitting them would recreate exactly the asymmetry it described.
+// `Debug.inspect([True, False])` composes through std's own `bool.Bool.inspect`
+// leaf, the same one `Debug.inspect(True)` uses. Those rows live in
+// `debug_display_surfaces.nomi` because that is where the scalar spelling is
+// pinned beside them, so the two spellings of one operation are checked
+// together.
 struct Pt {
     zz: Int
     a: Int
@@ -100,8 +91,8 @@ fn main() {
     // An empty list, whose rendering comes from its type alone.
     io.print(Debug.inspect([]))
 
-    // The PRELUDE instances, whose rendering was measured on the interpreter
-    // rather than derived (see debugPreludeInspector): a bare variant is its own
+    // The prelude instances: a bare variant is its own
+    // name, a carrying one is `Name(payload)`, and the payload goes through
     // name, a carrying one is `Name(payload)`, and the payload goes through
     // Debug — so a String inside is QUOTED where Display would not quote it.
     io.print(Debug.inspect(Some(42)))

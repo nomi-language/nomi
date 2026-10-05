@@ -37,7 +37,7 @@ impl Comparable for Widget {
 // declaration, method name), so BOTH `compare` members land under one key and
 // only the `iface` field separates them — "Comparable" and "Ranked". Both return
 // `Ordering`, so a lookup ignoring `iface` selects by index order and emits
-// WELL-TYPED GO WITH THE WRONG BODY, which nothing downstream can catch.
+// well-typed code with the wrong body, which nothing downstream can catch.
 //
 // And an interface-qualified call CAN name which one it wants, so `Ranked.compare`
 // is resolvable where `Widget.compare` is not.

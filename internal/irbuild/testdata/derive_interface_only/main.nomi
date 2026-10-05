@@ -14,14 +14,14 @@ fn main() {
 
     io.print(
         ToJson.to_json(a)
-        |> Json.encode
+        |> Json.encode()
     )
 
     all = [Shape.Dot, Shape.Circle(2), Shape.Pair(3, 4), Shape.Box{w: 5, h: 6}]
 
     io.print(
         ToJson.to_json(all)
-        |> Json.encode
+        |> Json.encode()
     )
 
     p: Result<Point, Json.ShapeError> = FromJson.from_json(
@@ -40,6 +40,6 @@ fn main() {
 
     io.print(
         ToJson.to_json(Meters(9))
-        |> Json.encode
+        |> Json.encode()
     )
 }

@@ -2,12 +2,12 @@
 //
 // `walk(0, acc + x)` is tail-marked — MarkTailCalls walks a lambda body with
 // tail=true at its boundary — but it is the LAMBDA's tail, not `walk`'s. A hop
-// there would emit `continue <label>` inside a Go func literal with no
-// enclosing loop, which does not compile; the correct lowering is an ordinary
+// there would emit `continue <label>` inside a closure with no
+// enclosing loop, which is malformed; the correct lowering is an ordinary
 // call to `walk`'s own function, which trampolines itself.
 //
 // So this file is the fixture for the boundary discipline: g.tail must be
-// cleared wherever a Go func literal is opened, exactly as g.ctrl already is.
+// cleared wherever a closure is opened, exactly as g.ctrl already is.
 // `walk` also has a REAL tail self-call, so the emitted module must contain
 // exactly one hop.
 import std/io

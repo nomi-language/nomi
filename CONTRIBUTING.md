@@ -86,12 +86,6 @@ stamped into `nomi` (`-X github.com/nomi-language/nomi/internal/ffirun.ReleaseVe
 script reads each binary's platform and commit back with `go version -m` and
 fails if they disagree with the target or with each other.
 
-There is no Homebrew tap or Scoop bucket yet. Each would be its own repository
-(`homebrew-nomi` with `Formula/nomi.rb`, `scoop-nomi` with `bucket/nomi.json`)
-taking each platform's URL and SHA-256 from the checksum manifest and
-installing `nomi`, `nomi-lsp` and `nomi-runner`, ideally updated by a release
-job step on each tag.
-
 ## License
 
 Unless you explicitly state otherwise, any contribution intentionally

@@ -1,31 +1,25 @@
-// The three stdlib families the KEY COLLAPSE used to hide, and the one it
-// still does.
+// Three stdlib families whose members share one spelling, and the one rung
+// that shares one implementation.
 //
-// `stdKey` was `<module>.<recv>.<name>` and dropped the interface's type
-// arguments, so eleven `impl Add<X, NaiveDateTime>` blocks all answered to
-// `calendar.NaiveDateTime.add` and every call site was refused as ambiguous.
-// The key now carries the instantiation and the call-site spelling is an
-// OVERLOAD SET selected by the argument kinds. Every line below is a routing
+// `stdKey` carries the interface's type arguments, so eleven
+// `impl Add<X, NaiveDateTime>` blocks are eleven keys, and the call-site
+// spelling `calendar.NaiveDateTime.add` is an OVERLOAD SET selected by
+// the argument kinds.
+// Every line below is a routing
 // claim: the wrong member of a set is a WRONG ANSWER, not a slower right one.
 //
-// Zero corpus programs reach any of it, so the sweep's `0 DIFFED` says nothing
-// here and this fixture is the only guard.
+// Zero corpus programs reach any of it, so this fixture is the only guard.
 //
-// AND ONE LINE OF IT IS DELIBERATELY VACUOUS AS A DIFFERENTIAL. The interpreter
-// and the builder now reach ONE implementation of `+ Duration` on a naive value
-// (`rt.NaiveDateTimePlusDuration`), so comparing them cannot detect a bug in the
-// shared code — the ABSOLUTE pinned text in stdkey_test.go is the assertion
-// there, and rt/calendar_test.go pins the same rule at the representation level.
-// Everything else below is genuinely two implementations.
+// One line is rt code rather than a lowered body: `+ Duration` on a naive
+// value is `rt.NaiveDateTimePlusDuration`, so the absolute pinned text in
+// stdkey_test.go is the assertion there, and rt/calendar_test.go pins the
+// same rule at the representation level. Everything else below is a lowered
+// Nomi body.
 //
-// What is NOT here, and it has MOVED rather than stayed out: the ten CIVIL
-// rungs (`+ Months(1)` and its end-of-month clamp, `+ Days(1)` and its DST
-// divergence). This note used to say their operands `Years`…`Nanoseconds` are
-// declared `pub type Years Int` — PLAIN std distincts, not `pub opaque type` —
-// and that "opaqueSpecs admits only the opaque form, so they have no
-// representation at all". The first half is still true and the second is not:
-// opaqueSpec gained a `form` field, all ten took rows, and every rung is now
-// lowerable. They are exercised in testdata/calendar_civil_rungs.nomi and
+// What is NOT here: the ten CIVIL rungs (`+ Months(1)` and its end-of-month
+// clamp, `+ Days(1)` and its DST divergence), whose operands
+// `Years`…`Nanoseconds` are plain std distincts with opaqueSpec rows. They
+// are exercised in testdata/calendar_civil_rungs.nomi and
 // pinned in calendar_civil_test.go, beside the representation-level pins in
 // rt/calendar_test.go (TestCalendarEndOfMonthClamping,
 // TestCalendarCivilAndPhysicalDivergeAcrossSpringForward).
@@ -54,8 +48,8 @@ fn run(): Result<Unit, Error> {
 
     // The leap-year variant, on the rung that lowers. Two hours past 23:00 on
     // February 28th is the 29th in 2012 and March 1st in 2011, and the month
-    // length comes from the same computation the interpreter uses rather than
-    // from a table either side wrote.
+    // length comes from rt's calendar computation rather than
+    // from a table the fixture wrote.
     leap = try NaiveDateTime"2012-02-28T23:00:00"
     common = try NaiveDateTime"2011-02-28T23:00:00"
     io.print("leap = " + NaiveDateTime.to_string(leap + Duration.hours(2)))
@@ -85,15 +79,12 @@ fn run(): Result<Unit, Error> {
             io.print("div = unreachable: 3 is not zero")
     }
 
-    // --- the operator impls whose Go NAMES moved -----------------------------
+    // --- the operator impls that carry their instantiation ------------------
     //
-    // `impl Add<Duration, Duration> for Duration` lowered before this change as
-    // `NomiStd_Duration_Add_add` and now as
-    // `NomiStd_Duration_Add_Duration_Duration_add`, because the minted name has
-    // to carry the instantiation once two impls of one generic interface can both
-    // lower. Five std functions were renamed; these lines are what proves the
-    // rename is complete rather than half-applied, since a stale caller would be
-    // a Go compile error in the generated stdlib.
+    // `impl Add<Duration, Duration> for Duration` is keyed by its full
+    // instantiation, because two impls of one generic interface can both
+    // lower. These lines prove every caller resolves to the instantiated
+    // key; a stale caller would fail to lower.
     d = Duration.hours(3)
     io.print("dur_add = " + Duration.to_string(d + Duration.minutes(30)))
     io.print("dur_sub = " + Duration.to_string(d - Duration.minutes(30)))

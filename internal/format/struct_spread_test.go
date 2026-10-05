@@ -45,8 +45,8 @@ func TestFormat_StructSpreadStacked(t *testing.T) {
 }
 
 // A newline-separated stacked literal lands on the comma-separated canonical
-// form, which is what an ordinary stacked anonymous literal already did at
-// c1992702 — the spread is carried along, not given a style of its own.
+// form, which is what an ordinary stacked anonymous literal does — the
+// spread is carried along, not given a style of its own.
 func TestFormat_StructSpreadStackedMigratesToCommas(t *testing.T) {
 	migrates(t, `fn main() {
     c = {

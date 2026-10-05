@@ -65,52 +65,24 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// reportPins is one population's measured shape for THIS unit.
+// WHICH REPORT-SHAPED RECORDS THIS UNIT MUST COMPARE is decided as the
+// whole-program unit's is (`vmRequiredComparable`, unit "reports"): every
+// report-shaped tour and failure record, and the corpus records named in the
+// committed `vm-corpus-reports.txt`, since a corpus test file whose producer
+// declines one case cannot compare. `stdlib` is not run here: a stdlib
+// record's id is a module, not a path this unit lowers, and
+// TestExpectation_StdlibOnTheVM compares every stdlib case the VM runs.
 //
-// The record count and the report-shaped count are read from `vmPopulations`
-// in expectation_test.go, which owns them, so this table owns only what is
-// its own: how many of the report-shaped records the VM can actually compare.
-// `comparable` moving UP is the producer widening, while moving DOWN is a
-// regression `CompareSubset` forgives by construction — it reports nothing
-// about a subset that got smaller.
-type reportPins struct {
-	comparable int
-	// why is what the population's zero or shortfall is, in one phrase, so a
-	// reader of the table does not have to run it to learn the cause.
-	why string
-}
-
-func (p reportPins) records(population string) int {
-	return vmPopulations[population].records()
-}
-
-func (p reportPins) reportShaped(population string) int {
-	return vmPopulations[population].reportShaped
-}
-
-// vmReportPopulations is the measured state of all four artifacts under this
-// unit.
-var vmReportPopulations = map[string]reportPins{
-	"corpus": {comparable: 110,
-		why: "every report-shaped corpus file whose cases all retain; the rest decline at least one case"},
-	"tour": {comparable: 16,
-		why: "all 16 report-shaped tour records"},
-	"stdlib": {comparable: 0,
-		why: "a stdlib record's id is a module, not a path this unit lowers; " +
-			"TestExpectation_StdlibOnTheVM compares every stdlib case the VM runs"},
-	"failure": {comparable: 49,
-		why: "every failure fixture listed in vmReportComparable; " +
-			"other fixtures reach Decimal, collections or unsupported subjects"},
-}
-
-// THE THREE NAMED LISTS THE TWO MESSAGE PLANTS ARE JUDGED AGAINST, and they
+// THE TWO NAMED LISTS THE TWO MESSAGE PLANTS ARE JUDGED AGAINST, and they
 // are not the same list because the two plants reach different parts of a
-// report. Each comparable record is in exactly the lists whose PROPERTY its
-// recorded transcript has, read off the committed artifact:
+// report. Each comparable failure record is in exactly the lists whose
+// PROPERTY its recorded transcript has, read off the committed artifact:
 //
 //	vmReportWithValueRows        the report prints `values:` rows
 //	vmReportWithSourceFragment   the report QUOTES the assertion's source
-//	vmReportComparable           every comparable record, for the complement
+//
+// Every other comparable record is the complement each plant must leave
+// alone.
 //
 // NAMED RATHER THAN DERIVED, for `vmDbgRecords`' reason: a list computed by
 // "which transcripts contain `values:`" would be computed from the output
@@ -219,327 +191,6 @@ var vmReportWithSourceFragment = []string{
 	"iter_operand_report.nomi",
 	"pipe_stages.nomi",
 	"ordering.nomi",
-}
-
-// vmReportComparable is every record this unit compares, by population.
-var vmReportComparable = map[string][]string{
-	"corpus": {
-		// A struct that holds itself through a List, Maybe, Map or Iter.
-		"07-structs-and-enums/recursive_structs_test.nomi",
-		// Inherent impl blocks on user generic types.
-		"10-generics-and-type-wrappers/generic_inherent_impl_test.nomi",
-		// `try` in a setup body and in a nested fn, Debug of a Set of declared
-		// members, and sort_by over container and std keys.
-		"02-testing/setup_try_test.nomi",
-		"09-functions-and-control-flow/nested_fn_try_test.nomi",
-		"12-derives-and-standard-interfaces/set_debug_test.nomi",
-		"13-iterators-and-pipes/sort_keys_test.nomi",
-		// Debug of a lazy Iter is the `<iter>` placeholder.
-		"13-iterators-and-pipes/iter_inspect_test.nomi",
-		// A declared `Iter<T>` is a value type.
-		"13-iterators-and-pipes/iter_values_test.nomi",
-		// std's Toml handler over `Fragment<Display>`.
-		"17-typed-literals/toml_literal_test.nomi",
-		// User generic enum variants and impls on
-		// generic receivers instantiated from the checker's solved types,
-		// a struct-shaped variant carrying a struct, a binding declared at
-		// an interface type, a bound-solved generic argument, and a generic
-		// enum's struct variant across a module.
-		"10-generics-and-type-wrappers/bound_type_params_test.nomi",
-		"10-generics-and-type-wrappers/generics_test.nomi",
-		"11-interfaces-and-impls/interface_field_update_test.nomi",
-		"11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi",
-		"14-modules-and-packaging/module_qualified_literals/module_qualified_literals_test.nomi",
-		// User operators and qualified operator impls,
-		// Iter.chunks over `[]` and a recursive user Iter source.
-		"12-derives-and-standard-interfaces/add_test.nomi",
-		"13-iterators-and-pipes/iter_test.nomi",
-		"15-app-and-defer/import_vs_app/import_vs_app_test.nomi",
-		// `with` statements: consecutive lines, a `.Variant` value, a
-		// closure called later and a branch.
-		"15-app-and-defer/with_overrides/with_overrides_test.nomi",
-		// `Maybe.hash(None)`'s hole-typed call lowers to an
-		// unreachable fault.
-		"12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi",
-		// `Bool.False(x)` binds a marker of std/bool's False.
-		"12-derives-and-standard-interfaces/display_debug_test.nomi",
-		// Context.with_value and Context.value over Type witnesses.
-		"15-app-and-defer/context_values_test.nomi",
-		// Struct and map patterns in `assert pattern =
-		// value`, payloads over existentials, functions and composite
-		// distincts, and a bare aliased std method in a test body.
-		"02-testing/assertion_pattern_destructuring_test.nomi",
-		"08-pattern-matching/variant_payloads_test.nomi",
-		"14-modules-and-packaging/imports_and_modules_test.nomi",
-		"15-app-and-defer/context_module_values/context_module_values_test.nomi",
-		// Maybe, Result and Assertable subjects, assertions inside an
-		// ordinary fn and a check over a pipe.
-		"02-testing/assert_refute_test.nomi",
-		"02-testing/assertable_test.nomi",
-		"02-testing/assertion_pipe_test.nomi",
-		"02-testing/assertion_rendering_test.nomi",
-		"02-testing/assertion_unwrap_test.nomi",
-		"04-scalars-and-text/ints_test.nomi",
-		// Generic std bodies instantiated per program.
-		"03-tooling-and-diagnostics/formatting_test.nomi",
-		"04-scalars-and-text/random_test.nomi",
-		"18-ffi-and-dynamic/dynamic_decoder_test.nomi",
-		"18-ffi-and-dynamic/json_container_decode_test.nomi",
-		// Enum Equatable impls, opaque types, derived JSON and
-		// the struct call form over a record value.
-		"07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi",
-		"10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi",
-		"18-ffi-and-dynamic/json_derive_test.nomi",
-		"07-structs-and-enums/struct_call_form_record_test.nomi",
-		// Test-body statement shapes: tuple destructures,
-		// rebinding, block-valued bindings, nested `fn`s, single-branch
-		// `case`s, and List.head over sorted std structs.
-		"01-foundations/literals_test.nomi",
-		"01-foundations/shadowing_test.nomi",
-		"05-calendar-and-time/naive_datetime_test.nomi",
-		"05-calendar-and-time/times_test.nomi",
-		"06-collections/tuples_test.nomi",
-		"11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi",
-		"01-foundations/raw_strings_test.nomi",
-		"01-foundations/triple_quoted_strings_test.nomi",
-		// `${` escapes and the text `$`, `#` and `#{` in strings.
-		"01-foundations/interpolation_escapes_test.nomi",
-		"02-testing/setup_semantics_test.nomi",
-		// Qualified construction of an embedded struct (`Shape.Circle{...}`)
-		// retains as the struct widened into its variant.
-		"07-structs-and-enums/embeds_positional_match_test.nomi",
-		"12-derives-and-standard-interfaces/cross_file_debug/cross_file_debug_test.nomi",
-		// A sibling file's `fn` retains once its signature is translated into
-		// this unit as the walk translates it, so `app.load`'s Config result is
-		// this package's mirror and its fields read.
-		"15-app-and-defer/config_pattern/config_pattern_test.nomi",
-		// Every grouped case retains once a walked case takes a named
-		// function's comparison, prelude, task-call and annotated-binding
-		// routes, `Iter.any?` retains, and drain_alerts' empty `Iter.loop`
-		// seed takes the checker's parameter type.
-		// Nested variant patterns (`Some(Request.Get{reply})`), Channel
-		// fields in a struct and a struct-shaped variant, and a called
-		// supervisor piped into `Supervisor.spawn` retain every function.
-		"16-concurrency/message_loop/message_loop_test.nomi",
-		"16-concurrency/supervisors/supervisors_test.nomi",
-		// Lambda pipe stages read back once a test body admits lambdas.
-		"13-iterators-and-pipes/pipe_lambda_test.nomi",
-		// An ungrouped body the read-back attempt declines is retained
-		// walk-only, with a walked body's routes: a qualified call in an
-		// assertion subject records its rows (instant_test's
-		// `Instant.to_seconds`, re_export_facade_test's `leaf.double`),
-		// prelude constructors (try_error_conversion_test's `Ok`) and a
-		// turbofish call (turbofish_test).
-		"05-calendar-and-time/instant_test.nomi",
-		"08-pattern-matching/try_error_conversion_test.nomi",
-		// std's Duration.inspect retains once its bare `to_string(d)` is the
-		// rt.DurationToString host, so every Duration case's Debug links.
-		"05-calendar-and-time/durations_test.nomi",
-		"10-generics-and-type-wrappers/turbofish_test.nomi",
-		"14-modules-and-packaging/re_export_facade/re_export_facade_test.nomi",
-		// A `try` whose boundary is the test body retains in a walk-only body,
-		// and calendar's extern hosts cross by their binding name.
-		"05-calendar-and-time/datetime_zone_changes_test.nomi",
-		"05-calendar-and-time/dst_fall_back_test.nomi",
-		"05-calendar-and-time/dst_spring_forward_test.nomi",
-		"05-calendar-and-time/offset_datetime_test.nomi",
-		// `assert f(x) == None`: the bare variant takes the other operand's type.
-		"08-pattern-matching/try_test.nomi",
-		// Calendar construction and arithmetic retain in std.
-		"05-calendar-and-time/dates_test.nomi",
-		"05-calendar-and-time/datetime_test.nomi",
-		// A 3-segment qualifier (`Json.DecodeError.to_string(e)`) resolves as
-		// its namespaced type's owner.
-		"18-ffi-and-dynamic/json_decode_error_text_test.nomi",
-		// A bare call to a selectively imported sibling `fn` links to the
-		// declaring file's body.
-		"14-modules-and-packaging/cross_file_modules/cross_file_modules_test.nomi",
-		"14-modules-and-packaging/explicit_item_imports/explicit_item_imports_test.nomi",
-		// A call to an erased generic function runs a monomorphic instance.
-		"10-generics-and-type-wrappers/bounds_test.nomi",
-		// `==`/`!=` dispatch to an Equatable impl or compare structurally
-		// (irequality.go), `List.equal?`/`Maybe.equal?` compare, and struct
-		// literals with container fields, generic arguments and std or
-		// sibling defaults build.
-		"04-scalars-and-text/codepoints_test.nomi",
-		"04-scalars-and-text/floats_test.nomi",
-		"04-scalars-and-text/ranges_test.nomi",
-		"07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi",
-		"09-functions-and-control-flow/field_access_and_predicates_test.nomi",
-		"09-functions-and-control-flow/tail_calls_test.nomi",
-		"11-interfaces-and-impls/module_qualified_impl_dispatch/module_qualified_impl_dispatch_test.nomi",
-		"13-iterators-and-pipes/string_iterators_test.nomi",
-		"14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi",
-		// `//!` prompt cases.
-		"02-testing/attached_tests_test.nomi",
-		// Map patterns and destructuring (Map.get, a Some test
-		// and the value's pattern), composite map keys, literal-attach
-		// patterns over an enum, a user enum carrying maps and lists of
-		// itself, and the Map.keys / values / map_values intrinsics.
-		"01-foundations/comment_positions_test.nomi",
-		"06-collections/maps_test.nomi",
-		"08-pattern-matching/compound_patterns_test.nomi",
-		"08-pattern-matching/map_patterns_test.nomi",
-		"08-pattern-matching/variant_literal_attach_test.nomi",
-		"18-ffi-and-dynamic/json_test.nomi",
-		// Enum field reads (ProjEnumField), struct-variant
-		// field sub-patterns, Set algebra and
-		// Iter.to_set, signalling take_while and the remaining Iter
-		// adapters, nested tuple component patterns and Map.values/remove.
-		"06-collections/sets_test.nomi",
-		"07-structs-and-enums/enums_test.nomi",
-		"13-iterators-and-pipes/iterator_inference_test.nomi",
-		"13-iterators-and-pipes/take_drop_test.nomi",
-		"15-app-and-defer/file_store_pattern_test.nomi",
-		// Operands typed by a call's solved signature, and an
-		// untyped empty list passed to a std host.
-		"08-pattern-matching/maybe_result_test.nomi",
-		"04-scalars-and-text/strings_test.nomi",
-		// Vector's std impls and `v == #[]`, Float and
-		// Decimal literal patterns, typed tuple seeds, interface calls and
-		// interpolation over std containers and a std error, a sibling
-		// Comparable for Iter.sort and sort_by with a Direction, `if c {
-		// break }` and bare `return` callbacks and Iter.loop in a subject.
-		"06-collections/lists_test.nomi",
-		"06-collections/vectors_test.nomi",
-		"08-pattern-matching/case_patterns_test.nomi",
-		"09-functions-and-control-flow/closures_and_lambdas_test.nomi",
-		"11-interfaces-and-impls/stdlib_error_display/stdlib_error_display_test.nomi",
-		"12-derives-and-standard-interfaces/collections_test.nomi",
-		"13-iterators-and-pipes/constrained_sort/constrained_sort_test.nomi",
-		"13-iterators-and-pipes/control_flow_test.nomi",
-		"13-iterators-and-pipes/loop_control_test.nomi",
-		// Distincts over tuples, maps and functions,
-		// embedded distincts, derived impls over them, existential
-		// parameters and a sibling type's interface impls.
-		"10-generics-and-type-wrappers/embedded_variants_test.nomi",
-		"10-generics-and-type-wrappers/type_wrappers_test.nomi",
-		"12-derives-and-standard-interfaces/derives_test.nomi",
-		"12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi",
-		"14-modules-and-packaging/same_named_types/same_named_types_test.nomi",
-		// Bindings with `else`: blocks and arms that leave, fallbacks for a
-		// payload, and an else in a test body.
-		"08-pattern-matching/binding_else_test.nomi",
-		// Codepoint literals as values, range ends and case patterns.
-		"04-scalars-and-text/codepoint_literals_test.nomi",
-	},
-	"tour": {
-		"bindings-and-expressions.md:L144",
-		// A Result subject judged by shape.
-		"testing.md:L27",
-		// message_loop's counter server: nested variant patterns and Channel
-		// fields.
-		"concurrency.md:L1118",
-		"testing.md:L16",
-		"testing.md:L158",
-		// `assert [left, right] = [10, 32]` takes a list literal.
-		"testing.md:L54",
-		// Walk-only bodies: a pipe of qualified String calls as an assertion
-		// subject, whose stages record their rows by the walked route.
-		"pipes.md:L165",
-		"testing.md:L138",
-		// A tagged literal in a walk-only body, and a `try` ending the case.
-		"testing.md:L65",
-		"testing.md:L79",
-		// `//!` prompt cases.
-		"bindings-and-expressions.md:L164",
-		"testing.md:L95",
-		"testing.md:L112",
-		"testing.md:L123",
-		// A group whose `boot` line calls the block's own entry boot, beside
-		// the `main` the block runs first.
-		"testing.md:L191",
-		// Two groups calling a boot whose Startup parameter has a default:
-		// one with no argument, one with a Startup.
-		"testing.md:L232",
-	},
-	"failure": {
-		// A nested record in an interpolation hole, a List of a struct
-		// carrying a list, and List.compare over two untyped `[]`.
-		"anon_struct.nomi",
-		"inspect_through_list.nomi",
-		"untyped_list_report.nomi",
-		// `dbg` over an opaque type, a function value and an annotated
-		// discard.
-		"dbg_surfaces.nomi",
-		// A binding declared at an interface type.
-		"erased_operand_row.nomi",
-		// Context values, and `if`/`case` in an assertion subject, whose
-		// scrutinee and arm rows the VM appends to the report.
-		"context_values_report.nomi",
-		// A Decimal Set and Display over containers;
-		// embedded distincts, existential parameters, callable distincts
-		// and ordering operators.
-		"decimal.nomi",
-		"tests_inspect_vs_display.nomi",
-		"debug_embeds.nomi",
-		"debug_erased.nomi",
-		"erased_operand.nomi",
-		"func_operand_row.nomi",
-		"ordering.nomi",
-		"pipe_stage_keyword_report.nomi",
-		"tests_case_subject.nomi",
-		// A `try` that carried an AssertionFailure reports the check itself.
-		"try_check_in_test.nomi",
-		// A `try` inside a lambda leaves the lambda's own activation.
-		"try_in_test.nomi",
-		// Shape and Assertable subjects, and assertions in an ordinary fn
-		// whose failure is the fn's Err.
-		"assert_boundary.nomi",
-		"assert_shape.nomi",
-		"assertable_subject_report.nomi",
-		"check_shape_report.nomi",
-		// `if` without `else` is Unit, and Unit `==` answers after both
-		// operands run; the failing case's rows match.
-		"unit_value.nomi",
-		// The fixture pipe.go names for this divergence: a piped call records
-		// no `values:` rows and a directly written one does. See
-		// internal/irbuild/irpipe.go.
-		"pipe_assert_report.nomi",
-		"tests_call_boundary.nomi",
-		// A bare-name subject's defined-as block.
-		"tests_defined_as.nomi",
-		"tests_fail.nomi",
-		"tests_group_failure.nomi",
-		"tests_mixed.nomi",
-		"tests_refute.nomi",
-		"tests_short_circuit.nomi",
-		"tests_trap.nomi",
-		"virtual_clock_trap.nomi",
-		// An enum field read the variant cannot answer is the case's fault.
-		"enum_field_read_trap.nomi",
-		// Lambda arguments retain in a test body, and a call through a
-		// function value records its argument's row.
-		"tests_lambda_boundary.nomi",
-		// The operator interface written as a call and named by its type.
-		"impl_call_operand_row.nomi",
-		// A Bool singleton bound as a marker of its own type.
-		"debug_display_surfaces.nomi",
-		// A list pattern assertion takes a list literal.
-		"pattern_assert.nomi",
-		// Walk-only bodies: a cross-file file-qualified and type-qualified
-		// call in an assertion subject records its arguments' rows.
-		"siblings/report_test.nomi",
-		"sibimpl/report_test.nomi",
-		// Walk-only bodies take records and the scalar operator impl calls.
-		"anon_vs_nominal.nomi",
-		"scalar_operator_traps.nomi",
-		// A bare `None` on either side of `==`.
-		"untyped_equality_report.nomi",
-		// Struct literals of generic and container-holding structs, and
-		// equality on a std enum.
-		"generic_struct.nomi",
-		"std_enum_modes.nomi",
-		"tests_operands.nomi",
-		// `//!` prompt cases, including a failing one and a `try` that ends
-		// one early.
-		"tests_attached.nomi",
-		"try_attached.nomi",
-		// An Iter as a list element, and a qualified call inside an ordinary
-		// fn's `testing.check` subject recording its rows.
-		"iter_operand_report.nomi",
-		"pipe_stages.nomi",
-	},
 }
 
 // vmReportRoots are the populations whose record ids are paths, with the
@@ -773,7 +424,6 @@ func vmReportPathResolver(t *testing.T, population string) func(string) (string,
 func TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords(t *testing.T) {
 	total, shaped, compared := 0, 0, 0
 	for _, population := range []string{"corpus", "failure", "tour", "stdlib"} {
-		pins := vmReportPopulations[population]
 		set, err := expectation.Load(population)
 		if err != nil {
 			t.Fatalf("%s: loading the committed artifact: %v", population, err)
@@ -781,18 +431,8 @@ func TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords(t *testing.T) {
 		ids, recorded := reportShapedIDs(set)
 		total += len(set.Cases)
 		shaped += len(ids)
-		if len(set.Cases) != pins.records(population) {
-			t.Errorf("%s: %d records, the population table says %d",
-				population, len(set.Cases), pins.records(population))
-		}
-		if len(ids) != pins.reportShaped(population) {
-			t.Errorf("%s: %d report-shaped records, the population table says %d",
-				population, len(ids), pins.reportShaped(population))
-		}
 		if population == "stdlib" {
-			// See vmReportRoots: this population's zero is established by the
-			// decline that produces it rather than by a run it cannot have.
-			compared += pins.comparable
+			// See vmReportRoots: TestExpectation_StdlibOnTheVM compares it.
 			continue
 		}
 		got, refused := vmReportSubsetOf(t, population, ids, recorded,
@@ -801,35 +441,17 @@ func TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords(t *testing.T) {
 			t.Errorf("%s: the VM disagrees with the committed expectation in %d place(s):\n    %s",
 				population, len(diffs), strings.Join(diffs, "\n    "))
 		}
-		if len(got.Cases) != pins.comparable {
-			t.Errorf("%s: %d comparable record(s), pinned at %d. A FALL is the regression this "+
-				"pin exists for: CompareSubset reports nothing about a subset that shrank.\n"+
-				"    compared: %s", population, len(got.Cases), pins.comparable,
-				strings.Join(reportIDs(got), " "))
-		}
+		// THE DENOMINATOR, which CompareSubset cannot supply.
+		vmRequireComparable(t, "reports", population, ids, got, refused, true)
 		compared += len(got.Cases)
 		for _, r := range refused {
 			t.Log("    " + r)
 		}
 	}
-	// THE TOTALS ARE DERIVED, and so are the per-population counts they sum:
-	// `vmPopulations` in expectation_test.go is the single owner, and this
-	// unit contributes only `comparable`, which is its own measurement.
-	wantTotal, wantShaped := 0, 0
-	for _, population := range []string{"corpus", "failure", "tour", "stdlib"} {
-		wantTotal += vmPopulations[population].records()
-		wantShaped += vmPopulations[population].reportShaped
-	}
-	if total != wantTotal {
-		t.Errorf("the four artifacts hold %d records, the table says %d", total, wantTotal)
-	}
-	if shaped != wantShaped {
-		t.Errorf("%d records are report-shaped, the table says %d", shaped, wantShaped)
-	}
 	// THE FRACTION OF THE WHOLE ARTIFACT SET FIRST, because the report-shaped
 	// denominator flatters.
 	t.Logf("report-shaped records compared: %d of %d (%.1f%%), %d of the %d report-shaped",
-		compared, wantTotal, 100*float64(compared)/float64(wantTotal), compared, wantShaped)
+		compared, total, 100*float64(compared)/float64(total), compared, shaped)
 }
 
 // reportIDs is a Set's ids, for logging.
@@ -1008,10 +630,11 @@ func vmReportPlant(t *testing.T, what string, mustReport []string,
 			return out
 		}
 		clean := run(nil)
-		want := vmReportComparable[population]
-		if len(clean.Cases) != len(want) {
-			t.Fatalf("%s: %d comparable record(s) but %d named in vmReportComparable; "+
-				"the control's own subject moved", population, len(clean.Cases), len(want))
+		want := vmRequiredComparable(t, "reports", population, ids)
+		if got := reportIDs(clean); strings.Join(got, "\n") != strings.Join(sortedCopy(want), "\n") {
+			t.Fatalf("%s: %d record(s) compared and %d are required; the control's own "+
+				"subject moved, and TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords "+
+				"names the records", population, len(clean.Cases), len(want))
 		}
 		// THE CONTROL HAS ITS OWN CONTROL: the unmutated run must agree
 		// first, or a reported difference below would prove nothing.
@@ -1146,7 +769,10 @@ func TestVMReport_TheTourLabelIsTheWholeDifference(t *testing.T) {
 	// NAMED RATHER THAN DERIVED, for `vmLinkedRecords`' reason: a list computed
 	// by "which tour records the VM can run" would be computed by the very
 	// mechanism under test.
-	for _, id := range []string{"bindings-and-expressions.md:L144", "testing.md:L16"} {
+	for _, id := range []string{
+		tourBlock(t, "bindings-and-expressions.md", `test "double doubles its input"`),
+		tourBlock(t, "testing.md", `test "arithmetic has the expected shape"`),
+	} {
 		path, ok := pathFor(id)
 		if !ok {
 			t.Fatalf("%s could not be staged", id)

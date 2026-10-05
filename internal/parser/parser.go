@@ -973,6 +973,8 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 		}
 	case *ast.Lambda:
 		return firstNestedAssertion(v.Body)
+	case *ast.Then:
+		return firstNestedAssertion(v.Lambda)
 	case *ast.TryOp:
 		return firstNestedAssertion(v.Expr)
 	case *ast.Dbg:
@@ -1573,7 +1575,7 @@ func (p *Parser) parseExpr(minPrec int) (ast.Node, error) {
 
 func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, error) {
 	start := p.pos
-	left, err := p.parsePrefix()
+	left, err := p.parsePrefixWithPipeStop(stopAtPipe)
 	if err != nil {
 		return nil, err
 	}
@@ -1734,6 +1736,8 @@ func (p *Parser) parsePipeRight(left ast.Node, pipeTok token.Token, leadingForRi
 		return p.parsePipeIfStage(left, pipeTok, leadingForRight)
 	case !p.atEnd() && p.peek().Type == token.CASE:
 		return p.parsePipeCaseStage(left, pipeTok, leadingForRight)
+	case !p.atEnd() && p.peek().Type == token.THEN:
+		return p.parsePipeThenStage(left, pipeTok, leadingForRight)
 	default:
 		right, err := p.parseExpr(infixPrecedence(token.PIPE) + 1)
 		if err != nil {
@@ -1748,11 +1752,40 @@ func (p *Parser) parsePipeRight(left ast.Node, pipeTok token.Token, leadingForRi
 	}
 }
 
+// parsePipeThenStage parses `|> then |v| body`, the stage that applies a
+// lambda to the piped value. The lambda's body ends at the next `|>` of the
+// pipeline, the one place a lambda body does not run to the end of its
+// expression; braces (`then |v| { v |> f() }`) keep a pipe inside it.
+func (p *Parser) parsePipeThenStage(left ast.Node, pipeTok token.Token, leadingForRight []ast.Trivia) (ast.Node, error) {
+	start := p.pos
+	tok := p.peek()
+	p.advance() // consume THEN
+	if p.atEnd() || p.peek().Type != token.BAR {
+		return nil, errorAt(tok.Line, tok.Col, "`then` takes a lambda: write `then |v| ...`")
+	}
+	lamStart := p.pos
+	lam, err := p.parseLambdaStop(true)
+	if err != nil {
+		return nil, err
+	}
+	p.recordSpan(lam, lamStart)
+	stage := &ast.Then{Lambda: lam.(*ast.Lambda), Line: tok.Line, Col: tok.Col}
+	p.recordSpan(stage, start)
+	for _, tr := range leadingForRight {
+		stage.AddLeading(tr)
+	}
+	return pipeNode(left, stage, pipeTok.Line, pipeTok.Col), nil
+}
+
 func (p *Parser) parsePipeValueKeywordStage(left ast.Node, pipeTok token.Token, leadingForRight []ast.Trivia) (ast.Node, error) {
 	var keywords []ast.Node
 	for p.atPipeValueKeyword() {
 		kw := p.parseBarePipeValueKeyword()
 		keywords = append(keywords, kw)
+		if !p.atEnd() && p.peek().Type == token.THEN && p.peek().Line == kw.LineNum() {
+			return nil, errorAt(p.peek().Line, p.peek().Col, "%s does not prefix a `then` stage: write `|> then |v| ...` and `|> %s` as two stages",
+				pipeKeywordName(kw), strings.Trim(pipeKeywordName(kw), "`"))
+		}
 		if p.atEnd() || p.peek().Line != kw.LineNum() || !canStartRangeOperand(p.peek().Type) {
 			if len(keywords) == 1 {
 				for _, tr := range leadingForRight {
@@ -2127,6 +2160,32 @@ func (p *Parser) parseArgList() ([]ast.Node, error) {
 	}
 }
 
+// parsePrefixWithPipeStop is parsePrefix inside the body of a `then` stage
+// when stopAtPipe is set: the prefixes whose operand runs to the end of the
+// expression, a lambda and `dbg expr`, end it at the next `|>` instead.
+func (p *Parser) parsePrefixWithPipeStop(stopAtPipe bool) (ast.Node, error) {
+	if !stopAtPipe || p.atEnd() {
+		return p.parsePrefix()
+	}
+	tok := p.peek()
+	switch tok.Type {
+	case token.BAR:
+		return p.parseLambdaStop(true)
+	case token.DBG:
+		next := p.peekAt(1)
+		if next.Line != tok.Line || !canStartRangeOperand(next.Type) {
+			return p.parsePrefix()
+		}
+		p.advance()
+		expr, err := p.parseExprWithPipeStop(1, true)
+		if err != nil {
+			return nil, err
+		}
+		return &ast.Dbg{Expr: expr, Line: tok.Line, Col: tok.Col}, nil
+	}
+	return p.parsePrefix()
+}
+
 // parsePrefix handles literals, unary operators, and grouping.
 func (p *Parser) parsePrefix() (ast.Node, error) {
 	tok := p.peek()
@@ -2317,7 +2376,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.IDENT:
 		// Contextual keyword: `concurrent { ... }` is the structured-
-		// concurrency scope from spec §20 layer 1. We can't reserve
+		// concurrency scope from spec §20. We can't reserve
 		// `concurrent` as a hard keyword in the lexer because the stdlib
 		// `import std/tasks.{Task, spawn, await}` line — and any
 		// user `import std/tasks.{...}` — relies on `concurrent`
@@ -2333,8 +2392,8 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		// or a variant through the module that exports it, and the brace or
 		// bracket body belongs to that name.
 		//
-		// NONE OF THEM PARSED AS A LITERAL. Measured at
-		// 41a60d35: the body was taken as a separate anonymous struct or
+		// Without this, none of them parsed as a literal:
+		// the body was taken as a separate anonymous struct or
 		// list, so `shapes.Shape.Ring{r: 1}` reported
 		// `non-final expression has type {r: Int}` and
 		// `random.Error.OsEntropy{reason: "b"}` reported
@@ -2401,6 +2460,9 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.BAR:
 		return p.parseLambda()
+
+	case token.THEN:
+		return nil, errorAt(tok.Line, tok.Col, "`then` is a pipe stage: write `value |> then |v| ...`")
 
 	case token.TYPE_IDENT:
 		p.advance()
@@ -2660,6 +2722,11 @@ func (p *Parser) parseHashCollectionLit() (ast.Node, error) {
 		return p.parseVectorLit()
 	case token.LBRACE:
 		return p.parseSetLit()
+	case token.BANG:
+		if next := p.peekAt(1); next.Line == tok.Line && next.Col == tok.Col+1 {
+			return nil, errorAt(tok.Line, tok.Col, "a `#!` line is allowed only as the first line of a file, starting at its first byte")
+		}
+		fallthrough
 	default:
 		return nil, errorAt(tok.Line, tok.Col, "expected '[' or '{' after '#' for collection literal")
 	}
@@ -3170,7 +3237,7 @@ func (p *Parser) parseDefer() (ast.Node, error) {
 }
 
 // parseConcurrentBlock parses `concurrent { body }` — the structured
-// concurrency scope from spec §20 (layer 1). Called from the IDENT
+// concurrency scope from spec §20. Called from the IDENT
 // branch of parsePrimary after the caller has confirmed the current
 // token's lexeme is `concurrent` and the next token is `{`; this
 // function consumes the contextual keyword and the body. Body parsing
@@ -4318,6 +4385,14 @@ func (p *Parser) startsAnnotatedBinding() bool {
 // must be the opening BAR. The body is a single expression; use a block
 // expression (`{ ... }`) for multi-statement bodies.
 func (p *Parser) parseLambda() (ast.Node, error) {
+	return p.parseLambdaStop(false)
+}
+
+// parseLambdaStop is parseLambda with the body's extent chosen. A lambda's
+// body runs to the end of its expression, so `|s| f(s) |> g()` pipes inside
+// the body. Only the lambda of a `then` stage passes stopAtPipe, which ends
+// its body at the next `|>` of the enclosing pipeline.
+func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 	startTok := p.peek()
 	p.advance() // consume opening BAR
 
@@ -4359,19 +4434,17 @@ func (p *Parser) parseLambda() (ast.Node, error) {
 		}
 	}
 
-	// Body: a single expression. A bare lambda body stops before `|>` so
-	// `value |> |x| x == 1 |> dbg` keeps the final pipe in the outer pipeline
-	// even though `|>` binds tighter than `==`. Use a block body
-	// (`|x| { x |> f() }`) when the lambda body itself needs a pipeline.
+	// Body: a single expression, to the end of the enclosing expression, or
+	// for a `then` stage to the next `|>`.
 	bodyStart := p.pos
-	bodyExpr, err := p.parseExprWithPipeStop(1, true)
+	bodyExpr, err := p.parseExprWithPipeStop(1, stopAtPipe)
 	if err != nil {
 		if !p.resilient {
 			return nil, err
 		}
 		// The one expression-level recovery site. `|x| n + ` with the
-		// operand still unwritten is the exact shape the roadmap entry
-		// was filed against: the cursor is INSIDE the lambda, so keeping
+		// operand still unwritten is the shape an editor sees mid-edit:
+		// the cursor is INSIDE the lambda, so keeping
 		// the enclosing statement is not enough — the lambda itself has
 		// to survive or its parameters never reach a scope and `x` is
 		// not offered. The delimiter is unambiguous here (a lambda body
@@ -6031,7 +6104,7 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 			if err != nil {
 				return nil, true, err
 			}
-			return &ast.ImportStmt{ModulePath: segments, Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, true, nil
+			return &ast.ImportStmt{ModulePath: segments, FileSegments: len(segments), Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, true, nil
 		}
 		if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
 			return nil, false, errorAt(tok.Line, tok.Col, "expected import name after ':'")
@@ -6048,7 +6121,7 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 					return nil, true, err
 				}
 				path := append(append([]ast.Node(nil), segments...), selector...)
-				return &ast.ImportStmt{ModulePath: path, Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, true, nil
+				return &ast.ImportStmt{ModulePath: path, FileSegments: len(segments), Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, true, nil
 			}
 			if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
 				return nil, false, errorAt(tok.Line, tok.Col, "expected import owner or name after '.'")
@@ -6069,7 +6142,7 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 			aliases[0] = p.makeImportNode(p.peek())
 			p.advance() // consume alias
 		}
-		return &ast.ImportStmt{ModulePath: path, Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Line: tok.Line, Col: tok.Col}, false, nil
+		return &ast.ImportStmt{ModulePath: path, FileSegments: len(segments), Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Line: tok.Line, Col: tok.Col}, false, nil
 	}
 	sameImportPath := func(a, b *ast.ImportStmt) bool {
 		if len(a.ModulePath) != len(b.ModulePath) {
@@ -6121,7 +6194,7 @@ loop:
 			if err != nil {
 				return nil, err
 			}
-			result = &ast.ImportStmt{ModulePath: segments, Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}
+			result = &ast.ImportStmt{ModulePath: segments, FileSegments: len(segments), Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}
 			break loop
 		}
 		if sep == token.DOT {
@@ -6138,6 +6211,9 @@ loop:
 		// Otherwise expect another path segment. After a SLASH, any
 		// identifier-shaped segment is fine (including keywords used as file
 		// names).
+		if sep == token.SLASH && p.peek().Type == token.LBRACE {
+			return nil, p.groupedImportPathError(segments)
+		}
 		if !isImportPathSegment(p.peek()) {
 			return nil, errorAt(tok.Line, tok.Col, "expected import path segment after '/'")
 		}
@@ -6186,7 +6262,7 @@ loop:
 			p.advance() // consume alias
 		}
 
-		result = &ast.ImportStmt{ModulePath: segments, ModuleAlias: moduleAlias, Line: tok.Line, Col: tok.Col}
+		result = &ast.ImportStmt{ModulePath: segments, FileSegments: len(segments), ModuleAlias: moduleAlias, Line: tok.Line, Col: tok.Col}
 	}
 
 	// Optional line-level `export` shorthand.
@@ -6801,13 +6877,27 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 	return &ast.StructLit{TypeName: typeName, Fields: fields, EndTrivia: endTrivia, Line: line, Col: col}, nil
 }
 
+// atOperandEnd reports whether a `return`, `break` or `continue` has no
+// operand: the next token ends the statement. A same-line comment ends it as
+// a newline does, so `return // done` is a bare return.
+func (p *Parser) atOperandEnd() bool {
+	if p.atEnd() {
+		return true
+	}
+	switch p.peek().Type {
+	case token.NEWLINE, token.SEMICOLON, token.RBRACE, token.COMMENT, token.BLANK_LINE:
+		return true
+	}
+	return false
+}
+
 // parseReturn parses a return statement: return [expr]
 func (p *Parser) parseReturn() (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume RETURN
 
 	// Bare return if next token is a statement terminator
-	if p.atEnd() || p.peek().Type == token.NEWLINE || p.peek().Type == token.SEMICOLON || p.peek().Type == token.RBRACE {
+	if p.atOperandEnd() {
 		return &ast.Return{Value: nil, Line: tok.Line, Col: tok.Col}, nil
 	}
 
@@ -6824,7 +6914,7 @@ func (p *Parser) parseBreak() (ast.Node, error) {
 	p.advance() // consume BREAK
 
 	// Bare break if next token is a statement terminator
-	if p.atEnd() || p.peek().Type == token.NEWLINE || p.peek().Type == token.SEMICOLON || p.peek().Type == token.RBRACE {
+	if p.atOperandEnd() {
 		return &ast.Break{Value: nil, Line: tok.Line, Col: tok.Col}, nil
 	}
 
@@ -6841,8 +6931,7 @@ func (p *Parser) parseBreak() (ast.Node, error) {
 func (p *Parser) parseContinue() (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume CONTINUE
-	if p.atEnd() || p.peek().Type == token.NEWLINE || p.peek().Type == token.SEMICOLON || p.peek().Type == token.RBRACE ||
-		p.peek().Type == token.RPAREN || p.peek().Type == token.RBRACKET || p.peek().Type == token.COMMA {
+	if p.atOperandEnd() || p.peek().Type == token.RPAREN || p.peek().Type == token.RBRACKET || p.peek().Type == token.COMMA {
 		return &ast.Continue{Line: tok.Line, Col: tok.Col}, nil
 	}
 	val, err := p.parseExpr(1)

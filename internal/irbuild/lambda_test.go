@@ -43,9 +43,6 @@ func TestLambdaKindsInternByGoType(t *testing.T) {
 		t.Fatal("(Int) -> Int and () -> Int compare equal")
 	}
 	if got, want := intInt.nomi(), "(Int) -> Int"; got != want {
-		t.Fatalf("Go type = %q, want %q — the frame must be in the signature", got, want)
-	}
-	if got, want := intInt.nomi(), "(Int) -> Int"; got != want {
 		t.Fatalf("Nomi spelling = %q, want %q", got, want)
 	}
 }

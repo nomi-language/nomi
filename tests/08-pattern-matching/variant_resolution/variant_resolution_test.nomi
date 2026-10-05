@@ -178,7 +178,7 @@ fn classify_input(s: String): Result<Input, String> {
 
     guess =
         String.to_int(s)
-        |> try Result.from_maybe("invalid integer")
+        |> try Maybe.to_result("invalid integer")
 
     Ok(.Guess(guess))
 }
@@ -191,7 +191,7 @@ fn classify_input_case(s: String): Result<Input, String> {
         other -> {
             guess =
                 String.to_int(other)
-                |> try Result.from_maybe("invalid integer")
+                |> try Maybe.to_result("invalid integer")
 
             Ok(.Guess(guess))
         }

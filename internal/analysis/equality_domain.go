@@ -12,8 +12,8 @@ import (
 // both sources (so `==` could consume, and never answer on an infinite one).
 // `==` and `!=` over such a value, or over a tuple, record, collection, prelude
 // wrapper or struct that holds one, are rejected here, so the program never
-// reaches a comparison the VM cannot answer (spec §16, "Values with no
-// equality").
+// reaches a comparison the VM cannot answer (spec §30, "Functions and Iters
+// cannot be compared").
 //
 // A declared struct or enum with its own `impl Equatable` is exempt: its
 // equality is whatever that impl answers. Its type arguments are not.

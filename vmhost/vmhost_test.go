@@ -3,6 +3,7 @@ package vmhost_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,7 +89,8 @@ fn main() {
 // The run is refused before its first effect: `main` prints "before" first,
 // and nothing is printed.
 func TestRun_ABlockedProgramNamesItsFunctionAndRunsNothing(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, blockedProgram))
+	path := writeProgram(t, blockedProgram)
+	p, err := vmhost.Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,17 +107,40 @@ func TestRun_ABlockedProgramNamesItsFunctionAndRunsNothing(t *testing.T) {
 	if len(blocked.Reasons) != 1 || blocked.Reasons[0] != want {
 		t.Fatalf("reasons %q, want [%q]", blocked.Reasons, want)
 	}
+	// The report is the diagnostic `nomi check` gives, at the struct literal
+	// the lowering stopped at, and never the builder's reason.
+	diag := "this struct literal is not supported yet, so `fn count` cannot run"
 	var report bytes.Buffer
 	blocked.Write(&report, "main.nomi")
-	if !strings.HasPrefix(report.String(), "BLOCKED main.nomi "+want+"\n") {
-		t.Fatalf("report %q does not start with the BLOCKED line", report.String())
+	wantReport := "error: " + diag + "\n --> " + path + ":7:11\n  |\n7 |     weigh(Node{f: Map.empty()}) + 3\n  |           ^^^^\n"
+	if report.String() != wantReport {
+		t.Fatalf("report:\n%s\nwant:\n%s", report.String(), wantReport)
+	}
+	if got := blocked.Error(); got != path+":7:11: "+diag {
+		t.Fatalf("Error() = %q", got)
+	}
+	checked := vmhost.Check(path)
+	if checked == nil || checked.Error() != blocked.Error() {
+		t.Fatalf("Check answered %v; want the run's diagnostic %q", checked, blocked.Error())
+	}
+}
+
+// A blocker that is not a declined body (here a host function nothing
+// binds) keeps its BLOCKED line and closing line.
+func TestBlocked_WithoutADiagnosticKeepsItsReason(t *testing.T) {
+	b := &vmhost.Blocked{Reasons: []string{"[vm] machine limit: x"}}
+	var report bytes.Buffer
+	b.Write(&report, "main.nomi")
+	if want := "BLOCKED main.nomi [vm] machine limit: x\nthe VM cannot run this program\n"; report.String() != want {
+		t.Fatalf("report %q, want %q", report.String(), want)
 	}
 }
 
 // Every case is reported, in source order: the
 // retained ones run to their verdict and the blocked one names its reason.
 func TestTest_ReportsRunnableAndBlockedCasesInOrder(t *testing.T) {
-	p, err := vmhost.Load(writeProgram(t, blockedProgram))
+	path := writeProgram(t, blockedProgram)
+	p, err := vmhost.Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,8 +148,10 @@ func TestTest_ReportsRunnableAndBlockedCasesInOrder(t *testing.T) {
 	if len(cases) != 3 {
 		t.Fatalf("%d cases, want 3: %+v", len(cases), cases)
 	}
-	if cases[0].Name != "counts" || cases[0].Blocked == nil ||
-		cases[0].Blocked[0] != "[count] not retained: a struct literal: Node" {
+	diag := path + ":7:11: this struct literal is not supported yet, so `fn count` cannot run"
+	if cases[0].Name != "counts" || len(cases[0].Blocked) != 1 || cases[0].Blocked[0] != diag ||
+		len(cases[0].Reasons) != 1 || cases[0].Reasons[0] != "[count] not retained: a struct literal: Node" ||
+		cases[0].BlockedPath != path || cases[0].BlockedLine != 7 {
 		t.Fatalf("case 0 = %+v, want counts blocked on count", cases[0])
 	}
 	if cases[1].Name != "adds" || cases[1].Blocked != nil || cases[1].Err != nil {
@@ -140,7 +167,7 @@ func TestTest_ReportsRunnableAndBlockedCasesInOrder(t *testing.T) {
 	rep.Summary()
 	text := report.String()
 	for _, want := range []string{
-		"BLOCKED f :: counts [count] not retained: a struct literal: Node\n",
+		"BLOCKED f :: counts " + diag + "\n",
 		"f :: adds\n",
 		"f :: fails\n",
 		"1 passed, ",
@@ -150,6 +177,28 @@ func TestTest_ReportsRunnableAndBlockedCasesInOrder(t *testing.T) {
 		if !strings.Contains(stripANSI(text), want) {
 			t.Fatalf("report lacks %q:\n%s", want, text)
 		}
+	}
+}
+
+// A blocked JSON record carries the diagnostic as its message and the line of
+// the code the compiler could not lower as its error_line.
+func TestTest_JSONBlockedRecordLocatesItsBlocker(t *testing.T) {
+	path := writeProgram(t, blockedProgram)
+	p, err := vmhost.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var report bytes.Buffer
+	rep := vmhost.NewTestReportFormat(&report, vmhost.TestFormatJSON)
+	p.Test(&bytes.Buffer{}, rep, path, vmhost.TestOptions{}, func(n string) string { return n })
+	first, _, _ := strings.Cut(report.String(), "\n")
+	var rec map[string]any
+	if err := json.Unmarshal([]byte(first), &rec); err != nil {
+		t.Fatalf("%v: %s", err, first)
+	}
+	want := path + ":7:11: this struct literal is not supported yet, so `fn count` cannot run"
+	if rec["status"] != "blocked" || rec["message"] != want || rec["error_line"] != float64(7) {
+		t.Fatalf("blocked record %s", first)
 	}
 }
 

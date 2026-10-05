@@ -7,15 +7,14 @@ import (
 )
 
 // Two same-short-named types from two modules must be two identities, in the
-// address the table keys on AND in the diagnostic string.
+// address the table keys on and in the diagnostic string.
 //
-// This is `c2afa942` written as a test. There, `shapes.Point`-shaped names were
-// cut at the last dot and two impls came to share one slot, resolved by Go map
-// order. Here nothing is cut because nothing is a string: the key is the
-// variable's address. The second assertion guards the hazard that fix
-// introduces — a toolchain that merged two byte-identical package variables
-// would undo it — and the third guards the one it replaced, since two
-// package-level variables of a zero-sized type may legally share an address.
+// This is the short-name collapse dispatch.go's file comment describes, written
+// as a test. Nothing is cut here because nothing is a string: the key is the
+// variable's address. The second assertion guards against a toolchain that
+// merges two byte-identical package variables, and the third against two
+// package-level variables of a zero-sized type sharing an address, which Go
+// permits.
 func TestTypeIDsAreDistinctAddresses(t *testing.T) {
 	shapesPoint := TypeID{Nomi: "shapes.Point"}
 	geometryPoint := TypeID{Nomi: "geometry.Point"}
@@ -33,7 +32,7 @@ func TestTypeIDsAreDistinctAddresses(t *testing.T) {
 }
 
 // A name is never consulted. Two types whose diagnostic strings are identical —
-// which is exactly what `ShortTypeName` produced when it cut at the last dot —
+// as a cut at the last dot would make them —
 // still get their own slots and their own answers.
 func TestDispatchIgnoresTheDiagnosticName(t *testing.T) {
 	jsonErr := TypeID{Nomi: "DecodeError"}
@@ -94,12 +93,12 @@ func TestMissingImplTraps(t *testing.T) {
 }
 
 // NoImplFor is the same fault reached from a statically resolved call site, and
-// this pin is what keeps the two spellings ONE message.
+// this pin is what keeps the two spellings one message.
 //
-// The pin is ABSOLUTE and not a `Contains`, because the caller that needs it is
+// The pin is absolute and not a `Contains`, because the caller that needs it is
 // irbuild's `preludeHashCall` building an arm for a prelude type argument no
 // program can solve — the text for `Hashable.hash` at Unit, in an arm that
-// never runs. **No corpus run can see a drift there**: no value of an unsolved
+// never runs. No corpus run can see a drift there: no value of an unsolved
 // position exists in any program, so nothing ever reaches the arm and no
 // fixture can record its output. This is the guard.
 func TestNoImplForIsTheSameMessageAsAMissedDispatch(t *testing.T) {
@@ -118,12 +117,11 @@ func TestNoImplForIsTheSameMessageAsAMissedDispatch(t *testing.T) {
 	t.Fatal("NoImplFor returned")
 }
 
-// And the two really are one function rather than two literals that agree.
+// The two routes are one function rather than two literals that agree.
 //
-// A `Contains` would pass for a copy; this compares the WHOLE text produced by
+// A `Contains` would pass for a copy; this compares the whole text produced by
 // each route at one (key, type) pair, which is the only thing that fails when
-// somebody corrects one site and not the other. Main asked for exactly this
-// when the extraction was approved.
+// somebody corrects one site and not the other.
 func TestMissedDispatchAndNoImplForShareOneFormat(t *testing.T) {
 	tid := TypeID{Nomi: "m.Cat"}
 	m := NewMethod[func(*Frame) string]("Speech.speak")

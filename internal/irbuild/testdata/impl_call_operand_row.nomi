@@ -1,19 +1,16 @@
 // What an assertion's `values:` rows say when the subject is an IMPL CALL.
 //
-// The assertions below FAIL ON PURPOSE. That is not a stylistic choice, it is
-// the only way this surface is observable at all: a PASSING assertion renders
-// no operand, and every assertion in the corpus passes, which is exactly why
-// `directImplCall records no argument rows` sat unnoticed. The whole
-// differential sweep is blind to it.
+// The assertions below FAIL ON PURPOSE. That is the only way this surface is
+// observable at all: a PASSING assertion renders no operand, and every
+// assertion in the corpus passes, so the corpus cannot see these rows.
 //
-// # What differed at the parent
+// # The shared route
 //
-// Every other call path routes its arguments through `recordCallArgs` —
-// native.go's user-function path, the stdlib path, lists/maps/sets/ranges,
-// the prelude paths, the channel and concurrency paths. `directImplCallAt`
-// did not, so a failing assertion whose subject reached an impl produced a
-// report with the CALL's row and none of its ARGUMENTS', while the
-// interpreter (eval's recordAssertionCallSlots) produced both.
+// Every call path routes its arguments through `recordCallArgs`: the
+// user-function path, the stdlib path, lists/maps/sets/ranges, the prelude
+// paths, the channel and concurrency paths, and `directImplCallAt`. A failing
+// assertion whose subject reaches an impl reports the call's row and each of
+// its arguments' rows.
 //
 // # The four spellings, and why all four are here
 //
@@ -31,9 +28,8 @@
 // `recordCallArgs` includes literal arguments only when the callee returns
 // Bool — a predicate's literal inputs are what the reader wants (`assert
 // even?(5)` shows `5 = 5`), an ordinary call's are noise (`assert double(3) ==
-// 7` must not print `3 = 3`). The interpreter decides that from the call's
-// runtime result and the builder from the callee's declared return type, so
-// the two agree only if the builder reads the SELECTED implementation's
+// 7` must not print `3 = 3`). The builder decides that from the callee's
+// declared return type, so it has to read the SELECTED implementation's
 // result. `bump` returns Int and `even_sum?` returns Bool, so the `3` is
 // dropped in one report and printed in the other, a few lines apart.
 interface Bumper {
@@ -135,11 +131,9 @@ impl Add<Days, Day> for Day {
     }
 }
 
-// Both arguments are BOUND rather than written as constructor calls, and that
-// is a measured avoidance rather than tidiness: `Days(step())` makes the
-// interpreter record the inner `step() = 2` while the builder's constructor
-// path does not, which is a SEPARATE gap on the constructor argument recording
-// and not this one. Bundling it here would attribute two gaps to one fix.
+// Both arguments are BOUND rather than written as constructor calls, so the
+// rows here come from the impl call alone and not from constructor argument
+// recording, which is a separate path.
 test "the operator interface written as a call records its arguments" {
     ten = Day(10)
     four = Days(4)

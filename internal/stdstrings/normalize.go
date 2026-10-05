@@ -1,23 +1,22 @@
 // Package stdstrings is std/strings' host implementation for the operations
 // that need a dependency `rt` does not carry.
 //
-// # The reason this is not in rt, and why it is a DIFFERENT reason from stdio's
+// # Why this is not in rt, and how the reason differs from stdio's
 //
 // One function today: `String.normalize`, which needs
 // golang.org/x/text/unicode/norm. rt does not import x/text, and rt is linked
 // by everything that runs Nomi, so an x/text import in rt would be a decision
 // about every binary. Placed here, it is a decision about the compiler only.
 //
-// The precedent went the other way once, deliberately:
-// `github.com/rivo/uniseg` was allowed in rt for `String.length`'s grapheme
-// clusters, on the stated ground that "`String.length` is an ordinary
-// language primitive rather than a toolchain feature". Normalization is not that:
+// rt does import `github.com/rivo/uniseg`, for `String.length`'s grapheme
+// clusters, because `String.length` is an ordinary language primitive rather
+// than a toolchain feature. Normalization is not that:
 // it is a Unicode-table operation on a form the caller names.
 //
 // rt's import allowlist (rt/imports_test.go, TestRuntimeImportsOnlyItsAllowlist)
 // does not include x/text, so an x/text import in rt fails that test.
 //
-// # ONE implementation of the form mapping
+// # One implementation of the form mapping
 //
 // The switch from rt.NormalForm onto a `norm.Form` lives here once.
 // internal/stdlibbindings binds Normalize as an `RtFuncs` row.

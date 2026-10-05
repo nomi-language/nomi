@@ -3,11 +3,10 @@ import std/io
 // Probe: IRREFUTABLE DESTRUCTURING ON A LAMBDA PARAMETER.
 //
 // Spec §5 lets a lambda parameter be a pattern rather than a name, with an
-// optional annotation the self-typing rule usually makes redundant. Go has no
-// destructuring at all, so the value arrives whole in one anonymous parameter
-// and every name the pattern introduces is read back out of it — which is what
-// the interpreter's applyDestructure does too, minus the runtime checks the
-// pattern's irrefutability removes.
+// optional annotation the self-typing rule usually makes redundant. The value
+// arrives whole in one anonymous parameter and every name the pattern
+// introduces is read back out of it, with no run-time check, because the
+// pattern is irrefutable.
 //
 // Three of the four pattern families are here. Tuple patterns are absent on
 // purpose: a tuple has no representation in the builder yet, so the pattern is

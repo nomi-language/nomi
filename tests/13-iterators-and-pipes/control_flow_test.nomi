@@ -127,11 +127,10 @@ test "each accepts break continue and return in callbacks" {
 
     return_from_callback =
         [1, 2, 3]
-        |> Iter.each(|x|
-            if x == 2 {
-                return
-            }
-        )
+        |> Iter.each(|x| {
+            if x == 2 { return }
+            _ = x + 1
+        })
 
     assert stop_at_sentinel == Unit
     assert skip_even == Unit

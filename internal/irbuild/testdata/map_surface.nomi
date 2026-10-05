@@ -2,10 +2,10 @@ import std/io
 
 // `Map.keys` / `Map.values` / `Map.map_values`, and map destructuring.
 //
-// These four are one fixture because they let the SAME two independently-derived
-// facts contradict each other: the ORDER a Map yields its entries in, derived on
-// the interpreter from `value.MapVal`'s seq counter and in rt from
-// `rt.MapEntries`. Every assertion below is order-sensitive on purpose —
+// These four are one fixture because they let two derivations of one fact
+// contradict each other: the ORDER a Map yields its entries in, as
+// `rt.MapEntries` derives it and as the rendering shows it. Every assertion
+// below is order-sensitive on purpose —
 // `Map.keys` returns a LIST, so an unordered answer is a wrong answer and not a
 // tolerated one — which is what makes a second ordering rule impossible to add
 // silently.
@@ -26,10 +26,10 @@ import std/io
 //   - a duplicate key inside one literal. Last write wins and FIRST position is
 //     kept, so `keys` may not report the second position.
 //   - destructuring vs `Map.get`. Two lookup paths over one structural key
-//     comparison. The LIST key is the load-bearing one: `*rt.List[T]` is
-//     Go-comparable BY ADDRESS, so a lookup that used Go equality compiles
-//     clean and answers "missing" for a key that is present — and the
-//     destructuring form TRAPS on missing, so that bug shows up as an exit
+//     comparison. The LIST key is the load-bearing one: `*rt.List[T]` is a
+//     pointer, so a lookup that compared addresses would run clean and answer
+//     "missing" for a key that is present, and the destructuring form TRAPS
+//     on missing, so that bug shows up as an exit
 //     status rather than as a subtly wrong string.
 fn main() {
     m = {"a" => 1, "b" => 2, "c" => 3}

@@ -309,8 +309,8 @@ func rivalIfaceDecls(rivalFirst bool) string {
 }
 
 // TestTypedLiteral_ASecondInterfaceProviderIsRejected is the OTHER HALF of the
-// roadmap's typed-literal ambiguity defect, and it was still live at 66aee591
-// after the inherent half was closed.
+// typed-literal ambiguity defect: the inherent-versus-impl half is covered
+// above, and this is the two-interface half.
 //
 // A second interface may legally declare a method name a receiver already
 // implements — `defineImplBlockAnnotations` says so in as many words, and the

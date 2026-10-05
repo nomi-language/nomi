@@ -7,25 +7,24 @@ package rt
 //
 // std declares `pub opaque type Codepoint Int`, so the Nomi type's inner type is
 // `Int`, which is int64 everywhere in this project. A Go `int32`/`rune` here
-// would be a NARROWER representation than the declaration, and internal/irbuild's
-// opaque spec asserts the inner kind IS `Int` — so the two would disagree, and a
+// would be a narrower representation than the declaration, and internal/irbuild's
+// opaque spec asserts the inner kind is `Int` — so the two would disagree, and a
 // `Codepoint(n)` built from an int64 expression would silently truncate. The
 // domain fits in 21 bits either way; matching the declaration is what stops the
 // two widths from being two facts.
 //
 // Nominally its own type, structurally int64 — the same shape rt/opaque.go gives
-// Duration and Instant, and for the same reason: a Go DEFINED type is exactly
+// Duration and Instant, and for the same reason: a Go defined type is exactly
 // what a Nomi distinct type maps to, and rt is linked by everything, so a type
 // declared here is package-neutral.
 //
-// # What this file does NOT do, and that is the load-bearing half
+// # What this file does not do
 //
-// It does not VALIDATE. `Codepoint.from_int` is ordinary Nomi source in
+// It does not validate. `Codepoint.from_int` is ordinary Nomi source in
 // std/codepoints.nomi — the range test and the UTF-16 surrogate-block test are
-// Nomi `if` expressions returning `Maybe<Codepoint>` — and it LOWERS, so the VM
-// runs that predicate rather than a Go copy of it. A second validator here would be exactly the divergence
-// rt/opaque.go's header warns about for formatters, over a smaller input space
-// and with no better excuse.
+// Nomi `if` expressions returning `Maybe<Codepoint>` — and it lowers, so the VM
+// runs that predicate rather than a Go copy of it. A second validator here would be the divergence
+// rt/opaque.go's header warns about for formatters.
 //
 // So every Codepoint reaching CodepointToString has been through that predicate,
 // which is what makes `string(rune(cp))` total: the surrogate range D800–DFFF and
@@ -45,7 +44,7 @@ func CodepointToString(cp Codepoint) string { return string(rune(cp)) }
 // The decoding is StringToCodepointCells.
 //
 // Built back-to-front so the shared tails are the natural ones and no cell is
-// copied — StringSplit's shape. An empty string answers nil, which IS the empty
+// copied — StringSplit's shape. An empty string answers nil, which is the empty
 // list rather than a special case.
 //
 // Ranging a Go string yields U+FFFD for each invalid UTF-8 byte, so a String

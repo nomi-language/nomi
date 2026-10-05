@@ -59,11 +59,11 @@ func Cons[T any](head T, tail *List[T]) *List[T] {
 // this per element type, and a reference to it allocates nothing (a top-level
 // func's value is static).
 //
-// NOT for Float — see EqFloat. `comparable` admits float64, so this function
+// Not for Float; see EqFloat. `comparable` admits float64, so this function
 // would compile and answer wrong for exactly one value.
 func Eq[T comparable](a, b T) bool { return a == b }
 
-// EqFloat is `==` on a Float, which is REFLEXIVE for NaN.
+// EqFloat is `==` on a Float, which is reflexive for NaN.
 //
 // Nomi's Float equality is not IEEE's: `nan == nan` is True. That is a design
 // decision rather than an oversight — Equal is what decides map-key identity,

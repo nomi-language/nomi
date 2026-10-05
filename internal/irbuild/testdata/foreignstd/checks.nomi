@@ -1,6 +1,6 @@
 import std/compiler.Diagnostic
 
-// A sibling file's signature naming a STD type whose Go type rt declares. The
+// A sibling file's signature naming a STD type whose representation rt declares. The
 // entry file calls this and never names `Diagnostic` itself: its only mention of
 // std/compiler is `compiler.check(source)`.
 pub fn any?(diagnostics: List<Diagnostic>): Bool {

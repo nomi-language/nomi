@@ -2,8 +2,8 @@ import std/iter.Iter.loop
 
 test "loop advances state through callback return values" {
     result = loop(|n = 1| {
-        if n % 3 == 0 { break n }
-        return n + 1
+        if n % 3 != 0 { return n + 1 }
+        break n
     })
 
     (_, steps) = loop(|state = (27, 0)| {

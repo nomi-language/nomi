@@ -6,14 +6,14 @@
 //  1. TAG ASSIGNMENT. Every `case` below discriminates BOTH variants and prints
 //     a different string for each, so permuting Static=1/Dynamic=2 changes the
 //     transcript rather than reordering an equality that happens to hold.
-//  2. SLOT IDENTITY. `Fragment<String>` has two payloads of the SAME Go type
-//     (`Static`'s is always `string`), so a def that deduped them — or an
+//  2. SLOT IDENTITY. `Fragment<String>` has two payloads of the SAME type
+//     (`Static`'s is always a String), so a def that deduped them, or an
 //     intern key that dropped the type arguments — would let one payload read
 //     the other's storage. Every `Fragment<String>` value here carries a
 //     payload that names which variant built it.
 //
 // And `Fragment<Int>` is the discriminating instantiation: there `Static`'s
-// `string` and `Dynamic`'s `int64` are different Go types, so a spec with the
+// String and `Dynamic`'s Int are different types, so a spec with the
 // two payload kinds swapped cannot produce this transcript.
 import {
     std/io

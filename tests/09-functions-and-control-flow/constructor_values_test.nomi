@@ -1,0 +1,81 @@
+import std/compiler
+
+type Id Int
+
+type Pair (Int, String)
+
+type Label String
+
+enum Shape {
+    Circle Float
+    Seg (Int, Int)
+    Dot
+}
+
+fn apply(f: (Int) -> Id, n: Int): Id {
+    f(n)
+}
+
+test "a distinct type named as a value is its constructor" {
+    ids = Iter.map([1, 2], Id) |> Iter.to_list()
+
+    make = Id
+
+    assert ids == [Id(1), Id(2)]
+    assert make(3) == Id(3)
+    assert apply(Id, 4) == Id(4)
+    assert Iter.map([(1, "a")], Pair) |> Iter.to_list() |> Debug.inspect() == "[Pair(1, \"a\")]"
+}
+
+test "a std variant named as a value is its constructor" {
+    somes: List<Maybe<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
+
+    oks: List<Result<Int, String>> = Iter.map([1], Ok) |> Iter.to_list()
+
+    failed: Result<Int, String> = Err("bad")
+    err: (String) -> Result<Int, String> = Err
+
+    assert somes == [Some(1), Some(2)]
+    assert Iter.map([1], Maybe.Some) |> Iter.to_list() == [Some(1)]
+    assert oks == [Ok(1)]
+    assert Result.map_err(failed, Label) == Err(Label("bad"))
+    assert err("e") == Err("e")
+    assert Debug.inspect(somes) == "[Some(1), Some(2)]"
+}
+
+test "a positional variant over a tuple takes the tuple" {
+    assert Iter.map([(1, 2)], Shape.Seg) |> Iter.to_list() == [Shape.Seg(1, 2)]
+    assert Maybe.map(Some(1.5), Shape.Circle) == Some(Shape.Circle(1.5))
+}
+
+test "a type name and a generic constructor with nothing to solve it stay errors" {
+    diagnostics =
+        """
+            struct Point {
+              x: Int
+            }
+
+            fn main() {
+              a = Iter.map([1], Int) |> Iter.to_list()
+              b = Point
+              c = Some
+              _ = (a, b, c)
+            }
+            """
+        |> compiler.check()
+
+    assert Iter.any?(diagnostics, |d|
+        String.starts_with?(d.message, "`Int` is a type, not a value")
+    )
+
+    assert Iter.any?(diagnostics, |d|
+        String.starts_with?(d.message, "`Point` is a type, not a value")
+    )
+
+    assert Iter.any?(diagnostics, |d|
+        String.starts_with?(
+            d.message,
+            "cannot infer type parameter T of generic constructor 'Some' used as a value",
+        )
+    )
+}

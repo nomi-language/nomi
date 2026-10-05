@@ -5,10 +5,9 @@ import std/io
 // The lambda half of this landed first (testdata/lambda_destructure.nomi); the
 // same pattern in a `fn` parameter list routes through the same destructure(),
 // which is what its doc said it was written for. One Nomi parameter is one
-// anonymous Go parameter holding the whole value, and every name the pattern
-// introduces is an ordinary local read out of it — which is what the
-// interpreter's applyDestructure does, minus the runtime checks the pattern's
-// irrefutability removes.
+// anonymous parameter holding the whole value, and every name the pattern
+// introduces is an ordinary local read out of it, with no run-time check,
+// because the pattern is irrefutable.
 //
 // Tuple patterns are absent for the same reason they are absent from the lambda
 // fixture: a tuple parameter's type has no representation in this builder yet,
@@ -57,7 +56,7 @@ fn twice(Wrapper.Only(n)): Int {
 }
 
 // A destructuring parameter beside ordinary ones, in a non-leading position:
-// the anonymous Go parameter has to land in the right slot.
+// the anonymous parameter has to land in the right slot.
 fn weighted(scale: Int, Point{x, y}, bias: Int): Int {
     scale * (x + y) + bias
 }

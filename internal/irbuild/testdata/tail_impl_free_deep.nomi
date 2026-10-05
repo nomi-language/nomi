@@ -1,18 +1,16 @@
-// A tail cycle ACROSS the impl/free boundary, at a depth a plain recursive Go
-// call CANNOT survive.
+// A tail cycle ACROSS the impl/free boundary, at a depth ordinary recursion
+// cannot survive.
 //
 // This is the shape that was detected and REFUSED by name when the detector's
 // node set was fixed: the free half was a graph node and the impl half was not,
 // so the edge existed in neither direction. It now lowers to one shared driver
 // whose arms are one free body and one impl body.
 //
-// The depth is the load-bearing part of the fixture. Direct Go recursion holds
-// this shape to 1e6 on 16 MB of stack and 1e7 on 256 MB, so a shallow version
-// passes whether or not the cycle is lowered — which is why an impl-function
-// tail self-call survived six corpus sweeps reporting `0 RUN-FAIL`. At 1e8 an
-// untrampolined lowering dies with `fatal error: stack overflow` and exit 2.
+// The depth is the load-bearing part of the fixture: a shallow version
+// passes whether or not the cycle is lowered. At 1e8 a lowering without the
+// shared driver would run out of stack.
 //
-// The interpreter runs it in constant stack: `analysis.MarkTailCalls` has an
+// It must run in constant stack: `analysis.MarkTailCalls` has an
 // `*ast.ImplBlock` arm precisely so that TCO fires inside an impl block.
 import std/io
 

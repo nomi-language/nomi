@@ -1,7 +1,6 @@
-// A library module: no `fn main`. Exists so the build path for a non-entry
-// package is exercised — `go build .` compiles only what the main package can
-// reach, so a module nobody imports is emitted and never type-checked unless
-// renderBoot blank-imports it. See TestNonEntryPackageIsCompiled.
+// A library module: no `fn main`. No test runs this file and it has no
+// recorded golden; it is kept as an example of a module with no entry
+// point, which the builder must accept without a `main` to start from.
 pub struct Pair {
     left: Int
     right: Int

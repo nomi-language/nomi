@@ -8,18 +8,17 @@ import (
 )
 
 // `EnterDeadline` is the one place a Nomi deadline becomes something a blocking
-// operation can observe, and it is why rt is a CONSUMER of the Context chain
+// operation can observe, and it is why rt is a consumer of the Context chain
 // rather than only its provider. Nine `fr.ctx` readers in this package depend
 // on it and none of them mentions a deadline; frame.go's header enumerates
 // them.
 //
-// It had no unit test. `tests/15-app-and-defer/deadline_floor/deadline_floor_test.nomi`
-// covers it end to end, which is the right place for the OBSERVABLE rule, but a
+// `tests/15-app-and-defer/deadline_floor/deadline_floor_test.nomi`
+// covers it end to end, which is the right place for the observable rule, but a
 // corpus fixture cannot say which half failed and it runs only when the whole
-// toolchain does. The gap mattered here specifically: the defect this function
-// fixed was invisible for as long as it took a tour block's output to be
-// asserted, because a deadline that is merely too loose produces no wrong
-// string until something waits on it.
+// toolchain does. A deadline that is merely too loose produces no wrong string
+// until something waits on it, so a defect here stays invisible to any test
+// that does not wait.
 //
 // These also pin the module boundary the first-party-adapter question turns
 // on. If the deadline walk ever leaves rt, `contextEffectiveDeadline` stops
@@ -57,7 +56,7 @@ func TestEnterDeadline_AFutureDeadlineReachesTheFrame(t *testing.T) {
 	}
 }
 
-// ALREADY SPENT: a deadline in the past has to yield a context that is Done
+// Already spent: a deadline in the past has to yield a context that is Done
 // before the first wait starts, not one whose timer fires after the operation
 // has been entered. frame.go states this arm.
 func TestEnterDeadline_APastDeadlineIsAlreadyDone(t *testing.T) {
@@ -76,7 +75,7 @@ func TestEnterDeadline_APastDeadlineIsAlreadyDone(t *testing.T) {
 	}
 }
 
-// The EARLIEST link along the chain is what reaches the frame, which is the
+// The earliest link along the chain is what reaches the frame, which is the
 // same rule `Context.deadline` reports and the reason `ContextWithFloor` can be
 // a splice: a rebind can tighten and never widen.
 func TestEnterDeadline_TakesTheEarliestLinkOnTheChain(t *testing.T) {
@@ -146,7 +145,7 @@ func TestRaiseCanceled_ADeadlineAndAStrayCancellationReportDifferently(t *testin
 		t.Errorf("a bounded program was handed the builder-bug diagnostic: %q", err.Msg)
 	}
 
-	// The CONTROL: no deadline, no task. Same call, other message.
+	// The control: no deadline, no task. Same call, other message.
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	stray := recoverFault(func() { CancelIfDone(&Frame{ctx: ctx}) })
@@ -159,10 +158,11 @@ func TestRaiseCanceled_ADeadlineAndAStrayCancellationReportDifferently(t *testin
 }
 
 // A `concurrent { }` block wrapped by the rebind runs on EnterScope's frame, and
-// its awaits raise THERE. EnterScope built that frame field by field and left
-// `underDeadline` out, so the block's awaits saw a task-less frame with no
-// deadline and reported `no task to unwind` instead of the deadline — measured
-// on the corpus case "env context timeout cancels blocked channel receives".
+// its awaits raise there. EnterScope builds that frame field by field; if it
+// left `underDeadline` out, the block's awaits would see a task-less frame with
+// no deadline and report `no task to unwind` instead of the deadline. The
+// corpus case "env context timeout cancels blocked channel receives" takes this
+// path.
 func TestEnterScope_InheritsDeadline(t *testing.T) {
 	spent := ContextWithDeadline(ContextRoot(), Instant(time.Now().Add(-time.Hour).UnixNano()))
 	fr, release := EnterDeadline(NewFrame(context.Background()), spent)
@@ -181,7 +181,7 @@ func TestEnterScope_InheritsDeadline(t *testing.T) {
 	}
 }
 
-// The CONTROL for the row above: inside a block under a LIVE deadline, awaiting
+// The control for the row above: inside a block under a live deadline, awaiting
 // a task `Task.cancel` stopped raises with the block's ctx still running. The
 // flag alone would name a deadline that has not run out, so the cause is
 // checked too and the stray-cancellation diagnostic stays.

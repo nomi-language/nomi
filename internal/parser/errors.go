@@ -7,6 +7,9 @@ type ParseError struct {
 	Line    int
 	Col     int
 	Message string
+	// Hints say how to fix it, one `help:` each; a hint may run over
+	// several lines.
+	Hints []string
 }
 
 func (e ParseError) Error() string {

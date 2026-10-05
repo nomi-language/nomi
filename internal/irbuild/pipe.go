@@ -1,9 +1,5 @@
 package irbuild
 
-import (
-	"github.com/nomi-language/nomi/internal/ast"
-)
-
 // The pipe operator.
 //
 // `x |> f()` is `f(x)` and `xs |> Iter.map(g)` is `Iter.map(xs, g)`: the left
@@ -40,9 +36,3 @@ import (
 // identically; only the FAILURE REPORT differs. See gen.pipedCall, and
 // testdata/pipe_assert_report.nomi, whose assertion FAILS so the report text
 // itself is compared.
-
-// pipeStageCol is a stage's column, which ast.Node exposes only as a bare field.
-func pipeStageCol(n ast.Node) int {
-	_, col := nodePos(n)
-	return col
-}

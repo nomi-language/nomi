@@ -8,8 +8,8 @@
 //
 // # Why the pairs matter more than the individual answers
 //
-// std/lists.nomi:125 defines `List.equal?` AS `a == b`, and collections.go's
-// listEqual is one lowering shared by both spellings for that reason. The
+// std/lists.nomi defines `List.equal?` AS `a == b`, and the builder shares one
+// lowering for both spellings for that reason. The
 // prelude enums are the same situation: `derive Equatable for Maybe<T>` is the
 // method, and the `==` operator on a prelude instance already lowers through
 // g.valueEqual. So every `equal?` case below is written twice, once each way,
@@ -18,7 +18,7 @@
 //
 // # The cases that are a WRONG ANSWER rather than a missing one
 //
-//   - NaN. Nomi's Float equality is REFLEXIVE on NaN and Go's is IEEE, so
+//   - NaN. Nomi's Float equality is REFLEXIVE on NaN and IEEE's is not, so
 //     `Maybe.equal?(Some(nan), Some(nan))` is True in Nomi and false under an
 //     IEEE `==` on the payload. A lowering that compared with IEEE equality
 //     would type-check and answer wrongly, silently.
@@ -29,12 +29,12 @@
 //     `ok?` reading the wrong tag is a total inversion that no arity or type
 //     check can see.
 //
-// # Deliberately absent, each a gap elsewhere rather than here
+// # Deliberately absent, each covered elsewhere
 //
-// `x == None` and `xs == []` refuse as `mixed-type operator` (a coupled slice's
-// key), so every None comparison here is written against a typed `None`-valued
-// binding. `Maybe.map` / `flat_map` / `Result.map` / `map_err` are higher-order
-// and refuse under their own name; `Maybe.hash` is the derived Hashable half.
+// Every None comparison here is written against a typed `None`-valued binding;
+// untyped_equality.nomi covers `x == None`. `Maybe.map` / `flat_map` /
+// `Result.map` / `map_err` are prelude_hof.nomi's subject, and `Maybe.hash` is
+// prelude_hash.nomi's.
 fn none_string(): Maybe<String> {
     None
 }
@@ -216,13 +216,13 @@ test "Result.with_default takes the Ok payload or the default" {
     assert Result.with_default(bad, 0) == 0
 }
 
-test "Result.from_maybe converts both variants" {
+test "Maybe.to_result converts both variants" {
     some: Maybe<Int> = Some(3)
 
-    assert Result.from_maybe(some, "missing") == Ok(3)
-    assert Result.from_maybe(none_int(), "missing") == Err("missing")
-    assert Result.ok?(Result.from_maybe(some, "missing"))
-    assert Result.err?(Result.from_maybe(none_int(), "missing"))
+    assert Maybe.to_result(some, "missing") == Ok(3)
+    assert Maybe.to_result(none_int(), "missing") == Err("missing")
+    assert Result.ok?(Maybe.to_result(some, "missing"))
+    assert Result.err?(Maybe.to_result(none_int(), "missing"))
 }
 
 test "Result.to_maybe discards the error value" {
@@ -238,6 +238,6 @@ test "Result.to_maybe discards the error value" {
 test "the two conversions round-trip" {
     some: Maybe<Int> = Some(5)
 
-    assert Maybe.equal?(Result.to_maybe(Result.from_maybe(some, "e")), some)
-    assert Maybe.equal?(Result.to_maybe(Result.from_maybe(none_int(), "e")), none_int())
+    assert Maybe.equal?(Result.to_maybe(Maybe.to_result(some, "e")), some)
+    assert Maybe.equal?(Result.to_maybe(Maybe.to_result(none_int(), "e")), none_int())
 }

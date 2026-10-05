@@ -1,9 +1,9 @@
 // Every operand shape an assertion's `values:` row can show, each in a FAILING
-// assertion, because a passing one proves nothing here — both paths pass and any
-// divergence is in the report text nobody printed.
+// assertion, because a passing one renders no operands and any mistake would be
+// in report text nobody printed.
 //
 // The rows are not `impl Display` and they are not `Debug`: they are
-// value.Inspect, which is structural. The List<String> case is the one that
+// a structural rendering. The List<String> case is the one that
 // makes that visible from the outside — `["a", "b"]` here against `[a, b]` for
 // the same list in `${...}`, which is std/lists.nomi's Display impl.
 struct Point {
@@ -19,11 +19,10 @@ struct Outer {
 struct Nothing {}
 
 // Embedded rather than Point, and that is not arbitrary: a struct that is BOTH
-// a field of another struct AND embedded in an enum trips a pre-existing derive
-// bug at cbf494c3 — the synthesized `impl Debug for Outer` widens its `Point`
-// field to `Shape` and calls a Debug impl that was dropped, so `Generate`
-// reports success and emits Go that does not compile. Nothing to do with
-// operand rendering; see docs/feature-status.md.
+// a field of another struct AND embedded in an enum would send the
+// synthesized `impl Debug for Outer` through its `Shape` widening, which is
+// derive behaviour and not operand rendering. Keeping the shapes apart
+// keeps this fixture about the report.
 struct Wrapped {
     n: Int
 }
@@ -134,8 +133,8 @@ test "an empty map" {
     assert no_map(m)
 }
 
-// NOT named "sorts its fields", which is what this said until 2026-08-22 and
-// what it cannot show: `Point {x, y}` is ALPHABETICAL, so sorted order and
+// NOT named "sorts its fields", because that is what it cannot show:
+// `Point {x, y}` is ALPHABETICAL, so sorted order and
 // declaration order are the same string here and a renderer using either passes.
 // The SORT is genuinely pinned, by the `a struct-shaped enum variant` row below
 // — `Box {w: Int, h: String}` renders `Box(Box{h: "tall", w: 1})`, which only a

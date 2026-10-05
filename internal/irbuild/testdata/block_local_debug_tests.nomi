@@ -1,0 +1,16 @@
+// Debug over a type declared inside a test body, which the test runner
+// builds apart from the module's functions. See block_local_debug.nomi.
+test "a distinct declared in a test renders through Debug" {
+    type Label String
+
+    assert Debug.inspect(Label("t")) == "Label(\"t\")"
+}
+
+test "a struct declared in a test renders through Debug" {
+    struct Row {
+        b: Int
+        a: Int
+    }
+
+    assert Debug.inspect([Row{b: 2, a: 1}]) == "[Row{b: 2, a: 1}]"
+}

@@ -1,5 +1,5 @@
 // A cross-file TYPE-qualified call inside an assertion SUBJECT. The assertion
-// fails on purpose so the report text is what gets compared: eval records a
+// fails on purpose so the report text is what gets compared: the run records a
 // call's arguments for a type-qualified callee exactly as for a direct one, and
 // a lowering that reached the callee but skipped the recording would agree on
 // the exit status and disagree on every line the programmer reads.

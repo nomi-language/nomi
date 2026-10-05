@@ -50,10 +50,10 @@ func loadEntry(t *testing.T, src string) error {
 // reports there rather than at a line from the analyzer's synth band, which
 // names a position no programmer can navigate to.
 //
-// The assertion is two-sided. A first version of the fix moved the position
-// before `fa.Definitions[pos]` — which keys the item's resolved signature BY
-// position — so the lookup missed and every signature mismatch on every
-// synthesized impl went unreported. The error must still FIRE, and it must
+// The assertion is two-sided. Moving the position before
+// `fa.Definitions[pos]`, which keys the item's resolved signature by
+// position, makes the lookup miss, and then every signature mismatch on every
+// synthesized impl goes unreported. The error must still fire, and it must
 // name real source.
 //
 // No well-formed program reaches a synthesized-impl mismatch any more (the
@@ -107,7 +107,7 @@ func TestSynthesizedImplDiagnosticNamesRealSource(t *testing.T) {
 }
 
 // A positional function-typed payload checks clean: its synthesized Debug
-// impl's payload binding no longer shares the impl function's position.
+// impl's payload binding does not share the impl function's position.
 func TestPositionalFunctionPayloadChecksClean(t *testing.T) {
 	if err := checkEntry(t, "enum Handler {\n  Text ((String) -> Bool)\n}\n\nfn main() {\n}\n"); err != nil {
 		t.Fatal(err)
@@ -259,9 +259,9 @@ func TestUserImplForAPrimitiveIsADuplicateOfStdlibs(t *testing.T) {
 	}
 }
 
-// The union must not report std against ITSELF: with pointer dedupe instead
-// of CollisionImplIndex's by-declaration dedupe, this exact program produced
-// 100+ diagnostics. The std/io import is load-bearing: it is what makes std
+// The union must not report std against itself: with pointer dedupe instead
+// of CollisionImplIndex's by-declaration dedupe, this program reports over
+// 100 diagnostics. The std/io import is load-bearing: it is what makes std
 // modules reachable twice, and an import-free program passes under the
 // mutant.
 func TestACleanProgramReportsNoDuplicateImpl(t *testing.T) {
@@ -275,12 +275,13 @@ func TestACleanProgramReportsNoDuplicateImpl(t *testing.T) {
 	t.Fatalf("unexpected diagnostic on a trivial program: %v", err)
 }
 
-// An EXTERN std impl — `impl Hashable for String { host fn hash }` — is
+// An extern std impl (`impl Hashable for String { host fn hash }`) is
 // invisible to the duplicate rule, so a user can declare a second one and
-// silently replace std's. Pinned as OPEN: this asserts that a WRONG behaviour
-// is still present: the duplicate rule is blind to EXTERN std impls. Closing it means
-// `detectImplCollisions` grouping FuncDefs and ExternFuncs together. It FAILS
-// when the gap closes; the person closing it deletes this and says so.
+// silently replace std's. This pins an open gap: it asserts that the wrong
+// behaviour is still present, that the duplicate rule is blind to extern std
+// impls. Closing it means `detectImplCollisions` grouping FuncDefs and
+// ExternFuncs together. The test fails when the gap closes; the person
+// closing it deletes this and says so.
 func TestExternStdImplsAreInvisibleToTheDuplicateRule(t *testing.T) {
 	for _, c := range []struct {
 		name string

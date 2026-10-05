@@ -179,18 +179,26 @@ func (bl *irScalarBuilder) stdTestOwnType() bool {
 	return bl.inTest && bl.g.stdModule != ""
 }
 
-// testImport admits an `import` written inside a test body as a statement
-// with no effect, when it changes what no name means. std/compiler's prompts
-// are written as separate programs and open with `import std/compiler` and
-// `import std/strings.String`. The builder resolves a body's names against
-// the module's own scope, so an import is admitted only when every name it
-// binds resolves to the declaration the module scope already gives that name,
-// or it is a whole-module import of the stdlib module whose test body this
-// is, whose alias the builder resolves as that module's own file alias.
+// testImport admits an `import` at the top of a block (a test body, a `//!`
+// case, a function body) as a statement with no effect. Each name it binds is
+// one of:
+//
+//   - a name the module scope does not bind (`import std/duration.Duration`,
+//     `import std/io`, `import std/maybe.Maybe as Local`). No name-keyed
+//     lookup against the module scope finds it, so such a lookup declines,
+//     and every use the builder admits resolves by the checker's reference
+//     at its position (qualifierScope for a file qualifier).
+//   - a name the module scope binds to the same declaration (std/compiler's
+//     prompts open with `import std/strings.String`).
+//   - a whole-module import of the stdlib module whose test body this is,
+//     whose alias the builder resolves as that module's own file alias.
+//
+// An import that rebinds a name the module scope binds to something else is
+// declined: a name-keyed lookup would answer the module scope's binding.
 func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 	g := bl.g
 	no := func() bool {
-		irDeclineNote("an `import` in a test body that rebinds a name the module scope binds differently")
+		irDeclineNote("an `import` in a block that rebinds a name the module scope binds differently")
 		return false
 	}
 	if g.fa == nil || g.fa.ModuleScope == nil || n.Extern {
@@ -207,14 +215,10 @@ func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 			continue
 		}
 		outer := resolveSymbol(g.fa.ModuleScope.Lookup(sym.Name))
-		if outer == nil && n.ModuleAlias == nil && len(n.Names) == 1 && len(n.Aliases) == 1 && n.Aliases[0] != nil && sym.Resolved != nil {
-			// `import std/maybe.Maybe as Local` in a body: a name the module
-			// scope does not bind, so no name-keyed lookup can resolve it,
-			// and every use the builder admits resolves by the checker's
-			// reference at its position.
+		if outer == nil {
 			continue
 		}
-		if outer == nil || outer != resolveSymbol(sym) {
+		if outer != resolveSymbol(sym) {
 			return no()
 		}
 	}

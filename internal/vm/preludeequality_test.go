@@ -11,7 +11,7 @@ func TestVMPreludeEquality_LambdaPipelineTour(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{"pipes.md:L112"}, vmPathResolver(t, "tour"))
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "pipes.md", `|> then |name| name == Some("Ada")`)}, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("lambda pipeline incomplete: %v", refused)
 	}

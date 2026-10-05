@@ -22,8 +22,8 @@ package rt
 // may import both sides.
 //
 // rt could have imported `regexp` directly — it is the Go standard library, so
-// it costs rt no require at all — and that is deliberately NOT what this is.
-// It would make rt a SECOND implementation of std/regex beside the adapter, and
+// it costs rt no require at all — and that is deliberately not what this is.
+// It would make rt a second implementation of std/regex beside the adapter, and
 // the two could drift. One implementation with two marshalling surfaces is nomi/stdstrings' arrangement
 // and it is the one that cannot drift.
 //
@@ -31,10 +31,10 @@ package rt
 //
 // rt.Dynamic's reason verbatim: `stdHostKindOfGoType` identifies this family by
 // `reflect.Type`, so a binding whose parameter were `any` would project onto
-// EVERY declaration whose parameter has no representation. Identity on the
+// every declaration whose parameter has no representation. Identity on the
 // named type, never on the underlying shape.
 //
-// A `Regex` is COMPARABLE — `Impl` holds the adapter's pointer — so Go `==` on
+// A `Regex` is comparable — `Impl` holds the adapter's pointer — so Go `==` on
 // two of these answers pointer identity. Nothing in std/regex derives Equatable for it, so no
 // Nomi program can observe that today; it is stated because a zero-width or
 // non-comparable payload would make `==` a panic rather than a wrong answer.

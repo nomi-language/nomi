@@ -3,9 +3,8 @@
 // type.
 //
 // Every line here is written to be observable. The transcript this pins is in
-// prelude_test.go, spelled out rather than compared, because a fixture that
-// only compares interpreted against compiled output cannot see a bug in
-// anything implemented once — and the Go type `Maybe` lowers to lives in rt.
+// prelude_test.go, spelled out rather than compared, because the
+// representation `Maybe` lowers to lives in rt and is implemented once.
 import std/io
 
 struct Box {
@@ -89,7 +88,7 @@ fn main(): Unit {
     held: Maybe<String> = None
     io.print(describe(held))
 
-    // A Maybe of a Float, so the payload is a kind whose equality is NOT Go's.
+    // A Maybe of a Float, so the payload is a kind whose equality is not IEEE's.
     // Nothing here compares two Maybes — that is refused — but the payload has
     // to survive being carried and read back.
     f: Maybe<Float> = Some(0.5)
@@ -100,9 +99,9 @@ fn main(): Unit {
     }
 
     // A NaN payload, carried and read back. `==` on a Maybe is REFUSED
-    // (`equality on a named type`) precisely because the interpreter dispatches
-    // it to `impl Equatable for Maybe<T>`, which recurses into T's own
-    // Equatable — so no bare Go `==` on the struct is ever emitted, and a NaN
+    // (`equality on a named type`) because it dispatches
+    // to `impl Equatable for Maybe<T>`, which recurses into T's own
+    // Equatable, so no bare structural `==` on the record is lowered, and a NaN
     // inside one cannot be compared by IEEE rules where Nomi's are reflexive.
     // What this pins is the other half: the payload survives the round trip
     // through the tagged struct unchanged.
@@ -113,7 +112,7 @@ fn main(): Unit {
         None -> io.print("no nan")
     }
 
-    // A Maybe of a List, the other kind Go's `==` gets wrong. Same reason.
+    // A Maybe of a List, the other kind a bare `==` gets wrong. Same reason.
     xs: Maybe<List<Int>> = Some([1, 2, 3])
 
     case xs {

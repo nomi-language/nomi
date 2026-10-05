@@ -1,19 +1,18 @@
-// Package hostpair derives ONE fact from `.nomi` source: which Go symbol
+// Package hostpair derives one fact from `.nomi` source: which Go symbol
 // implements which Nomi host declaration.
 //
-// That fact is derived in more than one place, which is the trigger
-// docs/roadmap.md names ("one fact encoded in 3+ places") and the reason
-// internal/ffitypes exists:
+// That fact is derived in more than one place, and keeping those places
+// in agreement is the reason this package and internal/ffitypes exist:
 //
 //   - internal/ffirun/discovery.go builds it for the generated-wrapper path.
 //     Its key rule is `externDeclKey`; its symbol is `pkg.Alias + "." +
 //     exp.FuncName`, spelled by codegen.go's wrapper template.
 //   - internal/irbuild/stdlib.go keys stdlib declarations with `stdKey`, which
-//     is NOT ffirun's rule (see Pairing.BuilderKey / Pairing.BindingKey).
+//     is not ffirun's rule (see Pairing.BuilderKey / Pairing.BindingKey).
 //   - internal/stdlibbindings holds hand-written rows. Every std declaration
-//     is a bare `host fn`, so the SYMBOL half of those rows is in no `.nomi`
-//     file and no other derivable place — measured three ways in
-//     symbolsource_test.go. Its KEY half is still derivable, and
+//     is a bare `host fn`, so the symbol half of those rows is in no `.nomi`
+//     file and no other derivable place, as symbolsource_test.go checks.
+//     Its key half is still derivable, and
 //     registered_test.go is the check that holds it.
 //
 // ffirun reads the receiver's base name and the interface's instantiation.
@@ -22,12 +21,12 @@
 // entry-scoped second key (which stdKey has no analogue for). See
 // disagreement_test.go.
 //
-// This package is the shared derivation those should read. NO CONSUMER
-// IS REPOINTED HERE. It is referenced only by its own tests: a consumer switch
+// This package is the shared derivation those should read. No consumer reads
+// it yet. It is referenced only by its own tests: a consumer switch
 // must be provable to change nothing, and it cannot be if it lands with the
 // thing it is switching to.
 //
-// # What the derivation does NOT decide
+// # What the derivation does not decide
 //
 // Registration. A pairing says "declaration D is implemented by Go symbol S";
 // whether S is bound through a generated adapter table, spelled into a

@@ -928,9 +928,9 @@ func irOwnOperationFamily(owner, method string) bool {
 		"Task", "Supervisor", "Struct":
 		return true
 	case "Result":
-		return method == "map_err" || method == "from_maybe" || method == "with_default"
+		return method == "map_err" || method == "with_default"
 	case "Maybe":
-		return method == "with_default"
+		return method == "to_result" || method == "with_default"
 	}
 	return false
 }

@@ -6,10 +6,22 @@ package irbuild
 // the VM, with arguments from its declared parameter kinds where the index
 // holds them and otherwise from the graph (vmArgShapes). Each body runs in a
 // machine over its own module, linked against every other cached module.
+//
+// The population is a committed list, testdata/expectations/vm-std-retained.txt,
+// one line per retained function, `<file under std/>:<name>\t<outcome>`, as
+// vm-retained.txt is for the corpus (vmretained_test.go). A function that ran
+// in the committed list and no longer runs is named before any other
+// difference. The buckets std is expected to fill are BOOT (Supervisor.new and
+// its arity wrappers make a supervisor, which rt refuses outside boot, and
+// this test runs no boot); HOST and LINKING are expected to be empty, and
+// their classifiers are validated by
+// TestVMCoverage_TheHostClassifierCatchesItsPlant and
+// TestVMCoverage_TheLinkingClassifierCatchesItsPlant.
 
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -19,35 +31,9 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// The std pins. vmStdWantRetained is irStdWantRetained (irstdbody_test.go)
-// plus the arity-wrapper and slot-accessor bodies the cached modules also
-// hold, which are declarations of their own. A fall in vmStdWantRunnable is a
-// VM regression the retention count cannot see. Re-derive a pin from the run
-// rather than bumping it, and name the bodies that moved in the commit message.
-const (
-	vmStdWantRetained = irStdWantRetained + vmStdWantArityWrappers + vmStdWantSlotAccessors
-	vmStdWantRunnable = 389
-	// The arity wrappers whose VM bodies the std modules retain.
-	vmStdWantArityWrappers = 10
-	// The `_DEFAULT<slot>` accessors whose VM bodies the std modules retain,
-	// which a call whose named arguments skip a defaulted parameter reaches:
-	// Supervisor.new's four, Supervisor.flush's one, Time.new's two,
-	// NaiveDateTime.new's two and DateTime.in_zone's one.
-	vmStdWantSlotAccessors = 10
-	// BOOT is a body that makes a supervisor, which rt refuses outside the
-	// boot phase by the language's rule, and this test runs no boot:
-	// Supervisor.new and its four arity wrappers.
-	vmStdWantBootFailures = 5
-	// HOST is a call into Go the machine binds no implementation for; LINKING
-	// is a call to a Nomi body no linked module holds. Their zeros are
-	// validated by TestVMCoverage_TheHostClassifierCatchesItsPlant and
-	// TestVMCoverage_TheLinkingClassifierCatchesItsPlant.
-	vmStdWantHostFailures    = 0
-	vmStdWantLinkingFailures = 0
-)
-
 // TestIRRetainedStdPopulationRuns runs every std function the builder
-// retains, and classifies each failure as TestIRRetainedPopulationRuns does.
+// retains, classifies each failure as TestIRRetainedPopulationRuns does, and
+// holds the outcomes to vm-std-retained.txt.
 func TestIRRetainedStdPopulationRuns(t *testing.T) {
 	// Warmed first: `buildStdlibIndex` is not idempotent from a fresh
 	// process, and only the warm reading is reproducible from inside a shared
@@ -57,7 +43,6 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 	idx := buildStdlibIndex()
 	var fns []*ir.Func
 	var modules []*ir.Module
-	names := map[*ir.Func]string{}
 	owners := map[*ir.Func]*ir.Module{}
 	pkgs := make([]string, 0, len(idx.irModules))
 	for pkg := range idx.irModules {
@@ -69,7 +54,7 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 		modules = append(modules, mod)
 		for _, fn := range mod.Funcs() {
 			fns = append(fns, fn)
-			names[fn], owners[fn] = fn.Name(), mod
+			owners[fn] = mod
 		}
 	}
 
@@ -96,12 +81,13 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 	}
 
 	if len(fns) == 0 {
-		t.Fatal("the cached modules contain no retained std function, so every count below is " +
-			"vacuous rather than low; see irStdWantRetained in irstdbody_test.go")
+		t.Fatal("the cached modules contain no retained std function, so the list " +
+			"comparison below is vacuous; see irStdWantRetained in irstdbody_test.go")
 	}
 
 	shapes := map[string]int{}
 	failures := map[string][]string{}
+	var lines []string
 	ran := 0
 	for _, fn := range fns {
 		for _, b := range fn.Blocks() {
@@ -134,11 +120,15 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 				break
 			}
 		}
+		key := vmStdDeclKey(fn, mod, byBody[fn])
 		if okAny {
 			ran++
+			lines = append(lines, key+"\tran")
 			continue
 		}
-		failures[vmClassify(lastErr)] = append(failures[vmClassify(lastErr)], names[fn])
+		class := vmClassify(lastErr)
+		failures[class] = append(failures[class], key)
+		lines = append(lines, key+"\t"+class)
 	}
 
 	keys := make([]string, 0, len(shapes))
@@ -160,39 +150,29 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 	}
 	t.Logf("%d retained std functions, %d executed by the VM", len(fns), ran)
 
-	if len(fns) != vmStdWantRetained {
-		t.Errorf("the producer retained %d std functions, pinned at %d; keep this equal "+
-			"to irStdWantRetained", len(fns), vmStdWantRetained)
+	vmRetainedStd.check(t, lines)
+	vmCheckBuckets(t, failures)
+}
+
+// vmStdDeclKey is a std function's key in vm-std-retained.txt: its declaring
+// file under std/ and its name. A declaration's own body is named as the
+// index keys it, with its receiver and interface instantiation
+// (`Date.Add<Duration, Date>.add`), since calendar.nomi alone declares
+// dozens of `add`s; an arity wrapper or a defaulted slot's accessor carries
+// its own name (`supervisors.Supervisor.new arity 1`). A key may still repeat.
+func vmStdDeclKey(fn *ir.Func, mod *ir.Module, f *stdFunc) string {
+	name := fn.Name()
+	if f != nil && f.irBody == fn {
+		name = strings.TrimPrefix(f.key, f.module+".")
 	}
-	if ran != vmStdWantRunnable {
-		t.Errorf("the VM executed %d retained std functions, pinned at %d. A FALL is a "+
-			"regression the retention count cannot see: the builder retains the same graph "+
-			"whether or not the machine can run it", ran, vmStdWantRunnable)
+	file := filepath.ToSlash(fn.Pos().File())
+	if i := strings.LastIndex(file, "/std/"); i >= 0 {
+		file = file[i+len("/std/"):]
 	}
-	host := len(failures["HOST: crosses into Go with no binding"])
-	if host != vmStdWantHostFailures {
-		t.Errorf("%d retained std functions call into Go with no VM binding, pinned at "+
-			"%d. The call instruction runs; the crossing has no host binding", host, vmStdWantHostFailures)
+	if file == "" {
+		file = mod.Name()
 	}
-	link := len(failures["LINKING: a declaration this module did not retain"])
-	if link != vmStdWantLinkingFailures {
-		t.Errorf("%d retained std functions call a declaration this module does not hold, "+
-			"pinned at %d. This is module closure rather than a machine gap: the "+
-			"caller was retained and its callee was not",
-			link, vmStdWantLinkingFailures)
-	}
-	boot := len(failures["BOOT: creatable only while boot runs"])
-	if boot != vmStdWantBootFailures {
-		t.Errorf("%d retained std functions make a supervisor outside boot, pinned at %d",
-			boot, vmStdWantBootFailures)
-	}
-	// The buckets must exhaust the population, so a failure in an
-	// unclassified bucket cannot hide behind unchanged totals.
-	if ran+host+link+boot != len(fns) {
-		t.Errorf("%d ran + %d HOST + %d LINKING + %d BOOT does not exhaust the %d retained std "+
-			"functions, so some failure is in an UNCLASSIFIED bucket that no pin above "+
-			"can see", ran, host, link, boot, len(fns))
-	}
+	return file + ":" + name
 }
 
 // vmArgsForKindsIn is vmArgsForKinds for a body of the std module qual, whose

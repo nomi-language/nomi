@@ -12,7 +12,7 @@ import (
 // level view that consumers (checker, derive synthesis, coherence checks,
 // the LSP) read uniformly. Single source of truth for "which Ts implement
 // which Ifaces" across the whole reachable program post-stdlib-
-// globals-retirement; cache write-through (commit f34c61c) plus the
+// globals-retirement; cache write-through plus the
 // stdlibFAs eager fold in BuildProjectWithCache ensure every reachable
 // stdlib FA contributes its impls, and AttachStdlibProjectImpls (below)
 // provides the single-file path with a stdlib-only equivalent.
@@ -361,7 +361,7 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis) *ProjectImplInde
 		}
 		// Type-promoted exports: only Public impl-block members cross module
 		// boundaries. A non-pub member stays reachable solely via its owning
-		// FA's per-file TypeMethods (in-module-only, §4 block-as-module).
+		// FA's per-file TypeMethods (in-module-only).
 		for typeName, byMethod := range fa.TypeMethods {
 			for methodName, sym := range byMethod {
 				// Interface impl methods do not spell `pub`: their exported
@@ -866,7 +866,7 @@ func detectImplCollisions(
 // `ifaceImpls` covers the files this build reached. A stdlib module the entry
 // never reaches is absent from it, so its impls cannot collide with anything.
 // `std/int` is the case that proves it: `Int`'s methods resolve through the
-// prelude, so nothing makes `std/int` reachable, and at 41a60d35 a program
+// prelude, so nothing makes `std/int` reachable, and without this a program
 // with no imports could declare `impl Equatable for Int` and get no
 // diagnostic at all — while the SAME program with `import { std/io }` was
 // rejected, because std/io's own import chain pulled std/int in. A rule whose

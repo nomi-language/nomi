@@ -37,7 +37,7 @@ func Want(nomiType string, got rt.Value) error {
 }
 
 // Record answers v as a record of the named type. Identity is compared by
-// SHORT name, as rt's kernels compare it, because a value built by another
+// short name, as rt's kernels compare it, because a value built by another
 // producer may carry the bare or the module-qualified spelling.
 func Record(v rt.Value, name string) (*rt.Record, error) {
 	r, ok := v.(*rt.Record)

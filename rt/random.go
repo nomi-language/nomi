@@ -8,7 +8,7 @@ package rt
 // the two disagree and silently truncate a `Seed(n)` built from an int64
 // expression.
 //
-// # This file holds a TYPE and no rules, deliberately
+// # This file holds a type and no rules, deliberately
 //
 // std/random's generators are ordinary Nomi source over three externs
 // (`below_state`, `unit_float_state`, `os_state`), all of which are co-located
@@ -18,7 +18,7 @@ package rt
 // divergence rt/opaque.go's header warns about, over a generator where
 // disagreement is silent because both answers look random.
 //
-// What the row buys is what opaqueSpecs says a row is for: letting a SIGNATURE
+// What the row buys is what opaqueSpecs says a row is for: letting a signature
 // name the type. `Seed.from_int(n: Int): Seed` is `Seed(n)` — a Nomi body that
 // lowers the moment its result type is representable, needing no rt symbol at
 // all. Same reason `NonZeroInt` and `PositiveInt` are in that table with no

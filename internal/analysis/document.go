@@ -142,8 +142,8 @@ func NewDocumentManager() *DocumentManager {
 // SetStdlib configures the primitives, module scopes, and per-stdlib-
 // module FileAnalysis map from the std. The stdlibFAs map (typically
 // std.StdLib.Files) is threaded into BuildProject(WithCache) so the
-// resolver can write stdlib FAs through to b.cache on first reference
-// — see stdlib-globals-retirement Task 1+2. Pass `nil` if the caller
+// resolver can write stdlib FAs through to b.cache on first reference.
+// Pass `nil` if the caller
 // has no stdlib (same situations that pass `nil` for `modules`).
 func (dm *DocumentManager) SetStdlib(primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis) {
 	dm.mu.Lock()
@@ -786,10 +786,10 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// its root take this path.
 	//
 	// Use BuildProjectFromEntry so the entry's FilePath is populated
-	// from docPath. Without this, internal/-access checks (Stage 1
-	// Task 5) compute the importer mod-rel from an empty FilePath and
+	// from docPath. Without this, internal/-access checks
+	// compute the importer mod-rel from an empty FilePath and
 	// falsely reject `import foo/internal/x` from any non-main entry —
-	// a Phase 4-ish entry like tools/seed.nomi opened in the LSP would
+	// a secondary entry like tools/seed.nomi opened in the LSP would
 	// see "outside the parent subtree of foo/internal/" even when the
 	// access is valid.
 	//

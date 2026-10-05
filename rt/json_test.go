@@ -9,14 +9,14 @@ import (
 	"testing"
 )
 
-// The tag values, the layout and the error vocabulary are pinned ABSOLUTELY
+// The tag values, the layout and the error vocabulary are pinned absolutely
 // here, because an agreement test between two callers of one implementation
 // passes when the implementation is wrong.
 
 // TestJsonTagsMatchStdDeclarationOrder is the pin a permuted tag needs.
 //
 // A tag is not a Go type error: swapping `TagJsonInt` and `TagJsonFloat` compiles
-// and produces a wrong ANSWER — `case jv { Int(n) -> … }` would match a Float —
+// and produces a wrong answer — `case jv { Int(n) -> … }` would match a Float —
 // so nothing but an absolute assertion catches it. The expected numbers are read
 // off std/json.nomi's variant order by eye: String, Int, Float, Bool, Arr, Obj,
 // Null.
@@ -38,7 +38,7 @@ func TestJsonTagsMatchStdDeclarationOrder(t *testing.T) {
 			t.Errorf("Json.%s has tag %d, want %d", tc.name, tc.got, tc.want)
 		}
 	}
-	// Tag 0 is RESERVED INVALID, so a never-constructed Json is detectable
+	// Tag 0 is reserved invalid, so a never-constructed Json is detectable
 	// rather than silently reading as the first variant.
 	var zero Json
 	if zero.Tag != 0 {
@@ -46,14 +46,13 @@ func TestJsonTagsMatchStdDeclarationOrder(t *testing.T) {
 	}
 }
 
-// TestJsonIsSelfReferentialAndFinite is the property this type was said to be
-// impossible for.
+// TestJsonIsSelfReferentialAndFinite asserts that Json's recursive payloads
+// leave it a finite Go type.
 //
-// Four comments in internal/irbuild claimed a recursive payload contradicted the
-// shared-def precondition. It does not; what it needs is that both recursive
-// payloads be INDIRECT, so `Json` has a finite size. This asserts the Go fact
+// A recursive payload needs both recursive payloads to be indirect, so `Json`
+// has a finite size. This asserts the Go fact
 // directly, because "it compiles" is otherwise something a reader takes on
-// trust, and a payload added later as a TUPLE or a record would not be indirect
+// trust, and a payload added later as a tuple or a record would not be indirect
 // and would fail with a message about recursion rather than about this design.
 func TestJsonIsSelfReferentialAndFinite(t *testing.T) {
 	ty := reflect.TypeFor[Json]()
@@ -71,7 +70,7 @@ func TestJsonIsSelfReferentialAndFinite(t *testing.T) {
 	if !hasObj || obj.Type != reflect.TypeFor[Map[string, Json]]() {
 		t.Fatalf("Obj is %v, want Map[string, Json]", obj.Type)
 	}
-	// The Map is a VALUE, so its finiteness rests on its own root being a
+	// The Map is a value, so its finiteness rests on its own root being a
 	// pointer rather than on the field being one. Asserted because that is the
 	// half a reader cannot see from json.go.
 	root, hasRoot := obj.Type.FieldByName("root")
@@ -85,7 +84,7 @@ func TestJsonIsSelfReferentialAndFinite(t *testing.T) {
 // produce, against the same inputs
 // tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi asserts.
 //
-// That corpus file is the CONTRACT and this is the unit-level pin of the same
+// That corpus file is the contract and this is the unit-level pin of the same
 // strings. Both are kept: the corpus file runs a whole program through the VM
 // and this runs on every toolchain bump without one. They fail on
 // different mutations, which is the reason for a pair rather than the stronger
@@ -148,7 +147,7 @@ func TestJsonDecodeOffsetPointsAtTheOffendingByte(t *testing.T) {
 			got.Err.Offset)
 	}
 	// End of input has no position from encoding/json, so len(source) is
-	// supplied. Pinned because "no position" used to read as offset 0.
+	// supplied. Pinned so that "no position" never reads as offset 0.
 	eof := JsonDecode(`{"a":`)
 	if eof.Err.Offset != 5 {
 		t.Errorf("truncated input reported offset %d, want 5 = len(source)", eof.Err.Offset)
@@ -182,7 +181,7 @@ func TestJsonNumberSplitIsIntFirst(t *testing.T) {
 		{"42", true, 42, 0},
 		{"-7", true, -7, 0},
 		{"0", true, 0, 0},
-		// A whole number written with a decimal point is a FLOAT: the lexeme
+		// A whole number written with a decimal point is a float: the lexeme
 		// carries the intent and Int64 rejects it.
 		{"36.0", false, 0, 36},
 		{"2.5", false, 0, 2.5},
@@ -209,8 +208,8 @@ func TestJsonNumberSplitIsIntFirst(t *testing.T) {
 }
 
 // TestJsonRoundTripsTheCorpusSample is the whole tree, and it pins the two
-// ORDERINGS that make this more than a trivial walk: decode inserts object keys
-// SORTED, encode emits them in the Map's INSERTION order, so a decoded object
+// orderings that make this more than a trivial walk: decode inserts object keys
+// sorted, encode emits them in the Map's insertion order, so a decoded object
 // re-encodes sorted while a hand-built one keeps its own spelling. Both texts
 // are asserted in tests/18-ffi-and-dynamic/json_test.nomi.
 func TestJsonRoundTripsTheCorpusSample(t *testing.T) {
@@ -256,7 +255,7 @@ func TestJsonRoundTripsTheCorpusSample(t *testing.T) {
 }
 
 // TestJsonEncodeEscapesAndEmptyContainers covers the two shapes a walk gets
-// wrong by omission: an empty Arr is the NIL list and an empty Obj is the ZERO
+// wrong by omission: an empty Arr is the nil list and an empty Obj is the zero
 // Map, so neither has a constructor to have been called.
 func TestJsonEncodeEscapesAndEmptyContainers(t *testing.T) {
 	if got := JsonEncode(Json{Tag: TagJsonArr}); got != "[]" {
@@ -276,7 +275,7 @@ func TestJsonEncodeEscapesAndEmptyContainers(t *testing.T) {
 
 // TestJsonEncodeTrapsOnAnUnconstructedValue asserts the tag-0 arm rather than
 // leaving it as a comment. Silently encoding `null` for a never-constructed Json
-// would be a wrong ANSWER, and the trap is what makes a lowering bug loud.
+// would be a wrong answer, and the trap is what makes a lowering bug loud.
 func TestJsonEncodeTrapsOnAnUnconstructedValue(t *testing.T) {
 	defer func() {
 		r := recover()
@@ -320,7 +319,7 @@ func TestJsonToAnyIsTheInverseWalk(t *testing.T) {
 // TestJsonNeverForwardsHostErrorText keeps host error text out of Nomi's output.
 //
 // The invariant is that no message a `Json.DecodeError` carries came from
-// `encoding/json`. It is CHECKED by PARSING rather than grepping: a text scan matches this test's own
+// `encoding/json`. It is checked by parsing rather than grepping: a text scan matches this test's own
 // message and can never reach zero, which is what makes a grep-checkable
 // invariant unchecked in practice.
 func TestJsonNeverForwardsHostErrorText(t *testing.T) {
@@ -346,7 +345,7 @@ func TestJsonNeverForwardsHostErrorText(t *testing.T) {
 }
 
 // TestJsonLineCol pins the position rule: 1-based coordinates, a newline
-// resetting the column, and an offset past the end CLAMPING to len(source)
+// resetting the column, and an offset past the end clamping to len(source)
 // rather than walking off it. That last row is the one `decode`'s own
 // assertions cannot reach — every real offset it produces is in range — so
 // this table is its only guard.
@@ -379,8 +378,8 @@ func TestJsonLineCol(t *testing.T) {
 // TestJsonGoFileDeclaresNoInit is the claim json.go's header makes, asserted.
 //
 // Everything that runs Nomi links `nomi/rt`, so an `init` here would run in
-// every such process. No file in rt has one today; this keeps json.go from
-// being the first, and it parses for the reason above.
+// every such process. No file in rt has one; this keeps json.go from adding
+// one, and it parses for the reason above.
 func TestJsonGoFileDeclaresNoInit(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "json.go", nil, parser.SkipObjectResolution)

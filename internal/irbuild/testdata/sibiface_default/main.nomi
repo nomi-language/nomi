@@ -3,14 +3,13 @@
 //
 // `siblingIfaceCall` finds its candidate by matching the whole argument list
 // against each indexed site's declared parameters, ARITY INCLUDED, so
-// `Powered.describe(e)` against `fn describe(e: self, mode: Mode = .Fast)` used
-// to offer no candidate at all. The route declined, the local
-// `implsByIface` lookup found nothing (the impl is a sibling's), and the call
-// was refused `call to an unlowered impl | Powered.describe for Engine` — which
-// is a true sentence about the wrong thing: the impl IS lowered, one file over.
+// `Powered.describe(e)` against `fn describe(e: self, mode: Mode = .Fast)`
+// must count the defaulted parameter as optional when matching arity, or the
+// route offers no candidate and the call is refused even though the impl is
+// lowered one file over.
 //
 // BOTH SPELLINGS ARE HERE, and the pair is the assertion rather than either
-// alone. The full call already lowered through this route at the parent, so it
+// alone. The full call needs no default, so it
 // is the control: a change that broke the route would take BOTH rows out, and a
 // change that only reordered arms would move one.
 //

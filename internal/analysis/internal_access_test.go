@@ -121,7 +121,7 @@ func TestInternalAccess_NoInternalSegmentAllowed(t *testing.T) {
 
 // TestInternalAccess_EmptyImporterRootInternal — the entry file's
 // module-relative path can be empty (BuildProjectWithCache doesn't
-// thread the entry path through yet — see Task 4's wiring note).
+// thread the entry path through).
 // An empty importer is at the module root by definition, so it may
 // import a root-level `internal/...`.
 func TestInternalAccess_EmptyImporterRootInternal(t *testing.T) {

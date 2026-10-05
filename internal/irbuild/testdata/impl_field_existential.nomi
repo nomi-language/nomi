@@ -9,12 +9,11 @@ import std/io
 // implementor, so there is no upstream type to specialize the container on.
 // Two implementors are stored into the SAME field below, which is what makes
 // that unavoidable rather than merely convenient — a container generic over
-// the occupant type would give `Pen{Dog}` and `Pen{Cat}` two Go types, and
+// the occupant type would give `Pen{Dog}` and `Pen{Cat}` two types, and
 // `describe` could then not take both.
 //
-// `Int` is stored into one as well, because a boxed builtin is the case a Go
-// method could not express at all and the case where the box genuinely
-// allocates: a struct receiver is already pointer-shaped, an `int64` is not.
+// `Int` is stored into one as well, because a boxed builtin is the case where
+// the box holds a scalar rather than a record.
 interface Speech {
     fn speak(animal: self): String
 }
@@ -66,7 +65,7 @@ fn read_tally(t: Tally): String {
     Numberish.label(t.counted, "n")
 }
 
-// The other half of the same rule, and the reason the census below can tell
+// The other half of the same rule, and the reason the output below can tell
 // the two apart: `rex` is statically a Dog, so the qualifier plus the
 // receiver's static type name exactly one function and this is a DIRECT call
 // with nothing boxed. Boxing here would be the silent answer the existential

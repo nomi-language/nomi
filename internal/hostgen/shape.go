@@ -5,7 +5,7 @@
 // Two inputs decide an adapter, and neither is restated:
 //
 //   - the Nomi `host fn` declaration, which says what the operands and the
-//     result ARE (a Shape per position, with the declared struct identities);
+//     result are (a Shape per position, with the declared struct identities);
 //   - the Go function the binding table names, whose Type says what the Go
 //     side takes and returns: read by reflection off a linked function value
 //     for the stdlib tables (internal/hostgen/stdtable), and off go/ast for a

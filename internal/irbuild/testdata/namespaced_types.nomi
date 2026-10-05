@@ -2,13 +2,9 @@ import std/io
 
 // A NAMESPACED type name: a declaration whose own name carries a dot, declared
 // beside the type it is named after. The parser admits it
-// (parseQualifiedTypeDeclName), buildTypes has always registered it under the
-// whole dotted spelling, and `tests/14-modules-and-packaging/
-// dotted_type_names/signal.nomi` has matched the interpreter since named types
-// landed — but only because nothing in that file ever NAMED the type in a
-// signature. typeOf read *ast.SimpleType, and `r: Probe.Reading` arrives as an
-// *ast.QualifiedType, so every use in a parameter or a return was refused under
-// a position-shaped key.
+// (parseQualifiedTypeDeclName), buildTypes registers it under the whole
+// dotted spelling, and a use in a parameter or a return arrives as an
+// *ast.QualifiedType, which the builder has to read as a type name.
 //
 // This fixture is the reason that mattered rather than an illustration of it.
 // `tests/14-modules-and-packaging/dotted_type_names/telemetry.nomi` is
@@ -52,12 +48,11 @@ pub enum Probe.Reading {
 // that only reached `g.types` for enums would pass the arm above and fail here.
 //
 // A dotted DISTINCT (`pub type Probe.Sample Int`) is absent, and its absence is
-// a measured fact rather than an oversight: the INTERPRETER cannot destructure
-// one — `case s { Probe.Sample(n) -> … }` and the bare `Sample(n)` both fall
-// through to `no matching case branch` — so a distinct declared under a dotted
-// name has no way to yield its inner value in EITHER path. That is a front-end
-// gap, and putting it in a differential fixture would pin agreement on a shape
-// neither side can express.
+// a measured fact rather than an oversight: `case s { Probe.Sample(n) -> … }`
+// and the bare `Sample(n)` both fall through to `no matching case branch`,
+// so a distinct declared under a dotted name has no way to yield its inner
+// value. That is a front-end gap, and putting it here would pin a shape the
+// language cannot yet express.
 pub struct Probe.Config {
     retries: Int
 }

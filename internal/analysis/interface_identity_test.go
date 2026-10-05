@@ -66,7 +66,7 @@ const identityShapes = `pub struct Point {
 // TestInterfaceIdentity_ABoundNamesOneDeclarationNotASpelling is the soundness
 // witness, and the reason the field was worth adding.
 //
-// MEASURED at parent 0823a778, compiled and RUN: this program was accepted and
+// Without the field, this program was accepted, compiled, RAN and
 // printed `ascii(1,2)`. `svg.draw`'s `where T: Renderer` names svg.nomi's
 // declaration; `Point` implements ascii.nomi's, a different declaration with no
 // relationship to it. The bound check keyed `Impls[Point][Renderer]` on the
@@ -112,7 +112,7 @@ pub fn tag(): String {
 }
 `,
 	})
-	// Exactly one diagnostic, and it is this one. At parent 0823a778 the
+	// Exactly one diagnostic, and it is this one. Without the field the
 	// program analyzed with ZERO diagnostics and RAN, printing `ascii(1,2)`.
 	const want = "Point does not implement Renderer"
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, want) {

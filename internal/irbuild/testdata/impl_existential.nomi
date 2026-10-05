@@ -7,8 +7,8 @@ import std/io
 // Two implementors, so the transcript can tell dispatch from a fixed answer —
 // with one implementor a table and a hard-coded call are indistinguishable.
 // `describe` reaches `Speech.speak` through the erased value and `Int.label`
-// proves the same table serves an impl for a BUILTIN, which is the case a Go
-// method could not express at all.
+// proves the same table serves an impl for a BUILTIN receiver as well as for
+// a user struct.
 interface Speech {
     fn speak(animal: self): String
 }

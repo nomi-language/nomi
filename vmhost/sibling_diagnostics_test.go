@@ -7,13 +7,13 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// A NON-ENTRY FILE'S CHECKER DIAGNOSTICS ARE PART OF THE PROGRAM.
+// A non-entry file's checker diagnostics are part of the program.
 //
 // The front end runs `CheckTypes` on every sibling module because the
 // recordings it produces feed the entry's ImplManifest, and a sibling's
 // diagnostics fail the program: a sibling file is compiled and run, and
-// nothing else ever checks it. Measured at `4772329c`, when the result was
-// discarded, all three of these passed `nomi check` and RAN:
+// nothing else ever checks it. If the result were discarded, all three of
+// these would pass `nomi check` and run:
 //
 //	pub fn report(): String { 42 }            in a sibling
 //	Svc.missing                                in a sibling, naming no app field

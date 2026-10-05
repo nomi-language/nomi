@@ -1,4 +1,4 @@
-// A BLESSED stdlib primitive crossing the generated-package boundary, in both
+// A BLESSED stdlib primitive crossing the stdlib boundary, in both
 // directions.
 //
 // `Byte` and `Bytes` look like a fourth anchor family — std/bytes declares them
@@ -32,7 +32,7 @@
 // # What is deliberately absent, and it is the best row this fixture could have
 //
 // `Bytes.to_string` — the UTF-8 DECODE, whose failure on a half-cut multi-byte
-// character is the sharpest rule in the module, because Go's `string(b)`
+// character is the sharpest rule in the module, because a plain byte-to-string
 // conversion never fails and silently substitutes U+FFFD. It cannot appear
 // here: std declares `Bytes.to_string` twice for one receiver — inherent,
 // returning `Result<String, String>`, and `impl Display`, returning `String` —

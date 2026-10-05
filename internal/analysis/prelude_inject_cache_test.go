@@ -7,9 +7,8 @@ import (
 	"testing"
 )
 
-// TestPreludeImports_StickyParseErrorCache pins the polish-commit
-// behavior of preludeImportsCacheErr (see prelude_inject.go,
-// commit 78fddfa): when prelude.nomi parses with errors, the wrapped
+// TestPreludeImports_StickyParseErrorCache pins the
+// behavior of preludeImportsCacheErr (see prelude_inject.go): when prelude.nomi parses with errors, the wrapped
 // error is sticky-cached keyed by stdlibPath. Subsequent calls with
 // the same stdlibPath short-circuit on the cache and do NOT re-stat /
 // re-lex / re-parse the file from disk.

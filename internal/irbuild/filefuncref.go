@@ -26,7 +26,7 @@ func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	if g.files != nil {
-		if to, isSibling := g.files.lookupQualifier(g.fa, owner.Name); isSibling {
+		if to, isSibling := g.files.lookupQualifier(g.fa, owner); isSibling {
 			f := g.files.units[to].funcs[t.Field.Name]
 			if f == nil {
 				return ir.NoTemp, kindInvalid, false, false, false
@@ -35,7 +35,7 @@ func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir
 			return v, k, mobile, ok, true
 		}
 	}
-	if std, isStd := stdFileQualifier(g.fa, owner.Name); isStd {
+	if std, isStd := stdFileQualifier(g.fa, owner); isStd {
 		key := std + "." + t.Field.Name
 		if isOutputKey(key) {
 			v, k, mobile, ok := bl.outputRef(t, key)

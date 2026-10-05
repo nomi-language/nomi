@@ -1,41 +1,38 @@
 import std/io
 
 // A map pattern whose KEY EXPRESSION is not the map's K, which is legal Nomi
-// with a defined answer: the interpreter looks the key up, misses, and the arm
+// with a defined answer: the lookup misses, and the arm
 // falls through.
 //
 // Three properties, and only one of them is a function of a returned value:
 //
 //   - WHICH ANSWER. The arm falls through, so the `_` arm's value is what comes
 //     out. Observable from the result.
-//   - THAT THE KEY WAS STILL EVALUATED. `value.Equal` is reached only after
-//     `evalNode(entry.Key, childEnv)` (eval.go:13598), so a mismatched key's
+//   - THAT THE KEY WAS STILL EVALUATED. Equality is reached only after the
+//     key expression is evaluated, so a mismatched key's
 //     expression RUNS and can print, trap, or diverge. A returned value cannot
 //     see this: the arm's answer is `fell through` whether or not the key ran.
 //     So every key here is built by `note`, which PRINTS. The observation is a
 //     function of the side effect, which is the only thing it can be.
 //   - THAT LATER ENTRIES WERE NOT EVALUATED. Same reason, same instrument: the
-//     interpreter breaks out of its entry loop at the first miss, so an entry
+//     match stops at the first missing entry, so an entry
 //     after a missing one never runs. Only a print can tell "not evaluated"
 //     from "evaluated and ignored".
 //
-// The four mismatches below are the four ways value/equality.go can be shown to
-// answer false, one per line of it that matters:
+// The four mismatches below are the four ways equality answers false for a
+// key of another type:
 //
-//   Color   vs Bool    *VariantVal  vs *VariantVal, ShortTypeName differs (:114)
-//   Q       vs P       *StructVal   vs *StructVal, ShortTypeName differs (:101)
-//                      — and the FIELDS ARE IDENTICAL, so a structural
+//   Color   vs Bool    two enums, type names differ
+//   Q       vs P       two structs, type names differ,
+//                      and the FIELDS ARE IDENTICAL, so a structural
 //                        comparison would have matched. The name is the whole
 //                        difference.
-//   Id(5)   vs 5       *DistinctVal vs IntVal, different arms of the switch
-//   "5"     vs 5       StringVal    vs IntVal, different arms
+//   Id(5)   vs 5       a distinct against an Int
+//   "5"     vs 5       a String against an Int
 //
-// What is NOT here, deliberately: any structural key. Two EMPTY lists compare
-// equal in value/equality.go whatever their element types, so `List<Int>`
-// against `Map<List<String>, V>` MATCHES on the interpreter — measured, and
-// pinned as a counterexample in TestMapKeyClass_StructuralKeysAreNotDecidable.
-// The builder refuses those rather than lowering them, and that fixture is what
-// says why.
+// What is NOT here, deliberately: any structural key. Two empty lists of
+// different element types are not decidable by value alone, so the builder
+// refuses those rather than lowering them.
 type Id Int
 
 enum Color {

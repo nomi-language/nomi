@@ -1,0 +1,84 @@
+================================================================================
+A then stage's body ends at the next pipe
+================================================================================
+
+fn f() {
+  xs |> then |v| v + 1 |> g()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (pipe_expression
+        (pipe_expression
+          (identifier)
+          (then_stage
+            lambda: (lambda
+              (lambda_parameter
+                name: (identifier))
+              body: (lambda_body_binary_expression
+                (identifier)
+                (integer)))))
+        (call_expression
+          function: (identifier))))))
+
+================================================================================
+Braces keep a pipe inside a then stage
+================================================================================
+
+fn f() {
+  xs |> then |v| { v |> g() }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (pipe_expression
+        (identifier)
+        (then_stage
+          lambda: (lambda
+            (lambda_parameter
+              name: (identifier))
+            body: (body
+              (pipe_expression
+                (identifier)
+                (call_expression
+                  function: (identifier))))))))))
+
+================================================================================
+A lambda's body runs past a pipe
+================================================================================
+
+fn f() {
+  Iter.map(xs, |s| f(s) |> g())
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (call_expression
+        function: (field_access
+          (type_identifier)
+          (identifier))
+        (identifier)
+        (lambda
+          (lambda_parameter
+            name: (identifier))
+          body: (pipe_expression
+            (call_expression
+              function: (identifier)
+              (identifier))
+            (call_expression
+              function: (identifier))))))))

@@ -97,7 +97,7 @@ fn span(Cell.Span{hi, lo}): Int {
     hi - lo
 }
 
-// Non-leading position, so the anonymous Go parameter has to land in the right
+// Non-leading position, so the anonymous parameter has to land in the right
 // slot.
 fn scaled(k: Int, Box.Extent{wide, tall}, bias: Int): Int {
     k * (wide + tall) + bias

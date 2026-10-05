@@ -1,8 +1,8 @@
 // Self tail recursion at a depth an untrampolined lowering cannot survive.
 //
-// 1e8 hops. Direct Go recursion of this shape holds 1e6 on 16 MB of stack and
-// 1e7 on 256 MB, and dies at 1e8 against the 1 GB SetMaxStack limit — so this
-// depth, and not a smaller one, is what separates a loop from a recursive call.
+// 1e8 hops. A shallow depth would survive ordinary recursion, so this
+// depth, and not a smaller one, is what separates a loop from a recursive
+// call.
 import std/io
 
 fn count(n: Int): Int {

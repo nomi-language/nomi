@@ -4,11 +4,11 @@
 //# Erasure cannot lower this shape and says why: the box would be at the wrong
 //# DEPTH, because the body builds a container of `any` while the caller wants a
 //# container of the concrete element. So each declaration here is monomorphized
-//# per call site instead, one Go function per argument tuple, and the point of
+//# per call site instead, one function per argument tuple, and the point of
 //# the fixture is that the two instantiations must not share a representation.
 //#
 //# READ THE `wrapped` / `Debug.inspect` ROWS FIRST. They are the ones a wrong
-//# answer hides in: an erased lowering that boxed to `any` would still COMPILE
+//# answer hides in: an erased lowering that boxed to `any` would still lower
 //# and would still return something, and only the rendered string says whether
 //# the element type survived. A row that merely called the function and dropped
 //# the result would pass against a lowering that got the type wrong.
@@ -130,8 +130,8 @@ test "a tuple return keeps the element type at each instantiation" {
 test "the same instantiation reached twice is one function" {
     // Two calls at the SAME type argument. Nothing here can observe the
     // interning directly — that is TestMonoInstanceIsInternedPerInstantiation's
-    // job — but a table that minted two Go functions with one name would fail to
-    // COMPILE, so this row is the build-level half of that assertion.
+    // job — but this row runs both calls through whatever the table interned,
+    // so a collision there shows up as a wrong or missing row.
     one = case recv(Half{slot: 1}) {
         Some(v) -> v
         None -> 0

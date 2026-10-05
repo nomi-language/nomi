@@ -7,6 +7,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/format"
+	"github.com/nomi-language/nomi/internal/lexer"
 
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -24,6 +25,10 @@ import (
 //     existing selective import of that module or inserting a new statement.
 //   - the fill fixes (code_action_fill.go): missing impl functions, struct
 //     literal fields and case arms.
+//   - "Call `f()`" for a bare name used as a pipe stage
+//     (code_action_pipe_stage.go).
+//   - "Remove the `return`" for a bare return that ends a body
+//     (code_action_useless_return.go).
 //
 // and the actions over the requested range (code_action_refactor.go).
 func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeActionParams) (any, error) {
@@ -38,6 +43,9 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		actions = append(actions, buildRemoveUnusedActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildAddImportActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, s.buildFillActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
+		actions = append(actions, buildBarePipeStageActions(snap.Content, uri, params.Context.Diagnostics)...)
+		actions = append(actions, buildLambdaPipeStageActions(snap.Content, uri, params.Context.Diagnostics)...)
+		actions = append(actions, buildUselessReturnActions(snap.Content, uri, params.Context.Diagnostics)...)
 	}
 	actions = append(actions, s.buildRefactorActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range, params.Context.Diagnostics, only)...)
 	if kindAllowed(only, protocol.CodeActionKindSourceOrganizeImports) {
@@ -559,11 +567,21 @@ func blockEntryInsertEdit(content string, lineOffs []int, block *ast.ImportBlock
 }
 
 // importInsertEdit places a new import statement on its own line: after the
-// last existing import construct, or — when the file has none — at the top with
-// a blank line separating it from the code that follows.
+// last existing import construct, or — when the file has none — at the top,
+// below any shebang line, with a blank line separating it from the code that
+// follows.
 func importInsertEdit(content string, lineOffs []int, nodes []ast.Node, text string) protocol.TextEdit {
 	endLine := lastImportLine(content, lineOffs, nodes)
 	if endLine < 0 {
+		// The first import goes at the top, below a `#!` line, which must
+		// stay the file's first line.
+		if lexer.Shebang(content) != "" {
+			nl := strings.IndexByte(content, '\n')
+			if nl < 0 {
+				return rangeEdit(content, len(content), len(content), "\n"+text+"\n")
+			}
+			return rangeEdit(content, nl+1, nl+1, text+"\n\n")
+		}
 		return rangeEdit(content, 0, 0, text+"\n\n")
 	}
 	if endLine+1 < len(lineOffs) {

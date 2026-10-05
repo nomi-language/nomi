@@ -12,8 +12,8 @@ import (
 // Record is the VM's runtime value for every nominal or structural composite:
 // a struct, an enum variant (embedded variants included), a tuple, an
 // anonymous record, a distinct value, and the prelude's Maybe, Result and
-// Fragment. It is the layout measured fastest for a runtime that cannot create
-// Go types: a descriptor plus split slot banks.
+// Fragment. Its layout, a descriptor plus split slot banks, is the fastest one
+// available to a runtime that cannot create Go types.
 //
 //	Desc  identity and layout, shared by every value of one shape
 //	Tag   the variant index for an enum; 0 otherwise
@@ -209,7 +209,7 @@ func NewStructDesc(name string, fields []FieldSpec) *TypeDesc {
 var anonDescs sync.Map // key -> *TypeDesc
 
 // AnonDesc is the process-wide descriptor of an anonymous record. Fields are
-// ordered by NAME, which is the order an anonymous record's type is keyed by
+// ordered by name, which is the order an anonymous record's type is keyed by
 // and the order both of its renderings print, so the slice passed in is
 // sorted by this call's copy and the caller's order does not matter.
 func AnonDesc(fields []FieldSpec) *TypeDesc {
@@ -574,7 +574,7 @@ func sortFieldSpecs(specs []FieldSpec) {
 // types apart. Nothing user-facing shows it: a value inspects as
 // `Point{x: 1}`, not `shapes.Point{x: 1}`.
 //
-// A declared name CAN contain dots — a namespaced declaration
+// A declared name can contain dots — a namespaced declaration
 // (`pub struct Json.DecodeError`) owns both segments. Module names come from
 // file names and are lower-case; declared names are upper-case. So the
 // qualifier is exactly the leading run of lower-case segments:
@@ -583,7 +583,7 @@ func sortFieldSpecs(specs []FieldSpec) {
 //	shapes.Point          -> Point
 //	Json.DecodeError      -> Json.DecodeError
 //
-// Cutting at the LAST dot instead would collapse `Json.DecodeError` to
+// Cutting at the last dot instead would collapse `Json.DecodeError` to
 // `DecodeError` and hand std/json's decode error and std/dynamic's one the
 // same dispatch slot.
 func ShortTypeName(name string) string {

@@ -9,6 +9,7 @@ import (
 	"github.com/nomi-language/nomi/internal/termcolor"
 	"github.com/nomi-language/nomi/internal/vmcmd"
 	"github.com/nomi-language/nomi/vmhost"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -26,10 +27,14 @@ var (
 const usage = `usage:
   nomi                                  start the REPL (bindings, functions and types carry between inputs)
   nomi run <file> [args]                run a program on the VM
+  nomi <file> [args]                    the same as nomi run, for a file that ends in
+                                        .nomi or starts with #!; with a first line of
+                                        #!/usr/bin/env nomi it runs as an executable script
   nomi test [path] [--line N] [--format text|json]
                                         run test files on the VM
   nomi check [--format full|short] <path>
-                                        analyze without running; short prints
+                                        analyze and lower without running, test
+                                        files and their cases included; short prints
                                         path:line:col: lines, not source snippets
                                         (NOMI_DIAGNOSTICS=short does so for every command)
   nomi fmt [-w|-l] <paths>              format source
@@ -90,6 +95,11 @@ func main() {
 			}
 			os.Exit(1)
 		}
+	} else if len(os.Args) > 1 && isScriptPath(os.Args[1]) {
+		// `nomi hi.nomi a b` is `nomi run hi.nomi a b`, which is what the
+		// kernel runs for a `#!/usr/bin/env nomi` script invoked as
+		// `./hi.nomi a b`, or as `hi a b` for an extensionless one on PATH.
+		runFileVM(os.Args[1], os.Args[2:]...)
 	} else if len(os.Args) > 1 {
 		// The REPL takes no argument, so anything else is a mistake rather
 		// than a REPL session.
@@ -103,6 +113,21 @@ func main() {
 	} else {
 		runReplVM()
 	}
+}
+
+// isScriptPath reports whether `nomi`'s first argument names a program file
+// to run rather than a command. Subcommands are checked first. A name ending
+// in `.nomi` is a file whether or not it exists, so a missing one is reported
+// as missing rather than as an unknown command; no subcommand ends in `.nomi`,
+// so `nomi test` is the command and `nomi test.nomi` runs the file. Any other
+// name is a file only when it exists and starts with `#!`, as an
+// extensionless script on PATH does: the kernel runs `hi a b` as
+// `nomi /home/me/bin/hi a b`.
+func isScriptPath(arg string) bool {
+	if isFlag(arg) {
+		return false
+	}
+	return strings.HasSuffix(arg, ".nomi") || startsWithShebang(arg)
 }
 
 // isFlag reports whether a command-line word is spelled as a flag.
@@ -155,7 +180,7 @@ func parseCheckArgs(args []string) (string, error) {
 }
 
 func runCheck(path string) error {
-	files, singleFile, err := discoverCheckFiles(path)
+	files, through, singleFile, err := discoverCheckFiles(path)
 	if err != nil {
 		return fmt.Errorf("nomi check: %w", pathError(path, err))
 	}
@@ -176,16 +201,33 @@ func runCheck(path string) error {
 		fmt.Println("no Nomi files found")
 		return nil
 	}
-	failed := 0
+	failed := map[string]bool{}
 	for _, file := range files {
 		if err := checkFile(file); err != nil {
-			failed++
+			failed[file] = true
 			vmhost.WriteFailLine(os.Stderr, vmhost.DisplayPath(file), err)
 			continue
 		}
 		fmt.Printf("%s %s\n", termcolor.Green("ok"), vmhost.DisplayPath(file))
 	}
-	if failed > 0 {
+	// A file checked through its importers is ok when every one of them is.
+	// When one fails, its diagnostics name the file they are in.
+	helpers := make([]string, 0, len(through))
+	for helper := range through {
+		helpers = append(helpers, helper)
+	}
+	sort.Strings(helpers)
+	for _, helper := range helpers {
+		importers := through[helper]
+		ok := true
+		for _, importer := range importers {
+			ok = ok && !failed[importer]
+		}
+		if ok {
+			fmt.Printf("%s %s (through %s)\n", termcolor.Green("ok"), vmhost.DisplayPath(helper), filepath.Base(importers[0]))
+		}
+	}
+	if len(failed) > 0 {
 		return errCheckFailed
 	}
 	return nil
@@ -201,7 +243,8 @@ func pathError(path string, err error) error {
 }
 
 // entryFileError is why path cannot be the program `nomi <cmd>` runs or
-// builds, or nil when it can: it must be an existing .nomi file.
+// builds, or nil when it can: it must be an existing .nomi file, or a file
+// of any name whose first line is a `#!` line (an extensionless script).
 func entryFileError(cmd, path string) error {
 	info, err := os.Stat(path)
 	switch {
@@ -209,10 +252,27 @@ func entryFileError(cmd, path string) error {
 		return fmt.Errorf("nomi %s: %w", cmd, pathError(path, err))
 	case info.IsDir():
 		return fmt.Errorf("nomi %s: %s is a directory; name the program's .nomi file", cmd, path)
-	case filepath.Ext(path) != ".nomi":
-		return fmt.Errorf("nomi %s: %s is not a .nomi file", cmd, path)
+	case filepath.Ext(path) != ".nomi" && !startsWithShebang(path):
+		return fmt.Errorf("nomi %s: %s is not a .nomi file and does not start with a #! line", cmd, path)
 	}
 	return nil
+}
+
+// startsWithShebang reports whether path is a regular file whose first two
+// bytes are `#!`.
+func startsWithShebang(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	head := make([]byte, 2)
+	n, _ := io.ReadFull(f, head)
+	return n == 2 && string(head) == "#!"
 }
 
 // ownLines reports whether err's text is lines that each stand on their own,
@@ -222,11 +282,10 @@ func ownLines(err error) bool {
 	return errors.As(err, &own) && own.OwnLines()
 }
 
+// checkFile checks one file as `nomi run` or `nomi test` loads it, and runs
+// nothing. A test file's cases are lowered as `nomi test` lowers them, so a
+// case `nomi test` would report BLOCKED is an error here.
 func checkFile(absPath string) error {
-	if strings.HasSuffix(filepath.Base(absPath), "_test.nomi") {
-		return fmt.Errorf("%s is a test file; use `nomi test %s`",
-			vmhost.DisplayPath(absPath), vmhost.DisplayPath(absPath))
-	}
 	res, err := ffirun.Prepare(absPath)
 	if err != nil {
 		return err
@@ -237,41 +296,64 @@ func checkFile(absPath string) error {
 	return vmhost.Check(absPath)
 }
 
-func discoverCheckFiles(root string) ([]string, bool, error) {
+// discoverCheckFiles answers the files `nomi check root` checks as programs,
+// and, for a directory without entry points, the files it checks only through
+// those programs, each with the programs that load it (programRoots).
+func discoverCheckFiles(root string) (files []string, through map[string][]string, singleFile bool, err error) {
 	info, err := os.Stat(root)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 	if !info.IsDir() {
-		if !strings.HasSuffix(root, ".nomi") {
-			return nil, false, fmt.Errorf("%s is not a .nomi file", root)
+		if !strings.HasSuffix(root, ".nomi") && !startsWithShebang(root) {
+			return nil, nil, false, fmt.Errorf("%s is not a .nomi file and does not start with a #! line", root)
 		}
 		abs, err := filepath.Abs(root)
 		if err != nil {
-			return nil, false, err
+			return nil, nil, false, err
 		}
-		return []string{abs}, true, nil
+		return []string{abs}, nil, true, nil
 	}
 	if mfst, err := analysis.LoadManifest(root); err == nil && len(mfst.EntryPoints) > 0 {
 		files := make([]string, 0, len(mfst.EntryPoints))
 		for _, entry := range mfst.EntryPoints {
 			entryPath := filepath.FromSlash(entry)
+			// An entry names its .nomi file without the extension, or an
+			// extensionless `#!` script beside nomi.toml when no such
+			// .nomi file exists.
 			if filepath.Ext(entryPath) != ".nomi" {
-				entryPath += ".nomi"
+				bare := filepath.Join(root, entryPath)
+				if _, err := os.Stat(bare + ".nomi"); err == nil || !startsWithShebang(bare) {
+					entryPath += ".nomi"
+				}
 			}
 			abs, err := filepath.Abs(filepath.Join(root, entryPath))
 			if err != nil {
-				return nil, false, err
+				return nil, nil, false, err
 			}
 			files = append(files, abs)
 		}
+		// The module's test files, and files that declare tests, are
+		// checked with its entries, as `nomi test` would load them.
+		tests, err := discoverTestFiles(root)
+		if err != nil {
+			return nil, nil, false, err
+		}
+		seen := map[string]bool{}
+		for _, f := range files {
+			seen[f] = true
+		}
+		for _, f := range tests {
+			if !seen[f] {
+				files = append(files, f)
+			}
+		}
 		sort.Strings(files)
-		return files, false, nil
+		return files, nil, false, nil
 	} else if err != nil && !errors.Is(err, analysis.ErrManifestMissing) {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
-	var files []string
 	err = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -283,7 +365,7 @@ func discoverCheckFiles(root string) ([]string, bool, error) {
 			}
 			return nil
 		}
-		if !strings.HasSuffix(d.Name(), ".nomi") || strings.HasSuffix(d.Name(), "_test.nomi") {
+		if !strings.HasSuffix(d.Name(), ".nomi") {
 			return nil
 		}
 		abs, err := filepath.Abs(path)
@@ -294,10 +376,74 @@ func discoverCheckFiles(root string) ([]string, bool, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 	sort.Strings(files)
-	return files, false, nil
+	files, through = programRoots(files)
+	return files, through, false, nil
+}
+
+// programRoots is the files of a directory check that are checked as
+// programs. A file another file in the set imports is checked through that
+// importer, as `nomi run` and `nomi test` load it: a helper that reads an
+// application field is valid only under an entry whose boot returns the
+// application, and its errors are reported by its importer's check. A file
+// nothing in the set imports is checked on its own. Files that import each
+// other with no importer outside their cycle are checked from the first, in
+// path order. A stdlib file is always checked on its own, as its module.
+func programRoots(files []string) (roots []string, through map[string][]string) {
+	inSet := map[string]bool{}
+	for _, f := range files {
+		inSet[f] = true
+	}
+	imports := map[string][]string{}
+	imported := map[string]bool{}
+	for _, f := range files {
+		if _, _, ok := frontend.StdlibFile(f); ok {
+			continue
+		}
+		// An unreadable import graph leaves the file a root; its own check
+		// reports why.
+		paths, _ := frontend.ImportedFiles(f)
+		for _, p := range paths {
+			if inSet[p] && p != f {
+				imports[f] = append(imports[f], p)
+				imported[p] = true
+			}
+		}
+	}
+	// ImportedFiles is transitive, so a root's imports are every file its
+	// program loads.
+	isRoot := map[string]bool{}
+	reached := map[string]bool{}
+	addRoot := func(f string) {
+		roots = append(roots, f)
+		isRoot[f] = true
+		reached[f] = true
+		for _, p := range imports[f] {
+			reached[p] = true
+		}
+	}
+	for _, f := range files {
+		if !imported[f] {
+			addRoot(f)
+		}
+	}
+	for _, f := range files {
+		if !reached[f] {
+			addRoot(f)
+		}
+	}
+	sort.Strings(roots)
+	through = map[string][]string{}
+	for _, r := range roots {
+		for _, p := range imports[r] {
+			if !isRoot[p] {
+				through[p] = append(through[p], r)
+			}
+		}
+	}
+	return roots, through
 }
 
 func runTest(args []string) error {
@@ -369,8 +515,8 @@ func discoverTestFiles(root string) ([]string, error) {
 		return nil, err
 	}
 	if !info.IsDir() {
-		if !strings.HasSuffix(root, ".nomi") {
-			return nil, fmt.Errorf("%s is not a .nomi file", root)
+		if !strings.HasSuffix(root, ".nomi") && !startsWithShebang(root) {
+			return nil, fmt.Errorf("%s is not a .nomi file and does not start with a #! line", root)
 		}
 		abs, err := filepath.Abs(root)
 		if err != nil {

@@ -1,10 +1,8 @@
 // TWO instantiations of ONE generic-interface impl block, in ONE file.
 //
-// This is the shape an intra-file identity collapse hides in, and the reason it
-// needs a fixture of its own is that `TestCorpus_DifferentialSweep` CANNOT see
-// it: the sweep reports the union of a file's blockers per file, so two
-// instantiations that share one set of bindings are structurally invisible there
-// when both live in the same file — which they always do for this shape.
+// This is the shape an intra-file identity collapse hides in: two
+// instantiations that shared one set of bindings in one file would print a
+// wrong value rather than refuse, so the recorded output is what catches it.
 //
 // `impl Chooser for Pair<E>` is ONE block. `registerInstanceImpls` registers it
 // once per instantiation, so the monomorphization key has to be
@@ -16,8 +14,8 @@
 // `left`/`right` are requirements, which are two different registration paths to
 // the same question.
 //
-// The two instantiations are deliberately at types with DIFFERENT Go
-// representations (int64 and a string), so a collapse cannot coincidentally
+// The two instantiations are deliberately at types with different runtime
+// representations (an Int and a String), so a collapse cannot coincidentally
 // produce the right bytes.
 interface Chooser<T> {
     fn left(p: self): T

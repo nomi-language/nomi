@@ -127,7 +127,7 @@ fn tuple_of_dur((Dur(d), n): (Dur, Int)): Int {
     d - n
 }
 
-// Non-leading position, so the anonymous Go parameter has to land in the right
+// Non-leading position, so the anonymous parameter has to land in the right
 // slot with an ordinary parameter on each side.
 fn between(k: Int, {y, x}: Point, (a, b): (Int, Int)): Int {
     k * 1000 + (x * 100 + y) + (a - b)
@@ -170,12 +170,10 @@ fn main() {
 
     // A DESTRUCTURING SEED. `Iter.reduce` reads a callback's first-parameter
     // default as its seed (AGENTS.md documents that as the way to give a fold
-    // its initial state), and until now a destructuring first parameter was
-    // REFUSED — iterseed_test.go pinned the refusal and predicted, correctly,
-    // that the seed half would already be covered when the pattern lifted.
+    // its initial state), and a destructuring first parameter is a seed too.
     //
-    // This row is where that pin MOVED: it compares the ANSWER rather than the
-    // refusal. `(a + x, b)` is non-commutative in its slots, so a seed read into
+    // This row compares the answer. `(a + x, b)` is non-commutative in its
+    // slots, so a seed read into
     // the wrong element answers `(0, 3)` instead of `(3, 0)`.
     seeded = Iter.reduce([1, 2], |(a, b): (Int, Int) = (0, 0), x| (a + x, b))
     io.print("seeded = ${seeded}")

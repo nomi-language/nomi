@@ -225,7 +225,7 @@ func TestStructCallForm_StillRefusesNonRecordArguments(t *testing.T) {
 
 // TestStructCallForm_OpaqueStructStillPrivate is interaction 3. Opacity is
 // enforced BEFORE the argument is looked at, so the non-literal shape is not
-// a transparent route past it — the defect closed at 224c94dc.
+// a transparent route past it.
 //
 // Both controls are here and both are load-bearing. The LITERAL form from
 // outside must refuse too (or the test is measuring the arm rather than the

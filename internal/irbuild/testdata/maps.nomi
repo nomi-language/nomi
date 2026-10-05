@@ -4,8 +4,8 @@ import std/io
 //
 // The load-bearing part is the KEY types. A Nomi map key is any keyable value
 // compared structurally, so `[1, 2]` and `(1, 2)` are
-// legal keys — and a `*rt.List[T]` is Go-comparable BY ADDRESS, which means a Go
-// `map` would take these keys, compile clean, and never find one again. Every
+// legal keys, and a `*rt.List[T]` is a pointer, which means a map keyed by
+// address would take these keys and never find one again. Every
 // lookup below is written with a FRESH literal rather than the bound name, so an
 // address-keyed map fails on the ANSWER and not on a type error.
 //
@@ -41,13 +41,9 @@ fn main() {
     io.print("neq value = ${{"a" => 1} != {"a" => 2}}")
     io.print("neq size = ${{"a" => 1} != {"a" => 1, "b" => 2}}")
 
-    // Int keys. A Map whose VALUES are Lists is deliberately not rendered here:
-    // the interpreter cannot do it — `${{"xs" => [1, 2]}}` fails with
-    // "Display.to_string: no implementation for type 'List'", because `impl
-    // Display for Map<K, V>` dispatches `Display.to_string` on a type parameter
-    // and the interpreter does not resolve the List impl through it. A found-out
-    // front-end gap, not this slice's, and not worked around: the composite
-    // VALUE type is still exercised, through Map.size and Map.get below.
+    // Int keys. A Map whose VALUES are Lists is deliberately not rendered
+    // here; the composite VALUE type is exercised through Map.size and
+    // Map.get below.
     io.print("ints = ${{1 => "one", 2 => "two"}}")
     io.print("nested size = ${Map.size({"xs" => [1, 2], "ys" => [3]})}")
 
@@ -61,11 +57,9 @@ fn main() {
     io.print("filled from empty = ${Map.put(annotated, "k", 1)}")
     io.print("returned empty = ${blank()}")
 
-    // LIST keys — the case a Go map gets silently wrong. Not rendered whole, for
-    // the same interpreter gap noted above: `Display.to_string` on a type
-    // parameter does not reach `impl Display for List<T>`, so `${lists}` fails on
-    // the interpreter. Every read below uses a FRESH list, which is the part that
-    // matters: under Go's address equality these all answer None.
+    // LIST keys, the case an address-keyed map gets silently wrong. Not
+    // rendered whole. Every read below uses a FRESH list, which is the part
+    // that matters: under address equality these would all answer None.
     lists = {[1, 2] => "x", [3] => "y"}
     io.print("list size = ${Map.size(lists)}")
     io.print("list get = ${found_by_list(lists, [1, 2])}")

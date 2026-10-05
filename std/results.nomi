@@ -3,6 +3,8 @@ import {
     display.Display
     equatable.Equatable
     hashable.Hashable
+    iter.Iter
+    lists.List
     maybe.Maybe.{self, None, Some}
 }
 
@@ -115,15 +117,80 @@ impl Result<T, E> {
         }
     }
 
-    /// Converts Maybe to Result. None becomes Err(error).
-    //! assert Result.from_maybe(Some(3), "missing") == Result.Ok(3)
-    //! assert Result.from_maybe(None, "missing") == Result.Err("missing")
+    /// Returns Ok of every value in order when every result is Ok, and otherwise
+    /// the first Err. It stops consuming the iterator at that Err.
+    //! import std/ranges.Range
+    //!
+    //! assert Result.collect([Result.Ok(1), Result.Ok(2)]) == Result.Ok([1, 2])
+    //! assert Result.collect([Result.Ok(1), Result.Err("a"), Result.Err("b")]) == Result.Err("a")
+    //! none: List<Result<Int, String>> = []
+    //! assert Result.collect(none) == Result.Ok([])
+    //!
+    //! checked =
+    //!     [3, 1, 2]
+    //!     |> Iter.map(|n|
+    //!         if n > 0 {
+    //!             Result.Ok(n * 10)
+    //!         } else {
+    //!             Result.Err(n)
+    //!         }
+    //!     )
+    //!     |> Result.collect()
+    //!
+    //! assert checked == Result.Ok([30, 10, 20])
+    //!
+    //! // An infinite source ends: collect stops pulling at the first Err.
+    //! stopped =
+    //!     Range.naturals()
+    //!     |> Iter.map(|n| if n < 3 { Result.Ok(n) } else { Result.Err(n) })
+    //!     |> Result.collect()
+    //!
+    //! assert stopped == Result.Err(3)
     //
-    pub fn from_maybe<T, E>(maybe: Maybe<T>, error: E): Result<T, E> {
-        case maybe {
-            Some(v) -> Result.Ok(v)
-            None -> Result.Err(error)
-        }
+    pub fn collect<T, E>(results: Iter<Result<T, E>>): Result<List<T>, E> {
+        reversed = Iter.reduce(results, |acc: Result<List<T>, E> = Result.Ok([]), item|
+            case item {
+                Ok(v) -> Result.map(acc, |vs| [v, ..vs])
+                Err(e) -> break Result.Err(e)
+            }
+        )
+
+        Result.map(reversed, |vs| Iter.reverse(vs))
+    }
+
+    /// Splits results into every Ok value and every Err value, each list in
+    /// input order. It consumes the whole iterator.
+    //! mixed = [Result.Ok(1), Result.Err("a"), Result.Ok(2), Result.Err("b")]
+    //! assert Result.partition(mixed) == ([1, 2], ["a", "b"])
+    //! oks: List<Result<Int, String>> = [Result.Ok(1), Result.Ok(2)]
+    //! (all_oks, no_errs) = Result.partition(oks)
+    //! assert all_oks == [1, 2]
+    //! assert no_errs == []
+    //!
+    //! none: List<Result<Int, String>> = []
+    //! (no_oks, still_no_errs) = Result.partition(none)
+    //! assert no_oks == []
+    //! assert still_no_errs == []
+    //!
+    //! split =
+    //!     [1, -2, 3, -4]
+    //!     |> Iter.map(|n| if n > 0 { Result.Ok(n) } else { Result.Err(n) })
+    //!     |> Result.partition()
+    //!
+    //! assert split == ([1, 3], [-2, -4])
+    //
+    pub fn partition<T, E>(results: Iter<Result<T, E>>): (List<T>, List<E>) {
+        state = Iter.reduce(results, |state: (List<T>, List<E>) = ([], []), item| {
+            (oks, errs) = state
+
+            case item {
+                Ok(v) -> ([v, ..oks], errs)
+                Err(e) -> (oks, [e, ..errs])
+            }
+        })
+
+        (oks, errs) = state
+        (Iter.reverse(oks), Iter.reverse(errs))
     }
 }
 

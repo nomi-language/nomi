@@ -10,7 +10,7 @@ import {
 //
 // OBSERVABLE rather than a signature witness, for testdata/dotted_values.nomi's
 // reason and a sharper one. This lowering has three ways to be silently wrong
-// that no refusal count can see, and every one produces compiling Go:
+// that no refusal count can see, and every one still lowers and runs:
 //
 //   - select the wrong VARIANT (the tags come from declaration order, and a
 //     permuted spec renumbers construction and `case` consistently, so only a
@@ -75,8 +75,8 @@ fn why(o: Outcome<Int>): String {
 }
 
 // A DIFFERENT type argument, so the instantiation is not the only one in the
-// file: a shared intern keyed on the base name rather than on the rendered Go
-// type would collapse these two and this row would print the wrong thing.
+// file: a shared intern keyed on the base name rather than on the whole
+// instantiation would collapse these two and this row would print the wrong thing.
 fn label(o: Outcome<String>): String {
     case o {
         Outcome.Completed(s) -> s

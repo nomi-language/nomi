@@ -4,7 +4,7 @@
 // This is reachable from type-correct source and is NOT a checker hole. The
 // checker types `s.radius` from the FIRST variant that declares `radius`, so a
 // value that turns out to be some other variant type-checks and then has
-// nowhere to read from. The interpreter's answer is an error, and WHICH error
+// nowhere to read from. The answer is a run-time error, and which error
 // depends on the subject variant's payload:
 //
 //   - the payload is a struct that lacks the name →

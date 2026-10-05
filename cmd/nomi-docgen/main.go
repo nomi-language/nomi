@@ -2,7 +2,7 @@
 // doc comments.
 //
 // For each stdlib module it writes <out>/<module>.md: every pub declaration with
-// its signature + doc, rendered by the SAME renderer the LSP and the tour's
+// its signature + doc, rendered by the same renderer the LSP and the tour's
 // hovers use (hoverdoc.Render), so the reference can't drift
 // from the editor. Signatures use ```nomi fences (statically highlighted,
 // not turned into runnable editors). Output is generated, not committed.
@@ -496,8 +496,7 @@ func renderAPIEntry(b *strings.Builder, moduleName string, fa *analysis.FileAnal
 				b.WriteString("<p class=\"nomi-ref-test-label\">Interactive Tests</p>\n\n")
 				wroteTestHeading = true
 			}
-			displayBody, bodyContext := splitReferenceTestBodyContext(body)
-			context := joinReferenceTestContext(testContext, bodyContext)
+			context := referenceContextBeside(testContext, body)
 			contextAttr := ""
 			if context != "" {
 				contextAttr = fmt.Sprintf(
@@ -510,45 +509,38 @@ func renderAPIEntry(b *strings.Builder, moduleName string, fa *analysis.FileAnal
 				"<pre data-nomi-stdlib-module=%q%s><code class=\"language-nomi-test\">%s</code></pre>\n\n",
 				moduleName,
 				contextAttr,
-				html.EscapeString(displayBody),
+				html.EscapeString(body),
 			)
 		}
 	}
 }
 
-func splitReferenceTestBodyContext(body string) (string, string) {
-	lines := strings.Split(body, "\n")
-	var context []string
-	i := 0
-	for i < len(lines) {
-		line := lines[i]
+// referenceContextBeside is the hidden context an editor runs body with: the
+// page's own imports, less any the body writes itself. A body's leading
+// imports stay in the editor, so a reader sees what an example needs and can
+// copy it into a program as it stands; that is why a `//!` test spells a
+// stdlib import `std/ranges.Range`, as user code does, though a stdlib file
+// may also write `ranges.Range`.
+func referenceContextBeside(context, body string) string {
+	written := map[string]bool{}
+	for _, line := range strings.Split(body, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
-			i++
 			continue
 		}
 		if !strings.HasPrefix(trimmed, "import ") {
 			break
 		}
-		context = append(context, trimmed)
-		i++
+		written[trimmed] = true
 	}
-	display := strings.TrimLeft(strings.Join(lines[i:], "\n"), "\n")
-	return display, strings.Join(context, "\n")
-}
-
-func joinReferenceTestContext(parts ...string) string {
 	var out []string
-	seen := map[string]bool{}
-	for _, part := range parts {
-		for _, line := range strings.Split(part, "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" || seen[line] {
-				continue
-			}
-			seen[line] = true
-			out = append(out, line)
+	for _, line := range strings.Split(context, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || written[line] {
+			continue
 		}
+		written[line] = true
+		out = append(out, line)
 	}
 	return strings.Join(out, "\n")
 }

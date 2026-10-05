@@ -41,12 +41,12 @@ func TestToPipe_InnermostCallWithoutArgumentsLeads(t *testing.T) {
 	}
 }
 
-// In a lambda's one-expression body a pipe would end the lambda at its
-// first `|>`, so the pipeline is grouped.
+// A lambda's one-expression body runs past a `|>`, so the pipeline stands
+// there without parentheses.
 func TestToPipe_InLambdaBody(t *testing.T) {
 	src := fnMain("n = Iter.map([[1]], |xs| Iter.count(Iter.filter‸(xs, |x| x > 0)))\nio.inspect(Iter.to_list(n))\n")
 	got := checkRefactor(t, src, "Convert to pipe", rewrite)
-	if !strings.Contains(got, "|> Iter.count()") {
+	if !strings.Contains(got, "|xs|\n") || !strings.Contains(got, "|> Iter.count()") || strings.Contains(got, "(xs") {
 		t.Fatalf("got\n%s", got)
 	}
 	back := checkRefactor(t, strings.Replace(got, "|> Iter.count(", "|> Iter.co‸unt(", 1), "Convert from pipe", rewrite)
@@ -130,8 +130,18 @@ func TestFromPipe_Stages(t *testing.T) {
 	}
 }
 
-func TestFromPipe_RefusesLambdaStage(t *testing.T) {
-	refuseRefactor(t, fnMain("n =\n    [1, 2]\n    |> |v| Iter.co‸unt(v)\n\nio.inspect(n)\n"), "Convert from pipe")
+// In a `then` lambda's one-expression body a pipe would end the lambda at
+// its first `|>`, so the pipeline is grouped.
+func TestToPipe_InThenBody(t *testing.T) {
+	src := fnMain("n =\n    [1, 2]\n    |> then |xs| Iter.count(Iter.filter‸(xs, |x| x > 0))\n\nio.inspect(n)\n")
+	got := checkRefactor(t, src, "Convert to pipe", rewrite)
+	if !strings.Contains(got, "then |xs| (xs |> Iter.filter(|x| x > 0) |> Iter.count())") {
+		t.Fatalf("got\n%s", got)
+	}
+}
+
+func TestFromPipe_RefusesThenStage(t *testing.T) {
+	refuseRefactor(t, fnMain("n =\n    [1, 2]\n    |> then |v| Iter.co‸unt(v)\n\nio.inspect(n)\n"), "Convert from pipe")
 }
 
 // A pipe nested in a lambda inside a pipe: the cursor picks the inner one.

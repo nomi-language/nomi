@@ -1,7 +1,7 @@
 // Every assertion holds, so the report is all `ok` lines and a passing
 // summary. The point is the shape of a test binary, not a failure: a file that
-// declares tests compiles to something `nomi test` and the artifact agree on
-// even when nothing goes wrong.
+// declares tests builds a test program whose report is fully specified even
+// when nothing goes wrong.
 fn double(n: Int): Int {
     n * 2
 }

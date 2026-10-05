@@ -293,7 +293,7 @@ func TestIsFailingIsNotJustANonZeroExit(t *testing.T) {
 // question that should be answerable in milliseconds.
 func TestEveryPopulationHasACommittedArtifact(t *testing.T) {
 	// THE FAILURE POPULATION IS LISTED LAST AND IS THE ONLY ONE REQUIRED TO
-	// HOLD FAILURE TEXT. The other three hold none — measured, not assumed; see
+	// HOLD FAILURE TEXT. The others hold none — measured, not assumed; see
 	// the recorders' header — and asserting `Failing() > 0` for them would be
 	// asserting a fact that is false about this repo.
 	for _, tc := range []struct {
@@ -304,6 +304,7 @@ func TestEveryPopulationHasACommittedArtifact(t *testing.T) {
 		{"corpus", 200, false},
 		{"stdlib", 25, false},
 		{"tour", 100, false},
+		{"reference", 25, false},
 		{"failure", 40, true},
 	} {
 		t.Run(tc.population, func(t *testing.T) {
@@ -346,7 +347,7 @@ func TestEveryPopulationHasACommittedArtifact(t *testing.T) {
 // Parse read out of it — otherwise the next regeneration reformats the whole
 // file and buries the one record that actually moved.
 func TestArtifactsAreByteIdenticalAfterARoundTrip(t *testing.T) {
-	for _, population := range []string{"corpus", "stdlib", "tour", "failure", "irbuild"} {
+	for _, population := range []string{"corpus", "stdlib", "tour", "failure", "irbuild", "reference"} {
 		t.Run(population, func(t *testing.T) {
 			path, err := Path(population)
 			if err != nil {

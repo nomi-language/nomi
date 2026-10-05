@@ -1,9 +1,9 @@
 // `xs == ys` and `List.equal?(xs, ys)` must AGREE, for every shape.
 //
-// The two are one operation — `impl Equatable for List<T>` (std/lists.nomi:125)
+// The two are one operation — `impl Equatable for List<T>` (std/lists.nomi)
 // is written `a == b`, so the method delegates to the built-in rather than
-// defining a second rule — and the builder now shares one lowering for both
-// (collections.go's listEqual). This file asserts the agreement DIRECTLY rather
+// defining a second rule — and the builder shares one lowering for both.
+// This file asserts the agreement DIRECTLY rather
 // than pinning each side's answer independently, because two independent
 // assertions both keep passing if the paths are re-split and then drift
 // together; an agreement assertion cannot.
@@ -21,8 +21,8 @@ fn main() {
     nan = 0.0 / 0.0
 
     agree("lit-lit", xs, [1, 2, 3])
-    // A DIFFERENT cons chain with the same elements. Go compares cells by
-    // address, so this is the row a Go `==` would fail.
+    // A DIFFERENT cons chain with the same elements. An address comparison
+    // of cells would fail this row.
     agree("lit-built", xs, List.concat([1], [2, 3]))
     agree("differing", xs, [1, 2, 4])
     agree("shorter", xs, [1, 2])

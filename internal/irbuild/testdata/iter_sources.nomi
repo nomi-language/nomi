@@ -43,7 +43,7 @@ fn main() {
     io.print("${"" |> Iter.to_list()}")
 
     // --- Map as a push source --------------------------------------------------
-    // Insertion order, which is what the interpreter's OrderedEntries promises.
+    // Insertion order, which is what a Map's iteration promises.
     scores: Map<String, Int> = {"b" => 2, "a" => 1, "c" => 3}
     io.print("${scores |> Iter.to_list()}")
     io.print("${scores |> Iter.count()}")

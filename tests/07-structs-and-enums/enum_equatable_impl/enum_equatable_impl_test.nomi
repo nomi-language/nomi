@@ -1,9 +1,9 @@
 // A hand-written `impl Equatable` on an ENUM must answer `==`, not just
 // `Equatable.equal?`.
 //
-// Until 2026-08-30 the operator's dispatch path required a StructVal on BOTH
-// sides, so an enum's hand-written impl was reachable by name and unreachable
-// by operator — one question with two answers, and no diagnostic. The impl
+// An operator dispatch path that only consulted the impl for structs would
+// make an enum's hand-written impl reachable by name and unreachable by
+// operator: one question with two answers, and no diagnostic. The impl
 // below is deliberately COARSER than structural equality (it compares the
 // sign, not the payload), so a structural fallback cannot pass these tests by
 // accident: `Sign.Raw(3) == Sign.Raw(9)` is False structurally and True here.

@@ -1,0 +1,13 @@
+# The corpus records internal/vm's programs harness compares against corpus.expect.
+# A record that leaves this list stopped comparing; name the cause.
+# Regenerate with:
+#   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/vm -run 'TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts|TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords' -count=1
+12-derives-and-standard-interfaces/generic_debug/main.nomi
+14-modules-and-packaging/file_import_display/main.nomi
+15-app-and-defer/app_field_permission/main.nomi
+15-app-and-defer/deadline_floor/supervisor_app.nomi
+15-app-and-defer/effects/main.nomi
+15-app-and-defer/import_vs_app/import_app.nomi
+15-app-and-defer/with_overrides/app.nomi
+16-concurrency/message_loop/counter_app.nomi
+16-concurrency/supervisors/app.nomi

@@ -6,8 +6,8 @@
 // The formatter works by walking a Nomi AST, emitting a tree of Doc values
 // that represents the intended layout, and then rendering that tree via a
 // Wadler/Leijen pretty-printer (see layout.go). The emitter and layout
-// algorithm are decoupled: the emitter decides WHAT pieces appear; the
-// layout engine decides WHERE to break lines to fit a width budget.
+// algorithm are decoupled: the emitter decides what pieces appear; the
+// layout engine decides where to break lines to fit a width budget.
 package format
 
 // Doc is an element of the formatter's intermediate representation.

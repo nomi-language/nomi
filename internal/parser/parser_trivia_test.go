@@ -67,7 +67,7 @@ func TestParse_AttachesBlankLineAsLeadingOnNextNode(t *testing.T) {
 	}
 }
 
-// Task 7: trivia inside blocks.
+// Trivia inside blocks.
 func TestParse_AttachesLeadingCommentInsideBlock(t *testing.T) {
 	src := "fn f() {\n  // inner\n  x = 1\n  x\n}\n"
 	nodes, err := Parse(lexer.Lex(src))
@@ -97,7 +97,7 @@ func TestParse_AttachesLeadingCommentInsideBlock(t *testing.T) {
 	}
 }
 
-// Task 7: trivia inside case-arm bodies.
+// Trivia inside case-arm bodies.
 func TestParse_AttachesLeadingCommentInsideCaseArms(t *testing.T) {
 	src := "fn f() {\n  case 1 {\n    // first arm\n    1 -> 1\n    // second arm\n    _ -> 0\n  }\n}\n"
 	nodes, err := Parse(lexer.Lex(src))
@@ -176,7 +176,7 @@ func TestParse_MidExpressionCommentIsDropped(t *testing.T) {
 }
 
 func TestParse_StandaloneCommentBetweenPipeStages(t *testing.T) {
-	src := "5\n|> Int.to_float()\n// a comment\n|> |value| value == 5.0\n|> dbg\n"
+	src := "5\n|> Int.to_float()\n// a comment\n|> then |value| value == 5.0\n|> dbg\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatal(err)
@@ -196,13 +196,13 @@ func TestParse_StandaloneCommentBetweenPipeStages(t *testing.T) {
 	if !ok || middlePipe.Op != "|>" {
 		t.Fatalf("want middle pipe, got %T %#v", finalPipe.Left, finalPipe.Left)
 	}
-	lambda, ok := middlePipe.Right.(*ast.Lambda)
+	then, ok := middlePipe.Right.(*ast.Then)
 	if !ok {
-		t.Fatalf("want lambda pipe stage, got %T", middlePipe.Right)
+		t.Fatalf("want then pipe stage, got %T", middlePipe.Right)
 	}
-	leading := lambda.GetLeading()
+	leading := then.GetLeading()
 	if len(leading) != 1 || leading[0].Text != "// a comment" {
-		t.Fatalf("want leading comment on lambda stage, got %#v", leading)
+		t.Fatalf("want leading comment on then stage, got %#v", leading)
 	}
 }
 
@@ -319,9 +319,9 @@ func TestParse_DropsTrailingTopLevelComments(t *testing.T) {
 	}
 }
 
-// parseStructBody now captures trailing in-body comments on
-// StructDef.EndTrivia (previously rejected with "expected field name").
-// Mirrors the file-end-trivia fix at commit 9a8fbf4 for struct bodies.
+// parseStructBody captures trailing in-body comments on
+// StructDef.EndTrivia rather than rejecting them with "expected field name",
+// as file-end trivia is captured for a whole file.
 func TestParse_StructBody_TrailingComment_Preserved(t *testing.T) {
 	src := "pub struct Point {\n  x: Int\n  y: Int\n  // trailing comment\n}\n"
 	nodes, err := Parse(lexer.Lex(src))

@@ -19,6 +19,11 @@ func TestJudgeVM_SeparatesAGapFromAWrongAnswer(t *testing.T) {
 	if v, reason := JudgeVM(rec, gap, 1); v != Gap || !strings.Contains(reason, "not retained: x") {
 		t.Fatalf("a blocked case judged %v (%q)", v, reason)
 	}
+	located := "ok a\nBLOCKED f :: b f:9:20: this call to `g` is not supported yet, so `fn h` cannot run\n" +
+		"  f:9:20: help: pass it\nok c\ntest result: BLOCKED. 2 passed, 0 failed, 1 blocked\n"
+	if v, reason := JudgeVM(rec, located, 1); v != Gap || !strings.Contains(reason, "this call to `g`") {
+		t.Fatalf("a blocked case with its hint judged %v (%q)", v, reason)
+	}
 	wrongLine := "ok a\nBLOCKED f :: b [test body] not retained: x\nFAIL c\ntest result: FAILED. 1 passed, 1 failed, 1 blocked\n"
 	if v, _ := JudgeVM(rec, wrongLine, 1); v != Wrong {
 		t.Fatalf("a blocked run whose other case failed differently judged %v", v)
@@ -36,5 +41,10 @@ func TestJudgeVM_SeparatesAGapFromAWrongAnswer(t *testing.T) {
 	program := StderrLabel + "BLOCKED f [main] not retained: y\nthe VM cannot run this program\n"
 	if v, _ := JudgeVM(NewCase("p", 0, 0, "hello\n"), program, 1); v != Gap {
 		t.Fatalf("a blocked program judged %v", v)
+	}
+	unlowered := StderrLabel + "error: this call to `g` is not supported yet, so `fn main` cannot run\n" +
+		"  --> main.nomi:3:3\n   |\n 3 |   g()\n   |   ^\n"
+	if v, reason := JudgeVM(NewCase("p", 0, 0, "hello\n"), unlowered, 1); v != Gap || !strings.HasPrefix(reason, "this call to `g`") {
+		t.Fatalf("a run stopped at an unlowered body judged %v (%q)", v, reason)
 	}
 }

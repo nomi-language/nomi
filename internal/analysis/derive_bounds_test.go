@@ -11,7 +11,7 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// Tests for Gap 1 of @derive (spec §38.5): field/payload/inner type bound
+// Tests for derive's field-type requirements (spec §38.1): field/payload/inner type bound
 // checking at the `@derive Iface` site. These need stdlib loaded so the
 // check can see Int/String/Bool/etc.'s impls; without stdlib the check is
 // a no-op (it can't tell missing-from-table from genuinely-unimplemented).
@@ -98,7 +98,7 @@ func errMsgs(errs []analysis.TypeError) string {
 	return strings.Join(msgs, "\n  ")
 }
 
-// TestDeriveEquatableOnFieldWithoutImplErrors pins Gap 1 spec §38.5: a
+// TestDeriveEquatableOnFieldWithoutImplErrors pins spec §38.1's field-type requirement: a
 // `@derive Equatable struct Wrapper { id: User }` where `User` has no
 // Equatable impl errors at the @derive site, naming the field and the
 // missing interface. Without this check the failure surfaces deep in
@@ -191,9 +191,10 @@ derive Debug for Point`
 	}
 }
 
-// TestDeriveOnGenericFieldClean pins Gap 1 + Gap 2's interaction: a
-// generic field type (`value: T`) is recognized as a type-parameter
-// reference and skipped — Gap 2's implicit `T: Equatable` bound on the
+// TestDeriveOnGenericFieldClean pins how the field-type check and the
+// implicit generic bound interact: a generic field type (`value: T`) is
+// recognized as a type-parameter reference and skipped — the implicit
+// `T: Equatable` bound on the
 // synthesized fn handles the requirement at the call site, so the
 // derive-bound check at the decl site must not flag it.
 func TestDeriveOnGenericFieldClean(t *testing.T) {

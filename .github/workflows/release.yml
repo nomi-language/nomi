@@ -2,9 +2,6 @@
 # single runner and attaches the archives plus their checksum manifest to a
 # GitHub release.
 #
-# This is the repository's first CI workflow — there was none before, so there
-# is no existing matrix, cache, or job naming to follow.
-#
 # One runner, not a matrix: Go cross-compiles with GOOS/GOARCH and needs no
 # cross-toolchain, and scripts/release.sh reads each artifact's own recorded
 # GOOS/GOARCH back off the binary to prove the environment took effect. Five
@@ -58,10 +55,8 @@ jobs:
         run: ./scripts/release.sh "${{ github.event.inputs.version || github.ref_name }}"
 
       - name: Verify the published checksums against the archives
-        # The manifest is what Homebrew's `sha256` and Scoop's `hash` will
-        # quote, and what part two of the roadmap's binary-distribution entry
-        # needs as a precedent for verifying a downloaded Go toolchain. A
-        # manifest nobody re-checks is a manifest that can go stale silently.
+        # `nomi build --target` checks downloaded archives against this
+        # manifest, so a manifest that disagrees with the archives breaks it.
         working-directory: dist
         run: sha256sum --check --strict nomi_*_checksums.txt
 

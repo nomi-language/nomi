@@ -22,7 +22,8 @@ fn main() {
 }`, "left\n6\nright\n7\n"},
 		{"named bare returns", `import std/io
 fn choose(flag: Bool) {
-  if flag { io.print("left") return } else { io.print("right") return }
+  if flag { io.print("left") return }
+  io.print("right")
 }
 fn main() { choose(True) choose(False) }`, "left\nright\n"},
 		{"captured lambda", `import std/io

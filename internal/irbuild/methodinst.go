@@ -39,9 +39,10 @@ func (bl *irScalarBuilder) genericMethodItem(t *ast.Call, d *implDef, method str
 	if d == nil || !d.lowerable || d.items[method] != nil {
 		return nil
 	}
-	// An impl member's own type parameters (implItemSig), or an interface
-	// default's (the interface method's `generic interface function`).
-	if gap, withheld := d.gaps[method]; !withheld || (gap.why != "generic impl function" && gap.why != "generic interface function") {
+	// An impl member's own type parameters (implItemSig), an interface
+	// default's (the interface method's `generic interface function`), or a
+	// member whose signature wraps the receiver (expansiveImplItem).
+	if gap, withheld := d.gaps[method]; !withheld || (gap.why != "generic impl function" && gap.why != "generic interface function" && gap.why != "expansive impl function") {
 		return nil
 	}
 	var params []ast.Param
@@ -79,26 +80,35 @@ func (bl *irScalarBuilder) genericMethodItem(t *ast.Call, d *implDef, method str
 	default:
 		return nil
 	}
-	if len(tps) == 0 {
+	// An expansive member may have no type parameters of its own
+	// (`fn gather(b: Box<T>): Box<List<T>>` in `impl Box<T>`): its frame is
+	// the block's alone, and the key is the block and the method.
+	if len(tps) == 0 && d.gaps[method].why != "expansive impl function" {
 		return nil
 	}
-	ft := g.checkedCallSignature(t)
-	if ft == nil || len(ft.Params) != len(params) {
-		return nil
-	}
-	own := make(map[string]bool, len(tps))
-	for _, tp := range tps {
-		own[tp.Name] = true
-	}
+	// Only the member's own type parameters need the checker's solved
+	// signature; with none, the block's frame is the whole binding. The
+	// signature at `X.grow(x)` inside a generic caller names X, not the
+	// instance, so it cannot be required then.
 	solved := map[string]kind{}
-	for i, p := range params {
-		if p.TypeAnnotation == nil || irUnsolvedType(ft.Params[i]) {
-			continue
+	if len(tps) > 0 {
+		ft := g.checkedCallSignature(t)
+		if ft == nil || len(ft.Params) != len(params) {
+			return nil
 		}
-		g.unifyTypeParams(p.TypeAnnotation, g.project(ft.Params[i]), own, solved)
-	}
-	if ret != nil && !irUnsolvedType(ft.Return) {
-		g.unifyTypeParams(ret, g.project(ft.Return), own, solved)
+		own := make(map[string]bool, len(tps))
+		for _, tp := range tps {
+			own[tp.Name] = true
+		}
+		for i, p := range params {
+			if p.TypeAnnotation == nil || irUnsolvedType(ft.Params[i]) {
+				continue
+			}
+			g.unifyTypeParams(p.TypeAnnotation, g.project(ft.Params[i]), own, solved)
+		}
+		if ret != nil && !irUnsolvedType(ft.Return) {
+			g.unifyTypeParams(ret, g.project(ft.Return), own, solved)
+		}
 	}
 	frame := map[string]kind{}
 	if def := d.recv.def; def != nil && def.genericOf != nil {
@@ -187,4 +197,84 @@ func (g *gen) flushMethodInsts() {
 		g.implFunc(mi.d, mi.it)
 		g.popIfaceSubst()
 	}
+}
+
+// expansiveImplItem reports whether fd, a member of a block registered for an
+// instance of a generic template, names that same template at an argument that
+// wraps a type parameter. In `impl Result<T, E>`,
+// `fn collect<T, E>(results: Iter<Result<T, E>>): Result<List<T>, E>` is one.
+//
+// A block registered for an instance builds every member it supplies, and
+// this member's signature mints a larger instance: built for `Result<Int, E>`
+// it names `Result<List<Int>, E>`, whose block builds it again for
+// `Result<List<List<Int>>, E>`, without end. Withheld from the block, a call
+// builds it once per solved argument tuple (genericMethodItem), and the
+// instance that build mints withholds it in turn, so the chain stops after one
+// step.
+func (g *gen) expansiveImplItem(d *implDef, fd *ast.FuncDef) bool {
+	def := d.recv.def
+	if d.recv.tag != tagNamed || def == nil || def.genericOf == nil {
+		return false
+	}
+	tpl := def.genericOf
+	params := map[string]bool{}
+	for _, p := range tpl.params {
+		params[p] = true
+	}
+	for _, tp := range fd.TypeParams {
+		params[tp.Name] = true
+	}
+	var mentions func(te ast.TypeExpr) bool
+	mentions = func(te ast.TypeExpr) bool {
+		switch t := te.(type) {
+		case *ast.SimpleType:
+			return params[t.Name]
+		case *ast.GenericType:
+			for _, a := range t.Params {
+				if mentions(a) {
+					return true
+				}
+			}
+		case *ast.FuncType:
+			for _, a := range t.Params {
+				if mentions(a) {
+					return true
+				}
+			}
+			return t.Return != nil && mentions(t.Return)
+		}
+		return false
+	}
+	var expansive func(te ast.TypeExpr) bool
+	expansive = func(te ast.TypeExpr) bool {
+		switch t := te.(type) {
+		case *ast.GenericType:
+			if named, _, ok := g.genericTemplateNamed(t.Name); ok && named == tpl {
+				for _, a := range t.Params {
+					if _, bare := a.(*ast.SimpleType); !bare && mentions(a) {
+						return true
+					}
+				}
+			}
+			for _, a := range t.Params {
+				if expansive(a) {
+					return true
+				}
+			}
+		case *ast.FuncType:
+			for _, a := range t.Params {
+				if expansive(a) {
+					return true
+				}
+			}
+			return t.Return != nil && expansive(t.Return)
+		}
+		return false
+	}
+	for _, p := range fd.Params {
+		if p.TypeAnnotation != nil && expansive(p.TypeAnnotation) {
+			return true
+		}
+	}
+	return fd.ReturnTypeExpr != nil && expansive(fd.ReturnTypeExpr)
 }

@@ -15,8 +15,8 @@ import std/io
 // the next one. So every kind the projection claims is exercised through a
 // lambda here — the five scalars, a declared struct, a declared enum, a
 // declared distinct, `List<Int>`, a tuple, and a function type — and each one
-// prints, because a projection that produced the wrong Go type would either
-// fail to compile or print the wrong thing, and only the second failure mode is
+// prints, because a projection that produced the wrong kind would either
+// fail to lower or print the wrong thing, and only the second failure mode is
 // quiet.
 //
 // The discard parameter is deliberate and is the case that nearly got missed:
@@ -151,6 +151,6 @@ fn main() {
     // A lambda whose inferred parameter is CAPTURED by a nested lambda. The
     // inner lambda's parameter is inferred too, from the outer one's expected
     // type — so both signatures come from the analyzer and the capture has to
-    // name the outer Go local rather than a copy.
+    // name the outer local rather than a copy.
     io.print("nested = ${callf(|g| apply_int(|k| g(k) + 100, 1))}")
 }

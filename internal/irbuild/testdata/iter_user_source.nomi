@@ -1,8 +1,8 @@
 import std/io
 
 // A USER type as an `Iter` source: `impl Iter for Tree`, lowered through
-// rt.UserSeq. Every line prints, so `matched` here means the two paths agreed
-// on OUTPUT rather than on silence.
+// rt.UserSeq. Every line prints, so the recorded output pins behaviour
+// rather than silence.
 //
 // WHAT EACH GROUP'S OBSERVATION IS A FUNCTION OF, because a fixture can only
 // detect what its observation depends on and three of these lines would read
@@ -28,7 +28,7 @@ import std/io
 //     and "stopped" are not confused when nothing was pushed at all.
 // The `find` and `first` lines print a COMPARISON rather than the `Maybe` they
 // answer, because `rendering a non-scalar value` is a separate refusal that has
-// nothing to do with this source and would keep the fixture out of the sweep.
+// nothing to do with this source and would refuse the whole fixture.
 // The stop observation is unaffected: it lives in `note`'s output, not in the
 // rendered answer.
 //
@@ -39,8 +39,8 @@ import std/io
 //
 // The recursive bare `each_while(left, yield)` inside the impl body is a second
 // mechanism this same fixture exercises: it is a call to a member of the
-// enclosing impl block, which is in neither g.funcs nor the module scope. See
-// internal/irbuild/implselfcall.go.
+// enclosing impl block, which is in neither g.funcs nor the module scope; the
+// builder resolves it to the impl block's own member.
 enum Tree {
     Leaf
     Node (Tree, Int, Tree)

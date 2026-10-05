@@ -1,12 +1,10 @@
 // Mutual tail recursion between two PREDICATES, which is what the shared
 // driver's generated NAME is about.
 //
-// The driver used to be named from the first member's raw Nomi name, so this
-// program emitted `func nomiTail_even?(...)`. `?` is not a Go identifier
-// character: Generate succeeded with zero refusals and `go build` answered
-// `invalid character U+003F '?'`. No corpus program does mutual tail recursion
-// between predicates, so the sweep's `0 COMPILE-FAIL` never saw it — the same
-// corpus-boundedness that hid the impl-function self-call.
+// The driver's name is minted from the members' Nomi names, and `?` is not
+// legal in it, so `even?`/`odd?` checks that the name is sanitized. No corpus
+// program does mutual tail recursion between predicates, so only this
+// fixture covers it.
 //
 // `even?`/`odd?` is the idiomatic Nomi spelling of the canonical mutual
 // recursion, so this is a shape somebody writes rather than one constructed to

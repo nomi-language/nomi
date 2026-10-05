@@ -1,8 +1,7 @@
 // Probe: A PIPED CALL CONTRIBUTES NO ROWS TO AN ASSERTION'S REPORT.
 //
-// This is a real divergence between the two halves of the interpreter, found by
-// having to lower both: `evalCall` records every argument into the assertion
-// trace (eval/eval.go:4899 and :4922) and `evalPipe` never does. So
+// A call records every argument into the assertion trace, and a pipe does
+// not. So
 // `assert double(1 + 2) == 7` shows `1 + 2 = 3` and
 // `assert (1 + 2) |> double() == 7` shows nothing, for the same call with the
 // same argument.
@@ -10,7 +9,7 @@
 // The arguments are written as expressions rather than literals on purpose: a
 // literal operand is suppressed by the shared "an operand that reads exactly
 // like its value explains nothing" rule, so a literal-argument fixture would
-// print the same thing on both paths and pin nothing at all. That is the trap
+// print the same thing for both spellings and pin nothing at all. That is the trap
 // the first draft of this file fell into.
 //
 // Both spellings PASS and FAIL identically, so only a FAILING assertion can see
@@ -19,10 +18,10 @@
 // only difference between them is the pipe, and the only difference between the
 // reports is the `values:` block.
 //
-// What this fixture pins is that the compiled path REPRODUCES the asymmetry. A
-// backend that "improved" it would make every piped assertion failure report
-// differently from `nomi test`, which is the one output this project treats as
-// byte-for-byte contract.
+// What this fixture pins is that the VM reproduces this asymmetry. A
+// lowering that "improved" it would make every piped assertion failure report
+// differently from what `nomi test` specifies, which is the one output this
+// project treats as byte-for-byte contract.
 fn double(n: Int): Int {
     n * 2
 }

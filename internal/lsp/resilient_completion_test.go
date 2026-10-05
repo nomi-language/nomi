@@ -7,8 +7,8 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// The roadmap Track 3 "Resilient parsing" reproduction, driven through the
-// LSP's own request path. `  f = |x| n + ` is line 3 (1-based) — LSP line
+// A half-typed function body (see internal/parser/resilient_test.go),
+// driven through the LSP's own request path. `  f = |x| n + ` is line 3 (1-based) — LSP line
 // 2 — and the caret sits after the trailing space at character 14, which
 // is where you are when you have typed the operator and want the operand
 // completed.
@@ -45,9 +45,9 @@ func completionLabels(t *testing.T, s *Server, uri string, line, char int) map[s
 	return labels
 }
 
-// TestCompletion_InsideHalfTypedFunctionBody is the payoff the roadmap
-// entry asked for. Before resilient parsing the whole of `compute` was
-// discarded, so completion at this caret offered only file-level and
+// TestCompletion_InsideHalfTypedFunctionBody is what resilient parsing is
+// for. Without it the whole of `compute` is discarded, so completion at
+// this caret offers only file-level and
 // primitive symbols: not the parameter `n`, not the local `total`, not
 // the lambda's `x`, and not even `compute` itself.
 func TestCompletion_InsideHalfTypedFunctionBody(t *testing.T) {

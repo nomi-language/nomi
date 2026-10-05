@@ -134,6 +134,7 @@ func (g *gen) irScalarLower(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 	// imports its build recorded are dropped with it.
 	p, ok := g.irScalarBuild(fd, sig, plan, sh)
 	if !ok {
+		irDeclineClose()
 		if irFuncObserved != nil {
 			irFuncObserved(sig.origin, sig.name, nil, false)
 		}

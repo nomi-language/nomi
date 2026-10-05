@@ -11,7 +11,7 @@ import (
 func TestVMCrossModuleDistinctArguments(t *testing.T) {
 	p, err := AnalyzeSource("forward.nomi", `import std/instant.Instant
 fn seconds(t: Instant): Int { Instant.to_seconds(t) }
-fn main() { _ = seconds(Instant.from_seconds(1)) return }
+fn main() { _ = seconds(Instant.from_seconds(1)) }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ fn number(s: Signal): Int {
   }
 }
 fn relay(s: Signal): Int { number(s) }
-fn main() { _ = relay(Signal.Idle) return }
+fn main() { _ = relay(Signal.Idle) }
 `)
 	if err != nil {
 		t.Fatal(err)

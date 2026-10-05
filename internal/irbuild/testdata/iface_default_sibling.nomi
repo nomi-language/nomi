@@ -7,16 +7,15 @@
 //	}
 //
 // `label` inside `shout`'s default is a bare name that is neither a top-level
-// `fn` nor anything in the file's module scope, so it used to be refused as
-// `interface default calling a sibling requirement` (barecall.go). A default is
-// emitted once per implementing receiver, so inside each copy the callee is
-// STATIC and this lowers to a direct Go call.
+// `fn` nor anything in the file's module scope. A default is lowered once per
+// implementing receiver, so inside each copy the callee is static and this
+// lowers to a direct call.
 //
 // # WHAT THIS FIXTURE OBSERVES, and why each part is here
 //
-// A lowering that resolved the sibling WRONGLY would still compile, so the
-// program is built so that a wrong answer is a wrong STRING rather than a Go
-// error. Three properties, each of which a plausible wrong implementation gets
+// A lowering that resolved the sibling wrongly would still run, so the
+// program is built so that a wrong answer is a wrong string. Three
+// properties, each of which a plausible wrong implementation gets
 // wrong on its own:
 //
 //   - TWO IMPLEMENTORS whose `label` answers differently. Resolving the sibling
@@ -33,7 +32,7 @@
 // The DISPATCHED spelling is exercised beside the direct one: `render` takes a
 // `Formatted` existential, so each string is produced twice, once through a
 // concrete qualifier and once through the erased table. Both must agree with
-// the interpreter, and they must agree with each OTHER — a monomorphization
+// the recorded output, and they must agree with each OTHER — a monomorphization
 // that is correct only on the direct path is the failure this catches.
 import std/io
 
@@ -41,8 +40,8 @@ interface Formatted {
     fn label(value: self): String
     // A requirement with a NON-SELF parameter, so a call to it can carry an
     // argument with EFFECTS. `at(value, bump())` twice in one expression forces
-    // `callArgs` to spill temporaries, which is the shape the emit-then-decline
-    // ledger in impl.go is about: an arm that emits operands before it knows
+    // `callArgs` to spill temporaries, which is the emit-then-decline shape:
+    // an arm that emits operands before it knows
     // whether it will serve the call. Here the lowering is placed AFTER every
     // resolution question, so there is nothing to roll back — and the printed
     // ORDER is what says the temporaries were spilled in source order rather

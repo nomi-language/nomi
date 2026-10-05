@@ -1,15 +1,13 @@
 // `try` inside a `test` body, which is a boundary of its own and not a harder
 // case of the `fn`/lambda one.
 //
-// MEASURED against `nomi test` before any of it was lowered: a `try` whose
-// operand is `Err`/`None` does not return a value anywhere — it FAILS THE CASE,
-// with `line N: test returned early`, the `try` expression as the formatter
-// renders it, and the propagated variant as value.Inspect renders it. The run
-// then continues with the next case. So the observable difference between
+// A `try` whose operand is `Err`/`None` does not return a value anywhere: it
+// FAILS THE CASE, with `line N: test returned early`, the `try` expression as
+// the formatter renders it, and the propagated variant's structural rendering.
+// The run then continues with the next case. So the observable difference between
 // lowering this right and lowering it as an ordinary `return` is the whole
 // report block plus the pass/fail tally plus the exit status, and the absolute
-// pin below is what asserts it — a differential comparison alone would pass if
-// both sides silently reported nothing.
+// pin below is what asserts it.
 //
 // Four properties this file exists to pin, each in a case:
 //
@@ -26,7 +24,7 @@
 //
 // The two spellings' TEXT differs and both are pinned: the prefix arm renders
 // the `try` node (`try parse(-1)`) and the pipe arm renders the whole pipe
-// (`-1 |> try parse()`), matching eval.go's two arms.
+// (`-1 |> try parse()`).
 import std/io
 
 fn parse(n: Int): Result<Int, String> {

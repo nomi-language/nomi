@@ -8,27 +8,26 @@ import {
 // — and the SCALAR operators beside it, because the two are one arm's worth of
 // change apart and a fixture holding only one of them cannot see the other break.
 //
-// # The gap this fixture is the witness for
+// # What this fixture covers
 //
-// `compareResult` (stdenum.go) asked `g.implsByIface["Comparable"][k]`, the impl
-// blocks of the file BEING LOWERED, so a sibling's block was invisible. Three
-// separate consumers read that lookup and each refused under its own name:
+// Ordering on a sibling's type reaches the impl blocks of the whole program,
+// not only the file being lowered. Three consumers read that lookup:
 //
 //	Iter.sort(ws)                Iter.sort over an unorderable element | Widget
 //	Iter.sort_by(ws, |w| w)      Iter.sort_by over an unorderable key   | Widget
 //	a < b                        comparison outside Int and Float       | Widget
 //
-// One gap, three keys — siblingiface.go's "one gap under three keys" reached from
-// a KIND rather than from a CALL SITE. `Comparable.compare(a, b)` written out
-// already worked, through `siblingIfaceCall`, which is what shows the route
-// existed at the call site and not at the kind.
+// The right column is the refusal each would report if the lookup missed the
+// sibling. `Comparable.compare(a, b)` written out goes through
+// `siblingIfaceCall`, the same route reached from a call site rather than a
+// kind.
 //
 // # THE ORDERING RULE IS THE THING THAT CAN GO SILENTLY WRONG, so every row is
 // half of a pair that disagrees
 //
 //   - `Widget` ASCENDING against `Backwards` DESCENDING. Two receivers of one
 //     interface in ONE sibling file, so a lookup keyed on the method name alone
-//     answers one with the other's body — and both answers are well-typed Go.
+//     answers one with the other's body, and both answers are well-typed.
 //     The two `sorted_*` rows are the only thing that separates them.
 //   - `Iter.sort` against `Iter.sort_by` at the SAME element. `sort` orders the
 //     element and `sort_by` orders a PROJECTED key, so they reach
@@ -48,7 +47,7 @@ import {
 //   - `"a" < "b"` and `False < True` — the SCALAR gate, which is a different gap
 //     in the same arm (`compareCall`'s tag test, not the lookup's scope). Bool is
 //     the load-bearing one: `False < True` is only true if Nomi's Bool ordering
-//     puts False first, and Go's own `<` is not defined on bool at all, so this
+//     puts False first. A Bool has no native ordering at all, so this
 //     row cannot be satisfied by an accidental native comparison.
 //   - `Unordered` reached through `==` ONLY. It has an `impl Equatable` in the
 //     same sibling file and NO `impl Comparable`, so a widened lookup that
@@ -121,7 +120,7 @@ fn main() {
     io.print("ge ${a >= b}")
     io.print("compare ${Comparable.compare(a, b)}")
 
-    // The SCALAR gate. Bool has no Go `<` at all, so this row cannot be satisfied
+    // The SCALAR gate. A Bool has no native `<` at all, so this row cannot be satisfied
     // by a native comparison sneaking through.
     io.print("str lt ${"a" < "b"}")
     io.print("str ge ${"abc" >= "abc"}")
@@ -131,7 +130,7 @@ fn main() {
     // THE INHERENT RIVAL. `Widget.compare` is the sibling's inherent `compare`,
     // which orders DESCENDING; every `sort widget` row above is ASCENDING through
     // `impl Comparable for Widget`. Both return Ordering, so a lookup that ignored
-    // the INTERFACE emits well-typed Go with the wrong body and only these two
+    // the INTERFACE lowers a well-typed call to the wrong body and only these two
     // rows together can see it.
     io.print("ranked ${Ranked.compare(a, b)}")
 

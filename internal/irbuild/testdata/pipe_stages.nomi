@@ -3,12 +3,12 @@
 // Every assertion here FAILS on purpose, and that is the whole point of the
 // fixture: a pipeline's stages are collected while it runs and read only when
 // something fails, so a program in which everything passes cannot observe them
-// at all. The corpus is such a program — 583 cases, none of them failing — and
-// that is why the block being dropped was invisible to the differential sweep
-// while being wrong in ordinary user source.
+// at all. The corpus is such a program, with no failing case, so it
+// cannot show a dropped stage block.
 //
-// Two shapes, one per collector the interpreter switches on (eval.go:2964 and
-// eval.go:5128), and they print differently from the same stage list:
+// There are two shapes, one per stage collector, and they print
+// differently from the same stage list, so both are pinned in this
+// file:
 //
 //   - a pipe-valued BINDING, whose stages print under `defined as:` and are
 //     printed UNCOMPACTED, every row carrying its whole prefix's source;
@@ -20,15 +20,15 @@
 //
 // # What the third and fourth cases pin, and why they are shaped that way
 //
-// The compacted RENDERING is reachable from exactly two places, and neither is
-// available to this file: `AssertionFailure.format`, and a `try` on a check
-// inside a test body — which has a divergence of its own, unrelated to
-// pipelines and present before any of this (the interpreter reports the
-// check's own failure, the lowered body reports `test returned early`). So what is
+// The compacted RENDERING is reachable from exactly two places:
+// `AssertionFailure.format`, and a `try` on a check inside a test body.
+// This file uses neither.
+//
+// So what is
 // pinned here is the STAGE LIST rather than its compacted rendering: a pattern
 // assertion whose `actual:` row inspects the whole AssertionFailure, which
 // spells out `pipeline: [...]` with every stage's expression and value in
-// order. Two independent recorders produce it and the comparison is byte for
+// order, and the recorded golden pins it byte for
 // byte.
 import {
     std/assertions.AssertionFailure

@@ -293,6 +293,7 @@ func TestProperty_SemanticallyEquivalent(t *testing.T) {
 			// Apply the same canonicalization Format does so the comparison checks
 			// that everything ELSE is preserved. These mutate in place.
 			origSorted := canonicalizeFormatterOrder(collapseSingleEntryBlocks(sortImports(combineImports(origNodes))))
+			normalizeBodies(origSorted)
 
 			formatted, err := Format(string(src))
 			if err != nil {
@@ -362,6 +363,7 @@ fn probe(box: Box, n: Int, label: String): Box {
 				t.Fatalf("source did not parse (fix the fixture, not the formatter): %v", err)
 			}
 			origSorted := canonicalizeFormatterOrder(collapseSingleEntryBlocks(sortImports(combineImports(origNodes))))
+			normalizeBodies(origSorted)
 
 			formatted, err := Format(src)
 			if err != nil {

@@ -1,7 +1,7 @@
 // A sibling file that declares a struct AND an `impl Equatable` for it.
 //
 // The impl is deliberately NOT structural — `note` is ignored — so the two
-// candidate answers DIFFER: the interpreter dispatches to this body and answers
+// candidate answers DIFFER: the impl answers
 // True for two Moneys with equal cents and different notes, while the
 // structural comparator answers False. A fixture whose impl and structural walk
 // agreed would pass under either rule and prove nothing.

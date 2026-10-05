@@ -1,7 +1,7 @@
 // Package vm runs an `ir.Module`: it compiles each `ir.Func` to bytecode and
 // executes it.
 //
-// # WHAT THIS PACKAGE DOES NOT CONTAIN
+// # What this package does not contain
 //
 // The linearization is the producer's (`internal/irbuild`), not this package's:
 // operand forcing, temporary naming and block construction are read off
@@ -11,23 +11,23 @@
 // non-test sources import `nomi/ast`, `nomi/parser`, `nomi/analysis` or
 // `nomi/internal/irbuild`.
 //
-//   - NO AST. Nothing here sees a `*ast.Binary` or an `*ast.If`.
-//   - NO OPERAND FORCING. `gen.operand`/`gen.hold`'s rule — materialize an
+//   - No AST. Nothing here sees a `*ast.Binary` or an `*ast.If`.
+//   - No operand forcing. `gen.operand`/`gen.hold`'s rule (materialize an
 //     impure left operand so a later operand's statements cannot be hoisted
-//     ahead of it — is an `ir.Copy` in the graph, built by the producer. This
+//     ahead of it) is an `ir.Copy` in the graph, built by the producer. This
 //     package executes the Copy.
-//   - NO TEMPORARY NAMING. Every operand is an `ir.Temp` the producer
+//   - No temporary naming. Every operand is an `ir.Temp` the producer
 //     allocated out of `ir.Func`'s namespace; the bytecode compiler gives each
 //     one a register in the bank its stored `ir.ValType` names.
-//   - NO BLOCK CONSTRUCTION. Control flow is `Block.Term()` plus
+//   - No block construction. Control flow is `Block.Term()` plus
 //     `Block.Fault()`; the bytecode compiler lays the producer's blocks out in
 //     order and turns each edge into a code offset (bytecode.go).
 //
-// WHAT IT DOES CONTAIN is the consumer's own answers: which rt representation realizes a
+// What it does contain is the consumer's own answers: which rt representation realizes a
 // constant, which Go function performs a checked `+`, how a frame is laid
 // out, and which Go function a marked crossing lands on.
 //
-// # THE VALUE REPRESENTATION IS rt's
+// # The value representation is rt's
 //
 // Scalars and strings live unboxed in typed registers; every other value is
 // an rt value (`*rt.Record`, rt's collections, rt's handles), and equality,
@@ -37,7 +37,7 @@
 // TestVM_ReadsTheIRAndNothingElse pins which packages this package's
 // non-test sources may reach.
 //
-// # THE FAULT EDGE
+// # The fault edge
 //
 // The fault edge is part of the representation (`internal/ir/fault.go`):
 // when an instruction faults, the VM reads `Block.Fault()`. An edge is a
@@ -278,7 +278,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 	}
 	m.hosts = map[string]hostFn{
 		"Result.map_err":       resultMapErrHost,
-		"Result.from_maybe":    resultFromMaybeHost,
+		"Maybe.to_result":      maybeToResultHost,
 		"concurrent":           concurrentHost,
 		"Task.spawn":           taskSpawnHost,
 		"Task.await":           taskHost("Task.await"),
@@ -812,8 +812,8 @@ func (m *Machine) invoke(fr *frame, n *ir.Call, args []any, fn any) (any, error)
 	if n.Form() != ir.CalleeDirect {
 		return nil, fmt.Errorf("vm: %s: this machine runs no %s call", fr.fn.Name(), n.Form())
 	}
-	// THE CROSSING, read off the node. `docs/roadmap.md`'s debugger entry
-	// asks for the crosses-into-Go boundary to be explicit AT THE CALL so a
+	// THE CROSSING, read off the node. A VM debugger (`docs/roadmap.md`)
+	// needs the crosses-into-Go boundary to be explicit AT THE CALL so a
 	// stepping engine knows, before it steps, whether the next frame is one
 	// it owns or one it must hand to `dlv`. This is the branch that fact
 	// selects, and it is one field rather than a mechanism.

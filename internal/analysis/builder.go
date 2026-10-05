@@ -29,7 +29,7 @@ type ImplTypeArgs struct {
 // base name; Module is the import-form module key the IMPL BLOCK lives in ("" for
 // the project entry). Sym is the function's symbol
 // (carrying OwningType + visibility) so the inherent index can record the
-// owning type per design §9.
+// owning type.
 //
 // ReceiverOrigin is the receiver TYPE's declaring build key — its nominal
 // identity, which `Module` is not: `impl Iter for List` lives in std/iter.nomi
@@ -431,6 +431,11 @@ type FileAnalysis struct {
 	PunnedFieldLabels map[Pos]*Symbol
 	// Definitions maps each definition's position to its symbol.
 	Definitions map[Pos]*Symbol
+	// BlockImportScopes maps an `import` at the top of a block to the
+	// block scope it binds into. The checker registers the types it binds
+	// for the rest of that block, as it registers a file-level import's for
+	// the whole file. Nil until a block import is walked.
+	BlockImportScopes map[*ast.ImportStmt]*Scope
 	// LambdaPatternTypes maps a lambda's destructuring parameter, keyed by
 	// its pattern node (`(_, v)` in `|(_, v)| v`), to the type the checker
 	// gave the whole parameter. The parameter has no name and so no symbol
@@ -765,10 +770,8 @@ func findContextType(modules map[string]*Scope) Type {
 // whatever prelude.nomi actually re-exports rather than a hand-
 // maintained Go constant the spec had to track.
 //
-// User-visible scope broadening from the curated-list retirement
-// (Task 7 of the stdlib-as-package migration): the parent-scope lookup
-// fires for every name prelude re-exports, which is strictly wider
-// than the 22-name curated set. Enum-variant re-exports
+// The parent-scope lookup
+// fires for every name prelude re-exports. Enum-variant re-exports
 // now fire too: `True`, `False`, `Some`, `None`,
 // `Ok`, `Err`, `Equal`, `Greater`, `Less`,
 // `Fragment` — plus the formerly-curated type names like
@@ -804,8 +807,7 @@ func findContextType(modules map[string]*Scope) Type {
 //
 // That answer needs TWO things and only one of them exists. Identity is
 // the first, and it landed: analysis.InterfaceType now carries an Origin
-// like StructType, EnumType and DistinctType (f924359a gave those three
-// theirs). The second is a SCOPE SLOT, and it is strictly upstream —
+// like StructType, EnumType and DistinctType. The second is a SCOPE SLOT, and it is strictly upstream —
 // measured, with the reservation lifted and Origin present, a file
 // declaring `pub interface Display` resolves `Display` in its own
 // ModuleScope to std/display's declaration, Origin "std/display". The
@@ -986,9 +988,10 @@ func buildFileWithStdlibAtPath(nodes []ast.Node, primitives *Scope, modules map[
 
 type builder struct {
 	file              *FileAnalysis
-	modules           map[string]*Scope  // module name -> scope (stdlib + resolved user modules)
-	moduleSyms        map[string]*Symbol // module name -> synthetic symbol for go-to-def
-	imported          map[string]*Scope  // module name -> scope, populated only by explicit user imports (or the prelude)
+	modules           map[string]*Scope        // module name -> scope (stdlib + resolved user modules)
+	moduleSyms        map[string]*Symbol       // module name -> synthetic symbol for go-to-def
+	imported          map[string]*Scope        // module name -> scope, populated only by explicit user imports (or the prelude)
+	blockImports      map[*ast.ImportStmt]bool // imports at the top of a block, which bind only inside it
 	loader            FileLoader
 	projectRoot       string
 	currentModuleName string                   // [module].name from nomi.toml; "" when no manifest
@@ -1003,8 +1006,7 @@ type builder struct {
 	// stdlib FAs through to b.cache on first reference (under key
 	// "std/<short-name>"). After write-through, the post-Sweep
 	// proj.Files = cache ∪ entry carries stdlib FAs uniformly with user-
-	// module FAs, which a future project-level impl index (Task 3 of the
-	// retirement) will consume to replace the four stdlib globals.
+	// module FAs, which the project-level impl index consumes.
 	stdlibFAs map[string]*FileAnalysis
 
 	// fileScope is the module-level scope for the file being built.
@@ -1125,13 +1127,23 @@ func (b *builder) importerModRel() string {
 // self-named import and a bare-named one of the same module
 // deduplicate.
 func (b *builder) resolveImport(modulePath []string) (*Scope, string) {
+	scope, path, _ := b.resolveImportOrMiss(modulePath)
+	return scope, path
+}
+
+// resolveImportOrMiss is resolveImport that also says, when it finds no
+// module, that the loader had no file for the path: the miss is non-nil only
+// then. A path the loader is still loading (an import cycle) and a builder
+// with no loader are not misses.
+func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *importMiss) {
 	if b.loader == nil {
-		return nil, ""
+		return nil, "", nil
 	}
 	modulePath = b.stdlibSiblingPath(modulePath)
 	loadRoot := b.projectRoot
 	loadPath := modulePath
 	cacheKey := strings.Join(modulePath, "/")
+	dep := ""
 	if len(modulePath) > 0 {
 		head := modulePath[0]
 		if rest, self := SelfNameImport(modulePath, b.currentModuleName); self {
@@ -1145,10 +1157,11 @@ func (b *builder) resolveImport(modulePath []string) (*Scope, string) {
 			// Cross-module reference: route to the dep's root.
 			loadRoot = otherRoot
 			loadPath = modulePath[1:]
+			dep = head
 		}
 	}
 	if len(loadPath) == 0 {
-		return nil, ""
+		return nil, "", nil
 	}
 	filePath := ResolveModulePath(loadRoot, loadPath)
 
@@ -1157,24 +1170,27 @@ func (b *builder) resolveImport(modulePath []string) (*Scope, string) {
 		mergeImpls(b.file, cached)
 		mergeImplManifest(b.file, cached)
 		mergeTypeMethods(b.file, cached, filePath)
-		return cached.ModuleScope, filePath
+		return cached.ModuleScope, filePath, nil
 	}
 
 	// Cycle detection
 	if b.loading[cacheKey] {
-		return nil, ""
+		return nil, "", nil
 	}
 	b.loading[cacheKey] = true
 	defer func() { delete(b.loading, cacheKey) }()
 
 	nodes, err := b.loader(loadRoot, loadPath)
-	if err != nil || nodes == nil {
-		return nil, ""
+	if err != nil {
+		return nil, "", &importMiss{root: loadRoot, path: loadPath, dep: dep, std: modulePath[0] == "std"}
+	}
+	if nodes == nil {
+		return nil, "", nil
 	}
 
 	// Create a sub-builder sharing cache and loading sets. The sub-
 	// builder inherits the entry's moduleIndex/currentModuleName: this
-	// matches the Stage 1 contract that the entry's go.mod is the
+	// matches the rule that the entry's go.mod is the
 	// single source of cross-module truth (siblings don't get their
 	// own per-file index). For files inside a sibling module, that
 	// means transitive intra-sibling imports work via the sibling's
@@ -1212,7 +1228,7 @@ func (b *builder) resolveImport(modulePath []string) (*Scope, string) {
 	mergeImpls(b.file, sub.file)
 	mergeImplManifest(b.file, sub.file)
 	mergeTypeMethods(b.file, sub.file, filePath)
-	return moduleScope, filePath
+	return moduleScope, filePath, nil
 }
 
 // mergeImpls copies the source file's Impls table into the destination's,
@@ -1399,15 +1415,11 @@ func (b *builder) isStdlibImport(modulePath []string) bool {
 // or nil if this is not a stdlib import.
 //
 // Write-through to b.cache: when the b.modules fast-path hits, the
-// corresponding stdlib FA is also written under key "std/<name>" so a
-// future project-level impl index (Task 3 of the stdlib-globals
-// retirement) assembled in BuildProjectWithCache will see stdlib FAs
-// uniformly with user-module FAs. The fast-path historically bypassed
-// cache; for programs that use only prelude-implicit names (no explicit
-// `import std/X`), no stdlib FA reached cache and four package-level
-// globals filled the gap. With write-through every stdlib import —
-// explicit or prelude-implicit — populates cache, letting that future
-// project index replace the globals.
+// corresponding stdlib FA is also written under key "std/<name>" so the
+// project-level impl index assembled in BuildProjectWithCache sees stdlib FAs
+// uniformly with user-module FAs, including for programs that use only
+// prelude-implicit names (no explicit `import std/X`): every stdlib import,
+// explicit or prelude-implicit, populates cache.
 func (b *builder) resolveStdlibImport(modulePath []string) *Scope {
 	modulePath = b.stdlibSiblingPath(modulePath)
 	if len(modulePath) < 2 || modulePath[0] != "std" {
@@ -1511,8 +1523,7 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	// impl-block nodes are visible to defineSymbolStub /
 	// defineImplBlockStub like hand-written impls. Validation errors
 	// (unknown protocol, duplicate derive Foo) surface here as TypeErrors;
-	// per-protocol synthesizers are stubs in Task 8 and will be filled in
-	// by Tasks 9-12.
+	// the per-protocol synthesizers emit the impl bodies.
 	nodes = b.SynthesizeDerives(nodes)
 	// Universal default Debug: after derive synthesis, eagerly synthesize an
 	// `impl Debug` block for every declared type that lacks ANY explicit Debug
@@ -1570,7 +1581,8 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	// interface defaults are genuinely unmet across all impl blocks for a
 	// (type, iface).
 	b.registerImplDefaults(scope)
-	// @derive field/payload bound check (spec §38.5 Gap 1). Runs AFTER
+	// derive field/payload bound check (spec §38.1, *Field-type
+	// requirements*). Runs AFTER
 	// defineTopLevel so b.file.Impls is fully populated; the (T, Iface)
 	// entries for the @derive'd types themselves are also registered by
 	// now (defineImplBlockStub on the synthesizer's emitted
@@ -1597,6 +1609,7 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	b.file.TypeErrors = append(b.file.TypeErrors, CheckUnusedImports(b.file, nodes)...)
 	b.file.TypeErrors = append(b.file.TypeErrors, CheckRedundantPreludeImports(b.file, nodes)...)
 	b.file.TypeErrors = append(b.file.TypeErrors, CheckUnusedBindings(b.file)...)
+	b.file.TypeErrors = append(b.file.TypeErrors, CheckUselessReturns(nodes)...)
 }
 
 func moduleAliasForFile(key, filePath string) string {
@@ -1884,12 +1897,12 @@ func (b *builder) walkTypeExpr(te ast.TypeExpr, scope *Scope) {
 	}
 }
 
-func (b *builder) recordImportedTypeQualifiedAccess(n *ast.FieldAccess) {
+func (b *builder) recordImportedTypeQualifiedAccess(n *ast.FieldAccess, scope *Scope) {
 	obj, ok := n.Object.(*ast.TypeIdent)
 	if !ok {
 		return
 	}
-	typeSym := b.lookupImportedTypeSymbol(obj.Name)
+	typeSym := b.lookupImportedTypeSymbol(obj.Name, scope)
 	if typeSym == nil {
 		return
 	}
@@ -1919,56 +1932,73 @@ func symbolWithCallReceiver(sym *Symbol, receiver string) *Symbol {
 	return &proxy
 }
 
-func (b *builder) recordImportedTypeRefs(te ast.TypeExpr) {
+func (b *builder) recordImportedTypeRefs(te ast.TypeExpr, scope *Scope) {
 	if te == nil || IsSynthesizedLine(te.LineNum()) {
 		return
 	}
 	switch t := te.(type) {
 	case *ast.SimpleType:
-		if sym := b.lookupImportedTypeSymbol(t.Name); sym != nil {
+		if sym := b.lookupImportedTypeSymbol(t.Name, scope); sym != nil {
 			b.file.References[Pos{Line: t.Line, Col: t.Col}] = sym
 		}
 	case *ast.GenericType:
-		if sym := b.lookupImportedTypeSymbol(t.Name); sym != nil {
+		if sym := b.lookupImportedTypeSymbol(t.Name, scope); sym != nil {
 			b.file.References[Pos{Line: t.Line, Col: t.Col}] = sym
 		}
 		for _, param := range t.Params {
-			b.recordImportedTypeRefs(param)
+			b.recordImportedTypeRefs(param, scope)
 		}
 	case *ast.FuncType:
 		for _, param := range t.Params {
-			b.recordImportedTypeRefs(param)
+			b.recordImportedTypeRefs(param, scope)
 		}
-		b.recordImportedTypeRefs(t.Return)
+		b.recordImportedTypeRefs(t.Return, scope)
 	case *ast.AnonStructType:
 		for _, f := range t.Fields {
-			b.recordImportedTypeRefs(f.TypeAnnotation)
+			b.recordImportedTypeRefs(f.TypeAnnotation, scope)
 		}
 	case *ast.QualifiedType:
 		switch member := t.Member.(type) {
 		case *ast.GenericType:
 			for _, param := range member.Params {
-				b.recordImportedTypeRefs(param)
+				b.recordImportedTypeRefs(param, scope)
 			}
 		}
 	}
 }
 
-func (b *builder) lookupImportedTypeSymbol(name string) *Symbol {
+func (b *builder) lookupImportedTypeSymbol(name string, scope *Scope) *Symbol {
 	// Enum variants are ordinary scope symbols, so a variant named the same as
 	// its payload type (`variant String String`) can shadow an imported type
 	// binding in the general reference recorder. For known type-annotation
 	// sites, fall back through import definitions so unused-import and
-	// go-to-def see the same type reference the checker sees.
+	// go-to-def see the same type reference the checker sees. An import at
+	// the top of a block binds only inside that block, so it answers only
+	// where scope sees it.
 	for _, sym := range b.file.Definitions {
 		if sym == nil || sym.Name != name || !isTypeRefSymbol(sym) {
 			continue
 		}
-		if _, ok := sym.Node.(*ast.ImportStmt); ok {
-			return sym
+		imp, ok := sym.Node.(*ast.ImportStmt)
+		if !ok {
+			continue
 		}
+		if b.blockImports[imp] && !scopeDefines(scope, sym) {
+			continue
+		}
+		return sym
 	}
 	return nil
+}
+
+// scopeDefines reports that sym is defined in scope or an enclosing scope.
+func scopeDefines(scope *Scope, sym *Symbol) bool {
+	for s := scope; s != nil; s = s.Parent {
+		if s.Symbols[sym.Name] == sym {
+			return true
+		}
+	}
+	return false
 }
 
 func isTypeRefSymbol(sym *Symbol) bool {
@@ -2399,10 +2429,10 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 		}
 
 		b.walkTypeExpr(v.DataTypeExpr, inner)
-		b.recordImportedTypeRefs(v.DataTypeExpr)
+		b.recordImportedTypeRefs(v.DataTypeExpr, inner)
 		for _, f := range v.Fields {
 			b.walkTypeExpr(f.TypeAnnotation, inner)
-			b.recordImportedTypeRefs(f.TypeAnnotation)
+			b.recordImportedTypeRefs(f.TypeAnnotation, inner)
 			if f.Default != nil {
 				b.walkNode(f.Default, inner)
 			}
@@ -2598,10 +2628,7 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 		// is what populates b.modules and the imported module's symbols. The
 		// stub-side cannot register the local alias binding without that
 		// resolution because the alias symbol carries the resolved
-		// ModuleScope. Leave the entire body in defineSymbolAnnotations for
-		// now; Task 3 will introduce a different code path that bypasses the
-		// recursive load by sharing a module-scope cache populated by the
-		// orchestrator's discovery phase.
+		// ModuleScope, so the entire body stays in defineSymbolAnnotations.
 
 	case *ast.ImportBlock:
 		// Same rationale as ImportStmt — handled in defineSymbolAnnotations.
@@ -2992,10 +3019,10 @@ func (b *builder) defineEnumAnnotations(n *ast.EnumDef, scope *Scope) {
 		// expression here resolves to the type rather than the variant.
 		b.walkTypeExpr(v.EmbeddedTypeExpr, inner)
 		b.walkTypeExpr(v.DataTypeExpr, inner)
-		b.recordImportedTypeRefs(v.DataTypeExpr)
+		b.recordImportedTypeRefs(v.DataTypeExpr, inner)
 		for _, f := range v.Fields {
 			b.walkTypeExpr(f.TypeAnnotation, inner)
-			b.recordImportedTypeRefs(f.TypeAnnotation)
+			b.recordImportedTypeRefs(f.TypeAnnotation, inner)
 			if f.Default != nil {
 				b.walkNode(f.Default, inner)
 			}
@@ -3583,7 +3610,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		}
 		b.recordInterfaceImpl(recv, ifaceName, name)
 		b.file.DispatchNames[name] = true
-		// Visibility inheritance (spec §38.7): stamp the method symbol's
+		// Visibility inheritance (spec §3): stamp the method symbol's
 		// Public from the interface.
 		if sym := b.file.Definitions[pos]; sym != nil {
 			sym.Public = ifacePublic
@@ -3919,7 +3946,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 	// the same strip the selective-import branch entry does before
 	// calling resolveImport further down).
 	//
-	// sameModule classification (Task 7): an import is "same module"
+	// sameModule classification: an import is "same module"
 	// iff its head is NOT a cross-module short-name. Concretely:
 	//   - head == currentModuleName → same module (self-name spelling)
 	//   - head in moduleIndex      → DIFFERENT module (cross-module)
@@ -3996,7 +4023,9 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 		if stdScope := b.resolveStdlibImport(modPathStrings); stdScope != nil {
 			modScope = stdScope
 		} else {
-			modScope, filePath = b.resolveImport(modPathStrings)
+			var miss *importMiss
+			modScope, filePath, miss = b.resolveImportOrMiss(modPathStrings)
+			b.reportMissingModule(n, n.ModulePath, miss)
 		}
 		sym.ModuleScope = modScope
 		// Empty-selector re-export promotes the imported file API object.
@@ -4107,7 +4136,12 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 
 		var modScope *Scope
 		var filePath string
-		for split := len(modPathStrings); split >= 1; split-- {
+		// The `/`-joined segments name the file, so the module is never a
+		// shorter prefix of them: `import utils/inner.Thing` with no
+		// utils/inner.nomi is a missing file, not an owner `inner` in
+		// utils.nomi.
+		minSplit := max(1, n.FileSegments)
+		for split := len(modPathStrings); split >= minSplit; split-- {
 			candidate := modPathStrings[:split]
 			if stdScope := b.resolveStdlibImport(candidate); stdScope != nil {
 				modulePath = candidate
@@ -4124,8 +4158,27 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			}
 		}
 		if modScope == nil {
-			modulePath = modPathStrings
-			modScope, filePath = b.resolveImport(modulePath)
+			// No prefix of the path is a module. The file part of the path
+			// is what precedes its owner segments (`Shape` in
+			// `shape.Shape.{Circle}`), and that is the file that is
+			// missing. An import the parser did not write records no
+			// file part; its trailing PascalCase segments are the owners.
+			filePart := n.ModulePath
+			if n.FileSegments > 0 && n.FileSegments <= len(filePart) {
+				filePart = filePart[:n.FileSegments]
+			} else {
+				for len(filePart) > 1 {
+					if _, isType := filePart[len(filePart)-1].(*ast.TypeIdent); !isType {
+						break
+					}
+					filePart = filePart[:len(filePart)-1]
+				}
+			}
+			modulePath = modPathStrings[:len(filePart)]
+			ownerSegments = nil
+			var miss *importMiss
+			modScope, filePath, miss = b.resolveImportOrMiss(modulePath)
+			b.reportMissingModule(n, filePart, miss)
 		}
 		if filePath != "" && modScope != nil {
 			for _, s := range modScope.Symbols {
@@ -4290,7 +4343,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				// form and is permitted; the bare flat form hides the
 				// originating enum and is rejected.
 				if len(ownerSegments) == 0 && real.Kind == SymbolEnumVariant {
-					modName := strings.Join(modulePath, ".")
+					modName := strings.Join(modulePath, "/")
 					enumName := ""
 					for _, s := range modScope.Symbols {
 						if s.Kind == SymbolEnum && s.Members != nil {
@@ -4326,7 +4379,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				// or a removed/renamed export at the source. The local symbol
 				// is still defined so downstream references don't cascade
 				// into "undefined" errors that obscure the real cause.
-				modName := strings.Join(modulePath, ".")
+				modName := strings.Join(modulePath, "/")
 				if len(ownerSegments) > 0 {
 					modName += "." + strings.Join(ownerSegments, ".")
 				}
@@ -4792,7 +4845,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 
 	case *ast.FieldAccess:
 		b.walkNode(n.Object, scope)
-		b.recordImportedTypeQualifiedAccess(n)
+		b.recordImportedTypeQualifiedAccess(n, scope)
 		// Resolve qualified names: io.inspect, Iter.map, etc.
 		// When a local binding in scope shadows the module name, preserve the
 		// local reference for the object identifier so the checker can resolve
@@ -4833,7 +4886,11 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 					// resolved by the checker against the value's type.
 					if localSym := scope.Lookup(moduleName); localSym != nil && localSym.Kind == SymbolModule {
 						refSym := localSym
-						if modSym, ok := b.moduleSyms[moduleName]; ok && localSym.Kind == SymbolModule {
+						// A block's own `import std/io` binds `io` in that
+						// block only; its use resolves to that binding,
+						// whatever this project's module table holds under
+						// the name.
+						if modSym, ok := b.moduleSyms[moduleName]; ok && !b.isBlockImportBinding(localSym, scope) {
 							refSym = modSym
 						}
 						if refSym != nil {
@@ -4979,6 +5036,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.TryOp:
 		b.walkNode(n.Expr, scope)
 
+	case *ast.Then:
+		b.walkNode(n.Lambda, scope)
+
 	case *ast.StructLit:
 		b.walkTypeExpr(n.TypeName, scope)
 		// Register the field name's source position as a Reference to the
@@ -5075,6 +5135,14 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		// Nested import (inside a function body): nested=true to avoid
 		// re-keying b.modules globally. The alias is only visible via the
 		// Symbol registered in the local scope.
+		if b.blockImports == nil {
+			b.blockImports = map[*ast.ImportStmt]bool{}
+		}
+		b.blockImports[n] = true
+		if b.file.BlockImportScopes == nil {
+			b.file.BlockImportScopes = map[*ast.ImportStmt]*Scope{}
+		}
+		b.file.BlockImportScopes[n] = scope
 		b.defineImport(n, scope, true /* nested */)
 
 	// Nodes that need no traversal: literals, patterns (handled via definePattern),
@@ -5174,6 +5242,20 @@ func typedLiteralTagKind(ty Type, tag string) (SymbolKind, bool) {
 	default:
 		return SymbolBinding, false
 	}
+}
+
+// isBlockImportBinding reports that sym, as scope sees it, is bound by an
+// `import` at the top of a block rather than at file level.
+func (b *builder) isBlockImportBinding(sym *Symbol, scope *Scope) bool {
+	if _, isImport := sym.Node.(*ast.ImportStmt); !isImport {
+		return false
+	}
+	for s := scope; s != nil; s = s.Parent {
+		if s.Symbols[sym.Name] == sym {
+			return s != b.file.ModuleScope
+		}
+	}
+	return false
 }
 
 // lookupModuleScope returns the *Scope of the module bound to `name` in

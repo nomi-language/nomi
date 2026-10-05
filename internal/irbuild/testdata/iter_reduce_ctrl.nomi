@@ -2,8 +2,8 @@ import std/io
 
 // `Iter.reduce` whose callback carries a control signal — the ONE place in the
 // push protocol where a Nomi `break` really has to become a value, because the
-// callback is driven by the source's own `each_while` and there is no Go loop
-// for a Go `break` to target. The encoding is a second return value,
+// callback is driven by the source's own `each_while` and there is no enclosing
+// loop for a `break` to target. The encoding is a second return value,
 // `(acc, keepGoing)`; see rt/seqctl.go.
 //
 // The four shapes are lifted from tests/13-iterators-and-pipes/
@@ -26,7 +26,7 @@ import std/io
 //
 // Then two shapes the corpus does not have and the encoding still owes an
 // answer for: `return v` inside the callback (the same program as the tail,
-// because the interpreter reads both as ctrlReturnWith), and an UNSEEDED fold
+// because a callback's `return v` and its tail are the same value), and an UNSEEDED fold
 // with a `break` (rt.SeqReduceFirstCtl, where the first element seeds).
 fn main() {
     partial_sum =
@@ -70,8 +70,8 @@ fn main() {
     via_return =
         [1, 2, 3, 4]
         |> Iter.reduce(|total = 0, x| {
-            if x == 3 { break total }
-            return total + x
+            if x != 3 { return total + x }
+            break total
         })
 
     io.print("return advances the accumulator: ${via_return}")
@@ -85,9 +85,8 @@ fn main() {
 
     io.print("unseeded fold, first element seeds: ${unseeded}")
 
-    // A `break` in a NESTED lambda is a different program on the interpreter —
-    // its value is local and its termination is not — so the builder refuses it
-    // rather than encoding it, and this file deliberately contains none. See
-    // TestReduceCtrlRefusesANestedLambdaSignal.
+    // A `break` in a NESTED lambda is a different program (its value is local
+    // and its termination is not), so the builder refuses it rather than
+    // encoding it, and this file deliberately contains none.
     io.print("done")
 }

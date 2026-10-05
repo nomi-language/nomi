@@ -12,10 +12,10 @@ package rt
 //	  inclusive: Bool
 //	}
 //
-// and a range LITERAL desugars to exactly that:
+// and a range literal desugars to exactly that:
 // `ranges.Range{start, end: Some(e) | None, inclusive}` and nothing else. Every
 // operation over it — `contains?`, `bounded?`, `known_count`, `each_while` — is
-// an ordinary Nomi body over those three fields plus ONE interface method on the
+// an ordinary Nomi body over those three fields plus one interface method on the
 // element type. So there is no interval tree here, no normalization, and no
 // representation decision beyond field-for-field transcription.
 //
@@ -24,22 +24,21 @@ package rt
 // every one of them (internal/irbuild/stdprelude.go's packageNeutral), so
 // `Range<Int>` cannot be a per-package generated struct.
 //
-// # THE DICTIONARY IS AN ARGUMENT, WHICH IS WHY THE `where` CLAUSE IS NOT A WALL
+// # The dictionary is an argument, which is why the `where` clause is not a wall
 //
 // `Range<T>`'s declaration carries `where T: Comparable`, and
 // `impl Iter for Range<T>` carries `where T: Discrete`. Neither is resolved
-// here. Every function below takes the element's interface methods as PLAIN GO
-// FUNCS, assembled by the caller at each call site from the element's static
+// here. Every function below takes the element's interface methods as plain Go
+// funcs, assembled by the caller at each call site from the element's static
 // kind — exactly as map.go and set.go take `hash, eq`, and for the same reason:
 // the caller knows the element type, so it can build the function rather than
 // look it up at run time.
 //
-// That is what makes a bound on a std TYPE the same non-problem it already was
-// on a std FUNCTION. internal/irbuild/iterext.go's iterMaxArity header records the
-// measurement for the function case — "a `where T: Comparable` on a std function
-// is discharged at the call site by the CONCRETE type argument" — and nothing
-// about a type changes it. The corpus instantiates Int, Codepoint, Decimal,
-// String and Float, all concrete.
+// That makes a bound on a std type no harder than a bound on a std function.
+// A `where T: Comparable` on a std function is discharged at the call site by
+// the concrete type argument (internal/irbuild/iterext.go's iterMaxArity
+// header), and nothing about a type changes that. Ranges over Int, Codepoint,
+// Decimal, String and Float all reach here with a concrete element type.
 //
 // The methods each function needs, and no function takes one it does not use:
 //
@@ -48,36 +47,36 @@ package rt
 //	steps Discrete.steps_between    known_count
 //	step  Steppable.step_by         step_by
 //
-// `bounded?` takes NONE, which is the observable half of "a Range VALUE needs no
+// `bounded?` takes none, which is the observable half of "a Range value needs no
 // dictionary at all": it is `case r.end` and nothing more.
 //
 // # Every function here is std's own body with the recursion flattened
 //
 // The rule set.go states applies unchanged, and for a Range the thing that must
-// be preserved exactly is the BOUNDARY behaviour, since all of it is observable:
+// be preserved exactly is the boundary behaviour, since all of it is observable:
 //
 //   - `each_while` stops when `start > end` (inclusive) or `start >= end`
-//     (exclusive), so `5..1` and `5..=1` are both EMPTY rather than descending.
-//   - `Discrete.next` answering None means the element type SATURATED, and std
+//     (exclusive), so `5..1` and `5..=1` are both empty rather than descending.
+//   - `Discrete.next` answering None means the element type saturated, and std
 //     yields `r.start` one last time rather than dropping it. So a range ending
 //     at the top of the domain emits its last element.
-//   - `step_by` with a step that does not MOVE stops WITHOUT emitting — so
+//   - `step_by` with a step that does not move stops without emitting — so
 //     `Range.step_by(1..=9, 0)` is `[]` and not an infinite run of `1`. This is
 //     the one place where the stop is not the bound.
 //   - `known_count` is `steps_between` plus one for an inclusive end, and it is
 //     `None` for an unbounded range — which is what `Iter.count` consults, so an
 //     unbounded range must not answer a number here.
 //
-// std recurses per element in TAIL position and says so ("Range walks itself by
+// std recurses per element in tail position and says so ("Range walks itself by
 // recursing per element, so a long drive is only stack-safe because the
 // recursive `each_while` call is in tail position"). These are loops. That is
 // strictly stronger than the source and observably identical: the corpus drives
 // `1..=200_000` through one.
 //
-// # What is NOT here
+// # What is not here
 //
 // No `RangeEqual` and no `RangeHash`. std declares `impl Display` and
-// `impl Debug` for `Range<T>` and declares NEITHER `Equatable` nor `Hashable`,
+// `impl Debug` for `Range<T>` and declares neither `Equatable` nor `Hashable`,
 // so `1..5 == 1..5` and a Range map key are refusals rather than gaps, and
 // adding either would be this file inventing a rule std does not have.
 
@@ -147,11 +146,11 @@ func RangeContainsFloat(r Range[float64], n float64) bool {
 //
 // Three answers and each is std's, in order:
 //
-//   - `None` for an UNBOUNDED range. Not "unknown for now" — an unbounded range
+//   - `None` for an unbounded range. Not "unknown for now" — an unbounded range
 //     has no count, and `Iter.count` consults this before folding, so answering
 //     a number here would make `Iter.count(Range.from(1))` return it instead of
 //     hanging. Both are wrong; only one is silent.
-//   - `Some(0)` when `start > end`, checked BEFORE steps_between, because
+//   - `Some(0)` when `start > end`, checked before steps_between, because
 //     `Discrete.steps_between` is free to answer `Some(0)` for a reversed pair
 //     and std does not rely on it.
 //   - `steps_between(start, end)` plus one for an inclusive end. So `1..5` is 4
@@ -178,13 +177,13 @@ func RangeKnownCount[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) O
 // RangeEachWhile is `impl Iter for Range<T> where T: Discrete`'s `each_while`.
 //
 // std's body recursing in tail position, flattened to a loop. The two exits are
-// the ones the header names: the BOUND (inclusive `start > end`, exclusive
+// the ones the header names: the bound (inclusive `start > end`, exclusive
 // `start >= end`) answers True having yielded nothing further, and a saturated
-// element type — `Discrete.next` answering None — yields `start` ONE MORE TIME
+// element type — `Discrete.next` answering None — yields `start` one more time
 // and answers whatever the consumer said. Dropping that last element is the
 // tempting off-by-one and it is observable at the top of any bounded domain.
 //
-// Note the bound is checked BEFORE `next` is called, so a range whose start is
+// Note the bound is checked before `next` is called, so a range whose start is
 // already past its end never asks the element type for a successor.
 func RangeEachWhile[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) Ordering, next func(fr *Frame, v T) Maybe[T], yield func(fr *Frame, item T) bool) bool {
 	cur := r.Start
@@ -214,7 +213,7 @@ func RangeEachWhile[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) Or
 // RangeSeq views a Range as a push sequence of its elements.
 //
 // One closure, allocated once, and the walk lives inside `Run` so the sequence
-// is REPLAYABLE, because std/iter.nomi promises that
+// is replayable, because std/iter.nomi promises that
 // binding a pipeline and consuming it twice yields the same sequence, and a
 // cursor hoisted into this closure would make the second run empty.
 func RangeSeq[T any](r Range[T], cmp func(fr *Frame, a, b T) Ordering, next func(fr *Frame, v T) Maybe[T]) Seq[T] {
@@ -230,11 +229,11 @@ func RangeSeq[T any](r Range[T], cmp func(fr *Frame, a, b T) Ordering, next func
 // std declares it `opaque struct` — file-private, with no `pub` — so no Nomi
 // program can name it, hold one, or reach it except as the `Iter<T>` that
 // `step_by` answers. A Go type for it would be a representation nothing can
-// observe; the `Seq` IS the observable value.
+// observe; the `Seq` is the observable value.
 //
-// THE ZERO-STEP CASE IS THE ONE THAT IS NOT ABOUT THE BOUND, and it is
+// The zero-step case is the one that is not about the bound, and it is
 // transcribed rather than derived. std tests `next < start or next > start` and
-// stops WITHOUT emitting when neither holds, with its own comment: "A zero step
+// stops without emitting when neither holds, with its own comment: "A zero step
 // would spin forever; stop without emitting, which is what the pull form's
 // `None` meant here." So `Range.step_by(1..=9, 0)` is `[]` — not `[1]`, and not
 // a hang. A `moved` test written as `!=` would be the same answer here and a
@@ -265,7 +264,7 @@ func StepByRangeSeq[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Orde
 				return yield(fr, cur)
 			}
 			if OrderingRank(cmp(fr, nxt.Some, cur)) == 0 {
-				// A step that does not move. Stop WITHOUT emitting.
+				// A step that does not move. Stop without emitting.
 				return true
 			}
 			if !yield(fr, cur) {

@@ -1,11 +1,11 @@
 // An assertion in EXPRESSION position, and an assertion whose failure leaves an
 // ordinary `fn` instead of aborting a test case.
 //
-// Differential rather than a text assertion on lowered text, because what has to
-// agree is the failure the interpreter builds and the one the VM
-// builds — and for the `fn` boundary that means the same eight-field NOMI VALUE
+// The failure a lowered assertion builds has to match what `nomi test` reports.
+// For the `fn` boundary that means the same eight-field Nomi value
 // `testing.check` goes through (rt's AssertionFailure.NomiFailure), read here by
-// field selector instead of by a renderer.
+// field selector instead of by a renderer. The VM's output is checked against
+// the recorded golden.
 //
 // The file EXITS 1 on purpose. Two of its cases fail, and their reports are the
 // part of this fixture that is hardest to get right: a failing assertion's
@@ -17,8 +17,8 @@
 //
 // What each case discriminates:
 //
-//   - `a failing assertion in a plain fn is that fn's Err` — the boundary. eval
-//     has ONE exit for a failed assertion and it carries `Result.Err` of
+//   - `a failing assertion in a plain fn is that fn's Err`: the boundary. There
+//     is one exit for a failed assertion and it carries `Result.Err` of
 //     std/assertions' `AssertionFailure`; outside a test that value IS the
 //     function's result, so `line`, `keyword`, `expression` and `reason` are read
 //     off it. The LINE is the assertion's own and not the caller's.
@@ -29,7 +29,7 @@
 //   - `a passing assertion in a plain fn falls through to Ok` — the branch NOT
 //     taken. Without it a guard that always propagated would pass the two above.
 //   - `an assertion is an expression whose value is its subject` — `assert` and
-//     `refute` as a binding's initializer. eval's Assertion arm returns
+//     `refute` as a binding's initializer. The assertion returns
 //     `success`, so the value is the SUBJECT and not Unit; `refute` binds the
 //     False it refuted.
 //   - `a failing assertion renders its operands` — the `values:` rows, in the
@@ -37,7 +37,7 @@
 //   - `a failing assertion on a name an assertion defined shows its source` — the
 //     `defined as:` row for a binding whose initializer is itself an assertion.
 //     The builder bakes that text in at build time (gen.binding's debugExpr) and
-//     the interpreter renders it from the AST at failure time, so this is the one
+//     the formatter renders the same AST, so this is the one
 //     case where the expression-position lowering has to agree with the formatter
 //     about how `assert 1 == 1` reads.
 import std/assertions.AssertionFailure

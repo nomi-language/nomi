@@ -1,6 +1,6 @@
 // A `//!` prompt test is a real runnable case attached to the declaration
 // below it, and its NAME embeds the source lines the prompt occupies. Both are
-// part of the report's byte-for-byte contract, so this pin is differential:
+// part of the report's byte-for-byte contract, so the golden pins them:
 // a label off by one line, or a case collected at the wrong position in the
 // table, is invisible to a type check and loud here.
 //

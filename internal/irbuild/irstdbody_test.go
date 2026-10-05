@@ -9,8 +9,8 @@ import (
 )
 
 // irStdWantRetained is how many stdlib graphs the builder builds and keeps.
-// vmStdWantRetained adds the arity wrappers and slot accessors to it, and
-// TestIRRetainedStdPopulationRuns reads that total off the cached modules.
+// The cached modules also hold arity wrappers and slot accessors, which
+// vm-std-retained.txt lists by name (TestIRRetainedStdPopulationRuns).
 // Re-derive it when the builder retains more or less of std, and name the
 // bodies that moved in the commit message.
 const irStdWantRetained = 374

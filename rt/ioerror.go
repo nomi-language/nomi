@@ -7,22 +7,21 @@ package rt
 // std module and named from user modules, so no one module can own it.
 // See internal/irbuild/stdenum.go.
 //
-// THE FIRST STRUCT-SHAPED PAYLOAD in that family, and the shape is what makes it
-// so: std declares `NotFound {path: String}` and `Other {reason: String}`, which
-// a pattern binds BY NAME (`IOError.NotFound{path} -> …`) rather than by
-// position. Every earlier carrying row — calendar.Error's five, PathSegment's
-// two, Json's six — is positional.
+// Its payloads are struct-shaped, unlike the other carrying rows in that
+// family: std declares `NotFound {path: String}` and `Other {reason: String}`,
+// which a pattern binds by name (`IOError.NotFound{path} -> …`) rather than by
+// position. calendar.Error's five, PathSegment's two and Json's six carrying
+// rows are positional.
 //
-// TWO FIELDS RATHER THAN ONE SHARED `Msg`, unlike rt.CalendarError, whose five
+// Two fields rather than one shared `Msg`, unlike rt.CalendarError, whose five
 // String variants share a slot. Sharing would be sound (only one variant is live
 // at a time) and it is refused here because a struct-shaped payload's field name
-// is part of the DECLARATION this type is anchored against: the spec states
+// is part of the declaration this type is anchored against: the spec states
 // `path` and `reason`, and giving them one Go field would put two Nomi names on
 // one slot for no gain in a type this small.
 //
-// THE OPERATIONS ARE NOT HERE, and that is the whole architecture of this
-// binding. Real filesystem effect stays out of rt, so
-// `nomi/stdio` holds `ReadFile`/`WriteFile`, and rt links no filesystem code. What rt owns is the VALUE, which is data and carries no
+// The operations are not here. Real filesystem effect stays out of rt, so
+// `nomi/stdio` holds `ReadFile`/`WriteFile`, and rt links no filesystem code. What rt owns is the value, which is data and carries no
 // effect at all.
 type IOError struct {
 	// Tag is 1 for NotFound and 2 for Other, in std/io.nomi's declaration

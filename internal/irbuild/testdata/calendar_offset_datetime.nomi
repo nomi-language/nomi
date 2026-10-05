@@ -1,12 +1,9 @@
 // std/calendar's FIXED-OFFSET type, and the eleven-member overload set that
 // shares one spelling.
 //
-// `OffsetDateTime` took a stdStructSpecs row so that
-// `calendar.DateTime.to_offset` could lower — the only corpus file whose whole
-// blocker set was one detail of `stdlib function outside the scalar subset`
-// needed exactly that function. Anchoring the type made sixteen `host fn`s and
-// twenty-six Nomi bodies lowerable at once, and this fixture is where the ones
-// no corpus program reaches are exercised.
+// `OffsetDateTime` has a stdStructSpecs row, so `calendar.DateTime.to_offset`
+// and the type's sixteen `host fn`s and twenty-six Nomi bodies lower. This
+// fixture exercises the ones no corpus program reaches.
 //
 // # THE OVERLOAD SET IS THE POINT OF THE SECOND HALF
 //
@@ -14,29 +11,25 @@
 // and every one of them spells `OffsetDateTime.add`. Two are `host fn`s bound to
 // DIFFERENT rt symbols (`Years` -> rt.OffsetDateTimePlusYears, `Months` ->
 // rt.OffsetDateTimePlusMonths) and nine are Nomi bodies. So a table that used
-// the SPELLING as a declaration's identity would answer about the group when
-// asked about a member — which is the defect that made eleven
-// `Add<X, NaiveDateTime>` rungs read as settled and handed out a Go name for ten
-// bodies that never lowered.
+// the spelling as a declaration's identity would answer about the group when
+// asked about a member, and would treat bodies that never lowered as lowered.
 //
 // Every rung below therefore prints a DIFFERENT value from every other rung on
 // the same base, so a collapse is a wrong date rather than a refusal. The
 // `Subtract` counterparts are there for the same reason in the other direction.
 //
-// # WHAT IS AND IS NOT A DIFFERENTIAL HERE
+// # Where each rule is checked
 //
-// eval calls DOWN into rt for this whole type (eval/calendar_zoned.go boxes
-// rt/calendar_offset.go), so `requireIdentical` is blind to a bug in the wall
-// projection, the ±18h cap, the whole-second offset rule, the ISO rendering and
-// the month clamp — both paths run the same Go. The ABSOLUTE text in
-// calendar_offset_test.go is the assertion for those, and rt's own
-// calendar_offset_test.go pins them at the representation level.
+// rt owns this whole type (rt/calendar_offset.go), so the wall projection, the
+// ±18h cap, the whole-second offset rule, the ISO rendering and the month clamp
+// are rt code. The absolute text in calendar_offset_test.go is the assertion
+// for those, and rt's own calendar_offset_test.go pins them at the
+// representation level.
 //
-// What IS genuinely two implementations: the nine Nomi-bodied `Add` rungs, all
-// ten `Subtract` rungs, `equal?`, `hash`, `compare`, `between`, `inspect` and
-// `from_fragments` are lowered Nomi in a generated stdlib package on one side
-// and interpreted AST on the other. `- Months(1)` reaching the wrong
-// `+ Months(-1)` is a real differential.
+// The nine Nomi-bodied `Add` rungs, all ten `Subtract` rungs, `equal?`, `hash`,
+// `compare`, `between`, `inspect` and `from_fragments` are lowered Nomi
+// bodies, so `- Months(1)` reaching the wrong `+ Months(-1)` prints a wrong
+// value here.
 import {
     std/calendar.{
         Days,
@@ -196,8 +189,8 @@ fn run(): Result<Unit, Error> {
 
     // --- TEN SUBTRACT RUNGS, all Nomi bodies over their Add counterpart ------
     //
-    // Every one of these is a real differential: lowered Nomi against interpreted
-    // AST. March 31st going back a month is the negative-direction clamp, where
+    // Every one of these is a lowered Nomi body. March 31st going back a month
+    // is the negative-direction clamp, where
     // the month index has to floor rather than normalize forward.
     march = try OffsetDateTime"2026-03-31T09:15:00-05:00"
     io.print("sub_months = " + OffsetDateTime.to_string(march - Months(1)))

@@ -12,7 +12,7 @@
 // The last failing case is deliberately a BARE NAME: `enough?` is a name a
 // binding introduced, so the report adds a `defined as:` row carrying the
 // defining expression's source text. The builder records that text at the
-// binding and the interpreter renders it off the AST, so it is two statements
+// binding and the formatter would render the same AST, so it is two statements
 // of one rule — and the defining expression here reads a value that came out
 // of a `setup`, which is the seam this fixture exists for.
 tests "totals" {

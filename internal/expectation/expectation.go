@@ -1,11 +1,11 @@
-// Package expectation is the RECORDED-EXPECTATION instrument: one committed
+// Package expectation holds recorded expectations: one committed
 // artifact per population of runnable Nomi, holding what each case is observed
-// to PRINT, so the VM is compared to bytes in the repo rather than to another
+// to print, so the VM is compared to bytes in the repo rather than to another
 // live run.
 //
 // # Why a committed expectation
 //
-// A comparison between two live runs cannot see anything the two runs SHARE:
+// A comparison between two live runs cannot see anything the two runs share:
 // a bug in `rt` or in the IR builder is reproduced identically on both sides
 // and the comparison reports agreement it did not earn. A committed
 // expectation does not go blind that way, because it is not produced by the
@@ -15,32 +15,31 @@
 // case prints. It cannot say whether the recorded bytes were right; the
 // commit that changes a record has to say why.
 //
-// # EVERY RECORD CARRIES ITS TRANSCRIPT VERBATIM: THESE ARE GOLDEN FILES
+// # Every record carries its transcript verbatim
 //
 // A record holds the normalized text the case printed, not only a hash of it.
 // The artifacts are the written-down answers the VM is checked against, and
 // they have to stay readable on their own. A hash can say that output moved;
 // it cannot say what the right output was.
 //
-// The failure text is still the scarce part. A population where everything
-// passes cannot discriminate a wrong failure message: the commit that found
-// `*rt.AssertionFailure.Error()` printing only its header found 45 fixtures
-// printing WRONG FAILURE TEXT while the corpus read 614 passed / 0 failed. So
-// `Failing` is still derived per case and counted per population, and a
+// The failure text is the scarce part. A population where everything
+// passes cannot discriminate a wrong failure message: fixtures can print the
+// wrong failure text while the corpus reports every case passed. So
+// `Failing` is derived per case and counted per population, and a
 // changed failing record prints both texts in full.
 //
 // The `H` digest line stays beside the text. Parse re-derives it from the `T`
 // lines and rejects a mismatch, so a hand edit to a transcript is an error
 // rather than a silently different answer.
 //
-// # CHANGING A GOLDEN FILE
+// # Changing a golden file
 //
 // Regenerate with NOMI_REGENERATE_EXPECTATIONS=1 (see RegenerateRequested),
 // review the diff, and name the reason for every moved record in
 // the commit message. A golden file changed without a named reason is this
 // instrument's failure mode: it defends whatever was last written down.
 //
-// # What is deliberately NOT in a record
+// # What is deliberately not in a record
 //
 //   - Wall time, and nothing in `rt.TestReporter` prints any. If one appeared,
 //     it would have to be masked here or every run would report a change.
@@ -105,8 +104,8 @@ type Case struct {
 
 // Set is one population's records.
 type Set struct {
-	// Population is the artifact's name: corpus, stdlib, tour, failure or
-	// irbuild.
+	// Population is the artifact's name: corpus, stdlib, tour, failure,
+	// irbuild or reference (cmd/nomi-docgen's stdlib reference editors).
 	Population string
 	// What describes, in the artifact itself, exactly what one record covers
 	// and how it was produced. It is compared like everything else, so

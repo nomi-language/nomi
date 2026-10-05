@@ -55,9 +55,8 @@ fn f(): Result<Int, String> {
 	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "try error type mismatch")
 }
 
-// The language's answer to a mismatch is conversion AT THE SITE — spec §9
-// gained `Result.map_err` for exactly this (design-questions item 40) — and
-// not an implicit widening at the boundary.
+// The language's answer to a mismatch is conversion AT THE SITE with
+// `Result.map_err` (spec §9), not an implicit widening at the boundary.
 func TestTryBoundary_MapErrAtTheSiteIsClean(t *testing.T) {
 	src := `fn r(): Result<Int, Int> {
   Err(7)

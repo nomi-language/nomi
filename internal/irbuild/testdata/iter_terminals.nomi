@@ -1,8 +1,8 @@
 import std/io
 
 // The `Iter` terminals that stop early, observed. Every line prints, so
-// `matched` on this fixture means the two paths agreed on OUTPUT and not merely
-// on silence.
+// the recorded output pins the answers and not merely
+// silence.
 //
 // Three things are being pinned, and only the first is about types.
 //
@@ -50,7 +50,7 @@ fn main() {
     io.print("${[1] |> Iter.empty?()}")
     io.print("${none |> Iter.not_empty?()}")
     io.print("${[1] |> Iter.not_empty?()}")
-    // Over a LAZY source, where `known_count` answers None on both paths.
+    // Over a LAZY source, where `known_count` answers None.
     io.print("${[1, 2, 3] |> Iter.filter(|x| x > 99) |> Iter.empty?()}")
     io.print("${[1, 2, 3] |> Iter.filter(|x| x > 2) |> Iter.empty?()}")
 

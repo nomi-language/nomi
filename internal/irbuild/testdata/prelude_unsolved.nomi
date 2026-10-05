@@ -122,7 +122,7 @@ fn main() {
     // no hole is defaulted. A struct FIELD did NOT, for the same well-typed
     // program, and that half was pinned as a refusal instead of lowered.
     //
-    // IT ARRIVES SOLVED TOO SINCE b68e508d, which made the checker validate a
+    // IT ARRIVES SOLVED TOO, because the checker validates a
     // field's VALUE against its declared type — the admission it uses unifies,
     // which solves the hole. So the struct-field asymmetry this fixture recorded
     // is gone and the refusal it named has no witness; see

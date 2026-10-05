@@ -16,7 +16,7 @@ const localsIdentityVersion = "ffirun-local-module-identity/1"
 // of every LOCAL Go tree the cached wrapper links which no other field speaks
 // for.
 //
-// Why the key needs it, measured at 4b43ab64 on a project outside the compiler
+// Why the key needs it, observed on a project outside the compiler
 // tree whose Go binding returned `strings.ToUpper(s)`. Editing that body to
 // `strings.ToUpper(s) + "!"` — signature untouched — moved nothing in the key:
 // `go.mod`/`go.sum` unchanged, `Template` unchanged, `Discovered` unchanged

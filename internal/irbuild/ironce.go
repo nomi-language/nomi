@@ -28,7 +28,7 @@ func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	if d == nil {
 		g := bl.g
 		if g.files != nil && g.reg != nil {
-			if site, ok := g.files.lookupBare(g.fa, t.Name); ok && site.once != nil && site.unit < len(g.reg.gens) && g.reg.gens[site.unit] != nil {
+			if site, ok := g.files.lookupBare(g.fa, t); ok && site.once != nil && site.unit < len(g.reg.gens) && g.reg.gens[site.unit] != nil {
 				return bl.siblingOnceValue(t, site.unit, g.reg.gens[site.unit].oncesByDecl[site.once])
 			}
 		}
@@ -57,7 +57,7 @@ func (bl *irScalarBuilder) qualifiedOnceValue(t *ast.FieldAccess) (ir.Temp, kind
 			return ir.NoTemp, kindInvalid, false, false
 		}
 	}
-	to, ok := g.files.lookupQualifier(g.fa, owner.Name)
+	to, ok := g.files.lookupQualifier(g.fa, owner)
 	if !ok || to >= len(g.reg.gens) || g.reg.gens[to] == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}
@@ -86,8 +86,13 @@ func (g *gen) irOnceLower(d *onceDef) (kind, bool) {
 // irOnceCellLower builds a `once` initializer as the IR lazy cell sym and
 // emits its Go body, read from that graph, into dst. User and stdlib bindings
 // share it; name is the binding as Nomi spells it.
-func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, name string) (kind, bool) {
+func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, name string) (got kind, ok bool) {
 	g.irDeclineOpen("once " + name)
+	defer func() {
+		if !ok {
+			irDeclineClose()
+		}
+	}()
 	if !irOnceKind(k) {
 		irDeclineNote("a once of a kind outside the domain: " + k.nomi())
 		return kindInvalid, false
@@ -98,6 +103,7 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 		lead, body = g.irScalarBlock(block, "")
 	}
 	if body == nil {
+		irDeclineNote(irDeclineBodyWhy)
 		return kindInvalid, false
 	}
 	at := g.irNodePos(decl)

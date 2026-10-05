@@ -1,5 +1,5 @@
 // A cross-file call inside an assertion SUBJECT. The assertion fails on
-// purpose so the report text itself is what gets compared: eval's evalCall
+// purpose so the report text itself is what gets compared: a call
 // records a call's arguments for a file-qualified callee exactly as for a
 // direct one, and a builder that skipped the recording would produce a
 // report with no `values:` rows and still pass a test that only checked the

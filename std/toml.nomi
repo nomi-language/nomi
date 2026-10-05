@@ -40,7 +40,7 @@ impl Literal for Toml {
         body = Iter.reduce(fragments, |acc = "", frag|
             case frag {
                 .Static(s) -> acc + s
-                .Dynamic(v) -> acc + Display.to_string(v)
+                .Dynamic(v) -> acc + "${v}"
             }
         )
 

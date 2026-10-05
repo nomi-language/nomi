@@ -8,8 +8,8 @@
 //     decides absence by testing the incoming value against its type's zero
 //     cannot tell `fi(0)` from `fi()`, and answers the default for both. All
 //     four scalars have a reachable zero literal, so all four are here.
-//   - `earlier:` — a default that names an EARLIER PARAMETER. The interpreter
-//     binds parameters 0..i-1 before evaluating default i, so 304 is the
+//   - `earlier:` — a default that names an EARLIER PARAMETER. Parameters
+//     0..i-1 are bound before default i is evaluated, so 304 is the
 //     answer; a supplier that ignored the already-supplied arguments would
 //     have no `a` to read.
 //   - `count:` — a default whose expression PRINTS. It must fire once per
@@ -26,7 +26,7 @@
 //     `y` held when it was made (spec §23), and `y = 99` is a new binding. A
 //     lowering that read `y` at the call would answer 99 the second time.
 //   - `higher:` — a defaulted lambda passed where a plain function is expected.
-//     Its Go type must still be its Nomi type, so this is what a presence-mask
+//     Its type must still be its Nomi type, so this is what a presence-mask
 //     parameter in the signature would break.
 //   - `multi:` — more than one omitted slot, and the fully-supplied call beside
 //     it.
@@ -97,11 +97,11 @@ fn main() {
     multi = |a = 1, b = 2| a + b
     io.print("multi: ${multi()} ${multi(9)} ${multi(9, 8)}")
 
-    // A default NOBODY READS, which used to be pinned as a refusal in
-    // iterseed_test.go and is pinned here as an ANSWER now that it lowers.
+    // A default NOBODY READS, pinned here as an answer.
+    //
     // `Iter.reduce` reads Defaults[0] as its seed and never looks past it, and
     // `Iter.map` reads no default at all — so the `= 9` and the `= 5` below are
-    // ignored by both paths. The seeded row beside them is what proves the
+    // ignored. The seeded row beside them is what proves the
     // FIRST-parameter default is still read while the second is not.
     io.print("unread: ${Iter.reduce([1, 2], |acc = 0, x = 9| acc + x)}")
     io.print("unread: ${[1, 2] |> Iter.map(|x = 5| x * 2) |> Iter.to_list()}")

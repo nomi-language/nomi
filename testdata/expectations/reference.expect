@@ -1,0 +1,422 @@
+# nomi golden outputs — do not hand-edit
+#
+# The VM's output is checked against this file: a written-down answer,
+# not another engine's.
+# See internal/expectation/expectation.go for what is masked and why.
+# Regenerate with NOMI_REGENERATE_EXPECTATIONS=1 and name the reason for
+# every moved record in the commit message.
+#
+# C <id> / E <exit> / N <declared cases> / H <sha256 of transcript>
+# S <source line>, only for a record that carries its own program
+# T <transcript line>, verbatim
+population reference
+what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
+records 29
+declared-cases 290
+failing 0
+C assertions
+E 0
+N 1
+H 121e0600dcb9ee476b886cbace4c2f30df52d35352abdfc4def760477e2b27e8
+T ok AssertionFailure.format
+C bool
+E 0
+N 1
+H c38eff71742a56683ebc1beaadb1f546559e2f2ee154e3040c583e73d9c11969
+T ok enum Bool
+C bytes
+E 0
+N 14
+H c79e4bfce3324249c175196875b19d6355676a7615bdc3d02526d1dad8a1fbf6
+T ok Byte.from_int
+T ok Byte.to_int
+T ok Bytes.length
+T ok Bytes.at
+T ok Bytes.slice
+T ok Bytes.concat
+T ok Bytes.to_list
+T ok Bytes.from_list
+T ok Bytes.to_string
+T ok Bytes.each_while (impl Iter for Bytes)
+T ok Bytes.add (impl Add<Bytes, Bytes> for Bytes)
+T ok Bytes.to_string Display (impl Display for Bytes)
+T ok Bytes.inspect (impl Debug for Bytes)
+T ok Bytes.hash (impl Hashable for Bytes)
+C calendar
+E 0
+N 27
+H 78d532e3b3dddbd4558bde840e4c8a41be1b1c99733ccd0f36c0feec46a638f9
+T ok Date.new
+T ok Date.parse
+T ok Date.days_between
+T ok Date.add Add<Months, Date> (impl Add<Months, Date> for Date)
+T ok Time.new
+T ok Time.parse
+T ok Time.between
+T ok Time.add (impl Add<Duration, Time> for Time)
+T ok Time.subtract (impl Subtract<Duration, Time> for Time)
+T ok NaiveDateTime.at
+T ok NaiveDateTime.at_midnight
+T ok NaiveDateTime.to_date
+T ok NaiveDateTime.to_time
+T ok NaiveDateTime.new
+T ok NaiveDateTime.parse
+T ok NaiveDateTime.between
+T ok OffsetDateTime.with_offset
+T ok OffsetDateTime.from_instant
+T ok OffsetDateTime.parse
+T ok OffsetDateTime.between
+T ok DateTime.in_zone
+T ok DateTime.from_instant_in
+T ok DateTime.now_in
+T ok DateTime.to_offset
+T ok DateTime.with_zone
+T ok DateTime.parse
+T ok DateTime.between
+C channels
+E 0
+N 5
+H 4884d50602c3800236a9e8210df0e465f19e65a3cabd3e40ea1e92d9252c8752
+T ok Channel.buffered
+T ok Channel.unbuffered
+T ok Sender.send
+T ok Sender.close
+T ok Receiver.receive
+C codepoints
+E 0
+N 7
+H 0af1e2d744aa36fcea0a24d76639f4f8bb0f2b5439d27e460425a382d534cf50
+T ok Codepoint.from_int
+T ok Codepoint.to_int
+T ok Codepoint.to_string (impl Display for Codepoint)
+T ok Codepoint.inspect (impl Debug for Codepoint)
+T ok Codepoint.next (impl Discrete for Codepoint)
+T ok Codepoint.steps_between (impl Discrete for Codepoint)
+T ok Codepoint.step_by (impl Steppable for Codepoint)
+C compiler
+E 0
+N 4
+H 5347b7f1b96bcfa9aaa471b4be6da30c41cd608633f2f604b1640836af774f5a
+T ok compiler.check
+T ok compiler.run
+T ok compiler.hover
+T ok compiler.check_project
+C context
+E 0
+N 7
+H 04dc629bc3cf92d155506feb79e86568bf6f6e9b984e49cf3955cbf7374e28b6
+T ok Context.root
+T ok Context.deadline
+T ok Context.deadline_remaining
+T ok Context.with_deadline
+T ok Context.with_timeout
+T ok Context.with_value
+T ok Context.value
+C decimal
+E 0
+N 17
+H 7d28421fef9890b46fd27b4ac29569b6cea963730643f502a2a67b352d871ff1
+T ok Decimal.from_int
+T ok Decimal.from_string
+T ok Decimal.to_int
+T ok Decimal.to_float
+T ok Decimal.from_float
+T ok Decimal.divide
+T ok Decimal.round
+T ok Decimal.normalize
+T ok Decimal.scale
+T ok Decimal.abs
+T ok Decimal.negate
+T ok Decimal.sign
+T ok Decimal.zero?
+T ok Decimal.min
+T ok Decimal.max
+T ok Decimal.to_string (impl Display for Decimal)
+T ok Decimal.step_by (impl Steppable for Decimal)
+C duration
+E 0
+N 18
+H d46d8099cf81579304bfbb70bd86ac2b15598d451943b623a35e17dea716ea56
+T ok Duration.nanoseconds
+T ok Duration.microseconds
+T ok Duration.milliseconds
+T ok Duration.seconds
+T ok Duration.minutes
+T ok Duration.hours
+T ok Duration.as_nanos
+T ok Duration.as_micros
+T ok Duration.as_millis
+T ok Duration.as_seconds
+T ok Duration.as_minutes
+T ok Duration.as_hours
+T ok Duration.add (impl Add<Duration, Duration> for Duration)
+T ok Duration.subtract (impl Subtract<Duration, Duration> for Duration)
+T ok Duration.multiply (impl Multiply<Int, Duration> for Duration)
+T ok Duration.divide (impl Divide<Int, Duration> for Duration)
+T ok Duration.to_string (impl Display for Duration)
+T ok Duration.inspect (impl Debug for Duration)
+C float
+E 0
+N 12
+H d3e61f780696f53e22f850f68660f0eb604db36e3f99ba6545723c2253b76775
+T ok Float.nan
+T ok Float.positive_infinity
+T ok Float.negative_infinity
+T ok Float.nan?
+T ok Float.infinite?
+T ok Float.finite?
+T ok Float.to_int
+T ok Float.round
+T ok Float.floor
+T ok Float.ceil
+T ok Float.trunc
+T ok Float.to_string (impl Display for Float)
+C instant
+E 0
+N 9
+H deb5f724ec2546cc1784a608126041fb2cd29b9d4519c3ecb3ed411875a9feb3
+T ok Instant.from_seconds
+T ok Instant.to_seconds
+T ok Instant.from_nanos
+T ok Instant.as_nanos
+T ok Instant.between
+T ok Instant.before?
+T ok Instant.add (impl Add<Duration, Instant> for Instant)
+T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Instant> for Instant)
+T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
+C int
+E 0
+N 18
+H ed5d8eaeb3e92eb8f8ee0bc34db962257a36a74813d62fb00f3e55a50abba33c
+T ok Int.max_value
+T ok Int.min_value
+T ok Int.to_non_zero
+T ok Int.to_positive
+T ok Int.to_float
+T ok Int.wrapping_add
+T ok Int.wrapping_sub
+T ok Int.wrapping_mul
+T ok Int.bitwise_and
+T ok Int.bitwise_or
+T ok Int.bitwise_xor
+T ok Int.bitwise_not
+T ok Int.shift_left
+T ok Int.shift_right
+T ok Int.modulo
+T ok Int.to_string (impl Display for Int)
+T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
+T ok PositiveInt.to_non_zero
+C iter
+E 0
+N 39
+H af76ac73f99bf0a444e5fdb18c041ef841a1b86b141645000daa55dfab99655c
+T ok Iter.loop
+T ok Iter.reduce
+T ok Iter.find
+T ok Iter.sort_with
+T ok Iter.sort
+T ok Iter.sort_by
+T ok Iter.each
+T ok Iter.any?
+T ok Iter.all?
+T ok Iter.empty?
+T ok Iter.not_empty?
+T ok Iter.first
+T ok Iter.last
+T ok Iter.at
+T ok Iter.partition
+T ok Iter.group_by
+T ok Iter.to_list
+T ok Iter.to_vector
+T ok Iter.to_set
+T ok Iter.with_index
+T ok Iter.take
+T ok Iter.cycle
+T ok Iter.concat
+T ok Iter.zip
+T ok Iter.take_while
+T ok Iter.map
+T ok Iter.filter
+T ok Iter.drop
+T ok Iter.drop_while
+T ok Iter.flat_map
+T ok Iter.chunks
+T ok Iter.chunk_by
+T ok Iter.from
+T ok Iter.repeat
+T ok Iter.iterate
+T ok Iter.to_map
+T ok Iter.flatten
+T ok Iter.reverse
+T ok Iter.count
+C json
+E 0
+N 3
+H c06ad0e100905842abdce7fd97a35978c7bb297bc0022b768109d4cff243498d
+T ok Json.decode
+T ok Json.encode
+T ok Json.to_dynamic
+C lists
+E 0
+N 4
+H 4d9e3c286644e6dcaf9e6176068bb913a9e864283409605dd8f57fdd054edfed
+T ok List.next_item
+T ok List.concat
+T ok List.head
+T ok List.tail
+C maps
+E 0
+N 13
+H 6310456cf414347edd4310f5f72586249a5da54f6d8769a6a57d4122beace38b
+T ok Map.get
+T ok Map.put
+T ok Map.empty
+T ok Map.remove
+T ok Map.merge
+T ok Map.map_next
+T ok Map.size
+T ok Map.keys
+T ok Map.values
+T ok Map.contains_key?
+T ok Map.map_values
+T ok Map.map_keys
+T ok Map.add (impl Add<Map<K, V>, Map<K, V>> for Map<K, V>)
+C maybe
+E 0
+N 9
+H fafdc048127cf3b6aace5f2642b97340c2e94e68c6f82a81b162206f2c68a4d8
+T ok enum Maybe
+T ok Maybe.some?
+T ok Maybe.none?
+T ok Maybe.map
+T ok Maybe.with_default
+T ok Maybe.to_result
+T ok Maybe.flat_map
+T ok Maybe.collect
+T ok Maybe.values
+C random
+E 0
+N 11
+H 5f6289392fc42527a3fe517966c7ef21ac3a0a8ee03036758fbacee6f54688bd
+T ok Seed.from_int
+T ok Generator.step
+T ok Generator.int
+T ok Generator.float
+T ok Generator.bool
+T ok Generator.constant
+T ok Generator.uniform
+T ok Generator.weighted
+T ok Generator.map
+T ok Generator.flat_map
+T ok Generator.list
+C ranges
+E 0
+N 5
+H e2f82c8ebcc79800ca0ebaeaf948d10c8f5ab510fc1fdda778f91d6ea1048e82
+T ok Range.from
+T ok Range.naturals
+T ok Range.step_by
+T ok Range.contains?
+T ok Range.bounded?
+C regex
+E 0
+N 8
+H 0a56644722b9bb94540e3f8b654a012386c4c7aae9cc26e3c25246ccce269d01
+T ok Regex.compile
+T ok Regex.pattern
+T ok Regex.match?
+T ok Regex.find
+T ok Regex.find_all
+T ok Regex.replace_all
+T ok Regex.split
+T ok Regex.inspect (impl Debug for Regex)
+C results
+E 0
+N 10
+H 1a97ff7bc35f35d4d9becb6aea8069a4a607591546fe5e2910d05e817e289026
+T ok enum Result
+T ok Result.ok?
+T ok Result.err?
+T ok Result.map
+T ok Result.with_default
+T ok Result.flat_map
+T ok Result.map_err
+T ok Result.to_maybe
+T ok Result.collect
+T ok Result.partition
+C sets
+E 0
+N 11
+H 26fc6840d356245e0595ceec0735cb90cc3ee2b7f8ba095af9b6ab031e8bd480
+T ok Set.new
+T ok Set.insert
+T ok Set.remove
+T ok Set.contains?
+T ok Set.size
+T ok Set.union
+T ok Set.intersection
+T ok Set.difference
+T ok Set.subset?
+T ok Set.add (impl Add<Set<T>, Set<T>> for Set<T>)
+T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
+C strings
+E 0
+N 21
+H 87ee46fb61f73ef3574476ac0037b98b21cf607c9d53c32e72962398fe9304e0
+T ok String.contains?
+T ok String.starts_with?
+T ok String.ends_with?
+T ok String.to_upper
+T ok String.to_lower
+T ok String.replace
+T ok String.repeat
+T ok String.reverse
+T ok String.normalize
+T ok String.slice
+T ok String.join
+T ok String.split
+T ok String.words
+T ok String.lines
+T ok String.trim
+T ok String.to_int
+T ok String.to_bytes
+T ok String.to_codepoints
+T ok String.strip_prefix
+T ok String.strip_suffix
+T ok String.length
+C tasks
+E 0
+N 5
+H 644fe9df8e08335ac944575d177e06af716575064f101c9d0f534cfcfa840eda
+T ok Task.spawn
+T ok Task.await
+T ok Task.spawn_all
+T ok Task.await_all
+T ok Task.outcome
+C testing
+E 0
+N 1
+H 6398852afff1a9f28089291a1efc524b98c389acc9dc39228bc270b4fb7929f2
+T ok testing.check
+C timer
+E 0
+N 1
+H d32ee0ffb81943e76ef7703be67e41e793ba900ec933672de8b19741ddfeb05f
+T ok timer.sleep
+C toml
+E 0
+N 1
+H 7222a78180e1863eed1aa4b0587ae514f49025b40853ad43e7640be69b1b4eb4
+T ok Toml.text
+C vectors
+E 0
+N 8
+H 979654d1fd2e7b0426031f00c6c671ddb8925901c0957a5140d766be8baf1829
+T ok Vector.empty
+T ok Vector.length
+T ok Vector.at
+T ok Vector.push
+T ok Vector.set
+T ok Vector.concat
+T ok Vector.next_item
+T ok Vector.add (impl Add<Vector<T>, Vector<T>> for Vector<T>)

@@ -258,8 +258,8 @@ func TestIRImage_StdlibTestIRRoundTrips(t *testing.T) {
 
 // TestIRImage_DecodedProgramsMatchTheCommittedRecords runs the whole-program
 // and report harnesses again with every program's linked set round-tripped
-// through the format, and holds them to the same records and the same pinned
-// counts as the undecoded runs.
+// through the format, and holds them to the same records and the same
+// required comparable sets as the undecoded runs.
 func TestIRImage_DecodedProgramsMatchTheCommittedRecords(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; lowers every candidate program in four populations; -short")
@@ -291,13 +291,11 @@ func TestIRImage_DecodedProgramsMatchTheCommittedRecords(t *testing.T) {
 			t.Fatal(err)
 		}
 		ids, _, _ := candidateIDs(recorded)
-		got, _ := vmSubsetOf(t, population, ids, vmPathResolver(t, population))
+		got, refused := vmSubsetOf(t, population, ids, vmPathResolver(t, population))
 		if diffs := recorded.CompareSubset(got); len(diffs) != 0 {
 			t.Errorf("%s: decoded programs disagree with the records:\n%s", population, strings.Join(diffs, "\n"))
 		}
-		if want := vmPopulations[population].comparable; len(got.Cases) != want {
-			t.Errorf("%s: %d decoded programs compared, the undecoded harness pins %d", population, len(got.Cases), want)
-		}
+		vmRequireComparable(t, "programs", population, ids, got, refused, false)
 	}
 	for _, population := range []string{"corpus", "failure", "tour"} {
 		set, err := expectation.Load(population)
@@ -305,13 +303,11 @@ func TestIRImage_DecodedProgramsMatchTheCommittedRecords(t *testing.T) {
 			t.Fatal(err)
 		}
 		ids, recorded := reportShapedIDs(set)
-		got, _ := vmReportSubsetOf(t, population, ids, recorded, vmReportPathResolver(t, population))
+		got, refused := vmReportSubsetOf(t, population, ids, recorded, vmReportPathResolver(t, population))
 		if diffs := set.CompareSubset(got); len(diffs) != 0 {
 			t.Errorf("%s: decoded test files disagree with the records:\n%s", population, strings.Join(diffs, "\n"))
 		}
-		if want := vmReportPopulations[population].comparable; len(got.Cases) != want {
-			t.Errorf("%s: %d decoded test files compared, the undecoded harness pins %d", population, len(got.Cases), want)
-		}
+		vmRequireComparable(t, "reports", population, ids, got, refused, false)
 	}
 	if len(linkErrs) > 0 {
 		t.Errorf("%d round trips failed:\n%s", len(linkErrs), strings.Join(linkErrs, "\n"))

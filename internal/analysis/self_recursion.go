@@ -201,8 +201,6 @@ func call(n ast.Node) (callee ast.Node, args []ast.Node, ok bool) {
 			return nil, nil, false
 		}
 		switch rhs := unparen(x.Right).(type) {
-		case *ast.Ident, *ast.FieldAccess:
-			return rhs, []ast.Node{x.Left}, true
 		case *ast.Call:
 			if len(rhs.TypeArgs) > 0 {
 				return nil, nil, false
@@ -442,6 +440,8 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 		return r.mustRecurse(x.Expr, false, clean)
 	case *ast.Dbg:
 		return r.mustRecurse(x.Expr, false, clean)
+	case *ast.Then:
+		return r.mustRecurse(x.Lambda, false, clean)
 	case *ast.Unary:
 		return r.mustRecurse(x.Right, false, clean)
 	case *ast.FieldAccess:
@@ -643,6 +643,8 @@ func (r *selfRecursion) mayExit(n ast.Node) bool {
 		return x.Else != nil || r.mayExit(x.Value)
 	case *ast.Dbg:
 		return r.mayExit(x.Expr)
+	case *ast.Then:
+		return r.mayExit(x.Lambda)
 	case *ast.FieldAccess:
 		return r.mayExit(x.Object)
 	case *ast.Unary:

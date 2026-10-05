@@ -18,14 +18,14 @@ package irbuild
 // # Retained stages
 //
 //	*ast.Call                  the splice, a shallow copy of the stage
-//	*ast.Ident/*ast.FieldAccess the zero-argument call form of the same splice
+//	*ast.Then                  a call of its lambda with the piped value
 //	*ast.Dbg with a nil Expr   `bl.dbgOf`, whose operand is the piped value
 //
 // Placeholder calls evaluate the left operand first and substitute its stable
 // temporary at each hole. Copy's injected delivery handles forcing and name
 // allocation. A named argument beside a hole declines.
 //
-// Lambda stages use the same indirect-call path as prefix lambda calls.
+// A `then` stage uses the same indirect-call path as a prefix lambda call.
 //
 // Try stages use retained propagation. Bare if/case stages splice the piped
 // operand into the condition/scrutinee and use ordinary value-region lowering.
@@ -72,12 +72,12 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		spliced.Args = append(spliced.Args, r.Args...)
 		return bl.pipedInto(&spliced)
 
-	case *ast.Ident, *ast.FieldAccess, *ast.Lambda:
-		// A bare callable stage: `x |> double`, `x |> Float.round`. The
-		// synthetic node takes `t.Right`'s line and `pipeStageCol(t.Right)`,
-		// so it carries the stage's own position rather than the pipe's.
-		return bl.pipedInto(&ast.Call{Func: right, Args: []ast.Node{t.Left},
-			Line: t.Right.LineNum(), Col: pipeStageCol(t.Right)})
+	case *ast.Then:
+		// `x |> then |v| body` calls the lambda with the piped value. The
+		// synthetic call takes the lambda's position, so it carries the
+		// stage's own position rather than the pipe's.
+		return bl.pipedInto(&ast.Call{Func: r.Lambda, Args: []ast.Node{t.Left},
+			Line: r.Lambda.Line, Col: r.Lambda.Col})
 
 	case *ast.TryOp:
 		if r.Expr != nil {

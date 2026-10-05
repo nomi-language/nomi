@@ -28,6 +28,13 @@
   --sl-font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+/* Code shows the characters a reader types and copies: no ligatures, so
+   `|>`, `->` and `==` are never drawn as single glyphs. The editor's
+   textarea matches the highlighted layer under it. */
+code, pre, kbd, samp, textarea {
+  font-variant-ligatures: none;
+}
+
 :root[data-theme="light"] {
   /* Starlight chrome — One Light. */
   --sl-color-bg: #fafafa;
@@ -85,7 +92,6 @@ pre.nomi-tour {
   border-radius: 8px;
   overflow-x: auto;
   font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
-  font-feature-settings: "calt" 1, "liga" 1;
   font-size: 0.9em;
   line-height: 1.5;
   white-space: pre;
@@ -367,7 +373,6 @@ pre.nomi-tour.nomi-code-go::before {
   border: 0;
   border-radius: 0;
   font-family: "JetBrains Mono", var(--sl-font-mono, ui-monospace), monospace;
-  font-feature-settings: "calt" 1, "liga" 1;
   font-size: 0.9em;
   line-height: 1.5;
   white-space: pre;

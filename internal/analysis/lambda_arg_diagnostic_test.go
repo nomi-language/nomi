@@ -36,8 +36,8 @@ func TestLambdaArgDiagnostic_ReportedOnce(t *testing.T) {
 		},
 		{
 			"interface call inside a pipe stage",
-			"fn f(): Int {\n    limit = 2\n    [1, 2, 3]\n    |> |xs| xs |> Iter.filter(|x| x > Iter.count(xs) - limit)\n    |> Iter.count()\n}\n",
-			4, 50, "'xs' is the parameter of the lambda stage on line 4, whose body ends at the next `|>`\nhelp: write `|xs| { ... }` to keep the pipe inside it",
+			"fn f(): Int {\n    limit = 2\n    [1, 2, 3]\n    |> then |xs| xs |> Iter.filter(|x| x > Iter.count(xs) - limit)\n    |> Iter.count()\n}\n",
+			4, 55, "'xs' is the parameter of the `then` stage on line 4, whose body ends at the next `|>`\nhelp: write `then |xs| { ... }` to keep the pipe inside it",
 		},
 		{
 			"plain generic call",
@@ -77,7 +77,7 @@ func TestLambdaBodyDiagnostic_ReportedOnce(t *testing.T) {
 		{"interface owner function", "fn f(): List<Int> {\n    Iter.map([1, 2], |n| n + nope) |> Iter.to_list()\n}\n"},
 		{"file function", "fn f(): Int {\n    plain(1, |n| n + nope)\n}\n"},
 		{"nested lambdas", "fn f(): Int {\n    apply(1, |n| apply(n, |m| m + nope))\n}\n"},
-		{"pipe lambda stage", "fn f(): Int {\n    1 |> |n| n + nope\n}\n"},
+		{"then stage", "fn f(): Int {\n    1 |> then |n| n + nope\n}\n"},
 		{"pipe call stage", "fn f(): List<Int> {\n    [1, 2] |> Iter.map(|n| n + nope) |> Iter.to_list()\n}\n"},
 		{"annotated binding", "fn f(): Int {\n    g: (Int) -> Int = |n| n + nope\n    g(1)\n}\n"},
 		{"function body", "fn f(): (Int) -> Int {\n    |n| n + nope\n}\n"},

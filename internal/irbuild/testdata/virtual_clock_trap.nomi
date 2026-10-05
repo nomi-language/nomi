@@ -1,18 +1,17 @@
 // A Nomi FAULT inside a bubbled case, which is the row the main virtual-clock
 // fixture cannot cover and the one a plausible mistake breaks.
 //
-// A trap reaches a compiled test as a Go panic carrying `*rt.Error`, and
-// `rt.runTestBody` converts it to the case's error — the text `nomi test`
+// A trap reaches the test runner carrying `*rt.Error`, and the VM's
+// `runTestBody` converts it to the case's error, the text `nomi test`
 // prints. `vclock.RunCase`'s layer 2 recovers ANY panic and renders it as
 // "test panicked: …", because an escaping panic would reach synctest's own
 // handler and dereference the zero-value testing.T.
 //
 // So the ORDER of those two recovers is observable: the Nomi conversion has to
 // happen INSIDE the bubble. Wrap `t.Fn` directly and layer 2 sees the *rt.Error
-// first, and a compiled trap reports under different text from the
-// interpreter's — a DIFFERING OUTPUT rather than a refusal, and only on cases
-// that both bubble and fault. Nothing in the corpus is in that state, which is
-// why this fixture exists.
+// first, and the trap reports under the wrong text: a DIFFERING OUTPUT rather
+// than a refusal, and only on cases that both bubble and fault. Nothing in the
+// corpus is in that state, which is why this fixture exists.
 //
 // The sleep before the fault is not decoration: it puts the fault after virtual
 // time has been spent, so the case is genuinely inside a bubble that has

@@ -8,19 +8,19 @@ import (
 
 // `std/decimal`'s host surface, once.
 //
-// What is here is only the RULE: the arguments are already the right Go types.
+// What is here is only the rule: the arguments are already the right Go types.
 //
 // One implementation matters more for Decimal than for Int, because these
 // rules are not arithmetic that a second implementation would get visibly
-// wrong -- they are ROUNDING and CONVERSION policies, and a second
+// wrong -- they are rounding and conversion policies, and a second
 // implementation gets those wrong quietly. `Decimal.from_float(0.1, 2,
 // HalfEven)` is `Some(0.10d)` only because the float's exact binary value is
 // taken as a rational first; an implementation that went through `%g` would
 // answer `Some(0.10d)` too, and would answer differently at some scale nobody
 // tested.
 //
-// The VM calls THESE functions through the generated host adapters, so the
-// fault TEXT has one home too: a fault names the std function it came from
+// The VM calls these functions through the generated host adapters, so the
+// fault text has one home too: a fault names the std function it came from
 // (`Decimal.divide: decimal: division by zero`). decimalFault is that prefix,
 // once.
 
@@ -29,8 +29,8 @@ func DecimalFromInt(n int64) Decimal {
 	return Decimal{Mantissa: big.NewInt(n), Scale: 0}
 }
 
-// DecimalFromString is `Decimal.from_string`, and None is the whole point: it
-// parses PLAIN base-10 only, so "1e5" is None rather than 100000.
+// DecimalFromString is `Decimal.from_string`, and None matters here: it
+// parses plain base-10 only, so "1e5" is None rather than 100000.
 func DecimalFromString(s string) Maybe[Decimal] {
 	d, err := ParseDecimal(s)
 	if err != nil {
@@ -41,7 +41,7 @@ func DecimalFromString(s string) Maybe[Decimal] {
 
 // DecimalToInt is `Decimal.to_int`: truncate toward zero, then range-check.
 //
-// THAT ORDER IS OBSERVABLE. `-9223372036854775808.5` is below Int64's minimum,
+// That order is observable. `-9223372036854775808.5` is below Int64's minimum,
 // yet truncating toward zero lands exactly on it, so this answers Some where a
 // range-check-first implementation answers None. A half-step past a boundary is
 // the only input that can tell the two apart, which is why one is pinned.
@@ -69,9 +69,9 @@ func DecimalToFloat(d Decimal) float64 {
 
 // DecimalFromFloat is `Decimal.from_float` at an explicit scale and mode.
 //
-// NaN and ±Inf are None. Everything else goes through the float's EXACT binary
+// NaN and ±Inf are None. Everything else goes through the float's exact binary
 // value as a rational, which is the only way the answer is honest: 0.1 as a
-// float64 is 0.1000000000000000055511151231257827, and rounding THAT at scale 2
+// float64 is 0.1000000000000000055511151231257827, and rounding that at scale 2
 // with HalfEven is what yields 0.10 rather than something that happens to look
 // right. A `%g` round-trip would agree here and disagree somewhere unlisted.
 //
@@ -92,7 +92,7 @@ func DecimalFromFloat(f float64, scale int64, mode RoundingMode) Maybe[Decimal] 
 	return Some(rounded)
 }
 
-// DecimalDivide is `Decimal.divide`: the EXPLICIT-rounding division, as opposed
+// DecimalDivide is `Decimal.divide`: the explicit-rounding division, as opposed
 // to the `/` operator, which is exact-or-trap. Traps on a zero divisor and on
 // RoundUnnecessary when the exact quotient does not fit at scale.
 func DecimalDivide(a, b Decimal, scale int64, mode RoundingMode) Decimal {
@@ -105,7 +105,7 @@ func DecimalDivide(a, b Decimal, scale int64, mode RoundingMode) Decimal {
 
 // DecimalRound is `Decimal.round`: quantize to exactly scale digits.
 //
-// INCREASING the scale pads and is always exact, which is why RoundUnnecessary
+// Increasing the scale pads and is always exact, which is why RoundUnnecessary
 // permits it -- the mode asserts that no information is lost, not that no
 // digits move.
 func DecimalRound(d Decimal, scale int64, mode RoundingMode) Decimal {
@@ -133,7 +133,7 @@ func DecimalToString(d Decimal) string { return d.Display() }
 
 // DecimalInspect is `impl Debug for Decimal`: the canonical form plus `d`.
 //
-// The suffix is DELIBERATE and must not be shared with Display. It is what
+// The suffix is deliberate and must not be shared with Display. It is what
 // makes a Decimal distinguishable from a Float in a REPL and what makes the
 // output paste back as a literal. std/decimal.nomi writes this as Nomi
 // (`to_string(d) + "d"`); this is the same rule for Go callers.

@@ -390,7 +390,7 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	// recorded an instantiated CallType, and the IR builder refused `Some(1)`
 	// inside `test "…" { fn f(): Maybe<Int> { Some(1) } }` under `generic enum
 	// over a type parameter` while the identical declaration inside `fn main`
-	// lowered. MEASURED at f3a00ce6, both directions.
+	// lowered.
 	//
 	// validateNoIllegalNestedDecls is deliberately NOT extended here. It
 	// REJECTS constructs, so running it over test bodies for the first time
@@ -1099,8 +1099,8 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 					// `embeds` is for struct or distinct types only (spec §8):
 					// it makes the embedded type a subtype of the enum, which
 					// has no meaning for an interface (that would be open
-					// polymorphism / dynamic interface dispatch, rejected by
-					// §13.7). Without this check the line silently no-ops — declaration parses
+					// polymorphism, which spec §8 *Embedded Types* does not
+					// allow). Without this check the line silently no-ops — declaration parses
 					// but no constructor is created and no widening occurs.
 					errs = append(errs, TypeError{
 						Line: v.Line,

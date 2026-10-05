@@ -557,6 +557,8 @@ func (s *iterSensitivity) walkBody(owner *Symbol, n ast.Node, caughtHere bool) {
 		s.walkBody(owner, node.Expr, caughtHere)
 	case *ast.Dbg:
 		s.walkBody(owner, node.Expr, caughtHere)
+	case *ast.Then:
+		s.walkBody(owner, node.Lambda, caughtHere)
 	case *ast.Assertion:
 		s.walkBody(owner, node.Expr, caughtHere)
 	case *ast.StringInterp:
@@ -870,6 +872,8 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 			walk(node.Expr, inIter)
 		case *ast.Dbg:
 			walk(node.Expr, inIter)
+		case *ast.Then:
+			walk(node.Lambda, inIter)
 		case *ast.Assertion:
 			walk(node.Expr, inIter)
 		case *ast.TestDecl:
@@ -1061,6 +1065,8 @@ func (s *iterSensitivity) findFirstDirectBC(n ast.Node) (int, int, bool) {
 			walk(node.Expr, caught)
 		case *ast.Dbg:
 			walk(node.Expr, caught)
+		case *ast.Then:
+			walk(node.Lambda, caught)
 		case *ast.Assertion:
 			walk(node.Expr, caught)
 		case *ast.StringInterp:
@@ -1253,6 +1259,8 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 			walk(node.Expr, enclosing, immediateIter)
 		case *ast.Dbg:
 			walk(node.Expr, enclosing, immediateIter)
+		case *ast.Then:
+			walk(node.Lambda, enclosing, immediateIter)
 		case *ast.Assertion:
 			walk(node.Expr, enclosing, immediateIter)
 		case *ast.TestDecl:

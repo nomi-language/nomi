@@ -14,13 +14,11 @@
 //
 // # Why it has to fail
 //
-// `tests/` contains no program that fails an assertion, so the
-// differential sweep compares the passing path exclusively and reads
-// `0 DIFFED` over any amount of wrong failure text. The only way to compare an
+// `tests/` contains no program that fails an assertion, so the corpus never
+// checks failure text. The only way to check an
 // operand rendering is to produce one. This file is NOT in the corpus and is
-// never run by `nomi test tests`; it is reached only by
-// TestPinned_UntypedEqualityFailureReport, and the non-zero exit is part of
-// what requireIdentical compares.
+// never run by `nomi test tests`; internal/irbuild and internal/vm tests run
+// it, and the non-zero exit is part of the recorded golden.
 //
 // Both operand positions fail, because binary() emits the left operand and the
 // right operand through different paths and the recorded rendering of a

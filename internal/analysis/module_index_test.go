@@ -94,7 +94,7 @@ func TestBuildModuleIndex_NoGoMod(t *testing.T) {
 }
 
 // TestBuildModuleIndex_RequireWithoutReplace tests the "no replace"
-// case. Stage 1 only supports local-replace deps (no module proxy
+// case. Only local-replace deps are supported (no module proxy
 // resolution), so a bare require with no matching replace is silently
 // skipped — not an error.
 func TestBuildModuleIndex_RequireWithoutReplace(t *testing.T) {

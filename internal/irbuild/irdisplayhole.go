@@ -28,6 +28,15 @@ func (bl *irScalarBuilder) displayHole(at ast.Node, src ir.Temp, k kind, mobile 
 		bl.side(r.Dst(), irScalarSide{k: kindString})
 		return r.Dst(), true
 	}
+	if irStdDisplayExistential(k) {
+		// `"${v}"` where v's static type is the interface Display: the VM
+		// renders the value it holds through that value's own impl, as
+		// `Display.to_string(v)` does.
+		r := ir.NewRenderDisplayErased(bl.g.irNodePos(at), bl.f.NewTemp(), src)
+		bl.b.Append(r)
+		bl.side(r.Dst(), irScalarSide{k: kindString})
+		return r.Dst(), true
+	}
 	if (irRetainedRecordKind(k) || irRetainedTupleKind(k)) && (irScalarLeafParts(k) || irStructuralDisplayKind(k)) {
 		return structural()
 	}

@@ -721,7 +721,7 @@ func quoted(recv string) string {
 // TestStdlibRefusalNamesAreDistinct keeps the blocker tally usable.
 //
 // The constructs the stdlib index can report are separate keys on purpose, and a
-// change that collapsed two of them would make the roadmap read as one big gap.
+// change that collapsed two of them would make the tally read as one big gap.
 // Listed here so the set is visible in one place and a further name cannot
 // arrive without a reader noticing.
 func TestStdlibRefusalNamesAreDistinct(t *testing.T) {

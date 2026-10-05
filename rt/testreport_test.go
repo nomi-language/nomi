@@ -7,22 +7,20 @@ import (
 	"testing"
 )
 
-// TestTypedNilTestFailureIsAPass is the pin for the one hazard the widening of
-// Test.Fn could have introduced, and it fails on the ANSWER rather than on a
-// type.
+// TestTypedNilTestFailureIsAPass pins the one hazard of Test.Fn returning an
+// interface, and it fails on the answer rather than on a type.
 //
-// Test.Fn used to be `func(*Frame) *AssertionFailure`, typed concretely on
-// purpose: a nil *AssertionFailure boxed into an interface compares NON-nil, so
-// an `error` return would have let a PASSING case be reported as a failure with
-// no failure in it. Widening it to TestFailure — needed because a `try`
-// propagating inside a test body ends the case as an EarlyReturnFailure — has to
-// carry that property rather than trade it away, and the nil-receiver Failure()
-// method is how it is carried.
+// A nil *AssertionFailure boxed into an interface compares non-nil, so a plain
+// `error` return would let a passing case be reported as a failure with no
+// failure in it. Test.Fn returns TestFailure, an interface, because a `try`
+// propagating inside a test body ends the case as an EarlyReturnFailure. The
+// nil-receiver Failure() method is what keeps a nil failure of either concrete
+// type reading as a pass.
 //
 // The mutation this defends against is deleting either `if e == nil` guard, or
 // changing runTest to `return failure` instead of `return failure.Failure()`.
 // Either makes this test report a failure for a body that produced none, which
-// in a real run would be EVERY case failing.
+// in a real run would be every case failing.
 func TestTypedNilTestFailureIsAPass(t *testing.T) {
 	fr := NewFrame(context.Background())
 
@@ -104,12 +102,13 @@ func TestBlockedCasesAreCountedApartAndOnlyWhenPresent(t *testing.T) {
 	var b bytes.Buffer
 	rep = NewTestReporter(&b)
 	rep.Result("f :: a", nil)
-	rep.Blocked("f :: b", []string{"[g] not retained: a tail plan", "[h] not retained: x"})
+	rep.Blocked("f :: b", []string{"f:3:5: this call to `g` is not supported yet, so `fn h` cannot run\nf:3:5: help: pass `g`", "[h] not retained: x"})
 	if failed := rep.Summary(); !failed {
 		t.Fatal("a run with a blocked case did not fail")
 	}
 	want := "ok f :: a\n" +
-		"BLOCKED f :: b [g] not retained: a tail plan\n" +
+		"BLOCKED f :: b f:3:5: this call to `g` is not supported yet, so `fn h` cannot run\n" +
+		"  f:3:5: help: pass `g`\n" +
 		"BLOCKED f :: b [h] not retained: x\n" +
 		"test result: BLOCKED. 1 passed, 0 failed, 1 blocked\n"
 	if got := b.String(); got != want {

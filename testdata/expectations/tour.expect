@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 129
+records 130
 declared-cases 16
 failing 0
 C bindings-and-expressions.md:L123
@@ -613,7 +613,16 @@ T dbg line 12: classify(-5) = "negative"
 T dbg line 13: classify(500) = "huge"
 T dbg line 14: classify(42) = "regular"
 T
-C pattern-matching.md:L178
+C pattern-matching.md:L191
+E 0
+N 0
+H d58bc165cf46b3def1a714a99a1e99d66ea16ca542b74ba4ba2eacdd77010347
+T dbg line 12: total(["1", "2", "3"]) = Ok(6)
+T dbg line 13: total(["1", "x", "y"]) = Err("not a number: x")
+T dbg line 16: numbers = [1]
+T dbg line 17: errors = ["not a number: x", "not a number: y"]
+T
+C pattern-matching.md:L227
 E 0
 N 0
 H a2bf7852263729ec6b4793e45d0b1b95e3643441a10db5cf5670a4da1e2cd33f
@@ -635,17 +644,17 @@ H 2f9fad64f9bcd06c7589a49c63a2fdd88b0a7c4670b943c88235d67ca3663969
 T dbg line 17: name_for(1) = "Alice"
 T dbg line 18: name_for(99) = "unknown"
 T
-C pipes.md:L112
+C pipes.md:L113
 E 0
 N 0
-H 6ca1dc02417058e7a4902d0932c368e8ca17ef22d6534bd51b2c0a65b7b97f24
+H 1fd4c42f4279988677cdeb4658ac6572ea1a26b997b1289680614f7d773e503c
 T dbg line 12:
 T   1
 T   |> find_name()
-T   |> |name| name == Some("Ada")
+T   |> then |name| name == Some("Ada")
 T   = True
 T
-C pipes.md:L144
+C pipes.md:L145
 E 0
 N 0
 H 189fe06c5cef0e801006023392fe3183880d7857bad6fba05f3476eeab0150b4
@@ -663,14 +672,14 @@ H 82311262069034c45876e9fcb7dec2c70b3e4d27baf41c85b57a205944c42016
 T dbg line 10: 5 |> double() = 10
 T dbg line 12: 5 |> add(3) = 8
 T
-C pipes.md:L165
+C pipes.md:L166
 E 0
 N 1
 H 6466c7087e99d349b351e11d2c93f7b122939dd4b964973e2d18dcfd315aa648
 T ok pipeline result is true
 T test result: ok. 1 passed, 0 failed
 T
-C pipes.md:L178
+C pipes.md:L179
 E 0
 N 0
 H 55972d3288befe7b1999bbd14874c236b9617874b2eb768ed00575677e769071
@@ -723,19 +732,6 @@ N 0
 H 7b8ae3338679260066443051a7869877deda3adfa3a31812a097b549ae7c4de7
 T echo ${HOME} costs $5 #{not a set}
 T
-C scalars-and-strings.md:L158
-E 0
-N 0
-H cff6393d182403018e5caea07c68973571060a71844d3567a0734c3cb596e6db
-T dbg line 2: String.length("café") = 4
-T dbg line 3: Iter.to_list("café") = ["c", "a", "f", "é"]
-T dbg line 9:
-T   "café"
-T   |> String.to_codepoints()
-T   |> Iter.map(Codepoint.to_int)
-T   |> Iter.to_list()
-T   = [99, 97, 102, 233]
-T
 C scalars-and-strings.md:L16
 E 0
 N 0
@@ -748,7 +744,20 @@ T dbg line 6: -(3 + 4) = -7
 T dbg line 7: 42 > 10 = True
 T dbg line 8: True and !False = True
 T
-C scalars-and-strings.md:L189
+C scalars-and-strings.md:L164
+E 0
+N 0
+H cff6393d182403018e5caea07c68973571060a71844d3567a0734c3cb596e6db
+T dbg line 2: String.length("café") = 4
+T dbg line 3: Iter.to_list("café") = ["c", "a", "f", "é"]
+T dbg line 9:
+T   "café"
+T   |> String.to_codepoints()
+T   |> Iter.map(Codepoint.to_int)
+T   |> Iter.to_list()
+T   = [99, 97, 102, 233]
+T
+C scalars-and-strings.md:L195
 E 0
 N 0
 H a97a2e7423efe650e12b847e990d065c63e2c8038cb9fe248e84a7a5365902c9
@@ -759,7 +768,7 @@ T   |> Iter.map(kind)
 T   |> Iter.to_list()
 T   = ["a", "comma", "space", "b"]
 T
-C scalars-and-strings.md:L229
+C scalars-and-strings.md:L235
 E 0
 N 0
 H dfecebecfe8f77f56a26a60b330f2ea38c8bcefc2ee946485f23896b0f451f2e
@@ -767,7 +776,7 @@ T dbg line 7: Bytes.length(raw) = 5
 T dbg line 8: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L262
+C scalars-and-strings.md:L268
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -775,7 +784,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L290
+C scalars-and-strings.md:L296
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15

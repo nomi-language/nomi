@@ -10,8 +10,7 @@ import (
 )
 
 // StdlibPath returns the absolute filesystem path of the bundled
-// stdlib directory — the source of `std/...` imports after Task 6's
-// cutover. Stdlib is virtually injected into Project.ModuleIndex
+// stdlib directory — the source of `std/...` imports. Stdlib is virtually injected into Project.ModuleIndex
 // under the short-name "std" using this path so the regular
 // discovery/buildModule pipeline walks stdlib files just like any
 // other cross-module dependency.

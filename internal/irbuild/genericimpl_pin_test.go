@@ -86,3 +86,37 @@ func TestGenericInstanceNomiNamesCollideOnPurpose(t *testing.T) {
 		t.Fatal("two instantiations share one def")
 	}
 }
+
+// TestExpansiveImplMemberIsWithheldFromEachInstance pins expansiveImplItem.
+//
+// `gather` names `Box<List<T>>`. Built as a member of every instance, it would
+// mint `Box<List<Int>>` for `Box<Int>`, whose block would build it again for
+// `Box<List<List<Int>>>`, without end: before the check this source never
+// finished lowering. Withheld, the one instance the source names is the only
+// one built, and the block records why `gather` is absent.
+func TestExpansiveImplMemberIsWithheldFromEachInstance(t *testing.T) {
+	src := "enum Box<T> {\n  Full T\n  Empty\n}\n\n" +
+		"impl Box<T> {\n" +
+		"  fn gather<T>(_boxes: List<Box<T>>): Box<List<T>> {\n    Box.Empty\n  }\n\n" +
+		"  fn full?<T>(b: Box<T>): Bool {\n    case b {\n      .Full(_) -> True\n      .Empty -> False\n    }\n  }\n" +
+		"}\n\n" +
+		"fn f(b: Box<Int>): Bool {\n  Box.full?(b)\n}\n"
+	g := lowerableGen(t, src)
+	if n := len(g.genericInstOrder); n != 1 {
+		t.Fatalf("built %d instances, want exactly 1 (Box<Int>): gather's Box<List<T>> must not mint a "+
+			"larger instance while its block is registered", n)
+	}
+	var withheld, kept bool
+	for _, d := range g.implsByIface[""] {
+		if gap, ok := d.gaps["gather"]; ok && gap.why == "expansive impl function" {
+			withheld = true
+		}
+		if d.items["full?"] != nil {
+			kept = true
+		}
+	}
+	if !withheld || !kept {
+		t.Fatalf("want gather withheld as an expansive impl function and full? kept on Box<Int>'s block; "+
+			"withheld=%v kept=%v", withheld, kept)
+	}
+}

@@ -13,24 +13,23 @@ import std/io
 //
 // EVERY ROW BELOW IS A PAIR OF DERIVATIONS THE CODE KEEPS SEPARATE. A fixture
 // using only distinct decimals as keys would pass under a scale-sensitive hash,
-// under a scale-insensitive one, and under Go's own `==` on a mantissa and a
+// under a scale-insensitive one, and under a plain `==` on a mantissa and a
 // scale. The pairs:
 //
 //   - BUCKET against MATCH. `read at a third scale` stores under `1.50d` and
-//     reads with `1.500d`. Equality is already correct in the tree (rt.EqDecimal
-//     ships and value.Equal calls it), so this row can only fail for the hash,
-//     and it fails for nothing else. IT IS THE REASON THIS FILE EXISTS.
+//     reads with `1.500d`. Equality is rt.EqDecimal and is checked elsewhere,
+//     so this row can only fail for the hash, and it fails for nothing else.
+//     It is the reason this file exists.
 //   - COLLAPSE against RETENTION. `{1.50d => "a", 1.5d => "b"}` is two spellings
 //     of ONE key, and the three facts about the survivor are derived
 //     independently. Size 1 says they collapsed. The VALUE says which write won
 //     (the last). The rendered KEY says which SPELLING was retained — and it is
 //     the LAST one, at scale 1, because `MapVal.With` rebinds the key it was
-//     handed while keeping the existing entry's POSITION. That last clause was
-//     written the other way round here first and the interpreter contradicted
-//     it, which is the whole reason the row prints the map instead of its size:
-//     a map that normalised keys on insert prints `1.5` too and would have gone
-//     green against the guess. POSITION is a fourth fact and needs a third
-//     entry to be visible at all, so `positioned` below has one.
+//     handed while keeping the existing entry's position. The row prints the
+//     map rather than its size so the retained spelling is visible.
+//     Position is a fourth fact and needs a third entry to be visible at all,
+//     so `positioned` below has one.
+//
 //   - THE TOP-LEVEL KEY against a NESTED one. `(Decimal, String)` and
 //     `List<Decimal>` reach the Decimal hasher through the tuple fold and the
 //     list walk instead of directly. A fix that answered only for a bare
@@ -50,7 +49,7 @@ import std/io
 // COARSE. `1.5d`, `15d` and `0.15d` normalise to one mantissa and three scales,
 // so a hash that ignored the scale entirely would bucket all three together —
 // and still answer correctly, because equality disambiguates a collision. That
-// is a performance bug with no observable output, so no differential row can
+// is a performance bug with no observable output, so no output row can
 // catch it. The `three scales one mantissa` row below therefore pins the thing
 // it CAN pin: that equality keeps them apart.
 fn main() {

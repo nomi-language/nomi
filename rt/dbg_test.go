@@ -13,7 +13,7 @@ import (
 // wrote.
 //
 // Dbg writes to os.Stdout by design — see its header for why the writer is not a
-// parameter — so observing it needs the fd swapped. A PIPE rather than a
+// parameter — so observing it needs the fd swapped. A pipe rather than a
 // temporary file, because the colour decision reads
 // `Mode()&os.ModeCharDevice` and a pipe is what a piped run gives the process:
 // a regular file would exercise a writer no real run has.
@@ -44,9 +44,9 @@ var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 // TestDbg_ThreeShapes pins rt.Dbg's layout directly, including the one shape no
 // Nomi source can produce.
 //
-// The single-line and multi-line shapes are pinned END TO END as well, by
+// The single-line and multi-line shapes are pinned end to end as well, by
 // internal/irbuild's testdata/dbg_shapes.nomi against its golden record. The
-// EMPTY shape is not, and cannot be: `dbg`'s operand text is
+// empty shape is not, and cannot be: `dbg`'s operand text is
 // `format.RenderNode` of a real AST node, which is never empty, so that arm is
 // reachable only from here. Dropping it would leave a stray space in the line
 // if it were ever reached.
@@ -84,12 +84,12 @@ func TestDbg_ThreeShapes(t *testing.T) {
 	}
 }
 
-// TestDbg_TrimSpaceRunsBeforeTheNewlineTest pins the ORDER of two statements,
-// which decides the SHAPE rather than merely tidying the text.
+// TestDbg_TrimSpaceRunsBeforeTheNewlineTest pins the order of two statements,
+// which decides the shape rather than merely tidying the text.
 //
 // DbgText runs `expr = strings.TrimSpace(expr)` before
 // `strings.Contains(expr, "\n")`. Reversed, an operand whose text has a leading
-// or trailing newline would take the MULTI-LINE branch and print an empty
+// or trailing newline would take the multi-line branch and print an empty
 // indented source line. Every input below is multi-line before trimming and
 // single-line after, so each one fails if the order is swapped and none can pass
 // by coincidence.
@@ -103,8 +103,8 @@ func TestDbg_TrimSpaceRunsBeforeTheNewlineTest(t *testing.T) {
 	}
 }
 
-// TestDbg_ColourFollowsTheWriterAndNotTheEnvironment is the guard on this
-// slice's FORECAST FAULT, and it asserts that the check RAN rather than only
+// TestDbg_ColourFollowsTheWriterAndNotTheEnvironment is the guard on a wrong
+// colour decision, and it asserts that the check ran rather than only
 // that it passed.
 //
 // The hazard: `dbg` is the only construct whose every line is wrapped in a
@@ -115,7 +115,7 @@ func TestDbg_TrimSpaceRunsBeforeTheNewlineTest(t *testing.T) {
 // `internal/termcolor` calls down into it. A `bytes.Buffer` and an `exec` pipe
 // are both non-terminals, so both answer false.
 //
-// The POSITIVE CONTROL is the point of the second half. Without it, a Dbg that
+// The second half is a positive control. Without it, a Dbg that
 // never coloured anything at all would satisfy the first assertion, and the
 // first assertion would be telling us nothing about the decision it names.
 func TestDbg_ColourFollowsTheWriterAndNotTheEnvironment(t *testing.T) {
@@ -143,10 +143,9 @@ func TestDbg_ColourFollowsTheWriterAndNotTheEnvironment(t *testing.T) {
 // installs no highlighter leaves it nil and the operand text and value print
 // plain even when colour is on. `nomi run` and `nomi test` install the real
 // highlighter (internal/termcolor's init) and colour them. That is the
-// asymmetry `Highlight`'s own comment already records for an assertion
-// failure's source lines, reaching `dbg` as a second surface — and it is
-// INVISIBLE to golden records, where colour is off, which is exactly why it
-// needs a test of its own.
+// asymmetry `Highlight`'s own comment describes for an assertion failure's
+// source lines, applied to `dbg`. Golden records run with colour off and
+// cannot see it, so it has a test of its own.
 func TestDbg_HighlightHookIsOffInAnArtifact(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "always")
 

@@ -9,7 +9,7 @@ import (
 )
 
 // Tests for `@derive` on host type declarations (derive-as-assertion,
-// spec §38.5 "Extern types"): the decorator asserts the type has trivial
+// spec §38.1 "Extern types"): the decorator asserts the type has trivial
 // structure (a zero-sized singleton), and the synthesizers emit constant
 // bodies — `True` / `0` / `Equal` / the bare type name — rather than
 // recursing into structure the declaration doesn't carry.

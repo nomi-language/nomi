@@ -10,7 +10,7 @@ func TestVMInterfaceCall_TourMatchesRecordedAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{"interfaces-and-dispatch.md:L81"}, vmPathResolver(t, "tour"))
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "interfaces-and-dispatch.md", `io.print(Speech.speak(rex))`)}, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("interface-call Tour program incomplete: %v", refused)
 	}
@@ -24,7 +24,7 @@ func TestVMInterfaceCall_InheritedDefaultsMatchRecordedAnswers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{"interfaces-and-dispatch.md:L135", "interfaces-and-dispatch.md:L199"}, vmPathResolver(t, "tour"))
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "interfaces-and-dispatch.md", `open fn brief(value: self)`), tourBlock(t, "interfaces-and-dispatch.md", `io.print(HasName.greet(alice))`)}, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 2 || len(refused) != 0 {
 		t.Fatalf("inherited default programs incomplete: %v", refused)
 	}

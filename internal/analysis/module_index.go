@@ -32,8 +32,8 @@ type ModuleIndex map[string]string
 //
 // Returns an empty index (not an error) if go.mod is absent — the
 // single-file `nomi run` and no-deps modes stay valid. A require
-// without a matching replace is also skipped silently: Stage 1
-// only supports local-replace deps (no Go module proxy lookup).
+// without a matching replace is also skipped silently: only
+// local-replace deps are supported (no Go module proxy lookup).
 //
 // A require whose target directory has no nomi.toml is treated as
 // a pure-Go dep (FFI use) and skipped. A require whose target path
@@ -63,7 +63,7 @@ func BuildModuleIndex(projectRoot string) (ModuleIndex, error) {
 	// but defensive against malformed input) is skipped.
 	//
 	// `r.Old.Version` is intentionally ignored: the local-replace
-	// shape Stage 1 supports never pins versions (`replace foo => ../foo`
+	// shape supported here never pins versions (`replace foo => ../foo`
 	// rather than `replace foo v1.0.0 => ../foo`). If you ever need to
 	// distinguish versioned replaces, the map key would be a
 	// `(Path, Version)` tuple — not a problem yet.
@@ -83,9 +83,8 @@ func BuildModuleIndex(projectRoot string) (ModuleIndex, error) {
 	for _, req := range f.Require {
 		target, ok := replaces[req.Mod.Path]
 		if !ok {
-			// No replace — would need Go-proxy resolution. For
-			// Stage 1 we only support local-replace deps; skip.
-			// TODO(stage-1b): proper Go module proxy resolution.
+			// No replace — would need Go-proxy resolution, and only
+			// local-replace deps are supported; skip.
 			continue
 		}
 		// Distinguish "target directory missing entirely" (typo in

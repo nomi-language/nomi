@@ -2,7 +2,7 @@ package vmhost_test
 
 import "testing"
 
-// Programs that reach std bodies the stdlib lowering used to decline, and
+// Programs that reach std bodies the stdlib lowering must not decline, and
 // the equality and hashing rules for keys. Each runs on the VM and prints
 // what the language says it prints.
 func TestRun_ReachableStdBodiesRun(t *testing.T) {

@@ -2,17 +2,17 @@
 // command in front of the user to compile with, and what should the failure say
 // when there is not.
 //
-// # WHY THIS PACKAGE EXISTS
+// # Why this package exists
 //
 // `nomi run`, `nomi test` and `nomi check` on a project with Go FFI build a
 // wrapper with `go build` (internal/ffirun), and a user who installed a
 // prebuilt `nomi` may have no Go at all. `exec.Command` records ErrNotFound on
-// the command and `CombinedOutput` returns no output, so the raw failure read
+// the command and `CombinedOutput` returns no output, so the raw failure reads
 // `ffirun: building wrapper: exec: "go": executable file not found in $PATH`.
 // This package turns that into a message that says what needed Go and where it
 // looked.
 //
-// # WHY THERE IS NO DOWNLOADER HERE
+// # Why there is no downloader here
 //
 // Go's own toolchain switching (GOTOOLCHAIN) downloads and verifies the Go
 // version a module asks for, against sum.golang.org, once any `go` launcher is

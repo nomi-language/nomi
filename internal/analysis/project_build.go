@@ -155,7 +155,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// goes in first (so its ModuleScope wins for cross-file
 		// qualified-type lookups like `iter.Iter`), then any extra
 		// scopes the caller passed in via `modules` fill remaining
-		// slots. Post-Task-6 cutover the `modules` arg from std.Load()
+		// slots. The `modules` arg from std.Load()
 		// is redundant (stdlib lives in cache), but it's still accepted
 		// for the legacy `BuildFileWithStdlib` single-file path —
 		// preferring cache over `modules` makes the redundant arg
@@ -232,7 +232,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// The legacy std.Load()-driven path made prelude's ModuleScope the
 	// parent scope of every user file, so bare lookups for Some/None/Equal/...
 	// walked through prelude's Maybe/Ordering enums and found them as
-	// Members. After Task 6's cutover, stdlib flows through the regular
+	// Members. Stdlib flows through the regular
 	// discovery pipeline so prelude is just another module, and the
 	// right way to surface its re-exported names is the same `import`
 	// statement a user would write by hand. Stdlib files opt out —
@@ -674,7 +674,8 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		}
 	}
 
-	// Sweep B-bounds: spec §38.5 Gap 1 field/payload bound check. Runs
+	// Sweep B-bounds: the derive field/payload bound check (spec §38.1,
+	// *Field-type requirements*). Runs
 	// after Sweep B-impls so every file's local Impls is fully
 	// populated, and AFTER the project impl index has been broadcast
 	// onto every FA so CheckDeriveBounds can consult fa.ProjectImpls
@@ -706,6 +707,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUnusedImports(fb.fa, fb.nodes)...)
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckRedundantPreludeImports(fb.fa, fb.nodes)...)
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUnusedBindings(fb.fa)...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUselessReturns(fb.nodes)...)
 	}
 
 	// Sweep C-shells: pre-populate every type symbol's `.Type` with a
@@ -819,7 +821,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 
 	// Re-seed ContextType from the cache now that std/context.nomi's
 	// BuildTypes has populated its `Context` symbol's Type field.
-	// Post-Task-6 cutover, stdlib flows through discovery so std/context
+	// Stdlib flows through discovery so std/context
 	// lives in `cache`; lib.Modules from a parallel std.Load() carries
 	// a DIFFERENT Context instance with no shared pointer identity.
 	// User code's `context: Context` field is resolved via the cache

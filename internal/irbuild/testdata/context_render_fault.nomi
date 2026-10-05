@@ -1,46 +1,38 @@
-// `Debug.inspect` on a Context, and the fault a spent deadline produces. Both
-// were live DIFFs between the two backends and neither was visible to anything
-// in the tree.
+// `Debug.inspect` on a Context, and the fault a spent deadline produces.
 //
-// # WHY A FIXTURE AND NOT A CORPUS FILE
+// # Why a fixture and not a corpus file
 //
 // context_values_report.nomi states half of it: `tests/` contains no
-// program that fails an assertion, so the sweep compares the passing path
-// exclusively and reads `0 DIFFED` over any amount of wrong failure text. This
-// file adds the other half — a program that FAULTS. A fault is not an assertion
-// failure; it ends the run, and the sweep never compares one either.
+// program that fails an assertion, so the corpus checks only the passing path.
+// This file adds the other half: a program that faults. A fault is not an
+// assertion failure; it ends the run, and no corpus program does that either.
 //
 // So this file is not in the corpus, is never run by `nomi test tests`,
-// and its non-zero exit is part of what requireIdentical compares.
+// and its non-zero exit is part of the recorded golden.
 //
-// # THE TWO DIFFS this fixture pins
+// # The two behaviours this fixture pins
 //
-// (1) `Debug.inspect(ctx)` printed `<context>` under `nomi run` and `Context`
-// from a `nomi build` artifact. `pub host type Context` gets a name-only
-// `impl Debug` from the front end whose body is the static string `"Context"`;
-// the interpreter never reaches it, because `debugPlaceholder` answers for the
-// non-structural value kinds BEFORE dispatch and returns `"<context>"`. One
-// declaration, two implementations, and each backend reached a different one.
-// The row path in inspect.go already agreed — which is exactly why a 222/222
-// sweep could not see this: `Debug.inspect` in ordinary code is not an
-// assertion operand.
+// (1) `Debug.inspect(ctx)` prints `<context>`, the same text a `values:` row
+// shows. `pub host type Context` gets a name-only `impl Debug` from the front
+// end whose body is the static string `"Context"`, so a lowering that
+// dispatched to that impl would print `Context` instead. `Debug.inspect` in
+// ordinary code is not an assertion operand, so no assertion row covers this.
 //
-// (2) A spent deadline reaching main-line code reported
-// `deadline exceeded: …` under `nomi run` and
-// `concurrent: cancellation reached a frame with no task to unwind` compiled —
-// a diagnostic about a BUILDER BUG, handed to a user whose program was merely
-// bounded. `rt.EnterDeadline` is a third way a frame's ctx closes, on the main
-// goroutine while the body runs, which is the case `raiseCanceled`'s "not
-// reachable by construction" argument excluded.
+// (2) A spent deadline reaching main-line code reports
+// `deadline exceeded: …`, and never
+// `concurrent: cancellation reached a frame with no task to unwind`, which is a
+// diagnostic about a builder bug. `rt.EnterDeadline` is a third way a frame's
+// ctx closes, on the main goroutine while the body runs, which is the case
+// `raiseCanceled`'s "not reachable by construction" argument excluded.
 //
-// # AN ALREADY-PAST DEADLINE RATHER THAN A SLEEP THAT OUTLASTS ONE
+// # An already-past deadline rather than a sleep that outlasts one
 //
 // `Instant.from_seconds(0)` is 1970, so the deadline is spent before the
-// `timer.sleep` is entered and the fault is immediate on both paths. A future
-// deadline plus a long sleep reproduces the same two DIFFs and makes the
-// fixture's runtime a race against a wall clock; this way there is nothing to
-// wait for. It also exercises `EnterDeadline`'s already-spent path, which is
-// the one whose `context.Canceled` used to hide the deadline from the fault.
+// `timer.sleep` is entered and the fault is immediate. A future deadline plus
+// a long sleep reaches the same two behaviours and makes the fixture's
+// runtime a race against a wall clock; this way there is nothing to wait for.
+// It also exercises `EnterDeadline`'s already-spent path, where the fault must
+// still report the deadline rather than a bare `context.Canceled`.
 import {
     std/duration.Duration
     std/instant.Instant

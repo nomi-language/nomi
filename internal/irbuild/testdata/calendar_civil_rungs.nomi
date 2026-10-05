@@ -7,22 +7,16 @@
 // arithmetic diverge deliberately, and a lowering that quietly turned one into
 // the other would print a different date rather than fail.
 //
-// # Two of these lines are vacuous as a differential, deliberately, and the
-// pinned text in calendar_civil_test.go is where they are actually checked
+// # Where the clamp and the divergence are checked
 //
-// `requireIdentical` compares the interpreter against the artifact, so it is
-// blind to a bug in code BOTH reach — and both now reach `rt.CivilShift` and
-// `rt.DateTimeCivilShift`, because eval calls DOWN into rt for every calendar
-// rule and the builder binds the same symbols. That inversion deletes a class of
-// bug (two implementations drifting) by deleting the disagreement, and it costs
-// the comparison its power over exactly the rules it unified. So the `want`
-// string is the assertion for the clamp and the divergence, and
-// rt/calendar_test.go pins both at the representation level as well.
+// rt owns these rules: `rt.CivilShift` and `rt.DateTimeCivilShift` implement
+// them, and the builder binds those symbols. So the `want` string in
+// calendar_civil_test.go is the assertion for the clamp and the divergence,
+// and rt/calendar_test.go pins both at the representation level as well.
 //
-// What IS genuinely two implementations here: every `Subtract` rung and the
-// seven Nomi-bodied `Add` rungs are lowered Nomi in a generated stdlib package
-// on one side and interpreted AST on the other, so `- Months(1)` reaching the
-// wrong `+ Months(-1)` is a real differential.
+// Every `Subtract` rung and the seven Nomi-bodied `Add` rungs are lowered Nomi
+// bodies, so `- Months(1)` reaching the wrong `+ Months(-1)` shows up as a
+// wrong date in the VM's output.
 import {
     std/calendar.{
         DateTime,
@@ -50,8 +44,8 @@ fn run(): Result<Unit, Error> {
     // CLAMP to the last day of the target month rather than normalize forward
     // into March. The leap year is the discriminating pair: a lowering that
     // clamped to a constant 28 would print the same answer for both years, and a
-    // lowering that used Go's `time.AddDate` directly would print `2011-03-03`
-    // and `2012-03-02`.
+    // lowering that normalized forward the way a naive date library does would
+    // print `2011-03-03` and `2012-03-02`.
     common = try NaiveDateTime"2011-01-31T09:15:00"
     leap = try NaiveDateTime"2012-01-31T09:15:00"
     io.print("clamp_common = " + NaiveDateTime.to_string(common + Months(1)))
@@ -106,7 +100,7 @@ fn run(): Result<Unit, Error> {
     //
     // `DateTime`'s identity is its INSTANT and not its zone, so the same moment
     // displayed in New York and in Los Angeles compares equal and hashes the
-    // same. Go's struct `==` is what a naive lowering emits and it is WRONG here:
+    // same. A field-by-field `==` is what a naive lowering uses, and it is WRONG here:
     // the two values differ in the `Zone` field.
     la = try DateTime"2026-03-07T09:00:00-08:00[America/Los_Angeles]"
     io.print("same_moment = " + Bool.to_string(ny == la))

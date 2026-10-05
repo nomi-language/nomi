@@ -472,6 +472,63 @@ func TestImportedFileBuildErrorsPublishOnThatFile(t *testing.T) {
 	}
 }
 
+// An import of a file that does not exist publishes on the import line of the
+// file that wrote it, with the misspelling hint, and nowhere else.
+func TestMissingImportPublishesOnTheImportLine(t *testing.T) {
+	dir := writeProject(t, map[string]string{
+		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"main.nomi":   "import std/io\nimport helper\nimport lib\n\nfn main() {\n  io.print(helper.greet())\n  lib.go()\n}\n",
+		"helper.nomi": "import utlis\n\npub fn greet(): String {\n  utlis.name()\n}\n",
+		"utils.nomi":  "pub fn name(): String {\n  \"hi\"\n}\n",
+	})
+	lib := std.Load()
+	dm := analysis.NewDocumentManager()
+	dm.SetWorkspaceRoot(dir)
+	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
+	published := func(name string) string {
+		path := filepath.Join(dir, name)
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc := dm.Open("file://"+path, string(content))
+		if doc.Analysis == nil {
+			t.Fatalf("%s: no analysis", name)
+		}
+		var got []string
+		for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, doc.Analysis.TypeErrors) {
+			got = append(got, fmt.Sprintf("%d:%d-%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1,
+				d.Range.End.Line+1, d.Range.End.Character+1, d.Message))
+		}
+		return strings.Join(got, "\n")
+	}
+	for _, tc := range []struct{ file, want string }{
+		{"main.nomi", "3:8-3:11: no module `lib`: no file lib.nomi in this file's directory"},
+		{"helper.nomi", "1:8-1:13: no module `utlis`: no file utlis.nomi in this file's directory\nhelp: did you mean 'utils'?"},
+	} {
+		if got := published(tc.file); got != tc.want {
+			t.Errorf("%s publishes:\n  %s\nwant:\n  %s", tc.file, got, tc.want)
+		}
+	}
+}
+
+// Braces right after a `/` in an import publish at the `{`, with the import
+// block the hint spells.
+func TestGroupedImportPathPublishesAtTheBrace(t *testing.T) {
+	dm := analysis.NewDocumentManager()
+	src := "import std/{io, regex.Regex}\n\nfn main() {\n}\n"
+	doc := dm.Open("file:///test.nomi", src)
+	var got []string
+	for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, nil) {
+		got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
+	}
+	want := "1:12: braces select names from one file, as in `std/regex.{Regex, Match}`\n" +
+		"help: to import several files, list each in an import block:\nimport {\n    std/io\n    std/regex.Regex\n}"
+	if strings.Join(got, "\n---\n") != want {
+		t.Errorf("publishes:\n%s\nwant:\n%s", strings.Join(got, "\n---\n"), want)
+	}
+}
+
 // An import that names nothing but brings in impl blocks the program uses
 // publishes nothing, and the structured query the quick fix and organize
 // imports read does not offer to remove it. One whose impls nothing uses is

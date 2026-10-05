@@ -1,0 +1,101 @@
+import {
+    std/io
+    ids
+}
+
+type Id Int
+
+type Pair (Int, String)
+
+type Label String
+
+enum Shape {
+    Circle Float
+    Seg (Int, Int)
+}
+
+enum Box<T> {
+    Full T
+    Empty
+}
+
+fn apply(f: (Int) -> Id, n: Int): Id {
+    f(n)
+}
+
+fn wrap_all<T>(xs: List<T>): List<Maybe<T>> {
+    Iter.map(xs, Some) |> Iter.to_list()
+}
+
+fn main() {
+    // A distinct type named as a value is its constructor.
+    ids_ = Iter.map([1, 2], Id) |> Iter.to_list()
+
+    io.print(Debug.inspect(ids_))
+    io.print(ids_ == [Id(1), Id(2)])
+    f = Id
+    io.print(Debug.inspect(f(3)))
+    io.print(Debug.inspect(apply(Id, 4)))
+
+    io.print(
+        Debug.inspect(
+            Iter.map([(1, "a")], Pair)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        Debug.inspect(
+            Iter.map([5], ids.UserId)
+            |> Iter.to_list()
+        )
+    )
+
+    io.print(
+        Debug.inspect(
+            Iter.map([5], ids.UserId)
+            |> Iter.to_list()
+        ) == Debug.inspect([ids.UserId(5)])
+    )
+
+    // The std variants, bare and qualified.
+    xs: List<Maybe<Int>> = Iter.map([1], Some) |> Iter.to_list()
+
+    io.print(Debug.inspect(xs))
+    io.print(xs == [Some(1)])
+
+    io.print(
+        Debug.inspect(
+            [1, 2]
+            |> Iter.map(Maybe.Some)
+            |> Iter.to_list()
+        )
+    )
+
+    oks: List<Result<Int, String>> = Iter.map([1], Ok) |> Iter.to_list()
+
+    io.print(Debug.inspect(oks))
+    errs: List<Result<Int, String>> = Iter.map(["no"], Result.Err) |> Iter.to_list()
+
+    io.print(errs == [Err("no")])
+    r: Result<Int, String> = Err("bad")
+    io.print(Debug.inspect(Result.map_err(r, Label)))
+    g: (String) -> Result<Int, String> = Err
+    io.print(Debug.inspect(g("e")))
+    io.print(Debug.inspect(wrap_all(["a"])))
+
+    // A user enum's positional variants, generic or not.
+    io.print(Debug.inspect(Maybe.map(Some(1.5), Shape.Circle)))
+
+    io.print(
+        Debug.inspect(
+            Iter.map([(1, 2)], Shape.Seg)
+            |> Iter.to_list()
+        )
+    )
+
+    bs: List<Box<Int>> = Iter.map([1, 2], Box.Full) |> Iter.to_list()
+
+    io.print(Debug.inspect(bs))
+    io.print(bs == [Box.Full(1), Box.Full(2)])
+}

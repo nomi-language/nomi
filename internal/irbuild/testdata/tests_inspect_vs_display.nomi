@@ -2,9 +2,9 @@ import std/io
 
 // One value, two renderings, in one run. `io.print` renders a List through
 // `impl Display for List<T>`, whose elements go through Display.to_string;
-// an assertion's `values:` row renders it through value.Inspect, which quotes
-// a String. Reusing one for the other is byte-identical to ITSELF and wrong
-// here, which is why this fixture is not a differential comparison alone.
+// an assertion's `values:` row renders it structurally, which quotes a
+// String. Reusing one for the other would be self-consistent and wrong
+// here, which is why both renderings are in one recorded run.
 fn no(_v: List<String>): Bool {
     False
 }

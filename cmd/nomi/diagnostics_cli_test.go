@@ -157,6 +157,119 @@ func TestDiagnostics_ImportedFileBuildErrors(t *testing.T) {
 	}
 }
 
+// An import of a file that does not exist is a front-end error at the import
+// line, in the entry, in an imported file and in a test file. `nomi check`
+// once passed it and `nomi run` stopped at a BLOCKED line from the lowering.
+func TestDiagnostics_MissingImportIsAnErrorAtTheImport(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
+	const lib = `error: no module ` + "`lib`" + `: no file lib.nomi in this file's directory
+ --> main.nomi:1:8
+  |
+1 | import lib
+  |        ^^^
+`
+	for _, tc := range []struct {
+		name  string
+		files map[string]string
+		want  string
+	}{
+		{
+			name:  "entry",
+			files: map[string]string{"main.nomi": "import lib\n\nfn main() {\n  lib.greet()\n}\n"},
+			want:  lib,
+		},
+		{
+			name: "project, imported file, misspelled",
+			files: map[string]string{
+				"nomi.toml":         "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+				"main.nomi":         "import std/io\nimport tools/helper\n\nfn main() {\n  io.print(helper.greet())\n}\n",
+				"tools/helper.nomi": "import app/utlis\n\npub fn greet(): String {\n  utlis.name()\n}\n",
+				"utils.nomi":        "pub fn name(): String {\n  \"hi\"\n}\n",
+			},
+			want: `error: no module ` + "`app/utlis`" + `: no file utlis.nomi in ../
+ --> tools/helper.nomi:1:8
+  |
+1 | import app/utlis
+  |        ^^^^^^^^^
+  = help: did you mean 'app/utils'?
+`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, src := range tc.files {
+				if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				mustWrite(t, filepath.Join(dir, name), src)
+			}
+			for _, cmd := range []string{"run", "check"} {
+				o := runProcess(t, env, dir, "", nomiBin, cmd, "main.nomi")
+				if o.exit != 1 || o.stdout != "" || o.stderr != tc.want || strings.Contains(o.stderr, "BLOCKED") {
+					t.Errorf("nomi %s: exit %d\nstdout:\n%s\nstderr:\n%s\nwant stderr:\n%s", cmd, o.exit, o.stdout, o.stderr, tc.want)
+				}
+			}
+		})
+	}
+
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "main_test.nomi"), "import lib\n\ntest \"greet\" {\n  assert lib.greet() == 1\n}\n")
+	o := runProcess(t, env, dir, "", nomiBin, "test", "main_test.nomi")
+	want := "FAIL main_test.nomi\n" + strings.ReplaceAll(lib, "main.nomi", "main_test.nomi") + "test result: FAILED. 0 passed, 1 failed\n"
+	if o.exit != 1 || o.stdout != want {
+		t.Errorf("nomi test: exit %d\nstdout:\n%s\nwant:\n%s\nstderr:\n%s", o.exit, o.stdout, want, o.stderr)
+	}
+}
+
+// Braces right after a `/` in an import are a syntax error at the `{`, whose
+// hint is the import block to write, indented under its first line.
+func TestDiagnostics_GroupedImportPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	env := append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_COLOR=never", "NOMI_DIAGNOSTICS=")
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "main.nomi"), "import std/{io, regex.Regex}\n\nfn main() {\n  io.print(\"x\")\n}\n")
+	want := "error: braces select names from one file, as in `std/regex.{Regex, Match}`\n" +
+		" --> main.nomi:1:12\n" +
+		"  |\n" +
+		"1 | import std/{io, regex.Regex}\n" +
+		"  |            ^\n" +
+		"  = help: to import several files, list each in an import block:\n" +
+		"          import {\n" +
+		"              std/io\n" +
+		"              std/regex.Regex\n" +
+		"          }\n"
+	for _, cmd := range []string{"run", "check"} {
+		o := runProcess(t, env, dir, "", nomiBin, cmd, "main.nomi")
+		if o.exit != 1 || o.stdout != "" || o.stderr != want {
+			t.Errorf("nomi %s: exit %d\nstdout:\n%s\nstderr:\n%s\nwant stderr:\n%s", cmd, o.exit, o.stdout, o.stderr, want)
+		}
+	}
+
+	// The short form keeps one line per diagnostic and per hint: the
+	// block collapses inline.
+	wantShort := "main.nomi:1:12: braces select names from one file, as in `std/regex.{Regex, Match}`\n" +
+		"main.nomi:1:12: help: to import several files, list each in an import block: import { std/io; std/regex.Regex }\n"
+	shortEnv := append(append([]string(nil), env...), "NOMI_DIAGNOSTICS=short")
+	for _, run := range []struct {
+		env  []string
+		args []string
+	}{
+		{env, []string{"check", "--format", "short", "main.nomi"}},
+		{shortEnv, []string{"run", "main.nomi"}},
+		{env, []string{"fmt", "main.nomi"}},
+	} {
+		o := runProcess(t, run.env, dir, "", nomiBin, run.args...)
+		if o.exit != 1 || o.stderr != wantShort {
+			t.Errorf("nomi %v: exit %d\nstderr:\n%s\nwant stderr:\n%s", run.args, o.exit, o.stderr, wantShort)
+		}
+	}
+}
+
 // A path a command cannot use is reported as the path the user typed, not as
 // the Go error of the call that failed on it.
 func TestCommands_ReportAnUnusablePathPlainly(t *testing.T) {
@@ -177,7 +290,7 @@ func TestCommands_ReportAnUnusablePathPlainly(t *testing.T) {
 	}{
 		{[]string{"run", "missing.nomi"}, 1, "nomi run: missing.nomi: no such file or directory\n"},
 		{[]string{"run", "empty"}, 1, "nomi run: empty is a directory; name the program's .nomi file\n"},
-		{[]string{"run", "notes.txt"}, 1, "nomi run: notes.txt is not a .nomi file\n"},
+		{[]string{"run", "notes.txt"}, 1, "nomi run: notes.txt is not a .nomi file and does not start with a #! line\n"},
 		{[]string{"build", "missing.nomi"}, 1, "nomi build: missing.nomi: no such file or directory\n"},
 		{[]string{"check", "missing.nomi"}, 1, "nomi check: missing.nomi: no such file or directory\n"},
 		{[]string{"test", "missing"}, 1, "nomi test: missing: no such file or directory\n"},
@@ -193,9 +306,9 @@ func TestCommands_ReportAnUnusablePathPlainly(t *testing.T) {
 	}
 }
 
-// A syntax error in an imported file is reported against that file. The
-// loader used to recover past it silently, and the program failed later with
-// a confusing BLOCKED line or a check that passed.
+// A syntax error in an imported file is reported against that file. A loader
+// that recovers past it silently leaves the program to fail later with a
+// confusing BLOCKED line or a check that passes.
 func TestDiagnostics_ASyntaxErrorInAnImportedFileNamesIt(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

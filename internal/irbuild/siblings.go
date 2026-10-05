@@ -515,7 +515,7 @@ func (x *fileIndex) walkReferences(fa *analysis.FileAnalysis, from int, n ast.No
 	switch t := n.(type) {
 	case *ast.FieldAccess:
 		if owner, named := t.Object.(*ast.Ident); named {
-			if to, ok := x.lookupQualifier(fa, owner.Name); ok && to != from {
+			if to, ok := x.lookupQualifier(fa, owner); ok && to != from {
 				x.reaches[from][to] = true
 			}
 		}
@@ -539,7 +539,7 @@ func (x *fileIndex) walkReferences(fa *analysis.FileAnalysis, from int, n ast.No
 			}
 		}
 	case *ast.Ident:
-		if site, ok := x.lookupBare(fa, t.Name); ok && site.unit != from {
+		if site, ok := x.lookupBare(fa, t); ok && site.unit != from {
 			x.reaches[from][site.unit] = true
 		}
 	}
@@ -612,8 +612,8 @@ func implUnitsByDecl(p *Program) map[ast.Node][]int {
 // than incidental: the module scope resolves a local top-level `fn` to its own
 // declaration node, so the site reports this same unit and every caller
 // compares against its own index before treating the answer as cross-file.
-func (x *fileIndex) lookupBare(fa *analysis.FileAnalysis, name string) (fileSite, bool) {
-	sym := resolvedBareSymbol(fa, name)
+func (x *fileIndex) lookupBare(fa *analysis.FileAnalysis, id *ast.Ident) (fileSite, bool) {
+	sym := resolvedBareSymbolAt(fa, id)
 	if sym == nil || sym.Node == nil {
 		return fileSite{}, false
 	}
@@ -638,7 +638,10 @@ func moduleScopeOf(fa *analysis.FileAnalysis, name string) *analysis.Scope {
 	if fa == nil || fa.ModuleScope == nil {
 		return nil
 	}
-	sym := fa.ModuleScope.Lookup(name)
+	return symbolModuleScope(fa.ModuleScope.Lookup(name))
+}
+
+func symbolModuleScope(sym *analysis.Symbol) *analysis.Scope {
 	for range 8 {
 		if sym == nil || sym.Kind != analysis.SymbolModule {
 			return nil
@@ -651,10 +654,21 @@ func moduleScopeOf(fa *analysis.FileAnalysis, name string) *analysis.Scope {
 	return nil
 }
 
-// lookupQualifier resolves a file-qualifier name to a unit index, using the
+// qualifierScope is moduleScopeOf for the qualifier written at id. A name the
+// module scope does not bind may still name a file: `import std/io` at the
+// top of a block binds `io` in that block only (testImport admits it), and
+// the checker's reference at id is that import's symbol.
+func qualifierScope(fa *analysis.FileAnalysis, id *ast.Ident) *analysis.Scope {
+	if scope := moduleScopeOf(fa, id.Name); scope != nil || fa == nil {
+		return scope
+	}
+	return symbolModuleScope(fa.References[analysis.Pos{Line: id.Line, Col: id.Col}])
+}
+
+// lookupQualifier resolves a file qualifier to a unit index, using the
 // analyzer's own answer for what the name is bound to.
-func (x *fileIndex) lookupQualifier(fa *analysis.FileAnalysis, name string) (int, bool) {
-	scope := moduleScopeOf(fa, name)
+func (x *fileIndex) lookupQualifier(fa *analysis.FileAnalysis, id *ast.Ident) (int, bool) {
+	scope := qualifierScope(fa, id)
 	if scope == nil {
 		return 0, false
 	}
@@ -675,11 +689,15 @@ func (x *fileIndex) lookupQualifier(fa *analysis.FileAnalysis, name string) (int
 // would make an aliased import unresolvable and it would then refuse under a
 // key that says the extern is missing. Same correction canonicalStdFile makes
 // for the permanence classifier.
-func stdFileQualifier(fa *analysis.FileAnalysis, name string) (string, bool) {
+func stdFileQualifier(fa *analysis.FileAnalysis, id *ast.Ident) (string, bool) {
 	if fa == nil {
 		return "", false
 	}
-	scope := moduleScopeOf(fa, name)
+	return stdFileOfScope(fa, qualifierScope(fa, id))
+}
+
+// stdFileOfScope is stdFileQualifier's answer for a file's member scope.
+func stdFileOfScope(fa *analysis.FileAnalysis, scope *analysis.Scope) (string, bool) {
 	if scope == nil {
 		return "", false
 	}

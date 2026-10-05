@@ -17,14 +17,14 @@ import (
 // never asked for. An eager RHS also runs its side effects in a program that
 // never reads the binding, which is observable.
 //
-// `sync.Once` is the right SHAPE for exactly-once and caching, and it is
+// `sync.Once` is the right shape for exactly-once and caching, and it is
 // deliberately not what this uses: `sync.Once.Do` re-entered on the same
-// goroutine DEADLOCKS. A cyclic `once` is a diagnosable Nomi error, and
+// goroutine deadlocks. A cyclic `once` is a diagnosable Nomi error, and
 // hanging is the one answer worse than a wrong one — a test run would hang
 // with it. So the cell keeps sync.Once's mutex-plus-atomic shape and adds the
 // cycle test in front of the lock.
 //
-// # Caching is on the CELL, never written back to the binding's storage
+// # Caching is on the cell, never written back to the binding's storage
 //
 // Writing the resolved value back into a shared map would race concurrent
 // reads from sibling `spawn` task goroutines and produce a Go `fatal error:
@@ -32,12 +32,12 @@ import (
 // whose acquire load pairs with the release store below, so the fast path
 // reads `v` with no lock and no possibility of tearing.
 //
-// # Cycle detection is per-LINEAGE, not per-cell, and that is load-bearing
+// # Cycle detection is per-lineage, not per-cell, and that is load-bearing
 //
-// A flag on the cell would make two goroutines forcing the SAME once look like
+// A flag on the cell would make two goroutines forcing the same once look like
 // a cycle: the losing goroutine would report a spurious cyclic-once and
-// corrupt the total (a bug that has shipped before). What identifies a cycle is that THIS chain of activations is already
-// inside this cell's RHS, so the state belongs to the activation chain: a
+// corrupt the total. What identifies a cycle is that this chain of activations
+// is already inside this cell's RHS, so the state belongs to the activation chain: a
 // cons-list on *Frame, extended for the RHS and propagated caller-to-callee by
 // the frame pointer every call already threads. That is what
 // catches a cycle through an ordinary function call, which is the case the
@@ -53,15 +53,15 @@ import (
 //
 // One atomic load per access after the first force, which laziness plus
 // caching requires regardless. The cons push, the lineage walk and the child
-// frame are on the FIRST force only — once per cell per program run — so they
+// frame are on the first force only — once per cell per program run — so they
 // are not a per-access cost.
 
-// onceID is a cell's identity. It is the ADDRESS of the header embedded in the
+// onceID is a cell's identity. It is the address of the header embedded in the
 // cell that is compared, never the name: two files may each declare a private
 // `once config`, and a name-keyed lineage would report the second as a cycle
 // through the first. Same discipline as TypeID, and for the same reason — see
 // dispatch.go. The struct is non-empty on purpose: Go may give two variables
-// of a ZERO-SIZED type one address, which would merge two identities.
+// of a zero-sized type one address, which would merge two identities.
 type onceID struct {
 	name string
 }
@@ -84,7 +84,7 @@ type forcing struct {
 // the scope genuinely changes, and forcing a `once` is named as one of the
 // four such places. It costs one allocation per cell per run.
 //
-// THE RHS RUNS UNDER THE FORCER'S CANCELLATION AND DEADLINE, and not under its
+// The RHS runs under the forcer's cancellation and deadline, and not under its
 // scoped fields. `ctx` is the forcer's, so a `Task.cancel` or a deadline stops a
 // slow RHS at its next blocking operation; `inTask` and `underDeadline` travel
 // with it so that stop unwinds the forcer the way it would unwind any other
@@ -94,10 +94,10 @@ type forcing struct {
 // blocked inside an RHS is still working. The unwind leaves the cell unforced,
 // exactly as a faulting RHS does, so the next access runs the RHS again.
 //
-// The forcer's `scopedFields` and `scopedContext` deliberately do NOT travel:
+// The forcer's `scopedFields` and `scopedContext` deliberately do not travel:
 // a cached value must not depend on which caller's `with` overrides were in
 // force when it happened to be forced first. The RHS reads what boot
-// PUBLISHED instead (spec §27): the module-level app state, which holds
+// published instead (spec §27): the module-level app state, which holds
 // boot's result and none of the rebinds. A force before boot
 // has published sees no fields, and a read traps as any pre-boot read does.
 func (fr *Frame) forcingOnce(cell *onceID) *Frame {

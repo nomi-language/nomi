@@ -22,17 +22,13 @@ var goInvocation = regexp.MustCompile(`\bgo\s+(?:run|build|install|test)\b`)
 // and the Makefile, and requires each Go package they invoke to be a real
 // directory.
 //
-// THIS EXISTS BECAUSE OF A COVERAGE HOLE, not a hypothesis. Every gate in this
-// project is a Go test suite and none of them executes a shell script, so
-// deleting `cmd/nomi-stdlibbindings` left `scripts/build-tour-wasm.sh` calling
-// a package that no longer existed and NOTHING in the tree could see it:
-// `go build ./...`, `go vet ./...`, the corpus and a nine-package test gate all
-// passed. It surfaced when a human ran `make start-tour` and got
-//
-//	stat .../cmd/nomi-stdlibbindings: directory not found
+// Every gate in this project is a Go test suite and none of them executes a
+// shell script, so deleting a package a script still calls leaves `go build
+// ./...`, `go vet ./...` and every test green, and the breakage shows up only
+// when someone runs the script.
 //
 // A path that stopped resolving is statically checkable without running the
-// build, which is what this does. It does NOT check that a script works — only
+// build, which is what this does. It does not check that a script works, only
 // that the packages it names are present. `make test-tour` and the tour build
 // remain the real checks.
 func TestScriptsNameGoPackagesThatExist(t *testing.T) {

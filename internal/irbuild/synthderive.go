@@ -76,8 +76,8 @@ import (
 // therefore still miss for a synth-band position. That is deliberately left
 // alone: nothing in the corpus needs it, the derived bodies that matter reach
 // their constructors through positions the front end DOES record, and inventing
-// a second "what variant is this" answer beside variantalias.go's would be the
-// divergence this package's ledger rows are about. If a program ever needs it,
+// a second "what variant is this" answer beside variantalias.go's would let
+// the two disagree. If a program ever needs it,
 // the route is the anchor's own `variant(name)` with the canonical name taken
 // from the DECLARATION rather than from a reference.
 func (g *gen) synthPreludeAnchor(t *ast.GenericType) (*preludeAnchor, bool) {

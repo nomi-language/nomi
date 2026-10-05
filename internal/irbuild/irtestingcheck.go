@@ -46,7 +46,7 @@ func (bl *irScalarBuilder) testingCheckCall(t *ast.Call) bool {
 	if _, named := t.Args[0].(*ast.NamedArg); named {
 		return false
 	}
-	if std, ok := stdFileQualifier(bl.g.fa, "testing"); ok {
+	if std, ok := stdFileOfScope(bl.g.fa, moduleScopeOf(bl.g.fa, "testing")); ok {
 		return std == "testing"
 	}
 	// std/testing naming itself from a source checked on its own (a tour

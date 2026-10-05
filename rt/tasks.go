@@ -13,25 +13,12 @@ package rt
 // every file's scope whether imported or not; `Outcome` is an ordinary
 // `pub enum` in std/tasks that a file has to import, exactly as `Fragment` is.
 //
-// # Why the corpus needs them
+// # Where Task is
 //
-// MEASURED at 18acb83d over the 43 refused corpus files:
-// `14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi` is
-// the ONE file whose entire blocker set lies inside `qualified call` /
-// `type-qualified member` / `type-qualified reference`, and all five of its
-// residual sites are this type — `Outcome.Cancelled` under
-// `type-qualified reference` and `Outcome.Completed` under `qualified call`,
-// one absent representation split across two key names by nothing but whether
-// the variant carries data.
-//
-// # WHAT IS DELIBERATELY NOT HERE: Task, and therefore Task.outcome
-//
-// `Task<T>` is a `pub host type` with no rt representation, so `Task.outcome`
-// — the only std function that PRODUCES an Outcome — stays refused. Giving
-// `Outcome<T>` a representation does not bring `Task` with it, and pretending
-// otherwise would be a Go function whose answer nothing produced. What this
-// buys is that the TYPE is nameable and its variants are constructible and
-// matchable, which is the whole of what the corpus file writes.
+// `Task<T>` and `Task.outcome`, the only std function that produces an
+// Outcome, are in concurrent.go (Task and TaskOutcomeOf). This file holds the
+// result types only, so a program can name `Outcome` and `Failure` and
+// construct and match their variants.
 //
 // # A golden file cannot see a bug in here
 //
@@ -63,7 +50,7 @@ const (
 //	  Errored String
 //	}
 //
-// MONOMORPHIC, so the two String payloads share ONE field — the same slot
+// Monomorphic, so the two String payloads share one field — the same slot
 // dedup rt.CalendarError's five String variants use, and internal/irbuild's
 // stdEnumDefs honours it from the spec's own `field` name. A generic struct
 // could not do this (see Fragment), but this one is not generic.
@@ -87,15 +74,15 @@ type Failure struct {
 //	  Failed Failure
 //	}
 //
-// Three variants, and it is the first type in rt to MIX a parametric payload
-// with a payload that is another NOMINAL rt type. `Fragment` mixes parametric
-// with a SCALAR (`string`), which internal/irbuild's `fixed` field already
-// described; `Failed Failure` is the shape that needed a new one, because
-// `Failure`'s kind is a named `*typeDef` rather than a scalar tag.
+// Three variants, and it mixes a parametric payload with a payload that is
+// another nominal rt type. `Fragment` mixes parametric with a scalar
+// (`string`), which internal/irbuild's `fixed` field describes; `Failed
+// Failure` needs a different description, because `Failure`'s kind is a named
+// `*typeDef` rather than a scalar tag.
 //
 // `Cancelled` stores nothing, which is why it needs internal/irbuild's deferred
 // bare-variant sentinel: `Outcome.Cancelled` names no `T` and the analyzer
-// records `Outcome<T>` unsolved at that reference (measured), so the type
+// records `Outcome<T>` unsolved at that reference, so the type
 // argument arrives from the coercion target and not from the mention.
 type Outcome[T any] struct {
 	// Tag is 1 for Completed, 2 for Cancelled, 3 for Failed. 0 means never
@@ -103,7 +90,7 @@ type Outcome[T any] struct {
 	Tag uint8
 	// Completed is the value a task that ran to completion produced.
 	//
-	// Note what this does NOT mean: an `Err` a body returned deliberately is a
+	// Note what this does not mean: an `Err` a body returned deliberately is a
 	// Completed task carrying an Err value, not a Failed one. std/tasks.nomi
 	// says so in as many words, and the distinction is the point of the enum.
 	Completed T
@@ -114,7 +101,7 @@ type Outcome[T any] struct {
 
 // Completed, Cancelled and Failed build the three variants.
 //
-// These exist for rt's OWN use, the way prelude.go's `Some`/`None`/`Ok`/`Err`
+// These exist for rt's own use, the way prelude.go's `Some`/`None`/`Ok`/`Err`
 // and fragment.go's `Static`/`Dynamic` do: a hand-written host function that builds an Outcome
 // must not spell the tag itself.
 func Completed[T any](v T) Outcome[T] { return Outcome[T]{Tag: TagCompleted, Completed: v} }

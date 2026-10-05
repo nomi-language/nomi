@@ -313,6 +313,8 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		args(hStr("a,b,,c"), hStr(",")), args(hStr("héllo"), hStr("é")), args(hStr("b"), hStr("a")),
 		args(hStr("a"), hStr("ab")), args(hStr("é"), hStr("z")), args(hStr("🙂🙂"), hStr("🙂")),
 	)
+	wordsAndLines := unary(hStr(""), hStr("   "), hStr("  1   2\t3 \n"), hStr("café 🙂ok"), hStr("a\u00a0b\u3000c"),
+		hStr("a\nb\r\nc\n"), hStr("a\n\nb"), hStr("\n"), hStr("a\rb"), hStr("x\r"), hStr("é\n🙂"))
 	ints := []any{hInt(0), hInt(1), hInt(-1), hInt(255), hInt(1 << 40), hInt(math.MaxInt64), hInt(math.MinInt64)}
 	floats := []any{hFloat(0), hFloat(math.Copysign(0, -1)), hFloat(1.5), hFloat(-2.5), hFloat(2.5), hFloat(0.5),
 		hFloat(-0.4), hFloat(1e21), hFloat(1e-7), hFloat(0.1 + 0.2), hFloat(math.Inf(1)), hFloat(math.Inf(-1)),
@@ -343,6 +345,8 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"strings.String.ends_with?":      stringPairs,
 		"strings.string_compare":         stringPairs,
 		"strings.String.split":           stringPairs,
+		"strings.String.words":           wordsAndLines,
+		"strings.String.lines":           wordsAndLines,
 		"strings.String.to_upper":        unary(strs...),
 		"strings.String.to_lower":        unary(strs...),
 		"strings.String.trim":            unary(strs...),

@@ -35,15 +35,14 @@ fn main() {
     io.print("${[[1], [2]] == [[1], [2]]}")
     io.print("${[[1], [2]] != [[1], [3]]}")
 
-    // Float equality is reflexive for NaN in Nomi and IEEE in Go, so a list of
-    // Floats compared with Go's own `==` would answer False here.
+    // Float equality is reflexive for NaN in Nomi and not in IEEE, so a list of
+    // Floats compared with a bare IEEE `==` would answer False here.
     //
     // NaN is built through a LOCAL rather than as `0.0 / 0.0`, so the divide
     // runs on a Float value rather than on two literals.
     //
     // Through a local the expression is a runtime divide and answers NaN, as
     // Nomi does, and the comparison below then reads two NaN elements.
-    //
     zero = 0.0
     nan = zero / zero
     io.print("${[nan] == [nan]}")

@@ -17,7 +17,7 @@ import (
 // stage takes the value as its first argument, or where its `_` stands; a
 // bare `try`, `dbg`, `assert` or `refute` stage prefixes the value; a bare
 // `case` or `if` stage takes it as its subject or condition. A pipeline
-// with a lambda stage is not converted: the nested form would have to call
+// with a `then` stage is not converted: the nested form would have to call
 // a lambda literal, which reads worse than the pipe it replaces.
 //
 // Neither direction changes what runs or in what order: `a |> f(b)` is
@@ -106,7 +106,7 @@ func (r *refactorRequest) convertToPipe(top *ast.Call) (string, string, bool) {
 	line, _ := nodePos(subject)
 	// Two or more stages are stacked, unless the pipeline is grouped where
 	// it stands: an operand reads better on one line.
-	grouped := !r.standsFree(top) || r.inBareLambdaBody(top)
+	grouped := !r.standsFree(top) || r.inBareThenBody(top)
 	stacked := len(stages) >= 2 && !grouped
 	var pipe ast.Node = subject
 	for i := len(stages) - 1; i >= 0; i-- {
@@ -140,15 +140,18 @@ func (r *refactorRequest) standsFree(n ast.Node) bool {
 	return false
 }
 
-// inBareLambdaBody reports whether n stands at the top of a lambda's
+// inBareThenBody reports whether n stands at the top of a `then` lambda's
 // one-expression body, outside any bracket, where a `|>` would end the
-// lambda: `|x| f(g(x))` piped is `|x| (x |> g() |> f())`.
-func (r *refactorRequest) inBareLambdaBody(n ast.Node) bool {
+// lambda: `then |x| f(g(x))` piped is `then |x| (x |> g() |> f())`. Any
+// other lambda's body runs to the end of its expression, so a pipe there
+// needs no parentheses.
+func (r *refactorRequest) inBareThenBody(n ast.Node) bool {
 	for cur := n; ; {
 		p := r.parent[cur]
 		switch v := p.(type) {
 		case *ast.Lambda:
-			return true
+			_, isThen := r.parent[v].(*ast.Then)
+			return isThen
 		case *ast.Block:
 			if v.EndLine != 0 {
 				return false

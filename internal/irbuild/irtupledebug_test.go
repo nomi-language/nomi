@@ -3,8 +3,10 @@ package irbuild
 import "testing"
 
 func TestIRTupleDebug_NominalChildrenKeepTheirDispatchBoundary(t *testing.T) {
-	for _, output := range []string{"dbg pair", "io.inspect(pair)"} {
-		p, err := AnalyzeSource("main.nomi", "import std/io\ntype Email String\nfn main() {\n  io.print(\"start\")\n  pair = (1, Email(\"a@b.com\"))\n  "+output+"\n  return\n}\n")
+	// A bare return after `dbg` makes main Unit; after `io.inspect` it would
+	// do nothing, which the checker rejects.
+	for _, output := range []string{"dbg pair\n  return", "io.inspect(pair)"} {
+		p, err := AnalyzeSource("main.nomi", "import std/io\ntype Email String\nfn main() {\n  io.print(\"start\")\n  pair = (1, Email(\"a@b.com\"))\n  "+output+"\n}\n")
 		if err != nil {
 			t.Fatal(err)
 		}

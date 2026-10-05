@@ -6,7 +6,7 @@ import (
 )
 
 func TestVMOutput_TourRecordedAnswer(t *testing.T) {
-	ids := []string{"bindings-and-expressions.md:L32"}
+	ids := []string{tourBlock(t, "bindings-and-expressions.md", `io.inspect("Hello, Nomi!")`)}
 	recorded, err := expectation.Load("tour")
 	if err != nil {
 		t.Fatal(err)

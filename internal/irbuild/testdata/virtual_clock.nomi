@@ -5,29 +5,24 @@
 // because `clock Clock.Virtual` runs each case in a `testing/synctest` bubble
 // whose clock advances the moment every goroutine in it is durably blocked.
 //
-// # WHY THE COMPANION TEST ASSERTS WALL TIME AND NOT ONLY OUTPUT
+// # WHY OUTPUT ALONE CANNOT SHOW IT
 //
-// A differential over output alone is BLIND to the only property this fixture
-// exists for. If the emitted `timer.sleep` reached a real `time.Sleep` outside
-// a bubble, every assertion below would still pass and the two paths would
-// still agree byte for byte — they would just take an hour and forty minutes of
-// real time to do it. `f(a) == f(b)` is invariant under replacing `f`, and here
-// `f` is "the output of the program": the clock is not a function of it.
-//
-// So TestClock_VirtualTimeIsSpentVirtually asserts the WALL CLOCK. The sleeps
-// are deliberately absurd, because that is what makes the assertion sharp: a
-// ceiling of a few seconds cannot be met by accident on any real clock.
+// If the lowered `timer.sleep` reached a real sleep outside a bubble, every
+// assertion below would still pass and the output would still match the
+// recorded golden; the run would just take an hour and forty minutes of real
+// time. The clock is not a function of the output. The sleeps are
+// deliberately absurd so that a real clock is impossible to miss in the
+// suite's run time.
 //
 // # WHY EACH SLEEP IS OBSERVED RATHER THAN JUST PERFORMED
 //
 // A sleep whose result nothing reads could be optimised or reordered without
 // anything noticing. `elapsed_ms` reads `Instant.now` on both sides of each
 // sleep and prints the difference, so the fake clock's ADVANCE is in the output
-// too — which means the differential covers the amount of virtual time as well
+// too, and the recorded golden covers the amount of virtual time as well
 // as the fact that time passed. Inside a bubble the fake clock starts at
 // midnight UTC 2000-01-01 and advances by exactly the sleep, so these numbers
-// are deterministic on both paths; a real clock would produce 30001 or 30004
-// and DIFF.
+// are deterministic; a real clock would produce 30001 or 30004.
 import {
     std/duration.Duration
     std/instant.Instant

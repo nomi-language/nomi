@@ -2,10 +2,10 @@ package rt
 
 import "testing"
 
-// The Context VALUE store. Every test here is about a property the deadline
+// The Context value store. Every test here is about a property the deadline
 // chain does not have, so none of them duplicates a deadline test.
 //
-// TWO TYPES WITH ONE GO REPRESENTATION, on purpose and in every test: `TraceId`
+// Two types with one Go representation, on purpose and in every test: `TraceId`
 // and `Subject` are both `string` at run time, which is the case a key derived
 // from Go reflection gets wrong and an address-keyed one cannot. `type TraceId
 // String` and `type Subject String` are ordinary Nomi, so this is the reachable
@@ -33,12 +33,12 @@ func TestContextValue_RoundTrips(t *testing.T) {
 	}
 }
 
-// TestContextValue_ChildShadowsAndTheParENTIsUnchanged is the assertion
+// TestContextValue_ChildShadowsAndTheParentIsUnchanged is the assertion
 // context_values_test.nomi makes twice, and it is the one a fixture that only
-// checked the child would pass without: an implementation that MUTATED the
+// checked the child would pass without: an implementation that mutated the
 // parent node answers correctly for `shadowed` and wrongly for `traced`.
 //
-// So both ends are read, and the parent is read AFTER the child derivation.
+// So both ends are read, and the parent is read after the child derivation.
 func TestContextValue_ChildShadowsAndTheParentIsUnchanged(t *testing.T) {
 	root := ContextRoot()
 	traced := ContextWithValue(root, &tidK4TraceId, k4TraceId("trace-123"))
@@ -101,13 +101,13 @@ func TestContext_ValueLinkIsInvisibleToTheDeadlineWalk(t *testing.T) {
 }
 
 // TestContextWithFloor_SurvivesAValueLink is the guard the floor's own header
-// asks for: its splice "assumes the chain's shape", and this slice changed the
-// shape. A rebind must still TIGHTEN and never WIDEN with value links present on
+// asks for: its splice "assumes the chain's shape", and value links change that
+// shape. A rebind must still tighten and never widen with value links present on
 // either side of it.
 func TestContextWithFloor_SurvivesAValueLink(t *testing.T) {
 	prev := ContextWithValue(ContextWithDeadline(ContextRoot(), Instant(1_000)),
 		&tidK4TraceId, k4TraceId("t"))
-	// `next` is deliberately LOOSER (a later deadline) and carries a value link
+	// `next` is deliberately looser (a later deadline) and carries a value link
 	// of its own, so a floor that read the wrong node would widen.
 	next := ContextWithValue(ContextWithDeadline(ContextRoot(), Instant(9_000)),
 		&tidK4Subject, k4Subject("alice"))
@@ -121,7 +121,7 @@ func TestContextWithFloor_SurvivesAValueLink(t *testing.T) {
 	if got := ContextValue(floored, TypeOf[k4Subject](&tidK4Subject)); got.Some != "alice" {
 		t.Errorf("the floor's splice hid next's own binding: %q", got.Some)
 	}
-	// prev's binding is NOT reachable from the result, because the floor keeps
+	// prev's binding is not reachable from the result, because the floor keeps
 	// `next`'s chain and takes only a deadline from `prev`. Asserted so the
 	// splice's scope is pinned rather than assumed.
 	if got := ContextValue(floored, TypeOf[k4TraceId](&tidK4TraceId)); got.Tag != TagNone {

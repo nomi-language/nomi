@@ -1,14 +1,14 @@
 // A hand-written `impl Equatable` on a DISTINCT must answer `==`, not just
 // `Equatable.equal?`.
 //
-// This is the sibling of `enum_equatable_impl/`, and it was the same defect
-// under the same gate. Until 2026-08-30 the operator's dispatch path required
-// a StructVal on both sides, so a hand-written impl on an enum OR a distinct
-// was reachable by name and unreachable by operator — one question with two
-// answers, and no diagnostic. The enum half closed that day; the distinct
-// half stayed open until 2026-09-18 and was measured live on both engines:
+// This is the sibling of `enum_equatable_impl/`. An operator dispatch path
+// that only consulted the impl for structs would make a hand-written impl
+// on an enum OR a distinct reachable by name and unreachable by operator:
+// one question with two answers, and no diagnostic. For a distinct that
+// would read
 // `Equatable.equal?(Slug("A"), Slug("a"))` True against
-// `Slug("A") == Slug("a")` False, interpreted and compiled alike.
+// `Slug("A") == Slug("a")` False.
+//
 //
 // `Slug`'s impl is deliberately COARSER than structural equality — it folds
 // case — so a structural fallback cannot pass these tests by accident, and

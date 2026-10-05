@@ -105,6 +105,29 @@ impl String {
     //
     pub host fn split(s: String, separator: String): List<String>
 
+    /// The words of `s`: the pieces between runs of Unicode whitespace, which
+    /// includes U+00A0 NO-BREAK SPACE and U+3000. Unlike `split`, leading,
+    /// trailing and repeated whitespace never produce empty strings.
+    //! assert String.words("  1   2\t3 \n") == ["1", "2", "3"]
+    //! assert String.words("") == []
+    //! assert String.words("   ") == []
+    //! assert String.words("café 🙂ok") == ["café", "🙂ok"]
+    //! assert String.words("a\u{a0}b\u{3000}c") == ["a", "b", "c"]
+    //
+    pub host fn words(s: String): List<String>
+
+    /// The lines of `s`, split on `\n` or `\r\n` with the terminator removed.
+    /// Unlike `split(s, "\n")`, a final terminator does not add an empty last
+    /// line; a lone `\r` is not a terminator.
+    //! assert String.lines("a\nb\u{d}\nc\n") == ["a", "b", "c"]
+    //! assert String.lines("a\n\nb") == ["a", "", "b"]
+    //! assert String.lines("") == []
+    //! assert String.lines("\n") == [""]
+    //! assert String.lines("a\u{d}b") == ["a\u{d}b"]
+    //! assert String.lines("é\n🙂") == ["é", "🙂"]
+    //
+    pub host fn lines(s: String): List<String>
+
     /// Returns `s` with leading and trailing whitespace removed (spaces,
     /// tabs, newlines, carriage returns — Go's `strings.TrimSpace` rules).
     /// Inner whitespace is preserved.

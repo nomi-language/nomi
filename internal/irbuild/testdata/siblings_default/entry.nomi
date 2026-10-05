@@ -8,9 +8,9 @@ import {
 // default both resolve against THIS module's scope while the programmer wrote
 // them against lib's.
 //
-// This file declares its own `tag`. The interpreter prints `w:sibling`, because
+// This file declares its own `tag`. The right answer is `w:sibling`, because
 // the default is evaluated in lib's scope. Monomorphizing it here would print
-// `w:entry` — a silent wrong answer rather than a Go compile error, which is
+// `w:entry`, a silent wrong answer rather than a refusal, which is
 // exactly what `portableDefault` exists to refuse. Nothing but the DEFAULT
 // expression mentions `tag`, so the check only sees it if it walks defaults as
 // well as bodies.

@@ -15,10 +15,8 @@ import (
 
 // TestCheckReservedTypeName_BroadenedSetFromPrelude pins the
 // post-stdlib-as-package set of prelude-shadowed names that
-// checkReservedTypeName rejects. The Task 7 cleanup retired the
-// curated 22-name `reservedTypeNames` constant and rewired the check
-// to "look up in parent (prelude) scope". The new set is strictly
-// broader than the curated one — every name prelude re-exports
+// checkReservedTypeName rejects. The check looks the name up in the
+// parent (prelude) scope, so the set is every name prelude re-exports
 // participates, including enum variants and control-flow names.
 //
 // The test serves two purposes:
@@ -125,8 +123,7 @@ func TestCheckReservedTypeName_BroadenedSetFromPrelude(t *testing.T) {
 // undetected.
 //
 // `Date` is the canonical non-prelude stdlib name (the same one
-// the orphan_violator_nonprelude fixture uses to prove the
-// Stage 2 coverage gap closed). User files MUST be able to
+// the orphan_violator_nonprelude fixture uses). User files MUST be able to
 // declare their own `struct Date` — otherwise the entire stdlib's
 // non-prelude surface becomes off-limits to users, which is
 // neither documented nor intended.

@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/nomi-language/nomi/internal/compilerhosts"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/irbuild"
+	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
 	"github.com/nomi-language/nomi/std"
 )
@@ -173,7 +175,12 @@ func LoadFileSource(path, src string, opts ...Option) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	return lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFileSource(path, src, fc) })
+	p, err := lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFileSource(path, src, fc) })
+	if err != nil {
+		return nil, err
+	}
+	p.sources = map[string]string{p.prog.Entry().Path: src}
+	return p, nil
 }
 
 // LoadSource is Load for an in-memory entry named name. Its sibling files, if
@@ -184,7 +191,39 @@ func LoadSource(name, src string, opts ...Option) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	return lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeVirtual(name, src, fc) })
+	p, err := lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeVirtual(name, src, fc) })
+	if err != nil {
+		return nil, err
+	}
+	p.sources = map[string]string{p.prog.Entry().Path: src}
+	return p, nil
+}
+
+// InternalError is a panic the compiler raised: while loading a program, or
+// while the VM compiled one of its functions to bytecode on first call. It is
+// a bug in Nomi, not in the program. Panic is the recovered value (for the
+// VM's compiler, the function and the value) and Stack the goroutine's stack
+// where it was recovered.
+type InternalError struct {
+	Panic any
+	Stack []byte
+}
+
+func (e *InternalError) Error() string { return vm.InternalErrorText(e.Panic) }
+
+// programFailure is vm.ProgramFailure with a panic in the VM's bytecode
+// compiler answered as an InternalError, as a panic while loading is.
+func programFailure(err error) (failure error, limit bool) {
+	failure, limit = vm.ProgramFailure(err)
+	return internalError(failure), limit
+}
+
+// internalError is err, or the InternalError for the compile panic it carries.
+func internalError(err error) error {
+	if cp, internal := vm.AsCompilePanic(err); internal {
+		return &InternalError{Panic: cp.What(), Stack: cp.Stack}
+	}
+	return err
 }
 
 func lower(cfg config, analyze func() (*irbuild.Program, error)) (*Program, error) {
@@ -192,7 +231,16 @@ func lower(cfg config, analyze func() (*irbuild.Program, error)) (*Program, erro
 	var details []*irbuild.Decline
 	var prog *irbuild.Program
 	var res *irbuild.Result
-	err := func() error {
+	err := func() (err error) {
+		// A panic in the front end or the IR builder (an `ir.Lint`
+		// violation, say) is a compiler bug, never the program's fault. It
+		// reaches the caller as an InternalError, so `nomi run` reports it
+		// and a long-lived host such as the language server keeps running.
+		defer func() {
+			if r := recover(); r != nil {
+				err = &InternalError{Panic: r, Stack: debug.Stack()}
+			}
+		}()
 		// Deferred, so a producer panic does not leave every later load
 		// waiting on the lock.
 		lowering.Lock()
@@ -200,7 +248,6 @@ func lower(cfg config, analyze func() (*irbuild.Program, error)) (*Program, erro
 		irbuild.IRDeclineObserved = func(fn, reason string) { declines[fn] = reason }
 		irbuild.IRDeclineAt = func(d *irbuild.Decline) { details = append(details, d) }
 		defer func() { irbuild.IRDeclineObserved, irbuild.IRDeclineAt = nil, nil }()
-		var err error
 		prog, err = analyze()
 		if err == nil {
 			res, _, err = irbuild.GenerateIR(prog)
@@ -240,13 +287,20 @@ func Check(path string, opts ...Option) error {
 			return err
 		}
 		fc.ProjectRoot = root
-		_, _, err = frontend.New(fc).CheckStdlibSource(module, string(data), mode)
-		return err
+		if _, _, err = frontend.New(fc).CheckStdlibSource(module, string(data), mode); err != nil || !hasTests {
+			return err
+		}
+		// The module's `//!` cases are lowered as `nomi test` lowers them.
+		p, err := LoadStdlib(abs)
+		if err != nil {
+			return err
+		}
+		return p.Unsupported()
 	}
 	fc.SourceBoundProvided = true
 	// The program is lowered as `nomi run` and `nomi test` lower it, and
 	// nothing runs: a body the compiler accepts and cannot lower is reported
-	// at its source, as an error, rather than at run time as BLOCKED.
+	// at its source, as the error `nomi run` would stop with.
 	p, err := lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFile(abs, fc) })
 	if err != nil {
 		return err
@@ -264,7 +318,7 @@ func Check(path string, opts ...Option) error {
 // would report them (frontend.StdlibModuleErrors). When it is
 // not, the file is checked, the module's own bodies are lowered from it, and
 // the cases call those (irbuild.GenerateEditedStdlibTestIR), so an edited
-// prompt and an edited body are both what the run tests. Every OTHER stdlib
+// prompt and an edited body are both what the run tests. Every other stdlib
 // module is still the embedded one, including where it calls into this
 // module: an edit to two stdlib files, or to one another module calls, needs a
 // rebuilt nomi to be tested together.
@@ -358,18 +412,22 @@ func loadStdlib(module string, nodes []ast.Node, fa *analysis.FileAnalysis,
 	generate func(string, []ast.Node, *analysis.FileAnalysis) (*irbuild.Program, *irbuild.Result, error)) (*Program, error) {
 	lowering.Lock()
 	declines := map[string]string{}
+	var details []*irbuild.Decline
 	irbuild.IRDeclineObserved = func(fn, reason string) { declines[fn] = reason }
+	irbuild.IRDeclineAt = func(d *irbuild.Decline) { details = append(details, d) }
 	prog, res, err := func() (*irbuild.Program, *irbuild.Result, error) {
 		// Deferred, as lower's are, so a producer panic does not leave every
 		// later load waiting on the lock.
 		defer lowering.Unlock()
-		defer func() { irbuild.IRDeclineObserved = nil }()
+		defer func() { irbuild.IRDeclineObserved, irbuild.IRDeclineAt = nil, nil }()
 		return generate(module, nodes, fa)
 	}()
 	if err != nil {
 		return nil, err
 	}
-	return newProgram(prog, res, declines, newConfig(nil)), nil
+	p := newProgram(prog, res, declines, newConfig(nil))
+	p.declineDetails = details
+	return p, nil
 }
 
 // Warm lowers the standard library now rather than inside the first program's

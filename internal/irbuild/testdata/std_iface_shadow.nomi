@@ -21,7 +21,7 @@ import std/io
 // keeps the builder half reachable through a name the fence does not cover.
 //
 // What must happen: this declaration wins, its dispatch table is a variable in
-// THIS file's generated package, and rt's shared stdlib-interface tables are not
+// THIS file's builder package, and rt's shared stdlib-interface tables are not
 // touched. A registry keyed on the NAME would instead bind these impls into rt's
 // table, a wrong answer rather than a
 // coverage gap, and one no corpus program can see because none declares one.

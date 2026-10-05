@@ -8,16 +8,16 @@ import (
 
 // Nomi's `std/channels` — a typed FIFO channel, held as its two halves.
 //
-// # ONE runtime object, TWO static types, and that is the whole trick
+// # One runtime object, two static types
 //
 // std/channels.nomi declares `pub struct Channel<T> { sender: Sender<T>;
 // receiver: Receiver<T> }` over two `pub host type`s, and puts the operations on
-// the HALVES: `Sender.send`, `Receiver.receive`, `Sender.close`. There is
+// the halves: `Sender.send`, `Receiver.receive`, `Sender.close`. There is
 // deliberately no `Channel.send`/`receive`/`close`, and `close` is on `Sender`
 // alone — a consumer closing what it reads ends the stream for every producer
-// still writing, which is the exact bug the split exists to prevent.
+// still writing, which is the bug the split exists to prevent.
 //
-// The split is entirely STATIC: the direction is enforced by which of
+// The split is entirely static: the direction is enforced by which of
 // `Sender`/`Receiver` a function will accept, and there is nothing at runtime
 // to keep apart. So one `*Chan[T]` holds everything, and
 // `Sender[T]`/`Receiver[T]` are two one-field defined types over it whose only
@@ -30,22 +30,22 @@ import (
 // # Why the pair is not `chan T` twice
 //
 // A Nomi `send` on a closed channel returns `Err(ChannelClosed)`; a bare Go send
-// on a closed channel PANICS. So the closed flag has to be consulted under a
+// on a closed channel panics. So the closed flag has to be consulted under a
 // mutex that `close` also takes, and the flag plus the mutex plus the channel
 // are one object with one lifetime — which is what `Chan[T]` is. The sequencing
 // below decides which of send-vs-close wins a race.
 //
-// # BLOCKING IS REACHABLE, AND IT IS CANCELLABLE
+// # Blocking is reachable, and it is cancellable
 //
 // `Sender.send` on a full buffer blocks, and `Receiver.receive` on an empty open
-// channel blocks. Both are how the corpus uses a channel: an unbuffered send is
+// channel blocks. Both are how programs use a channel: an unbuffered send is
 // a rendezvous that only completes because the other half is in a sibling task.
 //
 // So both take a `*rt.Frame` and select on its context, which is built from
 // the enclosing `concurrent` block; when it fires, the operation raises the
 // unwind concurrent.go defines.
 //
-// A program with NO `concurrent` block has a root context that is never
+// A program with no `concurrent` block has a root context that is never
 // cancelled, so the ctx arm never fires and a blocked send in a
 // single-goroutine program hangs, detected by Go's scheduler ("all goroutines
 // are asleep - deadlock!").
@@ -55,8 +55,8 @@ import (
 // `Channel.buffered(0)` and a double `Sender.close` are the two faults this
 // surface can raise, and their text is user-visible. trap.go's rule applies
 // (an observable string has one copy), so the two format functions below are
-// the only copy. Neither carries a `line N:` prefix: measured by running
-// `Channel.buffered<Int>(0)` under `nomi run`, the whole output is the message.
+// the only copy. Neither carries a `line N:` prefix: under `nomi run`,
+// `Channel.buffered<Int>(0)` prints the message and nothing else.
 
 // Chan is one channel: the Go channel, its capacity, and the closed flag that
 // keeps a Nomi `send` from panicking.
@@ -114,7 +114,7 @@ type ChannelClosed struct{}
 
 // ChannelBuffered is `Channel.buffered(capacity)`.
 //
-// Zero is REJECTED rather than aliased to the unbuffered constructor, which is
+// Zero is rejected rather than aliased to the unbuffered constructor, which is
 // std's decision: "a channel is buffered or it is a
 // rendezvous, and 0 is not a spelling of the second one". A computed capacity
 // sliding silently from hand-off to rendezvous is the thing the rejection buys.
@@ -131,7 +131,7 @@ func ChannelUnbuffered[T any]() Channel[T] {
 }
 
 // channelOf wraps one channel as the pair its halves are read out of. Both
-// halves hold the SAME *Chan.
+// halves hold the same *Chan.
 func channelOf[T any](c *Chan[T]) Channel[T] {
 	return Channel[T]{Sender: Sender[T]{c: c}, Receiver: Receiver[T]{c: c}}
 }
@@ -161,7 +161,7 @@ func ChannelDoubleCloseText() string { return "Sender.close: channel already clo
 //     test atomic with respect to a concurrent close.
 //  2. Try a non-blocking send while still holding the mutex. This is the whole
 //     buffered case under capacity, and it completes before any close can run.
-//  3. Otherwise RELEASE the mutex and park on a blocking send OR the frame's
+//  3. Otherwise release the mutex and park on a blocking send or the frame's
 //     cancellation, so a concurrent close is not deadlocked behind a sender
 //     waiting for a receiver and an abandoned sender does not outlive its block.
 //
@@ -172,9 +172,9 @@ func ChannelDoubleCloseText() string { return "Sender.close: channel already clo
 // Go's own send panic, which a task wrapper reports as `Failed(Panicked(...))`
 // rather than killing the process.
 //
-// THE CANCEL ARM IS ONLY IN STEP 3, not in steps 1 and 2. A send that can
+// The cancel arm is only in step 3, not in steps 1 and 2. A send that can
 // complete without blocking completes: Nomi's rule is that cancellation is
-// observed where a task WAITS,
+// observed where a task waits,
 // not that it poisons work already possible. Putting a ctx test in front of
 // step 1 would make a cancelled task's buffered send fail nondeterministically
 // depending on whether Go's select happened to pick the Done arm.
@@ -192,8 +192,8 @@ func SenderSend[T any](fr *Frame, s Sender[T], v T) Result[Unit, ChannelClosed] 
 	default:
 	}
 	c.closeMu.Unlock()
-	// PARKED for the duration of the blocking send: a task waiting on a full
-	// channel has no scheduled wake, so a draining PERMANENT supervisor must be
+	// Parked for the duration of the blocking send: a task waiting on a full
+	// channel has no scheduled wake, so a draining permanent supervisor must be
 	// able to see that there is nothing left to wait for. No-op outside a
 	// supervised task. See rt/supervisor.go's drainOnce.
 	SupervisedPark(fr)
@@ -211,7 +211,7 @@ func SenderSend[T any](fr *Frame, s Sender[T], v T) Result[Unit, ChannelClosed] 
 
 // ReceiverReceive is `Receiver.receive(receiver)`.
 //
-// `None` is the closed-AND-DRAINED answer, which is Go's own two-value receive
+// `None` is the closed-and-drained answer, which is Go's own two-value receive
 // read directly: a closed channel yields its buffered values first and reports
 // !ok only once empty, which is exactly what std documents ("after close, any
 // remaining buffered values are delivered to subsequent `receive` calls").
@@ -231,7 +231,7 @@ func ReceiverReceive[T any](fr *Frame, r Receiver[T]) Maybe[T] {
 		return Some(v)
 	default:
 	}
-	// PARKED: a task blocked on an empty open channel has no scheduled wake.
+	// Parked: a task blocked on an empty open channel has no scheduled wake.
 	// This is the arm the message-loop worker sits in for its whole life, and
 	// the one the drain's settle check exists for.
 	SupervisedPark(fr)
@@ -250,7 +250,7 @@ func ReceiverReceive[T any](fr *Frame, r Receiver[T]) Maybe[T] {
 
 // SenderClose is `Sender.close(sender)`.
 //
-// Double close is a FAULT, matching Go's panic-on-double-close as a Nomi trap
+// Double close is a fault, matching Go's panic-on-double-close as a Nomi trap
 // rather than as a Go panic.
 // The flag flips under CloseMu so a sender in SenderSend's mutex-guarded fast
 // path observes it consistently.

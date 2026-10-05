@@ -1,14 +1,14 @@
 //# TWO ENUMS EACH DECLARING A STRUCT-SHAPED VARIANT OF THE SAME NAME, with
 //# DIFFERENT field defaults and a DIFFERENT required-field set.
 //#
-//# This fixture was UNWRITABLE until 2026-08-25 and that is the reason it
-//# exists. The interpreter keyed a struct-shaped variant's synthetic
-//# declaration by the VARIANT NAME ALONE, so `Signal.Go` and `Gear.Go` shared
-//# ONE registration and the later declaration won: `Signal.Go{}.n` answered 7
-//# where 3 is correct. A differential over this shape would have compared a
-//# correct builder against a wrong reference and reported the BUILDER as the
-//# diff, which is why dot_variant.nomi carried the pair with disjoint names and
-//# a note instead. Both sides agree now.
+//# Two enums share a variant name, so a struct-shaped variant's declaration
+//# must be keyed by enum and variant, not by the variant name alone. A
+//# variant-name key gives `Signal.Go` and `Gear.Go` one registration, and the
+//# later declaration wins: `Signal.Go{}.n` answers 7 where 3 is correct.
+//# dot_variant.nomi keeps disjoint names because it tests resolution, not
+//# defaults.
+//#
+//#
 //#
 //# WHAT EACH LINE DISCRIMINATES, because a fixture that only printed defaults
 //# would pass against a registration keyed either way once the counts differ:
@@ -23,9 +23,9 @@
 //#   - The `Halt`/`Park` bare variants keep both enums multi-variant, so the
 //#     expected type is never recoverable from the variant name alone.
 //#
-//# ORDER MATTERS: `Gear` is declared SECOND, so under the old keying it was the
-//# winner and every reading came back 7. A fixture declaring the wanted answer
-//# second would have passed against the defect.
+//# ORDER MATTERS: `Gear` is declared SECOND, so under a variant-name key it
+//# would win and every reading would come back 7. A fixture declaring the
+//# wanted answer second would pass against that defect.
 
 import std/io
 

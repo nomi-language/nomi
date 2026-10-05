@@ -7,7 +7,7 @@ package irbuild
 // call with `IsTailCall == true`, and `ir.Call.Tail()` carries the same flag.
 // So on a tree where that pass never ran, every tail-recursive function lowers
 // to a plain recursive call, and the VM's call depth grows where Nomi
-// guarantees constant stack (spec §12.7).
+// guarantees constant stack (spec §12, *Tail-call optimization*).
 //
 // The hazard is a pass that runs on the ENTRY file and not on the other trees
 // the same consumer reads. Two other trees have the same exposure and are
@@ -146,7 +146,7 @@ func TestSiblingTail_ASiblingModuleGetsItsTailCallsMarked(t *testing.T) {
 			"The same source must be marked the same way whichever door it comes through: "+
 			"MarkTailCalls is the only input to collectTailEdges, so an unmarked sibling "+
 			"forms no tail plan and its tail-recursive functions lower to plain recursive "+
-			"calls, with unbounded stack growth where spec §12.7 guarantees constant "+
+			"calls, with unbounded stack growth where spec §12 guarantees constant "+
 			"stack. See the header.",
 			got, control)
 	}

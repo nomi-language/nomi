@@ -10,7 +10,7 @@ import {
 /// The entry file's own `Point`, unrelated to `shapes.Point` beyond the
 /// spelling. Different field set, so a mix-up would also be observable — but
 /// the point of the fixture is that a mix-up is not REPRESENTABLE: the two
-/// lower to two Go types in two Go packages.
+/// are two types with two identities at run time.
 struct Point {
     label: String
     weight: Int

@@ -14,9 +14,9 @@
 //  3. Cache (cache.go): persist the generated wrapper under
 //     ~/.cache/nomi/builds/<project-hash>/ along with a hash record;
 //     regenerate when go.mod, go.sum, the discovered set, the
-//     wrapper template, or the COMPILER (identity.go) changes. The
+//     wrapper template, or the compiler (identity.go) changes. The
 //     last of those is in the key because the cached artifact is a
-//     wrapper BINARY that statically links the front end, the IR
+//     wrapper binary that statically links the front end, the IR
 //     builder and the VM, not just the generated main.go.
 //
 // Prepare orchestrates the three stages and returns a Result the CLI
@@ -379,7 +379,7 @@ func parseTestOutput(out string) (passed, failed, blocked int, visible string, o
 //
 // Keys on go.mod (the FFI-build trigger) rather than nomi.toml (the
 // Nomi-package marker). The two markers usually coexist for FFI
-// projects, but the Phase 5 design says go.mod is the load-bearing
+// projects, but go.mod is the load-bearing
 // signal: pure-Nomi modules have nomi.toml without go.mod and
 // belong on the fast path.
 func findGoModRoot(startDir string) (string, bool) {

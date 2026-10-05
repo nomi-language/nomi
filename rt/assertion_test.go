@@ -34,15 +34,14 @@ func TestFrameThreadingAllocatesNothing(t *testing.T) {
 // whether the trace is affordable where it sits.
 //
 // The trace is a plain local slice appended to as the subject evaluates. A
-// passing assertion therefore does the recording work and throws it away,
-// which is the obvious thing to be suspicious of, so it is measured rather
-// than assumed.
+// passing assertion therefore does the recording work and throws it away, and
+// this test counts what that costs.
 //
-// One allocation, and only because the slice is declared with the EXACT
+// One allocation, and only because the slice is declared with the exact
 // capacity the subject needs. An ungrown nil slice costs two to reach two
 // operands; a subject with nothing to record costs none.
 //
-// Reaching ZERO would need the recording moved into the failure branch and the
+// Reaching zero would need the recording moved into the failure branch and the
 // trace reconstructed from the operand locals. That is a real change, not a
 // tidy-up: `and`/`or` evaluate their right operand inside a short-circuit block, so
 // its temporaries would have to be hoisted out to be nameable at the failure
@@ -149,7 +148,7 @@ func TestInspectStructIsValueStructValDisplay(t *testing.T) {
 		// Sorted by field name. Declaration order is not preserved and must
 		// not be.
 		{"out of order", "Point", []string{`y: "two"`, "x: 1"}, `Point{x: 1, y: "two"}`},
-		// By the NAME, not the composed string: `a0: 2` sorts before `a: 1`
+		// By the name, not the composed string: `a0: 2` sorts before `a: 1`
 		// as a string (`0` < `:`), and Debug.inspect renders `a` first.
 		{"name is a prefix of another", "", []string{"a0: 2", "a: 1"}, "{a: 1, a0: 2}"},
 		{"prefix name, values reversed", "", []string{"ab: 1", "a: 9"}, "{a: 9, ab: 1}"},
@@ -191,8 +190,8 @@ func TestFormatListAndMapServeBothRenderings(t *testing.T) {
 
 // TestCompositeOperandAllocatesOncePerContainer states the cost a composite
 // operand adds, because the scalar numbers above are the ones people quote and
-// this one is genuinely different: a scalar operand allocates nothing to render
-// and a container allocates its rendered string, on EVERY assertion rather than
+// this one is different: a scalar operand allocates nothing to render
+// and a container allocates its rendered string, on every assertion rather than
 // only a failing one. It is a cost, and the test path is where it lands.
 func TestCompositeOperandAllocatesOncePerContainer(t *testing.T) {
 	xs := Cons(int64(1), Cons(int64(2), Cons(int64(3), nil)))

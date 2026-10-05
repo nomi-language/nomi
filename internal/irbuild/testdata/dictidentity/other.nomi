@@ -2,11 +2,11 @@
 // the SAME interface and dispatched through a bounded type parameter.
 //
 // A type's identity is the file that declares it plus its name, so these are
-// two types, two `rt.TypeID` variables in two Go packages, and two bindings in
+// two types, two `rt.TypeID` values, and two bindings in
 // ONE table. That is the pair a NAME-keyed table collapses: both would hash to
 // "Widget" and one binding would overwrite the other — or, here, `rt.Method.Bind`
 // would panic on the duplicate, which is the backstop rt/dispatch.go exists to
-// provide after `c2afa942` let package initialization order decide such a case
+// provide so that registration order cannot decide such a case
 // silently.
 //
 // `announce` is declared HERE rather than imported from shout.nomi because a

@@ -8,7 +8,7 @@ import std/io
 /// `Int.min_value == Int.wrapping_add(Int.max_value, 1)`. Both of those are true
 /// of a value that is off by nothing and of nothing else, but they are equality
 /// checks: they do not run the value through ARITHMETIC, and arithmetic is where
-/// the two paths could disagree without either constant being wrong.
+/// a lowering could go wrong without either constant being wrong.
 ///
 /// `min_value` is the one that cannot be written down. A bare literal parses its
 /// MAGNITUDE, and 9223372036854775808 overflows, so the language has no spelling
@@ -16,7 +16,7 @@ import std/io
 /// the value comes from lowering the Nomi RHS, `Int.wrapping_add(max_value, 1)`.
 /// Trapping arithmetic AT the boundary. `+ 1` on max_value and `- 1` on
 /// min_value both overflow, and overflow is a Nomi FAULT whose text lives in rt
-/// and is shared by both paths (rt/arith.go). Reached through a runtime value so
+/// in one place (rt/arith.go). Reached through a runtime value so
 /// no constant folding can answer it.
 fn over(n: Int): Int {
     n + 1
@@ -80,6 +80,6 @@ fn main() {
     io.print("${under(1)}")
 
     // And this one faults. Last, because the fault ends the program, and it is
-    // stderr plus a non-zero exit on both paths.
+    // stderr plus a non-zero exit.
     io.print("${over(Int.max_value)}")
 }

@@ -442,7 +442,7 @@ fn main(): Int {
 func TestFormat_PipeTryPrefixStaysPrefix(t *testing.T) {
 	src := `fn main(m: Maybe<Int>): Result<Int, String> {
     m
-    |> try from_maybe()
+    |> try to_result()
     |> Ok()
 }
 `
@@ -455,7 +455,7 @@ func TestFormat_PipeTryPrefixStaysPrefix(t *testing.T) {
 func TestFormat_DbgSubexpressionsStayInsideStage(t *testing.T) {
 	src := `fn main(): Int {
     5
-    |> |n| add(dbg f(n), dbg g(n))
+    |> then |n| add(dbg f(n), dbg g(n))
 }
 `
 	got, _ := Format(src)
@@ -1704,9 +1704,8 @@ fn chunks(): Unit {
 }
 
 // TestFormat_AtDeriveOnStruct pins that `@derive Iface` on a struct
-// survives a formatter round-trip (Task 10 fixed a latent bug where
-// `nomi fmt -w` silently stripped @derive — these guard against
-// regression for each type-decl shape). The formatter canonicalises
+// survives a formatter round-trip (`nomi fmt -w` must never strip it;
+// these cover each type-decl shape). The formatter canonicalises
 // multi-field struct bodies onto multiple lines; that's not under test
 // here, just baked into the want string.
 func TestFormat_AtDeriveOnStruct(t *testing.T) {
@@ -2344,7 +2343,7 @@ func TestFormat_If_ElseIfChain_NonAtomic_AllBreak(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Declarations (Task 21)
+// Declarations
 // ---------------------------------------------------------------------------
 
 func TestFormat_StructDef(t *testing.T) {
@@ -2824,7 +2823,7 @@ func TestFormat_ExternType_Generic(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Expressions (Task 22)
+// Expressions
 // ---------------------------------------------------------------------------
 
 func TestFormat_FieldAccess(t *testing.T) {
@@ -2942,14 +2941,15 @@ func TestFormat_Trivia_StandaloneCommentBetweenPipeStages(t *testing.T) {
     5
     |> Int.to_float()
     // a comment
-    |> assert |value| value == 5.0
+    |> then |value| value == 5.0
+    |> assert
 }
 `
 	want := `test "comment between pipe stages" {
     assert 5
         |> Int.to_float()
         // a comment
-        |> |value| value == 5.0
+        |> then |value| value == 5.0
 }
 `
 	got, _ := Format(src)
@@ -3286,7 +3286,7 @@ func TestFormat_RawTriple_EscapedDollarLiteral(t *testing.T) {
 
 func TestFormat_RawTriple_IndentStripping(t *testing.T) {
 	// Raw triple uses the same min-indent semantics as plain triple
-	// (Task 2.6) — indentation is stripped during lexing, the
+	// — indentation is stripped during lexing, the
 	// formatter reapplies a canonical body indent on emission.
 	src := "fn main() {\n    q = `\n        \\d{3,4}\n        `\n}\n"
 	once := formatOnce(t, src)
@@ -3436,7 +3436,7 @@ func TestFormat_Try_Binding(t *testing.T) {
 }
 
 func TestFormat_Return(t *testing.T) {
-	src := "fn f(): Int {\n    return 42\n}\n"
+	src := "fn f(x: Int): Int {\n    if x > 0 { return 42 }\n    x\n}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)

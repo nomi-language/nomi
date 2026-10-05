@@ -5,29 +5,29 @@
 // operands. `rt` links no front end and imports none of the compiler's
 // packages (TestRuntimeArtifactLinksNoFrontEnd,
 // TestRuntimeImportsOnlyItsAllowlist). That is why this package is here
-// and not in rt: the implementation IS the analyzer.
+// and not in rt: the implementation is the analyzer.
 //
 // # `run` and `run_file` are next door
 //
 // This package does not import an execution engine. `compiler.run` and
-// `run_file` EXECUTE a source, so their host is nomi/stdcompilerrun, whose
+// `run_file` execute a source, so their host is nomi/stdcompilerrun, whose
 // engine is the VM that nomi/vmhost installs. What they share with this
 // package is the front end: RunFrontEnd (run.go) is the parse-and-analysis
 // half, so a parse or analysis failure reads the same whether it comes from
 // `check` or from `run`.
 //
-// # WHAT THIS PACKAGE LINKS, AND WHAT rt STILL DOES NOT
+// # What this package links, and what rt does not
 //
-// `hover` reaches nomi/internal/hoverdoc, which is the SAME renderer nomi/lsp
-// calls (lsp/hover.go's RenderWithAnalysis) — deliberately, because that is what
+// `hover` reaches nomi/internal/hoverdoc, which is the same renderer nomi/lsp
+// calls (lsp/hover.go's RenderWithAnalysis), deliberately, because that is what
 // makes `hover.signature` in a Nomi test equal to what an editor shows. The
-// package nomi/lsp itself is NOT in this package's import closure and must not
+// package nomi/lsp itself is not in this package's import closure and must not
 // become so: what a hover answer needs is a renderer over a resolved analysis,
 // not a language server.
 //
-// None of that touches rt. rt has ZERO dependencies and reaches nothing in this
-// module; `rt.Hover` and `rt.Diagnostic` are string and int64 fields with no
-// behaviour. The split that must survive is DATA in rt, IMPLEMENTATION here, and
+// None of that touches rt. rt reaches nothing in this module and none of the
+// front end; `rt.Hover` and `rt.Diagnostic` are string and int64 fields with no
+// behaviour. The split that must survive is data in rt, implementation here, and
 // anything renderer-shaped drifting toward rt is a defect rather than a
 // simplification.
 package stdcompiler
@@ -72,7 +72,11 @@ func ParseSource(source string) ([]ast.Node, []parser.ParseError) {
 func ParseDiagnostics(parseErrs []parser.ParseError) []rt.Diagnostic {
 	diags := make([]rt.Diagnostic, len(parseErrs))
 	for i, err := range parseErrs {
-		diags[i] = rt.Diagnostic{Line: int64(err.Line), Col: int64(err.Col), Message: err.Message}
+		msg := err.Message
+		for _, h := range err.Hints {
+			msg += "\nhelp: " + h
+		}
+		diags[i] = rt.Diagnostic{Line: int64(err.Line), Col: int64(err.Col), Message: msg}
 	}
 	return diags
 }

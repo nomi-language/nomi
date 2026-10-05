@@ -6,7 +6,7 @@ import (
 )
 
 func TestVMEarlyReturn_TourRecordedAnswer(t *testing.T) {
-	ids := []string{"functions-and-lambdas.md:L17"}
+	ids := []string{tourBlock(t, "functions-and-lambdas.md", `dbg abs(-9)`)}
 	recorded, err := expectation.Load("tour")
 	if err != nil {
 		t.Fatal(err)

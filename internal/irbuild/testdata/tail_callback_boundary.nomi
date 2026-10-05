@@ -1,10 +1,10 @@
 // The two INLINED-callback boundaries, both inside a tail-cycle member.
 //
-// `Iter.reduce`'s callback becomes a real Go func literal (ctrlflow.go), and
-// `Iter.loop`'s becomes an INLINE Go `for` — not a func literal at all. Both
-// have to clear the tail label: for the func literal because a `continue` cannot
-// cross one, and for the inline loop because `continue <tail label>` there WOULD
-// be legal Go and would abandon the wrong loop.
+// `Iter.reduce`'s callback becomes a real closure (ctrlflow.go), and
+// `Iter.loop`'s becomes an INLINE loop, not a closure at all. Both
+// have to clear the tail label: for the closure because a `continue` cannot
+// cross one, and for the inline loop because `continue <tail label>` there
+// would be well formed and would abandon the wrong loop.
 //
 // A callback body's tail is the CALLBACK's tail, so `walk(0, a + x)` here is an
 // ordinary call to `walk`'s own function, which trampolines itself. `walk` also

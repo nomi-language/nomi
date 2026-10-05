@@ -1,6 +1,6 @@
 // The THIRD co-tenant: it declares a type and its impl, and nothing here boxes
 // anything. Its whole job is to own an identity variable that a SIBLING gen has
-// to name from inside the same Go-spelled package.
+// to name from inside the same builder package.
 //
 // Its `log` answer shares no character with wire's, so a dispatch that landed
 // on the wrong table entry is a wrong string rather than a missing one.
@@ -41,7 +41,7 @@ pub fn plain(): Blank {
 }
 
 // The SECOND mirror of shared.Stamp, in a CO-TENANT of wire's package. One of
-// the two aliases is the one that used to be a duplicate declaration.
+// the two aliases is the one a per-file dedup would declare twice.
 pub fn other(): Stamp {
     shared.stamp("x")
 }

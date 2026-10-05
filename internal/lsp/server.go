@@ -41,6 +41,9 @@ type Server struct {
 	// literals caches the evaluations of static typed literals
 	// (literal_eval.go).
 	literals literalEvals
+	// lowering holds the diagnostics for code the compiler cannot lower,
+	// found when a document is opened or saved (lowering.go).
+	lowering loweringChecks
 	// sched runs edited documents' analyses in the background.
 	sched analysisScheduler
 	// requestCtxs maps a running request's *glsp.Context to its
@@ -84,6 +87,7 @@ func NewServer() *Server {
 		SetTrace:                         s.setTrace,
 		TextDocumentDidOpen:              s.textDocumentDidOpen,
 		TextDocumentDidChange:            s.textDocumentDidChange,
+		TextDocumentDidSave:              s.textDocumentDidSave,
 		TextDocumentDidClose:             s.textDocumentDidClose,
 		TextDocumentDocumentSymbol:       s.textDocumentDocumentSymbol,
 		TextDocumentDefinition:           s.textDocumentDefinition,
@@ -122,9 +126,12 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 
 	// Use full sync — re-parse entire file on each change
 	syncKind := protocol.TextDocumentSyncKindFull
+	// Save notifications start the lowering diagnostics (lowering.go); the
+	// server already holds the saved text.
 	capabilities.TextDocumentSync = protocol.TextDocumentSyncOptions{
 		OpenClose: boolPtr(true),
 		Change:    &syncKind,
+		Save:      protocol.SaveOptions{IncludeText: boolPtr(false)},
 	}
 
 	capabilities.SignatureHelpProvider = &protocol.SignatureHelpOptions{
@@ -247,6 +254,23 @@ func (s *Server) textDocumentDidOpen(ctx *glsp.Context, params *protocol.DidOpen
 	uri := string(params.TextDocument.URI)
 	s.docs.SetText(uri, params.TextDocument.Text)
 	s.scheduleAnalysis(uri, 0, ctx.Notify)
+	s.checkLowering(uri, params.TextDocument.Text)
+	return nil
+}
+
+// textDocumentDidSave lowers the saved text in the background, for the
+// diagnostics `nomi check` adds to the front end's (lowering.go).
+func (s *Server) textDocumentDidSave(ctx *glsp.Context, params *protocol.DidSaveTextDocumentParams) error {
+	uri := string(params.TextDocument.URI)
+	text := ""
+	if params.Text != nil {
+		text = *params.Text
+	} else if snap := s.docs.Snapshot(uri); snap != nil {
+		text = snap.Text
+	} else {
+		return nil
+	}
+	s.checkLowering(uri, text)
 	return nil
 }
 
@@ -272,6 +296,7 @@ func (s *Server) textDocumentDidClose(ctx *glsp.Context, params *protocol.DidClo
 	uri := string(params.TextDocument.URI)
 	s.cancelAnalysis(uri)
 	s.literals.forget(uri)
+	s.lowering.forget(uri)
 	s.pipeTokens.forget(uri)
 	s.lines.forget(uri)
 	s.occurrences.forget(uri)

@@ -40,17 +40,17 @@ func (p *Program) BuildImage() (image []byte, usesCompiler bool, err error) {
 	}
 	mainFn := p.entryFunc("main")
 	if mainFn == nil {
-		return nil, false, &Blocked{Reasons: []string{p.notRetained("main")}}
+		return nil, false, p.blockedName("main")
 	}
-	roots := []*ir.Func{mainFn}
+	roots := vm.MainRoots(p.entry, mainFn)
 	var boots []*ir.Symbol
 	if p.entry != nil {
 		if boot := p.entry.Boot(); boot != nil {
 			boots = append(boots, boot)
 		}
 	}
-	if reasons := p.reasons(p.machine(io.Discard).Unretained(roots, boots)); len(reasons) > 0 {
-		return nil, false, &Blocked{Reasons: reasons}
+	if found := p.machine(io.Discard).Unretained(roots, boots); len(found) > 0 {
+		return nil, false, p.blocked(found)
 	}
 	mods := p.res.IRModules()
 	// p.hosts[0] is std/compiler's table (newProgram puts it first). A

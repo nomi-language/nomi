@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// Everything in this file is an ABSOLUTE assertion, and that is deliberate.
+// Everything in this file is an absolute assertion, and that is deliberate.
 //
 // A golden file records whatever the implementation printed, so a map that was
 // wrong in a consistent way would be recorded wrong. Every expectation below
@@ -27,7 +27,7 @@ func intKeys() (func(int64) uint64, func(int64, int64) bool) {
 }
 
 // listKeys is the key pair for a `Map<List<Int>, _>` — the case a Go
-// `map` cannot express, because a `*List[int64]` compares by ADDRESS under Go's
+// `map` cannot express, because a `*List[int64]` compares by address under Go's
 // own `==`.
 func listKeys() (func(*List[int64]) uint64, func(*List[int64], *List[int64]) bool) {
 	return func(xs *List[int64]) uint64 { return HashList(xs, HashInt) },
@@ -73,7 +73,7 @@ func TestMapGetPutSize(t *testing.T) {
 	if got := MapSize(m2); got != 2 {
 		t.Fatalf("size after overwrite = %d, want 2", got)
 	}
-	// And the ORIGINAL is untouched, which is the whole point of persistence.
+	// And the original is untouched, which is what persistence means.
 	if v, _ := MapLookup(m, h, eq, "a"); v != 1 {
 		t.Fatalf(`put mutated its argument: original "a" = %d, want 1`, v)
 	}
@@ -84,7 +84,7 @@ func TestMapGetPutSize(t *testing.T) {
 //
 // The failure this catches is the one a persistent structure dies of: an insert
 // that writes through into a node an older version still points at. It only
-// shows up when the older version is read AFTER the newer one was built, and
+// shows up when the older version is read after the newer one was built, and
 // only at a size that forces node splitting — hence 4096 keys, which is deep
 // enough to need several trie levels.
 func TestMapPutDoesNotMutateAnySharedVersion(t *testing.T) {
@@ -112,10 +112,10 @@ func TestMapPutDoesNotMutateAnySharedVersion(t *testing.T) {
 
 // TestMapNonComparableKey is the fixture the whole representation exists for.
 //
-// A `*List[int64]` key is Go-comparable and compares by ADDRESS, so a Go
+// A `*List[int64]` key is Go-comparable and compares by address, so a Go
 // `map[*List[int64]]V` would accept these keys, compile clean, and then fail to
 // find any of them from a freshly built equal list. Every lookup below uses a
-// NEW cons chain, never the one that was inserted.
+// new cons chain, never the one that was inserted.
 func TestMapNonComparableKey(t *testing.T) {
 	h, eq := listKeys()
 	var m Map[*List[int64], string]
@@ -140,7 +140,7 @@ func TestMapNonComparableKey(t *testing.T) {
 	if _, ok := MapLookup(m, h, eq, list(1, 2, 3)); ok {
 		t.Error("get [1, 2, 3] found an entry; only [1, 2], [3] and [] were inserted")
 	}
-	// Overwriting through a different-but-equal key must hit the SAME entry,
+	// Overwriting through a different-but-equal key must hit the same entry,
 	// not add a second one. An address-keyed map would grow to four.
 	m = MapPut(m, h, eq, list(1, 2), "x2")
 	if got := MapSize(m); got != 3 {
@@ -196,11 +196,11 @@ func TestMapInsertionOrder(t *testing.T) {
 	if got := keyList(base); got != "a,b" {
 		t.Errorf("literal order = %q, want %q", got, "a,b")
 	}
-	// put over an existing key keeps that key's POSITION.
+	// put over an existing key keeps that key's position.
 	if got := keyList(MapPut(base, h, eq, "a", 9)); got != "a,b" {
 		t.Errorf("order after overwriting a = %q, want %q", got, "a,b")
 	}
-	// remove then put moves it to the END: the sequence counter does not roll
+	// remove then put moves it to the end: the sequence counter does not roll
 	// back. This is the observable consequence.
 	moved := MapPut(MapRemove(base, h, eq, "a"), h, eq, "a", 7)
 	if got := keyList(moved); got != "b,a" {
@@ -215,7 +215,7 @@ func TestMapInsertionOrder(t *testing.T) {
 	}
 }
 
-// TestMapOrderSurvivesRemovalAtScale exercises the SORTING path in MapEntries.
+// TestMapOrderSurvivesRemovalAtScale exercises the sorting path in MapEntries.
 // The fast path is taken only while nothing has been removed, so a test that
 // never removes anything never runs the sort at all.
 func TestMapOrderSurvivesRemovalAtScale(t *testing.T) {
@@ -337,7 +337,7 @@ func TestMapCollisionsCoexistWithBranches(t *testing.T) {
 func TestMapRemove(t *testing.T) {
 	h, eq := stringKeys()
 	m := MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}, {"b", 2}})
-	// Removing an absent key is a no-op and returns the SAME map.
+	// Removing an absent key is a no-op and returns the same map.
 	same := MapRemove(m, h, eq, "z")
 	if MapSize(same) != 2 {
 		t.Fatalf("removing an absent key changed the size to %d", MapSize(same))
@@ -461,12 +461,12 @@ func TestFormatMapMatchesTheDisplayImpl(t *testing.T) {
 	}
 }
 
-// TestMapNaNAndSignedZeroKeys is the hash/equality LAW at the two places it is
+// TestMapNaNAndSignedZeroKeys is the hash/equality law at the two places it is
 // easiest to break, and both are keys a program can lose.
 //
-// `nan == nan` is True in Nomi (EqFloat), so a NaN key must be retrievable —
-// verified with `nomi run`: `Map.get({0.0 / 0.0 => 1}, 0.0 / 0.0)` is
-// `Some(1)`. And `-0.0 == 0.0`, so they must be ONE key:
+// `nan == nan` is True in Nomi (EqFloat), so a NaN key must be retrievable:
+// `Map.get({0.0 / 0.0 => 1}, 0.0 / 0.0)` is `Some(1)` under `nomi run`. And
+// `-0.0 == 0.0`, so they must be one key:
 // `Map.get({0.0 => 1}, -0.0)` is `Some(1)`.
 func TestMapNaNAndSignedZeroKeys(t *testing.T) {
 	h, eq := HashFloat, EqFloat
@@ -476,7 +476,7 @@ func TestMapNaNAndSignedZeroKeys(t *testing.T) {
 	if v, ok := MapLookup(m, h, eq, math.NaN()); !ok || v != 1 {
 		t.Errorf("a NaN key was not retrievable: got (%d, %v), want (1, true)", v, ok)
 	}
-	// A DIFFERENT NaN encoding must land in the same bucket.
+	// A different NaN encoding must land in the same bucket.
 	other := math.Float64frombits(math.Float64bits(nan) | 0x3)
 	if !math.IsNaN(other) {
 		t.Fatal("constructed a non-NaN; the test needs a second NaN encoding")
@@ -727,7 +727,7 @@ func BenchmarkMapEntries(b *testing.B) {
 }
 
 // TestStructuralHashLaw is the contract every key hasher has to satisfy:
-// `eq(a, b)` implies `hash(a) == hash(b)`. It is the ONLY property the hash owes
+// `eq(a, b)` implies `hash(a) == hash(b)`. It is the only property the hash owes
 // — a degenerate hash is a performance bug and not a wrong answer, which is why
 // mutating a list hasher to a constant leaves every map test passing.
 //
@@ -754,7 +754,7 @@ func TestStructuralHashLaw(t *testing.T) {
 				p.name, ha, hb)
 		}
 	}
-	// Distinct values SHOULD usually differ, and a hash that never does is
+	// Distinct values should usually differ, and a hash that never does is
 	// legal but useless. Asserted as a spread rather than as inequality per
 	// pair, so the test states a quality expectation without pretending it is
 	// a correctness one.
@@ -783,21 +783,18 @@ func TestStructuralHashLaw(t *testing.T) {
 }
 
 // TestMapProjectionsAreInInsertionOrder is the rt-side guard for MapKeys,
-// MapValues and MapMapValues, and it exists because rt's suite was GREEN under
-// a MapKeys that consed FORWARD and therefore answered every list backwards.
+// MapValues and MapMapValues. A MapKeys that consed forward would answer every
+// list backwards, and no other rt test would notice.
 //
-// MEASURED: that mutant was caught only by an internal/irbuild program
-// fixture, one module away. Every rt test that could have seen it went through
-// FormatMap or MapEqual instead — rendering agrees with a reversed extraction
-// because it never calls one, and equality is order-INSENSITIVE by design — so
-// the whole existing family was blind to the one property these three functions
-// add. That is the same shape as a pin family whose rows are all in one
-// direction: the count says nothing about the coverage.
+// The other map tests go through FormatMap or MapEqual. Rendering agrees with
+// a reversed extraction because it never calls one, and equality is
+// order-insensitive by design, so neither can see the one property these three
+// functions add.
 //
 // The remove-then-put row is the one a re-numbered or gap-closing walk fails
 // alone. `seq` is deliberately not rolled back by MapRemove, so a re-inserted
-// key belongs at the END, and that is also the row that forces MapEntries'
-// SORTING path rather than its dense fast path.
+// key belongs at the end, and that is also the row that forces MapEntries'
+// sorting path rather than its dense fast path.
 func TestMapProjectionsAreInInsertionOrder(t *testing.T) {
 	h, eq := stringKeys()
 	m := MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}, {"b", 2}, {"c", 3}})
@@ -819,7 +816,7 @@ func TestMapProjectionsAreInInsertionOrder(t *testing.T) {
 		t.Errorf("MapValues after remove+put = %s, want [2, 3, 7]", got)
 	}
 
-	// A duplicate inside one MapOf: last value, FIRST position.
+	// A duplicate inside one MapOf: last value, first position.
 	dup := MapOf(h, eq, []MapEntry[string, int64]{{"a", 1}, {"b", 2}, {"a", 9}})
 	if got := FormatList(MapKeys(dup), FormatString); got != "[a, b]" {
 		t.Errorf("MapKeys over a duplicated key = %s, want [a, b]", got)
@@ -834,7 +831,7 @@ func TestMapProjectionsAreInInsertionOrder(t *testing.T) {
 		t.Error("MapKeys/MapValues over an empty map must answer the empty list")
 	}
 
-	// MapMapValues REBUILDS, so it re-derives the order rather than reading it.
+	// MapMapValues rebuilds, so it re-derives the order rather than reading it.
 	// Asserted on `moved`, whose order is the one a rebuild loses.
 	fr := NewFrame(context.Background())
 	tens := MapMapValues(fr, moved, h, eq, func(fr *Frame, v int64) int64 { return v * 10 })
@@ -844,7 +841,7 @@ func TestMapProjectionsAreInInsertionOrder(t *testing.T) {
 	if got := FormatList(MapValues(tens), FormatInt); got != "[20, 30, 70]" {
 		t.Errorf("MapMapValues = %s, want [20, 30, 70]", got)
 	}
-	// A result type that is NOT the value type, which is the whole reason
+	// A result type that is not the value type, which is the reason
 	// map_values carries a third type parameter.
 	named := MapMapValues(fr, m, h, eq, func(fr *Frame, v int64) string { return "n" + FormatInt(v) })
 	if got := FormatMap(named, FormatString, FormatString); got != "{a => n1, b => n2, c => n3}" {

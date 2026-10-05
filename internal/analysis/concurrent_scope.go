@@ -192,7 +192,7 @@ func isStdTasksFile(path string) bool {
 // it creates block-owned tasks, so it needs an owner (Rule 1), the
 // handles it returns must be consumed (Rule 2), and they must not escape
 // the block (Rule 3). Treating it as a recognised producer is also what
-// makes it the fix for Gap 6 — the alternative spelling,
+// covers the alternative spelling,
 // `Iter.map(items, |i| Task.spawn(…))`, is a shape the syntactic trace
 // cannot see at all.
 //
@@ -334,6 +334,8 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 		s.walkBody(owner, node.Expr, inConcurrent)
 	case *ast.Dbg:
 		s.walkBody(owner, node.Expr, inConcurrent)
+	case *ast.Then:
+		s.walkBody(owner, node.Lambda, inConcurrent)
 	case *ast.StringInterp:
 		for _, part := range node.Parts {
 			if se, ok := part.(ast.StringExpr); ok {
@@ -635,6 +637,8 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 			walk(node.Expr, enclosing, inConcurrent)
 		case *ast.Dbg:
 			walk(node.Expr, enclosing, inConcurrent)
+		case *ast.Then:
+			walk(node.Lambda, enclosing, inConcurrent)
 		case *ast.StringInterp:
 			for _, part := range node.Parts {
 				if se, ok := part.(ast.StringExpr); ok {

@@ -22,18 +22,16 @@ import std/io
 //     so a 0<->2 swap also compiles and also changes the text.
 //
 //  3. THE RECURSIVE TUPLE IS THE LAYOUT RISK, not a stress case. `Node`
-//     stores a tuple whose components ARE the enum, so the slot must be a
-//     POINTER or the Go type has infinite size. Struct FIELDS have been boxed
-//     through appendInlineDefs since anon_recursive.nomi; enum SLOTS read the
+//     stores a tuple whose components ARE the enum, so the slot must be boxed
+//     or the type has infinite size. Struct FIELDS are boxed through
+//     appendInlineDefs (see anon_recursive.nomi); enum SLOTS read the
 //     payload's own `def`, which is nil for a structural kind, so a tuple
-//     reaches assignSlots with nothing for that rule to follow. The Go type
-//     it spells is then an "invalid recursive type", a layout defect rather
-//     than a refusal.
+//     reaches assignSlots with nothing for that rule to follow. The result is
+//     a layout defect rather than a refusal.
 //
 //  4. A CONTAINER PAYLOAD BESIDE THE TUPLE. `Bag` carries a `List<Int>`, which
-//     is what makes the synthesized `impl Debug` reach inspectcall.go's
-//     container arm at all — the arm the `inSynthImpl` exclusion used to skip
-//     for every synthesized body rather than only for a distinct receiver.
+//     is what makes the synthesized `impl Debug` reach the builder's Debug
+//     container arm, so a synthesized body is shown to compose through it.
 //
 // NOTE ON COMMENT PLACEMENT, because it looks like an omission: no comment sits
 // immediately above a `.Variant` case arm anywhere in this file. A line comment

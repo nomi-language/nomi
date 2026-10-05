@@ -7,8 +7,8 @@
 // See preludeorigin.go.
 //
 // Both instantiations are present because at `T = String` a `Fragment`'s two
-// payloads are the same Go type: a spec with them swapped is invisible there
-// and puts a `string` where an `int64` belongs at `T = Int`.
+// payloads are the same type: a spec with them swapped is invisible there
+// and puts a String where an Int belongs at `T = Int`.
 import {
     std/io
     frag

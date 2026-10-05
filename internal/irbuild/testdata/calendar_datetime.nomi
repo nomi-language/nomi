@@ -1,10 +1,9 @@
 // std/calendar's zoned `DateTime`, as a Go struct declared in rt.
 //
-// The corpus reaches this type through ONE file
+// The corpus reaches this type through one file
 // (05-calendar-and-time/datetime_zone_changes_test.nomi), and everything below
-// the first two lines is unreachable from it — so a fixture is the only guard
-// on the rest. `DIFFED` reading 0 says nothing about a shape no corpus program
-// exercises.
+// the first two lines is unreachable from it, so a fixture is the only guard
+// on the rest.
 //
 // The DISCRIMINATING line is `ny == tokyo`. Equality and ordering on a DateTime
 // are INSTANT-ONLY: the same moment displayed in two zones is one value, and

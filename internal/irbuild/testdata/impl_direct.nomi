@@ -6,7 +6,7 @@ import std/io
 // claim, and the transcript is what pins that both spellings agree.
 //
 // `Greeter.greet` and `Farewell.greet` on one type are the reason the impl
-// function's Go name carries the INTERFACE as well as the receiver. A
+// function's name carries the INTERFACE as well as the receiver. A
 // dispatch keyed on the method name alone has one slot for two answers, and
 // which one it returns would be arbitrary.
 interface Speech {

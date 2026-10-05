@@ -5,6 +5,9 @@
   (attached_comment_test_line_prompt)
 ] @comment.documentation
 
+; The `#!` interpreter line of an executable script.
+(shebang) @comment
+
 ; Function definitions
 (function_definition
   impl_interface: (type_identifier) @type)
@@ -254,7 +257,7 @@
 (type_field_access
   (type_identifier) @constructor .)
 
-; `internal` path segment in imports — Phase 1 packaging convention
+; `internal` path segment in imports — the packaging convention
 ; for sub-tree access barriers. Using @attribute for visual distinctness;
 ; semantically honest as access-scope metadata. Listed BEFORE the generic
 ; @module rules below per tree-sitter's first-match-wins (specific FIRST).
@@ -360,6 +363,7 @@
 "todo" @keyword
 "concurrent" @keyword
 "try" @keyword
+"then" @keyword
 "impl" @keyword
 "for" @keyword
 (self_type) @keyword

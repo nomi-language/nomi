@@ -36,7 +36,7 @@ fn main() {
     io.print(tally([1, 2, 3]))
     // Adjacent separators produce empty entries, and the empty separator splits
     // at every codepoint: both are documented in std/strings as the definition,
-    // so both are pinned rather than left to Go's default.
+    // so both are pinned rather than left to a host library's default.
     io.print(String.join(String.split(",a,", ","), "|"))
     io.print(String.join(String.split("hey", ""), "."))
     // The empty list joins to "", which is the nil cons cell and not a case

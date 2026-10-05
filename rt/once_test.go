@@ -13,10 +13,9 @@ import (
 // cannot reach: a single-goroutine program cannot distinguish "forced once"
 // from "forced once per goroutine, and they happened to agree".
 //
-// It also covers a shape that has shipped a bug before: with cycle state kept
-// on the CELL rather than on the lineage, the goroutines that lose
-// the race observe "already forcing" and report a spurious cyclic-once. Here
-// every one of them must get the value.
+// It also covers cycle state kept on the cell rather than on the lineage: then
+// the goroutines that lose the race observe "already forcing" and report a
+// spurious cyclic-once. Here every one of them must get the value.
 func TestOnceCellForcesExactlyOnceUnderConcurrency(t *testing.T) {
 	var forced atomic.Int64
 	cell := NewOnceCell[int64]("counter")
@@ -70,16 +69,16 @@ func TestOnceCellIsLazy(t *testing.T) {
 // TestOnceCellIdentityIsTheAddressNotTheName is the anti-collision guard.
 //
 // Two files may each declare a private `once config`, and a lineage keyed on
-// the NAME would report the second force as a cycle through the first — a
+// the name would report the second force as a cycle through the first — a
 // wrong answer that only appears in a program with two same-named bindings.
-// Divergence-ledger row 16 is six bugs of exactly that shape. Both halves are
-// asserted: same name is NOT a cycle, and the real re-entry IS.
+// Identity-by-name bugs have exactly that shape. Both halves are
+// asserted: same name is not a cycle, and the real re-entry is.
 func TestOnceCellIdentityIsTheAddressNotTheName(t *testing.T) {
 	outer := NewOnceCell[int64]("config")
 	inner := NewOnceCell[int64]("config")
 
 	v := outer.Get(NewFrame(context.Background()), func(fr *Frame) int64 {
-		// Forcing a DIFFERENT cell of the same name from inside the first
+		// Forcing a different cell of the same name from inside the first
 		// one's RHS. Legal, and the frame handed down carries the outer cell.
 		return inner.Get(fr, func(fr *Frame) int64 { return 5 }) + 1
 	})
@@ -117,7 +116,7 @@ func TestOnceCellCycleTrapsRatherThanDeadlocking(t *testing.T) {
 }
 
 // TestOnceCellCycleIsPerLineage asserts the negative the cycle test needs to
-// be worth having: a frame that is NOT inside a cell's RHS may force it, even
+// be worth having: a frame that is not inside a cell's RHS may force it, even
 // while another lineage is inside a different one.
 func TestOnceCellCycleIsPerLineage(t *testing.T) {
 	a := NewOnceCell[int64]("a")
@@ -147,12 +146,12 @@ func TestCyclicOnceTextIsTheOneSpelling(t *testing.T) {
 	}
 }
 
-// A `once` RHS runs under the FORCER's cancellation and deadline. A task
-// cancelled while it forces a cell settles Cancelled — it used to settle
-// Failed with `cancellation reached a frame with no task to unwind`, because
-// forcingOnce built the RHS frame without `inTask` — and the cell stays
-// unforced, as it does after a faulting RHS, so the next access runs the RHS
-// again and caches its value.
+// A `once` RHS runs under the forcer's cancellation and deadline. A task
+// cancelled while it forces a cell settles Cancelled, not Failed with
+// `cancellation reached a frame with no task to unwind`, which is what an RHS
+// frame built without `inTask` would report. The cell stays unforced, as it
+// does after a faulting RHS, so the next access runs the RHS again and caches
+// its value.
 func TestOnceCellACancelledForceUnwindsTheTaskAndLeavesTheCellUnforced(t *testing.T) {
 	var runs atomic.Int64
 	started := make(chan struct{}, 2)
@@ -206,7 +205,7 @@ func TestOnceCellAForceUnderAnExpiredDeadlineReportsTheDeadline(t *testing.T) {
 	}
 }
 
-// A `once` RHS reads what boot PUBLISHED, never the forcer's rebinds: a cached
+// A `once` RHS reads what boot published, never the forcer's rebinds: a cached
 // value must not depend on who forced it first, so the RHS is evaluated
 // against the module-level app state. A forcer that dropped scoped fields
 // would make `once seen = App.label` trap "application field label is

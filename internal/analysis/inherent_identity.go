@@ -20,8 +20,8 @@ package analysis
 // Both `Date`s are legal and both must keep their own `new`.
 //
 // This is the fifth instance of one pattern in this repo — a bare-name key
-// collapsing module-distinct declarations. `internal/irbuild`'s `stdGoName`
-// (`ddf103b5`), `TypeMethods` (`type_method_identity.go`), the impl-block
+// collapsing module-distinct declarations. `internal/irbuild`'s `stdGoName`,
+// `TypeMethods` (`type_method_identity.go`), the impl-block
 // receiver (`PopulateQualifiedReceivers`) and the impl'd interface
 // (`interface_identity.go`) are the previous four; this one is on the write
 // side of a CHECK rather than of a lookup, which is why it presents as a

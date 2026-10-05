@@ -5,8 +5,8 @@ import std/io
 // `defaults.nomi` is the same question for a module-level `fn`, and the two
 // share one implementation (`fillParamDefaults`). Sharing is only correct if
 // the semantics are identical, so this file exists to MEASURE that rather than
-// to assume it — each `test` below is an answer that came off the interpreter
-// first, and each would print or judge differently under the other rule.
+// to assume it: each `test` below would print or judge differently under the
+// other rule.
 //
 //  1. `Powered.describe(e)` — the default `mode: Mode = Mode.Fast` names an
 //     enum declared beside the interface. Supplying the argument takes the

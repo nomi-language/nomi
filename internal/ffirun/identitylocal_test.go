@@ -59,7 +59,7 @@ func stageLocalIdentityProject(t *testing.T) string {
 // but the same binary also links the user's own Go and every module the user
 // reaches through a local `replace`, and nothing in the key named those.
 //
-// Measured at 4b43ab64 on a project outside the compiler tree, with a binding
+// Observed on a project outside the compiler tree, with a binding
 // whose body was `strings.ToUpper(s)`:
 //
 //	edit body to `strings.ToUpper(s) + "!"`, signature untouched

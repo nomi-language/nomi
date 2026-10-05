@@ -73,6 +73,7 @@
 "todo" @keyword
 "concurrent" @keyword
 "try" @keyword
+"then" @keyword
 "impl" @keyword
 "for" @keyword
 (self_type) @keyword
@@ -86,6 +87,8 @@
 
 (doc_comment) @comment.documentation
 (line_comment) @comment
+; The `#!` interpreter line of an executable script.
+(shebang) @comment
 (string) @string
 (triple_string) @string
 (raw_string) @string
@@ -141,7 +144,7 @@
 (module_path
   (type_identifier) @module)
 
-; `internal` path segment in imports — Phase 1 packaging convention
+; `internal` path segment in imports — the packaging convention
 ; for sub-tree access barriers. Using @attribute for visual distinctness;
 ; semantically honest as access-scope metadata. Listed AFTER the generic
 ; @module rule per the file's last-wins convention.

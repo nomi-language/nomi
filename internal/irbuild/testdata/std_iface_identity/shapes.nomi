@@ -2,10 +2,10 @@
 // own `impl Display` and `impl Comparable`.
 //
 // A type is identified by the file that declares it plus its name, so this
-// `Point` and the entry's are two different types. They lower to two Go types
-// in two Go packages with two `rt.TypeID` variables — and BOTH bind into the
+// `Point` and the entry's are two different types, with two `rt.TypeID`
+// values, and BOTH bind into the
 // SAME `rt.MDisplayToString`, because a stdlib interface has exactly one table
-// in the whole artifact.
+// in the whole program.
 //
 // That combination is what makes this fixture load-bearing and what makes it
 // new. A user interface's table belongs to the package that declared it, so

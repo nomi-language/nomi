@@ -54,6 +54,7 @@ func (t *TriviaCarrier) GetLeading() []Trivia  { return t.Leading }
 func (t *TriviaCarrier) GetTrailing() []Trivia { return t.Trailing }
 func (t *TriviaCarrier) AddLeading(x Trivia)   { t.Leading = append(t.Leading, x) }
 func (t *TriviaCarrier) AddTrailing(x Trivia)  { t.Trailing = append(t.Trailing, x) }
+func (t *TriviaCarrier) SetLeading(x []Trivia) { t.Leading = x }
 
 // Span is a node's source extent: its first token through one past its
 // last, as 1-based lines and byte columns. A leading doc comment, `//!`
@@ -429,10 +430,9 @@ func (n *StringInterp) LineNum() int   { return n.Line }
 // single StringText. For interpolated tagged forms Parts alternates
 // StringText and StringExpr just like StringInterp.
 //
-// Semantics are deferred to a later phase (Phase 8 type-checking,
-// Phase 9 runtime); the analyzer currently rejects any TaggedString
-// it walks with a "typed literals not yet implemented" error so the
-// new surface is parseable but not yet usable.
+// `Tag"…"` desugars to `Tag.from_fragments([...])` (spec §16, *Typed
+// literals*); the checker's checkTaggedString types it and the IR
+// builder lowers it to that call.
 type TaggedString struct {
 	TriviaCarrier
 	SpanCarrier
@@ -786,7 +786,7 @@ func (n *Todo) ReasonText() string {
 }
 
 // ConcurrentBlock is `concurrent { body }` — the structured-
-// concurrency scope from spec §20 (layer 1). The body type-checks
+// concurrency scope from spec §20. The body type-checks
 // like a lambda body (last expression is the value; `return` / `try`
 // unwind to the block boundary, not the enclosing fn). At runtime
 // `Task.spawn(|| ...)` calls inside this block spawn goroutines that
@@ -967,7 +967,7 @@ type TypeParam struct {
 // formatter convention, not a parser requirement. The optional `opaque`
 // modifier publishes the type name while keeping its construction surface
 // (constructor, destructuring, field access) module-private — the field
-// set IS the representation. See spec §15.3 *Opaque distinct types*.
+// set IS the representation. See spec §15, *Opaque distinct types*.
 type StructDef struct {
 	TriviaCarrier
 	SpanCarrier
@@ -976,7 +976,7 @@ type StructDef struct {
 	Name          string
 	Public        bool
 	// Opaque is set when the parser saw `opaque` before `struct`. It marks
-	// the type as opaque per spec §15.3: outside the owning module the
+	// the type as opaque per spec §15 *Opaque distinct types*: outside the owning module the
 	// type name is usable (signatures, generic args) but the field set is
 	// hidden — no `Name{...}` construction, no destructuring, no field
 	// access. The flag flows through to the symbol and StructType during
@@ -1088,7 +1088,7 @@ type EnumVariant struct {
 // binary separator, not a per-variant prefix). Single-variant enums have
 // no `|` at all. The optional `opaque` modifier publishes the type name
 // while keeping its variant set module-private — the variant set IS the
-// representation. See spec §15.3 *Opaque distinct types*.
+// representation. See spec §15, *Opaque distinct types*.
 type EnumDef struct {
 	TriviaCarrier
 	SpanCarrier
@@ -1097,7 +1097,7 @@ type EnumDef struct {
 	Name          string
 	Public        bool
 	// Opaque is set when the parser saw `opaque` before `enum`. It marks
-	// the type as opaque per spec §15.3: outside the owning module the
+	// the type as opaque per spec §15 *Opaque distinct types*: outside the owning module the
 	// type name is usable (signatures, generic args) but the variant set
 	// is hidden — no construction of variants, no `case` destructuring,
 	// no payload access. The flag flows through to the symbol and EnumType
@@ -1144,7 +1144,7 @@ type TypeDef struct {
 	Decorators    []Decorator    // `derive` decorators the derive lowering adds; nil when none
 	Name          string
 	Public        bool
-	Opaque        bool     // true for `pub opaque type Name InnerType` — name exported, construction surface module-private. See spec §15.3.
+	Opaque        bool     // true for `pub opaque type Name InnerType` — name exported, construction surface module-private. See spec §15, *Opaque distinct types*.
 	InnerTypeExpr TypeExpr // structured inner type, nil for zero-sized
 	// HasBody/Items are retained for compiler-synthesized or legacy internal
 	// nodes. Source `type` declarations do not carry bodies; type-qualified
@@ -1399,7 +1399,7 @@ func (n *ExprStmt) LineNum() int   { return n.Line }
 // The purpose is the LSP. An ErrorNode inside a function body lets the
 // enclosing declaration survive the parse, so the builder still records
 // the function's parameters and locals and completion has scopes to
-// offer at the cursor. See docs/roadmap.md Track 3, "Resilient parsing".
+// offer at the cursor. See parser.ParseResilient.
 type ErrorNode struct {
 	TriviaCarrier
 	SpanCarrier
@@ -1779,7 +1779,12 @@ func AttachedTestsOf(n Node) []AttachedTest {
 type ImportStmt struct {
 	TriviaCarrier
 	SpanCarrier
-	ModulePath          []Node // *Ident or *TypeIdent for each path segment
+	ModulePath []Node // *Ident or *TypeIdent for each path segment
+	// FileSegments is how many leading ModulePath segments are the file
+	// path, the `/`-joined part; the segments after it are owners written
+	// after a `.` (`Shape` in `shape.Shape.{Circle}`). Zero when the import
+	// was not parsed from source.
+	FileSegments        int
 	Names               []Node // *Ident or *TypeIdent for each imported name
 	Aliases             []Node // parallel to Names; nil entry = no alias for that name
 	ModuleAlias         Node   // alias for empty-name file imports
@@ -2168,6 +2173,20 @@ type TryOp struct {
 
 func (*TryOp) NodeType() string { return "TryOp" }
 func (n *TryOp) LineNum() int   { return n.Line }
+
+// Then is the pipe stage `x |> then |v| body`, which applies Lambda to the
+// piped value: `(|v| body)(x)`. It is only ever the right operand of a `|>`.
+// Line and Col are the `then` keyword's.
+type Then struct {
+	TriviaCarrier
+	SpanCarrier
+	Lambda *Lambda
+	Line   int
+	Col    int
+}
+
+func (*Then) NodeType() string { return "Then" }
+func (n *Then) LineNum() int   { return n.Line }
 
 // Placeholder represents _ in expressions (partial application).
 type Placeholder struct {

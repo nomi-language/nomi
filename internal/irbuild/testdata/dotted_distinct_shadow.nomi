@@ -2,7 +2,7 @@
 // and the reason it needs a fixture of its own.
 //
 // `type Day.Hours Int` and `impl Day { fn Hours(d: Day): Int }` are BOTH legal
-// and both declare the spelling `Day.Hours`. MEASURED on the interpreter:
+// and both declare the spelling `Day.Hours`. What happens:
 //
 //   - This file, with only the FUNCTION spelling used, PASSES. So
 //     `Day.Hours(Day(3))` resolves to the impl function.
@@ -21,10 +21,9 @@
 // is the one shape where the two namespaces really do collide, and with the arm
 // above implCall this program is claimed as a constructor and refused
 // `argument type mismatch | Day.Hours wraps Int, got Day` — a refusal on a
-// program the interpreter runs.
+// program that should run.
 //
-// So the surviving mutant was a MISSING TEST rather than a free arm, which is
-// the reading differential_test.go's header lists second of five.
+// So the surviving mutant was a missing test rather than a free arm.
 type Day Int
 
 type Day.Hours Int

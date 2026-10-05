@@ -6,15 +6,13 @@ import (
 	"testing"
 )
 
-// The conversions in convert.go are the ONE implementation of their rules, so
+// The conversions in convert.go are the one implementation of their rules, so
 // a fixture comparing two callers cannot fail on a bug in here: both would be
 // wrong in the same place and would agree. Every assertion below therefore
-// SPELLS OUT the answer instead of comparing two computations.
+// spells out the answer instead of comparing two computations.
 //
-// That is the same reasoning prelude_test.go states for the tag constants, and
-// it is the lesson of this repo's most recent silent bug: a mutation to a shared
-// `listEqual` made both callers agree on the wrong answer and the agreement
-// fixture passed.
+// That is the same reasoning prelude_test.go states for the tag constants: when
+// two callers share one wrong implementation, a fixture comparing them passes.
 
 func TestFloatToInt_Absolute(t *testing.T) {
 	for _, tc := range []struct {
@@ -23,7 +21,7 @@ func TestFloatToInt_Absolute(t *testing.T) {
 		some bool
 		want int64
 	}{
-		// Truncation is toward ZERO, not floor: -3.7 is -3, not -4. The two
+		// Truncation is toward zero, not floor: -3.7 is -3, not -4. The two
 		// disagree for every negative non-integer, which is most of the domain.
 		{"positive truncates toward zero", 3.7, true, 3},
 		{"negative truncates toward zero", -3.7, true, -3},
@@ -37,9 +35,9 @@ func TestFloatToInt_Absolute(t *testing.T) {
 		{"positive infinity", math.Inf(1), false, 0},
 		{"negative infinity", math.Inf(-1), false, 0},
 
-		// The boundary is ASYMMETRIC and this is the pair that proves it.
-		// float64(math.MinInt64) is exactly -2^63 and IS representable;
-		// float64(math.MaxInt64) rounds UP to 2^63, which is one past the range,
+		// The boundary is asymmetric and this is the pair that proves it.
+		// float64(math.MinInt64) is exactly -2^63 and is representable;
+		// float64(math.MaxInt64) rounds up to 2^63, which is one past the range,
 		// so the largest float64 below it is the largest accepted value.
 		{"exactly MinInt64 is in range", math.MinInt64, true, math.MinInt64},
 		{"one step below MinInt64 is out", math.Nextafter(math.MinInt64, math.Inf(-1)), false, 0},
@@ -85,7 +83,7 @@ func TestStringToInt_Absolute(t *testing.T) {
 		{"empty", "", false, 0},
 		{"blank", "   ", false, 0},
 		{"letters", "abc", false, 0},
-		// The base is 10, ALWAYS. strconv.ParseInt with base 0 would read this
+		// The base is 10, always. strconv.ParseInt with base 0 would read this
 		// as 16, which would be a different language.
 		{"hex is not accepted", "0x10", false, 0},
 		{"binary is not accepted", "0b11", false, 0},
@@ -120,7 +118,7 @@ func TestStringToInt_Absolute(t *testing.T) {
 // implementation that used int64 directly would compile and would let a plain
 // Int flow into `Int.divide`'s divisor — losing the proof the type carries. Go's
 // own type checker enforces it once they are defined types, and this asserts
-// that they ARE (a `type X = int64` alias would pass a value-equality test and
+// that they are (a `type X = int64` alias would pass a value-equality test and
 // fail this one).
 func TestRefinedTypesAreNominallyDistinct(t *testing.T) {
 	var nz NonZeroInt = 5

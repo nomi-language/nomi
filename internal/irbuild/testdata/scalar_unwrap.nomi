@@ -3,12 +3,12 @@ import std/io
 // Probe: UNWRAPPING a distinct type by applying its inner type's name.
 //
 // `String(e)` is not a conversion and Nomi has none. `Int`, `Float` and
-// `String` are bound in the root environment to a builtin that answers
-// `DistinctVal.Inner` and errors on anything else (`eval.Bootstrap`), so:
+// `String` applied to a distinct answer its inner value, and to anything else
+// are an error, so:
 //
 //   - `Int(Meters(5))` is the unwrap, and `Int(5)` would be a RUNTIME ERROR —
 //     which is why the builder admits only a distinct argument.
-//   - `Bool` is deliberately absent from that builtin loop, so `Bool(f)` on a
+//   - `Bool` is deliberately not one of those names, so `Bool(f)` on a
 //     `type Flag Bool` is not spellable and is not lowered here either.
 //   - The set is exactly three names, read as a closed vocabulary.
 //

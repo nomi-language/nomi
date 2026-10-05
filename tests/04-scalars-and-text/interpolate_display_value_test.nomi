@@ -1,0 +1,56 @@
+//# Interpolating a value whose static type is the interface `Display`.
+//#
+//# `"${x}"` with `x: Display` renders the value `x` holds through that value's
+//# own impl, as `Display.to_string(x)` does. A typed literal's handler
+//# receives its holes as `Fragment<Display>.Dynamic(v)`, so this is also how
+//# a handler such as `Toml` writes a hole back out.
+
+import std/toml.Toml
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+impl Display for Point {
+    fn to_string(p: Point): String {
+        "(${p.x}, ${p.y})"
+    }
+}
+
+fn show(x: Display): String {
+    "<${x}>"
+}
+
+fn show_bounded<T>(x: T): String where T: Display {
+    "[${x}]"
+}
+
+fn show_all(xs: List<Display>): String {
+    xs |> Iter.map(|x| "${x}") |> String.join(",")
+}
+
+test "a Display parameter interpolates through the value's own impl" {
+    assert show(Point{x: 1, y: 2}) == "<(1, 2)>"
+    assert show(3) == "<3>"
+    assert show("s") == "<s>"
+    assert show(1.5) == "<1.5>"
+    assert show(True) == "<True>"
+}
+
+test "a type parameter bounded by Display interpolates" {
+    assert show_bounded(Point{x: 3, y: 4}) == "[(3, 4)]"
+    assert show_bounded(2.5) == "[2.5]"
+}
+
+test "a lambda over a list of Display values interpolates each" {
+    xs: List<Display> = [Point{x: 7, y: 8}, Point{x: 9, y: 9}]
+    assert show_all(xs) == "(7, 8),(9, 9)"
+}
+
+test "a Toml literal writes each hole through Display" {
+    port = 8080
+    p = Point{x: 1, y: 2}
+    assert Toml.text(Toml"port = ${port}") == "port = 8080"
+    assert Toml.text(Toml"at = '${p}'") == "at = '(1, 2)'"
+}

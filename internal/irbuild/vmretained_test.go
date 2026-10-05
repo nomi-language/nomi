@@ -4,7 +4,8 @@ package irbuild
 //
 // Every function the builder retains over the front-end-accepted corpus runs
 // on the VM with arguments synthesized from its graph. A function either runs
-// or fails in exactly one classified bucket, and each bucket is pinned. The
+// or fails in exactly one classified bucket, and each function's outcome is
+// recorded in a committed list (vmRetainedList). The
 // retention count alone cannot see a body the machine cannot execute, because
 // the builder retains the same graph either way; this test is where that shows.
 
@@ -14,12 +15,15 @@ import (
 	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/stdlibadapters"
 	"io"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
 
@@ -27,88 +31,193 @@ import (
 	"github.com/nomi-language/nomi/rt/vclock"
 )
 
-// The pins partition the retained corpus population. Every retained function
-// either runs or lands in exactly one failure bucket, and the test checks that
-// the buckets exhaust the population, so a failure in an unclassified bucket
-// cannot hide behind unchanged totals.
+// THE POPULATION IS A COMMITTED LIST, testdata/expectations/vm-retained.txt:
+// one line per retained function, `<declaring file>:<name>\t<outcome>`,
+// where the outcome is `ran` or the failure bucket. A function added,
+// dropped or moved between buckets shows as a diff of that file and names
+// itself; regenerate with vmRetainedRegenerate and name the cause in the
+// commit message. One declaration can retain several bodies (a generic
+// function's instantiations), so a line may repeat.
 //
-// A fall in vmWantRunnable is a VM regression. VOCABULARY must stay zero: a
-// rise means the builder put an instruction into a retained body that the
-// machine cannot run. IDENTITY must stay zero: a rise means a retained graph
-// reads a local its own parameter list does not declare, which `ir.Lint`'s
-// RuleLocalDeclared also reports (internal/ir's
+// A function that ran in the committed list and no longer runs is a VM
+// regression, and the test reports it by name before any other difference.
+//
+// Two buckets must stay empty whatever the list says. VOCABULARY: the builder
+// put an instruction into a retained body that the machine cannot run.
+// IDENTITY: a retained graph reads a local its own parameter list does not
+// declare, which `ir.Lint`'s RuleLocalDeclared also reports (internal/ir's
 // TestLintLocalDeclared_CatchesItsPlant builds that graph, and
-// TestLintLocalDeclared_TheLocalControlIsClean its clean control). LINKING
+// TestLintLocalDeclared_TheLocalControlIsClean its clean control).
+//
+// The other buckets are expected and their members are in the list. LINKING
 // and HOST count bodies that call out of their module to a callee with no VM
 // body or binding; they move when the builder admits a caller before its
-// callee, which is not a machine gap. Their zeros are validated by planted
-// positives: TestVMCoverage_TheLinkingClassifierCatchesItsPlant and
-// TestVMCoverage_TheHostClassifierCatchesItsPlant.
+// callee, which is not a machine gap (planted positives:
+// TestVMCoverage_TheLinkingClassifierCatchesItsPlant and
+// TestVMCoverage_TheHostClassifierCatchesItsPlant). UNLINKED is a host fn
+// that crosses into a project's Go binding this test binary does not link
+// (vmUnlinkedClass). BLOCKED waits on a channel nothing in isolation answers
+// (vmInBubble). BOOT creates a supervisor outside boot. TODO reaches a `todo`
+// on the path the probe's argument takes. The two PROBE buckets are artifacts
+// of argument synthesis, not of the machine: a struct lacking a field read
+// through a container, or an argument that is not a value of the declared
+// type (an existential with no implementing value, a leaf where a recursive
+// type or an Iter belongs). The corpus runs each with real values.
 //
-// Re-derive a pin from the run rather than bumping it, and name the bodies
-// that moved and the cause in the commit message.
-const (
-	// vmWantRetained counts the retained module functions and the declared or
-	// inherited impl bodies over every front-end-accepted corpus file, each
-	// once: a file that is a unit of several programs (an entry file beside
-	// its test file, a helper module its importers share) is lowered once per
-	// program, and vmCorpusPopulation keeps one copy of each body. It includes
-	// the field-default accessors a declaring file builds for another file's
-	// literals (foreignfielddefault.go): 7 of them, 4 in
-	// 15-app-and-defer/effects/app.nomi and 3 in variant_field_defaults. A
-	// group whose boot takes no parameter has no startup function, so the
-	// corpus's five `boot x.boot()` lines add none.
-	vmWantRetained = 947
-	// vmWantRunnable counts the retained functions the VM executes to a
-	// Return, or to a Nomi fault, on some synthesized argument vector.
-	vmWantRunnable           = 908
-	vmWantIdentityFailures   = 0
-	vmWantVocabularyFailures = 0
-	// message_loop's synthesized Config.inspect calls Counter.inspect, which
-	// is not retained (Debug over a Channel field). The corpus never reaches
-	// Config's Debug; a program that did would be BLOCKED by Unretained.
-	vmWantLinkingFailures = 1
-	vmWantHostFailures    = 0
-	// The host fn bodies that cross into a project's Go binding, and the FFI
-	// `main`s that call them: each crossing names its binding's extern key and
-	// this test binary does not link the project's Go package. See
-	// vmUnlinkedClass.
-	vmWantUnlinkedBindingFailures = 20
-	// message_loop's get, which sends its request to the closed inbox the
-	// probe supplies and then waits for a reply nothing sends. See
-	// vmInBubble.
-	vmWantBlockedFailures = 1
-	// message_loop's start, whose Supervisor.new is legal only while boot
-	// runs; the entry boot that calls it runs.
-	vmWantBootFailures = 1
-	// todo_test's `unfinished`, whose body is a `todo` on the path the
-	// probe's argument takes; the corpus test calls it only to show that a
-	// `todo` on an untaken path does not trap.
-	vmWantTodoFailures = 1
-	// file_store_pattern's FileStore.save puts the probe's TodoTask, which
-	// carries only the `id` save reads, into a map that `serialize` reads
-	// every field of through Map.values. The probe cannot see a field demand
-	// across a container; the corpus runs the body with a real TodoTask.
-	// generic_inherent_impl's Span.ends, at Span<Int> and Span<String>, reads
-	// `stop` itself and hands the value to Span.first, which reads `start`;
-	// the probe builds the argument from the body's own read alone. The
-	// corpus runs both with real Spans.
-	vmWantProbeShapeFailures = 3
-	// Bodies whose synthesized argument is not a value of the declared type:
-	// interface_dispatch's `announce(s: Speech)`, whose existential parameter
-	// holds a value of no implementing type; type_argument_inference's
-	// Chooser.top over Pair<Priority>, whose callee reads `rank` off a leaf;
-	// iter_test's Tree.each_while and Tree.inspect, whose variant test reads
-	// a leaf where a Tree belongs; and iter_values_test's total and first_of,
-	// which iterate a leaf where an Iter<T> belongs, as vectors_test's collect
-	// (at Int and at String) and strings_test's slash_joined do; recursive_structs'
-	// length, which reads `next` off the leaf the probe supplies for a Link,
-	// a struct that holds itself; and generic_debug's Tree<Int>.inspect and
-	// Tree<String>.inspect, whose variant test reads a leaf where a Tree
-	// belongs, as iter_test's Tree.inspect does. The corpus runs each with
-	// real values.
-	vmWantProbeArgFailures = 12
-)
+// std's population has the same list, vm-std-retained.txt
+// (TestIRRetainedStdPopulationRuns, vmstdretained_test.go).
+
+// vmRetainedList is one committed population list: its file under
+// testdata/expectations, the command that rewrites it, and what it covers.
+type vmRetainedList struct {
+	file       string
+	regenerate string
+	// population names what the list covers in its header, and test the
+	// test that probes it.
+	population, test string
+}
+
+// vmRetainedCorpus is the corpus's list, TestIRRetainedPopulationRuns's.
+var vmRetainedCorpus = vmRetainedList{
+	file: "vm-retained.txt",
+	regenerate: "NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild " +
+		"-run '^TestIRRetainedPopulationRuns$' -count=1",
+	population: "the corpus",
+	test:       "TestIRRetainedPopulationRuns",
+}
+
+// vmRetainedStd is std's list, TestIRRetainedStdPopulationRuns's.
+var vmRetainedStd = vmRetainedList{
+	file: "vm-std-retained.txt",
+	regenerate: "NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild " +
+		"-run '^TestIRRetainedStdPopulationRuns$' -count=1",
+	population: "the cached std modules",
+	test:       "TestIRRetainedStdPopulationRuns",
+}
+
+// committed is the committed list's lines, sorted.
+func (l vmRetainedList) committed(t *testing.T) []string {
+	t.Helper()
+	dir, err := expectation.Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, l.file)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading %s: %v; create it with\n  %s", path, err, l.regenerate)
+	}
+	var want []string
+	for _, line := range strings.Split(string(data), "\n") {
+		if line != "" && !strings.HasPrefix(line, "#") {
+			want = append(want, line)
+		}
+	}
+	sort.Strings(want)
+	return want
+}
+
+// ranCount is how many functions the committed list says the VM runs, the
+// number TestIRParamShapeAgreesWithTheVM and its std counterpart hold their
+// readings to.
+func (l vmRetainedList) ranCount(t *testing.T) int {
+	t.Helper()
+	n := 0
+	for _, line := range l.committed(t) {
+		if strings.HasSuffix(line, "\tran") {
+			n++
+		}
+	}
+	return n
+}
+
+// check compares the population's lines with the committed list, or rewrites
+// the list under NOMI_REGENERATE_EXPECTATIONS=1.
+func (l vmRetainedList) check(t *testing.T, lines []string) {
+	t.Helper()
+	sort.Strings(lines)
+	dir, err := expectation.Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, l.file)
+	if expectation.RegenerateRequested() {
+		var b strings.Builder
+		fmt.Fprintf(&b, "# Every function the builder retains over %s, and whether the VM\n", l.population)
+		b.WriteString("# ran it on synthesized arguments (internal/irbuild's\n")
+		fmt.Fprintf(&b, "# %s). A line that leaves `ran` is a regression;\n", l.test)
+		b.WriteString("# name the cause of every moved line. Regenerate with:\n")
+		fmt.Fprintf(&b, "#   %s\n", l.regenerate)
+		for _, line := range lines {
+			b.WriteString(line + "\n")
+		}
+		if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("REWROTE %s with %d function(s) because NOMI_REGENERATE_EXPECTATIONS=1", path, len(lines))
+		return
+	}
+	want := l.committed(t)
+
+	// RAN BEFORE, DOES NOT RUN NOW: per function key, the committed list's
+	// `ran` count against this run's.
+	ranCount := func(ls []string) (map[string]int, map[string][]string) {
+		ran, other := map[string]int{}, map[string][]string{}
+		for _, line := range ls {
+			key, outcome, _ := strings.Cut(line, "\t")
+			if outcome == "ran" {
+				ran[key]++
+			} else {
+				other[key] = append(other[key], outcome)
+			}
+		}
+		return ran, other
+	}
+	wantRan, _ := ranCount(want)
+	gotRan, gotOther := ranCount(lines)
+	var regressed []string
+	for key, n := range wantRan {
+		if gotRan[key] < n {
+			now := strings.Join(gotOther[key], "; ")
+			if now == "" {
+				now = "no longer retained"
+			}
+			regressed = append(regressed, fmt.Sprintf("    %s: %s", key, now))
+		}
+	}
+	sort.Strings(regressed)
+	if len(regressed) > 0 {
+		t.Errorf("%d function(s) the VM ran before no longer run. This is the regression "+
+			"the retention count cannot see:\n%s", len(regressed), strings.Join(regressed, "\n"))
+	}
+
+	// EVERY OTHER MOVE: a multiset difference of the two lists.
+	count := func(ls []string) map[string]int {
+		m := map[string]int{}
+		for _, line := range ls {
+			m[line]++
+		}
+		return m
+	}
+	wantN, gotN := count(want), count(lines)
+	var diff []string
+	for line, n := range wantN {
+		for i := gotN[line]; i < n; i++ {
+			diff = append(diff, "  - "+line)
+		}
+	}
+	for line, n := range gotN {
+		for i := wantN[line]; i < n; i++ {
+			diff = append(diff, "  + "+line)
+		}
+	}
+	sort.Slice(diff, func(i, j int) bool { return diff[i][4:] < diff[j][4:] })
+	if len(diff) > 0 {
+		t.Errorf("the retained population differs from %s (- committed, + this run). If the "+
+			"move is intended, regenerate with\n  %s\nand name each moved function's cause.\n%s",
+			l.file, l.regenerate, strings.Join(diff, "\n"))
+	}
+}
 
 // vmProbeArgClass is a function the probe's synthesized arguments cannot
 // satisfy: an existential parameter with no implementing value, or a field
@@ -154,7 +263,7 @@ func vmArgShapes(mod *ir.Module, f *ir.Func, links ...*ir.Module) [][]any {
 		rt.Decimal{},
 		rt.Byte(65),
 		rt.Bytes("A"),
-		// A Maybe a host call consumes, such as Result.from_maybe's receiver,
+		// A Maybe a host call consumes, such as Maybe.to_result's receiver,
 		// has no Match or projection in the graph to state its shape.
 		&probeVariant{enum: "maybe.Maybe", variant: "Some", payload: int64(1)},
 	}
@@ -572,7 +681,12 @@ type vmProbeEntry struct {
 	mod *ir.Module
 	fn  *ir.Func
 	// rel names the program, which is what a failure is reported under.
-	rel      string
+	rel string
+	// decl is the corpus-relative file that declares fn, or rel when the
+	// declaration lies outside the corpus. It keys the committed list, so a
+	// helper module's function keeps its line when a new program that
+	// imports it sorts first.
+	decl     string
 	links    []*ir.Module
 	unlinked map[string]bool
 }
@@ -594,7 +708,7 @@ type vmProbeEntry struct {
 // copies of a member already listed.
 func vmCorpusPopulation(t *testing.T) (entries []vmProbeEntry, modules, copies int) {
 	t.Helper()
-	_, files := corpusAnalysis(t)
+	root, files := corpusAnalysis(t)
 	seen := map[string]bool{}
 	for _, f := range files {
 		if f.Prog == nil {
@@ -613,7 +727,12 @@ func vmCorpusPopulation(t *testing.T) (entries []vmProbeEntry, modules, copies i
 					continue
 				}
 				seen[key] = true
-				entries = append(entries, vmProbeEntry{mod: m, fn: fn, rel: f.Rel,
+				decl := f.Rel
+				if rel, err := filepath.Rel(root, fn.Pos().File()); err == nil &&
+					!strings.HasPrefix(rel, "..") && filepath.IsAbs(fn.Pos().File()) {
+					decl = filepath.ToSlash(rel)
+				}
+				entries = append(entries, vmProbeEntry{mod: m, fn: fn, rel: f.Rel, decl: decl,
 					links: res.IRModules(), unlinked: res.irHostKeys})
 			}
 		}
@@ -703,6 +822,7 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 
 	shapes := map[string]int{}
 	failures := map[string][]string{}
+	var lines []string
 	total, ran := 0, 0
 	for _, e := range entries {
 		fn := e.fn
@@ -722,13 +842,16 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 		} else if bubbleErr != nil {
 			t.Logf("  %s:%s answered, and then its bubble reported: %v", e.rel, fn.Name(), bubbleErr)
 		}
+		key := e.decl + ":" + fn.Name()
 		if res.ran {
 			ran++
+			lines = append(lines, key+"\tran")
 			continue
 		}
 		class := vmClassify(res.err)
 		if res.boot {
 			failures[class] = append(failures[class], e.rel+":"+fn.Name())
+			lines = append(lines, key+"\t"+class)
 			t.Logf("  %s:%s did not start: %v", e.rel, fn.Name(), res.err)
 			continue
 		}
@@ -739,6 +862,7 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 			class = vmProbeArgClass
 		}
 		failures[class] = append(failures[class], e.rel+":"+fn.Name())
+		lines = append(lines, key+"\t"+class)
 	}
 
 	if total == 0 {
@@ -765,82 +889,41 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 	t.Logf("%d modules, %d retained functions, %d executed by the VM; %d copies of a "+
 		"function another program already lowered were not probed again", modules, total, ran, copies)
 
-	if total != vmWantRetained {
-		t.Errorf("the corpus retained %d functions, pinned at %d; re-derive rather than "+
-			"bumping; this population includes module functions and declared or inherited impl bodies", total, vmWantRetained)
-	}
-	if ran != vmWantRunnable {
-		t.Errorf("the VM executed %d retained functions, pinned at %d. A fall is a VM "+
-			"regression the retention count cannot see", ran, vmWantRunnable)
-	}
-	if got := len(failures["IDENTITY: a local the frame does not declare"]); got != vmWantIdentityFailures {
-		t.Errorf("%d retained functions read a local their own parameter list does not "+
-			"declare, pinned at %d. A rise means the builder retained incomplete graphs",
-			got, vmWantIdentityFailures)
-	}
-	vocab := 0
-	for k, v := range failures {
-		if strings.HasPrefix(k, "VOCABULARY") {
-			vocab += len(v)
+	vmRetainedCorpus.check(t, lines)
+
+	vmCheckBuckets(t, failures)
+}
+
+// vmCheckBuckets holds a population's failure buckets to what no list can
+// excuse: the two that must stay empty, and any bucket outside the classified
+// ones.
+func vmCheckBuckets(t *testing.T, failures map[string][]string) {
+	t.Helper()
+	// THE TWO BUCKETS THAT MUST STAY EMPTY, whatever the list holds.
+	for class, members := range failures {
+		if strings.HasPrefix(class, "VOCABULARY") || strings.HasPrefix(class, "IDENTITY") {
+			t.Errorf("%d retained function(s) in %q, which must stay empty: the builder "+
+				"retained a body the VM cannot execute: %s", len(members), class,
+				strings.Join(members, ", "))
 		}
 	}
-	if vocab != vmWantVocabularyFailures {
-		t.Errorf("%d retained functions need an instruction this machine does not run, "+
-			"pinned at %d: the builder put an instruction into a retained body that the "+
-			"VM cannot execute",
-			vocab, vmWantVocabularyFailures)
+	// A failure outside the classified buckets is a misclassification the list
+	// would record as an opaque reason; name it instead.
+	known := map[string]bool{
+		"LINKING: a declaration this module did not retain":        true,
+		"HOST: crosses into Go with no binding":                    true,
+		vmUnlinkedClass:                                            true,
+		"BLOCKED: waits on a channel nothing in isolation answers": true,
+		"BOOT: creatable only while boot runs":                     true,
+		vmProbeShapeClass:                                          true,
+		"TODO: the body is not written yet":                        true,
+		vmProbeArgClass:                                            true,
 	}
-	link := len(failures["LINKING: a declaration this module did not retain"])
-	if link != vmWantLinkingFailures {
-		t.Errorf("%d retained functions call a declaration this module does not hold, "+
-			"pinned at %d. This is module closure rather than a machine gap: the "+
-			"caller was retained and its callee was not", link, vmWantLinkingFailures)
-	}
-	host := len(failures["HOST: crosses into Go with no binding"])
-	if host != vmWantHostFailures {
-		t.Errorf("%d retained functions call into Go with no VM binding, pinned at %d. "+
-			"The call instruction runs; the crossing has no host binding",
-			host, vmWantHostFailures)
-	}
-	unbound := len(failures[vmUnlinkedClass])
-	if unbound != vmWantUnlinkedBindingFailures {
-		t.Errorf("%d retained functions reach a project's Go-bound `host fn`, whose Go "+
-			"package this test binary does not link, pinned at %d. The crossing and its "+
-			"key are right: TestIRHostFn_GoBoundProgramsRunOnTheVM runs the same "+
-			"programs with the bindings registered", unbound, vmWantUnlinkedBindingFailures)
-	}
-	// A count cannot see a misclassification that leaves the total unchanged,
-	// and a partition can. Every retained function either ran or failed in
-	// exactly one classified bucket, so the pins must exhaust the population.
-	blocked := len(failures["BLOCKED: waits on a channel nothing in isolation answers"])
-	if blocked != vmWantBlockedFailures {
-		t.Errorf("%d retained functions gave no answer within the probe's virtual-time bound, pinned at %d",
-			blocked, vmWantBlockedFailures)
-	}
-	boot := len(failures["BOOT: creatable only while boot runs"])
-	if boot != vmWantBootFailures {
-		t.Errorf("%d retained functions create a supervisor outside boot, pinned at %d",
-			boot, vmWantBootFailures)
-	}
-	probe := len(failures[vmProbeShapeClass])
-	if probe != vmWantProbeShapeFailures {
-		t.Errorf("%d retained functions read a field the probe's synthesized struct lacks, pinned at %d",
-			probe, vmWantProbeShapeFailures)
-	}
-	todo := len(failures["TODO: the body is not written yet"])
-	if todo != vmWantTodoFailures {
-		t.Errorf("%d retained functions reach a `todo`, pinned at %d", todo, vmWantTodoFailures)
-	}
-	probeArg := len(failures[vmProbeArgClass])
-	if probeArg != vmWantProbeArgFailures {
-		t.Errorf("%d retained functions take a synthesized argument that is not a value of "+
-			"the declared type, pinned at %d", probeArg, vmWantProbeArgFailures)
-	}
-	if ran+link+host+unbound+vocab+blocked+boot+todo+probe+probeArg+len(failures["IDENTITY: a local the frame does not declare"]) != total {
-		t.Errorf("%d ran + %d LINKING + %d HOST + %d UNLINKED + %d VOCABULARY + %d BLOCKED + %d BOOT + %d TODO + %d PROBE + %d PROBE-ARG + %d IDENTITY does not "+
-			"exhaust the %d retained functions, so some failure is in an UNCLASSIFIED "+
-			"bucket that no pin above can see", ran, link, host, unbound, vocab, blocked, boot, todo, probe, probeArg,
-			len(failures["IDENTITY: a local the frame does not declare"]), total)
+	for class, members := range failures {
+		if !known[class] && !strings.HasPrefix(class, "VOCABULARY") && !strings.HasPrefix(class, "IDENTITY") {
+			t.Errorf("%d retained function(s) failed in the UNCLASSIFIED bucket %q: %s",
+				len(members), class, strings.Join(members, ", "))
+		}
 	}
 }
 

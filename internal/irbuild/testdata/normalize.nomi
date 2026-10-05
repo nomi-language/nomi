@@ -1,7 +1,7 @@
-// `String.normalize` end to end, which is also the first artifact to link a host
-// package with an EXTERNAL dependency (golang.org/x/text, through
-// nomi/stdstrings). So this fixture pins two things at once: the four forms'
-// answers, and that the generated module builds at all with that require in it.
+// `String.normalize` end to end. The host package behind it,
+// nomi/stdstrings, has an EXTERNAL dependency (golang.org/x/text), so this
+// fixture pins the four forms' answers through that dependency on the VM's
+// own host table.
 import std/strings.NormalForm
 
 test "NFC composes and NFD decomposes" {

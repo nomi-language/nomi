@@ -151,6 +151,8 @@ func (tl *taskLifetime) walkSubtree(n ast.Node) {
 		tl.walkSubtree(node.Expr)
 	case *ast.Dbg:
 		tl.walkSubtree(node.Expr)
+	case *ast.Then:
+		tl.walkSubtree(node.Lambda)
 	case *ast.StringInterp:
 		for _, part := range node.Parts {
 			if se, ok := part.(ast.StringExpr); ok {
@@ -432,6 +434,8 @@ func (tl *taskLifetime) collectReferencedNames(block *ast.Block) map[string]bool
 			visit(node.Expr)
 		case *ast.Dbg:
 			visit(node.Expr)
+		case *ast.Then:
+			visit(node.Lambda)
 		case *ast.StringInterp:
 			for _, part := range node.Parts {
 				if se, ok := part.(ast.StringExpr); ok {

@@ -1,10 +1,9 @@
-// `defer`: the three rules, each MEASURED against the interpreter rather than
-// read off the construct's name. See internal/irbuild/appfield.go.
+// `defer`: the three rules. See internal/irbuild/appfield.go.
 //
 //  1. A deferred call runs at the enclosing BLOCK's exit, not the function's —
 //     `cleanup inner-b` and `cleanup inner-a` both print before `block-left`.
-//     Go's own `defer` is function-scoped, so the lowering emits at both
-//     boundaries behind a guard that makes the call exactly once.
+//     The lowering runs the deferred call at every exit of the block, behind
+//     a guard that makes the call exactly once.
 //  2. Reverse registration order.
 //  3. The arguments are captured when the `defer` STATEMENT executes, not when
 //     the call runs — `cleanup first`, not the shadowed value.

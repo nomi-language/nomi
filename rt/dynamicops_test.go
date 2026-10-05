@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// The two ABSOLUTE pins over std/dynamic's observable strings.
+// The two absolute pins over std/dynamic's observable strings.
 //
 // # Why these are absolute
 //
@@ -15,17 +15,10 @@ import (
 
 // TestDynamicInspectRenderings pins `impl Debug for Dynamic`'s output.
 //
-// THE `dict` ROW WAS TOO SMALL AND MUTATION FOUND IT. The original row supplied
-// TWO keys out of order, and deleting `sort.Strings` from dynamicRender left this
-// test PASSING — because with two keys a random Go map iteration comes out sorted
-// half the time, so the guard was a coin flip rather than an assertion. The row
-// now supplies TWELVE keys in reverse: a random permutation of twelve is sorted
-// with probability 1/12! and the mutation fails every run.
-//
-// Worth recording rather than quietly widening, because the guard's own comment
-// already SAID a dropped sort would be a flake and the row was built as if it
-// would not be. A stated hazard and a row that does not defend against it is the
-// same shape as a reason that was never true: both read as covered.
+// The `dict` row supplies twelve keys in reverse. With two keys a random Go map
+// iteration comes out sorted half the time, so a dynamicRender missing its
+// `sort.Strings` would pass by chance. A random permutation of twelve is sorted
+// with probability 1/12!, so a missing sort fails every run.
 //
 // `nested` crosses list-into-dict-into-dict, so a recursion that handled only one
 // level passes every other row.
@@ -42,8 +35,8 @@ func TestDynamicInspectRenderings(t *testing.T) {
 		{"float", 3.5, "3.5"},
 		{"string", "hi", `"hi"`},
 		{"list", []any{int64(1), "x", true}, `[1, "x", true]`},
-		// TWELVE keys, supplied in reverse. See the header: two keys made this
-		// row a coin flip under the mutation that deletes dynamicRender's sort.
+		// Twelve keys, supplied in reverse. See the header: with two keys a
+		// dynamicRender missing its sort would pass half the time.
 		{"dict", map[string]any{
 			"l": int64(12), "k": int64(11), "j": int64(10), "i": int64(9),
 			"h": int64(8), "g": int64(7), "f": int64(6), "e": int64(5),
@@ -103,13 +96,13 @@ func TestDynamicTypeNameVocabulary(t *testing.T) {
 // TestDynamicNumericBoundaries pins the two range rules whose correct form is
 // not the obvious one.
 //
-// These are the arms where a plausible simplification produces a WRONG ANSWER
+// These are the arms where a plausible simplification produces a wrong answer
 // rather than a refusal, so they get their own test.
 //
-//	float64(2^63)   math.MaxInt64 has no exact float64 and rounds UP to 2^63, so
-//	                `n > math.MaxInt64` is FALSE here and the int64 cast
+//	float64(2^63)   math.MaxInt64 has no exact float64 and rounds up to 2^63, so
+//	                `n > math.MaxInt64` is false here and the int64 cast
 //	                overflows. `>= float64(1<<63)` is what rejects it.
-//	uint64 > MaxInt64  the top bit becomes the SIGN bit under an int64 cast, so
+//	uint64 > MaxInt64  the top bit becomes the sign bit under an int64 cast, so
 //	                an unguarded conversion answers a negative number for a
 //	                positive input.
 //
@@ -132,7 +125,7 @@ func TestDynamicNumericBoundaries(t *testing.T) {
 	if got := DynamicAsInt(Dynamic{Inner: uint64(math.MaxInt64)}); got.Tag != TagOk || got.Ok != math.MaxInt64 {
 		t.Errorf("uint64(MaxInt64) is in range; got %+v", got)
 	}
-	// A fractional float is REFUSED, not truncated. The whole point of accepting
+	// A fractional float is refused, not truncated. The reason for accepting
 	// float64 at all is JSON's `36` arriving as 36.0, and accepting 3.14 too
 	// would lose data silently.
 	if got := DynamicAsInt(Dynamic{Inner: 3.14}); got.Tag != TagErr ||
@@ -144,7 +137,7 @@ func TestDynamicNumericBoundaries(t *testing.T) {
 // TestDynamicPathSegmentTagsMatchDeclarationOrder pins the two tag numbers
 // against the names, in the file that constructs them.
 //
-// A LAYOUT CONTRACT rather than a unit test: internal/irbuild's stdEnumSpec for
+// A layout contract rather than a unit test: internal/irbuild's stdEnumSpec for
 // `std/dynamic.PathSegment` names these variants in declaration order and the
 // builder assigns 1 and 2 from that order, so a swap here would make a
 // program read a `Field` as an `Index` — a wrong answer with no build error
@@ -171,10 +164,10 @@ func TestDynamicPathSegmentTagsMatchDeclarationOrder(t *testing.T) {
 	}
 }
 
-// TestDynamicAsDictKeysAreSorted asserts the ORDER, not just the contents.
+// TestDynamicAsDictKeysAreSorted asserts the order, not just the contents.
 //
 // Separate from the rendering pin because it is a different mechanism: the
-// rendering sorts at print time, and this sorts at INSERTION time so that
+// rendering sorts at print time, and this sorts at insertion time so that
 // `rt.MapEntries` — which reports insertion order — gives a stable walk. A
 // dropped sort here is invisible to the rendering pin and shows up as a Nomi
 // `Map` that renders differently between runs of one program.
@@ -232,7 +225,7 @@ func TestDynamicAsListPreservesOrderAndLen(t *testing.T) {
 	}
 }
 
-// TestJsonToDynamicIsJsonToAnyWrapped asserts the bridge is a WRAPPER and not a
+// TestJsonToDynamicIsJsonToAnyWrapped asserts the bridge is a wrapper and not a
 // second walk.
 //
 // The claim is that `JsonToDynamic` adds the Nomi type and nothing else, so the

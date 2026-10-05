@@ -15,7 +15,7 @@ import (
 //
 // `nomi run` / `test` / `check` on a project with Go FFI stages a wrapper that
 // links nomi/vmhost with adapters generated for the user's bindings, and
-// building it needs `go`. Measured at 3a933661 in a source checkout under `PATH=/usr/bin:/bin`:
+// building it needs `go`. In a source checkout under `PATH=/usr/bin:/bin`:
 //
 //	nomi run: ffirun: building wrapper: exec: "go": executable file not found in $PATH
 //

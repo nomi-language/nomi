@@ -7,7 +7,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// TestConsSharesItsTail is the property the cons cell was chosen FOR, so it is
+// TestConsSharesItsTail is the property the cons cell was chosen for, so it is
 // asserted rather than assumed: prepending must be O(1) and must not copy, or
 // the representation has no advantage over a slice and the reasoning in list.go
 // is wrong.
@@ -30,7 +30,7 @@ func TestConsSharesItsTail(t *testing.T) {
 }
 
 // TestEmptyListIsNil pins nil as the empty list rather than a distinguished
-// allocated cell. It is what makes a Go zero value CORRECT for a list — the
+// allocated cell. It is what makes a Go zero value correct for a list — the
 // opposite of the enum tag, where the zero value had to be made detectably
 // invalid — so a `var xs *rt.List[int64]` needs no initialization.
 func TestEmptyListIsNil(t *testing.T) {
@@ -92,12 +92,12 @@ func TestListEqual(t *testing.T) {
 	}
 }
 
-// TestEqFloatIsReflexiveForNaN is the whole reason EqFloat exists beside Eq.
+// TestEqFloatIsReflexiveForNaN pins the reason EqFloat exists beside Eq.
 //
 // Nomi's `==` on Float is reflexive: `nan == nan` is True, which is what makes a
 // NaN map key retrievable from the map it was inserted into. Go's is IEEE. The
-// `comparable` constraint on Eq admits float64, so the wrong one COMPILES —
-// hence the second half of this test, which pins that they disagree, so nobody
+// `comparable` constraint on Eq admits float64, so the wrong one compiles.
+// The second half of this test pins that they disagree, so nobody
 // "simplifies" EqFloat away.
 func TestEqFloatIsReflexiveForNaN(t *testing.T) {
 	nan := math.NaN()
@@ -122,10 +122,10 @@ func TestEqFloatIsReflexiveForNaN(t *testing.T) {
 }
 
 // TestFormatListMatchesTheDisplayImpl pins the rule from `impl Display for
-// List<T>` (std/lists.nomi) and NOT the `values:` row rendering.
+// List<T>` (std/lists.nomi) and not the `values:` row rendering.
 //
 // The two differ on exactly one thing and it is observable: the row renders
-// elements with Inspect, which QUOTES strings, while the Display impl renders
+// elements with Inspect, which quotes strings, while the Display impl renders
 // them with Display.to_string, which does not. `${["file.txt"]}` is
 // `[file.txt]`, so that is the answer to reproduce.
 func TestFormatListMatchesTheDisplayImpl(t *testing.T) {

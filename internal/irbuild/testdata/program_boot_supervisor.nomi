@@ -1,12 +1,10 @@
 // A PROGRAM whose `boot` creates a Supervisor, which is the shape that makes
 // `rt.EnterBoot` load-bearing on the program-boot path.
 //
-// WHY THIS FIXTURE EXISTS, measured rather than assumed. Dropping
-// `fr = rt.EnterBoot(fr)` from appfield.go's stageApp SURVIVED the whole
-// program-boot suite and survived every `-run` over the supervisor tests,
-// because `15-app-and-defer/effects/main.nomi` builds no supervisor and the
-// corpus's boot-with-supervisor programs are `compiler.check` STRINGS — they are
-// analyzed and never run, so nothing executed the staging frame.
+// WHY THIS FIXTURE EXISTS. `15-app-and-defer/effects/main.nomi` builds no
+// supervisor and the corpus's boot-with-supervisor programs are
+// `compiler.check` STRINGS, analyzed and never run, so without this file
+// nothing executes boot's `rt.EnterBoot` frame (internal/vm/boot.go).
 //
 // `Supervisor.new` traps outside the boot window with rt's own message ("a
 // supervisor here would be a new one every time this runs ... Create it while
@@ -16,9 +14,8 @@
 // `describe` below is that case: it is an ordinary function, called from boot,
 // and it builds the supervisor.
 //
-// The interpreter reaches the same window with a process-wide counter around the
-// boot callback (eval/supervisor.go's bootPhase), so the two agree and this file
-// is a differential rather than a Go-side unit test.
+// The VM enters that window for the boot call itself, so a supervisor built
+// by a function boot calls is inside it too.
 import {
     std/duration.Duration
     std/io

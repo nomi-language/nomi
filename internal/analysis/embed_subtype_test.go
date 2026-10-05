@@ -111,7 +111,7 @@ fn make(): Identifier {
 
 // `embeds Iface` is not allowed — interfaces aren't structs or distincts,
 // so there's no meaningful subtyping to install (that would be open
-// polymorphism / dynamic interface dispatch, rejected by §13.7). Without this
+// polymorphism, which spec §8 *Embedded Types* does not allow). Without this
 // check the declaration silently no-ops: parses fine, but no constructor is created
 // and no widening occurs. Diagnostic must point the reader at the
 // single-payload variant form, which is the right shape for an

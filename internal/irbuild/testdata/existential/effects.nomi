@@ -1,5 +1,5 @@
 // The interface, alone in its own file — so its dispatch TABLE is a variable
-// in this file's Go-spelled package and every other file has to name it
+// in this file's builder package and every other file has to name it
 // there rather than mint a second one.
 //
 // This is the shape `tests/15-app-and-defer/effects` uses: the

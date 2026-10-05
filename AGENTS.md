@@ -65,8 +65,10 @@ source → front end (parse, analyze, type-check) → internal/irbuild → IR
 `nomi run`, `nomi test`, the REPL, the tour and `nomi build`'s executables all
 run on the VM. There is no interpreter and no Go backend. `nomi check` and
 `nomi fmt` execute nothing; `nomi check` lowers the program as `nomi run`
-does and reports each body the run would refuse as BLOCKED as an error at
-its source (`vmhost.Program.Unsupported`). The LSP executes one thing, on the same VM: the
+does, and a test file's cases as `nomi test` does, and reports each body the
+run would refuse as an error at its source
+(`vmhost.Program.Unsupported`); the LSP does the same when a file is opened
+or saved, in the background (`internal/lsp/lowering.go`). The LSP executes one thing, on the same VM: the
 handler of a typed literal with no `${...}`, and only when
 `vm.Machine.Effects` finds nothing it can reach acts outside the machine
 (`internal/lsp/literal_eval.go`).
@@ -84,8 +86,14 @@ handler of a typed literal with no `${...}`, and only when
   bodies are instantiated per program, never in the shared cache. Every IR
   temporary has a stored value type (`ir.ValType`), and a retained graph must
   pass `ir.Lint`. A body the builder declines is not retained; a program that
-  reaches one fails before its first effect with a `BLOCKED` line naming the
-  function and the first decline reason. The builder's own type is `kind` (a
+  reaches one fails before its first effect. `nomi run` prints the
+  diagnostic `nomi check` gives, at the expression the builder stopped at
+  and worded for the author ("this call to `f` is not supported yet, so
+  `fn g` cannot run"), and `nomi test` reports the case as `BLOCKED` with
+  that diagnostic. The builder's own decline reason is never shown unless
+  `NOMI_DEBUG_LOWERING=1` is set, which adds it to each such diagnostic as a
+  hint (`vmhost.DebugLowering`); `vmhost.Blocked.Reasons` and
+  `CaseResult.Reasons` carry it for tests. The builder's own type is `kind` (a
   tag plus declaration pointers, spelled in Nomi by `nomi()`), and a value is
   an `expr`: its IR temporary and its kind. Do not add Go text or Go names to
   the builder.
@@ -168,13 +176,18 @@ make test                      # stdlib tests, corpus, then go test
 make test-tour                 # tour doctests, wasm bundle, grammar
 ```
 
-`nomi test <dir or file>` runs `test "…"` blocks. Two pinned readings:
-`TestTestCommand_VMCorpusRatchet` pins `nomi test tests` (passed,
-failed and blocked counts exactly) and `TestTestCommand_VMStdlibRatchet` pins
-`nomi test std`. Never lower a pin without a named cause.
+`nomi test <dir or file>` runs `test "…"` blocks. `TestTestCommand_VMCorpus`
+and `TestTestCommand_VMStdlib` run `nomi test tests` and `nomi test std` and
+require no failed or blocked case, and as many passing cases as
+`corpus.expect` and `stdlib.expect` declare.
+
+CI (`.github/workflows/test.yml`, on pushes to `main` and on pull requests)
+runs `go vet ./...` and `go test ./...` with `internal/irbuild` as its own
+job, builds the tour bundle and runs `TestTourWasm*` against it, and runs
+`make test-vscode`'s tests. It does not run the tree-sitter tests.
 
 **Verification cadence.** The whole `go test ./internal/irbuild
--count=1 -timeout 0` run takes about four minutes, so it is not the per-change
+-count=1 -timeout 0` run takes about 100 seconds, so it is not the per-change
 check:
 
 - **Per change:** the tests of the packages you touched, with narrow `-run`
@@ -198,21 +211,53 @@ check:
 **Golden files.** `testdata/expectations/*.expect` hold the
 normalized output, exit status and case count of every corpus file, stdlib
 module, tour block, deliberately failing fixture, and every program an
-`internal/irbuild` test runs. The VM's output must match them byte for byte.
+`internal/irbuild` test runs, and `reference.expect` lists every stdlib
+reference editor (a `//!` prompt as its reference page renders and runs it)
+with its outcome. The VM's output must match them byte for byte.
 Regenerate with:
 
 ```
 NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/expectation -run 'TestExpectation_(Corpus|Stdlib|Tour|Failure)$' -count=1
 NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild -count=1 -timeout 0
+NOMI_REGENERATE_EXPECTATIONS=1 go test ./cmd/nomi-docgen -run TestReferenceInteractiveTestsOnTheVM -count=1
+NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/vm -run 'TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts|TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords' -count=1
 ```
+
+The last command rewrites `vm-corpus-programs.txt` and
+`vm-corpus-reports.txt`: the corpus files `internal/vm`'s harnesses compare
+whole, as programs and as test reports. Every tour and failure record must
+compare, so those populations have no list. Run it after the `internal/expectation`
+command, since it reads `corpus.expect`. A corpus file leaving a list stopped
+comparing and needs a named cause. No Go test pins a population count, and
+tests name a tour block by a substring of its code
+(`tourBlock(t, "pipes.md", marker)` in `internal/vm`), never by its
+`chapter:L<line>` id.
+
+`vm-retained.txt` lists every function the builder retains over the corpus
+with whether the VM ran it (`TestIRRetainedPopulationRuns`). A new corpus file
+or a builder change moves it; regenerate with
+`NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild -run '^TestIRRetainedPopulationRuns$' -count=1`
+(the whole-package regeneration above also rewrites it) and name each moved
+function's cause. A function that ran and no longer runs fails by name.
+`vm-std-retained.txt` is the same list for the cached std modules, keyed by
+the file under `std/` and the function's index name
+(`calendar.nomi:Date.Add<Days, Date>.add`), from
+`TestIRRetainedStdPopulationRuns`; a change to `std/` or to how the builder
+lowers it moves it. Regenerate with
+`NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild -run '^TestIRRetainedStdPopulationRuns$' -count=1`.
+`TestIRParamShapeAgreesWithTheVM` and its `ForStd` counterpart read their
+expected `ran` counts from these two lists.
 
 A changed golden file needs a named reason in the commit message, per moved
 record or per cause. Regenerating to turn a red test green defeats the check.
 `irbuild.expect` records are keyed by a hash of the program's files, with
-each `.nomi` file hashed as its tokens. Reformatting a fixture keeps its key,
-but any edit to its code needs regeneration, and so does a layout change that
-moves a source line its output prints. Do not delete `irbuild.expect` to prune
-it. A BLOCKED transcript is never recorded.
+each `.nomi` file hashed as its tokens. Comments are tokens too, with their
+text. Reformatting a fixture keeps its key, but any edit to its code or its
+comments needs regeneration, and so does a layout change that moves a source
+line its output prints. Do not delete `irbuild.expect` to prune
+it. A transcript of a program the VM cannot run (a "not supported yet"
+error from `nomi run`, a `BLOCKED` case from `nomi test`;
+`expectation.VMGap`) is never recorded.
 
 Corpus assertions embed source line numbers (`line 74: check failed`), so
 adding or removing a line above one in a `tests` file breaks it.
@@ -337,7 +382,9 @@ language from loading (no highlighting and no LSP).
 After changing `tree-sitter-nomi/grammar.js`:
 
 1. `scripts/tree-sitter.sh generate` (runs the CLI from `tree-sitter-nomi/`),
-   then `scripts/tree-sitter.sh test`.
+   then `scripts/tree-sitter.sh test`. The script pins tree-sitter-cli 0.20.8,
+   which generated the committed `src/parser.c` (ABI 14); a newer CLI
+   rewrites it at ABI 15. Never run a bare `npx tree-sitter generate`.
 2. Update `tree-sitter-nomi/queries/highlights.scm` (first match wins:
    specific patterns first) and `queries/injections.scm`.
 3. Update `editors/zed/languages/nomi/highlights.scm` by hand. Its priority
@@ -356,7 +403,10 @@ After changing `tree-sitter-nomi/grammar.js`:
    (both are regex-based and independent of tree-sitter; the VS Code grammar
    is derived from the bat one), then `make test-vscode`.
 8. `make build-tour-grammar-wasm` and commit the regenerated
-   `tree-sitter-nomi/tree-sitter-nomi.wasm`; the tour deploy copies it.
+   `tree-sitter-nomi/tree-sitter-nomi.wasm`; the tour deploy copies it. It
+   compiles the committed `parser.c` with tree-sitter-cli 0.27.0, pinned in
+   the Makefile, which needs no Docker or Emscripten and rebuilds the
+   committed wasm byte for byte.
 9. To ship the change to editor users, publish the grammar (below).
 
 **Publishing the grammar.** Zed and Helix build the grammar from
@@ -402,9 +452,11 @@ runs the Neovim and Helix dev setups, syncs Zed's grammar checkout, says
 when Zed's dev extension must be reinstalled, and rebuilds and installs the
 VS Code extension when `code` is on PATH. `scripts/git-hooks/post-merge`
 runs the parts a merge into `main` needs (Go or `std/` changes, grammar or
-editor changes, `editors/vscode/` changes); enable it with `make enable-hooks`.
-It does nothing on any other branch, so agent worktrees, which share the
-clone's config, are unaffected.
+editor changes, `editors/vscode/` changes). Enable it once per clone with
+`make enable-hooks`. It acts only on `main`, or on the branches listed in
+`git config nomi.editorBranches` (space-separated, for example `main next`
+when work lands on a local branch first), so agent worktrees, which share
+the clone's config, are unaffected.
 
 **VS Code.** `make install-vscode` builds `editors/vscode/nomi.vsix` with
 `vsce package` and installs it with `code --install-extension`; never publish
@@ -458,6 +510,16 @@ wasm.
   implemented**` callout, and each such callout is listed in
   feature-status.md's "Aspirational language features".
 - New authoring conventions go in `style.md`.
+- A change that affects users (the language, `std/`, the CLI, the editor
+  extensions) ends its commit message with a paragraph that starts
+  `User-facing:` and says what changed for someone writing or running Nomi,
+  in one or two plain sentences, with no internal file paths or commit
+  hashes. When the tour or the stdlib reference covers it, add the section's
+  URL (`https://nomi-lang.org/pipes/#the-then-stage`). Internal refactors and
+  test-only changes have none. The maintainer gathers these into the message
+  of the squashed commit that publishes `main`: plain text, opening with
+  `Highlights` (at most five one-line items), then `Added`, `Changed`,
+  `Fixed` and `Removed`.
 - Code examples in the spec are parsed by `internal/parser/spec_examples_test.go`,
   and every complete program (a `fn main` at column 0, no `...`) is loaded
   and run by `vmhost.TestSpecPrograms`.

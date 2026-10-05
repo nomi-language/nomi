@@ -62,11 +62,11 @@ func (p *Program) Call(ctx context.Context, name string, args ...any) (Value, er
 	if boot := p.entry.Boot(); boot != nil {
 		boots = append(boots, boot)
 	}
-	if reasons := p.reasons(m.Unretained([]*ir.Func{f}, boots)); len(reasons) > 0 {
-		return nil, &Blocked{Reasons: reasons}
+	if found := m.Unretained([]*ir.Func{f}, boots); len(found) > 0 {
+		return nil, p.blocked(found)
 	}
 	result, err := m.Call(ctx, f, converted)
-	failure, limit := vm.ProgramFailure(err)
+	failure, limit := programFailure(err)
 	if limit {
 		return nil, &Blocked{Reasons: []string{machineLimit(failure)}}
 	}
@@ -95,7 +95,7 @@ func (p *Program) callable(name string) (*ir.Func, error) {
 		return found, nil
 	}
 	if p.declares(name) {
-		return nil, &Blocked{Reasons: []string{p.notRetained(name)}}
+		return nil, p.blockedName(name)
 	}
 	return nil, fmt.Errorf("the program declares no function %s", name)
 }

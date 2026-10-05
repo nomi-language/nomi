@@ -603,6 +603,11 @@ func (fr *frame) enterCode(c *code) {
 // the activation's result (a `try` propagation, answering -1 and nil), or out
 // of the function as an error.
 func (m *Machine) fault(fr *frame, pc int, err error) (int, error) {
+	if _, internal := AsCompilePanic(err); internal {
+		// A compiler bug, not a fault: no handler takes it and it is not
+		// marked as one on the way out.
+		return -1, err
+	}
 	st := fr.c.siteAt(pc)
 	if st != nil {
 		// A callee past the depth limit refused to start. This instruction

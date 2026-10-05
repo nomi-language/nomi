@@ -3,14 +3,14 @@ import std/io
 // Probe: A NAMED ARGUMENT IS A SLOT ASSIGNMENT, AND ITS EVALUATION ORDER IS NOT
 // ITS WRITTEN ORDER.
 //
-// resolveArgs (eval/eval.go:5704) PARTITIONS a call's written arguments into
-// `positionalNodes` and `namedNodes` (:5721-5729) and then drains them in
+// Argument resolution PARTITIONS a call's written arguments into
+// positionals and named arguments and then drains them in
 // sequence. So every positional is evaluated before any named argument, and a
 // named argument written FIRST is evaluated LAST.
 //
 // `order` is the load-bearing line and the reason this fixture exists. irbuild's
 // directCall hoists each argument's statements as it walks, so walking the
-// written argument slice emits `eval B` before `eval A` — a DIFF, not a
+// written argument slice emits `eval B` before `eval A`, a wrong order, not a
 // refusal, and one that only appears when an argument has a side effect. Every
 // other line here is caught by the type checker or by an answer if placement is
 // wrong; this one is caught only by the ORDER of two prints.

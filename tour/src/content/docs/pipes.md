@@ -104,10 +104,11 @@ dbg line 6: 10 |> divide(100, _) = 10
 
 That `_` becomes `divide(100, 10)`, which is `100 / 10`.
 
-## Lambda stages
+## The `then` stage
 
-A pipe stage can be a lambda, for a small inline step. Its body ends at the
-next `|>`; to pipe inside a lambda, give it a block body: `|xs| { xs |> ... }`.
+`then` applies a lambda to the piped value, for a small step that no named
+function covers. Its body ends at the next `|>`, so the stages after it
+still belong to the pipeline:
 
 ```nomi-run
 fn find_name(id: Int): Maybe<String> {
@@ -120,7 +121,7 @@ fn find_name(id: Int): Maybe<String> {
 fn main(): Bool {
     1
     |> find_name()
-    |> |name| name == Some("Ada")
+    |> then |name| name == Some("Ada")
     |> dbg
 }
 ```
@@ -128,7 +129,7 @@ fn main(): Bool {
 dbg line 12:
   1
   |> find_name()
-  |> |name| name == Some("Ada")
+  |> then |name| name == Some("Ada")
   = True
 -->
 

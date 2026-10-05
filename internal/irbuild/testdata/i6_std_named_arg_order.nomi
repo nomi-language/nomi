@@ -20,7 +20,7 @@ import {
 //   SLOT         std's own parameter order: hour, minute, second, nanosecond
 //
 // The builder hoists each argument's statements as it walks, so walking slot
-// order would print these in a different sequence from the interpreter. Nothing
+// order would print these in a different sequence from the rule above. Nothing
 // about the returned Time would change.
 fn tick(n: Int, tag: String): Int {
     io.print("eval ${tag}")
@@ -50,7 +50,7 @@ fn main() {
     render("mixed", Time.new(tick(11, "P"), 45, second: tick(1, "S"), nanosecond: tick(2, "N")))
 
     // A NAMED ARGUMENT WRITTEN FIRST, BEFORE AN EFFECTFUL POSITIONAL. This is the
-    // shape the interpreter's partition makes counter-intuitive: the positional is
+    // shape the partition makes counter-intuitive: the positional is
     // evaluated FIRST despite being written second.
     render("named-first", Time.new(minute: tick(59, "Y"), tick(23, "X")))
 }

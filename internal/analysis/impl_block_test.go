@@ -523,7 +523,8 @@ impl Speech for Dog {
 }
 
 // TestImplBlock_VisibilityInheritance: a `pub interface` + bare `fn` inside
-// the block still yields a public method symbol (spec §38.7 / block-as-module).
+// the block still yields a public method symbol (spec §3: impl functions
+// inherit visibility from the interface).
 func TestImplBlock_VisibilityInheritance(t *testing.T) {
 	src := `pub interface Formatted {
     fn format(value: self): String
@@ -773,7 +774,7 @@ impl Tagged for Robot {
 // receiver's DECLARATION rather than by an item in the impl block, and its
 // validator used to RETURN when the receiver was the wrong kind instead of
 // rejecting. The requirement was then vacuous: the program below type-checked
-// clean at 3a933661 and died at run time with "cannot access field 'name' on
+// clean and died at run time with "cannot access field 'name' on
 // variant 'Red'", which is exactly the failure a static field requirement
 // exists to make impossible.
 //
@@ -894,7 +895,7 @@ impl Named for Ghost`
 // type arguments before comparing and the declaration-discharged field
 // validator did not, so a generic interface could not carry a field
 // requirement mentioning its own parameter at all — every CORRECT impl was
-// refused. Pre-existing at `3a933661`; see `interfaceReqSubs`.
+// refused. See `interfaceReqSubs`.
 //
 // Each half is a matched pair, because the fix is a substitution and a
 // substitution that produced `Any` would satisfy the positive alone.
@@ -955,7 +956,7 @@ impl H for S`, ""},
 //
 // THE OBSERVABLE IS LENIENCE, NOT A FALSE REJECTION, and the version of this
 // test that read `if len(all) == 0 { t.Skip("...now checks correctly...") }`
-// could not tell those apart. It skipped at `4772329c`, instructing the next
+// could not tell those apart. It skipped, instructing the next
 // reader to delete it and the residue paragraph. Measured against the real
 // binary instead: `impl H for Box<T>` accepts `next: Box<T>` (correct) AND
 // `next: Box<Int>` (wrong), because `TypesEqual` treats an argument-less
@@ -981,7 +982,7 @@ func TestImplBlock_SelfInARequirementAgainstAGenericReceiver(t *testing.T) {
 			_, all := buildAndCheckFromSource(c.src)
 			if c.wantErr == "" {
 				if len(all) > 0 {
-					t.Fatalf("accepted at `4772329c`, rejected now — the residue changed shape: %s", joinErrs(all))
+					t.Fatalf("the residue was accepted and is rejected now — it changed shape: %s", joinErrs(all))
 				}
 				return
 			}

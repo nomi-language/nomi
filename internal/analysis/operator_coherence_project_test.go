@@ -153,8 +153,8 @@ fn main() {
 // # THE CALL SITE IS THE CORPUS'S SHAPE, AND FINDING THAT OUT COST TWO A/B RUNS
 //
 // Two earlier drafts of this fixture FAILED, and neither failure was this change.
-// Both were run through binaries built from `n4-base` (f3e3c504) and `n4-work`
-// (HEAD) on the same file, and both report the same message on both sides, byte
+// Both were run through binaries built with and without this change
+// on the same file, and both report the same message on both sides, byte
 // for byte:
 //
 //	score_value(plus(Score(2), Bonus(3)))   argument 1: expected Score, got Int

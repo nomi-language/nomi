@@ -58,7 +58,7 @@ func (bl *irScalarBuilder) siblingQualSite(fa *ast.FieldAccess) (fileSite, bool)
 	if !isIdent || fa.Field == nil || g.files == nil || irQualIsLocal(bl, owner.Name) {
 		return fileSite{}, false
 	}
-	to, isSibling := g.files.lookupQualifier(g.fa, owner.Name)
+	to, isSibling := g.files.lookupQualifier(g.fa, owner)
 	if !isSibling || to == g.fileUnit {
 		return fileSite{}, false
 	}

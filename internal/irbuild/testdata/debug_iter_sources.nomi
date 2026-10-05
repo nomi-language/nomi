@@ -67,5 +67,5 @@ fn main(): Unit {
     io.print("11 ints    ${ints([4, 5])}")
     io.print("12 lazy    ${ints(Iter.map([1, 2], |x: Int| x + 1))}")
     // Inspecting does not consume the source.
-    io.print("13 after   ${Iter.to_list(it) |> Debug.inspect}")
+    io.print("13 after   ${Iter.to_list(it) |> Debug.inspect()}")
 }

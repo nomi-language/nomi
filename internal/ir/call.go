@@ -202,9 +202,8 @@ func NewCall(pos Pos, dst Temp, site CallSite, callee *Symbol, args ...Temp) *Ca
 // stdlib primitive, an FFI extern.
 //
 // THE MARKER IS PRESERVED HERE BECAUSE IT IS CHEAP NOW AND AWKWARD LATER,
-// AND IT IS ONE FIELD RATHER THAN A MECHANISM. `docs/roadmap.md`'s debugger
-// entry records that a VM debugger handing off to `dlv` at an FFI boundary
-// needs THE CROSSES-INTO-GO BOUNDARY TO BE EXPLICIT AT THE CALL: a stepping
+// AND IT IS ONE FIELD RATHER THAN A MECHANISM. The VM debugger on
+// `docs/roadmap.md`, handing off to `dlv` at an FFI boundary, needs THE CROSSES-INTO-GO BOUNDARY TO BE EXPLICIT AT THE CALL: a stepping
 // engine that owns Nomi frames has to know, before it steps, whether the
 // next frame is one it can step or one it must hand to a native debugger.
 // Adding a bit to one opcode is a re-encoding and everything that reads

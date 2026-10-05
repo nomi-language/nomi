@@ -12,65 +12,80 @@ import (
 
 // stdlibBacklogCases are stdlib `//!` prompt cases that were BLOCKED on the
 // VM and now run, one group per builder change. Each is named by its module and
-// the case name's suffix as `nomi test` prints it. internal/expectation's TestExpectation_Stdlib
-// holds what they print to stdlib.expect; this test holds that they run.
-var stdlibBacklogCases = []struct{ cause, module, name string }{
+// the declaration its prompts attach to, as `nomi test` prints it before the
+// ` //! test line…` suffix. The suffix is left out because it moves whenever a
+// line is inserted above the declaration; every case attached to a
+// declaration of that name must run, so `impl / new` in calendar covers each
+// `new` there. internal/expectation's TestExpectation_Stdlib holds what they
+// print to stdlib.expect; this test holds that they run.
+var stdlibBacklogCases = []struct{ cause, module, decl string }{
 	// `Maybe.None` written as a field access with no expected type.
-	{"Maybe.None field access", "maybe", "impl / some? //! test lines 24-25"},
-	{"Maybe.None field access", "maybe", "impl / none? //! test lines 35-36"},
+	{"Maybe.None field access", "maybe", "impl / some?"},
+	{"Maybe.None field access", "maybe", "impl / none?"},
 	// A bare variant operand typed by the call's solved signature, and the
 	// prelude plans inside an assertion subject.
-	{"prelude with_default / from_maybe", "maybe", "impl / with_default //! test lines 57-58"},
-	{"prelude with_default / from_maybe", "results", "impl / with_default //! test lines 68-69"},
-	{"prelude with_default / from_maybe", "results", "impl / from_maybe //! test lines 119-120"},
+	{"prelude with_default / to_result", "maybe", "impl / with_default"},
+	{"prelude with_default / to_result", "results", "impl / with_default"},
+	{"prelude with_default / to_result", "maybe", "impl / to_result"},
 	// A generic std call with a type argument nothing constrains.
-	{"unsolved generic std call", "results", "impl / map //! test lines 57-58"},
-	{"unsolved generic std call", "results", "impl / to_maybe //! test lines 108-109"},
+	{"unsolved generic std call", "results", "impl / map"},
+	{"unsolved generic std call", "results", "impl / to_maybe"},
 	// `List.head([])` and `List.tail([])`.
-	{"untyped empty list operand", "lists", "impl / head //! test lines 50-51"},
-	{"untyped empty list operand", "lists", "impl / tail //! test lines 61-62"},
+	{"untyped empty list operand", "lists", "impl / head"},
+	{"untyped empty list operand", "lists", "impl / tail"},
 	// `String.join([], ", ")`: an empty list passed to a std host.
-	{"untyped empty list operand", "strings", "impl / join //! test lines 86-92"},
+	{"untyped empty list operand", "strings", "impl / join"},
 	// Lists of Byte, and `==` over Bytes.
-	{"Byte lists", "strings", "impl / to_bytes //! test lines 129-132"},
-	{"Byte lists", "bytes", "impl / length //! test lines 69-71"},
-	{"Byte lists", "bytes", "impl / at //! test lines 76-80"},
-	{"Byte lists", "bytes", "impl / slice //! test lines 86-90"},
-	{"Byte lists", "bytes", "impl / concat //! test lines 95-102"},
-	{"Byte lists", "bytes", "impl / to_list //! test lines 107-113"},
-	{"Byte lists", "bytes", "impl / from_list //! test lines 118-120"},
-	{"Byte lists", "bytes", "impl / to_string //! test lines 125-128"},
-	{"Byte lists", "bytes", "impl / each_while //! test lines 135-140"},
-	{"Byte lists", "bytes", "impl / add //! test lines 147-151"},
-	{"Byte lists", "bytes", "impl / inspect //! test lines 169-172"},
+	{"Byte lists", "strings", "impl / to_bytes"},
+	{"Byte lists", "bytes", "impl / length"},
+	{"Byte lists", "bytes", "impl / at"},
+	{"Byte lists", "bytes", "impl / slice"},
+	{"Byte lists", "bytes", "impl / concat"},
+	{"Byte lists", "bytes", "impl / to_list"},
+	{"Byte lists", "bytes", "impl / from_list"},
+	// The inherent `Bytes.to_string` and `Display.to_string(bytes)` beside it.
+	{"Byte lists / interface impl shadowed by an inherent method", "bytes", "impl / to_string"},
+	{"Byte lists", "bytes", "impl / each_while"},
+	{"Byte lists", "bytes", "impl / add"},
+	{"Byte lists", "bytes", "impl / inspect"},
 	// A defaulted std function called short (`Time.new(h, m)`) inside
 	// its own module's test body, the module's once cells (`Int.max_value`)
 	// and bare siblings (`day_nanos`) read there, `Task.spawn_all` over a
 	// List source, and `.Completed(42)` where an Outcome<Int> is expected.
-	{"std sibling called bare in its own test", "calendar", "day_nanos //! test line 376"},
-	{"std short call / sibling in a std test", "calendar", "impl / in_zone //! test lines 1195-1203"},
-	{"std short call / sibling in a std test", "calendar", "impl / new //! test lines 335-337"},
-	{"std short call / sibling in a std test", "calendar", "impl / new //! test lines 514-515"},
-	{"std short call / sibling in a std test", "calendar", "impl / parse //! test lines 1289-1294"},
-	{"std once read in a test body", "int", "impl / max_value //! test line 31"},
-	{"std once read in a test body", "int", "impl / min_value //! test line 38"},
-	{"std once read in a test body", "int", "impl / wrapping_add //! test line 72"},
-	{"std once read in a test body", "int", "impl / wrapping_sub //! test line 77"},
-	{"Task.spawn_all over a List", "tasks", "impl / await_all //! test lines 123-129"},
-	{"dot-variant prelude constructor", "tasks", "impl / outcome //! test lines 140-146"},
-	{"Task.spawn_all over a List", "tasks", "impl / spawn_all //! test lines 98-104"},
-	// A std marker value (`ChannelClosed`), `Range.contains?` over a Decimal
-	// range with its host comparator, and `Display.to_string(bytes)` beside
-	// the inherent `Bytes.to_string`.
-	{"std marker value", "channels", "impl / close //! test lines 104-107"},
-	{"Decimal Range.contains?", "ranges", "impl / contains? //! test lines 67-70"},
-	{"interface impl shadowed by an inherent method", "bytes", "impl / to_string //! test lines 159-161"},
+	{"std sibling called bare in its own test", "calendar", "day_nanos"},
+	{"std short call / sibling in a std test", "calendar", "impl / in_zone"},
+	{"std short call / sibling in a std test", "calendar", "impl / new"},
+	{"std short call / sibling in a std test", "calendar", "impl / parse"},
+	{"std once read in a test body", "int", "impl / max_value"},
+	{"std once read in a test body", "int", "impl / min_value"},
+	{"std once read in a test body", "int", "impl / wrapping_add"},
+	{"std once read in a test body", "int", "impl / wrapping_sub"},
+	{"Task.spawn_all over a List", "tasks", "impl / await_all"},
+	{"dot-variant prelude constructor", "tasks", "impl / outcome"},
+	{"Task.spawn_all over a List", "tasks", "impl / spawn_all"},
+	// A std marker value (`ChannelClosed`) and `Range.contains?` over a
+	// Decimal range with its host comparator.
+	{"std marker value", "channels", "impl / close"},
+	{"Decimal Range.contains?", "ranges", "impl / contains?"},
 	// A bound lambda whose `if` takes the checker's result type, a std
 	// generic instance over `[]` and a Maybe of a tuple, and a Vector
 	// intrinsic (vm-backlog-generics).
-	{"lambda result from the checker", "maybe", "impl / flat_map //! test lines 68-76"},
-	{"std instance over an empty list", "lists", "impl / next_item //! test lines 35-36"},
-	{"Vector.next_item intrinsic", "vectors", "impl / next_item //! test lines 60-61"},
+	{"lambda result from the checker", "maybe", "impl / flat_map"},
+	{"std instance over an empty list", "lists", "impl / next_item"},
+	{"Vector.next_item intrinsic", "vectors", "impl / next_item"},
+}
+
+// stdlibPromptDecl is the declaration a report line's `//!` case attaches
+// to, and whether the line names such a case: `ok <path> :: impl / new //!
+// test lines 335-337` answers "impl / new". A BLOCKED line carries its reason
+// after the name, which the suffix search skips.
+func stdlibPromptDecl(line string) (string, bool) {
+	_, name, ok := strings.Cut(line, ":: ")
+	if !ok {
+		return "", false
+	}
+	decl, _, ok := strings.Cut(name, " //! test line")
+	return decl, ok
 }
 
 // TestStdlibBacklog_CasesRunOnTheVM runs each module the table names on the
@@ -102,21 +117,18 @@ func TestStdlibBacklog_CasesRunOnTheVM(t *testing.T) {
 			out = buf.String()
 			reports[c.module] = out
 		}
-		found := false
+		found := 0
 		for _, line := range strings.Split(out, "\n") {
-			if strings.HasSuffix(line, ":: "+c.name) {
-				found = true
-				if !strings.HasPrefix(line, "ok ") {
-					t.Errorf("%s: std/%s %q does not run on the VM:\n%s", c.cause, c.module, c.name, line)
-				}
+			if decl, ok := stdlibPromptDecl(line); !ok || decl != c.decl {
+				continue
 			}
-			if strings.HasPrefix(line, "BLOCKED ") && strings.Contains(line, ":: "+c.name+" ") {
-				found = true
-				t.Errorf("%s: std/%s %q is blocked on the VM:\n%s", c.cause, c.module, c.name, line)
+			found++
+			if !strings.HasPrefix(line, "ok ") {
+				t.Errorf("%s: std/%s %q does not run on the VM:\n%s", c.cause, c.module, c.decl, line)
 			}
 		}
-		if !found {
-			t.Errorf("%s: std/%s reported no case named %q", c.cause, c.module, c.name)
+		if found == 0 {
+			t.Errorf("%s: std/%s reported no `//!` case attached to %q", c.cause, c.module, c.decl)
 		}
 	}
 }
@@ -134,7 +146,7 @@ test "Maybe.None as a field access" {
 
 test "a bare variant typed by the call" {
   assert Maybe.with_default(Maybe.None, 4) == 4
-  assert Result.from_maybe(None, "missing") == Result.Err("missing")
+  assert Maybe.to_result(None, "missing") == Result.Err("missing")
 }
 
 test "an unconstrained type argument" {

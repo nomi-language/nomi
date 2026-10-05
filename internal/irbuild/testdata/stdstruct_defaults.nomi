@@ -15,8 +15,8 @@
 //
 // Its three field TYPES are each already expressible by the spec table
 // (stdScalarField, stdMaybeField, stdListField). The DEFAULTS are the whole
-// refusal: stdstruct.go's shape check returned false on `f.Default != nil`, so
-// the declaration produced no anchor and every mention refused `stdlib type`.
+// question: stdstruct.go's shape check has to accept a field default, or
+// the declaration produces no anchor and every mention refuses `stdlib type`.
 //
 // # Why the omitted field is the discriminating row
 //
@@ -24,9 +24,9 @@
 //
 //     AssertionDetails{reason: "...", details: [...]}
 //
-// omitting `actual` — so a lowering that ignored defaults and left the Go zero
-// value in place would produce `Maybe`'s zero, whose Tag is 0 and which is
-// therefore NEITHER Some NOR None. That is not a Go compile error and not a
+// omitting `actual`, so a lowering that ignored defaults and left a zero
+// value in place would produce a `Maybe` whose Tag is 0 and which is
+// therefore NEITHER Some NOR None. That is not a refusal and not a
 // crash; it is a value that falls off the end of a `case`. `all_defaults` and
 // `only_reason` below are the rows that see it, because they are the ones that
 // read a field nobody assigned.

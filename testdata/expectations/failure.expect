@@ -17,7 +17,7 @@ failing 49
 C anon_struct.nomi
 E 1
 N 1
-H 45ac26e1ffd9f508066662ca68577c3ea8451c6a76a7e65068300832d3e5e615
+H e90c9c0142b8dfa97ac0e8baa8ab0c524fa3fcb496e15c8ad22e6e5b1f0910f5
 T 30
 T Hi Bob, you are 42
 T Hi Carol, you are 30
@@ -27,7 +27,7 @@ T 1
 T x is ten, y is 20
 T 30
 T FAIL <root>/internal/irbuild/testdata/anon_struct.nomi :: records are structural, ordered by nothing the programmer wrote
-T   line 69: assertion failed
+T   line 65: assertion failed
 T     assert no({a: 1, a0: 2})
 T     values:
 T       {a: 1, a0: 2}
@@ -37,17 +37,17 @@ T
 C anon_vs_nominal.nomi
 E 1
 N 2
-H 32348f6e95e3efaa27e59651802693ab57f95da0aad103905445807a52e9d165
+H bd94334c71f423eb3d4088f9f758db7cb6562ea0c3ac56451d121ff994c04226
 T 3
 T 3
 T FAIL <root>/internal/irbuild/testdata/anon_vs_nominal.nomi :: a record and a same-shaped nominal struct stay apart
-T   line 41: assertion failed
+T   line 38: assertion failed
 T     assert no_nominal(nom)
 T     values:
 T       nom
 T         = Point{x: 1, y: 2}
 T FAIL <root>/internal/irbuild/testdata/anon_vs_nominal.nomi :: and they render apart
-T   line 46: assertion failed
+T   line 43: assertion failed
 T     assert no_record(rec)
 T     values:
 T       rec
@@ -80,28 +80,28 @@ T
 C assert_shape.nomi
 E 1
 N 8
-H e80c8c9bd64f9b6f398ecc07f2909510fa2cf56b0403afd904d8da63a4397ed3
+H e09541f06e03a78df09295aaafe3af8d8d7c300d6ff669da1d63edcbfb39c858
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: a Maybe subject that is None fails
-T   line 42: assertion failed
+T   line 41: assertion failed
 T     assert find(2)
 T     actual: None
 T ok <root>/internal/irbuild/testdata/assert_shape.nomi :: a Maybe subject that is Some passes and carries the variant through
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: refuting a Some fails in its own words
-T   line 52: refute failed
+T   line 51: refute failed
 T     refute find(1)
 T     actual: Some("Ada")
 T ok <root>/internal/irbuild/testdata/assert_shape.nomi :: refuting a None passes and carries the None through
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: a Result subject that is Err fails
-T   line 70: assertion failed
+T   line 68: assertion failed
 T     assert parse("wat")
 T     actual: Err("not a number")
 T ok <root>/internal/irbuild/testdata/assert_shape.nomi :: a Result subject that is Ok passes and carries the variant through
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: refuting an Ok fails in its own words
-T   line 80: refute failed
+T   line 78: refute failed
 T     refute parse("42")
 T     actual: Ok(42)
 T FAIL <root>/internal/irbuild/testdata/assert_shape.nomi :: a bound shape subject shows its defining expression above its value
-T   line 86: assertion failed
+T   line 84: assertion failed
 T     assert looked_up
 T     defined as:
 T       find(2)
@@ -111,10 +111,10 @@ T
 C assertable_subject_report.nomi
 E 1
 N 4
-H bf9b1686194f5b08be7753bf9aa27f5773bff39d38f71cdefd42d9194450d3f2
+H 84a77eab3f3347b358945c62abfca7e970e820f3d736b0d28fe4a0beffaa6e78
 T ok <root>/internal/irbuild/testdata/assertable_subject_report.nomi :: an Assertable that holds keeps the whole file honest
 T FAIL <root>/internal/irbuild/testdata/assertable_subject_report.nomi :: a failing Assertable assertion renders the rows it authored
-T   line 65: values were not equal
+T   line 64: values were not equal
 T     assert equals(left, right)
 T     values:
 T       left
@@ -128,10 +128,10 @@ T       expected
 T         = 42
 T     actual: 41
 T FAIL <root>/internal/irbuild/testdata/assertable_subject_report.nomi :: a failing refutation of an Assertable says so in its own words
-T   line 69: refute failed
+T   line 68: refute failed
 T     refute equals(9, 9)
 T FAIL <root>/internal/irbuild/testdata/assertable_subject_report.nomi :: a failing Assertable assertion on a bound name shows where it came from
-T   line 83: values were not equal
+T   line 82: values were not equal
 T     assert comparison
 T     defined as:
 T       equals(5, 6)
@@ -146,18 +146,18 @@ T
 C check_shape_report.nomi
 E 1
 N 2
-H 191da4cd134703c212c695f8f29b0a9b366ce71506112c12ea48de2327e1d44a
+H 07aa98998d6c3dfb11ce2e7f3ca0eb3662df67f8a49d71b5281177dec6aaad0d
 T ok <root>/internal/irbuild/testdata/check_shape_report.nomi :: a shape check that holds keeps the whole file honest
 T FAIL <root>/internal/irbuild/testdata/check_shape_report.nomi :: a failing shape check renders its own failure value
-T   line 37: pattern did not match
+T   line 34: pattern did not match
 T     assert Ok(_) = testing.check(find_name(2))
-T     actual: Err(AssertionFailure{actual: Some("None"), binding: None, details: [], expression: "find_name(2)", keyword: "check", line: 37, reason: "check failed", values: []})
+T     actual: Err(AssertionFailure{actual: Some("None"), binding: None, details: [], expression: "find_name(2)", keyword: "check", line: 34, reason: "check failed", values: []})
 T test result: FAILED. 1 passed, 1 failed
 T
 C context_values_report.nomi
 E 1
 N 8
-H fe4b7b388a665f0ecba88dfef7d144ec386cf340ff759a7194838aa48e91d9b6
+H 106b03709005e4719420231b85b0ad53777042a700451240fea0864752d6c5e6
 T bounded still has a deadline: True
 T ok <root>/internal/irbuild/testdata/context_values_report.nomi :: two Nomi types over one Go type are two keys
 T ok <root>/internal/irbuild/testdata/context_values_report.nomi :: a child shadows and both ends are read
@@ -165,7 +165,7 @@ T ok <root>/internal/irbuild/testdata/context_values_report.nomi :: an Int is ke
 T ok <root>/internal/irbuild/testdata/context_values_report.nomi :: a zero-sized type is a value and a witness
 T ok <root>/internal/irbuild/testdata/context_values_report.nomi :: a value survives a deadline derivation
 T FAIL <root>/internal/irbuild/testdata/context_values_report.nomi :: a failing assertion renders a Context operand
-T   line 121: assertion failed
+T   line 118: assertion failed
 T     assert trace_of(root) == "t-1"
 T     values:
 T       root
@@ -173,7 +173,7 @@ T         = <context>
 T       trace_of(root)
 T         = "none"
 T FAIL <root>/internal/irbuild/testdata/context_values_report.nomi :: a failing assertion renders a Context on both sides
-T   line 127: refute failed
+T   line 124: refute failed
 T     refute trace_of(traced) == "t-1"
 T     values:
 T       traced
@@ -181,7 +181,7 @@ T         = <context>
 T       trace_of(traced)
 T         = "t-1"
 T FAIL <root>/internal/irbuild/testdata/context_values_report.nomi :: a failing marker lookup renders its Context
-T   line 132: assertion failed
+T   line 129: assertion failed
 T     assert marker_of(c, Marker) == Some(Marker)
 T     values:
 T       c
@@ -193,37 +193,37 @@ T
 C dbg_surfaces.nomi
 E 1
 N 9
-H e65f4ebf25847c998926d1d8ac12f6b06632a54bd3074dc1e6e45210f330da76
-T dbg line 78: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
-T dbg line 88: Custom{zeta: 1, alpha: 2} = CUSTOM-DEBUG
-T dbg line 98: Meters(7) = <opaque Meters>
-T dbg line 108: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
-T dbg line 109: (1, "two") = (1, "two")
-T dbg line 110: Some(42) = Some(42)
-T dbg line 111: None = None
-T dbg line 112: {a: 1, a0: 2} = {a: 1, a0: 2}
-T dbg line 113: double = <function>
-T dbg line 118: 7 = 7
+H 460b4d1fd43134a76a00661c5a114ce6b072aaa890aa106f49a9cf94671f4ea4
+T dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
+T dbg line 86: Custom{zeta: 1, alpha: 2} = CUSTOM-DEBUG
+T dbg line 96: Meters(7) = <opaque Meters>
+T dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
+T dbg line 107: (1, "two") = (1, "two")
+T dbg line 108: Some(42) = Some(42)
+T dbg line 109: None = None
+T dbg line 110: {a: 1, a0: 2} = {a: 1, a0: 2}
+T dbg line 111: double = <function>
+T dbg line 116: 7 = 7
 T after the dbg, before the report
-T dbg line 124: Rev{zeta: 3, alpha: 4} = Rev{zeta: 3, alpha: 4}
+T dbg line 122: Rev{zeta: 3, alpha: 4} = Rev{zeta: 3, alpha: 4}
 T printed before the failure
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg renders a struct in declaration order
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same struct sorts it
-T   line 84: assertion failed
+T   line 82: assertion failed
 T     assert no_rev(r)
 T     values:
 T       r
 T         = Rev{alpha: 2, zeta: 1}
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg honours a hand-written impl Debug
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same value honours that impl
-T   line 94: assertion failed
+T   line 92: assertion failed
 T     assert no_custom(c)
 T     values:
 T       c
 T         = CUSTOM-DEBUG
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg shows an opaque type name-only
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same opaque value shows the payload
-T   line 104: assertion failed
+T   line 102: assertion failed
 T     assert no_meters(m)
 T     values:
 T       m
@@ -231,7 +231,7 @@ T         = Meters(7)
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg over containers and prelude instances
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: a dbg in a test body prints above its own result line
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: a dbg above a FAILING assertion, so all three interleave
-T   line 126: assertion failed
+T   line 124: assertion failed
 T     assert no_rev(r)
 T     values:
 T       r
@@ -241,7 +241,7 @@ T
 C debug_display_surfaces.nomi
 E 1
 N 7
-H ce0771d9ff4777213c926073bf1825460cbbd2e3478a3d4465359afba9e6279b
+H 89dc3ef951632cf2441311d09ed4bc7aa61b738f702665a54c317099cd230f24
 T 1 Display.to_string(r) = REV-DISPLAY
 T 2 interpolated r       = REV-DISPLAY
 T 3 Display.to_string(c) = CUSTOM-DISPLAY
@@ -256,37 +256,37 @@ T 11 Debug.inspect(list) = [True, False]
 T 12 materialized payload = False
 T ok <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: the four renderings of one value
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row for a struct with an impl Display
-T   line 193: assertion failed
+T   line 178: assertion failed
 T     assert no_rev(r)
 T     values:
 T       r
 T         = Rev{alpha: 2, zeta: 1}
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row honours a hand-written impl Debug
-T   line 198: assertion failed
+T   line 183: assertion failed
 T     assert no_custom(c)
 T     values:
 T       c
 T         = CUSTOM-DEBUG
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row for a struct with no impls at all
-T   line 203: assertion failed
+T   line 188: assertion failed
 T     assert no_plain(p)
 T     values:
 T       p
 T         = Plain{alpha: 2, zeta: 1}
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row for a Bool
-T   line 208: assertion failed
+T   line 193: assertion failed
 T     assert no_bool(b)
 T     values:
 T       b
 T         = True
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row for a list of Bool
-T   line 213: assertion failed
+T   line 198: assertion failed
 T     assert no_bools(bs)
 T     values:
 T       bs
 T         = [True, False]
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row shows an opaque payload Debug hides
-T   line 218: assertion failed
+T   line 203: assertion failed
 T     assert no_meters(m)
 T     values:
 T       m
@@ -296,7 +296,7 @@ T
 C debug_embeds.nomi
 E 1
 N 6
-H 4230526de3ae78e922c2846f2d227f7c11294a14b30a2e799f189033c9857c6c
+H 0022a7311414c4c7561035a1dae12e5919b000213ac515da2b2eff7dbe49dc2d
 T 1  Debug.inspect(w)         = Worker{zeta: 1, alpha: 2}
 T 2  Debug.inspect(n_worker)  = Worker{zeta: 1, alpha: 2}
 T 3  Debug.inspect(n_qual)    = Worker{zeta: 1, alpha: 2}
@@ -309,31 +309,31 @@ T 9  Debug.inspect(Node.Ready(7)) = Ready(7)
 T 10 Debug.inspect(Other.Blank) = Blank
 T ok <root>/internal/irbuild/testdata/debug_embeds.nomi :: an embeds variant's Debug delegates to the embedded value, unwrapped
 T FAIL <root>/internal/irbuild/testdata/debug_embeds.nomi :: values row sorts and ignores the hand-written impl
-T   line 201: assertion failed
+T   line 196: assertion failed
 T     assert no_worker(w)
 T     values:
 T       w
 T         = Worker{alpha: 2, zeta: 1}
 T FAIL <root>/internal/irbuild/testdata/debug_embeds.nomi :: values row for a qualified embeds variant
-T   line 209: assertion failed
+T   line 204: assertion failed
 T     assert no_node(n)
 T     values:
 T       n
 T         = Worker{alpha: 2, zeta: 1}
 T FAIL <root>/internal/irbuild/testdata/debug_embeds.nomi :: values row for a zero-sized embed
-T   line 214: assertion failed
+T   line 209: assertion failed
 T     assert no_node(n)
 T     values:
 T       n
 T         = Expired
 T FAIL <root>/internal/irbuild/testdata/debug_embeds.nomi :: values row for a wrapping-distinct embed
-T   line 221: assertion failed
+T   line 216: assertion failed
 T     assert no_node(n)
 T     values:
 T       n
 T         = UserId("ada")
 T FAIL <root>/internal/irbuild/testdata/debug_embeds.nomi :: values row shows an opaque payload Debug hides
-T   line 226: assertion failed
+T   line 221: assertion failed
 T     assert no_meters(m)
 T     values:
 T       m
@@ -531,17 +531,17 @@ T
 C generic_struct.nomi
 E 1
 N 7
-H 206cb57d7080fdc7b6b8c9675f8dc1ff0a6c71c9c4750cab2c2a72a188212c3a
+H 7cc6fcef41058c67a559c76d0a8ad5f20cbd7fb27d123e3e33b1ddafa2e1198e
 T 41
 T inner:7
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: a second instantiation of one template renders as the same Nomi type
-T   line 97: assertion failed
+T   line 88: assertion failed
 T     assert no_box_text(Box{item: "s"})
 T     values:
 T       Box{item: "s"}
 T         = Box{item: "s"}
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: and a nested instantiation renders as its own declaration
-T   line 101: assertion failed
+T   line 92: assertion failed
 T     assert no_crate(Crate{
 T         box: Box{
 T             item: Inner{
@@ -561,19 +561,19 @@ T         = Crate{box: Box{item: Inner{value: 7}}}
 T ok <root>/internal/irbuild/testdata/generic_struct.nomi :: a nested instantiation resolves through an annotation
 T ok <root>/internal/irbuild/testdata/generic_struct.nomi :: the argument keeps its own dispatch through the instance
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: type arguments come from field names and not from field order
-T   line 131: assertion failed
+T   line 122: assertion failed
 T     assert no_pair(p)
 T     values:
 T       p
 T         = Pair{first: 7, second: "s"}
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: a same-shaped monomorphic twin stays a different type
-T   line 135: assertion failed
+T   line 126: assertion failed
 T     assert no_box(Box{item: 1})
 T     values:
 T       Box{item: 1}
 T         = Box{item: 1}
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: and the twin says so too
-T   line 139: assertion failed
+T   line 130: assertion failed
 T     assert no_twin(Twin{item: 1})
 T     values:
 T       Twin{item: 1}
@@ -583,9 +583,9 @@ T
 C impl_call_operand_row.nomi
 E 1
 N 7
-H 62ecbcbe972377cfb96cfc7749ab024eb49bbce4788fb5d4de74cd5f5c8f246e
+H 33f4e0d79a29009184b4ba2b0b222f03da29aa3ee8cab4d052d1590d1ab9878e
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: a type-qualified impl call records its arguments
-T   line 83: assertion failed
+T   line 79: assertion failed
 T     assert Counter.bump(c, step()) == 99
 T     values:
 T       c
@@ -595,7 +595,7 @@ T         = 2
 T       Counter.bump(c, step())
 T         = 7
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: an interface-qualified impl call records its arguments
-T   line 88: assertion failed
+T   line 84: assertion failed
 T     assert Bumper.bump(c, step()) == 99
 T     values:
 T       c
@@ -605,7 +605,7 @@ T         = 2
 T       Bumper.bump(c, step())
 T         = 7
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: a Bool-returning impl call records its LITERAL arguments too
-T   line 93: assertion failed
+T   line 89: assertion failed
 T     assert Bumper.even_sum?(c, 2)
 T     values:
 T       c
@@ -613,7 +613,7 @@ T         = Counter{n: 5}
 T       2
 T         = 2
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: an Int-returning impl call drops its literal argument
-T   line 98: assertion failed
+T   line 94: assertion failed
 T     assert Counter.bump(c, 3) == 99
 T     values:
 T       c
@@ -621,7 +621,7 @@ T         = Counter{n: 5}
 T       Counter.bump(c, 3)
 T         = 8
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: a generic impl template's call records its arguments
-T   line 103: assertion failed
+T   line 99: assertion failed
 T     assert Boxer.wrap(b, step()) == 99
 T     values:
 T       b
@@ -631,7 +631,7 @@ T         = 2
 T       Boxer.wrap(b, step())
 T         = 8
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: the operator interface written as a call records its arguments
-T   line 146: assertion failed
+T   line 140: assertion failed
 T     assert day_value(Add.add(ten, four)) == 99
 T     values:
 T       ten
@@ -643,7 +643,7 @@ T         = Day(14)
 T       day_value(Add.add(ten, four))
 T         = 14
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: the operator impl named by its type records its arguments
-T   line 152: assertion failed
+T   line 146: assertion failed
 T     assert day_value(Day.add(ten, four)) == 99
 T     values:
 T       ten
@@ -659,15 +659,15 @@ T
 C inspect_through_list.nomi
 E 1
 N 3
-H 5b45f9b55717112ff59bec49318d10c2bbaf72faf1178031e408add7d893ebd3
+H bf4c9ab7a7f09d055dd987fefe04833e6c742fd5c023e65f863715b3197fcb52
 T FAIL <root>/internal/irbuild/testdata/inspect_through_list.nomi :: a List of a user struct renders in a failure row
-T   line 39: assertion failed
+T   line 35: assertion failed
 T     assert b.label == "right"
 T     values:
 T       b.label
 T         = "left"
 T FAIL <root>/internal/irbuild/testdata/inspect_through_list.nomi :: the operand itself is the struct carrying the list
-T   line 50: assertion failed
+T   line 46: assertion failed
 T     assert b == other
 T     values:
 T       b
@@ -675,7 +675,7 @@ T         = Bag{items: [Point{x: 7}], label: "solo"}
 T       other
 T         = Bag{items: [], label: "empty"}
 T FAIL <root>/internal/irbuild/testdata/inspect_through_list.nomi :: nesting a list inside a list inside a struct
-T   line 71: assertion failed
+T   line 67: assertion failed
 T     assert d == empty
 T     values:
 T       d
@@ -687,9 +687,9 @@ T
 C iter_operand_report.nomi
 E 1
 N 3
-H 395f3e6ae0172ec30079825cd3fd7b1b2daef51db451336c0594f781d4446b11
+H 9823e93c996a116eaaf5664d45d2ba1af1b1ed9634aafc69bfa4d9c5d85dc3d0
 T FAIL <root>/internal/irbuild/testdata/iter_operand_report.nomi :: an Iter operand renders
-T   line 39: assertion failed
+T   line 37: assertion failed
 T     assert Iter.to_list(x) == [3, 4, 5, 9]
 T     values:
 T       x
@@ -697,7 +697,7 @@ T         = <iter>
 T       Iter.to_list(x)
 T         = [3, 4, 5]
 T FAIL <root>/internal/irbuild/testdata/iter_operand_report.nomi :: an unbounded Iter operand renders without being consumed
-T   line 45: assertion failed
+T   line 43: assertion failed
 T     assert Iter.count(Iter.take(endless, 3)) == 99
 T     values:
 T       endless
@@ -707,7 +707,7 @@ T         = <iter>
 T       Iter.count(Iter.take(endless, 3))
 T         = 3
 T FAIL <root>/internal/irbuild/testdata/iter_operand_report.nomi :: an Iter nested in a List renders
-T   line 53: assertion failed
+T   line 51: assertion failed
 T     assert Iter.count(pair) == 99
 T     values:
 T       pair
@@ -719,38 +719,38 @@ T
 C ordering.nomi
 E 1
 N 6
-H 03c347f76b5e08ad63cdfd4009ad8031dc0650a259b2067c728183918d71bd33
+H ee2d5dae50184af3070c527258702b2f702280abeb53f947236af912290f06fd
 T ok <root>/internal/irbuild/testdata/ordering.nomi :: the three variants are distinct values
 T ok <root>/internal/irbuild/testdata/ordering.nomi :: Int.compare answers all three
 T ok <root>/internal/irbuild/testdata/ordering.nomi :: String.compare is byte-lexicographic
 T ok <root>/internal/irbuild/testdata/ordering.nomi :: the ordering operators dispatch to a user Comparable impl
 T ok <root>/internal/irbuild/testdata/ordering.nomi :: Float compare is a total order and the operators are not
 T FAIL <root>/internal/irbuild/testdata/ordering.nomi :: a failing ordering comparison renders its operands
-T   line 105: assertion failed
+T   line 104: assertion failed
 T     assert Priority{level: 9} < Priority{level: 1}
 T test result: FAILED. 5 passed, 1 failed
 T
 C pattern_assert.nomi
 E 1
 N 7
-H 77b3e1f55c5666ee778458930745b6bc1decadbbc930c46de20b563f4edcad94
+H 4e92a487c41ddb08988d8df64cae350af833533155f26bd1cc4bd2c7795fd551
 T ok <root>/internal/irbuild/testdata/pattern_assert.nomi :: an identifier pattern always matches and binds into the enclosing scope
 T ok <root>/internal/irbuild/testdata/pattern_assert.nomi :: a bound name survives several statements and a rebinding
 T ok <root>/internal/irbuild/testdata/pattern_assert.nomi :: literal patterns that match bind nothing and hold
 T FAIL <root>/internal/irbuild/testdata/pattern_assert.nomi :: a literal pattern that does not match reports the value it saw
-T   line 54: pattern did not match
+T   line 52: pattern did not match
 T     assert 3 = compute()
 T     actual: 7
 T FAIL <root>/internal/irbuild/testdata/pattern_assert.nomi :: a String that does not match shows its quotes in the report
-T   line 58: pattern did not match
+T   line 56: pattern did not match
 T     assert "no" = label()
 T     actual: "ok"
 T FAIL <root>/internal/irbuild/testdata/pattern_assert.nomi :: a prelude-enum pattern that does not match shows the value it saw
-T   line 66: pattern did not match
+T   line 64: pattern did not match
 T     assert Ok(d) = parse("x")
 T     actual: Err("not a number: x")
 T FAIL <root>/internal/irbuild/testdata/pattern_assert.nomi :: a List pattern that does not match shows the whole list
-T   line 71: pattern did not match
+T   line 69: pattern did not match
 T     assert [a, b] = ["one"]
 T     actual: ["one"]
 T test result: FAILED. 3 passed, 4 failed
@@ -758,9 +758,9 @@ T
 C pipe_assert_report.nomi
 E 1
 N 4
-H 638eebf6a63d30f999016e8666e3dd20b6202ae75d23a1cb2b0e73cf5ccb2e3f
+H a0fc78935b1ef7b3d3f32120b532d7c960e03eb914a8ad99d788abbaeaea7ae2
 T FAIL <root>/internal/irbuild/testdata/pipe_assert_report.nomi :: a directly written call shows its arguments
-T   line 35: assertion failed
+T   line 34: assertion failed
 T     assert double(1 + 2) == 7
 T     values:
 T       1 + 2
@@ -768,19 +768,19 @@ T         = 3
 T       double(1 + 2)
 T         = 6
 T FAIL <root>/internal/irbuild/testdata/pipe_assert_report.nomi :: the same call through a pipe shows none
-T   line 39: assertion failed
+T   line 38: assertion failed
 T     assert (1 + 2) |> double() == 7
 T     values:
 T       (1 + 2) |> double()
 T         = 6
 T FAIL <root>/internal/irbuild/testdata/pipe_assert_report.nomi :: a piped stage's own extra arguments are not shown either
-T   line 43: assertion failed
+T   line 42: assertion failed
 T     assert 3 |> scaled(2 + 3) == 7
 T     values:
 T       3 |> scaled(2 + 3)
 T         = 15
 T FAIL <root>/internal/irbuild/testdata/pipe_assert_report.nomi :: a call nested inside a piped stage's argument still shows its own
-T   line 47: assertion failed
+T   line 46: assertion failed
 T     assert 3 |> scaled(double(2 + 3)) == 7
 T     values:
 T       2 + 3
@@ -792,9 +792,9 @@ T
 C pipe_stage_keyword_report.nomi
 E 1
 N 5
-H e0ac87c6d7a8af3dc96591bf6130a9521772c646ca593e9d5ab792622f190fcc
+H 8393f16d7ca067b0f2b58cee361c61db0ab83200ed6eccd867b2dbcc0606aaf9
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a keyword-prefixed if stage reports three pipeline rows
-T   line 54: assertion failed
+T   line 48: assertion failed
 T     assert flag
 T     defined as:
 T       12
@@ -809,7 +809,7 @@ T       12
 T       |> if Int.equal?(12) { False } else { True }
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a bare case stage reports two pipeline rows
-T   line 65: assertion failed
+T   line 59: assertion failed
 T     assert flag
 T     defined as:
 T       Some(3)
@@ -827,7 +827,7 @@ T               None -> True
 T           }
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a call stage before a keyword stage reports cumulative prefixes
-T   line 74: assertion failed
+T   line 68: assertion failed
 T     assert flag
 T     defined as:
 T       [1, 2, 3]
@@ -848,7 +848,7 @@ T       |> Iter.count()
 T       |> if Int.equal?(3) { False } else { True }
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a piped case scrutinee contributes no values row
-T   line 78: assertion failed
+T   line 72: assertion failed
 T     assert (wrap(3) |> case {
 T             Some(n) -> n
 T             None -> 0
@@ -860,7 +860,7 @@ T               None -> 0
 T           })
 T         = 3
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a directly written case scrutinee does contribute one
-T   line 85: assertion failed
+T   line 79: assertion failed
 T     assert (case wrap(3) {
 T         Some(n) -> n
 T         None -> 0
@@ -1170,129 +1170,129 @@ T
 C tests_operands.nomi
 E 1
 N 21
-H 016193ac0d3328d6647efb013e54d0089361559d2a1d12c873a8e20dd7e3f72b
+H c09269e3b9c0043af5f1a0a08737c9a99d41a003783ad05b090f088eac6527c3
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a list of Int
-T   line 104: assertion failed
+T   line 103: assertion failed
 T     assert no_list(xs)
 T     values:
 T       xs
 T         = [1, 2, 3]
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a list of String keeps its quotes
-T   line 109: assertion failed
+T   line 108: assertion failed
 T     assert no_strings(xs)
 T     values:
 T       xs
 T         = ["a", "b"]
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: an empty list
-T   line 114: assertion failed
+T   line 113: assertion failed
 T     assert no_list(xs)
 T     values:
 T       xs
 T         = []
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a nested list
-T   line 119: assertion failed
+T   line 118: assertion failed
 T     assert no_nested(xs)
 T     values:
 T       xs
 T         = [[1, 2], [3]]
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a tuple
-T   line 124: assertion failed
+T   line 123: assertion failed
 T     assert no_pair(p)
 T     values:
 T       p
 T         = (1, "two")
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a map
-T   line 129: assertion failed
+T   line 128: assertion failed
 T     assert no_map(m)
 T     values:
 T       m
 T         = {"a" => 1, "b" => 2}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: an empty map
-T   line 134: assertion failed
+T   line 133: assertion failed
 T     assert no_map(m)
 T     values:
 T       m
 T         = {=>}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a struct renders every field
-T   line 149: assertion failed
+T   line 148: assertion failed
 T     assert no_point(p)
 T     values:
 T       p
 T         = Point{x: 1, y: "two"}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a struct with no fields
-T   line 154: assertion failed
+T   line 153: assertion failed
 T     assert no_nothing(n)
 T     values:
 T       n
 T         = Nothing{}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a nested struct
-T   line 159: assertion failed
+T   line 158: assertion failed
 T     assert no_outer(o)
 T     values:
 T       o
 T         = Outer{p: Point{x: 1, y: "two"}, tag: 9}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a distinct type
-T   line 164: assertion failed
+T   line 163: assertion failed
 T     assert no_user(u)
 T     values:
 T       u
 T         = UserId(42)
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a bare enum variant
-T   line 169: assertion failed
+T   line 168: assertion failed
 T     assert no_shape(s)
 T     values:
 T       s
 T         = Dot
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a positional enum variant
-T   line 174: assertion failed
+T   line 173: assertion failed
 T     assert no_shape(s)
 T     values:
 T       s
 T         = Sized(7)
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a struct-shaped enum variant
-T   line 179: assertion failed
+T   line 178: assertion failed
 T     assert no_shape(s)
 T     values:
 T       s
 T         = Box(Box{h: "tall", w: 1})
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: an embedded struct variant
-T   line 184: assertion failed
+T   line 183: assertion failed
 T     assert no_shape(s)
 T     values:
 T       s
 T         = Wrapped{n: 4}
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: an embedded marker variant carries nothing
-T   line 189: assertion failed
+T   line 188: assertion failed
 T     assert no_shape(s)
 T     values:
 T       s
 T         = Expired
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: Some
-T   line 194: assertion failed
+T   line 193: assertion failed
 T     assert no_maybe(m)
 T     values:
 T       m
 T         = Some(5)
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: None
-T   line 199: assertion failed
+T   line 198: assertion failed
 T     assert no_maybe(m)
 T     values:
 T       m
 T         = None
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: Ok
-T   line 204: assertion failed
+T   line 203: assertion failed
 T     assert no_result(r)
 T     values:
 T       r
 T         = Ok(3)
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: Err
-T   line 209: assertion failed
+T   line 208: assertion failed
 T     assert no_result(r)
 T     values:
 T       r
 T         = Err("bad")
 T FAIL <root>/internal/irbuild/testdata/tests_operands.nomi :: a prelude enum over a struct
-T   line 214: assertion failed
+T   line 213: assertion failed
 T     assert no_maybe_point(m)
 T     values:
 T       m
@@ -1341,10 +1341,10 @@ T
 C try_attached.nomi
 E 1
 N 3
-H 364f3f7aabc7c1932c5d8deae0a9b5f86974d101d700ae1209a4c40ad755f59a
-T ok <root>/internal/irbuild/testdata/try_attached.nomi :: passing //! test lines 32-33
-T FAIL <root>/internal/irbuild/testdata/try_attached.nomi :: propagating //! test lines 39-40
-T   line 39: test returned early
+H 76caa28ddc3037a4e623968c5a2411070185836fc9d164855cc19792e199a609
+T ok <root>/internal/irbuild/testdata/try_attached.nomi :: passing //! test lines 26-27
+T FAIL <root>/internal/irbuild/testdata/try_attached.nomi :: propagating //! test lines 33-34
+T   line 33: test returned early
 T     try parse(-1)
 T     returned:
 T       Err("negative")
@@ -1354,19 +1354,19 @@ T
 C try_check_in_test.nomi
 E 1
 N 5
-H 713a6067ff3f91687f4754daa88a61946b15950a91ca6351bea19f24a385962d
+H ef1ce27ae3a6614e61fa8c121e33cd02bb96a1de58262feaa7a7bb0e48b7ba4e
 T after the passing check
 T before the failing check
 T ok <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a passing check unwraps and the case runs on
 T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a failing check reports the check and not an early return
-T   line 70: check failed
+T   line 64: check failed
 T     check 1 == 2
 T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a failing check over a shape subject reports the check
-T   line 78: check failed
+T   line 72: check failed
 T     check shape(-3)
 T     actual: Err("bad -3")
 T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: an ordinary try still reports test returned early
-T   line 86: test returned early
+T   line 80: test returned early
 T     try parse(-1)
 T     returned:
 T       Err("negative -1")
@@ -1376,27 +1376,27 @@ T
 C try_in_test.nomi
 E 1
 N 7
-H 47815fccb2d5fb526cd9ecf0c825eba09d715aae7308cd522a543b44a624cdbe
+H 62d05001eb42067491962ea51a702d146b2501e6b4565cf0aeee55cc2523bfc1
 T before the try
 T after the lambda
 T ok <root>/internal/irbuild/testdata/try_in_test.nomi :: try succeeds
 T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: try propagates
-T   line 52: test returned early
+T   line 50: test returned early
 T     try parse(-1)
 T     returned:
 T       Err("negative -1")
 T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: try propagates None
-T   line 59: test returned early
+T   line 57: test returned early
 T     try find(4)
 T     returned:
 T       None
 T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: try inside a nested construct
-T   line 68: test returned early
+T   line 66: test returned early
 T     try parse(-7)
 T     returned:
 T       Err("negative -7")
 T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: try in pipe position
-T   line 77: test returned early
+T   line 75: test returned early
 T     -1 |> try parse()
 T     returned:
 T       Err("negative -1")
@@ -1407,11 +1407,11 @@ T
 C unit_value.nomi
 E 1
 N 3
-H 2c278ed6dabc03b34625f28cac50837b7f208b253c3885709e7ddd4351483fc5
+H a50a72863adfbb6dfee847e6ff618c0d2ef1a7655a0aa2bc40b1a262db35d75a
 T ok <root>/internal/irbuild/testdata/unit_value.nomi :: Unit is the value of a branch with no else
 T ok <root>/internal/irbuild/testdata/unit_value.nomi :: Unit crosses a function boundary
 T FAIL <root>/internal/irbuild/testdata/unit_value.nomi :: a failing Unit comparison renders its operands
-T   line 28: refute failed
+T   line 27: refute failed
 T     refute nothing() == Unit
 T     values:
 T       nothing()
@@ -1421,22 +1421,22 @@ T
 C untyped_equality_report.nomi
 E 1
 N 4
-H 33750a2dc24ed881373d8c8bede23fe0293a2f41e81f151fcd0d2b6c472a68b7
+H 251ed536c3a61000de9855cb97e762b4ffdaf757ae5168c886311a03841c5bbe
 T ok <root>/internal/irbuild/testdata/untyped_equality_report.nomi :: an equality against an untyped literal that holds
 T FAIL <root>/internal/irbuild/testdata/untyped_equality_report.nomi :: a failing equality renders the untyped operand on the right
-T   line 45: assertion failed
+T   line 43: assertion failed
 T     assert present == None
 T     values:
 T       present
 T         = Some(7)
 T FAIL <root>/internal/irbuild/testdata/untyped_equality_report.nomi :: a failing equality renders the untyped operand on the left
-T   line 50: assertion failed
+T   line 48: assertion failed
 T     assert None == present
 T     values:
 T       present
 T         = Some(7)
 T FAIL <root>/internal/irbuild/testdata/untyped_equality_report.nomi :: a failing list equality renders the untyped operand
-T   line 55: assertion failed
+T   line 53: assertion failed
 T     assert xs == []
 T     values:
 T       xs
@@ -1446,28 +1446,28 @@ T
 C untyped_list_report.nomi
 E 1
 N 5
-H 92b366e892c5600dabc9f0d1fa3c52080e29e9531ad300ca7494f5d2f70b1b17
+H d4ea6b66a25fa758cae1953c5c965cae922b8d78e95f6d107e495a44ad06c3be
 T ok <root>/internal/irbuild/testdata/untyped_list_report.nomi :: an untyped List call that holds
 T FAIL <root>/internal/irbuild/testdata/untyped_list_report.nomi :: a failing head renders the untyped call
-T   line 43: assertion failed
+T   line 39: assertion failed
 T     assert List.head([]) != None
 T     values:
 T       List.head([])
 T         = None
 T FAIL <root>/internal/irbuild/testdata/untyped_list_report.nomi :: a failing tail renders the untyped call
-T   line 47: assertion failed
+T   line 43: assertion failed
 T     assert List.tail([]) != None
 T     values:
 T       List.tail([])
 T         = None
 T FAIL <root>/internal/irbuild/testdata/untyped_list_report.nomi :: a failing concat renders the untyped call
-T   line 51: assertion failed
+T   line 47: assertion failed
 T     assert List.concat([], []) != []
 T     values:
 T       List.concat([], [])
 T         = []
 T FAIL <root>/internal/irbuild/testdata/untyped_list_report.nomi :: a failing compare renders the untyped call
-T   line 55: refute failed
+T   line 51: refute failed
 T     refute List.compare([], []) == Ordering.Equal
 T     values:
 T       List.compare([], [])
@@ -1479,9 +1479,9 @@ T
 C virtual_clock_trap.nomi
 E 1
 N 2
-H 9c87444c4fab966bba15224b2fb0d2155093716f04c7c045be7424051c4c036e
+H a2b730112fda6f7cff98f0761f29d2aee393bcb650c0b8199405399900eba998
 T FAIL <root>/internal/irbuild/testdata/virtual_clock_trap.nomi :: a fault under a virtual clock / the trap's own text survives the bubble
-T   line 28: division by zero
+T   line 27: division by zero
 T ok <root>/internal/irbuild/testdata/virtual_clock_trap.nomi :: a fault under a virtual clock / the next case still runs
 T test result: FAILED. 1 passed, 1 failed
 T

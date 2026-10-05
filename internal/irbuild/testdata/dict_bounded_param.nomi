@@ -6,8 +6,8 @@
 //
 // The last two calls are the part that is NOT about the table: `announce` is
 // called through a second generic, and once through one that hands its own type
-// parameter on. That is eval's genericCallEnv "resolving each argument through
-// the caller's own bindings first" — the builder's version is the enclosing
+// parameter on. Each argument resolves through the caller's own bindings
+// first: the builder's version is the enclosing
 // activation's own dictionary, and without it a bounded generic could not call
 // another one.
 import std/io

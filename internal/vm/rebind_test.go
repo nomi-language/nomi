@@ -11,7 +11,7 @@ func TestVMRebind_TourMatchesRecordedAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{"bindings-and-expressions.md:L266"}, vmPathResolver(t, "tour"))
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "bindings-and-expressions.md", `name = String.to_lower(name)`)}, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("binding refinement incomplete: %v", refused)
 	}

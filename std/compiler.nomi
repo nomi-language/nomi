@@ -71,9 +71,9 @@ pub host fn check(source: String): List<Diagnostic>
 /// Runs `source` as a standalone Nomi entry file and captures stdout.
 ///
 /// `Err(message)` is returned for parse, analysis, or runtime errors. A
-/// runtime error is what `nomi run` reports for the same source, including a
-/// deadline that runs out while `main` blocks; output printed before it is
-/// not returned.
+/// runtime error is what `nomi run` reports for the same source, including
+/// `error: <text>` for a `main` that returns `Err` and a deadline that runs
+/// out while `main` blocks; output printed before it is not returned.
 /// Use `compiler.check` when the diagnostic itself is the behavior under
 /// test; use `compiler.run` when output is the behavior under test.
 //! import std/compiler

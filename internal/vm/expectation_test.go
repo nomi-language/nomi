@@ -2,8 +2,10 @@ package vm_test
 
 // Complete programs are compared with committed transcript artifacts. Empty
 // transcripts and test reports are excluded here; testreport_test.go owns reports.
-// Retention counts alone do not establish whole-program behavior. The measured
-// subset and its named output-mutation controls are pinned below. Tour programs
+// Retention counts alone do not establish whole-program behavior. Which
+// records must compare is decided below (vmRequiredComparable), and the
+// output-mutation controls classify their records from the committed artifact
+// or the block source, never from a hand list. Tour programs
 // also cover the required scalar/control-flow graph shapes. The separate no-match
 // fixture verifies reachable trap output, which wildcard-ended cases cannot cover.
 
@@ -22,6 +24,8 @@ import (
 	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/irbuild"
+	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/token"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
 	"github.com/nomi-language/nomi/vmhost"
@@ -34,70 +38,168 @@ import (
 // below is keyed on a constant and not on "whatever the VM produced".
 const emptyTranscriptDigest = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
-// popPins is one population's measured shape. Every field is pinned because
+// WHICH RECORDS MUST COMPARE, by population and unit.
+//
 // `CompareSubset` reports nothing about a subset that got SMALLER, and
 // expectation.go makes asserting the denominator the caller's obligation: "A
-// subset check with no denominator is satisfiable by running nothing."
+// subset check with no denominator is satisfiable by running nothing." The
+// denominator here is a SET, not a count, so a record that drops out is named:
 //
-// FOUR NUMBERS, because they fail differently. `reportShaped` moving means a
-// file gained or lost tests. `empty` moving means a library file gained an
-// entry point. `candidates` moving is the sum of those. `comparable` moving UP
-// is the producer widening; moving DOWN is a regression no emit digest can
-// see.
+//   - A population with no list below must compare EVERY candidate. The tour
+//     and the failure fixtures are recorded by the same VM this harness runs,
+//     so a candidate the harness cannot compare is a harness or VM
+//     regression, and its refusal is printed.
+//   - A population with a list compares exactly the records the committed
+//     list names. The corpus holds files this bare harness cannot run (Go
+//     bindings it does not have, test files whose producer declines a case,
+//     helper files with no entry), so "every candidate" is not the bar.
+//     A listed record that stops comparing is the regression the list
+//     exists for; a record that starts comparing, or a new corpus file that
+//     compares, is the producer widening. Both fail until the list is
+//     regenerated, and the regenerated list's diff names the moved records.
 //
-// The record count is DERIVED rather than pinned: it equals `reportShaped +
-// empty + candidates` in every population, since every record falls in
-// exactly one of the three. `records()` is compared against the artifact's
-// own count, so a record that vanishes still breaks the sum.
-type popPins struct {
-	reportShaped int
-	empty        int
-	candidates   int
-	comparable   int
+// The record classification (report-shaped, empty, candidate) is read from
+// the committed artifact on every run and pinned nowhere: the artifact is
+// owned by internal/expectation, whose own Compare already fails when a
+// record appears or vanishes.
+var vmComparableLists = map[string]string{
+	"programs/corpus": "vm-corpus-programs.txt",
+	"reports/corpus":  "vm-corpus-reports.txt",
 }
 
-// records is the population's record count, derived from the classification.
-func (p popPins) records() int { return p.reportShaped + p.empty + p.candidates }
+// vmComparableRegenerate is the command that rewrites the lists.
+const vmComparableRegenerate = "NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/vm " +
+	"-run 'TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts|" +
+	"TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords' -count=1"
 
-// vmPopulations is the measured state of all four artifacts.
+// vmRequiredComparable is the set of records `unit` must compare in
+// `population`, given its candidates: the committed list when there is one,
+// every candidate otherwise.
+func vmRequiredComparable(t *testing.T, unit, population string, candidates []string) []string {
+	t.Helper()
+	name, listed := vmComparableLists[unit+"/"+population]
+	if !listed {
+		return candidates
+	}
+	path := vmComparableListPath(t, name)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading %s: %v; create it with\n  %s", path, err, vmComparableRegenerate)
+	}
+	var ids []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		ids = append(ids, line)
+	}
+	return ids
+}
+
+func vmComparableListPath(t *testing.T, name string) string {
+	t.Helper()
+	dir, err := expectation.Dir()
+	if err != nil {
+		t.Fatalf("resolving the expectations directory: %v", err)
+	}
+	return filepath.Join(dir, name)
+}
+
+// vmRequireComparable checks that `got` compared exactly the records
+// vmRequiredComparable names. With `regenerate` set and
+// NOMI_REGENERATE_EXPECTATIONS=1, a listed population's list is rewritten
+// from `got` instead.
+func vmRequireComparable(t *testing.T, unit, population string, candidates []string,
+	got *expectation.Set, refused []string, regenerate bool) {
+	t.Helper()
+	compared := recordIDs(got)
+	if name, listed := vmComparableLists[unit+"/"+population]; listed && regenerate &&
+		expectation.RegenerateRequested() {
+		var b strings.Builder
+		fmt.Fprintf(&b, "# The %s records internal/vm's %s harness compares against %s.expect.\n",
+			population, unit, population)
+		b.WriteString("# A record that leaves this list stopped comparing; name the cause.\n")
+		fmt.Fprintf(&b, "# Regenerate with:\n#   %s\n", vmComparableRegenerate)
+		for _, id := range compared {
+			b.WriteString(id + "\n")
+		}
+		path := vmComparableListPath(t, name)
+		if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+			t.Fatalf("writing %s: %v", path, err)
+		}
+		t.Logf("%s: REWROTE %s with %d record(s) because NOMI_REGENERATE_EXPECTATIONS=1",
+			population, name, len(compared))
+		return
+	}
+	want := vmRequiredComparable(t, unit, population, candidates)
+	have := map[string]bool{}
+	for _, id := range compared {
+		have[id] = true
+	}
+	why := map[string]string{}
+	for _, r := range refused {
+		if id, reason, ok := strings.Cut(r, ": "); ok {
+			why[id] = reason
+		}
+	}
+	wanted := map[string]bool{}
+	var dropped, added []string
+	for _, id := range want {
+		wanted[id] = true
+		if !have[id] {
+			reason := why[id]
+			if reason == "" {
+				reason = "not a candidate in the committed artifact"
+			}
+			dropped = append(dropped, fmt.Sprintf("    %s: %s", id, reason))
+		}
+	}
+	for _, id := range compared {
+		if !wanted[id] {
+			added = append(added, "    "+id)
+		}
+	}
+	if len(dropped) > 0 {
+		t.Errorf("%s/%s: %d record(s) that must compare did not. CompareSubset forgives "+
+			"absence, so this is the only place a regression here shows:\n%s",
+			unit, population, len(dropped), strings.Join(dropped, "\n"))
+	}
+	if len(added) > 0 {
+		t.Errorf("%s/%s: %d record(s) compared that the committed list does not name. "+
+			"If the producer widened or a corpus file was added, regenerate with\n  %s\n%s",
+			unit, population, len(added), vmComparableRegenerate, strings.Join(added, "\n"))
+	}
+}
+
+// sortedCopy is ids sorted, leaving ids alone.
+func sortedCopy(ids []string) []string {
+	out := append([]string(nil), ids...)
+	sort.Strings(out)
+	return out
+}
+
+// tourBlock is the record id of the one runnable block in `chapter` whose
+// code contains `marker`.
 //
-// corpus is enumerated FROM THE ARTIFACT — a record's id is the
-// population-relative path, so the committed file is the population's own
-// enumeration and this consumer does not walk the tree a third time. The tour
-// cannot be: a block's id is `chapter:L<line>` and only the markdown holds the
-// code, so the blocks are extracted with the doctest runner's own extractor.
-var vmPopulations = map[string]popPins{
-	// A record is report-shaped when its `N` is above zero, empty when its `H`
-	// is sha256 of the empty string, and a candidate otherwise; a row can be
-	// derived from `<population>.expect` that way, and a wrong row's failure
-	// prints the derived split.
-	//
-	// The corpus's candidates are its `fn main` files and its helper files,
-	// whose record is `nomi run`'s refusal of a file with no `fn main` or a
-	// diagnostic (not comparable: no entry). Nine compare:
-	// `15-app-and-defer/app_field_permission/main.nomi` boots a Settings app
-	// and prints the root through three sibling files' reads,
-	// `15-app-and-defer/effects/main.nomi` dispatches a sibling file's
-	// interface through its declaring unit's symbol,
-	// `14-modules-and-packaging/file_import_display/main.nomi` prints values
-	// whose types a sibling file declares,
-	// `12-derives-and-standard-interfaces/generic_debug/main.nomi` renders
-	// user generic types through Debug and Display, and the five entry files
-	// whose boot a test group's `boot` line names
-	// (`15-app-and-defer/{deadline_floor/supervisor_app, import_vs_app/import_app,
-	// with_overrides/app}.nomi`, `16-concurrency/{message_loop/counter_app,
-	// supervisors/app}.nomi`). The others include the
-	// `18-ffi-and-dynamic/*_app/main.nomi` programs, whose Go bindings this
-	// harness does not have.
-	"corpus": {reportShaped: 164, empty: 0, candidates: 98, comparable: 9},
-	// Every tour candidate is compared.
-	"tour": {reportShaped: 16, empty: 0, candidates: 113, comparable: 113},
-	// Every record is a `nomi test std/<module>` report.
-	"stdlib": {reportShaped: 29, empty: 0, candidates: 0, comparable: 0},
-	// Every record is a deliberately-red test report, which is why this is
-	// the only population with power over a wrong failure message;
-	// testreport_test.go compares it.
-	"failure": {reportShaped: 49, empty: 0, candidates: 0, comparable: 0},
+// A TEST NAMES A TOUR BLOCK BY ITS CONTENT AND NOT BY ITS LINE. A record's id
+// is `chapter:L<line>`, which moves whenever anything is inserted above the
+// block; the marker moves only when the block itself is edited, and then the
+// failure lists the chapter's blocks that do match.
+func tourBlock(t *testing.T, chapter, marker string) string {
+	t.Helper()
+	var hits []string
+	for id, code := range tourBlocksByID(t) {
+		if strings.HasPrefix(id, chapter+":L") && strings.Contains(code, marker) {
+			hits = append(hits, id)
+		}
+	}
+	sort.Strings(hits)
+	if len(hits) != 1 {
+		t.Fatalf("%d runnable block(s) in %s contain %q, and a test needs exactly one: %v",
+			len(hits), chapter, marker, hits)
+	}
+	return hits[0]
 }
 
 // vmLinkedRecords are the tour records that became comparable only because a
@@ -106,107 +208,26 @@ var vmPopulations = map[string]popPins{
 // NAMED RATHER THAN DERIVED, because the control that uses them has to run the
 // UNLINKED case and require it to fail: a list computed by "which records need
 // a link" would be computed by the very mechanism under test.
-var vmLinkedRecords = []string{
-	"modules-and-imports.md:L79",  // `io.print(math.double(7))`
-	"modules-and-imports.md:L117", // the same program with a private sibling beside it
-	"modules-and-imports.md:L162", // a NESTED sibling, `http/header`
+var vmLinkedRecords = []struct{ chapter, marker string }{
+	{"modules-and-imports.md", `name = "myproject"`},        // `io.print(math.double(7))`
+	{"modules-and-imports.md", `name = "vis_demo"`},         // the same program with a private sibling beside it
+	{"modules-and-imports.md", `name = "nested_file_demo"`}, // a sibling named `header`
 }
 
-// vmDbgRecords are the comparable tour records whose transcript is `dbg`
-// output, and vmNonDbgRecords the rest.
+// usesDbg reports whether a block's source spells the `dbg` keyword, read
+// from its tokens so a comment or a string that mentions dbg does not count.
 //
-// BOTH LISTS ARE NAMED AND BOTH ARE USED, for `vmLinkedRecords`'s reason
-// doubled: the plant below has to report every member of the first and NO
-// member of the second, and a list derived from "which records contain the
-// string `dbg`" would be derived from the output under test.
-//
-// THE SECOND LIST IS WHAT MAKES THE PLANT A PLANT rather than a global
-// mutation: a mutation that changed every record would prove the comparison
-// sees SOMETHING and not that it sees `dbg`.
-//
-// KEEPING THE FIRST LIST COMPLETE IS LOAD-BEARING. The plant runs over these
-// two lists rather than over "everything comparable", so a `dbg` record left
-// out would leave the plant passing over it while reporting that it covered
-// the population. The count assertion below is what forces the addition.
-var vmDbgRecords = []string{
-	"scalars-and-strings.md:L229",     // byte buffers and octet iteration
-	"scalars-and-strings.md:L158",     // grapheme and codepoint iteration
-	"scalars-and-strings.md:L189",     // codepoint literal case arms over String.to_codepoints
-	"generics.md:L68",                 // generic sort/take pipeline
-	"interfaces-and-dispatch.md:L334", // bounded generic sort/take pipeline
-	"functions-and-lambdas.md:L17",    // named-function conditional early return
-
-	"functions-and-lambdas.md:L101", // lambda default supplier and explicit override
-
-	"bindings-and-expressions.md:L337", // a scoped block supplies a binding value
-
-	"bindings-and-expressions.md:L361", // conditional binding, literal case and condition chain
-
-	"bindings-and-expressions.md:L15",  // `dbg greeting` over a String binding
-	"bindings-and-expressions.md:L93",  // `dbg double(4)` — an impure operand, forced
-	"bindings-and-expressions.md:L123", // `dbg area(6, 7)`
-	"bindings-and-expressions.md:L187", // TWO dbgs, the first non-final: the drop delivery
-	"bindings-and-expressions.md:L208", // `_ignored_count = 3` then `dbg "done"`
-	"bindings-and-expressions.md:L224", // `_ = compute()`, a non-final dbg, a tail `Unit`
-	"pipes.md:L16",                     // `5 |> double() |> dbg`, the piped stage
-	"pipes.md:L40",                     // lazy map and list materialization
-	"pipes.md:L62",                     // filtered sequence counts in both call and pipe forms
-	"collections.md:L31",               // a lazy pipeline over an unbounded range stops at take
-	"collections.md:L68",               // filter, map and a seeded reduction
-	"collections.md:L189",              // bounded, inclusive and unbounded Int ranges
-	"collections.md:L216",              // a codepoint literal range mapped through Codepoint.to_string
-	"collections.md:L253",              // a Decimal range stepped by Range.step_by
-	"typed-literals.md:L72",            // a struct built by its Literal handler
-	"typed-literals.md:L113",           // Regex literals through std's handler and extern hosts
-	"dates-and-times.md:L27",           // Date and DateTime literals and field reads
-	"dates-and-times.md:L61",           // calendar arithmetic with Days, Weeks, Months and Years
-	"dates-and-times.md:L142",          // DateTime equality across zones
-	"dates-and-times.md:L172",          // civil and physical DateTime arithmetic across DST
-	"dates-and-times.md:L226",          // a zone conversion compared with ==
-	"dates-and-times.md:L253",          // DST disambiguation through DateTime.in_zone
-	"interfaces-and-dispatch.md:L620",  // derived Comparable ordering over enum variants
-	"structs-enums-distinct.md:L29",    // struct field defaults, punning and derived struct Debug
-	"interfaces-and-dispatch.md:L264",  // struct, enum and distinct Debug through their impls
-	"structs-enums-distinct.md:L312",   // bare, positional and struct-shaped variant Debug
-	"pattern-matching.md:L46",          // dot-leading struct-shaped variant construction and patterns
-	"interfaces-and-dispatch.md:L468",  // derived ToJson/FromJson and Json.encode
-	"structs-enums-distinct.md:L64",    // target-typed brace literals at an annotation and a field
-	"structs-enums-distinct.md:L113",   // struct and record spreads, punning and copies
-	"structs-enums-distinct.md:L493",   // a Map of Lists built through Map.get and Map.put
-	"interfaces-and-dispatch.md:L594",  // derived Comparable sort over a list of structs
-	"interfaces-and-dispatch.md:L655",  // Iter.sort_by over a projected String key
-	"interfaces-and-dispatch.md:L546",  // struct == and a Map keyed by a struct
-	"structs-enums-distinct.md:L149",   // a nested spread and a bare patch at a struct field
-	"structs-enums-distinct.md:L447",   // embedded struct and marker values in a List<Event>
-	"iteration-and-loops.md:L113",      // callback-local return keeps mapping
-	"iteration-and-loops.md:L75",       // break in a reduce and continue in a map
-	"scalars-and-strings.md:L43",       // `dbg` over the scalar chapter's bindings
-	"iteration-and-loops.md:L41",       // inline Iter.loop over Int and tuple state
-	"concurrency.md:L31",               // three spawned tasks awaited in a concurrent block
-	"concurrency.md:L79",               // producers and a consumer over a buffered channel
-	"concurrency.md:L159",              // a try in a concurrent block cancels the sleeping sibling
-	"concurrency.md:L243",              // Task.spawn_all over a filtered source, then await_all
-	"concurrency.md:L652",              // a cancelled task's Outcome
-	"concurrency.md:L801",              // a `with` context deadline ends a task's sleep
-	"concurrency.md:L453",              // supervised audit tasks flushed before reading their channel
-}
-
-var vmNonDbgRecords = []string{
-	"bindings-and-expressions.md:L32", // Display print and Debug inspect
-
-	"scalars-and-strings.md:L90",       // three `io.print`s
-	"scalars-and-strings.md:L114",      // a literal `${`, `$` and `#{` printed as text
-	"modules-and-imports.md:L21",       // a parsed Date inspected through its std Debug impl
-	"modules-and-imports.md:L216",      // an opaque type's impl functions called from a sibling file
-	"modules-and-imports.md:L79",       // the three linked sibling-call records
-	"modules-and-imports.md:L117",      //
-	"modules-and-imports.md:L162",      //
-	"interfaces-and-dispatch.md:L303",  // io.print through a user Display impl
-	"typed-literals.md:L26",            // a distinct built by its Literal handler, then destructured
-	"capabilities-and-context.md:L143", // deferred closes printed at a scoped block's exit
-	"capabilities-and-context.md:L13",  // a booted `App.port` read printed through io.print
-	"capabilities-and-context.md:L81",  // a `with` replacement of `App.logger` dispatched through Logger.log
-	"capabilities-and-context.md:L181", // a closure made after a `with` line reads the field where it is called
+// THE DBG PLANT'S CLASSIFICATION IS A PROPERTY OF THE INPUT. A list derived
+// from "which transcripts contain dbg output" would be derived from the
+// output under test; the source is not, and it classifies every comparable
+// record, so a new block needs no list entry.
+func usesDbg(code string) bool {
+	for _, tok := range lexer.Lex(code) {
+		if tok.Type == token.DBG {
+			return true
+		}
+	}
+	return false
 }
 
 // vmWholeProgramRoots are the populations whose record ids are paths, with the
@@ -278,8 +299,8 @@ func vmRun(path string) (transcript string, reason string) {
 	}
 	// THE WHOLE PROGRAM'S MODULE SET, not just the entry's module. A Nomi
 	// program with sibling files lowers to one `ir.Module` per unit, and a
-	// callee may sit in the module next door (`modules-and-imports.md:L79`,
-	// `:L117` and `:L162`). Running the entry's module alone would report them
+	// callee may sit in the module next door (vmLinkedRecords' three
+	// modules-and-imports.md blocks). Running the entry's module alone would report them
 	// as a retention boundary when nothing is missing but the link.
 	var out bytes.Buffer
 	mod, mods, err := vmLink(mod, res.IRModules())
@@ -350,36 +371,23 @@ func TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts(t *testing.T)
 	// bearing and two runs sharing a root is how a stale artifact gets read.
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 
-	totalComparable := 0
+	totalComparable, records, tourCandidates := 0, 0, 0
+	for _, population := range []string{"corpus", "tour", "stdlib", "failure"} {
+		set, err := expectation.Load(population)
+		if err != nil {
+			t.Fatalf("loading the committed expectation for %s: %v", population, err)
+		}
+		records += len(set.Cases)
+	}
 	for _, population := range []string{"corpus", "tour"} {
 		t.Run(population, func(t *testing.T) {
-			pins := vmPopulations[population]
 			recorded, err := expectation.Load(population)
 			if err != nil {
 				t.Fatalf("loading the committed expectation for %s: %v", population, err)
 			}
-			// The split is derived BEFORE the total is checked, and the
-			// total's failure prints it, so a reader whose total is wrong
-			// gets the number to copy rather than re-deriving it from
-			// `<population>.expect` by hand.
 			ids, reportShaped, empty := candidateIDs(recorded)
-			if len(recorded.Cases) != pins.records() {
-				t.Fatalf("%s holds %d records and the pin says %d; the population changed. "+
-					"The derived split is {reportShaped: %d, empty: %d, candidates: %d}. "+
-					"Copy that rather than adjusting the total, and attribute the move to a "+
-					"named cause — this table pins a total AND a split, and only the total is a guard",
-					population, len(recorded.Cases), pins.records(),
-					reportShaped, empty, len(ids))
-			}
-			if reportShaped != pins.reportShaped {
-				t.Errorf("%s: %d report-shaped records (N>0), pin %d",
-					population, reportShaped, pins.reportShaped)
-			}
-			if empty != pins.empty {
-				t.Errorf("%s: %d empty-transcript records, pin %d", population, empty, pins.empty)
-			}
-			if len(ids) != pins.candidates {
-				t.Errorf("%s: %d candidates, pin %d", population, len(ids), pins.candidates)
+			if population == "tour" {
+				tourCandidates = len(ids)
 			}
 
 			pathFor := vmPathResolver(t, population)
@@ -393,13 +401,7 @@ func TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts(t *testing.T)
 					population, len(diffs), strings.Join(diffs, "\n"))
 			}
 			// THE DENOMINATOR, which CompareSubset cannot supply.
-			if len(got.Cases) != pins.comparable {
-				t.Errorf("%s: the VM produced a whole transcript for %d record(s) and the pin "+
-					"says %d.\nA FALL IS A REGRESSION the comparison above cannot see, because "+
-					"CompareSubset forgives absence. A RISE is the producer widening and the "+
-					"pin should be raised with the reading that justifies it.\nrefusals:\n%s",
-					population, len(got.Cases), pins.comparable, strings.Join(refused, "\n"))
-			}
+			vmRequireComparable(t, "programs", population, ids, got, refused, true)
 			totalComparable += len(got.Cases)
 			for _, id := range recordIDs(got) {
 				t.Logf("  COMPARED %s", id)
@@ -419,15 +421,9 @@ func TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts(t *testing.T)
 	// BOTH DENOMINATORS: the share of tour candidates flatters, and the share
 	// of all committed records is what the engine is actually compared on.
 	// The gap between the two is the exclusions this file's header itemizes.
-	records := 0
-	for _, pins := range vmPopulations {
-		records += pins.records()
-	}
 	t.Logf("the VM is compared against %d record(s) of %d committed (%.1f%%); the "+
-		"tour holds %d candidates and the compared count is %.1f%% of them",
-		totalComparable, records, 100*float64(totalComparable)/float64(records),
-		vmPopulations["tour"].candidates,
-		100*float64(totalComparable)/float64(vmPopulations["tour"].candidates))
+		"tour holds %d candidates", totalComparable, records,
+		100*float64(totalComparable)/float64(records), tourCandidates)
 }
 
 // recordIDs is a Set's ids, for logging.
@@ -444,19 +440,18 @@ func recordIDs(s *expectation.Set) []string {
 // the artifacts and runs no program.
 //
 // THE CLAIM IS STRUCTURAL AND WORTH CHECKING RATHER THAN ASSERTING IN PROSE.
-// `stdlib` and `failure` are 29 and 49 records and EVERY ONE declares cases,
-// so every transcript is `rt.TestReporter`'s report. If a record with N=0 ever
-// appeared in either, the VM would have a candidate there and this file would
-// be silently ignoring it.
+// Every record of `stdlib` and `failure` declares cases, so every transcript
+// is `rt.TestReporter`'s report. If a record with N=0 ever appeared in either,
+// the VM would have a candidate there and this file would be silently
+// ignoring it.
 func TestVMExpectation_TheReportShapedPopulationsAreOutByConstruction(t *testing.T) {
 	for _, population := range []string{"stdlib", "failure"} {
-		pins := vmPopulations[population]
 		recorded, err := expectation.Load(population)
 		if err != nil {
 			t.Fatalf("loading %s: %v", population, err)
 		}
-		if len(recorded.Cases) != pins.records() {
-			t.Errorf("%s holds %d records, pin %d", population, len(recorded.Cases), pins.records())
+		if len(recorded.Cases) == 0 {
+			t.Errorf("%s holds no records, so this check has no subject", population)
 		}
 		ids, reportShaped, empty := candidateIDs(recorded)
 		if len(ids) != 0 {
@@ -598,9 +593,24 @@ func TestVMExpectation_APlantedDivergenceInDbgOutputIsCaught(t *testing.T) {
 	}
 	pathFor := vmPathResolver(t, "tour")
 
-	// THE NAMED RECORDS, so the reading is over the records the lists claim
-	// rather than over whatever happens to be comparable.
-	ids := append(append([]string(nil), vmDbgRecords...), vmNonDbgRecords...)
+	// EVERY TOUR CANDIDATE, classified by its source: a block that spells
+	// `dbg` must be reported and one that does not must not. Every tour
+	// candidate is required to compare (vmRequiredComparable), so the run
+	// below covers the whole population and a new block needs no entry.
+	blocks := tourBlocksByID(t)
+	ids, _, _ := candidateIDs(recorded)
+	var dbgIDs, nonDbgIDs []string
+	for _, id := range ids {
+		if usesDbg(blocks[id]) {
+			dbgIDs = append(dbgIDs, id)
+		} else {
+			nonDbgIDs = append(nonDbgIDs, id)
+		}
+	}
+	if len(dbgIDs) == 0 || len(nonDbgIDs) == 0 {
+		t.Fatalf("%d tour candidate(s) use dbg and %d do not; the plant needs both to "+
+			"discriminate", len(dbgIDs), len(nonDbgIDs))
+	}
 
 	run := func(what string, ids ...string) *expectation.Set {
 		s := &expectation.Set{Population: "tour", What: what}
@@ -611,7 +621,8 @@ func TestVMExpectation_APlantedDivergenceInDbgOutputIsCaught(t *testing.T) {
 			}
 			transcript, reason := vmRun(path)
 			if reason != "" {
-				t.Fatalf("%s is named as comparable and the VM answered %q", id, reason)
+				t.Fatalf("%s is a tour candidate, every one must compare, and the VM "+
+					"answered %q", id, reason)
 			}
 			s.Add(expectation.NewCase(id, 0, 0, expectation.Normalize(transcript, root)))
 		}
@@ -637,27 +648,29 @@ func TestVMExpectation_APlantedDivergenceInDbgOutputIsCaught(t *testing.T) {
 	rt.Highlight = saved
 
 	reported := strings.Join(diffs, "\n")
-	for _, id := range vmDbgRecords {
-		if !strings.Contains(reported, id) {
-			t.Fatalf("a divergence planted inside rt.DbgText was NOT reported for the "+
-				"dbg record %s, so the dbg transcripts are not actually being "+
-				"compared:\n%s", id, reported)
+	for _, id := range dbgIDs {
+		if !strings.Contains(reported, id+":") {
+			t.Errorf("a divergence planted inside rt.DbgText was NOT reported for %s, "+
+				"whose source uses dbg, so its dbg transcript is not actually being "+
+				"compared", id)
 		}
 	}
-	for _, id := range vmNonDbgRecords {
-		if strings.Contains(reported, id) {
-			t.Fatalf("the plant was reported for %s, which prints through io.print and "+
-				"reaches no `dbg` — so the mutation is not specific to the path it "+
-				"names:\n%s", id, reported)
+	for _, id := range nonDbgIDs {
+		if strings.Contains(reported, id+":") {
+			t.Errorf("the plant was reported for %s, whose source spells no `dbg`, so "+
+				"the mutation is not specific to the path it names", id)
 		}
 	}
-	if len(diffs) != len(vmDbgRecords) {
-		t.Fatalf("planted inside rt.DbgText and got %d difference(s) for %d dbg "+
-			"record(s):\n%s", len(diffs), len(vmDbgRecords), reported)
+	if len(diffs) != len(dbgIDs) {
+		t.Errorf("planted inside rt.DbgText and got %d difference(s) for %d dbg "+
+			"record(s)", len(diffs), len(dbgIDs))
+	}
+	if t.Failed() {
+		t.Fatalf("reported:\n%s", reported)
 	}
 	t.Logf("planted a divergence inside rt.DbgText and the artifact comparison "+
-		"reported exactly the %d dbg record(s) and none of the %d others:\n%s",
-		len(vmDbgRecords), len(vmNonDbgRecords), reported)
+		"reported exactly the %d dbg record(s) and none of the %d others",
+		len(dbgIDs), len(nonDbgIDs))
 }
 
 // TestVMExpectation_SiblingCallRecordsRunOnlyWhenLinked is the positive
@@ -682,7 +695,8 @@ func TestVMExpectation_SiblingCallRecordsRunOnlyWhenLinked(t *testing.T) {
 	}
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	pathFor := vmPathResolver(t, "tour")
-	for _, id := range vmLinkedRecords {
+	for _, linked := range vmLinkedRecords {
+		id := tourBlock(t, linked.chapter, linked.marker)
 		t.Run(id, func(t *testing.T) {
 			path, ok := pathFor(id)
 			if !ok {

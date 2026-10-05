@@ -371,3 +371,119 @@ func TestIRTestGroup_TheRunnerRefusesAnUnrecordedBoot(t *testing.T) {
 		t.Fatalf("the runner answered reason %q with output:\n%s", reason, out.String())
 	}
 }
+
+// A `return value` in a setup ends the setup with that value, as a function's
+// does, not the case: the case's pattern binds it and the body runs. An early
+// return skips the rest of the setup; a return inside a block runs the block's
+// deferred calls on the way out.
+func TestIRTestGroup_ASetupReturnIsItsValue(t *testing.T) {
+	const src = `import std/io
+
+fn main() {}
+
+tests "plain return" {
+  setup {
+    x = 1
+    return x + 1
+  }
+
+  test "binds the returned value", v {
+    assert v == 2
+  }
+}
+
+tests "early return" {
+  setup {
+    flag = True
+    if flag {
+      io.print("early")
+      return "early"
+    }
+    io.print("late")
+    "late"
+  }
+
+  test "binds the early value", v {
+    io.print("body sees ${v}")
+    assert v == "early"
+  }
+}
+
+tests "falls past an early return" {
+  setup {
+    flag = False
+    if flag {
+      return (1, "one")
+    }
+    (2, "two")
+  }
+
+  test "binds the tail value", (n, s) {
+    assert n == 2
+    assert s == "two"
+  }
+}
+
+tests "return in a case arm" {
+  setup {
+    case Some(3) {
+      Some(n) -> return n * 10
+      None -> {}
+    }
+    0
+  }
+
+  test "binds the arm's value", v {
+    assert v == 30
+  }
+}
+
+tests "return from a block" {
+  setup {
+    {
+      defer io.print("block closed")
+      io.print("in block")
+      return 7
+    }
+  }
+
+  test "runs the block's defer first", v {
+    io.print("body")
+    assert v == 7
+  }
+}
+
+tests "bare return in a Unit setup" {
+  setup {
+    io.print("before")
+    if True {
+      return
+    }
+    io.print("never")
+  }
+
+  test "runs the body" {
+    io.print("body after a bare return")
+    assert True
+  }
+}
+`
+	run := irTestGroupVM(t, src, 6)
+	if run.vm.exit != 0 || !strings.Contains(run.vm.stdout, "6 passed, 0 failed") {
+		t.Errorf("want all six cases passing:\n%s", run.vm.stdout)
+	}
+	for _, want := range []string{
+		"early\nbody sees early\n",
+		"in block\nblock closed\nbody\n",
+		"before\nbody after a bare return\n",
+	} {
+		if !strings.Contains(run.vm.stdout, want) {
+			t.Errorf("want %q in the output:\n%s", want, run.vm.stdout)
+		}
+	}
+	for _, never := range []string{"late", "never"} {
+		if strings.Contains(run.vm.stdout, never+"\n") {
+			t.Errorf("the setup ran past its return and printed %q:\n%s", never, run.vm.stdout)
+		}
+	}
+}

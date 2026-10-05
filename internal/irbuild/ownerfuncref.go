@@ -22,19 +22,37 @@ import (
 // the output call.
 
 // ownerFuncRef lowers `Owner.member` as a function value, or declines.
+// `Shape.Circle` and `Maybe.Some`, a positional variant named through its
+// enum, take this path too: the body is the constructor call
+// `Shape.Circle(p0)`.
 func (bl *irScalarBuilder) ownerFuncRef(t *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	g := bl.g
 	owner, isType := t.Object.(*ast.TypeIdent)
 	if !isType || t.Field == nil {
-		return no()
+		return ir.NoTemp, kindInvalid, false, false
 	}
-	params, result, ok := g.checkedValueKinds(t)
+	return bl.callFuncValue(t, owner.Name+"."+t.Field.Name)
+}
+
+// ctorFuncRef lowers a bare type name the checker typed as a constructor
+// function, `Some`, `Ok`, `Err`, or `Id` for `type Id Int`, as that function
+// value: its body is the call `Some(p0)`, built exactly as the written call
+// is. A name the checker did not type as a function declines.
+func (bl *irScalarBuilder) ctorFuncRef(t *ast.TypeIdent) (ir.Temp, kind, bool, bool) {
+	return bl.callFuncValue(t, t.Name)
+}
+
+// callFuncValue builds the function value of ref, a name the checker typed as
+// a function: a function whose body calls ref with its parameters.
+func (bl *irScalarBuilder) callFuncValue(ref ast.Node, name string) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	g := bl.g
+	params, result, ok := g.checkedValueKinds(ref)
 	if !ok {
 		return no()
 	}
-	at := g.irNodePos(t)
-	f := ir.NewFunc(at, owner.Name+"."+t.Field.Name)
+	line, col := calleeRefPos(ref)
+	at := g.irNodePos(ref)
+	f := ir.NewFunc(at, name)
 	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
 	sh.frame = newIRFuncFrame(f)
 	sh.entry = f.NewBlock(at, "entry")
@@ -45,11 +63,11 @@ func (bl *irScalarBuilder) ownerFuncRef(t *ast.FieldAccess) (ir.Temp, kind, bool
 		// Each operand is a stand-in the call lowers to the parameter's
 		// temporary (irScalarBuilder.placed), so no name is bound that the
 		// call's own resolution could see.
-		stand := &ast.Ident{Name: "\x00arg" + strconv.Itoa(i), Line: t.Field.Line, Col: t.Field.Col}
+		stand := &ast.Ident{Name: "\x00arg" + strconv.Itoa(i), Line: line, Col: col}
 		child.placed[stand] = irPlacedArg{temp: g.irAddParam(f, ir.NewSymbol("arg"+strconv.Itoa(i)), k), k: k}
 		args[i] = stand
 	}
-	call := &ast.Call{Func: t, Args: args, Line: t.Field.Line, Col: t.Field.Col}
+	call := &ast.Call{Func: ref, Args: args, Line: line, Col: col}
 	dst, k, _, ok := child.lower(call)
 	if !ok || k != result || len(child.captures) != 0 {
 		return no()
@@ -104,4 +122,26 @@ func (g *gen) checkedValueKinds(ref ast.Node) ([]kind, kind, bool) {
 		return nil, kindInvalid, false
 	}
 	return params, result, true
+}
+
+// distinctCtorRef reports whether ref names a distinct type the checker typed
+// as its constructor function, `ids.UserId` for another file's
+// `pub type UserId Int`.
+func (g *gen) distinctCtorRef(ref ast.Node) bool {
+	if g.fa == nil {
+		return false
+	}
+	line, col := calleeRefPos(ref)
+	sym := g.fa.References[analysis.Pos{Line: line, Col: col}]
+	if sym == nil {
+		return false
+	}
+	if _, isFunc := sym.CallType.(*analysis.FuncType); !isFunc {
+		return false
+	}
+	for sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	_, isDistinct := sym.Type.(*analysis.DistinctType)
+	return sym.Kind == analysis.SymbolType && isDistinct
 }

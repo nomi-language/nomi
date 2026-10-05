@@ -1,0 +1,35 @@
+fn sum_numbers(line: String): Int {
+    String.words(line)
+    |> Iter.map(String.to_int)
+    |> Iter.map(|n| Maybe.with_default(n, 0))
+    |> Iter.reduce(|total = 0, n| total + n)
+}
+
+fn count_non_empty_lines(text: String): Int {
+    String.lines(text)
+    |> Iter.filter(|line| String.trim(line) != "")
+    |> Iter.count()
+}
+
+test "words splits a line of numbers on any whitespace" {
+    line = "  10 20\t 30\n"
+    assert String.words(line) == ["10", "20", "30"]
+    assert sum_numbers(line) == 60
+    assert sum_numbers("") == 0
+}
+
+test "words treats Unicode spaces as whitespace and keeps non-ASCII words whole" {
+    assert String.words("café\u{a0}naïve\u{3000}🙂") == ["café", "naïve", "🙂"]
+}
+
+test "lines counts the non-empty lines of a text" {
+    text = "first\n\nsecond\u{d}\n   \nthird\n"
+    assert String.lines(text) == ["first", "", "second", "   ", "third"]
+    assert count_non_empty_lines(text) == 3
+    assert count_non_empty_lines("") == 0
+}
+
+test "lines differs from split on a trailing newline" {
+    assert String.split("a\nb\n", "\n") == ["a", "b", ""]
+    assert String.lines("a\nb\n") == ["a", "b"]
+}

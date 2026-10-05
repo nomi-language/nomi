@@ -1,6 +1,5 @@
-// A `try` inside a `concurrent` block, in a TEST body — the boundary try.go
-// flagged as having moved "from a tally question to a correctness one" the
-// moment a test body lowered.
+// A `try` inside a `concurrent` block, in a test body, where the three
+// boundaries a `try` can have meet.
 //
 // The three boundaries a `try` can have here are lexically adjacent and produce
 // three DIFFERENT programs, so a fixture that exercised one would pass on an

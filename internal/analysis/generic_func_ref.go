@@ -22,6 +22,10 @@ import (
 // expected type at all (`f = ident`), the reference is rejected and asks for
 // an annotation. Nothing else could pick the instance.
 //
+// A variant of a generic enum named as a value (`Iter.map(xs, Some)`,
+// `Result.map_err(r, Err)`) is a generic constructor and is instantiated the
+// same way: `Some` is `(T) -> Maybe<T>`, and the position solves T.
+//
 // An interface function named as a value (`Iter.map(xs, Display.to_string)`)
 // is instantiated the same way: its `self` is a type parameter of its own, so
 // the expected type solves it, and the instantiated signature names the
@@ -43,6 +47,8 @@ func (c *checker) genericFuncRef(node ast.Node, ty Type) (*FuncType, []*TypePara
 	switch n := node.(type) {
 	case *ast.Ident:
 		pos, name = Pos{Line: n.Line, Col: n.Col}, n.Name
+	case *ast.TypeIdent:
+		pos, name = Pos{Line: n.Line, Col: n.Col}, n.Name
 	case *ast.FieldAccess:
 		if n.Field == nil {
 			return nil, nil, "", false
@@ -62,10 +68,10 @@ func (c *checker) genericFuncRef(node ast.Node, ty Type) (*FuncType, []*TypePara
 		sym = sym.Resolved
 	}
 	iface := qualified != "" && sym.Kind == SymbolInterfaceMethod
-	if sym.Kind != SymbolFunction && !iface {
+	if sym.Kind != SymbolFunction && sym.Kind != SymbolEnumVariant && !iface {
 		return nil, nil, "", false
 	}
-	if iface {
+	if iface || (sym.Kind == SymbolEnumVariant && qualified != "") {
 		// The message names it as written: `to_string` alone names nothing.
 		name = qualified
 	}
@@ -107,10 +113,21 @@ func (c *checker) rejectUninstantiatedFuncRef(node ast.Node, ty Type) Type {
 	return nil
 }
 
+// uninstantiatedRefMessage says a generic function or constructor used as a
+// value has a type parameter nothing solves. A name that starts upper-case
+// is a variant (`Some`, `Result.Ok`): the message calls it a constructor.
 func uninstantiatedRefMessage(name string, own []*TypeParam_) string {
 	names := make([]string, len(own))
 	for i, tp := range own {
 		names[i] = tp.Name_
+	}
+	last := name[strings.LastIndexByte(name, '.')+1:]
+	if last != "" && last[0] >= 'A' && last[0] <= 'Z' {
+		return fmt.Sprintf(
+			"cannot infer type parameter %s of generic constructor '%s' used as a value: "+
+				"nothing here gives it a function type; annotate the binding its results flow into "+
+				"(`xs: List<Maybe<Int>> = Iter.map(ns, Some) |> Iter.to_list()`) or the function (`f: (Int) -> Maybe<Int> = Some`)",
+			strings.Join(names, ", "), name)
 	}
 	return fmt.Sprintf(
 		"cannot infer type parameter %s of generic function '%s' used as a value: "+

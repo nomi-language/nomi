@@ -1,46 +1,44 @@
 package rt
 
-// EVERY POSITIONED FAULT TEXT, WITH THE STRING A PROGRAM MUST SEE.
+// Every positioned fault text, with the string a program must see.
 //
 // `internal/vm/traptext_test.go` already establishes that each of these texts
-// has ONE HOME and that the VM spells no second copy. It says nothing about
-// the LINE. A producer that passes no line makes these constructors print
+// has one home and that the VM spells no second copy. It says nothing about
+// the line. A producer that passes no line makes these constructors print
 // `line 0: integer overflow: 9223372036854775807 + 1`, and the repair for that
 // belongs at the producer, not here.
 //
-// This file is the other half of that contract. `traptext_test.go` polices WHO
-// MAY SPELL the text; this polices WHAT THE TEXT IS for a given line, at every
+// This file is the other half of that contract. `traptext_test.go` polices who
+// may spell the text; this polices what the text is for a given line, at every
 // constructor, so a change to any format string is a deliberate act with a
 // diff rather than a silent move in observable output.
 //
-// # WHY THIS IS IN `rt` AND NOT BESIDE `traptext_test.go`
+// # Why this is in `rt` and not beside `traptext_test.go`
 //
 // That file argues at length that it cannot live in `rt`, because it reaches
 // into the compiler's source tree. This one does the opposite: it calls `rt`'s
 // own constructors and reads nothing outside rt, so it belongs to the package
 // that owns the strings.
 //
-// # `rt` HAS NO ABSENT POSITION, AND THAT ASYMMETRY IS THE BUG'S HABITAT
+// # `rt` has no absent position
 //
 // `internal/ir` refuses a line below 1 in two places: `ir.At` panics, and
 // `ir.Pos.IsValid()` requires `line >= 1`. `rt` has no such rule — every
 // constructor here formats whatever integer it is handed, so a producer that
 // does not know the position renders `line 0:`, naming a line no file has.
 //
-// TestFaultPosition_ZeroRendersAsALineNoFileHas records that, and it is NOT an
+// TestFaultPosition_ZeroRendersAsALineNoFileHas records that, and it is not an
 // assertion that `line 0` is correct output. It is an assertion that these
-// constructors are FAITHFUL TO THEIR ARGUMENT — which is the property that
+// constructors are faithful to their argument — which is the property that
 // makes the defect diagnosable, because it puts the fault squarely on the
 // producers rather than leaving it ambiguous between producer and formatter.
 // `arith.go`'s own header states the intended contract at the producer:
 //
-//	line is the source line of the OPERATOR, passed in as a constant at each
+//	line is the source line of the operator, passed in as a constant at each
 //	call site rather than recovered from the frame or the Go stack.
 //
-// So "recover it from the stack" is a REJECTED design here, not an unexplored
-// one, even though it would work: a `//line` directive sits directly above
-// each emitted `rt.AddInt(...)` call and `runtime.Caller` reads through it,
-// measured both optimized and under `-gcflags=all=-N -l`.
+// So recovering the line from the frame or the Go stack is a rejected design
+// here.
 
 import (
 	"bytes"
@@ -66,10 +64,10 @@ type positionedFault struct {
 // positionedFaults is every fault text in this module that carries a Nomi
 // source line into output a user sees.
 //
-// THE LIST IS CHECKED AGAINST A DERIVED ONE rather than trusted:
+// The list is checked against a derived one rather than trusted:
 // TestFaultPosition_EveryOwnedTextIsListed re-derives the population from the
 // `line %d` format strings in this module's own sources and fails if this
-// table is missing one. So a thirteenth text added tomorrow is caught without
+// table is missing one. So a new text is caught without
 // anyone remembering to extend the table, which is the shape
 // `knownTrapTextCopies` uses one layer up.
 func positionedFaults() []positionedFault {
@@ -106,7 +104,7 @@ func positionedFaults() []positionedFault {
 
 // wantAtLine7 is the exact string each constructor must produce for line 7.
 //
-// SEVEN RATHER THAN ONE, deliberately: line 1 is the first line of any file
+// Seven rather than one, deliberately: line 1 is the first line of any file
 // and a producer that accidentally passed a count, an index or a boolean could
 // land on it. Seven is reachable only by carrying a real position.
 var wantAtLine7 = map[string]string{
@@ -154,14 +152,14 @@ func TestFaultPosition_TheAgreedStringAtARealLine(t *testing.T) {
 // no absent-position form, so a producer that does not know the line puts
 // `line 0` in front of a user.
 //
-// IT IS A READING OF THE FORMATTER, NOT AN ENDORSEMENT OF THE OUTPUT. These
+// It is a reading of the formatter, not an endorsement of the output. These
 // constructors print whatever line they are told, so a producer that passes 0
 // yields `line 0: integer overflow`. The assertion keeps such a defect
 // diagnosable at its producer rather than ambiguous between producer and
 // formatter.
 //
 // EarlyReturnFailure is the one exception and it is the precedent for the
-// alternative: its Error() guards on `e.Line > 0` and DROPS the prefix rather
+// alternative: its Error() guards on `e.Line > 0` and drops the prefix rather
 // than printing a zero. That is what an absent form looks like when a type
 // has one.
 func TestFaultPosition_ZeroRendersAsALineNoFileHas(t *testing.T) {
@@ -193,7 +191,7 @@ func TestFaultPosition_ZeroRendersAsALineNoFileHas(t *testing.T) {
 // TestFaultPosition_EveryOwnedTextIsListed re-derives the population from this
 // module's own sources, so the table above cannot quietly fall behind.
 //
-// A NEW TEXT IS THE FAILURE THIS CATCHES. A hand-written count of these texts
+// A new text is the failure this catches. A hand-written count of these texts
 // goes stale the first time one lands without anyone re-deriving it, which is
 // the reason the number is not written down anywhere here.
 func TestFaultPosition_EveryOwnedTextIsListed(t *testing.T) {
@@ -213,7 +211,7 @@ func TestFaultPosition_EveryOwnedTextIsListed(t *testing.T) {
 // ownedPositionedTexts is every `line %d` format string this module's non-test
 // sources declare, sorted.
 //
-// IT PARSES RATHER THAN GREPS, for the reason `internal/vm`'s scanner gives:
+// It parses rather than greps, for the reason `internal/vm`'s scanner gives:
 // every file here discusses these texts in prose, and a textual scan reports
 // each discussion as a declaration. It also folds `+` over adjacent literals,
 // because DecimalNonTerminatingText is spelled as two.

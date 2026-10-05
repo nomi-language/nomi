@@ -159,7 +159,7 @@ func TestTypeMethodIdentity_NoConflictingDuplicates(t *testing.T) {
 // declaring `Error` with its own `impl Display`, both reachable from one entry,
 // each called type-qualified.
 //
-// MEASURED at 35e3507f, 8 runs of 8: this project does not type-check, and it
+// Without the fix, in 8 runs of 8: this project does not type-check, and it
 // fails the same way every time. Whichever module won the slot, the OTHER call
 // received that module's `Error` as its parameter type and was refused
 // `argument 1: expected Error, got Error` — a TRUE statement (TypesEqual
@@ -216,7 +216,7 @@ impl Display for Error {
 // direction: alpha's `Error` handed to beta's `to_string`, which must be
 // refused, and refused in words a reader can act on.
 //
-// MEASURED at 35e3507f: this program produced NO DIAGNOSTIC AT ALL. So the
+// Without the fix, this program produced NO DIAGNOSTIC AT ALL. So the
 // before-state was not merely an illegible refusal — the crossed call was
 // silently ACCEPTED, because both spellings resolved through the one collapsed
 // slot to the same method and the argument then matched its own module's

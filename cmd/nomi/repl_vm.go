@@ -23,9 +23,9 @@ import (
 	"github.com/chzyer/readline"
 )
 
-// THE VM REPL, which is `nomi` with no arguments.
+// The VM REPL, which is `nomi` with no arguments.
 //
-// A session keeps ONE live VM machine (vmhost.Session). Each input is checked
+// A session keeps one live VM machine (vmhost.Session). Each input is checked
 // and lowered as a new program and linked into that machine, the way the
 // Scala REPL, GHCi and the OCaml toplevel compile each input as a new unit
 // that sees the earlier ones. Earlier inputs are never run again.

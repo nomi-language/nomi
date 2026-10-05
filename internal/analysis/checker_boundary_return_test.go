@@ -5,7 +5,7 @@ import "testing"
 func TestBoundaryReturn_InferredValues(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"lambda value", `fn main() { f = || { return 7 } result = f() _ = result }`, "Int"},
-		{"lambda unit", `fn main() { f = || { return } result = f() _ = result }`, "Unit"},
+		{"lambda unit", `fn main() { f = || { dbg 1 return } result = f() _ = result }`, "Unit"},
 		{"both branches", `fn main() {
   f = |b: Bool| { if b { return 1 } else { return 2 } }
   result = f(True)

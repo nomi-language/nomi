@@ -82,37 +82,37 @@ func TestDebugDisplay_FourSurfacesArePinnedAbsolutely(t *testing.T) {
 		// Surface 4: the assertion `values:` row. SORTED, blind to `impl
 		// Display`, and rendered by a hand-written `impl Debug`.
 		"FAIL " + f + " :: values row for a struct with an impl Display\n" +
-		"  line 193: assertion failed\n" +
+		"  line 178: assertion failed\n" +
 		"    assert no_rev(r)\n" +
 		"    values:\n" +
 		"      r\n" +
 		"        = Rev{alpha: 2, zeta: 1}\n" +
 		"FAIL " + f + " :: values row honours a hand-written impl Debug\n" +
-		"  line 198: assertion failed\n" +
+		"  line 183: assertion failed\n" +
 		"    assert no_custom(c)\n" +
 		"    values:\n" +
 		"      c\n" +
 		"        = CUSTOM-DEBUG\n" +
 		"FAIL " + f + " :: values row for a struct with no impls at all\n" +
-		"  line 203: assertion failed\n" +
+		"  line 188: assertion failed\n" +
 		"    assert no_plain(p)\n" +
 		"    values:\n" +
 		"      p\n" +
 		"        = Plain{alpha: 2, zeta: 1}\n" +
 		"FAIL " + f + " :: values row for a Bool\n" +
-		"  line 208: assertion failed\n" +
+		"  line 193: assertion failed\n" +
 		"    assert no_bool(b)\n" +
 		"    values:\n" +
 		"      b\n" +
 		"        = True\n" +
 		"FAIL " + f + " :: values row for a list of Bool\n" +
-		"  line 213: assertion failed\n" +
+		"  line 198: assertion failed\n" +
 		"    assert no_bools(bs)\n" +
 		"    values:\n" +
 		"      bs\n" +
 		"        = [True, False]\n" +
 		"FAIL " + f + " :: values row shows an opaque payload Debug hides\n" +
-		"  line 218: assertion failed\n" +
+		"  line 203: assertion failed\n" +
 		"    assert no_meters(m)\n" +
 		"    values:\n" +
 		"      m\n" +

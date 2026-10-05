@@ -1,6 +1,6 @@
 import std/io
 
-// `Iter.loop`, lowered as an inline Go `for` — every control outcome that can
+// `Iter.loop`, lowered as an inline loop: every control outcome that can
 // appear in a TERMINATING program, printed, so a comparison which happens to be
 // silent cannot pass for correctness.
 //
@@ -9,17 +9,17 @@ import std/io
 //
 //   - `break v`: 3, not 4 and not Unit.
 //   - `return v` advancing the state: the same program as a tail expression,
-//     which loop_control_test.nomi writes both ways. A Go `return` emitted here
-//     would return from `main` instead, which is well typed and wrong.
+//     which loop_control_test.nomi writes both ways. A `return` lowered as a
+//     return from `main` instead would be well typed and wrong.
 //   - bare `break`: answers Unit, which has no `Display`, so what is observable
 //     is that the loop TERMINATED. A lowering that dropped it would not reach
 //     the next line.
 //   - the seed evaluated ONCE, in the CLOSURE's scope rather than the
 //     callback's parameter scope: `outer()` is the module function.
 //   - a DESTRUCTURING state, threaded as one value.
-//   - a closure created INSIDE the body capturing the state: the interpreter
-//     binds the parameter per iteration, so the captured value is that
-//     iteration's. A single Go variable declared outside the loop would hand
+//   - a closure created INSIDE the body capturing the state: the parameter is
+//     bound per iteration, so the captured value is that
+//     iteration's. A single variable declared outside the loop would hand
 //     every such closure the final one.
 //   - a rebinding inside the body, which SHADOWS per iteration rather than
 //     mutating: `bump` is 1 every time round, never 2. Nomi has no assignment,
@@ -49,8 +49,8 @@ fn main() {
     io.print("break value: ${first}")
 
     via_return = Iter.loop(|n = 1| {
-        if n % 3 == 0 { break n }
-        return n + 1
+        if n % 3 != 0 { return n + 1 }
+        break n
     })
 
     io.print("return advances: ${via_return}")

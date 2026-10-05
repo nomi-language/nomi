@@ -1,17 +1,14 @@
 // Two interfaces in ONE module, each appearing as a structural COMPONENT.
 //
-// Every interface existential renders the same Go type — `rt.Dyn` — so
-// `List<Alpha>` and `List<Beta>` render `*rt.List[rt.Dyn]` and `Maybe<Alpha>`
-// and `Maybe<Beta>` render `rt.Maybe[rt.Dyn]`. An intern table keyed on that
-// text alone meets each pair as ONE entry with two Nomi spellings. With such
-// a table the list pair killed the compiler with `panic: irbuild: Go type
-// *rt.List[rt.Dyn] interned for two Nomi types`, and the Maybe pair was
-// quieter and worse — it collapsed silently and the second one's payload then
-// refused with `existential of another interface (Beta.b wants Beta, got
-// Alpha)`, a reason that is simply false about the program.
+// Every interface existential has the same runtime representation, so
+// `List<Alpha>` and `List<Beta>` look alike below the type level, as do
+// `Maybe<Alpha>` and `Maybe<Beta>`. An intern table keyed on that
+// representation alone meets each pair as one entry with two Nomi spellings:
+// the list pair would crash the builder, and the Maybe pair would collapse
+// silently and then refuse the second one's payload with a reason that is
+// false about the program.
 //
-// The interpreter runs this correctly and always did, and no corpus program
-// reaches either shape.
+// No corpus program reaches either shape.
 //
 // The transcript is what makes this more than a lowering check. Each interface
 // prints a DIFFERENT string for the same receiver, and two receivers implement

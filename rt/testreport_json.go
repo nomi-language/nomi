@@ -14,7 +14,7 @@ import (
 // Lines, for tools (the Neovim neotest adapter) that match results to source
 // positions.
 //
-// The records are keyed by FILE AND FIRST LINE, not by name. A test's name is
+// The records are keyed by file and first line, not by name. A test's name is
 // display text — an attached test is named `impl / buffered //! test lines
 // 58-60` — so a consumer that matched on names would be parsing wording the
 // text report is free to change. The line is the same one `--line N` selects.
@@ -35,7 +35,8 @@ import (
 // the failure names a line.
 //
 // "blocked" is a test the VM could not run (see BlockedAt); its message is the
-// reasons, one per line, as the text report's BLOCKED lines give them.
+// blockers, as the text report's BLOCKED lines give them, and its
+// `error_line` is the first blocker's line when that is in the test's file.
 
 // TestFormat selects how a TestReporter writes.
 type TestFormat int
@@ -85,6 +86,10 @@ type TestLocation struct {
 	File    string
 	Line    int
 	EndLine int
+	// ErrorLine is, for a blocked test, the line in File of the first code
+	// the compiler could not lower: the blocked record's `error_line`. 0 when
+	// that code is in another file or has no position.
+	ErrorLine int
 }
 
 // ResultAt is Result for a test whose position is known. The text report is

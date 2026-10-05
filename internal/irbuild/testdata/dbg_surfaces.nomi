@@ -7,13 +7,11 @@
 // the FIFTH surface, and it needed its own file for the reason that one needed
 // its own: reaching for the nearest renderer passes every existing assertion.
 //
-// The interpreter's `dbg` calls `debugInspectString`, which IS
-// `dispatchDebugInspect` — real Nomi dispatch. inspect.go's `inspector` is
-// `value.Inspect`, a structural walk. The builder's `dbg` therefore routes
-// through `debugRendering` (inspectcall.go), the same decision procedure
-// `Debug.inspect(x)` takes, and NOT through `inspectCode`. That is mutant 1 in
-// debugdisplay_test.go's mutation note, and every pair of lines below is a value
-// on which the two answers differ:
+// `dbg` is real Nomi dispatch through `Debug.inspect`, while an assertion's
+// `values:` row is a structural walk. The builder's `dbg` therefore takes the
+// same decision procedure `Debug.inspect(x)` takes, and not the `values:` row's
+// renderer. That is mutant 1 in debugdisplay_test.go's mutation note, and every
+// pair of lines below is a value on which the two answers differ:
 //
 //	value                dbg says                 the values: row says
 //	Rev{zeta:1,alpha:2}  Rev{zeta: 1, alpha: 2}   Rev{alpha: 2, zeta: 1}
@@ -30,10 +28,10 @@
 //
 // A test's output and the reporter's share ONE stream, so a `dbg` in a test body
 // is observable twice over: for its own bytes, and for its POSITION relative to
-// the `ok`/`FAIL` line of the case it ran in. The two paths get there
-// differently — the interpreter writes both into `env.Output()`, and a compiled
-// binary writes `rt.Dbg` and `rt.NewTestReporter(os.Stdout)` to the same fd —
-// so agreeing on the order is a property rather than a tautology. The last test
+// the `ok`/`FAIL` line of the case it ran in. The VM writes `rt.Dbg` and
+// `rt.NewTestReporter`'s output to one stream, so the recorded golden pins
+// the order.
+// The last test
 // FAILS on purpose so a `values:` block follows its `dbg` lines and the
 // interleaving of all three is in the transcript.
 import std/io

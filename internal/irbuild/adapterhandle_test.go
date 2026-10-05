@@ -242,7 +242,7 @@ func TestAdapterWall_EveryHostPackageIsArtifactSafe(t *testing.T) {
 func goListDeps(t *testing.T, pkg string) map[string]bool {
 	t.Helper()
 	cmd := exec.Command("go", "list", "-deps", pkg)
-	cmd.Dir = repoNomiLangDir(t)
+	cmd.Dir = repoRoot(t)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("go list -deps %s: %v\n%s", pkg, err, out)
@@ -256,7 +256,7 @@ func goListDeps(t *testing.T, pkg string) map[string]bool {
 	return deps
 }
 
-func repoNomiLangDir(t *testing.T) string {
+func repoRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {

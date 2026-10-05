@@ -14,7 +14,7 @@ import "strings"
 // The zero value is the empty vector. Fields are exported because a generated
 // package in another Go package constructs and reads them.
 type Vector[T any] struct {
-	// Items is the shared backing store. It may be LONGER than the window:
+	// Items is the shared backing store. It may be longer than the window:
 	// Tail advances Start without copying, so Items[Start+Len:] is retained and
 	// invisible. Never index it directly — use At.
 	Items []T
@@ -74,7 +74,7 @@ func VectorLength[T any](v Vector[T]) int64 { return int64(v.Len) }
 // VectorAt is `Vector.at`: the element at a zero-based index, or None out of
 // bounds.
 //
-// A NEGATIVE index is None rather than a wrap-around, and the corpus reads it: `Vector.at(v, -1) == None`.
+// A negative index is None rather than a wrap-around, and the corpus reads it: `Vector.at(v, -1) == None`.
 func VectorAt[T any](v Vector[T], index int64) Maybe[T] {
 	if index < 0 || index >= int64(v.Len) {
 		return None[T]()
@@ -87,7 +87,7 @@ func VectorAt[T any](v Vector[T], index int64) Maybe[T] {
 // VectorPush is `Vector.push`: a new vector with item appended.
 //
 // It copies the window rather than appending into `Items`, and that is
-// correctness rather than caution: `Items` is SHARED with every view that took a
+// correctness rather than caution: `Items` is shared with every view that took a
 // tail or a push from the same parent, so appending in place would mutate a
 // value another binding still holds. The boxed runtime delegates here too.
 func VectorPush[T any](v Vector[T], item T) Vector[T] {
@@ -177,9 +177,9 @@ func VectorKnownCount[T any](v Vector[T]) Maybe[int64] { return Some(VectorLengt
 // --- identity ---------------------------------------------------------------
 
 // VectorEqual is `impl Equatable for Vector<T>` — whose std body is literally
-// `a == b`, i.e. STRUCTURAL equality, element-wise in order.
+// `a == b`, i.e. structural equality, element-wise in order.
 //
-// Length first, which is sound for equality and is NOT sound for ordering: two
+// Length first, which is sound for equality and is not sound for ordering: two
 // vectors of different lengths are never equal, while two of different lengths
 // may still order by their first differing element. ListCellsEqual makes the
 // same split for the same reason.
@@ -199,7 +199,7 @@ func VectorEqual[T any](a, b Vector[T], eq func(T, T) bool) bool {
 
 // FormatVector renders a Vector as `#[a, b]`, and `#[]` when empty.
 //
-// The BRACKETS and the separator are all it decides; which of Nomi's renderings
+// The brackets and the separator are all it decides; which of Nomi's renderings
 // you get is decided by `render`, exactly as in FormatListCells, FormatMap and
 // FormatSetElems. `impl Display for Vector<T>` joins `Display.to_string` and `impl
 // Debug for Vector<T>` joins `Debug.inspect` — std writes the two impls as the

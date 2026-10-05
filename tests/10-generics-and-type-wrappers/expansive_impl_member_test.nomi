@@ -1,0 +1,94 @@
+//# An impl member whose signature wraps its own receiver type.
+//#
+//# `gather` in `impl Box<T>` returns `Box<List<T>>`, a larger instance of the
+//# type it is a member of. Each call builds it for the instance it names, so a
+//# call with no type parameters of its own, a nested instance, a generic
+//# caller, a pipe stage and a bounded type parameter's dispatch all run.
+
+struct Box<T> {
+    items: List<T>
+}
+
+impl Box<T> {
+    fn gather(b: Box<T>): Box<List<T>> {
+        Box{items: [b.items]}
+    }
+
+    fn pairs<U>(b: Box<T>, u: U): Box<(T, U)> {
+        Box{items: b.items |> Iter.map(|x| (x, u)) |> Iter.to_list()}
+    }
+
+    fn size(b: Box<T>): Int {
+        Iter.count(b.items)
+    }
+}
+
+interface Grow {
+    fn grow(x: self): Box<self>
+}
+
+impl Grow for Box<T> {
+    fn grow(x: Box<T>): Box<Box<T>> {
+        Box{items: [x, x]}
+    }
+}
+
+fn twice<A>(b: Box<A>): Box<List<List<A>>> {
+    Box.gather(Box.gather(b))
+}
+
+fn self_pairs<A>(b: Box<A>, a: A): Box<(A, A)> {
+    Box.pairs(b, a)
+}
+
+fn grown<X>(x: X): Box<X> where X: Grow {
+    X.grow(x)
+}
+
+test "a member with no type parameters of its own builds per call" {
+    assert Box.gather(Box{items: [1, 2]}).items == [[1, 2]]
+}
+
+test "a nested instance gathers" {
+    one = Box{items: [1]}
+    two = Box{items: [2, 3]}
+    nested = Box.gather(Box{items: [one, two]})
+    assert Box.size(nested) == 1
+    assert nested.items == [[one, two]]
+}
+
+test "a generic caller gathers twice" {
+    deep = twice(Box{items: ["a"]})
+
+    assert deep.items == [
+        [
+            [
+                "a",
+            ],
+        ],
+    ]
+}
+
+test "a pipe stage gathers" {
+    deep = Box{items: [True]} |> Box.gather() |> Box.gather()
+
+    assert deep.items == [
+        [
+            [
+                True,
+            ],
+        ],
+    ]
+}
+
+test "a member with its own type parameter from a generic caller" {
+    assert self_pairs(Box{items: [1, 2]}, 9).items == [(1, 9), (2, 9)]
+    assert Box.pairs(Box{items: ["s"]}, 'c').items == [("s", 'c')]
+}
+
+test "a bounded type parameter dispatches to an expansive interface impl" {
+    assert Box.size(grown(Box{items: [7]})) == 2
+    regrown = Box.grow(Box{items: [1]}) |> Box.grow()
+
+    assert Box.size(regrown) == 2
+}

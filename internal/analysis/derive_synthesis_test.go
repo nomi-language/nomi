@@ -9,10 +9,9 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
-// Tests for the @derive synthesis pass scaffolding (Task 8). Per-protocol
-// synthesizers are stubs in this task — these tests exercise the validation
-// gate (unknown protocol, duplicate, valid path). Tasks 9-12 add tests for
-// the actual emitted impls.
+// Tests for the derive synthesis pass. These first tests exercise the
+// validation gate (unknown protocol, duplicate, valid path); the sections
+// below test the emitted impls per protocol.
 
 // TestDeriveUnsupportedInterfaceErrors checks that `@derive Foo` where Foo
 // is not one of the four supported protocols produces an error message
@@ -87,9 +86,8 @@ derive Equatable for Foo`
 
 // TestDeriveAllFourValidatesClean checks that listing all four supported
 // protocols on one decl produces no analyzer errors from the synthesis pass.
-// Synthesizers are stubs in Task 8, so no impl methods are emitted — Tasks
-// 9-12 verify the actual synthesis. This test pins the scaffolding's
-// happy path: validation accepts the four canonical names without complaint.
+// The per-protocol sections below verify the emitted impls. This test pins
+// the validation gate's happy path: validation accepts the four canonical names without complaint.
 func TestDeriveAllFourValidatesClean(t *testing.T) {
 	src := `struct Foo { x: Int }
 derive Equatable for Foo
@@ -113,7 +111,7 @@ derive Debug for Foo`
 }
 
 // ---------------------------------------------------------------------------
-// Task 9: Equatable synthesis tests
+// Equatable synthesis tests
 // ---------------------------------------------------------------------------
 
 // synthMethodFromNode returns the FuncDef for an impl method matching (method,
@@ -482,7 +480,7 @@ derive Equatable for Point`
 }
 
 // ---------------------------------------------------------------------------
-// Task 10: Hashable synthesis tests
+// Hashable synthesis tests
 // ---------------------------------------------------------------------------
 
 // synthHashForSource locates the synthesized `impl Hashable for T { fn hash }`
@@ -659,8 +657,7 @@ derive Hashable for Id`
 // arity-≥2 positional-variant case for Hashable: same Flat: false invariant
 // as the Equatable test. The synthesized variant pattern's payload must be
 // a *ast.TuplePattern with Flat == false; the analyzer rejects flat-form
-// variant patterns. Regression for the same Task-9-fix landed in
-// b03f7a3 — the Hashable synthesizer reuses enumVariantPattern and must
+// variant patterns. The Hashable synthesizer reuses enumVariantPattern and must
 // inherit the canonical nested-tuple shape.
 func TestDeriveHashableOnPositionalArity2VariantUsesNestedTuple(t *testing.T) {
 	src := `enum Pair { Both(Int, Int); None }
@@ -719,7 +716,7 @@ derive Hashable for Pair`
 }
 
 // ---------------------------------------------------------------------------
-// Task 11: Comparable synthesis tests
+// Comparable synthesis tests
 // ---------------------------------------------------------------------------
 
 // synthCompareForSource locates the synthesized `impl Comparable for T { fn compare }`
@@ -1073,7 +1070,7 @@ derive Comparable for Pair`
 }
 
 // ---------------------------------------------------------------------------
-// Task 12: Debug synthesis tests
+// Debug synthesis tests
 // ---------------------------------------------------------------------------
 
 // synthDebugForSource locates the synthesized `impl Debug for T { fn inspect }`
@@ -1409,10 +1406,11 @@ derive Debug for Pair`
 }
 
 // ---------------------------------------------------------------------------
-// Task 13: manual impl block + @derive collision detection (spec §38.5)
+// Manual impl block + derive collision detection (spec §38.1, *Manual +
+// derive collision*)
 // ---------------------------------------------------------------------------
 
-// TestDeriveCollidesWithManualImplErrors pins spec §38.5: combining
+// TestDeriveCollidesWithManualImplErrors pins spec §38.1: combining
 // `@derive Iface` with a manual `impl Iface for T { fn ... }` block for the
 // same type must surface a compile error rather than silently dropping the
 // synthesized impl in favour of the manual one. The diagnostic must name
@@ -1487,7 +1485,7 @@ impl Comparable for Point {
 }
 
 // ---------------------------------------------------------------------------
-// Gap 2: implicit generic interface bounds (spec §38.5)
+// Implicit generic interface bounds (spec §38.1, *Generic types*)
 // ---------------------------------------------------------------------------
 
 // synthFnBy locates the synthesized FuncDef whose `impl <ifaceName> for T`
@@ -1500,12 +1498,12 @@ func synthFnBy(t *testing.T, src, fnName, ifaceName, typeName string) *ast.FuncD
 	return synthMethodForSource(t, src, fnName, ifaceName, typeName)
 }
 
-// TestDeriveOnGenericStructAddsInterfaceBound pins Gap 2: `@derive Equatable
+// TestDeriveOnGenericStructAddsInterfaceBound pins the implicit bound: `@derive Equatable
 // struct Box<T> { value: T }` synthesizes `fn equal?(a: Box<T>, b: Box<T>):
 // Bool` whose TypeParams carry an implicit `T: Equatable` bound. Without
 // this bound, calling `Equatable.equal?(Box{value: NoEqType{}}, ...)`
 // would fall through to a runtime "no impl found" error instead of a
-// compile-time type-check failure (spec §38.5).
+// compile-time type-check failure (spec §38.1).
 func TestDeriveOnGenericStructAddsInterfaceBound(t *testing.T) {
 	src := `struct Box<T> { value: T }
 derive Equatable for Box<T>`

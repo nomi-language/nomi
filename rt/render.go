@@ -11,16 +11,16 @@ import (
 //	DisplayText  a value's structural Display
 //	DebugText    the structural Debug.inspect          (internal/vm's debugTextWith)
 //
-// They are three functions because they DISAGREE, and the disagreements are
-// the contract. internal/ir/render.go records six, measured:
+// They are three functions because they disagree, and the disagreements are
+// the contract. internal/ir/render.go records six:
 //
 //	a Decimal   Row `1.50`               Debug `1.50d`
 //	a Dynamic   Row `<dynamic: string>`  Debug refuses; std's impl is dispatched
 //	a String    Row `"a"b"` unescaped    Debug `"a\"b"`, and Display is raw
-//	a struct    Row SORTED fields        Debug refuses a named struct; its impl,
+//	a struct    Row sorted fields        Debug refuses a named struct; its impl,
 //	                                     which prints declaration order, is dispatched
 //	a record    Row Row leaves           Debug Debug leaves (both sorted by name)
-//	a hand impl Row HONOURS a user's      Debug HONOURS it, through the hook
+//	a hand impl Row honours a user's      Debug honours it, through the hook
 //	            (RowTextWith's hook)
 //
 // Each row is kept by construction below rather than by a special case: Row
@@ -427,8 +427,8 @@ func sortedDebugParts(r *Record, hook DebugHook) ([]string, error) {
 }
 
 // debugSet is std's Set Debug: `{a, b}` over the elements in insertion order,
-// each through the structural Debug WITHOUT the caller's hook, which is what
-// the VM's set rendering has always done.
+// each through the structural Debug without the caller's hook, which is how
+// the VM renders a set.
 func debugSet(r *Record, hook DebugHook) (string, error) {
 	keys, ok := setMembers(r)
 	if !ok {
@@ -452,11 +452,11 @@ func debugSet(r *Record, hook DebugHook) (string, error) {
 //	Iter.map(s, |g| if g == "\\" { "\\\\" } else if g == "\"" { "\\\"" } else { g })
 //	|> String.join()  and then wrapped in quotes
 //
-// TWO ESCAPES AND NO MORE: a newline and a tab pass through raw, as std's
+// Two escapes and no more: a newline and a tab pass through raw, as std's
 // impl above does. strconv.Quote would escape both and be wrong.
 //
-// OVER GRAPHEME CLUSTERS, which is `Iter.map(s, …)`'s own unit: a backslash
-// followed by a combining mark is ONE cluster, so it passes through unescaped,
+// Over grapheme clusters, which is `Iter.map(s, …)`'s own unit: a backslash
+// followed by a combining mark is one cluster, so it passes through unescaped,
 // where a byte-wise replace would escape the backslash and split the
 // character.
 func DebugString(s string) string {

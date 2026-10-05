@@ -41,7 +41,7 @@ import (
 // as is one that solves through the parameter,
 // `struct Box<T> { items: List<T> = [] }`, where the empty list's element type
 // variable binds to `T`. Both directions are pinned in field_default_test.go. This is the answer AppStructLanding asked
-// for: internal/irbuild's generic-std-struct field-default channel (15a0957a)
+// for: internal/irbuild's generic-std-struct field-default channel
 // states a default in the IR builder's own vocabulary and has no type parameter to
 // substitute into, so a default mentioning `T` would break that property and
 // nothing needs one.

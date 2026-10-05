@@ -3,25 +3,22 @@
 //
 // # Why a deliberately red fixture exists at all
 //
-// `tests/` contains no program that fails an assertion. The differential
-// sweep therefore compares only what a passing case prints, and reads `0 DIFFED`
-// no matter how wrong a failure renders — three live divergences were found in
-// this exact surface on the day this was written, all of them invisible to the
-// sweep. The only way to compare failure output is to produce some.
+// `tests/` contains no program that fails an assertion, so the corpus checks
+// only what a passing case prints. The only way to check failure output is to
+// produce some.
 //
 // This file is NOT in the corpus and is never run by `nomi test tests`.
-// It is reached only by TestPinned_CheckShapeFailureReport, whose whole subject
-// is that the two paths agree about a NON-ZERO exit and the text above it.
+// It is run by TestIRAssertSubject_RepositoryFixturesRunWhole, which checks the
+// non-zero exit and the text above it against the recorded golden.
 //
 // # What it compares that check_shape.nomi cannot
 //
 // check_shape.nomi reads the failure's FIELDS, which pins each value. This one
 // pins the whole rendered object: the second case destructures a failing check
-// with `assert Ok(_) = …`, so the report's `actual:` row is `value.Inspect` of
-// the entire `AssertionFailure` VALUE — eight fields including two `Maybe`s and
-// two `List`s, composed and SORTED, built independently by
-// value.StructVal.Display and by rt.InspectStruct. That is the widest
-// disagreement surface in the family and no field-by-field assertion reaches it.
+// with `assert Ok(_) = …`, so the report's `actual:` row renders
+// the entire `AssertionFailure` value: eight fields including two `Maybe`s and
+// two `List`s, composed and sorted by rt.InspectStruct. That is the widest
+// rendering surface in the family and no field-by-field assertion reaches it.
 import std/testing
 
 fn find_name(id: Int): Maybe<String> {

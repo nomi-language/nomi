@@ -1,8 +1,8 @@
-// The scalar stdlib surface, on both paths.
+// The scalar stdlib surface.
 //
-// Every line here is a call INTO `std/` — the thing a compiled program could not
-// do at all before this fixture existed. Three shapes, deliberately mixed,
-// because they resolve through three different mechanisms and a fixture that
+// Every line here is a call INTO `std/`. Three shapes, deliberately
+// mixed, because they resolve through three different mechanisms and a
+// fixture that
 // exercised one would pass while the others were wrong:
 //
 //   - a concrete type qualifier onto a `host fn` (`String.contains?`), which
@@ -16,8 +16,8 @@
 //
 // Four lines exist to catch a specific wrong lowering rather than to add breadth:
 //
-//   - `Float.round(2.5)` is 2.0, not 3.0. Nomi rounds half-to-EVEN and Go's
-//     `math.Round` rounds half-away-from-zero, so the obvious Go spelling is the
+//   - `Float.round(2.5)` is 2.0, not 3.0. Nomi rounds half-to-EVEN, and the
+//     common library rounding is half-away-from-zero, so that is the obvious
 //     wrong answer and this is the only place in the mapped surface where it is.
 //   - `Int.wrapping_add(9223372036854775807, 1)` must WRAP, not trap — the whole point
 //     of the wrapping family, and lowering it to the trapping helper would turn a

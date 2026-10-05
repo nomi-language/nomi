@@ -7,13 +7,13 @@ import std/io
 // is a new data structure: every row is the SAME persistent hash trie reached
 // through a one-field wrapper. What that makes cheap it also makes easy to get
 // silently wrong, because a wrapper is exactly the kind of type whose identity
-// can go missing without a Go compile error.
+// can go missing without a type error.
 //
 // The pairs each row is chosen to let disagree:
 //
-//   - ITERATION ORDER against the literal. Derived on the interpreter from
-//     `value.MapVal`'s seq counter (a Set is a StructVal over a MapVal) and in rt
-//     from `rt.MapEntries`. `Iter.to_list` returns a LIST, so an unordered answer
+//   - ITERATION ORDER against the literal, derived in rt from
+//     `rt.MapEntries` (a Set is a struct over a Map). `Iter.to_list` returns
+//     a LIST, so an unordered answer
 //     is a wrong answer and not a tolerated one.
 //   - DEDUPLICATION keeping the FIRST position. `#{1, 2, 2, 1}` has size 2 either
 //     way; only the order says whether the re-inserted element moved to the end.
@@ -23,8 +23,8 @@ import std/io
 //     print 3 here and would be O(n) behind a name that promises O(1); a
 //     `known_count` that answered from the WRONG map disagrees with `size`.
 //   - `==` against the rendered form. `impl Equatable for Set<T>` is
-//     `a.items == b.items`, which is ORDER-INSENSITIVE. Go's own `==` on a
-//     one-field struct over a trie compares the trie POINTER and answers False
+//     `a.items == b.items`, which is ORDER-INSENSITIVE. A comparison of the
+//     trie POINTER would answer False
 //     for `#{1, 2} == #{2, 1}`, so that row fails for a structural degradation
 //     and for nothing else.
 //   - `Display` against `Debug`. `to_string` renders elements with

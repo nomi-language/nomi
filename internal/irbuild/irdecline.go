@@ -112,6 +112,30 @@ func irDeclineNote(reason string) {
 	}
 }
 
+// irDeclineUnnamedReason is the reason an attempt records when it declined
+// and no site named why. It is a compiler bug wherever it appears; the
+// irbuild tests fail on it (irDeclineUnnamed).
+const irDeclineUnnamedReason = "the builder declined without naming a reason (a compiler bug; please report it)"
+
+// irDeclineUnnamed is a test-only hook, nil in production, called with the
+// attempt's name whenever irDeclineClose finds a decline no site named.
+// TestMain fails the irbuild package on any call.
+var irDeclineUnnamed func(fn string)
+
+// irDeclineClose ends an attempt that declined. Every decline should have
+// called irDeclineNote; one that did not would surface as a BLOCKED line
+// reading "no decline reason recorded", so it is recorded here with a reason
+// that says the builder is at fault, and the test hook is told.
+func irDeclineClose() {
+	if irDeclineWhy != "" {
+		return
+	}
+	if irDeclineUnnamed != nil {
+		irDeclineUnnamed(irDeclineFn)
+	}
+	irDeclineNote(irDeclineUnnamedReason)
+}
+
 // irDeclineSynthMask marks a reason `irScalarBody` reported for a body whose
 // LINES ARE SYNTHESIZED.
 //

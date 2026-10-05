@@ -27,14 +27,13 @@ func intSeq(n int64) Seq[int64] {
 	}}
 }
 
-// TestSeqAllocatesNothingPerElement is the claim the whole representation rests
-// on, and the one the existential decision named as the hardest failure mode to
-// notice: "a silent fall-through to boxing would show up only as a performance
-// regression, never as a wrong answer."
+// TestSeqAllocatesNothingPerElement is the claim the representation rests on,
+// and its failure is the hardest to notice: a silent fall-through to boxing
+// shows up only as a performance regression, never as a wrong answer.
 //
-// Stated as INDEPENDENCE of the element count rather than as an absolute
+// Stated as independence of the element count rather than as an absolute
 // number, because a pipeline is entitled to a fixed number of allocations when
-// it is BUILT — one closure per stage — and the question is whether it pays any
+// it is built — one closure per stage — and the question is whether it pays any
 // per element. So the same chain is driven over 1,000 and over 100,000 elements
 // and the counts must be equal. A per-element allocation of even one makes the
 // second figure 99,000 higher; no tolerance can hide that.
@@ -55,8 +54,7 @@ func TestSeqAllocatesNothingPerElement(t *testing.T) {
 				return true
 			})
 			// Consumed, so the closure body is not dead code the compiler may
-			// delete outright — which is exactly how a benchmark in this repo
-			// came to measure nothing.
+			// delete outright, which would leave nothing to count.
 			if sum < 0 {
 				t.Fatal("unreachable")
 			}
@@ -108,7 +106,7 @@ func TestTakeStopsTheSource(t *testing.T) {
 // `x = Iter.map(xs, f)` and consuming `x` multiple times yields consistent
 // results".
 //
-// For `take` that is a statement about WHERE its counter lives. A counter in
+// For `take` that is a statement about where its counter lives. A counter in
 // SeqTake's closure over the sequence passes every other test in this file and
 // yields nothing the second time round.
 func TestSeqIsReplayable(t *testing.T) {
@@ -190,10 +188,10 @@ func TestFilterForwardsTheElementNotThePredicate(t *testing.T) {
 
 // --- reduce -----------------------------------------------------------------
 
-// TestSeqReduceFoldsFromTheSeed asserts the answers ABSOLUTELY, which is the
+// TestSeqReduceFoldsFromTheSeed asserts the answers absolutely, which is the
 // only kind of assertion that catches this bug class.
 //
-// The seed's whole failure mode is that a DROPPED seed is a Go zero value —
+// The seed's whole failure mode is that a dropped seed is a Go zero value —
 // right for every fold that starts at 0, "" or nil. So each case below starts
 // somewhere the fold cannot reach on its own, and the `want` is spelled out.
 func TestSeqReduceFoldsFromTheSeed(t *testing.T) {
@@ -208,7 +206,7 @@ func TestSeqReduceFoldsFromTheSeed(t *testing.T) {
 	if got := SeqReduce(fr, intSeq(4), int64(0), add); got != 6 {
 		t.Errorf("0+1+2+3 from a seed of 0 is %d, want 6", got)
 	}
-	// An EMPTY source: the callback never runs, so the seed IS the answer.
+	// An empty source: the callback never runs, so the seed is the answer.
 	// With a zero seed this case is indistinguishable from a broken one.
 	if got := SeqReduce(fr, intSeq(0), int64(42), add); got != 42 {
 		t.Errorf("reducing nothing from a seed of 42 is %d, want 42", got)
@@ -253,7 +251,7 @@ func TestSeqReduceConsumesTheWholeSource(t *testing.T) {
 	}
 }
 
-// TestSeqReduceFirstSeedsFromTheFirstElement pins the OTHER program, and the
+// TestSeqReduceFirstSeedsFromTheFirstElement pins the other program, and the
 // two halves that distinguish it from a seeded fold.
 //
 // Both answers are read off `nomi run` rather than derived: `Iter.reduce([4, 5,
@@ -288,7 +286,7 @@ func TestSeqReduceFirstSeedsFromTheFirstElement(t *testing.T) {
 	}
 }
 
-// TestSeqReduceFirstTrapsOnAnEmptySource pins the fault TEXT character for
+// TestSeqReduceFirstTrapsOnAnEmptySource pins the fault text character for
 // character.
 //
 // It is Nomi-observable — `nomi run` prints it to stderr and exits 1 — and it
@@ -311,12 +309,12 @@ func TestSeqReduceFirstTrapsOnAnEmptySource(t *testing.T) {
 }
 
 // TestSeqReduceAllocatesNothingPerElement is TestSeqAllocatesNothingPerElement's
-// claim for the terminal that carries STATE.
+// claim for the terminal that carries state.
 //
 // The reason it needs its own test is that reduce is the first consumer with an
 // accumulator: `acc` is closed over by the yield function, so Go must heap it,
 // and a naive implementation could easily allocate one per element instead of
-// one per call. Stated the same way for the same reason — as INDEPENDENCE of
+// one per call. Stated the same way for the same reason — as independence of
 // the element count, because a fixed per-call cost is legitimate and a
 // per-element one is not. A single allocation per element makes the second
 // figure 99,000 higher.

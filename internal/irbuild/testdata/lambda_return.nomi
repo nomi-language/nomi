@@ -2,18 +2,16 @@ import std/io
 
 // Probe: `return` INSIDE A LAMBDA IS LAMBDA-SCOPED.
 //
-// This is a Nomi-specific rule and the single most likely place a compiled
-// engine silently gets its host language's answer instead. Both failure modes are observable here: if
+// This is a Nomi-specific rule, and a lowering that borrowed a host
+// language's `return` would get it wrong silently. Both failure modes are observable here: if
 // the lambda's `return` escaped to the enclosing function, the print below it
 // would never run and the function's result would be the bare word rather than
 // the wrapped one.
 fn scoped(n: Int): String {
-    classify = |x: Int|
-        if x > 0 {
-            return "positive"
-        } else {
-            "non-positive"
-        }
+    classify = |x: Int| {
+        if x > 0 { return "positive" }
+        "non-positive"
+    }
 
     inner = classify(n)
     io.print("  lambda returned ${inner}")
@@ -23,12 +21,10 @@ fn scoped(n: Int): String {
 // A `return` in a nested lambda exits only the INNER lambda.
 fn nested(n: Int): String {
     outer = |x: Int| {
-        inner = |y: Int|
-            if y > 0 {
-                return "inner-positive"
-            } else {
-                "inner-other"
-            }
+        inner = |y: Int| {
+            if y > 0 { return "inner-positive" }
+            "inner-other"
+        }
 
         "outer(${inner(x)})"
     }

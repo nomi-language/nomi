@@ -20,66 +20,54 @@ import (
 	"time"
 )
 
-// The tour's browser runtime is a STAGED BUNDLE, not the source tree. Nothing
-// in this repository compared the two until this file, and the gap produced a
-// wrong answer a user saw: the canonical `App` example rendered three analysis
-// errors, one of them
+// The tour's browser runtime is a staged bundle, not the source tree. A stale
+// bundle shows users analysis errors the current source no longer produces,
+// while `TestTourDoctests` in this package stays green, because it runs the
+// tour's blocks through the analyzer linked into the test binary rather than
+// through the staged wasm. `public/nomi/` is gitignored, so no diff shows a
+// stale bundle either.
 //
-//	'boot' body must construct a single concrete app struct that has an
-//	'impl App for <Struct>' block
-//
-// — a message that no longer exists anywhere in the source. The staged
-// `tour/public/nomi/nomi.wasm` was five days older than the cutover that
-// retired it. `TestTourDoctests` in this package passed 118/118 the whole
-// time, because it runs the tour's blocks through the REAL analyzer linked
-// into the test binary. Two instruments that look like they corroborate and
-// measure different artifacts. The only thing that ever connected them was a
-// shell script somebody remembered to run, and `public/nomi/` is gitignored,
-// so no diff showed it either.
-//
-// The two tests below are the two different questions that gap raises:
+// The two tests below ask the two questions a stale bundle raises:
 //
 //   - TestTourWasmBundleIsTheCurrentSources asks whether the staged bundle can
 //     be what this source tree produces. It answers by rebuilding, not by
 //     reading an mtime (mtimes move for reasons unrelated to content, and a
 //     `cp` of a stale file forward defeats them entirely).
 //   - TestTourWasmAnswersTheTourBlocks asks what the staged wasm actually
-//     SAYS, by running it under node the way the browser does and comparing
+//     says, by running it under node the way the browser does and comparing
 //     against the same committed `<!-- expect -->` blocks TestTourDoctests
-//     holds the in-process VM to. This is the reading that would have named the
+//     holds the in-process VM to. This is the reading that names the
 //     user-visible symptom.
 //
-// SKIP-VERSUS-FAIL, decided against a MEASUREMENT rather than an intuition,
-// because `public/nomi/` is gitignored and legitimately absent on a fresh
-// clone.
+// Whether a missing bundle skips or fails matters, because `public/nomi/` is
+// gitignored and legitimately absent on a fresh clone.
 //
-// The first design here was "skip with a loud log". That option does not
-// exist: `go test` discards a SKIPPED test's output in a non-verbose run —
-// t.Log, os.Stdout and os.Stderr alike, all three checked in a throwaway
-// module — so a skip is silent whatever you write into it. Only -v shows it.
-// Which makes the remaining question sharper: a silent skip is acceptable
-// only where the skipped condition cannot be the failing one.
+// A skip cannot be made loud: `go test` discards a skipped test's output in
+// a non-verbose run (t.Log, os.Stdout and os.Stderr alike), so a skip is
+// silent whatever you write into it. Only -v shows it. A silent skip is
+// therefore acceptable only where the skipped condition cannot be the
+// failing one.
 //
-// So the absent case is SPLIT, and only one branch is silent:
+// So the absent case is split, and only one branch is silent:
 //
-//   - `public/nomi/` does not exist at all — nobody has ever built the tour
-//     in this checkout. SKIP. Nothing can be stale, and the state is
+//   - `public/nomi/` does not exist at all: nobody has ever built the tour
+//     in this checkout. Skip. Nothing can be stale, and the state is
 //     self-announcing the moment it matters: with no bundle the tour's
 //     examples do not load, so the first page served is visibly broken and
 //     the browser console names the 404.
 //   - `public/nomi/` exists but a file the script stages is missing from it.
-//     FAIL. That is a partial or damaged bundle, which the script never
+//     Fail. That is a partial or damaged bundle, which the script never
 //     produces, and it is a state the browser can serve while looking mostly
 //     fine.
 //
-// A stale wasm is a PRESENT file in a PRESENT directory, so it can never
+// A stale wasm is a present file in a present directory, so it can never
 // reach the silent branch. That is the property the check needs: the hazard
-// worth avoiding — a row that skips on the same condition that would make it
-// fail, of which `internal/irbuild` held twenty — requires the two to overlap,
-// and here they are disjoint by construction.
+// worth avoiding, a row that skips on the same condition that would make it
+// fail, requires the two to overlap, and here they are disjoint by
+// construction.
 //
-// Requiring the whole bundle unconditionally was the alternative and it is
-// worse: it makes `go test ./...` red on a fresh clone for an artifact that
+// Requiring the whole bundle unconditionally would be worse: it would make
+// `go test ./...` red on a fresh clone for an artifact that
 // clone has no reason to hold, and a row that is red by default is a row
 // people learn to ignore.
 //
@@ -143,11 +131,11 @@ directory missing one of them was assembled some other way. Fix: %s`,
 // Go's output for a given source tree, toolchain and module directory is
 // deterministic, verified here by building twice into different paths and
 // requiring byte equality before the staged file is judged at all. So an
-// equal hash means the staged binary IS what this source builds, and the
+// equal hash means the staged binary is what this source builds, and the
 // check needs no guess about which strings a current analyzer must emit.
 //
 // The four npm-vendored files (web-tree-sitter.js/.wasm, marked.esm.js,
-// purify.es.mjs) are deliberately NOT checked: their source of truth is a
+// purify.es.mjs) are deliberately not checked: their source of truth is a
 // version pinned in the script and fetched from the network, so reading it
 // here would make the test need npm. They also carry a different risk —
 // a pinned third-party file does not drift when Nomi's source changes.
@@ -273,22 +261,19 @@ func buildTourWasm(t *testing.T, out string) {
 	// -C first, and an absolute -o, because -C changes the working
 	// directory for everything after it.
 	//
-	// THE FLAG SET MUST MATCH scripts/build-tour-wasm.sh's wasm build.
+	// The flag set must match scripts/build-tour-wasm.sh's wasm build.
 	//
 	// -buildvcs=false is load-bearing on both sides. Without it Go stamps
 	// vcs.revision and vcs.modified into the binary, so the bytes move on
 	// every commit and on every clean<->dirty transition even when no
-	// source the build reads has changed — and this test, which compares
-	// the staged file against a rebuild, went red after every commit.
-	// MEASURED on one tree with only the working-tree state differing:
-	// plain gave 1846d0a3... then 18f1ccf5..., -buildvcs=false gave
-	// d236b169... both times.
+	// source the build reads has changed, and this test, which compares
+	// the staged file against a rebuild, would go red after every commit.
 	//
 	// -trimpath is on both sides as well. Without it the bundle embeds the
 	// absolute path of every linked Go source file, the build machine's
 	// home directory included, and the site publishes them. With it the
-	// build is also path-independent (measured: one commit in two
-	// differently-named directories, identical bytes). Passing either
+	// build is also path-independent: one commit built in two
+	// differently-named directories gives identical bytes. Passing either
 	// flag on one side only leaves this test permanently red on a freshly
 	// built bundle.
 	abs, err := filepath.Abs(out)
@@ -355,14 +340,14 @@ func modTime(t *testing.T, path string) string {
 	return info.ModTime().Format(time.RFC3339)
 }
 
-// TestTourWasmAnswersTheTourBlocks runs the STAGED wasm the way the browser
+// TestTourWasmAnswersTheTourBlocks runs the staged wasm the way the browser
 // does — under a JS host, through nomiRun — over every runnable tour block,
 // and holds it to the same committed `<!-- expect -->` output that
 // TestTourDoctests holds the in-process VM to.
 //
 // This is the only thing in the repository that executes the staged artifact.
 // Its value beyond the byte comparison above is that byte-equality cannot see
-// a bundle whose files are each current but do not work TOGETHER: nomi.wasm
+// a bundle whose files are each current but do not work together: nomi.wasm
 // and wasm_exec.js are produced by the same Go toolchain and a mismatched pair
 // loads in neither the browser nor here. It also states the failure in the
 // terms the user reported it in — this block, this expected output, this
@@ -465,6 +450,39 @@ TestTourDoctests holds the in-process VM to. Fix: %s`,
 		len(blocks), compared, withTests)
 }
 
+// TestTourWasmReportsAFailedMain runs a block whose `main` returns `Err`
+// through the staged wasm, as the playground runs one: the program's output
+// stays on the output channel and the failure is the error channel's
+// `error: ` line, which the playground shows the way it shows a fault.
+func TestTourWasmReportsAFailedMain(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; loads a 25MB wasm under node; -short")
+	}
+	if stagedFileMissing(t, "nomi.wasm.gz") || stagedFileMissing(t, "wasm_exec.js") {
+		return
+	}
+	node, err := exec.LookPath("node")
+	if err != nil {
+		if os.Getenv(requireEnv) == "1" {
+			t.Fatalf("node is not on PATH (%s=1 makes this a failure)", requireEnv)
+		}
+		t.Skip("node is not on PATH")
+	}
+	type probe struct {
+		Name   string `json:"name"`
+		Source string `json:"source"`
+	}
+	src := "import std/io\n\nfn main(): Result<Unit, String> {\n    io.print(\"before\")\n    Err(\"boom\")\n}\n"
+	answers := runUnderNode(t, node, []probe{{Name: "failed main", Source: src}})
+	if len(answers) != 1 {
+		t.Fatalf("staged wasm answered %d of 1 blocks", len(answers))
+	}
+	if got := answers[0]; got.Output != "before\n" || got.Error != "error: boom" {
+		t.Errorf("staged wasm answered output %q, error %q; want output %q, error %q",
+			got.Output, got.Error, "before\n", "error: boom")
+	}
+}
+
 // onlyListedBlocked reports whether a block's error text is a test report
 // whose only non-passing cases are BLOCKED cases tourBlockedOnVM lists.
 func onlyListedBlocked(errText string) bool {
@@ -473,10 +491,12 @@ func onlyListedBlocked(errText string) bool {
 		switch {
 		case strings.HasPrefix(line, "ok "):
 		case strings.HasPrefix(line, "test result: BLOCKED. "):
+		case blocked && strings.HasPrefix(line, "  "):
+			// A blocker's hint, under its BLOCKED line.
 		case strings.HasPrefix(line, "BLOCKED "):
 			listed := false
 			for name := range tourBlockedOnVM {
-				if strings.HasPrefix(line, "BLOCKED "+name+" [") {
+				if strings.HasPrefix(line, "BLOCKED "+name+" ") {
 					listed = true
 				}
 			}
@@ -576,7 +596,7 @@ func runUnderNode(t *testing.T, node string, probes any) []nodeAnswer {
 		t.Fatalf("abs(%s): %v", stagedDir, err)
 	}
 
-	// A tour block is doctested, so it terminates; a STALE one might not,
+	// A tour block is doctested, so it terminates; a stale one might not,
 	// and a hung node process must fail loudly rather than take the
 	// package's timeout down with it.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)

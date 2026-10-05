@@ -46,7 +46,7 @@ fn take(b: Box): Int {
 // Only this rule's diagnostics are counted, so a file that carries
 // other diagnostics for its own reasons does not pollute the count.
 //
-// Measured at 29f28fec, before the rule was written, with an instrument that
+// Before the rule was written, an instrument that
 // recorded every site instead of rejecting it: 87 sites across the four trees,
 // and EVERY ONE of them was either an `impl` interface header (34) or a struct
 // literal's type name (53) — the two positions the rule deliberately exempts.
@@ -243,7 +243,7 @@ interface Shown<T> {
 			// Unit and the body then reports `expected Unit`. That cascade is
 			// pre-existing and not this rule's — `fn f(): Nope { 1 }` reports
 			// `unknown type "Nope"` followed by
-			// `return type mismatch: expected Unit, got Int` at 29f28fec.
+			// `return type mismatch: expected Unit, got Int`.
 		},
 		{
 			name: "parameter type",
@@ -358,7 +358,7 @@ interface Shown<T> {
 
 // TestGenericArity_LeavesTheLegitimateFormsAlone is the half that makes the
 // rule correct rather than merely strict. Each case below is a bare generic
-// reference the tree relies on, measured at 29f28fec: 34 impl headers and 53
+// reference the tree relies on: 34 impl headers and 53
 // struct literals across std/, examples/, tests/ and the tour.
 func TestGenericArity_LeavesTheLegitimateFormsAlone(t *testing.T) {
 	cases := []struct {

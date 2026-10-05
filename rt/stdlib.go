@@ -31,7 +31,7 @@ import (
 
 // --- std/strings -----------------------------------------------------------
 //
-// Byte-based operations only. The GRAPHEME-based half of std/strings —
+// Byte-based operations only. The grapheme-based half of std/strings —
 // `length`, `slice`, `reverse`, `normalize`, `to_codepoints` — is deliberately
 // absent from this section: grapheme work lives in grapheme.go over
 // github.com/rivo/uniseg, and normalization needs golang.org/x/text, which rt
@@ -60,7 +60,7 @@ func StringReplace(s, old, new string) string { return strings.ReplaceAll(s, old
 func StringTrim(s string) string { return strings.TrimSpace(s) }
 
 // StringSplit is `String.split`: byte-substring split, every occurrence, the
-// separator consumed. An EMPTY separator splits at every UTF-8 codepoint
+// separator consumed. An empty separator splits at every UTF-8 codepoint
 // boundary, which is Go's own rule and is what std/strings documents as the
 // definition ("An empty `separator` splits at every UTF-8 codepoint boundary").
 //
@@ -69,12 +69,30 @@ func StringTrim(s string) string { return strings.TrimSpace(s) }
 // persistent cons list (see list.go), so this is one pass and n allocations
 // rather than n prepends onto a growing head.
 func StringSplit(s, separator string) *List[string] {
-	parts := strings.Split(s, separator)
-	var out *List[string]
-	for i := len(parts) - 1; i >= 0; i-- {
-		out = Cons(parts[i], out)
+	return listOf(strings.Split(s, separator))
+}
+
+// StringWords is `String.words`: Go's strings.Fields, which splits on runs of
+// Unicode White_Space (unicode.IsSpace, so U+00A0 and U+3000 count) and never
+// yields an empty string.
+func StringWords(s string) *List[string] {
+	return listOf(strings.Fields(s))
+}
+
+// StringLines is `String.lines`: split on "\n", with a "\r" just before a "\n"
+// dropped too. A lone "\r" is not a terminator, and a final terminator does not
+// start an empty last line, so "" has no lines and "\n" has one empty line.
+func StringLines(s string) *List[string] {
+	parts := strings.Split(s, "\n")
+	if parts[len(parts)-1] == "" {
+		parts = parts[:len(parts)-1]
 	}
-	return out
+	for i, p := range parts {
+		if i < len(parts)-1 || strings.HasSuffix(s, "\n") {
+			parts[i] = strings.TrimSuffix(p, "\r")
+		}
+	}
+	return listOf(parts)
 }
 
 // StringRepeat is `String.repeat`. A negative count is a runtime fault.
@@ -172,7 +190,7 @@ func FloatNegativeInfinity() float64 { return math.Inf(-1) }
 // FloatIsNaN is `Float.nan?`.
 func FloatIsNaN(x float64) bool { return math.IsNaN(x) }
 
-// FloatRound is `Float.round`, and it is ROUND-HALF-TO-EVEN, not Go's
+// FloatRound is `Float.round`, and it is round-half-to-even, not Go's
 // math.Round. `Float.round(2.5)` is 2.0 in Nomi and 3.0 under math.Round, so
 // this is the one function in this file where the obvious Go spelling is the
 // wrong answer.

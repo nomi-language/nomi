@@ -26,8 +26,8 @@ struct Config {
     scale: Float
 }
 
-/// The evaluation-order pin: `noisy` prints, so the interpreter and the
-/// compiled binary must agree on WHEN each field expression runs. Literal
+/// The evaluation-order pin: `noisy` prints, so the output shows WHEN each
+/// field expression runs. Literal
 /// fields go in source order, then the defaults in declaration order.
 struct Ordered {
     a: Int = noisy(100)

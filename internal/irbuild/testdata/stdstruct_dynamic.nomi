@@ -2,7 +2,7 @@
 //
 // # What this fixture is for
 //
-// `std/dynamic.DecodeError` was the `stdlib type` key's group A at ac7fa1d8: 3
+// `std/dynamic.DecodeError` was the `stdlib type` key's group A: 3
 // sites in one file, needing NO new capability at all. Every field was already
 // expressible and it carries no default. What was missing was the spec row, and
 // the enum row its `path` element names:
@@ -16,7 +16,7 @@
 //
 // It is the first struct row whose field reaches the ENUM spec table rather than
 // another struct row, and PathSegment is the first enum row whose two payloads
-// are DIFFERENT Go types -- calendar.Error's five variants all carry a String
+// are DIFFERENT types -- calendar.Error's five variants all carry a String
 // and share one slot, while `Field String` and `Index Int` cannot share.
 //
 // # The discriminating rows

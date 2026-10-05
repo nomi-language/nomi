@@ -2,14 +2,14 @@
 // lexical containment and activation come apart.
 //
 // A lambda body is lexically inside the assertion's subject, so the builder's
-// lowering-time rule — record what is lexically inside the subject — would
-// instrument it. The interpreter runs it as a separate ACTIVATION behind
-// `assertionTraceBoundary`, so nothing it compares reaches the caller's report.
-// gen.suspendTrace is what makes the two agree, and this file is what says so.
+// lowering-time rule (record what is lexically inside the subject) would
+// instrument it. But a lambda runs as a separate ACTIVATION, so nothing it
+// compares may reach the caller's report. gen.suspendTrace is what makes the
+// builder honour that, and this file is what says so.
 //
-// Every assertion here FAILS on purpose. Both paths agree on a pass, so a
-// passing assertion could not see this: the divergence is entirely in the
-// `values:` rows of the failure report.
+// Every assertion here FAILS on purpose. A pass renders no rows, so a passing
+// assertion could not see this: the difference is entirely in the `values:`
+// rows of the failure report.
 fn applies?(v: Int, f: (Int) -> Bool): Bool {
     f(v)
 }
@@ -34,7 +34,7 @@ test "a lambda that ran contributes nothing" {
 // A `case` records its SCRUTINEE, which is a second recording path and not the
 // comparison one — so a lambda body containing a `case` is the check that the
 // boundary is a property of the body rather than of one operator. The
-// interpreter shows no `v` row here; neither may the artifact.
+// report shows no `v` row here.
 test "a case scrutinee inside a lambda body stays out too" {
     assert applies?(2, |v|
         case v {
@@ -45,7 +45,7 @@ test "a case scrutinee inside a lambda body stays out too" {
 }
 
 // Calling a function VALUE, which is the other half of the same seam: the
-// interpreter has ONE recording site for a call and does not care whether the
+// run has ONE recording site for a call and does not care whether the
 // callee came from a `fn` or from a binding, so `w` must appear.
 test "a call through a function value records its arguments" {
     small? = |n: Int| n > 90

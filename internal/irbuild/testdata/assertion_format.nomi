@@ -2,13 +2,11 @@
 //
 // Every case here FAILS an assertion on purpose and then asserts on the rendered
 // text. That is the whole point of the fixture: the corpus never fails an
-// assertion, so `nomi test tests` reporting 583 passed / 0 failed and
-// the sweep reporting 0 DIFFED are both statements about the PASSING path. The
-// rendering of a FAILURE has no coverage anywhere except a file like this one.
+// assertion, so `nomi test tests` covers only the passing path. The
+// rendering of a failure has no coverage anywhere except a file like this one.
 //
 // The expected text is written out in full rather than compared against a
-// second computation, so the fixture says what the two paths agree ON and not
-// merely that they agree.
+// second computation, so the fixture states the exact report text.
 //
 // Deliberately absent: any PIPELINE stage. A binding whose defining expression
 // is a pipe, and a `check` over a pipe, are the `assertion pipe stage` key and
@@ -25,12 +23,11 @@ import {
 }
 
 // Declared `zed` BEFORE `alpha`, which is the point of the type. An assertion's
-// `values:` row is `value.Inspect` — the structural rendering, which sorts the
-// whole composed `name: value` string — so a correct report reads
-// `Point{alpha: 1, zed: 2}` and one that used DECLARATION order (which is what
-// `Debug.inspect` uses, and what a struct's Go field order gives you for free)
-// would read `Point{zed: 2, alpha: 1}`. Two renderings of one value, pinned
-// apart, and this is the one an assertion shows.
+// `values:` row is the structural rendering, which sorts the
+// whole composed `name: value` string, so a correct report reads
+// `Point{alpha: 1, zed: 2}` and one that used declaration order (which is what
+// `Debug.inspect` uses) would read `Point{zed: 2, alpha: 1}`. Two renderings of
+// one value, pinned apart, and this is the one an assertion shows.
 struct Point {
     zed: Int
     alpha: Int
@@ -57,7 +54,7 @@ test "a bare Bool failure renders the header and the assertion" {
     assert Err(failure) = testing.check(False)
 
     assert AssertionFailure.format(failure) == """
-        line 57: check failed
+        line 54: check failed
           check False
         """
 }
@@ -68,7 +65,7 @@ test "a failed comparison renders both operands in the order they were seen" {
     assert Err(failure) = testing.check(actual == expected)
 
     assert AssertionFailure.format(failure) == """
-        line 68: check failed
+        line 65: check failed
           check actual == expected
           values:
             actual
@@ -84,7 +81,7 @@ test "a struct-valued operand renders with its fields sorted, not declared" {
     assert Err(failure) = testing.check(same_alpha?(left, right))
 
     assert AssertionFailure.format(failure) == """
-        line 84: check failed
+        line 81: check failed
           check same_alpha?(left, right)
           values:
             left
@@ -99,7 +96,7 @@ test "a bound-name subject renders the expression it was defined as" {
     assert Err(failure) = testing.check(alpha_matches)
 
     assert AssertionFailure.format(failure) == """
-        line 99: check failed
+        line 96: check failed
           check alpha_matches
           defined as:
             same_alpha?(Point{zed: 0, alpha: 3}, Point{zed: 0, alpha: 4})
@@ -110,7 +107,7 @@ test "a pattern assertion renders its own keyword once and shows actual" {
     assert Err(failure) = fails_pattern_binding()
 
     assert AssertionFailure.format(failure) == """
-        line 44: pattern did not match
+        line 41: pattern did not match
           assert [_, _] = [1]
           actual: [1]
         """
@@ -120,7 +117,7 @@ test "a failed refutation carries the refute keyword and its own reason" {
     assert Err(failure) = fails_refutation()
 
     assert AssertionFailure.format(failure) == """
-        line 52: refute failed
+        line 49: refute failed
           refute True
         """
 }

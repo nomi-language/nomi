@@ -16,8 +16,8 @@
 //
 //   - Six payload positions, one per rt field. `CalendarError`'s five variants
 //     share one `Msg`, so no existing fixture distinguishes a spec that pointed
-//     two variants at one field. Here every field is a different Go type, so a
-//     collapsed pair does not compile -- and the read-back below is what proves
+//     two variants at one field. Here every field is a different type, so a
+//     collapsed pair does not lower -- and the read-back below is what proves
 //     each `case` arm names the field its own variant stores into.
 //   - The NESTED MAP PATTERN. `Obj({"name" => String(n)})` is the whole point of
 //     std/json being a typed tagged enum rather than `Dynamic`: it descends a
@@ -120,12 +120,9 @@ fn main() {
     // --- the empty container shapes: a nil List and a zero Map --------------
     //
     // The empty Obj is reached through `decode` rather than through a literal.
-    // `Json.Obj{}` is REJECTED by the interpreter (`Map.size: argument must be a
-    // map`) because an empty brace literal in variant position has no key or value
-    // type to solve from, so the spelling is a front-end/eval limitation and not
-    // this builder's -- a fixture written over it would fail for a reason it is
-    // not about. Decoding `{}` produces the same zero Map and is a spelling both
-    // paths accept.
+    // `Json.Obj{}` has no key or value type to solve from, since an empty
+    // brace literal in variant position carries none, so the fixture does not
+    // spell it. Decoding `{}` produces the same zero Map.
     io.print(describe(Json.Arr[]))
 
     case Json.decode("{}") {

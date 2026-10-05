@@ -2,13 +2,13 @@
 // NOT IN VIEW at the recording site.
 //
 // The assertions FAIL ON PURPOSE, because a passing one renders no operand.
-// A wrong rendering here COMPILES and runs — showing the box (`<Speech>`) instead
-// of what was erased into it is a plausible string, not an error — so only a
-// failing differential can see it.
+// A wrong rendering here runs: showing the box (`<Speech>`) instead of what
+// was erased into it is a plausible string, not an error, so only a failing
+// assertion's recorded output can see it.
 //
 // # Three positions, and each one defeated a different shortcut
 //
-//	d: Speech = Dog{…}         a BINDING. The Go variable holds an `rt.Dyn`; the
+//	d: Speech = Dog{…}         a BINDING. The local holds an `rt.Dyn`; the
 //	                           erasure happened at the binding, so nothing at the
 //	                           read names Dog.
 //	a parameter typed Speech   the CALLER erased it; this body never saw a

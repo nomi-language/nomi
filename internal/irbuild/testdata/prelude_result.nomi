@@ -49,7 +49,7 @@ fn flip(r: Result<Int, String>): Result<String, Int> {
     }
 }
 
-// A Result whose two type arguments are the SAME Go type. rt's generic struct
+// A Result whose two type arguments are the SAME type. rt's generic struct
 // carries two fields here where a monomorphic enum would dedup them into one;
 // this reads both back to prove the payloads do not alias.
 fn unflip(r: Result<String, Int>): Result<Int, String> {
@@ -97,7 +97,7 @@ fn main(): Unit {
     // declared type into the constructor's instantiation, so the builder refused
     // it under `prelude constructor with an unsolved type argument`.
     //
-    // b68e508d closed that: the checker now validates a field's VALUE against
+    // That is closed: the checker now validates a field's VALUE against
     // its declared type, and the admission it uses unifies, which solves the
     // hole. The inline spelling lowers today. Left as a call because the
     // function is what this row reads back and rewriting it would change what

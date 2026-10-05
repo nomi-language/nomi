@@ -1,10 +1,10 @@
-// Tail cycles that CROSS the impl/free boundary, at depths the INTERPRETER can
-// also afford, so the two paths can be compared byte for byte.
+// Tail cycles that CROSS the impl/free boundary, at modest depths, so every
+// shape runs side by side in one recorded transcript.
 //
-// The stack property these programs exist for is NOT visible here: 1e6 hops of
-// direct Go recursion survive on 16 MB of stack, so this file agrees whether or
+// The stack property these programs exist for is NOT visible here: these
+// depths would survive ordinary recursion too, so this file agrees whether or
 // not anything was lowered. The depths that discriminate are in
-// tail_impl_free_deep.nomi and tail_impl_impl_deep.nomi, asserted absolutely.
+// tail_impl_free_deep.nomi and tail_impl_impl_deep.nomi.
 //
 // What IS visible here is every way a driver holding an impl body could be
 // wrong while still producing a number. The receivers CARRY DATA on purpose: a

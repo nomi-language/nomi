@@ -14,22 +14,21 @@ import (
 // Named task groups — `std/supervisors`, the owner for work that has to outlive
 // the call that started it.
 //
-// The four places below where the Go-idiomatic choice is wrong are the four
-// places it was tried and reverted. Each one is a wrong answer rather than a
-// style.
+// In four places below the Go-idiomatic choice gives a wrong answer, not just
+// a different style.
 //
-// # THE FRAME IS THE THREADING, AS IT WAS FOR `concurrent`
+// # The frame is the threading, as it is for `concurrent`
 //
 // concurrent.go's header is the long version. A supervisor task needs its own
 // cancellation context reaching `timer.sleep` inside a plain function called
 // from the body, and `*Frame` already carries a `context.Context` into every
 // call. So a supervised task body is `func(*Frame)` over a frame
-// built from the SUPERVISOR's context, which is also — see the deadline note
+// built from the supervisor's context, which is also — see the deadline note
 // below — what detaches it from the spawner's deadline for free.
 //
-// # FOUR SEMANTICS WHERE THE GO-IDIOMATIC CHOICE IS WRONG
+// # Four semantics where the Go-idiomatic choice is wrong
 //
-//  1. **`max_running:` IS REQUIRED, WITH NO DEFAULT.** A CPU-count default
+//  1. **`max_running:` is required, with no default.** A CPU-count default
 //     answers "how much parallelism can this machine use", which is the wrong
 //     question: the limit protects a downstream — a connection pool, a rate
 //     limit — and a supervisor is reached from call sites all over the program,
@@ -37,35 +36,35 @@ import (
 //     for one call. Zero is rejected outright: a supervisor that accepts work
 //     and never runs it is a deadlock dressed as configuration.
 //
-//  2. **THE `shutdown_timeout:` BUDGET IS A GRACE PERIOD, NOT AN UNWIND
-//     WINDOW.** In-flight work runs to completion; only at expiry is the
-//     remainder cancelled, and then ABANDONED rather than waited for.
-//     Cancel-first was implemented and reverted: a sleeping
-//     task sees a cancelled ctx at its first safe point and unwinds without
-//     doing its work, so `shutdown_timeout: 30s` behaves like `0` for exactly
-//     the work it was meant to protect, and shutdown became racy on whether a
+//  2. **The `shutdown_timeout:` budget is a grace period, not an unwind
+//     window.** In-flight work runs to completion; only at expiry is the
+//     remainder cancelled, and then abandoned rather than waited for.
+//     Cancelling first would be wrong: a sleeping task sees a cancelled ctx at
+//     its first safe point and unwinds without doing its work, so
+//     `shutdown_timeout: 30s` would behave like `0` for exactly the work it
+//     was meant to protect, and shutdown would be racy on whether a
 //     just-spawned goroutine had reached a safe point. Abandoning at expiry is
-//     what keeps the budget a CEILING: a CPU-bound task never reaches a safe
+//     what keeps the budget a ceiling: a CPU-bound task never reaches a safe
 //     point, so waiting after expiry could hang shutdown forever.
 //
-//  3. **RESTART IS A DISPOSITION AND THE SCHEDULE IS A SEPARATE `Backoff`.**
+//  3. **Restart is a disposition and the schedule is a separate `Backoff`.**
 //     Whether to restart and how patiently are different questions; folding
-//     them made every caller write a schedule. `Permanent` is what makes a task
-//     RETURNING on its own count as a failure, and there is deliberately no
-//     `permanent: Bool` beside `restart:` — that shape existed briefly and was
-//     removed. Backoff is mandatory and JITTERED: a worker against a downed
-//     database retrying instantly burns every attempt in milliseconds and gives
-//     up exactly when waiting was right, and without jitter a supervisor
-//     restarting many identical tasks rebuilds the thundering herd.
+//     them would make every caller write a schedule. `Permanent` is what makes
+//     a task returning on its own count as a failure, and there is
+//     deliberately no `permanent: Bool` beside `restart:`. Backoff is
+//     mandatory and jittered: a worker against a downed database retrying
+//     instantly burns every attempt in milliseconds and gives up exactly when
+//     waiting was right, and without jitter a supervisor restarting many
+//     identical tasks rebuilds the thundering herd.
 //
-//  4. **EVERY FAILURE IS REPORTED, NOT JUST THE GIVE-UP.** Failing the same way
+//  4. **Every failure is reported, not just the give-up.** Failing the same way
 //     four times is a different problem from failing four different ways, and
 //     only the full sequence separates them; frequency is not reconstructible
 //     from terminal events. Reports go to stderr.
 //
-// # AND ONE STRUCTURAL ABSENCE, WHICH IS NOT A SIMPLIFICATION
+// # One structural absence, which is not a simplification
 //
-// THERE IS NO SUPERVISION TREE. Supervisors are a FLAT SET. A Nomi task is a
+// There is no supervision tree. Supervisors are a flat set. A Nomi task is a
 // closure spawned imperatively rather than a declared child spec, so nothing
 // records what a subtree contained and a parent that wanted to restart one
 // could not. `boot()` is the language's only child spec and the process is the
@@ -73,22 +72,22 @@ import (
 // and group-level restart is not. The drain below is therefore one concurrent
 // pass rather than a recursion.
 //
-// # THE REGISTRY IS PROCESS-WIDE
+// # The registry is process-wide
 //
 // A package-level registry serves one program per process. The one caller that
-// needs per-run isolation is the TEST HARNESS, and it takes it explicitly:
+// needs per-run isolation is the test harness, and it takes it explicitly:
 // `ResetSupervisors` drains and clears, and `runTest` calls it after every case
-// — INSIDE the virtual-time bubble when there is one, so a drain budget is
+// — inside the virtual-time bubble when there is one, so a drain budget is
 // spent in virtual time and no goroutine outlives the bubble.
 //
-// # SIGNAL HANDLING IS NOT HERE, AND THAT IS A RULE RATHER THAN A GAP
+// # Signal handling is not here, and that is a rule rather than a gap
 //
 // `RunOptions.HandleSignals` is set only by the CLI: a library must not install
 // a process-wide handler. The same rule governs `GiveUp.Exit`, which records a
 // fatal and lets the program's own exit path read it (SupervisorFatal) rather
 // than calling os.Exit from a background goroutine.
 
-// settleCheckInterval is how often a draining PERMANENT supervisor asks whether
+// settleCheckInterval is how often a draining permanent supervisor asks whether
 // all its work has parked. Only ever runs on the shutdown path, and only until
 // the group settles or its budget expires.
 const settleCheckInterval = 2 * time.Millisecond
@@ -106,14 +105,14 @@ const DefaultShutdownTimeout Duration = Duration(5 * time.Second)
 // parkTracker counts, for one supervisor, how many of its running tasks are in
 // a wait with no scheduled wake.
 //
-// The drain reads it to stop waiting for work that cannot arrive. It is a COUNT rather than a set because the
+// The drain reads it to stop waiting for work that cannot arrive. It is a count rather than a set because the
 // only question asked of it is "are they all parked".
 type parkTracker struct {
 	live   atomic.Int64 // tasks past the semaphore and not yet finished
 	parked atomic.Int64 // of those, how many are in a no-wake wait
 }
 
-// settled reports that every running task is parked. FALSE when the group has
+// settled reports that every running task is parked. False when the group has
 // no running tasks at all, which is the ordinary "finished" case the WaitGroup
 // already covers — answering true there would make the drain return before the
 // WaitGroup had seen the last completion.
@@ -152,7 +151,7 @@ type supervisor struct {
 	// record the program-level failure it implies.
 	reg *supervisorRegistry
 
-	// wg counts ENROLLED tasks — incremented by the spawning goroutine before
+	// wg counts enrolled tasks — incremented by the spawning goroutine before
 	// its worker starts, so a `Supervisor.flush` that begins after the spawn
 	// returned always sees the task. Adding inside the goroutine would leave a
 	// window where the supervisor looks idle and a flush silently misses work.
@@ -162,7 +161,7 @@ type supervisor struct {
 	// permitted concurrent task, held by a worker for the duration of its body.
 	//
 	// A channel rather than a worker pool because a parked goroutine blocked on
-	// a chan send is DURABLY BLOCKED, which is precisely what testing/synctest
+	// a chan send is durably blocked, which is precisely what testing/synctest
 	// understands — the property that makes the whole surface testable under a
 	// virtual clock.
 	sem chan struct{}
@@ -185,7 +184,7 @@ type supervisor struct {
 //
 // A one-field struct over an unexported pointer, which is `Task[T]`'s and
 // `Sender[T]`'s arrangement and is chosen for their two reasons: the field
-// stays unreachable from outside rt, and the VALUE is copyable, so
+// stays unreachable from outside rt, and the value is copyable, so
 // `rt.Supervisor` is the Go type a `stdHostSpecs` row names without every
 // position — a struct field, a parameter, a `Config{}` literal slot — having to
 // spell a pointer.
@@ -237,27 +236,27 @@ func supervisors() *supervisorRegistry {
 // SupervisorNewExact is `std/supervisors`' module-private `new_exact`: build a
 // supervisor with every policy stated.
 //
-// # WHY THE PUBLIC `Supervisor.new` IS A NOMI BODY OVER THIS
+// # Why the public `Supervisor.new` is a Nomi body over this
 //
-// `Supervisor.new` carries FOUR trailing defaults, and internal/irbuild refuses a
+// `Supervisor.new` carries four trailing defaults, and internal/irbuild refuses a
 // `host fn` with a trailing default outright — with a reason that is about
 // which side owns the value, not about difficulty: an extern carries no
 // defaults, so a declared default is documentation of whatever the Go
 // implementation does with a short argument list, and a builder filling from
 // the declaration would agree with a second encoding by luck. The precedent for the fix is `calendar.NaiveDateTime.new`: a `pub fn`
 // with a Nomi body carrying the defaults, over a module-private `host fn` of
-// full arity carrying none. So there is ONE owner for `shutdown_timeout:
+// full arity carrying none. So there is one owner for `shutdown_timeout:
 // Duration = Duration.seconds(5)` and every caller reaches it.
 //
-// # CREATABLE ONLY DURING `boot`, AND THE REQUIREMENT IS TEMPORAL
+// # Creatable only during `boot`, and the requirement is temporal
 //
-// `fr.inBoot` rather than a lexical check on the enclosing function's name. It
-// was once `currentFnName != "boot"` and that was WRONG: the proxy rejected a
-// server type creating its own supervisor in a constructor `boot` calls, which
-// cost a second app-struct field per server and made `Restart.Permanent`
-// unusable, since one shared supervisor cannot be permanent for some of its
-// work and not the rest. The rule is that supervisors are created WHILE boot
-// runs, not that the call is written inside it — and a frame flag propagated
+// `fr.inBoot` rather than a lexical check on the enclosing function's name. A
+// name check would reject a server type creating its own supervisor in a
+// constructor `boot` calls, which would cost a second app-struct field per
+// server and make `Restart.Permanent` unusable, since one shared supervisor
+// cannot be permanent for some of its work and not the rest. The rule is that
+// supervisors are created while boot runs, not that the call is written inside
+// it — and a frame flag propagated
 // caller-to-callee is exactly that, because every call passes the frame down.
 //
 // analysis/boot_scope.go enforces the same rule statically through the in-file
@@ -308,24 +307,24 @@ func SupervisorNewExact(
 }
 
 // SupervisorSpawn is `Supervisor.spawn(supervisor, body)`: put work under a
-// supervisor and RETURN IMMEDIATELY.
+// supervisor and return immediately.
 //
-// The task is ENROLLED when this returns, not finished, so a spawn past
+// The task is enrolled when this returns, not finished, so a spawn past
 // `max_running` never blocks the caller — it parks its own worker goroutine on
 // the semaphore instead.
 //
 // It hands back a `Task[Unit]` like `Task.spawn` does but imposes no await
 // obligation, because the supervisor drains it. The handle is an extra way to
-// observe or cancel ONE task, not an obligation to.
+// observe or cancel one task, not an obligation to.
 //
-// THE BODY'S FRAME IS BUILT OVER THE SUPERVISOR'S CONTEXT, not the spawner's.
+// The body's frame is built over the supervisor's context, not the spawner's.
 // Supervised work outlives the call that started it, and the ceiling that call
 // was under is not its ceiling. A handler bounding itself is the ordinary
 // shape for request work, and inheriting its deadline would kill the
 // background task it had just spawned while `Supervisor.flush` reported
 // success.
 //
-// THE GO-CONTEXT HALF NEEDS NOTHING: the task's `ctx` descends from the
+// The Go-context half needs nothing: the task's `ctx` descends from the
 // supervisor's, which descends from the registry root, so the spawner's
 // deadline is not on that chain at all.
 //
@@ -341,14 +340,14 @@ func SupervisorSpawn(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 // SupervisorSpawnAll is `Supervisor.spawn_all(supervisor, source, f)`: one task
 // per item, under the same supervisor.
 //
-// NO `max_running` OF ITS OWN, which is std's decision and not an omission: a
+// No `max_running` of its own, which is std's decision and not an omission: a
 // limit on this call would protect only the traffic that happened to arrive as
 // a batch, leaving every ordinary `Supervisor.spawn` unbounded — which is not
 // what anyone means by bounding a supervisor.
 //
 // A `List` in and a `List` of handles out, in source order. Bodies return Unit,
 // as all supervised work does, so the handles come back for cancellation or for
-// `Task.await_all` on THIS batch rather than the supervisor's whole workload.
+// `Task.await_all` on this batch rather than the supervisor's whole workload.
 func SupervisorSpawnAll[T any](fr *Frame, sup Supervisor, source *List[T], f func(*Frame, T) Unit) *List[Task[Unit]] {
 	items := listToSlice(source)
 	handles := make([]Task[Unit], 0, len(items))
@@ -376,7 +375,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 	taskCtx, taskCancel := context.WithCancel(g.ctx)
 	t := &task[Unit]{done: make(chan struct{}), cancel: taskCancel}
 
-	// Enrol BEFORE returning. See supervisor.wg.
+	// Enrol before returning. See supervisor.wg.
 	g.wg.Add(1)
 
 	forcing := (*forcing)(nil)
@@ -419,12 +418,12 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 // runWithRestarts runs a task body and, when it fails, applies the supervisor's
 // restart policy until the policy gives up.
 //
-// The loop IS the whole of restart: re-invoking the closure is all "restart"
+// The loop is the whole of restart: re-invoking the closure is all "restart"
 // means here, because the closure is the only description of the work that
 // exists. There is nothing else to rebuild — and that is also why restart
 // rebuilds whatever state the closure sets up.
 //
-// Only a FAILURE re-enters the loop. A task that returned normally is done, and
+// Only a failure re-enters the loop. A task that returned normally is done, and
 // a cancelled one is being shut down; restarting either would fight the thing
 // that stopped it.
 //
@@ -434,8 +433,8 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 	// attempt counts failures across the task's whole life and is what
 	// `max_restarts` refers to.
 	//
-	// backoffStep is tracked separately because a healthy run resets the DELAY
-	// without forgiving the COUNT: a worker that fails once a month should not
+	// backoffStep is tracked separately because a healthy run resets the delay
+	// without forgiving the count: a worker that fails once a month should not
 	// inherit last month's backoff, but it should still eventually be declared
 	// dead rather than retried forever.
 	attempt := int64(0)
@@ -464,11 +463,11 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 				// one-shot task finishing, so without it a worker whose loop
 				// exits early disappears in silence.
 				//
-				// THE CONTEXT CHECK IS LOAD-BEARING and the return value alone
+				// The context check is load-bearing and the return value alone
 				// cannot replace it. A cancelled body does not reliably
 				// propagate: the idiomatic `fn serve(): Unit { _f =
 				// Iter.loop(...); Unit }` swallows the unwind into a discarded
-				// binding and returns Unit, so the task LOOKS like it finished
+				// binding and returns Unit, so the task looks like it finished
 				// on its own. Asking the context asks the runtime what
 				// happened rather than the body, and only the runtime cannot
 				// be written around.
@@ -485,7 +484,7 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 
 		attempt++
 
-		// A run that outlasted the delay ceiling counts as RECOVERED: the next
+		// A run that outlasted the delay ceiling counts as recovered: the next
 		// failure starts over with a full count, clock and delay. Without this
 		// a worker failing once a month would exhaust its restarts after ten
 		// months and stay dead — the budgets are for a run of trouble, not for
@@ -501,7 +500,7 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 
 		delay, again := g.decideRestart(attempt, backoffStep, time.Since(troubleStarted))
 
-		// Report BEFORE acting, and report every failure rather than only the
+		// Report before acting, and report every failure rather than only the
 		// give-up. See the file header, item 4.
 		reportTaskFailure(g.diag, failure, attempt, delay, again)
 
@@ -518,7 +517,7 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 		}
 		backoffStep++
 
-		// Wait out the backoff — CANCELLABLY. A task waiting for its next
+		// Wait out the backoff, cancellably. A task waiting for its next
 		// attempt when shutdown begins is not restarted, and the delay never
 		// consumes the drain budget: restarting work during shutdown is work
 		// the shutdown is about to cancel anyway.
@@ -538,7 +537,7 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 	}
 }
 
-// supervisedOutcome is how one RUN of a supervised body ended, before the
+// supervisedOutcome is how one run of a supervised body ended, before the
 // restart policy has been consulted.
 type supervisedOutcome uint8
 
@@ -555,7 +554,7 @@ const (
 // fault reported as `Errored`, and any other panic is a defect in rt or its
 // caller reported as
 // `Panicked`. Sharing the arms rather than the code because TaskSpawn writes
-// its result into a `task[T]` under a different lifecycle; sharing the RULE is
+// its result into a `task[T]` under a different lifecycle; sharing the rule is
 // what matters and TestSupervisorClassifiesLikeTaskSpawn asserts it.
 func runSupervisedBody(body func(*Frame) Unit, fr *Frame) (outcome supervisedOutcome, failure Failure) {
 	defer func() {
@@ -601,9 +600,9 @@ func (g *supervisor) decideRestart(attempt int64, backoffStep int, sinceFirstFai
 // backoffDelay is exponential from a second, doubling each step, levelling off
 // at a minute, with jitter applied.
 //
-// JITTER IS NOT OPTIONAL. Without it a supervisor restarting fifty identical
+// Jitter is not optional. Without it a supervisor restarting fifty identical
 // tasks retries them all at the same instant and reproduces the thundering herd
-// the backoff exists to damp. This is the EQUAL JITTER shape: half the delay is
+// the backoff exists to damp. This is the equal-jitter shape: half the delay is
 // fixed and half is random, so the delay still grows predictably while the herd
 // spreads.
 //
@@ -675,13 +674,13 @@ func diagnosticOutput(ctx context.Context) io.Writer {
 // this task will not run again, and that the program should not carry on
 // without it.
 //
-// It fails the PROGRAM rather than the supervisor. There is no subtree to tear
+// It fails the program rather than the supervisor. There is no subtree to tear
 // down and nothing to escalate to, so the only rung above a supervisor is
 // whatever supervises the process: exiting hands off to that, and the restart
 // it performs re-runs `boot` and rebuilds the whole supervisor set — far more
 // state cleared than a task restart could manage.
 //
-// It RECORDS rather than exits, which is the library rule the file header
+// It records rather than exits, which is the library rule the file header
 // states: only a host that owns the process may end it, so the program's own
 // exit path reads SupervisorFatal. The first fatal wins; later ones are
 // already-reported failures on a program that is ending.
@@ -700,7 +699,7 @@ func (g *supervisor) recordFatal(err error) {
 // block until every task outstanding under the supervisor has finished, or
 // until the bound runs out.
 //
-// IT DOES NOT CANCEL, and that is the whole distinction from the
+// It does not cancel, and that is the whole distinction from the
 // `shutdown_timeout:` budget: shutdown cancels what is left when it expires,
 // and this never cancels anything. It waits and reports.
 //
@@ -709,7 +708,7 @@ func (g *supervisor) recordFatal(err error) {
 // flushed task spawns is waited for too. Work that arrives afterwards is not —
 // this is a checkpoint, not a barrier that closes the supervisor.
 //
-// The bound and the ambient deadline end DIFFERENTLY and that asymmetry is
+// The bound and the ambient deadline end differently and that asymmetry is
 // std's: the bound is the caller asking "did it finish?" and getting an answer
 // either way, so it returns `TimedOut`; the frame's context is a ceiling on the
 // surrounding work, so exceeding it unwinds.
@@ -747,7 +746,7 @@ func SupervisorFlushBounded(fr *Frame, sup Supervisor, bound Wait) FlushOutcome 
 		ctxDone = fr.ctx.Done()
 	}
 
-	// The waiter is PARKED for the parkTracker's purposes: a flush that blocks
+	// The waiter is parked for the parkTracker's purposes: a flush that blocks
 	// inside a supervised task must not make a draining permanent supervisor
 	// look busy. Nil-safe, and nil for a flush called outside any task.
 	var park *parkTracker
@@ -773,11 +772,11 @@ func SupervisorFlushBounded(fr *Frame, sup Supervisor, bound Wait) FlushOutcome 
 // DrainSupervisors shuts every supervisor down: give each one up to its own
 // budget to finish what it is doing, then cancel and abandon the rest.
 //
-// They drain CONCURRENTLY, so a 30-second budget and a 200-millisecond one do
+// They drain concurrently, so a 30-second budget and a 200-millisecond one do
 // not queue behind each other — the whole shutdown takes as long as the longest
 // single budget, not their sum. That is what the flat set buys.
 //
-// AN ABANDONED TASK MAY STILL WRITE AFTER THIS RETURNS. That is the direct
+// An abandoned task may still write after this returns. That is the direct
 // consequence of not waiting for it, and it is the cost of item 2 in the file
 // header rather than a bug.
 //
@@ -806,7 +805,7 @@ func DrainSupervisors() {
 	wg.Wait()
 
 	// Release the root last. Its only remaining job was to parent the
-	// supervisor contexts, which are now all cancelled.
+	// supervisor contexts, which are all cancelled by this point.
 	cancelRoot()
 }
 
@@ -838,21 +837,21 @@ func (g *supervisor) drainOnce() {
 		}
 	}()
 
-	// A PERMANENT supervisor's work is declared never to finish, so `done` may
+	// A permanent supervisor's work is declared never to finish, so `done` may
 	// never close and the budget would be spent in full on every clean
 	// shutdown — five seconds to stop a message-loop server that was sitting
 	// idle on its inbox.
 	//
-	// Cancelling permanent supervisors first was tried and is wrong for the
-	// header's item-2 reason: the grace period is what lets work spawned just
-	// before shutdown run at all. So instead of shortening the wait, end it
-	// when there is nothing left to wait FOR: every running task parked with no
-	// scheduled wake. A task sleeping on a timer is NOT parked and still gets
-	// its full budget, because work is genuinely still coming.
+	// Cancelling permanent supervisors first is wrong for the header's item-2
+	// reason: the grace period is what lets work spawned just before shutdown
+	// run at all. So instead of shortening the wait, end it when there is
+	// nothing left to wait for: every running task parked with no scheduled
+	// wake. A task sleeping on a timer is not parked and still gets its full
+	// budget, because work is genuinely still coming.
 	//
 	// Scoped to permanent supervisors deliberately. Everywhere else the budget
 	// already terminates on its own, so there is nothing to fix and no reason
-	// to take on the one case this cannot see: a parked task that ANOTHER
+	// to take on the one case this cannot see: a parked task that another
 	// supervisor would have woken.
 	var settle <-chan time.Time
 	if restartsOnReturn(g.restart) {
@@ -874,7 +873,7 @@ func (g *supervisor) drainOnce() {
 			return
 		case <-settle:
 			// Nil channel for every non-permanent supervisor, so this arm never
-			// fires there and the select is the original two-way.
+			// fires there and the select is the plain two-way one.
 			if g.park.settled() {
 				return
 			}
@@ -885,14 +884,14 @@ func (g *supervisor) drainOnce() {
 // ResetSupervisors drains every supervisor and clears the registry, so the next
 // one created starts from a fresh root context.
 //
-// For the TEST HARNESS, and it is the one thing a package-level registry needs
+// For the test harness, and it is the one thing a package-level registry needs
 // to isolate runs. Each test case boots its
 // own app value, so without this a supervisor built in one case's `boot` would
 // still be holding live goroutines while the next case ran. That is a leak in
-// any mode and a hard ERROR under testing/synctest, where a bubble reports
+// any mode and a hard error under testing/synctest, where a bubble reports
 // "main bubble goroutine has exited but blocked goroutines remain".
 //
-// Call it INSIDE a bubble when there is one, so the drain budgets are spent in
+// Call it inside a bubble when there is one, so the drain budgets are spent in
 // virtual time rather than real. runTest does.
 func ResetSupervisors() {
 	DrainSupervisors()
@@ -919,7 +918,7 @@ func SupervisorFatal() error {
 //
 // Exported for the blocking operations in this package that are declared in
 // other files — the channel pair in channel.go — for CancelIfDone's reason: the
-// bracket has ONE implementation and its pairing cannot be forgotten at a
+// bracket has one implementation and its pairing cannot be forgotten at a
 // fourth call site. A nil frame or a frame outside a task is a no-op, which is
 // what makes them safe to call unconditionally.
 func SupervisedPark(fr *Frame) {
@@ -937,10 +936,10 @@ func SupervisedUnpark(fr *Frame) {
 
 // supervisorParkOf is the tracker a frame's task belongs to, or nil.
 //
-// TWO conditions, and the `inTask` half is not redundant: `Frame` is copied by
+// Two conditions, and the `inTask` half is not redundant: `Frame` is copied by
 // value at EnterBoot and by field at EnterScope, so a nested `concurrent` block
 // inside a supervised task carries the tracker onwards, which is wanted — a
-// task blocked inside a nested block is still parked. What is NOT wanted is a
+// task blocked inside a nested block is still parked. What is not wanted is a
 // tracker surviving onto a frame nobody supervises, and `inTask` is the fact
 // that separates them.
 func supervisorParkOf(fr *Frame) *parkTracker {

@@ -1,18 +1,17 @@
-// The tail-call family, at depths the INTERPRETER can also afford, so the two
-// paths can be compared byte for byte.
+// The tail-call family, at modest depths, so every shape runs side by side
+// in one recorded transcript.
 //
 // `count` and `fact` are self-recursion, lowered as a loop. `is_even`/`is_odd`
 // are a two-member cycle, lowered as one shared driver with a member selector.
 // `sum_up_to` is the control that must NOT be trampolined: its recursive call
 // is an OPERAND of `+`, so it is not in tail position, MarkTailCalls never
-// marks it, and it stays ordinary Go recursion — which is the whole point,
+// marks it, and it stays ordinary recursion, which is the whole point,
 // because trampolining it would be a wrong answer, not a faster one.
 //
-// The stack property these programs exist for is NOT visible here: 1e6 hops of
-// direct Go recursion survive on 16 MB of stack, so this file agrees whether or
+// The stack property these programs exist for is NOT visible here: these
+// depths would survive ordinary recursion too, so this file agrees whether or
 // not anything was lowered. The depth that discriminates is in
-// tail_self_deep.nomi, tail_mutual_deep.nomi and tail_impl_deep.nomi, and those
-// are asserted absolutely rather than differentially.
+// tail_self_deep.nomi, tail_mutual_deep.nomi and tail_impl_deep.nomi.
 import std/io
 
 fn count(n: Int): Int {
