@@ -1174,7 +1174,7 @@ fn run_validator(v: Validator): Result<Int, String> {
     v("hello")
 }
 
-fn main(): Result<Int, String> {
+fn demo(): Result<Int, String> {
     run_validator(validate_length)
 }
 `)
@@ -1347,7 +1347,7 @@ fn use_list(): Int {
     Iter.count([1, 2, 3])
 }
 
-fn main(): Int { use_list() }
+fn demo(): Int { use_list() }
 `
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
@@ -1361,7 +1361,7 @@ func TestChecker_BareContextWithoutAppFieldErrors_WithStdlib(t *testing.T) {
 	src := `
 struct Config { context: Context }
 
-fn main(): Context {
+fn demo(): Context {
   context
 }
 `

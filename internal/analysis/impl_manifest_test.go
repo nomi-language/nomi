@@ -280,7 +280,7 @@ impl Pusher for Bag {
   fn push(c: Bag, v: Int): Bag { Bag{count: c.count + v} }
 }
 
-fn main(): Pusher<Int> {
+fn demo(): Pusher<Int> {
   b = Bag{count: 0}
   Pusher.push(b, 42)
 }`
@@ -312,7 +312,7 @@ impl Foo for Bag {
   fn baz(x: Bag, a: Int, b: String): Bag { _ = b; Bag{count: x.count + a} }
 }
 
-fn main(): Foo<Int, String> {
+fn demo(): Foo<Int, String> {
   b = Bag{count: 0}
   Foo.baz(b, 42, "hello")
 }`
@@ -425,7 +425,7 @@ pub enum Maybe2<T> {
 }
 derive Debug for Maybe2
 
-fn main(): Maybe2<Int> {
+fn demo(): Maybe2<Int> {
   m = Maybe2.Some2(42)
   io.inspect(m)
   m

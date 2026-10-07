@@ -593,6 +593,15 @@ func ContainsTypeParam(t Type) bool {
 }
 
 func TypesEqual(a, b Type) bool {
+	return typesEqualIn(a, b, false)
+}
+
+// typesEqualIn is TypesEqual. Under strict, the `embeds` coercion is off:
+// a function type's parameters and result compare that way, since a function
+// taking a Circle is not a function taking any Shape, and the builder adapts
+// a function value only where the checker says which way it flows
+// (UnifyInto).
+func typesEqualIn(a, b Type, strict bool) bool {
 	// nil means unknown — treat as compatible.
 	if a == nil || b == nil {
 		return true
@@ -617,12 +626,12 @@ func TypesEqual(a, b Type) bool {
 	// rule in unifyFull and the runtime's bare-embedded-value handling in
 	// EnumPattern matches. Symmetric so callers don't have to argue about
 	// which side is "expected".
-	if et, ok := a.(*EnumType); ok {
+	if et, ok := a.(*EnumType); ok && !strict {
 		if isEmbeddedTypeOf(b, et) {
 			return true
 		}
 	}
-	if et, ok := b.(*EnumType); ok {
+	if et, ok := b.(*EnumType); ok && !strict {
 		if isEmbeddedTypeOf(a, et) {
 			return true
 		}
@@ -646,7 +655,7 @@ func TypesEqual(a, b Type) bool {
 			return false
 		}
 		for i := range at.TypeArgs {
-			if !TypesEqual(at.TypeArgs[i], bt.TypeArgs[i]) {
+			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], strict) {
 				return false
 			}
 		}
@@ -665,7 +674,7 @@ func TypesEqual(a, b Type) bool {
 			return false
 		}
 		for i := range at.TypeArgs {
-			if !TypesEqual(at.TypeArgs[i], bt.TypeArgs[i]) {
+			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], strict) {
 				return false
 			}
 		}
@@ -684,7 +693,7 @@ func TypesEqual(a, b Type) bool {
 			return false
 		}
 		for i := range at.TypeArgs {
-			if !TypesEqual(at.TypeArgs[i], bt.TypeArgs[i]) {
+			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], strict) {
 				return false
 			}
 		}
@@ -696,11 +705,11 @@ func TypesEqual(a, b Type) bool {
 			return false
 		}
 		for i := range at.Params {
-			if !TypesEqual(at.Params[i], bt.Params[i]) {
+			if !typesEqualIn(at.Params[i], bt.Params[i], true) {
 				return false
 			}
 		}
-		return TypesEqual(normalizeReturn(at.Return), normalizeReturn(bt.Return))
+		return typesEqualIn(normalizeReturn(at.Return), normalizeReturn(bt.Return), true)
 
 	case *TupleType:
 		bt, ok := b.(*TupleType)
@@ -708,7 +717,7 @@ func TypesEqual(a, b Type) bool {
 			return false
 		}
 		for i := range at.Elems {
-			if !TypesEqual(at.Elems[i], bt.Elems[i]) {
+			if !typesEqualIn(at.Elems[i], bt.Elems[i], strict) {
 				return false
 			}
 		}
@@ -716,11 +725,11 @@ func TypesEqual(a, b Type) bool {
 
 	case *ListType:
 		bt, ok := b.(*ListType)
-		return ok && TypesEqual(at.Elem, bt.Elem)
+		return ok && typesEqualIn(at.Elem, bt.Elem, strict)
 
 	case *MapType:
 		bt, ok := b.(*MapType)
-		return ok && TypesEqual(at.Key, bt.Key) && TypesEqual(at.Val, bt.Val)
+		return ok && typesEqualIn(at.Key, bt.Key, strict) && typesEqualIn(at.Val, bt.Val, strict)
 
 	case *AnonStructType:
 		bt, ok := b.(*AnonStructType)
@@ -733,7 +742,7 @@ func TypesEqual(a, b Type) bool {
 		}
 		for _, f := range at.Fields {
 			bTy, ok := bByName[f.Name]
-			if !ok || !TypesEqual(f.Type, bTy) {
+			if !ok || !typesEqualIn(f.Type, bTy, strict) {
 				return false
 			}
 		}
@@ -754,7 +763,7 @@ func TypesEqual(a, b Type) bool {
 			return false
 		}
 		for i := range at.TypeArgs {
-			if !TypesEqual(at.TypeArgs[i], bt.TypeArgs[i]) {
+			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], strict) {
 				return false
 			}
 		}

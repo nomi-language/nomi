@@ -83,3 +83,50 @@ fn main() {
 		t.Errorf("count's self call is not a tail transfer:\n%s", listing)
 	}
 }
+
+// A call to a function whose whole body is one crossing over its parameters
+// compiles to that crossing at the call site. `String.contains?` and
+// `String.split` are generic over a Matcher, and their String instances
+// forward to String's host functions with the arguments swapped; with a
+// String needle the call costs one opHost, as the host fn it replaced did,
+// and no activation. A Regex needle forwards to the regex adapter the same
+// way.
+func TestBytecode_AHostForwarderRunsAsItsCrossing(t *testing.T) {
+	p, err := vmhost.LoadSource("main", `import {
+    std/io
+    std/regex.Regex
+}
+
+fn probe(s: String, re: Regex): Bool {
+    parts = String.split(s, ",")
+    words = String.split(s, re)
+    String.contains?(s, "b") and Iter.count(parts) == Iter.count(words)
+}
+
+fn main(): Result<Unit, String> {
+    probe("a,b", try Regex.compile(",")) |> io.print()
+    Ok(Unit)
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	if err := p.Run(t.Context(), &out, nil, false); err != nil || out.String() != "True\n" {
+		t.Fatalf("probe printed %q, %v", out.String(), err)
+	}
+	listing, err := p.Disassemble("probe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, host := range []string{"strings.String.split_in", "Regex.split_in", "strings.String.contained_in?"} {
+		if !strings.Contains(listing, host) {
+			t.Errorf("probe does not cross to %s at its call site:\n%s", host, listing)
+		}
+	}
+	for _, line := range strings.Split(listing, "\n") {
+		if fields := strings.Fields(line); len(fields) > 1 && (fields[1] == "call" || fields[1] == "tail") {
+			t.Errorf("probe still calls a forwarding instance:\n%s", listing)
+		}
+	}
+}

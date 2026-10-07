@@ -98,6 +98,8 @@
 04-scalars-and-text/interpolate_display_value_test.nomi:show_bounded	ran
 04-scalars-and-text/interpolate_display_value_test.nomi:show_bounded	ran
 04-scalars-and-text/ints_test.nomi:divide_by_positive	ran
+04-scalars-and-text/matcher_test.nomi:count	ran
+04-scalars-and-text/matcher_test.nomi:count	ran
 04-scalars-and-text/strings_test.nomi:slash_joined	PROBE: a synthesized argument is not a value of the declared type
 04-scalars-and-text/words_and_lines_test.nomi:count_non_empty_lines	ran
 04-scalars-and-text/words_and_lines_test.nomi:sum_numbers	ran

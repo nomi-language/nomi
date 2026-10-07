@@ -32,12 +32,21 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 			continue
 		}
 		kind := "binding"
-		switch sym.Kind {
-		case SymbolBinding:
+		owner := sym.Node
+		switch {
+		case sym.Kind == SymbolBinding && sym.ParamOf != nil:
+			// A name a destructured parameter binds (`|(word, count)| count`)
+			// is a parameter of the function the pattern belongs to.
+			owner = sym.ParamOf
+			if !isUnusedParameterCandidate(owner) {
+				continue
+			}
+			kind = "parameter"
+		case sym.Kind == SymbolBinding:
 			if !isUnusedBindingCandidate(sym.Node) {
 				continue
 			}
-		case SymbolParam:
+		case sym.Kind == SymbolParam:
 			if !isUnusedParameterCandidate(sym.Node) {
 				continue
 			}
@@ -51,9 +60,14 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 		if used[sym] {
 			continue
 		}
-		if kind == "parameter" && unfinishedBody(sym.Node) {
+		if kind == "parameter" && unfinishedBody(owner) {
 			// A body with a `todo` in it is not written yet, so a parameter
 			// it does not read yet is expected, not a mistake.
+			continue
+		}
+		if sym.PatternBody != nil && containsTodo(sym.PatternBody) {
+			// The same for an arm: `.Rect{w, h} -> todo`, as the editor's
+			// fill-arms action writes it.
 			continue
 		}
 		hint := "prefix it with '_' if the value is intentionally ignored"
@@ -85,7 +99,13 @@ func isUnusedBindingCandidate(node ast.Node) bool {
 		*ast.MapDestructure,
 		*ast.DistinctDestructure,
 		*ast.PatternDestructure,
-		*ast.PatternBinding:
+		*ast.PatternBinding,
+		// A pattern with no statement around it: a `case` arm, an `else`
+		// arm, an `if Some(x) = ...` condition, a test's setup binding.
+		// definePattern records the pattern node that binds the name.
+		*ast.IdentPattern,
+		*ast.EnumPattern,
+		*ast.StructPattern:
 		return true
 	default:
 		return false

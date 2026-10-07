@@ -27,7 +27,7 @@ func TestExpectedTypeSeed_StructField(t *testing.T) {
 	src := seedEnums + `struct Room {
   exits: Map<Direction, Place>
 }
-fn main(): Room {
+fn demo(): Room {
   Room{exits: Iter.to_map([(.North, .Cave), (.East, .Hall)])}
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -35,7 +35,7 @@ fn main(): Room {
 
 func TestExpectedTypeSeed_ArgumentOfNonGenericCallee(t *testing.T) {
 	src := seedEnums + `fn take(m: Map<Direction, Place>): Int { Map.size(m) }
-fn main(): Int {
+fn demo(): Int {
   take(Iter.to_map([(.North, .Cave)]))
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -59,7 +59,7 @@ func TestExpectedTypeSeed_ReturnStatement(t *testing.T) {
 }
 
 func TestExpectedTypeSeed_AnnotatedBinding(t *testing.T) {
-	src := seedEnums + `fn main(): Int {
+	src := seedEnums + `fn demo(): Int {
   exits: Map<Direction, Place> = Iter.to_map([(.North, .Cave)])
   Map.size(exits)
 }`
@@ -67,21 +67,21 @@ func TestExpectedTypeSeed_AnnotatedBinding(t *testing.T) {
 }
 
 func TestExpectedTypeSeed_ListElement(t *testing.T) {
-	src := seedEnums + `fn main(): List<Map<Direction, Place>> {
+	src := seedEnums + `fn demo(): List<Map<Direction, Place>> {
   [Iter.to_map([(.North, .Cave)]), Iter.to_map([(.East, .Hall)])]
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_MapValue(t *testing.T) {
-	src := seedEnums + `fn main(): Map<String, Map<Direction, Place>> {
+	src := seedEnums + `fn demo(): Map<String, Map<Direction, Place>> {
   {"hall" => Iter.to_map([(.North, .Cave)])}
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_TupleElement(t *testing.T) {
-	src := seedEnums + `fn main(): (Map<Direction, Place>, Int) {
+	src := seedEnums + `fn demo(): (Map<Direction, Place>, Int) {
   (Iter.to_map([(.North, .Cave)]), 1)
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -113,7 +113,7 @@ fn exits(): Map<Direction, Place> {
 }
 
 func TestExpectedTypeSeed_NestedConstructor(t *testing.T) {
-	src := seedEnums + `fn main(): List<Maybe<Direction>> {
+	src := seedEnums + `fn demo(): List<Maybe<Direction>> {
   [Some(.North), None]
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -122,7 +122,7 @@ func TestExpectedTypeSeed_NestedConstructor(t *testing.T) {
 // Empty literals: nothing in the argument fixes its element type, so only the
 // expected type can.
 func TestExpectedTypeSeed_EmptyList_AnnotatedBinding(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   x: Map<String, List<Int>> = Iter.to_map([])
   Map.size(x)
 }`
@@ -133,21 +133,21 @@ func TestExpectedTypeSeed_EmptyList_StructField(t *testing.T) {
 	src := `struct Index {
   words: Map<String, List<Int>>
 }
-fn main(): Index {
+fn demo(): Index {
   Index{words: Iter.to_map([])}
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_EmptyList_PipeStage(t *testing.T) {
-	src := `fn main(): Map<String, Int> {
+	src := `fn demo(): Map<String, Int> {
   [] |> Iter.to_map()
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
 
 func TestExpectedTypeSeed_NoneArgument(t *testing.T) {
-	src := seedEnums + `fn main(): Map<String, Maybe<Direction>> {
+	src := seedEnums + `fn demo(): Map<String, Maybe<Direction>> {
   Iter.to_map([("a", None), ("b", Some(.East))])
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
@@ -167,7 +167,7 @@ func TestExpectedTypeSeed_ArgumentMismatchStillReported(t *testing.T) {
 // arguments are checked as they would be without it, and the mismatch is
 // reported at the binding.
 func TestExpectedTypeSeed_UnrelatedExpectedTypeIsNotSeeded(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   x: Int = Iter.to_map([(1, "one")])
   x
 }`
@@ -221,7 +221,7 @@ fn l(): List<Direction> {
 }
 
 func TestExpectedTypeSeed_IterParam_EmptyLiteral(t *testing.T) {
-	src := `fn main(): Map<String, List<Int>> {
+	src := `fn demo(): Map<String, List<Int>> {
   Iter.to_map([])
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))

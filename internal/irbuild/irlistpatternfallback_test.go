@@ -7,8 +7,8 @@ import (
 // A literal head (`[1, .._]`) retains through listCaseTestNested;
 // TestIRListPattern_LiteralHeadRetains runs one.
 func TestIRListPattern_UnsupportedElementsPreserveFallback(t *testing.T) {
-	for _, pattern := range []string{"[..rest]"} {
-		p, err := AnalyzeSource("main.nomi", "fn pick(xs: List<Int>): Int { case xs { "+pattern+" -> 1; _ -> 0 } }\nfn main(): Int { pick([1, 2]) }")
+	for _, pattern := range []string{"[.._rest]"} {
+		p, err := AnalyzeSource("main.nomi", "fn pick(xs: List<Int>): Int { case xs { "+pattern+" -> 1; _ -> 0 } }\nfn main() { _ = pick([1, 2]) }")
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -17,7 +17,12 @@ package format
 type Doc interface{ doc() }
 
 type docNil struct{}
-type docText struct{ s string }
+type docText struct {
+	s string
+	// keep marks text whose trailing spaces are the program's, a line of
+	// a multi-line string; see Verbatim.
+	keep bool
+}
 type docLine struct{ alt string } // when flat, becomes alt (usually " " or "")
 type docHard struct{}             // forced newline — never flattened
 type docConcat struct{ a, b Doc }
@@ -49,7 +54,12 @@ func (docWithIndent) doc()  {}
 func Nil() Doc { return docNil{} }
 
 // Text is a literal string that renders as-is. Should not contain a newline.
-func Text(s string) Doc { return docText{s} }
+func Text(s string) Doc { return docText{s: s} }
+
+// Verbatim is Text whose trailing spaces survive the render: a line of a
+// multi-line string's body, where they are part of the value. Render strips
+// trailing spaces from every other line.
+func Verbatim(s string) Doc { return docText{s: s, keep: true} }
 
 // Line is a line break that collapses to a single space when the enclosing
 // group is rendered flat.

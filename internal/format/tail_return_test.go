@@ -1,11 +1,7 @@
 package format
 
 import (
-	"reflect"
 	"testing"
-
-	"github.com/nomi-language/nomi/internal/lexer"
-	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // A `return` that is the last thing a function or lambda body does is its
@@ -153,17 +149,7 @@ func checkTailReturnCase(t *testing.T, src, want string) {
 	if again, _ := Format(got); again != got {
 		t.Errorf("not idempotent:\n%s\nthen:\n%s", got, again)
 	}
-	orig, err := parser.Parse(lexer.Lex(src))
-	if err != nil {
-		t.Fatalf("source did not parse: %v", err)
-	}
-	normalizeBodies(orig)
-	formatted, err := parser.Parse(lexer.Lex(got))
-	if err != nil {
-		t.Fatalf("output did not parse: %v", err)
-	}
-	if !astEquivalent(orig, formatted) {
-		t.Errorf("output's AST differs from the stripped source's:\n%s\n%s",
-			astDump(reflect.ValueOf(orig), 0), astDump(reflect.ValueOf(formatted), 0))
+	if err := SameMeaning(src, got); err != nil {
+		t.Errorf("output's AST differs from the stripped source's: %v", err)
 	}
 }

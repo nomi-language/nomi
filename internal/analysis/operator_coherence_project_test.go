@@ -158,7 +158,7 @@ fn main() {
 // for byte:
 //
 //	score_value(plus(Score(2), Bonus(3)))   argument 1: expected Score, got Int
-//	fn main(): Int { total: Score = plus(Day(20), Days(2)) … }
+//	fn demo(): Int { total: Score = plus(Day(20), Days(2)) … }
 //	                                        type mismatch: expected Day, got Int
 //
 // The measured discriminator is not the annotation and not the operand types: the

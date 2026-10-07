@@ -104,7 +104,7 @@ func wantRecorded(t *testing.T, fa *analysis.FileAnalysis, kind string, line int
 // solve, not left as `Iter<T>` with Iter.filter's own T, whose rigid T then
 // made `x % 2` a second and third error.
 func TestExprTypes_PipeAfterUntypedHead(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   n = 5
   evens = List.range(0, n)
     |> Iter.filter(|x| x % 2 == 0)
@@ -122,7 +122,7 @@ func TestExprTypes_PipeAfterUntypedHead(t *testing.T) {
 
 // The same pipeline over a range: every stage has its instantiation.
 func TestExprTypes_PipeAfterRange(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   n = 5
   evens = 0..n
     |> Iter.filter(|x| x % 2 == 0)
@@ -141,7 +141,7 @@ func TestExprTypes_PipeAfterRange(t *testing.T) {
 // reduce's rigid U, `a + b` was "type parameter U cannot use `+`", and the
 // stages came out `U` and `Iter<U>`.
 func TestExprTypes_NestedGenericsSharingAParameterName(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   sums = [[1, 2], [3]]
     |> Iter.map(|xs| {
       xs
@@ -168,7 +168,7 @@ func TestExprTypes_UserGenericsSharingAParameterName(t *testing.T) {
 fn wrap<T>(x: T): List<T> { [x] }
 fn apply<T, U>(x: T, f: (T) -> U): U { f(x) }
 fn twice<U>(x: U): List<U> { [x, x] }
-fn main(): Int {
+fn demo(): Int {
   a = wrap(first("s"))
   b = apply(1, |x| twice(x))
   c = apply(first(2), |x| wrap(first(x)))
@@ -186,7 +186,7 @@ fn main(): Int {
 // application: the open slot and the result share the parameter nothing
 // solved, and the call that fills the slot solves both.
 func TestExprTypes_GenericOwnerCallsAndPartialApplication(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   xs = List.concat([1], [2])
   m = Map.put(Map.empty(), "k", 1)
   ys = [3] |> List.concat(xs)
@@ -214,7 +214,7 @@ func TestExprTypes_GenericCallsInsideGenericFunctions(t *testing.T) {
 fn first<T, I>(it: I): Maybe<T> where I: Iter<T> {
   Iter.reduce(it, |_acc: Maybe<T> = None, x| { break Some(x) })
 }
-fn main(): Int {
+fn demo(): Int {
   Iter.count(keep([1])) + Maybe.with_default(first([2]), 0)
 }`
 	fa, errs := checkSourceWithStdlib(src)

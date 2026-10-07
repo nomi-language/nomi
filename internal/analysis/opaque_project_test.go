@@ -225,7 +225,7 @@ func TestOpaque_AllowsUnwrapOnNonOpaqueOutside(t *testing.T) {
 `,
 		"main.nomi": `import open_int.{OpenInt}
 
-fn main(): Int {
+fn demo(): Int {
   v = OpenInt(5)
   Int(v)
 }

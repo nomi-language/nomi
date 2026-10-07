@@ -70,6 +70,14 @@ inside the wrapper, which answers a crossing into Go through that adapter;
 in-process with no wrapper. AGENTS.md describes the wrapper's `go.mod` and its
 cache directory.
 
+A bound Go standard library package is read from the source of the toolchain
+`go env GOROOT` names, with that toolchain's build constraints for this
+platform, so a binding to `strings.ToUpper` is validated and adapted like one
+to the project's own package. It needs no `go.mod`: a project with none gets a
+wrapper that is its own module. The toolchain's version is part of the cached
+wrapper's key whenever a binding names a standard library package
+(`internal/ffirun/gostd.go`).
+
 ## Standard-library adapters
 
 A Go-backed std module keeps its public import, such as `std/regex`. The

@@ -60,9 +60,9 @@ test "user-defined type annotations preserve the intended type" {
 test "annotation mismatches are rejected" {
     diagnostics = compiler.check(
         """
-        fn main(): Int {
+        fn main() {
           count: Int = "zero"
-          count
+          _ = count
         }
         """
     )

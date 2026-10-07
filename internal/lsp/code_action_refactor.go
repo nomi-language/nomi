@@ -1,7 +1,6 @@
 package lsp
 
 import (
-	"reflect"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -87,6 +86,15 @@ func (s *Server) buildRefactorActions(content string, nodes []ast.Node, fa *anal
 	}
 	for _, g := range r.generateFunctions(diags) {
 		add(protocol.CodeActionKindQuickFix, g.title, g.edited, g.diags)
+	}
+	// A declaration the parser repaired holds an ErrorNode for the text it
+	// could not read. The rewrites render parts of the declaration with the
+	// formatter, which has no layout for one, and a rewrite of half-read
+	// code would invent the rest; none is offered until it parses.
+	for _, n := range r.all {
+		if _, ok := n.(*ast.ErrorNode); ok {
+			return out
+		}
 	}
 	if title, edited, ok := r.toPipe(); ok {
 		add(protocol.CodeActionKindRefactorRewrite, title, edited, nil)
@@ -179,41 +187,9 @@ func (r *refactorRequest) index() {
 
 // nodeChildren is the nodes n holds directly, in field order.
 func nodeChildren(n ast.Node) []ast.Node {
-	v := reflect.ValueOf(n)
-	if v.Kind() != reflect.Ptr || v.IsNil() {
-		return nil
-	}
 	var out []ast.Node
-	collectNodes(v.Elem(), &out)
+	ast.Children(n, func(c ast.Node) { out = append(out, c) })
 	return out
-}
-
-func collectNodes(v reflect.Value, out *[]ast.Node) {
-	switch v.Kind() {
-	case reflect.Ptr:
-		if v.IsNil() {
-			return
-		}
-		if n, ok := v.Interface().(ast.Node); ok {
-			*out = append(*out, n)
-			return
-		}
-		collectNodes(v.Elem(), out)
-	case reflect.Interface:
-		if !v.IsNil() {
-			collectNodes(v.Elem(), out)
-		}
-	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			if f := v.Field(i); f.CanInterface() {
-				collectNodes(f, out)
-			}
-		}
-	case reflect.Slice, reflect.Array:
-		for i := 0; i < v.Len(); i++ {
-			collectNodes(v.Index(i), out)
-		}
-	}
 }
 
 // span is the [start, end) byte range of n's source text. The start is the

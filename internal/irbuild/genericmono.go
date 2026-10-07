@@ -387,6 +387,36 @@ func (g *gen) monoSolve(tpl *monoTemplate, params []kind, result kind) ([]kind, 
 	return args, true
 }
 
+// checkedMonoTypeArgsFilled is checkedMonoTypeArgs for a call whose checked
+// signature holds an inference variable nothing solved: a type argument the
+// checker admits undetermined because no value of it is made (spec,
+// "Determined type arguments"), as in `ident(Ok(1))`, whose error type is
+// open. The hole is read as Unit, as stdInstCallAt reads a std call's; when
+// every hole is the element of an empty list literal (`count_all([])`), as
+// Int, the representation `List.head([])` gets, since a type parameter
+// solved to Unit itself has no instance. It reports false for a signature
+// with no hole.
+func (g *gen) checkedMonoTypeArgsFilled(t *ast.Call, tpl *monoTemplate) ([]kind, bool) {
+	ft := g.checkedCallSignature(t)
+	if ft == nil || len(ft.Params) != len(tpl.decl.Params) || !irUnsolvedType(ft) {
+		return nil, false
+	}
+	fills := []analysis.Type{analysis.TypeUnit}
+	if irOnlyEmptyListsUnsolved(t, ft) {
+		fills = append(fills, analysis.TypeInt)
+	}
+	for _, fill := range fills {
+		params := make([]kind, len(ft.Params))
+		for i, p := range ft.Params {
+			params[i] = g.project(irFillHoles(p, fill))
+		}
+		if args, ok := g.monoSolve(tpl, params, g.project(irFillHoles(ft.Return, fill))); ok {
+			return args, true
+		}
+	}
+	return nil, false
+}
+
 // monoArgKind is the kind an argument expression the checker left open
 // produces: a call to a generic function is its instance's result, and a
 // name is its binding's type. Anything else answers kindInvalid.
@@ -660,6 +690,19 @@ func (g *gen) checkedNodeType(n ast.Node) analysis.Type {
 		}
 	}
 	return nil
+}
+
+// checkedExprType is the type the checker gave n: checkedNodeType's answer,
+// or else the one it recorded for the node (FileAnalysis.ExprTypes), which
+// covers a call with no instantiated signature (`Map.empty()`).
+func (g *gen) checkedExprType(n ast.Node) analysis.Type {
+	if t := g.checkedNodeType(n); t != nil {
+		return t
+	}
+	if g.fa == nil {
+		return nil
+	}
+	return g.fa.ExprTypes[n]
 }
 
 // irUnsolvedType reports whether an inference variable the checker never

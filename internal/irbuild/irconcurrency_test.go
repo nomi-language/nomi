@@ -18,7 +18,7 @@ fn double(n: Int): Int {
   n * 2
 }
 
-fn main(): Int {
+fn main() {
   total = concurrent {
     a = Task.spawn(|| double(10))
     b = Task.spawn(|| double(20))
@@ -50,7 +50,7 @@ fn consume(inbox: Receiver<Int>): Int {
   )
 }
 
-fn main(): Int {
+fn main() {
   ch = Channel.buffered<Int>(4)
 
   total = concurrent {
@@ -110,7 +110,7 @@ fn fetch_user(id: Int): String {
   "user-${Display.to_string(id)}"
 }
 
-fn main(): List<String> {
+fn main() {
   results = concurrent {
     [3, 2, 1]
     |> Iter.filter(active?)
@@ -121,7 +121,7 @@ fn main(): List<String> {
 }
 `, "dbg line 20: results = [\"user-3\", \"user-1\"]\n"},
 		{"concurrency.md:L650", `import {
-  std/tasks.{Outcome, Task}
+  std/tasks.Task
   std/duration.Duration
   std/timer
 }
@@ -132,7 +132,7 @@ fn serve_conn(): Int {
   1
 }
 
-fn main(): Outcome<Int> {
+fn main() {
   outcome = concurrent {
     conn = Task.spawn(|| serve_conn())
     Task.cancel(conn)
@@ -327,7 +327,7 @@ func TestIRConcurrency_UnsupportedShapesPreserveEmission(t *testing.T) {
 		// An Iter.loop inside the block.
 		"concurrent {\n t = Task.spawn(|| 1)\n n0 = Task.await(t)\n Iter.loop(|n = n0| {\n if n > 3 { break n }\n n + 1\n })\n }",
 	} {
-		p, err := AnalyzeSource("main.nomi", "import std/tasks.Task\nfn double(n: Int): Int { n * 2 }\nfn run(): Int {\n"+body+"\n}\nfn main(): Int { run() }")
+		p, err := AnalyzeSource("main.nomi", "import std/tasks.Task\nfn double(n: Int): Int { n * 2 }\nfn run(): Int {\n"+body+"\n}\nfn main() { _ = run() }")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -364,12 +364,12 @@ fn slow_bounded(): Int {
   1
 }
 
-fn main(): String {
+fn main() {
   outcome = concurrent {
     t = Task.spawn(|| slow_bounded())
     Task.outcome(t)
   }
-  case outcome {
+  _ = case outcome {
     .Completed(_) -> "done"
     .Cancelled -> "timed out"
     .Failed(_) -> "broke"

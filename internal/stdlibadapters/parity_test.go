@@ -374,6 +374,12 @@ func (p *parity) regex() {
 			p.check("Regex.find_all", argSet{args: a(re, s(input))})
 			p.check("Regex.split", argSet{args: a(re, s(input))})
 			p.check("Regex.replace_all", argSet{args: a(re, s(input), s("<$1>"))})
+			p.check("Regex.contained_in?", argSet{args: a(re, s(input))})
+			p.check("Regex.prefix_of?", argSet{args: a(re, s(input))})
+			p.check("Regex.suffix_of?", argSet{args: a(re, s(input))})
+			p.check("Regex.split_in", argSet{args: a(re, s(input))})
+			p.check("Regex.find_all_in", argSet{args: a(re, s(input))})
+			p.check("Regex.replace_in", argSet{args: a(re, s(input), s("<$1>"))})
 		}
 	}
 	p.check("Regex.compile", argSet{args: a(s("(")), shapeOnly: false})

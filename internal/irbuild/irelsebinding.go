@@ -364,6 +364,7 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 	bl.b = arm
 	lead, tail := []ast.Node(nil), body
 	if block, ok := body.(*ast.Block); ok {
+		defer bl.g.enterBlockTypes(block)()
 		if lead, tail = bl.g.irScalarBlock(block, ""); tail == nil {
 			return false
 		}

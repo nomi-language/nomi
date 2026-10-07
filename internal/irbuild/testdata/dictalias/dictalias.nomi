@@ -1,7 +1,8 @@
 // An ALIASED type import, and nothing else unusual — the name it aliases is
 // unique, so there is no collision to blame.
 //
-// No test runs this fixture and it has no recorded golden.
+// TestDict_AnAliasedTypeImportDispatchesToItsImpl runs it and expects
+// `gadget 3`.
 //
 // Dispatch keys on a `*rt.TypeID` address with no name in the path, so the
 // alias at the import site cannot change which impl answers. A dispatch keyed

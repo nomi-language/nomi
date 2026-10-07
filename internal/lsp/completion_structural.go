@@ -250,7 +250,7 @@ func testGroupLine(kw, indent string) (snippet, plain string) {
 	case "setup":
 		return "setup {\n" + inner + "$0\n" + indent + "}", "setup {\n" + inner + "\n" + indent + "}"
 	case "test":
-		return "test \"${1:name}\" {\n" + inner + "assert $0\n" + indent + "}", "test \"\" {\n" + inner + "\n" + indent + "}"
+		return "test \"${1:name}\" {\n" + inner + "assert $0\n" + indent + "}", "test \"name\" {\n" + inner + "\n" + indent + "}"
 	}
 	return kw, kw
 }

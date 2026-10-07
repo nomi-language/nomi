@@ -240,7 +240,7 @@ func TestBuildProject_PrivateModuleMemberHiddenAcrossFiles(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
 import api.{self, Widget}
 
-fn main(): String {
+fn demo(): String {
   w: Widget = api.make("Ada")
   api.secret(w)
 }

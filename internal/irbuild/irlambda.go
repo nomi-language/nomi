@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -85,10 +86,19 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	var lead []ast.Node
 	body := expression
 	if supplier < 0 {
+		// Types the body declares resolve by name while it lowers.
+		defer bl.g.enterBlockTypes(t.Body)()
 		lead, body = bl.g.irScalarBlock(t.Body, "")
 	}
 	if body == nil {
 		return no()
+	}
+	if supplier < 0 && bl.g.unitFnLambda == t && analysis.EndsInDbg(body) {
+		// A nested Unit `fn` ending in a `dbg` observation: the observation
+		// runs as a statement and the function answers Unit.
+		line, col := nodePos(body)
+		lead = append(lead, body)
+		body = &ast.TypeIdent{Name: "Unit", Line: line, Col: col}
 	}
 	at := bl.g.irNodePos(t)
 	f := ir.NewFunc(at, "lambda")
@@ -185,6 +195,13 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			if _, _, _, bare := preludeValueName(body); bare {
 				sig = irFuncSig{result: want}
 			}
+		}
+		if want.tag == tagSeq {
+			// `|_| [20]` where an `(Int) -> Iter<Int>` is expected: the
+			// body's list enters the declared sequence, as a named
+			// function's result does.
+			sig = irFuncSig{result: want}
+			child.returnKind = want
 		}
 	}
 	if supplier < 0 && child.ctl != irCtlNone {
@@ -437,7 +454,7 @@ func irCallableValueKind(k kind) bool {
 // result, a field, a payload or an element. A declared `Iter<T>` has this
 // kind too (structuralTypeOf), and a source entering one is viewed (seqView).
 func irRetainedSeqKind(k kind) bool {
-	return k.tag == tagSeq && k.comp != nil && len(k.comp.parts) == 1 && (irRetainedValueKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit)
+	return k.tag == tagSeq && k.comp != nil && len(k.comp.parts) == 1 && (irCallableValueKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit)
 }
 
 // funcRef retains module-function values with no defaults. A generic one is

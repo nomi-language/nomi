@@ -164,6 +164,44 @@ type ProjectImplIndex struct {
 	ImplExternFiles             map[*ast.ExternFunc]string
 	ImplBlockReceiverExtern     map[*ast.ExternFunc]string
 	ImplBlockInterfaceKeyExtern map[*ast.ExternFunc]string
+
+	// EnumDecls holds every enum declaration of the reachable program,
+	// block-local ones included, by bare name, in build-key order. The
+	// checker reads it to find the declaration a `.Variant` resolved
+	// against when the enum's name is not in the file's scope
+	// (enumDeclSymbol). Populated by PopulateEnumDecls.
+	EnumDecls map[string][]*Symbol
+}
+
+// PopulateEnumDecls fills idx.EnumDecls from every FA's Definitions.
+func PopulateEnumDecls(idx *ProjectImplIndex, filesByKey map[string]*FileAnalysis) {
+	if idx == nil {
+		return
+	}
+	keys := make([]string, 0, len(filesByKey))
+	for key := range filesByKey {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	idx.EnumDecls = make(map[string][]*Symbol)
+	seen := make(map[*Symbol]bool)
+	for _, key := range keys {
+		fa := filesByKey[key]
+		if fa == nil {
+			continue
+		}
+		var syms []*Symbol
+		for _, sym := range fa.Definitions {
+			if sym != nil && sym.Kind == SymbolEnum && !seen[sym] {
+				seen[sym] = true
+				syms = append(syms, sym)
+			}
+		}
+		sort.Slice(syms, func(i, j int) bool { return earlierDeclaration(syms[i], syms[j]) })
+		for _, sym := range syms {
+			idx.EnumDecls[sym.Name] = append(idx.EnumDecls[sym.Name], sym)
+		}
+	}
 }
 
 // ReceiverOf returns the receiver type's base name for an impl-method FuncDef,
@@ -647,6 +685,7 @@ func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalys
 	// std/calendar and std/random the union loop's map iteration happened
 	// to visit first. See type_method_identity.go.
 	PopulateTypeMethodIdentities(fa.ProjectImpls, filesByKey)
+	PopulateEnumDecls(fa.ProjectImpls, filesByKey)
 	// And the conformance table's identity key, for the fourth time on the
 	// same precondition: without it `Equatable.equal?` on a value whose type
 	// is a user's own `Error` is judged satisfied by std/calendar's

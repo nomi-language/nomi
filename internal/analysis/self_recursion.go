@@ -27,6 +27,13 @@ type selfRecursion struct {
 	// owner is how the function is spelled at a call site: `Foo.to_string`
 	// for an impl function, the bare name otherwise.
 	owner string
+	// calls and exits remember mayCall's and mayExit's answer per node.
+	// mustRecurse asks both of every operand it passes, and each answer
+	// walks the operand's whole subtree, so without them a chain of n
+	// operators (`"a" + "a" + …`) or n nested `if`s took n² steps.
+	calls, exits map[ast.Node]bool
+	// walked counts the nodes mayCall and mayExit computed an answer for.
+	walked int
 }
 
 // checkSelfRecursion runs both rules over fn, a function the checker has just
@@ -544,6 +551,19 @@ func (r *selfRecursion) mustRecurseSeq(ns []ast.Node, clean bool) bool {
 // non-primitive operand (an operator impl), and every node kind not listed.
 // Creating a lambda calls nothing.
 func (r *selfRecursion) mayCall(n ast.Node) bool {
+	if v, ok := r.calls[n]; ok {
+		return v
+	}
+	v := r.mayCallUncached(n)
+	if r.calls == nil {
+		r.calls = map[ast.Node]bool{}
+	}
+	r.calls[n] = v
+	return v
+}
+
+func (r *selfRecursion) mayCallUncached(n ast.Node) bool {
+	r.walked++
 	switch x := n.(type) {
 	case nil:
 		return false
@@ -621,6 +641,19 @@ func (r *selfRecursion) primitive(n ast.Node) bool {
 // early without faulting: a `return`, a `try`, a binding's `else`, and
 // every node kind not listed. A lambda or nested `fn` exits only itself.
 func (r *selfRecursion) mayExit(n ast.Node) bool {
+	if v, ok := r.exits[n]; ok {
+		return v
+	}
+	v := r.mayExitUncached(n)
+	if r.exits == nil {
+		r.exits = map[ast.Node]bool{}
+	}
+	r.exits[n] = v
+	return v
+}
+
+func (r *selfRecursion) mayExitUncached(n ast.Node) bool {
+	r.walked++
 	switch x := n.(type) {
 	case nil:
 		return false

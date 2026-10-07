@@ -23,7 +23,7 @@ impl Literal for Box {
   }
 }
 
-fn main(): Box {
+fn main() {
   dbg Box"hello"
   dbg Box{contents: "world"}
 }
@@ -85,7 +85,7 @@ fn mark(n: Int): Int {
   n
 }
 
-fn main(): Sum {
+fn main() {
   dbg Sum"a ${mark(1)} b ${mark(2)} c ${mark(3)}"
   dbg Sum"${mark(4)}"
   dbg Sum"plain"

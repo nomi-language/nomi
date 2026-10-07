@@ -38,7 +38,7 @@ func TestExprTypes_RecordValuesAndExpectations(t *testing.T) {
   Green
 }
 fn paint(_c: Color, times: Int): Int { times }
-fn main(): Int {
+fn demo(): Int {
   xs = [1, 2]
   total = xs |> Iter.count()
   paint(.Red, total)
@@ -64,7 +64,7 @@ fn main(): Int {
 }
 
 func TestImplementsInterface(t *testing.T) {
-	fa, errs := checkSourceWithStdlib("fn main(): Int { 1 }")
+	fa, errs := checkSourceWithStdlib("fn demo(): Int { 1 }")
 	expectNoErrorsT(t, errs)
 	list := &analysis.ListType{Elem: analysis.TypeInt}
 	cases := []struct {

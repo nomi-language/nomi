@@ -7,9 +7,11 @@ language-id = "nomi"
 scope = "source.nomi"
 injection-regex = "nomi"
 file-types = ["nomi"]
+shebangs = ["nomi"]
 roots = ["nomi.toml", "go.mod", ".git"]
 comment-tokens = ["//", "///", "//!"]
 indent = { tab-width = 4, unit = "    " }
+text-width = 100
 formatter = { command = "nomi", args = ["fmt"] }
 language-servers = ["nomi-lsp"]
 

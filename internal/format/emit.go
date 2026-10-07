@@ -98,12 +98,14 @@ func emitFileEndTrivia(trivia []ast.Trivia, hasPrecedingNode bool) Doc {
 //
 // When a wrapper block collapses, its leading trivia (a file/section header
 // comment above `import { ... }`) transfers to the surviving inner statement,
-// prepended so it stays above any trivia the inner entry carried itself.
+// prepended so it stays above any trivia the inner entry carried itself. A
+// block with a comment before its `}` or after it stays a block: the one-line
+// statement has no place for either.
 func collapseSingleEntryBlocks(nodes []ast.Node) []ast.Node {
 	out := make([]ast.Node, 0, len(nodes))
 	for _, n := range nodes {
 		blk, ok := n.(*ast.ImportBlock)
-		if !ok || blk.Go || len(blk.Entries) != 1 {
+		if !ok || blk.Go || len(blk.Entries) != 1 || trailingHasComment(blk.EndTrivia) || trailingHasComment(blk.GetTrailing()) {
 			out = append(out, n)
 			continue
 		}
@@ -264,25 +266,72 @@ func emitWithTriviaNoLeadingBlank(n ast.Node) Doc {
 	if !ok {
 		return emit(n)
 	}
-	return emitWithTriviaParts(emit(n), withoutBlankTrivia(ht.GetLeading()), ht.GetTrailing())
+	return emitWithTriviaParts(emit(n), withoutBlankTrivia(ht.GetLeading()), outerTrailing(n, ht))
 }
 
 func emitWithTrailingTrivia(n ast.Node) Doc {
 	ht, ok := n.(ast.HasTrivia)
-	if !ok {
-		return emit(n)
+	if !ok || keepsEndTriviaAsTrailing(n) {
+		return emitStage(n)
 	}
 	trailing := ht.GetTrailing()
 	if len(trailing) == 0 {
-		return emit(n)
+		return emitStage(n)
 	}
-	parts := []Doc{emit(n)}
+	parts := []Doc{emitStage(n)}
 	for _, t := range trailing {
 		if t.Kind == ast.TriviaComment {
 			parts = append(parts, Hidden(Concat(Text(" "), Text(t.Text))))
 		}
 	}
 	return Concat(parts...)
+}
+
+// keepsEndTriviaAsTrailing reports whether n's Trailing trivia are the
+// comments before its closing `}`, which its own emit writes inside the
+// braces: a Case's after its last arm, a Block's after its last statement.
+// Writing them again after the node would repeat them, and a line comment
+// there would swallow whatever follows on the line.
+func keepsEndTriviaAsTrailing(n ast.Node) bool {
+	switch n.(type) {
+	case *ast.Case, *ast.Block:
+		return true
+	}
+	return false
+}
+
+// outerTrailing is the trailing trivia written after n: none for a node
+// whose Trailing are its end trivia (keepsEndTriviaAsTrailing).
+func outerTrailing(n ast.Node, ht ast.HasTrivia) []ast.Trivia {
+	if keepsEndTriviaAsTrailing(n) {
+		return nil
+	}
+	return ht.GetTrailing()
+}
+
+// emitStageWithTrivia is emitWithTrivia for a pipe stage.
+func emitStageWithTrivia(n ast.Node) Doc {
+	return emitWithTriviaDoc(n, emitStage(n))
+}
+
+// emitStage writes a pipe stage. A parenthesized stage keeps its
+// parentheses, which emitGroupedExpr would drop around a call: `x |> (f())`
+// pipes x into the value f() returns, which the checker rejects, and
+// `x |> f()` calls f with x.
+func emitStage(n ast.Node) Doc {
+	g, ok := n.(*ast.GroupedExpr)
+	if !ok || g.Expr == nil {
+		return emit(n)
+	}
+	inner := g.Expr
+	for {
+		next, ok := inner.(*ast.GroupedExpr)
+		if !ok || next.Expr == nil {
+			break
+		}
+		inner = next.Expr
+	}
+	return Concat(Text("("), emit(inner), Text(")"))
 }
 
 func emitLeadingTriviaDocs(trivia []ast.Trivia) []Doc {
@@ -306,7 +355,7 @@ func emitWithTriviaDoc(n ast.Node, body Doc) Doc {
 	if !ok {
 		return body
 	}
-	return emitWithTriviaParts(body, ht.GetLeading(), ht.GetTrailing())
+	return emitWithTriviaParts(body, ht.GetLeading(), outerTrailing(n, ht))
 }
 
 func emitWithTriviaParts(body Doc, leading []ast.Trivia, trailing []ast.Trivia) Doc {
@@ -1093,7 +1142,7 @@ func tripleBodyDoc(s string) Doc {
 			parts = append(parts, HardLine())
 		}
 		if line != "" {
-			parts = append(parts, Text(line))
+			parts = append(parts, Verbatim(line))
 		}
 	}
 	return Concat(parts...)
@@ -1699,9 +1748,9 @@ func spansLines(d Doc, indent, width int) bool {
 	if containsHardLine(d) {
 		return true
 	}
-	var sb strings.Builder
-	render(&sb, d, indent, indent, noFlatGroup, nil, width, false)
-	return strings.Contains(sb.String(), "\n")
+	var out renderOut
+	render(&out, d, indent, indent, noFlatGroup, nil, width, false)
+	return strings.Contains(out.String(), "\n")
 }
 
 // containsHardLine reports whether d has a HardLine that renders whatever
@@ -2557,9 +2606,10 @@ func lambdaSingleExpr(lam *ast.Lambda) (ast.Node, bool) {
 		return nil, false
 	}
 	es, ok := lam.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok || (isPipeExpr(es.Expr) && authoredLambdaBlock(lam)) {
+	if !ok || (isPipeExpr(es.Expr) && authoredLambdaBlock(lam)) || statementOrBlockHasComment(lam.Body, es) {
 		// A braced pipe body keeps its braces (see emitLambda), so it hugs
-		// `})` like a block body.
+		// `})` like a block body, and so does a body with a comment,
+		// which only the block form writes.
 		return nil, false
 	}
 	return es.Expr, true
@@ -3070,6 +3120,13 @@ func emitPattern(n ast.Node) Doc {
 			return forceBrokenBracedWithEndTrivia(open, "}", elems, v.EndTrivia)
 		}
 		return emitBracedList(open, "}", elems)
+	}
+	// A string prefix pattern, `"/users/" + id`: the parser builds a Binary
+	// whose right operand is the bound name's IdentPattern.
+	if b, ok := n.(*ast.Binary); ok {
+		if name, ok := b.Right.(*ast.IdentPattern); ok {
+			return Concat(emitPattern(b.Left), Text(" "+b.Op+" "), Text(name.Name))
+		}
 	}
 	// Literal patterns (IntLit, StringLit, FloatLit, etc.) and any other
 	// expression-like node fall through to the general expression emit.
@@ -5260,7 +5317,7 @@ func emitPipeChainWithMode(n *ast.Binary, mode pipeStackMode) Doc {
 				}
 			}
 		}
-		parts = append(parts, Concat(sep, Text("|> "), pipeStageDoc(step, emitWithTrivia(step))))
+		parts = append(parts, Concat(sep, Text("|> "), pipeStageDoc(step, emitStageWithTrivia(step))))
 	}
 	chain := Concat(parts...)
 	if authoredMultiline {
@@ -5363,7 +5420,7 @@ func emitPrefixedPipeParts(prefix Doc, source ast.Node, steps []ast.Node, forceS
 				}
 			}
 		}
-		parts = append(parts, Nest(defaultIndent, Concat(sep, Text("|> "), pipeStageDoc(step, emitWithTrivia(step)))))
+		parts = append(parts, Nest(defaultIndent, Concat(sep, Text("|> "), pipeStageDoc(step, emitStageWithTrivia(step)))))
 	}
 	chain := Concat(parts...)
 	if authoredMultiline {
@@ -5406,9 +5463,9 @@ func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node) (Doc, bool) {
 		if kw.Expr != nil {
 			return nil, false
 		}
-		return Concat(Text("try "), emit(stage)), true
+		return Concat(Text("try "), emitStage(stage)), true
 	case *ast.If:
-		if kw.Cond != nil {
+		if _, grouped := stage.(*ast.GroupedExpr); grouped || kw.Cond != nil {
 			return nil, false
 		}
 		return emitIf(&ast.If{
@@ -5419,7 +5476,9 @@ func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node) (Doc, bool) {
 			Col:  kw.Col,
 		}), true
 	case *ast.Case:
-		if kw.Value != nil {
+		// A parenthesized stage stays a stage of its own, `|> (f())`
+		// then `|> case {`, which keeps its parentheses (emitStage).
+		if _, grouped := stage.(*ast.GroupedExpr); grouped || kw.Value != nil {
 			return nil, false
 		}
 		return emitCase(&ast.Case{

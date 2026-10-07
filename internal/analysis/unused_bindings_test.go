@@ -76,7 +76,7 @@ fn main() {
 
 func TestUnusedBinding_ReadBindingIsAccepted(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn main(): Int {
+fn demo(): Int {
   total = 5
   dbg total
 }
@@ -105,7 +105,7 @@ test "pattern binding is used" {
 
 func TestUnusedBinding_ShadowedBindingMustBeReadBeforeShadow(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn main(): String {
+fn demo(): String {
   name = "Jane"
   name = "John"
   dbg name
@@ -116,7 +116,7 @@ fn main(): String {
 
 func TestUnusedBinding_RefinementShadowingIsAccepted(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn main(): String {
+fn demo(): String {
   name = "  JANE  "
   name = String.trim(name)
   name = String.to_lower(name)
@@ -138,7 +138,7 @@ fn main() {
 
 func TestUnusedBinding_DiscardBindingDoesNotEnterScope(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
-fn main(): Int {
+fn demo(): Int {
   _total = 5
   _total
 }
@@ -166,7 +166,7 @@ fn ignore(_value: Int): Int {
 
 func TestUnusedBinding_DoubleUnderscoreBindingEntersScope(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn main(): Int {
+fn demo(): Int {
   __internal = 5
   __internal
 }
@@ -176,12 +176,123 @@ fn main(): Int {
 
 func TestUnusedBinding_MapPatternKeyReadsBinding(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
-fn main(): String {
+fn demo(): String {
   base = 1
   numbers = {2 => "computed"}
   case numbers {
     {base + 1 => value} -> value
     _ -> "?"
+  }
+}
+`)
+	expectNoUnusedBindings(t, errs)
+}
+
+// A name a destructured parameter binds is a parameter, reported with a
+// parameter's message and hint, in a lambda, a fn and an interface method.
+func TestUnusedBinding_DestructuredParameterNeverRead(t *testing.T) {
+	for _, tc := range []struct{ name, src, want string }{
+		{"lambda tuple", `
+fn main() {
+  _ = Iter.map([("a", 1)], |(word, count)| count) |> Iter.to_list()
+}
+`, "parameter 'word' is never read"},
+		{"lambda struct", `
+struct P {
+  x: Int
+  y: Int
+}
+fn main() {
+  _ = Iter.map([P{x: 1, y: 2}], |{x, y}| x) |> Iter.to_list()
+}
+`, "parameter 'y' is never read"},
+		{"fn tuple", `
+fn first((a, b): (Int, Int)): Int {
+  a
+}
+fn main() {
+  _ = first((1, 2))
+}
+`, "parameter 'b' is never read"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := expectUnusedBindingContaining(t, buildErrsWithStdlib(t, tc.src), tc.want)
+			if !strings.Contains(diagText(e), "use a discard name or discard the value explicitly") {
+				t.Errorf("hint: got %q, want the parameter hint", diagText(e))
+			}
+		})
+	}
+}
+
+// A name a `case` arm, an `else` arm or an `if` condition binds is a local
+// binding.
+func TestUnusedBinding_ArmPatternBindingNeverRead(t *testing.T) {
+	for _, tc := range []struct{ name, src, want string }{
+		{"case arm", `
+fn f(m: Maybe<Int>): Int {
+  case m {
+    Some(v) -> 1
+    None -> 0
+  }
+}
+`, "binding 'v' is never read"},
+		{"case arm list rest", `
+fn f(xs: List<Int>): Int {
+  case xs {
+    [x, ..rest] -> x
+    [] -> 0
+  }
+}
+`, "binding 'rest' is never read"},
+		{"else arm", `
+fn f(r: Result<Int, String>): Int {
+  Ok(n) = r else {
+    Err(e) -> 0
+  }
+  n
+}
+`, "binding 'e' is never read"},
+		{"if condition", `
+fn f(m: Maybe<Int>): Int {
+  if Some(v) = m {
+    1
+  } else {
+    0
+  }
+}
+`, "binding 'v' is never read"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := expectUnusedBindingContaining(t, buildErrsWithStdlib(t, tc.src), tc.want)
+			if !strings.Contains(diagText(e), "prefix it with '_'") {
+				t.Errorf("hint: got %q, want the binding hint", diagText(e))
+			}
+		})
+	}
+}
+
+// The discard spellings, a guard that reads the name, and an arm left as a
+// `todo` (as the editor's fill-arms action writes it) report nothing.
+func TestUnusedBinding_PatternBindingAcceptedForms(t *testing.T) {
+	errs := buildErrsWithStdlib(t, `
+struct P {
+  x: Int
+  y: Int
+}
+fn f(m: Maybe<Int>, xs: List<Int>, p: (Int, Int)): Int {
+  _ = Iter.map([("a", 1)], |(_word, count)| count) |> Iter.to_list()
+  _ = Iter.map([P{x: 1, y: 2}], |{x}| x) |> Iter.to_list()
+  _ = case xs {
+    [_, .._rest] -> 1
+    [] -> 0
+  }
+  _ = case p {
+    (a, b) when a > b -> 1
+    _ -> 0
+  }
+  case m {
+    Some(v) -> todo
+    None -> 0
   }
 }
 `)

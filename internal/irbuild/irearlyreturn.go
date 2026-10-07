@@ -28,6 +28,7 @@ func (bl *irScalarBuilder) guardReturn(t *ast.If) bool {
 	if !bl.guardShape(t) {
 		return false
 	}
+	defer bl.g.enterBlockTypes(t.Then)()
 	lead, tail := bl.g.irScalarBlock(t.Then, "")
 	ret, isReturn := tail.(*ast.Return)
 	cond, ck, _, ok := bl.lower(t.Cond)
@@ -155,7 +156,8 @@ func (g *gen) irCtlTailGuard(lead []ast.Node, tail ast.Node) ([]ast.Node, ast.No
 		return lead, tail
 	}
 	els, isBlock := t.Else.(*ast.Block)
-	if !isBlock {
+	if !isBlock || g.blockTypes[els] != nil {
+		// An else block that declares types keeps its own scope.
 		return lead, tail
 	}
 	_, thenTail := g.irScalarBlock(t.Then, "")

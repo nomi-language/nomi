@@ -23,7 +23,7 @@ func TestIRDerivedCompare_TourSeverityOrdering(t *testing.T) {
 
 derive Comparable for Severity
 
-fn main(): Bool {
+fn main() {
   dbg Severity.Info < Severity.Warning(1)
   dbg Severity.Warning(9) < Severity.Error(1)
   dbg Severity.Warning(1) < Severity.Warning(2)

@@ -34,6 +34,7 @@ const referenceItems = [
 		'lists',
 		'literals',
 		'maps',
+		'matcher',
 		'maybe',
 		'multiply',
 		'random',

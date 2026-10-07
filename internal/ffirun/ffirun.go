@@ -86,10 +86,10 @@ func GoModRoot(entryPath string) (string, bool) {
 // up for go.mod), regenerates the wrapper if its hash inputs changed,
 // and returns a Result describing what to do next.
 //
-// FastPath=true is returned when discovery finds no source-level or
-// first-party adapter bindings. A project with no go.mod still takes the
-// wrapper path when it imports a first-party adapter; the wrapper stages a
-// synthetic Go module for the bundled adapter package.
+// FastPath=true is returned when discovery finds no source-level Go
+// bindings. A project with no go.mod still takes the wrapper path when it
+// binds a Go standard library package or writes inline Go; the wrapper stages
+// a synthetic Go module of its own (writeSyntheticGoMod).
 //
 // Errors are returned for:
 //   - Cache I/O failures (mkdir, hash read/write, etc.).
@@ -103,18 +103,29 @@ func Prepare(entryPath string) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ffirun: resolving entry path: %w", err)
 	}
+	// An extensionless `#!` script is rooted at its own directory, as the
+	// front end roots it (frontend.Checker.PrepareFile): a nomi.toml above
+	// that directory does not widen its program. The go.mod walk is not
+	// bounded, since the IR builder resolves a `gopkg` through the nearest
+	// go.mod above the declaring file, whatever that file is named.
+	script := !isNomiSourceName(absEntry)
 	projectRoot, ok := findGoModRoot(filepath.Dir(absEntry))
 	if !ok {
 		sourceRoot := filepath.Dir(absEntry)
-		if manifestRoot, found := findNomiManifestRoot(sourceRoot); found {
+		if manifestRoot, found := findNomiManifestRoot(sourceRoot); found && !script {
 			sourceRoot = manifestRoot
 		}
-		discovered, err := DiscoverInScope(sourceRoot, sourceRoot)
+		discovered, err := discoverForEntry(sourceRoot, sourceRoot, absEntry)
 		if err != nil {
 			return nil, err
 		}
 		if len(discovered) == 0 {
 			return &Result{FastPath: true}, nil
+		}
+		// With no go.mod, a `gopkg` can name only a Go standard library
+		// package, and the wrapper is its own module (writeSyntheticGoMod).
+		if err := validateDiscoveredGoBindings(sourceRoot, discovered); err != nil {
+			return nil, err
 		}
 		cacheDir, err := cacheDirForProject(sourceRoot)
 		if err != nil {
@@ -134,8 +145,11 @@ func Prepare(entryPath string) (*Result, error) {
 		}, nil
 	}
 
-	sourceRoot := findNomiPackageRoot(filepath.Dir(absEntry), projectRoot)
-	discovered, err := DiscoverInScope(projectRoot, sourceRoot)
+	sourceRoot := filepath.Dir(absEntry)
+	if !script {
+		sourceRoot = findNomiPackageRoot(sourceRoot, projectRoot)
+	}
+	discovered, err := discoverForEntry(projectRoot, sourceRoot, absEntry)
 	if err != nil {
 		return nil, err
 	}

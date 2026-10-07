@@ -126,7 +126,11 @@ func (g *gen) instanceOwner(src *typeDef) *typeOwner {
 // local template's instance is emitted into this package, and an imported
 // one's into the owner's and named here through an alias.
 func (g *gen) genericTemplateNamed(name string) (*genericTemplate, func([]kind) (kind, bool), bool) {
-	if tpl := g.genericTemplates[name]; tpl != nil {
+	tpl := g.blockLocalTemplate(name)
+	if tpl == nil {
+		tpl = g.genericTemplates[name]
+	}
+	if tpl != nil {
 		return tpl, func(args []kind) (kind, bool) { return g.genericInstance(tpl, args) }, true
 	}
 	ref, found := g.foreignTemplate(name)

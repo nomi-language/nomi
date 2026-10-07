@@ -1,11 +1,13 @@
 package lsp
 
 import (
+	"encoding/json"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -216,6 +218,13 @@ func TestSemanticTokens_EmptyFile(t *testing.T) {
 
 	if len(data) != 0 {
 		t.Fatalf("expected empty data for empty file, got %d elements", len(data))
+	}
+	got, err := json.Marshal(protocol.SemanticTokens{Data: data})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), `"data":[]`) {
+		t.Fatalf("an empty file must send `\"data\":[]` (Neovim crashes on null), got %s", got)
 	}
 }
 

@@ -125,6 +125,7 @@ func (bl *irScalarBuilder) scopedBlock(block *ast.Block) bool {
 		irDeclineNote("a scoped block inside an assertion subject")
 		return false
 	}
+	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {
 		irDeclineNote(irDeclineBodyWhy)

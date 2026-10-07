@@ -3,9 +3,6 @@ package format
 import (
 	"strings"
 	"testing"
-
-	"github.com/nomi-language/nomi/internal/lexer"
-	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // A literal `${` is written `\${`; `$`, `$$`, `#`, `##` and `#{` are
@@ -54,17 +51,9 @@ func TestFormatTypedInterpolationPreservesAST(t *testing.T) {
 		`value = Tag"# ${f(port)} \${old} $$"` + "\n",
 		"value = Tag\"\"\"\n  # ${f(port)} \\${old} $$\n\"\"\"\n",
 	} {
-		original, err := parser.Parse(lexer.Lex(source))
-		if err != nil {
-			t.Fatal(err)
-		}
 		formatted := formatOnce(t, source)
-		result, err := parser.Parse(lexer.Lex(formatted))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !astEquivalent(original, result) {
-			t.Fatalf("format changed typed literal: %q => %q", source, formatted)
+		if err := SameMeaning(source, formatted); err != nil {
+			t.Fatalf("format changed typed literal: %q => %q: %v", source, formatted, err)
 		}
 		if again := formatOnce(t, formatted); again != formatted {
 			t.Fatalf("not idempotent: %q", again)

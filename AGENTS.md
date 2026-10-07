@@ -67,8 +67,9 @@ run on the VM. There is no interpreter and no Go backend. `nomi check` and
 `nomi fmt` execute nothing; `nomi check` lowers the program as `nomi run`
 does, and a test file's cases as `nomi test` does, and reports each body the
 run would refuse as an error at its source
-(`vmhost.Program.Unsupported`); the LSP does the same when a file is opened
-or saved, in the background (`internal/lsp/lowering.go`). The LSP executes one thing, on the same VM: the
+(`vmhost.Program.Unsupported`); the LSP does the same in the background when a
+file is opened or saved and 400 ms after the last edit of a burst
+(`internal/lsp/lowering.go`). The LSP executes one thing, on the same VM: the
 handler of a typed literal with no `${...}`, and only when
 `vm.Machine.Effects` finds nothing it can reach acts outside the machine
 (`internal/lsp/literal_eval.go`).
@@ -126,7 +127,9 @@ handler of a typed literal with no `${...}`, and only when
   tour wasm and FFI wrapper all go through it. A plain user `host fn` or
   `host type` is answered by an embedder's host table.
 - **Go FFI.** A Nomi file declares `gopkg` handles and `go alias.Symbol`
-  bindings. `internal/ffirun` discovers them, generates a wrapper `main.go`
+  bindings. A Go standard library package needs no `go.mod`; its source is
+  read from `go env GOROOT` and the toolchain version keys the cache
+  (`internal/ffirun/gostd.go`). `internal/ffirun` discovers them, generates a wrapper `main.go`
   with typed adapters (`nomiHostTable`) under the user cache directory
   (`os.UserCacheDir()/nomi/builds/<hash>/`), and runs it. The wrapper's
   go.mod names the compiler module in one of two ways
@@ -181,6 +184,55 @@ and `TestTestCommand_VMStdlib` run `nomi test tests` and `nomi test std` and
 require no failed or blocked case, and as many passing cases as
 `corpus.expect` and `stdlib.expect` declare.
 
+A program the front end accepts must lower. `go test ./vmhost -run '^$' -fuzz
+'^FuzzFrontEndAcceptsSoItLowers$' -fuzztime 5m` mutates the corpus files, tour
+blocks, spec programs and generated programs (`vmhost/lowering_gen_test.go`),
+checks each as `nomi check` does without running it, and fails on one the
+front end accepts and the IR builder declines, or on a compiler panic. Under
+plain `go test`, `TestFrontEndAcceptsSoItLowers` checks the generated programs
+and `TestKnownLoweringGaps` pins each known decline in `knownLoweringGaps`
+(`vmhost/lowering_gaps_test.go`) by a reproducer; the generator avoids those
+shapes, so remove a gap and its avoidance together when it is fixed.
+
+**Every expression has a type after checking.** `analysis.UnresolvedExprs`
+lists each value expression of a checked file with no type in
+`FileAnalysis.ExprTypes`, a nil one, or an unsolved variable as its own type
+(one nested in a type argument, as in `[]`'s `List<?1>`, is allowed). It
+runs in tests only: `vmhost`'s `checkLowers` reports it beside the
+builder's declines, so `TestFrontEndAcceptsSoItLowers` and the lowering fuzz
+target name a checker skip at its source, and `TestSeedExprsAreTyped` and
+`TestStdlibExprsAreTyped` hold the corpus, tour, spec and stdlib to it. A
+known skip is pinned in `knownCheckerGaps` (`vmhost/checker_gaps_test.go`)
+with a reproducer that `TestKnownCheckerGaps` checks; a fix removes its
+entry in the same change.
+
+`nomi fmt` must not change what a program means. `TestFormatKeepsMeaning`
+(`vmhost/format_meaning_test.go`, about 4 seconds) formats every tracked
+`.nomi` file, tour and spec block, corpus seed and generated program, and two
+layout variants of each (`vmhost/format_layout_test.go`: respaced, broken
+across lines, commented, parenthesized, renamed long), and fails when the
+output does not parse, its syntax tree or comments differ
+(`format.SameMeaning`), a second format changes it, or the front end accepts
+one of source and output and rejects the other. `go test ./vmhost -run '^$' -fuzz
+'^FuzzFormatKeepsMeaning$' -fuzztime 5m -parallel 4` fuzzes the same check.
+`TestKnownFormatGaps` pins each known break in `knownFormatGaps`
+(`vmhost/format_gaps_test.go`) by a reproducer that fails once it is fixed.
+
+**Rotating sets.** Those fixed inputs are the regression baseline; three
+tests check a rotating set beside them, from a start seed that changes
+every UTC day (`internal/rotation`), so each day checks inputs no earlier
+run did. `TestFrontEndAcceptsSoItLowersRotating` checks 150 more generated
+programs, `TestFormatKeepsMeaningRotating` two more layout variants of every
+format input, and `TestLSPSurvivesTypingRotating` types five more documents
+of at most 400 lines. Each adds 2 to 4 seconds. The log names the start
+seed. `NOMI_GEN_SEED=<n>` pins it and makes the run repeatable, and
+`NOMI_GEN_COUNT=<n>` changes how many seeds the set holds. A failure there
+says it came from the rotating set and prints its seed and a command that
+checks exactly that program, variant (with `NOMI_GEN_INPUT=<name>`) or
+document. Such a failure may be a bug that was already there and that day's
+inputs found, not one the change under test made: check it on `next`
+before blaming the change, then fix it or pin it as a known gap.
+
 CI (`.github/workflows/test.yml`, on pushes to `main` and on pull requests)
 runs `go vet ./...` and `go test ./...` with `internal/irbuild` as its own
 job, builds the tour bundle and runs `TestTourWasm*` against it, and runs
@@ -207,6 +259,14 @@ check:
   `go test -race ./internal/vm ./vmhost ./rt/...`.
 - `rt`'s supervisor and timer tests and `vmhost/synctest_test.go` carry
   wall-clock assertions. Re-run a failure in isolation before attributing it.
+- For language server changes, `TestLSPSurvivesTyping`
+  (`internal/lsp/typing_test.go`) types a fixed sample of files into the
+  server and fails on any panic it recovers. `NOMI_LSP_TYPING=full` types
+  every tracked `.nomi` file and tour block instead (about 7 minutes split
+  four ways with `NOMI_LSP_TYPING_SHARD=k/4`), and
+  `go test ./internal/lsp -run '^$' -fuzz '^FuzzLSPSurvivesEdits$' -fuzztime 5m -fuzzminimizetime 5s -parallel 4`
+  mutates them. A known panic is pinned in `knownTypingGaps` with a
+  reproducer.
 
 **Golden files.** `testdata/expectations/*.expect` hold the
 normalized output, exit status and case count of every corpus file, stdlib

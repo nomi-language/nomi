@@ -26,7 +26,12 @@ func (bl *irScalarBuilder) callDefaults(sig *fnSig, args []ir.Temp) bool {
 			if p.Default == nil {
 				return false
 			}
+			restore := func() {}
+			if unit, foreign := bl.g.declaredIn[p.Default]; foreign {
+				restore = bl.g.lowerNamesFrom(unit)
+			}
 			src, k, _, ok := bl.lowerWant(p.Default, sig.params[i])
+			restore()
 			if !ok || k != sig.params[i] || !irCallOperandKind(k) {
 				return false
 			}

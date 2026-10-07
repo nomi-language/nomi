@@ -34,7 +34,7 @@ func TestSkippedDefault_PositionalCannotSkipANonTrailingDefault(t *testing.T) {
 		{"piped", "1 |> middle(2)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, errs := checkSourceWithStdlib(skippedDefaultDecls + "\nfn main(): Int {\n  " + tc.call + "\n}\n")
+			_, errs := checkSourceWithStdlib(skippedDefaultDecls + "\nfn demo(): Int {\n  " + tc.call + "\n}\n")
 			want := "missing argument for parameter 'c'; positional arguments fill parameters in order " +
 				"and cannot skip the defaulted 'b', so pass this one by name (c: ...)"
 			for _, e := range errs {
@@ -59,7 +59,7 @@ func TestSkippedDefault_NamedAndTrailingCallbackCallsStayClean(t *testing.T) {
 		"with_cb(1, |x| x)",
 		"1 |> with_cb(double)",
 	} {
-		_, errs := checkSourceWithStdlib(skippedDefaultDecls + "\nfn main(): Int {\n  " + call + "\n}\n")
+		_, errs := checkSourceWithStdlib(skippedDefaultDecls + "\nfn demo(): Int {\n  " + call + "\n}\n")
 		for _, e := range errs {
 			if strings.Contains(e.Message, "missing argument") {
 				t.Errorf("%s: %s", call, e.Message)

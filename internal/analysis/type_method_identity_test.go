@@ -172,7 +172,7 @@ func TestTypeMethodIdentity_TwoModulesEachResolveTheirOwnMethod(t *testing.T) {
   beta
 }
 
-fn main(): String {
+fn demo(): String {
   a = alpha.Error.Bad("a")
   b = beta.Error.Worse("b")
   alpha.Error.to_string(a) + beta.Error.to_string(b)
@@ -234,7 +234,7 @@ func TestTypeMethodIdentity_MismatchNamesBothDeclaringModules(t *testing.T) {
   beta
 }
 
-fn main(): String {
+fn demo(): String {
   a = alpha.Error.Bad("a")
   beta.Error.to_string(a)
 }

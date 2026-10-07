@@ -590,3 +590,56 @@ impl Label {
 		}
 	}
 }
+
+// TestCollect_DotVariantShorthandIsAnEnumMember: a `.Variant` gets the
+// token its written `Enum.Variant` gets, whether its enum is the file's
+// own, block-local, or a std enum the file never names.
+func TestCollect_DotVariantShorthandIsAnEnumMember(t *testing.T) {
+	src := `enum Color {
+    Red
+    Green
+}
+
+fn paint(c: Color): Int {
+    case c {
+        .Red -> 1
+        .Green -> 2
+    }
+}
+
+fn main() {
+    _a = paint(.Red)
+    _b = Iter.sort([3, 1, 2], .Descending)
+    enum Local {
+        One
+        Two
+    }
+    pick = |l: Local| l
+    _c = pick(.Two)
+    _d = paint(Color.Red)
+}
+`
+	fa := highlight.Analyze(src, std.Load())
+	if fa == nil {
+		t.Fatal("Analyze returned nil")
+	}
+	toks := map[analysis.Pos]semtokens.Token{}
+	for _, tok := range semtokens.Collect(fa) {
+		toks[analysis.Pos{Line: tok.Line, Col: tok.Col}] = tok
+	}
+	for _, want := range []struct {
+		line, col int
+		name      string
+	}{
+		{8, 10, "Red"},
+		{14, 17, "Red"},
+		{15, 32, "Descending"},
+		{21, 16, "Two"},
+		{22, 22, "Red"},
+	} {
+		tok, ok := toks[analysis.Pos{Line: want.line, Col: want.col}]
+		if !ok || tok.Type != "enumMember" || tok.Length != len(want.name) {
+			t.Errorf("%s at %d:%d: token %+v (present %v), want enumMember of length %d", want.name, want.line, want.col, tok, ok, len(want.name))
+		}
+	}
+}

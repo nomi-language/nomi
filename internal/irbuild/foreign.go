@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"reflect"
-
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -981,73 +979,12 @@ func pickTypeName(n ast.Node, out map[string]bool) bool {
 // one traversal: which TYPES a node mentions (the reference graph), which NAMES
 // OF ANY KIND it mentions (existential.go's portability check for a sibling
 // file's interface default), and which type DECLARATIONS it contains at a
-// nested position (sigreason.go's nestedTypeDeclKey). A second hand-written
-// reflective walker would be the same 40 lines with one switch changed, and
-// would drift.
+// nested position (sigreason.go's nestedTypeDeclKey). pick returning true
+// stops the walk below that node.
 //
 // Generic over the ACCUMULATOR too, because the third question's answer is a
 // name-to-KEY map rather than a set. A concrete `map[string]bool` here would
 // make that caller either smuggle its map through a closure or copy the walk.
 func walkNames[T any](n ast.Node, out T, pick func(ast.Node, T) bool) {
-	if isNilNode(n) {
-		return
-	}
-	if pick(n, out) {
-		return
-	}
-	v := reflect.ValueOf(n)
-	if v.Kind() != reflect.Pointer || v.IsNil() {
-		return
-	}
-	walkNameFields(v.Elem(), out, pick)
-}
-
-// walkNameFields descends a node's own fields.
-//
-// Separate from walkNameValue because entering a node's struct THROUGH that
-// function would find the node again — `v.Addr()` of a node's struct is that
-// node — and recurse forever. childNodes avoids the same trap by starting from
-// the fields; this does too.
-func walkNameFields[T any](v reflect.Value, out T, pick func(ast.Node, T) bool) {
-	if v.Kind() != reflect.Struct || v.Type() == triviaCarrierType {
-		return
-	}
-	for i := range v.Type().NumField() {
-		if v.Type().Field(i).PkgPath != "" {
-			continue
-		}
-		walkNameValue(v.Field(i), out, pick)
-	}
-}
-
-func walkNameValue[T any](v reflect.Value, out T, pick func(ast.Node, T) bool) {
-	switch v.Kind() {
-	case reflect.Interface, reflect.Pointer:
-		if v.IsNil() {
-			return
-		}
-		if n, ok := v.Interface().(ast.Node); ok {
-			walkNames(n, out, pick)
-			return
-		}
-		walkNameValue(v.Elem(), out, pick)
-	case reflect.Slice, reflect.Array:
-		for i := range v.Len() {
-			walkNameValue(v.Index(i), out, pick)
-		}
-	case reflect.Struct:
-		if v.Type() == triviaCarrierType {
-			return
-		}
-		if v.CanAddr() {
-			if n, ok := v.Addr().Interface().(ast.Node); ok {
-				// A node stored BY VALUE: an attached test, whose methods have
-				// pointer receivers. Its own fields are walked through
-				// walkNames, which enters them by field.
-				walkNames(n, out, pick)
-				return
-			}
-		}
-		walkNameFields(v, out, pick)
-	}
+	ast.Inspect(n, func(n ast.Node) bool { return !pick(n, out) })
 }

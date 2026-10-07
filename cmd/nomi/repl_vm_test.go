@@ -183,21 +183,27 @@ func TestReplVM_AnImportIsUsedByLaterInputs(t *testing.T) {
 		"hi\n2\n")
 }
 
+// replBlockLocalValue binds v to a block whose value has a type declared
+// inside the block.
+const replBlockLocalValue = "v = {\n  struct Q {\n    a: Int\n  }\n  Q{a: 1}\n}\n"
+
 // An input whose `main` the builder declines, and which therefore lowers no
 // entry module at all, is reported BLOCKED and commits nothing. It crashed
 // the session's machine with a nil-pointer dereference when the input came
 // after an earlier one, because Session.Run linked the missing entry before
-// asking whether `main` was retained. Binding a file API object to a name is
-// such an input: the front end accepts it and the builder declines it.
+// asking whether `main` was retained. A block whose value has a type
+// declared inside it is such an input: the front end accepts it and the
+// builder declines it (gapBlockLocalTypeEscapesItsBlock). If it starts
+// lowering, these cases need another input the builder declines.
 func TestReplVM_AnInputWithNoRetainedEntryIsBlocked(t *testing.T) {
 	cases := []struct {
 		name, script string
 		wantOut      string
 		wantErr      string
 	}{
-		{"after an earlier input", "x = 1\nimport std/io\nm = io\nx\n",
+		{"after an earlier input", "x = 1\n" + replBlockLocalValue + "x\n",
 			"1\n", "[main] not retained"},
-		{"file object stored", "import std/io\nm = io\nm\nio.print(\"after\")\n",
+		{"value stored", replBlockLocalValue + "v\nimport std/io\nio.print(\"after\")\n",
 			"after\n", "[main] not retained"},
 	}
 	for _, c := range cases {

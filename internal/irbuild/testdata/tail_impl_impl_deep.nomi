@@ -1,11 +1,5 @@
-// A tail cycle with NO free member at all — two impl functions on two different
-// receivers — at a depth ordinary recursion cannot survive.
-//
-// The free/impl fixture beside this one leaves one question open: the driver
-// there is reached from funcDecl, because the module walk meets the free member
-// first. Here every member is an impl function, so the driver is emitted from
-// implFunc, and both entry wrappers are impl functions whose names the
-// dispatch tables and every direct call already reference.
+// A tail cycle with no free member: two inherent impl functions on two
+// different receivers call each other in tail position, owner-qualified.
 //
 // 1e8 hops: see tail_impl_free_deep.nomi for why that number.
 import std/io

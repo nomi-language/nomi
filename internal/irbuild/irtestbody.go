@@ -315,12 +315,9 @@ func (g *gen) irTestBodyAttempt(c testCaseDecl, name string, group ir.TestGroup,
 		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
 		inTest: true, testApp: group.Boot != nil, testWalked: walked,
 	}
-	if scope := g.blockTypes[c.body]; scope != nil {
-		// Types the body declares resolve by name for the extent of the
-		// body, as they do for the front end (blocklocaltype.go).
-		g.pushTypeScope(scope)
-		defer g.popTypeScope()
-	}
+	// Types the body declares resolve by name for the extent of the body,
+	// as they do for the front end (blocklocaltype.go).
+	defer g.enterBlockTypes(c.body)()
 	// The body's deferred calls, and those of the `setup` frames around it,
 	// run at the case's exit, most recent first: a setup's resource
 	// stays alive for the case and is released after the body's own.
@@ -542,10 +539,11 @@ func (bl *irScalarBuilder) testRegion(n ast.Node) bool {
 // statements in their own lexical scope, its deferred calls run at its exit,
 // and a `with` in it holds for the block alone.
 func (bl *irScalarBuilder) testBlock(block *ast.Block) bool {
-	if bl.recording > 0 || bl.g.blockTypes[block] != nil {
-		irDeclineNote("a test-body block with declared types, the open block, or in a body the builder reads back")
+	if bl.recording > 0 {
+		irDeclineNote("a test-body block in a body the builder reads back")
 		return false
 	}
+	defer bl.g.enterBlockTypes(block)()
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 	defs, stages, after, outer, outerWith := bl.testDefs, bl.testStages, bl.testAfter, bl.testDeferScope, bl.testWithScope
 	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
@@ -589,10 +587,7 @@ func (bl *irScalarBuilder) testArm(exit *ir.Block, body ast.Node) (kind, bool) {
 	var stmts []ast.Node
 	switch t := body.(type) {
 	case *ast.Block:
-		if bl.g.blockTypes[t] != nil {
-			irDeclineNote("a test-body arm block with declared types, or the open block")
-			return kindInvalid, false
-		}
+		defer bl.g.enterBlockTypes(t)()
 		stmts = t.Stmts
 	case *ast.Assertion, *ast.PatternDestructure, *ast.Binding, *ast.If, *ast.Case, *ast.ExprStmt,
 		// An arm that ends the case, `Err(_) -> return`, as a test statement does.

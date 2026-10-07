@@ -49,7 +49,9 @@ const (
 func encodeSemanticTokens(fa *analysis.FileAnalysis, nodes []ast.Node) []protocol.UInteger {
 	toks := semtokens.Collect(fa)
 	if len(toks) == 0 {
-		return nil
+		// Never nil: it marshals as `"data": null`, which Neovim's
+		// semantic-tokens handler crashes on when a file is empty.
+		return []protocol.UInteger{}
 	}
 	attached := semtokens.AttachedTestLines(nodes)
 

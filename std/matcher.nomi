@@ -1,0 +1,45 @@
+import {
+    bool.Bool
+    lists.List
+    strings.String
+}
+
+//# The `Matcher` interface: what `String.split`, `String.replace`,
+//# `String.contains?`, `String.starts_with?`, `String.ends_with?` and
+//# `String.find_all` accept as the thing to look for. A `String` matches its own
+//# text and a `Regex` matches its pattern.
+
+/// Something to look for in a string. `String` and `Regex` implement it, so
+/// the String search functions take either:
+///
+/// ```nomi
+/// String.split("a,b", ",")                     // ["a", "b"]
+/// String.split("a1b22c", try Regex`\d+`)       // ["a", "b", "c"]
+/// ```
+///
+/// Each function answers one String operation for `text`, with the matcher
+/// first. Call the String functions rather than these; they exist so a type can
+/// say how it is found, and so a function of your own can take any matcher with
+/// `where M: Matcher`.
+//! import std/regex.Regex
+//!
+//! digits = try Regex`\d+`
+//! assert String.contains?("order 66", digits)
+//! assert String.contains?("order 66", "66")
+//! assert Matcher.split_in(",", "a,b") == ["a", "b"]
+//
+pub interface Matcher {
+    /// True if the matcher matches anywhere in `text`.
+    fn contained_in?(m: self, text: String): Bool
+    /// True if a match starts at the beginning of `text`.
+    fn prefix_of?(m: self, text: String): Bool
+    /// True if a match ends at the end of `text`.
+    fn suffix_of?(m: self, text: String): Bool
+    /// The pieces of `text` between non-overlapping matches.
+    fn split_in(m: self, text: String): List<String>
+    /// `text` with every non-overlapping match replaced by `replacement`,
+    /// taken literally.
+    fn replace_in(m: self, text: String, replacement: String): String
+    /// Every non-overlapping match in `text`, left to right.
+    fn find_all_in(m: self, text: String): List<String>
+}

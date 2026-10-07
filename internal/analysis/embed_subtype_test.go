@@ -8,7 +8,7 @@ import "testing"
 func TestEmbed_SubtypeCoercion_DistinctType_Assignment(t *testing.T) {
 	src := `type UserId String
 enum Identifier { embeds UserId; Anonymous }
-fn main(): Identifier {
+fn demo(): Identifier {
   uid: UserId = UserId("alice")
   uid
 }`
@@ -20,7 +20,7 @@ func TestEmbed_SubtypeCoercion_DistinctType_FunctionArg(t *testing.T) {
 	src := `type UserId String
 enum Identifier { embeds UserId; Anonymous }
 fn render(_id: Identifier): String { "x" }
-fn main(): String {
+fn demo(): String {
   uid: UserId = UserId("alice")
   render(uid)
 }`
@@ -31,7 +31,7 @@ fn main(): String {
 func TestEmbed_SubtypeCoercion_DistinctType_ListElement(t *testing.T) {
 	src := `type UserId String
 enum Identifier { embeds UserId; Anonymous }
-fn main(): List<Identifier> {
+fn demo(): List<Identifier> {
   uid: UserId = UserId("alice")
   [uid, UserId("bob"), Identifier.Anonymous]
 }`
@@ -42,7 +42,7 @@ fn main(): List<Identifier> {
 func TestEmbed_SubtypeCoercion_StructEmbed_Assignment(t *testing.T) {
 	src := `struct Circle { radius: Float }
 enum Shape { embeds Circle; Point }
-fn main(): Shape {
+fn demo(): Shape {
   c: Circle = Circle{radius: 5.0}
   c
 }`
@@ -54,7 +54,7 @@ func TestEmbed_SubtypeCoercion_StructEmbed_ListElement(t *testing.T) {
 	src := `struct Circle { radius: Float }
 struct Rectangle { width: Float; height: Float }
 enum Shape { embeds Circle; embeds Rectangle; Point }
-fn main(): List<Shape> {
+fn demo(): List<Shape> {
   c: Circle = Circle{radius: 5.0}
   [c, Rectangle{width: 3.0, height: 4.0}, Shape.Point]
 }`

@@ -121,6 +121,14 @@ strength. Neovim and VS Code show the attached test under the cursor normally
 (their READMEs have the settings). In Zed, if you turn semantic tokens on, the
 extension's `semantic_token_rules.json` keeps their identifiers dimmed too.
 
+Comments wrap at 100 columns, `nomi fmt`'s line width. Neovim sets
+`textwidth=100`, so a comment breaks as you type and `gw` reflows it (`gq`
+goes to the formatter in most LSP setups, and `nomi fmt` leaves comments
+alone), and
+Helix sets `text-width = 100` for `:reflow`. A Zed extension cannot set a
+line length, so add it to your Zed settings for "editor: rewrap":
+`"languages": { "Nomi": { "preferred_line_length": 100 } }`.
+
 To work on Nomi itself, run `make dev-editors` instead. It installs `nomi` and
 `nomi-lsp` from the checkout and makes each installed editor read the
 checkout: Helix's queries are linked rather than copied, Neovim loads

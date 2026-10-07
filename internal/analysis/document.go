@@ -296,8 +296,16 @@ func (dm *DocumentManager) FindProjectRoot(filePath string) string {
 // passes none and the LSP passes the editor's workspace root. Both use this
 // one function, so a file opened in the editor resolves its imports against
 // the same directory `nomi run` would.
+//
+// A file without the .nomi extension is an extensionless `#!` script, such
+// as ~/bin/hi. Its walk is bounded by its own directory, so a main.nomi or
+// nomi.toml in an ancestor (a home directory, a module around it) never
+// takes over a command on PATH.
 func ProjectRoot(filePath, bound string) string {
 	fileDir := filepath.Dir(filePath)
+	if filepath.Ext(filePath) != ".nomi" {
+		bound = fileDir
+	}
 	for _, marker := range []string{"nomi.toml", "main.nomi"} {
 		if dir, ok := nearestAncestorWith(fileDir, marker, bound); ok {
 			return dir

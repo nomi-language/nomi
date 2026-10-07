@@ -36,7 +36,7 @@ enum Drawable {
 fn describe(d: Drawable): String {
     case d {
         Drawable.Point{x: px, y: _} -> "point " + Int.to_string(px)
-        Drawable.Shape(s) -> "shape"
+        Drawable.Shape(_) -> "shape"
     }
 }
 

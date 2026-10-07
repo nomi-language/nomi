@@ -9,6 +9,7 @@ import (
 	"golang.org/x/mod/modfile"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/ffirun"
 )
 
 // A USER Go package named from Nomi source, and the `host fn` / `host type`
@@ -176,8 +177,9 @@ type hostPkg struct {
 	alias string
 	// dir is the directory of the Go module providing importPath, absolute,
 	// and modPath that module's path. dir is empty for a required module the
-	// project's go.mod does not replace with a local directory; why is set
-	// when the module could not be located at all (hostModuleOf).
+	// project's go.mod does not replace with a local directory and for the
+	// Go standard library; why is set when the module could not be located
+	// at all (hostModuleOf).
 	dir     string
 	modPath string
 	why     string
@@ -375,7 +377,10 @@ func (g *gen) hostTypeNamed(name string) (*typeDef, bool) {
 //
 // Only a module whose path PREFIXES the import path answers, and the rule is
 // deliberately narrow: a `gopkg` naming a published third-party package the
-// project does not provide refuses by name here.
+// project does not provide refuses by name here. A Go standard library
+// package (ffirun.IsStdPackage) is the toolchain's and needs no go.mod: it
+// answers with no directory and the module path "std", as `go list` names
+// the standard library's module.
 //
 // `dir` is the module's ROOT DIRECTORY, not the package's, for both arms,
 // because a module is named by its root. Every corpus FFI fixture binds its
@@ -384,6 +389,9 @@ func (g *gen) hostTypeNamed(name string) (*typeDef, bool) {
 // same path, so the corpus cannot tell the two apart. See
 // TestHostModuleOfSubPackageReplacesTheModuleRoot.
 func hostModuleOf(nomiPath, importPath string) (dir, modPath, why string) {
+	if ffirun.IsStdPackage(importPath) {
+		return "", "std", ""
+	}
 	root, ok := goModRootAbove(filepath.Dir(nomiPath))
 	if !ok {
 		return "", "", "no go.mod above the declaring file"

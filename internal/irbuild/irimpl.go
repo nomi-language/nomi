@@ -27,6 +27,11 @@ func (g *gen) irImplLower(d *implDef, it *implItem, plan *tailPlan, params []kin
 	if ef, isHost := hostExtOf(fd); isHost {
 		return g.irImplHostLower(d, ef, sh, it.result)
 	}
+	if it.inherited {
+		if unit, foreign := g.declaredIn[it.body]; foreign {
+			defer g.lowerNamesFrom(unit)()
+		}
+	}
 	return g.irScalarLower(fd, sig, plan, sh, it.result)
 }
 

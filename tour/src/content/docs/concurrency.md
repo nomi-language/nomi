@@ -35,7 +35,7 @@ fn double(n: Int): Int {
     n * 2
 }
 
-fn main(): Int {
+fn main() {
     total = concurrent {
         a = Task.spawn(|| double(10))
         b = Task.spawn(|| double(20))
@@ -99,7 +99,7 @@ fn consume(inbox: Receiver<Int>): Int {
     )
 }
 
-fn main(): Int {
+fn main() {
     ch = Channel.buffered<Int>(4)
 
     total = concurrent {
@@ -182,7 +182,7 @@ fn main() {
         Ok(n)
     }
 
-    _ = dbg outcome
+    dbg outcome
 }
 
 ```
@@ -253,7 +253,7 @@ fn fetch_user(id: Int): String {
     "user-${Display.to_string(id)}"
 }
 
-fn main(): List<String> {
+fn main() {
     results = concurrent {
         [3, 2, 1]
         |> Iter.filter(active?)
@@ -498,7 +498,7 @@ fn audited_total(): Int {
     first + second
 }
 
-fn main(): Int {
+fn main() {
     dbg handle_order(1)
     dbg handle_order(2)
 
@@ -651,7 +651,7 @@ A cancelled task stops promptly rather than running to completion, and
 
 ```nomi-run
 import {
-    std/tasks.{Outcome, Task}
+    std/tasks.Task
     std/duration.Duration
     std/timer
 }
@@ -662,7 +662,7 @@ fn serve_conn(): Int {
     1
 }
 
-fn main(): Outcome<Int> {
+fn main() {
     outcome = concurrent {
         conn = Task.spawn(|| serve_conn())
         Task.cancel(conn)
@@ -824,7 +824,7 @@ fn slow_bounded(): Int {
     slow()
 }
 
-fn main(): String {
+fn main() {
     outcome = concurrent {
         t = Task.spawn(|| slow_bounded())
         Task.outcome(t)

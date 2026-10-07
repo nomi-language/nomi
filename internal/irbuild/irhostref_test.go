@@ -21,7 +21,7 @@ fn main() {
  dbg xs
  lengths = ["café", "", "hello"] |> Iter.map(String.length) |> Iter.to_list()
  dbg lengths
- contains = String.contains?
+ contains: (String, String) -> Bool = String.contains?
  io.print(contains("abc", "b"))
 }
 `, "dbg line 4: xs = [\"one\", \"two\", \"three\"]\ndbg line 6: lengths = [4, 0, 5]\nTrue\n")

@@ -313,86 +313,18 @@ func isNilNode(n ast.Node) bool {
 	return v.Kind() == reflect.Pointer && v.IsNil()
 }
 
-// childNodes returns n's child AST nodes in field-declaration order, which is
-// source order closely enough for a report.
-//
-// Reflection for the same reason nodePos uses it, and here the stakes are
-// higher: the alternative is a switch over every node type in the language
-// whose only failure mode is SILENT. A kind somebody forgets to add would
-// return no children, and every blocker inside it would vanish from the tally
-// — which is precisely the truncation this walk exists to fix. Cost is
-// irrelevant: it runs only for files that are already being skipped.
+// childNodes returns n's child AST nodes (ast.Children) in field-declaration
+// order, which is source order closely enough for a report. Nodes reached
+// through plain structs and slices count as children: an ast.Param's default
+// value and an ast.CaseBranch's guard and body are expressions in their own
+// right, and the struct they are stored in is a container, not a construct.
 func childNodes(n ast.Node) []ast.Node {
-	if isNilNode(n) {
-		return nil
-	}
-	v := reflect.Indirect(reflect.ValueOf(n))
-	if v.Kind() != reflect.Struct {
-		return nil
-	}
 	var out []ast.Node
-	collectChildFields(v, &out)
+	ast.Children(n, func(c ast.Node) { appendChildNode(c, &out) })
 	return out
 }
 
 var triviaCarrierType = reflect.TypeOf(ast.TriviaCarrier{})
-
-func collectChildFields(v reflect.Value, out *[]ast.Node) {
-	t := v.Type()
-	for i := range t.NumField() {
-		if !t.Field(i).IsExported() {
-			continue
-		}
-		collectChildValue(v.Field(i), out)
-	}
-}
-
-// collectChildValue descends one field. Nodes reached through plain structs and
-// slices count as children: an ast.Param's default value and an ast.CaseBranch's
-// guard and body are expressions in their own right, and the struct they are
-// stored in is a container, not a construct.
-func collectChildValue(v reflect.Value, out *[]ast.Node) {
-	switch v.Kind() {
-	case reflect.Interface:
-		if v.IsNil() {
-			return
-		}
-		if n, ok := v.Interface().(ast.Node); ok {
-			appendChildNode(n, out)
-			return
-		}
-		collectChildValue(v.Elem(), out)
-	case reflect.Pointer:
-		if v.IsNil() {
-			return
-		}
-		if n, ok := v.Interface().(ast.Node); ok {
-			appendChildNode(n, out)
-			return
-		}
-		collectChildValue(v.Elem(), out)
-	case reflect.Slice, reflect.Array:
-		for i := range v.Len() {
-			collectChildValue(v.Index(i), out)
-		}
-	case reflect.Struct:
-		if v.Type() == triviaCarrierType {
-			// Comments and blank lines. No behaviour, and every node embeds
-			// one, so skipping it by type also keeps this walk off a field
-			// that can never contribute.
-			return
-		}
-		// A struct VALUE can still be a node: attached tests are stored as
-		// []ast.AttachedTest, and their methods have pointer receivers.
-		if v.CanAddr() {
-			if n, ok := v.Addr().Interface().(ast.Node); ok {
-				appendChildNode(n, out)
-				return
-			}
-		}
-		collectChildFields(v, out)
-	}
-}
 
 // appendChildNode records one child, minus the two kinds of node that are not
 // blockers in their own right.

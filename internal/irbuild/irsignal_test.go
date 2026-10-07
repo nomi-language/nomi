@@ -5,7 +5,7 @@ import (
 )
 
 func TestIRSignal_TourBreakAndContinue(t *testing.T) {
-	verifyLambdaProgram(t, `fn main(): List<Int> {
+	verifyLambdaProgram(t, `fn main() {
   // break in reduce — stop accumulating once total would exceed 60.
   partial_sum =
     [10, 20, 30, 40, 50]

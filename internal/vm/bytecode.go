@@ -878,6 +878,9 @@ func (cp *compiler) call(n *ir.Call) bool {
 	if err != nil {
 		return false
 	}
+	if cp.forwardedHostCall(n, callee) {
+		return true
+	}
 	banks := paramBanks(callee)
 	if len(banks) != n.NumArgs() {
 		return false
@@ -905,12 +908,13 @@ func (cp *compiler) call(n *ir.Call) bool {
 	return true
 }
 
-// hostCall is one opHost site: the call, its bound adapter, and the operands
-// it reads.
+// hostCall is one opHost site: the call, its bound adapter, the operands it
+// reads and the register its result goes to.
 type hostCall struct {
 	call *ir.Call
 	fn   hostadapt.Func
 	args []ir.Temp
+	dst  ir.Temp
 }
 
 // hostCall compiles a crossing whose name a bound adapter answers into
@@ -929,9 +933,102 @@ func (cp *compiler) hostCall(n *ir.Call) bool {
 	for i := range args {
 		args[i] = n.Arg(i)
 	}
-	cp.c.hostCalls = append(cp.c.hostCalls, hostCall{call: n, fn: fn, args: args})
+	cp.c.hostCalls = append(cp.c.hostCalls, hostCall{call: n, fn: fn, args: args, dst: n.Dst()})
 	cp.emit(cp.op(opHost, uint32(len(cp.c.hostCalls)-1)))
 	return true
+}
+
+// forwardedHostCall compiles a call to a function whose whole body is one
+// crossing over its own parameters, returned as it is, into that crossing
+// at the call site: opHost reading the caller's arguments, with no
+// activation for the callee. `String.split<String>`'s instance is one: its
+// body is `M.split_in(separator, s)`, String's host fn with the parameters
+// swapped. Without it each such call costs an activation and two more
+// instructions than the crossing it forwards to. A fault the crossing raises
+// is reported at the call.
+//
+// A tail call in a function with deferred calls keeps its transfer, since the
+// transfer runs those calls before the callee and the crossing would run
+// them after.
+func (cp *compiler) forwardedHostCall(n *ir.Call, callee *ir.Func) bool {
+	if cp.c.tails[n] && funcDefers(cp.c.fn) {
+		return false
+	}
+	blocks := callee.Blocks()
+	if len(blocks) != 1 || len(callee.Params()) != n.NumArgs() {
+		return false
+	}
+	// param is the caller's argument each of the callee's temporaries holds:
+	// a parameter's own, or a local read of a parameter.
+	param := map[ir.Temp]ir.Temp{}
+	bySym := map[*ir.Symbol]ir.Temp{}
+	for i, p := range callee.Params() {
+		param[p.Temp] = n.Arg(i)
+		if p.Sym != nil {
+			bySym[p.Sym] = n.Arg(i)
+		}
+	}
+	var inner *ir.Call
+	result := map[ir.Temp]bool{}
+	for _, in := range blocks[0].Instrs() {
+		switch x := in.(type) {
+		case *ir.Slot:
+		case *ir.Ref:
+			arg, isParam := bySym[x.Sym()]
+			if inner != nil || x.Kind() != ir.RefLocal || !isParam {
+				return false
+			}
+			param[x.Dst()] = arg
+		case *ir.Call:
+			if inner != nil || x.Form() != ir.CalleeDirect || !x.Crosses() {
+				return false
+			}
+			inner = x
+			result[x.Dst()] = true
+		case *ir.Copy:
+			if !result[x.Src()] {
+				return false
+			}
+			result[x.Dst()] = true
+		default:
+			return false
+		}
+	}
+	ret, isRet := blocks[0].Term().(*ir.Return)
+	if inner == nil || !isRet || ret.Ctl() != ir.CtlNone || !ret.HasVal() || !result[ret.Val()] {
+		return false
+	}
+	name := inner.Callee().Name()
+	if cp.m.hosts[name] != nil {
+		return false
+	}
+	fn, err := cp.m.adapter(name)
+	if err != nil || fn == nil {
+		return false
+	}
+	args := make([]ir.Temp, inner.NumArgs())
+	for i := range args {
+		arg, isParam := param[inner.Arg(i)]
+		if !isParam {
+			return false
+		}
+		args[i] = arg
+	}
+	cp.c.hostCalls = append(cp.c.hostCalls, hostCall{call: inner, fn: fn, args: args, dst: n.Dst()})
+	cp.emit(cp.op(opHost, uint32(len(cp.c.hostCalls)-1)))
+	return true
+}
+
+// funcDefers reports whether f registers a deferred call anywhere.
+func funcDefers(f *ir.Func) bool {
+	for _, b := range f.Blocks() {
+		for _, in := range b.Instrs() {
+			if _, isDefer := in.(*ir.Defer); isDefer {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // term compiles a block's terminator.

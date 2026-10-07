@@ -34,7 +34,7 @@ func redundantNames(items []analysis.UnusedImport) []string {
 // unused-import check stays silent because `Iter.loop` references the binding,
 // yet the import establishes a binding the file already had.
 func TestRedundantPreludeImport_UsedNameStillReported(t *testing.T) {
-	src := "import std/iter.Iter\n\nfn main(): Int {\n  Iter.loop(|n = 0| { break n })\n}\n"
+	src := "import std/iter.Iter\n\nfn demo(): Int {\n  Iter.loop(|n = 0| { break n })\n}\n"
 	got, _, _ := findRedundantWithStdlib(t, src)
 	if len(got) != 1 {
 		t.Fatalf("expected 1 redundant import, got %v", redundantNames(got))
@@ -120,11 +120,11 @@ func TestRedundantPreludeImport_LoadBearingImportsExempt(t *testing.T) {
 	}, {
 		// An alias is a new name, not a duplicate binding.
 		name: "aliased item",
-		src:  "import std/iter.Iter as It\n\nfn main(): Int {\n  It.loop(|n = 0| { break n })\n}\n",
+		src:  "import std/iter.Iter as It\n\nfn demo(): Int {\n  It.loop(|n = 0| { break n })\n}\n",
 	}, {
 		// The prelude exports `Iter`, never bare `loop`.
 		name: "drill-through past the prelude's stopping point",
-		src:  "import std/iter.Iter.{loop}\n\nfn main(): Int {\n  loop(|n = 0| { break n })\n}\n",
+		src:  "import std/iter.Iter.{loop}\n\nfn demo(): Int {\n  loop(|n = 0| { break n })\n}\n",
 	}, {
 		// Ordering's variants are deliberately not preluded.
 		name: "variant drill-through",

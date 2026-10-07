@@ -152,3 +152,26 @@ func fnMainAfter(decls, body string) string {
 	}
 	return "import std/io\n\n" + decls + "fn main() {\n" + strings.Join(lines, "\n") + "\n}\n"
 }
+
+// TestRefactor_DamagedDeclarationOffersNoRewrite: in a declaration the
+// parser had to repair while it is being typed, no rewrite is offered.
+// The rewrites render parts of the declaration with the formatter, which
+// cannot render the parser's stand-in for the unreadable text, and a
+// rewrite of half-read code would invent the other half. Found by
+// TestLSPSurvivesTyping: each request panicked.
+func TestRefactor_DamagedDeclarationOffersNoRewrite(t *testing.T) {
+	for _, src := range []string{
+		// Convert to case, over an `if` whose else branch is broken.
+		"fn count(n: Int): Int {\n    ‸if n == 0 { 0 } else { count(n -)} n))\n    }\n}\n",
+		// Convert from pipe, over a pipe whose lambda is broken.
+		"fn main() {\n    mapped =\n        [1, 2, 3]\n        |> Iter.map(‸|x| {\n            if x })0 }\n            x * 10\n        })\n        |> Iter.to_list()\n    dbg mapped\n}\n",
+		"import std/io\n\nfn main() {\n    result =\n        Range.naturals()\n        |> Iter.map(|n| {\n            io.print(\"squaring ${}\")})   |> Iter.take‸(2)\n        |> Iter.to_list()\n    dbg result\n}\n",
+	} {
+		actions, _ := refactorActions(t, NewServer(), src)
+		for _, a := range actions {
+			if a.Kind != nil && strings.HasPrefix(string(*a.Kind), "refactor") {
+				t.Errorf("offered %q in a damaged declaration:\n%s", a.Title, src)
+			}
+		}
+	}
+}

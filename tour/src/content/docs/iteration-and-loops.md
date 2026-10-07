@@ -39,7 +39,7 @@ Each iteration returns either the next state (continue looping) or
 tuple, struct, or whatever shape fits the loop:
 
 ```nomi-run
-fn main(): Int {
+fn main() {
     // Countdown — break when n reaches 0.
     countdown = Iter.loop(|n = 5| {
         if n == 0 { break n }
@@ -73,7 +73,7 @@ The same control-flow keywords work inside the lambdas you pass to
 iteration early; `continue` skips the current element:
 
 ```nomi-run
-fn main(): List<Int> {
+fn main() {
     // break in reduce — stop accumulating once total would exceed 60.
     partial_sum =
         [10, 20, 30, 40, 50]
@@ -111,7 +111,7 @@ scoping rule that makes `try` on a `Result` inside a lambda bubble to the
 lambda's own boundary, not the enclosing fn.
 
 ```nomi-run
-fn main(): List<Int> {
+fn main() {
     // `return 300` exits the map callback's lambda; the map keeps going
     // and the value lands in the output list at this position.
     mapped =

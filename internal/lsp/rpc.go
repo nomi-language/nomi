@@ -130,7 +130,7 @@ func (h *rpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 	}
 	gctx := h.glspContext(ctx, conn, req)
 	if req.Notif {
-		h.inner.Handle(gctx)
+		h.notification(gctx)
 		return
 	}
 	switch req.Method {
@@ -182,9 +182,22 @@ func (h *rpcHandler) run(ctx context.Context, gctx *glsp.Context, req *jsonrpc2.
 	return h.call(gctx)
 }
 
+// notification runs a notification's glsp handler. A panic in it is logged
+// (recover.go); a notification has no answer to carry it.
+func (h *rpcHandler) notification(gctx *glsp.Context) {
+	defer recoverPanic(gctx.Method, nil)
+	fault(gctx.Method)
+	h.inner.Handle(gctx)
+}
+
 // call runs the glsp handler and maps its outcome to JSON-RPC errors the
-// way glsp's own loop does.
-func (h *rpcHandler) call(gctx *glsp.Context) (any, error) {
+// way glsp's own loop does. A panic in the handler answers the request with
+// an InternalError (recover.go).
+func (h *rpcHandler) call(gctx *glsp.Context) (result any, err error) {
+	defer recoverPanic(gctx.Method, func(p *serverPanic) {
+		result, err = nil, &jsonrpc2.Error{Code: jsonrpc2.CodeInternalError, Message: p.Error()}
+	})
+	fault(gctx.Method)
 	result, validMethod, validParams, err := h.inner.Handle(gctx)
 	switch {
 	case !validMethod:

@@ -116,3 +116,14 @@ func TestCompletion_TestGroupLineSnippets(t *testing.T) {
 		t.Fatalf("setup snippet = %q", te.NewText)
 	}
 }
+
+// TestCompletion_TestGroupLinePlainNamesTheTest: without snippets the test
+// line inserts a placeholder name, as the snippet does, since an empty test
+// name is a checker error.
+func TestCompletion_TestGroupLinePlainNamesTheTest(t *testing.T) {
+	src := "tests \"g\" {\n    boot server.boot(s)\n    " + cursorMark + "\n}\n"
+	items := completeWith(t, false, src)
+	if te := textEditOf(t, mustItem(t, items, "test")); te.NewText != "test \"name\" {\n        \n    }" {
+		t.Fatalf("test line = %q", te.NewText)
+	}
+}

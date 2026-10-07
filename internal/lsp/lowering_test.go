@@ -90,13 +90,18 @@ func notSupported(diags []protocol.Diagnostic) []protocol.Diagnostic {
 }
 
 // Opening a file reports what `nomi check` reports beyond the front end; an
-// edit keeps it until the next save; a save that finds the code lowers clears
-// it.
+// edit keeps it until the next run; a save, which runs at once, clears it
+// when it finds the code lowers. The edit's own debounced run is held off
+// here, so the save's run is the one that clears it
+// (lowering_edit_test.go covers the edit's).
 func TestLoweringDiagnostics_ReportedOnOpenAndClearedBySave(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
 	s, uri, path, published := openLoweringDoc(t, loweringBlocked)
+	s.lowering.mu.Lock()
+	s.lowering.delay = time.Hour
+	s.lowering.mu.Unlock()
 	diags := awaitPublish(t, published, "with the lowering diagnostic", func(d []protocol.Diagnostic) bool {
 		return len(notSupported(d)) > 0
 	})
@@ -113,8 +118,8 @@ func TestLoweringDiagnostics_ReportedOnOpenAndClearedBySave(t *testing.T) {
 		t.Fatalf("the diagnostic names compiler internals: %q", got[0].Message)
 	}
 
-	// The fix, typed but not saved: the front end's publish still carries
-	// the last save's lowering diagnostic.
+	// The fix, typed and not yet lowered: the front end's publish still
+	// carries the last run's lowering diagnostic.
 	ctx := &glsp.Context{Notify: s.notify}
 	if err := s.textDocumentDidChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument:   protocol.VersionedTextDocumentIdentifier{TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}, Version: 2},
@@ -141,6 +146,24 @@ func TestLoweringDiagnostics_ReportedOnOpenAndClearedBySave(t *testing.T) {
 	})
 	if d := s.lowering.diagnostics(uri); len(d) != 0 {
 		t.Fatalf("the saved fix kept lowering diagnostics: %+v", d)
+	}
+}
+
+// A project file imported only at the top of a block is in the program the
+// editor lowers, as it is in the one `nomi run` lowers, so its qualified call
+// is no lowering diagnostic.
+func TestLoweringDiagnostics_BlockImportedProjectFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	src := "import std/io\n\nfn main() {\n    import shapes\n    io.inspect(shapes.area(2))\n}\n"
+	dir := writeProject(t, map[string]string{
+		"main.nomi":   src,
+		"shapes.nomi": "pub fn area(r: Int): Int {\n    r * 3\n}\n",
+		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+	})
+	if d := loweringDiagnostics(filepath.Join(dir, "main.nomi"), src); len(d) != 0 {
+		t.Fatalf("lowering diagnostics %+v; want none", d)
 	}
 }
 

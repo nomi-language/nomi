@@ -57,3 +57,23 @@ func TestDict_BoundsAreTheMergeOfTwoSyntaxes(t *testing.T) {
 		t.Fatalf("typeParamBoundsOf = %#v, want one T bounded by Shout", got)
 	}
 }
+
+// An interface call on a sibling type imported under an alias
+// (testdata/dictalias: `gadget.{Gadget as Doodad, Shout}`) reaches the
+// sibling's impl. Dispatch keys on the type's declaration, so the alias the
+// importing file binds cannot change which impl answers.
+func TestDict_AnAliasedTypeImportDispatchesToItsImpl(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	path := fixture("dictalias/dictalias.nomi")
+	got := vmReference(path)
+	if want := "gadget 3\n"; got.stdout != want || got.stderr != "" || got.exit != 0 {
+		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",
+			got.exit, got.stdout, got.stderr, want)
+	}
+	golden := goldenReference(t, path)
+	if golden.stdout != got.stdout || golden.exit != got.exit {
+		t.Errorf("golden record differs from the VM (exit %d):\n%s", golden.exit, golden.stdout)
+	}
+}

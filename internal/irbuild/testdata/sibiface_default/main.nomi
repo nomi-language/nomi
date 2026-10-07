@@ -1,12 +1,11 @@
 // A SHORT call to a sibling file's interface default — the argument the callee
 // supplies from its own default parameter value.
 //
-// `siblingIfaceCall` finds its candidate by matching the whole argument list
-// against each indexed site's declared parameters, ARITY INCLUDED, so
-// `Powered.describe(e)` against `fn describe(e: self, mode: Mode = .Fast)`
-// must count the defaulted parameter as optional when matching arity, or the
-// route offers no candidate and the call is refused even though the impl is
-// lowered one file over.
+// `Powered.describe(e)` reaches the one `describe` engine.nomi writes for
+// Engine through `siblingReceiverPlan` and `qualSiblingIfaceImplPlan`, and
+// omits `mode` from `fn describe(e: self, mode: Mode = .Fast)`, so
+// `siblingDefaultArgs` must build the default here, or the call is refused
+// even though the impl is lowered one file over.
 //
 // BOTH SPELLINGS ARE HERE, and the pair is the assertion rather than either
 // alone. The full call needs no default, so it

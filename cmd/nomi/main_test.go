@@ -199,6 +199,55 @@ func TestRunFile_GoBindings(t *testing.T) {
 	}
 }
 
+// TestRunFile_GoBindingsInTwoFilesWithOneBaseName runs a program importing
+// a/util.nomi and b/util.nomi, each binding its own Go function as greet and
+// one more under a name of its own. Keyed by base name, both greets crossed
+// as util.greet: the wrapper's host table did not compile ("duplicate key"),
+// and with the names apart b's only_b was looked up in a/util.nomi and
+// refused. `nomi build`'s executable must agree with `nomi run`.
+func TestRunFile_GoBindingsInTwoFilesWithOneBaseName(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	cacheRoot := t.TempDir()
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "go.mod"), "module twoutil\n\ngo 1.27.0\n")
+	mustWrite(t, filepath.Join(root, "nomi.toml"), "[module]\nname = \"twoutil\"\nentry_points = [\"main\"]\n")
+	for _, side := range []string{"a", "b"} {
+		mustWrite(t, filepath.Join(root, "go"+side, "go"+side+".go"), fmt.Sprintf(
+			"package go%[1]s\n\nfunc Greet() string { return \"greet from %[1]s\" }\n\nfunc Only() string { return \"only %[1]s\" }\n", side))
+		mustWrite(t, filepath.Join(root, side, "util.nomi"), fmt.Sprintf(
+			"gopkg \"twoutil/go%[1]s\"\n\npub fn greet(): String go go%[1]s.Greet\n\npub fn only_%[1]s(): String go go%[1]s.Only\n", side))
+	}
+	entry := filepath.Join(root, "main.nomi")
+	mustWrite(t, entry, `import {
+    std/io
+    a/util
+    b/util as butil
+}
+
+fn main() {
+    io.print(util.greet())
+    io.print(butil.greet())
+    io.print(util.only_a())
+    io.print(butil.only_b())
+}
+`)
+	want := "greet from a\ngreet from b\nonly a\nonly b\n"
+	out, err := runNomi(t, cacheRoot, "run", entry)
+	if err != nil || out != want {
+		t.Fatalf("nomi run: %v\ngot:\n%s\nwant:\n%s", err, out, want)
+	}
+	bin := filepath.Join(t.TempDir(), "twoutil")
+	if out, err := runNomi(t, cacheRoot, "build", "-o", bin, entry); err != nil {
+		t.Fatalf("nomi build: %v\n%s", err, out)
+	}
+	got, err := exec.Command(bin).CombinedOutput()
+	if err != nil || string(got) != want {
+		t.Fatalf("built executable: %v\ngot:\n%s\nwant:\n%s", err, got, want)
+	}
+}
+
 func TestRunFile_InlineGoCompileErrorPointsAtNomiSource(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

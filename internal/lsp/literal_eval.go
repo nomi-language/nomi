@@ -354,6 +354,20 @@ func evaluateLiterals(ctx context.Context, path, content string, lits []staticLi
 	return results
 }
 
+// safeEvaluateLiterals is evaluateLiterals for a background run. A panic
+// records every literal as skipped, so publishing the buffer again does not
+// start the evaluation again (recover.go).
+func safeEvaluateLiterals(ctx context.Context, uri, path, content string, lits []staticLiteral) (results map[string]literalResult) {
+	defer recoverPanic("evaluating typed literals in "+uri, func(*serverPanic) {
+		results = map[string]literalResult{}
+		for _, lit := range lits {
+			results[lit.key] = literalResult{skipped: true, why: "internal error"}
+		}
+	})
+	fault("literals")
+	return evaluateLiterals(ctx, path, content, lits)
+}
+
 // probeResult reads a probe's Result<String, String>.
 func probeResult(v vmhost.Value) (literalResult, bool) {
 	rec, ok := v.(*rt.Record)
@@ -434,7 +448,7 @@ func (s *Server) literalResults(snap *analysis.DocSnapshot, lits []staticLiteral
 	s.literals.mu.Unlock()
 	go func() {
 		defer cancel()
-		results := evaluateLiterals(ctx, path, content, missing)
+		results := safeEvaluateLiterals(ctx, uri, path, content, missing)
 		s.literals.mu.Lock()
 		if s.literals.running[uri] == run {
 			delete(s.literals.running, uri)

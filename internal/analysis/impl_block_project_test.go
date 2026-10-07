@@ -93,7 +93,7 @@ impl Speech for Dog {
     fn speak(d: Dog): String { d.name }
 }
 
-fn main(): String {
+fn demo(): String {
     Speech.speak(Dog{name: "Rex"})
 }`
 	errs := buildImplBlockProject(src)

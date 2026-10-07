@@ -99,10 +99,16 @@ type Modules struct {
 	byName map[string]*Module
 }
 
+// NewModules starts an empty module set over source, loading only what is
+// asked for. LoadModules is the set an adapter is generated from.
+func NewModules(source func(module string) ([]byte, bool)) *Modules {
+	return &Modules{source: source, byName: map[string]*Module{}}
+}
+
 // LoadModules starts a module set over source, with std's prelude enums
 // loaded and their tag order checked.
 func LoadModules(source func(module string) ([]byte, bool)) (*Modules, error) {
-	ms := &Modules{source: source, byName: map[string]*Module{}}
+	ms := NewModules(source)
 	for _, prelude := range []string{"maybe", "results"} {
 		if _, err := ms.Load(prelude); err != nil {
 			return nil, err

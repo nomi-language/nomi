@@ -9,7 +9,7 @@ import (
 func TestIRListOps_NominalElementsRetain(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `struct Box { value: Int }
 fn choose(xs: List<Box>): Maybe<Box> { List.head(xs) }
-fn main(): Maybe<Box> { choose([Box{value: 7}]) }
+fn main() { _ = choose([Box{value: 7}]) }
 `)
 	if err != nil {
 		t.Fatal(err)

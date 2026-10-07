@@ -590,6 +590,14 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 			args, ok, holes = cur.args, true, cur.holes
 		} else {
 			args, ok = bl.g.stdInstSolve(f, tps, ib, params, result, self)
+			// kindInvalid: sentinel — no receiver kind selects this member.
+			if !ok && self != kindInvalid {
+				// A receiver built with a type argument nothing determined
+				// (`(1, Ok(f)).1`, whose error type is the Unit the
+				// constructor read the hole as): the receiver's own kind
+				// is the instance, Unit included.
+				args, ok = bl.g.stdInstSolveHoled(f, tps, ib, params, result, self, true)
+			}
 		}
 		if ft := bl.g.checkedCallSignature(t); !ok && ft != nil {
 			// A type argument nothing in the program constrains
@@ -795,6 +803,20 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 	}
 	base := irContainerBaseName(k)
 	if base == "" {
+		if ti, isType := fa.Object.(*ast.TypeIdent); isType {
+			if iface := bl.stdBoundIfaceAt(ti.Name, k, method); iface != "" {
+				// `M.split_in(sep, s)` in `String.split<Regex>`: a std host
+				// type no std module's scope names, so the call is the
+				// bound interface's at that receiver, which stdIfacePlan
+				// selects by the receiver's kind.
+				call := *t
+				call.TypeArgs = nil
+				call.Func = &ast.FieldAccess{Object: &ast.TypeIdent{Name: iface, Line: fa.Line, Col: fa.Col},
+					Field: fa.Field, Line: fa.Line, Col: fa.Col}
+				v, rk, mobile, ok := bl.lower(&call)
+				return v, rk, mobile, ok, true
+			}
+		}
 		return no()
 	}
 	f := bl.g.stdGenericTemplate(base, method)
@@ -802,6 +824,32 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 		return no()
 	}
 	return bl.stdInstCallAt(t, f, k)
+}
+
+// stdBoundIfaceAt is the interface among the bounds the instance being built
+// declares for type parameter tp that std implements at k with a function
+// named method, or "" when there is not exactly one.
+func (bl *irScalarBuilder) stdBoundIfaceAt(tp string, k kind, method string) string {
+	cur := bl.g.stdInstCur
+	if cur == nil || cur.fd == nil || bl.g.std == nil {
+		return ""
+	}
+	found := ""
+	for _, b := range typeParamBoundsOf(cur.fd.TypeParams, cur.fd.WhereClauses) {
+		if b.name != tp {
+			continue
+		}
+		for _, iface := range b.bounds {
+			if len(bl.g.std.byIface[iface+"."+method][k]) == 0 {
+				continue
+			}
+			if found != "" {
+				return ""
+			}
+			found = iface
+		}
+	}
+	return found
 }
 
 // irKindOwnerName is the owner a type-qualified call spells for k in this
@@ -924,7 +972,11 @@ func irContainerBaseName(k kind) string {
 // preempt.
 func irOwnOperationFamily(owner, method string) bool {
 	switch owner {
-	case "Iter", "Range", "Map", "List", "Vector", "Set", "Channel", "Sender", "Receiver",
+	case "Iter":
+		// The constructors, `loop` and the operations iterCall lowers.
+		_, own := irIterOwnArity(method)
+		return own || method == "from" || method == "iterate" || method == "repeat" || method == "loop"
+	case "Range", "Map", "List", "Vector", "Set", "Channel", "Sender", "Receiver",
 		"Task", "Supervisor", "Struct":
 		return true
 	case "Result":
@@ -953,6 +1005,78 @@ func irOnlyEmptyListsUnsolved(t *ast.Call, ft *analysis.FuncType) bool {
 		open = true
 	}
 	return open
+}
+
+// projectFilledHoles is the kind of ty with the holes the checker left open
+// filled as a user generic call's are (checkedMonoTypeArgsFilled): a hole
+// that is a collection's element or key (`Map.empty()`'s, `[]`'s) as Int, the
+// representation of an element the program never holds, and any other hole
+// (`Ok(1)`'s error type) as Unit. It answers kindInvalid when the filled
+// type has no representation.
+func (g *gen) projectFilledHoles(ty analysis.Type) kind {
+	// kindInvalid: lookup — a filled type with no kind answers kindInvalid to the caller, which decides.
+	if k := g.project(irFillHolesByPosition(ty, false)); k != kindInvalid && irCallableValueKind(k) {
+		return k
+	}
+	return kindInvalid
+}
+
+// irFillHolesByPosition is ty with each open hole filled: Int when it is a
+// collection's type argument (elem), Unit otherwise.
+func irFillHolesByPosition(ty analysis.Type, elem bool) analysis.Type {
+	switch t := ty.(type) {
+	case *analysis.TypeVar:
+		if t.Resolved != nil {
+			return irFillHolesByPosition(t.Resolved, elem)
+		}
+		if elem {
+			return analysis.TypeInt
+		}
+		return analysis.TypeUnit
+	case *analysis.ListType:
+		return &analysis.ListType{Elem: irFillHolesByPosition(t.Elem, true)}
+	case *analysis.MapType:
+		return &analysis.MapType{Key: irFillHolesByPosition(t.Key, true), Val: irFillHolesByPosition(t.Val, true)}
+	case *analysis.TupleType:
+		elems := make([]analysis.Type, len(t.Elems))
+		for i, e := range t.Elems {
+			elems[i] = irFillHolesByPosition(e, false)
+		}
+		return &analysis.TupleType{Elems: elems}
+	case *analysis.FuncType:
+		c := *t
+		c.Params = make([]analysis.Type, len(t.Params))
+		for i, p := range t.Params {
+			c.Params[i] = irFillHolesByPosition(p, false)
+		}
+		c.Return = irFillHolesByPosition(t.Return, false)
+		return &c
+	case *analysis.EnumType:
+		c := *t
+		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
+		for i, a := range t.TypeArgs {
+			c.TypeArgs[i] = irFillHolesByPosition(a, false)
+		}
+		return &c
+	case *analysis.StructType:
+		// A generic std struct here is a collection (`Set<T>`); a user
+		// generic struct's argument is filled as an enum's is.
+		c := *t
+		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
+		for i, a := range t.TypeArgs {
+			c.TypeArgs[i] = irFillHolesByPosition(a, analysis.IsStdlibKey(t.Origin))
+		}
+		return &c
+	case *analysis.DistinctType:
+		// `Vector<T>`, a std host type over its elements.
+		c := *t
+		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
+		for i, a := range t.TypeArgs {
+			c.TypeArgs[i] = irFillHolesByPosition(a, true)
+		}
+		return &c
+	}
+	return ty
 }
 
 // irFillHoles is ty with every inference variable the checker left open

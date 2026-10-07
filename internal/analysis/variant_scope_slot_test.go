@@ -52,7 +52,7 @@ fn qualified(op: Op): Bool {
     }
 }
 
-pub fn main(): String {
+pub fn demo(): String {
     a: Op = .ToJson
     b = Op.ToJson
     j = encode(P{n: 1})
@@ -111,7 +111,7 @@ fn describe(v: Value): String {
     }
 }
 
-pub fn main(): String {
+pub fn demo(): String {
     describe(.Count(2))
 }
 `

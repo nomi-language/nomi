@@ -83,7 +83,7 @@ func TestPipeStage_CallsLambdasAndKeywordsAreAccepted(t *testing.T) {
 		"x = Some(3) |> try",
 		"x = [1, 2] |> Iter.map(double) |> Iter.to_list()",
 	} {
-		src := pipeStageDecls + "fn main(): Maybe<Unit> {\n  " + stmt + "\n  _ = x\n  Some(Unit)\n}\n"
+		src := pipeStageDecls + "fn demo(): Maybe<Unit> {\n  " + stmt + "\n  _ = x\n  Some(Unit)\n}\n"
 		_, errs := checkSourceWithStdlib(src)
 		expectNoStdlibErrors(t, errs)
 	}

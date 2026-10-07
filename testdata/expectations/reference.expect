@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
-records 29
-declared-cases 290
+records 30
+declared-cases 293
 failing 0
 C assertions
 E 0
@@ -208,8 +208,8 @@ T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
 T ok PositiveInt.to_non_zero
 C iter
 E 0
-N 39
-H af76ac73f99bf0a444e5fdb18c041ef841a1b86b141645000daa55dfab99655c
+N 40
+H fa4b9506b93a66ea806d00a93142104f0460b750c52336018caf105cd8c67e3f
 T ok Iter.loop
 T ok Iter.reduce
 T ok Iter.find
@@ -226,6 +226,7 @@ T ok Iter.last
 T ok Iter.at
 T ok Iter.partition
 T ok Iter.group_by
+T ok Iter.frequencies
 T ok Iter.to_list
 T ok Iter.to_vector
 T ok Iter.to_set
@@ -281,6 +282,11 @@ T ok Map.contains_key?
 T ok Map.map_values
 T ok Map.map_keys
 T ok Map.add (impl Add<Map<K, V>, Map<K, V>> for Map<K, V>)
+C matcher
+E 0
+N 1
+H 90184696d8d380b04e0ccff629ad1df93c1ddaca7d61ee18d9d2f1d7931c48aa
+T ok interface Matcher
 C maybe
 E 0
 N 9
@@ -361,8 +367,8 @@ T ok Set.add (impl Add<Set<T>, Set<T>> for Set<T>)
 T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
 C strings
 E 0
-N 21
-H 87ee46fb61f73ef3574476ac0037b98b21cf607c9d53c32e72962398fe9304e0
+N 22
+H e7c969710a36a909f8457276053851626502a9fd5da5cddb25fdc2786dfccb8f
 T ok String.contains?
 T ok String.starts_with?
 T ok String.ends_with?
@@ -375,6 +381,7 @@ T ok String.normalize
 T ok String.slice
 T ok String.join
 T ok String.split
+T ok String.find_all
 T ok String.words
 T ok String.lines
 T ok String.trim

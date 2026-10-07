@@ -43,3 +43,40 @@ fn main() {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}
 }
+
+// An `if` or `case` whose arms are a `List<Int>` and a generic call the
+// expected `Iter<Int>` instantiated (`pick`'s T is the sequence there) is
+// typed as the sequence, whichever arm comes first, and the list arm is
+// viewed as it.
+func TestIRInferredBranch_ListArmBesideASequenceArm(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	const src = `import std/io
+
+fn pick<T>(c: Bool, a: T, b: T): T {
+    if c { a } else { b }
+}
+
+fn by_if(b: Bool, ys: List<Int>): List<Int> {
+    Iter.filter(if b { ys } else { pick(True, [3], [4]) }, |x| x > 1)
+    |> Iter.to_list()
+}
+
+fn by_case(m: Maybe<List<Int>>): List<Int> {
+    Iter.filter(case m {
+        Some(o) -> o
+        None -> pick(False, [7], [8])
+    }, |x| x > 5)
+    |> Iter.to_list()
+}
+
+fn main() {
+    io.inspect(by_if(True, [1, 2]))
+    io.inspect(by_if(False, [1, 2]))
+    io.inspect(by_case(Some([5, 6])))
+    io.inspect(by_case(None))
+}
+`
+	irRunSource(t, src, "[2]\n[3]\n[6]\n[8]\n")
+}

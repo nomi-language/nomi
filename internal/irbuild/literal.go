@@ -236,7 +236,7 @@ func (g *gen) literalImpl(t *ast.TaggedString) (literalTarget, bool) {
 		h.rivalled = rivalled
 		return h, true
 	}
-	return g.stdLiteralImpl(t.Tag, fd.Name, label)
+	return g.stdLiteralImpl(t.Tag, fd, label)
 }
 
 // literalHandlerRivals reports whether MORE THAN ONE written impl block
@@ -387,26 +387,29 @@ func (g *gen) importLiteralSig(f *fileFunc) ([]kind, kind, bool) {
 }
 
 // stdLiteralImpl is the stdlib half of literalImpl: the anchored type's own
-// `from_fragments`.
+// `from_fragments`, fd being the handler the checker resolved.
 //
 // Declines rather than refusing for every miss, so the caller's refusal keeps
 // naming the handler. A tag that is not an anchored std type, a std module that
 // declares no such handler, and a handler the stdlib index itself refused are
 // three different misses and none of them is this function's to report.
-func (g *gen) stdLiteralImpl(tag, method, label string) (literalTarget, bool) {
+//
+// A tag whose name this unit's scope does not anchor (a std attached test that
+// imports `std/regex.Regex` inside its own block) is still std's when the
+// handler the checker resolved is the index's declaration itself.
+func (g *gen) stdLiteralImpl(tag string, fd *ast.FuncDef, label string) (literalTarget, bool) {
 	if g.std == nil {
 		return literalTarget{}, false
 	}
+	method := fd.Name
 	d, isNamed := g.namedType(tag)
-	if !isNamed || !d.rtDeclared {
-		return literalTarget{}, false
-	}
+	anchored := isNamed && d.rtDeclared
 	// stdSole, not a pick: the desugaring has no argument kinds yet — it is
 	// deciding what the handler's parameter type IS — so a spelling several
 	// declarations answer to has nothing here to choose between them with, and
 	// declining keeps the caller's refusal naming the handler.
 	f := stdSole(g.std.byType[tag+"."+method])
-	if f == nil || !f.lowerable() {
+	if f == nil || !f.lowerable() || (!anchored && f.decl != fd) {
 		return literalTarget{}, false
 	}
 	if len(f.params) != 1 || f.result.def == nil {

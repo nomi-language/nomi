@@ -61,7 +61,7 @@ fn classify(m: Maybe<Shape>): Int {
 fn outcome(r: Result<Shape, String>): String {
   case r {
     Ok(Shape.Circle(_)) -> "circle"
-    Ok(other) -> "other"
+    Ok(_other) -> "other"
     Err(e) -> e
   }
 }
@@ -281,7 +281,7 @@ fn pick(inbox: Channel<Request>): Int {
   }
 }
 
-fn main(): Int { pick(Channel.buffered<Request>(1)) }
+fn main() { _ = pick(Channel.buffered<Request>(1)) }
 `},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

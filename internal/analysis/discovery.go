@@ -209,14 +209,38 @@ func DiscoverProjectWithManifest(entryNodes []ast.Node, projectRoot string, load
 	return p, nil
 }
 
-// importsOf returns the module path of every import in the given top-
-// level nodes. Both ImportStmt and the entries of ImportBlock contribute.
-// Stdlib paths are returned alongside user-module paths — post-cutover,
-// stdlib walks the same BFS path as any other cross-module dep.
+// importsOf returns the module path of every import in the given nodes: at
+// file level, and, for project files only, at the top of any block beneath them (`fn main() {
+// import shapes ... }`), since a file imported only there is as much a part
+// of the program. Both ImportStmt and the entries of ImportBlock
+// contribute. Stdlib paths are returned alongside user-module paths —
+// post-cutover, stdlib walks the same BFS path as any other cross-module
+// dep.
 func importsOf(nodes []ast.Node) [][]string {
 	var paths [][]string
 	for _, n := range nodes {
 		paths = append(paths, importPathsOf(n)...)
+		ast.Inspect(n, func(m ast.Node) bool {
+			if m == n {
+				return true
+			}
+			switch m.(type) {
+			case *ast.ImportStmt, *ast.ImportBlock:
+				// A stdlib module imported in a block stays with the
+				// shared stdlib analysis, as it did before block imports
+				// were followed; discovering it here breaks an aliased
+				// block import of a std type (`import
+				// std/duration.Duration as D` in a test, then
+				// `D.minutes(1)`: "type 'D' has no member 'minutes'").
+				for _, path := range importPathsOf(m) {
+					if len(path) == 0 || path[0] != "std" {
+						paths = append(paths, path)
+					}
+				}
+				return false
+			}
+			return true
+		})
 	}
 	return paths
 }

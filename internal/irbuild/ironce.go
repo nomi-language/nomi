@@ -25,6 +25,13 @@ func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 			return ir.NoTemp, kindInvalid, false, false
 		}
 	}
+	if from := bl.g.namesFromGen(); from != nil {
+		if od := from.onces[t.Name]; od != nil && od.k.tag != tagFunc {
+			// A name an inherited default's declaring file binds to its
+			// `once` (portableDefault): that file's cell.
+			return bl.siblingOnceValue(t, bl.g.namesFrom-1, od)
+		}
+	}
 	if d == nil {
 		g := bl.g
 		if g.files != nil && g.reg != nil {
@@ -35,6 +42,7 @@ func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if !d.lowerable() || !irOnceKind(d.k) {
+		declineOnceRead(d)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	n := ir.NewRefOnce(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irTypes().Symbol(d, d.nomi))
@@ -64,8 +72,29 @@ func (bl *irScalarBuilder) qualifiedOnceValue(t *ast.FieldAccess) (ir.Temp, kind
 	return bl.siblingOnceValue(t, to, g.reg.gens[to].onces[t.Field.Name])
 }
 
+// lowerNamesFrom lowers what follows under the names of the file at unit,
+// where an inherited default was written, until the answer is called.
+func (g *gen) lowerNamesFrom(unit int) func() {
+	prev := g.namesFrom
+	g.namesFrom = unit + 1
+	return func() { g.namesFrom = prev }
+}
+
+// namesFromGen is the gen of the file whose names are being lowered under
+// lowerNamesFrom, or nil.
+func (g *gen) namesFromGen() *gen {
+	if g.namesFrom == 0 || g.reg == nil || g.namesFrom-1 >= len(g.reg.gens) {
+		return nil
+	}
+	return g.reg.gens[g.namesFrom-1]
+}
+
 func (bl *irScalarBuilder) siblingOnceValue(at ast.Node, to int, d *onceDef) (ir.Temp, kind, bool, bool) {
-	if d == nil || !d.lowerable() || !irOnceKind(d.k) {
+	if d == nil {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	if !d.lowerable() || !irOnceKind(d.k) {
+		declineOnceRead(d)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	k, ok := bl.g.refSiblingOnce(at, to, d)
@@ -77,6 +106,17 @@ func (bl *irScalarBuilder) siblingOnceValue(at ast.Node, to int, d *onceDef) (ir
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: k})
 	return n.Dst(), k, false, true
+}
+
+// declineOnceRead records the open attempt's decline as a read of d, a `once`
+// declared without a type the builder can represent, so a host blames the
+// `once` rather than the name that reads it.
+func declineOnceRead(d *onceDef) {
+	why := d.why
+	if why == "" {
+		why = "a once of a kind outside the domain: " + d.k.nomi()
+	}
+	irDeclineNoteOnce("a read of `once "+d.nomi+"`, which cannot lower: "+why, "once "+d.nomi)
 }
 
 func (g *gen) irOnceLower(d *onceDef) (kind, bool) {
@@ -100,6 +140,7 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 	body := decl.Value
 	var lead []ast.Node
 	if block, ok := body.(*ast.Block); ok {
+		defer g.enterBlockTypes(block)()
 		lead, body = g.irScalarBlock(block, "")
 	}
 	if body == nil {
@@ -161,14 +202,23 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 // withdrawn cell's readers are withdrawn in turn. The stdlib
 // modules are only consulted: their reads already require a retained cell
 // (stdOnceValue's irCell).
+//
+// Each withdrawal is a decline of the withdrawn body (irDeclineWithdrawn), so
+// a host reports it at the `once` whose initializer did not lower rather than
+// as a body that declined for no reason.
 func irWithdrawUnforceableReads(user, libs []*ir.Module) {
 	mods := append(append([]*ir.Module(nil), user...), libs...)
 	for changed := true; changed; {
 		changed = false
 		for _, mod := range user {
 			for _, c := range append([]*ir.Cell(nil), mod.Cells()...) {
-				if body := c.Initializer(); body != nil && !irForcesOnly(body, mods) {
+				body := c.Initializer()
+				if body == nil {
+					continue
+				}
+				if read := irUnforceableRead(body, mods); read != nil {
 					mod.RemoveCell(c)
+					irDeclineWithdrawn("once "+c.Sym().Name(), read)
 					changed = true
 				}
 			}
@@ -176,34 +226,35 @@ func irWithdrawUnforceableReads(user, libs []*ir.Module) {
 	}
 	for _, mod := range user {
 		for _, f := range append([]*ir.Func(nil), mod.Funcs()...) {
-			if !irForcesOnly(f, mods) {
+			if read := irUnforceableRead(f, mods); read != nil {
 				mod.RemoveFunc(f)
+				irDeclineWithdrawn(f.Name(), read)
 			}
 		}
 	}
 }
 
-// irForcesOnly reports whether every once f reads, in its own blocks and in
-// the bodies of the function values it builds, has a cell with a retained
-// initializer in one of mods. The modules are asked directly rather than
-// through a map keyed on the symbol, so a withdrawn cell stops answering the
-// moment RemoveCell takes it out.
-func irForcesOnly(f *ir.Func, mods []*ir.Module) bool {
+// irUnforceableRead is the first read of a once in f, in its own blocks or in
+// the bodies of the function values it builds, that has no cell with a
+// retained initializer in one of mods, or nil when every read has one. The
+// modules are asked directly rather than through a map keyed on the symbol, so
+// a withdrawn cell stops answering the moment RemoveCell takes it out.
+func irUnforceableRead(f *ir.Func, mods []*ir.Module) *ir.Ref {
 	for _, b := range f.Blocks() {
 		for _, in := range b.Instrs() {
 			switch in := in.(type) {
 			case *ir.Ref:
 				if in.Forces() && !irCellForceable(mods, in.Sym()) {
-					return false
+					return in
 				}
 			case *ir.FuncValue:
-				if !irForcesOnly(in.Body(), mods) {
-					return false
+				if read := irUnforceableRead(in.Body(), mods); read != nil {
+					return read
 				}
 			}
 		}
 	}
-	return true
+	return nil
 }
 
 // irCellForceable reports whether some module holds sym's cell with a
@@ -252,6 +303,7 @@ func (bl *irScalarBuilder) ownerOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bo
 		return bl.siblingOnceValue(t, site.unit, g.reg.gens[site.unit].oncesByDecl[ob])
 	}
 	if !d.lowerable() || !irOnceKind(d.k) {
+		declineOnceRead(d)
 		return no()
 	}
 	n := ir.NewRefOnce(g.irNodePos(t), bl.f.NewTemp(), g.irTypes().Symbol(d, d.nomi))

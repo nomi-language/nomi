@@ -20,7 +20,7 @@ enum Event {
   embeds FocusLost
 }
 
-fn main(): List<Event> {
+fn main() {
   events: List<Event> = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
   dbg events
 }
@@ -62,7 +62,7 @@ fn describe(e: Event): String {
   }
 }
 
-fn main(): Event {
+fn main() {
   a = click_at(3)
   dbg a
   io.print(describe(a))

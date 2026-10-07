@@ -91,7 +91,7 @@ impl Literal for Box {
     }
 }
 
-fn main(): Box {
+fn main() {
     dbg Box"hello"
     dbg Box{contents: "world"}
 }

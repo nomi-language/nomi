@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRStepBy_TourDecimalRange(t *testing.T) {
-	verifyLambdaProgram(t, `fn main(): List<Decimal> {
+	verifyLambdaProgram(t, `fn main() {
   1.0d..=1.3d
   |> Range.step_by(0.1d)
   |> Iter.to_list()
@@ -16,7 +16,7 @@ func TestIRStepBy_BoundsZeroStepAndLaziness(t *testing.T) {
 	verifyLambdaProgram(t, `fn steps(r: Range<Decimal>, by: Decimal): List<Decimal> {
   Range.step_by(r, by) |> Iter.to_list()
 }
-fn main(): List<Decimal> {
+fn main() {
   dbg steps(0.0d..1.0d, 0.25d)
   dbg steps(0.0d..=1.0d, 0.25d)
   dbg steps(1.0d..=2.0d, 0.0d)

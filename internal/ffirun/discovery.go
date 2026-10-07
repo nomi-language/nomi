@@ -8,8 +8,8 @@ import (
 	goprinter "go/printer"
 	gotoken "go/token"
 	"os"
-	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -78,6 +78,14 @@ type DiscoveredExport struct {
 	SourceFile  string
 	SourceLine  int
 	SourceCol   int
+	// AlsoDeclaredIn is every other file that declares this binding under the
+	// same Key, for an entry-scoped one (EntryKey != ""). Two files share a Key
+	// only when BindingModule falls back to their base name, with no go.mod
+	// above them (hi.nomi and bin/hi.nomi), and discovery keeps one export for
+	// both.
+	// Either may be the entry, so the wrapper rekeys the binding when the
+	// entry is SourceFile or any of these.
+	AlsoDeclaredIn []string
 }
 
 // Discover scans Nomi source files under projectRoot for source-level Go FFI
@@ -100,13 +108,24 @@ func Discover(projectRoot string) ([]DiscoveredPackage, error) {
 // from the controlling Go module are also scanned so bindings declared in
 // replaced Nomi dependencies are available to the wrapper.
 func DiscoverInScope(projectRoot, sourceRoot string) ([]DiscoveredPackage, error) {
+	return discoverForEntry(projectRoot, sourceRoot, "")
+}
+
+// discoverForEntry is DiscoverInScope that also scans entry, the program's
+// entry file, when the walk would not: an extensionless `#!` script. The walk
+// takes only `.nomi` files, so other extensionless files beside the script
+// (other scripts, a README) stay out of its program.
+func discoverForEntry(projectRoot, sourceRoot, entry string) ([]DiscoveredPackage, error) {
 	files, err := collectNomiSourceFiles(projectRoot, sourceRoot)
 	if err != nil {
 		return nil, err
 	}
+	if entry != "" && !isNomiSourceName(entry) {
+		files = append(files, entry)
+	}
 	byImportPath := make(map[string]*DiscoveredPackage)
 	for _, file := range files {
-		if err := discoverNomiFile(projectRoot, file, byImportPath); err != nil {
+		if err := discoverNomiFile(file, byImportPath); err != nil {
 			return nil, err
 		}
 	}
@@ -140,15 +159,22 @@ func uniqueDiscoveredTypes(types []DiscoveredType) []DiscoveredType {
 }
 
 func uniqueDiscoveredExports(exports []DiscoveredExport) []DiscoveredExport {
-	seen := make(map[string]bool, len(exports))
+	seen := make(map[string]int, len(exports))
 	out := exports[:0]
 	for _, exp := range exports {
 		k := exp.Key + "\x00" + exp.FuncName
-		if seen[k] {
+		if i, ok := seen[k]; ok {
+			kept := &out[i]
+			if kept.EntryKey != "" && exp.SourceFile != kept.SourceFile && !slices.Contains(kept.AlsoDeclaredIn, exp.SourceFile) {
+				kept.AlsoDeclaredIn = append(kept.AlsoDeclaredIn, exp.SourceFile)
+			}
 			continue
 		}
-		seen[k] = true
+		seen[k] = len(out)
 		out = append(out, exp)
+	}
+	for i := range out {
+		sort.Strings(out[i].AlsoDeclaredIn)
 	}
 	return out
 }
@@ -226,11 +252,21 @@ func collectNomiSourceFilesUnder(root string, files *[]string) error {
 			}
 			return nil
 		}
-		if strings.HasSuffix(d.Name(), ".nomi") {
+		if isNomiSourceName(d.Name()) {
 			*files = append(*files, p)
 		}
 		return nil
 	})
+}
+
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+// isNomiSourceName reports whether a file name has the `.nomi` extension.
+func isNomiSourceName(name string) bool {
+	return strings.HasSuffix(name, ".nomi")
 }
 
 func localReplaceDirs(projectRoot string) []string {
@@ -267,7 +303,7 @@ func localReplaceDirs(projectRoot string) []string {
 	return out
 }
 
-func discoverNomiFile(projectRoot, file string, byImportPath map[string]*DiscoveredPackage) error {
+func discoverNomiFile(file string, byImportPath map[string]*DiscoveredPackage) error {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("ffirun: reading %s: %w", file, err)
@@ -284,22 +320,50 @@ func discoverNomiFile(projectRoot, file string, byImportPath map[string]*Discove
 	if len(aliases) == 0 && !hasGoBlock {
 		return nil
 	}
-	moduleName := moduleNameForNomiFile(projectRoot, file)
+	moduleName := moduleNameForNomiFile(file)
 	collectForeignBindings(file, nodes, moduleName, "", aliases, byImportPath)
 	return nil
 }
 
-func moduleNameForNomiFile(projectRoot, file string) string {
+func moduleNameForNomiFile(file string) string {
 	base := filepath.Base(file)
 	if base == "main.nomi" || strings.HasSuffix(base, "_test.nomi") {
 		return ""
 	}
-	rel, err := filepath.Rel(projectRoot, file)
-	if err != nil {
-		return strings.TrimSuffix(base, ".nomi")
+	return BindingModule(file)
+}
+
+// BindingModule is the module part of the key a Go-bound declaration in a
+// file other than the entry crosses into Go under: the file's path relative
+// to the nearest directory at or above it that holds a nomi.toml or a go.mod,
+// "/"-separated and without its .nomi extension. A file at that root is its
+// base name (ffi.nomi declares ffi.open); a/util.nomi declares a/util.open.
+//
+// The path, not the base name, so that a/util.nomi and b/util.nomi in one
+// program register under different keys: under one key the wrapper's host
+// table does not compile, and each file's bindings must find their adapter in
+// their own file. It is relative, so an image `nomi build` writes carries no
+// path of the machine that built it. irbuild names a crossing with it and
+// discovery keys the wrapper's adapter with it, both from the file's absolute
+// path alone, so the two agree whichever file is the entry.
+//
+// With neither file above it, it is the base name.
+func BindingModule(file string) string {
+	name := strings.TrimSuffix(filepath.Base(file), ".nomi")
+	for dir := filepath.Dir(file); ; {
+		if isFile(filepath.Join(dir, "nomi.toml")) || isFile(filepath.Join(dir, "go.mod")) {
+			rel, err := filepath.Rel(dir, file)
+			if err != nil {
+				return name
+			}
+			return strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return name
+		}
+		dir = parent
 	}
-	withoutExt := strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
-	return path.Base(withoutExt)
 }
 
 func collectExternPackages(nodes []nomiast.Node, aliases map[string]*nomiast.ExternPackage) {

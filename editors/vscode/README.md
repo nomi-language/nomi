@@ -3,9 +3,10 @@
 Language support for [Nomi](https://github.com/nomi-language/nomi) in VS Code
 and its forks:
 
-- `.nomi` files: comment toggling, bracket matching, auto-closing and
-  surrounding pairs, indentation, and `///`, `//!` and `//#` lines that
-  continue themselves on Enter.
+- `.nomi` files, and extensionless scripts whose `#!` line names `nomi`:
+  comment toggling, bracket matching, auto-closing and surrounding pairs,
+  indentation, and `///`, `//!` and `//#` lines that continue themselves on
+  Enter.
 - Highlighting from a TextMate grammar, refined by the language server's
   semantic tokens.
 - The language server, `nomi-lsp`: diagnostics, hover, completion,

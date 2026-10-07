@@ -196,6 +196,13 @@ func LoadSource(name, src string, opts ...Option) (*Program, error) {
 		return nil, err
 	}
 	p.sources = map[string]string{p.prog.Entry().Path: src}
+	// A virtual sibling's text, so a diagnostic in it quotes its line rather
+	// than reading a same-named file from the working directory.
+	for _, mod := range p.prog.Modules {
+		if text, virtual := cfg.virtualFiles[mod.Name]; virtual {
+			p.sources[mod.Path] = text
+		}
+	}
 	return p, nil
 }
 

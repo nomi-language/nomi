@@ -39,7 +39,7 @@ fn slow_bounded(): Int {
   slow()
 }
 
-fn main(): String {
+fn main() {
   outcome = concurrent {
     t = Task.spawn(|| slow_bounded())
     Task.outcome(t)
@@ -173,7 +173,7 @@ func TestIRContext_UnsupportedShapesPreserveEmission(t *testing.T) {
 		// A Context value whose type (a generic Maybe) has no single-name identity.
 		"_ = Context.with_value(Context.with_timeout(Run.context, Duration.seconds(1)), Some(1))\n 1",
 	} {
-		p, err := AnalyzeSource("main.nomi", "import std/duration.Duration\nfn run(): Int {\n"+body+"\n}\nfn main(): Int { run() }\n"+
+		p, err := AnalyzeSource("main.nomi", "import std/duration.Duration\nfn run(): Int {\n"+body+"\n}\nfn main() { _ = run() }\n"+
 			"struct Run {\n context: Context\n}\nfn boot(): Run { Run{context: Context.root()} }")
 		if err != nil {
 			t.Fatalf("the front end now rejects this, so the preservation below is untested: %v", err)

@@ -56,6 +56,11 @@ type Decline struct {
 	Fn, Path  string
 	Line, Col int
 	Reason    string
+	// Once is the attempt name ("once n") of the `once` this body declined
+	// for: a read of a `once` whose initializer did not lower, or that has no
+	// representable type. Empty for any other decline. A host reports such a
+	// decline at the `once`, whose own attempt says where it stopped.
+	Once string
 }
 
 // IRDeclineAt is called with each attempt's first decline, as
@@ -109,6 +114,35 @@ func irDeclineNote(reason string) {
 	if IRDeclineAt != nil {
 		irDeclineCur = &Decline{Fn: irDeclineFn, Path: irDeclinePath, Reason: reason}
 		IRDeclineAt(irDeclineCur)
+	}
+}
+
+// irDeclineNoteOnce records the first decline of the open attempt as a read
+// of the `once` named once ("once n"), whose own failure is the cause.
+func irDeclineNoteOnce(reason, once string) {
+	irDeclineNote(reason)
+	if irDeclineCur != nil && irDeclineCur.Reason == reason {
+		irDeclineCur.Once = once
+	}
+}
+
+// irDeclineWithdrawn records that fn, a body the builder retained, was
+// withdrawn because it reads a `once` whose cell no module retained
+// (irWithdrawUnforceableReads). It is outside any attempt: fn's own attempt
+// lowered, so this is its only decline.
+func irDeclineWithdrawn(fn string, read *ir.Ref) {
+	once := "once " + read.Sym().Name()
+	reason := "reads `" + once + "`, whose initializer did not lower"
+	if IRDeclineObserved != nil {
+		IRDeclineObserved(fn, reason)
+	}
+	if IRDeclineAt != nil {
+		pos := read.Pos()
+		d := &Decline{Fn: fn, Path: pos.File(), Reason: reason, Once: once}
+		if emittableLine(pos.Line()) {
+			d.Line, d.Col = pos.Line(), pos.Col()
+		}
+		IRDeclineAt(d)
 	}
 }
 
@@ -179,6 +213,19 @@ func (bl *irScalarBuilder) lower(n ast.Node) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	return t, k, m, ok
+}
+
+// irDeclineAtNode places the open attempt's decline at n when nothing
+// inside it gave the decline a position: a statement-level construct
+// (a block or branch bound to a name) that declined where `lower` did not
+// see it is reported at the construct, not at the enclosing function.
+func irDeclineAtNode(n ast.Node) {
+	if irDeclineCur == nil || irDeclineCur.Line != 0 {
+		return
+	}
+	if line, col := nodePos(n); emittableLine(line) {
+		irDeclineCur.Line, irDeclineCur.Col = line, col
+	}
 }
 
 // declineReason names why n did not lower, re-deriving the cheap tests the
@@ -264,6 +311,9 @@ func (bl *irScalarBuilder) declineCallReason(t *ast.Call) string {
 	if fa, qualified := t.Func.(*ast.FieldAccess); qualified {
 		if fa.Field == nil {
 			return "a qualified callee with no field"
+		}
+		if bl.qualCalleeIsValue(fa) {
+			return "a call through a value read by a field chain: ." + fa.Field.Name
 		}
 		switch obj := fa.Object.(type) {
 		case *ast.TypeIdent:

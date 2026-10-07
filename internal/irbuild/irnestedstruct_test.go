@@ -15,7 +15,7 @@ struct Person {
   address: Address
 }
 
-fn main(): Person {
+fn main() {
   ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
 
   // A nested change written as a nested spread.

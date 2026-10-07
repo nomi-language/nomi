@@ -25,7 +25,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		name:  "a private sibling function is one diagnostic, at its position",
 		entry: "main",
 		files: map[string]string{
-			"main": "import api.{make, secret}\n\nfn main(): String {\n  w = make(\"Ada\")\n  secret(w)\n}\n",
+			"main": "import api.{make, secret}\n\nfn main() {\n  w = make(\"Ada\")\n  _ = secret(w)\n}\n",
 			"api": "pub struct Widget {\n  name: String\n}\n\npub fn label(w: Widget): String {\n  w.name\n}\n\n" +
 				"fn secret(w: Widget): String {\n  \"secret \" + w.name\n}\n\n" +
 				"pub fn make(name: String): Widget {\n  Widget{name}\n}\n",
@@ -76,7 +76,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		name:  "file names may carry .nomi and are normalized",
 		entry: "main.nomi",
 		files: map[string]string{
-			"main.nomi": "import api.{make, secret}\n\nfn main(): String {\n  w = make(\"Ada\")\n  secret(w)\n}\n",
+			"main.nomi": "import api.{make, secret}\n\nfn main() {\n  w = make(\"Ada\")\n  _ = secret(w)\n}\n",
 			"api.nomi": "pub struct Widget {\n  name: String\n}\n\n" +
 				"fn secret(w: Widget): String {\n  \"secret \" + w.name\n}\n\n" +
 				"pub fn make(name: String): Widget {\n  Widget{name}\n}\n",
@@ -86,7 +86,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		name:  "a single-file project checks against the standard library",
 		entry: "main",
 		files: map[string]string{
-			"main": "fn main(): String {\n  String.trim(\"  x  \")\n}\n",
+			"main": "fn main() {\n  _ = String.trim(\"  x  \")\n}\n",
 		},
 		want: nil,
 	}} {

@@ -19,8 +19,8 @@ import {
 //
 // The right column is the refusal each would report if the lookup missed the
 // sibling. `Comparable.compare(a, b)` written out goes through
-// `siblingIfaceCall`, the same route reached from a call site rather than a
-// kind.
+// `siblingReceiverPlan`, the same lookup reached from a call site rather than
+// a kind.
 //
 // # THE ORDERING RULE IS THE THING THAT CAN GO SILENTLY WRONG, so every row is
 // half of a pair that disagrees
@@ -56,10 +56,9 @@ import {
 //     ordering row for it: `Iter.sort` over a type with no `impl Comparable` is
 //     a FRONT-END error ("Unordered does not implement Comparable (required by
 //     `where T: Comparable`)"), so the builder never sees it and a test asserting
-//     a builder refusal there would be asserting an unreachable branch.
-//     TestSortScope_TheNoImplCaseBelongsToTheFrontEnd owns that boundary, and
-//     the `inherent` row below is the reachable interface-selection
-//     discriminator that replaces it.
+//     a builder refusal there would be asserting an unreachable branch. The
+//     `ranked` row below is the reachable interface-selection discriminator
+//     that replaces it.
 // Each imported type crosses a SIGNATURE boundary as well as appearing at a
 // construction site, because a representation that is only correct where a value
 // is built fails here — `sets.nomi`'s rule for the same reason.
@@ -127,20 +126,16 @@ fn main() {
     io.print("bool lt ${False < True}")
     io.print("bool le ${True <= False}")
 
-    // THE INHERENT RIVAL. `Widget.compare` is the sibling's inherent `compare`,
-    // which orders DESCENDING; every `sort widget` row above is ASCENDING through
-    // `impl Comparable for Widget`. Both return Ordering, so a lookup that ignored
-    // the INTERFACE lowers a well-typed call to the wrong body and only these two
-    // rows together can see it.
+    // THE INTERFACE RIVAL. `Ranked.compare` is the sibling's second `compare`
+    // for Widget, which orders DESCENDING; every `sort widget` row above is
+    // ASCENDING through `impl Comparable for Widget`. Both return Ordering, so a
+    // lookup that ignored the INTERFACE lowers a well-typed call to the wrong
+    // body and only these rows together can see it.
     io.print("ranked ${Ranked.compare(a, b)}")
 
-    // Reachable, ordered by nothing — through the FIELD rather than through `==`
-    // on the value. `Unordered == Unordered` is refused `equality on a named type`,
-    // which is the SAME sibling-scope gap one interface over (`impl Equatable` in a
-    // sibling is invisible to impl.go's per-file lookup) and is deliberately NOT
-    // fixed here: `noEquatableImpl` is a wrong-ANSWER fence rather than a lowering
-    // gate, so widening the lookup without widening the fence in step would let
-    // `==` answer structurally for a type whose hand-written `Equatable` was never
-    // called.
+    // Reachable, ordered by nothing: through a field across a signature, and
+    // through `==`, which reaches the sibling's hand-written `impl Equatable`.
     io.print("tag ${tag_of(widget.plain("x"))}")
+    io.print("eq ${widget.plain("x") == widget.plain("x")}")
+    io.print("ne ${widget.plain("x") == widget.plain("y")}")
 }

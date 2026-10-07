@@ -172,3 +172,55 @@ fn main() { io.print("x") }
 		t.Fatalf("expected a diagnostic naming the unresolvable return type `Nope`; got %v", errs)
 	}
 }
+
+// The builder's own impl-block diagnostics follow the same rule as the
+// checker's. A derive whose interface import fails leaves a name that is
+// not an interface; the builder reported that against the synthesized
+// block's band position (`main.nomi:1431912448:1`, measured by checking
+// std/codepoints.nomi as a user file). It now names the declaration the
+// block was synthesized for, and a hand-written block keeps its own line.
+func TestSynthDiagnostics_BuilderImplErrorsNameTheDeclaration(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		src       string
+		line, col int
+	}{
+		{"derive", `import equatable.Equatable
+
+type Code Int
+
+derive Equatable for Code
+
+fn main() {}
+`, 3, 6},
+		{"hand-written impl", `import equatable.Equatable
+
+type Code Int
+
+impl Equatable for Code {
+}
+
+fn main() {}
+`, 5, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := buildAndCollectTypeErrors(t, tc.src)
+			var found bool
+			for _, e := range errs {
+				if analysis.IsSynthesizedLine(e.Line) {
+					t.Errorf("diagnostic reports a synthesized-band position: %v", e)
+				}
+				if e.Message != "impl block: 'Equatable' is not an interface" {
+					continue
+				}
+				found = true
+				if e.Line != tc.line || e.Col != tc.col {
+					t.Errorf("got %d:%d, want %d:%d: %v", e.Line, e.Col, tc.line, tc.col, e)
+				}
+			}
+			if !found {
+				t.Fatalf("expected \"impl block: 'Equatable' is not an interface\"; got %v", errs)
+			}
+		})
+	}
+}

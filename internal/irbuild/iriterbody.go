@@ -13,6 +13,21 @@ import (
 // sorting and materialization, each naming its rt driver. Sequence values flow
 // between these operations and every value position (irRetainedSeqKind); a
 // source entering a declared `Iter<T>` is viewed as the sequence (seqView).
+// irIterOwnArity is the operand count of an `Iter` operation iterCall lowers
+// itself, and false for any other: those are instantiated from their std
+// bodies as any generic std function is (`Iter.frequencies`).
+func irIterOwnArity(method string) (int, bool) {
+	switch method {
+	case "map", "filter", "reduce", "take", "sort_with", "sort_by", "any?", "all?", "each_while", "find", "zip", "concat", "at", "partition", "group_by",
+		"drop", "take_while", "drop_while", "each", "flat_map", "chunks", "chunk_by", "join":
+		return 2, true
+	case "to_list", "count", "empty?", "not_empty?", "sort", "first", "last", "reverse", "with_index", "known_count",
+		"cycle", "to_set", "to_vector", "to_map", "flatten":
+		return 1, true
+	}
+	return 0, false
+}
+
 func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if !args.ok || !bl.g.iterOwns("Iter") {
@@ -32,14 +47,8 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	if method == "iterate" || method == "repeat" {
 		return bl.iterConstructor(t, args, method)
 	}
-	want := 1
-	switch method {
-	case "map", "filter", "reduce", "take", "sort_with", "sort_by", "any?", "all?", "each_while", "find", "zip", "concat", "at", "partition", "group_by",
-		"drop", "take_while", "drop_while", "each", "flat_map", "chunks", "chunk_by", "join":
-		want = 2
-	case "to_list", "count", "empty?", "not_empty?", "sort", "first", "last", "reverse", "with_index", "known_count",
-		"cycle", "to_set", "to_vector", "to_map", "flatten":
-	default:
+	want, own := irIterOwnArity(method)
+	if !own {
 		return no()
 	}
 	direction := ir.NoTemp
@@ -140,7 +149,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	} else if sk == irBytesKind() {
 		elem = irByteKind()
 	} else if sk != kindString {
-		if sk.comp == nil || len(sk.comp.parts) != 1 || !(irRetainedValueKind(sk.comp.parts[0]) || sk.comp.parts[0] == kindUnit || (irRetainedSeqKind(sk.comp.parts[0])) || (irExistentialKind(sk.comp.parts[0]))) {
+		if sk.comp == nil || len(sk.comp.parts) != 1 || !(irCallableValueKind(sk.comp.parts[0]) || sk.comp.parts[0] == kindUnit || (irRetainedSeqKind(sk.comp.parts[0])) || (irExistentialKind(sk.comp.parts[0]))) {
 			return no()
 		}
 		elem = sk.comp.parts[0]
@@ -185,7 +194,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	}
 	if method == "map" || method == "filter" {
 		fk := args.kinds[1]
-		if fk.tag != tagFunc || len(funcParams(fk)) != 1 || funcParams(fk)[0] != elem || !(irRetainedValueKind(funcResult(fk)) || (method == "map" && funcResult(fk) == kindUnit)) {
+		if fk.tag != tagFunc || len(funcParams(fk)) != 1 || funcParams(fk)[0] != elem || !(irCallableValueKind(funcResult(fk)) || (method == "map" && funcResult(fk) == kindUnit)) {
 			return no()
 		}
 		result = seqKindIn(bl.g, funcResult(fk))
@@ -213,7 +222,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	}
 	if method == "reduce" {
 		fk := args.kinds[1]
-		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem || funcParams(fk)[0] != funcResult(fk) || !irRetainedValueKind(funcResult(fk)) {
+		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem || funcParams(fk)[0] != funcResult(fk) || !irCallableValueKind(funcResult(fk)) {
 			return no()
 		}
 		result = funcResult(fk)
@@ -519,7 +528,8 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call) (ir.Temp, kind, bool, boo
 // irSeqKindOf is the retained kind of a value the checker typed as std's
 // `Iter<T>`: the push sequence over T. `project` answers no kind for a generic
 // interface instance, so this answers `rt.Seq[T]`'s kind here. Identity is the
-// anchor's, not the spelling's.
+// anchor's, not the spelling's. The element is any callable value, a function
+// among them (`Iter<(Int) -> Int>`), as irRetainedSeqKind's is.
 func (g *gen) irSeqKindOf(t analysis.Type) (kind, bool) {
 	it, ok := t.(*analysis.InterfaceType)
 	if !ok || len(it.TypeArgs) != 1 || !g.iterOwns("Iter") || g.iter.ty == nil ||
@@ -527,7 +537,7 @@ func (g *gen) irSeqKindOf(t analysis.Type) (kind, bool) {
 		return kindInvalid, false
 	}
 	elem := g.project(it.TypeArgs[0])
-	if !irRetainedValueKind(elem) {
+	if !irCallableValueKind(elem) {
 		return kindInvalid, false
 	}
 	return seqKindIn(g, elem), true
@@ -564,9 +574,10 @@ func (bl *irScalarBuilder) userView(at ast.Node, src ir.Temp, sk kind, it *implI
 // seqView is src, a value of kind sk, as a lowered `Iter<elem>`: the same view
 // iterCall builds over its source, for a source entering a declared `Iter<T>`
 // position (a parameter, a field, a payload, an annotated binding). A sequence
-// of that element passes unchanged; any other kind declines.
+// of that element passes unchanged; any other kind declines. The element may
+// be a function: the views read elements without looking at them.
 func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.Temp, bool) {
-	if !irRetainedValueKind(elem) && elem != kindUnit {
+	if !irCallableValueKind(elem) && elem != kindUnit {
 		return ir.NoTemp, false
 	}
 	want := seqKindIn(bl.g, elem)
@@ -939,6 +950,24 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 	}
 	if member, isSet := setElem(sk); isSet && sk != kindEmptySet && irRetainedSetKind(sk) {
 		return view(ir.IterOverSet, member)
+	}
+	// `Iter.zip(xs, m)`, `Iter.zip(xs, 5..9)`: a Map pushes its `(K, V)`
+	// pairs, a Range its elements and a user source what its `each_while`
+	// does, viewed as an Iter call's first operand is (seqView).
+	var elem kind
+	var sourced bool
+	if sk.tag == tagMap && sk != kindEmptyMap && irRetainedMapKind(sk) {
+		elem, sourced = bl.g.tupleKind([]kind{sk.comp.parts[0], sk.comp.parts[1]}), true
+	} else if re, isRange := irIterRangeElem(sk); isRange {
+		elem, sourced = re, true
+	} else if it, ue := bl.userSource(sk); it != nil {
+		elem, sourced = ue, true
+	}
+	if sourced {
+		if v, ok := bl.seqView(at, src, sk, elem); ok {
+			return v, elem, true
+		}
+		return ir.NoTemp, kindInvalid, false
 	}
 	switch {
 	case sk == kindString:

@@ -22,7 +22,17 @@ func (bl *irScalarBuilder) preludeWithDefaultPlan(t *ast.Call, args irQualArgs, 
 		return nil
 	}
 	payload := d.preludeArgs[0]
-	if args.kinds[1] != payload || !irRetainedValueKind(payload) {
+	if args.kinds[1] != payload && payload.tag == tagSeq {
+		// `Result.with_default(Err("no"), [False])` where the checker typed
+		// the payload `Iter<Bool>` from the position the call sits in: the
+		// list default is viewed as the sequence, as any source entering a
+		// declared `Iter<T>` is. The operand slots are the caller's, so the
+		// viewed temporary is what qualEmit passes.
+		if v, k, ok := bl.coerceEmpty(t.Args[1], args.temps[1], args.kinds[1], payload); ok && k == payload {
+			args.temps[1], args.kinds[1] = v, k
+		}
+	}
+	if args.kinds[1] != payload || !irCallableValueKind(payload) {
 		return nil
 	}
 	return &irQualPlan{token: key, name: key, result: payload, host: true}

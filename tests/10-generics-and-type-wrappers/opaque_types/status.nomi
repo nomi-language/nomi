@@ -56,7 +56,7 @@ impl Status {
     /// True iff `s` is the `Suspended` variant.
     pub fn is_suspended(s: Status): Bool {
         case s {
-            .Suspended{until, reason} -> True
+            .Suspended{} -> True
             _ -> False
         }
     }
@@ -72,7 +72,7 @@ impl Status {
     /// Returns `Some(reason)` if `s` is `Suspended`, otherwise `None`.
     pub fn suspended_reason(s: Status): Maybe<String> {
         case s {
-            .Suspended{until, reason} -> Some(reason)
+            .Suspended{reason} -> Some(reason)
             _ -> None
         }
     }
@@ -80,7 +80,7 @@ impl Status {
     /// Returns `Some(until)` if `s` is `Suspended`, otherwise `None`.
     pub fn suspended_until(s: Status): Maybe<Int> {
         case s {
-            .Suspended{until, reason} -> Some(until)
+            .Suspended{until} -> Some(until)
             _ -> None
         }
     }

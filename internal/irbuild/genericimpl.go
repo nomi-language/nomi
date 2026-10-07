@@ -286,6 +286,7 @@ func (g *gen) registerInstanceImpls(tpl *genericTemplate, d *typeDef, args []kin
 			return "generic impl block", typeText(it.decl.Receiver)
 		}
 		id := g.registerImplAt(it.decl, recv)
+		id.typeScope = tpl.scope
 		if !id.lowerable {
 			return id.why, id.whyDetail
 		}

@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"reflect"
-
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -285,36 +283,18 @@ func (bl *irScalarBuilder) setupValue(at, value ast.Node) bool {
 // outside every lambda and nested fn in it, whose returns are their own.
 func astHasReturn(n ast.Node) bool {
 	found := false
-	var walk func(v reflect.Value)
-	walk = func(v reflect.Value) {
-		if found || !v.IsValid() {
-			return
+	ast.Inspect(n, func(n ast.Node) bool {
+		if found {
+			return false
 		}
-		switch v.Kind() {
-		case reflect.Pointer, reflect.Interface:
-			if v.IsNil() {
-				return
-			}
-			switch v.Interface().(type) {
-			case *ast.Return:
-				found = true
-				return
-			case *ast.Lambda, *ast.FuncDef:
-				return
-			}
-			walk(v.Elem())
-		case reflect.Struct:
-			for i := 0; i < v.NumField(); i++ {
-				if v.Type().Field(i).IsExported() {
-					walk(v.Field(i))
-				}
-			}
-		case reflect.Slice, reflect.Array:
-			for i := 0; i < v.Len(); i++ {
-				walk(v.Index(i))
-			}
+		switch n.(type) {
+		case *ast.Return:
+			found = true
+			return false
+		case *ast.Lambda, *ast.FuncDef:
+			return false
 		}
-	}
-	walk(reflect.ValueOf(n))
+		return true
+	})
 	return found
 }

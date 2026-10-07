@@ -9,6 +9,9 @@ import "strings"
 type TypeRegistry struct {
 	types  map[string]Type
 	parent *TypeRegistry
+	// lazy holds a builder per name whose type is not built yet; Lookup
+	// runs it on the first miss (RegisterLazy).
+	lazy map[string]func()
 }
 
 func NewTypeRegistry() *TypeRegistry {
@@ -43,6 +46,13 @@ func (r *TypeRegistry) Lookup(name string) Type {
 	if t, ok := r.types[name]; ok {
 		return t
 	}
+	if build, ok := r.lazy[name]; ok {
+		delete(r.lazy, name)
+		build()
+		if t, ok := r.types[name]; ok {
+			return t
+		}
+	}
 	if r.parent != nil {
 		return r.parent.Lookup(name)
 	}
@@ -62,6 +72,18 @@ func (r *TypeRegistry) Names() []string {
 
 func (r *TypeRegistry) Register(name string, typ Type) {
 	r.types[name] = typ
+}
+
+// RegisterLazy makes build run at the first Lookup of name that finds no
+// type, and once at most. build is expected to Register the name. A name
+// that already has a lazy builder keeps the first.
+func (r *TypeRegistry) RegisterLazy(name string, build func()) {
+	if r.lazy == nil {
+		r.lazy = map[string]func(){}
+	}
+	if _, ok := r.lazy[name]; !ok {
+		r.lazy[name] = build
+	}
 }
 
 // SuggestDotted finds a registered name whose last segment is `bare`. A

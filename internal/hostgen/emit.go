@@ -27,6 +27,10 @@ type Binding struct {
 	Fn   any
 	Go   *GoFunc
 	Decl HostFunc
+	// Res resolves the declaration's types, or nil for the generator's own
+	// resolver. A binding declared in a module set of its own (one of two
+	// files that share a module name) carries that set's.
+	Res *Resolver
 	// PanicsPropagate leaves out the adapter's recover. See
 	// FuncRow.PanicsPropagate.
 	PanicsPropagate bool
@@ -304,7 +308,11 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	if len(decl.Params) != ft.NumIn()-first {
 		return "", fmt.Errorf("the declaration takes %d parameter(s) and %s takes %d", len(decl.Params), call, ft.NumIn()-first)
 	}
-	want, err := g.res.Shape(b.Decl.Module, decl.ReturnTypeExpr)
+	res := g.res
+	if b.Res != nil {
+		res = b.Res
+	}
+	want, err := res.Shape(b.Decl.Module, decl.ReturnTypeExpr)
 	if err != nil {
 		return "", fmt.Errorf("result: %w", err)
 	}
@@ -335,7 +343,7 @@ func (g *Generator) adapter(b Binding) (string, error) {
 		argNames = append(argNames, "fr")
 	}
 	for i := range n {
-		ps, err := g.res.Shape(b.Decl.Module, decl.Params[i].TypeAnnotation)
+		ps, err := res.Shape(b.Decl.Module, decl.Params[i].TypeAnnotation)
 		if err != nil {
 			return "", fmt.Errorf("parameter %s: %w", decl.Params[i].Name, err)
 		}

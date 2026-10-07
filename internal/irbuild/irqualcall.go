@@ -124,6 +124,15 @@ func (bl *irScalarBuilder) irQualLowerArgs(t *ast.Call) irQualArgs {
 			a.ok = false
 			continue
 		}
+		if want, wider := bl.qualCheckedFuncWant(t, i, k); wider {
+			// `Iter.map(lists, Iter.count)`: a function whose parameter is
+			// wider than the one the call expects enters through an
+			// adapter of the expected type (irfuncwiden.go), so the
+			// callee's selection sees the type the checker solved.
+			if adapted, widened := bl.funcWiden(arg, src, k, want); widened {
+				src, k, mobile = adapted, want, false
+			}
+		}
 		// Materialize before the next argument can emit statements. Delaying
 		// this copy until qualEmit would reorder effects.
 		if !mobile && i != len(t.Args)-1 {
@@ -174,7 +183,26 @@ func (bl *irScalarBuilder) qualTypeEmptyArgs(t *ast.Call, a *irQualArgs) {
 			continue
 		}
 		want := bl.g.project(ft.Params[i])
-		// kindInvalid: lookup — a parameter the checker left unsolved types nothing; the operand keeps its empty kind.
+		// kindInvalid: lookup — an unsolved parameter type tries its filled holes next.
+		if want == kindInvalid && irUnsolvedType(ft.Params[i]) {
+			// `Map.size(Map.empty())`: nothing determines the element
+			// types and no value of them is made (spec, "Determined
+			// type arguments"), so the holes are filled as a generic
+			// call's are.
+			want = bl.g.projectFilledHoles(ft.Params[i])
+		}
+		// kindInvalid: lookup — a parameter with no kind tries the operand's checked type next.
+		if at := bl.g.checkedExprType(t.Args[i]); want == kindInvalid && irUnsolvedType(at) {
+			// `Iter.count(Map.empty())`: a parameter typed by a bound
+			// (`I` where `I: Iter<T>`) names no collection, and the
+			// operand's own checked type is the one with the holes.
+			want = bl.g.projectFilledHoles(at)
+		}
+		// kindInvalid: lookup — still no kind tries an Iter-bounded parameter next.
+		if want == kindInvalid {
+			want = bl.g.emptyAtIterParam(k, ft.Params[i])
+		}
+		// kindInvalid: lookup — a parameter with no representation types nothing; the operand keeps its empty kind.
 		if want == kindInvalid || want == k {
 			continue
 		}
@@ -182,6 +210,59 @@ func (bl *irScalarBuilder) qualTypeEmptyArgs(t *ast.Call, a *irQualArgs) {
 			a.temps[i], a.kinds[i] = v, got
 		}
 	}
+}
+
+// emptyAtIterParam is the collection an empty literal of kind k stands for
+// where its parameter is an `Iter<E>` whose element the checker left open
+// (`Iter.count(Map.empty())`, `Iter.zip([], [])`): the literal's own
+// collection over E, each open hole of E filled as a collection element's is
+// (projectFilledHoles). It answers kindInvalid for any other parameter.
+func (g *gen) emptyAtIterParam(k kind, param analysis.Type) kind {
+	if tv, isVar := param.(*analysis.TypeVar); isVar && tv.Resolved != nil {
+		return g.emptyAtIterParam(k, tv.Resolved)
+	}
+	it, isIface := param.(*analysis.InterfaceType)
+	if !isIface || it.Name != "Iter" || len(it.TypeArgs) != 1 || !irUnsolvedType(it.TypeArgs[0]) {
+		return kindInvalid
+	}
+	elem := func(ty analysis.Type) kind { return g.project(irFillHolesByPosition(ty, true)) }
+	switch k {
+	case kindEmptyList:
+		return g.listKind(elem(it.TypeArgs[0]))
+	case kindEmptySet:
+		return g.setKindOf(elem(it.TypeArgs[0]))
+	case kindEmptyVector:
+		return g.vectorKindOf(elem(it.TypeArgs[0]))
+	case kindEmptyMap:
+		pair, isPair := it.TypeArgs[0].(*analysis.TupleType)
+		if tv, isVar := it.TypeArgs[0].(*analysis.TypeVar); isVar && tv.Resolved != nil {
+			pair, isPair = tv.Resolved.(*analysis.TupleType)
+		}
+		if !isPair || len(pair.Elems) != 2 {
+			return kindInvalid
+		}
+		return g.mapKind(elem(pair.Elems[0]), elem(pair.Elems[1]))
+	}
+	return kindInvalid
+}
+
+// typeOpenEmpty gives an empty collection literal that no position types
+// (`io.inspect(Map.empty())`, `dbg #{}`) the collection over Int, the fill an
+// open element takes (projectFilledHoles); nothing reads an element, so the
+// value shows as the literal does. Any other value is answered unchanged.
+func (bl *irScalarBuilder) typeOpenEmpty(n ast.Node, src ir.Temp, k kind) (ir.Temp, kind, bool) {
+	var want kind
+	switch k {
+	case kindEmptyMap:
+		want = bl.g.mapKind(kindInt, kindInt)
+	case kindEmptySet:
+		want = bl.g.setKindOf(kindInt)
+	case kindEmptyVector:
+		want = bl.g.vectorKindOf(kindInt)
+	default:
+		return src, k, true
+	}
+	return bl.coerceEmpty(n, src, k, want)
 }
 
 // ifaceContainerCall lowers `Iface.method(x, ...)` whose receiver x is a std
@@ -293,6 +374,32 @@ func (bl *irScalarBuilder) qualCheckedBareWant(t *ast.Call, i int, arg ast.Node)
 	return want, true
 }
 
+// qualCheckedFuncWant is the function type the checker instantiated
+// parameter i of the call at, when operand i is a function value of kind k
+// of the same arity whose parameters differ from it: wider than the call's.
+func (bl *irScalarBuilder) qualCheckedFuncWant(t *ast.Call, i int, k kind) (kind, bool) {
+	if k.tag != tagFunc || k.comp == nil {
+		return kindInvalid, false
+	}
+	ft := bl.g.checkedCallSignature(t)
+	if ft == nil || i >= len(ft.Params) || irUnsolvedType(ft.Params[i]) {
+		return kindInvalid, false
+	}
+	want := bl.g.project(ft.Params[i])
+	if want == k || want.tag != tagFunc || want.comp == nil || len(funcParams(want)) != len(funcParams(k)) {
+		return kindInvalid, false
+	}
+	// Only a parameter makes the value need an adapter here: a callback
+	// whose result is a List where an Iter is expected (`Iter.flat_map(xs,
+	// |x| [x])`) is read by the operation as it is.
+	for i, p := range funcParams(want) {
+		if p != funcParams(k)[i] {
+			return want, true
+		}
+	}
+	return kindInvalid, false
+}
+
 // declaredCallSignature is the callee's declared function type, for a
 // non-generic callee whose reference carries no instantiated CallType.
 func (g *gen) declaredCallSignature(t *ast.Call) *analysis.FuncType {
@@ -315,6 +422,12 @@ func (g *gen) declaredCallSignature(t *ast.Call) *analysis.FuncType {
 // than the argument — `ir.Render` sits between the two — and no signature in
 // any index says so.
 func (bl *irScalarBuilder) qualCall(t *ast.Call, fa *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
+	if bl.qualCalleeIsValue(fa) {
+		// `p.t.0(8)`, `gen.run(seed)`: a function read by a field chain,
+		// called through the value it holds. An indirect call records its
+		// own rows in an assertion subject.
+		return bl.indirectCall(t)
+	}
 	if bl.recording > 0 {
 		// Inside an assertion subject the call's rows are recorded after the
 		// call (recordedQualCall).
@@ -361,7 +474,8 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 	if !isIdent && !isType {
 		// Shape B: a 3-segment qualifier. A namespaced type name
 		// (`Json.DecodeError.to_string`, `shapes.Colour.of`) resolves as
-		// that type's owner; anything else declines.
+		// that type's owner; any other chain is a value, which qualCall
+		// sent to indirectCall (qualCalleeIsValue).
 		owner, mod, ok := bl.qualDottedOwner(fa.Object)
 		if !ok {
 			return no()
@@ -385,11 +499,6 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 			return bl.qualEmit(t, args, plan)
 		}
 		ti, isType = &ast.TypeIdent{Name: owner, Line: fa.Line, Col: fa.Col}, true
-	}
-	if isIdent && irQualIsLocal(bl, obj.Name) {
-		// Shape C: a bound local's function-valued field, read and then
-		// called through the value it holds (`gen.run(seed)`).
-		return bl.indirectCall(t)
 	}
 	if isType && ti.Name == "Iter" && len(t.Args) == 2 {
 		switch method {
@@ -1369,6 +1478,25 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 	bl.b.Append(r)
 	bl.side(r.Dst(), irScalarSide{k: kindString})
 	return r.Dst(), kindString, false, true
+}
+
+// qualCalleeIsValue reports whether a qualified callee is a value read by a
+// field chain rather than an owner qualifier: a bound local's field
+// (`gen.run(seed)`), or a chain of fields and tuple indices, of any length,
+// that names no namespaced type (`p.t.0(8)`, `make().q.f(1)`). Such a call
+// goes through the function value the chain reads.
+func (bl *irScalarBuilder) qualCalleeIsValue(fa *ast.FieldAccess) bool {
+	if fa.Field == nil {
+		return false
+	}
+	switch obj := fa.Object.(type) {
+	case *ast.Ident:
+		return irQualIsLocal(bl, obj.Name)
+	case *ast.TypeIdent, *ast.GenericType:
+		return false
+	}
+	_, _, owner := bl.qualDottedOwner(fa.Object)
+	return !owner
 }
 
 // qualDottedOwner resolves a 3-segment qualifier's owner. A namespaced type

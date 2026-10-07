@@ -355,8 +355,10 @@ func (dm *DocumentManager) buildClosed(uri string, foreground bool) *DocSnapshot
 	}
 	content := string(data)
 	dm.lockBuild(foreground)
+	// Deferred: a panic in build, which the language server recovers,
+	// must not leave every later build waiting on analyzeMu.
+	defer dm.analyzeMu.Unlock()
 	b := dm.build(uri, content)
-	dm.analyzeMu.Unlock()
 	return &DocSnapshot{
 		URI:             uri,
 		Content:         content,

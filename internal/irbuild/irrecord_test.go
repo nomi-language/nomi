@@ -33,7 +33,7 @@ func TestIRRecord_UnsupportedBodiesDecline(t *testing.T) {
 
 func TestIRRecord_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"point", `fn main(): Int {
+		{"point", `fn main() {
   point = {x: 10, y: 20}
   dbg point
   dbg point.x + point.y

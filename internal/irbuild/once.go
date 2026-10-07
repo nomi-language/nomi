@@ -228,7 +228,7 @@ func (g *gen) refSiblingOnce(at ast.Node, to int, d *onceDef) (kind, bool) {
 	// governs cross-file visibility and the analyzer rejects the import first
 	// ("'secret' is private and cannot be imported"), so a privacy key here
 	// would report a gap nothing can reach.
-	if d == nil || (!d.pub && to != g.fileUnit) {
+	if d == nil || (!d.pub && to != g.fileUnit && g.namesFrom != to+1) {
 		return kindInvalid, false
 	}
 	unit := g.files.units[to]

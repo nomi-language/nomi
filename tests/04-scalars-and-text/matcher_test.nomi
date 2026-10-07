@@ -1,0 +1,117 @@
+import {
+    std/compiler
+    std/matcher.Matcher
+    std/regex.Regex
+}
+
+test "split takes a string or a regex" {
+    assert String.split("a,b,,c", ",") == ["a", "b", "", "c"]
+    assert String.split("a,b,,c", try Regex`,+`) == ["a", "b", "c"]
+    assert "one  two\tthree" |> String.split(" ") == ["one", "", "two\tthree"]
+    assert "one  two\tthree" |> String.split(try Regex`\s+`) == ["one", "two", "three"]
+}
+
+test "contains? takes a string or a regex" {
+    digits = try Regex`\d+`
+
+    assert String.contains?("order 66", "66")
+    refute String.contains?("order", "66")
+    assert String.contains?("order 66", digits)
+    refute String.contains?("order", digits)
+    assert "aisle 7" |> String.contains?(digits)
+
+    assert "aisle 7" |> String.contains?("7")
+}
+
+test "starts_with? and ends_with? anchor a regex to that end" {
+    digits = try Regex`\d+`
+
+    assert String.starts_with?("42 apples", "42")
+    assert String.starts_with?("42 apples", digits)
+    refute String.starts_with?("apples 42", digits)
+    assert String.ends_with?("apples 42", "42")
+    assert String.ends_with?("apples 42", digits)
+    refute String.ends_with?("42 apples", digits)
+    assert "x.PDF" |> String.ends_with?(try Regex`(?i)\.pdf`)
+
+    assert "x.pdf" |> String.ends_with?(".pdf")
+}
+
+test "ends_with? finds a match ending at the end, not only the leftmost one" {
+    assert String.ends_with?("ab", try Regex`a|ab`)
+    assert String.ends_with?("xab", try Regex`b|xab`)
+}
+
+test "replace takes a string or a regex and inserts the replacement literally" {
+    assert String.replace("a.b.c", ".", "-") == "a-b-c"
+    assert String.replace("call 555-0100", try Regex`\d`, "#") == "call ###-####"
+    assert "x1y22" |> String.replace(try Regex`(\d)+`, "<$1>") == "x<$1>y<$1>"
+    assert "x1y22" |> String.replace("1", "$") == "x$y22"
+}
+
+test "find_all lists every match" {
+    assert String.find_all("order 66, aisle 7", try Regex`\d+`) == ["66", "7"]
+    assert "banana" |> String.find_all("an") == ["an", "an"]
+    assert String.find_all("banana", "x") == []
+    assert "banana" |> String.find_all(try Regex`x`) == []
+}
+
+test "a function of your own takes any matcher" {
+    assert count("a,b,c", ",") == 2
+    assert count("a1b22", try Regex`\d`) == 3
+}
+
+fn count<M>(text: String, m: M): Int where M: Matcher {
+    String.find_all(text, m) |> Iter.count()
+}
+
+test "a matcher prints what each call finds" {
+    output = compiler.run(
+        """
+        import {
+            std/io
+            std/regex.Regex
+        }
+
+        fn main(): Result<Unit, String> {
+            text = "a1b22c"
+            digits = try Regex`[0-9]+`
+
+            io.inspect(String.split(text, digits))
+            text |> String.split("b") |> io.inspect()
+            io.inspect(String.contains?(text, digits))
+            io.inspect(String.replace(text, digits, "#"))
+            text |> String.find_all(digits) |> io.inspect()
+            Ok(Unit)
+        }
+        """
+    )
+
+    assert output == Ok(
+        """
+        ["a", "b", "c"]
+        ["a1", "22c"]
+        True
+        "a#b#c"
+        ["1", "22"]
+
+        """
+    )
+}
+
+test "a value that is not a matcher is rejected" {
+    diagnostics = compiler.check(
+        """
+        fn main() {
+            dbg String.split("a1b", 1)
+        }
+        """
+    )
+
+    assert [diagnostic] = diagnostics
+
+    assert String.contains?(
+        diagnostic.message,
+        "Int does not implement Matcher (required by `where M: Matcher`)",
+    )
+}

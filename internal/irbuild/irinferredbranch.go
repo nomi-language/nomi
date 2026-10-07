@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -21,13 +22,20 @@ func (bl *irScalarBuilder) inferredRegionValue(value ast.Node, statement bool) (
 	outer := bl.sh.result
 	bl.sh.result = result
 	defer func() { bl.sh.result = outer }()
+	sig := irFuncSig{inferResult: true}
+	if seq, isSeq := bl.g.irSeqKindOf(analysis.ResolveTypeVar(bl.g.checkedExprType(value))); isSeq {
+		// The checker typed the region as an `Iter<T>`: an arm of another
+		// kind (a `List<T>` beside a call answering the sequence) enters it,
+		// so the first arm's kind is not the region's.
+		sig = irFuncSig{result: seq}
+	}
 	var k kind
 	var ok bool
 	switch v := value.(type) {
 	case *ast.If:
-		k, ok = bl.ifRegion(v, irFuncSig{inferResult: true})
+		k, ok = bl.ifRegion(v, sig)
 	case *ast.Case:
-		k, ok = bl.caseRegion(v, irFuncSig{inferResult: true})
+		k, ok = bl.caseRegion(v, sig)
 	}
 	switch {
 	case !ok:

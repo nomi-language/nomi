@@ -52,5 +52,5 @@ fn main() {
 }
 
 func TestIRIterTerminal_EmptyCountStandalone(t *testing.T) {
-	verifyLambdaProgram(t, "fn main(): Int { Iter.count([]) }\n", "")
+	verifyLambdaProgram(t, "fn main() { _ = Iter.count([]) }\n", "")
 }

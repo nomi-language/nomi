@@ -313,6 +313,12 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		args(hStr("a,b,,c"), hStr(",")), args(hStr("héllo"), hStr("é")), args(hStr("b"), hStr("a")),
 		args(hStr("a"), hStr("ab")), args(hStr("é"), hStr("z")), args(hStr("🙂🙂"), hStr("🙂")),
 	)
+	// needlePairs are stringPairs in a Matcher row's order, the needle
+	// first and the text second.
+	needlePairs := make([]hostCase, len(stringPairs))
+	for i, c := range stringPairs {
+		needlePairs[i] = hostCase{args: args(c.args[1], c.args[0])}
+	}
 	wordsAndLines := unary(hStr(""), hStr("   "), hStr("  1   2\t3 \n"), hStr("café 🙂ok"), hStr("a\u00a0b\u3000c"),
 		hStr("a\nb\r\nc\n"), hStr("a\n\nb"), hStr("\n"), hStr("a\rb"), hStr("x\r"), hStr("é\n🙂"))
 	ints := []any{hInt(0), hInt(1), hInt(-1), hInt(255), hInt(1 << 40), hInt(math.MaxInt64), hInt(math.MinInt64)}
@@ -340,11 +346,12 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		hDur(math.MaxInt64), hDur(math.MinInt64)}
 
 	c := map[string][]hostCase{
-		"strings.String.contains?":       stringPairs,
-		"strings.String.starts_with?":    stringPairs,
-		"strings.String.ends_with?":      stringPairs,
+		"strings.String.contained_in?":   needlePairs,
+		"strings.String.prefix_of?":      needlePairs,
+		"strings.String.suffix_of?":      needlePairs,
+		"strings.String.find_all_in":     needlePairs,
 		"strings.string_compare":         stringPairs,
-		"strings.String.split":           stringPairs,
+		"strings.String.split_in":        needlePairs,
 		"strings.String.words":           wordsAndLines,
 		"strings.String.lines":           wordsAndLines,
 		"strings.String.to_upper":        unary(strs...),
@@ -357,7 +364,7 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"strings.String.to_codepoints":   unary(strs...),
 		"strings.String.to_bytes":        unary(strs...),
 		"strings.String.slice":           slice,
-		"strings.String.replace":         cases(args(hStr("a-b-c"), hStr("-"), hStr("+")), args(hStr("aaa"), hStr(""), hStr("x")), args(hStr(""), hStr(""), hStr("y")), args(hStr("héllo"), hStr("l"), hStr("L"))),
+		"strings.String.replace_in":      cases(args(hStr("-"), hStr("a-b-c"), hStr("+")), args(hStr(""), hStr("aaa"), hStr("x")), args(hStr(""), hStr(""), hStr("y")), args(hStr("l"), hStr("héllo"), hStr("L"))),
 		"bytes.Byte.from_int":            unary(hInt(-1), hInt(0), hInt(255), hInt(256), hInt(math.MinInt64)),
 		"bytes.Byte.to_int":              unary(hByte(0), hByte(127), hByte(255)),
 		"bytes.Bytes.length":             unary(blobs...),

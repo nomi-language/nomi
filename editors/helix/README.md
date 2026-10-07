@@ -2,7 +2,7 @@
 
 This directory provides:
 
-- `languages.toml` for `.nomi` file detection, `nomi-lsp`, `nomi fmt`, and the external tree-sitter grammar
+- `languages.toml` for `.nomi` file detection (and an extensionless script whose `#!` line names `nomi`), `nomi-lsp`, `nomi fmt`, and the external tree-sitter grammar
 - tree-sitter highlighting and typed-literal injection queries mirrored from `tree-sitter-nomi/queries/`
 - Helix-specific indentation, textobject, locals, and fold queries
 

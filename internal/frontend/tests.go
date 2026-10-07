@@ -3,7 +3,6 @@ package frontend
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -458,50 +457,30 @@ func SourceDeclaresTests(src string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return DeclaresTests(nodes), nil
+	return declaresTests(nodes), nil
 }
 
-// DeclaresTests reports whether v, walked structurally, holds a `test`
+// declaresTests reports whether nodes hold, at any depth, a `test`
 // declaration or an attached test with a body.
-func DeclaresTests(v any) bool {
-	if v == nil {
-		return false
-	}
-	if _, ok := v.(*ast.TestDecl); ok {
-		return true
-	}
-	if t, ok := v.(*ast.AttachedTest); ok {
-		return t.Body != nil
-	}
-	if t, ok := v.(ast.AttachedTest); ok {
-		return t.Body != nil
-	}
-	rv := reflect.ValueOf(v)
-	if !rv.IsValid() {
-		return false
-	}
-	switch rv.Kind() {
-	case reflect.Interface, reflect.Pointer:
-		if rv.IsNil() {
-			return false
-		}
-		return DeclaresTests(rv.Elem().Interface())
-	case reflect.Slice, reflect.Array:
-		for i := range rv.Len() {
-			if DeclaresTests(rv.Index(i).Interface()) {
-				return true
+func declaresTests(nodes []ast.Node) bool {
+	found := false
+	for _, n := range nodes {
+		ast.Inspect(n, func(n ast.Node) bool {
+			if found {
+				return false
 			}
-		}
-	case reflect.Struct:
-		for i := range rv.NumField() {
-			field := rv.Type().Field(i)
-			if field.PkgPath != "" {
-				continue
+			switch t := n.(type) {
+			case *ast.TestDecl:
+				found = true
+				return false
+			case *ast.AttachedTest:
+				if t.Body != nil {
+					found = true
+				}
+				return false
 			}
-			if DeclaresTests(rv.Field(i).Interface()) {
-				return true
-			}
-		}
+			return true
+		})
 	}
-	return false
+	return found
 }

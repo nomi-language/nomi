@@ -68,7 +68,7 @@ func TestDotVariant_GenericConstructorArg_ArgumentPosition_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 enum Input { Quit; Guess Int }
 fn take(_r: Result<Input, String>): Int { 0 }
-fn main(): Int {
+fn demo(): Int {
   take(Result.Ok(.Quit))
 }`
 	_, errs := checkSource(src)

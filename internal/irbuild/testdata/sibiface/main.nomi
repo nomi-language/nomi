@@ -65,10 +65,5 @@ fn main() {
     io.print(Display.to_string(things.origin()))
     io.print(Tagger.tag("arg", things.origin()))
 
-    // NO ALIASED SPELLING HERE. The aliased-import guard in siblingiface.go
-    // refuses any receiver whose def this file binds under a name other than
-    // its declared one, conservatively, because the guard asks which NAMES the
-    // file binds and not which name a VALUE carries. So an aliased spelling
-    // would refuse this fixture, and a refusal is never a wrong answer.
-    // testdata/dictalias is the case the guard exists for.
+    // An aliased type import is testdata/dictalias's case.
 }

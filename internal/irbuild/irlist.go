@@ -221,6 +221,14 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 		// represent, so the record is passed unchanged.
 		return v, want, true
 	}
+	if want.tag == tagFunc && have.tag == tagFunc {
+		// A function whose parameters are wider than the expected
+		// function type's (irfuncwiden.go).
+		if adapted, ok := bl.funcWiden(at, v, have, want); ok {
+			return adapted, want, true
+		}
+		return v, have, false
+	}
 	if want.tag == tagSeq && want.comp != nil {
 		// A source entering a declared `Iter<T>` position is viewed as the
 		// sequence, as an `Iter` call views its source.
@@ -229,7 +237,7 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 		}
 		return v, have, false
 	}
-	list := have == kindEmptyList && want.tag == tagList && (irRetainedListKind(want) || irListTransportKind(want))
+	list := have == kindEmptyList && want.tag == tagList && irRetainedValueKind(want)
 	mapValue := have == kindEmptyMap && want.tag == tagMap && irRetainedMapKind(want)
 	vector := have == kindEmptyVector && want != kindEmptyVector && (irRetainedVectorKind(want) || bl.g.irVectorValueKind(want))
 	set := have == kindEmptySet && want != kindEmptySet && irRetainedSetKind(want)
@@ -315,9 +323,12 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		return bl.tupleMakeWant(tl, want)
 	}
 	if ll, isList := at.(*ast.ListLit); isList && want.tag == tagList && want.comp != nil && len(want.comp.parts) == 1 &&
-		want.comp.parts[0].tag == tagSeq && ll.TypeName == nil && len(ll.Items) != 0 {
+		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc) && ll.TypeName == nil && len(ll.Items) != 0 {
 		// `[xs, [1, 2]]` where a `List<Iter<Int>>` is expected: each element
-		// enters the declared `Iter<T>`.
+		// enters the declared `Iter<T>`. `[cnt]` where a
+		// `List<(List<Int>) -> Int>` is: each function value enters the
+		// declared function type, through an adapter when its parameters are
+		// wider (irfuncwiden.go).
 		return bl.listMakeOf(ll, ll.Items, nil, want.comp.parts[0])
 	}
 	if !bl.inTest && bl.recording == 0 {
@@ -326,6 +337,14 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 			v, k, ok := bl.typedRegionValue(at, want)
 			return v, k, true, ok
 		}
+	}
+	if lam, isLambda := at.(*ast.Lambda); isLambda && want.tag == tagFunc && want.comp != nil && funcResult(want).tag == tagSeq {
+		// `Maybe.map(m, |_| [20])` where the checker solved the callback's
+		// result as `Iter<Int>`: the lambda answers that sequence
+		// (lambdaFunction), so its function value is the wanted one.
+		prevFor, prev := bl.g.lambdaWantFor, bl.g.lambdaWant
+		bl.g.lambdaWantFor, bl.g.lambdaWant = lam, funcResult(want)
+		defer func() { bl.g.lambdaWantFor, bl.g.lambdaWant = prevFor, prev }()
 	}
 	v, k, mobile, ok := bl.lower(at)
 	if ok && k != want && want.tag == tagSeq && want.comp != nil {

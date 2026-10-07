@@ -1,6 +1,7 @@
 name = "Nomi"
 grammar = "nomi"
 path_suffixes = ["nomi"]
+first_line_pattern = '^#!.*\bnomi\b'
 line_comments = ["/// ", "//! ", "// "]
 tab_size = 4
 autoclose_before = ";:.,=}])>"

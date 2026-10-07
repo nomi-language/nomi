@@ -26,7 +26,7 @@ func TestTryErrInference_ConcurrentBlockInfersResultErr(t *testing.T) {
 	src := `fn short_fail(): Result<Int, String> {
   Err("boom")
 }
-fn main(): String {
+fn demo(): String {
   outcome = concurrent {
     x = Task.spawn(|| short_fail())
     Ok(try Task.await(x))
@@ -45,7 +45,7 @@ func TestTryErrInference_UnannotatedLambdaInfersResultErr(t *testing.T) {
 	src := `fn parse(): Result<Int, String> {
   Ok(1)
 }
-fn main(): String {
+fn demo(): String {
   f = || Ok(try parse())
   case f() {
     Ok(n) -> "ok"
@@ -65,7 +65,7 @@ func TestTryErrInference_ConflictingTryErrTypes_Rejected(t *testing.T) {
 fn b(): Result<Int, Int> {
   Ok(2)
 }
-fn main(): Int {
+fn demo(): Int {
   outcome = concurrent {
     x = Task.spawn(|| a())
     y = Task.spawn(|| b())
@@ -87,7 +87,7 @@ func TestTryErrInference_MaybeBoundaryUnaffected(t *testing.T) {
 	src := `fn find(): Maybe<Int> {
   Some(1)
 }
-fn main(): Int {
+fn demo(): Int {
   outcome = concurrent {
     x = Task.spawn(|| find())
     Some(try Task.await(x))
@@ -110,7 +110,7 @@ fn g(): Result<Int, String> {
   x = try h()
   Ok(x)
 }
-fn main(): Int {
+fn demo(): Int {
   case g() {
     Ok(n) -> n
     Err(_) -> 0

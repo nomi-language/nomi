@@ -6,7 +6,7 @@ import (
 
 func TestIRLoop_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
-		{"iteration-and-loops.md:L41", `fn main(): Int {
+		{"iteration-and-loops.md:L41", `fn main() {
   // Countdown — break when n reaches 0.
   countdown = Iter.loop(|n = 5| {
     if n == 0 { break n }
@@ -91,7 +91,7 @@ func TestIRLoop_RetainsLoopFunctions(t *testing.T) {
     n + 1
   })
 }
-fn main(): Int { count_to(3) + count_to(4) }`)
+fn main() { _ = count_to(3) + count_to(4) }`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestIRLoop_UnsupportedShapesPreserveEmission(t *testing.T) {
 		// A destructuring state parameter.
 		"(a, _) = Iter.loop(|(x, y): (Int, Int) = (0, 1)| {\n if y > 3 { break (x, y) }\n (y, x + y)\n })\na",
 	} {
-		p, err := AnalyzeSource("main.nomi", "fn run(): Int {\n"+body+"\n}\nfn main(): Int { run() }")
+		p, err := AnalyzeSource("main.nomi", "fn run(): Int {\n"+body+"\n}\nfn main() { _ = run() }")
 		if err != nil {
 			t.Fatal(err)
 		}

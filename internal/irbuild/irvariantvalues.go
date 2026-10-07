@@ -51,7 +51,8 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 				userEnum := p.k.tag == tagNamed && p.k.def != nil && p.k.def.isEnum && p.k.def.preludeOf == nil && irRetainedEnumKind(p.k.def)
 				if !(irRetainedLeafKind(p.k) || irChannelFieldKind(p.k) || irStructPayload(p.k) || userEnum ||
 					(d.preludeOf == nil && irPreludeVariantField(d, p.k, outer)) || (d.preludeOf == nil && irSeqPayload(d, p.k, outer)) ||
-					(d.preludeOf == nil && irNominalListPayload(p.k, append(outer, d)))) {
+					(d.preludeOf == nil && irNominalListPayload(p.k, append(outer, d))) ||
+					(d.preludeOf == nil && irAcyclicValuePayload(p.k, append(outer, d)))) {
 					return false
 				}
 			}
@@ -89,6 +90,9 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 				continue
 			}
 			if d.preludeOf == nil && irNominalListPayload(payload, append(outer, d)) {
+				continue
+			}
+			if d.preludeOf == nil && irAcyclicValuePayload(payload, append(outer, d)) {
 				continue
 			}
 			if !userEnum && !irRetainedLeafKind(payload) && !isDecimalKind(payload) &&
@@ -278,6 +282,45 @@ func irFlatPayload(k kind) bool {
 	return false
 }
 
+// irAcyclicValuePayload admits a user enum's payload of any value the VM
+// carries (`Has Maybe<Maybe<Int>>`, `Has (Shape, String)`, `Has
+// Maybe<Result<Int, String>>`) that reaches no type the walk is deciding.
+// The VM holds the payload in the variant's slot as it holds any operand,
+// and a payload that reaches the enum back is left to the self and
+// co-inductive arms, so deciding this one cannot re-enter the walk.
+//
+// A payload holding a channel or task handle is left to the channel field
+// rule (irChannelFieldKind): irKindReaches does not look through a handle's
+// element, so `Ask {reply: Channel<Request>}` inside Request would recurse.
+func irAcyclicValuePayload(k kind, deciding []*typeDef) bool {
+	return !irHoldsConcHandle(k, 0) && !irKindReaches(k, deciding) && irCallableValueKind(k)
+}
+
+// irHoldsConcHandle reports whether k is, or holds in a component or a type
+// argument, a channel or task handle. depth bounds the walk, which only
+// descends through structural parts and type arguments.
+func irHoldsConcHandle(k kind, depth int) bool {
+	if depth > 16 {
+		return true
+	}
+	if _, _, isChannel := channelElem(k); isChannel {
+		return true
+	}
+	if _, isTask := taskElem(k); isTask {
+		return true
+	}
+	parts := kindParts(k)
+	if k.def != nil && k.def.genericOf != nil {
+		parts = k.def.genericArgs
+	}
+	for _, p := range parts {
+		if irHoldsConcHandle(p, depth+1) {
+			return true
+		}
+	}
+	return false
+}
+
 // irStructPayload is a retained struct carried positionally by a user enum
 // (`Wrap Circle`). A retained struct's fields exclude enums, so no layout
 // recursion follows.
@@ -358,6 +401,14 @@ func (bl *irScalarBuilder) embedWiden(at ast.Node, src ir.Temp, d *typeDef, v *v
 // effectFree reports whether the current block defines t without effects: a
 // constant, a local read, a forced copy or a pure construction.
 func (bl *irScalarBuilder) effectFree(t ir.Temp) bool {
+	// A parameter of the function being built arrives as a value: the
+	// adapter closure irfuncwiden.go builds widens its parameters into an
+	// `embeds` enum directly.
+	for _, p := range bl.f.Params() {
+		if p.Temp == t {
+			return true
+		}
+	}
 	instrs := bl.b.Instrs()
 	for i := len(instrs) - 1; i >= 0; i-- {
 		def, ok := instrs[i].(interface{ Dst() ir.Temp })
@@ -428,6 +479,10 @@ func irRetainedPreludePayload(k kind) bool {
 		// in the variant's reference slot.
 		return true
 	}
+	if k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && k.comp.parts[0].tag == tagFunc && irCallableValueKind(k.comp.parts[0]) {
+		// A list of function values (`Ok([f, g])`), held as the list.
+		return true
+	}
 	if k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && irRetainedEnumKind(k.def) {
 		// One prelude wrapper inside another (`Some(Ok(99))`,
 		// `Some(Outcome.Completed(5))`), to any depth: a prelude instance's
@@ -467,6 +522,15 @@ func irEnumEmbeds(d *typeDef) bool {
 func (bl *irScalarBuilder) retainedVariant(field *ast.FieldAccess) (*typeDef, *variantDef, bool) {
 	if field.Field == nil {
 		return nil, nil, false
+	}
+	if d := bl.g.dotOwners[field]; d != nil {
+		// A `.Variant` shorthand, whose enum the checked type names. See
+		// dotEnumDef.
+		if !irRetainedEnumKind(d) {
+			return nil, nil, false
+		}
+		v := d.variant(field.Field.Name)
+		return d, v, v != nil
 	}
 	var name string
 	if owner, ok := field.Object.(*ast.TypeIdent); ok {

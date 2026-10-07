@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -28,37 +27,13 @@ func (c *checker) checkQualifiedTypeVisibility(nodes []ast.Node) {
 		return
 	}
 	seen := make(map[Pos]bool)
-	var walk func(reflect.Value)
-	walk = func(v reflect.Value) {
-		if !v.IsValid() {
-			return
-		}
-		for v.Kind() == reflect.Interface || v.Kind() == reflect.Pointer {
-			if v.IsNil() {
-				return
-			}
-			if v.CanInterface() {
-				if qt, ok := v.Interface().(*ast.QualifiedType); ok {
-					c.checkQualifiedTypeMember(qt, seen)
-				}
-			}
-			v = v.Elem()
-		}
-		switch v.Kind() {
-		case reflect.Struct:
-			for i := 0; i < v.NumField(); i++ {
-				if field := v.Field(i); field.CanInterface() {
-					walk(field)
-				}
-			}
-		case reflect.Slice, reflect.Array:
-			for i := 0; i < v.Len(); i++ {
-				walk(v.Index(i))
-			}
-		}
-	}
 	for _, n := range nodes {
-		walk(reflect.ValueOf(n))
+		ast.Inspect(n, func(n ast.Node) bool {
+			if qt, ok := n.(*ast.QualifiedType); ok {
+				c.checkQualifiedTypeMember(qt, seen)
+			}
+			return true
+		})
 	}
 }
 

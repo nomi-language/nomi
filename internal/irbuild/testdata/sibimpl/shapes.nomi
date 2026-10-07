@@ -42,7 +42,7 @@ impl Status {
     pub fn reason(s: Status): Maybe<String> {
         case s {
             .Inactive(r) -> Some(r)
-            .Suspended{until, reason} -> Some(reason)
+            .Suspended{reason} -> Some(reason)
             _ -> None
         }
     }

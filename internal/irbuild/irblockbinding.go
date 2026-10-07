@@ -14,6 +14,7 @@ func (bl *irScalarBuilder) blockValue(block *ast.Block) (ir.Temp, kind, bool, bo
 	if bl.recording > 0 {
 		return ir.NoTemp, kindInvalid, false, false
 	}
+	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {
 		irDeclineNote(irDeclineBodyWhy)
@@ -36,29 +37,50 @@ func (bl *irScalarBuilder) blockValue(block *ast.Block) (ir.Temp, kind, bool, bo
 	return val, k, false, true
 }
 
-// blockBinding lowers a lexical block into the binding's typed result slot.
-// Its local identities do not escape; the result register does. Scope bounds
-// only manage the builder's Go-spelled name environment and produce no statements.
-func (bl *irScalarBuilder) blockBinding(block *ast.Block, slot *ir.Slot, want kind) (kind, bool) {
+// blockBinding lowers a lexical block into the binding's typed result slot,
+// bl.sh.result. Its local identities do not escape; the result register
+// does. A tail `if` or `case` writes the slot from each arm, as a function
+// body's tail region does, and a tail block is lowered the same way, so the
+// block's value may branch at any depth.
+func (bl *irScalarBuilder) blockBinding(block *ast.Block, want kind) (kind, bool) {
+	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {
+		irDeclineNote(irDeclineBodyWhy)
 		return kindInvalid, false
 	}
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
-	entry := bl.b
 	scope := bl.openDeferScope(block)
 	ws := bl.openWithScope(false)
 	if !bl.leading(lead) {
 		return kindInvalid, false
 	}
-	val, k, _, ok := bl.lower(tail)
-	if !ok || k != want || bl.b != entry {
-		irDeclineNote("a block-valued binding outside a straight result of the declared kind")
+	var k kind
+	var ok bool
+	switch t := tail.(type) {
+	case *ast.If:
+		k, ok = bl.ifRegion(t, irFuncSig{result: want})
+	case *ast.Case:
+		k, ok = bl.caseRegion(t, irFuncSig{result: want})
+	case *ast.Block:
+		k, ok = bl.blockBinding(t, want)
+	default:
+		var val ir.Temp
+		val, k, _, ok = bl.lowerWant(tail, want)
+		if ok && k != want {
+			irDeclineNote("a block's value is not the binding's kind: " + k.nomi() + " vs " + want.nomi())
+			ok = false
+		}
+		if ok {
+			bl.resultCopy(tail, val)
+		}
+	}
+	if !ok {
+		irDeclineAtNode(tail)
 		return kindInvalid, false
 	}
-	bl.resultCopy(tail, val)
 	bl.closeDefers(scope, tail)
 	bl.closeWithScope(ws, tail)
 	return k, true

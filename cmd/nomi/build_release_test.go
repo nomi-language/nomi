@@ -126,12 +126,12 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 // inherited, an isolated cache.
 func releaseEnv(t *testing.T, cacheRoot string, extra ...string) []string {
 	t.Helper()
-	env := append([]string{"HOME=" + t.TempDir(), "PATH=/usr/bin:/bin", "TERM=dumb",
+	env := append([]string{"HOME=" + t.TempDir(), "PATH=" + noGoPath(t), "TERM=dumb",
 		"NOMI_FFIRUN_CACHE_ROOT=" + cacheRoot, "NOMI_COLOR=never"}, extra...)
 	probe := exec.Command("/usr/bin/env", "go", "version")
 	probe.Env = env
 	if out, err := probe.CombinedOutput(); err == nil {
-		t.Fatalf("PATH=/usr/bin:/bin resolves go, so this test is not toolchain-free: %s", out)
+		t.Fatalf("the scrubbed PATH resolves go, so this test is not toolchain-free: %s", out)
 	}
 	return env
 }

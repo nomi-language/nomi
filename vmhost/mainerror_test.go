@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/vmhost"
@@ -72,11 +73,11 @@ fn main(): Result<Unit, Oops> {
 	}
 }
 
-func TestRun_MainOkAndNonResultMainsSucceed(t *testing.T) {
+func TestRun_MainOkAndUnitMainsSucceed(t *testing.T) {
 	for _, src := range []string{
 		"fn main(): Result<Unit, String> {\n    Ok(Unit)\n}\n",
-		"fn main(): Maybe<Int> {\n    None\n}\n",
-		"fn main(): Int {\n    1\n}\n",
+		"fn main(): Unit {\n    Unit\n}\n",
+		"fn main() {\n    _ = 1\n}\n",
 	} {
 		p, err := vmhost.LoadSource("main.nomi", src)
 		if err != nil {
@@ -84,6 +85,24 @@ func TestRun_MainOkAndNonResultMainsSucceed(t *testing.T) {
 		}
 		if err := p.Run(context.Background(), &bytes.Buffer{}, nil, false); err != nil {
 			t.Fatalf("Run answered %v for\n%s", err, src)
+		}
+	}
+}
+
+// A main whose result a run would drop is rejected before anything runs: an
+// `Ok` payload or a plain value is never printed, so the program is an error.
+func TestLoad_MainReturningAValueIsRejected(t *testing.T) {
+	for _, src := range []string{
+		"fn main(): Result<String, String> {\n    Ok(\"hello\")\n}\n",
+		"fn main(): Maybe<Int> {\n    None\n}\n",
+		"fn main(): Int {\n    1\n}\n",
+	} {
+		_, err := vmhost.LoadSource("main.nomi", src)
+		if err == nil {
+			t.Fatalf("load accepted a main that returns a value:\n%s", src)
+		}
+		if !strings.Contains(err.Error(), "`main` must return `Unit` or `Result<Unit, E>`") {
+			t.Fatalf("load answered %v for\n%s; want the main return type error", err, src)
 		}
 	}
 }

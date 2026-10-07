@@ -4,12 +4,12 @@ Neovim support for Nomi. Requires Neovim 0.11 or newer.
 
 | Feature | Needs |
 |---|---|
-| `.nomi` → `nomi` filetype | plain Neovim (`ftdetect/nomi.lua`) |
+| `.nomi`, or an extensionless file whose `#!` line names `nomi` → `nomi` filetype | plain Neovim (`ftdetect/nomi.lua`, `lua/nomi/filetype.lua`) |
 | `nomi-lsp` client: diagnostics, hover, go-to-definition, formatting | plain Neovim (`lsp/nomi.lua`, enabled by `plugin/nomi.lua`) |
 | Tree-sitter highlighting, including typed-literal injections | plain Neovim plus the compiled `nomi` parser |
 | Dimmed `//!` attached tests, the one under the cursor shown normally (`lua/nomi/attached_tests.lua`) | plain Neovim plus the parser |
 | Tree-sitter folding (`foldmethod=expr`) | plain Neovim plus the parser |
-| `commentstring` `// %s`, 2-space indent | plain Neovim (`ftplugin/nomi.lua`) |
+| `commentstring` `// %s`, 4-space indent, `textwidth=100` (`nomi fmt`'s width) | plain Neovim (`ftplugin/nomi.lua`) |
 | Tree-sitter indentation (`indents.scm`) | [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter) |
 | Function/class/parameter/comment textobjects (`textobjects.scm`) | [nvim-treesitter-textobjects](https://github.com/nvim-treesitter/nvim-treesitter-textobjects) |
 | Scope/definition data (`locals.scm`) | a plugin that reads locals queries |

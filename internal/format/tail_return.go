@@ -1,10 +1,6 @@
 package format
 
-import (
-	"reflect"
-
-	"github.com/nomi-language/nomi/internal/ast"
-)
+import "github.com/nomi-language/nomi/internal/ast"
 
 // stripTailReturns removes each `return` that is the last thing a function,
 // lambda or test body does. A block's last expression is its value, and
@@ -36,58 +32,31 @@ import (
 // checker rejects every one of those that ends a body
 // (analysis/useless_return.go), but the fix is the author's to choose.
 func stripTailReturns(nodes []ast.Node) {
-	w := tailReturnWalker{seen: map[uintptr]bool{}}
+	// A body is rewritten before its children are visited, so a lambda
+	// inside a returned value is still reached through the value's new
+	// position. A node shared by two parents is rewritten once.
+	seen := map[ast.Node]bool{}
 	for _, n := range nodes {
-		w.walk(reflect.ValueOf(n))
-	}
-}
-
-type tailReturnWalker struct {
-	seen map[uintptr]bool
-}
-
-var (
-	funcDefType        = reflect.TypeOf(ast.FuncDef{})
-	lambdaType         = reflect.TypeOf(ast.Lambda{})
-	interfaceMethodTyp = reflect.TypeOf(ast.InterfaceMethod{})
-	testDeclType       = reflect.TypeOf(ast.TestDecl{})
-)
-
-// walk visits every function, lambda and test body reachable from v. A body
-// is rewritten before its children are visited, so a lambda inside a
-// returned value is still reached through the value's new position.
-func (w tailReturnWalker) walk(v reflect.Value) {
-	switch v.Kind() {
-	case reflect.Interface:
-		if !v.IsNil() {
-			w.walk(v.Elem())
-		}
-	case reflect.Ptr:
-		if v.IsNil() || w.seen[v.Pointer()] {
-			return
-		}
-		w.seen[v.Pointer()] = true
-		w.walk(v.Elem())
-	case reflect.Struct:
-		switch v.Type() {
-		case funcDefType, lambdaType, interfaceMethodTyp:
-			if body, ok := v.FieldByName("Body").Interface().(*ast.Block); ok && body != nil {
-				tailStripper{}.block(body)
+		ast.Inspect(n, func(n ast.Node) bool {
+			if seen[n] {
+				return false
 			}
-		case testDeclType:
-			if !v.FieldByName("Group").Bool() {
-				if body, ok := v.FieldByName("Body").Interface().(*ast.Block); ok && body != nil {
-					tailStripper{untyped: true}.block(body)
+			seen[n] = true
+			switch n := n.(type) {
+			case *ast.FuncDef:
+				tailStripper{}.body(n.Body)
+			case *ast.Lambda:
+				tailStripper{}.body(n.Body)
+			case *ast.InterfaceMethod:
+				body, _ := n.Body.(*ast.Block)
+				tailStripper{}.body(body)
+			case *ast.TestDecl:
+				if !n.Group {
+					tailStripper{untyped: true}.body(n.Body)
 				}
 			}
-		}
-		for i := 0; i < v.NumField(); i++ {
-			w.walk(v.Field(i))
-		}
-	case reflect.Slice, reflect.Array:
-		for i := 0; i < v.Len(); i++ {
-			w.walk(v.Index(i))
-		}
+			return true
+		})
 	}
 }
 
@@ -105,6 +74,14 @@ func (s tailStripper) branch() tailStripper {
 		s.keepValues = true
 	}
 	return s
+}
+
+// body rewrites the tail of a function, lambda or test body, when there is
+// one.
+func (s tailStripper) body(b *ast.Block) {
+	if b != nil {
+		s.block(b)
+	}
 }
 
 // block rewrites the tail of a block in tail position.

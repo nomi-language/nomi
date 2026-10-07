@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/tliron/glsp"
+	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 // analysisDelay is how long an edited document waits for the next edit
@@ -110,6 +111,11 @@ func (s *Server) cancelAnalysis(uri string) {
 // The text may already be analyzed, by a superseded run that read the
 // newer text when its build started or by propagation from another file;
 // publishCurrent still publishes it once.
+//
+// A panic during the run publishes one diagnostic at the top of the file
+// saying the server hit an internal error, unless a newer edit has
+// superseded the run (recover.go). The document keeps its last installed
+// analysis; its next edit analyzes it again.
 func (s *Server) runAnalysis(uri string, p *pendingAnalysis) {
 	defer func() {
 		s.sched.mu.Lock()
@@ -118,6 +124,18 @@ func (s *Server) runAnalysis(uri string, p *pendingAnalysis) {
 		}
 		s.sched.mu.Unlock()
 	}()
+	defer recoverPanic("analyzing "+uri, func(sp *serverPanic) {
+		if p.ctx.Err() != nil || p.notify == nil {
+			return
+		}
+		s.sched.publishMu.Lock()
+		defer s.sched.publishMu.Unlock()
+		p.notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
+			URI:         protocol.DocumentUri(uri),
+			Diagnostics: []protocol.Diagnostic{sp.diagnostic()},
+		})
+	})
+	fault("analysis")
 	s.docs.AnalyzeLatest(p.ctx, uri)
 	if p.ctx.Err() != nil {
 		return

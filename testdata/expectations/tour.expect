@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 130
+records 131
 declared-cases 16
 failing 0
 C bindings-and-expressions.md:L123
@@ -59,13 +59,13 @@ N 0
 H b62155e435f42ff14508a41509795ab6fdefbe6a36b62b5a1195d299f174da61
 T dbg line 7: compute() = 42
 T
-C bindings-and-expressions.md:L266
+C bindings-and-expressions.md:L267
 E 0
 N 0
 H 338bb83c280c339f8ee1e9b1743bfe3a71ec0067ccd70de9d0b3e4e7a7c75413
 T dbg line 5: name = "jane"
 T
-C bindings-and-expressions.md:L302
+C bindings-and-expressions.md:L303
 E 0
 N 0
 H 8c6dfb5513662047e95ccae0c2b1c0c42a186eaf9a7a80762ce0a67252cd45a9
@@ -82,13 +82,13 @@ H 4376ba23c15515f091a94432418c80ec4600d7a5fcaf397085c65430454eaed4
 T Hello, Nomi!
 T "Hello, Nomi!"
 T
-C bindings-and-expressions.md:L337
+C bindings-and-expressions.md:L338
 E 0
 N 0
 H 43b613d8570e1fd94b76c24cf0c81073887de870e640dc2f2a0eaff21897d114
 T dbg line 8: total = 30
 T
-C bindings-and-expressions.md:L361
+C bindings-and-expressions.md:L362
 E 0
 N 0
 H f3443d8a6076b8cbdaee47df7e54478e1ee5f705d73a1494a47f308b1a9a4b83
@@ -96,7 +96,7 @@ T dbg line 5: size = "small"
 T dbg line 13: label = "many"
 T dbg line 22: range = "medium"
 T
-C bindings-and-expressions.md:L399
+C bindings-and-expressions.md:L400
 E 0
 N 0
 H 2c5d5933a76b066781c055af8e23078df59868d2d4fe8e12893d5bcdbf35e2f7
@@ -490,9 +490,9 @@ T
 C interfaces-and-dispatch.md:L468
 E 0
 N 0
-H 85ab7502cf885a7026e6b5477af6dbbcd6d626e107c3fea2155143853212b30f
+H f88edf1a782c8bf35268abdbca965b1b78d1395ab20944e728b5f9f31d7806cd
 T dbg line 18: Json.encode(shape) = "{\"firstName\":\"Ada\",\"age\":36}"
-T dbg line 26:
+T dbg line 25:
 T   user
 T   |> ToJson.to_json()
 T   |> Json.encode()
@@ -613,7 +613,7 @@ T dbg line 12: classify(-5) = "negative"
 T dbg line 13: classify(500) = "huge"
 T dbg line 14: classify(42) = "regular"
 T
-C pattern-matching.md:L191
+C pattern-matching.md:L193
 E 0
 N 0
 H d58bc165cf46b3def1a714a99a1e99d66ea16ca542b74ba4ba2eacdd77010347
@@ -622,7 +622,7 @@ T dbg line 13: total(["1", "x", "y"]) = Err("not a number: x")
 T dbg line 16: numbers = [1]
 T dbg line 17: errors = ["not a number: x", "not a number: y"]
 T
-C pattern-matching.md:L227
+C pattern-matching.md:L229
 E 0
 N 0
 H a2bf7852263729ec6b4793e45d0b1b95e3643441a10db5cf5670a4da1e2cd33f
@@ -672,14 +672,14 @@ H 82311262069034c45876e9fcb7dec2c70b3e4d27baf41c85b57a205944c42016
 T dbg line 10: 5 |> double() = 10
 T dbg line 12: 5 |> add(3) = 8
 T
-C pipes.md:L166
+C pipes.md:L170
 E 0
 N 1
 H 6466c7087e99d349b351e11d2c93f7b122939dd4b964973e2d18dcfd315aa648
 T ok pipeline result is true
 T test result: ok. 1 passed, 0 failed
 T
-C pipes.md:L179
+C pipes.md:L183
 E 0
 N 0
 H 55972d3288befe7b1999bbd14874c236b9617874b2eb768ed00575677e769071
@@ -732,6 +732,14 @@ N 0
 H 7b8ae3338679260066443051a7869877deda3adfa3a31812a097b549ae7c4de7
 T echo ${HOME} costs $5 #{not a set}
 T
+C scalars-and-strings.md:L144
+E 0
+N 0
+H 0c6234f71ddbfa9fc0d30ffb8e718eba42905de437fc9f3e5ff743192f0dbee9
+T dbg line 6: String.split(text, ",") = ["one", " two", "three"]
+T dbg line 7: text |> String.split(try Regex`,\s*`) = ["one", "two", "three"]
+T dbg line 8: String.contains?(text, try Regex`\d`) = False
+T
 C scalars-and-strings.md:L16
 E 0
 N 0
@@ -744,7 +752,7 @@ T dbg line 6: -(3 + 4) = -7
 T dbg line 7: 42 > 10 = True
 T dbg line 8: True and !False = True
 T
-C scalars-and-strings.md:L164
+C scalars-and-strings.md:L187
 E 0
 N 0
 H cff6393d182403018e5caea07c68973571060a71844d3567a0734c3cb596e6db
@@ -757,7 +765,7 @@ T   |> Iter.map(Codepoint.to_int)
 T   |> Iter.to_list()
 T   = [99, 97, 102, 233]
 T
-C scalars-and-strings.md:L195
+C scalars-and-strings.md:L218
 E 0
 N 0
 H a97a2e7423efe650e12b847e990d065c63e2c8038cb9fe248e84a7a5365902c9
@@ -768,7 +776,7 @@ T   |> Iter.map(kind)
 T   |> Iter.to_list()
 T   = ["a", "comma", "space", "b"]
 T
-C scalars-and-strings.md:L235
+C scalars-and-strings.md:L258
 E 0
 N 0
 H dfecebecfe8f77f56a26a60b330f2ea38c8bcefc2ee946485f23896b0f451f2e
@@ -776,7 +784,7 @@ T dbg line 7: Bytes.length(raw) = 5
 T dbg line 8: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L268
+C scalars-and-strings.md:L291
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -784,7 +792,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L296
+C scalars-and-strings.md:L319
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15
@@ -842,7 +850,7 @@ T dbg line 5: pair = ("Ada", 37)
 T dbg line 6: name = "Ada"
 T dbg line 7: pair.1 = 37
 T
-C structs-enums-distinct.md:L224
+C structs-enums-distinct.md:L222
 E 0
 N 0
 H 96b9697e94d58a32b955a7aec8e4503295c4ec4bbc14daef77220f66ef39b634
@@ -853,7 +861,7 @@ T   |> Iter.map(.name)
 T   |> Iter.to_list()
 T   = ["Ada", "Alan"]
 T
-C structs-enums-distinct.md:L259
+C structs-enums-distinct.md:L257
 E 0
 N 0
 H ea849f5b63fb36831631468ec5c7c5a0f4112df4c923d3c9d703abcaa0a82806
@@ -861,7 +869,7 @@ T dbg line 6: id = Id(42)
 T dbg line 10: raw = 42
 T dbg line 13: again = 42
 T
-C structs-enums-distinct.md:L289
+C structs-enums-distinct.md:L287
 E 0
 N 0
 H caa2c7537f180822fbe1354f21b84575c40aa9aa16d97536f082e01cd1abf304
@@ -877,7 +885,7 @@ T dbg line 9: alice.age = 30
 T dbg line 13: bob.age = 0
 T dbg line 20: carol = User{name: "Carol", age: 28}
 T
-C structs-enums-distinct.md:L312
+C structs-enums-distinct.md:L310
 E 0
 N 0
 H dc5d10561384c90bcfd162c700b3d04eea6cc2ac5744299c64bb221a7d67fb62
@@ -885,27 +893,27 @@ T dbg line 14: Direction.North = North
 T dbg line 17: c = Circle(3.0)
 T dbg line 20: r = Rectangle{width: 4.0, height: 5.0}
 T
-C structs-enums-distinct.md:L350
+C structs-enums-distinct.md:L348
 E 0
 N 0
 H 38c6069ff4a4e3f28c2d1c5d6802955c4e74334b35bc0dd40c90dec518aca38e
 T dbg line 21: describe(.North) = "up"
 T dbg line 22: describe(.West) = "left"
 T
-C structs-enums-distinct.md:L392
+C structs-enums-distinct.md:L390
 E 0
 N 0
 H 2173ea1bbc0759a94c9aa3b8ed9eec733df5655d591eb881c020f7cd4a8cc0e5
 T dbg line 18: User.full_name(alice) = "Ada Lovelace"
 T dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
 T
-C structs-enums-distinct.md:L447
+C structs-enums-distinct.md:L443
 E 0
 N 0
 H c2c34c1d0c53993b4411a413b1e27710756f1df5b9d9a071651a1687086dcf10
 T dbg line 22: events = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
 T
-C structs-enums-distinct.md:L493
+C structs-enums-distinct.md:L489
 E 0
 N 0
 H d48d42c1015d3886702000c505a3b231b0b1394774b33069ad6899bd37ea03a6

@@ -23,7 +23,7 @@ fn main() {
   io.print(x)
 }`, "30\n5\n"},
 		{"nonfirst slot", `fn divide(x: Int, y: Int): Int { x / y }
-fn main(): Int { 10 |> divide(100, _) |> dbg }`, "dbg line 2: 10 |> divide(100, _) = 10\n"},
+fn main() { 10 |> divide(100, _) |> dbg }`, "dbg line 2: 10 |> divide(100, _) = 10\n"},
 		{"repeated effectful value", `import std/io
 fn mark(n: Int): Int { io.print(n) return n }
 fn combine(a: Int, b: Int, c: Int): Int { a * 100 + b * 10 + c }

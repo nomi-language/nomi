@@ -198,6 +198,9 @@ func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.
 		src, k, mobile, ok = bl.lowerTypedOperand(operand, want)
 	} else {
 		src, k, mobile, ok = bl.lower(operand)
+		if ok {
+			src, k, ok = bl.typeOpenEmpty(operand, src, k)
+		}
 	}
 	if !ok {
 		return no()
@@ -318,6 +321,9 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 	var impls []ir.DebugImpl
 	seen := map[string]bool{}
 	sawSeq := false
+	// sawStructural: a distinct or marker leaf renders structurally, so
+	// an empty impl list still names a whole rendering.
+	sawStructural := false
 	register := func(k kind) (bool, bool) {
 		og, self := bl.g, k
 		d := bl.g.implsByIface["Debug"][k]
@@ -427,6 +433,27 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			}
 			return true
 		}
+		if k.tag == tagNamed && (irWrappingDistinct(k.def) || irCompositeDistinct(k.def) || irRetainedMarker(k.def)) {
+			// A distinct or a marker in a container is a boxed value that
+			// carries its type: its synthesized non-opaque Debug is rt's
+			// structural `Meters(1)`, and any other Debug is its impl,
+			// named for the renderer.
+			plan, structural := bl.distinctDebugPlan(k)
+			if plan == nil {
+				sawStructural = sawStructural || structural
+				return structural
+			}
+			name := bl.g.irTypeSym(k.def).Name()
+			if !seen[name] {
+				seen[name] = true
+				sym := plan.sym
+				if sym == nil {
+					sym = bl.g.irCalleeSym(plan.token, plan.name)
+				}
+				impls = append(impls, ir.DebugImpl{Type: name, Fn: sym})
+			}
+			return true
+		}
 		if irNominalElemKind(k) {
 			synth, ok := register(k)
 			if !ok {
@@ -464,7 +491,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		}
 		return irDebugValueKind(k)
 	}
-	if !walk(k) || (len(impls) == 0 && !sawSeq) {
+	if !walk(k) || (len(impls) == 0 && !sawSeq && !sawStructural) {
 		return nil, false
 	}
 	return impls, true

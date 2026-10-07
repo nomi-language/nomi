@@ -70,6 +70,12 @@ func TestTypeName_AsAValueIsRejected(t *testing.T) {
 		{`x = Point`, "`Point` is a type, not a value\nhelp: build a value with `Point{...}`"},
 		{`x = Dir`, "`Dir` is a type, not a value\nhelp: a value of `Dir` is one of its variants, as in `Dir.North`"},
 		{`x = Named`, "`Named` is an interface, not a value"},
+		// A `host type` carries no inner type, as a zero-sized type does,
+		// but its name is not a value.
+		{`x = Map`, "`Map` is a type, not a value"},
+		{`x = List`, "`List` is a type, not a value"},
+		{`x = Vector`, "`Vector` is a type, not a value"},
+		{`x = Bytes`, "`Bytes` is a type, not a value"},
 		{`x: List<String> = Iter.map([1], String) |> Iter.to_list()`, "`String` is a type, not a value"},
 		{`x: List<Int> = Iter.map([Id(1)], Int) |> Iter.to_list()`, "`Int` is a type, not a value"},
 		{`x = Iter.map([{x: 1}], Point) |> Iter.to_list()`, "`Point` is a type, not a value"},
@@ -91,6 +97,16 @@ func TestTypeName_AsAValueIsRejected(t *testing.T) {
 		if !found {
 			expectStdlibError(t, errs, tc.want)
 		}
+	}
+}
+
+// A test body's last statement is discarded rather than returned, so no
+// return type rejects a type name there; the type-name rule does.
+func TestTypeName_AsATestBodysLastStatementIsRejected(t *testing.T) {
+	for _, name := range []string{"Map", "Point"} {
+		src := typeNameDecls + "test \"x\" {\n  assert True\n  " + name + "\n}\n"
+		_, errs := checkSourceWithStdlib(src)
+		expectStdlibError(t, errs, "`"+name+"` is a type, not a value")
 	}
 }
 
@@ -193,5 +209,46 @@ func TestConstructorValue_OpaqueDistinctOutsideItsFile(t *testing.T) {
 	_, errs := opaqueProject(t, files)
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, "constructor of opaque type 'Secret' is private to its defining module") {
 		t.Fatalf("want one opaque-constructor error, got %v", errs)
+	}
+}
+
+// A pipe into a struct's name is the struct call form with the piped value
+// as its record, held to the prefix form's rules, and a pipe into an opaque
+// distinct's name is its private constructor, as the prefix call is. Each
+// rejected form below passed the checker, the struct ones with no type on
+// the pipe; `00 |> Range()` was BLOCKED at run time with "a type name in
+// value position: Range".
+func TestTypeName_PipedIntoAStructIsTheCallForm(t *testing.T) {
+	for _, tc := range []struct {
+		imports string
+		expr    string
+		want    string
+	}{
+		{"", `00 |> Range()`, "constructor of opaque type 'Range' is private to its defining module"},
+		{"", `00 |> Range()`, "Range expects an anonymous struct literal {...} matching its fields, got Int"},
+		{"", `1 |> Point()`, "Point expects an anonymous struct literal {...} matching its fields, got Int"},
+		{"", `{x: 1} |> Point(2)`, "Point takes the piped record as its only argument, got 1 more"},
+		{"", `{y: 1} |> Point()`, "Point has no field 'y'"},
+		{"import std/instant.Instant\n\n", `1 |> Instant()`, "constructor of opaque type 'Instant' is private to its defining module"},
+	} {
+		src := tc.imports + typeNameDecls + "fn main() {\n  _ = " + tc.expr + "\n}\n"
+		_, errs := checkSourceWithStdlib(src)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(diagText(e), tc.want) {
+				found = true
+			}
+		}
+		if !found {
+			expectStdlibError(t, errs, tc.want)
+		}
+	}
+	for _, stmt := range []string{
+		`x = {x: 1} |> Point()`,
+		"r = {x: 1}\n  x = r |> Point()",
+	} {
+		src := typeNameDecls + "fn main() {\n  " + stmt + "\n  _ = x.x\n}\n"
+		_, errs := checkSourceWithStdlib(src)
+		expectNoStdlibErrors(t, errs)
 	}
 }

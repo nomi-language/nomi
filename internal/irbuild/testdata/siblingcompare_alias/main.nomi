@@ -1,0 +1,68 @@
+// Orderings of sibling types imported under aliases, through every route that
+// asks for `Comparable.compare`: the operators, the interface call, sorting,
+// Set and Map keys, and ranges.
+//
+// TestSiblingCompare_AnAliasedTypeImportOrdersARange runs it. The range rows
+// are the ones siblingCompareAt answers.
+import {
+    std/io
+    widget.{Gadget as Doodad, Meters as Span, Rank as Tier}
+}
+
+fn main() {
+    a = Doodad{n: 1}
+    b = Doodad{n: 2}
+    io.print(a < b)
+    io.print(b <= a)
+    io.print(a == Doodad{n: 1})
+    io.print(a != b)
+    io.print(Comparable.compare(a, b))
+    io.print(Doodad.compare(b, a))
+    sorted = [b, a, Doodad{n: 0}] |> Iter.sort() |> Iter.map(|d| d.n) |> Iter.to_list()
+
+    io.print(sorted)
+    by = [b, a] |> Iter.sort_by(|d| d) |> Iter.map(|d| d.n) |> Iter.to_list()
+
+    io.print(by)
+
+    t1 = Tier{level: 2, name: "b"}
+    t2 = Tier{level: 1, name: "z"}
+    io.print(t1 > t2)
+    io.print(Comparable.compare(t1, t2))
+    io.print(t1 == Tier{level: 2, name: "b"})
+    s = [t1, t2, t1] |> Iter.to_set()
+
+    io.print(Set.size(s))
+    io.print(Set.contains?(s, Tier{level: 1, name: "z"}))
+    m = [(t1, "one"), (t2, "two")] |> Iter.to_map()
+
+    io.print(Map.contains_key?(m, Tier{level: 1, name: "z"}))
+
+    io.print(
+        [t1, t2]
+        |> Iter.sort()
+        |> Iter.map(|t| t.name)
+        |> Iter.to_list()
+    )
+
+    r = Doodad{n: 1}..=Doodad{n: 7}
+    io.print(Range.contains?(r, Doodad{n: 7}))
+    io.print(Range.contains?(r, Doodad{n: 8}))
+
+    io.print(
+        r
+        |> Range.step_by(3)
+        |> Iter.map(|d| d.n)
+        |> Iter.to_list()
+    )
+
+    span = Span{n: 2}..Span{n: 6}
+    io.print(Range.contains?(span, Span{n: 6}))
+
+    io.print(
+        span
+        |> Range.step_by(2)
+        |> Iter.map(|x| x.n)
+        |> Iter.to_list()
+    )
+}

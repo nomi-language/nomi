@@ -74,13 +74,19 @@ func (c *checker) namedType(ref typeNameRef) (string, Type, bool) {
 	case SymbolInterface:
 		return "interface", sym.Type, true
 	case SymbolType:
-		if dt, ok := sym.Type.(*DistinctType); ok && dt.Inner == nil {
-			return "", nil, false
-		}
 		if sym.Type == TypeTrue || sym.Type == TypeFalse || sym.Type == TypeUnit {
 			// std's host singletons: `True` and `False`, which Bool
 			// embeds, and `Unit`. Each is its own one value.
 			return "", nil, false
+		}
+		if dt, ok := sym.Type.(*DistinctType); ok && dt.Inner == nil {
+			// A zero-sized `type Expired` is its one value. A `host type`
+			// (`List<T>`, `Map<K, V>`, `Bytes`) carries no inner type
+			// either, but its values come from functions, so its name is
+			// not one.
+			if _, host := sym.Node.(*ast.ExternType); !host {
+				return "", nil, false
+			}
 		}
 		return "type", sym.Type, true
 	}
@@ -213,6 +219,13 @@ func (c *checker) calleeNamedType(callee ast.Node, calleeTy Type) (typeNameRef, 
 		if resolved := c.reg.Lookup(ti.Name); resolved != nil {
 			return ref, resolved, true
 		}
+		if st, isStruct := calleeTy.(*StructType); isStruct {
+			// A struct declared in a block is not in the module's
+			// registry; its name's symbol carries the type. Without this
+			// arm `Cell({c: 1})` was checked as an ordinary call, which
+			// left a generic struct's type arguments unsolved.
+			return ref, st, true
+		}
 		return typeNameRef{}, nil, false
 	}
 	_, named, ok := c.namedType(ref)
@@ -224,15 +237,16 @@ func (c *checker) calleeNamedType(callee ast.Node, calleeTy Type) (typeNameRef, 
 
 // checkPipedTypeNameCall is checkTypeNameCall for a pipe stage,
 // `"4" |> Int()`, whose piped value is the first argument. A struct's call
-// form and a distinct's construction keep their own paths, so handled is
-// false for them and for any callee that is not a type name.
+// form takes the piped value as its record (checkPipedStructCallForm). A
+// distinct's construction keeps its own path, so handled is false for it
+// and for any callee that is not a type name.
 func (c *checker) checkPipedTypeNameCall(call *ast.Call, piped ast.Node, pipedTy, calleeTy Type) (Type, bool) {
 	ref, resolved, ok := c.calleeNamedType(call.Func, calleeTy)
 	if !ok {
 		return nil, false
 	}
-	if _, isStruct := resolved.(*StructType); isStruct {
-		return nil, false
+	if st, isStruct := resolved.(*StructType); isStruct {
+		return c.checkPipedStructCallForm(call, piped, pipedTy, st), true
 	}
 	args := append([]ast.Node{piped}, call.Args...)
 	argTys := make([]Type, len(args))

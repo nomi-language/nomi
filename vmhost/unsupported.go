@@ -41,7 +41,7 @@ func (p *Program) Unsupported() error {
 			// A host function the run binds from its host tables, which a
 			// check does not have, is not a lowering's to report.
 			if u.Kind == vm.NotRetained || u.Kind == vm.OnceNotRetained {
-				add(u.Name)
+				add(blockerName(u))
 			}
 		}
 	}
@@ -107,10 +107,39 @@ type nilWriter struct{}
 
 func (nilWriter) Write(b []byte) (int, error) { return len(b), nil }
 
+// blockerName is the attempt name of an unretained declaration: a `once`
+// cell's attempt is "once <name>", as the lowering names it.
+func blockerName(u vm.Unretained) string {
+	if u.Kind == vm.OnceNotRetained && !strings.HasPrefix(u.Name, "once ") {
+		return "once " + u.Name
+	}
+	return u.Name
+}
+
 // unsupportedDiagnostic is one blocker, located and worded for the author.
+//
+// A body that declined only because it reads a `once` whose initializer did
+// not lower (irbuild.Decline.Once) is reported at the `once`: at the
+// expression its initializer stopped at, or at its declaration, and named as
+// the construct, so the author looks where the gap is.
 func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 	what := blockerSubject(name)
 	d := p.declineOf(name)
+	debugReason := "[" + name + "] " + p.decline(name)
+	once := ""
+	if d != nil && d.Once != "" {
+		once = d.Once
+		// The `once`'s own attempt, when the builder made one: a `once`
+		// with no type the builder can represent is never attempted, and
+		// the read's reason says why.
+		od := p.declineOf(once)
+		if od != nil {
+			debugReason += "; [" + once + "] " + od.Reason
+		} else {
+			od = &irbuild.Decline{Fn: once, Reason: d.Reason}
+		}
+		d = od
+	}
 	path, line, col := "", 0, 0
 	if d != nil && d.Line > 0 {
 		path, line, col = d.Path, d.Line, d.Col
@@ -121,7 +150,11 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 		}
 	}
 	if line == 0 {
-		path, line, col = p.declarationOf(name)
+		if once != "" {
+			path, line, col = p.declarationOf(once)
+		} else {
+			path, line, col = p.declarationOf(name)
+		}
 	}
 	if analysis.IsSynthesizedLine(line) {
 		// A derive-synthesized body has no source line of its own.
@@ -129,8 +162,13 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 	}
 	construct := "its body"
 	if line > 0 {
-		if n := nodeAt(p.modulePath(path), line, col); n != nil {
+		mod := p.modulePath(path)
+		if n := nodeAt(mod, line, col); n != nil {
 			construct = describeConstruct(n)
+			if fd, ok := n.(*ast.FuncDef); ok && !nestedFunc(mod, fd) {
+				// A declaration the decline was placed at as a whole.
+				construct = "the body of `fn " + fd.Name + "`"
+			}
 			if call, ok := n.(*ast.Call); ok {
 				// A call's own position is its parenthesis; the author reads
 				// the call at its callee.
@@ -140,6 +178,9 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 			}
 		}
 	}
+	if once != "" {
+		construct = "this " + blockerSubject(once)
+	}
 	diag := frontend.NewDiagnostic(path, p.sources[path], line, col,
 		fmt.Sprintf("%s is not supported yet, so %s cannot run", construct, what))
 	if d != nil {
@@ -147,11 +188,16 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 			diag.Hints = append(diag.Hints, hint)
 		}
 	}
+	diag.Hints = append(diag.Hints, gapHint)
 	if DebugLowering() {
-		diag.Hints = append(diag.Hints, "the lowering's reason: ["+name+"] "+p.decline(name))
+		diag.Hints = append(diag.Hints, "the lowering's reason: "+debugReason)
 	}
 	return diag
 }
+
+// gapHint closes every unsupported diagnostic, so a newcomer does not read
+// the compiler's gap as a mistake in their own code.
+const gapHint = "this is a gap in Nomi, not a mistake in your code; please report it at https://github.com/nomi-language/nomi/issues"
 
 // DebugLowering reports whether NOMI_DEBUG_LOWERING is set to a non-empty
 // value other than 0. Each diagnostic for a body the compiler cannot lower
@@ -171,7 +217,7 @@ func (p *Program) blocked(found []vm.Unretained) *Blocked {
 	var names []string
 	for _, u := range found {
 		if u.Kind == vm.NotRetained || u.Kind == vm.OnceNotRetained {
-			names = append(names, u.Name)
+			names = append(names, blockerName(u))
 			continue
 		}
 		b.rest = append(b.rest, p.reasons([]vm.Unretained{u})...)
@@ -297,7 +343,7 @@ func (p *Program) declarationOf(name string) (string, int, int) {
 					}
 				case *ast.OnceBinding:
 					if isOnce && d.Name == once {
-						line, col = d.LineNum(), 0
+						line, col = d.Line, d.Col
 					}
 				}
 			})
@@ -386,11 +432,37 @@ func nodeStart(n ast.Node) (int, int) {
 		return t.Line, t.Col
 	case *ast.TryOp:
 		return t.Line, t.Col
+	case *ast.Block:
+		return t.Line, t.Col
+	case *ast.FuncDef:
+		return t.Line, t.Col
 	}
 	return 0, 0
 }
 
-// describeConstruct names the construct n is in the author's words.
+// nestedFunc reports whether fd is declared inside a body rather than at the
+// top of mod or in one of its impl blocks.
+func nestedFunc(mod *irbuild.Module, fd *ast.FuncDef) bool {
+	if mod == nil {
+		return true
+	}
+	for _, top := range mod.Nodes {
+		if top == fd {
+			return false
+		}
+		if ib, ok := top.(*ast.ImplBlock); ok {
+			for _, item := range ib.Items {
+				if item == fd {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+// describeConstruct names the construct n is in the author's words. A
+// FuncDef is a nested `fn`; the caller names a top-level one.
 func describeConstruct(n ast.Node) string {
 	switch t := n.(type) {
 	case *ast.Call:
@@ -435,6 +507,10 @@ func describeConstruct(n ast.Node) string {
 		return "`return` here"
 	case *ast.TryOp:
 		return "`try` here"
+	case *ast.Block:
+		return "this block"
+	case *ast.FuncDef:
+		return "the nested `fn " + t.Name + "`"
 	}
 	return "this expression"
 }

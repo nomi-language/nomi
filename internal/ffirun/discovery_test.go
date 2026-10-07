@@ -291,8 +291,8 @@ replace example.com/dep => %s
 `, nomiRoot))
 	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `import dep/binding
 
-fn main(): String {
-  binding.ping()
+fn main() {
+  _ = binding.ping()
 }
 `)
 
@@ -603,5 +603,83 @@ fn touch_event(event: Event): Event go binding.TouchEvent
 
 	if _, err := Prepare(filepath.Join(root, "main.nomi")); err != nil {
 		t.Fatalf("Prepare should validate struct fields using the struct file imports: %v", err)
+	}
+}
+
+// hi.nomi and bin/hi.nomi share a base name and declare one binding, and
+// each is keyed by its path under the project (hi.upper, bin/hi.upper), so
+// discovery keeps an export for each. Either can be the entry, whose own
+// declarations the runtime keys bare, so the wrapper rekeys each export for
+// its own file, or `nomi run` of that file finds no binding for upper.
+func TestDiscovery_SameBaseNameInTwoDirectoriesKeysEach(t *testing.T) {
+	root := stageSourceBindingProject(t)
+	decl := `gopkg "example.com/binding/source" as binding
+
+fn upper(s: String): String go binding.EchoUpper
+`
+	top := filepath.Join(root, "hi.nomi")
+	nested := filepath.Join(root, "bin", "hi.nomi")
+	mustWriteHelper(t, top, decl)
+	mustWriteHelper(t, nested, decl)
+
+	got, err := Discover(root)
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	if len(got) != 1 || len(got[0].Exports) != 2 {
+		t.Fatalf("expected an export per file, got %+v", got)
+	}
+	src, err := renderWrapper(root, got)
+	if err != nil {
+		t.Fatalf("renderWrapper: %v", err)
+	}
+	want := map[string]string{"bin/hi.upper": nested, "hi.upper": top}
+	for _, exp := range got[0].Exports {
+		file, ok := want[exp.Key]
+		if !ok || exp.SourceFile != file || exp.EntryKey != "upper" || len(exp.AlsoDeclaredIn) != 0 {
+			t.Fatalf("export %q from %s (entry key %q, also %v); want keys %v", exp.Key, exp.SourceFile, exp.EntryKey, exp.AlsoDeclaredIn, want)
+		}
+		call := fmt.Sprintf("nomiExternKey(targetPath, %q, %q, %q)", exp.Key, "upper", file)
+		if !strings.Contains(string(src), call) {
+			t.Errorf("wrapper does not rekey %s for its own file; want %s in:\n%s", exp.Key, call, src)
+		}
+	}
+}
+
+// BindingModule keys a file by its path under the nearest nomi.toml or go.mod, so two
+// files with one base name in different directories cross under different
+// keys, and a file at the Go module's root keeps its base name. The key is
+// relative: it carries no path of the machine that computed it.
+func TestBindingModule_IsThePathUnderTheNearestGoModule(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) string {
+		t.Helper()
+		p := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	write("app/go.mod", "module app\n")
+	write("dep/go.mod", "module dep\n")
+	write("app/lib/nomi.toml", "[module]\nname = \"lib\"\n")
+	cases := map[string]string{
+		"app/lib/x.nomi":      "x",
+		"app/lib/sub/y.nomi":  "sub/y",
+		"app/ffi.nomi":        "ffi",
+		"app/a/util.nomi":     "a/util",
+		"app/b/util.nomi":     "b/util",
+		"app/bin/hi":          "bin/hi",
+		"dep/sqlite.nomi":     "sqlite",
+		"dep/inner/conn.nomi": "inner/conn",
+		"loose/util.nomi":     "util",
+	}
+	for rel, want := range cases {
+		if got := BindingModule(write(rel, "")); got != want {
+			t.Errorf("BindingModule(%s) = %q, want %q", rel, got, want)
+		}
 	}
 }

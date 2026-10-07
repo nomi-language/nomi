@@ -11,9 +11,9 @@ test "compiler can check diagnostics across an in-memory project" {
             "main" => """
                 import api.{make, secret}
 
-                fn main(): String {
+                fn main() {
                   w = make("Ada")
-                  secret(w)
+                  _ = secret(w)
                 }
                 """,
             "api" => """

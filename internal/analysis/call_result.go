@@ -97,7 +97,7 @@ func (fa *FileAnalysis) solveCallShape(ft *FuncType, call CallShape, skip int) (
 		}
 		argTy = coerceMapToList(argTy, ft.Params[slot])
 		argTy = coerceRangeToList(argTy, ft.Params[slot])
-		return UnifyWithImpls(ft.Params[slot], argTy, subs, impls, implTypeArgs) == nil
+		return UnifyInto(ft.Params[slot], argTy, subs, impls, implTypeArgs) == nil
 	}
 	var slots []int
 	if call.Piped {

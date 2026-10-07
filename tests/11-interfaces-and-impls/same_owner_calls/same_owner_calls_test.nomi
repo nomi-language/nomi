@@ -59,8 +59,8 @@ test "self is not an expression qualifier" {
             self.get(b)
           }
 
-          fn main(): Int {
-            read(Box{value: 1})
+          fn main() {
+            _ = read(Box{value: 1})
           }
         """
     )
@@ -112,8 +112,8 @@ test "ambiguous same-owner interface functions require qualification" {
           }
         }
 
-        fn main(): String {
-          Message.message(Person{name: "Ada"})
+        fn main() {
+          _ = Message.message(Person{name: "Ada"})
         }
         """
     )

@@ -8,7 +8,7 @@ func TestIRSortBy_TourUsersByName(t *testing.T) {
   age: Int
 }
 
-fn main(): List<User> {
+fn main() {
   users = [User{name: "Cara", age: 35}, User{name: "Ann", age: 41}]
   sorted = users |> Iter.sort_by(|u| u.name)
 

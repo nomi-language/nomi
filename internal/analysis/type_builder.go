@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -338,18 +339,24 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	// supposed to be symmetric.
 	registerModuleQualifiedTypes(reg, fa.ModuleScope)
 
-	// Pass 2: resolve details and attach to symbols.
+	// Pass 2: resolve details and attach to symbols. An alias is built at
+	// its declaration or at the first lookup of its name, whichever comes
+	// first (newAliasBuilder).
 	var errs []TypeError
+	aliases := newAliasBuilder(fa, nodes, func(n *ast.TypeAlias) (*TypeRegistry, bool) {
+		_, owns := typeDeclSymbol(fa, fa.ModuleScope, n.Name, n.Line, n.Col)
+		return ownRegistry(fa, reg, n.Name, n.Line, n.Col), owns
+	})
 	for _, node := range nodes {
 		switch n := node.(type) {
+		case *ast.TypeAlias:
+			aliases.build(n)
 		case *ast.StructDef:
 			errs = append(errs, buildStructType(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)...)
 		case *ast.EnumDef:
 			errs = append(errs, buildEnumType(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)...)
 		case *ast.TypeDef:
 			errs = append(errs, buildTypeDef(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)...)
-		case *ast.TypeAlias:
-			errs = append(errs, buildTypeAlias(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)...)
 		case *ast.InterfaceDef:
 			errs = append(errs, buildInterfaceMethods(fa, ownRegistry(fa, reg, n.Name, n.Line, n.Col), n)...)
 		case *ast.FuncDef:
@@ -377,6 +384,8 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 			errs = append(errs, buildImplBlockTypes(fa, reg, n)...)
 		}
 	}
+
+	errs = append(errs, aliases.errs...)
 
 	// Pass 2b: resolve nested fn signatures inside function bodies. Their
 	// Symbols were registered by the builder; we just need to attach FuncType.
@@ -406,6 +415,7 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		case *ast.TestDecl:
 			errs = append(errs, buildTestDeclFuncTypes(fa, reg, n)...)
 		}
+		errs = append(errs, buildAttachedTestTypes(fa, reg, node)...)
 	}
 
 	// Pass 3: after all impl/extend method signatures are resolved, solve the
@@ -620,52 +630,10 @@ func validateNoIllegalNestedDecls(node ast.Node) []TypeError {
 			Line: n.Line, Col: n.Col,
 			Message: "extern declaration must be at the top level",
 		})
-	case *ast.FuncDef:
-		if n.Body != nil {
-			errs = append(errs, validateNoIllegalNestedDecls(n.Body)...)
-		}
-	case *ast.Block:
-		for _, stmt := range n.Stmts {
-			errs = append(errs, validateNoIllegalNestedDecls(stmt)...)
-		}
-	case *ast.Binding:
-		errs = append(errs, validateNoIllegalNestedDecls(n.Value)...)
-	case *ast.PatternBinding:
-		errs = append(errs, validateNoIllegalNestedDecls(n.Value)...)
-		for _, e := range n.ElseNodes() {
-			errs = append(errs, validateNoIllegalNestedDecls(e)...)
-		}
-	case *ast.With:
-		errs = append(errs, validateNoIllegalNestedDecls(n.Value)...)
-	case *ast.GroupedExpr:
-		errs = append(errs, validateNoIllegalNestedDecls(n.Expr)...)
-	case *ast.If:
-		errs = append(errs, validateNoIllegalNestedDecls(n.Cond)...)
-		errs = append(errs, validateNoIllegalNestedDecls(n.CondPattern)...)
-		if n.Then != nil {
-			errs = append(errs, validateNoIllegalNestedDecls(n.Then)...)
-		}
-		if n.Else != nil {
-			errs = append(errs, validateNoIllegalNestedDecls(n.Else)...)
-		}
-	case *ast.Case:
-		if n.Value != nil {
-			errs = append(errs, validateNoIllegalNestedDecls(n.Value)...)
-		}
-		for _, br := range n.Branches {
-			if br.Body != nil {
-				errs = append(errs, validateNoIllegalNestedDecls(br.Body)...)
-			}
-		}
-	case *ast.Lambda:
-		if n.Body != nil {
-			errs = append(errs, validateNoIllegalNestedDecls(n.Body)...)
-		}
-	case *ast.Call:
-		errs = append(errs, validateNoIllegalNestedDecls(n.Func)...)
-		for _, arg := range n.Args {
-			errs = append(errs, validateNoIllegalNestedDecls(arg)...)
-		}
+	default:
+		ast.Children(node, func(child ast.Node) {
+			errs = append(errs, validateNoIllegalNestedDecls(child)...)
+		})
 	}
 	return errs
 }
@@ -693,38 +661,47 @@ func buildBlockNestedTypes(fa *FileAnalysis, reg *TypeRegistry, block *ast.Block
 			child.Register(n.Name, &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams)})
 		}
 	}
-	// Pass 2: resolve details against the child registry.
+	// Pass 2: resolve details against the child registry, each alias at its
+	// declaration or its first lookup (newAliasBuilder).
 	var errs []TypeError
+	aliases := newAliasBuilder(fa, block.Stmts, func(*ast.TypeAlias) (*TypeRegistry, bool) {
+		return child, true
+	})
 	for _, stmt := range block.Stmts {
 		switch n := stmt.(type) {
+		case *ast.TypeAlias:
+			aliases.build(n)
 		case *ast.StructDef:
 			errs = append(errs, buildStructType(fa, child, n)...)
 		case *ast.EnumDef:
 			errs = append(errs, buildEnumType(fa, child, n)...)
 		case *ast.TypeDef:
 			errs = append(errs, buildTypeDef(fa, child, n)...)
-		case *ast.TypeAlias:
-			errs = append(errs, buildTypeAlias(fa, child, n)...)
 		case *ast.InterfaceDef:
 			errs = append(errs, buildInterfaceMethods(fa, child, n)...)
 		}
 	}
+	errs = append(errs, aliases.errs...)
 	return child, errs
 }
 
 // buildNestedFuncTypes walks a function body looking for nested FuncDef
-// declarations and resolves their signatures via buildFuncType. Recurses
-// through Block/If/Case/Lambda bodies so deeply-nested fns are handled.
-// When entering a Block, builds a child type registry populated with any
-// type declarations at that block level so nested fns can reference them.
+// declarations and resolves their signatures via buildFuncType. It descends
+// into every child of every node, so a `fn` declared in a block that is a list
+// element, a struct field, an operand, a lambda body or an interpolation gets
+// its signature exactly as one in a statement position does; a nested fn left
+// without one is never checked (checkFunc needs its FuncType). When entering
+// a Block, builds a child type registry populated with any type declarations
+// at that block level so nested fns can reference them.
 func buildNestedFuncTypes(fa *FileAnalysis, reg *TypeRegistry, node ast.Node) []TypeError {
 	var errs []TypeError
 	switch n := node.(type) {
+	case nil:
 	case *ast.FuncDef:
 		errs = append(errs, buildFuncType(fa, reg, n)...)
-		if n.Body != nil {
-			errs = append(errs, buildNestedFuncTypes(fa, reg, n.Body)...)
-		}
+		ast.Children(n, func(child ast.Node) {
+			errs = append(errs, buildNestedFuncTypes(fa, reg, child)...)
+		})
 	case *ast.Block:
 		// Build a child registry containing this block's nested type defs,
 		// then process the block's statements with that registry visible.
@@ -733,49 +710,10 @@ func buildNestedFuncTypes(fa *FileAnalysis, reg *TypeRegistry, node ast.Node) []
 		for _, stmt := range n.Stmts {
 			errs = append(errs, buildNestedFuncTypes(fa, childReg, stmt)...)
 		}
-	case *ast.Binding:
-		errs = append(errs, buildNestedFuncTypes(fa, reg, n.Value)...)
-	case *ast.PatternBinding:
-		errs = append(errs, buildNestedFuncTypes(fa, reg, n.Value)...)
-		for _, e := range n.ElseNodes() {
-			errs = append(errs, buildNestedFuncTypes(fa, reg, e)...)
-		}
-	case *ast.With:
-		errs = append(errs, buildNestedFuncTypes(fa, reg, n.Value)...)
-	case *ast.GroupedExpr:
-		errs = append(errs, buildNestedFuncTypes(fa, reg, n.Expr)...)
-	case *ast.If:
-		errs = append(errs, buildNestedFuncTypes(fa, reg, n.Cond)...)
-		errs = append(errs, buildNestedFuncTypes(fa, reg, n.CondPattern)...)
-		if n.Then != nil {
-			errs = append(errs, buildNestedFuncTypes(fa, reg, n.Then)...)
-		}
-		if n.Else != nil {
-			errs = append(errs, buildNestedFuncTypes(fa, reg, n.Else)...)
-		}
-	case *ast.Case:
-		if n.Value != nil {
-			errs = append(errs, buildNestedFuncTypes(fa, reg, n.Value)...)
-		}
-		for _, br := range n.Branches {
-			if br.Body != nil {
-				errs = append(errs, buildNestedFuncTypes(fa, reg, br.Body)...)
-			}
-		}
-	case *ast.Lambda:
-		if n.Body != nil {
-			errs = append(errs, buildNestedFuncTypes(fa, reg, n.Body)...)
-		}
-	case *ast.Call:
-		errs = append(errs, buildNestedFuncTypes(fa, reg, n.Func)...)
-		for _, arg := range n.Args {
-			errs = append(errs, buildNestedFuncTypes(fa, reg, arg)...)
-		}
-	case *ast.TestDecl:
-		// A `tests` group nested inside another test body. Its own body's
-		// statements are the group's children; boot and setup are ordinary
-		// expressions that may declare a `fn` too.
-		errs = append(errs, buildTestDeclFuncTypes(fa, reg, n)...)
+	default:
+		ast.Children(n, func(child ast.Node) {
+			errs = append(errs, buildNestedFuncTypes(fa, reg, child)...)
+		})
 	}
 	return errs
 }
@@ -800,6 +738,53 @@ func buildTestDeclFuncTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.TestDecl
 	}
 	if n.Body != nil {
 		errs = append(errs, buildNestedFuncTypes(fa, reg, n.Body)...)
+	}
+	return errs
+}
+
+// missingParamType is the error for a declared function's parameter written
+// without a type, `fn tag(_v): String`: a parameter of a `fn`, an impl's or
+// an interface's function, or a `host fn` needs one (only a lambda's may be
+// inferred). A synthesized declaration's parameters are the compiler's.
+func missingParamType(p ast.Param) []TypeError {
+	if p.Destructure != nil || IsSynthesizedLine(p.Line) {
+		return nil
+	}
+	return []TypeError{{
+		Line:    p.Line,
+		Col:     p.Col,
+		Message: fmt.Sprintf("parameter '%s' needs a type annotation", p.Name),
+		Hints:   []string{fmt.Sprintf("write `%s: Type`; only a lambda's parameter types may be left out", p.Name)},
+	}}
+}
+
+// buildAttachedTestTypes gives the types and nested fns declared in the body
+// of each `//!` test attached to node, or to one of the items it holds (an
+// impl's or a type's functions), what a `test` body's get: a `//! type
+// TraceId String` was registered by the builder and left with no type, so a
+// call to its constructor had none.
+func buildAttachedTestTypes(fa *FileAnalysis, reg *TypeRegistry, node ast.Node) []TypeError {
+	var errs []TypeError
+	for _, t := range ast.AttachedTestsOf(node) {
+		if t.Body != nil {
+			errs = append(errs, buildNestedFuncTypes(fa, reg, t.Body)...)
+		}
+	}
+	var items []ast.Node
+	switch n := node.(type) {
+	case *ast.ImplBlock:
+		items = n.Items
+	case *ast.StructDef:
+		items = n.Items
+	case *ast.EnumDef:
+		items = n.Items
+	case *ast.TypeDef:
+		items = n.Items
+	case *ast.ExternType:
+		items = n.Items
+	}
+	for _, item := range items {
+		errs = append(errs, buildAttachedTestTypes(fa, reg, item)...)
 	}
 	return errs
 }
@@ -1227,7 +1212,14 @@ func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeErr
 			}
 			return nil
 		}
-		dt.Inner = resolved
+		if path := distinctCycle(dt, resolved); path != nil {
+			// The inner type is left unset, so the type stays a finite
+			// graph for everything that walks it after this error.
+			dt.Inner = nil
+			errs = append(errs, distinctCycleError(n, path))
+		} else {
+			dt.Inner = resolved
+		}
 	}
 	sym.Type = dt
 	return errs
@@ -1302,6 +1294,7 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		for _, p := range m.Params {
 			paramNames = append(paramNames, p.Name)
 			if p.TypeAnnotation == nil {
+				errs = append(errs, missingParamType(p)...)
 				params = append(params, nil)
 				continue
 			}
@@ -1530,6 +1523,7 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 			continue
 		}
 		if p.TypeAnnotation == nil {
+			errs = append(errs, missingParamType(p)...)
 			params = append(params, nil)
 			continue
 		}
@@ -1889,6 +1883,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 				continue
 			}
 			if p.TypeAnnotation == nil {
+				errs = append(errs, missingParamType(p)...)
 				params = append(params, nil)
 				continue
 			}
@@ -1956,6 +1951,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 		params := make([]Type, 0, len(ef.Params))
 		for _, p := range ef.Params {
 			if p.TypeAnnotation == nil {
+				errs = append(errs, missingParamType(p)...)
 				params = append(params, nil)
 				continue
 			}
@@ -1996,15 +1992,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 	// A synthesized block's signature errors carry the synth band too. Same
 	// rule as the checker's — keep the diagnostic, move the address. See
 	// checker.repointSynthDiagnostics.
-	if synthBlock && n.SynthOriginLine > 0 {
-		for i := range errs {
-			if !IsSynthesizedLine(errs[i].Line) {
-				continue
-			}
-			errs[i].Line = n.SynthOriginLine
-			errs[i].Col = n.SynthOriginCol
-		}
-	}
+	repointSynthErrors(n, errs)
 	return errs
 }
 
@@ -2065,6 +2053,7 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 	params := make([]Type, 0, len(n.Params))
 	for _, p := range n.Params {
 		if p.TypeAnnotation == nil {
+			errs = append(errs, missingParamType(p)...)
 			params = append(params, nil)
 			continue
 		}

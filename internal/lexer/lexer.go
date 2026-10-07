@@ -316,8 +316,8 @@ func (l *lexer) scanRawBacktick(tag string) {
 		buf = append(buf, byte(ch))
 		l.advance()
 	}
-	// Unterminated raw string.
-	l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: string(buf), Line: startLine, Col: startCol})
+	l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: string(buf),
+		Problem: "unterminated raw string; close it with `", Line: startLine, Col: startCol})
 }
 
 // scanString scans a regular (non-raw) single-line string. Cursor sits
@@ -328,6 +328,7 @@ func (l *lexer) scanRawBacktick(tag string) {
 // case (no Tag on those — only the opener carries it).
 func (l *lexer) scanString(tag string) {
 	startLine, startCol := l.line, l.col
+	openLine, openCol := startLine, startCol
 
 	// Check for triple-quoted string
 	if l.peekAt(1) == '"' && l.peekAt(2) == '"' {
@@ -429,7 +430,10 @@ func (l *lexer) scanString(tag string) {
 			l.advance() // skip '{'
 
 			// Scan tokens inside interpolation until matching '}'
-			l.scanInterpolation()
+			if !l.scanInterpolation() {
+				l.illegalString("unterminated ${...} in a string; close it with }", openLine, openCol)
+				return
+			}
 			startLine, startCol = l.line, l.col
 			continue
 		}
@@ -438,8 +442,7 @@ func (l *lexer) scanString(tag string) {
 		l.advance()
 	}
 
-	// Unterminated string — emit what we have as ILLEGAL
-	l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: string(buf), Line: startLine, Col: startCol})
+	l.illegalString(`unterminated string; close it with "`, openLine, openCol)
 }
 
 // illegalString ends a string literal at a malformed escape: an ILLEGAL token
@@ -479,7 +482,9 @@ func (l *lexer) scanCodepoint() {
 	l.tokens = append(l.tokens, token.Token{Type: token.CODEPOINT_LITERAL, Lexeme: body, Line: startLine, Col: startCol})
 }
 
-func (l *lexer) scanInterpolation() {
+// scanInterpolation scans the tokens of a `${...}` hole and consumes its
+// closing brace. It reports false when the source ends first.
+func (l *lexer) scanInterpolation() bool {
 	braceDepth := 1
 	for !l.atEnd() && braceDepth > 0 {
 		ch := l.peek()
@@ -491,7 +496,7 @@ func (l *lexer) scanInterpolation() {
 			braceDepth--
 			if braceDepth == 0 {
 				l.advance() // consume closing brace, don't emit it
-				return
+				return true
 			}
 			l.emit(token.RBRACE, "}")
 			l.advance()
@@ -499,6 +504,7 @@ func (l *lexer) scanInterpolation() {
 			l.scanToken()
 		}
 	}
+	return false
 }
 
 // --- Triple-quoted strings ---
@@ -687,7 +693,11 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 
 			// Capture interpolation tokens
 			savedLen := len(l.tokens)
-			l.scanInterpolation()
+			if !l.scanInterpolation() {
+				l.tokens = l.tokens[:savedLen]
+				l.illegalString("unterminated ${...} in a triple-quoted string; close it with }", startLine, startCol)
+				return
+			}
 			interpTokens := make([]token.Token, len(l.tokens)-savedLen)
 			copy(interpTokens, l.tokens[savedLen:])
 			l.tokens = l.tokens[:savedLen]
@@ -704,8 +714,8 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 		}
 	}
 
-	// Unterminated triple-quoted string
-	l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: string(buf), Line: startLine, Col: startCol})
+	l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: string(buf),
+		Problem: `unterminated triple-quoted string; close it with """`, Line: startLine, Col: startCol})
 }
 
 func (l *lexer) skipAttachedTestPromptPrefix() bool {
@@ -1149,8 +1159,10 @@ func (l *lexer) atEnd() bool {
 	return l.pos >= len(l.source)
 }
 
+// peek is the byte at the cursor, or 0 at the end of the source, so a scan
+// that looks one byte past a truncated construct sees no character there.
 func (l *lexer) peek() byte {
-	return l.source[l.pos]
+	return l.peekAt(0)
 }
 
 func (l *lexer) peekAt(offset int) byte {

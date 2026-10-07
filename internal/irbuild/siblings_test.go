@@ -92,3 +92,25 @@ func TestSiblingFile_PrivateDeclarationIsNotCallable(t *testing.T) {
 		t.Fatalf("refusal name is the tally key and must be stable; got %q", priv.why)
 	}
 }
+
+// Two sibling files each declare a `Point`, and only alpha's has an
+// `impl Equatable` (testdata/sibsig_samename). The entry imports beta's as
+// `Coord` and compares two values of each. alpha's `==` is its impl, which
+// compares `x` only, so (1, 2) and (1, 3) are equal; beta's is structural, so
+// they are not. An impl lookup by the name `Point` would give both types the
+// same answer.
+func TestSiblingFile_SameNamedTypesKeepTheirOwnEquality(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	path := fixture("sibsig_samename/main.nomi")
+	got := vmReference(path)
+	if want := "alpha = True\nbeta  = False\n"; got.stdout != want || got.stderr != "" || got.exit != 0 {
+		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",
+			got.exit, got.stdout, got.stderr, want)
+	}
+	golden := goldenReference(t, path)
+	if golden.stdout != got.stdout || golden.exit != got.exit {
+		t.Errorf("golden record differs from the VM (exit %d):\n%s", golden.exit, golden.stdout)
+	}
+}

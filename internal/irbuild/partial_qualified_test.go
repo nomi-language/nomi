@@ -32,3 +32,35 @@ func TestVM_PartialQualified(t *testing.T) {
 		t.Fatalf("the VM does not produce the text this fixture pins: %s\n--- want ---\n%s", got, want)
 	}
 }
+
+// A partial over a generic function inside the block `Iter.count` is given:
+// the checker reads that block's type before it checks the block against
+// the parameter, so it checks `q`'s binding twice. The partial's `Ok(1)`
+// leaves E open, and the second check solves it through `q`'s first type,
+// which the call `q([Ok<Int, String>(2)])` solved, so the builder sees
+// the partial's whole signature.
+func TestVM_PartialInABlockCheckedTwice(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	const src = `import std/io
+
+fn pick<T>(c: Bool, a: T, b: T): T {
+    if c { a } else { b }
+}
+
+fn main() {
+    n = Iter.count({
+        q = pick(True, _, [Ok(1)])
+        q([Ok<Int, String>(2), Ok(3)])
+    })
+    io.inspect(n)
+    m = Iter.count({
+        q = pick(False, _, [Ok(1)])
+        q([Ok<Int, String>(2), Ok(3)])
+    })
+    io.inspect(m)
+}
+`
+	irRunSource(t, src, "2\n1\n")
+}

@@ -127,6 +127,13 @@ func irRetainedStructKindIn(d *typeDef, outer []*typeDef) bool {
 		if irRetainedFieldKind(f.k) {
 			continue
 		}
+		if f.k.tag == tagNamed && irCompositeDistinct(f.k.def) {
+			// `pair: Pair` for `type Pair (Int, Int)`, `w: Wrapped` for
+			// `type Wrapped Maybe<Int>`: the distinct's record, carried as
+			// an enum payload carries it. One reaching this struct back
+			// was decided above.
+			continue
+		}
 		if f.k.tag == tagFunc {
 			// A function-valued field (`Generator<T>`'s `run`): a function
 			// value the VM carries in the record like any other operand.
@@ -595,6 +602,10 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	case *ast.DotVariantType:
 		if tn.ResolvedEnum == "" {
 			return no()
+		}
+		if d := bl.g.dotEnumDef(t, tn.ResolvedEnum, tn.Name); d != nil {
+			// The enum the checked type names, whatever this file imports.
+			return bl.variantStructLitOf(t, d, d.variant(tn.Name))
 		}
 		return bl.variantStructLit(t, bl.g.dotEnumName(tn.ResolvedEnum), tn.Name)
 	}

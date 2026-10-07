@@ -880,6 +880,13 @@ func splitQualifiedDeclName(name string) (string, string, bool) {
 	return "", name, false
 }
 
+// declaresHere reports whether sym is a declaration of the file this builder
+// analyzes, rather than one it reaches through its scope's parents (the
+// prelude) or an import.
+func (b *builder) declaresHere(sym *Symbol) bool {
+	return sym != nil && b.file.Definitions[sym.Pos] == sym
+}
+
 func (b *builder) defineQualifiedTypeMember(scope *Scope, sym *Symbol, line, col int) {
 	if scope == nil || sym == nil {
 		return
@@ -902,6 +909,13 @@ func (b *builder) defineQualifiedTypeMember(scope *Scope, sym *Symbol, line, col
 	real := parent
 	if real.Resolved != nil {
 		real = real.Resolved
+	}
+	if !b.declaresHere(real) {
+		// A parent this file does not declare (a prelude type, an imported
+		// one) is not this file's to extend: it belongs to another file's
+		// analysis, and a stdlib one to every check in the process. The
+		// dotted declaration stays an ordinary symbol under its full name.
+		return
 	}
 	switch real.Kind {
 	case SymbolStruct, SymbolEnum, SymbolType, SymbolTypeAlias, SymbolInterface:
@@ -1037,6 +1051,12 @@ type builder struct {
 	// instead is how the precedence silently became arrival order — see
 	// defineImplBlockStub.
 	inherentTypeMethods map[typeMethodSlot]bool
+	// paramPatternOf is the function, lambda or method whose destructured
+	// parameter definePattern is binding, and nil otherwise (Symbol.ParamOf).
+	paramPatternOf ast.Node
+	// patternBodyOf is the body an arm or condition pattern definePattern is
+	// binding scopes over, and nil otherwise (Symbol.PatternBody).
+	patternBodyOf ast.Node
 }
 
 // typeMethodSlot is one (receiver, method) key of FileAnalysis.TypeMethods.
@@ -1801,8 +1821,11 @@ func (b *builder) walkTypeExpr(te ast.TypeExpr, scope *Scope) {
 		// the whole name first is what lets both halves of the span point at
 		// it — otherwise hovering `Probe` describes a different symbol and
 		// hovering `Reading` describes nothing, because the branches below
-		// look for a file API object to drill into and find neither.
-		if sym := scope.Lookup(TypeExprBaseName(t)); sym != nil {
+		// look for a file API object to drill into and find neither. Only an
+		// upper-case prefix makes a dotted name: under a lower-case one
+		// (a module) TypeExprBaseName is the member alone, and `ror.HttpError`
+		// would resolve to this file's own `HttpError`.
+		if sym := scope.Lookup(TypeExprBaseName(t)); sym != nil && ast.IsPublic(t.Module) {
 			b.file.References[Pos{Line: t.ModuleLine, Col: t.ModuleCol}] = sym
 			switch m := t.Member.(type) {
 			case *ast.SimpleType:
@@ -2713,7 +2736,11 @@ func (b *builder) defineSymbolAnnotations(node ast.Node, scope *Scope) {
 		b.walkTypeExpr(n.TypeAnnotation, scope)
 
 	case *ast.ImplBlock:
+		// A synthesized block's header errors name the declaration it
+		// was synthesized for, not its synth-band position.
+		from := len(b.file.TypeErrors)
 		b.defineImplBlockAnnotations(n, scope)
+		repointSynthErrors(n, b.file.TypeErrors[from:])
 
 	case *ast.ImportStmt:
 		b.defineImport(n, scope, false /* nested */)
@@ -3282,6 +3309,13 @@ func (b *builder) defineImplBlockStub(n *ast.ImplBlock, scope *Scope) {
 		ownerSym = scope.LookupLocal(recv)
 		if ownerSym != nil && ownerSym.Resolved != nil {
 			ownerSym = ownerSym.Resolved
+		}
+		// An inherent impl of a type declared elsewhere is an orphan
+		// (reported by the impl checks); its methods are not hung on that
+		// file's symbol, which another file's analysis owns, or for a stdlib
+		// type every check in the process.
+		if !b.declaresHere(ownerSym) {
+			ownerSym = nil
 		}
 	}
 	for _, item := range n.Items {
@@ -3894,6 +3928,40 @@ func (b *builder) registerStructLitFieldRefs(n *ast.StructLit, scope *Scope) {
 	}
 }
 
+// stampImportedSymbol records filePath, the user file an import resolved to,
+// as the file that declares sym and its members, where they name none yet.
+// Cross-file go-to-definition, related-information locations and the
+// module-private checks read it.
+//
+// A stdlib import resolves to no file path and stamps nothing. Its symbols
+// belong to the process's one stdlib analysis (std.Shared), which every
+// check reads at once, and they keep an empty SourceFile: go-to-definition
+// finds a stdlib symbol through the stdlib's own module scopes instead.
+func stampImportedSymbol(sym *Symbol, filePath string) {
+	if sym == nil || filePath == "" {
+		return
+	}
+	if sym.SourceFile == "" {
+		sym.SourceFile = filePath
+	}
+	for _, m := range sym.Members {
+		if m != nil && m.SourceFile == "" {
+			m.SourceFile = filePath
+		}
+	}
+}
+
+// stampImportedScope is stampImportedSymbol for every symbol a user module
+// declares at its top level.
+func stampImportedScope(modScope *Scope, filePath string) {
+	if modScope == nil || filePath == "" {
+		return
+	}
+	for _, s := range modScope.Symbols {
+		stampImportedSymbol(s, filePath)
+	}
+}
+
 // defineImport registers the symbols and module bindings for an import
 // declaration. Called from defineTopLevel for module-level imports and from
 // walkNode for nested imports inside a function body.
@@ -4060,20 +4128,9 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 		// defineImport — and instead rely on sym.ModuleScope, which is set
 		// above for both nested and top-level cases.
 		if nested {
-			// Tag stdlib/user symbols with source path even for nested user
+			// Tag user symbols with source path even for nested user
 			// imports so go-to-def works.
-			if filePath != "" && modScope != nil {
-				for _, s := range modScope.Symbols {
-					if s.SourceFile == "" {
-						s.SourceFile = filePath
-					}
-					for _, m := range s.Members {
-						if m.SourceFile == "" {
-							m.SourceFile = filePath
-						}
-					}
-				}
-			}
+			stampImportedScope(modScope, filePath)
 		} else if b.isStdlibImport(modPathStrings) {
 			b.moduleSyms[bindName] = sym
 			if bindName != origName {
@@ -4096,16 +4153,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			}
 			b.modules[bindName] = modScope
 			b.moduleSyms[bindName] = sym
-			for _, s := range modScope.Symbols {
-				if s.SourceFile == "" {
-					s.SourceFile = filePath
-				}
-				for _, m := range s.Members {
-					if m.SourceFile == "" {
-						m.SourceFile = filePath
-					}
-				}
-			}
+			stampImportedScope(modScope, filePath)
 			// Track explicit import for the function-shadow fallback.
 			if b.imported == nil {
 				b.imported = make(map[string]*Scope)
@@ -4180,18 +4228,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			modScope, filePath, miss = b.resolveImportOrMiss(modulePath)
 			b.reportMissingModule(n, filePart, miss)
 		}
-		if filePath != "" && modScope != nil {
-			for _, s := range modScope.Symbols {
-				if s.SourceFile == "" {
-					s.SourceFile = filePath
-				}
-				for _, m := range s.Members {
-					if m.SourceFile == "" {
-						m.SourceFile = filePath
-					}
-				}
-			}
-		}
+		stampImportedScope(modScope, filePath)
 
 		// For drill-through, look up the owner path within modScope and
 		// register references so hover/go-to-def works on every owner segment.
@@ -4237,14 +4274,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					Message: fmt.Sprintf("'%s' is private and cannot be imported through", ownerSym.Name),
 				})
 			}
-			if ownerSym.SourceFile == "" {
-				ownerSym.SourceFile = filePath
-			}
-			for _, m := range ownerSym.Members {
-				if m.SourceFile == "" {
-					m.SourceFile = filePath
-				}
-			}
+			stampImportedSymbol(ownerSym, filePath)
 			if ownerSym.ModuleScope != nil {
 				ownerScope = ownerSym.ModuleScope
 			} else {
@@ -4364,14 +4394,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 						Message: fmt.Sprintf("cannot import variant '%s' directly%s", origName, hint),
 					})
 				}
-				if real.SourceFile == "" {
-					real.SourceFile = filePath
-				}
-				for _, m := range real.Members {
-					if m.SourceFile == "" {
-						m.SourceFile = filePath
-					}
-				}
+				stampImportedSymbol(real, filePath)
 				sym.Resolved = real
 				sym.Kind = real.Kind
 			} else if modScope != nil {
@@ -4521,8 +4544,9 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					}
 				}
 			} else {
-				// Legacy/recovered path-level shape: bind the last module-path
-				// segment as a module.
+				// A file import with `self` (`import std/io.{self, IOError}`):
+				// bind the last path segment as the file API object, as
+				// `import std/io` does.
 				last := n.ModulePath[len(n.ModulePath)-1]
 				bindName := ast.ImportNodeName(last)
 				sym := &Symbol{
@@ -4538,6 +4562,17 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					b.imported = map[string]*Scope{}
 				}
 				b.imported[bindName] = modScope
+				// As a plain `import std/io` does, the binding replaces
+				// the module table's placeholder for the name, which
+				// carries no scope: a `file.member` reference resolved to
+				// the placeholder, so `io.no_such_function(1)` was never
+				// reported as a missing member.
+				if !nested && modScope != nil {
+					if b.moduleSyms == nil {
+						b.moduleSyms = make(map[string]*Symbol)
+					}
+					b.moduleSyms[bindName] = sym
+				}
 				// Register a hover/go-to-def target at the `self` token
 				// itself so clicking on `self` behaves like clicking on
 				// the trailing module-path segment. Not added to scope —
@@ -4624,7 +4659,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.ImplBlock:
+		from := len(b.file.TypeErrors)
 		b.walkImplBlockBodies(n, scope)
+		repointSynthErrors(n, b.file.TypeErrors[from:])
 
 	case *ast.StructDef:
 		b.defineStruct(n, scope)
@@ -4676,7 +4713,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 			}
 			for _, p := range m.Params {
 				if p.Destructure != nil {
-					b.definePattern(p.Destructure, child)
+					b.defineParamPattern(p.Destructure, child, m)
 					continue
 				}
 				sym := &Symbol{
@@ -4719,7 +4756,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 			if n.CondPattern != nil {
 				child := NewScope(scope)
 				setScopeSpan(child, n.Line, n.Col, blockEndLine(n.Then), blockEndCol(n.Then))
-				b.definePattern(n.CondPattern, child)
+				b.definePatternIn(n.CondPattern, child, n.Then)
 				b.walkBlock(n.Then, child)
 			} else {
 				b.walkBlock(n.Then, scope)
@@ -4736,7 +4773,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		for _, branch := range n.Branches {
 			child := NewScope(scope)
 			setScopeSpan(child, branch.Line, branch.Col, branch.EndLine, branch.EndCol)
-			b.definePattern(branch.Pattern, child)
+			b.definePatternIn(branch.Pattern, child, branch.Body)
 			// Walk the pattern as an expression too — for ad-hoc conditionals
 			// (no value), the pattern IS an expression containing identifiers
 			// that need reference resolution (e.g., x > 10 -> "big").
@@ -5500,7 +5537,7 @@ func (b *builder) walkPatternBinding(n *ast.PatternBinding, scope *Scope) {
 		for _, arm := range e.Arms {
 			child := NewScope(scope)
 			setScopeSpan(child, arm.Line, arm.Col, arm.EndLine, arm.EndCol)
-			b.definePattern(arm.Pattern, child)
+			b.definePatternIn(arm.Pattern, child, arm.Body)
 			b.walkNode(arm.Pattern, child)
 			if arm.Guard != nil {
 				b.walkNode(arm.Guard, child)
@@ -5534,7 +5571,7 @@ func (b *builder) walkTestDecl(n *ast.TestDecl, scope *Scope) {
 	child := NewScope(scope)
 	setScopeSpan(child, n.Body.Line, n.Body.Col, n.Body.EndLine, n.Body.EndCol)
 	if !n.Group {
-		b.definePattern(n.ContextPattern, child)
+		b.definePatternIn(n.ContextPattern, child, n.Body)
 		b.walkBlock(n.Body, child)
 		return
 	}
@@ -5583,7 +5620,7 @@ func (b *builder) defineParams(params []ast.Param, scope *Scope, parentNode ast.
 			b.walkNode(p.Default, scope)
 		}
 		if p.Destructure != nil {
-			b.definePattern(p.Destructure, scope)
+			b.defineParamPattern(p.Destructure, scope, parentNode)
 			continue
 		}
 		sym := &Symbol{
@@ -5616,6 +5653,26 @@ func (b *builder) definePattern(node ast.Node, scope *Scope) {
 	b.definePatternOwned(node, scope, nil)
 }
 
+// definePatternIn binds the pattern of a `case` arm, an `else` arm, an `if`
+// condition or a test's setup binding, whose names are in scope in body
+// (Symbol.PatternBody).
+func (b *builder) definePatternIn(node ast.Node, scope *Scope, body ast.Node) {
+	prev := b.patternBodyOf
+	b.patternBodyOf = body
+	defer func() { b.patternBodyOf = prev }()
+	b.definePattern(node, scope)
+}
+
+// defineParamPattern binds a destructured parameter of fn, a function, lambda
+// or interface method, marking each name it binds as that function's
+// (Symbol.ParamOf).
+func (b *builder) defineParamPattern(node ast.Node, scope *Scope, fn ast.Node) {
+	prev := b.paramPatternOf
+	b.paramPatternOf = fn
+	defer func() { b.paramPatternOf = prev }()
+	b.definePattern(node, scope)
+}
+
 func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node) {
 	if node == nil {
 		return
@@ -5633,6 +5690,8 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 			Pos:             Pos{Line: n.Line, Col: n.Col},
 			Node:            bindingNode,
 			ReceiverDisplay: scope.ReceiverTypeDisplay(),
+			ParamOf:         b.paramPatternOf,
+			PatternBody:     b.patternBodyOf,
 		}
 		if !ast.IsDiscardName(n.Name) {
 			scope.Define(sym)
@@ -5654,6 +5713,8 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 				Pos:             Pos{Line: n.Line, Col: n.BindingCol},
 				Node:            bindingNode,
 				ReceiverDisplay: scope.ReceiverTypeDisplay(),
+				ParamOf:         b.paramPatternOf,
+				PatternBody:     b.patternBodyOf,
 			}
 			if !ast.IsDiscardName(n.Binding) {
 				scope.Define(sym)
@@ -5674,6 +5735,8 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 					Pos:             Pos{Line: line, Col: f.BindingCol},
 					Node:            bindingNode,
 					ReceiverDisplay: scope.ReceiverTypeDisplay(),
+					ParamOf:         b.paramPatternOf,
+					PatternBody:     b.patternBodyOf,
 				}
 				if !ast.IsDiscardName(f.Binding) {
 					scope.Define(sym)

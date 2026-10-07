@@ -61,7 +61,7 @@ func expectNoConcurrentError(t *testing.T, errs []analysis.TypeError, substr str
 }
 
 func TestConcurrentScope_BareSpawnIsNotPrelude_Errors(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   concurrent {
     t = spawn(|| 42)
     t
@@ -76,7 +76,7 @@ func TestConcurrentScope_LocalSpawnFunctionIsNotTaskSpawn_OK(t *testing.T) {
   n
 }
 
-fn main(): Int {
+fn demo(): Int {
   spawn(42)
 }`
 	errs := analyzeConcurrentRaw(src)
@@ -85,7 +85,7 @@ fn main(): Int {
 
 // Rule 1 (positive case): `spawn` directly inside a `concurrent` block.
 func TestConcurrentScope_SpawnInsideConcurrentBlock_OK(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   concurrent {
     t = Task.spawn(|| 42)
     Task.await(t)
@@ -98,7 +98,7 @@ func TestConcurrentScope_SpawnInsideConcurrentBlock_OK(t *testing.T) {
 // Rule 1 (negative case): bare `spawn` at fn-body top level — no
 // enclosing concurrent block, no concurrent-reachable call chain.
 func TestConcurrentScope_SpawnOutsideConcurrent_Errors(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   t = Task.spawn(|| 42)
   Task.await(t)
 }`
@@ -113,7 +113,7 @@ func TestConcurrentScope_SpawnInHelperReachableFromConcurrent_OK(t *testing.T) {
 	src := `fn helper(): Task<Int> {
   Task.spawn(|| 99)
 }
-fn main(): Int {
+fn demo(): Int {
   concurrent {
     t = helper()
     Task.await(t)
@@ -131,7 +131,7 @@ func TestConcurrentScope_SpawnInHelperWithBadCallSite_Errors(t *testing.T) {
   t = Task.spawn(|| 99)
   Task.await(t)
 }
-fn main(): Int {
+fn demo(): Int {
   helper()
 }`
 	errs := analyzeConcurrent(src)

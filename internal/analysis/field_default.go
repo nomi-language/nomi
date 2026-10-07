@@ -129,7 +129,9 @@ func (c *checker) checkFieldDefaults(owner string, fields []ast.StructField, dec
 			// none. Either way the failure is already reported by
 			// buildStructType and there is nothing to compare against.
 			// Still check the expression so its own errors surface.
-			c.checkNode(f.Default)
+			c.checkExitless(fieldDefaultExitless(f.Name, owner), func() Type {
+				return c.checkNode(f.Default)
+			})
 			continue
 		}
 		// Pushing the declared type as the expected type is LOAD-BEARING,
@@ -144,7 +146,9 @@ func (c *checker) checkFieldDefaults(owner string, fields []ast.StructField, dec
 		// `.Temporary requires a determinable enum type at this position`.
 		// Mirrors checkStructLit and checkStructLitAgainstStruct, which
 		// push the declared field type for the same reason.
-		valTy := c.checkNodeExpecting(f.Default, declared)
+		valTy := c.checkExitless(fieldDefaultExitless(f.Name, owner), func() Type {
+			return c.checkNodeExpecting(f.Default, declared)
+		})
 		if valTy == nil {
 			continue
 		}

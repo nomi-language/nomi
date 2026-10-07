@@ -205,7 +205,7 @@ fn color(c: other.Color): Int {
   }
 }
 
-fn main(): Int {
+fn demo(): Int {
   p = other.ident(Point{x: 1})
   span = other.Span{start: Point{x: 1}, stop: Point{x: 2}}
   slot: other.Slot<Point> = other.Slot.Full(Point{x: 3})

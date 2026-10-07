@@ -75,11 +75,9 @@ func (c *checker) checkPipedDistinctCtor(call *ast.Call, piped ast.Node, pipedTy
 		c.addError(line, col, zeroSizedTypeCallMessage(label))
 		return dt
 	}
-	if tup, ok := dt.Inner.(*TupleType); ok && len(tup.Elems) >= 2 {
-		// The piped value is the call form's one tuple; checkPipe has never
-		// typed this shape, and it keeps doing so.
-		return nil
-	}
+	c.checkOpaqueConstructor(call.Func, dt)
+	// A tuple-distinct takes the piped tuple whole, as a variant over a
+	// tuple does: `(1, 2) |> Pair()`. The flat form is a prefix call only.
 	if len(call.Args) != 0 {
 		c.checkArgs(call.Args)
 		c.addError(line, col, fmt.Sprintf(

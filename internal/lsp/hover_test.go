@@ -929,7 +929,7 @@ fn plus<L, R, Out>(lhs: L, rhs: R): Out where L: Add<R, Out> {
   lhs + rhs
 }
 
-fn main(): Day {
+fn demo(): Day {
   plus(Day(10), Days(4))
 }`
 	tokens := lexer.Lex(src)
@@ -968,7 +968,7 @@ fn keep<T>(xs: List<T>): List<T> where T: Mark {
   xs
 }
 
-fn main(): List<Int> {
+fn demo(): List<Int> {
   keep([1, 2])
 }`
 	tokens := lexer.Lex(src)

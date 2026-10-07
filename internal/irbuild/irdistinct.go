@@ -52,19 +52,47 @@ func irWrappingDistinct(d *typeDef) bool {
 	return d != nil && d.isDistinct && d.lowerable && irScalarLeafKind(d.inner)
 }
 
-// irCompositeDistinct reports whether d is a distinct over a tuple, a map of
-// retained values or a function: `type Coord (Int, Int)`, `type Headers
-// Map<String, String>`, `type Callback (String) -> String`. The VM holds one as a distinct record over its inner value, which
-// `ir.Make`'s MakeDistinct builds and `ProjInner` reads, as for a scalar
-// inner in a boxed position.
+// irCompositeDistinct reports whether d is a distinct over a tuple, a list
+// or map of retained values, a function, or a declared type the VM carries:
+// `type Coord (Int, Int)`, `type Headers Map<String, String>`, `type
+// Callback (String) -> String`, `type Wrapped Maybe<Int>`. The VM holds one
+// as a distinct record over its inner value, which `ir.Make`'s MakeDistinct
+// builds and `ProjInner` reads, as for a scalar inner in a boxed position.
 func irCompositeDistinct(d *typeDef) bool {
 	if d == nil || !d.isDistinct || !d.lowerable || d.rtOpaque {
 		return false
 	}
 	in := d.inner
+	if in.tag != tagTuple && in.tag != tagMap && in.tag != tagList && in.tag != tagFunc && in.tag != tagNamed {
+		return false
+	}
+	if irKindReaches(in, []*typeDef{d}) {
+		// `type Link Node` where Node holds a `Maybe<Link>`: the predicates
+		// below decide without a walk's stack, so asking them about an
+		// inner that reaches d back would re-enter this one without end.
+		return false
+	}
 	return irRetainedTupleKind(in) || (in.tag == tagMap && in != kindEmptyMap && irRetainedMapKind(in)) ||
-		(in.tag == tagList && in != kindEmptyList && irRetainedListKind(in)) ||
-		(in.tag == tagFunc && irCallableValueKind(in))
+		(in.tag == tagList && in != kindEmptyList && irRetainedValueKind(in)) ||
+		(in.tag == tagFunc && irCallableValueKind(in)) || irNominalInner(in)
+}
+
+// irNominalInner reports whether a distinct's inner is itself a declared
+// type the VM carries: a struct, an enum (`type Wrapped Maybe<Int>`), or
+// another distinct (`type Twice Meters`), or a std Set or Vector (`type Ids
+// Set<Int>`). The distinct record holds that value as it holds a tuple.
+func irNominalInner(in kind) bool {
+	if in.tag != tagNamed || in.def == nil {
+		return false
+	}
+	if _, isSet := setElem(in); isSet {
+		return in != kindEmptySet && irRetainedSetKind(in)
+	}
+	if _, isVector := vectorElem(in); isVector {
+		return in != kindEmptyVector && irRetainedValueKind(in)
+	}
+	n := in.def
+	return irRetainedStructKind(n) || irRetainedEnumKind(n) || irWrappingDistinct(n) || irCompositeDistinct(n)
 }
 
 // irCallableDistinct is a distinct over a function type, `type Callback

@@ -13,7 +13,8 @@ package ffirun
 // package's own named types (struct, scalar-backed, pointer, slice, map,
 // func), time.Duration and time.Time, and a named type from another LOCAL
 // package of the project (one reached through a local `replace` or the
-// project's own module), which is read the same way. A named type from any
+// project's own module), which is read the same way. A bound standard library
+// package is read the same way from GOROOT (gostd.go). A named type from any
 // other package, the standard library's or a module-cache dependency's, is
 // type-checked from source by go/types (gotypesimport.go).
 
@@ -68,18 +69,22 @@ func (gt *goTypes) pkg(importPath string) (*goSourcePkg, error) {
 	if p, ok := gt.pkgs[importPath]; ok {
 		return p, nil
 	}
-	dir, local, err := resolveLocalImportDir(gt.projectRoot, importPath)
+	src, readable, err := goSourceOf(gt.projectRoot, importPath)
 	if err != nil {
 		return nil, err
 	}
-	if !local {
-		return nil, fmt.Errorf("Go package %q is not local to the project (a local `replace` or the project's own module), so its source is not read", importPath)
+	if !readable {
+		return nil, fmt.Errorf("Go package %q is neither in the Go standard library nor local to the project (a local `replace` or the project's own module), so its source is not read", importPath)
 	}
-	syms, err := readGoPackageSymbols(dir)
+	syms, err := src.symbols()
 	if err != nil {
 		return nil, err
 	}
-	p := &goSourcePkg{path: importPath, name: goPackageName(dir, importPath), dir: dir, types: syms.types, funcs: syms.funcs}
+	name := defaultImportName(importPath)
+	if !src.std {
+		name = goPackageName(src.dir, importPath)
+	}
+	p := &goSourcePkg{path: importPath, name: name, dir: src.dir, types: syms.types, funcs: syms.funcs}
 	gt.pkgs[importPath] = p
 	return p, nil
 }
@@ -189,7 +194,11 @@ func (gt *goTypes) resolve(expr goast.Expr, scope goScope) (hostgen.Type, error)
 				return &astType{kind: reflect.Struct, name: "Time", pkg: "time", str: "time.Time"}, nil
 			}
 		}
-		if _, local, err := resolveLocalImportDir(gt.projectRoot, path); err == nil && !local {
+		// A type from any package but the project's own is type-checked, the
+		// standard library's included: a binding to `strings` reads its own
+		// declarations as source, and `io.Reader` in one of them is
+		// imported.
+		if _, local, err := resolveLocalImportDir(gt.projectRoot, path); err != nil || !local {
 			srcDir := gt.projectRoot
 			if scope.pkg != nil && scope.pkg.dir != "" {
 				srcDir = scope.pkg.dir

@@ -8,7 +8,7 @@ func TestIRStructEquality_TourPoints(t *testing.T) {
   y: Int
 }
 
-fn main(): Map<Point, String> {
+fn main() {
   dbg Point{x: 1, y: 2} == Point{x: 1, y: 2}
   dbg Point{x: 1, y: 2} == Point{x: 1, y: 3}
   dbg {Point{x: 1, y: 2} => "home"}

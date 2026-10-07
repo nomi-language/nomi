@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 268
-declared-cases 807
+records 269
+declared-cases 816
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -471,6 +471,21 @@ T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement is s
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive integers can be used as non-zero divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement rejects zero divisors
 T test result: ok. 6 passed, 0 failed
+T
+C 04-scalars-and-text/matcher_test.nomi
+E 0
+N 9
+H 3bd0cbe5bd07cd63a2a9f0f6a937e5a1046f4e6c4035cccc075a11d10c9dba30
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: split takes a string or a regex
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: contains? takes a string or a regex
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: starts_with? and ends_with? anchor a regex to that end
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: ends_with? finds a match ending at the end, not only the leftmost one
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: replace takes a string or a regex and inserts the replacement literally
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find_all lists every match
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a function of your own takes any matcher
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a matcher prints what each call finds
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a value that is not a matcher is rejected
+T test result: ok. 9 passed, 0 failed
 T
 C 04-scalars-and-text/random_test.nomi
 E 0

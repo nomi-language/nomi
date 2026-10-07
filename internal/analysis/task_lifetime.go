@@ -49,131 +49,17 @@ type taskLifetime struct {
 	errors []TypeError
 }
 
-// walkSubtree descends an AST subtree looking for ConcurrentBlock
-// nodes. Each ConcurrentBlock triggers checkBlock + recursive descent
-// into nested blocks.
+// walkSubtree finds every ConcurrentBlock under n, in any position (a
+// function or impl body, a test body, a case guard, a named argument, an
+// assertion, a nested block) and checks each one. A block inside another
+// block is checked on its own.
 func (tl *taskLifetime) walkSubtree(n ast.Node) {
-	if n == nil {
-		return
-	}
-	switch node := n.(type) {
-	case *ast.ConcurrentBlock:
-		tl.checkBlock(node)
-		if node.Body != nil {
-			for _, stmt := range node.Body.Stmts {
-				tl.walkSubtree(stmt)
-			}
+	ast.Inspect(n, func(n ast.Node) bool {
+		if cb, ok := n.(*ast.ConcurrentBlock); ok {
+			tl.checkBlock(cb)
 		}
-	case *ast.Block:
-		for _, stmt := range node.Stmts {
-			tl.walkSubtree(stmt)
-		}
-	case *ast.Lambda:
-		if node.Body != nil {
-			for _, stmt := range node.Body.Stmts {
-				tl.walkSubtree(stmt)
-			}
-		}
-	case *ast.Call:
-		tl.walkSubtree(node.Func)
-		for _, arg := range node.Args {
-			tl.walkSubtree(arg)
-		}
-	case *ast.ExprStmt:
-		tl.walkSubtree(node.Expr)
-	case *ast.GroupedExpr:
-		tl.walkSubtree(node.Expr)
-	case *ast.If:
-		tl.walkSubtree(node.Cond)
-		tl.walkSubtree(node.Then)
-		tl.walkSubtree(node.Else)
-	case *ast.Binary:
-		tl.walkSubtree(node.Left)
-		tl.walkSubtree(node.Right)
-	case *ast.Unary:
-		tl.walkSubtree(node.Right)
-	case *ast.Binding:
-		tl.walkSubtree(node.Value)
-	case *ast.TupleDestructure:
-		tl.walkSubtree(node.Value)
-	case *ast.StructDestructure:
-		tl.walkSubtree(node.Value)
-	case *ast.MapDestructure:
-		tl.walkSubtree(node.Value)
-	case *ast.DistinctDestructure:
-		tl.walkSubtree(node.Value)
-	case *ast.PatternBinding:
-		tl.walkSubtree(node.Value)
-		for _, e := range node.ElseNodes() {
-			tl.walkSubtree(e)
-		}
-	case *ast.FieldAccess:
-		tl.walkSubtree(node.Object)
-	case *ast.Return:
-		tl.walkSubtree(node.Value)
-	case *ast.Break:
-		tl.walkSubtree(node.Value)
-	case *ast.ListLit:
-		for _, item := range node.Items {
-			tl.walkSubtree(item)
-		}
-	case *ast.VectorLit:
-		for _, item := range node.Items {
-			tl.walkSubtree(item)
-		}
-	case *ast.SetLit:
-		for _, item := range node.Items {
-			tl.walkSubtree(item)
-		}
-	case *ast.TupleLit:
-		for _, item := range node.Items {
-			tl.walkSubtree(item)
-		}
-	case *ast.MapLit:
-		for _, entry := range node.Entries {
-			tl.walkSubtree(entry.Key)
-			tl.walkSubtree(entry.Value)
-		}
-	case *ast.StructLit:
-		if node.Spread != nil {
-			tl.walkSubtree(node.Spread)
-		}
-		for _, f := range node.Fields {
-			tl.walkSubtree(f.Value)
-		}
-	case *ast.Case:
-		tl.walkSubtree(node.Value)
-		for _, br := range node.Branches {
-			tl.walkSubtree(br.Guard)
-			tl.walkSubtree(br.Body)
-		}
-	case *ast.TryOp:
-		tl.walkSubtree(node.Expr)
-	case *ast.Dbg:
-		tl.walkSubtree(node.Expr)
-	case *ast.Then:
-		tl.walkSubtree(node.Lambda)
-	case *ast.StringInterp:
-		for _, part := range node.Parts {
-			if se, ok := part.(ast.StringExpr); ok {
-				tl.walkSubtree(se.Expr)
-			}
-		}
-	case *ast.With:
-		tl.walkSubtree(node.Value)
-	case *ast.Defer:
-		tl.walkSubtree(node.Call)
-	case *ast.FuncDef:
-		// Nested fn — descend; its own ConcurrentBlocks are valid
-		// boundaries inside.
-		if node.Body != nil {
-			tl.walkSubtree(node.Body)
-		}
-	case *ast.OnceBinding:
-		// `once` bindings are module-level — their RHS expression can
-		// contain a ConcurrentBlock (computed lazily on first access).
-		tl.walkSubtree(node.Value)
-	}
+		return true
+	})
 }
 
 // checkBlock applies Rules 2 and 3 to one ConcurrentBlock. Rule 2
@@ -231,221 +117,74 @@ type taskBinding struct {
 	col    int
 }
 
-// collectTaskBindings walks the immediate body of a ConcurrentBlock,
-// collecting `Binding{Name: ..., Value: Call{Func: Ident("spawn"),
-// ...}}` entries. Tuple/struct/distinct destructures are not currently
-// tracked — they don't produce a meaningful "is this binding
-// awaited?" question without per-element type tracking, which is out
-// of scope for v1.
+// collectTaskBindings collects the `name = Task.spawn(...)` bindings
+// anywhere in a ConcurrentBlock's body: in nested blocks, if and case
+// branches, and a block on a binding's right-hand side. Tuple, struct and
+// distinct destructures are not tracked; they don't produce a meaningful
+// "is this binding awaited?" question without per-element type tracking.
 //
-// The walk descends into nested blocks (if-then-else branches,
-// case-branches, explicit blocks) so a `t = Task.spawn(...)` nested under an
-// `if cond { ... }` inside a ConcurrentBlock is still tracked. Nested
-// ConcurrentBlocks become their own checkBlock invocation — we skip
-// them here so each block's bindings stay scoped to their owner.
-//
-// Nested Lambdas and FuncDefs are NOT descended (their bindings live
-// in their own scope).
+// A nested ConcurrentBlock's bindings are its own checkBlock's
+// responsibility, and a Lambda's or FuncDef's bindings live in their own
+// scope, so the walk does not enter them.
 func (tl *taskLifetime) collectTaskBindings(block *ast.Block) []taskBinding {
 	var bindings []taskBinding
-	var visit func(n ast.Node)
-	visit = func(n ast.Node) {
-		if n == nil {
-			return
-		}
-		switch node := n.(type) {
-		case *ast.ConcurrentBlock:
-			// Nested concurrent block — its bindings are its own
-			// checkBlock's responsibility.
-			return
-		case *ast.Lambda, *ast.FuncDef:
-			// Different scope.
-			return
-		case *ast.Block:
-			for _, stmt := range node.Stmts {
-				visit(stmt)
-			}
-		case *ast.ExprStmt:
-			visit(node.Expr)
-		case *ast.GroupedExpr:
-			visit(node.Expr)
-		case *ast.If:
-			visit(node.Then)
-			visit(node.Else)
-			// node.Cond is an expression, not a binding site — skip.
-		case *ast.Case:
-			for _, br := range node.Branches {
-				visit(br.Body)
-			}
-		case *ast.With:
-			visit(node.Value)
-		case *ast.Defer:
-			visit(node.Call)
-		case *ast.Binding:
-			if tl.isSpawnCall(node.Value) {
-				bindings = append(bindings, taskBinding{
-					name:   node.Name,
-					refKey: node.Name,
-					line:   node.Line,
-					col:    node.Col,
-				})
-			}
-		}
-	}
 	for _, stmt := range block.Stmts {
-		visit(stmt)
+		ast.Inspect(stmt, func(n ast.Node) bool {
+			switch node := n.(type) {
+			case *ast.ConcurrentBlock, *ast.Lambda, *ast.FuncDef:
+				return false
+			case *ast.Binding:
+				if tl.isSpawnCall(node.Value) {
+					bindings = append(bindings, taskBinding{
+						name:   node.Name,
+						refKey: node.Name,
+						line:   node.Line,
+						col:    node.Col,
+					})
+				}
+			}
+			return true
+		})
 	}
 	return bindings
 }
 
-// collectReferencedNames returns the set of identifier names that
-// appear as Reference uses anywhere inside the block (excluding
-// binding declarations themselves and excluding nested FuncDef
-// bodies, which have their own scope). The result is used by Rule 2
-// to detect "binding never referenced".
+// collectReferencedNames returns the set of identifier names used
+// anywhere inside the block, in any expression position. A binding's own
+// name is a declaration, not an Ident, so it is not collected. Nested
+// FuncDef bodies have their own scope and are skipped, and a field name
+// (`x.t`) is not a use of a binding `t`. Rule 2 uses the result to detect
+// "binding never referenced".
 //
 // Nested ConcurrentBlocks ARE descended: an outer `t = Task.spawn(...)`
 // referenced inside a nested `concurrent { Task.await(t) }` counts as a
 // use of `t`. The nested block has its own checkBlock invocation that
 // applies Rules 2 and 3 to its own bindings; this descent only widens
 // what counts as a *reference* for the OUTER block's Rule 2 sweep.
-// Same conservative-direction stance as for Lambda bodies (below):
-// any name match suffices.
 //
-// Lambda bodies ARE descended: a `lists.map(tasks, |t| Task.await(t))`
-// pattern (design doc Rule 2 corner case) counts the `t` parameter's
-// uses inside the lambda as references, even though the parameter
-// shadows the outer name. The consumer (Rule 2) matches on names only,
-// so the conservative direction — accept any name match — is correct
-// for the dominant "forgot to await my fetch" case the rule catches.
+// Lambda bodies ARE descended: an `Iter.map(tasks, |t| Task.await(t))`
+// counts the `t` parameter's uses inside the lambda as references, even
+// though the parameter shadows the outer name. The consumer (Rule 2)
+// matches on names only, so the conservative direction (accept any name
+// match) is correct for the dominant "forgot to await my fetch" case the
+// rule catches.
 func (tl *taskLifetime) collectReferencedNames(block *ast.Block) map[string]bool {
 	refs := make(map[string]bool)
-	var visit func(n ast.Node)
-	visit = func(n ast.Node) {
-		if n == nil {
-			return
-		}
+	var visit func(n ast.Node) bool
+	visit = func(n ast.Node) bool {
 		switch node := n.(type) {
 		case *ast.Ident:
 			refs[node.Name] = true
 		case *ast.FuncDef:
-			// Different scope.
-			return
-		case *ast.ConcurrentBlock:
-			// Nested concurrent block — descend into its body so a
-			// reference from inside the nested block counts as use of
-			// an outer binding. The nested block's own Rule 2 / Rule 3
-			// checks run via checkBlock independently.
-			if node.Body != nil {
-				for _, stmt := range node.Body.Stmts {
-					visit(stmt)
-				}
-			}
-		case *ast.Lambda:
-			if node.Body != nil {
-				for _, stmt := range node.Body.Stmts {
-					visit(stmt)
-				}
-			}
-		case *ast.Block:
-			for _, stmt := range node.Stmts {
-				visit(stmt)
-			}
-		case *ast.ExprStmt:
-			visit(node.Expr)
-		case *ast.GroupedExpr:
-			visit(node.Expr)
-		case *ast.If:
-			visit(node.Cond)
-			visit(node.Then)
-			visit(node.Else)
-		case *ast.Case:
-			visit(node.Value)
-			for _, br := range node.Branches {
-				visit(br.Guard)
-				visit(br.Body)
-			}
-		case *ast.With:
-			visit(node.Value)
-		case *ast.Defer:
-			visit(node.Call)
-		case *ast.Binding:
-			// Walk the RHS — references inside it count. The LHS
-			// (node.Name) is a declaration, not a reference.
-			visit(node.Value)
-		case *ast.TupleDestructure:
-			visit(node.Value)
-		case *ast.StructDestructure:
-			visit(node.Value)
-		case *ast.MapDestructure:
-			visit(node.Value)
-		case *ast.DistinctDestructure:
-			visit(node.Value)
-		case *ast.PatternBinding:
-			visit(node.Value)
-			for _, e := range node.ElseNodes() {
-				visit(e)
-			}
-		case *ast.Call:
-			visit(node.Func)
-			for _, arg := range node.Args {
-				visit(arg)
-			}
+			return false
 		case *ast.FieldAccess:
-			visit(node.Object)
-		case *ast.Binary:
-			visit(node.Left)
-			visit(node.Right)
-		case *ast.Unary:
-			visit(node.Right)
-		case *ast.Return:
-			visit(node.Value)
-		case *ast.Break:
-			visit(node.Value)
-		case *ast.ListLit:
-			for _, item := range node.Items {
-				visit(item)
-			}
-		case *ast.VectorLit:
-			for _, item := range node.Items {
-				visit(item)
-			}
-		case *ast.SetLit:
-			for _, item := range node.Items {
-				visit(item)
-			}
-		case *ast.TupleLit:
-			for _, item := range node.Items {
-				visit(item)
-			}
-		case *ast.MapLit:
-			for _, entry := range node.Entries {
-				visit(entry.Key)
-				visit(entry.Value)
-			}
-		case *ast.StructLit:
-			if node.Spread != nil {
-				visit(node.Spread)
-			}
-			for _, f := range node.Fields {
-				visit(f.Value)
-			}
-		case *ast.TryOp:
-			visit(node.Expr)
-		case *ast.Dbg:
-			visit(node.Expr)
-		case *ast.Then:
-			visit(node.Lambda)
-		case *ast.StringInterp:
-			for _, part := range node.Parts {
-				if se, ok := part.(ast.StringExpr); ok {
-					visit(se.Expr)
-				}
-			}
+			ast.Inspect(node.Object, visit)
+			return false
 		}
+		return true
 	}
 	for _, stmt := range block.Stmts {
-		visit(stmt)
+		ast.Inspect(stmt, visit)
 	}
 	return refs
 }

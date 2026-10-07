@@ -50,7 +50,7 @@ func TestIRDecimal_DivisionFaults(t *testing.T) {
 	} {
 		t.Run(tc.divisor, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "main.nomi")
-			src := "fn divide(): Decimal {\n  n = 1d\n  n / " + tc.divisor + "\n}\nfn main(): Decimal { divide() }\n"
+			src := "fn divide(): Decimal {\n  n = 1d\n  n / " + tc.divisor + "\n}\nfn main() { _ = divide() }\n"
 			if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 				t.Fatal(err)
 			}

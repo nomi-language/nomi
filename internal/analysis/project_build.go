@@ -817,6 +817,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// the receiver's declaring module, or three same-named receivers share
 		// one slot and map iteration order picks the winner.
 		PopulateTypeMethodIdentities(implIndex, filesByKey)
+		PopulateEnumDecls(implIndex, filesByKey)
 	}
 
 	// Re-seed ContextType from the cache now that std/context.nomi's

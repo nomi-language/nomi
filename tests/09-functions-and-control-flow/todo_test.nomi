@@ -36,7 +36,7 @@ test "a todo checks wherever a value is expected" {
 test "reaching a todo stops the program with its place and reason" {
     result =
         """
-            fn main(): Int {
+            fn main() {
               todo "finish main"
             }
             """

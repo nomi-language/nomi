@@ -24,8 +24,8 @@ fn describe(xs: List<Int>): String {
   case xs {
     [] -> "empty"
     [_] -> "single"
-    [a, b] -> "pair"
-    [_, _, ..rest] -> "long"
+    [_a, _b] -> "pair"
+    [_, _, .._rest] -> "long"
   }
 }
 fn main() {

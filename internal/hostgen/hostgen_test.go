@@ -3,6 +3,8 @@ package hostgen
 import (
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/ast"
 )
 
 type drifted struct {
@@ -129,5 +131,41 @@ pub host fn fine(x: Int, y: Int): Int
 	}
 	if _, err := g.Source(""); err != nil {
 		t.Fatalf("the file after two refusals does not format: %v", err)
+	}
+}
+
+// Structure writes a recursive type out once and names it after, so it
+// terminates; and with Unloaded set, a name no loaded module declares is a
+// leaf rather than an error, so the declared fields around it still count.
+func TestStructureOfARecursiveTypeOverAnUnloadedName(t *testing.T) {
+	src := "pub struct Node {\n    label: String\n    wait: Duration\n    next: Maybe<Node>\n}\n"
+	ms := NewModules(func(module string) ([]byte, bool) {
+		if module == "tree" {
+			return []byte(src), true
+		}
+		return nil, false
+	})
+	mod, err := ms.Load("tree")
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := &ast.SimpleType{Name: "Node"}
+	if _, err := ms.Resolver().Shape(mod, node); err == nil {
+		t.Fatal("Duration resolved with no std loaded, so the Unloaded case below tests nothing")
+	}
+	res := ms.Resolver()
+	res.Unloaded = true
+	s, err := res.Shape(mod, node)
+	if err != nil {
+		t.Fatalf("Shape: %v", err)
+	}
+	got := s.Structure()
+	for _, want := range []string{`"label"`, `"wait"`, `"?tree:Duration"`, `"next"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Structure %s lacks %s", got, want)
+		}
+	}
+	if n := strings.Count(got, `"tree.Node"`); n != 2 {
+		t.Errorf("Structure %s names tree.Node %d times, want 2 (written out, then named)", got, n)
 	}
 }

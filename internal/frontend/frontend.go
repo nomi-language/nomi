@@ -384,17 +384,10 @@ type ProjectFile struct {
 // PrepareFile points the Checker at a file entry, rooted at
 // analysis.ProjectRoot, the rule the LSP uses too. It answers the
 // entry's module-relative name, the form nomi.toml's entry_points uses.
-//
-// An entry without the .nomi extension is an extensionless `#!` script, such
-// as ~/bin/hi. Its root is its own directory: the upward walk stops there, so
-// a main.nomi or nomi.toml in an ancestor (a home directory, say) never
-// takes over a command on PATH.
+// An extensionless `#!` script is rooted at its own directory
+// (analysis.ProjectRoot).
 func (c *Checker) PrepareFile(path, absPath string) string {
-	bound := ""
-	if filepath.Ext(absPath) != ".nomi" {
-		bound = filepath.Dir(absPath)
-	}
-	root := analysis.ProjectRoot(absPath, bound)
+	root := analysis.ProjectRoot(absPath, "")
 	c.SetEntry(absPath, root)
 	moduleName := strings.TrimSuffix(filepath.Base(path), ".nomi")
 	if rel, err := filepath.Rel(root, absPath); err == nil {

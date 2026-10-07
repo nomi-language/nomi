@@ -4,15 +4,15 @@ import (
 	"testing"
 )
 
-// The Polygon payload, a tuple holding a function value, is one the builder
+// The Polygon payload, a map whose values are functions, is one the builder
 // declines, so the enum and every body that builds it stay unretained.
 func TestIRDotVariant_UnsupportedPayloadPreservesFallback(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `enum Shape {
   Circle Float
-  Polygon { sides: (Int, (Int) -> Int) }
+  Polygon { sides: Map<String, (Int) -> Int> }
 }
 fn make(): Shape { .Circle(1.0) }
-fn main(): Shape { make() }
+fn main() { _ = make() }
 `)
 	if err != nil {
 		t.Fatal(err)

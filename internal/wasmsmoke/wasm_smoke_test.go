@@ -80,7 +80,7 @@ fn quick(n: Int): Int {
   n * 2
 }
 
-fn main(): Int {
+fn main() {
   total = concurrent {
     a = Task.spawn(|| quick(10))
     b = Task.spawn(|| quick(20))

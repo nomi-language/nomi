@@ -386,6 +386,17 @@ type gen struct {
 	// See inferred.go — every read goes through inferredKind, so there is one
 	// place that decides what the analyzer is allowed to answer for.
 	fa *analysis.FileAnalysis
+	// declaredIn maps the body and parameter defaults of an interface default
+	// inherited from another file to that file's unit: its names were written
+	// there. namesFrom is that unit, plus one, while one of them is lowered
+	// (0 outside), and a bare name the declaring file binds to a `once`
+	// reads that file's cell (onceValue). See inheritDefaults.
+	declaredIn map[ast.Node]int
+	namesFrom  int
+	// blockImports is the module scope each qualifier an `import` at the top
+	// of a block binds, built on first use by moduleScope; a name two blocks
+	// bind to different files maps to nil.
+	blockImports map[string]*analysis.Scope
 
 	// nomiLine is the Nomi line the next lowered statement is attributed to.
 	nomiLine int
@@ -495,6 +506,13 @@ type gen struct {
 	blockTypeOrder  []*ast.Block
 	blockLocalOrder []*typeDef
 	typeScopes      []*blockTypeDecls
+	// nestedCalls is the checker's instantiated signature at each call of a
+	// generic fn, by the fn, indexed once (nestedGenericCalls in
+	// irnestedfn.go).
+	nestedCalls map[*ast.FuncDef][]nestedCallRef
+	// nestedWithin is the innermost generic nested fn whose body holds each
+	// identifier position (nestedGenericBodies), built with nestedCalls.
+	nestedWithin map[analysis.Pos]*ast.FuncDef
 	// The USER generic struct declarations and their monomorphized instances.
 	// genericTemplates is by Nomi name, built from this module's nodes;
 	// genericInsts interns one *typeDef per (template, argument tuple) and
@@ -602,6 +620,10 @@ type gen struct {
 	stdEnumsLoaded bool
 	stdEnumByDecl  map[*ast.EnumDef]int
 	stdEnumByName  map[string]int
+	// dotOwners is the enum each `Enum.Variant` that qualifiedDot synthesized
+	// for a `.Variant` shorthand names, from the checked type rather than the
+	// name. See dotvariant.go.
+	dotOwners map[*ast.FieldAccess]*typeDef
 	// The stdlib opaque STRUCTS, on the same footing again and keyed on
 	// *ast.StructDef. Distinct from the opaque family above because the
 	// subjects are records with named fields rather than newtypes over a
@@ -782,6 +804,9 @@ type gen struct {
 	// the binding lowers its own lambda before anything else can ask.
 	lambdaWantFor *ast.Lambda
 	lambdaWant    kind
+	// unitFnLambda is the lambda a nested Unit `fn` is lowering as: its
+	// body may end in a `dbg` observation, whose value is discarded.
+	unitFnLambda *ast.Lambda
 	// expanding is the PATH of structural comparators and hashers currently
 	// being assembled, so a type that can reach itself declines instead of
 	// taking the builder to `fatal error: stack overflow`. Keyed on the

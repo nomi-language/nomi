@@ -45,11 +45,9 @@ func (bl *irScalarBuilder) nominalCaseTest(pattern ast.Node, subj ir.Temp, k kin
 		if !irRetainedStructKind(k.def) {
 			return false
 		}
-		if p.TypeName != nil {
-			if _, member, ok := patternHead(p.TypeName); !ok || member != k.def.nomi {
-				return false
-			}
-		}
+		// A written type name names this struct, directly or through an
+		// alias (`Human{age} = person`): the checker rejects any other
+		// (structPatternNames), so the name selects nothing here.
 		for _, f := range p.Fields {
 			fd := k.def.field(f.Name)
 			if fd == nil {

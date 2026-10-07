@@ -123,14 +123,14 @@ func thenActions(t *testing.T, s *Server, uri, src string) []protocol.CodeAction
 // A lambda stage gets the fix that inserts `then `, and the fixed program
 // checks.
 func TestLambdaPipeStageFix_InsertsThen(t *testing.T) {
-	src := "fn main(): String {\n    3\n    |> |n| n + 1\n    |> Int.to_string()\n}\n"
+	src := "fn demo(): String {\n    3\n    |> |n| n + 1\n    |> Int.to_string()\n}\n"
 	s := NewServer()
 	actions := thenActions(t, s, pipeStageURI, src)
 	if len(actions) != 1 {
 		t.Fatalf("got %d fixes, want 1", len(actions))
 	}
 	edited := applyWorkspaceEdit(t, src, actions[0], pipeStageURI)
-	want := "fn main(): String {\n    3\n    |> then |n| n + 1\n    |> Int.to_string()\n}\n"
+	want := "fn demo(): String {\n    3\n    |> then |n| n + 1\n    |> Int.to_string()\n}\n"
 	if edited != want {
 		t.Fatalf("got\n%s\nwant\n%s", edited, want)
 	}
@@ -142,7 +142,7 @@ func TestLambdaPipeStageFix_InsertsThen(t *testing.T) {
 
 // A lambda in parentheses would need them removed too, so it gets no fix.
 func TestLambdaPipeStageFix_NotOfferedInParentheses(t *testing.T) {
-	src := "fn main(): Int {\n    3 |> (|n| n + 1)\n}\n"
+	src := "fn demo(): Int {\n    3 |> (|n| n + 1)\n}\n"
 	s := NewServer()
 	s.docs.Open(pipeStageURI, src)
 	found := false

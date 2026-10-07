@@ -218,6 +218,20 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 	return &irQualPlan{token: name, name: name, result: result, host: true}
 }
 
+// openEmptyCallKind is the collection an empty constructor's call stands
+// for when the checker left its element types open, which it does only when
+// nothing in the program determines them and no element is made (spec,
+// "Determined type arguments"): the checked result with its holes filled
+// (projectFilledHoles). It answers kindInvalid when the checker solved the
+// result, so the empty kind takes it from the position as before.
+func (g *gen) openEmptyCallKind(t *ast.Call) kind {
+	at := g.checkedExprType(t)
+	if !irUnsolvedType(at) {
+		return kindInvalid
+	}
+	return g.projectFilledHoles(at)
+}
+
 // emptyMap recognizes the reserved constructor before generic-call routing.
 // Explicit type arguments take the call's checked result.
 func (bl *irScalarBuilder) emptyMap(t *ast.Call) (ir.Temp, kind, bool, bool) {
@@ -236,6 +250,8 @@ func (bl *irScalarBuilder) emptyMap(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		if want.tag != tagMap || !irRetainedMapKind(want) {
 			return no()
 		}
+	} else if filled := bl.g.openEmptyCallKind(t); filled.tag == tagMap && irRetainedMapKind(filled) {
+		want = filled
 	}
 	n := ir.NewMakeMap(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
 	bl.b.Append(n)
@@ -331,6 +347,11 @@ func (bl *irScalarBuilder) emptyCollection(t *ast.Call) (ir.Temp, kind, bool, bo
 		want = bl.g.solvedCallReturn(t)
 		if !irRetainedValueKind(want) {
 			return no()
+		}
+	} else {
+		// kindInvalid: lookup — an open empty call whose filled type has no kind keeps the empty kind.
+		if filled := bl.g.openEmptyCallKind(t); filled != kindInvalid && irRetainedValueKind(filled) {
+			want = filled
 		}
 	}
 	bl.b.Append(c)

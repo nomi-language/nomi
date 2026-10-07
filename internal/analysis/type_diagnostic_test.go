@@ -37,14 +37,14 @@ func assertErrorExact(t *testing.T, errs []analysis.TypeError, want string) {
 
 func TestTypeDiagnostic_SameNamedStructsNameTheirFiles(t *testing.T) {
 	errs := buildProjectExpectingErrors(t,
-		"import a\nimport b\n\nfn main(): Int {\n  b.show(a.Point{x: 1})\n}\n",
+		"import a\nimport b\n\nfn demo(): Int {\n  b.show(a.Point{x: 1})\n}\n",
 		samePointSiblings)
 	assertErrorExact(t, errs, "argument 1: expected b.Point, got a.Point")
 }
 
 func TestTypeDiagnostic_SameNamedTypeInsideAContainerIsQualified(t *testing.T) {
 	errs := buildProjectExpectingErrors(t,
-		"import a\nimport b\n\nfn main(): Int {\n  xs: List<a.Point> = [a.Point{x: 1}]\n  b.show_all(xs)\n}\n",
+		"import a\nimport b\n\nfn demo(): Int {\n  xs: List<a.Point> = [a.Point{x: 1}]\n  b.show_all(xs)\n}\n",
 		samePointSiblings)
 	assertErrorExact(t, errs, "argument 1: expected List<b.Point>, got List<a.Point>")
 }
@@ -130,7 +130,7 @@ pub interface Toggle {
 // was: only a collision is qualified.
 func TestTypeDiagnostic_OrdinaryMismatchIsUnchanged(t *testing.T) {
 	errs := buildProjectExpectingErrors(t,
-		"import a\n\nfn take(n: Int): Int {\n  n\n}\n\nfn bad(): Int {\n  \"nope\"\n}\n\nfn main(): Int {\n  p = a.Point{x: 1}\n  take(\"s\") + p\n}\n",
+		"import a\n\nfn take(n: Int): Int {\n  n\n}\n\nfn bad(): Int {\n  \"nope\"\n}\n\nfn demo(): Int {\n  p = a.Point{x: 1}\n  take(\"s\") + p\n}\n",
 		samePointSiblings)
 	assertErrorExact(t, errs, "argument 1: expected Int, got String")
 	assertErrorExact(t, errs, "return type mismatch: expected Int, got String")

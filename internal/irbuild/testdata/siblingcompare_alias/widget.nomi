@@ -1,0 +1,44 @@
+// Element types the entry imports under ALIASES. Gadget's ordering and
+// equality are written by hand; Rank's and Meters' orderings are derived.
+pub struct Gadget {
+    n: Int
+}
+
+impl Comparable for Gadget {
+    fn compare(a: Gadget, b: Gadget): Ordering {
+        Int.compare(a.n, b.n)
+    }
+}
+
+impl Equatable for Gadget {
+    fn equal?(a: Gadget, b: Gadget): Bool {
+        a.n == b.n
+    }
+}
+
+impl Steppable<Int> for Gadget {
+    fn step_by(value: Gadget, by: Int): Maybe<Gadget> {
+        Some(Gadget{n: value.n + by})
+    }
+}
+
+pub struct Rank {
+    level: Int
+    name: String
+}
+
+derive Equatable for Rank
+derive Hashable for Rank
+derive Comparable for Rank
+
+pub struct Meters {
+    n: Int
+}
+
+derive Comparable for Meters
+
+impl Steppable<Int> for Meters {
+    fn step_by(value: Meters, by: Int): Maybe<Meters> {
+        Some(Meters{n: value.n + by})
+    }
+}

@@ -65,7 +65,7 @@ fn main() {
   io.print(b.value)
 }`, "42\nx\n"},
 		{"box", `struct Box<T> { value: T }
-fn main(): Int {
+fn main() {
   box = Box{value: 42}
   dbg box.value
 }`, "dbg line 4: box.value = 42\n"},

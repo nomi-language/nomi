@@ -38,7 +38,7 @@ func TestVMPreludeEnumDebug_TourMatchesRecordedAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "pattern-matching.md", `_ = dbg calculate(100, 0)`)}, vmPathResolver(t, "tour"))
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "pattern-matching.md", `dbg calculate(100, 0)`)}, vmPathResolver(t, "tour"))
 	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("try Tour program incomplete: %v", refused)
 	}

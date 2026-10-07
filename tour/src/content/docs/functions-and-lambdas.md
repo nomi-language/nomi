@@ -24,7 +24,7 @@ fn abs(x: Int): Int {
     x
 }
 
-fn main(): Int {
+fn main() {
     dbg add(3, 4)
     dbg abs(-9)
 }
@@ -49,7 +49,7 @@ other clue; otherwise let inference handle it. A lambda is a first-class value
 — bind it to a name, pass it to another function, or return one.
 
 ```nomi-run
-fn main(): Int {
+fn main() {
     inc = |x: Int| x + 1
     dbg inc(41)
 }
@@ -103,7 +103,7 @@ fn greet(name: String, greeting: String = "Hello"): String {
     "${greeting}, ${name}!"
 }
 
-fn main(): Int {
+fn main() {
     dbg greet("World")
     dbg greet("World", "Hi")
 
@@ -133,7 +133,7 @@ fn connect(host: String, port: Int = 8080, timeout: Int = 30): String {
     "${host}:${port}:${timeout}"
 }
 
-fn main(): String {
+fn main() {
     dbg connect("localhost")
     dbg connect("localhost", timeout: 10)
     dbg connect(host: "api", port: 443, timeout: 5)
@@ -177,7 +177,7 @@ fn add_pair((a, b): (Int, Int)): Int {
     a + b
 }
 
-fn main(): Int {
+fn main() {
     Dur(diff) = subtract(Dur(10), Dur(3))
     dbg diff
     dbg sum_point(Point{x: 4, y: 5})
@@ -207,7 +207,7 @@ fn double(n: Int): Int {
     n * 2
 }
 
-fn main(): Int {
+fn main() {
     dbg transform(5, |x| x + 1)
     dbg transform(5, factor: 3, |x| x + 1)
     dbg transform(5, factor: 3, double)

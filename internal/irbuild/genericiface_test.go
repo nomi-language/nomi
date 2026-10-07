@@ -5,8 +5,8 @@ import (
 )
 
 // genericIfaceHead declares a generic interface, a generic struct, and an impl
-// of the first for the second — `testdata/iface_cascade.nomi`'s shape, reused
-// so the two cannot drift about what "a generic interface" is.
+// of the first for the second, the shape the corpus's
+// `11-interfaces-and-impls/type_argument_inference` runs.
 const genericIfaceHead = `interface Chooser<T> {
   fn left(p: self): T
   fn right(p: self): T

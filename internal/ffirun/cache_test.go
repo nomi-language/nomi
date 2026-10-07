@@ -442,3 +442,163 @@ fn echo_upper(s: String): String go binding.EchoUpper
 		t.Fatalf("stat wrapper binary: %v", err)
 	}
 }
+
+// The Discovered field must move when anything the wrapper compiles in moves.
+// The declaring file is one: the wrapper registers a module-qualified binding
+// under its bare name only when the entry it runs is the file that declared it.
+// Keyed on names alone, a script run as hi at the go.mod root and then as
+// bin/hi reused the first wrapper, which still named the root file, and bin/hi
+// crossed into Go under a key nothing answered. A source position is not
+// compiled into behaviour and must not move it, or every edit above a binding
+// would rebuild the wrapper.
+func TestCache_DiscoveredHashCoversWhatTheWrapperCompilesIn(t *testing.T) {
+	projectRoot := stageMinimalProject(t)
+	base := func() []DiscoveredPackage {
+		return []DiscoveredPackage{{
+			ImportPath: "example.com/binding",
+			Alias:      "binding",
+			Types: []DiscoveredType{{
+				Key: "hi.Box", EntryKey: "Box", TypeName: "Box",
+				Declaration: "host type Box", SourceFile: "/p/hi", SourceLine: 3,
+			}},
+			Exports: []DiscoveredExport{{
+				Key: "hi.upper", EntryKey: "upper", FuncName: "Upper",
+				Declaration: "host fn upper(s: String): String",
+				SourceFile:  "/p/hi", SourceLine: 5,
+			}},
+		}}
+	}
+	hash := func(d []DiscoveredPackage) string {
+		t.Helper()
+		r, err := computeHashes(projectRoot, d, nil)
+		if err != nil {
+			t.Fatalf("computeHashes: %v", err)
+		}
+		return r.Discovered
+	}
+	want := hash(base())
+
+	moves := map[string]func(d []DiscoveredPackage){
+		"export source file":     func(d []DiscoveredPackage) { d[0].Exports[0].SourceFile = "/p/bin/hi" },
+		"export entry key":       func(d []DiscoveredPackage) { d[0].Exports[0].EntryKey = "" },
+		"export also declared":   func(d []DiscoveredPackage) { d[0].Exports[0].AlsoDeclaredIn = []string{"/p/bin/hi"} },
+		"export declaration":     func(d []DiscoveredPackage) { d[0].Exports[0].Declaration = "host fn upper(s: String): Int" },
+		"export inline Go body":  func(d []DiscoveredPackage) { d[0].Exports[0].GoBody = "return s" },
+		"export inline params":   func(d []DiscoveredPackage) { d[0].Exports[0].ParamDecls = "s string" },
+		"export inline result":   func(d []DiscoveredPackage) { d[0].Exports[0].ReturnDecl = "string" },
+		"type source file":       func(d []DiscoveredPackage) { d[0].Types[0].SourceFile = "/p/bin/hi" },
+		"type entry key":         func(d []DiscoveredPackage) { d[0].Types[0].EntryKey = "" },
+		"type Go expression":     func(d []DiscoveredPackage) { d[0].Types[0].GoTypeExpr = "*binding.Box" },
+		"package Go declaration": func(d []DiscoveredPackage) { d[0].GoDecls = []string{"type T int"} },
+	}
+	for name, move := range moves {
+		d := base()
+		move(d)
+		if hash(d) == want {
+			t.Errorf("%s changed and the Discovered hash did not", name)
+		}
+	}
+
+	d := base()
+	d[0].Exports[0].SourceLine, d[0].Exports[0].SourceCol = 40, 9
+	d[0].Types[0].SourceLine = 30
+	if hash(d) != want {
+		t.Errorf("moving a binding's line changed the Discovered hash")
+	}
+}
+
+// A struct a binding converts is compiled into its adapter field by field,
+// and the binding's declaration names the struct only. So an edit to the
+// struct, or to a struct nested in it, must move the hash: keyed on the
+// declaration alone, a renamed field of a nested struct kept the cached
+// adapter building the old struct, and the program failed reading the new
+// field at run time where a fresh wrapper refuses the binding at load. An
+// edit that changes no converted shape must not move it, or every edit to a
+// file beside a binding would rebuild the wrapper.
+func TestCache_HashCoversTheShapesABindingConverts(t *testing.T) {
+	projectRoot := stageMinimalProject(t)
+	shapesPath := filepath.Join(projectRoot, "shapes.nomi")
+	mainPath := filepath.Join(projectRoot, "main.nomi")
+	const shapes = `gopkg "example.com/binding"
+
+pub struct Inner {
+    count: Int
+    label: String
+}
+
+pub struct Outer {
+    name: String
+    inner: Inner
+    timeout: Duration
+}
+
+pub struct Unrelated {
+    x: Int
+}
+
+pub fn make(): Outer go binding.Make
+
+pub fn twice(n: Int): Int {
+    n * 2
+}
+`
+	const main = `import {
+    std/io
+    shapes
+}
+
+fn main() {
+    io.print(shapes.make().name)
+}
+`
+	hash := func(shapesSrc, mainSrc string) hashRecord {
+		t.Helper()
+		if err := os.WriteFile(shapesPath, []byte(shapesSrc), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		discovered, err := Discover(projectRoot)
+		if err != nil {
+			t.Fatalf("Discover: %v", err)
+		}
+		if len(discovered) != 1 || len(discovered[0].Exports) != 1 {
+			t.Fatalf("Discover found %+v, want the one binding", discovered)
+		}
+		r, err := computeHashes(projectRoot, discovered, nil)
+		if err != nil {
+			t.Fatalf("computeHashes: %v", err)
+		}
+		return r
+	}
+	want := hash(shapes, main)
+
+	moves := map[string]string{
+		"nested field renamed":          strings.Replace(shapes, "    label: String", "    title: String", 1),
+		"nested field retyped":          strings.Replace(shapes, "    count: Int", "    count: Float", 1),
+		"nested fields reordered":       strings.Replace(shapes, "    count: Int\n    label: String", "    label: String\n    count: Int", 1),
+		"result field added":            strings.Replace(shapes, "    name: String\n", "    name: String\n    port: Int\n", 1),
+		"std-typed field renamed":       strings.Replace(shapes, "    timeout: Duration", "    deadline: Duration", 1),
+		"nested struct made a distinct": strings.Replace(shapes, "pub struct Inner {\n    count: Int\n    label: String\n}", "pub type Inner(String)", 1),
+	}
+	for name, src := range moves {
+		if src == shapes {
+			t.Fatalf("%s: the edit did not apply", name)
+		}
+		if hash(src, main) == want {
+			t.Errorf("%s: the struct a binding converts changed and the hash did not", name)
+		}
+	}
+
+	stays := map[string][2]string{
+		"unrelated struct edited": {strings.Replace(shapes, "    x: Int", "    x: String", 1), main},
+		"function body edited":    {strings.Replace(shapes, "n * 2", "n * 3", 1), main},
+		"entry edited":            {shapes, strings.Replace(main, ".name)", ".inner.label)", 1)},
+	}
+	for name, src := range stays {
+		if got := hash(src[0], src[1]); got != want {
+			t.Errorf("%s: no converted shape changed and the hash did (%+v, want %+v)", name, got, want)
+		}
+	}
+}

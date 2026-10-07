@@ -203,3 +203,140 @@ test "second" {
 		}
 	}
 }
+
+// TestNestedFunc_BodyIsCheckedInEveryExpressionPosition: a `fn` declared in a
+// block is checked wherever that block sits. BuildTypes' signature walk once
+// enumerated the node kinds it descended through (blocks, bindings, `if`,
+// `case`, lambdas, call arguments), so a block that was a list element, a
+// struct field, an operand or an interpolation was never entered: its nested
+// fn got no FuncType, checkFunc returned before the body, and these programs
+// checked clean.
+func TestNestedFunc_BodyIsCheckedInEveryExpressionPosition(t *testing.T) {
+	cases := []struct {
+		name, src string
+	}{
+		{"list element", `fn main() {
+  xs = [{
+    fn bad(): Int {
+      "nope"
+    }
+    bad()
+  }, 2]
+  assert xs == [1, 2]
+}`},
+		{"tuple element", `fn main() {
+  v = ({
+    fn bad(): Int {
+      "nope"
+    }
+    bad()
+  }, 2)
+  assert v == (1, 2)
+}`},
+		{"struct field", `struct P {
+  x: Int
+}
+
+fn main() {
+  p = P{x: {
+    fn bad(): Int {
+      "nope"
+    }
+    bad()
+  }}
+  assert p.x == 1
+}`},
+		{"operand", `fn main() {
+  n = 1 + {
+    fn bad(): Int {
+      "nope"
+    }
+    bad()
+  }
+  assert n == 2
+}`},
+		{"field receiver", `struct P {
+  x: Int
+}
+
+fn main() {
+  n = {
+    fn bad(): P {
+      "nope"
+    }
+    bad()
+  }.x
+  assert n == 1
+}`},
+		{"lambda body in a list", `fn main() {
+  fs = [|k: Int| {
+    fn bad(): Int {
+      "nope"
+    }
+    bad() + k
+  }]
+  assert Iter.count(fs) == 1
+}`},
+		{"then body", `fn main() {
+  n = 1
+    |> then |k| {
+      fn bad(): Int {
+        "nope"
+      }
+      bad() + k
+    }
+  assert n == 2
+}`},
+		{"pipe head", `fn main() {
+  n = {
+    fn bad(): List<Int> {
+      "nope"
+    }
+    bad()
+  }
+    |> Iter.count()
+  assert n == 2
+}`},
+		{"interpolation", `fn main() {
+  s = "${{
+    fn bad(): Int {
+      "nope"
+    }
+    bad()
+  }}"
+  assert s == "1"
+}`},
+		{"case on the nested fn's call", `fn main() {
+  xs = [{
+    fn bad(): Maybe<Int> {
+      "nope"
+    }
+    case bad() {
+      Some(v) -> v
+      None -> 0
+    }
+  }]
+  assert xs == [1]
+}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			expectErrorContaining(t, checkWithStdlib(tc.src), "return type mismatch: expected ")
+			expectErrorContaining(t, checkWithStdlib(tc.src), ", got String")
+		})
+	}
+}
+
+// TestNestedFunc_ExternIsRejectedInEveryExpressionPosition: the walk that
+// rejects a nested `host` declaration enumerated node kinds the same way the
+// signature walk did, so one in a block that was a list element was accepted.
+func TestNestedFunc_ExternIsRejectedInEveryExpressionPosition(t *testing.T) {
+	src := `fn main() {
+  xs = [{
+    host fn now(): Int
+    now()
+  }]
+  assert xs == [1]
+}`
+	expectErrorContaining(t, checkWithStdlib(src), "extern declaration must be at the top level")
+}

@@ -1,40 +1,40 @@
 package irbuild
 
-import (
-	"testing"
-)
+import "testing"
 
-// `Bool`'s ordering has NO ROUTE through the stdlib index, which is the entire
-// reason rt.BoolCompare and scalarorder.go exist. BOTH doors are asserted, so the
-// stand-in cannot outlive its reason.
-//
-// Door one: `derive Comparable for Bool` on `pub enum Bool { embeds False; embeds
-// True }` synthesizes a body over two `pub host type` singletons, outside the
-// subset, so `stdCompareAt(kindBool, …)` answers nil — it is one of the four
-// declarations stdlib.go:1877 already names as reaching the settling interlock and
-// failing anyway. Door two: a `stdlibBindings` row cannot reach it either, because
-// `stdCandidateFor`'s binding arm is `case fd == nil` (a `host fn`, whose only
-// route is an rt symbol) and a derive-synthesized declaration carries a FuncDef.
-//
-// If either door opens, std becomes the route — compareResult asks `stdCompareAt`
-// FIRST — and this arm silently stops being reached. That is the rule-(5) hazard
-// exactly, so the precondition is a TEST rather than a comment: a comment saying
-// "this expires when X" is a claim, and a test that fails when X happens is a
-// mechanism.
-func TestScalarOrder_BoolStillHasNoStdRoute(t *testing.T) {
-	if _, bound := stdlibHostFuncs["bool.Bool.compare"]; bound {
-		t.Fatal("`bool.Bool.compare` now has a stdlibBindings row. scalarorder.go's " +
-			"scalarOrdered[tagBool] is a stand-in for exactly its absence and is " +
-			"now unreachable — delete the entry and rt.BoolCompare with it, or say " +
-			"which one wins")
+// Ordering and equality on types whose impls a sibling file writes run on the
+// VM (testdata/sortscope): `Iter.sort` and `Iter.sort_by`, ascending and
+// descending and stable, on two receivers of Comparable in one file; the
+// comparison operators and `Comparable.compare` on one pair; `Ranked.compare`,
+// a second interface's `compare` for the same receiver ordering the other
+// way; the scalar operators beside them; and `==` through a hand-written
+// sibling `impl Equatable`.
+func TestIRSortScope_SiblingImplsOrderAndCompare(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
 	}
-	if len(scalarOrdered) != 1 {
-		t.Fatalf("scalarOrdered has %d entries; it is documented as Bool ALONE, and "+
-			"every addition is a claim that std cannot serve that scalar either — "+
-			"which is a decision, not a mechanical extension", len(scalarOrdered))
-	}
-	if _, ok := scalarOrdered[tagBool]; !ok {
-		t.Fatal("scalarOrdered has lost its tagBool entry; `False < True` and " +
-			"`Iter.sort` over a List<Bool> have no other route")
+	want := "sort widget [1, 2, 3]\n" +
+		"sort backwards [3, 2, 1]\n" +
+		"sort_by widget [1, 2, 3]\n" +
+		"sort widget desc [3, 2, 1]\n" +
+		"sort_by widget desc [3, 2, 1]\n" +
+		"stable [1, 1, 2]\n" +
+		"lt True\n" +
+		"gt False\n" +
+		"le True\n" +
+		"ge False\n" +
+		"compare Less\n" +
+		"str lt True\n" +
+		"str ge True\n" +
+		"bool lt True\n" +
+		"bool le False\n" +
+		"ranked Greater\n" +
+		"tag x\n" +
+		"eq True\n" +
+		"ne False\n"
+	got := vmReference(fixture("sortscope/main.nomi"))
+	if got.stdout != want || got.stderr != "" || got.exit != 0 {
+		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",
+			got.exit, got.stdout, got.stderr, want)
 	}
 }

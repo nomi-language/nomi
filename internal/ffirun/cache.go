@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -109,14 +110,21 @@ func cacheRoot() (string, error) {
 //   - GoSum: the project's go.sum file content (empty string hash if
 //     the project has no go.sum yet)
 //   - Template: the wrapper template text baked into the nomi binary
-//   - Discovered: the sorted import paths joined by "\n"
+//   - Discovered: each discovered package's bindings as the wrapper
+//     compiles them (discoveredHashInput), plus the direct requires
+//   - Shapes: every Nomi type shape the generated adapters convert, through
+//     the project's own struct, enum and distinct declarations
+//     (adapterShapesHashInput)
 //   - Compiler: the content identity of the two Nomi modules the
 //     cached wrapper BINARY links — see identity.go.
 //   - Locals: the content identity of the project's own Go tree and
 //     of every module it reaches through a local `replace` — see
 //     identitylocal.go.
+//   - GoStd: the Go toolchain's version, when a binding names a Go standard
+//     library package, and empty otherwise. The adapters were generated
+//     from that toolchain's source and the wrapper links it (gostd.go).
 //
-// The first four fields describe the generated main.go. The last two
+// The first five fields describe the generated main.go. The next two
 // describe the ~18 MB executable beside it, which is the artifact a
 // warm cache actually re-executes; between them they cover every
 // build input that no checksum speaks for.
@@ -125,8 +133,10 @@ type hashRecord struct {
 	GoSum      string `json:"go_sum"`
 	Template   string `json:"template"`
 	Discovered string `json:"discovered"`
+	Shapes     string `json:"shapes"`
 	Compiler   string `json:"compiler"`
 	Locals     string `json:"locals"`
+	GoStd      string `json:"go_std,omitempty"`
 }
 
 // computeHashes builds a hashRecord for the supplied inputs. Missing
@@ -157,18 +167,16 @@ func computeHashes(projectRoot string, discovered []DiscoveredPackage, allRequir
 	}
 	imports := make([]string, len(discovered))
 	for i, d := range discovered {
-		parts := []string{d.ImportPath}
-		for _, typ := range d.Types {
-			parts = append(parts, "type:"+typ.Key+"="+typ.TypeName)
-		}
-		for _, ex := range d.Exports {
-			parts = append(parts, "func:"+ex.Key+"="+ex.FuncName)
-		}
-		imports[i] = strings.Join(parts, "\t")
+		imports[i] = discoveredHashInput(d)
 	}
 	sort.Strings(imports)
 	sortedRequires := append([]string(nil), allRequires...)
 	sort.Strings(sortedRequires)
+	goStd := ""
+	if discoversStd(discovered) {
+		t := stdToolchain()
+		goStd = t.version + " " + t.root
+	}
 	// The discovered hash covers both lists so either changing
 	// triggers cache invalidation. Use a separator that can't appear
 	// in a Go import path so the two lists can't accidentally collide.
@@ -178,9 +186,49 @@ func computeHashes(projectRoot string, discovered []DiscoveredPackage, allRequir
 		GoSum:      sha256Hex(goSumBytes),
 		Template:   "sha256:" + templateHash, // already in hex
 		Discovered: sha256Hex([]byte(combined)),
+		Shapes:     sha256Hex([]byte(adapterShapesHashInput(discovered))),
 		Compiler:   compilerID,
 		Locals:     localsID,
+		GoStd:      goStd,
 	}, nil
+}
+
+// discoveredHashInput is one discovered package as the Discovered hash field
+// reads it: every field the generated wrapper's code depends on, and no
+// source position.
+//
+// The declaring file and the entry-scoped key are in it because the wrapper
+// compiles them in: it registers a module-qualified binding under its bare
+// name only when the entry it runs is the file that declared it. Keyed on
+// names alone, a script that ran as hi at the go.mod root and then as bin/hi
+// shared one wrapper, which still named the root file, so bin/hi crossed
+// under a key nothing answered. The inline Go and the declaration text are in
+// it because they are the wrapper's code. Positions stay out, so an edit that
+// only moves a binding's line does not rebuild the wrapper.
+func discoveredHashInput(d DiscoveredPackage) string {
+	q := strconv.Quote
+	parts := []string{q(d.ImportPath), "inline:" + strconv.FormatBool(d.InlineUsed)}
+	for _, decl := range d.GoDecls {
+		parts = append(parts, "godecl:"+q(decl))
+	}
+	for _, typ := range d.Types {
+		parts = append(parts, "type:"+strings.Join([]string{
+			q(typ.Key), q(typ.EntryKey), q(typ.TypeName), q(typ.GoTypeExpr),
+			q(typ.Declaration), q(typ.SourceFile),
+		}, ","))
+	}
+	for _, ex := range d.Exports {
+		fields := []string{
+			q(ex.Key), q(ex.EntryKey), q(ex.FuncName), q(ex.WrapperName),
+			q(ex.ParamDecls), q(ex.ReturnDecl), q(ex.GoBody), q(ex.Declaration),
+			q(ex.SourceFile),
+		}
+		for _, f := range ex.AlsoDeclaredIn {
+			fields = append(fields, q(f))
+		}
+		parts = append(parts, "func:"+strings.Join(fields, ","))
+	}
+	return strings.Join(parts, "\t")
 }
 
 // sha256Hex returns the SHA256 of data prefixed by "sha256:" — the
@@ -232,8 +280,8 @@ func writeHashRecord(cacheDir string, r hashRecord) error {
 // record updated.
 //
 // The mtime preservation property the cache test pins down comes
-// from this short-circuit: a .nomi-only edit (which doesn't shift
-// any of the four hash inputs) leaves main.go untouched, so its
+// from this short-circuit: a .nomi edit that changes no binding and
+// no type shape a binding converts leaves main.go untouched, so its
 // mtime stays fixed across runs.
 func ensureWrapper(cacheDir, projectRoot string, discovered []DiscoveredPackage, allRequires []string) error {
 	want, err := computeHashes(projectRoot, discovered, allRequires)

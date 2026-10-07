@@ -28,6 +28,7 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 	if bl.recording > 0 || t.Body == nil {
 		return no()
 	}
+	defer bl.g.enterBlockTypes(t.Body)()
 	lead, body := bl.g.irScalarBlock(t.Body, "")
 	if body == nil {
 		return no()

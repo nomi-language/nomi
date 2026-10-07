@@ -157,6 +157,40 @@ func (s ValShape) String() string {
 // the declaration as authoritative there would describe the entry and report
 // the hop.
 func shapeOfTemp(f *Func, t Temp, depth int) ValShape {
+	return newShapes(f).ofTemp(t, depth)
+}
+
+// shapes answers shapeOfTemp and shapeWritten over one function, with its
+// instructions indexed by destination. Finding a temporary's writers by
+// scanning every instruction made lintOperandShapes quadratic in the size
+// of a function: a 20000-term string concatenation spent most of half a
+// minute here.
+type shapes struct {
+	f       *Func
+	writers map[Temp][]Instr
+	// visited counts the instructions read to build writers.
+	visited int
+}
+
+func newShapes(f *Func) *shapes { return &shapes{f: f} }
+
+func (s *shapes) writersOf(t Temp) []Instr {
+	if s.writers == nil {
+		s.writers = map[Temp][]Instr{}
+		for _, b := range s.f.Blocks() {
+			for _, in := range b.Instrs() {
+				s.visited++
+				if d := in.Dst(); d != NoTemp {
+					s.writers[d] = append(s.writers[d], in)
+				}
+			}
+		}
+	}
+	return s.writers[t]
+}
+
+func (s *shapes) ofTemp(t Temp, depth int) ValShape {
+	f := s.f
 	if t == NoTemp || depth > 16 {
 		return ValUnknown
 	}
@@ -172,29 +206,29 @@ func shapeOfTemp(f *Func, t Temp, depth int) ValShape {
 		}
 		out = p.Shape
 	}
-	for _, b := range f.Blocks() {
-		for _, in := range b.Instrs() {
-			if in.Dst() != t {
-				continue
-			}
-			s := shapeWritten(f, in, depth)
-			if s == ValUnknown {
-				return ValUnknown
-			}
-			if out != ValUnknown && out != s {
-				// Two arms writing two shapes into one destination, or a
-				// writer disagreeing with the parameter's declared shape. The
-				// rule declines rather than picking one.
-				return ValUnknown
-			}
-			out = s
+	for _, in := range s.writersOf(t) {
+		w := s.written(in, depth)
+		if w == ValUnknown {
+			return ValUnknown
 		}
+		if out != ValUnknown && out != w {
+			// Two arms writing two shapes into one destination, or a
+			// writer disagreeing with the parameter's declared shape. The
+			// rule declines rather than picking one.
+			return ValUnknown
+		}
+		out = w
 	}
 	return out
 }
 
 // shapeWritten is the shape one instruction's destination holds.
 func shapeWritten(f *Func, in Instr, depth int) ValShape {
+	return newShapes(f).written(in, depth)
+}
+
+func (s *shapes) written(in Instr, depth int) ValShape {
+	f := s.f
 	switch n := in.(type) {
 	case *Not:
 		return ValBool
@@ -267,9 +301,9 @@ func shapeWritten(f *Func, in Instr, depth int) ValShape {
 		// rather than a silent second opinion about the same node.
 		return n.Shape()
 	case *Copy:
-		return shapeOfTemp(f, n.Src(), depth+1)
+		return s.ofTemp(n.Src(), depth+1)
 	case *Bind:
-		return shapeOfTemp(f, n.Src(), depth+1)
+		return s.ofTemp(n.Src(), depth+1)
 	case *FuncValue:
 		return ValFunc
 	case *Ref:
@@ -305,6 +339,7 @@ func shapeWritten(f *Func, in Instr, depth int) ValShape {
 // `m.hosts` binding, and which Go function a `Crosses()` call lands on is the
 // consumer's answer rather than a fact the representation states.
 func lintOperandShapes(f *Func, vs *[]Violation) {
+	sh := newShapes(f)
 	report := func(pos Pos, what, position string, got, want ValShape) {
 		if got == ValUnknown || got == want {
 			return
@@ -333,13 +368,13 @@ func lintOperandShapes(f *Func, vs *[]Violation) {
 				// Int operation's left operand is %T", and two checks
 				// naming one condition two ways would drift.
 				side := "the left operand of this " + want.String() + " operation"
-				report(n.Pos(), what, side, shapeOfTemp(f, n.Lhs(), 0), want)
+				report(n.Pos(), what, side, sh.ofTemp(n.Lhs(), 0), want)
 				if n.Rhs() != NoTemp {
 					side = "the right operand of this " + want.String() + " operation"
-					report(n.Pos(), what, side, shapeOfTemp(f, n.Rhs(), 0), want)
+					report(n.Pos(), what, side, sh.ofTemp(n.Rhs(), 0), want)
 				}
 			case *Not:
-				report(n.Pos(), what, "Boolean negation operand", shapeOfTemp(f, n.Val(), 0), ValBool)
+				report(n.Pos(), what, "Boolean negation operand", sh.ofTemp(n.Val(), 0), ValBool)
 			case *Compare:
 				// BOTH OPERANDS AGAINST THE NODE'S OWN DECLARED SHAPE, which
 				// is the one rule a comparison has that the constructor
@@ -350,15 +385,15 @@ func lintOperandShapes(f *Func, vs *[]Violation) {
 				// (`mixed-type operator`), so a graph holding one is a
 				// producer bug rather than a program.
 				side := "the left operand of this " + n.Op().Symbol() + " comparison"
-				report(n.Pos(), what, side, shapeOfTemp(f, n.Lhs(), 0), n.Shape())
+				report(n.Pos(), what, side, sh.ofTemp(n.Lhs(), 0), n.Shape())
 				if !n.Ranked() {
 					side = "the right operand of this " + n.Op().Symbol() + " comparison"
-					report(n.Pos(), what, side, shapeOfTemp(f, n.Rhs(), 0), n.Shape())
+					report(n.Pos(), what, side, sh.ofTemp(n.Rhs(), 0), n.Shape())
 				}
 			case *Concat:
 				for p := range n.NumParts() {
 					report(n.Pos(), what, "concat part "+strconv.Itoa(p),
-						shapeOfTemp(f, n.Part(p), 0), ValString)
+						sh.ofTemp(n.Part(p), 0), ValString)
 				}
 			case *Proj:
 				want := ValUnknown
@@ -378,12 +413,12 @@ func lintOperandShapes(f *Func, vs *[]Violation) {
 					continue
 				}
 				report(n.Pos(), what, "the subject of this "+n.Kind().String()+" projection",
-					shapeOfTemp(f, n.Subject(), 0), want)
+					sh.ofTemp(n.Subject(), 0), want)
 			}
 		}
 		if br, isBranch := b.Term().(*Branch); isBranch {
 			report(br.Pos(), b.ID().String()+" terminator", "the branched condition",
-				shapeOfTemp(f, br.Cond(), 0), ValBool)
+				sh.ofTemp(br.Cond(), 0), ValBool)
 		}
 	}
 }

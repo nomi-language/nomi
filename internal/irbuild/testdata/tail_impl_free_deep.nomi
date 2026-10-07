@@ -1,17 +1,8 @@
-// A tail cycle ACROSS the impl/free boundary, at a depth ordinary recursion
-// cannot survive.
+// A tail cycle across the impl/free boundary: an interface impl function and a
+// free function call each other in tail position.
 //
-// This is the shape that was detected and REFUSED by name when the detector's
-// node set was fixed: the free half was a graph node and the impl half was not,
-// so the edge existed in neither direction. It now lowers to one shared driver
-// whose arms are one free body and one impl body.
-//
-// The depth is the load-bearing part of the fixture: a shallow version
-// passes whether or not the cycle is lowered. At 1e8 a lowering without the
-// shared driver would run out of stack.
-//
-// It must run in constant stack: `analysis.MarkTailCalls` has an
-// `*ast.ImplBlock` arm precisely so that TCO fires inside an impl block.
+// 1e8 hops is a thousand times the VM's call-depth limit, so the VM prints
+// only if each of these tail calls replaces the caller's activation.
 import std/io
 
 interface Stepper {

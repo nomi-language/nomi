@@ -131,6 +131,10 @@ type genericTemplate struct {
 	// a Go-bound function. They register nowhere: a call to one of them
 	// crosses to the one Go function whatever T is (hostTemplateImplPlan).
 	hostImpls []*ast.ImplBlock
+	// scope is the block that declares a block-local template, nil for a
+	// module-level one. Its instances are resolved, and their impls built,
+	// with that block's declarations visible, as its fields may name them.
+	scope *blockTypeDecls
 }
 
 // structDecl is the template's declaration when it is a struct, and nil when it
@@ -180,24 +184,30 @@ func (g *gen) collectGenericTemplates(nodes []ast.Node) {
 			// two tables cannot disagree about which declaration `Box` is.
 			continue
 		}
-		tpl := &genericTemplate{nomi: name, decl: n}
-		for _, tp := range tps {
-			tpl.params = append(tpl.params, tp.Name)
-		}
-		tpl.why, tpl.whyDetail = g.templateWall(tpl)
-		if tpl.why == "" {
-			// The impl blocks naming this template, plus the reason -- if any --
-			// that one of them cannot be instantiated at ANY argument tuple.
-			// Split from templateWall because templateWall's clauses are
-			// properties of the TYPE DECLARATION, while these are properties
-			// of a separate declaration that happens to name it.
-			tpl.why, tpl.whyDetail = g.collectGenericImpls(tpl, nodes)
-		}
 		if g.genericTemplates == nil {
 			g.genericTemplates = map[string]*genericTemplate{}
 		}
-		g.genericTemplates[name] = tpl
+		g.genericTemplates[name] = g.newGenericTemplate(n, name, tps, nodes)
 	}
+}
+
+// newGenericTemplate is the template for the generic declaration n, with its
+// wall and the impl blocks among nodes that name it.
+func (g *gen) newGenericTemplate(n ast.Node, name string, tps []ast.TypeParam, nodes []ast.Node) *genericTemplate {
+	tpl := &genericTemplate{nomi: name, decl: n}
+	for _, tp := range tps {
+		tpl.params = append(tpl.params, tp.Name)
+	}
+	tpl.why, tpl.whyDetail = g.templateWall(tpl)
+	if tpl.why == "" {
+		// The impl blocks naming this template, plus the reason -- if any --
+		// that one of them cannot be instantiated at ANY argument tuple.
+		// Split from templateWall because templateWall's clauses are
+		// properties of the TYPE DECLARATION, while these are properties
+		// of a separate declaration that happens to name it.
+		tpl.why, tpl.whyDetail = g.collectGenericImpls(tpl, nodes)
+	}
+	return tpl
 }
 
 // templateWall is the reason no instance of this declaration may be built, or
@@ -292,9 +302,12 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 			return kindInvalid, false
 		}
 	}
+	defer g.enterTypeScope(tpl.scope)()
 	key := genericInstKey(tpl, args)
 	for _, d := range g.genericInsts[key] {
-		if samePartsSlice(d.genericArgs, args) {
+		// Two bodies may each declare a block-local `Box`, so the name in
+		// the key does not decide the template.
+		if d.genericOf == tpl && samePartsSlice(d.genericArgs, args) {
 			return named(d), true
 		}
 	}
@@ -511,7 +524,10 @@ func (g *gen) projectGenericInstance(origin, name string, typeArgs []analysis.Ty
 		}
 		instantiate = func(args []kind) (kind, bool) { return g.instantiateForeign(ref, args) }
 	} else {
-		tpl := g.genericTemplates[name]
+		tpl := g.blockLocalTemplate(name)
+		if tpl == nil {
+			tpl = g.genericTemplates[name]
+		}
 		if tpl == nil {
 			return kindInvalid, false
 		}
@@ -622,7 +638,7 @@ func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, decla
 	for _, k := range args {
 		// A leaf, or any value the IR carries: the instance's own layout is
 		// checked where the literal is built (irRetainedStructKind).
-		if !irRetainedLeafKind(k) && !irRetainedValueKind(k) {
+		if !irRetainedLeafKind(k) && !irCallableValueKind(k) {
 			return nil, false
 		}
 	}

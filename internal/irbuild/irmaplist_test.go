@@ -13,7 +13,7 @@ fn record(index: Index, bucket: String, n: Int): Index {
   Map.put(index, bucket, [n, ..existing])
 }
 
-fn main(): Map<String, List<Int>> {
+fn main() {
   start: Index = Map.empty()
   result =
     start

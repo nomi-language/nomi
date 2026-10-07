@@ -20,6 +20,7 @@ package hostgen
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -128,6 +129,59 @@ func (s *Shape) String() string {
 	return rt.ShortTypeName(s.Name)
 }
 
+// Structure renders the whole shape: every struct field, enum variant and
+// distinct's inner type, recursively, where String names a declared type
+// only. Two shapes with one Structure get the same adapter code. A recursive
+// type is written out at its first occurrence and named after it.
+func (s *Shape) Structure() string {
+	var b strings.Builder
+	s.structure(&b, map[*Shape]bool{})
+	return b.String()
+}
+
+func (s *Shape) structure(b *strings.Builder, seen map[*Shape]bool) {
+	b.WriteString(strconv.Itoa(int(s.Kind)))
+	if s.Name != "" {
+		b.WriteString(strconv.Quote(s.Name))
+		if seen[s] {
+			return
+		}
+		seen[s] = true
+	}
+	if len(s.Elems) > 0 {
+		b.WriteByte('<')
+		for _, e := range s.Elems {
+			e.structure(b, seen)
+			b.WriteByte(',')
+		}
+		b.WriteByte('>')
+	}
+	if s.Ret != nil {
+		b.WriteString("->")
+		s.Ret.structure(b, seen)
+	}
+	fields := func(fs []ShapeField) {
+		b.WriteByte('{')
+		for _, f := range fs {
+			b.WriteString(strconv.Quote(f.Name))
+			b.WriteByte(':')
+			f.Shape.structure(b, seen)
+			b.WriteByte(';')
+		}
+		b.WriteByte('}')
+	}
+	if s.Kind == SStruct {
+		fields(s.Fields)
+	}
+	for _, v := range s.Variants {
+		b.WriteString("|" + strconv.Quote(v.Name) + "/" + strconv.Itoa(int(v.Shape)))
+		fields(v.Fields)
+		if v.Err != nil {
+			b.WriteString("!" + strconv.Quote(v.Err.Error()))
+		}
+	}
+}
+
 // Slot is the record bank a value of this shape takes as a field.
 func (s *Shape) Slot() rt.SlotType {
 	switch s.Kind {
@@ -160,7 +214,13 @@ type Module struct {
 type Resolver struct {
 	// Modules is every module a name may resolve in, by module name.
 	Modules map[string]*Module
-	cache   map[string]*Shape
+	// Unloaded, when set, resolves a type name that no loaded module declares
+	// to a leaf named as it was written, instead of failing. A caller that
+	// loads only some modules sets it when the rest are keyed another way:
+	// internal/ffirun hashes the shapes a project's own files declare and
+	// leaves std's to the compiler's identity.
+	Unloaded bool
+	cache    map[string]*Shape
 }
 
 // NewResolver indexes modules.
@@ -191,6 +251,9 @@ func (r *Resolver) Shape(mod *Module, t ast.TypeExpr) (*Shape, error) {
 				if home, _ := r.lookup(mod, dotted); home != nil {
 					return r.named(mod, dotted, nil)
 				}
+			}
+			if r.Unloaded {
+				return &Shape{Kind: SHost, Name: "?" + x.TypeString()}, nil
 			}
 			return nil, fmt.Errorf("type %s: module %q is not loaded", x.TypeString(), x.Module)
 		}
@@ -266,6 +329,9 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 	}
 	home, decl := r.lookup(mod, name)
 	if decl == nil {
+		if r.Unloaded {
+			return &Shape{Kind: SHost, Name: "?" + mod.Name + ":" + name}, nil
+		}
 		return nil, fmt.Errorf("type %s: no declaration in module %s or its imports", name, mod.Name)
 	}
 	qualified := home.Name + "." + name

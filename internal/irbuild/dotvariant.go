@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -85,12 +86,53 @@ import (
 // carrying the DOT's own position so every refusal lands where the programmer
 // wrote it rather than at a node nobody typed.
 func (g *gen) qualifiedDot(t *ast.DotVariant) *ast.FieldAccess {
-	return &ast.FieldAccess{
+	fa := &ast.FieldAccess{
 		Object: &ast.TypeIdent{Name: g.dotEnumName(t.ResolvedEnum), Line: t.Line, Col: t.Col},
 		Field:  &ast.Ident{Name: t.Name, Line: t.Line, Col: t.Col},
 		Line:   t.Line,
 		Col:    t.Col,
 	}
+	if d := g.dotEnumDef(t, t.ResolvedEnum, t.Name); d != nil {
+		if g.dotOwners == nil {
+			g.dotOwners = map[*ast.FieldAccess]*typeDef{}
+		}
+		g.dotOwners[fa] = d
+	}
+	return fa
+}
+
+// dotEnumDef is the declaration of the monomorphic enum the checker resolved a
+// `.Variant` (or `.Variant{...}`, whose node `at` is the struct literal) to,
+// found from the checked type at `at`, or nil.
+//
+// # THE NAME IS NOT IN THIS FILE'S SCOPE WHEN THE EXPECTED TYPE COMES FROM A CALLEE
+//
+// `Iter.sort(xs, .Descending)` resolves against std/comparable's `Direction`,
+// which the calling file never imports and may not import (an import nothing
+// names is an error). `ResolvedEnum` is the bare `Direction`, so a lookup in
+// this file's tables finds nothing, or finds the file's OWN `Direction` if it
+// declares one: a wrong answer if that enum also has a `Descending`. The checked
+// type carries the declaration's (Origin, Name), which `project` resolves to
+// the right def whatever the file imports, as it does for any inferred
+// position. A payload variant's checked type is the constructor's function
+// type, whose result is the enum.
+//
+// Generic enums keep the name route (genericVariant and the prelude anchors):
+// their instance comes from the call's checked signature or the expected kind.
+func (g *gen) dotEnumDef(at ast.Node, resolved, variant string) *typeDef {
+	ty := g.checkedExprType(at)
+	if ft, isFunc := irResolvedType(ty).(*analysis.FuncType); isFunc {
+		ty = ft.Return
+	}
+	et, isEnum := resolvedEnumType(ty)
+	if !isEnum || len(et.TypeParamDefs) > 0 || et.Name != resolved {
+		return nil
+	}
+	k := g.project(et)
+	if k.tag != tagNamed || k.def == nil || k.def.variant(variant) == nil {
+		return nil
+	}
+	return k.def
 }
 
 // dotEnumName is the spelling `namedType` can resolve the shorthand's enum by.

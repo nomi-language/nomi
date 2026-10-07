@@ -48,6 +48,40 @@ func TestDiscoverProject_FindsTransitiveImports(t *testing.T) {
 	}
 }
 
+// A file imported only at the top of a block, in the entry or in a file the
+// entry reaches, is discovered as a file-level import is.
+func TestDiscoverProject_FollowsBlockImports(t *testing.T) {
+	tmp := t.TempDir()
+	mustWrite := func(rel, content string) string {
+		full := filepath.Join(tmp, rel)
+		_ = os.MkdirAll(filepath.Dir(full), 0755)
+		_ = os.WriteFile(full, []byte(content), 0644)
+		return full
+	}
+	mainPath := mustWrite("main.nomi", "fn main() {\n    import shapes\n    Unit\n}\n")
+	mustWrite("shapes.nomi", "pub fn area(): Int {\n    f = |x: Int| {\n        import geo/units\n        x\n    }\n    f(1)\n}\n")
+	mustWrite("geo/units.nomi", "pub fn scale(): Int { 2 }\n")
+
+	entryNodes := parseFileForDiscoveryTest(t, mainPath)
+	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
+		data, err := os.ReadFile(filepath.Join(projectRoot, filepath.Join(modulePath...)) + ".nomi")
+		if err != nil {
+			return nil, err
+		}
+		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
+		return nodes, nil
+	}
+	project, err := DiscoverProject(entryNodes, tmp, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mod := range []string{"shapes", "geo/units"} {
+		if _, ok := project.Files[mod]; !ok {
+			t.Errorf("expected discovered file %q, not found in %v", mod, projectKeys(project))
+		}
+	}
+}
+
 func TestDiscoverProject_LoadsManifest(t *testing.T) {
 	tmp := t.TempDir()
 	mustWrite := func(rel, content string) string {

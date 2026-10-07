@@ -32,6 +32,70 @@ func UnifyWithImpls(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, im
 }
 
 func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
+	return unifyIn(unifySym, a, b, subs, impls, implTypeArgs)
+}
+
+// UnifyInto unifies have, the type of a value, with want, the type of the
+// position it flows into (a parameter, an annotated binding, a field, a list
+// element, a result), and admits a function value whose type is assignable to
+// want's: a function type `(P1) -> R1` is assignable to `(P2) -> R2` when each
+// P2 is assignable to its P1 (parameters are contravariant) and R1 is
+// assignable to R2 (results are covariant). Inside a function type,
+// "assignable" is exact, or a concrete type where its interface is expected (a
+// List where an Iter is, an Int where a Display is), or an embedded type where
+// its enum is, or a function type by this same rule: the conversions the IR
+// builder's adapter closure performs (irbuild/irfuncwiden.go). Outside
+// function types it is unifyFull.
+func UnifyInto(want, have Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
+	return unifyIn(unifyAssign, want, have, subs, impls, implTypeArgs)
+}
+
+// unifyMode is how unifyIn compares two types.
+type unifyMode uint8
+
+const (
+	// unifySym has no direction: a join of two branches, two list elements,
+	// two operands. Outside function types it admits interface against
+	// concrete and enum against embedded type either way round. Two function
+	// types meet strictly, since neither may be widened into the other
+	// without knowing which flows where.
+	unifySym unifyMode = iota
+	// unifyStrict equates two types up to inference variables and type
+	// parameters: no interface admits a concrete type and no enum an
+	// embedded one. A function's parameter or result is compared this way
+	// when nothing says which way the value flows, and so is a type argument
+	// inside a function type, since the builder converts no container.
+	unifyStrict
+	// unifyAssign is UnifyInto: a is the expected type and b the actual one.
+	// Outside function types it is unifySym.
+	unifyAssign
+	// unifyAssignIn is unifyAssign inside a function type: a is expected and
+	// b actual, and only b into a is admitted.
+	unifyAssignIn
+)
+
+// nested is the mode for the type arguments of a container or nominal type,
+// a tuple's elements and a record's fields.
+func (m unifyMode) nested() unifyMode {
+	switch m {
+	case unifyStrict, unifyAssignIn:
+		return unifyStrict
+	}
+	return unifySym
+}
+
+// rebound is the mode a type parameter's existing binding meets another type
+// in. A parameter bound to a function type joins another function type
+// strictly: `pick(c, f, g)` with `fn pick<T>(c: Bool, a: T, b: T): T` widens
+// neither function's parameters into the other's.
+func (m unifyMode) rebound(existing Type) unifyMode {
+	if _, isFunc := resolveTV(existing).(*FuncType); isFunc {
+		return unifyStrict
+	}
+	return m
+}
+
+func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
 	if a == nil || b == nil {
 		return nil
 	}
@@ -99,7 +163,7 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 			// Already bound — pass nil subs so TypeVar binding (via the
 			// nil-subs reorder above) takes precedence when unifying the
 			// existing binding against the new side.
-			return unifyFull(existing, b, nil, impls, implTypeArgs)
+			return unifyIn(m.rebound(existing), existing, b, nil, impls, implTypeArgs)
 		}
 		if occursInIdent(tp, b) {
 			return nil // occurs check: would create infinite type
@@ -109,7 +173,7 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 	}
 	if tp, ok := b.(*TypeParam_); ok && subs != nil {
 		if existing, bound := subs[tp]; bound {
-			return unifyFull(a, existing, nil, impls, implTypeArgs)
+			return unifyIn(m.rebound(existing), a, existing, nil, impls, implTypeArgs)
 		}
 		if occursInIdent(tp, a) {
 			return nil // occurs check: would create infinite type
@@ -134,13 +198,22 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 	// `id: Identifier = uid` and `[uid, Identifier.Anonymous]` typecheck
 	// without explicit `Identifier.UserId(uid)` wrapping. Symmetric so the
 	// unifier doesn't care which side carries the expected type.
+	//
+	// Inside a function type an embedded type enters its enum only from the
+	// actual side (unifyAssignIn), and under unifyStrict not at all.
 	if et, ok := a.(*EnumType); ok {
 		if isEmbeddedTypeOf(b, et) {
+			if m == unifyStrict {
+				return typeErrorf("cannot unify %s with %s", a, b)
+			}
 			return nil
 		}
 	}
 	if et, ok := b.(*EnumType); ok {
 		if isEmbeddedTypeOf(a, et) {
+			if m == unifyStrict || m == unifyAssignIn {
+				return typeErrorf("cannot unify %s with %s", a, b)
+			}
 			return nil
 		}
 	}
@@ -181,16 +254,24 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 				return typeErrorf("cannot unify %s with %s", a, b)
 			}
 			for i := range ifaceA.TypeArgs {
-				if err := unifyFull(ifaceA.TypeArgs[i], ifaceB.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
+				if err := unifyIn(m.nested(), ifaceA.TypeArgs[i], ifaceB.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
 					return err
 				}
 			}
 			return nil
 		}
-		return unifyInterfaceAgainstConcrete(ifaceA, b, subs, impls, implTypeArgs)
+		if m == unifyStrict {
+			return typeErrorf("cannot unify %s with %s", a, b)
+		}
+		return unifyInterfaceAgainstConcrete(m, ifaceA, b, subs, impls, implTypeArgs)
 	}
 	if ifaceB, ok := b.(*InterfaceType); ok {
-		return unifyInterfaceAgainstConcrete(ifaceB, a, subs, impls, implTypeArgs)
+		// Inside a function type the actual side never narrows from an
+		// interface to a concrete type.
+		if m == unifyStrict || m == unifyAssignIn {
+			return typeErrorf("cannot unify %s with %s", a, b)
+		}
+		return unifyInterfaceAgainstConcrete(m, ifaceB, a, subs, impls, implTypeArgs)
 	}
 
 	// Both are concrete — structural comparison.
@@ -207,29 +288,40 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 		if !ok {
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
-		return unifyFull(at.Elem, bt.Elem, subs, impls, implTypeArgs)
+		return unifyIn(m.nested(), at.Elem, bt.Elem, subs, impls, implTypeArgs)
 
 	case *MapType:
 		bt, ok := b.(*MapType)
 		if !ok {
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
-		if err := unifyFull(at.Key, bt.Key, subs, impls, implTypeArgs); err != nil {
+		if err := unifyIn(m.nested(), at.Key, bt.Key, subs, impls, implTypeArgs); err != nil {
 			return err
 		}
-		return unifyFull(at.Val, bt.Val, subs, impls, implTypeArgs)
+		return unifyIn(m.nested(), at.Val, bt.Val, subs, impls, implTypeArgs)
 
 	case *FuncType:
 		bt, ok := b.(*FuncType)
 		if !ok || len(at.Params) != len(bt.Params) {
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
+		if m == unifyAssign || m == unifyAssignIn {
+			// b's function is called with a's arguments, so each of a's
+			// parameters flows into b's (contravariant), and b's result
+			// into a's (covariant).
+			for i := range at.Params {
+				if err := unifyIn(unifyAssignIn, bt.Params[i], at.Params[i], subs, impls, implTypeArgs); err != nil {
+					return err
+				}
+			}
+			return unifyIn(unifyAssignIn, normalizeReturn(at.Return), normalizeReturn(bt.Return), subs, impls, implTypeArgs)
+		}
 		for i := range at.Params {
-			if err := unifyFull(at.Params[i], bt.Params[i], subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(unifyStrict, at.Params[i], bt.Params[i], subs, impls, implTypeArgs); err != nil {
 				return err
 			}
 		}
-		return unifyFull(normalizeReturn(at.Return), normalizeReturn(bt.Return), subs, impls, implTypeArgs)
+		return unifyIn(unifyStrict, normalizeReturn(at.Return), normalizeReturn(bt.Return), subs, impls, implTypeArgs)
 
 	case *TupleType:
 		bt, ok := b.(*TupleType)
@@ -237,7 +329,7 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		for i := range at.Elems {
-			if err := unifyFull(at.Elems[i], bt.Elems[i], subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(m.nested(), at.Elems[i], bt.Elems[i], subs, impls, implTypeArgs); err != nil {
 				return err
 			}
 		}
@@ -249,7 +341,7 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		for i := range at.TypeArgs {
-			if err := unifyFull(at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(m.nested(), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
 				return err
 			}
 		}
@@ -269,7 +361,7 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 			if !ok {
 				return typeErrorf("cannot unify %s with %s", a, b)
 			}
-			if err := unifyFull(f.Type, bTy, subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(m.nested(), f.Type, bTy, subs, impls, implTypeArgs); err != nil {
 				return err
 			}
 		}
@@ -281,7 +373,7 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		for i := range at.TypeArgs {
-			if err := unifyFull(at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(m.nested(), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
 				return err
 			}
 		}
@@ -306,7 +398,7 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 			return nil
 		}
 		for i := range at.TypeArgs {
-			if err := unifyFull(at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(m.nested(), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
 				return err
 			}
 		}
@@ -333,7 +425,7 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 // returns bare `T`. Non-generic interfaces (no type args) and pairs with no
 // recorded template fall through to accepting the conformance without binding
 // — the same permissive fallback as the prior "unknown element" path.
-func unifyInterfaceAgainstConcrete(iface *InterfaceType, concrete Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
+func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
 	// Universal struct interface: `Struct` is satisfied structurally by every
 	// struct — named or anonymous — with no impl-table entry. Handled before
 	// the impl-table lookups below, both because there is no entry to find and
@@ -371,7 +463,7 @@ func unifyInterfaceAgainstConcrete(iface *InterfaceType, concrete Type, subs map
 	cargs := concreteTypeArgs(concrete)
 	for i := range iface.TypeArgs {
 		arg := substituteTypeParamDefs(info.TypeParamDefs, cargs, info.Args[i])
-		if err := unifyFull(iface.TypeArgs[i], arg, subs, impls, implTypeArgs); err != nil {
+		if err := unifyIn(m.nested(), iface.TypeArgs[i], arg, subs, impls, implTypeArgs); err != nil {
 			return err
 		}
 	}

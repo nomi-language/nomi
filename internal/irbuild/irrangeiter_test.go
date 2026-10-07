@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 func TestIRRangeIter_TourCollectionsRanges(t *testing.T) {
-	verifyLambdaProgram(t, `fn main(): List<Int> {
+	verifyLambdaProgram(t, `fn main() {
   dbg Iter.to_list(1..5)
   dbg Iter.to_list(1..=5)
 
@@ -57,7 +57,7 @@ fn main() {
 }
 
 func TestIRRangeIter_TourCodepointRange(t *testing.T) {
-	verifyLambdaProgram(t, `fn main(): Maybe<List<String>> {
+	verifyLambdaProgram(t, `fn run(): Maybe<List<String>> {
   a = try Codepoint.from_int(97)
   d = try Codepoint.from_int(100)
 
@@ -68,6 +68,10 @@ func TestIRRangeIter_TourCodepointRange(t *testing.T) {
     |> dbg
 
   Some(letters)
+}
+
+fn main() {
+  _ = run()
 }
 `, "dbg line 9:\n  a..=d\n  |> Iter.map(Codepoint.to_string)\n  |> Iter.to_list()\n  = [\"a\", \"b\", \"c\", \"d\"]\n")
 }

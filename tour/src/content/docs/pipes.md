@@ -22,7 +22,7 @@ fn add(x: Int, y: Int): Int {
     x + y
 }
 
-fn main(): Int {
+fn main() {
     5 |> double() |> dbg
 
     5 |> add(3) |> dbg
@@ -38,7 +38,7 @@ Longer chains stack one stage per line — the data flows top-to-bottom and each
 stage gets its own row:
 
 ```nomi-run
-fn main(): List<Int> {
+fn main() {
     [1, 2, 3]
     |> Iter.map(|n| n * n)
     |> Iter.to_list()
@@ -60,7 +60,7 @@ Pipes read most clearly when the chain *starts* from concrete data and ends at
 where it's used. Compare:
 
 ```nomi-run
-fn main(): Int {
+fn main() {
     // inside-out
     dbg Iter.count(Iter.filter([1, 2, 3, 4, 5], |n| n > 2))
 
@@ -93,7 +93,7 @@ fn divide(x: Int, y: Int): Int {
     x / y
 }
 
-fn main(): Int {
+fn main() {
     10 |> divide(100, _) |> dbg
 }
 
@@ -118,7 +118,7 @@ fn find_name(id: Int): Maybe<String> {
     }
 }
 
-fn main(): Bool {
+fn main() {
     1
     |> find_name()
     |> then |name| name == Some("Ada")
@@ -143,12 +143,16 @@ pipelines.
 `try` short-circuits on `None` or `Err`:
 
 ```nomi-run
-fn main(): Maybe<Int> {
+fn parse(): Maybe<Int> {
     "  42  "
     |> String.trim()
     |> try String.to_int()
     |> Some()
     |> dbg
+}
+
+fn main() {
+    _ = parse()
 }
 
 ```
@@ -177,7 +181,7 @@ test "pipeline result is true" {
 `if` and `case` follow the same idea for branchy expressions:
 
 ```nomi-run
-fn main(): String {
+fn main() {
     "Ada"
     |> if String.contains?("A") {
             "initialed"

@@ -19,7 +19,7 @@ fn pair<T, U>(first: T, second: U): (T, U) {
     (first, second)
 }
 
-fn main(): (String, Int) {
+fn main() {
     dbg pair("age", 30)
 }
 
@@ -42,7 +42,7 @@ struct Box<T> {
     value: T
 }
 
-fn main(): Int {
+fn main() {
     box = Box{value: 42}
     dbg box.value
 }
@@ -73,7 +73,7 @@ fn first_two_sorted<T>(xs: List<T>): List<T> where T: Comparable {
     |> Iter.to_list()
 }
 
-fn main(): List<String> {
+fn main() {
     first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6])
     |> dbg
 
@@ -120,7 +120,7 @@ fn advance<T, S>(value: T, step: S): T where T: StepBy<S> {
     T.step_by(value, step)
 }
 
-fn main(): Counter {
+fn main() {
     dbg advance(Counter(10), 5)
 }
 
@@ -169,7 +169,7 @@ fn plus<L, R, Out>(lhs: L, rhs: R): Out where L: Add<R, Out> {
     lhs + rhs
 }
 
-fn main(): Day {
+fn main() {
     dbg plus(Day(10), Days(4))
 }
 
@@ -179,8 +179,8 @@ dbg line 26: plus(Day(10), Days(4)) = Day(14)
 -->
 
 Here the call arguments set `L` to `Day` and `R` to `Days`. The bound then
-matches `impl Add<Days, Day> for Day`, so `Out` is `Day`; the `main(): Day`
-return type agrees with that inferred result.
+matches `impl Add<Days, Day> for Day`, so `Out` is `Day`, with nothing else
+at the call saying so.
 
 ## Bounds on declarations
 

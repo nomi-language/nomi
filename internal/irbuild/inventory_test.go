@@ -48,6 +48,7 @@ var stdlibInventory = []stdModuleRow{
 	{module: "lists"},
 	{module: "literals"},
 	{module: "maps"},
+	{module: "matcher"},
 	{module: "maybe"},
 	{module: "multiply"},
 	{module: "startup"},

@@ -141,7 +141,7 @@ func TestCheck_RunsTheFrontEndOnly(t *testing.T) {
 		t.Errorf("Check(clean) = %v", err)
 	}
 	bad := filepath.Join(dir, "bad.nomi")
-	if err := os.WriteFile(bad, []byte("fn main(): Int {\n  \"no\"\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(bad, []byte("fn demo(): Int {\n  \"no\"\n}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	var ds vmhost.Diagnostics

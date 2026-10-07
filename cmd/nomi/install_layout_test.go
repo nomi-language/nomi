@@ -82,7 +82,7 @@ fn main() {
 	// the on-disk stdlib whose absence is the subject.
 	run := exec.Command(bin, "run", filepath.Join(proj, "main.nomi"))
 	run.Dir = dir
-	run.Env = []string{"HOME=" + dir, "PATH=/usr/bin:/bin", "TERM=dumb"}
+	run.Env = []string{"HOME=" + dir, "PATH=" + noGoPath(t), "TERM=dumb"}
 	out, err := run.CombinedOutput()
 	if err != nil {
 		t.Fatalf("nomi run failed with no stdlib source tree and no go on PATH: %v\n%s", err, out)
@@ -119,7 +119,7 @@ fn main() {
 	}
 	run = exec.Command(bin, "run", filepath.Join(bootDir, "main.nomi"))
 	run.Dir = dir
-	run.Env = []string{"HOME=" + dir, "PATH=/usr/bin:/bin", "TERM=dumb"}
+	run.Env = []string{"HOME=" + dir, "PATH=" + noGoPath(t), "TERM=dumb"}
 	out, err = run.CombinedOutput()
 	if err != nil || strings.TrimSpace(string(out)) != "listening on :8080" {
 		t.Fatalf("nomi run of a boot program with no stdlib source tree: %v\n%s", err, out)
@@ -131,7 +131,7 @@ fn main() {
 	probe := exec.Command("/usr/bin/env", "go", "version")
 	probe.Env = run.Env
 	if out, err := probe.CombinedOutput(); err == nil {
-		t.Fatalf("PATH=/usr/bin:/bin still resolves go, so the run above was not toolchain-free: %s", out)
+		t.Fatalf("the scrubbed PATH still resolves go, so the run above was not toolchain-free: %s", out)
 	}
 }
 

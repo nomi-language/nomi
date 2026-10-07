@@ -1,1 +1,1 @@
-vim.filetype.add({ extension = { nomi = 'nomi' } })
+require('nomi.filetype').register()

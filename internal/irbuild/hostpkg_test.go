@@ -147,3 +147,28 @@ replace echobinding => ./echobinding
 		t.Errorf("required module: dir %q, module %q, refusal %q", gotDir, gotMod, why)
 	}
 }
+
+// TestHostModuleOfTheStandardLibrary: a Go standard library package resolves
+// with no go.mod above the declaring file, as the module "std" with no
+// directory, and one beside a go.mod resolves the same way. A path that only
+// looks like one (no dot in its first element) still needs a module.
+func TestHostModuleOfTheStandardLibrary(t *testing.T) {
+	bare := t.TempDir()
+	withMod := t.TempDir()
+	if err := os.WriteFile(filepath.Join(withMod, "go.mod"),
+		[]byte("module testproject\n\ngo 1.26.3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, root := range []string{bare, withMod} {
+		nomiPath := filepath.Join(root, "main.nomi")
+		for _, importPath := range []string{"strings", "math", "net/http"} {
+			gotDir, gotMod, why := hostModuleOf(nomiPath, importPath)
+			if why != "" || gotMod != "std" || gotDir != "" {
+				t.Errorf("%s from %s: dir %q, module %q, refusal %q", importPath, root, gotDir, gotMod, why)
+			}
+		}
+	}
+	if _, _, why := hostModuleOf(filepath.Join(withMod, "main.nomi"), "nosuchstdpackage"); why == "" {
+		t.Error("a dotless path the standard library does not hold was accepted")
+	}
+}

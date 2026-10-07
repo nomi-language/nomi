@@ -876,7 +876,9 @@ The threading idiom (`x = f(x)`) always reads the prior `x`, so it is clean.
 
 When a value is intentionally ignored, use a discard binder: `_`, or `_name`
 when a label makes the ignored value clearer. Discard binders do not enter
-scope, so `_name` cannot be read later.
+scope, so `_name` cannot be read later. The same holds inside a pattern: write
+`|(_word, count)| count`, `Some(_) -> True` or `[first, .._]`, and leave a struct
+pattern's unneeded fields out (`.Suspended{reason}`) rather than binding them.
 
 `assert` and `refute` may stand alone as statements, since the check is the
 reason the expression is there. Use a pattern assertion when a payload matters:

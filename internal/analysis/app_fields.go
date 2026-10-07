@@ -3,7 +3,6 @@ package analysis
 import (
 	"fmt"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 
@@ -644,47 +643,19 @@ func (w *appReadWalker) implementations(method, iface string) []appCallee {
 // walkScopedExecution visits the nodes a body executes. A closure or nested
 // function declaration does not execute its body.
 func walkScopedExecution(node ast.Node, visit func(ast.Node)) {
-	seen := map[uintptr]bool{}
-	var walk func(reflect.Value)
-	walk = func(v reflect.Value) {
-		if !v.IsValid() {
-			return
+	seen := map[ast.Node]bool{}
+	ast.Inspect(node, func(n ast.Node) bool {
+		if seen[n] {
+			return false
 		}
-		if v.Kind() == reflect.Interface {
-			if !v.IsNil() {
-				walk(v.Elem())
-			}
-			return
+		seen[n] = true
+		switch n.(type) {
+		case *ast.FuncDef, *ast.Lambda:
+			return false
 		}
-		if v.Kind() == reflect.Ptr {
-			if v.IsNil() || seen[v.Pointer()] {
-				return
-			}
-			seen[v.Pointer()] = true
-			if v.CanInterface() {
-				if n, ok := v.Interface().(ast.Node); ok {
-					switch n.(type) {
-					case *ast.FuncDef, *ast.Lambda:
-						return
-					}
-					visit(n)
-				}
-			}
-			walk(v.Elem())
-			return
-		}
-		switch v.Kind() {
-		case reflect.Struct:
-			for i := 0; i < v.NumField(); i++ {
-				walk(v.Field(i))
-			}
-		case reflect.Slice, reflect.Array:
-			for i := 0; i < v.Len(); i++ {
-				walk(v.Index(i))
-			}
-		}
-	}
-	walk(reflect.ValueOf(node))
+		visit(n)
+		return true
+	})
 }
 
 // SameScopedType reports exact nominal identity; assignment compatibility

@@ -119,10 +119,12 @@ type ifaceDef struct {
 	// when a file declares one generic interface, implements it nowhere, and
 	// calls it never.
 	//
-	// Making the declaration quiet WITHOUT a marker would let
-	// `testdata/iface_cascade.nomi`, which CALLS through a generic interface,
-	// lower with no refusal at all: an unchecked dispatch and a silent wrong
-	// answer. Keeping `lowerable` false keeps every use-site route intact.
+	// A call through a generic interface on a CONCRETE receiver
+	// (`Chooser.left(Pair{a: 10, b: 20})`) does lower, but not through this
+	// def: the impl block binds a per-instantiation def that `resolveIface`
+	// resolves under the impl's substitution (ifaceinst.go), and the call
+	// reaches that impl's item directly. This def is the TEMPLATE, and keeping
+	// its `lowerable` false keeps the erased routes above shut.
 	useSiteOnly bool
 	// stdShared marks one of stdIfaceDefs' PROCESS-WIDE defs, set in exactly one
 	// place — that table's builder — and nowhere else.
@@ -413,8 +415,9 @@ func (g *gen) declareIfaces(nodes []ast.Node) {
 		switch {
 		case len(id.TypeParams) > 0 || len(id.WhereClauses) > 0:
 			// A generic interface needs the dictionary the type-parameter
-			// call shape needs, and for the same reason. Not erasable, not
-			// implementable, not dispatchable — and NOT refused at the
+			// call shape needs, and for the same reason. The template is not
+			// erasable and not dispatchable (an impl block binds its own
+			// instance, ifaceinst.go), and it is NOT refused at the
 			// declaration, which is `ifaceDecl`'s own rule for a gap a file may
 			// never exercise. See ifaceDef.useSiteOnly.
 			d.lowerable, d.why, d.useSiteOnly = false, "generic interface", true
@@ -1059,6 +1062,17 @@ func (g *gen) inheritDefaults(d *implDef) {
 			d.noteGap(m.name, gap)
 			continue
 		}
+		if d.iface.foreign != "" {
+			if g.declaredIn == nil {
+				g.declaredIn = map[ast.Node]int{}
+			}
+			g.declaredIn[body] = d.iface.unit
+			for _, p := range m.decl.Params {
+				if p.Default != nil {
+					g.declaredIn[p.Default] = d.iface.unit
+				}
+			}
+		}
 		it := &implItem{
 			name:      m.name,
 			params0:   m.decl.Params,
@@ -1186,10 +1200,11 @@ func (g *gen) qualifiedNomiName(nomi string) string {
 // here, and `d.order` is empty for one: `resolveIfaces` skips a non-lowerable
 // def, so there are no resolved methods.
 //
-// That emptiness is also the limit: with no resolved methods nothing has
-// CHECKED a generic interface's requirements, so nothing may dispatch through
-// it. Every route that could is held shut by `lowerable` staying false
-// (testdata/iface_cascade.nomi).
+// That emptiness is also the limit: the template's requirements are never
+// resolved, so nothing may dispatch through the template itself, and
+// `lowerable` staying false holds every erased route shut. A call on a
+// concrete receiver resolves against the impl block's own instance instead
+// (ifaceinst.go).
 func (g *gen) ifaceDecl(id *ast.InterfaceDef) {
 	g.at(id.Line)
 	d := g.ifaces[id.Name]
@@ -1294,10 +1309,7 @@ func (g *gen) implFor(ib *ast.ImplBlock) *implDef {
 // same for a generic RECEIVER's frame, and the two nest rather than conflict:
 // they bind different names and genericSubstKind scans innermost-first.
 func (g *gen) emitImpl(d *implDef) {
-	if d.typeScope != nil {
-		g.pushTypeScope(d.typeScope)
-		defer g.popTypeScope()
-	}
+	defer g.enterTypeScope(d.typeScope)()
 	if d.ifaceSubst != nil {
 		g.pushIfaceSubst(d.ifaceSubst)
 		defer g.popIfaceSubst()

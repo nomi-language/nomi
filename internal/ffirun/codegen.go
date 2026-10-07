@@ -263,7 +263,7 @@ func nomiHostTable(targetPath string) func(*hostadapt.Env) (map[string]hostadapt
 		}
 {{- range .Adapters.Rekeyed}}
 		if f, ok := funcs[{{quote .Key}}]; ok {
-			if k := nomiExternKey(targetPath, {{quote .Key}}, {{quote .EntryKey}}, {{quote .SourceFile}}); k != {{quote .Key}} {
+			if k := nomiExternKey(targetPath, {{quote .Key}}, {{quote .EntryKey}}, {{quote .SourceFile}}{{range .AlsoDeclaredIn}}, {{quote .}}{{end}}); k != {{quote .Key}} {
 				delete(funcs, {{quote .Key}})
 				funcs[k] = f
 			}
@@ -300,21 +300,26 @@ func nomiHostTable(targetPath string) func(*hostadapt.Env) (map[string]hostadapt
 // owner-qualified one ('impl Box { host fn … }') keys on the receiver type, and
 // a file with no module name already has the entry's shape.
 //
+// declared is every file that declares the binding under module's key: two
+// files with the same base name and no go.mod above them share that key.
+//
 // Symlinks are resolved because the two paths reach here by different routes —
 // one is an argument the user typed, the other came out of a filesystem walk.
 // A resolution failure falls back to string equality, which is the same answer
 // for every path with no symlink in it.
-func nomiExternKey(target, module, entry, declared string) string {
+func nomiExternKey(target, module, entry string, declared ...string) string {
 	if entry == "" {
 		return module
 	}
-	if target == declared {
-		return entry
-	}
 	rt, terr := stdfilepath.EvalSymlinks(target)
-	rd, derr := stdfilepath.EvalSymlinks(declared)
-	if terr == nil && derr == nil && rt == rd {
-		return entry
+	for _, d := range declared {
+		if target == d {
+			return entry
+		}
+		rd, derr := stdfilepath.EvalSymlinks(d)
+		if terr == nil && derr == nil && rt == rd {
+			return entry
+		}
 	}
 	return module
 }

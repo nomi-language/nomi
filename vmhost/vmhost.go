@@ -358,7 +358,7 @@ func (p *Program) reasons(found []vm.Unretained) []string {
 		case vm.NotRetained:
 			out = append(out, p.notRetained(u.Name))
 		case vm.OnceNotRetained:
-			out = append(out, fmt.Sprintf("[%s] once initializer not retained: %s", u.Name, p.decline(u.Name)))
+			out = append(out, fmt.Sprintf("[%s] once initializer not retained: %s", u.Name, p.decline(blockerName(u))))
 		case vm.NoBinding:
 			out = append(out, fmt.Sprintf("[%s] crosses into Go and the VM has no binding for it", u.Name))
 		case vm.NoImplementation:

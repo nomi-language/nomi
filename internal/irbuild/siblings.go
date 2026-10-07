@@ -641,6 +641,35 @@ func moduleScopeOf(fa *analysis.FileAnalysis, name string) *analysis.Scope {
 	return symbolModuleScope(fa.ModuleScope.Lookup(name))
 }
 
+// moduleScope is moduleScopeOf for this gen's file, extended to a qualifier
+// an `import` at the top of a block binds (testImport admits one): a type
+// named through it (`json.Json.Null`, `json.Json` in an annotation) reaches
+// the imported file's scope by name, as a module-level import's does. A
+// name two blocks bind to different files resolves to nothing, so its uses
+// decline rather than pick one.
+func (g *gen) moduleScope(name string) *analysis.Scope {
+	if scope := moduleScopeOf(g.fa, name); scope != nil || g.fa == nil || g.fa.ModuleScope == nil {
+		return scope
+	}
+	if g.blockImports == nil {
+		g.blockImports = map[string]*analysis.Scope{}
+		for _, sym := range g.fa.Definitions {
+			if sym == nil {
+				continue
+			}
+			if _, isImport := sym.Node.(*ast.ImportStmt); !isImport || g.fa.ModuleScope.Lookup(sym.Name) != nil {
+				continue
+			}
+			scope := symbolModuleScope(sym)
+			if prev, seen := g.blockImports[sym.Name]; seen && prev != scope {
+				scope = nil
+			}
+			g.blockImports[sym.Name] = scope
+		}
+	}
+	return g.blockImports[name]
+}
+
 func symbolModuleScope(sym *analysis.Symbol) *analysis.Scope {
 	for range 8 {
 		if sym == nil || sym.Kind != analysis.SymbolModule {

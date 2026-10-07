@@ -796,6 +796,10 @@ func (g *gen) checkedPreludeArgs(a *preludeAnchor, sym *analysis.Symbol) ([]kind
 // type, so no value the program can build or observe depends on it, as
 // bareVariantOwnKind argues for a bare `None`. A solved argument outside the
 // retained payloads still declines.
+//
+// A hole that is a collection's element (`Some([])`, a `Maybe<List<?>>`) is
+// read as Int instead, the fill a user generic's empty-list hole takes
+// (irFillHolesByPosition).
 func (g *gen) checkedPreludeArgsUnitHoles(a *preludeAnchor, sym *analysis.Symbol) ([]kind, bool) {
 	et := preludeReturn(sym.CallType)
 	if et == nil || len(et.TypeArgs) != len(a.spec.params) {
@@ -803,7 +807,7 @@ func (g *gen) checkedPreludeArgsUnitHoles(a *preludeAnchor, sym *analysis.Symbol
 	}
 	args := make([]kind, len(et.TypeArgs))
 	for i, ty := range et.TypeArgs {
-		args[i] = g.project(unitHoles(ty))
+		args[i] = g.project(irFillHolesByPosition(ty, false))
 		if !irRetainedPreludePayload(args[i]) {
 			return nil, false
 		}

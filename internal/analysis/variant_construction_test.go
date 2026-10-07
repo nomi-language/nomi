@@ -58,7 +58,7 @@ func TestVariantCtor_AcceptedForms(t *testing.T) {
 		`Shape.Expired`,
 		`Shape.Dot(1.0)`,
 	} {
-		src := variantCtorDecls + "fn main(): Shape {\n  " + expr + "\n}\n"
+		src := variantCtorDecls + "fn demo(): Shape {\n  " + expr + "\n}\n"
 		_, errs := checkSource(src)
 		if len(errs) != 0 {
 			t.Errorf("%s: want no errors, got %v", expr, errs)
@@ -100,7 +100,7 @@ func TestVariantCtor_RejectedFormsNameTheWorkingOnes(t *testing.T) {
 		{`{height: "x"} |> Shape.Rectangle()`,
 			"field 'height' of Shape.Rectangle: expected Float, got String"},
 	} {
-		src := variantCtorDecls + "fn main(): Shape {\n  " + tc.expr + "\n}\n"
+		src := variantCtorDecls + "fn demo(): Shape {\n  " + tc.expr + "\n}\n"
 		_, errs := checkSource(src)
 		found := false
 		var got []string

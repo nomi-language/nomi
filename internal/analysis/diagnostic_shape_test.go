@@ -166,7 +166,7 @@ func TestDiagnosticShape(t *testing.T) {
 // enclosing value's type unknown, so no second mismatch follows from it.
 func TestDiagnosticShape_NoFollowOnMismatch(t *testing.T) {
 	for _, src := range []string{
-		"fn d(): Maybe<(Int) -> Int> {\n  Some(|x| x + nope)\n}\n",
+		"fn d(): Maybe<(Int) -> Int> {\n  Some(|x: Int| x + nope)\n}\n",
 		"fn d(): (Int) -> Int {\n  |_n: Int| _\n}\n",
 		"fn d(): (Int, Int) {\n  (1, _)\n}\n",
 	} {
@@ -177,6 +177,42 @@ func TestDiagnosticShape_NoFollowOnMismatch(t *testing.T) {
 				all = append(all, e.Error())
 			}
 			t.Errorf("%s: want one error, got:\n  %s", src, strings.Join(all, "\n  "))
+		}
+	}
+}
+
+// A lambda no function type is expected for, with a parameter that has no
+// annotation and no default, is rejected at that parameter wherever it
+// stands: bound to a name, as a generic constructor's argument, as a tuple
+// element. A later use of the value does not type the parameter, and it is
+// the first error reported.
+func TestDiagnosticShape_UndeterminedLambdaParameter(t *testing.T) {
+	for _, tc := range []struct{ src, at string }{
+		{"fn d(): Int {\n  f = |x| x\n  f(2)\n}\n", "2:8"},
+		{"fn d(): Int {\n  f: ((Int) -> Int) -> Int = |g| g(1)\n  f(case Some(|x| x) {\n    Some(h) -> h\n    None -> |y| y\n  })\n}\n", "3:16"},
+		{"fn d(): Int {\n  (|x| x, 2).1\n}\n", "2:5"},
+	} {
+		_, errs := checkSourceWithStdlib(tc.src)
+		var all []string
+		for _, e := range errs {
+			all = append(all, e.Error())
+		}
+		// The parameter's error comes first; a case's branches may still
+		// disagree with it afterwards.
+		if len(errs) == 0 || errs[0].Message != "cannot infer type for parameter x" ||
+			fmt.Sprintf("%d:%d", errs[0].Line, errs[0].Col) != tc.at {
+			t.Errorf("%s: want `cannot infer type for parameter x` at %s first, got:\n  %s", tc.src, tc.at, strings.Join(all, "\n  "))
+		}
+	}
+	// A typed parameter, or a function type expected, is accepted.
+	for _, src := range []string{
+		"fn d(): Int {\n  f = |x: Int| x\n  f(2)\n}\n",
+		"fn d(): Maybe<Int> {\n  Maybe.map(Some(1), |x| x + 1)\n}\n",
+		"fn d(): Int {\n  f: (Int) -> Int = |x| x\n  f(1)\n}\n",
+		"fn d(): Maybe<(Int) -> Int> {\n  Some(|x| x + 1)\n}\n",
+	} {
+		if _, errs := checkSourceWithStdlib(src); len(errs) != 0 {
+			t.Errorf("%s: want no error, got %v", src, errs)
 		}
 	}
 }

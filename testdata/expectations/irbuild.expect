@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 364
+records 369
 declared-cases 0
-failing 73
+failing 74
 C assert_subject_test.nomi@76e4dc034f8c1f74
 E 1
 N 0
@@ -274,6 +274,41 @@ T       Date.new(y)
 T         = Date{day: 1, month: 1, year: 2026}
 T test result: FAILED. 2 passed, 1 failed
 T
+C control_test.nomi@22bb5f972224f501
+E 1
+N 0
+H d66a4c1d39effa9f635416c8fd81f8ceb1fa4e156958b81f27cedfa5f1dff2e6
+S -- control_test.nomi 306 --
+S struct Q {
+S     f: (Int) -> Int
+S }
+S
+S struct P {
+S     t: ((Int) -> Int, Int)
+S     q: Q
+S }
+S
+S test "passes" {
+S     p = P{t: (|x| x + 1, 1), q: Q{f: |x| x + 100}}
+S     assert p.t.0(8) == 9
+S     assert p.q.f(p.t.0(1)) == 102
+S }
+S
+S test "fails" {
+S     p = P{t: (|x| x + 1, 1), q: Q{f: |x| x + 100}}
+S     assert p.q.f(2) == 3
+S }
+S
+S
+T ok <dir>/control_test.nomi :: passes
+T FAIL <dir>/control_test.nomi :: fails
+T   line 18: assertion failed
+T     assert p.q.f(2) == 3
+T     values:
+T       p.q.f(2)
+T         = 102
+T test result: FAILED. 1 passed, 1 failed
+T
 C control_test.nomi@29a19915b7d25a11
 E 1
 N 0
@@ -351,6 +386,50 @@ T     values:
 T       y
 T         = 1
 T test result: FAILED. 4 passed, 1 failed
+T
+C control_test.nomi@57ec78ce0df66f9d
+E 0
+N 0
+H 95c17fa44080b016d81620477fe77104a886b8ac74aed074f41b38697682ade7
+S -- control_test.nomi 612 --
+S test "statement blocks declare types" {
+S     {
+S         struct P {
+S             a: Int
+S         }
+S         assert P{a: 1}.a == 1
+S         {
+S             enum E {
+S                 X Int
+S             }
+S             assert case E.X(P{a: 2}.a) {
+S                 .X(n) -> n
+S             } == 2
+S             Unit
+S         }
+S     }
+S     if True {
+S         struct Q {
+S             q: Int
+S         }
+S         assert Q{q: 3}.q == 3
+S         Unit
+S     }
+S     case Some(4) {
+S         Some(n) -> {
+S             struct R {
+S                 r: Int
+S             }
+S             assert R{r: n}.r == 4
+S             Unit
+S         }
+S         None -> Unit
+S     }
+S }
+S
+S
+T ok <dir>/control_test.nomi :: statement blocks declare types
+T test result: ok. 1 passed, 0 failed
 T
 C control_test.nomi@5cfb6d5c18e3c53c
 E 0
@@ -2934,7 +3013,7 @@ T strings = ab
 T second_ctor = 99
 T both = 41
 T
-C internal/irbuild/testdata/check_project.nomi@17c6818916a9cad6
+C internal/irbuild/testdata/check_project.nomi@ecccea86ad2ea395
 E 0
 N 0
 H 8a7387e24053852d10a8579ceb451d2cf990f87f65d2b29058c8ae8948925683
@@ -3605,6 +3684,12 @@ H 1d70c39d839d829c508268dbd4ce6c2b915d8741d9de18dc6f6f61990a0a4e49
 T ok <dir>/two_instantiations_test.nomi :: two instantiations of one impl block keep their own bindings
 T test result: ok. 1 passed, 0 failed
 T
+C internal/irbuild/testdata/dictalias/dictalias.nomi@cadcbd46a06b56c1
+E 0
+N 0
+H a9b9ec650f70544d5dcdc7231fd0d6de4e94b1bfb53bb97ba275b37dcde7578a
+T gadget 3
+T
 C internal/irbuild/testdata/dictidentity/dictidentity.nomi@d6dacbd485167f16
 E 0
 N 0
@@ -3695,7 +3780,7 @@ T differ = False
 T bare same = True
 T cross = False
 T
-C internal/irbuild/testdata/enum_embeds_enum.nomi@5b5700b812cdaf06
+C internal/irbuild/testdata/enum_embeds_enum.nomi@cb606cb1e60b6147
 E 0
 N 0
 H e00139d3879c610d5b376609fdc0082511d0ab13010f4e2b4c69b47a449a389f
@@ -6061,7 +6146,7 @@ T op self True
 T loose True
 T tag 1
 T
-C internal/irbuild/testdata/sibiface/main.nomi@6749ab1ef98b9d57
+C internal/irbuild/testdata/sibiface/main.nomi@329fbe9ebb3c3968
 E 0
 N 0
 H c6dea968eb273d7ad586b8bed08bee4c18d6247574f3e1300073ec5751fcd18a
@@ -6078,7 +6163,7 @@ T lab:0
 T things(0, 7)
 T arg:0
 T
-C internal/irbuild/testdata/sibiface_default/main.nomi@39c2979240d0bef5
+C internal/irbuild/testdata/sibiface_default/main.nomi@7ec868f896928190
 E 0
 N 0
 H 0da8a7ac5e817f7f70788bd855ce4034f6bcf10794fa6ea383b2f80abdefa18e
@@ -6093,7 +6178,7 @@ H f3c035e5741076909849deee3825ecc55e569d7408785094872ff64d4c2cf7a1
 T A12
 T written<5>
 T
-C internal/irbuild/testdata/sibimpl/main.nomi@c966ebfbee4a1b2b
+C internal/irbuild/testdata/sibimpl/main.nomi@478d8aebdf197781
 E 0
 N 0
 H 68d5ed169d88e5a604888b9c0575566dd8bdc37377b145bf6ea6e54631d87bf8
@@ -6105,7 +6190,7 @@ T reason: maintenance
 T tag:x
 T <opaque Status>
 T
-C internal/irbuild/testdata/sibimpl/report_test.nomi@5593f3535a63f4cb
+C internal/irbuild/testdata/sibimpl/report_test.nomi@584f46986c8416ef
 E 1
 N 0
 H ea5a96278d0dbee15638f1ffc05a4864de903fa5a51a841e552bc7b1247242bb
@@ -6169,6 +6254,31 @@ T label = a..z
 T label bare = m..n
 T equal = True
 T
+C internal/irbuild/testdata/siblingcompare_alias/main.nomi@1a977ab6ca525438
+E 0
+N 0
+H a20f020d90886f35c197a1d254bddab5172e280c4f14dc5d27f3c81417656fcb
+T True
+T False
+T True
+T True
+T Less
+T Greater
+T [0, 1, 2]
+T [1, 2]
+T True
+T Greater
+T True
+T 2
+T True
+T True
+T [z, b]
+T True
+T False
+T [1, 4, 7]
+T False
+T [2, 4]
+T
 C internal/irbuild/testdata/siblings/main.nomi@396a92d5d9bae95f
 E 0
 N 0
@@ -6226,10 +6336,17 @@ H 40c1ee8b2f47be7ac31991f8e3e630396bd7c1fa9c59ffac3a32e6a581f23e3d
 T ping = 1
 T eq = True
 T
-C internal/irbuild/testdata/sortscope/main.nomi@a35e1a80d9979c28
+C internal/irbuild/testdata/sibsig_samename/main.nomi@3fd4619330d1f6c3
 E 0
 N 0
-H 4ec54ca0bb2e8e01392d5bce3ecbc4163470c433b276150ec6745a2000bdcbda
+H 333a888acc2fcc97b74ec53cbd245abbd7b05ddcd41c90b8ea1d9ab6e4a1ead9
+T alpha = True
+T beta  = False
+T
+C internal/irbuild/testdata/sortscope/main.nomi@a24affb8bdbad1b4
+E 0
+N 0
+H 0091aa20b83dcbae36d7149a8157d3068553685c16d2f9c117f5cd4d228bf4d3
 T sort widget [1, 2, 3]
 T sort backwards [3, 2, 1]
 T sort_by widget [1, 2, 3]
@@ -6247,6 +6364,8 @@ T bool lt True
 T bool le False
 T ranked Greater
 T tag x
+T eq True
+T ne False
 T
 C internal/irbuild/testdata/sortscope_local.nomi@6665ee96e359dc1f
 E 0
@@ -8387,7 +8506,7 @@ T     assert [a, b] = ["one"]
 T     actual: ["one"]
 T test result: FAILED. 2 passed, 2 failed
 T
-C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@43d240f77136fc3c
+C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@46bd374e0222dba8
 E 0
 N 0
 H 5021b367003179fc2b49a2322a84aea55c7880ec1461fcbec43b7bf84f8e5451

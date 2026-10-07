@@ -9,10 +9,6 @@ import (
 func TestIRInterfaceCall_ADeclinedBodyIsNotRetained(t *testing.T) {
 	for _, tail := range []string{"", "dbg Outer{p: [Point{x: 1}]}"} {
 		t.Run(tail, func(t *testing.T) {
-			result := "Unit"
-			if tail != "" {
-				result = "Outer"
-			}
 			p, err := AnalyzeSource("main.nomi", `import std/io
 type Token
 struct Point { x: Int }
@@ -22,7 +18,7 @@ struct Outer {
 }
 interface Named { fn name(value: self): String }
 impl Named for Token { fn name(value: Token): String { _ = value; "token" } }
-fn main(): `+result+` { io.print(Named.name(Token)); `+tail+` }
+fn main() { io.print(Named.name(Token)); `+tail+` }
 `)
 			if err != nil {
 				t.Fatal(err)

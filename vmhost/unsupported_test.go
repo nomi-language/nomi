@@ -72,8 +72,8 @@ fn main() {
 		if d.Path != path || d.Line != w.line || d.Col != w.col || d.Message != w.message {
 			t.Errorf("diagnostic %d = %s:%d:%d %q; want line %d col %d %q", i, d.Path, d.Line, d.Col, d.Message, w.line, w.col, w.message)
 		}
-		if len(d.Hints) != 1 || !strings.Contains(d.Hints[0], w.hint) {
-			t.Errorf("diagnostic %d hints %q; want one containing %q", i, d.Hints, w.hint)
+		if len(d.Hints) != 2 || !strings.Contains(d.Hints[0], w.hint) || d.Hints[1] != gapHint {
+			t.Errorf("diagnostic %d hints %q; want one containing %q, then the gap hint", i, d.Hints, w.hint)
 		}
 	}
 	for _, internal := range []string{"*ast.", "builder", "not retained", "iter-sensitive", "ident bound"} {
@@ -124,3 +124,6 @@ fn main() {
 		t.Errorf("got %d:%d %q", d.Line, d.Col, d.Message)
 	}
 }
+
+// gapHint is the last hint of every unsupported diagnostic.
+const gapHint = "this is a gap in Nomi, not a mistake in your code; please report it at https://github.com/nomi-language/nomi/issues"

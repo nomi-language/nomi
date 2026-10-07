@@ -4,7 +4,7 @@ end
 vim.g.loaded_nomi = true
 
 -- Also in ftdetect/, which a lazy-loading plugin manager may skip.
-vim.filetype.add({ extension = { nomi = 'nomi' } })
+require('nomi.filetype').register()
 vim.treesitter.language.register('nomi', 'nomi')
 
 -- Opt out with `vim.g.nomi_lsp = false` before this plugin loads.

@@ -59,7 +59,7 @@ fn audited_total(): Int {
   first + second
 }
 
-fn main(): Int {
+fn main() {
   dbg handle_order(1)
   dbg handle_order(2)
 

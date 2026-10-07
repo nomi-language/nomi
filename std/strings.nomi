@@ -12,6 +12,7 @@ import {
     int.Int
     iter.Iter
     lists.List
+    matcher.Matcher
     maybe.Maybe.{self, None, Some}
 }
 
@@ -19,26 +20,47 @@ import {
 //# `reverse`, ...) and the grapheme-cluster iterator used to drive lazy `iter`
 //# pipelines over a `String`. Transform graphemes with `Iter.map(s, f) |>
 //# String.join()`; join any `Iter<String>` back into one string with `String.join`.
+//# The search functions (`contains?`, `starts_with?`, `ends_with?`, `replace`,
+//# `split`, `find_all`) take any `Matcher`: a `String` or a `Regex`.
 
 /// UTF-8 encoded string.
 pub host type String
 
 impl String {
-    /// Returns true if the string contains the substring.
+    /// True if `needle` matches anywhere in `s`. `needle` is any `Matcher`: a
+    /// `String` matches its own text, a `Regex` its pattern.
+    //! import std/regex.Regex
+    //!
     //! assert String.contains?("hello world", "world")
     //! refute String.contains?("hello", "xyz")
+    //! assert String.contains?("order 66", try Regex`\d+`)
     //
-    pub host fn contains?(s: String, substr: String): Bool
+    pub fn contains?<M>(s: String, needle: M): Bool where M: Matcher {
+        M.contained_in?(needle, s)
+    }
 
-    /// True if `s` begins with the given prefix.
+    /// True if `prefix` matches at the start of `s`. `prefix` is a `String` or
+    /// a `Regex`.
+    //! import std/regex.Regex
+    //!
     //! assert String.starts_with?("hello", "he")
+    //! assert String.starts_with?("42 apples", try Regex`\d+`)
+    //! refute String.starts_with?("apples 42", try Regex`\d+`)
     //
-    pub host fn starts_with?(s: String, prefix: String): Bool
+    pub fn starts_with?<M>(s: String, prefix: M): Bool where M: Matcher {
+        M.prefix_of?(prefix, s)
+    }
 
-    /// True if `s` ends with the given suffix.
+    /// True if `suffix` matches at the end of `s`. `suffix` is a `String` or a
+    /// `Regex`.
+    //! import std/regex.Regex
+    //!
     //! assert String.ends_with?("hello.txt", ".txt")
+    //! assert String.ends_with?("report.PDF", try Regex`(?i)\.pdf`)
     //
-    pub host fn ends_with?(s: String, suffix: String): Bool
+    pub fn ends_with?<M>(s: String, suffix: M): Bool where M: Matcher {
+        M.suffix_of?(suffix, s)
+    }
 
     /// Upper-cases `s` (Unicode-aware, locale-independent).
     //! assert String.to_upper("café") == "CAFÉ"
@@ -50,10 +72,18 @@ impl String {
     //
     pub host fn to_lower(s: String): String
 
-    /// Replaces every non-overlapping occurrence of `old` with `new`.
+    /// Replaces every non-overlapping match of `old` with `new`. `old` is a
+    /// `String` or a `Regex`; `new` is literal text either way, so `$1` is not
+    /// a capture group here (`Regex.replace_all` expands those).
+    //! import std/regex.Regex
+    //!
     //! assert String.replace("a.b.c", ".", "-") == "a-b-c"
+    //! assert String.replace("call 555-0100", try Regex`\d`, "#") == "call ###-####"
+    //! assert String.replace("a1b", try Regex`\d`, "$1") == "a$1b"
     //
-    pub host fn replace(s: String, old: String, new: String): String
+    pub fn replace<M>(s: String, old: M, new: String): String where M: Matcher {
+        M.replace_in(old, s, new)
+    }
 
     /// Concatenates `count` copies of `s`. A negative `count` is a runtime error.
     //! assert String.repeat("ab", 3) == "ababab"
@@ -93,17 +123,36 @@ impl String {
     //
     pub host fn join(parts: Iter<String>, separator: String = ""): String
 
-    /// Splits a string into a list of substrings on every occurrence of
-    /// `separator`. The separator itself is consumed and never appears in
-    /// the output. Adjacent occurrences of `separator` produce empty-string
-    /// entries. An empty `separator` splits at every UTF-8 codepoint
-    /// boundary (one entry per codepoint). Inverse of `String.join`.
+    /// Splits a string into a list of substrings on every non-overlapping
+    /// match of `separator`, a `String` or a `Regex`. The separator itself is
+    /// consumed and never appears in the output. Adjacent matches produce
+    /// empty-string entries. An empty string `separator` splits at every UTF-8
+    /// codepoint boundary (one entry per codepoint). Inverse of `String.join`.
+    //! import std/regex.Regex
+    //!
     //! assert String.split("a,b,c", ",") == ["a", "b", "c"]
     //! assert String.split("a, b, c", ", ") == ["a", "b", "c"]
     //! assert String.split(",a,", ",") == ["", "a", ""]
     //! assert String.split("hello", "") == ["h", "e", "l", "l", "o"]
+    //! assert String.split("a, b,c", try Regex`,\s*`) == ["a", "b", "c"]
+    //! assert "one  two\tthree" |> String.split(try Regex`\s+`) == ["one", "two", "three"]
     //
-    pub host fn split(s: String, separator: String): List<String>
+    pub fn split<M>(s: String, separator: M): List<String> where M: Matcher {
+        M.split_in(separator, s)
+    }
+
+    /// Every non-overlapping match of `needle` in `s`, left to right. With a
+    /// `String` needle each match is the needle itself, so the list's length is
+    /// the number of occurrences.
+    //! import std/regex.Regex
+    //!
+    //! assert String.find_all("order 66, aisle 7", try Regex`\d+`) == ["66", "7"]
+    //! assert String.find_all("banana", "an") == ["an", "an"]
+    //! assert String.find_all("banana", "x") == []
+    //
+    pub fn find_all<M>(s: String, needle: M): List<String> where M: Matcher {
+        M.find_all_in(needle, s)
+    }
 
     /// The words of `s`: the pieces between runs of Unicode whitespace, which
     /// includes U+00A0 NO-BREAK SPACE and U+3000. Unlike `split`, leading,
@@ -171,7 +220,7 @@ impl String {
     //! assert String.strip_prefix("hello", "xyz") == None
     //
     pub fn strip_prefix(s: String, prefix: String): Maybe<String> {
-        if starts_with?(s, prefix) {
+        if Matcher.prefix_of?(prefix, s) {
             new_start = length(prefix)
 
             slice(s, new_start, length(s)) |> Some()
@@ -186,7 +235,7 @@ impl String {
     //! assert String.strip_suffix("hello", "xyz") == None
     //
     pub fn strip_suffix(s: String, suffix: String): Maybe<String> {
-        if ends_with?(s, suffix) {
+        if Matcher.suffix_of?(suffix, s) {
             new_end = length(s) - length(suffix)
 
             slice(s, 0, new_end) |> Some()
@@ -208,6 +257,27 @@ impl String {
 /// Byte-lexicographic comparison of UTF-8 bytes. Returns -1 if `a < b`,
 /// 1 if `a > b`, 0 if equal. Private helper backing the `Comparable` impl.
 host fn string_compare(a: String, b: String): Int
+
+impl Matcher for String {
+    /// True if `needle` occurs in `text`.
+    host fn contained_in?(needle: String, text: String): Bool
+
+    /// True if `text` begins with `prefix`.
+    host fn prefix_of?(prefix: String, text: String): Bool
+
+    /// True if `text` ends with `suffix`.
+    host fn suffix_of?(suffix: String, text: String): Bool
+
+    /// Splits on every occurrence; an empty separator splits at every
+    /// codepoint.
+    host fn split_in(separator: String, text: String): List<String>
+
+    /// Replaces every non-overlapping occurrence.
+    host fn replace_in(old: String, text: String, replacement: String): String
+
+    /// One copy of `needle` per non-overlapping occurrence.
+    host fn find_all_in(needle: String, text: String): List<String>
+}
 
 impl Iter for String {
     /// A String iterates by grapheme cluster, one per user-visible character:

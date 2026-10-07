@@ -37,14 +37,32 @@ import (
 // github.com/rivo/uniseg, and normalization needs golang.org/x/text, which rt
 // does not require. None of them is half-implemented here over code points.
 
-// StringContains is `String.contains?`: byte substring containment.
-func StringContains(s, substr string) bool { return strings.Contains(s, substr) }
+// The `impl Matcher for String` functions take the matcher (the needle)
+// first and the text second, the order std/matcher declares; `String.split`
+// and the other search functions call them through a `where M: Matcher`
+// bound.
 
-// StringStartsWith is `String.starts_with?`.
-func StringStartsWith(s, prefix string) bool { return strings.HasPrefix(s, prefix) }
+// StringContainedIn is String's `Matcher.contained_in?`: byte substring
+// containment.
+func StringContainedIn(needle, s string) bool { return strings.Contains(s, needle) }
 
-// StringEndsWith is `String.ends_with?`.
-func StringEndsWith(s, suffix string) bool { return strings.HasSuffix(s, suffix) }
+// StringPrefixOf is String's `Matcher.prefix_of?`.
+func StringPrefixOf(prefix, s string) bool { return strings.HasPrefix(s, prefix) }
+
+// StringSuffixOf is String's `Matcher.suffix_of?`.
+func StringSuffixOf(suffix, s string) bool { return strings.HasSuffix(s, suffix) }
+
+// StringFindAllIn is String's `Matcher.find_all_in`: one copy of needle per
+// non-overlapping occurrence, which is what a regex matching exactly needle
+// answers. An empty needle occurs at every codepoint boundary and at both
+// ends, strings.Count's rule and the empty regex's.
+func StringFindAllIn(needle, s string) *List[string] {
+	var out *List[string]
+	for range strings.Count(s, needle) {
+		out = Cons(needle, out)
+	}
+	return out
+}
 
 // StringToUpper is `String.to_upper`: Unicode-aware, locale-independent.
 func StringToUpper(s string) string { return strings.ToUpper(s) }
@@ -52,14 +70,15 @@ func StringToUpper(s string) string { return strings.ToUpper(s) }
 // StringToLower is `String.to_lower`.
 func StringToLower(s string) string { return strings.ToLower(s) }
 
-// StringReplace is `String.replace`: every non-overlapping occurrence.
-func StringReplace(s, old, new string) string { return strings.ReplaceAll(s, old, new) }
+// StringReplaceIn is String's `Matcher.replace_in`: every non-overlapping
+// occurrence.
+func StringReplaceIn(old, s, new string) string { return strings.ReplaceAll(s, old, new) }
 
 // StringTrim is `String.trim`: Go's TrimSpace rules, which std/strings documents
 // as the definition rather than as an implementation detail.
 func StringTrim(s string) string { return strings.TrimSpace(s) }
 
-// StringSplit is `String.split`: byte-substring split, every occurrence, the
+// StringSplitIn is String's `Matcher.split_in`: byte-substring split, every occurrence, the
 // separator consumed. An empty separator splits at every UTF-8 codepoint
 // boundary, which is Go's own rule and is what std/strings documents as the
 // definition ("An empty `separator` splits at every UTF-8 codepoint boundary").
@@ -68,7 +87,7 @@ func StringTrim(s string) string { return strings.TrimSpace(s) }
 // is built back-to-front with Cons because Cons is the O(1) operation on a
 // persistent cons list (see list.go), so this is one pass and n allocations
 // rather than n prepends onto a growing head.
-func StringSplit(s, separator string) *List[string] {
+func StringSplitIn(separator, s string) *List[string] {
 	return listOf(strings.Split(s, separator))
 }
 

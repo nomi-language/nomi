@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -489,6 +490,13 @@ func (g *gen) portableDefault(d *ifaceDef, m *ifaceMethod) bool {
 	}
 	for name := range names {
 		there, here := resolvedTypeSymbol(owner.fa, name), resolvedTypeSymbol(g.fa, name)
+		if valueOnce(there) && (here == nil || here.Kind == analysis.SymbolOnce) {
+			// The declaring file's own `once`: the lowered default reads
+			// that file's cell, whatever this file binds the name to
+			// (onceValue under namesFrom). A function-valued one could be
+			// called, which reads this file's binding, so it stays refused.
+			continue
+		}
 		switch {
 		case there == nil && here == nil:
 			// A parameter, a local, a field label, or a name neither file has.
@@ -500,6 +508,19 @@ func (g *gen) portableDefault(d *ifaceDef, m *ifaceMethod) bool {
 		}
 	}
 	return true
+}
+
+// valueOnce reports a symbol for a module-level `once` whose type is not a
+// function's.
+func valueOnce(sym *analysis.Symbol) bool {
+	if sym == nil || sym.Kind != analysis.SymbolOnce {
+		return false
+	}
+	if _, ok := sym.Node.(*ast.OnceBinding); !ok {
+		return false
+	}
+	_, fn := sym.Type.(*analysis.FuncType)
+	return !fn
 }
 
 // pickAnyName contributes every name a node mentions that a MODULE SCOPE could

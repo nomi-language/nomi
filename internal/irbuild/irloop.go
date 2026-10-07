@@ -200,6 +200,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	bl.b.Append(ir.NewSlot(bl.g.irNodePos(lam), tail, ty))
 	bl.side(tail, irScalarSide{k: sk})
 
+	defer bl.g.enterBlockTypes(lam.Body)()
 	lead, final := bl.g.irScalarBlock(lam.Body, "")
 	if final == nil {
 		return no("an Iter.loop body outside the statement shape: " + irDeclineBodyWhy)
@@ -299,6 +300,7 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		}
 		switch e := f.Else.(type) {
 		case *ast.Block:
+			defer bl.g.enterBlockTypes(e)()
 			elseLead, elseFinal := bl.g.irScalarBlock(e, "")
 			if elseFinal == nil {
 				return false
@@ -320,6 +322,7 @@ func (bl *irScalarBuilder) statelessLoop(lam *ast.Lambda) (ir.Temp, kind, bool, 
 		irDeclineNote(why)
 		return ir.NoTemp, kindInvalid, false, false
 	}
+	defer bl.g.enterBlockTypes(lam.Body)()
 	lead, final := bl.g.irScalarBlock(lam.Body, "")
 	b, isBreak := final.(*ast.Break)
 	if final == nil || !isBreak {
@@ -441,6 +444,7 @@ func (bl *irScalarBuilder) loopGuard(t *ast.If, lp *irLoopBuild) bool {
 	if t.Else != nil || isNilNode(t.Cond) || t.Then == nil {
 		return false
 	}
+	defer bl.g.enterBlockTypes(t.Then)()
 	lead, exit := bl.g.irScalarBlock(t.Then, "")
 	if exit == nil {
 		return false

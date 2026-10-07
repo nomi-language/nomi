@@ -274,7 +274,7 @@ enum Status {
 
 type Email String
 
-fn main(): Email {
+fn main() {
     dbg Point{x: 3, y: 4}
     dbg Status.Pending(7)
     dbg Email("a@b.com")
@@ -339,7 +339,7 @@ fn first_two_sorted<T>(xs: List<T>): List<T> where T: Comparable {
     |> Iter.to_list()
 }
 
-fn main(): List<String> {
+fn main() {
     first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6])
     |> dbg
 
@@ -432,7 +432,7 @@ impl Add<Days, Day> for Day {
     }
 }
 
-fn main(): Int {
+fn main() {
     score = Score(2) + Score(3)
     day = Day(10) + Days(4)
 
@@ -479,7 +479,7 @@ struct User {
 derive ToJson for User with ToJson.Options{rename_all: Camel}
 derive FromJson for User with FromJson.Options{rename_all: Camel}
 
-fn main(): Result<String, Json.ShapeError> {
+fn main(): Result<Unit, Json.ShapeError> {
     user = User{first_name: "Ada", age: 36}
     shape = User.to_json(user)
 
@@ -487,18 +487,18 @@ fn main(): Result<String, Json.ShapeError> {
 
     user = try User.from_json(shape)
 
-    Ok(
-        user
-        |> ToJson.to_json()
-        |> Json.encode()
-        |> dbg
-    )
+    user
+    |> ToJson.to_json()
+    |> Json.encode()
+    |> dbg
+
+    Ok(Unit)
 }
 
 ```
 <!-- expect
 dbg line 18: Json.encode(shape) = "{\"firstName\":\"Ada\",\"age\":36}"
-dbg line 26:
+dbg line 25:
   user
   |> ToJson.to_json()
   |> Json.encode()
@@ -549,7 +549,7 @@ struct Point {
     y: Int
 }
 
-fn main(): Map<Point, String> {
+fn main() {
     dbg Point{x: 1, y: 2} == Point{x: 1, y: 2}
     dbg Point{x: 1, y: 2} == Point{x: 1, y: 3}
     dbg {Point{x: 1, y: 2} => "home"}
@@ -598,7 +598,7 @@ struct Money {
 
 derive Comparable for Money
 
-fn main(): List<Money> {
+fn main() {
     dbg Money{amount: 100} < Money{amount: 250}
 
     ms = [Money{amount: 3}, Money{amount: 1}, Money{amount: 2}]
@@ -626,7 +626,7 @@ enum Severity {
 
 derive Comparable for Severity
 
-fn main(): Bool {
+fn main() {
     dbg Severity.Info < Severity.Warning(1)
     dbg Severity.Warning(9) < Severity.Error(1)
     dbg Severity.Warning(1) < Severity.Warning(2)
@@ -658,7 +658,7 @@ struct User {
     age: Int
 }
 
-fn main(): List<User> {
+fn main() {
     users = [User{name: "Cara", age: 35}, User{name: "Ann", age: 41}]
     sorted = users |> Iter.sort_by(.name)
 

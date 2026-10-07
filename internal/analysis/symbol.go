@@ -210,6 +210,16 @@ type Symbol struct {
 	// Its type arguments are inference variables that resolve as the
 	// enclosing expression is checked, so a reader reads it after checking.
 	VariantType Type
+	// ParamOf is the function, lambda or interface method whose DESTRUCTURED
+	// parameter introduced this binding (`|(word, count)| count`), and nil for
+	// every other symbol. The unused-binding check reports such a name as a
+	// parameter.
+	ParamOf ast.Node
+	// PatternBody is the body a `case` arm, `else` arm, `if` condition or test
+	// setup pattern that bound this name scopes over, and nil for every other
+	// symbol. The unused-binding check does not report a name whose body has a
+	// `todo` in it, as it does not for an unfinished function's parameter.
+	PatternBody ast.Node
 	// OwningType is the receiver type name for an impl-block function. Non-empty marks a type-promoted member:
 	// the function is addressable through receiver-specific lookup and may also
 	// be surfaced through the owning module's flattened API. Empty for ordinary

@@ -213,7 +213,7 @@ func TestTryBoundary_ConcurrentBlockKeepsItsOwnRegime(t *testing.T) {
 	src := `fn short_fail(): Result<Int, Int> {
   Err(7)
 }
-fn main(): String {
+fn demo(): String {
   outcome = concurrent {
     x = Task.spawn(|| short_fail())
     Ok(try Task.await(x))
@@ -304,7 +304,7 @@ func TestTryBoundary_ConcurrentBlockResultCannotHoldIt(t *testing.T) {
 	src := `fn short_fail(): Result<Int, String> {
   Err("boom")
 }
-fn main(): Int {
+fn demo(): Int {
   outcome = concurrent {
     x = Task.spawn(|| short_fail())
     try Task.await(x)
@@ -324,7 +324,7 @@ func TestTryBoundary_DivergentLambdaBodyIsExempt(t *testing.T) {
 	src := `fn parse(n: Int): Result<Int, String> {
   Ok(n)
 }
-fn main(): Int {
+fn demo(): Int {
   Iter.loop(|acc = 0| {
     v = try parse(acc)
     break v
@@ -339,7 +339,7 @@ fn main(): Int {
 // Result has nowhere to send the failure and is an error at the assertion.
 // The diagnostic names the assertion, not a `try` the user did not write.
 func TestTryBoundary_AssertionInAConcurrentBlockNeedsAResult(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   v = concurrent {
     assert 1 == 1
     2
@@ -357,7 +357,7 @@ func TestTryBoundary_AssertionInAConcurrentBlockNeedsAResult(t *testing.T) {
 func TestTryBoundary_AssertionInAResultConcurrentBlock(t *testing.T) {
 	ok := `import std/assertions.{AssertionFailure}
 
-fn main(): Result<Int, AssertionFailure> {
+fn demo(): Result<Int, AssertionFailure> {
   concurrent {
     assert 1 == 1
     Ok(2)
@@ -366,7 +366,7 @@ fn main(): Result<Int, AssertionFailure> {
 	errs := analyzeConcurrentRaw(ok)
 	expectNoConcurrentError(t, errs, "assertion")
 	expectNoConcurrentError(t, errs, "inconsistent")
-	bad := `fn main(): Result<Int, String> {
+	bad := `fn demo(): Result<Int, String> {
   concurrent {
     assert 1 == 1
     Ok(2)

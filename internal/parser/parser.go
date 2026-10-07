@@ -31,6 +31,20 @@ type Parser struct {
 	// damaged holds one span per top-level declaration that recovery
 	// had to repair.
 	damaged []Span
+	// arrowAhead[i] reports whether a `=>` can follow an expression that
+	// starts at token i; built on first use (mapEntryPossible).
+	arrowAhead []bool
+	// nesting counts the expressions, patterns and types being parsed
+	// inside one another, and tooDeep is set once that passed MaxNesting
+	// (enterNested).
+	nesting int
+	tooDeep bool
+	// exprParses counts every expression parse started, speculative ones
+	// included, so a test can hold the parser's work to the input's size.
+	exprParses int
+	// probes holds detectMapPatternEntry's answers, and the keys it parsed
+	// for the parse that follows it to take (map_probe.go).
+	probes map[probeAt]probeResult
 }
 
 // Span is a closed source region, in 1-based line / 1-based byte column,
@@ -176,6 +190,7 @@ func (p *Parser) parseWithRecovery() ([]ast.Node, []ParseError) {
 		doc := p.collectDocComments()
 		declStart := p.pos
 		recoveriesBefore := p.recoveries
+		p.tooDeep = false
 		node, attachedDoc, attachedLeading, err := p.parseStmt()
 		if err != nil {
 			p.recordParseError(err)
@@ -1574,6 +1589,16 @@ func (p *Parser) parseExpr(minPrec int) (ast.Node, error) {
 }
 
 func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, error) {
+	if minPrec == 1 && !stopAtPipe {
+		if key, ok := p.takeKey(); ok {
+			return key, nil
+		}
+	}
+	if err := p.enterNested(); err != nil {
+		return nil, err
+	}
+	defer p.leaveNested()
+	p.exprParses++
 	start := p.pos
 	left, err := p.parsePrefixWithPipeStop(stopAtPipe)
 	if err != nil {
@@ -1659,6 +1684,15 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 		case token.DOT:
 			p.advance() // consume DOT
 			field := p.peek()
+			if first, second, ok := tupleIndexPair(field); ok {
+				// `t.1.0`: the lexer reads `1.0` as a Float, and after a
+				// dot it is two tuple indices.
+				p.advance()
+				left = &ast.FieldAccess{Object: left, Field: &ast.Ident{Name: first, Line: field.Line, Col: field.Col}, Line: tok.Line, Col: tok.Col}
+				dotCol := field.Col + len(first)
+				left = &ast.FieldAccess{Object: left, Field: &ast.Ident{Name: second, Line: field.Line, Col: dotCol + 1}, Line: field.Line, Col: dotCol}
+				break
+			}
 			if field.Type != token.IDENT && field.Type != token.TYPE_IDENT && field.Type != token.INT {
 				return nil, errorAt(tok.Line, tok.Col, "expected field name after '.'")
 			}
@@ -2046,6 +2080,11 @@ func pipeKeywordName(n ast.Node) string {
 // Same-line comments (`x // note`) stay trailing trivia on the left operand;
 // standalone comments are leading trivia for the right operand so the formatter
 // can keep them on their own line before the operator.
+//
+// The continuation must be `|>`, the one infix operator a line may start
+// with: the lexer ends a statement at a line break before anything else, so
+// without the comment `x` then `(y)` on the next line are two statements,
+// and the comment must not make them the call `x(y)`.
 func (p *Parser) consumeStandaloneInfixComment(minPrec int) ([]ast.Trivia, bool) {
 	if p.atEnd() {
 		return nil, false
@@ -2073,7 +2112,7 @@ func (p *Parser) consumeStandaloneInfixComment(minPrec int) ([]ast.Trivia, bool)
 		}
 		k++
 	}
-	if k >= len(p.tokens) || infixPrecedence(p.tokens[k].Type) < minPrec {
+	if k >= len(p.tokens) || p.tokens[k].Type != token.PIPE || infixPrecedence(p.tokens[k].Type) < minPrec {
 		return nil, false
 	}
 	tk := p.tokens[j]
@@ -2986,6 +3025,9 @@ func (p *Parser) parseStringInterp() (ast.Node, error) {
 			parts = append(parts, ast.StringExpr{Expr: expr})
 			continue
 		}
+		if cur.Problem != "" {
+			return nil, errorAt(cur.Line, cur.Col, "%s", cur.Problem)
+		}
 		return nil, errorAt(cur.Line, cur.Col, "unexpected token %s in interpolated string", cur.Type)
 	}
 
@@ -3044,6 +3086,9 @@ func (p *Parser) parseTaggedStringInterp() (ast.Node, error) {
 			}
 			parts = append(parts, ast.StringExpr{Expr: expr})
 			continue
+		}
+		if cur.Problem != "" {
+			return nil, errorAt(cur.Line, cur.Col, "%s", cur.Problem)
 		}
 		return nil, errorAt(cur.Line, cur.Col, "unexpected token %s in interpolated tagged string", cur.Type)
 	}
@@ -4284,7 +4329,7 @@ func (p *Parser) parseBlockOrLambda() (ast.Node, error) {
 	// infix range operator needs a left operand, and no statement begins
 	// with `..`. Same reasoning the list literal uses for `[..xs]`.
 	if !p.atEnd() && p.peek().Type == token.DOTDOT {
-		return p.parseAnonStructLit(tok)
+		return p.parseAnonStructLit(tok, leading)
 	}
 
 	// Map literal: { keyExpr => expr, ... }. The key is an arbitrary
@@ -4301,12 +4346,12 @@ func (p *Parser) parseBlockOrLambda() (ast.Node, error) {
 	// also start with an annotated binding (`{ name: Type = value ... }`), so
 	// look past the type annotation before committing to struct-literal parsing.
 	if !p.atEnd() && p.peek().Type == token.IDENT && p.peekAt(1).Type == token.COLON && !p.startsAnnotatedBinding() {
-		return p.parseAnonStructLit(tok)
+		return p.parseAnonStructLit(tok, leading)
 	}
 
 	// Anonymous struct with field punning: { ident, ... }
 	if !p.atEnd() && p.peek().Type == token.IDENT && p.peekAt(1).Type == token.COMMA {
-		return p.parseAnonStructLit(tok)
+		return p.parseAnonStructLit(tok, leading)
 	}
 
 	// Everything else: block expression.
@@ -4486,7 +4531,9 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 }
 
 // parseAnonStructLit parses an anonymous struct literal: { field: value, ... } (LBRACE already consumed).
-func (p *Parser) parseAnonStructLit(openTok token.Token) (ast.Node, error) {
+// opening is the trivia after the `{`, which the caller has consumed; it
+// leads the first field, or is the literal's EndTrivia when it has none.
+func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (ast.Node, error) {
 	var fields []ast.StructFieldVal
 	var endTrivia []ast.Trivia
 	var spread ast.Node
@@ -4593,6 +4640,13 @@ func (p *Parser) parseAnonStructLit(openTok token.Token) (ast.Node, error) {
 		return nil, errorAt(openTok.Line, openTok.Col, "expected '}' to close struct literal")
 	}
 	p.advance() // consume RBRACE
+	if len(opening) > 0 {
+		if len(fields) > 0 {
+			fields[0].LeadingComments = append(opening, fields[0].LeadingComments...)
+		} else {
+			endTrivia = append(opening, endTrivia...)
+		}
+	}
 	return &ast.StructLit{
 		TypeName:   nil,
 		Fields:     fields,
@@ -5147,6 +5201,33 @@ func (p *Parser) parseParamSection(tok token.Token) ([]ast.Param, error) {
 	return params, nil
 }
 
+// tupleIndexPair splits a Float token that follows a field-access dot into
+// two tuple indices: `t.1.0` lexes as `t`, `.`, `1.0`, and reads as
+// `(t.1).0`. Only plain digits on each side qualify, so `t.1e3` is still an
+// error.
+func tupleIndexPair(tok token.Token) (string, string, bool) {
+	if tok.Type != token.FLOAT {
+		return "", "", false
+	}
+	first, second, found := strings.Cut(tok.Lexeme, ".")
+	if !found || !tupleIndexDigits(first) || !tupleIndexDigits(second) {
+		return "", "", false
+	}
+	return first, second, true
+}
+
+func tupleIndexDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // isTurbofishCallable reports whether `left` is a syntactic form that can
 // carry explicit type arguments before a call: a bare name (`f`), a module/
 // field path (`mod.f`), or a PascalCase identifier (`Static`, `Some`, struct
@@ -5318,6 +5399,10 @@ func canStartTypeAnnotation(t token.TokenType) bool {
 }
 
 func (p *Parser) parseTypeAnnotation() (te ast.TypeExpr, err error) {
+	if err := p.enterNested(); err != nil {
+		return nil, err
+	}
+	defer p.leaveNested()
 	start := p.pos
 	defer func() {
 		if err == nil && te != nil {
@@ -7089,18 +7174,32 @@ func (p *Parser) detectMapPatternEntry() bool {
 	// reason. Restoring the counter is enough because `damaged` itself is
 	// only appended once per accepted top-level declaration.
 	savedRecoveries := p.recoveries
+	if !p.mapEntryPossible(savedPos) {
+		return false
+	}
+	at := p.probeHere()
+	if r, seen := p.probes[at]; seen {
+		return r.key != nil
+	}
 	defer func() {
 		p.pos = savedPos
 		p.recoveries = savedRecoveries
 	}()
-	if _, err := p.parseExpr(1); err != nil {
+	key, err := p.parseExpr(1)
+	if err != nil || p.atEnd() || p.peek().Type != token.FAT_ARROW {
+		p.rememberProbe(at, probeResult{})
 		return false
 	}
-	return !p.atEnd() && p.peek().Type == token.FAT_ARROW
+	p.rememberProbe(at, probeResult{key: key, end: p.pos, recoveries: p.recoveries - savedRecoveries})
+	return true
 }
 
 // parseSinglePattern parses a single pattern element for use in compound patterns (tuples, lists, etc.).
 func (p *Parser) parseSinglePattern() (node ast.Node, err error) {
+	if err := p.enterNested(); err != nil {
+		return nil, err
+	}
+	defer p.leaveNested()
 	start := p.pos
 	defer func() {
 		if err == nil {
@@ -8102,6 +8201,13 @@ func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node
 			}
 			if err := attachTypeBodyItemMeta(item, doc, attachedTests, leading); err != nil {
 				return nil, nil, closeTok, err
+			}
+			// A comment after the item's last token, on its line, stays
+			// with it, as in an interface body.
+			if ht, ok := item.(ast.HasTrivia); ok {
+				for _, tr := range p.collectCommentOnLine(p.prevLine()) {
+					ht.AddTrailing(tr)
+				}
 			}
 			items = append(items, item)
 		default:

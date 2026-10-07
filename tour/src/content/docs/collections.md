@@ -31,7 +31,7 @@ That is why an unbounded source is safe:
 ```nomi-run
 import std/io
 
-fn main(): List<Int> {
+fn main() {
     result =
         Range.naturals()
         |> Iter.map(|n| {
@@ -66,7 +66,7 @@ goes through `Iter`, and [`Iter.to_list()`](/reference/iter/#iterto_list)
 materializes a List again when you want one:
 
 ```nomi-run
-fn main(): Int {
+fn main() {
     xs = [1, 2, 3, 4, 5]
 
     xs
@@ -125,7 +125,7 @@ maps, and the right-hand map wins on a shared key
 ([`Map.merge`](/reference/maps/#mapmerge) is the named equivalent):
 
 ```nomi-run
-fn main(): Maybe<String> {
+fn main() {
     config = {"host" => "localhost", "port" => "8080"}
 
     dbg Map.size(config)
@@ -156,7 +156,7 @@ element, use [`Set.insert`](/reference/sets/#setinsert) and
 [`Set.remove`](/reference/sets/#setremove), or combine with a one-element set.
 
 ```nomi-run
-fn main(): Set<Int> {
+fn main() {
     s = #{1, 2, 3, 2, 1}
 
     dbg Set.size(s)
@@ -187,7 +187,7 @@ next value. That makes integer and codepoint ranges natural
 replacements for generated lists:
 
 ```nomi-run
-fn main(): List<Int> {
+fn main() {
     dbg Iter.to_list(1..5)
     dbg Iter.to_list(1..=5)
 
@@ -214,7 +214,7 @@ codepoint has a literal, the character in single quotes (`'a'`), so the range
 is written with its two ends:
 
 ```nomi-run
-fn main(): List<String> {
+fn main() {
     'a'..='d'
     |> Iter.map(Codepoint.to_string)
     |> Iter.to_list()
@@ -236,7 +236,7 @@ range like `"a".."m"` can test whether `"a" <= "h" < "m"`, but there is no
 single obvious next string after `"a"` to enumerate.
 
 ```nomi-run
-fn main(): Bool {
+fn main() {
     dbg Range.contains?("a".."m", "h")
     dbg Range.contains?(0.0..=1.0, 1.0)
 }
@@ -251,7 +251,7 @@ When the caller supplies the step, [`Range.step_by`](/reference/ranges/#rangeste
 lazy iterables:
 
 ```nomi-run
-fn main(): List<Decimal> {
+fn main() {
     1.0d..=1.3d
     |> Range.step_by(0.1d)
     |> Iter.to_list()
@@ -273,7 +273,7 @@ A "modifying" operation returns a *new* collection; the original binding still
 holds its original value:
 
 ```nomi-run
-fn main(): Int {
+fn main() {
     m1 = {"a" => 1, "b" => 2}
     m2 = Map.put(m1, "c", 3)
 

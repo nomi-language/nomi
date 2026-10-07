@@ -104,7 +104,7 @@ func (g *gen) moduleQualifiedOwner(qualifier, name string) *typeOwner {
 	if g.reg == nil || g.fa == nil || g.fileUnit < 0 {
 		return nil
 	}
-	scope := moduleScopeOf(g.fa, qualifier)
+	scope := g.moduleScope(qualifier)
 	if scope == nil {
 		return nil
 	}
@@ -265,7 +265,7 @@ func (g *gen) qualifiedStdKind(t *ast.QualifiedType) (kind, bool) {
 	if !ok {
 		return kindInvalid, false
 	}
-	sym := resolvedScopeSymbol(moduleScopeOf(g.fa, qualifier), name)
+	sym := resolvedScopeSymbol(g.moduleScope(qualifier), name)
 	if sym == nil {
 		return kindInvalid, false
 	}
@@ -297,7 +297,7 @@ func (g *gen) qualifiedStdKind(t *ast.QualifiedType) (kind, bool) {
 // type or generic std struct the arguments instantiate, as an inferred
 // position over the same type does (genHostOfType, genStructOfType).
 func (g *gen) qualifiedStdGenericKind(qualifier string, gt *ast.GenericType) (kind, bool) {
-	sym := resolvedScopeSymbol(moduleScopeOf(g.fa, qualifier), gt.Name)
+	sym := resolvedScopeSymbol(g.moduleScope(qualifier), gt.Name)
 	if sym == nil {
 		return kindInvalid, false
 	}

@@ -32,6 +32,7 @@
         "extensions": [
           ".nomi"
         ],
+        "firstLine": "^#!.*\\bnomi\\b",
         "configuration": "./language-configuration.json"
       }
     ],

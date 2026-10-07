@@ -80,6 +80,15 @@ type blockTypeDecls struct {
 	// type — see the file comment.
 	aliases    map[string]kind
 	aliasOrder []*ast.TypeAlias
+	// templates are the generic struct and enum declarations, by name. Each
+	// also has a shell in defs, as a module-level generic has one in
+	// gen.types, so a bare mention of the name reports `generic type`.
+	templates map[string]*genericTemplate
+	// outer is the nearest enclosing block's declarations, or nil. A
+	// declaration here may name one there (`struct Inner { p: P<Int> }`
+	// under the block declaring `P`), so wherever this scope is made
+	// visible, its outer scopes are too (enterTypeScope).
+	outer *blockTypeDecls
 }
 
 // orderedDefs is this block's declarations in source order.
@@ -99,48 +108,27 @@ func (g *gen) collectBlockTypeDecls(nodes []ast.Node) []*typeDef {
 	return order
 }
 
-// collectBlockTypesIn walks one node's bodies. The accumulator is threaded
-// rather than returned so the recursion cannot drop a branch's defs.
+// collectBlockTypesIn declares the types of every block under n, wherever
+// the block stands: a body, a binding's value, a call's argument, a list
+// element, an operand. The front end admits a declaration in each of them.
+// The walk is pre-order, so an outer block's declarations come before an
+// inner one's. The accumulator is threaded rather than returned so no
+// branch's defs can be dropped.
 func (g *gen) collectBlockTypesIn(n ast.Node, order *[]*typeDef) []*typeDef {
-	switch t := n.(type) {
-	case *ast.FuncDef:
-		g.collectBlockTypesIn(t.Body, order)
-	case *ast.TestDecl:
-		g.collectBlockTypesIn(t.Boot, order)
-		g.collectBlockTypesIn(t.Setup, order)
-		g.collectBlockTypesIn(t.Body, order)
-	case *ast.ImplBlock:
-		for _, item := range t.Items {
-			g.collectBlockTypesIn(item, order)
+	var walk func(n ast.Node, outer *blockTypeDecls)
+	walk = func(n ast.Node, outer *blockTypeDecls) {
+		if b, ok := n.(*ast.Block); ok {
+			g.declareBlockTypes(b, order)
+			if scope := g.blockTypes[b]; scope != nil {
+				if scope != outer && scope.outer == nil {
+					scope.outer = outer
+				}
+				outer = scope
+			}
 		}
-	case *ast.Block:
-		g.declareBlockTypes(t, order)
-		for _, stmt := range t.Stmts {
-			g.collectBlockTypesIn(stmt, order)
-		}
-	case *ast.Binding:
-		g.collectBlockTypesIn(t.Value, order)
-	case *ast.PatternBinding:
-		g.collectBlockTypesIn(t.Value, order)
-		for _, e := range t.ElseNodes() {
-			g.collectBlockTypesIn(e, order)
-		}
-	case *ast.GroupedExpr:
-		g.collectBlockTypesIn(t.Expr, order)
-	case *ast.ExprStmt:
-		g.collectBlockTypesIn(t.Expr, order)
-	case *ast.If:
-		g.collectBlockTypesIn(t.Then, order)
-		g.collectBlockTypesIn(t.Else, order)
-	case *ast.With:
-		g.collectBlockTypesIn(t.Value, order)
-	case *ast.Case:
-		for _, br := range t.Branches {
-			g.collectBlockTypesIn(br.Body, order)
-		}
-	case *ast.Lambda:
-		g.collectBlockTypesIn(t.Body, order)
+		ast.Children(n, func(c ast.Node) { walk(c, outer) })
 	}
+	walk(n, nil)
 	return *order
 }
 
@@ -192,6 +180,14 @@ func (g *gen) declareBlockTypes(b *ast.Block, order *[]*typeDef) {
 		scope.defs[name] = d
 		scope.defOrder = append(scope.defOrder, d)
 		*order = append(*order, d)
+		if tps := typeDeclTypeParams(stmt); len(tps) > 0 {
+			// Its impls are the universal Debug the front end gives a
+			// module-level generic: an impl or a derive cannot name a
+			// block-local type.
+			tpl := g.newGenericTemplate(stmt, name, tps, analysis.SynthesizeUniversalDebug([]ast.Node{stmt}))
+			tpl.scope = scope
+			scope.templates[name] = tpl
+		}
 	}
 	if scope == nil {
 		return
@@ -202,8 +198,9 @@ func (g *gen) declareBlockTypes(b *ast.Block, order *[]*typeDef) {
 
 func newBlockTypeDecls() *blockTypeDecls {
 	return &blockTypeDecls{
-		defs:    map[string]*typeDef{},
-		aliases: map[string]kind{},
+		defs:      map[string]*typeDef{},
+		aliases:   map[string]kind{},
+		templates: map[string]*genericTemplate{},
 	}
 }
 
@@ -275,9 +272,9 @@ func (g *gen) registerBlockLocalDebug(blocks []*ast.Block) []*implDef {
 				impl := &implDef{decl: ib, synth: true, items: map[string]*implItem{}, lowerable: true, typeScope: scope}
 				g.implOrder = append(g.implOrder, impl)
 				out = append(out, impl)
-				g.pushTypeScope(scope)
+				leave := g.enterTypeScope(scope)
 				g.resolveImplDef(impl, ib, named(d))
-				g.popTypeScope()
+				leave()
 			}
 		}
 	}
@@ -306,7 +303,7 @@ func (g *gen) resolveBlockTypeDecls() {
 
 // resolveBlockScope resolves one block's declarations with its overlay active.
 func (g *gen) resolveBlockScope(scope *blockTypeDecls) {
-	g.pushTypeScope(scope)
+	defer g.enterTypeScope(scope)()
 	// Aliases first: a struct field may be annotated with one.
 	for _, a := range scope.aliasOrder {
 		scope.aliases[a.Name] = g.aliasTarget(a)
@@ -321,7 +318,6 @@ func (g *gen) resolveBlockScope(scope *blockTypeDecls) {
 			g.resolveDistinct(d, t)
 		}
 	}
-	g.popTypeScope()
 }
 
 // aliasTarget is the kind a `typealias` names, or kindInvalid.
@@ -350,6 +346,34 @@ func (g *gen) typeScopeActive(scope *blockTypeDecls) bool {
 	return false
 }
 
+// enterBlockTypes makes the types block declares visible for the extent of
+// its lowering, as they are to the front end, and answers the function that
+// hides them again. A block that declares none, or whose scope is already
+// visible, changes nothing.
+func (g *gen) enterBlockTypes(block *ast.Block) func() {
+	return g.enterTypeScope(g.blockTypes[block])
+}
+
+// enterTypeScope makes scope and the scopes enclosing it visible, outermost
+// first, and answers the function that hides those it made visible. Any
+// already visible stay as they are.
+func (g *gen) enterTypeScope(scope *blockTypeDecls) func() {
+	var chain []*blockTypeDecls
+	for s := scope; s != nil; s = s.outer {
+		if !g.typeScopeActive(s) {
+			chain = append(chain, s)
+		}
+	}
+	for i := len(chain) - 1; i >= 0; i-- {
+		g.pushTypeScope(chain[i])
+	}
+	return func() {
+		for range chain {
+			g.popTypeScope()
+		}
+	}
+}
+
 // pushTypeScope makes one block's declarations visible to namedType.
 func (g *gen) pushTypeScope(scope *blockTypeDecls) {
 	g.typeScopes = append(g.typeScopes, scope)
@@ -370,6 +394,23 @@ func (g *gen) blockLocalNamed(name string) (*typeDef, bool) {
 		}
 	}
 	return nil, false
+}
+
+// blockLocalTemplate answers a generic type name from the innermost enclosing
+// block that declares it, or nil. A module-level type of the same name wins,
+// as it does for the checker: `Box{v: 1}` beside a module-level `Box<T>`
+// with field `v` and a block-local one with field `w` checks against the
+// module's.
+func (g *gen) blockLocalTemplate(name string) *genericTemplate {
+	if _, module := g.types[name]; module {
+		return nil
+	}
+	for i := len(g.typeScopes) - 1; i >= 0; i-- {
+		if tpl := g.typeScopes[i].templates[name]; tpl != nil {
+			return tpl
+		}
+	}
+	return nil
 }
 
 // blockLocalAlias answers a `typealias` name from the innermost enclosing block
@@ -406,7 +447,12 @@ func (g *gen) declaredAs(owner string, d *typeDef) bool {
 	if bl, isBlockLocal := g.blockLocalNamed(owner); isBlockLocal {
 		// A block-local declaration WINS its name for the extent of its block,
 		// so a module-level type of the same name is not what `owner` meant
-		// here even if one exists.
+		// here even if one exists. An instance of a block-local template
+		// is named by its template, as a module-level one is below.
+		if d != nil && d.genericOf != nil {
+			tpl, _, isTemplate := g.genericTemplateNamed(owner)
+			return isTemplate && tpl == d.genericOf
+		}
 		return bl == d
 	}
 	if g.types[owner] == d {

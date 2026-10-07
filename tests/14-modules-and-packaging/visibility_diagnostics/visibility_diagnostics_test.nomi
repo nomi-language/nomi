@@ -10,8 +10,8 @@ test "private functions cannot be imported" {
             "main" => """
                 import api.ping
 
-                fn main(): String {
-                  ping()
+                fn main() {
+                  _ = ping()
                 }
                 """,
             "api" => """
@@ -33,8 +33,8 @@ test "private types cannot be imported through public modules" {
             "main" => """
                 import api.Hidden
 
-                fn main(): Hidden {
-                  Hidden{name: "Ada"}
+                fn main() {
+                  _ = Hidden{name: "Ada"}
                 }
                 """,
             "api" => """
@@ -56,9 +56,9 @@ test "private helpers are hidden from imported modules" {
             "main" => """
                 import api.{self, Widget}
 
-                fn main(): String {
+                fn main() {
                   w: Widget = api.make("Ada")
-                  api.secret(w)
+                  _ = api.secret(w)
                 }
                 """,
             "api" => """

@@ -8,7 +8,7 @@ import (
 // element as a record over the marker's descriptor.
 func TestIRMarker_ContainerRetains(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `type Ready
-fn main(): List<Ready> { [Ready] }
+fn main() { _ = [Ready] }
 `)
 	if err != nil {
 		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
@@ -30,7 +30,7 @@ fn main(): List<Ready> { [Ready] }
 func TestIRMarker_ZeroSizedEnumPayloadPreservesFallback(t *testing.T) {
 	p, err := AnalyzeSource("main.nomi", `type Ready
 enum State { Present Ready; Missing }
-fn main(): State { State.Present(Ready) }
+fn main() { _ = State.Present(Ready) }
 `)
 	if err != nil {
 		t.Fatal(err)

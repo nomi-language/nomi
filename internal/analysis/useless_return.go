@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -30,54 +29,43 @@ const UselessReturnPrefix = "this `return` does nothing"
 // value. A `concurrent` block, a binding's `else`, a group's `setup` and any
 // statement before the last are not tail position.
 func CheckUselessReturns(nodes []ast.Node) []TypeError {
-	u := uselessReturns{seen: map[uintptr]bool{}}
+	u := uselessReturns{}
+	// The derive and Debug passes share type annotations among nodes, so a
+	// node can be met twice; each one is checked once.
+	seen := map[ast.Node]bool{}
 	for _, n := range nodes {
-		u.walk(reflect.ValueOf(n))
+		ast.Inspect(n, func(n ast.Node) bool {
+			if seen[n] {
+				return false
+			}
+			seen[n] = true
+			u.visit(n)
+			return true
+		})
 	}
 	return u.errs
 }
 
 type uselessReturns struct {
-	seen map[uintptr]bool
 	errs []TypeError
 }
 
-// walk visits every body reachable from v.
-func (u *uselessReturns) walk(v reflect.Value) {
-	switch v.Kind() {
-	case reflect.Interface:
-		if !v.IsNil() {
-			u.walk(v.Elem())
+// visit checks n's own body, when n has one.
+func (u *uselessReturns) visit(n ast.Node) {
+	switch n := n.(type) {
+	case *ast.FuncDef:
+		if !n.AutoSynth {
+			u.body(n.Body, fmt.Sprintf("`%s`", n.Name), false)
 		}
-	case reflect.Ptr:
-		if v.IsNil() || u.seen[v.Pointer()] {
-			return
+	case *ast.InterfaceMethod:
+		if b, ok := n.Body.(*ast.Block); ok {
+			u.body(b, fmt.Sprintf("`%s`", n.Name), false)
 		}
-		u.seen[v.Pointer()] = true
-		switch n := v.Interface().(type) {
-		case *ast.FuncDef:
-			if !n.AutoSynth {
-				u.body(n.Body, fmt.Sprintf("`%s`", n.Name), false)
-			}
-		case *ast.InterfaceMethod:
-			if b, ok := n.Body.(*ast.Block); ok {
-				u.body(b, fmt.Sprintf("`%s`", n.Name), false)
-			}
-		case *ast.Lambda:
-			u.body(n.Body, "this lambda", false)
-		case *ast.TestDecl:
-			if !n.Group {
-				u.body(n.Body, fmt.Sprintf("test %q", n.Name), true)
-			}
-		}
-		u.walk(v.Elem())
-	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			u.walk(v.Field(i))
-		}
-	case reflect.Slice, reflect.Array:
-		for i := 0; i < v.Len(); i++ {
-			u.walk(v.Index(i))
+	case *ast.Lambda:
+		u.body(n.Body, "this lambda", false)
+	case *ast.TestDecl:
+		if !n.Group {
+			u.body(n.Body, fmt.Sprintf("test %q", n.Name), true)
 		}
 	}
 }

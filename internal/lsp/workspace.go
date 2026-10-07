@@ -45,6 +45,7 @@ func (s *Server) startBackground() {
 // scanWorkspace indexes the workspace's closed files, then queues each for
 // a diagnostics pass.
 func (s *Server) scanWorkspace() {
+	defer recoverPanic("scanning the workspace", nil)
 	uris := s.docs.IndexWorkspace(s.bg)
 	s.queueClosedDiagnostics(uris...)
 }
@@ -105,9 +106,17 @@ func (s *Server) runClosedDiagnostics() {
 		if !s.waitForQuiet() {
 			return
 		}
-		if snap := s.docs.AnalyzeClosed(uri); snap != nil {
-			s.publishClosed(snap)
-		}
+		s.closedDiagnostics(uri)
+	}
+}
+
+// closedDiagnostics analyzes and publishes one closed file. A panic is
+// logged and the queue moves on (recover.go).
+func (s *Server) closedDiagnostics(uri string) {
+	defer recoverPanic("analyzing closed file "+uri, nil)
+	fault("closed")
+	if snap := s.docs.AnalyzeClosed(uri); snap != nil {
+		s.publishClosed(snap)
 	}
 }
 

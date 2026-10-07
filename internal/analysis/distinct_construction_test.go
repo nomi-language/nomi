@@ -36,6 +36,7 @@ func TestDistinctCtor_AcceptedForms(t *testing.T) {
 		`a: Expired = Expired`,
 		`a: Pair = Pair(1, "x")`,
 		`a: Pair = Pair((1, "x"))`,
+		`a: Pair = (1, "x") |> Pair()`,
 		`a: Callback = Callback(|s| s)`,
 		`a: Tags = Tags(["a"])`,
 		`a: Shape = Shape.Id(5)`,
@@ -63,6 +64,9 @@ func TestDistinctCtor_RejectionsNameTheMistakeAndTheForm(t *testing.T) {
 		{`5 |> Expired()`, "Expired is a zero-sized type and takes no arguments; write Expired"},
 		{`Shape.Expired()`, "Shape.Expired is a zero-sized variant and takes no arguments; write Shape.Expired"},
 		{`Tags(5)`, "Tags wraps List<String>, so Tags(...) takes a List<String>; got Int"},
+		{`("x", 1) |> Pair()`, "Pair wraps (Int, String), so Pair(...) takes a (Int, String); got (String, Int)"},
+		{`1 |> Pair()`, "Pair wraps (Int, String), so Pair(...) takes a (Int, String); got Int"},
+		{`1 |> Pair("x")`, "Pair takes the piped value as its only argument, got 1 more"},
 	} {
 		src := distinctCtorDecls + "fn main() {\n  _ = " + tc.expr + "\n}\n"
 		_, errs := checkSource(src)

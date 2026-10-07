@@ -21,6 +21,7 @@ package irbuild
 // `!=` is `ir.Not` over the same answer.
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -290,6 +291,12 @@ func (bl *irScalarBuilder) bareVariantOwnKind(n ast.Node) (kind, bool) {
 	}
 	args, ok := bl.g.checkedPreludeArgs(a, sym)
 	if !ok {
+		// The type the checker gave this value, once inference solved it
+		// (`if c { None } else { Some(2.5) }` makes this None a
+		// Maybe<Float>).
+		if k, solved := bl.g.recordedPreludeKind(n, a); solved {
+			return k, true
+		}
 		args = make([]kind, len(a.spec.params))
 		for i := range args {
 			args[i] = kindUnit
@@ -468,4 +475,44 @@ func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) 
 		impls = append(impls, nested...)
 	}
 	return impls, len(impls) != 0
+}
+
+// recordedPreludeKind is the instance of a's prelude enum the checker
+// recorded as n's type, when inference solved every argument, or false.
+func (g *gen) recordedPreludeKind(n ast.Node, a *preludeAnchor) (kind, bool) {
+	if g.fa == nil {
+		return kindInvalid, false
+	}
+	et, ok := resolvedEnumType(g.fa.ExprTypes[n])
+	if !ok || len(et.TypeArgs) != len(a.spec.params) {
+		return kindInvalid, false
+	}
+	args := make([]kind, len(et.TypeArgs))
+	for i, ty := range et.TypeArgs {
+		if irUnsolvedType(ty) {
+			return kindInvalid, false
+		}
+		args[i] = g.project(ty)
+		if !irRetainedPreludePayload(args[i]) {
+			return kindInvalid, false
+		}
+	}
+	k := g.preludeInstance(a, args)
+	if k.tag != tagNamed || k.def == nil || k.def.preludeOf == nil || k.def.preludeOf.spec != a.spec || !irRetainedEnumKind(k.def) {
+		return kindInvalid, false
+	}
+	return k, true
+}
+
+// resolvedEnumType is ty, through solved inference variables, as an enum.
+func resolvedEnumType(ty analysis.Type) (*analysis.EnumType, bool) {
+	for {
+		tv, isVar := ty.(*analysis.TypeVar)
+		if !isVar || tv.Resolved == nil {
+			break
+		}
+		ty = tv.Resolved
+	}
+	et, ok := ty.(*analysis.EnumType)
+	return et, ok && et != nil
 }

@@ -12,8 +12,8 @@ import (
 
 // ImportedFiles answers the absolute paths of the project files the program
 // whose entry is absPath loads, other than the entry and the stdlib: the files
-// its top-level imports reach, transitively, resolved from the root
-// CheckFile would use. It parses and resolves; it analyzes nothing. A file
+// its imports reach, at file level or in a block, transitively, resolved
+// from the root CheckFile would use. It parses and resolves; it analyzes nothing. A file
 // with syntax errors is walked as far as recovery reads it.
 func ImportedFiles(absPath string) ([]string, error) {
 	data, err := os.ReadFile(absPath)

@@ -17,7 +17,7 @@ impl Add<Numeric, Score> for Score {
  fn add(lhs: Score, rhs: Numeric): Score { _ = lhs; Score(Numeric.number(rhs)) }
 }
 fn calculate(): Score { Score(2) + Points(3) }
-fn main(): Score { calculate() }
+fn main() { _ = calculate() }
 `)
 	if err != nil {
 		t.Fatal(err)

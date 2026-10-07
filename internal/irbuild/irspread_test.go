@@ -8,7 +8,7 @@ func TestIRSpread_TourStructUpdates(t *testing.T) {
   age: Int
 }
 
-fn main(): User {
+fn main() {
   alice = User{name: "Alice", age: 30}
   older = {..alice, age: 31}
   dbg older

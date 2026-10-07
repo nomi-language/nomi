@@ -112,11 +112,11 @@ func TestRun_ABlockedProgramNamesItsFunctionAndRunsNothing(t *testing.T) {
 	diag := "this struct literal is not supported yet, so `fn count` cannot run"
 	var report bytes.Buffer
 	blocked.Write(&report, "main.nomi")
-	wantReport := "error: " + diag + "\n --> " + path + ":7:11\n  |\n7 |     weigh(Node{f: Map.empty()}) + 3\n  |           ^^^^\n"
+	wantReport := "error: " + diag + "\n --> " + path + ":7:11\n  |\n7 |     weigh(Node{f: Map.empty()}) + 3\n  |           ^^^^\n  = help: " + gapHint + "\n"
 	if report.String() != wantReport {
 		t.Fatalf("report:\n%s\nwant:\n%s", report.String(), wantReport)
 	}
-	if got := blocked.Error(); got != path+":7:11: "+diag {
+	if got := blocked.Error(); got != path+":7:11: "+diag+"\n"+path+":7:11: help: "+gapHint {
 		t.Fatalf("Error() = %q", got)
 	}
 	checked := vmhost.Check(path)
@@ -148,7 +148,8 @@ func TestTest_ReportsRunnableAndBlockedCasesInOrder(t *testing.T) {
 	if len(cases) != 3 {
 		t.Fatalf("%d cases, want 3: %+v", len(cases), cases)
 	}
-	diag := path + ":7:11: this struct literal is not supported yet, so `fn count` cannot run"
+	diag := path + ":7:11: this struct literal is not supported yet, so `fn count` cannot run\n" +
+		path + ":7:11: help: " + gapHint
 	if cases[0].Name != "counts" || len(cases[0].Blocked) != 1 || cases[0].Blocked[0] != diag ||
 		len(cases[0].Reasons) != 1 || cases[0].Reasons[0] != "[count] not retained: a struct literal: Node" ||
 		cases[0].BlockedPath != path || cases[0].BlockedLine != 7 {
@@ -167,7 +168,7 @@ func TestTest_ReportsRunnableAndBlockedCasesInOrder(t *testing.T) {
 	rep.Summary()
 	text := report.String()
 	for _, want := range []string{
-		"BLOCKED f :: counts " + diag + "\n",
+		"BLOCKED f :: counts " + strings.Replace(diag, "\n", "\n  ", 1) + "\n",
 		"f :: adds\n",
 		"f :: fails\n",
 		"1 passed, ",
@@ -196,7 +197,8 @@ func TestTest_JSONBlockedRecordLocatesItsBlocker(t *testing.T) {
 	if err := json.Unmarshal([]byte(first), &rec); err != nil {
 		t.Fatalf("%v: %s", err, first)
 	}
-	want := path + ":7:11: this struct literal is not supported yet, so `fn count` cannot run"
+	want := path + ":7:11: this struct literal is not supported yet, so `fn count` cannot run\n" +
+		path + ":7:11: help: " + gapHint
 	if rec["status"] != "blocked" || rec["message"] != want || rec["error_line"] != float64(7) {
 		t.Fatalf("blocked record %s", first)
 	}

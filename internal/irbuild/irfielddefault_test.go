@@ -8,7 +8,7 @@ func TestIRFieldDefault_TourUserDefaults(t *testing.T) {
   age: Int = 0
 }
 
-fn main(): User {
+fn main() {
   alice = User{name: "Alice", age: 30}
   dbg alice.name
   dbg alice.age
@@ -58,7 +58,7 @@ func TestIRFieldDefault_DerivedStructDebug(t *testing.T) {
   label: String = "origin \"0\""
   ok: Bool = True
 }
-fn main(): Point {
+fn main() {
   dbg Point{x: 3}
   dbg Point{x: -1, label: "a\nb", ok: False}
 }
@@ -79,7 +79,7 @@ enum Status {
 
 type Email String
 
-fn main(): Email {
+fn main() {
   dbg Point{x: 3, y: 4}
   dbg Status.Pending(7)
   dbg Email("a@b.com")

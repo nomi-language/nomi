@@ -24,8 +24,8 @@ fn main() {
             "main" => """
                 import api.ping
 
-                fn main(): String {
-                  ping()
+                fn main() {
+                  _ = ping()
                 }
                 """,
             "api" => """

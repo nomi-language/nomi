@@ -62,7 +62,8 @@ func TestRunCommand_VMRefusesABlockedProgram(t *testing.T) {
 		" --> " + entry + ":7:11\n" +
 		"  |\n" +
 		"7 |     weigh(Node{f: Map.empty()}) + 3\n" +
-		"  |           ^^^^\n"
+		"  |           ^^^^\n" +
+		"  = help: this is a gap in Nomi, not a mistake in your code; please report it at https://github.com/nomi-language/nomi/issues\n"
 	if termcolor.StripANSI(out) != want {
 		t.Fatalf("nomi run printed:\n%s\nwant the diagnostic `nomi check` gives:\n%s", out, want)
 	}
@@ -204,7 +205,8 @@ func TestTestCommand_VMJSONFormatReportsBlocked(t *testing.T) {
 	blocked := records[0]
 	if blocked.Type != "test" || blocked.File != path || blocked.Line != 16 || blocked.EndLine != 18 ||
 		blocked.Status != "blocked" || blocked.Message == nil ||
-		*blocked.Message != "main.nomi:7:11: this struct literal is not supported yet, so `fn count` cannot run" ||
+		*blocked.Message != "main.nomi:7:11: this struct literal is not supported yet, so `fn count` cannot run\n"+
+			"main.nomi:7:11: help: this is a gap in Nomi, not a mistake in your code; please report it at https://github.com/nomi-language/nomi/issues" ||
 		blocked.ErrorLine != 7 {
 		t.Errorf("blocked record = %+v", blocked)
 	}

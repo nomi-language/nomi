@@ -17,7 +17,7 @@ struct User {
 derive ToJson for User with ToJson.Options{rename_all: Camel}
 derive FromJson for User with FromJson.Options{rename_all: Camel}
 
-fn main(): Result<String, Json.ShapeError> {
+fn main(): Result<Unit, Json.ShapeError> {
   user = User{first_name: "Ada", age: 36}
   shape = User.to_json(user)
 
@@ -25,19 +25,19 @@ fn main(): Result<String, Json.ShapeError> {
 
   user = try User.from_json(shape)
 
-  Ok(
-    user
-    |> ToJson.to_json()
-    |> Json.encode()
-    |> dbg
-  )
+  user
+  |> ToJson.to_json()
+  |> Json.encode()
+  |> dbg
+
+  Ok(Unit)
 }
 `
 
 // The Tour's derive-and-encode program (interfaces-and-dispatch.md:L468).
 func TestIRJSON_TourDeriveRoundTrip(t *testing.T) {
 	verifyLambdaProgram(t, irJSONTourSrc, "dbg line 18: Json.encode(shape) = \"{\\\"firstName\\\":\\\"Ada\\\",\\\"age\\\":36}\"\n"+
-		"dbg line 26:\n  user\n  |> ToJson.to_json()\n  |> Json.encode()\n  = \"{\\\"firstName\\\":\\\"Ada\\\",\\\"age\\\":36}\"\n")
+		"dbg line 25:\n  user\n  |> ToJson.to_json()\n  |> Json.encode()\n  = \"{\\\"firstName\\\":\\\"Ada\\\",\\\"age\\\":36}\"\n")
 }
 
 // Derived ToJson/FromJson over scalar fields, through Json.encode and

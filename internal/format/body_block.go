@@ -48,8 +48,12 @@ type bodyBlockWalker struct {
 }
 
 var (
-	ifType         = reflect.TypeOf(ast.If{})
-	caseBranchType = reflect.TypeOf(ast.CaseBranch{})
+	funcDefType        = reflect.TypeOf(ast.FuncDef{})
+	lambdaType         = reflect.TypeOf(ast.Lambda{})
+	interfaceMethodTyp = reflect.TypeOf(ast.InterfaceMethod{})
+	testDeclType       = reflect.TypeOf(ast.TestDecl{})
+	ifType             = reflect.TypeOf(ast.If{})
+	caseBranchType     = reflect.TypeOf(ast.CaseBranch{})
 )
 
 // walk flattens every body reachable from v. A body is flattened before its

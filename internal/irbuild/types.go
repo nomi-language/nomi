@@ -889,16 +889,6 @@ func (g *gen) resolveDistinct(d *typeDef, t *ast.TypeDef) {
 		})
 		return
 	}
-	if k.def != nil && k.def.isEnum {
-		// `type T SomeEnum` would make T structurally a tagged struct, and
-		// `case` on a T would have to decide whether a variant pattern
-		// addresses T or the enum inside it. Refused rather than guessed.
-		d.refusals = append(d.refusals, refusal{
-			construct: "distinct over an enum",
-			detail:    "type " + d.nomi + " " + k.nomi(),
-		})
-		return
-	}
 	d.inner = k
 	d.note(k)
 }

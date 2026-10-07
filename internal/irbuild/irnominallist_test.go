@@ -9,7 +9,7 @@ func TestIRNominalList_TourMoneySort(t *testing.T) {
 
 derive Comparable for Money
 
-fn main(): List<Money> {
+fn main() {
   dbg Money{amount: 100} < Money{amount: 250}
 
   ms = [Money{amount: 3}, Money{amount: 1}, Money{amount: 2}]

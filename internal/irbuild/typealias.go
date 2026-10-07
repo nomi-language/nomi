@@ -129,7 +129,7 @@ func (g *gen) qualifiedAliasKind(t *ast.QualifiedType) (kind, bool) {
 	if !ok {
 		return kindInvalid, false
 	}
-	sym := resolvedScopeSymbol(moduleScopeOf(g.fa, qualifier), name)
+	sym := resolvedScopeSymbol(g.moduleScope(qualifier), name)
 	if sym == nil {
 		return kindInvalid, false
 	}

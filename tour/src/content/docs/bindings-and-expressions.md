@@ -13,7 +13,7 @@ For quick tracing, use `dbg`. It prints the source location, the expression,
 and the value's debug rendering, then returns the original value:
 
 ```nomi-run
-fn main(): String {
+fn main() {
     greeting = "Hello, Nomi!"
     dbg greeting
 }
@@ -95,7 +95,7 @@ fn double(n: Int): Int {
     n * 2
 }
 
-fn main(): Int {
+fn main() {
     dbg double(4)
 }
 
@@ -129,7 +129,7 @@ fn area(width: Int, height: Int): Int {
     width * height
 }
 
-fn main(): Int {
+fn main() {
     dbg area(6, 7)
 }
 
@@ -185,7 +185,7 @@ assignment: the expression on the right is matched by the binding shape on the
 left.
 
 ```nomi-run
-fn main(): Int {
+fn main() {
     name = "Nomi"
     port = 8080
     dbg name
@@ -206,7 +206,7 @@ Every ordinary binding must be read. If a value is intentionally ignored, bind
 it to `_` or a descriptive discard name such as `_unused_port`:
 
 ```nomi-run
-fn main(): String {
+fn main() {
     _ignored_count = 3
     dbg "done"
 }
@@ -252,7 +252,8 @@ fn main() {
 
 Only `Unit` results can stand alone before the end of a block. Write
 `_ = compute()` when discarding the value is intentional. If `compute()` were
-the final expression instead, `main` would need to return `Int`.
+the final expression instead, it would be `main`'s result, and `main` may
+only return `Unit` or `Result<Unit, E>`, so `_ = compute()` is still the fix.
 
 You can reuse a name within a scope: the new binding **shadows** the previous
 one, so from there the name refers to the new value. This isn't mutation — each
@@ -264,7 +265,7 @@ The natural shape is to **thread a value through successive refinements**, each
 line transforming the previous binding:
 
 ```nomi-run
-fn main(): String {
+fn main() {
     name = "  JANE  "
     name = String.trim(name)
     name = String.to_lower(name)
@@ -300,7 +301,7 @@ The canonical case: a constructor that takes no value of the type it
 returns, so the compiler has nothing to read from.
 
 ```nomi-run
-fn main(): Int {
+fn main() {
     // LHS annotation — `Map<String, Int>` tells the compiler what K and V
     // are. `Map.empty()` alone has nothing to infer from.
     scores: Map<String, Int> = Map.empty()
@@ -335,7 +336,7 @@ last expression. That makes it a tidy way to name intermediate steps without
 leaking them into the surrounding scope:
 
 ```nomi-run
-fn main(): Int {
+fn main() {
     total = {
         a = 10
         b = 20
@@ -359,7 +360,7 @@ conditional that replaces long `else if` chains. [Pattern Matching](/pattern-mat
 refutable `if Pattern = expr` form. Here, focus on the expression shape:
 
 ```nomi-run
-fn main(): String {
+fn main() {
     x = 42
 
     size = if x > 50 { "big" } else { "small" }
@@ -400,7 +401,7 @@ derived values:
 once max_retries = 3
 once timeout_ms = 30 * 1000
 
-fn main(): Int {
+fn main() {
     dbg max_retries
     dbg timeout_ms
 }

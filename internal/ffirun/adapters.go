@@ -20,8 +20,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
+	nomiast "github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/hostgen"
 )
 
@@ -60,24 +62,19 @@ func generateAdapters(projectRoot string, packages []DiscoveredPackage) (*wrappe
 		return nil, err
 	}
 	stdSource := hostgen.DirSource(filepath.Join(src.Dir, "std"))
-	userFiles := map[string]string{}
-	for _, pkg := range packages {
-		for _, e := range pkg.Exports {
-			addNomiFiles(userFiles, e.SourceFile)
-		}
-		for _, t := range pkg.Types {
-			addNomiFiles(userFiles, t.SourceFile)
-		}
-	}
-	ms, err := hostgen.LoadModules(func(module string) ([]byte, bool) {
-		if path, ok := userFiles[module]; ok {
-			data, err := os.ReadFile(path)
-			return data, err == nil
-		}
-		return stdSource(module)
+	mods := newAdapterModules(packages, func(user func(string) ([]byte, bool)) (*hostgen.Modules, error) {
+		return hostgen.LoadModules(func(module string) ([]byte, bool) {
+			if data, ok := user(module); ok {
+				return data, true
+			}
+			return stdSource(module)
+		})
 	})
-	if err != nil {
-		return nil, err
+	// A set over no declaring directory, for the generator: every binding
+	// carries the resolver of its own declaring set.
+	base := mods.set("")
+	if base.err != nil {
+		return nil, base.err
 	}
 
 	gt := newGoTypes(projectRoot)
@@ -112,7 +109,7 @@ func generateAdapters(projectRoot string, packages []DiscoveredPackage) (*wrappe
 	var bindings []hostgen.Binding
 	for _, pkg := range packages {
 		for _, e := range pkg.Exports {
-			b, err := exportBinding(gt, ms, pkg, e, mainScope)
+			b, err := exportBinding(gt, mods, pkg, e, mainScope)
 			if err != nil {
 				out.Refused = append(out.Refused, refusedBinding{Key: e.Key, Reason: err.Error()})
 				continue
@@ -120,7 +117,7 @@ func generateAdapters(projectRoot string, packages []DiscoveredPackage) (*wrappe
 			bindings = append(bindings, b)
 		}
 	}
-	g := hostgen.New("main", ms.Resolver(), handles)
+	g := hostgen.New("main", base.ms.Resolver(), handles)
 	g.SetOwnPackage("main")
 	g.SetPrefix(adapterPrefix)
 	g.Reserve(wrapperImportAliases...)
@@ -160,14 +157,10 @@ func generateAdapters(projectRoot string, packages []DiscoveredPackage) (*wrappe
 
 // exportBinding pairs one discovered export with its `host fn` declaration and
 // its Go signature.
-func exportBinding(gt *goTypes, ms *hostgen.Modules, pkg DiscoveredPackage, e DiscoveredExport, mainScope goScope) (hostgen.Binding, error) {
-	module := nomiModuleOfFile(e.SourceFile)
-	hf, err := hostgen.FindHostFunc(ms, module, e.Key)
+func exportBinding(gt *goTypes, mods *adapterModules, pkg DiscoveredPackage, e DiscoveredExport, mainScope goScope) (hostgen.Binding, error) {
+	hf, res, err := mods.hostFunc(e)
 	if err != nil {
-		var err2 error
-		if hf, err2 = hostgen.FindHostFunc(ms, module, module+"."+e.Key); err2 != nil {
-			return hostgen.Binding{}, err
-		}
+		return hostgen.Binding{}, err
 	}
 	if e.GoBody != "" {
 		sig, err := funcSig(e.ParamDecls, e.ReturnDecl)
@@ -178,7 +171,7 @@ func exportBinding(gt *goTypes, ms *hostgen.Modules, pkg DiscoveredPackage, e Di
 		if err != nil {
 			return hostgen.Binding{}, err
 		}
-		return hostgen.Binding{Key: e.Key, Go: &hostgen.GoFunc{Pkg: "main", Name: e.WrapperName, Type: ty}, Decl: hf}, nil
+		return hostgen.Binding{Key: e.Key, Go: &hostgen.GoFunc{Pkg: "main", Name: e.WrapperName, Type: ty}, Decl: hf, Res: res}, nil
 	}
 	p, err := gt.pkg(pkg.ImportPath)
 	if err != nil {
@@ -192,7 +185,139 @@ func exportBinding(gt *goTypes, ms *hostgen.Modules, pkg DiscoveredPackage, e Di
 	if err != nil {
 		return hostgen.Binding{}, err
 	}
-	return hostgen.Binding{Key: e.Key, Go: &hostgen.GoFunc{Pkg: pkg.ImportPath, Name: e.FuncName, Type: ty}, Decl: hf}, nil
+	return hostgen.Binding{Key: e.Key, Go: &hostgen.GoFunc{Pkg: pkg.ImportPath, Name: e.FuncName, Type: ty}, Decl: hf, Res: res}, nil
+}
+
+// adapterModules finds each export's `host fn` declaration and resolves the
+// types it names, in the project's Nomi files: every .nomi file beside a file
+// that declares a binding, by module name.
+//
+// hostgen names a module by its file's base name, which is also the qualifier
+// its types carry at run time, so a/util.nomi and b/util.nomi cannot share one
+// module set: one set would look b/util.nomi's bindings up in a/util.nomi,
+// which declares none of them. Each directory that declares a
+// binding gets its own set, which answers that directory's files first.
+type adapterModules struct {
+	files []string
+	open  func(source func(module string) ([]byte, bool)) (*hostgen.Modules, error)
+	sets  map[string]*adapterModuleSet
+}
+
+type adapterModuleSet struct {
+	ms  *hostgen.Modules
+	err error
+}
+
+// newAdapterModules indexes packages' declaring files. open starts a module
+// set over a source of the project's files: generation adds std to it, and
+// the Shapes hash does not.
+func newAdapterModules(packages []DiscoveredPackage, open func(source func(module string) ([]byte, bool)) (*hostgen.Modules, error)) *adapterModules {
+	a := &adapterModules{open: open, sets: map[string]*adapterModuleSet{}}
+	for _, pkg := range packages {
+		for _, e := range pkg.Exports {
+			a.files = append(a.files, e.SourceFile)
+		}
+		for _, t := range pkg.Types {
+			a.files = append(a.files, t.SourceFile)
+		}
+	}
+	return a
+}
+
+// set is the module set file's declarations are found in.
+func (a *adapterModules) set(file string) *adapterModuleSet {
+	dir := filepath.Dir(file)
+	if s, ok := a.sets[dir]; ok {
+		return s
+	}
+	index := map[string]string{}
+	addNomiFiles(index, file)
+	for _, f := range a.files {
+		addNomiFiles(index, f)
+	}
+	s := &adapterModuleSet{}
+	s.ms, s.err = a.open(func(module string) ([]byte, bool) {
+		path, ok := index[module]
+		if !ok {
+			return nil, false
+		}
+		data, err := os.ReadFile(path)
+		return data, err == nil
+	})
+	a.sets[dir] = s
+	return s
+}
+
+// hostFunc is the `host fn` declaration e's adapter is generated from, and a
+// resolver over the modules it can name.
+//
+// e.Key's module part is BindingModule's ("a/util"), and hostgen keys a
+// declaration by the file's base name ("util"), so the lookup swaps one for
+// the other.
+func (a *adapterModules) hostFunc(e DiscoveredExport) (hostgen.HostFunc, *hostgen.Resolver, error) {
+	s := a.set(e.SourceFile)
+	if s.err != nil {
+		return hostgen.HostFunc{}, nil, s.err
+	}
+	module := nomiModuleOfFile(e.SourceFile)
+	key := e.Key
+	if rest, ok := strings.CutPrefix(key, BindingModule(e.SourceFile)+"."); ok {
+		key = module + "." + rest
+	}
+	hf, err := hostgen.FindHostFunc(s.ms, module, key)
+	if err != nil {
+		var err2 error
+		if hf, err2 = hostgen.FindHostFunc(s.ms, module, module+"."+key); err2 != nil {
+			return hostgen.HostFunc{}, nil, err
+		}
+	}
+	return hf, s.ms.Resolver(), nil
+}
+
+// adapterShapesHashInput is every type shape the adapters convert, as the
+// Shapes hash field reads it: each export's parameter and result types,
+// resolved through the project's own declarations to every struct field,
+// enum variant and distinct's inner type they reach.
+//
+// The declaration text in the Discovered field names a struct and not its
+// fields, and the adapter writes the fields. Without this a field renamed in
+// a nested struct kept the cached adapter building the old one, and the
+// program failed reading the new field at run time instead of the binding
+// being refused at load. Only the project's files are loaded: a name they do
+// not declare (std's Duration, say) is a leaf, since std's declarations are
+// part of the compiler identity. A resolution error is recorded as its text,
+// so the hash still changes when the error does.
+func adapterShapesHashInput(packages []DiscoveredPackage) string {
+	mods := newAdapterModules(packages, func(source func(string) ([]byte, bool)) (*hostgen.Modules, error) {
+		return hostgen.NewModules(source), nil
+	})
+	var lines []string
+	for _, pkg := range packages {
+		for _, e := range pkg.Exports {
+			parts := []string{strconv.Quote(e.SourceFile), strconv.Quote(e.Key)}
+			hf, res, err := mods.hostFunc(e)
+			if err != nil {
+				parts = append(parts, "!"+strconv.Quote(err.Error()))
+				lines = append(lines, strings.Join(parts, "\t"))
+				continue
+			}
+			res.Unloaded = true
+			shape := func(t nomiast.TypeExpr) string {
+				s, err := res.Shape(hf.Module, t)
+				if err != nil {
+					return "!" + strconv.Quote(err.Error())
+				}
+				return s.Structure()
+			}
+			for _, p := range hf.Decl.Params {
+				parts = append(parts, shape(p.TypeAnnotation))
+			}
+			parts = append(parts, "->"+shape(hf.Decl.ReturnTypeExpr))
+			lines = append(lines, strings.Join(parts, "\t"))
+		}
+	}
+	sort.Strings(lines)
+	return strings.Join(lines, "\n")
 }
 
 // handleType is the Go type behind a registered host type: the wrapper's

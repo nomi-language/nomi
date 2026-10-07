@@ -38,6 +38,7 @@ func (bl *irScalarBuilder) returnBranches(t *ast.If, thenRet, elseRet *ast.Retur
 }
 
 func (bl *irScalarBuilder) returnBranch(arm *ir.Block, body *ast.Block, ret *ast.Return) (kind, bool) {
+	defer bl.g.enterBlockTypes(body)()
 	lead, tail := bl.g.irScalarBlock(body, "")
 	if tail != ret {
 		return kindInvalid, false

@@ -129,6 +129,135 @@ func TestScriptMode_ExtensionlessScript(t *testing.T) {
 	}
 }
 
+// An extensionless script binds Go as a `.nomi` file does: its own `gopkg`
+// and `go alias.Symbol` bindings, and those of a `.nomi` file it imports, are
+// found, so `nomi run`, `nomi <file>` and `nomi build` all reach the Go code.
+// Another extensionless file beside it is not part of its program, so a
+// broken binding there does not stop it.
+func TestScriptMode_ExtensionlessScriptBindsGo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; builds an FFI wrapper; -short")
+	}
+	env := buildEnv(t.TempDir())
+	bin := t.TempDir()
+	mustWrite(t, filepath.Join(bin, "go.mod"), "module upscript\n\ngo 1.26.3\n")
+	mustWrite(t, filepath.Join(bin, "shout", "shout.go"), `package shout
+
+import "strings"
+
+func Upper(s string) string { return strings.ToUpper(s) }
+
+func Exclaim(s string) string { return s + "!" }
+`)
+	mustWrite(t, filepath.Join(bin, "loud.nomi"), `gopkg "upscript/shout" as shout
+
+fn exclaim(s: String): String go shout.Exclaim
+
+pub fn loud(s: String): String {
+    exclaim(s)
+}
+`)
+	script := filepath.Join(bin, "up")
+	mustWrite(t, script, `#!/usr/bin/env nomi
+import std/io
+import loud
+
+gopkg "upscript/shout" as shout
+
+fn upper(s: String): String go shout.Upper
+
+fn main() {
+    io.print(upper("hi") |> loud.loud())
+}
+`)
+	mustWrite(t, filepath.Join(bin, "other"), `#!/usr/bin/env nomi
+gopkg "upscript/shout" as shout
+
+fn missing(s: String): String go shout.Missing
+
+fn main() {}
+`)
+
+	want := "HI!\n"
+	for _, args := range [][]string{{"run", script}, {script}} {
+		if r := runProcess(t, env, t.TempDir(), "", nomiBin, args...); r.exit != 0 || r.stdout != want {
+			t.Errorf("nomi %s: exit %d, stdout %q, want %q\nstderr:\n%s", strings.Join(args, " "), r.exit, r.stdout, want, r.stderr)
+		}
+	}
+	built := filepath.Join(t.TempDir(), "up")
+	if b := runProcess(t, env, t.TempDir(), "", nomiBin, "build", script, "-o", built); b.exit != 0 {
+		t.Fatalf("nomi build <script>: exit %d\n%s", b.exit, b.transcript())
+	}
+	if r := runProcess(t, env, t.TempDir(), "", built); r.exit != 0 || r.stdout != want {
+		t.Errorf("the built script: exit %d, stdout %q, want %q\nstderr:\n%s", r.exit, r.stdout, want, r.stderr)
+	}
+}
+
+// Two files declaring the same Go binding under the same module name share one
+// cached FFI wrapper, which rekeys an entry's own declarations to their bare
+// name only for the file it was generated from. Both orders below once failed
+// with "crosses into Go and the VM has no binding": a script run as hi at the
+// go.mod root and then as bin/hi reused the root's wrapper, and of hi.nomi and
+// bin/hi.nomi, discovery remembered only one file, so the other could not run
+// even from a cold cache.
+func TestScriptMode_GoBindingFromAFileSharingItsModuleName(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; builds FFI wrappers; -short")
+	}
+	src := `#!/usr/bin/env nomi
+import std/io
+
+gopkg "hiproj/shout" as shout
+
+fn upper(s: String): String go shout.Upper
+
+fn main() {
+    io.print(upper("hi"))
+}
+`
+	project := func(files ...string) string {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "go.mod"), "module hiproj\n\ngo 1.26.3\n")
+		mustWrite(t, filepath.Join(dir, "shout", "shout.go"), `package shout
+
+import "strings"
+
+func Upper(s string) string { return strings.ToUpper(s) }
+`)
+		for _, f := range files {
+			mustWrite(t, filepath.Join(dir, f), src)
+		}
+		return dir
+	}
+	const want = "HI\n"
+	run := func(env []string, dir string, args ...string) {
+		t.Helper()
+		if r := runProcess(t, env, dir, "", nomiBin, args...); r.exit != 0 || r.stdout != want {
+			t.Errorf("nomi %s: exit %d, stdout %q, want %q\nstderr:\n%s", strings.Join(args, " "), r.exit, r.stdout, want, r.stderr)
+		}
+	}
+
+	t.Run("script run from the go.mod root, then from bin", func(t *testing.T) {
+		env := buildEnv(t.TempDir())
+		dir := project("hi", filepath.Join("bin", "hi"))
+		run(env, dir, "run", "hi")
+		run(env, dir, "run", filepath.Join("bin", "hi"))
+		built := filepath.Join(t.TempDir(), "hi")
+		if b := runProcess(t, env, dir, "", nomiBin, "build", filepath.Join("bin", "hi"), "-o", built); b.exit != 0 {
+			t.Fatalf("nomi build bin/hi: exit %d\n%s", b.exit, b.transcript())
+		}
+		if r := runProcess(t, env, t.TempDir(), "", built); r.exit != 0 || r.stdout != want {
+			t.Errorf("the built bin/hi: exit %d, stdout %q, want %q\nstderr:\n%s", r.exit, r.stdout, want, r.stderr)
+		}
+	})
+	t.Run("hi.nomi and bin/hi.nomi, each the entry", func(t *testing.T) {
+		env := buildEnv(t.TempDir())
+		dir := project("hi.nomi", filepath.Join("bin", "hi.nomi"))
+		run(env, dir, "run", "hi.nomi")
+		run(env, dir, "run", filepath.Join("bin", "hi.nomi"))
+	})
+}
+
 // An extensionless script's project root is its own directory. In a module
 // subdirectory it is therefore not one of the module's entries and needs no
 // entry_points line, where a `.nomi` file there would.

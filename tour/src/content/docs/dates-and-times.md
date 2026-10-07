@@ -314,10 +314,10 @@ import {
     std/calendar.{DateTime}
 }
 
-fn main(): Result<DateTime, Error> {
+fn main(): Result<Unit, Error> {
     now = try DateTime.now_in("America/New_York")
     dbg now // example: dbg line 6: now = 2026-05-26T17:42:00-04:00[America/New_York]
-    Ok(now)
+    Ok(Unit)
 }
 
 ```

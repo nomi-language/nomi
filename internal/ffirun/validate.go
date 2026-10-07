@@ -3,7 +3,6 @@ package ffirun
 import (
 	"fmt"
 	goast "go/ast"
-	"go/build"
 	goparser "go/parser"
 	goprinter "go/printer"
 	gotoken "go/token"
@@ -24,12 +23,18 @@ func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPacka
 		if pkg.ImportPath == "" {
 			continue
 		}
-		dir, local, err := resolveLocalImportDir(projectRoot, pkg.ImportPath)
+		if !isFile(filepath.Join(projectRoot, "go.mod")) && !IsStdPackage(pkg.ImportPath) {
+			problems = append(problems, fmt.Sprintf(
+				"%s: Go package %q is not in the Go standard library, and no go.mod above the declaring file provides it",
+				packageLocation(projectRoot, pkg), pkg.ImportPath))
+			continue
+		}
+		src, readable, err := goSourceOf(projectRoot, pkg.ImportPath)
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("%s: %v", packageLocation(projectRoot, pkg), err))
 			continue
 		}
-		if !local {
+		if !readable {
 			if !goModProvidesImportPath(projectRoot, pkg.ImportPath) {
 				problems = append(problems, fmt.Sprintf(
 					"%s: Go package %q is not provided by the current Go module, a require, or a replace in go.mod; "+
@@ -38,7 +43,13 @@ func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPacka
 			}
 			continue
 		}
-		symbols, err := readGoPackageSymbols(dir)
+		if src.std && stdInternal(pkg.ImportPath) {
+			problems = append(problems, fmt.Sprintf(
+				"%s: Go package %q is internal to the Go standard library, which no other module may import",
+				packageLocation(projectRoot, pkg), pkg.ImportPath))
+			continue
+		}
+		symbols, err := src.symbols()
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("%s: %v", packageLocation(projectRoot, pkg), err))
 			continue
@@ -86,6 +97,12 @@ func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPacka
 
 func validateFunctionSignature(projectRoot, importPath string, exp DiscoveredExport, goFunc goFuncSymbol, boundTypes goTypeBindings, goStructs map[string]goStructSymbol) []string {
 	loc := bindingLocation(projectRoot, exp.SourceFile, exp.SourceLine, exp.SourceCol)
+	if goFunc.typ.TypeParams != nil && goFunc.typ.TypeParams.NumFields() > 0 {
+		return []string{fmt.Sprintf(
+			"%s: Go function %q in package %q is generic, and a binding needs one concrete signature; "+
+				"write a non-generic Go function that calls it and bind that",
+			loc, exp.FuncName, importPath)}
+	}
 	var problems []string
 	goParams, unsupported := goFieldListNomiTypes(goFunc.typ.Params, boundTypes, goFunc.imports, true)
 	for _, msg := range unsupported {
@@ -526,6 +543,39 @@ func goNodeString(n goast.Node) string {
 	return b.String()
 }
 
+// goSource is a Go package whose source ffirun reads: a package of the
+// project's own module or of a local `replace`, or a standard library package
+// in the toolchain's GOROOT (gostd.go).
+type goSource struct {
+	dir string
+	std bool
+}
+
+// goSourceOf is the source of importPath, and whether ffirun reads it. A
+// package of any other module is not read here; a named type from one is
+// type-checked by go/types (gotypesimport.go). A standard library package is
+// answered first and needs no go.mod.
+func goSourceOf(projectRoot, importPath string) (goSource, bool, error) {
+	if dir, ok := StdPackageDir(importPath); ok {
+		return goSource{dir: dir, std: true}, true, nil
+	}
+	dir, local, err := resolveLocalImportDir(projectRoot, importPath)
+	return goSource{dir: dir}, local, err
+}
+
+// symbols reads the package's top-level declarations. A standard library
+// package is read through the toolchain's build constraints (stdGoFiles).
+func (s goSource) symbols() (goPackageSymbols, error) {
+	if !s.std {
+		return readGoPackageSymbols(s.dir)
+	}
+	files, err := stdGoFiles(s.dir)
+	if err != nil {
+		return goPackageSymbols{}, fmt.Errorf("reading Go package directory %s: %w", s.dir, err)
+	}
+	return readGoPackageFiles(s.dir, files)
+}
+
 func resolveLocalImportDir(projectRoot, importPath string) (string, bool, error) {
 	f, err := parseProjectGoMod(projectRoot)
 	if err != nil {
@@ -564,7 +614,7 @@ func resolveLocalImportDir(projectRoot, importPath string) (string, bool, error)
 }
 
 func goModProvidesImportPath(projectRoot, importPath string) bool {
-	if isStandardLibraryImport(importPath) {
+	if IsStdPackage(importPath) {
 		return true
 	}
 	f, err := parseProjectGoMod(projectRoot)
@@ -585,11 +635,6 @@ func goModProvidesImportPath(projectRoot, importPath string) bool {
 		}
 	}
 	return false
-}
-
-func isStandardLibraryImport(importPath string) bool {
-	pkg, err := build.Default.Import(importPath, "", build.FindOnly)
-	return err == nil && pkg.Goroot
 }
 
 func importPathMatchesModule(importPath, modulePath string) bool {
@@ -667,6 +712,20 @@ func readGoPackageSymbols(dir string) (goPackageSymbols, error) {
 	if err != nil {
 		return goPackageSymbols{}, fmt.Errorf("reading Go package directory %s: %w", dir, err)
 	}
+	var names []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		names = append(names, name)
+	}
+	return readGoPackageFiles(dir, names)
+}
+
+// readGoPackageFiles reads the top-level declarations of the named files in
+// dir.
+func readGoPackageFiles(dir string, names []string) (goPackageSymbols, error) {
 	symbols := goPackageSymbols{
 		funcs:   make(map[string]goFuncSymbol),
 		types:   make(map[string]goTypeSymbol),
@@ -674,11 +733,7 @@ func readGoPackageSymbols(dir string) (goPackageSymbols, error) {
 	}
 	parsed := 0
 	fset := gotoken.NewFileSet()
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
+	for _, name := range names {
 		file, err := goparser.ParseFile(fset, filepath.Join(dir, name), nil, 0)
 		if err != nil {
 			return goPackageSymbols{}, fmt.Errorf("parsing Go package file %s: %w", filepath.Join(dir, name), err)

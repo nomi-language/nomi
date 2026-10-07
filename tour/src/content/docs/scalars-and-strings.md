@@ -14,7 +14,7 @@ Arithmetic, comparisons, and the logical operators `and` / `or` / `!` all read
 as you'd expect:
 
 ```nomi-run
-fn main(): Bool {
+fn main() {
     dbg 42 + 8
     dbg 10 - 3
     dbg 2 * 21
@@ -41,7 +41,7 @@ Numbers can use digit separators, alternate radices (hex / binary / octal), or
 scientific notation — different spellings of the same values:
 
 ```nomi-run
-fn main(): Float {
+fn main() {
     dbg 1_000_000
     dbg 0xFF
     dbg 0b1010
@@ -65,7 +65,7 @@ anywhere correctness matters more than speed). Decimal literals carry a `d`
 suffix:
 
 ```nomi-run
-fn main(): Decimal {
+fn main() {
     // Float carries base-2 imprecision
     dbg 0.1 + 0.2 == 0.3
 
@@ -136,6 +136,29 @@ any run of whitespace, and [`String.lines`](/reference/strings/#stringlines)
 splits into lines. The [`String` reference](/reference/strings/) lists the
 rest.
 
+`String.split`, `String.contains?`, `String.starts_with?`,
+`String.ends_with?`, `String.replace` and `String.find_all` look for any
+[`Matcher`](/reference/matcher/): a plain `String`, or a compiled
+[`Regex`](/typed-literals/#regex-literals).
+
+```nomi-run
+import std/regex.Regex
+
+fn main(): Result<Unit, String> {
+    text = "one, two,three"
+
+    dbg String.split(text, ",")
+    dbg text |> String.split(try Regex`,\s*`)
+    dbg String.contains?(text, try Regex`\d`)
+    Ok(Unit)
+}
+```
+<!-- expect
+dbg line 6: String.split(text, ",") = ["one", " two", "three"]
+dbg line 7: text |> String.split(try Regex`,\s*`) = ["one", "two", "three"]
+dbg line 8: String.contains?(text, try Regex`\d`) = False
+-->
+
 ## Text model
 
 Nomi's text model has three pieces:
@@ -162,7 +185,7 @@ Use [`String.to_codepoints`](/reference/strings/#stringto_codepoints) when you n
 lower-level scalar values:
 
 ```nomi-run
-fn main(): List<Int> {
+fn main() {
     dbg String.length("café")
     dbg Iter.to_list("café")
 
@@ -201,7 +224,7 @@ fn kind(cp: Codepoint): String {
     }
 }
 
-fn main(): List<String> {
+fn main() {
     "a, b"
     |> String.to_codepoints()
     |> Iter.map(kind)

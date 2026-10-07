@@ -24,7 +24,7 @@ fn classify(n: Int): String {
     }
 }
 
-fn main(): String {
+fn main() {
     dbg classify(0)
     dbg classify(-5)
     dbg classify(500)
@@ -56,7 +56,7 @@ fn area(s: Shape): Float {
     }
 }
 
-fn main(): Float {
+fn main() {
     dbg area(.Circle(3.0))
     dbg area(.Rectangle{width: 4.0, height: 5.0})
 }
@@ -91,7 +91,7 @@ fn name_for(id: Int): String {
     }
 }
 
-fn main(): String {
+fn main() {
     dbg name_for(1)
     dbg name_for(99)
 }
@@ -120,7 +120,7 @@ fn label_for(id: Int): String {
     }
 }
 
-fn main(): String {
+fn main() {
     dbg label_for(1)
     dbg label_for(9)
 }
@@ -153,7 +153,7 @@ fn calculate(x: Int, y: Int): Result<Int, String> {
 
 fn main() {
     dbg calculate(100, 5)
-    _ = dbg calculate(100, 0)
+    dbg calculate(100, 0)
 }
 
 ```
@@ -162,10 +162,12 @@ dbg line 16: calculate(100, 5) = Ok(11)
 dbg line 17: calculate(100, 0) = Err("div by zero")
 -->
 
-`main` may return a `Result` too, and then `try` works in it. A `main` that
-returns `Err` fails the program: it prints `error: ` and the error to stderr
-and exits with status 1. The error prints through `Display` when its type
-has one, so a `String` prints as itself, and through `Debug` otherwise.
+`main` may return `Result<Unit, E>` too, and then `try` works in it. A `main`
+that returns `Err` fails the program: it prints `error: ` and the error to
+stderr and exits with status 1. The error prints through `Display` when its
+type has one, so a `String` prints as itself, and through `Debug` otherwise.
+Any other return type for `main` is a compile error, because the program would
+drop the value: print it with `io.print` and return `Ok(Unit)` instead.
 
 ```nomi
 fn main(): Result<Unit, String> {
@@ -205,7 +207,7 @@ fn main() {
     (numbers, errors) = ["1", "x", "y"] |> Iter.map(|s| parse(s)) |> Result.partition()
 
     dbg numbers
-    _ = dbg errors
+    dbg errors
 }
 ```
 <!-- expect
@@ -249,7 +251,7 @@ fn port(text: Maybe<String>): Result<Int, String> {
     Ok(n)
 }
 
-fn main(): Result<Int, String> {
+fn main() {
     dbg port(Some("3000"))
     dbg port(Some("eighty"))
     dbg port(None)

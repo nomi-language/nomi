@@ -227,7 +227,7 @@ func (s *Server) publish(notify glsp.NotifyFunc, uri string) {
 // publishSnapshot publishes snap's diagnostics: the parser's and the
 // analysis's, then the static typed literals whose handler rejects them
 // (literal_eval.go), then an open document's code the compiler cannot lower,
-// as its last open or save found it (lowering.go). Neither part waits: what is
+// as its last lowering run found it (lowering.go). Neither part waits: what is
 // not cached yet is evaluated in the background, which publishes again.
 func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnapshot) {
 	// An open document's tokens come from the server's cache, which inlay

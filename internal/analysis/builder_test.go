@@ -360,7 +360,7 @@ func TestImplicitSelfModuleAliasResolvesFileMembers(t *testing.T) {
 	input := `
 pub fn answer(): Int { 42 }
 
-fn main(): Int {
+fn demo(): Int {
   sample.answer()
 }`
 	tokens := lexer.Lex(input)

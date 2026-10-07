@@ -3,6 +3,7 @@ package lsp
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/ffirun"
 	goast "go/ast"
 	goparser "go/parser"
 	gotoken "go/token"
@@ -167,8 +168,7 @@ func (s *Server) foreignGoDefinitionLocation(nodes []ast.Node, pos analysis.Pos,
 	if !ok || importPath == "" || goName == "" {
 		return nil, false
 	}
-	root := s.docs.FindProjectRoot(uriToPath(currentURI))
-	dir, ok := resolveLocalGoImportDir(root, importPath)
+	dir, ok := resolveLocalGoImportDir(uriToPath(currentURI), importPath)
 	if !ok {
 		return nil, false
 	}
@@ -196,8 +196,7 @@ func (s *Server) foreignGoPackageDefinitionLocation(nodes []ast.Node, pos analys
 }
 
 func (s *Server) foreignGoPackageDefinitionLocationForPath(importPath, currentURI string) (*protocol.Location, bool) {
-	root := s.docs.FindProjectRoot(uriToPath(currentURI))
-	dir, ok := resolveLocalGoImportDir(root, importPath)
+	dir, ok := resolveLocalGoImportDir(uriToPath(currentURI), importPath)
 	if !ok {
 		return nil, false
 	}
@@ -445,7 +444,20 @@ func positionWithinName(pos analysis.Pos, line, col int, name string) bool {
 // a `gopkg` handle any more — every std declaration is a `host fn` and every
 // Go implementation is a sibling package — so the branch had no import path
 // left to match. What remains is the `go.mod` reading a USER project needs.
-func resolveLocalGoImportDir(projectRoot, importPath string) (string, bool) {
+//
+// The go.mod read is the nearest one above the declaring file, the one the IR
+// builder resolves a `gopkg` through. It need not sit at the Nomi project
+// root: an extensionless script in a module's bin/ is rooted at bin/. A Go
+// standard library package needs no go.mod: its directory is in the Go
+// toolchain's GOROOT.
+func resolveLocalGoImportDir(declaringFile, importPath string) (string, bool) {
+	if dir, ok := ffirun.StdPackageDir(importPath); ok {
+		return dir, true
+	}
+	projectRoot, ok := ffirun.GoModRoot(declaringFile)
+	if !ok {
+		return "", false
+	}
 	f, err := parseGoMod(projectRoot)
 	if err != nil {
 		return "", false
@@ -491,52 +503,42 @@ func parseGoMod(projectRoot string) (*modfile.File, error) {
 	return modfile.Parse(goModPath, data, nil)
 }
 
+// findGoTopLevelDefinition finds the function or type name declares at the
+// top level of the Go package in dir. A package is one directory, so a
+// sub-directory is another package and is not searched: `math.Sqrt` is not
+// `math/big`'s `(*Float).Sqrt`. A method is not top-level.
 func findGoTopLevelDefinition(dir, name string) (string, int, int, bool) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", 0, 0, false
+	}
 	fset := gotoken.NewFileSet()
-	var outFile string
-	var outLine, outCol int
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
+			continue
+		}
+		file, err := goparser.ParseFile(fset, filepath.Join(dir, e.Name()), nil, goparser.SkipObjectResolution)
 		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			switch d.Name() {
-			case ".git", "vendor", "node_modules":
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(d.Name(), ".go") || strings.HasSuffix(d.Name(), "_test.go") {
-			return nil
-		}
-		file, err := goparser.ParseFile(fset, path, nil, 0)
-		if err != nil {
-			return nil
+			continue
 		}
 		for _, decl := range file.Decls {
 			switch v := decl.(type) {
 			case *goast.FuncDecl:
-				if v.Name != nil && v.Name.Name == name {
+				if v.Recv == nil && v.Name != nil && v.Name.Name == name {
 					p := fset.Position(v.Name.Pos())
-					outFile, outLine, outCol = p.Filename, p.Line, p.Column
-					return filepath.SkipAll
+					return p.Filename, p.Line, p.Column, true
 				}
 			case *goast.GenDecl:
 				for _, spec := range v.Specs {
 					if ts, ok := spec.(*goast.TypeSpec); ok && ts.Name != nil && ts.Name.Name == name {
 						p := fset.Position(ts.Name.Pos())
-						outFile, outLine, outCol = p.Filename, p.Line, p.Column
-						return filepath.SkipAll
+						return p.Filename, p.Line, p.Column, true
 					}
 				}
 			}
 		}
-		return nil
-	})
-	if err != nil && err != filepath.SkipAll {
-		return "", 0, 0, false
 	}
-	return outFile, outLine, outCol, outFile != ""
+	return "", 0, 0, false
 }
 
 func findGoPackageDeclaration(dir string) (string, int, int, string, bool) {

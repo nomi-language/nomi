@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
@@ -21,9 +22,10 @@ import (
 // foreign.
 //
 // The crossing names the key the binding is registered under, which is what
-// the VM's host table is keyed on: the declaring file's module name and the
-// declaration's name, or the bare name when the declaring file is the entry.
-// That is ffirun's externDeclKey and entryScopedKey. ffirun's wrapper
+// the VM's host table is keyed on: the declaring file's path under its Go
+// module (ffirun.BindingModule) and the declaration's name, or the bare name
+// when the declaring file is the entry. That is ffirun's externDeclKey and
+// entryScopedKey. ffirun's wrapper
 // generates an adapter per binding (internal/ffirun/adapters.go) that does
 // the conversion.
 //
@@ -76,7 +78,7 @@ func (g *gen) irHostFnRetain(ef *ast.ExternFunc, sig *fnSig) {
 		decline("no function shell")
 		return
 	}
-	if why := g.irHostCrossingBody(ef, sh, sig.result, g.irHostBindingKey(ef.Name)); why != "" {
+	if why := g.irHostCrossingBody(ef, sh, sig.result, g.irHostBindingKey(ef)); why != "" {
 		decline(why)
 	}
 }
@@ -107,12 +109,19 @@ func (g *gen) irHostCrossingBody(ef *ast.ExternFunc, sh *irFuncShell, result kin
 	return ""
 }
 
-// irHostBindingKey is the extern key a file-level Go-bound declaration named
-// name is registered under: bare in the entry unit, module-qualified by the
-// declaring file's name otherwise.
-func (g *gen) irHostBindingKey(name string) string {
+// irHostBindingKey is the extern key a file-level `host fn` is registered
+// under: bare in the entry unit, module-qualified otherwise. A Go-bound one is
+// qualified by the declaring file's path under its Go module
+// (ffirun.BindingModule), which is how the FFI wrapper keys its adapter, so
+// a/util.nomi and b/util.nomi in one program cross under different keys. A
+// host-table one is qualified by the file's base name, the key an embedder's
+// table names it by (vmhost.WithHosts).
+func (g *gen) irHostBindingKey(ef *ast.ExternFunc) string {
 	if g.fileUnit == 0 {
-		return name
+		return ef.Name
 	}
-	return strings.TrimSuffix(filepath.Base(g.nomiPath), ".nomi") + "." + name
+	if ef.ForeignName != "" || ef.GoBody != "" {
+		return ffirun.BindingModule(g.nomiPath) + "." + ef.Name
+	}
+	return strings.TrimSuffix(filepath.Base(g.nomiPath), ".nomi") + "." + ef.Name
 }

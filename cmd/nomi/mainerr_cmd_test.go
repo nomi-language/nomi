@@ -2,13 +2,13 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 // A `fn main` that returns `Err(e)` fails the run: `error: ` and e's text on
 // stderr, exit 1. The text is e's Display rendering when its type implements
-// Display, and its Debug rendering otherwise. `Ok`, and a main returning any
-// other type, exit 0.
+// Display, and its Debug rendering otherwise. `Ok(Unit)` exits 0.
 
 var mainErrPrograms = []struct {
 	name, src      string
@@ -66,10 +66,34 @@ fn main(): Result<Unit, String> {
   Ok(Unit)
 }
 `, "fine\n", "", 0},
-	{"a Maybe main is not a failure", `fn main(): Maybe<Int> {
-  None
 }
-`, "", "", 0},
+
+// TestRunCommand_MainReturningAValueIsACheckError: `nomi run` would drop an
+// `Ok` payload, so a main declared to return one fails the check, at the
+// return type, with a help line that says how to show the value.
+func TestRunCommand_MainReturningAValueIsACheckError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	env := buildEnv(t.TempDir())
+	dir := t.TempDir()
+	entry := filepath.Join(dir, "main.nomi")
+	mustWrite(t, entry, "fn main(): Result<String, String> {\n    Ok(\"hello\")\n}\n")
+	for _, command := range []string{"check", "run"} {
+		got := runProcess(t, env, dir, "", nomiBin, command, entry)
+		if got.exit != 1 || got.stdout != "" {
+			t.Fatalf("nomi %s: exit %d, stdout %q; want exit 1 and no output\n%s", command, got.exit, got.stdout, got.transcript())
+		}
+		for _, want := range []string{
+			"error: `main` must return `Unit` or `Result<Unit, E>`",
+			"main.nomi:1:12",
+			"help: to show a value, print it with `io.print` and return `Ok(Unit)`",
+		} {
+			if !strings.Contains(got.stderr, want) {
+				t.Fatalf("nomi %s stderr lacks %q:\n%s", command, want, got.stderr)
+			}
+		}
+	}
 }
 
 func TestRunCommand_MainErrFailsTheRun(t *testing.T) {

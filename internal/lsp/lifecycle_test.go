@@ -26,9 +26,10 @@ type rpcClient struct {
 }
 
 type published struct {
-	uri string
-	at  time.Time
-	n   int
+	uri  string
+	at   time.Time
+	n    int
+	msgs []string
 }
 
 // startRPC serves s over an in-memory pipe and initializes it with root as
@@ -43,7 +44,11 @@ func startRPC(t testing.TB, s *Server, root string) *rpcClient {
 			if req.Method == string(protocol.ServerTextDocumentPublishDiagnostics) && req.Params != nil {
 				var p protocol.PublishDiagnosticsParams
 				if json.Unmarshal(*req.Params, &p) == nil {
-					c.diags <- published{string(p.URI), time.Now(), len(p.Diagnostics)}
+					var msgs []string
+					for _, d := range p.Diagnostics {
+						msgs = append(msgs, d.Message)
+					}
+					c.diags <- published{string(p.URI), time.Now(), len(p.Diagnostics), msgs}
 				}
 			}
 			return nil, nil

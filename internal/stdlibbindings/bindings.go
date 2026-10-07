@@ -187,12 +187,18 @@ func Funcs() []Binding {
 		{Name: "random.os_state", Fn: stdrandom.FFIFromOS},
 		{Name: "random.unit_float_state", Fn: stdrandom.FFIUnitFloat},
 		{Name: "Regex.compile", Fn: stdregex.FFICompile},
+		{Name: "Regex.contained_in?", Fn: stdregex.FFIMatch},
 		{Name: "Regex.find", Fn: stdregex.FFIFind},
 		{Name: "Regex.find_all", Fn: stdregex.FFIFindAll},
+		{Name: "Regex.find_all_in", Fn: stdregex.FFIFindAll},
 		{Name: "Regex.match?", Fn: stdregex.FFIMatch},
 		{Name: "Regex.pattern", Fn: stdregex.FFIPattern},
+		{Name: "Regex.prefix_of?", Fn: stdregex.FFIPrefixOf},
 		{Name: "Regex.replace_all", Fn: stdregex.FFIReplaceAll},
+		{Name: "Regex.replace_in", Fn: stdregex.FFIReplaceLiteral},
 		{Name: "Regex.split", Fn: stdregex.FFISplit},
+		{Name: "Regex.split_in", Fn: stdregex.FFISplit},
+		{Name: "Regex.suffix_of?", Fn: stdregex.FFISuffixOf},
 	}
 }
 
@@ -200,17 +206,18 @@ func Funcs() []Binding {
 // order. Every row propagates panics (see Binding.PanicsPropagate).
 func RtFuncs() []Binding {
 	rows := []Binding{
-		{Name: "strings.String.contains?", Fn: rt.StringContains},
-		{Name: "strings.String.starts_with?", Fn: rt.StringStartsWith},
-		{Name: "strings.String.ends_with?", Fn: rt.StringEndsWith},
+		{Name: "strings.String.contained_in?", Fn: rt.StringContainedIn},
+		{Name: "strings.String.prefix_of?", Fn: rt.StringPrefixOf},
+		{Name: "strings.String.suffix_of?", Fn: rt.StringSuffixOf},
+		{Name: "strings.String.find_all_in", Fn: rt.StringFindAllIn},
 		{Name: "strings.String.to_upper", Fn: rt.StringToUpper},
 		{Name: "strings.String.to_lower", Fn: rt.StringToLower},
-		{Name: "strings.String.replace", Fn: rt.StringReplace},
+		{Name: "strings.String.replace_in", Fn: rt.StringReplaceIn},
 		{Name: "strings.String.trim", Fn: rt.StringTrim},
 		{Name: "strings.String.hash", Fn: rt.StringHash},
 		{Name: "strings.string_compare", Fn: rt.StringCompare},
 		{Name: "strings.String.to_int", Fn: rt.StringToInt},
-		{Name: "strings.String.split", Fn: rt.StringSplit},
+		{Name: "strings.String.split_in", Fn: rt.StringSplitIn},
 		{Name: "strings.String.words", Fn: rt.StringWords},
 		{Name: "strings.String.lines", Fn: rt.StringLines},
 		{Name: "strings.String.length", Fn: rt.StringLength},

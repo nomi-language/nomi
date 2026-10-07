@@ -32,7 +32,7 @@ struct User {
     age: Int = 0
 }
 
-fn main(): User {
+fn main() {
     alice = User{name: "Alice", age: 30}
     dbg alice.name
     dbg alice.age
@@ -72,7 +72,7 @@ struct Person {
     address: Address
 }
 
-fn main(): Person {
+fn main() {
     // The annotation names Person, and Person's field names Address.
     ada: Person = {name: "Ada", address: {street: "1 Main", city: "Bath"}}
     dbg ada
@@ -92,7 +92,7 @@ name and write the struct literally. The value carries its own structural
 type — `{x: Int, y: Int}` here — and field access works the same way:
 
 ```nomi-run
-fn main(): Int {
+fn main() {
     point = {x: 10, y: 20}
     dbg point
     dbg point.x + point.y
@@ -116,7 +116,7 @@ struct User {
     age: Int
 }
 
-fn main(): User {
+fn main() {
     alice = User{name: "Alice", age: 30}
     older = {..alice, age: 31}
     dbg older
@@ -157,7 +157,7 @@ struct Person {
     address: Address
 }
 
-fn main(): Person {
+fn main() {
     ada = Person{name: "Ada", address: {street: "1 Main", city: "Bath"}}
     dbg {..ada, address: {..ada.address, city: "NYC"}}
     dbg {..ada, address: {city: "NYC"}}
@@ -192,15 +192,13 @@ A tuple's slots are read by position with `.0`, `.1`, …, or by destructuring
 with a tuple pattern:
 
 ```nomi-run
-fn main(): Int {
+fn main() {
     pair = ("Ada", 37)
-    (name, score) = pair
+    (name, _) = pair
 
     dbg pair
     dbg name
     dbg pair.1
-
-    score
 }
 
 ```
@@ -227,7 +225,7 @@ struct User {
     age: Int
 }
 
-fn main(): List<String> {
+fn main() {
     [User{name: "Alan", age: 41}, User{name: "Ada", age: 36}]
     |> Iter.sort_by(.age)
     |> Iter.map(.name)
@@ -260,7 +258,7 @@ domain bugs at compile time:
 type Id Int
 type Email String
 
-fn main(): Int {
+fn main() {
     id = Id(42)
     dbg id
 
@@ -290,7 +288,7 @@ stateless adapters that need a real value to implement an interface:
 type Expired
 type Online
 
-fn main(): Online {
+fn main() {
     // Bare types are constructed by name — no parens, no fields.
     state = Expired
     dbg state
@@ -322,7 +320,7 @@ enum Shape {
     Rectangle {width: Float, height: Float}
 }
 
-fn main(): Shape {
+fn main() {
     dbg Direction.North
 
     c = Shape.Circle(3.0)
@@ -366,7 +364,7 @@ fn describe(d: Direction): String {
     }
 }
 
-fn main(): String {
+fn main() {
     // `describe` expects a Direction, so `.North` means `Direction.North`.
     dbg describe(.North)
     dbg describe(.West)
@@ -405,14 +403,12 @@ impl User {
     }
 }
 
-fn main(): String {
+fn main() {
     alice = User{first: "Ada", last: "Lovelace"}
     dbg User.full_name(alice)
 
     renamed = User.rename(alice, "Augusta")
     dbg User.full_name(renamed)
-
-    User.full_name(renamed)
 }
 
 ```
@@ -462,7 +458,7 @@ enum Event {
     embeds FocusLost
 }
 
-fn main(): List<Event> {
+fn main() {
     // Each event constructed standalone — no `Event.Click{...}` wrapping.
     // Structs use `{...}`; the bare type is just its name.
     events: List<Event> = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
@@ -502,7 +498,7 @@ fn record(index: Index, bucket: String, n: Int): Index {
     Map.put(index, bucket, [n, ..existing])
 }
 
-fn main(): Map<String, List<Int>> {
+fn main() {
     start: Index = Map.empty()
 
     result =

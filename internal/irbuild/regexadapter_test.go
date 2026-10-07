@@ -80,8 +80,8 @@ func TestAdapterWall_AdapterSignaturesNeedShims(t *testing.T) {
 	// The PAIRED POSITIVE: an rt-shaped signature over the same value types IS
 	// accepted, so the rows above are refused for their SHAPE and their PACKAGE
 	// and not because hostFnFor refuses everything in a test binary.
-	if _, why := hostFnFor(rt.StringContains); why != "" {
-		t.Fatalf("hostFnFor(rt.StringContains) refused with %q; this test has "+
+	if _, why := hostFnFor(rt.StringContainedIn); why != "" {
+		t.Fatalf("hostFnFor(rt.StringContainedIn) refused with %q; this test has "+
 			"no power and its negatives above mean nothing", why)
 	}
 	// Every one of those six declarations is bound through the shim. Read off

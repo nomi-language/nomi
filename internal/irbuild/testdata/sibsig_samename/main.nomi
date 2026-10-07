@@ -1,15 +1,13 @@
 // Two same-named sibling types mirrored into ONE package, exactly one of which
 // declares an `impl Equatable`, and both compared.
 //
-// The pinned answer is a SET OF ONE: `equality on a named type` for alpha's
-// Point and nothing for beta's. That is what makes this a discriminator rather
-// than a restatement — the two mirrors carry the Nomi name `Point` in both
-// owners' tables, so a lookup that resolved the owner by NAME would answer with
-// alpha's declaration for beta's type and refuse both, or with beta's for
-// alpha's and refuse neither. Only the declaration NODE separates them, and the
-// mirror carries the owner's node verbatim (foreign.go's importDef).
+// alpha's impl compares `x` only and beta's `==` is structural, so the answer
+// is `alpha = True` and `beta  = False`. Both mirrors carry the Nomi name
+// `Point`, so a lookup that resolved the owner by NAME would give both types
+// the same answer. Only the declaration NODE separates them, and the mirror
+// carries the owner's node verbatim (foreign.go's importDef).
 //
-// Refused as a whole, so it is never run.
+// TestSiblingFile_SameNamedTypesKeepTheirOwnEquality runs it.
 import {
     std/io
     alpha.{self, Point}

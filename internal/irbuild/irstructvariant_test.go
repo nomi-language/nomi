@@ -15,7 +15,7 @@ enum Shape {
   Rectangle {width: Float, height: Float}
 }
 
-fn main(): Shape {
+fn main() {
   dbg Direction.North
 
   c = Shape.Circle(3.0)
@@ -41,7 +41,7 @@ fn area(s: Shape): Float {
   }
 }
 
-fn main(): Float {
+fn main() {
   dbg area(.Circle(3.0))
   dbg area(.Rectangle{width: 4.0, height: 5.0})
 }

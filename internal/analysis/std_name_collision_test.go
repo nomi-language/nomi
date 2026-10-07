@@ -43,7 +43,7 @@ impl Task {
   }
 }
 
-fn main(): Int {
+fn demo(): Int {
   Task.spawn(4) |> Task.spawn_all()
 }`
 	errs := analyzeConcurrentRaw(src)
@@ -53,7 +53,7 @@ fn main(): Int {
 }
 
 func TestConcurrentScope_StdTaskSpawnBesideNoUserTask_Errors(t *testing.T) {
-	src := `fn main(): Int {
+	src := `fn demo(): Int {
   t = Task.spawn(|| 42)
   Task.await(t)
 }`
@@ -75,7 +75,7 @@ fn make(): Supervisor {
   Supervisor.new("root")
 }
 
-fn main(): String {
+fn demo(): String {
   make().name
 }`
 	if errs := analyzeBootScope(src); len(errs) != 0 {

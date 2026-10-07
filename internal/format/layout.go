@@ -1,6 +1,6 @@
 package format
 
-import "strings"
+import "bytes"
 
 // Render produces the final string for a Doc, given a max line width.
 // The algorithm: for each Group, try rendering it flat (Line -> alt,
@@ -8,14 +8,14 @@ import "strings"
 // width on the current line, commit to flat. Otherwise render broken:
 // each Line becomes a real newline + current indent.
 //
-// After the raw render, trailing spaces on every line are stripped.
-// Adjacent HardLines (used to preserve blank lines between statements)
-// otherwise leave indent-spaces on the blank line, producing ugly
-// trailing whitespace in the output.
+// Trailing spaces on every line are stripped, except those of Verbatim
+// text. Adjacent HardLines (used to preserve blank lines between statements)
+// otherwise leave indent-spaces on the blank line, producing ugly trailing
+// whitespace in the output.
 func Render(d Doc, width int) string {
-	var sb strings.Builder
-	render(&sb, d, 0, 0, noFlatGroup, nil, width, false)
-	return stripTrailingLineSpaces(sb.String())
+	var out renderOut
+	render(&out, d, 0, 0, noFlatGroup, nil, width, false)
+	return out.String()
 }
 
 // noFlatGroup is the sentinel for "no enclosing flat Group has set a
@@ -24,35 +24,41 @@ func Render(d Doc, width int) string {
 // whatever Nest contributions are legitimate from broken ancestors).
 const noFlatGroup = -1
 
-// stripTrailingLineSpaces removes spaces that appear immediately before a
-// newline or at the very end of the string. Does not touch tabs or other
-// whitespace — the formatter only emits spaces for indentation.
-func stripTrailingLineSpaces(s string) string {
-	if !strings.ContainsRune(s, ' ') {
-		return s
+// renderOut is the text a render writes. Spaces before a line break, or at
+// the end, are dropped as the break is written, back to the end of the last
+// Verbatim text: those are part of a string's value.
+type renderOut struct {
+	buf  bytes.Buffer
+	kept int
+}
+
+func (o *renderOut) WriteString(s string) { o.buf.WriteString(s) }
+
+func (o *renderOut) WriteByte(c byte) error {
+	if c == '\n' {
+		o.trim()
 	}
-	var sb strings.Builder
-	sb.Grow(len(s))
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] != '\n' {
-			continue
-		}
-		end := i
-		for end > start && s[end-1] == ' ' {
-			end--
-		}
-		sb.WriteString(s[start:end])
-		sb.WriteByte('\n')
-		start = i + 1
-	}
-	// Final chunk (no trailing newline).
-	end := len(s)
-	for end > start && s[end-1] == ' ' {
+	return o.buf.WriteByte(c)
+}
+
+// verbatim writes s and keeps its trailing spaces.
+func (o *renderOut) verbatim(s string) {
+	o.buf.WriteString(s)
+	o.kept = o.buf.Len()
+}
+
+func (o *renderOut) trim() {
+	b := o.buf.Bytes()
+	end := len(b)
+	for end > o.kept && b[end-1] == ' ' {
 		end--
 	}
-	sb.WriteString(s[start:end])
-	return sb.String()
+	o.buf.Truncate(end)
+}
+
+func (o *renderOut) String() string {
+	o.trim()
+	return o.buf.String()
 }
 
 // render walks the doc tree, tracking:
@@ -74,7 +80,7 @@ func stripTrailingLineSpaces(s string) string {
 //	broken    = true if the enclosing group has committed to broken mode
 //
 // Returns the new col after rendering d.
-func render(sb *strings.Builder, d Doc, col, indent, localBase int, tail Doc, width int, broken bool) int {
+func render(sb *renderOut, d Doc, col, indent, localBase int, tail Doc, width int, broken bool) int {
 	if d == nil {
 		return col
 	}
@@ -82,7 +88,11 @@ func render(sb *strings.Builder, d Doc, col, indent, localBase int, tail Doc, wi
 	case docNil:
 		return col
 	case docText:
-		sb.WriteString(v.s)
+		if v.keep {
+			sb.verbatim(v.s)
+		} else {
+			sb.WriteString(v.s)
+		}
 		return col + len(v.s)
 	case docLine:
 		if broken {

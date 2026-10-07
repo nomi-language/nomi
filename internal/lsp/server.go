@@ -42,7 +42,7 @@ type Server struct {
 	// (literal_eval.go).
 	literals literalEvals
 	// lowering holds the diagnostics for code the compiler cannot lower,
-	// found when a document is opened or saved (lowering.go).
+	// found when a document is opened, saved or edited (lowering.go).
 	lowering loweringChecks
 	// sched runs edited documents' analyses in the background.
 	sched analysisScheduler
@@ -249,7 +249,9 @@ func (s *Server) setTrace(ctx *glsp.Context, params *protocol.SetTraceParams) er
 // textDocumentDidOpen and textDocumentDidChange store the text and return.
 // The analysis runs in the background (docsched.go): at once for an opened
 // document, after analysisDelay for an edit. Diagnostics, import edges and
-// propagation to importing files follow from the finished analysis.
+// propagation to importing files follow from the finished analysis. The
+// lowering check runs in the background too: at once for an opened
+// document, after loweringDelay for an edit (lowering.go).
 func (s *Server) textDocumentDidOpen(ctx *glsp.Context, params *protocol.DidOpenTextDocumentParams) error {
 	uri := string(params.TextDocument.URI)
 	s.docs.SetText(uri, params.TextDocument.Text)
@@ -258,8 +260,9 @@ func (s *Server) textDocumentDidOpen(ctx *glsp.Context, params *protocol.DidOpen
 	return nil
 }
 
-// textDocumentDidSave lowers the saved text in the background, for the
-// diagnostics `nomi check` adds to the front end's (lowering.go).
+// textDocumentDidSave lowers the saved text in the background at once, for
+// the diagnostics `nomi check` adds to the front end's (lowering.go),
+// instead of after the last edit's delay.
 func (s *Server) textDocumentDidSave(ctx *glsp.Context, params *protocol.DidSaveTextDocumentParams) error {
 	uri := string(params.TextDocument.URI)
 	text := ""
@@ -285,6 +288,7 @@ func (s *Server) textDocumentDidChange(ctx *glsp.Context, params *protocol.DidCh
 	}
 	if changed {
 		s.scheduleAnalysis(uri, s.sched.editDelay(), ctx.Notify)
+		s.scheduleLowering(uri)
 	}
 	return nil
 }
@@ -300,11 +304,7 @@ func (s *Server) textDocumentDidClose(ctx *glsp.Context, params *protocol.DidClo
 	s.pipeTokens.forget(uri)
 	s.lines.forget(uri)
 	s.occurrences.forget(uri)
-	s.sched.publishMu.Lock()
-	onDisk := s.docs.Close(uri)
-	// A reopened document counts its versions from 1 again.
-	delete(s.sched.published, uri)
-	s.sched.publishMu.Unlock()
+	onDisk := s.closeDocument(uri)
 	if onDisk && s.notify != nil {
 		s.queueClosedDiagnostics(uri)
 		return nil
@@ -314,6 +314,17 @@ func (s *Server) textDocumentDidClose(ctx *glsp.Context, params *protocol.DidClo
 		Diagnostics: []protocol.Diagnostic{},
 	})
 	return nil
+}
+
+// closeDocument drops uri's analysis and reports whether the file is on
+// disk. The unlock is deferred: Close may index the disk text, and a panic
+// there must not leave publishMu held (recover.go).
+func (s *Server) closeDocument(uri string) bool {
+	s.sched.publishMu.Lock()
+	defer s.sched.publishMu.Unlock()
+	// A reopened document counts its versions from 1 again.
+	delete(s.sched.published, uri)
+	return s.docs.Close(uri)
 }
 
 func (s *Server) textDocumentDocumentSymbol(ctx *glsp.Context, params *protocol.DocumentSymbolParams) (any, error) {
@@ -365,6 +376,7 @@ func (s *Server) propagateAsync(uri string) {
 	s.propagateMu.Unlock()
 
 	go func() {
+		defer recoverPanic("propagating a change to "+uri, nil)
 		// Fast-path bail: if a newer propagation has already cancelled
 		// us before we even start the walk, skip the (potentially
 		// expensive) PropagateChange entirely. The publish-loop check
@@ -467,6 +479,7 @@ func (s *Server) propagateNewFile(newURI string) {
 		return
 	}
 	go func() {
+		defer recoverPanic("propagating new file "+newURI, nil)
 		s.queueClosedDiagnostics(s.docs.Importers(newURI)...)
 		affected := s.docs.ReanalyzeOpen(newURI)
 		for _, doc := range affected {

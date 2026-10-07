@@ -36,7 +36,7 @@ impl Add<Days, Day> for Day {
   }
 }
 
-fn main(): Int {
+fn main() {
   score = Score(2) + Score(3)
   day = Day(10) + Days(4)
 

@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -316,83 +315,58 @@ type importBindingUseKey struct {
 }
 
 func markQualifiedObjectUses(nodes []ast.Node, byName map[string]int, used []bool) {
-	var walk func(reflect.Value)
-	walk = func(v reflect.Value) {
-		if !v.IsValid() {
-			return
-		}
-		for v.Kind() == reflect.Interface || v.Kind() == reflect.Pointer {
-			if v.IsNil() {
-				return
-			}
-			if v.CanInterface() {
-				if fa, ok := v.Interface().(*ast.FieldAccess); ok {
-					switch obj := fa.Object.(type) {
-					case *ast.Ident:
-						if !IsSynthesizedLine(obj.Line) {
-							if i, ok := byName[obj.Name]; ok {
-								used[i] = true
-							}
-						}
-					case *ast.TypeIdent:
-						if !IsSynthesizedLine(obj.Line) {
-							if i, ok := byName[obj.Name]; ok {
-								used[i] = true
-							}
+	for _, n := range nodes {
+		ast.Inspect(n, func(n ast.Node) bool {
+			if fa, ok := n.(*ast.FieldAccess); ok {
+				switch obj := fa.Object.(type) {
+				case *ast.Ident:
+					if !IsSynthesizedLine(obj.Line) {
+						if i, ok := byName[obj.Name]; ok {
+							used[i] = true
 						}
 					}
-					// A dotted name is the qualifier of `Probe.Reading.Steady`
-					// whole, and the switch above only ever sees its leading
-					// segment — which is not what the import bound, and on its
-					// own is not a name the file has. Mark the dotted prefixes
-					// too, so the import that made the qualifier reachable
-					// counts as used.
-					if fa.Field != nil && !IsSynthesizedLine(fa.Field.Line) {
-						if path := fieldAccessPath(fa); len(path) >= 3 {
-							for end := 2; end < len(path); end++ {
-								if i, ok := byName[strings.Join(path[:end], ".")]; ok {
-									used[i] = true
-								}
-							}
-						}
-					}
-				}
-				// A LITERAL-ATTACH HEAD IS NOT A FieldAccess. `shapes.Circle{r: 1}`
-				// and `shapes.Shape.Ring{r: 2}` are parsed as a StructLit whose
-				// TypeName is a QualifiedType holding the whole dotted prefix in
-				// one string, so the FieldAccess arms above never see the module
-				// at all and the import read `unused`. Mark the prefix and every
-				// dotted head inside it, the same set the FieldAccess path marks.
-				if qt, ok := v.Interface().(*ast.QualifiedType); ok && !IsSynthesizedLine(qt.ModuleLine) {
-					if i, ok := byName[qt.Module]; ok {
-						used[i] = true
-					}
-					segs := strings.Split(qt.Module, ".")
-					for end := 1; end < len(segs); end++ {
-						if i, ok := byName[strings.Join(segs[:end], ".")]; ok {
+				case *ast.TypeIdent:
+					if !IsSynthesizedLine(obj.Line) {
+						if i, ok := byName[obj.Name]; ok {
 							used[i] = true
 						}
 					}
 				}
-			}
-			v = v.Elem()
-		}
-		switch v.Kind() {
-		case reflect.Struct:
-			for i := 0; i < v.NumField(); i++ {
-				field := v.Field(i)
-				if field.CanInterface() {
-					walk(field)
+				// A dotted name is the qualifier of `Probe.Reading.Steady`
+				// whole, and the switch above only ever sees its leading
+				// segment — which is not what the import bound, and on its
+				// own is not a name the file has. Mark the dotted prefixes
+				// too, so the import that made the qualifier reachable
+				// counts as used.
+				if fa.Field != nil && !IsSynthesizedLine(fa.Field.Line) {
+					if path := fieldAccessPath(fa); len(path) >= 3 {
+						for end := 2; end < len(path); end++ {
+							if i, ok := byName[strings.Join(path[:end], ".")]; ok {
+								used[i] = true
+							}
+						}
+					}
 				}
 			}
-		case reflect.Slice, reflect.Array:
-			for i := 0; i < v.Len(); i++ {
-				walk(v.Index(i))
+			// A LITERAL-ATTACH HEAD IS NOT A FieldAccess. `shapes.Circle{r: 1}`
+			// and `shapes.Shape.Ring{r: 2}` are parsed as a StructLit whose
+			// TypeName is a QualifiedType holding the whole dotted prefix in
+			// one string, so the FieldAccess arms above never see the module
+			// at all and the import read `unused`. Mark the prefix and every
+			// dotted head inside it, the same set the FieldAccess path marks.
+			if qt, ok := n.(*ast.QualifiedType); ok && !IsSynthesizedLine(qt.ModuleLine) {
+				if i, ok := byName[qt.Module]; ok {
+					used[i] = true
+				}
+				segs := strings.Split(qt.Module, ".")
+				for end := 1; end < len(segs); end++ {
+					if i, ok := byName[strings.Join(segs[:end], ".")]; ok {
+						used[i] = true
+					}
+				}
 			}
-		}
-	}
-	for _, n := range nodes {
-		walk(reflect.ValueOf(n))
+			return true
+		})
 	}
 }
 

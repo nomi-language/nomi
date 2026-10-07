@@ -154,7 +154,7 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 	// call solves them from the instance this returns.
 	want = instantiateUnboundCalleeParams(want, c.fnTypeParams, c).(*FuncType)
 	subs := map[*TypeParam_]Type{}
-	unifyErr := c.unify(ft, want, subs)
+	unifyErr := c.unifyInto(want, ft, subs)
 	var unsolved []*TypeParam_
 	for _, tp := range own {
 		got, bound := subs[tp]

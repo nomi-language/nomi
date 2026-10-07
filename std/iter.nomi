@@ -368,6 +368,23 @@ impl Iter<T> {
         Map.map_values(bucketed, |v| Iter.reverse(v))
     }
 
+    /// Counts how often each element occurs. The map's keys are the distinct
+    /// elements, in the order each first appears; `group_by` keeps the
+    /// elements themselves instead of their count. Materializing.
+    //
+    //! assert Iter.frequencies(["a", "b", "a"]) == {"a" => 2, "b" => 1}
+    //! assert Iter.frequencies("banana") |> Map.keys() == ["b", "a", "n"]
+    //! assert Iter.frequencies([3, 1, 3, 3]) |> Map.get(3) == Some(3)
+    //!
+    //! empty: List<Int> = []
+    //! assert Iter.frequencies(empty) |> Map.size() == 0
+    //
+    pub fn frequencies<T>(source: Iter<T>): Map<T, Int> {
+        reduce(source, |acc: Map<T, Int> = Map.empty(), item|
+            Map.put(acc, item, Maybe.with_default(Map.get(acc, item), 0) + 1)
+        )
+    }
+
     /// Consumes the iterator and materializes its elements into a List. A `List`
     /// argument is returned as-is (O(1) — lists are immutable); any other iterator
     /// is folded into a fresh List.

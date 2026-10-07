@@ -1,7 +1,6 @@
 package analysis
 
 import (
-	"reflect"
 	"sync/atomic"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -147,55 +146,23 @@ func isTypeKind(k SymbolKind) bool {
 	return false
 }
 
-// WalkNodes reflectively visits every ast.Node reachable from n, calling fn on
-// each. It recurses through pointers, interfaces, structs, and slices/arrays
-// uniformly — crucially descending into struct-VALUED elements, not just
-// Node-typed ones, because key AST containers are slices of plain structs that
-// hold their Node children one level down (`[]CaseBranch`, `[]StructFieldVal`,
-// `[]MapEntry`). A per-pointer visited set guards against cycles. A reflection
-// walk avoids per-node-type maintenance as the AST grows, at the cost of
-// touching every reachable value; acceptable here because it runs only per
-// code-action request on a single file's AST.
+// WalkNodes calls fn on n and every node beneath it (ast.Inspect), once
+// each: the derive and Debug passes share type annotations among nodes, and a
+// node met a second time is skipped with its subtree.
 func WalkNodes(n ast.Node, fn func(ast.Node)) {
 	if n == nil {
 		return
 	}
 	walkNodesCalls.Add(1)
-	walkNodesValue(reflect.ValueOf(n), fn, map[uintptr]bool{})
-}
-
-func walkNodesValue(v reflect.Value, fn func(ast.Node), seen map[uintptr]bool) {
-	switch v.Kind() {
-	case reflect.Ptr:
-		if v.IsNil() {
-			return
+	seen := map[ast.Node]bool{}
+	ast.Inspect(n, func(n ast.Node) bool {
+		if seen[n] {
+			return false
 		}
-		ptr := v.Pointer()
-		if seen[ptr] {
-			return
-		}
-		seen[ptr] = true
-		if node, ok := v.Interface().(ast.Node); ok {
-			fn(node)
-		}
-		walkNodesValue(v.Elem(), fn, seen)
-	case reflect.Interface:
-		if v.IsNil() {
-			return
-		}
-		walkNodesValue(v.Elem(), fn, seen)
-	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			f := v.Field(i)
-			if f.CanInterface() {
-				walkNodesValue(f, fn, seen)
-			}
-		}
-	case reflect.Slice, reflect.Array:
-		for j := 0; j < v.Len(); j++ {
-			walkNodesValue(v.Index(j), fn, seen)
-		}
-	}
+		seen[n] = true
+		fn(n)
+		return true
+	})
 }
 
 // walkNodesCalls counts WalkNodes calls.

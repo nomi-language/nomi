@@ -57,7 +57,7 @@ fn main() {
 
 func TestShadowing_SameScopeBinding_Allowed(t *testing.T) {
 	_, errs := checkSource(`
-fn main(): Int {
+fn demo(): Int {
   x = 1
   x = 2
   x
@@ -95,7 +95,7 @@ func TestShadowing_ModuleOnce_Allowed(t *testing.T) {
 	_, errs := checkSource(`
 once x = 1
 
-fn main(): Int {
+fn demo(): Int {
   x = 2
   x
 }
@@ -118,7 +118,7 @@ fn apply(): Int {
 
 func TestShadowing_NestedFunctionBinding_Allowed(t *testing.T) {
 	_, errs := checkSource(`
-fn main(): Int {
+fn demo(): Int {
   x = 1
 
   fn helper(): Int {

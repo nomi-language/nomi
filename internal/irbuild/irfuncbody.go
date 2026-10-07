@@ -200,6 +200,10 @@ type irScalarBuilder struct {
 	// build (nestedFunc), or is empty: that lambda's tries leave the fn,
 	// which the checker spells "fn <name>".
 	nestedFn string
+	// genericNested are the generic fns declared in this body so far, by
+	// name, each with the names its instances are bound under; a call
+	// reaches one through genericNestedCall.
+	genericNested map[string]*irGenericNested
 	// testDeferScope is the scope a test-body `defer` registers in: the
 	// body's, or the enclosing block's or arm's.
 	testDeferScope *irDeferScope
@@ -365,6 +369,14 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			// than a fresh `ir.Ref`. Mobile, which is the answer
 			// `ir.Ref.Stable()` gives for RefLocal.
 			return held, bl.boundK[t.Name], true, true
+		}
+		if inst, isNested := bl.genericNestedRef(t); isNested {
+			// A generic nested fn named as a value: the instance the checker
+			// instantiated the reference at.
+			if inst == nil {
+				return ir.NoTemp, kindInvalid, false, false
+			}
+			return bl.lower(inst)
 		}
 		if bl.defaultScope {
 			if v, k, mobile, ok := bl.onceValue(t); ok {
@@ -995,6 +1007,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// `import std/iter.Iter.{loop}` then `loop(...)`: Iter.loop.
 		return bl.iterLoop(t)
 	}
+	if id, ok := t.Func.(*ast.Ident); ok && !hasNamed && len(t.TypeArgs) == 0 {
+		if v, k, mobile, lowered, handled := bl.genericNestedCall(t, id); handled {
+			return v, k, mobile, lowered
+		}
+	}
 	if id, ok := t.Func.(*ast.Ident); ok {
 		for parent := bl.parent; parent != nil; parent = parent.parent {
 			if parent.boundK[id.Name].tag == tagFunc {
@@ -1069,6 +1086,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 				return no()
 			}
 			lower := func() (ir.Temp, kind, bool, bool) {
+				// A generic member (`import std/strings.String.{split}`) is
+				// instantiated per program, as its qualified spelling is.
+				if v, k, mobile, ok, handled := bl.stdGenericQualCall(t, sym.OwningType, sym.Name); handled {
+					return v, k, mobile, ok
+				}
 				args := bl.irQualLowerArgs(t)
 				if p := bl.qualImplPlan(t, args, sym.OwningType, sym.Name); p != nil {
 					return bl.qualEmit(t, args, p)
@@ -1115,6 +1137,9 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			return no()
 		}
 		typeArgs, ok := bl.g.checkedMonoTypeArgs(t, tpl)
+		if !ok {
+			typeArgs, ok = bl.g.checkedMonoTypeArgsFilled(t, tpl)
+		}
 		if !ok {
 			return no()
 		}
@@ -1213,10 +1238,20 @@ func (g *gen) irMonoTemplate(sig *fnSig) *monoTemplate {
 
 // structCallForm builds the struct call form `Foo({a: 1})` as the brace
 // literal `Foo{a: 1}`: the argument's fields in written order, then the
-// omitted fields' defaults. A record VALUE argument declines.
+// omitted fields' defaults. A record VALUE argument is read field by field
+// (structFromRecord). A generic struct's call form is built at the instance
+// its fields solve, as its brace literal is.
 func (bl *irScalarBuilder) structCallForm(t *ast.Call, ti *ast.TypeIdent) (ir.Temp, kind, bool, bool) {
 	if len(t.Args) != 1 {
 		return ir.NoTemp, kindInvalid, false, false
+	}
+	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(ti.Name); isTemplate && tpl.structDecl() != nil {
+		if lit, isLit := anonArgAsLiteral(t.Args[0]); isLit {
+			return bl.genericStructMake(lit, tpl, instantiate)
+		}
+		return bl.structFromRecord(t, func(rec kind) *typeDef {
+			return bl.g.recordInstance(tpl, instantiate, rec)
+		})
 	}
 	d, found := bl.g.namedType(ti.Name)
 	if !found || !irRetainedStructKind(d) {
@@ -1224,9 +1259,34 @@ func (bl *irScalarBuilder) structCallForm(t *ast.Call, ti *ast.TypeIdent) (ir.Te
 	}
 	lit, isLit := anonArgAsLiteral(t.Args[0])
 	if !isLit {
-		return bl.structFromRecord(t, d)
+		return bl.structFromRecord(t, func(kind) *typeDef { return d })
 	}
 	return bl.structMakeOf(lit, d)
+}
+
+// recordInstance is the instance of the generic struct template tpl that a
+// record of kind rec fills: each declared field's annotation unified with
+// the record's field of that name. A type parameter only an omitted field
+// names is unsolved, and the answer is nil.
+func (g *gen) recordInstance(tpl *genericTemplate, instantiate func([]kind) (kind, bool), rec kind) *typeDef {
+	params := templateParamSet(tpl)
+	solved := map[string]kind{}
+	for _, f := range tpl.structDecl().Fields {
+		for i, name := range rec.comp.names {
+			if name == f.Name {
+				g.unifyTypeParams(f.TypeAnnotation, rec.comp.parts[i], params, solved)
+			}
+		}
+	}
+	args, ok := templateArgs(tpl, solved)
+	if !ok {
+		return nil
+	}
+	k, ok := instantiate(args)
+	if !ok || k.tag != tagNamed {
+		return nil
+	}
+	return k.def
 }
 
 // structFromRecord builds `Config(defaults())`, the struct call form over a
@@ -1234,11 +1294,17 @@ func (bl *irScalarBuilder) structCallForm(t *ast.Call, ti *ast.TypeIdent) (ir.Te
 // fields are matched to the declaration by name, and an omitted field takes
 // its declared default. The record is bound to a name no program can spell
 // and the struct is built from a literal reading its fields, so the
-// defaults are filled exactly as the literal form fills them.
-func (bl *irScalarBuilder) structFromRecord(t *ast.Call, d *typeDef) (ir.Temp, kind, bool, bool) {
+// defaults are filled exactly as the literal form fills them. of names the
+// struct to build from the record's kind, which a generic struct's instance
+// depends on.
+func (bl *irScalarBuilder) structFromRecord(t *ast.Call, of func(rec kind) *typeDef) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	src, k, _, ok := bl.lower(t.Args[0])
 	if !ok || !irRetainedRecordKind(k) {
+		return no()
+	}
+	d := of(k)
+	if d == nil {
 		return no()
 	}
 	line, col := nodePos(t.Args[0])
@@ -1314,6 +1380,9 @@ func (bl *irScalarBuilder) hostOutputKey(t *ast.Call, key string) (ir.Temp, kind
 		return no()
 	}
 	src, k, mobile, ok := bl.lower(t.Args[0])
+	if ok {
+		src, k, ok = bl.typeOpenEmpty(t.Args[0], src, k)
+	}
 	debug := key == inspectKey
 	if ok && k.tag == tagNamed {
 		plan := bl.namedRenderPlan(k, debug)
@@ -1501,16 +1570,11 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		// `fn main() {}`: an empty block answers Unit.
 		return nil, &ast.TypeIdent{Name: "Unit", Line: block.Line, Col: block.Col}
 	}
-	// A block also has a scope, its own type scope and scope exits. Two
-	// conditions make it safe not to model them here: a block
-	// with declared types is not this shape and the OPEN block is the test
-	// setup frame's exception, which a module-scope `fn` body is not. The scope
-	// push itself emits nothing. A `with` is not admitted; a `defer`'s exit
-	// is an `ir.RunDefer` its block's lowering appends. See irdefer.go.
-	if g.blockTypes[block] != nil && !g.typeScopeActive(g.blockTypes[block]) {
-		irDeclineBodyWhy = "a block with declared types, or the open block"
-		return nil, nil
-	}
+	// A block also has a scope, its own type scope and scope exits. The
+	// type scope emits nothing: the caller that lowers the statements makes
+	// the block's types visible while it does (enterBlockTypes), and a name
+	// lowered without them declines where it is used. A `defer`'s exit is an
+	// `ir.RunDefer` its block's lowering appends. See irdefer.go.
 	last := len(block.Stmts) - 1
 	lead := make([]ast.Node, 0, last)
 	for _, s := range block.Stmts[:last] {
@@ -1605,12 +1669,9 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		irDeclineNote("a destructuring parameter that did not lower")
 		return nil, false
 	}
-	if scope := g.blockTypes[fd.Body]; scope != nil && !g.typeScopeActive(scope) {
-		// Types the body declares resolve by name for the extent of the
-		// body, as they do for the front end (blocklocaltype.go).
-		g.pushTypeScope(scope)
-		defer g.popTypeScope()
-	}
+	// Types the body declares resolve by name for the extent of the body,
+	// as they do for the front end (blocklocaltype.go).
+	defer g.enterBlockTypes(fd.Body)()
 	lead, body := g.irScalarBody(fd)
 	if body == nil {
 		irDeclineNote(irDeclineBodyWhy)
@@ -1622,6 +1683,14 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		// at its exit) and the function answers Unit.
 		lead = append(lead, block)
 		body = &ast.TypeIdent{Name: "Unit", Line: block.Line, Col: block.Col}
+	}
+	if sig.result == kindUnit && analysis.EndsInDbg(body) {
+		// A Unit function ending in a `dbg` observation: the observation
+		// runs as a statement, its value is discarded, and the function
+		// answers Unit, as the checker types it.
+		line, col := nodePos(body)
+		lead = append(lead, body)
+		body = &ast.TypeIdent{Name: "Unit", Line: line, Col: col}
 	}
 	declLine, _ := nodePos(fd)
 	bl := &irScalarBuilder{
@@ -1958,6 +2027,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	var scope *irDeferScope
 	var ws *irWithScope
 	if block, ok := body.(*ast.Block); ok {
+		defer bl.g.enterBlockTypes(block)()
 		lead, tail := bl.g.irScalarBlock(block, "")
 		if tail == nil {
 			return kindInvalid, false
@@ -2210,7 +2280,16 @@ func colOf(n ast.Node) int {
 }
 
 // leading shares fresh bindings and effects between named and anonymous bodies.
-func (bl *irScalarBuilder) leading(lead []ast.Node) bool {
+//
+// A statement that declines where `lower` gave the decline no position (a
+// nested `fn`, a rebinding in a test) is where the decline is reported.
+func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
+	var cur ast.Node
+	defer func() {
+		if !lowered && cur != nil {
+			irDeclineAtNode(cur)
+		}
+	}()
 	// The deferred calls of THIS run's block. A nested block's statements
 	// register in their own scope, which that block's lowering opens.
 	scope := bl.deferScope
@@ -2218,6 +2297,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) bool {
 	ws := bl.withScope
 	bl.withScope = nil
 	for _, s := range lead {
+		cur = s
 		line, _ := nodePos(s)
 		if !bl.positionOK(line) {
 			irDeclineNote("a lead statement on a synthesized line")
@@ -2436,13 +2516,14 @@ func (bl *irScalarBuilder) typedRegionValue(value ast.Node, k kind) (ir.Temp, ki
 	var ok bool
 	switch v := value.(type) {
 	case *ast.Block:
-		actual, ok = bl.blockBinding(v, slot, k)
+		actual, ok = bl.blockBinding(v, k)
 	case *ast.If:
 		actual, ok = bl.ifRegion(v, irFuncSig{result: k})
 	case *ast.Case:
 		actual, ok = bl.caseRegion(v, irFuncSig{result: k})
 	}
 	if !ok {
+		irDeclineAtNode(value)
 		bl.abandonRegion(value)
 	}
 	return result, actual, ok

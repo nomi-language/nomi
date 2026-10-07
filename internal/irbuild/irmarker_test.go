@@ -5,7 +5,7 @@ import "testing"
 func TestIRMarker_CompleteProgram(t *testing.T) {
 	verifyLambdaProgram(t, `type Expired
 type Online
-fn main(): Online {
+fn main() {
  state = Expired
  dbg state
  dbg Online
@@ -21,7 +21,7 @@ impl Debug for Ready {
 }
 fn echo(value: Ready): Ready { value }
 fn make(): Ready { io.print("make"); Ready }
-fn main(): Ready {
+fn main() {
  ready = make()
  get = || echo(ready)
  dbg get()
@@ -32,7 +32,7 @@ fn main(): Ready {
 func TestIRMarker_ImportedDeclaration(t *testing.T) {
 	verifyLambdaProgram(t, `import tokens.Ready
 fn identity(value: Ready): Ready { value }
-fn main(): Ready { identity(Ready) }
+fn main() { _ = identity(Ready) }
 `, "", map[string]string{"tokens.nomi": "pub type Ready\n"})
 }
 
@@ -65,7 +65,7 @@ func TestIRMarker_StructFields(t *testing.T) {
 	verifyLambdaProgram(t, `type Ready
 struct Box { ready: Ready }
 fn read(box: Box): Ready { box.ready }
-fn main(): Ready {
+fn main() {
  dbg read(Box{ready: Ready})
 }
 `, "dbg line 5: read(Box{ready: Ready}) = Ready\n")

@@ -1124,7 +1124,7 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 				err = herr
 				goto failed
 			}
-			fr.write(h.call.Dst(), v)
+			fr.write(h.dst, v)
 			if fr.bad != nil {
 				err = fr.bad
 				goto failed

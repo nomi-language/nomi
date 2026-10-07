@@ -121,6 +121,34 @@ cross it as `Dynamic` and decode it deliberately at the edge.
 | loose runtime values | `Dynamic` | Use when Nomi will decode or pattern over an unknown shape. |
 | channels, non-empty interfaces, named function types | Go adapter or opaque handle | Normalize to a supported shape, or keep the value opaque. |
 
+## Binding the Go standard library
+
+A Go standard library package needs no adapter file and no `go.mod`. Bind its
+functions directly:
+
+```nomi
+import std/io
+
+gopkg "strings"
+
+gopkg "strconv"
+
+fn upper(s: String): String go strings.ToUpper
+
+fn parse_int(s: String): Result<Int, String> go strconv.Atoi
+
+fn main() {
+    io.print(upper("hi"))
+    io.print(parse_int("42"))
+}
+```
+
+This runs from any directory, as a `.nomi` file or as a `#!` script. The Go
+signature must still be one of the shapes above: a function that takes an
+`io.Reader`, or a generic one such as `slices.Max`, needs a small adapter of
+your own, like `urltools` above. A package internal to the standard
+library, such as `internal/abi`, cannot be bound.
+
 ## Shipping a binding
 
 A project with Go bindings keeps its Nomi files, its Go files, `nomi.toml` and

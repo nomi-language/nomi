@@ -65,7 +65,7 @@ func TestIRMonoCall_MissingCheckedSignatureKeepsNativeFallback(t *testing.T) {
 func TestIRMonoCall_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"pair", `fn pair<T, U>(first: T, second: U): (T, U) { (first, second) }
-fn main(): (String, Int) { dbg pair("age", 30) }`, "dbg line 2: pair(\"age\", 30) = (\"age\", 30)\n"},
+fn main() { dbg pair("age", 30) }`, "dbg line 2: pair(\"age\", 30) = (\"age\", 30)\n"},
 		{"distinct and reused instances", `import std/io
 fn sum<T>(pair: (T, T)): T where T: Add<T, T> { pair.0 + pair.1 }
 fn main() {

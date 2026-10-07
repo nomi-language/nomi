@@ -18,7 +18,7 @@ import (
 // qualification: `step_by`, `next` and `inspect` all call `Codepoint.to_int`,
 // and the first two call `Codepoint.from_int`.
 func TestIRStdSibling_TypeQualifiedSameModuleCalls(t *testing.T) {
-	verifyLambdaProgram(t, `fn main(): Maybe<Int> {
+	verifyLambdaProgram(t, `fn run(): Maybe<Int> {
   a = try Codepoint.from_int(65)
   b = try Codepoint.step_by(a, 2)
   c = try Codepoint.next(b)
@@ -27,6 +27,10 @@ func TestIRStdSibling_TypeQualifiedSameModuleCalls(t *testing.T) {
   gap = try Codepoint.from_int(55_295)
   dbg Codepoint.to_int(try Codepoint.next(gap))
   Some(0)
+}
+
+fn main() {
+  _ = run()
 }
 `, "dbg line 5: Codepoint.to_int(c) = 68\n"+
 		"dbg line 6: Codepoint.inspect(c) = \"Codepoint(68)\"\n"+

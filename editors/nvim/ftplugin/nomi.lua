@@ -10,8 +10,17 @@ bo.expandtab = true
 bo.shiftwidth = 4
 bo.tabstop = 4
 bo.softtabstop = 4
+-- nomi fmt's line width. Comments wrap to it while typing ('formatoptions' c)
+-- and with gw; code does not ('formatoptions' t is removed), since nomi fmt
+-- owns code layout. gq goes through 'formatexpr' when a setup points it at
+-- the formatter, which leaves comments alone.
+bo.textwidth = 100
+vim.opt_local.formatoptions:remove('t')
+vim.opt_local.formatoptions:append('cq')
 
-local undo = { 'setlocal commentstring< comments< expandtab< shiftwidth< tabstop< softtabstop<' }
+local undo = {
+  'setlocal commentstring< comments< expandtab< shiftwidth< tabstop< softtabstop< textwidth< formatoptions<',
+}
 
 -- Highlighting. Needs the `nomi` parser (parser/nomi.so on 'runtimepath');
 -- `make install-nvim` builds it.
@@ -78,7 +87,9 @@ if vim.g.nomi_keymaps ~= false then
   end
   local function map(lhs, fn, desc)
     vim.keymap.set('n', lhs, fn, { buffer = 0, desc = desc })
-    table.insert(undo, 'silent! nunmap <buffer> ' .. lhs)
+    -- `exe`: a mapping command reads `|` as part of its keys, so a bare
+    -- `nunmap` would swallow every undo command joined after it.
+    table.insert(undo, "exe 'silent! nunmap <buffer> " .. lhs .. "'")
   end
   map('<leader>tr', test_key(function(nt)
     nt.run.run()
