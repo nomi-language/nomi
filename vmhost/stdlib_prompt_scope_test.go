@@ -29,14 +29,16 @@ func TestStdlibPrompt_CachedAndFreshPathsShareTheModuleScope(t *testing.T) {
 	}
 	defer restoreEnv()
 
-	const prompt = "assert Regex.match?(try Regex`\\d+`, \"room\") == False"
+	const prompt = "assert String.contains?(\"room\", Regex`\\d+`) == False"
 	src, ok := std.ReadFile("regex")
 	if !ok {
 		t.Fatal("std/regex is not embedded")
 	}
-	if !strings.Contains(string(src), "//! "+prompt+"\n") {
+	before, _, found := strings.Cut(string(src), "//! "+prompt+"\n")
+	if !found {
 		t.Fatalf("std/regex.nomi no longer carries the prompt %q", prompt)
 	}
+	promptLine := strings.Count(before, "\n") + 1
 
 	path := strings.TrimPrefix(std.Load().FileURI("regex"), "file://")
 	cachedProg, err := vmhost.LoadStdlib(path)
@@ -67,12 +69,12 @@ func TestStdlibPrompt_CachedAndFreshPathsShareTheModuleScope(t *testing.T) {
 				t.Errorf("%s path: %s does not pass: err %v, blocked %v", r.path, r.c.Name, r.c.Err, r.c.Blocked)
 			}
 		}
-		if strings.Contains(c.Name, "match?") {
+		if c.Line <= promptLine && promptLine <= c.EndLine {
 			sawPrompt = true
 		}
 	}
 	if !sawPrompt {
-		t.Error("neither path ran the match? prompt case")
+		t.Error("neither path ran the case holding the prompt")
 	}
 
 	cases, err := vmhost.StdlibReference("regex", prompt, "", io.Discard)

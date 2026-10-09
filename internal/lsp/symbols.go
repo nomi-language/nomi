@@ -119,10 +119,6 @@ func nodeToSymbol(node ast.Node) *protocol.DocumentSymbol {
 	case *ast.InterfaceDef:
 		sym = symbol(n.Name, protocol.SymbolKindInterface, nil, n.Span, nameRange(n.Line, n.Col, len(n.Name)))
 		var children []protocol.DocumentSymbol
-		for _, f := range n.Fields {
-			detail := typeExprString(f.TypeAnnotation)
-			children = append(children, symbol(f.Name, protocol.SymbolKindField, &detail, f.Span, nameRange(f.Line, f.Col, len(f.Name))))
-		}
 		for _, m := range n.Methods {
 			children = append(children, symbol(m.Name, protocol.SymbolKindMethod, nil, m.Span, nameRange(m.Line, m.Col, len(m.Name))))
 		}

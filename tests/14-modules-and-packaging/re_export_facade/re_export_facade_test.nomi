@@ -1,12 +1,12 @@
-import facade.{leaf, parser_lib}
+import facade.{add, double, greet, make_box, open_box, shout}
 
-test "re-export facade exposes leaf and parser modules" {
-    b = leaf.make_box(7)
+test "re-export facade exposes leaf and parser items" {
+    b = make_box(7)
 
-    assert leaf.double(21) == 42
-    assert leaf.add(10, 20) == 30
-    assert leaf.open_box(b) == 7
+    assert double(21) == 42
+    assert add(10, 20) == 30
+    assert open_box(b) == 7
     assert b.value == 7
-    assert parser_lib.greet("Alice") == "Hello, Alice"
-    assert parser_lib.shout("Bob") == "Bob!"
+    assert greet("Alice") == "Hello, Alice"
+    assert shout("Bob") == "Bob!"
 }

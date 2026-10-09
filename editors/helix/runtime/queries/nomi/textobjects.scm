@@ -23,10 +23,7 @@
   (type_body)? @class.inside) @class.around
 
 (interface_definition
-  [
-    (interface_field)
-    (interface_method)
-  ]* @class.inside) @class.around
+  (interface_method)* @class.inside) @class.around
 
 (impl_block
   [

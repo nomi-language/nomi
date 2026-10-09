@@ -26,10 +26,7 @@
   (type_body)? @class.inner) @class.outer
 
 (interface_definition
-  [
-    (interface_field)
-    (interface_method)
-  ]* @class.inner) @class.outer
+  (interface_method)* @class.inner) @class.outer
 
 (impl_block
   [

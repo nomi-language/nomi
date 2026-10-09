@@ -26,6 +26,12 @@ func TestStdlibModuleForPathNamesAFlatStdlibModule(t *testing.T) {
 		// The flat layout, in all three physical shapes that reach here.
 		{"/repo/std/json.nomi", "json", true},
 		{"/Users/x/.cache/nomi/std/json.nomi", "json", true},
+		{"/Users/x/.cache/nomi/std/0123456789abcdef/json.nomi", "json", true},
+		// A version directory names std only directly under `std`, and
+		// only when it is shaped like one.
+		{"/Users/x/project/0123456789abcdef/json.nomi", "", false},
+		{"/Users/x/.cache/nomi/std/0123456789abcdeg/json.nomi", "", false},
+		{"/Users/x/.cache/nomi/std/0123456789abcdef/_fixtures/nested/deeper/module.nomi", "", false},
 		{"std/json.nomi", "json", true},
 		// The four adapters are flat too — their directories hold Go
 		// support and no Nomi source.

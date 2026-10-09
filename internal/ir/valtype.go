@@ -499,6 +499,19 @@ func (want *ValType) Accepts(have *ValType) bool {
 	return want.result == nil || want.result.Accepts(have.result)
 }
 
+// InstanceKey tells apart the instances of one generic struct or enum: t's
+// spelling (`main.Box<Bool>`) when t is a struct or enum with type
+// arguments, and empty for every other type. Two instances share a runtime
+// type name, so a consumer that selects a body by a value's runtime type
+// keys on this too; a value's descriptor carries the key of the type its
+// construction built it at.
+func (t *ValType) InstanceKey() string {
+	if t == nil || (t.kind != KindStruct && t.kind != KindEnum) || len(t.elems) == 0 {
+		return ""
+	}
+	return t.String()
+}
+
 // String is t's Nomi-like spelling, for diagnostics and dumps.
 func (t *ValType) String() string {
 	if t == nil {

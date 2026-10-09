@@ -101,6 +101,19 @@ func (bl *irScalarBuilder) tuplePatternBinding(id *ast.IdentPattern, part ir.Tem
 	bl.patternBinding(id, id.Name, part, k)
 }
 
+// bindAsNames binds the name of each `as` around pattern to value, the value
+// the whole pattern matched, innermost first, in the current block. A site
+// that tests ast.WithoutAs(pattern) itself calls it on the success edge.
+func (bl *irScalarBuilder) bindAsNames(pattern ast.Node, value ir.Temp, k kind) {
+	var chain []*ast.AsPattern
+	for a, ok := pattern.(*ast.AsPattern); ok; a, ok = a.Pattern.(*ast.AsPattern) {
+		chain = append(chain, a)
+	}
+	for i := len(chain) - 1; i >= 0; i-- {
+		bl.patternBinding(chain[i], chain[i].Name, value, k)
+	}
+}
+
 func (bl *irScalarBuilder) patternBinding(at ast.Node, name string, part ir.Temp, k kind) {
 	if ast.IsDiscardName(name) {
 		return

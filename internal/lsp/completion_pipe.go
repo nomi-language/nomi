@@ -11,10 +11,10 @@ import (
 )
 
 // pipeKeywords are the stages a pipe takes besides a call: the unary `dbg`
-// and `try`, `if` and `case` over the piped value, and `then`, which applies
-// a lambda to it. `assert` and `refute` wrap a pipeline from its head; as a
-// stage they are rejected.
-var pipeKeywords = []string{"dbg", "try", "if", "case", "then"}
+// and `try`, `if` and `case` over the piped value, `then`, which applies a
+// lambda to it, and `tap`, which runs one on it and passes it on. `assert`
+// and `refute` wrap a pipeline from its head; as a stage they are rejected.
+var pipeKeywords = []string{"dbg", "try", "if", "case", "then", "tap"}
 
 // pipeKeywordCandidates offers the keyword stages after every function
 // whose name matches as well: a function that takes the value is the

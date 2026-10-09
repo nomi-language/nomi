@@ -99,6 +99,11 @@ func (g *gen) probePattern(p ast.Node) {
 	case *ast.EnumPattern:
 		g.probePattern(pat.Payload)
 
+	case *ast.AsPattern:
+		// Lowered wherever its pattern is (the name binds the value the
+		// pattern matched), so no refusal of its own.
+		g.probePattern(pat.Pattern)
+
 	case *ast.StructPattern:
 		// Lowered in both spellings (structArm — nominal and anonymous), so no
 		// refusal of its own, for the reason the TuplePattern arm below gives.

@@ -50,8 +50,11 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 	pos := bl.g.irPos(t.Line, t.Col)
 	var matched, failed *ir.Block
 	refutable := true
-	tupleBinds := irRetainedTupleKind(sk) && tupleCaseIrrefutable(t.Pattern, sk)
-	switch t.Pattern.(type) {
+	// `assert P as name = v`: P is tested, and name binds v on its success
+	// edge.
+	pattern := ast.WithoutAs(t.Pattern)
+	tupleBinds := irRetainedTupleKind(sk) && tupleCaseIrrefutable(pattern, sk)
+	switch pattern.(type) {
 	case *ast.WildcardPattern, *ast.IdentPattern:
 		refutable = false
 	default:
@@ -60,18 +63,18 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 			refutable = false
 			break
 		}
-		if irNominalCaseKind(sk) && irNominalIrrefutable(t.Pattern) {
+		if irNominalCaseKind(sk) && irNominalIrrefutable(pattern) {
 			// `Point{x, y}`, `{name, age}` and `UserId(id)` only bind: the
 			// subject's type is the pattern's, so nothing can fail.
 			refutable = false
-			matched = bl.f.NewBlock(bl.g.irNodePos(t.Pattern), "pattern matched")
+			matched = bl.f.NewBlock(bl.g.irNodePos(pattern), "pattern matched")
 			break
 		}
 		// The two edges exist only for a pattern that can fail.
-		matched = bl.f.NewBlock(bl.g.irNodePos(t.Pattern), "pattern matched")
+		matched = bl.f.NewBlock(bl.g.irNodePos(pattern), "pattern matched")
 		failed = bl.f.NewBlock(pos, "pattern mismatch")
 	}
-	switch p := t.Pattern.(type) {
+	switch p := pattern.(type) {
 	case *ast.WildcardPattern:
 	case *ast.TuplePattern:
 		if !tupleBinds {
@@ -119,6 +122,7 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 			return false
 		}
 	}
+	bl.bindAsNames(t.Pattern, subj, sk)
 	for name, temp := range before {
 		if bl.bound[name] != temp {
 			irDeclineNote("an `assert pattern = value` that rebinds " + name)

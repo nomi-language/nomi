@@ -108,13 +108,3 @@ func TestCodepointLiteralErrorsReportTheLexerDiagnosis(t *testing.T) {
 		}
 	}
 }
-
-// Inline Go is lexed with Nomi's lexer, so a Go rune literal over ASCII
-// arrives as a codepoint literal and must render with its quotes.
-func TestInlineGoKeepsRuneLiterals(t *testing.T) {
-	got := renderInlineGoTokens(lexer.Lex(`r := 'a'; q := '\''; e := 'é'`))
-	want := `r := 'a'; q := '\''; e := 'é'`
-	if got != want {
-		t.Errorf("renderInlineGoTokens = %q, want %q", got, want)
-	}
-}

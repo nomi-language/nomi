@@ -63,16 +63,21 @@ source → front end (parse, analyze, type-check) → internal/irbuild → IR
 ```
 
 `nomi run`, `nomi test`, the REPL, the tour and `nomi build`'s executables all
-run on the VM. There is no interpreter and no Go backend. `nomi check` and
-`nomi fmt` execute nothing; `nomi check` lowers the program as `nomi run`
-does, and a test file's cases as `nomi test` does, and reports each body the
-run would refuse as an error at its source
-(`vmhost.Program.Unsupported`); the LSP does the same in the background when a
-file is opened or saved and 400 ms after the last edit of a burst
-(`internal/lsp/lowering.go`). The LSP executes one thing, on the same VM: the
-handler of a typed literal with no `${...}`, and only when
-`vm.Machine.Effects` finds nothing it can reach acts outside the machine
-(`internal/lsp/literal_eval.go`).
+run on the VM. There is no interpreter and no Go backend. `nomi fmt` executes
+nothing. `nomi check` lowers the program as `nomi run` does, and a test file's
+cases as `nomi test` does, and reports each body the run would refuse as an
+error at its source (`vmhost.Program.Unsupported`); the LSP does the same in
+the background when a file is opened or saved and 400 ms after the last edit
+of a burst (`internal/lsp/lowering.go`), lowering its own analysis of the
+file's program when it analyzed the file as its own entry, the whole
+program checked cleanly, and every other file it read still holds that
+text on disk (`internal/analyzedlowering`). Every load, `nomi check`'s included,
+executes one thing on the VM before the program runs: the handler of each
+backtick typed literal whose handler returns a `Result`, refused when
+`vm.Machine.Effects` finds something it can reach acts outside the machine
+(`vmhost/literals.go`; an `Err` is a compile error at the literal). The LSP
+also evaluates double-quoted typed literals with no `${...}`, the same way,
+for hovers and diagnostics (`internal/lsp/literal_eval.go`).
 
 - **Front end.** `internal/frontend` parses, injects synthetic host
   declarations, lowers derives, synthesizes universal `Debug`, and runs
@@ -167,8 +172,14 @@ make build                    # all of the above plus tour wasm and editor queri
 
 The stdlib is embedded with `//go:embed`, so after editing `std/`
 rebuild both `nomi` and `nomi-lsp`, and restart the running language server
-(reinstalling the Zed dev extension restarts it). The LSP materializes the
-embedded stdlib to the user cache once per process, for go-to-definition.
+(reinstalling the Zed dev extension restarts it). When the server has no
+source tree to point at, go-to-definition into std opens the embedded std
+written to `~/.cache/nomi/std/<version>/`, one directory per std version
+(`internal/stdcache`), so an old server still running never shares files with
+a new one. A version directory unused for 14 days is removed by the next
+server that starts navigating. Tests never write there: `NOMI_STD_CACHE_ROOT`
+replaces `~/.cache/nomi`, and under `go test` without it the files go under
+the system temp directory.
 
 ## Test
 
@@ -194,6 +205,21 @@ and `TestKnownLoweringGaps` pins each known decline in `knownLoweringGaps`
 (`vmhost/lowering_gaps_test.go`) by a reproducer; the generator avoids those
 shapes, so remove a gap and its avoidance together when it is fixed.
 
+A program that lowers must run without crashing the VM. `go test ./vmhost
+-run '^$' -fuzz '^FuzzLoweredProgramsRun$' -fuzztime 5m -parallel 4`
+(`vmhost/run_fuzz_test.go`) runs each input's `main`, or its test cases,
+with no input, its output in a buffer and a step budget
+(`vm.Machine.WithLimits`). A Nomi trap, a failed assertion and an `Err` from
+main are the program's own outcomes. It fails on a Go panic, a bytecode
+compiler panic, a machine limit reached mid-run, a loop-free program that
+uses its budget, or two runs of a program with no clock, randomness or
+concurrency that differ. A program that may loop and uses its budget is
+skipped, and so is one whose effects reach outside the machine (files,
+`std/compiler`, Go bindings). `TestLoweredProgramsRun` runs the generated
+programs and every seed with a `fn main` (about 9 seconds), and
+`TestKnownRunGaps` pins each known crash in `knownRunGaps`
+(`vmhost/run_gaps_test.go`) by a reproducer.
+
 **Every expression has a type after checking.** `analysis.UnresolvedExprs`
 lists each value expression of a checked file with no type in
 `FileAnalysis.ExprTypes`, a nil one, or an unsolved variable as its own type
@@ -218,11 +244,12 @@ one of source and output and rejects the other. `go test ./vmhost -run '^$' -fuz
 `TestKnownFormatGaps` pins each known break in `knownFormatGaps`
 (`vmhost/format_gaps_test.go`) by a reproducer that fails once it is fixed.
 
-**Rotating sets.** Those fixed inputs are the regression baseline; three
+**Rotating sets.** Those fixed inputs are the regression baseline; four
 tests check a rotating set beside them, from a start seed that changes
 every UTC day (`internal/rotation`), so each day checks inputs no earlier
 run did. `TestFrontEndAcceptsSoItLowersRotating` checks 150 more generated
-programs, `TestFormatKeepsMeaningRotating` two more layout variants of every
+programs, `TestLoweredProgramsRunRotating` runs 150 more,
+`TestFormatKeepsMeaningRotating` two more layout variants of every
 format input, and `TestLSPSurvivesTypingRotating` types five more documents
 of at most 400 lines. Each adds 2 to 4 seconds. The log names the start
 seed. `NOMI_GEN_SEED=<n>` pins it and makes the run repeatable, and
@@ -351,8 +378,11 @@ The spec is canonical; these are the rules most often gotten wrong.
 - **No `let`.** Bindings are `name = expr`, with optional `: T`. A binding may
   shadow an earlier one in the same scope.
 - **Type bodies are newline-separated items.** Struct fields are bare
-  `name: Type` lines with no commas and no `field` keyword (`field` is for
-  interface requirements). Enum variants are bare, one per line, no `|`.
+  `name: Type` lines with no commas and no `field` keyword. An interface
+  declares functions only; a value every implementor must supply is a
+  function requirement (`fn name(value: self): String`, called
+  `HasName.name(x)` or `T.name(x)`). Enum variants are bare, one per line,
+  no `|`.
   Behavior lives in `impl Type { ... }` and `impl Iface for Type { ... }`
   blocks and `derive Iface for Type` declarations, all top-level.
 - **Calls are qualified; there is no `x.method()`.** Interface-impl functions

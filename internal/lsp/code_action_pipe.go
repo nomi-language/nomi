@@ -140,9 +140,9 @@ func (r *refactorRequest) standsFree(n ast.Node) bool {
 	return false
 }
 
-// inBareThenBody reports whether n stands at the top of a `then` lambda's
-// one-expression body, outside any bracket, where a `|>` would end the
-// lambda: `then |x| f(g(x))` piped is `then |x| (x |> g() |> f())`. Any
+// inBareThenBody reports whether n stands at the top of a `then` or `tap`
+// lambda's one-expression body, outside any bracket, where a `|>` would end
+// the lambda: `then |x| f(g(x))` piped is `then |x| (x |> g() |> f())`. Any
 // other lambda's body runs to the end of its expression, so a pipe there
 // needs no parentheses.
 func (r *refactorRequest) inBareThenBody(n ast.Node) bool {
@@ -150,8 +150,11 @@ func (r *refactorRequest) inBareThenBody(n ast.Node) bool {
 		p := r.parent[cur]
 		switch v := p.(type) {
 		case *ast.Lambda:
-			_, isThen := r.parent[v].(*ast.Then)
-			return isThen
+			switch r.parent[v].(type) {
+			case *ast.Then, *ast.Tap:
+				return true
+			}
+			return false
 		case *ast.Block:
 			if v.EndLine != 0 {
 				return false

@@ -119,7 +119,6 @@ func TestProj_ReadsExactlyItsSubject(t *testing.T) {
 		NewProjSlot(pos, 1, 9, 2, ValUnknown),
 		NewProjPayload(pos, 1, 9, sym, "Circle", 0, ValUnknown),
 		NewProjEnumField(pos, 1, 9, sym, "radius", true, ValUnknown),
-		NewProjIfaceField(pos, 1, 9, sym, "size", ValUnknown),
 		NewProjInner(pos, 1, 9, sym, ValUnknown),
 	} {
 		uses := p.AppendUses(nil)
@@ -145,7 +144,6 @@ func TestProj_TheProducerCannotBuildAReadThatNamesNothing(t *testing.T) {
 		{"a negative slot", func() { NewProjSlot(pos, 1, 2, -1, ValUnknown) }},
 		{"a payload with no variant", func() { NewProjPayload(pos, 1, 2, sym, "", 0, ValUnknown) }},
 		{"an enum field with no name", func() { NewProjEnumField(pos, 1, 2, sym, "", false, ValUnknown) }},
-		{"a requirement with no name", func() { NewProjIfaceField(pos, 1, 2, sym, "", ValUnknown) }},
 		{"an unwrap with no declaration", func() { NewProjInner(pos, 1, 2, nil, ValUnknown) }},
 		{"a read with no subject", func() { NewProjSlot(pos, 1, NoTemp, 0, ValUnknown) }},
 		{"a read with no destination", func() { NewProjSlot(pos, NoTemp, 2, 0, ValUnknown) }},
@@ -166,7 +164,6 @@ func TestProj_TheProducerCannotBuildAReadThatNamesNothing(t *testing.T) {
 	NewProjSlot(pos, 1, 2, 0, ValUnknown)
 	NewProjPayload(pos, 1, 2, sym, "Circle", 0, ValUnknown)
 	NewProjEnumField(pos, 1, 2, sym, "radius", false, ValUnknown)
-	NewProjIfaceField(pos, 1, 2, sym, "size", ValUnknown)
 	NewProjInner(pos, 1, 2, sym, ValUnknown)
 }
 

@@ -78,19 +78,13 @@ func generateAdapters(projectRoot string, packages []DiscoveredPackage) (*wrappe
 	}
 
 	gt := newGoTypes(projectRoot)
-	var goDecls []string
-	mainImports := map[string]string{"stdtime": "time"}
+	mainImports := map[string]string{}
 	for _, pkg := range packages {
-		goDecls = append(goDecls, pkg.GoDecls...)
-		if pkg.ImportPath != "" && pkg.Alias != "" {
+		if pkg.Alias != "" {
 			mainImports[pkg.Alias] = pkg.ImportPath
 		}
 	}
-	mainPkg, err := gt.mainPkg(goDecls)
-	if err != nil {
-		return nil, err
-	}
-	mainScope := goScope{pkg: mainPkg, imports: mainImports}
+	mainScope := goScope{pkg: gt.mainPkg(), imports: mainImports}
 
 	out := &wrapperAdapters{}
 	handles := map[string]string{}
@@ -109,7 +103,7 @@ func generateAdapters(projectRoot string, packages []DiscoveredPackage) (*wrappe
 	var bindings []hostgen.Binding
 	for _, pkg := range packages {
 		for _, e := range pkg.Exports {
-			b, err := exportBinding(gt, mods, pkg, e, mainScope)
+			b, err := exportBinding(gt, mods, pkg, e)
 			if err != nil {
 				out.Refused = append(out.Refused, refusedBinding{Key: e.Key, Reason: err.Error()})
 				continue
@@ -123,7 +117,7 @@ func generateAdapters(projectRoot string, packages []DiscoveredPackage) (*wrappe
 	g.Reserve(wrapperImportAliases...)
 	preset := map[string]string{}
 	for _, pkg := range packages {
-		if wrapperImports(pkg) && pkg.Alias != "" {
+		if pkg.Alias != "" {
 			g.UseImport(pkg.ImportPath, pkg.Alias)
 			preset[pkg.ImportPath] = pkg.Alias
 		}
@@ -157,21 +151,10 @@ func generateAdapters(projectRoot string, packages []DiscoveredPackage) (*wrappe
 
 // exportBinding pairs one discovered export with its `host fn` declaration and
 // its Go signature.
-func exportBinding(gt *goTypes, mods *adapterModules, pkg DiscoveredPackage, e DiscoveredExport, mainScope goScope) (hostgen.Binding, error) {
+func exportBinding(gt *goTypes, mods *adapterModules, pkg DiscoveredPackage, e DiscoveredExport) (hostgen.Binding, error) {
 	hf, res, err := mods.hostFunc(e)
 	if err != nil {
 		return hostgen.Binding{}, err
-	}
-	if e.GoBody != "" {
-		sig, err := funcSig(e.ParamDecls, e.ReturnDecl)
-		if err != nil {
-			return hostgen.Binding{}, err
-		}
-		ty, err := gt.resolve(sig, mainScope)
-		if err != nil {
-			return hostgen.Binding{}, err
-		}
-		return hostgen.Binding{Key: e.Key, Go: &hostgen.GoFunc{Pkg: "main", Name: e.WrapperName, Type: ty}, Decl: hf, Res: res}, nil
 	}
 	p, err := gt.pkg(pkg.ImportPath)
 	if err != nil {

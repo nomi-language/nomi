@@ -200,6 +200,12 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
 		} else if irEmptyCollectionKind(lk) && !irEmptyCollectionKind(rk) {
 			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
+		} else if irEmbeddedIn(rk, lk) {
+			// `circle == shape`: the embedded value widens into its
+			// `embeds` variant, as it does entering a Shape position.
+			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
+		} else if irEmbeddedIn(lk, rk) {
+			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
 		}
 	}
 	if !ok || lk != rk {

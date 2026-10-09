@@ -271,6 +271,360 @@
     }
   },
   {
+    "type": "as_binding",
+    "named": true,
+    "fields": {
+      "else": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "body",
+            "named": true
+          },
+          {
+            "type": "else_arms",
+            "named": true
+          }
+        ]
+      },
+      "pattern": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "as_pattern",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "binary_expression",
+            "named": true
+          },
+          {
+            "type": "body",
+            "named": true
+          },
+          {
+            "type": "boolean",
+            "named": true
+          },
+          {
+            "type": "break_statement",
+            "named": true
+          },
+          {
+            "type": "call_expression",
+            "named": true
+          },
+          {
+            "type": "case_expression",
+            "named": true
+          },
+          {
+            "type": "codepoint",
+            "named": true
+          },
+          {
+            "type": "concurrent_block",
+            "named": true
+          },
+          {
+            "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "dbg_expression",
+            "named": true
+          },
+          {
+            "type": "decimal",
+            "named": true
+          },
+          {
+            "type": "dot_variant",
+            "named": true
+          },
+          {
+            "type": "field_access",
+            "named": true
+          },
+          {
+            "type": "field_accessor",
+            "named": true
+          },
+          {
+            "type": "float",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "if_expression",
+            "named": true
+          },
+          {
+            "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
+            "named": true
+          },
+          {
+            "type": "list",
+            "named": true
+          },
+          {
+            "type": "map_construction",
+            "named": true
+          },
+          {
+            "type": "map_literal",
+            "named": true
+          },
+          {
+            "type": "paren_expression",
+            "named": true
+          },
+          {
+            "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "range_expression",
+            "named": true
+          },
+          {
+            "type": "raw_string",
+            "named": true
+          },
+          {
+            "type": "raw_tagged_string",
+            "named": true
+          },
+          {
+            "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "set",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "struct_construction",
+            "named": true
+          },
+          {
+            "type": "struct_update",
+            "named": true
+          },
+          {
+            "type": "tagged_type_string",
+            "named": true
+          },
+          {
+            "type": "tagged_type_triple_string",
+            "named": true
+          },
+          {
+            "type": "todo_expression",
+            "named": true
+          },
+          {
+            "type": "triple_string",
+            "named": true
+          },
+          {
+            "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "tuple_expression",
+            "named": true
+          },
+          {
+            "type": "type_field_access",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          },
+          {
+            "type": "typed_list",
+            "named": true
+          },
+          {
+            "type": "unary_expression",
+            "named": true
+          },
+          {
+            "type": "vector",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "as_pattern",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
+      },
+      "pattern": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "+",
+            "named": false
+          },
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "-",
+            "named": false
+          },
+          {
+            "type": ".",
+            "named": false
+          },
+          {
+            "type": "_",
+            "named": false
+          },
+          {
+            "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
+            "type": "body",
+            "named": true
+          },
+          {
+            "type": "boolean",
+            "named": true
+          },
+          {
+            "type": "call_expression",
+            "named": true
+          },
+          {
+            "type": "codepoint",
+            "named": true
+          },
+          {
+            "type": "decimal",
+            "named": true
+          },
+          {
+            "type": "dot_variant",
+            "named": true
+          },
+          {
+            "type": "enum_pattern",
+            "named": true
+          },
+          {
+            "type": "float",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "integer",
+            "named": true
+          },
+          {
+            "type": "list",
+            "named": true
+          },
+          {
+            "type": "list_pattern",
+            "named": true
+          },
+          {
+            "type": "map_literal",
+            "named": true
+          },
+          {
+            "type": "pattern_field",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "struct_construction",
+            "named": true
+          },
+          {
+            "type": "struct_pattern",
+            "named": true
+          },
+          {
+            "type": "tuple_expression",
+            "named": true
+          },
+          {
+            "type": "tuple_pattern",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          },
+          {
+            "type": "{",
+            "named": false
+          },
+          {
+            "type": "}",
+            "named": false
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "assertion",
     "named": true,
     "fields": {
@@ -468,6 +822,10 @@
         "types": [
           {
             "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_binding",
             "named": true
           },
           {
@@ -1116,6 +1474,10 @@
           "named": true
         },
         {
+          "type": "as_binding",
+          "named": true
+        },
+        {
           "type": "assertion",
           "named": true
         },
@@ -1217,10 +1579,6 @@
         },
         {
           "type": "function_definition",
-          "named": true
-        },
-        {
-          "type": "go_block",
           "named": true
         },
         {
@@ -2059,6 +2417,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -2652,6 +3014,10 @@
           "named": true
         },
         {
+          "type": "as_binding",
+          "named": true
+        },
+        {
           "type": "assertion",
           "named": true
         },
@@ -2753,10 +3119,6 @@
         },
         {
           "type": "function_definition",
-          "named": true
-        },
-        {
-          "type": "go_block",
           "named": true
         },
         {
@@ -4088,6 +4450,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -4600,6 +4966,10 @@
       "multiple": true,
       "required": true,
       "types": [
+        {
+          "type": "as_pattern",
+          "named": true
+        },
         {
           "type": "boolean",
           "named": true
@@ -5371,10 +5741,6 @@
           "named": true
         },
         {
-          "type": "go_inline_body",
-          "named": true
-        },
-        {
           "type": "go_selector_binding",
           "named": true
         },
@@ -5492,51 +5858,6 @@
     }
   },
   {
-    "type": "go_block",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "go_raw_content",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "go_inline_body",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "go_raw_content",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "go_raw_content",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "go_raw_content",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "go_selector_binding",
     "named": true,
     "fields": {
@@ -5610,6 +5931,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -6001,6 +6326,10 @@
           {
             "type": "_",
             "named": false
+          },
+          {
+            "type": "as_pattern",
+            "named": true
           },
           {
             "type": "boolean",
@@ -6573,10 +6902,6 @@
           "named": true
         },
         {
-          "type": "interface_field",
-          "named": true
-        },
-        {
           "type": "interface_method",
           "named": true
         },
@@ -6609,60 +6934,6 @@
           "named": true
         }
       ]
-    }
-  },
-  {
-    "type": "interface_field",
-    "named": true,
-    "fields": {
-      "name": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "identifier",
-            "named": true
-          }
-        ]
-      },
-      "type": {
-        "multiple": true,
-        "required": true,
-        "types": [
-          {
-            "type": ".",
-            "named": false
-          },
-          {
-            "type": "anon_struct_type",
-            "named": true
-          },
-          {
-            "type": "function_type",
-            "named": true
-          },
-          {
-            "type": "generic_type",
-            "named": true
-          },
-          {
-            "type": "qualified_type",
-            "named": true
-          },
-          {
-            "type": "self_type",
-            "named": true
-          },
-          {
-            "type": "tuple_type",
-            "named": true
-          },
-          {
-            "type": "type_identifier",
-            "named": true
-          }
-        ]
-      }
     }
   },
   {
@@ -7507,6 +7778,10 @@
             "named": false
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "enum_pattern",
             "named": true
           },
@@ -7927,6 +8202,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "as_pattern",
+          "named": true
+        },
         {
           "type": "boolean",
           "named": true
@@ -8497,6 +8776,10 @@
             "named": false
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "enum_pattern",
             "named": true
           },
@@ -8941,6 +9224,10 @@
             "named": false
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "boolean",
             "named": true
           },
@@ -9190,6 +9477,10 @@
       "required": false,
       "types": [
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "boolean",
           "named": true
         },
@@ -9402,6 +9693,10 @@
         },
         {
           "type": "tagged_type_triple_string",
+          "named": true
+        },
+        {
+          "type": "tap_stage",
           "named": true
         },
         {
@@ -10308,6 +10603,10 @@
           "named": true
         },
         {
+          "type": "as_binding",
+          "named": true
+        },
+        {
           "type": "assertion",
           "named": true
         },
@@ -10409,10 +10708,6 @@
         },
         {
           "type": "function_definition",
-          "named": true
-        },
-        {
-          "type": "go_block",
           "named": true
         },
         {
@@ -11073,6 +11368,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -11740,6 +12039,22 @@
     }
   },
   {
+    "type": "tap_stage",
+    "named": true,
+    "fields": {
+      "lambda": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "lambda",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "test_declaration",
     "named": true,
     "fields": {
@@ -11760,6 +12075,10 @@
           {
             "type": "_",
             "named": false
+          },
+          {
+            "type": "as_pattern",
+            "named": true
           },
           {
             "type": "enum_pattern",
@@ -12287,6 +12606,10 @@
       "required": false,
       "types": [
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "boolean",
           "named": true
         },
@@ -12496,10 +12819,6 @@
         },
         {
           "type": "generic_type",
-          "named": true
-        },
-        {
-          "type": "go_inline_body",
           "named": true
         },
         {
@@ -13659,10 +13978,6 @@
     "named": false
   },
   {
-    "type": "field",
-    "named": false
-  },
-  {
     "type": "float",
     "named": true
   },
@@ -13768,6 +14083,10 @@
   },
   {
     "type": "struct",
+    "named": false
+  },
+  {
+    "type": "tap",
     "named": false
   },
   {

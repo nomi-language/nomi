@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"sort"
+
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -115,6 +117,10 @@ type implMemberSite struct {
 	// retained body, which irImplLower interns as Symbol(item, symName).
 	item    *implItem
 	symName string
+	// withheld is the declaring unit's block when the function is one it
+	// withheld for a call to instantiate (implDef.withheldMember): item is
+	// nil, and the declaring gen builds the instance a call asks for.
+	withheld *implDef
 }
 
 // resolveImplMembers indexes every impl function in the program by the type it
@@ -149,6 +155,28 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 					implMemberSite{unit: unit, fn: implMemberFunc(d, it),
 						synth: d.synth, iface: d.ifaceName, block: d.decl,
 						item: it, symName: d.recv.nomi() + "." + it.name})
+			}
+			// A member the block withheld for a call to instantiate has no
+			// item yet; the declaring gen builds one per call
+			// (siblingMethodInstance). Sorted, so sites keep one order.
+			withheld := make([]string, 0, len(d.gaps))
+			for method := range d.gaps {
+				withheld = append(withheld, method)
+			}
+			sort.Strings(withheld)
+			for _, method := range withheld {
+				w, ok := d.withheldMember(method)
+				if !ok {
+					continue
+				}
+				f := &fileFunc{name: method, params0: w.params, generic: true, why: "generic impl function"}
+				if d.ifaceName == "" && w.decl != nil && !w.decl.Public {
+					f.why = "private sibling file impl function"
+				}
+				k := implMemberKey{recv: d.recv.def.decl, method: method}
+				x.implMembers[k] = append(x.implMembers[k],
+					implMemberSite{unit: unit, fn: f, synth: d.synth, iface: d.ifaceName,
+						block: d.decl, withheld: d})
 			}
 		}
 	}

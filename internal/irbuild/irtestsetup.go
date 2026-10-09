@@ -79,6 +79,11 @@ func (bl *irScalarBuilder) testSetupBody(body ast.Node) (ir.Temp, kind, bool) {
 			return ir.NoTemp, kindInvalid, false
 		}
 	}
+	if a, isAssertion := block.Stmts[last].(*ast.Assertion); isAssertion {
+		// A final `assert x` is the setup's value, as it is a block's:
+		// the judged subject (spec §36).
+		return bl.assertionValue(a)
+	}
 	tail, isExpr := block.Stmts[last].(*ast.ExprStmt)
 	if !isExpr || isNilNode(tail.Expr) {
 		if !bl.testStmt(block.Stmts[last]) {
@@ -142,7 +147,8 @@ func (bl *irScalarBuilder) testDestructure(pat ast.Node, ctx ir.Temp, k kind) bo
 			continue
 		}
 		bk := sh.frame.kindOf(b.Dst())
-		if !irCallableValueKind(bk) && !irRetainedValueKind(bk) {
+		// A Unit setup binds as any Unit value does (`u = io.print("a")`).
+		if bk != kindUnit && !irCallableValueKind(bk) && !irRetainedValueKind(bk) {
 			irDeclineNote("a test pattern name's kind outside the domain: " + bk.nomi())
 			return false
 		}

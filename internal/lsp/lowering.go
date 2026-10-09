@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/vmhost"
 
@@ -16,17 +17,28 @@ import (
 
 // CODE THE COMPILER CANNOT LOWER YET.
 //
-// `nomi check` reports, beyond the front end's errors, each body the program
-// reaches that the IR builder declines ("this call to `skip_odd` is not
-// supported yet, so `fn evens` cannot run"; vmhost.Program.Unsupported). The
-// server reports the same errors, in the background: when a document is
+// `nomi check` reports, beyond the front end's errors, each backtick typed
+// literal whose handler fails its compile-time run ("typed literal Regex`[`
+// is invalid: ..."), and each body the program reaches that the IR builder
+// declines ("this call to `skip_odd` is not supported yet, so `fn evens`
+// cannot run"; vmhost.Program.Unsupported). The server reports the same
+// errors (vmhost.CheckLowering), in the background: when a document is
 // opened, when it is saved, and loweringDelay after the last edit of a
-// burst. A run checks the program as `nomi check` does, its own front end
-// included, so it costs more than the analysis an edit already pays: 10 to
-// 35 ms on the corpus's files, the largest included, and about 120 ms for
-// the first run in a process, which lowers the whole stdlib. Hence a longer
-// quiet period than analysisDelay. A stdlib file is not lowered
-// (vmhost.CheckLowering).
+// burst. A stdlib file is not lowered (vmhost.CheckLowering).
+//
+// A run lowers the program from the document's installed analysis of the
+// same text when that analysis is the program `nomi check` would build
+// (analysis.EntryProgram, analyzedlowering.Check): the document is its own
+// entry and has no errors, the program's other project files were checked
+// in the same analysis with none, and each still holds on disk the text
+// the analysis read, as nomi.toml does. An imported document with unsaved
+// edits therefore sends the run to the text: `nomi check` reads that file
+// from disk. A run waits for the analysis when the text's analysis is
+// still running. Such a run costs what lowering costs, 1 to 7 ms on the
+// corpus's largest such programs. Any other run checks the program as
+// `nomi check` does, its own front end included: 10 to 38 ms. The first
+// run in a process lowers the whole stdlib, about 120 ms. Hence a longer
+// quiet period than analysisDelay.
 //
 // A document has one run at a time. An open, save or edit during a run
 // queues one more run of the newest text, which replaces any text queued
@@ -80,9 +92,25 @@ type loweringWait struct {
 // loweringChecksEnabled turns the lowering runs on.
 var loweringChecksEnabled = true
 
-// checkLoweringFn is the lowering a run performs: vmhost.CheckLowering, or a
+// checkLoweringFn is the lowering a run performs: lowerFromAnalysis, or a
 // test's stand-in.
-var checkLoweringFn = vmhost.CheckLowering
+var checkLoweringFn = lowerFromAnalysis
+
+// lowerFromAnalysis lowers the file at path whose text is src from a, the
+// document's analysis of src, when a is the program `nomi check` builds,
+// and otherwise from the text (vmhost.CheckLowering). a may be nil.
+func lowerFromAnalysis(path, src string, a *analyzedlowering.Analyzed) (problems, err error) {
+	if a != nil {
+		if problems, ok, err := analyzedlowering.Check(path, src, a); ok {
+			return problems, err
+		}
+	}
+	return vmhost.CheckLowering(path, src)
+}
+
+// analysisWaitForLowering bounds how long a run waits for the analysis of
+// its text before it lowers the text with its own front end.
+const analysisWaitForLowering = 2 * time.Second
 
 func (c *loweringChecks) editDelay() time.Duration {
 	if c.delay > 0 {
@@ -209,7 +237,10 @@ func (s *Server) runLoweringChecks(uri, content string, gen int) {
 	})
 	for {
 		start := time.Now()
-		diags := safeLoweringDiagnostics(uri, content)
+		var diags []protocol.Diagnostic
+		if a, latest := s.loweringAnalysis(uri, content); latest {
+			diags = safeLoweringDiagnostics(uri, content, a)
+		}
 		s.finishLowering(uri, content, gen, diags, time.Since(start))
 		c.mu.Lock()
 		next, more := c.queued[uri]
@@ -224,6 +255,44 @@ func (s *Server) runLoweringChecks(uri, content string, gen int) {
 			return
 		}
 		content = next
+	}
+}
+
+// loweringAnalysis is the installed analysis of content to lower uri from,
+// or nil when there is none to use: the document's analysis of content is
+// not the program `nomi check` builds (analysis.EntryProgram), the text
+// has syntax errors, or the analysis did not arrive within
+// analysisWaitForLowering. latest is false when content is no longer the
+// document's latest text, whose run finishLowering would drop, so it need
+// not lower at all.
+func (s *Server) loweringAnalysis(uri, content string) (a *analyzedlowering.Analyzed, latest bool) {
+	deadline := time.NewTimer(analysisWaitForLowering)
+	defer deadline.Stop()
+	for {
+		installed := s.docs.Installed()
+		snap := s.docs.Snapshot(uri)
+		if snap == nil || snap.Text != content {
+			return nil, false
+		}
+		if snap.Analysis != nil && snap.Current() {
+			if snap.Program == nil || len(snap.Errors) > 0 || len(snap.Damaged) > 0 {
+				return nil, true
+			}
+			p := snap.Program
+			return &analyzedlowering.Analyzed{
+				Nodes:        p.Nodes,
+				FA:           snap.Analysis,
+				Root:         p.Root,
+				Files:        p.Files,
+				ReachesEntry: p.ReachesEntry,
+				Manifest:     p.Manifest,
+			}, true
+		}
+		select {
+		case <-installed:
+		case <-deadline.C:
+			return nil, true
+		}
 	}
 }
 
@@ -258,37 +327,41 @@ func (s *Server) finishLowering(uri, content string, gen int, diags []protocol.D
 // server around the lowering (one vmhost does not already answer as an
 // InternalError) answered as one diagnostic at the top of the file
 // (recover.go).
-func safeLoweringDiagnostics(uri, content string) (diags []protocol.Diagnostic) {
+func safeLoweringDiagnostics(uri, content string, a *analyzedlowering.Analyzed) (diags []protocol.Diagnostic) {
 	defer recoverPanic("lowering "+uri, func(p *serverPanic) {
 		diags = []protocol.Diagnostic{p.diagnostic()}
 	})
 	fault("lowering")
-	return loweringDiagnostics(uriToPath(uri), content)
+	return loweringDiagnostics(uriToPath(uri), content, a)
 }
 
-// loweringDiagnostics lowers the file at path whose text is content and
-// answers what `nomi check` would report beyond the front end, as protocol
+// loweringDiagnostics lowers the file at path whose text is content, from
+// a, its analysis, when that is not nil (lowerFromAnalysis), and answers
+// what `nomi check` would report beyond the front end, as protocol
 // diagnostics in content's UTF-16 columns. A blocker in another file of the
 // program is reported at the top of this one, naming where it is.
-func loweringDiagnostics(path, content string) []protocol.Diagnostic {
-	unsupported, err := checkLoweringFn(path, content)
+func loweringDiagnostics(path, content string, a *analyzedlowering.Analyzed) []protocol.Diagnostic {
+	problems, err := checkLoweringFn(path, content, a)
 	var internal *vmhost.InternalError
 	if errors.As(err, &internal) {
 		return []protocol.Diagnostic{internalErrorDiagnostic(internal)}
 	}
 	var ds frontend.Diagnostics
-	if err != nil || !errors.As(unsupported, &ds) {
+	if err != nil || !errors.As(problems, &ds) {
 		return nil
 	}
 	severity := protocol.DiagnosticSeverityError
 	source := "nomi"
-	code := &protocol.IntegerOrString{Value: "not-supported-yet"}
 	lines := newLineIndex(content)
 	var out []protocol.Diagnostic
 	for _, d := range ds {
 		msg := d.Message
 		for _, h := range d.Hints {
 			msg += "\nhelp: " + h
+		}
+		code := &protocol.IntegerOrString{Value: "not-supported-yet"}
+		if d.Code != "" {
+			code = &protocol.IntegerOrString{Value: d.Code}
 		}
 		diag := protocol.Diagnostic{Severity: &severity, Source: &source, Code: code, Message: msg}
 		if samePath(d.Path, path) {

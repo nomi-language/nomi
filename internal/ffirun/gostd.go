@@ -134,7 +134,7 @@ func stdGoFiles(dir string) ([]string, error) {
 // package, so the toolchain's version keys the wrapper.
 func discoversStd(discovered []DiscoveredPackage) bool {
 	for _, d := range discovered {
-		if d.ImportPath != "" && IsStdPackage(d.ImportPath) {
+		if IsStdPackage(d.ImportPath) {
 			return true
 		}
 	}

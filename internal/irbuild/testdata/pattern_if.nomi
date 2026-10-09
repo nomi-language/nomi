@@ -110,24 +110,6 @@ fn in_lambda(m: Maybe<Int>): String {
     "${f(m)}/done"
 }
 
-/// A wildcard pattern always matches, so the else arm is dead. A lowering that
-/// tested something would take the else.
-fn always(n: Int): String {
-    if _ = n { "matched" } else { "impossible" }
-}
-
-/// An ident pattern also always matches, and it BINDS. `Err` is never reached.
-fn bind_all(r: Result<Int, String>): String {
-    if whole = r {
-        case whole {
-            Ok(v) -> "ok ${v}"
-            Err(e) -> "err ${e}"
-        }
-    } else {
-        "impossible"
-    }
-}
-
 fn main() {
     io.print(label(Some("Ada")))
     io.print(label(None))
@@ -152,8 +134,4 @@ fn main() {
 
     io.print(in_lambda(Some(8)))
     io.print(in_lambda(None))
-
-    io.print(always(0))
-    io.print(bind_all(Ok(2)))
-    io.print(bind_all(Err("bad")))
 }

@@ -28,6 +28,7 @@ package irbuild
 // rows can preserve the complete operand history in reports.
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 
@@ -491,12 +492,18 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 					return v, rk, mobile, ok
 				}
 			}
-			args := bl.irQualLowerArgs(t)
-			plan := bl.stdModuleTypePlan(t, args, mod, owner, method)
-			if plan == nil {
-				return no()
+			if !irOwnOperationFamily(owner, method) || !bl.g.stdOwnerUnshadowed(owner) {
+				args := bl.irQualLowerArgs(t)
+				plan := bl.stdModuleTypePlan(t, args, mod, owner, method)
+				if plan == nil {
+					return no()
+				}
+				return bl.qualEmit(t, args, plan)
 			}
-			return bl.qualEmit(t, args, plan)
+			// `lists.List.head(xs)`, `iter.Iter.find(xs, f)`: an operation
+			// of a family the VM owns, which the two-segment spelling
+			// reaches through its owner's own route. The bare owner names
+			// the same std type here, so it is that call.
 		}
 		ti, isType = &ast.TypeIdent{Name: owner, Line: fa.Line, Col: fa.Col}, true
 	}
@@ -704,6 +711,9 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 		// `CalleeIndirect` and a different resolution.
 		return no()
 	default:
+		if v, rk, mobile, ok, handled := bl.stdGenericFileCall(t, obj, method); handled {
+			return v, rk, mobile, ok
+		}
 		plan = bl.qualFilePlan(t, args, obj, method)
 	}
 	if plan == nil {
@@ -862,6 +872,12 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 				args = full
 				t = &ast.Call{Func: t.Func, Args: make([]ast.Node, len(full.temps)), Line: t.Line, Col: t.Col}
 			}
+			if widened, changed := bl.qualWidenEmbeds(t, args, only.params); changed {
+				// `Shape.to_string(circle)`: the Circle enters its
+				// `embeds` variant.
+				filled = &widened
+				args = widened
+			}
 			if !bl.qualSignature(t, args, only.params, only.result) || !only.lowerable {
 				return nil
 			}
@@ -988,6 +1004,14 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 		// instance's, not the template's written sites.
 		return bl.siblingInstanceImplPlan(t, args, d, method, iface)
 	}
+	if site := g.siblingImplSite(d, method, iface); site != nil && site.withheld != nil {
+		// `leaf.Box.ident(6)`: a generic member, instantiated by its file.
+		if site.fn.why != "generic impl function" {
+			// A private inherent member, which the checker already refuses.
+			return nil
+		}
+		return bl.siblingMethodPlan(t, args, g.reg.gens[site.unit], site.withheld, method)
+	}
 	chosen, params, result, owning := g.siblingImplMember(d, method, iface)
 	if chosen == nil {
 		return nil
@@ -1019,14 +1043,12 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 	return p
 }
 
-// siblingImplMember is the one impl function another file declares for its
-// type d under `method`, narrowed to iface's impls when iface is not empty,
-// with its parameter and result kinds translated into this unit and the gen
-// that declares it. A nil site is no such function, more than one (native
-// reports `ambiguous type-qualified call`), or one this unit cannot type.
-func (g *gen) siblingImplMember(d *typeDef, method, iface string) (*implMemberSite, []kind, kind, *gen) {
+// siblingImplSite is the one indexed impl function another file declares for
+// its type d under `method`, narrowed to iface's impls when iface is not
+// empty, or nil when there is none or more than one.
+func (g *gen) siblingImplSite(d *typeDef, method, iface string) *implMemberSite {
 	if g.files == nil || g.fileUnit < 0 || g.reg == nil || d == nil || d.decl == nil {
-		return nil, nil, kindInvalid, nil
+		return nil
 	}
 	var chosen *implMemberSite
 	for _, site := range writtenImplMembers(g.files.implMembers[implMemberKey{recv: d.decl, method: method}]) {
@@ -1034,11 +1056,21 @@ func (g *gen) siblingImplMember(d *typeDef, method, iface string) (*implMemberSi
 			continue
 		}
 		if chosen != nil {
-			return nil, nil, kindInvalid, nil
+			return nil
 		}
 		site := site
 		chosen = &site
 	}
+	return chosen
+}
+
+// siblingImplMember is the one impl function another file declares for its
+// type d under `method`, narrowed to iface's impls when iface is not empty,
+// with its parameter and result kinds translated into this unit and the gen
+// that declares it. A nil site is no such function, more than one (native
+// reports `ambiguous type-qualified call`), or one this unit cannot type.
+func (g *gen) siblingImplMember(d *typeDef, method, iface string) (*implMemberSite, []kind, kind, *gen) {
+	chosen := g.siblingImplSite(d, method, iface)
 	if chosen == nil || chosen.item == nil || !chosen.fn.lowerable() {
 		return nil, nil, kindInvalid, nil
 	}
@@ -1120,7 +1152,16 @@ func (bl *irScalarBuilder) qualFilePlan(t *ast.Call, args irQualArgs, ownerID *a
 	if !isStd {
 		std, isStd = bl.stdOwnFileQualifier(owner)
 	}
-	if isStd && bl.g.std != nil {
+	if !isStd {
+		return nil
+	}
+	return bl.stdFilePlan(t, args, std, method)
+}
+
+// stdFilePlan plans a call to std file std's top-level function method,
+// written `io.read_line()` or bare after `import std/io.read_line`.
+func (bl *irScalarBuilder) stdFilePlan(t *ast.Call, args irQualArgs, std, method string) *irQualPlan {
+	if bl.g.std != nil {
 		if f := bl.g.std.byFile[std+"."+method]; f != nil && f.why == "" && irFrameHost(f) && bl.qualSignature(t, args, f.params, f.result) {
 			return &irQualPlan{token: f, name: f.key, result: f.result, host: true}
 		}
@@ -1129,6 +1170,11 @@ func (bl *irScalarBuilder) qualFilePlan(t *ast.Call, args irQualArgs, ownerID *a
 		}
 		if f := bl.g.std.byFile[std+"."+method]; f != nil && f.why == "" {
 			if _, compiler := irCompilerHost(f); compiler {
+				return bl.stdFuncPlan(t, args, f)
+			}
+			if f.rtCall == "" {
+				// A Nomi body (`json.shape_error_root`): the std module's
+				// cached function, as derive synthesis calls it.
 				return bl.stdFuncPlan(t, args, f)
 			}
 		}
@@ -1573,4 +1619,51 @@ func (g *gen) stdOwnerAlias(ti *ast.TypeIdent) string {
 		}
 	}
 	return ""
+}
+
+// stdOwnerUnshadowed reports whether the bare name owner, written here, still
+// names the std type a module qualifier named (`lists.List`): no type,
+// generic template or interface this file declares or imports takes it.
+func (g *gen) stdOwnerUnshadowed(owner string) bool {
+	if g.userTypeNamed(owner) || g.genericTemplates[owner] != nil {
+		return false
+	}
+	_, iface := g.ifaces[owner]
+	return !iface
+}
+
+// qualWidenEmbeds widens each operand of an embedded type whose parameter is
+// the enum that embeds it into its `embeds` variant, as a direct call's
+// operand is (coerceEmpty). changed is false when no operand needed it, and
+// args is then unchanged.
+func (bl *irScalarBuilder) qualWidenEmbeds(t *ast.Call, args irQualArgs, params []kind) (irQualArgs, bool) {
+	if !args.ok || len(args.kinds) != len(params) {
+		return args, false
+	}
+	var out irQualArgs
+	for i, k := range args.kinds {
+		if k == params[i] || !irEmbeddedIn(params[i], k) {
+			continue
+		}
+		if out.temps == nil {
+			out = irQualArgs{temps: slices.Clone(args.temps), kinds: slices.Clone(args.kinds), mobile: slices.Clone(args.mobile), ok: true}
+		}
+		var at ast.Node = t
+		if i < len(t.Args) && !isNilNode(t.Args[i]) {
+			at = t.Args[i]
+		}
+		v, got, ok := bl.coerceEmpty(at, args.temps[i], k, params[i])
+		if !ok {
+			return args, false
+		}
+		out.temps[i], out.kinds[i] = v, got
+		if i < len(out.mobile) {
+			// The widened value is a pure construction (embedWiden).
+			out.mobile[i] = true
+		}
+	}
+	if out.temps == nil {
+		return args, false
+	}
+	return out, true
 }

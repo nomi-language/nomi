@@ -19,7 +19,10 @@ import (
 // that is one block flattened, a tail `return` dropped). Positions, comment
 // placement, blank lines and parentheses are ignored, and so is the other
 // spelling of a parenthesized name in a pattern (bindGroupedNames). Comment
-// text is not: both texts must hold the same comments and doc comments.
+// text is not: both texts must hold the same comments and doc comments. A
+// comment line with no text, `//` or `///`, is layout, as a blank line is:
+// the formatter writes a doc comment's trailing blank lines as `//` and drops
+// a doc comment that is only blank lines.
 //
 // It is the property `nomi fmt` is held to; vmhost's format_meaning_test.go
 // checks it over the corpus, generated programs and their layout variants.
@@ -37,6 +40,8 @@ func SameMeaning(src, formatted string) error {
 	}
 	bindGroupedNames(reflect.ValueOf(orig))
 	bindGroupedNames(reflect.ValueOf(out))
+	splitImportPaths(orig)
+	splitImportPaths(out)
 	if path, ok := equalAST(reflect.ValueOf(orig), reflect.ValueOf(out), "file"); !ok {
 		return fmt.Errorf("the syntax tree changed at %s", path)
 	}
@@ -77,8 +82,8 @@ type comment struct {
 	text, before, after string
 }
 
-// comments are src's comments and doc comments in order, each with the
-// lexemes of the code tokens before and after it.
+// comments are src's comments and doc comments that hold text, in order,
+// each with the lexemes of the code tokens before and after it.
 func comments(src string) []comment {
 	toks := lexer.Lex(src)
 	code := func(i, step int) string {
@@ -99,8 +104,18 @@ func comments(src string) []comment {
 		switch tok.Type {
 		case token.COMMENT:
 			text = strings.TrimRight(tok.Lexeme, " \t\r")
+			if text == "//" {
+				continue
+			}
 		case token.DOC_COMMENT:
-			text = "///" + strings.TrimRight(tok.Lexeme, " \t\r")
+			if strings.TrimSpace(tok.Lexeme) == "" {
+				continue
+			}
+			// A doc comment's text is what follows `///` and the one
+			// space after it, if any (collectDocComments): `///0` and
+			// `/// 0` document the same text, and the formatter writes
+			// the second.
+			text = "///" + strings.TrimPrefix(strings.TrimRight(tok.Lexeme, " \t\r"), " ")
 		default:
 			continue
 		}
@@ -187,11 +202,7 @@ func bindGroupedNames(v reflect.Value) {
 	case reflect.Slice, reflect.Array:
 		for i := 0; i < v.Len(); i++ {
 			if e := v.Index(i); e.Kind() == reflect.Interface && e.CanSet() && !e.IsNil() {
-				if td := tupleDestructure(e.Interface()); td != nil {
-					e.Set(reflect.ValueOf(td))
-				} else if dd := distinctDestructure(e.Interface()); dd != nil {
-					e.Set(reflect.ValueOf(dd))
-				} else if pb, ok := e.Interface().(*ast.PatternBinding); ok && pb.Else == nil {
+				if pb, ok := e.Interface().(*ast.PatternBinding); ok && pb.Else == nil {
 					// `(a) = v` is the binding `a = v`.
 					if id, ok := pb.Pattern.(*ast.IdentPattern); ok {
 						e.Set(reflect.ValueOf(&ast.Binding{Name: id.Name, Value: pb.Value}))
@@ -207,62 +218,36 @@ func bindGroupedNames(v reflect.Value) {
 	}
 }
 
-// distinctDestructure is the DistinctDestructure the parser builds for
-// `Meters(m) = v` when n is the PatternBinding it builds for `Meters((m)) =
-// v`, or nil. Both bind m to the value v wraps.
-func distinctDestructure(n any) *ast.DistinctDestructure {
-	pb, ok := n.(*ast.PatternBinding)
-	if !ok || pb.Else != nil {
-		return nil
-	}
-	ep, ok := pb.Pattern.(*ast.EnumPattern)
-	if !ok {
-		return nil
-	}
-	bindGroupedName(ep)
-	st, ok := ep.Variant.(*ast.SimpleType)
-	if !ok || strings.Contains(st.Name, ".") {
-		return nil
-	}
-	dd := &ast.DistinctDestructure{TypeName: st.Name, TypeNameExpr: &ast.SimpleType{Name: st.Name}, Value: pb.Value}
-	switch {
-	case ep.Binding != "" && ep.Payload == nil:
-		dd.Binding = &ast.Ident{Name: ep.Binding}
-	case ep.Binding == "":
-		if _, ok := ep.Payload.(*ast.WildcardPattern); !ok {
-			return nil
+// splitImportPaths sets each import's FileSegments where the formatter
+// splits its path (importPathAndOwners): the trailing PascalCase segments
+// of an import that names things are owners, and the others the file path.
+// `api.http.header.{self}` and `api/http/header.{self}` import the same
+// thing: an owner is a type, whose name is PascalCase, so the analyzer
+// never resolves a lowercase segment as one. Each segment then compares by
+// its name alone.
+func splitImportPaths(nodes []ast.Node) {
+	split := func(n *ast.ImportStmt) {
+		if n.FileSegments == 0 {
+			return
 		}
-	default:
-		return nil
-	}
-	return dd
-}
-
-// tupleDestructure is the TupleDestructure the parser builds for
-// `(a, b) = v` when n is the PatternBinding it builds for the same binding
-// with a name in parentheses, `((a), b) = v`, or nil. Both bind each name
-// to its element.
-func tupleDestructure(n any) *ast.TupleDestructure {
-	pb, ok := n.(*ast.PatternBinding)
-	if !ok || pb.Else != nil {
-		return nil
-	}
-	tp, ok := pb.Pattern.(*ast.TuplePattern)
-	if !ok || len(tp.Patterns) < 2 {
-		return nil
-	}
-	td := &ast.TupleDestructure{Value: pb.Value}
-	for _, p := range tp.Patterns {
-		switch p := p.(type) {
-		case *ast.IdentPattern:
-			td.Bindings = append(td.Bindings, &ast.Ident{Name: p.Name})
-		case *ast.WildcardPattern:
-			td.Bindings = append(td.Bindings, nil)
-		default:
-			return nil
+		path, _ := importPathAndOwners(n)
+		n.FileSegments = len(path)
+		// A segment is its name: `import "Mod"` and `import Mod` name the
+		// same file, though the quoted one parses as an Ident.
+		for i, seg := range n.ModulePath {
+			n.ModulePath[i] = &ast.Ident{Name: ast.ImportNodeName(seg)}
 		}
 	}
-	return td
+	for _, n := range nodes {
+		switch v := n.(type) {
+		case *ast.ImportStmt:
+			split(v)
+		case *ast.ImportBlock:
+			for _, e := range v.Entries {
+				split(e)
+			}
+		}
+	}
 }
 
 func bindGroupedName(n any) {

@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/stdcache"
 	"github.com/nomi-language/nomi/std"
 	"path/filepath"
 	"strings"
@@ -21,10 +22,16 @@ var version = "0.1.0"
 
 // Server holds the state for the Nomi language server.
 type Server struct {
-	handler         protocol.Handler
-	docs            *analysis.DocumentManager
-	wrapper         *handlerWrapper
-	std             *std.StdLib
+	handler protocol.Handler
+	docs    *analysis.DocumentManager
+	wrapper *handlerWrapper
+	std     *std.StdLib
+	// stdNav, when set, chooses where navigation into std lands in place of
+	// std.FileURI's own choice: a navigator with its own source tree (or
+	// none), cache root and files. Tests set it to reach the materialized
+	// directory from a checkout, or to point at a fake checkout. Nil means
+	// std.FileURI.
+	stdNav          *stdcache.Navigator
 	notify          glsp.NotifyFunc // captured for background notifications
 	cancelPropagate context.CancelFunc
 	propagateMu     sync.Mutex
@@ -75,9 +82,15 @@ func NewServer() *Server {
 	}
 	s.startBackground()
 
-	// Load stdlib
-	lib := std.Load()
+	// The process's one stdlib analysis, the one the front end and the IR
+	// builder read: the lowering check lowers a document's analysis
+	// (lowering.go), and the builder knows a std declaration by its node.
+	lib := std.Shared()
 	s.docs.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
+	// Std modules a document imports are read from this server's own
+	// embedded std, never from an open buffer or the disk.
+	stdRoot, _ := analysis.StdlibPath()
+	s.docs.SetStdlibSource(stdRoot, std.ReadFile)
 	s.std = lib
 
 	s.handler = protocol.Handler{
@@ -117,6 +130,14 @@ func NewServer() *Server {
 
 	s.wrapper = &handlerWrapper{inner: &s.handler, server: s}
 	return s
+}
+
+// stdFileURI is the file go-to-definition and links open for a std module.
+func (s *Server) stdFileURI(module string) string {
+	if s.stdNav != nil {
+		return "file://" + s.stdNav.Path(module+".nomi")
+	}
+	return s.std.FileURI(module)
 }
 
 func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams) (any, error) {

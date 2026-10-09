@@ -88,12 +88,6 @@ func TestStdlibNamesItsSiblingsBare(t *testing.T) {
 	var qualified []string
 	for file, imps := range entries {
 		for _, imp := range imps {
-			// A `gopkg "import/path"` handle parses to *ast.ExternPackage,
-			// so it never reaches this walk; the guard is here for the
-			// `import go { ... }` block form, whose entries do.
-			if imp.Extern {
-				continue
-			}
 			total++
 			p := importPathOf(imp)
 			if strings.HasPrefix(p, "std/") || p == "std" {

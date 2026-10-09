@@ -655,7 +655,7 @@ func (d *decoder) instr(r *rbuf) Instr {
 		if k, isNil := r.slen(); !isNil {
 			n.impls = make([]DebugImpl, k)
 			for i := range n.impls {
-				n.impls[i] = DebugImpl{Type: d.str(r.uv()), Fn: d.sym(r.uv())}
+				n.impls[i] = DebugImpl{Type: d.str(r.uv()), Inst: d.str(r.uv()), Fn: d.sym(r.uv())}
 			}
 		}
 		return n

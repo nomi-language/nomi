@@ -619,7 +619,7 @@ type FileAnalysis struct {
 	// type base name taken from the BLOCK HEADER (not the first parameter).
 	// Coherence (detectImplCollisions / detectOrphanImpls) keys interface-impl
 	// methods on the receiver; for block forms the first parameter is the
-	// concrete receiver type. Bodyless field-only impls have no function item at
+	// concrete receiver type. Bodyless marker impls have no function item at
 	// all, so funcDefReceiverBaseName can't recover it — this override map
 	// supplies the header receiver when a function item exists. Also lets
 	// the inherent collision check group an inherent block's methods by their
@@ -1180,7 +1180,17 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 			dep = head
 		}
 	}
+	if len(modulePath) == 1 && modulePath[0] == "std" {
+		dep = "std"
+		loadPath = nil
+	}
 	if len(loadPath) == 0 {
+		if dep != "" {
+			// The path is a module's short name and nothing below it:
+			// `import std`, or `import std.io`, which selects `io` from a
+			// file `std`. A module is a directory, so there is no file.
+			return nil, "", &importMiss{root: loadRoot, dep: dep, std: dep == "std"}
+		}
 		return nil, "", nil
 	}
 	filePath := ResolveModulePath(loadRoot, loadPath)
@@ -1304,7 +1314,7 @@ func mergeTypeMethods(dst, src *FileAnalysis, srcPath string) {
 	if dst == nil || src == nil || src.TypeMethods == nil || srcPath == "" {
 		return
 	}
-	if filepath.Base(filepath.Dir(srcPath)) == "std" {
+	if _, std := stdlibModuleForPath(srcPath); std {
 		return
 	}
 	for typeName, byName := range src.TypeMethods {
@@ -1718,7 +1728,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 
 		case *ast.PatternDestructure:
 			b.walkNode(s.Value, scope)
-			b.definePatternOwned(s.Pattern, scope, s)
+			b.definePatternRoot(s.Pattern, scope, s)
 
 		case *ast.PatternBinding:
 			b.walkPatternBinding(s, scope)
@@ -2282,7 +2292,6 @@ func (b *builder) defineInterface(n *ast.InterfaceDef, scope *Scope) *Scope {
 			Members: make(map[string]*Symbol),
 		}
 		b.defineInterfaceMethodSymbols(n, sym)
-		b.defineInterfaceRequirementSymbols(n, sym)
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
@@ -2310,9 +2319,6 @@ func (b *builder) defineInterface(n *ast.InterfaceDef, scope *Scope) *Scope {
 		}
 		b.walkTypeExpr(m.ReturnTypeExpr, methodInner)
 		b.walkWhereClauses(m.WhereClauses, methodInner)
-	}
-	for _, f := range n.Fields {
-		b.walkTypeExpr(f.TypeAnnotation, inner)
 	}
 	return inner
 }
@@ -3153,7 +3159,6 @@ func (b *builder) defineInterfaceStub(n *ast.InterfaceDef, scope *Scope) {
 		Members: make(map[string]*Symbol),
 	}
 	b.defineInterfaceMethodSymbols(n, sym)
-	b.defineInterfaceRequirementSymbols(n, sym)
 	b.collidesWithImportedModule(scope, n.Name, n.Line, n.Col)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
@@ -3162,31 +3167,6 @@ func (b *builder) defineInterfaceStub(n *ast.InterfaceDef, scope *Scope) {
 		b.defineInterfaceModuleMethods(sym, scope)
 	}
 	b.file.Definitions[pos] = sym
-}
-
-// defineInterfaceRequirementSymbols registers hover/go-to-def targets for
-// structural requirements inside an interface body.
-func (b *builder) defineInterfaceRequirementSymbols(n *ast.InterfaceDef, ifaceSym *Symbol) {
-	if ifaceSym == nil {
-		return
-	}
-	for i := range n.Fields {
-		f := &n.Fields[i]
-		if f.Line <= 0 {
-			continue
-		}
-		pos := Pos{Line: f.Line, Col: f.Col}
-		if _, alreadyDefined := b.file.Definitions[pos]; alreadyDefined {
-			continue
-		}
-		b.file.Definitions[pos] = &Symbol{
-			Name: f.Name,
-			Kind: SymbolField,
-			Pos:  pos,
-			Doc:  f.Doc,
-			Node: f,
-		}
-	}
 }
 
 func (b *builder) defineInterfaceModuleMethods(ifaceSym *Symbol, scope *Scope) {
@@ -3205,7 +3185,7 @@ func (b *builder) defineInterfaceModuleMethods(ifaceSym *Symbol, scope *Scope) {
 }
 
 // defineInterfaceAnnotations walks type-param declarations, where clauses,
-// each method's param/return type expressions, plus field requirements.
+// and each method's param/return type expressions.
 func (b *builder) defineInterfaceAnnotations(n *ast.InterfaceDef, scope *Scope) {
 	inner := b.defineTypeParams(n.TypeParams, scope)
 	b.walkWhereClauses(n.WhereClauses, inner)
@@ -3215,9 +3195,6 @@ func (b *builder) defineInterfaceAnnotations(n *ast.InterfaceDef, scope *Scope) 
 		}
 		b.walkTypeExpr(m.ReturnTypeExpr, inner)
 		b.walkWhereClauses(m.WhereClauses, inner)
-	}
-	for _, f := range n.Fields {
-		b.walkTypeExpr(f.TypeAnnotation, inner)
 	}
 }
 
@@ -3236,7 +3213,7 @@ func (b *builder) recordInterfaceImpl(typeName, ifaceName, methodName string) {
 	b.file.Impls[typeName][ifaceName] = true
 
 	if methodName == "" {
-		return // pair-only recording (field-only / bodyless impl)
+		return // pair-only recording (bodyless impl)
 	}
 	// Track the override: this method claims (typeName, ifaceName) for this
 	// file. registerImplDefaults reads this to skip registering an
@@ -3585,7 +3562,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		ifacePublic = ifaceReal.Public
 	}
 
-	// Record the (T, Iface) pair even for bodyless field-only impls. Passing
+	// Record the (T, Iface) pair even for bodyless impls. Passing
 	// an empty method name records the pair without touching the override map.
 	b.recordInterfaceImpl(recv, ifaceName, "")
 	if b.file.DispatchNames == nil {
@@ -3973,28 +3950,6 @@ func stampImportedScope(modScope *Scope, filePath string) {
 // Aliases are only registered as Symbols in the local scope. b.modules
 // is process-global and would otherwise wipe out module-level entries.
 func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
-	if n.Extern {
-		if n.ExternAlias == "" || n.ExternAlias == "_" {
-			return
-		}
-		bindName := n.ExternAlias
-		pos := Pos{Line: n.ExternPathLine, Col: n.ExternPathCol}
-		if n.ExternAliasExplicit {
-			pos = Pos{Line: n.ExternAliasLine, Col: n.ExternAliasCol}
-		}
-		sym := &Symbol{
-			Name: bindName,
-			Kind: SymbolModule,
-			Pos:  pos,
-			Node: n,
-		}
-		if !b.checkRedeclareInScope(scope, bindName, pos.Line, pos.Col) {
-			scope.Define(sym)
-		}
-		b.file.Definitions[pos] = sym
-		return
-	}
-
 	modPathStrings := make([]string, len(n.ModulePath))
 	for i, seg := range n.ModulePath {
 		modPathStrings[i] = ast.ImportNodeName(seg)
@@ -4096,29 +4051,6 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			b.reportMissingModule(n, n.ModulePath, miss)
 		}
 		sym.ModuleScope = modScope
-		// Empty-selector re-export promotes the imported file API object.
-		if n.ExportAll {
-			exportName := bindName
-			exportNode := bindNode
-			if n.ExportAlias != nil {
-				exportName = ast.ImportNodeName(n.ExportAlias)
-				exportNode = n.ExportAlias
-			}
-			if exportName == bindName {
-				sym.Public = true
-			} else {
-				pubSym := &Symbol{
-					Name:        exportName,
-					Kind:        SymbolModule,
-					Pos:         Pos{Line: exportNode.LineNum(), Col: b.nodeCol(exportNode)},
-					Public:      true,
-					Node:        n,
-					ModuleScope: modScope,
-				}
-				scope.Define(pubSym)
-				b.file.Definitions[pubSym.Pos] = pubSym
-			}
-		}
 		scope.Define(sym)
 		b.file.Definitions[sym.Pos] = sym
 
@@ -4900,14 +4832,10 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 			}
 			if moduleName != "" {
 				// Resolve which module-scope this name refers to. lookupModuleScope
-				// handles the full set: closest binding when it is (or proxies to,
-				// via Resolved) a SymbolModule with a ModuleScope; the function-
+				// handles the full set: closest binding when it is a
+				// SymbolModule with a ModuleScope; the function-
 				// shadow scope-walk past a local binding; b.imported as the final
-				// fallback for same-scope shadowing. Selectively-imported
-				// re-exported modules (`import facade.{parser_lib}`) carry
-				// Kind=SymbolModule on the proxy but ModuleScope only on the
-				// Resolved chain — moduleScopeOfSym (inside lookupModuleScope)
-				// follows it transparently. There is no silent fallback to
+				// fallback for same-scope shadowing. There is no silent fallback to
 				// `b.modules` — module access in user code requires explicit
 				// visibility (prelude or import). `b.modules` itself is still
 				// used elsewhere (resolveStdlibImport, defineImport, qualified
@@ -4941,23 +4869,6 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 						if sym := modScope.LookupLocal(n.Field.Name); sym != nil {
 							b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = sym
 						}
-					}
-				}
-			}
-			// Chained module access: `facade.parser_lib.greet`. n.Object is
-			// itself a *ast.FieldAccess pointing at a re-exported (or
-			// otherwise nested) module. The inner walk above already
-			// registers references for the inner Object/Field; here we
-			// resolve the chain to the inner module's *Scope and look up
-			// n.Field.Name as a member there. Without this, the final
-			// field never lands in fa.References, the checker sees nil
-			// types at the call site, and the generic-call manifest
-			// recording (e.g. `(String, Debug)` from `io.inspect`) never
-			// fires for chained re-export shapes.
-			if obj, ok := n.Object.(*ast.FieldAccess); ok {
-				if inner := b.resolveModuleScopeFromFieldAccess(obj, scope); inner != nil {
-					if sym := inner.LookupLocal(n.Field.Name); sym != nil {
-						b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = sym
 					}
 				}
 			}
@@ -5076,6 +4987,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.Then:
 		b.walkNode(n.Lambda, scope)
 
+	case *ast.Tap:
+		b.walkNode(n.Lambda, scope)
+
 	case *ast.StructLit:
 		b.walkTypeExpr(n.TypeName, scope)
 		// Register the field name's source position as a Reference to the
@@ -5187,7 +5101,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	// TypeAlias/InterfaceDef/ImportStmt are handled above for nested-decl support.)
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit, *ast.Placeholder,
 		*ast.WildcardPattern,
-		*ast.IdentPattern, *ast.EnumPattern, *ast.StructPattern,
+		*ast.IdentPattern, *ast.AsPattern, *ast.EnumPattern, *ast.StructPattern,
 		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern,
 		*ast.ExternFunc, *ast.ExternPackage:
 		// nothing to walk
@@ -5302,14 +5216,6 @@ func (b *builder) isBlockImportBinding(sym *Symbol, scope *Scope) bool {
 // then walk up the scope chain past any shadow looking for a parent
 // SymbolModule with the same name, then b.imported as the final
 // fallback for same-scope shadowing.
-//
-// Selectively-imported re-exported modules (e.g. `import facade.{parser_lib}`
-// where facade did `import parser_lib export`) bind a proxy SymbolModule
-// in the importing scope: the proxy carries Kind=SymbolModule but its
-// ModuleScope is nil — only its Resolved chain reaches the real module
-// symbol whose ModuleScope is populated. moduleScopeOfSym walks that
-// chain so call sites like `parser_lib.greet(...)` resolve through to
-// the underlying parser_lib scope.
 func (b *builder) lookupModuleScope(name string, scope *Scope) *Scope {
 	localSym := scope.Lookup(name)
 	if ms := moduleScopeOfSym(localSym); ms != nil {
@@ -5332,59 +5238,13 @@ func (b *builder) lookupModuleScope(name string, scope *Scope) *Scope {
 	return nil
 }
 
-// moduleScopeOfSym returns sym's ModuleScope, following the Resolved
-// chain when the immediate symbol is a proxy (selective-import bindings
-// inherit Kind=SymbolModule from the real symbol but not ModuleScope).
-// Returns nil unless the resolved symbol is a SymbolModule with a
-// non-nil ModuleScope.
+// moduleScopeOfSym returns sym's ModuleScope when sym is a file API object
+// (a SymbolModule), or nil.
 func moduleScopeOfSym(sym *Symbol) *Scope {
-	for s := sym; s != nil; s = s.Resolved {
-		if s.Kind == SymbolModule && s.ModuleScope != nil {
-			return s.ModuleScope
-		}
-	}
-	return nil
-}
-
-// resolveModuleScopeFromFieldAccess walks a chained module-access
-// FieldAccess (e.g. `facade.parser_lib`, where facade re-exports
-// parser_lib) and returns the *Scope of the module the chain ends at,
-// or nil if any step doesn't resolve to a module symbol. The leaf step
-// is delegated to lookupModuleScope so the same scope-chain + b.imported
-// fallback rules apply at the outermost layer.
-//
-// This exists because the *ast.FieldAccess walker case below originally
-// only matched n.Object being *ast.Ident or *ast.TypeIdent; chained
-// access (`facade.parser_lib.greet`) silently dropped the final field
-// reference. The checker then saw nil types at the call site and the
-// generic-call path's manifest recording never fired, leaving
-// re-exported call sites missing from ImplManifest.
-func (b *builder) resolveModuleScopeFromFieldAccess(fa *ast.FieldAccess, scope *Scope) *Scope {
-	var inner *Scope
-	switch o := fa.Object.(type) {
-	case *ast.Ident:
-		inner = b.lookupModuleScope(o.Name, scope)
-	case *ast.TypeIdent:
-		inner = b.lookupModuleScope(o.Name, scope)
-	case *ast.FieldAccess:
-		inner = b.resolveModuleScopeFromFieldAccess(o, scope)
-	}
-	if inner == nil {
+	if sym == nil || sym.Kind != SymbolModule {
 		return nil
 	}
-	member := inner.LookupLocal(fa.Field.Name)
-	if member == nil {
-		return nil
-	}
-	// Selective imports route through Resolved to reach the real
-	// SymbolModule (and its ModuleScope) in the imported module.
-	if member.Resolved != nil {
-		member = member.Resolved
-	}
-	if member.Kind != SymbolModule || member.ModuleScope == nil {
-		return nil
-	}
-	return member.ModuleScope
+	return sym.ModuleScope
 }
 
 // walkBlock walks statements in a block, handling Binding specially:
@@ -5468,7 +5328,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 
 		case *ast.PatternDestructure:
 			b.walkNode(s.Value, scope)
-			b.definePatternOwned(s.Pattern, scope, s)
+			b.definePatternRoot(s.Pattern, scope, s)
 
 		case *ast.PatternBinding:
 			b.walkPatternBinding(s, scope)
@@ -5547,7 +5407,7 @@ func (b *builder) walkPatternBinding(n *ast.PatternBinding, scope *Scope) {
 			}
 		}
 	}
-	b.definePatternOwned(n.Pattern, scope, n)
+	b.definePatternRoot(n.Pattern, scope, n)
 }
 
 func blockEndLine(block *ast.Block) int {
@@ -5650,7 +5510,27 @@ func structPatternFieldBindingLine(f ast.StructPatternField, fallback int) int {
 }
 
 func (b *builder) definePattern(node ast.Node, scope *Scope) {
-	b.definePatternOwned(node, scope, nil)
+	b.definePatternRoot(node, scope, nil)
+}
+
+// definePatternRoot binds a whole pattern's names (definePatternOwned) and
+// reports a name it binds twice: `(a, a)` and `Some(n) as n` would leave the
+// first binding unreachable.
+func (b *builder) definePatternRoot(node ast.Node, scope *Scope, owner ast.Node) {
+	b.definePatternOwned(node, scope, owner)
+	seen := map[string]bool{}
+	for _, site := range patternSites(node) {
+		if ast.IsDiscardName(site.name) {
+			continue
+		}
+		if seen[site.name] {
+			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
+				Line: site.pos.Line, Col: site.pos.Col, EndLine: site.pos.Line, EndCol: site.pos.Col + len(site.name),
+				Message: fmt.Sprintf("`%s` is bound twice in one pattern; give each binding its own name", site.name),
+			})
+		}
+		seen[site.name] = true
+	}
 }
 
 // definePatternIn binds the pattern of a `case` arm, an `else` arm, an `if`
@@ -5688,6 +5568,24 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 			Name:            n.Name,
 			Kind:            SymbolBinding,
 			Pos:             Pos{Line: n.Line, Col: n.Col},
+			Node:            bindingNode,
+			ReceiverDisplay: scope.ReceiverTypeDisplay(),
+			ParamOf:         b.paramPatternOf,
+			PatternBody:     b.patternBodyOf,
+		}
+		if !ast.IsDiscardName(n.Name) {
+			scope.Define(sym)
+		}
+		b.file.Definitions[sym.Pos] = sym
+
+	case *ast.AsPattern:
+		// The inner pattern's names first, then the name for the whole
+		// value: source order, so a duplicate reports at the later one.
+		b.definePatternOwned(n.Pattern, scope, owner)
+		sym := &Symbol{
+			Name:            n.Name,
+			Kind:            SymbolBinding,
+			Pos:             Pos{Line: n.NameLine, Col: n.NameCol},
 			Node:            bindingNode,
 			ReceiverDisplay: scope.ReceiverTypeDisplay(),
 			ParamOf:         b.paramPatternOf,

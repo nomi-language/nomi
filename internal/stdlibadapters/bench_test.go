@@ -37,7 +37,7 @@ func BenchmarkCrossing(b *testing.B) {
 	}{
 		{"DateTime.year", []rt.Value{zone}},
 		{"calendar.date_add_days", []rt.Value{day, int64(40)}},
-		{"Regex.match?", []rt.Value{re, "xxaab"}},
+		{"Regex.contained_in?", []rt.Value{re, "xxaab"}},
 	}
 	for _, c := range cases {
 		rtArgs := make([]rt.Value, len(c.args))

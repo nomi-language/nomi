@@ -472,9 +472,9 @@ dbg line 22: events = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
 
 The benefit is **subtype coercion**: a `Click` value flows into any
 `Event`-typed slot (list elements, function arguments, return values)
-without explicit construction. Pattern matching destructures embedded
-structs the same way as struct variants — `case e { Event.Click{x, y} -> … }` —
-shown in [Pattern Matching](/pattern-matching/).
+without explicit construction. The coercion goes one way: an `Event` is not a `Click`, since it may hold another variant, so a function taking a `Click` needs a match first.
+Pattern matching destructures embedded structs the same way as struct variants —
+`case e { Event.Click{x, y} -> … }` — shown in [Pattern Matching](/pattern-matching/).
 
 `embeds` is Nomi's replacement for the OO `extends` pattern: a
 `List<Event>` of mixed UI event values is an enum with one `embeds`

@@ -125,11 +125,11 @@ test "type-attached literals can construct ordinary user types" {
 }
 
 test "Regex typed literals use the standard adapter" {
-    digits = try Regex`\d+`
+    digits = Regex`\d+`
 
     assert Regex.pattern(digits) == "\\d+"
-    assert Regex.match?(digits, "room 42")
+    assert String.contains?("room 42", digits)
     assert Regex.find(digits, "room 42") == Some("42")
-    assert Regex.find_all(digits, "a12b34") == ["12", "34"]
+    assert String.find_all("a12b34", digits) == ["12", "34"]
     assert Regex.replace_all(digits, "a12b34", "#") == "a#b#"
 }

@@ -15,8 +15,8 @@ import (
 // listDirectRequires reads go.mod under projectRoot and returns the import
 // paths of every direct require (i.e. require directives without the
 // `// indirect` marker). The wrapper threads these through to runtime
-// diagnostics; discovery itself is driven by top-level Go blocks and inline
-// bindings.
+// diagnostics; discovery itself is driven by the `gopkg` handles and
+// `go alias.Symbol` bindings in Nomi source.
 //
 // Returns the empty slice (not nil) for a go.mod with no requires.
 // Returns an error if go.mod is missing or unparseable; missing

@@ -65,7 +65,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Ref]():           "pos dst kind sym",
 	reflect.TypeFor[ir.Copy]():          "pos dst src",
 	reflect.TypeFor[ir.Render]():        "pos dst src kind impls erased",
-	reflect.TypeFor[ir.DebugImpl]():     "Type Fn",
+	reflect.TypeFor[ir.DebugImpl]():     "Type Inst Fn",
 	reflect.TypeFor[ir.Try]():           "pos src text",
 }
 

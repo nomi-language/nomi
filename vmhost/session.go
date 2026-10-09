@@ -183,7 +183,12 @@ func (s *Session) Load(src string) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	return lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeVirtual(replModule, src, fc) })
+	p, err := lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeVirtual(replModule, src, fc) })
+	if err != nil {
+		return nil, err
+	}
+	p.sources = map[string]string{p.prog.Entry().Path: src}
+	return checked(p, nil)
 }
 
 // replModule is the module name every session program is loaded under, so

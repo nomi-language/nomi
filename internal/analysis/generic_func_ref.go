@@ -176,7 +176,7 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 		subs[tp] = concrete
 		for _, bound := range tp.Bounds {
 			if !typeImplementsInterface(c, concrete, bound, c.recPos(line, col), RecordingKindGenericBoundCheck) {
-				c.boundError(line, col, concrete, bound.Name, tp.Name_)
+				c.boundError(line, col, concrete, bound, tp.Name_)
 				continue
 			}
 			c.recordBoundConformance(concrete, bound.Name, c.recPos(line, col), RecordingKindGenericBoundCheck)

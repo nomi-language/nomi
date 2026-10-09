@@ -58,9 +58,9 @@ func (g *gen) irBuildMainFailure() {
 	}
 	sym := g.irCalleeSym(irMainFailureKey{main: main}, irMainFailureName)
 	at := ast.Node(main.ReturnTypeExpr)
-	fn, ok := g.irMainFailureFunc(main, sym, errK, at, false)
+	fn, ok := g.irErrorRenderFunc(main, irMainFailureName, sym, errK, at, false)
 	if !ok {
-		fn, ok = g.irMainFailureFunc(main, sym, errK, at, true)
+		fn, ok = g.irErrorRenderFunc(main, irMainFailureName, sym, errK, at, true)
 	}
 	if !ok {
 		irDeclineNote("an error type with no rendering: " + errK.nomi())
@@ -73,13 +73,15 @@ func (g *gen) irBuildMainFailure() {
 	g.irMod.SetMainFailure(sym)
 }
 
-// irMainFailureFunc builds `main failure` over one parameter of kind errK,
-// rendering it through Display, or through Debug when debug is set. ok is
-// false when that rendering does not lower: no Display impl for errK, or a
-// kind this builder cannot render.
-func (g *gen) irMainFailureFunc(main *ast.FuncDef, sym *ir.Symbol, errK kind, at ast.Node, debug bool) (*ir.Func, bool) {
-	param := ast.Param{Name: "error", Line: main.Line, Col: main.Col}
-	sh := g.irFuncShellAt(main, []ast.Param{param}, irFuncSig{result: kindString, name: irMainFailureName, origin: irFromModule},
+// irErrorRenderFunc builds the function name, sym, over one parameter of
+// kind errK, rendering it through Display, or through Debug when debug is
+// set: `main failure`, and a backtick typed literal's failure
+// (irliteralcell.go). ok is false when that rendering does not lower: no
+// Display impl for errK, or a kind this builder cannot render.
+func (g *gen) irErrorRenderFunc(node ast.Node, name string, sym *ir.Symbol, errK kind, at ast.Node, debug bool) (*ir.Func, bool) {
+	line, col := nodePos(node)
+	param := ast.Param{Name: "error", Line: line, Col: col}
+	sh := g.irFuncShellAt(node, []ast.Param{param}, irFuncSig{result: kindString, name: name, origin: irFromModule},
 		[]kind{errK}, sym)
 	if sh == nil {
 		return nil, false

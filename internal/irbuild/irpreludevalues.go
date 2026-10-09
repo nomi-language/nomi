@@ -37,6 +37,13 @@ func (bl *irScalarBuilder) preludeCallWant(t *ast.Call, want kind) (ir.Temp, kin
 		// records no reference at a dot, so the variant resolves from the
 		// checked enum's name, and the expected type is its instance.
 		a, anchored := bl.g.preludeNamed(dot.ResolvedEnum)
+		// A position that hands down no expected type (a nested fn's or a
+		// lambda's tail, an arm of either): the instance is the type the
+		// checker gave the call.
+		// kindInvalid: sentinel — the caller passed no expected type, not an operand's kind.
+		if want == kindInvalid {
+			want = bl.g.project(bl.g.checkedExprType(t))
+		}
 		if !anchored || want.tag != tagNamed || want.def == nil || want.def.preludeOf == nil ||
 			a.spec != want.def.preludeOf.spec || !irRetainedEnumKind(want.def) {
 			return no()
@@ -95,6 +102,12 @@ func (bl *irScalarBuilder) preludePayloadValue(t *ast.Call, k kind, vs preludeVa
 
 func (bl *irScalarBuilder) preludeBareValue(at ast.Node, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	// As in preludeCallWant: with no expected type, the checker's type of
+	// the shorthand is its instance.
+	// kindInvalid: sentinel — the caller passed no expected type, not an operand's kind.
+	if _, isDot := at.(*ast.DotVariant); isDot && want == kindInvalid {
+		want = bl.g.project(bl.g.checkedExprType(at))
+	}
 	if want.tag != tagNamed || !irRetainedEnumKind(want.def) || want.def.preludeOf == nil {
 		return no()
 	}

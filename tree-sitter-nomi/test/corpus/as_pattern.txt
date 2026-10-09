@@ -1,0 +1,179 @@
+==========
+An as pattern names the whole value in every pattern position
+==========
+
+fn describe(r: Result<Tx, String>): Int {
+    case r {
+        Ok(Tx{kind: .Deposit} as t) -> t.end
+        Ok(_) as whole -> 0
+        Err(_) -> 1
+    }
+}
+
+fn pair_sum((a, b) as pair: (Int, Int)): Int {
+    (x, y) as both = pair
+    Some(n) as m = find() else { return 0 }
+    Ok(v) = load() else {
+        Err(.NotFound) as e -> return 0
+        Err(_) -> return 1
+    }
+    if [first, ..rest] as all = xs { first } else { 0 }
+}
+
+test "pattern assert" {
+    assert Some(n) as m = find()
+}
+
+---
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (enum_pattern
+            (type_identifier)
+            (as_pattern
+              pattern: (struct_pattern
+                (type_identifier)
+                (pattern_field
+                  name: (identifier)
+                  (dot_variant
+                    (type_identifier))))
+              name: (identifier)))
+          (field_access
+            (identifier)
+            (identifier)))
+        (case_branch
+          (as_pattern
+            pattern: (enum_pattern
+              (type_identifier))
+            name: (identifier))
+          (integer))
+        (case_branch
+          (enum_pattern
+            (type_identifier))
+          (integer)))))
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (as_pattern
+          pattern: (tuple_pattern
+            (identifier)
+            (identifier))
+          name: (identifier))
+        (tuple_type
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (as_binding
+        pattern: (as_pattern
+          pattern: (tuple_expression
+            (identifier)
+            (identifier))
+          name: (identifier))
+        value: (identifier))
+      (as_binding
+        pattern: (as_pattern
+          pattern: (call_expression
+            function: (type_identifier)
+            (identifier))
+          name: (identifier))
+        value: (call_expression
+          function: (identifier))
+        else: (body
+          (return_statement
+            (integer))))
+      (else_binding
+        pattern: (call_expression
+          function: (type_identifier)
+          (identifier))
+        value: (call_expression
+          function: (identifier))
+        else: (else_arms
+          (else_arm
+            (as_pattern
+              pattern: (enum_pattern
+                (type_identifier)
+                (dot_variant
+                  (type_identifier)))
+              name: (identifier))
+            (return_statement
+              (integer)))
+          (else_arm
+            (enum_pattern
+              (type_identifier))
+            (return_statement
+              (integer)))))
+      (if_expression
+        (if_match_condition
+          pattern: (as_pattern
+            pattern: (list_pattern
+              (identifier)
+              (identifier))
+            name: (identifier))
+          value: (identifier))
+        (body
+          (identifier))
+        (body
+          (integer)))))
+  (test_declaration
+    name: (string
+      (string_content))
+    (body
+      (pattern_assertion_binding
+        pattern: (as_pattern
+          pattern: (enum_pattern
+            (type_identifier)
+            (identifier))
+          name: (identifier))
+        value: (call_expression
+          function: (identifier))))))
+
+==========
+An as pattern in a piped case arm
+==========
+
+fn main() {
+    label = Some(3) |> case {
+        Some(n) as m -> n
+        None -> 0
+    }
+}
+
+---
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (pipe_expression
+          (call_expression
+            function: (type_identifier)
+            (integer))
+          (case_expression
+            (guard_branch
+              (as_pattern
+                pattern: (call_expression
+                  function: (type_identifier)
+                  (identifier))
+                name: (identifier))
+              (identifier))
+            (guard_branch
+              (type_identifier)
+              (integer))))))))

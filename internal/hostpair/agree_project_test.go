@@ -12,16 +12,13 @@ import (
 
 // The std adapters exercise three declaration shapes: a top-level `host fn`
 // bound to a `gopkg` selector, a top-level `host type`, and an impl-owned
-// `host fn`. ffirun handles four more that no adapter uses, and an agreement
+// `host fn`. ffirun handles two more that no adapter uses, and an agreement
 // proof over the adapters alone would say nothing about them:
 //
 //   - the ENTRY file, whose declarations are unqualified (Module == "");
-//   - a sibling module file, whose declarations carry a second entry-scoped key;
-//   - an inline `go { }` function body, which has no package symbol at all;
-//   - a `go { }` prelude `import`, which supplies an alias no `gopkg` declared.
+//   - a sibling module file, whose declarations carry a second entry-scoped key.
 //
-// These fixtures cover all four, plus two `gopkg` handles in one file and an
-// aliased extern `import`. Every one is compared against ffirun over the SAME
+// These fixtures cover both, plus two `gopkg` handles in one file. Every one is compared against ffirun over the SAME
 // temp project, so the comparison is between two readings of one input.
 //
 // The last two fixtures are a generic receiver, and two instantiations of
@@ -106,24 +103,6 @@ fn probe(): Int go ffi.Probe
 
 fn parse(s: String): String go urltools.Parse
 `,
-		},
-	},
-	{
-		name: "inline go body has no package symbol",
-		files: map[string]string{
-			"main.nomi": "go {\n  import gostrings \"strings\"\n}\n\nfn shout(s: String): String go {\n  return gostrings.ToUpper(s)\n}\n",
-		},
-	},
-	{
-		name: "go prelude import supplies an alias no gopkg declared",
-		files: map[string]string{
-			"main.nomi": "go {\n  import gostrings \"strings\"\n}\n\nfn upper(s: String): String go gostrings.ToUpper\n",
-		},
-	},
-	{
-		name: "inline go type body names a prelude-imported type",
-		files: map[string]string{
-			"main.nomi": "go {\n  import gotime \"time\"\n}\n\nopaque type Moment go { gotime.Time }\n\nfn now(): Moment go gotime.Now\n",
 		},
 	},
 	{

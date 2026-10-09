@@ -335,10 +335,10 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 		if !found || !d.lowerable {
 			return nil, false
 		}
-		if d.decl != nil && len(d.decl.Methods) == 0 && len(d.decl.Fields) == 0 {
-			// A bound that DECLARES NOTHING TO DISPATCH — no function and no
-			// field requirement. A dictionary exists to carry the identity a
-			// `T.method(x)` or a `x.field` inside the body dispatches on, so
+		if d.decl != nil && len(d.decl.Methods) == 0 {
+			// A bound that DECLARES NOTHING TO DISPATCH: no function
+			// requirement. A dictionary exists to carry the identity a
+			// `T.method(x)` inside the body dispatches on, so
 			// such a bound gives it nothing to do: the seam would thread a
 			// `*rt.TypeID` no emitted line reads.
 			//

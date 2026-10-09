@@ -15,10 +15,13 @@ import (
 // A punned struct-literal field (`{context}`) is one token that is both the
 // field's label and a read of the variable, so renaming either one unpuns
 // it: the field to `sink: context`, the variable to `context: sink`.
+//
+// An occurrence in a synthesized body (a derive or the universal Debug
+// impl, analysis.IsSynthesizedLine) is not in the text and is not edited.
 func buildRenameEdits(fa *analysis.FileAnalysis, target *analysis.Symbol, id symIdentity, newName string) []protocol.TextEdit {
 	var edits []protocol.TextEdit
 	for pos, sym := range fa.References {
-		if matchesSymbol(sym, target, id) {
+		if !analysis.IsSynthesizedLine(pos.Line) && matchesSymbol(sym, target, id) {
 			if _, punned := fa.PunnedFieldLabels[pos]; punned {
 				edits = append(edits, makeTextEdit(pos, sym.Name, sym.Name+": "+newName))
 				continue
@@ -27,12 +30,12 @@ func buildRenameEdits(fa *analysis.FileAnalysis, target *analysis.Symbol, id sym
 		}
 	}
 	for pos, field := range fa.PunnedFieldLabels {
-		if matchesSymbol(field, target, id) {
+		if !analysis.IsSynthesizedLine(pos.Line) && matchesSymbol(field, target, id) {
 			edits = append(edits, makeTextEdit(pos, field.Name, newName+": "+field.Name))
 		}
 	}
 	for pos, sym := range fa.Definitions {
-		if matchesSymbol(sym, target, id) {
+		if !analysis.IsSynthesizedLine(pos.Line) && matchesSymbol(sym, target, id) {
 			edits = append(edits, makeTextEdit(pos, sym.Name, newName))
 		}
 	}

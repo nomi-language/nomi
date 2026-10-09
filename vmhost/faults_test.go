@@ -65,9 +65,10 @@ fn main() {
 	}
 }
 
-// A pattern `if` whose pattern always matches, and one with no `else` in a
-// Unit position, are retained.
-func TestRun_IrrefutableAndElselessPatternIfsRun(t *testing.T) {
+// A pattern `if` with no `else` in a Unit position is retained. (One whose
+// pattern always matches is a front-end error; see
+// internal/analysis/if_pattern_irrefutable_test.go.)
+func TestRun_ElselessPatternIfRuns(t *testing.T) {
 	out, err := runVM(t, `import std/io
 
 fn side_effect(m: Maybe<Int>): Bool {
@@ -78,33 +79,11 @@ fn side_effect(m: Maybe<Int>): Bool {
   result == Unit
 }
 
-fn always(n: Int): String {
-  if _ = n {
-    "matched"
-  } else {
-    "impossible"
-  }
-}
-
-fn bind_all(r: Result<Int, String>): String {
-  if whole = r {
-    case whole {
-      Ok(v) -> "ok ${v}"
-      Err(e) -> "err ${e}"
-    }
-  } else {
-    "impossible"
-  }
-}
-
 fn main() {
   io.print("${side_effect(Some(1))} ${side_effect(None)}")
-  io.print(always(0))
-  io.print(bind_all(Ok(2)))
-  io.print(bind_all(Err("bad")))
 }
 `)
-	want := "hit 1\nTrue True\nmatched\nok 2\nerr bad\n"
+	want := "hit 1\nTrue True\n"
 	if err != nil || out != want {
 		t.Fatalf("output %q, error %v; want %q", out, err, want)
 	}

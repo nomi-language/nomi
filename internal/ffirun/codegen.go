@@ -8,7 +8,6 @@ import (
 	goformat "go/format"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"text/template"
 )
 
@@ -44,9 +43,7 @@ import (
 	stdstrconv "strconv"
 {{- end}}
 
-{{range .Packages}}{{if wrapperImports .}}	{{.Alias}} "{{.ImportPath}}"
-{{end}}{{end}}{{if .UsesStdTime}}	stdtime "time"
-
+{{range .Packages}}	{{.Alias}} "{{.ImportPath}}"
 {{end}}{{if .Runner}}	nomivmrunner "github.com/nomi-language/nomi/vmrunner"
 {{- if .Compiler}}
 	nomivmrunnercompiler "github.com/nomi-language/nomi/vmrunner/compiler"
@@ -64,23 +61,6 @@ const ffiTestResultMarker = "__NOMI_FFI_TEST_RESULT"
 const imageUsesCompilerMarker = "__NOMI_IMAGE_USES_COMPILER"
 const wrapperModeFlag = "--nomi-wrapper-mode"
 {{end}}
-{{if .HasInlineGo}}
-{{range .InlineGoHelpers}}
-{{.Signature}} {
-	{{.Body}}
-}
-{{end}}
-{{end}}
-{{if .HasGoDecls}}
-{{range .Packages}}{{range .GoDecls}}
-{{.}}
-
-{{end}}{{end}}{{end}}{{range .Packages}}{{range .Exports}}{{if .GoBody}}
-func {{.WrapperName}}({{.ParamDecls}}){{returnSuffix .ReturnDecl}} {
-{{inlineGoBody .SourceFile .SourceLine .GoBody}}
-}
-
-{{end}}{{end}}{{end}}
 {{if .Runner}}
 // main is the project's runner: the program 'nomi build' appended to this
 // executable, run on the VM with the adapters generated below.
@@ -339,22 +319,11 @@ func computeTemplateHash() string {
 // wrapperTmpl is the parsed template, ready for Execute. Parsing
 // once at init time keeps codegen on the warm path branch-free.
 var wrapperTmpl = template.Must(template.New("wrapper").Funcs(template.FuncMap{
-	"funcValue":      wrapperFuncValue,
-	"inlineGoBody":   inlineGoBody,
-	"lineDirective":  inlineGoLineDirective,
-	"quote":          strconv.Quote,
-	"returnSuffix":   wrapperReturnSuffix,
-	"typePrototype":  wrapperTypePrototype,
-	"wrapperImports": wrapperImports,
+	"funcValue":     wrapperFuncValue,
+	"lineDirective": wrapperLineDirective,
+	"quote":         strconv.Quote,
+	"typePrototype": wrapperTypePrototype,
 }).Parse(wrapperTemplate))
-
-// wrapperImports reports whether the generated wrapper must import pkg: every
-// discovered package is a user's and its symbols are referenced below, so the
-// only package left out is the empty import path a package of purely inline
-// `go { }` bodies carries.
-func wrapperImports(pkg DiscoveredPackage) bool {
-	return pkg.ImportPath != ""
-}
 
 // renderWrapper executes the wrapper template with the supplied
 // discovered packages and project path, returning the bytes of the
@@ -390,10 +359,6 @@ func renderMain(projectPath string, packages []DiscoveredPackage, kind mainKind)
 		TemplateHash       string
 		ProjectPath        string
 		Packages           []DiscoveredPackage
-		HasGoDecls         bool
-		HasInlineGo        bool
-		InlineGoHelpers    []InlineGoHelper
-		UsesStdTime        bool
 		HasEntryScopedKeys bool
 		Adapters           *wrapperAdapters
 		Runner             bool
@@ -404,10 +369,6 @@ func renderMain(projectPath string, packages []DiscoveredPackage, kind mainKind)
 		TemplateHash:       templateHash,
 		ProjectPath:        projectPath,
 		Packages:           packages,
-		HasGoDecls:         wrapperHasGoDecls(packages),
-		HasInlineGo:        wrapperHasInlineGo(packages),
-		InlineGoHelpers:    InlineGoHelpers,
-		UsesStdTime:        wrapperUsesStdTime(packages),
 		HasEntryScopedKeys: wrapperHasEntryScopedKeys(packages),
 		Adapters:           adapters,
 	}
@@ -452,77 +413,12 @@ func wrapperTypePrototype(pkg DiscoveredPackage, typ DiscoveredType) string {
 }
 
 func wrapperFuncValue(pkg DiscoveredPackage, exp DiscoveredExport) string {
-	if exp.GoBody != "" {
-		return exp.WrapperName
-	}
 	return pkg.Alias + "." + exp.FuncName
 }
 
-func wrapperReturnSuffix(ret string) string {
-	if ret == "" {
-		return ""
-	}
-	return " " + ret
-}
-
-func inlineGoLineDirective(file string, line int) string {
+func wrapperLineDirective(file string, line int) string {
 	if file == "" || line <= 0 {
 		return ""
 	}
 	return fmt.Sprintf("//line %s:%d", filepath.ToSlash(file), line)
-}
-
-func inlineGoBody(file string, line int, body string) string {
-	body = indentGoBody(body)
-	directive := inlineGoLineDirective(file, line)
-	if directive == "" {
-		return body
-	}
-	if body == "" {
-		return directive
-	}
-	return directive + "\n" + body
-}
-
-func indentGoBody(body string) string {
-	body = strings.TrimSpace(body)
-	if body == "" {
-		return ""
-	}
-	lines := strings.Split(body, "\n")
-	for i, line := range lines {
-		lines[i] = "\t" + strings.TrimRight(line, " \t")
-	}
-	return strings.Join(lines, "\n")
-}
-
-func wrapperUsesStdTime(packages []DiscoveredPackage) bool {
-	for _, pkg := range packages {
-		for _, exp := range pkg.Exports {
-			if strings.Contains(exp.ParamDecls, "stdtime.") || strings.Contains(exp.ReturnDecl, "stdtime.") {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func wrapperHasGoDecls(packages []DiscoveredPackage) bool {
-	for _, pkg := range packages {
-		if len(pkg.GoDecls) > 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func wrapperHasInlineGo(packages []DiscoveredPackage) bool {
-	for _, pkg := range packages {
-		for _, exp := range pkg.Exports {
-			if exp.GoBody != "" {
-				return true
-			}
-		}
-	}
-	return false
 }

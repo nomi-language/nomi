@@ -7,15 +7,10 @@ import (
 
 // Field access on a value whose static type does not name the storage.
 //
-// Two cases, refused under two keys, sharing only the guard site in
-// `fieldAccess`:
-//
-//   - an enum. The static type names several variants and only the run-time tag
-//     says which one is here, so the read is a tag switch.
-//   - an existential. There is no tag: an `rt.Dyn` carries a *rt.TypeID, two
-//     implementors are two layouts, and the read has to go through a table
-//     keyed on identity. A bounded type parameter is the same case, because
-//     dict.go lowers `T where T: H` to `existential(H)`.
+// The one case is an enum: the static type names several variants and only
+// the run-time tag says which one is here, so the read is a tag switch. An
+// interface value and a type parameter have no fields, which the checker
+// enforces.
 
 // TestFieldRead_TheCheckerWallsOffThreeBackstops is the witness for the
 // unreachable guards in `fieldAccess`: `field access on a scalar`,
@@ -45,16 +40,12 @@ func TestFieldRead_TheCheckerWallsOffThreeBackstops(t *testing.T) {
 		{"field access on an enum (no variant supplies the name)",
 			"enum E {\n  V Int\n}\n\nfn read(e: E): Int {\n  e.V\n}\n",
 			"enum 'E' has no field 'V'"},
-		{"interface field requirement (a stdlib interface declares none)",
+		{"field access on an interface value",
 			"fn read(d: Display): String {\n  d.name\n}\n",
 			"interface 'Display' has no field 'name'"},
-		// A `field` requirement is a storage obligation and only a struct
-		// declares storage, so `impl H for E` over an enum is a front-end
-		// error (analysis/checker.go's validateImplBlockFieldRequirements).
-		{"interface field requirement (an enum cannot satisfy one)",
-			"interface H {\n  field name: String\n}\n\nenum E {\n  A {name: String}\n}\n\nimpl H for E\n\n" +
-				"fn read(h: H): String {\n  h.name\n}\n",
-			"'E' is an enum, so it declares no fields"},
+		{"field access on a bounded type parameter",
+			"fn read<T>(x: T): String where T: Display {\n  x.name\n}\n",
+			"type parameter `T` has no field 'name'"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.backstop, func(t *testing.T) {

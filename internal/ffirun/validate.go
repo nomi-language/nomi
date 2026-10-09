@@ -20,9 +20,6 @@ import (
 func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPackage) error {
 	var problems []string
 	for _, pkg := range packages {
-		if pkg.ImportPath == "" {
-			continue
-		}
 		if !isFile(filepath.Join(projectRoot, "go.mod")) && !IsStdPackage(pkg.ImportPath) {
 			problems = append(problems, fmt.Sprintf(
 				"%s: Go package %q is not in the Go standard library, and no go.mod above the declaring file provides it",
@@ -75,9 +72,6 @@ func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPacka
 			}
 		}
 		for _, exp := range pkg.Exports {
-			if exp.GoBody != "" {
-				continue
-			}
 			goFunc, ok := symbols.funcs[exp.FuncName]
 			if !ok {
 				problems = append(problems, fmt.Sprintf(

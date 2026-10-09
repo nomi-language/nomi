@@ -319,7 +319,20 @@ func (bl *irScalarBuilder) stdHostDebugPlan(operand ast.Node, src ir.Temp, k kin
 // It answers false for any leaf outside that domain or with no nominal leaf.
 func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 	var impls []ir.DebugImpl
-	seen := map[string]bool{}
+	// seen is keyed by runtime type name and instance key: two instances of
+	// one generic type (`Box<Bool>`, `Box<String>`) share the name and each
+	// renders through its own body.
+	type implKey struct{ name, inst string }
+	seen := map[implKey]bool{}
+	add := func(k kind, fn *ir.Symbol) {
+		name := bl.g.irTypeSym(k.def).Name()
+		inst := bl.g.irValType(k).InstanceKey()
+		if seen[implKey{name, inst}] {
+			return
+		}
+		seen[implKey{name, inst}] = true
+		impls = append(impls, ir.DebugImpl{Type: name, Inst: inst, Fn: fn})
+	}
 	sawSeq := false
 	// sawStructural: a distinct or marker leaf renders structurally, so
 	// an empty impl list still names a whole rendering.
@@ -341,11 +354,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			if site == nil || len(params) != 1 || params[0] != k || result != kindString {
 				return false, false
 			}
-			name := bl.g.irTypeSym(k.def).Name()
-			if !seen[name] {
-				seen[name] = true
-				impls = append(impls, ir.DebugImpl{Type: name, Fn: owning.irCalleeSym(site.item, site.symName)})
-			}
+			add(k, owning.irCalleeSym(site.item, site.symName))
 			return site.synth, true
 		}
 		if d == nil || !d.lowerable {
@@ -355,11 +364,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) != 1 || it.params[0] != self || it.result != kindString {
 			return false, false
 		}
-		name := bl.g.irTypeSym(k.def).Name()
-		if !seen[name] {
-			seen[name] = true
-			impls = append(impls, ir.DebugImpl{Type: name, Fn: og.irCalleeSym(it, self.nomi()+".inspect")})
-		}
+		add(k, og.irCalleeSym(it, self.nomi()+".inspect"))
 		return d.synth, true
 	}
 	var walk func(k kind) bool
@@ -371,7 +376,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			return
 		}
 		for _, im := range impls[n:] {
-			delete(seen, im.Type)
+			delete(seen, implKey{im.Type, im.Inst})
 		}
 		impls = impls[:n]
 	}
@@ -392,11 +397,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			rk := bl.g.rangeKindOf(elem)
 			if _, walks := irIterRangeElem(rk); walks {
 				if sym := bl.stdInstDebugSym(rk); sym != nil {
-					name := bl.g.irTypeSym(rk.def).Name()
-					if !seen[name] {
-						seen[name] = true
-						impls = append(impls, ir.DebugImpl{Type: name, Fn: sym})
-					}
+					add(rk, sym)
 				}
 			}
 			for _, d := range bl.g.implOrder {
@@ -416,12 +417,16 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		}
 		if p := bl.stdDebugPlan(k); p != nil {
 			// A std named type renders through std's own retained impl.
-			name := bl.g.irTypeSym(k.def).Name()
-			if !seen[name] {
-				seen[name] = true
-				impls = append(impls, ir.DebugImpl{Type: name, Fn: p.sym})
-			}
+			add(k, p.sym)
 			return true
+		}
+		if _, _, isGen := genStructOf(k); isGen {
+			// An instance of a generic std struct (`Captured<Int>`) renders
+			// through std's Debug template instantiated at it.
+			if sym := bl.stdInstDebugSym(k); sym != nil {
+				add(k, sym)
+				return true
+			}
 		}
 		if k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && irRetainedEnumKind(k.def) {
 			for _, v := range k.def.variants {
@@ -443,15 +448,11 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 				sawStructural = sawStructural || structural
 				return structural
 			}
-			name := bl.g.irTypeSym(k.def).Name()
-			if !seen[name] {
-				seen[name] = true
-				sym := plan.sym
-				if sym == nil {
-					sym = bl.g.irCalleeSym(plan.token, plan.name)
-				}
-				impls = append(impls, ir.DebugImpl{Type: name, Fn: sym})
+			sym := plan.sym
+			if sym == nil {
+				sym = bl.g.irCalleeSym(plan.token, plan.name)
 			}
+			add(k, sym)
 			return true
 		}
 		if irNominalElemKind(k) {
@@ -498,12 +499,16 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 }
 
 // stdInstDebugSym is the instance of std's generic `impl Debug` for the
-// container kind k (`impl Debug for Range<T>` at `Range<Int>`), for a
-// renderer that calls it by runtime type rather than at a call site, or nil
-// when std has no such template or it does not instantiate at k.
+// container kind k (`impl Debug for Range<T>` at `Range<Int>`) or the generic
+// std struct instance k (`Captured<Int>`), for a renderer that calls it by
+// runtime type rather than at a call site, or nil when std has no such
+// template or it does not instantiate at k.
 func (bl *irScalarBuilder) stdInstDebugSym(k kind) *ir.Symbol {
 	s := bl.g.stdInsts
 	base := irContainerBaseName(k)
+	if spec, _, isGen := genStructOf(k); isGen && base == "" {
+		base = spec.nomi
+	}
 	if s == nil || base == "" {
 		return nil
 	}
@@ -515,8 +520,10 @@ func (bl *irScalarBuilder) stdInstDebugSym(k kind) *ir.Symbol {
 	if len(tps) == 0 || ib == nil || ib.Interface == nil || typeText(ib.Interface) != "Debug" {
 		return nil
 	}
-	// kindInvalid: sentinel — no call site supplies a result kind.
-	args, ok := bl.g.stdInstSolve(f, tps, ib, []kind{k}, kindInvalid, k)
+	// kindInvalid: sentinel — no call site supplies a result kind. A Unit
+	// argument is admitted: k is a built instance, so Unit is its argument
+	// (`Captured<Unit>`), not a hole.
+	args, ok := bl.g.stdInstSolveHoled(f, tps, ib, []kind{k}, kindInvalid, k, true)
 	if !ok {
 		return nil
 	}

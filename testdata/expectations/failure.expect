@@ -479,13 +479,11 @@ T
 C func_operand_row.nomi
 E 1
 N 6
-H 8f7c70138062c0ca59fe165431d1ec26cc44190a204f4083dc6f25b06d7ae170
-T FAIL <root>/internal/irbuild/testdata/func_operand_row.nomi :: a module function reference names itself in the row
+H e143974c25bcc137bbe105abb54335d4d8c0c0015f211503af78995923c25f3d
+T FAIL <root>/internal/irbuild/testdata/func_operand_row.nomi :: a module function reference has no row, since it would only name itself
 T   line 71: assertion failed
 T     assert apply(double, 7) == 99
 T     values:
-T       double
-T         = <func: double>
 T       apply(double, 7)
 T         = 14
 T FAIL <root>/internal/irbuild/testdata/func_operand_row.nomi :: a lambda literal argument is not recorded at all

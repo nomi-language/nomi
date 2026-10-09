@@ -36,7 +36,7 @@ import (
 // CheckTypes is NOT run here — callers (DocumentManager.analyze,
 // internal/frontend's Checker.Analyze) layer it on top.
 func BuildProject(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader) *FileAnalysis {
-	entryFA, _, _ := buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", loader, nil)
+	entryFA, _, _ := buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil)
 	return entryFA
 }
 
@@ -68,7 +68,7 @@ func BuildProject(entryNodes []ast.Node, primitives *Scope, modules map[string]*
 // want them use the first return value (entry FA) and the nodes they
 // passed in.
 func BuildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
-	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", loader, nil)
+	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil)
 }
 
 // BuildProjectFromEntry is BuildProjectWithCache plus the entry
@@ -79,7 +79,7 @@ func BuildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 // path (LSP per-document analysis, tests) keep using
 // BuildProjectWithCache and accept the empty FilePath for the entry.
 func BuildProjectFromEntry(entryAbsPath string, entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
-	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, "", loader, nil)
+	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, "", false, loader, nil)
 }
 
 // BuildProjectFromEntryWithManifest is BuildProjectFromEntry plus a
@@ -90,13 +90,17 @@ func BuildProjectFromEntry(entryAbsPath string, entryNodes []ast.Node, primitive
 // even when there's no nomi.toml on disk. `entryModRel` is the entry
 // file's path *under the module root* without the `.nomi` extension
 // (e.g. "main", "tools/seed"); pass "" when the caller doesn't know
-// it and the entry-side CheckEntryPlacement is skipped. When mfst is
-// nil this behaves identically to BuildProjectFromEntry.
-func BuildProjectFromEntryWithManifest(entryAbsPath string, entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader, mfst *Manifest, entryModRel string) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
-	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, entryModRel, loader, mfst)
+// it. The key is the entry's identity in the import graph: a file
+// that imports the entry back reaches the entry's own analysis, not
+// a second copy of the file. placeEntry runs the entry-side
+// CheckEntryPlacement under that key; a test file passes false,
+// since it is not an entry point. When mfst is nil this behaves
+// identically to BuildProjectFromEntry.
+func BuildProjectFromEntryWithManifest(entryAbsPath string, entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader, mfst *Manifest, entryModRel string, placeEntry bool) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
+	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, entryModRel, placeEntry, loader, mfst)
 }
 
-func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, loader FileLoader, mfst *Manifest) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
+func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
 	proj, discoverErr := DiscoverProjectWithManifest(entryNodes, projectRoot, loader, mfst)
 	if entryAbsPath != "" {
 		proj.EntryPath = entryAbsPath
@@ -355,11 +359,18 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// User files (and any stdlib files not in the canonical order — none
 	// expected today, but the fallback keeps the loop honest if someone
 	// adds a stdlib module without updating stdlibBuildOrder above).
-	for key, nodes := range proj.Files {
+	// Sorted, so every build of a program builds its files in one order and
+	// a defect that depends on that order shows on every run or none.
+	userKeys := make([]string, 0, len(proj.Files))
+	for key := range proj.Files {
 		if IsStdlibKey(key) && seenStdlib[key] {
 			continue
 		}
-		all = append(all, makeBuilder(nodes, key))
+		userKeys = append(userKeys, key)
+	}
+	sort.Strings(userKeys)
+	for _, key := range userKeys {
+		all = append(all, makeBuilder(proj.Files[key], key))
 	}
 	entryFB := makeBuilder(entryNodes, "")
 	if entryModRel != "" {
@@ -400,10 +411,15 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// fixtures), so no behavior change for callers without a manifest.
 	// entryModRel comes from the caller (BuildProjectFromEntryWithManifest):
 	// virtual-mode runs supply it from the FILE marker's base name, and
-	// disk-based callers may still pass "" to skip the entry-side check.
+	// disk-based callers may still pass "" to skip the entry-side check, as
+	// a test file's caller does with placeEntry false.
+	placedEntry := ""
+	if placeEntry {
+		placedEntry = entryModRel
+	}
 	entryFB.fa.TypeErrors = append(
 		entryFB.fa.TypeErrors,
-		CheckEntryPlacement(proj.Manifest, entryNodes, entryModRel, proj.Files)...,
+		CheckEntryPlacement(proj.Manifest, entryNodes, placedEntry, proj.Files)...,
 	)
 	// derive Attach validation errors to each file's FileAnalysis now
 	// that the per-file FA exists.

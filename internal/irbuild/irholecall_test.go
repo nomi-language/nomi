@@ -104,8 +104,9 @@ fn main() {
 	if !strings.Contains(err.Error(), "Unit does not implement Hashable (required by `where T: Hashable`)") {
 		t.Fatalf("rejected for another reason, so the wall is not the one this test names: %v", err)
 	}
-	// It points at the call, and says what would satisfy the bound.
-	if !strings.Contains(err.Error(), "main.nomi:5:12:") || !strings.Contains(err.Error(), "help: add `derive Hashable` to `Unit`") {
+	// It points at the call, and, since neither `Unit` nor `Hashable` is the
+	// program's to extend, says only std can add the impl.
+	if !strings.Contains(err.Error(), "main.nomi:5:12:") || !strings.Contains(err.Error(), "only std can implement `Hashable` for `Unit`") {
 		t.Fatalf("the bound error lost its position or its help: %v", err)
 	}
 }

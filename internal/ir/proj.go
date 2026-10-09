@@ -15,17 +15,13 @@ import "strconv"
 // construct a value keyed by field name. See make.go's header.
 //
 // Where the representation would leak, and why it does not. A struct field, a
-// tuple slot, an interface field requirement and a distinct's inner value can
-// each be stored differently: four storage shapes behind one Nomi operation.
+// tuple slot and a distinct's inner value can each be stored differently:
+// three storage shapes behind one Nomi operation.
 // If this node had to know which, the IR/consumer line would be in the wrong
 // place.
 //
 // It does not, because the storage is a function of the KIND and the kind is a
 // function of WHAT IS BEING READ rather than of how the consumer stores it.
-// `ProjIfaceField` is the sharp case: a consumer may reach it through a table
-// keyed on a run-time type identity, having erased the value, or by reading a
-// field off a dynamically typed value. How an existential is represented is a
-// consumer property, and this class does not decide it.
 //
 // Element access at a computed position is not in this class. `Vector.at(v, i)` and
 // `Map.get(m, k)` are CALLS — `vectorCall` and `mapCall`, in the `call` class
@@ -93,11 +89,6 @@ const (
 	// It is also the only projection that can FAULT, which is what Faults
 	// reports. Owner: enumFieldRead.
 	ProjEnumField
-	// ProjIfaceField reads an interface `field` requirement off a value whose
-	// concrete type is erased. `Sym` is the INTERFACE and `Text` the
-	// requirement's name. Total by construction: the checker obliges every
-	// implementor to declare the field. Owner: ifaceFieldRead.
-	ProjIfaceField
 	// ProjInner reads the value a distinct type wraps — `Int(m)` for a
 	// `type M Int`. `Sym` is the distinct's declaration.
 	//
@@ -137,8 +128,6 @@ func (k ProjKind) String() string {
 		return "payload"
 	case ProjEnumField:
 		return "enumfield"
-	case ProjIfaceField:
-		return "ifacefield"
 	case ProjInner:
 		return "inner"
 	case ProjElem:
@@ -247,17 +236,6 @@ func NewProjEnumField(pos Pos, dst, subj Temp, enum *Symbol, field string, fault
 	p.sym = requireProjSym(enum, "NewProjEnumField")
 	p.text = field
 	p.faults = faults
-	return p
-}
-
-// NewProjIfaceField reads an interface `field` requirement off an erased value.
-func NewProjIfaceField(pos Pos, dst, subj Temp, iface *Symbol, field string, shape ValShape) *Proj {
-	if field == "" {
-		panic("ir.NewProjIfaceField: a requirement with no name names nothing")
-	}
-	p := newProj(pos, dst, subj, ProjIfaceField, shape, "NewProjIfaceField")
-	p.sym = requireProjSym(iface, "NewProjIfaceField")
-	p.text = field
 	return p
 }
 

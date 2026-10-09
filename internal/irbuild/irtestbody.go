@@ -393,6 +393,10 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 	}
 	switch st := s.(type) {
 	case *ast.Assertion:
+		if bl.testTail && bl.setupExit != nil {
+			// A setup's final `assert x` is its value (spec §36).
+			return bl.setupValue(st, st)
+		}
 		return bl.assertion(st)
 	case *ast.PatternDestructure:
 		return bl.patternAssert(st)
@@ -802,15 +806,10 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 	if t.Check || isNilNode(t.Expr) {
 		return ir.NoTemp, kindInvalid, false
 	}
+	// A bare name this body bound carries the binding's "defined as:" block
+	// in its report (assertDefinedAs). Any other bare name, a parameter or a
+	// `once`, has none.
 	bare, isBare := t.Expr.(*ast.Ident)
-	if isBare {
-		// A bare name this body bound. Its report carries the binding's
-		// "defined as:" block, which the test-body reader does not spell, so
-		// the body is retained for the VM only. Any other bare name declines.
-		if _, local := bl.bound[bare.Name]; !local {
-			return ir.NoTemp, kindInvalid, false
-		}
-	}
 	kw := ir.KeywordAssert
 	if t.Refute {
 		kw = ir.KeywordRefute
@@ -834,7 +833,7 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 	// the shape off the value; an Assertable's verdict is its impl's answer,
 	// called below. The test-body reader spells only JudgeBool.
 	shape := irAssertShapeKind(k)
-	var assertable *implItem
+	var assertable *assertableImpl
 	if k != kindBool && !shape {
 		if assertable = bl.assertableFailure(k); assertable == nil {
 			irDeclineNote("an assertion subject that is not a Bool, Maybe, Result or retained Assertable")

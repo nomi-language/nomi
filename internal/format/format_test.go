@@ -538,14 +538,15 @@ func TestFormat_Pipe_BindingRHS_SeparatesFollowingStatement(t *testing.T) {
     name =
         1
         |> find_name()
-        |> assert
+        |> String.trim()
     assert name == "Ada"
 }
 `
 	want := `fn main() {
     name =
-        assert 1
-            |> find_name()
+        1
+        |> find_name()
+        |> String.trim()
 
     assert name == "Ada"
 }
@@ -1780,21 +1781,6 @@ struct Point {
 	}
 }
 
-// TestFormat_InterfaceFieldRequirement: `field name: T` requirements
-// inside an interface body round-trip cleanly. Fields render before
-// methods (data shape first, operations on it second).
-func TestFormat_InterfaceFieldRequirement(t *testing.T) {
-	src := `pub interface AppLike {
-    field context: Context
-    field port: Int
-}
-`
-	got, _ := Format(src)
-	if got != src {
-		t.Errorf("got:\n%s\nwant:\n%s", got, src)
-	}
-}
-
 // A group's `boot` line follows the clock's blank line, its call formats as
 // any call does, and it keeps the author's spacing to the setup line.
 func TestFormat_TestBootLine(t *testing.T) {
@@ -2016,25 +2002,6 @@ func TestFormat_TestTuplePattern(t *testing.T) {
 }
 `
 	formatWithTwice(t, src, want)
-}
-
-// TestFormat_InterfaceFieldsBeforeMethods: an interface body emits every field
-// requirement first, then every method, regardless of source order.
-func TestFormat_InterfaceFieldsBeforeMethods(t *testing.T) {
-	src := `interface AppLike {
-    fn name(value: self): String
-    field context: Context
-}
-`
-	want := `interface AppLike {
-    field context: Context
-    fn name(value: self): String
-}
-`
-	got, _ := Format(src)
-	if got != want {
-		t.Errorf("got:\n%s\nwant:\n%s", got, want)
-	}
 }
 
 // TestFormat_InterfaceOpenDefault: the `open` modifier on an
@@ -2872,37 +2839,45 @@ func TestFormat_PartialApp_Pipe(t *testing.T) {
 	}
 }
 
-func TestFormat_TrailingPipeAssertionsCanonicalizeToHeadAssertions(t *testing.T) {
-	src := `test "formatter canonicalizes assertion pipelines" {
-    "Ada Lovelace"
-    |> strings.contains?("Ada")
-    |> assert
-    "Ada Lovelace"
-    |> strings.contains?("Grace")
-    |> refute
-}
-`
-	want := `test "formatter canonicalizes assertion pipelines" {
-    assert "Ada Lovelace"
-        |> strings.contains?("Ada")
-
-    refute "Ada Lovelace"
-        |> strings.contains?("Grace")
-}
-`
-	got, _ := Format(src)
-	if got != want {
-		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+// A trailing `|> assert` or `|> refute` stage is an error the checker
+// reports ("`assert` must be placed at the head of the pipeline"); the
+// formatter prints it as written. Rewriting it to the head form would change
+// the syntax tree, which `nomi fmt` must not do (SameMeaning). A keyword
+// never decorates another keyword stage either: `|> try dbg f()` is the
+// stages `f()`, `dbg` and `try`, and `try dbg` alone does not parse.
+func TestFormat_KeywordPipeStagesKeepTheirSyntaxTree(t *testing.T) {
+	cases := []struct{ src, want string }{
+		{`"" |> assert` + "\n", `"" |> assert` + "\n"},
+		{"x |> refute\n", "x |> refute\n"},
+		{"x |> assert f()\n", "x |> f() |> assert\n"},
+		{"x |> try assert f()\n", "x |> f() |> assert |> try\n"},
+		{"x |> try dbg f()\n", "x |> f() |> dbg |> try\n"},
+		{
+			"test \"t\" {\n    \"Ada\"\n    |> String.contains?(\"Ada\")\n    |> assert\n}\n",
+			"test \"t\" {\n    \"Ada\"\n    |> String.contains?(\"Ada\")\n    |> assert\n}\n",
+		},
+	}
+	for _, c := range cases {
+		got, err := Format(c.src)
+		if err != nil {
+			t.Fatalf("Format(%q): %v", c.src, err)
+		}
+		if got != c.want {
+			t.Errorf("Format(%q):\ngot:\n%s\nwant:\n%s", c.src, got, c.want)
+		}
+		if err := SameMeaning(c.src, got); err != nil {
+			t.Errorf("Format(%q) changed its meaning: %v", c.src, err)
+		}
 	}
 }
 
 func TestFormat_AssertionPipelineBeforeNegativeLiteral(t *testing.T) {
 	src := `test "assertion pipeline before negative literal" {
-    5
-    |> assert Int.to_float()
+    assert 5
+    |> Int.to_float()
 
-    -7
-    |> assert Int.to_float()
+    assert -7
+    |> Int.to_float()
 }
 `
 	want := `test "assertion pipeline before negative literal" {
@@ -2938,11 +2913,10 @@ func TestFormat_PatternAssertionPipelineIndentsContinuation(t *testing.T) {
 
 func TestFormat_Trivia_StandaloneCommentBetweenPipeStages(t *testing.T) {
 	src := `test "comment between pipe stages" {
-    5
+    assert 5
     |> Int.to_float()
     // a comment
     |> then |value| value == 5.0
-    |> assert
 }
 `
 	want := `test "comment between pipe stages" {
@@ -5333,26 +5307,6 @@ func TestFormat_InterfaceBody_InterMethodComment_Preserved(t *testing.T) {
 	}
 	if got != src {
 		t.Errorf("inter-method comment dropped or reflowed\ngot:\n%q\nwant:\n%q", got, src)
-	}
-	twice, err := Format(got)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if twice != got {
-		t.Errorf("non-idempotent\nonce:\n%q\ntwice:\n%q", got, twice)
-	}
-}
-
-// Inter-field comment round-trips through interface body's `field`
-// requirements. New InterfaceField.LeadingComments slot.
-func TestFormat_InterfaceBody_InterFieldComment_Preserved(t *testing.T) {
-	src := "pub interface Boxed {\n    field width: Int\n    // a comment between two fields\n    field height: Int\n}\n"
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("format failed: %v", err)
-	}
-	if got != src {
-		t.Errorf("inter-field comment dropped or reflowed\ngot:\n%q\nwant:\n%q", got, src)
 	}
 	twice, err := Format(got)
 	if err != nil {

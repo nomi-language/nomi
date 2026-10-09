@@ -133,6 +133,36 @@ dbg line 12:
   = True
 -->
 
+## The `tap` stage
+
+`tap` runs a lambda on the piped value for its effect, such as logging, and
+passes the value on unchanged. The lambda runs once, at its place in the
+pipeline, and returns `Unit`:
+
+```nomi-run
+import std/io
+
+fn main() {
+    shout =
+        "go north now"
+        |> String.words()
+        |> tap |words| io.print("got ${Iter.count(words)} words")
+        |> Iter.map(String.to_upper)
+        |> String.join(" ")
+
+    io.print(shout)
+}
+```
+<!-- expect
+got 3 words
+GO NORTH NOW
+-->
+
+A `tap` lambda that answers a value is an error that points to `then`, since
+`tap` would throw the value away. For a quick look at a value while
+debugging, a bare `dbg` stage is shorter; `tap` is for effects the program
+keeps.
+
 ## Keyword stages
 
 Expression keywords can also be pipeline stages. Bare `dbg` inspects the

@@ -8,66 +8,51 @@ import (
 )
 
 // Interface upgrades v1: parser-side coverage for
-//   - `field name: Type` requirements inside an interface body
+//   - `field` items, which an interface body refuses
 //   - `open fn ...` modifier on default methods
 //   - `impl Iface for Type { … }` blocks (the sole interface-impl form;
 //     kept brief here)
 
-func TestInterfaceFieldRequirement(t *testing.T) {
-	nodes := parse(t, `pub interface App {
-  field context: Context
-}`)
-	if len(nodes) != 1 {
-		t.Fatalf("expected 1 node, got %d", len(nodes))
-	}
-	idef := nodes[0].(*ast.InterfaceDef)
-	if !idef.Public {
-		t.Error("expected pub interface")
-	}
-	if len(idef.Methods) != 0 {
-		t.Errorf("expected 0 methods, got %d", len(idef.Methods))
-	}
-	if len(idef.Fields) != 1 {
-		t.Fatalf("expected 1 field requirement, got %d", len(idef.Fields))
-	}
-	f := idef.Fields[0]
-	if f.Name != "context" {
-		t.Errorf("expected field name 'context', got %q", f.Name)
-	}
-	if f.TypeAnnotation == nil || f.TypeAnnotation.TypeString() != "Context" {
-		t.Errorf("expected field type Context, got %v", f.TypeAnnotation)
-	}
-}
-
-func TestInterfaceMixedFieldsAndMethods(t *testing.T) {
-	nodes := parse(t, `interface AppEnv {
-  field context: Context
-  field port: Int
-  fn name(value: self): String
-}`)
-	idef := nodes[0].(*ast.InterfaceDef)
-	if len(idef.Fields) != 2 {
-		t.Fatalf("expected 2 fields, got %d", len(idef.Fields))
-	}
-	if len(idef.Methods) != 1 {
-		t.Fatalf("expected 1 method, got %d", len(idef.Methods))
-	}
-	if idef.Fields[0].Name != "context" || idef.Fields[1].Name != "port" {
-		t.Errorf("unexpected field names: %v", idef.Fields)
+// An interface declares functions only. A `field` item is refused with a
+// message that spells the function requirement replacing it, and the test
+// fails if the parser ever admits one again.
+func TestInterfaceFieldItemIsRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name, src, want string
+	}{
+		{
+			"a well-formed field item",
+			"pub interface Named {\n  field name: String\n}",
+			"line 2, col 3: interfaces declare functions only; replace `field name: String` with a function requirement such as `fn name(value: self): String`",
+		},
+		{
+			"a generic field type, beside a function",
+			"interface Container<T> {\n  fn size(value: self): Int\n  field items: List<T>\n}",
+			"line 3, col 3: interfaces declare functions only; replace `field items: List<T>` with a function requirement such as `fn items(value: self): List<T>`",
+		},
+		{
+			"a field item with no type",
+			"interface Bad {\n  field context\n}",
+			"line 2, col 3: interfaces declare functions only; replace `field name: String` with a function requirement such as `fn name(value: self): String`",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Parse(lexer.Lex(tc.src))
+			if err == nil {
+				t.Fatalf("the parser admits a `field` item in an interface body:\n%s", tc.src)
+			}
+			if err.Error() != tc.want {
+				t.Errorf("error = %q\nwant    %q", err.Error(), tc.want)
+			}
+		})
 	}
 }
 
-func TestInterfaceFieldRequiresType(t *testing.T) {
-	src := `interface Bad {
-  field context
-}`
-	tokens := lexer.Lex(src)
-	_, err := Parse(tokens)
-	if err == nil {
-		t.Fatal("expected parse error for field without type annotation, got nil")
-	}
-	if !strings.Contains(err.Error(), "':'") && !strings.Contains(err.Error(), "after field name") {
-		t.Errorf("expected error about missing colon/type, got %q", err.Error())
+// `field` is an ordinary identifier outside an interface body.
+func TestFieldIsAnOrdinaryIdentifier(t *testing.T) {
+	nodes := parse(t, "struct Box {\n  field: Int\n}\nfn f(field: Int): Int {\n  field + 1\n}")
+	if len(nodes) != 2 {
+		t.Fatalf("expected 2 nodes, got %d", len(nodes))
 	}
 }
 

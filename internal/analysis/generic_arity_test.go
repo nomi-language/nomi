@@ -295,12 +295,6 @@ interface Shown<T> {
 			line: 9, col: 17,
 		},
 		{
-			name: "interface field type",
-			src:  "interface Holds {\n  field b: Box\n}\n",
-			want: "`Box` expects 1 type argument, got 0",
-			line: 10, col: 12,
-		},
-		{
 			name: "interface method signature",
 			src:  "interface Handles {\n  fn handle(b: Box): Int\n}\n",
 			want: "`Box` expects 1 type argument, got 0",

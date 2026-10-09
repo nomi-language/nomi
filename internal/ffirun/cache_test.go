@@ -479,17 +479,13 @@ func TestCache_DiscoveredHashCoversWhatTheWrapperCompilesIn(t *testing.T) {
 	want := hash(base())
 
 	moves := map[string]func(d []DiscoveredPackage){
-		"export source file":     func(d []DiscoveredPackage) { d[0].Exports[0].SourceFile = "/p/bin/hi" },
-		"export entry key":       func(d []DiscoveredPackage) { d[0].Exports[0].EntryKey = "" },
-		"export also declared":   func(d []DiscoveredPackage) { d[0].Exports[0].AlsoDeclaredIn = []string{"/p/bin/hi"} },
-		"export declaration":     func(d []DiscoveredPackage) { d[0].Exports[0].Declaration = "host fn upper(s: String): Int" },
-		"export inline Go body":  func(d []DiscoveredPackage) { d[0].Exports[0].GoBody = "return s" },
-		"export inline params":   func(d []DiscoveredPackage) { d[0].Exports[0].ParamDecls = "s string" },
-		"export inline result":   func(d []DiscoveredPackage) { d[0].Exports[0].ReturnDecl = "string" },
-		"type source file":       func(d []DiscoveredPackage) { d[0].Types[0].SourceFile = "/p/bin/hi" },
-		"type entry key":         func(d []DiscoveredPackage) { d[0].Types[0].EntryKey = "" },
-		"type Go expression":     func(d []DiscoveredPackage) { d[0].Types[0].GoTypeExpr = "*binding.Box" },
-		"package Go declaration": func(d []DiscoveredPackage) { d[0].GoDecls = []string{"type T int"} },
+		"export source file":   func(d []DiscoveredPackage) { d[0].Exports[0].SourceFile = "/p/bin/hi" },
+		"export entry key":     func(d []DiscoveredPackage) { d[0].Exports[0].EntryKey = "" },
+		"export also declared": func(d []DiscoveredPackage) { d[0].Exports[0].AlsoDeclaredIn = []string{"/p/bin/hi"} },
+		"export declaration":   func(d []DiscoveredPackage) { d[0].Exports[0].Declaration = "host fn upper(s: String): Int" },
+		"type source file":     func(d []DiscoveredPackage) { d[0].Types[0].SourceFile = "/p/bin/hi" },
+		"type entry key":       func(d []DiscoveredPackage) { d[0].Types[0].EntryKey = "" },
+		"type Go expression":   func(d []DiscoveredPackage) { d[0].Types[0].GoTypeExpr = "*binding.Box" },
 	}
 	for name, move := range moves {
 		d := base()

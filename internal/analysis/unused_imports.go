@@ -180,7 +180,6 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 			markImportNodePos(ownPos, ea)
 		}
 		markImportNodePos(ownPos, n.ModuleAlias)
-		markImportNodePos(ownPos, n.ExportAlias)
 		if n.IncludeParent && n.SelfLine > 0 {
 			ownPos[Pos{Line: n.SelfLine, Col: n.SelfCol}] = true
 		}
@@ -445,12 +444,9 @@ func collectImportItems(fa *FileAnalysis, stmts []*ast.ImportStmt) []importItem 
 			continue
 		}
 		if len(n.Names) == 0 {
-			// Empty-name import: valid source syntax no longer produces this
-			// shape, but synthesized/recovered ASTs can still carry it. A
-			// whole-statement `export` marks it as used by definition.
-			if n.ExportAll {
-				continue
-			}
+			// File import (`import std/io`, `import std/io as console`): the
+			// file API object is the one item. A file is never re-exported,
+			// so no `export` exempts it.
 			bindNode := n.ModulePath[len(n.ModulePath)-1]
 			if n.ModuleAlias != nil {
 				bindNode = n.ModuleAlias
@@ -533,9 +529,9 @@ func collectImportItems(fa *FileAnalysis, stmts []*ast.ImportStmt) []importItem 
 
 		// `Owner.{self, ...}`: binds the brace group's explicit owner under
 		// the last path segment's name.
-		// Line-level `export` re-exports the full selection, self included
-		// (prelude's `std/bool.Bool.{self, False, True} export`), so the
-		// self item is exempt there like its siblings.
+		// Line-level `export` re-exports the full selection, an owner type's
+		// `self` included (prelude's `std/bool.Bool.{self, False, True}
+		// export`), so the self item is exempt there like its siblings.
 		if n.IncludeParent && !n.ExportAll {
 			lastSeg := n.ModulePath[len(n.ModulePath)-1]
 			pos, ok := importNodePos(lastSeg)

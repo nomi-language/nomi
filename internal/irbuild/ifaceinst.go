@@ -150,7 +150,6 @@ func (g *gen) ifaceInstanceFor(tpl *ast.InterfaceDef, ib *ast.ImplBlock, recv ki
 		nomi:      tpl.Name,
 		decl:      tpl,
 		methods:   map[string]*ifaceMethod{},
-		fields:    map[string]*ifaceField{},
 		lowerable: true,
 		instOf:    tpl,
 		unit:      -1,

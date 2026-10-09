@@ -465,36 +465,6 @@ fn main() {
 	}
 }
 
-// Chained module access through a re-exporting facade
-// (`facade.parser_lib.greet(...)`) must reach the same generic-call /
-// interface-bound recording paths as the non-chained shape. Without the
-// builder resolving the inner *ast.FieldAccess as a module reference,
-// `n.Field.Name` on the outer FieldAccess never lands in
-// fa.References, the checker sees nil types at the call site, and
-// the manifest stays empty for whatever conformance the call would
-// have triggered. Here `parser_lib.greet` returns a `String` that
-// the entry's `io.print` then forces a Display recording on. (Was io.inspect
-// / Debug before universal default Debug stopped recording Debug demands.)
-func TestManifestRecordsThroughReExportChain(t *testing.T) {
-	siblings := map[string]string{
-		"facade":     `import parser_lib export`,
-		"parser_lib": `pub fn greet(name: String): String { "hello, " + name }`,
-	}
-	entry := `import {
-  std/io
-  facade.{parser_lib}
-}
-
-fn main() {
-  io.print(parser_lib.greet("Alice"))
-}`
-	fa := buildProjectManifest(t, entry, siblings)
-	if len(fa.ImplManifest["Display"]["String"]) == 0 {
-		t.Errorf("expected (String, Display) recorded for chained re-export call facade.parser_lib.greet(...); got manifest=%v",
-			fa.ImplManifest)
-	}
-}
-
 // TestBareNameImplCall_Rejected pins the rejection of a bare-name call to a
 // CONCRETE impl method (`speak(dog)`): it must be rejected, with the
 // diagnostic pointing at the qualified spellings. bareNameDispatchInterface

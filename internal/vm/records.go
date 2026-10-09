@@ -54,7 +54,7 @@ func planMake(n *ir.Make, dst *ir.ValType, typeOf func(ir.Temp) *ir.ValType) (ma
 		for i, name := range names {
 			specs[i] = rt.FieldSpec{Name: name, Type: operandSlot(i)}
 		}
-		return makePlan{desc: structDesc(name, specs), fields: seq(len(names))}, true
+		return makePlan{desc: instStructDesc(name, instOf(dst, name), specs), fields: seq(len(names))}, true
 	case ir.MakeRecord:
 		names := n.Names()
 		if len(names) != n.Arity() || hasDuplicate(names) {
@@ -112,24 +112,34 @@ func planMake(n *ir.Make, dst *ir.ValType, typeOf func(ir.Temp) *ir.ValType) (ma
 			}
 		}
 		spec := rt.VariantSpec{Name: variant}
+		inst := instOf(dst, name)
 		switch {
 		case n.Arity() == 0:
 			spec.Shape = rt.VariantBare
-			return makePlan{shared: enumDesc(name, []rt.VariantSpec{spec}).NewVariant(0)}, true
+			return makePlan{shared: instEnumDesc(name, inst, []rt.VariantSpec{spec}).NewVariant(0)}, true
 		case len(names) == 0:
 			spec.Shape = rt.VariantPositional
 			spec.Fields = []rt.FieldSpec{{Type: operandSlot(0)}}
-			return makePlan{desc: enumDesc(name, []rt.VariantSpec{spec}), fields: []int{0}}, true
+			return makePlan{desc: instEnumDesc(name, inst, []rt.VariantSpec{spec}), fields: []int{0}}, true
 		default:
 			spec.Shape = rt.VariantFields
 			spec.Fields = make([]rt.FieldSpec, len(names))
 			for i, fname := range names {
 				spec.Fields[i] = rt.FieldSpec{Name: fname, Type: operandSlot(i)}
 			}
-			return makePlan{desc: enumDesc(name, []rt.VariantSpec{spec}), fields: seq(len(names))}, true
+			return makePlan{desc: instEnumDesc(name, inst, []rt.VariantSpec{spec}), fields: seq(len(names))}, true
 		}
 	}
 	return makePlan{}, false
+}
+
+// instOf is the instance key a construction of the type named name stamps on
+// its value: its destination type's, when that type is the one constructed.
+func instOf(dst *ir.ValType, name string) string {
+	if dst == nil || dst.Sym() == nil || dst.Sym().Name() != name {
+		return ""
+	}
+	return dst.InstanceKey()
 }
 
 func hasDuplicate(names []string) bool {
@@ -410,7 +420,7 @@ func (m *Machine) rebuildUpdate(fr *frame, n *ir.Make, base *rt.Record, names []
 	if base.Desc.Kind == rt.KindAnon {
 		d = rt.AnonDesc(specs)
 	} else {
-		d = structDesc(base.Desc.Name, specs)
+		d = instStructDesc(base.Desc.Name, base.Desc.Inst, specs)
 	}
 	fr.write(n.Dst(), d.Make(vals...))
 	return nil
@@ -419,9 +429,7 @@ func (m *Machine) rebuildUpdate(fr *frame, n *ir.Make, base *rt.Record, names []
 // projValue reads one component out of a composite value.
 func projValue(fr *frame, n *ir.Proj, subj any) (any, error) {
 	switch n.Kind() {
-	case ir.ProjField, ir.ProjRecordField, ir.ProjIfaceField:
-		// An interface's `field` requirement reads the concrete struct or
-		// record an existential holds, by the field's name.
+	case ir.ProjField, ir.ProjRecordField:
 		rec, isStruct := subj.(*rt.Record)
 		if !isStruct || rec == nil || (rec.Desc.Kind != rt.KindStruct && rec.Desc.Kind != rt.KindAnon) {
 			return nil, fmt.Errorf("vm: %s: %s reads a field off %T, not a struct",

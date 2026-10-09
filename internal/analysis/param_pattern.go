@@ -30,7 +30,7 @@ const refutableParamMsg = "refutable pattern in parameter; bind the parameter an
 // paramShapeName returns a human-readable name for a pattern shape, used in
 // the "<shape> parameter needs a type annotation" diagnostic.
 func paramShapeName(pattern ast.Node) string {
-	switch pattern.(type) {
+	switch ast.WithoutAs(pattern).(type) {
 	case *ast.TuplePattern:
 		return "tuple"
 	case *ast.StructPattern:
@@ -49,7 +49,8 @@ func paramShapeName(pattern ast.Node) string {
 // names, or returns (nil, nil) if the pattern is type-less (no head to read a
 // type from). A non-nil error reports a genuine resolution failure.
 func paramPatternHeadType(pattern ast.Node, reg *TypeRegistry, typeParams map[string]*TypeParam_, refs map[Pos]*Symbol) (Type, error) {
-	switch p := pattern.(type) {
+	// `Point{x, y} as p` is typed by its pattern's head.
+	switch p := ast.WithoutAs(pattern).(type) {
 	case *ast.EnumPattern:
 		switch v := p.Variant.(type) {
 		case *ast.SimpleType:
@@ -112,7 +113,11 @@ func genericWithoutArgs(t Type) bool {
 //
 // Plain (non-destructure) params are not this function's concern — the caller
 // only invokes it for params with p.Destructure != nil.
-func paramPatternType(p ast.Param, reg *TypeRegistry, typeParams map[string]*TypeParam_, refs map[Pos]*Symbol) (Type, error) {
+func paramPatternType(p ast.Param, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis) (Type, error) {
+	if te := unnamedParam(p, fa, reg); te != nil {
+		return nil, *te
+	}
+	refs := fa.References
 	if p.TypeAnnotation != nil {
 		return ResolveTypeExpr(p.TypeAnnotation, reg, typeParams, refs)
 	}
@@ -138,6 +143,57 @@ func paramPatternType(p ast.Param, reg *TypeRegistry, typeParams map[string]*Typ
 	return headTy, nil
 }
 
+// unnamedParam reports a parameter written as a type with no name,
+// `fn echo(String): String`. The parser reads a bare `String` in parameter
+// position as a variant pattern with no payload, which binds nothing, so the
+// parameter would have a type and no name. A `go`-bound fn has no body whose
+// pattern check would reject it, so this runs for every declared function.
+//
+// When the bare name is a variant of an enum in scope that may not be written
+// bare in a pattern (allowsBareVariantPattern's rule), `|One|` reads as an
+// attempt to match it: if no type has that name the error is the pattern
+// check's own "bare variant" one, and if a type does, the "needs a name"
+// error also says how to match the variant.
+func unnamedParam(p ast.Param, fa *FileAnalysis, reg *TypeRegistry) *TypeError {
+	ep, ok := p.Destructure.(*ast.EnumPattern)
+	if !ok || ep.Payload != nil || ep.Binding != "" || p.TypeAnnotation != nil {
+		return nil
+	}
+	head, ok := ep.Variant.(*ast.SimpleType)
+	if !ok {
+		return nil
+	}
+	name := head.Name
+	te := &TypeError{
+		Line:    ep.Line,
+		Col:     ep.Col,
+		Message: fmt.Sprintf("parameter '%s' needs a name", name),
+		Hints:   []string{fmt.Sprintf("`%s` is read as the parameter's type; write `name: %s`", name, name)},
+	}
+	enum := bareParamVariantEnum(fa, name, Pos{Line: head.Line, Col: head.Col})
+	switch {
+	case enum == "":
+	case reg != nil && reg.Lookup(name) != nil:
+		te.Hints = append(te.Hints, fmt.Sprintf("write `.%s` (or `%s.%s`) to match the variant", name, enum, name))
+	default:
+		te.Message = bareVariantPatternMessage(name, enum)
+		te.Hints = []string{fmt.Sprintf("to bind the value, write `name: %s`", enum)}
+	}
+	return te
+}
+
+// bareParamVariantEnum returns the name of the enum in scope that declares
+// variant name, when a bare pattern may not name that variant; otherwise "".
+func bareParamVariantEnum(fa *FileAnalysis, name string, pos Pos) string {
+	if fa == nil || fa.ModuleScope == nil || bareVariantPatternAllowed(fa, name, pos) {
+		return ""
+	}
+	if sym := enumDeclaringVariant(fa.ModuleScope, name); sym != nil {
+		return sym.Name
+	}
+	return ""
+}
+
 // patternColOf returns the column of a pattern node for diagnostic positions.
 // Sibling of parser.patternCol (which synthesizes the destructure slot name);
 // they differ only in the unmatched-node fallback — 0 here, LineNum there.
@@ -153,6 +209,8 @@ func patternColOf(n ast.Node) int {
 		return p.Col
 	case *ast.ListPattern:
 		return p.Col
+	case *ast.AsPattern:
+		return p.Col
 	}
 	return 0
 }
@@ -165,6 +223,10 @@ func checkParamPatternRefutable(pattern ast.Node, ty Type, reg *TypeRegistry, ad
 	switch p := pattern.(type) {
 	case *ast.WildcardPattern, *ast.IdentPattern:
 		return
+
+	case *ast.AsPattern:
+		// The name matches anything; the pattern decides.
+		checkParamPatternRefutable(p.Pattern, ty, reg, addError)
 
 	case *ast.MapPattern:
 		addError(p.Line, p.Col, refutableParamMsg)

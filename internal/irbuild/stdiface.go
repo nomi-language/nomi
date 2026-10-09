@@ -512,11 +512,6 @@ func (s *stdIfaceSpec) matches(decl *ast.InterfaceDef, anchors stdAnchors) bool 
 		// A generic interface needs the dictionary a generic type needs, which
 		// is the refusal declareIfaces already records for a declared one.
 		return false
-	case len(decl.Fields) > 0:
-		// A field requirement is a construct this builder refuses on its own
-		// terms; redirecting the interface to an rt table would silently drop
-		// that refusal.
-		return false
 	case len(decl.Methods) != len(s.methods):
 		return false
 	}

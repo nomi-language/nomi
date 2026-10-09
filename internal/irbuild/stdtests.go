@@ -167,7 +167,7 @@ func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes []ast.Node, 
 		Modules:  []Module{{Path: v.path, Name: module, Nodes: nodes, FA: fa, DeclaresTests: true}},
 		HasTests: true,
 	}
-	return prog, &Result{IR: irMods, irLibraries: libs}, nil
+	return prog, &Result{IR: irMods, irLibraries: libs, Literals: g.literalSites}, nil
 }
 
 // stdTestOwnType reports that a test body of a stdlib module is being built.
@@ -201,7 +201,7 @@ func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 		irDeclineNote("an `import` in a block that rebinds a name the module scope binds differently")
 		return false
 	}
-	if g.fa == nil || g.fa.ModuleScope == nil || n.Extern {
+	if g.fa == nil || g.fa.ModuleScope == nil {
 		return no()
 	}
 	bound := 0

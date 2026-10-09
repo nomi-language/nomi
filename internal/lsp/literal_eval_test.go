@@ -102,9 +102,10 @@ func TestLiteralDiagnostics_FileWithReturningElseIfChainIsEvaluated(t *testing.T
 	}
 }
 
-// A Regex is a host handle; its hover renders the Ok payload through std's
+// A Regex is a host handle; its hover renders the value through std's
 // `impl Debug for Regex`, which failed at run time before the VM's Debug
-// dispatched on a host handle.
+// dispatched on a host handle. A backtick Regex literal is checked at compile
+// time, so its type and value are the handler's Ok payload.
 func TestLiteralDiagnostics_ValidRegexHoversItsValue(t *testing.T) {
 	src := "import std/regex.Regex\n\nfn main() {\n    _ = Regex`\\d+`\n}\n"
 	s, snap := openLiteralDoc(t, src)
@@ -119,7 +120,7 @@ func TestLiteralDiagnostics_ValidRegexHoversItsValue(t *testing.T) {
 		t.Fatalf("no hover: %v", err)
 	}
 	got := res.Contents.(protocol.MarkupContent).Value
-	want := "```nomi\nRegex`\\d+`: Result<Regex, String>\n```\n\n```text\nOk(Regex`\\d+`)\n```"
+	want := "```nomi\nRegex`\\d+`: Regex\n```\n\n```text\nRegex`\\d+`\n```"
 	if got != want {
 		t.Errorf("hover =\n%s\nwant\n%s", got, want)
 	}

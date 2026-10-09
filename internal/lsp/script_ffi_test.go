@@ -103,7 +103,7 @@ func TestRPC_ExtensionlessScriptGoBindings(t *testing.T) {
 	if p := c.waitDiagnostics(uri); p.n != 0 {
 		t.Fatalf("the script's analysis reports %v; want none", p.msgs)
 	}
-	if d := safeLoweringDiagnostics(uri, text); len(d) != 0 {
+	if d := safeLoweringDiagnostics(uri, text, nil); len(d) != 0 {
 		t.Fatalf("the script's lowering reports %+v; want none", d)
 	}
 

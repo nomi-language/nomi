@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/vmhost"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -162,49 +163,105 @@ func TestLoweringDiagnostics_BlockImportedProjectFile(t *testing.T) {
 		"shapes.nomi": "pub fn area(r: Int): Int {\n    r * 3\n}\n",
 		"nomi.toml":   "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 	})
-	if d := loweringDiagnostics(filepath.Join(dir, "main.nomi"), src); len(d) != 0 {
+	if d := loweringDiagnostics(filepath.Join(dir, "main.nomi"), src, nil); len(d) != 0 {
 		t.Fatalf("lowering diagnostics %+v; want none", d)
 	}
 }
 
-// BenchmarkLoweringDiagnostics is one save's lowering run on the corpus's
-// largest file (523 lines, 40 tests), after the process's first lowering of
-// the stdlib, beside the front end's analysis of the same text, which every
-// keystroke pays.
+// A backtick typed literal whose handler answers Err is a compile error,
+// reported once: among the lowering diagnostics, with the invalid-literal
+// code, and not by the editor's own literal evaluation.
+func TestLoweringDiagnostics_InvalidBacktickLiteral(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	src := "import std/regex.Regex\n\nfn main() {\n    _ = Regex`[`\n}\n"
+	dir := writeProject(t, map[string]string{
+		"main.nomi": src,
+		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+	})
+	diags := loweringDiagnostics(filepath.Join(dir, "main.nomi"), src, nil)
+	if len(diags) != 1 {
+		t.Fatalf("lowering diagnostics %+v; want one", diags)
+	}
+	d := diags[0]
+	if want := "typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[`"; d.Message != want {
+		t.Errorf("message = %q, want %q", d.Message, want)
+	}
+	if d.Code == nil || d.Code.Value != "invalid-literal" {
+		t.Errorf("code = %+v, want invalid-literal", d.Code)
+	}
+	want := protocol.Range{Start: protocol.Position{Line: 3, Character: 8}, End: protocol.Position{Line: 3, Character: 16}}
+	if d.Range != want {
+		t.Errorf("range = %+v, want %+v", d.Range, want)
+	}
+	s, snap := openLiteralDoc(t, src)
+	if own := s.literalDiagnostics(snap, true); len(own) != 0 {
+		t.Errorf("the editor's literal evaluation reports it too: %+v", own)
+	}
+}
+
+// BenchmarkLoweringDiagnostics is one save's lowering run, after the
+// process's first lowering of the stdlib, on the largest corpus files: four
+// whose program is one file, which a run lowers from the document's
+// analysis, and the largest file (523 lines, 40 tests), whose program has
+// another file, which a run lowers with its own front end. "source" lowers
+// the text with its own front end, "analysis" lowers the document's
+// analysis where it can (a run's choice), and "analyze" is the server's
+// analysis of the text, which every burst of typing pays.
 func BenchmarkLoweringDiagnostics(b *testing.B) {
-	path, err := filepath.Abs(filepath.Join("..", "..", "tests", "07-structs-and-enums", "struct_spread", "struct_spread_test.nomi"))
-	if err != nil {
-		b.Fatal(err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		b.Fatal(err)
-	}
-	src := string(data)
-	start := time.Now()
-	if _, err := vmhost.CheckLowering(path, src); err != nil {
-		b.Fatalf("the file does not load, so nothing is lowered: %v", err)
-	}
-	b.Logf("first run, with the stdlib's lowering: %v", time.Since(start))
-	b.Run("lowering", func(b *testing.B) {
-		for range b.N {
-			loweringDiagnostics(path, src)
+	for _, rel := range []string{
+		"13-iterators-and-pipes/iter_test.nomi",
+		"03-tooling-and-diagnostics/formatting_test.nomi",
+		"16-concurrency/concurrent_runtime_test.nomi",
+		"12-derives-and-standard-interfaces/derives_test.nomi",
+		"07-structs-and-enums/struct_spread/struct_spread_test.nomi",
+	} {
+		path, err := filepath.Abs(filepath.Join("..", "..", "tests", filepath.FromSlash(rel)))
+		if err != nil {
+			b.Fatal(err)
 		}
-	})
-	b.Run("analysis", func(b *testing.B) {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			b.Fatal(err)
+		}
+		src := string(data)
+		start := time.Now()
+		if _, err := vmhost.CheckLowering(path, src); err != nil {
+			b.Fatalf("the file does not load, so nothing is lowered: %v", err)
+		}
+		b.Logf("%s: first run: %v", rel, time.Since(start))
 		s := NewServer()
-		uri := "file://" + path
-		for i := range b.N {
-			s.docs.Open(uri, src+strings.Repeat("\n", i%2))
-		}
-	})
+		uri := pathToURI(path)
+		s.docs.Open(uri, src)
+		a, _ := s.loweringAnalysis(uri, src)
+		name := filepath.Base(path)
+		b.Run("source/"+name, func(b *testing.B) {
+			for range b.N {
+				loweringDiagnostics(path, src, nil)
+			}
+		})
+		b.Run("analysis/"+name, func(b *testing.B) {
+			if a == nil {
+				b.Logf("%s is lowered with its own front end", rel)
+			}
+			for range b.N {
+				loweringDiagnostics(path, src, a)
+			}
+		})
+		b.Run("analyze/"+name, func(b *testing.B) {
+			for i := range b.N {
+				s.docs.Open(uri, src+strings.Repeat("\n", i%2))
+			}
+		})
+	}
 }
 
 // A compiler panic during the lowering is one diagnostic, and the server
 // keeps running.
 func TestLoweringDiagnostics_InternalErrorIsOneDiagnostic(t *testing.T) {
 	saved := checkLoweringFn
-	checkLoweringFn = func(path, src string, opts ...vmhost.Option) (error, error) {
+	checkLoweringFn = func(path, src string, _ *analyzedlowering.Analyzed) (error, error) {
 		return nil, &vmhost.InternalError{Panic: "boom"}
 	}
 	defer func() { checkLoweringFn = saved }()

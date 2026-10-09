@@ -49,6 +49,10 @@
 02-testing/attached_tests_test.nomi:done_label	ran
 02-testing/attached_tests_test.nomi:ready_label	ran
 02-testing/attached_tests_test.nomi:render	ran
+02-testing/io_capture_test.nomi:main	ran
+02-testing/io_capture_test.nomi:main failure	ran
+02-testing/io_capture_test.nomi:read_words	ran
+02-testing/io_capture_test.nomi:write_n	ran
 02-testing/setup_semantics_test.nomi:parent_fixture	ran
 02-testing/setup_try_test.nomi:find	ran
 02-testing/setup_try_test.nomi:parse	ran
@@ -189,6 +193,11 @@
 07-structs-and-enums/variant_field_defaults/policy/nested.nomi:Timeout.After.seconds default	ran
 07-structs-and-enums/variant_field_defaults/policy/nested.nomi:Timeout.inspect	ran
 07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi:describe	ran
+08-pattern-matching/as_patterns_test.nomi:Kind.inspect	ran
+08-pattern-matching/as_patterns_test.nomi:Tx.inspect	ran
+08-pattern-matching/as_patterns_test.nomi:change	ran
+08-pattern-matching/as_patterns_test.nomi:first_of	ran
+08-pattern-matching/as_patterns_test.nomi:sum_with	ran
 08-pattern-matching/binding_else_test.nomi:Check.inspect	ran
 08-pattern-matching/binding_else_test.nomi:LoadError.inspect	ran
 08-pattern-matching/binding_else_test.nomi:area	ran
@@ -465,6 +474,7 @@
 10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi:has_diagnostic?	ran
 10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi:hover_signature	ran
 10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi:Tag.inspect	ran
+10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi:Tag.name	ran
 10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi:name_of	ran
 10-generics-and-type-wrappers/type_wrappers_test.nomi:Expired.inspect	ran
 10-generics-and-type-wrappers/type_wrappers_test.nomi:Id.inspect	ran
@@ -581,10 +591,11 @@
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:Dog.inspect	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:Event.inspect	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:Person.inspect	ran
+11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:Person.name	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:count_shapes	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:echo_struct	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:echo_struct	ran
-11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:greet	ran
+11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:greet	PROBE: a synthesized argument is not a value of the declared type
 11-interfaces-and-impls/structural_interfaces/test_helpers.nomi:has_diagnostic?	ran
 11-interfaces-and-impls/structural_interfaces/test_helpers.nomi:hover_signature	ran
 11-interfaces-and-impls/test_helpers.nomi:has_diagnostic?	ran

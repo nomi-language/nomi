@@ -31,15 +31,25 @@ func WithInput(ctx context.Context, in *Input) context.Context {
 
 // ReadLine is `io.read_line`: the next line of the frame's input with its line
 // ending stripped, or Err("eof") when no input remains. A final line with no
-// newline is still a line.
+// newline is still a line. Inside `io.capture` the input is the capture's.
 func ReadLine(fr *Frame) Result[string, string] {
 	var in *Input
-	if fr != nil && fr.ctx != nil {
-		in, _ = fr.ctx.Value(inputKey{}).(*Input)
+	if fr != nil {
+		if c := captureFor(fr); c != nil {
+			return c.readLine()
+		}
+		if fr.ctx != nil {
+			in, _ = fr.ctx.Value(inputKey{}).(*Input)
+		}
 	}
 	if in == nil {
 		return Err[string]("eof")
 	}
+	return in.readLine()
+}
+
+// readLine reads the next line of in.
+func (in *Input) readLine() Result[string, string] {
 	in.mu.Lock()
 	defer in.mu.Unlock()
 	line, err := in.r.ReadString('\n')

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
+
+	"github.com/nomi-language/nomi/internal/stdcache"
 )
 
 // StdlibPath returns the absolute filesystem path of the bundled
@@ -156,13 +158,15 @@ func StdlibLogicalModuleName(rel string) string {
 // (whether a missing-impl diagnostic is suppressed). Each used to carry a
 // comment telling the next editor to update the other two.
 //
-// The rule is that the file's IMMEDIATE PARENT directory is `std`, which is
-// exactly right for a one-module stdlib: every public module is a flat
+// The rule is that the file's IMMEDIATE PARENT directory is `std`, or a std
+// version directory (internal/stdcache.IsVersion) whose parent is `std`, which
+// is exactly right for a one-module stdlib: every public module is a flat
 // `std/<name>.nomi`. It holds for all three physical shapes that reach here —
 // the in-repo source (`std/x.nomi`), the jump-to-def materialization
-// (`~/.cache/nomi/std/x.nomi`), and the key-shaped paths callers synthesize
-// (`std/x.nomi`) — and it answers NO for `std/_fixtures/nested/deeper/module.nomi`,
-// the tree's one deeper path, which std.Load does not carry either.
+// (`~/.cache/nomi/std/<version>/x.nomi`), and the key-shaped paths callers
+// synthesize (`std/x.nomi`) — and it answers NO for
+// `std/_fixtures/nested/deeper/module.nomi`, the tree's one deeper path, which
+// std.Load does not carry either.
 //
 // It answered NO once for a real module and the cost was visible: while
 // `std/calendar` shipped its facade nested at `std/calendar/calendar.nomi`,
@@ -181,8 +185,13 @@ func stdlibModuleForPath(filePath string) (string, bool) {
 	// A directory handed in by mistake must not read as a module called "" —
 	// the file's own name is never a candidate for the `std` component, which
 	// is why this splits before comparing rather than scanning components.
-	if path.Base(path.Clean(dir)) != "std" {
-		return "", false
+	parent := path.Clean(dir)
+	if path.Base(parent) != "std" {
+		// The jump-to-def materialization keeps one directory per std
+		// version, std/<version>/<name>.nomi (internal/stdcache).
+		if !stdcache.IsVersion(path.Base(parent)) || path.Base(path.Dir(parent)) != "std" {
+			return "", false
+		}
 	}
 	name := StdlibLogicalModuleName(base)
 	if name == "" || name == base {

@@ -7,6 +7,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/stdcache"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -87,8 +88,7 @@ type StdLib struct {
 	// TestStdlib_AnalyzesWithoutErrors holds it there. Nothing reports these
 	// to users, so a stdlib mistake that changes what a name means (an enum
 	// variant shadowing an import, say) is visible only here.
-	Errors  map[string][]analysis.TypeError
-	diskDir string
+	Errors map[string][]analysis.TypeError
 }
 
 // stdlibRoot is analysis.StdlibPath, asked once per process: it reads the
@@ -113,56 +113,46 @@ func (lib *StdLib) SourcePath(moduleName string) string {
 			return abs
 		}
 	}
-	dir := lib.diskDir
-	if dir == "" {
-		home, _ := os.UserHomeDir()
-		dir = filepath.Join(home, ".cache", "nomi", "std")
-	}
-	return filepath.Join(dir, filepath.FromSlash(physicalPath))
+	return materialized().Location(physicalPath)
 }
 
+// materialized is this process's directory for the embedded std's source:
+// one directory per std version under stdcache.DefaultRoot, so a server never
+// rewrites a file another server's editor has open.
+var materialized = sync.OnceValue(func() *stdcache.Dir {
+	return stdcache.New(stdcache.DefaultRoot(), stdlibFS)
+})
+
+// navigator chooses, per file, between the bundled source tree and the
+// materialized directory (stdcache.Navigator).
+var navigator = sync.OnceValue(func() *stdcache.Navigator {
+	root, err := stdlibRoot()
+	if err != nil {
+		root = ""
+	}
+	return stdcache.NewNavigator(root, materialized())
+})
+
 // FileURI returns a file:// URI for the given module's .nomi file. When the
-// bundled source tree is available, it returns the real source path so editor
-// navigation stays connected to the worktree. It materializes embedded source
-// to ~/.cache/nomi/std/ only when the physical source tree is unavailable.
+// bundled source tree has the file and its content is the std this process
+// embeds, it names that file, so editor navigation stays in the checkout.
+// Otherwise (no source tree, or a checkout changed since this binary was
+// built) it names the file in this std version's own materialized directory,
+// whose lines are the ones this process's analysis names.
 func (lib *StdLib) FileURI(moduleName string) string {
-	if physicalPath, ok := embeddedStdlibSourcePath(moduleName); ok {
-		if root, err := stdlibRoot(); err == nil {
-			sourcePath := filepath.Join(root, filepath.FromSlash(physicalPath))
-			if _, err := os.Stat(sourcePath); err == nil {
-				abs, _ := filepath.Abs(sourcePath)
-				return "file://" + abs
-			}
-		}
-	}
-	if lib.diskDir == "" {
-		home, _ := os.UserHomeDir()
-		lib.diskDir = filepath.Join(home, ".cache", "nomi", "std")
-		// Clean up the former cache directory name so editor jumps do not
-		// leave two materialized stdlib trees on disk.
-		os.RemoveAll(filepath.Join(home, ".cache", "nomi", "stdlib"))
-		// Remove and recreate to clear stale files from previous builds.
-		os.RemoveAll(lib.diskDir)
-		os.MkdirAll(lib.diskDir, 0o755)
-		fs.WalkDir(stdlibFS, ".", func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() || !isEmbeddedFile(path) {
-				return nil
-			}
-			content, err := stdlibFS.ReadFile(path)
-			if err != nil {
-				return nil
-			}
-			diskPath := filepath.Join(lib.diskDir, filepath.FromSlash(path))
-			os.MkdirAll(filepath.Dir(diskPath), 0o755)
-			os.WriteFile(diskPath, content, 0o644)
-			return nil
-		})
-	}
 	physicalPath, ok := embeddedStdlibSourcePath(moduleName)
 	if !ok {
-		physicalPath = moduleName + ".nomi"
+		return MaterializedURI(moduleName + ".nomi")
 	}
-	return "file://" + filepath.Join(lib.diskDir, filepath.FromSlash(physicalPath))
+	return "file://" + navigator().Path(physicalPath)
+}
+
+// MaterializedURI is the file:// URI of rel, a slash-separated path under
+// std/ such as "maybe.nomi", in this std version's materialized directory:
+// ~/.cache/nomi/std/<version>/, where <version> is a hash of the embedded
+// files (internal/stdcache). It writes the directory first if it is missing.
+func MaterializedURI(rel string) string {
+	return "file://" + materialized().Path(rel)
 }
 
 // ReadFile reads a stdlib .nomi file by logical module name: "maybe" maps to

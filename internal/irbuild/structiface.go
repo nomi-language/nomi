@@ -183,13 +183,10 @@ func structIfaceMatches(decl *ast.InterfaceDef) bool {
 		return false
 	case len(decl.TypeParams) > 0, len(decl.WhereClauses) > 0:
 		return false
-	// A FIELD on something spelled `interface` is not the declaration this file
-	// describes, so it voids the anchor. An attached `//!` test does not, for
-	// declModifiers' reason: a line in a doc comment cannot change what a
-	// declaration IS, and this predicate asks only that. The other shape
-	// predicates follow the same rule.
-	case len(decl.Fields) > 0:
-		return false
+	// An attached `//!` test does not void the anchor, for declModifiers'
+	// reason: a line in a doc comment cannot change what a declaration IS, and
+	// this predicate asks only that. The other shape predicates follow the
+	// same rule.
 	case len(decl.Methods) != 1:
 		return false
 	}

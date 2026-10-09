@@ -6,13 +6,13 @@ import {
 
 test "split takes a string or a regex" {
     assert String.split("a,b,,c", ",") == ["a", "b", "", "c"]
-    assert String.split("a,b,,c", try Regex`,+`) == ["a", "b", "c"]
+    assert String.split("a,b,,c", Regex`,+`) == ["a", "b", "c"]
     assert "one  two\tthree" |> String.split(" ") == ["one", "", "two\tthree"]
-    assert "one  two\tthree" |> String.split(try Regex`\s+`) == ["one", "two", "three"]
+    assert "one  two\tthree" |> String.split(Regex`\s+`) == ["one", "two", "three"]
 }
 
 test "contains? takes a string or a regex" {
-    digits = try Regex`\d+`
+    digits = Regex`\d+`
 
     assert String.contains?("order 66", "66")
     refute String.contains?("order", "66")
@@ -24,7 +24,7 @@ test "contains? takes a string or a regex" {
 }
 
 test "starts_with? and ends_with? anchor a regex to that end" {
-    digits = try Regex`\d+`
+    digits = Regex`\d+`
 
     assert String.starts_with?("42 apples", "42")
     assert String.starts_with?("42 apples", digits)
@@ -32,33 +32,33 @@ test "starts_with? and ends_with? anchor a regex to that end" {
     assert String.ends_with?("apples 42", "42")
     assert String.ends_with?("apples 42", digits)
     refute String.ends_with?("42 apples", digits)
-    assert "x.PDF" |> String.ends_with?(try Regex`(?i)\.pdf`)
+    assert "x.PDF" |> String.ends_with?(Regex`(?i)\.pdf`)
 
     assert "x.pdf" |> String.ends_with?(".pdf")
 }
 
 test "ends_with? finds a match ending at the end, not only the leftmost one" {
-    assert String.ends_with?("ab", try Regex`a|ab`)
-    assert String.ends_with?("xab", try Regex`b|xab`)
+    assert String.ends_with?("ab", Regex`a|ab`)
+    assert String.ends_with?("xab", Regex`b|xab`)
 }
 
 test "replace takes a string or a regex and inserts the replacement literally" {
     assert String.replace("a.b.c", ".", "-") == "a-b-c"
-    assert String.replace("call 555-0100", try Regex`\d`, "#") == "call ###-####"
-    assert "x1y22" |> String.replace(try Regex`(\d)+`, "<$1>") == "x<$1>y<$1>"
+    assert String.replace("call 555-0100", Regex`\d`, "#") == "call ###-####"
+    assert "x1y22" |> String.replace(Regex`(\d)+`, "<$1>") == "x<$1>y<$1>"
     assert "x1y22" |> String.replace("1", "$") == "x$y22"
 }
 
 test "find_all lists every match" {
-    assert String.find_all("order 66, aisle 7", try Regex`\d+`) == ["66", "7"]
+    assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
     assert "banana" |> String.find_all("an") == ["an", "an"]
     assert String.find_all("banana", "x") == []
-    assert "banana" |> String.find_all(try Regex`x`) == []
+    assert "banana" |> String.find_all(Regex`x`) == []
 }
 
 test "a function of your own takes any matcher" {
     assert count("a,b,c", ",") == 2
-    assert count("a1b22", try Regex`\d`) == 3
+    assert count("a1b22", Regex`\d`) == 3
 }
 
 fn count<M>(text: String, m: M): Int where M: Matcher {
@@ -75,7 +75,7 @@ test "a matcher prints what each call finds" {
 
         fn main(): Result<Unit, String> {
             text = "a1b22c"
-            digits = try Regex`[0-9]+`
+            digits = Regex`[0-9]+`
 
             io.inspect(String.split(text, digits))
             text |> String.split("b") |> io.inspect()

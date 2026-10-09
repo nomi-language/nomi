@@ -40,18 +40,18 @@ import (
 // no name-keyed test anywhere and therefore nothing for a same-named user
 // declaration to shadow.
 func hostBoundFn(ef *ast.ExternFunc) bool {
-	return ef != nil && ef.ForeignName != "" && ef.GoBody == "" && !ef.ImplFunction &&
+	return ef != nil && ef.ForeignName != "" && !ef.ImplFunction &&
 		len(ef.TypeParams) == 0 && len(ef.WhereClauses) == 0
 }
 
 // hostTableFn reports whether ef is a plain `host fn` in a user file: no `go`
-// binding and no inline body, answered at run time by whatever host table the
-// program is loaded with (an embedder's, through vmhost.WithHosts). It gets
-// the same VM body a Go-bound one does (irHostFnRetain): a crossing under the
-// key the host registers it by. Stdlib `host fn`s are the language's own and
+// binding, answered at run time by whatever host table the program is loaded
+// with (an embedder's, through vmhost.WithHosts). It gets the same VM body a
+// Go-bound one does (irHostFnRetain): a crossing under the key the host
+// registers it by. Stdlib `host fn`s are the language's own and
 // never take this path.
 func hostTableFn(ef *ast.ExternFunc) bool {
-	return ef != nil && ef.ForeignName == "" && ef.GoBody == "" && !ef.ImplFunction &&
+	return ef != nil && ef.ForeignName == "" && !ef.ImplFunction &&
 		len(ef.TypeParams) == 0 && len(ef.WhereClauses) == 0
 }
 
@@ -61,7 +61,7 @@ func hostTableFn(ef *ast.ExternFunc) bool {
 // arguments are, so its VM body is one crossing under the binding's key
 // (hostImplKey), built wherever the block's items are.
 func hostBoundImplFn(ef *ast.ExternFunc) bool {
-	return ef != nil && ef.ForeignName != "" && ef.GoBody == "" &&
+	return ef != nil && ef.ForeignName != "" &&
 		len(ef.TypeParams) == 0 && len(ef.WhereClauses) == 0
 }
 
@@ -112,7 +112,7 @@ func hostCallable(ef *ast.ExternFunc) bool {
 }
 
 func hostBoundType(et *ast.ExternType) bool {
-	return et != nil && et.ForeignName != "" && et.GoBody == "" &&
+	return et != nil && et.ForeignName != "" &&
 		len(et.TypeParams) == 0 && len(et.WhereClauses) == 0 &&
 		!et.HasBody && len(et.Items) == 0 && len(et.Decorators) == 0
 }
@@ -327,11 +327,11 @@ func hostTypeDef(hp *hostPkg, et *ast.ExternType) *typeDef {
 }
 
 // hostTableType reports whether et is a plain `host type` in a user file: no
-// `go` binding, no inline body and nothing inside it. Its values are opaque
+// `go` binding and nothing inside it. Its values are opaque
 // handles the program's host-table functions (hostTableFn) create and read,
 // so the VM holds whatever Go value the embedder's function answered.
 func hostTableType(et *ast.ExternType) bool {
-	return et != nil && et.ForeignName == "" && et.GoBody == "" &&
+	return et != nil && et.ForeignName == "" &&
 		len(et.TypeParams) == 0 && len(et.WhereClauses) == 0 &&
 		!et.HasBody && len(et.Items) == 0 && len(et.Decorators) == 0
 }
@@ -493,7 +493,7 @@ func (g *gen) hostFnDecl(ef *ast.ExternFunc) {
 	}
 	if !hostBoundFn(ef) {
 		// Not Go-bound, or a shape this family does not claim: a generic
-		// `host fn`, an impl item, an inline `go { }` body. Each is refused
+		// `host fn` or an impl item. Each is refused
 		// under the declaration's own key rather than silently dropped.
 		g.hostFnReject("host fn declaration", ef.Name, ef)
 		return

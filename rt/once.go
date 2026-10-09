@@ -102,7 +102,7 @@ type forcing struct {
 // has published sees no fields, and a read traps as any pre-boot read does.
 func (fr *Frame) forcingOnce(cell *onceID) *Frame {
 	child := &Frame{ctx: fr.ctx, forcing: &forcing{cell: cell, next: fr.forcing},
-		booted: fr.booted, inTask: fr.inTask, underDeadline: fr.underDeadline, park: fr.park}
+		booted: fr.booted, inTask: fr.inTask, underDeadline: fr.underDeadline, park: fr.park, capture: fr.capture}
 	if fr.booted != nil {
 		child.scopedFields, child.scopedContext = fr.booted.fields, fr.booted.context
 	}

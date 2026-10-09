@@ -192,8 +192,15 @@ type VariantDesc struct {
 // one Nomi type may carry two descriptors (a generic enum instantiated at two
 // payload types), so the kernels compare identity by Short name and fields by
 // name, and use descriptor pointer equality only as a fast path.
+//
+// Inst tells apart the instances of one generic type (`main.Box<Bool>`,
+// `main.Box<String>`), which share Name; it is empty for a non-generic type
+// and for a value whose producer stated no instance. No kernel reads it:
+// equality, hashing and rendering are by Name and fields. A consumer that
+// selects a body by a value's runtime type (the VM's Debug hook) does.
 type TypeDesc struct {
 	Name     string
+	Inst     string
 	Short    string
 	Kind     RecordKind
 	Layout                 // struct, anonymous record, tuple, distinct

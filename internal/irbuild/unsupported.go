@@ -361,6 +361,7 @@ var constructNames = map[string]string{
 	"Dbg":             "dbg",
 	"Todo":            "todo",
 	"Then":            "then stage",
+	"Tap":             "tap stage",
 	"CodepointLit":    "codepoint literal",
 	"DecimalLit":      "decimal literal",
 	// Decorators reach the tally two ways — funcDecl refuses a decorated
@@ -380,7 +381,6 @@ var constructNames = map[string]string{
 	// A FuncDef only reaches this map from a nested position: a top-level one
 	// goes to funcDecl, which names its own reasons.
 	"FuncDef": "nested function definition",
-	"GoBlock": "inline go block",
 	// `If` is reached only as a bare pipe stage (`x |> if { … }`): ifInto owns
 	// every other position, so an unmapped NodeType would surface only there.
 	"If":              "if expression",
@@ -388,11 +388,9 @@ var constructNames = map[string]string{
 	"ImplConformance": "impl conformance",
 	"InterfaceDef":    "interface declaration",
 	// An interface's members are reached only as children of a refused
-	// InterfaceDef, but they are not internals in the way a pattern kind is: a
-	// `field` requirement and a `variant` requirement are separate features
-	// with separate lowerings, so they earn separate tally keys rather than
-	// falling through to a bare NodeType.
-	"InterfaceField":     "interface field requirement",
+	// InterfaceDef, but they are not internals in the way a pattern kind is,
+	// so they earn their own tally keys rather than falling through to a bare
+	// NodeType.
 	"InterfaceMethod":    "interface method requirement",
 	"Lambda":             "lambda",
 	"ListLit":            "list literal",

@@ -348,7 +348,6 @@ func (g *gen) importIface(src *ifaceDef, o *typeOwner) *ifaceDef {
 		nomi:      src.nomi,
 		decl:      src.decl,
 		methods:   make(map[string]*ifaceMethod, len(src.order)),
-		fields:    make(map[string]*ifaceField, len(src.fieldOrder)),
 		foreign:   o.fileKey,
 		pkg:       o.pkg,
 		unit:      o.unit,
@@ -407,23 +406,6 @@ func (g *gen) importIface(src *ifaceDef, o *typeOwner) *ifaceDef {
 		}
 		d.methods[m.name] = m
 		d.order = append(d.order, m)
-	}
-	// A `field` requirement mirrors on exactly the footing a method does: the
-	// NAME is the owner's, the KIND is re-derived here, and the table is the
-	// owner's variable qualified. A requirement whose type cannot cross the
-	// boundary loses its table and nothing else, so the interface stays usable
-	// and the refusal lands at a read site.
-	for _, sf := range src.fieldOrder {
-		f := &ifaceField{name: sf.name}
-		ik, fine := g.importKind(sf.k)
-		switch {
-		case !fine || !sf.table:
-			f.k = kindInvalid
-		default:
-			f.k, f.table = ik, sf.table
-		}
-		d.fields[f.name] = f
-		d.fieldOrder = append(d.fieldOrder, f)
 	}
 	return d
 }

@@ -33,54 +33,28 @@ import {
     (type_identifier)))
 
 ==========
-Go block
+Go selector bindings
 ==========
 
-go {
-  import (
-    "database/sql"
-    sqlite "modernc.org/sqlite"
-    _ "github.com/lib/pq"
-  )
+gopkg "example.com/app/ffi" as ffi
 
-  type Conn struct {
-    db *sql.DB
-  }
-}
+opaque type RawConn go ffi.Conn
+
+fn echo_upper(s: String): String go ffi.EchoUpper
 
 ---
 
 (source_file
-  (go_block
-    (go_raw_content
-      (go_raw_content))))
-
-==========
-Inline Go bindings
-==========
-
-go {
-  import ffi "example.com/app/ffi"
-}
-
-opaque type RawConn go {
-  ffi.Conn
-}
-
-fn echo_upper(s: String): String go {
-  return ffi.EchoUpper(s)
-}
-
----
-
-(source_file
-  (go_block
-    (go_raw_content))
+  (gopkg_declaration
+    path: (string
+      (string_content))
+    alias: (identifier))
   (type_definition
     name: (qualified_type_identifier
       (type_identifier))
-    (go_inline_body
-      (go_raw_content)))
+    (go_selector_binding
+      package: (identifier)
+      symbol: (type_identifier)))
   (function_definition
     name: (identifier)
     (parameters
@@ -88,8 +62,9 @@ fn echo_upper(s: String): String go {
         name: (identifier)
         (type_identifier)))
     (type_identifier)
-    (go_inline_body
-      (go_raw_content))))
+    (go_selector_binding
+      package: (identifier)
+      symbol: (type_identifier))))
 
 ==========
 Slash-separated module path

@@ -246,7 +246,7 @@ func cloneImportStmtForInject(src *ast.ImportStmt, index int) *ast.ImportStmt {
 		// in the synth band rather than pointing into prelude.nomi.
 		// Zero out when IncludeParent is false — no consumer reads
 		// SelfLine/SelfCol in that case, and zeros document intent.
-		// ExportAll, ExportAlias, ExportFlags, ExportAliases all left
+		// ExportAll, ExportFlags, ExportAliases all left
 		// at their zero values: the user file is consuming names, not
 		// re-exporting them.
 	}
@@ -310,7 +310,7 @@ func cloneIdentNodeSynth(n ast.Node, nextPos func() (int, int)) ast.Node {
 // modifier — line-level `export` on a selective import, or any per-item
 // ExportFlags entry being true.
 func stmtIsReExport(s *ast.ImportStmt) bool {
-	if s.ExportAll || s.ExportAlias != nil {
+	if s.ExportAll {
 		return true
 	}
 	for _, f := range s.ExportFlags {

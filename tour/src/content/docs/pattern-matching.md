@@ -68,6 +68,48 @@ dbg line 15: area(.Rectangle{width: 4.0, height: 5.0}) = 20.0
 
 Tuples and structs destructure the same way: `(a, b) -> …`, `Point{x, y} -> …`.
 
+### Naming the whole match with `as`
+
+Sometimes an arm needs both the parts and the whole value. `pattern as name`
+matches the pattern and binds the whole matched value to `name`, so there is
+no need to rebuild it from its fields:
+
+```nomi-run
+enum Shape {
+    Circle Float
+    Rectangle {width: Float, height: Float}
+}
+
+fn area(s: Shape): Float {
+    case s {
+        .Circle(r) -> r * r * 3.0
+        .Rectangle{width, height} -> width * height
+    }
+}
+
+fn describe(s: Shape): String {
+    case s {
+        .Rectangle{width, height} as square when width == height -> "a square of area ${area(square)}"
+        other -> "a shape of area ${area(other)}"
+    }
+}
+
+fn main() {
+    dbg describe(.Rectangle{width: 2.0, height: 2.0})
+    dbg describe(.Circle(1.0))
+}
+```
+<!-- expect
+dbg line 21: describe(.Rectangle{width: 2.0, height: 2.0}) = "a square of area 4.0"
+dbg line 22: describe(.Circle(1.0)) = "a shape of area 3.0"
+-->
+
+`as` binds looser than everything else in a pattern: `Ok(x) as r` names the
+whole `Result`, while `Ok(Point{x, y} as p)` names just the payload. The name
+has the type of the position it sits in (here `square` is a `Shape`), and it
+works anywhere a pattern does: `if` patterns, bindings, parameters and nested
+patterns.
+
 ## `Maybe<T>` and `Result<T, E>`
 
 The two enums Nomi reaches for whenever an operation can have a "no answer"

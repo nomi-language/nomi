@@ -88,7 +88,7 @@ func GoModRoot(entryPath string) (string, bool) {
 //
 // FastPath=true is returned when discovery finds no source-level Go
 // bindings. A project with no go.mod still takes the wrapper path when it
-// binds a Go standard library package or writes inline Go; the wrapper stages
+// binds a Go standard library package; the wrapper stages
 // a synthetic Go module of its own (writeSyntheticGoMod).
 //
 // Errors are returned for:

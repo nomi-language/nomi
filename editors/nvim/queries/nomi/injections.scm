@@ -29,15 +29,6 @@
 ; That's fine: each chunk is a complete fragment of the embedded
 ; language at the parser's resolution.
 
-; Inline Go bindings and top-level Go preludes.
-(go_block
-  (go_raw_content) @injection.content
-  (#set! injection.language "go"))
-
-(go_inline_body
-  (go_raw_content) @injection.content
-  (#set! injection.language "go"))
-
 ; TOML typed literals use the editor's lowercase `toml` grammar name.
 (tagged_type_string
   tag: (type_identifier) @tag

@@ -78,7 +78,7 @@ func (s Span) Contains(line, col int) bool {
 func Parse(tokens []token.Token) ([]ast.Node, error) {
 	p := &Parser{tokens: tokens}
 	stmts, err := p.parse()
-	if err != nil {
+	if err = withStrayPrompt(tokens, err); err != nil {
 		return nil, err
 	}
 	return stmts, nil
@@ -87,13 +87,16 @@ func Parse(tokens []token.Token) ([]ast.Node, error) {
 // ParseFile is Parse with end-of-file trivia preserved. The returned trivia
 // slice contains every comment / blank-line token that appeared after the
 // last top-level declaration and before EOF, in source order. Used by the
-// formatter so `nomi fmt -w` preserves trailing top-level comments.
+// formatter so `nomi fmt -w` preserves trailing top-level comments. A
+// comment the tree has no other slot for is a dangling comment on the node
+// nearest it (attachDangling).
 func ParseFile(tokens []token.Token) ([]ast.Node, []ast.Trivia, error) {
 	p := &Parser{tokens: tokens}
 	stmts, err := p.parse()
-	if err != nil {
+	if err = withStrayPrompt(tokens, err); err != nil {
 		return nil, nil, err
 	}
+	attachDangling(stmts, p.fileEndTrivia, tokens)
 	return stmts, p.fileEndTrivia, nil
 }
 
@@ -207,7 +210,7 @@ func (p *Parser) parseWithRecovery() ([]ast.Node, []ParseError) {
 		}
 		stmts = append(stmts, node)
 	}
-	return stmts, p.errors
+	return stmts, withStrayPrompts(p.tokens, p.errors)
 }
 
 // spanOfTokens returns the source span covered by tokens[from:to).
@@ -291,8 +294,9 @@ func (p *Parser) collectTrailingComment(nodeLine int) []ast.Trivia {
 	cmtLine := p.peek().Line
 	endLine := nodeLine
 	if p.pos > 0 {
-		// Line of the last-consumed token = node's end line.
-		if l := p.tokens[p.pos-1].Line; l > endLine {
+		// The line the last-consumed token ends on = node's end line. A
+		// multi-line string ends on a later line than it starts on.
+		if l, _ := tokenEndPos(p.tokens[p.pos-1]); l > endLine {
 			endLine = l
 		}
 	}
@@ -990,6 +994,8 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 		return firstNestedAssertion(v.Body)
 	case *ast.Then:
 		return firstNestedAssertion(v.Lambda)
+	case *ast.Tap:
+		return firstNestedAssertion(v.Lambda)
 	case *ast.TryOp:
 		return firstNestedAssertion(v.Expr)
 	case *ast.Dbg:
@@ -1164,7 +1170,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 
 	if p.peek().Type == token.IDENT && p.peek().Lexeme == "go" {
 		if p.peekAt(1).Type == token.LBRACE {
-			return p.parseGoBlock()
+			return nil, errorAt(p.peek().Line, p.peek().Col, "Nomi has no `go { ... }` blocks; declare a Go package with `gopkg \"import/path\" as alias` and bind its functions and types with `go alias.Symbol`")
 		}
 		return nil, errorAt(p.peek().Line, p.peek().Col, "Go package handles use `gopkg \"import/path\"`")
 	}
@@ -1331,18 +1337,17 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 					break
 				}
 				p.advance() // consume FAT_ARROW
-				if p.atEnd() || (p.peek().Type != token.IDENT && p.peek().Type != token.UNDERSCORE) {
+				bindTok, ok := p.parseDestructureName()
+				if !ok {
 					valid = false
 					break
 				}
-				bindTok := p.peek()
 				var pat ast.Node
 				if bindTok.Type == token.UNDERSCORE {
 					pat = &ast.WildcardPattern{Line: bindTok.Line, Col: bindTok.Col}
 				} else {
 					pat = &ast.IdentPattern{Name: bindTok.Lexeme, Line: bindTok.Line, Col: bindTok.Col}
 				}
-				p.advance()
 				entries = append(entries, ast.MapPatternEntry{Key: keyNode, Pattern: pat})
 
 				if !p.atEnd() && (p.peek().Type == token.COMMA || p.peek().Type == token.NEWLINE) {
@@ -1393,14 +1398,14 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 
 			if !p.atEnd() && p.peek().Type == token.COLON {
 				p.advance() // consume COLON
-				if p.atEnd() || p.peek().Type != token.IDENT {
+				bindTok, ok := p.parseDestructureName()
+				if !ok || bindTok.Type != token.IDENT {
 					valid = false
 					break
 				}
-				spf.Binding = p.peek().Lexeme
-				spf.BindingLine = p.peek().Line
-				spf.BindingCol = p.peek().Col
-				p.advance()
+				spf.Binding = bindTok.Lexeme
+				spf.BindingLine = bindTok.Line
+				spf.BindingCol = bindTok.Col
 			}
 			fields = append(fields, spf)
 
@@ -1445,16 +1450,15 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 				valid = false
 				break
 			}
-			t := p.peek()
-			if t.Type == token.IDENT {
-				bindings = append(bindings, &ast.Ident{Name: t.Lexeme, Line: t.Line, Col: t.Col})
-				p.advance()
-			} else if t.Type == token.UNDERSCORE {
-				bindings = append(bindings, nil) // nil = wildcard
-				p.advance()
-			} else {
+			t, ok := p.parseDestructureName()
+			if !ok {
 				valid = false
 				break
+			}
+			if t.Type == token.IDENT {
+				bindings = append(bindings, &ast.Ident{Name: t.Lexeme, Line: t.Line, Col: t.Col})
+			} else {
+				bindings = append(bindings, nil) // nil = wildcard
 			}
 
 			if p.atEnd() {
@@ -1495,18 +1499,10 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		} else {
 			p.advance() // consume LPAREN
 
-			valid := false
 			var binding *ast.Ident
-			if !p.atEnd() {
-				bt := p.peek()
-				if bt.Type == token.IDENT {
-					binding = &ast.Ident{Name: bt.Lexeme, Line: bt.Line, Col: bt.Col}
-					p.advance()
-					valid = true
-				} else if bt.Type == token.UNDERSCORE {
-					p.advance()
-					valid = true
-				}
+			bt, valid := p.parseDestructureName()
+			if valid && bt.Type == token.IDENT {
+				binding = &ast.Ident{Name: bt.Lexeme, Line: bt.Line, Col: bt.Col}
 			}
 			if valid && !p.atEnd() && p.peek().Type == token.RPAREN {
 				p.advance() // consume RPAREN
@@ -1581,6 +1577,31 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	}
 
 	return &ast.ExprStmt{Expr: expr, Line: expr.LineNum(), Col: 0}, nil
+}
+
+// parseDestructureName consumes the name a destructuring binds in one of its
+// slots, `n` or `_`, and returns its token. Parentheses around it change
+// nothing: `{"k" => (n)} = m`, `Meters((n)) = d` and `((a), b) = t` are the
+// destructures without them, as `Some((n))` is the pattern `Some(n)`. On
+// failure the position is left wherever it stopped; the caller restores it.
+func (p *Parser) parseDestructureName() (token.Token, bool) {
+	depth := 0
+	for !p.atEnd() && p.peek().Type == token.LPAREN {
+		depth++
+		p.advance()
+	}
+	if p.atEnd() || (p.peek().Type != token.IDENT && p.peek().Type != token.UNDERSCORE) {
+		return token.Token{}, false
+	}
+	name := p.peek()
+	p.advance()
+	for ; depth > 0; depth-- {
+		if p.atEnd() || p.peek().Type != token.RPAREN {
+			return token.Token{}, false
+		}
+		p.advance()
+	}
+	return name, true
 }
 
 // parseExpr is the Pratt parsing core.
@@ -1687,6 +1708,9 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 			if first, second, ok := tupleIndexPair(field); ok {
 				// `t.1.0`: the lexer reads `1.0` as a Float, and after a
 				// dot it is two tuple indices.
+				if err := checkTupleIndex(field, first, second); err != nil {
+					return nil, err
+				}
 				p.advance()
 				left = &ast.FieldAccess{Object: left, Field: &ast.Ident{Name: first, Line: field.Line, Col: field.Col}, Line: tok.Line, Col: tok.Col}
 				dotCol := field.Col + len(first)
@@ -1695,6 +1719,11 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 			}
 			if field.Type != token.IDENT && field.Type != token.TYPE_IDENT && field.Type != token.INT {
 				return nil, errorAt(tok.Line, tok.Col, "expected field name after '.'")
+			}
+			if field.Type == token.INT {
+				if err := checkTupleIndex(field, field.Lexeme); err != nil {
+					return nil, err
+				}
 			}
 			p.advance()
 			left = &ast.FieldAccess{Object: left, Field: &ast.Ident{Name: field.Lexeme, Line: field.Line, Col: field.Col}, Line: tok.Line, Col: tok.Col}
@@ -1770,8 +1799,8 @@ func (p *Parser) parsePipeRight(left ast.Node, pipeTok token.Token, leadingForRi
 		return p.parsePipeIfStage(left, pipeTok, leadingForRight)
 	case !p.atEnd() && p.peek().Type == token.CASE:
 		return p.parsePipeCaseStage(left, pipeTok, leadingForRight)
-	case !p.atEnd() && p.peek().Type == token.THEN:
-		return p.parsePipeThenStage(left, pipeTok, leadingForRight)
+	case !p.atEnd() && (p.peek().Type == token.THEN || p.peek().Type == token.TAP):
+		return p.parsePipeLambdaStage(left, pipeTok, leadingForRight)
 	default:
 		right, err := p.parseExpr(infixPrecedence(token.PIPE) + 1)
 		if err != nil {
@@ -1786,16 +1815,17 @@ func (p *Parser) parsePipeRight(left ast.Node, pipeTok token.Token, leadingForRi
 	}
 }
 
-// parsePipeThenStage parses `|> then |v| body`, the stage that applies a
-// lambda to the piped value. The lambda's body ends at the next `|>` of the
-// pipeline, the one place a lambda body does not run to the end of its
+// parsePipeLambdaStage parses `|> then |v| body`, the stage that applies a
+// lambda to the piped value, and `|> tap |v| body`, the stage that runs one
+// on it and passes the value on. The lambda's body ends at the next `|>` of
+// the pipeline, the one place a lambda body does not run to the end of its
 // expression; braces (`then |v| { v |> f() }`) keep a pipe inside it.
-func (p *Parser) parsePipeThenStage(left ast.Node, pipeTok token.Token, leadingForRight []ast.Trivia) (ast.Node, error) {
+func (p *Parser) parsePipeLambdaStage(left ast.Node, pipeTok token.Token, leadingForRight []ast.Trivia) (ast.Node, error) {
 	start := p.pos
 	tok := p.peek()
-	p.advance() // consume THEN
+	p.advance() // consume THEN or TAP
 	if p.atEnd() || p.peek().Type != token.BAR {
-		return nil, errorAt(tok.Line, tok.Col, "`then` takes a lambda: write `then |v| ...`")
+		return nil, errorAt(tok.Line, tok.Col, "`%s` takes a lambda: write `%s |v| ...`", tok.Lexeme, tok.Lexeme)
 	}
 	lamStart := p.pos
 	lam, err := p.parseLambdaStop(true)
@@ -1803,7 +1833,15 @@ func (p *Parser) parsePipeThenStage(left ast.Node, pipeTok token.Token, leadingF
 		return nil, err
 	}
 	p.recordSpan(lam, lamStart)
-	stage := &ast.Then{Lambda: lam.(*ast.Lambda), Line: tok.Line, Col: tok.Col}
+	var stage interface {
+		ast.Node
+		AddLeading(ast.Trivia)
+	}
+	if tok.Type == token.TAP {
+		stage = &ast.Tap{Lambda: lam.(*ast.Lambda), Line: tok.Line, Col: tok.Col}
+	} else {
+		stage = &ast.Then{Lambda: lam.(*ast.Lambda), Line: tok.Line, Col: tok.Col}
+	}
 	p.recordSpan(stage, start)
 	for _, tr := range leadingForRight {
 		stage.AddLeading(tr)
@@ -1816,9 +1854,10 @@ func (p *Parser) parsePipeValueKeywordStage(left ast.Node, pipeTok token.Token, 
 	for p.atPipeValueKeyword() {
 		kw := p.parseBarePipeValueKeyword()
 		keywords = append(keywords, kw)
-		if !p.atEnd() && p.peek().Type == token.THEN && p.peek().Line == kw.LineNum() {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "%s does not prefix a `then` stage: write `|> then |v| ...` and `|> %s` as two stages",
-				pipeKeywordName(kw), strings.Trim(pipeKeywordName(kw), "`"))
+		if !p.atEnd() && (p.peek().Type == token.THEN || p.peek().Type == token.TAP) && p.peek().Line == kw.LineNum() {
+			stage := p.peek().Lexeme
+			return nil, errorAt(p.peek().Line, p.peek().Col, "%s does not prefix a `%s` stage: write `|> %s |v| ...` and `|> %s` as two stages",
+				pipeKeywordName(kw), stage, stage, strings.Trim(pipeKeywordName(kw), "`"))
 		}
 		if p.atEnd() || p.peek().Line != kw.LineNum() || !canStartRangeOperand(p.peek().Type) {
 			if len(keywords) == 1 {
@@ -2388,7 +2427,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		// `.X[...]`, `.X{"k" => v}`. Must be followed by an uppercase
 		// variant identifier (TYPE_IDENT). Resolution against an
 		// expected enum type happens in the analyzer.
-		if next := p.peekAt(1).Type; next == token.IDENT || next == token.INT {
+		if next := p.peekAt(1); next.Type == token.IDENT || next.Type == token.INT || isTupleIndexPair(next) {
 			return p.parseFieldAccessor()
 		}
 		if p.peekAt(1).Type != token.TYPE_IDENT {
@@ -2421,7 +2460,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		// user `import std/tasks.{...}` — relies on `concurrent`
 		// lexing as IDENT in module-path positions. So we keep the
 		// lexer producing IDENT and check the lexeme + lookahead here,
-		// mirroring how `field` and `open` are contextual inside
+		// mirroring how `open` is contextual inside
 		// interface bodies (and `embeds` after a struct/enum head).
 		if tok.Lexeme == "concurrent" && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Type == token.LBRACE {
 			return p.parseConcurrentBlock()
@@ -2500,8 +2539,8 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 	case token.BAR:
 		return p.parseLambda()
 
-	case token.THEN:
-		return nil, errorAt(tok.Line, tok.Col, "`then` is a pipe stage: write `value |> then |v| ...`")
+	case token.THEN, token.TAP:
+		return nil, errorAt(tok.Line, tok.Col, "`%s` is a pipe stage: write `value |> %s |v| ...`", tok.Lexeme, tok.Lexeme)
 
 	case token.TYPE_IDENT:
 		p.advance()
@@ -4267,6 +4306,11 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			}
 		}
 	}
+	if pattern != nil && hasValue {
+		if pattern, err = p.parsePatternAs(pattern, patternStart); err != nil {
+			return ast.CaseBranch{}, err
+		}
+	}
 	if pattern != nil {
 		p.recordSpan(pattern, patternStart)
 	}
@@ -4736,23 +4780,7 @@ func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, e
 				ForeignNameCol:           goNameTok.Col,
 			}, nil
 		}
-		goBody, goBodyLine, goBodyCol, err := p.parseInlineGoBlock()
-		if err != nil {
-			return nil, err
-		}
-		return &ast.ExternFunc{
-			Name:           name,
-			Public:         public,
-			TypeParams:     typeParams,
-			Params:         params,
-			ReturnTypeExpr: returnTypeExpr,
-			WhereClauses:   whereClauses,
-			Line:           nameTok.Line,
-			Col:            nameTok.Col,
-			GoBody:         goBody,
-			GoBodyLine:     goBodyLine,
-			GoBodyCol:      goBodyCol,
-		}, nil
+		return nil, errorAt(p.peek().Line, p.peek().Col, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`")
 	}
 	if !p.atEnd() && p.peekIsContextual("from") {
 		return nil, errorAt(p.peek().Line, p.peek().Col, "Go-backed functions use `go package.Symbol` bindings")
@@ -4780,56 +4808,6 @@ func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, e
 		ImplIfaceSourceQualified: sourceQualified,
 		Line:                     tok.Line,
 		Col:                      nameTok.Col,
-	}, nil
-}
-
-func (p *Parser) parseInlineGoBlock() (body string, line int, col int, err error) {
-	goTok := p.peek()
-	p.advance() // consume contextual `go`
-	if p.atEnd() || p.peek().Type != token.LBRACE {
-		return "", 0, 0, errorAt(goTok.Line, goTok.Col, "expected '{' after 'go'")
-	}
-	p.advance() // consume opening {
-	start := p.pos
-	depth := 1
-	for !p.atEnd() {
-		tok := p.peek()
-		switch tok.Type {
-		case token.LBRACE:
-			depth++
-		case token.RBRACE:
-			depth--
-			if depth == 0 {
-				end := p.pos
-				if start < end {
-					line = p.tokens[start].Line
-					col = p.tokens[start].Col
-				} else {
-					line = tok.Line
-					col = tok.Col
-				}
-				body = renderInlineGoTokens(p.tokens[start:end])
-				p.advance() // consume closing }
-				return body, line, col, nil
-			}
-		}
-		p.advance()
-	}
-	return "", 0, 0, errorAt(goTok.Line, goTok.Col, "expected '}' to close inline Go block")
-}
-
-func (p *Parser) parseGoBlock() (ast.Node, error) {
-	goTok := p.peek()
-	body, bodyLine, bodyCol, err := p.parseInlineGoBlock()
-	if err != nil {
-		return nil, err
-	}
-	return &ast.GoBlock{
-		Body:     body,
-		BodyLine: bodyLine,
-		BodyCol:  bodyCol,
-		Line:     goTok.Line,
-		Col:      goTok.Col,
 	}, nil
 }
 
@@ -4896,50 +4874,6 @@ func (p *Parser) parseGoSelectorBinding() (string, string, token.Token, token.To
 	nameTok := p.peek()
 	p.advance()
 	return aliasTok.Lexeme, nameTok.Lexeme, aliasTok, nameTok, nil
-}
-
-func renderInlineGoTokens(tokens []token.Token) string {
-	var b strings.Builder
-	line := 0
-	col := 1
-	for i, tok := range tokens {
-		if tok.Type == token.EOF || tok.Type == token.NEWLINE {
-			continue
-		}
-		if i == 0 {
-			line = tok.Line
-			col = tok.Col
-		}
-		for line > 0 && tok.Line > line {
-			b.WriteByte('\n')
-			line++
-			col = 1
-		}
-		for tok.Col > col {
-			b.WriteByte(' ')
-			col++
-		}
-		text := inlineGoTokenText(tok)
-		b.WriteString(text)
-		col += len(text)
-	}
-	return strings.TrimSpace(b.String())
-}
-
-func inlineGoTokenText(tok token.Token) string {
-	switch tok.Type {
-	case token.STRING_LITERAL, token.TRIPLE_STRING_LITERAL, token.RAW_STRING_LITERAL, token.RAW_TRIPLE_STRING_LITERAL:
-		return strconv.Quote(tok.Lexeme)
-	case token.CODEPOINT_LITERAL:
-		// A Go rune literal over ASCII lexes as a Nomi codepoint literal,
-		// whose Lexeme drops the quotes. Every other rune literal is an
-		// ILLEGAL token whose Lexeme keeps them.
-		return "'" + tok.Lexeme + "'"
-	case token.COMMENT:
-		return tok.Lexeme
-	default:
-		return tok.Lexeme
-	}
 }
 
 func (p *Parser) parseFunctionHeaderName(tok token.Token, keyword string, allowImplQualifier bool) (string, token.Token, ast.TypeExpr, bool, error) {
@@ -5147,6 +5081,8 @@ func patternCol(n ast.Node) int {
 		return p.Col
 	case *ast.ListPattern:
 		return p.Col
+	case *ast.AsPattern:
+		return p.Col
 	}
 	return n.LineNum()
 }
@@ -5205,6 +5141,11 @@ func (p *Parser) parseParamSection(tok token.Token) ([]ast.Param, error) {
 // two tuple indices: `t.1.0` lexes as `t`, `.`, `1.0`, and reads as
 // `(t.1).0`. Only plain digits on each side qualify, so `t.1e3` is still an
 // error.
+func isTupleIndexPair(tok token.Token) bool {
+	_, _, ok := tupleIndexPair(tok)
+	return ok
+}
+
 func tupleIndexPair(tok token.Token) (string, string, bool) {
 	if tok.Type != token.FLOAT {
 		return "", "", false
@@ -5214,6 +5155,19 @@ func tupleIndexPair(tok token.Token) (string, string, bool) {
 		return "", "", false
 	}
 	return first, second, true
+}
+
+// checkTupleIndex rejects a tuple index spelled other than as plain decimal
+// digits with no leading zero (`t.01`, `t.00`, `t.1_0`, `t.0x1`), so each
+// position has one spelling. tok is the index token, which carries one
+// index or, split by tupleIndexPair, two.
+func checkTupleIndex(tok token.Token, indices ...string) error {
+	for _, s := range indices {
+		if !tupleIndexDigits(s) || (len(s) > 1 && s[0] == '0') {
+			return errorAt(tok.Line, tok.Col, "tuple index %q must be written in decimal digits with no leading zero, as in `t.0` or `t.10`", tok.Lexeme)
+		}
+	}
+	return nil
 }
 
 func tupleIndexDigits(s string) bool {
@@ -6007,10 +5961,6 @@ func (p *Parser) parseImportStmt() (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume IMPORT
 
-	if !p.atEnd() && p.peek().Type == token.IDENT && p.peek().Lexeme == "go" {
-		return nil, errorAt(p.peek().Line, p.peek().Col, "Go package handles use `gopkg \"import/path\"`")
-	}
-
 	// Block form: `import { entry1, entry2, ... }` bundles multiple imports.
 	// Each entry is parsed with the same logic as a standalone import.
 	if !p.atEnd() && p.peek().Type == token.LBRACE {
@@ -6103,7 +6053,7 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 					return
 				}
 				if p.peek().Type == token.EXPORT {
-					err = errorAt(p.peek().Line, p.peek().Col, "`self` in an import list cannot carry `export`; export the parent module/type via the line-level form instead")
+					err = errorAt(p.peek().Line, p.peek().Col, "`self` in an import list cannot carry `export`; re-export an owner type with a line-level `export` (`import path.Type.{self, A} export`)")
 					return
 				}
 				if p.peek().Type == token.COMMA {
@@ -6173,6 +6123,11 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 			return nil
 		}
 		exportTok := p.peek()
+		for _, entry := range entries {
+			if err := fileReExportError(entry, exportTok); err != nil {
+				return err
+			}
+		}
 		p.advance() // consume EXPORT
 		for _, entry := range entries {
 			entry.ExportAll = true
@@ -6365,6 +6320,39 @@ loop:
 	return result, nil
 }
 
+// fileReExportError reports a line-level `export` on an import that binds a
+// file: `import leaf export`, `import leaf as lf export`, or a brace list
+// whose `self` is the file (`import std/io.{self, IOError} export`). A facade
+// publishes the items it lists, never a whole file. The parser can tell these
+// apart from an item re-export because the `/`-joined segments always name the
+// file and everything after the first `.` is an item or owner: `self` after an
+// owner (`bool.Bool.{self, True} export`) is the type, and stays valid.
+func fileReExportError(entry *ast.ImportStmt, exportTok token.Token) error {
+	if entry == nil || len(entry.ModulePath) == 0 {
+		return nil
+	}
+	bindsFile := len(entry.Names) == 0 && !entry.IncludeParent
+	selfIsFile := entry.IncludeParent && len(entry.ModulePath) == entry.FileSegments
+	if !bindsFile && !selfIsFile {
+		return nil
+	}
+	parts := make([]string, len(entry.ModulePath))
+	for i, seg := range entry.ModulePath {
+		parts[i] = ast.ImportNodeName(seg)
+	}
+	path := strings.Join(parts, "/")
+	hint := fmt.Sprintf("list the items to re-export, as in `import %s.{name, Type} export`, or have importers import `%s` directly", path, path)
+	if selfIsFile {
+		hint = fmt.Sprintf("remove `self` to re-export only the listed items, or have importers import `%s` directly", path)
+	}
+	return ParseError{
+		Line:    exportTok.Line,
+		Col:     exportTok.Col,
+		Message: fmt.Sprintf("`%s` is a file, and a file cannot be re-exported", parts[len(parts)-1]),
+		Hints:   []string{hint},
+	}
+}
+
 func inferredGoImportAlias(importPath string) string {
 	importPath = strings.TrimSuffix(importPath, "/")
 	if importPath == "" {
@@ -6390,6 +6378,12 @@ func (p *Parser) makeImportNode(t token.Token) ast.Node {
 func isImportPathSegment(t token.Token) bool {
 	if t.Type == token.IDENT || t.Type == token.TYPE_IDENT || t.Type == token.DOTDOT {
 		return true
+	}
+	// A comment is never a segment, whatever its text: `import///A` has
+	// no path.
+	switch t.Type {
+	case token.COMMENT, token.DOC_COMMENT, token.TEST_PROMPT:
+		return false
 	}
 	lex := t.Lexeme
 	if lex == "" {
@@ -6567,20 +6561,7 @@ func (p *Parser) parseTypeDefOrForeignBinding(public bool, opaque bool) (ast.Nod
 				ForeignNameCol:   goNameTok.Col,
 			}, nil
 		}
-		goBody, goBodyLine, goBodyCol, err := p.parseInlineGoBlock()
-		if err != nil {
-			return nil, err
-		}
-		return &ast.ExternType{
-			Name:       name,
-			Public:     public,
-			Opaque:     opaque,
-			Line:       typeTok.Line,
-			Col:        localTok.Col,
-			GoBody:     goBody,
-			GoBodyLine: goBodyLine,
-			GoBodyCol:  goBodyCol,
-		}, nil
+		return nil, errorAt(p.peek().Line, p.peek().Col, "a type has no `go { ... }` body; bind a Go type with `opaque type Name go alias.Symbol`, where a `gopkg` declaration introduces `alias`")
 	}
 	if p.peekIsContextual("from") {
 		return nil, errorAt(p.peek().Line, p.peek().Col, "Go-backed types use `go package.Type` bindings")
@@ -7206,7 +7187,46 @@ func (p *Parser) parseSinglePattern() (node ast.Node, err error) {
 			p.recordSpan(node, start)
 		}
 	}()
-	return p.parseSinglePatternInner()
+	node, err = p.parseSinglePatternInner()
+	if err != nil {
+		return nil, err
+	}
+	return p.parsePatternAs(node, start)
+}
+
+// parsePatternAs wraps pattern, whose tokens began at start, in an AsPattern
+// for each `as name` that follows it: `Ok(t) as r`. `as` binds looser than
+// every other pattern construct, so it applies to the whole pattern parsed so
+// far in this position. A chained `P as a as b` parses, and the checker
+// reports it, since both names bind the same value.
+func (p *Parser) parsePatternAs(pattern ast.Node, start int) (ast.Node, error) {
+	for !p.atEnd() && p.peek().Type == token.AS {
+		p.recordSpan(pattern, start)
+		asTok := p.peek()
+		p.advance() // consume AS
+		nameTok := p.peek()
+		if p.atEnd() || nameTok.Type != token.IDENT {
+			got := "end of input"
+			if !p.atEnd() {
+				got = fmt.Sprintf("%q", nameTok.Lexeme)
+				if nameTok.Type == token.NEWLINE || nameTok.Type == token.BLANK_LINE {
+					got = "end of line"
+				}
+			}
+			return nil, errorAt(asTok.Line, asTok.Col, "expected a binding name after `as` in a pattern, got %s; `P as name` binds the whole matched value to name", got)
+		}
+		p.advance() // consume IDENT
+		first := p.tokens[start]
+		pattern = &ast.AsPattern{
+			Pattern:  pattern,
+			Name:     nameTok.Lexeme,
+			NameLine: nameTok.Line,
+			NameCol:  nameTok.Col,
+			Line:     first.Line,
+			Col:      first.Col,
+		}
+	}
+	return pattern, nil
 }
 
 func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
@@ -7922,13 +7942,11 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 	}
 
 	var methods []ast.InterfaceMethod
-	var fields []ast.InterfaceField
 	var endTrivia []ast.Trivia
 	for !p.atEnd() && p.peek().Type != token.RBRACE {
 		// Collect trivia before the next member. `}` follows →
 		// EndTrivia on the InterfaceDef; another member follows → that
-		// member's LeadingComments slot (InterfaceField has a struct
-		// field, InterfaceMethod uses its embedded TriviaCarrier).
+		// method's leading trivia (its embedded TriviaCarrier).
 		var leading []ast.Trivia
 		t := p.peek().Type
 		if t == token.COMMENT || t == token.BLANK_LINE {
@@ -7938,24 +7956,15 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 				break
 			}
 		}
-		// Doc comments belong to the next member: inherent items
-		// (FuncDef/ExternFunc) and contract members (InterfaceMethod/
-		// InterfaceField) all carry a Doc slot.
+		// Doc comments belong to the next member's Doc slot.
 		doc := p.collectDocComments()
-		// `field` and `open` are contextual keywords — IDENT-lexeme
-		// match inside the interface body, so they don't conflict with
-		// regular identifiers anywhere else (struct fields named
-		// `field`, bindings named `open`, etc.).
+		// `open` is a contextual keyword: an IDENT-lexeme match inside
+		// the interface body, so it doesn't conflict with identifiers
+		// anywhere else. `field` is matched the same way only to explain
+		// that an interface declares no fields.
 		switch {
 		case p.peek().Type == token.IDENT && p.peek().Lexeme == "field":
-			f, err := p.parseInterfaceField()
-			if err != nil {
-				return nil, err
-			}
-			f.LeadingComments = leading
-			f.Trailing = p.collectCommentOnLine(p.prevLine())
-			f.Doc = doc
-			fields = append(fields, f)
+			return nil, p.interfaceFieldError()
 		case p.peek().Type == token.IDENT && p.peek().Lexeme == "open":
 			method, err := p.parseInterfaceMethod()
 			if err != nil {
@@ -8002,7 +8011,7 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 			// gone — ops are defaults; host-backed defaults are `host fn`.)
 			return nil, errorAt(p.peek().Line, p.peek().Col, "'pub' is not allowed on interface methods — a method's visibility is the interface's; drop 'pub' (it becomes a default), or use 'host fn' for a host-backed default")
 		default:
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected 'fn', 'open fn', 'host fn', or 'field' inside interface body, got %s", p.peek().Type)
+			return nil, errorAt(p.peek().Line, p.peek().Col, "expected 'fn', 'open fn' or 'host fn' inside interface body, got %s", p.peek().Type)
 		}
 		// Consume separators between members but preserve COMMENT /
 		// BLANK_LINE so they can be captured at the top of the next
@@ -8024,7 +8033,7 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 	closeTok := p.peek()
 	p.advance() // consume RBRACE
 
-	return &ast.InterfaceDef{Name: name, Public: public, TypeParams: typeParams, WhereClauses: whereClauses, Methods: methods, Fields: fields, EndTrivia: endTrivia, Line: tok.Line, Col: nameTok.Col, EndLine: closeTok.Line, EndCol: closeTok.Col}, nil
+	return &ast.InterfaceDef{Name: name, Public: public, TypeParams: typeParams, WhereClauses: whereClauses, Methods: methods, EndTrivia: endTrivia, Line: tok.Line, Col: nameTok.Col, EndLine: closeTok.Line, EndCol: closeTok.Col}, nil
 }
 
 // parseImplBlock parses a top-level `impl` block:
@@ -8037,7 +8046,7 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 // after `for`. An optional `<...>` receiver type contributes its generic
 // parameters; an optional `where` clause after the receiver narrows the
 // implementation. A bodyless interface impl is equivalent to an empty impl
-// body, useful for marker / field-only / default-only interfaces. Interface
+// body, useful for marker and default-only interfaces. Interface
 // implementation bodies hold `fn` / `host fn` items and inherit visibility
 // from the interface.
 // The cursor is at the IMPL token on entry.
@@ -8192,6 +8201,11 @@ func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node
 			}
 			if err := attachTypeBodyItemMeta(item, doc, attachedTests, leading); err != nil {
 				return nil, nil, closeTok, err
+			}
+			if ht, ok := item.(ast.HasTrivia); ok {
+				for _, tr := range p.collectCommentOnLine(p.prevLine()) {
+					ht.AddTrailing(tr)
+				}
 			}
 			items = append(items, item)
 		case tk.Type == token.FN || tk.Type == token.PUB || p.startsHostFuncDecl():
@@ -8455,36 +8469,25 @@ func (p *Parser) parseImplBlockItem(allowPub bool, allowImplQualifier bool, bloc
 	}
 }
 
-// parseInterfaceField parses a `field name: Type` requirement inside an
-// interface body. The cursor is positioned at the IDENT lexeme "field"
-// on entry; on success it is left at the token immediately after the
-// type annotation (the caller skips the trailing newline). `field` is a
-// contextual keyword — only the interface body recognises it, so the
-// parser-level check is on the lexeme, not on a token type.
-func (p *Parser) parseInterfaceField() (f ast.InterfaceField, err error) {
-	start := p.pos
-	defer func() { f.Span = p.spanSince(start) }()
+// interfaceFieldError is the error for a `field name: Type` item in an
+// interface body: an interface declares functions only. The cursor is at
+// the IDENT lexeme "field". When the item is well formed the message
+// spells the function requirement that replaces it.
+func (p *Parser) interfaceFieldError() error {
 	fieldTok := p.peek()
-	p.advance() // consume `field` IDENT
-
-	if p.atEnd() || p.peek().Type != token.IDENT {
-		return ast.InterfaceField{}, errorAt(fieldTok.Line, fieldTok.Col, "expected field name after 'field' in interface body")
+	name, typ := "name", "String"
+	if p.pos+2 < len(p.tokens) && p.tokens[p.pos+1].Type == token.IDENT && p.tokens[p.pos+2].Type == token.COLON {
+		name = p.tokens[p.pos+1].Lexeme
+		save := p.pos
+		p.pos += 3
+		if te, err := p.parseTypeAnnotation(); err == nil && te != nil {
+			typ = te.TypeString()
+		}
+		p.pos = save
 	}
-	nameTok := p.peek()
-	name := nameTok.Lexeme
-	p.advance()
-
-	if p.atEnd() || p.peek().Type != token.COLON {
-		return ast.InterfaceField{}, errorAt(fieldTok.Line, fieldTok.Col, "expected ':' after field name '%s' in interface body", name)
-	}
-	p.advance() // consume COLON
-
-	typeExpr, err := p.parseTypeAnnotation()
-	if err != nil {
-		return ast.InterfaceField{}, err
-	}
-
-	return ast.InterfaceField{Name: name, TypeAnnotation: typeExpr, Line: nameTok.Line, Col: nameTok.Col}, nil
+	return errorAt(fieldTok.Line, fieldTok.Col,
+		"interfaces declare functions only; replace `field %s: %s` with a function requirement such as `fn %s(value: self): %s`",
+		name, typ, name, typ)
 }
 
 func (p *Parser) parseInterfaceMethod() (m ast.InterfaceMethod, err error) {

@@ -188,23 +188,22 @@ function from the same interface. Inside an `impl` block, the same-owner rule
 applies too: sibling implementation functions can be called bare from that body
 when unambiguous. At outside call sites, keep the qualifier.
 
-## Field requirements
+## Requiring a value
 
-An interface body can declare `field name: Type` requirements alongside
-its functions. A struct that opts in with an `impl Interface for Struct`
-declaration must declare a field of that name and exact type, and a
-default function can then read the field from a value typed `self` knowing
-it's there:
+An interface declares functions only. To require that every implementor
+supply a value, declare a function requirement for it. A struct implements
+it by returning its field, and any other type computes it, so the contract
+doesn't care how the value is stored:
 
 ```nomi-run
 import std/io
 
 interface HasName {
-    field name: String
+    fn name(value: self): String
 
-    // Default — reads the required field from the implementing value.
+    // Default — reads the name through the required function.
     fn greet(value: self): String {
-        "Hello, ${value.name}"
+        "Hello, ${name(value)}"
     }
 }
 
@@ -213,18 +212,29 @@ struct User {
     age: Int
 }
 
-impl HasName for User
-
-struct Pet {
-    name: String
-    species: String
+impl HasName for User {
+    fn name(user: User): String {
+        user.name
+    }
 }
 
-impl HasName for Pet
+enum Pet {
+    Dog String
+    Cat String
+}
+
+impl HasName for Pet {
+    fn name(pet: Pet): String {
+        case pet {
+            .Dog(name) -> name
+            .Cat(name) -> name
+        }
+    }
+}
 
 fn main() {
     alice = User{name: "Alice", age: 30}
-    rex = Pet{name: "Rex", species: "Dog"}
+    rex = Pet.Dog("Rex")
     io.print(HasName.greet(alice))
     io.print(HasName.greet(rex))
 }
@@ -235,23 +245,15 @@ Hello, Alice
 Hello, Rex
 -->
 
-If `User` had no `name: String` field, or had `name: Int`, the compiler
-would reject the `impl`. Field types match **nominally**: `name: UserName`
-where `type UserName String` is *not* `name: String`.
+Read the value with a qualified call: `HasName.name(x)` on a value of
+interface type, `T.name(x)` through a bound. A value of interface type or of
+a type parameter has no fields, so `x.name` on one is a compile error.
 
-Only a **struct** can implement a field-bearing interface. `impl HasName for
-Color` on an `enum Color` is rejected, because a `field` requirement is a
-claim about storage and an enum declares none. That is why `n.name` on a
-`HasName` value always works.
-
-For a value any type can compute, declare a function requirement instead —
-`fn name(value: self): String`, called as `HasName.name(x)`.
-
-[App Fields, Defer & Context](/capabilities-and-context/) uses the mirror
-image of this: an app payload's `logger: Logger` is a *field whose type is an
-interface*, not an interface that requires a field. The natural follow-up
-question — "why not just write `fn greet(v: {name: String})` and match on the
-shape?" — is covered in [Why not structural field matching?](#why-not-structural-field-matching)
+[App Fields, Defer & Context](/capabilities-and-context/) uses a related
+shape: an app payload's `logger: Logger` is a *field whose type is an
+interface*. The natural follow-up question — "why not just write
+`fn greet(v: {name: String})` and match on the shape?" — is covered in
+[Why not structural field matching?](#why-not-structural-field-matching)
 in the deep-dive section below.
 
 ## Universal `Debug`
@@ -726,7 +728,7 @@ imported type.
 
 ### Why not structural field matching?
 
-The natural question after seeing `field name: Type` requirements is:
+The natural question after seeing an interface require a `name` is:
 why not just write `fn greet(v: {name: String})` and accept any
 struct with a `name` field? Other languages do this — TypeScript and
 Go (interface satisfaction by shape), OCaml row polymorphism.
@@ -743,12 +745,9 @@ the codebase grows. So Nomi gives three explicit alternatives instead
 of a structural-acceptance default:
 
 1. **Declare an interface** — capture the shared contract as a
-   nominal type. With function signatures, you get shared *behavior* and
-   dispatch through `self`. With `field name: Type` requirements, you
-   get the *shape* contract — but **nominally** opted in via
-   an `impl Iface for Struct` declaration, not matched by accident on layout. The
-   Field requirements section above is the field-only flavor; both
-   flavors share the same opt-in mechanism.
+   nominal type. A function requirement such as `fn name(value: self): String`
+   gives every implementor the same accessor, **nominally** opted in via an
+   `impl Iface for Type` block, not matched by accident on layout.
 2. **Construct an anon struct at the call site** — e.g.
    `distance({x: p.x, y: p.y}, {x: q.x, y: q.y})`. Explicit shape
    adaptation; the call site shows exactly which fields are borrowed.
@@ -764,9 +763,7 @@ The same intuition is why Nomi requires an explicit `impl Iface for Type`
 block instead of Go's "satisfies any interface whose functions
 you happen to match." Coincidence of functions, like coincidence of
 field names, isn't a contract — the `impl` block is the type opting in,
-visibly and grep-ably, to a published protocol. Field requirements
-and function requirements are the same design principle applied to
-shape and behavior respectively.
+visibly and grep-ably, to a published protocol.
 
 Dispatch uses explicit qualifiers for the same reason. Outside a same-owner
 body, a bare name might be a local binding or a file function; `Type.fn(value)`,

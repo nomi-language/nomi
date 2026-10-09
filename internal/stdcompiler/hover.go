@@ -57,7 +57,7 @@ func HoverContent(source, root string, virtualFiles map[string]string) (rt.Hover
 	if !ok {
 		return rt.Hover{}, fmt.Errorf("no hover target at line %d, col %d", pos.Line, pos.Col)
 	}
-	markdown := hoverdoc.RenderWithAnalysis(sym, fa)
+	markdown := hoverdoc.RenderForEditor(sym, fa)
 	if markdown == "" {
 		return rt.Hover{}, fmt.Errorf("no hover content at line %d, col %d", pos.Line, pos.Col)
 	}

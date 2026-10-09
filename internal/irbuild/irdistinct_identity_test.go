@@ -215,8 +215,8 @@ func TestIRDistinct_WhichShapesAreRetained(t *testing.T) {
 		{"list inner", "type Ns List<Int>", "fn f(p: Ns): Ns {\n  p\n}\n", true},
 		{"a list of functions inner", "type Fs List<(Int) -> Int>", "fn f(p: Fs): Fs {\n  p\n}\n", true},
 		{"an enum inner", "type Wrapped Maybe<Int>", "fn f(p: Wrapped): Wrapped {\n  p\n}\n", true},
-		// An inner that reaches the distinct back is not decided.
-		{"an inner that reaches it back", "struct Node {\n  next: Maybe<Link>\n}\n\ntype Link Node", "fn f(p: Link): Link {\n  p\n}\n", false},
+		// An inner that reaches the distinct back is decided co-inductively.
+		{"an inner that reaches it back", "struct Node {\n  next: Maybe<Link>\n}\n\ntype Link Node", "fn f(p: Link): Link {\n  p\n}\n", true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

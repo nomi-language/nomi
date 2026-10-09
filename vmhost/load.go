@@ -163,7 +163,7 @@ func Load(path string, opts ...Option) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	return lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFile(path, fc) })
+	return checked(lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFile(path, fc) }))
 }
 
 // LoadFileSource is Load for the file at path whose text is src rather than
@@ -180,7 +180,7 @@ func LoadFileSource(path, src string, opts ...Option) (*Program, error) {
 		return nil, err
 	}
 	p.sources = map[string]string{p.prog.Entry().Path: src}
-	return p, nil
+	return checked(p, nil)
 }
 
 // LoadSource is Load for an in-memory entry named name. Its sibling files, if
@@ -203,7 +203,7 @@ func LoadSource(name, src string, opts ...Option) (*Program, error) {
 			p.sources[mod.Path] = text
 		}
 	}
-	return p, nil
+	return checked(p, nil)
 }
 
 // InternalError is a panic the compiler raised: while loading a program, or
@@ -269,6 +269,19 @@ func lower(cfg config, analyze func() (*irbuild.Program, error)) (*Program, erro
 	return p, nil
 }
 
+// checked is p once its backtick typed literals pass their compile-time
+// check (checkLiterals), which every load makes once the program's sources
+// are known, so a diagnostic quotes the text that was loaded.
+func checked(p *Program, err error) (*Program, error) {
+	if err != nil {
+		return nil, err
+	}
+	if err := p.checkLiterals(); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
 // Check runs the front end over the program at path, as `nomi check` does,
 // and lowers and runs nothing. A stdlib source file is checked as its module.
 //
@@ -308,7 +321,7 @@ func Check(path string, opts ...Option) error {
 	// The program is lowered as `nomi run` and `nomi test` lower it, and
 	// nothing runs: a body the compiler accepts and cannot lower is reported
 	// at its source, as the error `nomi run` would stop with.
-	p, err := lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFile(abs, fc) })
+	p, err := checked(lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFile(abs, fc) }))
 	if err != nil {
 		return err
 	}
@@ -434,6 +447,9 @@ func loadStdlib(module string, nodes []ast.Node, fa *analysis.FileAnalysis,
 	}
 	p := newProgram(prog, res, declines, newConfig(nil))
 	p.declineDetails = details
+	if err := p.checkLiterals(); err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 

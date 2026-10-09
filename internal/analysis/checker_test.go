@@ -4,6 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -5138,4 +5139,102 @@ func TestCheckDeclaredParamNeedsType(t *testing.T) {
 	}
 	_, errs := checkSource("fn apply(f: (Int) -> Int): Int {\n  f(1)\n}\n\nfn main() {\n  _ = apply(|x| x + 1)\n}\n")
 	expectNoErrors(t, errs)
+}
+
+// Every declared function's parameter needs a name. A bare type in parameter
+// position, `fn f(String)`, parses as a variant pattern that binds nothing;
+// it is an error at the parameter for a `go`-bound fn (which has no body to
+// check the pattern against), and for every other declared function. (A
+// `host fn`'s parameters are parsed as names, so the parser rejects it.) A
+// lambda's gets the same error whether or not a function type is expected
+// for it; checked against an expected `(String) -> Int` it was "enum pattern
+// requires an enum type, got String".
+func TestCheckDeclaredParamNeedsName(t *testing.T) {
+	for _, tc := range []struct {
+		name, src, typ string
+		line, col      int
+	}{
+		{"go fn", "gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(   String): String go ffi.EchoUpper\n", "String", 3, 22},
+		{"fn", "fn plain(Int): Int {\n  1\n}\n", "Int", 1, 10},
+		{"nested fn", "fn outer(): Int {\n  fn inner(Int): Int {\n    1\n  }\n  inner(1)\n}\n", "Int", 2, 12},
+		{"inherent fn", "struct User {\n  name: String\n}\n\nimpl User {\n  fn hi(User): String {\n    \"hi\"\n  }\n}\n", "User", 6, 9},
+		{"interface fn", "interface Tagged {\n  fn tag(String): String\n}\n", "String", 2, 10},
+		{"lambda", "fn main() {\n  f = |String| 1\n  _ = f\n}\n", "String", 2, 8},
+		{"lambda with an expected type", "fn apply(f: (String) -> Int): Int {\n  f(\"a\")\n}\n\nfn main() {\n  _ = apply(|String| 1)\n}\n", "String", 6, 14},
+		{"lambda whose expected type differs", "fn apply(f: (Int) -> Int): Int {\n  f(1)\n}\n\nfn main() {\n  _ = apply(|String| 1)\n}\n", "String", 6, 14},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, errs := checkSource(tc.src)
+			want := "parameter '" + tc.typ + "' needs a name"
+			for _, e := range errs {
+				if e.Message == want {
+					if e.Line != tc.line || e.Col != tc.col {
+						t.Fatalf("%q at %d:%d, want %d:%d", want, e.Line, e.Col, tc.line, tc.col)
+					}
+					return
+				}
+			}
+			t.Fatalf("no %q error; got %v", want, errs)
+		})
+	}
+	// A named parameter is fine, and so is a lambda's named or destructuring
+	// one against an expected type.
+	_, errs := checkSource("gopkg \"example.com/app/ffi\" as ffi\n\npub fn echo_upper(s: String): String go ffi.EchoUpper\n")
+	expectNoErrors(t, errs)
+	_, errs = checkSource("fn apply(f: ((Int, Int)) -> Int): Int {\n  f((1, 2))\n}\n\nfn main() {\n  _ = apply(|(a, b)| a + b)\n  _ = apply(|_pair| 0)\n}\n")
+	expectNoErrors(t, errs)
+}
+
+// A bare parameter that names a variant of an enum in scope, `|One| 1`, reads
+// as an attempt to match the variant, so it gets the pattern check's "bare
+// variant" error rather than "needs a name" with a hint that calls `One` a
+// type. When a type of that name exists too, the parameter is still read as
+// that type, and the "needs a name" error adds how to match the variant.
+func TestCheckBareVariantParam(t *testing.T) {
+	const single = "enum Single {\n  One\n}\n\n"
+	const pair = "enum Pair {\n  One\n  Two\n}\n\n"
+	for _, tc := range []struct {
+		name, src, msg string
+		hints          []string
+		line, col      int
+	}{
+		{"lambda, single-variant enum expected",
+			single + "fn apply(f: (Single) -> Int): Int {\n  f(.One)\n}\n\nfn main() {\n  _ = apply(|One| 1)\n}\n",
+			"bare variant 'One' in pattern position; use '.One' (or 'Single.One')",
+			[]string{"to bind the value, write `name: Single`"}, 10, 14},
+		{"lambda, no expected type",
+			single + "fn main() {\n  f = |One| 1\n  _ = f\n}\n",
+			"bare variant 'One' in pattern position; use '.One' (or 'Single.One')",
+			[]string{"to bind the value, write `name: Single`"}, 6, 8},
+		{"lambda, multi-variant enum expected",
+			pair + "fn apply(f: (Pair) -> Int): Int {\n  f(.One)\n}\n\nfn main() {\n  _ = apply(|One| 1)\n}\n",
+			"bare variant 'One' in pattern position; use '.One' (or 'Pair.One')",
+			[]string{"to bind the value, write `name: Pair`"}, 11, 14},
+		{"fn",
+			single + "fn f(One): Int {\n  1\n}\n",
+			"bare variant 'One' in pattern position; use '.One' (or 'Single.One')",
+			[]string{"to bind the value, write `name: Single`"}, 5, 6},
+		{"fn, a type of the same name exists",
+			"struct One {\n  x: Int\n}\n\n" + single + "fn f(One): Int {\n  1\n}\n",
+			"parameter 'One' needs a name",
+			[]string{"`One` is read as the parameter's type; write `name: One`", "write `.One` (or `Single.One`) to match the variant"}, 9, 6},
+		{"lambda, a type",
+			"fn main() {\n  f = |String| 1\n  _ = f\n}\n",
+			"parameter 'String' needs a name",
+			[]string{"`String` is read as the parameter's type; write `name: String`"}, 2, 8},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, errs := checkSource(tc.src)
+			if len(errs) != 1 {
+				t.Fatalf("want one error %q, got %v", tc.msg, errs)
+			}
+			e := errs[0]
+			if e.Message != tc.msg || e.Line != tc.line || e.Col != tc.col {
+				t.Fatalf("got %d:%d %q, want %d:%d %q", e.Line, e.Col, e.Message, tc.line, tc.col, tc.msg)
+			}
+			if !slices.Equal(e.Hints, tc.hints) {
+				t.Fatalf("hints %q, want %q", e.Hints, tc.hints)
+			}
+		})
+	}
 }

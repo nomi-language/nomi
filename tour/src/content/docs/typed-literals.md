@@ -1,6 +1,6 @@
 ---
 title: "Typed Literals"
-description: "Typed literals call a type's `Literal` handler on string fragments. Use quoted strings or raw backtick strings."
+description: "Typed literals call a type's `Literal` handler on string fragments. A raw backtick literal is checked at compile time; a quoted one can interpolate."
 ---
 
 You've already met one of these: `Date"2026-06-15"` in [Dates & Times](/dates-and-times/)
@@ -106,42 +106,74 @@ dbg line 24: Box{contents: "world"} = Box{contents: "world"}
 
 ## Regex literals
 
-Regex literals are ordinary typed literals whose prefix type is `Regex`.
-Use a backtick body when regex syntax should pass through literally. Use a
-quoted body when the pattern needs interpolation:
+Regex literals are ordinary typed literals whose prefix type is `Regex`. Use
+a backtick body when regex syntax should pass through literally, and a
+quoted body when the pattern needs interpolation. The two differ in when the
+pattern is compiled.
+
+### Backtick literals are checked at compile time
+
+A backtick body never interpolates, so its handler always sees the same
+text. When that handler can fail (it returns a `Result`), Nomi runs it while
+checking your program:
+
+- If it answers `Ok(v)`, the literal is the value itself. `` Regex`\d+` `` is a
+  `Regex`, not a `Result`, so it needs no `try`, and it works anywhere a
+  value does, including a top-level `once`.
+- If it answers `Err(e)`, the literal is a compile error, with the handler's
+  message: ``Regex`[` `` is reported by `nomi check`, `nomi run` and your
+  editor as `` typed literal Regex`[` is invalid: error parsing regexp:
+  missing closing ]: `[` ``.
+
+A double-quoted literal keeps the handler's `Result`, whether or not it
+interpolates, because it is built when the program runs. Use it when the
+pattern comes from a value, and handle the `Result` with `try` or `case`:
 
 ```nomi-run
 import {
     std/regex.Regex
 }
 
+once letters = Regex`[A-Za-z]+`
+
 fn main(): Result<Unit, String> {
-    digits = try Regex`\d+`
+    digits: Regex = Regex`\d+`
     prefixed = try Regex"room ${Regex.pattern(digits)}"
     text = "room 42, floor 7"
 
-    dbg Regex.pattern(digits)
-    dbg Regex.match?(digits, text)
+    dbg String.find_all(text, letters)
+    dbg String.contains?(text, digits)
     dbg Regex.find(digits, text)
-    dbg Regex.find_all(digits, text)
-    dbg Regex.match?(prefixed, text)
+    dbg String.find_all(text, digits)
+    dbg String.contains?(text, prefixed)
 
     Ok(Unit)
 }
-
 ```
 <!-- expect
-dbg line 10: Regex.pattern(digits) = "\\d+"
-dbg line 11: Regex.match?(digits, text) = True
-dbg line 12: Regex.find(digits, text) = Some("42")
-dbg line 13: Regex.find_all(digits, text) = ["42", "7"]
-dbg line 14: Regex.match?(prefixed, text) = True
+dbg line 12: String.find_all(text, letters) = ["room", "floor"]
+dbg line 13: String.contains?(text, digits) = True
+dbg line 14: Regex.find(digits, text) = Some("42")
+dbg line 15: String.find_all(text, digits) = ["42", "7"]
+dbg line 16: String.contains?(text, prefixed) = True
 -->
 
-A `Regex` literal is a typed literal, not a special parser rule for regular
-expressions. Raw backtick bodies are usually best for regex syntax, while
-quoted bodies can still interpolate because they use the same `Literal`
-fragment machinery. Invalid patterns stay in ordinary `Result` flow.
+The same holds for every type whose handler can fail, such as the calendar
+types: ``Date`2026-06-15` `` is a `Date`, and ``Date`2026-13-01` `` does not
+compile. The handler runs again when the program does, once per literal, so
+a backtick literal inside a loop is built the first time and reused after.
+
+The compiler can only run a handler that computes its answer from the text:
+one that prints, reads a file or the clock, or never finishes is a compile
+error on a backtick literal. Write that literal with double quotes instead.
+A handler that cannot fail, like `Sql`'s and `Box`'s above, gives the same
+type with either quote.
+
+A `Regex` is a [`Matcher`](/reference/matcher/), so the example above
+searches with the String functions: `String.contains?`, `String.find_all`
+and `String.split` take a `Regex` wherever they take a plain string.
+`Regex.find` returns the first match, and `Regex.replace_all` expands `$1`
+capture references in its replacement.
 
 The next chapter — [FFI & Dynamic](/ffi-and-dynamic/) — steps back to the
 host boundary: embedding Nomi in host programs, wrapping host libraries in

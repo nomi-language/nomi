@@ -1,9 +1,6 @@
 package irbuild
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 // A distinct over a declared type runs: over a struct, an enum (Maybe and
 // Result included), another distinct, a std Set or Vector, and a list of
@@ -132,10 +129,13 @@ fn main() {
 	irRunSource(t, src, want)
 }
 
-// A distinct whose inner reaches the distinct back is declined, not
-// recursed into without end: `type Link Node` where Node holds a
-// `Maybe<Link>`.
-func TestIRDistinctOverNominalType_CycleDeclines(t *testing.T) {
+// A distinct whose inner reaches the distinct back runs: `type Link Node`
+// where Node holds a `Maybe<Link>`, `type B W` where W holds a `Maybe<B>`,
+// a distinct reached through a struct's List, and one an enum's variant
+// carries. The distinct and the types it reaches are decided together,
+// co-inductively (irDistinctCoinductive), as a recursive struct is. Each is
+// built, destructured, matched, compared and rendered.
+func TestIRDistinctOverNominalType_CycleRuns(t *testing.T) {
 	const src = `import std/io
 
 struct Node {
@@ -145,18 +145,62 @@ struct Node {
 
 type Link Node
 
+struct W {
+    b: Maybe<B>
+}
+
+type B W
+
+struct Tree {
+    kids: List<Branch>
+}
+
+type Branch Tree
+
+enum Expr {
+    Lit(Int)
+    Neg(Boxed)
+}
+
+type Boxed Expr
+
+fn total(n: Node): Int {
+    case n.next {
+        Some(Link(m)) -> n.v + total(m)
+        None -> n.v
+    }
+}
+
 fn main() {
-    io.inspect(Node{v: 1, next: Some(Link(Node{v: 2, next: None}))})
+    chain = Node{v: 1, next: Some(Link(Node{v: 2, next: None}))}
+    io.print(total(chain))
+    io.inspect(chain)
+    inner = B(W{b: None})
+    B(w) = B(W{b: Some(inner)})
+    case w.b {
+        Some(_) -> io.print("nested")
+        None -> io.print("flat")
+    }
+    _ = dbg w
+    io.print(inner == B(W{b: None}))
+    io.print(B(w) == inner)
+    t = Tree{kids: [Branch(Tree{kids: []})]}
+    io.inspect(t)
+    io.print(t == Tree{kids: [Branch(Tree{kids: []})]})
+    e = Expr.Neg(Boxed(Expr.Lit(3)))
+    io.inspect(e)
+    io.print(e == Expr.Neg(Boxed(Expr.Lit(3))))
 }
 `
-	if _, err := AnalyzeSource("entry.nomi", src); err != nil {
-		t.Fatalf("the front end rejects this, so it no longer tests the cycle: %v", err)
-	}
-	got := vmReference(writeTemp(t, src))
-	if got.exit == 0 {
-		t.Fatalf("this program runs now; if that is a fix, assert its output instead:\n%s", got.stdout)
-	}
-	if !strings.Contains(got.stderr, "is not supported yet") {
-		t.Fatalf("want a decline, got (exit %d):\n%s", got.exit, got.stderr)
-	}
+	want := "3\n" +
+		"Node{v: 1, next: Some(Link(Node{v: 2, next: None}))}\n" +
+		"nested\n" +
+		"dbg line 46: w = W{b: Some(B(W{b: None}))}\n" +
+		"True\n" +
+		"False\n" +
+		"Tree{kids: [Branch(Tree{kids: []})]}\n" +
+		"True\n" +
+		"Neg(Boxed(Lit(3)))\n" +
+		"True\n"
+	irRunSource(t, src, want)
 }

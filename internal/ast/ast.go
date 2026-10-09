@@ -48,6 +48,27 @@ type Trivia struct {
 type TriviaCarrier struct {
 	Leading  []Trivia
 	Trailing []Trivia
+	// DanglingBefore and DanglingAfter hold comments the parser found where
+	// the tree keeps no trivia, such as after a parameter list's `(` or a
+	// tuple's last element: parser.ParseFile gives each to the node nearest
+	// it (attachDangling), before the node it precedes or after the one it
+	// follows. The formatter writes them at the end of the line the node
+	// starts or ends on.
+	DanglingBefore []Trivia
+	DanglingAfter  []Trivia
+}
+
+func (t *TriviaCarrier) GetDanglingBefore() []Trivia { return t.DanglingBefore }
+func (t *TriviaCarrier) GetDanglingAfter() []Trivia  { return t.DanglingAfter }
+func (t *TriviaCarrier) AddDanglingBefore(x Trivia)  { t.DanglingBefore = append(t.DanglingBefore, x) }
+func (t *TriviaCarrier) AddDanglingAfter(x Trivia)   { t.DanglingAfter = append(t.DanglingAfter, x) }
+
+// HasDangling is implemented by every node that embeds TriviaCarrier.
+type HasDangling interface {
+	GetDanglingBefore() []Trivia
+	GetDanglingAfter() []Trivia
+	AddDanglingBefore(Trivia)
+	AddDanglingAfter(Trivia)
 }
 
 func (t *TriviaCarrier) GetLeading() []Trivia  { return t.Leading }
@@ -1480,35 +1501,6 @@ type WhereConstraint struct {
 func (*InterfaceMethod) NodeType() string { return "InterfaceMethod" }
 func (n *InterfaceMethod) LineNum() int   { return n.Line }
 
-// InterfaceField represents a `field name: Type` requirement inside an
-// interface body. A struct implementing the interface is required to
-// declare a field with the same name and exact type. Fields are
-// required-only — interfaces never supply defaults at the field level
-// (defaults live on the implementing struct's field declaration).
-type InterfaceField struct {
-	SpanCarrier
-	Name           string
-	TypeAnnotation TypeExpr
-	// LeadingComments holds COMMENT / BLANK_LINE trivia that sits
-	// immediately above this field requirement in the interface body.
-	// Mirrors StructField.LeadingComments — the enclosing
-	// InterfaceDef.EndTrivia owns end-of-body trivia.
-	LeadingComments []Trivia
-	// Trailing holds a `// comment` on the requirement's own line
-	// (`field name: String // note`). The formatter keeps it on that line.
-	Trailing []Trivia
-	// Doc holds `///` doc-comment text attached to the field requirement
-	// (the lines immediately above `field name: T`). The formatter
-	// re-emits it above the requirement so `nomi fmt -w` doesn't delete
-	// user docs.
-	Doc  string
-	Line int
-	Col  int
-}
-
-func (*InterfaceField) NodeType() string { return "InterfaceField" }
-func (n *InterfaceField) LineNum() int   { return n.Line }
-
 // InterfaceDef represents an interface definition: Interface Name { methods... }
 type InterfaceDef struct {
 	TriviaCarrier
@@ -1519,7 +1511,6 @@ type InterfaceDef struct {
 	TypeParams    []TypeParam
 	WhereClauses  []WhereConstraint
 	Methods       []InterfaceMethod
-	Fields        []InterfaceField
 	// EndTrivia holds trailing comments / blank lines between the last
 	// member and the closing `}`. Mirrors StructDef.EndTrivia.
 	EndTrivia []Trivia
@@ -1768,9 +1759,9 @@ func AttachedTestsOf(n Node) []AttachedTest {
 // Re-export modifiers:
 //   - ExportAll is true when a line-level `export` follows a selective import:
 //     `import path: a, b export` re-exports every selected item under its
-//     imported name.
-//   - ExportAlias is kept for recovery/internal compatibility but is not
-//     produced by valid source syntax; line-level `export as` is rejected.
+//     imported name. It never follows an import that binds a file (`import
+//     leaf export`, or `self` naming the file): a file cannot be re-exported,
+//     and the parser rejects both.
 //   - ExportFlags is a parallel slice to Names (same length) for per-item
 //     re-exports: `import mod.{a export, b}` sets ExportFlags[0] = true.
 //   - ExportAliases is a parallel slice to Names (same length) for per-item
@@ -1784,22 +1775,13 @@ type ImportStmt struct {
 	// path, the `/`-joined part; the segments after it are owners written
 	// after a `.` (`Shape` in `shape.Shape.{Circle}`). Zero when the import
 	// was not parsed from source.
-	FileSegments        int
-	Names               []Node // *Ident or *TypeIdent for each imported name
-	Aliases             []Node // parallel to Names; nil entry = no alias for that name
-	ModuleAlias         Node   // alias for empty-name file imports
-	Extern              bool   // true for Go import entries: `go [alias] "import/path"`
-	ExternPath          string // Go import path for Extern entries
-	ExternPathLine      int
-	ExternPathCol       int
-	ExternAlias         string // inferred package handle, explicit alias, or "_" for side-effect imports
-	ExternAliasLine     int
-	ExternAliasCol      int
-	ExternAliasExplicit bool
-	ExportAll           bool   // true for line-level `export` on a selective import
-	ExportAlias         Node   // not produced by valid source syntax
-	ExportFlags         []bool // parallel to Names; true when item carries `export`
-	ExportAliases       []Node // parallel to Names; nil entry = no rename on re-export
+	FileSegments  int
+	Names         []Node // *Ident or *TypeIdent for each imported name
+	Aliases       []Node // parallel to Names; nil entry = no alias for that name
+	ModuleAlias   Node   // alias for empty-name file imports
+	ExportAll     bool   // true for line-level `export` on a selective import
+	ExportFlags   []bool // parallel to Names; true when item carries `export`
+	ExportAliases []Node // parallel to Names; nil entry = no rename on re-export
 	// Braced is set for the selective-list forms — `mod.{A, B}` and the
 	// drill-through `mod.Owner.{A, B}`. It distinguishes them from the
 	// plain `mod: Owner.Name`, which names one thing rather than
@@ -1837,7 +1819,6 @@ type ImportBlock struct {
 	TriviaCarrier
 	SpanCarrier
 	Entries []*ImportStmt
-	Go      bool
 	// EndTrivia holds comments / blank-line trivia between the last entry and
 	// the closing `}` (the analog of AnonStructType.EndTrivia). Without it a
 	// trailing in-block comment has nowhere to live and would be dropped.
@@ -1848,27 +1829,6 @@ type ImportBlock struct {
 
 func (*ImportBlock) NodeType() string { return "ImportBlock" }
 func (n *ImportBlock) LineNum() int   { return n.Line }
-
-// GoBlock is a top-level raw Go prelude for source-level FFI wrappers:
-//
-//	go {
-//	  type Conn struct { db *sql.DB }
-//	}
-//
-// Package handles use ExternPackage (`gopkg ...`). Any declarations left in a
-// GoBlock are emitted beside inline wrapper functions.
-type GoBlock struct {
-	TriviaCarrier
-	SpanCarrier
-	Body     string
-	BodyLine int
-	BodyCol  int
-	Line     int
-	Col      int
-}
-
-func (*GoBlock) NodeType() string { return "GoBlock" }
-func (n *GoBlock) LineNum() int   { return n.Line }
 
 // ExternPackage declares a compile-time Go package handle for source-level
 // FFI bindings:
@@ -2028,9 +1988,6 @@ type ExternFunc struct {
 	ForeignAliasCol          int
 	ForeignNameLine          int
 	ForeignNameCol           int
-	GoBody                   string
-	GoBodyLine               int
-	GoBodyCol                int
 }
 
 func (*ExternFunc) NodeType() string { return "ExternFunc" }
@@ -2096,9 +2053,6 @@ type ExternType struct {
 	ForeignAliasCol  int
 	ForeignNameLine  int
 	ForeignNameCol   int
-	GoBody           string
-	GoBodyLine       int
-	GoBodyCol        int
 }
 
 func (*ExternType) NodeType() string { return "ExternType" }
@@ -2188,6 +2142,21 @@ type Then struct {
 func (*Then) NodeType() string { return "Then" }
 func (n *Then) LineNum() int   { return n.Line }
 
+// Tap is the pipe stage `x |> tap |v| body`, which runs Lambda on the piped
+// value for its effect and passes the value on unchanged. The lambda returns
+// Unit. It is only ever the right operand of a `|>`. Line and Col are the
+// `tap` keyword's.
+type Tap struct {
+	TriviaCarrier
+	SpanCarrier
+	Lambda *Lambda
+	Line   int
+	Col    int
+}
+
+func (*Tap) NodeType() string { return "Tap" }
+func (n *Tap) LineNum() int   { return n.Line }
+
 // Placeholder represents _ in expressions (partial application).
 type Placeholder struct {
 	TriviaCarrier
@@ -2270,6 +2239,38 @@ type IdentPattern struct {
 
 func (*IdentPattern) NodeType() string { return "IdentPattern" }
 func (n *IdentPattern) LineNum() int   { return n.Line }
+
+// AsPattern matches Pattern and also binds the whole matched value to Name:
+// `Ok(t) as r`, `Ok(Tx{kind: .Deposit} as t)`. `as` binds looser than any
+// other pattern construct, so the name always covers everything to its left
+// within the enclosing pattern position. Line/Col are the inner pattern's
+// start; NameLine/NameCol are the name's.
+type AsPattern struct {
+	TriviaCarrier
+	SpanCarrier
+	Pattern  Node
+	Name     string
+	NameLine int
+	NameCol  int
+	Line     int
+	Col      int
+}
+
+func (*AsPattern) NodeType() string { return "AsPattern" }
+func (n *AsPattern) LineNum() int   { return n.Line }
+
+// WithoutAs returns the pattern an `as` names, looking through every
+// AsPattern around it: `Ok(x) as r` is `Ok(x)`. What a pattern matches never
+// depends on its `as` names, so a question about matching asks it of this.
+func WithoutAs(n Node) Node {
+	for {
+		a, ok := n.(*AsPattern)
+		if !ok || a == nil {
+			return n
+		}
+		n = a.Pattern
+	}
+}
 
 // EnumPattern matches an enum variant, optionally binding the inner value.
 // Simple payload forms (ident binding, wildcard) populate Binding/BindingCol as a fast path.

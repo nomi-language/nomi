@@ -4,14 +4,18 @@ import {
 }
 
 interface HasName {
-    field name: String
+    fn name(value: self): String
 }
 
 struct Person {
     name: String
 }
 
-impl HasName for Person
+impl HasName for Person {
+    fn name(person: Person): String {
+        person.name
+    }
+}
 
 struct Dog {
     name: String
@@ -33,7 +37,7 @@ enum Event {
 }
 
 fn greet(h: HasName): String {
-    "Hi " + h.name
+    "Hi " + HasName.name(h)
 }
 
 fn echo_struct<T>(x: T): T where T: Struct {
@@ -44,8 +48,42 @@ fn count_shapes(shapes: List<Struct>): Int {
     Iter.count(shapes)
 }
 
-test "interface field requirements are accessible through existential values" {
+test "an interface function requirement dispatches through an existential value" {
     assert greet(Person{name: "Ada"}) == "Hi Ada"
+}
+
+test "an interface value exposes no fields" {
+    diagnostics = compiler.check(
+        """
+          interface HasName {
+            fn name(value: self): String
+          }
+
+          fn greet(h: HasName): String {
+            h.label
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "interface 'HasName' has no field 'label'")
+}
+
+test "an interface declares no fields" {
+    diagnostics = compiler.check(
+        """
+          interface HasName {
+            field name: String
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+
+    assert test_helpers.has_diagnostic?(
+        diagnostics,
+        "replace `field name: String` with a function requirement such as `fn name(value: self): String`",
+    )
 }
 
 test "an enum's variant shapes render through Debug" {

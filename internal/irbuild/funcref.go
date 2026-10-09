@@ -84,6 +84,12 @@ func (g *gen) checkedRefKinds(ref ast.Node, arity int) ([]kind, kind, bool) {
 		return nil, kindInvalid, false
 	}
 	ft, _ := sym.CallType.(*analysis.FuncType)
+	return g.funcTypeKinds(ft, arity)
+}
+
+// funcTypeKinds is a checked function type's parameter and result kinds, ok
+// false unless it has arity parameters and every kind is in the value domain.
+func (g *gen) funcTypeKinds(ft *analysis.FuncType, arity int) ([]kind, kind, bool) {
 	if ft == nil || len(ft.Params) != arity || irUnsolvedType(ft.Return) {
 		return nil, kindInvalid, false
 	}

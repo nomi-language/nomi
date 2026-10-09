@@ -103,12 +103,24 @@ func (m *Machine) debugImplHook(fr *frame, n *ir.Render) rt.DebugHook {
 	if len(impls) == 0 {
 		return nil
 	}
-	byType := make(map[string]*ir.Symbol, len(impls))
+	// An impl is selected by the value's runtime type name and instance key:
+	// two instances of one generic type share the name, and each has its own
+	// body. A value whose descriptor states no instance takes the name's one
+	// body, when it has exactly one.
+	type key struct{ name, inst string }
+	byType := make(map[key]*ir.Symbol, len(impls))
+	byName := make(map[string]*ir.Symbol, len(impls))
+	bodies := make(map[string]int, len(impls))
 	for _, impl := range impls {
-		byType[impl.Type] = impl.Fn
+		k := key{impl.Type, impl.Inst}
+		if _, dup := byType[k]; !dup {
+			bodies[impl.Type]++
+		}
+		byType[k] = impl.Fn
+		byName[impl.Type] = impl.Fn
 	}
 	return func(v any) (string, bool, error) {
-		var typeName string
+		var typeName, inst string
 		switch x := v.(type) {
 		case *rt.Record:
 			if x == nil {
@@ -119,13 +131,16 @@ func (m *Machine) debugImplHook(fr *frame, n *ir.Render) rt.DebugHook {
 			default:
 				return "", false, nil
 			}
-			typeName = x.Desc.Name
+			typeName, inst = x.Desc.Name, x.Desc.Inst
 		case rt.HostHandle:
 			typeName = x.TypeName
 		default:
 			return "", false, nil
 		}
-		sym, owned := byType[typeName]
+		sym, owned := byType[key{typeName, inst}]
+		if !owned && bodies[typeName] == 1 {
+			sym, owned = byName[typeName]
+		}
 		if !owned {
 			return "", false, nil
 		}

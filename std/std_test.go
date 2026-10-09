@@ -126,7 +126,7 @@ func TestNestedStdlibSourceVisibility(t *testing.T) {
 
 	lib := &StdLib{}
 	uri := lib.FileURI(fixtureModule)
-	wantPath := filepath.Join(lib.diskDir, "_fixtures", "nested", "deeper", "module.nomi")
+	wantPath := materialized().Location("_fixtures/nested/deeper/module.nomi")
 	if uri != "file://"+wantPath {
 		t.Fatalf("FileURI(%s) = %q, want file URI for %q", fixtureModule, uri, wantPath)
 	}

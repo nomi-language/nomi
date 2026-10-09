@@ -44,6 +44,7 @@ package vm
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/rt"
@@ -133,6 +134,13 @@ func (m *Machine) assertInstr(fr *frame, n *ir.Assert) error {
 	f, err := m.judge(fr, n, site, subj, binding, rows)
 	if err != nil {
 		return err
+	}
+	if f != nil && !site.Refute && f.Diff == nil {
+		// A failed `==` over two multi-line Strings shows a line diff in
+		// place of its two operand rows. A failed `refute`, like a failed
+		// `!=`, means the two were equal, and there is nothing to diff. An
+		// Assertable that answered `expected` already has its diff.
+		f.Diff = stringDiff(fr.fn, n, rows)
 	}
 	if f != nil && len(stages) > 0 {
 		// A failed piped `check` explains its pipe: one more `values:` row
@@ -251,6 +259,12 @@ func assertableDetails(answer any) (*rt.AssertableDetails, error) {
 			d.Actual = rt.Some(s.(string))
 		}
 	}
+	d.Expected = rt.None[string]()
+	if expected, ok := r.FieldNamed("expected"); ok {
+		if s, some, _ := maybeParts(expected); some {
+			d.Expected = rt.Some(s.(string))
+		}
+	}
 	if details, ok := r.FieldNamed("details"); ok {
 		xs, _ := details.(*list)
 		var rows []rt.NomiAssertionDetail
@@ -325,9 +339,112 @@ func (m *Machine) recordInstr(fr *frame, n *ir.Record) error {
 	// THE SUPPRESSION RULE IS rt's, ASKED RATHER THAN APPLIED: an operand
 	// that reads exactly like its value explains nothing, so `assert 1 == 2`
 	// prints no rows. `ir.Record.SuppressRedundant` is the producer's REQUEST
-	// and `rt.RecordOperand` is the one place the request is answered.
-	rt.RecordOperand(&fr.trace, n.Text(), text, n.SuppressRedundant())
+	// and `rt.RecordOperand` is the one place the request is answered. What
+	// this consumer adds is the fact the rule reads: whether the operand is a
+	// literal.
+	literal := n.SuppressRedundant() && literalOperand(fr.fn, n.Val(), n.Text()) != nil
+	rt.RecordOperand(&fr.trace, n.Text(), text, n.SuppressRedundant(), literal)
 	return nil
+}
+
+// literalOperand is the constant a recorded operand was written as, or nil
+// when it is not a literal.
+//
+// The graph says the value is a constant and the text says it was written as
+// one: a Bool, Int, Float, Decimal or String constant whose source opens
+// with a quote, or is one numeric token (after an optional `-`). The text
+// test is what keeps a name bound to a constant, `limit` in `limit = 5`, a
+// row. A Bool literal's text is its value, so rt drops its row already.
+func literalOperand(fn *ir.Func, t ir.Temp, text string) *ir.Const {
+	c, ok := fn.Def(t).(*ir.Const)
+	if !ok {
+		return nil
+	}
+	switch c.Kind() {
+	case ir.ConstBool, ir.ConstInt, ir.ConstFloat, ir.ConstDecimal, ir.ConstString:
+	default:
+		return nil
+	}
+	s := strings.TrimPrefix(text, "-")
+	switch {
+	case s == "":
+		return nil
+	case s[0] == '"':
+		return c
+	case s[0] >= '0' && s[0] <= '9' && !strings.ContainsAny(s, " \t\n()"):
+		// One numeric token: `1_000`, `1.5d`, `-3`, and not `1 + 2`.
+		return c
+	}
+	return nil
+}
+
+// stringDiff is the line diff for a failed `assert a == b` over two Strings
+// (rt.StringDiff), or nil.
+//
+// Read off the graph on the failing path only. The subject must be exactly
+// one `==` comparison: its definition, through the copy the builder makes of
+// an impure subject, is an `ir.Compare` of String shape, and the assertion's
+// text is the two operands' texts around ` == `, which rules out a
+// comparison that is only part of the subject (`a == b and c`). The operands'
+// texts are the `ir.Record`s of the comparison's two temporaries, and their
+// values are the trace's rows for those texts, or the constant itself for a
+// literal operand, whose row is not kept.
+func stringDiff(fn *ir.Func, n *ir.Assert, rows []rt.AssertionValueContext) *rt.AssertionStringDiff {
+	def := fn.Def(n.Subject())
+	if c, ok := def.(*ir.Copy); ok {
+		def = fn.Def(c.Src())
+	}
+	cmp, ok := def.(*ir.Compare)
+	if !ok || cmp.Ranked() || cmp.Op() != ir.OpEq || cmp.Shape() != ir.ValString {
+		return nil
+	}
+	var lhsText, rhsText string
+	for _, b := range fn.Blocks() {
+		for _, in := range b.Instrs() {
+			r, ok := in.(*ir.Record)
+			if !ok || r.Kind() != ir.RecordOperand {
+				continue
+			}
+			switch r.Val() {
+			case cmp.Lhs():
+				lhsText = r.Text()
+			case cmp.Rhs():
+				rhsText = r.Text()
+			}
+		}
+	}
+	if lhsText == "" || rhsText == "" || n.Text() != lhsText+" == "+rhsText {
+		return nil
+	}
+	actual, ok := operandString(fn, cmp.Lhs(), lhsText, rows)
+	if !ok {
+		return nil
+	}
+	expected, ok := operandString(fn, cmp.Rhs(), rhsText, rows)
+	if !ok {
+		return nil
+	}
+	return rt.StringDiff(lhsText, actual, rhsText, expected)
+}
+
+// operandString is the String value of one compared operand.
+func operandString(fn *ir.Func, t ir.Temp, text string, rows []rt.AssertionValueContext) (string, bool) {
+	if c := literalOperand(fn, t, text); c != nil {
+		return c.Text(), c.Kind() == ir.ConstString
+	}
+	for i := len(rows) - 1; i >= 0; i-- {
+		row := rows[i]
+		if row.Expr != text || len(row.Pipeline) > 0 {
+			continue
+		}
+		// A String's row is rt.InspectString: quoted, not escaped.
+		v := row.Value
+		if len(v) < 2 || v[0] != '"' || v[len(v)-1] != '"' {
+			return "", false
+		}
+		return v[1 : len(v)-1], true
+	}
+	return "", false
 }
 
 // compareInstr answers one relation over two operands of one shape.

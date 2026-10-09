@@ -104,6 +104,7 @@ func isUnusedBindingCandidate(node ast.Node) bool {
 		// arm, an `if Some(x) = ...` condition, a test's setup binding.
 		// definePattern records the pattern node that binds the name.
 		*ast.IdentPattern,
+		*ast.AsPattern,
 		*ast.EnumPattern,
 		*ast.StructPattern:
 		return true

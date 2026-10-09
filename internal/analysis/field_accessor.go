@@ -83,8 +83,8 @@ func (c *checker) checkFieldAccessor(n *ast.FieldAccessor, expected Type) Type {
 // accessorParamKnown reports whether the expected function's parameter says
 // what the accessor reads from. An unsolved inference variable, and a type
 // parameter of the callee that no earlier argument solved, say nothing; a
-// type parameter of the enclosing function is a known type, which its
-// bounds' `field` requirements may give fields.
+// type parameter of the enclosing function is a known type, which the
+// accessor then reports as one it cannot read from.
 func (c *checker) accessorParamKnown(param Type) bool {
 	switch p := param.(type) {
 	case nil:
@@ -98,12 +98,12 @@ func (c *checker) accessorParamKnown(param Type) bool {
 }
 
 // accessorReadable reports whether a field accessor can read from a value of
-// type t: a struct, an anonymous struct, a tuple (`.0`), or an interface or
-// bounded type parameter through its `field` requirements. An enum's fields
-// belong to its variants and are not read through an accessor.
+// type t: a struct, an anonymous struct or a tuple (`.0`). An enum's fields
+// belong to its variants and are not read through an accessor, and an
+// interface value or a type parameter has no fields.
 func accessorReadable(t Type) bool {
 	switch t.(type) {
-	case *StructType, *AnonStructType, *TupleType, *InterfaceType, *TypeParam_:
+	case *StructType, *AnonStructType, *TupleType:
 		return true
 	}
 	return false
@@ -116,12 +116,6 @@ func (c *checker) reportAccessorMissingField(obj Type, seg *ast.Ident) {
 	case *StructType:
 		c.report(TypeError{Line: seg.Line, Col: seg.Col, Message: fmt.Sprintf(
 			"struct '%s' has no field '%s'", t.Name, seg.Name)}.WithHint(didYouMean(seg.Name, fieldNames(canonicalStructForFieldAccess(c, t).Fields))))
-	case *InterfaceType:
-		c.addError(seg.Line, seg.Col, fmt.Sprintf(
-			"interface '%s' has no field '%s'", t.Name, seg.Name))
-	case *TypeParam_:
-		c.addError(seg.Line, seg.Col, fmt.Sprintf(
-			"type parameter `%s` has no field '%s' (a type parameter exposes only the fields its interface bounds declare)", t.Name_, seg.Name))
 	default:
 		c.addError(seg.Line, seg.Col, c.typef("%s has no field '%s'", obj, seg.Name))
 	}

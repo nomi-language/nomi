@@ -184,9 +184,6 @@ func isImportPathModuleSymbol(pos analysis.Pos, sym *analysis.Symbol) bool {
 	if !ok {
 		return false
 	}
-	if stmt.Extern {
-		return false
-	}
 	for _, seg := range stmt.ModulePath {
 		if seg == nil || seg.LineNum() != pos.Line || importNodeCol(seg) != pos.Col {
 			continue
@@ -212,14 +209,8 @@ func isExternPackageHandle(sym *analysis.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	switch n := sym.Node.(type) {
-	case *ast.ExternPackage:
-		return true
-	case *ast.ImportStmt:
-		return n.Extern
-	default:
-		return false
-	}
+	_, ok := sym.Node.(*ast.ExternPackage)
+	return ok
 }
 
 func semanticKind(sym *analysis.Symbol) analysis.SymbolKind {

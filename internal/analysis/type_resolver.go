@@ -152,7 +152,7 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 				}
 				switch bt := t.(type) {
 				case *EnumType:
-					return &EnumType{
+					inst := &EnumType{
 						Origin:           bt.Origin,
 						Name:             bt.Name,
 						TypeArgs:         args,
@@ -161,9 +161,11 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 						TypeParamDefs:    bt.TypeParamDefs,
 						Opaque:           bt.Opaque,
 						OwningSourceFile: bt.OwningSourceFile,
-					}, nil
+					}
+					inst.unbuilt = bt.unbuilt.recordInstance(inst)
+					return inst, nil
 				case *StructType:
-					return &StructType{
+					inst := &StructType{
 						Origin:           bt.Origin,
 						Name:             bt.Name,
 						TypeArgs:         args,
@@ -172,18 +174,21 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 						TypeParamDefs:    bt.TypeParamDefs,
 						Opaque:           bt.Opaque,
 						OwningSourceFile: bt.OwningSourceFile,
-					}, nil
+					}
+					inst.unbuilt = bt.unbuilt.recordInstance(inst)
+					return inst, nil
 				case *InterfaceType:
-					return &InterfaceType{
+					inst := &InterfaceType{
 						Origin:        bt.Origin,
 						Name:          bt.Name,
 						Methods:       bt.Methods,
 						TypeParams:    bt.TypeParams,
 						TypeParamDefs: bt.TypeParamDefs,
 						TypeArgs:      args,
-						Fields:        bt.Fields,
 						SelfParam:     bt.SelfParam,
-					}, nil
+					}
+					inst.unbuilt = bt.unbuilt.recordInstance(inst)
+					return inst, nil
 				case *DistinctType:
 					// Generic opaque externs (`host type Task<T>`,
 					// `host type Channel<T>`): instantiate the shell with

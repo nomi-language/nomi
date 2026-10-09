@@ -177,6 +177,9 @@ type StructType struct {
 	// that module; outside callers go through exported accessors.
 	Opaque           bool
 	OwningSourceFile string
+	// unbuilt is set while the declaration's body is not built yet, on the
+	// declaration and on each instance taken from it (unbuilt_decl.go).
+	unbuilt *unbuiltDecl
 }
 
 func (t *StructType) String() string {
@@ -239,6 +242,8 @@ type EnumType struct {
 	// private to the defining module.
 	Opaque           bool
 	OwningSourceFile string
+	// unbuilt: see StructType.unbuilt.
+	unbuilt *unbuiltDecl
 }
 
 func (t *EnumType) String() string {
@@ -282,6 +287,10 @@ type DistinctType struct {
 	TypeParams    []string
 	TypeParamDefs []*TypeParam_
 	TypeArgs      []Type
+	// unbuilt is set on a declared distinct type (`type UserId Int`) until
+	// its inner type is resolved, and holds what waits on it
+	// (unbuilt_decl.go).
+	unbuilt *unbuiltDecl
 }
 
 func (t *DistinctType) String() string {
@@ -477,15 +486,6 @@ type MethodSig struct {
 	WhereBounds []WhereBound
 }
 
-// InterfaceFieldDef describes a `field name: Type` requirement on an
-// interface. A struct with an `impl Iface for Struct` block is required to declare
-// a field with the same name and exact (Nomi-nominal) type. Defaults are
-// not part of the interface contract — they live on the impl struct.
-type InterfaceFieldDef struct {
-	Name string
-	Type Type
-}
-
 // InterfaceType represents an interface type.
 type InterfaceType struct {
 	// Origin is the declaring file's build key; see StructType.Origin.
@@ -497,11 +497,12 @@ type InterfaceType struct {
 	Origin        string
 	Name          string
 	Methods       []MethodSig
-	Fields        []InterfaceFieldDef
 	TypeParams    []string      // interface's declared type parameter names (e.g. ["T"] for Iter<T>)
 	TypeParamDefs []*TypeParam_ // the actual TypeParam_ pointers referenced by Methods
 	TypeArgs      []Type        // concrete type arguments at a use site (e.g. [(K, V)] for Iter<(K, V)>)
 	SelfParam     *TypeParam_   // the dedicated TypeParam_ for interface `self` referenced inside Methods (impl validation substitutes it for the implementing type)
+	// unbuilt: see StructType.unbuilt.
+	unbuilt *unbuiltDecl
 }
 
 func (t *InterfaceType) String() string {
@@ -593,15 +594,36 @@ func ContainsTypeParam(t Type) bool {
 }
 
 func TypesEqual(a, b Type) bool {
-	return typesEqualIn(a, b, false)
+	return typesEqualIn(a, b, eqSym)
 }
 
-// typesEqualIn is TypesEqual. Under strict, the `embeds` coercion is off:
-// a function type's parameters and result compare that way, since a function
-// taking a Circle is not a function taking any Shape, and the builder adapts
-// a function value only where the checker says which way it flows
-// (UnifyInto).
-func typesEqualIn(a, b Type, strict bool) bool {
+// TypeAssignable reports whether a value of type have may stand where want is
+// expected without inference: TypesEqual, except that an enum is never
+// accepted where one of its embedded types is. A Circle is a Shape, but a
+// Shape may hold another variant, so it is not a Circle until a match says so.
+func TypeAssignable(want, have Type) bool {
+	return typesEqualIn(want, have, eqAssign)
+}
+
+// eqMode is how typesEqualIn compares two types.
+type eqMode uint8
+
+const (
+	// eqSym admits an embedded type against its enum either way round.
+	eqSym eqMode = iota
+	// eqStrict admits no `embeds` coercion: a function type's parameters
+	// and result compare this way, since a function taking a Circle is not
+	// a function taking any Shape, and the builder adapts a function value
+	// only where the checker says which way it flows (UnifyInto).
+	eqStrict
+	// eqAssign has a as the expected type and b as the actual one. It admits
+	// an embedded type only from b into a's enum, at the top and in every
+	// container type argument, tuple element and record field.
+	eqAssign
+)
+
+// typesEqualIn is TypesEqual under mode m.
+func typesEqualIn(a, b Type, m eqMode) bool {
 	// nil means unknown — treat as compatible.
 	if a == nil || b == nil {
 		return true
@@ -623,15 +645,14 @@ func typesEqualIn(a, b Type, strict bool) bool {
 
 	// `embeds` subtype coercion: a value of an embedded type X (struct or
 	// distinct) is also a value of the enum E that embeds X. Matches the
-	// rule in unifyFull and the runtime's bare-embedded-value handling in
-	// EnumPattern matches. Symmetric so callers don't have to argue about
-	// which side is "expected".
-	if et, ok := a.(*EnumType); ok && !strict {
+	// rule in unifyIn. eqSym admits it either way round, eqAssign only from
+	// the actual side b into the expected enum a.
+	if et, ok := a.(*EnumType); ok && m != eqStrict {
 		if isEmbeddedTypeOf(b, et) {
 			return true
 		}
 	}
-	if et, ok := b.(*EnumType); ok && !strict {
+	if et, ok := b.(*EnumType); ok && m == eqSym {
 		if isEmbeddedTypeOf(a, et) {
 			return true
 		}
@@ -655,7 +676,7 @@ func typesEqualIn(a, b Type, strict bool) bool {
 			return false
 		}
 		for i := range at.TypeArgs {
-			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], strict) {
+			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], m) {
 				return false
 			}
 		}
@@ -674,7 +695,7 @@ func typesEqualIn(a, b Type, strict bool) bool {
 			return false
 		}
 		for i := range at.TypeArgs {
-			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], strict) {
+			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], m) {
 				return false
 			}
 		}
@@ -693,7 +714,7 @@ func typesEqualIn(a, b Type, strict bool) bool {
 			return false
 		}
 		for i := range at.TypeArgs {
-			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], strict) {
+			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], m) {
 				return false
 			}
 		}
@@ -705,11 +726,11 @@ func typesEqualIn(a, b Type, strict bool) bool {
 			return false
 		}
 		for i := range at.Params {
-			if !typesEqualIn(at.Params[i], bt.Params[i], true) {
+			if !typesEqualIn(at.Params[i], bt.Params[i], eqStrict) {
 				return false
 			}
 		}
-		return typesEqualIn(normalizeReturn(at.Return), normalizeReturn(bt.Return), true)
+		return typesEqualIn(normalizeReturn(at.Return), normalizeReturn(bt.Return), eqStrict)
 
 	case *TupleType:
 		bt, ok := b.(*TupleType)
@@ -717,7 +738,7 @@ func typesEqualIn(a, b Type, strict bool) bool {
 			return false
 		}
 		for i := range at.Elems {
-			if !typesEqualIn(at.Elems[i], bt.Elems[i], strict) {
+			if !typesEqualIn(at.Elems[i], bt.Elems[i], m) {
 				return false
 			}
 		}
@@ -725,11 +746,11 @@ func typesEqualIn(a, b Type, strict bool) bool {
 
 	case *ListType:
 		bt, ok := b.(*ListType)
-		return ok && typesEqualIn(at.Elem, bt.Elem, strict)
+		return ok && typesEqualIn(at.Elem, bt.Elem, m)
 
 	case *MapType:
 		bt, ok := b.(*MapType)
-		return ok && typesEqualIn(at.Key, bt.Key, strict) && typesEqualIn(at.Val, bt.Val, strict)
+		return ok && typesEqualIn(at.Key, bt.Key, m) && typesEqualIn(at.Val, bt.Val, m)
 
 	case *AnonStructType:
 		bt, ok := b.(*AnonStructType)
@@ -742,7 +763,7 @@ func typesEqualIn(a, b Type, strict bool) bool {
 		}
 		for _, f := range at.Fields {
 			bTy, ok := bByName[f.Name]
-			if !ok || !typesEqualIn(f.Type, bTy, strict) {
+			if !ok || !typesEqualIn(f.Type, bTy, m) {
 				return false
 			}
 		}
@@ -763,7 +784,7 @@ func typesEqualIn(a, b Type, strict bool) bool {
 			return false
 		}
 		for i := range at.TypeArgs {
-			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], strict) {
+			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], m) {
 				return false
 			}
 		}

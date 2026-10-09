@@ -332,6 +332,9 @@ int.nomi:PositiveInt.to_string	ran
 io.nomi:IOError.equal?	ran
 io.nomi:IOError.inspect	ran
 io.nomi:IOError.to_string	ran
+io.nomi:Replayed.failure	ran
+io.nomi:Replayed.inspect	ran
+io.nomi:replay_reason	ran
 json.nomi:Bool.from_json	ran
 json.nomi:Bool.to_json	ran
 json.nomi:Float.from_json	ran
@@ -364,7 +367,6 @@ random.nomi:unsafe_int	ran
 ranges.nomi:Range.from	ran
 ranges.nomi:Range.naturals	ran
 regex.nomi:Regex.from_fragments	ran
-regex.nomi:Regex.inspect	ran
 regex.nomi:Regex.to_string	ran
 startup.nomi:Startup.inspect	ran
 strings.nomi:NormalForm.inspect	ran
@@ -372,8 +374,6 @@ strings.nomi:NormalForm.to_string	ran
 strings.nomi:String.compare	ran
 strings.nomi:String.equal?	ran
 strings.nomi:String.inspect	ran
-strings.nomi:String.strip_prefix	ran
-strings.nomi:String.strip_suffix	ran
 strings.nomi:String.to_string	ran
 supervisors.nomi:Backoff.inspect	ran
 supervisors.nomi:FlushOutcome.inspect	ran

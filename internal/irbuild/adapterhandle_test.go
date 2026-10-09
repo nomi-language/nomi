@@ -39,11 +39,11 @@ func TestAdapterWall_TheCoLocatedAdapterLowersEndToEnd(t *testing.T) {
 		// The `go`-bound externs.
 		"regex.Regex.compile",
 		"regex.Regex.pattern",
-		"regex.Regex.match?",
 		"regex.Regex.find",
-		"regex.Regex.find_all",
 		"regex.Regex.replace_all",
-		"regex.Regex.split",
+		"regex.Regex.contained_in?",
+		"regex.Regex.find_all_in",
+		"regex.Regex.split_in",
 		// The Nomi bodies over the handle.
 		"regex.Regex.from_fragments",
 		"regex.Regex.to_string",

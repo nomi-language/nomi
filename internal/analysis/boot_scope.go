@@ -1,8 +1,6 @@
 package analysis
 
 import (
-	"path/filepath"
-
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -362,5 +360,6 @@ func isSupervisorNewSymbol(fa *FileAnalysis, sym *Symbol) bool {
 }
 
 func isStdSupervisorsFile(path string) bool {
-	return filepath.Base(path) == "supervisors.nomi" && filepath.Base(filepath.Dir(path)) == "std"
+	name, ok := stdlibModuleForPath(path)
+	return ok && name == "supervisors"
 }

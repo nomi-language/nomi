@@ -165,9 +165,9 @@ func importEntries(nodes []ast.Node) []*ast.ImportStmt {
 // drill-through path, `models/users.User.{name}`, names owners inside
 // it). It also returns the stripped prefix ("" or the module name) and n,
 // the number of path segments that name the file. ok is false for a
-// stdlib or Go import.
+// stdlib import.
 func importTarget(imp *ast.ImportStmt, root, moduleName string) (target, prefix string, n int, ok bool) {
-	if imp.Extern || len(imp.ModulePath) == 0 {
+	if len(imp.ModulePath) == 0 {
 		return "", "", 0, false
 	}
 	segs := make([]string, len(imp.ModulePath))

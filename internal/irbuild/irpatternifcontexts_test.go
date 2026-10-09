@@ -36,22 +36,18 @@ fn main() {
 }
 
 // A pattern `if` with no `else` in a Unit position retains: a miss answers
-// Unit, as the Boolean form's does. An identifier or wildcard pattern always
-// matches, and its else arm never runs.
-func TestIRPatternIf_ElselessAndIrrefutablePatternsRetain(t *testing.T) {
+// Unit, as the Boolean form's does.
+func TestIRPatternIf_ElselessPatternRetains(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn show(m: Maybe<Int>) {
   u = if Some(n) = m { io.print(n) }
   io.print(u == Unit)
 }
-fn whole(n: Int): Int { if k = n + 1 { k } else { 0 } }
 fn main() {
   show(Some(7))
   show(None)
-  io.print(whole(4))
-  io.print(if _ = 3 { "matched" } else { "impossible" })
 }
-`, "7\nTrue\nTrue\n5\nmatched\n")
+`, "7\nTrue\nTrue\n")
 }
 
 // A list pattern inside a pattern `if` retains through the nested list test.

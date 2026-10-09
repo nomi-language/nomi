@@ -369,10 +369,7 @@ func (p *parity) regex() {
 		re := res.(*rt.Record).Field(0)
 		for _, input := range []string{"xaab ab", "12-34 and 5-6", "", "ééé"} {
 			p.check("Regex.pattern", argSet{args: a(re)})
-			p.check("Regex.match?", argSet{args: a(re, s(input))})
 			p.check("Regex.find", argSet{args: a(re, s(input))})
-			p.check("Regex.find_all", argSet{args: a(re, s(input))})
-			p.check("Regex.split", argSet{args: a(re, s(input))})
 			p.check("Regex.replace_all", argSet{args: a(re, s(input), s("<$1>"))})
 			p.check("Regex.contained_in?", argSet{args: a(re, s(input))})
 			p.check("Regex.prefix_of?", argSet{args: a(re, s(input))})

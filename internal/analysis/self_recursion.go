@@ -449,6 +449,8 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 		return r.mustRecurse(x.Expr, false, clean)
 	case *ast.Then:
 		return r.mustRecurse(x.Lambda, false, clean)
+	case *ast.Tap:
+		return r.mustRecurse(x.Lambda, false, clean)
 	case *ast.Unary:
 		return r.mustRecurse(x.Right, false, clean)
 	case *ast.FieldAccess:
@@ -677,6 +679,8 @@ func (r *selfRecursion) mayExitUncached(n ast.Node) bool {
 	case *ast.Dbg:
 		return r.mayExit(x.Expr)
 	case *ast.Then:
+		return r.mayExit(x.Lambda)
+	case *ast.Tap:
 		return r.mayExit(x.Lambda)
 	case *ast.FieldAccess:
 		return r.mayExit(x.Object)

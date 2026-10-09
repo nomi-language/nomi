@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/tliron/glsp"
@@ -76,9 +75,6 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 
 	// Check if this symbol came from a user import statement
 	if imp, ok := defSym.Node.(*ast.ImportStmt); ok {
-		if imp.Extern {
-			return s.toUTF16Location(s.definitionLocationForSymbol(uri, defSym, sym)), nil
-		}
 		loc, err := s.resolveImportDefinition(uri, imp, defSym)
 		return s.toUTF16Result(loc), err
 	}
@@ -113,24 +109,6 @@ func foreignAliasDefinitions(nodes []ast.Node, aliases map[string]analysis.Pos) 
 		switch v := n.(type) {
 		case *ast.ExternPackage:
 			aliases[v.Alias] = analysis.Pos{Line: v.AliasLine, Col: v.AliasCol}
-		case *ast.ImportStmt:
-			if v.Extern && v.ExternAlias != "" && v.ExternAlias != "_" {
-				pos := analysis.Pos{Line: v.ExternPathLine, Col: v.ExternPathCol}
-				if v.ExternAliasExplicit {
-					pos = analysis.Pos{Line: v.ExternAliasLine, Col: v.ExternAliasCol}
-				}
-				aliases[v.ExternAlias] = pos
-			}
-		case *ast.ImportBlock:
-			for _, entry := range v.Entries {
-				foreignAliasDefinitions([]ast.Node{entry}, aliases)
-			}
-		case *ast.GoBlock:
-			for _, imp := range goBlockImports(v) {
-				if imp.alias != "" && imp.alias != "_" {
-					aliases[imp.alias] = analysis.Pos{Line: imp.aliasLine, Col: imp.aliasCol}
-				}
-			}
 		case *ast.ImplBlock:
 			foreignAliasDefinitions(v.Items, aliases)
 		}
@@ -144,15 +122,9 @@ func foreignBindingAliasAt(nodes []ast.Node, pos analysis.Pos, aliases map[strin
 			if positionWithinName(pos, v.ForeignAliasLine, v.ForeignAliasCol, v.ForeignAlias) {
 				return v.ForeignAlias, true
 			}
-			if alias, ok := inlineGoAliasAt(v.GoBody, v.GoBodyLine, v.GoBodyCol, pos, aliasPositionNames(aliases)); ok {
-				return alias, true
-			}
 		case *ast.ExternType:
 			if positionWithinName(pos, v.ForeignAliasLine, v.ForeignAliasCol, v.ForeignAlias) {
 				return v.ForeignAlias, true
-			}
-			if alias, ok := inlineGoAliasAt(v.GoBody, v.GoBodyLine, v.GoBodyCol, pos, aliasPositionNames(aliases)); ok {
-				return alias, true
 			}
 		case *ast.ImplBlock:
 			if alias, ok := foreignBindingAliasAt(v.Items, pos, aliases); ok {
@@ -224,22 +196,6 @@ func foreignBindingAt(nodes []ast.Node, pos analysis.Pos, inherited map[string]s
 		switch pkg := n.(type) {
 		case *ast.ExternPackage:
 			aliases[pkg.Alias] = pkg.ImportPath
-		case *ast.ImportStmt:
-			if pkg.Extern && pkg.ExternAlias != "" && pkg.ExternAlias != "_" {
-				aliases[pkg.ExternAlias] = pkg.ExternPath
-			}
-		case *ast.ImportBlock:
-			for _, entry := range pkg.Entries {
-				if entry.Extern && entry.ExternAlias != "" && entry.ExternAlias != "_" {
-					aliases[entry.ExternAlias] = entry.ExternPath
-				}
-			}
-		case *ast.GoBlock:
-			for _, imp := range goBlockImports(pkg) {
-				if imp.alias != "" && imp.alias != "_" {
-					aliases[imp.alias] = imp.importPath
-				}
-			}
 		}
 	}
 	for _, n := range nodes {
@@ -248,15 +204,9 @@ func foreignBindingAt(nodes []ast.Node, pos analysis.Pos, inherited map[string]s
 			if positionWithinName(pos, v.ForeignNameLine, v.ForeignNameCol, v.ForeignName) {
 				return aliases[v.ForeignAlias], v.ForeignName, true
 			}
-			if alias, goName, ok := inlineGoSelectorAt(v.GoBody, v.GoBodyLine, v.GoBodyCol, pos, mapKeys(aliases)); ok {
-				return aliases[alias], goName, true
-			}
 		case *ast.ExternType:
 			if positionWithinName(pos, v.ForeignNameLine, v.ForeignNameCol, v.ForeignName) {
 				return aliases[v.ForeignAlias], v.ForeignName, true
-			}
-			if alias, goName, ok := inlineGoSelectorAt(v.GoBody, v.GoBodyLine, v.GoBodyCol, pos, mapKeys(aliases)); ok {
-				return aliases[alias], goName, true
 			}
 		case *ast.ImplBlock:
 			if importPath, goName, ok := foreignBindingAt(v.Items, pos, aliases); ok {
@@ -267,85 +217,6 @@ func foreignBindingAt(nodes []ast.Node, pos analysis.Pos, inherited map[string]s
 	return "", "", false
 }
 
-func aliasPositionNames(aliases map[string]analysis.Pos) []string {
-	out := make([]string, 0, len(aliases))
-	for alias := range aliases {
-		out = append(out, alias)
-	}
-	return out
-}
-
-func mapKeys(m map[string]string) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	return out
-}
-
-func inlineGoSelectorAt(body string, bodyLine, bodyCol int, pos analysis.Pos, aliases []string) (string, string, bool) {
-	return inlineGoSelectorAtMode(body, bodyLine, bodyCol, pos, aliases, false)
-}
-
-func inlineGoAliasAt(body string, bodyLine, bodyCol int, pos analysis.Pos, aliases []string) (string, bool) {
-	alias, _, ok := inlineGoSelectorAtMode(body, bodyLine, bodyCol, pos, aliases, true)
-	return alias, ok
-}
-
-func inlineGoSelectorAtMode(body string, bodyLine, bodyCol int, pos analysis.Pos, aliases []string, aliasOnly bool) (string, string, bool) {
-	if body == "" || bodyLine <= 0 || bodyCol <= 0 {
-		return "", "", false
-	}
-	for _, alias := range aliases {
-		if alias == "" || alias == "_" {
-			continue
-		}
-		needle := alias + "."
-		for lineIdx, line := range strings.Split(body, "\n") {
-			searchFrom := 0
-			for {
-				idx := strings.Index(line[searchFrom:], needle)
-				if idx < 0 {
-					break
-				}
-				idx += searchFrom
-				nameStart := idx + len(needle)
-				nameEnd := nameStart
-				for nameEnd < len(line) && isGoIdentByte(line[nameEnd], nameEnd-nameStart) {
-					nameEnd++
-				}
-				if nameEnd > nameStart {
-					sourceLine := bodyLine + lineIdx
-					sourceCol := 1 + idx
-					if lineIdx == 0 {
-						sourceCol = bodyCol + idx
-					}
-					aliasStart := sourceCol
-					aliasEnd := aliasStart + len(alias)
-					nameStartCol := sourceCol + len(needle)
-					nameEndCol := nameStartCol + (nameEnd - nameStart)
-					if pos.Line == sourceLine && pos.Col >= aliasStart && pos.Col < aliasEnd {
-						return alias, line[nameStart:nameEnd], true
-					}
-					if aliasOnly {
-						searchFrom = idx + len(needle)
-						continue
-					}
-					if pos.Line == sourceLine && pos.Col >= nameStartCol && pos.Col < nameEndCol {
-						return alias, line[nameStart:nameEnd], true
-					}
-				}
-				searchFrom = idx + len(needle)
-			}
-		}
-	}
-	return "", "", false
-}
-
-func isGoIdentByte(b byte, offset int) bool {
-	return b == '_' || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (offset > 0 && b >= '0' && b <= '9')
-}
-
 func foreignPackagePathAt(nodes []ast.Node, pos analysis.Pos) (string, bool) {
 	for _, n := range nodes {
 		switch v := n.(type) {
@@ -353,83 +224,9 @@ func foreignPackagePathAt(nodes []ast.Node, pos analysis.Pos) (string, bool) {
 			if positionWithinName(pos, v.ImportPathLine, v.ImportPathCol, v.ImportPath) {
 				return v.ImportPath, true
 			}
-		case *ast.ImportStmt:
-			if v.Extern && positionWithinName(pos, v.ExternPathLine, v.ExternPathCol, v.ExternPath) {
-				return v.ExternPath, true
-			}
-		case *ast.ImportBlock:
-			for _, entry := range v.Entries {
-				if entry.Extern && positionWithinName(pos, entry.ExternPathLine, entry.ExternPathCol, entry.ExternPath) {
-					return entry.ExternPath, true
-				}
-			}
-		case *ast.GoBlock:
-			for _, imp := range goBlockImports(v) {
-				if positionWithinName(pos, imp.pathLine, imp.pathCol, imp.importPath) {
-					return imp.importPath, true
-				}
-			}
 		}
 	}
 	return "", false
-}
-
-type goBlockImport struct {
-	alias      string
-	importPath string
-	aliasLine  int
-	aliasCol   int
-	pathLine   int
-	pathCol    int
-}
-
-func goBlockImports(block *ast.GoBlock) []goBlockImport {
-	fset := gotoken.NewFileSet()
-	file, err := goparser.ParseFile(fset, "inline_go.nomi.go", "package main\n"+strings.TrimSpace(block.Body)+"\n", goparser.ParseComments)
-	if err != nil {
-		return nil
-	}
-	var out []goBlockImport
-	for _, imp := range file.Imports {
-		importPath, err := strconv.Unquote(imp.Path.Value)
-		if err != nil {
-			continue
-		}
-		alias := defaultGoImportAlias(importPath)
-		aliasLine, aliasCol := goBlockSourcePos(fset, block, imp.Path.Pos())
-		if imp.Name != nil {
-			alias = imp.Name.Name
-			aliasLine, aliasCol = goBlockSourcePos(fset, block, imp.Name.Pos())
-		}
-		pathLine, pathCol := goBlockSourcePos(fset, block, imp.Path.Pos())
-		out = append(out, goBlockImport{
-			alias:      alias,
-			importPath: importPath,
-			aliasLine:  aliasLine,
-			aliasCol:   aliasCol,
-			pathLine:   pathLine,
-			pathCol:    pathCol,
-		})
-	}
-	return out
-}
-
-func goBlockSourcePos(fset *gotoken.FileSet, block *ast.GoBlock, pos gotoken.Pos) (int, int) {
-	p := fset.Position(pos)
-	line := block.BodyLine + p.Line - 2
-	col := p.Column
-	if p.Line == 2 {
-		col = block.BodyCol + p.Column - 1
-	}
-	return line, col
-}
-
-func defaultGoImportAlias(importPath string) string {
-	importPath = strings.TrimSuffix(importPath, "/")
-	if idx := strings.LastIndex(importPath, "/"); idx >= 0 {
-		return importPath[idx+1:]
-	}
-	return importPath
 }
 
 func positionWithinName(pos analysis.Pos, line, col int, name string) bool {
@@ -606,7 +403,7 @@ func (s *Server) definitionLocationForSymbol(uri string, defSym, clickedSym *ana
 		if defSym.Kind == analysis.SymbolModule {
 			// Module symbol (e.g., "io") — jump to the module's .nomi file
 			if _, ok := s.std.Modules[defSym.Name]; ok {
-				targetURI = protocol.DocumentUri(s.std.FileURI(defSym.Name))
+				targetURI = protocol.DocumentUri(s.stdFileURI(defSym.Name))
 			}
 		} else {
 			found := false
@@ -614,7 +411,7 @@ func (s *Server) definitionLocationForSymbol(uri string, defSym, clickedSym *ana
 				// Top-level symbol match: defSym is the same instance as a
 				// stdlib top-level binding (e.g. an Interface, Struct, fn).
 				if stdSym := fa.ModuleScope.LookupLocal(defSym.Name); stdSym != nil && stdSym.Pos == defSym.Pos {
-					targetURI = protocol.DocumentUri(s.std.FileURI(modName))
+					targetURI = protocol.DocumentUri(s.stdFileURI(modName))
 					found = true
 					break
 				}
@@ -624,7 +421,7 @@ func (s *Server) definitionLocationForSymbol(uri string, defSym, clickedSym *ana
 				// Members map and match by Pos.
 				for _, parent := range fa.ModuleScope.Symbols {
 					if member, ok := parent.Members[defSym.Name]; ok && member.Pos == defSym.Pos {
-						targetURI = protocol.DocumentUri(s.std.FileURI(modName))
+						targetURI = protocol.DocumentUri(s.stdFileURI(modName))
 						found = true
 						break
 					}
@@ -636,7 +433,7 @@ func (s *Server) definitionLocationForSymbol(uri string, defSym, clickedSym *ana
 				if !found {
 					for _, byName := range fa.TypeMethods {
 						if m, ok := byName[defSym.Name]; ok && m.Pos == defSym.Pos {
-							targetURI = protocol.DocumentUri(s.std.FileURI(modName))
+							targetURI = protocol.DocumentUri(s.stdFileURI(modName))
 							found = true
 							break
 						}
@@ -707,7 +504,7 @@ func (s *Server) resolveImportDefinition(currentURI string, imp *ast.ImportStmt,
 		if moduleName == "" {
 			return nil, nil
 		}
-		targetURI = protocol.DocumentUri(s.std.FileURI(moduleName))
+		targetURI = protocol.DocumentUri(s.stdFileURI(moduleName))
 	} else {
 		// Resolve relative to the project root (so an import in a
 		// sub-directory file resolves against the same root the runtime
@@ -819,7 +616,7 @@ func (s *Server) moduleKeyToURI(key, openDocURI string) protocol.DocumentUri {
 	case key == "":
 		return protocol.DocumentUri(openDocURI)
 	case s.std != nil && strings.HasPrefix(key, "std/"):
-		return protocol.DocumentUri(s.std.FileURI(strings.TrimPrefix(key, "std/")))
+		return protocol.DocumentUri(s.stdFileURI(strings.TrimPrefix(key, "std/")))
 	default:
 		root := s.docs.FindProjectRoot(uriToPath(openDocURI))
 		absPath := filepath.Join(root, filepath.FromSlash(key)) + ".nomi"

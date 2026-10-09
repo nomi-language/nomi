@@ -149,6 +149,89 @@ test "pipeline assertions validate transformed values" {
 }
 ```
 
+## Input And Output
+
+[`io.capture`](/reference/io/) runs a function with the text you give it as
+standard input and hands back what the function returned (`value`) and
+everything it printed (`output`). Pass a program's `main` to check what the
+program prints for a given input.
+
+```nomi-run
+import std/io
+
+fn main() {
+    case io.read_line() {
+        Ok(name) -> io.print("hello, ${name}")
+        Err(_) -> io.print("hello, stranger")
+    }
+}
+
+test "greets the name it reads" {
+    run = io.capture("Ada\n", main)
+
+    assert run.output == "hello, Ada\n"
+}
+
+test "greets a stranger when there is no input" {
+    assert io.capture("", main).output == "hello, stranger\n"
+}
+```
+<!-- expect
+hello, stranger
+-->
+
+Inside the call, `io.read_line` reads the given text a line at a time and
+answers `Err("eof")` at its end, and `io.print`, `io.write` and `io.inspect`
+write to `output` instead of the terminal. Tasks the function starts are
+captured too. `dbg` still prints to the terminal, so you can debug a captured
+function as usual.
+
+A program that asks and answers in turn is easier to test as one
+conversation. [`io.replay`](/reference/io/) takes a script of the session as
+a terminal would show it: lines starting with `>` are what the user types,
+and the rest is what the program prints. It feeds the `>` lines to
+`io.read_line` in order, and `assert` checks that the program printed the
+rest at the right points.
+
+```nomi-run
+import std/io
+
+fn main() {
+    io.print("What is your name?")
+    case io.read_line() {
+        Ok(name) -> {
+            io.write("Hello, ${name}. Your age: ")
+            case io.read_line() {
+                Ok(age) -> io.print("${name} is ${age}")
+                Err(_) -> io.print("no age")
+            }
+        }
+        Err(_) -> io.print("hello, stranger")
+    }
+}
+
+test "asks for a name, then an age" {
+    assert io.replay("""
+        What is your name?
+        > Ada
+        > Hello, Ada. Your age: 36
+        Ada is 36
+        """, main)
+}
+```
+<!-- expect
+What is your name?
+hello, stranger
+-->
+
+When the program writes a prompt without a newline before it reads, as
+`io.write("Hello, Ada. Your age: ")` does, the prompt goes on the `>` line
+before the typed text, as it does on a terminal. Trailing spaces and the
+final newline don't count. A failed replay prints a line diff, `-` for
+script lines the program did not produce and `+` for what it did instead,
+and a `>` line the program never read fails it too. Each `Captured` has the
+same view in `transcript`, if you want to check it yourself.
+
 ## Groups And Setup
 
 Use `tests` to group related cases. A group can define `setup`, which runs

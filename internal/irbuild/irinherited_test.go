@@ -46,15 +46,15 @@ fn main() {
 `, "Alice\nAlice!\nuser:Alice\n")
 }
 
-func TestIRInherited_RequiredFields(t *testing.T) {
+func TestIRInherited_DefaultReadsARequiredFunction(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 interface HasName {
-  field name: String
+  fn name(value: self): String
 
-  // Default — reads the required field from the implementing value.
+  // Default — reads the name through the required function.
   fn greet(value: self): String {
-    "Hello, ${value.name}"
+    "Hello, ${name(value)}"
   }
 }
 
@@ -63,14 +63,18 @@ struct User {
   age: Int
 }
 
-impl HasName for User
+impl HasName for User {
+  fn name(user: User): String { user.name }
+}
 
 struct Pet {
   name: String
   species: String
 }
 
-impl HasName for Pet
+impl HasName for Pet {
+  fn name(pet: Pet): String { pet.name }
+}
 
 fn main() {
   alice = User{name: "Alice", age: 30}

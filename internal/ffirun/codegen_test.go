@@ -121,49 +121,6 @@ func TestCodegen_TheProjectRunnerLinksNoFrontEnd(t *testing.T) {
 	}
 }
 
-func TestCodegen_RendersInlineGoHelpers(t *testing.T) {
-	pkgs := []DiscoveredPackage{
-		{
-			Exports: []DiscoveredExport{
-				{
-					Key:         "math.double",
-					WrapperName: "NomiInline_math_double",
-					ParamDecls:  "n int64",
-					ReturnDecl:  "int64",
-					GoBody:      "return toNomiInt(toGoInt[int](n) * 2)",
-				},
-			},
-		},
-	}
-	got, err := renderWrapper("/abs/project", pkgs)
-	if err != nil {
-		t.Fatalf("renderWrapper: %v", err)
-	}
-	src := string(got)
-	wantSubs := []string{
-		`func toGoInt[T hostadapt.GoInteger](n int64) T {`,
-		`func toNomiInt[T hostadapt.GoInteger](n T) int64 {`,
-		`func toNomiMaybe[T any](value T, ok bool) *T {`,
-		`func toNomiResult[T any](value T, err error) (T, error) {`,
-		`func toNomiOk[T any](value T) (T, error) {`,
-		`func toNomiErr[T any](err error) (T, error) {`,
-		`func toNomiErrString[T any](message string) (T, error) {`,
-		`func toNomiUnitOk() error {`,
-		`func toNomiUnitErr(err error) error {`,
-		`func toNomiUnitErrString(message string) error {`,
-		`return toNomiInt(toGoInt[int](n) * 2)`,
-	}
-	for _, s := range wantSubs {
-		if !strings.Contains(src, s) {
-			t.Errorf("wrapper missing %q:\n%s", s, src)
-		}
-	}
-	fset := token.NewFileSet()
-	if _, err := parser.ParseFile(fset, "wrapper.go", got, 0); err != nil {
-		t.Errorf("generated wrapper is not valid Go: %v\nSource:\n%s", err, src)
-	}
-}
-
 // TestCodegen_ImportPathAliasing exercises the alias-disambiguation
 // rule from discovery: two import paths sharing a final segment get
 // numbered aliases (`db1`, `db2`) so the generated import block
@@ -247,53 +204,6 @@ func TestCodegen_RendersTaggedExports(t *testing.T) {
 		`echo "example.com/binding/echo"`,
 		`_ = (*echo.Box)(nil)`,
 		`_ = echo.EchoUpper`,
-	}
-	for _, s := range wantSubs {
-		if !strings.Contains(src, s) {
-			t.Errorf("wrapper missing %q:\n%s", s, src)
-		}
-	}
-	fset := token.NewFileSet()
-	if _, err := parser.ParseFile(fset, "wrapper.go", got, 0); err != nil {
-		t.Errorf("generated wrapper is not valid Go: %v\nSource:\n%s", err, src)
-	}
-}
-
-func TestCodegen_RendersInlineGoWrappers(t *testing.T) {
-	pkgs := []DiscoveredPackage{
-		{
-			ImportPath: "example.com/binding/echo",
-			Alias:      "ffi",
-			Types: []DiscoveredType{
-				{Key: "RawBox", TypeName: "Box", GoTypeExpr: "*ffi.Box", Declaration: "host type RawBox"},
-			},
-			Exports: []DiscoveredExport{
-				{
-					Key:         "echo_upper",
-					WrapperName: "__nomi_inline_echo_upper",
-					ParamDecls:  "s string, box *ffi.Box",
-					ReturnDecl:  "(stdtime.Duration, error)",
-					GoBody:      "return ffi.EchoUpper(s, box)",
-					Declaration: "host fn echo_upper(s: String, box: RawBox): Result<Duration, String>",
-					SourceFile:  "/abs/project/echo.nomi",
-					SourceLine:  9,
-				},
-			},
-		},
-	}
-	got, err := renderWrapper("/abs/project", pkgs)
-	if err != nil {
-		t.Fatalf("renderWrapper: %v", err)
-	}
-	src := string(got)
-	wantSubs := []string{
-		`ffi "example.com/binding/echo"`,
-		`stdtime "time"`,
-		`func __nomi_inline_echo_upper(s string, box *ffi.Box) (stdtime.Duration, error) {`,
-		`//line /abs/project/echo.nomi:9`,
-		`return ffi.EchoUpper(s, box)`,
-		`_ = (*ffi.Box)(nil)`,
-		`_ = __nomi_inline_echo_upper`,
 	}
 	for _, s := range wantSubs {
 		if !strings.Contains(src, s) {

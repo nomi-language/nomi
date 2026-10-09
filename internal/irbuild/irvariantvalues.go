@@ -42,6 +42,12 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 					}
 					continue
 				}
+				if d.preludeOf == nil && irCyclicDistinct(p.k, append(outer, d)) {
+					if !irDistinctCoinductive(p.k, append(outer, d)) {
+						return false
+					}
+					continue
+				}
 				if p.slot < 0 || p.slot >= len(d.slots) || d.slots[p.slot].boxed {
 					return false
 				}
@@ -76,6 +82,13 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 			}
 			if slot := v.payloads[0].slot; d.preludeOf == nil && slot >= 0 && slot < len(d.slots) && irCyclicNominal(payload, d.slots[slot].boxed, outer) {
 				if !irNominalCoinductive(payload, append(outer, d)) {
+					return false
+				}
+				continue
+			}
+			if d.preludeOf == nil && irCyclicDistinct(payload, append(outer, d)) {
+				// `Neg(Boxed)` for `type Boxed Expr`.
+				if !irDistinctCoinductive(payload, append(outer, d)) {
 					return false
 				}
 				continue
@@ -187,6 +200,13 @@ func irCyclicNominal(k kind, boxed bool, outer []*typeDef) bool {
 		}
 	}
 	return false
+}
+
+// irCyclicDistinct is an enum payload that is a distinct reaching a type the
+// walk is deciding (`Neg(Boxed)` for `type Boxed Expr` inside Expr), which
+// irDistinctCoinductive decides with the walk's stack.
+func irCyclicDistinct(k kind, deciding []*typeDef) bool {
+	return k.tag == tagNamed && k.def != nil && k.def.isDistinct && irKindReaches(k, deciding)
 }
 
 // irNominalCoinductive decides a user struct or enum co-inductively: one the
@@ -372,19 +392,23 @@ func irRetainedEmbed(d *typeDef, v *variantDef) bool {
 	if irRetainedMarker(v.embeds) {
 		return slot < 0
 	}
-	// A struct or a scalar-wrapping distinct: the VM's enum value is the
+	// A struct or a distinct over a value: the VM's enum value is the
 	// embedded value itself, a distinct boxed as its own record.
-	return (irRetainedStructKind(v.embeds) || (irWrappingDistinct(v.embeds) && !v.embeds.rtOpaque)) &&
+	return (irRetainedStructKind(v.embeds) || irEmbedsValueDistinct(v)) &&
 		slot >= 0 && slot < len(d.slots) && !d.slots[slot].boxed
 }
 
 // embedWiden widens a value of an embedded type into its `embeds` variant, as
 // widenIntoVariant does: the tag and the value in its slot, or the tag alone
-// for a marker. The source must be free of effects: the widened literal is
-// mobile, and a marker's source is not spelled at all.
+// for a marker. The widened literal is mobile and a marker's source is not
+// spelled at all, so a source with effects (`Wrapped(load())`) is forced
+// into a temporary first.
 func (bl *irScalarBuilder) embedWiden(at ast.Node, src ir.Temp, d *typeDef, v *variantDef) (ir.Temp, kind, bool) {
 	if !bl.effectFree(src) {
-		return src, kindInvalid, false
+		c := ir.NewCopy(bl.g.irNodePos(at), bl.f.NewTemp(), src)
+		bl.b.Append(c)
+		bl.side(c.Dst(), irScalarSide{k: named(v.embeds), copy: irCopyForce})
+		src = c.Dst()
 	}
 	payload := src
 	if v.payloads[0].slot < 0 {
@@ -611,6 +635,9 @@ func (bl *irScalarBuilder) variantBare(field *ast.FieldAccess) (ir.Temp, kind, b
 // the instance the checker solved for this site.
 func (bl *irScalarBuilder) genericVariantBare(field *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	d, v, ok := bl.genericVariant(field, nil, kindInvalid)
+	if ok && v.kind == "embedded" && irRetainedMarker(v.embeds) {
+		return bl.embedMarker(field, d, v)
+	}
 	if !ok || v.kind != "bare" {
 		return ir.NoTemp, kindInvalid, false, false
 	}
@@ -650,11 +677,17 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 	}
 	k := want
 	if call != nil {
-		ft := bl.g.checkedCallSignature(call)
-		if ft == nil {
+		if ft := bl.g.checkedCallSignature(call); ft != nil {
+			k = bl.g.templateInstanceOf(instantiate, ft.Return)
+		} else if ty := bl.g.checkedExprType(bl.checkedCallNode(call)); ty != nil {
+			// A struct-shaped or embedded variant's construction
+			// (`Shape.UserId(3)`, `Shape.Circle({r: 1})`) is checked as
+			// the embedded type's own construction and records no
+			// signature; its type is the instance.
+			k = bl.g.templateInstanceOf(instantiate, ty)
+		} else {
 			return nil, nil, false
 		}
-		k = bl.g.templateInstanceOf(instantiate, ft.Return)
 		// kindInvalid: sentinel — the caller had no expected type to pass, not an operand's kind.
 	} else if k == kindInvalid {
 		// No expected type: the instance the checker solved for this
@@ -676,6 +709,15 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 	return k.def, v, v != nil
 }
 
+// checkedCallNode is the node the checker typed for call: the pipe a
+// spliced stage came from, or the call itself.
+func (bl *irScalarBuilder) checkedCallNode(call *ast.Call) ast.Node {
+	if call == bl.pipedCall && bl.pipedFrom != nil {
+		return bl.pipedFrom
+	}
+	return call
+}
+
 func (bl *irScalarBuilder) variantCall(call *ast.Call, field *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	d, v, ok := bl.retainedVariant(field)
 	if !ok {
@@ -684,17 +726,18 @@ func (bl *irScalarBuilder) variantCall(call *ast.Call, field *ast.FieldAccess) (
 	if ok && irStructShapedVariant(v) {
 		return bl.variantCallForm(call, d, v)
 	}
-	if ok && v.kind == "embedded" && v.embeds != nil && irWrappingDistinct(v.embeds) && len(call.Args) == 1 && namedArgNode(call.Args) == nil {
-		// `Identifier.UserId("bob")`: the embedded distinct built from its
-		// inner value, widened into its variant.
-		src, k, _, vok := bl.lowerWant(call.Args[0], v.embeds.inner)
+	if ok && irEmbedsValueDistinct(v) && len(call.Args) == 1 && namedArgNode(call.Args) == nil {
+		// `Identifier.UserId("bob")`, `Shape.Wrapped(Circle{r: 1})`: the
+		// embedded distinct built from its inner value, widened into its
+		// variant.
+		src, k, mobile, vok := bl.lowerWant(call.Args[0], v.embeds.inner)
 		if !vok || k != v.embeds.inner {
 			return ir.NoTemp, kindInvalid, false, false
 		}
 		m := ir.NewMakeDistinct(bl.g.irNodePos(call), bl.f.NewTemp(), bl.g.irTypeSym(v.embeds), src)
 		bl.b.Append(m)
 		inner := named(v.embeds)
-		bl.side(m.Dst(), irScalarSide{k: inner, pureMake: true})
+		bl.side(m.Dst(), irScalarSide{k: inner, pureMake: mobile})
 		dst, wk, wok := bl.embedWiden(call, m.Dst(), d, v)
 		return dst, wk, true, wok
 	}

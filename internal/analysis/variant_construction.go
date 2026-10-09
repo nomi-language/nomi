@@ -138,6 +138,33 @@ func (c *checker) checkVariantCtorCall(n *ast.Call, form variantCtor) (Type, boo
 	return c.checkStructShapedVariantCall(n, form), true
 }
 
+// structShapedVariantCallee reports whether callee names a struct-shaped
+// variant, inline or embedded, whose construction takes a record.
+func (c *checker) structShapedVariantCallee(callee ast.Node, fnTy Type) bool {
+	form, ok := c.variantCtorCallee(callee, fnTy)
+	if !ok {
+		return false
+	}
+	if form.vd.Kind == VariantStruct {
+		return true
+	}
+	_, isStruct := form.vd.Embedded.(*StructType)
+	return isStruct
+}
+
+// openVariantEnum gives each of a generic enum's parameters that a variant
+// construction left unsolved a fresh inference variable, as an ordinary
+// variant's constructor call does: `Shape.UserId(3)` in `enum Shape<T>` is a
+// `Shape<?1>` that fits a `Shape<Int>` parameter, not a `Shape<T>` that
+// fits nothing.
+func (c *checker) openVariantEnum(ty Type) Type {
+	et, ok := ty.(*EnumType)
+	if !ok || len(et.TypeParamDefs) == 0 {
+		return ty
+	}
+	return instantiateUnboundCalleeParams(et, c.fnTypeParams, c)
+}
+
 // checkArgs walks call arguments so nested expressions are still checked
 // when the call itself is rejected.
 func (c *checker) checkArgs(args []ast.Node) {

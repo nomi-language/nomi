@@ -7,7 +7,7 @@ scope: source.nomi
 variables:
   ident: '[a-z_][a-zA-Z0-9_]*\??'
   type_ident: '[A-Z][a-zA-Z0-9_]*'
-  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|then|todo|try|type(alias)?|where|with'
+  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|tests?|then|todo|try|type(alias)?|where|with'
 
 contexts:
   main:
@@ -110,17 +110,16 @@ contexts:
       scope: variable.other.nomi
     - match: '\bhost\b(?=\s+(fn|type)\b)'
       scope: keyword.declaration.nomi
-    # `field`, `variant`, `open`, and `derive` are CONTEXTUAL keywords in Nomi
-    # — `field`/`variant` only carry meaning inside interface bodies
-    # (`field name: T`, `variant Name`), `open` inside interface bodies, and
+    # `variant`, `open`, and `derive` are CONTEXTUAL keywords in Nomi
+    # — `variant` and `open` only carry meaning inside interface bodies, and
     # `derive` in `derive Iface for T`.
     # Sublime-syntax is
     # regex-based with no easy body context-stack, so we match them
     # globally as keywords. Bare uses outside those bodies (e.g.
-    # `field = 42`) are conventionally rare; the test programs only
+    # `open = 42`) are conventionally rare; the test programs only
     # mention them inside comments, which the `comments` context already
     # swallows before this rule can fire.
-    - match: '\b(pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|tests|setup|self|field|variant|open)\b'
+    - match: '\b(pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|tests|setup|self|variant|open)\b'
       scope: keyword.declaration.nomi
     # `clock` and `boot` are keywords only as a test group's lines
     # (`clock Clock.Virtual`, `boot server.boot(startup())`); `MyApp.clock`,
@@ -136,7 +135,7 @@ contexts:
     # access-scope metadata, not a namespace name.
     - match: '\binternal(?=/)'
       scope: entity.other.attribute-name.nomi
-    - match: '\b(if|else|case|when|break|continue|return|concurrent|try|then|assert|refute|dbg|todo)\b'
+    - match: '\b(if|else|case|when|break|continue|return|concurrent|try|then|tap|assert|refute|dbg|todo)\b'
       scope: keyword.control.nomi
     - match: '\b(and|or)\b'
       scope: keyword.operator.word.nomi

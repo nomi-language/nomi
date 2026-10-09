@@ -398,32 +398,6 @@ fn main() {
 		fa.Definitions[pos], fa.References[pos], semtokens.Collect(fa))
 }
 
-func TestCollect_GoBlocksDoNotEmitNomiSemanticTokens(t *testing.T) {
-	src := `go {
-  import sqlite_go "sqlite"
-}
-
-opaque type RawConn go {
-  sqlite_go.Conn
-}
-
-fn open_raw(path: String): Result<RawConn, String> go {
-  return sqlite_go.OpenRaw(path)
-}
-`
-	nodes, err := parser.Parse(lexer.Lex(src))
-	if err != nil {
-		t.Fatalf("Parse: %v", err)
-	}
-	fa := buildFile(nodes)
-
-	for _, tok := range semtokens.Collect(fa) {
-		if tok.Line >= 1 && tok.Line <= 3 {
-			t.Fatalf("raw Go block should be highlighted by injection, not Nomi semantic tokens; got %+v", tok)
-		}
-	}
-}
-
 func TestCollect_HoverOnlyKeywordMarkersDoNotEmitSemanticTokens(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 host type AssertionFailure

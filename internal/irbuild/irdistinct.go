@@ -59,6 +59,12 @@ func irWrappingDistinct(d *typeDef) bool {
 // as a distinct record over its inner value, which `ir.Make`'s MakeDistinct
 // builds and `ProjInner` reads, as for a scalar inner in a boxed position.
 func irCompositeDistinct(d *typeDef) bool {
+	return irCompositeDistinctIn(d, nil)
+}
+
+// irCompositeDistinctIn is irCompositeDistinct inside a walk that is already
+// deciding the types on outer, as irRetainedStructKindIn is for a struct.
+func irCompositeDistinctIn(d *typeDef, outer []*typeDef) bool {
 	if d == nil || !d.isDistinct || !d.lowerable || d.rtOpaque {
 		return false
 	}
@@ -66,15 +72,35 @@ func irCompositeDistinct(d *typeDef) bool {
 	if in.tag != tagTuple && in.tag != tagMap && in.tag != tagList && in.tag != tagFunc && in.tag != tagNamed {
 		return false
 	}
-	if irKindReaches(in, []*typeDef{d}) {
-		// `type Link Node` where Node holds a `Maybe<Link>`: the predicates
-		// below decide without a walk's stack, so asking them about an
-		// inner that reaches d back would re-enter this one without end.
-		return false
+	if deciding := append(outer[:len(outer):len(outer)], d); irKindReaches(in, deciding) {
+		// `type Link Node` where Node holds a `Maybe<Link>`: the inner is
+		// decided with the walk's stack, co-inductively, as a struct field
+		// that reaches its struct back is (irRecursiveFieldKind). The
+		// stack-less predicates below would re-enter this one without end.
+		return irRecursiveFieldKind(in, deciding)
 	}
 	return irRetainedTupleKind(in) || (in.tag == tagMap && in != kindEmptyMap && irRetainedMapKind(in)) ||
 		(in.tag == tagList && in != kindEmptyList && irRetainedValueKind(in)) ||
 		(in.tag == tagFunc && irCallableValueKind(in)) || irNominalInner(in)
+}
+
+// irDistinctCoinductive decides a distinct reached inside a walk: one the
+// walk is already deciding (on outer) is assumed retained, as
+// irNominalCoinductive assumes a struct or enum.
+func irDistinctCoinductive(k kind, outer []*typeDef) bool {
+	for _, o := range outer {
+		if o == k.def {
+			return true
+		}
+	}
+	return irWrappingDistinct(k.def) || irCompositeDistinctIn(k.def, outer)
+}
+
+// irEmbedsValueDistinct reports whether v is an `embeds` of a distinct over
+// a value, scalar (`type UserId Int`) or composite (`type Wrapped Circle`):
+// the variant is built from the inner value and its pattern binds it.
+func irEmbedsValueDistinct(v *variantDef) bool {
+	return v != nil && v.kind == "embedded" && v.embeds != nil && !v.embeds.rtOpaque && irDistinctOverValue(v.embeds)
 }
 
 // irNominalInner reports whether a distinct's inner is itself a declared

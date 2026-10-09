@@ -230,6 +230,13 @@ func (s *Server) publish(notify glsp.NotifyFunc, uri string) {
 // as its last lowering run found it (lowering.go). Neither part waits: what is
 // not cached yet is evaluated in the background, which publishes again.
 func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnapshot) {
+	if snap.StdDiffers {
+		notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
+			URI:         protocol.DocumentUri(snap.URI),
+			Diagnostics: []protocol.Diagnostic{stdDiffersDiagnostic()},
+		})
+		return
+	}
 	// An open document's tokens come from the server's cache, which inlay
 	// hints read too; a closed file's are lexed for this publish only.
 	var tokens func() []token.Token
@@ -251,6 +258,25 @@ func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnaps
 		URI:         protocol.DocumentUri(snap.URI),
 		Diagnostics: diags,
 	})
+}
+
+// stdDiffersDiagnostic is the one diagnostic of an open std file whose text
+// is not the std this server runs (analysis.Document.StdDiffers): another
+// version's file, or one edited in the editor. Its own analysis would judge
+// it against this server's std and report duplicate impls and missing names
+// that are no fault of the text, so the note replaces them. It sits on the
+// first line.
+func stdDiffersDiagnostic() protocol.Diagnostic {
+	severity := protocol.DiagnosticSeverityInformation
+	source := serverName
+	return protocol.Diagnostic{
+		Range:    protocol.Range{},
+		Severity: &severity,
+		Source:   &source,
+		Message: "This file differs from the std this language server runs, so it is not checked, " +
+			"and edits to it have no effect on other files. It may come from another Nomi version; " +
+			"restart the language server if Nomi was updated.",
+	}
 }
 
 // dbgWarningDiagnostics reports every `dbg` as a warning: the program checks,

@@ -471,7 +471,7 @@ func typeDecl(nodes []ast.Node, name string) ast.Node {
 func importedModules(nodes []ast.Node) []string {
 	var out []string
 	add := func(s *ast.ImportStmt) {
-		if s == nil || s.Extern || len(s.ModulePath) == 0 {
+		if s == nil || len(s.ModulePath) == 0 {
 			return
 		}
 		name := identName(s.ModulePath[0])

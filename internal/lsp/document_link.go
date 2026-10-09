@@ -57,7 +57,7 @@ func (s *Server) documentLinks(uri string, nodes []ast.Node) []protocol.Document
 // importLinkTarget is the URI of the file an import names and the number
 // of path segments that name it, or "".
 func (s *Server) importLinkTarget(imp *ast.ImportStmt, root, moduleName string) (string, int) {
-	if imp.Extern || len(imp.ModulePath) == 0 {
+	if len(imp.ModulePath) == 0 {
 		return "", 0
 	}
 	if ast.ImportNodeName(imp.ModulePath[0]) == "std" {
@@ -69,7 +69,7 @@ func (s *Server) importLinkTarget(imp *ast.ImportStmt, root, moduleName string) 
 		for i := len(imp.ModulePath) - 1; i >= 1; i-- {
 			if name := ast.ImportNodeName(imp.ModulePath[i]); name != "" {
 				if _, ok := s.std.Modules[name]; ok {
-					return s.std.FileURI(name), i + 1
+					return s.stdFileURI(name), i + 1
 				}
 			}
 		}

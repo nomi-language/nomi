@@ -141,6 +141,11 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 	if impl == nil || !impl.lowerable {
 		return nil
 	}
+	if impl.items[method] == nil {
+		// `Wrap.map(w, f)` over another file's `Wrap<Int>`: a member with
+		// its own type parameters, instantiated by the owner.
+		return bl.siblingMethodPlan(t, args, owner, impl, method)
+	}
 	it := impl.items[method]
 	if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) != len(t.Args) {
 		return nil
@@ -159,4 +164,87 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 	}
 	name := impl.recv.nomi() + "." + it.name
 	return &irQualPlan{token: it, name: name, result: result, sym: owner.irCalleeSym(it, name)}
+}
+
+// siblingMethodPlan resolves a call to a generic impl function another file
+// declares (`leaf.Box.ident(6)`, `Wrap.map(w, f)` over another file's
+// `Wrap<Int>`): block d of owner withheld it (implDef.withheldMember), so the
+// owner builds the instance, as siblingGenericInstance has it build a generic
+// `fn`. The call site reads the checker's instantiated signature in its own
+// kinds and hands them to the owner through importKind; the owner solves the
+// member's type parameters against its own annotations (methodInstance),
+// interns the instance in its own table and queues its body, which
+// irFlushLateInstances builds if the owner's walk is already done. The call
+// names the instance's symbol in the owner's table.
+func (bl *irScalarBuilder) siblingMethodPlan(t *ast.Call, args irQualArgs, owner *gen, d *implDef, method string) *irQualPlan {
+	g := bl.g
+	if owner == nil || owner == g || d == nil {
+		return nil
+	}
+	w, ok := d.withheldMember(method)
+	if !ok {
+		return nil
+	}
+	var there []kind
+	// kindInvalid: sentinel — a result the checker left open solves nothing.
+	result := kindInvalid
+	if len(w.tps) > 0 {
+		here, res, ok := g.checkedMonoCallKinds(t, len(w.params))
+		if !ok {
+			return nil
+		}
+		there = make([]kind, len(here))
+		for i, k := range here {
+			ik, ok := owner.importKind(k)
+			if !ok {
+				return nil
+			}
+			there[i] = ik
+		}
+		// kindInvalid: sentinel — checkedMonoCallKinds' open result.
+		if res != kindInvalid {
+			ik, ok := owner.importKind(res)
+			if !ok {
+				return nil
+			}
+			result = ik
+		}
+	}
+	it := owner.methodInstance(d, method, w, there, result)
+	if it == nil || !it.lowerable {
+		return nil
+	}
+	params := make([]kind, len(it.params))
+	for i, p := range it.params {
+		ip, ok := g.importKind(p)
+		if !ok {
+			return nil
+		}
+		params[i] = ip
+	}
+	res, ok := g.importKind(it.result)
+	if !ok {
+		return nil
+	}
+	var filled *irQualArgs
+	if args.ok && len(args.temps) < len(params) {
+		// `Box.pad("p")` omitting a parameter the declaring file defaults,
+		// filled as qualSiblingIfaceImplPlan fills a monomorphic member's.
+		if namedArgNode(t.Args) != nil {
+			return nil
+		}
+		f := &fileFunc{name: method, params0: w.params, defaults: true}
+		full, ok := bl.siblingDefaultArgs(t, args, f, params, owner)
+		if !ok {
+			return nil
+		}
+		filled = &full
+		args = full
+		t = &ast.Call{Func: t.Func, Args: make([]ast.Node, len(full.temps)), Line: t.Line, Col: t.Col}
+	}
+	if !bl.qualSignature(t, args, params, res) {
+		return nil
+	}
+	name := d.recv.nomi() + "." + it.name
+	return &irQualPlan{token: it, name: name, result: res, args: filled, sym: owner.irCalleeSym(it, name)}
 }

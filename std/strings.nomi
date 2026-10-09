@@ -33,7 +33,7 @@ impl String {
     //!
     //! assert String.contains?("hello world", "world")
     //! refute String.contains?("hello", "xyz")
-    //! assert String.contains?("order 66", try Regex`\d+`)
+    //! assert String.contains?("order 66", Regex`\d+`)
     //
     pub fn contains?<M>(s: String, needle: M): Bool where M: Matcher {
         M.contained_in?(needle, s)
@@ -44,8 +44,8 @@ impl String {
     //! import std/regex.Regex
     //!
     //! assert String.starts_with?("hello", "he")
-    //! assert String.starts_with?("42 apples", try Regex`\d+`)
-    //! refute String.starts_with?("apples 42", try Regex`\d+`)
+    //! assert String.starts_with?("42 apples", Regex`\d+`)
+    //! refute String.starts_with?("apples 42", Regex`\d+`)
     //
     pub fn starts_with?<M>(s: String, prefix: M): Bool where M: Matcher {
         M.prefix_of?(prefix, s)
@@ -56,7 +56,7 @@ impl String {
     //! import std/regex.Regex
     //!
     //! assert String.ends_with?("hello.txt", ".txt")
-    //! assert String.ends_with?("report.PDF", try Regex`(?i)\.pdf`)
+    //! assert String.ends_with?("report.PDF", Regex`(?i)\.pdf`)
     //
     pub fn ends_with?<M>(s: String, suffix: M): Bool where M: Matcher {
         M.suffix_of?(suffix, s)
@@ -78,8 +78,8 @@ impl String {
     //! import std/regex.Regex
     //!
     //! assert String.replace("a.b.c", ".", "-") == "a-b-c"
-    //! assert String.replace("call 555-0100", try Regex`\d`, "#") == "call ###-####"
-    //! assert String.replace("a1b", try Regex`\d`, "$1") == "a$1b"
+    //! assert String.replace("call 555-0100", Regex`\d`, "#") == "call ###-####"
+    //! assert String.replace("a1b", Regex`\d`, "$1") == "a$1b"
     //
     pub fn replace<M>(s: String, old: M, new: String): String where M: Matcher {
         M.replace_in(old, s, new)
@@ -134,8 +134,8 @@ impl String {
     //! assert String.split("a, b, c", ", ") == ["a", "b", "c"]
     //! assert String.split(",a,", ",") == ["", "a", ""]
     //! assert String.split("hello", "") == ["h", "e", "l", "l", "o"]
-    //! assert String.split("a, b,c", try Regex`,\s*`) == ["a", "b", "c"]
-    //! assert "one  two\tthree" |> String.split(try Regex`\s+`) == ["one", "two", "three"]
+    //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
+    //! assert "one  two\tthree" |> String.split(Regex`\s+`) == ["one", "two", "three"]
     //
     pub fn split<M>(s: String, separator: M): List<String> where M: Matcher {
         M.split_in(separator, s)
@@ -146,7 +146,7 @@ impl String {
     /// the number of occurrences.
     //! import std/regex.Regex
     //!
-    //! assert String.find_all("order 66, aisle 7", try Regex`\d+`) == ["66", "7"]
+    //! assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
     //! assert String.find_all("banana", "an") == ["an", "an"]
     //! assert String.find_all("banana", "x") == []
     //
@@ -220,7 +220,7 @@ impl String {
     //! assert String.strip_prefix("hello", "xyz") == None
     //
     pub fn strip_prefix(s: String, prefix: String): Maybe<String> {
-        if Matcher.prefix_of?(prefix, s) {
+        if starts_with?(s, prefix) {
             new_start = length(prefix)
 
             slice(s, new_start, length(s)) |> Some()
@@ -235,7 +235,7 @@ impl String {
     //! assert String.strip_suffix("hello", "xyz") == None
     //
     pub fn strip_suffix(s: String, suffix: String): Maybe<String> {
-        if Matcher.suffix_of?(suffix, s) {
+        if ends_with?(s, suffix) {
             new_end = length(s) - length(suffix)
 
             slice(s, 0, new_end) |> Some()

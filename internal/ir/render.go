@@ -106,9 +106,14 @@ type Render struct {
 
 // DebugImpl names the Debug implementation a Debug rendering calls for values
 // of one nominal type nested in its operand. Type is the type's runtime
-// identity, the name construction stamps on its values.
+// identity, the name construction stamps on its values. Inst is the
+// instance's ValType.InstanceKey for a generic type and empty otherwise: two
+// instances of one generic type (`Box<Bool>`, `Box<String>`) share Type, and
+// each value's descriptor carries the key its construction's type gave it, so
+// the consumer selects the body by both.
 type DebugImpl struct {
 	Type string
+	Inst string
 	Fn   *Symbol
 }
 

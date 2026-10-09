@@ -42,6 +42,26 @@ collapse the layout just made. The preserved shape is local; it does not force
 the surrounding constructs (parameter lists, call argument lists, struct
 literals containing it) to break.
 
+## Formatter: comments with no slot
+
+The parser keeps most comments as trivia on the construct they sit in: a
+statement's leading and trailing comments, the comments before a closing
+`}` (`EndTrivia`), a struct field's leading comments, and so on. A comment
+anywhere else, such as after a parameter list's `(`, after a `with`
+statement's `=` or after a tuple's last element, has no slot of its own.
+`parser.ParseFile` gives each such comment to the node nearest it
+(`attachDangling`): inside the innermost node whose extent contains the
+comment, it goes after the last node that ends before the comment
+(`DanglingAfter`), else before the first node that starts after it
+(`DanglingBefore`). The formatter writes a comment before a node on the line
+above it when the node starts a line, and otherwise at the end of the line
+(a `LineSuffix` document, written just before the next line break). A
+comment after a node goes at the end of the line the node ends on. A comment
+that cannot end its line, because the line already ends in a comment or in
+an opening bracket, goes on a line of its own above the next line of code.
+So `fn f( // why` becomes `fn f(...) {` with `// why` as the body's first
+line, and `t = (1, 2 // why` becomes `t = (1, 2) // why`.
+
 ## Iteration callbacks
 
 The closed set of functions whose callbacks accept `break` and `continue` is

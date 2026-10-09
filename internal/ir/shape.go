@@ -398,7 +398,7 @@ func lintOperandShapes(f *Func, vs *[]Violation) {
 			case *Proj:
 				want := ValUnknown
 				switch n.Kind() {
-				case ProjField, ProjRecordField, ProjIfaceField:
+				case ProjField, ProjRecordField:
 					want = ValStruct
 				case ProjSlot:
 					want = ValTuple

@@ -303,6 +303,27 @@ func (g *gen) checkedCallSignature(t *ast.Call) *analysis.FuncType {
 	return ft
 }
 
+// checkedArgSignature is a signature for a call the builder synthesized,
+// which the checker recorded none for: the checker's type of each argument,
+// with no result. `"${c}"` lowers to `Display.to_string(c)` with c's own
+// node as the argument, so a hole in c's type (`Result<Int, ?E>` for
+// `c = Ok(3)`) is still the checker's and irCheckerHoles finds it. nil when
+// an argument has no recorded type.
+func (g *gen) checkedArgSignature(t *ast.Call) *analysis.FuncType {
+	if g.fa == nil || len(t.Args) == 0 {
+		return nil
+	}
+	params := make([]analysis.Type, len(t.Args))
+	for i, a := range t.Args {
+		ty, ok := g.fa.ExprTypes[a]
+		if !ok || ty == nil {
+			return nil
+		}
+		params[i] = ty
+	}
+	return &analysis.FuncType{Params: params}
+}
+
 // checkedMonoTypeArgs reads a fully concrete retained signature from the
 // checker. It evaluates no argument expression. Other signatures, including
 // bounds whose result is still unresolved, answer false.

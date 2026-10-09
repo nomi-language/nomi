@@ -410,7 +410,7 @@ func replDeclOf(n ast.Node, text string) (*replDecl, bool) {
 		d.key = "impl " + header
 	case *ast.ImportStmt, *ast.ImportBlock:
 		d.key, d.isImport = "import "+flat, true
-	case *ast.GoBlock, *ast.ExternPackage, *ast.TestDecl, *ast.Decorator:
+	case *ast.ExternPackage, *ast.TestDecl, *ast.Decorator:
 		d.key = "text " + flat
 	default:
 		return nil, false
@@ -529,6 +529,8 @@ func replPatternNames(p ast.Node) []string {
 	switch q := p.(type) {
 	case *ast.IdentPattern:
 		names = append(names, q.Name)
+	case *ast.AsPattern:
+		names = append(replPatternNames(q.Pattern), q.Name)
 	case *ast.EnumPattern:
 		if q.Binding != "" {
 			names = append(names, q.Binding)

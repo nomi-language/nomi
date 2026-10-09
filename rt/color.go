@@ -73,6 +73,10 @@ func Red(s string) string   { return Color(ansiBold+ansiRed, s) }
 func Green(s string) string { return Color(ansiGreen, s) }
 func Dim(s string) string   { return Color(ansiDim, s) }
 
+// diffRed is a string diff's `-` line: red without Red's bold, so a long run
+// of removed lines does not outweigh the added ones.
+func diffRed(s string) string { return Color(ansiRed, s) }
+
 func DimFor(w io.Writer, s string) string  { return ColorFor(w, ansiDim, s) }
 func CyanFor(w io.Writer, s string) string { return ColorFor(w, ansiCyan, s) }
 func RedFor(w io.Writer, s string) string  { return ColorFor(w, ansiBold+ansiRed, s) }

@@ -8,8 +8,8 @@ import "testing"
 // std's retained compare with a negative zero (rt.NegFloat), Bool, String and
 // List ordering operators, distincts over a tuple, a map and a function, an
 // interface default with a defaulted parameter called through an existential
-// and read through a `field` requirement, Float literal patterns and Decimal
-// set elements.
+// beside a required function read through it, Float literal patterns and
+// Decimal set elements.
 func TestIRBacklogCorpus_MixedShapesRunOnTheVM(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
@@ -20,9 +20,9 @@ type Kvs Map<String, Int>
 type Callback (String) -> String
 
 interface Named {
-  field name: String
+  fn name(value: self): String
   fn greet(value: self, loud: Bool = False): String {
-    if loud { "HI " + value.name } else { "hi " + value.name }
+    if loud { "HI " + name(value) } else { "hi " + name(value) }
   }
 }
 
@@ -30,10 +30,12 @@ struct Dog {
   name: String
 }
 
-impl Named for Dog {}
+impl Named for Dog {
+  fn name(dog: Dog): String { dog.name }
+}
 
 fn say(n: Named): String {
-  Named.greet(n) + "/" + n.name
+  Named.greet(n) + "/" + Named.name(n)
 }
 
 fn pick(a: Bool, b: Bool): String {

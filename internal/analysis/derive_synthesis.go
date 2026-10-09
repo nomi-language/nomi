@@ -646,7 +646,7 @@ func existingDerivedImpls(nodes []ast.Node) priorDeriveImpls {
 }
 
 // firstFuncDefItem returns the first `fn` item in an impl block, or nil for an
-// bodyless / field-only impl. Used to point a collision diagnostic at a manual
+// bodyless impl. Used to point a collision diagnostic at a manual
 // impl method when one exists.
 func firstFuncDefItem(ib *ast.ImplBlock) *ast.FuncDef {
 	if ib == nil {
@@ -1715,6 +1715,10 @@ func (s *uniquifyState) node(n ast.Node) {
 		e.Line, e.Col = s.bump()
 	case *ast.IdentPattern:
 		e.Line, e.Col = s.bump()
+	case *ast.AsPattern:
+		e.Line, e.Col = s.bump()
+		s.node(e.Pattern)
+		e.NameLine, e.NameCol = s.bump()
 	case *ast.EnumPattern:
 		e.Line, e.Col = s.bump()
 		if e.Binding != "" {

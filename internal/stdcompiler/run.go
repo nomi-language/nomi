@@ -44,6 +44,7 @@ func RunFrontEnd(source, root string, virtualFiles map[string]string) ([]ast.Nod
 		Loader(virtualFiles),
 		nil,
 		"",
+		false,
 	)
 	var errs []analysis.TypeError
 	errs = append(errs, fa.TypeErrors...)

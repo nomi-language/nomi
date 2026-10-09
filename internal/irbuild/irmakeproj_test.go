@@ -34,7 +34,6 @@ func TestProj_FaultsIsTheOnlyPredicateAndItDiscriminates(t *testing.T) {
 		ir.NewProjRecordField(at, 1, 2, "x", ir.ValUnknown),
 		ir.NewProjSlot(at, 1, 2, 0, ir.ValUnknown),
 		ir.NewProjPayload(at, 1, 2, sym, "Circle", 0, ir.ValUnknown),
-		ir.NewProjIfaceField(at, 1, 2, sym, "size", ir.ValUnknown),
 		ir.NewProjInner(at, 1, 2, sym, ir.ValUnknown),
 	} {
 		if p.Faults() {

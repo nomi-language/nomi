@@ -103,11 +103,27 @@ func fieldsKey(specs []rt.FieldSpec) string {
 
 // structDesc is the descriptor of a named struct with these fields, in order.
 func structDesc(name string, fields []rt.FieldSpec) *rt.TypeDesc {
-	return internDesc("S|"+name+"|"+fieldsKey(fields), func() *rt.TypeDesc { return rt.NewStructDesc(name, fields) })
+	return instStructDesc(name, "", fields)
+}
+
+// instStructDesc is structDesc for one instance of a generic struct: inst is
+// the instance's ir.ValType.InstanceKey, empty for a non-generic struct.
+func instStructDesc(name, inst string, fields []rt.FieldSpec) *rt.TypeDesc {
+	return internDesc("S|"+name+"|"+inst+"|"+fieldsKey(fields), func() *rt.TypeDesc {
+		d := rt.NewStructDesc(name, fields)
+		d.Inst = inst
+		return d
+	})
 }
 
 // enumDesc is the descriptor of an enum with these variants, in tag order.
 func enumDesc(name string, variants []rt.VariantSpec) *rt.TypeDesc {
+	return instEnumDesc(name, "", variants)
+}
+
+// instEnumDesc is enumDesc for one instance of a generic enum, as
+// instStructDesc is for a struct.
+func instEnumDesc(name, inst string, variants []rt.VariantSpec) *rt.TypeDesc {
 	var b strings.Builder
 	for _, v := range variants {
 		b.WriteString(v.Name)
@@ -117,7 +133,11 @@ func enumDesc(name string, variants []rt.VariantSpec) *rt.TypeDesc {
 		b.WriteString(fieldsKey(v.Fields))
 		b.WriteByte(';')
 	}
-	return internDesc("E|"+name+"|"+b.String(), func() *rt.TypeDesc { return rt.NewEnumDesc(name, variants) })
+	return internDesc("E|"+name+"|"+inst+"|"+b.String(), func() *rt.TypeDesc {
+		d := rt.NewEnumDesc(name, variants)
+		d.Inst = inst
+		return d
+	})
 }
 
 // distinctDesc is the descriptor of a distinct type over one value of slot
@@ -198,7 +218,7 @@ func buildDescOfType(t *ir.ValType) *rt.TypeDesc {
 		for i, f := range l.Fields {
 			specs[i] = rt.FieldSpec{Name: f.Name, Type: slotOf(f.Type)}
 		}
-		return structDesc(t.Sym().Name(), specs)
+		return instStructDesc(t.Sym().Name(), t.InstanceKey(), specs)
 	case ir.KindEnum:
 		l := t.Layout()
 		if l == nil || t.Sym() == nil {
@@ -227,7 +247,7 @@ func buildDescOfType(t *ir.ValType) *rt.TypeDesc {
 			}
 			variants[i] = spec
 		}
-		return enumDesc(t.Sym().Name(), variants)
+		return instEnumDesc(t.Sym().Name(), t.InstanceKey(), variants)
 	case ir.KindDistinct:
 		if t.Sym() == nil {
 			return nil
@@ -447,6 +467,14 @@ func boxWord(w uint64, ty *ir.ValType) any {
 			r.W[0] = w
 			return r
 		}
+		// A distinct over a distinct over a word (`type Wrapped Meters`):
+		// the register holds the innermost word, and the record holds the
+		// inner distinct boxed, as unboxWord reads it.
+		if d := descOfType(ty); d != nil && len(d.Fields) == 1 && d.NR == 1 && ty.Elem(0).Kind() == ir.KindDistinct {
+			r := d.New()
+			r.R[0] = boxWord(w, ty.Elem(0))
+			return r
+		}
 	}
 	panic("vm: a word register holds a " + ty.String())
 }
@@ -483,6 +511,12 @@ func boxStr(s string, ty *ir.ValType) any {
 		if d := descOfType(ty); d != nil && len(d.Fields) == 1 && d.NS == 1 {
 			r := d.New()
 			r.S[0] = s
+			return r
+		}
+		// A distinct over a distinct over a string, as in boxWord.
+		if d := descOfType(ty); d != nil && len(d.Fields) == 1 && d.NR == 1 && ty.Elem(0).Kind() == ir.KindDistinct {
+			r := d.New()
+			r.R[0] = boxStr(s, ty.Elem(0))
 			return r
 		}
 	}

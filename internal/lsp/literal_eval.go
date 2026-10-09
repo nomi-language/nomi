@@ -23,9 +23,12 @@ import (
 //
 // A typed literal with no `${...}` is a constant: `Date"2026-13-04"` is the
 // same Err every time the program reaches it. The language server evaluates
-// each such literal's handler while the user edits, reports the ones whose
-// handler answers Err, and shows the value of the others on hover. Run time
-// is unchanged: the literal still evaluates to its Err when the program runs.
+// each such literal's handler while the user edits, reports the double-quoted
+// ones whose handler answers Err, and shows the value of the others on hover.
+// Run time is unchanged: the literal still evaluates to its Err when the
+// program runs. A backtick literal whose handler can fail is checked at
+// compile time instead (vmhost's checkLiterals), and its failure is one of
+// the lowering diagnostics (lowering.go), so it is only shown here.
 //
 // It runs on the engine, not beside it. The open buffer is loaded as its file
 // (vmhost.LoadFileSource) with one probe function per literal appended:
@@ -269,6 +272,15 @@ func literalHandler(fa *analysis.FileAnalysis, tok token.Token, text string) (st
 		key:  home + "." + tok.Tag + "\x00" + text,
 		std:  strings.HasPrefix(home, "std/"),
 		typ:  ft.Return.String(),
+	}
+	raw := tok.Type == token.RAW_TAGGED_STRING_LITERAL || tok.Type == token.RAW_TAGGED_TRIPLE_STRING_LITERAL
+	if ok, _ := analysis.RawLiteralType(raw, ft.Return); ok != nil {
+		// A backtick literal checked at compile time is its handler's Ok
+		// payload: the lowering check reports one that fails
+		// (loweringDiagnostics), and a buffer holding an invalid one does not
+		// load, so its probes are skipped.
+		lit.typ = ok.String()
+		return lit, true
 	}
 	if et, ok := analysis.ResolveTypeVar(ft.Return).(*analysis.EnumType); ok && et.Name == "Result" && len(et.TypeArgs) == 2 {
 		lit.result = true

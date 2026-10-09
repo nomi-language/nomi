@@ -50,28 +50,43 @@ func NewOnceTable() *OnceTable {
 
 // Index records every module-level `once` of one file.
 func (t *OnceTable) Index(fa *FileAnalysis, nodes []ast.Node) {
-	add := func(items []ast.Node, owner string) {
-		for _, item := range items {
-			if n, ok := item.(*ast.OnceBinding); ok {
-				t.sites[n] = onceSite{fa: fa, nodes: nodes, owner: owner}
-			}
-		}
-	}
-	add(nodes, "")
 	for _, node := range nodes {
-		switch n := node.(type) {
-		case *ast.StructDef:
-			add(n.Items, "")
-		case *ast.EnumDef:
-			add(n.Items, "")
-		case *ast.TypeDef:
-			add(n.Items, "")
-		case *ast.ExternType:
-			add(n.Items, "")
-		case *ast.ImplBlock:
-			add(n.Items, TypeExprBaseName(n.Receiver))
+		owner := ""
+		if impl, ok := node.(*ast.ImplBlock); ok {
+			owner = TypeExprBaseName(impl.Receiver)
+		}
+		for _, n := range moduleOnces(node) {
+			t.sites[n] = onceSite{fa: fa, nodes: nodes, owner: owner}
 		}
 	}
+}
+
+// moduleOnces answers the module-level `once` bindings one top-level node
+// holds: the node itself, or those among a type's namespace items or an impl
+// block's items.
+func moduleOnces(node ast.Node) []*ast.OnceBinding {
+	var items []ast.Node
+	switch n := node.(type) {
+	case *ast.OnceBinding:
+		return []*ast.OnceBinding{n}
+	case *ast.StructDef:
+		items = n.Items
+	case *ast.EnumDef:
+		items = n.Items
+	case *ast.TypeDef:
+		items = n.Items
+	case *ast.ExternType:
+		items = n.Items
+	case *ast.ImplBlock:
+		items = n.Items
+	}
+	var out []*ast.OnceBinding
+	for _, item := range items {
+		if n, ok := item.(*ast.OnceBinding); ok {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // ensureOnceType gives a module-level unannotated `once` its type before a

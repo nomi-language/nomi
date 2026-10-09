@@ -132,7 +132,7 @@ func coveredVariants(c *ast.Case, skip int) (map[string]bool, bool) {
 		if i == skip {
 			continue
 		}
-		switch p := b.Pattern.(type) {
+		switch p := ast.WithoutAs(b.Pattern).(type) {
 		case *ast.WildcardPattern:
 			if b.Guard == nil {
 				return covered, true

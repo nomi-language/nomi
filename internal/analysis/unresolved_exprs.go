@@ -118,6 +118,8 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 				w.notValue[st.Expr] = true
 			case *ast.Then:
 				w.notValue[st.Lambda] = true
+			case *ast.Tap:
+				w.notValue[st.Lambda] = true
 			case *ast.If:
 				w.notValue[st.Cond] = true
 			}
@@ -299,7 +301,7 @@ func isValueExpr(n ast.Node) bool {
 		*ast.StringInterp, *ast.TaggedString, *ast.ListLit, *ast.VectorLit, *ast.SetLit,
 		*ast.ListSpreadLit, *ast.MapLit, *ast.TupleLit, *ast.Ident, *ast.TypeIdent, *ast.Unary,
 		*ast.Binary, *ast.GroupedExpr, *ast.If, *ast.Call, *ast.DotVariant,
-		*ast.FieldAccess, *ast.StructLit, *ast.RangeLit, *ast.Lambda, *ast.TryOp, *ast.Then,
+		*ast.FieldAccess, *ast.StructLit, *ast.RangeLit, *ast.Lambda, *ast.TryOp, *ast.Then, *ast.Tap,
 		*ast.Case, *ast.ConcurrentBlock, *ast.Dbg, *ast.Return, *ast.Break, *ast.Continue:
 		return true
 	}

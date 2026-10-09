@@ -80,6 +80,62 @@ fn main() {
 `,
 		want: "3\n20\nn=1\n6\n1\n",
 	},
+	{
+		// An unannotated `once` whose block declares a `fn`, at the top
+		// of a file and in an impl block: the nested fn's signature is
+		// built, so the call and the `once` have a type.
+		name: "unannotated once declaring a nested fn",
+		src: `import std/io
+
+once g = {
+    fn h(x: Int): Int {
+        x + 1
+    }
+    h(4)
+}
+
+struct Box {
+    v: Int
+}
+
+impl Box {
+    once start = {
+        fn double(x: Int): Int {
+            x * 2
+        }
+        double(21)
+    }
+}
+
+fn main() {
+    io.inspect(g)
+    io.inspect(Box.start)
+}
+`,
+		want: "5\n42\n",
+	},
+	{
+		// A Result whose error type nothing fixes (a `concurrent` block
+		// whose only `try` is on `Ok(3)`, or `Ok(4)` alone) keeps it open,
+		// and interpolating it renders through Result's Display instance
+		// with the open E as a hole: the Err arm's dispatch on E is
+		// unreachable, as it is for an explicit `Display.to_string(c)`.
+		name: "interpolated result with an open error type",
+		src: `import std/io
+
+fn main() {
+    c = concurrent {
+        v = try Ok(3)
+        Ok(v)
+    }
+    io.print("${c}")
+    d = Ok(4)
+    io.print("d=${d}")
+    io.print(Display.to_string(d))
+}
+`,
+		want: "Ok(3)\nd=Ok(4)\nOk(4)\n",
+	},
 }
 
 func TestCheckerFixes_TypedAndRun(t *testing.T) {

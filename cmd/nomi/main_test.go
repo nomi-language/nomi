@@ -248,47 +248,6 @@ fn main() {
 	}
 }
 
-func TestRunFile_InlineGoCompileErrorPointsAtNomiSource(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration; -short")
-	}
-	cacheRoot := t.TempDir()
-	root := t.TempDir()
-	nomiRoot := repoRoot(t)
-	mustWrite(t, filepath.Join(root, "go.mod"), fmt.Sprintf(`module badinline
-
-go 1.26.3
-
-require github.com/nomi-language/nomi v0.0.0
-
-replace github.com/nomi-language/nomi => %s
-`, nomiRoot))
-	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `gopkg "strconv"
-
-fn bad(n: Int): Int go {
-  return strconv.Itoa(int(n))
-}
-
-fn main() {
-  bad(1)
-}
-`)
-	out, err := runNomi(t, cacheRoot, "run", entry)
-	if err == nil {
-		t.Fatalf("expected inline Go compile failure, got success:\n%s", out)
-	}
-	wantLoc := "main.nomi:4:"
-	for _, want := range []string{wantLoc, "cannot use strconv.Itoa"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("expected inline Go diagnostic to contain %q, got:\n%s", want, out)
-		}
-	}
-	if strings.Contains(out, "main.go:") && !strings.Contains(out, wantLoc) {
-		t.Fatalf("expected diagnostic to prefer Nomi source location, got:\n%s", out)
-	}
-}
-
 func TestRunFile_FFIWrapperCompileErrorPointsAtNomiSelector(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -976,20 +935,20 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 		"  std/regex.Regex\n"+
 		"}\n\n"+
 		"test \"regex literals compile and match\" {\n"+
-		"  digits = try Regex`\\d+`\n"+
+		"  digits = Regex`\\d+`\n"+
 		"  assert Regex.pattern(digits) == `\\d+`\n"+
-		"  assert Regex.match?(digits, \"room 42\")\n"+
-		"  refute Regex.match?(digits, \"room\")\n"+
+		"  assert String.contains?(\"room 42\", digits)\n"+
+		"  refute String.contains?(\"room\", digits)\n"+
 		"}\n\n"+
 		"test \"regex search helpers return Nomi shapes\" {\n"+
-		"  digits = try Regex`\\d+`\n"+
+		"  digits = Regex`\\d+`\n"+
 		"  assert Regex.find(digits, \"a12b34\") == Some(\"12\")\n"+
 		"  assert Regex.find(digits, \"abc\") == None\n"+
-		"  assert Regex.find_all(digits, \"a12b34\") == [\"12\", \"34\"]\n"+
+		"  assert String.find_all(\"a12b34\", digits) == [\"12\", \"34\"]\n"+
 		"  assert Regex.replace_all(digits, \"a12b34\", \"#\") == \"a#b#\"\n"+
 		"}\n\n"+
-		"test \"invalid regex literals return Err\" {\n"+
-		"  assert Err(_msg) = Regex`[`\n"+
+		"test \"invalid double-quoted regex literals return Err\" {\n"+
+		"  assert Err(_msg) = Regex\"[\"\n"+
 		"}\n")
 	out, err := runNomi(t, cacheRoot, "test", testPath)
 	if err != nil {
@@ -998,7 +957,7 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 	for _, want := range []string{
 		"regex literals compile and match",
 		"regex search helpers return Nomi shapes",
-		"invalid regex literals return Err",
+		"invalid double-quoted regex literals return Err",
 		"3 passed, 0 failed",
 	} {
 		if !strings.Contains(out, want) {
@@ -1012,7 +971,7 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 		"  std/regex.Regex\n"+
 		"}\n\n"+
 		"fn main(): Result<Unit, String> {\n"+
-		"  digits = try Regex`\\d+`\n"+
+		"  digits = Regex`\\d+`\n"+
 		"  io.inspect(digits)\n"+
 		"  Ok(Unit)\n"+
 		"}\n")
@@ -1022,6 +981,23 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 	}
 	if !strings.Contains(out, "Regex`\\d+`") {
 		t.Fatalf("expected regex Debug output, got:\n%s", out)
+	}
+
+	// An invalid backtick pattern is a compile error, from `nomi check` and
+	// from `nomi test` alike.
+	badPath := filepath.Join(dir, "bad_test.nomi")
+	mustWrite(t, badPath, "import std/regex.Regex\n\n"+
+		"test \"an invalid backtick literal does not compile\" {\n"+
+		"  assert String.contains?(\"[\", Regex`[`)\n"+
+		"}\n")
+	for _, cmd := range []string{"check", "test"} {
+		out, err = runNomi(t, cacheRoot, cmd, badPath)
+		if err == nil {
+			t.Fatalf("nomi %s admits an invalid backtick regex:\n%s", cmd, out)
+		}
+		if want := "bad_test.nomi:4:32"; !strings.Contains(out, want) || !strings.Contains(out, "typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[`") {
+			t.Fatalf("nomi %s: expected the literal's error at %s, got:\n%s", cmd, want, out)
+		}
 	}
 }
 
@@ -1223,6 +1199,121 @@ func TestTestCommand_FailureExitsNonZero(t *testing.T) {
 	}
 	if !strings.Contains(out, "0 passed, 1 failed") {
 		t.Fatalf("expected failing summary, got:\n%s", out)
+	}
+}
+
+// TestTestCommand_MultiLineStringFailureIsALineDiff: a failed `==` over two
+// multi-line Strings reports a line diff, expected (the right operand) as `-`
+// and actual (the left) as `+`, in place of the two operands' rows, and the
+// `"""` literal is not printed a second time.
+func TestTestCommand_MultiLineStringFailureIsALineDiff(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	cacheRoot := t.TempDir()
+	dir := t.TempDir()
+	testPath := filepath.Join(dir, "bank_test.nomi")
+	mustWrite(t, testPath, `fn transcript(): String {
+    "balance?\nYour balance is 500\n\ndeposited 25\nnew balance 525\nbye  \n"
+}
+
+test "deposit" {
+    output = transcript()
+    assert output == """
+        balance?
+        Your balance: 500
+
+        deposited 25
+        new balance 525
+        bye
+        """
+}
+`)
+	out, err := runNomi(t, cacheRoot, "test", dir)
+	if err == nil {
+		t.Fatalf("expected nomi test to fail, output:\n%s", out)
+	}
+	want := `  line 7: assertion failed
+    assert output == """
+        balance?
+        Your balance: 500
+
+        deposited 25
+        new balance 525
+        bye
+        """
+    diff (- expected """ ... """, + actual output):
+        balance?
+      - Your balance: 500
+      + Your balance is 500
+
+        deposited 25
+        new balance 525
+      - bye
+      \ no newline at end
+      + bye  $
+      ($ ends a line that ends in whitespace)
+test result: FAILED. 0 passed, 1 failed
+`
+	if !strings.HasSuffix(out, want) {
+		t.Fatalf("got:\n%s\nwant it to end with:\n%s", out, want)
+	}
+}
+
+// TestTestCommand_LiteralOperandRowsAndDiffBounds: a literal operand's row is
+// dropped, since the assertion line shows it, while a name bound to a
+// constant keeps its row; a comparison that is only part of the subject, a
+// `refute`, and two one-line Strings keep their rows and show no diff.
+func TestTestCommand_LiteralOperandRowsAndDiffBounds(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	cacheRoot := t.TempDir()
+	dir := t.TempDir()
+	testPath := filepath.Join(dir, "rows_test.nomi")
+	mustWrite(t, testPath, `test "literal" {
+    n = 999
+    assert n == 1_000
+}
+
+test "bound constant" {
+    n = 999
+    limit = 1_000
+    assert n == limit
+}
+
+test "part of the subject" {
+    out = "a\nb"
+    assert out == "a\nc" and True
+}
+
+test "refute" {
+    out = "a\nb"
+    refute out == "a\nb"
+}
+
+test "one line" {
+    out = "abc "
+    assert out == "abc"
+}
+`)
+	out, err := runNomi(t, cacheRoot, "test", dir)
+	if err == nil {
+		t.Fatalf("expected nomi test to fail, output:\n%s", out)
+	}
+	for _, want := range []string{
+		"    assert n == 1_000\n    values:\n      n\n        = 999\nFAIL ",
+		"    assert n == limit\n    values:\n      n\n        = 999\n      limit\n        = 1000\nFAIL ",
+		"    assert out == \"a\\nc\" and True\n    values:\n      out\n        = \"a\nb\"\n      out == \"a\\nc\"\n        = False\nFAIL ",
+		"    refute out == \"a\\nb\"\n    values:\n      out\n        = \"a\nb\"\nFAIL ",
+		"    assert out == \"abc\"\n    values:\n      out\n        = \"abc \"\ntest result:",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the report does not contain\n%s\ngot:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "diff (") {
+		t.Errorf("none of these failures is a diff:\n%s", out)
 	}
 }
 

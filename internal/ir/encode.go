@@ -46,7 +46,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 10
+const FormatVersion = 12
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -796,6 +796,7 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		w.slen(len(n.impls), n.impls == nil)
 		for _, d := range n.impls {
 			w.uv(e.str(d.Type))
+			w.uv(e.str(d.Inst))
 			w.uv(e.sym(d.Fn))
 		}
 	case *Try:

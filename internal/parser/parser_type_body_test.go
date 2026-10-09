@@ -635,15 +635,11 @@ func TestParseTypeDef_BareFieldBodyStillRejected(t *testing.T) {
 }
 
 // Doc comments inside an interface body land on the right member: contract
-// members (required fn, open default, host-backed default, field requirement)
-// carry them on the InterfaceMethod.Doc / InterfaceField.Doc slots. Before the
-// slots existed the parser consumed these docs without attaching them — `nomi
-// fmt -w` then deleted them.
+// members (required fn, open default, host-backed default) carry them on the
+// InterfaceMethod.Doc slot. Before the slot existed the parser consumed these
+// docs without attaching them — `nomi fmt -w` then deleted them.
 func TestParseInterfaceDef_DocCommentsOnMembers(t *testing.T) {
 	src := `interface Speech {
-  /// The speaker's name.
-  field name: String
-
   /// The required noise.
   fn speak(s: self): String
 
@@ -657,9 +653,6 @@ func TestParseInterfaceDef_DocCommentsOnMembers(t *testing.T) {
 	id, ok := nodes[0].(*ast.InterfaceDef)
 	if !ok {
 		t.Fatalf("expected *ast.InterfaceDef, got %T", nodes[0])
-	}
-	if len(id.Fields) != 1 || !strings.Contains(id.Fields[0].Doc, "The speaker's name") {
-		t.Errorf("expected doc on field requirement, got %#v", id.Fields)
 	}
 	if len(id.Methods) != 3 {
 		t.Fatalf("expected 3 contract methods, got %d", len(id.Methods))

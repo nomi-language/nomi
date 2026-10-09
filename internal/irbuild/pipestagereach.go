@@ -37,10 +37,13 @@ import "github.com/nomi-language/nomi/internal/ast"
 //   - a `testing.check(x)` argument (stdcheck.go)
 //   - an *ast.PatternDestructure's value (patternassert.go)
 //
-// `testing.check` is matched on its SPELLING — qualifier literally `testing` —
-// which is stdcheck.go's own gate. An aliased or selectively-imported spelling
-// is refused there rather than lowered, so a name that reaches only that
-// spelling has no reader either way.
+// `testing.check` is matched on its SPELLING: the qualifier literally
+// `testing`, or the bare name `check` a selective import binds. The bare
+// match is wider than the reader (a user `check` matches too), and recording
+// a stage nobody reads costs rows, not meaning. An aliased selective import
+// (`import std/testing.{check as verify}`) is not matched, so a pipe-bound
+// name it checks has no recorded stages and its check declines
+// (assertDefinedAs) rather than printing a wrong row.
 
 // assertsBareName reports whether n, anywhere inside it, names `name` as the
 // bare subject of an assertion, a `testing.check` or a pattern assertion.
@@ -79,8 +82,12 @@ func isBareName(n ast.Node, name string) bool {
 	return ok && ident.Name == name
 }
 
-// isTestingCheckCallee matches the ONE spelling stdcheck.go claims: the qualifier written literally `testing`.
+// isTestingCheckCallee matches the spellings of `testing.check` read off the
+// syntax: the qualifier written literally `testing`, or the bare name `check`.
 func isTestingCheckCallee(n ast.Node) bool {
+	if id, bare := n.(*ast.Ident); bare {
+		return id.Name == "check"
+	}
 	fa, ok := n.(*ast.FieldAccess)
 	if !ok || fa.Field == nil || fa.Field.Name != "check" {
 		return false

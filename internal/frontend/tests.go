@@ -460,6 +460,9 @@ func SourceDeclaresTests(src string) (bool, error) {
 	return declaresTests(nodes), nil
 }
 
+// DeclaresTests is SourceDeclaresTests for parsed nodes.
+func DeclaresTests(nodes []ast.Node) bool { return declaresTests(nodes) }
+
 // declaresTests reports whether nodes hold, at any depth, a `test`
 // declaration or an attached test with a body.
 func declaresTests(nodes []ast.Node) bool {

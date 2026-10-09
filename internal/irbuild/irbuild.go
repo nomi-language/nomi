@@ -106,9 +106,9 @@ func Analyze(entryPath string) (*Program, error) {
 // AnalyzeFile is Analyze with the host's front-end configuration: cfg.Provided
 // names the `host fn` keys the host's tables answer.
 //
-// Source-bound declarations (`go alias.Symbol`, inline `go { }`) are always
-// treated as provided here: the VM reaches them through adapters the FFI
-// wrapper generates, never by looking a key up in a registry, so a missing
+// Source-bound declarations (`go alias.Symbol`) are always treated as
+// provided here: the VM reaches them through adapters the FFI wrapper
+// generates, never by looking a key up in a registry, so a missing
 // registration is not something this front end can see or needs to.
 func AnalyzeFile(entryPath string, cfg frontend.Config) (*Program, error) {
 	abs, err := filepath.Abs(entryPath)
@@ -152,11 +152,6 @@ func fileProgram(abs string, proj *frontend.Project, hasTests bool) *Program {
 	mods := make([]Module, 0, len(proj.Files)+1)
 	mods = append(mods, Module{Path: abs, Name: name, Nodes: proj.Nodes, FA: proj.FA})
 	for _, f := range proj.Files {
-		// A sibling that imports the ENTRY back appears in the graph under
-		// its own key; the entry is Modules[0], so the duplicate is dropped.
-		if f.Path != "" && f.Path == abs {
-			continue
-		}
 		path := f.Path
 		if path == "" {
 			path = f.Key + ".nomi"
@@ -239,6 +234,9 @@ type Result struct {
 	// cross under: bindings only a host that linked the project's Go
 	// packages can supply. See irhostfn.go.
 	irHostKeys map[string]bool
+	// Literals are the backtick typed literals checked at compile time
+	// that the user units lowered, in unit order (irliteralcell.go).
+	Literals []LiteralSite
 }
 
 // IRModules returns the graphs needed to link this compilation, including the
@@ -362,8 +360,10 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// file's walk ended. See siblinggeneric.go.
 	irFlushLateInstances(gens)
 	var irMods []*ir.Module
+	var literals []LiteralSite
 	hostKeys := map[string]bool{}
 	for _, g := range gens {
+		literals = append(literals, g.literalSites...)
 		for _, key := range g.irHostKeys {
 			hostKeys[key] = true
 		}
@@ -395,7 +395,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		irLintFinished(m)
 	}
 	return &Result{HasMain: hasMain,
-		IR: irMods, irLibraries: irLibraries, irHostKeys: hostKeys}, refusal, nil
+		IR: irMods, irLibraries: irLibraries, irHostKeys: hostKeys, Literals: literals}, refusal, nil
 }
 
 // definesMain reports whether the module declares a zero-parameter `fn main`.

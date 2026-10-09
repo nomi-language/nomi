@@ -114,6 +114,13 @@ func (bl *irScalarBuilder) patternValueTest(pat ast.Node, value ir.Temp, k kind,
 	case *ast.IdentPattern:
 		bl.patternBinding(p, p.Name, value, k)
 		return jump()
+	case *ast.AsPattern:
+		// `P as name`: P's test, then name bound on its success edge.
+		if !bl.patternValueTest(p.Pattern, value, k, arm, next) {
+			return false
+		}
+		bl.patternBinding(p, p.Name, value, k)
+		return true
 	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit:
 		lit, lk, _, ok := bl.litFor(p, k)
 		if !ok || lk != k {

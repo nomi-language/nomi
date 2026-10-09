@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -87,9 +88,12 @@ type Checker struct {
 	cfg Config
 	lib *std.StdLib
 
-	root         string
-	entryPath    string
-	entryModRel  string
+	root        string
+	entryPath   string
+	entryModRel string
+	// placeEntry runs nomi.toml's entry_points placement check on the
+	// entry; false for a test file.
+	placeEntry   bool
 	projectFiles []ProjectFile
 	// diagPath is the file the entry's diagnostics name: its absolute
 	// path, or an in-memory entry's name.
@@ -146,9 +150,18 @@ func (c *Checker) Loader() analysis.FileLoader {
 	}
 }
 
+// filesParsed counts the project files every Checker in the process has
+// parsed: each entry Prepare reads and each project file its loader reads.
+var filesParsed atomic.Int64
+
+// FilesParsed is how many project files the front end has parsed in this
+// process, for tests that count what a path costs.
+func FilesParsed() int64 { return filesParsed.Load() }
+
 // recordSyntax keeps a loaded project file's syntax errors, replacing any an
 // earlier load of the same file recorded.
 func (c *Checker) recordSyntax(path string, errs []parser.ParseError) {
+	filesParsed.Add(1)
 	if len(errs) == 0 {
 		delete(c.siblingSyntax, path)
 		return
@@ -171,6 +184,7 @@ type Mode struct {
 // Debug synthesis.
 func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
 	c.entrySrc = src
+	filesParsed.Add(1)
 	nodes, err := parser.Parse(lexer.Lex(src))
 	if err != nil {
 		return nil, located(c.diagPath, src, err)
@@ -221,6 +235,7 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		c.Loader(),
 		c.cfg.VirtualManifest,
 		c.entryModRel,
+		c.placeEntry,
 	)
 	c.projectFiles = collectProjectFiles(siblingFAs, siblingNodes)
 	errs := c.buildErrors(fa)
@@ -418,23 +433,22 @@ func (c *Checker) CheckFileSource(path, src string, mode Mode) (*Project, error)
 	if analysis.IsForeignStdlibDir(c.root) {
 		return nil, ForeignStdlibError(absPath, c.root)
 	}
-	modRel := moduleName
-	if mode.Tests {
-		// A test file is not an entry point, so entry_points placement does
-		// not apply to it.
-		modRel = ""
-	}
-	return c.check(path, modRel, src, mode)
+	// A test file is not an entry point, so entry_points placement does not
+	// apply to it. It keeps its key all the same: a file in its import
+	// cycle that imports it back reaches this analysis of it, not a second
+	// copy.
+	return c.check(path, moduleName, !mode.Tests, src, mode)
 }
 
 // CheckSource checks an in-memory entry named moduleName. Its siblings come
 // from Config.VirtualFiles.
 func (c *Checker) CheckSource(moduleName, src string, mode Mode) (*Project, error) {
-	return c.check(moduleName, moduleName, src, mode)
+	return c.check(moduleName, moduleName, true, src, mode)
 }
 
-func (c *Checker) check(path, entryModRel, src string, mode Mode) (*Project, error) {
+func (c *Checker) check(path, entryModRel string, placeEntry bool, src string, mode Mode) (*Project, error) {
 	c.entryModRel = entryModRel
+	c.placeEntry = placeEntry
 	c.diagPath = c.entryPath
 	if c.diagPath == "" {
 		c.diagPath = path

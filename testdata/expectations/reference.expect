@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
-records 30
+records 31
 declared-cases 293
 failing 0
 C assertions
@@ -206,6 +206,12 @@ T ok Int.modulo
 T ok Int.to_string (impl Display for Int)
 T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
 T ok PositiveInt.to_non_zero
+C io
+E 0
+N 2
+H 8d003f82f7c1edb78ca7c0847107704c2ac91cefad71ed8dec7742e2a76d1b24
+T ok io.capture
+T ok io.replay
 C iter
 E 0
 N 40
@@ -326,15 +332,13 @@ T ok Range.contains?
 T ok Range.bounded?
 C regex
 E 0
-N 8
-H 0a56644722b9bb94540e3f8b654a012386c4c7aae9cc26e3c25246ccce269d01
+N 6
+H 7b2471e0347e2f7c031e699da6f59d7d2dc1aa9ca8f0100f73e31a62b792cce5
+T ok type Regex
 T ok Regex.compile
 T ok Regex.pattern
-T ok Regex.match?
 T ok Regex.find
-T ok Regex.find_all
 T ok Regex.replace_all
-T ok Regex.split
 T ok Regex.inspect (impl Debug for Regex)
 C results
 E 0

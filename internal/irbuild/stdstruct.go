@@ -516,7 +516,7 @@ var stdStructSpecs = []stdStructSpec{{
 	},
 	transparent: true,
 }, {
-	// A row whose declaration carries FIELD DEFAULTS. Its three field TYPES
+	// A row whose declaration carries FIELD DEFAULTS. Its four field TYPES
 	// are expressible by the three constructors above; the defaults are what
 	// withDefault adds.
 	origin: "std/assertions",
@@ -526,6 +526,8 @@ var stdStructSpecs = []stdStructSpec{{
 		withDefault(stdScalarField("reason", kindString),
 			stdStringDefault("assertion failed")),
 		withDefault(stdMaybeField("actual", func([]*typeDef) kind { return kindString }),
+			stdNoneDefault()),
+		withDefault(stdMaybeField("expected", func([]*typeDef) kind { return kindString }),
 			stdNoneDefault()),
 		withDefault(stdListField("details", stdSpecAssertionDetail),
 			stdEmptyListDefault()),
@@ -781,6 +783,19 @@ var stdStructSpecs = []stdStructSpec{{
 		withDefault(stdMapField("env", func([]*typeDef) kind { return kindString }, func([]*typeDef) kind { return kindString }), stdEmptyMapDefault()),
 		withDefault(stdStringListField("args"), stdEmptyListDefault()),
 	},
+}, {
+	// What `io.replay` answers. A row so that its `impl Assertable` is
+	// indexed by receiver kind and an `assert` over it selects that impl.
+	origin: "std/io",
+	nomi:   "Replayed",
+	goType: reflect.TypeFor[rt.IOReplayed](),
+	fields: []stdStructField{
+		stdScalarField("output", kindString),
+		stdScalarField("transcript", kindString),
+		stdScalarField("expected", kindString),
+		stdScalarField("unread", kindInt),
+	},
+	transparent: true,
 }}
 
 // The spec indices a row needs to name another row. Constants rather than

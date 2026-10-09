@@ -472,6 +472,13 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 			return bl.siblingFuncRef(t, site.unit, site.fn, site.host)
 		}
 	}
+	if sig == nil {
+		// `print` after `import std/io.print`, `read_file` after
+		// `import std/io.read_file`.
+		if v, k, mobile, ok, handled := bl.stdBareFuncRef(t); handled {
+			return v, k, mobile, ok
+		}
+	}
 	if tpl := bl.g.irMonoTemplate(sig); tpl != nil {
 		inst, ok := bl.g.funcRefInstance(t, tpl, t.Name)
 		if !ok {

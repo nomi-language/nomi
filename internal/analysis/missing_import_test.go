@@ -197,3 +197,104 @@ func TestMissingImport_PresentModulesStayAccepted(t *testing.T) {
 		t.Errorf("unexpected error: %d:%d: %s", e.Line, e.Col, e.Message)
 	}
 }
+
+// A module's short name alone is a directory, not a file, so an import whose
+// file part is only that name imports nothing. `std.io` selects `io` from a
+// file `std`; it once bound `io` (or its alias) to nothing, and every call
+// through it reached the IR builder with no type. The hint spells the file
+// import when the selected name is a file in the module.
+func TestMissingImport_ModuleRootIsNotAFile(t *testing.T) {
+	const msg = "`std` is a module, not a file; an import names a file in it"
+	cases := []struct {
+		name, entry, want string
+	}{
+		{
+			name:  "aliased selector",
+			entry: "import std.io as console\n\nfn main() {\n    console.print(\"hi\")\n}\n",
+			want:  "1:8-11: " + msg + "; did you mean `import std/io as console`?",
+		},
+		{
+			name:  "aliased selector in a block",
+			entry: "import {\n    std.io as console\n}\n\nfn main() {\n    console.print(\"hi\")\n}\n",
+			want:  "2:5-8: " + msg + "; did you mean `import std/io as console`?",
+		},
+		{
+			name:  "selector",
+			entry: "import std.io\n\nfn main() {\n    io.print(\"hi\")\n}\n",
+			want:  "1:8-11: " + msg + "; did you mean `import std/io`?",
+		},
+		{
+			name:  "brace selector",
+			entry: "import std.{io}\n\nfn main() {\n    io.print(\"hi\")\n}\n",
+			want:  "1:8-11: " + msg + "; did you mean `import std/io`?",
+		},
+		{
+			name:  "selector that is no std file",
+			entry: "import std.nosuchfile\n\nfn main() {\n    nosuchfile.x()\n}\n",
+			want:  "1:8-11: " + msg + "; import a file in it, such as `std/io`",
+		},
+		{
+			name:  "file API import",
+			entry: "import std\n\nfn main() {\n    std.print(\"hi\")\n}\n",
+			want:  "1:8-11: " + msg + "; import a file in it, such as `std/io`",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := buildProjectExpectingErrors(t, tc.entry, nil)
+			var got []string
+			for _, e := range errs {
+				s := fmt.Sprintf("%d:%d-%d: %s", e.Line, e.Col, e.EndCol, e.Message)
+				if len(e.Hints) > 0 {
+					s += "; " + strings.Join(e.Hints, "; ")
+				}
+				got = append(got, s)
+			}
+			if len(got) == 0 {
+				t.Fatal("the front end admits the import")
+			}
+			if len(got) != 1 || got[0] != tc.want {
+				t.Errorf("got\n  %s\nwant\n  %s", strings.Join(got, "\n  "), tc.want)
+			}
+		})
+	}
+}
+
+// Another module's short name alone is the same error, naming that module.
+func TestMissingImport_CrossModuleRootIsNotAFile(t *testing.T) {
+	todoMain := "import stringkit.pad\n\nfn main() {\n  _ = pad.pad_left(\"hi\")\n}\n"
+	todoRoot, _, entryPath := writeCratePackagingExample(t, todoMain, "pub fn pad_left(s: String): String {\n  s\n}\n", nil)
+	data, _ := os.ReadFile(entryPath)
+	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
+	lib := std.Load()
+	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, todoRoot, std.MakeLoader())
+	want := "1:8-17: `stringkit` is a module, not a file; an import names a file in it; did you mean `import stringkit/pad`?"
+	var got []string
+	for _, e := range fa.TypeErrors {
+		s := fmt.Sprintf("%d:%d-%d: %s", e.Line, e.Col, e.EndCol, e.Message)
+		if len(e.Hints) > 0 {
+			s += "; " + strings.Join(e.Hints, "; ")
+		}
+		got = append(got, s)
+	}
+	if len(got) == 0 {
+		t.Fatal("the front end admits the import")
+	}
+	if strings.Join(got, "\n") != want {
+		t.Errorf("got\n  %s\nwant\n  %s", strings.Join(got, "\n  "), want)
+	}
+}
+
+// A lowercase segment after a dot that more segments follow is a path step
+// (the formatter writes `std.io.print` as `std/io.print`), so these stay
+// accepted.
+func TestMissingImport_DottedFilePathStaysAccepted(t *testing.T) {
+	for _, entry := range []string{
+		"import std.io.print\n\nfn main() {\n    print(\"hi\")\n}\n",
+		"import std.io.{self}\n\nfn main() {\n    io.print(\"hi\")\n}\n",
+	} {
+		for _, e := range buildProjectExpectingErrors(t, entry, nil) {
+			t.Errorf("%q: unexpected error %d:%d: %s", entry, e.Line, e.Col, e.Message)
+		}
+	}
+}

@@ -13,7 +13,7 @@
 // nothing else. The row carries the name of the runtime VALUE instead, and
 // the other rows are the cases that require it:
 //
-//	double, a module fn ref        <func: double>
+//	double, a module fn ref        hidden: <func: double> repeats the name
 //	|x| x + 1                     dropped: rt.RecordOperand suppresses a
 //	                              lambda
 //	g = double, read through g     <func: double>       NOT <func: g>
@@ -67,7 +67,7 @@ fn run(t: Token): Int {
     }
 }
 
-test "a module function reference names itself in the row" {
+test "a module function reference has no row, since it would only name itself" {
     assert apply(double, 7) == 99
 }
 

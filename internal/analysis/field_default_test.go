@@ -616,7 +616,7 @@ fn main() {
 // with no default and the `context` default lives on stdlib's `App`. The one
 // survivor the census prints is `structs-enums-distinct.md:L29`'s `age@3:3`.
 var fieldDefaultDenominator = map[string]int{
-	"std":             11,
+	"std":             12,
 	"tests":           28,
 	"tour (nomi-run)": 1,
 	"tour (nomi)":     0,

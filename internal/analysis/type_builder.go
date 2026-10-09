@@ -119,6 +119,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Name:             n.Name,
 				Opaque:           sym.Opaque,
 				OwningSourceFile: sym.SourceFile,
+				unbuilt:          &unbuiltDecl{},
 			}
 		}
 	case *ast.EnumDef:
@@ -128,6 +129,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Name:             n.Name,
 				Opaque:           sym.Opaque,
 				OwningSourceFile: sym.SourceFile,
+				unbuilt:          &unbuiltDecl{},
 			}
 		}
 	case *ast.TypeDef:
@@ -137,6 +139,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Name:             n.Name,
 				Opaque:           sym.Opaque,
 				OwningSourceFile: sym.SourceFile,
+				unbuilt:          &unbuiltDecl{},
 			}
 		}
 	case *ast.InterfaceDef:
@@ -145,6 +148,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Origin:     declaredOrigin(fa),
 				Name:       n.Name,
 				TypeParams: typeParamNames(n.TypeParams),
+				unbuilt:    &unbuiltDecl{},
 			}
 		}
 	case *ast.ExternType:
@@ -263,7 +267,7 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		case *ast.StructDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(sym *Symbol) Type {
-				st := &StructType{Origin: declaredOrigin(fa), Name: n.Name}
+				st := &StructType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: &unbuiltDecl{}}
 				if sym != nil {
 					st.Opaque, st.OwningSourceFile = sym.Opaque, sym.SourceFile
 				}
@@ -272,7 +276,7 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		case *ast.EnumDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(sym *Symbol) Type {
-				et := &EnumType{Origin: declaredOrigin(fa), Name: n.Name}
+				et := &EnumType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: &unbuiltDecl{}}
 				if sym != nil {
 					et.Opaque, et.OwningSourceFile = sym.Opaque, sym.SourceFile
 				}
@@ -281,7 +285,7 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		case *ast.TypeDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(sym *Symbol) Type {
-				dt := &DistinctType{Origin: declaredOrigin(fa), Name: n.Name}
+				dt := &DistinctType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: &unbuiltDecl{}}
 				if sym != nil {
 					dt.Opaque, dt.OwningSourceFile = sym.Opaque, sym.SourceFile
 				}
@@ -290,7 +294,7 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		case *ast.InterfaceDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(*Symbol) Type {
-				return &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams)}
+				return &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: &unbuiltDecl{}}
 			}
 		case *ast.ExternType:
 			name, line, col = n.Name, n.Line, n.Col
@@ -414,6 +418,14 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 			}
 		case *ast.TestDecl:
 			errs = append(errs, buildTestDeclFuncTypes(fa, reg, n)...)
+		}
+		// A module-level `once`'s value may declare a `fn` in a block,
+		// `once g = { fn h(x: Int): Int { x + 1 } \n h(4) }`; without its
+		// signature `h(4)` had no type and neither did `g`.
+		for _, once := range moduleOnces(node) {
+			if once.Value != nil {
+				errs = append(errs, buildNestedFuncTypes(fa, reg, once.Value)...)
+			}
 		}
 		errs = append(errs, buildAttachedTestTypes(fa, reg, node)...)
 	}
@@ -652,13 +664,13 @@ func buildBlockNestedTypes(fa *FileAnalysis, reg *TypeRegistry, block *ast.Block
 	for _, stmt := range block.Stmts {
 		switch n := stmt.(type) {
 		case *ast.StructDef:
-			child.Register(n.Name, &StructType{Name: n.Name})
+			child.Register(n.Name, &StructType{Name: n.Name, unbuilt: &unbuiltDecl{}})
 		case *ast.EnumDef:
-			child.Register(n.Name, &EnumType{Name: n.Name})
+			child.Register(n.Name, &EnumType{Name: n.Name, unbuilt: &unbuiltDecl{}})
 		case *ast.TypeDef:
-			child.Register(n.Name, &DistinctType{Name: n.Name})
+			child.Register(n.Name, &DistinctType{Name: n.Name, unbuilt: &unbuiltDecl{}})
 		case *ast.InterfaceDef:
-			child.Register(n.Name, &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams)})
+			child.Register(n.Name, &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: &unbuiltDecl{}})
 		}
 	}
 	// Pass 2: resolve details against the child registry, each alias at its
@@ -745,9 +757,18 @@ func buildTestDeclFuncTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.TestDecl
 // missingParamType is the error for a declared function's parameter written
 // without a type, `fn tag(_v): String`: a parameter of a `fn`, an impl's or
 // an interface's function, or a `host fn` needs one (only a lambda's may be
-// inferred). A synthesized declaration's parameters are the compiler's.
-func missingParamType(p ast.Param) []TypeError {
-	if p.Destructure != nil || IsSynthesizedLine(p.Line) {
+// inferred). A synthesized declaration's parameters are the compiler's. An
+// interface's or a `host fn`'s parameter written as a bare type,
+// `host fn f(String): Int`, is a destructuring pattern to the parser and gets
+// unnamedParam's error; a `fn`'s goes through paramPatternType instead.
+func missingParamType(p ast.Param, fa *FileAnalysis, reg *TypeRegistry) []TypeError {
+	if IsSynthesizedLine(p.Line) {
+		return nil
+	}
+	if p.Destructure != nil {
+		if te := unnamedParam(p, fa, reg); te != nil {
+			return []TypeError{*te}
+		}
 		return nil
 	}
 	return []TypeError{{
@@ -1003,6 +1024,7 @@ func buildStructType(fa *FileAnalysis, reg *TypeRegistry, n *ast.StructDef) []Ty
 	st.Fields = fields
 	st.TypeParams = typeParamNames(n.TypeParams)
 	st.TypeParamDefs = typeParamDefsFromMap(n.TypeParams, tp)
+	structBuilt(st)
 	sym.Type = st
 	return errs
 }
@@ -1094,19 +1116,10 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 							"; for an interface-typed payload use a single-payload variant: `| Name " + iface.Name + "`",
 					})
 				} else {
-					// embedded variants: for wrapping distinct types, use
-					// the inner type as the variant's payload so destructure
-					// binds the inner directly rather than a nested
-					// DistinctVal. Subtype coercion (UserId ≤ Identifier)
-					// is unaffected — `isEmbeddedTypeOf` consults the
-					// variant's name (which equals the embedded type's
-					// name) rather than `DataType`. Zero-sized distinct
-					// embeds (Inner == nil) and struct embeds keep their
-					// wrapping type as the payload.
+					// The embedded type is the payload. A wrapping distinct
+					// type's payload becomes its inner type once that is
+					// known (embedDistinctPayloads).
 					vd.Embedded = resolved
-					if dt, ok := resolved.(*DistinctType); ok && dt.Inner != nil {
-						resolved = dt.Inner
-					}
 					vd.DataType = resolved
 				}
 			}
@@ -1122,6 +1135,7 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 	et.Variants = variants
 	et.TypeParams = typeParamNames(n.TypeParams)
 	et.TypeParamDefs = typeParamDefsFromMap(n.TypeParams, tp)
+	enumBuilt(et)
 	sym.Type = et
 
 	// Build the enum's own type expression for variant return types.
@@ -1178,8 +1192,46 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 			vsym.Type = enumReturnTy
 		}
 	}
+	embedDistinctPayloads(fa, sym, et, enumReturnTy)
 
 	return errs
+}
+
+// embedDistinctPayloads gives each variant of et that embeds a wrapping
+// distinct type (`embeds UserId` where `type UserId Int`) the inner type as
+// its payload, so a pattern binds the inner value directly
+// (`Identifier.UserId(n)` binds an Int) and the variant's constructor takes
+// it. Subtype coercion (UserId fits Identifier) is unaffected:
+// isEmbeddedTypeOf reads the variant's name, not its payload. A zero-sized
+// distinct (`type Expired`) and a struct keep themselves as the payload.
+//
+// The inner type is read when the distinct type is built, which may be after
+// et is: the distinct type may be declared below the enum, or in a file
+// built later (unbuilt_decl.go).
+func embedDistinctPayloads(fa *FileAnalysis, sym *Symbol, et *EnumType, enumReturnTy Type) {
+	for i := range et.Variants {
+		vd := &et.Variants[i]
+		dt, ok := vd.Embedded.(*DistinctType)
+		if !ok || vd.Kind != VariantEmbedded {
+			continue
+		}
+		dt.unbuilt.whenBuilt(func() {
+			if dt.Inner == nil {
+				return
+			}
+			vd.DataType = dt.Inner
+			var vsym *Symbol
+			if sym != nil && sym.Members != nil {
+				vsym = sym.Members[vd.Name]
+			}
+			if vsym == nil {
+				vsym = fa.ModuleScope.Lookup(vd.Name)
+			}
+			if vsym != nil && vsym.Kind == SymbolEnumVariant {
+				vsym.Type = &FuncType{Params: []Type{dt.Inner}, Return: enumReturnTy}
+			}
+		})
+	}
 }
 
 func findVariant(et *EnumType, name string) *VariantDef {
@@ -1203,6 +1255,9 @@ func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeErr
 	if !ok {
 		return nil
 	}
+	// An enum built earlier that embeds dt waits for its inner type, which
+	// is final when this returns, error or not (unbuilt_decl.go).
+	defer distinctBuilt(dt)
 
 	if n.InnerTypeExpr != nil {
 		resolved, err := ResolveDeclaredType(n.InnerTypeExpr, reg, nil, fa.References)
@@ -1294,7 +1349,7 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		for _, p := range m.Params {
 			paramNames = append(paramNames, p.Name)
 			if p.TypeAnnotation == nil {
-				errs = append(errs, missingParamType(p)...)
+				errs = append(errs, missingParamType(p, fa, reg)...)
 				params = append(params, nil)
 				continue
 			}
@@ -1376,30 +1431,9 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 	}
 	it.Methods = methods
 
-	// Resolve `field name: Type` requirements. Field types resolve in the
-	// same type-param scope as method signatures — interfaces with type
-	// parameters can reference them in field types (e.g.
-	// `interface Container<T> { field items: List<T> }`).
-	if len(n.Fields) > 0 {
-		fields := make([]InterfaceFieldDef, 0, len(n.Fields))
-		for _, f := range n.Fields {
-			if f.TypeAnnotation == nil {
-				continue
-			}
-			resolved, err := ResolveDeclaredType(f.TypeAnnotation, reg, tp, fa.References)
-			if err != nil {
-				if te, ok := err.(TypeError); ok {
-					errs = append(errs, te)
-				}
-				continue
-			}
-			fields = append(fields, InterfaceFieldDef{Name: f.Name, Type: resolved})
-		}
-		it.Fields = fields
-	}
-
 	it.TypeParamDefs = typeParamDefsFromMap(n.TypeParams, tp)
 	it.SelfParam = tp["self"]
+	interfaceBuilt(it)
 	return errs
 }
 
@@ -1511,7 +1545,7 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 		// by checkFunc via checkPattern; here we only need the slot type so
 		// call-site argument checks see the right parameter type.
 		if p.Destructure != nil {
-			resolved, err := paramPatternType(p, reg, tp, fa.References)
+			resolved, err := paramPatternType(p, reg, tp, fa)
 			if err != nil {
 				if te, ok := err.(TypeError); ok {
 					errs = append(errs, te)
@@ -1523,7 +1557,7 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 			continue
 		}
 		if p.TypeAnnotation == nil {
-			errs = append(errs, missingParamType(p)...)
+			errs = append(errs, missingParamType(p, fa, reg)...)
 			params = append(params, nil)
 			continue
 		}
@@ -1871,7 +1905,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 			// stayed nil, and checkPattern never typed the inner bindings. The
 			// bound inner names are typed later by checkFunc via checkPattern.
 			if p.Destructure != nil {
-				resolved, err := paramPatternType(p, reg, tp, fa.References)
+				resolved, err := paramPatternType(p, reg, tp, fa)
 				if err != nil {
 					if te, ok := err.(TypeError); ok {
 						errs = append(errs, te)
@@ -1883,7 +1917,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 				continue
 			}
 			if p.TypeAnnotation == nil {
-				errs = append(errs, missingParamType(p)...)
+				errs = append(errs, missingParamType(p, fa, reg)...)
 				params = append(params, nil)
 				continue
 			}
@@ -1951,7 +1985,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 		params := make([]Type, 0, len(ef.Params))
 		for _, p := range ef.Params {
 			if p.TypeAnnotation == nil {
-				errs = append(errs, missingParamType(p)...)
+				errs = append(errs, missingParamType(p, fa, reg)...)
 				params = append(params, nil)
 				continue
 			}
@@ -2053,7 +2087,7 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 	params := make([]Type, 0, len(n.Params))
 	for _, p := range n.Params {
 		if p.TypeAnnotation == nil {
-			errs = append(errs, missingParamType(p)...)
+			errs = append(errs, missingParamType(p, fa, reg)...)
 			params = append(params, nil)
 			continue
 		}

@@ -11,14 +11,14 @@
 # T <transcript line>, verbatim
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
-records 30
+records 31
 declared-cases 294
 failing 0
 C assertions
 E 0
 N 1
-H 40126008537662c0973177bcc77aed2c333ffa5c91145f4ad94cf4893c42f8bd
-T ok <root>/std/assertions.nomi :: impl / format //! test lines 96-107
+H 3f052f72bc0aba4b9bb73fd627ab5b85e592b32e5281ddc971a5c199b3c5d7cc
+T ok <root>/std/assertions.nomi :: impl / format //! test lines 102-113
 T test result: ok. 1 passed, 0 failed
 T
 C bool
@@ -233,6 +233,14 @@ T ok <root>/std/int.nomi :: impl / divide //! test lines 165-166
 T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 249-251
 T test result: ok. 18 passed, 0 failed
 T
+C io
+E 0
+N 2
+H 17ab4b8383314076a2168a545ae99f92095a76e0d5419527990bab4823f67e31
+T ok <root>/std/io.nomi :: capture //! test lines 115-138
+T ok <root>/std/io.nomi :: replay //! test lines 212-243
+T test result: ok. 2 passed, 0 failed
+T
 C iter
 E 0
 N 40
@@ -369,17 +377,15 @@ T test result: ok. 5 passed, 0 failed
 T
 C regex
 E 0
-N 8
-H 3b9d17bfd8edf69b41d11d0b98196cdd7df2454ffd28fffc4c4ae1cd56c260c2
-T ok <root>/std/regex.nomi :: impl / compile //! test lines 29-30
-T ok <root>/std/regex.nomi :: impl / pattern //! test line 35
-T ok <root>/std/regex.nomi :: impl / match? //! test lines 40-41
-T ok <root>/std/regex.nomi :: impl / find //! test lines 46-47
-T ok <root>/std/regex.nomi :: impl / find_all //! test line 52
-T ok <root>/std/regex.nomi :: impl / replace_all //! test lines 60-61
-T ok <root>/std/regex.nomi :: impl / split //! test line 66
+N 6
+H 8f0502e65228898fa515cae21dd57cf24054c58b4a88427594b88e52df82c076
+T ok <root>/std/regex.nomi :: Regex //! test lines 36-39
+T ok <root>/std/regex.nomi :: impl / compile //! test lines 45-46
+T ok <root>/std/regex.nomi :: impl / pattern //! test line 51
+T ok <root>/std/regex.nomi :: impl / find //! test lines 56-57
+T ok <root>/std/regex.nomi :: impl / replace_all //! test lines 65-66
 T ok <root>/std/regex.nomi :: impl / inspect //! test lines 115-116
-T test result: ok. 8 passed, 0 failed
+T test result: ok. 6 passed, 0 failed
 T
 C results
 E 0

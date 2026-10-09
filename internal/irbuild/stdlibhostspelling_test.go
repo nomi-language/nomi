@@ -22,7 +22,7 @@ import (
 // internal/stdlibbindings row under the same key answers the call. A `gopkg`
 // handle also makes the module a discoverable co-located adapter, which puts
 // every program importing it behind a Go toolchain. So no std declaration may
-// name a Go symbol, either as a selector or as a `go { }` body.
+// name a Go symbol.
 // internal/hostpair's TestNoStdlibHostDeclarationNamesAGoSymbol asserts the
 // same rule over the host-declaration pairs.
 func TestStdlibSpellingFollowsWhereTheImplementationLives(t *testing.T) {
@@ -53,10 +53,10 @@ func TestStdlibSpellingFollowsWhereTheImplementationLives(t *testing.T) {
 				aliases[ep.Alias] = ep.ImportPath
 			}
 		}
-		walkStdExternDecls(lib.Nodes[file], func(name, alias, foreign, goBody string) {
-			ef := struct{ Name, ForeignAlias, ForeignName, GoBody string }{name, alias, foreign, goBody}
+		walkStdExternDecls(lib.Nodes[file], func(name, alias, foreign string) {
+			ef := struct{ Name, ForeignAlias, ForeignName string }{name, alias, foreign}
 			s := get(file)
-			if ef.ForeignName == "" && ef.GoBody == "" {
+			if ef.ForeignName == "" {
 				s.host++
 				return
 			}
@@ -106,17 +106,17 @@ func TestStdlibSpellingFollowsWhereTheImplementationLives(t *testing.T) {
 // `*ast.InterfaceMethod` with `Extern` set (`Struct.update` is the one in std),
 // and it carries no Foreign fields at all, so it cannot be `go`-spelled. A walk
 // that missed it would report std/structs as declaring no externs.
-func walkStdExternDecls(nodes []ast.Node, visit func(name, alias, foreign, goBody string)) {
+func walkStdExternDecls(nodes []ast.Node, visit func(name, alias, foreign string)) {
 	for _, n := range nodes {
 		switch v := n.(type) {
 		case *ast.ExternFunc:
-			visit(v.Name, v.ForeignAlias, v.ForeignName, v.GoBody)
+			visit(v.Name, v.ForeignAlias, v.ForeignName)
 		case *ast.ImplBlock:
 			walkStdExternDecls(v.Items, visit)
 		case *ast.InterfaceDef:
 			for i := range v.Methods {
 				if v.Methods[i].Extern {
-					visit(v.Methods[i].Name, "", "", "")
+					visit(v.Methods[i].Name, "", "")
 				}
 			}
 		}

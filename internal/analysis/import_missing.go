@@ -28,7 +28,7 @@ type importMiss struct {
 // path segments naming the file, written as segs) resolved to no file. A nil
 // miss reports nothing.
 func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *importMiss) {
-	if miss == nil || len(segs) == 0 || len(miss.path) == 0 {
+	if miss == nil || len(segs) == 0 || (len(miss.path) == 0 && miss.dep == "") {
 		return
 	}
 	written := make([]string, len(segs))
@@ -36,10 +36,16 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 		written[i] = ast.ImportNodeName(seg)
 	}
 	name := strings.Join(written, "/")
+
+	var msg, hint string
+	if len(miss.path) == 0 {
+		msg, hint = b.moduleRootImport(n, name, miss)
+		b.file.TypeErrors = append(b.file.TypeErrors, importPathError(n, segs, msg).WithHint(hint))
+		return
+	}
 	leaf := miss.path[len(miss.path)-1]
 	file := leaf + ".nomi"
 
-	var msg, hint string
 	switch {
 	case miss.std:
 		rel := strings.Join(miss.path, "/")
@@ -63,6 +69,11 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 		}
 	}
 
+	b.file.TypeErrors = append(b.file.TypeErrors, importPathError(n, segs, msg).WithHint(hint))
+}
+
+// importPathError is msg at the import path written as segs.
+func importPathError(n *ast.ImportStmt, segs []ast.Node, msg string) TypeError {
 	e := TypeError{Line: n.Line, Col: n.Col, Message: msg}
 	if first, ok := spanOf(segs[0]); ok {
 		e.Line, e.Col, e.EndLine, e.EndCol = first.StartLine, first.StartCol, first.EndLine, first.EndCol
@@ -70,7 +81,62 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 			e.EndLine, e.EndCol = last.EndLine, last.EndCol
 		}
 	}
-	b.file.TypeErrors = append(b.file.TypeErrors, e.WithHint(hint))
+	return e
+}
+
+// moduleRootImport is the error and hint for an import whose file part is a
+// module's short name alone (`import std`, `import std.io`). A module is a
+// directory, so there is no file to import. When the import selects a name
+// that is a file in that module, the hint spells the file import: `std.io`
+// is `std/io`.
+func (b *builder) moduleRootImport(n *ast.ImportStmt, name string, miss *importMiss) (string, string) {
+	msg := fmt.Sprintf("`%s` is a module, not a file; an import names a file in it", name)
+	if len(n.Names) == 0 {
+		return msg, fmt.Sprintf("import a file in it, such as `%s/%s`", name, b.exampleFile(miss))
+	}
+	selected := ast.ImportNodeName(n.Names[0])
+	if b.moduleHasFile(miss, selected) {
+		spelled := name + "/" + selected
+		if !n.Braced && len(n.Names) == 1 && len(n.Aliases) == 1 && n.Aliases[0] != nil {
+			spelled += " as " + ast.ImportNodeName(n.Aliases[0])
+		}
+		return msg, fmt.Sprintf("did you mean `import %s`?", spelled)
+	}
+	return msg, fmt.Sprintf("import a file in it, such as `%s/%s`", name, b.exampleFile(miss))
+}
+
+// moduleHasFile reports whether file.nomi is at the root of the module miss
+// names.
+func (b *builder) moduleHasFile(miss *importMiss, file string) bool {
+	if miss.std {
+		for _, name := range b.stdlibModuleNames() {
+			if name == file {
+				return true
+			}
+		}
+		return false
+	}
+	if miss.root == "" {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(miss.root, file+".nomi"))
+	return err == nil && !info.IsDir()
+}
+
+// exampleFile is a file at the root of the module miss names, for a hint.
+func (b *builder) exampleFile(miss *importMiss) string {
+	if miss.std {
+		return "io"
+	}
+	if miss.root != "" {
+		entries, _ := os.ReadDir(miss.root)
+		for _, e := range entries {
+			if !e.IsDir() && strings.HasSuffix(e.Name(), ".nomi") && !strings.HasSuffix(e.Name(), "_test.nomi") {
+				return strings.TrimSuffix(e.Name(), ".nomi")
+			}
+		}
+	}
+	return "file"
 }
 
 // describeDir names dir for a diagnostic in the file being built: relative

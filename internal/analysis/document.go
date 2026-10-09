@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/lexer"
@@ -43,6 +44,61 @@ type Document struct {
 	// declaration as a whole. analyze() drops type diagnostics inside them
 	// for exactly that reason; see suppressInDamagedSpans.
 	Damaged []parser.Span
+	// StdDiffers reports that the analyzed text is a std source file whose
+	// text is not the server's own std module (StdlibSource). The analysis
+	// still covers the text, but its diagnostics judge another std against
+	// this one, and nothing else reads the text.
+	StdDiffers bool
+	// Program is the program the document is the entry of, when the
+	// analysis is of exactly that program; see EntryProgram.
+	Program *EntryProgram
+}
+
+// EntryProgram is an analyzed document seen as the entry of the program the
+// compiler would build from it: the document is analyzed as its own entry
+// (not through an entry that imports it, and not as a stdlib file), and no
+// synthetic host declarations were injected into it. Nodes are the entry's
+// nodes as the front end prepares them before analysis
+// (frontend.Checker.Prepare): derive impls and universal Debug impls
+// synthesized, every check run over them. The document's Analysis checked
+// them.
+//
+// When the document imports other project files, the build ran over them
+// what the front end runs (frontend.Checker.Analyze: each file
+// type-checked, whole-file imports settled, coherence over every file's
+// demands), and the program is offered only when none of that, and no
+// file's syntax, reported an error. Files are those files.
+//
+// A consumer that lowers the document (the language server's lowering
+// check) reads it instead of analyzing the text again. Like the rest of an
+// installed analysis it is never mutated after installation.
+type EntryProgram struct {
+	Nodes []ast.Node
+	// Root is the project root the analysis resolved imports against.
+	Root string
+	// Files are the program's other project files, in key order, stdlib
+	// excluded (frontend.Project.Files).
+	Files []EntryProgramFile
+	// ReachesEntry reports that a file of the program imports the entry
+	// back: the build answered that import with the document's own nodes.
+	ReachesEntry bool
+	// Manifest is root's nomi.toml as the build saw it, "" when there was
+	// none.
+	Manifest string
+}
+
+// EntryProgramFile is one project file of an EntryProgram other than its
+// entry.
+type EntryProgramFile struct {
+	// Key is the file's import key ("shapes", "lib/geo").
+	Key string
+	// Path is the file's absolute path.
+	Path  string
+	Nodes []ast.Node
+	FA    *FileAnalysis
+	// Text is the text the build parsed: an open document's analyzed text,
+	// or the file on disk.
+	Text string
 }
 
 // DocumentManager tracks the open documents, analyzed, and the other
@@ -94,6 +150,9 @@ type DocumentManager struct {
 	// installed is closed, and replaced, each time an analysis is
 	// installed on any document. See Installed.
 	installed chan struct{}
+	// stdRoot and stdSource are set by SetStdlibSource; see there.
+	stdRoot   string
+	stdSource func(module string) ([]byte, bool)
 }
 
 // DocSnapshot is a frozen view of a Document, taken under the manager's
@@ -115,6 +174,10 @@ type DocSnapshot struct {
 	Errors   []parser.ParseError
 	Damaged  []parser.Span
 	Analysis *FileAnalysis
+	// StdDiffers is Document.StdDiffers for Content.
+	StdDiffers bool
+	// Program is Document.Program for Content.
+	Program *EntryProgram
 	// Text and Version are the latest text and its version.
 	// AnalyzedVersion is the version Content and Analysis belong to.
 	Text            string
@@ -151,6 +214,61 @@ func (dm *DocumentManager) SetStdlib(primitives *Scope, modules map[string]*Scop
 	dm.modules = modules
 	dm.stdlibFAs = stdlibFAs
 	dm.mu.Unlock()
+}
+
+// SetStdlibSource names the std every analysis reads: read answers a std
+// module's source by name ("regex"), and root is the directory std imports
+// resolve to (StdlibPath), or "" when there is none.
+//
+// With it set, a std module that a document imports is parsed from read,
+// never from an open editor buffer or from the file under root. The text an
+// editor holds for a std file may be another std's (a newer server rewrote
+// the file, or the checkout moved on since this server was built), and the
+// server's prelude, module scopes and impl index are all its own std's, so
+// mixing the two reports duplicate impls and missing members in files that
+// have neither. An open std buffer is still analyzed for its own
+// diagnostics, and Document.StdDiffers says when its text is not read's.
+func (dm *DocumentManager) SetStdlibSource(root string, read func(module string) ([]byte, bool)) {
+	dm.mu.Lock()
+	dm.stdRoot = root
+	dm.stdSource = read
+	dm.mu.Unlock()
+}
+
+// stdlibLoad reports whether a load of modulePath under projectRoot is a
+// std module's, and which, when a std source is set.
+func (dm *DocumentManager) stdlibLoad(projectRoot string, modulePath []string) (string, func(string) ([]byte, bool), bool) {
+	dm.mu.RLock()
+	root, read := dm.stdRoot, dm.stdSource
+	dm.mu.RUnlock()
+	if read == nil || len(modulePath) == 0 {
+		return "", nil, false
+	}
+	switch {
+	case modulePath[0] == "std" && len(modulePath) > 1:
+		return strings.Join(modulePath[1:], "/"), read, true
+	case root != "" && filepath.Clean(projectRoot) == filepath.Clean(root):
+		return strings.Join(modulePath, "/"), read, true
+	}
+	return "", nil, false
+}
+
+// stdDiffers reports whether the document at path is a std source whose
+// text is not the std source's: a module it has with other text, or a
+// module it lacks.
+func (dm *DocumentManager) stdDiffers(path, content string) bool {
+	module, ok := stdlibModuleForPath(path)
+	if !ok {
+		return false
+	}
+	dm.mu.RLock()
+	read := dm.stdSource
+	dm.mu.RUnlock()
+	if read == nil {
+		return false
+	}
+	want, ok := read(module)
+	return !ok || string(want) != content
 }
 
 // Open registers a document as editor-open and analyzes it before
@@ -261,6 +379,8 @@ func (dm *DocumentManager) Snapshot(uri string) *DocSnapshot {
 		Nodes:           doc.Nodes,
 		Errors:          doc.Errors,
 		Damaged:         doc.Damaged,
+		StdDiffers:      doc.StdDiffers,
+		Program:         doc.Program,
 		Analysis:        doc.Analysis,
 		Text:            doc.Content,
 		Version:         doc.Version,
@@ -332,9 +452,48 @@ func nearestAncestorWith(dir, name, bound string) (string, bool) {
 	}
 }
 
+// loadRecord is what one build's loader read of the project's files: the
+// text and syntax error count of each, by absolute path, and whether the
+// build asked for the open document itself (an import cycle through it).
+type loadRecord struct {
+	mu           sync.Mutex
+	texts        map[string]string
+	syntaxErrs   map[string]int
+	reachedEntry bool
+}
+
+func (r *loadRecord) read(path, text string, errs int) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.texts == nil {
+		r.texts, r.syntaxErrs = map[string]string{}, map[string]int{}
+	}
+	r.texts[path] = text
+	r.syntaxErrs[path] = errs
+}
+
 // makeLoader creates a FileLoader that resolves modules from open documents or disk.
 func (dm *DocumentManager) makeLoader() FileLoader {
+	return dm.makeRecordingLoader(nil)
+}
+
+// makeRecordingLoader is makeLoader, noting each project file it reads in
+// rec when rec is not nil.
+func (dm *DocumentManager) makeRecordingLoader(rec *loadRecord) FileLoader {
 	return func(projectRoot string, modulePath []string) ([]ast.Node, error) {
+		// A std module is the server's own, whatever an open buffer or the
+		// disk holds for it (SetStdlibSource).
+		if module, read, ok := dm.stdlibLoad(projectRoot, modulePath); ok {
+			data, found := read(module)
+			if !found {
+				return nil, fmt.Errorf("module not found: std/%s", module)
+			}
+			nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
+			return nodes, nil
+		}
 		filePath := filepath.Join(projectRoot, filepath.Join(modulePath...)) + ".nomi"
 		decls := dm.syntheticExternsForRoot(projectRoot)
 
@@ -357,7 +516,8 @@ func (dm *DocumentManager) makeLoader() FileLoader {
 		}
 		dm.mu.RUnlock()
 		if ok {
-			nodes, _, _ := parser.ParseResilient(lexer.Lex(text))
+			nodes, errs, _ := parser.ParseResilient(lexer.Lex(text))
+			rec.read(filePath, text, len(errs))
 			return syntheticextern.Inject(nodes, decls, false)
 		}
 
@@ -367,7 +527,8 @@ func (dm *DocumentManager) makeLoader() FileLoader {
 			return nil, err
 		}
 		tokens := lexer.Lex(string(data))
-		nodes, _ := parser.ParseWithRecovery(tokens)
+		nodes, errs := parser.ParseWithRecovery(tokens)
+		rec.read(filePath, string(data), len(errs))
 		return syntheticextern.Inject(nodes, decls, false)
 	}
 }
@@ -437,9 +598,8 @@ func isFFIEntryPath(path string) bool {
 
 // isStdlibFile returns true when the document's URI points at a stdlib
 // .nomi file — either the cache-materialized copy FileURI hands out for
-// jump-to-def, the in-repo source at std/, or a co-located
-// adapter's facade at std/<name>/<name>.nomi. The question is
-// stdlibModuleForPath's; see there for why it is not a look at one directory.
+// jump-to-def (std/<version>/<name>.nomi) or the in-repo source at std/.
+// The question is stdlibModuleForPath's.
 //
 // TODO: "this file is the canonical source for a prelude name" is
 // currently encoded in three places that have to agree: the production
@@ -590,7 +750,10 @@ type builtAnalysis struct {
 	nodes   []ast.Node
 	errs    []parser.ParseError
 	damaged []parser.Span
-	fa      *FileAnalysis
+	// stdDiffers is Document.StdDiffers.
+	stdDiffers bool
+	fa         *FileAnalysis
+	program    *EntryProgram
 }
 
 // analyze builds the document's latest text and installs the result.
@@ -634,6 +797,8 @@ func (dm *DocumentManager) analyzeLocked(doc *Document) int {
 		doc.Nodes = b.nodes
 		doc.Errors = b.errs
 		doc.Damaged = b.damaged
+		doc.StdDiffers = b.stdDiffers
+		doc.Program = b.program
 		doc.Analysis = b.fa
 		doc.AnalyzedContent = content
 		doc.AnalyzedVersion = version
@@ -656,7 +821,8 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 	nodes, errs, damaged := parser.ParseResilient(tokens)
 	root := dm.projectRootFromURI(uri)
 	docPath := strings.TrimPrefix(uri, "file://")
-	if injected, err := syntheticextern.Inject(nodes, dm.syntheticExternsForRoot(root), isFFIEntryPath(docPath)); err == nil {
+	externs := dm.syntheticExternsForRoot(root)
+	if injected, err := syntheticextern.Inject(nodes, externs, isFFIEntryPath(docPath)); err == nil {
 		nodes = injected
 	}
 	// Type-body lowering on the doc's own slice, BEFORE any build below.
@@ -675,7 +841,13 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 	// the build has created fa (below, after every branch).
 	nodes, lowerErrs := LowerDerives(nodes)
 	testNameErrs := CheckDuplicateTestNames(nodes)
-	fa := dm.buildAnalysis(uri, nodes, root, docPath)
+	// A program is offered only for a text with no error before analysis;
+	// the build checks a program's other files only then.
+	wantProgram := len(externs) == 0 && len(errs) == 0 && len(damaged) == 0 && len(lowerErrs) == 0 && len(testNameErrs) == 0
+	fa, program := dm.buildAnalysis(uri, nodes, root, docPath, wantProgram)
+	if len(externs) > 0 {
+		program = nil
+	}
 	if fa != nil {
 		if len(lowerErrs) > 0 {
 			fa.TypeErrors = append(fa.TypeErrors, lowerErrs...)
@@ -689,23 +861,24 @@ func (dm *DocumentManager) build(uri, content string) builtAnalysis {
 		// real syntax error under invented type errors on the valid half.
 		fa.TypeErrors = suppressInDamagedSpans(fa.TypeErrors, damaged)
 	}
-	return builtAnalysis{nodes: nodes, errs: errs, damaged: damaged, fa: fa}
+	return builtAnalysis{nodes: nodes, errs: errs, damaged: damaged, fa: fa, program: program, stdDiffers: dm.stdDiffers(docPath, content)}
 }
 
 // buildAnalysis builds and checks the analysis of one document's nodes:
 // the stdlib branch, a project built from an entry that imports the
 // document, or the document as its own entry. Every branch builds with a
 // loader that answers the document's own module path with nodes, so the
-// build never reads the document's previously installed nodes.
-func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, docPath string) (fa *FileAnalysis) {
-	// Stdlib files (~/.cache/nomi/stdlib/<mod>.nomi for jump-to-def
-	// materialization, stdlib/<mod>.nomi for direct repo
-	// opens) must not receive the prelude — they import their
-	// dependencies by hand, and getting the prelude here would trip
-	// the reserved-name check on every stdlib type the prelude itself
-	// re-exports (Maybe / Result / Display / Debug / ...). Detected
-	// by an immediate-parent directory named "stdlib"; that's both
-	// what FileURI produces and how repo trees are laid out.
+// build never reads the document's previously installed nodes. program is
+// the document's EntryProgram, or nil when the analysis is not of that
+// program. wantProgram is false when the text already has an error, so
+// that no program is offered and its other files need no check.
+func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, docPath string, wantProgram bool) (fa *FileAnalysis, program *EntryProgram) {
+	// Stdlib files (~/.cache/nomi/std/<version>/<mod>.nomi for jump-to-def
+	// materialization, std/<mod>.nomi for direct repo opens) must not
+	// receive the prelude — they import their dependencies by hand, and
+	// getting the prelude here would trip the reserved-name check on every
+	// stdlib type the prelude itself re-exports (Maybe / Result / Display /
+	// Debug / ...). Detected by stdlibModuleForPath's directory rule.
 	if dm.isStdlibFile(uri) {
 		fa = BuildFileWithStdlibAtPath(nodes, nil, dm.modules, root, dm.makeLoaderWithOverride(uri, nodes), docPath)
 		// Attach the cached stdlib ProjectImpls index so the checker's
@@ -804,29 +977,157 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// BuildProjectFromEntry runs Sweep C (BuildTypes) internally and
 	// populates fa.TypeErrors with its results. CheckTypes
 	// and AnalyzeIterSensitivity layer additional diagnostics on top.
+	//
+	// The derive and universal-Debug impls are synthesized here, as the
+	// front end's Prepare synthesizes them, rather than only inside the
+	// build: every check below then runs over them too, so the analysis
+	// and `prog` are the program `nomi check` builds from this file, and
+	// the lowering check reads them (EntryProgram). The document's own
+	// Nodes stay the source's declarations. Synthesis only appends, so
+	// they are a prefix of prog.
 	fallbackDocPath := strings.TrimPrefix(uri, "file://")
 	entryModRel := relModuleKey(root, fallbackDocPath)
-	docEntryFA, docSiblings, docSiblingNodes := BuildProjectFromEntryWithManifest(fallbackDocPath, nodes, dm.primitives, dm.modules, dm.stdlibFAs, root, dm.makeLoaderWithOverride(uri, nodes), nil, entryModRel)
+	prog, _ := SynthesizeDerives(nodes)
+	prog = SynthesizeUniversalDebug(prog)
+	rec := &loadRecord{}
+	docEntryFA, docSiblings, docSiblingNodes := BuildProjectFromEntryWithManifest(fallbackDocPath, prog, dm.primitives, dm.modules, dm.stdlibFAs, root, dm.makeRecordingLoaderWithOverride(uri, nodes, rec), nil, entryModRel, true)
 	fa = docEntryFA
-	checkErrs := CheckTypes(fa, nodes)
-	iterErrs := AnalyzeIterSensitivity(fa, nodes)
+	checkErrs := CheckTypes(fa, prog)
+	iterErrs := AnalyzeIterSensitivity(fa, prog)
 	// MarkTailCalls mutates the AST in place, setting Call.IsTailCall on
 	// every call in tail position, which the IR carries as ir.Call.Tail.
-	// Must run on the same `nodes` slice the doc holds.
-	MarkTailCalls(nodes)
+	// Must run on the nodes the doc holds, which prog's prefix is.
+	MarkTailCalls(prog)
 	fa.TypeErrors = append(fa.TypeErrors, checkErrs...)
 	fa.TypeErrors = append(fa.TypeErrors, iterErrs...)
 	// Concurrency layer 1 structural rules.
-	fa.TypeErrors = append(fa.TypeErrors, CheckConcurrentScope(fa, nodes)...)
-	fa.TypeErrors = append(fa.TypeErrors, CheckBootScope(fa, nodes)...)
-	fa.TypeErrors = append(fa.TypeErrors, CheckTaskLifetime(fa, nodes)...)
+	fa.TypeErrors = append(fa.TypeErrors, CheckConcurrentScope(fa, prog)...)
+	fa.TypeErrors = append(fa.TypeErrors, CheckBootScope(fa, prog)...)
+	fa.TypeErrors = append(fa.TypeErrors, CheckTaskLifetime(fa, prog)...)
 	// Post-CheckTypes coherence: missing-impl diagnostic et al. See
 	// internal/frontend's Checker.Analyze for the rationale; here the focused doc IS the
 	// entry FA, so its post-CheckTypes ImplManifest is what
 	// FinalizeCoherence reads.
 	fa.TypeErrors = append(fa.TypeErrors, FinalizeCoherence(fa)...)
-	fa.TypeErrors = append(fa.TypeErrors, checkDocImplImports(fa, nodes, docEntryFA, nodes, docSiblings, docSiblingNodes)...)
-	return fa
+	if !importsProjectFile(docSiblings, docSiblingNodes) {
+		fa.TypeErrors = append(fa.TypeErrors, checkDocImplImports(fa, prog, docEntryFA, prog, docSiblings, docSiblingNodes)...)
+		return fa, &EntryProgram{Nodes: prog, Root: root, Manifest: manifestText(root)}
+	}
+	// The document imports other project files. They are checked as the
+	// front end checks them when that settles the document's whole-file
+	// imports, or when the document is clean so far and its program could
+	// be offered.
+	if len(fa.ImplImports) == 0 && (!wantProgram || len(fa.TypeErrors) > 0) {
+		return fa, nil
+	}
+	docImplErrs, clean := checkProgramFiles(fa, prog, docSiblings, docSiblingNodes)
+	fa.TypeErrors = append(fa.TypeErrors, docImplErrs...)
+	if !wantProgram || !clean || len(fa.TypeErrors) > 0 {
+		return fa, nil
+	}
+	return fa, programOf(prog, root, rec, docSiblings, docSiblingNodes)
+}
+
+// checkProgramFiles runs over an entry's other files what the front end
+// runs (frontend.Checker.Analyze), in its order: each file's
+// CheckTypes, then whole-file imports settled over every file, then
+// coherence over every file's demands. It answers the entry's whole-file
+// import errors and whether nothing else reported an error. The entry's own
+// analysis is left as it is but for its whole-file imports: coherence runs
+// over a copy holding the merged demands.
+func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*FileAnalysis, fileNodes map[string][]ast.Node) (entryImplErrs []TypeError, clean bool) {
+	clean = true
+	keys := make([]string, 0, len(files))
+	for key := range files {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	// A stdlib module is type-checked again only when a whole-file import
+	// is to be settled, which reads every file's uses of impl blocks: it
+	// has no error to report, the lowering reads the process's own stdlib
+	// analysis rather than this build's, and checking the modules a
+	// program imports costs about 10 ms per analysis.
+	settles := len(fa.ImplImports) > 0
+	for _, sibFA := range files {
+		if sibFA != nil && len(sibFA.ImplImports) > 0 {
+			settles = true
+		}
+	}
+	merged := &FileAnalysis{ProjectImpls: fa.ProjectImpls, Impls: fa.Impls}
+	mergeImplManifest(merged, fa)
+	program := []ProgramFile{{FA: fa, Nodes: nodes}}
+	for _, key := range keys {
+		sibFA := files[key]
+		if sibFA == nil {
+			clean = false
+			continue
+		}
+		if len(sibFA.TypeErrors) > 0 {
+			clean = false
+		}
+		if (settles || !IsStdlibKey(key)) && len(CheckTypes(sibFA, fileNodes[key])) > 0 {
+			clean = false
+		}
+		mergeImplManifest(merged, sibFA)
+		program = append(program, ProgramFile{FA: sibFA, Nodes: fileNodes[key]})
+	}
+	for f, errs := range CheckImplImports(program) {
+		if f == fa {
+			entryImplErrs = errs
+		} else if len(errs) > 0 {
+			clean = false
+		}
+	}
+	if len(FinalizeCoherence(merged)) > 0 {
+		clean = false
+	}
+	return entryImplErrs, clean
+}
+
+// programOf is the EntryProgram of a checked entry whose other files are
+// files, as the front end collects them (frontend.collectProjectFiles), or
+// nil when a file's text was not read by rec's loader or has syntax
+// errors. Their tail calls are marked, as irbuild marks a sibling's.
+func programOf(nodes []ast.Node, root string, rec *loadRecord, files map[string]*FileAnalysis, fileNodes map[string][]ast.Node) *EntryProgram {
+	p := &EntryProgram{Nodes: nodes, Root: root, ReachesEntry: rec.reachedEntry}
+	for key, fa := range files {
+		if key == "" || fa == nil || IsStdlibKey(key) || len(fileNodes[key]) == 0 {
+			continue
+		}
+		text, read := rec.texts[fa.FilePath]
+		if !read || rec.syntaxErrs[fa.FilePath] > 0 || !filepath.IsAbs(fa.FilePath) {
+			return nil
+		}
+		MarkTailCalls(fileNodes[key])
+		p.Files = append(p.Files, EntryProgramFile{Key: key, Path: fa.FilePath, Nodes: fileNodes[key], FA: fa, Text: text})
+	}
+	sort.Slice(p.Files, func(i, j int) bool { return p.Files[i].Key < p.Files[j].Key })
+	p.Manifest = manifestText(root)
+	return p
+}
+
+// manifestText is root's nomi.toml, or "" when it has none.
+func manifestText(root string) string {
+	data, err := os.ReadFile(filepath.Join(root, "nomi.toml"))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// importsProjectFile reports whether a project build reached a file other
+// than its entry and the stdlib, by the rule the front end collects them
+// (frontend.collectProjectFiles).
+func importsProjectFile(files map[string]*FileAnalysis, nodes map[string][]ast.Node) bool {
+	for key, fa := range files {
+		if key == "" || fa == nil || IsStdlibKey(key) {
+			continue
+		}
+		if len(nodes[key]) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // checkDocImplImports settles the open document's ImplImports (see
@@ -900,10 +1201,21 @@ func relModuleKey(root, path string) string {
 // in-flight edits in the open document drive the project build (rather
 // than what's on disk) when we re-enter the project from main.nomi.
 func (dm *DocumentManager) makeLoaderWithOverride(openURI string, openNodes []ast.Node) FileLoader {
-	base := dm.makeLoader()
+	return dm.makeRecordingLoaderWithOverride(openURI, openNodes, nil)
+}
+
+// makeRecordingLoaderWithOverride is makeLoaderWithOverride, noting what it
+// reads in rec when rec is not nil.
+func (dm *DocumentManager) makeRecordingLoaderWithOverride(openURI string, openNodes []ast.Node, rec *loadRecord) FileLoader {
+	base := dm.makeRecordingLoader(rec)
 	return func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		filePath := filepath.Join(projectRoot, filepath.Join(modulePath...)) + ".nomi"
 		if "file://"+filePath == openURI {
+			if rec != nil {
+				rec.mu.Lock()
+				rec.reachedEntry = true
+				rec.mu.Unlock()
+			}
 			return openNodes, nil
 		}
 		return base(projectRoot, modulePath)

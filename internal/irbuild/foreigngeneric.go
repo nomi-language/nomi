@@ -89,15 +89,17 @@ func (g *gen) importGenericInstance(src *typeDef) (kind, bool) {
 // with the instance's own def, so two instantiations of one template do not
 // collide.
 //
-// Answers nil when the template is not another PACKAGE's: a co-tenant's
-// instance is already declared in this Go package and naming it needs no
-// alias, and a template the registry never saw is not nameable from here.
+// Answers nil when the template is not another FILE's, or is one the
+// registry never saw, which is not nameable from here. A co-tenant's
+// template (another file in this file's import cycle) is another file's:
+// its instances live in that file's gen, as a non-generic co-tenant type
+// does, so they are mirrored the same way.
 func (g *gen) instanceOwner(src *typeDef) *typeOwner {
 	if g.reg == nil || src.genericOf == nil || src.genericOf.decl == nil {
 		return nil
 	}
 	o := g.reg.byDecl[src.genericOf.decl]
-	if o == nil || o.unit == g.fileUnit || o.pkg == g.pkg {
+	if o == nil || o.unit == g.fileUnit {
 		return nil
 	}
 	return &typeOwner{
@@ -200,9 +202,9 @@ func (g *gen) foreignTemplateAt(origin, name string) (foreignTemplateRef, bool) 
 }
 
 // foreignTemplateOf is the template the owner o names, when o is another
-// package's declaration.
+// file's declaration, a co-tenant's included (instanceOwner).
 func (g *gen) foreignTemplateOf(o *typeOwner) (foreignTemplateRef, bool) {
-	if o == nil || o.unit == g.fileUnit || o.pkg == g.pkg {
+	if o == nil || o.unit == g.fileUnit {
 		return foreignTemplateRef{}, false
 	}
 	if !g.reg.ensureTypes(o.unit) {
@@ -269,7 +271,7 @@ func (g *gen) instanceImpl(mirror *typeDef, iface, method string) (*gen, *implDe
 	recv := named(src)
 	if iface != "" {
 		d := owner.implsByIface[iface][recv]
-		if d == nil || (method != "" && d.items[method] == nil) {
+		if d == nil || (method != "" && !d.supplies(method)) {
 			return nil, nil
 		}
 		return owner, d
@@ -277,7 +279,7 @@ func (g *gen) instanceImpl(mirror *typeDef, iface, method string) (*gen, *implDe
 	var found *implDef
 	for _, byRecv := range owner.implsByIface {
 		d := byRecv[recv]
-		if d == nil || d.items[method] == nil {
+		if d == nil || !d.supplies(method) {
 			continue
 		}
 		if found != nil {

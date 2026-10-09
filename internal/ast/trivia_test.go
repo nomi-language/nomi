@@ -15,7 +15,7 @@ func TestTriviaCarrier_Interface(t *testing.T) {
 		&InterfaceMethod{}, &InterfaceDef{},
 		&ImportStmt{}, &FuncDef{}, &ExternFunc{}, &ExternType{}, &Lambda{},
 		&Return{}, &Break{}, &Continue{}, &TryOp{}, &Placeholder{},
-		&NamedArg{}, &Case{}, &WildcardPattern{}, &IdentPattern{},
+		&NamedArg{}, &Case{}, &WildcardPattern{}, &IdentPattern{}, &AsPattern{},
 		&EnumPattern{}, &StructPattern{}, &TuplePattern{}, &ListPattern{},
 		&MapPattern{}, &TestDecl{}, &Assertion{}, &Dbg{},
 	}

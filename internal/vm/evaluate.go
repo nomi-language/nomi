@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/nomi-language/nomi/internal/ir"
@@ -35,33 +36,53 @@ type Limits struct {
 var ErrLimit = errors.New("vm: the evaluation reached its step or time limit")
 
 // fuel is a running evaluation's remaining Limits, shared by every view of the
-// machine it runs on. Nil on a machine that is not evaluating, which is every
-// machine `nomi run` and `nomi test` open: the check is one nil comparison.
+// machine it runs on, a task's included, so its counters are atomic. Nil on a
+// machine that is not evaluating, which is every machine `nomi run` and `nomi
+// test` open: the check is one nil comparison.
 type fuel struct {
-	left     int64
+	left     atomic.Int64
 	deadline time.Time
-	ticks    uint32
+	ticks    atomic.Uint32
+}
+
+func newFuel(lim Limits) *fuel {
+	f := &fuel{deadline: lim.Deadline}
+	f.left.Store(lim.Steps)
+	return f
 }
 
 // burn spends one step. Once the steps are gone every later burn fails too,
 // so a program that catches the failure and loops fails again at its next
 // call or backward branch.
 func (f *fuel) burn() error {
-	f.left--
-	if f.left < 0 {
+	if f.left.Add(-1) < 0 {
 		return ErrLimit
 	}
 	if !f.deadline.IsZero() {
-		f.ticks++
-		if f.ticks&1023 == 0 && time.Now().After(f.deadline) {
-			f.left = -1
+		if f.ticks.Add(1)&1023 == 0 && time.Now().After(f.deadline) {
+			f.left.Store(-1)
 			return ErrLimit
 		}
 	}
 	return nil
 }
 
-func (f *fuel) spent() bool { return f != nil && f.left < 0 }
+func (f *fuel) spent() bool { return f != nil && f.left.Load() < 0 }
+
+// WithLimits is m with every run it starts (Main, Call, RunCases) bounded by
+// lim as Evaluate's run is: a run that uses them up stops with ErrLimit, and
+// Exhausted reports that it did. The limits are shared by every view of the
+// returned machine, so it bounds one run. vmhost's run harness
+// (vmhost/run_fuzz_test.go) runs generated programs this way so that none
+// hangs.
+func (m *Machine) WithLimits(lim Limits) *Machine {
+	run := *m
+	run.fuel = newFuel(lim)
+	return &run
+}
+
+// Exhausted reports whether a run on m used up the limits WithLimits gave it.
+func (m *Machine) Exhausted() bool { return m.fuel.spent() }
 
 // metered is seq burning one step per element it passes along, so an
 // iteration driven in Go (`Iter.count(Iter.repeat(x))`) is bounded too. It
@@ -85,7 +106,7 @@ func (m *Machine) metered(seq rt.Seq[any]) rt.Seq[any] {
 // result, ErrLimit when lim ran out, or the program's own failure.
 func (m *Machine) Evaluate(ctx context.Context, f *ir.Func, args []any, lim Limits) (result any, err error) {
 	run := *m
-	run.fuel = &fuel{left: lim.Steps, deadline: lim.Deadline}
+	run.fuel = newFuel(lim)
 	fr := rt.NewFrame(run.withDiagnostics(ctx))
 	run.hostFrame = fr
 	defer func() {
@@ -150,8 +171,8 @@ var pureCrossings = map[string]bool{
 	"calendar.zoned_add_years": true, "calendar.zoned_from_instant_in_raw": true,
 	"calendar.zoned_in_zone_raw": true, "calendar.zoned_offset_nanos": true,
 	"calendar.zoned_parse_raw": true, "calendar.zoned_with_zone_raw": true,
-	"Regex.compile": true, "Regex.find": true, "Regex.find_all": true, "Regex.match?": true,
-	"Regex.pattern": true, "Regex.replace_all": true, "Regex.split": true,
+	"Regex.compile": true, "Regex.find": true,
+	"Regex.pattern": true, "Regex.replace_all": true,
 	"Regex.contained_in?": true, "Regex.prefix_of?": true, "Regex.suffix_of?": true,
 	"Regex.split_in": true, "Regex.replace_in": true, "Regex.find_all_in": true,
 

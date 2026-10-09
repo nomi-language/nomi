@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 269
-declared-cases 816
+records 271
+declared-cases 828
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -265,6 +265,18 @@ T ok <root>/tests/02-testing/attached_tests_test.nomi :: nested examples / done 
 T ok <root>/tests/02-testing/attached_tests_test.nomi :: ready_label //! test line 26
 T ok <root>/tests/02-testing/attached_tests_test.nomi :: done_label //! test lines 32-34
 T ok <root>/tests/02-testing/attached_tests_test.nomi :: attached test declarations remain ordinary declarations
+T test result: ok. 6 passed, 0 failed
+T
+C 02-testing/io_capture_test.nomi
+E 0
+N 6
+H 28d710a26589ad6ab5858b78da58fa5ff8d0cc3e9e13597b9c8033e8849e3b2e
+T ok <root>/tests/02-testing/io_capture_test.nomi :: a program's main runs against the given input
+T ok <root>/tests/02-testing/io_capture_test.nomi :: print, write and inspect are captured byte for byte
+T ok <root>/tests/02-testing/io_capture_test.nomi :: read_line reads the input a line at a time, then Err at the end
+T ok <root>/tests/02-testing/io_capture_test.nomi :: an inner capture keeps its own output
+T ok <root>/tests/02-testing/io_capture_test.nomi :: tasks started inside the capture are captured
+T ok <root>/tests/02-testing/io_capture_test.nomi :: two tasks capturing at once do not see each other's output
 T test result: ok. 6 passed, 0 failed
 T
 C 02-testing/setup_semantics_test.nomi
@@ -917,6 +929,15 @@ T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defa
 T ok <root>/tests/07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi :: a defaulted field is kept when it is named
 T test result: ok. 7 passed, 0 failed
 T
+C 08-pattern-matching/as_patterns_test.nomi
+E 0
+N 3
+H 05a75ec6d05c9ce001ae6bc79ebccf2e0a0e10c62e298869b90ba58df0671ad1
+T ok <root>/tests/08-pattern-matching/as_patterns_test.nomi :: an as name inside a payload binds the payload
+T ok <root>/tests/08-pattern-matching/as_patterns_test.nomi :: an as name in a list pattern binds the element and the list
+T ok <root>/tests/08-pattern-matching/as_patterns_test.nomi :: an as name in each statement position
+T test result: ok. 3 passed, 0 failed
+T
 C 08-pattern-matching/binding_else_test.nomi
 E 0
 N 10
@@ -1212,11 +1233,12 @@ T nomi run: <root>/tests/10-generics-and-type-wrappers/type_parameter_fields/tes
 T
 C 10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi
 E 0
-N 2
-H 2984e04a7e7602512d2a0170e30b2e796f4ce851384e5d4609922a97f1b99e48
-T ok <root>/tests/10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi :: bounded type parameters expose fields declared by their interface bounds
+N 3
+H e8ad18579a4d677515ba2a921a01e3ffc5a8d1bc0aec8812bc2f047da0cd5d26
+T ok <root>/tests/10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi :: a bounded type parameter reads through its bound's function requirement
+T ok <root>/tests/10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi :: a bounded type parameter exposes no fields
 T ok <root>/tests/10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi :: unbounded type parameters do not expose arbitrary fields
-T test result: ok. 2 passed, 0 failed
+T test result: ok. 3 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/type_wrappers_test.nomi
 E 0
@@ -1403,15 +1425,17 @@ T test result: ok. 5 passed, 0 failed
 T
 C 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi
 E 0
-N 6
-H cfc9f8465dd90cfc0cad6be0cd40bdd2b9724c387e55de74cf07f6e968fd1de0
-T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: interface field requirements are accessible through existential values
+N 8
+H 2f82c4f5fe3a47ae79e04a0a3ddac465c6b98f77edc70114f481582a7cbb6a25
+T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: an interface function requirement dispatches through an existential value
+T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: an interface value exposes no fields
+T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: an interface declares no fields
 T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: an enum's variant shapes render through Debug
 T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: Struct is a universal interface for named and anonymous structs
 T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: Struct existentials do not expose undeclared fields
 T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: Struct bounds reject non-struct values
 T ok <root>/tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi :: Struct cannot be implemented by hand
-T test result: ok. 6 passed, 0 failed
+T test result: ok. 8 passed, 0 failed
 T
 C 11-interfaces-and-impls/structural_interfaces/test_helpers.nomi
 E 1
@@ -1942,8 +1966,8 @@ T
 C 14-modules-and-packaging/re_export_facade/re_export_facade_test.nomi
 E 0
 N 1
-H 00cee39b31f55fbf3a1b8d54f3ef3ef61ae61af369520da2ea089ce65279db76
-T ok <root>/tests/14-modules-and-packaging/re_export_facade/re_export_facade_test.nomi :: re-export facade exposes leaf and parser modules
+H 257db8f0aafade2bc6e1e54fec312538407e02c2a378e6be741c7d88fd30ca24
+T ok <root>/tests/14-modules-and-packaging/re_export_facade/re_export_facade_test.nomi :: re-export facade exposes leaf and parser items
 T test result: ok. 1 passed, 0 failed
 T
 C 14-modules-and-packaging/same_named_types/same_named_types_test.nomi

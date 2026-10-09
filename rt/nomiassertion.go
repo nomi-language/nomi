@@ -77,6 +77,7 @@ type NomiAssertionDetail struct {
 //	pub struct AssertionDetails {
 //	  reason: String = "assertion failed"
 //	  actual: Maybe<String> = None
+//	  expected: Maybe<String> = None
 //	  details: List<AssertionDetail> = []
 //	}
 //
@@ -85,17 +86,18 @@ type NomiAssertionDetail struct {
 // applies at each construction site that omits the field, and whose shape check refuses
 // to anchor this type at all if std's declared defaults stop being the ones the
 // row implements. A second copy here would be a second rule, and the two would
-// drift silently — a Go zero value is a plausible wrong answer for two of these
-// three fields and a correct one for the third.
+// drift silently — a Go zero value is a plausible wrong answer for three of
+// these four fields and a correct one for the fourth.
 //
-// Only one of the three defaults is the Go zero value: an empty `*List` is nil.
-// `Reason` defaults to a non-empty string and `Actual` to `None`, whose Tag is
-// TagNone and not 0 — a zero `Maybe` is neither Some nor None and matches no arm
+// Only one of the four defaults is the Go zero value: an empty `*List` is nil.
+// `Reason` defaults to a non-empty string and `Actual` and `Expected` to
+// `None`, whose Tag is TagNone and not 0 — a zero `Maybe` is neither Some nor None and matches no arm
 // of a `case`.
 type NomiAssertionDetails struct {
-	Reason  string
-	Actual  Maybe[string]
-	Details *List[NomiAssertionDetail]
+	Reason   string
+	Actual   Maybe[string]
+	Expected Maybe[string]
+	Details  *List[NomiAssertionDetail]
 }
 
 // NomiAssertionFailure is std/assertions' `AssertionFailure`.

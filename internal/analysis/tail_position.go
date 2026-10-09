@@ -192,6 +192,8 @@ func mark(n ast.Node, tail bool) {
 		mark(x.Expr, false)
 	case *ast.Then:
 		mark(x.Lambda, false)
+	case *ast.Tap:
+		mark(x.Lambda, false)
 	case *ast.Return:
 		// `return expr` always exits the enclosing function, so expr is in
 		// tail position regardless of whether the surrounding context was.

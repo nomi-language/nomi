@@ -344,8 +344,10 @@ func stdModuleGenericTemplate(v *stdModuleView, recv, name string) *stdFunc {
 
 // stdUnretainedMonoBody reports a monomorphic Nomi-bodied stdlib function
 // whose cached body was not retained because it calls a generic sibling in
-// its own module (`Generator.bool` calls `map`), which a program builds for
-// itself. A body the cache declined for any other reason keeps that reason.
+// its own module (`Generator.bool` calls `map`) or a generic template of
+// another std module (Regex's Debug calls `String.contains?`), which a
+// program builds for itself. A body the cache declined for any other reason
+// keeps that reason.
 func (s *stdInstances) stdUnretainedMonoBody(f *stdFunc) bool {
 	if f == nil || f.why != "" || f.rtCall != "" || f.decl == nil || f.decl.Body == nil ||
 		len(f.decl.Decorators) > 0 || len(f.decl.TypeParams) > 0 {
@@ -359,7 +361,8 @@ func (s *stdInstances) stdUnretainedMonoBody(f *stdFunc) bool {
 }
 
 // callsGenericSibling reports whether f's body names, as a bare or
-// type-qualified callee, a generic template of its own module.
+// type-qualified callee, a generic template of its own module, or as a
+// type-qualified callee one of another std module.
 func (s *stdInstances) callsGenericSibling(f *stdFunc) bool {
 	v := s.std.views[f.module]
 	if v == nil {
@@ -381,7 +384,8 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc) bool {
 				}
 			case *ast.FieldAccess:
 				if ti, isType := callee.Object.(*ast.TypeIdent); isType && callee.Field != nil &&
-					stdModuleGenericTemplate(v, ti.Name, callee.Field.Name) != nil {
+					(stdModuleGenericTemplate(v, ti.Name, callee.Field.Name) != nil ||
+						s.otherModuleGenericTemplate(f.module, ti.Name, callee.Field.Name)) {
 					found = true
 					return
 				}
@@ -393,6 +397,14 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc) bool {
 	}
 	walk(f.decl.Body)
 	return found
+}
+
+// otherModuleGenericTemplate reports whether `owner.method` names one generic
+// template another std module declares (`String.contains?` named in
+// std/regex), which a program builds for itself as it builds a sibling's.
+func (s *stdInstances) otherModuleGenericTemplate(module, owner, method string) bool {
+	fs := s.std.byType[owner+"."+method]
+	return len(fs) == 1 && fs[0].module != module && stdGenericTemplateUsable(fs[0])
 }
 
 // stdGenericTemplate is the generic stdlib declaration `owner.method` names,
@@ -626,6 +638,8 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 		}
 		if ft := bl.g.checkedCallSignature(t); ft != nil && holes == nil {
 			holes = irCheckerHoles(f.decl, tps, args, ft)
+		} else if ft == nil && holes == nil {
+			holes = irCheckerHoles(f.decl, tps, args, bl.g.checkedArgSignature(t))
 		}
 	} else {
 		// A monomorphic body the cache could not retain because it reaches
@@ -728,6 +742,69 @@ func (bl *irScalarBuilder) stdGenericQualCall(t *ast.Call, owner, method string)
 	return bl.stdInstCallAt(t, bl.g.stdGenericTemplate(owner, method), kindInvalid)
 }
 
+// stdGenericFileCall lowers `module.fn(args)` where fn is a generic top-level
+// function of a stdlib file (`io.capture(input, run)`), instantiated at the
+// call's types like a generic std member. handled is false when the
+// qualifier is not a stdlib file or the file declares no such template.
+func (bl *irScalarBuilder) stdGenericFileCall(t *ast.Call, ownerID *ast.Ident, method string) (ir.Temp, kind, bool, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, false }
+	if bl.g.stdInsts == nil {
+		return no()
+	}
+	if bl.g.files != nil {
+		if _, isSibling := bl.g.files.lookupQualifier(bl.g.fa, ownerID); isSibling {
+			return no()
+		}
+	}
+	module, isStd := stdFileQualifier(bl.g.fa, ownerID)
+	if !isStd {
+		module, isStd = bl.stdOwnFileQualifier(ownerID.Name)
+	}
+	if !isStd {
+		return no()
+	}
+	f := stdModuleGenericTemplate(bl.g.stdInsts.std.views[module], "", method)
+	if f == nil {
+		return no()
+	}
+	return bl.stdInstCallAt(t, f, kindInvalid)
+}
+
+// stdBareGenericFileFunc is the generic top-level stdlib function a bare name
+// was selectively imported as (`import std/io.capture`), or nil.
+func (bl *irScalarBuilder) stdBareGenericFileFunc(id *ast.Ident) *stdFunc {
+	g := bl.g
+	if g.stdInsts == nil {
+		return nil
+	}
+	module, name, ok := stdBareFileFunc(g.fa, id)
+	if !ok {
+		return nil
+	}
+	return stdModuleGenericTemplate(g.stdInsts.std.views[module], "", name)
+}
+
+// stdBareFileFunc names the std file and the declared name of the top-level
+// stdlib function a bare name was selectively imported as, aliased or not:
+// `read_line` after `import std/io.read_line` is ("io", "read_line"), and
+// `next_line` after `import std/io.{read_line as next_line}` is too. A member
+// of a type (`import std/calendar.Date.parse`) is not a file's function.
+func stdBareFileFunc(fa *analysis.FileAnalysis, id *ast.Ident) (string, string, bool) {
+	if fa == nil {
+		return "", "", false
+	}
+	sym := resolvedBareSymbolAt(fa, id)
+	if sym == nil || sym.OwningType != "" || sym.Name == "" {
+		return "", "", false
+	}
+	for module, scope := range fa.StdlibModuleScopes {
+		if scope != nil && resolveSymbol(scope.Lookup(sym.Name)) == sym {
+			return module, sym.Name, true
+		}
+	}
+	return "", "", false
+}
+
 // stdGenericSiblingCall lowers a bare call inside a stdlib body to a generic
 // sibling: `map(...)` inside `impl Generator<T>`, `decode_list(...)`. A bare
 // call to a `host fn` of the receiver's inherent block (`concat(lhs, rhs)`
@@ -737,6 +814,14 @@ func (bl *irScalarBuilder) stdGenericSiblingCall(t *ast.Call, name string) (ir.T
 	g := bl.g
 	if g.stdModule == "" || g.stdInsts == nil {
 		return ir.NoTemp, kindInvalid, false, false, false
+	}
+	if g.stdModule == "io" && name == "run_captured" {
+		v, k, mobile, ok := bl.runCaptured(t, "io.run_captured", kindString, kindString)
+		return v, k, mobile, ok, true
+	}
+	if g.stdModule == "io" && name == "run_replayed" {
+		v, k, mobile, ok := bl.runCaptured(t, "io.run_replayed", kindString, kindString, kindString, kindInt)
+		return v, k, mobile, ok, true
 	}
 	v := g.stdInsts.std.views[g.stdModule]
 	var f *stdFunc

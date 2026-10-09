@@ -49,13 +49,14 @@ func (t *PartialType) typeTag() {}
 // carried unchanged into the recursion because the whole patch is one argument
 // and a nested field has no node of its own here (only types reach this walk).
 //
-// Bare `Unify` handles structural / embeds / bool coercion. Interface-impl
+// Bare `Unify` handles structural / embeds / bool coercion, except an enum
+// where a field wants one of its embedded types (embedsDowncast). Interface-impl
 // coercion is NOT in the unifier — it is `ifaceParamAdmits` — so an
 // interface-typed field needs the explicit arm below. Scoped values are
 // replaced as whole values, so immutable record updates must accept concrete
 // implementations in interface-typed fields just like struct literals do.
 func (c *checker) deepPartialMatches(arg, target Type, reg *TypeRegistry, recPos Pos) bool {
-	if Unify(target, arg) == nil {
+	if _, _, down := embedsDowncast(target, arg); !down && Unify(target, arg) == nil {
 		return true
 	}
 	if iface, ok := resolveTypeVar(target).(*InterfaceType); ok {

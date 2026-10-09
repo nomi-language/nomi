@@ -1,0 +1,99 @@
+// `io.capture(input, run)` calls `run` with `input` as its stdin and answers
+// what it returned and everything it printed.
+import {
+    std/duration.Duration
+    std/io
+    std/tasks.Task
+    std/timer
+}
+
+fn read_words(acc: List<String>): List<String> {
+    case io.read_line() {
+        Ok(line) -> read_words(acc + String.split(line, " "))
+        Err(_) -> acc
+    }
+}
+
+fn main(): Result<Unit, String> {
+    words = read_words([])
+    io.print("words: ${Iter.count(words)}")
+    Ok(Unit)
+}
+
+fn write_n(s: String, n: Int): Unit {
+    if n > 0 {
+        io.write(s)
+        // Yield, so two tasks writing at once interleave.
+        timer.sleep(Duration.milliseconds(0))
+        write_n(s, n - 1)
+    }
+}
+
+test "a program's main runs against the given input" {
+    run = io.capture("the fox\nthe dog", main)
+    assert run.value == Ok(Unit)
+    assert run.output == "words: 4\n"
+}
+
+test "print, write and inspect are captured byte for byte" {
+    run = io.capture("", || {
+        io.print("line")
+        io.write("no newline ")
+        io.inspect([1, 2])
+        io.print(3)
+    })
+
+    assert run.output == "line\nno newline [1, 2]\n3\n"
+}
+
+test "read_line reads the input a line at a time, then Err at the end" {
+    run = io.capture("one\n\nlast", ||
+        [io.read_line(), io.read_line(), io.read_line(), io.read_line()]
+    )
+
+    assert run.value == [Ok("one"), Ok(""), Ok("last"), Err("eof")]
+    assert run.output == ""
+}
+
+test "an inner capture keeps its own output" {
+    outer = io.capture("outer", || {
+        io.write("a")
+
+        inner = io.capture("inner", || {
+            io.write("b")
+            io.read_line()
+        })
+
+        io.write(inner.output)
+        (inner.value, io.read_line())
+    })
+
+    assert outer.value == (Ok("inner"), Ok("outer"))
+    assert outer.output == "ab"
+}
+
+test "tasks started inside the capture are captured" {
+    run = io.capture("", ||
+        concurrent {
+            t = Task.spawn(|| {
+                io.print("from task")
+                2
+            })
+
+            Task.await(t)
+        }
+    )
+
+    assert run.value == 2
+    assert run.output == "from task\n"
+}
+
+test "two tasks capturing at once do not see each other's output" {
+    both = concurrent {
+        a = Task.spawn(|| io.capture("", || write_n("a", 20)))
+        b = Task.spawn(|| io.capture("", || write_n("b", 20)))
+        (Task.await(a).output, Task.await(b).output)
+    }
+
+    assert both == (String.repeat("a", 20), String.repeat("b", 20))
+}

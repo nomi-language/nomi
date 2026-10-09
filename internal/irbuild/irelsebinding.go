@@ -145,7 +145,7 @@ func (bl *irScalarBuilder) elseFallback(pattern ast.Node, k kind) (irElseFallbac
 		fb.record = true
 		// `.V{a, b}`: the record's fields bind through the pattern's own
 		// fields. `.V(r)` binds the record whole.
-		sp, fields := fb.inner.(*ast.StructPattern)
+		sp, fields := ast.WithoutAs(fb.inner).(*ast.StructPattern)
 		if !fields && fb.inner != nil {
 			return irElseFallback{}, false
 		}
@@ -181,6 +181,8 @@ func (g *gen) irPatternAlwaysMatches(p ast.Node, k kind) bool {
 	switch v := p.(type) {
 	case nil, *ast.WildcardPattern, *ast.IdentPattern:
 		return true
+	case *ast.AsPattern:
+		return g.irPatternAlwaysMatches(v.Pattern, k)
 	case *ast.TuplePattern:
 		if !irRetainedTupleKind(k) || len(v.Patterns) != len(k.comp.parts) {
 			return false
@@ -261,7 +263,7 @@ func (bl *irScalarBuilder) fallbackBinding(t *ast.PatternBinding, subj ir.Temp, 
 		}
 	} else {
 		payload, pk = bl.variantPayload(t.Pattern, subj, d, fb.v), fb.v.payloads[0].k
-		if fb.v.kind == "embedded" && irWrappingDistinct(fb.v.embeds) {
+		if irEmbedsValueDistinct(fb.v) {
 			// The checker's payload for an `embeds` of a wrapping distinct
 			// is the distinct's inner value.
 			payload = bl.distinctProjection(t.Pattern, payload, pk, false, "irelsebinding.go fallbackBinding")

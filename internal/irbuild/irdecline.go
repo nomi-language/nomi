@@ -126,6 +126,20 @@ func irDeclineNoteOnce(reason, once string) {
 	}
 }
 
+// irDeclineAside runs build, a lowering nested in the open attempt that is no
+// part of it, with the attempt's census set aside: what build notes reaches
+// no hook, and the attempt's own record is as it was afterwards.
+func irDeclineAside(build func()) {
+	fn, seen, path, cur, bodyWhy, why, line, col := irDeclineFn, irDeclineSeen, irDeclinePath, irDeclineCur, irDeclineBodyWhy, irDeclineWhy, irDeclineLine, irDeclineCol
+	observed, at := IRDeclineObserved, IRDeclineAt
+	IRDeclineObserved, IRDeclineAt = nil, nil
+	defer func() {
+		irDeclineFn, irDeclineSeen, irDeclinePath, irDeclineCur, irDeclineBodyWhy, irDeclineWhy, irDeclineLine, irDeclineCol = fn, seen, path, cur, bodyWhy, why, line, col
+		IRDeclineObserved, IRDeclineAt = observed, at
+	}()
+	build()
+}
+
 // irDeclineWithdrawn records that fn, a body the builder retained, was
 // withdrawn because it reads a `once` whose cell no module retained
 // (irWithdrawUnforceableReads). It is outside any attempt: fn's own attempt

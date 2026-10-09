@@ -81,6 +81,8 @@ names = people |> Iter.map(.name) |> Iter.to_list()
 total = paid |> then |n| n * 2
 // <~~~~~~~~~~~~~-- keyword.operator.pipe.nomi
 // <~~~~~~~~~~~~~~~~---- keyword.control.nomi
+seen = paid |> tap |n| io.print(n)
+// <~~~~~~~~~~~~~~~--- keyword.control.nomi
 adults = Iter.filter(people, |p| p.age >= 18)
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- keyword.operator.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--- variable.other.property.nomi

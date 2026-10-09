@@ -71,6 +71,11 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 		why = "a Fragment without Static and Dynamic"
 		return no()
 	}
+	if t.Raw && bl.literalCell != t && irCheckedLiteralKind(h.result) {
+		// A backtick literal whose handler can fail was checked at compile
+		// time; its value is the Ok payload of its cell.
+		return bl.checkedLiteral(t, h.result)
+	}
 	last := lastDynamicPart(t.Parts)
 	items := make([]ir.Temp, 0, len(t.Parts))
 	for i, part := range t.Parts {

@@ -45,13 +45,12 @@ func TestHostPkg_ABareHostDeclarationKeepsItsRefusal(t *testing.T) {
 		{"a where-bounded host fn", &ast.ExternFunc{Name: "f", ForeignName: "ffi.F",
 			WhereClauses: []ast.WhereConstraint{{Name: "T"}}}},
 		{"an impl item", &ast.ExternFunc{Name: "f", ForeignName: "ffi.F", ImplFunction: true}},
-		{"an inline go body", &ast.ExternFunc{Name: "f", ForeignName: "ffi.F", GoBody: "return 1"}},
 	} {
 		if hostBoundFn(bad.fn) {
 			t.Errorf("%s was claimed as Go-bound", bad.what)
 		}
 	}
-	// The POSITIVE case, so the four doors above are not passing for some
+	// The POSITIVE case, so the three doors above are not passing for some
 	// unrelated reason — the discipline stdcontextanchor_test.go states.
 	if !hostBoundFn(&ast.ExternFunc{Name: "echo_upper", Public: true, ForeignName: "ffi.EchoUpper"}) {
 		t.Fatal("the shape the corpus actually declares was rejected, so every door above is " +

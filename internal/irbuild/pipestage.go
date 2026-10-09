@@ -52,7 +52,7 @@ import (
 //     parenthesised left operand is the same hazard wearing a disguise:
 //     `(a |> b()) |> c()` would record `a` and `a |> b()` from the inner pipe
 //     and then `(a |> b())` again from the outer.
-//   - A stage that is not a call, a `then`, an `if` or a `case`. `|> try`
+//   - A stage that is not a call, a `then`, a `tap`, an `if` or a `case`. `|> try`
 //     and `|> dbg` are what is left, and both are refused as pipe stages in
 //     their own right.
 //
@@ -126,7 +126,7 @@ func pipeStagesRecordable(prefixes []ast.Node) bool {
 			stage = grouped.Expr
 		}
 		switch stage.(type) {
-		case *ast.Call, *ast.Then, *ast.If, *ast.Case:
+		case *ast.Call, *ast.Then, *ast.Tap, *ast.If, *ast.Case:
 		default:
 			return false
 		}

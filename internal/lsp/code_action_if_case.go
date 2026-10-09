@@ -446,7 +446,7 @@ func (r *refactorRequest) literalArms(c *ast.Case) bool {
 // refutableHead reports whether p is a pattern an `if Pat = v` reads as a
 // test: not a name, `_` or a literal (a literal case converts to `==`).
 func refutableHead(p ast.Node) bool {
-	switch p.(type) {
+	switch ast.WithoutAs(p).(type) {
 	case *ast.IdentPattern, *ast.WildcardPattern, *ast.IntLit, *ast.FloatLit, *ast.DecimalLit,
 		*ast.StringLit, *ast.CodepointLit, nil:
 		return false

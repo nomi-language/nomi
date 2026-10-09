@@ -1,0 +1,68 @@
+//# `P as name`: the pattern P, and a name for the whole value it matched.
+
+enum Kind {
+    Deposit
+    Withdrawal
+}
+
+struct Tx {
+    kind: Kind
+    start: Int
+    end: Int
+}
+
+fn change(r: Result<Tx, String>): Int {
+    case r {
+        Ok(Tx{kind: .Deposit} as t) -> t.end - t.start
+        Ok(t) -> t.start - t.end
+        Err(_) -> 0
+    }
+}
+
+fn first_of(xs: List<Maybe<Int>>): (Int, Int) {
+    case xs {
+        [Some(n) as head, .._] as all -> (Maybe.with_default(head, n), Iter.count(all))
+        _ -> (0, 0)
+    }
+}
+
+fn sum_with((a, b) as pair: (Int, Int)): Int {
+    a + b + pair.0
+}
+
+test "an as name inside a payload binds the payload" {
+    assert change(Ok(Tx{kind: .Deposit, start: 10, end: 25})) == 15
+    assert change(Ok(Tx{kind: .Withdrawal, start: 25, end: 5})) == 20
+    assert change(Err("closed")) == 0
+}
+
+test "an as name in a list pattern binds the element and the list" {
+    assert first_of([Some(4), None]) == (4, 2)
+    assert first_of([None]) == (0, 0)
+}
+
+test "an as name in each statement position" {
+    (x, y) as both = (1, 2)
+    assert both == (x, y)
+
+    Some(n) as found = Some(5) else { return }
+    assert found == Some(n)
+
+    r: Result<Int, String> = Ok(7)
+
+    seen = if Ok(v) as whole = r {
+        (v, whole)
+    } else {
+        (0, Err("none"))
+    }
+
+    assert seen == (7, Ok(7))
+
+    assert Some(m) as again = found
+    assert again == Some(m)
+
+    assert sum_with((3, 4)) == 10
+    sums = [(1, 2), (3, 4)] |> Iter.map(|(a, b) as p| a + b + p.1) |> Iter.to_list()
+
+    assert sums == [5, 11]
+}

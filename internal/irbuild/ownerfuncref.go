@@ -24,13 +24,36 @@ import (
 // ownerFuncRef lowers `Owner.member` as a function value, or declines.
 // `Shape.Circle` and `Maybe.Some`, a positional variant named through its
 // enum, take this path too: the body is the constructor call
-// `Shape.Circle(p0)`.
+// `Shape.Circle(p0)`. The owner may be named through a file's qualifier,
+// `leaf.Box.twice` or `leaf.Shape.Line`; the body is then that qualified
+// call, which resolves as the written call does.
 func (bl *irScalarBuilder) ownerFuncRef(t *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
-	owner, isType := t.Object.(*ast.TypeIdent)
-	if !isType || t.Field == nil {
+	owner, ok := ownerSpelling(t.Object)
+	if !ok || t.Field == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	return bl.callFuncValue(t, owner.Name+"."+t.Field.Name)
+	return bl.callFuncValue(t, owner+"."+t.Field.Name)
+}
+
+// ownerSpelling is the owner of a qualified reference as written: a type name
+// (`Box`), or one under qualifiers (`leaf.Box`, `Probe.Reading`). It only
+// names the function value's IR function; the call callFuncValue builds is
+// resolved through the checker's references, as the written call is.
+func ownerSpelling(n ast.Node) (string, bool) {
+	switch o := n.(type) {
+	case *ast.TypeIdent:
+		return o.Name, true
+	case *ast.FieldAccess:
+		if o.Field == nil {
+			return "", false
+		}
+		if root, isIdent := o.Object.(*ast.Ident); isIdent {
+			return root.Name + "." + o.Field.Name, true
+		}
+		q, ok := ownerSpelling(o.Object)
+		return q + "." + o.Field.Name, ok
+	}
+	return "", false
 }
 
 // ctorFuncRef lowers a bare type name the checker typed as a constructor

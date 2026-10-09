@@ -236,8 +236,6 @@ func (s *operIfaceSpec) matchesDecl(decl *ast.InterfaceDef) bool {
 		return false
 	// An attached `//!` test is deliberately NOT a disqualifier — see
 	// stdStructSpec.matches for why.
-	case len(decl.Fields) > 0:
-		return false
 	case len(decl.Methods) != 1:
 		return false
 	}

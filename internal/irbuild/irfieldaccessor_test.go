@@ -58,34 +58,3 @@ fn main() {
 }
 `, "[Ann, Bob]\n[40, 30]\n[Bath, York]\n[Bob, Ann]\n[40, 30]\n[Ann, Bob]\n[Rye, Ely]\n[1, 2]\nhey there\n[a, b]\n[2, 4]\n")
 }
-
-// Through an interface's `field` requirement: over a bounded type parameter
-// in a generic body, and over an interface value.
-func TestIRFieldAccessor_ReadsAFieldRequirement(t *testing.T) {
-	verifyLambdaProgram(t, `import std/io
-
-interface Named {
-  field name: String
-}
-
-struct Dog {
-  name: String
-}
-
-impl Named for Dog {}
-
-fn names<T>(xs: List<T>): List<String> where T: Named {
-  xs |> Iter.map(.name) |> Iter.to_list()
-}
-
-fn iface_names(xs: List<Named>): List<String> {
-  xs |> Iter.map(.name) |> Iter.to_list()
-}
-
-fn main() {
-  io.print(names([Dog{name: "Rex"}]))
-  pets: List<Named> = [Dog{name: "Fido"}]
-  io.print(iface_names(pets))
-}
-`, "[Rex]\n[Fido]\n")
-}

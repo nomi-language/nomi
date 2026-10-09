@@ -238,11 +238,10 @@ func stdGenHostDeclIn(fa *analysis.FileAnalysis, s *stdGenHostSpec) *ast.ExternT
 //   - The BOUNDS, against the row's own expectation, so a std edit that adds a
 //     constraint this builder discharges nowhere produces no anchor rather
 //     than lowering past it.
-//   - NO FOREIGN BINDING and NO inline Go body (`ForeignAlias`, `ForeignName`,
-//     `GoBody`). A `host type` bound to a Go package is an FFI handle whose
-//     representation is the EMBEDDER's; rt's `Sender[T]` is not that, and
-//     redirecting one to the other would hand a generated package a type
-//     somebody else owns.
+//   - NO FOREIGN BINDING (`ForeignAlias`, `ForeignName`). A `host type`
+//     bound to a Go package is an FFI handle whose representation is the
+//     EMBEDDER's; rt's `Sender[T]` is not that, and redirecting one to the
+//     other would hand a generated package a type somebody else owns.
 //   - NO body item and NO attached test, for stdGenStructSpec.matches' reason:
 //     each is a construct declModifiers refuses on its own terms, and
 //     redirecting the type to rt would silently drop that refusal.
@@ -265,7 +264,7 @@ func (s *stdGenHostSpec) matches(decl *ast.ExternType) bool {
 	if !boundsMatch(s.bounds, decl.TypeParams, decl.WhereClauses) {
 		return false
 	}
-	if decl.ForeignAlias != "" || decl.ForeignName != "" || decl.GoBody != "" {
+	if decl.ForeignAlias != "" || decl.ForeignName != "" {
 		return false
 	}
 	// A body or a type body item is layout-relevant. An attached `//!` test is

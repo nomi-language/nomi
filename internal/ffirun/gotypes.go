@@ -105,44 +105,16 @@ func goPackageName(dir, importPath string) string {
 	return defaultImportName(importPath)
 }
 
-// mainPkg is the wrapper's own package: the types its `go { }` declarations
-// declare. Their spelling in the generated code is unqualified.
-func (gt *goTypes) mainPkg(goDecls []string) (*goSourcePkg, error) {
+// mainPkg is the wrapper's own package, the scope a binding's Go type
+// expression resolves in. It declares nothing; the expression names its
+// package through the wrapper's imports.
+func (gt *goTypes) mainPkg() *goSourcePkg {
 	if p, ok := gt.pkgs["main"]; ok {
-		return p, nil
+		return p
 	}
 	p := &goSourcePkg{path: "main", name: "main", types: map[string]goTypeSymbol{}, funcs: map[string]goFuncSymbol{}}
-	if len(goDecls) > 0 {
-		src := "package main\n" + strings.Join(goDecls, "\n")
-		f, err := goparser.ParseFile(gotoken.NewFileSet(), "nomi_go_decls.go", src, 0)
-		if err != nil {
-			return nil, fmt.Errorf("parsing the wrapper's Go declarations: %w", err)
-		}
-		for _, decl := range f.Decls {
-			gd, ok := decl.(*goast.GenDecl)
-			if !ok {
-				continue
-			}
-			for _, spec := range gd.Specs {
-				if ts, ok := spec.(*goast.TypeSpec); ok && ts.Name != nil {
-					p.types[ts.Name.Name] = goTypeSymbolFor(ts, nil)
-				}
-			}
-		}
-	}
 	gt.pkgs["main"] = p
-	return p, nil
-}
-
-// funcSig parses a function signature written as Go source text, `a int, b
-// string` and `(int, error)`, as the wrapper declares an inline body.
-func funcSig(params, results string) (*goast.FuncType, error) {
-	src := "package p\nfunc f(" + params + ") " + results + " {}\n"
-	f, err := goparser.ParseFile(gotoken.NewFileSet(), "sig.go", src, 0)
-	if err != nil {
-		return nil, fmt.Errorf("parsing the signature (%s) %s: %w", params, results, err)
-	}
-	return f.Decls[0].(*goast.FuncDecl).Type, nil
+	return p
 }
 
 var predeclared = map[string]reflect.Kind{

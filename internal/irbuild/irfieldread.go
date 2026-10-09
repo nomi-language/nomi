@@ -3,8 +3,7 @@ package irbuild
 // A field read `c.value` in a retained body lowers to an `ir.Proj`. The
 // object is lowered once through `bl.lower`, and the projection depends on
 // its kind: a declared struct's field (`ProjField`), a record's or tuple's
-// field (`recordRead`), an interface's `field` requirement
-// (`ProjIfaceField`), a channel's half, an enum's field whose variant is not
+// field (`recordRead`), a channel's half, an enum's field whose variant is not
 // known (`enumFieldRead`), or a Range's declared field.
 //
 // # Constructs that are not a field read
@@ -63,9 +62,10 @@ func (bl *irScalarBuilder) fieldRead(t *ast.FieldAccess) (ir.Temp, kind, bool, b
 		if _, dotted := bl.g.dottedTypeQualifier(t.Object); dotted && !appObject {
 			return no()
 		}
-	case *ast.StructLit, *ast.GroupedExpr, *ast.TupleLit, *ast.If, *ast.Case, *ast.Block:
-		// `Holder{shape: c}.shape`, `(f(x)).name`: a field of a value the
-		// expression builds, lowered once below and projected.
+	case *ast.StructLit, *ast.GroupedExpr, *ast.TupleLit, *ast.If, *ast.Case, *ast.Block, *ast.TaggedString:
+		// `Holder{shape: c}.shape`, `(f(x)).name`, `Box"x".contents`: a
+		// field of a value the expression builds, lowered once below and
+		// projected.
 	default:
 		// The whole of the bare-variant, dotted-qualifier and
 		// sibling-`once` exclusion. See the file header.
@@ -90,19 +90,6 @@ func (bl *irScalarBuilder) fieldProject(at ast.Node, name string, subj ir.Temp, 
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if irRetainedRecordKind(k) {
 		return bl.recordRead(at, name, subj, k, mobile)
-	}
-	if irExistentialKind(k) {
-		// `h.name` over an interface value: its `field name: String`
-		// requirement, read off the concrete value the existential holds.
-		f := k.iface.fields[name]
-		if f == nil || !irRetainedValueKind(f.k) {
-			return no()
-		}
-		p := ir.NewProjIfaceField(bl.g.irNodePos(at), bl.f.NewTemp(), subj,
-			bl.g.irTypes().Symbol(k.iface, k.iface.nomi), name, irParamShape(f.k))
-		bl.b.Append(p)
-		bl.side(p.Dst(), irScalarSide{k: f.k})
-		return p.Dst(), f.k, mobile, true
 	}
 	if _, owner, isChannel := channelElem(k); isChannel && owner == "Channel" {
 		return bl.channelHalf(at, name, subj, k, mobile)

@@ -42,7 +42,7 @@ func TestFormat_StructField_TrailingComment(t *testing.T) {
 }
 
 func TestFormat_InterfaceMember_TrailingComment(t *testing.T) {
-	roundTrip(t, "interface Shape {\n    field name: String // f\n    fn area(s: self): Int // a\n\n    fn twice(s: self): Int {\n        2\n    } // t\n}\n")
+	roundTrip(t, "interface Shape {\n    fn area(s: self): Int // a\n\n    fn twice(s: self): Int {\n        2\n    } // t\n}\n")
 }
 
 func TestFormat_TrailingComment_OtherItemPositions(t *testing.T) {

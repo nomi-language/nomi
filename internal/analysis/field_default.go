@@ -155,8 +155,6 @@ func (c *checker) checkFieldDefaults(owner string, fields []ast.StructField, dec
 		if c.argMatchesParam(valTy, declared, c.recPos(line, col), RecordingKindInterfaceTypedParam) {
 			continue
 		}
-		c.addError(line, col, c.typef(
-			"field '%s' of %s: expected %s, got %s",
-			f.Name, owner, declared, valTy))
+		c.addMismatch(line, col, declared, valTy, c.typef("field '%s' of %s: expected %s, got %s", f.Name, owner, declared, valTy))
 	}
 }

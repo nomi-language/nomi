@@ -286,6 +286,27 @@ var stdGenStructSpecs = []stdGenStructSpec{
 			},
 		}},
 	},
+	{
+		// `std/io.Captured<T>`, what `io.capture` answers. A row here rather
+		// than an ordinary generic declaration because a generic std body is
+		// instantiated per program in a gen of its own: as an ordinary
+		// template each of those gens, and the program's, would build its own
+		// `Captured<Int>`, and a value built in `io.capture`'s instance would
+		// match no other gen's kind (a parameter annotated `Captured<Int>`,
+		// std's Debug instance). This family interns one instance per program.
+		origin: "std/io", nomi: "Captured",
+		params: []string{"T"},
+		fields: []stdGenStructField{{
+			nomi: "value", decl: "T",
+			kindOf: func(_ *gen, args []kind) kind { return args[0] },
+		}, {
+			nomi: "output", decl: "String",
+			kindOf: func(*gen, []kind) kind { return kindString },
+		}, {
+			nomi: "transcript", decl: "String",
+			kindOf: func(*gen, []kind) kind { return kindString },
+		}},
+	},
 }
 
 // stdGenStructAnchor is one generic std struct as THIS compilation's analysis

@@ -120,7 +120,7 @@ func (g *gen) irHostBindingKey(ef *ast.ExternFunc) string {
 	if g.fileUnit == 0 {
 		return ef.Name
 	}
-	if ef.ForeignName != "" || ef.GoBody != "" {
+	if ef.ForeignName != "" {
 		return ffirun.BindingModule(g.nomiPath) + "." + ef.Name
 	}
 	return strings.TrimSuffix(filepath.Base(g.nomiPath), ".nomi") + "." + ef.Name

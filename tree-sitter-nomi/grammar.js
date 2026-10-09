@@ -148,7 +148,6 @@ module.exports = grammar({
       $.import_statement,
       $.import_block,
       $.gopkg_declaration,
-      $.go_block,
       $._expression_or_statement,
     ),
 
@@ -264,7 +263,7 @@ module.exports = grammar({
       alias($._import_path_keyword, $.identifier),
     ),
 
-    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tests?|then|todo|try|type(alias)?|where|with/)),
+    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|tests?|then|todo|try|type(alias)?|where|with/)),
 
     import_selector: $ => prec.right(seq(
       ':',
@@ -351,26 +350,7 @@ module.exports = grammar({
       $.parameters,
       optional(seq(':', $._type)),
       optional($.where_clause),
-      optional(choice($.go_selector_binding, $.go_inline_body, $.body)),
-    )),
-
-    go_block: $ => seq(
-      'go',
-      '{',
-      optional($.go_raw_content),
-      '}',
-    ),
-
-    go_inline_body: $ => seq(
-      'go',
-      '{',
-      optional($.go_raw_content),
-      '}',
-    ),
-
-    go_raw_content: $ => repeat1(choice(
-      token(prec(-1, /[^{}]+/)),
-      seq('{', optional($.go_raw_content), '}'),
+      optional(choice($.go_selector_binding, $.body)),
     )),
 
     // Host declarations
@@ -437,7 +417,16 @@ module.exports = grammar({
       $.tuple_pattern,
       $.struct_pattern,
       $.enum_pattern,
+      alias($._param_as_pattern, $.as_pattern),
     ),
+
+    // `(a, b) as pair` in parameter position: the parameter's pattern and a
+    // name for the whole argument. The name is as_pattern's.
+    _param_as_pattern: $ => prec.left(1, seq(
+      field('pattern', $._param_pattern),
+      'as',
+      field('name', choice($.identifier, $.type_identifier)),
+    )),
 
     type_parameters: $ => seq('<', commaSep1($.type_parameter), '>'),
     // Generic headers introduce type-parameter names only. Bounds live in a
@@ -498,7 +487,6 @@ module.exports = grammar({
       optional($.type_parameters),
       optional(choice(
         $.go_selector_binding,
-        $.go_inline_body,
         seq($._distinct_inner_type, optional($.type_body)),
         $.type_body,
       )),
@@ -607,21 +595,17 @@ module.exports = grammar({
 
     // Interface
     //
-    // Interface bodies hold contract members:
-    //   - `interface_method`: plain `fn ...` declarations (signature-only
-    //     = required; with a body = default method), optionally prefixed with
-    //     the contextual `open` keyword to mark a default as overridable
-    //     (without `open`, defaults are final), and optionally `extern`
-    //     for host-backed defaults.
-    //   - `interface_field`: `field name: T` requirements that any
-    //     implementing struct must surface as a real field of the
-    //     given type.
-    // Both `field` and `open` are CONTEXTUAL keywords in Nomi — they
-    // only carry meaning inside an interface body. Because the literal
-    // strings appear *only* inside these rules, tree-sitter's keyword
-    // extraction won't elevate them to global reserved words; outside
-    // an interface body they continue to lex as plain identifiers, so
-    // user code with locals/fields named `field` or `open` keeps working.
+    // Interface bodies hold functions only: `interface_method`, a plain
+    // `fn ...` declaration (signature-only = required; with a body =
+    // default method), optionally prefixed with the contextual `open`
+    // keyword to mark a default as overridable (without `open`, defaults
+    // are final), and optionally `extern` for host-backed defaults.
+    // `open` is a CONTEXTUAL keyword in Nomi — it only carries meaning
+    // inside an interface body. Because the literal string appears *only*
+    // inside this rule, tree-sitter's keyword extraction won't elevate it
+    // to a global reserved word; outside an interface body it continues to
+    // lex as a plain identifier, so user code with a local named `open`
+    // keeps working.
     interface_definition: $ => seq(
       optional($.pub),
       'interface',
@@ -630,10 +614,7 @@ module.exports = grammar({
       optional(seq('extends', $._type)),
       optional($.where_clause),
       '{',
-      repeat(choice(
-        $.interface_method,
-        $.interface_field,
-      )),
+      repeat($.interface_method),
       '}',
     ),
 
@@ -667,13 +648,6 @@ module.exports = grammar({
       ':',
       $._type,
       repeat(seq('and', $._type)),
-    ),
-
-    interface_field: $ => seq(
-      'field',
-      field('name', $.identifier),
-      ':',
-      field('type', $._type),
     ),
 
     // Top-level `impl` block. `impl Iface for Type` implements one interface
@@ -949,11 +923,18 @@ module.exports = grammar({
     // keep a pipe inside it.
     then_stage: $ => seq('then', field('lambda', alias($._then_lambda, $.lambda))),
 
+    // The pipe stage `x |> tap |v| body` runs the lambda on the piped value
+    // and passes the value on. Its lambda is a `then` lambda: the body ends
+    // at the next `|>`.
+    tap_stage: $ => seq('tap', field('lambda', alias($._then_lambda, $.lambda))),
+
+    // A call body is preferred over ending the lambda early: without it,
+    // `then |v| io.print(v)` parsed as `(x |> then |v| io).print(v)`.
     _then_lambda: $ => prec.right(3, seq(
       '|',
       optional(commaSep1($.lambda_parameter)),
       '|',
-      field('body', prec(2, $._lambda_body_expression)),
+      field('body', prec(2, choice(prec.dynamic(1, $.call_expression), $._lambda_body_expression))),
     )),
 
     _lambda_body_expression: $ => choice(
@@ -1073,6 +1054,7 @@ module.exports = grammar({
     // Expression / statement catch-all for function bodies
     _expression_or_statement: $ => choice(
       $.binding,
+      $.as_binding,
       $.defer_statement,
       $.with_statement,
       $.pattern_assertion_binding,
@@ -1119,6 +1101,34 @@ module.exports = grammar({
       field('else', choice($.body, $.else_arms)),
     ),
 
+    // A binding whose pattern ends in `as name`: `(x, y) as both = pair`,
+    // `Some(n) as m = find() else { return 0 }`. The pattern is read in its
+    // expression spelling, as else_binding's is, so a statement-leading
+    // pattern never competes with the expression it looks like; an
+    // expression statement is never followed by `as`, so the `as` commits.
+    as_binding: $ => prec.right(seq(
+      field('pattern', alias($._as_binding_pattern, $.as_pattern)),
+      '=',
+      field('value', $._expression),
+      optional(seq('else', field('else', choice($.body, $.else_arms)))),
+    )),
+
+    _as_binding_pattern: $ => seq(
+      field('pattern', choice(
+        $.call_expression,
+        $.list,
+        $.tuple_expression,
+        $.struct_construction,
+        $.anon_struct,
+        $.map_literal,
+        // `{x, y}`, which a statement start reads as a block.
+        $.body,
+        $.identifier,
+      )),
+      'as',
+      field('name', choice($.identifier, $.type_identifier)),
+    ),
+
     _else_binding_pattern: $ => choice(
       $.call_expression,
       $.list,
@@ -1160,6 +1170,15 @@ module.exports = grammar({
       seq($.type_identifier, repeat(seq('.', $.type_identifier)), '{', commaSep($.pattern_field), '}'),
       $.enum_pattern,
       $.list_pattern,
+      alias($._else_arm_as_pattern, $.as_pattern),
+    )),
+
+    // `Err(.NotFound) as e ->`. Its pattern is an else arm's, not any case
+    // pattern, for the reason else_arm gives.
+    _else_arm_as_pattern: $ => prec.left(1, seq(
+      field('pattern', $._else_arm_pattern),
+      'as',
+      field('name', choice($.identifier, $.type_identifier)),
     )),
 
     // Head-first assertion destructuring: `assert Ok(value) = parse()`.
@@ -1178,6 +1197,7 @@ module.exports = grammar({
       $.boolean,
       seq($.string, '+', $.identifier),
       seq('-', choice($.integer, $.float, $.decimal)),
+      $.as_pattern,
     )),
 
     binding: $ => prec(-1, seq(
@@ -1585,10 +1605,19 @@ module.exports = grammar({
       ),
     ),
 
-    guard_branch: $ => seq(
-      $._expression,
-      '->',
-      $._expression,
+    guard_branch: $ => choice(
+      seq(
+        $._expression,
+        '->',
+        $._expression,
+      ),
+      // A piped `|> case { Some(n) as m -> ... }` arm is a pattern the
+      // expression form reads; its `as` is read as an as_binding's is.
+      seq(
+        alias($._as_binding_pattern, $.as_pattern),
+        '->',
+        $._expression,
+      ),
     ),
 
     _case_pattern: $ => prec(2, choice(
@@ -1616,6 +1645,19 @@ module.exports = grammar({
       seq($.string, '+', $.identifier),
       // Negative literal: -1, -3.14, -1.50d
       seq('-', choice($.integer, $.float, $.decimal)),
+      $.as_pattern,
+    )),
+
+    // `P as name`: P, and a name for the whole value it matched. `as` binds
+    // looser than every other pattern construct. The name admits a
+    // type_identifier as an import's `as` does: the compiler rejects one, and
+    // with `identifier` alone tree-sitter shares the name's lex state with the
+    // enum payload's same-line tokens, whose leading `[ \t]+` then lands in the
+    // name's span.
+    as_pattern: $ => prec.left(1, seq(
+      field('pattern', $._case_pattern),
+      'as',
+      field('name', choice($.identifier, $.type_identifier)),
     )),
 
     struct_pattern: $ => prec(11, choice(
@@ -1736,7 +1778,7 @@ module.exports = grammar({
     // parser, which already represents `-x` as a unary expression.
     unary_expression: $ => prec(10, choice(seq('!', $._expression), seq('-', $._expression))),
     lambda_body_unary_expression: $ => prec(10, choice(seq('!', $._lambda_body_expression), seq('-', $._lambda_body_expression))),
-    pipe_expression: $ => prec.left(6, seq($._expression, '|>', choice($.bare_assertion, $.assertion, $._expression, $.pipe_if_expression, $.then_stage))),
+    pipe_expression: $ => prec.left(6, seq($._expression, '|>', choice($.bare_assertion, $.assertion, $._expression, $.pipe_if_expression, $.then_stage, $.tap_stage))),
     // Error propagation. Prefix `try expr` unwraps one postfix-level operand;
     // bare `try` is also valid as a pipe stage (`value |> try`), where the
     // previous pipe value supplies the operand.

@@ -266,6 +266,8 @@ type assertionReportStyle struct {
 	indent string
 	label  func(string) string
 	source func(string) string
+	// del and ins decorate a string diff's `-` and `+` lines.
+	del, ins func(string) string
 }
 
 func undecorated(s string) string { return s }
@@ -280,7 +282,7 @@ func undecorated(s string) string { return s }
 // not have to reproduce any of this.
 func WriteAssertionFailure(w io.Writer, assertionErr *AssertionFailure) {
 	writeAssertionReport(w, assertionErr, assertionReportStyle{
-		indent: "  ", label: Dim, source: nomiSource,
+		indent: "  ", label: Dim, source: nomiSource, del: diffRed, ins: Green,
 	})
 }
 
@@ -293,7 +295,7 @@ func WriteAssertionFailure(w io.Writer, assertionErr *AssertionFailure) {
 func FormatAssertionFailure(failure *AssertionFailure) string {
 	var b strings.Builder
 	writeAssertionReport(&b, failure, assertionReportStyle{
-		indent: "", label: undecorated, source: undecorated,
+		indent: "", label: undecorated, source: undecorated, del: undecorated, ins: undecorated,
 	})
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -347,7 +349,7 @@ func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionRe
 		for _, observed := range failure.Values {
 			if len(observed.Pipeline) > 0 {
 				hasPipelineValues = true
-			} else {
+			} else if !failure.rowHidden(observed) {
 				hasDirectValues = true
 			}
 		}
@@ -355,7 +357,7 @@ func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionRe
 			fmt.Fprintf(w, "%s  %s\n", p, st.label("values:"))
 		}
 		for _, observed := range failure.Values {
-			if len(observed.Pipeline) > 0 {
+			if len(observed.Pipeline) > 0 || failure.rowHidden(observed) {
 				continue
 			}
 			st.writeSource(w, p+"    ", observed.Expr)
@@ -379,6 +381,9 @@ func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionRe
 			}
 		}
 	}
+	if failure.Diff != nil {
+		st.writeStringDiff(w, p+"  ", failure.Diff)
+	}
 	if len(failure.Details) > 0 {
 		// An Assertable value's own rows. Neither half goes through `source`: a
 		// detail label and its value are prose the user authored in an `impl
@@ -391,9 +396,10 @@ func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionRe
 			fmt.Fprintf(w, "%s      %s %s\n", p, st.label("="), detail.Value)
 		}
 	}
-	if failure.Actual != "" {
+	if failure.Actual != "" && failure.Diff == nil {
 		// An empty Actual is absence and not an empty row, the same rule
-		// nomiMaybeString applies when it turns "" into `None`.
+		// nomiMaybeString applies when it turns "" into `None`. A diff
+		// already shows an Assertable's actual string.
 		fmt.Fprintf(w, "%s  %s %s\n", p, st.label("actual:"), st.source(failure.Actual))
 	}
 }

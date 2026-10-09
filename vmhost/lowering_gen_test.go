@@ -324,7 +324,10 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 	case "Tuple":
 		if v.t.args[0].eq(t) {
 			add(func() string { return n + ".0" },
-				func() string { return "{\n(a, _) = " + n + "\na\n}" })
+				func() string {
+					as, read := g.asWhole()
+					return "{\n(a, _)" + as + " = " + n + "\n" + read + "a\n}"
+				})
 		}
 		if v.t.args[1].eq(t) {
 			add(func() string { return n + ".1" })
@@ -332,17 +335,32 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 	case "Box":
 		if v.t.args[0].eq(t) {
 			add(func() string { return n + ".v" },
-				func() string { return "{\n{v} = " + n + "\nv\n}" })
+				func() string {
+					as, read := g.asWhole()
+					return "{\n{v}" + as + " = " + n + "\n" + read + "v\n}"
+				})
 			add(func() string { return "unbox(" + n + ")" })
 		}
 	case "Maybe":
 		if v.t.args[0].eq(t) {
-			add(func() string { return "case " + n + " {\nSome(x) -> x\nNone -> " + g.expr(t, d, sc) + "\n}" },
+			add(func() string {
+				some := "Some(x) -> x"
+				if g.aux.Intn(2) == 0 {
+					some = "Some(x) as whole -> Maybe.with_default(whole, x)"
+				}
+				return "case " + n + " {\n" + some + "\nNone -> " + g.expr(t, d, sc) + "\n}"
+			},
 				func() string { return "Maybe.with_default(" + n + ", " + g.expr(t, d, sc) + ")" })
 		}
 	case "Result":
 		if v.t.args[0].eq(t) {
-			add(func() string { return "case " + n + " {\nOk(x) -> x\nErr(_) -> " + g.expr(t, d, sc) + "\n}" },
+			add(func() string {
+				ok := "Ok(x) -> x"
+				if g.aux.Intn(2) == 0 {
+					ok = "Ok(x) as whole -> Result.with_default(whole, x)"
+				}
+				return "case " + n + " {\n" + ok + "\nErr(_) -> " + g.expr(t, d, sc) + "\n}"
+			},
 				func() string { return "Result.with_default(" + n + ", " + g.expr(t, d, sc) + ")" })
 		}
 	case "Opt":
@@ -377,6 +395,30 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 		return "{\n_ = " + n + "\n" + g.expr(t, d, sc) + "\n}"
 	}
 	return g.pick(opts)
+}
+
+// asWhole is, one time in two, ` as whole` for a destructuring pattern to
+// end with, and the statement that then reads the name; otherwise nothing. It
+// draws from g.aux.
+func (g *gen) asWhole() (as, read string) {
+	if g.aux.Intn(2) != 0 {
+		return "", ""
+	}
+	return " as whole", "_ = whole\n"
+}
+
+// tapStage is, one time in three, a `tap` stage to end a pipeline with: one
+// that shows the piped value or one that discards it. Otherwise nothing. It
+// draws from g.aux, and names its parameter apart from g.fresh's names, so
+// the program around it is the one it would be without the stage.
+func (g *gen) tapStage() string {
+	switch g.aux.Intn(6) {
+	case 0:
+		return "\n|> tap |tapped| io.inspect(tapped)"
+	case 1:
+		return "\n|> tap |tapped| { _ = tapped }"
+	}
+	return ""
 }
 
 // holdFn wraps the function expression cb, of type ft, in one to three
@@ -534,7 +576,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 	add := func(fs ...func() string) { forms = append(forms, fs...) }
 	add(
 		func() string { return "ident(" + g.expr(t, d, sc) + ")" },
-		func() string { return pipeHead(g.expr(t, d, sc)) + " |> ident()" },
+		func() string { return pipeHead(g.expr(t, d, sc)) + " |> ident()" + g.tapStage() },
 		func() string { return "pick(" + g.boolLit() + ", " + g.expr(t, d, sc) + ", " + g.expr(t, d, sc) + ")" },
 		func() string {
 			v := gvar{g.fresh("b"), other()}
@@ -578,7 +620,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 			u := other()
 			x := g.fresh("p")
 			body := g.use(t, gvar{x, u}, d, append(sc, gvar{x, u}))
-			return pipeHead(g.expr(u, d, sc)) + "\n|> then |" + x + "| " + body
+			return pipeHead(g.expr(u, d, sc)) + "\n|> then |" + x + "| " + body + g.tapStage()
 		},
 		func() string { return paren("("+lit(t)+", "+lit(g.typ(1))+")") + ".0" },
 		func() string { return paren("("+lit(g.typ(1))+", "+lit(t)+")") + ".1" },
@@ -888,6 +930,15 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		sc = append(sc, gvar{name, t})
 	}
 	body.WriteString("io.inspect(s0)\n")
+	// One program in four spells its output through an aliased selective
+	// import (`import std/io.{inspect as peek}`), called bare and passed as
+	// a function value. Decided by i alone, so no other program changes.
+	selective := i%4 == 3
+	if selective {
+		text := strings.ReplaceAll(body.String(), "io.inspect(", "peek(")
+		body.Reset()
+		body.WriteString(text + "Iter.each([s0], peek)\n")
+	}
 	if asTest {
 		body.WriteString("assert Iter.count([s0]) == 1\n")
 	}
@@ -905,7 +956,7 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		helpers, localHelpers = "", strings.Join(used, "\n\n")+"\n\n"
 	}
-	src.WriteString("import std/io\n\n" + helpers + "\n" + genGenericTypes + "\n" + genDerives + "\n")
+	src.WriteString(helpers + "\n" + genGenericTypes + "\n" + genDerives + "\n")
 	if !g.local {
 		src.WriteString(genPlainTypes + "\n" + genShapeDerive + "\n" + strings.Join(g.helpers, "\n\n") + "\n\n")
 	}
@@ -919,6 +970,14 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	}
 	src.WriteString(body.String() + "}\n")
 	out := src.String()
+	switch {
+	case !selective:
+		out = "import std/io\n\n" + out
+	case uses(out, "io"):
+		out = "import std/io\nimport std/io.{inspect as peek}\n\n" + out
+	default:
+		out = "import std/io.{inspect as peek}\n\n" + out
+	}
 	if formatted, err := format.Format(out); err == nil {
 		out = formatted
 	}

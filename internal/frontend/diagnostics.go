@@ -34,6 +34,11 @@ type Diagnostic struct {
 	// its source without reading the file. Empty when the file was not
 	// available.
 	SourceLine string
+	// Code is an optional machine-readable class, for a host that reports
+	// the error under one (the language server): "invalid-literal" for a
+	// backtick typed literal that fails its compile-time check. Empty for
+	// the rest.
+	Code string
 }
 
 // Related is a location a diagnostic refers to: the declaration a

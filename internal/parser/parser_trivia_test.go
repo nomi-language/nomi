@@ -763,10 +763,9 @@ func TestParse_EnumBody_InterVariantComment_Preserved(t *testing.T) {
 	}
 }
 
-// parseInterfaceDef now captures inter-member comments on the next
-// member's LeadingComments (InterfaceField.LeadingComments or
-// InterfaceMethod.GetLeading via its TriviaCarrier). Previously
-// dropped via skipNewlines.
+// parseInterfaceDef captures inter-member comments on the next
+// method's leading trivia (InterfaceMethod.GetLeading via its
+// TriviaCarrier). Previously dropped via skipNewlines.
 func TestParse_InterfaceBody_InterMemberComment_Preserved(t *testing.T) {
 	src := "pub interface Speech {\n  fn speak(s: Int): Int\n  // a comment between two methods\n  fn shout(s: Int): Int\n}\n"
 	nodes, err := Parse(lexer.Lex(src))
@@ -794,35 +793,6 @@ func TestParse_InterfaceBody_InterMemberComment_Preserved(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected inter-method comment, got %v", leading)
-	}
-}
-
-// parseInterfaceDef captures inter-field comments between `field`
-// requirements on InterfaceField.LeadingComments.
-func TestParse_InterfaceBody_InterFieldComment_Preserved(t *testing.T) {
-	src := "pub interface Boxed {\n  field width: Int\n  // a comment between two fields\n  field height: Int\n}\n"
-	nodes, err := Parse(lexer.Lex(src))
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	id, ok := nodes[0].(*ast.InterfaceDef)
-	if !ok {
-		t.Fatalf("want *ast.InterfaceDef, got %T", nodes[0])
-	}
-	if len(id.Fields) != 2 {
-		t.Fatalf("want 2 fields, got %d", len(id.Fields))
-	}
-	if len(id.Fields[1].LeadingComments) == 0 {
-		t.Fatalf("want non-empty LeadingComments on field 1, got nil")
-	}
-	found := false
-	for _, tr := range id.Fields[1].LeadingComments {
-		if tr.Kind == ast.TriviaComment && tr.Text == "// a comment between two fields" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected inter-field comment, got %v", id.Fields[1].LeadingComments)
 	}
 }
 

@@ -151,12 +151,33 @@ func irRetainedStructKindIn(d *typeDef, outer []*typeDef) bool {
 			}
 			continue
 		}
-		// A std generic struct's other fields are only what its spec builds.
-		if d.genStructOf != nil || !(irUserStructFieldKind(f.k) || irComposedFieldKind(f.k, append(outer, d))) {
+		// A std generic struct's other fields are only what its spec builds,
+		// except a field the spec declares as a bare type parameter
+		// (`Captured<T>`'s `value: T`), which holds what a user generic
+		// struct's `T` field holds.
+		if d.genStructOf != nil && !irGenStructParamField(d, i) {
+			return false
+		}
+		if !(irUserStructFieldKind(f.k) || irComposedFieldKind(f.k, append(outer, d))) {
 			return false
 		}
 	}
 	return true
+}
+
+// irGenStructParamField reports whether field i of a generic std struct
+// instance is declared as one of the struct's type parameters, bare.
+func irGenStructParamField(d *typeDef, i int) bool {
+	spec := d.genStructOf
+	if spec == nil || i >= len(spec.fields) {
+		return false
+	}
+	for _, p := range spec.params {
+		if spec.fields[i].decl == p {
+			return true
+		}
+	}
+	return false
 }
 
 // irKindReaches reports whether a value of kind k can hold a value of one of
@@ -220,6 +241,9 @@ func irRecursiveFieldKind(k kind, deciding []*typeDef) bool {
 	switch {
 	case irUserNominal(k):
 		return irNominalCoinductive(k, deciding)
+	case k.tag == tagNamed && k.def != nil && k.def.isDistinct:
+		// `b: B` for `type B W` where W is the struct being decided.
+		return irDistinctCoinductive(k, deciding)
 	case k.tag == tagFunc:
 		return irFuncFieldKind(k, deciding)
 	}
@@ -262,6 +286,10 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 			return irNominalCoinductive(p, outer)
 		case p.tag == tagFunc:
 			return irFuncFieldKind(p, outer)
+		case p.tag == tagNamed && p.def != nil && p.def.isDistinct && irKindReaches(p, outer):
+			// `b: Maybe<B>` for `type B W` inside W: the distinct is decided
+			// with the walk's stack, as a struct part is.
+			return irDistinctCoinductive(p, outer)
 		case p.tag == tagSeq && p.comp != nil && len(p.comp.parts) == 1:
 			// `xs: Iter<Point>`: a lowered sequence, held as the closure.
 			return p.comp.parts[0] == kindUnit || part(p.comp.parts[0])
@@ -512,7 +540,7 @@ func irLeafStructKind(d *typeDef) bool {
 // ends at the leaves; irChannelFieldKind bounds the one path through a
 // channel's element.
 func irRetainedFieldKind(k kind) bool {
-	if irRetainedLeafKind(k) || irChannelFieldKind(k) {
+	if k == kindUnit || irRetainedLeafKind(k) || irChannelFieldKind(k) {
 		return true
 	}
 	return k.tag == tagNamed && k.def != nil && !k.def.isEnum && irRetainedStructKind(k.def)
@@ -673,9 +701,12 @@ func (bl *irScalarBuilder) structMakeOf(t *ast.StructLit, d *typeDef) (ir.Temp, 
 		// Typed by the field, so a bare `None` or `Ok(v)` takes its kind.
 		src, k, mobile, ok := bl.lowerTypedOperand(f.Value, fd.k)
 		erased := bl.g.irErases(fd.k, k)
-		if ok && mobile && k != fd.k && !erased {
-			// An empty literal takes the field's kind.
+		if ok && k != fd.k && !erased && (mobile || irEmbeddedIn(fd.k, k)) {
+			// An empty literal takes the field's kind, and a value of an
+			// embedded type widens into its `embeds` variant (embedWiden
+			// forces an impure one into a temporary first).
 			src, k, ok = bl.coerceEmpty(f.Value, src, k, fd.k)
+			mobile = mobile || ok
 		}
 		if !ok || (k != fd.k && !erased) {
 			return no()
@@ -856,7 +887,9 @@ func (bl *irScalarBuilder) stdGenStructMake(t *ast.StructLit, a *stdGenStructAnc
 	args := make([]kind, len(a.decl.TypeParams))
 	for i, tp := range a.decl.TypeParams {
 		k, ok := solved[tp.Name]
-		if !ok || !irCallableValueKind(k) {
+		// Unit is a field like any other (`Captured<Unit>`'s value), as
+		// in a user generic struct (generictype.go).
+		if !ok || (k != kindUnit && !irCallableValueKind(k)) {
 			return no()
 		}
 		args[i] = k

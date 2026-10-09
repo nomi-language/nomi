@@ -52,8 +52,8 @@ func TestPassingAssertionAllocatesAtMostOnce(t *testing.T) {
 	a, b := int64(2), int64(2)
 	got := testing.AllocsPerRun(1000, func() {
 		trace := make([]AssertionValueContext, 0, 2)
-		RecordOperand(&trace, "a", InspectInt(a), true)
-		RecordOperand(&trace, "b", InspectInt(b), true)
+		RecordOperand(&trace, "a", InspectInt(a), true, false)
+		RecordOperand(&trace, "b", InspectInt(b), true, false)
 		if site.JudgeBool(a == b, nil, trace) != nil {
 			t.Fatal("the assertion should hold")
 		}
@@ -111,17 +111,24 @@ func TestJudgeBoolIsTheOneRule(t *testing.T) {
 // why the suppression is a parameter rather than a fixed rule.
 func TestRecordOperandSuppressesRedundantRows(t *testing.T) {
 	var trace []AssertionValueContext
-	RecordOperand(&trace, "1", "1", true)
+	RecordOperand(&trace, "1", "1", true, true)
 	if len(trace) != 0 {
 		t.Fatalf("a redundant row survived: %+v", trace)
 	}
-	RecordOperand(&trace, "5", "5", false)
+	RecordOperand(&trace, "5", "5", false, true)
 	if len(trace) != 1 || trace[0].Expr != "5" || trace[0].Value != "5" {
 		t.Fatalf("a predicate's literal argument was dropped: %+v", trace)
 	}
-	RecordOperand(&trace, "double(3)", "6", true)
+	RecordOperand(&trace, "double(3)", "6", true, false)
 	if len(trace) != 2 || trace[1].Value != "6" {
 		t.Fatalf("an informative row was dropped: %+v", trace)
+	}
+	// A literal that reads differently from its value is still shown in full
+	// on the assertion line, so its row is dropped too.
+	RecordOperand(&trace, "1_000", "1000", true, true)
+	RecordOperand(&trace, "\"\"\"\n    a\n    \"\"\"", "\"a\"", true, true)
+	if len(trace) != 2 {
+		t.Fatalf("a literal operand's row survived: %+v", trace)
 	}
 }
 

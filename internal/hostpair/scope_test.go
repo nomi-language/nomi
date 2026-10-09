@@ -19,8 +19,8 @@ import (
 // The silent count is how many stdlib host declarations have no pairing in
 // source, so this derivation cannot supply one for them.
 type stdHostDeclarations struct {
-	// Bound declarations carry a `go alias.Symbol` selector or an inline `go
-	// { }` body, so the pairing is IN the source and hostpair derives it.
+	// Bound declarations carry a `go alias.Symbol` selector, so the pairing is
+	// IN the source and hostpair derives it.
 	Bound []string
 	// Silent declarations are `host fn` / `host type` with no Go selector at
 	// all. Their pairing exists nowhere in `.nomi` source: for these,

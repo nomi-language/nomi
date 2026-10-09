@@ -144,19 +144,18 @@ rest.
 ```nomi-run
 import std/regex.Regex
 
-fn main(): Result<Unit, String> {
+fn main() {
     text = "one, two,three"
 
     dbg String.split(text, ",")
-    dbg text |> String.split(try Regex`,\s*`)
-    dbg String.contains?(text, try Regex`\d`)
-    Ok(Unit)
+    dbg text |> String.split(Regex`,\s*`)
+    dbg String.contains?(text, Regex`\d`)
 }
 ```
 <!-- expect
 dbg line 6: String.split(text, ",") = ["one", " two", "three"]
-dbg line 7: text |> String.split(try Regex`,\s*`) = ["one", "two", "three"]
-dbg line 8: String.contains?(text, try Regex`\d`) = False
+dbg line 7: text |> String.split(Regex`,\s*`) = ["one", "two", "three"]
+dbg line 8: String.contains?(text, Regex`\d`) = False
 -->
 
 ## Text model

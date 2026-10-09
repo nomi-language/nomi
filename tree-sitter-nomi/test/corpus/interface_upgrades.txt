@@ -44,70 +44,7 @@ pub interface Logger {
           (identifier))))))
 
 ================================================================================
-field requirement on interface
-================================================================================
-
-pub interface App {
-  field ctx: Context
-  field name: String
-}
-
---------------------------------------------------------------------------------
-
-(source_file
-  (interface_definition
-    (pub)
-    name: (type_identifier)
-    (interface_field
-      name: (identifier)
-      type: (type_identifier))
-    (interface_field
-      name: (identifier)
-      type: (type_identifier))))
-
-================================================================================
-field and open mixed in interface body
-================================================================================
-
-pub interface Mixed {
-  field id: Int
-  fn render(value: self): String
-  open fn label(value: self): String { "default" }
-  field tag: String
-}
-
---------------------------------------------------------------------------------
-
-(source_file
-  (interface_definition
-    (pub)
-    name: (type_identifier)
-    (interface_field
-      name: (identifier)
-      type: (type_identifier))
-    (interface_method
-      name: (identifier)
-      (parameters
-        (parameter
-          name: (identifier)
-          (self_type)))
-      (type_identifier))
-    (interface_method
-      name: (identifier)
-      (parameters
-        (parameter
-          name: (identifier)
-          (self_type)))
-      (type_identifier)
-      (body
-        (string
-          (string_content))))
-    (interface_field
-      name: (identifier)
-      type: (type_identifier))))
-
-================================================================================
-field and open are contextual — usable as identifiers outside interface bodies
+field and open are identifiers outside interface bodies
 ================================================================================
 
 fn make_thing(): String {

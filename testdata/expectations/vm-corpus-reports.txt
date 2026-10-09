@@ -15,6 +15,7 @@
 02-testing/assertion_rendering_test.nomi
 02-testing/assertion_unwrap_test.nomi
 02-testing/attached_tests_test.nomi
+02-testing/io_capture_test.nomi
 02-testing/setup_semantics_test.nomi
 02-testing/setup_try_test.nomi
 03-tooling-and-diagnostics/formatting_test.nomi
@@ -48,6 +49,7 @@
 07-structs-and-enums/enums_test.nomi
 07-structs-and-enums/recursive_structs_test.nomi
 07-structs-and-enums/struct_call_form_record_test.nomi
+08-pattern-matching/as_patterns_test.nomi
 08-pattern-matching/binding_else_test.nomi
 08-pattern-matching/case_patterns_test.nomi
 08-pattern-matching/compound_patterns_test.nomi

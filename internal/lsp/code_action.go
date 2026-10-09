@@ -347,7 +347,6 @@ func statementBounds(content string, lineOffs []int, stmt *ast.ImportStmt) (int,
 		consider(n)
 	}
 	consider(stmt.ModuleAlias)
-	consider(stmt.ExportAlias)
 	if stmt.IncludeParent && stmt.SelfLine > 0 {
 		if e := posToOffset(lineOffs, stmt.SelfLine, stmt.SelfCol) + len("self"); e > end {
 			end = e

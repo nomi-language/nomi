@@ -1,21 +1,14 @@
 package ffirun
 
 import (
-	"bytes"
 	"fmt"
-	goast "go/ast"
-	goparser "go/parser"
-	goprinter "go/printer"
-	gotoken "go/token"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	nomiast "github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/ffitypes"
 	"github.com/nomi-language/nomi/internal/lexer"
 	nomiparser "github.com/nomi-language/nomi/internal/parser"
 )
@@ -31,10 +24,8 @@ type DiscoveredPackage struct {
 	OwnerFile  string
 	OwnerLine  int
 	OwnerCol   int
-	InlineUsed bool
 	Types      []DiscoveredType
 	Exports    []DiscoveredExport
-	GoDecls    []string
 }
 
 // DiscoveredType is one Go named type bound to an opaque Nomi host type.
@@ -67,10 +58,6 @@ type DiscoveredExport struct {
 	// EntryKey is DiscoveredType.EntryKey for a function; see there.
 	EntryKey    string
 	FuncName    string
-	WrapperName string
-	ParamDecls  string
-	ReturnDecl  string
-	GoBody      string
 	Declaration string
 	Params      []nomiast.Param
 	ReturnType  nomiast.TypeExpr
@@ -135,7 +122,7 @@ func discoverForEntry(projectRoot, sourceRoot, entry string) ([]DiscoveredPackag
 		pkg.Exports = uniqueDiscoveredExports(pkg.Exports)
 		sort.Slice(pkg.Types, func(i, j int) bool { return pkg.Types[i].Key < pkg.Types[j].Key })
 		sort.Slice(pkg.Exports, func(i, j int) bool { return pkg.Exports[i].Key < pkg.Exports[j].Key })
-		if pkg.InlineUsed || len(pkg.Types) > 0 || len(pkg.Exports) > 0 {
+		if len(pkg.Types) > 0 || len(pkg.Exports) > 0 {
 			out = append(out, *pkg)
 		}
 	}
@@ -316,8 +303,7 @@ func discoverNomiFile(file string, byImportPath map[string]*DiscoveredPackage) e
 	}
 	aliases := make(map[string]*nomiast.ExternPackage)
 	collectExternPackages(nodes, aliases)
-	hasGoBlock := collectGoBlocks(file, nodes, aliases, byImportPath)
-	if len(aliases) == 0 && !hasGoBlock {
+	if len(aliases) == 0 {
 		return nil
 	}
 	moduleName := moduleNameForNomiFile(file)
@@ -371,137 +357,15 @@ func collectExternPackages(nodes []nomiast.Node, aliases map[string]*nomiast.Ext
 		switch v := n.(type) {
 		case *nomiast.ExternPackage:
 			aliases[v.Alias] = v
-		case *nomiast.ImportStmt:
-			if v.Extern && v.ExternAlias != "" && v.ExternAlias != "_" {
-				aliases[v.ExternAlias] = externPackageFromImport(v)
-			}
-		case *nomiast.ImportBlock:
-			collectExternImports(v.Entries, aliases)
 		}
-	}
-}
-
-func collectGoBlocks(file string, nodes []nomiast.Node, aliases map[string]*nomiast.ExternPackage, byImportPath map[string]*DiscoveredPackage) bool {
-	found := false
-	for _, n := range nodes {
-		block, ok := n.(*nomiast.GoBlock)
-		if !ok {
-			continue
-		}
-		found = true
-		imports, decls := parseGoBlockPrelude(block)
-		for _, decl := range imports {
-			aliases[decl.Alias] = decl
-			pkg := ensureDiscoveredPackage(byImportPath, decl, file)
-			pkg.InlineUsed = true
-		}
-		if len(decls) > 0 {
-			pkg := ensureLocalGoPackage(byImportPath, file, block)
-			pkg.InlineUsed = true
-			pkg.GoDecls = append(pkg.GoDecls, decls...)
-		}
-	}
-	return found
-}
-
-func parseGoBlockPrelude(block *nomiast.GoBlock) ([]*nomiast.ExternPackage, []string) {
-	fset := gotoken.NewFileSet()
-	src := "package main\n" + strings.TrimSpace(block.Body) + "\n"
-	file, err := goparser.ParseFile(fset, "inline_go.nomi.go", src, goparser.ParseComments)
-	if err != nil {
-		return nil, nil
-	}
-	var imports []*nomiast.ExternPackage
-	var decls []string
-	for _, decl := range file.Decls {
-		if gen, ok := decl.(*goast.GenDecl); ok && gen.Tok == gotoken.IMPORT {
-			for _, spec := range gen.Specs {
-				imp, ok := spec.(*goast.ImportSpec)
-				if !ok || imp.Path == nil {
-					continue
-				}
-				importPath, err := strconv.Unquote(imp.Path.Value)
-				if err != nil {
-					continue
-				}
-				alias := ""
-				aliasLine, aliasCol := goBlockPos(fset, block, imp.Path.Pos())
-				if imp.Name != nil {
-					alias = imp.Name.Name
-					aliasLine, aliasCol = goBlockPos(fset, block, imp.Name.Pos())
-				} else {
-					alias = defaultGoImportAlias(importPath)
-				}
-				pathLine, pathCol := goBlockPos(fset, block, imp.Path.Pos())
-				imports = append(imports, &nomiast.ExternPackage{
-					ImportPath:     importPath,
-					ImportPathLine: pathLine,
-					ImportPathCol:  pathCol,
-					Alias:          alias,
-					Line:           block.Line,
-					Col:            block.Col,
-					AliasLine:      aliasLine,
-					AliasCol:       aliasCol,
-				})
-			}
-			continue
-		}
-		var buf bytes.Buffer
-		if err := goprinter.Fprint(&buf, fset, decl); err != nil {
-			continue
-		}
-		decls = append(decls, strings.TrimSpace(buf.String()))
-	}
-	return imports, decls
-}
-
-func goBlockPos(fset *gotoken.FileSet, block *nomiast.GoBlock, pos gotoken.Pos) (int, int) {
-	p := fset.Position(pos)
-	line := block.BodyLine + p.Line - 2
-	col := p.Column
-	if p.Line == 2 {
-		col = block.BodyCol + p.Column - 1
-	}
-	return line, col
-}
-
-func defaultGoImportAlias(importPath string) string {
-	return sanitizeIdent(lastPathSegment(strings.TrimSuffix(importPath, "/")))
-}
-
-func collectExternImports(entries []*nomiast.ImportStmt, aliases map[string]*nomiast.ExternPackage) {
-	for _, entry := range entries {
-		if entry.Extern && entry.ExternAlias != "" && entry.ExternAlias != "_" {
-			aliases[entry.ExternAlias] = externPackageFromImport(entry)
-		}
-	}
-}
-
-func externPackageFromImport(n *nomiast.ImportStmt) *nomiast.ExternPackage {
-	aliasLine := n.ExternAliasLine
-	aliasCol := n.ExternAliasCol
-	if !n.ExternAliasExplicit {
-		aliasLine = n.ExternPathLine
-		aliasCol = n.ExternPathCol
-	}
-	return &nomiast.ExternPackage{
-		ImportPath:     n.ExternPath,
-		ImportPathLine: n.ExternPathLine,
-		ImportPathCol:  n.ExternPathCol,
-		Alias:          n.ExternAlias,
-		Line:           n.Line,
-		Col:            n.Col,
-		AliasLine:      aliasLine,
-		AliasCol:       aliasCol,
 	}
 }
 
 func collectForeignBindings(file string, nodes []nomiast.Node, moduleName, owner string, aliases map[string]*nomiast.ExternPackage, byImportPath map[string]*DiscoveredPackage) {
-	typeBindings := make(map[string]string)
 	structBindings := make(map[string]*nomiast.StructDef)
 	collectPlainStructBindings(nodes, structBindings)
-	collectForeignTypeBindings(file, nodes, moduleName, owner, aliases, byImportPath, typeBindings)
-	collectForeignFuncBindings(file, nodes, moduleName, owner, aliases, byImportPath, typeBindings, structBindings)
+	collectForeignTypeBindings(file, nodes, moduleName, owner, aliases, byImportPath)
+	collectForeignFuncBindings(file, nodes, moduleName, owner, aliases, byImportPath, structBindings)
 }
 
 func collectPlainStructBindings(nodes []nomiast.Node, structBindings map[string]*nomiast.StructDef) {
@@ -515,53 +379,11 @@ func collectPlainStructBindings(nodes []nomiast.Node, structBindings map[string]
 	}
 }
 
-func collectForeignTypeBindings(file string, nodes []nomiast.Node, moduleName, owner string, aliases map[string]*nomiast.ExternPackage, byImportPath map[string]*DiscoveredPackage, typeBindings map[string]string) {
+func collectForeignTypeBindings(file string, nodes []nomiast.Node, moduleName, owner string, aliases map[string]*nomiast.ExternPackage, byImportPath map[string]*DiscoveredPackage) {
 	for _, n := range nodes {
 		switch v := n.(type) {
 		case *nomiast.ExternType:
 			key := externDeclKey(moduleName, owner, v.Name)
-			if v.GoBody != "" {
-				foreignAlias, foreignName, ok := parseInlineGoTypeSelector(v.GoBody)
-				if !ok {
-					continue
-				}
-				if foreignAlias == "" {
-					pkg := ensureLocalGoPackage(byImportPath, file, v)
-					goTypeExpr := "*" + foreignName
-					typeBindings[v.Name] = goTypeExpr
-					pkg.Types = append(pkg.Types, DiscoveredType{
-						Key:         key,
-						EntryKey:    entryScopedKey(moduleName, owner, v.Name),
-						LocalName:   v.Name,
-						TypeName:    foreignName,
-						GoTypeExpr:  goTypeExpr,
-						Declaration: fmt.Sprintf("host type %s", v.Name),
-						SourceFile:  file,
-						SourceLine:  v.GoBodyLine,
-						SourceCol:   v.GoBodyCol,
-					})
-					continue
-				}
-				pkgDecl := aliases[foreignAlias]
-				if pkgDecl == nil {
-					continue
-				}
-				pkg := ensureDiscoveredPackage(byImportPath, pkgDecl, file)
-				goTypeExpr := "*" + foreignAlias + "." + foreignName
-				typeBindings[v.Name] = goTypeExpr
-				pkg.Types = append(pkg.Types, DiscoveredType{
-					Key:         key,
-					EntryKey:    entryScopedKey(moduleName, owner, v.Name),
-					LocalName:   v.Name,
-					TypeName:    foreignName,
-					GoTypeExpr:  goTypeExpr,
-					Declaration: fmt.Sprintf("host type %s", v.Name),
-					SourceFile:  file,
-					SourceLine:  v.GoBodyLine,
-					SourceCol:   v.GoBodyCol,
-				})
-				continue
-			}
 			if v.ForeignAlias == "" || v.ForeignName == "" {
 				continue
 			}
@@ -571,7 +393,6 @@ func collectForeignTypeBindings(file string, nodes []nomiast.Node, moduleName, o
 			}
 			pkg := ensureDiscoveredPackage(byImportPath, pkgDecl, file)
 			goTypeExpr := "*" + v.ForeignAlias + "." + v.ForeignName
-			typeBindings[v.Name] = goTypeExpr
 			pkg.Types = append(pkg.Types, DiscoveredType{
 				Key:         key,
 				EntryKey:    entryScopedKey(moduleName, owner, v.Name),
@@ -587,57 +408,12 @@ func collectForeignTypeBindings(file string, nodes []nomiast.Node, moduleName, o
 	}
 }
 
-func collectForeignFuncBindings(file string, nodes []nomiast.Node, moduleName, owner string, aliases map[string]*nomiast.ExternPackage, byImportPath map[string]*DiscoveredPackage, typeBindings map[string]string, structBindings map[string]*nomiast.StructDef) {
+func collectForeignFuncBindings(file string, nodes []nomiast.Node, moduleName, owner string, aliases map[string]*nomiast.ExternPackage, byImportPath map[string]*DiscoveredPackage, structBindings map[string]*nomiast.StructDef) {
 	for _, n := range nodes {
 		switch v := n.(type) {
 		case *nomiast.ImplBlock:
-			collectForeignFuncBindings(file, v.Items, moduleName, implOwnerKey(v.Receiver, v.Interface), aliases, byImportPath, typeBindings, structBindings)
+			collectForeignFuncBindings(file, v.Items, moduleName, implOwnerKey(v.Receiver, v.Interface), aliases, byImportPath, structBindings)
 		case *nomiast.ExternFunc:
-			key := externDeclKey(moduleName, owner, v.Name)
-			if v.GoBody != "" {
-				usedAliases := inlineGoUsedAliases(v.GoBody, aliases)
-				for _, alias := range usedAliases {
-					pkgDecl := aliases[alias]
-					if pkgDecl == nil {
-						continue
-					}
-					pkg := ensureDiscoveredPackage(byImportPath, pkgDecl, file)
-					pkg.InlineUsed = true
-				}
-				var pkg *DiscoveredPackage
-				if len(usedAliases) > 0 {
-					pkgDecl := aliases[usedAliases[0]]
-					if pkgDecl == nil {
-						continue
-					}
-					pkg = ensureDiscoveredPackage(byImportPath, pkgDecl, file)
-				} else {
-					pkg = ensureLocalGoPackage(byImportPath, file, v)
-				}
-				if pkg == nil {
-					continue
-				}
-				paramDecls, returnDecl, ok := inlineGoSignature(v, typeBindings, structBindings)
-				if !ok {
-					continue
-				}
-				pkg.Exports = append(pkg.Exports, DiscoveredExport{
-					Key:         key,
-					EntryKey:    entryScopedKey(moduleName, owner, v.Name),
-					WrapperName: inlineWrapperName(key),
-					ParamDecls:  paramDecls,
-					ReturnDecl:  returnDecl,
-					GoBody:      v.GoBody,
-					Declaration: nomiExternFuncSource(v),
-					Params:      v.Params,
-					ReturnType:  v.ReturnTypeExpr,
-					Structs:     cloneStructBindings(structBindings),
-					SourceFile:  file,
-					SourceLine:  v.GoBodyLine,
-					SourceCol:   v.GoBodyCol,
-				})
-				continue
-			}
 			if v.ForeignAlias == "" || v.ForeignName == "" {
 				continue
 			}
@@ -684,19 +460,6 @@ func ensureDiscoveredPackage(byImportPath map[string]*DiscoveredPackage, decl *n
 			OwnerCol:   decl.ImportPathCol,
 		}
 		byImportPath[decl.ImportPath] = pkg
-	}
-	return pkg
-}
-
-func ensureLocalGoPackage(byImportPath map[string]*DiscoveredPackage, file string, n nomiast.Node) *DiscoveredPackage {
-	pkg := byImportPath[""]
-	if pkg == nil {
-		pkg = &DiscoveredPackage{
-			ImportPath: "",
-			OwnerFile:  file,
-			OwnerLine:  n.LineNum(),
-		}
-		byImportPath[""] = pkg
 	}
 	return pkg
 }
@@ -827,279 +590,6 @@ func nomiExternFuncSource(fn *nomiast.ExternFunc) string {
 	return b.String()
 }
 
-func parseInlineGoTypeSelector(body string) (alias, name string, ok bool) {
-	expr := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(body), "*"))
-	parts := strings.Split(expr, ".")
-	if len(parts) == 1 && parts[0] != "" {
-		return "", parts[0], true
-	}
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", false
-	}
-	return parts[0], parts[1], true
-}
-
-func inlineGoUsedAliases(body string, aliases map[string]*nomiast.ExternPackage) []string {
-	var out []string
-	for alias := range aliases {
-		if alias == "" || alias == "_" {
-			continue
-		}
-		if strings.Contains(body, alias+".") {
-			out = append(out, alias)
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
-func inlineWrapperName(key string) string {
-	return "__nomi_inline_" + sanitizeIdent(strings.NewReplacer(".", "_", "/", "_", "-", "_").Replace(key))
-}
-
-func inlineGoSignature(fn *nomiast.ExternFunc, typeBindings map[string]string, structBindings map[string]*nomiast.StructDef) (string, string, bool) {
-	params := make([]string, 0, len(fn.Params))
-	for i, param := range fn.Params {
-		if param.TypeAnnotation == nil {
-			return "", "", false
-		}
-		goType, ok := nomiTypeExprGoType(param.TypeAnnotation, typeBindings, structBindings, true)
-		if !ok {
-			return "", "", false
-		}
-		name := param.Name
-		if name == "" || !isGoIdent(name) || name == "_" {
-			name = fmt.Sprintf("arg%d", i)
-		}
-		params = append(params, name+" "+goType)
-	}
-	ret, ok := nomiReturnTypeGoDecl(fn.ReturnTypeExpr, typeBindings, structBindings)
-	if !ok {
-		return "", "", false
-	}
-	return strings.Join(params, ", "), ret, true
-}
-
-func nomiReturnTypeGoDecl(t nomiast.TypeExpr, typeBindings map[string]string, structBindings map[string]*nomiast.StructDef) (string, bool) {
-	if t == nil || typeExprString(t) == "Unit" {
-		return "", true
-	}
-	if name, params, ok := genericTypeParts(t); ok && name == "Result" && len(params) == 2 {
-		if nomiTypeExprContainsPlainStruct(params[0], structBindings) {
-			return "(any, error)", true
-		}
-		okType, ok := nomiTypeExprGoType(params[0], typeBindings, structBindings, true)
-		if !ok {
-			return "", false
-		}
-		if typeExprString(params[0]) == "Unit" {
-			return "error", true
-		}
-		return "(" + okType + ", error)", true
-	}
-	if nomiTypeExprContainsPlainStruct(t, structBindings) {
-		return "any", true
-	}
-	return nomiTypeExprGoType(t, typeBindings, structBindings, true)
-}
-
-func nomiTypeExprGoType(t nomiast.TypeExpr, typeBindings map[string]string, structBindings map[string]*nomiast.StructDef, allowCallbacks bool) (string, bool) {
-	switch v := t.(type) {
-	case *nomiast.SimpleType:
-		return simpleNomiTypeGoType(v.Name, typeBindings, structBindings)
-	case *nomiast.QualifiedType:
-		return nomiTypeExprGoType(v.Member, typeBindings, structBindings, allowCallbacks)
-	case *nomiast.GenericType:
-		switch v.Name {
-		case "List":
-			if len(v.Params) != 1 {
-				return "", false
-			}
-			elem, ok := nomiTypeExprGoType(v.Params[0], typeBindings, structBindings, true)
-			if !ok {
-				return "", false
-			}
-			return "[]" + elem, true
-		case "Map":
-			if len(v.Params) != 2 {
-				return "", false
-			}
-			key, ok := nomiTypeExprGoType(v.Params[0], typeBindings, structBindings, true)
-			if !ok {
-				return "", false
-			}
-			if !isProjectedGoMapKeyType(key) {
-				return "", false
-			}
-			val, ok := nomiTypeExprGoType(v.Params[1], typeBindings, structBindings, true)
-			if !ok {
-				return "", false
-			}
-			return "map[" + key + "]" + val, true
-		case "Maybe":
-			if len(v.Params) != 1 {
-				return "", false
-			}
-			elem, ok := nomiTypeExprGoType(v.Params[0], typeBindings, structBindings, true)
-			if !ok {
-				return "", false
-			}
-			return "*" + elem, true
-		}
-	case *nomiast.FuncType:
-		if !allowCallbacks {
-			return "", false
-		}
-		params := make([]string, 0, len(v.Params))
-		for _, param := range v.Params {
-			goType, ok := nomiTypeExprGoType(param, typeBindings, structBindings, false)
-			if !ok {
-				return "", false
-			}
-			params = append(params, goType)
-		}
-		ret, ok := nomiReturnTypeGoDecl(v.Return, typeBindings, structBindings)
-		if !ok {
-			return "", false
-		}
-		if ret == "" {
-			return "func(" + strings.Join(params, ", ") + ")", true
-		}
-		return "func(" + strings.Join(params, ", ") + ") " + ret, true
-	case *nomiast.AnonStructType:
-		return nomiStructFieldsGoType(v.Fields, typeBindings, structBindings)
-	}
-	return "", false
-}
-
-func isProjectedGoMapKeyType(goType string) bool {
-	if strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map[") || strings.HasPrefix(goType, "func(") {
-		return false
-	}
-	return goType != ""
-}
-
-// goCodegenTimeAlias is the name the generated wrapper imports "time"
-// under (see codegen.go's UsesStdTime, which detects the qualifier in the
-// emitted decls), so a projected stdlib type has to be spelled with it.
-const goCodegenTimeAlias = "stdtime"
-
-// goCodegenPkgQualifier maps a projected type's import path onto the
-// qualifier the generated file spells it under. "" accepts the default.
-func goCodegenPkgQualifier(importPath string) string {
-	if importPath == "time" {
-		return goCodegenTimeAlias
-	}
-	return ""
-}
-
-// simpleNomiTypeGoType is the Go type the generated wrapper declares for a
-// named Nomi type. The projected scalars come from internal/ffitypes — the
-// same table the runtime's preflight and the go/ast preflight read — so the
-// signature this emits and the signature those two check are one rule.
-//
-// Dynamic and Unit are handled here rather than there because they have a
-// codegen spelling but no PROJECTION: any Go type can carry a Dynamic and a
-// Unit carries no value, so neither has a unique expectation for a checker
-// to hold a binding to — but the wrapper still needs something to write in
-// the slot.
-func simpleNomiTypeGoType(name string, typeBindings map[string]string, structBindings map[string]*nomiast.StructDef) (string, bool) {
-	if want, projected := ffitypes.Expect(&nomiast.SimpleType{Name: name}); projected {
-		return want.Render(goCodegenPkgQualifier), true
-	}
-	switch name {
-	case ffitypes.NomiDynamic:
-		return "any", true
-	case ffitypes.NomiUnit:
-		return "struct{}", true
-	}
-	if goType, ok := typeBindings[name]; ok {
-		return goType, true
-	}
-	if def, ok := structBindings[name]; ok {
-		return nomiStructFieldsGoType(def.Fields, typeBindings, structBindings)
-	}
-	return "", false
-}
-
-func nomiStructFieldsGoType(fields []nomiast.StructField, typeBindings map[string]string, structBindings map[string]*nomiast.StructDef) (string, bool) {
-	if len(fields) == 0 {
-		return "struct{}", true
-	}
-	parts := make([]string, 0, len(fields))
-	for _, field := range fields {
-		if field.TypeAnnotation == nil {
-			return "", false
-		}
-		goType, ok := nomiTypeExprGoType(field.TypeAnnotation, typeBindings, structBindings, true)
-		if !ok {
-			return "", false
-		}
-		parts = append(parts, goStructFieldName(field.Name)+" "+goType)
-	}
-	return "struct { " + strings.Join(parts, "; ") + " }", true
-}
-
-func nomiTypeExprContainsPlainStruct(t nomiast.TypeExpr, structBindings map[string]*nomiast.StructDef) bool {
-	switch v := t.(type) {
-	case *nomiast.SimpleType:
-		_, ok := structBindings[v.Name]
-		return ok
-	case *nomiast.QualifiedType:
-		return nomiTypeExprContainsPlainStruct(v.Member, structBindings)
-	case *nomiast.GenericType:
-		for _, param := range v.Params {
-			if nomiTypeExprContainsPlainStruct(param, structBindings) {
-				return true
-			}
-		}
-	case *nomiast.FuncType:
-		for _, param := range v.Params {
-			if nomiTypeExprContainsPlainStruct(param, structBindings) {
-				return true
-			}
-		}
-		return nomiTypeExprContainsPlainStruct(v.Return, structBindings)
-	case *nomiast.AnonStructType:
-		return true
-	}
-	return false
-}
-
-// goStructFieldName is internal/ffitypes' pairing, named locally so the call
-// sites below stay short. See ffitypes.GoFieldName.
-func goStructFieldName(name string) string { return ffitypes.GoFieldName(name) }
-
-func genericTypeParts(t nomiast.TypeExpr) (string, []nomiast.TypeExpr, bool) {
-	switch v := t.(type) {
-	case *nomiast.GenericType:
-		return v.Name, v.Params, true
-	case *nomiast.QualifiedType:
-		return genericTypeParts(v.Member)
-	}
-	return "", nil, false
-}
-
-func typeExprString(t nomiast.TypeExpr) string {
-	if t == nil {
-		return "Unit"
-	}
-	return t.TypeString()
-}
-
-func isGoIdent(name string) bool {
-	if name == "" {
-		return false
-	}
-	for i, r := range name {
-		ok := r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (i > 0 && r >= '0' && r <= '9')
-		if !ok {
-			return false
-		}
-	}
-	return name[0] < '0' || name[0] > '9'
-}
-
 // assignAliases hands each discovered package a Go identifier that
 // the wrapper template uses to qualify its registrations. Two-
 // pass:
@@ -1118,26 +608,6 @@ func assignAliases(packages []DiscoveredPackage) {
 	counts := make(map[string]int, len(packages))
 	bases := make([]string, len(packages))
 	for i := range packages {
-		if packages[i].ImportPath == "" {
-			bases[i] = ""
-			continue
-		}
-		if packages[i].InlineUsed && (packages[i].Owner == "_" || packages[i].Owner == ".") {
-			bases[i] = packages[i].Owner
-			continue
-		}
-		if packages[i].InlineUsed {
-			base := sanitizeIdent(packages[i].Owner)
-			if base == "" {
-				base = sanitizeIdent(lastPathSegment(packages[i].ImportPath))
-			}
-			if base == "" {
-				base = fmt.Sprintf("pkg%d", i)
-			}
-			bases[i] = base
-			counts[base]++
-			continue
-		}
 		base := sanitizeIdent(packages[i].Owner)
 		if base == "" || base == "_" {
 			base = sanitizeIdent(lastPathSegment(packages[i].ImportPath))
@@ -1151,10 +621,6 @@ func assignAliases(packages []DiscoveredPackage) {
 	seqs := make(map[string]int, len(counts))
 	for i := range packages {
 		base := bases[i]
-		if packages[i].ImportPath == "" || base == "_" || base == "." || packages[i].InlineUsed {
-			packages[i].Alias = base
-			continue
-		}
 		if counts[base] == 1 {
 			packages[i].Alias = base
 			continue

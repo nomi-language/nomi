@@ -74,6 +74,18 @@ func (bl *irScalarBuilder) stdDebugPlan(k kind) *irQualPlan {
 	if f == nil || f.why != "" {
 		return nil
 	}
+	if s := bl.g.stdInsts; f.irBody == nil && s != nil && s.stdUnretainedMonoBody(f) {
+		// A body the cache could not retain because it calls a generic
+		// template (Regex's Debug calls `String.contains?`): built per
+		// program like an instance with no arguments, as a call to it is
+		// (stdInstCallAt).
+		inst, _ := s.instantiate(f, nil, nil, nil, bl.g)
+		if inst == nil || len(inst.view.params) != 1 || inst.view.params[0] != k || inst.view.result != kindString ||
+			!bl.g.debugScalarInspects(k) {
+			return nil
+		}
+		return &irQualPlan{token: f, name: f.key, result: kindString, sym: inst.sym}
+	}
 	if f.canon != nil {
 		f = f.canon
 	}

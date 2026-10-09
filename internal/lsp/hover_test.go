@@ -174,40 +174,6 @@ fn ready_label(): String {
 	}
 }
 
-func TestHover_InlineGoHelperInGoBody(t *testing.T) {
-	input, pos := hoverMarkerPosition(t, `fn parse(raw: String): Result<Int, String> go {
-  return ▮toNomiErrString[int64]("bad")
-}
-`)
-	uri := "file:///inline_go_helper_hover.nomi"
-	s := NewServer()
-	s.docs.Open(uri, input)
-
-	res, err := s.textDocumentHover(nil, &protocol.HoverParams{
-		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
-			Position: protocol.Position{
-				Line:      uint32(pos.Line - 1),
-				Character: uint32(pos.Col - 1),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("hover error: %v", err)
-	}
-	if res == nil {
-		t.Fatal("expected hover content for inline Go helper")
-	}
-	mc, ok := res.Contents.(protocol.MarkupContent)
-	if !ok {
-		t.Fatalf("expected MarkupContent, got %T", res.Contents)
-	}
-	if !strings.Contains(mc.Value, "func toNomiErrString[T any](message string) (T, error)") ||
-		!strings.Contains(mc.Value, "Return an Err from a string.") {
-		t.Fatalf("unexpected hover:\n%s", mc.Value)
-	}
-}
-
 // When the function has no return annotation but BuildTypes ran (so the
 // symbol carries an inferred FuncType), hover should append the inferred
 // return type rather than show the bare `fn name(...)` shape.
@@ -604,17 +570,17 @@ func TestHover_Interface(t *testing.T) {
 	}
 }
 
-func TestHover_InterfaceStructuralRequirements(t *testing.T) {
+func TestHover_InterfaceRequirements(t *testing.T) {
 	sym := buildSymbol(`/// Event-shaped values.
 interface EventLike {
-  field source: String
+  fn source(value: self): String
   fn label(value: self): String
 }`, "EventLike")
 	if sym == nil {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	expected := "```nomi\ninterface EventLike {\n    field source: String\n    fn label(value: self): String\n}\n```\n\nEvent-shaped values."
+	expected := "```nomi\ninterface EventLike {\n    fn source(value: self): String\n    fn label(value: self): String\n}\n```\n\nEvent-shaped values."
 	if result != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
 	}
@@ -3186,6 +3152,15 @@ func variantLitBindingCursor(t *testing.T, src string) protocol.Position {
 func TestHover_ThenKeyword(t *testing.T) {
 	got := hoverText(t, "then", "fn label(n: Int): String {\n  n\n  |> ▮then |v| Int.to_string(v + 1)\n}\n")
 	expected := "```nomi\nthen: Int -> String\n```\n\nApplies the lambda to the piped value. Its body ends at the next `|>`; braces keep a pipe inside it."
+	if got != expected {
+		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
+	}
+}
+
+// A `tap` stage's hover shows the piped type going in and coming out.
+func TestHover_TapKeyword(t *testing.T) {
+	got := hoverText(t, "tap", "import std/io\n\nfn label(n: Int): Int {\n  n\n  |> ▮tap |v| io.print(Int.to_string(v))\n}\n")
+	expected := "```nomi\ntap: Int -> Int\n```\n\nRuns the lambda on the piped value for its effect, then passes the value on unchanged. The lambda returns `Unit`. Its body ends at the next `|>`; braces keep a pipe inside it."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}

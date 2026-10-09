@@ -341,6 +341,10 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"io.print":   outputHost("io.print", "\n"),
 		"io.write":   outputHost("io.write", ""),
 		"io.inspect": outputHost("io.inspect", "\n"),
+		// `io.capture` and `io.replay`: the three above and `io.read_line` go to the
+		// capture in force on the calling frame. See capture.go.
+		captureKey: captureHost,
+		replayKey:  replayHost,
 		// `dbg` is `rt.DbgText(w, line, expr, rendered)`: rt's layout and
 		// colour rule, called rather than transcribed. See dbg.go in this
 		// package for the two facts that are this consumer's own: which
@@ -352,8 +356,9 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 
 // outputHost writes the rendered operand and then end (a newline for print
 // and inspect, nothing for write) to the machine's serialized writer, in one
-// Write so concurrent tasks never split a line. Rendering is an explicit
-// instruction before the call.
+// Write so concurrent tasks never split a line, or to the `io.capture` in
+// force on the calling frame. Rendering is an explicit instruction before the
+// call.
 func outputHost(name, end string) hostFn {
 	return func(m *Machine, _ ir.Pos, args []any) (any, error) {
 		if len(args) != 1 {
@@ -363,7 +368,10 @@ func outputHost(name, end string) hostFn {
 		if !ok {
 			return nil, fmt.Errorf("vm: %s: the operand is the RENDERED text and arrived as %T; the producer emits an ir.Render before the call", name, args[0])
 		}
-		io.WriteString(m.out, s+end)
+		line := s + end
+		if !rt.CaptureWrite(m.hostFrame, line) {
+			io.WriteString(m.out, line)
+		}
 		return rt.Unit{}, nil
 	}
 }
@@ -1083,8 +1091,8 @@ type functionValue struct {
 // A function value is an rt.Closure: rt can hold, store and render it, and
 // only this machine calls it.
 //
-// Its Display and `values:` row name the function (rt/funcname.go lists the
-// renderings): a declared function
+// Its Display and `values:` row name the function (rt.FunctionRowText for a
+// declared one): a declared function
 // is `<func: double>` whatever binding it was read through, a lambda is
 // `<func: <lambda>>`, and a std host reached as a value is
 // `<builtin: strings.String.trim>`, the host key its forwarding body is
@@ -1099,7 +1107,7 @@ func (f *functionValue) OpaqueText() string {
 		if i := strings.LastIndexByte(name, '.'); i >= 0 {
 			name = name[i+1:]
 		}
-		return "<func: " + name + ">"
+		return rt.FunctionRowText(name)
 	case f.body.Name() == "lambda" || f.body.Name() == "concurrent":
 		return "<func: <lambda>>"
 	}

@@ -109,7 +109,11 @@ type Frame struct {
 	// see forcingOnce. Every frame built by hand must carry it across.
 	booted      *bootedApp
 	bootCleanup *bootCleanupState
-	startup     *Startup
+	// capture is the innermost `io.capture` this lineage is inside, or nil.
+	// Dynamic context like `scope`, carried to every child frame and task
+	// frame. See capture.go.
+	capture *Capture
+	startup *Startup
 }
 
 // EnterBoot returns the frame the app value is constructed on.

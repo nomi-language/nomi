@@ -4,21 +4,42 @@ import {
 }
 
 interface HasName {
-    field name: String
+    fn name(value: self): String
 }
 
 struct Tag {
     name: String
 }
 
-impl HasName for Tag
-
-fn name_of<T>(x: T): String where T: HasName {
-    x.name
+impl HasName for Tag {
+    fn name(tag: Tag): String {
+        tag.name
+    }
 }
 
-test "bounded type parameters expose fields declared by their interface bounds" {
+fn name_of<T>(x: T): String where T: HasName {
+    T.name(x)
+}
+
+test "a bounded type parameter reads through its bound's function requirement" {
     assert name_of(Tag{name: "Ada"}) == "Ada"
+}
+
+test "a bounded type parameter exposes no fields" {
+    diagnostics = compiler.check(
+        """
+          interface HasName {
+            fn name(value: self): String
+          }
+
+          fn name_of<T>(x: T): String where T: HasName {
+            x.name
+          }
+        """
+    )
+
+    assert Iter.count(diagnostics) == 1
+    assert test_helpers.has_diagnostic?(diagnostics, "type parameter `T` has no field 'name'")
 }
 
 test "unbounded type parameters do not expose arbitrary fields" {

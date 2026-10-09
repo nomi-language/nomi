@@ -28,7 +28,6 @@ type checker struct {
 	errors            []TypeError
 	pipeLambdaParams  []pipeLambdaParam      // parameters of earlier bare-bodied `then` stages of the pipelines being checked; see pipe_then_stage.go
 	returnTy          Type                   // expected return type of current function boundary
-	returnInferTy     Type                   // return type used as generic-call fallback inference context
 	iterBreakTy       Type                   // expected type of `break v` in the current iter-callback lambda
 	calleeNode        ast.Node               // the callee checkCallee is checking, which a struct-shaped variant may be; see rejectStructVariantValue
 	qualifierNode     ast.Node               // the object of the field access being checked, which a type name may be; see rejectTypeNameValue
@@ -63,10 +62,16 @@ type checker struct {
 	// not determined (undetermined.go).
 	undetermined         []undeterminedCall
 	undeterminedReported []ast.Node
-	typeVarID            int                  // counter for generating fresh type variables
-	fileTypeSymbols      map[string]*Symbol   // file-local type definitions (struct/enum/type/typealias/interface) by name; populated by checkVisibilityConsistency for the visibility check, bypassing the variant-shadowed scope
-	fileEnumDecls        map[string][]*Symbol // every enum this file declares, block-local ones included, by name; built on first use by enumDeclSymbol
-	attachedTestScope    *Scope               // declaration-associated fallback scope while checking an attached test body
+	// undeterminedPatterns is the pattern bindings whose names are checked
+	// for a determined type once every body is checked.
+	undeterminedPatterns []undeterminedPattern
+	// narrowed is the type each name holds inside the arm being checked
+	// that matched it against an embedded variant (narrowing.go).
+	narrowed          map[*Symbol]Type
+	typeVarID         int                  // counter for generating fresh type variables
+	fileTypeSymbols   map[string]*Symbol   // file-local type definitions (struct/enum/type/typealias/interface) by name; populated by checkVisibilityConsistency for the visibility check, bypassing the variant-shadowed scope
+	fileEnumDecls     map[string][]*Symbol // every enum this file declares, block-local ones included, by name; built on first use by enumDeclSymbol
+	attachedTestScope *Scope               // declaration-associated fallback scope while checking an attached test body
 	// tryBoundary describes the innermost enclosing fn or lambda for
 	// purposes of `try` (and `return`) unwinding. Push/pop in checkFunc
 	// and checkLambda(Expecting); read in checkTryOp when registering
@@ -215,20 +220,11 @@ func enumNameFromVariantType(t Type) string {
 	return ""
 }
 
-// findOwningEnumSymForVariant returns the (resolved) SymbolEnum that
-// owns the variant named `variant`, walking the same three sources as
-// findEnumForVariant. Returns nil when no enum in scope claims the
-// variant. Distinct from findEnumForVariant in that it returns the
-// real `*Symbol` directly — needed by resolveVariantPrefix's bare-
-// prefix path so a drill-through-imported variant (whose owning enum
-// isn't bound in the file's scope under its bare name) can still
-// hand the right Symbol off to variantPayloadFromSymbol.
-func (c *checker) findOwningEnumSymForVariant(variant string) *Symbol {
-	if c.fa == nil || c.fa.ModuleScope == nil {
-		return nil
-	}
+// enumDeclaringVariant returns the enum in scope, declared in this file
+// first and then imported, whose members include variant, or nil.
+func enumDeclaringVariant(scope *Scope, variant string) *Symbol {
 	// Pass 1: same-file enums (priority).
-	for _, sym := range c.fa.ModuleScope.Symbols {
+	for _, sym := range scope.Symbols {
 		if sym.Resolved != nil {
 			continue
 		}
@@ -240,7 +236,7 @@ func (c *checker) findOwningEnumSymForVariant(variant string) *Symbol {
 		}
 	}
 	// Pass 2: imported enums.
-	for _, sym := range c.fa.ModuleScope.Symbols {
+	for _, sym := range scope.Symbols {
 		if sym.Resolved == nil {
 			continue
 		}
@@ -254,6 +250,24 @@ func (c *checker) findOwningEnumSymForVariant(variant string) *Symbol {
 		if _, ok := real.Members[variant]; ok {
 			return real
 		}
+	}
+	return nil
+}
+
+// findOwningEnumSymForVariant returns the (resolved) SymbolEnum that
+// owns the variant named `variant`, walking the same three sources as
+// findEnumForVariant. Returns nil when no enum in scope claims the
+// variant. Distinct from findEnumForVariant in that it returns the
+// real `*Symbol` directly — needed by resolveVariantPrefix's bare-
+// prefix path so a drill-through-imported variant (whose owning enum
+// isn't bound in the file's scope under its bare name) can still
+// hand the right Symbol off to variantPayloadFromSymbol.
+func (c *checker) findOwningEnumSymForVariant(variant string) *Symbol {
+	if c.fa == nil || c.fa.ModuleScope == nil {
+		return nil
+	}
+	if sym := enumDeclaringVariant(c.fa.ModuleScope, variant); sym != nil {
+		return sym
 	}
 	// Pass 3: drill-through-imported variant — find any enum in scope
 	// (same-file or imported) whose Members contain a variant whose
@@ -608,23 +622,33 @@ func isPreludeBareVariant(name string) bool {
 // selective import (`import std/comparable.Ordering.{Equal}`) creates a real
 // local binding, so the bare pattern is explicit and accepted.
 func (c *checker) allowsBareVariantPattern(name string, pos Pos) bool {
+	return bareVariantPatternAllowed(c.fa, name, pos)
+}
+
+func bareVariantPatternAllowed(fa *FileAnalysis, name string, pos Pos) bool {
 	if isPreludeBareVariant(name) {
 		return true
 	}
-	if c.fa == nil {
+	if fa == nil {
 		return false
 	}
 	if pos != (Pos{}) {
-		if sym := c.fa.References[pos]; isImportedVariantSymbol(sym) {
+		if sym := fa.References[pos]; isImportedVariantSymbol(sym) {
 			return true
 		}
 	}
-	if c.fa.ModuleScope != nil {
-		if sym := c.fa.ModuleScope.Lookup(name); isImportedVariantSymbol(sym) {
+	if fa.ModuleScope != nil {
+		if sym := fa.ModuleScope.Lookup(name); isImportedVariantSymbol(sym) {
 			return true
 		}
 	}
 	return false
+}
+
+// bareVariantPatternMessage is the error for a variant of enumName written
+// bare in a pattern where allowsBareVariantPattern refuses it.
+func bareVariantPatternMessage(variant, enumName string) string {
+	return fmt.Sprintf("bare variant '%s' in pattern position; use '.%s' (or '%s.%s')", variant, variant, enumName, variant)
 }
 
 func isImportedVariantSymbol(sym *Symbol) bool {
@@ -1056,6 +1080,8 @@ func nodeLineCol(n ast.Node) (int, int) {
 		return v.Line, v.Col
 	case *ast.Then:
 		return v.Line, v.Col
+	case *ast.Tap:
+		return v.Line, v.Col
 	case *ast.Todo:
 		return v.Line, v.Col
 	}
@@ -1225,12 +1251,14 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		}
 	}
 
+	c.rejectValueAssertions(nodes)
 	c.checkGoAliases(nodes)
 	c.checkVisibilityConsistency(nodes)
 	c.checkQualifiedTypeVisibility(nodes)
 	c.checkNamingConventions(nodes)
 	c.checkImportsAtTop(nodes)
 	c.checkInstantiationCycles()
+	c.checkUndeterminedPatternBindings()
 	c.checkUndeterminedTypeArgs()
 	c.errors = append(c.errors, checkAppRoots(fa, nodes)...)
 	// A boot's signature and placement are checked once per project build,
@@ -1430,7 +1458,7 @@ func (c *checker) checkGoAliases(nodes []ast.Node) {
 }
 
 func (c *checker) checkForeignTypeBinding(n *ast.ExternType) {
-	if n.ForeignAlias == "" && n.GoBody == "" {
+	if n.ForeignAlias == "" {
 		return
 	}
 	if !n.Opaque {
@@ -1709,10 +1737,6 @@ func (c *checker) checkImportNaming(n *ast.ImportStmt) {
 		line, col := nodeLineCol(n.ModuleAlias)
 		c.requireStrictSnakeCase(ast.ImportNodeName(n.ModuleAlias), line, col, "import alias")
 	}
-	if n.ExportAlias != nil {
-		line, col := nodeLineCol(n.ExportAlias)
-		c.requireStrictSnakeCase(ast.ImportNodeName(n.ExportAlias), line, col, "export alias")
-	}
 	for i, alias := range n.ExportAliases {
 		if alias == nil {
 			continue
@@ -1981,10 +2005,6 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 	c.returnTy = ft.Return
 	defer func() { c.returnTy = prev }()
 
-	prevReturnInfer := c.returnInferTy
-	c.returnInferTy = ft.Return
-	defer func() { c.returnInferTy = prevReturnInfer }()
-
 	prevFnName := c.currentFnName
 	c.currentFnName = fn.Name
 	defer func() { c.currentFnName = prevFnName }()
@@ -2059,7 +2079,7 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 	// `Maybe<Result<?α, String>>` should accept a declared
 	// `Maybe<Result<Int, String>>` once ?α binds to Int.
 	if bodyTy != nil && c.returnTy != nil {
-		if !TypesEqual(bodyTy, c.returnTy) {
+		if !TypeAssignable(c.returnTy, bodyTy) {
 			matched := false
 			if isBoolVariantVsBool(bodyTy, c.returnTy) {
 				matched = true
@@ -2085,7 +2105,7 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 			}
 			if !matched {
 				c.report(returnMismatchError(fn, c.typef(
-					"return type mismatch: expected %s, got %s", c.returnTy, bodyTy)))
+					"return type mismatch: expected %s, got %s", c.returnTy, bodyTy)).WithHint(c.wholeResultHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(embedsDowncastHint(c.returnTy, bodyTy)))
 			}
 		}
 	}
@@ -2305,8 +2325,7 @@ func (c *checker) rejectBareNameDispatch(ident *ast.Ident) bool {
 
 // isModuleObject reports whether the object of a field access resolves to
 // a module symbol — i.e. `X.member` is module-member access rather than
-// field access on a value. Resolves through an import proxy's Resolved
-// pointer (selective re-exports carry Kind=SymbolModule on the proxy).
+// field access on a value.
 func (c *checker) isModuleObject(obj ast.Node) bool {
 	var pos Pos
 	switch o := obj.(type) {
@@ -2317,15 +2336,8 @@ func (c *checker) isModuleObject(obj ast.Node) bool {
 	default:
 		return false
 	}
-	sym, ok := c.fa.References[pos]
-	if !ok || sym == nil {
-		return false
-	}
-	real := sym
-	if real.Resolved != nil {
-		real = real.Resolved
-	}
-	return real.Kind == SymbolModule
+	sym := c.fa.References[pos]
+	return sym != nil && sym.Kind == SymbolModule
 }
 
 func (c *checker) checkModuleMemberVisibility(obj ast.Node, member *ast.Ident, sym *Symbol) {
@@ -2376,9 +2388,8 @@ func (c *checker) reportMissingFileMember(n *ast.FieldAccess) bool {
 }
 
 // fileObjectScope returns the member scope of the file API object a field
-// access's object names (`duration` in `duration.seconds`, or the inner
-// `facade.parser_lib` of a chained access), or nil when the object is not a
-// file API object.
+// access's object names (`duration` in `duration.seconds`), or nil when the
+// object is not a file API object.
 func (c *checker) fileObjectScope(obj ast.Node) *Scope {
 	var pos Pos
 	switch o := obj.(type) {
@@ -2386,22 +2397,10 @@ func (c *checker) fileObjectScope(obj ast.Node) *Scope {
 		pos = Pos{Line: o.Line, Col: o.Col}
 	case *ast.TypeIdent:
 		pos = Pos{Line: o.Line, Col: o.Col}
-	case *ast.FieldAccess:
-		if o.Field == nil {
-			return nil
-		}
-		pos = Pos{Line: o.Field.Line, Col: o.Field.Col}
 	default:
 		return nil
 	}
-	sym := c.fa.References[pos]
-	for sym != nil && sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	if sym == nil || sym.Kind != SymbolModule {
-		return nil
-	}
-	return sym.ModuleScope
+	return moduleScopeOfSym(c.fa.References[pos])
 }
 
 // typeOwnedMemberHint names the owner of `name` when a type or interface the
@@ -2448,10 +2447,6 @@ func moduleObjectName(obj ast.Node) string {
 		return o.Name
 	case *ast.TypeIdent:
 		return o.Name
-	case *ast.FieldAccess:
-		if path := fieldAccessPath(o); len(path) > 0 {
-			return strings.Join(path, ".")
-		}
 	}
 	return "<module>"
 }
@@ -2632,6 +2627,23 @@ func (c *checker) checkImportVisibility(n *ast.ImportStmt) {
 		if sym.Resolved == nil && sym.Kind == SymbolBinding {
 			continue
 		}
+		// Another file's own import of a file is not an item of it: a file
+		// publishes declarations and the items it re-exports, never a file.
+		if real.Kind == SymbolModule {
+			fileSegs := n.ModulePath
+			if n.FileSegments > 0 && n.FileSegments <= len(fileSegs) {
+				fileSegs = fileSegs[:n.FileSegments]
+			}
+			parts := make([]string, len(fileSegs))
+			for j, seg := range fileSegs {
+				parts[j] = ast.ImportNodeName(seg)
+			}
+			nameLine, nameCol := nodeLineCol(nameNode)
+			c.addError(nameLine, nameCol, fmt.Sprintf(
+				"`%s` is a file that `%s` imports, not an item it exports; import `%s` directly",
+				origName, strings.Join(parts, "/"), origName))
+			continue
+		}
 		if !real.Public {
 			c.addError(nameNode.LineNum(), 1, fmt.Sprintf(
 				"'%s' is private and cannot be imported", origName))
@@ -2688,7 +2700,7 @@ func (c *checker) checkOnce(n *ast.OnceBinding) {
 	if declared != nil {
 		if err := c.unifyInto(declared, valTy, map[*TypeParam_]Type{}); err != nil {
 			c.report(errAt(n.Value, c.typef(
-				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(defaultedFuncValueHint(declared, valTy, n.Value)))
+				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(embedsDowncastHint(declared, valTy)))
 		}
 		return
 	}
@@ -3016,11 +3028,13 @@ type boundaryReturn struct {
 // before checking the boundary's try propagation.
 func (c *checker) resolveBoundaryReturns(bodyTy Type, returns []boundaryReturn, line, col int) Type {
 	result := bodyTy
+	declared := false
 	// A concrete contextual result is the common target, including an interface
 	// implemented by different return values. Generic contexts still infer from
 	// the values; their unsolved parameters are not a concrete result choice.
 	if len(returns) > 0 && c.returnTy != nil && !ContainsTypeParam(c.returnTy) && !containsTypeVar(c.returnTy) {
 		result = c.returnTy
+		declared = true
 		returns = append([]boundaryReturn{{bodyTy, line, col}}, returns...)
 	}
 	for _, ret := range returns {
@@ -3034,6 +3048,8 @@ func (c *checker) resolveBoundaryReturns(bodyTy Type, returns []boundaryReturn, 
 		if err := c.unify(result, ret.ty, nil); err != nil && !TypesEqual(result, ret.ty) {
 			c.addError(ret.line, ret.col, c.typef(
 				"return type mismatch: boundary returns %s, got %s", result, ret.ty))
+		} else if !declared {
+			result = embedsJoin(result, ret.ty)
 		}
 	}
 	return result
@@ -4115,14 +4131,12 @@ func (c *checker) checkMapLitExpecting(n *ast.MapLit, keyTy, valTy Type) Type {
 	}
 	for _, entry := range n.Entries {
 		kt := c.checkNodeExpecting(entry.Key, keyTy)
-		if kt != nil && !TypesEqual(keyTy, kt) {
-			c.addError(n.Line, 1, c.typef(
-				"map key type mismatch: expected %s, got %s", keyTy, kt))
+		if kt != nil && !TypeAssignable(keyTy, kt) {
+			c.addMismatch(n.Line, 1, keyTy, kt, c.typef("map key type mismatch: expected %s, got %s", keyTy, kt))
 		}
 		vt := c.checkNodeExpecting(entry.Value, valTy)
-		if vt != nil && !TypesEqual(valTy, vt) {
-			c.addError(n.Line, 1, c.typef(
-				"map value type mismatch: expected %s, got %s", valTy, vt))
+		if vt != nil && !TypeAssignable(valTy, vt) {
+			c.addMismatch(n.Line, 1, valTy, vt, c.typef("map value type mismatch: expected %s, got %s", valTy, vt))
 		}
 	}
 	return &MapType{Key: keyTy, Val: valTy}
@@ -4406,20 +4420,19 @@ func (c *checker) checkIdent(n *ast.Ident) Type {
 	pos := Pos{Line: n.Line, Col: n.Col}
 
 	var ty Type
-	// Check references first (identifier usages).
+	// Check references first (identifier usages). An item imported through
+	// a facade that re-exports it (`import facade.{make_box}`) is a proxy
+	// onto the facade's own proxy, so the chain is followed until it
+	// reaches a typed symbol.
 	if sym, ok := c.fa.References[pos]; ok {
-		real := sym
-		if real.Resolved != nil {
-			real = real.Resolved
-		}
+		real := typedResolvedSymbol(sym)
 		c.ensureOnceType(real)
 		ty = real.Type
-	} else if sym, ok := c.fa.Definitions[pos]; ok {
-		real := sym
-		if real.Resolved != nil {
-			real = real.Resolved
+		if narrowed, isNarrowed := c.narrowed[sym]; isNarrowed {
+			ty = narrowed
 		}
-		ty = real.Type
+	} else if sym, ok := c.fa.Definitions[pos]; ok {
+		ty = typedResolvedSymbol(sym).Type
 	} else if c.attachedTestScope != nil {
 		if sym := c.attachedTestScope.Lookup(n.Name); sym != nil {
 			c.fa.References[pos] = sym
@@ -4453,6 +4466,20 @@ func (c *checker) checkIdent(n *ast.Ident) Type {
 	}
 
 	return ty
+}
+
+// typedResolvedSymbol is the symbol an import proxy stands for: sym's
+// Resolved, then further along the chain while the symbol reached has no
+// type, as a re-exported item's proxy has none.
+func typedResolvedSymbol(sym *Symbol) *Symbol {
+	real := sym
+	if real.Resolved != nil {
+		real = real.Resolved
+	}
+	for real.Type == nil && real.Resolved != nil {
+		real = real.Resolved
+	}
+	return real
 }
 
 func (c *checker) checkTypeIdent(n *ast.TypeIdent) Type {
@@ -4637,14 +4664,6 @@ func (c *checker) specializeInterfaceMethod(fn ast.Node, ft *FuncType, firstArg 
 	return &FuncType{Params: params, Return: Substitute(ft.Return, subs), DefaultCount: ft.DefaultCount, WhereBounds: ft.WhereBounds}
 }
 
-// checkImplBlock type-checks an impl block: every item's body is checked via
-// checkFunc (the item symbols carry the FuncType buildImplBlockTypes resolved),
-// and — for interface-impl blocks —
-// the receiver type is validated against the interface's field requirements,
-// including bodyless impls for field-only interfaces. Method-signature conformance
-// against the interface's MethodSigs is left to the existing dispatch path;
-// this checker focuses on the field-conformance assertion the block form
-// uniquely carries.
 // resolveBodyType resolves a binding's inline annotation — `held: Box = …`.
 // That is a declaration position, so a generic must be fully applied here.
 func (c *checker) resolveBodyType(te ast.TypeExpr) (Type, error) {
@@ -4835,6 +4854,32 @@ func (c *checker) checkImplReceiverDeclared(n *ast.ImplBlock) {
 	}
 }
 
+// checkImplInterfaceArgsResolve reports a type argument of an impl header's
+// interface that does not resolve, at the argument: the `Dbys` of
+// `impl Add<Dbys, Day> for Day`. checkImplBlock resolves the whole header
+// and, when that fails, skips every conformance check, and the builder
+// reports only an interface name that is not declared. So the block was
+// accepted and its functions registered under an interface instantiation no
+// one could name, which a `+` on the receiver then reached.
+func (c *checker) checkImplInterfaceArgsResolve(n *ast.ImplBlock) {
+	te := n.Interface
+	if q, ok := te.(*ast.QualifiedType); ok {
+		te = q.Member
+	}
+	g, ok := te.(*ast.GenericType)
+	if !ok {
+		return
+	}
+	blockTP, _ := buildImplBlockTypeParams(c.fa, c.reg, n)
+	for _, arg := range g.Params {
+		if _, err := ResolveTypeExpr(arg, c.reg, blockTP, nil); err != nil {
+			if typeErr, isTypeErr := err.(TypeError); isTypeErr {
+				c.report(typeErr)
+			}
+		}
+	}
+}
+
 func (c *checker) checkImplBlock(n *ast.ImplBlock) {
 	// Every diagnostic this function and its callees produce is re-pointed
 	// off the synth band on the way out. See repointSynthDiagnostics.
@@ -4846,6 +4891,9 @@ func (c *checker) checkImplBlock(n *ast.ImplBlock) {
 		defer func() { c.reg = prevReg }()
 	} else {
 		c.checkImplReceiverDeclared(n)
+		if n.Interface != nil {
+			c.checkImplInterfaceArgsResolve(n)
+		}
 	}
 
 	if n.Interface == nil {
@@ -4901,7 +4949,6 @@ func (c *checker) checkImplBlock(n *ast.ImplBlock) {
 	if recvName == "" {
 		return
 	}
-	recvTy := c.reg.Lookup(recvName)
 
 	// Method-signature conformance: every `fn` / `host fn` item must match
 	// the interface method's parameter and return types (with `self` → the
@@ -4909,135 +4956,14 @@ func (c *checker) checkImplBlock(n *ast.ImplBlock) {
 	// a mistyped impl method would slip through. Reuse the same implementation-signature comparator over
 	// the items' already-resolved FuncTypes.
 	c.validateImplBlockMethodSignatures(n, iface, blockTP)
-
-	c.validateImplBlockFieldRequirements(n, iface, recvName, recvTy)
 }
 
-// A `field` requirement is the one interface obligation discharged by the
-// RECEIVER'S DECLARATION rather than by an item in the impl block. A function
-// requirement is discharged by a `fn` the block supplies, which is why
-// validateImplBlockMethodSignatures never asks what kind of type the receiver
-// is. This one has to ask, and it used to
-// answer a receiver of the wrong kind by RETURNING:
-//
-//	st, ok := recvTy.(*StructType)
-//	if !ok || st == nil { return }
-//
-// which made the requirement vacuous instead of unmet. `impl Named for Color`
-// — a field-bearing interface claimed by an enum — type-checked clean and died
-// at run time on `n.name` with "cannot access field 'name' on variant 'Red'".
-// The whole point of the requirement is that `n.name` inside a function taking
-// a `Named` cannot fail, so a skip here is a soundness hole and not a lenience.
-//
-// WHY REJECTION AND NOT A GETTER. Swift's `var name: String { get }` is a
-// getter requirement, so a Swift enum satisfies it with a computed property —
-// sound there because property access on a protocol-typed value IS a witness
-// dispatch. Nomi's rule is the opposite: `x.field` is field access and never
-// dispatch (spec §34, *Struct Field Access*; §14, *Member access is fail-loud*). Under that rule a `field` requirement can
-// only coherently mean STORAGE, and only a struct declares storage. Nor is the
-// getter reading a missing feature: `interface Named { fn name(value: self):
-// String }` already IS a getter requirement, satisfiable by any receiver kind
-// with real dispatch, which is what the `help:` line below points at. A `field`
-// requirement exists to say the thing a function requirement cannot.
-//
-// (The IR builder does route an existential's field read through a per-
-// requirement getter table — `internal/irbuild/fieldaccess.go`'s `ifaceField`.
-// That is not the Swift reading half-adopted: every getter body it binds is
-// `p.(RecvType).Field`, a slot read of a declared field, and `fieldOfKind`
-// refuses any receiver that declares no such field. The table resolves WHERE
-// the storage sits across heterogeneous layouts, not WHAT the value is.)
-//
-// An UNRESOLVED receiver still returns: nil means the checker does not know the
-// kind, which is a different fact from knowing it is wrong, and rejecting there
-// would fail single-file analysis of an impl whose receiver lives in a sibling.
-// The builder has already errored on a receiver that names nothing.
-func (c *checker) validateImplBlockFieldRequirements(n *ast.ImplBlock, iface *InterfaceType, recvName string, recvTy Type) {
-	if len(iface.Fields) == 0 {
-		return
-	}
-	st, ok := recvTy.(*StructType)
-	if !ok || st == nil {
-		if recvTy == nil {
-			return
-		}
-		c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf(
-			"impl '%s' for '%s': '%s' is %s, so it declares no fields, and interface '%s' requires %s",
-			iface.Name, recvName, recvName, typeKindNoun(recvTy), iface.Name,
-			interfaceFieldReqList(iface.Fields))}.WithHint(fmt.Sprintf(
-			"an interface `field` requirement is a storage obligation only a struct can meet; "+
-				"to require something '%s' can supply, declare `fn %s(value: self): %s` on '%s' instead",
-			recvName, iface.Fields[0].Name, typeString(iface.Fields[0].Type), iface.Name)))
-		return
-	}
-	// Opaque-types: a `field` requirement is a STORAGE obligation, so an impl
-	// that claims one for an opaque struct re-exports that struct's private
-	// field set. From outside the defining file that is the field-access
-	// boundary under another name, and it was open: `interface HasValue { field
-	// value: Int }` + `impl HasValue for Counter {}` in a sibling module, then
-	// `x.value` on a `HasValue` existential, READ `Counter.value` with no
-	// diagnostic. The read itself cannot be guarded where `fieldTypeFromObject`
-	// guards it, because the receiver there is the INTERFACE and the opaque
-	// struct never appears; the conformance is the one place both are in hand.
-	// Inside the defining file the impl is the owner deliberately exposing its
-	// own representation, which is its right — the same positional rule as
-	// every other entry in the table in spec §15, *Opaque distinct types*.
-	st = canonicalStructForFieldAccess(c, st)
-	if st.Opaque && (c.fa == nil || c.fa.FilePath != st.OwningSourceFile) {
-		c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf(
-			"impl '%s' for '%s': cannot satisfy a field requirement with opaque type '%s' outside its defining module — %s would re-export a private field",
-			iface.Name, recvName, st.Name, interfaceFieldReqList(iface.Fields))}.WithHint(fmt.Sprintf(
-			"declare `fn %s(value: self): %s` on '%s' instead and implement it with an exported accessor",
-			iface.Fields[0].Name, typeString(iface.Fields[0].Type), iface.Name)))
-		return
-	}
-	have := make(map[string]Type, len(st.Fields))
-	for _, f := range st.Fields {
-		have[f.Name] = f.Type
-	}
-	subs := interfaceReqSubsWithSelf(iface, recvTy)
-	for _, f := range iface.Fields {
-		want := Substitute(f.Type, subs)
-		actual, present := have[f.Name]
-		if !present {
-			c.addError(n.Line, n.Col, fmt.Sprintf(
-				"impl '%s' for '%s': missing required field '%s: %s'",
-				iface.Name, recvName, f.Name, typeString(want)))
-			continue
-		}
-		if want == nil || actual == nil {
-			continue
-		}
-		if !TypesEqual(actual, want) {
-			c.addError(n.Line, n.Col, fmt.Sprintf(
-				"impl '%s' for '%s': field '%s' has type %s, but interface declares %s",
-				iface.Name, recvName, f.Name, typeString(actual), typeString(want)))
-		}
-	}
-}
-
-// interfaceReqSubs is the interface's own TYPE-ARGUMENT substitution, shared by
-// both impl-block validators.
-//
-// Both validators call `Substitute` with this map before comparing. A field
-// validator that compared RAW would refuse every correct impl of a generic
-// interface whose field requirement mentions its own parameter:
-//
-//	interface Container<T> { field items: List<T> }
-//	struct Box { items: List<Int> }
-//	impl Container<Int> for Box
-//	  -> impl 'Container' for 'Box': field 'items' has type List<Int>,
-//	     but interface declares List<T>
-//
-// `type_builder.go` builds `interface Container<T> { field items: List<T> }`
-// as a supported shape, so the substitution is required.
-//
-// `self` is NOT in here, because the right binding differs per caller and
-// getting that wrong would report on programs the tree accepts today. The
-// method validator takes it from the impl's own self-position PARAMETER — the
-// APPLIED receiver — and leaves it unsubstituted when there is none, which is
-// the `FromJson.from_json(json: Json): Result<self, E>` shape. A field
-// requirement has no parameter to read, so the validator below binds it to
-// `recvTy` and carries the residue that follows from that.
+// interfaceReqSubs is the interface's own type-argument substitution, so an
+// impl of `Add<Days, Day>` compares against the interface's signatures with
+// `Days` and `Day` in place of its parameters. `self` is not in here, because
+// the right binding differs per caller: the method validator takes it from the
+// impl's own self-position parameter (the applied receiver), and
+// requiredImplSignature binds it to the receiver.
 func interfaceReqSubs(iface *InterfaceType) map[*TypeParam_]Type {
 	subs := make(map[*TypeParam_]Type, len(iface.TypeParamDefs)+1)
 	for i, def := range iface.TypeParamDefs {
@@ -5048,72 +4974,13 @@ func interfaceReqSubs(iface *InterfaceType) map[*TypeParam_]Type {
 	return subs
 }
 
-// interfaceReqSubsWithSelf is interfaceReqSubs plus `self` → the receiver, for
-// the validator whose requirement may name `self` and which has no
-// self-position parameter to read it off.
-//
-// RESIDUE, named rather than left to be discovered: `recvTy` is
-// `reg.Lookup(recvName)`, the UNAPPLIED generic. So `field next: self` is
-// checked correctly for `impl H for S`, and for `impl H for Box<T>` it is
-// LENIENT rather than wrong — the field is compared against bare `Box`, and
-// `TypesEqual` treats an argument-less generic as equal to every
-// instantiation of it, so `next: Box<Int>` inside `struct Box<T>` passes.
-// (That equality is not local to this path: `interface C { field items: Box }`
-// against `struct S { items: Box<Int> }` passes for the same reason, while
-// `Box<Int>` against `Box<String>` is correctly rejected.) The nominal head is
-// still compared, so `next: Int` is rejected.
-// TestImplBlock_SelfInARequirementAgainstAGenericReceiver pins all three arms,
-// and the wrong-instantiation arm is the one that makes it a pin rather than a
-// restatement.
+// interfaceReqSubsWithSelf is interfaceReqSubs plus `self` → the receiver.
 func interfaceReqSubsWithSelf(iface *InterfaceType, recvTy Type) map[*TypeParam_]Type {
 	subs := interfaceReqSubs(iface)
 	if iface.SelfParam != nil && recvTy != nil {
 		subs[iface.SelfParam] = recvTy
 	}
 	return subs
-}
-
-// typeKindNoun names a type's KIND, so a rejection can say what the receiver IS
-// rather than only what it is not — the register `Partial<T>`'s rejection
-// already uses ("`%s` is not a struct, so it has no fields to patch"). The
-// default arm renders the type itself, which reads correctly for primitives and
-// structural types that have no one-word kind.
-func typeKindNoun(t Type) string {
-	switch ty := t.(type) {
-	case *StructType:
-		return "a struct"
-	case *EnumType:
-		return "an enum"
-	case *InterfaceType:
-		return "an interface"
-	case *AnonStructType:
-		return "an anonymous struct"
-	case *DistinctType:
-		if ty.Opaque {
-			return "an opaque type"
-		}
-		return "a distinct type"
-	case *TupleType:
-		return "a tuple"
-	case *FuncType:
-		return "a function type"
-	}
-	return "of type " + typeString(t)
-}
-
-// interfaceFieldReqList renders an interface's field requirements for a
-// diagnostic that names all of them, because a receiver of the wrong kind fails
-// every one for the same reason and reporting them one at a time would be the
-// same message N times.
-func interfaceFieldReqList(fields []InterfaceFieldDef) string {
-	parts := make([]string, len(fields))
-	for i, f := range fields {
-		parts[i] = fmt.Sprintf("'%s: %s'", f.Name, typeString(f.Type))
-	}
-	if len(parts) == 1 {
-		return "field " + parts[0]
-	}
-	return "fields " + strings.Join(parts, ", ")
 }
 
 // implDiagPos answers where a diagnostic about `n`'s contents should point.
@@ -5247,25 +5114,25 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 		if !ok || ft == nil {
 			continue // unresolved signature — buildImplBlockTypes already errored
 		}
+		required := c.requiredImplSignature(iface, sig, recvTy)
+		mismatch := func(msg string) {
+			c.report(TypeError{Line: dpos.Line, Col: dpos.Col, Message: msg}.WithHint(required))
+		}
 		if len(ft.Params) != len(sig.Params) {
-			c.addError(dpos.Line, dpos.Col, fmt.Sprintf("impl function '%s' takes %d parameters, but interface '%s' declares %d", name, len(ft.Params), iface.Name, len(sig.Params)))
+			mismatch(fmt.Sprintf("impl function '%s' takes %d parameters, but interface '%s' declares %d", name, len(ft.Params), iface.Name, len(sig.Params)))
 			continue
 		}
 		// `self` substitutes to the impl's OWN resolved self-position parameter
 		// — the applied receiver (e.g. `List<T>`), so `self` inside the return
 		// type (`Maybe<(T, self)>`) compares correctly. reg.Lookup(recvName)
 		// gives the bare, unapplied generic (`List`), which wouldn't unify with
-		// `List<T>`.
-		//
-		// `interfaceReqSubs` supplies only the TYPE-ARGUMENT half, which is the
-		// half the two declaration-discharged validators were missing. `self` is
-		// deliberately NOT seeded from `recvTy` here: an interface function can
-		// declare `self` only in its RETURN type (`FromJson.from_json(json:
-		// Json): Result<self, E>`), and for those there is no self-position
-		// parameter and `self` stays UNSUBSTITUTED — which is what this
-		// validator has always done. Seeding the bare receiver would start
-		// comparing `Result<FromJson-receiver, E>` against the impl's own
-		// return type and report on programs it accepts today.
+		// `List<T>`. An interface function whose `self` appears only in other
+		// positions (`fn make(): self`, `FromJson.from_json(json: Json):
+		// Result<self, E>`) has no self-position parameter, and there `self` is
+		// the receiver as the header resolves it (recvTy, applied, with the
+		// block's own type parameters rigid). Left unsubstituted, `self` bound
+		// to whatever the impl wrote, so `impl Make for Day { fn make(): Int }`
+		// was accepted.
 		subs := interfaceReqSubs(iface)
 		if iface.SelfParam != nil {
 			for i := range sig.Params {
@@ -5273,6 +5140,9 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 					subs[iface.SelfParam] = ft.Params[i]
 					break
 				}
+			}
+			if _, seeded := subs[iface.SelfParam]; !seeded && recvTy != nil {
+				subs[iface.SelfParam] = recvTy
 			}
 		}
 		match := matcher.function(typeParams)
@@ -5300,8 +5170,8 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 			// Person function under Peon, which a same-owner call from
 			// another Person impl then reached.
 			if isSelfPositionParam(sig.Params[i], iface) {
-				if recvTy != nil && ft.Params[i] != nil && !TypesEqual(recvTy, ft.Params[i]) {
-					c.addError(dpos.Line, dpos.Col, c.typef("impl function '%s': parameter %d has type %s, but it stands for `self`, which this block implements for %s", name, i+1, ft.Params[i], recvTy))
+				if recvTy != nil && ft.Params[i] != nil && !typesEqualIn(recvTy, ft.Params[i], eqStrict) {
+					mismatch(c.typef("impl function '%s': parameter %d has type %s, but it stands for `self`, which this block implements for %s", name, i+1, ft.Params[i], recvTy))
 				}
 				continue
 			}
@@ -5311,14 +5181,21 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 				continue
 			}
 			if !match.match(expected, actual) {
-				c.addError(dpos.Line, dpos.Col, c.typef("impl function '%s': parameter %d has type %s, but interface '%s' declares %s", name, i+1, actual, iface.Name, expected))
+				mismatch(c.typef("impl function '%s': parameter %d has type %s, but interface '%s' declares %s", name, i+1, actual, iface.Name, expected))
+			} else if et, emb, ok := embedsDowncast(actual, expected); ok {
+				mismatch(c.typef("impl function '%s': parameter %d has type %s, but interface '%s' declares %s, and %s may hold a variant other than %s", name, i+1, actual, iface.Name, expected, et, emb))
 			}
 		}
-		if sig.Return != nil && ft.Return != nil {
-			expectedRet := Substitute(sig.Return, subs)
-			if expectedRet != nil && !match.match(expectedRet, ft.Return) {
-				c.addError(dpos.Line, dpos.Col, c.typef("impl function '%s': return type %s does not match interface '%s' return type %s", name, ft.Return, iface.Name, expectedRet))
-			}
+		// A return written on neither side is Unit, so an interface function
+		// with no return type requires an impl with none.
+		expectedRet := normalizeReturn(sig.Return)
+		if sig.Return != nil {
+			expectedRet = normalizeReturn(Substitute(sig.Return, subs))
+		}
+		if actualRet := normalizeReturn(ft.Return); !match.match(expectedRet, actualRet) {
+			mismatch(c.typef("impl function '%s': return type %s does not match interface '%s' return type %s", name, actualRet, iface.Name, expectedRet))
+		} else if et, emb, ok := embedsDowncast(expectedRet, actualRet); ok {
+			mismatch(c.typef("impl function '%s': return type %s does not match interface '%s' return type %s, and %s may hold a variant other than %s", name, actualRet, iface.Name, expectedRet, et, emb))
 		}
 		match.consistent(true)
 		for _, extra := range match.extraWhereBounds(sig, ft) {
@@ -5334,7 +5211,7 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 	// supplied by the block. An interface-impl block that omits a required
 	// method must error here (otherwise the omission only surfaces as a runtime
 	// dispatch miss, or silently never, when the method is never called).
-	// Methods with a default body are optional; a field-only interface has no
+	// Methods with a default body are optional; a marker interface has no
 	// methods, so an empty block satisfies it. One block per (Iface, T) is
 	// guaranteed by the coherence check, so every required method must live in
 	// THIS block.
@@ -5404,6 +5281,30 @@ func isSelfPositionParam(t Type, iface *InterfaceType) bool {
 	return ok && tp == iface.SelfParam
 }
 
+// requiredImplSignature is the hint on an impl function whose arity,
+// parameter types or return type differ from the interface's: the function
+// the impl must write, with the header's type arguments in place of the
+// interface's parameters and the receiver in place of `self`.
+// `impl Add<Days, Day> for Day` requires `fn add(lhs: Day, rhs: Days): Day`.
+// An interface parameter the header gives no argument for keeps its name.
+func (c *checker) requiredImplSignature(iface *InterfaceType, sig *MethodSig, recvTy Type) string {
+	subs := interfaceReqSubsWithSelf(iface, recvTy)
+	params := make([]string, len(sig.Params))
+	for i, p := range sig.Params {
+		ty := typeString(Substitute(p, subs))
+		if i < len(sig.ParamNames) && sig.ParamNames[i] != "" {
+			params[i] = sig.ParamNames[i] + ": " + ty
+		} else {
+			params[i] = ty
+		}
+	}
+	ret := ""
+	if sig.Return != nil && !isUnitLike(sig.Return) {
+		ret = ": " + typeString(Substitute(sig.Return, subs))
+	}
+	return fmt.Sprintf("interface '%s' requires `fn %s(%s)%s`", iface, sig.Name, strings.Join(params, ", "), ret)
+}
+
 // checkInterfaceDefaults type-checks each Nomi-bodied default method in an
 // interface. Interface default bodies are not top-level FuncDefs, but they
 // should obey the same body/return rules and may call sibling interface
@@ -5432,8 +5333,6 @@ func (c *checker) checkInterfaceDefaults(n *ast.InterfaceDef) {
 
 		prevReturn := c.returnTy
 		c.returnTy = ft.Return
-		prevInfer := c.returnInferTy
-		c.returnInferTy = ft.Return
 		prevFn := c.currentFnName
 		c.currentFnName = m.Name
 		prevBoundary := c.tryBoundary
@@ -5455,10 +5354,9 @@ func (c *checker) checkInterfaceDefaults(n *ast.InterfaceDef) {
 		restoreExits()
 		c.tryBoundary = prevBoundary
 		c.currentFnName = prevFn
-		c.returnInferTy = prevInfer
 		c.returnTy = prevReturn
 
-		if bodyTy != nil && ft.Return != nil && !TypesEqual(bodyTy, ft.Return) {
+		if bodyTy != nil && ft.Return != nil && !TypeAssignable(ft.Return, bodyTy) {
 			matched := false
 			if isBoolVariantVsBool(bodyTy, ft.Return) {
 				matched = true
@@ -5472,8 +5370,7 @@ func (c *checker) checkInterfaceDefaults(n *ast.InterfaceDef) {
 				matched = true
 			}
 			if !matched {
-				c.addError(m.Line, m.Col, c.typef(
-					"return type mismatch: expected %s, got %s", ft.Return, bodyTy))
+				c.addMismatch(m.Line, m.Col, ft.Return, bodyTy, c.typef("return type mismatch: expected %s, got %s", ft.Return, bodyTy))
 			}
 		}
 	}
@@ -5572,7 +5469,11 @@ func (c *checker) recordWhereBoundDemands(ft *FuncType, subs map[*TypeParam_]Typ
 		}
 		for _, bound := range wb.Bounds {
 			if !typeImplementsInterface(c, concrete, bound, c.recPos(line, col), RecordingKindGenericBoundCheck) {
-				c.boundError(line, errCol, concrete, bound.Name, wb.Param.Name_)
+				c.boundError(line, errCol, concrete, bound, wb.Param.Name_)
+				continue
+			}
+			if fits, have := c.boundArgsFit(concrete, bound, subs); !fits {
+				c.boundArgsError(line, errCol, concrete, bound, wb.Param.Name_, subs, have)
 				continue
 			}
 			c.recordBoundConformance(concrete, bound.Name, c.recPos(line, col), RecordingKindGenericBoundCheck)
@@ -5603,34 +5504,16 @@ func (c *checker) solveFromWhereImpls(ft *FuncType, subs map[*TypeParam_]Type) b
 			if ContainsTypeParam(concrete) || containsTypeVar(concrete) {
 				continue
 			}
-			name := concreteTypeName(concrete)
-			if name == "" {
-				continue
-			}
-			cargs := concreteTypeArgs(concrete)
 			for _, bound := range wb.Bounds {
 				if bound == nil || len(bound.TypeArgs) == 0 || !anyTypeArgOpen(bound.TypeArgs, subs) {
 					continue
 				}
-				candidates := lookupImplTypeArgSets(name, bound.Name, c.implTypeArgSetsContext())
-				if len(candidates) == 0 {
-					if info := lookupImplTypeArgs(name, bound.Name, c.implTypeArgsContext()); info != nil {
-						candidates = []*ImplTypeArgs{info}
-					}
-				}
 				var answer map[*TypeParam_]Type
 				var answerArgs []Type
 				ambiguous := false
-				for _, info := range candidates {
-					if info == nil || len(info.Args) != len(bound.TypeArgs) {
+				for _, args := range c.implArgLists(concrete, bound.Name) {
+					if len(args) != len(bound.TypeArgs) {
 						continue
-					}
-					if !implReceiverMatches(info, concrete, c.implsContext(), c.implTypeArgsContext()) {
-						continue
-					}
-					args := make([]Type, len(info.Args))
-					for i, a := range info.Args {
-						args[i] = substituteTypeParamDefs(info.TypeParamDefs, cargs, a)
 					}
 					trial := make(map[*TypeParam_]Type, len(subs))
 					for k, v := range subs {
@@ -5780,7 +5663,6 @@ func interfaceMethodFuncType(iface *InterfaceType, name string) *FuncType {
 					Origin:        iface.Origin,
 					Name:          iface.Name,
 					Methods:       iface.Methods,
-					Fields:        iface.Fields,
 					TypeParams:    iface.TypeParams,
 					TypeParamDefs: iface.TypeParamDefs,
 					TypeArgs:      args,
@@ -5933,13 +5815,23 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		if call, ok := n.Right.(*ast.Call); ok && !callHasPlaceholder(call.Args) {
 			earlyCallee = c.pipeCalleeType(call)
 			earlyCall = true
-			if headTy := c.pipeHeadExpected(earlyCallee, expected); headTy != nil {
+			// A struct-shaped variant's head is a record, not the struct
+			// its constructor type names: `{r: 6} |> Shape.Circle()`
+			// expected to be a `Shape<Int>` must not type `{r: 6}` as a
+			// Circle, which checkPipedVariantCtor rejects as already built.
+			if c.structShapedVariantCallee(call.Func, earlyCallee) {
+				// checked below with no expected type, as the record it is
+			} else if headTy := c.pipeHeadExpected(earlyCallee, expected); headTy != nil {
 				left = c.checkNodeExpecting(n.Left, headTy)
 				leftChecked = true
 			}
 		}
 	}
-	if !leftChecked {
+	var right Type
+	comparison := isComparisonOp(n.Op)
+	if comparison {
+		left, right = c.checkComparisonOperands(n)
+	} else if !leftChecked {
 		left = c.checkNode(n.Left)
 	}
 	if n.Op == "|>" {
@@ -5950,7 +5842,6 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	// Bare keyword stages (`x |> dbg`, `x |> try`) consume the already-computed
 	// left value directly; keyword-with-operand forms on the RHS are rejected so
 	// each pipe stage has one obvious input.
-	var right Type
 	var pipeCall *ast.Call
 	pipeDbg := false
 	var pipeTry *ast.TryOp
@@ -5958,6 +5849,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	var pipeIf *ast.If
 	var pipeCase *ast.Case
 	var pipeLambda *ast.Lambda
+	var pipeTap *ast.Tap
 	if n.Op == "|>" {
 		rhs := n.Right
 		if dbg, ok := rhs.(*ast.Dbg); ok && dbg.Expr == nil {
@@ -5970,7 +5862,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 				c.addError(try.Line, try.Col, "right side of `|>` must be bare `try`; pipe into the fallible call first")
 			} else {
 				c.registerTryOpHover(try, left)
-				right = c.unwrapTryResult(left, try)
+				right = c.unwrapTryResult(left, try, n.Left)
 			}
 		}
 		if pipeTry == nil {
@@ -5995,9 +5887,12 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			}
 		}
 		if pipeTry == nil && pipeAssertion == nil && !pipeDbg && pipeIf == nil && pipeCase == nil {
-			if then, ok := rhs.(*ast.Then); ok {
+			if tap, ok := rhs.(*ast.Tap); ok {
+				pipeTap = tap
+				right = c.checkTapStage(tap, left)
+			} else if then, ok := rhs.(*ast.Then); ok {
 				pipeLambda = then.Lambda
-				c.checkThenArity(then)
+				c.checkPipeLambdaArity(then.Lambda, "then")
 			} else if lambda, ok := ungroupExpr(rhs).(*ast.Lambda); ok {
 				// `x |> |v| ...` is not a stage (pipe_stage_call.go). The
 				// lambda is still checked against the piped value, so the
@@ -6029,6 +5924,9 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		} else if pipeLambda != nil {
 			// Already handled: a `then` stage calls its lambda with the
 			// piped value.
+		} else if pipeTap != nil {
+			// Already handled: a `tap` stage runs its lambda and passes
+			// the piped value on.
 		} else if acc, ok := ungroupExpr(rhs).(*ast.FieldAccessor); ok {
 			// `user |> .name`: the read is `user.name`.
 			c.addError(acc.Line, acc.Col, fieldAccessorPipeStageMessage(acc))
@@ -6057,7 +5955,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			c.calleeNode = prevCallee
 			return nil
 		}
-	} else {
+	} else if !comparison {
 		right = c.checkNode(n.Right)
 	}
 
@@ -6219,6 +6117,9 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		if pipeLambda != nil {
 			return right
 		}
+		if pipeTap != nil {
+			return right
+		}
 		if dbg, ok := n.Right.(*ast.Dbg); ok && dbg.Expr != nil {
 			c.addError(dbg.Line, dbg.Col, "right side of `|>` must be bare `dbg`, not `dbg expr`")
 			return nil
@@ -6226,7 +6127,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		if pipeCall != nil {
 			if form, ok := c.variantCtorCallee(pipeCall.Func, right); ok {
 				if !callHasPlaceholder(pipeCall.Args) {
-					return c.checkPipedVariantCtor(pipeCall, n.Left, left, form)
+					return c.openVariantEnum(c.checkPipedVariantCtor(pipeCall, n.Left, left, form))
 				}
 			}
 			if dt, ok := right.(*DistinctType); ok && isTypeConstructorCallee(pipeCall.Func) && !callHasPlaceholder(pipeCall.Args) {
@@ -6505,16 +6406,6 @@ func operatorUnsupportedKind(t Type) (string, bool) {
 	return "", false
 }
 
-// checkThenArity reports a `then` lambda that does not take exactly one
-// parameter, the piped value.
-func (c *checker) checkThenArity(n *ast.Then) {
-	if len(n.Lambda.Params) == 1 {
-		return
-	}
-	c.addError(n.Lambda.Line, n.Lambda.Col, fmt.Sprintf(
-		"a `then` lambda takes one parameter, the piped value; this one takes %d", len(n.Lambda.Params)))
-}
-
 func ungroupExpr(n ast.Node) ast.Node {
 	for {
 		grouped, ok := n.(*ast.GroupedExpr)
@@ -6777,7 +6668,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 		for tp, concrete := range subs {
 			for _, bound := range tp.Bounds {
 				if !typeImplementsInterface(c, concrete, bound, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck) {
-					c.boundError(n.Line, pipeBoundCol(n, pipeCall), concrete, bound.Name, tp.Name_)
+					c.boundError(n.Line, pipeBoundCol(n, pipeCall), concrete, bound, tp.Name_)
 					continue
 				}
 				c.recordBoundConformance(concrete, bound.Name, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck)
@@ -6825,8 +6716,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 	//
 	if pipedSlot < len(ft.Params) && argTy != nil && ft.Params[pipedSlot] != nil {
 		if !c.argMatchesParam(argTy, ft.Params[pipedSlot], c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {
-			c.addError(n.Line, 1, c.typef(
-				"pipe argument type mismatch: expected %s, got %s", ft.Params[pipedSlot], argTy))
+			c.addMismatch(n.Line, 1, ft.Params[pipedSlot], argTy, c.typef("pipe argument type mismatch: expected %s, got %s", ft.Params[pipedSlot], argTy))
 		}
 	}
 
@@ -6853,7 +6743,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 				if _, isPh := value.(*ast.Placeholder); !isPh && valTy != nil && expectedTy != nil {
 					argLine, argCol := nodeLineCol(value)
 					if !c.argMatchesParam(valTy, expectedTy, c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
-						c.report(errAt(value, c.typef("%s: expected %s, got %s", label, expectedTy, valTy)).WithHint(defaultedFuncValueHint(expectedTy, valTy, value)))
+						c.report(errAt(value, c.typef("%s: expected %s, got %s", label, expectedTy, valTy)).WithHint(defaultedFuncValueHint(expectedTy, valTy, value)).WithHint(embedsDowncastHint(expectedTy, valTy)))
 					}
 				}
 			} else {
@@ -7167,6 +7057,76 @@ func (c *checker) reportTypeParamQualifiedMember(fa *ast.FieldAccess, tp *TypePa
 	}
 }
 
+// qualifiedCallSpellings renders the qualified calls that replace `value.fn`,
+// one per owner: "`HasName.name(h)`", or "`A.f(x)` or `B.f(x)`". A receiver
+// that is not a plain name or field path is spelled `value`.
+func qualifiedCallSpellings(owners []string, fn string, receiver ast.Node) string {
+	arg := calleeText(unparen(receiver))
+	if strings.Contains(arg, "?") {
+		arg = "value"
+	}
+	calls := make([]string, len(owners))
+	for i, owner := range owners {
+		calls[i] = fmt.Sprintf("`%s.%s(%s)`", owner, fn, arg)
+	}
+	return strings.Join(calls, " or ")
+}
+
+// typeParamFunctionNotFieldHint is the help for `x.f` on a value of a type
+// parameter. When a bound declares `fn f`, it names the qualified call;
+// otherwise it says how to declare one.
+func (c *checker) typeParamFunctionNotFieldHint(tp *TypeParam_, field string, receiver ast.Node) string {
+	bounds := tp.Bounds
+	if declared, ok := c.fnTypeParams[tp.Name_]; ok && len(bounds) == 0 {
+		bounds = declared.Bounds
+	}
+	var providers []string
+	for _, b := range bounds {
+		if interfaceMethodFuncType(b, field) != nil {
+			providers = append(providers, b.Name)
+		}
+	}
+	switch len(providers) {
+	case 0:
+		return fmt.Sprintf(
+			"a type parameter has no fields; declare `fn %s(value: self): ...` in its bound and call `%s.%s(value)`",
+			field, tp.Name_, field)
+	case 1:
+		return fmt.Sprintf("`%s` declares `fn %s`; call it as %s",
+			providers[0], field, qualifiedCallSpellings([]string{tp.Name_}, field, receiver))
+	default:
+		return fmt.Sprintf("bounds %s each declare `fn %s`; call it as %s",
+			strings.Join(backquoted(providers), " and "), field, qualifiedCallSpellings(providers, field, receiver))
+	}
+}
+
+// structFunctionNotFieldHint is the help for `p.f` on a struct value with no
+// field `f`. When the struct's type has a function `f`, inherent or from an
+// impl, it names the qualified call; otherwise it suggests a similar field.
+func (c *checker) structFunctionNotFieldHint(st *StructType, field string, receiver ast.Node) string {
+	providers := c.interfacesWritingMethod(st.Name, field)
+	origin, _ := nominalOrigin(st)
+	sym, _ := c.resolveTypeMethodSymbol(st.Name, field, origin)
+	if sym == nil && len(providers) == 0 {
+		return didYouMean(field, fieldNames(st.Fields))
+	}
+	var owners []string
+	if len(providers) < 2 {
+		owners = append(owners, st.Name)
+	}
+	owners = append(owners, providers...)
+	return fmt.Sprintf("`%s` is a function of `%s`, not a field; call it as %s",
+		field, st.Name, qualifiedCallSpellings(owners, field, receiver))
+}
+
+func backquoted(names []string) []string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = "`" + n + "`"
+	}
+	return out
+}
+
 func typeParamQualifiedMethodFuncType(iface *InterfaceType, name string, self Type) *FuncType {
 	if iface == nil {
 		return nil
@@ -7278,7 +7238,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 	// forms (`Shape.Rect({...})`, `Shape.Id(5)`); see variant_construction.go.
 	if form, ok := c.variantCtorCallee(n.Func, fnTy); ok {
 		if ty, handled := c.checkVariantCtorCall(n, form); handled {
-			return ty
+			return c.openVariantEnum(ty)
 		}
 	}
 
@@ -7408,10 +7368,11 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 		return Substitute(ft.Return, nil)
 	}
 
-	// Check argument count (skip for dispatch methods and partial application).
-	hasPlaceholder := callHasPlaceholder(n.Args)
+	// Check argument count (skip for dispatch methods). A partial
+	// application's `_` is an argument like any other: `add(_, 1, 2)` gives a
+	// two-parameter add three, and `add(_)` leaves b with nothing.
 	minArgs := len(ft.Params) - ft.DefaultCount
-	if !isDispatch && !hasPlaceholder && (len(n.Args) < minArgs || len(n.Args) > len(ft.Params)) {
+	if !isDispatch && (len(n.Args) < minArgs || len(n.Args) > len(ft.Params)) {
 		if ft.DefaultCount > 0 {
 			c.addError(n.Line, 1, fmt.Sprintf(
 				"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args)))
@@ -7432,7 +7393,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 		for _, na := range positionalNamedConflicts(n.Args, posSlots, c.callDefParams(n.Func), 0) {
 			c.addError(na.Line, 1, fmt.Sprintf("parameter '%s' already has a value", na.Name))
 		}
-		if !hasPlaceholder && len(n.Args) >= minArgs && len(n.Args) <= len(ft.Params) {
+		if len(n.Args) >= minArgs && len(n.Args) <= len(ft.Params) {
 			c.checkRequiredSlotsFilled(n, n.Args, posSlots, -1, ft.Params)
 		}
 	}
@@ -7474,7 +7435,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(a.Value)
 				if !c.argMatchesParam(argTy, expectedParamTy, c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(a.Value, c.typef(
-						"argument '%s': expected %s, got %s", a.Name, expectedParamTy, argTy)).WithHint(defaultedFuncValueHint(expectedParamTy, argTy, a.Value)))
+						"argument '%s': expected %s, got %s", a.Name, expectedParamTy, argTy)).WithHint(defaultedFuncValueHint(expectedParamTy, argTy, a.Value)).WithHint(c.wholeResultHint(expectedParamTy, argTy, a.Value)).WithHint(embedsDowncastHint(expectedParamTy, argTy)))
 				}
 			}
 		case *ast.Placeholder:
@@ -7500,7 +7461,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(arg)
 				if !c.argMatchesParam(argTy, ft.Params[slot], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(arg, c.typef(
-						"argument %d: expected %s, got %s", i+1, ft.Params[slot], argTy)).WithHint(defaultedFuncValueHint(ft.Params[slot], argTy, arg)))
+						"argument %d: expected %s, got %s", i+1, ft.Params[slot], argTy)).WithHint(defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(embedsDowncastHint(ft.Params[slot], argTy)))
 				}
 			}
 		}
@@ -7637,8 +7598,7 @@ func (c *checker) checkOperatorInterfaceCall(n *ast.Call) (Type, bool) {
 		if rhsExpected != nil {
 			// One impl for this receiver: argument 2 is what is wrong.
 			at := operandPos(n.Args[1], n.Line, n.Col)
-			c.addError(at.Line, at.Col, c.typef(
-				"argument 2: expected %s, got %s", rhsExpected, right))
+			c.addMismatch(at.Line, at.Col, rhsExpected, right, c.typef("argument 2: expected %s, got %s", rhsExpected, right))
 			return result, true
 		}
 		at := operandPos(n, n.Line, n.Col)
@@ -7648,8 +7608,7 @@ func (c *checker) checkOperatorInterfaceCall(n *ast.Call) (Type, bool) {
 	}
 	if err := c.unify(rhsExpected, right, nil); err != nil && !TypesEqual(rhsExpected, right) {
 		at := operandPos(n.Args[1], n.Line, n.Col)
-		c.addError(at.Line, at.Col, c.typef(
-			"argument 2: expected %s, got %s", rhsExpected, right))
+		c.addMismatch(at.Line, at.Col, rhsExpected, right, c.typef("argument 2: expected %s, got %s", rhsExpected, right))
 	}
 	if name := interfaceImplName(resolveTypeVar(left)); name != "" {
 		c.fa.RecordManifest(name, opIface.Interface,
@@ -8105,7 +8064,7 @@ func (c *checker) callDefParams(funcNode ast.Node) []string {
 // argument or call expression's source position so the demand site is
 // preserved in the manifest.
 func (c *checker) argMatchesParam(argTy, paramTy Type, recPos Pos, recKind RecordingKind) bool {
-	if TypesEqual(argTy, paramTy) {
+	if TypeAssignable(paramTy, argTy) {
 		return true
 	}
 	// A function value enters a function-typed position when its type is
@@ -8343,7 +8302,7 @@ func isSolvedParam(substituted Type) bool {
 // Anything else — `g(1, "two")`, `Map.get(Map<Int, _>, "wrong")` — is rejected.
 // `line`/`col` position any diagnostic the `Partial<T>` opacity gate emits.
 func (c *checker) argSatisfiesConcreteParam(argTy, concreteParam Type, line, col int) bool {
-	if TypesEqual(argTy, concreteParam) {
+	if TypeAssignable(concreteParam, argTy) {
 		return true
 	}
 	if pt, ok := concreteParam.(*PartialType); ok {
@@ -8358,6 +8317,9 @@ func (c *checker) argSatisfiesConcreteParam(argTy, concreteParam Type, line, col
 			rewritten := &FuncType{Params: af.Params, Return: TypeUnit, DefaultCount: af.DefaultCount}
 			return c.unifyInto(concreteParam, rewritten, nil) == nil
 		}
+	}
+	if _, _, down := embedsDowncast(concreteParam, argTy); down {
+		return false
 	}
 	return c.unify(concreteParam, argTy, nil) == nil
 }
@@ -8386,7 +8348,7 @@ func (c *checker) reportGenericArgMismatch(param, argTy Type, subs map[*TypePara
 				hint = c.functionJoinHint(param, substituted, argTy)
 			}
 			c.report(TypeError{Line: line, Col: col, Message: c.typef(
-				"%s: expected %s, got %s", label, substituted, argTy)}.Spanning(arg).WithHint(hint))
+				"%s: expected %s, got %s", label, substituted, argTy)}.Spanning(arg).WithHint(hint).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(embedsDowncastHint(substituted, argTy)))
 		}
 		return
 	}
@@ -8396,7 +8358,7 @@ func (c *checker) reportGenericArgMismatch(param, argTy Type, subs map[*TypePara
 	// parameter, and the program was BLOCKED at run time.
 	if funcArityDiffers(substituted, argTy) {
 		c.report(TypeError{Line: line, Col: col, Message: c.typef(
-			"%s: expected %s, got %s", label, substituted, argTy)}.Spanning(arg).WithHint(defaultedFuncValueHint(substituted, argTy, arg)))
+			"%s: expected %s, got %s", label, substituted, argTy)}.Spanning(arg).WithHint(defaultedFuncValueHint(substituted, argTy, arg)).WithHint(embedsDowncastHint(substituted, argTy)))
 		return
 	}
 	// A function value is never a non-function, and the reverse: no
@@ -8418,8 +8380,7 @@ func (c *checker) reportGenericArgMismatch(param, argTy Type, subs map[*TypePara
 		return
 	}
 	if shouldReportUnifyError(param, argTy) {
-		c.addError(line, col, c.typef(
-			"%s: expected %s, got %s", label, substituted, argTy))
+		c.addMismatch(line, col, substituted, argTy, c.typef("%s: expected %s, got %s", label, substituted, argTy))
 	}
 }
 
@@ -8570,21 +8531,12 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// Check argument count.
 	minArgs := len(ft.Params) - ft.DefaultCount
 	if !suppressArgCount && (len(n.Args) < minArgs || len(n.Args) > len(ft.Params)) {
-		hasPlaceholder := false
-		for _, arg := range n.Args {
-			if _, ok := arg.(*ast.Placeholder); ok {
-				hasPlaceholder = true
-				break
-			}
-		}
-		if !hasPlaceholder {
-			if ft.DefaultCount > 0 {
-				c.addError(n.Line, 1, fmt.Sprintf(
-					"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args)))
-			} else {
-				c.addError(n.Line, 1, fmt.Sprintf(
-					"expected %d arguments, got %d", len(ft.Params), len(n.Args)))
-			}
+		if ft.DefaultCount > 0 {
+			c.addError(n.Line, 1, fmt.Sprintf(
+				"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args)))
+		} else {
+			c.addError(n.Line, 1, fmt.Sprintf(
+				"expected %d arguments, got %d", len(ft.Params), len(n.Args)))
 		}
 	}
 
@@ -8689,7 +8641,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	for _, na := range positionalNamedConflicts(n.Args, posSlots, c.callDefParams(n.Func), 0) {
 		c.addError(na.Line, 1, fmt.Sprintf("parameter '%s' already has a value", na.Name))
 	}
-	if !suppressArgCount && !callHasPlaceholder(n.Args) &&
+	if !suppressArgCount &&
 		len(n.Args) >= minArgs && len(n.Args) <= len(ft.Params) {
 		c.checkRequiredSlotsFilled(n, n.Args, posSlots, -1, ft.Params)
 	}
@@ -8851,16 +8803,6 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		retTy = Substitute(ft.Return, subs)
 	}
 
-	// If the return type still has unsolved type params and we know the
-	// expected return type of the enclosing function, unify against it to
-	// solve remaining params. This handles cases like Ok(x) inside a
-	// function returning Result<Int, String> where E is not constrained
-	// by the arguments.
-	if ContainsTypeParam(retTy) && c.returnInferTy != nil && !skipReturnInfer && expected == nil {
-		_ = c.unify(retTy, c.returnInferTy, subs)
-		retTy = Substitute(ft.Return, subs)
-	}
-
 	// The return-only self, now solved, gets the records an argument-solved
 	// self gets above: its conformance demand and the dispatch it selects,
 	// which is what tells the IR builder which impl the call names.
@@ -8894,7 +8836,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	for tp, concrete := range subs {
 		for _, bound := range tp.Bounds {
 			if !typeImplementsInterface(c, concrete, bound, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck) {
-				c.boundError(n.Line, callCol(n), concrete, bound.Name, tp.Name_, n.Func)
+				c.boundError(n.Line, callCol(n), concrete, bound, tp.Name_, n.Func)
 				continue
 			}
 			c.recordBoundConformance(concrete, bound.Name, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck)
@@ -9449,9 +9391,7 @@ func (c *checker) checkTupleDistinctArgs(n *ast.Call, dt *DistinctType, inner *T
 			}
 			argLine, argCol := nodeLineCol(arg)
 			if !c.argMatchesParam(argTy, expected, c.recPos(argLine, argCol), RecordingKindCallSite) {
-				c.addError(n.Line, 1, c.typef(
-					"argument %d of %s: expected %s, got %s",
-					i+1, dt.Name, expected, argTy))
+				c.addMismatch(n.Line, 1, expected, argTy, c.typef("argument %d of %s: expected %s, got %s", i+1, dt.Name, expected, argTy))
 			}
 		}
 		return
@@ -9643,9 +9583,7 @@ func (c *checker) checkAnonStructTypeAgainstStruct(at ast.Node, anon *AnonStruct
 			continue
 		}
 		if !c.argMatchesParam(f.Type, declared, c.recPos(line, col), RecordingKindInterfaceTypedParam) {
-			c.addError(line, col, c.typef(
-				"field '%s' of %s: expected %s, got %s",
-				f.Name, st.Name, declared, f.Type))
+			c.addMismatch(line, col, declared, f.Type, c.typef("field '%s' of %s: expected %s, got %s", f.Name, st.Name, declared, f.Type))
 		}
 	}
 
@@ -9779,9 +9717,7 @@ func (c *checker) checkStructLitAgainstStruct(lit *ast.StructLit, st *StructType
 				valLine, valCol = lit.Line, lit.Col
 			}
 			if !c.argMatchesParam(valTy, declared, c.recPos(valLine, valCol), RecordingKindInterfaceTypedParam) {
-				c.addError(valLine, valCol, c.typef(
-					"field '%s' of %s: expected %s, got %s",
-					f.Name, st.Name, declared, valTy))
+				c.addMismatch(valLine, valCol, declared, valTy, c.typef("field '%s' of %s: expected %s, got %s", f.Name, st.Name, declared, valTy))
 			}
 		}
 	}
@@ -10201,9 +10137,7 @@ func (c *checker) checkVariantTuplePayloadFlatCall(n *ast.Call, ft *FuncType) bo
 		}
 		argLine, argCol := nodeLineCol(arg)
 		if !c.argMatchesParam(argTy, expected, c.recPos(argLine, argCol), RecordingKindCallSite) {
-			c.addError(n.Line, 1, c.typef(
-				"argument %d of %s: expected %s, got %s",
-				i+1, name, expected, argTy))
+			c.addMismatch(n.Line, 1, expected, argTy, c.typef("argument %d of %s: expected %s, got %s", i+1, name, expected, argTy))
 		}
 	}
 	return true
@@ -10314,6 +10248,111 @@ func (c *checker) checkLocallyDetermined(name string, value ast.Node, valTy, dec
 	}
 }
 
+// patternSite is one name a pattern or destructure binds, at the position
+// the builder defined its symbol.
+type patternSite struct {
+	name string
+	pos  Pos
+}
+
+// patternSites is every name pattern binds, in source order, mirroring
+// builder.definePatternOwned.
+func patternSites(pattern ast.Node) []patternSite {
+	var out []patternSite
+	var walk func(ast.Node)
+	walk = func(node ast.Node) {
+		switch n := node.(type) {
+		case *ast.IdentPattern:
+			out = append(out, patternSite{n.Name, Pos{Line: n.Line, Col: n.Col}})
+		case *ast.AsPattern:
+			walk(n.Pattern)
+			out = append(out, patternSite{n.Name, Pos{Line: n.NameLine, Col: n.NameCol}})
+		case *ast.Binary:
+			walk(n.Left)
+			walk(n.Right)
+		case *ast.EnumPattern:
+			if n.Payload != nil {
+				walk(n.Payload)
+			} else if n.Binding != "" {
+				out = append(out, patternSite{n.Binding, Pos{Line: n.Line, Col: n.BindingCol}})
+			}
+		case *ast.StructPattern:
+			for _, f := range n.Fields {
+				if f.Pattern != nil {
+					walk(f.Pattern)
+				} else if f.Binding != "" {
+					out = append(out, patternSite{f.Binding, Pos{Line: structPatternFieldBindingLine(f, n.Line), Col: f.BindingCol}})
+				}
+			}
+		case *ast.TuplePattern:
+			for _, p := range n.Patterns {
+				walk(p)
+			}
+		case *ast.ListPattern:
+			for _, h := range n.Heads {
+				walk(h)
+			}
+			if n.TailSpread != nil {
+				walk(n.TailSpread)
+			}
+		case *ast.MapPattern:
+			for _, e := range n.Entries {
+				walk(e.Pattern)
+			}
+		}
+	}
+	walk(pattern)
+	return out
+}
+
+// notePatternBindings queues the names a pattern or destructure binds for
+// checkUndeterminedPatternBindings. value is the matched expression.
+func (c *checker) notePatternBindings(sites []patternSite, value ast.Node) {
+	if len(sites) > 0 {
+		c.undeterminedPatterns = append(c.undeterminedPatterns, undeterminedPattern{sites: sites, value: value})
+	}
+}
+
+// undeterminedPattern is one pattern or destructure whose bound names are
+// checked at the end of the file.
+type undeterminedPattern struct {
+	sites []patternSite
+	value ast.Node
+}
+
+// checkUndeterminedPatternBindings reports each name a pattern bound whose
+// type is still an unsolved variable once every body in the file is checked.
+// `Ok(z) = Maybe.to_result(None, "none") else { ... }` binds z to the T of
+// `Maybe<T>`, which nothing fixes, so z is a value of no type and no use of
+// it can be compiled. A name whose type only holds an unsolved variable
+// (`a` in `(a, b) = (None, 1)`, a Maybe<T> that can only be None) is a
+// value like any other and is not reported.
+//
+// A pattern's names are checked at the end, not where they are bound as
+// `name = value` is (checkLocallyDetermined), because the matched value is
+// often a lambda parameter that later lines of the body determine
+// (`|state = ([], []), item| { (ts, fs) = state ... }` in std/iter). A
+// matched value whose call is reported here is not reported again by
+// checkUndeterminedTypeArgs.
+func (c *checker) checkUndeterminedPatternBindings() {
+	for _, u := range c.undeterminedPatterns {
+		for _, s := range u.sites {
+			if ast.IsDiscardName(s.name) {
+				continue
+			}
+			sym := c.fa.Definitions[s.pos]
+			if sym == nil || sym.Type == nil || !isUnresolvedVar(sym.Type) {
+				continue
+			}
+			c.markUndeterminedReported(u.value)
+			c.addError(s.pos.Line, s.pos.Col, fmt.Sprintf(
+				"the type of '%s' is not determined: nothing fixes the type the pattern binds it to — "+
+					"annotate the matched value (`v: T = …`) or give a call a type argument (`f<T>(…)`)",
+				s.name))
+		}
+	}
+}
+
 // isUnresolvedVar reports whether t resolves to an unbound inference var.
 func isUnresolvedVar(t Type) bool {
 	_, ok := resolveTypeVar(t).(*TypeVar)
@@ -10405,7 +10444,7 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 			subs := map[*TypeParam_]Type{}
 			if err := c.unifyInto(declared, valTy, subs); err != nil {
 				c.report(errAt(n.Value, c.typef(
-					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(defaultedFuncValueHint(declared, valTy, n.Value)))
+					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(embedsDowncastHint(declared, valTy)))
 			} else if len(subs) > 0 {
 				valTy = Substitute(valTy, subs)
 			}
@@ -10544,6 +10583,13 @@ func (c *checker) checkTupleDestructure(n *ast.TupleDestructure) Type {
 			sym.Type = tt.Elems[i]
 		}
 	}
+	var sites []patternSite
+	for _, b := range n.Bindings {
+		if b != nil {
+			sites = append(sites, patternSite{b.Name, Pos{Line: b.Line, Col: b.Col}})
+		}
+	}
+	c.notePatternBindings(sites, n.Value)
 
 	return TypeUnit
 }
@@ -10625,6 +10671,13 @@ func (c *checker) checkStructDestructure(n *ast.StructDestructure) Type {
 			}
 		}
 	}
+	var sites []patternSite
+	for _, f := range n.Fields {
+		if f.Binding != "" {
+			sites = append(sites, patternSite{f.Binding, Pos{Line: structPatternFieldBindingLine(f, n.Line), Col: f.BindingCol}})
+		}
+	}
+	c.notePatternBindings(sites, n.Value)
 
 	return TypeUnit
 }
@@ -10689,6 +10742,15 @@ func (c *checker) checkMapPatternEntries(entries []ast.MapPatternEntry, valTy Ty
 	}
 }
 
+// mapPatternSites is every name a map pattern's entries bind.
+func mapPatternSites(entries []ast.MapPatternEntry) []patternSite {
+	var out []patternSite
+	for _, e := range entries {
+		out = append(out, patternSites(e.Pattern)...)
+	}
+	return out
+}
+
 func (c *checker) checkMapDestructure(n *ast.MapDestructure) Type {
 	valTy := c.checkNode(n.Value)
 
@@ -10707,6 +10769,7 @@ func (c *checker) checkMapDestructure(n *ast.MapDestructure) Type {
 	// second error from inside a key would be noise about a construct whose
 	// type is already wrong. Only the loop that already ran is rerouted.
 	c.checkMapPatternEntries(n.Entries, mt.Val)
+	c.notePatternBindings(mapPatternSites(n.Entries), n.Value)
 
 	return TypeUnit
 }
@@ -10714,6 +10777,7 @@ func (c *checker) checkMapDestructure(n *ast.MapDestructure) Type {
 func (c *checker) checkPatternDestructure(n *ast.PatternDestructure) Type {
 	valTy := c.checkNode(n.Value)
 	c.checkPattern(n.Pattern, valTy)
+	c.notePatternBindings(patternSites(n.Pattern), n.Value)
 	c.registerAssertionHoverAt(n.AssertLine, n.AssertCol, n, "assert", valTy, TypeUnit, TypeUnit)
 	if c.tryUnwinds != nil && c.tryBoundary != "lambda" {
 		*c.tryUnwinds = append(*c.tryUnwinds, tryUnwind{
@@ -10731,6 +10795,37 @@ func (c *checker) checkPatternDestructure(n *ast.PatternDestructure) Type {
 func refutableBindingMessage(t Type) string {
 	return fmt.Sprintf("this pattern can fail to match a value of type %s; "+
 		"add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr`", t)
+}
+
+// tryUnwrapHint is the help on a refutable binding `Ok(x) = r` or
+// `Some(x) = m`, whose author usually wants `try`: it unwraps the value and
+// returns early on `Err` or `None`. binding is the name the payload binds.
+// It is empty for any other variant or enum. A pipe gets the `|> try` stage.
+func tryUnwrapHint(et *EnumType, variant, binding string, value ast.Node) string {
+	var missed, other string
+	switch {
+	case et.Name == "Result" && variant == "Ok":
+		missed, other = "an `Err`", "`Err`"
+	case et.Name == "Maybe" && variant == "Some":
+		missed, other = "`None`", "`None`"
+	default:
+		return ""
+	}
+	fix := fmt.Sprintf("write `%s = try ...`", binding)
+	if b, ok := ungroupExpr(value).(*ast.Binary); ok && b.Op == "|>" {
+		fix = fmt.Sprintf("write `%s = ...` and end the pipe with `|> try`", binding)
+	}
+	return fmt.Sprintf("`%s(%s)` does not match %s. To unwrap the `%s` and return early on %s, %s",
+		variant, binding, missed, et.Name, other, fix)
+}
+
+// variantNameOfDotted is the last segment of a written name:
+// `Maybe.Some` is "Some".
+func variantNameOfDotted(name string) string {
+	if i := strings.LastIndex(name, "."); i >= 0 {
+		return name[i+1:]
+	}
+	return name
 }
 
 // noFallbackPayloadMessage is the error for an `else` path that produces a
@@ -10752,10 +10847,21 @@ const noFallbackPayloadMessage = "this pattern has no single payload a fallback 
 func (c *checker) checkPatternBinding(n *ast.PatternBinding) Type {
 	valTy := c.checkNode(n.Value)
 	c.checkPattern(n.Pattern, valTy)
+	// Checked once the else is: a fallback (`Some(z) = None else { 0 }`)
+	// is part of the binding and determines the payload's type.
+	defer c.notePatternBindings(patternSites(n.Pattern), n.Value)
 	irrefutable := valTy == nil || c.patternsExhaustiveOver(valTy, []ast.Node{n.Pattern})
 	if n.Else == nil {
 		if !irrefutable {
-			c.addError(n.Line, n.Col, refutableBindingMessage(valTy))
+			e := TypeError{Line: n.Line, Col: n.Col, Message: refutableBindingMessage(valTy)}
+			if p, ok := n.Pattern.(*ast.EnumPattern); ok && p.Binding != "" {
+				if et, ok := valTy.(*EnumType); ok {
+					if hint := tryUnwrapHint(et, c.variantNameOfPattern(p), p.Binding, n.Value); hint != "" {
+						e.Hints = []string{hint}
+					}
+				}
+			}
+			c.report(e)
 		}
 		return TypeUnit
 	}
@@ -10777,8 +10883,9 @@ func (c *checker) checkPatternBinding(n *ast.PatternBinding) Type {
 			c.addError(line, col, noFallbackPayloadMessage)
 			return
 		}
-		if err := c.unify(payloadTy, ty, nil); err != nil && !TypesEqual(payloadTy, ty) {
-			c.addError(line, col, c.typef(
+		_, _, down := embedsDowncast(payloadTy, ty)
+		if err := c.unify(payloadTy, ty, nil); down || (err != nil && !TypesEqual(payloadTy, ty)) {
+			c.addMismatch(line, col, payloadTy, ty, c.typef(
 				"the fallback stands in for %s's payload of type %s, got %s", variant, payloadTy, ty))
 		}
 	}
@@ -10806,6 +10913,7 @@ func (c *checker) checkPatternBinding(n *ast.PatternBinding) Type {
 	for _, arm := range n.Else.Arms {
 		if arm.Pattern != nil && valTy != nil {
 			c.checkPattern(arm.Pattern, valTy)
+			c.notePatternBindings(patternSites(arm.Pattern), n.Value)
 		}
 		if arm.Guard != nil {
 			c.checkCondition(arm.Guard, "`when` guard")
@@ -10835,6 +10943,9 @@ func (c *checker) bindingFallbackPayload(pattern ast.Node, t Type) (Type, string
 	}
 	var name string
 	var inner ast.Node
+	// An `as` around the whole pattern (`Some(n) as m`) binds the whole
+	// value, which a fallback for the payload cannot supply, so it takes the
+	// default arm: no fallback.
 	switch p := pattern.(type) {
 	case *ast.EnumPattern:
 		if p.Payload == nil && p.Binding == "" {
@@ -10895,7 +11006,15 @@ func (c *checker) checkDistinctDestructure(n *ast.DistinctDestructure) Type {
 	if !ok {
 		if et, isEnum := valTy.(*EnumType); isEnum && len(et.Variants) > 1 {
 			// `Some(x) = maybe`: a variant pattern, which can fail.
-			c.addError(n.Line, n.Col, refutableBindingMessage(valTy))
+			binding := "_"
+			if n.Binding != nil {
+				binding = n.Binding.Name
+			}
+			e := TypeError{Line: n.Line, Col: n.Col, Message: refutableBindingMessage(valTy)}
+			if hint := tryUnwrapHint(et, variantNameOfDotted(n.TypeName), binding, n.Value); hint != "" {
+				e.Hints = []string{hint}
+			}
+			c.report(e)
 			return TypeUnit
 		}
 		c.addError(n.Line, n.Col, fmt.Sprintf("distinct type destructure requires a distinct type, got %s", valTy))
@@ -10912,6 +11031,7 @@ func (c *checker) checkDistinctDestructure(n *ast.DistinctDestructure) Type {
 		if sym != nil && dt.Inner != nil {
 			sym.Type = dt.Inner
 		}
+		c.notePatternBindings([]patternSite{{n.Binding.Name, Pos{Line: n.Binding.Line, Col: n.Binding.Col}}}, n.Value)
 	}
 
 	return TypeUnit
@@ -10931,9 +11051,60 @@ func (c *checker) checkIf(n *ast.If, expected Type) Type {
 	condTy := c.checkNode(n.Cond)
 	if n.CondPattern != nil {
 		c.checkPattern(n.CondPattern, condTy)
-		return c.checkIfBranches(n, condTy, expected, true)
+		c.notePatternBindings(patternSites(n.CondPattern), n.Cond)
+		if condTy != nil && c.patternsExhaustiveOver(condTy, []ast.Node{n.CondPattern}) {
+			c.reportIrrefutableIfPattern(n, condTy)
+		}
+		narrowSym, narrowTy := c.narrowingFor(n.Cond, condTy, n.CondPattern)
+		return c.checkIfBranches(n, condTy, expected, true, narrowSym, narrowTy)
 	}
 	return c.checkIfWithConditionType(n, condTy, expected)
+}
+
+// reportIrrefutableIfPattern rejects `if Pattern = value` whose pattern
+// matches every value of the value's type: the `if` tests nothing, its first
+// branch always runs and an `else` never does. A bare name is the common
+// case, and is usually `if x = 0` written for `if x == 0`; when a binding of
+// that name and the value's type is already in scope, the hint says so.
+func (c *checker) reportIrrefutableIfPattern(n *ast.If, condTy Type) {
+	line, col := nodePos(n.CondPattern)
+	if col == 0 {
+		line, col = n.Line, n.Col
+	}
+	e := TypeError{Line: line, Col: col, Message: fmt.Sprintf(
+		"this pattern always matches a value of type %s, so the `if` has nothing to test; bind it on its own line with `pattern = value`",
+		condTy)}
+	if p, ok := n.CondPattern.(*ast.IdentPattern); ok {
+		if outer := c.outerValueNamed(n, p); outer != nil && outer.Type != nil && TypesEqual(outer.Type, condTy) {
+			e.Hints = []string{fmt.Sprintf(
+				"`if %s = ...` binds a new `%s`; to compare the existing `%s` with the value, write `if %s == ...`",
+				p.Name, p.Name, p.Name, p.Name)}
+		}
+	}
+	c.report(e)
+}
+
+// outerValueNamed is the parameter, binding or `once` that p's name refers
+// to at n, other than the one p itself binds, or nil.
+func (c *checker) outerValueNamed(n *ast.If, p *ast.IdentPattern) *Symbol {
+	own := Pos{Line: p.Line, Col: p.Col}
+	for scope := c.fa.ScopeAt(Pos{Line: n.Line, Col: n.Col}); scope != nil; scope = scope.Parent {
+		sym := scope.LookupLocal(p.Name)
+		if sym == nil || sym.Pos == own {
+			continue
+		}
+		before := sym.Pos.Line < n.Line || (sym.Pos.Line == n.Line && sym.Pos.Col < n.Col)
+		switch sym.Kind {
+		case SymbolParam, SymbolBinding:
+			if before {
+				return sym
+			}
+		case SymbolOnce:
+			return sym
+		}
+		return nil
+	}
+	return nil
 }
 
 func (c *checker) checkIfWithConditionType(n *ast.If, condTy Type, expected Type) Type {
@@ -10941,12 +11112,18 @@ func (c *checker) checkIfWithConditionType(n *ast.If, condTy Type, expected Type
 		c.addError(n.Line, 1, fmt.Sprintf(
 			"if condition must be Bool, got %s", condTy))
 	}
-	return c.checkIfBranches(n, condTy, expected, false)
+	return c.checkIfBranches(n, condTy, expected, false, nil, nil)
 }
 
-func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, patternInput bool) Type {
+// narrowSym and narrowTy are the name the first branch narrows and its type
+// there (narrowing.go), or nil.
+func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, patternInput bool, narrowSym *Symbol, narrowTy Type) Type {
+	checkThen := func(want Type) (ty Type) {
+		c.withNarrowing(narrowSym, narrowTy, func() { ty = c.checkBlockExpecting(n.Then, want) })
+		return ty
+	}
 	if n.Else == nil {
-		thenTy := c.checkBlockExpecting(n.Then, TypeUnit)
+		thenTy := checkThen(TypeUnit)
 		if thenTy != nil && !isUnitLike(thenTy) && !isInfallibleLike(thenTy) {
 			c.addError(n.Line, n.Col, fmt.Sprintf(
 				"if without else returns Unit, so then branch result of type %s is ignored — bind it to `_` inside the branch if intentional, or add an else branch to return a value",
@@ -10958,7 +11135,7 @@ func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, pattern
 
 	// Push `expected` into each branch so a generic constructor in a branch tail
 	// (`if … { Ok(.Quit) } else { … }`) resolves its dot-leading variant.
-	thenTy := c.checkBlockExpecting(n.Then, expected)
+	thenTy := checkThen(expected)
 
 	var elseTy Type
 	switch e := n.Else.(type) {
@@ -11005,14 +11182,15 @@ func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, pattern
 // `Iter<Int>` one, as a generic call does when its expected type is the
 // interface), the expression's type is the interface: the concrete branch's
 // value enters it, and the interface branch's value cannot become the
-// concrete type.
+// concrete type. The same holds for an enum beside a type it embeds: the
+// expression's type is the enum (embedsJoin).
 func branchJoin(have, next Type) Type {
 	_, haveIface := resolveTV(have).(*InterfaceType)
 	_, nextIface := resolveTV(next).(*InterfaceType)
 	if nextIface && !haveIface {
 		return next
 	}
-	return have
+	return embedsJoin(have, next)
 }
 
 // registerCodepointHover records the hover marker for a codepoint literal,
@@ -11127,7 +11305,12 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 	var tqTypeName string
 	switch o := n.Object.(type) {
 	case *ast.TypeIdent:
-		tqTypeName = o.Name
+		// A variant spelled bare (`None`, `Some`, an imported variant) is a
+		// value of its enum, not a type qualifier: `None.foo` is a field
+		// access on an `Option` and fails as one below.
+		if !c.typeIdentNamesVariant(o) {
+			tqTypeName = o.Name
+		}
 	case *ast.FieldAccess:
 		tqTypeName = c.namespaceQualifiedTypeName(o)
 		if tqTypeName == "" {
@@ -11240,7 +11423,13 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 	// the builder happened to register), and blowing up to a proper dispatch
 	// mechanism isn't needed here — the interface's own MethodSig is enough
 	// to type the call.
-	if ifaceTy, ok := interfaceObjectType(c, n.Object, objTy); ok {
+	//
+	// Only an interface NAME qualifies a function (`Display.to_string`,
+	// tqTypeName set). A VALUE of interface type (a parameter, binding or
+	// field) has no members besides fields, and an interface has no fields:
+	// `h.name` falls through to the terminal's "no field" error, whose hint
+	// names the qualified call.
+	if ifaceTy, ok := interfaceObjectType(c, n.Object, objTy); ok && tqTypeName != "" {
 		if ft := interfaceMethodFuncType(ifaceTy, n.Field.Name); ft != nil {
 			return ft
 		}
@@ -11380,18 +11569,24 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 		return nil
 	}
 	if tqTypeName == "" {
-		// The interface case (a value of interface type — an existential) only
-		// admits the interface's declared `field` requirements, resolved at
-		// step 1.5; anything else is rejected here.
+		// A value of interface type (an existential) has no fields: an
+		// interface declares functions only.
 		if it, ok := interfaceObjectType(c, n.Object, objTy); ok {
-			c.addError(fieldPos.Line, fieldPos.Col, fmt.Sprintf(
-				"interface '%s' has no field '%s'", it.Name, n.Field.Name))
+			hint := fmt.Sprintf(
+				"an interface declares functions only; declare `fn %s(value: self): ...` in '%s' and call `%s.%s(value)`",
+				n.Field.Name, it.Name, it.Name, n.Field.Name)
+			if interfaceMethodFuncType(it, n.Field.Name) != nil {
+				hint = fmt.Sprintf("`%s` declares `fn %s`; call it as %s",
+					it.Name, n.Field.Name, qualifiedCallSpellings([]string{it.Name}, n.Field.Name, n.Object))
+			}
+			c.report(TypeError{Line: fieldPos.Line, Col: fieldPos.Col, Message: fmt.Sprintf(
+				"interface '%s' has no field '%s'", it.Name, n.Field.Name)}.WithHint(hint))
 			return nil
 		}
 		switch rt := resolveTypeVar(objTy).(type) {
 		case *StructType:
 			c.report(TypeError{Line: fieldPos.Line, Col: fieldPos.Col, Message: fmt.Sprintf(
-				"struct '%s' has no field '%s'", rt.Name, n.Field.Name)}.WithHint(didYouMean(n.Field.Name, fieldNames(rt.Fields))))
+				"struct '%s' has no field '%s'", rt.Name, n.Field.Name)}.WithHint(c.structFunctionNotFieldHint(rt, n.Field.Name, n.Object)))
 		case *EnumType:
 			c.addError(fieldPos.Line, fieldPos.Col, fmt.Sprintf(
 				"enum '%s' has no field '%s' (match on its variants instead)", rt.Name, n.Field.Name))
@@ -11399,17 +11594,30 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 			c.addError(fieldPos.Line, fieldPos.Col, fmt.Sprintf(
 				"'%s' has no field '%s'", rt.Name, n.Field.Name))
 		case *TypeParam_:
-			// A bounded param's bound field requirements resolve at step 1.5;
-			// reaching here means no bound declares this field (or the param is
-			// unbounded), so it can't be accessed through the param.
-			c.addError(fieldPos.Line, fieldPos.Col, fmt.Sprintf(
-				"type parameter `%s` has no field '%s' (a type parameter exposes only the fields its interface bounds declare)", rt.Name_, n.Field.Name))
+			// A type parameter has no fields, bounded or not: its bounds
+			// declare functions only.
+			c.report(TypeError{Line: fieldPos.Line, Col: fieldPos.Col, Message: fmt.Sprintf(
+				"type parameter `%s` has no field '%s'", rt.Name_, n.Field.Name)}.WithHint(c.typeParamFunctionNotFieldHint(rt, n.Field.Name, n.Object)))
 		case *AnonStructType, *TupleType, *PrimitiveType, *ListType, *MapType, *FuncType:
 			c.addError(fieldPos.Line, fieldPos.Col, fmt.Sprintf(
 				"%s has no field '%s'", rt, n.Field.Name))
 		}
 	}
 	return nil
+}
+
+// typeIdentNamesVariant reports whether a capitalized name in expression
+// position denotes an enum variant and no type of that name exists, so that
+// `X.y` reads a field of the variant's value rather than a member of a type.
+func (c *checker) typeIdentNamesVariant(id *ast.TypeIdent) bool {
+	sym, ok := c.fa.References[Pos{Line: id.Line, Col: id.Col}]
+	if !ok {
+		return false
+	}
+	for sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	return sym.Kind == SymbolEnumVariant && c.reg.Lookup(id.Name) == nil
 }
 
 // dottedTypeQualifier resolves an expression's object as a dotted type name —
@@ -11688,47 +11896,6 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 				return f.Type, true
 			}
 		}
-	case *InterfaceType:
-		// Through an interface value, only the interface's declared `field`
-		// requirements are accessible — those are guaranteed present on every
-		// implementor. Any other field is rejected by checkFieldAccess's
-		// terminal interface guard (an existential can't promise a field the
-		// contract doesn't declare). Methods resolve separately, after this.
-		for _, f := range ty.Fields {
-			if f.Name == fieldName {
-				c.fa.References[fieldPos] = &Symbol{
-					Name: f.Name,
-					Kind: SymbolField,
-					Pos:  fieldPos,
-					Type: f.Type,
-				}
-				return f.Type, true
-			}
-		}
-	case *TypeParam_:
-		// Through a bounded type-param value, the accessible fields are exactly
-		// the `field` requirements its bound interfaces declare — the universal
-		// form of the interface-existential case above. Resolve each bound to
-		// its canonical interface (a bound may be a thin reference whose Fields
-		// aren't populated) and look the field up there. No match across all
-		// bounds → checkFieldAccess's terminal type-param guard rejects it.
-		for _, bound := range ty.Bounds {
-			iface := bound
-			if canon, ok := c.reg.Lookup(bound.Name).(*InterfaceType); ok {
-				iface = canon
-			}
-			for _, f := range iface.Fields {
-				if f.Name == fieldName {
-					c.fa.References[fieldPos] = &Symbol{
-						Name: f.Name,
-						Kind: SymbolField,
-						Pos:  fieldPos,
-						Type: f.Type,
-					}
-					return f.Type, true
-				}
-			}
-		}
 	case *EnumType:
 		for _, v := range ty.Variants {
 			for _, f := range v.Fields {
@@ -11822,7 +11989,7 @@ func (c *checker) checkTryOp(n *ast.TryOp) Type {
 	}
 	inputTy := c.checkNode(n.Expr)
 	c.registerTryOpHover(n, inputTy)
-	return c.unwrapTryResult(inputTy, n)
+	return c.unwrapTryResult(inputTy, n, n.Expr)
 }
 
 func (c *checker) checkTryOpExpecting(n *ast.TryOp, expected Type) Type {
@@ -11834,7 +12001,7 @@ func (c *checker) checkTryOpExpecting(n *ast.TryOp, expected Type) Type {
 		TypeArgs: []Type{expected, c.freshTypeVar()},
 	})
 	c.registerTryOpHover(n, inputTy)
-	return c.unwrapTryResult(inputTy, n)
+	return c.unwrapTryResult(inputTy, n, n.Expr)
 }
 
 // registerTryOpHover stores a SymbolTryOp marker at the `try` keyword's
@@ -11895,14 +12062,21 @@ func isTryOperandName(name string) bool {
 // Maybe<T> to T. Used by checkTryOp and by the pipe-stage form
 // (`x |> f(a) |> try`). Reports a diagnostic on `at` if ty is not
 // Result/Maybe.
-func (c *checker) unwrapTryResult(ty Type, at ast.Node) Type {
+//
+// operand is the expression `try` applies to, for the hint on a backtick
+// typed literal, whose type is already the handler's success type.
+func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 	if ty == nil {
 		return nil
 	}
 	et, ok := ty.(*EnumType)
 	if !ok || !isTryOperandName(et.Name) {
-		c.addError(at.LineNum(), 1, fmt.Sprintf(
-			"try requires a Result or Maybe, got %s", ty))
+		line, col := nodeLineCol(at)
+		e := TypeError{Line: line, Col: col, Message: fmt.Sprintf("try requires a Result or Maybe, got %s", ty)}
+		if lit, raw := ungroupExpr(operand).(*ast.TaggedString); raw && lit.Raw {
+			e.Hints = []string{fmt.Sprintf("a backtick typed literal is checked at compile time, so this one is already a %s: remove the `try`", ty)}
+		}
+		c.report(e)
 		return nil
 	}
 	if len(et.TypeArgs) == 0 {
@@ -12008,18 +12182,18 @@ func (c *checker) checkTryBoundary(operand *EnumType, at ast.Node) {
 	if got == nil || want == nil || c.tryErrTypesAgree(want, got, line, col) {
 		return
 	}
-	c.addError(line, col, c.typef(
-		"try error type mismatch: expected %s, got %s (the enclosing function returns %s); convert the error at the `try`, for example with Result.map_err",
-		want, got, boundary))
+	c.addMismatch(line, col, want, got, c.typef("try error type mismatch: expected %s, got %s (the enclosing function returns %s); convert the error at the `try`, for example with Result.map_err", want, got, boundary))
 }
 
 // tryErrTypesAgree reports whether a `try` operand's error type `got` inhabits
 // the boundary's declared error type `want`.
 //
-// The ladder is TypesEqual, then unify, then argMatchesParam, and each rung
-// exists for a shape the previous one cannot answer:
+// The ladder is TypeAssignable, then unify, then argMatchesParam, and each
+// rung exists for a shape the previous one cannot answer. An enum where one
+// of its embedded types is wanted is refused before any of them
+// (embedsDowncast).
 //
-//   - TypesEqual is the whole rule for the concrete case and the fast path.
+//   - TypeAssignable is the whole rule for the concrete case and the fast path.
 //   - unify admits a side still carrying an unresolved inference variable, and
 //     a generic boundary whose error side is the function's own type parameter
 //     (`fn f<E>(…): Result<T, E>` propagating a `Result<_, E>`). A PROTECTED
@@ -12029,8 +12203,11 @@ func (c *checker) checkTryBoundary(operand *EnumType, at ast.Node) {
 //     side accepts a concrete implementer, consulting the impl registry the
 //     same way a parameter position does.
 func (c *checker) tryErrTypesAgree(want, got Type, line, col int) bool {
-	if TypesEqual(want, got) {
+	if TypeAssignable(want, got) {
 		return true
+	}
+	if _, _, down := embedsDowncast(want, got); down {
+		return false
 	}
 	if !containsProtectedTypeParam(want, c.fnTypeParams) {
 		if c.unify(want, got, map[*TypeParam_]Type{}) == nil {
@@ -12065,14 +12242,14 @@ func (c *checker) checkReturn(n *ast.Return) Type {
 	// (`return Ok(.Quit)`) the way the tail-expression form already does.
 	valTy := c.checkNodeExpecting(n.Value, c.returnTy)
 	c.recordBoundaryReturn(n, valTy)
-	if valTy != nil && c.returnTy != nil && !TypesEqual(valTy, c.returnTy) {
+	if valTy != nil && c.returnTy != nil && !TypeAssignable(c.returnTy, valTy) {
 		subs := map[*TypeParam_]Type{}
 		if !containsProtectedTypeParam(c.returnTy, c.fnTypeParams) && c.unifyInto(c.returnTy, valTy, subs) == nil {
 			return TypeInfallible
 		}
 		if !c.argMatchesParam(valTy, c.returnTy, c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {
-			c.addErrorAt(n.Value, c.typef(
-				"return type mismatch: expected %s, got %s", c.returnTy, valTy))
+			c.report(errAt(n.Value, c.typef(
+				"return type mismatch: expected %s, got %s", c.returnTy, valTy)).WithHint(c.wholeResultHint(c.returnTy, valTy, n.Value)).WithHint(embedsDowncastHint(c.returnTy, valTy)))
 		}
 	}
 	return TypeInfallible
@@ -12107,9 +12284,7 @@ func (c *checker) checkBreak(n *ast.Break) Type {
 			subs := map[*TypeParam_]Type{}
 			if err := c.unify(c.iterBreakTy, vTy, subs); err != nil {
 				_ = err
-				c.addError(n.Line, n.Col, c.typef(
-					"break value type mismatch: expected %s, got %s",
-					c.iterBreakTy, vTy))
+				c.addMismatch(n.Line, n.Col, c.iterBreakTy, vTy, c.typef("break value type mismatch: expected %s, got %s", c.iterBreakTy, vTy))
 			}
 		}
 	}
@@ -12153,8 +12328,7 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 				}
 				itemLine, itemCol := nodeLineCol(item)
 				if !c.argMatchesParam(ty, lt.Elem, c.recPos(itemLine, itemCol), RecordingKindCallSite) {
-					c.addError(item.LineNum(), 1, c.typef(
-						"%s element type: expected %s, got %s", typeName, lt.Elem, ty))
+					c.addMismatch(item.LineNum(), 1, lt.Elem, ty, c.typef("%s element type: expected %s, got %s", typeName, lt.Elem, ty))
 				}
 			}
 			return et
@@ -12195,8 +12369,7 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 			}
 			itemLine, itemCol := nodeLineCol(item)
 			if !c.argMatchesParam(ty, lt.Elem, c.recPos(itemLine, itemCol), RecordingKindCallSite) {
-				c.addError(item.LineNum(), 1, c.typef(
-					"%s element type: expected %s, got %s", typeName, lt.Elem, ty))
+				c.addMismatch(item.LineNum(), 1, lt.Elem, ty, c.typef("%s element type: expected %s, got %s", typeName, lt.Elem, ty))
 			}
 		}
 		return dt
@@ -12225,8 +12398,7 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 			if (containsTypeVar(elemTy) || containsTypeVar(ty)) && c.unify(elemTy, ty, nil) == nil {
 				continue
 			}
-			c.addErrorAt(item, c.typef(
-				"list element type mismatch: expected %s, got %s", elemTy, ty))
+			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
 		}
 	}
 
@@ -12278,7 +12450,10 @@ func markEmbedsWidening(n *ast.ListLit, elemTy Type, itemTys []Type) {
 // handled by the call-site's own unification, which already knows how to
 // bind generic params to concrete element types.
 func (c *checker) checkListLitExpecting(n *ast.ListLit, elemTy Type) Type {
-	if elemTy == nil || ContainsTypeParam(elemTy) || containsTypeVar(elemTy) {
+	// A type-prefixed literal (`Arr[1, 2]`, `.Arr[1, 2]`) constructs the
+	// variant or list-distinct type it names, whatever list is expected.
+	// Typing it as a plain list here left an unknown prefix unreported.
+	if n.TypeName != nil || elemTy == nil || ContainsTypeParam(elemTy) || containsTypeVar(elemTy) {
 		return c.checkListLit(n)
 	}
 	itemTys := make([]Type, 0, len(n.Items))
@@ -12292,9 +12467,8 @@ func (c *checker) checkListLitExpecting(n *ast.ListLit, elemTy Type) Type {
 		// *conforms* to an interface element type — so `List<Struct>` admits any
 		// struct, `List<Display>` any Display impl — not just exact-type matches.
 		itemLine, itemCol := nodeLineCol(item)
-		if !TypesEqual(elemTy, ty) && !c.argMatchesParam(ty, elemTy, c.recPos(itemLine, itemCol), RecordingKindCallSite) {
-			c.addErrorAt(item, c.typef(
-				"list element type mismatch: expected %s, got %s", elemTy, ty))
+		if !TypeAssignable(elemTy, ty) && !c.argMatchesParam(ty, elemTy, c.recPos(itemLine, itemCol), RecordingKindCallSite) {
+			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
 		}
 	}
 	markEmbedsWidening(n, elemTy, itemTys)
@@ -12387,8 +12561,9 @@ func (c *checker) checkVectorLit(n *ast.VectorLit) Type {
 			if (containsTypeVar(elemTy) || containsTypeVar(ty)) && c.unify(elemTy, ty, nil) == nil {
 				continue
 			}
-			c.addErrorAt(item, c.typef(
-				"vector element type mismatch: expected %s, got %s", elemTy, ty))
+			c.report(errAt(item, c.typef("vector element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
+		} else {
+			elemTy = embedsJoin(elemTy, ty)
 		}
 	}
 	if elemTy == nil {
@@ -12407,9 +12582,8 @@ func (c *checker) checkVectorLitExpecting(n *ast.VectorLit, elemTy Type) Type {
 			continue
 		}
 		itemLine, itemCol := nodeLineCol(item)
-		if !TypesEqual(elemTy, ty) && !c.argMatchesParam(ty, elemTy, c.recPos(itemLine, itemCol), RecordingKindCallSite) {
-			c.addErrorAt(item, c.typef(
-				"vector element type mismatch: expected %s, got %s", elemTy, ty))
+		if !TypeAssignable(elemTy, ty) && !c.argMatchesParam(ty, elemTy, c.recPos(itemLine, itemCol), RecordingKindCallSite) {
+			c.report(errAt(item, c.typef("vector element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
 		}
 	}
 	return makeVectorType(elemTy, c.reg)
@@ -12434,8 +12608,9 @@ func (c *checker) checkSetLit(n *ast.SetLit) Type {
 			if (containsTypeVar(elemTy) || containsTypeVar(ty)) && c.unify(elemTy, ty, nil) == nil {
 				continue
 			}
-			c.addErrorAt(item, c.typef(
-				"set element type mismatch: expected %s, got %s", elemTy, ty))
+			c.report(errAt(item, c.typef("set element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
+		} else {
+			elemTy = embedsJoin(elemTy, ty)
 		}
 	}
 	if elemTy == nil {
@@ -12454,9 +12629,8 @@ func (c *checker) checkSetLitExpecting(n *ast.SetLit, elemTy Type) Type {
 			continue
 		}
 		itemLine, itemCol := nodeLineCol(item)
-		if !TypesEqual(elemTy, ty) && !c.argMatchesParam(ty, elemTy, c.recPos(itemLine, itemCol), RecordingKindCallSite) {
-			c.addErrorAt(item, c.typef(
-				"set element type mismatch: expected %s, got %s", elemTy, ty))
+		if !TypeAssignable(elemTy, ty) && !c.argMatchesParam(ty, elemTy, c.recPos(itemLine, itemCol), RecordingKindCallSite) {
+			c.report(errAt(item, c.typef("set element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
 		}
 	}
 	return makeSetType(elemTy, c.reg)
@@ -12571,14 +12745,12 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 				kt := c.checkNodeExpecting(entry.Key, mt.Key)
 				keyLine, keyCol := nodeLineCol(entry.Key)
 				if kt != nil && !c.argMatchesParam(kt, mt.Key, c.recPos(keyLine, keyCol), RecordingKindCallSite) {
-					c.addError(entry.Key.LineNum(), 1, c.typef(
-						"%s key type: expected %s, got %s", typeName, mt.Key, kt))
+					c.addMismatch(entry.Key.LineNum(), 1, mt.Key, kt, c.typef("%s key type: expected %s, got %s", typeName, mt.Key, kt))
 				}
 				vt := c.checkNodeExpecting(entry.Value, mt.Val)
 				valLine, valCol := nodeLineCol(entry.Value)
 				if vt != nil && !c.argMatchesParam(vt, mt.Val, c.recPos(valLine, valCol), RecordingKindCallSite) {
-					c.addError(entry.Value.LineNum(), 1, c.typef(
-						"%s value type: expected %s, got %s", typeName, mt.Val, vt))
+					c.addMismatch(entry.Value.LineNum(), 1, mt.Val, vt, c.typef("%s value type: expected %s, got %s", typeName, mt.Val, vt))
 				}
 			}
 			return et
@@ -12620,14 +12792,12 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 			kt := c.checkNodeExpecting(entry.Key, mt.Key)
 			keyLine, keyCol := nodeLineCol(entry.Key)
 			if kt != nil && !c.argMatchesParam(kt, mt.Key, c.recPos(keyLine, keyCol), RecordingKindCallSite) {
-				c.addError(entry.Key.LineNum(), 1, c.typef(
-					"%s key type: expected %s, got %s", typeName, mt.Key, kt))
+				c.addMismatch(entry.Key.LineNum(), 1, mt.Key, kt, c.typef("%s key type: expected %s, got %s", typeName, mt.Key, kt))
 			}
 			vt := c.checkNodeExpecting(entry.Value, mt.Val)
 			valLine, valCol := nodeLineCol(entry.Value)
 			if vt != nil && !c.argMatchesParam(vt, mt.Val, c.recPos(valLine, valCol), RecordingKindCallSite) {
-				c.addError(entry.Value.LineNum(), 1, c.typef(
-					"%s value type: expected %s, got %s", typeName, mt.Val, vt))
+				c.addMismatch(entry.Value.LineNum(), 1, mt.Val, vt, c.typef("%s value type: expected %s, got %s", typeName, mt.Val, vt))
 			}
 		}
 		return dt
@@ -12641,16 +12811,18 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 			if keyTy == nil {
 				keyTy = kt
 			} else if !TypesEqual(keyTy, kt) {
-				c.addError(n.Line, 1, c.typef(
-					"map key type mismatch: expected %s, got %s", keyTy, kt))
+				c.addMismatch(n.Line, 1, keyTy, kt, c.typef("map key type mismatch: expected %s, got %s", keyTy, kt))
+			} else {
+				keyTy = embedsJoin(keyTy, kt)
 			}
 		}
 		if vt != nil {
 			if valTy == nil {
 				valTy = vt
 			} else if !TypesEqual(valTy, vt) {
-				c.addError(n.Line, 1, c.typef(
-					"map value type mismatch: expected %s, got %s", valTy, vt))
+				c.addMismatch(n.Line, 1, valTy, vt, c.typef("map value type mismatch: expected %s, got %s", valTy, vt))
+			} else {
+				valTy = embedsJoin(valTy, vt)
 			}
 		}
 	}
@@ -12674,9 +12846,10 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 // A qualifier names something when the registry holds it (a module-level or
 // block-local type, or a module-qualified one) or the builder resolved it
 // to a symbol (an import, an alias, a module); anything else is an unknown
-// type. Against an enum, a qualifier that is another enum, a struct, a
-// distinct or an interface is an error too: enums do not embed enums, so
-// only the enum itself owns its variants.
+// type. Against an enum, a qualifier that names any other type (another
+// enum, a struct, a distinct, an interface, a built-in such as `String`) is
+// an error too: enums do not embed enums, so only the enum itself owns its
+// variants.
 func (c *checker) checkPatternQualifier(qt *ast.QualifiedType, expectedTy Type) bool {
 	if qt.Module == "" || IsSynthesizedLine(qt.ModuleLine) {
 		return true
@@ -12707,7 +12880,9 @@ func (c *checker) checkPatternQualifier(qt *ast.QualifiedType, expectedTy Type) 
 	case *InterfaceType:
 		other = "interface " + q.Name
 	default:
-		return true
+		// A built-in (`String.Cat`), a `typealias` of a non-enum, a bound
+		// alias: none of them is the enum.
+		other = "type " + qt.Module
 	}
 	e := TypeError{Line: qt.ModuleLine, Col: qt.ModuleCol, EndLine: qt.ModuleLine, EndCol: qt.ModuleCol + len(qt.Module),
 		Message: fmt.Sprintf("pattern `%s` is qualified by %s, but the value matched is %s %s",
@@ -12721,6 +12896,35 @@ func (c *checker) checkPatternQualifier(qt *ast.QualifiedType, expectedTy Type) 
 	}
 	c.report(e)
 	return false
+}
+
+// checkAsPattern checks `P as name`: P against the value, and name bound to
+// the whole value, with the type of the position the pattern sits in. The
+// name is not narrowed by P: `.Circle{r} as s` over a Shape binds s as a
+// Shape.
+//
+// An `as` whose pattern is itself a name or `_` binds nothing a plain name
+// would not, so it is an error: `y as x` binds one value twice, and `_ as x`
+// is the pattern `x`.
+func (c *checker) checkAsPattern(n *ast.AsPattern, expectedTy Type) {
+	c.validateBindingLikeName(n.Name, n.NameLine, n.NameCol, "binding name")
+	switch inner := n.Pattern.(type) {
+	case *ast.IdentPattern:
+		c.report(TypeError{Line: n.NameLine, Col: n.NameCol, EndLine: n.NameLine, EndCol: n.NameCol + len(n.Name),
+			Message: fmt.Sprintf("`%s as %s` binds the same value twice; use one name", inner.Name, n.Name)})
+	case *ast.AsPattern:
+		c.report(TypeError{Line: n.NameLine, Col: n.NameCol, EndLine: n.NameLine, EndCol: n.NameCol + len(n.Name),
+			Message: fmt.Sprintf("`as %s as %s` binds the same value twice; use one name", inner.Name, n.Name)})
+	case *ast.WildcardPattern:
+		c.report(TypeError{Line: n.NameLine, Col: n.NameCol, EndLine: n.NameLine, EndCol: n.NameCol + len(n.Name),
+			Message: fmt.Sprintf("`_ as %s` matches every value, as `%s` does; write `%s`", n.Name, n.Name, n.Name)})
+	}
+	c.checkPattern(n.Pattern, expectedTy)
+	if expectedTy != nil {
+		if sym := c.fa.Definitions[Pos{Line: n.NameLine, Col: n.NameCol}]; sym != nil {
+			sym.Type = expectedTy
+		}
+	}
 }
 
 // checkPattern assigns expectedTy to the symbols introduced by a pattern.
@@ -12752,6 +12956,8 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 				sym.Type = expectedTy
 			}
 		}
+	case *ast.AsPattern:
+		c.checkAsPattern(n, expectedTy)
 	case *ast.CodepointLit:
 		c.registerCodepointHover(n)
 		c.checkLiteralPattern("'"+n.Lexeme+"'", n.Line, n.Col, TypeCodepoint, expectedTy)
@@ -12912,9 +13118,7 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		// type-directed `.Variant` form or the qualified `Enum.Variant`
 		// spelling.
 		if st, ok := n.Variant.(*ast.SimpleType); ok && !c.allowsBareVariantPattern(st.Name, variantPos) {
-			c.addError(st.Line, st.Col, fmt.Sprintf(
-				"bare variant '%s' in pattern position; use '.%s' (or '%s.%s')",
-				st.Name, st.Name, et.Name, st.Name))
+			c.addError(st.Line, st.Col, bareVariantPatternMessage(st.Name, et.Name))
 		}
 		// Determine data type, substituting generics if needed.
 		dataType := found.DataType
@@ -13071,9 +13275,7 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 			// enum scrutinee) is rejected post-migration; same rule as
 			// EnumPattern's bare-prefix rejection above.
 			if sst, ok := n.TypeName.(*ast.SimpleType); ok && !isPreludeBareVariant(sst.Name) {
-				c.addError(sst.Line, sst.Col, fmt.Sprintf(
-					"bare variant '%s' in pattern position; use '.%s' (or '%s.%s')",
-					sst.Name, sst.Name, st.Name, sst.Name))
+				c.addError(sst.Line, sst.Col, bareVariantPatternMessage(sst.Name, st.Name))
 			}
 			fields = vd.Fields
 			structName = vd.Name
@@ -13171,9 +13373,7 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 			// is rejected post-migration; same rule as the EnumPattern and
 			// StructPattern paths above.
 			if st, ok := n.TypeName.(*ast.SimpleType); ok && !isPreludeBareVariant(st.Name) {
-				c.addError(st.Line, st.Col, fmt.Sprintf(
-					"bare variant '%s' in pattern position; use '.%s' (or '%s.%s')",
-					st.Name, st.Name, et.Name, st.Name))
+				c.addError(st.Line, st.Col, bareVariantPatternMessage(st.Name, et.Name))
 			}
 			if pet.Name != et.Name {
 				c.addError(n.Line, n.Col, fmt.Sprintf(
@@ -13270,9 +13470,7 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 			// enum) is rejected post-migration; same rule as the other
 			// pattern-position paths.
 			if st, ok := n.TypeName.(*ast.SimpleType); ok && !isPreludeBareVariant(st.Name) {
-				c.addError(st.Line, st.Col, fmt.Sprintf(
-					"bare variant '%s' in pattern position; use '.%s' (or '%s.%s')",
-					st.Name, st.Name, et.Name, st.Name))
+				c.addError(st.Line, st.Col, bareVariantPatternMessage(st.Name, et.Name))
 			}
 			if pet.Name != et.Name {
 				c.addError(n.Line, n.Col, fmt.Sprintf(
@@ -13413,7 +13611,7 @@ func (c *checker) checkPatternCoverage(line, col int, subject ast.Node, what str
 			if isUnconstrainedPattern(p) {
 				return
 			}
-			if _, ok := p.(*ast.CodepointLit); ok {
+			if _, ok := ast.WithoutAs(p).(*ast.CodepointLit); ok {
 				literal = true
 			}
 		}
@@ -13643,7 +13841,7 @@ func (c *checker) checkPatternFieldsUntyped(n *ast.StructPattern) {
 // payload against, when p names that variant: `.V(x)`'s payload pattern, or a
 // struct-variant pattern `.V{a, b}`'s fields as an anonymous struct pattern.
 func (c *checker) variantPatternPayload(p ast.Node, variant string) (ast.Node, bool) {
-	switch v := p.(type) {
+	switch v := ast.WithoutAs(p).(type) {
 	case *ast.EnumPattern:
 		if c.variantNameOfPattern(v) != variant {
 			return nil, false
@@ -13734,7 +13932,7 @@ func variantNameOf(te ast.TypeExpr) string {
 // match any other value of the same type. Used recursively to decide
 // whether a destructuring payload covers its outer variant.
 func isUnconstrainedPattern(p ast.Node) bool {
-	switch v := p.(type) {
+	switch v := ast.WithoutAs(p).(type) {
 	case nil:
 		return true
 	case *ast.WildcardPattern, *ast.IdentPattern:
@@ -13795,11 +13993,16 @@ func (c *checker) checkCaseWithScrutineeType(n *ast.Case, scrutineeTy Type, expe
 	for _, branch := range n.Branches {
 		if branch.Pattern != nil && scrutineeTy != nil {
 			c.checkPattern(branch.Pattern, scrutineeTy)
+			c.notePatternBindings(patternSites(branch.Pattern), n.Value)
 		}
-		if branch.Guard != nil {
-			c.checkCondition(branch.Guard, "`when` guard")
-		}
-		bodyTy := c.checkNodeExpecting(branch.Body, expected)
+		var bodyTy Type
+		narrowSym, narrowTy := c.narrowingFor(n.Value, scrutineeTy, branch.Pattern)
+		c.withNarrowing(narrowSym, narrowTy, func() {
+			if branch.Guard != nil {
+				c.checkCondition(branch.Guard, "`when` guard")
+			}
+			bodyTy = c.checkNodeExpecting(branch.Body, expected)
+		})
 		if bodyTy == nil {
 			continue
 		}
@@ -13829,8 +14032,14 @@ func (c *checker) checkCaseWithScrutineeType(n *ast.Case, scrutineeTy Type, expe
 		// unparameterized struct/enum names.
 		if err := c.unify(resultTy, bodyTy, nil); err != nil {
 			if !TypesEqual(resultTy, bodyTy) {
-				c.addErrorAt(valueExpr(branch.Body), c.typef(
-					"case branch type mismatch: expected %s, got %s", resultTy, bodyTy))
+				// An earlier arm's `Ok(v)` leaves the error type open
+				// (`Result<Tx, ?4>`); the case's expected type closes it, so
+				// the message names the type the author declared.
+				if expected != nil && containsTypeVar(resultTy) {
+					_ = c.unify(expected, resultTy, nil)
+				}
+				c.report(errAt(valueExpr(branch.Body), c.typef(
+					"case branch type mismatch: expected %s, got %s", resultTy, bodyTy)).WithHint(c.wholeResultHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(embedsDowncastHint(resultTy, bodyTy)))
 			}
 			continue
 		}
@@ -14242,7 +14451,7 @@ func (c *checker) checkLambda(n *ast.Lambda, undeterminedErr bool) Type {
 			// the annotation or self-typing head, reject refutable patterns,
 			// then type the inner bindings. (When the lambda's type IS driven
 			// by context, checkLambdaExpecting handles it instead.)
-			ty, err := paramPatternType(p, c.reg, c.fnTypeParams, c.fa.References)
+			ty, err := paramPatternType(p, c.reg, c.fnTypeParams, c.fa)
 			if err != nil {
 				if te, ok := err.(TypeError); ok {
 					c.errors = append(c.errors, te)
@@ -14292,13 +14501,10 @@ func (c *checker) checkLambda(n *ast.Lambda, undeterminedErr bool) Type {
 	}
 
 	prevReturnTy := c.returnTy
-	prevReturnInferTy := c.returnInferTy
 	c.returnTy = nil
-	c.returnInferTy = nil
 	errsBefore := len(c.errors)
 	bodyTy := c.checkLambdaBody(n, nil)
 	c.returnTy = prevReturnTy
-	c.returnInferTy = prevReturnInferTy
 	if bodyTy == nil {
 		if len(c.errors) > errsBefore {
 			// The body has no type because it has an error: the lambda's
@@ -14420,13 +14626,10 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 			defer func() { c.iterBreakTy = prev }()
 		}
 		prevReturnTy := c.returnTy
-		prevReturnInferTy := c.returnInferTy
 		c.returnTy = expectedReturn
-		c.returnInferTy = nil
 		errsBefore := len(c.errors)
 		bodyTy := c.checkLambdaBody(n, lambdaTailExpected(expectedReturn))
 		c.returnTy = prevReturnTy
-		c.returnInferTy = prevReturnInferTy
 		if bodyTy == nil {
 			if len(c.errors) > errsBefore {
 				return nil // unknown, as checkLambda answers
@@ -14523,7 +14726,15 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 				paramTy = c.openUnsolvedCalleeParams(paramTy, open)
 			}
 			params[i] = paramTy
-			if p.Destructure != nil {
+			if te := unnamedParam(p, c.fa, c.reg); te != nil {
+				// `|String| 1` is a parameter written as its type, as
+				// checkLambda and a declared function report it. Checked
+				// as a pattern against the expected type it was "enum
+				// pattern requires an enum type, got String", which names
+				// a pattern the author did not mean to write.
+				c.errors = append(c.errors, *te)
+				c.checkPattern(p.Destructure, nil)
+			} else if p.Destructure != nil {
 				// Destructuring param: push the expected type into the pattern
 				// so each bound identifier gets the right element type. Without
 				// this, bindings like `k` in `{ (k, _) -> ... }` end up with a
@@ -14573,13 +14784,10 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 	}
 
 	prevReturnTy := c.returnTy
-	prevReturnInferTy := c.returnInferTy
 	c.returnTy = expectedReturn
-	c.returnInferTy = nil
 	errsBefore := len(c.errors)
 	bodyTy := c.checkLambdaBody(n, lambdaTailExpected(expectedReturn))
 	c.returnTy = prevReturnTy
-	c.returnInferTy = prevReturnInferTy
 	if bodyTy == nil {
 		if len(c.errors) > errsBefore {
 			return nil // unknown, as checkLambda answers
@@ -15024,8 +15232,7 @@ func (c *checker) checkStructVariantLit(n *ast.StructLit, et *EnumType, variantN
 			operand = want
 		}
 		if err := c.unifyInto(operand, valTy, subs); err != nil {
-			c.addError(f.Line, f.Col, c.typef(
-				"field '%s' type mismatch: expected %s, got %s", f.Name, want, valTy))
+			c.addMismatch(f.Line, f.Col, want, valTy, c.typef("field '%s' type mismatch: expected %s, got %s", f.Name, want, valTy))
 		}
 	}
 
@@ -15973,7 +16180,6 @@ func interfaceSelfType(iface *InterfaceType) Type {
 		Origin:        iface.Origin,
 		Name:          iface.Name,
 		Methods:       iface.Methods,
-		Fields:        iface.Fields,
 		TypeParams:    iface.TypeParams,
 		TypeParamDefs: iface.TypeParamDefs,
 		TypeArgs:      args,
@@ -16521,7 +16727,28 @@ func (c *checker) checkTaggedString(n *ast.TaggedString) Type {
 		c.checkTaggedStringSlot(n, se, slotTypes[i], interfaceTy)
 	}
 
+	if ok, _ := RawLiteralType(n.Raw, ft.Return); ok != nil {
+		return ok
+	}
 	return ft.Return
+}
+
+// RawLiteralType is the type of a typed literal whose handler returns ret,
+// when the literal is checked at compile time: a backtick (raw) literal whose
+// handler can fail, returning `Result<T, E>`. Its body never interpolates, so
+// the handler's input is fixed text; the compiler runs the handler (vmhost's
+// checkLiterals), an Err is a compile error at the literal, and the literal's
+// type is T. ok is T and err is E; both are nil for every other literal,
+// whose type is ret itself.
+func RawLiteralType(raw bool, ret Type) (ok, err Type) {
+	if !raw {
+		return nil, nil
+	}
+	et, isEnum := resolveTypeVar(ret).(*EnumType)
+	if !isEnum || et.Name != "Result" || len(et.TypeArgs) != 2 || et.TypeArgs[0] == nil {
+		return nil, nil
+	}
+	return et.TypeArgs[0], et.TypeArgs[1]
 }
 
 // fromFragmentsRival is the ONE admission point for "this tag type declares a

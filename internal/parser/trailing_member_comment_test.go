@@ -138,9 +138,8 @@ func TestParse_StructField_TrailingComment(t *testing.T) {
 }
 
 func TestParse_InterfaceMember_TrailingComment(t *testing.T) {
-	src := "interface Shape {\n    field name: String // f\n    fn area(s: self): Int // a\n    fn twice(s: self): Int {\n        2\n    } // t\n    fn last(s: self): Int\n}\n"
+	src := "interface Shape {\n    fn area(s: self): Int // a\n    fn twice(s: self): Int {\n        2\n    } // t\n    fn last(s: self): Int\n}\n"
 	id := parseOne(t, src).(*ast.InterfaceDef)
-	wantTrailing(t, "name", id.Fields[0].Trailing, "// f")
 	if len(id.Methods) != 3 {
 		t.Fatalf("want 3 methods, got %d", len(id.Methods))
 	}

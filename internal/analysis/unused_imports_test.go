@@ -237,8 +237,6 @@ func TestUnusedImport_ExportIsUse(t *testing.T) {
 `))
 	expectNoUnused(t, buildErrsWithStdlib(t, `import std/maybe.{Maybe export}
 `))
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std/io export
-`))
 }
 
 // A `derive Iface` conformance line counts as a use of the imported protocol

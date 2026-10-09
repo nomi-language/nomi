@@ -1,0 +1,70 @@
+================================================================================
+A tap stage's body ends at the next pipe
+================================================================================
+
+fn f() {
+  xs |> tap |v| io.print(v) |> g()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (pipe_expression
+        (pipe_expression
+          (identifier)
+          (tap_stage
+            lambda: (lambda
+              (lambda_parameter
+                name: (identifier))
+              body: (call_expression
+                function: (field_access
+                  (identifier)
+                  (identifier))
+                (identifier)))))
+        (call_expression
+          function: (identifier))))))
+
+================================================================================
+Braces keep a pipe inside a tap stage
+================================================================================
+
+fn f() {
+  xs |> tap |v| { v |> g() }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (pipe_expression
+        (identifier)
+        (tap_stage
+          lambda: (lambda
+            (lambda_parameter
+              name: (identifier))
+            body: (body
+              (pipe_expression
+                (identifier)
+                (call_expression
+                  function: (identifier))))))))))
+
+================================================================================
+A keyword file name in an import path
+================================================================================
+
+import lib/tap
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier))))

@@ -111,32 +111,6 @@ func TestWordBounds(t *testing.T) {
 	}
 }
 
-func TestInlineGoHelperCompletions(t *testing.T) {
-	items := inlineGoHelperCompletions("toNomiE")
-	var labels []string
-	for _, item := range items {
-		labels = append(labels, item.Label)
-		if item.Detail == nil || !strings.HasPrefix(*item.Detail, "func "+item.Label) {
-			t.Fatalf("completion %q missing helper signature detail: %+v", item.Label, item)
-		}
-		if item.Documentation == nil {
-			t.Fatalf("completion %q missing documentation", item.Label)
-		}
-	}
-	want := []string{"toNomiErr", "toNomiErrString"}
-	if strings.Join(labels, ",") != strings.Join(want, ",") {
-		t.Fatalf("labels: got %v, want %v", labels, want)
-	}
-}
-
-func TestCompletion_InlineGoHelperInGoBody(t *testing.T) {
-	src := "fn parse(raw: String): Result<Int, String> go {\n  return toNomiE" + cursorMark + "\n}\n"
-	labels := itemLabels(complete(t, src))
-	if strings.Join(labels, ",") != "toNomiErr,toNomiErrString" {
-		t.Fatalf("labels: got %v", labels)
-	}
-}
-
 // Completion on a file API object offers the file's root-level declarations
 // and none of the functions declared in its `impl` blocks, which the checker
 // rejects when spelled file-qualified (`duration.seconds`).

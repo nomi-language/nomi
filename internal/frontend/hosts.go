@@ -35,15 +35,15 @@ func (c *Checker) ValidateHosts(modules map[string][]ast.Node) error {
 			var line, col int
 			switch d := n.(type) {
 			case *ast.ExternFunc:
-				if c.cfg.SourceBoundProvided && (d.ForeignName != "" || d.GoBody != "") {
+				if c.cfg.SourceBoundProvided && d.ForeignName != "" {
 					continue
 				}
 				key, line, col = HostKey(moduleName, d.Name), d.Line, d.Col
 			case *ast.ExternType:
-				if c.cfg.SourceBoundProvided && (d.ForeignName != "" || d.GoBody != "") {
+				if c.cfg.SourceBoundProvided && d.ForeignName != "" {
 					continue
 				}
-				if c.cfg.HostTypesAreHandles && d.ForeignName == "" && d.GoBody == "" {
+				if c.cfg.HostTypesAreHandles && d.ForeignName == "" {
 					continue
 				}
 				key, line, col = HostKey(moduleName, d.Name), d.Line, d.Col

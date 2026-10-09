@@ -486,7 +486,13 @@ type gen struct {
 	// bareSiblingOnceRef.
 	onces       map[string]*onceDef
 	oncesByDecl map[ast.Node]*onceDef
-	onceOrder   []*onceDef
+	// literalCells holds the lazy cell of each backtick typed literal this
+	// unit lowered whose handler can fail, by the literal's node, and
+	// literalSites lists them in the order they were declared. See
+	// irliteralcell.go.
+	literalCells map[*ast.TaggedString]*ir.Symbol
+	literalSites []LiteralSite
+	onceOrder    []*onceDef
 	// types is the module's struct and enum declarations, by Nomi name. The
 	// *typeDef a name resolves to IS the type's identity everywhere downstream
 	// (see types.go), so this map is the only place a type NAME is looked up.

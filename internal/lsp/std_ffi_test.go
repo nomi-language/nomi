@@ -50,7 +50,7 @@ func TestRPC_StdLibraryGoBindings(t *testing.T) {
 	if p := c.waitDiagnostics(uri); p.n != 0 {
 		t.Fatalf("analysis reports %v; want none", p.msgs)
 	}
-	if d := safeLoweringDiagnostics(uri, stdFFIText); len(d) != 0 {
+	if d := safeLoweringDiagnostics(uri, stdFFIText, nil); len(d) != 0 {
 		t.Fatalf("lowering reports %+v; want none", d)
 	}
 

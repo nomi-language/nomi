@@ -68,24 +68,6 @@ fn echo_upper(s: String): String go ffi.EchoUpper
 	roundTrip(t, src)
 }
 
-func TestFormat_InlineGoBindingDedentsMultilineBody(t *testing.T) {
-	src := `fn parse(raw: String): Result<ParsedURL, String> go {
-    parsed, err := url.Parse(raw)
-    if err != nil {
-        return nil, err
-    }
-    return struct {
-        Scheme string
-        Host string
-    }{
-        Scheme: parsed.Scheme,
-        Host: parsed.Host,
-    }, nil
-}
-`
-	roundTrip(t, src)
-}
-
 // Every variant payload shape round-trips (positional, tuple, struct,
 // embeds).
 func TestFormat_EnumPayloadShapesRoundTrip(t *testing.T) {
@@ -283,14 +265,11 @@ pub fn zero(): Id {
 	roundTrip(t, src)
 }
 
-// Interface with all four member kinds — field requirement, required fn,
-// All interface member kinds with docs: field requirement, required method,
-// open default, final default, host-backed default (host fn) — each carrying
-// a doc comment, blank-line separated.
+// All interface member kinds with docs: required method, open default,
+// final default, host-backed default (host fn), each carrying a doc comment,
+// blank-line separated.
 func TestFormat_InterfaceAllMemberKindsWithDocs(t *testing.T) {
 	src := `pub interface Greeter {
-    /// The name.
-    field name: String
     /// Required.
     fn greet(g: self): String
 
@@ -451,14 +430,10 @@ impl Shift for Date
 }
 
 // Doc comments above interface contract members (required fn, open fn
-// default, field requirement) round-trip through the formatter. Before the
-// InterfaceMethod/InterfaceField Doc slots existed, `nomi fmt -w` deleted
-// these lines outright.
+// default) round-trip through the formatter. Before the InterfaceMethod Doc
+// slot existed, `nomi fmt -w` deleted these lines outright.
 func TestFormat_InterfaceContractMemberDocsPreserved(t *testing.T) {
 	src := `interface Speech {
-    /// The speaker's name.
-    field name: String
-
     /// The required noise.
     fn speak(s: self): String
 
@@ -473,7 +448,6 @@ func TestFormat_InterfaceContractMemberDocsPreserved(t *testing.T) {
 		t.Fatalf("Format error: %v", err)
 	}
 	for _, want := range []string{
-		"/// The speaker's name.",
 		"/// The required noise.",
 		"/// Overridable politeness.",
 	} {
@@ -487,9 +461,6 @@ func TestFormat_InterfaceContractMemberDocsPreserved(t *testing.T) {
 	}
 	if !strings.Contains(got, "/// Overridable politeness.\n    open fn greet(_s: self): String") {
 		t.Errorf("doc comment not attached above open default method:\n%s", got)
-	}
-	if !strings.Contains(got, "/// The speaker's name.\n    field name: String") {
-		t.Errorf("doc comment not attached above field requirement:\n%s", got)
 	}
 	roundTrip(t, got)
 }

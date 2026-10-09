@@ -16,6 +16,14 @@ import (
 //
 // bl.b is left at next.
 func (bl *irScalarBuilder) caseArmTest(t ast.Node, br *ast.CaseBranch, adHoc bool, subj ir.Temp, sk kind, last bool, nomatch *ir.Block) (arm, next *ir.Block, ok bool) {
+	// `P as name ->`: the arm tests P, and name binds the subject where P's
+	// names are bound.
+	asPattern := br.Pattern
+	if inner := ast.WithoutAs(br.Pattern); inner != br.Pattern {
+		peeled := *br
+		peeled.Pattern = inner
+		br = &peeled
+	}
 	guarded := br.Guard != nil
 	_, wildcard := br.Pattern.(*ast.WildcardPattern)
 	ident, _ := br.Pattern.(*ast.IdentPattern)
@@ -46,6 +54,7 @@ func (bl *irScalarBuilder) caseArmTest(t ast.Node, br *ast.CaseBranch, adHoc boo
 	} else if !bl.casePatternTest(br, adHoc, subj, sk, target, next) {
 		return nil, nil, false
 	}
+	bl.bindAsNames(asPattern, subj, sk)
 	if guarded {
 		bl.b = target
 		cond, ck, _, ok := bl.lower(br.Guard)

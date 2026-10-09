@@ -244,3 +244,32 @@ func TestAssertableReportIsPinned(t *testing.T) {
 		t.Errorf("refutation report is not the pinned text.\n got %q\nwant %q", got, wantRefuted)
 	}
 }
+
+// An Assertable that answers `expected` beside `actual` gets the line diff a
+// failed `==` over Strings gets, in place of its `actual:` row, with no
+// operand source in the header. Equal strings keep the row.
+func TestAssertableExpectedIsALineDiff(t *testing.T) {
+	site := AssertionSite{Line: 3, Expr: "replay(script, main)"}
+	failure := site.JudgeAssertable(&AssertableDetails{
+		Reason:      "the transcript differs from the script",
+		Actual:      "q?\n> 1\nok\n",
+		Expected:    "q?\n> 2\nok\n",
+		HasExpected: true,
+	}, nil, nil)
+	want := "line 3: the transcript differs from the script\n" +
+		"  assert replay(script, main)\n" +
+		"  diff (- expected, + actual):\n" +
+		"      q?\n" +
+		"    - > 2\n" +
+		"    + > 1\n" +
+		"      ok"
+	if got := FormatAssertionFailure(failure); got != want {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+	same := site.JudgeAssertable(&AssertableDetails{
+		Reason: "r", Actual: "x", Expected: "x", HasExpected: true,
+	}, nil, nil)
+	if got := FormatAssertionFailure(same); same.Diff != nil || got != "line 3: r\n  assert replay(script, main)\n  actual: x" {
+		t.Errorf("equal expected and actual: %q", got)
+	}
+}

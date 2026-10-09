@@ -729,303 +729,197 @@ pub fn unwrap<T>(b: Box<T>): T { b.value }`
 	}
 }
 
-// --- 6. Field-only interface conformance via bodyless impl ----------------
+// --- 6. Bodyless conformance and the absence of interface fields ---------
 
-// TestImplBlock_FieldOnlyConformance_Empty: a field-only interface satisfied
-// by `impl Tagged for Robot` registers the conformance and
-// passes the field check.
-func TestImplBlock_FieldOnlyConformance_Empty(t *testing.T) {
-	src := `pub interface Tagged {
-    field tag: String
+// TestImplBlock_BodylessConformance: an interface with nothing to implement (a
+// marker, or one whose functions all have defaults) is satisfied by a bodyless
+// `impl Iface for Type`, which registers the conformance.
+func TestImplBlock_BodylessConformance(t *testing.T) {
+	src := `pub interface Marker {
 }
 
-pub struct Robot { tag: String; model: String }
-
-impl Tagged for Robot`
-	fa, all := buildAndCheckFromSource(src)
-	if len(all) > 0 {
-		t.Fatalf("bodyless field-only conformance should type-check, got: %s", joinErrs(all))
-	}
-	if !fa.Impls["Robot"]["Tagged"] {
-		t.Errorf("expected Impls[Robot][Tagged], got %v", fa.Impls)
-	}
-}
-
-// TestImplBlock_FieldOnlyConformance_Missing: the same empty block on a type
-// MISSING the required field is rejected.
-func TestImplBlock_FieldOnlyConformance_Missing(t *testing.T) {
-	src := `pub interface Tagged {
-    field tag: String
+pub interface Greets {
+    fn greet(_value: self): String {
+        "hi"
+    }
 }
 
 pub struct Robot { model: String }
 
-impl Tagged for Robot {
-}`
-	_, all := buildAndCheckFromSource(src)
-	if !containsErr(all, "tag", "field") {
-		t.Errorf("expected missing-field conformance error, got: %s", joinErrs(all))
-	}
-}
+impl Marker for Robot
 
-// --- 7. A requirement the receiver's KIND cannot carry --------------------
-
-// A `field` requirement is the one interface obligation discharged by the
-// receiver's DECLARATION rather than by an item in the impl block, and its
-// validator used to RETURN when the receiver was the wrong kind instead of
-// rejecting. The requirement was then vacuous: the program below type-checked
-// clean and died at run time with "cannot access field 'name' on
-// variant 'Red'", which is exactly the failure a static field requirement
-// exists to make impossible.
-//
-// Every test in this section carries its own POSITIVE, because a fix that
-// rejected every impl of a requirement-bearing interface would satisfy the
-// negative half alone.
-
-// TestImplBlock_FieldRequirementRejectsAnEnumReceiver is the measured defect.
-// `impl Named for Color` must be refused, and `impl Named for Person` in the
-// same source must not be.
-func TestImplBlock_FieldRequirementRejectsAnEnumReceiver(t *testing.T) {
-	src := `pub interface Named {
-    field name: String
-}
-
-pub struct Person { name: String }
-
-pub enum Color { Red
-Blue }
-
-impl Named for Person
-
-impl Named for Color
-
-fn greet(n: Named): String { n.name }`
-	_, all := buildAndCheckFromSource(src)
-	if !containsErr(all, "'Color' is an enum") {
-		t.Fatalf("an enum claiming a field-bearing interface was accepted, so `n.name` "+
-			"inside greet can still fault at run time. Errors: %s", joinErrs(all))
-	}
-	// The reason, not merely the refusal: the diagnostic has to say why a
-	// receiver of this kind cannot satisfy the requirement at all.
-	if !containsErr(all, "declares no fields") || !containsErr(all, "storage obligation") {
-		t.Errorf("the rejection does not name WHY the receiver cannot satisfy the "+
-			"requirement: %s", joinErrs(all))
-	}
-	// THE PLANTED POSITIVE. `Person` declares the field, so nothing about it
-	// may be reported — a fix that refused every impl would pass the assertion
-	// above and fail here.
-	for _, e := range all {
-		if strings.Contains(e.Message, "Person") {
-			t.Errorf("`impl Named for Person` was reported: %s", e.Message)
-		}
-	}
-}
-
-// TestImplBlock_FieldRequirementStructReceiverStillConforms is the positive in
-// isolation: the same interface and struct, with the enum impl deleted, must
-// type-check clean AND register the conformance. Without this, a checker that
-// had started erroring on every field-bearing impl would look correct from the
-// negative tests alone.
-func TestImplBlock_FieldRequirementStructReceiverStillConforms(t *testing.T) {
-	src := `pub interface Named {
-    field name: String
-}
-
-pub struct Person { name: String }
-
-pub enum Color { Red
-Blue }
-
-impl Named for Person
-
-fn greet(n: Named): String { n.name }`
+impl Greets for Robot`
 	fa, all := buildAndCheckFromSource(src)
 	if len(all) > 0 {
-		t.Fatalf("a struct that declares the required field must conform: %s", joinErrs(all))
+		t.Fatalf("a bodyless conformance should type-check, got: %s", joinErrs(all))
 	}
-	if !fa.Impls["Person"]["Named"] {
-		t.Errorf("expected Impls[Person][Named], got %v", fa.Impls)
-	}
-}
-
-// TestImplBlock_FieldRequirementRejectsADistinctReceiver shows the rule is
-// about STORAGE and not about enums specifically. A distinct type supports no
-// field access at all (`fieldTypeFromObject` has no DistinctType arm), so it
-// cannot satisfy a field requirement either.
-func TestImplBlock_FieldRequirementRejectsADistinctReceiver(t *testing.T) {
-	src := `pub interface Named {
-    field name: String
-}
-
-pub type Email String
-
-impl Named for Email`
-	_, all := buildAndCheckFromSource(src)
-	if !containsErr(all, "'Email' is a distinct type") {
-		t.Errorf("a distinct type claiming a field-bearing interface was accepted: %s",
-			joinErrs(all))
+	if !fa.Impls["Robot"]["Marker"] || !fa.Impls["Robot"]["Greets"] {
+		t.Errorf("expected Impls[Robot][Marker] and Impls[Robot][Greets], got %v", fa.Impls)
 	}
 }
 
-// TestImplBlock_RequirementOnAnUnresolvedReceiverIsQuiet pins the fail-OPEN
-// arm. A nil receiver type means the checker does not know the kind, which is a
-// different fact from knowing it is wrong — single-file analysis of an impl
-// whose receiver lives in a sibling file lands here, and a rejection would be a
-// false diagnostic in the editor. The receiver's own "undefined" error is
-// somebody else's and is not asserted; what is asserted is that no
-// requirement-kind rejection is invented on top of it.
-func TestImplBlock_RequirementOnAnUnresolvedReceiverIsQuiet(t *testing.T) {
-	src := `pub interface Named {
-    field name: String
+// TestFieldAccess_InterfaceValuesAndTypeParametersHaveNoFields: an interface
+// declares functions only, so `x.name` on a value of interface type or of a
+// bounded type parameter is the ordinary "no field" error, and so is the
+// accessor `.name` over a type parameter. Each source has a positive twin that
+// reads the same value through the function requirement and must type-check
+// clean, so a checker that refused everything would fail.
+func TestFieldAccess_InterfaceValuesAndTypeParametersHaveNoFields(t *testing.T) {
+	const decls = `pub interface HasName {
+    fn name(value: self): String
 }
 
-impl Named for Ghost`
-	_, all := buildAndCheckFromSource(src)
-	if containsErr(all, "declares no fields") {
-		t.Errorf("an UNRESOLVED receiver was rejected as the wrong kind, which would fire "+
-			"on every single-file analysis of a sibling-declared receiver: %s", joinErrs(all))
-	}
+pub struct Person { name: String }
+
+impl HasName for Person {
+    fn name(person: Person): String { person.name }
 }
 
-// --- 8. The interface's own parameters ---------------------------------------
-
-// TestImplBlock_AGenericInterfaceRequirementIsSubstituted is the SECOND defect
-// the receiver-kind survey turned up, and it runs the other way: a FALSE
-// REJECTION. `validateImplBlockMethodSignatures` substitutes the interface's
-// type arguments before comparing and the declaration-discharged field
-// validator did not, so a generic interface could not carry a field
-// requirement mentioning its own parameter at all — every CORRECT impl was
-// refused. See `interfaceReqSubs`.
-//
-// Each half is a matched pair, because the fix is a substitution and a
-// substitution that produced `Any` would satisfy the positive alone.
-func TestImplBlock_AGenericInterfaceRequirementIsSubstituted(t *testing.T) {
-	cases := []struct {
-		name    string
-		src     string
-		wantErr string // "" = must type-check clean
+`
+	for _, tc := range []struct {
+		name, bad, want, good string
 	}{
-		{"field, matching type argument", `pub interface Container<T> {
-    field items: List<T>
-}
-
-pub struct Box { items: List<Int> }
-
-impl Container<Int> for Box`, ""},
-		{"field, MISMATCHED type argument", `pub interface Container<T> {
-    field items: List<T>
-}
-
-pub struct Bad { items: List<String> }
-
-impl Container<Int> for Bad`, "has type List<String>, but interface declares List<Int>"},
-		{"self in a field requirement, non-generic receiver", `pub interface H {
-    field next: self
-}
-
-pub struct S { next: S }
-
-impl H for S`, ""},
-	}
-	for _, tc := range cases {
-		tc := tc
+		{"an interface value",
+			"fn read(n: HasName): String { n.label }",
+			"interface 'HasName' has no field 'label'",
+			"fn read(n: HasName): String { HasName.name(n) }"},
+		{"a bounded type parameter",
+			"fn read<T>(x: T): String where T: HasName { x.name }",
+			"type parameter `T` has no field 'name'",
+			"fn read<T>(x: T): String where T: HasName { T.name(x) }"},
+		{"a field accessor over a bounded type parameter",
+			"fn apply<T>(x: T, f: (T) -> String): String { f(x) }\nfn read<T>(x: T): String where T: HasName { apply(x, .name) }",
+			"`.name` reads a field of a struct, a record or a tuple, and T is none of those",
+			"fn apply<T>(x: T, f: (T) -> String): String { f(x) }\nfn read<T>(x: T): String where T: HasName { apply(x, |y| T.name(y)) }"},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, all := buildAndCheckFromSource(tc.src)
-			if tc.wantErr == "" {
-				if len(all) > 0 {
-					t.Fatalf("a CORRECT impl of a generic interface was refused: %s", joinErrs(all))
-				}
-				return
-			}
+			_, all := buildAndCheckFromSource(decls + tc.bad)
 			if len(all) == 0 {
-				t.Fatalf("a MISMATCHED requirement was accepted, so the substitution is vacuous "+
-					"rather than correct — it would pass by comparing nothing. Wanted %q", tc.wantErr)
+				t.Fatalf("a field read through %s was accepted", tc.name)
 			}
-			if !containsErr(all, tc.wantErr) {
-				t.Errorf("rejected, but not with the substituted type: %s", joinErrs(all))
+			if !containsErr(all, tc.want) {
+				t.Errorf("rejected, but not with %q: %s", tc.want, joinErrs(all))
+			}
+			if _, all := buildAndCheckFromSource(decls + tc.good); len(all) > 0 {
+				t.Errorf("the function-requirement spelling was refused: %s", joinErrs(all))
 			}
 		})
 	}
 }
 
-// TestImplBlock_SelfInARequirementAgainstAGenericReceiver pins the RESIDUE
-// `interfaceReqSubsWithSelf` names. `recvTy` is `reg.Lookup(recvName)` — the
-// UNAPPLIED generic `Box`, not `Box<T>` — and there is no self-position
-// parameter to read the applied receiver off the way the method validator
-// does.
-//
-// THE OBSERVABLE IS LENIENCE, NOT A FALSE REJECTION, and the version of this
-// test that read `if len(all) == 0 { t.Skip("...now checks correctly...") }`
-// could not tell those apart. It skipped, instructing the next
-// reader to delete it and the residue paragraph. Measured against the real
-// binary instead: `impl H for Box<T>` accepts `next: Box<T>` (correct) AND
-// `next: Box<Int>` (wrong), because `TypesEqual` treats an argument-less
-// generic as equal to every instantiation of it — `interface C { field items:
-// Box }` against `struct S { items: Box<Int> }` passes for the same reason.
-// What it still rejects is a field whose NOMINAL HEAD is not the receiver.
-//
-// So all three arms are asserted, and the wrong-argument arm is the one that
-// makes the pin mean something: if somebody resolves the applied receiver
-// here, that arm fails and says so.
-func TestImplBlock_SelfInARequirementAgainstAGenericReceiver(t *testing.T) {
-	const iface = "pub interface H {\n    field next: self\n}\n\n"
-	for _, c := range []struct{ name, src, wantErr string }{
-		{"the receiver's own instantiation — accepted, and correct",
-			iface + "pub struct Box<T> { next: Box<T>\nv: T }\n\nimpl H for Box<T>", ""},
-		{"a DIFFERENT instantiation — accepted, and that is the residue",
-			iface + "pub struct Box<T> { next: Box<Int>\nv: T }\n\nimpl H for Box<T>", ""},
-		{"a field that is not the receiver at all — still rejected",
-			iface + "pub struct Bad<T> { next: Int\nv: T }\n\nimpl H for Bad<T>", "field 'next' has type Int"},
+// TestFieldAccess_AFunctionIsNotAFieldOfAValue: `x.name` on a VALUE never
+// reaches a function named `name`, whatever declares it: the interface of an
+// interface-typed value, the bound of a type parameter, or an impl on the
+// struct's type. Each read, bare, as a function value or called, is the one
+// "no field" error whose hint spells the qualified call. Only a NAME
+// qualifies a function, so each source's twin, the qualified spelling, must
+// check clean.
+func TestFieldAccess_AFunctionIsNotAFieldOfAValue(t *testing.T) {
+	const decls = `pub interface HasName {
+    fn name(value: self): String
+}
+
+pub interface Labeled {
+    fn name(value: self): String
+}
+
+pub struct Person { first: String }
+
+impl HasName for Person {
+    fn name(person: Person): String { person.first }
+}
+
+impl Person {
+    fn initial(person: Person): String { person.first }
+}
+
+pub struct Robot { serial: String }
+
+impl HasName for Robot {
+    fn name(robot: Robot): String { robot.serial }
+}
+
+impl Labeled for Robot {
+    fn name(robot: Robot): String { robot.serial }
+}
+
+pub struct Holder { inner: HasName }
+
+`
+	for _, tc := range []struct {
+		name, bad, msg, hint, good string
+	}{
+		{"an interface-typed parameter",
+			"fn read(h: HasName): String { h.name }",
+			"interface 'HasName' has no field 'name'",
+			"`HasName` declares `fn name`; call it as `HasName.name(h)`",
+			"fn read(h: HasName): String { HasName.name(h) }"},
+		{"an interface-typed parameter as a function value",
+			"fn read(h: HasName): String {\n    f = h.name\n    f(h)\n}",
+			"interface 'HasName' has no field 'name'",
+			"`HasName` declares `fn name`; call it as `HasName.name(h)`",
+			"fn read(h: HasName): String {\n    f: (HasName) -> String = HasName.name\n    f(h)\n}"},
+		{"an interface-typed parameter called through the read",
+			"fn read(h: HasName): String { h.name(h) }",
+			"interface 'HasName' has no field 'name'",
+			"`HasName` declares `fn name`; call it as `HasName.name(h)`",
+			"fn read(h: HasName): String { HasName.name(h) }"},
+		{"an interface-typed binding",
+			"fn read(p: Person): String {\n    h: HasName = p\n    h.name\n}",
+			"interface 'HasName' has no field 'name'",
+			"`HasName` declares `fn name`; call it as `HasName.name(h)`",
+			"fn read(p: Person): String {\n    h: HasName = p\n    HasName.name(h)\n}"},
+		{"an interface-typed field",
+			"fn read(o: Holder): String { o.inner.name }",
+			"interface 'HasName' has no field 'name'",
+			"`HasName` declares `fn name`; call it as `HasName.name(o.inner)`",
+			"fn read(o: Holder): String { HasName.name(o.inner) }"},
+		{"an interface-typed lambda parameter",
+			"fn read(h: HasName): String {\n    f = |v: HasName| v.name\n    f(h)\n}",
+			"interface 'HasName' has no field 'name'",
+			"`HasName` declares `fn name`; call it as `HasName.name(v)`",
+			"fn read(h: HasName): String {\n    f = |v: HasName| HasName.name(v)\n    f(h)\n}"},
+		{"a value of a bounded type parameter",
+			"fn read<T>(x: T): String where T: HasName { x.name }",
+			"type parameter `T` has no field 'name'",
+			"`HasName` declares `fn name`; call it as `T.name(x)`",
+			"fn read<T>(x: T): String where T: HasName { T.name(x) }"},
+		{"a value of a type parameter whose two bounds declare the function",
+			"fn read<T>(x: T): String where T: HasName and Labeled { x.name }",
+			"type parameter `T` has no field 'name'",
+			"bounds `HasName` and `Labeled` each declare `fn name`; call it as `HasName.name(x)` or `Labeled.name(x)`",
+			"fn read<T>(x: T): String where T: HasName and Labeled { HasName.name(x) }"},
+		{"a struct value whose impl provides the function",
+			"fn read(p: Person): String { p.name }",
+			"struct 'Person' has no field 'name'",
+			"`name` is a function of `Person`, not a field; call it as `Person.name(p)` or `HasName.name(p)`",
+			"fn read(p: Person): String { Person.name(p) }"},
+		{"a struct value as a function value",
+			"fn read(p: Person): String {\n    f = p.name\n    f(p)\n}",
+			"struct 'Person' has no field 'name'",
+			"`name` is a function of `Person`, not a field; call it as `Person.name(p)` or `HasName.name(p)`",
+			"fn read(p: Person): String {\n    f = Person.name\n    f(p)\n}"},
+		{"a struct value whose inherent impl provides the function",
+			"fn read(p: Person): String { p.initial }",
+			"struct 'Person' has no field 'initial'",
+			"`initial` is a function of `Person`, not a field; call it as `Person.initial(p)`",
+			"fn read(p: Person): String { Person.initial(p) }"},
+		{"a struct value whose two interfaces provide the function",
+			"fn read(r: Robot): String { r.name }",
+			"struct 'Robot' has no field 'name'",
+			"`name` is a function of `Robot`, not a field; call it as `HasName.name(r)` or `Labeled.name(r)`",
+			"fn read(r: Robot): String { Labeled.name(r) }"},
 	} {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			_, all := buildAndCheckFromSource(c.src)
-			if c.wantErr == "" {
-				if len(all) > 0 {
-					t.Fatalf("the residue was accepted and is rejected now — it changed shape: %s", joinErrs(all))
-				}
-				return
-			}
+		t.Run(tc.name, func(t *testing.T) {
+			_, all := buildAndCheckFromSource(decls + tc.bad)
 			if len(all) == 0 {
-				t.Fatalf("a `self` field requirement against a generic receiver is now vacuous even on "+
-					"the nominal head, so the check compares nothing. Wanted %q", c.wantErr)
+				t.Fatalf("a function read as a field of %s was accepted", tc.name)
 			}
-			if !containsErr(all, c.wantErr) {
-				t.Errorf("rejected for some other reason: %s", joinErrs(all))
+			if len(all) != 1 || all[0].Message != tc.msg || len(all[0].Hints) != 1 || all[0].Hints[0] != tc.hint {
+				t.Fatalf("want the one error %q with the hint %q, got: %s", tc.msg, tc.hint, joinErrs(all))
 			}
-		})
-	}
-}
-
-// TestImplBlock_AFieldRequirementWithAndWithoutFunctionsIsStillFine is the
-// planted positive for the kind check. A rejection keyed on "declares a
-// requirement" rather than on "the receiver's kind cannot carry it" would pass
-// every negative assertion above and break `std/app.nomi` outright.
-func TestImplBlock_AFieldRequirementWithAndWithoutFunctionsIsStillFine(t *testing.T) {
-	for name, src := range map[string]string{
-		"field only": `pub interface Named {
-    field name: String
-}
-
-pub struct Person { name: String }
-
-impl Named for Person`,
-		"field plus a function": `pub interface Named {
-    field name: String
-    fn greet(value: self): String
-}
-
-pub struct Person { name: String }
-
-impl Named for Person {
-  fn greet(value: Person): String { value.name }
-}`,
-	} {
-		name, src := name, src
-		t.Run(name, func(t *testing.T) {
-			_, all := buildAndCheckFromSource(src)
-			if len(all) > 0 {
-				t.Errorf("a field requirement, with or without functions, must stay legal: %s", joinErrs(all))
+			if _, all := buildAndCheckFromSource(decls + tc.good); len(all) > 0 {
+				t.Errorf("the qualified spelling was refused: %s", joinErrs(all))
 			}
 		})
 	}

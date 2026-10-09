@@ -147,10 +147,6 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 		Line: int(params.Position.Line) + 1,
 		Col:  lines.byteCol(params.Position.Line, params.Position.Character),
 	}
-	if posInInlineGo(doc.Nodes, positions.scopePos(pos)) {
-		prefix := getPrefix(doc.Content, int(params.Position.Line), int(params.Position.Character))
-		return &protocol.CompletionList{Items: inlineGoHelperCompletions(prefix)}, nil
-	}
 	if doc.Analysis == nil {
 		return nil, nil
 	}

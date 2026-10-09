@@ -82,13 +82,6 @@ type ifaceDef struct {
 	decl    *ast.InterfaceDef
 	methods map[string]*ifaceMethod
 	order   []*ifaceMethod
-	// fields are the `field name: Type` requirements, each with its own getter
-	// table. They are kept beside the methods rather than folded into them
-	// because they are not functions: a requirement obliges every implementor
-	// to DECLARE a field, so the table's entries are getters this builder
-	// writes rather than bodies a programmer wrote. See fieldaccess.go.
-	fields     map[string]*ifaceField
-	fieldOrder []*ifaceField
 	// lowerable is false for an interface this builder cannot represent at
 	// all; why names the construct for the refusal.
 	lowerable bool
@@ -408,7 +401,6 @@ func (g *gen) declareIfaces(nodes []ast.Node) {
 			nomi:      id.Name,
 			decl:      id,
 			methods:   map[string]*ifaceMethod{},
-			fields:    map[string]*ifaceField{},
 			lowerable: true,
 			unit:      -1,
 		}
@@ -444,7 +436,6 @@ func (g *gen) resolveIfaces() {
 }
 
 func (g *gen) resolveIface(d *ifaceDef) {
-	g.resolveIfaceFields(d)
 	for i := range d.decl.Methods {
 		im := &d.decl.Methods[i]
 		m := &ifaceMethod{
@@ -1401,24 +1392,12 @@ func (g *gen) bindImpl(d *implDef) {
 			binds = append(binds, m)
 		}
 	}
-	// A `field` requirement counts here too, and it is the reason this is not
-	// gated on the METHOD bindings alone: `interface Named { field name }` has
-	// no methods, so `impl Named for Person` owes exactly one getter and
-	// nothing else. Gating on methods alone would bind nothing for a
-	// requirements-only interface, and every read through the box would trap.
-	fields := g.bindsAnyIfaceField(d)
-	if len(binds) == 0 && !fields {
+	if len(binds) == 0 {
 		return
 	}
 	if !g.hasTID(d.recv) {
 		g.reject("existential identity for a type", d.recv.nomi(), d.decl)
 		return
-	}
-	// Binding into a MIRROR's table names the declaring file's package. It is
-	// the same variable the declaring file's own impls bind into: one
-	// interface, one table, whichever file wrote the impl.
-	if fields {
-		g.bindIfaceFields(d)
 	}
 }
 

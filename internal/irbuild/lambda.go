@@ -155,7 +155,7 @@ func (g *gen) patternParamKind(p ast.Param, at ast.Node) (kind, bool) {
 		return k, true
 	}
 	var head ast.TypeExpr
-	switch pat := p.Destructure.(type) {
+	switch pat := ast.WithoutAs(p.Destructure).(type) {
 	case *ast.StructPattern:
 		head = pat.TypeName
 	case *ast.EnumPattern:
@@ -204,6 +204,14 @@ func (g *gen) destructure(pat ast.Node, src expr, at ast.Node) bool {
 		return true
 
 	case *ast.IdentPattern:
+		g.bindDestructured(p.Name, src, p)
+		return true
+
+	case *ast.AsPattern:
+		// The pattern's names, then the name for the whole value.
+		if !g.destructure(p.Pattern, src, at) {
+			return false
+		}
 		g.bindDestructured(p.Name, src, p)
 		return true
 

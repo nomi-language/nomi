@@ -128,6 +128,11 @@ func (r *completionRequest) patternSlotType(h *sentinelHit, hop int) analysis.Ty
 		if field == "Payload" {
 			return r.patternType(h, hop+1)
 		}
+	case *ast.AsPattern:
+		// `P as name`: P matches the value the whole pattern does.
+		if field == "Pattern" {
+			return r.patternSlotType(h, hop+1)
+		}
 	case *ast.StructPatternField:
 		if field == "Pattern" {
 			if f, ok := fieldOf(r.patternType(h, hop+2), p.Name); ok {

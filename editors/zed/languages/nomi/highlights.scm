@@ -74,6 +74,7 @@
 "concurrent" @keyword
 "try" @keyword
 "then" @keyword
+"tap" @keyword
 "impl" @keyword
 "for" @keyword
 (self_type) @keyword
@@ -133,6 +134,10 @@
   binding: (identifier) @variable.parameter)
 (destructuring_binding
   field: (identifier) @property)
+
+; `P as name`: the name binds the whole value P matched.
+(as_pattern
+  name: (identifier) @variable.parameter)
 
 ; Module path in imports
 (module_path
@@ -362,10 +367,6 @@
   name: (identifier) @function)
 (function_definition
   name: (type_identifier) @function)
-(go_block
-  "go" @keyword)
-(go_inline_body
-  "go" @keyword)
 
 ; Host function definitions
 (extern_func_definition
@@ -380,23 +381,17 @@
   name: (qualified_type_identifier) @type)
 
 ; Interface methods — name is a function definition. The optional `open`
-; modifier (Nomi marker for "default is overridable") and the `field`
-; keyword in `interface_field` are CONTEXTUAL: they only carry meaning
-; inside an interface body. By capturing the literals via the parent
-; rule we scope the keyword highlight to interface bodies only — outside,
-; a binding like `open = 42` keeps its plain-identifier colouring.
+; modifier (Nomi marker for "default is overridable") is CONTEXTUAL: it
+; only carries meaning inside an interface body. By capturing the literal
+; via the parent rule we scope the keyword highlight to interface bodies
+; only — outside, a binding like `open = 42` keeps its plain-identifier
+; colouring.
 (interface_method
   name: (identifier) @function)
 (interface_method
   name: (type_identifier) @function)
 (interface_method
   "open" @keyword)
-
-; Interface field requirements — `field name: T` inside interface bodies.
-(interface_field
-  "field" @keyword)
-(interface_field
-  name: (identifier) @property)
 
 ; Top-level derive declarations. The bare `"impl" @keyword` and `"for" @keyword`
 ; captures in the keywords section match `impl Iface for Type` blocks; the
@@ -445,6 +440,9 @@
   (#match? @comment "^_($|[^_])"))
 (enum_pattern
   (identifier) @comment
+  (#match? @comment "^_($|[^_])"))
+(as_pattern
+  name: (identifier) @comment
   (#match? @comment "^_($|[^_])"))
 
 ; BEGIN attached-test dim (Zed and Helix only; scripts/sync-nvim-runtime.sh

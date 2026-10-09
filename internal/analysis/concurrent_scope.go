@@ -1,8 +1,6 @@
 package analysis
 
 import (
-	"path/filepath"
-
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -182,7 +180,8 @@ func isTasksModuleScope(scope *Scope) bool {
 }
 
 func isStdTasksFile(path string) bool {
-	return filepath.Base(path) == "tasks.nomi" && filepath.Base(filepath.Dir(path)) == "std"
+	name, ok := stdlibModuleForPath(path)
+	return ok && name == "tasks"
 }
 
 // isTaskSpawnSymbol reports whether sym is one of the block-owned spawn
@@ -335,6 +334,8 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 	case *ast.Dbg:
 		s.walkBody(owner, node.Expr, inConcurrent)
 	case *ast.Then:
+		s.walkBody(owner, node.Lambda, inConcurrent)
+	case *ast.Tap:
 		s.walkBody(owner, node.Lambda, inConcurrent)
 	case *ast.StringInterp:
 		for _, part := range node.Parts {
@@ -638,6 +639,8 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 		case *ast.Dbg:
 			walk(node.Expr, enclosing, inConcurrent)
 		case *ast.Then:
+			walk(node.Lambda, enclosing, inConcurrent)
+		case *ast.Tap:
 			walk(node.Lambda, enclosing, inConcurrent)
 		case *ast.StringInterp:
 			for _, part := range node.Parts {

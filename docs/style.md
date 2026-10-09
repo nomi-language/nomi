@@ -33,10 +33,11 @@ else goes in them: `|> Iter.to_list()`, `|> io.print()`, `|> Ok()`. A name
 without parentheses is a function reference, as it is in
 `Iter.map(xs, io.print)`, so `x |> io.print` is a compile error that names
 the call to write. The exceptions are the keyword stages (`|> dbg`,
-`|> try`, `|> if`, `|> case`, `|> todo`) and `|> then |v| ...`, which
-applies a lambda to the value. Reach for `then` for a small step no named
-function covers; once the step has a name worth giving, write the function
-and call it.
+`|> try`, `|> if`, `|> case`, `|> todo`), `|> then |v| ...`, which
+applies a lambda to the value, and `|> tap |v| ...`, which runs one on the
+value and passes it on. Reach for `then` for a small step no named function
+covers; once the step has a name worth giving, write the function and call
+it.
 
 **Inline or stacked is your choice, and `fmt` keeps it.** Write a pipe on one
 line and it stays inline; write it across several lines and it stays stacked,
@@ -78,8 +79,8 @@ Inline is still fine for a short expression where the call itself is the point:
 `Set.size(s) |> io.print()`. Prefer the stacked form once the chain is doing
 real pipeline work, when a lambda makes a stage multi-line, or when starting
 from the subject makes the data flow easier to scan. `fmt` stacks every
-pipeline that has a `then` stage: a `then` lambda's body ends at the next
-`|>`, and a line per stage shows where. Any other lambda's body runs to the
+pipeline that has a `then` or `tap` stage: such a lambda's body ends at the
+next `|>`, and a line per stage shows where. Any other lambda's body runs to the
 end of its expression, so `Iter.map(xs, |s| String.to_int(s) |> Maybe.with_default(0))`
 needs no braces.
 
@@ -344,6 +345,18 @@ label = if Some(name) = maybe_name {
 
 For more than one shape, or when exhaustiveness matters, use `case`.
 
+Add `as name` to a pattern when the arm needs the whole value the pattern
+matched, such as to pass it on. When the arm needs only fields, bind the
+fields and leave the whole unnamed:
+
+```nomi
+case result {
+    Ok(Transaction{kind: .Deposit} as t) -> record(t)
+    Ok(Transaction{amount}) -> amount
+    Err(msg) -> msg
+}
+```
+
 Leave a binding's type off when inference settles it. That covers local
 bindings, `once` values (`pub` ones included) and lambda parameters,
 including an `Iter.reduce` seed:
@@ -527,6 +540,28 @@ pipeline for a simple call-and-compare; direct equality is clearer:
 
 ```nomi
 assert Decimal.from_string("1.50") == Some(1.50d)
+```
+
+Write the value under test on the left of `==` and the expected value on the
+right. A failed comparison of multi-line Strings prints a diff that reads the
+right operand as expected and the left as actual.
+
+Test an interactive program, one that prompts and reads in turn, with
+`assert io.replay(script, main)` and a `"""` script, not with
+`io.capture(input, main)` and separate input and output strings. The script
+shows each answer next to the prompt it answers, so the reader follows one
+conversation instead of matching two lists. Keep `io.capture` for a program
+that reads its input in one go, or when the value `main` returns matters.
+
+```nomi
+test "deposit money" {
+    assert io.replay("""
+        What is the starting balance?
+        > 500
+        > deposit: 25
+        new balance is 525
+        """, main)
+}
 ```
 
 When the value under test comes from a pipeline and the intermediate meaning is
@@ -732,7 +767,8 @@ Apply §1 only where the pipe is incidental.
 `import { … }` block sorted with `std/` paths first, whatever blank lines sit
 between them, and leaves a lone import bare. A comment inside an `import { … }`
 block is kept in place; a comment line between two separate `import`
-statements keeps them apart.
+statements keeps them apart, and `fmt` combines and sorts the imports on each
+side of it separately.
 
 ```nomi
 import {
@@ -816,6 +852,26 @@ total =
 
 Keep `io.inspect(value)` for intentional program output where a Debug rendering
 is part of the program's behavior. Reach for `dbg` for temporary tracing.
+
+**`dbg`, `tap` or `then`.** The three stages answer different needs:
+
+- `|> dbg` is a temporary look at the value. It is a warning in the editor and
+  `nomi build` refuses it, so it never ships.
+- `|> tap |v| ...` is an effect the program keeps, such as a log line or a
+  progress message, run on the value without changing it. Its lambda returns
+  `Unit`.
+- `|> then |v| ...` replaces the value with the lambda's result.
+
+```nomi
+command =
+    input
+    |> String.words()
+    |> tap |words| log.debug("got ${Iter.count(words)} words")
+    |> parse_command()
+```
+
+Do not use `tap` to hide work that computes something: if the lambda's result
+matters, it is a `then` stage or a named function.
 
 **Keyword stages.** `try` can prefix the fallible stage it unwraps:
 
@@ -987,7 +1043,7 @@ interface Ranked<T> {
 }
 ```
 
-A conformance with nothing to implement (an interface of field requirements or
+A conformance with nothing to implement (a marker interface, or one with
 defaults only) is a bodyless `impl Iface for Type` declaration. Bodiless type
 declarations (`pub host type Unit`, `type Expired`) stay braceless too.
 

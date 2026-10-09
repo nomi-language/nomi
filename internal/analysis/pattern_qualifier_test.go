@@ -29,6 +29,10 @@ struct Point {
   x: Int
 }
 
+typealias Label String
+
+typealias Tint Color
+
 `
 
 func TestPatternQualifier_UnknownOrForeignIsRejected(t *testing.T) {
@@ -58,6 +62,23 @@ func TestPatternQualifier_UnknownOrForeignIsRejected(t *testing.T) {
 			"pattern `Mood.Calm` is qualified by enum Mood, but the value matched is a Color"},
 		{"a struct", "  c = Color.Red\n  _ = case c {\n    Point.Blue -> 1\n    _ -> 0\n  }\n",
 			"pattern `Point.Blue` is qualified by struct Point, but the value matched is a Color"},
+		// A built-in qualifier fell through the check, so `String .Cat(n)` (the
+		// parser joins a qualifier and `.Variant` across spaces on one line, as
+		// it joins `p .name` in an expression) matched `.Cat(n)`.
+		{"a built-in type", "  c = Color.Red\n  _ = case c {\n    String.Blue -> 1\n    _ -> 0\n  }\n",
+			"pattern `String.Blue` is qualified by type String, but the value matched is a Color\nhelp: write `Color.Blue`, or `.Blue`"},
+		{"a built-in type spaced from the variant", "  s = Shape.Dot(1)\n  _ = case s {\n    Int  .Dot(n) -> n\n    _ -> 0\n  }\n",
+			"pattern `Int.Dot` is qualified by type Int, but the value matched is a Shape\nhelp: write `Shape.Dot`, or `.Dot`"},
+		{"a typealias of a non-enum", "  c = Color.Red\n  _ = case c {\n    Label.Blue -> 1\n    _ -> 0\n  }\n",
+			"pattern `Label.Blue` is qualified by type Label, but the value matched is a Color"},
+		{"a built-in type in an if pattern", "  s = Shape.Dot(1)\n  _ = if String.Dot(n) = s { n } else { 0 }\n",
+			"pattern `String.Dot` is qualified by type String, but the value matched is a Shape"},
+		{"a built-in type in a let-else", "  s = Shape.Dot(1)\n  String.Dot(n) = s else { return }\n  _ = n\n",
+			"pattern `String.Dot` is qualified by type String, but the value matched is a Shape"},
+		{"a built-in type nested in a payload", "  m = Some(Shape.Dot(1))\n  _ = case m {\n    Some(String.Dot(n)) -> n\n    _ -> 0\n  }\n",
+			"pattern `String.Dot` is qualified by type String, but the value matched is a Shape"},
+		{"another enum with the variant over a payload", "  s = Shape.Dot(1)\n  _ = case s {\n    Color.Dot(n) -> n\n    _ -> 0\n  }\n",
+			"pattern `Color.Dot` is qualified by enum Color, but the value matched is a Shape"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := patternQualifierDecls + "fn main() {\n" + tc.body + "}\n"
@@ -73,13 +94,14 @@ func TestPatternQualifier_UnknownOrForeignIsRejected(t *testing.T) {
 }
 
 // The mirror: the enum's own name, the `.Variant` form, a block-local enum
-// and a prelude enum stay accepted.
+// a prelude enum and a typealias of the enum stay accepted.
 func TestPatternQualifier_TheEnumItselfIsAccepted(t *testing.T) {
 	for _, body := range []string{
 		"  c = Color.Red\n  _ = case c {\n    Color.Blue -> 1\n    .Red -> 0\n  }\n",
 		"  s = Shape.Dot(1)\n  _ = case s {\n    Shape.Dot(n) -> n\n    Shape.Rect{w} -> w\n  }\n",
 		"  enum Hue {\n    Warm\n    Cool\n  }\n  h = Hue.Warm\n  _ = case h {\n    Hue.Cool -> 1\n    Hue.Warm -> 0\n  }\n",
 		"  m = Some(1)\n  _ = case m {\n    Maybe.Some(n) -> n\n    Maybe.None -> 0\n  }\n",
+		"  c = Color.Red\n  _ = case c {\n    Tint.Blue -> 1\n    Tint.Red -> 0\n  }\n",
 	} {
 		src := patternQualifierDecls + "fn main() {\n" + body + "}\n"
 		_, errs := checkSourceWithStdlib(src)

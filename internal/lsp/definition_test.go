@@ -142,7 +142,7 @@ impl Divide<NonZeroInt, Int> for Int {
 	}
 }
 
-func TestFindDefinition_InlineGoAliasReferenceResolvesToImport(t *testing.T) {
+func TestFindDefinition_GoBindingAliasResolvesToGopkg(t *testing.T) {
 	root := stageGoFFIDefinitionProject(t)
 	mainPath := filepath.Join(root, "main.nomi")
 	input, pos := definitionMarkerPosition(t, `import std/io
@@ -209,7 +209,7 @@ fn main() {
 	}
 }
 
-func TestFindDefinition_InlineGoNameResolvesToGoFunction(t *testing.T) {
+func TestFindDefinition_GoBindingNameResolvesToGoFunction(t *testing.T) {
 	root := stageGoFFIDefinitionProject(t)
 	mainPath := filepath.Join(root, "main.nomi")
 	input, pos := definitionMarkerPosition(t, `import std/io
@@ -240,7 +240,7 @@ fn main() {
 	}
 }
 
-func TestFindDefinition_InlineGoTypeResolvesToGoType(t *testing.T) {
+func TestFindDefinition_GoBindingTypeResolvesToGoType(t *testing.T) {
 	root := stageGoFFIDefinitionProject(t)
 	mainPath := filepath.Join(root, "main.nomi")
 	input, pos := definitionMarkerPosition(t, `import std/io

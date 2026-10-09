@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // What an `assert`/`refute` failure is, and the rules that decide one.
@@ -30,6 +31,81 @@ type AssertionFailure struct {
 	Binding *AssertionBindingContext
 	Values  []AssertionValueContext
 	Details []AssertionDetailContext
+	// Diff is the line diff of a failed `==` over two Strings (StringDiff),
+	// shown in place of its two operands' `values:` rows, or nil.
+	Diff *AssertionStringDiff
+}
+
+// rowHidden reports whether a direct `values:` row is left out of the report
+// because it tells the reader nothing the rest of the report does not: the
+// diff shows its value, or its value is the function its own expression names.
+func (e *AssertionFailure) rowHidden(row AssertionValueContext) bool {
+	return len(row.Pipeline) == 0 && (e.diffShows(row) || functionNamesItself(row))
+}
+
+// diffShows reports whether a `values:` row is a String the line diff already
+// shows: one of its two sides, line for line.
+//
+// The match is on the value and not on the expression. An `==` diff's sides
+// are its two operands, but an Assertable's are strings it built itself, and
+// the expression that fed one in is anywhere among the rows: `io.replay`'s
+// script is its first argument, compared with trailing whitespace dropped and
+// a final newline added. So a row matches a side when the two are the same
+// lines, each without its trailing spaces, tabs and carriage returns, with
+// trailing newlines ignored.
+func (e *AssertionFailure) diffShows(row AssertionValueContext) bool {
+	if e.Diff == nil {
+		return false
+	}
+	s, ok := rowString(row.Value)
+	if !ok {
+		return false
+	}
+	s = diffShownLines(s)
+	return s == diffShownLines(e.Diff.Actual) || s == diffShownLines(e.Diff.Expected)
+}
+
+// rowString is the String a row's text renders (InspectString), or false
+// when the row is not a String's.
+func rowString(value string) (string, bool) {
+	if len(value) < 2 || value[0] != '"' || value[len(value)-1] != '"' {
+		return "", false
+	}
+	return value[1 : len(value)-1], true
+}
+
+// diffShownLines is s as diffShows compares it.
+func diffShownLines(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, l := range lines {
+		lines[i] = strings.TrimRight(l, " \t\r")
+	}
+	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
+}
+
+// FunctionRowText is how a declared function value reads in a `values:` row:
+// `<func: double>`, named by the function's own name whatever binding it was
+// read through.
+func FunctionRowText(name string) string { return "<func: " + name + ">" }
+
+// functionNamesItself reports whether a row is a function value read through
+// its own name, `main = <func: main>` or `util.double = <func: double>`: the
+// value repeats the expression. A binding holding a function keeps its row,
+// since `g = <func: double>` says which function `g` is.
+func functionNamesItself(row AssertionValueContext) bool {
+	name := row.Expr
+	if i := strings.LastIndexByte(name, '.'); i >= 0 {
+		name = name[i+1:]
+	}
+	if name == "" || row.Value != FunctionRowText(name) {
+		return false
+	}
+	for _, r := range row.Expr {
+		if r != '.' && r != '_' && !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+			return false
+		}
+	}
+	return true
 }
 
 // AssertionBindingContext explains a failed assertion whose expression was a
@@ -245,10 +321,15 @@ func Binding(name, expr, value string) *AssertionBindingContext {
 // that reads exactly like its value explains nothing, so `assert 1 == 2` does
 // not print `1 = 1`.
 //
+// The same holds for any literal operand, whatever its value reads as: the
+// assertion line above the rows already shows it in full, so `assert x ==
+// 1_000` does not print `1_000 = 1000` and a `"""` literal is not printed a
+// second time. literal says the operand is one.
+//
 // suppressRedundantLiteral is off for a predicate call whose result is a
 // Bool, where the literal inputs are what the reader needs to see.
-func RecordOperand(trace *[]AssertionValueContext, expr, value string, suppressRedundantLiteral bool) {
-	if suppressRedundantLiteral && expr == value {
+func RecordOperand(trace *[]AssertionValueContext, expr, value string, suppressRedundantLiteral, literal bool) {
+	if suppressRedundantLiteral && (expr == value || literal) {
 		return
 	}
 	*trace = append(*trace, AssertionValueContext{Expr: expr, Value: value})

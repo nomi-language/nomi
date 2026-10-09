@@ -15,8 +15,8 @@ import (
 )
 
 // At returns the hover markdown for the symbol at pos in fa, or "" when
-// there's no symbol there. It is the same RENDERER the LSP's
-// textDocumentHover uses, exposed for non-LSP callers — the browser tour's
+// there's no symbol there. It is the same RENDERER (RenderForEditor) the
+// LSP's textDocumentHover uses, exposed for non-LSP callers — the browser tour's
 // nomiHover (cmd/nomi-wasm).
 //
 // Callers provide project analysis so scoped field references resolve with
@@ -29,7 +29,7 @@ func At(fa *analysis.FileAnalysis, pos analysis.Pos) string {
 	if sym == nil {
 		return ""
 	}
-	return RenderWithAnalysis(sym, fa)
+	return RenderForEditor(sym, fa)
 }
 
 // Render returns markdown hover content for a symbol.
@@ -225,9 +225,6 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		doc = sym.Doc
 		if sym.Type != nil {
 			sig = sym.Name + ": " + displayValueType(sym.Type)
-		} else if f, ok := sym.Node.(*ast.InterfaceField); ok {
-			sig = renderInterfaceField(f)
-			doc = f.Doc
 		}
 	case analysis.SymbolEnumVariant:
 		if enum, ok := sym.Node.(*ast.EnumDef); ok {
@@ -339,9 +336,6 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			if n.Body != nil {
 				sig += " { ... }"
 			}
-		case *ast.InterfaceField:
-			sig = renderInterfaceField(n)
-			doc = n.Doc
 		case *ast.TypeAlias:
 			if len(n.Bounds) > 0 {
 				bs := make([]string, len(n.Bounds))
@@ -1038,6 +1032,8 @@ func renderParamPattern(n ast.Node) string {
 		return p.Name
 	case *ast.WildcardPattern:
 		return "_"
+	case *ast.AsPattern:
+		return renderParamPattern(p.Pattern) + " as " + p.Name
 	case *ast.EnumPattern:
 		// `Dur(x)`, `Wrapper.Only(n)`, `Foo((a, b))`. A flat tuple payload
 		// (`Foo(a, b)`) renders its elements directly inside the `()` the
@@ -1774,6 +1770,8 @@ func renderControlFlowHover(sym *analysis.Symbol) string {
 		}
 	case "then":
 		b.WriteString("Applies the lambda to the piped value. Its body ends at the next `|>`; braces keep a pipe inside it.")
+	case "tap":
+		b.WriteString("Runs the lambda on the piped value for its effect, then passes the value on unchanged. The lambda returns `Unit`. Its body ends at the next `|>`; braces keep a pipe inside it.")
 	default:
 		b.WriteString("Expression keyword.")
 	}
@@ -2000,11 +1998,6 @@ func renderInterfaceDef(n *ast.InterfaceDef) string {
 	b.WriteString(renderTypeParams(n.TypeParams))
 	b.WriteString(renderWhereClauses(n.WhereClauses))
 	b.WriteString(" {\n")
-	for i := range n.Fields {
-		b.WriteString("    ")
-		b.WriteString(renderInterfaceField(&n.Fields[i]))
-		b.WriteString("\n")
-	}
 	for _, m := range n.Methods {
 		b.WriteString("    fn ")
 		b.WriteString(m.Name)
@@ -2028,17 +2021,6 @@ func renderInterfaceDef(n *ast.InterfaceDef) string {
 	}
 	b.WriteString("}")
 	return b.String()
-}
-
-func renderInterfaceField(n *ast.InterfaceField) string {
-	if n == nil {
-		return "field"
-	}
-	s := "field " + n.Name
-	if n.TypeAnnotation != nil {
-		s += ": " + n.TypeAnnotation.TypeString()
-	}
-	return s
 }
 
 // renderImportPath formats an ImportStmt's path the way the surface

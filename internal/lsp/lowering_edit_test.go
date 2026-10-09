@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/frontend"
-	"github.com/nomi-language/nomi/vmhost"
 )
 
 // openLoweringRPC opens main.nomi, holding src on disk and in the editor,
@@ -90,7 +90,7 @@ func installCountingLowering(t *testing.T) *countingLowering {
 	t.Helper()
 	cl := &countingLowering{block: map[string]chan struct{}{}}
 	saved := checkLoweringFn
-	checkLoweringFn = func(path, src string, _ ...vmhost.Option) (error, error) {
+	checkLoweringFn = func(path, src string, _ *analyzedlowering.Analyzed) (error, error) {
 		cl.mu.Lock()
 		if path != cl.path {
 			cl.mu.Unlock()

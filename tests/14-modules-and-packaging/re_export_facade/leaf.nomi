@@ -1,4 +1,4 @@
-/// "leaf" file that defines the public APIs the facade re-exports.
+/// "leaf" file that defines the public items the facade re-exports.
 /// Consumers don't import leaf directly; they go through facade.
 pub fn double(x: Int): Int {
     x * 2

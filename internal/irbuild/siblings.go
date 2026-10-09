@@ -31,11 +31,9 @@ import (
 // A qualifier is resolved by looking the name up in the file's own
 // ModuleScope: the analyzer answers with a SymbolModule whose ModuleScope is
 // the imported file's, and that scope pointer is matched against each unit's.
-// So aliases (`import test as test_env`), self-name imports (`import
-// todo/foo` from inside `todo`) and re-export facades (`import facade.{leaf,
-// parser_lib}`, where `leaf` is a binding facade re-exported) all resolve
-// through the front end that already decided them, with nothing re-derived
-// here. Re-deriving Nomi's import resolution in the backend is the mistake
+// So aliases (`import test as test_env`) and self-name imports (`import
+// todo/foo` from inside `todo`) resolve through the front end that already
+// decided them, with nothing re-derived here. Re-deriving Nomi's import resolution in the backend is the mistake
 // irbuild.go's package comment names: a backend on a divergent front end
 // reports different answers than `nomi run` for the same file.
 //
@@ -622,18 +620,9 @@ func (x *fileIndex) lookupBare(fa *analysis.FileAnalysis, id *ast.Ident) (fileSi
 }
 
 // moduleScopeOf follows a name to the member scope of the file API object it
-// is bound to, or nil when it is not bound to one.
-//
-// The chain is followed rather than read once because a SELECTIVE import
-// records a PROXY symbol whose own ModuleScope is nil and whose Resolved is
-// the real binding. That is how a re-export facade resolves: the test file
-// writes `import facade.{leaf, parser_lib}`, facade writes `import leaf
-// export`, and `leaf` in the test's scope is a proxy onto facade's binding,
-// whose ModuleScope is leaf.nomi's own. Reading only the proxy would answer
-// nil and report the whole facade as a stdlib call, a mis-NAMED refusal,
-// which is worse than a missing one because it points at the wrong cause.
-//
-// Bounded because a proxy chain is data, not a bounded shape.
+// is bound to, or nil when it is not bound to one. Only a file import binds
+// one: a file is never re-exported, so a selective import's proxy never
+// stands for a file.
 func moduleScopeOf(fa *analysis.FileAnalysis, name string) *analysis.Scope {
 	if fa == nil || fa.ModuleScope == nil {
 		return nil
@@ -671,16 +660,10 @@ func (g *gen) moduleScope(name string) *analysis.Scope {
 }
 
 func symbolModuleScope(sym *analysis.Symbol) *analysis.Scope {
-	for range 8 {
-		if sym == nil || sym.Kind != analysis.SymbolModule {
-			return nil
-		}
-		if sym.ModuleScope != nil {
-			return sym.ModuleScope
-		}
-		sym = sym.Resolved
+	if sym == nil || sym.Kind != analysis.SymbolModule {
+		return nil
 	}
-	return nil
+	return sym.ModuleScope
 }
 
 // qualifierScope is moduleScopeOf for the qualifier written at id. A name the

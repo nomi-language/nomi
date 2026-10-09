@@ -19,13 +19,16 @@ package irbuild
 //
 //	*ast.Call                  the splice, a shallow copy of the stage
 //	*ast.Then                  a call of its lambda with the piped value
+//	*ast.Tap                   a call of its lambda with the held piped value, which it answers
 //	*ast.Dbg with a nil Expr   `bl.dbgOf`, whose operand is the piped value
 //
 // Placeholder calls evaluate the left operand first and substitute its stable
 // temporary at each hole. Copy's injected delivery handles forcing and name
 // allocation. A named argument beside a hole declines.
 //
-// A `then` stage uses the same indirect-call path as a prefix lambda call.
+// A `then` stage uses the same indirect-call path as a prefix lambda call. A
+// `tap` stage holds the piped value, calls its lambda with it through that
+// path, drops the result and answers the held value.
 //
 // Try stages use retained propagation. Bare if/case stages splice the piped
 // operand into the condition/scrutinee and use ordinary value-region lowering.
@@ -70,6 +73,9 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		spliced.Args = make([]ast.Node, 0, len(r.Args)+1)
 		spliced.Args = append(spliced.Args, t.Left)
 		spliced.Args = append(spliced.Args, r.Args...)
+		prevFrom := bl.pipedFrom
+		bl.pipedFrom = t
+		defer func() { bl.pipedFrom = prevFrom }()
 		return bl.pipedInto(&spliced)
 
 	case *ast.Then:
@@ -78,6 +84,9 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		// stage's own position rather than the pipe's.
 		return bl.pipedInto(&ast.Call{Func: r.Lambda, Args: []ast.Node{t.Left},
 			Line: r.Lambda.Line, Col: r.Lambda.Col})
+
+	case *ast.Tap:
+		return bl.pipeTap(t, r)
 
 	case *ast.TryOp:
 		if r.Expr != nil {
@@ -122,6 +131,41 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		return bl.todo(r, kindInvalid)
 	}
 	return no()
+}
+
+// pipeTap lowers `x |> tap |v| body`: x is evaluated once and held, the
+// lambda is called with it and its result dropped, and the stage answers the
+// held x. The call reaches the held value through a synthesized name bound to
+// its temporary, as a placeholder pipe's hole does.
+func (bl *irScalarBuilder) pipeTap(t *ast.Binary, r *ast.Tap) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	src, k, mobile, ok := bl.lower(t.Left)
+	if ok {
+		src, k, ok = bl.typeOpenEmpty(t.Left, src, k)
+	}
+	if !ok {
+		return no()
+	}
+	// The value is read by the lambda and by whatever consumes the stage;
+	// an impure one is forced here so neither re-evaluates it.
+	if !mobile {
+		cp := ir.NewCopy(bl.g.irNodePos(t.Left), bl.f.NewTemp(), src)
+		bl.b.Append(cp)
+		bl.side(cp.Dst(), irScalarSide{k: k, copy: irCopyForce})
+		src = cp.Dst()
+	}
+	line, col := nodePos(t.Left)
+	held := &ast.Ident{Name: fmt.Sprintf("|tap %d", src), Line: line, Col: col}
+	bl.bound[held.Name], bl.boundK[held.Name] = src, k
+	defer delete(bl.bound, held.Name)
+	defer delete(bl.boundK, held.Name)
+	call := &ast.Call{Func: r.Lambda, Args: []ast.Node{held}, Line: r.Lambda.Line, Col: r.Lambda.Col}
+	res, resK, _, ok := bl.pipedInto(call)
+	if !ok {
+		return no()
+	}
+	bl.irStatementDrop(r, res, resK)
+	return src, k, true, true
 }
 
 // pipedInto lowers the spliced call with `bl.pipedCall` set to it, which exists

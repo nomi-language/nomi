@@ -108,7 +108,6 @@ for node, group in [
     ("(continue_statement)", "keyword.repeat"),
     ("(pub)", "keyword.modifier"),
     ("(host_keyword)", "keyword.modifier"),
-    ("(self_type)", "type.builtin"),
 ]:
     text = must_sub(text, rf"(?<={re.escape(node)} )@keyword(?![\w.])", "@" + group, src)
 

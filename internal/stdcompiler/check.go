@@ -107,6 +107,7 @@ func ProjectDiagnostics(entryNodes []ast.Node, root string, loader analysis.File
 		loader,
 		manifest,
 		entryPoint,
+		true,
 	)
 
 	errs := append([]analysis.TypeError{}, prepErrs...)

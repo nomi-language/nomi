@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 369
+records 368
 declared-cases 0
 failing 74
 C assert_subject_test.nomi@76e4dc034f8c1f74
@@ -968,7 +968,7 @@ T
 C control_test.nomi@c62132883c6453cb
 E 1
 N 0
-H 605e7d25972ab7a8154ffd8f91ba0b67b8e036ce4c5d8bf96b009e126a2e5905
+H 406cfe7f3070e2caf82c739226e8acff84e2bef05eebd228ce9b7bda94ca70a1
 S -- control_test.nomi 982 --
 S import {
 S   std/io
@@ -1055,11 +1055,6 @@ T         = 3
 T FAIL <dir>/control_test.nomi :: a decimal
 T   line 43: assertion failed
 T     assert 1.5d == 2.5d
-T     values:
-T       1.5d
-T         = 1.5
-T       2.5d
-T         = 2.5
 T FAIL <dir>/control_test.nomi :: a List host call in a case arm
 T   line 49: assertion failed
 T     assert List.head(t) == Some(3)
@@ -4063,16 +4058,14 @@ T dynamic/some/9
 T dynamic/none
 T <p>[hi]</p>
 T
-C internal/irbuild/testdata/func_operand_row.nomi@07d3ad500c58ae6e
+C internal/irbuild/testdata/func_operand_row.nomi@221b738dd6119dcf
 E 1
 N 0
-H 7387916b5699f70a923f2b701ae40ff44d17f15d0af7afd54ec2a3c064a0904e
-T FAIL <dir>/func_operand_row.nomi :: a module function reference names itself in the row
+H 43dededcb14a2d9dd9a1babede22b907cbf6d33f815bec4ff76e47325141674b
+T FAIL <dir>/func_operand_row.nomi :: a module function reference has no row, since it would only name itself
 T   line 71: assertion failed
 T     assert apply(double, 7) == 99
 T     values:
-T       double
-T         = <func: double>
 T       apply(double, 7)
 T         = 14
 T FAIL <dir>/func_operand_row.nomi :: a lambda literal argument is not recorded at all
@@ -4328,7 +4321,7 @@ T eval X
 T eval Y
 T named-first=23:59:0
 T
-C internal/irbuild/testdata/identity/identity.nomi@8e91fd3d048df931
+C internal/irbuild/testdata/identity/identity.nomi@c448fa925d32e024
 E 0
 N 0
 H 5cff2e0caa986758fe8fe8f2f26bb9e56c47983a9b425099e2d1fa2e32787f72
@@ -4359,17 +4352,6 @@ T LOUD:a | LOUD:a! | brief(LOUD:a) | <LOUD:a!> | L1/L2
 T eval A
 T eval B
 T quiet:b | quiet:b! | quiet:b | <quiet:b!> | q1/q2
-T
-C internal/irbuild/testdata/iface_field_read.nomi@e45295e9db93e300
-E 0
-N 0
-H 37b273c8afaf5147c76ebd4d1d08d748c89939c1683b77f5549453c28df0b944
-T ok <dir>/iface_field_read.nomi :: an interface-typed parameter reads its field requirement
-T ok <dir>/iface_field_read.nomi :: a second implementor with a different layout reads the same field
-T ok <dir>/iface_field_read.nomi :: a bounded type parameter reads the bound's field requirement
-T ok <dir>/iface_field_read.nomi :: the bounded read follows the argument's own type
-T ok <dir>/iface_field_read.nomi :: an interface-typed local reads through the box it was widened into
-T test result: ok. 5 passed, 0 failed
 T
 C internal/irbuild/testdata/iface_inst.nomi@8c8737e8aefcf9c6
 E 0
@@ -5533,10 +5515,10 @@ T     assert [a, b] = ["one"]
 T     actual: ["one"]
 T test result: FAILED. 3 passed, 4 failed
 T
-C internal/irbuild/testdata/pattern_if.nomi@0db786d3cf34c9e4
+C internal/irbuild/testdata/pattern_if.nomi@de8a79e3c7304e12
 E 0
 N 0
-H 2139015fc607f79b479a1e873d8259e681c1a2b2fb9a4df797b83aae4d627281
+H c4e679b2f7ee5dc769032e6f42dc46513eb0fefa736e6067def11388ad996b5a
 T Ada
 T unknown
 T hit 1
@@ -5559,9 +5541,6 @@ T none
 T 2
 T lambda:8/done
 T lambda:none/done
-T matched
-T ok 2
-T err bad
 T
 C internal/irbuild/testdata/pipe_assert_report.nomi@cf6e92e3fb439cc7
 E 1
@@ -8676,17 +8655,19 @@ T ok <dir>/interface_defaults_test.nomi :: interface method-local generics must 
 T ok <dir>/interface_defaults_test.nomi :: derive where clauses reject unsatisfied receiver arguments
 T test result: ok. 13 passed, 0 failed
 T
-C tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi@f99387bd4fc9de7a
+C tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi@eab4a3c3a61d404a
 E 0
 N 0
-H c0de8751f621bdfc880cebf57adaa38e35077d1e814bad292a6026ce4c355f1c
-T ok <dir>/structural_interfaces_test.nomi :: interface field requirements are accessible through existential values
+H a25ade1c072643689d8df8e46de85effcbc3d2816153227f5188cf3b80cbfdce
+T ok <dir>/structural_interfaces_test.nomi :: an interface function requirement dispatches through an existential value
+T ok <dir>/structural_interfaces_test.nomi :: an interface value exposes no fields
+T ok <dir>/structural_interfaces_test.nomi :: an interface declares no fields
 T ok <dir>/structural_interfaces_test.nomi :: an enum's variant shapes render through Debug
 T ok <dir>/structural_interfaces_test.nomi :: Struct is a universal interface for named and anonymous structs
 T ok <dir>/structural_interfaces_test.nomi :: Struct existentials do not expose undeclared fields
 T ok <dir>/structural_interfaces_test.nomi :: Struct bounds reject non-struct values
 T ok <dir>/structural_interfaces_test.nomi :: Struct cannot be implemented by hand
-T test result: ok. 6 passed, 0 failed
+T test result: ok. 8 passed, 0 failed
 T
 C tests/11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi@616ee9316a7f4ec0
 E 0

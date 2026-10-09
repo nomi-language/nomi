@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 131
-declared-cases 16
+records 135
+declared-cases 18
 failing 0
 C bindings-and-expressions.md:L123
 E 0
@@ -445,7 +445,7 @@ T Alice
 T Alice!
 T user:Alice
 T
-C interfaces-and-dispatch.md:L199
+C interfaces-and-dispatch.md:L198
 E 0
 N 0
 H 9db8c8d17a59cbef1ab6f563a6225febf03f263611d2730e15d86841236b3af4
@@ -459,7 +459,7 @@ H 7cbfa67d63c7401821e4ee56a63a56eadada1f9328fee95092f09413df9f51cc
 T Rex says woof
 T Whiskers says meow
 T
-C interfaces-and-dispatch.md:L264
+C interfaces-and-dispatch.md:L266
 E 0
 N 0
 H c55a9a0f58ad08e6e6f115951dd8920fbd89e5cd3af659c42a17daceaed75064
@@ -467,27 +467,27 @@ T dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}
 T dbg line 15: Status.Pending(7) = Pending(7)
 T dbg line 16: Email("a@b.com") = Email("a@b.com")
 T
-C interfaces-and-dispatch.md:L303
+C interfaces-and-dispatch.md:L305
 E 0
 N 0
 H b7c07a37968384ab9150b8d18ca406fd3d66c61f67e7cbe9947b8e5c238d551c
 T Alice (30)
 T
-C interfaces-and-dispatch.md:L334
+C interfaces-and-dispatch.md:L336
 E 0
 N 0
 H d59ad04725cb4d783d88d6f4bb9d8aa14026593801d2642735e7ac2a2b926600
 T dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
 T dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana"]
 T
-C interfaces-and-dispatch.md:L401
+C interfaces-and-dispatch.md:L403
 E 0
 N 0
 H f12f79d6ac3b9e6e9d458a8ad753090fa0ec5586b264cfab0cc43d7396a69c9e
 T dbg line 38: score_number(score) = 5
 T dbg line 39: day_number(day) = 14
 T
-C interfaces-and-dispatch.md:L468
+C interfaces-and-dispatch.md:L470
 E 0
 N 0
 H f88edf1a782c8bf35268abdbca965b1b78d1395ab20944e728b5f9f31d7806cd
@@ -498,7 +498,7 @@ T   |> ToJson.to_json()
 T   |> Json.encode()
 T   = "{\"firstName\":\"Ada\",\"age\":36}"
 T
-C interfaces-and-dispatch.md:L546
+C interfaces-and-dispatch.md:L548
 E 0
 N 0
 H 21a4d30d1a44789ef5c7ae1f3a29aa4c38146ec8530dfcd9c9d9e1ca5f3ae4d0
@@ -506,14 +506,14 @@ T dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
 T dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
 T dbg line 9: {Point{x: 1, y: 2} => "home"} = {Point{x: 1, y: 2} => "home"}
 T
-C interfaces-and-dispatch.md:L594
+C interfaces-and-dispatch.md:L596
 E 0
 N 0
 H b4e4fc5f4ce7c0de421fbd8dcb5ac4bb712b36fc5369f8b666c6fd3129d8d497
 T dbg line 8: Money{amount: 100} < Money{amount: 250} = True
 T dbg line 11: Iter.sort(ms) = [Money{amount: 1}, Money{amount: 2}, Money{amount: 3}]
 T
-C interfaces-and-dispatch.md:L620
+C interfaces-and-dispatch.md:L622
 E 0
 N 0
 H a13f73cc0db59201e1a1ea8d94eb09c1b105cd5dcf56627b6e3cdf1b3224c1c0
@@ -521,7 +521,7 @@ T dbg line 10: Severity.Info < Severity.Warning(1) = True
 T dbg line 11: Severity.Warning(9) < Severity.Error(1) = True
 T dbg line 12: Severity.Warning(1) < Severity.Warning(2) = True
 T
-C interfaces-and-dispatch.md:L655
+C interfaces-and-dispatch.md:L657
 E 0
 N 0
 H f1feaa82465a86d0de7d8507de0eae8cb9fe185341895b9cf5254b4a277df66a
@@ -590,19 +590,19 @@ N 0
 H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
 T 14
 T
-C pattern-matching.md:L107
+C pattern-matching.md:L120
+E 0
+N 0
+H 2f9fad64f9bcd06c7589a49c63a2fdd88b0a7c4670b943c88235d67ca3663969
+T dbg line 17: name_for(1) = "Alice"
+T dbg line 18: name_for(99) = "unknown"
+T
+C pattern-matching.md:L149
 E 0
 N 0
 H 99f6dad58a710c81eb9be6bbcbaa0e2ae21b6ab0fdd9e004db51dbc67ec0f135
 T dbg line 17: label_for(1) = "Alice"
 T dbg line 18: label_for(9) = "unknown"
-T
-C pattern-matching.md:L139
-E 0
-N 0
-H 6e61b645b40d3f423638ce3d21fe8639e0278494df8dc771e9a5963b8661fdd5
-T dbg line 16: calculate(100, 5) = Ok(11)
-T dbg line 17: calculate(100, 0) = Err("div by zero")
 T
 C pattern-matching.md:L17
 E 0
@@ -613,7 +613,14 @@ T dbg line 12: classify(-5) = "negative"
 T dbg line 13: classify(500) = "huge"
 T dbg line 14: classify(42) = "regular"
 T
-C pattern-matching.md:L193
+C pattern-matching.md:L181
+E 0
+N 0
+H 6e61b645b40d3f423638ce3d21fe8639e0278494df8dc771e9a5963b8661fdd5
+T dbg line 16: calculate(100, 5) = Ok(11)
+T dbg line 17: calculate(100, 0) = Err("div by zero")
+T
+C pattern-matching.md:L235
 E 0
 N 0
 H d58bc165cf46b3def1a714a99a1e99d66ea16ca542b74ba4ba2eacdd77010347
@@ -622,7 +629,7 @@ T dbg line 13: total(["1", "x", "y"]) = Err("not a number: x")
 T dbg line 16: numbers = [1]
 T dbg line 17: errors = ["not a number: x", "not a number: y"]
 T
-C pattern-matching.md:L229
+C pattern-matching.md:L271
 E 0
 N 0
 H a2bf7852263729ec6b4793e45d0b1b95e3643441a10db5cf5670a4da1e2cd33f
@@ -637,12 +644,12 @@ H 6c084cfa3c4d32836f93e32c46d77f62f5de65623c2dabd5231674d60e374347
 T dbg line 14: area(.Circle(3.0)) = 28.27431
 T dbg line 15: area(.Rectangle{width: 4.0, height: 5.0}) = 20.0
 T
-C pattern-matching.md:L78
+C pattern-matching.md:L77
 E 0
 N 0
-H 2f9fad64f9bcd06c7589a49c63a2fdd88b0a7c4670b943c88235d67ca3663969
-T dbg line 17: name_for(1) = "Alice"
-T dbg line 18: name_for(99) = "unknown"
+H 44a9510e5ef0572e304139764ce93dc7f304c9fa99c7366737984cba56d87116
+T dbg line 21: describe(.Rectangle{width: 2.0, height: 2.0}) = "a square of area 4.0"
+T dbg line 22: describe(.Circle(1.0)) = "a shape of area 3.0"
 T
 C pipes.md:L113
 E 0
@@ -654,7 +661,21 @@ T   |> find_name()
 T   |> then |name| name == Some("Ada")
 T   = True
 T
-C pipes.md:L145
+C pipes.md:L142
+E 0
+N 0
+H 8e2f8cbcbab2178f82dc2bf661bbd1dc5133d5b4c5a8cbd25c3cc7242a71610b
+T got 3 words
+T GO NORTH NOW
+T
+C pipes.md:L16
+E 0
+N 0
+H 82311262069034c45876e9fcb7dec2c70b3e4d27baf41c85b57a205944c42016
+T dbg line 10: 5 |> double() = 10
+T dbg line 12: 5 |> add(3) = 8
+T
+C pipes.md:L175
 E 0
 N 0
 H 189fe06c5cef0e801006023392fe3183880d7857bad6fba05f3476eeab0150b4
@@ -665,21 +686,14 @@ T   |> try String.to_int()
 T   |> Some()
 T   = Some(42)
 T
-C pipes.md:L16
-E 0
-N 0
-H 82311262069034c45876e9fcb7dec2c70b3e4d27baf41c85b57a205944c42016
-T dbg line 10: 5 |> double() = 10
-T dbg line 12: 5 |> add(3) = 8
-T
-C pipes.md:L170
+C pipes.md:L200
 E 0
 N 1
 H 6466c7087e99d349b351e11d2c93f7b122939dd4b964973e2d18dcfd315aa648
 T ok pipeline result is true
 T test result: ok. 1 passed, 0 failed
 T
-C pipes.md:L183
+C pipes.md:L213
 E 0
 N 0
 H 55972d3288befe7b1999bbd14874c236b9617874b2eb768ed00575677e769071
@@ -735,10 +749,10 @@ T
 C scalars-and-strings.md:L144
 E 0
 N 0
-H 0c6234f71ddbfa9fc0d30ffb8e718eba42905de437fc9f3e5ff743192f0dbee9
+H aab58eb806f599ab71671f3b75185381fda4981448c818ce3eef309001135e64
 T dbg line 6: String.split(text, ",") = ["one", " two", "three"]
-T dbg line 7: text |> String.split(try Regex`,\s*`) = ["one", "two", "three"]
-T dbg line 8: String.contains?(text, try Regex`\d`) = False
+T dbg line 7: text |> String.split(Regex`,\s*`) = ["one", "two", "three"]
+T dbg line 8: String.contains?(text, Regex`\d`) = False
 T
 C scalars-and-strings.md:L16
 E 0
@@ -752,7 +766,7 @@ T dbg line 6: -(3 + 4) = -7
 T dbg line 7: 42 > 10 = True
 T dbg line 8: True and !False = True
 T
-C scalars-and-strings.md:L187
+C scalars-and-strings.md:L186
 E 0
 N 0
 H cff6393d182403018e5caea07c68973571060a71844d3567a0734c3cb596e6db
@@ -765,7 +779,7 @@ T   |> Iter.map(Codepoint.to_int)
 T   |> Iter.to_list()
 T   = [99, 97, 102, 233]
 T
-C scalars-and-strings.md:L218
+C scalars-and-strings.md:L217
 E 0
 N 0
 H a97a2e7423efe650e12b847e990d065c63e2c8038cb9fe248e84a7a5365902c9
@@ -776,7 +790,7 @@ T   |> Iter.map(kind)
 T   |> Iter.to_list()
 T   = ["a", "comma", "space", "b"]
 T
-C scalars-and-strings.md:L258
+C scalars-and-strings.md:L257
 E 0
 N 0
 H dfecebecfe8f77f56a26a60b330f2ea38c8bcefc2ee946485f23896b0f451f2e
@@ -784,7 +798,7 @@ T dbg line 7: Bytes.length(raw) = 5
 T dbg line 8: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L291
+C scalars-and-strings.md:L290
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -792,7 +806,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L319
+C scalars-and-strings.md:L318
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15
@@ -953,12 +967,13 @@ H b6f742b0734d3b765366105b12405ca4ac01bdae6753dc25d94003cd499553b9
 T ok pipeline assertions validate transformed values
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L158
+C testing.md:L159
 E 0
 N 1
-H f2bd4d358a0711cb60aa46191c1246f835d81388acdd02b91f70b68200206fc8
-T ok user labels / setup value is explicit
-T ok user labels / a test may ignore the setup value
+H a529d2aef3956d5ef189622e65532fffad58bf2db7f89c3238addc7971a12287
+T hello, stranger
+T ok greets the name it reads
+T ok greets a stranger when there is no input
 T test result: ok. 2 passed, 0 failed
 T
 C testing.md:L16
@@ -968,22 +983,21 @@ H 8eeca313765dd04281036cf844cec131b22a8e5e72a400c514cfdef774f77606
 T ok arithmetic has the expected shape
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L191
+C testing.md:L196
 E 0
 N 1
-H 6f7cc69cd602b57272358318906f7cbbca164ac2f14b83912bd321c886fd9426
-T env: dev
-T ok app-backed behavior / reads the booted field
-T ok app-backed behavior / a with line replaces a field for the rest of the body
-T test result: ok. 2 passed, 0 failed
+H 11e6df1f55bd27672717d56bebed415683122c04b2efa0e8ef7dc0976d009a56
+T What is your name?
+T hello, stranger
+T ok asks for a name, then an age
+T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L232
+C testing.md:L241
 E 0
 N 1
-H 5e5a6007494211f6690adb2b128d0333f87e2c428ddeb5a37b336cbbc10b226e
-T verbose: False
-T ok quiet by default / takes no arguments
-T ok verbose / reads -v
+H f2bd4d358a0711cb60aa46191c1246f835d81388acdd02b91f70b68200206fc8
+T ok user labels / setup value is explicit
+T ok user labels / a test may ignore the setup value
 T test result: ok. 2 passed, 0 failed
 T
 C testing.md:L27
@@ -992,6 +1006,24 @@ N 1
 H dabcba4406ad63d73ade5d4fc338e41a451c8879c97bbf228b06a0e0da6de9a0
 T ok assert checks successful results
 T ok refute checks result errors
+T test result: ok. 2 passed, 0 failed
+T
+C testing.md:L274
+E 0
+N 1
+H 6f7cc69cd602b57272358318906f7cbbca164ac2f14b83912bd321c886fd9426
+T env: dev
+T ok app-backed behavior / reads the booted field
+T ok app-backed behavior / a with line replaces a field for the rest of the body
+T test result: ok. 2 passed, 0 failed
+T
+C testing.md:L315
+E 0
+N 1
+H 5e5a6007494211f6690adb2b128d0333f87e2c428ddeb5a37b336cbbc10b226e
+T verbose: False
+T ok quiet by default / takes no arguments
+T ok verbose / reads -v
 T test result: ok. 2 passed, 0 failed
 T
 C testing.md:L54
@@ -1023,15 +1055,15 @@ T ok answer //! test lines 1-2
 T ok label //! test line 8
 T test result: ok. 2 passed, 0 failed
 T
-C typed-literals.md:L113
+C typed-literals.md:L132
 E 0
 N 0
-H cbe20601934de6ba14dc5017b532b55651ad5a8c68828fa0a289fe48e612538f
-T dbg line 10: Regex.pattern(digits) = "\\d+"
-T dbg line 11: Regex.match?(digits, text) = True
-T dbg line 12: Regex.find(digits, text) = Some("42")
-T dbg line 13: Regex.find_all(digits, text) = ["42", "7"]
-T dbg line 14: Regex.match?(prefixed, text) = True
+H afd3365de58525ee43340834df7dda912b572b1d30c3ee8f7ce87b0bd47184ba
+T dbg line 12: String.find_all(text, letters) = ["room", "floor"]
+T dbg line 13: String.contains?(text, digits) = True
+T dbg line 14: Regex.find(digits, text) = Some("42")
+T dbg line 15: String.find_all(text, digits) = ["42", "7"]
+T dbg line 16: String.contains?(text, prefixed) = True
 T
 C typed-literals.md:L26
 E 0

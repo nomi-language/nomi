@@ -878,7 +878,7 @@ func stdLoweringOrder(names []string, lib *std.StdLib) []string {
 func stdModuleImports(nodes []ast.Node) []string {
 	seen := map[string]bool{}
 	add := func(imp *ast.ImportStmt) {
-		if imp.Extern || len(imp.ModulePath) == 0 {
+		if len(imp.ModulePath) == 0 {
 			return
 		}
 		head, isHead := imp.ModulePath[0].(*ast.Ident)

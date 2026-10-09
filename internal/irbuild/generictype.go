@@ -626,7 +626,7 @@ func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, decla
 			return nil, false
 		}
 		k := g.project(sym.Type)
-		if !irRetainedLeafKind(k) && !irCallableValueKind(k) {
+		if k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k) {
 			return nil, false
 		}
 		g.unifyTypeParams(ann, k, params, solved)
@@ -637,8 +637,9 @@ func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, decla
 	}
 	for _, k := range args {
 		// A leaf, or any value the IR carries: the instance's own layout is
-		// checked where the literal is built (irRetainedStructKind).
-		if !irRetainedLeafKind(k) && !irCallableValueKind(k) {
+		// checked where the literal is built (irRetainedStructKind). Unit is
+		// a field like any other (`Captured<Unit>`'s value).
+		if k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k) {
 			return nil, false
 		}
 	}

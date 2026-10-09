@@ -140,7 +140,7 @@ func (s *Server) stdTypeLocation(name, mod string) *protocol.Location {
 	for _, m := range mods {
 		for _, d := range analysis.TopLevelDecls(s.std.Nodes[m]) {
 			if d.Name == name && isTypeDecl(d.Kind) && !analysis.IsSynthesizedLine(d.Pos.Line) {
-				loc := makeLocation(s.std.FileURI(m), d.Pos, name)
+				loc := makeLocation(s.stdFileURI(m), d.Pos, name)
 				return &loc
 			}
 		}

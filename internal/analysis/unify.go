@@ -67,11 +67,18 @@ const (
 	// inside a function type, since the builder converts no container.
 	unifyStrict
 	// unifyAssign is UnifyInto: a is the expected type and b the actual one.
-	// Outside function types it is unifySym.
+	// An embedded type enters its enum only from b, never a's embedded type
+	// from b's enum: a Shape may hold another variant, so it is not a Circle
+	// until a match says so.
 	unifyAssign
 	// unifyAssignIn is unifyAssign inside a function type: a is expected and
 	// b actual, and only b into a is admitted.
 	unifyAssignIn
+	// unifyAssignCo is unifyAssign inside a container's type arguments, a
+	// tuple's elements and a record's fields: a is expected and b actual, an
+	// embedded type enters its enum only from b, and a function type meets
+	// another strictly, as under unifySym.
+	unifyAssignCo
 )
 
 // nested is the mode for the type arguments of a container or nominal type,
@@ -80,6 +87,8 @@ func (m unifyMode) nested() unifyMode {
 	switch m {
 	case unifyStrict, unifyAssignIn:
 		return unifyStrict
+	case unifyAssign, unifyAssignCo:
+		return unifyAssignCo
 	}
 	return unifySym
 }
@@ -160,6 +169,14 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 	// vs caller T) each get their own binding.
 	if tp, ok := a.(*TypeParam_); ok && subs != nil {
 		if existing, bound := subs[tp]; bound {
+			// A parameter solved to an embedded type, met by a value of
+			// its enum, widens to the enum: `pick(circle, shape)` solves
+			// T to Shape, and the circle enters it as any Circle enters a
+			// Shape.
+			if widened, ok := widenToEnum(m, existing, b); ok {
+				subs[tp] = widened
+				return nil
+			}
 			// Already bound — pass nil subs so TypeVar binding (via the
 			// nil-subs reorder above) takes precedence when unifying the
 			// existing binding against the new side.
@@ -196,11 +213,10 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 	// already handles bare-embedded values in EnumPattern matches; this rule
 	// teaches the unifier to admit the same coercion at type-check time, so
 	// `id: Identifier = uid` and `[uid, Identifier.Anonymous]` typecheck
-	// without explicit `Identifier.UserId(uid)` wrapping. Symmetric so the
-	// unifier doesn't care which side carries the expected type.
-	//
-	// Inside a function type an embedded type enters its enum only from the
-	// actual side (unifyAssignIn), and under unifyStrict not at all.
+	// without explicit `Identifier.UserId(uid)` wrapping. unifySym, a join,
+	// admits it either way round. Where the checker knows which side is
+	// expected (unifyAssign and its nested modes) an embedded type enters its
+	// enum only from the actual side, and under unifyStrict not at all.
 	if et, ok := a.(*EnumType); ok {
 		if isEmbeddedTypeOf(b, et) {
 			if m == unifyStrict {
@@ -211,7 +227,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 	}
 	if et, ok := b.(*EnumType); ok {
 		if isEmbeddedTypeOf(a, et) {
-			if m == unifyStrict || m == unifyAssignIn {
+			if m != unifySym {
 				return typeErrorf("cannot unify %s with %s", a, b)
 			}
 			return nil
@@ -877,7 +893,7 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 		if !changed {
 			return t
 		}
-		return &EnumType{
+		out := &EnumType{
 			Origin:        t.Origin,
 			Name:          t.Name,
 			TypeArgs:      args,
@@ -885,6 +901,8 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 			TypeParams:    t.TypeParams,
 			TypeParamDefs: t.TypeParamDefs,
 		}
+		out.unbuilt = t.unbuilt.recordInstance(out)
+		return out
 	case *StructType:
 		// Cycle break — same rationale as EnumType above; recursive
 		// structs (a struct field referencing the struct via List<Self>,
@@ -915,7 +933,7 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 		if !changed {
 			return t
 		}
-		return &StructType{
+		out := &StructType{
 			Origin:        t.Origin,
 			Name:          t.Name,
 			TypeArgs:      args,
@@ -923,6 +941,8 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 			TypeParams:    t.TypeParams,
 			TypeParamDefs: t.TypeParamDefs,
 		}
+		out.unbuilt = t.unbuilt.recordInstance(out)
+		return out
 	case *AnonStructType:
 		fields := substituteFieldsWithNominals(t.Fields, subs, visiting, nominals)
 		if fieldsSamePointers(fields, t.Fields) {
@@ -944,16 +964,17 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 		if !changed {
 			return t
 		}
-		return &InterfaceType{
+		out := &InterfaceType{
 			Origin:        t.Origin,
 			Name:          t.Name,
 			Methods:       t.Methods,
-			Fields:        t.Fields,
 			TypeParams:    t.TypeParams,
 			TypeParamDefs: t.TypeParamDefs,
 			TypeArgs:      args,
 			SelfParam:     t.SelfParam,
 		}
+		out.unbuilt = t.unbuilt.recordInstance(out)
+		return out
 	case *DistinctType:
 		// Generic opaque externs (`host type Task<T>`,
 		// `host type Channel<T>`) carry TypeArgs at use sites. Recurse
@@ -1165,6 +1186,31 @@ func isBoolVariantVsBool(a, b Type) bool {
 
 func isBoolVariantPair(a, b Type) bool {
 	return (a == TypeTrue || a == TypeFalse) && (b == TypeTrue || b == TypeFalse)
+}
+
+// embedsJoin is the type of a join (two branches, two literal elements) whose
+// sides have types have and next, the two having unified: the enum when one
+// side is an enum and the other a type it embeds, since a Circle enters a
+// Shape and a Shape may hold another variant; have otherwise.
+func embedsJoin(have, next Type) Type {
+	if et, ok := resolveTV(next).(*EnumType); ok && isEmbeddedTypeOf(resolveTV(have), et) {
+		return next
+	}
+	return have
+}
+
+// widenToEnum reports the enum a type parameter's binding widens to when a
+// directed unification meets a value of that enum after binding the
+// parameter to one of its embedded types.
+func widenToEnum(m unifyMode, existing, have Type) (Type, bool) {
+	if m != unifyAssign && m != unifyAssignCo {
+		return nil, false
+	}
+	et, ok := resolveTV(have).(*EnumType)
+	if !ok || !isEmbeddedTypeOf(resolveTV(existing), et) {
+		return nil, false
+	}
+	return et, true
 }
 
 // isEmbeddedTypeOf reports whether t is the data type of one of et's `embeds`

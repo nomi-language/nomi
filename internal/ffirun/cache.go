@@ -202,15 +202,12 @@ func computeHashes(projectRoot string, discovered []DiscoveredPackage, allRequir
 // name only when the entry it runs is the file that declared it. Keyed on
 // names alone, a script that ran as hi at the go.mod root and then as bin/hi
 // shared one wrapper, which still named the root file, so bin/hi crossed
-// under a key nothing answered. The inline Go and the declaration text are in
-// it because they are the wrapper's code. Positions stay out, so an edit that
+// under a key nothing answered. The declaration text is in it because the
+// wrapper's adapters are generated from it. Positions stay out, so an edit that
 // only moves a binding's line does not rebuild the wrapper.
 func discoveredHashInput(d DiscoveredPackage) string {
 	q := strconv.Quote
-	parts := []string{q(d.ImportPath), "inline:" + strconv.FormatBool(d.InlineUsed)}
-	for _, decl := range d.GoDecls {
-		parts = append(parts, "godecl:"+q(decl))
-	}
+	parts := []string{q(d.ImportPath)}
 	for _, typ := range d.Types {
 		parts = append(parts, "type:"+strings.Join([]string{
 			q(typ.Key), q(typ.EntryKey), q(typ.TypeName), q(typ.GoTypeExpr),
@@ -219,8 +216,7 @@ func discoveredHashInput(d DiscoveredPackage) string {
 	}
 	for _, ex := range d.Exports {
 		fields := []string{
-			q(ex.Key), q(ex.EntryKey), q(ex.FuncName), q(ex.WrapperName),
-			q(ex.ParamDecls), q(ex.ReturnDecl), q(ex.GoBody), q(ex.Declaration),
+			q(ex.Key), q(ex.EntryKey), q(ex.FuncName), q(ex.Declaration),
 			q(ex.SourceFile),
 		}
 		for _, f := range ex.AlsoDeclaredIn {

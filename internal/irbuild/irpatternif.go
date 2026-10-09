@@ -32,7 +32,15 @@ func (bl *irScalarBuilder) patternIfRegion(t *ast.If, sig irFuncSig) (kind, bool
 	case *ast.IdentPattern:
 		return bl.irrefutablePatternIf(t, sig, p, subj, sk)
 	}
-	if _, _, ok = bl.g.retainedEnumPattern(t.CondPattern, sk); !ok {
+	// `if P as name = v`: P is tested, and name binds v in the then-arm.
+	pattern := ast.WithoutAs(t.CondPattern)
+	// `if .Circle{radius} = v` is a braced variant test, which enumCaseTest
+	// lowers as it does a `case` arm's, or declines.
+	sp, braced := pattern.(*ast.StructPattern)
+	braced = braced && sp.TypeName != nil
+	// `if False = b` over a Bool: Bool has no *typeDef, and enumCaseTest
+	// tests its variants as `case b { False -> … }` does.
+	if _, _, ok = bl.g.retainedEnumPattern(pattern, sk); !ok && !braced && sk != kindBool {
 		irDeclineNote("a pattern `if` whose pattern is not a retained variant test over " + sk.nomi())
 		return kindInvalid, false
 	}
@@ -56,10 +64,11 @@ func (bl *irScalarBuilder) patternIfRegion(t *ast.If, sig irFuncSig) (kind, bool
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
 	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-	if !bl.enumCaseTest(t.CondPattern, subj, sk, then, els) {
+	if !bl.enumCaseTest(pattern, subj, sk, then, els) {
 		irDeclineNote("a pattern `if` variant test outside retained payload patterns")
 		return kindInvalid, false
 	}
+	bl.bindAsNames(t.CondPattern, subj, sk)
 	tk, ok := bl.armInto(then, exit, t.Then, sig)
 	if !ok {
 		return kindInvalid, false

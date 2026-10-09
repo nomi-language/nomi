@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/token"
@@ -1377,27 +1378,34 @@ func TestParseGoPackageWithExplicitAlias(t *testing.T) {
 	}
 }
 
-func TestParseGoBlock(t *testing.T) {
-	nodes := parse(t, `go {
-  import (
-    "database/sql"
-    sqlite "modernc.org/sqlite"
-    _ "github.com/lib/pq"
-  )
-
-  type Conn struct {
-    db *sql.DB
-  }
-}`)
-	if len(nodes) != 1 {
-		t.Fatalf("expected 1 statement, got %d", len(nodes))
+// Go code is reached only through `gopkg` handles and `go alias.Symbol`
+// bindings, so a raw `go { ... }` block is a parse error wherever it appears.
+func TestParseRejectsGoBlocks(t *testing.T) {
+	cases := []struct {
+		src       string
+		line, col int
+		msg       string
+	}{
+		{"go {\n  var x = 1\n}", 1, 1, "Nomi has no `go { ... }` blocks; declare a Go package with `gopkg \"import/path\" as alias` and bind its functions and types with `go alias.Symbol`"},
+		{"fn f(): Int go {\n  return 1\n}", 1, 13, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
+		{"pub fn f(x: Int): Int\n  go { return x }", 2, 3, "a function has no `go { ... }` body; bind a Go function with `go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
+		{"type Conn go {\n  db *sql.DB\n}", 1, 11, "a type has no `go { ... }` body; bind a Go type with `opaque type Name go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
+		{"pub opaque type Conn go { db *sql.DB }", 1, 22, "a type has no `go { ... }` body; bind a Go type with `opaque type Name go alias.Symbol`, where a `gopkg` declaration introduces `alias`"},
 	}
-	block, ok := nodes[0].(*ast.GoBlock)
-	if !ok {
-		t.Fatalf("expected *ast.GoBlock, got %T", nodes[0])
-	}
-	if !strings.Contains(block.Body, `import (`) || !strings.Contains(block.Body, `type Conn struct`) {
-		t.Fatalf("unexpected Go block body: %q", block.Body)
+	for _, c := range cases {
+		_, err := Parse(lexer.Lex(c.src))
+		if err == nil {
+			t.Errorf("Parse(%q) accepted a go block", c.src)
+			continue
+		}
+		var pe ParseError
+		if !errors.As(err, &pe) {
+			t.Errorf("Parse(%q): error %T %v is not a ParseError", c.src, err, err)
+			continue
+		}
+		if pe.Line != c.line || pe.Col != c.col || pe.Message != c.msg {
+			t.Errorf("Parse(%q):\n got %d:%d %q\nwant %d:%d %q", c.src, pe.Line, pe.Col, pe.Message, c.line, c.col, c.msg)
+		}
 	}
 }
 
@@ -4159,9 +4167,6 @@ func TestParseImport_LineLevelExport_FlatSelectorList(t *testing.T) {
 	}
 	if !imp.ExportAll {
 		t.Errorf("expected ExportAll = true")
-	}
-	if imp.ExportAlias != nil {
-		t.Errorf("expected ExportAlias = nil, got %v", imp.ExportAlias)
 	}
 	if len(imp.Names) != 3 {
 		t.Errorf("expected 3 names, got %d", len(imp.Names))

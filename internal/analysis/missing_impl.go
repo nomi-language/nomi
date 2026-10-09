@@ -287,16 +287,155 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 	return e.WithHint(missingImplHelp(iface, typeName))
 }
 
-// missingImplHelp is the help line for a type that has no impl of iface: an
-// operator interface's block shape, or a derive or an impl block. The
-// missing-impl diagnostic and the call-site bound check both end with it.
+// missingImplHelp is the help line for a type that has no impl of iface,
+// from names alone (DetectMissingImpls): an operator interface's block
+// shape, a derive when iface is derivable, or an impl block. boundHelp is
+// the call-site bound check's, which knows the interface's functions.
 func missingImplHelp(iface, typeName string) string {
 	if opIface, ok := operatorInterfaceByName(iface); ok {
 		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s { fn %s(lhs: %s, rhs: Rhs): Out { ... } }` block",
 			opIface.Interface, typeName, opIface.Method, typeName)
 	}
-	return fmt.Sprintf("add `derive %s` to `%s` or write an `impl %s for %s { fn <function>(value: %s): <Ret> }` block",
-		iface, typeName, iface, typeName, typeName)
+	if deriveSupported[iface] {
+		return fmt.Sprintf("add `derive %s` to `%s` or write an `impl %s for %s` block", iface, typeName, iface, typeName)
+	}
+	return fmt.Sprintf("write an `impl %s for %s` block", iface, typeName)
+}
+
+// boundHelp is the help line for concrete, which does not implement bound.
+// The orphan rule allows `impl bound for concrete` only where the program
+// declares one of the two:
+//
+//   - it declares concrete: `derive` when bound is derivable, and an impl
+//     block with bound's own required functions at concrete;
+//   - it declares bound only: the impl block;
+//   - it declares neither (`Unit` where std's `Hashable` is required): that
+//     only std can write the impl, and what the author can do instead
+//     (stdOnlyHelp).
+//
+// An operator interface keeps missingImplHelp's block shape.
+func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
+	name := fmt.Sprint(concrete)
+	if _, ok := operatorInterfaceByName(bound.Name); ok {
+		return missingImplHelp(bound.Name, name)
+	}
+	ownsType := programDeclares(concrete)
+	if !ownsType && IsStdlibKey(bound.Origin) {
+		return stdOnlyHelp(name, bound.Name, c.implementersOf(bound.Name))
+	}
+	impl := fmt.Sprintf("write an `impl %s for %s` block", bound, name)
+	if sigs := c.requiredSignatures(bound, concrete); len(sigs) > 0 {
+		impl += " with `" + strings.Join(sigs, "` and `") + "`"
+	}
+	if ownsType && deriveSupported[bound.Name] {
+		return fmt.Sprintf("add `derive %s` to `%s` or %s", bound.Name, name, impl)
+	}
+	return impl
+}
+
+// programDeclares reports whether t is a struct, enum or distinct type the
+// program declares, so it may derive or implement a std interface.
+func programDeclares(t Type) bool {
+	switch t := resolveTypeVar(t).(type) {
+	case *StructType:
+		return !IsStdlibKey(t.Origin)
+	case *EnumType:
+		return !IsStdlibKey(t.Origin)
+	case *DistinctType:
+		return !IsStdlibKey(t.Origin)
+	}
+	return false
+}
+
+// implementersOf answers the types with an impl of the interface named
+// iface that this file can see, sorted.
+func (c *checker) implementersOf(iface string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, tables := range c.implsContext() {
+		for typeName, ifaces := range tables.Impls {
+			if ifaces[iface] && !seen[typeName] {
+				seen[typeName] = true
+				out = append(out, typeName)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// mostImplementersNamed is how many implementing types stdOnlyHelp names.
+// Up to this many, the interface is a narrow one (`Matcher`: `Regex` and
+// `String`) and its implementers are what the call can be given instead, so
+// naming them is the fix. Past it, the interface is one most std types
+// implement (`Hashable`, `Display`: more than thirty each). The author
+// already knows the common ones and no list says which to pick, so the help
+// says to wrap the type instead.
+const mostImplementersNamed = 4
+
+// stdOnlyHelp is the help for typeName, which the program does not declare,
+// missing iface, a std interface: only std can write that impl. A narrow
+// interface names its implementers. A broad one, or one with none, gets the
+// fix that always applies: a type the program declares may implement iface.
+func stdOnlyHelp(typeName, iface string, implementers []string) string {
+	head := fmt.Sprintf("only std can implement `%s` for `%s`", iface, typeName)
+	if n := len(implementers); n > 0 && n <= mostImplementersNamed {
+		return head + "; " + implementerList(implementers)
+	}
+	return head + fmt.Sprintf("; wrap it in a type of your own that implements `%s`", iface)
+}
+
+// implementerList is "`Regex` and `String` implement it".
+func implementerList(types []string) string {
+	quoted := make([]string, len(types))
+	for i, t := range types {
+		quoted[i] = "`" + t + "`"
+	}
+	if len(quoted) == 1 {
+		return "only " + quoted[0] + " implements it"
+	}
+	return strings.Join(quoted[:len(quoted)-1], ", ") + " and " + quoted[len(quoted)-1] + " implement it"
+}
+
+// requiredSignatures is each function an impl of bound for concrete must
+// write, as `fn name(param: Type): Result` with `self` read as concrete.
+// A function with a default is left out.
+func (c *checker) requiredSignatures(bound *InterfaceType, concrete Type) []string {
+	it := bound
+	if len(it.Methods) == 0 {
+		if full := lookupInterfaceType(c.fa, c.reg, bound.Name); full != nil {
+			it = full
+		}
+	}
+	subs := map[*TypeParam_]Type{}
+	if it.SelfParam != nil {
+		subs[it.SelfParam] = concrete
+	}
+	if len(bound.TypeArgs) == len(it.TypeParamDefs) {
+		for i, tp := range it.TypeParamDefs {
+			subs[tp] = bound.TypeArgs[i]
+		}
+	}
+	var out []string
+	for _, m := range it.Methods {
+		if m.HasDefault || m.Extern {
+			continue
+		}
+		params := make([]string, len(m.Params))
+		for i, pt := range m.Params {
+			pname := fmt.Sprintf("p%d", i+1)
+			if i < len(m.ParamNames) && m.ParamNames[i] != "" {
+				pname = m.ParamNames[i]
+			}
+			params[i] = pname + ": " + fmt.Sprint(Substitute(pt, subs))
+		}
+		sig := "fn " + m.Name + "(" + strings.Join(params, ", ") + ")"
+		if m.Return != nil && m.Return != TypeUnit {
+			sig += ": " + fmt.Sprint(Substitute(m.Return, subs))
+		}
+		out = append(out, sig)
+	}
+	return out
 }
 
 // callCol is where a diagnostic about call n points: the callee as written
@@ -336,7 +475,7 @@ func pipeBoundCol(n *ast.Binary, stage *ast.Call) int {
 
 // boundError is a call's unmet interface bound: at the call, naming the
 // bound it violates, with the missing-impl help.
-func (c *checker) boundError(line, col int, concrete Type, iface, param string, over ...ast.Node) {
+func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType, param string, over ...ast.Node) {
 	end := TypeError{}
 	for _, n := range over {
 		if sp, ok := spanOf(n); ok && sp.StartLine == line && sp.StartCol == col {
@@ -345,7 +484,7 @@ func (c *checker) boundError(line, col int, concrete Type, iface, param string, 
 	}
 	c.report(TypeError{Line: line, Col: col, EndLine: end.EndLine, EndCol: end.EndCol, Message: fmt.Sprintf(
 		"%s does not implement %s (required by `where %s: %s`)",
-		concrete, iface, param, iface)}.WithHint(missingImplHelp(iface, fmt.Sprint(concrete))))
+		concrete, bound.Name, param, bound.Name)}.WithHint(c.boundHelp(concrete, bound)))
 }
 
 // formatRecordingLoc renders "file:line:col" with an "<unknown>"

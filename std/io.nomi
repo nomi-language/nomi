@@ -1,6 +1,9 @@
 import {
+    assertions.{Assertable, AssertionDetails}
     display.Display
     equatable.Equatable
+    int.Int
+    maybe.Maybe.{self, None, Some}
     results.Result
     strings.String
     unit.Unit
@@ -65,7 +68,8 @@ pub host fn write<T>(value: T): Unit where T: Display
 pub host fn inspect<T>(value: T): Unit
 
 /// Reads a line from stdin. Returns Ok(line) with the newline stripped, or
-/// Err("eof") when stdin is closed.
+/// Err("eof") when stdin is closed. Inside `io.capture` it reads the
+/// capture's input instead.
 ///
 /// ```nomi
 /// case io.read_line() {
@@ -74,6 +78,188 @@ pub host fn inspect<T>(value: T): Unit
 /// }
 /// ```
 pub host fn read_line(): Result<String, String>
+
+/// What `io.capture` answers: the value `run` returned, everything it
+/// printed, and the two together as a transcript.
+pub struct Captured<T> {
+    /// What `run` returned.
+    value: T
+    /// Everything `io.print`, `io.write` and `io.inspect` wrote while `run`
+    /// ran, byte for byte.
+    output: String
+    /// `output` with each line `run` read written in where it was read, the
+    /// way a terminal shows the session. A line read is a transcript line of
+    /// its own that starts with `> `. When `run` wrote part of a line before
+    /// reading (a prompt such as `io.write("amount: ")`), that part goes on
+    /// the read's line between the marker and the text read, as a terminal
+    /// shows the typed text after the prompt: `> amount: 25`. A read at the
+    /// end of the input adds nothing. An output line that starts with `>` or
+    /// `\` gets a `\` in front, so only a read starts a line with `>`.
+    transcript: String
+}
+
+/// Calls `run` with `input` as its standard input and answers what it
+/// returned together with everything it printed.
+///
+/// While `run` runs, `io.read_line` reads `input` one line at a time and
+/// answers `Err("eof")` once it is used up, and `io.print`, `io.write` and
+/// `io.inspect` append to `output` instead of writing to stdout. Tasks
+/// started inside `run` are captured too. `dbg`, `read_file` and
+/// `write_file` are not redirected. An inner `io.capture` takes over for
+/// its own call, so its output and reads land only in its own `Captured`.
+/// If `run` traps, the trap propagates and the captured output is dropped.
+///
+/// Passing a program's `main` is how a test checks what the program prints
+/// for a given input: `io.capture("the fox the dog\n", main)`. For a
+/// program that asks and answers in turn, `io.replay` reads better.
+//! run = capture("", || {
+//!     print("hi")
+//!     write(1)
+//!     42
+//! })
+//!
+//! assert run.value == 42
+//! assert run.output == "hi\n1"
+//!
+//! echo = capture("one\ntwo", || [read_line(), read_line(), read_line()])
+//! assert echo.value == [Result.Ok("one"), Result.Ok("two"), Result.Err("eof")]
+//! assert echo.output == ""
+//!
+//! asked = capture("Ada", || {
+//!     write("name: ")
+//!
+//!     case read_line() {
+//!         Ok(name) -> print("hello, ${name}")
+//!         Err(_) -> print("hello, stranger")
+//!     }
+//! })
+//!
+//! assert asked.output == "name: hello, Ada\n"
+//! assert asked.transcript == "> name: Ada\nhello, Ada\n"
+//
+pub fn capture<T>(input: String, run: () -> T): Captured<T> {
+    run_captured(input, run, |value, output, transcript| Captured{
+        value,
+        output,
+        transcript,
+    })
+}
+
+/// Calls `run` under a capture of `input` and hands its result, output and
+/// transcript to `finish`, which builds the `Captured`. Answered by the VM.
+host fn run_captured<T>(
+    input: String,
+    run: () -> T,
+    finish: (T, String, String) -> Captured<T>,
+): Captured<T>
+
+/// What `io.replay` answers. `assert` holds on it when the transcript
+/// matches the script, and its failure shows a line diff of the two. It
+/// does not hold what `run` returned; use `io.capture` to check that.
+pub struct Replayed {
+    /// Everything `run` printed, byte for byte, as in `Captured`.
+    output: String
+    /// The transcript, as `io.replay` compares it: each line without its
+    /// trailing whitespace and ending in a newline, the last one included.
+    transcript: String
+    /// The script, compared the same way.
+    expected: String
+    /// How many of the script's `>` lines `run` never read.
+    unread: Int
+}
+
+impl Assertable for Replayed {
+    fn failure(replayed: Replayed): Maybe<AssertionDetails> {
+        if replayed.transcript == replayed.expected and replayed.unread == 0 {
+            None
+        } else {
+            Some(AssertionDetails{
+                reason: replay_reason(replayed.unread),
+                actual: Some(replayed.transcript),
+                expected: Some(replayed.expected),
+            })
+        }
+    }
+}
+
+fn replay_reason(unread: Int): String {
+    case unread {
+        0 -> "the transcript differs from the script"
+        1 -> "1 input line of the script was never read"
+        n -> "${n} input lines of the script were never read"
+    }
+}
+
+/// Runs `run` against a script of an interactive session and answers a
+/// `Replayed` that `assert` checks: `assert io.replay(script, main)`.
+///
+/// The script is written as `Captured.transcript` reads. Each line that
+/// starts with `>` is input: what follows the `>` and one space is the line
+/// typed, fed to `io.read_line` in order. On a line where the program wrote
+/// a prompt before reading, the prompt comes first, as a terminal shows it:
+/// `> amount: 25` feeds `25` to a program that wrote `amount: `. Every other
+/// line is output the program must print. An output line that starts with
+/// `>` or `\` is written with a `\` in front.
+///
+/// `run` runs as under `io.capture`, and its transcript must equal the
+/// script. Trailing spaces, tabs and carriage returns on each line, and a
+/// final newline, do not count, so a `"""` script, which drops its last
+/// newline, matches output that ends in one. Once the script's input is
+/// used up, `io.read_line` answers `Err("eof")`, and that read adds nothing
+/// to the transcript. A `>` line the program never read fails the replay.
+/// A failure shows a line diff: `-` lines are only in the script, `+` lines
+/// only in what the program did.
+//! greet = || {
+//!     write("name: ")
+//!
+//!     case read_line() {
+//!         Ok(name) -> print("hello, ${name}")
+//!         Err(_) -> print("hello, stranger")
+//!     }
+//! }
+//!
+//! assert replay(
+//!     """
+//!     > name: Ada
+//!     hello, Ada
+//!     """,
+//!     greet,
+//! )
+//!
+//! assert replay(
+//!     """
+//!     name: hello, stranger
+//!     """,
+//!     greet,
+//! )
+//!
+//! refute replay(
+//!     """
+//!     > name: Ada
+//!     > name: Grace
+//!     hello, Ada
+//!     """,
+//!     greet,
+//! )
+//
+pub fn replay<T>(script: String, run: () -> T): Replayed {
+    run_replayed(script, run, |_, output, transcript, expected, unread| Replayed{
+        output,
+        transcript,
+        expected,
+        unread,
+    })
+}
+
+/// Calls `run` under a capture whose input is the script's `>` lines and
+/// hands `finish` its result, its output, the transcript and the script as
+/// replay compares them, and the count of input lines never read. Answered
+/// by the VM.
+host fn run_replayed<T>(
+    script: String,
+    run: () -> T,
+    finish: (T, String, String, String, Int) -> Replayed,
+): Replayed
 
 /// Reads the entire contents of `path` into a String.
 ///

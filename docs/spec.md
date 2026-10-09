@@ -145,7 +145,17 @@ n = Some(Ok(42)) // ✓ Maybe<Result<Int, ?>>
 xs = [1, 2, 3] // ✓ List<Int>
 ```
 
+The enclosing function's return type is an expected type only for the function's result: its tail, a `return`, and the arms of a `case` or `if` in tail position. In `fn g(s: String): Result<Unit, String>`, the binding `r = case s { "a" -> f(); _ -> Err("bad") }` types `Err("bad")` as `Result<?, String>`, which unifies with `f()`'s `Result<Int, String>`; the function's `Result<Unit, String>` plays no part.
+
 This is deliberately stricter than full inference: a binding's type is *not* rescued by a later use, even though the checker could solve it from that use. The local-readability requirement is a policy, independent of how far inference reaches. Turbofish itself is an ordinary call form — usable anywhere a call is, required only where a binding would otherwise be wholly unresolved. Each type argument is a type annotation, so a name that is no type is the same `unknown type "Nope"` error at the name (`ident<Nope>(1)`).
+
+A name a pattern binds (in a `case` arm, an `if Pattern = value`, a destructure, or a binding with `else`) is held to a narrower rule, checked once the whole file is: its type must not be wholly unknown. `Maybe.to_result(None, "none")` is `Result<?, String>`, so `Ok(z)` would bind `z` to a type nothing fixes, and that is an error at `z` unless the binding's `else` fallback or a later use of `z` fixes it. A name whose type only contains an unknown part, such as `a` in `(a, b) = (None, 1)`, is accepted.
+
+```nomi
+Ok(z) = Maybe.to_result(None, "none") else { return } // ✗ the type of 'z' is not determined
+
+Some(n) = None else { 0 } // ✓ the fallback makes n an Int
+```
 
 #### Determined type arguments
 
@@ -210,7 +220,7 @@ pub enum Error {
 fn validate_internal(c: Config): Bool { ... }              // private
 ```
 
-A file qualifies the declarations it exports. Other files import the file and call through its file API object (`io.print(...)`, `io.IOError.NotFound{...}`). The file API object is only a qualifier: `io` alone, as a statement, a bound value or an argument, is the error `` `io` is a file, not a value ``. Inside the defining file, sibling declarations remain bare (`IOError`, `print`). Plain imports are lexical aliases only; import entries with `export` re-export from the current file, so an exported import becomes part of that file's public surface.
+A file qualifies the declarations it exports. Other files import the file and call through its file API object (`io.print(...)`, `io.IOError.NotFound{...}`). The file API object is only a qualifier: `io` alone, as a statement, a bound value or an argument, is the error `` `io` is a file, not a value ``. Inside the defining file, sibling declarations remain bare (`IOError`, `print`). Plain imports are lexical aliases only. An imported item marked `export` is re-exported by the current file and becomes part of its public surface; a file itself is never re-exported, so a file's public surface is its own declarations and the items it lists.
 
 ```nomi
 pub enum IOError {
@@ -270,17 +280,22 @@ This prevents private types from leaking into the public API. If a type appears 
 
 ### Re-exporting imported names
 
-A file or module can re-export names it imports, making them part of its own public surface. This is opt-in: an `import` is private by default; adding the `export` modifier promotes the imported name(s) to public.
+A file or module can re-export items it imports, making them part of its own public surface. This is opt-in: an `import` is private by default; adding the `export` modifier promotes the imported items to public.
 
 ```nomi
 // Per-item re-export.
 import other.{Helper export as Helpr, Internal, Thing export}
 
 // Line-level shorthand — every selected item re-exported under its imported name.
-import std/io.{self, IOError} export
+import std/io.{IOError, print} export
+
+// An owner type and its variants, re-exported together.
+import std/bool.Bool.{self, False, True} export
 ```
 
 Rules:
+
+- **Items only, never a file.** A facade publishes exactly the items it lists. Re-exporting a file is a compile-time error at the `export`, in every spelling: `import leaf export`, `import leaf as lf export`, and a brace list whose `self` is the file (`import std/io.{self, IOError} export`) all report `` `leaf` is a file, and a file cannot be re-exported ``, with a hint to list the items or have importers import the file directly. `self` after an owner type (`Bool.{self, False, True}`) is the type, not a file, and re-exports like any item. A file a facade imports is not one of its items either: `import facade.{leaf}` is the error `` `leaf` is a file that `facade` imports, not an item it exports; import `leaf` directly ``.
 
 - **Per-item placement.** `export` follows the optional `as <Local>` rename: `Name [as Local] [export [as Pub]]`. The `Local` (if any) governs the local binding; the `Pub` (if any) governs the externally-visible name.
 - **Line-level placement.** `export` follows the full import entry and re-exports every selected item under its imported name: `import path.{A, B} export`. Use braces when the selector needs per-item detail (`A export as Pub`, `A as Local`) or an owner selector (`Owner.{self, A, B}`). There is no line-level `export as <Alias>` for multi-name selector lists, since there is no single name to rename. Use per-item `export as` inside braces instead.
@@ -317,7 +332,7 @@ fn add(x: Int, y: Int): Int {
 }
 ```
 
-- Type annotations required on parameters and every non-`Unit` return type; omitting the return annotation means the function returns `Unit`. A parameter written without a type, in a `fn`, an impl's or an interface's function, or a `host fn`, is the error `parameter 'x' needs a type annotation`; an interface implementation's parameters are written out, not taken from the interface. Only a lambda's parameter types may be inferred.
+- Type annotations required on parameters and every non-`Unit` return type; omitting the return annotation means the function returns `Unit`. A parameter written without a type, in a `fn`, an impl's or an interface's function, or a `host fn`, is the error `parameter 'x' needs a type annotation`; an interface implementation's parameters are written out, not taken from the interface. A parameter needs a name too: a type alone, `fn echo(String): String`, is the error `parameter 'String' needs a name`, for a `go`-bound `fn` as for any other. Only a lambda's parameter types may be inferred. A lambda's parameter needs a name as well: `|String| 1` is the same error, whether or not a function type is expected for the lambda.
 - Types inferred within function body
 - Function bodies always render across multiple lines — `fn add(x: Int, y: Int): Int { x + y }` reformats to the multi-line shape shown above. This matches the dominant convention from gofmt, Prettier, dart format, zig fmt, swift-format, and rustfmt's default. Empty bodies stay flat as `{}`. The rule applies to top-level `fn`s, impl-block functions, and interface default functions; inline expression-position blocks like `if cond { x }` keep their flat form (see §11).
 - Last expression is the return value
@@ -630,7 +645,7 @@ Explicit, using `_` placeholder. `_` as a bare function argument creates a parti
 add(1, _) // same as |x| add(1, x)
 ```
 
-Each `_` leaves exactly one argument open. Can be named. Defaults are preserved.
+Each `_` leaves exactly one argument open. Can be named. Defaults are preserved. A `_` is an argument, so a partial application is held to the callee's argument count as a full call is: `add(_, 1, 2)` against a two-parameter `add` is the error `expected 2 arguments, got 3`, and `add(_)` leaves `b` with nothing.
 
 A partial application is a function of its open arguments, in the order the `_`s are written, returning the callee's result. Where a function type is expected, that function meets it, and a generic callee's type parameters are solved from it: `f: (Int) -> Int = pick(True, _, 4)` instantiates `pick` at `Int`.
 
@@ -754,13 +769,13 @@ parentheses is a function reference wherever it stands, as in
 offers a quick fix that appends the `()`. A `.Variant` stage is a call
 written through its enum (`x |> Shape.Dot()`), since a bare `.Variant`
 stage cannot see its enum (§8). The stages that are not calls are the
-`then` stage and the keyword stages below.
+`then` and `tap` stages and the keyword stages below.
 
 **A lambda's body runs to the end of its expression,** or to the `)`, `]`,
 `}` or `,` that closes the construct it stands in. A `|>` inside it belongs
 to the body: `Iter.map(xs, |s| String.to_int(s) |> Maybe.with_default(0))`
 maps each string to an `Int`, and `|n| n * 2 |> dbg` is a lambda whose body
-ends in `dbg`. The one exception is the lambda of a `then` stage.
+ends in `dbg`. The one exception is the lambda of a `then` or `tap` stage.
 
 **The `then` stage:** `x |> then |v| body` applies the lambda to the piped
 value, as `(|v| body)(x)` would. The lambda takes one parameter, which may
@@ -785,6 +800,42 @@ and stands only after `|>`; a keyword stage does not prefix it
 (`|> try then |v| ...` is an error), so a `try` after a `then` is its own
 stage. `nomi fmt` puts each stage of a pipeline with a `then` stage on its
 own line.
+
+**The `tap` stage:** `x |> tap |v| body` runs the lambda on the piped value
+for its effect and passes the value on unchanged. The value is computed once,
+and the lambda runs exactly once, at that point in the pipeline:
+
+```nomi
+import std/io
+
+fn main() {
+    shout =
+        "go north now"
+        |> String.words()
+        |> tap |words| io.print("got ${Iter.count(words)} words")
+        |> Iter.map(String.to_upper)
+        |> String.join(" ")
+
+    io.print(shout)
+}
+```
+
+This prints `got 3 words`, then `GO NORTH NOW`. The lambda is a `then`
+lambda in every other way: it takes one parameter, which may be a
+destructuring pattern; its bare body ends at the next `|>`, and braces keep a
+pipe inside it; a keyword stage does not prefix it (`|> try tap |v| ...` is
+an error), so a `try` before or after a `tap` is its own stage. `tap` is a
+reserved word and stands only after `|>`.
+
+The lambda must return `Unit`, because the stage discards its result. A body
+whose value is not `Unit` is the error `` `tap` passes its input on unchanged,
+so its lambda must return Unit; got Int ``, whose help says to use `then` to
+replace the value. A body may end in a `dbg` observation (`tap |v| dbg v`), as
+a `Unit` function body may. `try` and `return` inside the lambda exit the
+lambda, as they do in any lambda, so a body that uses `try` answers a
+`Result` or a `Maybe` and is rejected: handle the failure inside the body, or
+use `then`. `nomi fmt` stacks a pipeline with a `tap` stage as it does one
+with a `then` stage.
 
 **Keyword stages:** `dbg` and `try` are unary pipe stages. Read them as
 built-in one-argument functions over the current pipe value, written without
@@ -1082,7 +1133,7 @@ fn main() {
 }
 ```
 
-The positions that supply the struct are the ones that supply an enum to `.Variant` (see *Variant resolution*): an annotated binding or `once`, a struct field in construction, a function or constructor argument, a return value or block tail, an element of a typed `List`, `Set`, `Vector` or `Map` literal, a `case` or `if` arm whose result has an expected type, and a generic position once its type argument is known (`b: Box<Int> = {item: 3}` builds `Box<Int>`; `Some({street: "1 Main", city: "Bath"})` under `Maybe<Address>` builds an `Address`).
+The positions that supply the struct are the ones that supply an enum to `.Variant` (see *Variant resolution*): an annotated binding or `once`, a struct field in construction, a function or constructor argument, a return value or block tail, an element of a typed `List`, `Set`, `Vector` or `Map` literal, a `case` or `if` arm whose result has an expected type, an operand of `==`, `!=`, `<`, `>`, `<=` or `>=` (`p == {x: 1, y: 2}` builds `p`'s struct), and a generic position once its type argument is known (`b: Box<Int> = {item: 3}` builds `Box<Int>`; `Some({street: "1 Main", city: "Bath"})` under `Maybe<Address>` builds an `Address`).
 
 The literal follows the ordinary construction rules and builds exactly the value `Address{...}` builds: every field without a default is given, defaults fill in the rest, an unknown field is rejected, and an opaque struct is constructed this way only in its defining file. Errors name the struct: `missing field 'street' of Address`, `field 'city' of Address: expected String, got Int`, `Address has no field 'zip'`.
 
@@ -1409,7 +1460,7 @@ c: Color = .Red // bare-payload form
 paint(.Red) // expected type Color from paint's signature
 ```
 
-This rule eliminates the need for typed bindings purely for type widening. You never need to write `x: Animal = Animal.Dog("Rex")` because `Animal.Dog("Rex")` is already an `Animal`. Embedded structs and embedded distinct types can also be used as **parameter types** for narrowing (see "Variants as Parameter Types" below). This is a function signature feature — callers still pass enum-typed values, and the runtime narrows at the call boundary.
+This rule eliminates the need for typed bindings purely for type widening. You never need to write `x: Animal = Animal.Dog("Rex")` because `Animal.Dog("Rex")` is already an `Animal`. Embedded structs and embedded distinct types can also be used as **parameter types** (see "Variants as Parameter Types" below). Such a parameter takes a value of the embedded type, not of the enum: a `Shape` may hold another variant, so a caller holding a `Shape` matches it first (see "Type Narrowing").
 
 When a file works heavily with one enum, an owner selector can lift specific variants into bare scope (see §21):
 
@@ -1483,7 +1534,7 @@ Qualified pattern forms (`Shape.Circle{radius} -> ...`) are also accepted when d
 
 ### Variant Resolution
 
-A `.Variant` expression (or `.Variant(payload)` / `.Variant{fields}` / `.Variant[elements]`) resolves to the variant `Variant` of enum `E` when, at the expression's syntactic position, the **expected type** — as determined by the checker's standard outside-in walk from the position to the enclosing declaration — is `E`. The walk passes through transparent constructs (`case`/`if-else` arm result positions, block-expression returns, `return` statements, list, tuple and map literal elements, and generic-function argument positions whose `T` is constrained by the call's return type against an outer expected type, including the head of a pipe into such a call). The constraint is solved before the arguments are checked, so it reaches a variant nested anywhere inside them: `exits: Map<Direction, Place> = Iter.to_map([(.North, .Cave)])` checks the list against `Iter<(Direction, Place)>`. A list, vector or set literal checked against `Iter<T>` checks each item against `T`, as it would against `List<T>`. A **generic variant constructor** is exactly such a position: `Ok(.Quit)` in a `fn (): Result<Input, String>` resolves `.Quit` to `Input.Quit`, because `Ok`'s payload param is pinned from `Ok`'s `Result<T, E>` return against the outer `Result<Input, String>` — and likewise inside a `case`/`if` arm, an annotated binding, or an argument slot. It does **not** look at later uses, unannotated `=` bindings, a bare `.Variant` standing alone as a **pipe stage** (`… |> .Guess() |> Ok()`, where the enum would have to be read from the downstream `Ok()`), or any other site that would require backward inference. This matches Nomi's broader explicit-types philosophy — the same outside-in walk the checker already does for ordinary type checking, reused for variant resolution.
+A `.Variant` expression (or `.Variant(payload)` / `.Variant{fields}` / `.Variant[elements]`) resolves to the variant `Variant` of enum `E` when, at the expression's syntactic position, the **expected type** — as determined by the checker's standard outside-in walk from the position to the enclosing declaration — is `E`. The walk passes through transparent constructs (`case`/`if-else` arm result positions, block-expression returns, `return` statements, list, tuple and map literal elements, and generic-function argument positions whose `T` is constrained by the call's return type against an outer expected type, including the head of a pipe into such a call). The constraint is solved before the arguments are checked, so it reaches a variant nested anywhere inside them: `exits: Map<Direction, Place> = Iter.to_map([(.North, .Cave)])` checks the list against `Iter<(Direction, Place)>`. A list, vector or set literal checked against `Iter<T>` checks each item against `T`, as it would against `List<T>`. An operand of `==`, `!=`, `<`, `>`, `<=` or `>=` is a determining position too: the two operands have one type (§22), so each is checked against the other's. The operand whose type depends on its position (a `.Variant` in any spelling, or a brace literal with no type name) is checked second, against the type of the other: `k == .Deposit` and `.Deposit == k` both resolve against `k`'s enum, and `p == {x: 1, y: 2}` builds `p`'s struct. The comparison's own expected type (`Bool`, or none at a statement or `if` condition) is never its operands'. When both operands are dot-leading (`.Deposit == .Withdrawal`), neither names the enum, and the comparison is an error that asks for one to be qualified. A **generic variant constructor** is exactly such a position: `Ok(.Quit)` in a `fn (): Result<Input, String>` resolves `.Quit` to `Input.Quit`, because `Ok`'s payload param is pinned from `Ok`'s `Result<T, E>` return against the outer `Result<Input, String>` — and likewise inside a `case`/`if` arm, an annotated binding, or an argument slot. It does **not** look at later uses, unannotated `=` bindings, a bare `.Variant` standing alone as a **pipe stage** (`… |> .Guess() |> Ok()`, where the enum would have to be read from the downstream `Ok()`), or any other site that would require backward inference. This matches Nomi's broader explicit-types philosophy — the same outside-in walk the checker already does for ordinary type checking, reused for variant resolution.
 
 Concrete consequences:
 
@@ -1505,11 +1556,15 @@ Concrete consequences:
 | `Ok(.Guess(n))` in a `case`/`if` arm | ✓ expected type flows from the arm |
 | `c: Color = if cond { .Red } else { .Blue }` | ✓ annotation propagates through if |
 | `pub fn default_color(): Color { .Red }` | ✓ annotated return position |
+| `c == .Red`, `.Red != c`, `if c == .Red { … }` (`c: Color`) | ✓ the other operand's type is `Color` |
+| `size < .Large` (`size: Size`, `Size` is `Comparable`) | ✓ the other operand's type is `Size` |
+| `p == {x: 1, y: 2}` (`p: Point`) | ✓ builds a `Point` from the other operand's type |
 | Patterns: `case (jv: Json) { .Obj{...} -> ... }` | ✓ scrutinee's type is enum |
 | `c = .Red` (unannotated binding) | ✗ no enclosing expected type |
 | `id(.Red)` alone (statement position) | ✗ `T` unconstrained |
 | `c = id(.Red); paint(c)` | ✗ would require backward flow from `paint` |
 | `… \|> .Guess() \|> Ok()` (bare `.Variant` pipe stage) | ✗ would require backward flow from the next stage — qualify it (`Input.Guess()`) |
+| `.Red == .Blue` | ✗ neither operand names the enum — qualify one (`Color.Red == .Blue`) |
 | `paint(.NotAColor)` (Color has no `NotAColor`) | ✗ enum found, variant absent |
 | `f(.Red)` where `f` takes `Box` | ✗ expected type isn't an enum |
 
@@ -1525,7 +1580,7 @@ Concrete consequences:
 
 ### Field Accessors
 
-`.name` is a function that reads field `name` from its argument. A lower-case name after the leading dot is a field; a capitalized one is a `.Variant`. A chain `.address.city` reads `address`, then `city` from it, and a tuple index reads an element (`.0`, `.1`).
+`.name` is a function that reads field `name` from its argument. A lower-case name after the leading dot is a field; a capitalized one is a `.Variant`. A chain `.address.city` reads `address`, then `city` from it, and a tuple index reads an element (`.0`, `.1`, or `.1.0` for the first element of the second).
 
 ```nomi
 names = users |> Iter.map(.name) |> Iter.to_list()
@@ -1534,7 +1589,7 @@ cities = users |> Iter.map(.address.city) |> Iter.to_list()
 seconds = pairs |> Iter.map(.1) |> Iter.to_list()
 ```
 
-An accessor stands only where a function is expected, and it resolves by the same outside-in walk as a `.Variant`. The expected type must be a function type `(S) -> R` of one parameter, and S must be known at the accessor's position: an annotation, a declared parameter type, or a generic parameter that an earlier argument or the piped value has already pinned. S must be a struct, an anonymous struct or a tuple (or an interface or bounded type parameter, through its `field` requirements). The accessor's type is `(S) -> F`, where F is the type of the last field read, and R unifies with F as a lambda's result would. In `Iter.map(users, .name)` the first argument pins `T` to `User` before `.name` is checked, so `.name` is `(User) -> String` and the call returns `Iter<String>`.
+An accessor stands only where a function is expected, and it resolves by the same outside-in walk as a `.Variant`. The expected type must be a function type `(S) -> R` of one parameter, and S must be known at the accessor's position: an annotation, a declared parameter type, or a generic parameter that an earlier argument or the piped value has already pinned. S must be a struct, an anonymous struct or a tuple. The accessor's type is `(S) -> F`, where F is the type of the last field read, and R unifies with F as a lambda's result would. In `Iter.map(users, .name)` the first argument pins `T` to `User` before `.name` is checked, so `.name` is `(User) -> String` and the call returns `Iter<String>`.
 
 A generic struct is read at its instantiation: over a `List<Box<Point>>`, `.value` is `(Box<Point>) -> Point`. A field that holds a function is returned, not called: with `handler: (Request) -> Response`, `.handler` is `(Server) -> (Request) -> Response`.
 
@@ -1613,6 +1668,19 @@ shapes: List<Shape> = [Circle{radius: 5.0}, Shape.Rectangle{width: 3.0, height: 
 > are both `unknown type` errors. Declare the payload as a struct and
 > `embeds` it when a function needs to take that one variant. Track via
 > `feature-status.md`.
+
+**Embedded subtyping goes one way.** A value of an embedded type is accepted wherever its enum is expected: an argument, an annotated binding, a field, a return, a list, map or set element, and a type argument of any of those (`List<Circle>` where `List<Shape>` is expected). An enum is never accepted where one of its embedded types is expected, at any of those positions, since a `Shape` may hold a variant other than `Circle`. `area(shape)` with `shape: Shape` is the error "argument 1: expected Circle, got Shape", whose help says to match the value first. The only way to get a `Circle` from a `Shape` is to match it: in an arm whose pattern is `.Circle{...}`, the matched name is a `Circle` (see "Type Narrowing"):
+
+```nomi
+fn total(shape: Shape): Float {
+    case shape {
+        .Circle{} -> area(shape) // shape is a Circle in this arm
+        _ -> 0.0
+    }
+}
+```
+
+Where a `Circle` and a `Shape` meet without a direction, as the two branches of an `if` or `case`, the elements of an unannotated list or map, or two arguments of one generic parameter, the result is the `Shape`. `==` compares a `Circle` with a `Shape` as two `Shape`s. An impl function follows the same rule against its interface: it may not take a `Circle` where the interface's parameter is a `Shape`, nor return a `Shape` where the interface returns a `Circle`.
 
 ### Embedded Types
 
@@ -1840,7 +1908,7 @@ outcome = concurrent {
 }
 ```
 
-`try` sites that unwrap `Result`s with incompatible error types in the same boundary are rejected (the boundary's error type would be ambiguous). A `try` on a `Maybe` contributes no error type, so `Maybe`-tailed boundaries are unaffected.
+`try` sites that unwrap `Result`s with incompatible error types in the same boundary are rejected (the boundary's error type would be ambiguous). A `try` on a `Maybe` contributes no error type, so `Maybe`-tailed boundaries are unaffected. When no `try` site fixes the error type, as in a `concurrent` block whose only `try` is `try Ok(3)`, it stays open, as `Ok(1)`'s does (see "Determined type arguments"), and the result is a value like any other: it can be matched, compared and interpolated.
 
 Clause 3 therefore does not arise at an inferring boundary — the error type IS the `try` sites' — but clauses 1 and 2 still do, and they are checked against the result the body PRODUCED rather than against a declaration:
 
@@ -1954,7 +2022,7 @@ case shape {
 
 A guard is a Bool expression: `n when n + 1 -> ...` is the error `` `when` guard must be Bool, got Int ``.
 
-`or` between patterns requires all patterns to bind the same variables.
+`or` between patterns requires all patterns to bind the same variables. An `as` after the last alternative names the whole value whichever alternative matched (*Naming the Whole Match*).
 
 > **Status: not yet implemented.** `when` guards work; `or` between patterns
 > does not. The parser reports `expected '->' in case branch` at the `or`,
@@ -1990,9 +2058,58 @@ case user {
 
 A written type name must name the value's struct, directly or through a `typealias`; any other name is a compile error at the pattern. A typed pattern does not match an anonymous struct: `User{name} = {name: "Ada"}` is an error, and `{name} = {name: "Ada"}` destructures it.
 
+### Naming the Whole Match: `as`
+
+`P as name` matches the pattern `P` and also binds the whole value `P` matched to `name`. It reads a value's shape and keeps the value itself:
+
+```nomi
+import std/io
+
+enum Kind {
+    Deposit
+    Withdrawal
+}
+
+struct Transaction {
+    kind: Kind
+    starting_balance: Int
+    ending_balance: Int
+}
+
+fn describe(result: Result<Transaction, String>): String {
+    case result {
+        Ok(Transaction{kind: .Deposit} as t) -> "deposited ${t.ending_balance - t.starting_balance}"
+        Ok(t) -> "withdrew ${t.starting_balance - t.ending_balance}"
+        Err(msg) -> msg
+    }
+}
+
+fn main() {
+    io.print(describe(Ok(Transaction{kind: .Deposit, starting_balance: 10, ending_balance: 25})))
+    io.print(describe(Ok(Transaction{kind: .Withdrawal, starting_balance: 25, ending_balance: 5})))
+    io.print(describe(Err("no account")))
+}
+```
+
+The rules:
+
+- **`as` binds looser than every other pattern construct.** It names everything to its left within its pattern position: `Ok(x) as r` binds `r` to the whole `Result`, `Ok(Transaction{..} as t)` binds `t` to the payload, and `"/users/" + id as path` binds `path` to the whole string. Parentheses are only grouping: `(Ok(x)) as r` is `Ok(x) as r`.
+- **The name is a binding name**, snake_case, not a pattern: `P as Big`, `P as _` and `P as (r)` are parse errors (`expected a binding name after `as` in a pattern`).
+- **The name's type is the type of the position the pattern sits in**: the scrutinee's type at the top of a `case` arm, the payload's type inside a variant, the element's inside a list or tuple, the value's inside a map entry, the field's inside a struct pattern. `P` does not narrow it: `Ok(_) as r` over a `Result<Int, String>` binds `r` as a `Result<Int, String>`.
+- **`as` never changes what a pattern matches.** `P as name` is refutable exactly when `P` is, and a `case` is exhaustive with it exactly when it is without it.
+- **An `as` must add a name.** `y as x` is the error ``` `y as x` binds the same value twice; use one name ```, `P as a as b` is ``` `as a as b` binds the same value twice; use one name ```, and `_ as x` is ``` `_ as x` matches every value, as `x` does; write `x` ```.
+- **A pattern binds each name once**, the `as` name included: `Some(n) as n` is the error ``` `n` is bound twice in one pattern; give each binding its own name ```, at the second `n`.
+- **The name follows the rules of any other pattern name**: it is in scope in the arm's guard and body (or after the binding), may shadow an earlier binding, must be read unless it starts with `_`, and an `_name` is a discard.
+
+`as` is allowed wherever a pattern is: `case` arms (piped ones too), `if P as name = v`, bindings and bindings with `else` (`Some(n) as m = find() else { return 0 }`), `assert P as name = v`, parameter and lambda-parameter patterns (irrefutable ones, as always: `fn total((a, b) as pair: (Int, Int))`, `|{x, y} as p| ...`), a test's setup pattern, and nested inside variant payloads, tuples, lists, maps and struct fields.
+
+A binding's `else` fallback stands in for the payload of the variant the pattern names (*Bindings with `else`*), so an `as` around the whole pattern rules a fallback out: in `Some(n) as m = find() else { 0 }` the fallback supplies `n` but there is no `Maybe` to bind to `m`, and the error is the one for a pattern with no single payload. An `as` inside the payload is fine: `Ok((w, h) as size) = r else { (80, 24) }` binds `size` to the fallback when `r` is an `Err`.
+
+With `or` between patterns (*Guards*), `as` binds looser than `or`: `.Circle{r} or .Square{r} as s` names the whole value either alternative matched.
+
 ### Type Narrowing
 
-When pattern matching on an enum, the matched value's type is narrowed to the variant's type within that branch. This applies to embedded types and struct variants:
+When pattern matching on an enum, the matched value's type is narrowed to the variant's type within that branch. A variant that has a type of its own is an `embeds` variant, so narrowing applies to embedded structs and embedded distinct types:
 
 ```nomi
 fn describe(value: Shape): String {
@@ -2005,6 +2122,9 @@ fn describe(value: Shape): String {
 ```
 
 Inside the `Circle` branch, `value` is narrowed from `Shape` to `Circle`. You can pass it to any function expecting a `Circle`, or call `Circle`'s interface implementations on it.
+
+- **What narrows is a name.** The matched value must be a parameter or a local binding written as a plain name (`case value`, not `case w.shape` or `case load()`). Every read of that name in the arm's guard and body is the narrowed value, lambdas created there included. A name the arm rebinds is a new binding and is not narrowed.
+- **Where it narrows.** A `case` arm, and the first branch of `if Pattern = name`, whose pattern matches one `embeds` variant: `.Circle{radius}`, `Shape.Circle{radius: r}` and `.Id(n)` for an embedded distinct `Id` all narrow. An `as` around the pattern narrows the name as it would without the `as` (the `as` name itself keeps the type of its position, as *Naming the Whole Match* says). An `or` pattern, a struct-shaped or positional variant, the `else` branch and a binding with `else` and a piped `case` narrow nothing.
 
 A narrowed value can still be passed to functions expecting the original enum type — a `Circle` is always a valid `Shape`.
 
@@ -2202,7 +2322,7 @@ The braces hold case arms when their first item is `pattern ->` (or `pattern whe
 - A fallback is allowed only when the pattern names one variant with a payload, `Variant(inner)` or `.Variant{fields}`, whose own pattern always matches. The fallback's type is the payload's (for a struct-shaped variant, the anonymous struct of its fields), and the inner pattern binds from it exactly as it would from a match: `Some(email) = m else { "none" }` binds `email` to `"none"`, and `Ok((w, h)) = r else { (80, 24) }` binds `w` to 80 and `h` to 24. A fallback of another type is the error `the fallback stands in for Some's payload of type String, got Int`.
 - A pattern with no single payload to stand in for — a list pattern such as `[first, ..rest]`, a nested refutable pattern such as `Ok(Some(x))`, a literal, a tuple with a refutable part — requires every path to leave. A path that produces a value is the error `this pattern has no single payload a fallback could stand in for; every path through `else` must return, break or continue`.
 - A pattern that always matches takes no `else`: `(x, y) = pair else { ... }` is the error `this pattern always matches; remove the else`.
-- A pattern that can fail requires one. `Some(n) = maybe` alone is the error `this pattern can fail to match a value of type Maybe<Int>; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr``.
+- A pattern that can fail requires one. `Some(n) = maybe` alone is the error `this pattern can fail to match a value of type Maybe<Int>; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr``. On `Ok(x)` over a `Result` or `Some(x)` over a `Maybe` its help points at `try`, which unwraps the value and returns early on `Err` or `None`: write `x = try ...`, or, when the value is a pipe, end it with `|> try`.
 - `try` inside the `else` behaves as it does anywhere: it exits the enclosing function or lambda. `return` inside a lambda's `else` exits the lambda.
 
 ```nomi
@@ -2262,6 +2382,14 @@ label = if Some(name) = maybe_name {
 The pattern bindings are visible only in the then branch. If the pattern does
 not match, the else branch runs; without an else branch the expression evaluates
 to `Unit`, like any other `if` without `else`.
+
+The pattern must be able to fail. One that matches every value of the value's
+type (a name, `_`, a tuple of names, a distinct type or struct destructure, a
+single-variant enum) tests nothing, and is the error `this pattern always
+matches a value of type Int, so the `if` has nothing to test; bind it on its
+own line with `pattern = value``. `if x = 0` binds a new `x` to 0; when an `x`
+of the value's type is already in scope, the help says to write `if x == 0` to
+compare it.
 
 `else if` for a few branches:
 
@@ -2769,7 +2897,7 @@ An interface body is an item list. Each item's *form* determines its role, on tw
 | `host fn` (no body) | **Host-backed default** — provided by the runtime to every implementor; final. |
 | `open host fn` (no body) | **Open host-backed default** — host-provided; an impl may override it. |
 
-`open` is the overridability axis; the body source (Nomi `{ … }`, host-provided, or none) is the other. Plus one non-function item kind: `field name: Type` declares a **field requirement** (see *Field Requirements* below), which an interface may declare alongside any number of functions.
+`open` is the overridability axis; the body source (Nomi `{ … }`, host-provided, or none) is the other. Every item is a function: an interface declares no fields (see *Requiring a Value* below).
 
 Every bodied/host item is part of the contract (a default), reachable both interface-qualified (`Iter.known_count(xs)`) and type-qualified on an implementor (`List.known_count(xs)`) with full generic inference — the two are the *same* function, selected by the concrete type bound to `self`. Operations that take no `self` are **not** interface functions — put them in an inherent `impl Iface { ... }` block beside the interface and call them owner-qualified (`Iter.from(0)`).
 
@@ -2833,54 +2961,40 @@ The final-by-default rule is the same intuition as a `final` method in Java/C# o
 
 **Host-backed defaults** (`host fn` / `open host fn`) are the home for operations the runtime implements rather than Nomi. They behave like any other default (provided to every implementor, dispatched), but the body comes from the host; `open host fn` permits a type to ship a specialized override. `Iter`'s own `known_count` is the mirror image: an `open` *Nomi* default returning `None`. `List` overrides it with a host-backed `host fn known_count`, while `Vector` overrides it by returning `Some(Vector.length(vector))`; both give `Iter.count` an O(1) fast path (§19). The generic iteration *algorithms* themselves — `reduce`/`find`/`sort`/`map`/`count`/… — are **not** interface defaults at all: they're non-dispatched owner functions (`reduce`/`sort_with` host-backed, the rest Nomi-bodied), so the host-backed-default feature is used by `Iter` only for the `known_count` override path.
 
-### Field Requirements
+### Requiring a Value
 
-In addition to function signatures, an interface body can declare `field name: Type` requirements. Any struct that satisfies the interface — asserted with an `impl Iface for Struct { ... }` block — must declare a field of that name with that exact type:
+An interface declares functions only. To require that every implementor supply a value, declare a function requirement and read the value with a qualified call:
 
 ```nomi
 struct Tag {
     id: Int
 }
 
-struct Logger {
-    name: String
-}
-
 pub interface Tagged {
-    field tag: Tag
+    fn tag(value: self): Tag
 }
 
 struct Event {
     tag: Tag
     name: String
-    logger: Logger
 }
 
-impl Tagged for Event
-
-```
-
-Fields are **required-only** — interfaces never carry default values; the implementing struct's field declaration owns its default. Field types are matched Nomi-nominally (`field logger: Logger` requires the impl struct's field to be exactly `Logger`-typed, not `ProdLogger` even when both share a shape).
-
-An `impl Iface for Struct` declaration is what asserts a struct satisfies a fields-bearing interface; without it, the analyzer has no fact to validate. For a fields-only interface there are no functions to implement, so the body is omitted and the declaration exists purely to declare the conformance. A struct can implement several field-bearing interfaces with one declaration per interface; each is checked independently against its interface's field set:
-
-```nomi
-struct Handler {
-    context: Context
-    logger: Logger
+impl Tagged for Event {
+    fn tag(event: Event): Tag {
+        event.tag
+    }
 }
 
-impl HasContext for Handler
-
-impl HasLogger for Handler
-
+fn tag_id<T>(x: T): Int where T: Tagged {
+    T.tag(x).id
+}
 ```
 
-For a **mixed** interface (fields + functions), the `impl Iface for Struct { ... }` block asserts the field requirements and its functions supply the function contract. For a **functions-only** interface, omitting a required function is an error. For a **fields-only** interface, the bodyless `impl Iface for Struct` declaration is the whole declaration.
+A struct implements the requirement by returning its field; an enum, a distinct type or any other receiver implements it with whatever computation produces the value. The call is spelled as the dispatch it is: `Tagged.tag(e)` on a value of interface type, `T.tag(x)` through a bound, `Event.tag(e)` on the concrete type.
 
-Only a struct can satisfy a field-bearing interface, and the compiler rejects any other receiver rather than accepting it vacuously. `impl Tagged for Color` on an `enum Color` is an error — `'Color' is an enum, so it declares no fields, and interface 'Tagged' requires field 'tag: Tag'` — because a `field` requirement is a claim about STORAGE and only a struct declares storage. The requirement exists so that `t.tag` on a `Tagged`-typed value cannot fail; a receiver whose kind declares no fields would break exactly that guarantee. When the value a non-struct can supply is what the contract is about, declare a function requirement instead (`fn tag(value: self): Tag`), which any receiver kind can implement and whose call site `Tagged.tag(x)` is spelled as the dispatch it is.
+`field name: Type` in an interface body is a parse error that names the replacement: ``interfaces declare functions only; replace `field tag: Tag` with a function requirement such as `fn tag(value: self): Tag` ``. A value of interface type or of type-parameter type has no fields, so `x.tag` on one is an error (§14 *Member access is fail-loud*).
 
-A generic interface's requirement is compared after its type arguments are substituted, so `interface Container<T> { field items: List<T> }` is satisfied by `struct Box { items: List<Int> }` under `impl Container<Int> for Box`, and refused by `items: List<String>`. A requirement may also name `self`, which means the implementing type: `field next: self` on `impl H for S` requires `next: S`.
+An interface whose functions all have defaults, or one that declares none, is implemented by a bodyless declaration, `impl Iface for Type`, which is the same as an empty body.
 
 ### Implementations
 
@@ -3125,7 +3239,7 @@ impl Formatted for Report {
 
 ### Parameter and Return Type Matching
 
-An implementation function's parameter and return types must match the interface function's, after the impl header's type arguments replace the interface's type parameters. The impl's own type parameters are fixed inside the impl: where the interface requires `T`, the function takes or returns `T`, never a concrete type and never another of the impl's parameters. A function-level type parameter may be renamed, but each one of the interface function's corresponds to exactly one of the implementation's: the implementation may not fix it to a concrete type, merge two into one, or replace it with one of the impl's parameters.
+An implementation function's parameter and return types must match the interface function's, after the impl header's type arguments replace the interface's type parameters and the block's receiver replaces `self`. That holds for every function, including one that names `self` only in its return type (`fn make(n: Int): self` implemented for `Day` returns `Day`), and a function the interface declares with no return type returns `Unit` in the implementation too. Each of the header's type arguments must name a type: `impl Add<Dbys, Day> for Day` is the error `unknown type "Dbys"`. A mismatch names the function the implementation must write, such as ``interface 'Add<Days, Day>' requires `fn add(lhs: Day, rhs: Days): Day` ``. The impl's own type parameters are fixed inside the impl: where the interface requires `T`, the function takes or returns `T`, never a concrete type and never another of the impl's parameters. A function-level type parameter may be renamed, but each one of the interface function's corresponds to exactly one of the implementation's: the implementation may not fix it to a concrete type, merge two into one, or replace it with one of the impl's parameters.
 
 ```nomi
 interface Store<K, V> {
@@ -3185,6 +3299,8 @@ fn sort<T>(list: List<T>): List<T> where T: Comparable
 ```
 
 `T` must implement `Comparable`. The compiler rejects calls with types that don't satisfy the bound: `sort([(1, 2)])` fails with ``no impl of `Comparable` for `(Int, Int)`; tuple types cannot implement `Comparable` ``.
+
+The error's help offers what the program can write. For a type it declares, that is `derive` when the interface is derivable (§38.1) and an impl block spelled with the interface's required functions (``write an `impl Shape for Point` block with `fn area(s: Point): Float` ``). Where it declares neither the type nor the interface, the orphan rule forbids the impl, and the help says so. For an interface at most four types implement, it names them: `String.split("a1b", 1)` reports ``Int does not implement Matcher (required by `where M: Matcher`)`` with the help ``only std can implement `Matcher` for `Int`; `Regex` and `String` implement it``. For one that more types implement, it says to wrap the type: ``only std can implement `Hashable` for `Unit`; wrap it in a type of your own that implements `Hashable` ``.
 
 Multiple bounds are joined with `and`:
 
@@ -3448,7 +3564,7 @@ import {
 }
 ```
 
-Both forms are valid syntax, but **the formatter canonicalizes them**: consecutive imports with no blank line between them combine into a single sorted block; same-module statements merge (`import std/calendar.Date` + `import std/calendar.Months` → `import std/calendar.{Date, Months}`); a lone import stays bare. A **blank line between imports is the "keep separate" signal** — it's preserved as a group boundary, so distinct groups (stdlib vs. project) stay in distinct blocks. Comments inside a block are preserved. The block is therefore the canonical form for two or more grouped imports. Import-block entries are newline-separated; commas only separate children inside a `.{...}` selector. The block always renders multiline (it never collapses onto a single line).
+Both forms are valid syntax, but **the formatter canonicalizes them**: consecutive imports with no blank line between them combine into a single sorted block; same-module statements merge (`import std/calendar.Date` + `import std/calendar.Months` → `import std/calendar.{Date, Months}`) unless the two bind a name twice, and the entries of a block written as one stay as written; a lone import stays bare. A **blank line between imports is the "keep separate" signal** — it's preserved as a group boundary, so distinct groups (stdlib vs. project) stay in distinct blocks. Comments inside a block are preserved. The block is therefore the canonical form for two or more grouped imports. Import-block entries are newline-separated; commas only separate children inside a `.{...}` selector. The block always renders multiline (it never collapses onto a single line).
 
 ```nomi
 // Stdlib imports — use `std/` prefix (combined into one block)
@@ -3519,7 +3635,7 @@ Name collisions between specific imports are a compiler error.
 - Unused imports are a compiler error (see *Unused imports are errors* below)
 - `as` aliases work on imported items: `import std/maybe.Maybe.Some as Just`
 - File API aliases use `as`: `import http/request as req`, then `req.get(...)`.
-- Stdlib files use the `std/` prefix: `import std/io`, `import std/iter`. The `std/` prefix routes to the embedded stdlib filesystem and prevents user modules from shadowing stdlib names.
+- Stdlib files use the `std/` prefix: `import std/io`, `import std/iter`. The `std/` prefix routes to the embedded stdlib filesystem and prevents user modules from shadowing stdlib names. `std` alone, like any other module's short name alone, is a directory and names no file: `import std` and `import std.io` (which selects `io` from a file `std`) are errors whose hint spells `import std/io`.
 - Variants must come through their enum. `import shape.Circle` (a flat selective variant import) is rejected with a clear error pointing at the owner selector form (`import shape.Shape.Circle`) or the qualified form (`import shape.Shape` then `Shape.Circle`). The owner selector path makes the originating enum visible at the import line, so cross-module collisions are caught at the import rather than silently shadowed.
 - Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
 - Imports may appear inside a function body. A nested `import` binds names in the enclosing block's scope only and shadows any file-level binding of the same name. The file load itself is cached, so a nested import has no per-call cost beyond the first.
@@ -3554,7 +3670,7 @@ Real value cycles in `once` bindings — where forcing one binding transitively 
 - An import path that names no file is a compile-time error at the path, in every import form, whether or not the file uses the import: `import lib` with no `lib.nomi` reports ``no module `lib`: no file lib.nomi in this file's directory``. The message names the directory searched, relative to the importing file, and a hint names a sibling file the path is a misspelling of, or a file inside a directory the path names (`sub` is a directory, not a file). `import std/x` with no standard library module `x` is the same error. A selected name the file does not export is an error at the name: `file 'std/io' has no exported name 'nosuchname'`.
 - The `/`-joined segments always name the file: `import utils/inner.Thing` needs `utils/inner.nomi`, and is not a lookup of `inner` inside `utils.nomi`.
 - Files cannot be reopened or split across files
-- Importing `http` does not import `http/request` — each must be imported separately. A facade file can flatten this for its own consumers via re-exports (see §3 *Re-exporting imported names*).
+- Importing `http` does not import `http/request` — each must be imported separately. A facade file can flatten this for its own consumers by re-exporting the items they need (`import http/request.{Request, get} export` in `http.nomi` lets consumers write `import http.{Request, get}`); it cannot re-export the file `request` itself (see §3 *Re-exporting imported names*).
 - Visibility rules apply: declarations carrying `pub` are public, everything else is private (see §3)
 
 ### Unused imports are errors
@@ -3608,9 +3724,9 @@ members are reached through that qualifier.
 
 Accessing a member the value's resolved type does not have is a **compile-time error**, never a silent fallthrough that traps at runtime. The rule holds for every value kind, and you may access only the members the static type *guarantees*:
 
-- **A value of a concrete type** — `p.field` on a struct, anonymous struct, primitive, list, map, enum, tuple, or function — must name a field that type declares. A missing field (a typo, `Point{x, y}` accessed as `p.z`) is a compile error: `struct 'Point' has no field 'z'`. (Tuples index by position: `pair.0`, `pair.1`. Indices chain left to right, so `nested.1.0` is `(nested.1).0`.)
-- **A value of interface type** (an existential) exposes only the interface's declared `field` requirements (§13 *Field Requirements*). `s.x` on a `Struct`-typed value, where `Struct` declares no fields, is rejected; `n.name` on a `HasName`-typed value, where `interface HasName { field name: String }`, resolves to `String`.
-- **A value of type-parameter type** `T` exposes only the `field` requirements its interface bounds declare. `x.foo` on an unbounded `T` is an error; `x.name` on `T: HasName` resolves via the bound.
+- **A value of a concrete type** — `p.field` on a struct, anonymous struct, primitive, list, map, enum, tuple, or function — must name a field that type declares. A missing field (a typo, `Point{x, y}` accessed as `p.z`) is a compile error: `struct 'Point' has no field 'z'`. A function of the type is not a field: where `impl HasName for Person` writes `fn name`, `p.name` is `struct 'Person' has no field 'name'`, and its hint names the call, `Person.name(p)` or `HasName.name(p)`. (Tuples index by position: `pair.0`, `pair.1`. Indices chain left to right, so `nested.1.0` is `(nested.1).0`. An index is decimal digits with no leading zero; `pair.01`, `pair.1_0` and `pair.0x1` are parse errors.)
+- **A value of interface type** (an existential) has no fields, because an interface declares functions only. `s.x` on a `Struct`-typed value is `interface 'Struct' has no field 'x'`. A value the interface requires is read through a function requirement, `HasName.name(n)` (§13 *Requiring a Value*). Only the interface's name qualifies its functions: `n.name` is `interface 'HasName' has no field 'name'` even though `HasName` declares `fn name`, bare, as a function value or called.
+- **A value of type-parameter type** `T` has no fields, bounded or not. `x.name` on `T: HasName` is ``type parameter `T` has no field 'name'``; call the bound's function, `T.name(x)`.
 - **A type qualifier** — `Type.member` — must name a real member of that type: an interface function, a constructor, or (for enums) a variant. A missing member is a compile error (`type 'List' has no member 'empty'`, `enum 'Maybe' has no variant 'Bogus'`), for both the call form `Type.member(...)` and a bare value `Type.member`. Cross-module members resolve too — an imported type's interface functions are visible to single-file analysis (the editor), so `User.to_string(user)` on an imported `User` is checked, not merely tolerated.
 
 Only members the static type can prove present are reachable; an unresolved member is reported where it is written. The lone exception is a value whose type is still being inferred (an unresolved type variable) — that defers rather than erroring, since inference resolves it first.
@@ -3809,12 +3925,13 @@ impl Server for LoggingHandler {
 
 #### Distinct Types Over Tuples and Maps
 
-Distinct types whose underlying type has a shape literal (tuple, map, or struct body) support two construction forms — **literal-attach** (no parens around the inner literal) and **call-form** (parens around the inner value). Both are equivalent; pick whichever reads better:
+Distinct types whose underlying type has a shape literal (tuple, list, map, or struct body) support two construction forms — **literal-attach** (no parens around the inner literal) and **call-form** (parens around the inner value). Both are equivalent; pick whichever reads better. A literal-attach form always builds the type it names, never the underlying shape, wherever it stands: `Ids[1, 2]` is an `Ids` even where a `List<Int>` is expected (a type mismatch there), and a prefix that names no type is an error. The same holds for a variant whose payload is a list (`Json.Arr[...]`, `.Arr[...]`).
 
 | Distinct over | Literal-attach | Call-form |
 |---|---|---|
 | `type Id Int` | (no parallel — primitive has no shape literal) | `Id(42)` |
 | `type Pair (Int, String)` | `Pair(1, "x")` | `Pair((1, "x"))` |
+| `type Ids List<Int>` | `Ids[1, 2]` | `Ids(some_list_value)` |
 | `type Kvs Map<String, Int>` | `Kvs{"a" => 1, "b" => 2}` | `Kvs(some_map_value)` |
 | `struct User` (fields `name: String`, `age: Int`) | `User{name: "Alice", age: 30}` | `User({name: "Alice", age: 30})` |
 | `type Expired` (zero-sized) | `Expired` (no parens) | `Expired` (no parens) |
@@ -4126,6 +4243,8 @@ Two forms:
 "Hello, ${name}!\n"
 ```
 
+A string literal of any form, raw and typed ones included, holds UTF-8 text. A byte in its body that is not part of a UTF-8 sequence is a compile error: no escape writes one, so `String` stays UTF-8.
+
 Escape sequences: `\n` (newline), `\t` (tab), `\\` (backslash), `\"` (quote), `\u{1F600}` (Unicode scalar value — braces required, 1–6 hex digits; must be ≤ U+10FFFF and not a surrogate U+D800–U+DFFF). These are the *only* escapes; any other backslash sequence (e.g. `\q`, a brace-less `\uXXXX`, `\u{}` or `\u{0000041}` with no digits or more than six, `\u{110000}` above U+10FFFF, or a surrogate `\u{D800}`) is a compile error rather than being silently kept as literal text or coerced to U+FFFD. `${expr}` interpolates an expression, and `\${` writes a literal `${`. That pair is the only special one: braces, `$`, `#` and `#{` need no escape.
 
 **Triple-quoted strings** — multi-line, raw (no escapes), interpolation still works:
@@ -4209,7 +4328,7 @@ template = `price tag: $${PRICE}` // literal $$ {PRICE}
 
 **Raw strings cannot contain a backtick** — the body terminates at the first bare backtick. Variable-length delimiters along the lines of Rust's `r#"..."#` are a known future gap.
 
-Backticks also compose with typed literals (for example, `` Regex`\d+` `` and multi-line `Bash` raw literals); see "Typed literals" below.
+Backticks also compose with typed literals (for example, `` Regex`\d+` `` and multi-line `Bash` raw literals). Because a raw body is always fixed text, a backtick typed literal whose handler can fail is checked at compile time and has the handler's success type: `` Regex`\d+` `` is a `Regex`, and `` Regex`[` `` is a compile error. See "Typed literals" below.
 
 ### Codepoint literals
 
@@ -4351,13 +4470,40 @@ fn from_fragments(fragments: List<Fragment<I>>): R
 ```
 
 - `I` is the per-literal value-type interface — the constraint each `Dynamic` slot's value must satisfy. Common choices: `Display` for stringifying-then-parsing handlers, `Bindable` for SQL parameter binding, `Safe` for HTML escaping. Concrete (non-interface) `I` is allowed too — `Fragment<String>` accepts only String-typed slots.
-- `R` is the literal's static type. For fallible parsing it is typically `Result<T, E>`; for builders it is the produced domain value (`Html`, `Query`, ...).
+- `R` is the handler's result. For fallible parsing it is typically `Result<T, E>`; for builders it is the produced domain value (`Html`, `Query`, ...). A double-quoted literal's type is `R`. A backtick literal's type is `R` too, except when `R` is `Result<T, E>`: then it is `T` (see "Raw typed literals are checked at compile time" below).
 
 At each `${expr}` slot, the analyzer checks that the slot expression's type implements `I`; a mismatch is a type error pointing at the offending slot. The interface in `List<Fragment<I>>` is used as an *existential* — slot values are heterogeneous per element, each implementing `I` in its own way (see §15 on interface-as-existential).
 
 **Coherence.** A typed-literal handler is an ordinary interface impl, so it inherits the impl rules wholesale — nothing typed-literal-specific. At most one `(Literal, <Tag>)` impl program-wide (the coherence check), and the orphan rule requires either `Literal` or the tag type to be declared in the implementing package.
 
-**Raw typed literals.** A backtick delimiter disables `${...}` parsing inside the body. The body becomes a single `Static` fragment containing the verbatim text — no `Dynamic` slots. The same handler signature still applies; raw is purely about the parsing of the body, not the contract. Useful when `${...}` or backslashes appear literally in the embedded language.
+**Raw typed literals.** A backtick delimiter disables `${...}` parsing inside the body. The body becomes a single `Static` fragment containing the verbatim text — no `Dynamic` slots. The same handler signature applies. Useful when `${...}` or backslashes appear literally in the embedded language.
+
+**Raw typed literals are checked at compile time.** A raw body never interpolates, so the handler's input is fixed text. When the handler can fail (it returns `Result<T, E>`), the compiler runs it while checking the program, and the literal's type is `T`:
+
+- `Ok(v)`: the literal is a `T`. `` Regex`\d+` `` is a `Regex`, so it needs no `try`, and `` once letters = Regex`[A-Za-z]+` `` works at the top level of a file.
+- `Err(e)`: the literal is a compile error at the literal, carrying the handler's message (the `Display` rendering of `e`, or its `Debug` rendering when `E` has no `Display`): `` Regex`[` `` is ``typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[` ``.
+- A handler that reaches an effect (output, files, the clock, tasks, an app field), or that does not finish within the compiler's step limit, cannot be run at compile time, and the literal is a compile error saying so. Write such a literal with double quotes and handle its `Result`.
+
+```nomi
+import {
+    std/io
+    std/regex.Regex
+}
+
+once letters = Regex`[A-Za-z]+`
+
+fn main() {
+    digits: Regex = Regex`\d+`
+    io.print(String.find_all("order 66, aisle 7", digits)) // [66, 7]
+    io.print(String.find_all("ab 12 cd", letters)) // [ab, cd]
+}
+```
+
+`try` on a backtick literal checked at compile time is the ordinary "try requires a Result or Maybe" error, with a hint that the literal is already a `T`.
+
+The quote style alone decides this. A double-quoted typed literal keeps its handler's result type, interpolated or not: `Regex"\\d+"` and `Regex"room ${n}"` are both `Result<Regex, String>`, built when the program runs. A handler that cannot fail (returns `T` itself) gives the same type in both forms.
+
+At run time a backtick literal still calls its handler, once per literal site: the first evaluation builds the value and later evaluations reuse it, so a literal in a loop is not rebuilt on each iteration. The handler is pure and its input fixed, so the run finds the `Ok` the compiler found.
 
 **Indentation and `${...}` rules.** Triple-quoted typed literals follow the same leading-newline strip, min-indent baseline, trailing-newline strip rules as plain triple-quoted strings (see "Triple-quoted strings" above). The `${expr}` interpolation and `\${` escape rules from "String Literals" above also apply unchanged inside non-raw typed-literal bodies.
 
@@ -4406,7 +4552,7 @@ fn main() {
 }
 ```
 
-`Date` is opaque — outside callers can't bypass parsing. Because parsing is fallible and Nomi has no compile-time literal validation, the return type is `Result<Date, Error>` at the use site above; callers `case`-match or `try`-unwrap there. The `Literal` conformance makes `Date` itself the tag; `from_fragments` is the fixed function name. The same shape — opaque type, fallible parse, `Display`-or-domain interface for slots — applies to `Time`, `NaiveDateTime`, `OffsetDateTime`, `DateTime`, plus user-defined cases like `Url`, `Regex`, `Json`, etc.
+`Date` is opaque — outside callers can't bypass parsing. Because parsing is fallible, a double-quoted `Date"…"` is a `Result<Date, Error>` at the use site above; callers `case`-match or `try`-unwrap there. A backtick `` Date`2026-05-04` `` is checked at compile time and is a `Date`. The `Literal` conformance makes `Date` itself the tag; `from_fragments` is the fixed function name. The same shape — opaque type, fallible parse, `Display`-or-domain interface for slots — applies to `Time`, `NaiveDateTime`, `OffsetDateTime`, `DateTime`, plus user-defined cases like `Url`, `Regex`, `Json`, etc.
 
 **Worked example: `Box` (a domain type as its own tag).** A user-defined type backs a tag by implementing `Literal`:
 
@@ -4470,7 +4616,7 @@ fn strip_suffix(s: String, suffix: String): Maybe<String>
 fn join(parts: Iter<String>, separator: String = ""): String       // any Iter<String>, driven once
 ```
 
-The search functions take any `Matcher` (`std/matcher`) as the thing to look for: a `String` matches its own text and a `Regex` (`std/regex`) matches its pattern, so `String.split("a,b", ",")` and `` String.split(text, try Regex`\s+`) `` are the same function. Each Matcher function answers one of these operations with the matcher first (`contained_in?`, `prefix_of?`, `suffix_of?`, `split_in`, `replace_in`, `find_all_in`), and a type of your own implements it to become searchable. A generic function of your own takes either with `where M: Matcher`. "Pattern" is not the name because a pattern in Nomi is a destructuring shape (§10). `String.replace` inserts its replacement literally for a regex too; `Regex.replace_all` expands `$1` capture references. `String.split` and the other search functions are generic, so naming one as a value needs a function type to settle `M`: `contains: (String, String) -> Bool = String.contains?`.
+The search functions take any `Matcher` (`std/matcher`) as the thing to look for: a `String` matches its own text and a `Regex` (`std/regex`) matches its pattern, so `String.split("a,b", ",")` and `` String.split(text, Regex`\s+`) `` are the same function. Each Matcher function answers one of these operations with the matcher first (`contained_in?`, `prefix_of?`, `suffix_of?`, `split_in`, `replace_in`, `find_all_in`), and a type of your own implements it to become searchable. A generic function of your own takes either with `where M: Matcher`. "Pattern" is not the name because a pattern in Nomi is a destructuring shape (§10). `String.replace` inserts its replacement literally for a regex too; `Regex.replace_all` expands `$1` capture references. `String.split` and the other search functions are generic, so naming one as a value needs a function type to settle `M`: `contains: (String, String) -> Bool = String.contains?`.
 
 `String` also implements `Iter<String>` (one grapheme cluster per step), so every `Iter` owner function works on a string. To map or filter graphemes, run the generic adapter and join the result back into a `String`: `Iter.map(s, f) |> String.join()`, `Iter.filter(s, p) |> String.join()`. `String.join` takes any `Iter<String>` (a List, Set or Vector, graphemes, or a lazy chain) and a separator that defaults to `""`. `String.reverse`/`String.length` stay container-specific (native, by grapheme cluster).
 
@@ -4674,6 +4820,7 @@ enum Maybe<T> {
 - No block comments
 - Doc comments are preserved in the AST and available to tooling (LSP hover, documentation generation)
 - A `///` comment with no declaration after it to document (above an `import` or a `test` block, for instance) is a parse error; write `//` or `//#` there
+- A `//!` line is an attached test (§36), so `//!` must start its line: after code on the same line (`x = 1 //! note`) it is a parse error; write `//` there
 
 File-level documentation uses `//#`. To the
 compiler these are ordinary line comments — they are **not** doc comments and do
@@ -5748,12 +5895,12 @@ Batteries-included philosophy (like Go): minimize the need for third-party depen
 | `iter` | The `Iter` interface and every generic iteration owner function, plus `Iter.loop` |
 | `maybe`, `results` | `Maybe`, `Result`, `Infallible` |
 | `add`, `subtract`, `multiply`, `divide`, `comparable`, `equatable`, `hashable`, `discrete`, `steppable`, `display`, `debug`, `structs`, `type` | The core interfaces, `Ordering`, `Direction`, and `Type<T>` |
-| `io` | `print`, `write` (no trailing newline), `inspect`, `read_line`, `read_file`, `write_file`, `IOError` |
+| `io` | `print`, `write` (no trailing newline), `inspect`, `read_line`, `read_file`, `write_file`, `IOError`, and `capture`, which runs a function against given input and collects what it prints (§36) |
 | `tasks`, `channels`, `supervisors`, `timer`, `context`, `startup` | Structured concurrency (§20), `timer.sleep`, `Context` (§28), `Startup` (§27) |
 | `duration`, `instant`, `calendar` | `Duration`, `Instant` (`Instant.now`), and the civil date-time types (§39) |
 | `random` | Pure, seeded random generation (§40) |
 | `json`, `toml`, `dynamic` | `Json` with `ToJson`/`FromJson` and their derives, the `Toml` typed literal, `Dynamic` for untyped host data |
-| `regex` | `Regex`, with a `Regex"..."` typed literal |
+| `regex` | `Regex`, with a `Regex"..."` typed literal. A `Regex` is a `Matcher`, so `String.contains?`, `String.find_all`, `String.split` and the other search functions take one; `Regex.find` (first match) and `Regex.replace_all` (`$1` expansion) are its own |
 | `literals` | `Literal` and `Fragment`, for typed-literal authors (§16) |
 | `assertions`, `testing` | `AssertionFailure`, `Assertable`, `testing.check`, test `Clock` (§36) |
 | `compiler` | The compiler as a library: `check`, `run`, `hover` |
@@ -6377,7 +6524,7 @@ struct Point {
 
 Point{x: 1, y: 2} < Point{x: 3, y: 4}
 // error: no impl of `Comparable` for `Point` (required at … via ordering operator `<`)
-// help: add `derive Comparable` to `Point` or write an `impl Comparable for Point { fn <function>(value: Point): <Ret> }` block
+// help: add `derive Comparable` to `Point` or write an `impl Comparable for Point` block
 ```
 
 Add `derive Comparable` (field-by-field lexicographic, §38.1) or a hand-written `Comparable.compare` function and the operators work, routed through `Comparable.compare`. The stdlib declares `Comparable` for the naturally-ordered types — `Int`, `Float`, `Decimal`, `String`, `Bool`, `List` (lexicographic), `Duration`, and the `std/calendar` ladder — while `Map` is deliberately non-`Comparable` (no natural total order) and opaque `Instant` exposes `Instant.before?` instead. Nameless structural types — **anonymous structs** (`{x: 1} < {x: 2}`) and **tuples** (`(1, 2) < (3, 4)`) — are *also* a compile-time error here, and unrecoverably so: there is no declaration to attach an impl (or `derive Comparable`) to, so the diagnostic reads `no impl of `Comparable` for `{x: Int}` … anonymous struct types cannot implement `Comparable` rather than suggesting a fix. (Equality is unaffected — `{x: 1} == {x: 1}` works via the structural fallback.) This is Python's line (positional containers compare, records don't), and the opt-in posture matches Rust/Haskell; OCaml/Erlang-style universal compare is a known footgun Nomi declines.
@@ -6972,7 +7119,9 @@ and cannot read application fields.
 
 `setup expr`, or `setup { ... }` with statements before its final value,
 produces the value the group's tests receive. It may be any value; a setup
-whose last line is a statement, such as a `with` line, produces `Unit`.
+whose last line is a statement, such as a `with` line, produces `Unit`. One
+whose last line is `assert x` or `refute x` produces what `ok = assert x`
+binds, and a test binds a `Unit` setup value as any `Unit` binding does.
 `return value` inside a setup ends the setup, not the test, with that value,
 as it ends a function; the setup's type is the type its final value and every
 `return` agree on. A test
@@ -7062,7 +7211,41 @@ each with its value. A value reads structurally there: a String is quoted,
 a struct's fields are sorted by name, and a type's `impl Display` is not
 consulted. A value whose type has a hand-written `impl Debug` reads as that
 impl renders it, at any depth, as `dbg` prints it; a derived or universal
-`Debug` does not change the row.
+`Debug` does not change the row. A literal operand has no row, since the
+assertion line already shows it, and neither does a function named by its
+own name (`main` would read `<func: main>`). A name bound to a function
+keeps its row, which says which function it holds (`g = <func: double>`).
+
+When `assert a == b` fails and both operands are Strings, at least one of
+them holding a line break, the report shows a line diff in place of their
+two rows. The left operand is the actual value and the right the expected
+one, so write the value under test on the left. Lines only the expected
+side has start with `-`, lines only the actual side has with `+`, and
+unchanged lines with two spaces; more than three unchanged lines away from
+a change collapse to `... N unchanged lines`. A changed line ending in
+whitespace ends in `$` (a trailing tab reads `\t`), a carriage return
+reads `\r`, and when only one side ends in a newline the other's last line
+is followed by `\ no newline at end`:
+
+```text
+  line 7: assertion failed
+    assert output == """
+        balance?
+        Your balance: 500
+        bye
+        """
+    diff (- expected """ ... """, + actual output):
+        balance?
+      - Your balance: 500
+      - bye
+      \ no newline at end
+      + Your balance is 500
+      + bye  $
+      ($ ends a line that ends in whitespace)
+```
+
+A failed `refute a == b` or `assert a != b` means the two were equal, so it
+has no diff. On a terminal the `-` lines are red and the `+` lines green.
 
 `assert` and `refute` can wrap pipelines. Put the keyword at the head so the
 whole pipeline is the assertion subject:
@@ -7087,7 +7270,19 @@ returning their original subject value after `Assertable.failure(...)` returns
 x`), and is not an operand: `!assert x` passes when `x` holds and is then
 `False`, so it is the error `` `assert` cannot be an operand of `!` ``, whose help
 suggests `refute x` or `assert !x`. An assertion on either side of a binary
-operator other than `|>` is the same error.
+operator other than `|>` is the same error. Anywhere else a value is needed,
+an assertion is the error `` `assert` cannot be used as a value here ``: as
+another assertion's subject (`assert assert x`), a call's argument, a
+collection element, inside parentheses (`ok = (assert x)`), a condition or
+scrutinee, a returned value, or the head of a pipe (`(assert x) |> f()`; put
+the keyword before the whole pipeline instead). A case arm's body may be an
+assertion, as a statement may. Its value is the same wherever it stands:
+`ok = { assert x }`, an `if` or `case` arm ending in `assert x` whose value
+is bound, `ok: Bool = assert x` and `Some(n) = assert m else { ... }` all
+bind what `ok = assert x` binds, and `_ = assert x` judges `x` and discards
+it. A failure exits the nearest enclosing test or `Result`-returning
+function as a statement assertion's does, so in `main` (which then returns
+`Result<Unit, AssertionFailure>`) it ends the program with the report.
 
 Assertions may also bind through a pattern. The pattern uses the same language
 as ordinary destructuring and `case` arms. The right-hand side is evaluated
@@ -7119,6 +7314,119 @@ Assertion failures carry observed values for comparison operands, predicate-call
 arguments, and pipeline stages where available, so ordinary Nomi expressions can
 produce useful test reports without a separate assertion-helper API for each
 operation.
+
+### Capturing input and output
+
+`io.capture(input, run)` calls `run`, a function of no arguments, with
+`input` as its standard input, and answers an `io.Captured<T>`: `value` is
+what `run` returned, `output` is everything it printed, and `transcript` is
+the output with each line `run` read written in where it was read.
+
+```nomi
+import std/io
+
+fn greet(): Result<Unit, String> {
+    case io.read_line() {
+        Ok(name) -> io.print("hello, ${name}")
+        Err(_) -> io.print("hello, stranger")
+    }
+    Ok(Unit)
+}
+
+test "greets by name" {
+    run = io.capture("Ada\n", greet)
+    assert run.value == Ok(Unit)
+    assert run.output == "hello, Ada\n"
+}
+```
+
+While `run` runs, `io.read_line` reads `input` one line at a time with the
+line ending stripped, as it reads stdin (`\n` or `\r\n`; a last line with no
+newline is still a line), and answers `Err("eof")` once the input is used up.
+`io.print`, `io.write` and `io.inspect` append exactly what they would have
+written to stdout to `output`. `dbg`, `io.read_file`, `io.write_file` and the
+runtime's own diagnostics are not redirected. A program's `main` can be
+passed as `run`, which is how a test checks what a program prints for an
+input.
+
+The redirection lasts for the call and follows its tasks: a task spawned
+inside `run` reads and writes the same capture, and two tasks each running
+their own `io.capture` at the same time never see each other's input or
+output. An inner `io.capture` takes over for its own call, so what it prints
+is in its `Captured` and not the outer one's. Once `io.capture` returns, its
+capture is closed: a task that outlives the call (a supervised one) reads and
+writes whatever was in force where `io.capture` was called. If `run` traps,
+the trap propagates as it would without the capture and the output captured
+so far is dropped. `io.capture` works outside tests too, in `nomi run` and in
+`nomi build` executables.
+
+A transcript shows the session the way a terminal does. Each line read is a
+transcript line of its own that starts with `> `. When `run` wrote part of a
+line before reading (a prompt with no newline, `io.write("amount: ")`), that
+part goes on the read's line between the marker and the text read, so
+`> amount: 25` is a read of `25` after the prompt `amount: `. A read at the
+end of the input adds nothing. An output line that starts with `>` or `\`
+gets a `\` in front, so every transcript line that starts with `>` is a read.
+An inner `io.capture`'s reads are in its own transcript only.
+
+`io.replay(script, run)` runs `run` against a script of an interactive
+session and answers an `io.Replayed`, an `Assertable` that holds when the
+transcript matches the script. The script is written as a transcript reads:
+each line that starts with `>` is input, and every other line is output the
+program must print. The text after the `>` and one space is what a read
+answers, less the prompt the program wrote on that line before reading.
+Once the script's `>` lines are used up, `io.read_line` answers
+`Err("eof")`.
+
+```nomi
+import std/io
+
+fn main() {
+    io.print("What is the starting balance?")
+    balance = case io.read_line() {
+        Ok(line) -> String.to_int(line) |> Maybe.with_default(0)
+        Err(_) -> 0
+    }
+    io.write("deposit: ")
+    case io.read_line() {
+        Ok(line) -> {
+            amount = String.to_int(line) |> Maybe.with_default(0)
+            io.print("new balance is ${balance + amount}")
+        }
+        Err(_) -> io.print("bye")
+    }
+}
+
+test "deposit money" {
+    assert io.replay("""
+        What is the starting balance?
+        > 500
+        > deposit: 25
+        new balance is 525
+        """, main)
+}
+```
+
+Replay compares the transcript and the script line by line, with each
+line's trailing spaces, tabs and carriage return dropped and every line,
+the last included, ended by a newline, so a `"""` script, which drops its
+final newline, matches output that ends in one. `Replayed`'s `transcript`
+and `expected` fields hold the two in that form, and `output` holds what
+`run` printed byte for byte. A `>` line that `run` never read fails the
+replay, and the reason says how many were left. A failed replay shows the
+same line diff a failed `==` over multi-line Strings shows, with the script
+as expected (`-`) and the transcript as actual (`+`). What `run` returned is
+not checked; use `io.capture` for that.
+
+An `Assertable` can ask for that diff itself: an `AssertionDetails` with
+both `actual` and `expected` set, and different, shows a line diff of the
+two in place of its `actual:` row.
+
+A report that shows a line diff has no `values:` row for a String the diff
+already shows: one equal to either side, line for line, with trailing
+whitespace and final newlines set aside. So a failed replay prints no row
+for its script, even one that interpolates a value, and when no row is
+left the `values:` heading goes too.
 
 `dbg expr` prints the expression's source location, source text, and Debug
 rendering, then returns the original value. In a pipe, `dbg` follows the bare
@@ -7285,7 +7593,9 @@ attached-test      = attached-test-line+
 attached-test-line = "//!" [statement]
 ```
 
-An attached test prompt sits above the declaration it exercises.
+An attached test prompt sits above the declaration it exercises, and its
+`//!` starts the line, after nothing but indentation. A `//!` after code on
+its line is a parse error.
 
 ### 38.1 `derive` — Compile-time impl synthesis
 
@@ -7682,9 +7992,11 @@ DateTime"YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM[Zone/Name]"
 ```
 
 The bracket on `DateTime` is **required** — bare-offset forms without
-the bracket parse via `OffsetDateTime` instead. Parse failures return
-`Err(calendar.Error)`; `try`-unwrap at the call site. See §16 Typed
-Literals for the underlying mechanism.
+the bracket parse via `OffsetDateTime` instead. A double-quoted literal's
+parse failure returns `Err(calendar.Error)`; `try`-unwrap at the call
+site. A backtick literal (`` Date`2026-05-04` ``) is parsed at compile
+time: it is a `Date`, and a malformed one is a compile error. See §16
+Typed Literals for the underlying mechanism.
 
 ### Embedded IANA tzdata
 

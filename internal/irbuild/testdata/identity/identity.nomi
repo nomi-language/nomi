@@ -1,10 +1,10 @@
-// `shapes` is re-exported rather than called: a module-qualified call is not
-// lowered by this slice, and an unused import is an analysis error, so a
-// re-export is the one way to make a second module part of this program while
-// keeping both modules inside the subset.
+// `shapes` joins the program through a re-exported item rather than a call,
+// so the output is the entry file's alone. An unused import is an analysis
+// error, so re-exporting `origin_x` is what keeps the import, and with it the
+// second `Point`, in the program.
 import {
     std/io
-    shapes export
+    shapes.origin_x export
 }
 
 /// The entry file's own `Point`, unrelated to `shapes.Point` beyond the

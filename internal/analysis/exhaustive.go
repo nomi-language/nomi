@@ -48,6 +48,8 @@ func (c *checker) uncoveredValue(tys []Type, rows [][]ast.Node) ([]string, bool)
 		return []string{}, len(rows) == 0
 	}
 	t := resolveTypeVar(tys[0])
+	// An `as` name never changes what its pattern matches.
+	rows = withoutAsColumn(rows)
 	column := make([]ast.Node, len(rows))
 	for i, r := range rows {
 		column[i] = r[0]
@@ -128,6 +130,30 @@ func (c *checker) uncoveredValue(tys []Type, rows [][]ast.Node) ([]string, bool)
 	return append([]string{"_"}, w...), true
 }
 
+// withoutAsColumn returns rows with each first pattern seen through its
+// `as` names (ast.WithoutAs), copying only the rows that change.
+func withoutAsColumn(rows [][]ast.Node) [][]ast.Node {
+	var out [][]ast.Node
+	for i, r := range rows {
+		inner := ast.WithoutAs(r[0])
+		if inner == r[0] {
+			if out != nil {
+				out[i] = r
+			}
+			continue
+		}
+		if out == nil {
+			out = make([][]ast.Node, len(rows))
+			copy(out, rows[:i])
+		}
+		out[i] = append([]ast.Node{inner}, r[1:]...)
+	}
+	if out == nil {
+		return rows
+	}
+	return out
+}
+
 // coversColumn reports whether p, in a column whose type has the constructors
 // ctors, matches every value: a catch-all, or a pattern that fits none of the
 // constructors (a type error checkPattern reports).
@@ -145,7 +171,7 @@ func (c *checker) coversColumn(t Type, ctors []patCtor, p ast.Node) bool {
 
 // isCatchAllPattern reports whether p matches every value at any type.
 func isCatchAllPattern(p ast.Node) bool {
-	switch p.(type) {
+	switch ast.WithoutAs(p).(type) {
 	case nil, *ast.WildcardPattern, *ast.IdentPattern, *ast.Placeholder:
 		return true
 	}

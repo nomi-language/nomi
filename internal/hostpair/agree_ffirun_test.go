@@ -19,7 +19,6 @@ type ffirunPairing struct {
 	EntryKey   string
 	ImportPath string
 	Symbol     string
-	Inline     bool
 	SourceFile string
 	SourceLine int
 	SourceCol  int
@@ -27,9 +26,6 @@ type ffirunPairing struct {
 
 func (f ffirunPairing) String() string {
 	symbol := f.ImportPath + "." + f.Symbol
-	if f.Inline {
-		symbol = "<inline go body>"
-	}
 	return fmt.Sprintf("%s %s -> %s", f.Kind, f.Key, symbol)
 }
 
@@ -50,7 +46,6 @@ func flattenFfirun(packages []ffirun.DiscoveredPackage) []ffirunPairing {
 				EntryKey:   typ.EntryKey,
 				ImportPath: pkg.ImportPath,
 				Symbol:     typ.TypeName,
-				Inline:     pkg.ImportPath == "",
 				SourceFile: typ.SourceFile,
 				SourceLine: typ.SourceLine,
 				SourceCol:  typ.SourceCol,
@@ -64,13 +59,9 @@ func flattenFfirun(packages []ffirun.DiscoveredPackage) []ffirunPairing {
 				EntryKey:   exp.EntryKey,
 				ImportPath: pkg.ImportPath,
 				Symbol:     exp.FuncName,
-				Inline:     exp.GoBody != "",
 				SourceFile: exp.SourceFile,
 				SourceLine: exp.SourceLine,
 				SourceCol:  exp.SourceCol,
-			}
-			if p.Inline {
-				p.ImportPath, p.Symbol = "", ""
 			}
 			out = append(out, p)
 		}
@@ -92,13 +83,9 @@ func projectPairing(p Pairing) ffirunPairing {
 		EntryKey:   p.EntryKey(),
 		ImportPath: p.ImportPath,
 		Symbol:     p.Symbol,
-		Inline:     p.Inline,
 		SourceFile: p.SourceFile,
 		SourceLine: p.SourceLine,
 		SourceCol:  p.SourceCol,
-	}
-	if p.Inline {
-		out.ImportPath, out.Symbol = "", ""
 	}
 	return out
 }

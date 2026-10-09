@@ -115,3 +115,56 @@ func TestVariantCtor_RejectedFormsNameTheWorkingOnes(t *testing.T) {
 		}
 	}
 }
+
+// In a generic enum, constructing an embedded or struct-shaped variant
+// leaves the enum's parameters open, as an ordinary variant's constructor
+// does: each form below fits a `Shape<Int>` parameter. They were typed
+// `Shape<T>` and rejected ("argument 1: expected Shape<Int>, got Shape<T>"),
+// and the piped record form typed its record as the Circle and called it
+// already built.
+func TestVariantCtor_GenericEnumConstructionSolvesItsParameter(t *testing.T) {
+	decls := `type UserId Int
+
+struct Circle {
+  r: Int
+}
+
+enum Shape<T> {
+  embeds UserId
+  embeds Circle
+  Val(T)
+  Rect {w: Int}
+}
+
+fn first(s: Shape<Int>): Shape<Int> {
+  s
+}
+
+`
+	for _, expr := range []string{
+		`Shape.UserId(3)`,
+		`3 |> Shape.UserId()`,
+		`Shape.Circle({r: 1})`,
+		`{r: 1} |> Shape.Circle()`,
+		`Shape.Rect({w: 1})`,
+		`{w: 1} |> Shape.Rect()`,
+		`Shape.Val(1)`,
+	} {
+		src := decls + "fn demo(): Shape<Int> {\n  first(" + expr + ")\n}\n"
+		_, errs := checkSource(src)
+		if len(errs) != 0 {
+			t.Errorf("%s: want no errors, got %v", expr, errs)
+		}
+	}
+	// The open parameter is solved once: a construction that fits a
+	// Shape<Int> does not also fit a Shape<String>.
+	src := decls + "fn demo(): Shape<String> {\n  s = Shape.UserId(3)\n  _ = first(s)\n  s\n}\n"
+	_, errs := checkSource(src)
+	var got []string
+	for _, e := range errs {
+		got = append(got, e.Message)
+	}
+	if !strings.Contains(strings.Join(got, "\n"), "Shape<String>") {
+		t.Errorf("want a mismatch naming Shape<String>, got %v", got)
+	}
+}

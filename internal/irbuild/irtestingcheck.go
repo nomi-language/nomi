@@ -9,9 +9,10 @@ package irbuild
 // as `assert`'s are, and one `ir.Assert` with `ir.KeywordCheck` judges it and
 // writes the `Result` to its destination.
 //
-// THE SPELLING IS LITERAL: the callee is written `testing.check` with one
-// positional argument, and this confirms the qualifier resolves to
-// std/testing.
+// The callee is written `testing.check`, and this confirms the qualifier
+// resolves to std/testing, or it is a bare name a selective import bound to
+// std/testing's `check` (`import std/testing.{check as verify}`). Either way
+// it takes one positional argument.
 //
 // The subject may be a Bool, a `Maybe`/`Result` (judged by shape in the VM)
 // or a retained `Assertable`, whose `failure` impl the builder calls and hands
@@ -40,10 +41,18 @@ import (
 // testingCheckCall reports whether t is `testing.check(e)` with the
 // qualifier resolving to std/testing.
 func (bl *irScalarBuilder) testingCheckCall(t *ast.Call) bool {
-	if !isTestingCheckCallee(t.Func) || len(t.Args) != 1 || len(t.TypeArgs) != 0 {
+	if len(t.Args) != 1 || len(t.TypeArgs) != 0 {
 		return false
 	}
 	if _, named := t.Args[0].(*ast.NamedArg); named {
+		return false
+	}
+	if id, bare := t.Func.(*ast.Ident); bare {
+		// `check(e)` after `import std/testing.check`, aliased or not.
+		module, name, isStd := stdBareFileFunc(bl.g.fa, id)
+		return isStd && module == "testing" && name == "check"
+	}
+	if !isTestingCheckCallee(t.Func) {
 		return false
 	}
 	if std, ok := stdFileOfScope(bl.g.fa, moduleScopeOf(bl.g.fa, "testing")); ok {
@@ -98,7 +107,7 @@ func (bl *irScalarBuilder) testingCheck(t *ast.Call) (ir.Temp, kind, bool, bool)
 	for _, st := range stages {
 		bl.b.Append(ir.NewRecordStage(bl.g.irNodePos(subject), st.Val, st.Text))
 	}
-	var assertable *implItem
+	var assertable *assertableImpl
 	if k != kindBool && !irAssertShapeKind(k) {
 		if assertable = bl.assertableFailure(k); assertable == nil {
 			irDeclineNote("a testing.check subject that is not a Bool, Maybe, Result or retained Assertable")

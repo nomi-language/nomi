@@ -27,10 +27,6 @@
   symbol: (identifier) @function)
 (go_selector_binding
   symbol: (type_identifier) @function)
-(go_block
-  "go" @keyword)
-(go_inline_body
-  "go" @keyword)
 
 ; Host function definitions
 (extern_func_definition
@@ -58,14 +54,6 @@
   name: (type_identifier) @function.definition)
 (interface_method
   "open" @keyword)
-
-; Interface field requirements — `field name: T` inside interface bodies.
-; Same contextual rule as `open` above: matching the literal via the parent
-; rule scopes the keyword highlight to interface bodies only.
-(interface_field
-  "field" @keyword)
-(interface_field
-  name: (identifier) @variable.other.member)
 
 ; Top-level derive declarations (`derive Iface for Type`) and implementation
 ; blocks (`impl Iface for Type { ... }`). The bare `"impl" @keyword` and
@@ -119,6 +107,9 @@
 (enum_pattern
   (identifier) @comment
   (#match? @comment "^_($|[^_])"))
+(as_pattern
+  name: (identifier) @comment
+  (#match? @comment "^_($|[^_])"))
 
 ; Test declarations and assertions.
 (test_declaration
@@ -168,6 +159,10 @@
   binding: (identifier) @variable.parameter)
 (destructuring_binding
   field: (identifier) @variable.other.member)
+
+; `P as name`: the name binds the whole value P matched.
+(as_pattern
+  name: (identifier) @variable.parameter)
 
 ; String prefix patterns: `"prefix" + rest`
 (enum_pattern
@@ -336,7 +331,6 @@
 "type" @keyword
 "struct" @keyword
 "enum" @keyword
-"field" @keyword
 "interface" @keyword
 "import" @keyword
 "as" @keyword
@@ -364,6 +358,7 @@
 "concurrent" @keyword
 "try" @keyword
 "then" @keyword
+"tap" @keyword
 "impl" @keyword
 "for" @keyword
 (self_type) @keyword

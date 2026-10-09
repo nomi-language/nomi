@@ -82,6 +82,10 @@ type irScalarBuilder struct {
 	// retained for the VM with synthesized positions and never read back
 	// into Go.
 	synthesized bool
+	// literalCell is the backtick typed literal whose lazy cell
+	// initializer this builder lowers: there the literal is its handler's
+	// call itself (irliteralcell.go).
+	literalCell *ast.TaggedString
 	captures    []ir.Temp
 	captured    map[string]irLambdaCapture
 	g           *gen
@@ -155,6 +159,9 @@ type irScalarBuilder struct {
 	// nested inside a piped stage's argument must still record its rows. See
 	// irpipe.go and `bl.call`.
 	pipedCall *ast.Call
+	// pipedFrom is the pipe pipedCall was spliced from, which carries the
+	// checker's type for the stage (a spliced call has none of its own).
+	pipedFrom *ast.Binary
 	// pipedCase is the spliced `case` a `x |> case { ... }` stage lowered
 	// to, whose scrutinee records no row. See irpipe.go.
 	pipedCase *ast.Case
@@ -277,6 +284,8 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	switch t := n.(type) {
 	case *ast.TryOp:
 		return bl.tryValue(t, t.Expr, t)
+	case *ast.Assertion:
+		return bl.assertionExpr(t)
 	case *ast.If, *ast.Case:
 		return bl.inferredRegionValue(n, false)
 	case *ast.Block:
@@ -286,6 +295,11 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return ir.NoTemp, kindInvalid, false, false
 	case *ast.DotVariant:
 		if t.ResolvedEnum != "" {
+			// kindInvalid: no expected type here; the checker's type of
+			// the dot is the prelude instance.
+			if v, k, mobile, ok := bl.preludeBareValue(t, kindInvalid); ok {
+				return v, k, mobile, true
+			}
 			return bl.variantBare(bl.g.qualifiedDot(t))
 		}
 		return ir.NoTemp, kindInvalid, false, false
@@ -363,49 +377,11 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.concurrent(t)
 
 	case *ast.Ident:
-		if held, isBound := bl.bound[t.Name]; isBound {
-			// A NAME THIS BODY BOUND. The value is already in the Bind's
-			// destination temporary, so the read is that temporary rather
-			// than a fresh `ir.Ref`. Mobile, which is the answer
-			// `ir.Ref.Stable()` gives for RefLocal.
-			return held, bl.boundK[t.Name], true, true
+		v, k, mobile, ok := bl.identRead(t, line, col)
+		if ok {
+			v, k, mobile, ok = bl.narrowedRead(t, v, k, mobile)
 		}
-		if inst, isNested := bl.genericNestedRef(t); isNested {
-			// A generic nested fn named as a value: the instance the checker
-			// instantiated the reference at.
-			if inst == nil {
-				return ir.NoTemp, kindInvalid, false, false
-			}
-			return bl.lower(inst)
-		}
-		if bl.defaultScope {
-			if v, k, mobile, ok := bl.onceValue(t); ok {
-				return v, k, mobile, true
-			}
-			return bl.funcRef(t)
-		}
-		if v, k, mobile, ok := bl.onceValue(t); ok {
-			return v, k, mobile, true
-		}
-		if bl.parent != nil {
-			return bl.capture(t)
-		}
-		l, bound := bl.g.lookup(t.Name)
-		if !bound {
-			return bl.funcRef(t)
-		}
-		if !irCallableValueKind(l.k) && l.k != kindUnit && !(bl.boot && irContextKind(l.k)) {
-			// Bound values need a retained representation, including callable
-			// signatures over the retained value domain.
-			return ir.NoTemp, kindInvalid, false, false
-		}
-		r := ir.NewRefLocal(bl.g.irPos(line, col), bl.f.NewTemp(), bl.sh.localSym(t.Name))
-		bl.b.Append(r)
-		bl.side(r.Dst(), irScalarSide{k: l.k})
-		// `ir.Ref.Stable()` is the mobility answer and for RefLocal it is
-		// true: a local read forces nothing and two reads agree. It is taken
-		// from the node rather than asserted.
-		return r.Dst(), l.k, r.Stable(), true
+		return v, k, mobile, ok
 
 	case *ast.StringInterp:
 		return bl.interp(t)
@@ -500,7 +476,12 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		if _, dotted := bl.g.dottedTypeQualifier(t.Object); dotted {
 			// `Probe.Reading.Steady`: a variant of a namespaced enum, or of
 			// one named through a whole-file import.
-			return bl.variantBare(t)
+			if dst, k, mobile, ok := bl.variantBare(t); ok {
+				return dst, k, mobile, true
+			}
+			// `leaf.Box.twice`, `leaf.Shape.Line`: the owner's function or
+			// constructor as a value, as in the TypeIdent arm above.
+			return bl.ownerFuncRef(t)
 		}
 		if bl.stdQualifiedOwnerDef(t.Object) != nil {
 			// `json.Json.Null`: a std enum's variant through its module's
@@ -508,6 +489,15 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			if dst, k, mobile, ok := bl.variantBare(t); ok {
 				return dst, k, mobile, true
 			}
+			// `json.Json.Str`: a std owner's constructor or function as a
+			// value.
+			return bl.ownerFuncRef(t)
+		}
+		if _, mod, ok := bl.qualDottedOwner(t.Object); ok && mod != "" {
+			// `lists.List.head`: a function of a std owner the builder
+			// holds no def for, through its module's qualifier. The value's
+			// body is that qualified call.
+			return bl.ownerFuncRef(t)
 		}
 		if owner, isIdent := t.Object.(*ast.Ident); isIdent {
 			// `fakes.Quiet`: a marker named through its file's qualifier.
@@ -1107,9 +1097,34 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	}
 	sig := bl.g.funcs[callee.Name]
 	if sig == nil && !hasNamed {
-		if key, output := stdBareOutputKey(bl.g.fa, callee); output {
+		if key, output := stdBareOutputKey(bl.g.fa, callee); output || bl.inStdIO() && bl.ownOutputKey(callee, &key) {
 			// `import std/io.print` then `print(x)`: io.print itself.
 			return bl.hostOutputKey(t, key)
+		}
+		if f := bl.stdBareGenericFileFunc(callee); f != nil {
+			// `import std/io.capture` then `capture(...)`: the generic
+			// stdlib function, instantiated as `io.capture(...)` is.
+			if v, k, mobile, ok, handled := bl.stdInstCallAt(t, f, kindInvalid); handled {
+				return v, k, mobile, ok
+			}
+		}
+		if module, name, isStd := stdBareFileFunc(bl.g.fa, callee); isStd {
+			// `import std/io.read_line` then `read_line()`: the call
+			// `io.read_line()` plans, under any alias the import gave it.
+			lower := func() (ir.Temp, kind, bool, bool) {
+				if bl.qualBare == nil {
+					bl.qualBare = bl.checkedBareOperands(t)
+				}
+				args := bl.irQualLowerArgs(t)
+				if p := bl.stdFilePlan(t, args, module, name); p != nil {
+					return bl.qualEmit(t, args, p)
+				}
+				return no()
+			}
+			if bl.recording > 0 {
+				return bl.recordedQualCall(t, lower)
+			}
+			return lower()
 		}
 	}
 	if sig == nil && bl.g.files != nil {
@@ -1347,6 +1362,10 @@ func (bl *irScalarBuilder) hostOutput(t *ast.Call, fa *ast.FieldAccess) (ir.Temp
 		return no()
 	}
 	std, isStd := stdFileQualifier(bl.g.fa, owner)
+	if !isStd && bl.inStdIO() && owner.Name == "io" && moduleScopeOf(bl.g.fa, owner.Name) == bl.g.fa.ModuleScope {
+		// std/io naming itself, as its own `//!` tests do.
+		std, isStd = "io", true
+	}
 	key := std + "." + fa.Field.Name
 	if !isStd || !isOutputKey(key) {
 		return no()
@@ -1371,6 +1390,29 @@ func stdBareOutputKey(fa *analysis.FileAnalysis, id *ast.Ident) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// inStdIO reports whether this body belongs to std/io itself, whose own
+// tests and reference examples call print, write and inspect bare or as
+// `io.print`.
+func (bl *irScalarBuilder) inStdIO() bool {
+	return bl.g.stdModule == "io" && bl.g.fa != nil && bl.g.fa.ModuleScope != nil
+}
+
+// ownOutputKey reports, inside std/io, whether a bare name is the module's
+// own print, write or inspect, and sets key to its host key.
+func (bl *irScalarBuilder) ownOutputKey(id *ast.Ident, key *string) bool {
+	sym := resolvedBareSymbolAt(bl.g.fa, id)
+	if sym == nil {
+		return false
+	}
+	for _, k := range []string{printKey, writeKey, inspectKey} {
+		if resolveSymbol(bl.g.fa.ModuleScope.Lookup(strings.TrimPrefix(k, "io."))) == sym {
+			*key = k
+			return true
+		}
+	}
+	return false
 }
 
 // hostOutputKey is hostOutput once the call is known to be key's.
@@ -2610,4 +2652,51 @@ func (g *gen) lambdaResultWant(lam *ast.Lambda, line, col int) func() {
 	prevFor, prev := g.lambdaWantFor, g.lambdaWant
 	g.lambdaWantFor, g.lambdaWant = lam, k
 	return func() { g.lambdaWantFor, g.lambdaWant = prevFor, prev }
+}
+
+// identRead reads the value t names, at the type its binding holds.
+func (bl *irScalarBuilder) identRead(t *ast.Ident, line, col int) (ir.Temp, kind, bool, bool) {
+	if held, isBound := bl.bound[t.Name]; isBound {
+		// A NAME THIS BODY BOUND. The value is already in the Bind's
+		// destination temporary, so the read is that temporary rather
+		// than a fresh `ir.Ref`. Mobile, which is the answer
+		// `ir.Ref.Stable()` gives for RefLocal.
+		return held, bl.boundK[t.Name], true, true
+	}
+	if inst, isNested := bl.genericNestedRef(t); isNested {
+		// A generic nested fn named as a value: the instance the checker
+		// instantiated the reference at.
+		if inst == nil {
+			return ir.NoTemp, kindInvalid, false, false
+		}
+		return bl.lower(inst)
+	}
+	if bl.defaultScope {
+		if v, k, mobile, ok := bl.onceValue(t); ok {
+			return v, k, mobile, true
+		}
+		return bl.funcRef(t)
+	}
+	if v, k, mobile, ok := bl.onceValue(t); ok {
+		return v, k, mobile, true
+	}
+	if bl.parent != nil {
+		return bl.capture(t)
+	}
+	l, bound := bl.g.lookup(t.Name)
+	if !bound {
+		return bl.funcRef(t)
+	}
+	if !irCallableValueKind(l.k) && l.k != kindUnit && !(bl.boot && irContextKind(l.k)) {
+		// Bound values need a retained representation, including callable
+		// signatures over the retained value domain.
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	r := ir.NewRefLocal(bl.g.irPos(line, col), bl.f.NewTemp(), bl.sh.localSym(t.Name))
+	bl.b.Append(r)
+	bl.side(r.Dst(), irScalarSide{k: l.k})
+	// `ir.Ref.Stable()` is the mobility answer and for RefLocal it is
+	// true: a local read forces nothing and two reads agree. It is taken
+	// from the node rather than asserted.
+	return r.Dst(), l.k, r.Stable(), true
 }

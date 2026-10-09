@@ -59,7 +59,6 @@ func TestChannelSpecShapeChecksAreLoadBearing(t *testing.T) {
 			d.TypeParams = []ast.TypeParam{{Name: "T", Bounds: []ast.TypeExpr{&ast.SimpleType{Name: "Hashable"}}}}
 		}},
 		{"a foreign Go binding", func(d *ast.ExternType) { d.ForeignName = "chan.Sender" }},
-		{"an inline Go body", func(d *ast.ExternType) { d.GoBody = "type Sender struct{}" }},
 		{"a body item", func(d *ast.ExternType) { d.HasBody = true; d.Items = []ast.Node{&ast.FuncDef{Name: "x"}} }},
 		{"a decorator that is not derive", func(d *ast.ExternType) {
 			d.Decorators = []ast.Decorator{{Name: "inline"}}

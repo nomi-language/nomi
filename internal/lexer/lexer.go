@@ -5,6 +5,7 @@ import (
 	"github.com/nomi-language/nomi/internal/token"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Lex tokenizes the source string into a slice of tokens.
@@ -313,6 +314,14 @@ func (l *lexer) scanRawBacktick(tag string) {
 			l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: string(buf), Tag: tag, Line: startLine, Col: startCol})
 			return
 		}
+		if ch >= utf8.RuneSelf {
+			var ok bool
+			if buf, ok = l.takeRune(buf); !ok {
+				l.illegalString(invalidUTF8InString, startLine, startCol)
+				return
+			}
+			continue
+		}
 		buf = append(buf, byte(ch))
 		l.advance()
 	}
@@ -438,11 +447,39 @@ func (l *lexer) scanString(tag string) {
 			continue
 		}
 
+		if ch >= utf8.RuneSelf {
+			var ok bool
+			if buf, ok = l.takeRune(buf); !ok {
+				l.illegalString(invalidUTF8InString, openLine, openCol)
+				return
+			}
+			continue
+		}
 		buf = append(buf, byte(ch))
 		l.advance()
 	}
 
 	l.illegalString(`unterminated string; close it with "`, openLine, openCol)
+}
+
+// invalidUTF8InString is the problem a string literal holding a byte that
+// is not UTF-8 reports. A string is text: no escape writes such a byte
+// (`\u{...}` names a Unicode scalar value), so nothing, `nomi fmt`
+// included, could write the literal back as it was.
+const invalidUTF8InString = "a string literal must be UTF-8 text; this one holds a byte that is not UTF-8"
+
+// takeRune appends the multi-byte UTF-8 sequence at the cursor to buf and
+// steps over it, or reports false when the bytes there are not UTF-8.
+func (l *lexer) takeRune(buf []byte) ([]byte, bool) {
+	r, size := utf8.DecodeRuneInString(l.source[l.pos:])
+	if r == utf8.RuneError && size <= 1 {
+		return buf, false
+	}
+	buf = append(buf, l.source[l.pos:l.pos+size]...)
+	for range size {
+		l.advance()
+	}
+	return buf, true
 }
 
 // illegalString ends a string literal at a malformed escape: an ILLEGAL token
@@ -705,6 +742,14 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 			continue
 		}
 
+		if ch >= utf8.RuneSelf {
+			var ok bool
+			if buf, ok = l.takeRune(buf); !ok {
+				l.illegalString(invalidUTF8InString, startLine, startCol)
+				return
+			}
+			continue
+		}
 		// No escape processing — backslashes are literal in both
 		// regular and raw triple-quoted strings.
 		buf = append(buf, byte(ch))
@@ -953,16 +998,12 @@ var keywords = map[string]token.TokenType{
 	"self":      token.SELF,
 	"try":       token.TRY,
 	"then":      token.THEN,
-	// `field`, `variant`, and `open` are contextual keywords, recognized
-	// by lexeme inside specific bodies only:
-	//   - `field` in interface bodies (field requirements);
-	//   - `variant` in interface bodies (variant requirements);
-	//   - `open` before interface default methods.
-	// Outside those contexts they remain regular identifiers — `struct
-	// Box { field: T }` (a bare field named `field`), `binding open =
-	// ...`, and locals named `variant` keep working. The parser does the
-	// lexeme checks in parseInterfaceDef / parseInterfaceMethod /
-	// parseStructBody / parseEnumItemBody / parseTypeDeclBody.
+	"tap":       token.TAP,
+	// `open` is a contextual keyword, recognized by lexeme before an
+	// interface default method only (parseInterfaceDef), so `open = ...`
+	// keeps working elsewhere. `field` is an ordinary identifier; the
+	// parser names it only to explain that an interface or a type body
+	// declares no `field` items.
 }
 
 func (l *lexer) scanIdentifier() {

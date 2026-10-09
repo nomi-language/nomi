@@ -573,7 +573,7 @@ func (s *vmShaper) argFor(f *ir.Func, t ir.Temp, leaf *probeLeaf, depth int) any
 		return found
 	}
 	switch reads[0].Kind() {
-	case ir.ProjField, ir.ProjRecordField, ir.ProjIfaceField:
+	case ir.ProjField, ir.ProjRecordField:
 		sv := &probeStruct{name: "Probe", fields: map[string]any{}}
 		for _, p := range reads {
 			sv.fields[p.Name()] = s.argFor(f, p.Dst(), leaf, depth)

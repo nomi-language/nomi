@@ -52,8 +52,13 @@ type AssertableDetails struct {
 	// Not a rendering of the subject: a shape subject's `actual:` row is
 	// the value's Debug text, and this one is whatever the `failure`
 	// implementation put in the field.
-	Actual  string
-	Details []AssertionDetailContext
+	Actual string
+	// Expected is what the Assertable expected in place of Actual, and
+	// HasExpected says it answered one. With both present and different the
+	// report shows a line diff of the two (AssertionStringDiff).
+	Expected    string
+	HasExpected bool
+	Details     []AssertionDetailContext
 }
 
 // AssertableDetailsOf reads the `Maybe<AssertionDetails>` an `Assertable`
@@ -67,9 +72,11 @@ func AssertableDetailsOf(answer Maybe[NomiAssertionDetails]) *AssertableDetails 
 		return nil
 	}
 	return &AssertableDetails{
-		Reason:  answer.Some.Reason,
-		Actual:  reportMaybeString(answer.Some.Actual),
-		Details: reportDetails(answer.Some.Details),
+		Reason:      answer.Some.Reason,
+		Actual:      reportMaybeString(answer.Some.Actual),
+		Expected:    reportMaybeString(answer.Some.Expected),
+		HasExpected: answer.Some.Expected.Tag == TagSome,
+		Details:     reportDetails(answer.Some.Details),
 	}
 }
 
@@ -103,5 +110,10 @@ func (s AssertionSite) JudgeAssertable(
 	}
 	failure := s.Failure(reason, answer.Actual, binding, values)
 	failure.Details = answer.Details
+	if answer.HasExpected && answer.Expected != answer.Actual {
+		// A diff of any two strings that differ, one-line ones included: an
+		// Assertable has no operand rows to show them in.
+		failure.Diff = &AssertionStringDiff{Actual: answer.Actual, Expected: answer.Expected}
+	}
 	return failure
 }

@@ -156,9 +156,6 @@ func importTargets(n ast.Node) []string {
 		}
 		return out
 	case *ast.ImportStmt:
-		if t.Extern {
-			return nil
-		}
 		segs := make([]string, 0, len(t.ModulePath))
 		for _, s := range t.ModulePath {
 			segs = append(segs, ast.ImportNodeName(s))

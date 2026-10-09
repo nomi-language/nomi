@@ -148,7 +148,7 @@ func EnterScope(parent *Frame) *Frame {
 	ctx, cancel := context.WithCancel(parent.ctx)
 	s := &Scope{ctx: ctx, cancel: cancel, failed: make(chan struct{})}
 	return &Frame{ctx: ctx, forcing: parent.forcing, scopedFields: parent.scopedFields, scopedContext: parent.scopedContext,
-		booted: parent.booted, scope: s, inTask: parent.inTask, underDeadline: parent.underDeadline, park: parent.park}
+		booted: parent.booted, scope: s, inTask: parent.inTask, underDeadline: parent.underDeadline, park: parent.park, capture: parent.capture}
 }
 
 // ScopeExit ends a `concurrent { }` block: cancel every task still running,
@@ -439,7 +439,7 @@ func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Fr
 		// spawn. A block task keeps the spawner's deadline,
 		// unlike a supervised one, because the block joins it — see
 		// supervisorEnrol.
-		t.value = body(&Frame{ctx: ctx, forcing: fr.forcing, scopedFields: fr.scopedFields, scopedContext: fr.scopedContext, booted: fr.booted, inTask: true, park: fr.park})
+		t.value = body(&Frame{ctx: ctx, forcing: fr.forcing, scopedFields: fr.scopedFields, scopedContext: fr.scopedContext, booted: fr.booted, inTask: true, park: fr.park, capture: fr.capture})
 		t.tag = TagCompleted
 	}()
 	return Task[T]{t: t}

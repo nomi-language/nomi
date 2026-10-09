@@ -23,9 +23,6 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 		Col:  utf16ToByteCol(doc.Content, params.Position.Line, params.Position.Character),
 	}
 
-	if hover, ok := inlineGoHelperHover(doc.Content, doc.Nodes, pos); ok {
-		return hover, nil
-	}
 	if doc.Analysis == nil {
 		return nil, nil
 	}
@@ -54,7 +51,7 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 		return nil, nil
 	}
 
-	content := hoverdoc.RenderWithAnalysis(sym, doc.Analysis)
+	content := hoverdoc.RenderForEditor(sym, doc.Analysis)
 	if content == "" {
 		return nil, nil
 	}
@@ -98,7 +95,7 @@ func targetStructHover(fa *analysis.FileAnalysis, pos analysis.Pos) (string, boo
 		if scope := fa.ScopeAt(pos); scope != nil {
 			if sym := realSymbol(scope.Lookup(st.Name)); sym != nil {
 				if decl, ok := sym.Type.(*analysis.StructType); ok && decl.Name == st.Name && decl.Origin == st.Origin {
-					body = hoverdoc.RenderWithAnalysis(sym, fa)
+					body = hoverdoc.RenderForEditor(sym, fa)
 				}
 			}
 		}

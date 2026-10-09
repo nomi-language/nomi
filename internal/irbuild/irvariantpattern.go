@@ -92,6 +92,12 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 		if _, ok := tupleCaseComponents(pat.Payload, v.payloads[0].k); pat.Binding != "" || !ok {
 			return nil, nil, false
 		}
+	case *ast.AsPattern:
+		// `Some(P as name)`: P tested against the projected payload as a
+		// field's sub-pattern is, and name bound to the payload.
+		if pat.Binding != "" || !irFieldSubPattern(pat.Payload, v.payloads[0].k) {
+			return nil, nil, false
+		}
 	default:
 		return nil, nil, false
 	}
@@ -233,8 +239,9 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 	tupleTests := nestedTuple && !tupleCaseIrrefutable(pat.Payload, v.payloads[0].k)
 	_, nestedMap := pat.Payload.(*ast.MapPattern)
 	_, nestedList := pat.Payload.(*ast.ListPattern)
+	_, nestedAs := pat.Payload.(*ast.AsPattern)
 	success := arm
-	if literal || nested || tupleTests || nestedMap || nestedList {
+	if literal || nested || tupleTests || nestedMap || nestedList || nestedAs {
 		success = bl.f.NewBlock(bl.g.irNodePos(pat.Payload), "payload test")
 	}
 	bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(pat), match.Dst(), success.ID(), next.ID()))
@@ -270,7 +277,7 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 	if nestedList {
 		return bl.listCaseTest(pat.Payload, value, payloadKind, arm, next)
 	}
-	if nested {
+	if nested || nestedAs {
 		// The inner test reads the payload inline and branches to the same
 		// arm and the same next arm, so a failed inner test abandons the
 		// whole arm as matchArm's nested block does.
@@ -325,7 +332,7 @@ func (bl *irScalarBuilder) variantPayload(at ast.Node, subj ir.Temp, d *typeDef,
 func (bl *irScalarBuilder) enumPatternPayload(pat *ast.EnumPattern, subj ir.Temp, d *typeDef, v *variantDef) (ir.Temp, kind) {
 	part := v.payloads[0]
 	projection := bl.variantPayload(pat, subj, d, v)
-	if v.kind == "embedded" && irWrappingDistinct(v.embeds) && (pat.Binding != "" || irIsIdentPattern(pat.Payload)) {
+	if irEmbedsValueDistinct(v) && (pat.Binding != "" || irIsIdentPattern(pat.Payload) || irIsAsPattern(pat.Payload)) {
 		// `Identifier.UserId(name)`: the name binds the embedded distinct's
 		// inner value.
 		projection = bl.distinctProjection(pat, projection, part.k, false, "irvariantpattern.go enumPatternPayload")
@@ -475,6 +482,9 @@ func irFieldSubPattern(p ast.Node, k kind) bool {
 		return k.tag == tagMap && irRetainedMapKind(k)
 	case *ast.ListPattern:
 		return irRetainedListKind(k) || irListTransportKind(k)
+	case *ast.AsPattern:
+		// The name binds the field; its pattern decides the test.
+		return irFieldSubPattern(ast.WithoutAs(p), k)
 	}
 	return false
 }
@@ -574,6 +584,12 @@ func (bl *irScalarBuilder) embeddedStructCaseTest(pat *ast.StructPattern, subj i
 		}
 	}
 	return true
+}
+
+// irIsAsPattern reports whether a payload pattern is `P as name`.
+func irIsAsPattern(n ast.Node) bool {
+	_, ok := n.(*ast.AsPattern)
+	return ok
 }
 
 // irIsIdentPattern reports whether a payload pattern is a plain name.

@@ -46,7 +46,7 @@ func (g *gen) irParamPatternKind(p ast.Param) kind {
 		return g.typeOf(p.TypeAnnotation)
 	}
 	var head ast.TypeExpr
-	switch pat := p.Destructure.(type) {
+	switch pat := ast.WithoutAs(p.Destructure).(type) {
 	case *ast.StructPattern:
 		head = pat.TypeName
 	case *ast.EnumPattern:

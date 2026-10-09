@@ -12,8 +12,8 @@ import (
 // formatting noise and collapse; a comment between imports keeps that boundary
 // visible. Same-module selective statements merge; entries that cannot be
 // merged losslessly pass through unchanged. A single-construct group is left
-// as-is (a lone import stays bare; a lone block stays a block — its single
-// entry is collapsed to bare at emit time).
+// as-is (a lone import stays bare; a lone block stays a block, entries as
+// written — its single entry is collapsed to bare at emit time).
 //
 // Runs before sortImports (which then sorts each block's entries) in Format.
 func combineImports(nodes []ast.Node) []ast.Node {
@@ -24,7 +24,7 @@ func combineImports(nodes []ast.Node) []ast.Node {
 	var out []ast.Node
 	groupStart := 0
 	for i := 1; i < end; i++ {
-		if hasLeadingComment(nodes[i]) || importNodeGo(nodes[i]) != importNodeGo(nodes[groupStart]) {
+		if startsImportSection(nodes[i]) {
 			out = append(out, combineGroup(nodes[groupStart:i]))
 			groupStart = i
 		}
@@ -87,6 +87,8 @@ func normalizeNestedImportLayout(node ast.Node) {
 	case *ast.Dbg:
 		normalizeNestedImportLayout(n.Expr)
 	case *ast.Then:
+		normalizeNestedImportLayout(n.Lambda)
+	case *ast.Tap:
 		normalizeNestedImportLayout(n.Lambda)
 	case *ast.Assertion:
 		normalizeNestedImportLayout(n.Expr)
@@ -198,7 +200,6 @@ func combineGroup(group []ast.Node) ast.Node {
 		setImportLeading(group[0], trimBareLeadingBlankTrivia(importLeading(group[0])))
 		return group[0]
 	}
-	goBlock := importNodeGo(group[0])
 	var entries []*ast.ImportStmt
 	var endTrivia []ast.Trivia
 	for i, n := range group {
@@ -220,7 +221,7 @@ func combineGroup(group []ast.Node) ast.Node {
 		}
 	}
 	entries = mergeSameModule(entries)
-	block := &ast.ImportBlock{Entries: entries, Go: goBlock, EndTrivia: endTrivia, Line: group[0].LineNum()}
+	block := &ast.ImportBlock{Entries: entries, EndTrivia: endTrivia, Line: group[0].LineNum()}
 	// The group head's leading (usually a section/header comment) stays above
 	// the block. If the head was a flat statement it is also entries[0]; clear
 	// its copy so the comment isn't emitted twice.
@@ -233,15 +234,13 @@ func combineGroup(group []ast.Node) ast.Node {
 	return block
 }
 
-func importNodeGo(n ast.Node) bool {
-	switch v := n.(type) {
-	case *ast.ImportStmt:
-		return v.Extern
-	case *ast.ImportBlock:
-		return v.Go
-	default:
-		return false
-	}
+// startsImportSection reports whether n, in a run of top-level imports,
+// starts a new section: it carries an own-line comment above it.
+// combineImports combines each section into one block and
+// sortImports sorts only within a section, so the two agree on where sections
+// end and a sort never moves an import across a comment.
+func startsImportSection(n ast.Node) bool {
+	return hasLeadingComment(n)
 }
 
 func trimBareLeadingBlankTrivia(trivia []ast.Trivia) []ast.Trivia {
@@ -267,20 +266,24 @@ func importRunEnd(nodes []ast.Node) int {
 	return end
 }
 
-// mergeSameModule merges entries that share a module path. Entries with legacy
-// module aliases or line-level export shorthand are left separate because their
-// bindings/modifiers must be preserved exactly. Order follows first occurrence.
+// mergeSameModule merges entries that share a module path. Entries with
+// legacy module aliases or line-level export shorthand are left separate
+// because their bindings/modifiers must be preserved exactly, and so is a
+// pair that cannot merge losslessly (canMergeImportPair). Order follows first
+// occurrence.
 func mergeSameModule(entries []*ast.ImportStmt) []*ast.ImportStmt {
 	var out []*ast.ImportStmt
 	idx := map[string]int{}
 	for _, e := range entries {
-		if e.Extern || e.ModuleAlias != nil || e.ExportAll {
+		if e.ModuleAlias != nil || e.ExportAll {
 			out = append(out, e)
 			continue
 		}
 		key := modulePathKeyStmt(e)
-		if j, ok := idx[key]; ok {
+		if j, ok := idx[key]; ok && canMergeImportPair(out[j], e) {
 			out[j] = mergeImportPair(out[j], e)
+		} else if ok {
+			out = append(out, e)
 		} else {
 			idx[key] = len(out)
 			out = append(out, e)
@@ -297,26 +300,58 @@ func modulePathKeyStmt(stmt *ast.ImportStmt) string {
 	return strings.Join(parts, "/")
 }
 
-// mergeImportPair merges b into a (same module path), returning a fresh
-// statement. Names union (dedup by bound name, aliases + export flags carried);
-// `self` is set when the result has names and either input bound the module
-// (bare import or an existing `self`); comments concatenate in a→b order.
+// canMergeImportPair reports whether a and b (same module path) merge into
+// one statement that binds exactly what the two bind. A name bound twice, the
+// module bound twice (two bare imports, or `self` twice), is an error the
+// analyzer reports on the source; merging would drop the second binding and
+// turn a rejected program into an accepted one, so such a pair stays apart.
+// So does a pair that both end in a same-line comment, which one line could
+// hold only as a single comment.
+func canMergeImportPair(a, b *ast.ImportStmt) bool {
+	if trailingHasComment(a.Trailing) && trailingHasComment(b.Trailing) {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, s := range []*ast.ImportStmt{a, b} {
+		if bindsImportModule(s) {
+			if seen[""] {
+				return false
+			}
+			seen[""] = true
+		}
+		for i, n := range s.Names {
+			bound := ast.ImportNodeName(n)
+			if i < len(s.Aliases) && s.Aliases[i] != nil {
+				bound = ast.ImportNodeName(s.Aliases[i])
+			}
+			if seen[bound] {
+				return false
+			}
+			seen[bound] = true
+		}
+	}
+	return true
+}
+
+// bindsImportModule reports whether s binds its module's own name: a bare
+// import, or a selective one that lists `self`.
+func bindsImportModule(s *ast.ImportStmt) bool {
+	return s.IncludeParent || len(s.Names) == 0
+}
+
+// mergeImportPair merges b into a (same module path, canMergeImportPair),
+// returning a fresh statement. Names concatenate with their aliases and
+// export flags; `self` is set when the result has names and either input
+// bound the module; comments concatenate in a→b order.
 func mergeImportPair(a, b *ast.ImportStmt) *ast.ImportStmt {
 	var names, aliases, exportAliases []ast.Node
 	var flags []bool
-	seen := map[string]bool{}
 	add := func(s *ast.ImportStmt) {
 		for i, n := range s.Names {
-			bound := ast.ImportNodeName(n)
 			var alias ast.Node
 			if i < len(s.Aliases) && s.Aliases[i] != nil {
 				alias = s.Aliases[i]
-				bound = ast.ImportNodeName(alias)
 			}
-			if seen[bound] {
-				continue
-			}
-			seen[bound] = true
 			names = append(names, n)
 			aliases = append(aliases, alias)
 			flags = append(flags, i < len(s.ExportFlags) && s.ExportFlags[i])
@@ -329,13 +364,12 @@ func mergeImportPair(a, b *ast.ImportStmt) *ast.ImportStmt {
 	}
 	add(a)
 	add(b)
-	bareOrSelf := func(s *ast.ImportStmt) bool { return s.IncludeParent || len(s.Names) == 0 }
 	merged := *a
 	merged.Names = names
 	merged.Aliases = aliases
 	merged.ExportFlags = flags
 	merged.ExportAliases = exportAliases
-	merged.IncludeParent = len(names) > 0 && (bareOrSelf(a) || bareOrSelf(b))
+	merged.IncludeParent = len(names) > 0 && (bindsImportModule(a) || bindsImportModule(b))
 	merged.Leading = append(append([]ast.Trivia(nil), a.Leading...), b.Leading...)
 	merged.Trailing = append(append([]ast.Trivia(nil), a.Trailing...), b.Trailing...)
 	return &merged
@@ -348,8 +382,10 @@ func mergeImportPair(a, b *ast.ImportStmt) *ast.ImportStmt {
 //
 // Within the sorted run:
 //
-//   - The run is split into comment-delimited sections. Bare blank lines do not
-//     create sections.
+//   - The run is split into sections where combineImports splits it
+//     (startsImportSection: an own-line comment), and also at a blank
+//     line, which separates the statements RenderImports is given. Nothing
+//     moves across a section boundary.
 //   - Each group is ordered by origin (std/* first, everything else second) —
 //     stable-sorted so in-group order comes from the alphabetical comparator.
 //   - Alphabetical order is by module path joined with `/`; imported-name
@@ -406,12 +442,12 @@ func sortImports(nodes []ast.Node) []ast.Node {
 		}
 	}
 
-	// Split [0, end) into blank-line-delimited groups and sort each group
-	// in place. A node whose leading trivia begins with a blank line starts
-	// a new group.
+	// Split [0, end) into sections and sort each in place. In Format the
+	// run has been through combineImports, so every section is one node by
+	// now and nothing reorders; RenderImports sorts uncombined statements.
 	groupStart := 0
 	for i := 1; i < end; i++ {
-		if hasLeadingBlank(nodes[i]) {
+		if hasLeadingBlank(nodes[i]) || startsImportSection(nodes[i]) {
 			sortImportGroup(nodes[groupStart:i])
 			groupStart = i
 		}
@@ -421,7 +457,7 @@ func sortImports(nodes []ast.Node) []ast.Node {
 	return nodes
 }
 
-// sortImportGroup sorts the per-statement imports within one blank-line group
+// sortImportGroup sorts the per-statement imports within one section
 // in place. ImportBlock nodes keep their slots; only *ast.ImportStmt nodes
 // reorder. The group's header trivia (on the first node) is hoisted to stay
 // at the head — see hoistGroupHeader.
@@ -545,9 +581,6 @@ func sortSelectiveList(imp *ast.ImportStmt) {
 // group 0; everything else is group 1 (local imports, placeholder until we
 // have a richer notion of origin).
 func importGroup(imp *ast.ImportStmt) int {
-	if imp.Extern {
-		return 1
-	}
 	if len(imp.ModulePath) > 0 && ast.ImportNodeName(imp.ModulePath[0]) == "std" {
 		return 0
 	}
@@ -559,9 +592,6 @@ func importGroup(imp *ast.ImportStmt) int {
 // intentionally ignored — we sort by where the module lives, not what the
 // caller renamed it to.
 func importPathString(imp *ast.ImportStmt) string {
-	if imp.Extern {
-		return imp.ExternPath
-	}
 	parts := make([]string, 0, len(imp.ModulePath))
 	for _, p := range imp.ModulePath {
 		parts = append(parts, ast.ImportNodeName(p))

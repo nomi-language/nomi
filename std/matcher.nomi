@@ -14,7 +14,7 @@ import {
 ///
 /// ```nomi
 /// String.split("a,b", ",")                     // ["a", "b"]
-/// String.split("a1b22c", try Regex`\d+`)       // ["a", "b", "c"]
+/// String.split("a1b22c", Regex`\d+`)           // ["a", "b", "c"]
 /// ```
 ///
 /// Each function answers one String operation for `text`, with the matcher
@@ -23,7 +23,7 @@ import {
 /// `where M: Matcher`.
 //! import std/regex.Regex
 //!
-//! digits = try Regex`\d+`
+//! digits = Regex`\d+`
 //! assert String.contains?("order 66", digits)
 //! assert String.contains?("order 66", "66")
 //! assert Matcher.split_in(",", "a,b") == ["a", "b"]

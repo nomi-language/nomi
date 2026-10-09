@@ -56,9 +56,15 @@ pub struct AssertionDetail {
 /// failure and `True` succeeds. Types that implement `Assertable` can supply
 /// richer failure details while the runtime still adds source location,
 /// expression text, binding context, and observed sub-expression values.
+///
+/// `actual` is shown as an `actual:` row. When `expected` is given too and
+/// differs from it, the report shows a line diff of the two instead, the
+/// one a failed `==` over multi-line Strings shows: `-` lines are only in
+/// `expected`, `+` lines only in `actual`.
 pub struct AssertionDetails {
     reason: String = "assertion failed"
     actual: Maybe<String> = None
+    expected: Maybe<String> = None
     details: List<AssertionDetail> = []
 }
 

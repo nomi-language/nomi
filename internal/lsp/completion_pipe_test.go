@@ -101,7 +101,7 @@ func TestCompletion_PipeOwnerLookupReadsClosedFiles(t *testing.T) {
 // take the value; `assert` and `refute`, which a stage cannot be, are not.
 func TestCompletion_PipeKeywordStages(t *testing.T) {
 	items := complete(t, "fn f(xs: List<Int>): Int {\n    xs |> "+cursorMark+"\n}\n")
-	labelsInclude(t, items, "dbg", "if", "case", "then")
+	labelsInclude(t, items, "dbg", "if", "case", "then", "tap")
 	labelsExclude(t, items, "assert", "refute")
 	labelsBefore(t, items, "Iter.count", "dbg")
 	labelsBefore(t, items, "List.head", "dbg")

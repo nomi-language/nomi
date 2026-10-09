@@ -37,11 +37,8 @@ package hostpair
 
 import (
 	"fmt"
-	goparser "go/parser"
-	gotoken "go/token"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -112,37 +109,29 @@ type Pairing struct {
 	Name string
 
 	// ImportPath is the Go package the symbol lives in, taken from the
-	// `gopkg "path" as alias` handle the selector references. "" for an inline
-	// `go { }` body, whose Go text has no package of its own.
+	// `gopkg "path" as alias` handle the selector references.
 	ImportPath string
 	// Alias is the `gopkg` handle's alias as the facade wrote it (`go_regex`).
 	// Carried because two consumers render a qualified selector and one of
 	// them, the wrapper, re-aliases; the alias is the facade's spelling, not
 	// the renderer's.
 	Alias string
-	// Symbol is the Go identifier inside ImportPath (`Compile`), or "" when
-	// Inline.
+	// Symbol is the Go identifier inside ImportPath (`Compile`).
 	Symbol string
-	// Inline marks a declaration whose implementation is an inline `go { }`
-	// body rather than a package symbol. There is nothing to point at: the
-	// body is compiled into whatever wrapper the consumer generates, so a
-	// pairing cannot name a symbol and consumers must special-case it.
-	Inline bool
 
 	SourceFile string
 	SourceLine int
 	SourceCol  int
 }
 
-// GoSymbol is the fully qualified Go symbol, `<import path>.<Symbol>`. Empty
-// for an inline body.
+// GoSymbol is the fully qualified Go symbol, `<import path>.<Symbol>`.
 //
 // This is the spelling runtime.FuncForPC reports for a linked func value and
 // the spelling reflect.Type reports for a named type, which is what makes the
 // symbol half of a pairing checkable against a real binary rather than only
 // against another derivation.
 func (p Pairing) GoSymbol() string {
-	if p.Inline || p.ImportPath == "" || p.Symbol == "" {
+	if p.ImportPath == "" || p.Symbol == "" {
 		return ""
 	}
 	return p.ImportPath + "." + p.Symbol
@@ -261,9 +250,6 @@ func (p Pairing) Keys() []string {
 // output. Not a key; do not parse it.
 func (p Pairing) String() string {
 	symbol := p.GoSymbol()
-	if p.Inline {
-		symbol = "<inline go body>"
-	}
 	if symbol == "" {
 		symbol = "<no symbol>"
 	}
@@ -314,14 +300,8 @@ func DeriveNodes(file, moduleName string, nodes []ast.Node) []Pairing {
 // collectGopkgAliases indexes every Go package handle a selector in this file
 // may name, by alias.
 //
-// Three sources, which is ffirun.collectExternPackages plus
-// ffirun.collectGoBlocks:
-//
-//   - a top-level `gopkg "path" as alias` handle;
-//   - an `import "path" as alias` written with the extern marker, which
-//     ffirun.externPackageFromImport also accepts;
-//   - an `import` spec inside a top-level `go { }` prelude, whose alias is the
-//     Go one — explicit, or the sanitized last path segment when absent.
+// The one source is a top-level `gopkg "path" as alias` handle, which is
+// ffirun.collectExternPackages.
 //
 // A selector naming an alias with no handle is NOT a pairing and is dropped,
 // which is ffirun's behaviour (discovery.go:510 `if pkgDecl == nil`) rather
@@ -335,65 +315,9 @@ func collectGopkgAliases(nodes []ast.Node) map[string]*ast.ExternPackage {
 			if v.Alias != "" {
 				aliases[v.Alias] = v
 			}
-		case *ast.ImportStmt:
-			if v.Extern && v.ExternAlias != "" && v.ExternAlias != "_" {
-				aliases[v.ExternAlias] = &ast.ExternPackage{
-					ImportPath: importStmtPath(v),
-					Alias:      v.ExternAlias,
-				}
-			}
-		case *ast.ImportBlock:
-			for _, entry := range v.Entries {
-				if entry.Extern && entry.ExternAlias != "" && entry.ExternAlias != "_" {
-					aliases[entry.ExternAlias] = &ast.ExternPackage{
-						ImportPath: importStmtPath(entry),
-						Alias:      entry.ExternAlias,
-					}
-				}
-			}
-		case *ast.GoBlock:
-			for _, decl := range goBlockImports(v) {
-				aliases[decl.Alias] = decl
-			}
 		}
 	}
 	return aliases
-}
-
-// goBlockImports reads the `import` specs out of a `go { }` prelude.
-//
-// ffirun.parseGoBlockPrelude's import half, minus the non-import declarations
-// it also lifts: those are Go text the wrapper emits, not pairings. An
-// unparseable body yields nothing, matching ffirun — a malformed prelude is
-// the analyzer's error to report, and discovery must not invent a pairing out
-// of text it could not read.
-func goBlockImports(block *ast.GoBlock) []*ast.ExternPackage {
-	fset := gotoken.NewFileSet()
-	file, err := goparser.ParseFile(fset, "inline_go.nomi.go", "package main\n"+strings.TrimSpace(block.Body)+"\n", goparser.ImportsOnly)
-	if err != nil {
-		return nil
-	}
-	var out []*ast.ExternPackage
-	for _, spec := range file.Imports {
-		if spec.Path == nil {
-			continue
-		}
-		importPath, err := strconv.Unquote(spec.Path.Value)
-		if err != nil {
-			continue
-		}
-		alias := ""
-		if spec.Name != nil {
-			alias = spec.Name.Name
-		} else {
-			alias = defaultGoImportAlias(importPath)
-		}
-		if alias == "" || alias == "_" {
-			continue
-		}
-		out = append(out, &ast.ExternPackage{ImportPath: importPath, Alias: alias})
-	}
-	return out
 }
 
 func collect(file, moduleName, receiver, iface string, nodes []ast.Node, aliases map[string]*ast.ExternPackage, out *[]Pairing) {
@@ -428,26 +352,6 @@ func typePairing(file, moduleName, receiver string, v *ast.ExternType, aliases m
 		Name:       v.Name,
 		SourceFile: file,
 	}
-	if v.GoBody != "" {
-		alias, name, ok := parseInlineTypeSelector(v.GoBody)
-		if !ok {
-			return Pairing{}, false
-		}
-		p.Symbol = name
-		p.SourceLine, p.SourceCol = v.GoBodyLine, v.GoBodyCol
-		if alias == "" {
-			// A local `go { type X ... }` body: the type exists only in the
-			// generated wrapper, so there is no import path to name.
-			p.Inline = true
-			return p, true
-		}
-		decl := aliases[alias]
-		if decl == nil {
-			return Pairing{}, false
-		}
-		p.Alias, p.ImportPath = decl.Alias, decl.ImportPath
-		return p, true
-	}
 	if v.ForeignAlias == "" || v.ForeignName == "" {
 		return Pairing{}, false
 	}
@@ -469,11 +373,6 @@ func funcPairing(file, moduleName, receiver, iface string, v *ast.ExternFunc, al
 		Interface:  iface,
 		Name:       v.Name,
 		SourceFile: file,
-	}
-	if v.GoBody != "" {
-		p.Inline = true
-		p.SourceLine, p.SourceCol = v.GoBodyLine, v.GoBodyCol
-		return p, true
 	}
 	if v.ForeignAlias == "" || v.ForeignName == "" {
 		return Pairing{}, false
@@ -529,29 +428,6 @@ func interfaceInstantiation(iface ast.TypeExpr) string {
 	return ""
 }
 
-// parseInlineTypeSelector reads the Go type expression an `ExternType`'s
-// inline body carries — `ffi.Box`, `*ffi.Box`, or a bare `Box` naming a type
-// declared in the same inline Go text.
-//
-// The grammar is ffirun.parseInlineGoTypeSelector's, arm for arm: trim, drop a
-// leading `*`, split on ".", accept one segment (bare) or two (alias-qualified)
-// and nothing else. Written out rather than called, because ffirun must not
-// become a dependency of the package meant to replace its derivation — but any
-// difference here would be a difference in the DERIVED PAIRING, so it is the
-// grammar that is shared, not the code, and the agreement check is what holds
-// them together.
-func parseInlineTypeSelector(body string) (alias, name string, ok bool) {
-	expr := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(body), "*"))
-	parts := strings.Split(expr, ".")
-	if len(parts) == 1 && parts[0] != "" {
-		return "", parts[0], true
-	}
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", false
-	}
-	return parts[0], parts[1], true
-}
-
 // ModuleNameForFile is the module-name segment a project file's declarations
 // are qualified with: "" for the entry `main.nomi` and for any `_test.nomi`,
 // and the file's base name otherwise.
@@ -572,57 +448,4 @@ func ModuleNameForFile(projectRoot, file string) string {
 	}
 	withoutExt := strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
 	return path.Base(withoutExt)
-}
-
-// importStmtPath is the Go import path an extern-marked `import` statement
-// names. ffirun.externPackageFromImport reads the same field.
-func importStmtPath(n *ast.ImportStmt) string {
-	if n == nil {
-		return ""
-	}
-	return n.ExternPath
-}
-
-// defaultGoImportAlias is the alias a `go { }` prelude import answers to when
-// it declares none: the sanitized last path segment, which is
-// ffirun.defaultGoImportAlias.
-//
-// Not Go's real rule — that is the imported package's own `package` clause,
-// which discovery cannot see without compiling. The last segment is the
-// approximation both sides make, so both make the same mistake on a package
-// whose name differs from its directory, and the agreement check cannot
-// distinguish them. Recorded rather than fixed: changing it here would break
-// agreement with the consumer that ships.
-func defaultGoImportAlias(importPath string) string {
-	return sanitizeIdent(lastPathSegment(strings.TrimSuffix(importPath, "/")))
-}
-
-func lastPathSegment(importPath string) string {
-	if i := strings.LastIndex(importPath, "/"); i >= 0 {
-		return importPath[i+1:]
-	}
-	return importPath
-}
-
-// sanitizeIdent maps any rune illegal in a Go identifier to "_", and prefixes
-// "_" when the result would start with a digit. ffirun.sanitizeIdent's rule.
-func sanitizeIdent(s string) string {
-	if s == "" {
-		return ""
-	}
-	out := make([]rune, 0, len(s))
-	for i, r := range s {
-		ok := r == '_' ||
-			(r >= 'a' && r <= 'z') ||
-			(r >= 'A' && r <= 'Z') ||
-			(i > 0 && r >= '0' && r <= '9')
-		if !ok {
-			r = '_'
-		}
-		out = append(out, r)
-	}
-	if out[0] >= '0' && out[0] <= '9' {
-		out = append([]rune{'_'}, out...)
-	}
-	return string(out)
 }

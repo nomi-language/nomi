@@ -37,6 +37,11 @@ type docHidden struct{ d Doc }      // see Hidden
 type docWithIndent struct {         // see WithIndent
 	f func(indent, width int) Doc
 }
+type docLineSuffix struct { // see LineSuffix and CommentBefore
+	s      string
+	before bool
+}
+type docInString struct{ d Doc } // see InString
 
 func (docNil) doc()         {}
 func (docText) doc()        {}
@@ -49,6 +54,8 @@ func (docIfBroken) doc()    {}
 func (docLocalBroken) doc() {}
 func (docHidden) doc()      {}
 func (docWithIndent) doc()  {}
+func (docLineSuffix) doc()  {}
+func (docInString) doc()    {}
 
 // Nil is the empty document.
 func Nil() Doc { return docNil{} }
@@ -152,3 +159,22 @@ func Hidden(d Doc) Doc { return docHidden{d: d} }
 // a Group measures its whole content as one line. When an ancestor Group asks
 // whether this document fits flat, it is built at indent 0.
 func WithIndent(f func(indent, width int) Doc) Doc { return docWithIndent{f: f} }
+
+// LineSuffix is a line comment written at the end of the line it renders on,
+// just before the next line break, after whatever else the line holds. It is
+// how a comment the tree keeps no trivia for (ast.TriviaCarrier's
+// DanglingBefore and DanglingAfter) comes back: whatever follows it on the
+// line is code it must not swallow. When the line already ends in a comment,
+// it goes on a line of its own below. It is invisible to fits, as a trailing
+// comment is (Hidden).
+func LineSuffix(comment string) Doc { return docLineSuffix{s: comment} }
+
+// CommentBefore is a line comment that belongs before the document after it.
+// Where that document starts a line, the comment takes the line above it;
+// elsewhere it is a LineSuffix.
+func CommentBefore(comment string) Doc { return docLineSuffix{s: comment, before: true} }
+
+// InString marks d as a multi-line string's body and closing delimiter. Its
+// line breaks are the string's own, so a pending LineSuffix waits until the
+// first line break after it.
+func InString(d Doc) Doc { return docInString{d: d} }
