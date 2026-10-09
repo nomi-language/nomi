@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"slices"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -22,6 +24,13 @@ func (g *gen) irVectorValueKind(k kind) bool {
 }
 
 func (bl *irScalarBuilder) vectorMake(t *ast.VectorLit) (ir.Temp, kind, bool, bool) {
+	// kindInvalid: sentinel — no expected element kind.
+	return bl.vectorMakeOf(t, kindInvalid)
+}
+
+// vectorMakeOf builds a vector literal; elem, when not kindInvalid, is the
+// expected element kind each item is lowered against.
+func (bl *irScalarBuilder) vectorMakeOf(t *ast.VectorLit, elem kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Items) == 0 {
 		n := ir.NewEmptyVector(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
@@ -29,7 +38,12 @@ func (bl *irScalarBuilder) vectorMake(t *ast.VectorLit) (ir.Temp, kind, bool, bo
 		return n.Dst(), kindEmptyVector, true, true
 	}
 	// Native vector construction forces every impure element.
-	values, elem, ok := bl.lowerSameKindItems(t.Items, func(k kind) bool {
+	want := elem
+	// kindInvalid: sentinel — the items give the element kind.
+	if parts := bl.literalParts(t, tagEmptyVector); want == kindInvalid && parts != nil {
+		want = parts[0]
+	}
+	values, elem, ok := bl.lowerSameKindItems(t.Items, want, func(k kind) bool {
 		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k)
 	})
 	if !ok {
@@ -112,24 +126,55 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 // to one element kind that accept admits. A bare `None` beside typed items
 // (`#[Some(1), None]`) takes their kind, as the checker gives it: it is
 // lowered after them, and having no effect, lowering it later reorders
-// nothing. listMakeOf does the same for a list.
-func (bl *irScalarBuilder) lowerSameKindItems(items []ast.Node, accept func(kind) bool) ([]ir.Temp, kind, bool) {
+// nothing. Items that differ only by an embedded type join to the enum
+// that embeds it (`#[circle, shape]` is a `Vector<Shape>`), as the checker
+// joins them: the embedded ones are widened after every item is lowered.
+// listMakeOf does the same for a list.
+//
+// want, when not kindInvalid, is the element kind (literalParts): every item
+// is lowered against it and must arrive as it.
+func (bl *irScalarBuilder) lowerSameKindItems(items []ast.Node, want kind, accept func(kind) bool) ([]ir.Temp, kind, bool) {
 	values := make([]ir.Temp, len(items))
-	// kindInvalid: sentinel — no item has been lowered yet.
-	elem := kindInvalid
+	// kindInvalid: sentinel — no element kind is given.
+	if want != kindInvalid {
+		if !accept(want) {
+			return nil, kindInvalid, false
+		}
+		for i, item := range items {
+			v, k, _, ok := bl.lowerWant(item, want)
+			if !ok || k != want {
+				return nil, kindInvalid, false
+			}
+			values[i] = v
+		}
+		return values, want, true
+	}
 	var deferred []int
+	var typedItems []ast.Node
+	var typedValues []ir.Temp
+	var typedKinds []kind
 	for i, item := range items {
 		if name, _, _, bare := preludeValueName(item); bare && name == "None" && len(items) > len(deferred)+1 {
 			deferred = append(deferred, i)
 			continue
 		}
 		v, k, _, ok := bl.lower(item)
-		// kindInvalid: sentinel — this is the first lowered item.
-		if !ok || !accept(k) || (elem != kindInvalid && k != elem) {
+		if !ok {
 			return nil, kindInvalid, false
 		}
-		elem = k
-		values[i] = v
+		typedItems, typedValues, typedKinds = append(typedItems, item), append(typedValues, v), append(typedKinds, k)
+	}
+	elem, joined := irEmbedsJoin(typedKinds)
+	if !joined || !accept(elem) || !bl.widenEmbedded(typedItems, typedValues, typedKinds, elem) {
+		return nil, kindInvalid, false
+	}
+	j := 0
+	for i := range items {
+		if slices.Contains(deferred, i) {
+			continue
+		}
+		values[i] = typedValues[j]
+		j++
 	}
 	for _, i := range deferred {
 		v, k, _, ok := bl.lowerTypedOperand(items[i], elem)

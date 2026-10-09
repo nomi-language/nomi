@@ -506,7 +506,7 @@ named argument`.
 3. Defaults backfill any still-empty slots.
 4. A required slot left empty is a compile error.
 
-A named arg whose name matches a slot already filled positionally is a compile error (`parameter 'x' already has a value`). Reorder the call — switch the colliding positional to named, or drop the redundant name:
+A named arg whose name matches a slot already filled positionally, or by an earlier named arg (`add(x: 1, x: 2)`), is a compile error (`parameter 'x' already has a value`), reported at the later one. Reorder the call — switch the colliding positional to named, or drop the redundant name:
 
 ```nomi
 fn add(x: Int, y: Int): Int {
@@ -707,7 +707,9 @@ fn area(shape: Shape): Float {
   expects: a function's result, an annotated binding, an argument, a struct
   field, a `case` arm or `if` branch (whose type its other arms decide), a
   lambda body, a pipe stage (`items |> Iter.to_list() |> todo`), a generic
-  function's result. As a statement it is `Unit`. A binding with no
+  function's result, an `if` condition or an operand whose type its operator
+  decides (`!todo` and `todo and ok` are `Bool`, `n == todo` has `n`'s type,
+  `1 + todo` is the type `+` takes on the right). As a statement it is `Unit`. A binding with no
   annotation expects nothing, so `x = todo` is an error asking for one
   (`x: Int = todo`); `_ = todo` is fine.
 - **Reason.** The reason is a string literal: `"..."`, `"""..."""` or a raw
@@ -1071,6 +1073,8 @@ bumped = User{name, age: age + 1} // mix punning and explicit
 ```
 
 Positional data uses tuples `(value, value)` or enum variants with parens — struct construction always requires named fields.
+
+A brace literal names each field at most once. `User{name: "Al", name: "Bo"}` is the compile error `field 'name' is given twice in this User literal`, at the second `name`; there is no last-wins rule. The same holds for an anonymous literal (`this struct literal`), a struct variant (`.Rect{w: 1, w: 2}` is `this Rect literal`), the fields after a spread and a `Struct.update` patch. A field after a spread may repeat a field of the base, since replacing it is what the spread is for.
 
 A struct can also be constructed in **call-form** by passing a single anonymous struct value to the type name:
 
@@ -1680,7 +1684,7 @@ fn total(shape: Shape): Float {
 }
 ```
 
-Where a `Circle` and a `Shape` meet without a direction, as the two branches of an `if` or `case`, the elements of an unannotated list or map, or two arguments of one generic parameter, the result is the `Shape`. `==` compares a `Circle` with a `Shape` as two `Shape`s. An impl function follows the same rule against its interface: it may not take a `Circle` where the interface's parameter is a `Shape`, nor return a `Shape` where the interface returns a `Circle`.
+Where a `Circle` and a `Shape` meet without a direction, as the two branches of an `if` or `case`, the elements of an unannotated list, vector or set, the keys or values of an unannotated map, or two arguments of one generic parameter, the result is the `Shape`. The same holds inside a tuple, record or collection: `[(1, circle), (2, shape)]` is a `List<(Int, Shape)>`, and `[[circle], [shape]]` a `List<List<Shape>>`. When neither side takes the other's values, as `(circle, shape)` beside `(shape, circle)`, the elements do not join and the literal is an error. `==` compares a `Circle` with a `Shape` as two `Shape`s. An impl function follows the same rule against its interface: it may not take a `Circle` where the interface's parameter is a `Shape`, nor return a `Shape` where the interface returns a `Circle`. A function value passed as an argument follows it too, since the callee calls it: `Iter.map(shapes, take)` with `take(c: Circle)` and `shapes: List<Shape>` is an error, because `take` would be called with every `Shape`, and `Iter.map(circles, area)` with `area(s: Shape)` is accepted.
 
 ### Embedded Types
 
@@ -2057,6 +2061,8 @@ case user {
 ```
 
 A written type name must name the value's struct, directly or through a `typealias`; any other name is a compile error at the pattern. A typed pattern does not match an anonymous struct: `User{name} = {name: "Ada"}` is an error, and `{name} = {name: "Ada"}` destructures it.
+
+A struct pattern names each field at most once: `User{age: 1, age: a}` is the error `field 'age' is given twice in this User pattern`, at the second `age`, and an anonymous one says `this struct pattern`. A punned repeat (`User{age, age}`) also binds `age` twice, which is the pattern error below.
 
 ### Naming the Whole Match: `as`
 
@@ -7360,60 +7366,73 @@ the trap propagates as it would without the capture and the output captured
 so far is dropped. `io.capture` works outside tests too, in `nomi run` and in
 `nomi build` executables.
 
-A transcript shows the session the way a terminal does. Each line read is a
-transcript line of its own that starts with `> `. When `run` wrote part of a
-line before reading (a prompt with no newline, `io.write("amount: ")`), that
-part goes on the read's line between the marker and the text read, so
-`> amount: 25` is a read of `25` after the prompt `amount: `. A read at the
-end of the input adds nothing. An output line that starts with `>` or `\`
-gets a `\` in front, so every transcript line that starts with `>` is a read.
-An inner `io.capture`'s reads are in its own transcript only.
+A transcript shows the session in two columns. A line read is `> `
+followed by exactly the text read. Every output line is two spaces (the
+gutter) followed by the line exactly as `run` wrote it, whatever it starts
+with, so output is never escaped; a blank output line is blank. Part of a
+line written before a read (a prompt with no newline) is output: it ends
+its own transcript line, and the line read follows on the next. After
+`io.write("age: ")`, a read of `36` gives `  age: ` and then `> 36`; after
+`io.write("> ")`, a read of `north` gives `  > ` and then `> north`. A read
+at the end of the input adds nothing, and the prompt it answered stays
+output, on one line with whatever is printed after it, as in `output`. An
+inner `io.capture`'s reads are in its own transcript only.
 
 `io.replay(script, run)` runs `run` against a script of an interactive
 session and answers an `io.Replayed`, an `Assertable` that holds when the
-transcript matches the script. The script is written as a transcript reads:
-each line that starts with `>` is input, and every other line is output the
-program must print. The text after the `>` and one space is what a read
-answers, less the prompt the program wrote on that line before reading.
-Once the script's `>` lines are used up, `io.read_line` answers
-`Err("eof")`.
+transcript matches the script. The script is written as a transcript reads.
+A line that starts with `> ` is input, and the text after `> ` is what the
+next `io.read_line` answers; `>` alone is an empty line. A line that starts
+with two spaces is output the program must print. A blank line is a blank
+output line. Any other line is an error: `io.replay` traps before `run`
+runs, with a message naming the line (``io.replay: line 3 of the script,
+"Ada is 36", must start with `> ` (input) or two spaces (output)``). Once the
+script's input lines are used up, `io.read_line` answers `Err("eof")`.
+
+The gutter is what lets output start with `>`, so it is required even when
+the script has no input lines. A program that reads nothing is checked
+through `io.capture(input, run).output`, which holds the output with no
+gutter; `io.replay` is for sessions with input.
+
+In a `"""` script, the input lines sit two columns left of the output lines.
+The baseline the literal removes is the least indentation among its
+non-blank lines and the closing delimiter (see the multi-line string rules),
+so the `>` lines and the closing `"""` set it and the output lines keep
+their two spaces:
 
 ```nomi
 import std/io
 
 fn main() {
-    io.print("What is the starting balance?")
-    balance = case io.read_line() {
-        Ok(line) -> String.to_int(line) |> Maybe.with_default(0)
-        Err(_) -> 0
-    }
-    io.write("deposit: ")
-    case io.read_line() {
-        Ok(line) -> {
-            amount = String.to_int(line) |> Maybe.with_default(0)
-            io.print("new balance is ${balance + amount}")
-        }
-        Err(_) -> io.print("bye")
-    }
+    io.print("What is your name?")
+    name = io.read_line() |> Result.with_default("")
+    io.write("Hello, ${name}. Your age: ")
+    age = io.read_line() |> Result.with_default("")
+    io.print("${name} is ${age}")
 }
 
-test "deposit money" {
-    assert io.replay("""
-        What is the starting balance?
-        > 500
-        > deposit: 25
-        new balance is 525
-        """, main)
+test "asks name and age" {
+    assert io.replay(
+        """
+          What is your name?
+        > Ada
+          Hello, Ada. Your age:
+        > 36
+          Ada is 36
+        """,
+        main,
+    )
 }
 ```
 
 Replay compares the transcript and the script line by line, with each
 line's trailing spaces, tabs and carriage return dropped and every line,
 the last included, ended by a newline, so a `"""` script, which drops its
-final newline, matches output that ends in one. `Replayed`'s `transcript`
-and `expected` fields hold the two in that form, and `output` holds what
-`run` printed byte for byte. A `>` line that `run` never read fails the
-replay, and the reason says how many were left. A failed replay shows the
+final newline, matches output that ends in one, and a prompt's trailing
+space need not be written. `Replayed`'s `transcript` and `expected` fields
+hold the two in that form, and `output` holds what `run` printed byte for
+byte. An input line that `run` never read fails the replay, and the reason
+says how many were left. A failed replay shows the
 same line diff a failed `==` over multi-line Strings shows, with the script
 as expected (`-`) and the transcript as actual (`+`). What `run` returned is
 not checked; use `io.capture` for that.

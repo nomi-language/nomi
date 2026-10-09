@@ -188,10 +188,10 @@ function as usual.
 
 A program that asks and answers in turn is easier to test as one
 conversation. [`io.replay`](/reference/io/) takes a script of the session as
-a terminal would show it: lines starting with `>` are what the user types,
-and the rest is what the program prints. It feeds the `>` lines to
-`io.read_line` in order, and `assert` checks that the program printed the
-rest at the right points.
+a terminal would show it, in two columns: lines starting with `> ` are what
+the user types, and lines starting with two spaces are what the program
+prints. It feeds the `>` lines to `io.read_line` in order, and `assert`
+checks that the program printed the rest at the right points.
 
 ```nomi-run
 import std/io
@@ -211,12 +211,16 @@ fn main() {
 }
 
 test "asks for a name, then an age" {
-    assert io.replay("""
-        What is your name?
+    assert io.replay(
+        """
+          What is your name?
         > Ada
-        > Hello, Ada. Your age: 36
-        Ada is 36
-        """, main)
+          Hello, Ada. Your age:
+        > 36
+          Ada is 36
+        """,
+        main,
+    )
 }
 ```
 <!-- expect
@@ -224,13 +228,19 @@ What is your name?
 hello, stranger
 -->
 
-When the program writes a prompt without a newline before it reads, as
-`io.write("Hello, Ada. Your age: ")` does, the prompt goes on the `>` line
-before the typed text, as it does on a terminal. Trailing spaces and the
-final newline don't count. A failed replay prints a line diff, `-` for
-script lines the program did not produce and `+` for what it did instead,
-and a `>` line the program never read fails it too. Each `Captured` has the
-same view in `transcript`, if you want to check it yourself.
+The `>` lines sit two columns left of the output, so the `"""` string keeps
+the two spaces in front of each output line. When the program writes a
+prompt without a newline before it reads, as `io.write("Hello, Ada. Your
+age: ")` does, the prompt is an output line of its own and the typed text
+goes on the `>` line below it. Output that starts with `>`, such as a `> `
+prompt, is just output: `  >` above `> north`. Every line needs one of the
+two marks, even in a script with no input, so for a program that reads
+nothing compare `io.capture(input, main).output` instead. Trailing spaces
+and the final newline don't count. A failed replay prints a line diff, `-`
+for script lines the program did not produce and `+` for what it did
+instead, and a `>` line the program never read fails it too. Each
+`Captured` has the same view in `transcript`, if you want to check it
+yourself.
 
 ## Groups And Setup
 

@@ -76,7 +76,7 @@ const dbgKey = "dbg"
 // or declaration metadata. Tuples supply positional order; records sort names.
 // Anchored prelude enums use structural Debug with independently checked payloads.
 func irDebugValueKind(k kind) bool {
-	if k == kindUnit || irByteValueKind(k) || isDecimalKind(k) || irScalarLeafKind(k) || irRetainedListKind(k) || irRetainedVectorKind(k) || k == kindEmptySet {
+	if k == kindUnit || k == kindNever || irByteValueKind(k) || isDecimalKind(k) || irScalarLeafKind(k) || irRetainedListKind(k) || irRetainedVectorKind(k) || k == kindEmptySet {
 		return true
 	}
 	if k.tag == tagSeq {

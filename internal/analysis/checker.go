@@ -3049,7 +3049,7 @@ func (c *checker) resolveBoundaryReturns(bodyTy Type, returns []boundaryReturn, 
 			c.addError(ret.line, ret.col, c.typef(
 				"return type mismatch: boundary returns %s, got %s", result, ret.ty))
 		} else if !declared {
-			result = embedsJoin(result, ret.ty)
+			result, _ = embedsJoin(result, ret.ty)
 		}
 	}
 	return result
@@ -5831,6 +5831,10 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	comparison := isComparisonOp(n.Op)
 	if comparison {
 		left, right = c.checkComparisonOperands(n)
+		// The two operands have one type, so a `todo` on one side has the
+		// other's.
+		c.settleTodo(n.Left, right)
+		c.settleTodo(n.Right, left)
 	} else if !leftChecked {
 		left = c.checkNode(n.Left)
 	}
@@ -6078,6 +6082,8 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		return TypeBool
 
 	case "and", "or":
+		c.settleTodo(n.Left, TypeBool)
+		c.settleTodo(n.Right, TypeBool)
 		if left != nil && !TypesEqual(left, TypeBool) {
 			at := operandPos(n.Left, n.Line, n.Col)
 			c.addError(at.Line, at.Col, fmt.Sprintf(
@@ -6333,6 +6339,7 @@ func (c *checker) lookupOperatorImplTypeArgs(opIface operatorInterface, left, ri
 }
 
 func (c *checker) checkOperatorRhs(n *ast.Binary, opIface operatorInterface, right, rhsExpected, result Type) (Type, bool) {
+	c.settleTodo(n.Right, rhsExpected)
 	if err := c.unify(rhsExpected, right, nil); err != nil && !TypesEqual(rhsExpected, right) {
 		at := operandPos(n.Right, n.Line, n.Col)
 		c.addError(at.Line, at.Col, c.typef(
@@ -6356,6 +6363,8 @@ func (c *checker) checkBuiltinOperator(n *ast.Binary, left, right Type) (Type, b
 			"binary %s type mismatch: %s vs %s", n.Op, left, right))
 		return left, true
 	}
+	// A built-in operator takes its left operand's type on the right.
+	c.settleTodo(n.Right, left)
 	leftResolved := resolveTypeVar(left)
 	if n.Op == "+" && leftResolved == TypeString {
 		return TypeString, true
@@ -6532,7 +6541,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 			argTy = coerceMapToList(argTy, ft.Params[pipedSlot])
 			argTy = coerceRangeToList(argTy, ft.Params[pipedSlot])
 			if err := c.unifyInto(ft.Params[pipedSlot], argTy, subs); err != nil {
-				c.reportGenericArgMismatch(ft.Params[pipedSlot], argTy, subs, n.Left, positionalArgLabel(pipedSlot), n.Line, n.Col)
+				c.reportGenericArgMismatch(pipeCallee(pipeCall, n.Right), ft.Params[pipedSlot], argTy, subs, n.Left, positionalArgLabel(pipedSlot), n.Line, n.Col)
 			}
 			// Mirror the recordInterfaceConformanceFromParam call in
 			// checkGenericCall: a piped concrete arg flowing into an
@@ -6564,7 +6573,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 							slotArgs[slot] = na.Value
 							argLine, argCol := nodeLineCol(na.Value)
 							if err := c.unifyInto(ft.Params[slot], valTy, subs); err != nil {
-								c.reportGenericArgMismatch(ft.Params[slot], valTy, subs, na.Value, namedArgLabel(na.Name), argLine, argCol)
+								c.reportGenericArgMismatch(pipeCall.Func, ft.Params[slot], valTy, subs, na.Value, namedArgLabel(na.Name), argLine, argCol)
 							}
 							c.recordInterfaceConformanceFromParam(valTy, ft.Params[slot], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam)
 						}
@@ -6591,7 +6600,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 						slotArgs[paramIdx] = arg
 						argLine, argCol := nodeLineCol(arg)
 						if err := c.unifyInto(ft.Params[paramIdx], explicitArgTy, subs); err != nil {
-							c.reportGenericArgMismatch(ft.Params[paramIdx], explicitArgTy, subs, arg, positionalArgLabel(paramIdx), argLine, argCol)
+							c.reportGenericArgMismatch(pipeCall.Func, ft.Params[paramIdx], explicitArgTy, subs, arg, positionalArgLabel(paramIdx), argLine, argCol)
 						}
 						c.recordInterfaceConformanceFromParam(explicitArgTy, ft.Params[paramIdx], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam)
 					}
@@ -6845,6 +6854,7 @@ func (c *checker) checkUnary(n *ast.Unary) Type {
 		return operand
 
 	case "!":
+		c.settleTodo(n.Right, TypeBool)
 		if !TypesEqual(operand, TypeBool) {
 			c.addError(n.Line, n.Col, fmt.Sprintf(
 				"unary ! operand must be Bool, got %s", operand))
@@ -7919,8 +7929,9 @@ func computePositionalSlots(args []ast.Node, params []Type, paramNames []string)
 
 // positionalNamedConflicts reports each named argument whose parameter a
 // positional argument already fills: `sum(1, a: 2)`, where the 1 was written
-// before any named argument and so means slot 0. Such a call gives one
-// parameter two values, so it is rejected here.
+// before any named argument and so means slot 0, or an earlier named
+// argument already fills: `sum(a: 1, a: 2)`, reported at the second. Such a
+// call gives one parameter two values, so it is rejected here.
 // slots is the positional routing (computePositionalSlots or
 // computePipeArgSlots, -1 for a named argument) and offset the slots filled
 // ahead of args, a piped value's.
@@ -7946,6 +7957,8 @@ func positionalNamedConflicts(args []ast.Node, slots []int, paramNames []string,
 				if filled[j] {
 					out = append(out, na)
 				}
+				// A second `a:` in one call conflicts with the first.
+				filled[j] = true
 				break
 			}
 		}
@@ -8331,8 +8344,21 @@ func (c *checker) argSatisfiesConcreteParam(argTy, concreteParam Type, line, col
 // against that concrete type; otherwise it falls back to the permissive
 // shape-only check. `argIndex` is 0-based. Shared by the direct-call
 // (checkGenericCall) and pipe (checkPipe) paths so both reject the same
-// multi-occurrence conflicts.
-func (c *checker) reportGenericArgMismatch(param, argTy Type, subs map[*TypeParam_]Type, arg ast.Node, label string, line, col int) {
+// multi-occurrence conflicts. callee is the called function as written,
+// for a diagnostic that names it.
+func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, subs map[*TypeParam_]Type, arg ast.Node, label string, line, col int) {
+	if te, ok := c.callbackDowncast(callee, arg, Substitute(param, subs), argTy, label, line, col); ok {
+		c.report(te)
+		// The function's result still solves the callee's type arguments
+		// (map's U), so the call's result is typed and the error is the only
+		// one, not followed by "not determined" at a binding of it.
+		if pf, isFunc := resolveTV(param).(*FuncType); isFunc {
+			if hf, isFunc := resolveTV(argTy).(*FuncType); isFunc {
+				_ = c.unifyInto(pf.Return, hf.Return, subs)
+			}
+		}
+		return
+	}
 	if iface, ok := param.(*InterfaceType); ok {
 		if !c.typeImplementsInterface(argTy, iface.Name, c.recPos(line, col), RecordingKindInterfaceTypedParam) {
 			c.addError(line, col, fmt.Sprintf(
@@ -8405,6 +8431,15 @@ func (c *checker) functionJoinHint(param, solved, argTy Type) string {
 
 // positionalArgLabel names the argument at 0-based call position i in a
 // mismatch message; namedArgLabel names a named argument by its parameter.
+// pipeCallee is a pipe stage's callee as written: the call's function, or
+// the stage itself when it is a bare function (`xs |> f`).
+func pipeCallee(call *ast.Call, stage ast.Node) ast.Node {
+	if call != nil {
+		return call.Func
+	}
+	return stage
+}
+
 func positionalArgLabel(i int) string { return fmt.Sprintf("argument %d", i+1) }
 
 func namedArgLabel(name string) string { return "argument '" + name + "'" }
@@ -8704,7 +8739,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		// When the parameter shape constrains the argument (e.g. Iter<(K, V)>
 		// vs a List of non-tuple values), surface the mismatch as a type error.
 		if err := c.unifyInto(ft.Params[slot], argTy, subs); err != nil {
-			c.reportGenericArgMismatch(ft.Params[slot], argTy, subs, arg, label, errLine, errCol)
+			c.reportGenericArgMismatch(n.Func, ft.Params[slot], argTy, subs, arg, label, errLine, errCol)
 		}
 
 		// Conformance recording for concrete-arg-into-interface-param. The
@@ -8884,6 +8919,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// The original guard's population is untouched: an UNSOLVED inference
 	// variable and a CALLEE-scope parameter both still block the record, so a
 	// type-mismatched argument produces no misleading hover exactly as before.
+	attached := false
 	if len(subs) > 0 {
 		instParams := make([]Type, len(ft.Params))
 		for i, p := range ft.Params {
@@ -8899,6 +8935,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		}
 		if fullyResolved {
 			c.attachCallType(n.Func, instFT)
+			attached = true
 		}
 	}
 	c.recordInstantiation(n, subs, instArgs)
@@ -8908,19 +8945,32 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// as checkCall's non-generic path builds it. Returning the callee's result
 	// here typed `Console.write_line(c, _)` as Unit.
 	if len(openSlots) > 0 {
+		// The callee's whole signature, with each parameter nothing solved
+		// opened to a variable: `Iter.map(xs, _)` is called at
+		// `(Iter<Int>, (Int) -> ?1) -> Iter<?1>`.
+		whole := &FuncType{Params: make([]Type, len(ft.Params)), Return: Substitute(ft.Return, subs)}
+		for i, p := range ft.Params {
+			whole.Params[i] = Substitute(p, subs)
+		}
+		whole = instantiateUnboundCalleeParams(whole, c.fnTypeParams, c).(*FuncType)
+		// The partial is a function of its open slots, so a later use solves
+		// those variables: `f = Box.pad(_, 7)` then `f("a")`, or a binding's
+		// annotation. The call is recorded at the variables, which the IR
+		// builder reads once they are solved, as it reads a whole call's.
+		if !attached {
+			c.attachCallType(n.Func, whole)
+		}
 		calleeDefaults := c.callDefParamHasDefault(n.Func)
 		params := make([]Type, len(openSlots))
 		defaults := 0
 		for i, slot := range openSlots {
-			params[i] = Substitute(ft.Params[slot], subs)
+			params[i] = whole.Params[slot]
 			if slot < len(calleeDefaults) && calleeDefaults[slot] {
 				defaults++
 			}
 		}
-		// The open slots and the result share the callee parameters nothing
-		// solved: `Iter.map(xs, _)` is `((Int) -> ?1) -> Iter<?1>`.
-		pf := &FuncType{Params: params, Return: Substitute(ft.Return, subs), DefaultCount: defaults}
-		return instantiateUnboundCalleeParams(pf, c.fnTypeParams, c)
+		// The open slots and the result share those variables.
+		return &FuncType{Params: params, Return: whole.Return, DefaultCount: defaults}
 	}
 
 	c.noteUndeterminedCall(n.Func, n, ft, subs, slotArgs, errMark)
@@ -11058,6 +11108,7 @@ func (c *checker) checkIf(n *ast.If, expected Type) Type {
 		narrowSym, narrowTy := c.narrowingFor(n.Cond, condTy, n.CondPattern)
 		return c.checkIfBranches(n, condTy, expected, true, narrowSym, narrowTy)
 	}
+	c.settleTodo(n.Cond, TypeBool)
 	return c.checkIfWithConditionType(n, condTy, expected)
 }
 
@@ -11149,11 +11200,11 @@ func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, pattern
 
 	// If one branch diverges (Infallible), use the other branch's type.
 	if thenTy == TypeInfallible {
-		c.settleTodoTail(n.Then, elseTy)
+		c.settleTodo(n.Then, elseTy)
 		return elseTy
 	}
 	if elseTy == TypeInfallible {
-		c.settleTodoTail(n.Else, thenTy)
+		c.settleTodo(n.Else, thenTy)
 		return thenTy
 	}
 
@@ -11190,7 +11241,8 @@ func branchJoin(have, next Type) Type {
 	if nextIface && !haveIface {
 		return next
 	}
-	return embedsJoin(have, next)
+	joined, _ := embedsJoin(have, next)
+	return joined
 }
 
 // registerCodepointHover records the hover marker for a codepoint literal,
@@ -11396,10 +11448,17 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 		}
 		// Spec §13, default implementations: a method the type doesn't write itself but inherits as a
 		// default from the single interface that declares it is reachable
-		// type-qualified, typed from that interface's signature.
+		// type-qualified, typed from that interface's signature. The
+		// reference names the interface's method, as `Pairs.second` does,
+		// so a generic default's call records its instantiation there.
 		if len(providers) == 1 {
 			if it, ok := c.reg.Lookup(providers[0]).(*InterfaceType); ok {
 				if ft := interfaceMethodFuncType(it, n.Field.Name); ft != nil {
+					if _, recorded := c.fa.References[fieldPos]; !recorded {
+						if msym := c.lookupInterfaceMethodSymbol(providers[0], n.Field.Name); msym != nil {
+							c.fa.References[fieldPos] = msym
+						}
+					}
 					return ft
 				}
 			}
@@ -12399,31 +12458,22 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 				continue
 			}
 			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
+		} else if joined, ok := embedsJoin(elemTy, ty); ok {
+			// Elements mixing an enum with values of a type it embeds take
+			// the enum, at the top or nested (`[c, Shape.Dot]` is a
+			// `List<Shape>`, `[(1, c), (2, Shape.Dot)]` a
+			// `List<(Int, Shape)>`), whichever element came first.
+			elemTy = joined
+		} else {
+			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
 		}
 	}
 
 	if elemTy == nil {
 		elemTy = c.freshTypeVar()
 	}
-	elemTy = widestEmbedsElem(elemTy, itemTys)
 	markEmbedsWidening(n, elemTy, itemTys)
 	return &ListType{Elem: elemTy}
-}
-
-// widestEmbedsElem is a list's element type when its elements mix an enum with
-// values of types it `embeds`: the enum, whichever element came first. Every
-// such element widens into it (`[c, Shape.Dot]` is a List<Shape>), and naming
-// the first element's type instead typed the list by one embedded member.
-func widestEmbedsElem(elemTy Type, itemTys []Type) Type {
-	if embeddableTypeName(resolveTypeVar(elemTy)) == "" {
-		return elemTy
-	}
-	for _, ty := range itemTys {
-		if et, ok := resolveTypeVar(ty).(*EnumType); ok && isEmbeddedTypeOf(resolveTypeVar(elemTy), et) {
-			return ty
-		}
-	}
-	return elemTy
 }
 
 // markEmbedsWidening records on a list literal the enum its embedded elements
@@ -12562,8 +12612,10 @@ func (c *checker) checkVectorLit(n *ast.VectorLit) Type {
 				continue
 			}
 			c.report(errAt(item, c.typef("vector element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
+		} else if joined, ok := embedsJoin(elemTy, ty); ok {
+			elemTy = joined
 		} else {
-			elemTy = embedsJoin(elemTy, ty)
+			c.report(errAt(item, c.typef("vector element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
 		}
 	}
 	if elemTy == nil {
@@ -12609,8 +12661,10 @@ func (c *checker) checkSetLit(n *ast.SetLit) Type {
 				continue
 			}
 			c.report(errAt(item, c.typef("set element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
+		} else if joined, ok := embedsJoin(elemTy, ty); ok {
+			elemTy = joined
 		} else {
-			elemTy = embedsJoin(elemTy, ty)
+			c.report(errAt(item, c.typef("set element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(embedsDowncastHint(elemTy, ty)))
 		}
 	}
 	if elemTy == nil {
@@ -12812,8 +12866,10 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 				keyTy = kt
 			} else if !TypesEqual(keyTy, kt) {
 				c.addMismatch(n.Line, 1, keyTy, kt, c.typef("map key type mismatch: expected %s, got %s", keyTy, kt))
+			} else if joined, ok := embedsJoin(keyTy, kt); ok {
+				keyTy = joined
 			} else {
-				keyTy = embedsJoin(keyTy, kt)
+				c.addMismatch(n.Line, 1, keyTy, kt, c.typef("map key type mismatch: expected %s, got %s", keyTy, kt))
 			}
 		}
 		if vt != nil {
@@ -12821,8 +12877,10 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 				valTy = vt
 			} else if !TypesEqual(valTy, vt) {
 				c.addMismatch(n.Line, 1, valTy, vt, c.typef("map value type mismatch: expected %s, got %s", valTy, vt))
+			} else if joined, ok := embedsJoin(valTy, vt); ok {
+				valTy = joined
 			} else {
-				valTy = embedsJoin(valTy, vt)
+				c.addMismatch(n.Line, 1, valTy, vt, c.typef("map value type mismatch: expected %s, got %s", valTy, vt))
 			}
 		}
 	}
@@ -14047,19 +14105,24 @@ func (c *checker) checkCaseWithScrutineeType(n *ast.Case, scrutineeTy Type, expe
 	}
 	if resultTy != nil && !isInfallibleLike(resultTy) {
 		for _, branch := range n.Branches {
-			c.settleTodoTail(branch.Body, resultTy)
+			c.settleTodo(branch.Body, resultTy)
 		}
 	}
 	c.registerControlFlowHover(n.Line, n.Col, "case", scrutineeTy, resultTy, scrutineeTy != nil, false)
 	return resultTy
 }
 
-// settleTodoTail records ty as the type expected of a `todo` that is the value
-// of body, an arm of an `if` or `case` whose type its other arms decided. The
-// arm was checked before that type was known, so the `todo` had nothing to
-// fit; the IR builder reads this record to give the trap's destination the
-// arm's kind. A `todo` already checked against a type keeps it.
-func (c *checker) settleTodoTail(body ast.Node, ty Type) {
+// settleTodo records ty as the type expected of a `todo`, or of any other
+// expression of type Infallible (a call to a function that never returns),
+// that is the value of body, once the position decided that type after
+// checking body: an arm of an `if` or `case` whose type its other arms
+// decided, or an operand whose type the operator decided (`!todo` and `todo
+// and x` are Bool, `x == todo` is x's type, `1 + todo` is the type the `+`
+// takes on its right, `if todo` is Bool). body was checked with nothing to
+// fit, so it is Infallible; the IR builder reads this record to give the
+// value the position's kind. An expression already checked against a type
+// keeps it.
+func (c *checker) settleTodo(body ast.Node, ty Type) {
 	if ty == nil || isInfallibleLike(ty) {
 		return
 	}
@@ -14068,22 +14131,26 @@ func (c *checker) settleTodoTail(body ast.Node, ty Type) {
 		if _, known := c.fa.ExpectedTypes[n]; !known {
 			c.fa.recordExpectedType(n, ty)
 		}
+	case *ast.Call:
+		if _, known := c.fa.ExpectedTypes[n]; !known && isInfallibleLike(c.fa.ExprTypes[n]) {
+			c.fa.recordExpectedType(n, ty)
+		}
 	case *ast.GroupedExpr:
-		c.settleTodoTail(n.Expr, ty)
+		c.settleTodo(n.Expr, ty)
 	case *ast.ExprStmt:
-		c.settleTodoTail(n.Expr, ty)
+		c.settleTodo(n.Expr, ty)
 	case *ast.Block:
 		if len(n.Stmts) > 0 {
-			c.settleTodoTail(n.Stmts[len(n.Stmts)-1], ty)
+			c.settleTodo(n.Stmts[len(n.Stmts)-1], ty)
 		}
 	case *ast.If:
-		c.settleTodoTail(n.Then, ty)
+		c.settleTodo(n.Then, ty)
 		if n.Else != nil {
-			c.settleTodoTail(n.Else, ty)
+			c.settleTodo(n.Else, ty)
 		}
 	case *ast.Case:
 		for _, branch := range n.Branches {
-			c.settleTodoTail(branch.Body, ty)
+			c.settleTodo(branch.Body, ty)
 		}
 	}
 }
@@ -14887,7 +14954,7 @@ func (c *checker) checkStructLit(n *ast.StructLit) Type {
 				ty = TypeUnit
 			}
 			if seen[f.Name] {
-				c.addError(f.Line, f.Col, fmt.Sprintf("duplicate field '%s' in anon struct literal", f.Name))
+				// CheckRepeatedFields reports it; the shape keeps the first.
 				continue
 			}
 			seen[f.Name] = true

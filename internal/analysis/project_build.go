@@ -724,6 +724,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckRedundantPreludeImports(fb.fa, fb.nodes)...)
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUnusedBindings(fb.fa)...)
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUselessReturns(fb.nodes)...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckRepeatedFields(fb.nodes)...)
 	}
 
 	// Sweep C-shells: pre-populate every type symbol's `.Type` with a

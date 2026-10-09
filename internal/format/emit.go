@@ -269,16 +269,16 @@ func emitWithTriviaNoLeadingBlank(n ast.Node) Doc {
 	return emitWithTriviaParts(emit(n), withoutBlankTrivia(ht.GetLeading()), outerTrailing(n, ht))
 }
 
-func emitWithTrailingTrivia(n ast.Node) Doc {
+func emitWithTrailingTrivia(n ast.Node, more bool) Doc {
 	ht, ok := n.(ast.HasTrivia)
 	if !ok || keepsEndTriviaAsTrailing(n) {
-		return emitStage(n)
+		return emitStage(n, more)
 	}
 	trailing := ht.GetTrailing()
 	if len(trailing) == 0 {
-		return emitStage(n)
+		return emitStage(n, more)
 	}
-	parts := []Doc{emitStage(n)}
+	parts := []Doc{emitStage(n, more)}
 	for _, t := range trailing {
 		if t.Kind == ast.TriviaComment {
 			parts = append(parts, Hidden(Concat(Text(" "), Text(t.Text))))
@@ -310,17 +310,45 @@ func outerTrailing(n ast.Node, ht ast.HasTrivia) []ast.Trivia {
 }
 
 // emitStageWithTrivia is emitWithTrivia for a pipe stage.
-func emitStageWithTrivia(n ast.Node) Doc {
-	return emitWithTriviaDoc(n, emitStage(n))
+func emitStageWithTrivia(n ast.Node, more bool) Doc {
+	return emitWithTriviaDoc(n, emitStage(n, more))
 }
 
-// emitStage writes a pipe stage. A parenthesized stage keeps its
-// parentheses, which emitGroupedExpr would drop around a call: `x |> (f())`
-// pipes x into the value f() returns, which the checker rejects, and
-// `x |> f()` calls f with x.
-func emitStage(n ast.Node) Doc {
+// endsInOpenLambda reports whether n's text ends in a lambda's bare body,
+// which reaches as far right as an expression can.
+func endsInOpenLambda(n ast.Node) bool {
+	switch v := n.(type) {
+	case *ast.Lambda:
+		return true
+	case *ast.Unary:
+		return endsInOpenLambda(v.Right)
+	case *ast.Binary:
+		return endsInOpenLambda(v.Right)
+	case *ast.TryOp:
+		return v.Expr != nil && endsInOpenLambda(v.Expr)
+	case *ast.Dbg:
+		return v.Expr != nil && endsInOpenLambda(v.Expr)
+	case *ast.Assertion:
+		return v.Expr != nil && endsInOpenLambda(v.Expr)
+	}
+	return false
+}
+
+// emitStage writes a pipe stage; more says another stage follows it. A
+// parenthesized stage keeps its parentheses, which emitGroupedExpr would
+// drop around a call: `x |> (f())` pipes x into the value f() returns, which
+// the checker rejects, and `x |> f()` calls f with x.
+//
+// A stage that ends in a lambda's bare body is parenthesized when another
+// stage follows, since the body would take that stage in: the parser builds
+// `x |> dbg || y` as the stages `|| y` and `dbg`, and `x |> || y |> dbg`
+// reads as one lambda whose body is `y |> dbg`.
+func emitStage(n ast.Node, more bool) Doc {
 	g, ok := n.(*ast.GroupedExpr)
 	if !ok || g.Expr == nil {
+		if more && endsInOpenLambda(n) {
+			return Concat(Text("("), emit(n), Text(")"))
+		}
 		return emit(n)
 	}
 	inner := g.Expr
@@ -5321,7 +5349,7 @@ func emitPipeChainWithMode(n *ast.Binary, mode pipeStackMode) Doc {
 	for i := 0; i < len(steps); i++ {
 		step := steps[i]
 		if i+1 < len(steps) {
-			if decorated, ok := emitDecoratedPipeStage(step, steps[i+1]); ok {
+			if decorated, ok := emitDecoratedPipeStage(step, steps[i+1], i+2 < len(steps)); ok {
 				decorated = pipeDecoratedStageDoc(step, steps[i+1], decorated)
 				if authoredMultiline {
 					if ht, ok := step.(ast.HasTrivia); ok {
@@ -5348,12 +5376,12 @@ func emitPipeChainWithMode(n *ast.Binary, mode pipeStackMode) Doc {
 					for _, leadingDoc := range emitLeadingTriviaDocs(leading) {
 						parts = append(parts, sep, leadingDoc)
 					}
-					parts = append(parts, Concat(sep, Text("|> "), emitWithTrailingTrivia(step)))
+					parts = append(parts, Concat(sep, Text("|> "), emitWithTrailingTrivia(step, i+1 < len(steps))))
 					continue
 				}
 			}
 		}
-		parts = append(parts, Concat(sep, Text("|> "), pipeStageDoc(step, emitStageWithTrivia(step))))
+		parts = append(parts, Concat(sep, Text("|> "), pipeStageDoc(step, emitStageWithTrivia(step, i+1 < len(steps)))))
 	}
 	chain := Concat(parts...)
 	if authoredMultiline {
@@ -5425,7 +5453,7 @@ func emitPrefixedPipeParts(prefix Doc, source ast.Node, steps []ast.Node, forceS
 	for i := 0; i < len(steps); i++ {
 		step := steps[i]
 		if i+1 < len(steps) {
-			if decorated, ok := emitDecoratedPipeStage(step, steps[i+1]); ok {
+			if decorated, ok := emitDecoratedPipeStage(step, steps[i+1], i+2 < len(steps)); ok {
 				decorated = pipeDecoratedStageDoc(step, steps[i+1], decorated)
 				if authoredMultiline {
 					if ht, ok := step.(ast.HasTrivia); ok {
@@ -5452,12 +5480,12 @@ func emitPrefixedPipeParts(prefix Doc, source ast.Node, steps []ast.Node, forceS
 					for _, leadingDoc := range emitLeadingTriviaDocs(leading) {
 						parts = append(parts, Nest(defaultIndent, Concat(sep, leadingDoc)))
 					}
-					parts = append(parts, Nest(defaultIndent, Concat(sep, Text("|> "), emitWithTrailingTrivia(step))))
+					parts = append(parts, Nest(defaultIndent, Concat(sep, Text("|> "), emitWithTrailingTrivia(step, i+1 < len(steps)))))
 					continue
 				}
 			}
 		}
-		parts = append(parts, Nest(defaultIndent, Concat(sep, Text("|> "), pipeStageDoc(step, emitStageWithTrivia(step)))))
+		parts = append(parts, Nest(defaultIndent, Concat(sep, Text("|> "), pipeStageDoc(step, emitStageWithTrivia(step, i+1 < len(steps))))))
 	}
 	chain := Concat(parts...)
 	if authoredMultiline {
@@ -5510,7 +5538,9 @@ func isKeywordStage(stage ast.Node) bool {
 	return false
 }
 
-func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node) (Doc, bool) {
+// emitDecoratedPipeStage writes stage with the keyword stage after it as its
+// prefix (`|> try f()`); more says another stage follows the keyword.
+func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node, more bool) (Doc, bool) {
 	switch stage.(type) {
 	case *ast.Then, *ast.Tap:
 		// A keyword does not prefix a `then` or `tap` stage: `|> then |v|
@@ -5528,7 +5558,7 @@ func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node) (Doc, bool) {
 		if kw.Expr != nil {
 			return nil, false
 		}
-		return Concat(Text("try "), emitStage(stage)), true
+		return Concat(Text("try "), emitStage(stage, more)), true
 	case *ast.If:
 		if _, grouped := stage.(*ast.GroupedExpr); grouped || kw.Cond != nil {
 			return nil, false

@@ -551,18 +551,31 @@ Test an interactive program, one that prompts and reads in turn, with
 `io.capture(input, main)` and separate input and output strings. The script
 shows each answer next to the prompt it answers, so the reader follows one
 conversation instead of matching two lists. Keep `io.capture` for a program
-that reads its input in one go, or when the value `main` returns matters.
+that reads its input in one go, for one that reads nothing (compare its
+`output`), or when the value `main` returns matters.
+
+Indent the output lines two columns past the input lines and the closing
+`"""`, so each output line keeps its two-space gutter. Write a prompt the
+program writes with `io.write` as its own output line, without its trailing
+space, and the answer on the `>` line under it.
 
 ```nomi
 test "deposit money" {
-    assert io.replay("""
-        What is the starting balance?
+    assert io.replay(
+        """
+          What is the starting balance?
         > 500
-        > deposit: 25
-        new balance is 525
-        """, main)
+          deposit:
+        > 25
+          new balance is 525
+        """,
+        main,
+    )
 }
 ```
+
+A prompt of `> ` is output like any other: it is the line `  >` above the
+input line `> north`.
 
 When the value under test comes from a pipeline and the intermediate meaning is
 useful, bind the pipeline result and assert the binding. The failure report

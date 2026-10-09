@@ -992,7 +992,7 @@ T hello, stranger
 T ok asks for a name, then an age
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L241
+C testing.md:L251
 E 0
 N 1
 H f2bd4d358a0711cb60aa46191c1246f835d81388acdd02b91f70b68200206fc8
@@ -1008,7 +1008,7 @@ T ok assert checks successful results
 T ok refute checks result errors
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L274
+C testing.md:L284
 E 0
 N 1
 H 6f7cc69cd602b57272358318906f7cbbca164ac2f14b83912bd321c886fd9426
@@ -1017,7 +1017,7 @@ T ok app-backed behavior / reads the booted field
 T ok app-backed behavior / a with line replaces a field for the rest of the body
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L315
+C testing.md:L325
 E 0
 N 1
 H 5e5a6007494211f6690adb2b128d0333f87e2c428ddeb5a37b336cbbc10b226e

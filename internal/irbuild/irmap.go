@@ -131,6 +131,12 @@ func irSelfContainerEnum(k kind) bool {
 }
 
 func (bl *irScalarBuilder) mapMake(t *ast.MapLit) (ir.Temp, kind, bool, bool) {
+	return bl.mapMakeOf(t, nil)
+}
+
+// mapMakeOf builds a map literal; wants, when not nil, is the expected key
+// and value kind each entry is lowered against.
+func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.TypeName != nil {
 		// `Json.Obj{"k" => v}` is the variant call over the anonymous map.
@@ -141,17 +147,46 @@ func (bl *irScalarBuilder) mapMake(t *ast.MapLit) (ir.Temp, kind, bool, bool) {
 	if t.TypeName != nil || len(t.Entries) == 0 {
 		return no()
 	}
-	values := make([]ir.Temp, 0, len(t.Entries)*2)
-	var parts [2]kind
-	for i, entry := range t.Entries {
+	// Keys and values are lowered in source order. Entries whose keys (or
+	// values) differ only by an embedded type join to the enum that embeds
+	// it (`{1 => circle, 2 => shape}` is a `Map<Int, Shape>`), as the
+	// checker joins them; the embedded ones are widened afterwards.
+	var temps [2][]ir.Temp
+	var items [2][]ast.Node
+	var kinds [2][]kind
+	// A key or value type holding an embedded type's enum below its top
+	// (`Map<Int, (Int, Shape)>`) is each entry's context (literalParts).
+	if wants == nil {
+		wants = bl.literalParts(t, tagMap)
+	}
+	for _, entry := range t.Entries {
 		for j, node := range []ast.Node{entry.Key, entry.Value} {
-			v, k, _, ok := bl.lower(node)
-			if !ok || (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructuralValueKind(k)) || (j == 1 && !irMapValueKind(k) && !bl.g.irStructuralValueKind(k)) || (i > 0 && k != parts[j]) {
+			var v ir.Temp
+			var k kind
+			var ok bool
+			if wants != nil {
+				v, k, _, ok = bl.lowerWant(node, wants[j])
+			} else {
+				v, k, _, ok = bl.lower(node)
+			}
+			if !ok {
 				return no()
 			}
-			parts[j] = k
-			values = append(values, v)
+			items[j], temps[j], kinds[j] = append(items[j], node), append(temps[j], v), append(kinds[j], k)
 		}
+	}
+	var parts [2]kind
+	for j := range parts {
+		k, joined := irEmbedsJoin(kinds[j])
+		if !joined || (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructuralValueKind(k)) || (j == 1 && !irMapValueKind(k) && !bl.g.irStructuralValueKind(k)) ||
+			!bl.widenEmbedded(items[j], temps[j], kinds[j], k) {
+			return no()
+		}
+		parts[j] = k
+	}
+	values := make([]ir.Temp, 0, len(t.Entries)*2)
+	for i := range t.Entries {
+		values = append(values, temps[0][i], temps[1][i])
 	}
 	ok := bl.g.irMapKeyOK(parts[0])
 	if !ok {

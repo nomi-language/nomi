@@ -175,6 +175,8 @@ const (
 	// body: a call site substitutes the concrete kind the arguments bound, so
 	// no signature outside a generic `fn` ever holds one. See generic.go.
 	tagTypeParam
+	// tagNever is `Infallible`, the type with no values. See kindNever.
+	tagNever
 )
 
 var (
@@ -184,6 +186,14 @@ var (
 	kindFloat   = kind{tag: tagFloat}
 	kindString  = kind{tag: tagString}
 	kindBool    = kind{tag: tagBool}
+	// kindNever is `Infallible`: the checker's type for an expression that
+	// never produces a value (`todo`, a call to a function declared to return
+	// `Infallible`) and the type argument that makes a variant unreachable
+	// (`Result<Int, Infallible>`). Its IR type is `ir.NeverType`, which
+	// stores nothing and which every type accepts, so a value of it may stand
+	// wherever any value goes: no execution ever reads one. irnever.go has
+	// the rules.
+	kindNever = kind{tag: tagNever}
 	// kindBareNone is the prelude `None` before its type argument is known.
 	// See prelude.go: it exists only to be discharged by coerce.
 	kindBareNone = kind{tag: tagBareNone}
@@ -225,6 +235,11 @@ func (k kind) zeroSizedOn(path typePath) bool {
 	switch k.tag {
 	case tagUnit:
 		return true
+	case tagNever:
+		// No value of it exists to store, but a payload of it keeps its
+		// slot: the variant is declared with the field, and an Infallible
+		// field is a field no construction fills.
+		return false
 	case tagNamed:
 		return k.def.zeroSizedOn(path)
 	case tagFunc:
@@ -266,6 +281,8 @@ func (k kind) nomi() string {
 	switch k.tag {
 	case tagUnit:
 		return "Unit"
+	case tagNever:
+		return "Infallible"
 	case tagInt:
 		return "Int"
 	case tagFloat:

@@ -174,10 +174,10 @@ func (g *gen) project(t analysis.Type) kind {
 		return kindInvalid
 
 	case *analysis.PrimitiveType:
-		// Named one at a time rather than by exclusion: Decimal, Byte, Bytes,
-		// Any and Infallible are all *PrimitiveType and none of them has a
-		// representation here, so a default-to-scalar arm would emit the
-		// wrong Go type for five of the eleven rows.
+		// Named one at a time rather than by exclusion: Decimal, Byte, Bytes
+		// and Any are all *PrimitiveType and are answered by their own arms
+		// below or not at all, so a default-to-scalar arm would give the
+		// wrong kind to four of the eleven rows.
 		switch ty {
 		case analysis.TypeInt:
 			return kindInt
@@ -187,6 +187,8 @@ func (g *gen) project(t analysis.Type) kind {
 			return kindString
 		case analysis.TypeUnit:
 			return kindUnit
+		case analysis.TypeInfallible:
+			return kindNever
 		}
 		// A BLESSED primitive with an rt type. Named through the same
 		// singleton-pointer identity the annotation channel uses, so

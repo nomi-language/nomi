@@ -165,7 +165,7 @@ func (g *gen) valueHashes(k kind) bool {
 		return true
 	}
 	switch k.tag {
-	case tagInt, tagFloat, tagString, tagBool, tagUnit, tagEmptyList, tagEmptyVector, tagEmptySet:
+	case tagInt, tagFloat, tagString, tagBool, tagUnit, tagNever, tagEmptyList, tagEmptyVector, tagEmptySet:
 		return true
 	case tagList:
 		return g.valueHashes(k.comp.parts[0])
@@ -248,7 +248,7 @@ func (g *gen) valueEquates(k kind) bool {
 		return true
 	}
 	switch k.tag {
-	case tagInt, tagFloat, tagString, tagBool, tagUnit, tagEmptyList, tagEmptyVector, tagEmptySet:
+	case tagInt, tagFloat, tagString, tagBool, tagUnit, tagNever, tagEmptyList, tagEmptyVector, tagEmptySet:
 		return true
 	case tagList:
 		return g.valueEquates(k.comp.parts[0])

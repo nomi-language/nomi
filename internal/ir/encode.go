@@ -46,7 +46,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 12
+const FormatVersion = 13
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -118,7 +118,7 @@ const (
 // sharedValTypes are the package's scalar singletons. They take indices
 // 1..len in every image, so a decoded reference to IntType is IntType.
 var sharedValTypes = []*ValType{AnyType, UnitType, BoolType, IntType, FloatType,
-	ByteType, StringType, BytesType, DecimalType}
+	ByteType, StringType, BytesType, DecimalType, NeverType}
 
 // --- low-level writer ------------------------------------------------------------
 

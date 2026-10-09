@@ -208,7 +208,27 @@ func irDeclineSynthMask(fd *ast.FuncDef) string {
 // whatever arm produced it. A hand-placed hook at each `return ir.NoTemp,
 // kindInvalid` would miss the arms nobody remembered.
 func (bl *irScalarBuilder) lower(n ast.Node) (ir.Temp, kind, bool, bool) {
-	t, k, m, ok := bl.lowerNode(n)
+	t, k, m, ok := bl.lowerExact(n)
+	if ok && k == kindNever {
+		// A value of Infallible takes the kind its position settled, as a
+		// `todo` does (irnever.go).
+		// kindInvalid: lookup — no settled kind leaves the value Infallible.
+		if want := bl.g.neverSettledKind(n); want != kindInvalid {
+			if v, retyped := bl.neverAs(n, t, k, want); retyped {
+				t, k = v, want
+			}
+		}
+	}
+	return t, k, m, ok
+}
+
+// lowerExact is lower without retyping a value of Infallible: the operand of
+// a construct that never runs because of it (irnever.go's neverOperand).
+func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
+	t, k, m, ok, handled := bl.neverOperand(n)
+	if !handled {
+		t, k, m, ok = bl.lowerNode(n)
+	}
 	if ok {
 		bl.g.irTypeTemp(bl.f, t, k)
 	}

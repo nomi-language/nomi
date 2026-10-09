@@ -87,14 +87,14 @@ pub struct Captured<T> {
     /// Everything `io.print`, `io.write` and `io.inspect` wrote while `run`
     /// ran, byte for byte.
     output: String
-    /// `output` with each line `run` read written in where it was read, the
-    /// way a terminal shows the session. A line read is a transcript line of
-    /// its own that starts with `> `. When `run` wrote part of a line before
-    /// reading (a prompt such as `io.write("amount: ")`), that part goes on
-    /// the read's line between the marker and the text read, as a terminal
-    /// shows the typed text after the prompt: `> amount: 25`. A read at the
-    /// end of the input adds nothing. An output line that starts with `>` or
-    /// `\` gets a `\` in front, so only a read starts a line with `>`.
+    /// `output` with each line `run` read written in where it was read, in
+    /// two columns. A line read is `> ` followed by exactly the text read.
+    /// Every output line is two spaces followed by the line as `run` wrote
+    /// it, whatever it starts with, and a blank line stays blank. Part of a
+    /// line written before a read (a prompt such as `io.write("age: ")`) is
+    /// an output line of its own, and the line read follows it: `  age: `
+    /// then `> 36`. A read at the end of the input adds nothing, and its
+    /// prompt stays where it was, on one line with whatever is printed next.
     transcript: String
 }
 
@@ -111,7 +111,9 @@ pub struct Captured<T> {
 ///
 /// Passing a program's `main` is how a test checks what the program prints
 /// for a given input: `io.capture("the fox the dog\n", main)`. For a
-/// program that asks and answers in turn, `io.replay` reads better.
+/// program that asks and answers in turn, `io.replay` reads better. A
+/// program that reads nothing is checked through `output`, which holds the
+/// output as it was written.
 //! run = capture("", || {
 //!     print("hi")
 //!     write(1)
@@ -135,7 +137,7 @@ pub struct Captured<T> {
 //! })
 //!
 //! assert asked.output == "name: hello, Ada\n"
-//! assert asked.transcript == "> name: Ada\nhello, Ada\n"
+//! assert asked.transcript == "  name: \n> Ada\n  hello, Ada\n"
 //
 pub fn capture<T>(input: String, run: () -> T): Captured<T> {
     run_captured(input, run, |value, output, transcript| Captured{
@@ -164,7 +166,7 @@ pub struct Replayed {
     transcript: String
     /// The script, compared the same way.
     expected: String
-    /// How many of the script's `>` lines `run` never read.
+    /// How many of the script's input lines `run` never read.
     unread: Int
 }
 
@@ -193,20 +195,26 @@ fn replay_reason(unread: Int): String {
 /// Runs `run` against a script of an interactive session and answers a
 /// `Replayed` that `assert` checks: `assert io.replay(script, main)`.
 ///
-/// The script is written as `Captured.transcript` reads. Each line that
-/// starts with `>` is input: what follows the `>` and one space is the line
-/// typed, fed to `io.read_line` in order. On a line where the program wrote
-/// a prompt before reading, the prompt comes first, as a terminal shows it:
-/// `> amount: 25` feeds `25` to a program that wrote `amount: `. Every other
-/// line is output the program must print. An output line that starts with
-/// `>` or `\` is written with a `\` in front.
+/// The script is written as `Captured.transcript` reads, in two columns.
+/// A line that starts with `> ` is input, fed to `io.read_line` in order:
+/// what follows `> ` is the line typed, and `>` alone is an empty line. A
+/// line that starts with two spaces is output the program must print, as it
+/// printed it, whatever it starts with. A blank line is a blank output line.
+/// A prompt the program writes before reading (`io.write("age: ")`) is
+/// output on a line of its own, and the input follows on the next line, as
+/// a terminal shows it. Any other line traps, naming the line. In a `"""`
+/// script, write the input lines two columns left of the output: the
+/// leftmost line sets the indentation that is removed.
 ///
 /// `run` runs as under `io.capture`, and its transcript must equal the
 /// script. Trailing spaces, tabs and carriage returns on each line, and a
 /// final newline, do not count, so a `"""` script, which drops its last
-/// newline, matches output that ends in one. Once the script's input is
-/// used up, `io.read_line` answers `Err("eof")`, and that read adds nothing
-/// to the transcript. A `>` line the program never read fails the replay.
+/// newline, matches output that ends in one, and a prompt's trailing space
+/// need not be written. Once the script's input is used up, `io.read_line`
+/// answers `Err("eof")`, and that read adds nothing to the transcript; the
+/// prompt it answered stays on one line with what is printed next. A `>`
+/// line the program never read fails the replay. A program that reads
+/// nothing is checked more simply through `io.capture(input, run).output`.
 /// A failure shows a line diff: `-` lines are only in the script, `+` lines
 /// only in what the program did.
 //! greet = || {
@@ -220,26 +228,46 @@ fn replay_reason(unread: Int): String {
 //!
 //! assert replay(
 //!     """
-//!     > name: Ada
-//!     hello, Ada
+//!       name:
+//!     > Ada
+//!       hello, Ada
 //!     """,
 //!     greet,
 //! )
 //!
 //! assert replay(
 //!     """
-//!     name: hello, stranger
+//!       name: hello, stranger
 //!     """,
 //!     greet,
 //! )
 //!
 //! refute replay(
 //!     """
-//!     > name: Ada
-//!     > name: Grace
-//!     hello, Ada
+//!       name:
+//!     > Ada
+//!     > Grace
+//!       hello, Ada
 //!     """,
 //!     greet,
+//! )
+//!
+//! repl = || {
+//!     write("> ")
+//!
+//!     case read_line() {
+//!         Ok(word) -> print("you said ${word}")
+//!         Err(_) -> print("bye")
+//!     }
+//! }
+//!
+//! assert replay(
+//!     """
+//!       >
+//!     > hey
+//!       you said hey
+//!     """,
+//!     repl,
 //! )
 //
 pub fn replay<T>(script: String, run: () -> T): Replayed {
@@ -251,7 +279,7 @@ pub fn replay<T>(script: String, run: () -> T): Replayed {
     })
 }
 
-/// Calls `run` under a capture whose input is the script's `>` lines and
+/// Calls `run` under a capture whose input is the script's input lines and
 /// hands `finish` its result, its output, the transcript and the script as
 /// replay compares them, and the count of input lines never read. Answered
 /// by the VM.

@@ -1,6 +1,10 @@
 package analysis
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // An embedded type widens into each enum that embeds it: a Circle is a Shape
 // wherever a Shape is expected. The other direction is never implicit. A
@@ -110,6 +114,75 @@ func embedsDowncastHint(want, have Type) string {
 	}
 	return fmt.Sprintf("%s may hold a variant other than %s, and only a match narrows it: `case value { %s -> ... }`",
 		et.Name, name, pattern)
+}
+
+// callbackDowncast is the error for a function value passed to a generic
+// callee whose parameter is a function over an enum, when the value takes
+// one of that enum's embedded types instead: `Iter.map(shapes, take)` with
+// `take: (Circle) -> Int` and `shapes: List<Shape>`. A function value takes
+// its parameters the other way from how it is passed, so `take` would be
+// called with a Shape that may be a Dot. The failed unification leaves the
+// callee's other type arguments (map's U) unsolved, which alone read as "U
+// is not determined"; this names the parameter instead. want is the callee's
+// parameter with the type arguments solved so far, have the argument's type.
+func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label string, line, col int) (TypeError, bool) {
+	wf, ok := resolveTV(want).(*FuncType)
+	if !ok {
+		return TypeError{}, false
+	}
+	hf, ok := resolveTV(have).(*FuncType)
+	if !ok || len(wf.Params) != len(hf.Params) {
+		return TypeError{}, false
+	}
+	for i := range wf.Params {
+		passed := resolveTV(wf.Params[i])
+		if passed == nil || containsTypeVar(passed) || ContainsTypeParam(passed) {
+			continue
+		}
+		et, emb, ok := embedsDowncast(hf.Params[i], passed)
+		if !ok {
+			continue
+		}
+		fn := ""
+		switch arg.(type) {
+		case *ast.Ident, *ast.FieldAccess:
+			fn = calleeText(arg)
+		}
+		subject := "the function"
+		if _, lambda := arg.(*ast.Lambda); lambda {
+			subject = "the lambda"
+		}
+		if fn != "" && fn != "?" {
+			subject = "`" + fn + "`"
+		} else {
+			fn = ""
+		}
+		by := "the call"
+		if callee != nil {
+			if name := calleeText(callee); name != "?" {
+				by = "`" + name + "`"
+			}
+		}
+		takes, gets := c.typef("%s", hf.Params[i]), c.typef("%s", passed)
+		name := embeddableTypeName(emb)
+		msg := fmt.Sprintf("%s: %s takes %s %s, but %s calls it with %s %s, and %s %s may hold a variant other than %s",
+			label, subject, articleFor(takes), takes, by, articleFor(gets), gets, articleFor(et.Name), et.Name, name)
+		hint := embedsDowncastHint(hf.Params[i], passed)
+		if _, top := passed.(*EnumType); top && len(wf.Params) == 1 {
+			pattern := "." + name + "{}"
+			if _, distinct := emb.(*DistinctType); distinct {
+				pattern = "." + name + "(_)"
+			}
+			body := "..."
+			if fn != "" {
+				body = fn + "(value) ..."
+			}
+			hint = fmt.Sprintf("pass a function that takes %s %s and matches it first: `|value| case value { %s -> %s }`",
+				articleFor(et.Name), et.Name, pattern, body)
+		}
+		return TypeError{Line: line, Col: col, Message: msg}.Spanning(arg).WithHint(hint), true
+	}
+	return TypeError{}, false
 }
 
 // addMismatch reports msg, a value of type have refused where want is

@@ -131,9 +131,9 @@ type irScalarBuilder struct {
 	stdInstPreArgs irQualArgs
 	// Reduce seeds belong to these exact callback nodes, not ordinary defaults.
 	reduceSeeds map[*ast.Lambda]bool
-	// partialKinds types the parameters of the lambda a partial application
-	// lowers to, one kind per open slot (see partialApplication).
-	partialKinds map[*ast.Lambda][]kind
+	// partialOpen types and names the parameters of the lambda a partial
+	// application lowers to, one per open slot (see partialApplication).
+	partialOpen map[*ast.Lambda]partialSlots
 	// ctlCallbacks marks the callbacks an enclosing Iter call widens to its
 	// signalling form, before its arguments are lowered; ctl is that form on
 	// the callback's own builder, and ctlAcc a reduce callback's accumulator.
@@ -724,6 +724,11 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 			src, k, mobile, ok := bl.lower(part.Expr)
 			if !ok {
 				return ir.NoTemp, kindInvalid, false, false
+			}
+			if never, isNever := bl.neverAs(part.Expr, src, k, kindString); isNever {
+				// A hole of Infallible (`Debug.inspect(e)` in an arm no
+				// value reaches) renders nothing; it never completes.
+				src, k = never, kindString
 			}
 			// An impure hole is forced into a temporary for every part but the
 			// last. Only the last-evaluated operand is safe to leave unforced,
@@ -2206,6 +2211,9 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 		return kindInvalid, false
 	}
 	adHoc := isNilNode(t.Value)
+	if !adHoc && bl.isNeverOperand(t.Value) {
+		return bl.neverCaseRegion(t, sig)
+	}
 	var subj ir.Temp
 	var sk kind
 	if !adHoc {

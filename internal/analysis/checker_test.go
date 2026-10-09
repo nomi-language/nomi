@@ -4753,7 +4753,7 @@ func TestChecker_AnonStructLit_DuplicateFieldNameRejected(t *testing.T) {
 }
 `
 	_, errs := checkSource(src)
-	expectError(t, errs, "duplicate field 'a'")
+	expectError(t, errs, "field 'a' is given twice in this struct literal")
 }
 
 // TestChecker_AnonStructParam_AcceptsReorderedArg pins that an anon-struct

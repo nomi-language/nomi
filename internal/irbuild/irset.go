@@ -45,13 +45,25 @@ func irSetElemKind(k kind) bool {
 }
 
 func (bl *irScalarBuilder) setMake(t *ast.SetLit) (ir.Temp, kind, bool, bool) {
+	// kindInvalid: sentinel — no expected element kind.
+	return bl.setMakeOf(t, kindInvalid)
+}
+
+// setMakeOf builds a set literal; elem, when not kindInvalid, is the
+// expected element kind each item is lowered against.
+func (bl *irScalarBuilder) setMakeOf(t *ast.SetLit, elem kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Items) == 0 {
 		n := ir.NewEmptySet(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
 		bl.b.Append(n)
 		return n.Dst(), kindEmptySet, true, true
 	}
-	values, elem, ok := bl.lowerSameKindItems(t.Items, irSetElemKind)
+	want := elem
+	// kindInvalid: sentinel — the items give the element kind.
+	if parts := bl.literalParts(t, tagEmptySet); want == kindInvalid && parts != nil {
+		want = parts[0]
+	}
+	values, elem, ok := bl.lowerSameKindItems(t.Items, want, irSetElemKind)
 	if !ok {
 		return no()
 	}

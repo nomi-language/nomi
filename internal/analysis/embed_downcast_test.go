@@ -128,6 +128,16 @@ func TestEmbedDowncast_EveryPositionRefusesTheEnum(t *testing.T) {
 			"argument 1: expected Circle, got Shape" + downcastHint},
 		{"a case join", "", "  x = case s {\n    .Point -> Circle{radius: 1.0}\n    _ -> s\n  }\n  _ = take(x)\n",
 			"argument 1: expected Circle, got Shape" + downcastHint},
+		{"a nested list join", "", "  xs = [(1, Circle{radius: 1.0}), (2, s)]\n  ys: List<(Int, Circle)> = xs\n  _ = ys\n",
+			"type mismatch: expected List<(Int, Circle)>, got List<(Int, Shape)>" + downcastHint},
+		{"a list of lists join", "", "  xs = [[Circle{radius: 1.0}], [s]]\n  ys: List<List<Circle>> = xs\n  _ = ys\n",
+			"type mismatch: expected List<List<Circle>>, got List<List<Shape>>" + downcastHint},
+		{"a map key join", "", "  m = {Circle{radius: 1.0} => 1, s => 2}\n  n: Map<Circle, Int> = m\n  _ = n\n",
+			"type mismatch: expected Map<Circle, Int>, got Map<Shape, Int>" + downcastHint},
+		{"a nested if join", "", "  x = if wants(s) { (1, Circle{radius: 1.0}) } else { (2, s) }\n  _ = take(x.1)\n",
+			"argument 1: expected Circle, got Shape" + downcastHint},
+		{"elements no side of which takes the other", "", "  _ = [(Circle{radius: 1.0}, s), (s, Circle{radius: 1.0})]\n",
+			"list element type mismatch: expected (Circle, Shape), got (Shape, Circle)" + downcastHint},
 		{"a binding's fallback", "", "  m: Maybe<Circle> = None\n  Some(c) = m else { s }\n  _ = c\n",
 			"the fallback stands in for Some's payload of type Circle, got Shape" + downcastHint},
 		{"a Struct.update patch", "", "  h = Holder{c: Circle{radius: 1.0}}\n  _ = Struct.update(h, {c: s})\n",
@@ -188,6 +198,9 @@ func TestEmbedDowncast_WideningAndNarrowingAreAccepted(t *testing.T) {
 		{"an if join", "  x = if wants(s) { c } else { s }\n  _ = wants(x)\n"},
 		{"a case join", "  x = case s {\n    .Point -> c\n    _ -> s\n  }\n  _ = wants(x)\n"},
 		{"a map join", "  m = {1 => c, 2 => s}\n  ss: Map<Int, Shape> = m\n  _ = ss\n"},
+		{"a nested list join", "  xs = [(1, c), (2, s)]\n  ys: List<(Int, Shape)> = xs\n  _ = ys\n"},
+		{"a nested vector join", "  xs = #[[c], [s]]\n  ys: Vector<List<Shape>> = xs\n  _ = ys\n"},
+		{"a nested map join", "  m = {1 => (1, s), 2 => (2, c)}\n  n: Map<Int, (Int, Shape)> = m\n  _ = n\n"},
 		{"a generic call", "  _ = wants(two(c, s))\n  _ = wants(two(s, c))\n"},
 		{"equality", "  _ = c == s\n  _ = s == c\n"},
 		{"a narrowed arm", "  _ = case s {\n    .Circle{radius: _} -> take(s)\n    .Point -> 0.0\n  }\n"},
@@ -200,5 +213,50 @@ func TestEmbedDowncast_WideningAndNarrowingAreAccepted(t *testing.T) {
 		})
 	}
 	_, errs := checkSourceWithStdlib(embedDowncastDecls + "fn back(c: Circle): Shape {\n  c\n}\n\nfn back_return(c: Circle): Shape {\n  return c\n}\n")
+	expectNoStdlibErrors(t, errs)
+}
+
+// A function value passed to a generic callee takes the values the callee
+// gives it, so a function over an embedded type does not fit where a
+// function over the enum is expected: `take` would be called with a Shape
+// that may be a Point. The unification failed on that parameter, nothing
+// was reported, and the error the program got was "the type argument U of
+// `Iter.map` is not determined".
+func TestEmbedDowncast_AFunctionOverTheEmbeddedTypeIsRefusedAsACallback(t *testing.T) {
+	takeHint := "\nhelp: pass a function that takes a Shape and matches it first: `|value| case value { .Circle{} -> take(value) ... }`"
+	for _, tc := range []struct {
+		name, body, want string
+	}{
+		{"Iter.map", "  _ = Iter.map(ss, take) |> Iter.count()\n",
+			"argument 2: `take` takes a Circle, but `Iter.map` calls it with a Shape, and a Shape may hold a variant other than Circle" + takeHint},
+		{"a binding of the result", "  xs = Iter.map(ss, take) |> Iter.to_list()\n  _ = xs\n",
+			"argument 2: `take` takes a Circle, but `Iter.map` calls it with a Shape, and a Shape may hold a variant other than Circle" + takeHint},
+		{"a pipe stage", "  _ = ss |> Iter.map(take) |> Iter.count()\n",
+			"argument 2: `take` takes a Circle, but `Iter.map` calls it with a Shape, and a Shape may hold a variant other than Circle" + takeHint},
+		{"Maybe.map", "  _ = Maybe.map(Some(s), take)\n",
+			"argument 2: `take` takes a Circle, but `Maybe.map` calls it with a Shape, and a Shape may hold a variant other than Circle" + takeHint},
+		{"a lambda", "  _ = Iter.map(ss, |c: Circle| c.radius) |> Iter.count()\n",
+			"argument 2: the lambda takes a Circle, but `Iter.map` calls it with a Shape, and a Shape may hold a variant other than Circle\nhelp: pass a function that takes a Shape and matches it first: `|value| case value { .Circle{} -> ... }`"},
+		{"a nested parameter", "  nested: List<List<Shape>> = [[s]]\n  _ = Iter.map(nested, takes) |> Iter.count()\n",
+			"argument 2: `takes` takes a List<Circle>, but `Iter.map` calls it with a List<Shape>, and a Shape may hold a variant other than Circle" + downcastHint},
+		{"an embedded distinct", "  _ = Iter.map([Who.Nobody], take_id) |> Iter.count()\n",
+			"argument 2: `take_id` takes an Id, but `Iter.map` calls it with a Who, and a Who may hold a variant other than Id\nhelp: pass a function that takes a Who and matches it first: `|value| case value { .Id(_) -> take_id(value) ... }`"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := embedDowncastDecls + "fn main() {\n  s = Shape.Point\n  ss: List<Shape> = [s]\n  _ = ss\n" + tc.body + "}\n"
+			_, errs := checkSourceWithStdlib(src)
+			expectExactDiag(t, errs, tc.want)
+			if len(errs) != 1 {
+				t.Errorf("want only that error, got %d: %v", len(errs), errs)
+			}
+		})
+	}
+}
+
+// The mirror: a function over the enum fits where a function over an
+// embedded type is expected, since every Circle is a Shape.
+func TestEmbedDowncast_AFunctionOverTheEnumIsAcceptedAsACallback(t *testing.T) {
+	src := embedDowncastDecls + "fn main() {\n  cs = [Circle{radius: 1.0}]\n  _ = Iter.map(cs, wants) |> Iter.to_list()\n  _ = cs |> Iter.map(wants) |> Iter.count()\n  _ = Maybe.map(Some(Circle{radius: 1.0}), wants)\n}\n"
+	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 }

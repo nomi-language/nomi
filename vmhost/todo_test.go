@@ -3,6 +3,7 @@ package vmhost_test
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/vmhost"
@@ -180,5 +181,98 @@ fn main() {
 	}
 	if want := "todo reached at " + path + ":9"; err == nil || err.Error() != want {
 		t.Fatalf("error %v, want %q", err, want)
+	}
+}
+
+// A `todo` as an operand has the type its operator gives that operand (`!`
+// and `and` take Bool, `==` the other side's type, `+` the type it takes on
+// its right, an `if` condition Bool), so each form lowers and traps at the
+// `todo`, after what ran before it.
+func TestTodo_AnOperandTodoTrapsAtTheTodo(t *testing.T) {
+	forms := []string{
+		"x = !todo",
+		"x = !(todo)",
+		"x = !!todo",
+		"x: Bool = !todo",
+		"x = g(!todo)",
+		"x = !(if True { todo } else { todo })",
+		"x = todo and True",
+		"x = False or todo",
+		"x = True and !todo",
+		"x = todo == 1",
+		"x = 1 == todo",
+		"x = todo != \"a\"",
+		"x = 1 > todo",
+		"x = 1 + todo",
+		"x = 2.0 - todo",
+		"x = \"a\" + todo",
+		"x = loud(1) * todo",
+		"x = if todo { 1 } else { 2 }",
+		"x = if !todo { 1 } else { 2 }",
+	}
+	for _, form := range forms {
+		t.Run(form, func(t *testing.T) {
+			path, out, err := runTodo(t, `import std/io
+
+fn g(b: Bool): Bool {
+    b
+}
+
+fn loud(n: Int): Int {
+    io.print("loud")
+    n
+}
+
+fn main() {
+    io.print("before")
+    `+form+`
+    _ = x
+}
+`)
+			want := "before\n"
+			if strings.Contains(form, "loud") {
+				want += "loud\n"
+			}
+			if out != want {
+				t.Errorf("output %q, want %q", out, want)
+			}
+			if want := "todo reached at " + path + ":14"; err == nil || err.Error() != want {
+				t.Fatalf("error %v, want %q", err, want)
+			}
+		})
+	}
+	path, _, err := runTodo(t, `fn main() {
+    _ = !todo "negate"
+}
+`)
+	if want := "todo reached at " + path + ":2: negate"; err == nil || err.Error() != want {
+		t.Fatalf("error %v, want %q", err, want)
+	}
+}
+
+// An operand `todo` on a path the run does not take never traps: the
+// short-circuit operators skip it, and so does an untaken branch.
+func TestTodo_UntakenOperandTodosDoNotTrap(t *testing.T) {
+	_, out, err := runTodo(t, `import std/io
+
+fn main() {
+    a = False and todo
+    b = True or !todo
+    c = if False { todo == 1 } else { False }
+    d = if False { 1 + todo } else { 7 }
+    e = if False { !todo } else { True }
+    if False {
+        if !todo {
+            io.print("never")
+        }
+    }
+    io.print("${a} ${b} ${c} ${d} ${e}")
+}
+`)
+	if err != nil {
+		t.Fatalf("an untaken todo trapped: %v", err)
+	}
+	if want := "False True False 7 True\n"; out != want {
+		t.Fatalf("output %q, want %q", out, want)
 	}
 }

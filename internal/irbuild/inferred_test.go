@@ -153,26 +153,24 @@ fn composites(_xs: List<Int>, _p: (Int, String), _f: (Int) -> String, _pt: Point
 // that says why: Decimal, Byte, Bytes, Any and Infallible are all
 // *PrimitiveType exactly as Int is, so an arm that answered for the type rather
 // than for the specific singleton would answer Int's kind for five types that
-// are not Int.
+// are not Int. Infallible projects to its own kind (irnever.go), asserted
+// positively at the end of this function.
 func TestProjectionRefusesWhatTheEmitterCannotRepresent(t *testing.T) {
 	g := &gen{fa: &analysis.FileAnalysis{Origin: analysis.OriginEntry}, types: map[string]*typeDef{}}
 	cases := []struct {
 		name string
 		in   analysis.Type
 	}{
-		// The composite rows use `Infallible` as their unrepresentable part.
-		// `Infallible` is uninhabited, so a kind for it would describe values
-		// that cannot exist; `Any` is a top type, and a representation for it
-		// is imaginable. The scalars with rt types (Decimal, Byte, Bytes) are
+		// The composite rows use `Any` as their unrepresentable part. The
+		// scalars with rt types (Decimal, Byte, Bytes) and Infallible are
 		// asserted positively at the end of this function.
 		{"Any", analysis.TypeAny},
-		{"Infallible", analysis.TypeInfallible},
-		{"Map of Infallible", &analysis.MapType{Key: analysis.TypeString, Val: analysis.TypeInfallible}},
+		{"Map of Any", &analysis.MapType{Key: analysis.TypeString, Val: analysis.TypeAny}},
 		// A record over an unrepresentable field. A record itself projects
 		// (anonstruct.go); what must refuse is a record whose field has no
 		// kind, which is the same rule the List and tuple rows below carry.
-		{"anonymous struct of Infallible", &analysis.AnonStructType{
-			Fields: []analysis.FieldDef{{Name: "x", Type: analysis.TypeInfallible}},
+		{"anonymous struct of Any", &analysis.AnonStructType{
+			Fields: []analysis.FieldDef{{Name: "x", Type: analysis.TypeAny}},
 		}},
 		{"empty anonymous struct", &analysis.AnonStructType{}},
 		{"type parameter", &analysis.TypeParam_{Name_: "T"}},
@@ -180,8 +178,8 @@ func TestProjectionRefusesWhatTheEmitterCannotRepresent(t *testing.T) {
 		{"unsolved inference variable", &analysis.TypeVar{ID: 1}},
 		// A list, map or tuple is only as projectable as its parts. See
 		// inferred.go's MapType arm and TestProjectionAgreesWithTheAnnotationPath.
-		{"List of Map of Infallible", &analysis.ListType{Elem: &analysis.MapType{Key: analysis.TypeString, Val: analysis.TypeInfallible}}},
-		{"tuple with an Infallible", &analysis.TupleType{Elems: []analysis.Type{analysis.TypeInt, analysis.TypeInfallible}}},
+		{"List of Map of Any", &analysis.ListType{Elem: &analysis.MapType{Key: analysis.TypeString, Val: analysis.TypeAny}}},
+		{"tuple with an Any", &analysis.TupleType{Elems: []analysis.Type{analysis.TypeInt, analysis.TypeAny}}},
 		// A function VALUE carrying defaults is not a plain Go func: the
 		// call-site arity rule lives nowhere in a kind, so flattening it
 		// produces a kind that compiles and then loses an argument.
@@ -255,5 +253,15 @@ func TestProjectionRefusesWhatTheEmitterCannotRepresent(t *testing.T) {
 			"underlying representation rather than for the singleton, which is the defect "+
 			"this test exists for and which costs a wrong ANSWER rather than a compile error",
 			decK.nomi())
+	}
+
+	// `Infallible` projects to kindNever, and a type containing it to the
+	// same type over kindNever, as the annotation path answers them.
+	if got := g.project(analysis.TypeInfallible); got != kindNever {
+		t.Fatalf("Infallible projected to %s, not Infallible's own kind", got.nomi())
+	}
+	tuple := g.project(&analysis.TupleType{Elems: []analysis.Type{analysis.TypeInt, analysis.TypeInfallible}})
+	if tuple.tag != tagTuple || tuple.comp == nil || len(tuple.comp.parts) != 2 || tuple.comp.parts[1] != kindNever {
+		t.Fatalf("(Int, Infallible) projected to %s", tuple.nomi())
 	}
 }

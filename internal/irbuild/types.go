@@ -1160,6 +1160,9 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		return kindBool
 	case "Unit":
 		return kindUnit
+	case "Infallible":
+		// Reserved like Unit, so no declaration can take the name.
+		return kindNever
 	}
 	// A type parameter of the generic STRUCT being monomorphized, substituted
 	// by its argument. Asked FIRST of the three shadowing lookups because an

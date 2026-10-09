@@ -14,8 +14,12 @@ import (
 type irLambdaPlan struct {
 	// ctl is the signalling convention the enclosing Iter call widened this
 	// callback to, or irCtlNone.
-	ctl      irCtlForm
-	source   *ast.Lambda
+	ctl    irCtlForm
+	source *ast.Lambda
+	// names are the parameters' names a call writes, positionally: the
+	// source's, or for a partial application's lambda the callee's
+	// (partialSlots.names).
+	names    []string
 	body     *irScalarPlan
 	params   []kind
 	group    *irLambdaGroup
@@ -37,8 +41,8 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 			return no()
 		}
 		_, tuple := p.Destructure.(*ast.TuplePattern)
-		if pk, partial := bl.partialKinds[t]; partial {
-			params[i] = pk[i]
+		if po, partial := bl.partialOpen[t]; partial {
+			params[i] = po.kinds[i]
 		} else if p.TypeAnnotation != nil {
 			params[i] = bl.g.typeOf(p.TypeAnnotation)
 		} else if p.Destructure != nil && !tuple {
@@ -292,7 +296,11 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	}
 	bl.b.Append(n)
 	fk := funcKindIn(bl.g, params, k)
-	bl.side(n.Dst(), irScalarSide{k: fk, lambda: &irLambdaPlan{ctl: child.ctl, source: t, body: plan, params: params, group: group, supplier: supplier}})
+	names := lambdaParamNames(t, len(params))
+	if po, partial := bl.partialOpen[t]; partial {
+		names = po.names
+	}
+	bl.side(n.Dst(), irScalarSide{k: fk, lambda: &irLambdaPlan{ctl: child.ctl, source: t, names: names, body: plan, params: params, group: group, supplier: supplier}})
 	return n.Dst(), fk, true, true
 }
 
@@ -361,7 +369,7 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 	metadata := bl.callablePlan(callee)
 	var names []string
 	if metadata != nil {
-		names = lambdaParamNames(metadata.source, len(params))
+		names = metadata.names
 	}
 	plan, planned := argSlotPlan(t.Args, params, names)
 	if !planned {

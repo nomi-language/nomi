@@ -77,28 +77,31 @@ func TestCapture_TaskFramesInheritIt(t *testing.T) {
 	}
 }
 
-// The transcript writes each line read in at the point it was read, marked
-// `> `. A prompt written without a newline goes on the marked line before the
-// typed text, as a terminal shows it; a read at end of input adds nothing.
+// The transcript is in two columns: a line read is `> ` and the text, an
+// output line is two spaces and the line, and a blank line is blank. A
+// prompt written without a newline is output, and the read ends its line. A
+// read at end of input writes nothing and leaves its prompt in place, so the
+// prompt and what follows it are one output line, as in the output.
 func TestCapture_TranscriptWritesReadsIn(t *testing.T) {
 	root := NewFrame(context.Background())
-	inner, c := EnterCapture(root, "Ada\n25\r\n")
-	CaptureWrite(inner, "name?\n")
+	inner, c := EnterCapture(root, "Ada\n36\r\n")
+	CaptureWrite(inner, "What is your name?\n")
 	ReadLine(inner)
-	CaptureWrite(inner, "hi Ada\namount: ")
-	if got := ReadLine(inner); got.Ok != "25" {
-		t.Fatalf("ReadLine = %+v, want Ok(\"25\")", got)
+	CaptureWrite(inner, "\nHello, Ada. Your age: ")
+	if got := ReadLine(inner); got.Ok != "36" {
+		t.Fatalf("ReadLine = %+v, want Ok(\"36\")", got)
 	}
-	CaptureWrite(inner, "ok\nmore? ")
+	CaptureWrite(inner, "Ada is 36\nmore? ")
 	if got := ReadLine(inner); got.Tag != TagErr {
 		t.Fatalf("ReadLine past the input = %+v, want Err", got)
 	}
 	CaptureWrite(inner, "bye")
 	got := c.Close()
-	if want := "name?\nhi Ada\namount: ok\nmore? bye"; got.Output != want {
+	if want := "What is your name?\n\nHello, Ada. Your age: Ada is 36\nmore? bye"; got.Output != want {
 		t.Fatalf("output = %q, want %q", got.Output, want)
 	}
-	if want := "name?\n> Ada\nhi Ada\n> amount: 25\nok\nmore? bye"; got.Transcript != want {
+	want := "  What is your name?\n> Ada\n\n  Hello, Ada. Your age: \n> 36\n  Ada is 36\n  more? bye"
+	if got.Transcript != want {
 		t.Fatalf("transcript = %q, want %q", got.Transcript, want)
 	}
 	if got.Unread != 0 {
@@ -106,14 +109,37 @@ func TestCapture_TranscriptWritesReadsIn(t *testing.T) {
 	}
 }
 
-// An output line starting with `>` or `\` gets a `\` in front, so only a
-// read starts a transcript line with `>`; the output itself is untouched.
-func TestCapture_TranscriptEscapesOutputThatReadsAsInput(t *testing.T) {
+// A prompt that starts with `>` is output like any other: it has its own
+// line in the gutter, and the line read follows it.
+func TestCapture_APromptStartingWithTheMarkerIsOutput(t *testing.T) {
+	root := NewFrame(context.Background())
+	inner, c := EnterCapture(root, "north\n\n> quoted\n")
+	CaptureWrite(inner, "Exits: north.\n")
+	for {
+		CaptureWrite(inner, "> ")
+		if ReadLine(inner).Tag != TagOk {
+			break
+		}
+		CaptureWrite(inner, "ok\n")
+	}
+	got := c.Close()
+	want := "  Exits: north.\n  > \n> north\n  ok\n  > \n> \n  ok\n  > \n> > quoted\n  ok\n  > "
+	if got.Transcript != want {
+		t.Fatalf("transcript = %q, want %q", got.Transcript, want)
+	}
+	if want := "Exits: north.\n> ok\n> ok\n> ok\n> "; got.Output != want {
+		t.Fatalf("output = %q, want %q", got.Output, want)
+	}
+}
+
+// Output that starts with `>` or `\` is written as it is: the gutter, not an
+// escape, keeps it from reading as input.
+func TestCapture_TranscriptNeverEscapesOutput(t *testing.T) {
 	root := NewFrame(context.Background())
 	inner, c := EnterCapture(root, "")
 	CaptureWrite(inner, "> quoted\n\\path\nplain > not first\n>")
 	got := c.Close()
-	if want := "\\> quoted\n\\\\path\nplain > not first\n\\>"; got.Transcript != want {
+	if want := "  > quoted\n  \\path\n  plain > not first\n  >"; got.Transcript != want {
 		t.Fatalf("transcript = %q, want %q", got.Transcript, want)
 	}
 	if want := "> quoted\n\\path\nplain > not first\n>"; got.Output != want {
@@ -129,22 +155,35 @@ func TestCapture_NestedTranscriptsStayApart(t *testing.T) {
 	innerFr, inner := EnterCapture(outerFr, "i\n")
 	CaptureWrite(innerFr, "b\n")
 	ReadLine(innerFr)
-	if got := inner.Close().Transcript; got != "b\n> i\n" {
+	if got := inner.Close().Transcript; got != "  b\n> i\n" {
 		t.Fatalf("inner transcript = %q", got)
 	}
 	ReadLine(outerFr)
-	if got := outer.Close().Transcript; got != "a\n> o\n" {
+	if got := outer.Close().Transcript; got != "  a\n> o\n" {
 		t.Fatalf("outer transcript = %q", got)
 	}
 }
 
-// A replay script's `>` lines are its input, less the prompt the program
-// wrote on that line; the transcript writes each read back with the prompt.
-// Lines no read reached are counted, and a read past them is end of input.
-func TestReplay_FeedsTheScriptsMarkedLines(t *testing.T) {
+func mustParseReplay(t *testing.T, script string) ReplayScript {
+	t.Helper()
+	parsed, err := ParseReplayScript(script)
+	if err != nil {
+		t.Fatalf("ParseReplayScript(%q): %v", script, err)
+	}
+	return parsed
+}
+
+// A replay script's input lines feed the reads in order, whatever prompt the
+// program wrote; the transcript writes each back in the gutter form. Lines
+// no read reached are counted, and a read past them is end of input.
+func TestReplay_FeedsTheScriptsInputLines(t *testing.T) {
 	root := NewFrame(context.Background())
-	script := "balance?\n> 500\n> amount: 25\n> amount:\n>7\n> left over\n> and this"
-	inner, c := EnterReplay(root, script)
+	script := "  balance?\n> 500\n  amount:\n> 25\n>\n>7\n> left over\n> and this"
+	if _, err := ParseReplayScript(script); err == nil || !strings.Contains(err.Error(), "line 6") {
+		t.Fatalf("a `>7` line parsed: err = %v", err)
+	}
+	script = strings.Replace(script, ">7", "> 7", 1)
+	inner, c := EnterReplay(root, mustParseReplay(t, script))
 	CaptureWrite(inner, "balance?\n")
 	var read []string
 	for range 4 {
@@ -155,13 +194,14 @@ func TestReplay_FeedsTheScriptsMarkedLines(t *testing.T) {
 		t.Fatalf("reads = %q, want %q", got, want)
 	}
 	got := c.Close()
-	if want := "balance?\n> amount: 500\n> amount: 25\n> amount: \n> amount: 7\n"; got.Transcript != want {
+	want := "  balance?\n  amount: \n> 500\n  amount: \n> 25\n  amount: \n> \n  amount: \n> 7\n"
+	if got.Transcript != want {
 		t.Fatalf("transcript = %q, want %q", got.Transcript, want)
 	}
 	if got.Unread != 2 {
 		t.Fatalf("unread = %d, want 2", got.Unread)
 	}
-	inner, c = EnterReplay(root, "> only")
+	inner, c = EnterReplay(root, mustParseReplay(t, "> only"))
 	ReadLine(inner)
 	if r := ReadLine(inner); r.Tag != TagErr || r.Err != "eof" {
 		t.Fatalf("a read past the script = %+v, want Err(eof)", r)
@@ -171,17 +211,54 @@ func TestReplay_FeedsTheScriptsMarkedLines(t *testing.T) {
 	}
 }
 
+// A script is in two columns: `> ` lines are input, blank lines are blank
+// output, and every other line must carry the gutter, input or not. The
+// expected transcript is the script as ReplayText spells it.
+func TestParseReplayScript(t *testing.T) {
+	for _, tc := range []struct {
+		script   string
+		input    []string
+		expected string
+	}{
+		{"  What is your name?\n> Ada\n  Hello, Ada. Your age:\n> 36\n  Ada is 36",
+			[]string{"Ada", "36"}, "  What is your name?\n> Ada\n  Hello, Ada. Your age:\n> 36\n  Ada is 36\n"},
+		{"  >\n> north\n\n  > quoted \r\n>\n", []string{"north", ""}, "  >\n> north\n\n  > quoted\n>\n"},
+		{"> > x", []string{"> x"}, "> > x\n"},
+		{"  hello\n\n  world", nil, "  hello\n\n  world\n"},
+		{"    indented\n  \\>", nil, "    indented\n  \\>\n"},
+		{"", nil, ""},
+	} {
+		got := mustParseReplay(t, tc.script)
+		if strings.Join(got.Input, "|") != strings.Join(tc.input, "|") || len(got.Input) != len(tc.input) {
+			t.Errorf("ParseReplayScript(%q).Input = %q, want %q", tc.script, got.Input, tc.input)
+		}
+		if got.Expected != tc.expected {
+			t.Errorf("ParseReplayScript(%q).Expected = %q, want %q", tc.script, got.Expected, tc.expected)
+		}
+	}
+	_, err := ParseReplayScript("  Your age:\n> 36\nAda is 36")
+	if err == nil || err.Error() != "io.replay: line 3 of the script, \"Ada is 36\", must start with "+
+		"`> ` (input) or two spaces (output)" {
+		t.Fatalf("an output line without the gutter: err = %v", err)
+	}
+	for _, script := range []string{"hello", " one space", ">x"} {
+		if _, err := ParseReplayScript(script); err == nil || !strings.Contains(err.Error(), "line 1 of") {
+			t.Errorf("ParseReplayScript(%q): err = %v, want the gutter error", script, err)
+		}
+	}
+}
+
 // ReplayText drops what a `"""` script and an editor lose, trailing
-// whitespace and carriage returns, ends every line in one newline, and spells
-// a marked line with one space after `>`.
+// whitespace and carriage returns, and ends every line in one newline. It
+// leaves the rest of each line alone.
 func TestReplayText(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
 		{"a\nb\n", "a\nb\n"},
 		{"a\nb", "a\nb\n"},
 		{"a\n\n", "a\n\n"},
-		{"a  \r\n> x \r\n", "a\n> x\n"},
-		{">x\n>\n> ", "> x\n>\n>\n"},
-		{"\\> out", "\\> out\n"},
+		{"  a  \r\n> x \r\n", "  a\n> x\n"},
+		{">x\n>\n> ", ">x\n>\n>\n"},
+		{"  >>> 1 \n", "  >>> 1\n"},
 		{"\n", "\n"},
 		{"", ""},
 	} {

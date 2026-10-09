@@ -1,6 +1,8 @@
 package rt
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -22,30 +24,29 @@ import (
 // # The transcript
 //
 // Beside the output a capture keeps a transcript: the output with each line
-// the program read written in at the point it was read, the way a terminal
-// shows a session. A read line is written as its own transcript line, marked
-// by TranscriptMarker. When the program had written part of a line before the
-// read (a prompt with no newline, `io.write("amount: ")`), that part goes on
-// the marked line between the marker and the typed text, as the terminal
-// shows the typed text after the prompt:
+// the program read written in at the point it was read, in two columns. A
+// line read is InputMarker followed by exactly the text read. Every output
+// line is OutputGutter followed by the line exactly as the program wrote it,
+// and a blank output line stays blank. Output is never escaped: what tells
+// the two apart is the first two columns.
 //
-//	io.write("amount: ") then a read of "25"   ->   "> amount: 25"
+// What the program wrote of a line before a read (a prompt with no newline)
+// is output, and the read ends that line, as the newline typed after the
+// input does in a terminal:
 //
-// A read at the end of input adds nothing. An output line that would read as
-// a marked line (it starts with `>`), or as an escaped one (it starts with
-// `\`), is written with a `\` in front, so every transcript line starting with
-// `>` is a read and nothing else.
+//	io.write("Your age: ") then a read of "36"   ->   "  Your age: " and "> 36"
+//	io.write("> ") then a read of "north"         ->   "  > " and "> north"
+//	a read of "Ada" at the start of a line         ->   "> Ada"
+//
+// A read at the end of input writes no line and leaves the prompt it
+// answered in place, so the prompt and whatever follows it are one output
+// line, as in Output.
 //
 // # Replaying a script
 //
-// EnterReplay's capture takes its input from a script shaped like a
-// transcript instead of plain text: each line starting with `>` answers one
-// read, and the rest is the output the script expects (ReplayText compares
-// the two). The typed text of a marked line is what follows the marker and
-// one space, less the prompt the program wrote on that line before reading:
-// for the script line `> amount: 25`, a program that wrote "amount: " reads
-// "25". So the input a script feeds is decided at each read, which is why the
-// capture and not the caller parses it.
+// EnterReplay's capture takes its input from a script in the transcript's
+// form (ParseReplayScript): the text of each input line answers one read, in
+// order, and the rest is the transcript the script expects.
 type Capture struct {
 	mu sync.Mutex
 	in *Input
@@ -55,15 +56,19 @@ type Capture struct {
 	next   int
 	out    strings.Builder
 	// tr holds the finished transcript lines; line is the output line in
-	// progress, not yet escaped, since a read may still make it a prompt.
+	// progress, which a read may end.
 	tr     strings.Builder
 	line   strings.Builder
 	closed bool
 	outer  *Capture
 }
 
-// TranscriptMarker starts every line of a transcript the program read.
-const TranscriptMarker = "> "
+// InputMarker starts a transcript line the program read; OutputGutter starts
+// every non-blank output line.
+const (
+	InputMarker  = "> "
+	OutputGutter = "  "
+)
 
 // CaptureResult is what a closed capture holds.
 type CaptureResult struct {
@@ -77,8 +82,8 @@ type CaptureResult struct {
 }
 
 // IOReplayed is std/io's `Replayed`, what `io.replay` answers: the output,
-// the transcript and the script as ReplayText spells them, and CaptureResult's
-// Unread.
+// the transcript and the script's expected transcript as ReplayText spells
+// them, and CaptureResult's Unread.
 type IOReplayed struct {
 	Output     string
 	Transcript string
@@ -92,10 +97,10 @@ func EnterCapture(parent *Frame, input string) (*Frame, *Capture) {
 	return enter(parent, &Capture{in: NewInput(strings.NewReader(input))})
 }
 
-// EnterReplay is EnterCapture for `io.replay`: the input is the lines of
-// script that start with `>`, fed one per read as Capture describes.
-func EnterReplay(parent *Frame, script string) (*Frame, *Capture) {
-	return enter(parent, &Capture{replay: true, script: replayInput(script)})
+// EnterReplay is EnterCapture for `io.replay`: the input is the script's
+// input lines, one per read.
+func EnterReplay(parent *Frame, script ReplayScript) (*Frame, *Capture) {
+	return enter(parent, &Capture{replay: true, script: script.Input})
 }
 
 func enter(parent *Frame, c *Capture) (*Frame, *Capture) {
@@ -113,7 +118,7 @@ func (c *Capture) Close() CaptureResult {
 	c.closed = true
 	tr := c.tr.String()
 	if c.line.Len() > 0 {
-		tr += escapeTranscriptLine(c.line.String())
+		tr += outputLine(c.line.String())
 	}
 	return CaptureResult{Output: c.out.String(), Transcript: tr, Unread: len(c.script) - c.next}
 }
@@ -147,21 +152,26 @@ func (c *Capture) write(s string) {
 			return
 		}
 		c.line.WriteString(s[:i])
-		c.tr.WriteString(escapeTranscriptLine(c.line.String()))
-		c.tr.WriteByte('\n')
-		c.line.Reset()
+		c.endLine()
 		s = s[i+1:]
 	}
 }
 
-// escapeTranscriptLine is an output line as the transcript writes it: with a
-// `\` in front when it starts with `>` or `\`, so it cannot read as a line
-// the program read.
-func escapeTranscriptLine(line string) string {
-	if strings.HasPrefix(line, ">") || strings.HasPrefix(line, `\`) {
-		return `\` + line
+// endLine writes the output line in progress to the transcript and starts
+// another. c.mu is held.
+func (c *Capture) endLine() {
+	c.tr.WriteString(outputLine(c.line.String()))
+	c.tr.WriteByte('\n')
+	c.line.Reset()
+}
+
+// outputLine is an output line as the transcript writes it: behind the
+// gutter, or blank when it is.
+func outputLine(line string) string {
+	if line == "" {
+		return ""
 	}
-	return line
+	return OutputGutter + line
 }
 
 // captureFor is the frame's innermost open capture, or nil.
@@ -178,11 +188,11 @@ func captureFor(fr *Frame) *Capture {
 }
 
 // readLine is `io.read_line` inside the capture: the next line of its input,
-// written into the transcript, or Err("eof").
+// written into the transcript after the prompt it ends, or Err("eof"), which
+// writes nothing and leaves the prompt in place.
 func (c *Capture) readLine() Result[string, string] {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	prompt := c.line.String()
 	var text string
 	if c.replay {
 		if c.next >= len(c.script) {
@@ -190,14 +200,6 @@ func (c *Capture) readLine() Result[string, string] {
 		}
 		text = c.script[c.next]
 		c.next++
-		switch {
-		case strings.HasPrefix(text, prompt):
-			text = text[len(prompt):]
-		case text == strings.TrimRight(prompt, " \t"):
-			// The script's line lost the prompt's trailing space, as
-			// ReplayText drops it; nothing was typed.
-			text = ""
-		}
 	} else {
 		r := c.in.readLine()
 		if r.Tag != TagOk {
@@ -205,39 +207,51 @@ func (c *Capture) readLine() Result[string, string] {
 		}
 		text = r.Ok
 	}
-	c.tr.WriteString(TranscriptMarker)
-	c.tr.WriteString(prompt)
+	if c.line.Len() > 0 {
+		c.endLine()
+	}
+	c.tr.WriteString(InputMarker)
 	c.tr.WriteString(text)
 	c.tr.WriteByte('\n')
-	c.line.Reset()
 	return Ok[string, string](text)
 }
 
-// replayInput is a replay script's input: each line that starts with `>`,
-// without the `>`, one space after it, and trailing whitespace.
-func replayInput(script string) []string {
-	var lines []string
-	for _, line := range strings.Split(script, "\n") {
-		if rest, ok := markedLine(strings.TrimRight(line, " \t\r")); ok {
-			lines = append(lines, rest)
-		}
-	}
-	return lines
+// ReplayScript is an `io.replay` script taken apart: the text of each input
+// line, in order, and the transcript the script expects, as ReplayText
+// spells it.
+type ReplayScript struct {
+	Input    []string
+	Expected string
 }
 
-// markedLine answers the text after a transcript line's marker: the `>` and
-// at most one space after it.
-func markedLine(line string) (string, bool) {
-	rest, ok := strings.CutPrefix(line, ">")
-	if !ok {
-		return "", false
+// ParseReplayScript takes an `io.replay` script apart. Trailing whitespace
+// and carriage returns on each line do not count (ReplayText).
+//
+// A script is in the transcript's two columns, whether or not it has input.
+// A line that starts with InputMarker, or is `>` alone (empty input), is
+// input, and its text is what follows InputMarker. A blank line is blank
+// output. Every other line must start with OutputGutter; a line that does
+// neither is an error naming it. Without the gutter, output that starts
+// with `> ` would read as input.
+func ParseReplayScript(script string) (ReplayScript, error) {
+	expected := ReplayText(script)
+	var input []string
+	for i, line := range strings.Split(strings.TrimSuffix(expected, "\n"), "\n") {
+		switch {
+		case line == ">" || strings.HasPrefix(line, InputMarker):
+			input = append(input, strings.TrimPrefix(line[1:], " "))
+		case line != "" && !strings.HasPrefix(line, OutputGutter):
+			// The number is the script's line, not a source line, so it
+			// is not one of the positioned fault texts.
+			return ReplayScript{}, fmt.Errorf("io.replay: line "+strconv.Itoa(i+1)+
+				" of the script, %q, must start with `> ` (input) or two spaces (output)", line)
+		}
 	}
-	return strings.TrimPrefix(rest, " "), true
+	return ReplayScript{Input: input, Expected: expected}, nil
 }
 
 // ReplayText is a transcript or a replay script in the form `io.replay`
 // compares: each line without its trailing spaces, tabs and carriage return,
-// a marked line spelled with the marker and one space (`>25` reads `> 25`),
 // and every line, the last included, ended by one newline. So a script
 // written as a `"""` literal, which drops its last newline, matches a
 // program's output that ends in one, and trailing whitespace an editor may
@@ -248,11 +262,7 @@ func ReplayText(s string) string {
 	}
 	lines := strings.Split(s, "\n")
 	for i, line := range lines {
-		line = strings.TrimRight(line, " \t\r")
-		if rest, ok := markedLine(line); ok {
-			line = strings.TrimRight(TranscriptMarker+rest, " ")
-		}
-		lines[i] = line
+		lines[i] = strings.TrimRight(line, " \t\r")
 	}
 	if n := len(lines); n > 1 && lines[n-1] == "" {
 		lines = lines[:n-1]

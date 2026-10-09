@@ -34,17 +34,23 @@ func captureHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 }
 
 // replayHost is `run_replayed(script, run, finish)`: captureHost over a
-// capture whose input is the script's `>` lines (rt.EnterReplay). finish gets
-// run's value, the output, the transcript and the script each as replay
-// compares them (rt.ReplayText), and how many input lines no read reached.
+// capture whose input is the script's input lines (rt.ParseReplayScript,
+// rt.EnterReplay). finish gets run's value, the output, the transcript and
+// the script's expected transcript each as replay compares them
+// (rt.ReplayText), and how many input lines no read reached. A script with a
+// line that is neither input nor output traps before run runs.
 func replayHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 	script, run, finish, err := captureOperands(m, replayKey, args, 5)
 	if err != nil {
 		return nil, err
 	}
-	inner, c := rt.EnterReplay(m.hostFrame, script)
+	parsed, err := rt.ParseReplayScript(script)
+	if err != nil {
+		return nil, &Fault{err: &rt.Error{Msg: err.Error()}}
+	}
+	inner, c := rt.EnterReplay(m.hostFrame, parsed)
 	return m.runCaptured(inner, c, run, finish, func(v any, r rt.CaptureResult) []any {
-		return []any{v, r.Output, rt.ReplayText(r.Transcript), rt.ReplayText(script), int64(r.Unread)}
+		return []any{v, r.Output, rt.ReplayText(r.Transcript), parsed.Expected, int64(r.Unread)}
 	})
 }
 

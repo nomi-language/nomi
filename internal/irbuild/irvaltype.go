@@ -57,6 +57,8 @@ func (g *gen) irValTypeOf(k kind) *ir.ValType {
 	switch k.tag {
 	case tagUnit:
 		return ir.UnitType
+	case tagNever:
+		return ir.NeverType
 	case tagInt:
 		return ir.IntType
 	case tagFloat:

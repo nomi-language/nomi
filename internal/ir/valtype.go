@@ -77,6 +77,12 @@ const (
 	// Context, a Task, a channel half, a Supervisor, a Regex, a Dynamic.
 	// Sym is the host type's declaration; Elems its type arguments.
 	KindHandle
+	// KindNever is `Infallible`, the type with no values: the type of an
+	// expression that never produces one (`todo`, a call to a function that
+	// never returns), and the argument that makes a variant unreachable
+	// (`Result<Int, Infallible>`). No temporary of it is ever written, so it
+	// stores nothing, and every type accepts it.
+	KindNever
 )
 
 var valKindNames = [...]string{
@@ -87,6 +93,7 @@ var valKindNames = [...]string{
 	KindRecord: "record", KindList: "List", KindSet: "Set",
 	KindVector: "Vector", KindMap: "Map", KindRange: "Range", KindSeq: "Iter",
 	KindFunc: "function", KindIface: "dyn", KindHandle: "handle",
+	KindNever: "Infallible",
 }
 
 func (k ValKind) String() string {
@@ -201,6 +208,7 @@ var (
 	StringType  = &ValType{kind: KindString}
 	BytesType   = &ValType{kind: KindBytes}
 	DecimalType = &ValType{kind: KindDecimal}
+	NeverType   = &ValType{kind: KindNever}
 )
 
 func requireTypeSym(sym *Symbol, who string) {
@@ -368,7 +376,8 @@ func (t *ValType) Result() *ValType { return t.result }
 // Class is the register bank a value of t lives in.
 func (t *ValType) Class() RegClass {
 	switch t.kind {
-	case KindUnit:
+	case KindUnit, KindNever:
+		// Never written, so a Never temporary needs no register either.
 		return ClassNone
 	case KindBool, KindInt, KindFloat, KindByte:
 		return ClassWord
@@ -463,11 +472,13 @@ func (t *ValType) Identical(u *ValType) bool {
 // stated: the two are identical, or they agree everywhere except where one
 // side is Any. Any stands for "not fixed here" — an untyped literal before
 // its context discharges it, or a type parameter — and matches anything.
+// Infallible has no values, so every type accepts it: a store of one is
+// never executed.
 func (want *ValType) Accepts(have *ValType) bool {
 	if want == nil || have == nil {
 		return false
 	}
-	if want.kind == KindAny || have.kind == KindAny {
+	if want.kind == KindAny || have.kind == KindAny || have.kind == KindNever {
 		return true
 	}
 	// Widening to an existential: an erased value is its concrete value,

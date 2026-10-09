@@ -190,8 +190,9 @@ func (s *stdHostSpec) declaredHostType(decl *ast.ExternType) bool {
 // arithmetic with one implementation; decimal_test.go and the two fixtures
 // beside it pin its answers absolutely.
 //
-// `Any` and `Infallible` are also `*PrimitiveType` and are compiler-internal:
-// neither is a type a program may write, so neither belongs here.
+// `Any` and `Infallible` are also `*PrimitiveType` and have no rt type, so
+// neither belongs here: `Any` is compiler-internal, and `Infallible` has a
+// kind of its own with no values (irnever.go).
 var stdHostSpecs = []stdHostSpec{
 	// Two rows for two types: `Byte` is one octet and `Bytes` a buffer of
 	// them, and they are separate Nomi types, so a single row would collapse

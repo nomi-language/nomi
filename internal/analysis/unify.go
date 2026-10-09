@@ -1189,14 +1189,20 @@ func isBoolVariantPair(a, b Type) bool {
 }
 
 // embedsJoin is the type of a join (two branches, two literal elements) whose
-// sides have types have and next, the two having unified: the enum when one
-// side is an enum and the other a type it embeds, since a Circle enters a
-// Shape and a Shape may hold another variant; have otherwise.
-func embedsJoin(have, next Type) Type {
-	if et, ok := resolveTV(next).(*EnumType); ok && isEmbeddedTypeOf(resolveTV(have), et) {
-		return next
+// sides have types have and next, the two being equal up to `embeds`: the
+// side whose type takes the other's values. A Circle enters a Shape and a
+// Shape may hold another variant, so Circle beside Shape joins to Shape, at
+// the top or nested (`(1, circle)` beside `(2, shape)` is an `(Int, Shape)`).
+// ok is false when neither side takes the other's values (`(Circle, Shape)`
+// beside `(Shape, Circle)`); the answer is then have.
+func embedsJoin(have, next Type) (Type, bool) {
+	if TypeAssignable(have, next) {
+		return have, true
 	}
-	return have
+	if TypeAssignable(next, have) {
+		return next, true
+	}
+	return have, false
 }
 
 // widenToEnum reports the enum a type parameter's binding widens to when a

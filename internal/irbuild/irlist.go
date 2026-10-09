@@ -96,6 +96,12 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 		bl.b.Append(c)
 		return c.Dst(), kindEmptyList, true, true
 	}
+	// kindInvalid: sentinel — no annotation supplies the element kind.
+	if want == kindInvalid && tail == nil {
+		if parts := bl.literalParts(at, tagList); parts != nil {
+			want = parts[0]
+		}
+	}
 	values := make([]ir.Temp, len(items))
 	kinds := make([]kind, len(items))
 	elem := want
@@ -197,12 +203,124 @@ func irEmbeddedIn(want, k kind) bool {
 	return widens && irRetainedEnumKind(d)
 }
 
+// irHoldsEmbeds reports whether k is an enum with an `embeds` variant, or
+// holds one in a tuple, record or collection: a literal of k may hold a
+// value of an embedded type that must be widened in place.
+func irHoldsEmbeds(k kind) bool {
+	if k.tag == tagNamed && k.def != nil && k.def.isEnum {
+		for i := range k.def.variants {
+			if k.def.variants[i].embeds != nil {
+				return true
+			}
+		}
+	}
+	return irNestedEmbeds(k)
+}
+
+// irNestedEmbeds reports whether k holds an enum with an `embeds` variant
+// below its top: `(Int, Shape)`, `List<Shape>`, `Map<Int, Shape>`.
+func irNestedEmbeds(k kind) bool {
+	if elem, vector := vectorElem(k); vector && k != kindEmptyVector {
+		return irHoldsEmbeds(elem)
+	}
+	if elem, set := setElem(k); set && k != kindEmptySet {
+		return irHoldsEmbeds(elem)
+	}
+	switch k.tag {
+	case tagTuple, tagAnonStruct, tagList, tagMap:
+		if k.comp == nil {
+			return false
+		}
+		for _, p := range k.comp.parts {
+			if irHoldsEmbeds(p) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// literalParts is the checker's type of an unannotated collection literal,
+// projected, when one of its type arguments holds an embedded type's enum
+// below its top (`[(1, c), (2, shape)]` is a `List<(Int, Shape)>`): its
+// items are then lowered against those parts, so each embedded value is
+// widened where it sits. It answers nil otherwise; a top-level join
+// (`[c, shape]`) is found from the lowered items (irEmbedsJoin).
+func (bl *irScalarBuilder) literalParts(at ast.Node, of tag) []kind {
+	k := bl.g.project(bl.g.checkedExprType(at))
+	var parts []kind
+	switch {
+	case of == tagList && k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1:
+		parts = k.comp.parts
+	case of == tagMap && k.tag == tagMap && k != kindEmptyMap && k.comp != nil && len(k.comp.parts) == 2:
+		parts = k.comp.parts
+	case of == tagEmptySet:
+		if elem, set := setElem(k); set && k != kindEmptySet {
+			parts = []kind{elem}
+		}
+	case of == tagEmptyVector:
+		if elem, vector := vectorElem(k); vector && k != kindEmptyVector {
+			parts = []kind{elem}
+		}
+	}
+	for _, p := range parts {
+		if irNestedEmbeds(p) {
+			return parts
+		}
+	}
+	return nil
+}
+
+// irEmbedsJoin is the kind an unannotated literal's items join to, as the
+// checker's embedsJoin gives it: the one item kind every other item either
+// is or widens into through a retained `embeds` variant (`[circle, shape]`
+// is a `List<Shape>`). ok is false when no item kind takes all the others.
+func irEmbedsJoin(kinds []kind) (kind, bool) {
+	for _, cand := range kinds {
+		all := true
+		for _, k := range kinds {
+			if k != cand && !irEmbeddedIn(cand, k) {
+				all = false
+				break
+			}
+		}
+		if all {
+			return cand, true
+		}
+	}
+	return kindInvalid, false
+}
+
+// widenEmbedded widens each lowered item whose kind is not elem into elem's
+// `embeds` variant. The items are already lowered, left to right, and a
+// widening has no effect, so this reorders nothing.
+func (bl *irScalarBuilder) widenEmbedded(items []ast.Node, values []ir.Temp, kinds []kind, elem kind) bool {
+	for i := range values {
+		if kinds[i] == elem {
+			continue
+		}
+		d, variant, widens := embedsVariant(elem, kinds[i])
+		if !widens {
+			return false
+		}
+		v, _, ok := bl.embedWiden(items[i], values[i], d, variant)
+		if !ok {
+			return false
+		}
+		values[i], kinds[i] = v, elem
+	}
+	return true
+}
+
 // coerceEmpty preserves an empty collection's VM value while Go discharges
 // its element types through the native coercion routine. A value of an
 // embedded type widens into its retained `embeds` variant, as coerce does.
 func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, kind, bool) {
 	if have == want {
 		return v, have, true
+	}
+	if v, ok := bl.neverAs(at, v, have, want); ok {
+		return v, want, true
 	}
 	if irEmbeddedIn(want, have) {
 		d, variant, _ := embedsVariant(want, have)
@@ -323,13 +441,31 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		return bl.tupleMakeWant(tl, want)
 	}
 	if ll, isList := at.(*ast.ListLit); isList && want.tag == tagList && want.comp != nil && len(want.comp.parts) == 1 &&
-		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc) && ll.TypeName == nil && len(ll.Items) != 0 {
+		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc || irHoldsEmbeds(want.comp.parts[0])) && ll.TypeName == nil && len(ll.Items) != 0 {
 		// `[xs, [1, 2]]` where a `List<Iter<Int>>` is expected: each element
 		// enters the declared `Iter<T>`. `[cnt]` where a
 		// `List<(List<Int>) -> Int>` is: each function value enters the
 		// declared function type, through an adapter when its parameters are
-		// wider (irfuncwiden.go).
+		// wider (irfuncwiden.go). `[c]` where a `List<Shape>` is, or
+		// `[(1, c)]` where a `List<(Int, Shape)>` is: each embedded value
+		// widens where it sits.
 		return bl.listMakeOf(ll, ll.Items, nil, want.comp.parts[0])
+	}
+	// `#{c}`, `#[c]` or `{1 => c}` where a collection holding an embedded
+	// type's enum is expected: each embedded value widens where it sits.
+	if sl, isSet := at.(*ast.SetLit); isSet && len(sl.Items) != 0 {
+		if elem, set := setElem(want); set && want != kindEmptySet && irHoldsEmbeds(elem) {
+			return bl.setMakeOf(sl, elem)
+		}
+	}
+	if vl, isVector := at.(*ast.VectorLit); isVector && len(vl.Items) != 0 {
+		if elem, vector := vectorElem(want); vector && want != kindEmptyVector && irHoldsEmbeds(elem) {
+			return bl.vectorMakeOf(vl, elem)
+		}
+	}
+	if ml, isMap := at.(*ast.MapLit); isMap && ml.TypeName == nil && len(ml.Entries) != 0 && want.tag == tagMap && want != kindEmptyMap && want.comp != nil && len(want.comp.parts) == 2 &&
+		(irHoldsEmbeds(want.comp.parts[0]) || irHoldsEmbeds(want.comp.parts[1])) {
+		return bl.mapMakeOf(ml, want.comp.parts)
 	}
 	if !bl.inTest && bl.recording == 0 {
 		switch at.(type) {

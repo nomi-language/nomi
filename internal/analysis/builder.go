@@ -1640,6 +1640,7 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	b.file.TypeErrors = append(b.file.TypeErrors, CheckRedundantPreludeImports(b.file, nodes)...)
 	b.file.TypeErrors = append(b.file.TypeErrors, CheckUnusedBindings(b.file)...)
 	b.file.TypeErrors = append(b.file.TypeErrors, CheckUselessReturns(nodes)...)
+	b.file.TypeErrors = append(b.file.TypeErrors, CheckRepeatedFields(nodes)...)
 }
 
 func moduleAliasForFile(key, filePath string) string {

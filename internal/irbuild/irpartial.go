@@ -21,21 +21,23 @@ import (
 //
 // The written arguments are bound to names no Nomi program can spell, so
 // the lambda that stands for the partial captures them as it captures any
-// local. Each placeholder becomes a parameter that IS the callee's own
-// parameter declaration (name, default) when the builder can see it, so the
-// partial is called by the callee's names and a placeholder the call omits
-// takes the callee's default; its kind is the slot's, which partialKinds
-// hands the lambda. A slot the partial does not mention takes the callee's
-// default in the body's call. A default is admitted only when it is a
-// literal, which reads the same wherever it is lowered. The body's call
-// names the callee exactly as the partial wrote it, so it is lowered as
-// the same call written in full would be.
+// local. Each placeholder becomes a parameter named the same way, so no
+// parameter shadows a name the callee expression starts from
+// (`maybe.Maybe.map(_, f)`, whose first parameter is `maybe`). It carries
+// the callee's default when the builder can see the declaration, so a
+// placeholder the call omits takes it, and partialOpen hands the lambda the
+// slot's kind and the callee's parameter name, by which the partial is
+// called (`f(port: 3000)`). A slot the partial does not mention takes the
+// callee's default in the body's call. A default is admitted only when it is
+// a literal, which reads the same wherever it is lowered. The body's call
+// names the callee exactly as the partial wrote it, so it is lowered as the
+// same call written in full would be.
 func (bl *irScalarBuilder) partialApplication(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) {
 		irDeclineNote("a partial application over a callee whose parameters the builder cannot see, or with a non-literal default")
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	params, kinds, root, ok := bl.partialCallee(t)
+	params, kinds, ok := bl.partialCallee(t)
 	if !ok || len(params) != len(kinds) {
 		return no()
 	}
@@ -82,15 +84,22 @@ func (bl *irScalarBuilder) partialApplication(t *ast.Call) (ir.Temp, kind, bool,
 		return no()
 	}
 	lam := &ast.Lambda{Line: t.Line, Col: t.Col, EndLine: t.Line, EndCol: t.Col}
-	openKinds := make([]kind, 0, len(open))
+	slots := partialSlots{kinds: make([]kind, 0, len(open)), names: make([]string, 0, len(open))}
+	openName := make([]string, len(params))
 	for _, slot := range open {
 		p := params[slot]
-		if p.Destructure != nil || ast.IsDiscardName(p.Name) || p.Name == root ||
-			(p.Default != nil && !irClosedLiteral(p.Default)) {
+		if p.Default != nil && !irClosedLiteral(p.Default) {
 			return no()
 		}
-		lam.Params = append(lam.Params, p)
-		openKinds = append(openKinds, kinds[slot])
+		openName[slot] = "%open" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + "." + strconv.Itoa(slot)
+		lam.Params = append(lam.Params, ast.Param{Name: openName[slot], Default: p.Default, Line: p.Line, Col: p.Col})
+		slots.kinds = append(slots.kinds, kinds[slot])
+		name := p.Name
+		if p.Destructure != nil || name == "_" {
+			// A pattern or a bare `_` is no name a call can write.
+			name = ""
+		}
+		slots.names = append(slots.names, name)
 	}
 	args := make([]ast.Node, len(params))
 	for slot, p := range params {
@@ -99,7 +108,7 @@ func (bl *irScalarBuilder) partialApplication(t *ast.Call) (ir.Temp, kind, bool,
 		case written[slot] != "":
 			args[slot] = &ast.Ident{Name: written[slot], Line: line, Col: col}
 		case filled[slot]:
-			args[slot] = &ast.Ident{Name: p.Name, Line: line, Col: col}
+			args[slot] = &ast.Ident{Name: openName[slot], Line: line, Col: col}
 		case p.Default != nil && irClosedLiteral(p.Default):
 			args[slot] = p.Default
 		default:
@@ -109,33 +118,48 @@ func (bl *irScalarBuilder) partialApplication(t *ast.Call) (ir.Temp, kind, bool,
 	lam.Body = &ast.Block{Line: t.Line, Col: t.Col, Stmts: []ast.Node{
 		&ast.Call{Func: t.Func, Args: args, TypeArgs: t.TypeArgs, Line: t.Line, Col: t.Col},
 	}}
-	if bl.partialKinds == nil {
-		bl.partialKinds = map[*ast.Lambda][]kind{}
+	if bl.partialOpen == nil {
+		bl.partialOpen = map[*ast.Lambda]partialSlots{}
 	}
-	bl.partialKinds[lam] = openKinds
-	defer delete(bl.partialKinds, lam)
+	bl.partialOpen[lam] = slots
+	defer delete(bl.partialOpen, lam)
 	return bl.lambda(lam)
 }
 
+// partialSlots is what a partial application's lambda takes at its open
+// slots, in the order the placeholders are written: each one's kind, and
+// the callee's name for it, which a call of the partial writes ("" for a
+// slot no call can name).
+type partialSlots struct {
+	kinds []kind
+	names []string
+}
+
 // partialCallee is the parameter declarations and kinds of a partial
-// application's callee, and the name its callee expression starts from (a
-// parameter of that name would shadow it inside the partial's body).
-func (bl *irScalarBuilder) partialCallee(t *ast.Call) ([]ast.Param, []kind, string, bool) {
+// application's callee.
+func (bl *irScalarBuilder) partialCallee(t *ast.Call) ([]ast.Param, []kind, bool) {
 	callee, direct := t.Func.(*ast.Ident)
 	if direct && bl.isLocalCallable(callee.Name) {
 		v, fk, _, ok := bl.lower(callee)
 		if !ok || fk.tag != tagFunc {
-			return nil, nil, "", false
+			return nil, nil, false
 		}
-		if plan := bl.callablePlan(v); plan != nil && plan.source != nil {
-			return plan.source.Params, funcParams(fk), callee.Name, true
+		plan := bl.callablePlan(v)
+		if plan == nil || plan.source == nil || len(plan.names) != len(plan.source.Params) {
+			return nil, nil, false
 		}
-		return nil, nil, "", false
+		// The names a call of the value writes are the plan's: a partial's
+		// lambda names its own parameters so no program can spell them.
+		params := make([]ast.Param, len(plan.source.Params))
+		for i, p := range plan.source.Params {
+			params[i] = ast.Param{Name: plan.names[i], Default: p.Default, Line: p.Line, Col: p.Col}
+		}
+		return params, funcParams(fk), true
 	}
 	if direct {
 		if _, shadowed := bl.g.lookup(callee.Name); !shadowed && bl.g.stdlibSibling(callee.Name) == nil {
 			if sig := bl.g.funcs[callee.Name]; sig != nil && sig.lowerable && sig.decl != nil && sig.dict == nil && sig.tps == nil {
-				return sig.decl.Params, sig.params, callee.Name, true
+				return sig.decl.Params, sig.params, true
 			}
 		}
 	}
@@ -145,30 +169,21 @@ func (bl *irScalarBuilder) partialCallee(t *ast.Call) ([]ast.Param, []kind, stri
 // partialCalleeByType reads the callee's parameters off the signature the
 // checker instantiated at the call: `Console.write_line(c, _)` with c a
 // Stdout is `(Stdout, String) -> Unit`. Their declarations come from the
-// symbol the callee resolves to; a callee with none in view gets parameters
-// named so no program can spell them, which only positional arguments reach.
-func (bl *irScalarBuilder) partialCalleeByType(t *ast.Call) ([]ast.Param, []kind, string, bool) {
+// symbol the callee resolves to; a callee with none in view gets unnamed
+// parameters, which only positional arguments reach.
+func (bl *irScalarBuilder) partialCalleeByType(t *ast.Call) ([]ast.Param, []kind, bool) {
 	kinds, _, ok := bl.g.checkedValueKinds(t.Func)
 	if !ok {
-		return nil, nil, "", false
-	}
-	root := ""
-	switch f := t.Func.(type) {
-	case *ast.Ident:
-		root = f.Name
-	case *ast.FieldAccess:
-		if obj, isIdent := f.Object.(*ast.Ident); isIdent {
-			root = obj.Name
-		}
+		return nil, nil, false
 	}
 	params := bl.g.calleeDeclParams(t.Func)
 	if len(params) != len(kinds) {
 		params = make([]ast.Param, len(kinds))
 		for i := range params {
-			params[i] = ast.Param{Name: "%open" + strconv.Itoa(i), Line: t.Line, Col: t.Col}
+			params[i] = ast.Param{Line: t.Line, Col: t.Col}
 		}
 	}
-	return params, kinds, root, true
+	return params, kinds, true
 }
 
 // calleeDeclParams is the parameter list of the declaration a callee

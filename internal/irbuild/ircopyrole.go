@@ -28,6 +28,9 @@ const (
 	irCopyInjected
 	// irCopyProjection holds a sort key projection the comparator reads twice.
 	irCopyProjection
+	// irCopyNever retypes a value of Infallible to its contextual type. It
+	// never runs: nothing produces the value it reads (irnever.go).
+	irCopyNever
 )
 
 // irHeldValue reports whether t is already held in a temporary of its own —

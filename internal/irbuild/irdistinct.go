@@ -134,7 +134,8 @@ func irDistinctOverValue(d *typeDef) bool {
 }
 
 // irRetainedLeafKind is the value domain the retained shape admits: the four
-// scalars, scalar-wrapping distincts and zero-sized distinct markers.
+// scalars, Infallible, scalar-wrapping distincts and zero-sized distinct
+// markers.
 //
 // SEPARATE FROM `irScalarLeafKind` RATHER THAN A WIDENING OF IT, because the
 // two answer different questions and three callers want the narrow one.
@@ -143,7 +144,7 @@ func irDistinctOverValue(d *typeDef) bool {
 // predicate; an interpolation hole asks it because `displayRendering` has a
 // refusing arm for every other kind; and `bl.call`'s result asks it.
 func irRetainedLeafKind(k kind) bool {
-	if irScalarLeafKind(k) {
+	if irScalarLeafKind(k) || k == kindNever {
 		return true
 	}
 	return k.tag == tagNamed && (irWrappingDistinct(k.def) || irRetainedMarker(k.def))
