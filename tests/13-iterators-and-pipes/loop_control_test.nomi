@@ -41,17 +41,17 @@ test "loop break value returns the break value" {
     assert fib == (89, 144)
 }
 
-test "stateless loop infers its state type from a break value" {
-    answer = loop(|| { break 42 })
+test "a loop answers a break value computed from its state" {
+    answer = loop(|n = 40| { break n + 2 })
 
     assert answer == 42
 }
 
-test "generic break values pin the loop state type" {
+test "a generic seed pins the loop state type" {
     assert first(7) == 7
     assert first("value") == "value"
 }
 
 fn first<T>(x: T): T {
-    loop(|| { break x })
+    loop(|v = x| { break v })
 }

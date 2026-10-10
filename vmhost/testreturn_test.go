@@ -77,7 +77,10 @@ test "return a discarded value" {
 	if !strings.Contains(cases[3].Err.Error(), "line 38: check failed") {
 		t.Fatalf("the failing check reports %q", cases[3].Err)
 	}
-	if got, want := out.String(), "arm\ndeferred\nhead 1\n"; got != want {
+	if out.Len() != 0 {
+		t.Fatalf("output outside every case: %q", out.String())
+	}
+	if got, want := caseOutput(cases), "arm\ndeferred\nhead 1\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}
 }

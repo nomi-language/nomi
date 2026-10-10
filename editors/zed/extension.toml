@@ -11,4 +11,4 @@ languages = ["Nomi"]
 
 [grammars.nomi]
 repository = "https://github.com/nomi-language/tree-sitter-nomi"
-rev = "4513638689ca3ee4b8c846f9c01f5002aeaaf4af"
+rev = "30456e0e8ee4a7104fdcd4edeac0ced47a416525"

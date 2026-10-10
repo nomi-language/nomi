@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // An embedded type widens into its enum: a Circle is a Shape wherever a
@@ -141,7 +142,7 @@ func TestEmbedDowncast_EveryPositionRefusesTheEnum(t *testing.T) {
 		{"a binding's fallback", "", "  m: Maybe<Circle> = None\n  Some(c) = m else { s }\n  _ = c\n",
 			"the fallback stands in for Some's payload of type Circle, got Shape" + downcastHint},
 		{"a Struct.update patch", "", "  h = Holder{c: Circle{radius: 1.0}}\n  _ = Struct.update(h, {c: s})\n",
-			"argument 2: expected Partial<Holder>, got {c: Shape}"},
+			"field 'c' of Holder: expected Circle, got Shape" + downcastHint},
 		{"an embedded distinct", "", "  w = Who.Nobody\n  _ = take_id(w)\n",
 			"argument 1: expected Id, got Who\nhelp: Who may hold a variant other than Id, and only a match narrows it: `case value { .Id(_) -> ... }`"},
 		{"a parameter default", "fn d(c: Circle = Shape.Point): Float {\n  c.radius\n}\n\n", "  _ = d()\n",
@@ -259,4 +260,56 @@ func TestEmbedDowncast_AFunctionOverTheEnumIsAcceptedAsACallback(t *testing.T) {
 	src := embedDowncastDecls + "fn main() {\n  cs = [Circle{radius: 1.0}]\n  _ = Iter.map(cs, wants) |> Iter.to_list()\n  _ = cs |> Iter.map(wants) |> Iter.count()\n  _ = Maybe.map(Some(Circle{radius: 1.0}), wants)\n}\n"
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
+}
+
+// A comparison operand checked against the other operand's type, because it
+// needs an expected type (`Shape.Point` in a literal), keeps its own type
+// when the other's is the narrower by `embeds`: `[c, c] == [s, Shape.Point]`
+// compares a List<Circle> with a List<Shape> as `[c] == [s]` does. It once
+// reported "list element type mismatch: expected Circle, got Shape" at each
+// Shape item. Either order, for a list, a tuple, a Maybe and a map (key and
+// value), and a bound name on the narrow side.
+func TestEmbedDowncast_AComparisonOperandKeepsTheWiderType(t *testing.T) {
+	for _, tc := range []struct{ name, body, wide string }{
+		{"a list, narrow on the left", "  _ = [c, c] == [s, Shape.Point]\n", "List<Shape>"},
+		{"a list, narrow on the right", "  _ = [s, Shape.Point] != [c, c]\n", "List<Shape>"},
+		{"a bound list", "  cs = [c]\n  _ = cs == [Shape.Point]\n", "List<Shape>"},
+		{"a tuple", "  _ = (c, Shape.Point) == (s, Shape.Point)\n", "(Shape, Shape)"},
+		{"a tuple, narrow on the right", "  _ = (s, Shape.Point) == (c, Shape.Point)\n", "(Shape, Shape)"},
+		{"a Maybe", "  m = Some(c)\n  _ = m == Some(Shape.Point)\n", "Maybe<Shape>"},
+		{"a Maybe, narrow on the right", "  m = Some(c)\n  _ = Some(Shape.Point) != m\n", "Maybe<Shape>"},
+		{"a map key and value", "  _ = {c => c} == {s => Shape.Point}\n", "Map<Shape, Shape>"},
+		{"a map, narrow on the right", "  _ = {s => Shape.Point} == {c => c}\n", "Map<Shape, Shape>"},
+		{"a list of Maybe", "  _ = [Some(c)] == [Some(s), Some(Shape.Point)]\n", "List<Maybe<Shape>>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := embedDowncastDecls + "fn main() {\n  s = Shape.Point\n  c = Circle{radius: 1.0}\n" + tc.body + "}\n"
+			fa, errs := checkSourceWithStdlib(src)
+			expectNoStdlibErrors(t, errs)
+			for n, ty := range fa.ExprTypes {
+				if _, isBinary := n.(*ast.Binary); !isBinary && ty != nil && ty.String() == tc.wide {
+					return
+				}
+			}
+			t.Fatalf("no operand is typed %s", tc.wide)
+		})
+	}
+}
+
+// The mirror: an operand that does not fit the other's type, and is not the
+// wider of the two by `embeds`, keeps the error the check against the other
+// type reports.
+func TestEmbedDowncast_AComparisonOperandOfAnotherTypeStillFails(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{"an element of another type", "  _ = [1] == [Shape.Point]\n",
+			"list element type mismatch: expected Int, got Shape"},
+		{"a mixed list", "  _ = [c] == [Shape.Point, 1]\n",
+			"list element type mismatch: expected Circle, got Shape" + downcastHint},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := embedDowncastDecls + "fn main() {\n  s = Shape.Point\n  c = Circle{radius: 1.0}\n" + tc.body + "  _ = s\n}\n"
+			_, errs := checkSourceWithStdlib(src)
+			expectExactDiag(t, errs, tc.want)
+		})
+	}
 }

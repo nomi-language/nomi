@@ -77,7 +77,6 @@ func TestParseStructSpreadRejectsBadPositions(t *testing.T) {
 		"after a field":    {"{a: 1, ..p}", "struct spread `..` must be the first element"},
 		"after a pun":      {"{a, ..p}", "struct spread `..` must be the first element"},
 		"two spreads":      {"{..a, ..b}", "struct spread `..` must be the first element"},
-		"map spread":       {"{..m, \"b\" => 2}", "map literals do not support spread `..`"},
 		"named form":       {"Cfg{..p, a: 1}", "struct spread `..` has no named form"},
 		"named form alone": {"Cfg{..p}", "struct spread `..` has no named form"},
 	}
@@ -139,6 +138,8 @@ func typeString(n ast.Node) string {
 		return "*ast.Call"
 	case *ast.FieldAccess:
 		return "*ast.FieldAccess"
+	case *ast.CurrentValue:
+		return "*ast.CurrentValue"
 	}
 	return "other"
 }

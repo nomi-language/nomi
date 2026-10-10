@@ -42,19 +42,44 @@ func NewTestReporter(w io.Writer) *TestReporter {
 	return &TestReporter{w: w}
 }
 
-// Result reports one test that ran, named as the report shows it.
-func (r *TestReporter) Result(name string, err error) {
+// Result reports one test that ran, named as the report shows it, with the
+// output it wrote (RunTestCases).
+func (r *TestReporter) Result(name string, err error, output string) {
 	if r.format == TestFormatJSON {
-		r.ResultAt(TestLocation{}, name, err)
+		r.ResultAt(TestLocation{}, name, err, output)
 		return
 	}
 	if err != nil {
 		r.failed++
-		r.failure(name, err)
+		writeFailure(r.w, name, err, output)
 		return
 	}
 	r.passed++
-	fmt.Fprintf(r.w, "%s %s\n", Green("ok"), name)
+	writeOK(r.w, name, output)
+}
+
+// writeOK is the text report's line for a passed test, and the test's output
+// under it.
+func writeOK(w io.Writer, name, output string) {
+	fmt.Fprintf(w, "%s %s\n", Green("ok"), name)
+	writeTestOutput(w, output)
+}
+
+// writeTestOutput writes what a test printed under its ok, FAIL or BLOCKED
+// line, each line indented two spaces, as the block under a FAIL line is. A
+// blank line stays blank, and output that does not end in a newline is ended
+// with one. The output's own colour (a `dbg` line's) is kept.
+func writeTestOutput(w io.Writer, output string) {
+	if output == "" {
+		return
+	}
+	for _, line := range strings.Split(strings.TrimSuffix(output, "\n"), "\n") {
+		if line == "" {
+			fmt.Fprintln(w)
+			continue
+		}
+		fmt.Fprintf(w, "  %s\n", line)
+	}
 }
 
 // Fail reports a failure that prevented a file's tests from running at all —
@@ -115,15 +140,16 @@ func (r *TestReporter) Add(passed, failed int) {
 // BLOCKED line per blocker, so the blocked population is a grep:
 // `grep '^BLOCKED'` lists every blocker with its case. A blocked case is
 // neither passed nor failed; Summary counts it separately.
-func (r *TestReporter) Blocked(name string, reasons []string) {
-	r.BlockedAt(TestLocation{}, name, reasons)
+func (r *TestReporter) Blocked(name string, reasons []string, output string) {
+	r.BlockedAt(TestLocation{}, name, reasons, output)
 }
 
 // BlockedAt is Blocked for a case whose position is known. The text report is
 // Blocked's; the JSON record is a test record with status "blocked" whose
 // message is the blockers, one after another, and whose `error_line` is
-// loc.ErrorLine when it is not zero.
-func (r *TestReporter) BlockedAt(loc TestLocation, name string, reasons []string) {
+// loc.ErrorLine when it is not zero. output is what the case wrote before a
+// machine limit stopped it, and is empty for a case that never ran.
+func (r *TestReporter) BlockedAt(loc TestLocation, name string, reasons []string, output string) {
 	r.blocked++
 	if len(reasons) == 0 {
 		reasons = []string{"(no reason recorded)"}
@@ -136,16 +162,25 @@ func (r *TestReporter) BlockedAt(loc TestLocation, name string, reasons []string
 			EndLine:   loc.EndLine,
 			Name:      name,
 			Status:    TestStatusBlocked,
-			Message:   strings.Join(reasons, "\n"),
+			Message:   stripANSI(strings.Join(reasons, "\n")),
 			ErrorLine: loc.ErrorLine,
+			Output:    stripANSI(output),
+			Report:    textReport(func(w io.Writer) { writeBlocked(w, name, reasons, output) }),
 		})
 		return
 	}
+	writeBlocked(r.w, name, reasons, output)
+}
+
+// writeBlocked is the text report's BLOCKED lines for one case, and the
+// output the case wrote under them.
+func writeBlocked(w io.Writer, name string, reasons []string, output string) {
+	defer writeTestOutput(w, output)
 	for _, reason := range reasons {
 		first, more, _ := strings.Cut(reason, "\n")
-		fmt.Fprintf(r.w, "BLOCKED %s %s\n", name, first)
+		fmt.Fprintf(w, "BLOCKED %s %s\n", name, first)
 		if more != "" {
-			fmt.Fprintf(r.w, "  %s\n", strings.ReplaceAll(more, "\n", "\n  "))
+			fmt.Fprintf(w, "  %s\n", strings.ReplaceAll(more, "\n", "\n  "))
 		}
 	}
 }
@@ -197,25 +232,30 @@ func (r *TestReporter) Summary() bool {
 	return false
 }
 
-func (r *TestReporter) failure(name string, err error) {
-	fmt.Fprintf(r.w, "%s %s\n", Red("FAIL"), name)
-	r.failureBody(err)
+// writeFailure is the text report's FAIL line, the test's output under it
+// (written before the failure ended the test), and the failure's block.
+func writeFailure(w io.Writer, name string, err error, output string) {
+	fmt.Fprintf(w, "%s %s\n", Red("FAIL"), name)
+	writeTestOutput(w, output)
+	writeFailureBody(w, err)
 }
 
-// failureBody is the block under a FAIL line. The JSON report's `message` is
-// this block, so it is rendered here once.
-func (r *TestReporter) failureBody(err error) {
+// writeFailureBody is the block under a FAIL line. The JSON report's
+// `message` is this block, so it is rendered here once.
+func writeFailureBody(w io.Writer, err error) {
 	var assertionErr *AssertionFailure
 	if errors.As(err, &assertionErr) {
-		WriteAssertionFailure(r.w, assertionErr)
+		WriteAssertionFailure(w, assertionErr)
 		return
 	}
 	var earlyErr *EarlyReturnFailure
 	if errors.As(err, &earlyErr) {
-		writeEarlyReturnFailure(r.w, earlyErr)
+		writeEarlyReturnFailure(w, earlyErr)
 		return
 	}
-	fmt.Fprintf(r.w, "  %v\n", err)
+	// Every line of a fault's text sits in the block, a hint below its
+	// message included (`io.replay`'s malformed script line).
+	fmt.Fprintf(w, "  %s\n", strings.ReplaceAll(err.Error(), "\n", "\n  "))
 }
 
 func writeEarlyReturnFailure(w io.Writer, earlyErr *EarlyReturnFailure) {
@@ -571,11 +611,11 @@ func RunTestsLabelled(ctx context.Context, w io.Writer, label func(string) strin
 	}
 	defer restoreEnv()
 
-	failures := RunTestCases(ctx, tests)
+	failures, outputs := RunTestCases(ctx, tests)
 
 	rep := NewTestReporter(w)
 	for i, t := range tests {
-		rep.Result(label(t.Name), failures[i])
+		rep.Result(label(t.Name), failures[i], outputs[i])
 	}
 	if rep.Summary() {
 		return 1
@@ -585,17 +625,25 @@ func RunTestsLabelled(ctx context.Context, w io.Writer, label func(string) strin
 
 // RunTestCases is the run half of RunTestsLabelled: every case in order, each
 // on its own frame and clock with rt's per-case supervisor drain and boot
-// cleanup, answering each case's error (nil when it passed). It reports
-// nothing and does not default NOMI_ENV, so a caller that feeds several files'
-// results into one TestReporter — `nomi test <dir>` on the VM — runs a file's
-// cases here and reports them itself, with the same run-then-report order.
-func RunTestCases(ctx context.Context, tests []Test) []error {
+// cleanup, answering each case's error (nil when it passed) and the output
+// it wrote. It reports nothing and does not default NOMI_ENV, so a caller
+// that feeds several files' results into one TestReporter — `nomi test <dir>`
+// on the VM — runs a file's cases here and reports them itself, with the same
+// run-then-report order.
+//
+// The cases run one after another, never in parallel. Each runs under its
+// own test capture (EnterTestCapture), so its output is its own: what its
+// boot, body, tasks and forced `once` initializers wrote, `dbg` included,
+// with `dbg` coloured as the report colours its lines. A case that fails
+// keeps the output it wrote before failing.
+func RunTestCases(ctx context.Context, tests []Test) (failures []error, outputs []string) {
 	fr := NewFrame(ctx)
-	failures := make([]error, len(tests))
+	failures = make([]error, len(tests))
+	outputs = make([]string, len(tests))
 	for i, t := range tests {
-		failures[i] = runTest(fr, t)
+		outputs[i], failures[i] = runTest(fr, t)
 	}
-	return failures
+	return failures, outputs
 }
 
 // runTest runs one test body, on the real clock or inside a virtual-time bubble
@@ -618,7 +666,13 @@ func RunTestCases(ctx context.Context, tests []Test) []error {
 // dereferences the zero-value testing.T's nil internals and kills the process
 // (layer 2's reason). A readable failure beats a segfault, and neither is a
 // state a correct program reaches.
-func runTest(fr *Frame, t Test) error {
+func runTest(fr *Frame, t Test) (output string, err error) {
+	fr, c := EnterTestCapture(NewFrame(fr.ctx))
+	err = runTestCase(fr, t)
+	return c.Close().Output, err
+}
+
+func runTestCase(fr *Frame, t Test) error {
 	if t.Bubble == nil {
 		// Outside a bubble the drain is a plain deferred call: the budgets are
 		// spent in real time, which is what a case with no `clock` clause asked
@@ -639,7 +693,6 @@ func runTest(fr *Frame, t Test) error {
 // runTestBody converts a Nomi fault into the test's error: the case fails, its text is reported, and the run continues
 // with the next case.
 func runTestBody(fr *Frame, t Test) (err error) {
-	fr = NewFrame(fr.ctx)
 	defer func() {
 		ResetSupervisors()
 		defer func() {

@@ -269,39 +269,3 @@ func SeqReduce[T, U any](fr *Frame, src Seq[T], seed U, f func(fr *Frame, acc U,
 	})
 	return acc
 }
-
-// SeqReduceFirst is the same terminal over a callback with no default: the
-// first element seeds the accumulator and iteration starts at the second, which
-// is what std/iter.nomi:146 documents.
-//
-// `Iter.reduce([4, 5, 6], |acc, x| acc)` is 4 and `|acc, x| x` is 6, so the
-// first element really does seed rather than being folded in. An empty source
-// is a fault, not a zero:
-//
-//	Iter.reduce: cannot reduce empty collection without initial value
-//
-// `nomi run` prints that text verbatim to stderr and exits 1, with no
-// `line N:` prefix — this fault names no source position.
-//
-// The accumulator's type is the element's here, which it is not in SeqReduce:
-// with the first element seeding, U and T are the same type by construction.
-func SeqReduceFirst[T any](fr *Frame, src Seq[T], f func(fr *Frame, acc T, item T) T) T {
-	var acc T
-	seeded := false
-	src.Run(fr, func(fr *Frame, item T) bool {
-		if !seeded {
-			acc, seeded = item, true
-			return true
-		}
-		acc = f(fr, acc, item)
-		return true
-	})
-	if !seeded {
-		Trap(emptyReduceText())
-	}
-	return acc
-}
-
-func emptyReduceText() string {
-	return "Iter.reduce: cannot reduce empty collection without initial value"
-}

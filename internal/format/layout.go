@@ -42,6 +42,9 @@ type renderOut struct {
 	// line they could not end.
 	ownLine       []string
 	ownLineIndent int
+	// ownLineOpener says the line they could not end ended in an opening
+	// bracket rather than a comment.
+	ownLineOpener bool
 	// inString counts the InString documents being rendered.
 	inString int
 }
@@ -59,7 +62,7 @@ func (o *renderOut) WriteByte(c byte) error {
 // text writes code or comment text, noting a comment.
 func (o *renderOut) text(s string) {
 	if strings.TrimLeft(s, " ") != "" {
-		o.placeOwnLine()
+		o.placeOwnLine(s)
 	}
 	if strings.HasPrefix(strings.TrimLeft(s, " "), "//") {
 		o.lineComment = true
@@ -95,6 +98,7 @@ func (o *renderOut) flushSuffix() {
 		if o.lineComment || o.endsInOpener() {
 			if len(o.ownLine) == 0 {
 				o.ownLineIndent = o.lineIndent()
+				o.ownLineOpener = !o.lineComment
 			}
 			o.ownLine = append(o.ownLine, c)
 			continue
@@ -126,13 +130,18 @@ func (o *renderOut) insertAboveLine(comment string) {
 // placeOwnLine writes the comments waiting for a line of their own above
 // the line about to get content, at that line's indent or the indent of the
 // line they could not end, whichever is deeper: a comment that could not
-// end the last line of a body stays in the body.
-func (o *renderOut) placeOwnLine() {
+// end the last line of a body stays in the body. After an opening bracket
+// the next line is the first item's, s its text, and the comments read
+// back as that item's (ast.ItemComments.Before), so they take its indent.
+func (o *renderOut) placeOwnLine(s string) {
 	if len(o.ownLine) == 0 || !o.atLineStart() {
 		return
 	}
 	indent := o.lineIndent()
 	at := max(indent, o.ownLineIndent)
+	if o.ownLineOpener && !strings.ContainsAny(strings.TrimLeft(s, " ")[:1], ")]}>|") {
+		at = indent
+	}
 	o.trim()
 	for _, c := range o.ownLine {
 		o.buf.WriteString(strings.Repeat(" ", at))
@@ -171,15 +180,18 @@ func (o *renderOut) atLineStart() bool {
 	return true
 }
 
-// endsInOpener reports whether the text written so far ends in `{`, `(` or
-// `[`.
+// endsInOpener reports whether the text written so far ends in `{`, `(`, `[`,
+// `<` or `|`.
 func (o *renderOut) endsInOpener() bool {
 	b := o.buf.Bytes()
 	if len(b) == 0 {
 		return false
 	}
 	switch b[len(b)-1] {
-	case '{', '(', '[':
+	case '{', '(', '[', '<', '|':
+		// `<` ends a line only where it opens a type's arguments, and `|`
+		// where it opens a lambda's parameters or closes them, before a
+		// body on the next line, where no comment can go either.
 		return true
 	}
 	return false
@@ -204,10 +216,18 @@ func (o *renderOut) String() string {
 	o.flushSuffix()
 	if len(o.ownLine) > 0 {
 		o.trim()
+		// After the file's last line break the comments are lines of
+		// their own, each ended by one, as every line of a file is.
+		afterBreak := bytes.HasSuffix(o.buf.Bytes(), []byte("\n"))
 		for _, c := range o.ownLine {
-			o.buf.WriteByte('\n')
+			if !afterBreak {
+				o.buf.WriteByte('\n')
+			}
 			o.buf.WriteString(strings.Repeat(" ", o.ownLineIndent))
 			o.buf.WriteString(c)
+			if afterBreak {
+				o.buf.WriteByte('\n')
+			}
 		}
 		o.ownLine = nil
 	}
@@ -275,7 +295,14 @@ func render(sb *renderOut, d Doc, col, indent, localBase int, tail Doc, width in
 		// Render a with tail = Concat(b, original tail). Render b with the
 		// original tail. This is what threads "rest of line" down to inner
 		// Groups so their fits decisions account for trailing siblings.
-		col = render(sb, v.a, col, indent, localBase, docConcat{a: v.b, b: tail}, width, broken)
+		//
+		// In broken mode an IfBroken in b renders its broken branch (a
+		// trailing comma), so the fits checks in a see that branch.
+		rest := v.b
+		if broken {
+			rest = docBrokenTail{d: v.b}
+		}
+		col = render(sb, v.a, col, indent, localBase, docConcat{a: rest, b: tail}, width, broken)
 		return render(sb, v.b, col, indent, localBase, tail, width, broken)
 	case docNest:
 		return render(sb, v.d, col, indent+v.n, localBase, tail, width, broken)
@@ -431,8 +458,29 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 		return fitsWalk(v.d, rem, inTail)
 	case docWithIndent:
 		return fitsWalk(v.f(0, unboundedWidth), rem, inTail)
+	case docBrokenTail:
+		return fitsWalk(brokenView(v.d), rem, inTail)
 	}
 	return false
+}
+
+// brokenView is d as it renders in a broken Group, one level deep: an
+// IfBroken is its broken branch, and the parts of a Concat or Nest are
+// docBrokenTail in turn. Anything else, a nested Group among them, is d.
+func brokenView(d Doc) Doc {
+	switch v := d.(type) {
+	case docIfBroken:
+		return docBrokenTail{d: v.broken}
+	case docConcat:
+		return docConcat{a: docBrokenTail{d: v.a}, b: docBrokenTail{d: v.b}}
+	case docNest:
+		return docNest{n: v.n, d: docBrokenTail{d: v.d}}
+	case docInString:
+		return docInString{d: docBrokenTail{d: v.d}}
+	case docBrokenTail:
+		return brokenView(v.d)
+	}
+	return d
 }
 
 // unboundedWidth is the width a WithIndent document is built at when an
@@ -469,6 +517,8 @@ func endsAtLineBreak(d Doc) bool {
 		return endsAtLineBreak(v.d)
 	case docWithIndent:
 		return endsAtLineBreak(v.f(0, unboundedWidth))
+	case docBrokenTail:
+		return endsAtLineBreak(brokenView(v.d))
 	}
 	return false
 }

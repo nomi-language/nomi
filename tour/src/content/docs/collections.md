@@ -17,7 +17,7 @@ every operation, so chains read naturally through pipes.
 Every collection, every iterable range and `String` (one grapheme at a time)
 implements [`Iter`](/reference/iter/#interface-iter). The generic algorithms
 live once, on the `Iter` owner: `Iter.map`, `Iter.filter`, `Iter.take`,
-`Iter.reduce`, `Iter.count`, and the rest. A collection's own owner keeps only
+`Iter.reduce`, `Iter.count`, `Iter.min`, `Iter.max`, and the rest. A collection's own owner keeps only
 what is specific to it, such as `Map.get` or `List.head`.
 
 The adapters are lazy. `Iter.map`, `Iter.filter`, `Iter.take` and the like
@@ -63,7 +63,8 @@ Only 0 through 5 are squared: `Iter.take(2)` has its two values after 25.
 `[a, b, c]` is the literal syntax. The [`List`](/reference/lists/#type-list) owner provides the
 List-specific operations (`concat`, `head`, `tail`, …). A pipeline over a list
 goes through `Iter`, and [`Iter.to_list()`](/reference/iter/#iterto_list)
-materializes a List again when you want one:
+materializes a List again when you want one. `[x, ..xs]` builds a list with `x`
+in front of `xs` (see [Spreads](#spreads)):
 
 ```nomi-run
 fn main() {
@@ -121,15 +122,15 @@ dbg line 9: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
 
 `{"key" => value, …}` is the map literal. [`Map.get`](/reference/maps/#mapget) returns [`Maybe<V>`](/reference/maybe/) —
 `Some(value)` when the key exists, `None` when it doesn't. `a + b` merges two
-maps, and the right-hand map wins on a shared key
-([`Map.merge`](/reference/maps/#mapmerge) is the named equivalent):
+maps, the right-hand map winning on a shared key ([`Map.merge`](/reference/maps/#mapmerge)
+is the named equivalent). [Spreads](#spreads) below builds a map from another
+with some entries added or replaced:
 
 ```nomi-run
 fn main() {
     config = {"host" => "localhost", "port" => "8080"}
 
     dbg Map.size(config)
-    dbg config + {"port" => "9090", "user" => "ada"}
     dbg Map.get(config, "host")
     dbg Map.get(config, "user")
 }
@@ -137,9 +138,8 @@ fn main() {
 ```
 <!-- expect
 dbg line 4: Map.size(config) = 2
-dbg line 5: config + {"port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
-dbg line 6: Map.get(config, "host") = Some("localhost")
-dbg line 7: Map.get(config, "user") = None
+dbg line 5: Map.get(config, "host") = Some("localhost")
+dbg line 6: Map.get(config, "user") = None
 -->
 
 We'll see how to unwrap `Maybe<T>` properly in [Pattern Matching](/pattern-matching/).
@@ -147,7 +147,10 @@ We'll see how to unwrap `Maybe<T>` properly in [Pattern Matching](/pattern-match
 ## Sets
 
 `#{a, b, c}` is the set literal. `Set<T>` stores unique values and keeps the
-first occurrence's insertion order for iteration. Empty sets need type context:
+first occurrence's insertion order for iteration, so building one from
+`[1, 2, 3, 2, 1]` keeps three elements. Writing the same constant twice in one
+literal, as in `#{1, 2, 1}`, is a compile error, and so is a repeated constant
+key in a map literal. Empty sets need type context:
 `empty: Set<Int> = #{}`. Like lists and vectors, sets combine with another set of
 the same type: `a + b` is the union and `a - b` the difference
 ([`Set.union`](/reference/sets/#setunion) and
@@ -157,7 +160,7 @@ element, use [`Set.insert`](/reference/sets/#setinsert) and
 
 ```nomi-run
 fn main() {
-    s = #{1, 2, 3, 2, 1}
+    s = Iter.to_set([1, 2, 3, 2, 1])
 
     dbg Set.size(s)
     dbg Set.contains?(s, 2)
@@ -173,6 +176,65 @@ dbg line 5: Set.contains?(s, 2) = True
 dbg line 6: Set.contains?(s, 9) = False
 dbg line 7: s + #{4, 5} = #{1, 2, 3, 4, 5}
 dbg line 8: s - #{1} = #{2, 3}
+-->
+
+## Spreads
+
+A spread, `..`, builds a new collection from an existing one. A list takes it
+last, as its patterns do. A set and a map take it first, since `#{..s, x}` is
+one insert into `s` and `{..m, k => v}` is `m + {k => v}`. A vector takes it at
+either end:
+
+```nomi-run
+fn main() {
+    xs = ["Bo"]
+    v = #["Bo"]
+    s = #{"red"}
+    m = {"host" => "localhost", "port" => "8080"}
+
+    dbg ["Ada", ..xs]
+    dbg #[..v, "Cy"]
+    dbg #["Ada", ..v]
+    dbg #{..s, "blue"}
+    dbg {..m, "port" => "9090", "user" => "ada"}
+}
+
+```
+<!-- expect
+dbg line 7: ["Ada", ..xs] = ["Ada", "Bo"]
+dbg line 8: #[..v, "Cy"] = #["Bo", "Cy"]
+dbg line 9: #["Ada", ..v] = #["Ada", "Bo"]
+dbg line 10: #{..s, "blue"} = #{"red", "blue"}
+dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
+-->
+
+Inside an update, a bare `..` with nothing after it stands for the value
+already there: the collection at a struct field, or the value at a map key.
+Without it, a field or an entry replaces that value whole. A key the map lacks
+starts from an empty value:
+
+```nomi-run
+struct Team {
+    members: List<String>
+    roster: Vector<String>
+    tags: Set<String>
+}
+
+fn main() {
+    team = Team{members: ["Bo"], roster: #["Bo"], tags: #{"red"}}
+    dbg {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}}
+
+    teams = {"hawks" => {"name" => "Hawks"}}
+    scores = {"ada" => [3]}
+    dbg {..teams, "hawks" => {.., "city" => "Atlanta"}, "kites" => {.., "city" => "Leeds"}}
+    dbg {..scores, "ada" => [5, ..], "bob" => [1, ..]}
+}
+
+```
+<!-- expect
+dbg line 9: {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}} = Team{members: ["Ada", "Bo"], roster: #["Bo", "Cy"], tags: #{"red", "blue"}}
+dbg line 13: {..teams, "hawks" => {.., "city" => "Atlanta"}, "kites" => {.., "city" => "Leeds"}} = {"hawks" => {"name" => "Hawks", "city" => "Atlanta"}, "kites" => {"city" => "Leeds"}}
+dbg line 14: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
 -->
 
 ## Ranges

@@ -32,6 +32,9 @@ func (bl *irScalarBuilder) vectorMake(t *ast.VectorLit) (ir.Temp, kind, bool, bo
 // expected element kind each item is lowered against.
 func (bl *irScalarBuilder) vectorMakeOf(t *ast.VectorLit, elem kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	if t.Spread != nil {
+		return bl.vectorUpdate(t)
+	}
 	if len(t.Items) == 0 {
 		n := ir.NewEmptyVector(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
 		bl.b.Append(n)
@@ -43,7 +46,7 @@ func (bl *irScalarBuilder) vectorMakeOf(t *ast.VectorLit, elem kind) (ir.Temp, k
 	if parts := bl.literalParts(t, tagEmptyVector); want == kindInvalid && parts != nil {
 		want = parts[0]
 	}
-	values, elem, ok := bl.lowerSameKindItems(t.Items, want, func(k kind) bool {
+	values, elem, ok := bl.lowerSameKindItems(t, tagEmptyVector, t.Items, want, func(k kind) bool {
 		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k)
 	})
 	if !ok {
@@ -110,7 +113,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 		args.temps[i], args.kinds[i] = v, got
 	}
 	if method == "at" || method == "set" || method == "next_item" {
-		if _, anchored := bl.g.preludeByName["Maybe"]; !anchored {
+		if _, anchored := bl.g.preludeNamed("Maybe"); !anchored {
 			return nil
 		}
 	}
@@ -129,11 +132,13 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 // nothing. Items that differ only by an embedded type join to the enum
 // that embeds it (`#[circle, shape]` is a `Vector<Shape>`), as the checker
 // joins them: the embedded ones are widened after every item is lowered.
-// listMakeOf does the same for a list.
+// listMakeOf does the same for a list. Items that join no other way
+// (`#{[], [1]}`) take literal at's checked element type (of tagEmptySet or
+// tagEmptyVector), each coerced to it (literalItemsCoerced).
 //
 // want, when not kindInvalid, is the element kind (literalParts): every item
 // is lowered against it and must arrive as it.
-func (bl *irScalarBuilder) lowerSameKindItems(items []ast.Node, want kind, accept func(kind) bool) ([]ir.Temp, kind, bool) {
+func (bl *irScalarBuilder) lowerSameKindItems(at ast.Node, of tag, items []ast.Node, want kind, accept func(kind) bool) ([]ir.Temp, kind, bool) {
 	values := make([]ir.Temp, len(items))
 	// kindInvalid: sentinel — no element kind is given.
 	if want != kindInvalid {
@@ -165,6 +170,14 @@ func (bl *irScalarBuilder) lowerSameKindItems(items []ast.Node, want kind, accep
 		typedItems, typedValues, typedKinds = append(typedItems, item), append(typedValues, v), append(typedKinds, k)
 	}
 	elem, joined := irEmbedsJoin(typedKinds)
+	if !joined || !accept(elem) || untypedLiteral(elem) {
+		// Items that differ by an empty collection (`#{[], [1]}`), or are
+		// all empty (`#{[]}` inside `#{#{[]}, #{[1]}}`), take the checked
+		// element type, as a list's items do.
+		if checked, ok := bl.literalItemsCoerced(at, of, 0, typedItems, typedValues, typedKinds); ok {
+			elem, joined = checked, true
+		}
+	}
 	if !joined || !accept(elem) || !bl.widenEmbedded(typedItems, typedValues, typedKinds, elem) {
 		return nil, kindInvalid, false
 	}

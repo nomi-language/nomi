@@ -26,8 +26,8 @@ import std/io
 //
 // Then two shapes the corpus does not have and the encoding still owes an
 // answer for: `return v` inside the callback (the same program as the tail,
-// because a callback's `return v` and its tail are the same value), and an UNSEEDED fold
-// with a `break` (rt.SeqReduceFirstCtl, where the first element seeds).
+// because a callback's `return v` and its tail are the same value), and a
+// seeded fold whose `break` hands back the accumulator before the element.
 fn main() {
     partial_sum =
         [10, 20, 30, 40, 50]
@@ -76,14 +76,14 @@ fn main() {
 
     io.print("return advances the accumulator: ${via_return}")
 
-    unseeded =
+    seeded =
         [4, 5, 6, 7]
-        |> Iter.reduce(|acc: Int, x: Int| {
+        |> Iter.reduce(|acc: Int = 0, x: Int| {
             if x == 6 { break acc }
             acc + x
         })
 
-    io.print("unseeded fold, first element seeds: ${unseeded}")
+    io.print("break before the element keeps the fold so far: ${seeded}")
 
     // A `break` in a NESTED lambda is a different program (its value is local
     // and its termination is not), so the builder refuses it rather than

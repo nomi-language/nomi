@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"strconv"
 )
@@ -33,6 +34,17 @@ import (
 // `message` is the block the text report prints under a FAIL line, without
 // colour and without the trailing newline. `error_line` is present only when
 // the failure names a line.
+//
+// `output` is what the test wrote while it ran (`io.print`, `dbg`, ...; see
+// RunTestCases), byte for byte without colour, and is present only when the
+// test wrote something. Nothing a test writes reaches the stream outside a
+// record: `report` shows it under the record's ok, FAIL or BLOCKED line.
+//
+// `report` is what the text report prints for the record (`ok <name>`, the
+// FAIL line and its block, the BLOCKED lines, a file's FAIL line), written by
+// the text report's own functions (textReport). It is coloured exactly when a
+// text run in the same environment would colour stdout, so `NOMI_COLOR=always`
+// colours it under a pipe; an editor's output panel shows it as is.
 //
 // "blocked" is a test the VM could not run (see BlockedAt); its message is the
 // blockers, as the text report's BLOCKED lines give them, and its
@@ -94,9 +106,9 @@ type TestLocation struct {
 
 // ResultAt is Result for a test whose position is known. The text report is
 // identical to Result's; the JSON record carries the position.
-func (r *TestReporter) ResultAt(loc TestLocation, name string, err error) {
+func (r *TestReporter) ResultAt(loc TestLocation, name string, err error, output string) {
 	if r.format != TestFormatJSON {
-		r.Result(name, err)
+		r.Result(name, err, output)
 		return
 	}
 	rec := testRecord{
@@ -106,14 +118,17 @@ func (r *TestReporter) ResultAt(loc TestLocation, name string, err error) {
 		EndLine: loc.EndLine,
 		Name:    name,
 		Status:  TestStatusPassed,
+		Output:  stripANSI(output),
 	}
 	if err != nil {
 		r.failed++
 		rec.Status = TestStatusFailed
-		rec.Message = r.failureMessage(err)
+		rec.Message = failureMessage(err)
 		rec.ErrorLine = TestErrorLine(err)
+		rec.Report = textReport(func(w io.Writer) { writeFailure(w, name, err, output) })
 	} else {
 		r.passed++
+		rec.Report = textReport(func(w io.Writer) { writeOK(w, name, output) })
 	}
 	r.writeRecord(rec)
 }
@@ -139,6 +154,8 @@ type testRecord struct {
 	Status    string `json:"status"`
 	Message   string `json:"message"`
 	ErrorLine int    `json:"error_line,omitempty"`
+	Output    string `json:"output,omitempty"`
+	Report    string `json:"report"`
 }
 
 type testSummaryRecord struct {
@@ -156,6 +173,7 @@ func (r *TestReporter) writeFileFailure(file, name string, err error) {
 		Status:    TestStatusFailed,
 		Message:   stripANSI(fmt.Sprint(err)),
 		ErrorLine: TestErrorLine(err),
+		Report:    textReport(func(w io.Writer) { WriteFailLine(w, name, err) }),
 	})
 }
 
@@ -176,11 +194,28 @@ func (r *TestReporter) writeRecord(v any) {
 // failureMessage is the block the text report prints under a FAIL line —
 // rendered by the same function, so the two cannot disagree — with its colour
 // removed and its trailing newline trimmed.
-func (r *TestReporter) failureMessage(err error) string {
+func failureMessage(err error) string {
 	var b bytes.Buffer
-	(&TestReporter{w: &b}).failureBody(err)
+	writeFailureBody(&b, err)
 	return string(bytes.TrimRight(stripANSIBytes(b.Bytes()), "\n"))
 }
+
+// textReport is a record's `report`: what text mode prints for it, rendered
+// by text mode's own writer. Text mode writes to stdout, so the buffer asks
+// stdout whether to colour (colourAsStdout), and the bytes match a text run
+// in the same environment, `NOMI_COLOR=always` included.
+func textReport(write func(w io.Writer)) string {
+	var b bytes.Buffer
+	write(colourAsStdout{&b})
+	return b.String()
+}
+
+// colourAsStdout is a buffer that ColorEnabledFor treats as os.Stdout, for
+// renderers that decide colour by the writer they are handed (compiler
+// diagnostics) rather than by stdout.
+type colourAsStdout struct{ io.Writer }
+
+func (colourAsStdout) colourTarget() io.Writer { return os.Stdout }
 
 // TestErrorLine is the source line a test failure points at, or 0.
 func TestErrorLine(err error) int {

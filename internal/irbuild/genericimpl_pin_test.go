@@ -87,6 +87,39 @@ func TestGenericInstanceNomiNamesCollideOnPurpose(t *testing.T) {
 	}
 }
 
+// TestOwnerFunctionsAreBuiltWithoutAnInstance pins ownerimpl.go: a function
+// of `impl Box<T>` whose signature names no `T` of the block's is built once
+// with no receiver, a function redeclaring `T` is instantiated per call, and
+// neither mints an instance of Box. The function over the block's `T` stays
+// with the instances, of which this source builds none.
+func TestOwnerFunctionsAreBuiltWithoutAnInstance(t *testing.T) {
+	src := "struct Box<T> {\n  v: T\n}\n\n" +
+		"impl Box<T> {\n" +
+		"  fn get(b: Box<T>): T {\n    b.v\n  }\n\n" +
+		"  fn seven(): Int {\n    7\n  }\n\n" +
+		"  fn twice<T>(x: T): (T, T) {\n    (x, x)\n  }\n" +
+		"}\n\n" +
+		"fn f(): Int {\n  Box.seven() + Box.twice(1).0\n}\n"
+	g := lowerableGen(t, src)
+	if n := len(g.genericInstOrder); n != 0 {
+		t.Fatalf("built %d instances of Box, want none: no call names one", n)
+	}
+	owners := g.ownerImpls["Box"]
+	if len(owners) != 1 {
+		t.Fatalf("want one owner def for Box, got %d", len(owners))
+	}
+	d := owners[0]
+	if d.items["seven"] == nil || d.items["get"] != nil || d.items["twice"] != nil {
+		t.Fatalf("want seven built on the owner def, get left to the instances and twice withheld; items %v", d.items)
+	}
+	if _, byCall := d.withheldMember("twice"); !byCall {
+		t.Fatalf("want twice withheld for each call to instantiate; gaps %v", d.gaps)
+	}
+	if len(g.methodInsts) != 1 {
+		t.Fatalf("want one instance of twice (at Int), got %d", len(g.methodInsts))
+	}
+}
+
 // TestExpansiveImplMemberIsWithheldFromEachInstance pins expansiveImplItem.
 //
 // `gather` names `Box<List<T>>`. Built as a member of every instance, it would
@@ -97,8 +130,8 @@ func TestGenericInstanceNomiNamesCollideOnPurpose(t *testing.T) {
 func TestExpansiveImplMemberIsWithheldFromEachInstance(t *testing.T) {
 	src := "enum Box<T> {\n  Full T\n  Empty\n}\n\n" +
 		"impl Box<T> {\n" +
-		"  fn gather<T>(_boxes: List<Box<T>>): Box<List<T>> {\n    Box.Empty\n  }\n\n" +
-		"  fn full?<T>(b: Box<T>): Bool {\n    case b {\n      .Full(_) -> True\n      .Empty -> False\n    }\n  }\n" +
+		"  fn gather(_boxes: List<Box<T>>): Box<List<T>> {\n    Box.Empty\n  }\n\n" +
+		"  fn full?(b: Box<T>): Bool {\n    case b {\n      .Full(_) -> True\n      .Empty -> False\n    }\n  }\n" +
 		"}\n\n" +
 		"fn f(b: Box<Int>): Bool {\n  Box.full?(b)\n}\n"
 	g := lowerableGen(t, src)

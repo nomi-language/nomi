@@ -290,6 +290,7 @@ func (l *lexer) scanRawBacktick(tag string) {
 		if ch == '`' {
 			endLine := l.line
 			l.advance()
+			endCol := l.col - 1
 
 			if endLine > startLine {
 				parts := []tripleStringPart{{isText: true, text: string(buf)}}
@@ -303,7 +304,7 @@ func (l *lexer) scanRawBacktick(tag string) {
 				if tag != "" {
 					kind = token.RAW_TAGGED_TRIPLE_STRING_LITERAL
 				}
-				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine})
+				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
 				return
 			}
 
@@ -604,7 +605,7 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 			l.advance()
 			l.advance()
 			l.advance()
-			endLine := l.line
+			endLine, endCol := l.line, l.col-1
 
 			// Determine the strip baseline (Java JEP 378 semantics): the
 			// minimum leading whitespace across all non-blank body lines,
@@ -637,7 +638,7 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 				if tag != "" {
 					kind = token.RAW_TAGGED_TRIPLE_STRING_LITERAL
 				}
-				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine})
+				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
 				return
 			}
 			if !hasInterpolation {
@@ -647,7 +648,7 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 				if tag != "" {
 					kind = token.TAGGED_TRIPLE_STRING_LITERAL
 				}
-				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine})
+				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
 			} else {
 				firstText := true
 				// Track whether the *next* text part begins at a line
@@ -669,10 +670,10 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 							} else {
 								tt = ""
 							}
-							l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: stripped, Tag: tt, Line: startLine, Col: startCol, EndLine: endLine})
+							l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: stripped, Tag: tt, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
 							firstText = false
 						} else {
-							l.tokens = append(l.tokens, token.Token{Type: token.TRIPLE_STRING_PART, Lexeme: stripped, Line: startLine, Col: startCol, EndLine: endLine})
+							l.tokens = append(l.tokens, token.Token{Type: token.TRIPLE_STRING_PART, Lexeme: stripped, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
 						}
 						// Update nextAtLineStart for whatever text part
 						// follows. Subsequent parts after this text are

@@ -11,12 +11,26 @@ import (
 // `chunks` and `chunk_by`, and the constructors `iterate` and `repeat`.
 // rt's functions state std's bodies (seqsrc.go, seqterm.go).
 //
-// A callback lowered under a signalling form (`break` / `continue` in the
-// lambda) declines: these operations have no signalling reader.
+// `take_while`, `drop_while`, `each` and `flat_map` take a callback lowered
+// under the signalling form (`break` / `continue` in the lambda or the named
+// function) and append their signalling operation; a signalling callback
+// passed to any other operation here declines.
 
 // iterAppend appends one Iter node of result kind k.
 func (bl *irScalarBuilder) iterAppend(at ast.Node, op ir.IterOp, over ir.IterDomain, k kind, operands ...ir.Temp) ir.Temp {
 	n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), op, over, operands...)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: k})
+	return n.Dst()
+}
+
+// iterAppendSignalling is iterAppend for a stage over a sequence whose
+// callback may signal: the signalling form when it does.
+func (bl *irScalarBuilder) iterAppendSignalling(at ast.Node, op ir.IterOp, signalling bool, k kind, operands ...ir.Temp) ir.Temp {
+	if !signalling {
+		return bl.iterAppend(at, op, ir.IterOverSeq, k, operands...)
+	}
+	n := ir.NewIterSignalling(bl.g.irNodePos(at), bl.f.NewTemp(), op, ir.IterOverSeq, operands...)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: k})
 	return n.Dst()
@@ -68,8 +82,9 @@ func (bl *irScalarBuilder) namedCtl(temp ir.Temp) irCtlForm {
 	}
 }
 
-// iterSignalledCallback is iterPlainCallback for take_while and each, whose
-// callbacks may signal: rt's SeqTakeWhileCtl and SeqEachCtl drive them.
+// iterSignalledCallback is iterPlainCallback for take_while, drop_while, each
+// and flat_map, whose callbacks may signal: rt's SeqTakeWhileCtl,
+// SeqDropWhileCtl, SeqEachCtl and SeqFlatMapCtl drive them.
 func (bl *irScalarBuilder) iterSignalledCallback(args irQualArgs, i int, param kind) (kind, bool, bool) {
 	fk := args.kinds[i]
 	if fk.tag != tagFunc || len(funcParams(fk)) != 1 || funcParams(fk)[0] != param {
@@ -94,18 +109,13 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		if !ok || r != kindBool {
 			return no()
 		}
-		if signalling {
-			n := ir.NewIterSignalling(bl.g.irNodePos(t), bl.f.NewTemp(), ir.IterTakeWhile, ir.IterOverSeq, src, args.temps[1])
-			bl.b.Append(n)
-			bl.side(n.Dst(), irScalarSide{k: seq})
-			return n.Dst(), seq, true, true
-		}
-		return bl.iterAppend(t, ir.IterTakeWhile, ir.IterOverSeq, seq, src, args.temps[1]), seq, true, true
+		return bl.iterAppendSignalling(t, ir.IterTakeWhile, signalling, seq, src, args.temps[1]), seq, true, true
 	case "drop_while":
-		if r, ok := bl.iterPlainCallback(args, 1, elem); !ok || r != kindBool {
+		r, signalling, ok := bl.iterSignalledCallback(args, 1, elem)
+		if !ok || r != kindBool {
 			return no()
 		}
-		return bl.iterAppend(t, ir.IterDropWhile, ir.IterOverSeq, seq, src, args.temps[1]), seq, true, true
+		return bl.iterAppendSignalling(t, ir.IterDropWhile, signalling, seq, src, args.temps[1]), seq, true, true
 	case "cycle":
 		return bl.iterAppend(t, ir.IterCycle, ir.IterOverSeq, seq, src), seq, true, true
 	case "each":
@@ -113,13 +123,7 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		if !ok {
 			return no()
 		}
-		if signalling {
-			n := ir.NewIterSignalling(bl.g.irNodePos(t), bl.f.NewTemp(), ir.IterEach, ir.IterOverSeq, src, args.temps[1])
-			bl.b.Append(n)
-			bl.side(n.Dst(), irScalarSide{k: kindUnit})
-			return n.Dst(), kindUnit, true, true
-		}
-		return bl.iterAppend(t, ir.IterEach, ir.IterOverSeq, kindUnit, src, args.temps[1]), kindUnit, true, true
+		return bl.iterAppendSignalling(t, ir.IterEach, signalling, kindUnit, src, args.temps[1]), kindUnit, true, true
 	case "to_set":
 		k := bl.g.setKindOf(elem)
 		if !irRetainedSetKind(k) {
@@ -142,7 +146,7 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		}
 		return bl.iterAppend(t, ir.IterToMap, ir.IterOverSeq, k, src), k, true, true
 	case "flat_map":
-		r, ok := bl.iterPlainCallback(args, 1, elem)
+		r, signalling, ok := bl.iterSignalledCallback(args, 1, elem)
 		if !ok || r.comp == nil || len(r.comp.parts) != 1 {
 			return no()
 		}
@@ -150,9 +154,9 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		k := seqKindIn(bl.g, inner)
 		switch {
 		case r.tag == tagList && (irRetainedListKind(r) || irListTransportKind(r)):
-			return bl.iterAppend(t, ir.IterFlatMapList, ir.IterOverSeq, k, src, args.temps[1]), k, true, true
+			return bl.iterAppendSignalling(t, ir.IterFlatMapList, signalling, k, src, args.temps[1]), k, true, true
 		case r.tag == tagSeq && irRetainedValueKind(inner):
-			return bl.iterAppend(t, ir.IterFlatMap, ir.IterOverSeq, k, src, args.temps[1]), k, true, true
+			return bl.iterAppendSignalling(t, ir.IterFlatMap, signalling, k, src, args.temps[1]), k, true, true
 		}
 		return no()
 	case "flatten":

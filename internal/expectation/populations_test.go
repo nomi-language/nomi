@@ -449,10 +449,10 @@ func runTourBlock(b doctest.Block) (observed, bool) {
 	rep := vmhost.NewTestReport(&out)
 	for _, c := range p.Cases(&out, vmhost.TestOptions{}) {
 		if c.Blocked != nil {
-			rep.Blocked(c.Name, c.Blocked)
+			rep.Blocked(c.Name, c.Blocked, c.Output)
 			continue
 		}
-		rep.Result(c.Name, c.Err)
+		rep.Result(c.Name, c.Err, c.Output)
 	}
 	o := observed{}
 	if rep.Summary() {

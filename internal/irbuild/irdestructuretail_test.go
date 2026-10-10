@@ -93,7 +93,7 @@ test "a test body ending in a destructure" {
 }
 `
 	out, exit := irShapesRun(t, src, []string{"a test body ending in a destructure"})
-	if exit != 0 || !strings.HasPrefix(out, "make 6\n") || !strings.Contains(out, "1 passed, 0 failed") {
+	if exit != 0 || !strings.Contains(out, ":: a test body ending in a destructure\n  make 6\n") || !strings.Contains(out, "1 passed, 0 failed") {
 		t.Errorf("want the destructure to run and the case to pass, exit %d:\n%s", exit, out)
 	}
 }

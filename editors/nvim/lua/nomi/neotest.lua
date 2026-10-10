@@ -1,7 +1,8 @@
 -- A neotest adapter for Nomi.
 --
 -- Load it from your neotest spec: `adapters = { require('nomi.neotest') }`.
--- Nothing else in the plugin requires this module or neotest, so a setup
+-- Nothing else in the plugin requires this module, and the test keys require
+-- neotest only when it is installed (nomi.runner's `neotest`), so a setup
 -- without neotest pays nothing for it.
 --
 -- Tests run through `nomi test --format json`, which prints one JSON record
@@ -62,39 +63,10 @@ local function field_text(node, field, source)
   return child and vim.treesitter.get_node_text(child, source) or nil
 end
 
--- The owner an attached test is reported under: the declaration its prompt
--- decorates, prefixed by the types and impl blocks around it, as `nomi test`
--- names it (`impl / buffered`).
--- An impl block is reported as `impl`; a type by its name.
-local owner_scopes = {
-  impl_block = 'impl',
-  struct_definition = true,
-  enum_definition = true,
-  type_definition = true,
-  extern_type_definition = true,
-}
-
+-- The owner an attached test is reported under (`impl / buffered`), shared
+-- with the terminal runner, which requires nothing of neotest's.
 local function attached_owner(prompt, source)
-  -- The first following sibling with a name: other prompts and doc
-  -- comments can sit between a prompt and its declaration.
-  local owner
-  local sibling = prompt:next_named_sibling()
-  while sibling and not owner do
-    owner = field_text(sibling, 'name', source)
-    sibling = sibling:next_named_sibling()
-  end
-  local parts = { owner or '?' }
-  local node = prompt:parent()
-  while node do
-    local scope = owner_scopes[node:type()]
-    if type(scope) == 'string' then
-      table.insert(parts, 1, scope)
-    elseif scope then
-      table.insert(parts, 1, field_text(node, 'name', source) or node:type())
-    end
-    node = node:parent()
-  end
-  return table.concat(parts, ' / ')
+  return require('nomi.runner').attached_owner(prompt, source)
 end
 
 -- The rows (0-based) of a prompt's own `//!` lines. Its tree-sitter node can
@@ -127,6 +99,11 @@ local function positions_in(source, file_path)
     },
   }
 
+  -- An attached test's name holds its line numbers, so its position id
+  -- does not: it is the owner and the prompt's place among that owner's
+  -- prompts, so `run_last` still finds it after edits above it move it.
+  local attached_seen = {}
+
   local function walk(node)
     local t = node:type()
     if t == 'test_declaration' or t == 'tests_declaration' then
@@ -141,11 +118,14 @@ local function positions_in(source, file_path)
       local label = first == last and ('line %d'):format(first + 1)
         or ('lines %d-%d'):format(first + 1, last + 1)
       local _, first_col = node:range()
+      local owner = attached_owner(node, source)
+      attached_seen[owner] = (attached_seen[owner] or 0) + 1
       table.insert(positions, {
         type = 'test',
         path = file_path,
-        name = ('%s //! test %s'):format(attached_owner(node, source), label),
+        name = ('%s //! test %s'):format(owner, label),
         range = { first, first_col, last, #(lines[last + 1] or '') },
+        stable_id = ('%s::%s //! test #%d'):format(file_path, owner, attached_seen[owner]),
       })
       return
     end
@@ -168,6 +148,18 @@ function adapter.discover_positions(file_path)
   return lib().positions.parse_tree(positions, {
     nested_tests = false,
     require_namespaces = false,
+    -- neotest's own id, path::namespaces::name, except for attached tests.
+    position_id = function(position, parents)
+      if position.stable_id then
+        return position.stable_id
+      end
+      local parts = { position.path }
+      for _, parent in ipairs(parents) do
+        table.insert(parts, parent.name)
+      end
+      table.insert(parts, position.name)
+      return table.concat(parts, '::')
+    end,
   })
 end
 
@@ -189,6 +181,10 @@ function adapter.build_spec(args)
   return {
     command = cmd,
     cwd = project_root(pos.path),
+    -- Each record's `report` is the text report for that test, coloured
+    -- only when colour is on; the output panel renders ANSI, so force it.
+    -- neotest merges a run's own `env` over this one.
+    env = { NOMI_COLOR = 'always' },
     context = { position_id = pos.id },
   }
 end
@@ -243,16 +239,27 @@ local function write_output(text)
   return path
 end
 
+-- What the output panel shows for a record: its `report`, the text report's
+-- lines for it in colour, else (a `nomi` that predates `report`) `fallback`.
+local function report_output(rec, fallback)
+  if type(rec.report) == 'string' and rec.report ~= '' then
+    return write_output(rec.report)
+  end
+  return write_output(fallback)
+end
+
+-- `message`, `short` and `errors` come from the plain `message`, never from
+-- `report`.
 local function record_result(rec)
   local message = rec.message and rec.message ~= '' and dedent(rec.message) or nil
   if rec.status == 'passed' then
-    return { status = 'passed', output = write_output('ok ' .. (rec.name or '') .. '\n') }
+    return { status = 'passed', output = report_output(rec, 'ok ' .. (rec.name or '') .. '\n') }
   end
   if rec.status == 'blocked' then
     return {
       status = 'skipped',
       short = message and ('blocked: ' .. vim.split(message, '\n')[1]) or 'blocked',
-      output = write_output('BLOCKED ' .. (rec.name or '') .. '\n' .. (message or '') .. '\n'),
+      output = report_output(rec, 'BLOCKED ' .. (rec.name or '') .. '\n' .. (message or '') .. '\n'),
     }
   end
   local err = { message = message or 'failed' }
@@ -263,7 +270,7 @@ local function record_result(rec)
     status = 'failed',
     short = message and vim.split(message, '\n')[1] or 'failed',
     errors = { err },
-    output = write_output('FAIL ' .. (rec.name or '') .. '\n' .. (message or '') .. '\n'),
+    output = report_output(rec, 'FAIL ' .. (rec.name or '') .. '\n' .. (message or '') .. '\n'),
   }
 end
 
@@ -289,7 +296,9 @@ function adapter.results(spec, result, tree)
   if not has_summary then
     -- A `nomi` that predates `--format json` prints its usage instead, and a
     -- crash prints whatever it printed. Either way there are no records.
-    local first = vim.trim((output:gsub('\r', '')))
+    -- The run forces colour, so a crash's text may carry escapes; the
+    -- message is a diagnostic and stays plain.
+    local first = vim.trim((output:gsub('\r', ''):gsub('\27%[[%d;]*m', '')))
     first = first ~= '' and vim.split(first, '\n', { plain = true })[1] or '(no output)'
     local message = ('nomi test printed no JSON results (exit %d); this nomi may predate '
       .. '`nomi test --format json`, so update it. Output began: %s'):format(result.code or -1, first)

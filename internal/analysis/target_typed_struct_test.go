@@ -244,21 +244,21 @@ func TestTargetTypedStruct_DoesNotGuess(t *testing.T) {
 	})
 }
 
-// Under a spread a bare brace at a struct-typed field is a patch of the base's
-// value; outside one it builds the field's struct. The two rules must not
-// reach each other's positions.
+// Under a spread a literal with a bare `..` at a struct-typed field updates
+// the base's value; a brace without `..` builds the field's struct. The two
+// rules must not reach each other's positions.
 func TestTargetTypedStruct_SpreadPatchWins(t *testing.T) {
 	fa, errs := checkSourceWithStdlib(targetTypedDecls + `fn main() {
   p = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
-  _moved = {..p, address: {city: "NYC"}}
+  _moved = {..p, address: {.., city: "NYC"}}
 }
 `)
 	if len(errs) != 0 {
-		t.Fatalf("the front end rejects a nested patch under a spread: %v", errs)
+		t.Fatalf("the front end rejects a nested update under a spread: %v", errs)
 	}
 	for lit := range fa.TargetStructs {
 		if len(lit.Fields) == 1 && lit.Fields[0].Name == "city" {
-			t.Fatal("the patch `{city: \"NYC\"}` was recorded as a target-typed Address")
+			t.Fatal("the update `{.., city: \"NYC\"}` was recorded as a target-typed Address")
 		}
 	}
 }

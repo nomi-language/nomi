@@ -647,6 +647,11 @@ type gen struct {
 	// for a `.Variant` shorthand names, from the checked type rather than the
 	// name. See dotvariant.go.
 	dotOwners map[*ast.FieldAccess]*typeDef
+	// funcValueRefs holds each reference callFuncValue is building the
+	// function value of. Its body is the call of the same reference, so a
+	// call the builder cannot lower would otherwise lower the callee as a
+	// value again and recurse without end. See ownerfuncref.go.
+	funcValueRefs map[ast.Node]bool
 	// The stdlib opaque STRUCTS, on the same footing again and keyed on
 	// *ast.StructDef. Distinct from the opaque family above because the
 	// subjects are records with named fields rather than newtypes over a
@@ -713,6 +718,11 @@ type gen struct {
 	// them by (interface spelling, receiver kind) for dispatch.
 	implOrder    []*implDef
 	implsByIface map[string]map[kind]*implDef
+	// ownerImpls is the owner functions of each inherent block on a generic
+	// type or an interface, by the owner's name: the functions whose
+	// signature names none of the block's type parameters, built once with
+	// no receiver. See ownerimpl.go.
+	ownerImpls map[string][]*implDef
 	// operImpls is the PARALLEL index for the four stdlib operator interfaces,
 	// keyed (interface, receiver, RIGHT-HAND type) — the axis implsByIface's key
 	// drops. A receiver legally carries SEVERAL impls of one operator interface
@@ -830,6 +840,11 @@ type gen struct {
 	// unitFnLambda is the lambda a nested Unit `fn` is lowering as: its
 	// body may end in a `dbg` observation, whose value is discarded.
 	unitFnLambda *ast.Lambda
+	// rebuilding is the path of (have, want) pairs whose widening adapter is
+	// being built (irembedsrebuild.go), each with the adapter's function and
+	// its self parameter, so a generic enum that holds itself calls its own
+	// adapter instead of building adapters forever.
+	rebuilding map[[2]kind]irRebuildSelf
 	// expanding is the PATH of structural comparators and hashers currently
 	// being assembled, so a type that can reach itself declines instead of
 	// taking the builder to `fatal error: stack overflow`. Keyed on the
@@ -989,6 +1004,10 @@ type gen struct {
 func newGen(m *Module, pkg string, std *stdlibIndex, files *fileIndex, unit int, reg *typeRegistry) *gen {
 	g := &gen{nomiPath: m.Path, pkg: pkg, fa: m.FA, funcs: map[string]*fnSig{}, onces: map[string]*onceDef{}, oncesByDecl: map[ast.Node]*onceDef{}, types: map[string]*typeDef{}, blockTypes: map[*ast.Block]*blockTypeDecls{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, anonTids: map[kind]bool{}, std: std, files: files, fileUnit: unit, reg: reg, foreignDefs: map[ast.Node]*typeDef{}, foreignIfaces: map[ast.Node]*ifaceDef{}, nodes: m.Nodes}
 	g.declaresTests = m.DeclaresTests
+	// Loaded here rather than on first use, so no builder arm's answer
+	// depends on whether an earlier expression happened to load them
+	// (TestPreludeAnchorsDoNotDependOnOrder).
+	g.loadPreludes()
 	g.pushScope()
 	return g
 }

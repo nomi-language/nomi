@@ -14,8 +14,8 @@ fn main() {
   inner = {
     type Meters Int
     m: Meters = Meters(3)
-    f = |d: Meters = Meters(1)| Int(d)
-    g: (Meters) -> Int = |d| Int(d)
+    f = |d: Meters = Meters(1)| case d { Meters(n) -> n }
+    g: (Meters) -> Int = |Meters(n)| n
     _ = {
       n: Meters = m
       n

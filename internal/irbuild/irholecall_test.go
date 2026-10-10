@@ -110,3 +110,85 @@ fn main() {
 		t.Fatalf("the bound error lost its position or its help: %v", err)
 	}
 }
+
+const irHoleCompareSource = `import std/io
+
+fn main() {
+  io.inspect(Iter.min([]))
+  io.inspect(Iter.max([]))
+  io.inspect(Iter.min([3, 1, 2]))
+}
+`
+
+// `Iter.min([])` leaves T unconstrained: the callee makes no value of T for
+// an empty source, so the checker admits it as it admits `List.head([])`
+// (analysis/undetermined.go), and the builder instantiates `Iter.min` at a
+// hole it fills with Unit. The body's `item < m` is an ordering on the hole,
+// which Unit cannot answer; holeCompare lowers it to the unreachable fault
+// naming the hole, and the program runs because no execution reaches it.
+func TestIRHoleCall_HoleTypedComparisonIsPresentButUnreached(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "main.nomi")
+	if err := os.WriteFile(path, []byte(irHoleCompareSource), 0600); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Analyze(path)
+	if err != nil {
+		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
+	}
+	res, _, err := GenerateIR(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The comparison is in the reduce callback, a lambda whose body is its
+	// own Func under the instance's FuncValue; a fault there counts for the
+	// instance.
+	var faults []string
+	var walk func(top string, f *ir.Func)
+	walk = func(top string, f *ir.Func) {
+		for _, b := range f.Blocks() {
+			for _, in := range b.Instrs() {
+				if fv, isLambda := in.(*ir.FuncValue); isLambda {
+					walk(top, fv.Body())
+				}
+				c, isCall := in.(*ir.Call)
+				if isCall && c.Crosses() && c.Callee().Name() == irUnreachableHost {
+					faults = append(faults, top)
+				}
+			}
+		}
+	}
+	for _, m := range res.IRModules() {
+		for _, f := range m.Funcs() {
+			walk(f.Name(), f)
+		}
+	}
+	if len(faults) != 2 || !strings.Contains(strings.Join(faults, " "), "min<Unit>") ||
+		!strings.Contains(strings.Join(faults, " "), "max<Unit>") {
+		t.Fatalf("unreachable faults in %q; want one in each of the Iter.min<Unit> and Iter.max<Unit> instances", faults)
+	}
+	verifyLambdaProgram(t, irHoleCompareSource, "None\nNone\nSome(1)\n")
+}
+
+// The other wall: an element type the checker SOLVES to Unit is no hole,
+// and Unit is not Comparable, so the call never reaches the builder.
+func TestIRHoleCall_ASolvedUnitIsNotComparable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "main.nomi")
+	src := `import std/io
+
+fn main() {
+  xs: List<Unit> = []
+  io.inspect(Iter.min(xs))
+}
+`
+	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Analyze(path)
+	if err == nil {
+		t.Fatal("the front end now ADMITS Iter.min over List<Unit>, so a checker-solved " +
+			"Unit reaches the builder: holeCompare must still decline it")
+	}
+	if !strings.Contains(err.Error(), "Unit does not implement Comparable (required by `where T: Comparable`)") {
+		t.Fatalf("rejected for another reason, so the wall is not the one this test names: %v", err)
+	}
+}

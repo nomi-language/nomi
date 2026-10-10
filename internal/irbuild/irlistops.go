@@ -40,7 +40,7 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 		args.temps[i], args.kinds[i] = v, got
 	}
 	if method != "concat" {
-		if _, anchored := bl.g.preludeByName["Maybe"]; !anchored {
+		if _, anchored := bl.g.preludeNamed("Maybe"); !anchored {
 			return nil
 		}
 	}

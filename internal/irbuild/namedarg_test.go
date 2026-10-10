@@ -131,3 +131,68 @@ func TestNamedArg_SlotPlanMirrorsResolveArgs(t *testing.T) {
 		}
 	})
 }
+
+// A named call to an interface function that leaves a defaulted slot empty
+// before a supplied one (`Sum.f(x, 1, c: 9)`) fills it from the declaration
+// the call reaches, as a call omitting trailing slots does: an inherited
+// default's or an override's own for a concrete receiver, through the
+// interface, the type and a bounded type parameter, and the interface's for
+// an erased receiver.
+func TestNamedArg_InterfaceCallFillsAnEarlierDefault(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+
+interface Sum {
+    fn base(value: self): Int
+
+    open fn f(value: self, a: Int, b: Int = 2, c: Int = 3): Int {
+        Sum.base(value) * 1000 + a * 100 + b * 10 + c
+    }
+}
+
+struct Box {
+    n: Int
+}
+
+impl Sum for Box {
+    fn base(value: Box): Int {
+        value.n
+    }
+}
+
+struct Own {
+    n: Int
+}
+
+impl Sum for Own {
+    fn base(value: Own): Int {
+        value.n
+    }
+
+    fn f(value: Own, a: Int, b: Int = 5, c: Int = 3): Int {
+        -(value.n * 1000 + a * 100 + b * 10 + c)
+    }
+}
+
+fn bounded<T>(x: T): Int where T: Sum {
+    T.f(x, 1, c: 9)
+}
+
+fn erased(s: Sum): Int {
+    Sum.f(s, 1, c: 9)
+}
+
+fn main() {
+    x = Box{n: 4}
+    o = Own{n: 5}
+    io.inspect(Sum.f(x, 1, c: 9))
+    io.inspect(Box.f(x, 1, c: 9))
+    io.inspect(Sum.f(o, 1, c: 9))
+    io.inspect(Own.f(o, 1, c: 9))
+    io.inspect(Sum.f(o, a: 1, c: 9))
+    io.inspect(bounded(x))
+    io.inspect(bounded(o))
+    io.inspect(erased(x))
+    io.inspect(erased(o))
+}
+`, "4129\n4129\n-5159\n-5159\n-5159\n4129\n-5159\n4129\n-5129\n")
+}

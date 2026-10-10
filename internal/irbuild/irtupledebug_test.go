@@ -37,7 +37,7 @@ type Meters Int
 type Feet Int
 impl Debug for Feet {
   fn inspect(f: Feet): String {
-    "${Int(f)}ft"
+    case f { Feet(n) -> "${n}ft" }
   }
 }
 opaque type Secret String

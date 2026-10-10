@@ -124,7 +124,7 @@ struct Box {
 }
 
 fn wreck(b: Box): Box {
-  Struct.update(b, {inner: {value: -999}})
+  Struct.update(b, {inner: {.., value: -999}})
 }
 `))
 	expectOpaquePatchRefused(t, errs, "value")

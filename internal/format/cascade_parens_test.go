@@ -20,3 +20,27 @@ func TestFormat_DepthCascadeSeesThroughParens(t *testing.T) {
 		t.Errorf("with parentheses:\n%s\nwithout:\n%s", got, flat)
 	}
 }
+
+// A literal the author stacked keeps the layout it was written in unless it
+// is written as the depth cascade writes it (cascadeShaped). A parenthesized
+// literal counted as cascade-shaped however it was written, so a list of
+// `(Point{...})` on one line each read back as the cascade's and broke every
+// literal on the next format.
+func TestFormat_ParenthesizedLiteralIsNoCascadeShape(t *testing.T) {
+	src := "fn main() {\n" +
+		"    b = Bag{\n" +
+		"        items_rather_long: [(Point{x_rather_long_rather_long_rather_long_rather_long: 1}), (Point{x_rather_long_rather_long_rather_long_rather_long: 2})],\n" +
+		"        label: \"left\",\n" +
+		"    }\n" +
+		"}\n"
+	want := "fn main() {\n" +
+		"    b = Bag{\n" +
+		"        items_rather_long: [\n" +
+		"            (Point{x_rather_long_rather_long_rather_long_rather_long: 1}),\n" +
+		"            (Point{x_rather_long_rather_long_rather_long_rather_long: 2}),\n" +
+		"        ],\n" +
+		"        label: \"left\",\n" +
+		"    }\n" +
+		"}\n"
+	formatsKeepingMeaning(t, src, want)
+}

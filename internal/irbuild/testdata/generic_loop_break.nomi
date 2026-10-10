@@ -9,9 +9,10 @@ import {
 /// out of the callback as a `break` value, and returned through the loop's
 /// answer slot, which is typed at the type parameter. So this pins
 /// that the box survives a control-flow boundary, which a plain `fn first<T>(x:
-/// T): T { x }` does not exercise.
+/// T): T { x }` does not exercise. The state, seeded with `x` and never read,
+/// gives the loop the type T its `break` answers.
 fn first<T>(x: T): T {
-    loop(|| { break x })
+    loop(|_seed = x| { break x })
 }
 
 /// The same shape with the type parameter threaded as the loop's own STATE, so

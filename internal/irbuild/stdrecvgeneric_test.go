@@ -324,9 +324,10 @@ func TestTypeNamesAnyWalksEveryCompositeForm(t *testing.T) {
 
 // parseStdTypeExpr reads one type expression out of an analysed declaration, so
 // the nodes under test are the front end's own rather than hand-built ones that
-// might not match what std produces. `fn f<T, K>(x: …)` declares the two
-// parameters so the annotation is front-end valid; the WALK does not consult
-// them, which is exactly what makes the negative rows meaningful.
+// might not match what std produces. `fn f<T, K>(x: …, _t: T, _k: K)` declares
+// the two parameters so the annotation is front-end valid (a type parameter the
+// signature does not use is an error); the WALK does not consult them, which is
+// exactly what makes the negative rows meaningful.
 //
 // No import, which is correct for every caller of THIS form: the shapes above
 // name only prelude-exported constructors. A caller whose type comes from a
@@ -355,14 +356,14 @@ func parseStdTypeExprImporting(t *testing.T, item, src string) ast.TypeExpr {
 	if item != "" {
 		prog = "import {\n  " + item + "\n}\n\n"
 	}
-	prog += "fn f<T, K>(_x: " + src + "): Unit {\n}\n"
+	prog += "fn f<T, K>(_x: " + src + ", _t: T, _k: K): Unit {\n}\n"
 	p, err := AnalyzeSource("main", prog)
 	if err != nil {
 		t.Fatalf("front end refused `x: %s` (import %q): %v", src, item, err)
 	}
 	for _, n := range p.Entry().Nodes {
 		fd, isFunc := n.(*ast.FuncDef)
-		if !isFunc || fd.Name != "f" || len(fd.Params) != 1 {
+		if !isFunc || fd.Name != "f" || len(fd.Params) != 3 {
 			continue
 		}
 		return fd.Params[0].TypeAnnotation

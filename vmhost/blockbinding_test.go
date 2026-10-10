@@ -59,8 +59,9 @@ func TestBlockBindingBranches_RunInTests(t *testing.T) {
 	}
 }
 
-// A block-valued binding that cannot lower is reported at the statement
-// inside it that declined, not at the enclosing function. A block whose
+// A block-valued binding that cannot lower is reported at the innermost
+// construct inside it that declined, the inner block, not at the enclosing
+// function. A block whose
 // value has a type declared inside it is a known gap
 // (gapBlockLocalTypeEscapesItsBlock); if it starts lowering, this test needs
 // another construct the builder declines at a statement.
@@ -91,7 +92,7 @@ fn main() {
 	if len(o.declines) != 1 {
 		t.Fatalf("want one decline, got %q", o.declines)
 	}
-	want := "main.nomi:5:9: its body is not supported yet, so `fn main` cannot run"
+	want := "main.nomi:5:13: this block is not supported yet, so `fn main` cannot run"
 	if !strings.Contains(o.declines[0], want) {
 		t.Fatalf("decline:\n%s\nwant it to contain %q", o.declines[0], want)
 	}

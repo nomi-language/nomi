@@ -34,7 +34,9 @@ fn main() {
     io.print("m still = ${m}")
 
     // A duplicate key inside one literal: last write wins, first position kept.
-    io.print("dup = ${{"a" => 1, "b" => 2, "a" => 9}}")
+    // The key is a binding: two equal constant keys are a compile error.
+    dup_key = "a"
+    io.print("dup = ${{dup_key => 1, "b" => 2, dup_key => 9}}")
 
     // Order-insensitive equality.
     io.print("eq unordered = ${{"a" => 1, "b" => 2} == {"b" => 2, "a" => 1}}")

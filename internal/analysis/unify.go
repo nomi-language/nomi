@@ -234,15 +234,24 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 		}
 	}
 
-	// If either side is a type variable, bind it.
+	// If either side is a type variable, bind it, unless the other side
+	// contains it: binding ?1 to (?1, Int) makes a type that contains itself,
+	// and every later walk of it (rendering it in a diagnostic first) never
+	// ends.
 	if tv, ok := a.(*TypeVar); ok {
 		if tv2, ok2 := b.(*TypeVar); ok2 && tv.ID == tv2.ID {
 			return nil
+		}
+		if typeVarOccursIn(tv, b, 0) {
+			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		tv.Resolved = b
 		return nil
 	}
 	if tv, ok := b.(*TypeVar); ok {
+		if typeVarOccursIn(tv, a, 0) {
+			return typeErrorf("cannot unify %s with %s", a, b)
+		}
 		tv.Resolved = a
 		return nil
 	}
@@ -282,9 +291,10 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 		return unifyInterfaceAgainstConcrete(m, ifaceA, b, subs, impls, implTypeArgs)
 	}
 	if ifaceB, ok := b.(*InterfaceType); ok {
-		// Inside a function type the actual side never narrows from an
-		// interface to a concrete type.
-		if m == unifyStrict || m == unifyAssignIn {
+		// The actual side never narrows from an interface to a concrete
+		// type: an Iter is not a List, though a List is an Iter. Only a
+		// join (unifySym) admits the pair either way round.
+		if m != unifySym {
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		return unifyInterfaceAgainstConcrete(m, ifaceB, a, subs, impls, implTypeArgs)
@@ -526,6 +536,14 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 	if iface.Name == "Struct" {
 		return isStructShaped(concrete)
 	}
+	if iface.Name == "Display" {
+		implements, decided := structuralDisplay(concrete, func(p Type) bool {
+			return typeSatisfiesInterfaceForImplMatch(p, iface, impls, implTypeArgs, seen)
+		})
+		if decided {
+			return implements
+		}
+	}
 	concreteName := interfaceImplName(concrete)
 	if concreteName == "" || !interfaceImplemented(concreteName, iface.Name, iface.Origin, impls) {
 		return false
@@ -724,6 +742,24 @@ func occursInIdent(p *TypeParam_, t Type) bool {
 	default:
 		return false
 	}
+}
+
+// typeVarOccursIn reports whether the unsolved variable tv appears inside t,
+// following solved variables. depth bounds the walk as unboundVars does.
+func typeVarOccursIn(tv *TypeVar, t Type, depth int) bool {
+	if t == nil || depth > 32 {
+		return false
+	}
+	t = resolveTypeVar(t)
+	if v, ok := t.(*TypeVar); ok {
+		return v == tv
+	}
+	for _, c := range typeChildren(t) {
+		if typeVarOccursIn(tv, c, depth+1) {
+			return true
+		}
+	}
+	return false
 }
 
 // resolveTV follows the Resolved chain of TypeVars to their terminal type.

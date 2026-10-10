@@ -56,7 +56,39 @@ type TriviaCarrier struct {
 	// starts or ends on.
 	DanglingBefore []Trivia
 	DanglingAfter  []Trivia
+	// ItemComments holds the comments around this node as an item of a
+	// comma-separated list (an argument, element, pattern or type
+	// argument). Nil when it has none.
+	ItemComments *ItemComments
 }
+
+// ItemComments holds the comments around one item of a bracketed,
+// comma-separated list: a call's arguments, a collection literal's
+// elements, a parameter or type parameter list, a pattern's elements, a
+// type's arguments. Before are on their own lines above the item (a comment
+// after the opening bracket goes there too), Trailing ends the item's line
+// after its comma, and After are on their own lines below the last item,
+// before the closing bracket. The formatter writes a list holding any of
+// them one item per line.
+type ItemComments struct {
+	Before   []Trivia
+	Trailing []Trivia
+	After    []Trivia
+}
+
+// Empty reports whether c holds no comment.
+func (c *ItemComments) Empty() bool {
+	return c == nil || len(c.Before) == 0 && len(c.Trailing) == 0 && len(c.After) == 0
+}
+
+// HasItemComments is implemented by every node that embeds TriviaCarrier.
+type HasItemComments interface {
+	GetItemComments() *ItemComments
+	SetItemComments(*ItemComments)
+}
+
+func (t *TriviaCarrier) GetItemComments() *ItemComments  { return t.ItemComments }
+func (t *TriviaCarrier) SetItemComments(c *ItemComments) { t.ItemComments = c }
 
 func (t *TriviaCarrier) GetDanglingBefore() []Trivia { return t.DanglingBefore }
 func (t *TriviaCarrier) GetDanglingAfter() []Trivia  { return t.DanglingAfter }
@@ -420,6 +452,11 @@ type StringLit struct {
 	Raw    bool
 	Line   int
 	Col    int
+	// EndLine and EndCol are the last character of a triple-quoted
+	// literal's closing `"""`, and zero for every other form. The value's
+	// last line is the source line above EndLine.
+	EndLine int
+	EndCol  int
 }
 
 func (*StringLit) NodeType() string { return "StringLit" }
@@ -434,6 +471,10 @@ type StringInterp struct {
 	Triple bool
 	Line   int
 	Col    int
+	// EndLine and EndCol are StringLit's: the closing `"""` of a
+	// triple-quoted literal, and zero otherwise.
+	EndLine int
+	EndCol  int
 }
 
 func (*StringInterp) NodeType() string { return "StringInterp" }
@@ -497,11 +538,22 @@ type ListLit struct {
 func (*ListLit) NodeType() string { return "ListLit" }
 func (n *ListLit) LineNum() int   { return n.Line }
 
-// VectorLit represents a vector literal: #[item, item, ...].
+// VectorLit represents a vector literal: #[item, item, ...], or one with a
+// spread at either end, `#[..v, item]` / `#[item, ..v]`, whose `..` is bare
+// at a field or key of an update (`#[.., item]` / `#[item, ..]`).
 type VectorLit struct {
 	TriviaCarrier
 	SpanCarrier
 	Items []Node
+	// Spread is the vector of `#[..v, x]` (v, then x) or `#[x, ..v]` (x,
+	// then v), a *CurrentValue for the bare `..` of `#[.., x]` / `#[x, ..]`
+	// (the old vector at a field or key of an update), or nil. SpreadLast is
+	// set when it is written last.
+	Spread     Node
+	SpreadLast bool
+	// SpreadLine / SpreadCol are the position of the `..` token.
+	SpreadLine int
+	SpreadCol  int
 	// EndTrivia holds trailing comments / blank lines between the last
 	// item and the closing `]`. Mirrors ListLit.EndTrivia.
 	EndTrivia []Trivia
@@ -512,11 +564,31 @@ type VectorLit struct {
 func (*VectorLit) NodeType() string { return "VectorLit" }
 func (n *VectorLit) LineNum() int   { return n.Line }
 
-// SetLit represents a set literal: #{item, item, ...}.
+// Operands is the literal's elements and its spread in the order written:
+// the spread before the elements, or after them when SpreadLast.
+func (n *VectorLit) Operands() []Node {
+	switch {
+	case n.Spread == nil:
+		return n.Items
+	case n.SpreadLast:
+		return append(append([]Node{}, n.Items...), n.Spread)
+	}
+	return append([]Node{n.Spread}, n.Items...)
+}
+
+// SetLit represents a set literal: #{item, item, ...}, or a set update
+// `#{..base, item, ...}`.
 type SetLit struct {
 	TriviaCarrier
 	SpanCarrier
 	Items []Node
+	// Spread holds the base of a set update, `#{..base, item}`: the literal
+	// means `Set.union(base, #{item})`. Nil for every other set literal.
+	// A bare `#{.., item}` holds a *CurrentValue.
+	Spread Node
+	// SpreadLine / SpreadCol are the position of the `..` token.
+	SpreadLine int
+	SpreadCol  int
 	// EndTrivia holds trailing comments / blank lines between the last
 	// item and the closing `}`. Mirrors ListLit.EndTrivia.
 	EndTrivia []Trivia
@@ -546,7 +618,8 @@ type MapEntry struct {
 	Value Node
 }
 
-// MapLit represents a map literal: {key => value, ...}
+// MapLit represents a map literal: {key => value, ...}, or a map update
+// `{..base, key => value, ...}`.
 //
 // TypeName is non-nil for type-prefixed map literals like
 // `Kvs{"a" => 1}` — the literal-attach construction form for
@@ -556,6 +629,14 @@ type MapLit struct {
 	SpanCarrier
 	TypeName TypeExpr // nil for anonymous map literals
 	Entries  []MapEntry
+	// Spread holds the base of a map update, `{..base, key => value}`:
+	// the literal means `Map.merge(base, {key => value})`. Nil for every
+	// other map literal, and only ever set on the anonymous form. Entries
+	// then hold the overrides, at least one.
+	Spread Node
+	// SpreadLine / SpreadCol are the position of the `..` token.
+	SpreadLine int
+	SpreadCol  int
 	// EndTrivia holds trailing comments / blank lines between the last
 	// entry and the closing `}`. Mirrors StructLit.EndTrivia — captured
 	// so `nomi fmt -w` accepts and round-trips trailing in-body comments
@@ -860,8 +941,12 @@ func (n *Block) Contains(line, col int) bool {
 type Call struct {
 	TriviaCarrier
 	SpanCarrier
-	Func                   Node
-	Args                   []Node
+	Func Node
+	Args []Node
+	// EndTrivia holds the comments in an argument list with no argument,
+	// `f( // why` then `)`. An argument's own comments are its
+	// ItemComments.
+	EndTrivia              []Trivia
 	TypeArgs               []TypeExpr // explicit turbofish type args (`f<Int>(x)`); nil when omitted
 	InferredDispatchTarget string     // analyzer-filled target for dispatch calls inferred from expected type
 	IsTailCall             bool       // set by analysis/tail_position.go
@@ -976,8 +1061,10 @@ type StructField struct {
 type TypeParam struct {
 	Name   string
 	Bounds []TypeExpr
-	Line   int
-	Col    int
+	// Comments holds the comments around the type parameter in its list.
+	Comments ItemComments
+	Line     int
+	Col      int
 }
 
 // StructDef is a nominal record type declared with the `struct` keyword:
@@ -1034,8 +1121,11 @@ type StructFieldVal struct {
 	// Mirrors StructField.LeadingComments — the enclosing StructLit
 	// owns trailing in-body trivia via its EndTrivia slot.
 	LeadingComments []Trivia
-	Line            int // position of the field name token (0 if unknown)
-	Col             int
+	// Trailing holds a `// comment` on the line the field or its comma
+	// ends on (`a: 1, // note`). The formatter keeps it after the comma.
+	Trailing []Trivia
+	Line     int // position of the field name token (0 if unknown)
+	Col      int
 }
 
 type StructLit struct {
@@ -1462,10 +1552,11 @@ type InterfaceMethod struct {
 	// support the same param surface as a free `fn` (type annotations, trailing
 	// default values, destructuring) through the one shared param parser —
 	// rather than a bespoke, perpetually-lagging copy.
-	Params         []Param
-	ReturnTypeExpr TypeExpr // structured return type annotation, nil if absent
-	Body           Node     // nil for abstract methods, *Block for default implementations
-	Open           bool     // `open fn name(...) { ... }` / `open host fn ...` — default may be overridden
+	Params          []Param
+	ParamsEndTrivia []Trivia // the comments in a parameter list with no parameter, `f( // why` then `)`
+	ReturnTypeExpr  TypeExpr // structured return type annotation, nil if absent
+	Body            Node     // nil for abstract methods, *Block for default implementations
+	Open            bool     // `open fn name(...) { ... }` / `open host fn ...` — default may be overridden
 	// Extern marks a host-backed default: `host fn name(...): T` (no Nomi
 	// body — the host provides the implementation, shared by every
 	// implementor). A contract method like a Nomi default, but supplied by
@@ -1897,24 +1988,27 @@ type Param struct {
 	Destructure    Node     // non-nil for destructuring params: pattern node (TuplePattern, StructPattern, etc.)
 	TypeAnnotation TypeExpr // structured type annotation, nil if absent
 	Default        Node     // default value expression, nil if absent
-	Line           int
-	Col            int
+	// Comments holds the comments around the parameter in its list.
+	Comments ItemComments
+	Line     int
+	Col      int
 }
 
 // FuncDef defines a named function.
 type FuncDef struct {
 	TriviaCarrier
 	SpanCarrier
-	AttachedTests  []AttachedTest // prompt tests attached to this declaration
-	Decorators     []Decorator    // always nil: source has no decorators, and the derive lowering decorates types only
-	Name           string
-	Public         bool
-	TypeParams     []TypeParam
-	Params         []Param
-	ReturnTypeExpr TypeExpr // structured return type annotation, nil if absent
-	WhereClauses   []WhereConstraint
-	Body           *Block
-	Doc            string
+	AttachedTests   []AttachedTest // prompt tests attached to this declaration
+	Decorators      []Decorator    // always nil: source has no decorators, and the derive lowering decorates types only
+	Name            string
+	Public          bool
+	TypeParams      []TypeParam
+	Params          []Param
+	ParamsEndTrivia []Trivia // the comments in a parameter list with no parameter, `f( // why` then `)`
+	ReturnTypeExpr  TypeExpr // structured return type annotation, nil if absent
+	WhereClauses    []WhereConstraint
+	Body            *Block
+	Doc             string
 	// AutoSynth marks an `impl Debug` synthesized by the universal-default
 	// Debug pass (SynthesizeUniversalDebug → synthesizeAutoDebug), as opposed
 	// to a hand-written `impl` or an explicit `@derive`. It lets the coherence
@@ -1956,14 +2050,15 @@ func (n *FuncDef) LineNum() int   { return n.Line }
 type ExternFunc struct {
 	TriviaCarrier
 	SpanCarrier
-	Name           string
-	Public         bool
-	AttachedTests  []AttachedTest // prompt tests attached to this declaration
-	TypeParams     []TypeParam    // explicit `<T, U>` clause after the name; empty for the implicit-only form
-	Params         []Param
-	ReturnTypeExpr TypeExpr // structured return type annotation, nil if absent
-	WhereClauses   []WhereConstraint
-	Doc            string
+	Name            string
+	Public          bool
+	AttachedTests   []AttachedTest // prompt tests attached to this declaration
+	TypeParams      []TypeParam    // explicit `<T, U>` clause after the name; empty for the implicit-only form
+	Params          []Param
+	ParamsEndTrivia []Trivia // the comments in a parameter list with no parameter, `f( // why` then `)`
+	ReturnTypeExpr  TypeExpr // structured return type annotation, nil if absent
+	WhereClauses    []WhereConstraint
+	Doc             string
 	// ImplFunction mirrors FuncDef.ImplFunction for legacy/synthesized ASTs.
 	ImplFunction bool
 	// ImplLine / ImplCol mirror FuncDef.ImplLine / ImplCol.
@@ -2157,6 +2252,48 @@ type Tap struct {
 func (*Tap) NodeType() string { return "Tap" }
 func (n *Tap) LineNum() int   { return n.Line }
 
+// CurrentValue is a bare `..` written as the spread of an update literal:
+// `{.., city: "NYC"}`, `{.., "k" => v}`, `#{.., x}` or `[t, ..]`. It stands
+// for the value already at the field or key the literal is written at, so
+// `{..user, address: {.., city: "NYC"}}` changes only `address.city`. It is
+// only ever the Spread of a StructLit, MapLit or SetLit or the TailSpread of a
+// ListSpreadLit; the checker decides whether that position has a current
+// value.
+type CurrentValue struct {
+	TriviaCarrier
+	SpanCarrier
+	Line int
+	Col  int
+}
+
+func (*CurrentValue) NodeType() string { return "CurrentValue" }
+func (n *CurrentValue) LineNum() int   { return n.Line }
+
+// UpdateHole returns the bare `..` of n when n is a literal that updates the
+// value at its position: an anonymous struct or map literal, or a set literal,
+// whose spread is a bare `..`, or a list literal whose tail is. Nil otherwise.
+func UpdateHole(n Node) *CurrentValue {
+	var spread Node
+	switch v := n.(type) {
+	case *StructLit:
+		if v.TypeName == nil {
+			spread = v.Spread
+		}
+	case *MapLit:
+		if v.TypeName == nil {
+			spread = v.Spread
+		}
+	case *SetLit:
+		spread = v.Spread
+	case *VectorLit:
+		spread = v.Spread
+	case *ListSpreadLit:
+		spread = v.TailSpread
+	}
+	cv, _ := spread.(*CurrentValue)
+	return cv
+}
+
 // Placeholder represents _ in expressions (partial application).
 type Placeholder struct {
 	TriviaCarrier
@@ -2299,6 +2436,8 @@ type StructPatternField struct {
 	BindingLine int    // 1-based line of the binding identifier
 	BindingCol  int    // 1-based column of the binding identifier
 	Pattern     Node   // nil for binding, literal node for value matching
+	// Comments holds the comments around the field in the pattern.
+	Comments ItemComments
 }
 
 // StructPattern matches a struct value by type name and field patterns.

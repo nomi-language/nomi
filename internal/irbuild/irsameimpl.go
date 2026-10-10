@@ -29,8 +29,15 @@ func (bl *irScalarBuilder) sameImplPlan(name string) *irQualPlan {
 		return nil
 	}
 	it := d.items[name]
+	if it == nil {
+		// A bare call from a function built for one instance of a generic
+		// owner to an owner function of the same block (ownerimpl.go).
+		if od := bl.g.ownerImplOf(d.decl); od != nil {
+			d, it = od, od.items[name]
+		}
+	}
 	if it == nil || !it.lowerable || irImplSource(it) == nil {
 		return nil
 	}
-	return &irQualPlan{token: it, name: d.recv.nomi() + "." + name, result: it.result}
+	return &irQualPlan{token: it, name: d.ownerName() + "." + name, result: it.result}
 }

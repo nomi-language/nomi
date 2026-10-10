@@ -147,6 +147,76 @@ func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind
 	if t.TypeName != nil || len(t.Entries) == 0 {
 		return no()
 	}
+	if t.Spread != nil {
+		return bl.mapUpdate(t, wants)
+	}
+	return bl.mapEntries(t, wants)
+}
+
+// mapUpdate builds `{..base, key => value}`: the base, then the entries as
+// a map literal, then `Map.merge(base, literal)`, so the entries win and
+// keep the order Map.merge gives them. The checker typed the literal as the
+// base's `Map<K, V>`, which is the kind both operands are lowered to.
+func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	base, bk, _, ok := bl.lower(t.Spread)
+	if !ok {
+		return no()
+	}
+	if wants == nil && bk.tag == tagMap && bk != kindEmptyMap && bk.comp != nil && len(bk.comp.parts) == 2 {
+		wants = bk.comp.parts
+	}
+	var lit ir.Temp
+	var lk kind
+	if mapHasHole(t) {
+		// An entry updates the value at its key, which it reads from the
+		// base: the base is read once per such entry and merged once.
+		base = bl.holdTemp(t.Spread, base, bk)
+		lit, lk, _, ok = bl.mapEntriesOver(t, wants, base, bk)
+	} else {
+		lit, lk, _, ok = bl.mapEntries(t, wants)
+	}
+	if !ok {
+		return no()
+	}
+	if bk == kindEmptyMap {
+		// `{..Map.empty(), "a" => 1}`: the entries say what the base holds.
+		if base, bk, ok = bl.coerceEmpty(t.Spread, base, bk, lk); !ok {
+			return no()
+		}
+	}
+	if bk != lk || !irRetainedMapKind(lk) {
+		return no()
+	}
+	c := ir.NewHostCall(bl.g.irNodePos(t), bl.f.NewTemp(), ir.OrdinaryCall,
+		bl.g.irCalleeSym("Map.merge", "Map.merge"), base, lit)
+	bl.b.Append(c)
+	bl.side(c.Dst(), irScalarSide{k: lk, deferrable: true})
+	return c.Dst(), lk, false, true
+}
+
+// mapHasHole reports whether an entry's value of the map update t is an
+// update literal.
+func mapHasHole(t *ast.MapLit) bool {
+	for _, e := range t.Entries {
+		if ast.UpdateHole(e.Value) != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// mapEntries builds a map literal's entries, ignoring a spread; wants is as
+// mapMakeOf's.
+func (bl *irScalarBuilder) mapEntries(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
+	return bl.mapEntriesOver(t, wants, ir.NoTemp, kindEmptyMap)
+}
+
+// mapEntriesOver is mapEntries for the entries of a map update over base, of
+// kind bk: an entry whose value is an update literal updates the value at its
+// key (updateEntry).
+func (bl *irScalarBuilder) mapEntriesOver(t *ast.MapLit, wants []kind, base ir.Temp, bk kind) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	// Keys and values are lowered in source order. Entries whose keys (or
 	// values) differ only by an embedded type join to the enum that embeds
 	// it (`{1 => circle, 2 => shape}` is a `Map<Int, Shape>`), as the
@@ -160,10 +230,19 @@ func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind
 		wants = bl.literalParts(t, tagMap)
 	}
 	for _, entry := range t.Entries {
+		var key ir.Temp
 		for j, node := range []ast.Node{entry.Key, entry.Value} {
 			var v ir.Temp
 			var k kind
 			var ok bool
+			if j == 1 && base != ir.NoTemp && ast.UpdateHole(node) != nil {
+				v, k, ok = bl.updateEntry(node, key, base, bk)
+				if !ok {
+					return no()
+				}
+				items[j], temps[j], kinds[j] = append(items[j], node), append(temps[j], v), append(kinds[j], k)
+				continue
+			}
 			if wants != nil {
 				v, k, _, ok = bl.lowerWant(node, wants[j])
 			} else {
@@ -172,12 +251,23 @@ func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind
 			if !ok {
 				return no()
 			}
+			if j == 0 && base != ir.NoTemp && ast.UpdateHole(entry.Value) != nil {
+				// The key is read by the entry's update and by the map.
+				v = bl.holdTemp(node, v, k)
+				key = v
+			}
 			items[j], temps[j], kinds[j] = append(items[j], node), append(temps[j], v), append(kinds[j], k)
 		}
 	}
 	var parts [2]kind
 	for j := range parts {
 		k, joined := irEmbedsJoin(kinds[j])
+		if !joined {
+			// Entries that differ by an empty collection (`{1 => [], 2 =>
+			// [1]}`) take the checked key or value type, as a list's
+			// items do.
+			k, joined = bl.literalItemsCoerced(t, tagMap, j, items[j], temps[j], kinds[j])
+		}
 		if !joined || (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructuralValueKind(k)) || (j == 1 && !irMapValueKind(k) && !bl.g.irStructuralValueKind(k)) ||
 			!bl.widenEmbedded(items[j], temps[j], kinds[j], k) {
 			return no()
@@ -237,7 +327,7 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 		return nil
 	}
 	if method == "get" {
-		if _, anchored := bl.g.preludeByName["Maybe"]; !anchored {
+		if _, anchored := bl.g.preludeNamed("Maybe"); !anchored {
 			return nil
 		}
 	}

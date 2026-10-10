@@ -71,6 +71,8 @@ n = 1_000_000 + 0xFF_FF + 0b1010 + 1.5e3 + 2.50d
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~------ constant.numeric.integer.binary.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~----- constant.numeric.float.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~----- constant.numeric.decimal.nomi
+big = 1e20
+// <~~~~~~---- constant.numeric.float.nomi
 names = people |> Iter.map(.name) |> Iter.to_list()
 // <~~~~~~~~~~~~~~~-- keyword.operator.pipe.nomi
 // <~~~~~~~~~~~~~~~~~~---- entity.name.type.nomi

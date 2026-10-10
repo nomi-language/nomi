@@ -47,7 +47,9 @@ func TestIRSet_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn add(s: Set<Int>, n: Int): Set<Int> { Set.insert(s, n) }
 fn main() {
-  s = #{1, 2, 3, 2, 1}
+  one = 1
+  two = 2
+  s = #{one, two, 3, two, one}
   io.print(Set.size(s))
   io.print(Set.contains?(s, 2))
   io.print(Set.contains?(s, 9))
@@ -74,12 +76,15 @@ fn main() {
   io.print(Set.contains?(s, 1))
   io.inspect(Set.insert(s, 1))
   nan = 0.0 / 0.0
-  fs = #{nan, nan, -0.0, 0.0}
+  zero = 0.0
+  fs = #{nan, nan, -0.0, zero}
   io.print(Set.size(fs))
   io.print(Set.contains?(fs, nan))
   io.print(Set.contains?(fs, 0.0))
-  io.inspect(#{"a", "b", "a"})
-  io.inspect(#{True, False, True})
+  a = "a"
+  io.inspect(#{a, "b", a})
+  yes = True
+  io.inspect(#{yes, False, yes})
 }
 `, "#{}\n0\nFalse\n#{1}\n2\nTrue\nTrue\n#{\"a\", \"b\"}\n#{True, False}\n")
 }

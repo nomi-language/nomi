@@ -227,3 +227,141 @@ fn main(): Result<Unit, Infallible> {
 		t.Fatalf("output %q", out)
 	}
 }
+
+// Infallible implements Display, Equatable and Hashable, so a type that
+// contains it renders, compares and hashes through its own impls: the
+// interface-qualified calls, interpolation, and a generic function bounded by
+// the interface. The derived Hashable of `Result<Int, Infallible>` mixes its
+// `Err` payload's hash into arithmetic (`1 * 31 + Hashable.hash(e)`), which
+// stops at `e`.
+func TestInfallible_ItsDisplayEquatableAndHashableImpls(t *testing.T) {
+	_, out, err := runTodo(t, `import std/io
+
+fn get(): Result<Int, Infallible> {
+    Ok(3)
+}
+
+fn shown<T>(x: T): String where T: Display {
+    "<${x}>"
+}
+
+fn hashed<T>(x: T): Int where T: Hashable {
+    Hashable.hash(x)
+}
+
+fn main() {
+    r = get()
+    io.print(Display.to_string(r))
+    io.print("r is ${r}")
+    io.print(shown(r))
+    io.print(Display.to_string(Some(r)))
+    io.print(Debug.inspect(Hashable.hash(r) == Hashable.hash(get())))
+    io.print(Debug.inspect(hashed(r) == Hashable.hash(r)))
+    io.print(Debug.inspect(Equatable.equal?(r, Ok(3))))
+    io.print(Debug.inspect(Equatable.equal?(r, Ok(4))))
+    io.print(Debug.inspect(r != Ok(4)))
+    failed: Result<Infallible, String> = Err("bad")
+    io.print(Display.to_string(failed))
+    io.print("${failed}")
+    io.print(Debug.inspect(Map.get({failed => 1}, Err("bad"))))
+    io.print(Debug.inspect(Set.contains?(#{failed}, Err("bad"))))
+}
+`)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	want := "Ok(3)\nr is Ok(3)\n<Ok(3)>\nSome(Ok(3))\nTrue\nTrue\nTrue\nFalse\nTrue\nErr(bad)\nErr(bad)\nSome(1)\nTrue\n"
+	if out != want {
+		t.Fatalf("output %q, want %q", out, want)
+	}
+}
+
+// A function over Infallible can be written with its impls and is never
+// called: each lowers, and the arm that would call it is never taken.
+func TestInfallible_FunctionsOverItLowerAndAreNeverCalled(t *testing.T) {
+	_, out, err := runTodo(t, `import std/io
+
+fn show(x: Infallible): String {
+    Display.to_string(x)
+}
+
+fn interpolated(x: Infallible): String {
+    "x=${x}"
+}
+
+fn mixed(x: Infallible): Int {
+    1 * 31 + Hashable.hash(x)
+}
+
+fn same(x: Infallible, y: Infallible): Bool {
+    Equatable.equal?(x, y)
+}
+
+fn get(): Result<Int, Infallible> {
+    Ok(3)
+}
+
+fn main() {
+    s = case get() {
+        Ok(v) -> "ok ${v}"
+        Err(e) -> "${show(e)} ${interpolated(e)} ${mixed(e)} ${same(e, e)}"
+    }
+    io.print(s)
+}
+`)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if want := "ok 3\n"; out != want {
+		t.Fatalf("output %q, want %q", out, want)
+	}
+}
+
+// A collection literal mixing a `Result<Int, Infallible>` with an `Ok` whose
+// error type is open solves that type to Infallible, in either order: the
+// literal is a collection of one instance, which lowers.
+func TestInfallible_ALiteralBesideAnOpenOkTakesItsType(t *testing.T) {
+	_, out, err := runTodo(t, `import std/io
+
+fn main() {
+    q: Result<Int, Infallible> = Ok(3)
+    io.print(Debug.inspect(Set.size(#{q, Ok(4)})))
+    io.print(Debug.inspect(Set.size(#{Ok(4), q, Ok(3)})))
+    io.print(Debug.inspect([q, Ok(4)]))
+    io.print(Debug.inspect([Ok(4), q]))
+    io.print(Debug.inspect(Map.get({q => 1, Ok(4) => 2}, Ok(4))))
+    io.print(Debug.inspect(Map.get({1 => q, 2 => Ok(4)}, 2)))
+    io.print(Debug.inspect(Vector.length(#[q, Ok(5)])))
+    io.print("${[q, Ok(4)]}")
+}
+`)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	want := "2\n2\n[Ok(3), Ok(4)]\n[Ok(4), Ok(3)]\nSome(2)\nSome(Ok(4))\n2\n[Ok(3), Ok(4)]\n"
+	if out != want {
+		t.Fatalf("output %q, want %q", out, want)
+	}
+}
+
+// Infallible's impl functions are std bodies like any other, so each can be
+// passed as a function value. Over an empty list none is called.
+func TestInfallible_ItsImplFunctionsAreValues(t *testing.T) {
+	_, out, err := runTodo(t, `import std/io
+
+fn main() {
+    xs: List<Infallible> = []
+    io.print(Debug.inspect(xs |> Iter.map(Display.to_string) |> Iter.to_list()))
+    io.print(Debug.inspect(xs |> Iter.map(Hashable.hash) |> Iter.to_list()))
+    io.print(Debug.inspect(xs |> Iter.map(Infallible.to_string) |> Iter.to_list()))
+    io.print(Debug.inspect(xs |> Iter.map(|x| Equatable.equal?(x, x)) |> Iter.to_list()))
+    io.print(Debug.inspect(Set.size(Iter.to_set(xs))))
+}
+`)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if want := "[]\n[]\n[]\n[]\n0\n"; out != want {
+		t.Fatalf("output %q, want %q", out, want)
+	}
+}

@@ -359,11 +359,11 @@ func emptyLiteralText(n ast.Node) (string, bool) {
 			return "[]", true
 		}
 	case *ast.VectorLit:
-		if len(v.Items) == 0 {
+		if len(v.Items) == 0 && v.Spread == nil {
 			return "#[]", true
 		}
 	case *ast.SetLit:
-		if len(v.Items) == 0 {
+		if len(v.Items) == 0 && v.Spread == nil {
 			return "#{}", true
 		}
 	case *ast.MapLit:

@@ -122,7 +122,11 @@ tests "empty" {
 	p.Test(&buf, rep, name, vmhost.TestOptions{}, func(n string) string { return vmhost.TestName(name, n) })
 	rep.Summary()
 	out := buf.String()
-	if !strings.HasPrefix(out, "setup a\nsetup a\nsetup a\nsetup b\nx\nsetup c\nsetup d\n") ||
+	// Each setup's output is reported under the case it ran for.
+	if strings.Count(out, "\n  setup a\n") != 3 ||
+		!strings.Contains(out, "ok main_test.nomi :: printed / binds\n  setup b\n  x\n") ||
+		!strings.Contains(out, "ok main_test.nomi :: statement / binds\n  setup c\n") ||
+		!strings.Contains(out, "ok main_test.nomi :: returning unit / binds unit\n  setup d\n") ||
 		strings.Contains(out, "BLOCKED") || strings.Contains(out, "unreachable") ||
 		!strings.Contains(out, "FAIL main_test.nomi :: failing tail / never runs its body\n  line 57: assertion failed\n    assert flag()\n") ||
 		!strings.Contains(out, "9 passed, 1 failed") {

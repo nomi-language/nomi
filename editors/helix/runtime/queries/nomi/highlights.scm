@@ -444,6 +444,17 @@
 (as_pattern
   name: (identifier) @comment
   (#match? @comment "^_($|[^_])"))
+; A pattern assertion spells its pattern as an expression:
+; `assert Err(_) = r`, `assert Err(Error.Invalid(_msg)) = r`.
+(pattern_assertion_binding
+  pattern: (call_expression
+    (identifier) @comment
+    (#match? @comment "^_($|[^_])")))
+(pattern_assertion_binding
+  pattern: (call_expression
+    (call_expression
+      (identifier) @comment
+      (#match? @comment "^_($|[^_])"))))
 
 ; BEGIN attached-test dim (Zed and Helix only; scripts/sync-nvim-runtime.sh
 ; drops this block, since the Neovim plugin dims attached tests from Lua.)

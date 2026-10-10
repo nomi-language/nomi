@@ -279,7 +279,7 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 			if _, vector := vectorElem(p); !vector {
 				return irNominalCoinductive(p, outer)
 			}
-		case p.tag == tagNamed && p.def != nil && p.def.isEnum && p.def.preludeOf == nil && p.def.genericOf == nil:
+		case p.tag == tagNamed && p.def != nil && p.def.isEnum && p.def.preludeOf == nil:
 			// A user enum reached through a part (`xs: List<E>` where E
 			// carries this struct): decided with `outer`, so the walk ends
 			// at a type it is already deciding instead of recursing.
@@ -305,6 +305,22 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 		if p.tag == tagMap && p != kindEmptyMap && p.comp != nil && len(p.comp.parts) == 2 && irKindReaches(p, outer) {
 			// `kids: Map<String, Tree>` inside Tree, as a set above.
 			return part(p.comp.parts[0]) && part(p.comp.parts[1])
+		}
+		if p.tag == tagNamed && p.def != nil && p.def.preludeOf != nil && p.def.isEnum && irKindReaches(p, outer) {
+			// `pair: (Int, Maybe<Tree>)` inside Tree: a prelude wrapper's
+			// payloads decided with the walk's stack, as the field-level
+			// wrapper below is. irRetainedValueKind would restart the walk.
+			if !irPreludeWrapperOver(p, outer) {
+				return false
+			}
+			for _, v := range p.def.variants {
+				for _, pl := range v.payloads {
+					if pl.k != kindUnit && !part(pl.k) {
+						return false
+					}
+				}
+			}
+			return true
 		}
 		if (p.tag == tagTuple || p.tag == tagList) && p.comp != nil && len(p.comp.parts) > 0 {
 			for _, c := range p.comp.parts {
@@ -641,7 +657,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	if !isSimple {
 		return no()
 	}
-	if d, v, isVariant := bl.g.stdEnumVariantAt(tn.Name, tn.Line, tn.Col); isVariant {
+	if d, v, isVariant := bl.g.importedVariantAt(t, tn.Name, tn.Line, tn.Col); isVariant {
 		// A std enum's struct-shaped variant imported by name
 		// (`import std/supervisors.Backoff.Exponential`, then
 		// `Exponential{}`), which the checker types as the variant.

@@ -46,8 +46,16 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 		return no()
 	}
 	sig := irFuncSig{inferResult: true}
+	block := t
 	var k kind
 	var ok bool
+	// A body ending in a block whose tail leaves: its statements, then its
+	// tail here.
+	body, restore, unwrapped := child.leavingBlocks(body)
+	defer restore()
+	if !unwrapped {
+		return no()
+	}
 	switch t := body.(type) {
 	case *ast.Return:
 		k, ok = child.explicitReturn(t)
@@ -58,6 +66,20 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 		sh.result = f.NewTemp()
 		k, ok = child.tailCase(t, sig)
 	default:
+		if bl.g.neverFinishes(body) {
+			// An `Iter.loop` with no `break` never answers: the body's
+			// result is what its returns settled, or the checker's type for
+			// the block.
+			if _, ok = child.endlessLoop(body); ok {
+				// kindInvalid: sentinel — no `return v` settled it.
+				if k = child.returnKind; k == kindInvalid && bl.g.fa != nil {
+					if ty := bl.g.fa.ExprTypes[block]; ty != nil && !irUnsolvedType(ty) {
+						k = bl.g.project(ty)
+					}
+				}
+			}
+			break
+		}
 		var answer ir.Temp
 		answer, k, _, ok = child.lower(body)
 		if ok {

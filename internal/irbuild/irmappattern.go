@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"maps"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -12,8 +14,15 @@ import (
 // MatchVariant asks for `Some`, and the payload is matched against `pat`.
 // That is a lookup, then the entry's pattern on the value, through nodes
 // the VM already runs: one probe per key, and the
-// key is an operand evaluated in entry order, after the earlier entries have
-// bound their names.
+// key is an operand evaluated in entry order, each one after the earlier
+// entries' lookups and tests.
+//
+// A key sees the names in scope before the pattern, never a name the pattern
+// itself binds, because the checker resolves it there (analysis/builder.go
+// walks every key of a map pattern before it defines the pattern's names).
+// In `{"mode" => a, a => b}` the second key is the `a` bound before the
+// pattern. Each key is lowered in a copy of the scope the pattern started in
+// (mapKeyScope), so a name an earlier entry bound is not visible to it.
 //
 // A pattern is partial: it names the keys it cares about and says nothing
 // about the rest, so `{}` matches every map.
@@ -24,7 +33,7 @@ import (
 
 // mapEntryGet lowers one entry's key and looks it up in subj: the Maybe the
 // lookup answers, its kind and its Some variant, and the key's temporary.
-func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNode ast.Node) (got ir.Temp, maybe kind, some *variantDef, key ir.Temp, ok bool) {
+func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNode ast.Node, keys *irLexicalScope) (got ir.Temp, maybe kind, some *variantDef, key ir.Temp, ok bool) {
 	if mk.tag != tagMap || !irRetainedMapKind(mk) {
 		return ir.NoTemp, kindInvalid, nil, ir.NoTemp, false
 	}
@@ -33,7 +42,16 @@ func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNo
 	// checker admits it (`{Color.Blue => v}` over a Map<Bool, String>): the
 	// lookup is made anyway and misses, so the key
 	// expression still runs.
-	key, kk, _, ok := bl.lower(keyNode)
+	var kk kind
+	if keys != nil {
+		cur := bl.saveScope()
+		bl.restoreScope(*keys)
+		bl.cloneScope()
+		key, kk, _, ok = bl.lower(keyNode)
+		bl.restoreScope(cur)
+	} else {
+		key, kk, _, ok = bl.lower(keyNode)
+	}
 	if !ok || (kk != keyK && !irMapKeyKind(kk)) {
 		if ok {
 			irDeclineNote("a map pattern key of kind " + kk.nomi() + " over " + mk.nomi())
@@ -59,6 +77,16 @@ func (bl *irScalarBuilder) mapEntryGet(at ast.Node, subj ir.Temp, mk kind, keyNo
 	return c.Dst(), maybe, some, key, true
 }
 
+// mapKeyScope copies the scope a map pattern of n entries starts in, for its
+// keys to be lowered in. A pattern with one entry needs none: its only key is
+// lowered before the pattern binds anything.
+func (bl *irScalarBuilder) mapKeyScope(n int) *irLexicalScope {
+	if n < 2 {
+		return nil
+	}
+	return &irLexicalScope{maps.Clone(bl.bound), maps.Clone(bl.boundK), maps.Clone(bl.sh.syms)}
+}
+
 // mapSomeTest branches on whether got is Some, to found or miss, and leaves
 // the builder in found with the payload read.
 func (bl *irScalarBuilder) mapSomeTest(at ast.Node, got ir.Temp, maybe kind, some *variantDef, miss *ir.Block) (ir.Temp, kind) {
@@ -79,12 +107,13 @@ func (bl *irScalarBuilder) mapCaseTest(pattern ast.Node, subj ir.Temp, mk kind, 
 	if !ok || pat.TypeName != nil {
 		return false
 	}
+	keys := bl.mapKeyScope(len(pat.Entries))
 	for i, e := range pat.Entries {
 		target := arm
 		if i < len(pat.Entries)-1 {
 			target = bl.f.NewBlock(bl.g.irNodePos(pat), "map entry")
 		}
-		got, maybe, some, _, ok := bl.mapEntryGet(pat, subj, mk, e.Key)
+		got, maybe, some, _, ok := bl.mapEntryGet(pat, subj, mk, e.Key, keys)
 		if !ok {
 			return false
 		}
@@ -101,8 +130,17 @@ func (bl *irScalarBuilder) mapCaseTest(pattern ast.Node, subj ir.Temp, mk kind, 
 }
 
 // patternValueTest matches a nested pattern against a value already read,
-// ending in arm on success and branching to next on failure.
+// ending in arm on success and branching to next on failure. A pattern it
+// cannot test is the decline's position, unless a pattern inside it is.
 func (bl *irScalarBuilder) patternValueTest(pat ast.Node, value ir.Temp, k kind, arm, next *ir.Block) bool {
+	if bl.patternValueTestNode(pat, value, k, arm, next) {
+		return true
+	}
+	irDeclineAtPattern(pat, "a nested pattern outside the retained tests: "+irNodeWord(pat)+" over "+k.nomi())
+	return false
+}
+
+func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k kind, arm, next *ir.Block) bool {
 	jump := func() bool {
 		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(pat), arm.ID()))
 		bl.b = arm
@@ -121,7 +159,10 @@ func (bl *irScalarBuilder) patternValueTest(pat ast.Node, value ir.Temp, k kind,
 		}
 		bl.patternBinding(p, p.Name, value, k)
 		return true
-	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit:
+	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit, *ast.FloatLit, *ast.DecimalLit:
+		// A Float or Decimal literal is tested as a top-level `case` arm
+		// tests it (litFor): MatchLit, which the VM answers with rt.Equal,
+		// so EqFloat and EqDecimal decide at every depth.
 		lit, lk, _, ok := bl.litFor(p, k)
 		if !ok || lk != k {
 			return false
@@ -132,6 +173,8 @@ func (bl *irScalarBuilder) patternValueTest(pat ast.Node, value ir.Temp, k kind,
 		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(p), m.Dst(), arm.ID(), next.ID()))
 		bl.b = arm
 		return true
+	case *ast.Binary:
+		return bl.strPrefixTest(p, value, k, arm, next)
 	case *ast.MapPattern:
 		if p.TypeName != nil {
 			if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
@@ -174,7 +217,8 @@ func (bl *irScalarBuilder) patternValueTest(pat ast.Node, value ir.Temp, k kind,
 
 // mapBinding lowers `{key => name, ...} = m`. Each key is looked up in entry
 // order; a missing one faults with rt.MapKeyMissingError's text at the
-// statement's line, and a present one binds its value.
+// statement's line, and a present one binds its value under the plain
+// binding's rebind rule (destructureBind).
 func (bl *irScalarBuilder) mapBinding(t *ast.MapDestructure) bool {
 	subj, mk, _, ok := bl.lower(t.Value)
 	if !ok || mk.tag != tagMap || !irRetainedMapKind(mk) {
@@ -190,6 +234,7 @@ func (bl *irScalarBuilder) mapBinding(t *ast.MapDestructure) bool {
 		subj = c.Dst()
 	}
 	done := bl.f.NewBlock(bl.g.irNodePos(t), "map destructured")
+	keys := bl.mapKeyScope(len(t.Entries))
 	for _, e := range t.Entries {
 		id, named := e.Pattern.(*ast.IdentPattern)
 		_, wildcard := e.Pattern.(*ast.WildcardPattern)
@@ -197,14 +242,7 @@ func (bl *irScalarBuilder) mapBinding(t *ast.MapDestructure) bool {
 			irDeclineNote("a map destructure entry outside names and wildcards")
 			return false
 		}
-		if named && !ast.IsDiscardName(id.Name) {
-			_, shadows := bl.g.lookup(id.Name)
-			if _, bound := bl.bound[id.Name]; bound || shadows {
-				irDeclineNote("a rebind: " + id.Name)
-				return false
-			}
-		}
-		got, maybe, some, key, ok := bl.mapEntryGet(t, subj, mk, e.Key)
+		got, maybe, some, key, ok := bl.mapEntryGet(t, subj, mk, e.Key, keys)
 		if !ok {
 			return false
 		}
@@ -212,8 +250,10 @@ func (bl *irScalarBuilder) mapBinding(t *ast.MapDestructure) bool {
 		miss.Append(ir.NewMapKeyMissing(bl.g.irNodePos(t), key))
 		miss.SetTerm(ir.NewJump(bl.g.irNodePos(t), done.ID()))
 		value, vk := bl.mapSomeTest(t, got, maybe, some, miss)
-		if named {
-			bl.patternBinding(id, id.Name, value, vk)
+		if named && !ast.IsDiscardName(id.Name) {
+			if !bl.destructureBind(id, id.Name, vk, func() ir.Temp { return value }) {
+				return false
+			}
 		}
 	}
 	bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(t), done.ID()))

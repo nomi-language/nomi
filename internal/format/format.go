@@ -38,6 +38,8 @@ func Format(src string) (string, error) {
 	}
 	nodes = normalizeImportLayout(nodes)
 	normalizeBodies(nodes)
+	stripSelfTypingAnnotations(nodes)
+	gatherLambdaHeaderComments(nodes)
 	return withShebang(src, tokens, emitFile(nodes, fileEndTrivia)), nil
 }
 

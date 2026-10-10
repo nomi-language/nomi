@@ -487,8 +487,11 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 	case *ast.ListLit:
 		return r.mustRecurseSeq(x.Items, clean)
 	case *ast.VectorLit:
-		return r.mustRecurseSeq(x.Items, clean)
+		return r.mustRecurseSeq(x.Operands(), clean)
 	case *ast.SetLit:
+		if x.Spread != nil {
+			return r.mustRecurseSeq(append([]ast.Node{x.Spread}, x.Items...), clean)
+		}
 		return r.mustRecurseSeq(x.Items, clean)
 	case *ast.TupleLit:
 		return r.mustRecurseSeq(x.Items, clean)

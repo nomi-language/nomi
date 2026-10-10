@@ -1,6 +1,6 @@
 NODE22_BIN ?= /opt/homebrew/opt/node@22/bin
 
-.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-lsp build-cli build-zed build-helix install-helix build-nvim build-nvim-parser install-nvim build-vscode install-vscode test-vscode dev-editors dev-nvim dev-helix dev-zed enable-hooks
+.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-lsp build-cli build-zed build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode dev-editors dev-nvim dev-helix dev-zed enable-hooks
 
 test: test-std test-programs test-go
 
@@ -97,6 +97,11 @@ install-helix:
 # queries with an old parser.
 build-nvim: build-nvim-parser
 	./scripts/sync-nvim-runtime.sh
+
+# Headless checks of the Neovim plugin's test keys (needs nvim 0.11+ and the
+# parser); neotest, lazy.nvim and snacks.nvim are stubbed.
+test-nvim: build-nvim-parser
+	nvim --headless -u NONE -i NONE -l editors/nvim/tests/run.lua
 
 # Compile the parser into editors/nvim/parser/ (gitignored) for running the plugin
 # straight from this checkout, e.g. a lazy.nvim `dir =` spec.

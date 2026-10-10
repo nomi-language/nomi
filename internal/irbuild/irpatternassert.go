@@ -79,7 +79,7 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 	case *ast.TuplePattern:
 		if !tupleBinds {
 			if !bl.tupleCaseTest(p, subj, sk, matched, failed) {
-				irDeclineNote("an `assert pattern = value` tuple pattern outside the retained case tests")
+				irDeclineAtPattern(p, "an `assert pattern = value` tuple pattern outside the retained case tests")
 				return false
 			}
 			break
@@ -87,9 +87,10 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		bl.tupleCaseBindings(p, subj, sk)
 	case *ast.IdentPattern:
 		bl.patternBinding(p, p.Name, subj, sk)
-	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit:
+	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit, *ast.FloatLit, *ast.DecimalLit:
 		lit, lk, _, lok := bl.litFor(p, sk)
 		if !lok || lk != sk {
+			irDeclineAtPattern(p, "an `assert pattern = value` literal pattern over "+sk.nomi())
 			return false
 		}
 		m := ir.NewMatchLitInto(bl.g.irNodePos(p), bl.f.NewTemp(), subj, lit)
@@ -118,7 +119,7 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 			tested = bl.nominalCaseTest(p, subj, sk, matched, next)
 		}
 		if !tested {
-			irDeclineNote("an `assert pattern = value` pattern outside the retained case tests: " + sk.nomi())
+			irDeclineAtPattern(p, "an `assert pattern = value` pattern outside the retained case tests: "+sk.nomi())
 			return false
 		}
 	}

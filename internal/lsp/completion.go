@@ -179,6 +179,7 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 	}
 	r.ctx = classifyCompletion(doc.Content, off)
 	r.promoteBareBrace()
+	r.demoteMapSpreadField()
 	if (trigger == "{" || trigger == ",") && r.ctx.kind != ctxStructField && r.ctx.kind != ctxPatternField {
 		return nil, nil
 	}
@@ -188,6 +189,19 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 	r.expected = r.expectedType()
 	items := r.items(r.candidates())
 	return &protocol.CompletionList{IsIncomplete: r.incomplete, Items: items}, nil
+}
+
+// demoteMapSpreadField makes the slot after `{..base, ` an expression
+// when base is a map: the next element is an entry's key, `key => value`,
+// not a field label.
+func (r *completionRequest) demoteMapSpreadField() {
+	lit := r.ctx.structLit
+	if r.ctx.kind != ctxStructField || lit == nil || lit.Spread == nil {
+		return
+	}
+	if _, isMap := analysis.ResolveTypeVar(r.exprType(lit.Spread)).(*analysis.MapType); isMap {
+		r.ctx.kind = ctxExpr
+	}
 }
 
 // triggerCharacter is the character that opened the request, or "" for an

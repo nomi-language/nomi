@@ -279,7 +279,7 @@ test "shape" {
       (string_content))
     (body
       (pattern_assertion_binding
-        pattern: (list_pattern
+        pattern: (list
           (identifier)
           (identifier))
         value: (list
@@ -301,11 +301,13 @@ test "shape" {
       (string_content))
     (body
       (pattern_assertion_binding
-        pattern: (enum_pattern
-          (type_identifier)
-          (enum_pattern
-            (type_identifier)
-            (type_identifier)))
+        pattern: (call_expression
+          function: (type_identifier)
+          (call_expression
+            function: (type_field_access
+              (type_identifier)
+              (type_identifier))
+            (identifier)))
         value: (identifier)))))
 
 ================================================================================

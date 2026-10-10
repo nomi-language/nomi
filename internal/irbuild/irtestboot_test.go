@@ -95,8 +95,9 @@ func TestIRTestBoot_AGroupBootPublishesTheAppItsCasesRead(t *testing.T) {
 	}
 
 	ref := goldenReference(t, path)
-	if ref.exit != 0 || !strings.HasPrefix(ref.stdout, line) {
-		t.Fatalf("golden output: %s; want its output to begin %q", ref, line)
+	// The boot's output is reported under the case it ran for.
+	if ref.exit != 0 || !strings.Contains(ref.stdout, " :: group / reads the group's app\n  "+line) {
+		t.Fatalf("golden output: %s; want %q under the case", ref, line)
 	}
 }
 

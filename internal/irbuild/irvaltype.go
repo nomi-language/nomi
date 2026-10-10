@@ -239,12 +239,6 @@ func (g *gen) irStateVariants(v *ir.ValType, d *typeDef) {
 			form = ir.VariantFields
 		case "embedded":
 			form = ir.VariantEmbedded
-			if irEmbedsEnum(&d.variants[i]) {
-				// No value widens into an embedded enum: its one value
-				// carries no payload (irEmbedsEnum).
-				variants[i] = ir.Variant{Name: vd.nomi, Form: ir.VariantBare}
-				continue
-			}
 		default:
 			return
 		}

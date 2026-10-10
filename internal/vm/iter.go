@@ -33,8 +33,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			panic(p)
 		}
 	}()
-	if n.Signalling() && n.Op() != ir.IterMap && n.Op() != ir.IterFilter && n.Op() != ir.IterReduce &&
-		n.Op() != ir.IterTakeWhile && n.Op() != ir.IterEach && n.Op() != ir.IterIterate {
+	if n.Signalling() && !n.Op().HasSignallingForm() {
 		return fmt.Errorf("vm: signalling %s is not supported", n.Op())
 	}
 	src, err := fr.read(n.Arg(0))
@@ -171,17 +170,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 				return adapterOutcome(m.iterInvoke(f, runtime, item))
 			}))
 		} else if n.Signalling() {
-			fr.write(n.Dst(), rt.SeqFilterCtl(seq, func(runtime *rt.Frame, item any) (bool, rt.Ctl) {
-				result, ctl := adapterOutcome(m.iterInvoke(f, runtime, item))
-				if ctl == rt.CtlSkip || ctl == rt.CtlStop {
-					return false, ctl
-				}
-				accepted, ok := asBool(result)
-				if !ok {
-					panic(iterationFailure{fmt.Errorf("vm: filter callback returned %T, not Bool", result)})
-				}
-				return accepted, ctl
-			}))
+			fr.write(n.Dst(), rt.SeqFilterCtl(seq, m.ctlPredicate(f, n.Op())))
 		} else if n.Op() == ir.IterMap {
 			fr.write(n.Dst(), rt.SeqMap(seq, func(runtime *rt.Frame, item any) any {
 				return m.iterInvoke(f, runtime, item)
@@ -205,31 +194,21 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		if !ok || f.arity != 2 {
 			return fmt.Errorf("vm: reduce requires a binary function")
 		}
+		// The seed is always operand 1: the checker rejects a reduce without
+		// one (ir.IterReduce takes exactly three operands).
+		seed, err := fr.read(n.Arg(1))
+		if err != nil {
+			return err
+		}
 		if n.Signalling() {
 			fold := func(runtime *rt.Frame, acc, item any) (any, bool) {
 				return reduceOutcome(m.iterInvoke(f, runtime, acc, item))
-			}
-			if n.NumArgs() == 2 {
-				fr.write(n.Dst(), rt.SeqReduceFirstCtl(fr.runtime, seq, fold))
-				return nil
-			}
-			seed, err := fr.read(n.Arg(1))
-			if err != nil {
-				return err
 			}
 			fr.write(n.Dst(), rt.SeqReduceCtl(fr.runtime, seq, seed, fold))
 			return nil
 		}
 		fold := func(runtime *rt.Frame, acc, item any) any { return m.iterInvoke(f, runtime, acc, item) }
-		if n.NumArgs() == 2 {
-			fr.write(n.Dst(), rt.SeqReduceFirst(fr.runtime, seq, fold))
-		} else {
-			seed, err := fr.read(n.Arg(1))
-			if err != nil {
-				return err
-			}
-			fr.write(n.Dst(), rt.SeqReduce(fr.runtime, seq, seed, fold))
-		}
+		fr.write(n.Dst(), rt.SeqReduce(fr.runtime, seq, seed, fold))
 	case ir.IterJoin:
 		arg, err := fr.read(n.Arg(1))
 		if err != nil {
@@ -319,6 +298,15 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			}
 			return b
 		}
+		if n.Signalling() {
+			ctlPred := m.ctlPredicate(f, n.Op())
+			if n.Op() == ir.IterAny {
+				fr.write(n.Dst(), boolValue(rt.SeqAnyCtl(fr.runtime, seq, ctlPred)))
+			} else {
+				fr.write(n.Dst(), boolValue(rt.SeqAllCtl(fr.runtime, seq, ctlPred)))
+			}
+			return nil
+		}
 		switch n.Op() {
 		case ir.IterAny:
 			fr.write(n.Dst(), boolValue(rt.SeqAny(fr.runtime, seq, pred)))
@@ -335,6 +323,10 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		f, ok := callback.(*functionValue)
 		if !ok || f.arity != 1 {
 			return fmt.Errorf("vm: find requires a unary predicate")
+		}
+		if n.Signalling() {
+			fr.write(n.Dst(), maybeOf(rt.SeqFindCtl(fr.runtime, seq, m.ctlPredicate(f, n.Op()))))
+			return nil
 		}
 		fr.write(n.Dst(), maybeOf(rt.SeqFind(fr.runtime, seq, func(runtime *rt.Frame, item any) bool {
 			result := m.iterInvoke(f, runtime, item)
@@ -457,18 +449,12 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			}
 			return b
 		}
+		if n.Signalling() && n.Op() == ir.IterTakeWhile {
+			fr.write(n.Dst(), rt.SeqTakeWhileCtl(seq, m.ctlPredicate(f, n.Op())))
+			return nil
+		}
 		if n.Signalling() {
-			fr.write(n.Dst(), rt.SeqTakeWhileCtl(seq, func(runtime *rt.Frame, item any) (bool, rt.Ctl) {
-				result, ctl := adapterOutcome(m.iterInvoke(f, runtime, item))
-				if ctl == rt.CtlSkip || ctl == rt.CtlStop {
-					return false, ctl
-				}
-				keep, ok := asBool(result)
-				if !ok {
-					panic(iterationFailure{fmt.Errorf("vm: take_while callback returned %T, not Bool", result)})
-				}
-				return keep, ctl
-			}))
+			fr.write(n.Dst(), rt.SeqDropWhileCtl(seq, m.ctlPredicate(f, n.Op())))
 			return nil
 		}
 		if n.Op() == ir.IterTakeWhile {
@@ -522,7 +508,27 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		if err != nil {
 			return err
 		}
-		if n.Op() == ir.IterFlatMapList {
+		if n.Signalling() && n.Op() == ir.IterFlatMapList {
+			fr.write(n.Dst(), rt.SeqFlatMapListCtl(seq, func(runtime *rt.Frame, item any) (*list, rt.Ctl) {
+				result, ctl := adapterOutcome(m.iterInvoke(f, runtime, item))
+				if ctl == rt.CtlSkip || ctl == rt.CtlStop {
+					return nil, ctl
+				}
+				return iterListResult(result), ctl
+			}))
+		} else if n.Signalling() {
+			fr.write(n.Dst(), rt.SeqFlatMapCtl(seq, func(runtime *rt.Frame, item any) (rt.Seq[any], rt.Ctl) {
+				result, ctl := adapterOutcome(m.iterInvoke(f, runtime, item))
+				if ctl == rt.CtlSkip || ctl == rt.CtlStop {
+					return rt.Seq[any]{}, ctl
+				}
+				inner, ok := result.(rt.Seq[any])
+				if !ok {
+					panic(iterationFailure{fmt.Errorf("vm: flat_map callback returned no sequence")})
+				}
+				return inner, ctl
+			}))
+		} else if n.Op() == ir.IterFlatMapList {
 			fr.write(n.Dst(), rt.SeqFlatMapList(seq, func(runtime *rt.Frame, item any) *list {
 				return iterListResult(m.iterInvoke(f, runtime, item))
 			}))
@@ -697,7 +703,7 @@ type ctlValue struct {
 
 func (*ctlValue) OpaqueText() string { return "<control>" }
 
-// adapterOutcome reads a map or filter callback's answer as rt.SeqMapCtl's
+// adapterOutcome reads an adapter-form callback's answer as rt.SeqMapCtl's
 // (value, Ctl) pair. An ordinary return is CtlEmit.
 func adapterOutcome(v any) (any, rt.Ctl) {
 	c, ok := v.(*ctlValue)
@@ -713,6 +719,23 @@ func adapterOutcome(v any) (any, rt.Ctl) {
 		return nil, rt.CtlStop
 	}
 	panic(iterationFailure{fmt.Errorf("vm: adapter callback answered %s", c.ctl)})
+}
+
+// ctlPredicate is a signalling Bool callback read as the (decision, Ctl) pair
+// rt's filter, take_while, drop_while, find, any? and all? drivers take. A
+// `continue` or bare `break` carries no decision.
+func (m *Machine) ctlPredicate(f *functionValue, op ir.IterOp) func(*rt.Frame, any) (bool, rt.Ctl) {
+	return func(runtime *rt.Frame, item any) (bool, rt.Ctl) {
+		result, ctl := adapterOutcome(m.iterInvoke(f, runtime, item))
+		if ctl == rt.CtlSkip || ctl == rt.CtlStop {
+			return false, ctl
+		}
+		b, ok := asBool(result)
+		if !ok {
+			panic(iterationFailure{fmt.Errorf("vm: %s callback returned %T, not Bool", op, result)})
+		}
+		return b, ctl
+	}
 }
 
 // reduceOutcome reads a reduce callback's answer as rt.SeqReduceCtl's

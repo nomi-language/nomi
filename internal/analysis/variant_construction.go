@@ -128,6 +128,9 @@ func (c *checker) checkVariantCtorCall(n *ast.Call, form variantCtor) (Type, boo
 			return form.et, true
 		}
 		if dt, ok := vd.Embedded.(*DistinctType); ok {
+			if c.reportNamedCtorArgs(n.Args, distinctValueNameHint) {
+				return form.et, true
+			}
 			if callHasPlaceholder(n.Args) || ContainsTypeParam(dt.Inner) {
 				return nil, false
 			}
@@ -163,6 +166,47 @@ func (c *checker) openVariantEnum(ty Type) Type {
 		return ty
 	}
 	return instantiateUnboundCalleeParams(et, c.fnTypeParams, c)
+}
+
+// bareVariantCallee reports how a call spells its callee when that callee is
+// a variant with no payload (`Shape.Circle(0)`, `.Circle(0)`, `None(1)`,
+// `Shape.Dot()`). Such a variant is a value, not a constructor, so any call
+// of it is an error.
+func (c *checker) bareVariantCallee(callee ast.Node, fnTy Type) (string, bool) {
+	et, ok := fnTy.(*EnumType)
+	if !ok {
+		return "", false
+	}
+	var name, label string
+	switch fn := callee.(type) {
+	case *ast.FieldAccess:
+		if fn.Field == nil || !c.isVariantQualifier(fn, et) {
+			return "", false
+		}
+		name, label = fn.Field.Name, et.Name+"."+fn.Field.Name
+	case *ast.DotVariant:
+		if fn.ResolvedEnum == "" {
+			return "", false
+		}
+		name, label = fn.Name, "."+fn.Name
+	case *ast.Ident:
+		if !calleeIsVariantConstructor(c, fn) {
+			return "", false
+		}
+		name, label = fn.Name, fn.Name
+	case *ast.TypeIdent:
+		if !calleeIsVariantConstructor(c, fn) {
+			return "", false
+		}
+		name, label = fn.Name, fn.Name
+	default:
+		return "", false
+	}
+	vd := variantDefNamed(et, name)
+	if vd == nil || vd.Kind != VariantBare {
+		return "", false
+	}
+	return label, true
 }
 
 // checkArgs walks call arguments so nested expressions are still checked
@@ -390,4 +434,75 @@ func sameNominal(t, want Type) bool {
 		return ok && d.Name == w.Name && (d.Origin == "" || w.Origin == "" || d.Origin == w.Origin)
 	}
 	return false
+}
+
+// Positional construction takes no names. A positional variant's payload
+// (`Some(1)`, `Shape.Sq(2)`), a distinct type's wrapped value (`Id(5)`), and
+// a struct's record call form (`Point({x: 1})`) have no parameter a name
+// could name, so a named argument there is an error at the name. Without it
+// the name is dropped: `Some(l: 1)` checks as `Some(1)` against an expected
+// type, and the IR builder declines the call.
+
+const (
+	variantPayloadNameHint = "a variant's payload is positional and has no name; pass it by position"
+	distinctValueNameHint  = "a distinct type's constructor takes the value it wraps by position; pass it without a name"
+	structCallFormNameHint = "a struct's call form takes one record with the fields in it; write %s({...}) or %s{...}"
+)
+
+// reportNamedCtorArgs reports each named argument of a positional
+// construction at its name, with hint, checks every argument's value so
+// nested expressions are still checked, and reports whether any was named.
+// It reports nothing, and checks nothing, when no argument is named.
+func (c *checker) reportNamedCtorArgs(args []ast.Node, hint string) bool {
+	named := false
+	for _, a := range args {
+		if na, ok := a.(*ast.NamedArg); ok {
+			c.report(TypeError{Line: na.Line, Col: na.Col, Message: "no parameter named '" + na.Name + "'"}.WithHint(hint))
+			named = true
+		}
+	}
+	if !named {
+		return false
+	}
+	for _, a := range args {
+		c.checkNode(argValue(a))
+	}
+	return true
+}
+
+// argValue is the value a call argument passes: a named argument's value,
+// or the argument itself.
+func argValue(a ast.Node) ast.Node {
+	if na, ok := a.(*ast.NamedArg); ok {
+		return na.Value
+	}
+	return a
+}
+
+// calleeIsPositionalVariant reports whether a call's callee names a variant
+// whose constructor is a function of its positional payload: `Some`,
+// `Shape.Sq`, `.Sq`, or an imported or aliased one. Struct-shaped, embedded
+// and bare variants are claimed earlier (variantCtorCallee,
+// bareVariantCallee).
+func (c *checker) calleeIsPositionalVariant(callee ast.Node, fnTy Type) bool {
+	if _, ok := fnTy.(*FuncType); !ok {
+		return false
+	}
+	if dv, ok := callee.(*ast.DotVariant); ok {
+		return dv.ResolvedEnum != ""
+	}
+	return calleeIsVariantConstructor(c, callee)
+}
+
+// rejectNamedVariantArgs reports the named arguments of a call to a
+// positional variant. The call is then untyped: the rejected call says
+// nothing about the enum's type arguments, and an untyped call adds no
+// second error (`x = Some(l: 1)` is not also "not locally determined").
+// ok is false when the callee is not a positional variant or no argument is
+// named.
+func (c *checker) rejectNamedVariantArgs(n *ast.Call, fnTy Type) (Type, bool) {
+	if !c.calleeIsPositionalVariant(n.Func, fnTy) || !c.reportNamedCtorArgs(n.Args, variantPayloadNameHint) {
+		return nil, false
+	}
+	return nil, true
 }

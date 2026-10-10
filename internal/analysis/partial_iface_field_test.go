@@ -100,7 +100,7 @@ pub struct Outer {
 
 fn patch(): Outer {
   base = Outer{inner: Inner{clock: FakeClock{t: 1}, tag: "a"}, port: 80}
-  Struct.update(base, {inner: {clock: FakeClock{t: 4242}}})
+  Struct.update(base, {inner: {.., clock: FakeClock{t: 4242}}})
 }
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -141,7 +141,7 @@ pub struct Outer {
 
 fn patch(): Outer {
   base = Outer{inner: Inner{clock: FakeClock{t: 1}, tag: "a"}, port: 80}
-  Struct.update(base, {inner: {clock: NoClock{t: 4242}}})
+  Struct.update(base, {inner: {.., clock: NoClock{t: 4242}}})
 }
 `
 	_, errs := checkSourceWithStdlib(src)

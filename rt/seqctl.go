@@ -53,31 +53,3 @@ func SeqReduceCtl[T, U any](fr *Frame, src Seq[T], seed U,
 	})
 	return acc
 }
-
-// SeqReduceFirstCtl is SeqReduceCtl for a callback with no seed, where the
-// first element seeds the accumulator and the callback never runs for it.
-//
-// An empty source faults with the same text as the seedless fold without
-// control flow, from the same place — there is one encoding of that message
-// (see emptyReduceText).
-//
-// U and T are one type by construction here, as they are in SeqReduceFirst: a
-// fold the first element seeds has an accumulator of the element's type.
-func SeqReduceFirstCtl[T any](fr *Frame, src Seq[T],
-	f func(fr *Frame, acc T, item T) (T, bool)) T {
-	var acc T
-	seeded := false
-	src.Run(fr, func(fr *Frame, item T) bool {
-		if !seeded {
-			acc, seeded = item, true
-			return true
-		}
-		next, keep := f(fr, acc, item)
-		acc = next
-		return keep
-	})
-	if !seeded {
-		Trap(emptyReduceText())
-	}
-	return acc
-}

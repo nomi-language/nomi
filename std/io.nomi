@@ -87,13 +87,13 @@ pub struct Captured<T> {
     /// Everything `io.print`, `io.write` and `io.inspect` wrote while `run`
     /// ran, byte for byte.
     output: String
-    /// `output` with each line `run` read written in where it was read, in
-    /// two columns. A line read is `> ` followed by exactly the text read.
-    /// Every output line is two spaces followed by the line as `run` wrote
-    /// it, whatever it starts with, and a blank line stays blank. Part of a
-    /// line written before a read (a prompt such as `io.write("age: ")`) is
-    /// an output line of its own, and the line read follows it: `  age: `
-    /// then `> 36`. A read at the end of the input adds nothing, and its
+    /// `output` with each line `run` read written in where it was read,
+    /// behind a four-column gutter. A line read is `>>` and two spaces then
+    /// exactly the text read. Every output line is four spaces then the line
+    /// as `run` wrote it, whatever it starts with, and a blank line stays
+    /// blank. Part of a line written before a read (a prompt such as
+    /// `io.write("age: ")`) is an output line of its own, and the line read
+    /// follows it: `    age: ` then `>>  36`. A read at the end of the input adds nothing, and its
     /// prompt stays where it was, on one line with whatever is printed next.
     transcript: String
 }
@@ -137,7 +137,7 @@ pub struct Captured<T> {
 //! })
 //!
 //! assert asked.output == "name: hello, Ada\n"
-//! assert asked.transcript == "  name: \n> Ada\n  hello, Ada\n"
+//! assert asked.transcript == "    name: \n>>  Ada\n    hello, Ada\n"
 //
 pub fn capture<T>(input: String, run: () -> T): Captured<T> {
     run_captured(input, run, |value, output, transcript| Captured{
@@ -195,16 +195,16 @@ fn replay_reason(unread: Int): String {
 /// Runs `run` against a script of an interactive session and answers a
 /// `Replayed` that `assert` checks: `assert io.replay(script, main)`.
 ///
-/// The script is written as `Captured.transcript` reads, in two columns.
-/// A line that starts with `> ` is input, fed to `io.read_line` in order:
-/// what follows `> ` is the line typed, and `>` alone is an empty line. A
-/// line that starts with two spaces is output the program must print, as it
-/// printed it, whatever it starts with. A blank line is a blank output line.
-/// A prompt the program writes before reading (`io.write("age: ")`) is
-/// output on a line of its own, and the input follows on the next line, as
-/// a terminal shows it. Any other line traps, naming the line. In a `"""`
-/// script, write the input lines two columns left of the output: the
-/// leftmost line sets the indentation that is removed.
+/// The script is written as `Captured.transcript` reads, behind a
+/// four-column gutter. A line that starts with `>>` and two spaces is
+/// input, fed to `io.read_line` in order: what follows is the line typed,
+/// and `>>` alone is an empty line. A line that starts with four spaces is
+/// output the program must print, as it printed it. A blank line is a
+/// blank output line. A prompt written before a read (`io.write("age: ")`)
+/// is output on a line of its own, with the input on the next line. Any
+/// other line traps, naming the line, with a hint that writes it with the
+/// right gutter (`>> 500` is one). In a `"""` script, write the input
+/// lines four columns left of the output, at the closing quotes' column.
 ///
 /// `run` runs as under `io.capture`, and its transcript must equal the
 /// script. Trailing spaces, tabs and carriage returns on each line, and a
@@ -212,7 +212,7 @@ fn replay_reason(unread: Int): String {
 /// newline, matches output that ends in one, and a prompt's trailing space
 /// need not be written. Once the script's input is used up, `io.read_line`
 /// answers `Err("eof")`, and that read adds nothing to the transcript; the
-/// prompt it answered stays on one line with what is printed next. A `>`
+/// prompt it answered stays on one line with what is printed next. A `>>`
 /// line the program never read fails the replay. A program that reads
 /// nothing is checked more simply through `io.capture(input, run).output`.
 /// A failure shows a line diff: `-` lines are only in the script, `+` lines
@@ -228,26 +228,26 @@ fn replay_reason(unread: Int): String {
 //!
 //! assert replay(
 //!     """
-//!       name:
-//!     > Ada
-//!       hello, Ada
+//!         name:
+//!     >>  Ada
+//!         hello, Ada
 //!     """,
 //!     greet,
 //! )
 //!
 //! assert replay(
 //!     """
-//!       name: hello, stranger
+//!         name: hello, stranger
 //!     """,
 //!     greet,
 //! )
 //!
 //! refute replay(
 //!     """
-//!       name:
-//!     > Ada
-//!     > Grace
-//!       hello, Ada
+//!         name:
+//!     >>  Ada
+//!     >>  Grace
+//!         hello, Ada
 //!     """,
 //!     greet,
 //! )
@@ -263,9 +263,9 @@ fn replay_reason(unread: Int): String {
 //!
 //! assert replay(
 //!     """
-//!       >
-//!     > hey
-//!       you said hey
+//!         >
+//!     >>  hey
+//!         you said hey
 //!     """,
 //!     repl,
 //! )

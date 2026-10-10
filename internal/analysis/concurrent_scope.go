@@ -300,10 +300,13 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 			s.walkBody(owner, item, inConcurrent)
 		}
 	case *ast.VectorLit:
-		for _, item := range node.Items {
+		for _, item := range node.Operands() {
 			s.walkBody(owner, item, inConcurrent)
 		}
 	case *ast.SetLit:
+		if node.Spread != nil {
+			s.walkBody(owner, node.Spread, inConcurrent)
+		}
 		for _, item := range node.Items {
 			s.walkBody(owner, item, inConcurrent)
 		}
@@ -312,6 +315,9 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 			s.walkBody(owner, item, inConcurrent)
 		}
 	case *ast.MapLit:
+		if node.Spread != nil {
+			s.walkBody(owner, node.Spread, inConcurrent)
+		}
 		for _, entry := range node.Entries {
 			s.walkBody(owner, entry.Key, inConcurrent)
 			s.walkBody(owner, entry.Value, inConcurrent)
@@ -605,10 +611,13 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 				walk(item, enclosing, inConcurrent)
 			}
 		case *ast.VectorLit:
-			for _, item := range node.Items {
+			for _, item := range node.Operands() {
 				walk(item, enclosing, inConcurrent)
 			}
 		case *ast.SetLit:
+			if node.Spread != nil {
+				walk(node.Spread, enclosing, inConcurrent)
+			}
 			for _, item := range node.Items {
 				walk(item, enclosing, inConcurrent)
 			}
@@ -617,6 +626,9 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 				walk(item, enclosing, inConcurrent)
 			}
 		case *ast.MapLit:
+			if node.Spread != nil {
+				walk(node.Spread, enclosing, inConcurrent)
+			}
 			for _, entry := range node.Entries {
 				walk(entry.Key, enclosing, inConcurrent)
 				walk(entry.Value, enclosing, inConcurrent)

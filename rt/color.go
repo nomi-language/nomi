@@ -44,6 +44,9 @@ func ColorEnabledFor(w io.Writer) bool {
 	if os.Getenv("CLICOLOR_FORCE") != "" {
 		return true
 	}
+	if t, ok := w.(interface{ colourTarget() io.Writer }); ok {
+		w = t.colourTarget()
+	}
 	f, ok := w.(*os.File)
 	if !ok {
 		return false

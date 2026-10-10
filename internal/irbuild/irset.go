@@ -53,6 +53,9 @@ func (bl *irScalarBuilder) setMake(t *ast.SetLit) (ir.Temp, kind, bool, bool) {
 // expected element kind each item is lowered against.
 func (bl *irScalarBuilder) setMakeOf(t *ast.SetLit, elem kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	if t.Spread != nil {
+		return bl.setUpdate(t)
+	}
 	if len(t.Items) == 0 {
 		n := ir.NewEmptySet(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
 		bl.b.Append(n)
@@ -63,7 +66,7 @@ func (bl *irScalarBuilder) setMakeOf(t *ast.SetLit, elem kind) (ir.Temp, kind, b
 	if parts := bl.literalParts(t, tagEmptySet); want == kindInvalid && parts != nil {
 		want = parts[0]
 	}
-	values, elem, ok := bl.lowerSameKindItems(t.Items, want, irSetElemKind)
+	values, elem, ok := bl.lowerSameKindItems(t, tagEmptySet, t.Items, want, irSetElemKind)
 	if !ok {
 		return no()
 	}

@@ -45,7 +45,7 @@ func (g *gen) irBuildMainFailure() {
 		return
 	}
 	result := g.typeOf(main.ReturnTypeExpr)
-	anchor := g.preludeByName["Result"]
+	anchor, _ := g.preludeNamed("Result")
 	if anchor == nil || result.tag != tagNamed || result.def == nil || result.def.preludeOf == nil ||
 		result.def.preludeOf.spec != anchor.spec || len(result.def.preludeArgs) != 2 {
 		return

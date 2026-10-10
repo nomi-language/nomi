@@ -85,7 +85,7 @@ project root (the nearest `nomi.toml`, else `.git`):
 | `<leader>tr` | `:NomiTest` / `:NomiTest nearest` | the `test`, `tests` group or attached test around the cursor (`nomi test <file> --line <header line>`) |
 | `<leader>tt` | `:NomiTest file` | every test in the file |
 | `<leader>tT` | `:NomiTest all` | `nomi test` from the project root |
-| `<leader>tl` | `:NomiTest last` | the previous command again |
+| `<leader>tl` | `:NomiTest last` | the previous command again; a single test is found again by name (an attached test by its owner and its place among that owner's prompts) and run at the line it starts on now, or reported gone |
 | `<leader>cx` | `:NomiRun` | `nomi run <file>` |
 
 `nomi-lsp` also serves code lenses (Run test, Run tests, Run attached test,
@@ -96,16 +96,17 @@ current, call it from an autocmd, for example on `LspAttach`, `BufEnter` and
 `InsertLeave` for `*.nomi` (LazyVim does this when `codelens.enabled` is set
 in its lspconfig options).
 
-`nomi test --line` matches a test's first line only, so the cursor may be
-anywhere inside the test: tree-sitter finds the enclosing one. Set
+`nomi test --line` matches a test's first line, so the cursor may be
+anywhere inside the test: tree-sitter finds the enclosing one. A line no test
+starts on is an error (`no test at <file>:<line>`), not an empty pass. Set
 `vim.g.nomi_keymaps = false` to skip the keys; the commands stay. The keys
 follow LazyVim's test extra.
 
 ### neotest
 
 `lua/nomi/neotest.lua` is a [neotest](https://github.com/nvim-neotest/neotest)
-adapter. Nothing in the plugin requires it or neotest; it loads only when a
-neotest spec names it:
+adapter. Nothing in the plugin requires it; it loads only when a neotest
+spec names it:
 
 ```lua
 {
@@ -136,13 +137,21 @@ tree, the per-test output panel, and jumping between failures. It discovers
 `test` declarations, `tests` groups (as namespaces) and attached `//!` tests
 in every `.nomi` file, and runs them with `nomi test --format json`, which
 prints one JSON record per test (see the spec's §36). Results are matched to
-positions by file and first line.
+positions by file and first line. The run sets `NOMI_COLOR=always`, so each
+test's output in the output panel is the text report's block for it, coloured
+and with its Nomi source highlighted; diagnostics and the summary's short
+text stay plain.
 
-When the adapter is loaded, `<leader>tr`, `<leader>tt`, `<leader>tT` and
-`<leader>tl` call neotest (`run.run()`, `run.run(<file>)`, `run.run(<project
-root>)`, `run.run_last()`); requiring neotest at that point loads it if it
-is lazy. Without the adapter they use the terminal runner, and neotest is
-never loaded. `<leader>cx` always uses the terminal. A `nomi` too old for
+When neotest is configured with the adapter, `<leader>tr`, `<leader>tt`,
+`<leader>tT` and `<leader>tl` call neotest (`run.run()`, `run.run(<file>)`,
+`run.run(<project root>)`, `run.run_last()`). The buffer's keys hide
+LazyVim's global ones, which are what would load a lazy neotest, so at
+keypress the plugin requires neotest itself when it is installed (in
+lazy.nvim's plugin list, or on 'runtimepath'). That loads it and runs its
+spec's `opts`, and the keys use neotest when the `nomi` adapter is among its
+adapters. Otherwise they use the terminal runner. When neotest is not
+installed it is never loaded; when it is installed without the adapter, the
+first test key loads it to find that out. `<leader>cx` always uses the terminal. A `nomi` too old for
 `--format json` shows up in neotest as failed tests whose error says so.
 
 ## Configuration
@@ -284,3 +293,8 @@ from the same grammar:
 
 The script fails if a rename no longer finds its source text or if any output
 capture is not a name Neovim or the nvim-treesitter plugins recognise.
+
+`make test-nvim` builds the parser and runs `tests/run.lua` headless: the
+test keys' neotest detection, the runner's rerun of a moved or deleted test,
+and the neotest adapter's position ids, with neotest, lazy.nvim and
+snacks.nvim stubbed.

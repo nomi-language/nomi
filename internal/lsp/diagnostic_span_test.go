@@ -83,6 +83,23 @@ func TestPublishedDiagnostics_RangeHintsAndRelated(t *testing.T) {
 	}
 }
 
+// `embeds` of an enum is published at the embedded name with its help, and
+// the server survives a body that constructs and matches the rejected
+// variant.
+func TestPublishedDiagnostics_EmbedsEnum(t *testing.T) {
+	src := "enum Shape {\n    Square Int\n    Dot\n}\n\nenum Drawable {\n    embeds Shape\n    Line\n}\n\n" +
+		"fn side(d: Drawable): Int {\n    case d {\n        Drawable.Shape(Shape.Square(n)) -> n\n        _ -> 0\n    }\n}\n\n" +
+		"fn main() {\n    side(Drawable.Shape(Shape.Dot))\n}\n"
+	diags := publishedFor(t, NewServer(), src, true)
+	d := findDiag(t, diags, "`Shape` is an enum, and an enum cannot be embedded in another enum")
+	if got := rangeText(d.Range); got != "6:11-6:16" {
+		t.Errorf("range %s, want 6:11-6:16", got)
+	}
+	if !strings.HasSuffix(d.Message, "\nhelp: to hold a `Shape` in `Drawable`, declare a variant whose payload is the enum: `Shape Shape`") {
+		t.Errorf("message %q lacks its help line", d.Message)
+	}
+}
+
 func TestClientRelatedInformation(t *testing.T) {
 	yes := true
 	params := &protocol.InitializeParams{}

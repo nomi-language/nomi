@@ -16,6 +16,7 @@ import (
 // and this test would say nothing about lowering.
 func TestCheck_ReportsWhatTheCompilerCannotLower(t *testing.T) {
 	path := writeProgram(t, `import std/io
+import std/iter.Iter.{find}
 
 fn skip_odd(n: Int): Int {
   if n % 2 == 1 {
@@ -36,7 +37,7 @@ fn evens(xs: List<Int>): List<Int> {
 }
 
 fn first_big(xs: List<Int>): Maybe<Int> {
-  Iter.find(xs, is_big)
+  find(xs, is_big)
 }
 
 fn unused(xs: List<Int>): Maybe<Int> {
@@ -59,10 +60,10 @@ fn main() {
 		hint      string
 	}
 	wants := []want{
-		{18, 20, "this call to `skip_odd` is not supported yet, so `fn evens` cannot run",
+		{19, 20, "this call to `skip_odd` is not supported yet, so `fn evens` cannot run",
 			"`skip_odd` uses break or continue, so pass it as the callback itself"},
-		{22, 17, "using `is_big` here is not supported yet, so `fn first_big` cannot run",
-			"so far only Iter.map, Iter.filter, Iter.take_while, Iter.each, Iter.iterate and Iter.reduce"},
+		{23, 12, "using `is_big` here is not supported yet, so `fn first_big` cannot run",
+			"runs as a callback only when the iteration function is named with its owner, as in `Iter.find(xs, is_big)`"},
 	}
 	if len(ds) != len(wants) {
 		t.Fatalf("got %d diagnostics, want %d (an unreached body is not reported):\n%v", len(ds), len(wants), err)
@@ -93,7 +94,7 @@ fn add(a: Int, b: Int): Int {
 }
 
 fn main() {
-  io.print(Iter.reduce([1, 2, 3], add))
+  io.print(Iter.reduce([1, 2, 3], |acc = 0, n| add(acc, n)))
 }
 `)
 	if err := vmhost.Check(path); err != nil {

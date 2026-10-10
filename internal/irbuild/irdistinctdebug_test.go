@@ -7,7 +7,7 @@ func TestIRDistinctDebug_CompleteProgram(t *testing.T) {
 fn main() {
  id = Id(42)
  dbg id
- raw = Int(id)
+ Id(raw) = id
  dbg raw
 }
 `, "dbg line 4: id = Id(42)\ndbg line 6: raw = 42\n")
@@ -32,8 +32,8 @@ type Name String
 type Ratio Float
 type Enabled Bool
 fn main() {
- name = dbg Name("a\"b")
- io.print(String(name))
+ Name(s) = dbg Name("a\"b")
+ io.print(s)
  dbg Ratio(1.5)
  dbg Enabled(True)
 }

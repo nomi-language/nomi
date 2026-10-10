@@ -90,3 +90,30 @@ fn main() {
 }
 `, "1\n2\nvector\n3\nvector\n1\nSome(2)\n#[1, 2]\n")
 }
+
+// A named spread at either end of a vector literal is Vector.concat: the
+// spread, then the elements, are evaluated (as a list spread's tail is
+// first), and an empty `#[]` spread takes the elements' kind.
+func TestIRVector_NamedSpread(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+fn mark(n: Int): Int { io.print(n) n }
+fn vector(v: Vector<Int>): Vector<Int> { io.print("vector") v }
+struct Team { names: Vector<String> }
+fn main() {
+  names = #["Ada", "Bo"]
+  io.inspect(#[..names, "Noah"])
+  io.inspect(#["Noah", ..names])
+  io.inspect(#[..names, "Noah", "Eve"])
+  io.inspect(#[..#[], 1, 2])
+  io.inspect(#[1, ..#[]])
+  maybes: Vector<Maybe<Int>> = #[..#[], None]
+  io.inspect(maybes)
+  io.inspect(#[..vector(#[1]), mark(2)])
+  io.inspect(#[mark(3), ..vector(#[4])])
+  t = Team{names: names}
+  io.inspect(#[..t.names, "Cy"])
+  io.inspect({..t, names: #["Zed", ..]})
+  io.inspect(names)
+}
+`, "#[\"Ada\", \"Bo\", \"Noah\"]\n#[\"Noah\", \"Ada\", \"Bo\"]\n#[\"Ada\", \"Bo\", \"Noah\", \"Eve\"]\n#[1, 2]\n#[1]\n#[None]\nvector\n2\n#[1, 2]\nvector\n3\n#[3, 4]\n#[\"Ada\", \"Bo\", \"Cy\"]\nTeam{names: #[\"Zed\", \"Ada\", \"Bo\"]}\n#[\"Ada\", \"Bo\"]\n")
+}

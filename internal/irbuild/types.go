@@ -789,8 +789,8 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 			}
 
 		case "embedded":
-			// `embeds T`, where T is a struct, a distinct type or an ENUM. T
-			// may be declared in a SIBLING FILE, in which case it is reached as
+			// `embeds T`, where T is a struct or a distinct type (the checker
+			// rejects an enum, spec §8). T may be declared in a SIBLING FILE, in which case it is reached as
 			// a mirror and its layout is the declaring package's — see
 			// foreign.go. A type from anywhere else has no *typeDef and is
 			// refused by name.
@@ -807,22 +807,10 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 			//   embeds <marker>            payload is the marker, which is
 			//                              zero-sized, so it gets no slot and
 			//                              a binding must materialize it
-			//   embeds <enum>              payload is the enum, and no value
-			//                              widens into it — see below
 			//
 			// The distinct is stored rather than its inner so the enum's Go
 			// field keeps the distinct's nominal identity; the single unwrap
 			// lives at one place, the pattern.
-			//
-			// # THE EMBEDDED ENUM
-			//
-			// Unlike `embeds <struct>`, which widens, an embedded enum takes
-			// no value: `f(Shape.Circle(1.5))` where a Drawable is wanted is
-			// a front-end error, and `Drawable.Shape(Shape.Circle(1.5))`
-			// traps ("cannot call Shape"). Its one value is
-			// `Drawable.Shape{}`, which has no payload; the
-			// VM lays the variant out bare and builds and matches it that way
-			// (irEmbedsEnum). See testdata/enum_embeds_enum.nomi.
 			st, ok := v.EmbeddedTypeExpr.(*ast.SimpleType)
 			if !ok {
 				d.refusals = append(d.refusals, refusal{

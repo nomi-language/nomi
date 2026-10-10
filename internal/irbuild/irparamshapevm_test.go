@@ -191,6 +191,11 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 	for _, e := range entries {
 		mod, fn := e.mod, e.fn
 		total++
+		// No argument exists for an Infallible parameter, as the population
+		// tests record (vmNeverParamClass).
+		if vmNeverParam(fn) {
+			continue
+		}
 		// A boot starts on a boot frame, as TestIRRetainedPopulationRuns does;
 		// its two parameters are the startup snapshot and a root Context,
 		// not leaves.

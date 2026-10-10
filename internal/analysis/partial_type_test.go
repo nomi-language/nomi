@@ -45,11 +45,15 @@ func TestDeepPartialMatches_NarrowerAnonStruct(t *testing.T) {
 	}
 }
 
-func TestDeepPartialMatches_NestedAnonStruct(t *testing.T) {
+// A patch's fields are whole values: a partial anonymous struct at a struct
+// field is not an Address. A nested update is a literal with a bare `..`,
+// which only a literal patch holds and which the checker types as the whole
+// field.
+func TestDeepPartialMatches_NestedAnonStructIsNotAWholeValue(t *testing.T) {
 	person, _ := mkPerson()
 	patch := anon(FieldDef{Name: "address", Type: anon(FieldDef{Name: "city", Type: TypeString})})
-	if !pc().deepPartialMatches(patch, person, nil, Pos{}) {
-		t.Fatal("{address: {city: String}} should match Partial<Person>")
+	if pc().deepPartialMatches(patch, person, nil, Pos{}) {
+		t.Fatal("{address: {city: String}} should not match Partial<Person>")
 	}
 }
 

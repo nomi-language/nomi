@@ -105,8 +105,8 @@ fn main() {
     x: Int
   }
   m: Meters = Meters(3)
-  f = |x: Int, d: Meters = Meters(1)| x + Int(d)
-  g: (Meters) -> Int = |d| Int(d)
+  f = |x: Int, d: Meters = Meters(1)| case d { Meters(n) -> x + n }
+  g: (Meters) -> Int = |Meters(n)| n
   p: Pt = Pt{x: 4}
   io.inspect(m)
   io.inspect(f(1))

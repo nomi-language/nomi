@@ -52,6 +52,14 @@ func (bl *irScalarBuilder) caseArmTest(t ast.Node, br *ast.CaseBranch, adHoc boo
 			bl.patternBinding(ident, ident.Name, subj, sk)
 		}
 	} else if !bl.casePatternTest(br, adHoc, subj, sk, target, next) {
+		// The arm's pattern is where the decline is reported, unless a
+		// pattern or expression inside it already placed it. An ad-hoc arm's
+		// condition is an expression.
+		if adHoc {
+			irDeclineAtNode(br.Pattern)
+		} else {
+			irDeclineAtPattern(br.Pattern, "a `case` pattern outside the retained tests")
+		}
 		return nil, nil, false
 	}
 	bl.bindAsNames(asPattern, subj, sk)
@@ -88,6 +96,13 @@ func (bl *irScalarBuilder) casePatternTest(br *ast.CaseBranch, adHoc bool, subj 
 	if cp, isCodepoint := br.Pattern.(*ast.CodepointLit); isCodepoint {
 		if !bl.codepointCaseTest(cp, subj, sk, target, next) {
 			irDeclineNote("a codepoint literal pattern over a subject that is not a Codepoint")
+			return false
+		}
+		return true
+	}
+	if _, _, prefix := strPrefixPattern(br.Pattern); prefix {
+		if !bl.strPrefixTest(br.Pattern, subj, sk, target, next) {
+			irDeclineNote("a string prefix pattern over a subject that is not a String: " + sk.nomi())
 			return false
 		}
 		return true

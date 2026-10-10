@@ -1,7 +1,8 @@
 package rt
 
 import (
-	"fmt"
+	"errors"
+	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,19 +25,20 @@ import (
 // # The transcript
 //
 // Beside the output a capture keeps a transcript: the output with each line
-// the program read written in at the point it was read, in two columns. A
-// line read is InputMarker followed by exactly the text read. Every output
-// line is OutputGutter followed by the line exactly as the program wrote it,
-// and a blank output line stays blank. Output is never escaped: what tells
-// the two apart is the first two columns.
+// the program read written in at the point it was read, behind a four-column
+// gutter, Nomi's indent. A line read is InputMarker, `>>` and two spaces,
+// followed by exactly the text read. Every output line is OutputGutter, four
+// spaces, followed by the line exactly as the program wrote it, and a blank
+// output line stays blank. Output is never escaped: what tells the two apart
+// is the first four columns.
 //
 // What the program wrote of a line before a read (a prompt with no newline)
 // is output, and the read ends that line, as the newline typed after the
 // input does in a terminal:
 //
-//	io.write("Your age: ") then a read of "36"   ->   "  Your age: " and "> 36"
-//	io.write("> ") then a read of "north"         ->   "  > " and "> north"
-//	a read of "Ada" at the start of a line         ->   "> Ada"
+//	io.write("Your age: ") then a read of "36"   ->   "    Your age: " and ">>  36"
+//	io.write("> ") then a read of "north"         ->   "    > " and ">>  north"
+//	a read of "Ada" at the start of a line         ->   ">>  Ada"
 //
 // A read at the end of input writes no line and leaves the prompt it
 // answered in place, so the prompt and whatever follows it are one output
@@ -61,13 +63,16 @@ type Capture struct {
 	line   strings.Builder
 	closed bool
 	outer  *Capture
+	// test is set for a test case's capture (EnterTestCapture): it collects
+	// the case's output, `dbg` included, and never answers a read.
+	test bool
 }
 
 // InputMarker starts a transcript line the program read; OutputGutter starts
-// every non-blank output line.
+// every non-blank output line. Both are four columns wide.
 const (
-	InputMarker  = "> "
-	OutputGutter = "  "
+	InputMarker  = ">>  "
+	OutputGutter = "    "
 )
 
 // CaptureResult is what a closed capture holds.
@@ -101,6 +106,18 @@ func EnterCapture(parent *Frame, input string) (*Frame, *Capture) {
 // input lines, one per read.
 func EnterReplay(parent *Frame, script ReplayScript) (*Frame, *Capture) {
 	return enter(parent, &Capture{replay: true, script: script.Input})
+}
+
+// EnterTestCapture returns the frame a test case runs on and the capture
+// that collects the case's own output: `io.print`, `io.write`, `io.inspect`
+// and `dbg`, from the case's boot, setup and body, the tasks it starts and
+// the `once` initializers it forces. An `io.capture` inside the case takes
+// over the first three for its extent, as it does anywhere; `dbg` still
+// reaches the case's capture. `io.read_line` reads the program's input, not
+// this capture. The runner closes it when the case ends, and a write after
+// that goes to the program's output.
+func EnterTestCapture(parent *Frame) (*Frame, *Capture) {
+	return enter(parent, &Capture{test: true})
 }
 
 func enter(parent *Frame, c *Capture) (*Frame, *Capture) {
@@ -174,9 +191,42 @@ func outputLine(line string) string {
 	return OutputGutter + line
 }
 
-// captureFor is the frame's innermost open capture, or nil.
+// CaptureDbg writes a `dbg` line, text (DbgReportText), to the innermost
+// open test capture on the frame (EnterTestCapture) and reports whether one
+// took it. An `io.capture` does not take `dbg`.
+func CaptureDbg(fr *Frame, text func() string) bool {
+	if fr == nil {
+		return false
+	}
+	for c := fr.capture; c != nil; c = c.outer {
+		if !c.test {
+			continue
+		}
+		c.mu.Lock()
+		if !c.closed {
+			c.write(text())
+			c.mu.Unlock()
+			return true
+		}
+		c.mu.Unlock()
+	}
+	return false
+}
+
+// DbgReportText is DbgText for a test report: coloured as the report colours
+// its own lines, by what stdout is, since the report is where the line
+// appears.
+func DbgReportText(line int, expr, rendered string) string {
+	return DbgText(colourAsStdout{io.Discard}, line, expr, rendered)
+}
+
+// captureFor is the frame's innermost open capture that answers reads, or
+// nil. A test capture answers none.
 func captureFor(fr *Frame) *Capture {
 	for c := fr.capture; c != nil; c = c.outer {
+		if c.test {
+			continue
+		}
 		c.mu.Lock()
 		open := !c.closed
 		c.mu.Unlock()
@@ -227,27 +277,51 @@ type ReplayScript struct {
 // ParseReplayScript takes an `io.replay` script apart. Trailing whitespace
 // and carriage returns on each line do not count (ReplayText).
 //
-// A script is in the transcript's two columns, whether or not it has input.
-// A line that starts with InputMarker, or is `>` alone (empty input), is
-// input, and its text is what follows InputMarker. A blank line is blank
-// output. Every other line must start with OutputGutter; a line that does
-// neither is an error naming it. Without the gutter, output that starts
-// with `> ` would read as input.
+// A script is in the transcript's form, whether or not it has input. A line
+// that is InputMarker followed by text that does not start with a space, or
+// `>>` alone (empty input, InputMarker with its trailing spaces stripped),
+// is input, and its text is what follows InputMarker. A blank line is blank
+// output, and a line that starts with OutputGutter is output. Any other line
+// is an error naming it (replayLineError): `>>` followed by other than two
+// spaces (`>> 500`, `>>500`, `>>   500`), or output behind fewer than four
+// columns. Without the gutter, output that starts with `>>` would read as
+// input.
 func ParseReplayScript(script string) (ReplayScript, error) {
 	expected := ReplayText(script)
 	var input []string
 	for i, line := range strings.Split(strings.TrimSuffix(expected, "\n"), "\n") {
 		switch {
-		case line == ">" || strings.HasPrefix(line, InputMarker):
-			input = append(input, strings.TrimPrefix(line[1:], " "))
-		case line != "" && !strings.HasPrefix(line, OutputGutter):
-			// The number is the script's line, not a source line, so it
-			// is not one of the positioned fault texts.
-			return ReplayScript{}, fmt.Errorf("io.replay: line "+strconv.Itoa(i+1)+
-				" of the script, %q, must start with `> ` (input) or two spaces (output)", line)
+		case line == "" || strings.HasPrefix(line, OutputGutter):
+		case line == ">>":
+			input = append(input, "")
+		case strings.HasPrefix(line, InputMarker) && line[len(InputMarker)] != ' ':
+			input = append(input, line[len(InputMarker):])
+		default:
+			return ReplayScript{}, replayLineError(i+1, line)
 		}
 	}
 	return ReplayScript{Input: input, Expected: expected}, nil
+}
+
+// replayLineError is the error for line n of a script, which is neither
+// input nor output, with a hint that writes the line with the right gutter:
+// behind InputMarker when it starts with `>>`; behind OutputGutter
+// otherwise, and behind InputMarker as well when it starts with `>`, which
+// reads as input written with a short marker. The number is the script's
+// line, not a source line, so it is not one of the positioned fault texts.
+func replayLineError(n int, line string) error {
+	at := "io.replay: line " + strconv.Itoa(n) + " of the script, " + strconv.Quote(line) + ", "
+	if rest, ok := strings.CutPrefix(line, ">>"); ok {
+		return errors.New(at + "must have two spaces after `>>`\n" +
+			"hint: an input line is `" + InputMarker + strings.TrimLeft(rest, " ") + "`")
+	}
+	text := strings.TrimLeft(line, " ")
+	hint := "hint: an output line is `" + OutputGutter + text + "`"
+	if rest, ok := strings.CutPrefix(text, ">"); ok && text == line {
+		hint = "hint: an input line is `" + InputMarker + strings.TrimLeft(rest, " ") +
+			"`, and an output line is `" + OutputGutter + text + "`"
+	}
+	return errors.New(at + "must start with `" + InputMarker + "` (input) or four spaces (output)\n" + hint)
 }
 
 // ReplayText is a transcript or a replay script in the form `io.replay`

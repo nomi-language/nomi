@@ -1314,7 +1314,8 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		line := p.peek().Line
 		col := p.peek().Col
 		p.advance() // consume LBRACE
-		p.skipNewlines()
+		var lc listComments
+		p.listGap(&lc)
 
 		// Speculatively parse the first key as an expression; map destructure
 		// iff it's followed by '=>'.
@@ -1337,10 +1338,14 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 					break
 				}
 				p.advance() // consume FAT_ARROW
-				bindTok, ok := p.parseDestructureName()
+				bindTok, inner, ok := p.parseDestructureName()
 				if !ok {
 					valid = false
 					break
+				}
+				if len(inner) > 0 {
+					c := nodeComments(keyNode)()
+					c.After = append(c.After, inner...)
 				}
 				var pat ast.Node
 				if bindTok.Type == token.UNDERSCORE {
@@ -1349,14 +1354,17 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 					pat = &ast.IdentPattern{Name: bindTok.Lexeme, Line: bindTok.Line, Col: bindTok.Col}
 				}
 				entries = append(entries, ast.MapPatternEntry{Key: keyNode, Pattern: pat})
+				lc.item(nodeComments(keyNode))
+				p.listAfter(&lc)
 
 				if !p.atEnd() && (p.peek().Type == token.COMMA || p.peek().Type == token.NEWLINE) {
 					p.advance()
-					p.skipNewlines()
+					p.listGap(&lc)
 				}
 			}
 
 			if valid && len(entries) > 0 && !p.atEnd() && p.peek().Type == token.RBRACE {
+				lc.close()
 				p.advance() // consume RBRACE
 				if !p.atEnd() && p.peek().Type == token.EQ {
 					p.advance() // consume EQ
@@ -1382,7 +1390,8 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		line := p.peek().Line
 		col := p.peek().Col
 		p.advance() // consume LBRACE
-		p.skipNewlines()
+		var lc listComments
+		p.listGap(&lc)
 
 		var fields []ast.StructPatternField
 		valid := true
@@ -1398,21 +1407,24 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 
 			if !p.atEnd() && p.peek().Type == token.COLON {
 				p.advance() // consume COLON
-				bindTok, ok := p.parseDestructureName()
+				bindTok, inner, ok := p.parseDestructureName()
 				if !ok || bindTok.Type != token.IDENT {
 					valid = false
 					break
 				}
+				spf.Comments.After = append(spf.Comments.After, inner...)
 				spf.Binding = bindTok.Lexeme
 				spf.BindingLine = bindTok.Line
 				spf.BindingCol = bindTok.Col
 			}
 			fields = append(fields, spf)
+			lc.item(fieldComments(&fields[len(fields)-1].Comments))
+			p.listAfter(&lc)
 
 			// Skip comma/newline separators
 			if !p.atEnd() && (p.peek().Type == token.COMMA || p.peek().Type == token.NEWLINE) {
 				p.advance()
-				p.skipNewlines()
+				p.listGap(&lc)
 			}
 
 			if !p.atEnd() && p.peek().Type == token.RBRACE {
@@ -1421,6 +1433,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		}
 
 		if valid && len(fields) > 0 && !p.atEnd() && p.peek().Type == token.RBRACE {
+			lc.close()
 			p.advance() // consume RBRACE
 			if !p.atEnd() && p.peek().Type == token.EQ {
 				p.advance() // consume EQ
@@ -1444,28 +1457,40 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		p.advance() // consume LPAREN
 
 		var bindings []*ast.Ident
+		var lc listComments
+		lc.open(p)
 		valid := true
 		for valid {
 			if p.atEnd() {
 				valid = false
 				break
 			}
-			t, ok := p.parseDestructureName()
+			t, inner, ok := p.parseDestructureName()
 			if !ok {
 				valid = false
 				break
 			}
 			if t.Type == token.IDENT {
-				bindings = append(bindings, &ast.Ident{Name: t.Lexeme, Line: t.Line, Col: t.Col})
+				id := &ast.Ident{Name: t.Lexeme, Line: t.Line, Col: t.Col}
+				if len(inner) > 0 {
+					nodeComments(id)().Before = inner
+				}
+				lc.item(nodeComments(id))
+				bindings = append(bindings, id)
 			} else {
+				// A wildcard has no node to keep comments (listComments.item).
+				lc.pending = append(lc.pending, inner...)
+				lc.item(nil)
 				bindings = append(bindings, nil) // nil = wildcard
 			}
+			p.listAfter(&lc)
 
 			if p.atEnd() {
 				valid = false
 				break
 			}
 			if p.peek().Type == token.RPAREN {
+				lc.close()
 				p.advance() // consume RPAREN
 				break
 			}
@@ -1474,6 +1499,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 				break
 			}
 			p.advance() // consume COMMA
+			p.listAfter(&lc)
 		}
 
 		if valid && len(bindings) >= 2 && !p.atEnd() && p.peek().Type == token.EQ {
@@ -1499,11 +1525,18 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		} else {
 			p.advance() // consume LPAREN
 
+			// A comment around the binding has no slot here; it stays
+			// unclaimed, and attachDangling places it, as the variant
+			// pattern this statement would otherwise be read as does.
+			p.listBoundaryComments()
 			var binding *ast.Ident
-			bt, valid := p.parseDestructureName()
+			// A comment in the binding's parentheses stays unclaimed, and
+			// attachDangling places it.
+			bt, _, valid := p.parseDestructureName()
 			if valid && bt.Type == token.IDENT {
 				binding = &ast.Ident{Name: bt.Lexeme, Line: bt.Line, Col: bt.Col}
 			}
+			p.listBoundaryComments()
 			if valid && !p.atEnd() && p.peek().Type == token.RPAREN {
 				p.advance() // consume RPAREN
 				if !p.atEnd() && p.peek().Type == token.EQ {
@@ -1584,24 +1617,33 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 // nothing: `{"k" => (n)} = m`, `Meters((n)) = d` and `((a), b) = t` are the
 // destructures without them, as `Some((n))` is the pattern `Some(n)`. On
 // failure the position is left wherever it stopped; the caller restores it.
-func (p *Parser) parseDestructureName() (token.Token, bool) {
+func (p *Parser) parseDestructureName() (token.Token, []ast.Trivia, bool) {
+	// The comments inside the parentheses are returned for the caller to
+	// keep with the name.
+	var comments []ast.Trivia
+	take := func() {
+		same, own := p.listBoundaryComments()
+		comments = append(append(comments, same...), own...)
+	}
 	depth := 0
 	for !p.atEnd() && p.peek().Type == token.LPAREN {
 		depth++
 		p.advance()
+		take()
 	}
 	if p.atEnd() || (p.peek().Type != token.IDENT && p.peek().Type != token.UNDERSCORE) {
-		return token.Token{}, false
+		return token.Token{}, nil, false
 	}
 	name := p.peek()
 	p.advance()
 	for ; depth > 0; depth-- {
+		take()
 		if p.atEnd() || p.peek().Type != token.RPAREN {
-			return token.Token{}, false
+			return token.Token{}, nil, false
 		}
 		p.advance()
 	}
-	return name, true
+	return name, comments, true
 }
 
 // parseExpr is the Pratt parsing core.
@@ -1683,11 +1725,11 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 			if typeArgs, ok := p.tryParseTurbofish(); ok {
 				lp := p.peek()
 				p.advance() // consume LPAREN
-				args, err := p.parseArgList()
+				args, end, err := p.parseArgList()
 				if err != nil {
 					return nil, err
 				}
-				left = &ast.Call{Func: left, Args: args, TypeArgs: typeArgs, Line: lp.Line, Col: lp.Col}
+				left = &ast.Call{Func: left, Args: args, EndTrivia: end, TypeArgs: typeArgs, Line: lp.Line, Col: lp.Col}
 				continue
 			}
 		}
@@ -1730,11 +1772,11 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 
 		case token.LPAREN:
 			p.advance() // consume LPAREN
-			args, err := p.parseArgList()
+			args, end, err := p.parseArgList()
 			if err != nil {
 				return nil, err
 			}
-			left = &ast.Call{Func: left, Args: args, Line: tok.Line, Col: tok.Col}
+			left = &ast.Call{Func: left, Args: args, EndTrivia: end, Line: tok.Line, Col: tok.Col}
 
 		case token.DOTDOT, token.DOTDOTEQ:
 			// Bounded range operator: requires both operands. The
@@ -2165,17 +2207,19 @@ func (p *Parser) consumeStandaloneInfixComment(minPrec int) ([]ast.Trivia, bool)
 }
 
 // parseArgList parses a comma-separated list of expressions until RPAREN.
-// Accepts an optional trailing comma.
-func (p *Parser) parseArgList() ([]ast.Node, error) {
+// Accepts an optional trailing comma. end is the comments in a list with
+// no argument.
+func (p *Parser) parseArgList() (args []ast.Node, end []ast.Trivia, err error) {
 	// An argument list is delimited, so a struct literal in it is
 	// unambiguous wherever the call sits.
 	oldNoStructLit := p.noStructLit
 	p.noStructLit = false
 	defer func() { p.noStructLit = oldNoStructLit }()
-	var args []ast.Node
+	var lc listComments
+	lc.open(p)
 	if !p.atEnd() && p.peek().Type == token.RPAREN {
 		p.advance()
-		return args, nil
+		return nil, lc.end(), nil
 	}
 	seenNamed := false
 	for {
@@ -2188,15 +2232,17 @@ func (p *Parser) parseArgList() ([]ast.Node, error) {
 			p.advance() // consume COLON
 			val, err := p.parseExpr(1)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			args = append(args, &ast.NamedArg{Name: name, Value: val, Line: line, Col: col})
+			named := &ast.NamedArg{Name: name, Value: val, Line: line, Col: col}
+			lc.item(nodeComments(named))
+			args = append(args, named)
 			seenNamed = true
 		} else {
 			argLine := p.peek().Line
 			arg, err := p.parseExpr(1)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if seenNamed {
 				// A single *final* positional is allowed after named args:
@@ -2211,29 +2257,35 @@ func (p *Parser) parseArgList() ([]ast.Node, error) {
 				// the same kind of value to the same parameter, so accepting
 				// one and rejecting the other would be a rule about how the
 				// argument was written.
-				nextIsClose := !p.atEnd() && p.peek().Type == token.RPAREN
-				nextIsTrailingComma := !p.atEnd() && p.peek().Type == token.COMMA && p.pos+1 < len(p.tokens) && p.tokens[p.pos+1].Type == token.RPAREN
+				next, after := p.peekPastComments(0), p.peekPastComments(1)
+				nextIsClose := next == token.RPAREN
+				nextIsTrailingComma := next == token.COMMA && after == token.RPAREN
 				if !nextIsClose && !nextIsTrailingComma {
-					return nil, p.errorOnLine(argLine, "positional argument after named argument")
+					return nil, nil, p.errorOnLine(argLine, "positional argument after named argument")
 				}
 			}
+			lc.item(nodeComments(arg))
 			args = append(args, arg)
 		}
+		p.listAfter(&lc)
 		if p.atEnd() {
-			return nil, fmt.Errorf("expected ')' after arguments")
+			return nil, nil, fmt.Errorf("expected ')' after arguments")
 		}
 		if p.peek().Type == token.RPAREN {
+			lc.close()
 			p.advance()
-			return args, nil
+			return args, nil, nil
 		}
 		if p.peek().Type != token.COMMA {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in argument list")
+			return nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in argument list")
 		}
 		p.advance() // consume COMMA
+		p.listAfter(&lc)
 		// Allow trailing comma: COMMA followed by RPAREN closes the list.
 		if !p.atEnd() && p.peek().Type == token.RPAREN {
+			lc.close()
 			p.advance()
-			return args, nil
+			return args, nil, nil
 		}
 	}
 }
@@ -2302,7 +2354,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.TRIPLE_STRING_LITERAL:
 		p.advance()
-		return &ast.StringLit{Value: tok.Lexeme, Triple: true, Line: tok.Line, Col: tok.Col}, nil
+		return &ast.StringLit{Value: tok.Lexeme, Triple: true, Line: tok.Line, Col: tok.Col, EndLine: tok.EndLine, EndCol: tok.EndCol}, nil
 
 	case token.RAW_STRING_LITERAL:
 		p.advance()
@@ -2310,7 +2362,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.RAW_TRIPLE_STRING_LITERAL:
 		p.advance()
-		return &ast.StringLit{Value: tok.Lexeme, Triple: true, Raw: true, Line: tok.Line, Col: tok.Col}, nil
+		return &ast.StringLit{Value: tok.Lexeme, Triple: true, Raw: true, Line: tok.Line, Col: tok.Col, EndLine: tok.EndLine, EndCol: tok.EndCol}, nil
 
 	case token.TAGGED_STRING_LITERAL:
 		p.advance()
@@ -2649,18 +2701,20 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		oldNoStructLit := p.noStructLit
 		p.noStructLit = false
 		defer func() { p.noStructLit = oldNoStructLit }()
-		p.skipNewlines()
+		var lc listComments
+		p.listGap(&lc)
 		expr, err := p.parseExpr(1)
 		if err != nil {
 			return nil, err
 		}
-		p.skipNewlines()
+		lc.item(nodeComments(expr))
+		p.listGap(&lc)
 		// Check for comma — if present, this is a tuple
 		if !p.atEnd() && p.peek().Type == token.COMMA {
 			items := []ast.Node{expr}
 			for !p.atEnd() && p.peek().Type == token.COMMA {
 				p.advance() // consume COMMA
-				p.skipNewlines()
+				p.listGap(&lc)
 				// Allow trailing comma: COMMA followed by RPAREN ends the tuple.
 				if !p.atEnd() && p.peek().Type == token.RPAREN {
 					break
@@ -2669,9 +2723,11 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 				if err != nil {
 					return nil, err
 				}
+				lc.item(nodeComments(item))
 				items = append(items, item)
-				p.skipNewlines()
+				p.listGap(&lc)
 			}
+			lc.close()
 			if p.atEnd() || p.peek().Type != token.RPAREN {
 				return nil, errorAt(tok.Line, tok.Col, "expected ')' after tuple elements")
 			}
@@ -2688,6 +2744,9 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		if p.atEnd() || p.peek().Type != token.RPAREN {
 			return nil, errorAt(tok.Line, tok.Col, "expected ')' after expression")
 		}
+		// The comments inside the parentheses stay the expression's
+		// ItemComments, and the formatter keeps the parentheses for them.
+		lc.close()
 		p.advance()
 		return &ast.GroupedExpr{Expr: expr, Line: tok.Line, Col: tok.Col}, nil
 
@@ -2710,85 +2769,173 @@ func codepointLit(tok token.Token) *ast.CodepointLit {
 func (p *Parser) parseListLit() (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume LBRACKET
-	// Use plain separator-skip (no COMMENT / BLANK_LINE consumption) so a
-	// trivia-only leading run gets a chance to land in EndTrivia at the
-	// top of the loop. The previous skipNewlines() here silently swallowed
-	// comments before the first element.
-	p.skipSeparatorsOnly()
-
-	var items []ast.Node
-	var endTrivia []ast.Trivia
-	if !p.atEnd() && p.peek().Type == token.RBRACKET {
-		p.advance() // consume RBRACKET
-		return &ast.ListLit{Items: items, Line: tok.Line, Col: tok.Col}, nil
+	items, endTrivia, spread, err := p.parseCollectionItems(tok, token.RBRACKET, "list literal", spreadLast, "")
+	if err != nil {
+		return nil, err
 	}
+	if spread != nil {
+		return &ast.ListSpreadLit{Heads: items, TailSpread: spread.head, Line: tok.Line, Col: tok.Col}, nil
+	}
+	return &ast.ListLit{Items: items, EndTrivia: endTrivia, Line: tok.Line, Col: tok.Col}, nil
+}
 
+// collSpread says where a collection literal takes a `..` spread.
+type collSpread int
+
+const (
+	// spreadNone: no spread. refuseSpread, when set, is the error for one;
+	// when empty, `..` is parsed as an element, which refuses it.
+	spreadNone collSpread = iota
+	// spreadLast: a list's `..tail`, which must be the last element.
+	spreadLast
+	// spreadFirst: a set's `..base`, which must be the first element.
+	spreadFirst
+	// spreadEnds: a vector's spread, named or bare, first or last.
+	spreadEnds
+)
+
+// itemSpread is a collection literal's spread: its head (a *CurrentValue
+// for a bare `..`) and the `..` token.
+type itemSpread struct {
+	head ast.Node
+	at   token.Token
+	// last is set for a spread written after the elements.
+	last bool
+}
+
+// parseCollectionItems parses the comma-separated elements of a list,
+// vector or set literal after its opening bracket, through the closing
+// one, close. tok is the literal's first token and what names the literal,
+// for errors. mode says where a `..` spread may stand (collSpread); a `..`
+// anywhere else is refuseSpread's error, or, when that is empty, parsed as
+// an element, which refuses it. A spread with nothing after its `..` but a
+// comma or the closing bracket is bare: its head is an *ast.CurrentValue.
+//
+// The comments before the closing bracket of a literal with no tail spread
+// are returned as endTrivia; the others are the elements' ItemComments.
+func (p *Parser) parseCollectionItems(tok token.Token, close token.TokenType, what string, mode collSpread, refuseSpread string) (items []ast.Node, endTrivia []ast.Trivia, spread *itemSpread, err error) {
+	closeText := "]"
+	if close == token.RBRACE {
+		closeText = "}"
+	}
+	var lc listComments
+	lc.open(p)
 	for {
-		p.skipSeparatorsOnly()
-		// End-of-body trivia: trivia followed only by `]` becomes
-		// EndTrivia (preserved through the formatter). Trivia followed by
-		// another element token falls through to the standard parser
-		// path; ListLit's items have no inter-element trivia carrier today.
-		t := p.peek().Type
-		if t == token.COMMENT || t == token.BLANK_LINE {
-			save := p.pos
-			collected := p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACKET {
-				endTrivia = collected
-				p.advance() // consume RBRACKET
-				return &ast.ListLit{Items: items, EndTrivia: endTrivia, Line: tok.Line, Col: tok.Col}, nil
-			}
-			p.pos = save
+		p.skipListBreaks()
+		p.listAfter(&lc)
+		p.skipListBreaks()
+		if !p.atEnd() && p.peek().Type == close {
+			endTrivia = lc.end()
+			p.advance()
+			return items, endTrivia, spread, nil
 		}
-		// Spread tail: `..expr` with no LHS is the optional spread element.
-		// Bare `..` here is unambiguous because the infix range operator
-		// requires a left operand (which would have been parsed by the
-		// preceding `parseExpr(1)` call). Per the design, the spread must
-		// be the last element of the literal.
-		if !p.atEnd() && p.peek().Type == token.DOTDOT {
+		atSpread := !p.atEnd() && p.peek().Type == token.DOTDOT
+		if atSpread && mode == spreadEnds && (spread != nil || len(items) > 0) {
+			// A vector's spread after its elements: `#[x, ..v]` or the
+			// bare `#[x, ..]`.
 			spreadTok := p.peek()
 			p.advance() // consume DOTDOT
-			p.skipNewlines()
-			tail, err := p.parseExpr(1)
+			head, err := p.spreadHead(spreadTok, close)
 			if err != nil {
-				return nil, err
+				return nil, nil, nil, err
 			}
-			p.skipNewlines()
-			if p.atEnd() || p.peek().Type != token.RBRACKET {
-				return nil, errorAt(spreadTok.Line, spreadTok.Col, "list spread `..` must be the last element")
+			// The spread is an item before the comments after it are read,
+			// so a comment ending its line is its own and not the previous
+			// element's.
+			lc.item(nodeComments(head))
+			p.listAfter(&lc)
+			p.skipListBreaks()
+			if spread != nil {
+				return nil, nil, nil, errorAt(spreadTok.Line, spreadTok.Col, "a vector literal takes one spread `..`; join two vectors with `Vector.concat`")
 			}
-			p.advance() // consume RBRACKET
-			return &ast.ListSpreadLit{Heads: items, TailSpread: tail, Line: tok.Line, Col: tok.Col}, nil
+			if p.atEnd() || p.peek().Type != close {
+				return nil, nil, nil, errorAt(spreadTok.Line, spreadTok.Col, "vector spread `..` must be the first or the last element")
+			}
+			lc.close()
+			p.advance()
+			return items, nil, &itemSpread{head: head, at: spreadTok, last: true}, nil
+		}
+		if atSpread && (mode == spreadFirst || mode == spreadEnds) && spread == nil && len(items) == 0 {
+			spreadTok := p.peek()
+			p.advance() // consume DOTDOT
+			head, err := p.spreadHead(spreadTok, close)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			spread = &itemSpread{head: head, at: spreadTok}
+			lc.item(nodeComments(head))
+			p.listAfter(&lc)
+			p.skipListBreaks()
+			if p.atEnd() {
+				return nil, nil, nil, errorAt(tok.Line, tok.Col, "expected '%s' to close %s", closeText, what)
+			}
+			if p.peek().Type == close {
+				endTrivia = lc.end()
+				p.advance()
+				return items, endTrivia, spread, nil
+			}
+			if p.peek().Type != token.COMMA {
+				return nil, nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or '%s' in %s", closeText, what)
+			}
+			p.advance() // consume COMMA
+			continue
+		}
+		if atSpread && (mode == spreadLast || refuseSpread != "") {
+			if mode != spreadLast {
+				return nil, nil, nil, errorAt(p.peek().Line, p.peek().Col, "%s", refuseSpread)
+			}
+			// Spread tail: `..expr` with no LHS is the optional spread
+			// element. Bare `..` here is unambiguous because the infix range
+			// operator requires a left operand. The spread must be the last
+			// element of the literal.
+			spreadTok := p.peek()
+			p.advance() // consume DOTDOT
+			tail, err := p.spreadHead(spreadTok, close)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			lc.item(nodeComments(tail))
+			p.listAfter(&lc)
+			p.skipListBreaks()
+			if p.atEnd() || p.peek().Type != close {
+				return nil, nil, nil, errorAt(spreadTok.Line, spreadTok.Col, "list spread `..` must be the last element")
+			}
+			lc.close()
+			p.advance()
+			return items, nil, &itemSpread{head: tail, at: spreadTok}, nil
 		}
 		item, err := p.parseExpr(1)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
+		lc.item(nodeComments(item))
 		items = append(items, item)
-		// Skip plain separators only — COMMENT / BLANK_LINE is captured
-		// at the top of the next iteration as either EndTrivia (if `]`
-		// follows) or inter-element trivia (not yet representable, falls
-		// through).
-		p.skipSeparatorsOnly()
-
+		p.listAfter(&lc)
+		p.skipListBreaks()
 		if p.atEnd() {
-			return nil, errorAt(tok.Line, tok.Col, "expected ']' to close list literal")
+			return nil, nil, nil, errorAt(tok.Line, tok.Col, "expected '%s' to close %s", closeText, what)
 		}
-		if p.peek().Type == token.RBRACKET {
-			p.advance() // consume RBRACKET
-			return &ast.ListLit{Items: items, Line: tok.Line, Col: tok.Col}, nil
+		if p.peek().Type == close {
+			endTrivia = lc.end()
+			p.advance()
+			return items, endTrivia, spread, nil
 		}
 		if p.peek().Type != token.COMMA {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ']' in list literal")
+			return nil, nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or '%s' in %s", closeText, what)
 		}
 		p.advance() // consume COMMA
-		// Allow trailing comma: COMMA followed by RBRACKET closes the list.
-		p.skipSeparatorsOnly()
-		if !p.atEnd() && p.peek().Type == token.RBRACKET {
-			p.advance() // consume RBRACKET
-			return &ast.ListLit{Items: items, Line: tok.Line, Col: tok.Col}, nil
-		}
 	}
+}
+
+// spreadHead parses what follows a spread's `..` (spreadTok, consumed): an
+// expression, or nothing when a comma or close comes next, which is the bare
+// `..` (an *ast.CurrentValue at the `..`).
+func (p *Parser) spreadHead(spreadTok token.Token, close token.TokenType) (ast.Node, error) {
+	if p.bareSpreadEnds(close) {
+		return &ast.CurrentValue{Line: spreadTok.Line, Col: spreadTok.Col}, nil
+	}
+	p.skipNewlines()
+	return p.parseExpr(1)
 }
 
 // parseHashCollectionLit parses a hash-prefixed collection literal:
@@ -2818,55 +2965,15 @@ func (p *Parser) parseVectorLit() (ast.Node, error) {
 		return nil, errorAt(tok.Line, tok.Col, "expected '[' after '#' for vector literal")
 	}
 	p.advance() // consume LBRACKET
-	p.skipSeparatorsOnly()
-
-	var items []ast.Node
-	var endTrivia []ast.Trivia
-	if !p.atEnd() && p.peek().Type == token.RBRACKET {
-		p.advance() // consume RBRACKET
-		return &ast.VectorLit{Items: items, Line: tok.Line, Col: tok.Col}, nil
+	items, endTrivia, spread, err := p.parseCollectionItems(tok, token.RBRACKET, "vector literal", spreadEnds, "")
+	if err != nil {
+		return nil, err
 	}
-
-	for {
-		p.skipSeparatorsOnly()
-		t := p.peek().Type
-		if t == token.COMMENT || t == token.BLANK_LINE {
-			save := p.pos
-			collected := p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACKET {
-				endTrivia = collected
-				p.advance() // consume RBRACKET
-				return &ast.VectorLit{Items: items, EndTrivia: endTrivia, Line: tok.Line, Col: tok.Col}, nil
-			}
-			p.pos = save
-		}
-		if !p.atEnd() && p.peek().Type == token.DOTDOT {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "vector literals do not support list spread `..`; use Vector.concat or Iter.to_vector")
-		}
-		item, err := p.parseExpr(1)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-		p.skipSeparatorsOnly()
-
-		if p.atEnd() {
-			return nil, errorAt(tok.Line, tok.Col, "expected ']' to close vector literal")
-		}
-		if p.peek().Type == token.RBRACKET {
-			p.advance() // consume RBRACKET
-			return &ast.VectorLit{Items: items, Line: tok.Line, Col: tok.Col}, nil
-		}
-		if p.peek().Type != token.COMMA {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ']' in vector literal")
-		}
-		p.advance() // consume COMMA
-		p.skipSeparatorsOnly()
-		if !p.atEnd() && p.peek().Type == token.RBRACKET {
-			p.advance() // consume RBRACKET
-			return &ast.VectorLit{Items: items, Line: tok.Line, Col: tok.Col}, nil
-		}
+	lit := &ast.VectorLit{Items: items, EndTrivia: endTrivia, Line: tok.Line, Col: tok.Col}
+	if spread != nil {
+		lit.Spread, lit.SpreadLast, lit.SpreadLine, lit.SpreadCol = spread.head, spread.last, spread.at.Line, spread.at.Col
 	}
+	return lit, nil
 }
 
 // parseSetLit parses a set literal: #{ expr, expr, ... }.
@@ -2877,52 +2984,36 @@ func (p *Parser) parseSetLit() (ast.Node, error) {
 		return nil, errorAt(tok.Line, tok.Col, "expected '{' after '#' for set literal")
 	}
 	p.advance() // consume LBRACE
-	p.skipSeparatorsOnly()
-
-	var items []ast.Node
-	var endTrivia []ast.Trivia
-	if !p.atEnd() && p.peek().Type == token.RBRACE {
-		p.advance() // consume RBRACE
-		return &ast.SetLit{Items: items, Line: tok.Line, Col: tok.Col}, nil
+	// Set update by spread: `#{..base, x}` or, at a field or key of an
+	// update, `#{.., x}`. One spread, written first, as a map's: a set keeps
+	// its elements in insertion order, so the base's elements stay where
+	// they are and new ones follow.
+	items, endTrivia, spread, err := p.parseCollectionItems(tok, token.RBRACE, "set literal", spreadFirst, "set spread `..` must be the first element")
+	if err != nil {
+		return nil, err
 	}
+	lit := &ast.SetLit{Items: items, EndTrivia: endTrivia, Line: tok.Line, Col: tok.Col}
+	if spread != nil {
+		lit.Spread, lit.SpreadLine, lit.SpreadCol = spread.head, spread.at.Line, spread.at.Col
+	}
+	return lit, nil
+}
 
-	for {
-		p.skipSeparatorsOnly()
-		t := p.peek().Type
-		if t == token.COMMENT || t == token.BLANK_LINE {
-			save := p.pos
-			collected := p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACE {
-				endTrivia = collected
-				p.advance() // consume RBRACE
-				return &ast.SetLit{Items: items, EndTrivia: endTrivia, Line: tok.Line, Col: tok.Col}, nil
-			}
-			p.pos = save
-		}
-		item, err := p.parseExpr(1)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-		p.skipSeparatorsOnly()
-
-		if p.atEnd() {
-			return nil, errorAt(tok.Line, tok.Col, "expected '}' to close set literal")
-		}
-		if p.peek().Type == token.RBRACE {
-			p.advance() // consume RBRACE
-			return &ast.SetLit{Items: items, Line: tok.Line, Col: tok.Col}, nil
-		}
-		if p.peek().Type != token.COMMA {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or '}' in set literal")
-		}
-		p.advance() // consume COMMA
-		p.skipSeparatorsOnly()
-		if !p.atEnd() && p.peek().Type == token.RBRACE {
-			p.advance() // consume RBRACE
-			return &ast.SetLit{Items: items, Line: tok.Line, Col: tok.Col}, nil
+// bareSpreadEnds reports whether the `..` just consumed is a bare spread:
+// the next token, past newlines and comments, ends the element (a comma)
+// or the literal (close). The position is unchanged.
+func (p *Parser) bareSpreadEnds(close token.TokenType) bool {
+	for i := p.pos; i < len(p.tokens); i++ {
+		switch p.tokens[i].Type {
+		case token.NEWLINE, token.COMMENT, token.BLANK_LINE, token.SEMICOLON:
+			continue
+		case token.COMMA:
+			return true
+		default:
+			return p.tokens[i].Type == close
 		}
 	}
+	return false
 }
 
 // skipSeparatorsOnly consumes NEWLINE / SEMICOLON tokens but preserves
@@ -3070,7 +3161,11 @@ func (p *Parser) parseStringInterp() (ast.Node, error) {
 		return nil, errorAt(cur.Line, cur.Col, "unexpected token %s in interpolated string", cur.Type)
 	}
 
-	return &ast.StringInterp{Parts: parts, Triple: triple, Line: tok.Line, Col: tok.Col}, nil
+	interp := &ast.StringInterp{Parts: parts, Triple: triple, Line: tok.Line, Col: tok.Col}
+	if triple {
+		interp.EndLine, interp.EndCol = tok.EndLine, tok.EndCol
+	}
+	return interp, nil
 }
 
 // parseTaggedStringInterp parses an interpolated tagged-string literal.
@@ -4090,24 +4185,9 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			}
 		case token.LPAREN:
 			p.advance() // consume LPAREN
-			var patterns []ast.Node
-			for {
-				pat, err := p.parseSinglePattern()
-				if err != nil {
-					return ast.CaseBranch{}, err
-				}
-				patterns = append(patterns, pat)
-				if p.atEnd() {
-					return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "expected ')' in tuple pattern")
-				}
-				if p.peek().Type == token.RPAREN {
-					p.advance()
-					break
-				}
-				if p.peek().Type != token.COMMA {
-					return ast.CaseBranch{}, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in tuple pattern")
-				}
-				p.advance() // consume COMMA
+			patterns, err := p.parsePatternList(tok)
+			if err != nil {
+				return ast.CaseBranch{}, err
 			}
 			if len(patterns) < 2 {
 				// Single-element (x) is just grouping, use inner pattern
@@ -4118,7 +4198,9 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 		case token.LBRACE:
 			// Disambiguate: map pattern {keyExpr => pat} vs struct pattern {field, field: pat}
 			p.advance() // consume LBRACE
-			p.skipNewlines()
+			var lc listComments
+			lc.open(p)
+			p.skipSeparatorsOnly()
 
 			// Speculatively parse the first entry's key as an expression; if
 			// it's followed by '=>', commit to a map pattern.
@@ -4127,25 +4209,14 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			if isMapPattern {
 				// Map pattern: {key => pat, ...}
 				var entries []ast.MapPatternEntry
-				var endTrivia []ast.Trivia
 				for !p.atEnd() && p.peek().Type != token.RBRACE {
-					// End-of-body trivia: see parseMapLitEntries.
-					tt0 := p.peek().Type
-					if tt0 == token.COMMENT || tt0 == token.BLANK_LINE {
-						save := p.pos
-						collected := p.collectEndOfBodyTrivia()
-						if !p.atEnd() && p.peek().Type == token.RBRACE {
-							endTrivia = collected
-							break
-						}
-						p.pos = save
-					}
 					// The key is an arbitrary expression (same parser map
 					// literals use for keys), then '=>'.
 					keyNode, err := p.parseExpr(1)
 					if err != nil {
 						return ast.CaseBranch{}, err
 					}
+					lc.item(nodeComments(keyNode))
 					if p.atEnd() || p.peek().Type != token.FAT_ARROW {
 						return ast.CaseBranch{}, errorAt(p.peek().Line, p.peek().Col, "expected '=>' in map pattern")
 					}
@@ -4155,22 +4226,13 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 						return ast.CaseBranch{}, err
 					}
 					entries = append(entries, ast.MapPatternEntry{Key: keyNode, Pattern: valPat})
-					// Plain separators only — preserve trivia for the
-					// next iteration's EndTrivia check.
-					for !p.atEnd() {
-						tt := p.peek().Type
-						if tt == token.COMMA || tt == token.NEWLINE || tt == token.SEMICOLON {
-							p.advance()
-						} else {
-							break
-						}
-					}
+					p.listSeparators(&lc)
 				}
 				if p.atEnd() || p.peek().Type != token.RBRACE {
 					return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "expected '}' in map pattern")
 				}
 				p.advance() // consume RBRACE
-				pattern = &ast.MapPattern{Entries: entries, EndTrivia: endTrivia, Line: tok.Line, Col: tok.Col}
+				pattern = &ast.MapPattern{Entries: entries, EndTrivia: lc.end(), Line: tok.Line, Col: tok.Col}
 			} else {
 				// Anonymous struct pattern: {field, field: "literal", ...}
 				var fields []ast.StructPatternField
@@ -4189,18 +4251,13 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 						}
 					}
 					fields = append(fields, spf)
-					for !p.atEnd() {
-						tt := p.peek().Type
-						if tt == token.COMMA || tt == token.NEWLINE || tt == token.SEMICOLON {
-							p.advance()
-						} else {
-							break
-						}
-					}
+					lc.item(fieldComments(&fields[len(fields)-1].Comments))
+					p.listSeparators(&lc)
 				}
 				if p.atEnd() || p.peek().Type != token.RBRACE {
 					return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "expected '}' in struct pattern")
 				}
+				lc.close()
 				p.advance() // consume RBRACE
 				pattern = &ast.StructPattern{TypeName: nil, Fields: fields, Line: tok.Line, Col: tok.Col}
 			}
@@ -4383,7 +4440,7 @@ func (p *Parser) parseBlockOrLambda() (ast.Node, error) {
 	// LBRACE + leading newlines are already consumed, so the parser is
 	// positioned at the key; parseMapLit re-parses from here.
 	if !p.atEnd() && p.detectMapPatternEntry() {
-		return p.parseMapLit(tok)
+		return p.parseMapLit(tok, leading)
 	}
 
 	// Anonymous struct literal: { ident: expr, ... }. A block expression can
@@ -4486,11 +4543,13 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 	p.advance() // consume opening BAR
 
 	var params []ast.Param
+	var lc listComments
 
 	// Zero-arg form: || (two consecutive BAR tokens).
 	if !p.atEnd() && p.peek().Type == token.BAR {
 		p.advance() // consume closing BAR
 	} else {
+		lc.open(p)
 		for {
 			if p.atEnd() {
 				return nil, errorAt(startTok.Line, startTok.Col, "unterminated lambda parameters")
@@ -4506,17 +4565,20 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 				return nil, err
 			}
 			params = append(params, param)
+			lc.item(fieldComments(&params[len(params)-1].Comments))
+			p.listGap(&lc)
 
 			if p.atEnd() {
 				return nil, errorAt(startTok.Line, startTok.Col, "unterminated lambda parameters (missing closing '|')")
 			}
 			if p.peek().Type == token.BAR {
+				lc.close()
 				p.advance() // consume closing BAR
 				break
 			}
 			if p.peek().Type == token.COMMA {
 				p.advance() // consume COMMA
-				p.skipNewlines()
+				p.listGap(&lc)
 				continue
 			}
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or '|' after lambda parameter, got %s", p.peek().Type)
@@ -4598,13 +4660,35 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 	if !p.atEnd() && p.peek().Type == token.DOTDOT {
 		spreadTok := p.peek()
 		p.advance() // consume DOTDOT
-		p.skipNewlines()
-		head, err := p.parseExpr(1)
-		if err != nil {
-			return nil, err
+		// A comment between `..` and the head, or ending the spread's
+		// line, goes after the spread's comma: the first ends that line
+		// (the head's ItemComments.Trailing), the rest go on lines of their
+		// own below it.
+		sameAfterDots, ownAfterDots := p.listBoundaryComments()
+		afterDots := append(sameAfterDots, ownAfterDots...)
+		var head ast.Node
+		if p.bareSpreadEnds(token.RBRACE) {
+			// `{.., city: "NYC"}`: no head. The value already at the
+			// field or key this literal is written at is the base.
+			head = &ast.CurrentValue{Line: spreadTok.Line, Col: spreadTok.Col}
+		} else {
+			p.skipNewlines()
+			var err error
+			head, err = p.parseExpr(1)
+			if err != nil {
+				return nil, err
+			}
 		}
 		spread = head
 		spreadLine, spreadCol = spreadTok.Line, spreadTok.Col
+		// Comments between `{` and `..` stay above the spread, the first
+		// element, rather than moving below it to the first field.
+		if before := commentsOnly(opening); len(before) > 0 {
+			if c := nodeComments(head)(); c != nil {
+				c.Before = append(before, c.Before...)
+				opening = nil
+			}
+		}
 		for !p.atEnd() {
 			t := p.peek().Type
 			if t == token.COMMA || t == token.NEWLINE || t == token.SEMICOLON {
@@ -4613,11 +4697,32 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 				break
 			}
 		}
-		// `{..m, "b" => 2}` — map literals keep no spread. Say so, the way
-		// vector literals refuse the list spread, instead of letting it
-		// reach "expected field name in struct literal".
-		if !p.atEnd() && p.detectMapPatternEntry() {
-			return nil, errorAt(spreadTok.Line, spreadTok.Col, "map literals do not support spread `..`; use Map.merge")
+		var spreadField ast.StructFieldVal
+		p.structLitFieldEnd(&spreadField, true)
+		if comments := append(afterDots, spreadField.Trailing...); len(comments) > 0 {
+			if c := nodeComments(head)(); c != nil {
+				c.Trailing = append(c.Trailing, comments[0])
+				c.After = append(c.After, comments[1:]...)
+			}
+		}
+		// Map update by spread: `{..m, "b" => 2}`. The first element after
+		// the spread decides the form, as `=>` decides a map literal from
+		// a struct literal everywhere else. The entries parse as a map
+		// literal's; comments before the first one lead it.
+		if p.mapEntryFollows() {
+			entries, endTrivia, err := p.parseMapLitEntries(openTok.Line, opening)
+			if err != nil {
+				return nil, err
+			}
+			return &ast.MapLit{
+				Entries:    entries,
+				Spread:     spread,
+				SpreadLine: spreadLine,
+				SpreadCol:  spreadCol,
+				EndTrivia:  endTrivia,
+				Line:       openTok.Line,
+				Col:        openTok.Col,
+			}, nil
 		}
 	}
 	for !p.atEnd() && p.peek().Type != token.RBRACE {
@@ -4637,6 +4742,9 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 		// the way parseListLit gives one message for `[1, ..xs, 2]` and
 		// `[1, ..xs, ..ys]`.
 		if p.peek().Type == token.DOTDOT {
+			if spread != nil && len(fields) == 0 && p.mapEntryFollowsSpread() {
+				return nil, errorAt(p.peek().Line, p.peek().Col, "map spread `..` must be the first element")
+			}
 			return nil, errorAt(p.peek().Line, p.peek().Col, "struct spread `..` must be the first element")
 		}
 		if p.peek().Type != token.IDENT {
@@ -4655,14 +4763,7 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 				Line:            fieldTok.Line,
 				Col:             fieldTok.Col,
 			})
-			for !p.atEnd() {
-				t := p.peek().Type
-				if t == token.COMMA || t == token.NEWLINE || t == token.SEMICOLON {
-					p.advance()
-				} else {
-					break
-				}
-			}
+			p.structLitFieldEnd(&fields[len(fields)-1], true)
 			continue
 		}
 		p.advance() // consume COLON
@@ -4671,14 +4772,7 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 			return nil, err
 		}
 		fields = append(fields, ast.StructFieldVal{Name: fieldName, Value: val, LeadingComments: leading, Line: fieldTok.Line, Col: fieldTok.Col})
-		for !p.atEnd() {
-			t := p.peek().Type
-			if t == token.COMMA || t == token.NEWLINE || t == token.SEMICOLON {
-				p.advance()
-			} else {
-				break
-			}
-		}
+		p.structLitFieldEnd(&fields[len(fields)-1], true)
 	}
 	if p.atEnd() || p.peek().Type != token.RBRACE {
 		return nil, errorAt(openTok.Line, openTok.Col, "expected '}' to close struct literal")
@@ -4724,11 +4818,10 @@ func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, e
 		return nil, errorAt(tok.Line, tok.Col, "expected '(' after function name")
 	}
 	p.advance() // consume LPAREN
-	p.skipNewlines()
 
 	// Parse parameters. App fields are read explicitly in the body as
 	// `AppEnv.field`; they are not part of the parameter list.
-	params, err := p.parseFuncParamList(tok)
+	params, paramsEnd, err := p.parseFuncParamList(tok)
 	if err != nil {
 		return nil, err
 	}
@@ -4766,6 +4859,7 @@ func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, e
 				Public:                   public,
 				TypeParams:               typeParams,
 				Params:                   params,
+				ParamsEndTrivia:          paramsEnd,
 				ReturnTypeExpr:           returnTypeExpr,
 				WhereClauses:             whereClauses,
 				ImplIface:                implIface,
@@ -4801,6 +4895,7 @@ func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, e
 		Public:                   public,
 		TypeParams:               typeParams,
 		Params:                   params,
+		ParamsEndTrivia:          paramsEnd,
 		ReturnTypeExpr:           returnTypeExpr,
 		WhereClauses:             whereClauses,
 		Body:                     body,
@@ -4938,7 +5033,7 @@ func functionImplQualifierType(parts []token.Token) (ast.TypeExpr, error) {
 //	param  := IDENT (':' type-annotation)? ('=' expr)?
 //
 // App fields are read explicitly in the body as `AppEnv.field`.
-func (p *Parser) parseFuncParamList(tok token.Token) ([]ast.Param, error) {
+func (p *Parser) parseFuncParamList(tok token.Token) ([]ast.Param, []ast.Trivia, error) {
 	return p.parseParamSection(tok)
 }
 
@@ -4964,8 +5059,14 @@ func (p *Parser) parseParamPattern() (ast.Param, error) {
 	switch pp := pat.(type) {
 	case *ast.IdentPattern:
 		param = ast.Param{Name: pp.Name, Line: pp.Line, Col: pp.Col}
+		// A comment in the name's parentheses, `( // why` then `x)`,
+		// is the parameter's: the name keeps no node.
+		param.Comments.Before = pp.DanglingBefore
+		param.Comments.After = pp.DanglingAfter
 	case *ast.WildcardPattern:
 		param = ast.Param{Name: "_", Line: pp.Line, Col: pp.Col}
+		param.Comments.Before = pp.DanglingBefore
+		param.Comments.After = pp.DanglingAfter
 	default:
 		// Destructuring pattern. The synthetic Name is the slot the argument
 		// value lands in before the pattern's inner names are bound
@@ -5090,27 +5191,32 @@ func patternCol(n ast.Node) int {
 // parseParamSection parses a comma-separated section of function parameters,
 // stopping at RPAREN. May be empty. Encountering a BAR mid-list emits a
 // helpful error pointing at active app field reads.
-func (p *Parser) parseParamSection(tok token.Token) ([]ast.Param, error) {
-	var params []ast.Param
+func (p *Parser) parseParamSection(tok token.Token) (params []ast.Param, end []ast.Trivia, err error) {
+	var lc listComments
+	p.listGap(&lc)
 
-	// Empty list: caller is sitting on RPAREN right away.
+	// Empty list: caller is sitting on RPAREN right away. Its comments are
+	// the list's end trivia.
 	if !p.atEnd() && p.peek().Type == token.RPAREN {
-		return params, nil
+		return nil, lc.end(), nil
 	}
+	defer lc.close()
 	if !p.atEnd() && p.peek().Type == token.BAR {
-		return nil, errorAt(p.peek().Line, p.peek().Col, "'|' separator in function params is not supported; read app fields as `AppEnv.field` in the body")
+		return nil, nil, errorAt(p.peek().Line, p.peek().Col, "'|' separator in function params is not supported; read app fields as `AppEnv.field` in the body")
 	}
 
 	for {
 		if p.atEnd() {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected parameter")
+			return nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected parameter")
 		}
 		param, err := p.parseParamPattern()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		params = append(params, param)
+		lc.item(fieldComments(&params[len(params)-1].Comments))
+		p.listGap(&lc)
 
 		if p.atEnd() {
 			break
@@ -5118,23 +5224,23 @@ func (p *Parser) parseParamSection(tok token.Token) ([]ast.Param, error) {
 		switch p.peek().Type {
 		case token.COMMA:
 			p.advance() // consume COMMA
-			p.skipNewlines()
+			p.listGap(&lc)
 			// Allow trailing comma: COMMA followed by RPAREN closes the section.
 			if !p.atEnd() && p.peek().Type == token.RPAREN {
-				return params, nil
+				return params, nil, nil
 			}
 			if !p.atEnd() && p.peek().Type == token.BAR {
-				return nil, errorAt(p.peek().Line, p.peek().Col, "'|' separator in function params is not supported; read app fields as `AppEnv.field` in the body")
+				return nil, nil, errorAt(p.peek().Line, p.peek().Col, "'|' separator in function params is not supported; read app fields as `AppEnv.field` in the body")
 			}
 			continue
 		case token.BAR:
-			return nil, errorAt(p.peek().Line, p.peek().Col, "'|' separator in function params is not supported; read app fields as `AppEnv.field` in the body")
+			return nil, nil, errorAt(p.peek().Line, p.peek().Col, "'|' separator in function params is not supported; read app fields as `AppEnv.field` in the body")
 		}
 		break
 	}
 
 	_ = tok
-	return params, nil
+	return params, nil, nil
 }
 
 // tupleIndexPair splits a Float token that follows a field-access dot into
@@ -5210,18 +5316,25 @@ func (p *Parser) tryParseTurbofish() ([]ast.TypeExpr, bool) {
 	saved := p.pos
 	p.advance() // consume <
 	var typeArgs []ast.TypeExpr
+	var lc listComments
+	lc.open(p)
 	for {
 		ta, err := p.parseTypeAnnotation()
 		if err != nil {
 			p.pos = saved
 			return nil, false
 		}
+		lc.item(nodeComments(ta))
 		typeArgs = append(typeArgs, ta)
+		p.listAfter(&lc)
 		if p.atEnd() || p.peek().Type != token.COMMA {
 			break
 		}
 		p.advance() // consume COMMA
+		p.listAfter(&lc)
 	}
+	lc.close()
+	p.skipBreaksBefore(token.GT)
 	if p.atEnd() || p.peek().Type != token.GT {
 		p.pos = saved
 		return nil, false
@@ -5244,6 +5357,8 @@ func (p *Parser) parseTypeParams() ([]ast.TypeParam, error) {
 	p.advance() // consume <
 
 	var params []ast.TypeParam
+	var lc listComments
+	lc.open(p)
 	for {
 		name, line, col, err := p.parseTypeParamName()
 		if err != nil {
@@ -5254,12 +5369,17 @@ func (p *Parser) parseTypeParams() ([]ast.TypeParam, error) {
 		}
 
 		params = append(params, ast.TypeParam{Name: name, Line: line, Col: col})
+		lc.item(fieldComments(&params[len(params)-1].Comments))
+		p.listAfter(&lc)
 
 		if p.atEnd() || p.peek().Type != token.COMMA {
 			break
 		}
 		p.advance() // consume COMMA
+		p.listAfter(&lc)
 	}
+	lc.close()
+	p.skipBreaksBefore(token.GT)
 
 	if p.atEnd() || p.peek().Type != token.GT {
 		return nil, errorAt(p.peek().Line, p.peek().Col, "expected '>' to close type parameters")
@@ -5358,6 +5478,15 @@ func (p *Parser) parseTypeAnnotation() (te ast.TypeExpr, err error) {
 	}
 	defer p.leaveNested()
 	start := p.pos
+	if !p.atEnd() && p.peek().Type == token.LPAREN {
+		// The inner type of a grouping `(T)` keeps its own span, so a
+		// rename or a hover on it covers the name and not the parentheses.
+		te, grouped, err := p.parseFuncTypeAnnotation()
+		if err == nil && !grouped {
+			p.recordSpan(te, start)
+		}
+		return te, err
+	}
 	defer func() {
 		if err == nil && te != nil {
 			p.recordSpan(te, start)
@@ -5371,10 +5500,8 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 		return nil, fmt.Errorf("expected type annotation")
 	}
 
-	// Function type: (params) -> ReturnType
-	if p.peek().Type == token.LPAREN {
-		return p.parseFuncTypeAnnotation()
-	}
+	// A type opening with `(` (function, tuple, grouping) is
+	// parseTypeAnnotation's, which keeps a grouped type's own span.
 
 	// Anonymous struct type: {name: Type, ...}
 	// The carve-out at parseTypeDef (parser.go's LBRACE check after
@@ -5425,18 +5552,9 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 		// Check for generic params on the final member: Mod.Type<A, B>
 		if !p.atEnd() && p.peek().Type == token.LT {
 			p.advance() // consume <
-			param, err := p.parseTypeAnnotation()
+			params, err := p.parseTypeArgs()
 			if err != nil {
 				return nil, err
-			}
-			params := []ast.TypeExpr{param}
-			for !p.atEnd() && p.peek().Type == token.COMMA {
-				p.advance() // consume COMMA
-				param, err = p.parseTypeAnnotation()
-				if err != nil {
-					return nil, err
-				}
-				params = append(params, param)
 			}
 			if p.atEnd() || p.peek().Type != token.GT {
 				return nil, errorAt(tok.Line, tok.Col, "expected '>' to close type parameters")
@@ -5462,19 +5580,9 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 	if !p.atEnd() && p.peek().Type == token.LT {
 		p.advance() // consume <
 
-		param, err := p.parseTypeAnnotation()
+		params, err := p.parseTypeArgs()
 		if err != nil {
 			return nil, err
-		}
-		params := []ast.TypeExpr{param}
-
-		for !p.atEnd() && p.peek().Type == token.COMMA {
-			p.advance() // consume COMMA
-			param, err = p.parseTypeAnnotation()
-			if err != nil {
-				return nil, err
-			}
-			params = append(params, param)
 		}
 
 		if p.atEnd() || p.peek().Type != token.GT {
@@ -5489,31 +5597,43 @@ func (p *Parser) parseTypeAnnotationInner() (ast.TypeExpr, error) {
 }
 
 // parseFuncTypeAnnotation parses function types like (T) -> U or tuple types like (T, U).
-// If followed by ->, it's a function type. Otherwise, it's a tuple type.
-func (p *Parser) parseFuncTypeAnnotation() (ast.TypeExpr, error) {
+// If followed by ->, it's a function type. Otherwise, it's a tuple type,
+// except that one type in parentheses with no arrow, `(T)`, is grouping:
+// Nomi has no 1-tuples, so it returns T itself and grouped is true. A
+// comment inside those parentheses stays on T as its item comments.
+func (p *Parser) parseFuncTypeAnnotation() (_ ast.TypeExpr, grouped bool, _ error) {
 	tok := p.peek()
 	p.advance() // consume LPAREN
 
 	// Parse inner types
 	var params []ast.TypeExpr
+	var lc listComments
+	lc.open(p)
 	first := true
 	for !p.atEnd() && p.peek().Type != token.RPAREN {
 		if !first {
 			if p.peek().Type != token.COMMA {
-				return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in type")
+				return nil, false, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in type")
 			}
 			p.advance()
+			p.listAfter(&lc)
+			if len(params) == 1 && !p.atEnd() && p.peek().Type == token.RPAREN {
+				return nil, false, errorAt(tok.Line, tok.Col, "single-element tuple types are not allowed; `(T)` is grouping. Use a struct or distinct type if you need a wrapper")
+			}
 		}
 		paramType, err := p.parseTypeAnnotation()
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
+		lc.item(nodeComments(paramType))
 		params = append(params, paramType)
+		p.listAfter(&lc)
 		first = false
 	}
+	lc.close()
 
 	if p.atEnd() || p.peek().Type != token.RPAREN {
-		return nil, errorAt(p.peek().Line, p.peek().Col, "expected ')' in type")
+		return nil, false, errorAt(p.peek().Line, p.peek().Col, "expected ')' in type")
 	}
 	p.advance() // consume RPAREN
 
@@ -5524,11 +5644,14 @@ func (p *Parser) parseFuncTypeAnnotation() (ast.TypeExpr, error) {
 		var err error
 		retType, err = p.parseTypeAnnotation()
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
 
-	return &ast.FuncType{Params: params, Return: retType, Line: tok.Line, Col: tok.Col}, nil
+	if retType == nil && len(params) == 1 {
+		return params[0], true, nil
+	}
+	return &ast.FuncType{Params: params, Return: retType, Line: tok.Line, Col: tok.Col}, false, nil
 }
 
 // parseAnonStructType parses an anonymous struct type expression like
@@ -5809,8 +5932,8 @@ func (p *Parser) parseEnumVariant(enumName string) (v ast.EnumVariant, err error
 	//   anything    → type-expression payload (TYPE_IDENT, IDENT, LPAREN, …)
 	//   else
 	// The paren-wrapped form `Foo(Type)` parses as the type expression
-	// `(Type)` — per the no-1-tuples rule, that collapses to `Type`
-	// (handled below). `Foo(T1, T2)` parses as a tuple type.
+	// `(Type)`, which per the no-1-tuples rule is `Type` itself
+	// (parseFuncTypeAnnotation). `Foo(T1, T2)` parses as a tuple type.
 	//
 	// A trailing COMMA also terminates a bare variant here (rather than
 	// starting a payload) so the stray-comma error fires at the top of
@@ -5838,14 +5961,6 @@ func (p *Parser) parseEnumVariant(enumName string) (v ast.EnumVariant, err error
 		typeExpr, err := p.parseTypeAnnotation()
 		if err != nil {
 			return ast.EnumVariant{}, err
-		}
-		// Collapse a 1-element parenthesized type — `(T)` parses as
-		// FuncType{Params: [T], Return: nil}, which would otherwise
-		// be interpreted by the type resolver as a 1-tuple. Nomi has
-		// no 1-tuples; treat `(T)` as `T`. This makes the
-		// paren-wrapped `Foo(Int)` parse to the same AST as `Foo Int`.
-		if ft, ok := typeExpr.(*ast.FuncType); ok && ft.Return == nil && len(ft.Params) == 1 {
-			typeExpr = ft.Params[0]
 		}
 		dataTypeExpr = typeExpr
 	} else if !p.atEnd() && p.peek().Type == token.LBRACE {
@@ -6030,7 +6145,11 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 		return &ast.Ident{Name: name, Line: last.Line, Col: last.Col}, nil
 	}
 	parseBraceList := func() (names []ast.Node, aliases []ast.Node, exportFlags []bool, exportAliases []ast.Node, includeParent bool, selfLine int, selfCol int, err error) {
+		var lc listComments
+		lc.open(p)
 		for {
+			p.skipSeparatorsOnly()
+			p.listAfter(&lc)
 			p.skipSeparatorsOnly()
 			if p.peek().Type == token.RBRACE {
 				if len(names) == 0 && !includeParent {
@@ -6056,6 +6175,7 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 					err = errorAt(p.peek().Line, p.peek().Col, "`self` in an import list cannot carry `export`; re-export an owner type with a line-level `export` (`import path.Type.{self, A} export`)")
 					return
 				}
+				p.listAfter(&lc)
 				if p.peek().Type == token.COMMA {
 					p.advance() // consume COMMA
 					p.skipSeparatorsOnly()
@@ -6102,6 +6222,8 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 			}
 			exportFlags = append(exportFlags, exportFlag)
 			exportAliases = append(exportAliases, exportAlias)
+			lc.item(nodeComments(nameNode))
+			p.listAfter(&lc)
 
 			if p.peek().Type == token.COMMA {
 				p.advance() // consume COMMA
@@ -6111,6 +6233,9 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 			}
 		}
 		p.skipSeparatorsOnly()
+		p.listAfter(&lc)
+		p.skipSeparatorsOnly()
+		lc.close()
 		if p.peek().Type != token.RBRACE {
 			err = errorAt(tok.Line, tok.Col, "expected '}' after import list")
 			return
@@ -6498,10 +6623,12 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 		return nil, errorAt(tok.Line, tok.Col, "type parameters on distinct `type %s` are not supported — use `struct %s<...>` or `enum %s<...>` for generic record/sum types", name, name, name)
 	}
 
-	// Check for optional inner type (must be on same line)
+	// Check for optional inner type, on the line the name ends on. The
+	// name may be on a line after `type` (`type` then `Meters Int`), and
+	// the formatter joins them.
 	var innerTypeExpr ast.TypeExpr
 	if !p.atEnd() && (p.peek().Type == token.TYPE_IDENT || p.peek().Type == token.IDENT || p.peek().Type == token.LPAREN) &&
-		p.peek().Line == tok.Line {
+		p.peek().Line == p.tokens[p.pos-1].Line {
 		typeExpr, err := p.parseTypeAnnotation()
 		if err != nil {
 			return nil, err
@@ -6881,25 +7008,7 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 				Line:            fieldTok.Line,
 				Col:             fieldTok.Col,
 			})
-			for !p.atEnd() {
-				tt := p.peek().Type
-				if tt == token.NEWLINE || tt == token.SEMICOLON {
-					p.advance()
-				} else {
-					break
-				}
-			}
-			if !p.atEnd() && p.peek().Type == token.COMMA {
-				p.advance()
-				for !p.atEnd() {
-					tt := p.peek().Type
-					if tt == token.NEWLINE || tt == token.SEMICOLON {
-						p.advance()
-					} else {
-						break
-					}
-				}
-			}
+			p.structLitFieldEnd(&fields[len(fields)-1], false)
 			continue
 		}
 		p.advance() // consume COLON
@@ -6911,28 +7020,7 @@ func (p *Parser) parseStructLit(typeName ast.TypeExpr, line, col int) (ast.Node,
 		}
 
 		fields = append(fields, ast.StructFieldVal{Name: fieldName, Value: val, LeadingComments: leading, Line: fieldTok.Line, Col: fieldTok.Col})
-
-		// Skip separators (comma, newline). Keep COMMENT / BLANK_LINE
-		// for the next iteration's EndTrivia check.
-		for !p.atEnd() {
-			tt := p.peek().Type
-			if tt == token.NEWLINE || tt == token.SEMICOLON {
-				p.advance()
-			} else {
-				break
-			}
-		}
-		if !p.atEnd() && p.peek().Type == token.COMMA {
-			p.advance()
-			for !p.atEnd() {
-				tt := p.peek().Type
-				if tt == token.NEWLINE || tt == token.SEMICOLON {
-					p.advance()
-				} else {
-					break
-				}
-			}
-		}
+		p.structLitFieldEnd(&fields[len(fields)-1], false)
 	}
 
 	if p.atEnd() || p.peek().Type != token.RBRACE {
@@ -7053,20 +7141,28 @@ func (p *Parser) parseEnumPatternPayload(variant ast.TypeExpr, line, col int) (a
 	// packed into a TuplePattern that destructures the inner tuple. The
 	// type-checker rejects the same shape against a non-tuple payload type
 	// ("tuple pattern requires a tuple type, got X"), so this is safe.
+	var lc listComments
+	lc.open(p)
 	payload, err := p.parseSinglePattern()
 	if err != nil {
 		return nil, err
 	}
+	lc.item(nodeComments(payload))
+	p.listAfter(&lc)
 	if !p.atEnd() && p.peek().Type == token.COMMA {
 		patterns := []ast.Node{payload}
 		for !p.atEnd() && p.peek().Type == token.COMMA {
 			p.advance() // consume COMMA
+			p.listAfter(&lc)
 			next, err := p.parseSinglePattern()
 			if err != nil {
 				return nil, err
 			}
+			lc.item(nodeComments(next))
 			patterns = append(patterns, next)
+			p.listAfter(&lc)
 		}
+		lc.close()
 		payload = &ast.TuplePattern{
 			Patterns: patterns,
 			Flat:     true,
@@ -7076,6 +7172,11 @@ func (p *Parser) parseEnumPatternPayload(variant ast.TypeExpr, line, col int) (a
 	}
 	if p.atEnd() || p.peek().Type != token.RPAREN {
 		return nil, errorAt(lparen.Line, lparen.Col, "expected ')' in enum pattern")
+	}
+	if tp, ok := payload.(*ast.TuplePattern); !ok || !tp.Flat {
+		// The one payload keeps its comments as the payload list's item,
+		// which the formatter writes inside the parentheses.
+		lc.close()
 	}
 	p.advance() // consume RPAREN
 	return &ast.EnumPattern{
@@ -7175,6 +7276,37 @@ func (p *Parser) detectMapPatternEntry() bool {
 	return true
 }
 
+// mapEntryFollows reports whether a map entry (`key =>`) comes next, past
+// any comments and line breaks. The position is unchanged.
+func (p *Parser) mapEntryFollows() bool {
+	saved := p.pos
+	defer func() { p.pos = saved }()
+	for !p.atEnd() {
+		switch p.peek().Type {
+		case token.COMMENT, token.NEWLINE, token.BLANK_LINE, token.SEMICOLON, token.COMMA:
+			p.advance()
+			continue
+		}
+		break
+	}
+	return !p.atEnd() && p.peek().Type != token.RBRACE && p.detectMapPatternEntry()
+}
+
+// mapEntryFollowsSpread reports whether the `..head` at the current
+// position is followed by a map entry, so a second spread in
+// `{..a, ..b, "k" => 1}` is named as the map spread it is. The position is
+// unchanged.
+func (p *Parser) mapEntryFollowsSpread() bool {
+	saved, savedRecoveries := p.pos, p.recoveries
+	defer func() { p.pos, p.recoveries = saved, savedRecoveries }()
+	p.advance() // DOTDOT
+	p.skipNewlines()
+	if _, err := p.parseExpr(1); err != nil {
+		return false
+	}
+	return p.mapEntryFollows()
+}
+
 // parseSinglePattern parses a single pattern element for use in compound patterns (tuples, lists, etc.).
 func (p *Parser) parseSinglePattern() (node ast.Node, err error) {
 	if err := p.enterNested(); err != nil {
@@ -7238,24 +7370,9 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 	case token.LPAREN:
 		// Parenthesized pattern: grouping or tuple destructure.
 		p.advance() // consume LPAREN
-		var patterns []ast.Node
-		for {
-			pat, err := p.parseSinglePattern()
-			if err != nil {
-				return nil, err
-			}
-			patterns = append(patterns, pat)
-			if p.atEnd() {
-				return nil, errorAt(tok.Line, tok.Col, "expected ')' in tuple pattern")
-			}
-			if p.peek().Type == token.RPAREN {
-				p.advance()
-				break
-			}
-			if p.peek().Type != token.COMMA {
-				return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in tuple pattern")
-			}
-			p.advance() // consume COMMA
+		patterns, err := p.parsePatternList(tok)
+		if err != nil {
+			return nil, err
 		}
 		if len(patterns) < 2 {
 			return patterns[0], nil
@@ -7530,8 +7647,8 @@ func (p *Parser) skipNewlines() {
 }
 
 // parseMapLit parses a map literal: { key => value, ... } (LBRACE already consumed).
-func (p *Parser) parseMapLit(openTok token.Token) (ast.Node, error) {
-	entries, endTrivia, err := p.parseMapLitEntries(openTok.Line)
+func (p *Parser) parseMapLit(openTok token.Token, opening []ast.Trivia) (ast.Node, error) {
+	entries, endTrivia, err := p.parseMapLitEntries(openTok.Line, opening)
 	if err != nil {
 		return nil, err
 	}
@@ -7543,27 +7660,18 @@ func (p *Parser) parseMapLit(openTok token.Token) (ast.Node, error) {
 // already consumed LBRACE and the leading whitespace/newlines, plus
 // committed to map-pattern shape via lookahead. Returns a MapPattern
 // with the supplied TypeName attached.
-func (p *Parser) parseMapPatternEntries(typeName ast.TypeExpr, line, col int) (*ast.MapPattern, error) {
+func (p *Parser) parseMapPatternEntries(typeName ast.TypeExpr, line, col int, opening []ast.Trivia) (*ast.MapPattern, error) {
 	var entries []ast.MapPatternEntry
-	var endTrivia []ast.Trivia
+	lc := listComments{pending: commentsOnly(opening)}
+	lc.open(p)
 	for !p.atEnd() && p.peek().Type != token.RBRACE {
-		// End-of-body trivia: see parseMapLitEntries.
-		t := p.peek().Type
-		if t == token.COMMENT || t == token.BLANK_LINE {
-			save := p.pos
-			collected := p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACE {
-				endTrivia = collected
-				break
-			}
-			p.pos = save
-		}
 		// The key is an arbitrary expression (parsed identically to a map
 		// literal's key), then '=>'. Any keyable value works as a key.
 		keyNode, err := p.parseExpr(1)
 		if err != nil {
 			return nil, err
 		}
+		lc.item(nodeComments(keyNode))
 		if p.atEnd() || p.peek().Type != token.FAT_ARROW {
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected '=>' in map pattern")
 		}
@@ -7573,22 +7681,13 @@ func (p *Parser) parseMapPatternEntries(typeName ast.TypeExpr, line, col int) (*
 			return nil, err
 		}
 		entries = append(entries, ast.MapPatternEntry{Key: keyNode, Pattern: valPat})
-		// Plain separators only — preserve COMMENT / BLANK_LINE for the
-		// next iteration's EndTrivia check.
-		for !p.atEnd() {
-			tt := p.peek().Type
-			if tt == token.COMMA || tt == token.NEWLINE || tt == token.SEMICOLON {
-				p.advance()
-			} else {
-				break
-			}
-		}
+		p.listSeparators(&lc)
 	}
 	if p.atEnd() || p.peek().Type != token.RBRACE {
 		return nil, p.errorOnLine(line, "expected '}' in map pattern")
 	}
 	p.advance() // consume RBRACE
-	return &ast.MapPattern{TypeName: typeName, Entries: entries, EndTrivia: endTrivia, Line: line, Col: col}, nil
+	return &ast.MapPattern{TypeName: typeName, Entries: entries, EndTrivia: lc.end(), Line: line, Col: col}, nil
 }
 
 // parseTypePrefixedMapLit parses a type-prefixed map literal:
@@ -7599,7 +7698,7 @@ func (p *Parser) parseMapPatternEntries(typeName ast.TypeExpr, line, col int) (*
 // stays attached to the brace literal in the AST so the type checker
 // can validate K/V against the named map-distinct's inner Map<K, V>.
 func (p *Parser) parseTypePrefixedMapLit(typeName ast.TypeExpr, line, col int) (ast.Node, error) {
-	entries, endTrivia, err := p.parseMapLitEntries(line)
+	entries, endTrivia, err := p.parseMapLitEntries(line, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -7632,12 +7731,14 @@ func (p *Parser) parseTypePrefixedListPattern(typeName ast.TypeExpr, line, col i
 // message (matches the legacy error wording).
 func (p *Parser) parseTypePrefixedBracePattern(typeName ast.TypeExpr, startLine, startCol, lbraceLine int) (ast.Node, error) {
 	p.advance() // consume LBRACE
-	p.skipNewlines()
+	var lc listComments
+	lc.open(p)
+	p.skipSeparatorsOnly()
 
 	// Map pattern: TypeName{ keyExpr => pat, ... }
 	isMapPattern := !p.atEnd() && p.detectMapPatternEntry()
 	if isMapPattern {
-		mp, err := p.parseMapPatternEntries(typeName, startLine, startCol)
+		mp, err := p.parseMapPatternEntries(typeName, startLine, startCol, lc.end())
 		if err != nil {
 			return nil, err
 		}
@@ -7661,19 +7762,13 @@ func (p *Parser) parseTypePrefixedBracePattern(typeName ast.TypeExpr, startLine,
 			}
 		}
 		fields = append(fields, spf)
-		// Skip comma/newlines
-		for !p.atEnd() {
-			tt := p.peek().Type
-			if tt == token.COMMA || tt == token.NEWLINE || tt == token.SEMICOLON {
-				p.advance()
-			} else {
-				break
-			}
-		}
+		lc.item(fieldComments(&fields[len(fields)-1].Comments))
+		p.listSeparators(&lc)
 	}
 	if p.atEnd() || p.peek().Type != token.RBRACE {
 		return nil, p.errorOnLine(lbraceLine, "expected '}' in struct pattern")
 	}
+	lc.close()
 	p.advance() // consume RBRACE
 	return &ast.StructPattern{
 		TypeName: typeName,
@@ -7718,34 +7813,22 @@ func (p *Parser) parseStructFieldValue(spf *ast.StructPatternField) error {
 func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast.Node, error) {
 	openTok := p.peek()
 	p.advance() // consume LBRACKET
-	// Plain separators only — COMMENT / BLANK_LINE is captured below as
-	// EndTrivia. See parseListLit for the rationale.
-	p.skipSeparatorsOnly()
+	var lc listComments
+	lc.open(p)
+	p.skipListBreaks()
 	var heads []ast.Node
-	var endTrivia []ast.Trivia
 	if !p.atEnd() && p.peek().Type == token.RBRACKET {
 		p.advance()
-		return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: nil, Line: line, Col: col}, nil
+		return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: nil, EndTrivia: lc.end(), Line: line, Col: col}, nil
 	}
 	for {
-		p.skipSeparatorsOnly()
-		// End-of-body trivia: trivia followed only by `]` becomes EndTrivia.
-		t := p.peek().Type
-		if t == token.COMMENT || t == token.BLANK_LINE {
-			save := p.pos
-			collected := p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACKET {
-				endTrivia = collected
-				p.advance()
-				return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: nil, EndTrivia: endTrivia, Line: line, Col: col}, nil
-			}
-			p.pos = save
-		}
-		// A trailing comma after the last head, which `nomi fmt` writes
-		// when it breaks a list pattern across lines.
-		if len(heads) > 0 && !p.atEnd() && p.peek().Type == token.RBRACKET {
+		p.skipListBreaks()
+		p.listAfter(&lc)
+		p.skipListBreaks()
+		// The comments before `]` are the pattern's EndTrivia.
+		if !p.atEnd() && p.peek().Type == token.RBRACKET && (len(heads) > 0 || len(lc.pending) > 0) {
 			p.advance()
-			return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: nil, Line: line, Col: col}, nil
+			return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: nil, EndTrivia: lc.end(), Line: line, Col: col}, nil
 		}
 		// Spread tail: `..pat` with no preceding element. Patterns don't
 		// have a range operator, so DOTDOT here unambiguously starts the
@@ -7758,10 +7841,13 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 			if err != nil {
 				return nil, err
 			}
-			p.skipNewlines()
+			lc.item(nodeComments(tail))
+			p.listAfter(&lc)
+			p.skipListBreaks()
 			if p.atEnd() || p.peek().Type != token.RBRACKET {
 				return nil, errorAt(spreadTok.Line, spreadTok.Col, "list pattern spread `..` must be the last element")
 			}
+			lc.close()
 			p.advance()
 			return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: tail, Line: line, Col: col}, nil
 		}
@@ -7769,14 +7855,16 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 		if err != nil {
 			return nil, err
 		}
+		lc.item(nodeComments(pat))
 		heads = append(heads, pat)
-		p.skipSeparatorsOnly()
+		p.listAfter(&lc)
+		p.skipListBreaks()
 		if p.atEnd() {
 			return nil, errorAt(openTok.Line, openTok.Col, "expected ']' in list pattern")
 		}
 		if p.peek().Type == token.RBRACKET {
 			p.advance()
-			return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: nil, Line: line, Col: col}, nil
+			return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: nil, EndTrivia: lc.end(), Line: line, Col: col}, nil
 		}
 		if p.peek().Type != token.COMMA {
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ']' in list pattern")
@@ -7796,85 +7884,34 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 func (p *Parser) parseTypePrefixedListLit(typeName ast.TypeExpr, line, col int) (ast.Node, error) {
 	openTok := p.peek()
 	p.advance() // consume LBRACKET
-	// Plain separators only — COMMENT / BLANK_LINE is captured below as
-	// EndTrivia. See parseListLit for the rationale.
-	p.skipSeparatorsOnly()
-
-	var items []ast.Node
-	var endTrivia []ast.Trivia
-	if !p.atEnd() && p.peek().Type == token.RBRACKET {
-		p.advance() // consume RBRACKET
-		return &ast.ListLit{TypeName: typeName, Items: items, Line: line, Col: col}, nil
+	items, endTrivia, _, err := p.parseCollectionItems(openTok, token.RBRACKET, "list literal", spreadNone, "")
+	if err != nil {
+		return nil, err
 	}
-
-	for {
-		p.skipSeparatorsOnly()
-		// End-of-body trivia: see parseListLit.
-		t := p.peek().Type
-		if t == token.COMMENT || t == token.BLANK_LINE {
-			save := p.pos
-			collected := p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACKET {
-				endTrivia = collected
-				p.advance() // consume RBRACKET
-				return &ast.ListLit{TypeName: typeName, Items: items, EndTrivia: endTrivia, Line: line, Col: col}, nil
-			}
-			p.pos = save
-		}
-		item, err := p.parseExpr(1)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-		p.skipSeparatorsOnly()
-		if p.atEnd() {
-			return nil, errorAt(openTok.Line, openTok.Col, "expected ']' to close list literal")
-		}
-		if p.peek().Type == token.RBRACKET {
-			p.advance() // consume RBRACKET
-			return &ast.ListLit{TypeName: typeName, Items: items, Line: line, Col: col}, nil
-		}
-		if p.peek().Type != token.COMMA {
-			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ']' in list literal")
-		}
-		p.advance() // consume COMMA
-		p.skipSeparatorsOnly()
-		if !p.atEnd() && p.peek().Type == token.RBRACKET {
-			p.advance() // consume RBRACKET
-			return &ast.ListLit{TypeName: typeName, Items: items, Line: line, Col: col}, nil
-		}
-	}
+	return &ast.ListLit{TypeName: typeName, Items: items, EndTrivia: endTrivia, Line: line, Col: col}, nil
 }
 
 // parseMapLitEntries parses `key => value, ...` entries up to and
 // including the closing RBRACE. Caller has already consumed LBRACE and
-// the leading whitespace/newlines. Returns any trailing comments / blank
-// lines that sit between the last entry and `}` as endTrivia so the
-// caller can stash them on MapLit.EndTrivia — pre-fix the COMMENT
-// terminated the loop and dropped into the "expected `}`" error path,
-// which surfaced as the long-known map-trailing-comment parse failure.
-func (p *Parser) parseMapLitEntries(line int) ([]ast.MapEntry, []ast.Trivia, error) {
+// the leading whitespace/newlines; opening is the comments it took there.
+// Returns the comments that sit between the last entry and `}` as
+// endTrivia, for MapLit.EndTrivia. An entry's other comments are its
+// key's ItemComments.
+func (p *Parser) parseMapLitEntries(line int, opening []ast.Trivia) ([]ast.MapEntry, []ast.Trivia, error) {
 	var entries []ast.MapEntry
-	var endTrivia []ast.Trivia
+	lc := listComments{pending: commentsOnly(opening)}
+	lc.open(p)
 	for !p.atEnd() && p.peek().Type != token.RBRACE {
-		// End-of-body trivia: trivia followed only by `}` becomes
-		// EndTrivia (preserved through the formatter). Trivia followed by
-		// another entry token falls through; MapEntry has no
-		// inter-entry trivia carrier today.
-		t := p.peek().Type
-		if t == token.COMMENT || t == token.BLANK_LINE {
-			save := p.pos
-			collected := p.collectEndOfBodyTrivia()
-			if !p.atEnd() && p.peek().Type == token.RBRACE {
-				endTrivia = collected
-				break
-			}
-			p.pos = save
+		// `{"a" => 1, ..m}` or `{..m, "a" => 1, ..n}`: the one spread a map
+		// literal takes is its first element.
+		if p.peek().Type == token.DOTDOT {
+			return nil, nil, errorAt(p.peek().Line, p.peek().Col, "map spread `..` must be the first element")
 		}
 		key, err := p.parseExpr(1)
 		if err != nil {
 			return nil, nil, err
 		}
+		lc.item(nodeComments(key))
 		if p.atEnd() || p.peek().Type != token.FAT_ARROW {
 			return nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected '=>' in map literal")
 		}
@@ -7884,22 +7921,13 @@ func (p *Parser) parseMapLitEntries(line int) ([]ast.MapEntry, []ast.Trivia, err
 			return nil, nil, err
 		}
 		entries = append(entries, ast.MapEntry{Key: key, Value: val})
-		// Skip plain separators only — COMMENT / BLANK_LINE survives for
-		// the next iteration's EndTrivia check.
-		for !p.atEnd() {
-			t := p.peek().Type
-			if t == token.COMMA || t == token.NEWLINE || t == token.SEMICOLON {
-				p.advance()
-			} else {
-				break
-			}
-		}
+		p.listSeparators(&lc)
 	}
 	if p.atEnd() || p.peek().Type != token.RBRACE {
 		return nil, nil, p.errorOnLine(line, "expected '}' to close map literal")
 	}
 	p.advance() // consume RBRACE
-	return entries, endTrivia, nil
+	return entries, lc.end(), nil
 }
 
 func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
@@ -8536,14 +8564,13 @@ func (p *Parser) parseInterfaceMethod() (m ast.InterfaceMethod, err error) {
 		return ast.InterfaceMethod{}, p.errorOnLine(line, "expected '(' after method name")
 	}
 	p.advance() // consume LPAREN
-	p.skipNewlines()
 
 	// Reuse the shared function-parameter parser (the same one parseFuncDef
 	// uses), so interface method signatures get type annotations, trailing
 	// default values, and destructuring uniformly — no bespoke param loop to
 	// drift behind it. It stops at RPAREN without consuming it; the LPAREN was
 	// already consumed above.
-	params, err := p.parseParamSection(p.peek())
+	params, paramsEnd, err := p.parseParamSection(p.peek())
 	if err != nil {
 		return ast.InterfaceMethod{}, err
 	}
@@ -8615,7 +8642,7 @@ func (p *Parser) parseInterfaceMethod() (m ast.InterfaceMethod, err error) {
 	}
 
 	return ast.InterfaceMethod{
-		Name: name, TypeParams: typeParams, Params: params, ReturnTypeExpr: returnTypeExpr, Body: body, Open: open, Extern: extern, WhereClauses: whereClauses, Line: line, Col: col,
+		Name: name, TypeParams: typeParams, Params: params, ParamsEndTrivia: paramsEnd, ReturnTypeExpr: returnTypeExpr, Body: body, Open: open, Extern: extern, WhereClauses: whereClauses, Line: line, Col: col,
 	}, nil
 }
 
@@ -8989,10 +9016,15 @@ func (p *Parser) parseExternFunc(externTok token.Token, public bool, allowImplQu
 		return nil, errorAt(nameTok.Line, nameTok.Col, "expected '(' after function name")
 	}
 	p.advance() // consume LPAREN
-	p.skipNewlines()
+	var lc listComments
+	p.listGap(&lc)
 
 	// Parse parameters (same logic as parseFuncDef)
 	var params []ast.Param
+	var paramsEnd []ast.Trivia
+	if !p.atEnd() && p.peek().Type == token.RPAREN {
+		paramsEnd = lc.end()
+	}
 	if !p.atEnd() && p.peek().Type != token.RPAREN {
 		for {
 			if p.atEnd() || p.peek().Type != token.IDENT {
@@ -9031,18 +9063,21 @@ func (p *Parser) parseExternFunc(externTok token.Token, public bool, allowImplQu
 			}
 
 			params = append(params, param)
+			lc.item(fieldComments(&params[len(params)-1].Comments))
+			p.listGap(&lc)
 
 			if p.atEnd() || p.peek().Type != token.COMMA {
 				break
 			}
 			p.advance() // consume COMMA
-			p.skipNewlines()
+			p.listGap(&lc)
 			// Allow trailing comma: COMMA followed by RPAREN closes the list.
 			if !p.atEnd() && p.peek().Type == token.RPAREN {
 				break
 			}
 		}
 	}
+	lc.close()
 
 	// Expect RPAREN
 	if p.atEnd() || p.peek().Type != token.RPAREN {
@@ -9072,6 +9107,7 @@ func (p *Parser) parseExternFunc(externTok token.Token, public bool, allowImplQu
 		Public:                   public,
 		TypeParams:               typeParams,
 		Params:                   params,
+		ParamsEndTrivia:          paramsEnd,
 		ReturnTypeExpr:           returnTypeExpr,
 		WhereClauses:             whereClauses,
 		ImplIface:                implIface,

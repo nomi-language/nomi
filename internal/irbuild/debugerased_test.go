@@ -62,30 +62,30 @@ func TestDebugErased_IsPinnedAbsolutely(t *testing.T) {
 	path := fixture("debug_erased.nomi")
 	const f = "testdata/debug_erased.nomi"
 
-	want := // The BARE TYPE PARAMETER column.
-		"1 param  Rev    = Rev{zeta: 1, alpha: 2}\n" +
-			"2 param  Custom = CUSTOM-DEBUG\n" +
-			"3 param  Meters = <opaque Meters>\n" +
-			"4 param  Int    = 42\n" +
-			"5 param  String = \"hi\"\n" +
-			// The EXISTENTIAL column.
-			"6 iface  Rev    = Rev{zeta: 1, alpha: 2}\n" +
-			"7 iface  Custom = CUSTOM-DEBUG\n" +
-			// THE NEGATIVE CONTROL: the direct route, unchanged.
-			"8 direct Rev    = Rev{zeta: 1, alpha: 2}\n" +
-			"9 direct Custom = CUSTOM-DEBUG\n" +
-			"10 direct Meters = <opaque Meters>\n" +
-			"11 direct Int    = 42\n" +
-			"12 direct String = \"hi\"\n" +
-			"ok " + f + " :: the four renderings of one value survive erasure\n" +
-			// The assertion `values:` row: a different renderer, SORTED.
-			"FAIL " + f + " :: the values row is a different renderer from Debug\n" +
-			"  line 116: assertion failed\n" +
-			"    assert no_rev(r)\n" +
-			"    values:\n" +
-			"      r\n" +
-			"        = Rev{alpha: 2, zeta: 1}\n" +
-			"test result: FAILED. 1 passed, 1 failed\n"
+	want := "ok " + f + " :: the four renderings of one value survive erasure\n" +
+		// The BARE TYPE PARAMETER column.
+		"  1 param  Rev    = Rev{zeta: 1, alpha: 2}\n" +
+		"  2 param  Custom = CUSTOM-DEBUG\n" +
+		"  3 param  Meters = <opaque Meters>\n" +
+		"  4 param  Int    = 42\n" +
+		"  5 param  String = \"hi\"\n" +
+		// The EXISTENTIAL column.
+		"  6 iface  Rev    = Rev{zeta: 1, alpha: 2}\n" +
+		"  7 iface  Custom = CUSTOM-DEBUG\n" +
+		// THE NEGATIVE CONTROL: the direct route, unchanged.
+		"  8 direct Rev    = Rev{zeta: 1, alpha: 2}\n" +
+		"  9 direct Custom = CUSTOM-DEBUG\n" +
+		"  10 direct Meters = <opaque Meters>\n" +
+		"  11 direct Int    = 42\n" +
+		"  12 direct String = \"hi\"\n" +
+		// The assertion `values:` row: a different renderer, SORTED.
+		"FAIL " + f + " :: the values row is a different renderer from Debug\n" +
+		"  line 116: assertion failed\n" +
+		"    assert no_rev(r)\n" +
+		"    values:\n" +
+		"      r\n" +
+		"        = Rev{alpha: 2, zeta: 1}\n" +
+		"test result: FAILED. 1 passed, 1 failed\n"
 
 	if got := vmReference(path); got.stdout != want || got.exit != 1 {
 		t.Errorf("VM transcript drifted (exit %d):\n--- got ---\n%s\n--- want ---\n%s",

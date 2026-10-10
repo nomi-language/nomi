@@ -138,7 +138,7 @@ func (bl *irScalarBuilder) testDestructure(pat ast.Node, ctx ir.Temp, k kind) bo
 		ok = false
 	}
 	if !ok {
-		irDeclineNote("a test pattern the builder did not destructure")
+		irDeclineAtPattern(pat, "a test pattern the builder did not destructure")
 		return false
 	}
 	for _, in := range bl.b.Instrs()[start:] {

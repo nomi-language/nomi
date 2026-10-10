@@ -18,27 +18,27 @@
 //
 // Two rules of the shared struct-literal validator change in a patch, and
 // nowhere else. A MISSING field is not an error, because the spread supplies
-// every field. And a bare `{…}` at a STRUCT-TYPED field is itself a PATCH,
-// applied recursively — so these two are the same operation:
+// every field. And a literal with a bare `..` at a field updates that field's
+// current value, so these two are the same operation:
 //
-//   Struct.update(user, {address: {city: "NYC"}})
-//   {..user, address: {city: "NYC"}}
+//   Struct.update(user, {address: {.., city: "NYC"}})
+//   {..user, address: {.., city: "NYC"}}
 //
-// Everything else at a field position is a VALUE: a nominal literal
+// Everything else at a field position is a VALUE: a brace literal without
+// `..` (a whole new value of the field's type), a nominal literal
 // (`Inner{a: 9, b: 8}`), a binding, a call, and a NESTED SPREAD
 // (`{..user.address, city: "NYC"}`), which is already a complete value of the
 // field's type. The nested-spread spelling is legal and equivalent.
 //
-// An INTERFACE-TYPED FIELD TAKES VALUES ONLY, because you cannot patch
-// through an interface that does not name its fields — `Partial<T>` stops
-// there too, and that is forced rather than arbitrary. Unknown names and
+// An INTERFACE-TYPED FIELD TAKES VALUES ONLY, because you cannot update
+// through an interface that does not name its fields. Unknown names and
 // value types are checked by the same validator
 // (`checkStructLitAgainstStruct`), one level down, which is why the
 // diagnostics below name the NESTED type.
 //
-// So the update is DEEP where a field value is a bare `{…}`, and replaces the
-// field wherever the value is anything else; the tests below cover both sides
-// of that line.
+// So the update is DEEP where a field value is written with `..`, and
+// replaces the field wherever the value is anything else; the tests below
+// cover both sides of that line.
 import {
     std/compiler
     test_helpers
@@ -249,13 +249,13 @@ test "the spread head is an arbitrary expression" {
 // below asserts the spread's result EQUAL to `Struct.update`'s rather than
 // asserting each separately. Two implementations that drifted the same way
 // would pass a pair of separate assertions.
-test "a bare brace at a struct field patches it, and equals Struct.update" {
+test "a `..` literal at a struct field updates it, and equals Struct.update" {
     ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
 
-    spread = {..ada, address: {city: "NYC"}}
-    patch = Struct.update(ada, {address: {city: "NYC"}})
+    spread = {..ada, address: {.., city: "NYC"}}
+    patch = Struct.update(ada, {address: {.., city: "NYC"}})
 
-    // `street` survives: the brace is a patch and not a value.
+    // `street` survives: the `..` is the current address.
     assert spread.address.city == "NYC"
     assert spread.address.street == "1 Main"
     assert spread == patch
@@ -290,7 +290,7 @@ test "a nested spread is a value, and its own head is the base" {
     same = {..ada, address: {..ada.address, city: "NYC"}}
     assert same.address.city == "NYC"
     assert same.address.street == "1 Main"
-    assert same == Struct.update(ada, {address: {city: "NYC"}})
+    assert same == Struct.update(ada, {address: {.., city: "NYC"}})
 
     // A FOREIGN base, which is the case that distinguishes them. `street` must
     // come from `bob`, so this is NOT a patch of `ada.address`. The compiled
@@ -313,12 +313,14 @@ test "the patch reaches three levels down" {
 
     spread = {
         ..d,
-        person: {address: {city: "NYC"}},
+        person: {.., address: {.., city: "NYC"}},
     }
 
     patch = Struct.update(d, {
         person: {
+            ..,
             address: {
+                ..,
                 city: "NYC",
             },
         },
@@ -334,21 +336,20 @@ test "the patch reaches three levels down" {
 test "a deep patch and a shallow one in the same literal" {
     ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
 
-    spread = {..ada, name: "Ada L", address: {city: "NYC"}}
+    spread = {..ada, name: "Ada L", address: {.., city: "NYC"}}
 
     assert spread.name == "Ada L"
     assert spread.address.city == "NYC"
     assert spread.address.street == "1 Main"
-    assert spread == Struct.update(ada, {name: "Ada L", address: {city: "NYC"}})
+    assert spread == Struct.update(ada, {name: "Ada L", address: {.., city: "NYC"}})
 }
 
-test "an anonymous-typed field takes a partial and a complete brace alike" {
+test "an anonymous-typed field takes a `..` update or a whole brace" {
     r = Rec{rec: {a: 1, b: 2}, k: 3}
 
-    // A COMPLETE brace at an anonymous-typed field is both a whole value and a
-    // whole patch. It takes the patch route, and the two routes have to agree
-    // or the change is not a strict extension for this one shape.
-    part = {..r, rec: {a: 9}}
+    // A brace without `..` is a whole new value, so it writes every field;
+    // with `..` it writes the fields it names over the current value.
+    part = {..r, rec: {.., a: 9}}
     full = {..r, rec: {a: 9, b: 8}}
 
     assert part.rec.a == 9
@@ -356,7 +357,7 @@ test "an anonymous-typed field takes a partial and a complete brace alike" {
     assert full.rec.a == 9
     assert full.rec.b == 8
     assert full.rec == {a: 9, b: 8}
-    assert part == Struct.update(r, {rec: {a: 9}})
+    assert part == Struct.update(r, {rec: {.., a: 9}})
     assert full == Struct.update(r, {rec: {a: 9, b: 8}})
 }
 
@@ -366,17 +367,17 @@ test "a field generic over a struct patches once the argument is solved" {
         tag: "old",
     }
 
-    after = {..before, item: {city: "NYC"}}
+    after = {..before, item: {.., city: "NYC"}}
 
     assert after.item.city == "NYC"
     assert after.item.street == "1 Main"
     assert after.tag == "old"
-    assert after == Struct.update(before, {item: {city: "NYC"}})
+    assert after == Struct.update(before, {item: {.., city: "NYC"}})
 }
 
 test "the base is unchanged by a deep patch" {
     ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
-    _moved = {..ada, address: {city: "NYC"}}
+    _moved = {..ada, address: {.., city: "NYC"}}
 
     assert ada.address.city == "Boston"
 }
@@ -401,7 +402,7 @@ test "an unknown nested field names the NESTED type" {
 
           fn main() {
             ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
-            dbg {..ada, address: {zip: "10001"}}
+            dbg {..ada, address: {.., zip: "10001"}}
           }
         """
     )
@@ -424,7 +425,7 @@ test "a wrong nested value type names the NESTED field" {
 
           fn main() {
             ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
-            dbg {..ada, address: {city: 10001}}
+            dbg {..ada, address: {.., city: 10001}}
           }
         """
     )
@@ -436,8 +437,8 @@ test "a wrong nested value type names the NESTED field" {
 }
 
 // AN INTERFACE-TYPED FIELD TAKES VALUES ONLY. `Stage.who: Speaker` names no
-// fields, so there is nothing to patch through, and `Partial<T>` stops at the
-// same place. The implementer-as-value case is in the leniency section above.
+// fields, so there is nothing to update through, and a brace there is a value
+// of no type. The implementer-as-value case is in the leniency section above.
 test "a brace at an interface-typed field is rejected" {
     diagnostics = compiler.check(
         """
@@ -473,10 +474,10 @@ test "a brace at an interface-typed field is rejected" {
     )
 }
 
-// THE DEPTH EXISTS ONLY UNDERNEATH A SPREAD. `Person{address: {city: "NYC"}}`
-// has no base for `address.street` to come from, so it is not a patch: the
-// brace builds an Address and reports Address's missing field. Without this
-// the rule would be "a bare brace at a struct field is always a patch".
+// A BRACE WITHOUT `..` IS ALWAYS A WHOLE VALUE. `Person{address: {city:
+// "NYC"}}` has no base for `address.street` to come from, so the brace
+// builds an Address and reports Address's missing field, exactly as it does
+// under a spread (nested_update_test.nomi).
 test "ordinary construction is not a patch" {
     diagnostics = compiler.check(
         """

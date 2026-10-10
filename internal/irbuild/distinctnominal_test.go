@@ -81,8 +81,8 @@ fn main() {
     io.inspect(Res(Err("no")))
     t = Twice(Meters(3))
     io.inspect(t)
-    Twice(m) = t
-    io.inspect(Int(m))
+    Twice(Meters(n)) = t
+    io.inspect(n)
     io.inspect(Twice2(WP(P{x: 1})))
     Twice2(WP(p)) = Twice2(WP(P{x: 7}))
     io.inspect(p.x)

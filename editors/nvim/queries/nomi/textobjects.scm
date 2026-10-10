@@ -56,6 +56,10 @@
 (map_literal
   ((map_entry) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 
+; A map update's entries are its spread and its key-value pairs.
+(map_update
+  ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
+
 (list
   ((_) @parameter.inner . ","? @parameter.outer) @parameter.outer)
 

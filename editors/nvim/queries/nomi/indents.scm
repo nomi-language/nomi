@@ -20,6 +20,7 @@
   (list_pattern)
   (map_construction)
   (map_literal)
+  (map_update)
   (parameters)
   (paren_expression)
   (set)

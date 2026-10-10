@@ -235,9 +235,9 @@ func TestCheckBreakValueMustMatchCallbackReturn(t *testing.T) {
 }
 
 // A zero-arg lambda `||` passed where `(S) -> S` is expected is coerced to
-// silently accept-and-ignore the arg. `S` defaults to `Unit` when no
-// `break <value>` pins it, so `Iter.loop(|| break)` resolves to a call
-// returning `Unit` without asking the caller to write `|_ = 0| break`.
+// silently accept-and-ignore the arg. It is a stateless loop, whose `S` is
+// `Unit`, so `Iter.loop(|| break)` resolves to a call returning `Unit`
+// without asking the caller to write `|_ = 0| break`.
 func TestCheckIterLoopWithZeroArgLambda(t *testing.T) {
 	src := `
 fn main() {

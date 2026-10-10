@@ -2,8 +2,8 @@ package irbuild
 
 import "testing"
 
-// The Tour's nested patch: a nested spread, Struct.update with a deep patch,
-// and a bare patch at a struct field, over a struct-typed field.
+// The Tour's nested update: a nested spread, Struct.update with a `..`
+// literal, and a `..` literal at a struct field, over a struct-typed field.
 func TestIRNestedStruct_TourNestedPatch(t *testing.T) {
 	verifyLambdaProgram(t, `struct Address {
   street: String
@@ -22,14 +22,14 @@ fn main() {
   dbg {..ada, address: {..ada.address, city: "NYC"}}
 
   // Struct.update reaches the same field with a patch.
-  dbg Struct.update(ada, {address: {city: "NYC"}})
+  dbg Struct.update(ada, {address: {.., city: "NYC"}})
 
-  // A bare `+"`{...}`"+` at a struct field is that patch, written as a spread.
-  dbg {..ada, address: {city: "NYC"}}
+  // A `+"`{.., ...}`"+` at a struct field is that update, written as a spread.
+  dbg {..ada, address: {.., city: "NYC"}}
 }
 `, "dbg line 15: {..ada, address: {..ada.address, city: \"NYC\"}} = Person{name: \"Ada\", address: Address{street: \"1 Main\", city: \"NYC\"}}\n"+
-		"dbg line 18: Struct.update(ada, {address: {city: \"NYC\"}}) = Person{name: \"Ada\", address: Address{street: \"1 Main\", city: \"NYC\"}}\n"+
-		"dbg line 21: {..ada, address: {city: \"NYC\"}} = Person{name: \"Ada\", address: Address{street: \"1 Main\", city: \"NYC\"}}\n")
+		"dbg line 18: Struct.update(ada, {address: {.., city: \"NYC\"}}) = Person{name: \"Ada\", address: Address{street: \"1 Main\", city: \"NYC\"}}\n"+
+		"dbg line 21: {..ada, address: {.., city: \"NYC\"}} = Person{name: \"Ada\", address: Address{street: \"1 Main\", city: \"NYC\"}}\n")
 }
 
 // Nested field chains, a function over the nested struct, derived Debug
@@ -67,25 +67,25 @@ fn main() {
   io.print(city_of(moved))
   io.print(moved.address.street)
   dbg moved
-  dbg {..moved, address: {street: shout("2 Elm")}, name: shout("Grace")}
+  dbg {..moved, address: {.., street: shout("2 Elm")}, name: shout("Grace")}
   dbg Struct.update(ada, {address: {street: shout("3 Oak"), city: shout("Leeds")}, age: 40})
   io.print(ada.address.city)
 }
 `, "York\n1 Main\n"+
 		"dbg line 32: moved = Person{name: \"Ada\", age: 37, address: Address{street: \"1 Main\", city: \"York\"}}\n"+
 		"shout 2 Elm\nshout Grace\n"+
-		"dbg line 33: {..moved, address: {street: shout(\"2 Elm\")}, name: shout(\"Grace\")} = Person{name: \"Grace!\", age: 37, address: Address{street: \"2 Elm!\", city: \"York\"}}\n"+
+		"dbg line 33: {..moved, address: {.., street: shout(\"2 Elm\")}, name: shout(\"Grace\")} = Person{name: \"Grace!\", age: 37, address: Address{street: \"2 Elm!\", city: \"York\"}}\n"+
 		"shout 3 Oak\nshout Leeds\n"+
 		"dbg line 34: Struct.update(ada, {address: {street: shout(\"3 Oak\"), city: shout(\"Leeds\")}, age: 40})"+
 		" = Person{name: \"Ada\", age: 40, address: Address{street: \"3 Oak!\", city: \"Leeds!\"}}\n"+
 		"Bath\n")
 }
 
-// A bare patch at a record field projects the field from the record base.
+// A `..` literal at a record field projects the field from the record base.
 func TestIRNestedStruct_RecordPatch(t *testing.T) {
 	verifyLambdaProgram(t, `fn main() {
   record = {p: {x: 1, y: 2}, n: 0}
-  updated = {..record, p: {x: 5}}
+  updated = {..record, p: {.., x: 5}}
   dbg updated
   return
 }

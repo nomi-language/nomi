@@ -46,7 +46,7 @@ import (
 // The mapping, one line per signal:
 //
 //	ctrlBreakWith(v)  break v      ->  answer = v; break L
-//	ctrlBreak         break        ->  answer = rt.Unit{}; break L
+//	ctrlBreak         break        ->  answer = state; break L
 //	ctrlContinue      continue     ->  continue L
 //	ctrlReturnWith(v) return v/tail->  state = v, then loop
 //	ctrlReturn        Unit tail    ->  (no assignment), then loop
@@ -134,6 +134,23 @@ func callbackCarriesSignal(arg ast.Node) bool {
 		return false
 	}
 	return ctrlSignalIn(lam.Body)
+}
+
+// irSignallingCallback reports whether owner.method is an operation whose
+// second operand the VM drives as a signalling callback: every two-operand
+// callback slot analysis/iter_sensitive.go's iterCallbackSlots admits.
+// `Iter.loop` takes its callback first and is inlined (iterLoop).
+func irSignallingCallback(owner, method string) bool {
+	switch owner {
+	case "Iter":
+		switch method {
+		case "reduce", "map", "filter", "take_while", "drop_while", "flat_map", "each", "iterate", "find", "any?", "all?":
+			return true
+		}
+	case "Map":
+		return method == "map_values" || method == "map_keys"
+	}
+	return false
 }
 
 // irNamedCtlForm is the signalling form a named function's own body is lowered

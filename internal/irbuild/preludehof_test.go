@@ -39,7 +39,7 @@ func TestPreludeHof_ControlSignalsAreAFrontEndWall(t *testing.T) {
 	// because `Iter.map` is in iterCallbackSlots and this is not. Without this
 	// row the test above would pass just as well if `break` had been removed
 	// from the language.
-	const inIter = "fn f(_xs: List<Int>): Int {\n  Iter.loop(|| {\n    break 1\n  })\n}\n"
+	const inIter = "fn f(_xs: List<Int>): Int {\n  Iter.loop(|n = 0| {\n    break n + 1\n  })\n}\n"
 	if _, err := AnalyzeSource("main", inIter); err != nil {
 		t.Fatalf("`break` is no longer accepted in an Iter.loop callback either, so the row above proves nothing about prelude callbacks specifically: %v", err)
 	}

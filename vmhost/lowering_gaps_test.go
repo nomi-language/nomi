@@ -35,6 +35,27 @@ type loweringGap struct {
 
 var knownLoweringGaps = []loweringGap{
 	{
+		name: "gapListPatternOverFunctions",
+		fix: "builder: a `case` whose subject is a list of function values, as in `case xs { [] -> 0 " +
+			"[_, ..rest] -> 1 + size(rest) }` with `xs: List<(Int) -> Int>`. caseRegion admits a list " +
+			"subject only when its element is a retained leaf or transport kind, and a function value " +
+			"is neither, though the VM holds one in a list like any reference",
+		reason: "a tail `case` scrutinee outside retained literal-pattern kinds: List<(",
+		src: `import std/io
+
+fn size(xs: List<(Int) -> Int>): Int {
+    case xs {
+        [] -> 0
+        [_, ..rest] -> 1 + size(rest)
+    }
+}
+
+fn main() {
+    io.inspect(size([|x: Int| x + 1]))
+}
+`,
+	},
+	{
 		name: "gapBlockLocalTypeEscapesItsBlock",
 		fix: "builder or checker: a block whose value has a type declared inside the block. The " +
 			"checker types the binding at that block-local type; the builder projects the binding's " +
@@ -52,6 +73,30 @@ fn main() {
         Loc{n: 1}
     }
     io.inspect(w)
+}
+`,
+	},
+	{
+		name: "gapShortCircuitOperandWhoseArmsAllLeave",
+		fix: "builder: an `if` or `case` every arm of which leaves the body by `return`, `break` " +
+			"or `continue`, as the right operand of `and` or `or`, as in `x > 0 and case x { 1 -> " +
+			"return True  _ -> return False }`. The operand runs only when the left one lets it, " +
+			"so the `and` still has a value on the other path, and the builder does not lower a " +
+			"region with no value there. An operand evaluated whatever the values before it (an " +
+			"argument, a field, a list item, a pipe's source) runs. The builder could lower the " +
+			"`and` as an `if` whose one arm is the region",
+		reason: "an `if` or `case` whose every arm leaves the body, used for its value",
+		src: `import std/io
+
+fn short(x: Int): Bool {
+    x > 0 and case x {
+        1 -> return True
+        _ -> return False
+    }
+}
+
+fn main() {
+    io.inspect(short(1))
 }
 `,
 	},

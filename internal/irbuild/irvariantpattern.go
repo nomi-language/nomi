@@ -10,7 +10,7 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 	if !ok || k.tag != tagNamed || !irRetainedEnumKind(k.def) {
 		return nil, nil, false
 	}
-	owner, member, ok := patternHead(pat.Variant)
+	owner, member, ok := g.patternHead(pat.Variant)
 	if !ok || (owner != "" && !g.declaredAs(owner, k.def) && !g.preludeOwns(owner, k.def) && !g.stdEnumOwns(owner, k.def)) {
 		return nil, nil, false
 	}
@@ -41,26 +41,27 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 		copied.Payload = attached
 		pat = &copied
 	}
+	pk := payloadPatternKind(v)
 	switch pat.Payload.(type) {
 	case nil, *ast.WildcardPattern, *ast.IdentPattern:
 	case *ast.IntLit:
-		if v.payloads[0].k != kindInt {
+		if pk != kindInt {
 			return nil, nil, false
 		}
 	case *ast.StringLit:
-		if v.payloads[0].k != kindString {
+		if pk != kindString {
 			return nil, nil, false
 		}
 	case *ast.FloatLit:
-		if v.payloads[0].k != kindFloat {
+		if pk != kindFloat {
 			return nil, nil, false
 		}
 	case *ast.DecimalLit:
-		if !isDecimalKind(v.payloads[0].k) {
+		if !isDecimalKind(pk) {
 			return nil, nil, false
 		}
 	case *ast.CodepointLit:
-		if v.payloads[0].k != codepointKind() {
+		if pk != codepointKind() {
 			return nil, nil, false
 		}
 	case *ast.EnumPattern, *ast.StructPattern:
@@ -68,34 +69,35 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 		// the outer test's success arm, as matchArm recurses. A distinct's
 		// destructure (`Some(TraceId(id))`) cannot fail and binds its inner
 		// value.
-		if sub, isEnum := pat.Payload.(*ast.EnumPattern); isEnum && pat.Binding == "" && g.distinctSubPattern(sub, v.payloads[0].k) {
+		if sub, isEnum := pat.Payload.(*ast.EnumPattern); isEnum && pat.Binding == "" && g.distinctSubPattern(sub, pk) {
 			break
 		}
-		if pat.Binding != "" || !(irNestedPatternKind(v.payloads[0].k) || irNominalCaseKind(v.payloads[0].k)) {
+		if pat.Binding != "" || !(irNestedPatternKind(pk) || irNominalCaseKind(pk)) {
 			return nil, nil, false
 		}
 	case *ast.MapPattern:
 		// A map pattern over a map payload (`Some({"k" => v})`), tested
 		// against the projected payload as a map case arm is.
-		if k := v.payloads[0].k; pat.Binding != "" || k.tag != tagMap || !irRetainedMapKind(k) {
+		if pat.Binding != "" || pk.tag != tagMap || !irRetainedMapKind(pk) {
 			return nil, nil, false
 		}
 	case *ast.ListPattern:
 		// A list pattern over a list payload (`.Arr[a, ..rest]`), tested as
 		// a list case arm is.
-		if k := v.payloads[0].k; pat.Binding != "" || !(irRetainedListKind(k) || irListTransportKind(k)) {
+		if pat.Binding != "" || !(irRetainedListKind(pk) || irListTransportKind(pk)) {
 			return nil, nil, false
 		}
 	case *ast.TuplePattern:
 		// A flat tuple pattern over a tuple payload (`Some((n, _))`), tested
 		// against the projected payload as a tuple case arm is.
-		if _, ok := tupleCaseComponents(pat.Payload, v.payloads[0].k); pat.Binding != "" || !ok {
+		if _, ok := tupleCaseComponents(pat.Payload, pk); pat.Binding != "" || !ok {
 			return nil, nil, false
 		}
-	case *ast.AsPattern:
+	case *ast.AsPattern, *ast.Binary:
 		// `Some(P as name)`: P tested against the projected payload as a
 		// field's sub-pattern is, and name bound to the payload.
-		if pat.Binding != "" || !irFieldSubPattern(pat.Payload, v.payloads[0].k) {
+		// `Some("/users/" + id)` is a string prefix test of the payload.
+		if pat.Binding != "" || !irFieldSubPattern(pat.Payload, pk) {
 			return nil, nil, false
 		}
 	default:
@@ -104,13 +106,25 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 	return pat, v, true
 }
 
+// payloadPatternKind is the kind the checker types a single-payload
+// variant's payload pattern against. An `embeds` of a distinct over a value
+// (`type UserId String`, `type Wrapped Circle`) matches the distinct's inner
+// value (spec §8), so `Shape.Wrapped({r})` is a struct pattern over Circle.
+// Every other payload matches its own kind.
+func payloadPatternKind(v *variantDef) kind {
+	if irEmbedsValueDistinct(v) {
+		return v.embeds.inner
+	}
+	return v.payloads[0].k
+}
+
 // distinctSubPattern reports whether p destructures a wrapping distinct of
 // kind k, `TraceId(id)` or `TraceId(_)`, which matches every value of k.
 func (g *gen) distinctSubPattern(p *ast.EnumPattern, k kind) bool {
 	if k.tag != tagNamed || k.def == nil || !irWrappingDistinct(k.def) || k.def.rtOpaque {
 		return false
 	}
-	owner, member, ok := patternHead(p.Variant)
+	owner, member, ok := g.patternHead(p.Variant)
 	if !ok || owner != "" || g.qualifierKind(member) != k {
 		return false
 	}
@@ -171,7 +185,7 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 		if !ok {
 			return false
 		}
-		owner, member, ok := patternHead(pat.Variant)
+		owner, member, ok := bl.g.patternHead(pat.Variant)
 		if !ok || (owner != "" && owner != "Bool") || (member != "True" && member != "False") {
 			return false
 		}
@@ -231,15 +245,20 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 	_, codepointTest := pat.Payload.(*ast.CodepointLit)
 	literal := intTest || stringTest || floatTest || decimalTest || codepointTest
 	subEnum, nestedEnum := pat.Payload.(*ast.EnumPattern)
-	distinctSub := nestedEnum && bl.g.distinctSubPattern(subEnum, v.payloads[0].k)
+	distinctSub := nestedEnum && bl.g.distinctSubPattern(subEnum, payloadPatternKind(v))
 	nestedEnum = nestedEnum && !distinctSub
 	_, nestedStruct := pat.Payload.(*ast.StructPattern)
 	nested := nestedEnum || nestedStruct
 	_, nestedTuple := pat.Payload.(*ast.TuplePattern)
-	tupleTests := nestedTuple && !tupleCaseIrrefutable(pat.Payload, v.payloads[0].k)
+	tupleTests := nestedTuple && !tupleCaseIrrefutable(pat.Payload, payloadPatternKind(v))
 	_, nestedMap := pat.Payload.(*ast.MapPattern)
 	_, nestedList := pat.Payload.(*ast.ListPattern)
 	_, nestedAs := pat.Payload.(*ast.AsPattern)
+	if _, _, prefix := strPrefixPattern(pat.Payload); prefix {
+		// A string prefix payload tests the projected payload as an `as`
+		// payload does.
+		nestedAs = true
+	}
 	success := arm
 	if literal || nested || tupleTests || nestedMap || nestedList || nestedAs {
 		success = bl.f.NewBlock(bl.g.irNodePos(pat.Payload), "payload test")
@@ -248,16 +267,6 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 	bl.b = success
 	if pat.Binding == "" && pat.Payload == nil {
 		return true
-	}
-	if irEmbedsEnum(v) {
-		// `Drawable.Shape(s)`: the variant's one value carries no payload,
-		// so there is nothing to bind; an arm that reads the name declines
-		// where it reads it.
-		switch pat.Payload.(type) {
-		case nil, *ast.IdentPattern, *ast.WildcardPattern:
-			return true
-		}
-		return false
 	}
 	value, payloadKind := bl.enumPatternPayload(pat, subj, k.def, v)
 	if distinctSub {
@@ -332,9 +341,10 @@ func (bl *irScalarBuilder) variantPayload(at ast.Node, subj ir.Temp, d *typeDef,
 func (bl *irScalarBuilder) enumPatternPayload(pat *ast.EnumPattern, subj ir.Temp, d *typeDef, v *variantDef) (ir.Temp, kind) {
 	part := v.payloads[0]
 	projection := bl.variantPayload(pat, subj, d, v)
-	if irEmbedsValueDistinct(v) && (pat.Binding != "" || irIsIdentPattern(pat.Payload) || irIsAsPattern(pat.Payload)) {
-		// `Identifier.UserId(name)`: the name binds the embedded distinct's
-		// inner value.
+	if _, wild := pat.Payload.(*ast.WildcardPattern); irEmbedsValueDistinct(v) && !wild {
+		// `Identifier.UserId(name)` binds the embedded distinct's inner
+		// value, and `Shape.Wrapped({r})` tests it: the payload pattern
+		// matches payloadPatternKind.
 		projection = bl.distinctProjection(pat, projection, part.k, false, "irvariantpattern.go enumPatternPayload")
 		part.k = v.embeds.inner
 	}
@@ -404,7 +414,7 @@ func (bl *irScalarBuilder) structVariantCaseTest(pat *ast.StructPattern, subj ir
 	if pat.TypeName == nil || k.tag != tagNamed || !irRetainedEnumKind(k.def) {
 		return false
 	}
-	owner, member, ok := patternHead(pat.TypeName)
+	owner, member, ok := bl.g.patternHead(pat.TypeName)
 	if !ok || (owner != "" && !bl.g.declaredAs(owner, k.def) && !bl.g.preludeOwns(owner, k.def) && !bl.g.stdEnumOwns(owner, k.def)) {
 		return false
 	}
@@ -485,6 +495,9 @@ func irFieldSubPattern(p ast.Node, k kind) bool {
 	case *ast.AsPattern:
 		// The name binds the field; its pattern decides the test.
 		return irFieldSubPattern(ast.WithoutAs(p), k)
+	case *ast.Binary:
+		_, _, prefix := strPrefixPattern(p)
+		return prefix && k == kindString
 	}
 	return false
 }
@@ -584,16 +597,4 @@ func (bl *irScalarBuilder) embeddedStructCaseTest(pat *ast.StructPattern, subj i
 		}
 	}
 	return true
-}
-
-// irIsAsPattern reports whether a payload pattern is `P as name`.
-func irIsAsPattern(n ast.Node) bool {
-	_, ok := n.(*ast.AsPattern)
-	return ok
-}
-
-// irIsIdentPattern reports whether a payload pattern is a plain name.
-func irIsIdentPattern(n ast.Node) bool {
-	_, ok := n.(*ast.IdentPattern)
-	return ok
 }

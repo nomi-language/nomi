@@ -362,7 +362,7 @@ func (g *gen) operShapeRefusal(d *implDef) (string, string) {
 	label := d.oper.nomi + " for " + d.recv.nomi()
 	if d.oper.maybeSelf {
 		// `Maybe<self>`: the receiver resolved after admitOperImpl ran.
-		a, anchored := g.preludeByName["Maybe"]
+		a, anchored := g.preludeNamed("Maybe")
 		if !anchored {
 			return "operator impl shape", label + " needs the prelude Maybe"
 		}

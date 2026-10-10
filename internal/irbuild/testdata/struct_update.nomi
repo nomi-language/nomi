@@ -69,8 +69,8 @@ fn main() {
     renamed = Struct.update(original, {name: "Bob"})
     io.print("renamed ${show(renamed)}")
 
-    // A nested ANONYMOUS literal MERGES: zip survives.
-    moved = Struct.update(original, {address: {city: "NYC"}})
+    // A nested `..` literal MERGES: zip survives.
+    moved = Struct.update(original, {address: {.., city: "NYC"}})
     io.print("moved ${show(moved)}")
 
     // A nested NOMINAL literal REPLACES: zip changes wholesale.
@@ -92,7 +92,7 @@ fn main() {
 
     deep = Struct.update(w, {
         label: "two",
-        person: {address: {zip: "99999"}},
+        person: {.., address: {.., zip: "99999"}},
     })
 
     io.print("deep ${deep.label}/${show(deep.person)}")

@@ -15,12 +15,21 @@ func TestFormat_AnonStructLiteralKeepsItsOpeningComment(t *testing.T) {
 				"    y: 2.0,\n" +
 				"}\n",
 		},
+		// The spread is the first element, so the comment stays above it.
 		"before a spread": {
 			src: "moved = { // moved\n    ..point, x: 3.0}\n",
 			want: "moved = {\n" +
-				"    ..point,\n" +
 				"    // moved\n" +
+				"    ..point,\n" +
 				"    x: 3.0,\n" +
+				"}\n",
+		},
+		"before a map spread": {
+			src: "moved = { // moved\n    ..m, \"x\" => 3.0}\n",
+			want: "moved = {\n" +
+				"    // moved\n" +
+				"    ..m,\n" +
+				"    \"x\" => 3.0,\n" +
 				"}\n",
 		},
 	}

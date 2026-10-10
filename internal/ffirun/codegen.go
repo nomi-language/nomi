@@ -102,7 +102,7 @@ func main() {
 		}
 	}
 	// 'nomi test --format json' passes the format after the line. Its stdout
-	// carries only report records, so a test's own output goes to stderr.
+	// carries only report records.
 	testFormat := nomivmhost.TestFormatText
 	if mode == "vmtest" && len(extraArgs) > 1 {
 		format, err := nomivmhost.ParseTestFormat(extraArgs[1])
@@ -211,8 +211,8 @@ func runTestFileVM(testPath string, args []string, format nomivmhost.TestFormat)
 		opts.LineSet = true
 	}
 	rep := nomivmhost.NewTestReportFormat(stdos.Stdout, format)
-	// In json mode stdout carries only records, so a case's own output goes
-	// to stderr.
+	// A case's own output is reported under the case. In json mode stdout
+	// carries only records, so a write outside every case goes to stderr.
 	out := stdos.Stdout
 	if format == nomivmhost.TestFormatJSON {
 		out = stdos.Stderr

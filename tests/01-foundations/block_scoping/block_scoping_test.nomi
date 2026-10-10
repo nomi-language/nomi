@@ -46,8 +46,8 @@ test "block-scoped declarations are visible inside their enclosing block" {
     assert make_count(5) == 5
 
     type UserId Int
-    uid = UserId(42)
-    assert Int(uid) == 42
+    UserId(n) = UserId(42)
+    assert n == 42
 
     enum Color {
         Red

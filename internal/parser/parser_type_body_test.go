@@ -741,3 +741,19 @@ func TestParseEnumBody_VariantDefaultsAreRejectedByName(t *testing.T) {
 		t.Fatal("a struct-shaped variant's field default is no longer parsed")
 	}
 }
+
+// A newline ends a variant whatever the next line's indentation: `Circle `
+// with a trailing space and a deeper-indented `Square Int` below it are two
+// variants, not `Circle` with a payload.
+func TestParseEnumBody_NewlineEndsAVariantAtAnyIndent(t *testing.T) {
+	src := "enum Shape {\n    Circle \n       Square Int\n    Dot\n}"
+	ed := parseSingleEnumDef(t, src)
+	var got []string
+	for _, v := range ed.Variants {
+		got = append(got, v.Name+":"+v.Kind)
+	}
+	want := "Circle:bare Square:positional Dot:bare"
+	if strings.Join(got, " ") != want {
+		t.Fatalf("variants = %q, want %q", strings.Join(got, " "), want)
+	}
+}

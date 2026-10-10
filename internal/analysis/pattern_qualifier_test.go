@@ -3,6 +3,8 @@ package analysis_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/analysis"
 )
 
 // A qualified variant pattern's qualifier must name the scrutinee's enum.
@@ -133,4 +135,130 @@ func TestPatternQualifier_ImportedSpellings(t *testing.T) {
 		}
 	}
 	t.Fatalf("want an unknown-type error naming shapes.Shap, got %v", errs)
+}
+
+// A qualifier the type registry does not hold was accepted whenever the
+// builder had recorded some symbol at it, and the builder records whatever
+// name is in scope under that spelling: a variant of any enum, a function, a
+// binding, a module. The variant was then looked up by the member name
+// alone, so `Of.Square(n)` over a Shape matched `.Square(n)` and the IR
+// builder declined the `case`.
+const variantQualifierDecls = `enum Shape {
+  Ring {r: Int}
+  Square(Int)
+}
+
+enum Holder<T> {
+  Of {value: T}
+}
+
+fn helper(n: Int): Int {
+  n
+}
+
+`
+
+func TestPatternQualifier_ANameThatIsNotATypeIsRejected(t *testing.T) {
+	for _, tc := range []struct {
+		name, body, at, want string
+	}{
+		{"a variant of another enum", "  s = Shape.Square(1)\n  _ = case s {\n    .Ring{r} -> r\n    Of.Square(n) -> n\n  }\n",
+			"Of.Square", "`Of` is a variant of Holder, not a type\nhelp: write `Shape.Square`, or `.Square`"},
+		{"a variant of another enum spaced from the variant", "  s = Shape.Square(1)\n  _ = case s {\n    .Ring{r} -> r\n    Of .Square(n) -> n\n  }\n",
+			"Of .Square", "`Of` is a variant of Holder, not a type\nhelp: write `Shape.Square`, or `.Square`"},
+		{"a variant of the same enum", "  s = Shape.Square(1)\n  _ = case s {\n    Square.Ring{r} -> r\n    _ -> 0\n  }\n",
+			"Square.Ring", "`Square` is a variant of Shape, not a type\nhelp: write `Shape.Ring`, or `.Ring`"},
+		{"the variant itself", "  s = Shape.Square(1)\n  _ = case s {\n    Square.Square(n) -> n\n    _ -> 0\n  }\n",
+			"Square.Square", "`Square` is a variant of Shape, not a type\nhelp: write `Shape.Square`, or `.Square`"},
+		{"a variant of the generic enum matched", "  h = Holder.Of{value: 1}\n  _ = case h {\n    Of.Of{value} -> value\n  }\n",
+			"Of.Of", "`Of` is a variant of Holder, not a type\nhelp: write `Holder.Of`, or `.Of`"},
+		{"a prelude variant", "  m = Some(1)\n  _ = case m {\n    Some.Some(n) -> n\n    _ -> 0\n  }\n",
+			"Some.Some", "`Some` is a variant of Maybe, not a type\nhelp: write `Maybe.Some`, or `.Some`"},
+		{"another prelude variant", "  m = Some(1)\n  _ = case m {\n    None.Some(n) -> n\n    _ -> 0\n  }\n",
+			"None.Some", "`None` is a variant of Maybe, not a type\nhelp: write `Maybe.Some`, or `.Some`"},
+		{"a prelude variant over a user enum", "  s = Shape.Square(1)\n  _ = case s {\n    Some.Square(n) -> n\n    _ -> 0\n  }\n",
+			"Some.Square", "`Some` is a variant of Maybe, not a type\nhelp: write `Shape.Square`, or `.Square`"},
+		{"a function", "  s = Shape.Square(1)\n  _ = case s {\n    helper.Square(n) -> n\n    _ -> 0\n  }\n",
+			"helper.Square", "`helper` is a function, not a type\nhelp: write `Shape.Square`, or `.Square`"},
+		{"a binding", "  x = 3\n  s = Shape.Square(1)\n  _ = case s {\n    x.Square(n) -> n\n    _ -> 0\n  }\n",
+			"x.Square", "unknown type \"x\""},
+		{"a variant in an if pattern", "  s = Shape.Square(1)\n  _ = if Of.Square(n) = s { n } else { 0 }\n",
+			"Of.Square", "`Of` is a variant of Holder, not a type\nhelp: write `Shape.Square`, or `.Square`"},
+		{"a variant in a let-else", "  s = Shape.Square(1)\n  Of.Square(n) = s else { return }\n  _ = n\n",
+			"Of.Square", "`Of` is a variant of Holder, not a type\nhelp: write `Shape.Square`, or `.Square`"},
+		{"a variant nested in a payload", "  m = Some(Shape.Square(1))\n  _ = case m {\n    Some(Of.Square(n)) -> n\n    _ -> 0\n  }\n",
+			"Of.Square", "`Of` is a variant of Holder, not a type\nhelp: write `Shape.Square`, or `.Square`"},
+		// Construction already rejected these; they stay rejected.
+		{"a variant qualifying a construction", "  s: Shape = Of.Square(4)\n  _ = s\n",
+			"Of.Square", "variant 'Of' must be qualified through its enum; use 'Holder.Of'"},
+		{"a prelude variant qualifying a construction", "  m: Maybe<Int> = Some.Some(4)\n  _ = m\n",
+			"Some(4)", "(T) -> Maybe<T> has no field 'Some'"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := variantQualifierDecls + "fn main() {\n" + tc.body + "}\n"
+			_, errs := checkSourceWithStdlib(src)
+			expectErrorAt(t, src, errs, tc.at, tc.want)
+		})
+	}
+}
+
+// expectErrorAt fails unless errs holds want, hints included, at the first
+// occurrence of marker in src.
+func expectErrorAt(t *testing.T, src string, errs []analysis.TypeError, marker, want string) {
+	t.Helper()
+	i := strings.Index(src, marker)
+	if i < 0 {
+		t.Fatalf("marker %q not in source", marker)
+	}
+	before := src[:i]
+	line, col := strings.Count(before, "\n")+1, i-strings.LastIndex(before, "\n")
+	for _, e := range errs {
+		if diagText(e) == want {
+			if e.Line != line || e.Col != col {
+				t.Fatalf("%q reported at %d:%d, want %d:%d", want, e.Line, e.Col, line, col)
+			}
+			return
+		}
+	}
+	if len(errs) == 0 {
+		t.Fatalf("the checker admits this source; want %q at %d:%d", want, line, col)
+	}
+	t.Fatalf("want %q at %d:%d, got %v", want, line, col, errs)
+}
+
+// The mirror: the enum's own name, a generic enum without type arguments,
+// the `.Variant` form and a prelude enum's name stay accepted.
+func TestPatternQualifier_TheEnumNameOverAVariantNameIsAccepted(t *testing.T) {
+	for _, body := range []string{
+		"  s = Shape.Square(1)\n  _ = case s {\n    .Ring{r} -> r\n    Shape.Square(n) -> n\n  }\n",
+		"  s = Shape.Square(1)\n  _ = case s {\n    Shape.Ring{r} -> r\n    .Square(n) -> n\n  }\n",
+		"  h = Holder.Of{value: 1}\n  _ = case h {\n    Holder.Of{value} -> value\n  }\n",
+		"  m = Some(1)\n  _ = case m {\n    Maybe.Some(n) -> n\n    Maybe.None -> 0\n  }\n",
+	} {
+		src := variantQualifierDecls + "fn main() {\n" + body + "}\n"
+		_, errs := checkSourceWithStdlib(src)
+		expectNoStdlibErrors(t, errs)
+	}
+}
+
+// Across files: a module is not a type, and neither is a variant brought in
+// by a drill-through import. The module-qualified enum and an import alias
+// of it stay accepted (TestPatternQualifier_ImportedSpellings).
+func TestPatternQualifier_ImportedNamesThatAreNotTypesAreRejected(t *testing.T) {
+	shapes := "pub enum Shape {\n  Dot(Int)\n  Ring(Int)\n}\n\npub enum Holder<T> {\n  Of {value: T}\n}\n"
+	for _, tc := range []struct {
+		arm, want string
+	}{
+		{"shapes.Dot(n) -> n", "`shapes` is a module, not a type\nhelp: write `Shape.Dot`, or `.Dot`"},
+		{"Of.Dot(n) -> n", "`Of` is a variant of Holder, not a type\nhelp: write `Shape.Dot`, or `.Dot`"},
+		{"Ring.Dot(n) -> n", "`Ring` is a variant of Shape, not a type\nhelp: write `Shape.Dot`, or `.Dot`"},
+	} {
+		t.Run(tc.arm, func(t *testing.T) {
+			main := "import shapes\nimport shapes.Holder.{Of}\nimport shapes.Shape.{Ring}\n\nfn main() {\n" +
+				"  s = shapes.Shape.Dot(1)\n" +
+				"  _ = case s {\n    " + tc.arm + "\n    _ -> 0\n  }\n}\n"
+			_, errs := opaqueProject(t, map[string]string{"shapes.nomi": shapes, "main.nomi": main})
+			expectErrorAt(t, main, errs, tc.arm, tc.want)
+		})
+	}
 }

@@ -61,24 +61,24 @@ func TestDebugDisplay_FourSurfacesArePinnedAbsolutely(t *testing.T) {
 	// Surface 1 and 2: the user's `impl Display`, reached by name and by
 	// interpolation. Both spellings answer the same string, which is what makes
 	// them ONE renderer rather than two.
-	want := "1 Display.to_string(r) = REV-DISPLAY\n" +
-		"2 interpolated r       = REV-DISPLAY\n" +
-		"3 Display.to_string(c) = CUSTOM-DISPLAY\n" +
-		"4 interpolated c       = CUSTOM-DISPLAY\n" +
+	want := "ok " + f + " :: the four renderings of one value\n" +
+		"  1 Display.to_string(r) = REV-DISPLAY\n" +
+		"  2 interpolated r       = REV-DISPLAY\n" +
+		"  3 Display.to_string(c) = CUSTOM-DISPLAY\n" +
+		"  4 interpolated c       = CUSTOM-DISPLAY\n" +
 		// Surface 3: Debug dispatch. DECLARATION order for a synthesized body,
 		// the hand-written impl for the type that has one, and the degenerate
 		// name-only body for the opaque type.
-		"5 Debug.inspect(r)     = Rev{zeta: 1, alpha: 2}\n" +
-		"6 Debug.inspect(c)     = CUSTOM-DEBUG\n" +
-		"7 Debug.inspect(p)     = Plain{zeta: 1, alpha: 2}\n" +
-		"8 Debug.inspect(m)     = <opaque Meters>\n" +
+		"  5 Debug.inspect(r)     = Rev{zeta: 1, alpha: 2}\n" +
+		"  6 Debug.inspect(c)     = CUSTOM-DEBUG\n" +
+		"  7 Debug.inspect(p)     = Plain{zeta: 1, alpha: 2}\n" +
+		"  8 Debug.inspect(m)     = <opaque Meters>\n" +
 		// The `host type` rows: a Bool, a Bool through a binding, a container of
 		// them, and the singleton materialized out of the tag by a `case` arm.
-		"9 Debug.inspect(True)  = True\n" +
-		"10 Debug.inspect(b)    = False\n" +
-		"11 Debug.inspect(list) = [True, False]\n" +
-		"12 materialized payload = False\n" +
-		"ok " + f + " :: the four renderings of one value\n" +
+		"  9 Debug.inspect(True)  = True\n" +
+		"  10 Debug.inspect(b)    = False\n" +
+		"  11 Debug.inspect(list) = [True, False]\n" +
+		"  12 materialized payload = False\n" +
 		// Surface 4: the assertion `values:` row. SORTED, blind to `impl
 		// Display`, and rendered by a hand-written `impl Debug`.
 		"FAIL " + f + " :: values row for a struct with an impl Display\n" +

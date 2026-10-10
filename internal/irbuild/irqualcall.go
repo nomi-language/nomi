@@ -507,13 +507,17 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 		}
 		ti, isType = &ast.TypeIdent{Name: owner, Line: fa.Line, Col: fa.Col}, true
 	}
-	if isType && ti.Name == "Iter" && len(t.Args) == 2 {
-		switch method {
-		case "reduce", "map", "filter", "take_while", "each", "iterate":
-			// The operations the VM drives a signalling callback through.
-			if ident, named := t.Args[1].(*ast.Ident); named {
-				defer bl.markCtlRef(ident, method)()
-			}
+	signalOwner := isType && len(t.Args) == 2 && irSignallingCallback(ti.Name, method)
+	if signalOwner && ti.Name == "Map" {
+		// A program's own `Map` type takes no signalling callback.
+		if _, shadowed := bl.g.namedType("Map"); shadowed && bl.g.stdModule == "" {
+			signalOwner = false
+		}
+	}
+	if signalOwner {
+		// The operations the VM drives a signalling callback through.
+		if ident, named := t.Args[1].(*ast.Ident); named {
+			defer bl.markCtlRef(ident, method)()
 		}
 	}
 	if isType && ti.Name == "Iter" && method == "reduce" {
@@ -522,7 +526,7 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 	if isType && ti.Name == "Struct" && method == "update" {
 		return bl.structUpdateCall(t)
 	}
-	if isType && ti.Name == "Iter" && (method == "map" || method == "filter" || method == "take_while" || method == "each" || method == "iterate") && len(t.Args) == 2 && callbackCarriesSignal(t.Args[1]) {
+	if signalOwner && method != "reduce" && callbackCarriesSignal(t.Args[1]) {
 		lam, ok := t.Args[1].(*ast.Lambda)
 		if !ok {
 			return no()
@@ -662,6 +666,14 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 				bl.b.Append(r)
 				bl.side(r.Dst(), irScalarSide{k: kindString})
 				return r.Dst(), kindString, false, true
+			}
+		}
+		if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 &&
+			(irRetainedRecordKind(args.kinds[0]) || irRetainedTupleKind(args.kinds[0])) {
+			// A tuple or record with a nominal part renders as its
+			// interpolation does.
+			if r, ok := bl.displayHole(t.Args[0], args.temps[0], args.kinds[0], true); ok {
+				return r, kindString, false, true
 			}
 		}
 		if ti.Name == "Result" && method == "map_err" {
@@ -820,6 +832,11 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 		return p
 	}
 	key := owner + "." + method
+	if p := bl.ownerImplPlan(t, args, owner, method); p != nil {
+		// `Box.seven()`, `Src.twice(1)`: an owner function, which takes
+		// no receiver. See ownerimpl.go.
+		return p
+	}
 	if d, isIface := bl.g.ifaceNamed(owner); isIface && d != nil {
 		return bl.concreteInterfacePlan(t, args, d, method)
 	}
@@ -861,27 +878,7 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 			only = item
 		}
 		if only != nil {
-			var filled *irQualArgs
-			if args.ok && len(args.temps) < len(only.params) && only.lowerable {
-				// `Box.announce(b)` omitting a defaulted parameter.
-				full, ok := bl.implDefaultArgs(t, args, only)
-				if !ok {
-					return nil
-				}
-				filled = &full
-				args = full
-				t = &ast.Call{Func: t.Func, Args: make([]ast.Node, len(full.temps)), Line: t.Line, Col: t.Col}
-			}
-			if widened, changed := bl.qualWidenEmbeds(t, args, only.params); changed {
-				// `Shape.to_string(circle)`: the Circle enters its
-				// `embeds` variant.
-				filled = &widened
-				args = widened
-			}
-			if !bl.qualSignature(t, args, only.params, only.result) || !only.lowerable {
-				return nil
-			}
-			return &irQualPlan{token: only, name: key, result: only.result, args: filled}
+			return bl.implItemPlan(t, args, only, key)
 		}
 	}
 	if tpl := bl.g.genericTemplates[owner]; tpl != nil {
@@ -904,6 +901,32 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 		return p
 	}
 	return bl.siblingReceiverPlan(t, args, owner, method)
+}
+
+// implItemPlan is the call of one impl function the call t names, its
+// omitted defaulted operands filled and its embedded operands widened.
+func (bl *irScalarBuilder) implItemPlan(t *ast.Call, args irQualArgs, only *implItem, key string) *irQualPlan {
+	var filled *irQualArgs
+	if args.ok && len(args.temps) < len(only.params) && only.lowerable {
+		// `Box.announce(b)` omitting a defaulted parameter.
+		full, ok := bl.implDefaultArgs(t, args, only)
+		if !ok {
+			return nil
+		}
+		filled = &full
+		args = full
+		t = &ast.Call{Func: t.Func, Args: make([]ast.Node, len(full.temps)), Line: t.Line, Col: t.Col}
+	}
+	if widened, changed := bl.qualWidenEmbeds(t, args, only.params); changed {
+		// `Shape.to_string(circle)`: the Circle enters its
+		// `embeds` variant.
+		filled = &widened
+		args = widened
+	}
+	if !bl.qualSignature(t, args, only.params, only.result) || !only.lowerable {
+		return nil
+	}
+	return &irQualPlan{token: only, name: key, result: only.result, args: filled}
 }
 
 // siblingReceiverPlan resolves `Display.to_string(shapes.origin())`: an
@@ -1534,6 +1557,11 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 func (bl *irScalarBuilder) qualCalleeIsValue(fa *ast.FieldAccess) bool {
 	if fa.Field == nil {
 		return false
+	}
+	if _, app := bl.g.appRead(fa); app {
+		// `App.steps(10)`: an application field of function type, read as
+		// any field read is and called through the value it holds.
+		return true
 	}
 	switch obj := fa.Object.(type) {
 	case *ast.Ident:

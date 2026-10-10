@@ -12,7 +12,7 @@ func TestFormat_DepthCascadeKeepsComments(t *testing.T) {
 		},
 		{
 			"fn main() {\n    x = Some([[{a: [1, 2] // end\n    }]])\n}\n",
-			"fn main() {\n    x = Some([\n        [\n            {\n                a: [\n                    1,\n                    2,\n                ],\n                // end\n            },\n        ],\n    ])\n}\n",
+			"fn main() {\n    x = Some([\n        [\n            {\n                a: [\n                    1,\n                    2,\n                ], // end\n            },\n        ],\n    ])\n}\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

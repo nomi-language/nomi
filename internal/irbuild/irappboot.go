@@ -54,18 +54,27 @@ func irDynamicKind(k kind) bool {
 
 // irBootStructKind is a boot result declaration: a struct whose fields hold
 // retained values, including the Context, task and channel handles and
-// supervisors, or an interface's existential.
+// supervisors, an interface's existential, or a function value
+// (irAppFieldKind).
 func irBootStructKind(d *typeDef) bool {
 	if d == nil || d.isEnum || d.isDistinct || !d.lowerable || len(d.fields) == 0 {
 		return false
 	}
 	for i := range d.fields {
 		f := &d.fields[i]
-		if f.boxed || !(irRetainedValueKind(f.k) || irExistentialKind(f.k)) {
+		if f.boxed || !irAppFieldKind(f.k) {
 			return false
 		}
 	}
 	return true
+}
+
+// irAppFieldKind is the kind an application field may hold: a retained
+// value, an interface's existential, or a function value whose inputs and
+// output the callable domain holds (`steps: (Int) -> Int`). A function
+// field is read, written and called as a struct's function field is.
+func irAppFieldKind(k kind) bool {
+	return irRetainedValueKind(k) || irExistentialKind(k) || (k.tag == tagFunc && irCallableValueKind(k))
 }
 
 // irBootRecordKind is an anonymous record a boot may answer: every field a
@@ -75,7 +84,7 @@ func irBootRecordKind(k kind) bool {
 		return false
 	}
 	for _, p := range k.comp.parts {
-		if !irRetainedValueKind(p) && !irExistentialKind(p) {
+		if !irAppFieldKind(p) {
 			return false
 		}
 	}
@@ -461,7 +470,7 @@ func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 		irDeclineNote("an app-field write in a program with no boot")
 		return false
 	// kindInvalid: sentinel — a write with no declared field contract declines.
-	case k == kindInvalid || !(irRetainedValueKind(k) || irExistentialKind(k)):
+	case k == kindInvalid || !irAppFieldKind(k):
 		irDeclineNote("an app-field write of an unretained field")
 		return false
 	}
@@ -488,7 +497,7 @@ func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 func (bl *irScalarBuilder) appFieldRead(t *ast.FieldAccess, read analysis.AppRead) (ir.Temp, kind, bool, bool) {
 	k := bl.g.appFieldKind(read)
 	// kindInvalid: sentinel — a read with no declared field contract declines.
-	if k == kindInvalid || !(irRetainedValueKind(k) || irExistentialKind(k)) || (bl.inTest && !bl.testApp) || (!bl.g.irDeclaresBoot() && !irContextKind(k)) {
+	if k == kindInvalid || !irAppFieldKind(k) || (bl.inTest && !bl.testApp) || (!bl.g.irDeclaresBoot() && !irContextKind(k)) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	name := read.Field.Name

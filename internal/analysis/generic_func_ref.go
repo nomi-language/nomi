@@ -142,6 +142,12 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 	if !ok {
 		return ty
 	}
+	if c.namesIterReduce(node) {
+		// Its callback arrives later, so nothing here can give it a starting
+		// value (checkReduceSeed).
+		c.report(reduceSeedError(node, "call it from a lambda with a seeded callback instead: `|xs, f| Iter.reduce(xs, |acc = <start>, x| f(acc, x))`"))
+		return nil
+	}
 	line, col := nodeLineCol(node)
 	want, isFunc := resolveTypeVar(expected).(*FuncType)
 	if !isFunc {
@@ -190,4 +196,18 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 	inst := &FuncType{Params: params, Return: Substitute(ft.Return, subs), DefaultCount: ft.DefaultCount}
 	c.attachCallType(node, inst)
 	return inst
+}
+
+// namesIterReduce reports whether node, a function named as a value, is
+// std's `Iter.reduce`. A program cannot declare its own `Iter`.
+func (c *checker) namesIterReduce(node ast.Node) bool {
+	fa, ok := node.(*ast.FieldAccess)
+	if !ok || fa.Field == nil || fa.Field.Name != "reduce" {
+		return false
+	}
+	sym := c.fa.References[Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	return sym != nil && sym.OwningType == "Iter"
 }

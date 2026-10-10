@@ -52,9 +52,11 @@ fn main() {
     io.print("reinserted keys = ${Map.keys(Map.put(Map.remove(m, "a"), "a", 7))}")
     io.print("reinserted values = ${Map.values(Map.put(Map.remove(m, "a"), "a", 7))}")
 
-    // Duplicate key in one literal: last value, first position.
-    io.print("dup keys = ${Map.keys({"a" => 1, "b" => 2, "a" => 9})}")
-    io.print("dup values = ${Map.values({"a" => 1, "b" => 2, "a" => 9})}")
+    // Duplicate key in one literal: last value, first position. The key is a
+    // binding: two equal constant keys are a compile error.
+    dup_key = "a"
+    io.print("dup keys = ${Map.keys({dup_key => 1, "b" => 2, dup_key => 9})}")
+    io.print("dup values = ${Map.values({dup_key => 1, "b" => 2, dup_key => 9})}")
 
     // put over a new key appends.
     io.print("appended = ${Map.keys(Map.put(m, "d", 4))}")

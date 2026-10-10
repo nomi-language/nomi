@@ -13,6 +13,12 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	line, col := nodePos(at)
 	call := &ast.Call{Args: []ast.Node{anon}, Line: line, Col: col}
+	// The call has no type of its own; a generic enum's instance is the
+	// one the checker solved for the literal (`Bag.Items[1, 2]` is a
+	// `Bag<Int>`), read through checkedCallNode.
+	prevCall, prevFrom := bl.attachedCall, bl.attachedFrom
+	bl.attachedCall, bl.attachedFrom = call, at
+	defer func() { bl.attachedCall, bl.attachedFrom = prevCall, prevFrom }()
 	var fa *ast.FieldAccess
 	switch tn := prefix.(type) {
 	case *ast.QualifiedType:
@@ -43,7 +49,7 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 			// `Kvs{"a" => 1}`: the distinct's constructor over the literal.
 			return bl.compositeDistinctMake(call, d)
 		}
-		return bl.stdVariantCall(call, ti)
+		return bl.importedVariantCall(call, ti)
 	default:
 		return no()
 	}

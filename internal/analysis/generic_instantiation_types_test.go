@@ -136,7 +136,7 @@ func TestExprTypes_PipeAfterRange(t *testing.T) {
 	wantNoTypeParamsBetween(t, fa, 2, 6)
 }
 
-// Iter.map and Iter.reduce both declare a `U`. A seedless reduce inside the
+// Iter.map and Iter.reduce both declare a `U`. A reduce inside the
 // lambda passed to map gets its accumulator from its own callback; typed as
 // reduce's rigid U, `a + b` was "type parameter U cannot use `+`", and the
 // stages came out `U` and `Iter<U>`.
@@ -145,10 +145,10 @@ func TestExprTypes_NestedGenericsSharingAParameterName(t *testing.T) {
   sums = [[1, 2], [3]]
     |> Iter.map(|xs| {
       xs
-      |> Iter.reduce(|a, b| a + b)
+      |> Iter.reduce(|a = 0, b| a + b)
     })
     |> Iter.to_list()
-  total = Iter.reduce([1, 2, 3], |a, b| a + b)
+  total = Iter.reduce([1, 2, 3], |a = 0, b| a + b)
   Iter.count(sums) + total
 }`
 	fa, errs := checkSourceWithStdlib(src)

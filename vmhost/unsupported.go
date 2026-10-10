@@ -161,7 +161,11 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 		line, col = 0, 0
 	}
 	construct := "its body"
-	if line > 0 {
+	if line > 0 && d != nil && d.Pattern && d.Line == line && d.Col == col {
+		// A pattern the lowering could not test: the node found at its
+		// position may be the statement that holds it, or a literal inside.
+		construct = "this pattern"
+	} else if line > 0 {
 		mod := p.modulePath(path)
 		if n := nodeAt(mod, line, col); n != nil {
 			construct = describeConstruct(n)
@@ -250,7 +254,7 @@ func unsupportedHint(reason string) string {
 		return "`" + name + "` uses break or continue, so pass it as the callback itself, as in `Iter.map(xs, " + name + ")`, rather than calling it"
 	}
 	if name, ok := strings.CutPrefix(reason, "an iter-sensitive function passed where its break or continue cannot be caught: "); ok {
-		return "`" + name + "` uses break or continue; so far only Iter.map, Iter.filter, Iter.take_while, Iter.each, Iter.iterate and Iter.reduce can run such a function as their callback"
+		return "`" + name + "` uses break or continue; so far such a function runs as a callback only when the iteration function is named with its owner, as in `Iter.find(xs, " + name + ")`"
 	}
 	return ""
 }

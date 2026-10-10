@@ -113,11 +113,12 @@ impl Iter<T> {
     /// is the initial state, e.g. `|n = 0|`) or is stateless (`|| body`). The
     /// callback's return value becomes the next iteration's state. The state
     /// type, the `break` value type, and the loop's result type are all one
-    /// type `S`: for a stated callback `S` comes from the default; for a
-    /// stateless callback `S` is inferred from the `break` value.
+    /// type `S`: for a stated callback `S` comes from the default, and a
+    /// stateless callback has state `Unit`, so it breaks with `break` alone
+    /// and the loop answers `Unit`.
     ///
     /// Use `break value` to exit with `value`, or bare `break` to exit with
-    /// `Unit`. Without an explicit break this loops forever.
+    /// the current state. Without an explicit break this loops forever.
     //
     //! assert Iter.loop(|n = 0|
     //!     if n >= 3 {
@@ -127,7 +128,7 @@ impl Iter<T> {
     //!     }
     //! ) == 3
     //!
-    //! assert Iter.loop(|| { break 42 }) == 42
+    //! assert Iter.loop(|| { break }) == Unit
     //
     pub host fn loop<S>(f: (S) -> S): S
 
@@ -146,13 +147,16 @@ impl Iter<T> {
     // ---------------------------------------------------------------------------
     /// Reduces a collection to a single value by folding.
     ///
-    /// The initial accumulator is provided by the lambda's default parameter:
-    /// If the lambda has no default (e.g., `|a, b| ...`), the first element
-    /// of the collection is used as the initial accumulator and iteration starts
-    /// at the second element. Errors if the collection is empty.
+    /// The starting value is the default of the callback lambda's first
+    /// parameter: `|acc = 0, x| acc + x`. It is the answer for an empty
+    /// source. A callback without one (a function value such as `Int.add`, or
+    /// `|a, b| ...`) is a compile error; to fold with a named function, forward
+    /// to it from a seeded lambda, `|acc = 0, x| add(acc, x)`. For the least
+    /// or greatest element use `Iter.min` or `Iter.max`.
     ///
     /// Supports `break` / `break value` / `continue` in the callback.
     //! assert Iter.reduce([1, 2, 3], |acc = 0, x| acc + x) == 6
+    //! assert Iter.reduce([], |acc = 0, x| acc + x) == 0
     //
     pub host fn reduce<T, U>(source: Iter<T>, f: (U, T) -> U): U
 
@@ -676,6 +680,78 @@ impl Iter<T> {
             Some(n) -> n
             None -> reduce(source, |acc = 0, _item| acc + 1)
         }
+    }
+
+    /// Returns the least element, or `None` for an empty source. Of equal
+    /// least elements, the first wins. Consumes the whole iterator.
+    //
+    //! assert Iter.min([3, 1, 2]) == Some(1)
+    //! assert Iter.min(["pear", "fig", "plum"]) == Some("fig")
+    //! assert Iter.min([]) == None
+    //
+    pub fn min<T>(source: Iter<T>): Maybe<T> where T: Comparable {
+        reduce(source, |least: Maybe<T> = None, item|
+            case least {
+                Some(m) -> if item < m { Some(item) } else { least }
+                None -> Some(item)
+            }
+        )
+    }
+
+    /// Returns the greatest element, or `None` for an empty source. Of equal
+    /// greatest elements, the first wins. Consumes the whole iterator.
+    //
+    //! assert Iter.max([3, 1, 2]) == Some(3)
+    //! assert Iter.max(["pear", "fig", "plum"]) == Some("plum")
+    //! assert Iter.max([]) == None
+    //
+    pub fn max<T>(source: Iter<T>): Maybe<T> where T: Comparable {
+        reduce(source, |greatest: Maybe<T> = None, item|
+            case greatest {
+                Some(m) -> if item > m { Some(item) } else { greatest }
+                None -> Some(item)
+            }
+        )
+    }
+
+    /// Returns the element whose `key` is least, or `None` for an empty
+    /// source. Of elements with equal least keys, the first wins. Calls `key`
+    /// once per element.
+    //
+    //! assert Iter.min_by(["pear", "fig", "plum"], |s| String.length(s)) == Some("fig")
+    //! assert Iter.min_by([(1, "a"), (0, "b"), (0, "c")], |(n, _)| n) == Some((0, "b"))
+    //
+    pub fn min_by<T, K>(source: Iter<T>, key: (T) -> K): Maybe<T> where K: Comparable {
+        best = reduce(source, |acc: Maybe<(T, K)> = None, item| {
+            k = key(item)
+
+            case acc {
+                Some((_, least)) -> if k < least { Some((item, k)) } else { acc }
+                None -> Some((item, k))
+            }
+        })
+
+        Maybe.map(best, |(item, _)| item)
+    }
+
+    /// Returns the element whose `key` is greatest, or `None` for an empty
+    /// source. Of elements with equal greatest keys, the first wins. Calls
+    /// `key` once per element.
+    //
+    //! assert Iter.max_by(["pear", "fig", "plum"], |s| String.length(s)) == Some("pear")
+    //! assert Iter.max_by([(1, "a"), (0, "b"), (1, "c")], |(n, _)| n) == Some((1, "a"))
+    //
+    pub fn max_by<T, K>(source: Iter<T>, key: (T) -> K): Maybe<T> where K: Comparable {
+        best = reduce(source, |acc: Maybe<(T, K)> = None, item| {
+            k = key(item)
+
+            case acc {
+                Some((_, greatest)) -> if k > greatest { Some((item, k)) } else { acc }
+                None -> Some((item, k))
+            }
+        })
+
+        Maybe.map(best, |(item, _)| item)
     }
 }
 

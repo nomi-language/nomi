@@ -104,7 +104,7 @@ Iter.to_set([1, 2, 3])
 **Don't pipe when there's no nested call:**
 
 - A plain value or literal argument stays a direct call: `Int.to_string(n)`,
-  `Iter.reduce(s, f)`. A lone call is never a pipe.
+  `Iter.count(s)`. A lone call is never a pipe.
 - A composite literal also stays direct when there is only one operation and
   the call is the whole expression: `Iter.reduce([1, 2, 3], |acc = 0, n| acc + n)`.
 - An incidental, non-subject argument stays nested:
@@ -554,28 +554,29 @@ conversation instead of matching two lists. Keep `io.capture` for a program
 that reads its input in one go, for one that reads nothing (compare its
 `output`), or when the value `main` returns matters.
 
-Indent the output lines two columns past the input lines and the closing
-`"""`, so each output line keeps its two-space gutter. Write a prompt the
-program writes with `io.write` as its own output line, without its trailing
-space, and the answer on the `>` line under it.
+Indent the output lines four columns past the input lines and the closing
+`"""`, so each output line keeps its four-space gutter, and put two spaces
+after each `>>`. Write a prompt the program writes with `io.write` as its
+own output line, without its trailing space, and the answer on the `>>`
+line under it.
 
 ```nomi
 test "deposit money" {
     assert io.replay(
         """
-          What is the starting balance?
-        > 500
-          deposit:
-        > 25
-          new balance is 525
+            What is the starting balance?
+        >>  500
+            deposit:
+        >>  25
+            new balance is 525
         """,
         main,
     )
 }
 ```
 
-A prompt of `> ` is output like any other: it is the line `  >` above the
-input line `> north`.
+A prompt of `> ` is output like any other: it is the line `    >` above the
+input line `>>  north`.
 
 When the value under test comes from a pipeline and the intermediate meaning is
 useful, bind the pipeline result and assert the binding. The failure report
@@ -1231,6 +1232,11 @@ fn step(point: {x: Int, y: Int}): {x: Int, y: Int} {
 }
 ```
 
+To change part of a nested value inside an update, write the bare `..`
+(`{..user, address: {.., city: "NYC"}}`) rather than repeating the path as a
+base (`{..user.address, city: "NYC"}`); write a brace without `..` only when
+the field gets a whole new value.
+
 ## 19. Use a codepoint literal for codepoint work and a string for text
 
 A codepoint literal (`'a'`) is a `Codepoint`, not a character of text. Reach
@@ -1335,3 +1341,25 @@ A bare `return` that `fmt` leaves at the end of a body, alone in it, after a
 binding, or carrying a comment, is a compiler error, as is a final
 `if done { return }`. Delete it; write `todo` in a body you have not written
 yet.
+
+## 24. Read a distinct's value by destructuring
+
+A distinct is read with the pattern that mirrors its construction:
+`Balance(n) = balance`, a `case` arm, or a parameter (`fn cents(Balance(n)):
+Int`). Calling the inner type's name is not a conversion, so `Int(balance)`
+is an error. The pattern names the distinct, so changing `type Balance Int`
+to `type Balance Decimal` leaves each one correct and only retypes `n`.
+
+When other code reads the value in many places, give the type an accessor in
+its own file and call that:
+
+```nomi
+type Balance Int
+
+impl Balance {
+    pub fn cents(Balance(n)): Int { n }
+}
+```
+
+An opaque distinct needs one, since code outside its file cannot destructure
+it.

@@ -63,7 +63,7 @@ func (u UnresolvedExpr) String() string {
 func UnresolvedExprs(fa *FileAnalysis, nodes []ast.Node) []UnresolvedExpr {
 	w := &unresolvedWalk{
 		fa: fa, skip: map[ast.Node]bool{}, notValue: map[ast.Node]bool{},
-		stage: map[ast.Node]bool{}, patch: map[ast.Node]bool{}, where: map[ast.Node]string{},
+		stage: map[ast.Node]bool{}, where: map[ast.Node]string{},
 	}
 	for _, top := range nodes {
 		ast.Inspect(top, w.visit)
@@ -75,8 +75,8 @@ type unresolvedWalk struct {
 	fa *FileAnalysis
 	// skip marks subtrees that hold no value expression; notValue marks a
 	// node that is not a value while its children may be. stage marks a
-	// pipe stage, and patch a brace literal that patches a struct.
-	skip, notValue, stage, patch map[ast.Node]bool
+	// pipe stage.
+	skip, notValue, stage map[ast.Node]bool
 	// where is the position each node holds in its parent, for the report.
 	where map[ast.Node]string
 	out   []UnresolvedExpr
@@ -169,17 +169,6 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 		w.skipParamPatterns(n.Params)
 	case *ast.InterfaceMethod:
 		w.skipParamPatterns(n.Params)
-	case *ast.StructLit:
-		// A bare brace at a field of a patch is itself a patch, not a value
-		// (checkStructLitAgainstStruct).
-		if n.TypeName == nil && (n.Spread != nil || w.patch[n]) {
-			for _, f := range n.Fields {
-				if lit, ok := f.Value.(*ast.StructLit); ok && lit.TypeName == nil && lit.Spread == nil {
-					w.patch[lit] = true
-					w.notValue[lit] = true
-				}
-			}
-		}
 	}
 	if w.notValue[n] || !isValueExpr(n) {
 		return true
@@ -302,7 +291,8 @@ func isValueExpr(n ast.Node) bool {
 		*ast.ListSpreadLit, *ast.MapLit, *ast.TupleLit, *ast.Ident, *ast.TypeIdent, *ast.Unary,
 		*ast.Binary, *ast.GroupedExpr, *ast.If, *ast.Call, *ast.DotVariant,
 		*ast.FieldAccess, *ast.StructLit, *ast.RangeLit, *ast.Lambda, *ast.TryOp, *ast.Then, *ast.Tap,
-		*ast.Case, *ast.ConcurrentBlock, *ast.Dbg, *ast.Return, *ast.Break, *ast.Continue:
+		*ast.Case, *ast.ConcurrentBlock, *ast.Dbg, *ast.Return, *ast.Break, *ast.Continue,
+		*ast.CurrentValue:
 		return true
 	}
 	return false

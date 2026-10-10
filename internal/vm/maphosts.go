@@ -75,8 +75,11 @@ func mapHost(key string) hostFn {
 	}
 }
 
-// mapMapValues is `Map.map_values(m, f)` through rt.MapMapValues, with f a VM
-// function value called on the machine. The first fault stops the walk.
+// mapMapValues is `Map.map_values(m, f)` through rt.MapMapValuesCtl, with f a
+// VM function value called on the machine. A callback lowered under the
+// signalling form answers a control value for `break` and `continue`, which
+// adapterOutcome reads; any other callback's answer is CtlEmit. The first
+// fault stops the walk.
 func (m *Machine) mapMapValues(src vmap, fn any) (any, error) {
 	f, ok := fn.(*functionValue)
 	if !ok || f == nil || f.arity != 1 {
@@ -84,15 +87,13 @@ func (m *Machine) mapMapValues(src vmap, fn any) (any, error) {
 	}
 	var callbackErr error
 	k := m.keysFor(nil)
-	out := rt.MapMapValues(m.hostFrame, src, k.HashFunc(), k.EqualFunc(), func(fr *rt.Frame, v any) any {
-		if callbackErr != nil {
-			return nil
-		}
+	out := rt.MapMapValuesCtl(m.hostFrame, src, k.HashFunc(), k.EqualFunc(), func(fr *rt.Frame, v any) (any, rt.Ctl) {
 		got, err := m.apply(f, []any{v}, fr)
 		if err != nil {
 			callbackErr = err
+			return nil, rt.CtlStop
 		}
-		return got
+		return mapCtlOutcome(got)
 	})
 	if callbackErr != nil {
 		return nil, callbackErr
@@ -100,9 +101,28 @@ func (m *Machine) mapMapValues(src vmap, fn any) (any, error) {
 	return out, nil
 }
 
+// mapCtlOutcome is adapterOutcome for a map host's callback, which runs
+// outside an iteration driver: a control value it cannot read is an error
+// rather than an iteration failure.
+func mapCtlOutcome(v any) (any, rt.Ctl) {
+	if c, ok := v.(*ctlValue); ok {
+		switch c.ctl {
+		case ir.CtlSkip:
+			return nil, rt.CtlSkip
+		case ir.CtlEmitStop:
+			return c.v, rt.CtlEmitStop
+		case ir.CtlStop:
+			return nil, rt.CtlStop
+		}
+	}
+	return v, rt.CtlEmit
+}
+
 // mapMapKeys is `Map.map_keys(m, f)`: each entry put under f(key) in
 // insertion order, so a colliding later key keeps the first position and
-// takes the later value, as `Iter.to_map` does.
+// takes the later value, as `Iter.to_map` does. A signalling callback's
+// `continue` leaves the entry out, a bare `break` stops with the entries put
+// so far, and `break k` puts this entry under k and then stops.
 func (m *Machine) mapMapKeys(src vmap, fn any) (any, error) {
 	f, ok := fn.(*functionValue)
 	if !ok || f == nil || f.arity != 1 {
@@ -111,11 +131,17 @@ func (m *Machine) mapMapKeys(src vmap, fn any) (any, error) {
 	var out vmap
 	keys := m.keysFor(nil)
 	for _, e := range rt.MapEntries(src) {
-		k, err := m.apply(f, []any{e.Key}, m.hostFrame)
+		got, err := m.apply(f, []any{e.Key}, m.hostFrame)
 		if err != nil {
 			return nil, err
 		}
-		out = mapPut(keys, out, k, e.Val)
+		k, ctl := mapCtlOutcome(got)
+		if ctl == rt.CtlEmit || ctl == rt.CtlEmitStop {
+			out = mapPut(keys, out, k, e.Val)
+		}
+		if ctl == rt.CtlEmitStop || ctl == rt.CtlStop {
+			break
+		}
 	}
 	return out, nil
 }

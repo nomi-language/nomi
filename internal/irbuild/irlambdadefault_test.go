@@ -58,7 +58,7 @@ fn main() {
  f = |x = base, y = x + 2| y
  alias = f
  io.print(alias())
- io.print(alias(y: 0, x: 1))
+ io.print(alias(1, 0))
  io.print(f(10))
 }`, "42\n0\n12\n"},
 		{"callable default captures earlier parameter", `import std/io

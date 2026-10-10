@@ -121,6 +121,9 @@ func TestCompletion_BareBraceAfterAField(t *testing.T) {
 		{"typed prefix", "fn f(): Address {\n    a: Address = {ci‸}\n    a\n}\n", []string{"city"}},
 		{"nested, one field written", "fn f(): Person {\n    Person{address: {street: \"x\", ‸}}\n}\n", []string{"city"}},
 		{"patch, one field written", "fn f(p: Person): Person {\n    {..p, address: {city: \"x\", ‸}}\n}\n", []string{"street"}},
+		{"bare `..` update", "fn f(p: Person): Person {\n    {..p, address: {.., ‸}}\n}\n", []string{"street", "city"}},
+		{"bare `..` update in Struct.update", "fn f(p: Person): Person {\n    Struct.update(p, {address: {.., ‸}})\n}\n", []string{"street", "city"}},
+		{"bare `..` update, one field written", "fn f(p: Person): Person {\n    {..p, address: {.., city: \"x\", ‸}}\n}\n", []string{"street"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

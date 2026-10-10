@@ -61,9 +61,9 @@ test "a brace literal builds a generic struct at its known argument" {
     assert boxed == Box{item: 3}
 }
 
-test "a spread keeps the patch rule at a struct-typed field" {
+test "a spread updates a struct-typed field written with `..`" {
     ada: Person = {name: "Ada", address: {street: "1 Main", city: "Bath"}}
-    moved = {..ada, address: {city: "NYC"}}
+    moved = {..ada, address: {.., city: "NYC"}}
     assert moved.address == Address{street: "1 Main", city: "NYC"}
 }
 

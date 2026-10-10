@@ -71,13 +71,13 @@ fn counted(): Int {
     make(5)
 }
 
-// A block-local distinct is NOT transparent: it takes a conversion in each
-// direction, which is what separates it from the alias above.
+// A block-local distinct is NOT transparent: it is built by its constructor
+// and read by destructuring, which is what separates it from the alias above.
 fn wrapped(): Int {
     type UserId Int
 
-    uid = UserId(42)
-    Int(uid)
+    UserId(n) = UserId(42)
+    n
 }
 
 // A block-local NOMINAL struct beside a structurally identical ANONYMOUS one.

@@ -46,7 +46,7 @@ fn main() {
     io.print("${w}")
 }
 `,
-			at:     "main.nomi:4:5: this `once w` is not supported yet, so `fn main` cannot run",
+			at:     "main.nomi:4:9: this `once w` is not supported yet, so `fn main` cannot run",
 			reason: "[main] reads `once w`, whose initializer did not lower; [once w] a branch or block value kind with no IR type",
 		},
 		{

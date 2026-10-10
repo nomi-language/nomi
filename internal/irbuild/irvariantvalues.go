@@ -48,6 +48,12 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 					}
 					continue
 				}
+				if reaches, ok := irReachingPayload(d, p.k, outer); reaches {
+					if !ok {
+						return false
+					}
+					continue
+				}
 				if p.slot < 0 || p.slot >= len(d.slots) || d.slots[p.slot].boxed {
 					return false
 				}
@@ -63,7 +69,7 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 				}
 			}
 		case "embedded":
-			if d.preludeOf != nil || !irRetainedEmbed(d, &v) {
+			if d.preludeOf != nil || !irRetainedEmbedIn(d, &v, outer) {
 				return false
 			}
 		case "positional":
@@ -93,6 +99,12 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 				}
 				continue
 			}
+			if reaches, ok := irReachingPayload(d, payload, outer); reaches {
+				if !ok {
+					return false
+				}
+				continue
+			}
 			if slot := v.payloads[0].slot; slot < 0 || slot >= len(d.slots) || (d.slots[slot].boxed && !irSelfTuplePayload(d, payload)) {
 				return false
 			}
@@ -118,6 +130,24 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 		}
 	}
 	return true
+}
+
+// irReachingPayload decides a user enum's payload that reaches a type the
+// walk is deciding, d among them: `Node(Set<Tree>)`, `Node(Maybe<Tree<T>>)`,
+// `Node {kids: List<Tree<T>>}`, `O(Even<T>)` inside Even's own payload. Such
+// a payload is decided with the walk's stack, co-inductively, as a struct
+// field that reaches its struct is (irRecursiveFieldKind), and never through
+// a stack-less predicate, which would restart the walk at d and never end.
+// reaches is false for a payload that reaches nothing on the walk, or holds a
+// channel or task handle (left to the channel field rule), and the caller
+// decides it as before.
+func irReachingPayload(d *typeDef, k kind, outer []*typeDef) (reaches, ok bool) {
+	walk := append(outer[:len(outer):len(outer)], d)
+	if d.preludeOf != nil || irHoldsConcHandle(k, 0) || !irKindReaches(k, walk) {
+		return false, false
+	}
+	return true, irSelfTuplePayload(d, k) || irSelfContainerPayload(d, k) || irSeqPayload(d, k, outer) ||
+		irNominalListPayload(k, walk) || irPreludeVariantField(d, k, outer) || irRecursiveFieldKind(k, walk)
 }
 
 // irSeqPayload admits a lowered sequence as a user enum's payload
@@ -188,7 +218,7 @@ func irPreludeVariantField(d *typeDef, k kind, outer []*typeDef) bool {
 // reference, so the recursion is in the values and not in the layout.
 func irCyclicNominal(k kind, boxed bool, outer []*typeDef) bool {
 	if k.tag != tagNamed || k.def == nil || k.def.preludeOf != nil || k.def.isDistinct ||
-		k.def.genStructOf != nil || k.def.genericOf != nil {
+		k.def.genStructOf != nil {
 		return false
 	}
 	if boxed {
@@ -379,14 +409,24 @@ func irNominalListPayload(k kind, deciding []*typeDef) bool {
 	return k.tag == tagList && k != kindEmptyList && irComposedFieldKind(k, deciding)
 }
 
-// irRetainedEmbed admits an `embeds` variant of a retained struct in an
-// unboxed slot, or of a zero-sized marker, which has no slot.
+// irRetainedEmbed admits an `embeds` variant of a retained struct, or of a
+// distinct over a value, in its slot, or of a zero-sized marker, which has
+// no slot.
 func irRetainedEmbed(d *typeDef, v *variantDef) bool {
+	return irRetainedEmbedIn(d, v, nil)
+}
+
+// irRetainedEmbedIn is irRetainedEmbed inside a walk already deciding the
+// types on outer. The embedded type is decided with d on the walk, so a
+// struct whose fields reach d back (`struct Circle { inner: Maybe<Shape> }`,
+// `kids: List<Shape>`, or the same through `type Wrapped Circle`) is decided
+// once, each type assuming the other, as a positional payload's is
+// (irNominalCoinductive). The slot may be boxed: the layout boxes it to
+// break that cycle, and the VM holds the embedded record by reference
+// either way.
+func irRetainedEmbedIn(d *typeDef, v *variantDef, outer []*typeDef) bool {
 	if v.embeds == nil || len(v.payloads) != 1 || v.payloads[0].k != named(v.embeds) {
 		return false
-	}
-	if irEmbedsEnum(v) {
-		return true
 	}
 	slot := v.payloads[0].slot
 	if irRetainedMarker(v.embeds) {
@@ -394,8 +434,14 @@ func irRetainedEmbed(d *typeDef, v *variantDef) bool {
 	}
 	// A struct or a distinct over a value: the VM's enum value is the
 	// embedded value itself, a distinct boxed as its own record.
-	return (irRetainedStructKind(v.embeds) || irEmbedsValueDistinct(v)) &&
-		slot >= 0 && slot < len(d.slots) && !d.slots[slot].boxed
+	if slot < 0 || slot >= len(d.slots) {
+		return false
+	}
+	walk := append(outer[:len(outer):len(outer)], d)
+	if v.embeds.isDistinct {
+		return !v.embeds.rtOpaque && irDistinctCoinductive(named(v.embeds), walk)
+	}
+	return !v.embeds.isEnum && irNominalCoinductive(named(v.embeds), walk)
 }
 
 // embedWiden widens a value of an embedded type into its `embeds` variant, as
@@ -522,15 +568,7 @@ func irRetainedPreludePayload(k kind) bool {
 		}
 		return true
 	}
-	return k.tag == tagNamed && k.def != nil && k.def.preludeOf == nil && irRetainedEnumKind(k.def) && !irEnumEmbeds(k.def)
-}
-
-// irEmbedsEnum reports whether v is an `embeds` variant of another enum. No
-// value widens into one (the front end rejects `f(Shape.Circle(1.5))` where a
-// Drawable is wanted), so its one value is the payload-less
-// `Drawable.Shape{}`, and its layout is a bare variant (irStateVariants).
-func irEmbedsEnum(v *variantDef) bool {
-	return v.kind == "embedded" && v.embeds != nil && v.embeds.isEnum
+	return k.tag == tagNamed && k.def != nil && k.def.preludeOf == nil && irRetainedEnumKind(k.def)
 }
 
 // irEnumEmbeds reports whether an enum has an `embeds` variant.
@@ -710,10 +748,14 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 }
 
 // checkedCallNode is the node the checker typed for call: the pipe a
-// spliced stage came from, or the call itself.
+// spliced stage came from, the literal a literal-attach form's call was
+// made from, or the call itself.
 func (bl *irScalarBuilder) checkedCallNode(call *ast.Call) ast.Node {
 	if call == bl.pipedCall && bl.pipedFrom != nil {
 		return bl.pipedFrom
+	}
+	if call == bl.attachedCall && bl.attachedFrom != nil {
+		return bl.attachedFrom
 	}
 	return call
 }
@@ -723,10 +765,82 @@ func (bl *irScalarBuilder) variantCall(call *ast.Call, field *ast.FieldAccess) (
 	if !ok {
 		d, v, ok = bl.genericVariant(field, call, kindInvalid)
 	}
-	if ok && irStructShapedVariant(v) {
+	if !ok {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	return bl.variantCallOf(call, d, v)
+}
+
+// genericVariantCallWant builds `Box.Full(c)` at want, an instance of the
+// user generic enum the call names other than the one the checker solved
+// for it: an equality operand lowered at the other operand's type
+// (embedsWidenedOperand), where `Box.Full(circle) == Box.Full(Shape.Dot)`
+// builds the left at Box<Shape>. Each payload is lowered at want's payload
+// type, so an embedded value widens where it sits. ok is false, with nothing
+// lowered, when the call is not such a variant or the checker's instance is
+// want already.
+func (bl *irScalarBuilder) genericVariantCallWant(call *ast.Call, want kind) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	field, isField := call.Func.(*ast.FieldAccess)
+	if !isField || hasPlaceholder(call.Args) || want.tag != tagNamed || want.def == nil || want.def.genericOf == nil {
+		return no()
+	}
+	d, v, ok := bl.genericVariant(field, nil, want)
+	if !ok || v.kind == "bare" {
+		return no()
+	}
+	if checked, _, ok := bl.genericVariant(field, call, kindInvalid); ok && checked == d {
+		return no()
+	}
+	return bl.variantCallOf(call, d, v)
+}
+
+// genericLitWant is genericVariantCallWant for a brace literal: a user
+// generic struct's (`Holder{value: circle}`) or a struct-shaped variant's
+// (`Box.Named{value: circle}`), built at want, an instance of its template
+// other than the one the checker solved.
+func (bl *irScalarBuilder) genericLitWant(t *ast.StructLit, want kind) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	if t.Spread != nil || want.tag != tagNamed || want.def == nil || want.def.genericOf == nil {
+		return no()
+	}
+	switch tn := t.TypeName.(type) {
+	case *ast.SimpleType:
+		tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Name)
+		if !isTemplate || tpl.structDecl() == nil || want.def.genericOf != tpl {
+			return no()
+		}
+		if args, ok := bl.g.checkedStructTypeArgs(t, tpl); ok {
+			if k, ok := instantiate(args); ok && k == want {
+				return no()
+			}
+		}
+		return bl.structMakeOf(t, want.def)
+	case *ast.QualifiedType:
+		if tn.Member == nil {
+			return no()
+		}
+		tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module)
+		if !isTemplate || tpl.enumDecl() == nil || want.def.genericOf != tpl {
+			return no()
+		}
+		variant := tn.Member.TypeString()
+		if args, ok := bl.g.checkedVariantTypeArgs(t, tpl, variant); ok {
+			if k, ok := instantiate(args); ok && k == want {
+				return no()
+			}
+		}
+		return bl.variantStructLitOf(t, want.def, want.def.variant(variant))
+	}
+	return no()
+}
+
+// variantCallOf builds call, a construction of d's variant v.
+func (bl *irScalarBuilder) variantCallOf(call *ast.Call, d *typeDef, v *variantDef) (ir.Temp, kind, bool, bool) {
+	if irStructShapedVariant(v) {
 		return bl.variantCallForm(call, d, v)
 	}
-	if ok && irEmbedsValueDistinct(v) && len(call.Args) == 1 && namedArgNode(call.Args) == nil {
+	if irEmbedsValueDistinct(v) && len(call.Args) == 1 && namedArgNode(call.Args) == nil {
 		// `Identifier.UserId("bob")`, `Shape.Wrapped(Circle{r: 1})`: the
 		// embedded distinct built from its inner value, widened into its
 		// variant.
@@ -741,7 +855,7 @@ func (bl *irScalarBuilder) variantCall(call *ast.Call, field *ast.FieldAccess) (
 		dst, wk, wok := bl.embedWiden(call, m.Dst(), d, v)
 		return dst, wk, true, wok
 	}
-	if !ok || v.kind != "positional" || len(call.Args) == 0 {
+	if v.kind != "positional" || len(call.Args) == 0 {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	argNode := call.Args[0]
@@ -836,16 +950,6 @@ func (bl *irScalarBuilder) variantStructLitOf(t *ast.StructLit, d *typeDef, v *v
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if !irRetainedEnumKind(d) {
 		return no()
-	}
-	if v != nil && irEmbedsEnum(v) && len(t.Fields) == 0 && t.Spread == nil {
-		// `Drawable.Shape{}`: an embedded enum's variant built with no
-		// payload. It is the only value the
-		// variant ever holds (irEmbedsEnum).
-		make := ir.NewMakeVariant(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irTypeSym(d), v.nomi, nil)
-		bl.b.Append(make)
-		k := named(d)
-		bl.side(make.Dst(), irScalarSide{k: k, pureMake: true})
-		return make.Dst(), k, true, true
 	}
 	if v == nil || !irStructShapedVariant(v) {
 		return no()
@@ -958,20 +1062,18 @@ func (bl *irScalarBuilder) variantFinish(at ast.Node, t *ast.StructLit, d *typeD
 	return bl.variantValue(at, d, v, args, true)
 }
 
-// stdVariantCall builds a std enum's positional variant named bare, as a
+// importedVariantCall builds a std enum's positional variant named bare, as a
 // selective or aliased import binds it (`import std/json.Json.{String as
 // JStr}` then `JStr("Ada")`), the call form of the bare arm lowerNode takes
 // for a payload-free one.
-func (bl *irScalarBuilder) stdVariantCall(call *ast.Call, ti *ast.TypeIdent) (ir.Temp, kind, bool, bool) {
-	d, v, ok := bl.g.stdEnumVariantAt(ti.Name, ti.Line, ti.Col)
-	if !ok || !irRetainedEnumKind(d) || v.kind != "positional" || len(call.Args) != 1 || hasNamedArg(call.Args) {
+func (bl *irScalarBuilder) importedVariantCall(call *ast.Call, ti *ast.TypeIdent) (ir.Temp, kind, bool, bool) {
+	d, v, ok := bl.g.importedVariantAt(bl.checkedCallNode(call), ti.Name, ti.Line, ti.Col)
+	if !ok || !irRetainedEnumKind(d) || v.kind != "positional" || hasNamedArg(call.Args) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	arg, k, pure, ok := bl.lowerTypedOperand(call.Args[0], v.payloads[0].k)
-	if !ok || k != v.payloads[0].k {
-		return ir.NoTemp, kindInvalid, false, false
-	}
-	return bl.variantValue(call, d, v, []ir.Temp{arg}, pure)
+	// One argument, or a tuple payload's elements written flat (`Both(1,
+	// 2)`), as the qualified spelling builds them.
+	return bl.variantCallOf(call, d, v)
 }
 
 // irDynamicContainerKind is `List<Dynamic>` or `Map<String, Dynamic>`, the

@@ -90,6 +90,12 @@ func dbgHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	// records and the reason a multi-line `dbg` cannot interleave here: the
 	// text is composed first and `m.out` is the machine's single mutex, so
 	// this print serializes against every `io.print` on the same machine.
+	//
+	// Inside a test case the line goes to the case's own output, which the
+	// report prints under the case (rt.CaptureDbg).
+	if rt.CaptureDbg(m.hostFrame, func() string { return rt.DbgReportText(pos.Line(), src, rendered) }) {
+		return rt.Unit{}, nil
+	}
 	fmt.Fprint(m.out, rt.DbgText(m.out.target(), pos.Line(), src, rendered))
 	return rt.Unit{}, nil
 }

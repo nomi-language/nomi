@@ -603,6 +603,9 @@ fn main() {
 // `07-structs-and-enums/field_default_types/field_default_types_test.nomi`,
 // declares four of them (Configured.clock, Configured.port, Box.items,
 // Box.label). The other 23 are untouched.
+// `07-structs-and-enums/nested_update/nested_update_test.nomi` adds five,
+// all top-level struct declarations (Address.zip, Geo.lat, Geo.city,
+// Floor.geo, Floor.rooms), which a missing map key builds from.
 //
 // `std` reads 11: std/assertions 3, std/compiler 2, std/json 2,
 // std/startup 2 (`Startup` declares `env` and `args` with empty defaults, so
@@ -617,7 +620,7 @@ fn main() {
 // survivor the census prints is `structs-enums-distinct.md:L29`'s `age@3:3`.
 var fieldDefaultDenominator = map[string]int{
 	"std":             12,
-	"tests":           28,
+	"tests":           33,
 	"tour (nomi-run)": 1,
 	"tour (nomi)":     0,
 }

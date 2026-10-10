@@ -27,7 +27,7 @@ play, and `return`/`return value` take on iteration-specific semantics
 - **`return`** — exit the callback with `Unit` as the result for this iteration. The iteration uses that result however its operation calls for (`map` would put `Unit` in the output list at this position, for example), and moves on to the next.
 - **`return value`** — same as above but with `value` instead of `Unit` (`map` puts `value` in the output, `reduce` makes `value` the new accumulator, `filter` treats `value` as the Bool decision).
 - **`continue`** — *skip* the current iteration entirely; the callback contributes nothing (`map` omits it from the output, `reduce` leaves the accumulator unchanged) and the iteration moves on to the next.
-- **`break`** — stop the iteration. The result depends on the iteration function (e.g. stdlib's `reduce` returns the accumulator so far, `map` and `filter` return the items collected, `each` and `Iter.loop` return `Unit`).
+- **`break`** — stop the iteration. The result depends on the iteration function (e.g. stdlib's `reduce` returns the accumulator so far, `map` and `filter` return the items collected, `Iter.loop` returns the current state, `each` returns `Unit`).
 - **`break value`** — `return value` *and* stop: `value` plays the same per-operation role it would as a normal result (`reduce` makes it the result, `map` emits it as the final element, `filter` applies it as the Bool decision for the current element — `break True` keeps it, `break False` drops it), then iteration stops.
 
 ## The `Iter.loop` primitive
@@ -65,6 +65,19 @@ dbg line 8: countdown = 0
 dbg line 17: a = 89
 dbg line 18: b = 144
 -->
+
+A loop with nothing to carry takes no parameter: `Iter.loop(|| …)`. Its
+state is `Unit`, so it ends with a bare `break` and the loop's value is
+`Unit`. `break 0` there is a compile error; to end with a value, give the
+loop a state and break with it.
+
+```nomi
+Iter.loop(|| {
+    Ok(line) = io.read_line() else { break }
+    if line == "quit" { break }
+    io.print(line)
+})
+```
 
 ## `break` and `continue` in iter callbacks
 

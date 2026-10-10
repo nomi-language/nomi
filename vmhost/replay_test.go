@@ -60,8 +60,8 @@ func runReplayTests(t *testing.T, src string) string {
 	return buf.String()
 }
 
-// A script that matches passes: `> ` lines feed the reads, every output line
-// sits behind a two-space gutter, a prompt written without a newline is an
+// A script that matches passes: `>>  ` lines feed the reads, every output line
+// sits behind a four-space gutter, a prompt written without a newline is an
 // output line of its own, output starting with `>` needs no escape, a prompt
 // left waiting at end of input is output like any other, and the `"""`
 // literal's missing final newline does not count.
@@ -69,28 +69,28 @@ func TestReplay_PassesOnAMatchingScript(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
 test "deposit money" {
     assert io.replay("""
-          What is the starting balance?
-        > 500
-          Your starting balance: 500
+            What is the starting balance?
+        >>  500
+            Your starting balance: 500
 
-          Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-          amount:
-        > deposit 25
-          25 deposited, new balance is 525
-          amount:
-        > withdraw
-          > unknown command
-          amount: bye
+            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+            amount:
+        >>  deposit 25
+            25 deposited, new balance is 525
+            amount:
+        >>  withdraw
+            > unknown command
+            amount: bye
         """, main)
 }
 
 test "no input at all" {
     assert io.replay("""
-          What is the starting balance?
-          Your starting balance: 0
+            What is the starting balance?
+            Your starting balance: 0
 
-          Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-          amount: bye
+            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+            amount: bye
         """, main)
 }
 `)
@@ -115,11 +115,11 @@ fn main() {
 test "asks name and age" {
     assert io.replay(
         """
-          What is your name?
-        > Ada
-          Hello, Ada. Your age:
-        > 36
-          Ada is 36
+            What is your name?
+        >>  Ada
+            Hello, Ada. Your age:
+        >>  36
+            Ada is 36
         """,
         main,
     )
@@ -131,9 +131,9 @@ test "asks name and age" {
 }
 
 // A program whose prompt is `> ` replays from a script where each prompt is
-// an output line `  >` and each input line follows it; typed text that itself
-// starts with `>` follows `> `, and the prompt left waiting at end of input
-// is output on the last line.
+// an output line `    >` and each input line follows it; `>>` alone is an
+// empty line, typed text that itself starts with `>` follows `>>  `, and the
+// prompt left waiting at end of input is output on the last line.
 func TestReplay_APromptStartingWithTheMarker(t *testing.T) {
 	out := runReplayTests(t, `import std/io
 
@@ -159,17 +159,17 @@ fn play() {
 
 test "walks north" {
     assert io.replay("""
-          Exits: north, east.
-          >
-        > north
-          You are in an old armory.
-          >
-        >
-          I don't know how to ''.
-          >
-        > > dance
-          I don't know how to '> dance'.
-          > Bye.
+            Exits: north, east.
+            >
+        >>  north
+            You are in an old armory.
+            >
+        >>
+            I don't know how to ''.
+            >
+        >>  > dance
+            I don't know how to '> dance'.
+            > Bye.
         """, main)
 }
 `)
@@ -192,80 +192,161 @@ fn main() {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if want := "[  > \n> north\n  ok\n  > |> ok\n> ]"; got != want {
+	if want := "[    > \n>>  north\n    ok\n    > |> ok\n> ]"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}
 }
 
-// A script line that is neither input (`> `) nor output (two spaces) traps
-// before the program runs, naming the line, even with no input lines.
+// A script line that is neither input (`>>  `) nor output (four spaces)
+// traps before the program runs, naming the line, with a hint that writes it
+// with the right gutter: output with no gutter or two columns of it, `>>`
+// with one, none or three spaces after it, and a one-character marker `> `.
+// Output that starts with `>>` needs the gutter like any other.
 func TestReplay_AScriptLineWithoutTheGutterTraps(t *testing.T) {
 	out := runReplayTests(t, `import std/io
 
+fn ask() {
+    io.print("ran")
+    io.write("Your age: ")
+    _ = io.read_line()
+}
+
 test "no gutter" {
-    assert io.replay("""
-          Your age:
-        > 36
+    assert io.replay(
+        """
+            Your age:
+        >>  36
         Ada is 36
-        """, || {
-        io.print("ran")
-    })
+        """,
+        ask,
+    )
 }
 
-test "output only, no gutter" {
-    refute io.replay("""
-        > not input
-        """, || io.print("> not input"))
+test "two columns of gutter" {
+    assert io.replay(
+        """
+          Your age:
+        >>  36
+        """,
+        ask,
+    )
 }
 
-test "output only, with the gutter" {
-    assert io.replay("""
-          > not input
-        """, || io.print("> not input"))
+test "one space after the marker" {
+    assert io.replay(
+        """
+            Your age:
+        >> 36
+        """,
+        ask,
+    )
+}
+
+test "no space after the marker" {
+    assert io.replay(
+        """
+            Your age:
+        >>36
+        """,
+        ask,
+    )
+}
+
+test "three spaces after the marker" {
+    assert io.replay(
+        """
+            Your age:
+        >>   36
+        """,
+        ask,
+    )
+}
+
+test "a short marker" {
+    assert io.replay(
+        """
+            Your age:
+        > 36
+        """,
+        ask,
+    )
+}
+
+test "output that starts with the marker" {
+    refute io.replay(
+        """
+        >>  not input
+        """,
+        || io.print(">>  not input"),
+    )
+}
+
+test "output that starts with the marker, behind the gutter" {
+    assert io.replay(
+        """
+            >>  not input
+        """,
+        || io.print(">>  not input"),
+    )
 }
 `)
-	for _, want := range []string{
-		"io.replay: line 3 of the script, \"Ada is 36\", must start with `> ` (input) or two spaces (output)",
-		"test result: FAILED. 2 passed, 1 failed\n",
-	} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("got:\n%s\nwant it to contain:\n%s", out, want)
-		}
-	}
-	if strings.Contains(out, "ran") {
-		t.Fatalf("the program ran under a malformed script:\n%s", out)
+	want := "FAIL bank_test.nomi :: no gutter\n" +
+		"  io.replay: line 3 of the script, \"Ada is 36\", must start with `>>  ` (input) or four spaces (output)\n" +
+		"  hint: an output line is `    Ada is 36`\n" +
+		"FAIL bank_test.nomi :: two columns of gutter\n" +
+		"  io.replay: line 1 of the script, \"  Your age:\", must start with `>>  ` (input) or four spaces (output)\n" +
+		"  hint: an output line is `    Your age:`\n" +
+		"FAIL bank_test.nomi :: one space after the marker\n" +
+		"  io.replay: line 2 of the script, \">> 36\", must have two spaces after `>>`\n" +
+		"  hint: an input line is `>>  36`\n" +
+		"FAIL bank_test.nomi :: no space after the marker\n" +
+		"  io.replay: line 2 of the script, \">>36\", must have two spaces after `>>`\n" +
+		"  hint: an input line is `>>  36`\n" +
+		"FAIL bank_test.nomi :: three spaces after the marker\n" +
+		"  io.replay: line 2 of the script, \">>   36\", must have two spaces after `>>`\n" +
+		"  hint: an input line is `>>  36`\n" +
+		"FAIL bank_test.nomi :: a short marker\n" +
+		"  io.replay: line 2 of the script, \"> 36\", must start with `>>  ` (input) or four spaces (output)\n" +
+		"  hint: an input line is `>>  36`, and an output line is `    > 36`\n" +
+		"ok bank_test.nomi :: output that starts with the marker\n" +
+		"ok bank_test.nomi :: output that starts with the marker, behind the gutter\n" +
+		"test result: FAILED. 2 passed, 6 failed\n"
+	if out != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
 	}
 }
 
 // A script the program does not follow fails with a line diff of the script
-// (`-`) against the transcript (`+`), both in the two-column form, and a `>`
-// line no read reached is named in the reason.
+// (`-`) against the transcript (`+`), each line right of the `│` as written,
+// four-column gutter included, and a `>>` line no read reached is named in the reason. The echo of the assertion
+// writes the script as the source lines the diff numbers, `""" lines 36-44
+// """`, rather than repeating it.
 func TestReplay_FailureIsALineDiff(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
 test "deposit money" {
     assert io.replay("""
-          What is the starting balance?
-        > 500
-          Your starting balance is 500
+            What is the starting balance?
+        >>  500
+            Your starting balance is 500
 
-          Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-          amount:
-        > deposit 25
-          25 deposited, new balance is 525
-          amount: bye
+            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+            amount:
+        >>  deposit 25
+            25 deposited, new balance is 525
+            amount: bye
         """, main)
 }
 
 test "input left over" {
     assert io.replay("""
-          What is the starting balance?
-        > 500
-          Your starting balance: 500
+            What is the starting balance?
+        >>  500
+            Your starting balance: 500
 
-          Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-          amount: bye
-        > 7
-        > 8
+            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+            amount: bye
+        >>  7
+        >>  8
         """, || {
         io.print("What is the starting balance?")
         _ = io.read_line()
@@ -279,42 +360,32 @@ test "input left over" {
 `)
 	want := `FAIL bank_test.nomi :: deposit money
   line 35: the transcript differs from the script
-    assert io.replay(
-        """
-          What is the starting balance?
-        > 500
-          Your starting balance is 500
+    assert io.replay(""" lines 36-44 """, main)
+    io.replay: the transcript (-) and what main printed (+) differ
 
-          Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-          amount:
-        > deposit 25
-          25 deposited, new balance is 525
-          amount: bye
-        """,
-        main,
-    )
-    diff (- expected, + actual):
-          What is the starting balance?
-        > 500
-      -   Your starting balance is 500
-      +   Your starting balance: 500
-
-          Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-          amount:
-      ... 3 unchanged lines
+        36   │     What is the starting balance?
+        37   │ >>  500
+        38 - │     Your starting balance is 500
+           + │     Your starting balance: 500
+        39   │
+        40   │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        41   │     amount:
+             │   ... 3 lines match ...
 FAIL bank_test.nomi :: input left over
   line 49: 2 input lines of the script were never read
+    assert io.replay(""" lines 50-57 """, || {
 `
 	if !strings.HasPrefix(out, want) {
 		t.Fatalf("got:\n%s\nwant it to start with:\n%s", out, want)
 	}
-	tail := `    diff (- expected, + actual):
-      ... 3 unchanged lines
+	tail := `    io.replay: the transcript (-) and what the function printed (+) differ
 
-          Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-          amount: bye
-      - > 7
-      - > 8
+             │   ... 3 lines match ...
+        53   │
+        54   │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        55   │     amount: bye
+        56 - │ >>  7
+        57 - │ >>  8
 test result: FAILED. 0 passed, 2 failed
 `
 	if !strings.HasSuffix(out, tail) {
@@ -336,9 +407,9 @@ tests "bank" {
     test "replayed", starting_balance {
         assert io.replay(
             """
-              What is the starting balance?
-            > ${starting_balance}
-              Your starting balance is ${starting_balance}
+                What is the starting balance?
+            >>  ${starting_balance}
+                Your starting balance is ${starting_balance}
             """,
             main,
         )
@@ -356,39 +427,31 @@ test "compared" {
 `)
 	want := `FAIL bank_test.nomi :: bank / replayed
   line 40: the transcript differs from the script
-    assert io.replay(
-        """
-          What is the starting balance?
-        > ${starting_balance}
-          Your starting balance is ${starting_balance}
-        """,
-        main,
-    )
-    diff (- expected, + actual):
-          What is the starting balance?
-        > 500
-      -   Your starting balance is 500
-      +   Your starting balance: 500
-      +
-      +   Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-      +   amount: bye
+    assert io.replay(""" lines 42-44 """, main)
+    io.replay: the transcript (-) and what main printed (+) differ
+
+        42   │     What is the starting balance?
+        43   │ >>  500
+        44 - │     Your starting balance is 500
+           + │     Your starting balance: 500
+           + │ (empty line)
+           + │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+           + │     amount: bye
 FAIL bank_test.nomi :: compared
   line 54: assertion failed
-    assert io.capture("500\n", g).output == """
-        What is the starting balance?
-        Your starting balance is ${starting_balance}
-        """
+    assert io.capture("500\n", g).output == """ lines 55-56 """
     values:
       g
         = <func: main>
-    diff (- expected """ ... """, + actual io.capture("500\n", g).output):
-        What is the starting balance?
-      - Your starting balance is 500
-      \ no newline at end
-      + Your starting balance: 500
-      +
-      + Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-      + amount: bye
+    expected """ ... """ (-) and actual io.capture("500\n", g).output (+) differ
+
+        55   │ What is the starting balance?
+        56 - │ Your starting balance is 500
+             │ \ no newline at end
+           + │ Your starting balance: 500
+           + │ (empty line)
+           + │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+           + │ amount: bye
 test result: FAILED. 0 passed, 2 failed
 `
 	if out != want {
@@ -396,8 +459,38 @@ test result: FAILED. 0 passed, 2 failed
 	}
 }
 
+// A script that is not a `"""` literal at the call has no line numbers: the
+// diff keeps its marker and text columns, and the header still names the
+// function.
+func TestReplay_AScriptNotWrittenAtTheCallIsNotNumbered(t *testing.T) {
+	out := runReplayTests(t, bankProgram+`
+test "bound script" {
+    script = """
+            What is the starting balance?
+        >>  500
+            Your starting balance is 500
+        """
+    assert io.replay(script, main)
+}
+`)
+	want := `    io.replay: the transcript (-) and what main printed (+) differ
+
+          │     What is the starting balance?
+          │ >>  500
+        - │     Your starting balance is 500
+        + │     Your starting balance: 500
+        + │ (empty line)
+        + │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        + │     amount: bye
+test result: FAILED. 0 passed, 1 failed
+`
+	if !strings.HasSuffix(out, want) {
+		t.Fatalf("got:\n%s\nwant it to end with:\n%s", out, want)
+	}
+}
+
 // Captured.transcript and Replayed's fields read as documented: the output
-// behind the gutter with each read written in as `> ` and the text, a
+// behind the gutter with each read written in as `>>  ` and the text, a
 // partial-line prompt on a line of its own, output starting with `>` as it
 // is, and an inner capture's reads only in its own transcript.
 func TestReplay_TranscriptFields(t *testing.T) {
@@ -418,7 +511,7 @@ fn main() {
     })
     io.write("transcript [${run.transcript}]\n")
     io.write("output [${run.output}]\n")
-    r = io.replay("  q?\n> a  \n> b\n", || {
+    r = io.replay("    q?\n>>  a  \n>>  b\n", || {
         io.print("q?  ")
         _ = io.read_line()
     })
@@ -428,10 +521,55 @@ fn main() {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	want := "transcript [  name: \n> Ada\n  got   inner\n  > x\n\n  > quoted\n> Grace\n]\n" +
-		"output [name: got   inner\n> x\n\n> quoted\n]\n" +
-		"replayed [q?  \n|  q?\n> a\n|  q?\n> a\n> b\n|1]\n"
+	want := "transcript [    name: \n>>  Ada\n    got     inner\n    >>  x\n\n    > quoted\n>>  Grace\n]\n" +
+		"output [name: got     inner\n>>  x\n\n> quoted\n]\n" +
+		"replayed [q?  \n|    q?\n>>  a\n|    q?\n>>  a\n>>  b\n|1]\n"
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// A replay called with named arguments, in either order and with a lambda,
+// reports as the positional call does: the echo writes the script collapsed
+// to the lines it spans, and the diff numbers them by source line.
+func TestReplay_NamedArgumentsNumberAndCollapse(t *testing.T) {
+	out := runReplayTests(t, bankProgram+`
+test "script first" {
+    assert io.replay(script: """
+            What is the starting balance?
+        >>  500
+            Your starting balance is 500
+        """, run: main)
+}
+
+test "run first" {
+    assert io.replay(run: || io.print("hullo"), script: """
+            hello
+        """)
+}
+`)
+	want := `FAIL bank_test.nomi :: script first
+  line 35: the transcript differs from the script
+    assert io.replay(script: """ lines 36-38 """, run: main)
+    io.replay: the transcript (-) and what main printed (+) differ
+
+        36   │     What is the starting balance?
+        37   │ >>  500
+        38 - │     Your starting balance is 500
+           + │     Your starting balance: 500
+`
+	if !strings.HasPrefix(out, want) {
+		t.Fatalf("got:\n%s\nwant it to start with:\n%s", out, want)
+	}
+	tail := `FAIL bank_test.nomi :: run first
+  line 43: the transcript differs from the script
+    assert io.replay(run: || io.print("hullo"), script: """ line 44 """)
+    io.replay: the transcript (-) and what the function printed (+) differ
+
+        44 - │     hello
+           + │     hullo
+`
+	if !strings.Contains(out, tail) {
+		t.Fatalf("got:\n%s\nwant it to hold:\n%s", out, tail)
 	}
 }

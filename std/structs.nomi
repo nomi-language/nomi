@@ -8,17 +8,17 @@
 /// bound (`fn f<T>(x: T): T where T: Struct`) and an existential (`fn f(s: Struct)`).
 pub interface Struct {
     // `Partial<T>` (used below) is a compiler-known built-in type operator — a
-    // deep partial of struct T, valid only in parameter position. It has no
+    // partial of struct T, valid only in parameter position. It has no
     // import and no declaration anywhere in stdlib (unlike `List`/`Map`, which
     // are real `host type`s): it has no inhabitants, so it's recognized by name
     // in the resolver (analysis/type_resolver.go's `case "Partial"`) and lowers
     // to the deep-partial matcher.
     /// Returns a new struct with fields from `updates` merged into `original`.
     /// Non-overlapping fields on the original are preserved; fields present on
-    /// both take the value from `updates`. `updates` is a deep partial
-    /// (`Partial<self>`): it may omit fields, and a nested struct field may
-    /// itself be patched recursively (an anonymous struct merges; a concrete
-    /// struct replaces the field wholesale).
+    /// both take the value from `updates`. `updates` is a `Partial<self>`: it
+    /// may omit fields, and each field it writes is a whole value, or a
+    /// literal with a bare `..` that updates the field's current value
+    /// (`{address: {.., city: "NYC"}}` changes only the city).
     ///
     /// ```nomi
     /// original = Point{x: 1, y: 2}

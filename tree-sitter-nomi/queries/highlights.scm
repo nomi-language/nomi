@@ -110,6 +110,17 @@
 (as_pattern
   name: (identifier) @comment
   (#match? @comment "^_($|[^_])"))
+; A pattern assertion spells its pattern as an expression:
+; `assert Err(_) = r`, `assert Err(Error.Invalid(_msg)) = r`.
+(pattern_assertion_binding
+  pattern: (call_expression
+    (identifier) @comment
+    (#match? @comment "^_($|[^_])")))
+(pattern_assertion_binding
+  pattern: (call_expression
+    (call_expression
+      (identifier) @comment
+      (#match? @comment "^_($|[^_])"))))
 
 ; Test declarations and assertions.
 (test_declaration

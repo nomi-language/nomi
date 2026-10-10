@@ -58,7 +58,7 @@ func (g *gen) irParamPatternKind(p ast.Param) kind {
 		}
 		return kindInvalid
 	}
-	owner, member, ok := patternHead(head)
+	owner, member, ok := g.patternHead(head)
 	if !ok {
 		return kindInvalid
 	}

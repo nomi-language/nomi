@@ -700,7 +700,17 @@ var stdAnchorLib = std.Shared
 func stdlibLowering() *stdlibIndex {
 	// The cache holds no test body: a module's `//!` prompt cases are built
 	// per call, in their own module, by GenerateStdlibTestIR (stdtests.go).
-	stdlibOnce.Do(func() { stdlibCache = buildStdlibIndex() })
+	stdlibOnce.Do(func() {
+		// The host's decline hooks belong to the program being loaded. The
+		// cache is built inside whichever load comes first, and its declines
+		// reaching that one program's table and no later one's would make a
+		// program's diagnostics depend on what the process loaded before it
+		// (TestLoadOrderDoesNotChangeAProgram).
+		observed, at := IRDeclineObserved, IRDeclineAt
+		IRDeclineObserved, IRDeclineAt = nil, nil
+		defer func() { IRDeclineObserved, IRDeclineAt = observed, at }()
+		stdlibCache = buildStdlibIndex()
+	})
 	return stdlibCache
 }
 
@@ -1504,9 +1514,12 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 			for _, item := range t.Items {
 				switch it := item.(type) {
 				case *ast.FuncDef:
+					// namesBlockParam is the owner-function rule a user
+					// gen applies too (ownerimpl.go): `Iter.from(start:
+					// Int)` names no block parameter and is monomorphic.
 					out = append(out, stdCandidateFor(module, recv, iface, ifaceKey, it.Name, it.Params, it.ReturnTypeExpr, it.Public,
 						implGeneric || len(it.TypeParams) > 0 || len(it.WhereClauses) > 0 ||
-							sigNamesTypeParam(it.Params, it.ReturnTypeExpr, recvTP),
+							namesBlockParam(it, recvTP),
 						blocked || len(it.Decorators) > 0, it, at))
 				case *ast.ExternFunc:
 					out = append(out, stdCandidateFor(module, recv, iface, ifaceKey, it.Name, it.Params, it.ReturnTypeExpr, it.Public,
@@ -1820,6 +1833,12 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 	// kindInvalid: lookup — scalarKind's "not one of the five", so fall through.
 	if k := scalarKind(te); k != kindInvalid {
 		return k
+	}
+	// Infallible's own impls (`impl Display for Infallible` in results.nomi)
+	// take it as their receiver. It is reserved like Unit, so the name can
+	// mean nothing else, and its kind belongs to no package.
+	if simpleTypeName(te) == "Infallible" {
+		return kindNever
 	}
 	// A NESTED std type name — `Json.DecodeError`, `Json.ShapeError`, `Json.Case`
 	// — which the parser gives as an *ast.QualifiedType and not as a SimpleType,
@@ -2267,6 +2286,8 @@ func newStdGen(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAnal
 		// TestStdModuleView_PopulatesNodes and
 		// TestIterAnchor_DeclaringModuleFailsProvenanceAndNotShape hold it.
 		nodes: nodes, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, anonTids: map[kind]bool{}}
+	// Eager for newGen's reason.
+	g.loadPreludes()
 	g.pushScope()
 	// Interface shells and type declarations so typeOf can answer inside a body.
 	// Nothing is EMITTED from either: a stdlib package exposes functions only,

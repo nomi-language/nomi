@@ -88,7 +88,15 @@ type gen struct {
 	// (holdFn), so that adding them left every program's other choices,
 	// and so the population TestFrontEndAcceptsSoItLowers checks, as they
 	// were.
-	aux     *rand.Rand
+	aux *rand.Rand
+	// div draws the blocks divergingBlock writes, and dn names their
+	// bindings apart, so the rest of each program is the one it was
+	// without them.
+	div *rand.Rand
+	// rec draws the statements recursiveBlock writes, so the rest of each
+	// program is the one it was without them.
+	rec     *rand.Rand
+	dn      int
 	n       int
 	blocks  int      // statement blocks' declared types, named apart
 	helpers []string // named callback functions
@@ -311,7 +319,7 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 		add(func() string { return "Iter.count(" + n + ")" },
 			func() string { return n + " |> Iter.count()" })
 	case t.k == "Int" && v.t.k == "Meters":
-		add(func() string { return "Int(" + n + ")" },
+		add(func() string { return "case " + n + " {\nMeters(k) -> k\n}" },
 			func() string { return "{\nMeters(n) = " + n + "\nn\n}" })
 	case t.k == "Int" && v.t.k == "Shape":
 		add(func() string { return "case " + n + " {\n.Circle(r) -> r\n.Square(s) -> s * s\n.Dot -> 0\n}" })
@@ -407,8 +415,9 @@ func (g *gen) asWhole() (as, read string) {
 	return " as whole", "_ = whole\n"
 }
 
-// tapStage is, one time in three, a `tap` stage to end a pipeline with: one
-// that shows the piped value or one that discards it. Otherwise nothing. It
+// tapStage is, one time in two, a `tap` stage to end a pipeline with: one
+// that shows the piped value, one that discards it, or one with an empty
+// body (where a layout variant can put a comment). Otherwise nothing. It
 // draws from g.aux, and names its parameter apart from g.fresh's names, so
 // the program around it is the one it would be without the stage.
 func (g *gen) tapStage() string {
@@ -417,6 +426,8 @@ func (g *gen) tapStage() string {
 		return "\n|> tap |tapped| io.inspect(tapped)"
 	case 1:
 		return "\n|> tap |tapped| { _ = tapped }"
+	case 2:
+		return "\n|> tap |_| {}"
 	}
 	return ""
 }
@@ -696,7 +707,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 	case "Int":
 		add(
 			func() string { return paren(lit(tInt)) + " + " + paren(lit(tInt)) },
-			func() string { return "Int(" + g.expr(tMeters, d, sc) + ")" },
+			func() string { return "case " + g.expr(tMeters, d, sc) + " {\nMeters(k) -> k\n}" },
 			func() string { return "Iter.count(" + g.expr(of("List", g.typ(1)), d, sc) + ")" },
 			// A callback over a list, where `tally` and `Iter.count` take
 			// the wider `Iter<T>`.
@@ -901,13 +912,252 @@ Ok(x)
 }
 `
 
+// genRecursiveHelpers are generic functions that call themselves: not in
+// tail position, in tail position, mutually, through a lambda, and with a
+// lambda whose parameter is a generic instance at the function's own type
+// parameter. A program declares the ones it calls (usedRecursiveHelpers), at
+// file level, since nested functions cannot call each other mutually. They
+// name no other helper, so a program whose helpers are local can still call
+// them.
+const genRecursiveHelpers = `fn len_of<T>(xs: List<T>): Int {
+case xs {
+[] -> 0
+[_, ..rest] -> 1 + len_of(rest)
+}
+}
+
+fn count_from<T>(xs: List<T>, acc: Int): Int {
+case xs {
+[] -> acc
+[_, ..rest] -> count_from(rest, acc + 1)
+}
+}
+
+fn evens<T>(xs: List<T>): List<T> {
+case xs {
+[] -> []
+[x, ..rest] -> [x, ..odds(rest)]
+}
+}
+
+fn odds<T>(xs: List<T>): List<T> {
+case xs {
+[] -> []
+[_, ..rest] -> evens(rest)
+}
+}
+
+fn last_or<T>(xs: List<T>, d: T): T {
+case xs {
+[] -> d
+[x, ..rest] -> last_or(rest, x)
+}
+}
+
+fn drop_all<T>(xs: List<T>): Int {
+case xs {
+[] -> 0
+[_, ..rest] -> Iter.map([rest], |r| 1 + drop_all(r)) |> Iter.reduce(|a = 0, b| a + b)
+}
+}
+
+fn stack<T>(b: Box<T>, n: Int): List<Box<T>> {
+1..=n |> Iter.reduce(|acc = [b], _| [b, ..acc])
+}
+`
+
+// usedRecursiveHelpers is the genRecursiveHelpers body calls, each followed
+// by a blank line: `evens` and `odds` together, since each calls the other.
+// A program that calls none declares none, so it stays free of recursion
+// and TestRunInputClassifies holds it to the loop-free rule.
+func usedRecursiveHelpers(body string) string {
+	var out strings.Builder
+	for _, h := range strings.Split(strings.TrimSpace(genRecursiveHelpers), "\n\n") {
+		name := strings.TrimPrefix(h, "fn ")
+		name = name[:strings.IndexByte(name, '<')]
+		used := uses(body, name)
+		if name == "evens" || name == "odds" {
+			used = uses(body, "evens") || uses(body, "odds")
+		}
+		if used {
+			out.WriteString(h + "\n\n")
+		}
+	}
+	return out.String()
+}
+
+// recursiveHelperCalled reports whether src calls one of genRecursiveHelpers.
+func recursiveHelperCalled(src string) bool {
+	for _, h := range strings.Split(strings.TrimSpace(genRecursiveHelpers), "\n\n") {
+		name := strings.TrimPrefix(h, "fn ")
+		if uses(src, name[:strings.IndexByte(name, '<')]) {
+			return true
+		}
+	}
+	return false
+}
+
+// recursiveCall is a statement showing one genRecursiveHelpers call over a
+// binding the program made: the binding itself when it is a list, and
+// otherwise a list of it. It draws from g.rec only, so the program around
+// it is the one it would be without it.
+func (g *gen) recursiveCall(sc []gvar) string {
+	r := g.rec
+	v := sc[r.Intn(len(sc))]
+	if hasFn(v.t) {
+		// gapListPatternOverFunctions: the helpers' list patterns over a
+		// list of functions decline.
+		v = sc[0]
+	}
+	list := "[" + v.name + ", " + v.name + "]"
+	if v.t.k == "List" && r.Intn(2) == 0 {
+		list = v.name
+	}
+	var call string
+	switch r.Intn(7) {
+	case 0:
+		call = "len_of(" + list + ")"
+	case 1:
+		call = "count_from(" + list + ", " + fmt.Sprint(r.Intn(3)) + ")"
+	case 2:
+		call = "evens(" + list + ")"
+	case 3:
+		call = "odds(" + list + ")"
+	case 4:
+		call = "last_or([" + v.name + "], " + v.name + ")"
+	case 5:
+		call = "drop_all(" + list + ")"
+	default:
+		call = "stack(Box{v: " + v.name + "}, " + fmt.Sprint(r.Intn(3)) + ")"
+	}
+	return "io.inspect(" + call + ")\n"
+}
+
+// divergingBlock is a statement block holding an `Iter.loop`, or an
+// Iter.map, filter, each, reduce, find, any?, all?, drop_while or flat_map
+// callback or a Map.map_values one, whose tail `case` or `if`
+// leaves in every arm: by `break`, `break v`, `continue` and `return v`, in
+// bare arms and block arms, with a `case` nested in an arm, and as a binding
+// whose arms all leave followed by statements that never run. A loop counts
+// up to a limit, and a `continue` sits on an arm no value takes, so every
+// program ends. It reads an Int the program bound earlier when there is one.
+// It draws from g.div only and names from g.dn, so the program around it is
+// the one it would be without it.
+func (g *gen) divergingBlock(sc []gvar) string {
+	r := g.div
+	g.dn++
+	name := fmt.Sprintf("dv%d", g.dn)
+	src := func() string {
+		var ints []string
+		for _, v := range sc {
+			switch v.t.k {
+			case "Int":
+				ints = append(ints, v.name)
+			case "List":
+				ints = append(ints, "Iter.count("+v.name+")")
+			}
+		}
+		if len(ints) == 0 || r.Intn(3) == 0 {
+			return fmt.Sprint(r.Intn(10))
+		}
+		return ints[r.Intn(len(ints))]
+	}
+	// leave is an arm body ending in exit, sometimes a block that shows
+	// shown first.
+	leave := func(exit, shown string) string {
+		if r.Intn(2) == 0 {
+			return exit
+		}
+		return "{\nio.inspect(" + shown + ")\n" + exit + "\n}"
+	}
+	// arms are a `case` on an Int's arms: one stops with stop, one no
+	// value reaches goes round with `continue`, and the wildcard, last,
+	// leaves with next. The first two come in either order.
+	arms := func(subject, limit, stop, next string) string {
+		first := []string{
+			limit + " -> " + leave(stop, subject),
+			"-1 -> " + leave("continue", subject),
+		}
+		if r.Intn(2) == 0 {
+			first[0], first[1] = first[1], first[0]
+		}
+		return first[0] + "\n" + first[1] + "\n_ -> " + leave(next, subject) + "\n"
+	}
+	limit := fmt.Sprint(1 + r.Intn(3))
+	stop := "break di + " + src()
+	next := "return di + 1"
+	var loopBody string
+	switch r.Intn(5) {
+	case 0:
+		loopBody = "case di {\n" + arms("di", limit, stop, next) + "}"
+	case 1:
+		// A `case` nested in the wildcard arm, whose arms all leave too.
+		nested := "case di < " + limit + " {\nTrue -> " + leave(next, "di") + "\nFalse -> " + leave("continue", "di") + "\n}"
+		loopBody = "case di {\n" + limit + " -> " + leave(stop, "di") + "\n-1 -> " + leave("continue", "di") +
+			"\n_ -> {\n" + nested + "\n}\n}"
+	case 2:
+		loopBody = "if di == " + limit + " {\n" + leave(stop, "di") + "\n} else {\n" + leave(next, "di") + "\n}"
+	case 3:
+		// A binding whose arms all leave: what follows it never runs.
+		loopBody = "dy = case di {\n" + arms("di", limit, stop, next) + "}\nio.inspect(di)\ndy"
+	default:
+		loopBody = "case di > " + limit + " {\nTrue -> " + leave("break di", "di") + "\nFalse -> " + leave(next, "di") + "\n}"
+	}
+	loop := "Iter.loop(|di = 0| {\n" + loopBody + "\n})"
+	xs := "[1, 2, 3]"
+	switch r.Intn(9) {
+	case 7:
+		// The other callback positions: find, any?, all?, drop_while,
+		// flat_map and Map.map_values.
+		pred := "|dx| case dx {\n" + arms("dx", "2", []string{"break", "break True", "break False"}[r.Intn(3)], "return dx == 1") + "}"
+		switch r.Intn(6) {
+		case 0, 1, 2:
+			op := []string{"find", "any?", "all?"}[r.Intn(3)]
+			return "{\n" + name + " = Iter." + op + "(" + xs + ", " + pred + ")\nio.inspect(" + name + ")\n}\n"
+		case 3:
+			return "{\n" + name + " = Iter.drop_while(" + xs + ", " + pred + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
+		case 4:
+			cb := "|dx| case dx {\n" + arms("dx", "2", "break [dx, "+src()+"]", "return [dx, dx]") + "}"
+			return "{\n" + name + " = Iter.flat_map(" + xs + ", " + cb + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
+		}
+		cb := "|dx| case dx {\n" + arms("dx", "2", "break dx + "+src(), "return dx * 10") + "}"
+		return "{\n" + name + " = Map.map_values({\"a\" => 1, \"b\" => 2, \"c\" => 3}, " + cb + ")\nio.inspect(" + name + ")\n}\n"
+	case 0, 1, 2:
+		return "{\n" + name + " = " + loop + "\nio.inspect(" + name + ")\n}\n"
+	case 3:
+		// The loop inside a lambda.
+		lam := strings.ReplaceAll(loop, "|di = 0|", "|di = dn|")
+		return "{\n" + name + " = |dn: Int| " + lam + "\nio.inspect(" + name + "(0))\n}\n"
+	case 4:
+		var cb string
+		switch r.Intn(3) {
+		case 0:
+			cb = "|dx| case dx {\n" + arms("dx", "2", "break dx + "+src(), "return dx") + "}"
+		case 1:
+			cb = "|dx| if dx < 2 {\n" + leave("continue", "dx") + "\n} else {\n" + leave("break dx + "+src(), "dx") + "\n}"
+		default:
+			cb = "|dx| {\ndy = case dx {\n" + arms("dx", "2", "break dx", "return dx") + "}\nio.inspect(dx)\ndy\n}"
+		}
+		return "{\n" + name + " = Iter.map(" + xs + ", " + cb + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
+	case 5:
+		cb := "|dx| case dx {\n" + arms("dx", "2", "break", "return dx == 1") + "}"
+		return "{\n" + name + " = Iter.filter(" + xs + ", " + cb + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
+	case 6:
+		cb := "|dx| case dx {\n" + arms("dx", "2", "break", "continue") + "}"
+		return "{\nIter.each(" + xs + ", " + cb + ")\n}\n"
+	}
+	cb := "|dacc = " + src() + ", dx| case dx {\n" + arms("dx", "3", "break dacc + dx", "return dacc + dx") + "}"
+	return "{\n" + name + " = Iter.reduce(" + xs + ", " + cb + ")\nio.inspect(" + name + ")\n}\n"
+}
+
 // generatedProgram is program i.
 func generatedProgram(i int) loweringSeed { return generatedProgramSized(i, 3, 3) }
 
 // generatedProgramSized is program i with up to bindings bindings, each an
 // expression up to depth deep. Small sizes make readable reproducers.
 func generatedProgramSized(i, bindings, depth int) loweringSeed {
-	g := &gen{r: rand.New(rand.NewSource(int64(i))), aux: rand.New(rand.NewSource(int64(i) + 1<<32))}
+	g := &gen{r: rand.New(rand.NewSource(int64(i))), aux: rand.New(rand.NewSource(int64(i) + 1<<32)),
+		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -928,6 +1178,12 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 			body.WriteString(g.stmtBlock(name, t.String(), 0))
 		}
 		sc = append(sc, gvar{name, t})
+		if g.div.Intn(3) == 0 {
+			body.WriteString(g.divergingBlock(sc))
+		}
+		if g.rec.Intn(2) == 0 {
+			body.WriteString(g.recursiveCall(sc))
+		}
 	}
 	body.WriteString("io.inspect(s0)\n")
 	// One program in four spells its output through an aliased selective
@@ -956,7 +1212,7 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		helpers, localHelpers = "", strings.Join(used, "\n\n")+"\n\n"
 	}
-	src.WriteString(helpers + "\n" + genGenericTypes + "\n" + genDerives + "\n")
+	src.WriteString(helpers + "\n" + usedRecursiveHelpers(body.String()) + genGenericTypes + "\n" + genDerives + "\n")
 	if !g.local {
 		src.WriteString(genPlainTypes + "\n" + genShapeDerive + "\n" + strings.Join(g.helpers, "\n\n") + "\n\n")
 	}

@@ -34,12 +34,36 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	if sym == nil {
 		return no()
 	}
-	fd, isFunc := sym.Node.(*ast.FuncDef)
-	if !isFunc {
+	if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Struct" && fa.Field.Name == "update" {
+		// `Struct.update(updates: {x: 1}, original: p)`: the patch must stay
+		// a literal the merge reads, which a stand-in for an evaluated
+		// temporary is not, so the update places its own arguments.
+		if bl.recording > 0 {
+			return bl.recordedQualCall(t, func() (ir.Temp, kind, bool, bool) { return bl.structUpdateCall(t) })
+		}
+		return bl.structUpdateCall(t)
+	}
+	// An interface-qualified call (`Display.to_string(value: x)`) names the
+	// interface method's parameters; the planned positional call dispatches
+	// as any other.
+	// A host function (`String.length(s: x)`, `Map.get(m: c, key: k)`)
+	// names its parameters as a Nomi-bodied one does, and its defaults are
+	// written the same way, so it takes the same path.
+	var params []ast.Param
+	var fd *ast.FuncDef
+	switch def := sym.Node.(type) {
+	case *ast.FuncDef:
+		params, fd = def.Params, def
+	case *ast.ExternFunc:
+		params, fd = def.Params, &ast.FuncDef{Name: def.Name, Params: def.Params, ReturnTypeExpr: def.ReturnTypeExpr}
+	case *ast.InterfaceMethod:
+		params = def.Params
+	default:
 		return no()
 	}
-	names := make([]string, len(fd.Params))
-	for i, p := range fd.Params {
+	isFunc := fd != nil
+	names := make([]string, len(params))
+	for i, p := range params {
 		if p.Destructure != nil {
 			return no()
 		}
@@ -48,6 +72,15 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	plan, planned := argSlotPlan(t.Args, make([]kind, len(names)), names)
 	if !planned {
 		return no()
+	}
+	if len(t.Args) == 1 && len(names) == 1 && bl.recording == 0 {
+		// `io.print(value: x)` is `io.print(x)`: one operand has one order.
+		// The output primitives render their operand from its own node, so
+		// the call keeps the written expression rather than a stand-in.
+		positional := &ast.Call{Func: t.Func, Args: []ast.Node{argExpr(t.Args[0])}, IsTailCall: t.IsTailCall, Line: t.Line, Col: t.Col}
+		if dst, k, mobile, ok := bl.hostOutput(positional, fa); ok {
+			return dst, k, mobile, true
+		}
 	}
 	filled := make([]bool, len(names))
 	last := -1
@@ -75,7 +108,25 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	for i := 0; i < last; i++ {
 		gap = gap || !filled[i]
 	}
-	if gap {
+	if gap && !isFunc {
+		// `Shape.scale(c, by: 2)` leaving a defaulted slot of an interface
+		// function empty: the declaration the call reaches gives the
+		// default, as for a call omitting trailing slots.
+		sig, found := bl.ifaceGapDefaults(t, sym.Node.(*ast.InterfaceMethod), kinds, temps)
+		if !found {
+			return no()
+		}
+		for i, k := range sig.params {
+			if temps[i] == ir.NoTemp {
+				kinds[i] = k
+			}
+		}
+		if !bl.callDefaults(sig, temps) {
+			return no()
+		}
+		last = len(temps) - 1
+	}
+	if gap && isFunc {
 		// `Date.new(2026, day: 5)`: a slot omitted before a supplied one
 		// takes its default here, evaluated in the callee's scope after the
 		// written operands, as a direct call's is (callDefaults). The
@@ -135,4 +186,56 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		bl.recordCallSlots(t.Args, plan, names, temps, kinds, k)
 	}
 	return v, k, mobile, ok
+}
+
+// ifaceGapDefaults is the declaration whose defaults fill the slots an
+// interface function's named call leaves empty before a supplied one, with
+// its parameter kinds. A concrete receiver's is the implementation the call
+// reaches, whose defaults a call omitting trailing slots takes
+// (implDefaultArgs): an override's own, or the interface's default copied
+// into the impl. An erased receiver's is the interface's declaration, as in
+// erasedInterfacePlan.
+func (bl *irScalarBuilder) ifaceGapDefaults(t *ast.Call, im *ast.InterfaceMethod, kinds []kind, temps []ir.Temp) (*fnSig, bool) {
+	recvAt := selfShapeOf(im.Params, im.ReturnTypeExpr).recvAt()
+	if recvAt < 0 || recvAt >= len(temps) || temps[recvAt] == ir.NoTemp {
+		return nil, false
+	}
+	recv := kinds[recvAt]
+	if recv.tag == tagIface {
+		m := recv.iface.methods[im.Name]
+		if m == nil || m.decl != im || len(m.params) != len(temps) {
+			return nil, false
+		}
+		params := make([]kind, len(m.params))
+		for i := range params {
+			if m.shape.selfTyped(i) {
+				params[i] = recv
+				continue
+			}
+			params[i] = m.params[i]
+		}
+		return &fnSig{decl: &ast.FuncDef{Name: m.name, Params: im.Params}, params: params}, true
+	}
+	for _, d := range bl.g.ifaces {
+		if m := d.methods[im.Name]; m == nil || m.decl != im {
+			continue
+		}
+		impl := bl.g.implsByIface[d.nomi][recv]
+		if impl == nil || !impl.lowerable {
+			return nil, false
+		}
+		it := impl.items[im.Name]
+		if it == nil {
+			it = bl.genericMethodItem(t, impl, im.Name)
+		}
+		if it == nil || !it.lowerable {
+			return nil, false
+		}
+		fd := irImplSource(it)
+		if fd == nil || len(fd.Params) != len(temps) || len(it.params) != len(temps) {
+			return nil, false
+		}
+		return &fnSig{decl: fd, params: append([]kind(nil), it.params...)}, true
+	}
+	return nil, false
 }

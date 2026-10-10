@@ -3,22 +3,32 @@ package rt
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 )
 
 // The line diff a failed `assert actual == expected` over two Strings prints
-// in place of the two operands' `values:` rows.
+// in place of the two operands' `values:` rows, and the diff an Assertable
+// that answered both sides shows (`io.replay`'s transcript and script).
 //
 // Two full multi-line values leave the comparison to the reader, who has to
 // find the one line that differs, and cannot see a trailing space or a
 // missing final newline at all. So when either String holds a line break the
 // report shows a diff instead:
 //
-//	diff (- expected """ ... """, + actual run.output):
-//	    What is the starting balance?
-//	  - Your starting balance: 500
-//	  + Your starting balance is 500
-//	  ... 4 unchanged lines
+//	expected """ ... """ (-) and actual run.output (+) differ
+//
+//	    12   │ What is the starting balance?
+//	    13 - │ Your starting balance: 500
+//	       + │ Your starting balance is 500
+//	         │   ... 4 lines match ...
+//
+// Each row is the expected line's source line, when the expected side is a
+// literal written in the file (ExpectedLine), then the marker, then ` │ `
+// and the line's text exactly as it is. A line only the actual side has
+// carries no number. The marker has a column of its own so that text
+// starting with spaces or `>>`, as a replay transcript's four-column gutter
+// does, reads unchanged. A changed empty line reads `(empty line)`.
 //
 // # Which side is expected
 //
@@ -43,6 +53,38 @@ type AssertionStringDiff struct {
 	Actual       string
 	ExpectedExpr string
 	Expected     string
+	// ExpectedLine is the source line the expected side's first line is
+	// written on, when the expected side is a String literal in the file
+	// whose lines are the expected lines one for one, and 0 otherwise.
+	ExpectedLine int
+	// Header names the two sides in place of the one built from the two
+	// expressions, or is empty. ReplayDiffHeader is `io.replay`'s.
+	Header string
+}
+
+// ReplayDiffHeader is the diff header of a failed `io.replay`, whose run
+// function was written as run: `main`, or a lambda, which reads as "the
+// function".
+func ReplayDiffHeader(run string) string {
+	if run == "" || strings.ContainsAny(run, " \t\n(){}|") {
+		run = "the function"
+	}
+	return "io.replay: the transcript (-) and what " + run + " printed (+) differ"
+}
+
+// ElidedLiteral is how a failure's echo of its assertion writes the `"""`
+// literal this diff shows, in place of the literal's lines: `""" lines
+// 11-23 """` when the diff numbers them (`""" line 11 """` for one), and
+// `""" ... """`, as the header reads, when it does not.
+func (d *AssertionStringDiff) ElidedLiteral() string {
+	if d.ExpectedLine <= 0 {
+		return `""" ... """`
+	}
+	last := d.ExpectedLine + max(0, len(splitDiffLines(d.Expected))-1)
+	if last == d.ExpectedLine {
+		return `""" line ` + strconv.Itoa(last) + ` """`
+	}
+	return `""" lines ` + strconv.Itoa(d.ExpectedLine) + "-" + strconv.Itoa(last) + ` """`
 }
 
 // StringDiff is the diff for a failed `actual == expected` over two Strings,
@@ -184,12 +226,20 @@ func diffExprLabel(expr string) string {
 
 // diffSide is one side's name in the diff header: the word, then the
 // operand's source. Strings an `Assertable` answered have no source, and the
-// header reads `diff (- expected, + actual):`.
+// header reads `expected (-) and actual (+) differ`.
 func diffSide(word, expr string) string {
 	if expr == "" {
 		return word
 	}
 	return word + " " + diffExprLabel(expr)
+}
+
+// header is the line above the diff: what the two sides are.
+func (d *AssertionStringDiff) header() string {
+	if d.Header != "" {
+		return d.Header
+	}
+	return diffSide("expected", d.ExpectedExpr) + " (-) and " + diffSide("actual", d.ActualExpr) + " (+) differ"
 }
 
 // visibleDiffText spells a line so a difference in it can be seen: a carriage
@@ -211,11 +261,11 @@ func visibleDiffText(text string, marked bool) (string, bool) {
 	return body + tail + "$", true
 }
 
-// writeStringDiff writes the diff block at st's indent. del and ins colour a
-// `-` and a `+` line.
+// writeStringDiff writes the diff block at indent: its header, a blank line,
+// then one row per line at indent plus four spaces. del and ins colour a `-`
+// and a `+` row; label dims the line numbers, `(empty line)` and the notes.
 func (st assertionReportStyle) writeStringDiff(w io.Writer, indent string, d *AssertionStringDiff) {
-	fmt.Fprintf(w, "%s%s\n", indent, st.label(fmt.Sprintf("diff (- %s, + %s):",
-		diffSide("expected", d.ExpectedExpr), diffSide("actual", d.ActualExpr))))
+	fmt.Fprintf(w, "%s%s\n\n", indent, st.label(d.header()))
 	ops, truncated := lineDiff(splitDiffLines(d.Expected), splitDiffLines(d.Actual))
 	shown := make([]bool, len(ops))
 	for i, op := range ops {
@@ -226,49 +276,92 @@ func (st assertionReportStyle) writeStringDiff(w io.Writer, indent string, d *As
 			shown[k] = true
 		}
 	}
-	p := indent + "  "
+	// The number column is as wide as the last expected line's number, and
+	// absent when the expected side is not a literal in the file.
+	width := 0
+	if d.ExpectedLine > 0 {
+		width = len(strconv.Itoa(d.ExpectedLine + max(0, len(splitDiffLines(d.Expected))-1)))
+	}
+	row := func(line int, kind byte, text string) {
+		var b strings.Builder
+		b.WriteString(indent + "    ")
+		if width > 0 {
+			if line > 0 {
+				num := strconv.Itoa(line)
+				b.WriteString(strings.Repeat(" ", width-len(num)) + st.label(num))
+			} else {
+				b.WriteString(strings.Repeat(" ", width))
+			}
+			b.WriteString(" ")
+		}
+		switch kind {
+		case '-':
+			b.WriteString(st.del("-"))
+		case '+':
+			b.WriteString(st.ins("+"))
+		default:
+			b.WriteString(" ")
+		}
+		b.WriteString(" │")
+		if text != "" {
+			b.WriteString(" " + text)
+		}
+		fmt.Fprintln(w, b.String())
+	}
+	note := func(text string) { row(0, ' ', st.label(text)) }
 	dollar := false
 	// The marker is shown only when it is a difference: two strings that
 	// both end without a newline need no note on either side.
 	newlineDiffers := strings.HasSuffix(d.Expected, "\n") != strings.HasSuffix(d.Actual, "\n")
+	// next is the source line of the next expected line, or 0.
+	next := d.ExpectedLine
+	advance := func(kind byte) int {
+		if kind == '+' || next == 0 {
+			return 0
+		}
+		next++
+		return next - 1
+	}
 	for i := 0; i < len(ops); {
 		if !shown[i] {
 			run := i
 			for run < len(ops) && !shown[run] {
 				run++
 			}
-			// A run of one is shown: its marker would take the same line.
+			// A run of one is shown: its note would take the same row.
 			if run-i > 1 {
-				fmt.Fprintf(w, "%s%s\n", p, st.label(fmt.Sprintf("... %d unchanged lines", run-i)))
+				for _, op := range ops[i:run] {
+					advance(op.kind)
+				}
+				note(fmt.Sprintf("  ... %d lines match ...", run-i))
 				i = run
 				continue
 			}
 		}
 		op := ops[i]
 		i++
+		line := advance(op.kind)
 		text, marked := visibleDiffText(op.line.text, op.kind != ' ')
 		dollar = dollar || marked
-		switch op.kind {
-		case ' ':
-			if text == "" {
-				fmt.Fprintln(w)
-				continue
-			}
-			fmt.Fprintf(w, "%s  %s\n", p, text)
+		switch {
+		case op.kind == ' ':
+			row(line, ' ', text)
 			continue
-		case '-':
-			fmt.Fprintf(w, "%s%s\n", p, st.del(strings.TrimRight("- "+text, " ")))
-		case '+':
-			fmt.Fprintf(w, "%s%s\n", p, st.ins(strings.TrimRight("+ "+text, " ")))
+		case text == "":
+			row(line, op.kind, st.label("(empty line)"))
+		case op.kind == '-':
+			row(line, op.kind, st.del(text))
+		default:
+			row(line, op.kind, st.ins(text))
 		}
 		if !op.line.nl && newlineDiffers {
-			fmt.Fprintf(w, "%s%s\n", p, st.label(`\ no newline at end`))
+			note(`\ no newline at end`)
 		}
 	}
 	if truncated {
-		fmt.Fprintf(w, "%s%s\n", p, st.label("... too many lines to compare; this is the first difference"))
+		note("... too many lines to compare; this is the first difference")
 	}
 	if dollar {
-		fmt.Fprintf(w, "%s%s\n", p, st.label("($ ends a line that ends in whitespace)"))
+		note("($ ends a line that ends in whitespace)")
 	}
 }

@@ -1,6 +1,6 @@
-==========
+================================================================================
 An as pattern names the whole value in every pattern position
-==========
+================================================================================
 
 fn describe(r: Result<Tx, String>): Int {
     case r {
@@ -24,7 +24,7 @@ test "pattern assert" {
     assert Some(n) as m = find()
 }
 
----
+--------------------------------------------------------------------------------
 
 (source_file
   (function_definition
@@ -135,16 +135,16 @@ test "pattern assert" {
     (body
       (pattern_assertion_binding
         pattern: (as_pattern
-          pattern: (enum_pattern
-            (type_identifier)
+          pattern: (call_expression
+            function: (type_identifier)
             (identifier))
           name: (identifier))
         value: (call_expression
           function: (identifier))))))
 
-==========
+================================================================================
 An as pattern in a piped case arm
-==========
+================================================================================
 
 fn main() {
     label = Some(3) |> case {
@@ -153,7 +153,7 @@ fn main() {
     }
 }
 
----
+--------------------------------------------------------------------------------
 
 (source_file
   (function_definition

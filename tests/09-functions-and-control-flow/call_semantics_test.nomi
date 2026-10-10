@@ -124,6 +124,8 @@ test "partial application preserves open argument names and defaults" {
     assert named_port(port: 3000) == "h:3000:10"
     assert hp("localhost", 3000) == "localhost:3000:30"
     assert hp("localhost") == "localhost:8080:30"
+    assert hp(port: 80, host: "x") == "x:80:30"
+    assert hp(port: _, host: "x")(9) == "x:9:30"
 }
 
 test "lambdas as callees support defaults names partials and trailing callbacks" {

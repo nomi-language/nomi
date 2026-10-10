@@ -94,26 +94,3 @@ func TestSeqReduceCtlStopsTheSource(t *testing.T) {
 		t.Errorf("got %d, want 6 (1+2+3, with the breaking element contributing nothing)", got)
 	}
 }
-
-// TestSeqReduceFirstCtlSeedsFromTheFirstElement pins the unseeded fold's two
-// distinguishing facts: the first element seeds and the callback does not run
-// for it, and an empty source faults with the one shared text rather than
-// answering a zero the language does not have.
-func TestSeqReduceFirstCtlSeedsFromTheFirstElement(t *testing.T) {
-	fr := NewFrame(nil)
-	// `|acc, x| acc` answers the first element if and only if the first element
-	// seeded rather than being folded into a zero value.
-	if got := SeqReduceFirstCtl(fr, intSeq(5),
-		func(fr *Frame, acc int64, x int64) (int64, bool) { return acc, true }); got != 0 {
-		t.Errorf("got %d, want 0 — intSeq starts at 0 and the first element must seed", got)
-	}
-	calls := 0
-	got := SeqReduceFirstCtl(fr, intSeq(4),
-		func(fr *Frame, acc int64, x int64) (int64, bool) {
-			calls++
-			return acc + x, true
-		})
-	if calls != 3 || got != 6 {
-		t.Errorf("got %d after %d call(s); want 6 after 3 — four elements, one of them the seed", got, calls)
-	}
-}

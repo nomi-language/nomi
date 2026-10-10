@@ -251,63 +251,6 @@ func TestSeqReduceConsumesTheWholeSource(t *testing.T) {
 	}
 }
 
-// TestSeqReduceFirstSeedsFromTheFirstElement pins the other program, and the
-// two halves that distinguish it from a seeded fold.
-//
-// Both answers are read off `nomi run` rather than derived: `Iter.reduce([4, 5,
-// 6], |acc, x| acc)` is 4 and `|acc, x| x` is 6, so the first element really
-// does seed rather than being folded into a zero.
-func TestSeqReduceFirstSeedsFromTheFirstElement(t *testing.T) {
-	fr := NewFrame(nil)
-	src := func() Seq[int64] {
-		return Seq[int64]{Run: func(fr *Frame, yield func(fr *Frame, item int64) bool) bool {
-			for _, v := range []int64{4, 5, 6} {
-				if !yield(fr, v) {
-					return false
-				}
-			}
-			return true
-		}}
-	}
-	if got := SeqReduceFirst(fr, src(), func(fr *Frame, acc, x int64) int64 { return acc }); got != 4 {
-		t.Errorf("keeping the accumulator gave %d; the FIRST element must seed it, so want 4", got)
-	}
-	if got := SeqReduceFirst(fr, src(), func(fr *Frame, acc, x int64) int64 { return x }); got != 6 {
-		t.Errorf("taking the element gave %d, want 6", got)
-	}
-	// The callback must not run at all for a single-element source: the answer
-	// is the element itself.
-	one := Seq[int64]{Run: func(fr *Frame, yield func(fr *Frame, item int64) bool) bool {
-		return yield(fr, 7)
-	}}
-	ran := 0
-	if got := SeqReduceFirst(fr, one, func(fr *Frame, acc, x int64) int64 { ran++; return acc + x }); got != 7 || ran != 0 {
-		t.Errorf("a single element gave %d with %d callback run(s); want 7 and 0", got, ran)
-	}
-}
-
-// TestSeqReduceFirstTrapsOnAnEmptySource pins the fault text character for
-// character.
-//
-// It is Nomi-observable — `nomi run` prints it to stderr and exits 1 — and it
-// has exactly one encoding, so a golden file recorded from a wrong string
-// would agree with it. Hence an absolute pin here.
-func TestSeqReduceFirstTrapsOnAnEmptySource(t *testing.T) {
-	const want = "Iter.reduce: cannot reduce empty collection without initial value"
-	defer func() {
-		r := recover()
-		e, ok := r.(*Error)
-		if !ok {
-			t.Fatalf("an unseeded reduce over an empty source must trap with *rt.Error, got %#v", r)
-		}
-		if e.Msg != want {
-			t.Errorf("trap text is %q, want %q", e.Msg, want)
-		}
-	}()
-	SeqReduceFirst(NewFrame(nil), intSeq(0), func(fr *Frame, acc, x int64) int64 { return acc })
-	t.Fatal("an unseeded reduce over an empty source must trap and did not")
-}
-
 // TestSeqReduceAllocatesNothingPerElement is TestSeqAllocatesNothingPerElement's
 // claim for the terminal that carries state.
 //

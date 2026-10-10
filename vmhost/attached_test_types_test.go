@@ -17,7 +17,8 @@ struct User {
 impl User {
     //! type Tag String
     //! t: Tag = Tag(User.greet(User{name: "a"}))
-    //! io.print(String(t))
+    //! Tag(s) = t
+    //! io.print(s)
     //! assert t == Tag("hi a")
     pub fn greet(u: User): String {
         "hi ${u.name}"
@@ -44,10 +45,10 @@ func TestAttachedTestTypes_Run(t *testing.T) {
 	rep := NewTestReport(&buf)
 	p.Test(&buf, rep, name, TestOptions{}, func(n string) string { return TestName(name, n) })
 	failed := rep.Summary()
-	const want = `hi a
-Some(TraceId("trace-123"))
-ok attached.nomi :: impl / greet //! test lines 8-11
-ok attached.nomi :: answer //! test lines 17-20
+	const want = `ok attached.nomi :: impl / greet //! test lines 8-12
+  hi a
+ok attached.nomi :: answer //! test lines 18-21
+  Some(TraceId("trace-123"))
 test result: ok. 2 passed, 0 failed
 `
 	if got := buf.String(); failed || got != want {

@@ -209,7 +209,8 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 // selected case in source order: a case that ran through rep.Result, and a
 // case the VM cannot run through rep.Blocked with its reasons. label names a
 // case in the report. Every runnable case runs before anything is reported,
-// which puts a case's own output above the report.
+// and the report prints each case's own output under its line. out receives
+// only output written outside every case (see Cases).
 //
 // file is the absolute path a JSON report locates each case by, with the
 // case's first and last lines.
@@ -220,10 +221,10 @@ func (p *Program) Test(out io.Writer, rep *TestReport, file string, opts TestOpt
 			if c.BlockedPath == file {
 				loc.ErrorLine = c.BlockedLine
 			}
-			rep.BlockedAt(loc, label(c.Name), c.Blocked)
+			rep.BlockedAt(loc, label(c.Name), c.Blocked, c.Output)
 			continue
 		}
-		rep.ResultAt(loc, label(c.Name), c.Err)
+		rep.ResultAt(loc, label(c.Name), c.Err, c.Output)
 	}
 }
 
@@ -234,6 +235,12 @@ type CaseResult struct {
 	Line    int
 	EndLine int
 	Err     error
+	// Output is what the case wrote while it ran: `io.print`, `io.write`,
+	// `io.inspect` and `dbg`, from its boot, setup, body, the tasks it
+	// started and the `once` initializers it forced, with `dbg` coloured as
+	// the report colours its lines. A case cut off by a machine limit keeps
+	// what it wrote before the limit.
+	Output string
 	// Blocked is each blocker as `nomi test` reports it: for a body the
 	// compiler could not lower, the diagnostic `nomi check` gives in its
 	// short form (`path:line:col: message`, then a line per hint); for
@@ -261,8 +268,10 @@ func (r *CaseResult) blockedBy(b *Blocked) {
 	}
 }
 
-// Cases runs the entry's runnable test cases, writing their own output to
-// out, and answers every selected case in source order. When the file declares
+// Cases runs the entry's runnable test cases and answers every selected case
+// in source order, each with the output it wrote (CaseResult.Output). out
+// receives only output written outside every case: a task that outlives the
+// case that started it. When the file declares
 // duplicate case names it answers those as failures and runs nothing.
 func (p *Program) Cases(out io.Writer, opts TestOptions) []CaseResult {
 	plan, duplicates := frontend.SelectTests(p.prog.Entry().Nodes, opts)
@@ -317,14 +326,17 @@ func (p *Program) Cases(out io.Writer, opts TestOptions) []CaseResult {
 		runnable = append(runnable, c)
 	}
 	var failures []error
-	var limits []string
+	var outputs, limits []string
 	if len(runnable) > 0 {
-		failures, limits = m.RunCases(runnable)
+		failures, outputs, limits = m.RunCases(runnable)
 	}
 	results := make([]CaseResult, len(plan))
 	for i, tc := range plan {
 		o := outcomes[i]
 		results[i].Name, results[i].Line, results[i].EndLine = tc.FullName(), tc.Line, tc.LastLine()
+		if o.run >= 0 {
+			results[i].Output = outputs[o.run]
+		}
 		switch {
 		case o.blocked != nil:
 			results[i].blockedBy(o.blocked)

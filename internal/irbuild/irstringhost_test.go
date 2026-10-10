@@ -35,7 +35,7 @@ enum Signal {
   Ready Int
   Waiting
 }
-fn number(m: Meter): Int { Int(m) }
+fn number(Meter(n)): Int { n }
 fn signal(s: Signal): Int { case s { Signal.Ready(n) -> n Signal.Waiting -> 0 } }
 fn main() {
   io.inspect(1 |> Some())
@@ -83,7 +83,9 @@ func TestIRStringHost_CustomDistinctEquality(t *testing.T) {
 type Slug String
 impl Equatable for Slug {
   fn equal?(a: Slug, b: Slug): Bool {
-    String.to_lower(String(a)) == String.to_lower(String(b))
+    Slug(x) = a
+    Slug(y) = b
+    String.to_lower(x) == String.to_lower(y)
   }
 }
 fn main() {

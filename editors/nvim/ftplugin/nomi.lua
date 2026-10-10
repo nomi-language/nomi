@@ -62,22 +62,16 @@ end
 -- `vim.g.nomi_keymaps = false` to skip them; the :Nomi* commands stay.
 --
 -- The test keys go to neotest when the nomi adapter is configured, and to the
--- terminal runner otherwise. The check runs at keypress: the adapter module
--- being loaded means a neotest spec named it, and requiring neotest then
--- loads it if it is lazy, so nothing here loads neotest for a setup that
--- does not use it.
+-- terminal runner otherwise. The check runs at keypress (`runner.neotest`). These
+-- buffer keys hide a lazy-loading setup's global ones, which would have
+-- loaded neotest, so an installed neotest is required here, and that loads
+-- it and runs its spec's `opts`, where the adapter is named. A setup without
+-- neotest installed never loads it.
 if vim.g.nomi_keymaps ~= false then
   local runner = require('nomi.runner')
-  local function neotest()
-    if not package.loaded['nomi.neotest'] then
-      return nil
-    end
-    local ok, mod = pcall(require, 'neotest')
-    return ok and mod or nil
-  end
   local function test_key(with_neotest, fallback)
     return function()
-      local nt = neotest()
+      local nt = runner.neotest()
       if nt then
         with_neotest(nt)
       else

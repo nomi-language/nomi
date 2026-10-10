@@ -1,4 +1,4 @@
-// The DEEP struct-update spread — `{..base, field: {nested: value}}` — and
+// The DEEP struct-update spread — `{..base, field: {.., nested: value}}` — and
 // the two rows where discarding a nested literal's own spread head would be
 // a silent wrong answer.
 //
@@ -75,8 +75,8 @@ fn main() {
     p = Outer{inner: Inner{a: 100, b: 200}, k: 40}
 
     // ONE LEVEL. The patch names `a`; `b` survives from the base.
-    deep = {..o, inner: {a: 9}}
-    deep_update = Struct.update(o, {inner: {a: 9}})
+    deep = {..o, inner: {.., a: 9}}
+    deep_update = Struct.update(o, {inner: {.., a: 9}})
     io.print("deep ${Display.to_string(deep)}")
     io.print("deep_same ${Bool.to_string(deep == deep_update)}")
 
@@ -113,12 +113,14 @@ fn main() {
 
     sunk = {
         ..tall,
-        l2: {l3: {v: 9}},
+        l2: {.., l3: {.., v: 9}},
     }
 
     sunk_update = Struct.update(tall, {
         l2: {
+            ..,
             l3: {
+                ..,
                 v: 9,
             },
         },
@@ -128,22 +130,21 @@ fn main() {
     io.print("sunk_same ${Bool.to_string(sunk == sunk_update)}")
 
     // A DEEP PATCH BESIDE A SHALLOW ONE in the same literal.
-    mixed = {..o, inner: {a: 9}, k: 4}
+    mixed = {..o, inner: {.., a: 9}, k: 4}
     io.print("mixed ${Display.to_string(mixed)}")
 
-    // AN ANONYMOUS-TYPED FIELD, patched partially and then completely. The
-    // complete brace is both a whole value and a whole patch; it takes the
-    // patch route and has to give the same answer either way.
+    // AN ANONYMOUS-TYPED FIELD, updated with `..` and then replaced by a
+    // whole brace.
     r = Rec{rec: {a: 1, b: 2}, k: 3}
-    part = {..r, rec: {a: 9}}
+    part = {..r, rec: {.., a: 9}}
     full = {..r, rec: {a: 9, b: 8}}
     io.print("part ${Int.to_string(part.rec.a)}/${Int.to_string(part.rec.b)}")
     io.print("full ${Int.to_string(full.rec.a)}/${Int.to_string(full.rec.b)}")
 
     // A FIELD GENERIC OVER A STRUCT, with the type argument solved. The field
-    // shape is read through the substitution, so `T := Inner` patches.
+    // shape is read through the substitution, so `T := Inner` updates.
     boxed: Box<Inner> = Box{item: Inner{a: 1, b: 2}, tag: "old"}
-    rebox = {..boxed, item: {a: 9}}
+    rebox = {..boxed, item: {.., a: 9}}
     io.print("generic ${Display.to_string(rebox.item)}/${rebox.tag}")
 
     // THE BASE IS UNCHANGED by any of it. A Nomi struct is a value.

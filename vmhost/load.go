@@ -391,7 +391,11 @@ func StdlibReference(module, body, context string, out io.Writer) ([]CaseResult,
 	if err != nil {
 		return nil, err
 	}
-	return p.Cases(out, TestOptions{Line: line, LineSet: true}), nil
+	cases := p.Cases(out, TestOptions{Line: line, LineSet: true})
+	for _, c := range cases {
+		io.WriteString(out, c.Output)
+	}
+	return cases, nil
 }
 
 // ReferenceTestSource appends body, after context's lines, to src as

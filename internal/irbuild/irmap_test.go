@@ -8,7 +8,8 @@ func TestIRMap_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn add(m: Map<String, Int>): Map<String, Int> { Map.put(m, "c", 3) }
 fn main() {
-  original = {"a" => 1, "b" => 2, "a" => 4}
+  a = "a"
+  original = {a => 1, "b" => 2, a => 4}
   updated = add(original)
   io.print(Map.size(original))
   io.print(Map.size(updated))
@@ -86,7 +87,6 @@ struct Outer {
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
 fn main() { m = {"a" => 1} dbg Outer{p: [Point{x: Map.size(m)}]} return }`,
-		`fn main() { m = {"a" => [1, 2]} dbg Map.get(m, "a") return }`,
 	} {
 		p, err := AnalyzeSource("main.nomi", src)
 		if err != nil {

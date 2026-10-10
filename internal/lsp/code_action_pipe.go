@@ -116,6 +116,9 @@ func (r *refactorRequest) convertToPipe(top *ast.Call) (string, string, bool) {
 		if stacked {
 			c.Line = line + len(stages) - i
 		}
+		// The formatter reads a stage's lines from its span when it has
+		// one; the stage's line here is the layout, so it has none.
+		c.Span = ast.Span{}
 		pipe = &ast.Binary{Left: pipe, Op: "|>", Right: &c, Line: c.Line, Col: c.Col}
 	}
 	if grouped {

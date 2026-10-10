@@ -274,9 +274,23 @@ type implDef struct {
 	// emitted, since the receiver's name is visible only there.
 	typeScope *blockTypeDecls
 
+	// owner is the owner's name when this def holds an inherent block's owner
+	// functions (ownerimpl.go), which have no receiver: recv is then
+	// kindInvalid and names nothing.
+	owner string
+
 	lowerable bool
 	why       string
 	whyDetail string
+}
+
+// ownerName is the name a function of this block is qualified by:
+// `Box.seven`, `Point.origin`.
+func (d *implDef) ownerName() string {
+	if d.owner != "" {
+		return d.owner
+	}
+	return d.recv.nomi()
 }
 
 // implGap is one function an impl block does not supply, with the reason.
@@ -453,7 +467,10 @@ func (g *gen) resolveIface(d *ifaceDef) {
 				m.params = append(m.params, kindInvalid)
 				continue
 			}
-			m.params = append(m.params, g.typeOf(im.Params[j].TypeAnnotation))
+			// paramKind, so a destructuring parameter (`(a, b): (Int, Int)`,
+			// `Point{x, y}`) has the kind its annotation or pattern head names;
+			// a default body's prologue reads its names off that value.
+			m.params = append(m.params, g.paramKind(im.Params[j]))
 		}
 		// A BARE `self` return is erased to `any` in the table, so it has no
 		// kind here either. A NESTED one (`Maybe<self>`) is neither: typeOf
@@ -604,12 +621,8 @@ func (g *gen) methodSignatureGap(im *ast.InterfaceMethod, m *ifaceMethod) (strin
 		return gapNestedSelfResult, true
 	}
 	for j := range im.Params {
-		p := &im.Params[j]
-		switch {
-		case p.Destructure != nil:
-			return "destructuring interface parameter", false
 		// kindInvalid: reports — returns the refusal name its caller rejects under.
-		case !m.shape.selfTyped(j) && m.params[j] == kindInvalid:
+		if !m.shape.selfTyped(j) && m.params[j] == kindInvalid {
 			return "non-scalar interface parameter type", false
 		}
 	}
@@ -671,7 +684,7 @@ func (g *gen) emitSynthImpls(impls []*implDef) {
 
 func (d *implDef) label() string {
 	if d.ifaceName == "" {
-		return d.recv.nomi()
+		return d.ownerName()
 	}
 	return d.ifaceName + " for " + d.recv.nomi()
 }
@@ -694,6 +707,11 @@ func (g *gen) registerImpl(ib *ast.ImplBlock) {
 	}
 	g.implOrder = append(g.implOrder, d)
 
+	if g.registerOwnerImpl(d, ib) {
+		// An inherent block on a generic type or an interface: d holds its
+		// owner functions. See ownerimpl.go.
+		return
+	}
 	if len(ib.Generics) > 0 || len(ib.WhereClauses) > 0 {
 		d.lowerable, d.why, d.whyDetail = false, "generic impl block", typeText(ib.Receiver)
 		return
@@ -843,6 +861,11 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			d.lowerable, d.why, d.whyDetail = false, "host-backed impl function", constructName(item)
 			return
 		}
+		if src, written := item.(*ast.FuncDef); written && g.ownerFunc(ib, src) {
+			// An owner function, built once by the block's owner def rather
+			// than once per instance. See ownerimpl.go.
+			continue
+		}
 		if g.expansiveImplItem(d, fd) && d.mayWithhold(fd.Name) {
 			d.noteGap(fd.Name, implGap{why: "expansive impl function", detail: implMemberLabel(d, fd.Name)})
 			continue
@@ -955,9 +978,20 @@ func (g *gen) implItemSig(d *implDef, fd *ast.FuncDef) (*implItem, implGap) {
 	}
 	for i := range fd.Params {
 		p := &fd.Params[i]
+		// A destructuring parameter is one value whose names the body's
+		// prologue reads off it (irImplLower), as a file-level function's
+		// are. Its kind is the annotation's, or the type its pattern head
+		// names. An annotated one takes the annotation path below.
+		if p.Destructure != nil && p.TypeAnnotation == nil {
+			k := g.paramKind(*p)
+			// kindInvalid: reports — returns the pattern's refusal for the caller to reject.
+			if k == kindInvalid {
+				return nil, implGap{why: "destructuring parameter", detail: patternText(p.Destructure), whole: true}
+			}
+			it.params = append(it.params, k)
+			continue
+		}
 		switch {
-		case p.Destructure != nil:
-			return nil, implGap{why: "destructuring parameter", detail: p.Name, whole: true}
 		case p.TypeAnnotation == nil:
 			// A DEFAULTED parameter is no exception: paramKind's rule, that
 			// inferring a `fn` parameter's type from its default would be a
@@ -969,7 +1003,11 @@ func (g *gen) implItemSig(d *implDef, fd *ast.FuncDef) (*implItem, implGap) {
 		// kindInvalid: reports — typeRefusal names the gap the annotation carries.
 		if k == kindInvalid {
 			construct, detail, _ := g.typeRefusal(p.TypeAnnotation)
-			return nil, implGap{why: construct, detail: p.Name + ": " + detail, whole: true}
+			name := p.Name
+			if p.Destructure != nil {
+				name = patternText(p.Destructure)
+			}
+			return nil, implGap{why: construct, detail: name + ": " + detail, whole: true}
 		}
 		it.params = append(it.params, k)
 	}
@@ -1223,6 +1261,14 @@ func (g *gen) implDecl(ib *ast.ImplBlock) {
 		// by name: nobody wrote it, and its position is fabricated.
 		return
 	}
+	if d.owner != "" {
+		// The block's owner functions, built once. A generic type's
+		// instances build the rest (genericimpl.go). See ownerimpl.go.
+		g.at(ib.Line)
+		g.emitImpl(d)
+		g.rejectWithheldItems(d, ib)
+		return
+	}
 	if g.isGenericImplTemplate(ib) {
 		// A TEMPLATE, not an impl. Lowers nothing and REFUSES nothing, which is
 		// funcDecl's rule for a monomorphized generic `fn` verbatim: a template
@@ -1276,6 +1322,12 @@ func (g *gen) rejectWithheldItems(d *implDef, ib *ast.ImplBlock) {
 		}
 		gap, withheld := d.gaps[fd.Name]
 		if !withheld {
+			continue
+		}
+		if _, byCall := d.withheldMember(fd.Name); byCall && d.owner != "" {
+			// An owner function with its own type parameters is a template
+			// each call instantiates, as a generic `fn` is, so its
+			// declaration refuses nothing. See ownerimpl.go.
 			continue
 		}
 		g.at(fd.Line)
@@ -1343,7 +1395,9 @@ func (g *gen) implFunc(d *implDef, it *implItem) {
 	g.pushScope()
 	defer g.popScope()
 	for i, p := range it.params0 {
-		if !ast.IsDiscardName(p.Name) {
+		// A destructuring parameter's names come out of its value in the
+		// prologue irImplLower opens; its synthesized name is not bound.
+		if p.Destructure == nil && !ast.IsDiscardName(p.Name) {
 			g.bind(p.Name, local{k: it.params[i]})
 		}
 	}

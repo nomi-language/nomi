@@ -1,32 +1,52 @@
 package irbuild
 
-// Inline `Iter.loop` in retained named-function bodies.
+// Inline `Iter.loop` in any retained body.
 //
 // The graph follows `Iter.loop`'s semantics. The seed is lowered in the enclosing
 // block and bound to the state; the answer slot is declared there too, and
 // the block jumps to the loop head. The head binds the callback parameter
-// from the state and declares the tail slot. The body is straight-line
-// statements, guards and a tail expression:
+// from the state and declares the tail slot. The body is statements, guards
+// and a tail expression:
 //
 //	if c { break v }     writes the answer and jumps to the exit
 //	if c { return v }    writes the state and jumps back to the head
 //	if c { continue }    jumps back to the head; the state is unchanged
 //	tail expression      writes the tail slot, then the state, and jumps back
 //
-// A `case` tail writes the tail slot from each value arm and joins; an arm
-// whose body is `break v` writes the answer and leaves for the exit, and the
-// structured reader spells it as `break L` before the arm's own `break`. The
-// join writes the state and jumps back.
+// While the body is lowered the builder's `loop` is set, so every `break`,
+// `return` and `continue` in it is the loop's: a guard anywhere in the body
+// is one of the above, and an `if` or `case` arm ending in one leaves the
+// iteration the same way while the region's other arms join. A `case` or `if`
+// tail writes the tail slot from each value arm; the join writes the state
+// and jumps back.
 //
-// The state is an `ir.Bind` that later `ir.Copy`s overwrite, spelled in Go
-// through the `irBindFresh` and `irCopyInto` pair. The VM executes the cycle
-// with ordinary register writes.
+// The state is an `ir.Bind` that later `ir.Copy`s overwrite. The VM executes
+// the cycle with ordinary register writes.
 //
-// The structured reader spells the region as a labelled `for`. Loops in
-// lambdas, test bodies, `once` initializers and assertion subjects, stateless
-// and destructuring callbacks, empty seeds the checker did not solve, bare `break`, a final
-// `break`, `continue` or `return`, `if` tails, `break` below a case arm's
-// own body, and bodies whose statements branch are declined.
+// A loop in a lambda lowers in the lambda's own function, as one in a named
+// function does; the lambda's own `return`, `break` and `continue` are not
+// reachable from the callback, since `loop` is set while it lowers. A loop
+// in a `once` initializer, a boot body or a default accessor lowers the same
+// way, in that body's own function. Empty seeds the checker did not solve
+// are declined.
+//
+// A destructuring state (`|(n, acc): (Int, Int) = (5, 1)|`) binds the
+// pattern's names at the head from the state, each iteration, as a pattern
+// binding with no `else` does. The checker admits only an irrefutable
+// pattern there, so the mismatch path is unreachable; it traps as that
+// binding's does.
+//
+// A bare `break` stops with the current state: it writes the state into the
+// answer and jumps to the exit, as `break <state>` would.
+//
+// A loop with no `break` (analysis.LoopNeverBreaks) never reaches its exit.
+// irScalarBlock makes it the tail of its block, dropping the statements after
+// it, and endlessLoop lowers it there, ending the exit in a jump to itself.
+//
+// A stateless loop (`Iter.loop(|| …)`) has state Unit: it lowers the same
+// way with a Unit seed and binds no name in the body. Its tail may be a
+// statement, an `if` with no `else` included, whose Unit value leaves the
+// state as it was.
 
 import (
 	"maps"
@@ -41,12 +61,6 @@ type irLoopBuild struct {
 	head, exit    *ir.Block
 	k             kind
 	broke         bool
-	// discarded is set when the loop's value is dropped, which is where a
-	// bare `break` is admitted: it answers Unit (spec: `break` alone is
-	// `break Unit` in a loop), and a dropped answer is never read.
-	discarded bool
-	// bare is set once a bare `break` was lowered.
-	bare bool
 	// scope is the running scope read at the head when the callback's body
 	// holds a `with`, or ir.NoTemp: every jump back to the head or out to the
 	// exit restores it, so an override ends with the iteration that made it.
@@ -112,11 +126,16 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		irDeclineNote(why)
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	// A VM-only test body (one the read-back attempt declined) admits a loop
-	// as a named function's body does.
-	walked := bl.inTest
-	if (!bl.loopsOK && !walked) || bl.parent != nil || (bl.recording > 0 && !walked) || !bl.g.iterOwns("Iter") {
-		return no("an Iter.loop outside a retained named-function body")
+	// The loop's blocks go into the builder's own function, whatever body
+	// that function is: a named function, a test, a `once` initializer, a
+	// boot, a default accessor, or a lambda nested in any of them. Inside an
+	// assertion subject only a test body records the loop as one row.
+	root := bl
+	for root.parent != nil {
+		root = root.parent
+	}
+	if (bl.recording > 0 && !root.inTest) || !bl.g.iterOwns("Iter") {
+		return no("an Iter.loop inside a recorded assertion subject outside a test")
 	}
 	if bl.recording > 0 {
 		// Inside a VM-only assertion subject the loop is one row, the
@@ -130,25 +149,43 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		return no("an Iter.loop call without one callback")
 	}
 	lam, isLambda := t.Args[0].(*ast.Lambda)
-	if isLambda && len(lam.Params) == 0 {
-		return bl.statelessLoop(lam)
+	if !isLambda || len(lam.Params) > 1 {
+		return no("an Iter.loop callback that is not a lambda literal of at most one parameter")
 	}
-	if !isLambda || len(lam.Params) != 1 {
-		return no("an Iter.loop callback that is not a one-parameter lambda literal")
-	}
-	p := lam.Params[0]
-	if p.Default == nil || p.Destructure != nil || ast.IsDiscardName(p.Name) {
-		return no("an Iter.loop callback without a named, seeded state")
-	}
-	seed, sk, _, ok := bl.lower(p.Default)
-	if !ok {
-		return ir.NoTemp, kindInvalid, false, false
+	stateless := len(lam.Params) == 0
+	seed, sk, stateName := ir.NoTemp, kindUnit, "$state"
+	var p *ast.Param
+	if stateless {
+		// A stateless loop (`Iter.loop(|| …)`) has state Unit: its seed is
+		// Unit and its callback binds no name.
+		u := ir.NewUnit(bl.g.irNodePos(lam), bl.f.NewTemp())
+		bl.b.Append(u)
+		bl.side(u.Dst(), irScalarSide{k: kindUnit})
+		seed = u.Dst()
+	} else {
+		p = &lam.Params[0]
+		if p.Default == nil {
+			return no("an Iter.loop callback without a seeded state")
+		}
+		if p.Destructure == nil {
+			stateName = p.Name
+		}
+		var ok bool
+		if seed, sk, _, ok = bl.lower(p.Default); !ok {
+			return ir.NoTemp, kindInvalid, false, false
+		}
 	}
 	switch sk.tag {
 	case tagEmptyList, tagEmptyMap, tagEmptySet:
 		// An untyped empty seed takes the kind the checker solved for the
 		// parameter and is coerced to it.
-		_, solved := bl.g.inferredParamKind(p)
+		var ok bool
+		var solved kind
+		if p.Destructure != nil {
+			solved = bl.g.irParamPatternKind(*p)
+		} else {
+			_, solved = bl.g.inferredParamKind(*p)
+		}
 		// kindInvalid: lookup — asks whether the checker solved the seed's kind; a miss declines retention.
 		if solved == kindInvalid {
 			return no("an Iter.loop seed whose element type the checker did not solve")
@@ -157,7 +194,8 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			return no("an Iter.loop seed outside the retained empty-container coercions")
 		}
 	}
-	if !irRetainedValueKind(sk) || (p.TypeAnnotation != nil && bl.g.typeOf(p.TypeAnnotation) != sk) {
+	// A Unit state (`|u: Unit = Unit|`) is a loop run for its effects.
+	if (!irRetainedValueKind(sk) && sk != kindUnit) || (p != nil && p.TypeAnnotation != nil && bl.g.typeOf(p.TypeAnnotation) != sk) {
 		return no("an Iter.loop state outside the retained value domain: " + sk.nomi())
 	}
 	ty := bl.g.irTypeOf(sk)
@@ -165,7 +203,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		return no("an Iter.loop state without an IR type: " + sk.nomi())
 	}
 	pos := bl.g.irNodePos(t)
-	state := ir.NewBind(pos, bl.f.NewTemp(), seed, ir.NewSymbol(p.Name))
+	state := ir.NewBind(pos, bl.f.NewTemp(), seed, ir.NewSymbol(stateName))
 	bl.b.Append(state)
 	bl.side(state.Dst(), irScalarSide{k: sk})
 	answer := bl.f.NewTemp()
@@ -173,11 +211,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	bl.side(answer, irScalarSide{k: sk})
 	lp := &irLoopBuild{state: state.Dst(), answer: answer, k: sk,
 		head: bl.f.NewBlock(pos, "loop head"), exit: bl.f.NewBlock(pos, "loop exit"),
-		discarded: bl.discarded == ast.Node(t), scope: ir.NoTemp}
-	// Nothing inside the callback is the discarded statement.
-	prevDiscarded := bl.discarded
-	bl.discarded = nil
-	defer func() { bl.discarded = prevDiscarded }()
+		scope: ir.NoTemp}
 	bl.b.SetTerm(ir.NewJump(pos, lp.head.ID()))
 
 	// The callback body is its own lexical scope.
@@ -190,12 +224,30 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		bl.f.SetType(lp.scope, ir.NewHandleType(bl.g.irTypes().Symbol(irScopeHandle{}, "Scope")))
 		bl.b.Append(ir.NewRefScope(bl.g.irNodePos(lam), lp.scope, bl.g.irTypes().Symbol(irScopeHandle{}, "$scope")))
 	}
-	sym := ir.NewSymbol(p.Name)
-	bl.sh.syms[p.Name] = sym
-	param := ir.NewBind(bl.g.irNodePos(lam), bl.f.NewTemp(), state.Dst(), sym)
-	bl.b.Append(param)
-	bl.side(param.Dst(), irScalarSide{k: sk})
-	bl.bound[p.Name], bl.boundK[p.Name] = param.Dst(), sk
+	if p != nil && p.Destructure != nil {
+		// `|(n, acc) = (5, 1)|`: the pattern's names, read off this
+		// iteration's state.
+		at := bl.g.irNodePos(p.Destructure)
+		held := ir.NewBind(at, bl.f.NewTemp(), state.Dst(), ir.NewSymbol("$state"))
+		bl.b.Append(held)
+		bl.side(held.Dst(), irScalarSide{k: sk})
+		cont := bl.f.NewBlock(at, "loop state bound")
+		nomatch := bl.f.NewBlock(at, "loop state mismatch")
+		nomatch.Append(ir.NewNoMatch(at))
+		nomatch.SetTerm(ir.NewJump(at, cont.ID()))
+		if !bl.patternValueTest(p.Destructure, held.Dst(), sk, cont, nomatch) {
+			return no("an Iter.loop state pattern outside the retained pattern tests: " + sk.nomi())
+		}
+		bl.b = cont
+	} else if p != nil && !ast.IsDiscardName(p.Name) {
+		// A discard name (`|_u: Unit = Unit|`) binds nothing in the body.
+		sym := ir.NewSymbol(p.Name)
+		bl.sh.syms[p.Name] = sym
+		param := ir.NewBind(bl.g.irNodePos(lam), bl.f.NewTemp(), state.Dst(), sym)
+		bl.b.Append(param)
+		bl.side(param.Dst(), irScalarSide{k: sk})
+		bl.bound[p.Name], bl.boundK[p.Name] = param.Dst(), sk
+	}
 	tail := bl.f.NewTemp()
 	bl.b.Append(ir.NewSlot(bl.g.irNodePos(lam), tail, ty))
 	bl.side(tail, irScalarSide{k: sk})
@@ -205,23 +257,20 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if final == nil {
 		return no("an Iter.loop body outside the statement shape: " + irDeclineBodyWhy)
 	}
-	if !bl.loopBody(lead, final, lp, tail) {
+	outerLoop := bl.loop
+	bl.loop = lp
+	lowered := bl.loopBody(lead, final, lp, tail)
+	bl.loop = outerLoop
+	if !lowered {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	if !lp.broke {
-		return no("an Iter.loop without a break")
+	if !lp.broke && bl.endless != t {
+		// Nothing reaches the exit, and whatever reads the loop's value
+		// would be lowered into it. endlessLoop admits the loop only where
+		// nothing after it is lowered.
+		return no("an Iter.loop without a break, in a position that reads its value")
 	}
 	bl.b = lp.exit
-	// After the `for` closes, the cursor returns to the loop call's line.
-	bl.loops++
-	if lp.bare {
-		// A bare `break` left the answer unwritten on its path. The loop's
-		// value is dropped, so it answers Unit, the bare break's value.
-		u := ir.NewUnit(pos, bl.f.NewTemp())
-		bl.b.Append(u)
-		bl.side(u.Dst(), irScalarSide{k: kindUnit})
-		return u.Dst(), kindUnit, true, true
-	}
 	return answer, sk, true, true
 }
 
@@ -231,7 +280,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 // `if c { break v }` followed by e.
 func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopBuild, tail ir.Temp) bool {
 	for _, s := range lead {
-		if guard, isIf := s.(*ast.If); isIf {
+		if guard, isIf := s.(*ast.If); isIf && loopGuardShape(bl.g, guard) {
 			if !bl.loopGuard(guard, lp) {
 				irDeclineNote("an Iter.loop guard outside `if c { break v | return v | continue }`")
 				return false
@@ -245,26 +294,40 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 			}
 			continue
 		}
-		block := bl.b
+		// A region in the statement (`x = case c { 0 -> continue  _ -> 1
+		// }`) may branch: an arm ending in `break v`, `return v` or
+		// `continue` leaves the iteration, and the others join.
 		bl.loopWithScope(lp)
 		if !bl.leading([]ast.Node{s}) {
 			return false
 		}
-		if bl.b != block {
-			irDeclineNote("an Iter.loop body statement that branches")
-			return false
-		}
+	}
+	// A block whose tail leaves ending the body: its statements, then its
+	// tail as the body's.
+	final, restore, ok := bl.leavingBlocks(final)
+	defer restore()
+	if !ok {
+		return false
+	}
+	if endless, ok := bl.endlessLoop(final); endless {
+		// An inner `Iter.loop` with no `break` ending the body: this
+		// iteration never ends, and writes no next state.
+		return ok
 	}
 	switch f := final.(type) {
 	case *ast.Break:
 		// `break v` ending the body: the loop's answer, on this iteration.
-		arm := bl.b
-		if !bl.loopBreakValue(f, lp, arm) {
+		if !bl.loopBreakValue(f, lp) {
 			irDeclineNote("an Iter.loop final `break` without a value of the state type")
 			return false
 		}
-		bl.loopJump(arm, f, lp, lp.exit)
+		bl.loopJump(bl.b, f, lp, lp.exit)
 		lp.broke = true
+		return true
+	case *ast.Continue:
+		// `if c { break v } else { continue }`: round again with the state
+		// unchanged.
+		bl.loopJump(bl.b, f, lp, lp.head)
 		return true
 	case *ast.Case:
 		if !bl.loopCase(f, lp, tail) {
@@ -278,6 +341,11 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		}
 		return bl.loopTail(f.Value, lp, tail)
 	case *ast.If:
+		if f.Else == nil && lp.k == kindUnit {
+			// An `if` without `else` ending a Unit-state body, as a
+			// stateless loop's may: a statement, then the Unit tail.
+			return bl.loopBody([]ast.Node{f}, &ast.TypeIdent{Name: "Unit", Line: f.Line, Col: f.Col}, lp, tail)
+		}
 		if f.Else == nil || f.CondPattern != nil || f.Then == nil {
 			break
 		}
@@ -314,66 +382,7 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 	return bl.loopTail(final, lp, tail)
 }
 
-// statelessLoop lowers `Iter.loop(|| { ...; break v })`: a callback with no
-// state whose body is straight statements ending in `break`. It runs once
-// and its break value (Unit for a bare `break`) is the loop's answer.
-func (bl *irScalarBuilder) statelessLoop(lam *ast.Lambda) (ir.Temp, kind, bool, bool) {
-	no := func(why string) (ir.Temp, kind, bool, bool) {
-		irDeclineNote(why)
-		return ir.NoTemp, kindInvalid, false, false
-	}
-	defer bl.g.enterBlockTypes(lam.Body)()
-	lead, final := bl.g.irScalarBlock(lam.Body, "")
-	b, isBreak := final.(*ast.Break)
-	if final == nil || !isBreak {
-		return no("a stateless Iter.loop whose body does not end in `break`")
-	}
-	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
-	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
-	// The body runs once in the enclosing activation, so a `with` in it is
-	// restored after its `break` value is computed.
-	lp := &irLoopBuild{scope: ir.NoTemp}
-	if irBodyWrites(lam.Body) {
-		lp.scope = bl.f.NewTemp()
-		bl.f.SetType(lp.scope, ir.NewHandleType(bl.g.irTypes().Symbol(irScopeHandle{}, "Scope")))
-		bl.b.Append(ir.NewRefScope(bl.g.irNodePos(lam), lp.scope, bl.g.irTypes().Symbol(irScopeHandle{}, "$scope")))
-	}
-	restore := func() {
-		if lp.scope != ir.NoTemp {
-			bl.b.Append(ir.NewStoreScope(bl.g.irNodePos(b), bl.g.irTypes().Symbol(irScopeHandle{}, "$scope"), lp.scope))
-		}
-	}
-	for _, s := range lead {
-		block := bl.b
-		bl.loopWithScope(lp)
-		if _, isIf := s.(*ast.If); isIf || !bl.leading([]ast.Node{s}) || bl.b != block {
-			return no("a stateless Iter.loop body statement that branches")
-		}
-	}
-	if isNilNode(b.Value) {
-		u := ir.NewUnit(bl.g.irNodePos(b), bl.f.NewTemp())
-		bl.b.Append(u)
-		bl.side(u.Dst(), irScalarSide{k: kindUnit})
-		restore()
-		return u.Dst(), kindUnit, true, true
-	}
-	v, k, mobile, ok := bl.lower(b.Value)
-	if !ok || !irRetainedValueKind(k) {
-		return ir.NoTemp, kindInvalid, false, false
-	}
-	if lp.scope != ir.NoTemp && !mobile {
-		// The value is held before the scope it was computed in ends.
-		c := ir.NewCopy(bl.g.irNodePos(b.Value), bl.f.NewTemp(), v)
-		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: k, copy: irCopyForce})
-		v = c.Dst()
-	}
-	restore()
-	return v, k, mobile, true
-}
-
-// loopTail lowers a straight tail expression: it writes the tail slot, then
+// loopTail lowers a tail expression: it writes the tail slot, then
 // the state, and jumps back to the head.
 func (bl *irScalarBuilder) loopTail(final ast.Node, lp *irLoopBuild, tail ir.Temp) bool {
 	switch final.(type) {
@@ -381,13 +390,14 @@ func (bl *irScalarBuilder) loopTail(final ast.Node, lp *irLoopBuild, tail ir.Tem
 		irDeclineNote("an Iter.loop body without a straight tail expression")
 		return false
 	}
-	block := bl.b
+	// A region in the tail (`f(case c { 0 -> continue  _ -> 1 })`) joins
+	// before the writes; its arms that leave the iteration never reach them.
 	val, k, _, ok := bl.lower(final)
 	if !ok {
 		return false
 	}
-	if bl.b != block || k != lp.k {
-		irDeclineNote("an Iter.loop tail that branches or is not the state type")
+	if k != lp.k {
+		irDeclineNote("an Iter.loop tail that is not the state type")
 		return false
 	}
 	bl.loopCopy(final, tail, val)
@@ -400,15 +410,14 @@ func (bl *irScalarBuilder) loopTail(final ast.Node, lp *irLoopBuild, tail ir.Tem
 // and joins, and a `break v` arm writes the answer and
 // leaves for the exit. The join advances the state and jumps back to the head.
 func (bl *irScalarBuilder) loopCase(c *ast.Case, lp *irLoopBuild, tail ir.Temp) bool {
-	outer, outerLoop := bl.sh.result, bl.loopArms
-	bl.sh.result, bl.loopArms = tail, lp
+	outer := bl.sh.result
+	bl.sh.result = tail
 	k, ok := bl.caseRegion(c, irFuncSig{result: lp.k})
-	bl.sh.result, bl.loopArms = outer, outerLoop
+	bl.sh.result = outer
 	if !ok || k != lp.k {
 		return false
 	}
-	bl.loopCopy(c, lp.state, tail)
-	bl.loopJump(bl.b, c, lp, lp.head)
+	bl.loopAdvance(c, lp, tail)
 	return true
 }
 
@@ -423,17 +432,44 @@ func (bl *irScalarBuilder) loopIf(t *ast.If, lp *irLoopBuild, tail ir.Temp) bool
 		irDeclineNote("an Iter.loop `if` tail outside value arms of the state type")
 		return false
 	}
-	bl.loopCopy(t, lp.state, tail)
-	bl.loopJump(bl.b, t, lp, lp.head)
+	bl.loopAdvance(t, lp, tail)
 	return true
 }
 
-// loopBreakArm lowers a case arm's `break v` in a loop's case tail.
-func (bl *irScalarBuilder) loopBreakArm(b *ast.Break, lp *irLoopBuild, arm *ir.Block) bool {
-	if !bl.loopBreakValue(b, lp, arm) {
+// loopAdvance closes a region tail's join: the tail slot becomes the next
+// state and the iteration goes round. When every arm of the region left the
+// iteration (`case c { True -> break n  False -> continue }`), no arm wrote
+// the tail slot and no path reaches the join, so the join reads nothing and
+// jumps to itself, as exitReturn leaves an unreachable function exit.
+func (bl *irScalarBuilder) loopAdvance(at ast.Node, lp *irLoopBuild, tail ir.Temp) {
+	if !ir.Reachable(bl.f)[bl.b.ID()] {
+		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(at), bl.b.ID()))
+		return
+	}
+	bl.loopCopy(at, lp.state, tail)
+	bl.loopJump(bl.b, at, lp, lp.head)
+}
+
+// loopGuardShape reports whether t is a loop guard: an `if` with no `else`
+// whose then-block ends in `break`, `return` or `continue`.
+func loopGuardShape(g *gen, t *ast.If) bool {
+	if t.Else != nil || t.Then == nil {
 		return false
 	}
-	bl.loopJump(arm, b, lp, lp.exit)
+	_, exit := g.irScalarBlock(t.Then, "")
+	switch exit.(type) {
+	case *ast.Break, *ast.Return, *ast.Continue:
+		return true
+	}
+	return false
+}
+
+// loopBreakArm lowers a case arm's `break v` in a loop's case tail.
+func (bl *irScalarBuilder) loopBreakArm(b *ast.Break, lp *irLoopBuild) bool {
+	if !bl.loopBreakValue(b, lp) {
+		return false
+	}
+	bl.loopJump(bl.b, b, lp, lp.exit)
 	lp.broke = true
 	return true
 }
@@ -449,9 +485,10 @@ func (bl *irScalarBuilder) loopGuard(t *ast.If, lp *irLoopBuild) bool {
 	if exit == nil {
 		return false
 	}
-	block := bl.b
+	// The condition may branch (`a and b`, a `case` operand); the guard
+	// tests it at the block where its value is joined.
 	cond, ck, _, ok := bl.lower(t.Cond)
-	if !ok || bl.b != block || (t.CondPattern == nil && ck != kindBool) {
+	if !ok || (t.CondPattern == nil && ck != kindBool) {
 		return false
 	}
 	arm := bl.f.NewBlock(bl.g.irNodePos(t.Then), "loop guard")
@@ -471,20 +508,22 @@ func (bl *irScalarBuilder) loopGuard(t *ast.If, lp *irLoopBuild) bool {
 	}
 	bl.b = arm
 	for _, s := range lead {
+		// A statement in the arm may branch and join; the arm goes on from
+		// its join.
 		bl.loopWithScope(lp)
-		if !bl.leading([]ast.Node{s}) || bl.b != arm {
+		if !bl.leading([]ast.Node{s}) {
 			return false
 		}
 	}
 	var target *ir.Block
 	switch s := exit.(type) {
 	case *ast.Break:
-		if !bl.loopBreakValue(s, lp, arm) {
+		if !bl.loopBreakValue(s, lp) {
 			return false
 		}
 		target, lp.broke = lp.exit, true
 	case *ast.Return:
-		if !bl.loopValue(s.Value, lp.state, lp.k, arm) {
+		if !bl.loopValue(s.Value, lp.state, lp.k) {
 			return false
 		}
 		target = lp.head
@@ -493,35 +532,33 @@ func (bl *irScalarBuilder) loopGuard(t *ast.If, lp *irLoopBuild) bool {
 	default:
 		return false
 	}
-	bl.loopJump(arm, exit, lp, target)
+	bl.loopJump(bl.b, exit, lp, target)
 	bl.b = next
 	bl.irDiscardStmtUnit(t)
 	return true
 }
 
-// loopBreakValue writes a `break`'s value into the loop's answer. A bare
-// `break` answers Unit, which only a loop whose value is dropped admits: the
-// answer slot holds the state type and nothing reads it.
-func (bl *irScalarBuilder) loopBreakValue(b *ast.Break, lp *irLoopBuild, arm *ir.Block) bool {
+// loopBreakValue writes a `break`'s value into the loop's answer, in the
+// current block. A bare `break` stops with the current state: the state is
+// written only where an iteration ends, so here it still holds the value the
+// callback's parameter was bound from.
+func (bl *irScalarBuilder) loopBreakValue(b *ast.Break, lp *irLoopBuild) bool {
 	if isNilNode(b.Value) {
-		if !lp.discarded {
-			irDeclineNote("a bare `break` in an Iter.loop whose value is used")
-			return false
-		}
-		lp.bare = true
-		return bl.b == arm
+		bl.loopCopy(b, lp.answer, lp.state)
+		return true
 	}
-	return bl.loopValue(b.Value, lp.answer, lp.k, arm)
+	return bl.loopValue(b.Value, lp.answer, lp.k)
 }
 
 // loopValue lowers a `break` or `return` value of the state type and writes it
-// into dst.
-func (bl *irScalarBuilder) loopValue(value ast.Node, dst ir.Temp, k kind, arm *ir.Block) bool {
+// into dst. The value may branch (`a and b`); the write is at its join, the
+// current block afterwards, and the caller jumps from there.
+func (bl *irScalarBuilder) loopValue(value ast.Node, dst ir.Temp, k kind) bool {
 	if isNilNode(value) {
 		return false
 	}
 	v, vk, _, ok := bl.lower(value)
-	if !ok || vk != k || bl.b != arm {
+	if !ok || vk != k {
 		return false
 	}
 	bl.loopCopy(value, dst, v)

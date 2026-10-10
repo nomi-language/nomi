@@ -112,9 +112,9 @@ fn main() {
 `, "Box{item: 3}\ns\nBox{item: Pair{a: 1, b: 2}}\n")
 }
 
-// Under a spread a bare brace at a struct-typed field stays a patch of the
-// base's value; outside one it builds the field's struct.
-func TestTargetTyped_SpreadPatchStillPatches(t *testing.T) {
+// Under a spread a `..` literal at a struct-typed field updates the base's
+// value; a brace without `..` builds the field's struct.
+func TestTargetTyped_SpreadUpdateStillUpdates(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 struct Address {
@@ -129,7 +129,7 @@ struct Person {
 
 fn main() {
   ada: Person = {name: "Ada", address: {street: "1 Main", city: "Bath"}}
-  moved = {..ada, address: {city: "NYC"}}
+  moved = {..ada, address: {.., city: "NYC"}}
   io.inspect(moved)
   rebuilt = Person{name: "Bo", address: {street: "2 Main", city: "York"}}
   io.inspect(rebuilt)

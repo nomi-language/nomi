@@ -3,6 +3,7 @@ package vmhost_test
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/vmhost"
@@ -86,7 +87,10 @@ tests "an Ok in setup" {
 			t.Fatalf("case %q reports %q, want %q", cases[i].Name, got, want)
 		}
 	}
-	if got, want := out.String(), "n 3\n"; got != want {
+	if out.Len() != 0 {
+		t.Fatalf("output outside every case: %q", out.String())
+	}
+	if got, want := caseOutput(cases), "n 3\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}
 }
@@ -123,7 +127,10 @@ tests "lines after the tests" {
 	if c := cases[0]; c.Blocked != nil || c.Err != nil {
 		t.Fatalf("case %q: blocked %v, err %v", c.Name, c.Blocked, c.Err)
 	}
-	if got, want := out.String(), "setup\ntest 2\n"; got != want {
+	if out.Len() != 0 {
+		t.Fatalf("output outside every case: %q", out.String())
+	}
+	if got, want := caseOutput(cases), "setup\ntest 2\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}
 }
@@ -186,4 +193,13 @@ fn main() {
 	if got, want := out.String(), "[1, 2, 3]\n[3, 2, 1]\n[2, 1, 3]\n[1, 2]\n[1s, 2s]\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}
+}
+
+// caseOutput is every case's own output, in source order.
+func caseOutput(cases []vmhost.CaseResult) string {
+	var b strings.Builder
+	for _, c := range cases {
+		b.WriteString(c.Output)
+	}
+	return b.String()
 }

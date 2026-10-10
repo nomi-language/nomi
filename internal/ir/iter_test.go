@@ -118,23 +118,23 @@ func TestIRIter_EveryConstructorREQUIRESAPosition(t *testing.T) {
 
 func TestIRIter_TheArityCheckHasPower(t *testing.T) {
 	at := ir.At("a.nomi", 4, 2)
-	// Too few, too many, and — for the one operation with a range — outside
-	// the bracket on both sides.
+	// Too few and too many. A reduce always carries its seed, so its two
+	// operand form (source and callback alone) is refused too.
 	mustPanic(t, "to_list with no operand", func() {
 		ir.NewIter(at, 1, ir.IterToList, ir.IterOverSeq)
 	})
 	mustPanic(t, "to_list with two operands", func() {
 		ir.NewIter(at, 1, ir.IterToList, ir.IterOverSeq, 2, 3)
 	})
-	mustPanic(t, "reduce with one operand", func() {
-		ir.NewIter(at, 1, ir.IterReduce, ir.IterOverSeq, 2)
+	mustPanic(t, "reduce with two operands", func() {
+		ir.NewIter(at, 1, ir.IterReduce, ir.IterOverSeq, 2, 3)
 	})
 	mustPanic(t, "reduce with four operands", func() {
 		ir.NewIter(at, 1, ir.IterReduce, ir.IterOverSeq, 2, 3, 4, 5)
 	})
-	// THE PLANT: both ends of reduce's bracket must be accepted, because a
-	// check that rejected everything would pass all four assertions above.
-	ir.NewIter(at, 1, ir.IterReduce, ir.IterOverSeq, 2, 3)
+	// THE PLANT: the right arities must be accepted, because a check that
+	// rejected everything would pass all four assertions above.
+	ir.NewIter(at, 1, ir.IterToList, ir.IterOverSeq, 2)
 	ir.NewIter(at, 1, ir.IterReduce, ir.IterOverSeq, 2, 3, 4)
 }
 
@@ -174,25 +174,27 @@ func TestIRIter_SignallingIsRefusedWhereTheFrontEndHasNoSlot(t *testing.T) {
 	// The set is `analysis/iter_sensitive.go`'s, not this file's. An
 	// operation with no callback slot a `break` can reach cannot claim the
 	// widened convention.
-	for _, op := range []ir.IterOp{ir.IterToList, ir.IterDropWhile, ir.IterFind, ir.IterZip} {
+	for _, op := range []ir.IterOp{ir.IterToList, ir.IterPartition, ir.IterSortWith, ir.IterZip} {
 		mustPanic(t, "signalling "+op.Name(), func() {
 			ir.NewIterSignalling(at, 1, op, ir.IterOverSeq, 2, 3)
 		})
 	}
-	// THE PLANT: the six the front end does sanction must be accepted.
+	// THE PLANT: the twelve the front end does sanction must be accepted.
 	signalling := 0
 	for _, op := range iterOps() {
 		if op.HasSignallingForm() {
 			signalling++
 		}
 	}
-	if signalling != 6 {
+	if signalling != 12 {
 		t.Fatalf("%d operations declare a signalling form and the front end's "+
-			"iterCallbackSlots sanctions six of this class's; the guard above is "+
+			"iterCallbackSlots sanctions twelve of this class's; the guard above is "+
 			"measuring the wrong set", signalling)
 	}
 	ir.NewIterSignalling(at, 1, ir.IterMap, ir.IterOverSeq, 2, 3)
 	ir.NewIterSignalling(at, 1, ir.IterReduce, ir.IterOverSeq, 2, 3, 4)
+	ir.NewIterSignalling(at, 1, ir.IterDropWhile, ir.IterOverSeq, 2, 3)
+	ir.NewIterSignalling(at, 1, ir.IterFind, ir.IterOverSeq, 2, 3)
 	if !ir.NewIterSignalling(at, 1, ir.IterEach, ir.IterOverSeq, 2, 3).Signalling() {
 		t.Error("a signalling node does not report itself as one")
 	}

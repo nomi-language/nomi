@@ -18,6 +18,14 @@ func irRetainedRecordKind(k kind) bool {
 }
 
 func (bl *irScalarBuilder) recordMake(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
+	// kindInvalid: sentinel — no expected record type.
+	return bl.recordMakeOf(t, kindInvalid)
+}
+
+// recordMakeOf builds an anonymous record literal; want, when it is a record
+// type with the literal's field names, gives each field the kind its value
+// is lowered against (`{a: []}` where a `{a: List<Int>}` is expected).
+func (bl *irScalarBuilder) recordMakeOf(t *ast.StructLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.Spread != nil {
 		return bl.structSpread(t)
@@ -30,7 +38,14 @@ func (bl *irScalarBuilder) recordMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	values := make(map[string]ir.Temp, len(t.Fields))
 	pure := true
 	for i, field := range t.Fields {
-		v, k, mobile, ok := bl.lower(field.Value)
+		var v ir.Temp
+		var k kind
+		var mobile, ok bool
+		if fk, typed := irRecordField(want, field.Name, len(t.Fields)); typed {
+			v, k, mobile, ok = bl.lowerWant(field.Value, fk)
+		} else {
+			v, k, mobile, ok = bl.lower(field.Value)
+		}
 		if !ok || !irCompositePartKind(k) {
 			return no()
 		}
@@ -54,6 +69,20 @@ func (bl *irScalarBuilder) recordMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	return n.Dst(), k, pure, true
 }
 
+// irRecordField is the kind of field name in record type want, when want is
+// a record of n fields that has it.
+func irRecordField(want kind, name string, n int) (kind, bool) {
+	if want.tag != tagAnonStruct || want.comp == nil || len(want.comp.names) != n || len(want.comp.parts) != n {
+		return kindInvalid, false
+	}
+	for i, have := range want.comp.names {
+		if have == name {
+			return want.comp.parts[i], true
+		}
+	}
+	return kindInvalid, false
+}
+
 func (bl *irScalarBuilder) recordRead(at ast.Node, name string, subj ir.Temp, k kind, mobile bool) (ir.Temp, kind, bool, bool) {
 	part, found := anonFieldKind(k, name)
 	if !found {
@@ -69,6 +98,10 @@ func (bl *irScalarBuilder) recordRead(at ast.Node, name string, subj ir.Temp, k 
 // forced, then the fields merge as structMerge does.
 func (bl *irScalarBuilder) structSpread(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	if c, missing := bl.currentMissing(t.Spread); missing {
+		// `{.., f: v}` where the position holds no value: build it.
+		return bl.updateBuild(t, c.k)
+	}
 	base, k, _, ok := bl.lower(t.Spread)
 	if !ok || !irRetainedUpdateKind(k) {
 		return no()
@@ -91,37 +124,58 @@ func irRetainedUpdateKind(k kind) bool {
 }
 
 // structMerge mirrors gen.structMerge over a lowered base: every value but the
-// last is forced, each is coerced to its field's kind, and a bare anonymous
-// literal at a field is a nested patch over that field, whose base projects
-// the field from this base.
+// last is forced, and each is coerced to its field's kind. A field written as
+// an update literal (`address: {.., city: "NYC"}`) has the field projected
+// from this base as its `..` (ircurrentvalue.go). pre, when not nil, holds
+// the values of the fields already lowered, by index (structUpdateHoles).
 func (bl *irScalarBuilder) structMerge(at ast.Node, k kind, base ir.Temp, lit *ast.StructLit) (ir.Temp, bool) {
+	return bl.structMergePre(at, k, base, lit, nil)
+}
+
+func (bl *irScalarBuilder) structMergePre(at ast.Node, k kind, base ir.Temp, lit *ast.StructLit, pre map[int]irLowered) (ir.Temp, bool) {
+	names, vals, ok := bl.structMergeVals(k, base, lit, pre)
+	if !ok {
+		return ir.NoTemp, false
+	}
+	n := ir.NewMakeUpdate(bl.g.irNodePos(at), bl.f.NewTemp(), base, names, vals)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: k})
+	return n.Dst(), true
+}
+
+// irLowered is one value already lowered.
+type irLowered struct {
+	v ir.Temp
+	k kind
+}
+
+// structMergeVals lowers the fields of lit, an update of base of kind k, and
+// answers each one's name and value.
+func (bl *irScalarBuilder) structMergeVals(k kind, base ir.Temp, lit *ast.StructLit, pre map[int]irLowered) ([]string, []ir.Temp, bool) {
 	names := make([]string, len(lit.Fields))
 	vals := make([]ir.Temp, len(lit.Fields))
 	for i, f := range lit.Fields {
 		fk, found := bl.g.updateField(k, f.Name)
 		if !found {
-			return ir.NoTemp, false
+			return nil, nil, false
 		}
-		if nested, isLit := f.Value.(*ast.StructLit); isLit && nested.TypeName == nil && nested.Spread == nil {
-			// An empty patch spells the field itself, which no node here
-			// names.
-			if len(nested.Fields) == 0 || !irRetainedUpdateKind(fk) {
-				return ir.NoTemp, false
-			}
+		if ast.UpdateHole(f.Value) != nil {
 			sub, ok := bl.updateBaseField(f.Value, k, base, f.Name, fk)
 			if !ok {
-				return ir.NoTemp, false
+				return nil, nil, false
 			}
-			v, ok := bl.structMerge(f.Value, fk, sub, nested)
-			if !ok {
-				return ir.NoTemp, false
-			}
-			names[i], vals[i] = f.Name, v
-			continue
+			bl.setCurrent(f.Value, irCurrent{v: sub, k: fk})
 		}
-		v, vk, _, ok := bl.lower(f.Value)
+		var v ir.Temp
+		var vk kind
+		ok := true
+		if p, done := pre[i]; done {
+			v, vk = p.v, p.k
+		} else {
+			v, vk, _, ok = bl.lower(f.Value)
+		}
 		if !ok {
-			return ir.NoTemp, false
+			return nil, nil, false
 		}
 		if vk != fk && bl.g.irErases(fk, vk) {
 			// A concrete implementer at an interface-typed field, admitted
@@ -131,17 +185,14 @@ func (bl *irScalarBuilder) structMerge(at ast.Node, k kind, base ir.Temp, lit *a
 		}
 		v, vk, ok = bl.coerceEmpty(f.Value, v, vk, fk)
 		if !ok || vk != fk {
-			return ir.NoTemp, false
+			return nil, nil, false
 		}
 		names[i], vals[i] = f.Name, v
 	}
-	n := ir.NewMakeUpdate(bl.g.irNodePos(at), bl.f.NewTemp(), base, names, vals)
-	bl.b.Append(n)
-	bl.side(n.Dst(), irScalarSide{k: k})
-	return n.Dst(), true
+	return names, vals, true
 }
 
-// updateBaseField projects the field a nested patch starts from.
+// updateBaseField projects the field a nested update starts from.
 func (bl *irScalarBuilder) updateBaseField(at ast.Node, k kind, base ir.Temp, name string, fk kind) (ir.Temp, bool) {
 	if k.tag == tagAnonStruct {
 		p := ir.NewProjRecordField(bl.g.irNodePos(at), bl.f.NewTemp(), base, name, irParamShape(fk))
@@ -162,7 +213,10 @@ func (bl *irScalarBuilder) updateBaseField(at ast.Node, k kind, base ir.Temp, na
 
 // structUpdateCall lowers `Struct.update(base, {f: v})`: std's own `Struct`,
 // a bare anonymous patch, the base forced, then the same merge a spread uses.
-// A `Struct` a type parameter or local interface names declines here.
+// A `Struct` a type parameter or local interface names declines here. Its
+// arguments may be named by `Struct`'s parameters
+// (`Struct.update(updates: {x: 1}, original: p)`); they are evaluated in
+// Nomi's order, positionals first and then named arguments as written.
 func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Args) != 2 || !bl.g.stdStructUpdateIsStds() {
@@ -174,16 +228,54 @@ func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, b
 	if _, bound := bl.g.genericSubstKind("Struct"); bound {
 		return no()
 	}
-	lit, isLit := t.Args[1].(*ast.StructLit)
+	ops, ok := structUpdateOperands(t.Args)
+	if !ok {
+		return no()
+	}
+	lit, isLit := argExpr(t.Args[ops.patch]).(*ast.StructLit)
 	if !isLit || lit.TypeName != nil || lit.Spread != nil {
 		return no()
 	}
-	base, k, _, ok := bl.lower(t.Args[0])
+	recorded := bl.recording > 0 && bl.qualRecord == t
+	if (ops.patchFirst || recorded) && patchHasHole(lit) {
+		return bl.structUpdateHoles(t, ops, lit, recorded)
+	}
+	if ops.patchFirst || recorded {
+		// The patch is built once as a record and the update reads each
+		// field back from it: inside an assertion subject the record is the
+		// patch's `values:` row, and a patch evaluated before the base must
+		// be built before the base is.
+		var rec, base ir.Temp
+		var rk, k kind
+		if ops.patchFirst {
+			if rec, rk, _, ok = bl.recordMake(lit); !ok {
+				return no()
+			}
+		}
+		if base, k, _, ok = bl.lower(argExpr(t.Args[ops.base])); !ok || !irRetainedUpdateKind(k) {
+			return no()
+		}
+		if !ops.patchFirst {
+			if rec, rk, _, ok = bl.recordMake(lit); !ok {
+				return no()
+			}
+		}
+		v, ok := bl.recordMerge(t, k, base, rec, rk, lit)
+		if !ok {
+			return no()
+		}
+		if recorded {
+			temps, kinds := make([]ir.Temp, 2), make([]kind, 2)
+			temps[ops.base], kinds[ops.base] = base, k
+			temps[ops.patch], kinds[ops.patch] = rec, rk
+			bl.qualRecordArgs = irQualArgs{temps: temps, kinds: kinds, mobile: []bool{true, true}, ok: true}
+			bl.qualRecordSeen = true
+		}
+		return v, k, false, true
+	}
+	base, k, _, ok := bl.lower(argExpr(t.Args[ops.base]))
 	if !ok || !irRetainedUpdateKind(k) {
 		return no()
-	}
-	if bl.recording > 0 && bl.qualRecord == t {
-		return bl.recordedStructUpdate(t, k, base, lit)
 	}
 	if len(lit.Fields) == 0 {
 		return base, k, false, true
@@ -195,30 +287,39 @@ func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, b
 	return v, k, false, true
 }
 
-// recordedStructUpdate is structUpdateCall inside an assertion subject, where
-// the call's two operands are `values:` rows: the base, and the patch as the
-// record it evaluates to (`{y: 5, name: "q"}`). The patch is
-// built once as that record, in source order, and the update reads each field
-// back from it, so the row and the update see the same values. A nested
-// patch is a nested record in the row, and the update merges it into the
-// base's field from that record, as structMerge merges it from the literal.
-func (bl *irScalarBuilder) recordedStructUpdate(t *ast.Call, k kind, base ir.Temp, lit *ast.StructLit) (ir.Temp, kind, bool, bool) {
-	rec, rk, _, ok := bl.recordMake(lit)
-	if !ok {
-		return ir.NoTemp, kindInvalid, false, false
+// structUpdateArgs is where `Struct.update`'s two operands are written: the
+// index of the base and of the patch among the call's arguments, and whether
+// the patch is evaluated first.
+type structUpdateArgs struct {
+	base, patch int
+	patchFirst  bool
+}
+
+// structUpdateOperands places `Struct.update`'s two written arguments,
+// positional or named by `Struct`'s parameters (`original`, `updates`), as
+// any call places them (argSlotPlan).
+func structUpdateOperands(args []ast.Node) (structUpdateArgs, bool) {
+	plan, planned := argSlotPlan(args, make([]kind, 2), []string{"original", "updates"})
+	if !planned || len(plan.order) != 2 {
+		return structUpdateArgs{}, false
 	}
-	v, ok := bl.recordMerge(t, k, base, rec, rk, lit)
-	if !ok {
-		return ir.NoTemp, kindInvalid, false, false
+	at := [2]int{-1, -1}
+	for _, i := range plan.order {
+		s := plan.slots[i]
+		if s < 0 || s > 1 || at[s] >= 0 {
+			return structUpdateArgs{}, false
+		}
+		at[s] = i
 	}
-	bl.qualRecordArgs = irQualArgs{temps: []ir.Temp{base, rec}, kinds: []kind{k, rk}, mobile: []bool{true, true}, ok: true}
-	bl.qualRecordSeen = true
-	return v, k, false, true
+	if at[0] < 0 || at[1] < 0 {
+		return structUpdateArgs{}, false
+	}
+	return structUpdateArgs{base: at[0], patch: at[1], patchFirst: plan.order[0] == at[1]}, true
 }
 
 // recordMerge is structMerge over a patch already built as the record rec of
-// kind rk: each field is read back from rec, and a nested patch merges the
-// nested record into the base's field.
+// kind rk: each field is read back from rec. A patch with a `..` field never
+// reaches it (structUpdateHoles).
 func (bl *irScalarBuilder) recordMerge(at ast.Node, k kind, base, rec ir.Temp, rk kind, lit *ast.StructLit) (ir.Temp, bool) {
 	names := make([]string, len(lit.Fields))
 	vals := make([]ir.Temp, len(lit.Fields))
@@ -231,21 +332,6 @@ func (bl *irScalarBuilder) recordMerge(at ast.Node, k kind, base, rec ir.Temp, r
 		p := ir.NewProjRecordField(bl.g.irNodePos(f.Value), bl.f.NewTemp(), rec, f.Name, irParamShape(part))
 		bl.b.Append(p)
 		bl.side(p.Dst(), irScalarSide{k: part})
-		if nested, isLit := f.Value.(*ast.StructLit); isLit && nested.TypeName == nil && nested.Spread == nil {
-			if len(nested.Fields) == 0 || !irRetainedUpdateKind(fk) || part.tag != tagAnonStruct {
-				return ir.NoTemp, false
-			}
-			sub, ok := bl.updateBaseField(f.Value, k, base, f.Name, fk)
-			if !ok {
-				return ir.NoTemp, false
-			}
-			v, ok := bl.recordMerge(f.Value, fk, sub, p.Dst(), part, nested)
-			if !ok {
-				return ir.NoTemp, false
-			}
-			names[i], vals[i] = f.Name, v
-			continue
-		}
 		v, vk, ok := bl.coerceEmpty(f.Value, p.Dst(), part, fk)
 		if !ok || vk != fk {
 			return ir.NoTemp, false

@@ -55,7 +55,8 @@ fn collect<T>(source: Iter<T>): Vector<T> { Iter.to_vector(source) }
 fn main() {
   io.inspect([1, 2, 3] |> Iter.to_vector())
   io.inspect(#["a", "b"] |> Iter.to_vector())
-  io.inspect(#{3, 1, 3} |> Iter.to_vector())
+  three = 3
+  io.inspect(#{3, 1, three} |> Iter.to_vector())
   io.inspect({"a" => 1, "b" => 2} |> Iter.to_vector())
   io.inspect("hé" |> Iter.to_vector())
   io.inspect(1..=3 |> Iter.to_vector())
@@ -149,8 +150,9 @@ func TestIRVectorSetLiteral_BareNoneTakesTheItemsKind(t *testing.T) {
 fn main() {
   io.inspect(#[Some(1), None])
   io.inspect(#[None, Some("a")])
-  io.inspect(#{Some(1), None, Some(1)})
-  io.inspect(Set.size(#{None, Some(2), None}))
+  one = Some(1)
+  io.inspect(#{Some(1), None, one})
+  io.inspect(Set.size(#{None, Some(2), Some(1 + 1)}))
 }
 `, "#[Some(1), None]\n#[None, Some(\"a\")]\n#{Some(1), None}\n2\n")
 }
@@ -180,16 +182,16 @@ test "return is the next state and an if-else tail guards" {
   assert b == 0
 }
 
-test "a stateless loop answers its break value" {
-  answer = Iter.loop(|| { break 42 })
+test "a stateless loop answers Unit" {
+  answer = Iter.loop(|| { break })
 
-  assert answer == 42
+  assert answer == Unit
 }
 `
 
 // In a VM-only test body Iter.loop takes a `return v` tail as the next
 // state, an `if` tail with a leaving branch as a guard, an `if` tail of values
-// as the next state, and a stateless callback that breaks as its break value.
+// as the next state, and a stateless callback, whose value is Unit.
 func TestIRLoop_TestBodyTailShapesAndStateless(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "loop_test.nomi")
 	if err := os.WriteFile(path, []byte(irLoopShapesSource), 0600); err != nil {

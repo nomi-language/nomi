@@ -380,7 +380,7 @@ func TestMapMerge(t *testing.T) {
 }
 
 // TestMapOfLastWriteWinsKeepingPosition pins the rule
-// `{"a" => 1, "a" => 9}` and `Iter.to_map([("a", 1), ("b", 2), ("a", 9)])`
+// `{k => 1, j => 9}` with `k == j` and `Iter.to_map([("a", 1), ("b", 2), ("a", 9)])`
 // both depend on. `nomi run` prints `{a => 9, b => 2}` for the latter.
 func TestMapOfLastWriteWinsKeepingPosition(t *testing.T) {
 	h, eq := stringKeys()

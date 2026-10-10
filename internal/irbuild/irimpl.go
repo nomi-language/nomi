@@ -21,7 +21,7 @@ func (g *gen) irImplLower(d *implDef, it *implItem, plan *tailPlan, params []kin
 	if fd == nil {
 		return kindInvalid, false
 	}
-	name := d.recv.nomi() + "." + it.name
+	name := d.ownerName() + "." + it.name
 	sig := irFuncSig{result: it.result, decl: fd, name: name, origin: irFromImpl}
 	sh := g.irFuncShellWithCallee(fd, sig, params, g.irCalleeSym(it, name))
 	if ef, isHost := hostExtOf(fd); isHost {
@@ -32,7 +32,37 @@ func (g *gen) irImplLower(d *implDef, it *implItem, plan *tailPlan, params []kin
 			defer g.lowerNamesFrom(unit)()
 		}
 	}
+	g.irImplPrologue(fd, sh, params)
 	return g.irScalarLower(fd, sig, plan, sh, it.result)
+}
+
+// irImplPrologue reads each destructuring parameter's names off its value at
+// the head of the function, as funcDecl does for a file-level function. A
+// pattern that does not lower leaves the shell's patternOK false, and
+// irScalarLower declines the body.
+func (g *gen) irImplPrologue(fd *ast.FuncDef, sh *irFuncShell, params []kind) {
+	if sh == nil {
+		return
+	}
+	has := false
+	for _, p := range fd.Params {
+		has = has || p.Destructure != nil
+	}
+	if !has {
+		return
+	}
+	ok := true
+	closePrologue := g.irPrologueOpen(sh)
+	for i, p := range fd.Params {
+		if p.Destructure == nil {
+			continue
+		}
+		if !g.destructure(p.Destructure, sh.paramValue(i, params[i]), fd) {
+			ok = false
+			g.bindPatternNamesInvalid(p.Destructure)
+		}
+	}
+	closePrologue(ok)
 }
 
 // hostTemplateImplPlan resolves `Box.origin()` against a generic receiver's

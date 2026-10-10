@@ -2,10 +2,12 @@ package analysis
 
 import "fmt"
 
-// PartialType represents `Partial<T>` — a *deep partial* of a struct `T`. It is
-// the parameter type of `Struct.update(original: T, updates: Partial<T>): T`,
-// expressing that the patch may omit fields (they are taken from `original`) and
-// may itself patch nested struct fields recursively. `Partial<T>` only appears in
+// PartialType represents `Partial<T>` — a partial of a struct `T`. It is the
+// parameter type of `Struct.update(original: T, updates: Partial<T>): T`,
+// expressing that the patch may omit fields (they are taken from `original`).
+// Each field it writes is a whole value of that field, or, in a literal patch
+// of a `Struct.update` call, a literal with a bare `..` that updates the
+// field's current value (current_value.go). `Partial<T>` only appears in
 // parameter position; there is no construction or return-position machinery for
 // it.
 //
@@ -33,34 +35,36 @@ func (t *PartialType) typeTag() {}
 
 // deepPartialMatches reports whether `arg` is a valid argument for `Partial<target>`:
 //
-//   - any value that unifies with `target` (a whole struct, or a nested field's
-//     full struct value) is accepted — full-value replacement; or
+//   - any value that unifies with `target` (a whole struct) is accepted —
+//     full-value replacement; or
 //   - a concrete implementer of an interface-typed `target`, via the shared
 //     `ifaceParamAdmits`; or
 //   - an anon-struct whose every field name exists in `target` (a struct, or
-//     anon struct) and whose every field value is itself a deep partial of the
-//     corresponding `target` field — so `{name}`, `{address: {city}}`, and
-//     `{address: Address}` all match `Partial<Person>` while `{bogus: 5}` and a
-//     type-mismatched `{name: 5}` do not.
+//     anon struct) and whose every field value is a whole value of the
+//     corresponding `target` field — so `{name}` and `{address: Address}`
+//     match `Partial<Person>` while `{bogus: 5}`, a type-mismatched
+//     `{name: 5}` and `{address: {city: "NYC"}}` (not a whole Address) do not.
+//
+// The patch is one level deep. A nested partial update is written with a
+// bare `..` (`{address: {.., city: "NYC"}}`), which only a literal patch of a
+// `Struct.update` call can hold: the checker checks that literal field by
+// field (checkPatchLit) and hands this walk the patch's type, in which such a
+// field already has the field's whole type.
 //
 // `reg` resolves a thin `StructType` name reference to its field set when the
 // struct does not carry its `Fields` inline; pass nil when fields are inline
-// (or for non-struct targets). `recPos` is the patch argument's position; it is
-// carried unchanged into the recursion because the whole patch is one argument
-// and a nested field has no node of its own here (only types reach this walk).
+// (or for non-struct targets). `recPos` is the patch argument's position.
 //
 // Bare `Unify` handles structural / embeds / bool coercion, except an enum
 // where a field wants one of its embedded types (embedsDowncast). Interface-impl
 // coercion is NOT in the unifier — it is `ifaceParamAdmits` — so an
-// interface-typed field needs the explicit arm below. Scoped values are
-// replaced as whole values, so immutable record updates must accept concrete
-// implementations in interface-typed fields just like struct literals do.
+// interface-typed field needs the explicit arm in wholeValueMatches. Scoped
+// values are replaced as whole values, so immutable record updates must accept
+// concrete implementations in interface-typed fields just like struct literals
+// do.
 func (c *checker) deepPartialMatches(arg, target Type, reg *TypeRegistry, recPos Pos) bool {
-	if _, _, down := embedsDowncast(target, arg); !down && Unify(target, arg) == nil {
+	if c.wholeValueMatches(arg, target, recPos) {
 		return true
-	}
-	if iface, ok := resolveTypeVar(target).(*InterfaceType); ok {
-		return c.ifaceParamAdmits(arg, iface, recPos, RecordingKindInterfaceTypedParam)
 	}
 	anon, ok := resolveTypeVar(arg).(*AnonStructType)
 	if !ok {
@@ -79,11 +83,23 @@ func (c *checker) deepPartialMatches(arg, target Type, reg *TypeRegistry, recPos
 		if !ok {
 			return false
 		}
-		if !c.deepPartialMatches(af.Type, tf, reg, recPos) {
+		if !c.wholeValueMatches(af.Type, tf, recPos) {
 			return false
 		}
 	}
 	return true
+}
+
+// wholeValueMatches reports whether arg is a whole value of target: it
+// unifies with target, or it implements target's interface.
+func (c *checker) wholeValueMatches(arg, target Type, recPos Pos) bool {
+	if _, _, down := embedsDowncast(target, arg); !down && Unify(target, arg) == nil {
+		return true
+	}
+	if iface, ok := resolveTypeVar(target).(*InterfaceType); ok {
+		return c.ifaceParamAdmits(arg, iface, recPos, RecordingKindInterfaceTypedParam)
+	}
+	return false
 }
 
 // partialPatchOK reports whether `arg` is an acceptable `Partial<target>` patch,
@@ -92,7 +108,7 @@ func (c *checker) deepPartialMatches(arg, target Type, reg *TypeRegistry, recPos
 // gate for a `Partial<T>` argument: `argMatchesParam` (monomorphic) and
 // `argSatisfiesConcreteParam` (generic, via reportGenericArgMismatch) both go
 // through it, so no call shape reaches `deepPartialMatches` without the opacity
-// walk. `line`/`col` position the diagnostic at the patch argument.
+// check. `line`/`col` position the diagnostic at the patch argument.
 //
 // The return value is the *shape* verdict alone. A patch that matches
 // structurally but breaches opacity returns true with the error already
@@ -109,28 +125,22 @@ func (c *checker) partialPatchOK(arg, target Type, line, col int) bool {
 	return c.deepPartialMatches(arg, target, c.reg, c.recPos(line, col))
 }
 
-// opaquePatchField finds the first field in a `Partial<target>` patch that names
-// a field of an opaque struct declared outside the file being checked, returning
-// the opaque type's name and the offending field name.
+// opaquePatchField reports when a `Partial<target>` patch names a field of
+// target, an opaque struct declared outside the file being checked, returning
+// the opaque type's name and the first field the patch names.
 //
 // Naming a private field is the exposure, wherever the name appears. Field
 // access (`c.value`), a pattern (`case c { Counter{value} -> ... }`), a struct
 // literal (`Counter{value: 0}`) and the call form (`Counter({value: 0})`) are
 // guarded elsewhere. An update patch (`Struct.update(c, {value: -999})`) is the
-// fifth spelling, and this walk guards it.
+// fifth spelling, and this check guards it.
 //
-// The walk is keyed on the PATCH rather than on `Struct.update`'s receiver,
-// because the receiver is not always the opaque type: a patch routed through a
-// transparent wrapper (`Struct.update(box, {inner: {value: -999}})`, where
-// `Box.inner: Counter`) reaches an opaque field with a non-opaque receiver, and
-// a receiver-keyed rule would miss it. Recursion mirrors `deepPartialMatches`
-// so the two agree on which positions a patch reaches.
-//
-// A whole-value replacement names no field and is clean, including replacing an
-// opaque field wholesale (`Struct.update(box, {inner: counter.new()})`): the
-// non-anon-struct arm below is exactly that case. Deliberately NOT keyed on
-// `Unify(target, arg)` succeeding, so the verdict does not depend on whether
-// unification happens to admit a narrower anonymous struct against a named one.
+// A patch reaches a field one level down only through a bare `..`
+// (`Struct.update(box, {inner: {.., value: -999}})`), which is an update
+// literal of its own and is refused where it is checked
+// (checkStructUpdateLit's opaqueUpdateBlocked). A whole-value replacement
+// names no field and is clean, including replacing an opaque field wholesale
+// (`Struct.update(box, {inner: counter.new()})`).
 func (c *checker) opaquePatchField(arg, target Type) (typeName, fieldName string, found bool) {
 	anon, ok := resolveTypeVar(arg).(*AnonStructType)
 	if !ok || len(anon.Fields) == 0 {
@@ -140,23 +150,6 @@ func (c *checker) opaquePatchField(arg, target Type) (typeName, fieldName string
 		st = canonicalStructForFieldAccess(c, st)
 		if st != nil && st.Opaque && (c.fa == nil || c.fa.FilePath != st.OwningSourceFile) {
 			return st.Name, anon.Fields[0].Name, true
-		}
-	}
-	fields := partialTargetFields(target, c.reg)
-	if fields == nil {
-		return "", "", false
-	}
-	byName := make(map[string]Type, len(fields))
-	for _, f := range fields {
-		byName[f.Name] = f.Type
-	}
-	for _, af := range anon.Fields {
-		tf, ok := byName[af.Name]
-		if !ok {
-			continue
-		}
-		if tn, fn, hit := c.opaquePatchField(af.Type, tf); hit {
-			return tn, fn, true
 		}
 	}
 	return "", "", false

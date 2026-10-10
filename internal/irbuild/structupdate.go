@@ -27,18 +27,16 @@ package irbuild
 // # The merge rule, which is std's and not this file's
 //
 // std/structs.nomi states it: "fields present on both take the value from
-// `updates`", and it is a DEEP partial — "a nested struct field may itself be
-// patched recursively (an anonymous struct merges; a concrete struct replaces
-// the field wholesale)". Both halves are load-bearing and the corpus
+// `updates`", and a field written as a literal with a bare `..` updates the
+// field's current value. Both halves are load-bearing and the corpus
 // distinguishes them in adjacent lines:
 //
-//	Struct.update(person, {address: {city: "NYC"}})            // merges: zip survives
+//	Struct.update(person, {address: {.., city: "NYC"}})        // merges: zip survives
 //	Struct.update(person, {address: Address{city:…, zip:…}})   // replaces
 //
-// So the recursion is driven by the SYNTAX of each update value: an anonymous
-// struct literal recurses, anything else is an assignment. Reading the value's
-// KIND instead would be wrong in exactly the case above — both values have kind
-// `Address` after lowering, and the two lines must not do the same thing.
+// So the recursion is driven by the SYNTAX of each update value: a `..`
+// literal reads the field from the base as its `..` (ircurrentvalue.go), and
+// anything else is an assignment.
 //
 // # Why the emitted form is a copy-and-assign
 //

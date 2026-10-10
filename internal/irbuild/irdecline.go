@@ -61,6 +61,9 @@ type Decline struct {
 	// representable type. Empty for any other decline. A host reports such a
 	// decline at the `once`, whose own attempt says where it stopped.
 	Once string
+	// Pattern reports that Line and Col are a pattern's: the innermost
+	// pattern the builder could not test, which is no expression.
+	Pattern bool
 }
 
 // IRDeclineAt is called with each attempt's first decline, as
@@ -260,6 +263,27 @@ func irDeclineAtNode(n ast.Node) {
 	if line, col := nodePos(n); emittableLine(line) {
 		irDeclineCur.Line, irDeclineCur.Col = line, col
 	}
+}
+
+// irDeclineAtPattern records reason as the open attempt's decline, unless one
+// is already recorded, and places it at the pattern p unless something inside
+// p already placed it. Every site that gives up on a pattern calls it, so the
+// innermost pattern that failed is where the decline is reported: a pattern is
+// tested outside `lower`, which places only expressions.
+func irDeclineAtPattern(p ast.Node, reason string) {
+	first := irDeclineWhy == ""
+	irDeclineNote(reason)
+	line, col := nodePos(p)
+	if !emittableLine(line) {
+		return
+	}
+	if first {
+		irDeclineLine, irDeclineCol = line, col
+	}
+	if irDeclineCur == nil || irDeclineCur.Line != 0 {
+		return
+	}
+	irDeclineCur.Line, irDeclineCur.Col, irDeclineCur.Pattern = line, col, true
 }
 
 // declineReason names why n did not lower, re-deriving the cheap tests the

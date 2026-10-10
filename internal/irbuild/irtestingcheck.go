@@ -81,6 +81,9 @@ func (bl *irScalarBuilder) testingCheck(t *ast.Call) (ir.Temp, kind, bool, bool)
 	witnessRow := bl.witnessRow
 	bl.witnessRow = false
 	bl.recording++
+	root := bl.assertRoot
+	bl.assertRoot = subject
+	defer func() { bl.assertRoot = root }()
 	if prefixes := pipeStagePrefixes(subject); prefixes != nil {
 		// A piped subject: each cumulative prefix is held and becomes a
 		// `pipeline values:` row, which a failed check appends as one more

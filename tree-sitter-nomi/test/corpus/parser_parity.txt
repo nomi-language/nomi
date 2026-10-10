@@ -1,0 +1,541 @@
+================================================================================
+An assertion whose subject starts like a pattern is a comparison
+================================================================================
+
+test "t" {
+    assert (1, 2) == (1, 2)
+    assert [1, ..[2]] == [1, 2]
+    assert Some(1) == Some(1)
+    assert "ab" + "c" == "abc"
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (test_declaration
+    (string
+      (string_content))
+    (body
+      (assertion
+        (binary_expression
+          (tuple_expression
+            (integer)
+            (integer))
+          (tuple_expression
+            (integer)
+            (integer))))
+      (assertion
+        (binary_expression
+          (list
+            (integer)
+            (list
+              (integer)))
+          (list
+            (integer)
+            (integer))))
+      (assertion
+        (binary_expression
+          (call_expression
+            (type_identifier)
+            (integer))
+          (call_expression
+            (type_identifier)
+            (integer))))
+      (assertion
+        (binary_expression
+          (binary_expression
+            (string
+              (string_content))
+            (string
+              (string_content)))
+          (string
+            (string_content)))))))
+
+================================================================================
+A pattern assertion binds an identifier, a wildcard or a struct pattern
+================================================================================
+
+test "t" {
+    assert n = compute()
+    assert Err(_) = parse("x")
+    assert Point{x, y} = Point{x: 3, y: 4}
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (test_declaration
+    (string
+      (string_content))
+    (body
+      (pattern_assertion_binding
+        (identifier)
+        (call_expression
+          (identifier)))
+      (pattern_assertion_binding
+        (call_expression
+          (type_identifier)
+          (identifier))
+        (call_expression
+          (identifier)
+          (string
+            (string_content))))
+      (pattern_assertion_binding
+        (struct_construction
+          (type_identifier)
+          (identifier)
+          (identifier))
+        (struct_construction
+          (type_identifier)
+          (identifier)
+          (integer)
+          (identifier)
+          (integer))))))
+
+================================================================================
+A case arm's body may be an assertion
+================================================================================
+
+test "t" {
+    case read() {
+        Ok(_) -> assert False
+        Err(e) -> assert e == "missing"
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (test_declaration
+    (string
+      (string_content))
+    (body
+      (case_expression
+        (call_expression
+          (identifier))
+        (case_branch
+          (enum_pattern
+            (type_identifier))
+          (assertion
+            (type_identifier)))
+        (case_branch
+          (enum_pattern
+            (type_identifier)
+            (identifier))
+          (assertion
+            (binary_expression
+              (identifier)
+              (string
+                (string_content)))))))))
+
+================================================================================
+A guard arm takes a when clause
+================================================================================
+
+fn f(n: Int): String {
+    case {
+        loud("b", n > 10) when n != 50 -> "b"
+        _ -> "c"
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (case_expression
+        (guard_branch
+          (call_expression
+            (identifier)
+            (string
+              (string_content))
+            (binary_expression
+              (identifier)
+              (integer)))
+          (binary_expression
+            (identifier)
+            (integer))
+          (string
+            (string_content)))
+        (guard_branch
+          (identifier)
+          (string
+            (string_content)))))))
+
+================================================================================
+A struct pattern names the whole value with as
+================================================================================
+
+fn f(s: Shape): Int {
+    case s {
+        .Rect{w, h} as r when w == h -> 1
+        other -> 2
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (as_pattern
+            (struct_construction
+              (dot_variant
+                (type_identifier))
+              (identifier)
+              (identifier))
+            (identifier))
+          (binary_expression
+            (identifier)
+            (identifier))
+          (integer))
+        (case_branch
+          (identifier)
+          (integer))))))
+
+================================================================================
+An import reaches a member through its owner
+================================================================================
+
+import std/iter.Iter.loop
+
+import {
+    std/supervisors.Backoff.Exponential
+    results.Result.Ok
+    bool.Bool.False
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier))
+    (type_identifier)
+    (import_value_selector
+      (identifier)))
+  (import_block
+    (module_path
+      (identifier)
+      (identifier))
+    (type_identifier)
+    (type_identifier)
+    (module_path
+      (identifier))
+    (type_identifier)
+    (type_identifier)
+    (module_path
+      (identifier))
+    (type_identifier)
+    (type_identifier)))
+
+================================================================================
+A renaming struct destructure at a statement start
+================================================================================
+
+fn f(p: Point) {
+    {x: a, y: b} = p
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (body
+      (destructuring_binding
+        (identifier)
+        (identifier)
+        (identifier)
+        (identifier)
+        (identifier)))))
+
+================================================================================
+An if condition on a type name keeps its block
+================================================================================
+
+fn f(): Unit {
+    when_true = if True { Unit }
+    if False {}
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (if_expression
+          (type_identifier)
+          (body
+            (type_identifier))))
+      (if_expression
+        (type_identifier)
+        (body)))))
+
+================================================================================
+An interface declares a host function
+================================================================================
+
+pub interface Struct {
+    host fn update(original: self, updates: Partial<self>): self
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (interface_definition
+    (pub)
+    (type_identifier)
+    (interface_method
+      (host_keyword)
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (self_type))
+        (parameter
+          (identifier)
+          (generic_type
+            (type_identifier)
+            (self_type))))
+      (self_type))))
+
+================================================================================
+A float with an exponent and no fraction
+================================================================================
+
+x = 1e20
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (binding
+    (identifier)
+    (float)))
+
+================================================================================
+A keyword's operand starts on its line
+================================================================================
+
+fn f(n: Int): Int {
+    d = n |> dbg
+
+    same = dbg n
+    v = r |> try
+    try parse(n)
+    return
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (pipe_expression
+          (identifier)
+          (dbg_expression)))
+      (binding
+        (identifier)
+        (dbg_expression
+          (identifier)))
+      (binding
+        (identifier)
+        (pipe_expression
+          (identifier)
+          (try_expression)))
+      (try_expression
+        (call_expression
+          (identifier)
+          (identifier)))
+      (return_statement))))
+
+================================================================================
+A case arm ends before a negative literal on the next line
+================================================================================
+
+fn f(d: Decimal): Int {
+    case d {
+        2d -> 2
+        -0.001d -> 3
+        _ -> 0
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (decimal)
+          (integer))
+        (case_branch
+          (decimal)
+          (integer))
+        (case_branch
+          (integer))))))
+
+================================================================================
+A case arm in an attached test ends before the next prompted arm
+================================================================================
+
+//! value = case parse("hi") {
+//!     .Ok(v) -> v
+//!     .Err(_) -> "?"
+//! }
+fn parse(s: String): Result<String, String> {
+    Ok(s)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (decorated_item
+    (attached_test_prompt
+      (attached_comment_test_prompt_marker)
+      (binding
+        (identifier)
+        (case_expression
+          (call_expression
+            (identifier)
+            (string
+              (string_content)))
+          (attached_comment_test_line_prompt)
+          (case_branch
+            (enum_pattern
+              (dot_variant
+                (type_identifier))
+              (identifier))
+            (identifier))
+          (attached_comment_test_line_prompt)
+          (case_branch
+            (enum_pattern
+              (dot_variant
+                (type_identifier)))
+            (string
+              (string_content)))
+          (attached_comment_test_line_prompt))))
+    (function_definition
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (type_identifier)))
+      (generic_type
+        (type_identifier)
+        (type_identifier)
+        (type_identifier))
+      (body
+        (call_expression
+          (type_identifier)
+          (identifier))))))
+
+================================================================================
+A brace inside a comment opens nothing
+================================================================================
+
+// {port: Int, context: Context}", naming as unacceptable
+fn f() {
+    1
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (line_comment)
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (integer))))
+
+================================================================================
+A headless brace is classified by its contents
+================================================================================
+
+fn f() {
+    a = {x: 1}
+    m = {"k" => 1}
+    g = || {
+        t: Map<String, Int> = Map.empty()
+        t
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (anon_struct
+          (anon_struct_field
+            (identifier)
+            (integer))))
+      (binding
+        (identifier)
+        (map_literal
+          (map_entry
+            (string
+              (string_content))
+            (integer))))
+      (binding
+        (identifier)
+        (lambda
+          (body
+            (binding
+              (identifier)
+              (generic_type
+                (type_identifier)
+                (type_identifier)
+                (type_identifier))
+              (call_expression
+                (field_access
+                  (type_identifier)
+                  (identifier))))
+            (identifier)))))))

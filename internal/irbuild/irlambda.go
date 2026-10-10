@@ -231,6 +231,14 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	var answer ir.Temp
 	var k kind
 	var ok bool
+	lam := t
+	// A body ending in a block whose tail leaves: its statements, then its
+	// tail here.
+	body, restore, unwrapped := child.leavingBlocks(body)
+	defer restore()
+	if !unwrapped {
+		return no()
+	}
 	switch t := body.(type) {
 	case *ast.Return:
 		if supplier >= 0 {
@@ -240,10 +248,23 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	case *ast.Break, *ast.Continue:
 		// `|acc, x| { break Some(x) }`: a signalling callback whose whole
 		// body leaves it, as a `break` ending an arm does (armInto).
-		if supplier >= 0 || child.ctl == irCtlNone || sig.inferResult {
+		if supplier >= 0 || child.ctl == irCtlNone {
 			return no()
 		}
-		k, ok = sig.result, child.ctlReturn(body)
+		ok = child.ctlReturn(body)
+		k = sig.result
+		if ok && sig.inferResult {
+			// A `break v` or `return v` settled the result's kind; with
+			// neither, the callee's parameter type gives it.
+			// kindInvalid: sentinel — no `break v` or `return v` settled it.
+			if k = child.returnKind; k == kindInvalid {
+				k = bl.g.lambdaCheckedResult(lam)
+			}
+			// kindInvalid: lookup — the checker recorded no function type at the argument.
+			if k == kindInvalid {
+				return no()
+			}
+		}
 	case *ast.If:
 		sh.result = f.NewTemp()
 		k, ok = child.tailIf(t, sig)
@@ -251,6 +272,24 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		sh.result = f.NewTemp()
 		k, ok = child.tailCase(t, sig)
 	default:
+		if supplier < 0 && bl.g.neverFinishes(body) {
+			// An `Iter.loop` with no `break` never answers: the lambda's
+			// result is what its returns settled, or the checker's.
+			if _, ok = child.endlessLoop(body); !ok {
+				return no()
+			}
+			if k = sig.result; sig.inferResult {
+				// kindInvalid: sentinel — no `return v` settled it.
+				if k = child.returnKind; k == kindInvalid {
+					k = bl.g.lambdaTypedResult(lam)
+				}
+				// kindInvalid: lookup — the checker recorded no function type for the lambda.
+				if k == kindInvalid {
+					return no()
+				}
+			}
+			break
+		}
 		if supplier >= 0 {
 			answer, k, _, ok = child.lowerWant(body, group.params[supplier])
 		} else if !sig.inferResult {
@@ -266,6 +305,13 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		// Every arm of the tail region returned: the lambda's result is
 		// what those returns settled.
 		k = child.returnKind
+		// In a signalling callback every arm may leave by `break` or
+		// `continue` (`|x| case x { 1 -> continue  _ -> break 9 }`), and the
+		// result is the checker's.
+		// kindInvalid: sentinel — no `return` settled it.
+		if k == kindInvalid && child.ctl != irCtlNone {
+			k = bl.g.lambdaCheckedResult(t)
+		}
 	}
 	if !ok || (!irCallableValueKind(k) && k != kindUnit) {
 		if ok {
@@ -520,7 +566,7 @@ func irDistinctParamBinding(pattern ast.Node, k kind) (string, bool) {
 	if !ok || k.tag != tagNamed || !irWrappingDistinct(k.def) {
 		return "", false
 	}
-	owner, member, ok := patternHead(ep.Variant)
+	owner, member, ok := patternHeadAsWritten(ep.Variant)
 	if !ok || owner != "" || member != k.def.nomi {
 		return "", false
 	}
@@ -543,7 +589,7 @@ func (g *gen) irPatternHeadKind(pattern ast.Node) kind {
 	if !ok {
 		return kindInvalid
 	}
-	owner, member, ok := patternHead(ep.Variant)
+	owner, member, ok := g.patternHead(ep.Variant)
 	if !ok || owner != "" {
 		return kindInvalid
 	}
@@ -568,4 +614,44 @@ func irFlatTupleParam(tp *ast.TuplePattern, k kind) bool {
 		}
 	}
 	return true
+}
+
+// lambdaCheckedResult is the result kind of the function type the checker
+// expected lam to be at its argument (`(T) -> Bool` for Iter.filter's
+// callback), or kindInvalid where it recorded none or left it unsolved. The
+// lambda's own type is not asked: a body that only leaves gives it
+// Infallible, which the callee does not take.
+func (g *gen) lambdaCheckedResult(lam *ast.Lambda) kind {
+	if g.fa == nil {
+		return kindInvalid
+	}
+	ty := g.fa.ExpectedTypes[lam]
+	for {
+		tv, isVar := ty.(*analysis.TypeVar)
+		if !isVar || tv.Resolved == nil {
+			break
+		}
+		ty = tv.Resolved
+	}
+	ft, isFunc := ty.(*analysis.FuncType)
+	if !isFunc || ft.Return == nil || irUnsolvedType(ft.Return) {
+		return kindInvalid
+	}
+	return g.project(ft.Return)
+}
+
+// lambdaTypedResult is lambdaCheckedResult, or where no function type was
+// expected at lam (`f = || …`), the result of the type the checker gave lam
+// itself. A lambda ending in an `Iter.loop` with no `break` asks it: the loop
+// has its state type there, not Infallible.
+func (g *gen) lambdaTypedResult(lam *ast.Lambda) kind {
+	// kindInvalid: sentinel — no type was expected at the lambda; its own type answers.
+	if k := g.lambdaCheckedResult(lam); k != kindInvalid || g.fa == nil {
+		return k
+	}
+	ft, isFunc := g.fa.ExprTypes[lam].(*analysis.FuncType)
+	if !isFunc || ft.Return == nil || irUnsolvedType(ft.Return) {
+		return kindInvalid
+	}
+	return g.project(ft.Return)
 }

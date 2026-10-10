@@ -316,6 +316,20 @@ func missingImplHelp(iface, typeName string) string {
 // An operator interface keeps missingImplHelp's block shape.
 func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 	name := fmt.Sprint(concrete)
+	if bound.Name == "Display" {
+		if _, fn := resolveTypeVar(concrete).(*FuncType); fn {
+			return "a function value has no `Display`"
+		}
+		if parts, ok := displayParts(concrete); ok {
+			// A tuple or anonymous struct is Display when every part is, so
+			// the help is the first part's.
+			for _, p := range parts {
+				if !typeSatisfiesInterfaceForImplMatch(p, bound, c.implsContext(), c.implTypeArgsContext(), nil) {
+					return fmt.Sprintf("`%s` is Display when each part is, and `%s` is not: %s", name, p, c.boundHelp(p, bound))
+				}
+			}
+		}
+	}
 	if _, ok := operatorInterfaceByName(bound.Name); ok {
 		return missingImplHelp(bound.Name, name)
 	}

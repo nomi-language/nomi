@@ -356,7 +356,7 @@ fn main() {
 
 // A `with` in an inline `Iter.loop` callback holds for the iteration that
 // ran it: each jump back to the head, and the `break` out, restores the scope
-// read at the head. A stateless loop's `with` ends after its `break` value.
+// read at the head. A stateless loop's `with` ends with its iteration too.
 func TestIRAppBoot_WithInALoopEndsWithTheIteration(t *testing.T) {
 	verifyDeferProgram(t, `import std/io
 
@@ -386,8 +386,10 @@ fn counted(): Int {
 fn single(): String {
   Iter.loop(|| {
     with App.label = "single"
-    break label()
+    io.print(label())
+    break
   })
+  label()
 }
 
 fn main() {
@@ -396,7 +398,7 @@ fn main() {
   io.print(single())
   io.print(label())
 }
-`, "start base\niter 0\nstart base\niter 1\nstart base\niter 2\n2\nbase\nsingle\nbase\n",
+`, "start base\niter 0\nstart base\niter 1\nstart base\niter 2\n2\nbase\nsingle\nbase\nbase\n",
 		"boot", "label", "counted", "single", "main")
 }
 

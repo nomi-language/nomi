@@ -831,6 +831,8 @@ function appendHighlightedRunLine(out, line, parser, query) {
   const code = line.match(/^(\s{4,})(.+)$/);
   if (!code) return false;
   if (/^(where\b|defined as:|pipeline values:|values:|actual:)/.test(code[2])) return false;
+  // A line diff's header and rows are not source: classForRunLine colours them.
+  if (DIFF_HEADER.test(line) || DIFF_ROW.test(line)) return false;
 
   out.appendChild(document.createTextNode(code[1]));
   appendNomiInline(out, code[2], parser, query);
@@ -893,10 +895,18 @@ function appendNomiInline(out, code, parser, query) {
   out.appendChild(s);
 }
 
+// A failed assertion's line diff: the header naming the two sides, and each
+// row's optional source line number, its `-`, `+` or blank marker, and `│`.
+const DIFF_HEADER = /^\s{4,}.*\(-\) and .*\(\+\) differ$/;
+const DIFF_ROW = /^\s{4,}(?:\d+\s+)?([-+ ]) │/;
+
 function classForRunLine(line, fallbackClass) {
   if (/^FAIL\b/.test(line) || /^test result: FAILED\b/.test(line)) return "nomi-test-fail";
   if (/^ok\b/.test(line) || /^test result: ok\b/.test(line)) return "nomi-test-ok";
   if (/^  line \d+/.test(line)) return "nomi-test-detail";
+  if (DIFF_HEADER.test(line)) return "nomi-test-detail";
+  const row = line.match(DIFF_ROW);
+  if (row) return row[1] === "-" ? "nomi-test-fail" : row[1] === "+" ? "nomi-test-ok" : fallbackClass;
   if (/^\s{4,}(where\b|defined as:|pipeline values:|values:|actual:)/.test(line)) return "nomi-test-detail";
   if (/^    /.test(line)) return "nomi-test-code";
   return fallbackClass;

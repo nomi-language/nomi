@@ -300,7 +300,7 @@ func (c *hintCollector) walkNode(node ast.Node) {
 		}
 
 	case *ast.VectorLit:
-		for _, item := range n.Items {
+		for _, item := range n.Operands() {
 			c.walkNode(item)
 		}
 

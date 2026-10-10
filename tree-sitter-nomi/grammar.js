@@ -26,20 +26,23 @@ module.exports = grammar({
     $.string_content,
     $.triple_string_content,
     $.raw_string_content,
-    // Separator between `case` arms, emitted by the external scanner on a
-    // newline immediately followed by `.Uppercase` (a `dot_variant` pattern
-    // starting the next arm). Without it a complete arm body (`sort(xs, f)`)
-    // greedily extends via `expr.Type` (type_field_access) and swallows the
-    // next `.Variant` arm. It fires ONLY before `.Uppercase`, so it never cuts
-    // a multi-line body that continues with `|>`, an operator, or a lowercase
-    // `.field` — none of those start a dot-variant arm.
-    $._case_arm_sep,
-    // Opening brace of a headless anonymous-struct / map literal in value or
-    // scrutinee position. The dedicated tokens let the parser keep
-    // `anon_struct` / `map_literal` separate from block `body` states when the
-    // external scanner can classify the brace by content (`IDENT:` → struct,
-    // `=>` → map). The grammar also accepts a plain `{` for these rules and
-    // resolves the block/literal overlap with explicit conflicts.
+    // The end of a statement or a `case` arm at a line break: zero-width, at
+    // the start of the next line, and emitted only where a statement or an arm
+    // can end. The Go lexer ends a statement at a line break after a token
+    // that can end one unless the next line starts with `|>`, `)` or `]`, and
+    // its parser steps over the break only before `else` and, after a
+    // declaration's signature, before `{` and `where`. Without this token a
+    // complete statement (`x = a`, `f`, `Foo`) would extend into the next line
+    // as `a - 1`, the call `f (2)` or the typed list `Foo [1]`.
+    $._statement_end,
+    // Opening brace of a headless anonymous-struct / map literal after
+    // whitespace. The scanner classifies the brace by content (`IDENT:` with
+    // no top-level `=` -> struct, a leading `..` -> struct update, a top-level
+    // `=>` -> map) and emits one of these; otherwise a plain `{`. The dedicated
+    // tokens let `anon_struct` / `map_literal` leave the block `body` states
+    // early. The rules also accept a plain `{` (a brace with no whitespace
+    // before it, `f({a: 1})`), whose block/literal overlap the explicit
+    // conflicts resolve.
     $._anon_struct_open,
     $._map_open,
     // Line-leading attached test prompts. The first prompt opens an attached
@@ -48,6 +51,11 @@ module.exports = grammar({
     $.attached_comment_test_prompt_marker,
     $.attached_comment_test_line_prompt,
     $._attached_test_prompt_group_end,
+    // Zero-width, before the operand of `dbg`, `try`, `return`, `break` and
+    // `todo` when that operand starts on the keyword's line. The Go parser
+    // ends the statement at a line break after the keyword, so `n |> dbg`
+    // followed by a line `same = dbg n` is two statements, not `dbg same`.
+    $._same_line,
   ],
 
   word: $ => $.identifier,
@@ -57,9 +65,6 @@ module.exports = grammar({
     [$.struct_construction, $.struct_pattern],
     [$.map_construction, $._simple_type],
     [$.map_construction, $.struct_pattern],
-    [$.pattern_assertion_binding, $.field_access],
-    [$.pattern_assertion_binding, $.assertion, $.field_access],
-    [$.pattern_assertion_binding, $.destructuring_binding],
     [$._expression, $._expression_or_statement],
     [$._expression, $._callable_expression],
     [$._expression, $._lambda_body_expression],
@@ -81,6 +86,11 @@ module.exports = grammar({
     // literal wins.
     [$.body, $.struct_update],
     [$.body, $.map_literal],
+    // `{..m, "b" => 2}` through a plain `{` (`f({..m, "b" => 2})`) shares
+    // its `{ ..head` prefix with the struct update; the `=>` after the head
+    // decides.
+    [$.body, $.map_update],
+    [$.struct_update_spread, $.map_update_spread],
     [$.module_path],
     [$.lambda_parameter, $._expression],
     // A single `_import_body` covers all import shapes (bare module, single
@@ -121,12 +131,14 @@ module.exports = grammar({
     // _expression is expected, type_field_access takes over.
     [$._expression, $.qualified_type],
     [$.enum_variant],
+    // `Ok(n) = r` is a pattern_binding unless an `else` follows its value.
+    [$.pattern_binding, $._else_binding_pattern],
   ],
 
   rules: {
     // A `#!` interpreter line, allowed only as the file's first line, so a
     // script runs as `./hi.nomi`. The compiler's lexer skips it.
-    source_file: $ => seq(optional($.shebang), repeat($._item)),
+    source_file: $ => seq(optional($.shebang), repeat(seq($._item, optional($._statement_end)))),
 
     shebang: _ => token(seq('#!', /.*/)),
 
@@ -160,10 +172,23 @@ module.exports = grammar({
 
     attached_test_prompt: $ => seq(
       $.attached_comment_test_prompt_marker,
-      field('body', repeat1(choice(
-        $.import_statement,
-        $.import_block,
-        $._expression_or_statement,
+      // A prompt body is a block: it may declare local types and functions
+      // (`//! type TraceId String`).
+      field('body', repeat1(seq(
+        choice(
+          $.import_statement,
+          $.import_block,
+          $.function_definition,
+          $.type_definition,
+          $.struct_definition,
+          $.enum_definition,
+          $.type_alias,
+          $.interface_definition,
+          $.impl_block,
+          $.derive_conformance,
+          $._expression_or_statement,
+        ),
+        optional($._statement_end),
       ))),
       $._attached_test_prompt_group_end,
     ),
@@ -230,6 +255,8 @@ module.exports = grammar({
     //   path                      (file namespace)
     //   path as alias             (file namespace alias)
     //   path.name                 (single-name selective)
+    //   path.Owner.Member         (a member through its owner: `std/iter.Iter.loop`)
+    //   path.{Names}, path.Owner.{Names}
     //   path: Type                (selector-list selective)
     //   path: Owner.Type          (single-name owner selective)
     //   path: Owner.{Names}       (owner selective)
@@ -241,11 +268,14 @@ module.exports = grammar({
       $.module_path,
       optional(choice(
         $.import_selector,
-        seq('.', $.import_value_selector),
-        seq(
-          optional(seq('.', $.type_identifier)),
-          optional(seq('.', $.import_names)),
-        ),
+        seq(token.immediate('.'), choice(
+          $.import_names,
+          seq(
+            $._import_member,
+            repeat(seq(token.immediate('.'), $._import_member)),
+            optional(seq(token.immediate('.'), $.import_names)),
+          ),
+        )),
       )),
       optional(seq('as', choice($.identifier, $.type_identifier))),
       optional(seq('export', optional(seq('as', choice($.identifier, $.type_identifier))))),
@@ -274,8 +304,8 @@ module.exports = grammar({
       $.import_names,
       prec.right(1, seq(
         choice($.identifier, $.type_identifier),
-        repeat(seq('.', choice($.identifier, $.type_identifier))),
-        '.',
+        repeat(seq(token.immediate('.'), choice($.identifier, $.type_identifier))),
+        token.immediate('.'),
         $.import_names,
       )),
       prec(-1, $.import_selector_path),
@@ -283,10 +313,14 @@ module.exports = grammar({
 
     import_selector_path: $ => prec.right(seq(
       choice($.identifier, $.type_identifier),
-      repeat(seq('.', choice($.identifier, $.type_identifier))),
+      repeat(seq(token.immediate('.'), choice($.identifier, $.type_identifier))),
     )),
 
     import_value_selector: $ => $.identifier,
+
+    // One `.`-joined member after the path: an owner type, a variant or a
+    // value, as in `std/iter.Iter.loop` or `results.Result.Ok`.
+    _import_member: $ => choice($.type_identifier, $.import_value_selector),
 
     import_names: $ => seq('{', commaSep1(choice($.import_self, $.import_entry)), '}'),
 
@@ -323,7 +357,7 @@ module.exports = grammar({
     go_selector_binding: $ => seq(
       'go',
       field('package', choice($.identifier, '_')),
-      '.',
+      token.immediate('.'),
       field('symbol', choice($.identifier, $.type_identifier)),
     ),
 
@@ -336,9 +370,9 @@ module.exports = grammar({
         seq(
           field('impl_interface', choice(
             $.type_identifier,
-            seq(choice($.identifier, $.type_identifier), '.', $.type_identifier),
+            seq(choice($.identifier, $.type_identifier), token.immediate('.'), $.type_identifier),
           )),
-          '.',
+          token.immediate('.'),
           field('name', choice($.identifier, $.type_identifier)),
         ),
         field('name', choice(
@@ -363,9 +397,9 @@ module.exports = grammar({
         seq(
           field('impl_interface', choice(
             $.type_identifier,
-            seq(choice($.identifier, $.type_identifier), '.', $.type_identifier),
+            seq(choice($.identifier, $.type_identifier), token.immediate('.'), $.type_identifier),
           )),
-          '.',
+          token.immediate('.'),
           field('name', choice($.identifier, $.type_identifier)),
         ),
         field('name', choice($.identifier, $.type_identifier)),
@@ -437,7 +471,7 @@ module.exports = grammar({
 
     qualified_type_identifier: $ => prec.left(seq(
       $.type_identifier,
-      repeat(seq('.', $.type_identifier)),
+      repeat(seq(token.immediate('.'), $.type_identifier)),
     )),
 
     // Struct field: `name: Type [= default]`. Fields are newline-separated
@@ -620,7 +654,7 @@ module.exports = grammar({
 
     interface_method: $ => seq(
       optional('open'),
-      optional('extern'),
+      optional(choice('extern', $.host_keyword)),
       'fn',
       field('name', choice($.identifier, $.type_identifier)),
       optional($.type_parameters),
@@ -833,9 +867,9 @@ module.exports = grammar({
     // an expression-level rule).
     qualified_type: $ => prec.left(seq(
       $.identifier,
-      '.',
+      token.immediate('.'),
       $.type_identifier,
-      repeat(seq('.', $.type_identifier)),
+      repeat(seq(token.immediate('.'), $.type_identifier)),
     )),
 
     // `self` is a reserved keyword in type position — denotes the
@@ -851,11 +885,12 @@ module.exports = grammar({
 
     _simple_type: $ => prec(1, seq(
       $.type_identifier,
-      repeat(seq('.', $.type_identifier)),
+      repeat(seq(token.immediate('.'), $.type_identifier)),
     )),
 
+    // `Map<K, V>`, or a module-qualified one: `tasks.Task<Int>`.
     generic_type: $ => prec(2, seq(
-      $.type_identifier,
+      choice($.type_identifier, $.qualified_type),
       '<',
       commaSep1($._type),
       '>',
@@ -904,9 +939,11 @@ module.exports = grammar({
       field('type', $._type),
     ),
 
-    // Body (block) — permissive to handle blocks, maps, anonymous structs.
-    // Lambdas live in their own rule (|params| body) and no longer share `{}`.
-    body: $ => seq('{', repeat(seq(choice($._item, $.map_entry, $.anon_struct_field), optional(','))), '}'),
+    // Body (block). Lambdas live in their own rule (|params| body). A block
+    // holds no `anon_struct_field`: `{a: 1}` reaches `anon_struct` through the
+    // [body, anon_struct] conflict, and a block item that read `x:` as a field
+    // name would win over the typed binding `x: Int = 5` and fail at its `=`.
+    body: $ => seq('{', repeat(seq(choice($._item, $.map_entry), optional(','), optional($._statement_end))), '}'),
 
     // A lambda's body runs to the end of its expression, a `|>` included:
     // `|s| f(s) |> g()` pipes inside the body.
@@ -966,6 +1003,7 @@ module.exports = grammar({
       $.anon_struct,
       $.struct_update,
       $.map_literal,
+      $.map_update,
       $.typed_list,
       $.call_expression,
       $.field_access,
@@ -1039,7 +1077,25 @@ module.exports = grammar({
     // which calls `parseExpr(1)` after the `..` exactly as the list spread does
     // — so `{..config, tag: "x"}`, `{..f(x), a: 1}` and `{..a.b, c: 2}` all
     // parse here and the checker, not the grammar, decides what is a struct.
-    struct_update_spread: $ => seq('..', field('head', $._expression)),
+    // A `..` with no head (`{.., city: "NYC"}`) is the bare spread: the value
+    // already at the field or key the literal is written at. The token after
+    // it, a `,` or the closing `}`, decides it.
+    struct_update_spread: $ => prec.right(seq('..', optional(field('head', $._expression)))),
+
+    // Map update by spread: `{..base, k => v}` means `Map.merge(base, {k => v})`.
+    // The same position rule as the struct update: one spread, first, and at
+    // least one entry after it (`{..m}` is the struct form, which the checker
+    // refuses for a map base). The scanner classifies the brace by its
+    // top-level `=>`, so the update arrives with `_map_open`.
+    map_update: $ => prec(6, seq(
+      choice('{', $._map_open),
+      $.map_update_spread,
+      repeat1(seq(optional(','), $.map_entry)),
+      optional(','),
+      '}',
+    )),
+
+    map_update_spread: $ => prec.right(seq('..', optional(field('head', $._expression)))),
 
     // A field in an update. Shaped like `struct_construction`'s field rather
     // than reusing `anon_struct_field`, because an update's field may be punned:
@@ -1059,6 +1115,7 @@ module.exports = grammar({
       $.with_statement,
       $.pattern_assertion_binding,
       $.else_binding,
+      $.pattern_binding,
       $.assertion,
       $.return_statement,
       $.break_statement,
@@ -1067,12 +1124,21 @@ module.exports = grammar({
       $._expression,
     ),
 
-    pattern_assertion_binding: $ => prec(0, seq(
+    // `assert Ok(value) = parse()`: an assertion that a pattern matches,
+    // binding its names. The pattern is read in its expression spelling, as
+    // else_binding's is (`_` lexes as an identifier there), so it never
+    // competes with the expression an ordinary assertion starts with:
+    // `assert (1, 2) == (1, 2)` and `assert Some(1) == Some(1)` stay
+    // comparisons, and the `=` alone decides.
+    pattern_assertion_binding: $ => seq(
       'assert',
-      field('pattern', $._assertion_binding_pattern),
+      field('pattern', choice(
+        alias($._as_binding_pattern, $.as_pattern),
+        $._expression,
+      )),
       '=',
       field('value', $._expression),
-    )),
+    ),
 
     // A binding whose pattern can fail, and what runs when it does:
     // `Some(e) = m else { return 0 }`, or case arms over the value that did
@@ -1088,7 +1154,11 @@ module.exports = grammar({
     // read its `else` as this rule's. A brace-led pattern (`{"k" => v}`,
     // `{a, b}`) and a tuple of names are a destructuring_binding that an
     // `else` follows.
-    else_binding: $ => seq(
+    //
+    // Its dynamic precedence outranks pattern_binding's: where `else` is not
+    // valid it lexes as an identifier, so `Some(e) = m` followed by the
+    // statements `else` and `{ ... }` is a reading that has no error too.
+    else_binding: $ => prec.dynamic(2, seq(
       choice(
         seq(
           field('pattern', $._else_binding_pattern),
@@ -1099,7 +1169,18 @@ module.exports = grammar({
       ),
       'else',
       field('else', choice($.body, $.else_arms)),
-    ),
+    )),
+
+    // A binding whose variant or struct pattern always matches, so it has no
+    // `else`: `Day(n) = d`, `Point{x, y} = p`. The pattern is read in its
+    // expression spelling, as else_binding's is. Without this rule `Day(n) =
+    // d` read as two statements, `Day` and the destructure `(n) = d`; the
+    // dynamic precedence keeps that reading from winning.
+    pattern_binding: $ => prec.dynamic(1, seq(
+      field('pattern', choice($.call_expression, $.struct_construction)),
+      '=',
+      field('value', $._expression),
+    )),
 
     // A binding whose pattern ends in `as name`: `(x, y) as both = pair`,
     // `Some(n) as m = find() else { return 0 }`. The pattern is read in its
@@ -1136,7 +1217,7 @@ module.exports = grammar({
       $.struct_construction,
     ),
 
-    else_arms: $ => seq('{', repeat1(seq($.else_arm, optional($._case_arm_sep))), '}'),
+    else_arms: $ => seq('{', repeat1(seq($.else_arm, optional($._statement_end))), '}'),
 
     // An else arm is a case arm whose pattern is not a tuple, a literal or a
     // headless `{...}`: after `else {` a block and arms are both possible,
@@ -1149,25 +1230,25 @@ module.exports = grammar({
         $._else_arm_pattern,
         optional(seq('when', $._expression)),
         '->',
-        $._expression,
+        $._arm_body,
       )),
       seq(
         $._expression,
         optional(seq('when', $._expression)),
         '->',
-        $._expression,
+        $._arm_body,
       ),
     ),
 
     _else_arm_pattern: $ => prec(2, choice(
       $.identifier,
       $.type_identifier,
-      seq($.type_identifier, repeat1(seq('.', $.type_identifier))),
+      seq($.type_identifier, repeat1(seq(token.immediate('.'), $.type_identifier))),
       $.dot_variant,
       '_',
       // Struct-variant patterns, `.Valid{addr}` and `Check.Valid{addr}`.
       seq($.dot_variant, '{', commaSep($.pattern_field), '}'),
-      seq($.type_identifier, repeat(seq('.', $.type_identifier)), '{', commaSep($.pattern_field), '}'),
+      seq($.type_identifier, repeat(seq(token.immediate('.'), $.type_identifier)), '{', commaSep($.pattern_field), '}'),
       $.enum_pattern,
       $.list_pattern,
       alias($._else_arm_as_pattern, $.as_pattern),
@@ -1181,30 +1262,14 @@ module.exports = grammar({
       field('name', choice($.identifier, $.type_identifier)),
     )),
 
-    // Head-first assertion destructuring: `assert Ok(value) = parse()`.
-    // Lowercase identifier starts are intentionally excluded so ordinary
-    // assertions like `assert ready` cannot be confused with pattern asserts.
-    _assertion_binding_pattern: $ => prec(2, choice(
-      $.tuple_pattern,
-      $.struct_pattern,
-      $.enum_pattern,
-      $.list_pattern,
-      $.string,
-      $.integer,
-      $.float,
-      $.decimal,
-      $.codepoint,
-      $.boolean,
-      seq($.string, '+', $.identifier),
-      seq('-', choice($.integer, $.float, $.decimal)),
-      $.as_pattern,
-    )),
-
-    binding: $ => prec(-1, seq(
-      $.identifier,
-      optional(seq(':', $._type)),
-      '=',
-      choice($.assertion, $._expression),
+    // The annotated form names its binding with `_field_identifier`, as an
+    // `anon_struct_field` does, so that at `x:` after a brace that may open a
+    // block or an anonymous struct (a lambda or case-arm body) the parser
+    // keeps both readings until `=` or `}` decides. With a plain `identifier`
+    // here, precedence would commit to the field at `:`.
+    binding: $ => prec(-1, choice(
+      seq($.identifier, '=', choice($.assertion, $._expression)),
+      seq($._field_identifier, ':', $._type, '=', choice($.assertion, $._expression)),
     )),
 
     defer_statement: $ => seq(
@@ -1236,7 +1301,9 @@ module.exports = grammar({
         choice('{', $._anon_struct_open),
         commaSep1(choice(
           field('binding', $.identifier),
-          seq(field('field', $.identifier), ':', field('binding', choice($.identifier, '_'))),
+          // `_field_identifier`, as anon_struct_field's name is, so the two
+          // readings of `{x: a` stay alive until `=` decides.
+          seq(field('field', $._field_identifier), ':', field('binding', choice($.identifier, '_'))),
         )),
         '}',
         '=',
@@ -1255,8 +1322,8 @@ module.exports = grammar({
       ),
     ),
 
-    return_statement: $ => prec.right(seq('return', optional($._expression))),
-    break_statement: $ => prec.right(seq('break', optional($._expression))),
+    return_statement: $ => prec.right(seq('return', optional(seq($._same_line, $._expression)))),
+    break_statement: $ => prec.right(seq('break', optional(seq($._same_line, $._expression)))),
     continue_statement: $ => 'continue',
 
     // Expressions
@@ -1289,6 +1356,7 @@ module.exports = grammar({
       $.anon_struct,
       $.struct_update,
       $.map_literal,
+      $.map_update,
       $.typed_list,
       $.call_expression,
       $.field_access,
@@ -1335,6 +1403,7 @@ module.exports = grammar({
       $.anon_struct,
       $.struct_update,
       $.map_literal,
+      $.map_update,
       $.typed_list,
       $.call_expression,
       $.lambda,
@@ -1359,7 +1428,11 @@ module.exports = grammar({
       /0o[0-7][0-7_]*/,
     )),
 
-    float: $ => token(/[0-9][0-9_]*\.[0-9][0-9_]*([eE][+-]?[0-9][0-9_]*)?/),
+    // `3.14`, `1.5e3`, or an exponent with no fraction: `1e20`.
+    float: $ => token(choice(
+      /[0-9][0-9_]*\.[0-9][0-9_]*([eE][+-]?[0-9][0-9_]*)?/,
+      /[0-9][0-9_]*[eE][+-]?[0-9][0-9_]*/,
+    )),
 
     // Decimal literal: integer-or-fractional mantissa + a single d/D suffix
     // (e.g. 1.50d, 5d, 1_000.00d, 1.50D). No exponent notation — 1.5e3d is a
@@ -1478,35 +1551,46 @@ module.exports = grammar({
 
     boolean: $ => choice('true', 'false'),
 
+    // A `..` with no tail (`[t, ..]`) is the bare spread: the list already at
+    // the field or key the literal is written at.
     list: $ => seq(
       '[',
       optional(seq(
-        choice(seq('..', $._expression), $._expression),
-        repeat(seq(',', choice(seq('..', $._expression), $._expression))),
+        choice(seq('..', $._expression), '..', $._expression),
+        repeat(seq(',', choice(seq('..', $._expression), '..', $._expression))),
         optional(','),
       )),
       ']',
     ),
 
+    // A vector takes one spread, first or last: `#[..v, x]`, `#[x, ..v]`,
+    // or a bare `..` (`#[.., x]`, `#[x, ..]`), the vector already at the
+    // field or key the literal is written at. As for a list, the grammar
+    // admits a spread at any element; the Go parser holds it to one, at
+    // either end.
     vector: $ => seq(
       '#[',
       optional(seq(
-        $._expression,
-        repeat(seq(',', $._expression)),
+        choice(seq('..', $._expression), '..', $._expression),
+        repeat(seq(',', choice(seq('..', $._expression), '..', $._expression))),
         optional(','),
       )),
       ']',
     ),
 
+    // A set update, `#{..base, x}` or the bare `#{.., x}`, takes its spread
+    // first, as a map update does.
     set: $ => seq(
       '#{',
       optional(seq(
-        $._expression,
+        choice($.set_spread, $._expression),
         repeat(seq(',', $._expression)),
         optional(','),
       )),
       '}',
     ),
+
+    set_spread: $ => prec.right(seq('..', optional(field('head', $._expression)))),
 
     paren_expression: $ => seq('(', $._expression, ')'),
 
@@ -1573,21 +1657,21 @@ module.exports = grammar({
     concurrent_block: $ => seq(
       'concurrent',
       '{',
-      repeat(seq(choice($._item, $.map_entry, $.anon_struct_field), optional(','))),
+      repeat(seq(choice($._item, $.map_entry), optional(','), optional($._statement_end))),
       '}',
     ),
 
     case_expression: $ => prec(1, choice(
       // With scrutinee (`case x { pattern -> ... }`): arms match patterns.
-      seq('case', $._non_block_expression, '{', repeat(seq($.case_branch, optional($._case_arm_sep))), '}'),
+      seq('case', $._non_block_expression, '{', repeat(seq($.case_branch, optional($._statement_end))), '}'),
       // Scrutinee-less (`case { guard -> ... }`): arms are boolean guard
       // EXPRESSIONS, not patterns. Splitting the two forms (rather than sharing
       // one branch with `choice(_case_pattern, _expression)`) keeps a guard
       // like `Float.is_nan(a)` from being parsed as a malformed `Type.Variant`
       // enum_pattern — there is no pattern alternative here to compete with it.
-      // `_case_arm_sep` (optional) lets the scanner end an arm before a
-      // `.Uppercase` next arm so the body can't extend into it.
-      seq('case', '{', repeat(seq($.guard_branch, optional($._case_arm_sep))), '}'),
+      // `_statement_end` ends an arm at a line break, so a body can't extend
+      // into the next arm's pattern (`-1`, `.Some`, `[x]`, `(a, b)`).
+      seq('case', '{', repeat(seq($.guard_branch, optional($._statement_end))), '}'),
     )),
 
     case_branch: $ => choice(
@@ -1595,30 +1679,40 @@ module.exports = grammar({
         $._case_pattern,
         optional(seq('when', $._expression)),
         '->',
-        $._expression,
+        $._arm_body,
       )),
+      // The expression escape: a pattern spelled as the expression it looks
+      // like. A struct pattern reaches here, since the construction it spells
+      // wins over the pattern at its fields, so its `as` is read as an
+      // as_binding's is (`.Rect{w, h} as r when w == h -> r`).
       seq(
-        $._expression,
+        choice(
+          $._expression,
+          alias($._as_binding_pattern, $.as_pattern),
+        ),
         optional(seq('when', $._expression)),
         '->',
-        $._expression,
+        $._arm_body,
       ),
     ),
 
-    guard_branch: $ => choice(
-      seq(
+    // A scrutinee-less arm. A piped `|> case { Some(n) as m -> ... }` reaches
+    // here too, so an arm's guard may be a pattern with a `when` (`Some(n)
+    // when n > 0 -> ...`), and its `as` is read as an as_binding's is.
+    guard_branch: $ => seq(
+      choice(
         $._expression,
-        '->',
-        $._expression,
-      ),
-      // A piped `|> case { Some(n) as m -> ... }` arm is a pattern the
-      // expression form reads; its `as` is read as an as_binding's is.
-      seq(
         alias($._as_binding_pattern, $.as_pattern),
-        '->',
-        $._expression,
       ),
+      optional(seq('when', $._expression)),
+      '->',
+      $._arm_body,
     ),
+
+    // What follows an arm's `->`: an expression, or an assertion
+    // (`Err(e) -> assert e == "x"`), which is a statement and not an
+    // expression elsewhere.
+    _arm_body: $ => choice($.assertion, $._expression),
 
     _case_pattern: $ => prec(2, choice(
       $.identifier,
@@ -1628,7 +1722,7 @@ module.exports = grammar({
       // dotted form needs its own — `repeat1` requires a `.`, so it never
       // overlaps the bare one. (Payload forms are enum_pattern `Type.V(args)`
       // and struct_pattern `Type.V{fields}`.)
-      seq($.type_identifier, repeat1(seq('.', $.type_identifier))),
+      seq($.type_identifier, repeat1(seq(token.immediate('.'), $.type_identifier))),
       $.dot_variant,
       $.string,
       $.integer,
@@ -1660,15 +1754,19 @@ module.exports = grammar({
       field('name', choice($.identifier, $.type_identifier)),
     )),
 
+    // A headed pattern's brace hugs its head (`Point{x, y}`), as a
+    // construction's does: `if True { Unit }` is a condition and a block,
+    // not the pattern `True {...}` that an `if` pattern condition could
+    // start.
     struct_pattern: $ => prec(11, choice(
-      // Named struct pattern: Type { field, field: pat }
-      seq($.type_identifier, '{', commaSep($.pattern_field), '}'),
+      // Named struct pattern: Type{ field, field: pat }
+      seq($.type_identifier, token.immediate('{'), commaSep($.pattern_field), '}'),
       // Qualified enum variant with a struct payload: `Mod.Variant{ field }`
       // (e.g. `IoError.NotFound{path}`). The `repeat1` requires at least one
       // `.`, so this matches only qualified heads — it never overlaps the bare
       // `Type { ... }` form above (which params also use, so leaving that one
       // untouched keeps parameter destructuring intact).
-      seq($.type_identifier, repeat1(seq('.', $.type_identifier)), '{', commaSep($.pattern_field), '}'),
+      seq($.type_identifier, repeat1(seq(token.immediate('.'), $.type_identifier)), token.immediate('{'), commaSep($.pattern_field), '}'),
       // Anonymous struct pattern: { field, field: pat }. The opening brace may
       // arrive as the scanner-classified `_anon_struct_open` (a `{field: pat}`
       // pattern in a whitespace-preceded case-arm position classifies the same
@@ -1680,11 +1778,11 @@ module.exports = grammar({
       seq(choice('{', $._map_open), commaSep(seq($._expression, '=>', $._case_pattern)), '}'),
       // Typed map pattern: TypeName { key => pat, key => pat } — flat
       // destructure of distinct map types (e.g., `Kvs{"a" => v}`).
-      seq($.type_identifier, '{', commaSep1(seq($._expression, '=>', $._case_pattern)), '}'),
+      seq($.type_identifier, token.immediate('{'), commaSep1(seq($._expression, '=>', $._case_pattern)), '}'),
       // Dot-leading struct-variant pattern: .Variant{ field, field: pat }
-      seq($.dot_variant, '{', commaSep($.pattern_field), '}'),
+      seq($.dot_variant, token.immediate('{'), commaSep($.pattern_field), '}'),
       // Dot-leading typed-map pattern: .Variant{ key => pat, key => pat }
-      seq($.dot_variant, '{', commaSep1(seq($._expression, '=>', $._case_pattern)), '}'),
+      seq($.dot_variant, token.immediate('{'), commaSep1(seq($._expression, '=>', $._case_pattern)), '}'),
     )),
 
     pattern_field: $ => choice(
@@ -1782,11 +1880,11 @@ module.exports = grammar({
     // Error propagation. Prefix `try expr` unwraps one postfix-level operand;
     // bare `try` is also valid as a pipe stage (`value |> try`), where the
     // previous pipe value supplies the operand.
-    try_expression: $ => prec.right(10, seq('try', optional(field('value', $._expression)))),
-    dbg_expression: $ => prec.right(1, seq('dbg', optional(field('value', $._expression)))),
+    try_expression: $ => prec.right(10, seq('try', optional(seq($._same_line, field('value', $._expression))))),
+    dbg_expression: $ => prec.right(1, seq('dbg', optional(seq($._same_line, field('value', $._expression))))),
     // A placeholder for code not yet written: `todo` or `todo "reason"`. The
     // reason is a string literal; the compiler rejects an interpolated one.
-    todo_expression: $ => prec.right(1, seq('todo', optional(field('reason', choice($.string, $.triple_string, $.raw_string))))),
+    todo_expression: $ => prec.right(1, seq('todo', optional(seq($._same_line, field('reason', choice($.string, $.triple_string, $.raw_string)))))),
 
     struct_construction: $ => prec.dynamic(10, prec(10, seq(
       choice($.type_identifier, $.type_field_access, $.dot_variant),

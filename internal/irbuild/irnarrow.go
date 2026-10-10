@@ -29,7 +29,7 @@ func (bl *irScalarBuilder) narrowedRead(t *ast.Ident, v ir.Temp, k kind, mobile 
 	if variant == nil || variant.kind != "embedded" {
 		return v, k, mobile, true
 	}
-	if !irRetainedEmbed(k.def, variant) || irEmbedsEnum(variant) {
+	if !irRetainedEmbed(k.def, variant) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	payload := bl.variantPayload(t, v, k.def, variant)

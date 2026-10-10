@@ -176,7 +176,7 @@ func (g *gen) patternParamKind(p ast.Param, at ast.Node) (kind, bool) {
 		g.probePattern(p.Destructure)
 		return kindInvalid, false
 	}
-	owner, member, ok := patternHead(head)
+	owner, member, ok := g.patternHead(head)
 	if !ok {
 		g.reject("destructuring parameter", "pattern head "+typeText(head), at)
 		g.probePattern(p.Destructure)
@@ -277,7 +277,12 @@ func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) boo
 	if d.isEnum {
 		return g.destructureVariantBraces(p, d, src, at)
 	}
-	if g.typeOf(p.TypeName) != src.k {
+	// A generic struct's pattern head is the bare template name (`Box{value}`
+	// over a `Box<Int>`), which names no instance, so it cannot be compared
+	// with src's kind. The checker has already required the head to name
+	// this struct (structPatternNames), as nominalCaseTest relies on for a
+	// `case` arm.
+	if d.genericOf == nil && g.typeOf(p.TypeName) != src.k {
 		g.reject("pattern type mismatch",
 			typeText(p.TypeName)+" against "+d.nomi, at)
 		g.probePattern(p)
@@ -303,7 +308,7 @@ func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) boo
 // a block precisely because a `case` arm may fail; here failure is unreachable,
 // so the bindings are emitted straight into the enclosing block.
 func (g *gen) destructureVariantBraces(p *ast.StructPattern, d *typeDef, src expr, at ast.Node) bool {
-	owner, member, ok := patternHead(p.TypeName)
+	owner, member, ok := g.patternHead(p.TypeName)
 	if !ok {
 		g.reject("destructuring parameter", "struct head "+typeText(p.TypeName), at)
 		g.probeStructFields(p)
@@ -481,7 +486,7 @@ func (g *gen) destructureAnonStruct(p *ast.StructPattern, src expr, at ast.Node)
 // "the builder cannot produce a wrong answer for it" are different claims and
 // only the second one is enforceable from here.
 func (g *gen) destructureEnum(p *ast.EnumPattern, src expr, at ast.Node) bool {
-	owner, member, ok := patternHead(p.Variant)
+	owner, member, ok := g.patternHead(p.Variant)
 	if !ok {
 		g.reject("destructuring parameter", "variant head "+typeText(p.Variant), at)
 		g.probePattern(p.Payload)

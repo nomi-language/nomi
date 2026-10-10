@@ -58,7 +58,7 @@ func (bl *irScalarBuilder) patternBindingStmt(t *ast.PatternBinding, lp *irLoopB
 		nomatch.Append(ir.NewNoMatch(pos))
 		nomatch.SetTerm(ir.NewJump(pos, cont.ID()))
 		if !bl.patternValueTest(t.Pattern, subj, sk, cont, nomatch) {
-			irDeclineNote("a pattern binding outside the retained case tests: " + sk.nomi())
+			irDeclineAtPattern(t.Pattern, "a pattern binding outside the retained case tests: "+sk.nomi())
 			return false
 		}
 		bl.b = cont
@@ -71,7 +71,7 @@ func (bl *irScalarBuilder) patternBindingStmt(t *ast.PatternBinding, lp *irLoopB
 	outer := bl.saveScope()
 	bl.cloneScope()
 	if !bl.patternValueTest(t.Pattern, subj, sk, cont, failed) {
-		irDeclineNote("a pattern binding outside the retained case tests: " + sk.nomi())
+		irDeclineAtPattern(t.Pattern, "a pattern binding outside the retained case tests: "+sk.nomi())
 		return false
 	}
 	matched := bl.saveScope()
@@ -133,13 +133,13 @@ func (bl *irScalarBuilder) elseFallback(pattern ast.Node, k kind) (irElseFallbac
 	default:
 		return irElseFallback{}, false
 	}
-	owner, member, ok := patternHead(head)
+	owner, member, ok := bl.g.patternHead(head)
 	if !ok || (owner != "" && !bl.g.declaredAs(owner, k.def) && !bl.g.preludeOwns(owner, k.def) && !bl.g.stdEnumOwns(owner, k.def)) {
 		return irElseFallback{}, false
 	}
 	fb.v = k.def.variant(member)
 	switch {
-	case fb.v == nil || irEmbedsEnum(fb.v):
+	case fb.v == nil:
 		return irElseFallback{}, false
 	case fb.v.kind == "struct":
 		fb.record = true
@@ -162,12 +162,7 @@ func (bl *irScalarBuilder) elseFallback(pattern ast.Node, k kind) (irElseFallbac
 		}
 	case len(fb.v.payloads) != 1:
 		return irElseFallback{}, false
-	case fb.v.kind == "embedded":
-		// An `embeds` payload is bound by name only.
-		if fb.inner != nil {
-			return irElseFallback{}, false
-		}
-	case !bl.g.irPatternAlwaysMatches(fb.inner, fb.v.payloads[0].k):
+	case !bl.g.irPatternAlwaysMatches(fb.inner, payloadPatternKind(fb.v)):
 		// `Ok(Some(x))`: no single payload to stand in for, so every path
 		// of the else leaves and the pattern is tested whole.
 		return irElseFallback{}, false
@@ -210,7 +205,19 @@ func (g *gen) irPatternAlwaysMatches(p ast.Node, k kind) bool {
 		}
 		return true
 	case *ast.EnumPattern:
-		return g.distinctSubPattern(v, k)
+		if g.distinctSubPattern(v, k) {
+			return true
+		}
+		// `Wrapped({r})` for `type Wrapped Circle`: a distinct's destructure
+		// matches when its inner pattern does, as nominalCaseTest tests it.
+		if k.tag != tagNamed || !irDistinctOverValue(k.def) || k.def.rtOpaque || (v.Binding != "" && v.Payload != nil) {
+			return false
+		}
+		owner, member, ok := g.patternHead(v.Variant)
+		if !ok || owner != "" || g.qualifierKind(member) != k {
+			return false
+		}
+		return g.irPatternAlwaysMatches(v.Payload, k.def.inner)
 	}
 	return false
 }
@@ -303,7 +310,7 @@ func (bl *irScalarBuilder) fallbackBinding(t *ast.PatternBinding, subj ir.Temp, 
 		nomatch.Append(ir.NewNoMatch(pos))
 		nomatch.SetTerm(ir.NewJump(pos, cont.ID()))
 		if !bl.patternValueTest(fb.inner, slot, pk, cont, nomatch) {
-			irDeclineNote("a binding else payload pattern outside the retained case tests: " + pk.nomi())
+			irDeclineAtPattern(fb.inner, "a binding else payload pattern outside the retained case tests: "+pk.nomi())
 			return false
 		}
 	}
@@ -399,12 +406,12 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 	var target *ir.Block
 	switch s := tail.(type) {
 	case *ast.Break:
-		if !bl.loopBreakValue(s, lp, arm) {
+		if !bl.loopBreakValue(s, lp) {
 			return false
 		}
 		target, lp.broke = lp.exit, true
 	case *ast.Return:
-		if !bl.loopValue(s.Value, lp.state, lp.k, arm) {
+		if !bl.loopValue(s.Value, lp.state, lp.k) {
 			return false
 		}
 		target = lp.head
@@ -428,7 +435,9 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 		arm.SetTerm(ir.NewJump(bl.g.irNodePos(tail), target.ID()))
 		return true
 	}
-	bl.loopJump(arm, tail, lp, target)
+	// A `break` or `return` value may branch (`a and b`); the jump leaves
+	// from its join.
+	bl.loopJump(bl.b, tail, lp, target)
 	return true
 }
 

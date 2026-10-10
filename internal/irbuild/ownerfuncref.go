@@ -69,6 +69,17 @@ func (bl *irScalarBuilder) ctorFuncRef(t *ast.TypeIdent) (ir.Temp, kind, bool, b
 func (bl *irScalarBuilder) callFuncValue(ref ast.Node, name string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	g := bl.g
+	// The body's call lowers ref as a callee. When no call path takes it,
+	// the callee is lowered as a value, which comes back here: decline
+	// rather than recurse.
+	if g.funcValueRefs[ref] {
+		return no()
+	}
+	if g.funcValueRefs == nil {
+		g.funcValueRefs = map[ast.Node]bool{}
+	}
+	g.funcValueRefs[ref] = true
+	defer delete(g.funcValueRefs, ref)
 	params, result, ok := g.checkedValueKinds(ref)
 	if !ok {
 		return no()

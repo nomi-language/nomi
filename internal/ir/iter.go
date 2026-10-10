@@ -79,8 +79,10 @@ import "strconv"
 //
 // `Signalling` reports that this operation's callback answers a CONTROL SIGNAL
 // rather than a plain value — `break`, `continue` or `return` inside an
-// `Iter.map`, `filter`, `take_while`, `each`, `reduce` or `iterate` callback, which is the
-// set `analysis/iter_sensitive.go`'s `iterCallbackSlots` sanctions.
+// `Iter.map`, `filter`, `take_while`, `drop_while`, `flat_map`, `each`,
+// `reduce`, `find`, `any?`, `all?` or `iterate` callback, which is the set
+// `analysis/iter_sensitive.go`'s `iterCallbackSlots` sanctions apart from
+// `Iter.loop` (inlined) and `Map.map_values` / `map_keys` (host calls).
 //
 // It passes the three-part test this package applies to a candidate field.
 // NOT DERIVABLE FROM THE KIND: `Iter.map` takes both forms and the op is the
@@ -287,15 +289,15 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	IterFilter:      {name: "filter", form: IterFormStage, min: 2, max: 2, over: overSeq, signal: true},
 	IterTake:        {name: "take", form: IterFormStage, min: 2, max: 2, over: overSeq},
 	IterTakeWhile:   {name: "take_while", form: IterFormStage, min: 2, max: 2, over: overSeq, signal: true},
-	IterDropWhile:   {name: "drop_while", form: IterFormStage, min: 2, max: 2, over: overSeq},
+	IterDropWhile:   {name: "drop_while", form: IterFormStage, min: 2, max: 2, over: overSeq, signal: true},
 	IterDrop:        {name: "drop", form: IterFormStage, min: 2, max: 2, over: overSeq},
 	IterWithIndex:   {name: "with_index", form: IterFormStage, min: 1, max: 1, over: overSeq},
 	IterCycle:       {name: "cycle", form: IterFormStage, min: 1, max: 1, over: overSeq},
 	IterConcat:      {name: "concat", form: IterFormStage, min: 2, max: 2, over: overSeq},
 	IterChunks:      {name: "chunks", form: IterFormStage, min: 2, max: 2, over: overSeq},
 	IterChunkBy:     {name: "chunk_by", form: IterFormStage, min: 2, max: 2, over: overSeq},
-	IterFlatMap:     {name: "flat_map", form: IterFormStage, min: 2, max: 2, over: overSeq},
-	IterFlatMapList: {name: "flat_map", form: IterFormStage, min: 2, max: 2, over: overSeq},
+	IterFlatMap:     {name: "flat_map", form: IterFormStage, min: 2, max: 2, over: overSeq, signal: true},
+	IterFlatMapList: {name: "flat_map", form: IterFormStage, min: 2, max: 2, over: overSeq, signal: true},
 	IterZip:         {name: "zip", form: IterFormStage, min: 2, max: 2, over: overSeq},
 
 	IterToList: {name: "to_list", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
@@ -315,13 +317,13 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	IterLast:     {name: "last", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
 	IterAt:       {name: "at", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
 	IterEach:     {name: "each", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
-	IterAny:      {name: "any?", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
-	IterAll:      {name: "all?", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
-	IterFind:     {name: "find", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
-	// `reduce` is the one operation whose arity is not fixed: the seed is
-	// written as the callback's first-parameter DEFAULT, so a seeded fold has
-	// three operands and an unseeded one folds from the first element.
-	IterReduce:      {name: "reduce", form: IterFormTerminal, min: 2, max: 3, over: overSeq, signal: true},
+	IterAny:      {name: "any?", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
+	IterAll:      {name: "all?", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
+	IterFind:     {name: "find", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
+	// `reduce` takes the source, the seed and the callback. The seed is
+	// written as the callback's first-parameter default; the checker rejects
+	// a reduce without one, so there is no two-operand form.
+	IterReduce:      {name: "reduce", form: IterFormTerminal, min: 3, max: 3, over: overSeq, signal: true},
 	IterEachWhile:   {name: "each_while", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
 	IterToSet:       {name: "to_set", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
 	IterToVector:    {name: "to_vector", form: IterFormTerminal, min: 1, max: 1, over: overSeq},

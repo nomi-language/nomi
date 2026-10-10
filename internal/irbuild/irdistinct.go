@@ -9,13 +9,8 @@ package irbuild
 //
 // # One level
 //
-// `scalarUnwrap` states it for the unwrap direction: `Int`, `Float` and
-// `String` unwrap one level and answer the inner WHATEVER that is, so for
-// `type A Int` and `type B A`, `Int(b)` yields an `A` and not an Int.
-// Requiring the inner to BE one of the four scalars declines the two-step
-// shape rather than emitting a conversion Nomi does not perform.
-// `irRetainedLeafKind` keeps that rule, so the retained grammar and
-// `scalarUnwrap` admit the same set.
+// Destructuring reads one level: for `type A Int` and `type B A`, `B(a) = b`
+// binds an `A` and not an Int.
 //
 // A MARKER IS NOT A CONSTRUCTION. `type Expired` has no inner at all —
 // `d.inner` is `kindInvalid`, which `zeroSizedOn` reads as "no storage" — so it
@@ -223,43 +218,10 @@ func (bl *irScalarBuilder) compositeDistinctMake(t *ast.Call, d *typeDef) (ir.Te
 	return m.Dst(), out, false, true
 }
 
-// distinctInner lowers `Int(d)` — a wrapping distinct's unwrap — as an
-// `ir.Proj` of kind `ProjInner`.
-//
-// THE CALLEE SET IS A CLOSED VOCABULARY and not "the scalars": `Int`,
-// `Float` and `String` unwrap; `Bool` is deliberately absent, so `Bool(b)` is
-// not spellable at all. `scalarUnwrap` reads that as a closed vocabulary and
-// this reproduces it rather than deriving one.
-//
-// A LOCALLY DECLARED `Int` SHADOWS THE BUILTIN, which is `scalarUnwrap`'s own
-// first check: a module that declares its own `Int` is `distinctCall`'s
-// business, so a name that resolves as a type here is not an unwrap.
-//
-// `parenType` is false and passed explicitly: this is `scalarUnwrap`'s
-// spelling, and the `embeds` coercion through `convertTo` is the other.
-func (bl *irScalarBuilder) distinctInner(t *ast.Call, ti *ast.TypeIdent) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	var want kind
-	switch ti.Name {
-	case "Int":
-		want = kindInt
-	case "Float":
-		want = kindFloat
-	case "String":
-		want = kindString
-	default:
-		return no()
-	}
-	if _, shadowed := bl.g.namedType(ti.Name); shadowed || len(t.Args) != 1 {
-		return no()
-	}
-	src, k, pure, ok := bl.lower(t.Args[0])
-	if !ok || k.tag != tagNamed || !irWrappingDistinct(k.def) || k.def.inner != want {
-		return no()
-	}
-	return bl.distinctProjection(t, src, k, false, "irdistinct.go distinctInner"), want, pure, true
-}
-
+// distinctProjection reads the value a wrapping distinct holds, as an
+// `ir.Proj` of kind `ProjInner`: a destructuring pattern's or parameter's
+// inner binding, and a structural comparison's operands. One level: for
+// `type A Int` and `type B A`, `B(a) = b` binds an `A`.
 func (bl *irScalarBuilder) distinctProjection(at ast.Node, src ir.Temp, k kind, parenType bool, site string) ir.Temp {
 	want := k.def.inner
 	p := ir.NewProjInner(bl.g.irNodePos(at), bl.f.NewTemp(), src,

@@ -226,13 +226,15 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 			return no()
 		}
 		result = funcResult(fk)
-		if reduceSeed(t) == nil && result != elem {
+		if reduceSeed(t) == nil {
+			// The checker rejects a reduce with no starting value.
 			return no()
 		}
 	}
 	// A callback lowered under a signalling form makes its operation the
 	// signalling one.
-	signalling := (method == "map" || method == "filter" || method == "reduce") && len(args.temps) > 1 && bl.iterSignalling(args, 1)
+	signalling := (method == "map" || method == "filter" || method == "reduce" || method == "find" || method == "any?" || method == "all?") &&
+		len(args.temps) > 1 && bl.iterSignalling(args, 1)
 	appendOp := func(at ast.Node, op ir.IterOp, over ir.IterDomain, k kind, operands ...ir.Temp) ir.Temp {
 		n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), op, over, operands...)
 		if signalling && op.HasSignallingForm() {
@@ -436,7 +438,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 				return no()
 			}
 			operands = append(operands, bl.ctlSeed)
-		} else if seed != nil {
+		} else {
 			v, k, _, ok := bl.lowerWant(seed, result)
 			if !ok {
 				return no()
@@ -454,8 +456,9 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 }
 
 // reduceSeed is the initial accumulator an `Iter.reduce` call writes: its
-// callback lambda's first parameter default, or nil for a lambda without one
-// and for a function value, whose reduction the first element seeds.
+// callback lambda's first parameter default. The checker rejects a reduce
+// with no seed (checkReduceSeed), so nil here means a call this builder
+// declines.
 func reduceSeed(t *ast.Call) ast.Node {
 	if len(t.Args) != 2 {
 		return nil
@@ -473,13 +476,7 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call) (ir.Temp, kind, bool, boo
 		return no()
 	}
 	lam, ok := t.Args[1].(*ast.Lambda)
-	if !ok {
-		// A function value (`Iter.reduce(xs, add)`): no seed, so the first
-		// element seeds the accumulator. A named function that signals is
-		// lowered in the reduce form by its own body (irNamedCtlForm).
-		return bl.iterCall(t, bl.irQualLowerArgs(t), "reduce")
-	}
-	if len(lam.Params) != 2 {
+	if !ok || len(lam.Params) != 2 || lam.Params[0].Default == nil {
 		return no()
 	}
 	if bl.reduceSeeds == nil {
@@ -487,42 +484,111 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call) (ir.Temp, kind, bool, boo
 	}
 	bl.reduceSeeds[lam] = true
 	defer delete(bl.reduceSeeds, lam)
-	if !callbackCarriesSignal(lam) {
+	named := bl.reduceForwardee(lam)
+	if named == nil && !callbackCarriesSignal(lam) {
 		return bl.iterCall(t, bl.irQualLowerArgs(t), "reduce")
 	}
 	// The order is the source, then the seed at the accumulator's kind, then
 	// the widened callback, so the seed is evaluated before the callback is
 	// written.
-	defer bl.markCtl(lam, irCtlReduce)()
+	if named != nil {
+		// `|acc = 0, x| sum_valid(acc, x)` over an iter-sensitive `sum_valid`:
+		// its signals stop this reduction, so the callback is the function
+		// itself, lowered in the reduce form by its own body
+		// (irNamedCtlForm), from the lambda's seed.
+		defer bl.markCtlRef(named, "reduce")()
+	} else {
+		defer bl.markCtl(lam, irCtlReduce)()
+	}
 	args := irQualArgs{temps: make([]ir.Temp, 2), kinds: make([]kind, 2), mobile: make([]bool, 2), ok: true}
 	src, sk, mobile, ok := bl.lower(t.Args[0])
 	if !ok {
 		return no()
 	}
 	args.temps[0], args.kinds[0], args.mobile[0] = src, sk, mobile
-	if seed := lam.Params[0].Default; seed != nil {
-		var accK kind
-		if lam.Params[0].TypeAnnotation != nil {
-			accK = bl.g.typeOf(lam.Params[0].TypeAnnotation)
-		} else {
-			_, accK = bl.g.inferredParamKind(lam.Params[0])
-		}
-		v, k, _, ok := bl.lowerWant(seed, accK)
-		if !ok {
-			return no()
-		}
-		if v, _, ok = bl.coerceEmpty(seed, v, k, accK); !ok {
-			return no()
-		}
-		bl.ctlSeed = v
-		defer func() { bl.ctlSeed = ir.NoTemp }()
+	seed := lam.Params[0].Default
+	var accK kind
+	if lam.Params[0].TypeAnnotation != nil {
+		accK = bl.g.typeOf(lam.Params[0].TypeAnnotation)
+	} else {
+		_, accK = bl.g.inferredParamKind(lam.Params[0])
 	}
-	cb, ck, cmobile, ok := bl.lower(lam)
+	v, k, _, ok := bl.lowerWant(seed, accK)
 	if !ok {
 		return no()
 	}
+	if v, _, ok = bl.coerceEmpty(seed, v, k, accK); !ok {
+		return no()
+	}
+	bl.ctlSeed = v
+	defer func() { bl.ctlSeed = ir.NoTemp }()
+	var cb ir.Temp
+	var ck kind
+	var cmobile bool
+	if named != nil {
+		cb, ck, cmobile, ok = bl.funcRef(named)
+	} else {
+		cb, ck, cmobile, ok = bl.lower(lam)
+	}
+	if !ok {
+		return no()
+	}
+	// Inside an assertion subject the callback is held and the operands are
+	// handed to recordedQualCall for the `values:` rows, as irQualLowerArgs
+	// does for every other qualified call.
+	if bl.recording > 0 && bl.qualRecord == t && !irHeldValue(bl.f, cb, bl.sides) {
+		cp := ir.NewCopy(bl.g.irNodePos(lam), bl.f.NewTemp(), cb)
+		bl.b.Append(cp)
+		bl.side(cp.Dst(), irScalarSide{k: ck, copy: irCopyHold})
+		cb, cmobile = cp.Dst(), true
+	}
 	args.temps[1], args.kinds[1], args.mobile[1] = cb, ck, cmobile
+	if bl.qualRecord == t {
+		bl.qualRecordArgs, bl.qualRecordSeen = args, true
+	}
 	return bl.iterCall(t, args, "reduce")
+}
+
+// reduceForwardee is the iter-sensitive module function a seeded reduce
+// callback only forwards to, `|acc = 0, x| f(acc, x)` with f's own `break` or
+// `continue` meant for this reduction, or nil. A lambda calling such a
+// function any other way is declined where the call is lowered.
+func (bl *irScalarBuilder) reduceForwardee(lam *ast.Lambda) *ast.Ident {
+	if len(lam.Params) != 2 || lam.Body == nil || len(lam.Body.Stmts) != 1 {
+		return nil
+	}
+	acc, item := lam.Params[0], lam.Params[1]
+	if acc.Destructure != nil || item.Destructure != nil || acc.Name == "" || item.Name == "" {
+		return nil
+	}
+	body := lam.Body.Stmts[0]
+	if es, wrapped := body.(*ast.ExprStmt); wrapped {
+		body = es.Expr
+	}
+	call, ok := body.(*ast.Call)
+	if !ok || len(call.Args) != 2 {
+		return nil
+	}
+	fn, ok := call.Func.(*ast.Ident)
+	if !ok || fn.Name == acc.Name || fn.Name == item.Name {
+		return nil
+	}
+	a, aok := call.Args[0].(*ast.Ident)
+	b, bok := call.Args[1].(*ast.Ident)
+	if !aok || !bok || a.Name != acc.Name || b.Name != item.Name {
+		return nil
+	}
+	if _, local := bl.bound[fn.Name]; local {
+		return nil
+	}
+	if _, local := bl.g.lookup(fn.Name); local {
+		return nil
+	}
+	sig := bl.g.funcs[fn.Name]
+	if sig == nil || irNamedCtlForm(sig.decl) != irCtlReduce {
+		return nil
+	}
+	return fn
 }
 
 // irSeqKindOf is the retained kind of a value the checker typed as std's
@@ -909,7 +975,7 @@ func (bl *irScalarBuilder) markCtlRef(ref *ast.Ident, method string) func() {
 // element, and this gen's own instance for a declared type's.
 func (bl *irScalarBuilder) iterMaybeKind(elem kind) (kind, bool) {
 	bl.g.loadPreludes()
-	if _, anchored := bl.g.preludeByName["Maybe"]; !anchored {
+	if _, anchored := bl.g.preludeNamed("Maybe"); !anchored {
 		return kindInvalid, false
 	}
 	mk, shared := bl.g.sharedMaybe(elem)

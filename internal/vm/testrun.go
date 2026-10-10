@@ -37,11 +37,12 @@ package vm
 //     Nomi fault. The fourth — this machine has no arm for an instruction, or
 //     cannot resolve a callee — is NOT a failing case, and conflating the two
 //     is the one thing that would make this instrument lie. See `RunTests`.
-//   - THE WRITER. One sink for both the report and any `io.print` a case
-//     makes, which is what puts a printing case's output ABOVE the whole
-//     report block — `testdata/tests_mixed.nomi`'s subject, and the reason
-//     `rt.RunTestsTo` writes to a parameter rather than to `os.Stdout` while
-//     `io.print` goes to the machine's writer.
+//   - THE WRITER the report goes to. What a case prints does not go there
+//     directly: rt's runner gives each case a test capture on the frame it
+//     hands the case (`rt.EnterTestCapture`), `io.print` and `dbg` write
+//     into it, and the report prints it under the case's own line. Only a
+//     write from outside every case (a task that outlives its case) reaches
+//     the machine's writer.
 //
 // # A Nomi fault is delivered by PANICKING with `rt`'s own error
 //
@@ -85,8 +86,7 @@ import (
 //
 // EVERY CASE IS RUN BEFORE ANYTHING IS REPORTED, and that is `rt`'s doing
 // rather than this loop's: `rt.RunTestsTo` runs the slice to completion and
-// then reports. So a case that prints puts its output above the whole report
-// block, which is what the recording holds.
+// then reports, each case's output under its own line.
 func (m *Machine) RunTests(path string) (exit int, reason string) {
 	return m.RunTestsLabelled(func(name string) string { return rt.TestName(path, name) })
 }
@@ -151,14 +151,15 @@ func (m *Machine) RunTestsLabelled(label func(string) string) (exit int, reason 
 
 // RunCases runs the given retained cases in order through `rt.RunTestCases`,
 // the per-case runner a compiled test binary uses, and answers each case's
-// error (nil when it passed) and each case's machine limit ("" when the
-// machine ran it to an exit). It reports nothing: `nomi test` feeds several
-// files' results into one `rt.TestReporter`.
+// error (nil when it passed), the output it wrote, and each case's machine
+// limit ("" when the machine ran it to an exit). It reports nothing: `nomi
+// test` feeds several files' results into one `rt.TestReporter`. A case cut
+// off by a limit keeps the output it wrote before the limit.
 //
 // A NON-EMPTY LIMIT MEANS THE CASE DID NOT RUN TO ITS OWN RESULT. Its error is
 // then meaningless and the caller reports the case as blocked, which is the
 // distinction RunTestsLabelled draws for the whole run, drawn here per case.
-func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, limits []string) {
+func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []string, limits []string) {
 	limits = make([]string, len(cases))
 	tests := make([]rt.Test, len(cases))
 	for i, c := range cases {
@@ -191,8 +192,8 @@ func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, limits []stri
 		}
 		tests[i] = test
 	}
-	failures = rt.RunTestCases(m.background(), tests)
-	return failures, limits
+	failures, outputs = rt.RunTestCases(m.background(), tests)
+	return failures, outputs, limits
 }
 
 // testFn is one case's body as `rt.Test.Fn`.
@@ -236,9 +237,11 @@ func (m *Machine) testFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]string) 
 			run, err = m.bootTestOn(group, fr)
 		}
 		if err == nil {
+			// A case with no boot runs on the frame rt hands it, which
+			// carries the case's output capture.
 			runtime := run.hostFrame
 			if runtime == nil {
-				runtime = rt.NewFrame(m.background())
+				runtime = fr
 			}
 			_, err = run.activate(fn, nil, nil, runtime, true, run.depth, nil)
 		}

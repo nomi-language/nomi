@@ -26,16 +26,14 @@ package irbuild
 //   - `ir.Lint`'s `RulePositionSpan` asks that an end is present and not
 //     before its start, of every position in every retained function.
 //
-// # The extent is the node extent, and that is a lower bound
+// # The extent of a triple-quoted literal is its closing `"""`
 //
-// `ast` records no end position for anything. A triple-quoted literal carries
-// its opening line and its DECODED value, so its closing `"""` is not
-// derivable here without re-reading source. On the witness the node extent
-// is 25..43 and the text extent is 25..61, because the last hole sits
-// eighteen lines above the closing delimiter. So a span is exact where the
-// construct's last line holds a node and short where it does not; the text
-// extent needs an end position in the parser. `ir.Pos`'s own header says the
-// same.
+// The parser records where a triple-quoted literal's closing `"""` is
+// (`ast.StringLit.EndLine`, `ast.StringInterp.EndLine`), so its span is its
+// text: on the witness 25..61, though the last hole sits eighteen lines
+// above the closing delimiter. A tagged string records no end, so its span
+// is the extent of its holes, which is short where its last line holds no
+// hole.
 
 import (
 	"github.com/nomi-language/nomi/internal/ast"
@@ -97,7 +95,14 @@ func (g *gen) irNodeSpan(n ast.Node) ir.Pos {
 func astNodeExtent(n ast.Node) (line, col int) {
 	line, col = nodePos(n)
 	switch t := n.(type) {
+	case *ast.StringLit:
+		if t.EndLine > 0 {
+			return t.EndLine, t.EndCol
+		}
 	case *ast.StringInterp:
+		if t.EndLine > 0 {
+			return t.EndLine, t.EndCol
+		}
 		return stringPartsExtent(t.Parts, line, col)
 	case *ast.TaggedString:
 		return stringPartsExtent(t.Parts, line, col)

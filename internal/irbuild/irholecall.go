@@ -31,21 +31,8 @@ const irUnreachableHost = "vm.unreachable"
 func (bl *irScalarBuilder) holeBoundCall(t *ast.Call, ti *ast.TypeIdent, method string) (ir.Temp, kind, bool, bool, bool) {
 	unhandled := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, false }
 	cur := bl.g.stdInstCur
-	if cur == nil || len(cur.holes) == 0 || len(t.Args) == 0 {
-		return unhandled()
-	}
-	// Every argument the instance holds at Unit must be a hole, so a Unit
-	// value in this body can only be a hole's.
-	var names []string
-	for i, tp := range cur.tps {
-		if i < len(cur.args) && cur.args[i] == kindUnit {
-			if !cur.holes[tp] {
-				return unhandled()
-			}
-			names = append(names, tp)
-		}
-	}
-	if len(names) == 0 {
+	names := bl.g.unitHoles()
+	if len(names) == 0 || len(t.Args) == 0 {
 		return unhandled()
 	}
 	spelling := ti.Name + "." + method
@@ -94,17 +81,65 @@ func (bl *irScalarBuilder) holeBoundCall(t *ast.Call, ti *ast.TypeIdent, method 
 	if result == kindInvalid || (result != kindUnit && !irCallableValueKind(result)) {
 		return unhandled()
 	}
-	pos := bl.g.irPos(t.Line, t.Col)
-	text := fmt.Sprintf("%s dispatches on %s, which the compiler filled with Unit in %s<%s> "+
+	v := bl.holeUnreachable(t, t.Line, t.Col, spelling+" dispatches on", names, result)
+	return v, result, false, true, true
+}
+
+// holeCompare lowers `a < b`, `<=`, `>` or `>=` over two values of a HOLE of
+// the instance being built: `item < m` in `Iter.min<T>` reached by
+// `Iter.min([])`, where the checker left T unsolved because the call makes
+// no value of it. The comparison is the operator's spelling of a
+// `Comparable.compare` dispatch on the hole, unreachable for holeBoundCall's
+// reason, and lowers to the same explicit fault. Unit has no Comparable
+// impl, so an ordering on Unit in a body whose every Unit argument is a hole
+// can only be on a hole's values.
+func (bl *irScalarBuilder) holeCompare(t *ast.Binary, op ir.CompareOp, k kind) (ir.Temp, bool) {
+	if !op.Ordering() || k != kindUnit {
+		return ir.NoTemp, false
+	}
+	names := bl.g.unitHoles()
+	if len(names) == 0 {
+		return ir.NoTemp, false
+	}
+	return bl.holeUnreachable(t, t.Line, t.Col, "`"+t.Op+"` compares values of", names, kindBool), true
+}
+
+// unitHoles is the type parameters of the std instance being built that the
+// builder filled with Unit, or nil when there is none or when any argument
+// the instance holds at Unit is not a hole: then a Unit value in the body
+// need not be a hole's.
+func (g *gen) unitHoles() []string {
+	cur := g.stdInstCur
+	if cur == nil || len(cur.holes) == 0 {
+		return nil
+	}
+	var names []string
+	for i, tp := range cur.tps {
+		if i < len(cur.args) && cur.args[i] == kindUnit {
+			if !cur.holes[tp] {
+				return nil
+			}
+			names = append(names, tp)
+		}
+	}
+	return names
+}
+
+// holeUnreachable emits the `vm.unreachable` call that stands for what, a
+// use of the holes names that no run reaches, answering a value of result.
+func (bl *irScalarBuilder) holeUnreachable(at ast.Node, line, col int, what string, names []string, result kind) ir.Temp {
+	cur := bl.g.stdInstCur
+	pos := bl.g.irPos(line, col)
+	text := fmt.Sprintf("%s %s, which the compiler filled with Unit in %s<%s> "+
 		"because the call left it unconstrained; no value of it is ever built",
-		spelling, strings.Join(names, ", "), cur.f.key, kindsNomi(cur.args))
+		what, strings.Join(names, ", "), cur.f.key, kindsNomi(cur.args))
 	s := ir.NewString(pos, bl.f.NewTemp(), text)
 	bl.b.Append(s)
 	bl.side(s.Dst(), irScalarSide{k: kindString})
-	c := ir.NewHostCall(pos, bl.f.NewTemp(), irCallSite(t), bl.g.irCalleeSym(irUnreachableHost, irUnreachableHost), s.Dst())
+	c := ir.NewHostCall(pos, bl.f.NewTemp(), irCallSite(at), bl.g.irCalleeSym(irUnreachableHost, irUnreachableHost), s.Dst())
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: result, deferrable: true})
-	return c.Dst(), result, false, true, true
+	return c.Dst()
 }
 
 // irCheckerHoles is the type parameters of fd the checker left unsolved at a

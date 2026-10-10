@@ -108,6 +108,11 @@ const (
 	// `Arity` is never zero here: `[..rest]` matches every list including the
 	// empty one, so the producer builds no node. Owner: listArm.
 	MatchListMin
+	// MatchStrPrefix asks whether the String subject begins with the String
+	// in `Arg`, comparing bytes: the subject is `Arg + rest` for some String
+	// `rest`. It is the test of a string prefix pattern (`"/users/" + id`),
+	// whose `rest` a ProjStrSuffix then reads. Owner: strPrefixTest.
+	MatchStrPrefix
 )
 
 func (k MatchKind) String() string {
@@ -120,6 +125,8 @@ func (k MatchKind) String() string {
 		return "listlen"
 	case MatchListMin:
 		return "listmin"
+	case MatchStrPrefix:
+		return "strprefix"
 	}
 	return "match?"
 }
@@ -243,6 +250,21 @@ func NewMatchListMinInto(pos Pos, dst, subj Temp, n int) *Match {
 	return m
 }
 
+// NewMatchStrPrefixInto writes whether the String subj begins with the
+// String in prefix.
+func NewMatchStrPrefixInto(pos Pos, dst, subj, prefix Temp) *Match {
+	m := newMatch(pos, subj, MatchStrPrefix, "NewMatchStrPrefixInto")
+	if prefix == NoTemp {
+		panic("ir.NewMatchStrPrefixInto: a prefix test with no prefix compares against nothing")
+	}
+	if dst == NoTemp {
+		panic("ir.NewMatchStrPrefixInto: an answer needs a destination")
+	}
+	m.arg = prefix
+	m.dst = dst
+	return m
+}
+
 func newMatch(pos Pos, subj Temp, kind MatchKind, who string) *Match {
 	requirePos(pos, who)
 	if subj == NoTemp {
@@ -257,8 +279,9 @@ func (m *Match) Kind() MatchKind { return m.kind }
 // Subject is the temporary being tested.
 func (m *Match) Subject() Temp { return m.subj }
 
-// Arg is the second operand: the literal a MatchLit compares against. NoTemp
-// for the three kinds whose question is answered by the subject alone.
+// Arg is the second operand: the literal a MatchLit compares against, or the
+// prefix a MatchStrPrefix looks for. NoTemp for the three kinds whose question
+// is answered by the subject alone.
 func (m *Match) Arg() Temp { return m.arg }
 
 // Sym is the enum a MatchVariant names. Nil for every other kind, none of
@@ -299,7 +322,7 @@ func (m *Match) AppendUses(dst []Temp) []Temp {
 func (m *Match) String() string {
 	s := "match " + m.kind.String() + " " + m.subj.String()
 	switch m.kind {
-	case MatchLit:
+	case MatchLit, MatchStrPrefix:
 		s += " " + m.arg.String()
 	case MatchVariant:
 		s += " " + m.sym.Name() + "." + m.text

@@ -13,7 +13,8 @@ import (
 // A std container or prelude enum calls std's impl instantiated at its kind
 // (ifaceContainerCall), a declared type calls its own or std's impl
 // (qualImplPlan), and an anonymous record or tuple of scalar leaves, which
-// has no impl, renders structurally with rt.DisplayText.
+// has no impl, renders structurally with rt.DisplayText. A record or tuple
+// with any other part renders each part by Display first (displayComposite).
 //
 // A std body lowers the hole the same way. Only a user program may declare
 // its own `Display`, which no hole renders through; inside std/display the
@@ -70,6 +71,9 @@ func (bl *irScalarBuilder) displayHole(at ast.Node, src ir.Temp, k kind, mobile 
 		// reach: every part is structural, so the whole is.
 		return structural()
 	}
+	if irRetainedRecordKind(k) || irRetainedTupleKind(k) {
+		return bl.displayComposite(at, src, k)
+	}
 	if k.tag != tagNamed || k.def == nil {
 		return ir.NoTemp, false
 	}
@@ -79,6 +83,72 @@ func (bl *irScalarBuilder) displayHole(at ast.Node, src ir.Temp, k kind, mobile 
 	}
 	v, _, _, ok := bl.qualEmit(call, args, plan)
 	return v, ok
+}
+
+// displayComposite renders a tuple or anonymous record with a nominal part
+// (`(1, None)`, `{a: 1, b: Some(2)}`), which rt.DisplayText cannot render
+// alone because a part's text is its own Display impl's. The spec's rule is
+// `(Display(a), Display(b), ...)` and `{f: Display(v), ...}`: each part is
+// rendered by Display (displayPart), and the same-shaped composite of those
+// Strings is rendered structurally, so rt's tuple and record layout is the
+// one layout. A part with no rendering declines the whole.
+func (bl *irScalarBuilder) displayComposite(at ast.Node, src ir.Temp, k kind) (ir.Temp, bool) {
+	pos := bl.g.irNodePos(at)
+	if !irHeldValue(bl.f, src, bl.sides) {
+		cp := ir.NewCopy(pos, bl.f.NewTemp(), src)
+		bl.b.Append(cp)
+		bl.side(cp.Dst(), irScalarSide{k: k, copy: irCopyHold})
+		src = cp.Dst()
+	}
+	record := k.tag == tagAnonStruct
+	texts := make([]ir.Temp, len(k.comp.parts))
+	strs := make([]kind, len(k.comp.parts))
+	for i, part := range k.comp.parts {
+		var p *ir.Proj
+		if record {
+			p = ir.NewProjRecordField(pos, bl.f.NewTemp(), src, k.comp.names[i], irParamShape(part))
+		} else {
+			p = ir.NewProjSlot(pos, bl.f.NewTemp(), src, i, irParamShape(part))
+		}
+		bl.b.Append(p)
+		bl.side(p.Dst(), irScalarSide{k: part})
+		text, ok := bl.displayPart(at, p.Dst(), part)
+		if !ok {
+			return ir.NoTemp, false
+		}
+		texts[i], strs[i] = text, kindString
+	}
+	var made *ir.Make
+	var mk kind
+	if record {
+		mk = bl.g.anonStructKind(k.comp.names, strs)
+		made = ir.NewMakeRecord(pos, bl.f.NewTemp(), k.comp.names, texts)
+	} else {
+		mk = bl.g.tupleKind(strs)
+		made = ir.NewMakeTuple(pos, bl.f.NewTemp(), texts)
+	}
+	bl.b.Append(made)
+	bl.side(made.Dst(), irScalarSide{k: mk})
+	r := ir.NewRenderDisplay(pos, bl.f.NewTemp(), made.Dst())
+	bl.b.Append(r)
+	bl.side(r.Dst(), irScalarSide{k: kindString})
+	return r.Dst(), true
+}
+
+// displayPart is one value's Display text, as an interpolation hole renders
+// it: a String is itself, a scalar renders in place, and anything else goes
+// through displayHole.
+func (bl *irScalarBuilder) displayPart(at ast.Node, src ir.Temp, k kind) (ir.Temp, bool) {
+	if k == kindString {
+		return src, true
+	}
+	if irScalarLeafKind(k) || isDecimalKind(k) {
+		r := ir.NewRenderDisplay(bl.g.irNodePos(at), bl.f.NewTemp(), src)
+		bl.b.Append(r)
+		bl.side(r.Dst(), irScalarSide{k: kindString})
+		return r.Dst(), true
+	}
+	return bl.displayHole(at, src, k, true)
 }
 
 // irStructuralDisplayKind reports a kind whose Display text is structural all

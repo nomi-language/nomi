@@ -135,9 +135,8 @@ func (g *gen) irTypeOf(k kind) *ir.Type {
 		ty.SetVal(v)
 	}
 	// The `embeds` edges, declared exactly once per interned type. `minted` is
-	// what makes "exactly once" checkable rather than remembered, and it is
-	// also what terminates the recursion two mutually-embedding enums would
-	// otherwise be: the entry exists before its edges are read.
+	// what makes "exactly once" checkable rather than remembered: the entry
+	// exists before its edges are read.
 	if k.tag == tagNamed && k.def != nil && k.def.isEnum {
 		for i := range k.def.variants {
 			e := k.def.variants[i].embeds

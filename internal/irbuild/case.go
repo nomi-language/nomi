@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -66,7 +67,25 @@ func (g *gen) hold(e expr) expr {
 // `Enum.Variant` (qualified) and `.Variant` (dotted, the qualifier inferred).
 // A head this builder cannot read at all reports ok=false rather than guessing
 // a member name out of a TypeString.
-func patternHead(te ast.TypeExpr) (owner, member string, ok bool) {
+//
+// A bare head named through an aliased import (`import shapes.Holder.{Of as
+// O}`, then `O{value}`) is the variant the alias names: the member is the
+// declaration's own name, read from the analyzer's reference as
+// variantRefAt reads it for construction.
+func (g *gen) patternHead(te ast.TypeExpr) (owner, member string, ok bool) {
+	switch t := te.(type) {
+	case *ast.SimpleType:
+		if ref, canonical, isRef := variantRefAt(g.fa, t.Name, t.Line, t.Col); isRef && ref.Resolved != nil && ref.Resolved.Kind == analysis.SymbolEnumVariant {
+			return "", canonical, true
+		}
+		return "", t.Name, true
+	}
+	return patternHeadAsWritten(te)
+}
+
+// patternHeadAsWritten is patternHead without the alias resolution, for a
+// head that names a distinct type rather than a variant.
+func patternHeadAsWritten(te ast.TypeExpr) (owner, member string, ok bool) {
 	switch t := te.(type) {
 	case *ast.SimpleType:
 		return "", t.Name, true

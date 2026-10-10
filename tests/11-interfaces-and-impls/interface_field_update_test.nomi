@@ -89,6 +89,7 @@ test "the widening applies at depth in a nested patch" {
 
     patched = Struct.update(base, {
         inner: {
+            ..,
             clock: RealClock{
                 base: 100,
                 offset: 5,
@@ -110,6 +111,7 @@ test "a nested patch preserves the sibling field it does not name" {
 
     patched = Struct.update(base, {
         inner: {
+            ..,
             clock: FakeClock{
                 t: 2,
             },

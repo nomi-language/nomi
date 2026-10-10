@@ -408,6 +408,8 @@ func lintOperandShapes(f *Func, vs *[]Violation) {
 					want = ValDistinct
 				case ProjElem, ProjSuffix:
 					want = ValContainer
+				case ProjStrSuffix:
+					want = ValString
 				}
 				if want == ValUnknown {
 					continue

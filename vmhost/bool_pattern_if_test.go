@@ -83,7 +83,7 @@ test "bool pattern if" {
 	p.Test(&buf, rep, name, vmhost.TestOptions{}, func(n string) string { return vmhost.TestName(name, n) })
 	rep.Summary()
 	out := buf.String()
-	if !strings.HasPrefix(out, "yes\nas False\nbound False\n") || !strings.Contains(out, "1 passed, 0 failed") {
+	if !strings.Contains(out, ":: bool pattern if\n  yes\n  as False\n  bound False\n") || !strings.Contains(out, "1 passed, 0 failed") {
 		t.Fatalf("want the three lines and one passing case:\n%s", out)
 	}
 }

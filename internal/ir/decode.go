@@ -611,7 +611,7 @@ func (d *decoder) instr(r *rbuf) Instr {
 		return n
 	case tagRecord:
 		return &Record{pos: d.pos(r), val: r.temp(), kind: RecordKind(r.byte1()),
-			text: d.str(r.uv()), suppress: r.bool1()}
+			text: d.str(r.uv()), suppress: r.bool1(), before: d.str(r.uv()), after: d.str(r.uv())}
 	case tagIter:
 		return &Iter{pos: d.pos(r), dst: r.temp(), op: IterOp(r.byte1()),
 			over: IterDomain(r.byte1()), sig: r.bool1(), args: d.temps(r)}

@@ -112,7 +112,8 @@ type Counter Int
 
 impl StepBy for Counter {
     fn step_by(value: Counter, step: Int): Counter {
-        Counter(Int(value) + step)
+        Counter(n) = value
+        Counter(n + step)
     }
 }
 
@@ -126,7 +127,7 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 18: advance(Counter(10), 5) = Counter(15)
+dbg line 19: advance(Counter(10), 5) = Counter(15)
 -->
 
 `advance<T, S>` introduces two independent type parameters. The bound

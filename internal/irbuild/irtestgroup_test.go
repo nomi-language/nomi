@@ -473,9 +473,9 @@ tests "bare return in a Unit setup" {
 		t.Errorf("want all six cases passing:\n%s", run.vm.stdout)
 	}
 	for _, want := range []string{
-		"early\nbody sees early\n",
-		"in block\nblock closed\nbody\n",
-		"before\nbody after a bare return\n",
+		"  early\n  body sees early\n",
+		"  in block\n  block closed\n  body\n",
+		"  before\n  body after a bare return\n",
 	} {
 		if !strings.Contains(run.vm.stdout, want) {
 			t.Errorf("want %q in the output:\n%s", want, run.vm.stdout)

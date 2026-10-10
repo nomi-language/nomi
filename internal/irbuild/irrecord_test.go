@@ -11,7 +11,7 @@ func TestIRRecord_UnsupportedBodiesDecline(t *testing.T) {
 		"struct Point { x: Int }\nstruct Outer { p: List<Point>\n hooks: Map<String, (Int) -> Int> = Map.empty() }\nfn main() { record = {outer: Outer{p: [Point{x: 1}]}} dbg record return }",
 		// A nested patch over a struct outside the retained domain keeps
 		// native lowering.
-		"struct Point { x: Int }\nstruct Outer { ps: List<Point>\n n: Int\n hooks: Map<String, (Int) -> Int> = Map.empty() }\nfn main() { o = Outer{ps: [Point{x: 1}], n: 1} updated = {..o, n: 2} record = {o: o} dbg {..record, o: {n: 3}} dbg updated return }",
+		"struct Point { x: Int }\nstruct Outer { ps: List<Point>\n n: Int\n hooks: Map<String, (Int) -> Int> = Map.empty() }\nfn main() { o = Outer{ps: [Point{x: 1}], n: 1} updated = {..o, n: 2} record = {o: o} dbg {..record, o: {.., n: 3}} dbg updated return }",
 	} {
 		p, err := AnalyzeSource("main.nomi", src)
 		if err != nil {

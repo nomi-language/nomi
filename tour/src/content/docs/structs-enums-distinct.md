@@ -142,9 +142,9 @@ anonymous struct gives an anonymous struct. That is why there is no
 says.
 
 To change a field inside a nested struct, spread the inner value as well, or
-write a bare `{…}` at the field. Under a spread, a bare brace at a
-struct-typed field is a patch applied to whatever the base holds there, so
-both lines replace `address.city` and keep `address.street`:
+write `..` with no base at the field. A bare `..` stands for the value the
+field already holds, so `{.., city: "NYC"}` is that address with a new city,
+and both lines replace `address.city` and keep `address.street`:
 
 ```nomi-run
 struct Address {
@@ -160,29 +160,29 @@ struct Person {
 fn main() {
     ada = Person{name: "Ada", address: {street: "1 Main", city: "Bath"}}
     dbg {..ada, address: {..ada.address, city: "NYC"}}
-    dbg {..ada, address: {city: "NYC"}}
+    dbg {..ada, address: {.., city: "NYC"}}
 }
 
 ```
 <!-- expect
 dbg line 13: {..ada, address: {..ada.address, city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
-dbg line 14: {..ada, address: {city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
+dbg line 14: {..ada, address: {.., city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
 -->
 
 [`Struct.update`](/reference/structs/) does the same by name, taking the patch
-as an argument (`Struct.update(ada, {address: {city: "NYC"}})`), which is what
-a computed patch or a pipe stage needs.
+as an argument (`Struct.update(ada, {address: {.., city: "NYC"}})`), which is
+what a computed patch or a pipe stage needs.
 
-Everything other than a bare brace at a field position is a value. A nominal
-literal (`Address{street: "2 Elm", city: "NYC"}`) replaces the field, a
+Everything else at a field position is a whole value. A brace without `..`
+(`{street: "2 Elm", city: "NYC"}`) or a nominal literal replaces the field, a
 binding or a call is whatever it evaluates to, and a nested spread is already
-a complete `Address`. An interface-typed field takes values only, since a
-patch cannot name fields the interface does not declare.
+a complete `Address`. An interface-typed field takes values only, since an
+update cannot name fields the interface does not declare.
 
-The patch exists only underneath a spread. Outside one, a bare brace at a
-struct field builds that struct, so `Person{name: "Ada", address: {city:
-"NYC"}}` has no base for `street` to come from and reports `missing field
-'street' of Address`.
+So `{..ada, address: {city: "NYC"}}` is an error: the brace is a whole
+`Address` with no `street`, and the compiler reports `missing field 'street'
+of Address` with a hint to write `{.., city: "NYC"}`. The same `..` works for
+a map's values and a list field (`[t, ..]`), as the collections chapter shows.
 
 ## Tuples
 
@@ -258,24 +258,32 @@ domain bugs at compile time:
 type Id Int
 type Email String
 
+fn raw(Id(n)): Int {
+    n
+}
+
 fn main() {
     id = Id(42)
     dbg id
 
-    // To pull the inner value out, cast or destructure-bind:
-    raw = Int(id)
-    dbg raw
+    // To read the inner value, destructure it:
+    Id(n) = id
+    dbg n
 
-    Id(again) = id
-    dbg again
+    dbg raw(id)
 }
 
 ```
 <!-- expect
-dbg line 6: id = Id(42)
-dbg line 10: raw = 42
-dbg line 13: again = 42
+dbg line 10: id = Id(42)
+dbg line 14: n = 42
+dbg line 16: raw(id) = 42
 -->
+
+The pattern `Id(n)` mirrors the construction `Id(42)`, and it works wherever a
+pattern does: a binding, a `case` arm, or a parameter, as in `raw`. Calling
+the inner type's name is not a conversion: `Int(id)` is an error whose hint
+shows the destructuring to write instead.
 
 ## Bare types
 

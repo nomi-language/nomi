@@ -80,6 +80,29 @@ func (c *checker) recordInstantiation(n *ast.Call, subs map[*TypeParam_]Type, ar
 	}
 }
 
+// selfCallAtOwnParams reports whether a generic call whose unification
+// solved nothing is a call at the enclosing declaration's own type
+// parameters: every type parameter of ft is the caller's own, and each
+// argument passes it at itself (`walk(rest)` with `rest: List<T>` inside
+// `fn walk<T>`). A parameter an argument passes at anything else
+// (`f((x, x))`) or nothing passes answers false.
+func (c *checker) selfCallAtOwnParams(ft *FuncType, args [][2]Type) bool {
+	own := collectTypeParamsByName(ft)
+	if len(own) == 0 || c.containsForeignTypeParam(ft) {
+		return false
+	}
+	solved := map[*TypeParam_]Type{}
+	for _, pa := range args {
+		matchTypeParams(pa[0], pa[1], solved)
+	}
+	for _, p := range own {
+		if arg, seen := solved[p]; !seen || resolveTypeVar(arg) != Type(p) {
+			return false
+		}
+	}
+	return true
+}
+
 // matchTypeParams binds each type parameter in param to the part of arg at
 // the same position, walking the shapes both sides share. It solves nothing
 // the checker relies on; it only reads what a call passes.

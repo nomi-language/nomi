@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"testing"
 
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/token"
@@ -242,20 +243,38 @@ func (l *layout) joinLines(src string, p float64) string {
 }
 
 // comment puts comments between tokens: at the end of a line and on a line
-// of their own between statements, and, once per pass at most, on a line
-// break inside an expression, where few constructs take one.
+// of their own between statements, alone inside an empty `{}`, and, once per
+// pass at most, on a line break inside an expression, where few constructs
+// take one.
 func (l *layout) comment(src string, p float64) string {
 	var edits []edit
 	// inside is set once an in-expression comment is placed, or from the
 	// start in three passes of four.
 	inside := l.r.Intn(4) != 0
 	for _, g := range gaps(src, sourceTokens(src)) {
+		if g.prev.typ == token.LBRACE && g.next.typ == token.RBRACE && g.start == g.end {
+			// An empty `{}` gets a body of one comment line, one time in
+			// two whatever p is: few seeds have one.
+			if l.r.Intn(2) == 0 {
+				edits = append(edits, edit{g.start, g.end, "\n" + l.indent() + l.note("e") + "\n" + l.indent()})
+			}
+			continue
+		}
 		if l.r.Float64() >= p || g.next.interp || g.prev.interp {
 			continue
 		}
 		text := g.text(src)
 		nl := strings.IndexByte(text, '\n')
 		switch {
+		case nl < 0 && listGap(g) && l.r.Intn(2) == 0:
+			// A bracketed list takes a comment after its opening bracket
+			// or after a comma, ending that line or on a line of its own,
+			// any number of times.
+			if l.r.Intn(2) == 0 {
+				edits = append(edits, edit{g.start, g.end, " " + l.note("a") + "\n" + l.indent()})
+			} else {
+				edits = append(edits, edit{g.start, g.end, "\n" + l.indent() + l.note("b") + "\n" + l.indent()})
+			}
 		case nl < 0 && g.breakable() && !inside:
 			inside = true
 			edits = append(edits, edit{g.start, g.end, " " + l.note("c") + "\n" + l.indent()})
@@ -267,6 +286,17 @@ func (l *layout) comment(src string, p float64) string {
 		}
 	}
 	return apply(src, edits)
+}
+
+// listGap reports whether g follows a list's opening bracket or a comma:
+// a call's arguments, a collection literal's elements, a parameter or
+// pattern list.
+func listGap(g gap) bool {
+	switch g.prev.typ {
+	case token.COMMA, token.LPAREN, token.LBRACKET:
+		return true
+	}
+	return false
 }
 
 // operand reports whether a token may come before an expression. `/`, `<`,
@@ -345,7 +375,100 @@ func (l *layout) wrap(src string, p float64) string {
 		edits = append(edits, edit{t.start, t.start, "("}, edit{end, end, ")"})
 		i = j
 	}
+	// An enum variant's positional payload takes parentheses too, written
+	// against the variant's name: `Full Int` becomes `Full(Int)`, which
+	// gives the comment pass a list opener inside an enum body.
+	for _, s := range enumPayloads(toks) {
+		if l.r.Float64() >= p {
+			continue
+		}
+		name, first, last := toks[s[0]-1], toks[s[0]], toks[s[1]]
+		end := last.start + len(last.text)
+		edits = append(edits, edit{name.start + len(name.text), first.start, "("}, edit{end, end, ")"})
+	}
 	return apply(src, edits)
+}
+
+// enumPayloads finds each positional payload in an enum body, and no bare,
+// struct-shaped or embedded variant.
+func TestLayoutWrap_EnumPayloads(t *testing.T) {
+	src := "enum E {\n    A\n    Full Int // c\n    Pair (\n        Int,\n        String\n    )\n    Gen Map<String, List<Int>>\n    F (Int) -> Int\n    S {x: Int}\n    embeds G\n    Last T\n}\n"
+	want := []string{"Int", "(\n        Int,\n        String\n    )", "Map<String, List<Int>>", "(Int) -> Int", "T"}
+	toks := sourceTokens(src)
+	var got []string
+	for _, s := range enumPayloads(toks) {
+		got = append(got, src[toks[s[0]].start:toks[s[1]].start+len(toks[s[1]].text)])
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+// enumPayloads is the first and last token index of each positional
+// payload in an enum body: the type after a variant's name, through the
+// end of its line outside brackets.
+func enumPayloads(toks []vtok) [][2]int {
+	var out [][2]int
+	for i := 0; i < len(toks); i++ {
+		if toks[i].typ != token.ENUM {
+			continue
+		}
+		open := i + 1
+		for open < len(toks) && toks[open].typ != token.LBRACE {
+			open++
+		}
+		if open == len(toks) {
+			return out
+		}
+		close := matching(toks, open)
+		if close < 0 {
+			return out
+		}
+		depth := 0
+		for j := open + 1; j+1 < close; j++ {
+			switch toks[j].typ {
+			case token.LBRACE:
+				depth++
+			case token.RBRACE:
+				depth--
+			}
+			name, next := toks[j], toks[j+1]
+			if depth != 0 || name.typ != token.TYPE_IDENT || toks[j-1].line == name.line && j-1 != open ||
+				next.line != name.line || name.interp || name.prompt {
+				continue
+			}
+			switch next.typ {
+			case token.TYPE_IDENT, token.IDENT, token.LPAREN:
+			default:
+				continue
+			}
+			k, nest := j+1, 0
+			for ; k < close; k++ {
+				switch toks[k].typ {
+				case token.LPAREN, token.LT, token.LBRACKET, token.LBRACE:
+					nest++
+				case token.RPAREN, token.GT, token.RBRACKET, token.RBRACE:
+					nest--
+				}
+				if nest > 0 {
+					continue
+				}
+				after := toks[k+1]
+				if k+1 == close || after.line != toks[k].line {
+					break
+				}
+				if after.typ == token.COMMENT || after.typ == token.SEMICOLON || after.typ == token.COMMA {
+					break
+				}
+			}
+			if nest == 0 && k < close {
+				out = append(out, [2]int{j + 1, k})
+			}
+			j = k
+		}
+		i = close
+	}
+	return out
 }
 
 // unwrap removes parentheses that group, rather than call or declare.

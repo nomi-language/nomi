@@ -910,6 +910,15 @@ func (m *Machine) match(fr *frame, n *ir.Match) error {
 	if err != nil {
 		return err
 	}
+	if n.Kind() == ir.MatchStrPrefix {
+		s, sok := subj.(string)
+		prefix, pok := lit.(string)
+		if !sok || !pok {
+			return fmt.Errorf("vm: %s: prefix test reads %T and %T, not two strings", fr.fn.Name(), subj, lit)
+		}
+		fr.write(n.Dst(), boolValue(rt.StringPrefixOf(prefix, s)))
+		return nil
+	}
 	// `rt.Equal`, the structural equality `internal/ir/match.go` records as the whole of a literal test: a
 	// literal pattern's subject is always a scalar and there is no `impl
 	// Equatable` to dispatch to.

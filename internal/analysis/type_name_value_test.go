@@ -39,9 +39,9 @@ func TestTypeName_CalledAsAFunctionIsRejected(t *testing.T) {
 		{`"4" |> Int()`, "`Int` is a type, not a function\nhelp: to parse a String, call `String.to_int`"},
 		{`Int(2.5)`, "`Int` is a type, not a function\nhelp: to convert a Float, call `Float.to_int`"},
 		{`String(4)`, "`String` is a type, not a function\nhelp: to turn a value into a String, interpolate it (`\"${x}\"`) or call `Display.to_string(x)`"},
-		{`String(Id(4))`, "`String` is a type, not a function"},
+		{`String(Id(4))`, "`String` is a type, not a function\nhelp: to get the Int inside, destructure the Id: `Id(n) = value`"},
 		{`Float(3)`, "`Float` is a type, not a function\nhelp: to convert an Int, call `Int.to_float`"},
-		{`Float("1.5")`, "`Float` is a type, not a function\nhelp: `Float(x)` only unwraps a distinct type that wraps Float"},
+		{`Float("1.5")`, "`Float` is a type, not a function"},
 		{`Bool(1)`, "`Bool` is a type, not a function"},
 		{`Dir(1)`, "`Dir` is a type, not a function\nhelp: build a value with one of its variants, as in `Dir.North`"},
 		{`Maybe(3)`, "`Maybe` is a type, not a function"},
@@ -110,17 +110,63 @@ func TestTypeName_AsATestBodysLastStatementIsRejected(t *testing.T) {
 	}
 }
 
-// The mirror: construction, unwrap, qualification, witnesses and the names
-// that are values stay accepted.
-func TestTypeName_ConstructionUnwrapAndValuesAreAccepted(t *testing.T) {
+// The inner type's name does not unwrap a distinct: `Int(id)` is the same
+// error as `Int("4")`, and its help names the destructuring that does.
+func TestTypeName_CalledOnADistinctIsRejected(t *testing.T) {
+	for _, tc := range []struct {
+		stmt string
+		want string
+	}{
+		{"id = Id(4)\n  x = Int(id)", "`Int` is a type, not a function\nhelp: to get the Int inside, destructure the Id: `Id(n) = id`"},
+		{"id = Id(4)\n  x = id |> Int()", "`Int` is a type, not a function\nhelp: to get the Int inside, destructure the Id: `Id(n) = id`"},
+		{"label = Label(\"a\")\n  x = String(label)", "`String` is a type, not a function\nhelp: to get the String inside, destructure the Label: `Label(s) = label`"},
+		{"type Ratio Float\n  r = Ratio(1.5)\n  x = Float(r)", "`Float` is a type, not a function\nhelp: to get the Float inside, destructure the Ratio: `Ratio(x) = r`"},
+		// The help names the type the distinct wraps, not the one called.
+		{"id = Id(4)\n  x = String(id)", "`String` is a type, not a function\nhelp: to get the Int inside, destructure the Id: `Id(n) = id`"},
+		// A binding named like the suggested one is not reused.
+		{"n = Id(4)\n  x = Int(n)", "`Int` is a type, not a function\nhelp: to get the Int inside, destructure the Id: `Id(inner) = n`"},
+	} {
+		src := typeNameDecls + "fn main() {\n  " + tc.stmt + "\n  _ = x\n}\n"
+		_, errs := checkSourceWithStdlib(src)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(diagText(e), tc.want) {
+				found = true
+			}
+		}
+		if !found {
+			expectStdlibError(t, errs, tc.want)
+		}
+	}
+}
+
+// Destructuring is how a distinct is unwrapped, in each position a pattern
+// takes.
+func TestTypeName_DistinctDestructuringIsAccepted(t *testing.T) {
+	for _, stmt := range []string{
+		"Id(x) = Id(4)",
+		"x = case Id(4) { Id(n) -> n }",
+		"x = if Some(Id(n)) = Some(Id(4)) { n } else { 0 }",
+		"Some(Id(x)) = Some(Id(4)) else { return }",
+		"f = |Id(n)| n\n  x = f(Id(4))",
+		"Label(x) = Label(\"a\")",
+	} {
+		src := typeNameDecls + "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
+		_, errs := checkSourceWithStdlib(src)
+		if len(errs) > 0 {
+			t.Errorf("%s: want no error, got %v", stmt, errs)
+		}
+	}
+}
+
+// The mirror: construction, qualification, witnesses and the names that are
+// values stay accepted.
+func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 	for _, stmt := range []string{
 		`x = Point({x: 1})`,
 		`x = Point{x: 1}`,
 		`x = Id(4)`,
 		`x = 4 |> Id()`,
-		`x = Int(Id(4))`,
-		`x = Id(4) |> Int()`,
-		`x = String(Label("a"))`,
 		`x = Expired`,
 		`x = Dir.North`,
 		`x = Int.to_string(3)`,

@@ -173,7 +173,9 @@ func mapAt(bm, bit uint32) int { return bits.OnesCount32(bm & (bit - 1)) }
 // --- construction -----------------------------------------------------------
 
 // MapOf builds a map from entries in order: last-write-wins on a duplicate key,
-// with the first occurrence keeping its position. That is the rule both `{"a" => 1, "a" => 9}` and `Iter.to_map` depend on.
+// with the first occurrence keeping its position. That is the rule both a
+// literal whose keys are equal at run time (`{k => 1, j => 9}` with `k == j`)
+// and `Iter.to_map` depend on.
 //
 // A map literal lowers to this. It is a fold of persistent puts, so an n-entry
 // literal copies O(n log32 n) nodes where a transient builder would copy
@@ -351,6 +353,31 @@ func MapMapValues[K, V, U any](
 	out := make([]MapEntry[K, U], len(es))
 	for i := range es {
 		out[i] = MapEntry[K, U]{Key: es[i].Key, Val: f(fr, es[i].Val)}
+	}
+	return MapOf(hash, eq, out)
+}
+
+// MapMapValuesCtl is MapMapValues whose callback can `break` or `continue`
+// (seqctladapt.go's Ctl): `continue` leaves the key out, a bare `break` stops
+// with the entries transformed so far, and `break v` keeps v for this key and
+// then stops.
+func MapMapValuesCtl[K, V, U any](
+	fr *Frame,
+	m Map[K, V],
+	hash func(K) uint64,
+	eq func(K, K) bool,
+	f func(fr *Frame, val V) (U, Ctl),
+) Map[K, U] {
+	es := MapEntries(m)
+	out := make([]MapEntry[K, U], 0, len(es))
+	for i := range es {
+		v, c := f(fr, es[i].Val)
+		if c == CtlEmit || c == CtlEmitStop {
+			out = append(out, MapEntry[K, U]{Key: es[i].Key, Val: v})
+		}
+		if c == CtlEmitStop || c == CtlStop {
+			break
+		}
 	}
 	return MapOf(hash, eq, out)
 }

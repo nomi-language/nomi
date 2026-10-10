@@ -110,35 +110,11 @@ fn main() { _ = count_to(3) + count_to(4) }`)
 	}
 }
 
-func TestIRLoop_UnsupportedShapesPreserveEmission(t *testing.T) {
+func TestIRLoop_BranchingTailAndFirstBreak(t *testing.T) {
 	// A branching tail writes the tail slot from two arms, and a final `break
 	// v` leaves on the first iteration.
 	verifyLambdaProgram(t, "import std/io\nfn run(): Int {\nIter.loop(|n = 0| {\n if n > 3 { break n }\n if n > 1 { n + 2 } else { n + 1 }\n })\n}\n"+
 		"fn first_break(): Int {\nIter.loop(|n = 7| { break n })\n}\nfn main() {\n io.print(run())\n io.print(first_break())\n}\n", "4\n7\n")
-	for _, body := range []string{
-		// A break inside a value conditional.
-		"Iter.loop(|n = 0| {\n x = if n > 3 { break n } else { n }\n x + 1\n })",
-		// A loop inside a lambda.
-		"(|| Iter.loop(|n = 0| {\n if n > 3 { break n }\n n + 1\n }))()",
-		// A destructuring state parameter.
-		"(a, _) = Iter.loop(|(x, y): (Int, Int) = (0, 1)| {\n if y > 3 { break (x, y) }\n (y, x + y)\n })\na",
-	} {
-		p, err := AnalyzeSource("main.nomi", "fn run(): Int {\n"+body+"\n}\nfn main() { _ = run() }")
-		if err != nil {
-			t.Fatal(err)
-		}
-		got, _, err := GenerateIR(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, mod := range got.IR {
-			for _, f := range mod.Funcs() {
-				if f.Name() == "run" {
-					t.Fatalf("unsupported loop was retained:\n%s", body)
-				}
-			}
-		}
-	}
 }
 
 // A final `return v` is the next state, as a tail value is (vm-maps-iters).
@@ -168,4 +144,132 @@ fn main() {
   io.print(n)
 }
 `, "600000\n")
+}
+
+// A loop whose state is Unit runs for its effects: a bare `break`, `break u`,
+// `continue`, a guard, a final `return u` and a tail whose value is Unit, a
+// discard-named state, an inferred `= Unit` seed, the loop's Unit answer
+// bound and printed, and a loop in a lambda.
+func TestIRLoop_UnitState(t *testing.T) {
+	verifyLambdaProgram(t, `import std/channels.{Channel, Receiver, Sender}
+import std/io
+
+fn feed(items: List<String>): Receiver<String> {
+    ch = Channel.buffered<String>(10)
+    Iter.each(items, |s| {
+        _ = Sender.send(ch.sender, s)
+    })
+    Sender.close(ch.sender)
+    ch.receiver
+}
+
+fn break_state(input: Receiver<String>) {
+    Iter.loop(|u: Unit = Unit| {
+        case Receiver.receive(input) {
+            Some("skip") -> continue
+            Some(t) -> io.print(t)
+            None -> break u
+        }
+    })
+}
+
+fn bare_break(input: Receiver<String>) {
+    Iter.loop(|_u: Unit = Unit| {
+        case Receiver.receive(input) {
+            Some(t) -> io.print("bare ${t}")
+            None -> break
+        }
+    })
+}
+
+fn guards(input: Receiver<String>): Unit {
+    Iter.loop(|u = Unit| {
+        t = Receiver.receive(input)
+        if t == None { break u }
+        if t == Some("skip") { continue }
+        io.print("guarded ${t}")
+        return u
+    })
+}
+
+fn main() {
+    break_state(feed(["a", "skip", "b"]))
+    bare_break(feed(["c"]))
+    r = guards(feed(["d", "skip", "e"]))
+    io.inspect(r)
+    run = |items: List<String>| {
+        input = feed(items)
+        Iter.loop(|_: Unit = Unit| {
+            case Receiver.receive(input) {
+                Some(t) -> io.print("lambda ${t}")
+                None -> break
+            }
+        })
+    }
+    run(["f"])
+}
+`, "a\nb\nbare c\nguarded Some(d)\nguarded Some(e)\nUnit\nlambda f\n")
+}
+
+// A stateless loop has state Unit and lowers as a Unit-state loop does,
+// whatever ends its body: `break`, `continue`, a `case` whose arms all leave,
+// a Unit tail, an `if` with no `else`. Its value is Unit, and it lowers in a
+// lambda too.
+func TestIRLoop_StatelessLoopEndings(t *testing.T) {
+	verifyLambdaProgram(t, `import {
+    std/channels.{Channel, Receiver, Sender}
+    std/io
+}
+
+fn fill(xs: List<Int>): Receiver<Int> {
+    ch: Channel<Int> = Channel.buffered(10)
+    Iter.each(xs, |x| {
+        _ = Sender.send(ch.sender, x)
+    })
+    Sender.close(ch.sender)
+    ch.receiver
+}
+
+fn main() {
+    // Ends in break: runs once.
+    Iter.loop(|| {
+        io.print("once")
+        break
+    })
+    // Ends in continue.
+    inbox = fill([1, 2, 3])
+    Iter.loop(|| {
+        Some(n) = Receiver.receive(inbox) else { break }
+        if n == 3 { break Unit }
+        io.print("continue ${n}")
+        continue
+    })
+    // A case whose arms all leave.
+    inbox2 = fill([4, 5, 0, 6])
+    Iter.loop(|| {
+        case Receiver.receive(inbox2) {
+            Some(0) -> break
+            Some(n) -> {
+                io.print("case ${n}")
+                continue
+            }
+            None -> break
+        }
+    })
+    // A Unit tail, and an if with no else ending the body.
+    inbox3 = fill([7, 8])
+    u = Iter.loop(|| {
+        Some(n) = Receiver.receive(inbox3) else { break }
+        io.print("tail ${n}")
+        if n == 7 { io.print("seven") }
+    })
+    io.inspect(u)
+    // In a lambda.
+    drain = |label: String, inbox: Receiver<Int>| Iter.loop(|| {
+        Some(n) = Receiver.receive(inbox) else { break }
+        io.print("${label} ${n}")
+    })
+    drain("lambda", fill([9, 10]))
+}
+`, "once\ncontinue 1\ncontinue 2\ncase 4\ncase 5\ntail 7\nseven\ntail 8\nUnit\nlambda 9\nlambda 10\n")
 }

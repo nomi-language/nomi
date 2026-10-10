@@ -19,15 +19,15 @@ import (
 // expected (`Context.value(c, TraceId)`, checkTypeWitnessExpr), wherever
 // the type is declared.
 //
-// A type name called with arguments is construction or unwrap, and only for
-// the types that have one:
+// A type name called with arguments is construction, and only for the
+// types that have one:
 //
 //   - a struct takes its record: `Point({x: 1})`;
-//   - a distinct type takes the value it wraps: `Email("a@b.c")`;
-//   - `Int`, `Float` and `String` unwrap a distinct that wraps exactly that
-//     type: `Int(id)` for `type Id Int`.
+//   - a distinct type takes the value it wraps: `Email("a@b.c")`.
 //
-// Everything else is an error here, at the name, rather than a program the
+// A distinct is unwrapped by destructuring (`Id(n) = id`), never by calling
+// the inner type's name: `Int(id)` is the same error as `Int("4")`, whose
+// hint names the pattern. Everything else is an error here, at the name, rather than a program the
 // IR builder refuses with "a type name in value position".
 
 // typeNameRef is a name that may name a type: a TypeIdent (`Int`), or the
@@ -171,19 +171,12 @@ func (c *checker) distinctCtorValue(n ast.Node) (Type, bool) {
 	return ft, true
 }
 
-// checkTypeNameCall checks `T(args)` for a type name T that is neither a
+// checkTypeNameCall reports `T(args)` for a type name T that is neither a
 // function nor a distinct type (checkDistinctCtorCall has those) nor a
-// struct (checkStructCallForm): only an `Int`, `Float` or `String` unwrap
-// of a distinct that wraps that type is a call. argTys are the arguments'
-// types, already checked; a nil one has already drawn an error, so nothing
-// more is said.
+// struct (checkStructCallForm): no other type name has a call form. argTys
+// are the arguments' types, already checked; a nil one has already drawn an
+// error, so nothing more is said.
 func (c *checker) checkTypeNameCall(ref typeNameRef, resolved Type, args []ast.Node, argTys []Type) Type {
-	if prim, isPrim := resolved.(*PrimitiveType); isPrim && len(argTys) == 1 && unwrapCallee(ref.text) {
-		if dt, ok := argTys[0].(*DistinctType); ok && dt.Inner != nil && TypesEqual(dt.Inner, prim) {
-			c.checkOpaqueUnwrap(args[0], argTys[0])
-			return prim
-		}
-	}
 	for _, t := range argTys {
 		if t == nil {
 			return nil
@@ -193,13 +186,47 @@ func (c *checker) checkTypeNameCall(ref typeNameRef, resolved Type, args []ast.N
 	if !ok {
 		what = "type"
 	}
-	var argTy Type
+	hint := ""
 	if len(argTys) == 1 {
-		argTy = argTys[0]
+		if dt, isDistinct := argTys[0].(*DistinctType); isDistinct && dt.Inner != nil {
+			hint = c.distinctUnwrapHint(dt, args[0])
+		} else {
+			hint = typeNameCallHint(ref.text, what, resolved, argTys[0])
+		}
+	} else {
+		hint = typeNameCallHint(ref.text, what, resolved, nil)
 	}
 	c.report(errAt(ref.node, fmt.Sprintf("`%s` is %s %s, not a function", ref.text, articleForWord(what), what)).
-		WithHint(typeNameCallHint(ref.text, what, resolved, argTy)))
+		WithHint(hint))
 	return nil
+}
+
+// distinctUnwrapHint is the help on a type name called on a distinct value,
+// `Int(balance)` for `type Balance Int`: the value inside is reached by
+// destructuring, `Balance(n) = balance`. An opaque distinct outside its file
+// cannot be destructured either, so the help names its accessors instead.
+func (c *checker) distinctUnwrapHint(dt *DistinctType, arg ast.Node) string {
+	if dt.Opaque && (c.fa == nil || c.fa.FilePath != dt.OwningSourceFile) {
+		return fmt.Sprintf("the value inside %s is private to the file that declares it; use a function its module exports", dt.Name)
+	}
+	value := "value"
+	if id, isIdent := arg.(*ast.Ident); isIdent {
+		value = id.Name
+	}
+	inner := formatTypeForError(dt.Inner)
+	binding := "inner"
+	switch inner {
+	case "Int":
+		binding = "n"
+	case "Float":
+		binding = "x"
+	case "String":
+		binding = "s"
+	}
+	if binding == value {
+		binding = "inner"
+	}
+	return fmt.Sprintf("to get the %s inside, destructure the %s: `%s(%s) = %s`", inner, dt.Name, dt.Name, binding, value)
 }
 
 // calleeNamedType is the type a call's callee names when the callee is a
@@ -257,16 +284,6 @@ func (c *checker) checkPipedTypeNameCall(call *ast.Call, piped ast.Node, pipedTy
 	return c.checkTypeNameCall(ref, resolved, args, argTys), true
 }
 
-// unwrapCallee reports the type names whose call unwraps a distinct: the
-// closed set the IR builder lowers (irdistinct.go distinctInner).
-func unwrapCallee(name string) bool {
-	switch name {
-	case "Int", "Float", "String":
-		return true
-	}
-	return false
-}
-
 func typeNameCallHint(name, what string, resolved, argTy Type) string {
 	from := ""
 	if argTy != nil {
@@ -291,9 +308,6 @@ func typeNameCallHint(name, what string, resolved, argTy Type) string {
 		}
 	case "String":
 		return "to turn a value into a String, interpolate it (`\"${x}\"`) or call `Display.to_string(x)`"
-	}
-	if unwrapCallee(name) {
-		return fmt.Sprintf("`%s(x)` only unwraps a distinct type that wraps %s, as in `%s(id)` for `type Id %s`", name, name, name, name)
 	}
 	if what == "interface" {
 		return fmt.Sprintf("call one of its functions, as in `%s.function(x)`", name)

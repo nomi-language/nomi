@@ -12,7 +12,7 @@ fn run(handler: Handler): Result<String, String> {
 
 test "distinct types construct unwrap destructure and compare" {
     id = Id(42)
-    n = Int(id)
+    Id(n) = id
 
     result = case id {
         Id(x) -> x + 1

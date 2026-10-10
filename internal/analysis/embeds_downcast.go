@@ -167,7 +167,7 @@ func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label 
 		name := embeddableTypeName(emb)
 		msg := fmt.Sprintf("%s: %s takes %s %s, but %s calls it with %s %s, and %s %s may hold a variant other than %s",
 			label, subject, articleFor(takes), takes, by, articleFor(gets), gets, articleFor(et.Name), et.Name, name)
-		hint := embedsDowncastHint(hf.Params[i], passed)
+		hint := mismatchHint(hf.Params[i], passed)
 		if _, top := passed.(*EnumType); top && len(wf.Params) == 1 {
 			pattern := "." + name + "{}"
 			if _, distinct := emb.(*DistinctType); distinct {
@@ -188,5 +188,5 @@ func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label 
 // addMismatch reports msg, a value of type have refused where want is
 // expected, at line:col, with embedsDowncastHint.
 func (c *checker) addMismatch(line, col int, want, have Type, msg string) {
-	c.report(TypeError{Line: line, Col: col, Message: msg}.WithHint(embedsDowncastHint(want, have)))
+	c.report(TypeError{Line: line, Col: col, Message: msg}.WithHint(mismatchHint(want, have)))
 }

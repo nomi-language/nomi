@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 368
+records 364
 declared-cases 0
 failing 74
 C assert_subject_test.nomi@76e4dc034f8c1f74
@@ -95,7 +95,7 @@ T
 C boot_test.nomi@32414ce1d19d9ed7
 E 0
 N 0
-H 45c8fedaffc7082d71ad2543e217fc488f0151de625e32edd3f895fe25368771
+H 2d97a44397a38f77696a7107a7d7154763e40891069701280f1cfba175a4c9a5
 S -- boot_test.nomi 340 --
 S import std/io
 S
@@ -124,8 +124,8 @@ S   }
 S }
 S
 S
-T booted!
 T ok <dir>/boot_test.nomi :: group / reads the group's app
+T   booted!
 T test result: ok. 1 passed, 0 failed
 T
 C context_value_test.nomi@78f4861a6090243c
@@ -218,6 +218,112 @@ T         = Some(UserId(3))
 T       id
 T         = 3
 T test result: FAILED. 4 passed, 2 failed
+T
+C control_test.nomi@07f17672be45a9b0
+E 1
+N 0
+H e8fc85afe293438bbb54ed200802173c1d165e9144b6dd53cb0e5ecda4e6c01c
+S -- control_test.nomi 986 --
+S import {
+S   std/io
+S   std/literals.{Fragment, Literal}
+S }
+S
+S struct Upper {
+S   text: String
+S }
+S
+S impl Literal for Upper {
+S   fn from_fragments(fragments: List<Fragment<String>>): Upper {
+S     text = Iter.reduce(fragments, |acc = "", frag|
+S       case frag {
+S         .Static(s) -> acc + String.to_upper(s)
+S         .Dynamic(v) -> acc + v
+S       }
+S     )
+S     Upper{text}
+S   }
+S }
+S
+S test "a tuple" {
+S   pair = (1, "one")
+S   assert pair.0 == 1
+S   assert pair.1 == "uno"
+S }
+S
+S test "a map" {
+S   m = {"a" => 1, "b" => 2}
+S   assert Map.size(Map.put(m, "c", 3)) == 3
+S   assert Map.size(m) == 3
+S }
+S
+S test "a set and a vector" {
+S   s = #{1, 2, 1 + 1}
+S   v = #[1, 2, 3]
+S   assert Set.size(s) == 2
+S   assert Vector.length(v) == 4
+S }
+S
+S test "a decimal" {
+S   assert 1.10d + 2.20d == 3.30d
+S   assert 1.5d == 2.5d
+S }
+S
+S test "a List host call in a case arm" {
+S   case [1, 2] {
+S     [] -> assert False
+S     [_, ..t] -> assert List.head(t) == Some(3)
+S   }
+S }
+S
+S test "a tagged literal" {
+S   u = Upper"abc"
+S   io.print(u.text)
+S   assert u.text == "abc"
+S }
+S
+S
+T FAIL <dir>/control_test.nomi :: a tuple
+T   line 25: assertion failed
+T     assert pair.1 == "uno"
+T     values:
+T       pair.1
+T         = "one"
+T FAIL <dir>/control_test.nomi :: a map
+T   line 31: assertion failed
+T     assert Map.size(m) == 3
+T     values:
+T       m
+T         = {"a" => 1, "b" => 2}
+T       Map.size(m)
+T         = 2
+T FAIL <dir>/control_test.nomi :: a set and a vector
+T   line 38: assertion failed
+T     assert Vector.length(v) == 4
+T     values:
+T       v
+T         = #[1, 2, 3]
+T       Vector.length(v)
+T         = 3
+T FAIL <dir>/control_test.nomi :: a decimal
+T   line 43: assertion failed
+T     assert 1.5d == 2.5d
+T FAIL <dir>/control_test.nomi :: a List host call in a case arm
+T   line 49: assertion failed
+T     assert List.head(t) == Some(3)
+T     values:
+T       t
+T         = [2]
+T       List.head(t)
+T         = Some(2)
+T FAIL <dir>/control_test.nomi :: a tagged literal
+T   ABC
+T   line 56: assertion failed
+T     assert u.text == "abc"
+T     values:
+T       u.text
+T         = "ABC"
+T test result: FAILED. 0 passed, 6 failed
 T
 C control_test.nomi@127e8c95c1dcb9bd
 E 1
@@ -662,7 +768,7 @@ T
 C control_test.nomi@8501a35550117452
 E 1
 N 0
-H 6fffd84ca56d8bb565542ad1b02555fd0b49294c327874c977c230d9e53f2ddb
+H 6b65a61f0c80cc719cf9a0aace9c9c2113ee82be2519576d338de534661c2bb2
 S -- control_test.nomi 349 --
 S import std/io
 S
@@ -685,8 +791,6 @@ S   assert Debug.inspect(1..=3) == "1..=3"
 S }
 S
 S
-T 1..4
-T [1..=2, 3..4]
 T FAIL <dir>/control_test.nomi :: two ranges compared
 T   line 4: assertion failed
 T     assert 1..4 == 1..5
@@ -712,7 +816,106 @@ T         = Range{end: Some(1.5), inclusive: False, start: 0.5}
 T       2.0
 T         = 2.0
 T ok <dir>/control_test.nomi :: debug keeps the range syntax
+T   1..4
+T   [1..=2, 3..4]
 T test result: FAILED. 1 passed, 3 failed
+T
+C control_test.nomi@8a470cf29dc6c281
+E 0
+N 0
+H 19754445e4c69a310e32165423ec8f01856350ca7bed9dc209af9fea4dc4c8a6
+S -- control_test.nomi 1450 --
+S import std/io
+S
+S fn skip_odd(n: Int): Int {
+S   if n % 2 == 1 {
+S     continue
+S   }
+S   n * 10
+S }
+S
+S fn keep_until_big(n: Int): Bool {
+S   if n > 3 {
+S     break
+S   }
+S   n % 2 == 0
+S }
+S
+S fn below_five(n: Int): Bool {
+S   if n >= 5 {
+S     break False
+S   }
+S   True
+S }
+S
+S fn sum_small(total: Int, n: Int): Int {
+S   if n < 0 {
+S     continue
+S   }
+S   if total > 10 {
+S     break total
+S   }
+S   total + n
+S }
+S
+S fn stop_at_zero(total: Int, n: Int): Int {
+S   if n == 0 {
+S     break
+S   }
+S   total + n
+S }
+S
+S fn show_until_three(n: Int): Unit {
+S   if n == 3 {
+S     break
+S   }
+S   io.print("each ${n}")
+S }
+S
+S fn double_until(n: Int): Int {
+S   if n > 20 {
+S     break
+S   }
+S   n * 2
+S }
+S
+S test "map skips with continue" {
+S   assert Iter.map([1, 2, 3, 4], skip_odd) |> Iter.to_list() == [20, 40]
+S   assert [1, 2, 3, 4] |> Iter.map(skip_odd) |> Iter.to_list() == [20, 40]
+S }
+S
+S test "filter stops with a bare break" {
+S   assert Iter.filter([1, 2, 3, 4, 5, 6], keep_until_big) |> Iter.to_list() == [2]
+S }
+S
+S test "take_while stops with break False" {
+S   assert Iter.take_while([1, 2, 7, 3], below_five) |> Iter.to_list() == [1, 2]
+S }
+S
+S test "reduce continues and breaks with the accumulator" {
+S   assert Iter.reduce([1, -5, 2, 3, 20, 4], |total = 0, n| sum_small(total, n)) == 26
+S   assert Iter.reduce([1, 2, 0, 4], |total = 0, n| stop_at_zero(total, n)) == 3
+S }
+S
+S test "each stops" {
+S   Iter.each([1, 2, 3, 4], show_until_three)
+S   assert True
+S }
+S
+S test "iterate stops" {
+S   assert Iter.iterate(1, double_until) |> Iter.to_list() == [1, 2, 4, 8, 16]
+S }
+S
+S
+T ok <dir>/control_test.nomi :: map skips with continue
+T ok <dir>/control_test.nomi :: filter stops with a bare break
+T ok <dir>/control_test.nomi :: take_while stops with break False
+T ok <dir>/control_test.nomi :: reduce continues and breaks with the accumulator
+T ok <dir>/control_test.nomi :: each stops
+T   each 1
+T   each 2
+T ok <dir>/control_test.nomi :: iterate stops
+T test result: ok. 6 passed, 0 failed
 T
 C control_test.nomi@9a740a8cf825958e
 E 1
@@ -868,213 +1071,10 @@ T       same(n)
 T         = 4
 T test result: FAILED. 2 passed, 1 failed
 T
-C control_test.nomi@c0df2c2429875119
-E 0
-N 0
-H 11f0284b9a724dda1e9a430d36df41ccde48ec8b081d2a6f39da7b62af164f28
-S -- control_test.nomi 1400 --
-S import std/io
-S
-S fn skip_odd(n: Int): Int {
-S   if n % 2 == 1 {
-S     continue
-S   }
-S   n * 10
-S }
-S
-S fn keep_until_big(n: Int): Bool {
-S   if n > 3 {
-S     break
-S   }
-S   n % 2 == 0
-S }
-S
-S fn below_five(n: Int): Bool {
-S   if n >= 5 {
-S     break False
-S   }
-S   True
-S }
-S
-S fn sum_small(total: Int, n: Int): Int {
-S   if n < 0 {
-S     continue
-S   }
-S   if total > 10 {
-S     break total
-S   }
-S   total + n
-S }
-S
-S fn stop_at_zero(total: Int, n: Int): Int {
-S   if n == 0 {
-S     break
-S   }
-S   total + n
-S }
-S
-S fn show_until_three(n: Int): Unit {
-S   if n == 3 {
-S     break
-S   }
-S   io.print("each ${n}")
-S }
-S
-S fn double_until(n: Int): Int {
-S   if n > 20 {
-S     break
-S   }
-S   n * 2
-S }
-S
-S test "map skips with continue" {
-S   assert Iter.map([1, 2, 3, 4], skip_odd) |> Iter.to_list() == [20, 40]
-S   assert [1, 2, 3, 4] |> Iter.map(skip_odd) |> Iter.to_list() == [20, 40]
-S }
-S
-S test "filter stops with a bare break" {
-S   assert Iter.filter([1, 2, 3, 4, 5, 6], keep_until_big) |> Iter.to_list() == [2]
-S }
-S
-S test "take_while stops with break False" {
-S   assert Iter.take_while([1, 2, 7, 3], below_five) |> Iter.to_list() == [1, 2]
-S }
-S
-S test "reduce continues and breaks with the accumulator" {
-S   assert Iter.reduce([1, -5, 2, 3, 20, 4], sum_small) == 26
-S   assert Iter.reduce([1, 2, 0, 4], stop_at_zero) == 3
-S }
-S
-S test "each stops" {
-S   Iter.each([1, 2, 3, 4], show_until_three)
-S   assert True
-S }
-S
-S test "iterate stops" {
-S   assert Iter.iterate(1, double_until) |> Iter.to_list() == [1, 2, 4, 8, 16]
-S }
-S
-S
-T each 1
-T each 2
-T ok <dir>/control_test.nomi :: map skips with continue
-T ok <dir>/control_test.nomi :: filter stops with a bare break
-T ok <dir>/control_test.nomi :: take_while stops with break False
-T ok <dir>/control_test.nomi :: reduce continues and breaks with the accumulator
-T ok <dir>/control_test.nomi :: each stops
-T ok <dir>/control_test.nomi :: iterate stops
-T test result: ok. 6 passed, 0 failed
-T
-C control_test.nomi@c62132883c6453cb
-E 1
-N 0
-H 406cfe7f3070e2caf82c739226e8acff84e2bef05eebd228ce9b7bda94ca70a1
-S -- control_test.nomi 982 --
-S import {
-S   std/io
-S   std/literals.{Fragment, Literal}
-S }
-S
-S struct Upper {
-S   text: String
-S }
-S
-S impl Literal for Upper {
-S   fn from_fragments(fragments: List<Fragment<String>>): Upper {
-S     text = Iter.reduce(fragments, |acc = "", frag|
-S       case frag {
-S         .Static(s) -> acc + String.to_upper(s)
-S         .Dynamic(v) -> acc + v
-S       }
-S     )
-S     Upper{text}
-S   }
-S }
-S
-S test "a tuple" {
-S   pair = (1, "one")
-S   assert pair.0 == 1
-S   assert pair.1 == "uno"
-S }
-S
-S test "a map" {
-S   m = {"a" => 1, "b" => 2}
-S   assert Map.size(Map.put(m, "c", 3)) == 3
-S   assert Map.size(m) == 3
-S }
-S
-S test "a set and a vector" {
-S   s = #{1, 2, 2}
-S   v = #[1, 2, 3]
-S   assert Set.size(s) == 2
-S   assert Vector.length(v) == 4
-S }
-S
-S test "a decimal" {
-S   assert 1.10d + 2.20d == 3.30d
-S   assert 1.5d == 2.5d
-S }
-S
-S test "a List host call in a case arm" {
-S   case [1, 2] {
-S     [] -> assert False
-S     [_, ..t] -> assert List.head(t) == Some(3)
-S   }
-S }
-S
-S test "a tagged literal" {
-S   u = Upper"abc"
-S   io.print(u.text)
-S   assert u.text == "abc"
-S }
-S
-S
-T ABC
-T FAIL <dir>/control_test.nomi :: a tuple
-T   line 25: assertion failed
-T     assert pair.1 == "uno"
-T     values:
-T       pair.1
-T         = "one"
-T FAIL <dir>/control_test.nomi :: a map
-T   line 31: assertion failed
-T     assert Map.size(m) == 3
-T     values:
-T       m
-T         = {"a" => 1, "b" => 2}
-T       Map.size(m)
-T         = 2
-T FAIL <dir>/control_test.nomi :: a set and a vector
-T   line 38: assertion failed
-T     assert Vector.length(v) == 4
-T     values:
-T       v
-T         = #[1, 2, 3]
-T       Vector.length(v)
-T         = 3
-T FAIL <dir>/control_test.nomi :: a decimal
-T   line 43: assertion failed
-T     assert 1.5d == 2.5d
-T FAIL <dir>/control_test.nomi :: a List host call in a case arm
-T   line 49: assertion failed
-T     assert List.head(t) == Some(3)
-T     values:
-T       t
-T         = [2]
-T       List.head(t)
-T         = Some(2)
-T FAIL <dir>/control_test.nomi :: a tagged literal
-T   line 56: assertion failed
-T     assert u.text == "abc"
-T     values:
-T       u.text
-T         = "ABC"
-T test result: FAILED. 0 passed, 6 failed
-T
 C control_test.nomi@d051e70e05c42d5b
 E 1
 N 0
-H 4da6937c393f9889869cd15a8201db301ed3f7b0eb297c5a355b03a7a42f10b2
+H 127e65119fae5a26eb742211b026372ef053473009f8460d3784f367489ba7d4
 S -- control_test.nomi 2320 --
 S import std/io
 S
@@ -1223,23 +1223,18 @@ S   assert word == "tree"
 S }
 S
 S
-T then
-T after if
-T seven
-T medium
-T checked
-T hi
-T word
-T after case
-T some
-T 3
 T ok <dir>/control_test.nomi :: an if statement asserts in its taken arm
+T   then
+T   after if
 T FAIL <dir>/control_test.nomi :: a failing assertion inside an else arm
 T   line 43: assertion failed
 T     assert matches
 T     defined as:
 T       doubled == 3
 T ok <dir>/control_test.nomi :: an if without else and an else-if chain
+T   seven
+T   medium
+T   checked
 T FAIL <dir>/control_test.nomi :: a case statement over an Int
 T   line 69: assertion failed
 T     assert label == "three"
@@ -1247,7 +1242,11 @@ T     values:
 T       label
 T         = "two"
 T ok <dir>/control_test.nomi :: a case statement over a user enum
+T   hi
+T   word
+T   after case
 T FAIL <dir>/control_test.nomi :: a case statement over Maybe and Result constructors
+T   some
 T   line 102: assertion failed
 T     assert e == "not a number: y"
 T     values:
@@ -1258,6 +1257,7 @@ T   line 109: pattern did not match
 T     assert Code.Word(_) = three()
 T     actual: Num(3)
 T FAIL <dir>/control_test.nomi :: a pattern if statement and a pattern if value
+T   3
 T   line 122: assertion failed
 T     assert got == 4
 T     values:
@@ -1331,7 +1331,7 @@ T
 C dbg_host_test.nomi@eedbde97a292ec01
 E 0
 N 0
-H 2005f94124e3661f4adde0df5b2608260d4420e961c19385c7dfec9741847e74
+H 20a2edb4d3b02fb123f5ec6449e8da0ad4ddc0eb80cd5b9e359225df50c9111a
 S -- dbg_host_test.nomi 235 --
 S import {
 S   std/io
@@ -1347,10 +1347,10 @@ S   assert Debug.inspect(x) == "\"four\""
 S }
 S
 S
-T dbg line 8: dyn = "hi"
-T "hi"
-T dbg line 10: Json.to_dynamic(Json.String("four")) = "four"
 T ok <dir>/dbg_host_test.nomi :: dbg and inspect of a Dynamic
+T   dbg line 8: dyn = "hi"
+T   "hi"
+T   dbg line 10: Json.to_dynamic(Json.String("four")) = "four"
 T test result: ok. 1 passed, 0 failed
 T
 C group_test.nomi@00ebc287a0857755
@@ -1461,7 +1461,7 @@ T
 C group_test.nomi@042e6996d91faa3f
 E 0
 N 0
-H 240b1e82fe290ef1204b9e0582971d4b7b488f9e428728088a6ce10810d9c263
+H 350efb91cc8aa888cdfe1c8f9e305e4e5cc50526e58f2273a291512d3e7c10a0
 S -- group_test.nomi 275 --
 S import {
 S   server.{self, App}
@@ -1502,10 +1502,10 @@ S
 S fn main() {}
 S
 S
-T boot [default]
-T boot [given]
 T ok <dir>/group_test.nomi :: defaulted / reads the default
+T   boot [default]
 T ok <dir>/group_test.nomi :: given / reads the argument
+T   boot [given]
 T test result: ok. 2 passed, 0 failed
 T
 C group_test.nomi@3018a709bf290556
@@ -2093,7 +2093,7 @@ T
 C group_test.nomi@c539380e2ff7e115
 E 0
 N 0
-H 36b0a8adcad082f4b4da86091cdba8d352c05a13af752891118aacb64b249a4a
+H 0a5fde324db6f998faf15d5b5166759a09335b74e58d8dd0afe02f5bdbacb723
 S -- group_test.nomi 704 --
 S import std/io
 S
@@ -2135,19 +2135,19 @@ S   }
 S }
 S
 S
-T boot [group]
-T booted!
-T boot [group]
-T boot [group]
 T ok <dir>/group_test.nomi :: group / reads the app and the setup value
+T   boot [group]
+T   booted!
 T ok <dir>/group_test.nomi :: group / binds the value with a name
+T   boot [group]
 T ok <dir>/group_test.nomi :: group / binds the value with a nested pattern
+T   boot [group]
 T test result: ok. 3 passed, 0 failed
 T
 C group_test.nomi@d16d4f46a98e389b
 E 0
 N 0
-H 501ce7024db2d432d6066a8db70ac681c37104284a706bc89da28d95741596dd
+H e8994ff90edd03de4b314b360c40e4b743f9aba4b4910c4f8d4b3eb54324ef10
 S -- group_test.nomi 1253 --
 S import std/io
 S
@@ -2241,25 +2241,25 @@ S   }
 S }
 S
 S
-T early
-T body sees early
-T in block
-T block closed
-T body
-T before
-T body after a bare return
 T ok <dir>/group_test.nomi :: plain return / binds the returned value
 T ok <dir>/group_test.nomi :: early return / binds the early value
+T   early
+T   body sees early
 T ok <dir>/group_test.nomi :: falls past an early return / binds the tail value
 T ok <dir>/group_test.nomi :: return in a case arm / binds the arm's value
 T ok <dir>/group_test.nomi :: return from a block / runs the block's defer first
+T   in block
+T   block closed
+T   body
 T ok <dir>/group_test.nomi :: bare return in a Unit setup / runs the body
+T   before
+T   body after a bare return
 T test result: ok. 6 passed, 0 failed
 T
 C group_test.nomi@ee225614263307ee
 E 0
 N 0
-H 3118b4969dcc64395ac51206fdf26abb485f2b592f1e21e7143aa14d7c0295bb
+H 236157263803fe1ce52c0756ac47ff1846250a9cdb21ccb4902b0a258d0cde29
 S -- group_test.nomi 666 --
 S import {
 S   std/duration.Duration
@@ -2303,15 +2303,15 @@ S   }
 S }
 S
 S
-T slow work done
 T ok <dir>/group_test.nomi :: virtual / an hour passes at once
 T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual time
+T   slow work done
 T test result: ok. 2 passed, 0 failed
 T
 C group_test.nomi@fdc9b1f86c304117
 E 0
 N 0
-H 5b16d11fca1c67f1071d12ca9167e405d2492b8b80a96d8b1172eabc642afb60
+H 948b5dec549328c30d9c542c0d6ad177d80e5f6e8ade95edf28086511cc9082d
 S -- group_test.nomi 133 --
 S import {
 S   server.{self, App}
@@ -2340,8 +2340,8 @@ S
 S fn main() {}
 S
 S
-T boot
 T ok <dir>/group_test.nomi :: group / reads the app
+T   boot
 T test result: ok. 1 passed, 0 failed
 T
 C internal/irbuild/testdata/anon_recursive.nomi@0e9a7ac92140d8ed
@@ -2353,16 +2353,16 @@ T
 C internal/irbuild/testdata/anon_struct.nomi@17048864bb417d12
 E 1
 N 0
-H 0c5fc091bdb0f0edb1246a44bcbc37a17c609ba1440ebf1e71b470d657016eea
-T 30
-T Hi Bob, you are 42
-T Hi Carol, you are 30
-T {n: 1, name: Ada}
-T {count: 3, outer: {inner: 1, label: hi}}
-T 1
-T x is ten, y is 20
-T 30
+H bd0e567a86a5ac6a26dc6a430e16d925110fda392c04be8a9a8668d20b1940db
 T FAIL <dir>/anon_struct.nomi :: records are structural, ordered by nothing the programmer wrote
+T   30
+T   Hi Bob, you are 42
+T   Hi Carol, you are 30
+T   {n: 1, name: Ada}
+T   {count: 3, outer: {inner: 1, label: hi}}
+T   1
+T   x is ten, y is 20
+T   30
 T   line 65: assertion failed
 T     assert no({a: 1, a0: 2})
 T     values:
@@ -2373,10 +2373,10 @@ T
 C internal/irbuild/testdata/anon_vs_nominal.nomi@01d5c38c921675a3
 E 1
 N 0
-H a85788e9ed5215c33bfdd0756fce3fadd3b990cb279a757b30d553ece37146c3
-T 3
-T 3
+H 0998b876580c47adc8ae8e90e6c96cadd6a2c5da9f3de8d9ba4270408129c5be
 T FAIL <dir>/anon_vs_nominal.nomi :: a record and a same-shaped nominal struct stay apart
+T   3
+T   3
 T   line 38: assertion failed
 T     assert no_nominal(nom)
 T     values:
@@ -2547,9 +2547,7 @@ T
 C internal/irbuild/testdata/assertion_format.nomi@d028717d62c78fd3
 E 0
 N 0
-H f0693077e845ee329cb436c865af932bd7f6f9d4f684e947f4608ea303dec873
-T line 126: check failed
-T   check 1 == 2
+H 9f23077fa5096ef94c853d803b5fa33950580c2ad62e2bf072a06a4a5a3985c8
 T ok <dir>/assertion_format.nomi :: a bare Bool failure renders the header and the assertion
 T ok <dir>/assertion_format.nomi :: a failed comparison renders both operands in the order they were seen
 T ok <dir>/assertion_format.nomi :: a struct-valued operand renders with its fields sorted, not declared
@@ -2557,6 +2555,8 @@ T ok <dir>/assertion_format.nomi :: a bound-name subject renders the expression 
 T ok <dir>/assertion_format.nomi :: a pattern assertion renders its own keyword once and shows actual
 T ok <dir>/assertion_format.nomi :: a failed refutation carries the refute keyword and its own reason
 T ok <dir>/assertion_format.nomi :: the rendered text is an ordinary String and can be printed
+T   line 126: check failed
+T     check 1 == 2
 T test result: ok. 7 passed, 0 failed
 T
 C internal/irbuild/testdata/bare_import/main.nomi@e6d540ab6a1da9ef
@@ -2612,7 +2612,7 @@ T (200, 100)
 T (200, 100)
 T 6
 T
-C internal/irbuild/testdata/block_local_types.nomi@cf2b5df4c20ed904
+C internal/irbuild/testdata/block_local_types.nomi@3251774b4003dcec
 E 0
 N 0
 H 0dba865b4176980092287ec36e28c291e155d82d8e2b151bfa33cac66d414fc6
@@ -3145,14 +3145,14 @@ T
 C internal/irbuild/testdata/concurrent_try.nomi@47431d9cedc608ca
 E 0
 N 0
-H 44da3134ea8e43015484657df236bf3c6328158c789c2a706af59aec0abf3674
-T after block
-T after lambda call
-T in block
+H 320235a92014421ec0b409a9bdc40167287fc984c836304948b96be532c3e304
 T ok <dir>/concurrent_try.nomi :: a try in a concurrent block ends the block
+T   after block
 T ok <dir>/concurrent_try.nomi :: a try in a concurrent block with an Ok operand runs on
 T ok <dir>/concurrent_try.nomi :: a try in a lambda inside a block ends only the lambda
+T   after lambda call
 T ok <dir>/concurrent_try.nomi :: a concurrent block with no try produces its tail
+T   in block
 T test result: ok. 4 passed, 0 failed
 T
 C internal/irbuild/testdata/context_deadlines.nomi@4681e64d1d0d9e00
@@ -3187,13 +3187,13 @@ T
 C internal/irbuild/testdata/context_values_report.nomi@4ce27418a761e37f
 E 1
 N 0
-H 09345f6a40d13fe04e198eb6132fdbd00eacbde9aa938985079971849fb7a49f
-T bounded still has a deadline: True
+H c426b79affa739c0e3a3bbd646c2f8c1a480fddd78ad0f92e82919bdea39701c
 T ok <dir>/context_values_report.nomi :: two Nomi types over one Go type are two keys
 T ok <dir>/context_values_report.nomi :: a child shadows and both ends are read
 T ok <dir>/context_values_report.nomi :: an Int is keyed by Int
 T ok <dir>/context_values_report.nomi :: a zero-sized type is a value and a witness
 T ok <dir>/context_values_report.nomi :: a value survives a deadline derivation
+T   bounded still has a deadline: True
 T FAIL <dir>/context_values_report.nomi :: a failing assertion renders a Context operand
 T   line 118: assertion failed
 T     assert trace_of(root) == "t-1"
@@ -3279,21 +3279,9 @@ T
 C internal/irbuild/testdata/dbg_surfaces.nomi@f848b589d740b955
 E 1
 N 0
-H 897f1cc9a420d00fb7d08e77c255e601989a2eb6ce429631dd04638e492cd3e1
-T dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
-T dbg line 86: Custom{zeta: 1, alpha: 2} = CUSTOM-DEBUG
-T dbg line 96: Meters(7) = <opaque Meters>
-T dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
-T dbg line 107: (1, "two") = (1, "two")
-T dbg line 108: Some(42) = Some(42)
-T dbg line 109: None = None
-T dbg line 110: {a: 1, a0: 2} = {a: 1, a0: 2}
-T dbg line 111: double = <function>
-T dbg line 116: 7 = 7
-T after the dbg, before the report
-T dbg line 122: Rev{zeta: 3, alpha: 4} = Rev{zeta: 3, alpha: 4}
-T printed before the failure
+H 27c63093c48236424ee644d71e75a296d21eaef8ac2b8abe1c011b5b4fe3616e
 T ok <dir>/dbg_surfaces.nomi :: dbg renders a struct in declaration order
+T   dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
 T FAIL <dir>/dbg_surfaces.nomi :: the values row for the same struct sorts it
 T   line 82: assertion failed
 T     assert no_rev(r)
@@ -3301,6 +3289,7 @@ T     values:
 T       r
 T         = Rev{alpha: 2, zeta: 1}
 T ok <dir>/dbg_surfaces.nomi :: dbg honours a hand-written impl Debug
+T   dbg line 86: Custom{zeta: 1, alpha: 2} = CUSTOM-DEBUG
 T FAIL <dir>/dbg_surfaces.nomi :: the values row for the same value honours that impl
 T   line 92: assertion failed
 T     assert no_custom(c)
@@ -3308,6 +3297,7 @@ T     values:
 T       c
 T         = CUSTOM-DEBUG
 T ok <dir>/dbg_surfaces.nomi :: dbg shows an opaque type name-only
+T   dbg line 96: Meters(7) = <opaque Meters>
 T FAIL <dir>/dbg_surfaces.nomi :: the values row for the same opaque value shows the payload
 T   line 102: assertion failed
 T     assert no_meters(m)
@@ -3315,8 +3305,18 @@ T     values:
 T       m
 T         = Meters(7)
 T ok <dir>/dbg_surfaces.nomi :: dbg over containers and prelude instances
+T   dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
+T   dbg line 107: (1, "two") = (1, "two")
+T   dbg line 108: Some(42) = Some(42)
+T   dbg line 109: None = None
+T   dbg line 110: {a: 1, a0: 2} = {a: 1, a0: 2}
+T   dbg line 111: double = <function>
 T ok <dir>/dbg_surfaces.nomi :: a dbg in a test body prints above its own result line
+T   dbg line 116: 7 = 7
+T   after the dbg, before the report
 T FAIL <dir>/dbg_surfaces.nomi :: a dbg above a FAILING assertion, so all three interleave
+T   dbg line 122: Rev{zeta: 3, alpha: 4} = Rev{zeta: 3, alpha: 4}
+T   printed before the failure
 T   line 124: assertion failed
 T     assert no_rev(r)
 T     values:
@@ -3361,20 +3361,20 @@ T
 C internal/irbuild/testdata/debug_display_surfaces.nomi@8a78d4e6705f87ac
 E 1
 N 0
-H bf121f666b6fca88a84376e7b2070885a9bc84b06614908387918541befc86f1
-T 1 Display.to_string(r) = REV-DISPLAY
-T 2 interpolated r       = REV-DISPLAY
-T 3 Display.to_string(c) = CUSTOM-DISPLAY
-T 4 interpolated c       = CUSTOM-DISPLAY
-T 5 Debug.inspect(r)     = Rev{zeta: 1, alpha: 2}
-T 6 Debug.inspect(c)     = CUSTOM-DEBUG
-T 7 Debug.inspect(p)     = Plain{zeta: 1, alpha: 2}
-T 8 Debug.inspect(m)     = <opaque Meters>
-T 9 Debug.inspect(True)  = True
-T 10 Debug.inspect(b)    = False
-T 11 Debug.inspect(list) = [True, False]
-T 12 materialized payload = False
+H ad3e6da8200d697bd96c99780718a4e78bfec624fcc5ef25c7d9e07f56ef249d
 T ok <dir>/debug_display_surfaces.nomi :: the four renderings of one value
+T   1 Display.to_string(r) = REV-DISPLAY
+T   2 interpolated r       = REV-DISPLAY
+T   3 Display.to_string(c) = CUSTOM-DISPLAY
+T   4 interpolated c       = CUSTOM-DISPLAY
+T   5 Debug.inspect(r)     = Rev{zeta: 1, alpha: 2}
+T   6 Debug.inspect(c)     = CUSTOM-DEBUG
+T   7 Debug.inspect(p)     = Plain{zeta: 1, alpha: 2}
+T   8 Debug.inspect(m)     = <opaque Meters>
+T   9 Debug.inspect(True)  = True
+T   10 Debug.inspect(b)    = False
+T   11 Debug.inspect(list) = [True, False]
+T   12 materialized payload = False
 T FAIL <dir>/debug_display_surfaces.nomi :: values row for a struct with an impl Display
 T   line 178: assertion failed
 T     assert no_rev(r)
@@ -3416,18 +3416,18 @@ T
 C internal/irbuild/testdata/debug_embeds.nomi@76926bab5542a867
 E 1
 N 0
-H 619283038af8efa955a41a238eed38b78597541a68598ac65122d42fbd53217e
-T 1  Debug.inspect(w)         = Worker{zeta: 1, alpha: 2}
-T 2  Debug.inspect(n_worker)  = Worker{zeta: 1, alpha: 2}
-T 3  Debug.inspect(n_qual)    = Worker{zeta: 1, alpha: 2}
-T 4  Debug.inspect(n_custom)  = CUSTOM-DEBUG
-T 5  Debug.inspect(n_expired) = Expired
-T 6  Debug.inspect(n_userid)  = UserId("ada")
-T 7  Debug.inspect(o_worker)  = Worker{zeta: 1, alpha: 2}
-T 8  Debug.inspect(Node.Origin) = Origin
-T 9  Debug.inspect(Node.Ready(7)) = Ready(7)
-T 10 Debug.inspect(Other.Blank) = Blank
+H 500eff49cac53ab42dce92b4844ec86fb0bab4166e5da610227c3265f1cb689e
 T ok <dir>/debug_embeds.nomi :: an embeds variant's Debug delegates to the embedded value, unwrapped
+T   1  Debug.inspect(w)         = Worker{zeta: 1, alpha: 2}
+T   2  Debug.inspect(n_worker)  = Worker{zeta: 1, alpha: 2}
+T   3  Debug.inspect(n_qual)    = Worker{zeta: 1, alpha: 2}
+T   4  Debug.inspect(n_custom)  = CUSTOM-DEBUG
+T   5  Debug.inspect(n_expired) = Expired
+T   6  Debug.inspect(n_userid)  = UserId("ada")
+T   7  Debug.inspect(o_worker)  = Worker{zeta: 1, alpha: 2}
+T   8  Debug.inspect(Node.Origin) = Origin
+T   9  Debug.inspect(Node.Ready(7)) = Ready(7)
+T   10 Debug.inspect(Other.Blank) = Blank
 T FAIL <dir>/debug_embeds.nomi :: values row sorts and ignores the hand-written impl
 T   line 196: assertion failed
 T     assert no_worker(w)
@@ -3463,20 +3463,20 @@ T
 C internal/irbuild/testdata/debug_erased.nomi@440a367fe6e360a9
 E 1
 N 0
-H 46bd4bddfec3230ab17286d07e47a99833f9d064b9dd0b59748e4d93dde9203f
-T 1 param  Rev    = Rev{zeta: 1, alpha: 2}
-T 2 param  Custom = CUSTOM-DEBUG
-T 3 param  Meters = <opaque Meters>
-T 4 param  Int    = 42
-T 5 param  String = "hi"
-T 6 iface  Rev    = Rev{zeta: 1, alpha: 2}
-T 7 iface  Custom = CUSTOM-DEBUG
-T 8 direct Rev    = Rev{zeta: 1, alpha: 2}
-T 9 direct Custom = CUSTOM-DEBUG
-T 10 direct Meters = <opaque Meters>
-T 11 direct Int    = 42
-T 12 direct String = "hi"
+H a72ddd2575c3f586bbd873ef492a675e78efd6730f0d692a49bc10579ff3b28e
 T ok <dir>/debug_erased.nomi :: the four renderings of one value survive erasure
+T   1 param  Rev    = Rev{zeta: 1, alpha: 2}
+T   2 param  Custom = CUSTOM-DEBUG
+T   3 param  Meters = <opaque Meters>
+T   4 param  Int    = 42
+T   5 param  String = "hi"
+T   6 iface  Rev    = Rev{zeta: 1, alpha: 2}
+T   7 iface  Custom = CUSTOM-DEBUG
+T   8 direct Rev    = Rev{zeta: 1, alpha: 2}
+T   9 direct Custom = CUSTOM-DEBUG
+T   10 direct Meters = <opaque Meters>
+T   11 direct Int    = 42
+T   12 direct String = "hi"
 T FAIL <dir>/debug_erased.nomi :: the values row is a different renderer from Debug
 T   line 116: assertion failed
 T     assert no_rev(r)
@@ -3512,7 +3512,7 @@ T       right
 T         = 2.25
 T test result: FAILED. 13 passed, 1 failed
 T
-C internal/irbuild/testdata/decimal_keys.nomi@4d441729bf1ef2a8
+C internal/irbuild/testdata/decimal_keys.nomi@02a1b1969a86a74d
 E 0
 N 0
 H 280b6c0eb536dea2cee55c6388d157e0f70cf25f70d355ab2221b08dff37ed36
@@ -3737,7 +3737,7 @@ T gear-drive-7
 T exact-42
 T missing
 T
-C internal/irbuild/testdata/dotted_distinct.nomi@f3b93e84222875da
+C internal/irbuild/testdata/dotted_distinct.nomi@38bb85dad73d5bbd
 E 0
 N 0
 H 9f91e6ba82aebec8913a91a3046e4da102044a205d0c5801e3124fae4d0eb90f
@@ -3775,23 +3775,16 @@ T differ = False
 T bare same = True
 T cross = False
 T
-C internal/irbuild/testdata/enum_embeds_enum.nomi@cb606cb1e60b6147
-E 0
-N 0
-H e00139d3879c610d5b376609fdc0082511d0ab13010f4e2b4c69b47a449a389f
-T shape
-T point 3
-T
 C internal/irbuild/testdata/enum_field_read.nomi@1323fd40d17b71d5
 E 0
 N 0
-H 51cb53fd96e5c3db273e167ae7947943e0c78c465e5fda0fb69a38100bf36d34
-T picked
+H 67026faf6b7d05d3432b884b301d9d8fadbca41e43211c1199a324f584406d83
 T ok <dir>/enum_field_read.nomi :: a struct-shaped variant's field reads through the tag
 T ok <dir>/enum_field_read.nomi :: an embeds variant's field reads through the embedded struct
 T ok <dir>/enum_field_read.nomi :: a positional struct payload's field reads through the tag
 T ok <dir>/enum_field_read.nomi :: the tag decides which provider answers, not the declaration order
 T ok <dir>/enum_field_read.nomi :: the subject is evaluated once, however impure it is
+T   picked
 T test result: ok. 5 passed, 0 failed
 T
 C internal/irbuild/testdata/enum_field_read_trap.nomi@27c98a019d486fc1
@@ -3890,8 +3883,7 @@ T
 C internal/irbuild/testdata/erased_operand_row.nomi@1057480fdb4602e6
 E 1
 N 0
-H c2de0eb32e72c5766c5f6d32c1201bcb3bdd348033ca97d6ce57a4e944febb93
-T Bo says woof
+H c80bdc536ca01f79882ed45f618920d1464218b94034ed272a0b204f08418670
 T FAIL <dir>/erased_operand_row.nomi :: the erasure IS in view: an argument widened at the call site
 T   line 78: assertion failed
 T     assert announce(d) == "NOPE"
@@ -3925,6 +3917,7 @@ T     values:
 T       k
 T         = Kennel{pet: Cat{lives: 7}}
 T FAIL <dir>/erased_operand_row.nomi :: a value crossing a function boundary as a parameter
+T   Bo says woof
 T   line 106: assertion failed
 T     assert no_speech(d)
 T     values:
@@ -4161,7 +4154,7 @@ T 42
 T forty-two
 T 7
 T
-C internal/irbuild/testdata/generic_loop_break.nomi@864723b2a6ae4d17
+C internal/irbuild/testdata/generic_loop_break.nomi@4306d94ce40b529c
 E 0
 N 0
 H f365749f99998edea89bdd0a571da3a5b632430f782052348339015b271a3cc9
@@ -4212,9 +4205,7 @@ T
 C internal/irbuild/testdata/generic_struct.nomi@c72450c69356d0d3
 E 1
 N 0
-H ce6ed9cdebe2e9e36058be6a862931af47250cc840da6b28869eaba45bd5bee0
-T 41
-T inner:7
+H 7b74ef5f7a769f590fa3c3dbb7183f1009454d66cb041a7af4cc6f816cb89358
 T FAIL <dir>/generic_struct.nomi :: a second instantiation of one template renders as the same Nomi type
 T   line 88: assertion failed
 T     assert no_box_text(Box{item: "s"})
@@ -4240,7 +4231,9 @@ T           },
 T       }
 T         = Crate{box: Box{item: Inner{value: 7}}}
 T ok <dir>/generic_struct.nomi :: a nested instantiation resolves through an annotation
+T   41
 T ok <dir>/generic_struct.nomi :: the argument keeps its own dispatch through the instance
+T   inner:7
 T FAIL <dir>/generic_struct.nomi :: type arguments come from field names and not from field order
 T   line 122: assertion failed
 T     assert no_pair(p)
@@ -4528,22 +4521,22 @@ T
 C internal/irbuild/testdata/interface_defaults.nomi@ae8d4e21efe51441
 E 0
 N 0
-H eca5125469b082fb237b2fd3980f748bb6677f3b90fbee60c7e03d661b8405e8
-T v8 (fast)
-T v8 (slow)
-T v8 (fast)
-T v8:declaring
-T caller-local
-T hush (quiet-slow)
-T hush (quiet-slow)
-T hush (quiet-fast)
-T default ran
-T default ran
-T default ran
+H 71f6d42fb6323228219edb1b156246a35c8680ba200068dcc5541080546ba6a7
 T ok <dir>/interface_defaults.nomi :: an interface default's parameter default is filled, and supplying it is not
+T   v8 (fast)
+T   v8 (slow)
+T   v8 (fast)
 T ok <dir>/interface_defaults.nomi :: a default is evaluated in the declaring module's scope, not the caller's
+T   v8:declaring
+T   caller-local
 T ok <dir>/interface_defaults.nomi :: an impl override supplies its own default value
+T   hush (quiet-slow)
+T   hush (quiet-slow)
+T   hush (quiet-fast)
 T ok <dir>/interface_defaults.nomi :: a defaulted argument is evaluated once per call that omits it
+T   default ran
+T   default ran
+T   default ran
 T test result: ok. 4 passed, 0 failed
 T
 C internal/irbuild/testdata/io_files.nomi@2f2f69fd75fcc53a
@@ -4602,14 +4595,14 @@ T map return is the element: [10, 20, 300, 40, 50]
 T nested fn early returns: 185
 T done
 T
-C internal/irbuild/testdata/iter_loop.nomi@0f79452cebec72ec
+C internal/irbuild/testdata/iter_loop.nomi@5502d8369d58c067
 E 0
 N 0
-H 9e1b49cd891e35ee4e29cfaf123123239c831a9605f7f63dbe99e2f01a90872a
+H 6b6242afa045bf6e7ab263c57f3df3c621211cbb302a6cc62f45859cba0c7a01
 T break value: 3
 T return advances: 3
 T bare break terminated
-T stateless break: 42
+T stateless loop ran
 T seed from closure scope: 9
 T fib pair: (34, 55)
 T captured per iteration: 40
@@ -4683,16 +4676,16 @@ T evaluating 5
 T evaluating 4
 T [4]
 T
-C internal/irbuild/testdata/iter_reduce_ctrl.nomi@3e2953f5a52f4166
+C internal/irbuild/testdata/iter_reduce_ctrl.nomi@8ca2c6cd9bcba1e2
 E 0
 N 0
-H 63d3ea53abf6142f034b64a509ff0754d49004c7e2d8ab55254f2b0fb6148d23
+H 7e9dd3a4afcb7278bcbd40934d68c5b4ea002dc14122357c3d1610f18b233a4d
 T bare break keeps the accumulator: 60
 T break value wins: 100
 T continue skips the element: 9
 T continue then break: 8
 T return advances the accumulator: 3
-T unseeded fold, first element seeds: 9
+T break before the element keeps the fold so far: 9
 T done
 T
 C internal/irbuild/testdata/iter_reduce_seed.nomi@31ed760c637d7b52
@@ -4716,17 +4709,6 @@ T   src 1
 T   src 2
 T   seed 100
 T 103
-T
-C internal/irbuild/testdata/iter_reduce_unseeded.nomi@0b9bb713a261a69d
-E 1
-N 0
-H 165f5af7678b2cb94935e138c9282699213601ee93bf38ec3531da2e4a9907a4
-T 4
-T 6
-T 15
-T 7
-T --- stderr ---
-T Iter.reduce: cannot reduce empty collection without initial value
 T
 C internal/irbuild/testdata/iter_sources.nomi@b51b66cd4692c4a5
 E 0
@@ -5200,7 +5182,7 @@ T distinct call = b=2
 T distinct bare = bare a=1
 T distinct bare miss = bare miss
 T
-C internal/irbuild/testdata/map_surface.nomi@44d8a8b7947f0df5
+C internal/irbuild/testdata/map_surface.nomi@8b7265d9a1109457
 E 0
 N 0
 H 5e81c4f0565a76968cc72d714de70164ec21ede281141d909f3c093edf100525
@@ -5248,7 +5230,7 @@ T get Id(1) = Some(two)
 T get Id(2) = Some(two)
 T get Id(3) = Some(two)
 T
-C internal/irbuild/testdata/maps.nomi@73eff6d40d0a181a
+C internal/irbuild/testdata/maps.nomi@7eda13716f33eef3
 E 0
 N 0
 H c7e8f8cc0d9246dd83cf7f3c6798456ef56da64398143ab4b9fe4704de8f057c
@@ -5343,16 +5325,16 @@ T
 C internal/irbuild/testdata/named_type_arith.nomi@31593299699b7b8a
 E 0
 N 0
-H 4a61ad8c913d7d1d54fa050173abbdb0d7f35c122737a1c15db78fda42e85586
-T plus 5s = 105
-T minus 5s = 95
-T between = 5
-T shifted = 105
+H feba33943513402a8069f05d4e910c9d06337c152cb0af837c3ca3d55b147a0f
 T ok <dir>/named_type_arith.nomi :: an Instant plus a Duration is an Instant
+T   plus 5s = 105
+T   minus 5s = 95
 T ok <dir>/named_type_arith.nomi :: the rhs type selects the impl, and the impl decides the result type
 T ok <dir>/named_type_arith.nomi :: Instant.between returns a Duration across the module boundary
+T   between = 5
 T ok <dir>/named_type_arith.nomi :: adding a Duration is associative with building one
 T ok <dir>/named_type_arith.nomi :: std/duration's package is pulled in transitively, with no Duration call here
+T   shifted = 105
 T test result: ok. 5 passed, 0 failed
 T
 C internal/irbuild/testdata/namespaced_types.nomi@4d239222f37b8235
@@ -6070,19 +6052,7 @@ T FAIL <dir>/scalar_operator_traps.nomi :: an impl-form Multiply overflow blames
 T   line 63: integer overflow: 9223372036854775807 * 2
 T test result: FAILED. 2 passed, 6 failed
 T
-C internal/irbuild/testdata/scalar_unwrap.nomi@bc4698e1afa24a85
-E 0
-N 0
-H 57df70680ebe939626f91fc66d75e01b76b87968bb103e75b9e2616755bc2ab6
-T depth = 5
-T ratio = 1.5
-T email = ada@example.com
-T ok <dir>/scalar_unwrap.nomi :: the inner type's name unwraps a distinct value
-T ok <dir>/scalar_unwrap.nomi :: an opaque newtype unwraps inside its declaring scope
-T ok <dir>/scalar_unwrap.nomi :: unwrapping is one level and round-trips
-T test result: ok. 3 passed, 0 failed
-T
-C internal/irbuild/testdata/sets.nomi@17b48c21c48858c0
+C internal/irbuild/testdata/sets.nomi@7163c228351d4009
 E 0
 N 0
 H a4b39811995d3e22704751b5a8e4fe9768a0bf5183e531e6cce25b1af515b4e7
@@ -6662,7 +6632,7 @@ T   (built)
 T once Point{x: 1, y: 6}
 T stacked Point{x: 11, y: 12}
 T
-C internal/irbuild/testdata/struct_spread_deep.nomi@2a91836754be3b48
+C internal/irbuild/testdata/struct_spread_deep.nomi@596602b26dc89114
 E 0
 N 0
 H a3b86857f401fda091b4b2adaaeed68817eac9da60e4b0a7d49ac70e6678f5f8
@@ -6682,7 +6652,7 @@ T generic Inner{a: 9, b: 2}/old
 T origin Outer{inner: Inner{a: 1, b: 2}, k: 3}
 T other Outer{inner: Inner{a: 100, b: 200}, k: 40}
 T
-C internal/irbuild/testdata/struct_update.nomi@10fd52f2c93cc609
+C internal/irbuild/testdata/struct_update.nomi@89eca263cef92a71
 E 0
 N 0
 H 9cbef515b2b0579a3ea417f400a8ba8ab9229f73322050383262fb73ebf9f47e
@@ -6942,9 +6912,9 @@ T
 C internal/irbuild/testdata/tests_inspect_vs_display.nomi@46a42f2db39e2c27
 E 1
 N 0
-H 16aa8e506003f75278c7ba357895f6a15bc062aef07d26d9acfdbaa216bb515f
-T [a, b]
+H 22c66bfffdd2da60b934e569f88a043b63256fcca0c8cb3530ef762990796d04
 T FAIL <dir>/tests_inspect_vs_display.nomi :: the same list, two renderings
+T   [a, b]
 T   line 15: assertion failed
 T     assert no(xs)
 T     values:
@@ -6996,10 +6966,10 @@ T
 C internal/irbuild/testdata/tests_mixed.nomi@90b2ea7f648b0688
 E 1
 N 0
-H 9721b9ee72644bfc187348bddc32282cc966041a2c7da6d4fcd2b92d1d34a20b
-T before the failure
+H 6b89e811e7e9f3fb5c8b6fc8d79e7d43959127ec91628e99d6c69a769e065a41
 T ok <dir>/tests_mixed.nomi :: first passes
 T FAIL <dir>/tests_mixed.nomi :: second fails partway
+T   before the failure
 T   line 12: assertion failed
 T     assert 1 == 2
 T ok <dir>/tests_mixed.nomi :: third still runs
@@ -7299,11 +7269,11 @@ T
 C internal/irbuild/testdata/try_check_in_test.nomi@a59432ece60008ad
 E 1
 N 0
-H 42b0f7baa5378c630ca003804e1669434adee3f6d76018acebd8c0a03fd04c9e
-T after the passing check
-T before the failing check
+H 3dfd69f9eb6c81d869ffdcfc7706d8a910188ed479011fc674ad84c1d502d612
 T ok <dir>/try_check_in_test.nomi :: a passing check unwraps and the case runs on
+T   after the passing check
 T FAIL <dir>/try_check_in_test.nomi :: a failing check reports the check and not an early return
+T   before the failing check
 T   line 64: check failed
 T     check 1 == 2
 T FAIL <dir>/try_check_in_test.nomi :: a failing check over a shape subject reports the check
@@ -7321,11 +7291,10 @@ T
 C internal/irbuild/testdata/try_in_test.nomi@8057167ceb2db499
 E 1
 N 0
-H a9169ae011ef6387715ee950d2cc094658b2fc48dc930cb558708d095995a48c
-T before the try
-T after the lambda
+H 206a10a67a672a09d1abfbd61b28de6f5b4e0e0b10ca3f6fc9155c5d4a7d30e1
 T ok <dir>/try_in_test.nomi :: try succeeds
 T FAIL <dir>/try_in_test.nomi :: try propagates
+T   before the try
 T   line 50: test returned early
 T     try parse(-1)
 T     returned:
@@ -7346,6 +7315,7 @@ T     -1 |> try parse()
 T     returned:
 T       Err("negative -1")
 T ok <dir>/try_in_test.nomi :: try inside a lambda
+T   after the lambda
 T ok <dir>/try_in_test.nomi :: the case after a propagating one still runs
 T test result: FAILED. 3 passed, 4 failed
 T
@@ -7674,11 +7644,11 @@ T
 C internal/irbuild/testdata/virtual_clock.nomi@d8c9dd1e9da78897
 E 0
 N 0
-H 525578697ed28ab3745ea411b2eace8d2e155867b5aaaecdfe6dc61044db865d
-T slept 3600000 then 1000
+H 3ddcd6dc30fe885646e6b0193751090df8929ca2e308a235c743012c94a115c2
 T ok <dir>/virtual_clock.nomi :: virtual time / a thirty-second sleep costs no real time
 T ok <dir>/virtual_clock.nomi :: virtual time / so does five minutes
 T ok <dir>/virtual_clock.nomi :: virtual time / sleeps compose, and the clock is monotonic across them
+T   slept 3600000 then 1000
 T ok <dir>/virtual_clock.nomi :: virtual time again / another group's virtual clock still bubbles
 T ok <dir>/virtual_clock.nomi :: back on the system clock / a tiny real sleep still works
 T ok <dir>/virtual_clock.nomi :: no clause / the real clock is the default
@@ -7877,19 +7847,6 @@ S
 T callback
 T --- stderr ---
 T line 6: division by zero
-T
-C main.nomi@3756278b97fa1472
-E 1
-N 0
-H 76d8cd6d8f33dd5706584c5655954d3beb4e72adb9cf911c9bf0ada5a31a93e1
-S -- main.nomi 116 --
-S import std/io
-S fn empty(): List<Int> { [] }
-S fn main() { io.print(Iter.reduce(empty(), |acc: Int, n: Int| acc + n)) }
-S
-S
-T --- stderr ---
-T Iter.reduce: cannot reduce empty collection without initial value
 T
 C main.nomi@5425304b7e38a507
 E 1
@@ -8169,11 +8126,11 @@ T       make(who)
 T         = "widget:Bo"
 T test result: FAILED. 2 passed, 1 failed
 T
-C main_test.nomi@a76a0d9027c6ea7c
+C main_test.nomi@9a9ec7ff7f18db51
 E 0
 N 0
 H 80031757371912fdf4293d4e5d828b36cc6157b04cdc5fdeec45386453af20f4
-S -- main_test.nomi 1068 --
+S -- main_test.nomi 1209 --
 S import util
 S import util.{plus}
 S
@@ -8204,9 +8161,9 @@ S   n % 2 == 0
 S }
 S
 S test "a top-level fn as a reduction" {
-S   assert Iter.reduce([1, 2, 3], add) == 6
-S   assert [1, 2, 3, 4] |> Iter.reduce(add) == 10
-S   assert Iter.reduce(["a", "ccc", "bb"], longer) == "ccc"
+S   assert Iter.reduce([1, 2, 3], |acc = 0, n| add(acc, n)) == 6
+S   assert [1, 2, 3, 4] |> Iter.reduce(|acc = 0, n| add(acc, n)) == 10
+S   assert Iter.reduce(["a", "ccc", "bb"], |acc = "", s| longer(acc, s)) == "ccc"
 S }
 S
 S test "a top-level fn as an adapter" {
@@ -8214,13 +8171,13 @@ S   assert Iter.filter([1, 2, 3, 4], is_even) |> Iter.to_list() == [2, 4]
 S }
 S
 S test "an imported fn" {
-S   assert Iter.reduce([1, 2, 3], plus) == 6
-S   assert Iter.reduce([1, 2, 3], util.plus) == 6
+S   assert Iter.reduce([1, 2, 3], |acc = 0, n| plus(acc, n)) == 6
+S   assert Iter.reduce([1, 2, 3], |acc = 0, n| util.plus(acc, n)) == 6
 S   assert Iter.filter([1, 2, 3, 4], util.small?) |> Iter.to_list() == [1, 2]
 S }
 S
 S test "an owner-qualified impl fn" {
-S   assert Iter.reduce([Money{cents: 1}, Money{cents: 2}], Money.sum).cents == 3
+S   assert Iter.reduce([Money{cents: 1}, Money{cents: 2}], |acc = Money{cents: 0}, m| Money.sum(acc, m)).cents == 3
 S   assert Iter.map([1, 2], Money.double) |> Iter.to_list() == [2, 4]
 S }
 S
@@ -8529,7 +8486,7 @@ T ok <dir>/dbg_test.nomi :: dbg expression prints source and returns value
 T ok <dir>/dbg_test.nomi :: dbg pipe stage prints source and passes the value through
 T test result: ok. 2 passed, 0 failed
 T
-C tests/03-tooling-and-diagnostics/formatting_test.nomi@7dcd681bbdb82d87
+C tests/03-tooling-and-diagnostics/formatting_test.nomi@cfedab69f1f5aa8f
 E 0
 N 0
 H 87e33a9a852ce0988ab214be2ae4be8516c91906447ed1feee4f44af456bd563
@@ -8578,10 +8535,10 @@ T ok <dir>/anonymous_structs_test.nomi :: anonymous struct parameters match by f
 T ok <dir>/anonymous_structs_test.nomi :: anonymous struct parameter mismatches report diagnostics
 T test result: ok. 4 passed, 0 failed
 T
-C tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi@800209f4685f0b5a
+C tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi@b89ddaa59f6d1b7d
 E 0
 N 0
-H a858c6abd390572880539ce67d2916e79a90e52a38e96b357c8ced5002843a7d
+H 92bd0d2641b7a03171076b0eb9cd1cf113633622fe3964569279c3ae641cb339
 T ok <dir>/struct_spread_test.nomi :: a nominal head gives a nominal result
 T ok <dir>/struct_spread_test.nomi :: an anonymous head gives an anonymous result
 T ok <dir>/struct_spread_test.nomi :: an explicit field overrides the spread's value
@@ -8592,12 +8549,12 @@ T ok <dir>/struct_spread_test.nomi :: two spreads are rejected
 T ok <dir>/struct_spread_test.nomi :: an interface-typed field stays as lenient as in an ordinary literal
 T ok <dir>/struct_spread_test.nomi :: a type-parameter field stays as lenient as in an ordinary literal
 T ok <dir>/struct_spread_test.nomi :: the spread head is an arbitrary expression
-T ok <dir>/struct_spread_test.nomi :: a bare brace at a struct field patches it, and equals Struct.update
+T ok <dir>/struct_spread_test.nomi :: a `..` literal at a struct field updates it, and equals Struct.update
 T ok <dir>/struct_spread_test.nomi :: a nominal literal at a struct field replaces it, and equals Struct.update
 T ok <dir>/struct_spread_test.nomi :: a nested spread is a value, and its own head is the base
 T ok <dir>/struct_spread_test.nomi :: the patch reaches three levels down
 T ok <dir>/struct_spread_test.nomi :: a deep patch and a shallow one in the same literal
-T ok <dir>/struct_spread_test.nomi :: an anonymous-typed field takes a partial and a complete brace alike
+T ok <dir>/struct_spread_test.nomi :: an anonymous-typed field takes a `..` update or a whole brace
 T ok <dir>/struct_spread_test.nomi :: a field generic over a struct patches once the argument is solved
 T ok <dir>/struct_spread_test.nomi :: the base is unchanged by a deep patch
 T ok <dir>/struct_spread_test.nomi :: an unknown nested field names the NESTED type
@@ -8607,7 +8564,7 @@ T ok <dir>/struct_spread_test.nomi :: ordinary construction is not a patch
 T ok <dir>/struct_spread_test.nomi :: a spread with no fields is rejected
 T test result: ok. 23 passed, 0 failed
 T
-C tests/09-functions-and-control-flow/call_semantics_test.nomi@7f32ea13aff672e3
+C tests/09-functions-and-control-flow/call_semantics_test.nomi@73f34772351bc0b1
 E 0
 N 0
 H cd1ef70afeeadd6e49dfb427623801901d9c8e1075fabcc7af411addf41331aa

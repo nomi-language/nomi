@@ -1,6 +1,7 @@
 package rt
 
-// The lazy adapters whose callback carries a control signal, and `Iter.each`.
+// The lazy adapters whose callback carries a control signal, and the
+// terminals `Iter.each`, `find`, `any?` and `all?`.
 //
 // seqctl.go's header explains why `Iter.reduce` needs a value encoding at all —
 // the callback is driven by the source's own `each_while`, so there is no Go
@@ -184,4 +185,186 @@ func SeqTakeWhileCtl[T any](src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) S
 func SeqEachCtl[T any](fr *Frame, src Seq[T], f func(fr *Frame, item T) bool) Unit {
 	src.Run(fr, f)
 	return Unit{}
+}
+
+// SeqDropWhileCtl is `Iter.drop_while(src, pred)` whose predicate can `break`
+// or `continue`.
+//
+// The value is the drop decision about the current input element, as the
+// filter family's is a keep decision: `continue` drops the element and stays
+// in the dropping phase, `break` drops it and ends the sequence, `break True`
+// drops it and ends, and `break False` emits it and ends. The predicate is not
+// called once an element has passed, so a signal can only come while
+// dropping.
+func SeqDropWhileCtl[T any](src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) Seq[T] {
+	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
+		started, ended := false, false
+		completed := src.Run(fr, func(fr *Frame, item T) bool {
+			if started {
+				return yield(fr, item)
+			}
+			drop, c := f(fr, item)
+			switch c {
+			case CtlEmit:
+				if drop {
+					return true
+				}
+				started = true
+				return yield(fr, item)
+			case CtlSkip:
+				return true
+			case CtlEmitStop:
+				if !drop {
+					ended = yield(fr, item)
+					return false
+				}
+				ended = true
+				return false
+			default:
+				ended = true
+				return false
+			}
+		})
+		return completed || ended
+	}}
+}
+
+// SeqFlatMapCtl is `Iter.flat_map(src, f)` whose callback can `break` or
+// `continue`.
+//
+// The value is the inner sequence this element expands to: `continue`
+// expands to nothing, `break` ends with nothing more, and `break v` emits v's
+// elements and then ends.
+func SeqFlatMapCtl[T, U any](src Seq[T], f func(fr *Frame, item T) (Seq[U], Ctl)) Seq[U] {
+	return Seq[U]{Run: func(fr *Frame, yield func(fr *Frame, item U) bool) bool {
+		ended := false
+		completed := src.Run(fr, func(fr *Frame, item T) bool {
+			inner, c := f(fr, item)
+			switch c {
+			case CtlEmit:
+				return inner.Run(fr, yield)
+			case CtlSkip:
+				return true
+			case CtlEmitStop:
+				ended = inner.Run(fr, yield)
+				return false
+			default:
+				ended = true
+				return false
+			}
+		})
+		return completed || ended
+	}}
+}
+
+// SeqFlatMapListCtl is SeqFlatMapCtl for a callback answering a List.
+func SeqFlatMapListCtl[T, U any](src Seq[T], f func(fr *Frame, item T) (*List[U], Ctl)) Seq[U] {
+	return Seq[U]{Run: func(fr *Frame, yield func(fr *Frame, item U) bool) bool {
+		ended := false
+		completed := src.Run(fr, func(fr *Frame, item T) bool {
+			inner, c := f(fr, item)
+			switch c {
+			case CtlEmit:
+				return ListEachWhile(fr, inner, yield)
+			case CtlSkip:
+				return true
+			case CtlEmitStop:
+				ended = ListEachWhile(fr, inner, yield)
+				return false
+			default:
+				ended = true
+				return false
+			}
+		})
+		return completed || ended
+	}}
+}
+
+// SeqFindCtl is `Iter.find(src, pred)` whose predicate can `break` or
+// `continue`.
+//
+// The value is the predicate's answer for the current element. `continue`
+// passes over the element, a bare `break` stops with nothing found (None),
+// `break True` answers this element and `break False` stops with None.
+func SeqFindCtl[T any](fr *Frame, src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) Maybe[T] {
+	out := None[T]()
+	src.Run(fr, func(fr *Frame, item T) bool {
+		match, c := f(fr, item)
+		switch c {
+		case CtlEmit:
+			if !match {
+				return true
+			}
+			out = Some(item)
+			return false
+		case CtlSkip:
+			return true
+		case CtlEmitStop:
+			if match {
+				out = Some(item)
+			}
+			return false
+		default:
+			return false
+		}
+	})
+	return out
+}
+
+// SeqAnyCtl is `Iter.any?(src, pred)` whose predicate can `break` or
+// `continue`.
+//
+// What has accumulated before any element matched is False, so a bare
+// `break` answers False; `break v` answers v, the predicate's answer for this
+// element; `continue` passes over the element.
+func SeqAnyCtl[T any](fr *Frame, src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) bool {
+	out := false
+	src.Run(fr, func(fr *Frame, item T) bool {
+		match, c := f(fr, item)
+		switch c {
+		case CtlEmit:
+			if match {
+				out = true
+				return false
+			}
+			return true
+		case CtlSkip:
+			return true
+		case CtlEmitStop:
+			out = match
+			return false
+		default:
+			return false
+		}
+	})
+	return out
+}
+
+// SeqAllCtl is `Iter.all?(src, pred)` whose predicate can `break` or
+// `continue`.
+//
+// What has accumulated before any element failed is True, so a bare `break`
+// answers True; `break v` answers v, the predicate's answer for this element;
+// `continue` passes over the element.
+func SeqAllCtl[T any](fr *Frame, src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) bool {
+	out := true
+	src.Run(fr, func(fr *Frame, item T) bool {
+		pass, c := f(fr, item)
+		switch c {
+		case CtlEmit:
+			if !pass {
+				out = false
+				return false
+			}
+			return true
+		case CtlSkip:
+			return true
+		case CtlEmitStop:
+			out = pass
+			return false
+		default:
+			return false
+		}
+	})
+	return out
 }

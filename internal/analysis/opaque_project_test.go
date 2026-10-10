@@ -162,11 +162,11 @@ fn main() {
 	opaqueExpectNoErrors(t, errs)
 }
 
-// Round 2.3 — unwrap calls outside the owning module are blocked.
+// Round 2.3 — `Int(p)` is no unwrap anywhere, and on an opaque value
+// outside its owning module the help names the module's accessors, since
+// destructuring is closed there too.
 
-func TestOpaque_BlocksUnwrapOutsideOwningModule(t *testing.T) {
-	// Outside the owning module, `Int(p)` for an opaque PositiveInt
-	// would expose the private representation. Block it.
+func TestOpaque_IntCallOutsideOwningModuleNamesTheAccessors(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
 		"positive_int.nomi": `
 
@@ -187,12 +187,12 @@ fn main() {
 }
 `,
 	})
-	opaqueExpectErrorContains(t, errs, "opaque")
+	opaqueExpectErrorContains(t, errs, "`Int` is a type, not a function\nhelp: the value inside PositiveInt is private to the file that declares it; use a function its module exports")
 }
 
-func TestOpaque_AllowsUnwrapInsideOwningModule(t *testing.T) {
-	// Inside the owning module, unwrap is fine — it's how the owner
-	// impl its own accessors.
+func TestOpaque_AllowsParameterDestructuringInsideOwningModule(t *testing.T) {
+	// Inside the owning module, destructuring is how the owner writes its
+	// own accessors.
 	_, errs := opaqueProject(t, map[string]string{
 		"positive_int.nomi": `
 
@@ -202,8 +202,8 @@ pub fn from_int(n: Int): Maybe<PositiveInt> {
   if n > 0 { Some(PositiveInt(n)) } else { None }
 }
 
-pub fn to_int(p: PositiveInt): Int {
-  Int(p)
+pub fn to_int(PositiveInt(n)): Int {
+  n
 }
 `,
 		"main.nomi": `import positive_int
@@ -217,9 +217,9 @@ fn main() {
 	opaqueExpectNoErrors(t, errs)
 }
 
-func TestOpaque_AllowsUnwrapOnNonOpaqueOutside(t *testing.T) {
-	// Sanity check: a non-opaque distinct type can still be unwrapped
-	// from outside. The new check must not over-fire.
+func TestOpaque_AllowsDestructuringOnNonOpaqueOutside(t *testing.T) {
+	// Sanity check: a non-opaque distinct type can still be destructured
+	// from outside. The opaque check must not over-fire.
 	_, errs := opaqueProject(t, map[string]string{
 		"open_int.nomi": `pub type OpenInt Int
 `,
@@ -227,7 +227,8 @@ func TestOpaque_AllowsUnwrapOnNonOpaqueOutside(t *testing.T) {
 
 fn demo(): Int {
   v = OpenInt(5)
-  Int(v)
+  OpenInt(n) = v
+  n
 }
 `,
 	})

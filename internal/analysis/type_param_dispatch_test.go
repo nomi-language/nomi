@@ -159,22 +159,24 @@ impl Other for Robot {
 		name string
 		src  string
 		want string
+		// also is the one other error the source must report, if any.
+		also string
 	}{
 		{
 			name: "bare member no bound declares",
-			src: decls + `fn start<T>(): String where T: Machine { T.Nonexistent }
+			src: decls + `fn start<T>(_x: T): String where T: Machine { T.Nonexistent }
 fn main() { Unit }`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'Nonexistent'",
 		},
 		{
 			name: "bare member on an unbounded parameter",
-			src: `fn start<T>(): String { T.Nonexistent }
+			src: `fn start<T>(_x: T): String { T.Nonexistent }
 fn main() { Unit }`,
 			want: "type parameter 'T' has no interface bound, so 'T.Nonexistent' has nothing to dispatch through; add a `where T: SomeInterface` bound whose interface declares 'Nonexistent'",
 		},
 		{
 			name: "bare member with two bounds, neither declaring it",
-			src: decls + `fn start<T>(): String where T: Machine and Other { T.Nonexistent }
+			src: decls + `fn start<T>(_x: T): String where T: Machine and Other { T.Nonexistent }
 fn main() { Unit }`,
 			want: "no interface bound of type parameter 'T' (Machine, Other) declares function 'Nonexistent'",
 		},
@@ -200,16 +202,20 @@ fn main() { Unit }`,
 			// parameter": `nomi check` ok, then
 			// `line 5: unknown builtin 'T.nope'` — while the same function
 			// with `T` in a parameter was rejected at compile time.
+			// Such a `T` is now also an error at its declaration, since
+			// no call can determine it; the member is still reported.
 			name: "where-clause-only parameter, callee position",
 			src: decls + `fn start<T>(): String where T: Machine { T.nope() }
 fn main() { Unit }`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'nope'",
+			also: "type parameter `T` is not used in the signature of `start`, so no call can determine it",
 		},
 		{
 			name: "where-clause-only parameter, value position",
 			src: decls + `fn start<T>(): String where T: Machine { T.nope }
 fn main() { Unit }`,
 			want: "no interface bound of type parameter 'T' (Machine) declares function 'nope'",
+			also: "type parameter `T` is not used in the signature of `start`, so no call can determine it",
 		},
 	}
 	for _, tc := range cases {
@@ -224,8 +230,19 @@ fn main() { Unit }`,
 			if hits != 1 {
 				t.Fatalf("expected exactly 1 error containing %q, got %d: %v", tc.want, hits, errs)
 			}
-			if len(errs) != 1 {
-				t.Fatalf("expected exactly 1 diagnostic, got %d: %v", len(errs), errs)
+			want := 1
+			if tc.also != "" {
+				want = 2
+				found := false
+				for _, e := range errs {
+					found = found || e.Message == tc.also
+				}
+				if !found {
+					t.Fatalf("expected an error %q, got %v", tc.also, errs)
+				}
+			}
+			if len(errs) != want {
+				t.Fatalf("expected exactly %d diagnostics, got %d: %v", want, len(errs), errs)
 			}
 		})
 	}

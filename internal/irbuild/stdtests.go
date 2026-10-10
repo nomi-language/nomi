@@ -117,11 +117,6 @@ func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes []ast.Node, 
 	g := newStdGen(v.module, v.path, v.pkg, nodes, fa, v.cands, offer, v.onces, std)
 	insts := newStdInstances(std)
 	g.stdInsts = insts
-	// The prelude anchors are loaded on first use, and several builder arms
-	// read `preludeByName` without asking for them (mapCallPlan's `Maybe`
-	// check). A user unit has always loaded them by the time a test body is
-	// built; a fresh std gen has not.
-	g.loadPreludes()
 	withSelf := func(c testCaseDecl) func() {
 		prev := g.implSelf
 		g.implSelf = c.self

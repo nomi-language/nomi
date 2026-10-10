@@ -1,0 +1,553 @@
+================================================================================
+Typed binding first in a block
+================================================================================
+
+fn main() {
+    t: Map<String, Int> = Map.empty()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (type_identifier))
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier)))))))
+
+================================================================================
+Typed binding after another statement
+================================================================================
+
+fn main() {
+    a = 1
+    x: Int = a
+    y: List<Int> = []
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (integer))
+      (binding
+        (identifier)
+        (type_identifier)
+        (identifier))
+      (binding
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))
+        (list)))))
+
+================================================================================
+Binding annotation with a multi-line type argument list
+================================================================================
+
+fn main() {
+    t: Map<
+        String,
+        Int
+    > = Map.empty()
+    u: Map<
+        String, // keys
+        Int
+    > = Map.empty()
+    v: Map<
+        // keys
+        String,
+        Int
+    > = Map.empty()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (type_identifier))
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))))
+      (binding
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (line_comment)
+          (type_identifier))
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))))
+      (binding
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (line_comment)
+          (type_identifier)
+          (type_identifier))
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier)))))))
+
+================================================================================
+Parameter and return types with multi-line type argument lists
+================================================================================
+
+fn size(m: Map<
+    String, // k
+    Int
+>): Result<
+    // ok
+    Int,
+    String
+> {
+    Ok(Map.size(m))
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (line_comment)
+          (type_identifier))))
+    (generic_type
+      (type_identifier)
+      (line_comment)
+      (type_identifier)
+      (type_identifier))
+    (body
+      (call_expression
+        (type_identifier)
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))
+          (identifier))))))
+
+================================================================================
+Multi-line type parameters and tuple return type
+================================================================================
+
+fn pair<
+    A, // a
+    B
+>(a: A, b: B): (
+    A, // first
+    B
+) where A: Display {
+    (a, b)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (type_parameters
+      (type_parameter
+        (type_parameter_identifier
+          (type_identifier)))
+      (line_comment)
+      (type_parameter
+        (type_parameter_identifier
+          (type_identifier))))
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier))
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (tuple_type
+      (type_identifier)
+      (line_comment)
+      (type_identifier))
+    (where_clause
+      (where_constraint
+        (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))
+    (body
+      (tuple_expression
+        (identifier)
+        (identifier)))))
+
+================================================================================
+Multi-line function type parameter
+================================================================================
+
+fn apply(f: (
+    Int, // x
+    Int
+) -> Int): Int {
+    f(1, 2)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (function_type
+          (type_identifier)
+          (line_comment)
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (call_expression
+        (identifier)
+        (integer)
+        (integer)))))
+
+================================================================================
+Struct type parameters and field type across lines
+================================================================================
+
+struct Holder<
+    T // t
+> {
+    items: Map<
+        String, // k
+        T
+    >
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_definition
+    (qualified_type_identifier
+      (type_identifier))
+    (type_parameters
+      (type_parameter
+        (type_parameter_identifier
+          (type_identifier)))
+      (line_comment))
+    (struct_body
+      (field_definition
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (line_comment)
+          (type_identifier))))))
+
+================================================================================
+Type alias, distinct type and tuple distinct type across lines
+================================================================================
+
+typealias Alias Map<
+    String, // k
+    Int
+>
+
+type Distinct Map<
+    String, // k
+    Int
+>
+
+type Pair (
+    Int, // left
+    String
+)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_alias
+    (qualified_type_identifier
+      (type_identifier))
+    (generic_type
+      (type_identifier)
+      (type_identifier)
+      (line_comment)
+      (type_identifier)))
+  (type_definition
+    (qualified_type_identifier
+      (type_identifier))
+    (generic_type
+      (type_identifier)
+      (type_identifier)
+      (line_comment)
+      (type_identifier)))
+  (type_definition
+    (qualified_type_identifier
+      (type_identifier))
+    (tuple_type
+      (type_identifier)
+      (line_comment)
+      (type_identifier))))
+
+================================================================================
+Impl header with multi-line type lists
+================================================================================
+
+impl<
+    T // t
+> Named for Holder<
+    T // t
+> {
+    fn name(h: self): String {
+        "h"
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (impl_block
+    (type_parameters
+      (type_parameter
+        (type_parameter_identifier
+          (type_identifier)))
+      (line_comment))
+    (type_identifier)
+    (generic_type
+      (type_identifier)
+      (type_identifier)
+      (line_comment))
+    (function_definition
+      (identifier)
+      (parameters
+        (parameter
+          (identifier)
+          (self_type)))
+      (type_identifier)
+      (body
+        (string
+          (string_content))))))
+
+================================================================================
+Multi-line turbofish
+================================================================================
+
+fn main() {
+    ch = Channel.buffered<
+        Int // i
+    >(4)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier))
+          (type_identifier)
+          (line_comment)
+          (integer))))))
+
+================================================================================
+Module-qualified generic type
+================================================================================
+
+fn twice(t: tasks.Task<
+    Int // n
+>, s: span.Span<String>): Int {
+    1
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (qualified_type
+            (identifier)
+            (type_identifier))
+          (type_identifier)
+          (line_comment)))
+      (parameter
+        (identifier)
+        (generic_type
+          (qualified_type
+            (identifier)
+            (type_identifier))
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (integer))))
+
+================================================================================
+Typed binding in lambda and case-arm blocks
+================================================================================
+
+fn main() {
+    f = |k| {
+        t: Map<
+            String, // k
+            Int
+        > = Map.empty()
+        Map.get(t, k)
+    }
+    x = case f("a") {
+        Some(v) -> {
+            m: Map<String, Int> = Map.empty()
+            m
+        }
+        None -> Map.empty()
+    }
+    g = |p| {x: p, y: p}
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (lambda
+          (lambda_parameter
+            (identifier))
+          (body
+            (binding
+              (identifier)
+              (generic_type
+                (type_identifier)
+                (type_identifier)
+                (line_comment)
+                (type_identifier))
+              (call_expression
+                (field_access
+                  (type_identifier)
+                  (identifier))))
+            (call_expression
+              (field_access
+                (type_identifier)
+                (identifier))
+              (identifier)
+              (identifier)))))
+      (binding
+        (identifier)
+        (case_expression
+          (call_expression
+            (identifier)
+            (string
+              (string_content)))
+          (case_branch
+            (enum_pattern
+              (type_identifier)
+              (identifier))
+            (body
+              (binding
+                (identifier)
+                (generic_type
+                  (type_identifier)
+                  (type_identifier)
+                  (type_identifier))
+                (call_expression
+                  (field_access
+                    (type_identifier)
+                    (identifier))))
+              (identifier)))
+          (case_branch
+            (type_identifier)
+            (call_expression
+              (field_access
+                (type_identifier)
+                (identifier))))))
+      (binding
+        (identifier)
+        (lambda
+          (lambda_parameter
+            (identifier))
+          (anon_struct
+            (anon_struct_field
+              (identifier)
+              (identifier))
+            (anon_struct_field
+              (identifier)
+              (identifier))))))))
+
+================================================================================
+Typed binding with a module-qualified annotation
+================================================================================
+
+fn main() {
+    ch: channels.Channel<String> = channels.Channel.buffered<String>(1)
+    b: shapes.Shape = .Ring{r: 7}
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (generic_type
+          (qualified_type
+            (identifier)
+            (type_identifier))
+          (type_identifier))
+        (call_expression
+          (field_access
+            (type_field_access
+              (identifier)
+              (type_identifier))
+            (identifier))
+          (type_identifier)
+          (integer)))
+      (binding
+        (identifier)
+        (qualified_type
+          (identifier)
+          (type_identifier))
+        (struct_construction
+          (dot_variant
+            (type_identifier))
+          (identifier)
+          (integer))))))

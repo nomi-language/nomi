@@ -89,12 +89,11 @@ const (
 	// It is also the only projection that can FAULT, which is what Faults
 	// reports. Owner: enumFieldRead.
 	ProjEnumField
-	// ProjInner reads the value a distinct type wraps — `Int(m)` for a
-	// `type M Int`. `Sym` is the distinct's declaration.
+	// ProjInner reads the value a distinct type wraps — `n` in `M(n) = m`
+	// for a `type M Int`. `Sym` is the distinct's declaration.
 	//
-	// It is a projection and not a conversion: Nomi has no conversions, and
-	// `Int(m)` answers the wrapped value and rejects anything that is not a
-	// distinct. Owner: scalarUnwrap.
+	// It is a projection and not a conversion: Nomi has no conversions.
+	// Owner: distinctProjection.
 	ProjInner
 	// ProjElem reads the element at a CONSTANT position of a List. Structural:
 	// it names no declaration, and `Index` is the position.
@@ -114,6 +113,13 @@ const (
 	// projection and not `MakeList` over a drop.
 	// Owner: listArm.
 	ProjSuffix
+	// ProjStrSuffix reads the String of a String's bytes from a CONSTANT byte
+	// offset on: the `rest` of a string prefix pattern `"/users/" + rest`,
+	// with `Index` the prefix literal's length in bytes. It is in bounds only
+	// after the MatchStrPrefix test of that literal passed, so the offset
+	// falls on the boundary between two whole UTF-8 sequences and the result
+	// is a valid String. Owner: strPrefixTest.
+	ProjStrSuffix
 )
 
 func (k ProjKind) String() string {
@@ -134,6 +140,8 @@ func (k ProjKind) String() string {
 		return "elem"
 	case ProjSuffix:
 		return "suffix"
+	case ProjStrSuffix:
+		return "strsuffix"
 	}
 	return "proj?"
 }
@@ -280,6 +288,17 @@ func NewProjSuffix(pos Pos, dst, subj Temp, i int, shape ValShape) *Proj {
 	return p
 }
 
+// NewProjStrSuffix reads the String of subj's bytes from byte offset i on.
+// Its result is a String, so the shape is not taken from the producer.
+func NewProjStrSuffix(pos Pos, dst, subj Temp, i int) *Proj {
+	if i < 0 {
+		panic("ir.NewProjStrSuffix: negative byte offset " + strconv.Itoa(i))
+	}
+	p := newProj(pos, dst, subj, ProjStrSuffix, ValString, "NewProjStrSuffix")
+	p.idx = i
+	return p
+}
+
 func newProj(pos Pos, dst, subj Temp, kind ProjKind, shape ValShape, who string) *Proj {
 	requirePos(pos, who)
 	if dst == NoTemp {
@@ -305,16 +324,16 @@ func (p *Proj) Kind() ProjKind { return p.kind }
 func (p *Proj) Subject() Temp { return p.subj }
 
 // Sym is the declaration this read names: a field, an enum, an interface or a
-// distinct type, per the kind. Nil for ProjRecordField, ProjSlot, ProjElem and
-// ProjSuffix, which are structural and name no declaration.
+// distinct type, per the kind. Nil for ProjRecordField, ProjSlot, ProjElem,
+// ProjSuffix and ProjStrSuffix, which are structural and name no declaration.
 func (p *Proj) Sym() *Symbol { return p.sym }
 
 // Name is the field or requirement name, or the variant a payload belongs to.
-// Empty for ProjSlot, ProjInner, ProjElem and ProjSuffix.
+// Empty for ProjSlot, ProjInner, ProjElem, ProjSuffix and ProjStrSuffix.
 func (p *Proj) Name() string { return p.text }
 
 // Index is the tuple component, the payload position, a list element's
-// position or a suffix's start. Zero for the named kinds, which select by
+// position, a suffix's start, or a string suffix's starting byte. Zero for the named kinds, which select by
 // name.
 func (p *Proj) Index() int { return p.idx }
 
@@ -370,7 +389,7 @@ func (p *Proj) AppendUses(dst []Temp) []Temp { return append(dst, p.subj) }
 func (p *Proj) String() string {
 	s := p.dst.String() + " = " + p.kind.String() + " " + p.subj.String()
 	switch p.kind {
-	case ProjSlot, ProjElem, ProjSuffix:
+	case ProjSlot, ProjElem, ProjSuffix, ProjStrSuffix:
 		s += "." + strconv.Itoa(p.idx)
 	case ProjPayload:
 		s += " " + p.sym.Name() + "." + p.text + "[" + strconv.Itoa(p.idx) + "]"

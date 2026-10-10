@@ -48,11 +48,11 @@ tests "group" {
 }
 `
 
-// The text report for formatFixture, recorded from the command before json
-// mode existed. Text mode must still print exactly this.
-const formatFixtureText = `hello from a test
-ok fixture_test.nomi :: double //! test line 4
+// The text report for formatFixture. A test's own output is indented under
+// its line.
+const formatFixtureText = `ok fixture_test.nomi :: double //! test line 4
 ok fixture_test.nomi :: passes
+  hello from a test
 FAIL fixture_test.nomi :: fails
   line 16: assertion failed
     assert Iter.count(xs) == 4
@@ -78,6 +78,8 @@ type jsonTestRecord struct {
 	Name      string  `json:"name"`
 	Status    string  `json:"status"`
 	Message   *string `json:"message"`
+	Report    *string `json:"report"`
+	Output    string  `json:"output"`
 	ErrorLine int     `json:"error_line"`
 	Passed    int     `json:"passed"`
 	Failed    int     `json:"failed"`
@@ -156,10 +158,13 @@ func TestTestCommand_JSONFormat(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected a failing exit status, as text mode has")
 	}
-	if stderr != "hello from a test\n" {
-		t.Fatalf("a test's own output belongs on stderr in json mode; stderr:\n%q", stderr)
+	if stderr != "" {
+		t.Fatalf("a test's own output belongs in its record, not on stderr; stderr:\n%q", stderr)
 	}
 	records := parseJSONRecords(t, stdout)
+	if got := records[1].Output; got != "hello from a test\n" {
+		t.Errorf("the passing test's output = %q", got)
+	}
 
 	type want struct {
 		line, endLine int
@@ -209,9 +214,9 @@ func TestTestCommand_JSONFormat(t *testing.T) {
 	}
 }
 
-// Colour is the text report's business; a record never carries escapes, even
-// when colour is forced.
-func TestTestCommand_JSONFormatHasNoColour(t *testing.T) {
+// Colour belongs to `report` alone: `message` never carries escapes, even
+// when colour is forced, and no raw escape byte reaches stdout.
+func TestTestCommand_JSONFormatMessageHasNoColour(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
@@ -223,11 +228,19 @@ func TestTestCommand_JSONFormatHasNoColour(t *testing.T) {
 	cmd.Stdout = &stdout
 	_ = cmd.Run()
 	if strings.Contains(stdout.String(), "\x1b") {
-		t.Fatalf("json output carries escape codes:\n%q", stdout.String())
+		t.Fatalf("json output carries raw escape bytes:\n%q", stdout.String())
 	}
 	records := parseJSONRecords(t, stdout.String())
+	for i, rec := range records[:len(records)-1] {
+		if rec.Message == nil || strings.Contains(*rec.Message, "\x1b") {
+			t.Errorf("record %d: message %v carries escapes or is missing", i, rec.Message)
+		}
+	}
 	if got := *records[2].Message; !strings.HasPrefix(got, "  line 16: assertion failed\n    assert Iter.count(xs) == 4") {
 		t.Fatalf("message = %q", got)
+	}
+	if rep := records[2].Report; rep == nil || !strings.Contains(*rep, "\x1b[") {
+		t.Fatalf("NOMI_COLOR=always left the report plain, so this test checks nothing: %v", rep)
 	}
 	// The same run in text mode is coloured, so the check above is not vacuous.
 	text := exec.Command(nomiBin, "test", "fixture_test.nomi")
@@ -237,6 +250,128 @@ func TestTestCommand_JSONFormatHasNoColour(t *testing.T) {
 	if !strings.Contains(string(out), "\x1b[") {
 		t.Fatalf("NOMI_COLOR=always did not colour the text report, so this test checks nothing")
 	}
+}
+
+const reportFixture = `test "ok" {
+    assert 1 == 1
+}
+
+test "bad" {
+    x = 2
+    assert x == 3
+}
+`
+
+// runReportFixture runs `nomi test a_test.nomi` over reportFixture with env
+// added to a colour-neutral environment, and returns stdout.
+func runReportFixture(t *testing.T, dir string, env []string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command(nomiBin, append([]string{"test", "a_test.nomi"}, args...)...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NO_COLOR=", "CLICOLOR_FORCE=", "NOMI_COLOR=")
+	cmd.Env = append(cmd.Env, env...)
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	_ = cmd.Run()
+	return stdout.String()
+}
+
+// Each record's `report` is the text report's bytes for that record: coloured
+// and highlighted when colour is forced, plain otherwise. The reports plus the
+// summary line are the text run's output, so the two cannot drift.
+func TestTestCommand_JSONFormatReport(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "a_test.nomi"), reportFixture)
+
+	cases := []struct {
+		name    string
+		env     []string
+		ok, bad string
+	}{
+		{
+			name: "forced",
+			env:  []string{"NOMI_COLOR=always"},
+			ok:   "\x1b[32mok\x1b[0m a_test.nomi :: ok\n",
+			bad: "\x1b[1m\x1b[31mFAIL\x1b[0m a_test.nomi :: bad\n" +
+				"  \x1b[2mline 7: assertion failed\x1b[0m\n" +
+				"    \x1b[35massert\x1b[0m \x1b[34mx\x1b[0m == \x1b[33m3\x1b[0m\n" +
+				"    \x1b[2mvalues:\x1b[0m\n" +
+				"      \x1b[34mx\x1b[0m\n" +
+				"        \x1b[2m=\x1b[0m \x1b[33m2\x1b[0m\n",
+		},
+		{
+			name: "off",
+			env:  []string{"NOMI_COLOR=never"},
+			ok:   "ok a_test.nomi :: ok\n",
+			bad: "FAIL a_test.nomi :: bad\n" +
+				"  line 7: assertion failed\n" +
+				"    assert x == 3\n" +
+				"    values:\n" +
+				"      x\n" +
+				"        = 2\n",
+		},
+	}
+	const plainMessage = "  line 7: assertion failed\n    assert x == 3\n    values:\n      x\n        = 2"
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			records := parseJSONRecords(t, runReportFixture(t, dir, c.env, "--format", "json"))
+			if len(records) != 3 {
+				t.Fatalf("want two tests and a summary, got %+v", records)
+			}
+			for i, want := range []string{c.ok, c.bad} {
+				if got := records[i].Report; got == nil || *got != want {
+					t.Errorf("record %d report = %q, want %q", i, deref(got), want)
+				}
+			}
+			if got := deref(records[1].Message); got != plainMessage {
+				t.Errorf("message = %q, want %q", got, plainMessage)
+			}
+			text := runReportFixture(t, dir, c.env)
+			if !strings.HasPrefix(text, c.ok+c.bad) || strings.Count(text, "\n") != strings.Count(c.ok+c.bad, "\n")+1 {
+				t.Errorf("the reports are not the text run's lines.\ntext:\n%q\nreports:\n%q", text, c.ok+c.bad)
+			}
+		})
+	}
+}
+
+// A file record's report is the text report's `FAIL <file>` block: here the
+// rendered compiler diagnostic, coloured when colour is forced.
+func TestTestCommand_JSONFormatFileReport(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "a_test.nomi"), "test \"bad\" {\n    assert undefined_name == 1\n}\n")
+	for _, c := range []struct {
+		env    string
+		colour bool
+	}{{"NOMI_COLOR=always", true}, {"NOMI_COLOR=never", false}} {
+		records := parseJSONRecords(t, runReportFixture(t, dir, []string{c.env}, "--format", "json"))
+		rec := records[0]
+		if rec.Type != "file" || rec.Report == nil {
+			t.Fatalf("%s: record = %+v", c.env, rec)
+		}
+		if strings.Contains(*rec.Report, "\x1b[") != c.colour {
+			t.Errorf("%s: report colour = %v, want %v:\n%q", c.env, !c.colour, c.colour, *rec.Report)
+		}
+		if strings.Contains(deref(rec.Message), "\x1b") {
+			t.Errorf("%s: message carries escapes: %q", c.env, deref(rec.Message))
+		}
+		text := runReportFixture(t, dir, []string{c.env})
+		if !strings.HasPrefix(text, *rec.Report) {
+			t.Errorf("%s: the report is not the text run's block.\ntext:\n%q\nreport:\n%q", c.env, text, *rec.Report)
+		}
+	}
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return "<nil>"
+	}
+	return *s
 }
 
 func TestTestCommand_JSONFormatWithLine(t *testing.T) {
@@ -270,6 +405,42 @@ func TestTestCommand_JSONFormatWithLine(t *testing.T) {
 		if records[len(records)-1].Type != "summary" {
 			t.Fatalf("--line %s: last record is not the summary", c.line)
 		}
+	}
+}
+
+// A `--line` that selects no test is an error, not an empty pass: an editor
+// rerunning a line the test has since moved away from must not report ok.
+// Line 6 is the body of `fn double`, which no test, attached prompt or group
+// header covers.
+func TestTestCommand_LineWithNoTestFails(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	dir, path := writeFormatFixture(t)
+	const want = "no test at fixture_test.nomi:6\nhelp: the nearest test starts on line 4"
+
+	stdout, stderr, err := runNomiSplit(t, t.TempDir(), dir, "test", path, "--line", "6")
+	if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 1 {
+		t.Fatalf("exit = %v, want status 1\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+	if stdout != "" || stderr != "nomi test: "+want+"\n" {
+		t.Fatalf("stdout:\n%s\nstderr:\n%q\nwant stderr %q", stdout, stderr, "nomi test: "+want+"\n")
+	}
+
+	stdout, stderr, err = runNomiSplit(t, t.TempDir(), dir, "test", path, "--line", "6", "--format", "json")
+	if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 1 {
+		t.Fatalf("json: exit = %v, want status 1\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+	}
+	records := parseJSONRecords(t, stdout)
+	if len(records) != 2 {
+		t.Fatalf("json: want a file record and the summary, got:\n%s", stdout)
+	}
+	file := records[0]
+	if file.Type != "file" || file.Status != "failed" || file.File != path || file.Message == nil || *file.Message != want {
+		t.Fatalf("json: file record = %+v, want a failed file record with message %q", file, want)
+	}
+	if sum := records[1]; sum.Type != "summary" || sum.Passed != 0 || sum.Failed != 1 {
+		t.Fatalf("json: summary = %+v", sum)
 	}
 }
 
@@ -342,12 +513,15 @@ test "ffi fails" {
 	if err == nil {
 		t.Fatalf("expected a failing exit status")
 	}
-	if !strings.Contains(stderr, "printed by an ffi test") {
-		t.Fatalf("test output missing from stderr:\n%s", stderr)
+	if strings.Contains(stderr, "printed by an ffi test") {
+		t.Fatalf("test output reached stderr instead of its record:\n%s", stderr)
 	}
 	records := parseJSONRecords(t, stdout)
 	if len(records) != 3 {
 		t.Fatalf("want two tests and a summary:\n%s", stdout)
+	}
+	if got := records[0].Output; got != "printed by an ffi test\n" {
+		t.Errorf("the ffi test's output = %q", got)
 	}
 	if r := records[0]; r.Status != "passed" || r.Line != 7 {
 		t.Errorf("first record = %+v", r)
@@ -361,4 +535,102 @@ test "ffi fails" {
 	if entries, _ := os.ReadDir(cacheRoot); len(entries) == 0 {
 		t.Errorf("no wrapper cache entry, so the file never took the FFI path this test is about")
 	}
+}
+
+const outputFixture = `import std/io
+
+test "passes" {
+    dbg 5
+    io.print("printed")
+    assert True
+}
+
+test "fails" {
+    dbg 6
+    assert False
+}
+`
+
+// What a test writes, `dbg` and `io.print` alike, is reported under its own
+// line: indented in text mode, and in json mode in the record's `output`
+// (plain) and `report` (coloured as text mode is). Nothing reaches stdout
+// outside a record, or stderr.
+func TestTestCommand_OutputUnderItsTest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "a_test.nomi"), outputFixture)
+	cases := []struct {
+		name          string
+		env           []string
+		ok, bad, last string
+	}{
+		{
+			name: "forced",
+			env:  []string{"NOMI_COLOR=always"},
+			ok: "\x1b[32mok\x1b[0m a_test.nomi :: passes\n" +
+				"  \x1b[36mdbg\x1b[0m \x1b[2mline 4:\x1b[0m \x1b[33m5\x1b[0m = \x1b[33m5\x1b[0m\n" +
+				"  printed\n",
+			bad: "\x1b[1m\x1b[31mFAIL\x1b[0m a_test.nomi :: fails\n" +
+				"  \x1b[36mdbg\x1b[0m \x1b[2mline 10:\x1b[0m \x1b[33m6\x1b[0m = \x1b[33m6\x1b[0m\n" +
+				"  \x1b[2mline 11: assertion failed\x1b[0m\n" +
+				"    \x1b[35massert\x1b[0m \x1b[36mFalse\x1b[0m\n",
+			last: "test result: \x1b[1m\x1b[31mFAILED\x1b[0m. \x1b[32m1\x1b[0m passed, \x1b[1m\x1b[31m1\x1b[0m failed\n",
+		},
+		{
+			name: "off",
+			env:  []string{"NOMI_COLOR=never"},
+			ok: "ok a_test.nomi :: passes\n" +
+				"  dbg line 4: 5 = 5\n" +
+				"  printed\n",
+			bad: "FAIL a_test.nomi :: fails\n" +
+				"  dbg line 10: 6 = 6\n" +
+				"  line 11: assertion failed\n" +
+				"    assert False\n",
+			last: "test result: FAILED. 1 passed, 1 failed\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			text, stderr := runOutputFixture(t, dir, c.env)
+			if want := c.ok + c.bad + c.last; text != want || stderr != "" {
+				t.Errorf("text report:\n%q\nwant:\n%q\nstderr: %q", text, want, stderr)
+			}
+			stdout, stderr := runOutputFixture(t, dir, c.env, "--format", "json")
+			if stderr != "" {
+				t.Errorf("json mode wrote to stderr: %q", stderr)
+			}
+			records := parseJSONRecords(t, stdout)
+			if len(records) != 3 {
+				t.Fatalf("want two tests and a summary, got %+v", records)
+			}
+			for i, want := range []struct{ report, output string }{
+				{c.ok, "dbg line 4: 5 = 5\nprinted\n"},
+				{c.bad, "dbg line 10: 6 = 6\n"},
+			} {
+				if got := deref(records[i].Report); got != want.report {
+					t.Errorf("record %d report = %q, want %q", i, got, want.report)
+				}
+				if got := records[i].Output; got != want.output {
+					t.Errorf("record %d output = %q, want %q", i, got, want.output)
+				}
+			}
+		})
+	}
+}
+
+// runOutputFixture runs `nomi test a_test.nomi` with env added to a
+// colour-neutral environment, and returns stdout and stderr.
+func runOutputFixture(t *testing.T, dir string, env []string, args ...string) (string, string) {
+	t.Helper()
+	cmd := exec.Command(nomiBin, append([]string{"test", "a_test.nomi"}, args...)...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NO_COLOR=", "CLICOLOR_FORCE=", "NOMI_COLOR=")
+	cmd.Env = append(cmd.Env, env...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	_ = cmd.Run()
+	return stdout.String(), stderr.String()
 }

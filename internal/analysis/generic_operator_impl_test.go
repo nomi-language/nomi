@@ -149,14 +149,14 @@ type Days Int
 type Weeks Int
 
 impl Add<Days, Day> for Day {
-    fn add(d: Day, n: Days): Day {
-        Day(Int(d) + Int(n))
+    fn add(Day(d), Days(n)): Day {
+        Day(d + n)
     }
 }
 
 impl Add<Weeks, Day> for Day {
-    fn add(d: Day, n: Weeks): Day {
-        Day(Int(d) + 7 * Int(n))
+    fn add(Day(d), Weeks(n)): Day {
+        Day(d + 7 * n)
     }
 }
 

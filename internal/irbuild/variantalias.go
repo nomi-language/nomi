@@ -1,7 +1,10 @@
 package irbuild
 
 import (
+	"strings"
+
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // A selectively imported enum variant has TWO names, and every resolver in this
@@ -76,4 +79,64 @@ func variantRefAt(fa *analysis.FileAnalysis, local string, line, col int) (ref *
 		return ref, ref.Resolved.Name, true
 	}
 	return ref, ref.Name, true
+}
+
+// importedVariantAt resolves a variant named bare through a drill-through
+// import (`import shapes.Holder.{Of}`, `import std/json.Json.{String as
+// JStr}`) at the node `at` that builds or names it, to the def and the
+// variant. A std enum resolves through stdEnumVariantAt. Any other enum
+// resolves through the type the checker gave `at`, so a generic enum's
+// variant gets the instance the checker solved (`Of{value: 1}` is a
+// `Holder<Int>`), as the qualified spelling `shapes.Holder.Of{value: 1}`
+// does. That fallback is for user enums only: a std enum the std paths
+// decline declines here too. A same-file variant is not imported (its reference has no
+// resolution) and declines, as the checker rejects it bare.
+func (g *gen) importedVariantAt(at ast.Node, local string, line, col int) (*typeDef, *variantDef, bool) {
+	if d, v, ok := g.stdEnumVariantAt(local, line, col); ok {
+		return d, v, true
+	}
+	ref, canonical, ok := variantRefAt(g.fa, local, line, col)
+	if !ok || ref.Resolved == nil {
+		return nil, nil, false
+	}
+	decl := ref.Resolved
+	for decl.Resolved != nil {
+		decl = decl.Resolved
+	}
+	if decl.Kind != analysis.SymbolEnumVariant {
+		return nil, nil, false
+	}
+	ty := g.checkedExprType(at)
+	if ft, isFunc := irResolvedType(ty).(*analysis.FuncType); isFunc {
+		ty = ft.Return
+	}
+	et, isEnum := resolvedEnumType(ty)
+	if !isEnum || irUnsolvedType(et) {
+		return nil, nil, false
+	}
+	// The checked type must be the enum the import names, not merely one
+	// with a variant of that name.
+	declared := analysis.Type(decl.Type)
+	if ft, isFunc := declared.(*analysis.FuncType); isFunc {
+		declared = ft.Return
+	}
+	if de, ok := declared.(*analysis.EnumType); !ok || de.Origin != et.Origin || de.Name != et.Name {
+		return nil, nil, false
+	}
+	// A std enum's variant (the prelude's `Some` among them) is answered by
+	// stdEnumVariantAt or by the prelude's own paths, from the signature the
+	// checker recorded at the call. When those decline, its metadata is
+	// missing, and the checked type of the node must not stand in for it.
+	if strings.HasPrefix(et.Origin, "std/") {
+		return nil, nil, false
+	}
+	k := g.project(et)
+	if k.tag != tagNamed || k.def == nil {
+		return nil, nil, false
+	}
+	v := k.def.variant(canonical)
+	if v == nil {
+		return nil, nil, false
+	}
+	return k.def, v, true
 }

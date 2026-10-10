@@ -1,0 +1,334 @@
+================================================================================
+A line starting with a minus is a new statement
+================================================================================
+
+fn main() {
+    x = a
+    -1
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (identifier))
+      (unary_expression
+        (integer)))))
+
+================================================================================
+A line starting with a paren is a new statement, not a call
+================================================================================
+
+fn main() {
+    (value, next) = step(state)
+    (value, next)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (destructuring_binding
+        binding: (identifier)
+        binding: (identifier)
+        value: (call_expression
+          function: (identifier)
+          (identifier)))
+      (tuple_expression
+        (identifier)
+        (identifier)))))
+
+================================================================================
+A line starting with a bracket is a new statement, not a typed list
+================================================================================
+
+fn main() {
+    x = Foo
+    [1, 2]
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (type_identifier))
+      (list
+        (integer)
+        (integer)))))
+
+================================================================================
+A lambda body ends at the line break
+================================================================================
+
+fn main() {
+    f = |x| x
+    -1
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (lambda
+          (lambda_parameter
+            name: (identifier))
+          body: (identifier)))
+      (unary_expression
+        (integer)))))
+
+================================================================================
+A top-level binding ends at the line break
+================================================================================
+
+once x = a
+-1
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (identifier))
+  (unary_expression
+    (integer)))
+
+================================================================================
+A case arm ends at the line break before a tuple pattern
+================================================================================
+
+fn main() {
+    case n {
+        1 -> f
+        (x, y) -> b
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (integer)
+          (identifier))
+        (case_branch
+          (tuple_pattern
+            (identifier)
+            (identifier))
+          (identifier))))))
+
+================================================================================
+A statement on a prompt line ends at the line break
+================================================================================
+
+//! x = a
+//! -1
+//! assert x
+fn f() {
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (decorated_item
+    (attached_test_prompt
+      (attached_comment_test_prompt_marker)
+      body: (binding
+        (identifier)
+        (identifier))
+      (attached_comment_test_line_prompt)
+      body: (unary_expression
+        (integer))
+      (attached_comment_test_line_prompt)
+      body: (assertion
+        value: (identifier)))
+    (function_definition
+      name: (identifier)
+      (parameters)
+      (body))))
+
+================================================================================
+A pipe, else, body brace or where clause on the next line continues
+================================================================================
+
+fn f<T>(x: T): T
+where T: Display
+{
+    y = x
+        |> g
+    z = if c {
+        a
+    }
+    else {
+        b
+    }
+    Some(v) = m
+    else { return 0 }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (where_clause
+      (where_constraint
+        name: (type_parameter_identifier
+          (type_identifier))
+        (type_identifier)))
+    (body
+      (binding
+        (identifier)
+        (pipe_expression
+          (identifier)
+          (identifier)))
+      (binding
+        (identifier)
+        (if_expression
+          (identifier)
+          (body
+            (identifier))
+          (body
+            (identifier))))
+      (else_binding
+        pattern: (call_expression
+          function: (type_identifier)
+          (identifier))
+        value: (identifier)
+        else: (body
+          (return_statement
+            (integer)))))))
+
+================================================================================
+A variant pattern binding
+================================================================================
+
+fn main() {
+    Day(n) = d
+    n
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (pattern_binding
+        pattern: (call_expression
+          function: (type_identifier)
+          (identifier))
+        value: (identifier))
+      (identifier))))
+
+================================================================================
+A dotted type name and a dotted import member
+================================================================================
+
+import strings.String
+import std/iter.Iter.loop
+
+pub type Probe.Absent
+
+fn worst(a: Probe.Reading): Probe.Reading {
+    a
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (import_statement
+    (module_path
+      (identifier))
+    (type_identifier))
+  (import_statement
+    (module_path
+      (identifier)
+      (identifier))
+    (type_identifier)
+    (import_value_selector
+      (identifier)))
+  (type_definition
+    (pub)
+    name: (qualified_type_identifier
+      (type_identifier)
+      (type_identifier)))
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier)
+        (type_identifier)))
+    (type_identifier)
+    (type_identifier)
+    (body
+      (identifier))))
+
+================================================================================
+A prompt declares a local type
+================================================================================
+
+//! type TraceId String
+//! assert TraceId("a") == TraceId("a")
+pub fn f() {
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (decorated_item
+    (attached_test_prompt
+      (attached_comment_test_prompt_marker)
+      body: (type_definition
+        name: (qualified_type_identifier
+          (type_identifier))
+        (type_identifier))
+      (attached_comment_test_line_prompt)
+      body: (assertion
+        value: (binary_expression
+          (call_expression
+            function: (type_identifier)
+            (string
+              (string_content)))
+          (call_expression
+            function: (type_identifier)
+            (string
+              (string_content))))))
+    (function_definition
+      (pub)
+      name: (identifier)
+      (parameters)
+      (body))))

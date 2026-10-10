@@ -197,3 +197,25 @@ impl Result<T, E> {
 derive Display for Result<T, E>
 derive Equatable for Result<T, E>
 derive Hashable for Result<T, E>
+
+// Infallible has no values, so none of these is ever called. Each body
+// answers its argument: a value of Infallible stands for any type, and the
+// impls let a type that contains Infallible (`Result<Int, Infallible>`)
+// render, compare and hash through its derived impls.
+impl Display for Infallible {
+    fn to_string(value: Infallible): String {
+        value
+    }
+}
+
+impl Equatable for Infallible {
+    fn equal?(a: Infallible, _b: Infallible): Bool {
+        a
+    }
+}
+
+impl Hashable for Infallible {
+    fn hash(value: Infallible): Int {
+        value
+    }
+}

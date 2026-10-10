@@ -17,16 +17,16 @@ failing 49
 C anon_struct.nomi
 E 1
 N 1
-H e90c9c0142b8dfa97ac0e8baa8ab0c524fa3fcb496e15c8ad22e6e5b1f0910f5
-T 30
-T Hi Bob, you are 42
-T Hi Carol, you are 30
-T {n: 1, name: Ada}
-T {count: 3, outer: {inner: 1, label: hi}}
-T 1
-T x is ten, y is 20
-T 30
+H 1764b3d76a0f29bf6baa0da553100100b895da3d793dd038c42145e05caa4bba
 T FAIL <root>/internal/irbuild/testdata/anon_struct.nomi :: records are structural, ordered by nothing the programmer wrote
+T   30
+T   Hi Bob, you are 42
+T   Hi Carol, you are 30
+T   {n: 1, name: Ada}
+T   {count: 3, outer: {inner: 1, label: hi}}
+T   1
+T   x is ten, y is 20
+T   30
 T   line 65: assertion failed
 T     assert no({a: 1, a0: 2})
 T     values:
@@ -37,10 +37,10 @@ T
 C anon_vs_nominal.nomi
 E 1
 N 2
-H bd94334c71f423eb3d4088f9f758db7cb6562ea0c3ac56451d121ff994c04226
-T 3
-T 3
+H d3b4d82a396cd263d850ce74bbfefaf787330a6015309414de69a9f50b7c2a6a
 T FAIL <root>/internal/irbuild/testdata/anon_vs_nominal.nomi :: a record and a same-shaped nominal struct stay apart
+T   3
+T   3
 T   line 38: assertion failed
 T     assert no_nominal(nom)
 T     values:
@@ -157,13 +157,13 @@ T
 C context_values_report.nomi
 E 1
 N 8
-H 106b03709005e4719420231b85b0ad53777042a700451240fea0864752d6c5e6
-T bounded still has a deadline: True
+H f1e5542eb069fcdfa7512ace0892d78327cd2d7a3e07e9184c4835449d658b51
 T ok <root>/internal/irbuild/testdata/context_values_report.nomi :: two Nomi types over one Go type are two keys
 T ok <root>/internal/irbuild/testdata/context_values_report.nomi :: a child shadows and both ends are read
 T ok <root>/internal/irbuild/testdata/context_values_report.nomi :: an Int is keyed by Int
 T ok <root>/internal/irbuild/testdata/context_values_report.nomi :: a zero-sized type is a value and a witness
 T ok <root>/internal/irbuild/testdata/context_values_report.nomi :: a value survives a deadline derivation
+T   bounded still has a deadline: True
 T FAIL <root>/internal/irbuild/testdata/context_values_report.nomi :: a failing assertion renders a Context operand
 T   line 118: assertion failed
 T     assert trace_of(root) == "t-1"
@@ -193,21 +193,9 @@ T
 C dbg_surfaces.nomi
 E 1
 N 9
-H 460b4d1fd43134a76a00661c5a114ce6b072aaa890aa106f49a9cf94671f4ea4
-T dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
-T dbg line 86: Custom{zeta: 1, alpha: 2} = CUSTOM-DEBUG
-T dbg line 96: Meters(7) = <opaque Meters>
-T dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
-T dbg line 107: (1, "two") = (1, "two")
-T dbg line 108: Some(42) = Some(42)
-T dbg line 109: None = None
-T dbg line 110: {a: 1, a0: 2} = {a: 1, a0: 2}
-T dbg line 111: double = <function>
-T dbg line 116: 7 = 7
-T after the dbg, before the report
-T dbg line 122: Rev{zeta: 3, alpha: 4} = Rev{zeta: 3, alpha: 4}
-T printed before the failure
+H 379c697fa766da2735a48a7d3ec41746fda031b80f1e686503d98b1b5f7a0eed
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg renders a struct in declaration order
+T   dbg line 76: Rev{zeta: 1, alpha: 2} = Rev{zeta: 1, alpha: 2}
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same struct sorts it
 T   line 82: assertion failed
 T     assert no_rev(r)
@@ -215,6 +203,7 @@ T     values:
 T       r
 T         = Rev{alpha: 2, zeta: 1}
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg honours a hand-written impl Debug
+T   dbg line 86: Custom{zeta: 1, alpha: 2} = CUSTOM-DEBUG
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same value honours that impl
 T   line 92: assertion failed
 T     assert no_custom(c)
@@ -222,6 +211,7 @@ T     values:
 T       c
 T         = CUSTOM-DEBUG
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg shows an opaque type name-only
+T   dbg line 96: Meters(7) = <opaque Meters>
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: the values row for the same opaque value shows the payload
 T   line 102: assertion failed
 T     assert no_meters(m)
@@ -229,8 +219,18 @@ T     values:
 T       m
 T         = Meters(7)
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: dbg over containers and prelude instances
+T   dbg line 106: [Rev{zeta: 1, alpha: 2}] = [Rev{zeta: 1, alpha: 2}]
+T   dbg line 107: (1, "two") = (1, "two")
+T   dbg line 108: Some(42) = Some(42)
+T   dbg line 109: None = None
+T   dbg line 110: {a: 1, a0: 2} = {a: 1, a0: 2}
+T   dbg line 111: double = <function>
 T ok <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: a dbg in a test body prints above its own result line
+T   dbg line 116: 7 = 7
+T   after the dbg, before the report
 T FAIL <root>/internal/irbuild/testdata/dbg_surfaces.nomi :: a dbg above a FAILING assertion, so all three interleave
+T   dbg line 122: Rev{zeta: 3, alpha: 4} = Rev{zeta: 3, alpha: 4}
+T   printed before the failure
 T   line 124: assertion failed
 T     assert no_rev(r)
 T     values:
@@ -241,20 +241,20 @@ T
 C debug_display_surfaces.nomi
 E 1
 N 7
-H 89dc3ef951632cf2441311d09ed4bc7aa61b738f702665a54c317099cd230f24
-T 1 Display.to_string(r) = REV-DISPLAY
-T 2 interpolated r       = REV-DISPLAY
-T 3 Display.to_string(c) = CUSTOM-DISPLAY
-T 4 interpolated c       = CUSTOM-DISPLAY
-T 5 Debug.inspect(r)     = Rev{zeta: 1, alpha: 2}
-T 6 Debug.inspect(c)     = CUSTOM-DEBUG
-T 7 Debug.inspect(p)     = Plain{zeta: 1, alpha: 2}
-T 8 Debug.inspect(m)     = <opaque Meters>
-T 9 Debug.inspect(True)  = True
-T 10 Debug.inspect(b)    = False
-T 11 Debug.inspect(list) = [True, False]
-T 12 materialized payload = False
+H 7eb3c3b174b32cd638a279ba64b34f7d1eeef0a49b83d261698e3280c891336e
 T ok <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: the four renderings of one value
+T   1 Display.to_string(r) = REV-DISPLAY
+T   2 interpolated r       = REV-DISPLAY
+T   3 Display.to_string(c) = CUSTOM-DISPLAY
+T   4 interpolated c       = CUSTOM-DISPLAY
+T   5 Debug.inspect(r)     = Rev{zeta: 1, alpha: 2}
+T   6 Debug.inspect(c)     = CUSTOM-DEBUG
+T   7 Debug.inspect(p)     = Plain{zeta: 1, alpha: 2}
+T   8 Debug.inspect(m)     = <opaque Meters>
+T   9 Debug.inspect(True)  = True
+T   10 Debug.inspect(b)    = False
+T   11 Debug.inspect(list) = [True, False]
+T   12 materialized payload = False
 T FAIL <root>/internal/irbuild/testdata/debug_display_surfaces.nomi :: values row for a struct with an impl Display
 T   line 178: assertion failed
 T     assert no_rev(r)
@@ -296,18 +296,18 @@ T
 C debug_embeds.nomi
 E 1
 N 6
-H 0022a7311414c4c7561035a1dae12e5919b000213ac515da2b2eff7dbe49dc2d
-T 1  Debug.inspect(w)         = Worker{zeta: 1, alpha: 2}
-T 2  Debug.inspect(n_worker)  = Worker{zeta: 1, alpha: 2}
-T 3  Debug.inspect(n_qual)    = Worker{zeta: 1, alpha: 2}
-T 4  Debug.inspect(n_custom)  = CUSTOM-DEBUG
-T 5  Debug.inspect(n_expired) = Expired
-T 6  Debug.inspect(n_userid)  = UserId("ada")
-T 7  Debug.inspect(o_worker)  = Worker{zeta: 1, alpha: 2}
-T 8  Debug.inspect(Node.Origin) = Origin
-T 9  Debug.inspect(Node.Ready(7)) = Ready(7)
-T 10 Debug.inspect(Other.Blank) = Blank
+H c29eec1a578ae5071d356243e880ca6113a7eb687633a4d77a62ea041aaa9fea
 T ok <root>/internal/irbuild/testdata/debug_embeds.nomi :: an embeds variant's Debug delegates to the embedded value, unwrapped
+T   1  Debug.inspect(w)         = Worker{zeta: 1, alpha: 2}
+T   2  Debug.inspect(n_worker)  = Worker{zeta: 1, alpha: 2}
+T   3  Debug.inspect(n_qual)    = Worker{zeta: 1, alpha: 2}
+T   4  Debug.inspect(n_custom)  = CUSTOM-DEBUG
+T   5  Debug.inspect(n_expired) = Expired
+T   6  Debug.inspect(n_userid)  = UserId("ada")
+T   7  Debug.inspect(o_worker)  = Worker{zeta: 1, alpha: 2}
+T   8  Debug.inspect(Node.Origin) = Origin
+T   9  Debug.inspect(Node.Ready(7)) = Ready(7)
+T   10 Debug.inspect(Other.Blank) = Blank
 T FAIL <root>/internal/irbuild/testdata/debug_embeds.nomi :: values row sorts and ignores the hand-written impl
 T   line 196: assertion failed
 T     assert no_worker(w)
@@ -343,20 +343,20 @@ T
 C debug_erased.nomi
 E 1
 N 2
-H 67b8f24a618f45a37fe3404d3640c736d60e47d40a4f35b8ac9b669a334f5ffa
-T 1 param  Rev    = Rev{zeta: 1, alpha: 2}
-T 2 param  Custom = CUSTOM-DEBUG
-T 3 param  Meters = <opaque Meters>
-T 4 param  Int    = 42
-T 5 param  String = "hi"
-T 6 iface  Rev    = Rev{zeta: 1, alpha: 2}
-T 7 iface  Custom = CUSTOM-DEBUG
-T 8 direct Rev    = Rev{zeta: 1, alpha: 2}
-T 9 direct Custom = CUSTOM-DEBUG
-T 10 direct Meters = <opaque Meters>
-T 11 direct Int    = 42
-T 12 direct String = "hi"
+H 24622ad9b28c27ec63bb25702f075d92491c906092e38b33d322c731c94b5ec1
 T ok <root>/internal/irbuild/testdata/debug_erased.nomi :: the four renderings of one value survive erasure
+T   1 param  Rev    = Rev{zeta: 1, alpha: 2}
+T   2 param  Custom = CUSTOM-DEBUG
+T   3 param  Meters = <opaque Meters>
+T   4 param  Int    = 42
+T   5 param  String = "hi"
+T   6 iface  Rev    = Rev{zeta: 1, alpha: 2}
+T   7 iface  Custom = CUSTOM-DEBUG
+T   8 direct Rev    = Rev{zeta: 1, alpha: 2}
+T   9 direct Custom = CUSTOM-DEBUG
+T   10 direct Meters = <opaque Meters>
+T   11 direct Int    = 42
+T   12 direct String = "hi"
 T FAIL <root>/internal/irbuild/testdata/debug_erased.nomi :: the values row is a different renderer from Debug
 T   line 116: assertion failed
 T     assert no_rev(r)
@@ -434,8 +434,7 @@ T
 C erased_operand_row.nomi
 E 1
 N 6
-H 725b92665ca8ce3cc957927ea2e7d3c3779f86c3bb37bb2cb2c640f546c86585
-T Bo says woof
+H 6ac10ea4c16412478588fb2b266599c9fb639c5e73fc03ca608892b4126f533e
 T FAIL <root>/internal/irbuild/testdata/erased_operand_row.nomi :: the erasure IS in view: an argument widened at the call site
 T   line 78: assertion failed
 T     assert announce(d) == "NOPE"
@@ -469,6 +468,7 @@ T     values:
 T       k
 T         = Kennel{pet: Cat{lives: 7}}
 T FAIL <root>/internal/irbuild/testdata/erased_operand_row.nomi :: a value crossing a function boundary as a parameter
+T   Bo says woof
 T   line 106: assertion failed
 T     assert no_speech(d)
 T     values:
@@ -529,9 +529,7 @@ T
 C generic_struct.nomi
 E 1
 N 7
-H 7cc6fcef41058c67a559c76d0a8ad5f20cbd7fb27d123e3e33b1ddafa2e1198e
-T 41
-T inner:7
+H c1ac9c30a641c3a8c520ce43c4fcecca77398c91b0c92da73ceb9dcc128e4fa6
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: a second instantiation of one template renders as the same Nomi type
 T   line 88: assertion failed
 T     assert no_box_text(Box{item: "s"})
@@ -557,7 +555,9 @@ T           },
 T       }
 T         = Crate{box: Box{item: Inner{value: 7}}}
 T ok <root>/internal/irbuild/testdata/generic_struct.nomi :: a nested instantiation resolves through an annotation
+T   41
 T ok <root>/internal/irbuild/testdata/generic_struct.nomi :: the argument keeps its own dispatch through the instance
+T   inner:7
 T FAIL <root>/internal/irbuild/testdata/generic_struct.nomi :: type arguments come from field names and not from field order
 T   line 122: assertion failed
 T     assert no_pair(p)
@@ -1102,9 +1102,9 @@ T
 C tests_inspect_vs_display.nomi
 E 1
 N 1
-H 416f1cfd2c17ae6a7757ce507e2ffbe1db3c0ad1149e53c154dc2e1c221fa493
-T [a, b]
+H 2aece951066cf586873c6c4a32e302e133eabdf44383909190adf9a3e38d59aa
 T FAIL <root>/internal/irbuild/testdata/tests_inspect_vs_display.nomi :: the same list, two renderings
+T   [a, b]
 T   line 15: assertion failed
 T     assert no(xs)
 T     values:
@@ -1156,10 +1156,10 @@ T
 C tests_mixed.nomi
 E 1
 N 3
-H e96b1c9558041b8cb1f13c512272eab51cd6354749b0941c8d2f4dfde0504427
-T before the failure
+H 599d240cc1e0089fddc07784f9c30b9c6742103df67822de6dcf71fa4e841ac2
 T ok <root>/internal/irbuild/testdata/tests_mixed.nomi :: first passes
 T FAIL <root>/internal/irbuild/testdata/tests_mixed.nomi :: second fails partway
+T   before the failure
 T   line 12: assertion failed
 T     assert 1 == 2
 T ok <root>/internal/irbuild/testdata/tests_mixed.nomi :: third still runs
@@ -1352,11 +1352,11 @@ T
 C try_check_in_test.nomi
 E 1
 N 5
-H ef1ce27ae3a6614e61fa8c121e33cd02bb96a1de58262feaa7a7bb0e48b7ba4e
-T after the passing check
-T before the failing check
+H 9c6e184d84695470a10444ab023f6e581661d1063a491dbafdc3dcfc164926c8
 T ok <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a passing check unwraps and the case runs on
+T   after the passing check
 T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a failing check reports the check and not an early return
+T   before the failing check
 T   line 64: check failed
 T     check 1 == 2
 T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a failing check over a shape subject reports the check
@@ -1374,11 +1374,10 @@ T
 C try_in_test.nomi
 E 1
 N 7
-H 62d05001eb42067491962ea51a702d146b2501e6b4565cf0aeee55cc2523bfc1
-T before the try
-T after the lambda
+H c378aaca5f77d04bbb1006f79013904f2098379cce670ff6841d8f17cc798b4a
 T ok <root>/internal/irbuild/testdata/try_in_test.nomi :: try succeeds
 T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: try propagates
+T   before the try
 T   line 50: test returned early
 T     try parse(-1)
 T     returned:
@@ -1399,6 +1398,7 @@ T     -1 |> try parse()
 T     returned:
 T       Err("negative -1")
 T ok <root>/internal/irbuild/testdata/try_in_test.nomi :: try inside a lambda
+T   after the lambda
 T ok <root>/internal/irbuild/testdata/try_in_test.nomi :: the case after a propagating one still runs
 T test result: FAILED. 3 passed, 4 failed
 T

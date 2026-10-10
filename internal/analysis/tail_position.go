@@ -112,10 +112,13 @@ func mark(n ast.Node, tail bool) {
 			mark(item, false)
 		}
 	case *ast.VectorLit:
-		for _, item := range x.Items {
+		for _, item := range x.Operands() {
 			mark(item, false)
 		}
 	case *ast.SetLit:
+		if x.Spread != nil {
+			mark(x.Spread, false)
+		}
 		for _, item := range x.Items {
 			mark(item, false)
 		}
@@ -129,6 +132,9 @@ func mark(n ast.Node, tail bool) {
 			mark(item, false)
 		}
 	case *ast.MapLit:
+		if x.Spread != nil {
+			mark(x.Spread, false)
+		}
 		for _, e := range x.Entries {
 			mark(e.Key, false)
 			mark(e.Value, false)

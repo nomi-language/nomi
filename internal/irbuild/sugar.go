@@ -78,7 +78,7 @@ func (g *gen) paramKind(p ast.Param) kind {
 	// The self-typing rule: a pattern whose head NAMES a type is its own
 	// annotation. See patternParamKind for the reporting version.
 	var head ast.TypeExpr
-	switch pat := p.Destructure.(type) {
+	switch pat := ast.WithoutAs(p.Destructure).(type) {
 	case *ast.StructPattern:
 		head = pat.TypeName
 	case *ast.EnumPattern:
@@ -87,7 +87,7 @@ func (g *gen) paramKind(p ast.Param) kind {
 	if head == nil {
 		return kindInvalid
 	}
-	owner, member, ok := patternHead(head)
+	owner, member, ok := g.patternHead(head)
 	if !ok {
 		return kindInvalid
 	}
@@ -144,24 +144,9 @@ type argPlan struct {
 // says in what order they are evaluated.
 //
 // This is one of several implementations of one rule and the requirement is
-// that they agree: the analyzer's own copy, this, and whatever consumes it.
-//
-// # ANOTHER WALK EXISTS AND IS DELIBERATELY NOT A MEMBER
-//
-// A PARTIAL APPLICATION's arguments are placed by a DIFFERENT rule: its
-// positional index never skips a slot a name has claimed and it has no
-// trailing-callback routing. The two disagree on a reachable program:
-//
-//	fn two_skip(req: Int, opt_a: String = "a", cb: (Int) -> Int): Int { cb(req) }
-//	p = two_skip(5, opt_a: "z", _)
-//
-//	nomi run     ->  line 6: parameter 'opt_a' already has a value    exit 1
-//	this walk    ->  the hole SKIPS the claimed slot and lands on `cb`
-//
-// So routing a partial through here lowers a program Nomi refuses to run.
-// `partialSlotPlan` in placeholder.go is the walk a partial must use. Named
-// here because "they agree" read at face value is exactly the sentence that
-// would send a reader to this function.
+// that they agree: the analyzer's own copy (computePositionalSlots), this,
+// and whatever consumes it. A partial application places its arguments by
+// this walk too (partialApplication), as the checker does.
 //
 // `names` is the callee's parameter names, positionally. Pass nil — or a
 // short slice — and named arguments cannot be placed; the caller must refuse

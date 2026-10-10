@@ -78,7 +78,7 @@ fn main() {
   io.print(Named.greet(Dog{name: "Rex"}, True))
   io.inspect(classify(-2.5))
   io.inspect(classify(-0.0))
-  io.inspect(Set.size(#{1.50d, 1.5d, 2.0d}))
+  io.inspect(Set.size(Iter.to_set([1.50d, 1.5d, 2.0d])))
 }
 
 fn run(cb: Callback, s: String): String {

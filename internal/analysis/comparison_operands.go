@@ -66,12 +66,96 @@ func (c *checker) checkComparisonOperands(n *ast.Binary) (left, right Type) {
 
 // checkOperandAgainst checks a comparison operand with the other operand's
 // type as its expected type, when that type is known.
+//
+// The other operand's type may be the narrower of the two by `embeds`:
+// `[c, c] == [s, Shape.Dot]` for `c: Circle` and `s: Shape` checks the right
+// against List<Circle>, which its Shape items do not enter. When the check
+// against the other type fails and the operand checks cleanly on its own, at
+// a type that differs from the other only by `embeds` in either direction
+// (differsByEmbeds), the operand keeps its own type, as `[c] == [s]` does, and
+// the equality compares the two at the wider type. Otherwise the errors of
+// the check against the other type stand.
 func (c *checker) checkOperandAgainst(operand ast.Node, other Type) Type {
 	other = resolveTypeVar(other)
 	if _, unsolved := other.(*TypeVar); unsolved || other == nil {
 		return c.checkNode(operand)
 	}
+	mark, undeterminedMark := len(c.errors), len(c.undetermined)
+	t := c.checkNodeExpecting(operand, other)
+	if len(c.errors) == mark {
+		return t
+	}
+	c.errors, c.undetermined = c.errors[:mark], c.undetermined[:undeterminedMark]
+	own := c.checkNode(operand)
+	if len(c.errors) == mark && own != nil && !containsTypeVar(own) && !TypesIdentical(own, other) &&
+		(differsByEmbeds(own, other) || differsByEmbeds(other, own)) {
+		return own
+	}
+	c.errors, c.undetermined = c.errors[:mark], c.undetermined[:undeterminedMark]
 	return c.checkNodeExpecting(operand, other)
+}
+
+// differsByEmbeds reports whether a value of type narrow enters type wide
+// by `embeds` alone: wide is narrow with some embedded struct or distinct
+// replaced by an enum that embeds it, at the top or inside a type argument,
+// a tuple element or a collection's element, key or value. No interface or
+// other conversion counts.
+func differsByEmbeds(wide, narrow Type) bool {
+	wide, narrow = resolveTypeVar(wide), resolveTypeVar(narrow)
+	if wide == nil || narrow == nil {
+		return false
+	}
+	if TypesIdentical(wide, narrow) {
+		return true
+	}
+	switch w := wide.(type) {
+	case *EnumType:
+		if isEmbeddedTypeOf(narrow, w) {
+			return true
+		}
+		n, ok := narrow.(*EnumType)
+		return ok && sameNominalIdentity(w.Origin, w.Name, n.Origin, n.Name) && allDifferByEmbeds(w.TypeArgs, n.TypeArgs)
+	case *StructType:
+		n, ok := narrow.(*StructType)
+		return ok && sameNominalIdentity(w.Origin, w.Name, n.Origin, n.Name) && allDifferByEmbeds(w.TypeArgs, n.TypeArgs)
+	case *ListType:
+		n, ok := narrow.(*ListType)
+		return ok && differsByEmbeds(w.Elem, n.Elem)
+	case *MapType:
+		n, ok := narrow.(*MapType)
+		return ok && differsByEmbeds(w.Key, n.Key) && differsByEmbeds(w.Val, n.Val)
+	case *DistinctType:
+		// A generic distinct: `Vector<T>`.
+		n, ok := narrow.(*DistinctType)
+		return ok && sameNominalIdentity(w.Origin, w.Name, n.Origin, n.Name) && allDifferByEmbeds(w.TypeArgs, n.TypeArgs)
+	case *TupleType:
+		n, ok := narrow.(*TupleType)
+		return ok && allDifferByEmbeds(w.Elems, n.Elems)
+	case *AnonStructType:
+		n, ok := narrow.(*AnonStructType)
+		if !ok || len(w.Fields) != len(n.Fields) {
+			return false
+		}
+		for i := range w.Fields {
+			if w.Fields[i].Name != n.Fields[i].Name || !differsByEmbeds(w.Fields[i].Type, n.Fields[i].Type) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func allDifferByEmbeds(wide, narrow []Type) bool {
+	if len(wide) != len(narrow) || len(wide) == 0 {
+		return false
+	}
+	for i := range wide {
+		if !differsByEmbeds(wide[i], narrow[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // positionTypedHead returns the node that takes its type from its position

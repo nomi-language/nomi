@@ -96,7 +96,7 @@ fn main(): Unit {
   u = User{name: "Alice", age: 30}
   updated = Struct.update(u, {bogus: 5})
 }`
-	expectErrorContaining(t, checkWithStdlib(src), "argument 2")
+	expectErrorContaining(t, checkWithStdlib(src), "User has no field 'bogus'")
 }
 
 // --- A user enum named Control is an ordinary enum (no special treatment) ---
@@ -136,16 +136,6 @@ func TestLoopStatefulKeywordSugar_Clean(t *testing.T) {
   total = Iter.loop(|sum: Int = 0|
     if sum > 10 { break sum } else { sum + 1 }
   )
-}`
-	expectClean(t, checkWithStdlib(src))
-}
-
-// Stateless `Iter.loop(|| break 42)` must still infer S = Int from the break
-// value (not default to Unit) under the `(S) -> S` signature.
-func TestLoopStatelessBreakValue_Clean(t *testing.T) {
-	src := `fn main(): Unit {
-  n = Iter.loop(|| break 42)
-  io_check = Int.to_string(n + 1)
 }`
 	expectClean(t, checkWithStdlib(src))
 }

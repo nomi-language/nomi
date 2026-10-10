@@ -597,6 +597,12 @@ func TypesEqual(a, b Type) bool {
 	return typesEqualIn(a, b, eqSym)
 }
 
+// TypesIdentical reports whether a and b are one type with no `embeds`
+// coercion anywhere in them: a Maybe<Circle> is not a Maybe<Shape>.
+func TypesIdentical(a, b Type) bool {
+	return typesEqualIn(a, b, eqStrict)
+}
+
 // TypeAssignable reports whether a value of type have may stand where want is
 // expected without inference: TypesEqual, except that an enum is never
 // accepted where one of its embedded types is. A Circle is a Shape, but a

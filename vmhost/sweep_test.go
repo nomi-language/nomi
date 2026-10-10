@@ -97,7 +97,7 @@ var sweepConstructs = []sweepConstruct{
 	{"fn tail recursion", sweepAll, "assert tail_find([$A, $B], $B, 0) == 1"},
 	{"interpolation", func(t sweepType) bool { return t.display }, "s = \"${$A}\"\n  assert String.length(s) > 0"},
 	{"map key", func(t sweepType) bool { return t.hashable }, "m = {$A => 1}\n  assert Map.get(m, $A) == Some(1)"},
-	{"set", func(t sweepType) bool { return t.hashable }, "s = #{$A, $B, $A}\n  assert Set.size(s) == 2"},
+	{"set", func(t sweepType) bool { return t.hashable }, "first = $A\n  s = #{first, $B, first}\n  assert Set.size(s) == 2"},
 	{"hash", func(t sweepType) bool { return t.hashable }, "assert Hashable.hash($A) == Hashable.hash($A)"},
 	{"ordering", func(t sweepType) bool { return t.ordered }, "assert $A < $B\n  refute $B < $A"},
 	{"compare", func(t sweepType) bool { return t.ordered }, "assert Comparable.compare($A, $B) == Ordering.Less"},

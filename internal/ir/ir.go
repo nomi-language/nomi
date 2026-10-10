@@ -118,15 +118,13 @@ import (
 // not a statement at all. A point position cannot distinguish "the construct
 // starts here" from "the construct's text reaches here".
 //
-// The end is the extent of the construct's NODES, which is what the AST can
-// supply. `ast` records no end position for any node: a triple-quoted literal
-// carries its opening line and its decoded value, so its closing `"""` line
-// is not derivable without re-reading source. In the example above the node
-// extent is 25..43 and the text extent is 25..61, because the literal's last
-// interpolation hole sits eighteen lines above its closing delimiter. So an
-// end here is a LOWER BOUND on the text, exact wherever the construct's last
-// line holds a node; the text extent would need an end position from the
-// parser. A consumer reading `Covers` must know which of the two it gets.
+// The end is what the AST can supply. A triple-quoted literal records its
+// closing `"""`, so its end is its text's: 25..61 in the example above,
+// though its last interpolation hole sits eighteen lines above the closing
+// delimiter. Any other construct records no end, and its end is the extent
+// of its NODES: a LOWER BOUND on the text, exact wherever the construct's
+// last line holds a node. A consumer reading `Covers` must know which of the
+// two it gets.
 //
 // A SEPARATE `Span` TYPE WAS CONSIDERED AND REFUSED, and so was an end
 // carrying its own FILE. A construct's text is in one file — that is what a

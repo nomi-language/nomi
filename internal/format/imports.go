@@ -113,6 +113,7 @@ func normalizeNestedImportLayout(node ast.Node) {
 	case *ast.FieldAccess:
 		normalizeNestedImportLayout(n.Object)
 	case *ast.StructLit:
+		normalizeNestedImportLayout(n.Spread)
 		for i := range n.Fields {
 			normalizeNestedImportLayout(n.Fields[i].Value)
 		}
@@ -121,10 +122,11 @@ func normalizeNestedImportLayout(node ast.Node) {
 			normalizeNestedImportLayout(elem)
 		}
 	case *ast.VectorLit:
-		for _, elem := range n.Items {
+		for _, elem := range n.Operands() {
 			normalizeNestedImportLayout(elem)
 		}
 	case *ast.SetLit:
+		normalizeNestedImportLayout(n.Spread)
 		for _, elem := range n.Items {
 			normalizeNestedImportLayout(elem)
 		}
@@ -138,6 +140,7 @@ func normalizeNestedImportLayout(node ast.Node) {
 			normalizeNestedImportLayout(elem)
 		}
 	case *ast.MapLit:
+		normalizeNestedImportLayout(n.Spread)
 		for _, entry := range n.Entries {
 			normalizeNestedImportLayout(entry.Key)
 			normalizeNestedImportLayout(entry.Value)

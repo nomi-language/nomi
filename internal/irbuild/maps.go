@@ -133,8 +133,9 @@ func (g *gen) mapKeyOK(key kind, at ast.Node) bool {
 // beginExpand reports whether d may be expanded, and records it as in progress
 // when it may. A PATH stack rather than a visited set: endExpand pops, so a
 // type mentioned twice side by side (`struct Pair { a: Point, b: Point }`)
-// expands twice and only a type that can reach ITSELF declines. Mutating the
-// pop away refuses `Map<Pair, Int>`, which is what pins the distinction.
+// expands twice, and only a type that reaches ITSELF is met in progress. The
+// callers assume such a type, co-inductively, and the expansion on the path
+// below decides it.
 func (g *gen) beginExpand(d *typeDef) bool {
 	if g.expanding[d] {
 		return false
@@ -201,12 +202,15 @@ func (g *gen) allHash(parts []kind) bool {
 // distinct hashes its inner (a marker has one inhabitant), a struct its
 // fields, an enum its tag and slots.
 //
-// RECURSION DECLINES rather than crashing: `enum Chain { End; Link Chain }`
-// used as `Map<Chain, Int>` would otherwise not terminate.
+// A type reached again inside its own expansion (`enum Chain { End; Link
+// Chain }` as `Map<Chain, Int>`, or `struct Circle { inner: Maybe<Shape> }`
+// under `enum Shape { embeds Circle }`) is assumed to hash, co-inductively:
+// the outer expansion decides it from its other parts. rt.Hash walks the
+// value, which is finite, so the assumption holds at run time.
 func (g *gen) namedHashes(k kind) bool {
 	d := k.def
 	if !g.beginExpand(d) {
-		return false
+		return true
 	}
 	defer g.endExpand(d)
 	switch {
@@ -282,11 +286,11 @@ func (g *gen) allEquate(parts []kind) bool {
 }
 
 // namedEquates is valueEquates for a declared struct, enum or distinct type.
-// The shapes and the recursion guard mirror namedHashes'.
+// The shapes and the co-inductive recursion guard mirror namedHashes'.
 func (g *gen) namedEquates(k kind) bool {
 	d := k.def
 	if !g.beginExpand(d) {
-		return false
+		return true
 	}
 	defer g.endExpand(d)
 	switch {
@@ -399,7 +403,7 @@ func (g *gen) mapResultKind(tag string, key, val kind, at ast.Node) (kind, bool)
 		// Asked for rather than assembled here, so there is one shape of Maybe
 		// in the builder and not two. The anchors are loaded on first use.
 		g.loadPreludes()
-		a, anchored := g.preludeByName["Maybe"]
+		a, anchored := g.preludeNamed("Maybe")
 		if !anchored {
 			g.reject("Map.get without the prelude Maybe", val.nomi(), at)
 			return kindInvalid, false

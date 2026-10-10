@@ -72,7 +72,7 @@ pub opaque enum Status {
 
 pub enum Drawable {
     embeds Point
-    embeds Shape
+    Shape Shape
 }
 
 // Struct-shaped variant payload — short stays flat.

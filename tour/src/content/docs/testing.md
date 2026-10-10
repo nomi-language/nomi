@@ -5,7 +5,7 @@ description: Write Nomi tests with test declarations, assertions, checks, setup,
 
 Nomi tests are just Nomi code. A `test` declaration names a behavior and runs a
 block. Put tests next to the code they exercise or in a conventional
-`*_test.nomi` file, then run them with `nomi test`.
+`*_test.nomi` file, then run them with `nomi test`. What a test prints, `dbg` included, appears under its `ok` or `FAIL` line.
 
 ## Assertions
 
@@ -188,10 +188,10 @@ function as usual.
 
 A program that asks and answers in turn is easier to test as one
 conversation. [`io.replay`](/reference/io/) takes a script of the session as
-a terminal would show it, in two columns: lines starting with `> ` are what
-the user types, and lines starting with two spaces are what the program
-prints. It feeds the `>` lines to `io.read_line` in order, and `assert`
-checks that the program printed the rest at the right points.
+a terminal would show it, behind a four-column gutter: lines starting with
+`>>` and two spaces are what the user types, and lines starting with four
+spaces are what the program prints. It feeds the `>>` lines to
+`io.read_line` in order, and `assert` checks the rest came at the right points.
 
 ```nomi-run
 import std/io
@@ -213,11 +213,11 @@ fn main() {
 test "asks for a name, then an age" {
     assert io.replay(
         """
-          What is your name?
-        > Ada
-          Hello, Ada. Your age:
-        > 36
-          Ada is 36
+            What is your name?
+        >>  Ada
+            Hello, Ada. Your age:
+        >>  36
+            Ada is 36
         """,
         main,
     )
@@ -228,19 +228,19 @@ What is your name?
 hello, stranger
 -->
 
-The `>` lines sit two columns left of the output, so the `"""` string keeps
-the two spaces in front of each output line. When the program writes a
+The `>>` lines sit four columns left of the output, so the `"""` string keeps
+the four spaces in front of each output line. When the program writes a
 prompt without a newline before it reads, as `io.write("Hello, Ada. Your
 age: ")` does, the prompt is an output line of its own and the typed text
-goes on the `>` line below it. Output that starts with `>`, such as a `> `
-prompt, is just output: `  >` above `> north`. Every line needs one of the
-two marks, even in a script with no input, so for a program that reads
+goes on the `>>` line below it. Output that starts with `>`, such as a `> `
+prompt, is just output: `    >` above `>>  north`. Every line needs one of the
+two gutters, even in a script with no input, so for a program that reads
 nothing compare `io.capture(input, main).output` instead. Trailing spaces
 and the final newline don't count. A failed replay prints a line diff, `-`
-for script lines the program did not produce and `+` for what it did
-instead, and a `>` line the program never read fails it too. Each
-`Captured` has the same view in `transcript`, if you want to check it
-yourself.
+for script lines (numbered by line in the file) the program did not produce
+and `+` for what it did instead, and shows the script above it only as
+`""" lines 11-23 """`. A `>>` line it never read fails it too. Each `Captured`
+has the same view in `transcript`, if you want to check it yourself.
 
 ## Groups And Setup
 

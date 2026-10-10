@@ -140,7 +140,13 @@ func (m *Machine) assertInstr(fr *frame, n *ir.Assert) error {
 		// place of its two operand rows. A failed `refute`, like a failed
 		// `!=`, means the two were equal, and there is nothing to diff. An
 		// Assertable that answered `expected` already has its diff.
-		f.Diff = stringDiff(fr.fn, n, rows)
+		var lit *ir.Record
+		f.Diff, lit = stringDiff(fr.fn, n, rows)
+		elideExpected(f, lit)
+	} else if f != nil && f.Diff != nil && n.Answer() != ir.NoTemp {
+		var lit *ir.Record
+		f.Diff, lit = replayDiff(fr.fn, n, subj, f.Diff)
+		elideExpected(f, lit)
 	}
 	if f != nil && len(stages) > 0 {
 		// A failed piped `check` explains its pipe: one more `values:` row
@@ -379,7 +385,7 @@ func literalOperand(fn *ir.Func, t ir.Temp, text string) *ir.Const {
 }
 
 // stringDiff is the line diff for a failed `assert a == b` over two Strings
-// (rt.StringDiff), or nil.
+// (rt.StringDiff), or nil, and the Record of its expected side.
 //
 // Read off the graph on the failing path only. The subject must be exactly
 // one `==` comparison: its definition, through the copy the builder makes of
@@ -389,42 +395,134 @@ func literalOperand(fn *ir.Func, t ir.Temp, text string) *ir.Const {
 // texts are the `ir.Record`s of the comparison's two temporaries, and their
 // values are the trace's rows for those texts, or the constant itself for a
 // literal operand, whose row is not kept.
-func stringDiff(fn *ir.Func, n *ir.Assert, rows []rt.AssertionValueContext) *rt.AssertionStringDiff {
+func stringDiff(fn *ir.Func, n *ir.Assert, rows []rt.AssertionValueContext) (*rt.AssertionStringDiff, *ir.Record) {
 	def := fn.Def(n.Subject())
 	if c, ok := def.(*ir.Copy); ok {
 		def = fn.Def(c.Src())
 	}
 	cmp, ok := def.(*ir.Compare)
 	if !ok || cmp.Ranked() || cmp.Op() != ir.OpEq || cmp.Shape() != ir.ValString {
-		return nil
+		return nil, nil
 	}
-	var lhsText, rhsText string
-	for _, b := range fn.Blocks() {
-		for _, in := range b.Instrs() {
-			r, ok := in.(*ir.Record)
-			if !ok || r.Kind() != ir.RecordOperand {
-				continue
-			}
-			switch r.Val() {
-			case cmp.Lhs():
-				lhsText = r.Text()
-			case cmp.Rhs():
-				rhsText = r.Text()
-			}
-		}
+	lhs, rhs := operandRecord(fn, cmp.Lhs()), operandRecord(fn, cmp.Rhs())
+	if lhs == nil || rhs == nil {
+		return nil, nil
 	}
+	lhsText, rhsText := lhs.Text(), rhs.Text()
 	if lhsText == "" || rhsText == "" || n.Text() != lhsText+" == "+rhsText {
-		return nil
+		return nil, nil
 	}
 	actual, ok := operandString(fn, cmp.Lhs(), lhsText, rows)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	expected, ok := operandString(fn, cmp.Rhs(), rhsText, rows)
 	if !ok {
-		return nil
+		return nil, nil
 	}
-	return rt.StringDiff(lhsText, actual, rhsText, expected)
+	d := rt.StringDiff(lhsText, actual, rhsText, expected)
+	if d == nil {
+		return nil, nil
+	}
+	d.ExpectedLine = literalFirstLine(rhs, expected)
+	return d, rhs
+}
+
+// operandRecord is the `values:` row instruction recorded for t, or nil.
+func operandRecord(fn *ir.Func, t ir.Temp) *ir.Record {
+	var found *ir.Record
+	for _, b := range fn.Blocks() {
+		for _, in := range b.Instrs() {
+			if r, ok := in.(*ir.Record); ok && r.Kind() == ir.RecordOperand && r.Val() == t {
+				found = r
+			}
+		}
+	}
+	return found
+}
+
+// replayDiff names the two sides of a failed `io.replay`'s diff: the
+// subject is a `Replayed` built by a direct call to `io.replay(script,
+// run)`, and the script's row gives the source lines of the transcript and
+// run's row the function's name. The Record is the script's, or nil. Any
+// other Assertable's diff is d unchanged.
+func replayDiff(fn *ir.Func, n *ir.Assert, subj any, d *rt.AssertionStringDiff) (*rt.AssertionStringDiff, *ir.Record) {
+	if _, ok := structRecord(subj, "io.Replayed"); !ok {
+		return d, nil
+	}
+	out := *d
+	out.Header = rt.ReplayDiffHeader("")
+	def := fn.Def(n.Subject())
+	if c, ok := def.(*ir.Copy); ok {
+		def = fn.Def(c.Src())
+	}
+	call, ok := def.(*ir.Call)
+	if !ok || call.Form() != ir.CalleeDirect || call.NumArgs() != 2 {
+		return &out, nil
+	}
+	if run := operandRecord(fn, call.Arg(1)); run != nil {
+		out.Header = rt.ReplayDiffHeader(run.Text())
+	}
+	script := operandRecord(fn, call.Arg(0))
+	if script != nil {
+		out.ExpectedLine = literalFirstLine(script, d.Expected)
+	}
+	return &out, script
+}
+
+// elideExpected writes the expected side's `"""` literal collapsed in the
+// failure's echo of the assertion, since the line diff below shows its lines
+// and numbers them by source line: `assert out == """ lines 21-22 """`.
+// lit is the Record the diff took the expected side and its line numbers
+// from. A literal the diff does not show, or one that is not written
+// directly in the assertion (ir.Record's Elision), keeps its echo.
+func elideExpected(f *rt.AssertionFailure, lit *ir.Record) {
+	if f.Diff == nil || lit == nil {
+		return
+	}
+	if before, after, ok := lit.Elision(); ok {
+		f.Expr = before + f.Diff.ElidedLiteral() + after
+	}
+}
+
+// literalFirstLine is the source line value's first line is written on,
+// when r recorded a `"""` literal whose lines are value's one for one, and
+// 0 otherwise: the operand is not a `"""` literal, or an interpolated value
+// holding a line break changed the count.
+//
+// A `"""` literal's last line is the one above its closing quotes, which
+// r's span ends on, so its first line is that many lines above as the
+// literal has. Counting from the opening quotes would not do: the text
+// may start on their line or the next one, and the rendered text r carries
+// always starts on the next.
+func literalFirstLine(r *ir.Record, value string) int {
+	text, pos := r.Text(), r.Pos()
+	if !pos.Spans() || !strings.HasPrefix(text, `"""`) || !strings.HasSuffix(text, `"""`) {
+		return 0
+	}
+	open, end := strings.IndexByte(text, '\n'), strings.LastIndexByte(text, '\n')
+	if open < 0 || end <= open {
+		return 0
+	}
+	body := text[open+1 : end]
+	first := pos.EndLine() - (strings.Count(body, "\n") + 1)
+	if first < pos.Line() || lineCount(body) != lineCount(value) {
+		return 0
+	}
+	return first
+}
+
+// lineCount is how many lines s holds, a final newline ending the last one
+// rather than starting another.
+func lineCount(s string) int {
+	if s == "" {
+		return 0
+	}
+	n := strings.Count(s, "\n")
+	if !strings.HasSuffix(s, "\n") {
+		n++
+	}
+	return n
 }
 
 // operandString is the String value of one compared operand.

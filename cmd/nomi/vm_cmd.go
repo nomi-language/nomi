@@ -1,11 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/vmcmd"
 	"github.com/nomi-language/nomi/vmhost"
 )
@@ -64,11 +66,24 @@ func runTestVM(root string, opts vmhost.TestOptions, format vmhost.TestFormat) e
 		fmt.Printf("no test files found in %s\n", root)
 		return nil
 	}
-	// In json mode stdout carries only records, so what a case prints goes to
-	// stderr.
+	// A case's own output is reported under the case, in its record in json
+	// mode. out takes only a write from outside every case (a task that
+	// outlives its case); in json mode stdout carries only records, so that
+	// goes to stderr.
 	out := os.Stdout
 	if format == vmhost.TestFormatJSON {
 		out = os.Stderr
+	}
+	if opts.LineSet && len(files) == 1 {
+		if err := noTestAtLine(files[0], opts.Line); err != nil {
+			if format != vmhost.TestFormatJSON {
+				return fmt.Errorf("nomi test: %w", err)
+			}
+			// A tool reading records sees the file fail, never a pass.
+			rep.FailFile(files[0], err)
+			rep.Summary()
+			return errTestsFailed
+		}
 	}
 	tester := &vmcmd.Tester{Out: out, ReportOut: os.Stdout, Stderr: os.Stderr, Stdin: os.Stdin, Rep: rep, Format: format}
 	for _, file := range files {
@@ -82,4 +97,26 @@ func runTestVM(root string, opts vmhost.TestOptions, format vmhost.TestFormat) e
 		return errTestsFailed
 	}
 	return nil
+}
+
+// noTestAtLine is the error for `--line line` selecting nothing in file, so
+// a stale line (an editor's rerun after the test moved) fails instead of
+// passing with no tests run. A file that does not parse answers nil: loading
+// it reports the parse error.
+func noTestAtLine(file string, line int) error {
+	src, err := os.ReadFile(file)
+	if err != nil {
+		return nil
+	}
+	selected, nearest, err := frontend.SourceSelectsTestLine(string(src), line)
+	if err != nil || selected {
+		return nil
+	}
+	msg := fmt.Sprintf("no test at %s:%d", vmhost.DisplayPath(file), line)
+	if nearest > 0 {
+		msg += fmt.Sprintf("\nhelp: the nearest test starts on line %d", nearest)
+	} else {
+		msg += fmt.Sprintf("\nhelp: %s declares no tests", vmhost.DisplayPath(file))
+	}
+	return errors.New(msg)
 }

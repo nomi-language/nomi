@@ -368,6 +368,10 @@ ranges.nomi:Range.from	ran
 ranges.nomi:Range.naturals	ran
 regex.nomi:Regex.from_fragments	ran
 regex.nomi:Regex.to_string	ran
+results.nomi:Infallible.equal?	NEVER: a parameter is Infallible, so nothing can call it
+results.nomi:Infallible.hash	NEVER: a parameter is Infallible, so nothing can call it
+results.nomi:Infallible.inspect	NEVER: a parameter is Infallible, so nothing can call it
+results.nomi:Infallible.to_string	NEVER: a parameter is Infallible, so nothing can call it
 startup.nomi:Startup.inspect	ran
 strings.nomi:NormalForm.inspect	ran
 strings.nomi:NormalForm.to_string	ran

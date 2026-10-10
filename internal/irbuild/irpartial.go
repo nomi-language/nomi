@@ -16,8 +16,8 @@ import (
 // function value whose lambda the builder can see, or, through the
 // signature the checker instantiated at the call (partialCalleeByType), a
 // generic function, an owner- or interface-qualified function, or another
-// file's function. A positional argument means the slot it sits in; a named
-// one names its slot; a slot given twice declines.
+// file's function. Arguments reach slots as a full call's do (argSlotPlan);
+// a slot given twice declines.
 //
 // The written arguments are bound to names no Nomi program can spell, so
 // the lambda that stands for the partial captures them as it captures any
@@ -41,26 +41,24 @@ func (bl *irScalarBuilder) partialApplication(t *ast.Call) (ir.Temp, kind, bool,
 	if !ok || len(params) != len(kinds) {
 		return no()
 	}
-	slotOf := func(name string) int {
-		for i, p := range params {
-			if p.Destructure == nil && p.Name == name {
-				return i
-			}
+	names := make([]string, len(params))
+	for i, p := range params {
+		if p.Destructure == nil {
+			names[i] = p.Name
 		}
-		return -1
+	}
+	// The arguments reach their slots as a full call's do, so a positional
+	// written after a named argument skips the slot the name claimed
+	// (`connect(timeout: _, host: "h", _)` leaves `port` open).
+	plan, planned := argSlotPlan(t.Args, kinds, names)
+	if !planned {
+		return no()
 	}
 	written := make([]string, len(params))
 	filled := make([]bool, len(params))
 	var open []int
-	posIdx := 0
 	for i, a := range t.Args {
-		slot := posIdx
-		value := a
-		if na, named := a.(*ast.NamedArg); named {
-			slot, value = slotOf(na.Name), na.Value
-		} else {
-			posIdx++
-		}
+		slot, value := plan.slots[i], argExpr(a)
 		if slot < 0 || slot >= len(params) || filled[slot] {
 			return no()
 		}

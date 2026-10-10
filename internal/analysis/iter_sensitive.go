@@ -524,10 +524,13 @@ func (s *iterSensitivity) walkBody(owner *Symbol, n ast.Node, caughtHere bool) {
 			s.walkBody(owner, item, caughtHere)
 		}
 	case *ast.VectorLit:
-		for _, item := range node.Items {
+		for _, item := range node.Operands() {
 			s.walkBody(owner, item, caughtHere)
 		}
 	case *ast.SetLit:
+		if node.Spread != nil {
+			s.walkBody(owner, node.Spread, caughtHere)
+		}
 		for _, item := range node.Items {
 			s.walkBody(owner, item, caughtHere)
 		}
@@ -536,6 +539,9 @@ func (s *iterSensitivity) walkBody(owner *Symbol, n ast.Node, caughtHere bool) {
 			s.walkBody(owner, item, caughtHere)
 		}
 	case *ast.MapLit:
+		if node.Spread != nil {
+			s.walkBody(owner, node.Spread, caughtHere)
+		}
 		for _, entry := range node.Entries {
 			s.walkBody(owner, entry.Key, caughtHere)
 			s.walkBody(owner, entry.Value, caughtHere)
@@ -841,10 +847,13 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 				walk(item, inIter)
 			}
 		case *ast.VectorLit:
-			for _, item := range node.Items {
+			for _, item := range node.Operands() {
 				walk(item, inIter)
 			}
 		case *ast.SetLit:
+			if node.Spread != nil {
+				walk(node.Spread, inIter)
+			}
 			for _, item := range node.Items {
 				walk(item, inIter)
 			}
@@ -853,6 +862,9 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 				walk(item, inIter)
 			}
 		case *ast.MapLit:
+			if node.Spread != nil {
+				walk(node.Spread, inIter)
+			}
 			for _, entry := range node.Entries {
 				walk(entry.Key, inIter)
 				walk(entry.Value, inIter)
@@ -1036,10 +1048,13 @@ func (s *iterSensitivity) findFirstDirectBC(n ast.Node) (int, int, bool) {
 				walk(item, caught)
 			}
 		case *ast.VectorLit:
-			for _, item := range node.Items {
+			for _, item := range node.Operands() {
 				walk(item, caught)
 			}
 		case *ast.SetLit:
+			if node.Spread != nil {
+				walk(node.Spread, caught)
+			}
 			for _, item := range node.Items {
 				walk(item, caught)
 			}
@@ -1048,6 +1063,9 @@ func (s *iterSensitivity) findFirstDirectBC(n ast.Node) (int, int, bool) {
 				walk(item, caught)
 			}
 		case *ast.MapLit:
+			if node.Spread != nil {
+				walk(node.Spread, caught)
+			}
 			for _, entry := range node.Entries {
 				walk(entry.Key, caught)
 				walk(entry.Value, caught)
@@ -1232,10 +1250,13 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 				walk(item, enclosing, immediateIter)
 			}
 		case *ast.VectorLit:
-			for _, item := range node.Items {
+			for _, item := range node.Operands() {
 				walk(item, enclosing, immediateIter)
 			}
 		case *ast.SetLit:
+			if node.Spread != nil {
+				walk(node.Spread, enclosing, immediateIter)
+			}
 			for _, item := range node.Items {
 				walk(item, enclosing, immediateIter)
 			}
@@ -1244,6 +1265,9 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 				walk(item, enclosing, immediateIter)
 			}
 		case *ast.MapLit:
+			if node.Spread != nil {
+				walk(node.Spread, enclosing, immediateIter)
+			}
 			for _, entry := range node.Entries {
 				walk(entry.Key, enclosing, immediateIter)
 				walk(entry.Value, enclosing, immediateIter)
@@ -1294,49 +1318,76 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 	}
 }
 
-// checkReduceSeed reports an `Iter.reduce` whose callback has no initial
-// accumulator and whose accumulator type is not the element type. Without a
-// seed the first element is the initial accumulator (std/iter.nomi), so
-// `Iter.reduce(items, sum_valid)` with `fn sum_valid(total: Int, item: Item)`
-// would hand an Item to an Int parameter. Only a lambda's first-parameter
-// default supplies a seed. It runs in this pass because the pass already
-// visits every call, after the checker recorded the callback's type.
+// checkReduceSeed reports an `Iter.reduce` whose callback carries no starting
+// value. The only starting value is the callback lambda's first-parameter
+// default (`|acc = 0, x| acc + x`), so a function value (`Int.add`), a lambda
+// without a default, a partial application and a callback slot left open
+// (`Iter.reduce(xs, _)`) are all rejected: there is no first-element
+// fallback, and an empty source would have no answer. It runs in this pass
+// because the pass already visits every call.
 func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
-	if callSiteKey(call) != "Iter.reduce" && s.canonicalQualifiedOwnerKey(call) != "Iter.reduce" {
+	if !s.isIterReduceCall(call) {
 		return
 	}
-	at := 1
-	if pipeLHS != nil {
-		at = 0
-	}
-	if len(call.Args) != at+1 {
+	n := len(call.Args)
+	if n == 0 || n > 2 || (n == 1 && pipeLHS == nil) {
 		return
 	}
-	cb := call.Args[at]
+	cb := call.Args[n-1]
 	if lam, ok := cb.(*ast.Lambda); ok && len(lam.Params) > 0 && lam.Params[0].Default != nil {
 		return
 	}
-	ft, _ := resolveTypeVar(s.fa.ExprTypes[cb]).(*FuncType)
-	if ft == nil || len(ft.Params) != 2 {
+	if _, open := cb.(*ast.Placeholder); open {
+		s.errors = append(s.errors, reduceSeedError(cb, "pass the callback here, as a lambda whose accumulator has a starting value: `Iter.reduce(xs, |acc = <start>, x| ...)`"))
 		return
 	}
-	acc, elem := resolveTypeVar(ft.Params[0]), resolveTypeVar(ft.Params[1])
-	if acc == nil || elem == nil || TypesEqual(acc, elem) {
-		return
+	s.errors = append(s.errors, reduceSeedError(cb, reduceSeedHints(cb)...))
+}
+
+// isIterReduceCall reports whether call calls std's `Iter.reduce`, however
+// it is spelled: owner-qualified, through an owner alias, or bare inside
+// std's own `impl Iter`. A program cannot declare its own `Iter`.
+func (s *iterSensitivity) isIterReduceCall(call *ast.Call) bool {
+	if callSiteKey(call) == "Iter.reduce" || s.canonicalQualifiedOwnerKey(call) == "Iter.reduce" {
+		return true
 	}
-	line, col := call.Line, call.Col
+	sym := s.resolveIterCallbackSymbol(call.Func)
+	return sym != nil && sym.OwningType == "Iter" && sym.Name == "reduce"
+}
+
+// reduceSeedMessage is the error every unseeded `Iter.reduce` reports.
+const reduceSeedMessage = "`Iter.reduce` needs a starting value"
+
+func reduceSeedError(at ast.Node, hints ...string) TypeError {
+	e := errAt(at, reduceSeedMessage)
+	e.Hints = hints
+	return e
+}
+
+// reduceSeedHints shows the seeded form of cb: its own lambda with a default
+// on the accumulator, or a lambda that calls the named function. A function
+// named `min` or `max` also points at `Iter.min` / `Iter.max`.
+func reduceSeedHints(cb ast.Node) []string {
 	switch n := cb.(type) {
-	case *ast.Ident:
-		line, col = n.Line, n.Col
-	case *ast.FieldAccess:
-		line, col = n.Line, n.Col
 	case *ast.Lambda:
-		line, col = n.Line, n.Col
+		acc, item := "acc", "x"
+		if len(n.Params) == 2 && n.Params[0].Destructure == nil && n.Params[1].Destructure == nil {
+			acc, item = n.Params[0].Name, n.Params[1].Name
+		}
+		return []string{fmt.Sprintf("give the accumulator a starting value: `|%s = <start>, %s| ...`", acc, item)}
+	case *ast.Ident, *ast.FieldAccess:
+		name := calleeText(n)
+		if name == "?" || strings.HasPrefix(name, "?.") {
+			break
+		}
+		hints := []string{fmt.Sprintf("call it from a lambda whose accumulator has a starting value: `|acc = <start>, x| %s(acc, x)`", name)}
+		switch name[strings.LastIndexByte(name, '.')+1:] {
+		case "min":
+			hints = append(hints, "for the least element, `Iter.min(xs)` answers a `Maybe`, with `None` for an empty source")
+		case "max":
+			hints = append(hints, "for the greatest element, `Iter.max(xs)` answers a `Maybe`, with `None` for an empty source")
+		}
+		return hints
 	}
-	s.errors = append(s.errors, TypeError{
-		Line: line, Col: col,
-		Message: fmt.Sprintf(
-			"Iter.reduce without an initial value starts from the first element, so the accumulator must have the element type; this callback's accumulator is %s and its element is %s. Give the accumulator a default in a lambda: `|acc = <initial>, item| ...`",
-			acc.String(), elem.String()),
-	})
+	return []string{"pass a lambda whose accumulator has a starting value: `|acc = <start>, x| ...`"}
 }

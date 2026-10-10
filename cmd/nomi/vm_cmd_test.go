@@ -218,9 +218,9 @@ func TestTestCommand_VMJSONFormatReportsBlocked(t *testing.T) {
 	}
 }
 
-// In json mode a case's own output goes to stderr on the VM too, so stdout
-// carries only records.
-func TestTestCommand_VMJSONFormatSendsOutputToStderr(t *testing.T) {
+// In json mode a case's own output goes into its record, so stdout carries
+// only records and stderr nothing.
+func TestTestCommand_VMJSONFormatPutsOutputInItsRecord(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
@@ -236,11 +236,12 @@ test "prints" {
 	if err != nil {
 		t.Fatalf("nomi test --format json: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
-	if stderr != "hello from a vm test\n" {
+	if stderr != "" {
 		t.Fatalf("stderr = %q", stderr)
 	}
 	records := parseJSONRecords(t, stdout)
-	if len(records) != 2 || records[0].Status != "passed" || records[1].Passed != 1 {
+	if len(records) != 2 || records[0].Status != "passed" || records[0].Output != "hello from a vm test\n" ||
+		records[1].Passed != 1 {
 		t.Fatalf("records:\n%s", stdout)
 	}
 }

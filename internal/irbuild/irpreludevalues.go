@@ -90,8 +90,11 @@ func (bl *irScalarBuilder) preludePayloadValue(t *ast.Call, k kind, vs preludeVa
 		return no()
 	}
 	src, actual, pure, ok := bl.lowerTypedOperand(t.Args[0], v.payloads[0].k)
-	if ok && actual != v.payloads[0].k && pure {
-		// An empty literal (`Ok([])`) takes the payload's type.
+	if ok && actual != v.payloads[0].k {
+		// An empty literal (`Ok([])`) takes the payload's type, and a value
+		// of an embedded type (`Some(Wrapped(c))` where a Maybe<Shape> is
+		// expected) widens into its `embeds` variant. The payload is the
+		// call's one operand, so coercing it here reorders nothing.
 		src, actual, ok = bl.coerceEmpty(t.Args[0], src, actual, v.payloads[0].k)
 	}
 	if !ok || actual != v.payloads[0].k {

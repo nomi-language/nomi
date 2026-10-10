@@ -88,6 +88,10 @@ type irScalarBuilder struct {
 	literalCell *ast.TaggedString
 	captures    []ir.Temp
 	captured    map[string]irLambdaCapture
+	// rebuildBody marks the body of a widening adapter (irembedsrebuild.go),
+	// and rebuildCaps the enclosing enum adapters it reaches as captures.
+	rebuildBody bool
+	rebuildCaps []irRebuildCap
 	g           *gen
 	sh          *irFuncShell
 	f           *ir.Func
@@ -131,6 +135,9 @@ type irScalarBuilder struct {
 	stdInstPreArgs irQualArgs
 	// Reduce seeds belong to these exact callback nodes, not ordinary defaults.
 	reduceSeeds map[*ast.Lambda]bool
+	// current is what each bare `..` of the update literals being lowered
+	// stands for (ircurrentvalue.go).
+	current map[*ast.CurrentValue]irCurrent
 	// partialOpen types and names the parameters of the lambda a partial
 	// application lowers to, one per open slot (see partialApplication).
 	partialOpen map[*ast.Lambda]partialSlots
@@ -153,6 +160,10 @@ type irScalarBuilder struct {
 	// subject nests, a comparison inside an `and` inside a subject, and a
 	// lambda boundary saves and restores it.
 	recording int
+	// assertRoot is the expression an assertion's text renders while its
+	// subject is lowered, and nil otherwise: a `"""` literal written
+	// directly in it records the text around it (elidedOperand).
+	assertRoot ast.Node
 	// pipedCall is the synthetic call node a pipe stage desugared to, or nil.
 	// Node IDENTITY
 	// rather than a bool, because a different call
@@ -162,6 +173,11 @@ type irScalarBuilder struct {
 	// pipedFrom is the pipe pipedCall was spliced from, which carries the
 	// checker's type for the stage (a spliced call has none of its own).
 	pipedFrom *ast.Binary
+	// attachedCall is the synthetic call a literal-attach form
+	// (`Bag.Items[1, 2]`) lowers as, and attachedFrom the literal it was
+	// made from, which carries the checker's type (see attachedVariant).
+	attachedCall *ast.Call
+	attachedFrom ast.Node
 	// pipedCase is the spliced `case` a `x |> case { ... }` stage lowered
 	// to, whose scrutinee records no row. See irpipe.go.
 	pipedCase *ast.Case
@@ -177,11 +193,6 @@ type irScalarBuilder struct {
 	// body's statements after the one being lowered, which decides that.
 	testStages map[string][]ir.AssertStage
 	testAfter  []ast.Node
-	// loopsOK admits inline `Iter.loop` in a named function body, and loops
-	// counts the ones built. A body whose loop the structured reader cannot
-	// spell declines.
-	loopsOK bool
-	loops   int
 	// boot marks the program boot's own body. It admits the Context kind
 	// for a parameter read and a struct field, and is never read back.
 	boot bool
@@ -194,9 +205,18 @@ type irScalarBuilder struct {
 	// writes are retained; stores counts them. See irappboot.go.
 	body   *ast.Block
 	stores int
-	// loopArms is the loop whose case tail is being lowered: its arms may
-	// `break v`. Nested regions inside an arm do not see it.
-	loopArms *irLoopBuild
+	// loop is the inline `Iter.loop` whose callback body is being lowered,
+	// or nil. Every `break`, `continue` and `return` in that body is the
+	// loop's, wherever it sits: a guard is a loop guard (loopGuard) and an
+	// arm ending in one leaves the iteration (armInto). explicitReturn and
+	// ctlReturn decline while it is set, so none of them can leave this
+	// activation instead.
+	loop *irLoopBuild
+	// endless is the `Iter.loop` call with no `break` (analysis.LoopNeverBreaks)
+	// that endlessLoop is lowering, or nil. iterLoop admits a loop whose exit
+	// nothing reaches only while it is that call, so a loop whose value some
+	// other position would read declines.
+	endless *ast.Call
 	// concTries collects the tries of a `concurrent` body or a lambda, whose
 	// boundary is the body's kind once it settles. Nil outside such a body.
 	// tryBoundary is the checker's name for that boundary: "concurrent",
@@ -223,10 +243,6 @@ type irScalarBuilder struct {
 	// lowered: where its value goes and where control leaves it
 	// (irtestsetup.go).
 	setupExit *irSetupExit
-	// discarded is the expression a statement is lowering only for its
-	// effect (`e` as a statement, `_ = e`), or nil. An `Iter.loop` whose value
-	// is discarded admits a bare `break`, whose Unit answer nothing reads.
-	discarded ast.Node
 	// recursive is the recursive nested fn whose lambda this builder is
 	// about to build (irnestedfn.go); nil otherwise.
 	recursive *irRecursiveFn
@@ -352,7 +368,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			if dst, k, mobile, ok := bl.markerValue(t, t.Name); ok {
 				return dst, k, mobile, true
 			}
-			if d, variant, ok := bl.g.stdEnumVariantAt(t.Name, t.Line, t.Col); ok && variant.kind == "bare" && irRetainedEnumKind(d) {
+			if d, variant, ok := bl.g.importedVariantAt(t, t.Name, t.Line, t.Col); ok && variant.kind == "bare" && irRetainedEnumKind(d) {
 				return bl.variantValue(t, d, variant, nil, true)
 			}
 			// A bare payload-free prelude variant with no expected type
@@ -414,6 +430,8 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.Binary:
 		return bl.binary(t)
 
+	case *ast.CurrentValue:
+		return bl.currentValue(t)
 	case *ast.MapLit:
 		return bl.mapMake(t)
 	case *ast.VectorLit:
@@ -574,13 +592,10 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			if dst, k, mobile, ok := bl.distinctMake(t, ti); ok {
 				return dst, k, mobile, true
 			}
-			if dst, k, mobile, ok := bl.distinctInner(t, ti); ok {
-				return dst, k, mobile, true
-			}
 			if dst, k, mobile, ok := bl.structCallForm(t, ti); ok {
 				return dst, k, mobile, true
 			}
-			if dst, k, mobile, ok := bl.stdVariantCall(t, ti); ok {
+			if dst, k, mobile, ok := bl.importedVariantCall(t, ti); ok {
 				return dst, k, mobile, true
 			}
 		}
@@ -699,13 +714,12 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 // ONE PART IS THAT PART, which is `ir.NewConcat`'s precondition: a join of one is the identity and a
 // join of none is the empty String constant.
 //
-// `pos` is a span, and this is the one site that produces one. It is the interpolation's whole extent — its start plus the
-// furthest line its holes reach — and it is worn by the text-run constants
-// and by the join, which are exactly the instructions whose construct spans
-// lines. A hole keeps its OWN point position (`irNodePos(part.Expr)`),
-// because the hole is a construct in its own right and is on one line. The
-// three spanning positions in the whole retained graph are `escape_program`'s
-// two text runs and its join. See irspan.go.
+// `pos` is a span: the interpolation's whole extent, from its start to its
+// closing `"""` (or, for a tagged string, the furthest line its holes reach).
+// It is worn by the text-run constants and by the join, which are exactly
+// the instructions whose construct spans lines. A hole keeps its OWN point
+// position (`irNodePos(part.Expr)`), because the hole is a construct in its
+// own right and is on one line. See irspan.go.
 func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, bool) {
 	pos := bl.g.irNodeSpan(t)
 	parts := make([]ir.Temp, 0, len(t.Parts))
@@ -754,21 +768,12 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 					parts = append(parts, r)
 					continue
 				}
-				// A hole outside the scalar domain reaches
-				// `displayRendering`'s container, local-impl and stdlib
-				// arms, each of which can REFUSE — and a refusal recorded
-				// while a build is still deciding whether to decline is a
-				// tally row for a lowering that did not happen. Declined
-				// here so `irScalarRender` can PANIC on a failed rendering
-				// instead of having to route one.
-				//
-				// Nothing reaches this. `lower` produces Int, Float, Bool,
-				// String and, through a Unit-returning call, Unit; the first
-				// four are the domain and the fifth cannot reach here,
-				// because the checker refuses `"${unit_call()}"` with "no
-				// impl of `Display` for `Unit`" before this producer sees
-				// it. It is a fence that keeps this builder from producing
-				// a wrong answer if the front end ever admits one.
+				// A hole displayHole cannot render declines here, naming
+				// the operand and its kind, rather than rendering it
+				// structurally, which would print a wrong string for a
+				// part with its own impl.
+				irDeclineNote("an interpolation of `" + renderNode(part.Expr) + "`, a " + k.nomi() +
+					", which no Display rendering reaches")
 				return ir.NoTemp, kindInvalid, false, false
 			}
 			r := ir.NewRenderDisplay(bl.g.irNodePos(part.Expr), bl.f.NewTemp(), src)
@@ -776,6 +781,7 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 			bl.side(r.Dst(), irScalarSide{k: kindString})
 			parts = append(parts, r.Dst())
 		default:
+			irDeclineNote("an interpolation part of an unknown form")
 			return ir.NoTemp, kindInvalid, false, false
 		}
 	}
@@ -1607,6 +1613,226 @@ func (g *gen) irScalarBody(fd *ast.FuncDef) ([]ast.Node, ast.Node) {
 	return g.irScalarBlock(fd.Body, irDeclineSynthMask(fd))
 }
 
+// exitingRegion reports whether n is an `if` or `case` every branch of which
+// leaves the block by `return`, `break` or `continue` or never finishes, as
+// the checker's unreachable-code rule decides, an `Iter.loop` with no
+// `break`, which never finishes, or a block whose tail leaves (blockLeaves).
+func (g *gen) exitingRegion(n ast.Node) bool {
+	switch v := n.(type) {
+	case *ast.If, *ast.Case:
+		return g.fa.AlwaysExits(n)
+	case *ast.Call:
+		return g.fa.LoopNeverBreaks(n)
+	case *ast.Block:
+		return g.blockLeaves(v)
+	}
+	return false
+}
+
+// blockLeaves reports whether block's tail, as irScalarBlock finds it,
+// leaves: a `return`, `break` or `continue`, or an exiting region
+// (exitingRegion), nested to any depth, as in `{ io.print("a")  case n { 0 ->
+// return 1  _ -> return 2 } }` or `{ io.print("start")  Iter.loop(|| …) }`.
+// Nothing reaches the end of such a block, so a block holding it ends at it,
+// and it is lowered where its tail would be (leavingBlocks).
+func (g *gen) blockLeaves(block *ast.Block) bool {
+	if block == nil {
+		return false
+	}
+	_, tail := g.irScalarBlock(block, "")
+	switch tail.(type) {
+	case *ast.Return, *ast.Break, *ast.Continue:
+		return true
+	}
+	return tail != nil && g.exitingRegion(tail)
+}
+
+// neverFinishes reports whether n is an `Iter.loop` with no `break`
+// (analysis.LoopNeverBreaks), or a block whose tail, as irScalarBlock finds
+// it, never finishes: `{ io.print("start")  Iter.loop(|| …) }`, nested to any
+// depth.
+func (g *gen) neverFinishes(n ast.Node) bool {
+	if g.fa.LoopNeverBreaks(n) {
+		return true
+	}
+	block, isBlock := n.(*ast.Block)
+	if !isBlock || block == nil {
+		return false
+	}
+	_, tail := g.irScalarBlock(block, "")
+	return tail != nil && g.neverFinishes(tail)
+}
+
+// endlessLoop lowers n when it never finishes (neverFinishes) in a position
+// whose value nothing after it reads: the tail of a block, which
+// irScalarBlock made of it and of everything after it. For an `Iter.loop`
+// with no `break`, nothing reaches the loop's exit, so the exit reads and
+// writes nothing and jumps to itself, as exitReturn leaves an unreachable
+// function exit. A block ending in one is lowered by leavingBlocks, then its
+// tail the same way. It answers whether n is such a node, and when it is,
+// whether it lowered.
+func (bl *irScalarBuilder) endlessLoop(n ast.Node) (endless, ok bool) {
+	if block, isBlock := n.(*ast.Block); isBlock {
+		if !bl.g.neverFinishes(block) {
+			return false, false
+		}
+		tail, restore, ok := bl.leavingBlocks(block)
+		defer restore()
+		if !ok {
+			return true, false
+		}
+		_, ok = bl.endlessLoop(tail)
+		return true, ok
+	}
+	call, isCall := n.(*ast.Call)
+	if !isCall || !bl.g.fa.LoopNeverBreaks(call) {
+		return false, false
+	}
+	outer := bl.endless
+	bl.endless = call
+	_, _, _, ok = bl.lower(call)
+	bl.endless = outer
+	if !ok {
+		return true, false
+	}
+	bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(call), bl.b.ID()))
+	return true, true
+}
+
+// leavingBlocks lowers n while it is a block whose tail leaves
+// (blockLeaves): each block's statements in a scope of their own, as an arm
+// block's are, and answers the innermost tail, which the caller lowers where
+// n stood. Nothing reaches the end of such a block, so it writes no value
+// and runs no deferred call and restores no `with` there, as an arm block
+// that returns does. A `return` from its tail leaves the activation, which
+// runs every deferred call still registered, the block's first. restore
+// puts back the scopes it opened; the caller defers it. n that is no such
+// block is answered as it is.
+func (bl *irScalarBuilder) leavingBlocks(n ast.Node) (tail ast.Node, restore func(), ok bool) {
+	var undo []func()
+	restore = func() {
+		for i := len(undo) - 1; i >= 0; i-- {
+			undo[i]()
+		}
+	}
+	for {
+		block, isBlock := n.(*ast.Block)
+		if !isBlock || !bl.g.blockLeaves(block) {
+			return n, restore, true
+		}
+		if bl.recording > 0 {
+			irDeclineNote("a block that leaves inside an assertion subject")
+			return n, restore, false
+		}
+		undo = append(undo, bl.g.enterBlockTypes(block))
+		lead, inner := bl.g.irScalarBlock(block, "")
+		bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
+		bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
+		deferScope, withScope := bl.deferScope, bl.withScope
+		undo = append(undo, func() {
+			bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms
+			bl.deferScope, bl.withScope = deferScope, withScope
+		})
+		bl.openDeferScope(block)
+		bl.openWithScope(false)
+		if !bl.leading(lead) {
+			return n, restore, false
+		}
+		n = inner
+	}
+}
+
+// exitingOperand finds an exiting region that n always evaluates: n itself,
+// or an operand evaluated whatever the values before it, as in `calls(case x
+// { 0 -> return 10  _ -> return 20 })`, `noisy(1) + if c { return 1 } else
+// { return 2 }`, a struct field, a list item, a pipe's source or a `try`'s
+// operand. Nothing that reads the region's value can run, so the builder
+// lowers prefix, the operands evaluated before the region in Nomi's order,
+// for their effects, then the region as the block's tail, and drops the
+// construct around it. A short-circuit operand, a lambda body and an arm are
+// not always evaluated, and are not searched.
+func (g *gen) exitingOperand(n ast.Node) (prefix []ast.Node, region ast.Node, ok bool) {
+	if isNilNode(n) {
+		return nil, nil, false
+	}
+	if g.exitingRegion(n) {
+		return nil, n, true
+	}
+	// in searches operands in evaluation order, collecting each one before
+	// the region as prefix.
+	in := func(operands ...ast.Node) ([]ast.Node, ast.Node, bool) {
+		var before []ast.Node
+		for _, o := range operands {
+			if isNilNode(o) {
+				continue
+			}
+			if p, r, found := g.exitingOperand(o); found {
+				return append(before, p...), r, true
+			}
+			if hasEffect(o) {
+				before = append(before, o)
+			}
+		}
+		return nil, nil, false
+	}
+	switch v := n.(type) {
+	case *ast.Call:
+		args := make([]ast.Node, 0, len(v.Args))
+		for _, a := range v.Args {
+			if named, isNamed := a.(*ast.NamedArg); isNamed {
+				a = named.Value
+			}
+			args = append(args, a)
+		}
+		return in(args...)
+	case *ast.Binary:
+		switch v.Op {
+		case "and", "or":
+			return in(v.Left)
+		case "|>":
+			// The source, then the stage's own arguments.
+			if call, isCall := v.Right.(*ast.Call); isCall {
+				return in(append([]ast.Node{v.Left}, call.Args...)...)
+			}
+			return in(v.Left)
+		}
+		return in(v.Left, v.Right)
+	case *ast.Unary:
+		return in(v.Right)
+	case *ast.TryOp:
+		return in(v.Expr)
+	case *ast.FieldAccess:
+		return in(v.Object)
+	case *ast.StructLit:
+		operands := []ast.Node{v.Spread}
+		for _, f := range v.Fields {
+			operands = append(operands, f.Value)
+		}
+		return in(operands...)
+	case *ast.ListLit:
+		return in(v.Items...)
+	case *ast.TupleLit:
+		return in(v.Items...)
+	case *ast.If:
+		// The condition, or the value an `if Pattern = expr` matches.
+		return in(v.Cond)
+	case *ast.Case:
+		return in(v.Value)
+	}
+	return nil, nil, false
+}
+
+// hasEffect reports whether evaluating n may do something other than
+// produce its value. A number literal, a name and a lambda only make a value, so an
+// operand before an exiting region that is one of them is not lowered.
+func hasEffect(n ast.Node) bool {
+	switch n.(type) {
+	case *ast.Ident, *ast.TypeIdent, *ast.Lambda, *ast.IntLit, *ast.FloatLit:
+		return false
+	}
+	return true
+}
+
 func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast.Node) {
 	irDeclineBodyWhy = "the statement list"
 	if block == nil {
@@ -1640,6 +1866,15 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 			*ast.PatternBinding:
 			lead = append(lead, st)
 		case *ast.Binding:
+			if prefix, region, ok := g.exitingOperand(st.Value); ok {
+				// `y = case x { 0 -> continue  _ -> break 1 }`: every arm
+				// leaves, so nothing after the binding runs. The region is
+				// the block's tail, whose join no path reaches, and the
+				// statements after it are never lowered. The same holds
+				// for `y = calls(case x { ... })`, after the operands
+				// evaluated before the region.
+				return append(lead, prefix...), region
+			}
 			// A discard name binds nothing and never enters scope, which is
 			// why the rebind check in `irScalarBuild` does not apply to it.
 			// See irdiscard.go.
@@ -1648,6 +1883,11 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 			if isNilNode(st.Expr) {
 				irDeclineBodyWhy = "a nil leading expression statement"
 				return nil, nil
+			}
+			if prefix, region, ok := g.exitingOperand(st.Expr); ok && region != st.Expr {
+				// `calls(case x { 0 -> return 1  _ -> return 2 })` as a
+				// statement: as a binding of it, nothing after it runs.
+				return append(lead, prefix...), region
 			}
 			lead = append(lead, st.Expr)
 		default:
@@ -1662,6 +1902,13 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 	if isNilNode(n) {
 		irDeclineBodyWhy = "a nil final statement"
 		return nil, nil
+	}
+	if b, isBinding := n.(*ast.Binding); isBinding {
+		if prefix, region, ok := g.exitingOperand(b.Value); ok {
+			// `_ = calls(case x { 0 -> return 1  _ -> return 2 })` ending
+			// a block, as a leading binding of one does.
+			return append(lead, prefix...), region
+		}
 	}
 	if w, isWith := n.(*ast.With); isWith {
 		// A `with` ending a block: the override holds to the block's end,
@@ -1681,6 +1928,11 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		// after any binding statement.
 		line, col := nodePos(st)
 		return append(lead, st), &ast.TypeIdent{Name: "Unit", Line: line, Col: col}
+	}
+	if prefix, region, ok := g.exitingOperand(n); ok {
+		// A tail that reads an exiting region, `calls(case x { 0 -> return
+		// 1  _ -> return 2 })`, never reads it: the region is the tail.
+		return append(lead, prefix...), region
 	}
 	return lead, n
 }
@@ -1724,10 +1976,11 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		irDeclineNote(irDeclineBodyWhy)
 		return nil, false
 	}
-	if block, isBlock := body.(*ast.Block); isBlock && sig.result == kindUnit {
+	if block, isBlock := body.(*ast.Block); isBlock && sig.result == kindUnit && !g.blockLeaves(block) {
 		// A Unit function ending in a block statement: the block runs in
 		// its own scope (scopedBlock, which restores a `with`'s overrides
-		// at its exit) and the function answers Unit.
+		// at its exit) and the function answers Unit. A block whose tail
+		// leaves is the tail instead (leavingBlocks).
 		lead = append(lead, block)
 		body = &ast.TypeIdent{Name: "Unit", Line: block.Line, Col: block.Col}
 	}
@@ -1747,7 +2000,6 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		bound:      map[string]ir.Temp{}, boundK: map[string]kind{},
 		synthesized: analysis.IsSynthesizedLine(declLine),
 		deferOK:     true,
-		loopsOK:     !g.irBoot,
 		boot:        g.irBoot,
 		body:        fd.Body,
 	}
@@ -1800,6 +2052,9 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 	}
 	val, k, ok := bl.tail(body, sig)
 	if !ok {
+		// A tail `if` or `case` is lowered outside `lower`, so a decline
+		// nothing inside it placed is reported at the tail, not at the `fn`.
+		irDeclineAtNode(body)
 		return nil, false
 	}
 	// A branching or returning tail leaves through Returns the tail's
@@ -1860,6 +2115,13 @@ func (bl *irScalarBuilder) resultCopy(n ast.Node, val ir.Temp) {
 // slot and terminated every block it opened — an `if` or a `case` in tail
 // position — and a temporary for an ordinary expression the caller copies.
 func (bl *irScalarBuilder) tail(body ast.Node, sig irFuncSig) (ir.Temp, kind, bool) {
+	// A block whose tail leaves, `{ io.print("a")  case n { 0 -> return 1
+	// _ -> return 2 } }`: its statements, then its tail here.
+	body, restore, ok := bl.leavingBlocks(body)
+	defer restore()
+	if !ok {
+		return ir.NoTemp, kindInvalid, false
+	}
 	switch t := body.(type) {
 	case *ast.Return:
 		if bl.inTest {
@@ -1873,6 +2135,11 @@ func (bl *irScalarBuilder) tail(body ast.Node, sig irFuncSig) (ir.Temp, kind, bo
 	case *ast.Case:
 		k, ok := bl.tailCase(t, sig)
 		return ir.NoTemp, k, ok
+	}
+	if endless, ok := bl.endlessLoop(body); endless {
+		// An `Iter.loop` with no `break` never answers, so the body has the
+		// declared result whatever the loop's state is.
+		return ir.NoTemp, sig.result, ok
 	}
 	val, k, _, ok := bl.lowerWant(body, sig.result)
 	if !ok || k != sig.result {
@@ -2048,9 +2315,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	prevB := bl.b
 	bl.b = arm
 	defer func() { bl.b = prevB }()
-	lp := bl.loopArms
-	bl.loopArms = nil
-	defer func() { bl.loopArms = lp }()
+	lp := bl.loop
 	if sig.testArms {
 		return bl.testArm(exit, body)
 	}
@@ -2085,12 +2350,52 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 			return kindInvalid, false
 		}
 		body = tail
-	}
-	if brk, isBreak := body.(*ast.Break); isBreak && lp != nil {
-		if !bl.loopBreakArm(brk, lp, arm) {
+	} else if prefix, region, ok := bl.g.exitingOperand(body); ok && region != body {
+		// `0 -> calls(case y { 0 -> return 1  _ -> return 2 })`: the arm
+		// evaluates the operands before the region, then leaves with it,
+		// as a block arm ending in that call does (irScalarBlock).
+		if !bl.leading(prefix) {
 			return kindInvalid, false
 		}
-		return lp.k, true
+		body = region
+	}
+	// `0 -> { x = { io.print("a")  return 1 }  x }`: the arm block's tail
+	// is a block whose tail leaves, which ends the arm as its tail does.
+	body, restore, unwrapped := bl.leavingBlocks(body)
+	defer restore()
+	if !unwrapped {
+		return kindInvalid, false
+	}
+	if endless, ok := bl.endlessLoop(body); endless {
+		// `0 -> Iter.loop(|| …)` with no `break`: the arm never reaches the
+		// region's exit and writes nothing, as a `return` arm does.
+		if !ok {
+			return kindInvalid, false
+		}
+		return kindDiverged, true
+	}
+	if lp != nil {
+		// An arm in a loop's callback leaves the iteration as a guard in
+		// the loop body does: `break v` ends the loop with v, `return v` is
+		// the next state, and `continue` goes round again with the state
+		// unchanged. The arm writes nothing to its region.
+		switch t := body.(type) {
+		case *ast.Break:
+			if !bl.loopBreakArm(t, lp) {
+				return kindInvalid, false
+			}
+			return kindDiverged, true
+		case *ast.Return:
+			if !bl.loopValue(t.Value, lp.state, lp.k) {
+				irDeclineNote("an Iter.loop arm's `return` without a value of the state type")
+				return kindInvalid, false
+			}
+			bl.loopJump(bl.b, t, lp, lp.head)
+			return kindDiverged, true
+		case *ast.Continue:
+			bl.loopJump(bl.b, t, lp, lp.head)
+			return kindDiverged, true
+		}
 	}
 	// kindInvalid: sentinel — only ordinary lambdas may infer an unset result.
 	returnKnown := bl.returnKind != kindInvalid || bl.inferReturn != nil
@@ -2123,11 +2428,16 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		}
 		return kindDiverged, true
 	}
-	if _, isBreak := body.(*ast.Break); (isBreak || isContinueNode(body)) && bl.ctl != irCtlNone && !sig.inferResult {
+	if _, isBreak := body.(*ast.Break); (isBreak || isContinueNode(body)) && bl.ctl != irCtlNone {
 		// A signalling callback's `break v` or `continue` ending an arm
 		// leaves the callback, as one ending a guard arm does (ctlReturn).
+		// It writes nothing to the region, so where the region's kind is
+		// inferred the other arms settle it, as with a `return v` arm.
 		if !bl.ctlReturn(body) {
 			return kindInvalid, false
+		}
+		if sig.inferResult {
+			return kindDiverged, true
 		}
 		return sig.result, true
 	}
@@ -2135,18 +2445,12 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	// a branch used as an operand needs an additional result slot.
 	var k kind
 	var ok, region bool
-	// A nested branch in a loop's tail position is still the tail: its
-	// arms' `break` leaves the loop.
 	switch nested := body.(type) {
 	case *ast.If:
-		bl.loopArms = lp
 		k, ok = bl.ifRegion(nested, sig)
-		bl.loopArms = nil
 		region = true
 	case *ast.Case:
-		bl.loopArms = lp
 		k, ok = bl.caseRegion(nested, sig)
-		bl.loopArms = nil
 		region = true
 	}
 	if region {
@@ -2354,6 +2658,14 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 			return false
 		}
 		if conditional, ok := s.(*ast.If); ok {
+			if bl.loop != nil && loopGuardShape(bl.g, conditional) {
+				// `if c { continue }` anywhere in a loop's callback.
+				if !bl.loopGuard(conditional, bl.loop) {
+					irDeclineNote("an Iter.loop guard outside `if c { break v | return v | continue }`")
+					return false
+				}
+				continue
+			}
 			if bl.guardShape(conditional) {
 				if !bl.guardReturn(conditional) {
 					irDeclineNote("a leading conditional outside a straight return guard")
@@ -2445,7 +2757,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 			continue
 		}
 		if pb, ok := s.(*ast.PatternBinding); ok {
-			if !bl.patternBindingStmt(pb, nil) {
+			if !bl.patternBindingStmt(pb, bl.loop) {
 				return false
 			}
 			continue
@@ -2461,10 +2773,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 			// operand's kind and Go needs `_ = n2_n` after the print.
 			// `irStatementDrop` is that statement, as a recorded `ir.Copy`
 			// delivery; see irdiscard.go and ircopydelivery.go.
-			prevDiscarded := bl.discarded
-			bl.discarded = s
 			val, k, _, ok := bl.lower(s)
-			bl.discarded = prevDiscarded
 			if !ok {
 				return false
 			}
@@ -2476,10 +2785,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 			// It declares nothing, so there is no `ir.Bind` and no interned
 			// symbol; the whole of it is the value and the drop. See
 			// irdiscard.go.
-			prevDiscarded := bl.discarded
-			bl.discarded = b.Value
 			src, k, ok := bl.bindingExpression(b)
-			bl.discarded = prevDiscarded
 			if !ok {
 				return false
 			}
@@ -2553,6 +2859,7 @@ func (bl *irScalarBuilder) typedRegionValue(value ast.Node, k kind) (ir.Temp, ki
 		// The checked kind has no retained IR type, so the region has no
 		// slot to deliver into.
 		irDeclineNote("a branch or block value kind with no IR type: " + k.nomi())
+		irDeclineAtNode(value)
 		return ir.NoTemp, kindInvalid, false
 	}
 	result := bl.f.NewTemp()
@@ -2571,6 +2878,15 @@ func (bl *irScalarBuilder) typedRegionValue(value ast.Node, k kind) (ir.Temp, ki
 		actual, ok = bl.ifRegion(v, irFuncSig{result: k})
 	case *ast.Case:
 		actual, ok = bl.caseRegion(v, irFuncSig{result: k})
+	}
+	if ok && !ir.Reachable(bl.f)[bl.b.ID()] {
+		// Every arm left the body, so no arm wrote the slot and nothing
+		// after the region runs: `f(case x { 0 -> return 1  _ -> return 2
+		// })`. A binding of one ends its block instead (irScalarBlock); an
+		// operand would leave the code that reads it in a block no path
+		// reaches, which is not lowered.
+		irDeclineNote("an `if` or `case` whose every arm leaves the body, used as an operand")
+		ok = false
 	}
 	if !ok {
 		irDeclineAtNode(value)

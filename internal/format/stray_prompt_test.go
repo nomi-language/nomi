@@ -29,8 +29,9 @@ func TestFormat_RefusesAPromptAfterCode(t *testing.T) {
 }
 
 // The same literal with `//` and `//#` comments formats and keeps its
-// meaning.
+// meaning. The comment ends the field's line, so it stays there, after the
+// comma.
 func TestFormat_CommentAfterPunnedFieldKeepsMeaning(t *testing.T) {
-	formatsKeepingMeaning(t, "A{a// x\n}", "A{\n    a,\n    // x\n}\n")
-	formatsKeepingMeaning(t, "A{a//# x\n}", "A{\n    a,\n    //# x\n}\n")
+	formatsKeepingMeaning(t, "A{a// x\n}", "A{\n    a, // x\n}\n")
+	formatsKeepingMeaning(t, "A{a//# x\n}", "A{\n    a, //# x\n}\n")
 }

@@ -1,0 +1,113 @@
+================================================================================
+Map update with one entry
+================================================================================
+
+once m = {..base, "b" => 2}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (map_update
+      (map_update_spread
+        head: (identifier))
+      (map_entry
+        (string
+          (string_content))
+        (integer)))))
+
+================================================================================
+Map update with several entries and a trailing comma
+================================================================================
+
+once m = {..f(x), "b" => 2, "c" => 3,}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (map_update
+      (map_update_spread
+        head: (call_expression
+          function: (identifier)
+          (identifier)))
+      (map_entry
+        (string
+          (string_content))
+        (integer))
+      (map_entry
+        (string
+          (string_content))
+        (integer)))))
+
+================================================================================
+Stacked map update
+================================================================================
+
+once m = {
+  ..base
+  "b" => 2
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (map_update
+      (map_update_spread
+        head: (identifier))
+      (map_entry
+        (string
+          (string_content))
+        (integer)))))
+
+================================================================================
+Map update inside a call: the brace is not whitespace-preceded
+================================================================================
+
+once m = f({..base, "b" => 2})
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (call_expression
+      function: (identifier)
+      (map_update
+        (map_update_spread
+          head: (identifier))
+        (map_entry
+          (string
+            (string_content))
+          (integer))))))
+
+================================================================================
+Nested map update inside a struct update
+================================================================================
+
+once c = {..cfg, prefs: {..cfg.prefs, "theme" => "dark"}}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    value: (struct_update
+      (struct_update_spread
+        head: (identifier))
+      (struct_update_field
+        field_name: (identifier)
+        (map_update
+          (map_update_spread
+            head: (field_access
+              (identifier)
+              (identifier)))
+          (map_entry
+            (string
+              (string_content))
+            (string
+              (string_content))))))))

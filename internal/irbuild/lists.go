@@ -131,7 +131,7 @@ func (g *gen) listResultKind(tag string, elem, recv kind, at ast.Node) (kind, bo
 // maybeOf is `Maybe<inner>`, asked of prelude.go rather than assembled here so
 // there is one shape of Maybe in the builder and not two. mapResultKind's rule.
 func (g *gen) maybeOf(inner kind, at ast.Node) (kind, bool) {
-	a, anchored := g.preludeByName["Maybe"]
+	a, anchored := g.preludeNamed("Maybe")
 	if !anchored {
 		g.reject("List function without the prelude Maybe", inner.nomi(), at)
 		return kindInvalid, false

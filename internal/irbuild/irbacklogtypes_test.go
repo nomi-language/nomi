@@ -135,7 +135,7 @@ test "a filter callback breaks from a tail if" {
 }
 
 test "sets of tuples, lists of maps and branch bindings" {
-  ts = #{(1, 2), (3, 4), (1, 2)}
+  ts = #{(1, 2), (3, 4), (1, 1 + 1)}
   assert Set.size(ts) == 2
   buckets: List<Map<String, Int>> = []
   assert Iter.count(buckets) == 0

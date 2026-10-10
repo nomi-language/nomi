@@ -316,33 +316,15 @@ fn main() {
 	}
 }
 
-// Concurrent shapes the builder does not lower are declined: the enclosing function
-// is not retained.
-func TestIRConcurrency_UnsupportedShapesPreserveEmission(t *testing.T) {
+// An exit or a loop inside a task body or a `concurrent` block belongs to the
+// lambda or loop it is written in, and the program runs.
+func TestIRConcurrency_TryAndLoopInsideTheBlockRun(t *testing.T) {
 	// A try inside a task body leaves the task's lambda, whose boundary it
 	// is.
 	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run(): Int {\nr = concurrent {\n t = Task.spawn(|| {\n x = try Some(2)\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\n"+
 		"fn missing(): Maybe<Int> { None }\nfn none(): Int {\nr = concurrent {\n t = Task.spawn(|| {\n x = try missing()\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\nfn main() {\n io.print(run())\n io.print(none())\n}\n", "2\n0\n")
-	for _, body := range []string{
-		// An Iter.loop inside the block.
-		"concurrent {\n t = Task.spawn(|| 1)\n n0 = Task.await(t)\n Iter.loop(|n = n0| {\n if n > 3 { break n }\n n + 1\n })\n }",
-	} {
-		p, err := AnalyzeSource("main.nomi", "import std/tasks.Task\nfn double(n: Int): Int { n * 2 }\nfn run(): Int {\n"+body+"\n}\nfn main() { _ = run() }")
-		if err != nil {
-			t.Fatal(err)
-		}
-		got, _, err := GenerateIR(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, mod := range got.IR {
-			for _, f := range mod.Funcs() {
-				if f.Name() == "run" {
-					t.Fatalf("unsupported concurrent shape was retained:\n%s", body)
-				}
-			}
-		}
-	}
+	// An Iter.loop inside the block runs, as one inside any lambda does.
+	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run(): Int {\nconcurrent {\n t = Task.spawn(|| 1)\n n0 = Task.await(t)\n Iter.loop(|n = n0| {\n if n > 3 { break n * 10 }\n n + 1\n })\n }\n}\nfn main() {\n io.print(run())\n}\n", "40\n")
 }
 
 // A task whose body reaches a function the producer did not retain fails the

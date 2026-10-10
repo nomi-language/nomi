@@ -22,69 +22,7 @@ type formatGap struct {
 	src    string
 }
 
-var knownFormatGaps = []formatGap{
-	{
-		// A struct literal that breaks because it is too wide is written
-		// across lines, and the next format reads that as the author's
-		// choice to stack it. A stacked literal is LocalBroken, hidden from
-		// the fits of the line it is on, so inside a call or literal it
-		// opens on the call's line (`f(Point{`) instead of on a line of its
-		// own. A fix makes one of the two layouts the other, and either
-		// moves tracked files: breaking a too-wide literal in place hides
-		// it from every enclosing fits check (an `if` stays on one line, a
-		// list hugs its second element), and breaking a stacked one as
-		// width does undoes the hug the corpus is written in. The source
-		// cannot record which of the two broke a literal. A lambda body is
-		// fixed this way already (TestFormat_LambdaStructLiteralBodyStaysOnItsLine).
-		name:   "gapWidthBrokenLiteralHugsNextTime",
-		kind:   "idempotence",
-		reason: "first at line \\d+: `[^`]*[(\\[{]` became `[^`]*\\{`",
-		src: `fn main() {
-    m = same(Point{zed_long_long_long_long_long_long_long_long: 0, alpha_long_long_long_long_long_long_long_long_long: 3}, Point{zed: 0, alpha: 4})
-}
-`,
-	},
-	{
-		// An arm too wide for its line puts every arm's body on the line
-		// below its `->`. The next format finds the wide arm's literal
-		// already broken, so the arm fits, and the bodies join their arrows
-		// again. gapWidthBrokenLiteralHugsNextTime's cause, at a case arm.
-		// Found by TestFormatKeepsMeaningRotating's first run.
-		name:   "gapCaseArmsBrokenByWidthJoinNextTime",
-		kind:   "idempotence",
-		reason: "first at line \\d+: `[^`]*->` became `[^`]*-> [^`]+`",
-		src: `struct Shape {
-    path: List<Int>
-    expected: String
-    got_rather_long_rather_long_rather_long_rather_long: String
-}
-
-fn decode(r: Result<Int, String>): Result<Int, Shape> {
-    case r {
-        Ok(parsed) -> Ok(parsed)
-        Err(_) -> Err(Shape{path: [], expected: "json", got_rather_long_rather_long_rather_long_rather_long: "invalid"})
-    }
-}
-`,
-	},
-	{
-		// A comment after the `{` of a top-level map destructure, on a
-		// statement that also ends in a comment, moves below the statement
-		// as the file's last line, and the output then ends without its
-		// final newline, which the next format adds. Found by
-		// TestFormatKeepsMeaning when a spec edit moved the spec's map
-		// destructure block to a new line, which changed its layout
-		// variant.
-		name:   "gapMapPatternOpeningCommentEndsFileWithoutNewline",
-		kind:   "idempotence",
-		reason: "first at line \\d+: `` became ``",
-		src: `x = 1
-
-{ // t4
- "a" => y} = m // end
-`,
-	},
-}
+var knownFormatGaps = []formatGap{}
 
 func (gap *formatGap) matches(f formatFailure) bool {
 	return gap.kind == f.kind && regexp.MustCompile(gap.reason).MatchString(f.msg)

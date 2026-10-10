@@ -64,6 +64,10 @@ func (bl *irScalarBuilder) guardReturn(t *ast.If) bool {
 // explicitReturn is shared by conditional exits and the final statement.
 // It preserves the returned operand and the cursor after evaluating it.
 func (bl *irScalarBuilder) explicitReturn(ret *ast.Return) (kind, bool) {
+	if bl.loop != nil {
+		irDeclineNote("a `return` in an Iter.loop callback that is not a guard or an arm")
+		return kindInvalid, false
+	}
 	val, k, ok := ir.NoTemp, kindUnit, true
 	if !isNilNode(ret.Value) {
 		// kindInvalid: sentinel — the first lambda return establishes its result.
@@ -104,6 +108,11 @@ const (
 // with it; in an adapter, `continue` skips and a bare `break` stops. `break v`
 // answers v and stops in both.
 func (bl *irScalarBuilder) ctlReturn(n ast.Node) bool {
+	if bl.loop != nil {
+		// Inside an inline Iter.loop the signal is the loop's.
+		irDeclineNote("a `break` or `continue` in an Iter.loop callback that is not a guard or an arm")
+		return false
+	}
 	pos := bl.g.irNodePos(n)
 	var r *ir.Return
 	switch t := n.(type) {

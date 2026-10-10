@@ -348,6 +348,39 @@ func FilterTestCases(cases []TestCase, line int) []TestCase {
 	return nil
 }
 
+// SourceSelectsTestLine reports whether `--line line` selects a case in src.
+// When it does not, nearest is the selectable line closest to line (a case's
+// first line or a `tests` header, the earlier on a tie), or 0 when src
+// declares no tests. A parse error is err; loading the file reports it.
+func SourceSelectsTestLine(src string, line int) (selected bool, nearest int, err error) {
+	nodes, err := parser.Parse(lexer.Lex(src))
+	if err != nil {
+		return false, 0, err
+	}
+	cases := CollectTestCases(nodes)
+	if len(FilterTestCases(cases, line)) > 0 {
+		return true, 0, nil
+	}
+	distance := func(l int) int {
+		if l > line {
+			return l - line
+		}
+		return line - l
+	}
+	consider := func(l int) {
+		if nearest == 0 || distance(l) < distance(nearest) || distance(l) == distance(nearest) && l < nearest {
+			nearest = l
+		}
+	}
+	for _, tc := range cases {
+		consider(tc.Line)
+		for _, g := range tc.GroupLines {
+			consider(g)
+		}
+	}
+	return false, nearest, nil
+}
+
 func testCaseLineMatches(tc TestCase, line int) bool {
 	endLine := tc.EndLine
 	if endLine == 0 {

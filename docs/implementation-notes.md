@@ -40,27 +40,60 @@ multi-line shape is preserved even when it would fit flat. This is the same
 rule as for `fn` bodies: typing a brace, pressing enter and saving does not
 collapse the layout just made. The preserved shape is local; it does not force
 the surrounding constructs (parameter lists, call argument lists, struct
-literals containing it) to break.
+literals containing it) to break, so a call can hug it (`f(Point{` on one
+line). The exception is a surrounding list already written one element per
+line, its first element on a line below its opening bracket: it stays that
+way when it holds an element that breaks whatever the width. Otherwise a
+list broken for width would hug its literal on the next format. The same
+holds for a function's parameters, a struct and map literal's fields, the
+short form of a block of one statement (`if`, `else`), and a case arm's body
+below its `->` (`keepsBrokenLines` in
+`internal/format/list_comments.go`).
+
+## Formatter: comments in lists
+
+A comment inside a bracketed, comma-separated list belongs to one of its
+items (`ast.ItemComments`): a comment on its own line, or after the opening
+bracket, goes above the next item (`Before`); one ending the line of an item
+or its comma goes after that item's comma (`Trailing`); one on its own line
+after the last item goes below it (`After`). A list item that is a node keeps
+them on its `TriviaCarrier.ItemComments`; a parameter, type parameter and
+struct pattern field have a `Comments` field. A map entry's comments are its
+key's, and a list whose node has an `EndTrivia` (list, vector, set, map and
+struct literals, list and map patterns) keeps the comments before its closing
+bracket there. A call or parameter list with no item keeps its comments in
+`Call.EndTrivia` or `ParamsEndTrivia`. The parser's `listComments` places
+them as each list's loop walks it (`internal/parser/list_comments.go`).
+
+The formatter writes a list holding a comment one item per line
+(`emitCommentedList`), each comment where it was, and with no trailing comma
+where the list's syntax takes none: a lambda's parameters, type arguments
+and type parameters, a tuple or variant pattern, a tuple destructure, a list
+ending in a spread, and a call with one argument. Parentheses around an
+expression holding a comment stay, the comment inside them. A lambda header
+whose only comments each end the line of a parameter other than the last
+keeps its own layout, the first parameter on the `|` line.
 
 ## Formatter: comments with no slot
 
 The parser keeps most comments as trivia on the construct they sit in: a
 statement's leading and trailing comments, the comments before a closing
-`}` (`EndTrivia`), a struct field's leading comments, and so on. A comment
-anywhere else, such as after a parameter list's `(`, after a `with`
-statement's `=` or after a tuple's last element, has no slot of its own.
-`parser.ParseFile` gives each such comment to the node nearest it
-(`attachDangling`): inside the innermost node whose extent contains the
-comment, it goes after the last node that ends before the comment
-(`DanglingAfter`), else before the first node that starts after it
+`}` (`EndTrivia`), a struct field's leading comments, a list item's comments,
+and so on. A comment anywhere else, such as after a `with` statement's `=`,
+after a list spread's `..` or inside the parentheses around a pattern, has no
+slot of its own. `parser.ParseFile` gives each such comment to the node
+nearest it (`attachDangling`): inside the innermost node whose extent
+contains the comment, it goes after the last node that ends before the
+comment (`DanglingAfter`), else before the first node that starts after it
 (`DanglingBefore`). The formatter writes a comment before a node on the line
-above it when the node starts a line, and otherwise at the end of the line
-(a `LineSuffix` document, written just before the next line break). A
-comment after a node goes at the end of the line the node ends on. A comment
-that cannot end its line, because the line already ends in a comment or in
-an opening bracket, goes on a line of its own above the next line of code.
-So `fn f( // why` becomes `fn f(...) {` with `// why` as the body's first
-line, and `t = (1, 2 // why` becomes `t = (1, 2) // why`.
+above it when the node starts a line, and otherwise at the end of the line (a
+`LineSuffix` document, written just before the next line break). A comment
+after a node goes at the end of the line the node ends on. A comment that
+cannot end its line, because the line already ends in a comment or in an
+opening bracket or `|`, goes on a line of its own above the next line of
+code, at that line's indent when it follows an opening bracket, where it
+reads back as the first item's comment. So `with App.logger = // why` then
+`Silent` becomes `with App.logger = Silent // why`.
 
 ## Iteration callbacks
 

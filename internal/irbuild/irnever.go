@@ -127,9 +127,21 @@ func (bl *irScalarBuilder) isNeverOperand(n ast.Node) bool {
 	case *ast.Ident:
 		return bl.localKindOf(t.Name) == kindNever
 	case *ast.Call:
-		return bl.g.fa != nil && bl.g.project(bl.g.fa.ExprTypes[n]) == kindNever
+		if bl.g.fa != nil && bl.g.project(bl.g.fa.ExprTypes[n]) == kindNever {
+			return true
+		}
+		return bl.isNeverLedCall(t)
 	}
 	return false
+}
+
+// isNeverLedCall reports whether call never returns because its first
+// argument is of Infallible and nothing is evaluated before it: in
+// `1 * 31 + Hashable.hash(e)`, the `Err(e)` arm of the derived Hashable of
+// `Result<Int, Infallible>`, the call stops at `e`, so the sum stops there
+// too, whatever type the checker gave the call.
+func (bl *irScalarBuilder) isNeverLedCall(call *ast.Call) bool {
+	return len(call.Args) > 0 && bl.neverCalleeIsName(call.Func) && bl.isNeverOperand(call.Args[0])
 }
 
 // localKindOf is the kind of the local name reads, or kindInvalid when name
@@ -162,6 +174,13 @@ func (bl *irScalarBuilder) lowerNever(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.lowerNever(t.Expr)
 	case *ast.Todo:
 		return bl.todo(t, kindNever)
+	case *ast.Call:
+		// A call the checker typed as something else, which never returns
+		// because its first argument does not: the call's value is that
+		// argument's, of Infallible, and the call itself is never made.
+		if !(bl.g.fa != nil && bl.g.project(bl.g.fa.ExprTypes[n]) == kindNever) && bl.isNeverLedCall(t) {
+			return bl.lowerNever(t.Args[0])
+		}
 	}
 	return bl.lowerExact(n)
 }

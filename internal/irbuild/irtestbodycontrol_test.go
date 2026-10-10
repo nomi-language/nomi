@@ -106,7 +106,7 @@ test "debug keeps the range syntax" {
 		"= Range{end: Some(5), inclusive: True, start: 1}",
 		"= Range{end: None, inclusive: False, start: 3}",
 		"= Range{end: Some(1.5), inclusive: False, start: 0.5}",
-		"1..4\n[1..=2, 3..4]\n",
+		"  1..4\n  [1..=2, 3..4]\n",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the report lacks %q:\n%s", want, out)
@@ -268,8 +268,8 @@ test "a case value binding" {
 
 func TestIRTestBody_ControlFlowAndConstructorsAgree(t *testing.T) {
 	out := irTestBodyVM(t, irTestBodyControlSource, 10)
-	for _, want := range []string{"then\nafter if", "seven\nmedium\nchecked", "defined as:", "hi\nword\nafter case",
-		"Num(3)", "doubled", "not a number: x", "some\n"} {
+	for _, want := range []string{"  then\n  after if", "  seven\n  medium\n  checked", "defined as:", "  hi\n  word\n  after case",
+		"Num(3)", "doubled", "not a number: x", "  some\n"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the report lacks %q:\n%s", want, out)
 		}

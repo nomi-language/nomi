@@ -220,6 +220,13 @@ programs and every seed with a `fn main` (about 9 seconds), and
 `TestKnownRunGaps` pins each known crash in `knownRunGaps`
 (`vmhost/run_gaps_test.go`) by a reproducer.
 
+A program's lowering must not depend on what the process loaded before it.
+`TestLoadOrderDoesNotChangeAProgram` (`vmhost/load_order_test.go`, about 6
+seconds) loads a sample of seeds and generated programs in two child
+processes, one in order and one in reverse, and fails when a program's
+declines, unsupported diagnostic or run transcript differ.
+`NOMI_ORDER_COUNT=100000` checks every seed (about 90 seconds).
+
 **Every expression has a type after checking.** `analysis.UnresolvedExprs`
 lists each value expression of a checked file with no type in
 `FileAnalysis.ExprTypes`, a nil one, or an unsolved variable as its own type
@@ -475,6 +482,15 @@ After changing `tree-sitter-nomi/grammar.js`:
    then `scripts/tree-sitter.sh test`. The script pins tree-sitter-cli 0.20.8,
    which generated the committed `src/parser.c` (ABI 14); a newer CLI
    rewrites it at ABI 15. Never run a bare `npx tree-sitter generate`.
+   Then `go test ./internal/parser -run TestTreeSitterParsesWhatTheParserAccepts`:
+   it parses every tracked `.nomi` file and every tour and spec block the
+   Go parser accepts with tree-sitter, plus the line-break cases in
+   `lineBreakInputs`, and fails on each one with an ERROR or MISSING node,
+   or with a statement list (top level, block, `//!` prompt, case or else
+   arms) whose statement count differs from the Go parser's, unless
+   `treeSitterParityGaps` pins it with a reason. It runs the CLI through
+   `scripts/tree-sitter.sh` and skips when `npx` or a cached copy of the
+   pinned CLI is missing.
 2. Update `tree-sitter-nomi/queries/highlights.scm` (first match wins:
    specific patterns first) and `queries/injections.scm`.
 3. Update `editors/zed/languages/nomi/highlights.scm` by hand. Its priority
@@ -533,8 +549,11 @@ checkout's `tree-sitter-nomi/` path, so local grammar changes need no publish.
 **Neovim.** Load `editors/nvim` from this checkout (lazy.nvim `dir =`) and run
 `make dev-nvim` to compile `editors/nvim/parser/nomi.so`. `make install-nvim`
 copies a snapshot into Neovim's package directory, for people who only use
-Nomi. Nothing under `plugin/` or `ftplugin/` may require neotest. See
-`editors/nvim/README.md`.
+Nomi. Nothing under `plugin/` or `ftplugin/` may require neotest at load
+time; the test keys require it at keypress only when it is installed.
+`make test-nvim` runs the plugin's headless checks
+(`editors/nvim/tests/run.lua`, with neotest, lazy.nvim and snacks.nvim
+stubbed); CI does not run them. See `editors/nvim/README.md`.
 
 **Local editors after a change.** `make dev-editors`
 (`scripts/dev-editors.sh`) installs `nomi` and `nomi-lsp` from this checkout,

@@ -1,5 +1,7 @@
 test "set literals deduplicate inserted values" {
-    s = #{1, 2, 3, 2, 1}
+    one = 1
+    two = 2
+    s = #{one, two, 3, two, one}
 
     assert Set.size(s) == 3
     assert Set.contains?(s, 2)
@@ -44,7 +46,8 @@ test "sets support insertion and algebra operations" {
 }
 
 test "sets deduplicate structural values" {
-    ts = #{(1, 2), (3, 4), (1, 2)}
+    p = (1, 2)
+    ts = #{p, (3, 4), p}
 
     assert Set.size(ts) == 2
 }

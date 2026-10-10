@@ -45,6 +45,7 @@ package irbuild
 import (
 	"fmt"
 	"maps"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -357,8 +358,26 @@ func (bl *irScalarBuilder) testStmts(stmts []ast.Node) bool {
 	for i, s := range stmts {
 		bl.testAfter = stmts[i+1:]
 		bl.testTail = tail && i == len(stmts)-1
+		if leaves, ok := bl.testLeaving(s); leaves {
+			if !ok {
+				irDeclineNote("a test-body region that leaves, outside the shape")
+				irDeclineAtNode(s)
+				return false
+			}
+			// The region never finishes or leaves the case, so the rest of
+			// the run cannot execute.
+			return true
+		}
 		if !bl.testStmt(s) {
 			irDeclineNote(fmt.Sprintf("a test-body statement outside the shape: %T", s))
+			// A statement lowered outside `lower` (a `case`, an
+			// assertion) is where a decline nothing inside it placed is
+			// reported, not the test's line.
+			at := s
+			if es, isExpr := s.(*ast.ExprStmt); isExpr && !isNilNode(es.Expr) {
+				at = es.Expr
+			}
+			irDeclineAtNode(at)
 			return false
 		}
 		if _, returned := s.(*ast.Return); returned {
@@ -367,6 +386,64 @@ func (bl *irScalarBuilder) testStmts(stmts []ast.Node) bool {
 		}
 	}
 	return true
+}
+
+// testLeaving lowers a test-body statement or binding that runs a region
+// every path of which leaves (exitingOperand): an `Iter.loop` with no `break`,
+// an `if` or `case` every arm of which returns or never finishes, or a block
+// whose tail does (blockLeaves), alone or as an operand evaluated whatever the
+// values before it. It lowers those operands for their effects, then the
+// region as a statement: the loop through endlessLoop, after which the
+// builder continues in a fresh block no edge reaches, as after a `return`
+// (testReturn); an `if` or `case` through testRegion and a block through
+// testBlock, whose arms and tail end the case by testReturn, leaving the
+// builder at a join no edge reaches. Nothing after the region runs, so
+// testStmts lowers nothing after it. A region that is the whole statement,
+// `if c { return } else { return }`, is an ordinary statement (testStmt)
+// unless it never finishes. It answers whether s is such a statement, and
+// when it is, whether it lowered. A loop is still bounded by the runner's
+// step budget, which ends a case that never ends.
+func (bl *irScalarBuilder) testLeaving(s ast.Node) (leaves, ok bool) {
+	var e ast.Node
+	switch st := s.(type) {
+	case *ast.ExprStmt:
+		e = st.Expr
+	case *ast.Binding:
+		e = st.Value
+	default:
+		return false, false
+	}
+	prefix, region, found := bl.g.exitingOperand(e)
+	if !found {
+		return false, false
+	}
+	endless := bl.g.neverFinishes(region)
+	if _, isStmt := s.(*ast.ExprStmt); isStmt && region == e && !endless {
+		return false, false
+	}
+	if bl.setupExit != nil || bl.recording > 0 {
+		// A setup's value or an assertion subject reads what it lowers.
+		return true, false
+	}
+	for _, p := range prefix {
+		val, k, _, lowered := bl.lower(p)
+		if !lowered {
+			return true, false
+		}
+		bl.irStatementDrop(p, val, k)
+	}
+	if !endless {
+		tail := bl.testTail
+		bl.testTail = false
+		defer func() { bl.testTail = tail }()
+		line, col := nodePos(region)
+		return true, bl.testStmt(&ast.ExprStmt{Expr: region, Line: line, Col: col})
+	}
+	if _, ok = bl.endlessLoop(region); !ok {
+		return true, false
+	}
+	bl.b = bl.f.NewBlock(bl.g.irNodePos(region), "after-loop")
+	return true, true
 }
 
 // lastPos is the position the exit is blamed on: the body's final statement,
@@ -817,7 +894,10 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 	witnessRow := bl.witnessRow
 	bl.witnessRow = false
 	bl.recording++
+	root := bl.assertRoot
+	bl.assertRoot = t.Expr
 	subj, k, mobile, ok := bl.lower(t.Expr)
+	bl.assertRoot = root
 	bl.recording--
 	if bl.witnessRow {
 		irDeclineNote("an assertion row over a Type witness")
@@ -907,8 +987,81 @@ func (bl *irScalarBuilder) record(at ast.Node, val ir.Temp, k kind, suppressRedu
 	// and this declines the reader for it rather than claiming otherwise.
 	// Retention is unaffected either way: `internal/vm` renders with
 	// `rt.RowText`, which is total.
-	r := ir.NewRecordOperand(bl.g.irNodePos(at), val, renderNode(at), suppressRedundantLiteral)
+	// A span, so a triple-quoted operand's row says where its closing
+	// `"""` is: a String diff numbers the literal's lines from it
+	// (internal/vm's literalFirstLine).
+	r := ir.NewRecordOperand(bl.g.irNodeSpan(at), val, renderNode(at), suppressRedundantLiteral)
+	if before, after, ok := elidedOperand(bl.assertRoot, at); ok {
+		r.WithElision(before, after)
+	}
 	bl.b.Append(r)
+}
+
+// elisionHole stands in for an elided literal while the assertion around it
+// is rendered. An identifier cannot be spelled this way, and it is about as
+// wide as the collapsed literal the report writes in its place.
+const elisionHole = "\x00elided literal\x00"
+
+// elidedOperand is the text of root, the expression an assertion renders,
+// split around lit: a `"""` literal that is one side of root, when root is
+// a binary operator, or one of its arguments, when root is a call. The text
+// is laid out with the literal written as one short word, as the report
+// writes it when a line diff shows the literal's lines (ir.Record's
+// WithElision). ok is false for any other operand.
+func elidedOperand(root, lit ast.Node) (before, after string, ok bool) {
+	if !tripleQuoted(lit) {
+		return "", "", false
+	}
+	hole := &ast.Ident{Name: elisionHole}
+	var elided ast.Node
+	switch r := root.(type) {
+	case *ast.Binary:
+		c := *r
+		switch lit {
+		case r.Left:
+			c.Left = hole
+		case r.Right:
+			c.Right = hole
+		default:
+			return "", "", false
+		}
+		elided = &c
+	case *ast.Call:
+		c := *r
+		c.Args = append([]ast.Node(nil), r.Args...)
+		for i, a := range c.Args {
+			switch {
+			case a == lit:
+				c.Args[i] = hole
+				elided = &c
+			case isNamedArgOf(a, lit):
+				na := *a.(*ast.NamedArg)
+				na.Value = hole
+				c.Args[i] = &na
+				elided = &c
+			}
+		}
+	}
+	if elided == nil {
+		return "", "", false
+	}
+	return strings.Cut(renderNode(elided), elisionHole)
+}
+
+func isNamedArgOf(arg, value ast.Node) bool {
+	na, ok := arg.(*ast.NamedArg)
+	return ok && na.Value == value
+}
+
+// tripleQuoted reports whether n is a `"""` literal, interpolated or not.
+func tripleQuoted(n ast.Node) bool {
+	switch t := n.(type) {
+	case *ast.StringLit:
+		return t.Triple
+	case *ast.StringInterp:
+		return t.Triple
+	}
+	return false
 }
 
 // recordCallArgs builds the `values:` rows a CALL inside an assertion subject

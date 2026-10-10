@@ -92,7 +92,8 @@ func run(this js.Value, args []js.Value) (res any) {
 // formatCaseResults renders the VM's case results as `nomi test` does: a case the
 // VM could not run prints one `BLOCKED <case> <blocker>` line per blocker (the
 // diagnostic `nomi check` gives, its hints indented under it) and
-// counts toward the summary's blocked number.
+// counts toward the summary's blocked number. What a case printed is
+// indented under its line.
 func formatCaseResults(cases []vmhost.CaseResult) string {
 	if len(cases) == 0 {
 		return ""
@@ -115,14 +116,17 @@ func formatCaseResults(cases []vmhost.CaseResult) string {
 					report.WriteByte('\n')
 				}
 			}
+			writeCaseOutput(&report, c.Output)
 		case c.Err != nil:
 			failed++
 			fmt.Fprintf(&report, "FAIL %s\n", name)
+			writeCaseOutput(&report, c.Output)
 			report.WriteString(indent(formatRunError(c.Err), "  "))
 			report.WriteByte('\n')
 		default:
 			passed++
 			fmt.Fprintf(&report, "ok %s\n", name)
+			writeCaseOutput(&report, c.Output)
 		}
 	}
 	verdict := "ok"
@@ -230,6 +234,20 @@ func extractReferenceTestBody(src string) string {
 		body[i] = strings.TrimPrefix(line, "  ")
 	}
 	return strings.Join(body, "\n")
+}
+
+// writeCaseOutput writes what a case printed under its line, indented two
+// spaces with blank lines left blank, as `nomi test` does.
+func writeCaseOutput(report *strings.Builder, output string) {
+	if output == "" {
+		return
+	}
+	for _, line := range strings.Split(strings.TrimSuffix(output, "\n"), "\n") {
+		if line != "" {
+			report.WriteString("  " + line)
+		}
+		report.WriteByte('\n')
+	}
 }
 
 func indent(s, prefix string) string {

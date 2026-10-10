@@ -35,12 +35,13 @@ func TestTypedNilTestFailureIsAPass(t *testing.T) {
 		{"typed nil *EarlyReturnFailure", func(*Frame) TestFailure { return nilEarly }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := runTest(fr, Test{Name: tc.name, Fn: tc.fn}); err != nil {
+			if _, err := runTest(fr, Test{Name: tc.name, Fn: tc.fn}); err != nil {
 				t.Fatalf("a body that produced no failure was reported as failing: %v", err)
 			}
 			var b bytes.Buffer
 			rep := NewTestReporter(&b)
-			rep.Result(tc.name, runTest(fr, Test{Name: tc.name, Fn: tc.fn}))
+			_, err := runTest(fr, Test{Name: tc.name, Fn: tc.fn})
+			rep.Result(tc.name, err, "")
 			if failed := rep.Summary(); failed {
 				t.Fatalf("the reporter counted a failure:\n%s", b.String())
 			}
@@ -63,13 +64,13 @@ func TestEarlyReturnFailureReachesTheReporter(t *testing.T) {
 	body := func(*Frame) TestFailure {
 		return &EarlyReturnFailure{Line: 52, Expr: "try parse(-1)", Value: `Err("negative -1")`}
 	}
-	err := runTest(fr, Test{Name: "try propagates", Fn: body})
+	_, err := runTest(fr, Test{Name: "try propagates", Fn: body})
 	if err == nil {
 		t.Fatal("an EarlyReturnFailure returned from a body did not reach the reporter")
 	}
 	var b bytes.Buffer
 	rep := NewTestReporter(&b)
-	rep.Result("try propagates", err)
+	rep.Result("try propagates", err, "")
 	if failed := rep.Summary(); !failed {
 		t.Fatal("the reporter did not count the failure")
 	}
@@ -91,7 +92,7 @@ func TestEarlyReturnFailureReachesTheReporter(t *testing.T) {
 func TestBlockedCasesAreCountedApartAndOnlyWhenPresent(t *testing.T) {
 	var clean bytes.Buffer
 	rep := NewTestReporter(&clean)
-	rep.Result("f :: a", nil)
+	rep.Result("f :: a", nil, "")
 	if failed := rep.Summary(); failed {
 		t.Fatal("a clean run reported failure")
 	}
@@ -101,8 +102,8 @@ func TestBlockedCasesAreCountedApartAndOnlyWhenPresent(t *testing.T) {
 
 	var b bytes.Buffer
 	rep = NewTestReporter(&b)
-	rep.Result("f :: a", nil)
-	rep.Blocked("f :: b", []string{"f:3:5: this call to `g` is not supported yet, so `fn h` cannot run\nf:3:5: help: pass `g`", "[h] not retained: x"})
+	rep.Result("f :: a", nil, "")
+	rep.Blocked("f :: b", []string{"f:3:5: this call to `g` is not supported yet, so `fn h` cannot run\nf:3:5: help: pass `g`", "[h] not retained: x"}, "")
 	if failed := rep.Summary(); !failed {
 		t.Fatal("a run with a blocked case did not fail")
 	}
@@ -120,8 +121,8 @@ func TestBlockedCasesAreCountedApartAndOnlyWhenPresent(t *testing.T) {
 
 	b.Reset()
 	rep = NewTestReporter(&b)
-	rep.Result("f :: a", errString("boom"))
-	rep.Blocked("f :: b", nil)
+	rep.Result("f :: a", errString("boom"), "")
+	rep.Blocked("f :: b", nil, "")
 	rep.Summary()
 	if !strings.HasSuffix(b.String(), "test result: FAILED. 0 passed, 1 failed, 1 blocked\n") {
 		t.Fatalf("a failing run with a blocked case reported:\n%s", b.String())

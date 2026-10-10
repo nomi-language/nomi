@@ -212,14 +212,31 @@ func mirroredImpl(gens []*gen, iface string, mirror *typeDef) (*gen, *implDef) {
 	if mirror.decl == nil {
 		return nil, nil
 	}
+	// The instances of one generic declaration share its node, so more than
+	// one receiver can match. The def the mirror copies (ownerDef), or one
+	// spelled as the mirror is, is the answer; otherwise only a single match
+	// is, so the choice never rides on map iteration order.
 	for _, g := range gens {
 		if g == nil {
 			continue
 		}
+		var only *implDef
+		matches := 0
 		for recv, impl := range g.implsByIface[iface] {
-			if recv.def != nil && recv.def.foreign == "" && recv.def.decl == mirror.decl {
+			if recv.def == nil || recv.def.foreign != "" || recv.def.decl != mirror.decl {
+				continue
+			}
+			if recv.def == mirror.ownerDef || recv.def.nomi == mirror.nomi {
 				return g, impl
 			}
+			only = impl
+			matches++
+		}
+		if matches == 1 {
+			return g, only
+		}
+		if matches > 1 {
+			return nil, nil
 		}
 	}
 	return nil, nil

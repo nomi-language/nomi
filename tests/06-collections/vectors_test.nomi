@@ -107,7 +107,8 @@ fn collect<T>(source: Iter<T>): Vector<T> {
 test "Iter.to_vector materializes any iterator into a vector" {
     assert [1, 2, 3] |> Iter.to_vector() == #[1, 2, 3]
     assert #["a", "b"] |> Iter.to_vector() == #["a", "b"]
-    assert #{3, 1, 3} |> Iter.to_vector() == #[3, 1]
+    three = 3
+    assert #{3, 1, three} |> Iter.to_vector() == #[3, 1]
     assert {"a" => 1, "b" => 2} |> Iter.to_vector() == #[("a", 1), ("b", 2)]
     assert "héllo" |> Iter.to_vector() == #["h", "é", "l", "l", "o"]
     assert 1..=4 |> Iter.to_vector() == #[1, 2, 3, 4]
@@ -130,4 +131,13 @@ test "Iter.to_vector materializes any iterator into a vector" {
     assert collect(1..3) == #[1, 2]
     assert collect(Countdown{from: 2}) == #[2, 1]
     assert collect(#{"x"}) == #["x"]
+}
+
+test "a vector spread at either end concatenates" {
+    names = #["Ada", "Bo"]
+    assert #[..names, "Noah"] == #["Ada", "Bo", "Noah"]
+    assert #["Noah", ..names] == #["Noah", "Ada", "Bo"]
+    assert #[..names, "Noah"] == Vector.concat(names, #["Noah"])
+    assert #[..#[], 1] == #[1]
+    assert names == #["Ada", "Bo"]
 }

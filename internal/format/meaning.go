@@ -16,7 +16,8 @@ import (
 // something other than src, or nil when it does not. formatted must parse,
 // and its syntax tree must equal src's once src's is put in the order Format
 // writes it in (imports combined and sorted, type body items ordered, a body
-// that is one block flattened, a tail `return` dropped). Positions, comment
+// that is one block flattened, a tail `return` dropped, a parameter's
+// self-typing annotation dropped). Positions, comment
 // placement, blank lines and parentheses are ignored, and so is the other
 // spelling of a parenthesized name in a pattern (bindGroupedNames). Comment
 // text is not: both texts must hold the same comments and doc comments. A
@@ -33,6 +34,7 @@ func SameMeaning(src, formatted string) error {
 	}
 	orig = normalizeImportLayout(orig)
 	normalizeBodies(orig)
+	stripSelfTypingAnnotations(orig)
 	orig = canonicalTypeBodies(collapseSingleEntryBlocks(orig))
 	out, err := parser.Parse(lexer.Lex(formatted))
 	if err != nil {

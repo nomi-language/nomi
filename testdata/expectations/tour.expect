@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 135
+records 137
 declared-cases 18
 failing 0
 C bindings-and-expressions.md:L123
@@ -149,16 +149,24 @@ T [log] hello, World
 T [audit] hello, Alice
 T [log] hello, Bob
 T
-C collections.md:L127
+C collections.md:L100
 E 0
 N 0
-H 915314192fac20a43e0ef9a51bc2a08d089f4b623b523ef1141bc49dea844156
-T dbg line 4: Map.size(config) = 2
-T dbg line 5: config + {"port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
-T dbg line 6: Map.get(config, "host") = Some("localhost")
-T dbg line 7: Map.get(config, "user") = None
+H f2f292ead10e888e5db89734fb84c6a4571cd6558752529ae34071e42e1d41ee
+T dbg line 6: names = #["Ada", "Grace", "Katherine"]
+T dbg line 7: Vector.length(names) = 3
+T dbg line 8: Vector.at(names, 1) = Some("Grace")
+T dbg line 9: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
 T
-C collections.md:L158
+C collections.md:L129
+E 0
+N 0
+H 7d90e5de8b76c61050edf03e6d430c195aac01f1562239e64b40859a8699b5c4
+T dbg line 4: Map.size(config) = 2
+T dbg line 5: Map.get(config, "host") = Some("localhost")
+T dbg line 6: Map.get(config, "user") = None
+T
+C collections.md:L161
 E 0
 N 0
 H 1c913026c1529d24461785db441534a115009fde72f64b7352951816886e3437
@@ -168,7 +176,25 @@ T dbg line 6: Set.contains?(s, 9) = False
 T dbg line 7: s + #{4, 5} = #{1, 2, 3, 4, 5}
 T dbg line 8: s - #{1} = #{2, 3}
 T
-C collections.md:L189
+C collections.md:L188
+E 0
+N 0
+H 980f2b0c1091047fe11e3aecf7ac7a95eab7c7db8b8774a806250811667bbf4a
+T dbg line 7: ["Ada", ..xs] = ["Ada", "Bo"]
+T dbg line 8: #[..v, "Cy"] = #["Bo", "Cy"]
+T dbg line 9: #["Ada", ..v] = #["Ada", "Bo"]
+T dbg line 10: #{..s, "blue"} = #{"red", "blue"}
+T dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
+T
+C collections.md:L216
+E 0
+N 0
+H 86aa770d3eea4710509c105a2cd7cce4ee1e6c814c9c72c7caef1f70049a04b7
+T dbg line 9: {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "blue"}} = Team{members: ["Ada", "Bo"], roster: #["Bo", "Cy"], tags: #{"red", "blue"}}
+T dbg line 13: {..teams, "hawks" => {.., "city" => "Atlanta"}, "kites" => {.., "city" => "Leeds"}} = {"hawks" => {"name" => "Hawks", "city" => "Atlanta"}, "kites" => {"city" => "Leeds"}}
+T dbg line 14: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
+T
+C collections.md:L251
 E 0
 N 0
 H 48f4f538f70bf0c6d1657f46f634c215ca968617f50a7ed2393b0b89347d5c5c
@@ -180,7 +206,7 @@ T   |> Iter.take(3)
 T   |> Iter.to_list()
 T   = [0, 1, 2]
 T
-C collections.md:L216
+C collections.md:L278
 E 0
 N 0
 H bbbf1aebc5d22a08b3e3cf28439beb79c4a286b179f64c381b2f3049483e95ee
@@ -190,29 +216,12 @@ T   |> Iter.map(Codepoint.to_string)
 T   |> Iter.to_list()
 T   = ["a", "b", "c", "d"]
 T
-C collections.md:L238
+C collections.md:L300
 E 0
 N 0
 H 1ff324bcbd4b480cb8e2658ba66e55daf1682cc823b821251fb37478e104b2a2
 T dbg line 2: Range.contains?("a".."m", "h") = True
 T dbg line 3: Range.contains?(0.0..=1.0, 1.0) = True
-T
-C collections.md:L253
-E 0
-N 0
-H 4f0bc3c39691320e70722484e57aa754e382d71d460b84477ce557632ad7943e
-T dbg line 5:
-T   1.0d..=1.3d
-T   |> Range.step_by(0.1d)
-T   |> Iter.to_list()
-T   = [1.0d, 1.1d, 1.2d, 1.3d]
-T
-C collections.md:L275
-E 0
-N 0
-H 43ef97883b36e821c8071cb694da0395cd0bae2256969f3bddb2b4125730ba46
-T dbg line 5: Map.size(m1) = 2
-T dbg line 6: Map.size(m2) = 3
 T
 C collections.md:L31
 E 0
@@ -226,7 +235,24 @@ T squaring 4
 T squaring 5
 T dbg line 14: result = [16, 25]
 T
-C collections.md:L68
+C collections.md:L315
+E 0
+N 0
+H 4f0bc3c39691320e70722484e57aa754e382d71d460b84477ce557632ad7943e
+T dbg line 5:
+T   1.0d..=1.3d
+T   |> Range.step_by(0.1d)
+T   |> Iter.to_list()
+T   = [1.0d, 1.1d, 1.2d, 1.3d]
+T
+C collections.md:L337
+E 0
+N 0
+H 43ef97883b36e821c8071cb694da0395cd0bae2256969f3bddb2b4125730ba46
+T dbg line 5: Map.size(m1) = 2
+T dbg line 6: Map.size(m2) = 3
+T
+C collections.md:L69
 E 0
 N 0
 H 4d8a3e38fa857d66ed39814ed876179b0f9c6838a9d7642afb9d8148cf409b7b
@@ -236,15 +262,6 @@ T   |> Iter.filter(|n| n > 2)
 T   |> Iter.map(|n| n * n)
 T   |> Iter.reduce(|acc = 0, n| acc + n)
 T   = 50
-T
-C collections.md:L99
-E 0
-N 0
-H f2f292ead10e888e5db89734fb84c6a4571cd6558752529ae34071e42e1d41ee
-T dbg line 6: names = #["Ada", "Grace", "Katherine"]
-T dbg line 7: Vector.length(names) = 3
-T dbg line 8: Vector.at(names, 1) = Some("Grace")
-T dbg line 9: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
 T
 C concurrency.md:L1110
 E 0
@@ -409,10 +426,10 @@ T
 C generics.md:L106
 E 0
 N 0
-H b30fd734a9fc5d33dd70bd4f1591c5aedc23f2dff6dd48906738f282a1ae6342
-T dbg line 18: advance(Counter(10), 5) = Counter(15)
+H ea8ef614947e9a99dcd42f98516b23bc2b1a41e1b7279e70be24143c0f9d1d78
+T dbg line 19: advance(Counter(10), 5) = Counter(15)
 T
-C generics.md:L147
+C generics.md:L148
 E 0
 N 0
 H 8cb130f22bf5cc35381cdb2005b1f07846d17fb3903c73d4ad4f6e2a9b994a04
@@ -535,7 +552,7 @@ T Rex says woof
 T Rex says woof
 T 42
 T
-C iteration-and-loops.md:L113
+C iteration-and-loops.md:L126
 E 0
 N 0
 H ecc62c9823f6792ebcff1b7e7d34fa71c123677c06aebe0169f70bb9eefe57a1
@@ -549,7 +566,7 @@ T dbg line 8: countdown = 0
 T dbg line 17: a = 89
 T dbg line 18: b = 144
 T
-C iteration-and-loops.md:L75
+C iteration-and-loops.md:L88
 E 0
 N 0
 H ae8c6c2ef494f9c60ed2078f6531e13621dd3431a16064acc777190c26094019
@@ -852,9 +869,9 @@ T
 C structs-enums-distinct.md:L149
 E 0
 N 0
-H 574a38c1b0babe7b5be1d44008406c30b848d883e15d86125f5e5c0fb27a9578
+H 8acc75629333b1408102ece45d0fea71c205b6d12deb8a2d96f082f031b152ad
 T dbg line 13: {..ada, address: {..ada.address, city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
-T dbg line 14: {..ada, address: {city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
+T dbg line 14: {..ada, address: {.., city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
 T
 C structs-enums-distinct.md:L194
 E 0
@@ -878,17 +895,10 @@ T
 C structs-enums-distinct.md:L257
 E 0
 N 0
-H ea849f5b63fb36831631468ec5c7c5a0f4112df4c923d3c9d703abcaa0a82806
-T dbg line 6: id = Id(42)
-T dbg line 10: raw = 42
-T dbg line 13: again = 42
-T
-C structs-enums-distinct.md:L287
-E 0
-N 0
-H caa2c7537f180822fbe1354f21b84575c40aa9aa16d97536f082e01cd1abf304
-T dbg line 7: state = Expired
-T dbg line 8: Online = Online
+H 3d6ac3fcbf0c99996365e81d5df22af7ccc3df35694c74d9a23623be6559400f
+T dbg line 10: id = Id(42)
+T dbg line 14: n = 42
+T dbg line 16: raw(id) = 42
 T
 C structs-enums-distinct.md:L29
 E 0
@@ -899,7 +909,14 @@ T dbg line 9: alice.age = 30
 T dbg line 13: bob.age = 0
 T dbg line 20: carol = User{name: "Carol", age: 28}
 T
-C structs-enums-distinct.md:L310
+C structs-enums-distinct.md:L295
+E 0
+N 0
+H caa2c7537f180822fbe1354f21b84575c40aa9aa16d97536f082e01cd1abf304
+T dbg line 7: state = Expired
+T dbg line 8: Online = Online
+T
+C structs-enums-distinct.md:L318
 E 0
 N 0
 H dc5d10561384c90bcfd162c700b3d04eea6cc2ac5744299c64bb221a7d67fb62
@@ -907,27 +924,27 @@ T dbg line 14: Direction.North = North
 T dbg line 17: c = Circle(3.0)
 T dbg line 20: r = Rectangle{width: 4.0, height: 5.0}
 T
-C structs-enums-distinct.md:L348
+C structs-enums-distinct.md:L356
 E 0
 N 0
 H 38c6069ff4a4e3f28c2d1c5d6802955c4e74334b35bc0dd40c90dec518aca38e
 T dbg line 21: describe(.North) = "up"
 T dbg line 22: describe(.West) = "left"
 T
-C structs-enums-distinct.md:L390
+C structs-enums-distinct.md:L398
 E 0
 N 0
 H 2173ea1bbc0759a94c9aa3b8ed9eec733df5655d591eb881c020f7cd4a8cc0e5
 T dbg line 18: User.full_name(alice) = "Ada Lovelace"
 T dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
 T
-C structs-enums-distinct.md:L443
+C structs-enums-distinct.md:L451
 E 0
 N 0
 H c2c34c1d0c53993b4411a413b1e27710756f1df5b9d9a071651a1687086dcf10
 T dbg line 22: events = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
 T
-C structs-enums-distinct.md:L489
+C structs-enums-distinct.md:L497
 E 0
 N 0
 H d48d42c1015d3886702000c505a3b231b0b1394774b33069ad6899bd37ea03a6

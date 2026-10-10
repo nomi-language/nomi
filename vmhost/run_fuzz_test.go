@@ -445,7 +445,7 @@ func runBounded(p *Program, plan runPlan, dir string) (out runOutcome) {
 	if found := m.Unretained(roots, boots); len(found) > 0 {
 		return runOutcome{skip: "blocked before it runs: " + p.blocked(found).Error()}
 	}
-	failures, limits := m.RunCases(plan.cases)
+	failures, outputs, limits := m.RunCases(plan.cases)
 	out.class = runOK
 	var b strings.Builder
 	b.WriteString(buf.String())
@@ -467,7 +467,7 @@ func runBounded(p *Program, plan runPlan, dir string) (out runOutcome) {
 		default:
 			o.class = runOK
 		}
-		fmt.Fprintf(&b, "\n--- %s: %s: %s", c.Name(), o.class, errText(failures[i]))
+		fmt.Fprintf(&b, "\n--- %s: %s: %s\n%s", c.Name(), o.class, errText(failures[i]), outputs[i])
 		if o.class > out.class {
 			out.class, out.crash = o.class, o.crash
 		}
@@ -601,11 +601,18 @@ func TestRunInputClassifies(t *testing.T) {
 			}
 		})
 	}
-	// The generator writes no loop and no recursion, so a generated program
-	// that uses its budget is a crash, not a skip.
+	// The generator writes no loop but divergingBlock's
+	// `Iter.loop(|di = ...|`, which counts to a limit of at most 3, and no
+	// recursion but recursiveCall's helpers, which walk one of the
+	// program's short lists or a range of at most two numbers. A generated program
+	// with neither that uses its budget is a crash, not a skip; one with
+	// either is classed as one that may loop.
 	for _, g := range generatedPrograms() {
-		if mayLoop(g.src) {
-			t.Fatalf("%s: mayLoop says it may loop; the generator writes neither loops nor recursion:\n%s", g.name, g.src)
+		if recursiveHelperCalled(g.src) {
+			continue
+		}
+		if mayLoop(strings.ReplaceAll(g.src, "Iter.loop(|di = ", "bounded(|di = ")) {
+			t.Fatalf("%s: mayLoop says it may loop; the generator writes neither recursion nor loops other than divergingBlock's:\n%s", g.name, g.src)
 		}
 	}
 }

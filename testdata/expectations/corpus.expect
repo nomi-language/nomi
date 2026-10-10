@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 271
-declared-cases 828
+records 274
+declared-cases 869
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -462,6 +462,20 @@ T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float equality treats 
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float special values propagate through arithmetic and rounding
 T test result: ok. 7 passed, 0 failed
 T
+C 04-scalars-and-text/interpolate_composite_test.nomi
+E 0
+N 8
+H 5f00d20691be7b29ebb8c0855e5d5897b9452eaaec8f6aec85202b7cefbdd475
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a tuple holding a Maybe renders the variant
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a tuple holding a Result renders the variant
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a tuple holding a collection renders its elements by Display
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a tuple holding a declared type renders through its impl
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a nested tuple renders each level by Display
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: an anonymous record holding a Maybe renders the variant
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a list of tuples holding a Maybe renders each tuple
+T ok <root>/tests/04-scalars-and-text/interpolate_composite_test.nomi :: a type parameter bounded by Display renders a tuple
+T test result: ok. 8 passed, 0 failed
+T
 C 04-scalars-and-text/interpolate_display_value_test.nomi
 E 0
 N 4
@@ -727,8 +741,8 @@ T test result: ok. 5 passed, 0 failed
 T
 C 06-collections/vectors_test.nomi
 E 0
-N 10
-H 48419146ff077a9513f1ba9b2e7fc9463b8ed57b240ac279c0f4aca4d449b442
+N 11
+H c1cecb5da9ec7bf86ddba508fb4a7cfb8fea60e5160a18a3cc3a53849cedcdb7
 T ok <root>/tests/06-collections/vectors_test.nomi :: vector literals construct vectors
 T ok <root>/tests/06-collections/vectors_test.nomi :: vectors convert to lists
 T ok <root>/tests/06-collections/vectors_test.nomi :: vectors convert from lists
@@ -739,7 +753,8 @@ T ok <root>/tests/06-collections/vectors_test.nomi :: vectors iterate with gener
 T ok <root>/tests/06-collections/vectors_test.nomi :: vectors compare display debug and hash structurally
 T ok <root>/tests/06-collections/vectors_test.nomi :: vectors concatenate with +
 T ok <root>/tests/06-collections/vectors_test.nomi :: Iter.to_vector materializes any iterator into a vector
-T test result: ok. 10 passed, 0 failed
+T ok <root>/tests/06-collections/vectors_test.nomi :: a vector spread at either end concatenates
+T test result: ok. 11 passed, 0 failed
 T
 C 07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi
 E 0
@@ -814,6 +829,35 @@ T ok <root>/tests/07-structs-and-enums/field_default_types/field_default_types_t
 T ok <root>/tests/07-structs-and-enums/field_default_types/field_default_types_test.nomi :: correct defaults still construct, dispatch and solve through a type parameter
 T test result: ok. 5 passed, 0 failed
 T
+C 07-structs-and-enums/nested_update/nested_update_test.nomi
+E 0
+N 23
+H 5e0f4f47783d715be0eb2488f269b50c43857b6f94698cb96f297ac1c7654faa
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a struct field changes only the fields it writes
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a brace without `..` replaces the field whole
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: updates nest three deep
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a list field takes `[x, ..]`, the new element then the old list
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a set field takes `#{.., x}`, the old set then the new element
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a vector field takes `..` at either end
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a map field takes `{.., k => v}`, merged over the old map
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` literal at a present key updates the value there
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a missing key starts from an empty collection
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a missing key builds a struct from the fields written and the defaults
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a whole missing chain is built
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a set spread names its base too
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: Struct.update takes `..` at its patch's fields, in a pipeline
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: Struct.update with the patch named first
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: an update in an assertion subject
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a failing assertion shows the updated value
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a brace without `..` at an update must be whole
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a bare `..` outside a field or key of an update has no value
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a missing key needs a default for every field not written
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a bare `..` cannot reach inside a Maybe
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: a `..` at a position of another kind is refused
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: an opaque struct's fields stay closed through a nested `..`
+T ok <root>/tests/07-structs-and-enums/nested_update/nested_update_test.nomi :: hover inside a `..` literal reads the field of the old value
+T test result: ok. 23 passed, 0 failed
+T
 C 07-structs-and-enums/recursive_structs_test.nomi
 E 0
 N 5
@@ -835,7 +879,7 @@ T
 C 07-structs-and-enums/struct_spread/struct_spread_test.nomi
 E 0
 N 23
-H 766eafd2079d3eb7d627b867c8c3cda8d50b65416410793ef96808b8eb2cb8af
+H 2edb265b69734798ff71c9b703922940392ef232b82d2bc533cbd27bc27f8336
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a nominal head gives a nominal result
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an anonymous head gives an anonymous result
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an explicit field overrides the spread's value
@@ -846,12 +890,12 @@ T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: 
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an interface-typed field stays as lenient as in an ordinary literal
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a type-parameter field stays as lenient as in an ordinary literal
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: the spread head is an arbitrary expression
-T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a bare brace at a struct field patches it, and equals Struct.update
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a `..` literal at a struct field updates it, and equals Struct.update
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a nominal literal at a struct field replaces it, and equals Struct.update
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a nested spread is a value, and its own head is the base
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: the patch reaches three levels down
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a deep patch and a shallow one in the same literal
-T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an anonymous-typed field takes a partial and a complete brace alike
+T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an anonymous-typed field takes a `..` update or a whole brace
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: a field generic over a struct patches once the argument is solved
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: the base is unchanged by a deep patch
 T ok <root>/tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi :: an unknown nested field names the NESTED type
@@ -871,10 +915,10 @@ T
 C 07-structs-and-enums/structs/structs_test.nomi
 E 0
 N 8
-H dd02505a5589bb8bd5f4ac9ded6ad203a66040a858815ae94e000f7542462880
+H dd597e679b719bb97af0160d57c3e2d028163929f6bbce2a89f23abf67d8107e
 T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: struct literals expose named fields
 T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: struct update preserves omitted fields
-T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: nested struct update merges anonymous field updates
+T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: nested struct update merges a `..` field update
 T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: struct patterns match and bind fields
 T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: struct literals support field defaults and punning
 T ok <root>/tests/07-structs-and-enums/structs/structs_test.nomi :: struct call form builds from anonymous struct values
@@ -885,12 +929,12 @@ T
 C 07-structs-and-enums/structs/target_typed_test.nomi
 E 0
 N 7
-H 9fad70af786ece30b485452b7bf45bf3d8088605caa5cf5ae0ad173f8ed97dd6
+H 45241d8db64e6a59223f9e53df549426b34d454596f026b239197b7c8691d8a8
 T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a brace literal builds the annotated struct
 T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a brace literal builds a struct field, an argument and a return value
 T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a brace literal builds the element type of a typed list
 T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a brace literal builds a generic struct at its known argument
-T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a spread keeps the patch rule at a struct-typed field
+T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a spread updates a struct-typed field written with `..`
 T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: a partial brace literal names the missing field of the struct
 T ok <root>/tests/07-structs-and-enums/structs/target_typed_test.nomi :: an unknown field names the struct
 T test result: ok. 7 passed, 0 failed
@@ -1751,13 +1795,28 @@ T
 C 13-iterators-and-pipes/loop_control_test.nomi
 E 0
 N 5
-H 3ba88929879953e9313c9915445f82c1ab035e178812f70af85d1d62b7743379
+H 46982e91d46fe862544aad0a7e9552ce2c349050c2a0a2226fa3fe18ea2a543e
 T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: loop advances state through callback return values
 T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: bare loop break returns Unit
 T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: loop break value returns the break value
-T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: stateless loop infers its state type from a break value
-T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: generic break values pin the loop state type
+T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: a loop answers a break value computed from its state
+T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: a generic seed pins the loop state type
 T test result: ok. 5 passed, 0 failed
+T
+C 13-iterators-and-pipes/min_max_test.nomi
+E 0
+N 9
+H 62429e9dd38f7eff59791c9d63afb23b6afcf19c79be0d1c5ecd2eae7503ba3e
+T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: Iter.min and Iter.max answer None for an empty source
+T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: one element is both the least and the greatest
+T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: Iter.min and Iter.max pick the least and greatest Int
+T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: strings order byte-lexicographically
+T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: a derived Comparable enum orders by variant
+T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: of equal elements, the first wins
+T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: Iter.min and Iter.max take any Iter
+T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: Iter.min_by and Iter.max_by compare a key, first on ties
+T ok <root>/tests/13-iterators-and-pipes/min_max_test.nomi :: an empty list literal needs no element type
+T test result: ok. 9 passed, 0 failed
 T
 C 13-iterators-and-pipes/pipe_lambda_test.nomi
 E 0

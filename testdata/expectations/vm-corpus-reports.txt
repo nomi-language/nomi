@@ -22,6 +22,7 @@
 04-scalars-and-text/codepoint_literals_test.nomi
 04-scalars-and-text/codepoints_test.nomi
 04-scalars-and-text/floats_test.nomi
+04-scalars-and-text/interpolate_composite_test.nomi
 04-scalars-and-text/interpolate_display_value_test.nomi
 04-scalars-and-text/ints_test.nomi
 04-scalars-and-text/random_test.nomi
@@ -93,6 +94,7 @@
 13-iterators-and-pipes/iter_values_test.nomi
 13-iterators-and-pipes/iterator_inference_test.nomi
 13-iterators-and-pipes/loop_control_test.nomi
+13-iterators-and-pipes/min_max_test.nomi
 13-iterators-and-pipes/pipe_lambda_test.nomi
 13-iterators-and-pipes/sort_keys_test.nomi
 13-iterators-and-pipes/string_iterators_test.nomi

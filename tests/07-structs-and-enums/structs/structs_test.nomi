@@ -48,13 +48,13 @@ test "struct update preserves omitted fields" {
     assert updated.age == 30
 }
 
-test "nested struct update merges anonymous field updates" {
+test "nested struct update merges a `..` field update" {
     person = Person{
         name: "Alice",
         address: Address{city: "Boston", zip: "02101"},
     }
 
-    moved = Struct.update(person, {address: {city: "NYC"}})
+    moved = Struct.update(person, {address: {.., city: "NYC"}})
     replaced = Struct.update(person, {address: Address{city: "NYC", zip: "10001"}})
 
     assert moved.address.city == "NYC"

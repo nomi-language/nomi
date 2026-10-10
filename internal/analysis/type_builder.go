@@ -1113,8 +1113,18 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 						Line: v.Line,
 						Col:  v.Col,
 						Message: "embeds requires a struct or distinct type, got interface " + iface.Name +
-							"; for an interface-typed payload use a single-payload variant: `| Name " + iface.Name + "`",
+							"; for an interface-typed payload use a single-payload variant: `Name " + iface.Name + "`",
 					})
+				} else if inner, ok := resolved.(*EnumType); ok {
+					// Enums do not embed enums (spec §8 *Embedded Types*):
+					// every variant name traces to one definition. A
+					// typealias naming an enum is that enum. A distinct
+					// over an enum is a distinct type and embeds. The
+					// payload is still recorded, so a construction or a
+					// pattern that names the variant reports nothing more.
+					errs = append(errs, embedsEnumError(v, n.Name, inner.Name))
+					vd.Embedded = resolved
+					vd.DataType = resolved
 				} else {
 					// The embedded type is the payload. A wrapping distinct
 					// type's payload becomes its inner type once that is
@@ -1341,7 +1351,8 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		for k, v := range tp {
 			mtp[k] = v
 		}
-		for k, v := range buildTypeParamsWithFA(m.TypeParams, reg, fa) {
+		mExplicit := buildTypeParamsWithFA(m.TypeParams, reg, fa)
+		for k, v := range mExplicit {
 			mtp[k] = v
 		}
 		params := make([]Type, 0, len(m.Params))
@@ -1417,6 +1428,11 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		// per-method, enforced and recorded at the call site only.
 		whereBounds, whereErrs := resolveWhereBounds(fa, reg, mtp, m.WhereClauses, fmt.Sprintf("interface function '%s'", m.Name))
 		errs = append(errs, whereErrs...)
+		retForCheck := ret
+		if m.ReturnTypeExpr == nil {
+			retForCheck = TypeUnit
+		}
+		errs = append(errs, functionTypeParamErrors(m.Name, m.TypeParams, mExplicit, params, retForCheck, whereBounds)...)
 		methods = append(methods, MethodSig{
 			Name:         m.Name,
 			ParamNames:   paramNames,
@@ -1606,6 +1622,7 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 
 	whereBounds, whereErrs := resolveWhereBounds(fa, reg, tp, n.WhereClauses, fmt.Sprintf("function '%s'", n.Name))
 	errs = append(errs, whereErrs...)
+	errs = append(errs, functionTypeParamErrors(n.Name, n.TypeParams, explicit, params, retType, whereBounds)...)
 
 	ft := &FuncType{Params: params, Return: retType, DefaultCount: defaultCount, WhereBounds: whereBounds}
 	sym.Type = ft
@@ -1888,7 +1905,8 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 		for k, v := range blockTP {
 			tp[k] = v
 		}
-		for k, v := range buildTypeParamsWithFA(fn.TypeParams, reg, fa) {
+		fnExplicit := buildTypeParamsWithFA(fn.TypeParams, reg, fa)
+		for k, v := range fnExplicit {
 			tp[k] = v
 		}
 		sym := fa.Definitions[Pos{Line: fn.Line, Col: fn.Col}]
@@ -1962,6 +1980,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 		}
 		whereBounds, whereErrs := resolveWhereBounds(fa, reg, tp, fn.WhereClauses, fmt.Sprintf("function '%s'", fn.Name))
 		errs = append(errs, whereErrs...)
+		errs = append(errs, functionTypeParamErrors(fn.Name, fn.TypeParams, fnExplicit, params, retType, whereBounds)...)
 		sym.Type = &FuncType{Params: params, Return: retType, DefaultCount: defaultCount, WhereBounds: whereBounds}
 	}
 
@@ -1975,7 +1994,8 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 		for k, v := range blockTP {
 			tp[k] = v
 		}
-		for k, v := range buildTypeParamsWithFA(ef.TypeParams, reg, fa) {
+		efExplicit := buildTypeParamsWithFA(ef.TypeParams, reg, fa)
+		for k, v := range efExplicit {
 			tp[k] = v
 		}
 		sym := fa.Definitions[Pos{Line: ef.Line, Col: ef.Col}]
@@ -2010,6 +2030,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 		}
 		whereBounds, whereErrs := resolveWhereBounds(fa, reg, tp, ef.WhereClauses, fmt.Sprintf("extern function '%s'", ef.Name))
 		errs = append(errs, whereErrs...)
+		errs = append(errs, functionTypeParamErrors(ef.Name, ef.TypeParams, efExplicit, params, retType, whereBounds)...)
 		// Defaults count here as they do for a module-level extern (see
 		// buildExternFuncTypeWithBase). This is the path a member of
 		// `host type T { ... }` takes: the body is lowered into an
@@ -2070,10 +2091,9 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 	//     unbound TypeParam_. Preserves the bare `fn f(x: T): T` shape
 	//     that the rest of the stdlib uses.
 	tp := cloneTypeParamMap(base)
-	if len(n.TypeParams) > 0 {
-		for k, v := range buildTypeParamsWithFA(n.TypeParams, reg, fa) {
-			tp[k] = v
-		}
+	explicit := buildTypeParamsWithFA(n.TypeParams, reg, fa)
+	for k, v := range explicit {
+		tp[k] = v
 	}
 	sym := fa.Definitions[Pos{Line: n.Line, Col: n.Col}]
 	if sym == nil {
@@ -2117,6 +2137,7 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 
 	whereBounds, whereErrs := resolveWhereBounds(fa, reg, tp, n.WhereClauses, fmt.Sprintf("extern function '%s'", n.Name))
 	errs = append(errs, whereErrs...)
+	errs = append(errs, functionTypeParamErrors(n.Name, n.TypeParams, explicit, params, retType, whereBounds)...)
 
 	// An extern param may carry a default, exactly as an ordinary `fn`
 	// param may. What differs is who supplies the value: the declaration
@@ -2278,4 +2299,18 @@ func registerQualifiedTypeMembers(reg *TypeRegistry, prefix string, sym *Symbol)
 			registerQualifiedTypeMembers(reg, name, real)
 		}
 	}
+}
+
+// embedsEnumError is the error for `embeds Inner` in the enum outer when
+// Inner names the enum inner, placed on the embedded name. Its help gives
+// the variant that carries the enum as its payload.
+func embedsEnumError(v ast.EnumVariant, outer, inner string) TypeError {
+	msg := "`" + inner + "` is an enum, and an enum cannot be embedded in another enum"
+	if v.Name != inner {
+		msg = "`" + v.Name + "` names the enum `" + inner + "`, and an enum cannot be embedded in another enum"
+	}
+	return TypeError{
+		Line: v.Line, Col: v.Col, EndLine: v.Line, EndCol: v.Col + len(v.Name),
+		Message: msg,
+	}.WithHint("to hold a `" + inner + "` in `" + outer + "`, declare a variant whose payload is the enum: `" + v.Name + " " + v.Name + "`")
 }

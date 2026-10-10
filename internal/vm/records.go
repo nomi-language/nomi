@@ -473,6 +473,13 @@ func projValue(fr *frame, n *ir.Proj, subj any) (any, error) {
 		}
 		return xs.Head, nil
 
+	case ir.ProjStrSuffix:
+		s, ok := subj.(string)
+		if !ok || n.Index() > len(s) {
+			return nil, fmt.Errorf("vm: %s: %s reads %T past a passed prefix test", fr.fn.Name(), n, subj)
+		}
+		return s[n.Index():], nil
+
 	case ir.ProjEnumField:
 		v, err := enumFieldValue(n, subj)
 		if err != nil {

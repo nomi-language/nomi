@@ -100,6 +100,12 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 		}
 
 		mod := owners[fn]
+		if vmNeverParam(fn) {
+			key := vmStdDeclKey(fn, mod, byBody[fn])
+			failures[vmNeverParamClass] = append(failures[vmNeverParamClass], key)
+			lines = append(lines, key+"\t"+vmNeverParamClass)
+			continue
+		}
 		m := vm.NewProgram(mod, modules, io.Discard).WithHosts(testHosts)
 		var lastErr error
 		okAny := false

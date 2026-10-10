@@ -60,22 +60,26 @@ fn main() {
     io.print("read at a shorter scale = ${found(by_price, 1.5d)}")
     io.print("miss = ${found(by_price, 1.51d)}")
 
-    // COLLAPSE against RETENTION: size, winning value, retained spelling.
-    collapsed = {1.50d => "a", 1.5d => "b"}
+    // COLLAPSE against RETENTION: size, winning value, retained spelling. The
+    // later key is a binding: two equal constant keys are a compile error.
+    short = 1.5d
+    collapsed = {1.50d => "a", short => "b"}
     io.print("collapsed size = ${Map.size(collapsed)}")
     io.print("collapsed = ${collapsed}")
     io.print("collapsed get = ${found(collapsed, 1.5d)}")
 
     // POSITION, which a one-entry map cannot show: the collapsed key keeps the
     // FIRST write's slot while carrying the LAST write's spelling.
-    positioned = {3d => "x", 1.50d => "a", 4d => "y", 1.5d => "b"}
+    positioned = {3d => "x", 1.50d => "a", 4d => "y", short => "b"}
     io.print("positioned = ${positioned}")
 
     // Three scales, one normalised mantissa: equality keeps them apart.
     io.print("three scales one mantissa = ${Map.size({1.5d => 1, 15d => 2, 0.15d => 3})}")
 
     // SIGNED ZERO against SCALE. One element at three spellings, read at a fourth.
-    zeros = {0d => "z", -0.0d => "n", 0.00d => "p"}
+    negative_zero = -0.0d
+    wide_zero = 0.00d
+    zeros = {0d => "z", negative_zero => "n", wide_zero => "p"}
     io.print("zeros size = ${Map.size(zeros)}")
     io.print("zeros = ${zeros}")
     io.print("zeros get = ${found(zeros, 0.000d)}")
@@ -91,7 +95,7 @@ fn main() {
     io.print("list miss = ${found_list(lists, [1.5d])}")
 
     // SET against MAP: the same pair reached through a set literal.
-    s = #{1.50d, 1.5d, 2.00d}
+    s = #{1.50d, short, 2.00d}
     io.print("set size = ${Set.size(s)}")
     io.print("set = ${s}")
     io.print("set has other scale = ${Set.contains?(s, 1.500d)}")

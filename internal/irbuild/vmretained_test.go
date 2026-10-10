@@ -225,6 +225,22 @@ func (l vmRetainedList) check(t *testing.T, lines []string) {
 // synthesis, not of the machine.
 const vmProbeArgClass = "PROBE: a synthesized argument is not a value of the declared type"
 
+// vmNeverParamClass is a function with a parameter of Infallible, which has
+// no values, so no call can pass one an argument (`impl Display for
+// Infallible`). The probe does not run it: any argument it made up would be a
+// value of another type.
+const vmNeverParamClass = "NEVER: a parameter is Infallible, so nothing can call it"
+
+// vmNeverParam reports whether fn takes a parameter of Infallible.
+func vmNeverParam(fn *ir.Func) bool {
+	for _, p := range fn.Params() {
+		if t := fn.TempType(p.Temp); t != nil && t.Kind() == ir.KindNever {
+			return true
+		}
+	}
+	return false
+}
+
 // vmProbeShapeClass is a probe argument that lacks a field a callee reads
 // after the value crossed a container: an artifact of argument synthesis,
 // not of the machine.
@@ -294,8 +310,8 @@ func vmArgShapes(mod *ir.Module, f *ir.Func, links ...*ir.Module) [][]any {
 // parameter to that parameter's own temporary.
 //
 // A destructuring parameter's projection reads the parameter's temporary
-// directly, but a distinct's unwrap written in the body (`String(e)`) reads
-// `e` through an `ir.Ref` first, so the projection's subject is the Ref's
+// directly, but a destructuring binding written in the body (`Email(s) = e`)
+// reads `e` through an `ir.Ref` first, so the projection's subject is the Ref's
 // destination. Without this hop such a parameter is fed a bare scalar where
 // the graph asks for a distinct. A call argument is a local read too, so the
 // forward edge `vmShaper.index` builds resolves through the same hop.
@@ -836,13 +852,18 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 			}
 		}
 
+		key := e.decl + ":" + fn.Name()
+		if vmNeverParam(fn) {
+			failures[vmNeverParamClass] = append(failures[vmNeverParamClass], e.rel+":"+fn.Name())
+			lines = append(lines, key+"\t"+vmNeverParamClass)
+			continue
+		}
 		res, answered, bubbleErr := vmInBubble(func() vmProbeResult { return vmProbe(e) })
 		if !answered {
 			res = vmProbeResult{err: vmBlockedError(fn, bubbleErr)}
 		} else if bubbleErr != nil {
 			t.Logf("  %s:%s answered, and then its bubble reported: %v", e.rel, fn.Name(), bubbleErr)
 		}
-		key := e.decl + ":" + fn.Name()
 		if res.ran {
 			ran++
 			lines = append(lines, key+"\tran")
@@ -918,6 +939,7 @@ func vmCheckBuckets(t *testing.T, failures map[string][]string) {
 		vmProbeShapeClass:                                          true,
 		"TODO: the body is not written yet":                        true,
 		vmProbeArgClass:                                            true,
+		vmNeverParamClass:                                          true,
 	}
 	for class, members := range failures {
 		if !known[class] && !strings.HasPrefix(class, "VOCABULARY") && !strings.HasPrefix(class, "IDENTITY") {

@@ -44,6 +44,7 @@ package irbuild
 // compares — is the order the rows are appended in.
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -84,7 +85,15 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 		}
 		return bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
 	}
-	lhs, lk, mobile, ok := bl.lower(t.Left)
+	wantL, widenL, wantR, widenR := bl.embedsWidenedOperand(t, op)
+	var lhs ir.Temp
+	var lk kind
+	var mobile, ok bool
+	if widenL {
+		lhs, lk, mobile, ok = bl.lowerWant(t.Left, wantL)
+	} else {
+		lhs, lk, mobile, ok = bl.lower(t.Left)
+	}
 	if !ok {
 		return no()
 	}
@@ -101,7 +110,9 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 	var rhs ir.Temp
 	var rk kind
 	var rmobile bool
-	if bl.bareEqualityOperand(t.Right, op) {
+	if widenR {
+		rhs, rk, rmobile, ok = bl.lowerWant(t.Right, wantR)
+	} else if bl.bareEqualityOperand(t.Right, op) {
 		// `x == None`: the bare variant takes the other operand's type, as an
 		// argument or a return takes its parameter's.
 		rhs, rk, rmobile, ok = bl.preludeBareValue(t.Right, lk)
@@ -125,6 +136,36 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 		return no()
 	}
 	return bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
+}
+
+// embedsWidenedOperand says which operand of an equality is lowered at the
+// other's type, when the checker typed the two apart only by an embedded
+// value inside a generic type: `Some(circle) == Some(Shape.Dot)` compares a
+// Maybe<Circle> with a Maybe<Shape>. The operand whose type is assignable to
+// the other's (TypeAssignable) is the narrower, and it is lowered at the
+// wider type, so its embedded values widen where they sit, as they do where
+// a Maybe<Shape> is expected. The two values then have one runtime shape. A
+// value of the embedded type itself beside its enum (`circle == shape`) is
+// left to compareOperands, which widens it after lowering.
+func (bl *irScalarBuilder) embedsWidenedOperand(t *ast.Binary, op ir.CompareOp) (wantL kind, widenL bool, wantR kind, widenR bool) {
+	if op.Ordering() {
+		return kindInvalid, false, kindInvalid, false
+	}
+	tl, tr := bl.g.checkedExprType(t.Left), bl.g.checkedExprType(t.Right)
+	if tl == nil || tr == nil || analysis.TypesIdentical(tl, tr) {
+		return kindInvalid, false, kindInvalid, false
+	}
+	l, r := bl.g.project(tl), bl.g.project(tr)
+	if l == r || l.tag == tagInvalid || r.tag == tagInvalid || irEmbeddedIn(l, r) || irEmbeddedIn(r, l) {
+		return kindInvalid, false, kindInvalid, false
+	}
+	switch {
+	case analysis.TypeAssignable(tr, tl):
+		return r, true, kindInvalid, false
+	case analysis.TypeAssignable(tl, tr):
+		return kindInvalid, false, l, true
+	}
+	return kindInvalid, false, kindInvalid, false
 }
 
 // bareEqualityOperand reports an equality operand that is a bare payload-free
@@ -238,8 +279,13 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 			}
 		}
 		if _, isVector := vectorElem(lk); !isVector || bl.g.implsByIface["Comparable"][lk] != nil {
-			return bl.rankedCompare(t, op, lhs, rhs, lk)
+			return bl.rankedCompare(t, op, lhs, rhs, lk, rmobile)
 		}
+	}
+	if v, ok := bl.holeCompare(t, op, lk); ok {
+		// `item < m` over a type parameter the call left unsolved; see
+		// irholecall.go.
+		return v, kindBool, false, true
 	}
 	if lk == kindUnit && !op.Ordering() {
 		// Unit has one value, so `==` is True and `!=` False once both
@@ -420,14 +466,30 @@ func (bl *irScalarBuilder) shortCircuit(t *ast.Binary) (ir.Temp, kind, bool, boo
 	return dst, kindBool, true, true
 }
 
-// rankedCompare lowers an ordering operator on a named type through its local
-// `impl Comparable`, the first route for an ordering operator: the impl's compare
-// answers an Ordering and the operator tests its rank.
-func (bl *irScalarBuilder) rankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind) (ir.Temp, kind, bool, bool) {
+// rankedCompare lowers an ordering operator on a named type through its
+// `impl Comparable`, the first route for an ordering operator: the impl's
+// compare answers an Ordering and the operator tests its rank. The impl is
+// this file's; the program's own when this body is a std generic instance at
+// a program type (`item < m` in `Iter.min<Level>`, which callerImplPlan
+// answers as it answers `Comparable.compare(item, m)` there); or a sibling
+// file's.
+func (bl *irScalarBuilder) rankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	ord := stdEnumKind(stdEnumOrdering)
 	impl := bl.g.implsByIface["Comparable"][k]
 	if impl == nil {
+		pair := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
+		args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}
+		if p := bl.callerImplPlan(pair, args, "Comparable", "compare", k); p != nil && p.result == ord {
+			v, _, _, ok := bl.qualEmit(pair, args, p)
+			if !ok {
+				return no()
+			}
+			c := ir.NewCompareRank(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, v)
+			bl.b.Append(c)
+			bl.side(c.Dst(), irScalarSide{k: kindBool})
+			return c.Dst(), kindBool, false, true
+		}
 		// The impl is in a sibling file (`impl Comparable for Widget` beside
 		// Widget's declaration): its retained compare, as a sort takes it.
 		sym := bl.siblingCompareSym(k)

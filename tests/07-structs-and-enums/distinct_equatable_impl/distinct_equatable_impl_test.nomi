@@ -20,7 +20,9 @@ type Slug String
 
 impl Equatable for Slug {
     fn equal?(a: Slug, b: Slug): Bool {
-        String.to_lower(String(a)) == String.to_lower(String(b))
+        Slug(x) = a
+        Slug(y) = b
+        String.to_lower(x) == String.to_lower(y)
     }
 }
 

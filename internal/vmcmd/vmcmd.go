@@ -63,8 +63,9 @@ func Run(absPath string, stdout, stderr io.Writer, stdin io.Reader, args []strin
 
 // Tester runs test files the way `nomi test` does, into one report.
 type Tester struct {
-	// Out is where a case's own output goes: stdout in text mode, stderr in
-	// json mode, where stdout carries only records.
+	// Out is where output written outside every case goes (a task that
+	// outlives its case): stdout in text mode, stderr in json mode, where
+	// stdout carries only records. A case's own output is reported under it.
 	Out io.Writer
 	// ReportOut is the stream Rep writes to. An FFI wrapper's report lines
 	// are forwarded there; nil means Out, which is the same stream in text
@@ -115,7 +116,7 @@ func (t *Tester) File(file string, opts vmhost.TestOptions) int {
 	}
 	if !res.FastPath {
 		// The wrapper's stdout is its report, so it goes where Rep writes;
-		// in json mode a case's own output arrives on the wrapper's stderr.
+		// a case's own output is in the report, under the case.
 		reportOut := t.ReportOut
 		if reportOut == nil {
 			reportOut = t.Out

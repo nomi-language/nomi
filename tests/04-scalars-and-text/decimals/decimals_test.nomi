@@ -94,11 +94,13 @@ test "decimal ranges can be queried and stepped" {
 }
 
 test "decimal set and map keys are scale insensitive" {
-    assert #{1.50d, 1.5d, 2.00d}
+    short = 1.5d
+
+    assert #{1.50d, short, 2.00d}
         |> Set.size()
         |> Int.equal?(2)
 
-    by_price: Map<Decimal, String> = {1.50d => "a", 1.5d => "b"}
+    by_price: Map<Decimal, String> = {1.50d => "a", short => "b"}
     stored = by_price |> Map.get(1.500d)
 
     assert Map.size(by_price) == 1

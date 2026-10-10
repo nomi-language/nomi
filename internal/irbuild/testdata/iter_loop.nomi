@@ -58,8 +58,10 @@ fn main() {
     _bare = Iter.loop(|| { break })
     io.print("bare break terminated")
 
-    answer = Iter.loop(|| { break 42 })
-    io.print("stateless break: ${answer}")
+    Iter.loop(|| {
+        io.print("stateless loop ran")
+        break
+    })
 
     seeded = Iter.loop(|n = outer()|
         if n >= 9 {

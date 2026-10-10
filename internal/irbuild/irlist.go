@@ -241,34 +241,159 @@ func irNestedEmbeds(k kind) bool {
 }
 
 // literalParts is the checker's type of an unannotated collection literal,
-// projected, when one of its type arguments holds an embedded type's enum
-// below its top (`[(1, c), (2, shape)]` is a `List<(Int, Shape)>`): its
-// items are then lowered against those parts, so each embedded value is
-// widened where it sits. It answers nil otherwise; a top-level join
-// (`[c, shape]`) is found from the lowered items (irEmbedsJoin).
+// projected, when one of its type arguments holds, below its top, an
+// embedded type's enum (`[(1, c), (2, shape)]` is a `List<(Int, Shape)>`)
+// or a collection (`[(1, []), (2, [3])]` is a `List<(Int, List<Int>)>`):
+// its items are then lowered against those parts, so each embedded value
+// is widened, and each empty collection typed, where it sits. It answers
+// nil otherwise; a top-level join (`[c, shape]`, `[[], [1]]`) is found from
+// the lowered items (irEmbedsJoin, literalItemsCoerced).
 func (bl *irScalarBuilder) literalParts(at ast.Node, of tag) []kind {
-	k := bl.g.project(bl.g.checkedExprType(at))
-	var parts []kind
-	switch {
-	case of == tagList && k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1:
-		parts = k.comp.parts
-	case of == tagMap && k.tag == tagMap && k != kindEmptyMap && k.comp != nil && len(k.comp.parts) == 2:
-		parts = k.comp.parts
-	case of == tagEmptySet:
-		if elem, set := setElem(k); set && k != kindEmptySet {
-			parts = []kind{elem}
-		}
-	case of == tagEmptyVector:
-		if elem, vector := vectorElem(k); vector && k != kindEmptyVector {
-			parts = []kind{elem}
-		}
-	}
+	parts := bl.checkedLiteralParts(at, of)
 	for _, p := range parts {
-		if irNestedEmbeds(p) {
+		if irNestedEmbeds(p) || (irNestedCollection(p) && irFullyTyped(p)) {
 			return parts
 		}
 	}
 	return nil
+}
+
+// irTypeArgs is k's parts or type arguments: a tuple's or record's parts, a
+// list's element, a map's key and value, or a generic instance's arguments.
+func irTypeArgs(k kind) []kind {
+	switch k.tag {
+	case tagTuple, tagAnonStruct, tagList, tagMap, tagSeq:
+		if k.comp != nil {
+			return k.comp.parts
+		}
+	case tagNamed:
+		if d := k.def; d != nil {
+			switch {
+			case d.preludeArgs != nil:
+				return d.preludeArgs
+			case d.genStructArgs != nil:
+				return d.genStructArgs
+			case d.genHostArgs != nil:
+				return d.genHostArgs
+			case d.genericArgs != nil:
+				return d.genericArgs
+			}
+		}
+	}
+	return nil
+}
+
+// irIsCollection reports whether k is a list, map, set or vector, typed or
+// not: a type whose literal may be written empty.
+func irIsCollection(k kind) bool {
+	switch k.tag {
+	case tagList, tagMap, tagEmptyList, tagEmptyMap, tagEmptySet, tagEmptyVector:
+		return true
+	}
+	_, set := setElem(k)
+	_, vector := vectorElem(k)
+	return set || vector
+}
+
+// irNestedCollection reports whether k holds a collection below its top:
+// `(Int, List<Int>)`, `List<List<Int>>`, `Maybe<Set<Int>>`. An item of such
+// an element type may hold an empty collection literal (`(1, [])`) whose own
+// kind says nothing of its element type.
+func irNestedCollection(k kind) bool {
+	for _, p := range irTypeArgs(k) {
+		if irIsCollection(p) || irNestedCollection(p) {
+			return true
+		}
+	}
+	return false
+}
+
+// irTypedWithin reports whether a literal expected to hold items of kind k
+// lowers each item against k: k is or holds an embedded type's enum, which
+// an item's value widens into where it sits, or k is or holds a collection,
+// which an empty collection literal in an item (`[]`, `(1, [])`) is typed
+// as where it sits. A generic instance holding such an enum in its type
+// arguments (`Maybe<Shape>`, `Box<Shape>`) counts too: an item that
+// constructs one (`[Some(c)]`) is built at k, so its embedded value widens.
+func irTypedWithin(k kind) bool {
+	return irHoldsEmbeds(k) || irArgsHoldEmbeds(k) || ((irIsCollection(k) || irNestedCollection(k)) && irFullyTyped(k))
+}
+
+// irArgsHoldEmbeds reports whether a type argument of k, at any depth, is
+// or holds an enum with an `embeds` variant: Maybe<Shape>, Box<(Int, Shape)>.
+func irArgsHoldEmbeds(k kind) bool {
+	for _, p := range irTypeArgs(k) {
+		if irHoldsEmbeds(p) || irArgsHoldEmbeds(p) {
+			return true
+		}
+	}
+	return false
+}
+
+// irFullyTyped reports whether k names a type everywhere: no part of it is
+// an untyped literal's kind or has no representation.
+func irFullyTyped(k kind) bool {
+	if k.tag == tagInvalid || untypedLiteral(k) {
+		return false
+	}
+	for _, p := range irTypeArgs(k) {
+		if !irFullyTyped(p) {
+			return false
+		}
+	}
+	return true
+}
+
+// checkedLiteralParts is the checker's type of collection literal at,
+// projected, as its type arguments: the element of a list (of tagList), set
+// (tagEmptySet) or vector (tagEmptyVector), or a map's key and value
+// (tagMap). It answers nil when the checked type is not that collection.
+func (bl *irScalarBuilder) checkedLiteralParts(at ast.Node, of tag) []kind {
+	k := bl.g.project(bl.g.checkedExprType(at))
+	switch {
+	case of == tagList && k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1:
+		return k.comp.parts
+	case of == tagMap && k.tag == tagMap && k != kindEmptyMap && k.comp != nil && len(k.comp.parts) == 2:
+		return k.comp.parts
+	case of == tagEmptySet:
+		if elem, set := setElem(k); set && k != kindEmptySet {
+			return []kind{elem}
+		}
+	case of == tagEmptyVector:
+		if elem, vector := vectorElem(k); vector && k != kindEmptyVector {
+			return []kind{elem}
+		}
+	}
+	return nil
+}
+
+// literalItemsCoerced is part j of collection literal at's checked type
+// (checkedLiteralParts), with each lowered item coerced to it in place
+// (coerceEmpty). It is the element kind of a set or vector literal, or a map
+// literal's key or value kind, whose lowered items do not join because one
+// is still an empty collection (`#{[], [1]}`, `{1 => [], 2 => [1]}`), as a
+// list literal's items take theirs. ok is false when the checked type is not
+// that collection, is itself an untyped literal's, or an item does not
+// coerce; values and kinds are then left as they were.
+func (bl *irScalarBuilder) literalItemsCoerced(at ast.Node, of tag, j int, items []ast.Node, values []ir.Temp, kinds []kind) (kind, bool) {
+	parts := bl.checkedLiteralParts(at, of)
+	if j >= len(parts) || untypedLiteral(parts[j]) {
+		return kindInvalid, false
+	}
+	want := parts[j]
+	coerced := make([]ir.Temp, len(values))
+	for i := range values {
+		v, k, ok := bl.coerceEmpty(items[i], values[i], kinds[i], want)
+		if !ok || k != want {
+			return kindInvalid, false
+		}
+		coerced[i] = v
+	}
+	copy(values, coerced)
+	for i := range kinds {
+		kinds[i] = want
+	}
+	return want, true
 }
 
 // irEmbedsJoin is the kind an unannotated literal's items join to, as the
@@ -355,17 +480,66 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 		}
 		return v, have, false
 	}
-	list := have == kindEmptyList && want.tag == tagList && irRetainedValueKind(want)
-	mapValue := have == kindEmptyMap && want.tag == tagMap && irRetainedMapKind(want)
-	vector := have == kindEmptyVector && want != kindEmptyVector && (irRetainedVectorKind(want) || bl.g.irVectorValueKind(want))
-	set := have == kindEmptySet && want != kindEmptySet && irRetainedSetKind(want)
-	if !list && !mapValue && !vector && !set {
+	if !bl.g.emptyRetypes(have, want) {
+		// `w: Maybe<Shape> = m` for `m: Maybe<Circle>`: a value built at
+		// the narrower type is rebuilt at the wider one
+		// (irembedsrebuild.go).
+		if rebuilt, ok := bl.rebuildWidened(at, v, have, want); ok {
+			return rebuilt, want, true
+		}
 		return v, have, false
 	}
 	n := ir.NewCopy(bl.g.irNodePos(at), bl.f.NewTemp(), v)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: want, copy: irCopyEmptyValue})
 	return n.Dst(), want, true
+}
+
+// emptyRetypes reports whether a value of kind have is a value of kind want
+// once each empty collection in it takes want's type there: have is an
+// untyped empty list, map, set or vector and want that collection, or both
+// are the same tuple, record or collection shape whose parts each retype
+// (`(Int, [])` to `(Int, List<Int>)`, `List<List<?>>` to
+// `List<List<Int>>`). An empty collection's VM value holds no element type,
+// so neither does a structural value around one, and the value is the same.
+// A declared generic instance (`Box<T>`, `Maybe<T>`) is not looked inside:
+// its value is built at its type arguments.
+func (g *gen) emptyRetypes(have, want kind) bool {
+	if have == want {
+		return true
+	}
+	switch have {
+	case kindEmptyList:
+		return want.tag == tagList && irRetainedValueKind(want)
+	case kindEmptyMap:
+		return want.tag == tagMap && want != kindEmptyMap && irRetainedMapKind(want)
+	case kindEmptyVector:
+		return want != kindEmptyVector && (irRetainedVectorKind(want) || g.irVectorValueKind(want))
+	case kindEmptySet:
+		return want != kindEmptySet && irRetainedSetKind(want)
+	}
+	if he, set := setElem(have); set {
+		we, wset := setElem(want)
+		return wset && want != kindEmptySet && g.emptyRetypes(he, we) && irRetainedSetKind(want)
+	}
+	if he, vector := vectorElem(have); vector {
+		we, wvector := vectorElem(want)
+		return wvector && want != kindEmptyVector && g.emptyRetypes(he, we) && (irRetainedVectorKind(want) || g.irVectorValueKind(want))
+	}
+	switch have.tag {
+	case tagTuple, tagAnonStruct, tagList, tagMap:
+	default:
+		return false
+	}
+	if want.tag != have.tag || have.comp == nil || want.comp == nil || len(have.comp.parts) != len(want.comp.parts) || !slices.Equal(have.comp.names, want.comp.names) {
+		return false
+	}
+	for i := range have.comp.parts {
+		if !g.emptyRetypes(have.comp.parts[i], want.comp.parts[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func (bl *irScalarBuilder) lowerWant(at ast.Node, want kind) (ir.Temp, kind, bool, bool) {
@@ -400,6 +574,16 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		// expected instance, as a bare `None` is.
 		if d, v, ok := bl.genericVariant(fa, nil, want); ok && v.kind == "bare" {
 			return bl.variantValue(fa, d, v, nil, true)
+		}
+	}
+	if c, isCall := at.(*ast.Call); isCall {
+		if v, k, mobile, ok := bl.genericVariantCallWant(c, want); ok {
+			return v, k, mobile, true
+		}
+	}
+	if sl, isLit := at.(*ast.StructLit); isLit {
+		if v, k, mobile, ok := bl.genericLitWant(sl, want); ok {
+			return v, k, mobile, true
 		}
 	}
 	if c, isCall := at.(*ast.Call); isCall && want.tag == tagNamed && want.def != nil && want.def.preludeOf != nil {
@@ -440,31 +624,39 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 	if tl, isTuple := at.(*ast.TupleLit); isTuple && want.tag == tagTuple {
 		return bl.tupleMakeWant(tl, want)
 	}
+	if sl, isRecord := at.(*ast.StructLit); isRecord && sl.TypeName == nil && sl.Spread == nil && want.tag == tagAnonStruct && bl.g.targetStruct(sl) == nil {
+		// `{a: []}` where a `{a: List<Int>}` is expected: each field's value
+		// is lowered against its field type, as a tuple's items are.
+		return bl.recordMakeOf(sl, want)
+	}
 	if ll, isList := at.(*ast.ListLit); isList && want.tag == tagList && want.comp != nil && len(want.comp.parts) == 1 &&
-		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc || irHoldsEmbeds(want.comp.parts[0])) && ll.TypeName == nil && len(ll.Items) != 0 {
+		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc || irTypedWithin(want.comp.parts[0])) && ll.TypeName == nil && len(ll.Items) != 0 {
 		// `[xs, [1, 2]]` where a `List<Iter<Int>>` is expected: each element
 		// enters the declared `Iter<T>`. `[cnt]` where a
 		// `List<(List<Int>) -> Int>` is: each function value enters the
 		// declared function type, through an adapter when its parameters are
 		// wider (irfuncwiden.go). `[c]` where a `List<Shape>` is, or
 		// `[(1, c)]` where a `List<(Int, Shape)>` is: each embedded value
-		// widens where it sits.
+		// widens where it sits. `[[]]` where a `List<List<Int>>` is: each
+		// empty collection is typed where it sits.
 		return bl.listMakeOf(ll, ll.Items, nil, want.comp.parts[0])
 	}
 	// `#{c}`, `#[c]` or `{1 => c}` where a collection holding an embedded
 	// type's enum is expected: each embedded value widens where it sits.
+	// `#{(1, [])}` where a `Set<(Int, List<Int>)>` is: each empty
+	// collection is typed where it sits.
 	if sl, isSet := at.(*ast.SetLit); isSet && len(sl.Items) != 0 {
-		if elem, set := setElem(want); set && want != kindEmptySet && irHoldsEmbeds(elem) {
+		if elem, set := setElem(want); set && want != kindEmptySet && irTypedWithin(elem) {
 			return bl.setMakeOf(sl, elem)
 		}
 	}
 	if vl, isVector := at.(*ast.VectorLit); isVector && len(vl.Items) != 0 {
-		if elem, vector := vectorElem(want); vector && want != kindEmptyVector && irHoldsEmbeds(elem) {
+		if elem, vector := vectorElem(want); vector && want != kindEmptyVector && irTypedWithin(elem) {
 			return bl.vectorMakeOf(vl, elem)
 		}
 	}
 	if ml, isMap := at.(*ast.MapLit); isMap && ml.TypeName == nil && len(ml.Entries) != 0 && want.tag == tagMap && want != kindEmptyMap && want.comp != nil && len(want.comp.parts) == 2 &&
-		(irHoldsEmbeds(want.comp.parts[0]) || irHoldsEmbeds(want.comp.parts[1])) {
+		(irTypedWithin(want.comp.parts[0]) || irTypedWithin(want.comp.parts[1])) {
 		return bl.mapMakeOf(ml, want.comp.parts)
 	}
 	if !bl.inTest && bl.recording == 0 {

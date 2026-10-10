@@ -69,6 +69,6 @@ test "a namespaced enum's variants keep the variant route" {
 }
 
 test "the unwrap direction still reaches the inner scalar" {
-    h = Day.Hours(7)
-    assert Int(h) == 7
+    Day.Hours(n) = Day.Hours(7)
+    assert n == 7
 }

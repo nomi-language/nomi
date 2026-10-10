@@ -700,8 +700,8 @@ func qualifyOrigin(origin, name string) string {
 // --- the inferred channel ---------------------------------------------------
 
 // preludeNamed is the prelude anchor for a name, after the table is loaded.
-// A thin accessor so this file never reads g.preludeByName before
-// loadPreludes has run — the ordering prelude.go's own callers observe.
+// Every builder arm reads the table through it, so a gen built without
+// newGen or newStdGen (a unit test's) cannot read it unloaded either.
 func (g *gen) preludeNamed(name string) (*preludeAnchor, bool) {
 	g.loadPreludes()
 	a, ok := g.preludeByName[name]

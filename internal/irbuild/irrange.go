@@ -226,7 +226,7 @@ func (g *gen) stepperSignature(params []kind, result, elem, by kind) bool {
 	if len(params) != 2 || params[0] != elem || params[1] != by {
 		return false
 	}
-	a, anchored := g.preludeByName["Maybe"]
+	a, anchored := g.preludeNamed("Maybe")
 	return anchored && result == g.preludeInstance(a, []kind{elem})
 }
 

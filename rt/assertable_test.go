@@ -258,11 +258,12 @@ func TestAssertableExpectedIsALineDiff(t *testing.T) {
 	}, nil, nil)
 	want := "line 3: the transcript differs from the script\n" +
 		"  assert replay(script, main)\n" +
-		"  diff (- expected, + actual):\n" +
-		"      q?\n" +
-		"    - > 2\n" +
-		"    + > 1\n" +
-		"      ok"
+		"  expected (-) and actual (+) differ\n" +
+		"\n" +
+		"        │ q?\n" +
+		"      - │ > 2\n" +
+		"      + │ > 1\n" +
+		"        │ ok"
 	if got := FormatAssertionFailure(failure); got != want {
 		t.Errorf("got %q\nwant %q", got, want)
 	}

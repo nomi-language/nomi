@@ -144,7 +144,7 @@ func (bl *irScalarBuilder) structBinding(t *ast.StructDestructure) bool {
 	reads := make([]read, 0, len(t.Fields))
 	for _, fd := range t.Fields {
 		if fd.Pattern != nil {
-			irDeclineNote("a struct destructure with a field sub-pattern")
+			irDeclineAtPattern(fd.Pattern, "a struct destructure with a field sub-pattern")
 			return false
 		}
 		name := fd.Binding

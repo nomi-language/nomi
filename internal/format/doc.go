@@ -43,6 +43,13 @@ type docLineSuffix struct { // see LineSuffix and CommentBefore
 }
 type docInString struct{ d Doc } // see InString
 
+// docBrokenTail is the part of a broken Group that follows a nested
+// document on its line, as render passes it to that document's fits checks:
+// an IfBroken in it takes its broken branch, which is what renders. A nested
+// Group in it decides for itself, so its IfBroken stay flat. It appears only
+// in a tail and is never rendered.
+type docBrokenTail struct{ d Doc }
+
 func (docNil) doc()         {}
 func (docText) doc()        {}
 func (docLine) doc()        {}
@@ -56,6 +63,7 @@ func (docHidden) doc()      {}
 func (docWithIndent) doc()  {}
 func (docLineSuffix) doc()  {}
 func (docInString) doc()    {}
+func (docBrokenTail) doc()  {}
 
 // Nil is the empty document.
 func Nil() Doc { return docNil{} }

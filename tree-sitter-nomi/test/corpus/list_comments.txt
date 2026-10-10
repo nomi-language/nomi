@@ -1,0 +1,176 @@
+==========
+Comments in parameter and argument lists
+==========
+
+fn add(
+  // first
+  a: Int,
+  b: Int, // second
+): Int {
+  add(
+    // first
+    1,
+    2, // second
+    // last
+  )
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (line_comment)
+      (parameter
+        (identifier)
+        (type_identifier))
+      (parameter
+        (identifier)
+        (type_identifier))
+      (line_comment))
+    (type_identifier)
+    (body
+      (call_expression
+        (identifier)
+        (line_comment)
+        (integer)
+        (integer)
+        (line_comment)
+        (line_comment)))))
+
+==========
+Comments in lambda parameters and collection literals
+==========
+
+fn f() {
+  g = |
+    // first
+    a,
+    b // second
+  | a
+  v = #{
+    1, // one
+    2,
+  }
+  s = {
+    "a" => 1, // one
+  }
+  r = (
+    1, // one
+    2,
+  )
+  [
+    1, // one
+    2
+  ]
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (lambda
+          (line_comment)
+          (lambda_parameter
+            (identifier))
+          (lambda_parameter
+            (identifier))
+          (line_comment)
+          (identifier)))
+      (binding
+        (identifier)
+        (set
+          (integer)
+          (line_comment)
+          (integer)))
+      (binding
+        (identifier)
+        (map_literal
+          (map_entry
+            (string
+              (string_content))
+            (integer))
+          (line_comment)))
+      (binding
+        (identifier)
+        (tuple_expression
+          (integer)
+          (line_comment)
+          (integer)))
+      (list
+        (integer)
+        (line_comment)
+        (integer)))))
+
+==========
+Comments in type arguments and patterns
+==========
+
+fn f(
+  m: Map<
+    // key
+    String,
+    Int // value
+  >,
+): Int {
+  case p {
+    (
+      a, // first
+      b
+    ) -> a
+    [
+      // first
+      a,
+      ..rest
+    ] -> a
+    .Pair(
+      a, // first
+      b
+    ) -> a
+  }
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (line_comment)
+          (type_identifier)
+          (type_identifier)
+          (line_comment))))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (tuple_pattern
+            (identifier)
+            (line_comment)
+            (identifier))
+          (identifier))
+        (case_branch
+          (list_pattern
+            (line_comment)
+            (identifier)
+            (identifier))
+          (identifier))
+        (case_branch
+          (enum_pattern
+            (dot_variant
+              (type_identifier))
+            (identifier)
+            (line_comment)
+            (identifier))
+          (identifier))))))

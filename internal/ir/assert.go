@@ -314,6 +314,10 @@ type Record struct {
 	kind     RecordKind
 	text     string
 	suppress bool
+	// before and after are the assertion's text around this operand, when
+	// the operand is a `"""` literal written directly in it (WithElision),
+	// and empty otherwise.
+	before, after string
 }
 
 // NewRecordOperand records val, which reads as text in the source, as a
@@ -361,6 +365,29 @@ func (r *Record) Val() Temp { return r.val }
 
 // Text is how the observed expression was written.
 func (r *Record) Text() string { return r.text }
+
+// WithElision records the text of the assertion this operand is written in,
+// split around the operand: the assertion reads before, then the operand,
+// then after, laid out as it lays out with the operand written in one short
+// line. Only a `"""` literal that is the assertion's own operand has it (an
+// `==` side, or an argument of the call the assertion is).
+//
+// A FIELD AND NOT A CONSUMER SEARCH. When a failed assertion's line diff
+// shows this literal's lines, the report's echo of the assertion writes the
+// literal collapsed (internal/vm's elideExpected) rather than repeating it.
+// The literal's own text is in the assertion's at a different indent, and
+// finding it there by its text would be a guess where the producer has the
+// syntax tree.
+func (r *Record) WithElision(before, after string) *Record {
+	r.before, r.after = before, after
+	return r
+}
+
+// Elision is the assertion's text around this operand, and ok when
+// WithElision recorded it.
+func (r *Record) Elision() (before, after string, ok bool) {
+	return r.before, r.after, r.before != "" || r.after != ""
+}
 
 // SuppressRedundant reports whether a consumer may drop this row when its text
 // and its rendered value read identically.

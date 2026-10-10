@@ -2259,7 +2259,10 @@ func (b *builder) defineInterfaceMethodSymbols(n *ast.InterfaceDef, iface *Symbo
 		iface.Members[m.Name] = methodSym
 		b.file.Definitions[methodSym.Pos] = methodSym
 		for _, p := range m.Params {
-			if p.Line <= 0 {
+			// A destructuring parameter's names are defined by
+			// defineParamPattern when the body is walked; its synthesized
+			// `__destr_` name is not a parameter anyone wrote.
+			if p.Line <= 0 || p.Destructure != nil {
 				continue
 			}
 			ppos := Pos{Line: p.Line, Col: p.Col}
@@ -4867,7 +4870,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 								b.file.References[Pos{Line: obj.Line, Col: obj.Col}] = refSym
 							}
 						}
-						if sym := modScope.LookupLocal(n.Field.Name); sym != nil {
+						// A module name in that scope (its self binding, a
+						// whole-file import) is not a member reached through it.
+						if sym := modScope.LookupLocal(n.Field.Name); sym != nil && sym.Kind != SymbolModule {
 							b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = sym
 						}
 					}
@@ -5011,16 +5016,25 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.ListLit:
+		// A type-prefixed list literal (`Items[1, 2]`, `Arr[...]`) resolves
+		// its prefix as MapLit does, so a selectively imported variant
+		// written that way counts as a use of its import.
+		if n.TypeName != nil {
+			b.walkTypeExpr(n.TypeName, scope)
+		}
 		for _, item := range n.Items {
 			b.walkNode(item, scope)
 		}
 
 	case *ast.VectorLit:
-		for _, item := range n.Items {
+		for _, item := range n.Operands() {
 			b.walkNode(item, scope)
 		}
 
 	case *ast.SetLit:
+		if n.Spread != nil {
+			b.walkNode(n.Spread, scope)
+		}
 		for _, item := range n.Items {
 			b.walkNode(item, scope)
 		}
@@ -5044,6 +5058,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		// and goto-definition work on the type name.
 		if n.TypeName != nil {
 			b.walkTypeExpr(n.TypeName, scope)
+		}
+		if n.Spread != nil {
+			b.walkNode(n.Spread, scope)
 		}
 		for _, entry := range n.Entries {
 			b.walkNode(entry.Key, scope)
@@ -5258,9 +5275,13 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 	if block == nil {
 		return scope
 	}
-	if te, ok := checkUnreachable(block); ok {
-		b.file.TypeErrors = append(b.file.TypeErrors, te)
-	}
+	// After the statements are walked, so a bare callee's reference is
+	// recorded (LoopNeverBreaks).
+	defer func() {
+		if te, ok := checkUnreachable(b.file, block); ok {
+			b.file.TypeErrors = append(b.file.TypeErrors, te)
+		}
+	}()
 	for _, stmt := range block.Stmts {
 		switch s := stmt.(type) {
 		case *ast.Binding:
@@ -5650,6 +5671,11 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		}
 
 	case *ast.ListPattern:
+		// A type-prefixed list pattern (`Items[a, b]`) resolves its prefix
+		// as MapPattern does.
+		if n.TypeName != nil {
+			b.walkTypeExpr(n.TypeName, scope)
+		}
 		for _, h := range n.Heads {
 			b.definePatternOwned(h, scope, owner)
 		}

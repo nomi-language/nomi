@@ -194,10 +194,9 @@ func TestIRQualifiedRuntimeName(t *testing.T) {
 //
 // A two-level distinct is not a program at all: `type A Int; type B A;
 // fn f(b: B): A { A(b) }` is refused by `distinctCallNamed` (`argument type
-// mismatch (A wraps Int, got B)`), and the unwrap spelling is refused by
-// `scalarUnwrap` for the same reason. So that edge is checked in the predicate
-// table of TestIRDistinct_ThePredicateEdges, because no lowerable source
-// reaches it.
+// mismatch (A wraps Int, got B)`), and destructuring reads one level. So
+// that edge is checked in the predicate table of
+// TestIRDistinct_ThePredicateEdges, because no lowerable source reaches it.
 func TestIRDistinct_WhichShapesAreRetained(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -206,8 +205,8 @@ func TestIRDistinct_WhichShapesAreRetained(t *testing.T) {
 		retained bool
 	}{
 		{"construct", "type Meters Int", "fn f(n: Int): Meters {\n  Meters(n * 3)\n}\n", true},
-		{"unwrap", "type Meters Int", "fn f(m: Meters): Int {\n  Int(m) + 1\n}\n", true},
-		{"round trip", "type Meters Int", "fn f(m: Meters): Meters {\n  Meters(Int(m) * 2)\n}\n", true},
+		{"unwrap", "type Meters Int", "fn f(m: Meters): Int {\n  Meters(n) = m\n  n + 1\n}\n", true},
+		{"round trip", "type Meters Int", "fn f(m: Meters): Meters {\n  Meters(n) = m\n  Meters(n * 2)\n}\n", true},
 		{"over String", "type Tag String", "fn f(s: String): Tag {\n  Tag(s)\n}\n", true},
 		{"a marker", "type Expired", "fn f(): Expired {\n  Expired\n}\n", true},
 		// A composite inner is retained through irCompositeDistinct.

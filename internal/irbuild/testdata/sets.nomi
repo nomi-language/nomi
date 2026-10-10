@@ -15,8 +15,9 @@ import std/io
 //     `rt.MapEntries` (a Set is a struct over a Map). `Iter.to_list` returns
 //     a LIST, so an unordered answer
 //     is a wrong answer and not a tolerated one.
-//   - DEDUPLICATION keeping the FIRST position. `#{1, 2, 2, 1}` has size 2 either
-//     way; only the order says whether the re-inserted element moved to the end.
+//   - DEDUPLICATION keeping the FIRST position. `#{one, two, two, one}` has size 2
+//     either way; only the order says whether the re-inserted element moved to the
+//     end. The elements are bindings: the same constant twice is a compile error.
 //   - `Set.size` against `Iter.count`. Two derivations of one number: `size` is
 //     the map's stored count (O(1), std documents it as such) and `count` walks
 //     unless `known_count` answers. A `known_count` that declined would still
@@ -53,7 +54,9 @@ fn main() {
     io.print("size = ${Set.size(s)}")
     io.print("count = ${Iter.count(s)}")
 
-    dup = #{1, 2, 2, 1}
+    one = 1
+    two = 2
+    dup = #{one, two, two, one}
     io.print("dup_order = ${Iter.to_list(dup)}")
     io.print("dup_size = ${Set.size(dup)}")
 
@@ -84,7 +87,8 @@ fn main() {
     io.print("not_subset = ${Set.subset?(#{1, 4}, #{1, 2, 3})}")
     io.print("list_to_set = ${Iter.to_list(Iter.to_set([5, 5, 6]))}")
 
-    tuples = #{(1, 2), (3, 4), (1, 2)}
+    pair = (1, 2)
+    tuples = #{pair, (3, 4), pair}
     io.print("tuple_size = ${Set.size(tuples)}")
     io.print("tuple_order = ${Iter.to_list(tuples)}")
 

@@ -11,7 +11,7 @@ func TestFormat_BlankLinesBeforeClosingBracketDoNotStack(t *testing.T) {
 		{"fn main() {\n    p = {a: 0\n\n    }\n}\n", "fn main() {\n    p = {a: 0}\n}\n"},
 		{"fn main() {\n    xs = [1, 2,\n\n    ]\n}\n", "fn main() {\n    xs = [1, 2]\n}\n"},
 		{"fn main() {\n    m = {\"a\" => 1\n\n    }\n}\n", "fn main() {\n    m = {\"a\" => 1}\n}\n"},
-		{"fn main() {\n    xs = [1, 2, // two\n    ]\n}\n", "fn main() {\n    xs = [\n        1,\n        2,\n        // two\n    ]\n}\n"},
+		{"fn main() {\n    xs = [1, 2, // two\n    ]\n}\n", "fn main() {\n    xs = [\n        1,\n        2, // two\n    ]\n}\n"},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)
 	}

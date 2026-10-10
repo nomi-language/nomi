@@ -24,7 +24,7 @@ fn seed(n: Int): Int { io.print("seed"); n }
 fn main() {
  x = 10
  io.print(Iter.reduce(source(), |acc = seed(x), x| { io.print(x); acc + x }))
- io.print(Iter.reduce([4, 5, 6], |acc: Int, n: Int| acc + n))
+ io.print(Iter.reduce([4, 5, 6], |acc: Int = 0, n: Int| acc + n))
 }
 `, "source\nseed\n1\n2\n13\n15\n")
 }
@@ -50,13 +50,6 @@ fn main() {
  io.print(Iter.reduce(empty(), |acc = 7, n| acc + n))
 }
 `, "created\n1\n2\n3\n5\n1\n2\n3\n[2, 3]\n7\n")
-}
-
-func TestIRReduceBody_EmptyUnseededFault(t *testing.T) {
-	verifyIterFault(t, `import std/io
-fn empty(): List<Int> { [] }
-fn main() { io.print(Iter.reduce(empty(), |acc: Int, n: Int| acc + n)) }
-`, "Iter.reduce: cannot reduce empty collection without initial value", "")
 }
 
 func TestIRReduceBody_CallbackFault(t *testing.T) {

@@ -49,7 +49,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Assert]():        "pos dst subj kw text mismatch binding answer",
 	reflect.TypeFor[ir.AssertBinding](): "Name Expr Val Stages",
 	reflect.TypeFor[ir.AssertStage]():   "Text Val",
-	reflect.TypeFor[ir.Record]():        "pos val kind text suppress",
+	reflect.TypeFor[ir.Record]():        "pos val kind text suppress before after",
 	reflect.TypeFor[ir.Iter]():          "pos dst op over sig args",
 	reflect.TypeFor[ir.Compare]():       "pos dst op shape lhs rhs rank",
 	reflect.TypeFor[ir.Const]():         "pos dst kind num flt text typ",

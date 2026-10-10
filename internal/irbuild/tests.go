@@ -645,11 +645,18 @@ func (g *gen) refuseDuplicateTestNames(cases []testCaseDecl) {
 
 // skipAssertionArg classifies one call argument: a lambda, a block or a type name explains nothing; a
 // literal explains something only for a predicate.
+//
+// A `"""` literal is recorded all the same. Its row never prints, since
+// rt.RecordOperand drops a literal operand's row, but the Record carries
+// where the literal is written: a failed `io.replay` numbers its diff's
+// transcript lines from it (internal/vm's replayDiff).
 func skipAssertionArg(arg ast.Node, includeLiterals bool) bool {
-	switch arg.(type) {
+	switch a := arg.(type) {
 	case *ast.Lambda, *ast.Block, *ast.FieldAccessor, *ast.TypeIdent:
 		return true
-	case *ast.IntLit, *ast.FloatLit, *ast.StringLit, *ast.CodepointLit:
+	case *ast.StringLit:
+		return !includeLiterals && !(a.Triple && !a.Raw)
+	case *ast.IntLit, *ast.FloatLit, *ast.CodepointLit:
 		return !includeLiterals
 	default:
 		return false

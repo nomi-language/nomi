@@ -261,6 +261,125 @@ func TestSeqAdapterCtlRunAnswer(t *testing.T) {
 	}
 }
 
+// TestSeqCtlTerminalsAndStages pins the per-operation meaning of the four
+// signals in drop_while, flat_map, find, any? and all?: what `break v`'s value
+// is for each, and that `continue` differs from a plain false answer.
+func TestSeqCtlTerminalsAndStages(t *testing.T) {
+	fr := NewFrame(nil)
+	src := func() Seq[int64] { return ListSeq(int64List(1, 2, 3, 4, 5)) }
+	drain := func(s Seq[int64]) []int64 {
+		var out []int64
+		s.Run(fr, func(fr *Frame, x int64) bool {
+			out = append(out, x)
+			return true
+		})
+		return out
+	}
+	at := func(n int64, c Ctl, v bool, rest func(int64) bool) func(*Frame, int64) (bool, Ctl) {
+		return func(_ *Frame, x int64) (bool, Ctl) {
+			if x == n {
+				return v, c
+			}
+			return rest(x), CtlEmit
+		}
+	}
+	below := func(n int64) func(int64) bool { return func(x int64) bool { return x < n } }
+
+	// drop_while: the value is the drop decision.
+	for _, tc := range []struct {
+		name string
+		f    func(*Frame, int64) (bool, Ctl)
+		want []int64
+	}{
+		{"skip keeps dropping", at(1, CtlSkip, false, below(3)), []int64{3, 4, 5}},
+		{"skip drops an element the predicate keeps", at(1, CtlSkip, false, below(1)), []int64{2, 3, 4, 5}},
+		{"stop ends empty", at(2, CtlStop, false, below(3)), nil},
+		{"emit-stop false keeps then ends", at(2, CtlEmitStop, false, below(3)), []int64{2}},
+		{"emit-stop true drops then ends", at(2, CtlEmitStop, true, below(3)), nil},
+	} {
+		if got := drain(SeqDropWhileCtl(src(), tc.f)); !equalInt64s(got, tc.want) {
+			t.Errorf("drop_while %s gave %v, want %v", tc.name, got, tc.want)
+		}
+	}
+
+	// flat_map: the value is the element's expansion.
+	expand := func(c Ctl) func(*Frame, int64) (*List[int64], Ctl) {
+		return func(_ *Frame, x int64) (*List[int64], Ctl) {
+			if x == 2 {
+				return int64List(x, x), c
+			}
+			return int64List(x * 10), CtlEmit
+		}
+	}
+	for _, tc := range []struct {
+		c    Ctl
+		want []int64
+	}{
+		{CtlSkip, []int64{10, 30, 40, 50}},
+		{CtlStop, []int64{10}},
+		{CtlEmitStop, []int64{10, 2, 2}},
+	} {
+		if got := drain(SeqFlatMapListCtl(src(), expand(tc.c))); !equalInt64s(got, tc.want) {
+			t.Errorf("flat_map list %v gave %v, want %v", tc.c, got, tc.want)
+		}
+		seqExpand := func(fr *Frame, x int64) (Seq[int64], Ctl) {
+			xs, c := expand(tc.c)(fr, x)
+			return ListSeq(xs), c
+		}
+		if got := drain(SeqFlatMapCtl(src(), seqExpand)); !equalInt64s(got, tc.want) {
+			t.Errorf("flat_map seq %v gave %v, want %v", tc.c, got, tc.want)
+		}
+	}
+
+	big := func(x int64) bool { return x > 3 }
+	// find: the value is the predicate's answer for this element.
+	for _, tc := range []struct {
+		name string
+		f    func(*Frame, int64) (bool, Ctl)
+		want Maybe[int64]
+	}{
+		{"skip passes over a match", at(4, CtlSkip, false, big), Some[int64](5)},
+		{"stop finds nothing", at(2, CtlStop, false, big), None[int64]()},
+		{"emit-stop true answers this element", at(2, CtlEmitStop, true, big), Some[int64](2)},
+		{"emit-stop false finds nothing", at(2, CtlEmitStop, false, big), None[int64]()},
+	} {
+		if got := SeqFindCtl(fr, src(), tc.f); got != tc.want {
+			t.Errorf("find %s gave %v, want %v", tc.name, got, tc.want)
+		}
+	}
+
+	// any? accumulates False until an element matches.
+	for _, tc := range []struct {
+		name string
+		f    func(*Frame, int64) (bool, Ctl)
+		want bool
+	}{
+		{"skip passes over the only match", at(4, CtlSkip, false, func(x int64) bool { return x == 4 }), false},
+		{"stop answers false", at(1, CtlStop, false, big), false},
+		{"emit-stop true answers true", at(1, CtlEmitStop, true, big), true},
+		{"emit-stop false answers false", at(1, CtlEmitStop, false, big), false},
+	} {
+		if got := SeqAnyCtl(fr, src(), tc.f); got != tc.want {
+			t.Errorf("any? %s gave %v, want %v", tc.name, got, tc.want)
+		}
+	}
+	// all? accumulates True until an element fails.
+	for _, tc := range []struct {
+		name string
+		f    func(*Frame, int64) (bool, Ctl)
+		want bool
+	}{
+		{"skip passes over the only failure", at(4, CtlSkip, false, func(x int64) bool { return x != 4 }), true},
+		{"stop answers true", at(3, CtlStop, false, below(3)), true},
+		{"emit-stop true answers true", at(2, CtlEmitStop, true, below(2)), true},
+		{"emit-stop false answers false", at(1, CtlEmitStop, false, below(9)), false},
+	} {
+		if got := SeqAllCtl(fr, src(), tc.f); got != tc.want {
+			t.Errorf("all? %s gave %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 func equalInt64s(a, b []int64) bool {
 	if len(a) != len(b) {
 		return false

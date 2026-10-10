@@ -34,7 +34,7 @@ func hoverText(t *testing.T, name, input string) string {
 
 // Hover shows a generic call's instantiation, never the callee's own type
 // parameters: a pipeline after a head with no type (an unknown member), an
-// accumulator of a seedless `Iter.reduce` inside a lambda passed to
+// accumulator of an `Iter.reduce` inside a lambda passed to
 // `Iter.map` (two callees that both name a parameter `U`), and a partial
 // application whose hole a later call fills.
 func TestHover_GenericCallsShowTheirInstantiation(t *testing.T) {
@@ -52,13 +52,13 @@ func TestHover_GenericCallsShowTheirInstantiation(t *testing.T) {
 			"```nomi\nx: Int\n```",
 		},
 		{
-			"seedless reduce inside map",
-			"fn f(): List<Int> {\n  ▮sums = [[1, 2], [3]]\n    |> Iter.map(|xs| { xs |> Iter.reduce(|a, b| a + b) })\n    |> Iter.to_list()\n  sums\n}\n",
+			"seeded reduce inside map",
+			"fn f(): List<Int> {\n  ▮sums = [[1, 2], [3]]\n    |> Iter.map(|xs| { xs |> Iter.reduce(|a = 0, b| a + b) })\n    |> Iter.to_list()\n  sums\n}\n",
 			"```nomi\nsums: List<Int>\n```",
 		},
 		{
-			"seedless reduce accumulator",
-			"fn f(): List<Int> {\n  [[1, 2], [3]]\n    |> Iter.map(|xs| { xs |> Iter.reduce(|▮a, b| a + b) })\n    |> Iter.to_list()\n}\n",
+			"seeded reduce accumulator",
+			"fn f(): List<Int> {\n  [[1, 2], [3]]\n    |> Iter.map(|xs| { xs |> Iter.reduce(|▮a = 0, b| a + b) })\n    |> Iter.to_list()\n}\n",
 			"```nomi\na: Int\n```",
 		},
 	}
