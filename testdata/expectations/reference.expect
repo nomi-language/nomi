@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
 records 31
-declared-cases 297
+declared-cases 299
 failing 0
 C assertions
 E 0
@@ -375,8 +375,8 @@ T ok Set.add (impl Add<Set<T>, Set<T>> for Set<T>)
 T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
 C strings
 E 0
-N 22
-H e7c969710a36a909f8457276053851626502a9fd5da5cddb25fdc2786dfccb8f
+N 24
+H a0e9f9873d1e167e10a030a14cc8fdd44cbb6cf202cd5b622785270029824ad3
 T ok String.contains?
 T ok String.starts_with?
 T ok String.ends_with?
@@ -387,6 +387,8 @@ T ok String.repeat
 T ok String.reverse
 T ok String.normalize
 T ok String.slice
+T ok String.pad_start
+T ok String.pad_end
 T ok String.join
 T ok String.split
 T ok String.find_all

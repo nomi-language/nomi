@@ -96,7 +96,7 @@ func TestEmbedDowncast_EveryPositionRefusesTheEnum(t *testing.T) {
 		{"a named argument", "", "  _ = take_named(n: 1, c: s)\n",
 			"argument 'c': expected Circle, got Shape" + downcastHint},
 		{"a pipe argument", "", "  _ = s |> take()\n",
-			"pipe argument type mismatch: expected Circle, got Shape" + downcastHint},
+			"`take` takes a Circle as its first argument, but the pipe passes a Shape" + downcastHint},
 		{"an interface function's self", "", "  _ = Circle.area(s)\n",
 			"argument 1: expected Circle, got Shape" + downcastHint},
 		{"a lambda's parameter", "", "  f = |c: Circle| c.radius\n  _ = f(s)\n",

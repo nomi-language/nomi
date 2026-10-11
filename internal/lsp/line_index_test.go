@@ -64,8 +64,9 @@ func TestOutlineRequests_ConvertThroughOneLineIndex(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(lenses) != 300 {
-			t.Fatalf("%d lenses, want 300", len(lenses))
+		// A Run and a Debug lens per test.
+		if len(lenses) != 600 {
+			t.Fatalf("%d lenses, want 600", len(lenses))
 		}
 		if _, err := s.textDocumentDocumentLink(nil, &protocol.DocumentLinkParams{TextDocument: doc}); err != nil {
 			t.Fatal(err)

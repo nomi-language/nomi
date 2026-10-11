@@ -407,9 +407,9 @@ io.print(label)`),
 		"pipe stage case": fnMain(`m = Some(3)
 
 n = m |> ‸case {
-            Some(v) -> v
-            _ -> 0
-        }
+    Some(v) -> v
+    _ -> 0
+}
 
 io.print(n)`),
 	}

@@ -1,7 +1,7 @@
 // Package semtokens derives semantic highlighting tokens from a fully-built
 // analysis.FileAnalysis. It is the single source shared by the LSP's
 // textDocument/semanticTokens response (lsp/semantic_tokens.go) and the
-// language-tour syntax highlighter (cmd/tour-highlight), so both classify
+// language-tour syntax highlighter (cmd/nomi-wasm), so both classify
 // identifiers the same way — there is no second classifier to drift.
 package semtokens
 
@@ -11,11 +11,13 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/textpos"
 )
 
 // Token is one classified identifier occurrence (a definition or a reference).
-// Positions are 1-based; Length is the identifier name's length in bytes. Type
-// is the LSP semantic token-type name (e.g. "function", "parameter").
+// Positions are 1-based; Col and Length count bytes, as the analyzer does,
+// until UTF16 converts them. Type is the LSP semantic token-type name (e.g.
+// "function", "parameter").
 type Token struct {
 	Line, Col, Length int
 	Type              string
@@ -141,6 +143,28 @@ func Collect(fa *analysis.FileAnalysis) []Token {
 		return toks[i].Col < toks[j].Col
 	})
 	return toks
+}
+
+// UTF16 is toks, which Collect found in code, with Col and Length counted
+// in UTF-16 code units of their line instead of bytes: the unit an LSP
+// client counts columns in by default and a JavaScript string indexes by.
+// Col stays 1-based. Without it, a token after a non-ASCII character on its
+// line (the `°` in `"${n} °${unit}"`) lands one column right per extra byte.
+func UTF16(code string, toks []Token) []Token {
+	lines := strings.Split(code, "\n")
+	out := make([]Token, len(toks))
+	for i, t := range toks {
+		out[i] = t
+		if t.Line < 1 || t.Line > len(lines) {
+			continue
+		}
+		text := lines[t.Line-1]
+		start := textpos.UTF16Col(text, t.Col-1)
+		end := textpos.UTF16Col(text, t.Col-1+t.Length)
+		out[i].Col = start + 1
+		out[i].Length = end - start
+	}
+	return out
 }
 
 func symbolSpan(pos analysis.Pos, sym *analysis.Symbol, reference bool, refs map[analysis.Pos]*analysis.Symbol) int {

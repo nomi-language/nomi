@@ -1,0 +1,66 @@
+import std/io
+
+fn teller() {
+    io.print("Welcome to the bank")
+    io.write("Name: ")
+    name = io.read_line() |> Result.with_default("nobody")
+
+    io.print("Hello, ${name}")
+    io.write("Deposit: ")
+    io.print("noted")
+    amount = io.read_line() |> Result.with_default("0")
+
+    io.print("Deposited ${amount}")
+}
+
+fn receipt(): String {
+    io.capture("", || {
+        io.print("receipt for one deposit")
+        "printed"
+    }).output
+}
+
+fn teller_with_receipt() {
+    io.print("Receipt next")
+    _ = receipt()
+    io.print("Goodbye")
+}
+
+test "the teller greets and takes a deposit" {
+    io.print("before the replay")
+
+    assert io.replay(
+        """
+            Welcome to the bank
+            Name:
+        >>  Ada
+            Hello, Ada
+            Deposit: noted
+        >>  50
+            Deposited 50
+        """,
+        teller,
+    )
+}
+
+test "the teller prints a receipt" {
+    assert io.replay(
+        """
+        Receipt next
+        Goodbye
+        """,
+        teller_with_receipt,
+    )
+}
+
+test "the teller has diverged" {
+    assert io.replay(
+        """
+            Welcome to the bank
+            Name:
+        >>  Ada
+            Hello, Ada!
+        """,
+        teller,
+    )
+}

@@ -13,12 +13,16 @@ import (
 //     <line>`, where line is the 1-based first line of a `test`, a `tests`
 //     group or a `//!` attached test.
 //   - nomi.runMain, arguments [uri]: run `nomi run <file>`.
+//   - nomi.debugTest and nomi.debugMain, the same arguments: start a debug
+//     session (`nomi dap`) that runs the same test or program.
 //
-// The VS Code extension (editors/vscode) and the Neovim plugin
-// (editors/nvim) register both.
+// Each run lens has a debug lens beside it. The VS Code extension
+// (editors/vscode) and the Neovim plugin (editors/nvim) register all four.
 const (
-	commandRunTest = "nomi.runTest"
-	commandRunMain = "nomi.runMain"
+	commandRunTest   = "nomi.runTest"
+	commandRunMain   = "nomi.runMain"
+	commandDebugTest = "nomi.debugTest"
+	commandDebugMain = "nomi.debugMain"
 )
 
 // textDocumentCodeLens puts a lens above each `test`, `tests` group (and
@@ -42,24 +46,24 @@ func (s *Server) textDocumentCodeLens(_ *glsp.Context, params *protocol.CodeLens
 // order, with byte-column ranges.
 func codeLenses(uri string, nodes []ast.Node) []protocol.CodeLens {
 	var out []protocol.CodeLens
-	runTest := func(title string, line, col, width int) {
-		out = append(out, protocol.CodeLens{
-			Range:   nameRange(line, col, width),
-			Command: &protocol.Command{Title: title, Command: commandRunTest, Arguments: []any{uri, line}},
-		})
+	runTest := func(what string, line, col, width int) {
+		r := nameRange(line, col, width)
+		out = append(out,
+			protocol.CodeLens{Range: r, Command: &protocol.Command{Title: "Run " + what, Command: commandRunTest, Arguments: []any{uri, line}}},
+			protocol.CodeLens{Range: r, Command: &protocol.Command{Title: "Debug " + what, Command: commandDebugTest, Arguments: []any{uri, line}}})
 	}
 	attached := func(n ast.Node) {
 		for _, at := range ast.AttachedTestsOf(n) {
-			runTest("Run attached test", at.Line, at.Col, len("//!"))
+			runTest("attached test", at.Line, at.Col, len("//!"))
 		}
 	}
 	var test func(t *ast.TestDecl)
 	test = func(t *ast.TestDecl) {
 		if !t.Group {
-			runTest("Run test", t.Line, t.Col, len("test"))
+			runTest("test", t.Line, t.Col, len("test"))
 			return
 		}
-		runTest("Run tests", t.Line, t.Col, len("tests"))
+		runTest("tests", t.Line, t.Col, len("tests"))
 		if t.Body != nil {
 			for _, st := range t.Body.Stmts {
 				if child, ok := st.(*ast.TestDecl); ok {
@@ -75,10 +79,10 @@ func codeLenses(uri string, nodes []ast.Node) []protocol.CodeLens {
 			test(v)
 		case *ast.FuncDef:
 			if v.Name == "main" {
-				out = append(out, protocol.CodeLens{
-					Range:   nameRange(v.Line, v.Col, len(v.Name)),
-					Command: &protocol.Command{Title: "Run", Command: commandRunMain, Arguments: []any{uri}},
-				})
+				r := nameRange(v.Line, v.Col, len(v.Name))
+				out = append(out,
+					protocol.CodeLens{Range: r, Command: &protocol.Command{Title: "Run", Command: commandRunMain, Arguments: []any{uri}}},
+					protocol.CodeLens{Range: r, Command: &protocol.Command{Title: "Debug", Command: commandDebugMain, Arguments: []any{uri}}})
 			}
 		case *ast.ImplBlock:
 			for _, item := range v.Items {

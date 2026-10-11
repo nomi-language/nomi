@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -1359,6 +1360,11 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		paramNames := make([]string, 0, len(m.Params))
 		for _, p := range m.Params {
 			paramNames = append(paramNames, p.Name)
+			if p.TypeAnnotation == nil && selfPatternParam(p) {
+				// `self(n)` is a `self` taken apart, so its type is `self`.
+				params = append(params, mtp["self"])
+				continue
+			}
 			if p.TypeAnnotation == nil {
 				errs = append(errs, missingParamType(p, fa, reg)...)
 				params = append(params, nil)
@@ -1426,23 +1432,50 @@ func buildInterfaceMethods(fa *FileAnalysis, reg *TypeRegistry, n *ast.Interface
 		// pointer is shared across the interface's methods, so bounding it
 		// would leak the constraint onto `map`/`filter`/etc.; the constraint is
 		// per-method, enforced and recorded at the call site only.
-		whereBounds, whereErrs := resolveWhereBounds(fa, reg, mtp, m.WhereClauses, fmt.Sprintf("interface function '%s'", m.Name))
+		takesApart, builds := selfShapeOf(m)
+		typeClauses, selfClauses := splitSelfWhereClauses(m.WhereClauses)
+		whereBounds, whereErrs := resolveWhereBounds(fa, reg, mtp, typeClauses, fmt.Sprintf("interface function '%s'", m.Name))
 		errs = append(errs, whereErrs...)
+		// `where self: X` bounds the implementing type for this one default.
+		// A required function has no body for the bound to serve, so it
+		// would only say which implementors must write the function, and
+		// every implementor must write a required function already.
+		var selfBounds []*InterfaceType
+		if len(selfClauses) > 0 && m.Body == nil {
+			wc := selfClauses[0]
+			kind := "a required function"
+			if m.Extern {
+				kind = "a host-backed function"
+			}
+			errs = append(errs, TypeError{
+				Line: wc.Line, Col: wc.Col,
+				Message: fmt.Sprintf("interface function '%s': `where self` is only allowed on a default function, and '%s' is %s", m.Name, m.Name, kind),
+			}.WithHint(fmt.Sprintf("every implementor writes a required function, so the bound has nothing to restrict; drop it, or give `fn %s` a default body that uses %s", m.Name, whereBoundsText(wc))))
+		} else if len(selfClauses) > 0 {
+			selfWhere, selfErrs := resolveWhereBounds(fa, reg, mtp, selfClauses, fmt.Sprintf("interface function '%s'", m.Name))
+			errs = append(errs, selfErrs...)
+			for _, wb := range selfWhere {
+				selfBounds = append(selfBounds, wb.Bounds...)
+			}
+		}
 		retForCheck := ret
 		if m.ReturnTypeExpr == nil {
 			retForCheck = TypeUnit
 		}
 		errs = append(errs, functionTypeParamErrors(m.Name, m.TypeParams, mExplicit, params, retForCheck, whereBounds)...)
 		methods = append(methods, MethodSig{
-			Name:         m.Name,
-			ParamNames:   paramNames,
-			Params:       params,
-			Return:       ret,
-			HasDefault:   m.Body != nil,
-			DefaultCount: defaultCount,
-			Open:         m.Open,
-			Extern:       m.Extern,
-			WhereBounds:  whereBounds,
+			Name:           m.Name,
+			ParamNames:     paramNames,
+			Params:         params,
+			Return:         ret,
+			HasDefault:     m.Body != nil,
+			DefaultCount:   defaultCount,
+			Open:           m.Open,
+			Extern:         m.Extern,
+			WhereBounds:    whereBounds,
+			SelfBounds:     selfBounds,
+			TakesSelfApart: takesApart,
+			BuildsSelf:     builds,
 		})
 	}
 	it.Methods = methods
@@ -2157,6 +2190,29 @@ func buildExternFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.Ext
 	return errs
 }
 
+// splitSelfWhereClauses separates an interface function's `where self: ...`
+// constraints from the ones on its type variables.
+func splitSelfWhereClauses(clauses []ast.WhereConstraint) (typeVars, self []ast.WhereConstraint) {
+	for _, wc := range clauses {
+		if wc.Name == "self" {
+			self = append(self, wc)
+		} else {
+			typeVars = append(typeVars, wc)
+		}
+	}
+	return typeVars, self
+}
+
+// whereBoundsText renders a constraint's bound list as written, `Display`
+// or `Display and Hashable`.
+func whereBoundsText(wc ast.WhereConstraint) string {
+	parts := make([]string, 0, len(wc.Bounds))
+	for _, b := range wc.Bounds {
+		parts = append(parts, b.TypeString())
+	}
+	return strings.Join(parts, " and ")
+}
+
 func resolveWhereBounds(fa *FileAnalysis, reg *TypeRegistry, typeParams map[string]*TypeParam_, clauses []ast.WhereConstraint, context string) ([]WhereBound, []TypeError) {
 	if len(clauses) == 0 {
 		return nil, nil
@@ -2167,6 +2223,13 @@ func resolveWhereBounds(fa *FileAnalysis, reg *TypeRegistry, typeParams map[stri
 	)
 	for _, wc := range clauses {
 		param, known := typeParams[wc.Name]
+		if !known && wc.Name == "self" {
+			errs = append(errs, TypeError{
+				Line: wc.Line, Col: wc.Col,
+				Message: fmt.Sprintf("%s: `where self` is only allowed on an interface's default function", context),
+			})
+			continue
+		}
 		if !known {
 			errs = append(errs, TypeError{
 				Line: wc.Line, Col: wc.Col,

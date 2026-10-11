@@ -32,25 +32,27 @@ func TestToPipe_LiteralSubjectLeads(t *testing.T) {
 	}
 }
 
-// One stage stays on its line.
+// One stage stays on its line, and the one-line statement sits with its
+// neighbours.
 func TestToPipe_InnermostCallWithoutArgumentsLeads(t *testing.T) {
 	decls := "fn seed(): List<Int> {\n    [1, 2]\n}\n\n"
 	got := checkRefactor(t, fnMainAfter(decls, "n = Iter.count(se‸ed())\nio.inspect(n)\n"), "Convert to pipe", rewrite)
-	if want := fnMainAfter(decls, "n = seed() |> Iter.count()\n\nio.inspect(n)\n"); got != want {
+	if want := fnMainAfter(decls, "n = seed() |> Iter.count()\nio.inspect(n)\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
 
 // A lambda's one-expression body runs past a `|>`, so the pipeline stands
-// there without parentheses.
+// there without parentheses. The broken pipeline puts the body below the
+// parameters in braces, which stay when it is converted back.
 func TestToPipe_InLambdaBody(t *testing.T) {
 	src := fnMain("n = Iter.map([[1]], |xs| Iter.count(Iter.filter‸(xs, |x| x > 0)))\nio.inspect(Iter.to_list(n))\n")
 	got := checkRefactor(t, src, "Convert to pipe", rewrite)
-	if !strings.Contains(got, "|xs|\n") || !strings.Contains(got, "|> Iter.count()") || strings.Contains(got, "(xs") {
+	if !strings.Contains(got, "|xs| {\n") || !strings.Contains(got, "|> Iter.count()") || strings.Contains(got, "(xs") {
 		t.Fatalf("got\n%s", got)
 	}
 	back := checkRefactor(t, strings.Replace(got, "|> Iter.count(", "|> Iter.co‸unt(", 1), "Convert from pipe", rewrite)
-	if !strings.Contains(back, "|xs| Iter.count(Iter.filter(xs, |x| x > 0))") {
+	if !strings.Contains(back, "|xs| {\n        Iter.count(Iter.filter(xs, |x| x > 0))\n    })") {
 		t.Fatalf("back:\n%s", back)
 	}
 }
@@ -101,12 +103,12 @@ func TestFromPipe_Stages(t *testing.T) {
 		},
 		{
 			"case stage",
-			"fn f(): Int {\n    \"4\"\n    |> case pa‸rse() {\n            Ok(n) -> n\n            Err(_) -> 0\n        }\n}\n",
+			"fn f(): Int {\n    \"4\"\n    |> case pa‸rse() {\n        Ok(n) -> n\n        Err(_) -> 0\n    }\n}\n",
 			"fn f(): Int {\n    case parse(\"4\") {\n        Ok(n) -> n\n        Err(_) -> 0\n    }\n}\n",
 		},
 		{
 			"bare case stage",
-			"fn f(): Int {\n    parse(\"4\")\n    |> ca‸se {\n            Ok(n) -> n\n            Err(_) -> 0\n        }\n}\n",
+			"fn f(): Int {\n    parse(\"4\")\n    |> ca‸se {\n        Ok(n) -> n\n        Err(_) -> 0\n    }\n}\n",
 			"fn f(): Int {\n    case parse(\"4\") {\n        Ok(n) -> n\n        Err(_) -> 0\n    }\n}\n",
 		},
 		{

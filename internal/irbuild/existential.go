@@ -369,9 +369,11 @@ func (g *gen) importIface(src *ifaceDef, o *typeOwner) *ifaceDef {
 		}
 		ok := true
 		for i, k := range sm.params {
-			if sm.shape.selfTyped(i) {
+			if sm.shape.selfTyped(i) || sm.mentionsSelfAt(i) {
 				// A self position has no kind until an implementing type
-				// supplies one, so there is nothing to re-derive.
+				// supplies one, so there is nothing to re-derive; nor has a
+				// type holding self (`List<self>`), which a default inherited
+				// here reads per implementor (inheritedDefaultSig).
 				m.params[i] = k
 				continue
 			}
@@ -382,7 +384,9 @@ func (g *gen) importIface(src *ifaceDef, o *typeOwner) *ifaceDef {
 			}
 			m.params[i] = ik
 		}
-		if ok {
+		if ok && sm.decl != nil && typeExprHasSelf(sm.decl.ReturnTypeExpr) {
+			m.result = sm.result
+		} else if ok {
 			if ik, fine := g.importKind(sm.result); fine {
 				m.result = ik
 			} else {
@@ -461,6 +465,15 @@ func (g *gen) portableDefault(d *ifaceDef, m *ifaceMethod) bool {
 	}
 	names := map[string]bool{}
 	walkNames(m.decl.Body, names, pickAnyName)
+	// A parameter's name is the parameter throughout the body in both files,
+	// whatever either binds at module scope: `fn format(scale: self)` in
+	// scale.nomi, copied into a file that imports `scale` and so binds the
+	// file qualifier `scale`, still reads the parameter.
+	for _, p := range m.decl.Params {
+		for name := range paramBoundNames(p) {
+			delete(names, name)
+		}
+	}
 	for i := range m.decl.Params {
 		walkNames(m.decl.Params[i].TypeAnnotation, names, pickAnyName)
 		// The DEFAULT expression too, since impl.go monomorphizes a default
@@ -477,6 +490,13 @@ func (g *gen) portableDefault(d *ifaceDef, m *ifaceMethod) bool {
 			// that file's cell, whatever this file binds the name to
 			// (onceValue under namesFrom). A function-valued one could be
 			// called, which reads this file's binding, so it stays refused.
+			continue
+		}
+		if here == nil && there != nil && d.decl != nil && there.OwningInterface == d.decl.Name {
+			// A bare call of the interface's own function (`label(scale)`),
+			// which the declaring file binds and the copy reaches through the
+			// implementing block (sameImplName). A module-level name of this
+			// file would shadow it in the copy, so only an unbound one agrees.
 			continue
 		}
 		switch {
@@ -643,4 +663,23 @@ func (g *gen) bindsImpl(d *ifaceDef, k kind) bool {
 	// an impl THIS gen registered and marked lowerable, never the reverse.
 	impl := g.implsByIface[d.nomi][k]
 	return impl != nil && impl.lowerable
+}
+
+// paramBoundNames is every name parameter p binds: its name, or each name
+// its destructuring pattern binds.
+func paramBoundNames(p ast.Param) map[string]bool {
+	out := map[string]bool{}
+	if p.Destructure == nil {
+		if p.Name != "" {
+			out[p.Name] = true
+		}
+		return out
+	}
+	ast.Inspect(p.Destructure, func(n ast.Node) bool {
+		if id, ok := n.(*ast.Ident); ok {
+			out[id.Name] = true
+		}
+		return true
+	})
+	return out
 }

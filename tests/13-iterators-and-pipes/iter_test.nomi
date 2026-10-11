@@ -218,13 +218,13 @@ test "iter pipelines can combine lazy adapters and terminals" {
 }
 
 test "iter loop supports explicit state and break values" {
-    countdown = Iter.loop(|n = 5|
+    countdown = Iter.loop(|n = 5| {
         if n == 0 {
             break n
         } else {
             n - 1
         }
-    )
+    })
 
     assert countdown == 0
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/doctest"
+	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/vmhost"
 	"os"
 	"regexp"
@@ -56,5 +57,43 @@ func TestSpecPrograms(t *testing.T) {
 	// pass vacuously.
 	if programs < 10 {
 		t.Fatalf("found %d complete programs in %s, want at least 10", programs, specPath)
+	}
+}
+
+// TestSpecProgramsOnADebugMachine runs every complete spec program on a
+// plain machine and on a debug machine with no breakpoints, and requires the
+// same output and the same outcome. internal/expectation's
+// TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes is the same
+// check over the corpus and the tour.
+func TestSpecProgramsOnADebugMachine(t *testing.T) {
+	data, err := os.ReadFile("../docs/spec.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := func(src string) string {
+		p, err := vmhost.LoadSource("main.nomi", src)
+		if err != nil {
+			return "load: " + err.Error()
+		}
+		var out bytes.Buffer
+		err = p.Run(context.Background(), &out, nil, false)
+		return fmt.Sprintf("%s\n-- %v", out.String(), err)
+	}
+	programs := 0
+	for _, b := range doctest.ExtractBlocks(string(data), "nomi") {
+		if !specMainRe.MatchString(b.Code) || strings.Contains(b.Code, "...") {
+			continue
+		}
+		programs++
+		plain := run(b.Code)
+		restore := vm.DebugEveryMachine()
+		debug := run(b.Code)
+		restore()
+		if plain != debug {
+			t.Errorf("docs/spec.md:%d runs differently on a debug machine:\nplain:\n%s\ndebug:\n%s", b.Line, plain, debug)
+		}
+	}
+	if programs < 10 {
+		t.Fatalf("found %d complete programs, want at least 10", programs)
 	}
 }

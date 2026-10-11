@@ -38,13 +38,13 @@ fn outer(): Int {
 }
 
 fn main() {
-    first = Iter.loop(|n = 0|
+    first = Iter.loop(|n = 0| {
         if n >= 3 {
             break n
         } else {
             n + 1
         }
-    )
+    })
 
     io.print("break value: ${first}")
 
@@ -63,13 +63,13 @@ fn main() {
         break
     })
 
-    seeded = Iter.loop(|n = outer()|
+    seeded = Iter.loop(|n = outer()| {
         if n >= 9 {
             break n
         } else {
             n + 1
         }
-    )
+    })
 
     io.print("seed from closure scope: ${seeded}")
 

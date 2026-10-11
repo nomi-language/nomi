@@ -89,6 +89,20 @@ func (g *gen) namesFromGen() *gen {
 	return g.reg.gens[g.namesFrom-1]
 }
 
+// srcFA is the analysis of the file whose source is being lowered: the
+// declaring file's while a sibling's interface default or parameter default
+// is lowered here (lowerNamesFrom), else this file's. Every lookup keyed by a
+// node of that source or by its position (References, Definitions,
+// ExprTypes, ExpectedTypes) reads it: this file's maps hold nothing for the
+// sibling's nodes, and at a position they hold whatever this file wrote
+// there.
+func (g *gen) srcFA() *analysis.FileAnalysis {
+	if from := g.namesFromGen(); from != nil && from.fa != nil {
+		return from.fa
+	}
+	return g.fa
+}
+
 func (bl *irScalarBuilder) siblingOnceValue(at ast.Node, to int, d *onceDef) (ir.Temp, kind, bool, bool) {
 	if d == nil {
 		return ir.NoTemp, kindInvalid, false, false
@@ -280,7 +294,7 @@ func (bl *irScalarBuilder) ownerOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bo
 	if t.Field == nil || g.fa == nil {
 		return no()
 	}
-	sym := g.fa.References[analysis.Pos{Line: t.Field.Line, Col: t.Field.Col}]
+	sym := g.srcFA().References[analysis.Pos{Line: t.Field.Line, Col: t.Field.Col}]
 	for sym != nil && sym.Resolved != nil {
 		sym = sym.Resolved
 	}

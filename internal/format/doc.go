@@ -32,9 +32,14 @@ type docNest struct {
 }
 type docGroup struct{ d Doc }
 type docIfBroken struct{ flat, broken Doc }
-type docLocalBroken struct{ d Doc } // see LocalBroken
-type docHidden struct{ d Doc }      // see Hidden
-type docWithIndent struct {         // see WithIndent
+type docLocalBroken struct { // see LocalBroken and LocalBrokenBlock
+	d Doc
+	// firstLine says ancestor fits checks measure d up to its first
+	// HardLine.
+	firstLine bool
+}
+type docHidden struct{ d Doc } // see Hidden
+type docWithIndent struct {    // see WithIndent
 	f func(indent, width int) Doc
 }
 type docLineSuffix struct { // see LineSuffix and CommentBefore
@@ -148,6 +153,13 @@ func IfBroken(flat, broken Doc) Doc { return docIfBroken{flat: flat, broken: bro
 // width, so a too-wide LocalBroken header (the part on the `{` line) can
 // still spill past the budget.
 func LocalBroken(d Doc) Doc { return docLocalBroken{d: d} }
+
+// LocalBrokenBlock is LocalBroken for a block that opens on the line it
+// starts on, `case f() {` or `if c {`: ancestor fits checks measure d's
+// first line, up to its first HardLine, and hide the rest. A pipeline
+// whose `|> case f() {` line is too wide then breaks, while the arms below
+// do not make it break.
+func LocalBrokenBlock(d Doc) Doc { return docLocalBroken{d: d, firstLine: true} }
 
 // Hidden renders d normally but is invisible to ancestor `fits` /
 // `flatWidth` checks (returns true / 0). Used for content that should not

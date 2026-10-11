@@ -120,13 +120,13 @@ impl Iter<T> {
     /// Use `break value` to exit with `value`, or bare `break` to exit with
     /// the current state. Without an explicit break this loops forever.
     //
-    //! assert Iter.loop(|n = 0|
+    //! assert Iter.loop(|n = 0| {
     //!     if n >= 3 {
     //!         break n
     //!     } else {
     //!         n + 1
     //!     }
-    //! ) == 3
+    //! }) == 3
     //!
     //! assert Iter.loop(|| { break }) == Unit
     //
@@ -166,13 +166,13 @@ impl Iter<T> {
     //! assert Iter.find([1, 2], |x| x > 99) == None
     //
     pub fn find<T>(source: Iter<T>, f: (T) -> Bool): Maybe<T> {
-        reduce(source, |_acc = None, item|
+        reduce(source, |_acc = None, item| {
             if f(item) {
                 break Some(item)
             } else {
                 None
             }
-        )
+        })
     }
 
     /// Consumes the iterator and returns its elements as a List sorted by the
@@ -245,13 +245,13 @@ impl Iter<T> {
     //! refute Iter.any?([1, 2], |x| x > 99)
     //
     pub fn any?<T>(source: Iter<T>, f: (T) -> Bool): Bool {
-        reduce(source, |_acc = False, item|
+        reduce(source, |_acc = False, item| {
             if f(item) {
                 break True
             } else {
                 False
             }
-        )
+        })
     }
 
     /// Returns true if all elements match the predicate. Vacuously true for an
@@ -261,13 +261,13 @@ impl Iter<T> {
     //! refute Iter.all?([2, -4, 6], |x| x > 0)
     //
     pub fn all?<T>(source: Iter<T>, f: (T) -> Bool): Bool {
-        reduce(source, |_acc = True, item|
+        reduce(source, |_acc = True, item| {
             if f(item) {
                 True
             } else {
                 break False
             }
-        )
+        })
     }
 
     /// Returns true if the iterator is empty. Short-circuits on the first element.
@@ -384,9 +384,9 @@ impl Iter<T> {
     //! assert Iter.frequencies(empty) |> Map.size() == 0
     //
     pub fn frequencies<T>(source: Iter<T>): Map<T, Int> {
-        reduce(source, |acc: Map<T, Int> = Map.empty(), item|
+        reduce(source, |acc: Map<T, Int> = Map.empty(), item| {
             Map.put(acc, item, Maybe.with_default(Map.get(acc, item), 0) + 1)
-        )
+        })
     }
 
     /// Consumes the iterator and materializes its elements into a List. A `List`
@@ -475,12 +475,13 @@ impl Iter<T> {
         // the consumer already said stop" is exactly what the protocol's Bool
         // return means, so it composes in Nomi.
         Seq{
-            run: |yield: (T) -> Bool|
+            run: |yield: (T) -> Bool| {
                 if Iter.each_while(a, yield) {
                     Iter.each_while(b, yield)
                 } else {
                     False
-                },
+                }
+            },
         }
     }
 
@@ -615,13 +616,13 @@ impl Iter<T> {
     //! |> Iter.take(4)
     //! |> Iter.to_list() == [1, 2, 4, 8]
     //!
-    //! assert Iter.iterate(0, |n|
+    //! assert Iter.iterate(0, |n| {
     //!     if n > 5 {
     //!         break n
     //!     } else {
     //!         n + 1
     //!     }
-    //! )
+    //! })
     //!     |> Iter.to_list()
     //!     |> List.equal?([0, 1, 2, 3, 4, 5, 6])
     //
@@ -690,12 +691,12 @@ impl Iter<T> {
     //! assert Iter.min([]) == None
     //
     pub fn min<T>(source: Iter<T>): Maybe<T> where T: Comparable {
-        reduce(source, |least: Maybe<T> = None, item|
+        reduce(source, |least: Maybe<T> = None, item| {
             case least {
                 Some(m) -> if item < m { Some(item) } else { least }
                 None -> Some(item)
             }
-        )
+        })
     }
 
     /// Returns the greatest element, or `None` for an empty source. Of equal
@@ -706,12 +707,12 @@ impl Iter<T> {
     //! assert Iter.max([]) == None
     //
     pub fn max<T>(source: Iter<T>): Maybe<T> where T: Comparable {
-        reduce(source, |greatest: Maybe<T> = None, item|
+        reduce(source, |greatest: Maybe<T> = None, item| {
             case greatest {
                 Some(m) -> if item > m { Some(item) } else { greatest }
                 None -> Some(item)
             }
-        )
+        })
     }
 
     /// Returns the element whose `key` is least, or `None` for an empty

@@ -75,10 +75,17 @@ func (g *gen) hold(e expr) expr {
 func (g *gen) patternHead(te ast.TypeExpr) (owner, member string, ok bool) {
 	switch t := te.(type) {
 	case *ast.SimpleType:
-		if ref, canonical, isRef := variantRefAt(g.fa, t.Name, t.Line, t.Col); isRef && ref.Resolved != nil && ref.Resolved.Kind == analysis.SymbolEnumVariant {
+		if ref, canonical, isRef := variantRefAt(g.srcFA(), t.Name, t.Line, t.Col); isRef && ref.Resolved != nil && ref.Resolved.Kind == analysis.SymbolEnumVariant {
 			return "", canonical, true
 		}
 		return "", t.Name, true
+	case *ast.SelfType:
+		// `self(p)` in an interface default, which is lowered once per
+		// implementor: the head is that implementor's own name.
+		if d := g.selfDistinct(); d != nil {
+			return "", d.nomi, true
+		}
+		return "", "", false
 	}
 	return patternHeadAsWritten(te)
 }

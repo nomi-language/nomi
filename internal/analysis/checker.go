@@ -37,7 +37,15 @@ type checker struct {
 	selfTypeName      string                 // receiver type's base name while checking an impl-block body, so bare same-owner calls can resolve to the receiver type's functions. Empty outside an impl block.
 	implBlock         *ast.ImplBlock         // the impl block whose items are being checked; nil outside one. checkSelfRecursion reads it for the block's own functions.
 	currentInterface  string                 // interface whose default body is currently being checked, so bare sibling calls resolve inside defaults.
-	currentFnName     string                 // function body currently being checked.
+	// defaultSelf is the interface's `self` while one of its default bodies is
+	// checked, and nil otherwise; a conformance the body demands of it must be
+	// one the function's `where self` provides (default_self_bound.go).
+	defaultSelf   *TypeParam_
+	defaultSelfFn string // the default function defaultSelf belongs to
+	// selfDemandSubjects are the expressions an interface-qualified call
+	// passes, so a `self` demand it raises points at the value.
+	selfDemandSubjects []ast.Node
+	currentFnName      string // function body currently being checked.
 	// currentFnDecl is the DECLARATION NODE of the body currently being
 	// checked, or nil outside one. Beside currentFnName rather than derived
 	// from it, because a name is not an identity: a nested `fn helper` beside a
@@ -4285,6 +4293,9 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 		// diagnostic.
 		return c.checkFieldAccessor(n, nil)
 
+	case *ast.SelfExpr:
+		return c.checkSelfValue(n)
+
 	case *ast.StringInterp:
 		// All interpolation parts are checked, but result is always String.
 		// The runtime stringifies each interpolated value via
@@ -4298,7 +4309,9 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 				line, col := slotPosition(se)
 				// The demand recurses into type arguments as `io.print`'s
 				// `where T: Display` does: `"${[q]}"` renders q through Display.
+				restoreSubjects := c.enterSelfDemandSubjects([]ast.Node{se.Expr})
 				c.recordBoundConformance(partTy, "Display", c.recPos(line, col), RecordingKindCallSite)
+				restoreSubjects()
 			}
 		}
 		return TypeString
@@ -4563,6 +4576,15 @@ func (c *checker) checkIdent(n *ast.Ident) Type {
 		if tp, ok := ty.(*TypeParam_); ok && tp.Name_ == "self" {
 			if iface, ok := c.reg.Lookup(c.currentInterface).(*InterfaceType); ok {
 				return interfaceSelfType(iface)
+			}
+		}
+		// A parameter whose declared type holds `self` (`ts: List<self>`,
+		// `m: Maybe<self>`) is read as the default's `self` value type in
+		// every position, as the bare `self` above is, so its elements are
+		// the implementor and not a type parameter.
+		if c.defaultSelf != nil {
+			if iface, ok := c.reg.Lookup(c.currentInterface).(*InterfaceType); ok && iface.SelfParam == c.defaultSelf {
+				ty = Substitute(ty, map[*TypeParam_]Type{c.defaultSelf: interfaceSelfType(iface)})
 			}
 		}
 	}
@@ -5206,7 +5228,11 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 		// Final-default rule: a non-`open` interface default is final, so an
 		// impl may not override it. A host-backed default (`host fn`) is final
 		// the same way unless declared `open extern`.
-		if (sig.HasDefault || sig.Extern) && !sig.Open {
+		// A default whose `where self` the receiver does not meet is not
+		// the receiver's, so writing the function overrides nothing.
+		// So is a default that would open an opaque receiver from outside
+		// its file.
+		if (sig.HasDefault || sig.Extern) && !sig.Open && !c.defaultWithheld(sig, iface, recvTy, c.recPos(pos.Line, pos.Col)) {
 			c.addError(dpos.Line, dpos.Col, fmt.Sprintf("impl function '%s': '%s' is a final default on interface '%s'; mark it `open` on the interface to allow overriding", name, name, iface.Name))
 			continue
 		}
@@ -5336,7 +5362,28 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 		m := &iface.Methods[i]
 		// HasDefault (Nomi default) and Extern (host-backed default) are both
 		// provided to implementors, so neither is required.
-		if m.HasDefault || m.Extern || supplied[m.Name] {
+		if supplied[m.Name] {
+			continue
+		}
+		if m.HasDefault {
+			if missing := c.missingSelfBounds(m, iface, recvTy, c.recPos(n.Line, n.Col)); len(missing) > 0 {
+				needs := selfBoundsText(missing)
+				e := implHeaderError(n, fmt.Sprintf("`%s` does not implement %s, which `%s.%s`'s default requires (`where self: %s`)", recvName, needs, iface.Name, m.Name, selfBoundsText(substitutedBounds(m.SelfBounds, ifaceArgSubs(iface))))).
+					WithHint(selfBoundHint(missing, recvName, recvTy, m.Name))
+				if r, ok := c.interfaceFunctionRelated(n, m.Name, "'"+m.Name+"' is declared here"); ok {
+					e = e.WithRelated(r)
+				}
+				c.report(e)
+			} else if _, opaque := c.opaqueHere(recvTy); opaque && (m.TakesSelfApart || m.BuildsSelf) {
+				e := implHeaderError(n, opaqueSelfDefaultMessage(recvName, iface.Name, m))
+				if r, ok := c.interfaceFunctionRelated(n, m.Name, "'"+m.Name+"' is declared here"); ok {
+					e = e.WithRelated(r)
+				}
+				c.report(e)
+			}
+			continue
+		}
+		if m.Extern {
 			continue
 		}
 		// Common slip: the type has an inherent method of the same name. Point
@@ -5445,6 +5492,10 @@ func (c *checker) checkInterfaceDefaults(n *ast.InterfaceDef) {
 		prevTP := c.fnTypeParams
 		c.fnTypeParams = collectTypeParamsByName(ft)
 		restoreWhereBounds := c.pushWhereBounds(ft.WhereBounds)
+		restoreSelf := c.enterDefaultSelf(it, m.Name)
+		// A destructuring parameter's names (`self(n)`, `(a, b): (Int,
+		// Int)`) are typed from the parameter's type, as in a function.
+		c.checkDestructureParams(m.Params, ft)
 
 		var bodyTy Type
 		if block, ok := m.Body.(*ast.Block); ok {
@@ -5453,6 +5504,7 @@ func (c *checker) checkInterfaceDefaults(n *ast.InterfaceDef) {
 			bodyTy = c.checkNode(m.Body)
 		}
 
+		restoreSelf()
 		restoreWhereBounds()
 		c.fnTypeParams = prevTP
 		restoreExits()
@@ -6180,8 +6232,10 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			// recorded only the container and faulted at dispatch —
 			// the same shape as the type-qualified call site in
 			// impl_call_demand.go, reached by a different route.
+			restoreSubjects := c.enterSelfDemandSubjects([]ast.Node{n.Left})
 			c.recordBoundConformanceRecording(left, "Comparable",
 				Recording{Pos: c.recPos(n.Line, n.Col), Kind: RecordingKindOrderingOperator, Op: n.Op})
+			restoreSubjects()
 		}
 		return TypeBool
 
@@ -6352,6 +6406,9 @@ func (c *checker) checkOperatorInterface(n *ast.Binary, opIface operatorInterfac
 	case *InterfaceType:
 		if lt.Name == opIface.Interface && len(lt.TypeArgs) == 2 {
 			return c.checkOperatorRhs(n, opIface, right, lt.TypeArgs[0], lt.TypeArgs[1])
+		}
+		if rhs, out, ok := c.defaultSelfOperator(lt, opIface.Interface); ok {
+			return c.checkOperatorRhs(n, opIface, right, rhs, out)
 		}
 		return nil, false
 	}
@@ -6578,6 +6635,10 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 	}
 	ft, ok := fnTy.(*FuncType)
 	if !ok {
+		// `x |> y()` with `y` an `Int` or a `T`, as the direct call reports it.
+		if notFn := notCallable(fnTy); notFn != nil && pipeCall != nil && !calleeIsVariantConstructor(c, pipeCall.Func) {
+			c.report(errAt(pipeCall.Func, c.typef("`%s` is not a function", notFn)))
+		}
 		return nil
 	}
 	// `1 |> Some(l: _)`: a positional variant's payload has no name.
@@ -6597,21 +6658,23 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 		}
 	}
 
-	// Pipe semantics: when the call has an explicit `_` placeholder, the
-	// piped value substitutes for the placeholder in place — so arg index
-	// maps directly to param index. Without a placeholder, the piped value
-	// is prepended as the first arg, so explicit args fill slots 1..N.
+	// Pipe semantics: when the call has explicit `_`s, positional or named
+	// (`w: _`), the piped value fills each of them in place, so explicit
+	// args fill slots from 0 and each `_`'s slot is a piped one. Without a
+	// `_`, the piped value is prepended as the first arg, so explicit args
+	// fill slots 1..N.
 	pipedSlot := 0
 	argShift := 1
+	var holes []int
 	if pipeCall != nil {
-		for i, arg := range pipeCall.Args {
-			if _, isPh := arg.(*ast.Placeholder); isPh {
-				pipedSlot = i
-				argShift = 0
-				break
-			}
+		holes = pipeHoles(pipeCall.Args)
+		if len(holes) > 0 {
+			argShift = 0
 		}
 	}
+	// fills is each slot the piped value fills, with the `_` that names
+	// it (index into pipeCall.Args, -1 for the prepended first argument).
+	fills := []pipeFill{{slot: 0, arg: -1}}
 
 	// Pre-compute the slot mapping for explicit args. Mirrors
 	// computePositionalSlots from the direct-call path: identity mapping
@@ -6634,6 +6697,22 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 			}
 		}
 		pipeSlots = computePipeArgSlots(pipeCall.Args, argShift, c.callDefParams(pipeCall.Func), ft.Params)
+		if len(holes) > 0 {
+			fills = fills[:0]
+			for _, i := range holes {
+				slot := pipeSlots[i]
+				if na, ok := pipeCall.Args[i].(*ast.NamedArg); ok {
+					// `x |> f(1, w: _)` fills `w`; an unknown name is
+					// reported with the other named arguments below.
+					slot = namedArgSlot(na.Name, c.callDefParams(pipeCall.Func))
+					if slot < 0 {
+						slot = len(ft.Params)
+					}
+				}
+				fills = append(fills, pipeFill{slot: slot, arg: i})
+			}
+			pipedSlot = fills[0].slot
+		}
 		for _, na := range positionalNamedConflicts(pipeCall.Args, pipeSlots, c.callDefParams(pipeCall.Func), argShift) {
 			c.addError(na.Line, 1, fmt.Sprintf("parameter '%s' already has a value", na.Name))
 		}
@@ -6658,20 +6737,23 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 		errMark := len(c.errors)
 		slotArgs := map[int]ast.Node{}
 
-		// Unify piped-in arg against the slot it fills (param[pipedSlot]).
-		if pipedSlot < len(ft.Params) && argTy != nil {
-			slotArgs[pipedSlot] = n.Left
-			argTy = coerceMapToList(argTy, ft.Params[pipedSlot])
-			argTy = coerceRangeToList(argTy, ft.Params[pipedSlot])
-			if err := c.unifyInto(ft.Params[pipedSlot], argTy, subs); err != nil {
-				c.reportGenericArgMismatch(pipeCallee(pipeCall, n.Right), ft.Params[pipedSlot], argTy, subs, n.Left, positionalArgLabel(pipedSlot), n.Line, n.Col)
+		// Unify piped-in arg against each slot it fills.
+		for _, fill := range fills {
+			if fill.slot >= len(ft.Params) || argTy == nil {
+				continue
+			}
+			slotTy := coerceMapToList(argTy, ft.Params[fill.slot])
+			slotTy = coerceRangeToList(slotTy, ft.Params[fill.slot])
+			slotArgs[fill.slot] = n.Left
+			if err := c.unifyInto(ft.Params[fill.slot], slotTy, subs); err != nil {
+				c.reportGenericArgMismatch(pipeCallee(pipeCall, n.Right), ft.Params[fill.slot], slotTy, subs, n.Left, positionalArgLabel(fill.slot), n.Line, n.Col, newPipeHead(n, pipeCall, fill))
 			}
 			// Mirror the recordInterfaceConformanceFromParam call in
 			// checkGenericCall: a piped concrete arg flowing into an
 			// interface-typed param (e.g. `xs |> Iter.to_list()` where
 			// to_list's param is `Iter<T>`) needs (concrete, iface)
 			// recorded in the impl manifest.
-			c.recordInterfaceConformanceFromParam(argTy, ft.Params[pipedSlot], c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam)
+			c.recordInterfaceConformanceFromParam(slotTy, ft.Params[fill.slot], c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam)
 		}
 
 		// Check explicit args (from the call syntax) against their routed slots.
@@ -6691,12 +6773,20 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 					slot := namedArgSlot(na.Name, defParams)
 					if slot >= 0 && slot < len(ft.Params) {
 						expectedTy := Substitute(ft.Params[slot], subs)
+						if ph, ok := na.Value.(*ast.Placeholder); ok && expectedTy != nil {
+							c.fa.References[Pos{Line: ph.Line, Col: ph.Col}] = &Symbol{
+								Name: "_",
+								Kind: SymbolBinding,
+								Pos:  Pos{Line: ph.Line, Col: ph.Col},
+								Type: expectedTy,
+							}
+						}
 						valTy := c.checkNodeExpecting(na.Value, expectedTy)
 						if valTy != nil {
 							slotArgs[slot] = na.Value
 							argLine, argCol := nodeLineCol(na.Value)
 							if err := c.unifyInto(ft.Params[slot], valTy, subs); err != nil {
-								c.reportGenericArgMismatch(pipeCall.Func, ft.Params[slot], valTy, subs, na.Value, namedArgLabel(na.Name), argLine, argCol)
+								c.reportGenericArgMismatch(pipeCall.Func, ft.Params[slot], valTy, subs, na.Value, namedArgLabel(na.Name), argLine, argCol, nil)
 							}
 							c.recordInterfaceConformanceFromParam(valTy, ft.Params[slot], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam)
 						}
@@ -6723,7 +6813,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 						slotArgs[paramIdx] = arg
 						argLine, argCol := nodeLineCol(arg)
 						if err := c.unifyInto(ft.Params[paramIdx], explicitArgTy, subs); err != nil {
-							c.reportGenericArgMismatch(pipeCall.Func, ft.Params[paramIdx], explicitArgTy, subs, arg, positionalArgLabel(paramIdx), argLine, argCol)
+							c.reportGenericArgMismatch(pipeCall.Func, ft.Params[paramIdx], explicitArgTy, subs, arg, positionalArgLabel(paramIdx), argLine, argCol, nil)
 						}
 						c.recordInterfaceConformanceFromParam(explicitArgTy, ft.Params[paramIdx], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam)
 					}
@@ -6747,7 +6837,9 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 				if iface, ok := interfaceObjectType(c, fa.Object, nil); ok && iface.SelfParam != nil {
 					if concrete, ok := subs[iface.SelfParam]; ok {
 						structConformanceErrored = c.enforceStructConformance(iface.Name, concrete, fa.Field.Name, n.Line, n.Col)
+						restoreSubjects := c.enterSelfDemandSubjects([]ast.Node{n.Left})
 						c.recordBoundConformance(concrete, iface.Name, c.recPos(n.Line, n.Col), RecordingKindCallSite)
+						restoreSubjects()
 						// The bound `T` is USED at, which nothing recorded
 						// because a Debug bound can reject nothing. This is the
 						// PIPE spelling; the direct-call spelling below is the
@@ -6757,6 +6849,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 
 						c.attachDispatchImpl(fa, iface.Name, concrete)
 					}
+					c.checkExistentialSelfCall(fa, iface, subs, append([]ast.Node{n.Left}, pipeCall.Args...), n.Line, n.Col)
 				}
 			}
 		}
@@ -6797,6 +6890,11 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 		// dispatch will need. Without this, a piped generic call
 		// (`xs |> show()`) records nothing for interface bounds, even though
 		// the direct-call form already does.
+		pipeSubjects := []ast.Node{n.Left}
+		if pipeCall != nil {
+			pipeSubjects = append(pipeSubjects, pipeCall.Args...)
+		}
+		restorePipeSubjects := c.enterSelfDemandSubjects(pipeSubjects)
 		for tp, concrete := range subs {
 			for _, bound := range tp.Bounds {
 				if !typeImplementsInterface(c, concrete, bound, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck) {
@@ -6811,6 +6909,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 		// defaults) — same as checkGenericCall, so a piped `xs |> Iter.sort_by(...)`
 		// records the (key, Comparable) demand the direct-call form does.
 		c.recordWhereBoundDemands(ft, subs, n.Line, n.Col, pipeBoundCol(n, pipeCall))
+		restorePipeSubjects()
 
 		// A solved `Partial<T>` parameter must resolve to a struct (Struct.update).
 		// Skipped when a `Struct.method` conformance error already fired (the
@@ -6846,9 +6945,12 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 	// implementers of interface params (e.g. std/iter's Seq<String> where
 	// Iter<String> is expected) are accepted via the impl registry.
 	//
-	if pipedSlot < len(ft.Params) && argTy != nil && ft.Params[pipedSlot] != nil {
-		if !c.argMatchesParam(argTy, ft.Params[pipedSlot], c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {
-			c.report(TypeError{Line: n.Line, Col: 1, Message: c.typef("pipe argument type mismatch: expected %s, got %s", ft.Params[pipedSlot], argTy)}.Spanning(n.Left).WithHint(mismatchHint(ft.Params[pipedSlot], argTy)))
+	for _, fill := range fills {
+		if fill.slot >= len(ft.Params) || argTy == nil || ft.Params[fill.slot] == nil {
+			continue
+		}
+		if !c.argMatchesParam(argTy, ft.Params[fill.slot], c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {
+			c.report(c.pipeHeadMismatch(newPipeHead(n, pipeCall, fill), ft.Params[fill.slot], argTy).WithHint(mismatchHint(ft.Params[fill.slot], argTy)))
 		}
 	}
 
@@ -7287,6 +7389,9 @@ func interfaceBoundNames(bounds []*InterfaceType) string {
 }
 
 func (c *checker) checkCall(n *ast.Call, expected Type) Type {
+	if _, ok := n.Func.(*ast.SelfExpr); ok {
+		return c.checkSelfCall(n)
+	}
 	c.markStructUpdatePatch(n)
 	c.markCallHoles(n)
 	var fnTy Type
@@ -7627,11 +7732,14 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 }
 
 // notCallable is a callee's type when it is a data type no call can apply
-// (`1()`, `""()`, a struct value called), or nil. A callee with no type, or
-// one still open, is left to whatever reported it.
+// (`1()`, `""()`, a struct value called), or nil. A value of a type
+// parameter or an interface type is not callable either: no bound makes a
+// function of it. A callee with no type, or one still open, is left to
+// whatever reported it.
 func notCallable(t Type) Type {
 	switch v := resolveTypeVar(t).(type) {
-	case *PrimitiveType, *StructType, *EnumType, *TupleType, *ListType, *MapType, *AnonStructType:
+	case *PrimitiveType, *StructType, *EnumType, *TupleType, *ListType, *MapType, *AnonStructType,
+		*TypeParam_, *InterfaceType:
 		return v
 	case *DistinctType:
 		if _, isFn := v.Inner.(*FuncType); !isFn {
@@ -8192,6 +8300,18 @@ func callHasPlaceholder(args []ast.Node) bool {
 	return false
 }
 
+// pipeHoles is the index in a pipe stage's args of each `_` argument,
+// positional or named (`w: _`). The piped value fills the first.
+func pipeHoles(args []ast.Node) []int {
+	var out []int
+	for i, arg := range args {
+		if isPlaceholderArg(arg) {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
 // callDefParams returns the param-name list of the function being called via
 // funcNode, by following the funcNode's reference symbol back to its
 // declaration. Returns nil for callees we can't resolve to a known
@@ -8307,6 +8427,9 @@ func (c *checker) argMatchesParam(argTy, paramTy Type, recPos Pos, recKind Recor
 // Callers pass the argument or patch position so the manifest keeps the
 // demand site.
 func (c *checker) ifaceParamAdmits(argTy Type, iface *InterfaceType, recPos Pos, recKind RecordingKind) bool {
+	if c.defaultSelfConforms(argTy, iface) {
+		return true
+	}
 	// Universal struct interface: a `Struct`-typed (existential) parameter
 	// accepts any struct — named or anonymous — with no impl-registry entry
 	// to unify against. Existential args (interface / type param / type var)
@@ -8317,6 +8440,13 @@ func (c *checker) ifaceParamAdmits(argTy Type, iface *InterfaceType, recPos Pos,
 			return true
 		}
 		return isStructShaped(argTy)
+	}
+	if isStdDistinct(iface) {
+		switch resolveTypeVar(argTy).(type) {
+		case *InterfaceType, *TypeParam_, *TypeVar:
+			return true
+		}
+		return c.distinctSatisfies(argTy, iface)
 	}
 	if c.unify(iface, argTy, nil) != nil {
 		return false
@@ -8491,8 +8621,17 @@ func (c *checker) argSatisfiesConcreteParam(argTy, concreteParam Type, line, col
 // shape-only check. `argIndex` is 0-based. Shared by the direct-call
 // (checkGenericCall) and pipe (checkPipe) paths so both reject the same
 // multi-occurrence conflicts. callee is the called function as written,
-// for a diagnostic that names it.
-func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, subs map[*TypeParam_]Type, arg ast.Node, label string, line, col int) {
+// for a diagnostic that names it. pipe is the stage slot when arg is the
+// value a pipe passes, nil otherwise: the error is then the stage's, placed
+// on it.
+func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, subs map[*TypeParam_]Type, arg ast.Node, label string, line, col int, pipe *pipeHead) {
+	expectedGot := func(want Type) TypeError {
+		if pipe != nil {
+			return c.pipeHeadMismatch(pipe, want, argTy)
+		}
+		return TypeError{Line: line, Col: col, Message: c.typef(
+			"%s: expected %s, got %s", label, want, argTy)}.Spanning(arg)
+	}
 	if te, ok := c.callbackDowncast(callee, arg, Substitute(param, subs), argTy, label, line, col); ok {
 		c.report(te)
 		// The function's result still solves the callee's type arguments
@@ -8507,6 +8646,10 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	}
 	if iface, ok := param.(*InterfaceType); ok {
 		if !c.typeImplementsInterface(argTy, iface.Name, c.recPos(line, col), RecordingKindInterfaceTypedParam) {
+			if pipe != nil {
+				c.report(c.pipeHeadNotImplemented(pipe, iface.Name, argTy))
+				return
+			}
 			c.addError(line, col, fmt.Sprintf(
 				"%s: %s does not implement %s", label, argTy, iface.Name))
 			return
@@ -8517,8 +8660,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	// whatever the type variables solve to: `fn f<T>(xs: List<T>)` called
 	// with an Iter.
 	if ifaceNarrows(substituted, argTy) {
-		c.report(TypeError{Line: line, Col: col, Message: c.typef(
-			"%s: expected %s, got %s", label, substituted, argTy)}.Spanning(arg).WithHint(mismatchHint(substituted, argTy)))
+		c.report(expectedGot(substituted).WithHint(mismatchHint(substituted, argTy)))
 		return
 	}
 	if isSolvedParam(substituted) {
@@ -8527,8 +8669,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 			if hint == "" {
 				hint = c.functionJoinHint(param, substituted, argTy)
 			}
-			c.report(TypeError{Line: line, Col: col, Message: c.typef(
-				"%s: expected %s, got %s", label, substituted, argTy)}.Spanning(arg).WithHint(hint).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(mismatchHint(substituted, argTy)))
+			c.report(expectedGot(substituted).WithHint(hint).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(mismatchHint(substituted, argTy)))
 		}
 		return
 	}
@@ -8537,8 +8678,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	// let `Maybe.map(m, parse)` through for a `parse` with a defaulted second
 	// parameter, and the program was BLOCKED at run time.
 	if funcArityDiffers(substituted, argTy) {
-		c.report(TypeError{Line: line, Col: col, Message: c.typef(
-			"%s: expected %s, got %s", label, substituted, argTy)}.Spanning(arg).WithHint(defaultedFuncValueHint(substituted, argTy, arg)).WithHint(mismatchHint(substituted, argTy)))
+		c.report(expectedGot(substituted).WithHint(defaultedFuncValueHint(substituted, argTy, arg)).WithHint(mismatchHint(substituted, argTy)))
 		return
 	}
 	// A function value is never a non-function, and the reverse: no
@@ -8546,8 +8686,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	// permissive fallback below let `Maybe.with_default(f, 0)` through, and
 	// the program was BLOCKED at run time (func_value_shape.go).
 	if funcShapeDiffers(substituted, argTy) {
-		c.report(TypeError{Line: line, Col: col, Message: c.typef(
-			"%s: expected %s, got %s", label, substituted, argTy)}.Spanning(arg))
+		c.report(expectedGot(substituted))
 		return
 	}
 	// The same holds for any two different type constructors: no
@@ -8555,13 +8694,17 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	// fallback below let `Set.size({})` through, and the program could not
 	// run.
 	if headDiffers(substituted, argTy) {
-		c.report(TypeError{Line: line, Col: col, Message: c.typef(
-			"%s: expected %s, got %s", label, substituted, argTy)}.Spanning(arg))
+		c.report(expectedGot(substituted))
 		return
 	}
-	if shouldReportUnifyError(param, argTy) {
-		c.addMismatch(line, col, substituted, argTy, c.typef("%s: expected %s, got %s", label, substituted, argTy))
+	if !shouldReportUnifyError(param, argTy) {
+		return
 	}
+	if pipe != nil {
+		c.report(c.pipeHeadMismatch(pipe, substituted, argTy).WithHint(mismatchHint(substituted, argTy)))
+		return
+	}
+	c.addMismatch(line, col, substituted, argTy, c.typef("%s: expected %s, got %s", label, substituted, argTy))
 }
 
 // functionJoinHint explains a rejected argument whose function type would be
@@ -8924,7 +9067,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		// When the parameter shape constrains the argument (e.g. Iter<(K, V)>
 		// vs a List of non-tuple values), surface the mismatch as a type error.
 		if err := c.unifyInto(ft.Params[slot], argTy, subs); err != nil {
-			c.reportGenericArgMismatch(n.Func, ft.Params[slot], argTy, subs, arg, label, errLine, errCol)
+			c.reportGenericArgMismatch(n.Func, ft.Params[slot], argTy, subs, arg, label, errLine, errCol, nil)
 		}
 
 		// Conformance recording for concrete-arg-into-interface-param. The
@@ -9038,6 +9181,11 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 			}
 		}
 	}
+	if fa, ok := n.Func.(*ast.FieldAccess); ok {
+		if iface, ok := interfaceObjectType(c, fa.Object, nil); ok {
+			c.checkExistentialSelfCall(fa, iface, subs, n.Args, n.Line, callCol(n))
+		}
+	}
 
 	// Any remaining callee-scope TypeParam_s — leftovers from args that
 	// didn't constrain them and a return-type fallback that didn't bind —
@@ -9057,6 +9205,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// every interface in T.Bounds. Bounds are conjunctive (AND); a
 	// missing impl for any one fails the call (with that interface named
 	// in the error so the user knows which interface they're missing).
+	restoreSubjects := c.enterSelfDemandSubjects(n.Args)
 	for tp, concrete := range subs {
 		for _, bound := range tp.Bounds {
 			if !typeImplementsInterface(c, concrete, bound, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck) {
@@ -9069,6 +9218,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 
 	// Method-level `where`-clause enforcement (constrained interface functions).
 	c.recordWhereBoundDemands(ft, subs, n.Line, n.Col, callCol(n))
+	restoreSubjects()
 
 	// A solved `Partial<T>` parameter must resolve to a struct (Struct.update).
 	// Skipped when a `Struct.method` conformance error already fired for this
@@ -9274,7 +9424,9 @@ func isPlaceholderArg(arg ast.Node) bool {
 // the call dispatches to. It reports whether struct conformance errored.
 func (c *checker) recordInterfaceSelf(n *ast.Call, fa *ast.FieldAccess, iface *InterfaceType, concrete Type) bool {
 	errored := c.enforceStructConformance(iface.Name, concrete, fa.Field.Name, n.Line, 1)
+	restoreSubjects := c.enterSelfDemandSubjects(n.Args)
 	c.recordBoundConformance(concrete, iface.Name, c.recPos(n.Line, n.Col), RecordingKindCallSite)
+	restoreSubjects()
 	c.recordInferredBoundOnTypeParam(concrete, iface.Name)
 	c.attachDispatchImpl(fa, iface.Name, concrete)
 	return errored
@@ -9460,6 +9612,15 @@ func typeImplementsInterface(c *checker, concrete Type, iface *InterfaceType, re
 	// here yields the bound's "X does not implement Struct" error.
 	if iface.Name == "Struct" {
 		return isStructShaped(concrete)
+	}
+	// Universal distinct interface: `Distinct<T>` is satisfied by every
+	// distinct type wrapping exactly T, decided the same way (distinct_self.go).
+	// Inside a default bounded by `where self: Distinct<T>`, `self` has it.
+	if isStdDistinct(iface) {
+		if c != nil && c.isDefaultSelfValue(concrete) && c.distinctSelfBound() != nil {
+			return true
+		}
+		return c.distinctSatisfies(concrete, iface)
 	}
 	if iface.Name == "Display" {
 		implements, decided := structuralDisplay(concrete, func(p Type) bool {
@@ -11612,8 +11773,8 @@ func (c *checker) registerControlFlowHover(line, col int, keyword string, inputT
 func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 	fieldPos := Pos{Line: n.Field.Line, Col: n.Field.Col}
 
-	if id, ok := n.Object.(*ast.Ident); ok && id.Name == "self" {
-		c.addError(id.Line, id.Col, "`self` is an interface type placeholder, not an expression qualifier; use a bare same-owner call or qualify with the concrete type")
+	if se, ok := n.Object.(*ast.SelfExpr); ok {
+		c.addError(se.Line, se.Col, "`self` is an interface type placeholder, not an expression qualifier; use a bare same-owner call or qualify with the concrete type")
 		return nil
 	}
 
@@ -13482,6 +13643,10 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		}
 
 	case *ast.EnumPattern:
+		if _, isSelf := n.Variant.(*ast.SelfType); isSelf {
+			c.checkSelfPattern(n, expectedTy)
+			return
+		}
 		if expectedTy == nil {
 			return
 		}
@@ -16139,6 +16304,14 @@ func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos P
 	if ifaceName == "Struct" {
 		return isStructShaped(valTy)
 	}
+	// `Distinct` by name alone carries no type argument: any distinct type
+	// that wraps a value.
+	if ifaceName == "Distinct" {
+		if dt, ok := valTy.(*DistinctType); ok {
+			return distinctInnerOf(dt) != nil
+		}
+		return false
+	}
 	name := concreteTypeName(valTy)
 	if name == "" {
 		// Unknown concrete type (e.g. function, tuple) — no impl possible.
@@ -16200,8 +16373,19 @@ func (c *checker) recordConformanceRecording(t Type, ifaceName string, rec Recor
 		return
 	}
 	resolved := resolveTypeVar(t)
-	switch resolved.(type) {
-	case *InterfaceType, *TypeParam_, *TypeVar:
+	switch r := resolved.(type) {
+	case *TypeParam_:
+		c.checkDefaultSelfDemand(r, ifaceName, rec)
+		c.checkTypeParamDemand(r, ifaceName, rec)
+		return
+	case *InterfaceType:
+		if r.DefaultSelf {
+			c.checkDefaultSelfDemand(r, ifaceName, rec)
+		} else {
+			c.checkExistentialDemand(r, ifaceName, rec)
+		}
+		return
+	case *TypeVar:
 		return
 	}
 	if ifaceName == "Display" {
@@ -16776,11 +16960,22 @@ func interfaceDefaultMethodFuncType(iface *InterfaceType, name string) *FuncType
 		return ft
 	}
 	subs := map[*TypeParam_]Type{iface.SelfParam: interfaceSelfType(iface)}
-	params := make([]Type, len(ft.Params))
-	for i := range ft.Params {
-		params[i] = Substitute(ft.Params[i], subs)
+	// From the declared signature, where `self` is still the bare
+	// parameter: interfaceMethodFuncType has already replaced it in a
+	// generic interface with the interface applied to its own parameters,
+	// which is not marked as a default's `self` value.
+	declParams, declRet := ft.Params, ft.Return
+	if sig := interfaceMethodSig(iface, name); sig != nil && len(sig.Params) == len(ft.Params) {
+		declParams = sig.Params
+		if sig.Return != nil {
+			declRet = sig.Return
+		}
 	}
-	ret := Substitute(ft.Return, subs)
+	params := make([]Type, len(declParams))
+	for i := range declParams {
+		params[i] = Substitute(declParams[i], subs)
+	}
+	ret := Substitute(declRet, subs)
 	cp := *ft
 	cp.Params = params
 	cp.Return = ret
@@ -16803,6 +16998,7 @@ func interfaceSelfType(iface *InterfaceType) Type {
 		TypeParamDefs: iface.TypeParamDefs,
 		TypeArgs:      args,
 		SelfParam:     iface.SelfParam,
+		DefaultSelf:   true,
 	}
 }
 

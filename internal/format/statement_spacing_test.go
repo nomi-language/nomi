@@ -370,9 +370,9 @@ func TestFormat_StatementSpacingMeasuresFromTheBlockIndent(t *testing.T) {
 	formatsTo(t, deep, want)
 }
 
-// The pipe, assertion and import rules still hold: a blank line follows every
-// pipe statement, inline or stacked, and a block's imports.
-func TestFormat_StatementSpacingKeepsThePipeAndImportRules(t *testing.T) {
+// The import rule still holds: a blank line follows a block's imports. A
+// pipe statement follows the multi-line rule like any other statement.
+func TestFormat_StatementSpacingKeepsTheImportRule(t *testing.T) {
 	src := `fn f(xs: List<Int>): Int {
     import std/io
     n = xs |> Iter.count()
@@ -385,13 +385,154 @@ func TestFormat_StatementSpacingKeepsThePipeAndImportRules(t *testing.T) {
     import std/io
 
     n = xs |> Iter.count()
-
     m = n + 1
     io.print(m)
     m
 }
 `
 	formatsTo(t, src, want)
+}
+
+// A pipe statement is set apart only when it spans lines: stacked as written,
+// or broken because it does not fit. One that fits on its line sits with its
+// neighbours, as any one-line statement does, and keeps a blank line the
+// source wrote.
+func TestFormat_StatementSpacingTreatsAPipeAsAnyStatement(t *testing.T) {
+	cases := map[string]struct{ src, want string }{
+		"an inline pipe sits with its neighbours": {
+			src: `fn f(c: Int): String {
+    a = c |> Int.to_string() |> String.pad_start(5)
+    b = String.length(a)
+    c |> dbg
+    assert b |> Int.to_string() == "5"
+    a
+}
+`,
+			want: `fn f(c: Int): String {
+    a = c |> Int.to_string() |> String.pad_start(5)
+    b = String.length(a)
+    c |> dbg
+    assert b |> Int.to_string() == "5"
+    a
+}
+`,
+		},
+		"an inline pipe keeps the blank line the source wrote": {
+			src: `fn f(c: Int): String {
+    a = c |> Int.to_string() |> String.pad_start(5)
+
+    b = String.length(a)
+    a
+}
+`,
+			want: `fn f(c: Int): String {
+    a = c |> Int.to_string() |> String.pad_start(5)
+
+    b = String.length(a)
+    a
+}
+`,
+		},
+		"an inline pipe first and last in its block": {
+			src: `fn f(c: Int): String {
+    a = c |> Int.to_string()
+    b = a
+    b |> String.pad_start(5)
+}
+`,
+			want: `fn f(c: Int): String {
+    a = c |> Int.to_string()
+    b = a
+    b |> String.pad_start(5)
+}
+`,
+		},
+		"a stacked pipe is set apart": {
+			src: `fn f(xs: List<Int>): Int {
+    first = 1
+    total =
+        xs
+        |> Iter.map(|x| x * 2)
+        |> Iter.count()
+    total + first
+}
+`,
+			want: `fn f(xs: List<Int>): Int {
+    first = 1
+
+    total =
+        xs
+        |> Iter.map(|x| x * 2)
+        |> Iter.count()
+
+    total + first
+}
+`,
+		},
+		"a pipe that breaks to fit the width is set apart": {
+			src: `fn f(xs: List<Int>): Int {
+    first = 1
+    total = xs |> Iter.map(|x| x * 2 + first_value_with_a_long_name) |> Iter.filter(|x| x > second_value_long) |> Iter.count()
+    total + first
+}
+`,
+			want: `fn f(xs: List<Int>): Int {
+    first = 1
+
+    total =
+        xs
+        |> Iter.map(|x| x * 2 + first_value_with_a_long_name)
+        |> Iter.filter(|x| x > second_value_long)
+        |> Iter.count()
+
+    total + first
+}
+`,
+		},
+		"an inline pipe in a lambda body and a case arm": {
+			src: `fn f(n: Int): Int {
+    g = |x| {
+        y = x |> Int.abs()
+        y + 1
+    }
+    case n {
+        0 -> {
+            z = n |> g()
+            z + 1
+        }
+
+        _ ->
+            n
+    }
+}
+`,
+			want: `fn f(n: Int): Int {
+    g = |x| {
+        y = x |> Int.abs()
+        y + 1
+    }
+
+    case n {
+        0 -> {
+            z = n |> g()
+            z + 1
+        }
+
+        _ ->
+            n
+    }
+}
+`,
+		},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			formatsTo(t, c.src, c.want)
+			if err := SameMeaning(c.src, c.want); err != nil {
+				t.Fatalf("the formatted source does not keep the meaning: %v", err)
+			}
+		})
+	}
 }
 
 func formatsTo(t *testing.T, src, want string) {

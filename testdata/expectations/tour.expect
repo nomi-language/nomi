@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 137
-declared-cases 18
+records 140
+declared-cases 19
 failing 0
 C bindings-and-expressions.md:L123
 E 0
@@ -462,12 +462,12 @@ T Alice
 T Alice!
 T user:Alice
 T
-C interfaces-and-dispatch.md:L198
+C interfaces-and-dispatch.md:L199
 E 0
 N 0
-H 9db8c8d17a59cbef1ab6f563a6225febf03f263611d2730e15d86841236b3af4
-T Hello, Alice
-T Hello, Rex
+H 0c00120598cdf765c7396f6d6ee279f7bb215f486dd212275ba09632629d1c7f
+T 250 g
+T hidden
 T
 C interfaces-and-dispatch.md:L25
 E 0
@@ -476,7 +476,22 @@ H 7cbfa67d63c7401821e4ee56a63a56eadada1f9328fee95092f09413df9f51cc
 T Rex says woof
 T Whiskers says meow
 T
-C interfaces-and-dispatch.md:L266
+C interfaces-and-dispatch.md:L259
+E 0
+N 0
+H 1b4530e286b86a6eb4fbaf9469bc7a0ce7f6c0572572e0a250f21f92c730d11b
+T 21.5 C
+T 70.0 F
+T Celsius(20d)
+T
+C interfaces-and-dispatch.md:L315
+E 0
+N 0
+H 9db8c8d17a59cbef1ab6f563a6225febf03f263611d2730e15d86841236b3af4
+T Hello, Alice
+T Hello, Rex
+T
+C interfaces-and-dispatch.md:L383
 E 0
 N 0
 H c55a9a0f58ad08e6e6f115951dd8920fbd89e5cd3af659c42a17daceaed75064
@@ -484,27 +499,27 @@ T dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}
 T dbg line 15: Status.Pending(7) = Pending(7)
 T dbg line 16: Email("a@b.com") = Email("a@b.com")
 T
-C interfaces-and-dispatch.md:L305
+C interfaces-and-dispatch.md:L422
 E 0
 N 0
 H b7c07a37968384ab9150b8d18ca406fd3d66c61f67e7cbe9947b8e5c238d551c
 T Alice (30)
 T
-C interfaces-and-dispatch.md:L336
+C interfaces-and-dispatch.md:L453
 E 0
 N 0
 H d59ad04725cb4d783d88d6f4bb9d8aa14026593801d2642735e7ac2a2b926600
 T dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
 T dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana"]
 T
-C interfaces-and-dispatch.md:L403
+C interfaces-and-dispatch.md:L520
 E 0
 N 0
 H f12f79d6ac3b9e6e9d458a8ad753090fa0ec5586b264cfab0cc43d7396a69c9e
 T dbg line 38: score_number(score) = 5
 T dbg line 39: day_number(day) = 14
 T
-C interfaces-and-dispatch.md:L470
+C interfaces-and-dispatch.md:L587
 E 0
 N 0
 H f88edf1a782c8bf35268abdbca965b1b78d1395ab20944e728b5f9f31d7806cd
@@ -515,7 +530,7 @@ T   |> ToJson.to_json()
 T   |> Json.encode()
 T   = "{\"firstName\":\"Ada\",\"age\":36}"
 T
-C interfaces-and-dispatch.md:L548
+C interfaces-and-dispatch.md:L665
 E 0
 N 0
 H 21a4d30d1a44789ef5c7ae1f3a29aa4c38146ec8530dfcd9c9d9e1ca5f3ae4d0
@@ -523,14 +538,14 @@ T dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
 T dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
 T dbg line 9: {Point{x: 1, y: 2} => "home"} = {Point{x: 1, y: 2} => "home"}
 T
-C interfaces-and-dispatch.md:L596
+C interfaces-and-dispatch.md:L713
 E 0
 N 0
 H b4e4fc5f4ce7c0de421fbd8dcb5ac4bb712b36fc5369f8b666c6fd3129d8d497
 T dbg line 8: Money{amount: 100} < Money{amount: 250} = True
 T dbg line 11: Iter.sort(ms) = [Money{amount: 1}, Money{amount: 2}, Money{amount: 3}]
 T
-C interfaces-and-dispatch.md:L622
+C interfaces-and-dispatch.md:L739
 E 0
 N 0
 H a13f73cc0db59201e1a1ea8d94eb09c1b105cd5dcf56627b6e3cdf1b3224c1c0
@@ -538,7 +553,7 @@ T dbg line 10: Severity.Info < Severity.Warning(1) = True
 T dbg line 11: Severity.Warning(9) < Severity.Error(1) = True
 T dbg line 12: Severity.Warning(1) < Severity.Warning(2) = True
 T
-C interfaces-and-dispatch.md:L657
+C interfaces-and-dispatch.md:L774
 E 0
 N 0
 H f1feaa82465a86d0de7d8507de0eae8cb9fe185341895b9cf5254b4a277df66a
@@ -668,7 +683,7 @@ H 44a9510e5ef0572e304139764ce93dc7f304c9fa99c7366737984cba56d87116
 T dbg line 21: describe(.Rectangle{width: 2.0, height: 2.0}) = "a square of area 4.0"
 T dbg line 22: describe(.Circle(1.0)) = "a shape of area 3.0"
 T
-C pipes.md:L113
+C pipes.md:L117
 E 0
 N 0
 H 1fd4c42f4279988677cdeb4658ac6572ea1a26b997b1289680614f7d773e503c
@@ -678,7 +693,7 @@ T   |> find_name()
 T   |> then |name| name == Some("Ada")
 T   = True
 T
-C pipes.md:L142
+C pipes.md:L146
 E 0
 N 0
 H 8e2f8cbcbab2178f82dc2bf661bbd1dc5133d5b4c5a8cbd25c3cc7242a71610b
@@ -692,7 +707,7 @@ H 82311262069034c45876e9fcb7dec2c70b3e4d27baf41c85b57a205944c42016
 T dbg line 10: 5 |> double() = 10
 T dbg line 12: 5 |> add(3) = 8
 T
-C pipes.md:L175
+C pipes.md:L179
 E 0
 N 0
 H 189fe06c5cef0e801006023392fe3183880d7857bad6fba05f3476eeab0150b4
@@ -703,31 +718,31 @@ T   |> try String.to_int()
 T   |> Some()
 T   = Some(42)
 T
-C pipes.md:L200
+C pipes.md:L204
 E 0
 N 1
 H 6466c7087e99d349b351e11d2c93f7b122939dd4b964973e2d18dcfd315aa648
 T ok pipeline result is true
 T test result: ok. 1 passed, 0 failed
 T
-C pipes.md:L213
+C pipes.md:L217
 E 0
 N 0
-H 55972d3288befe7b1999bbd14874c236b9617874b2eb768ed00575677e769071
+H 0a300ca641470706b3816d9253e603d7598f7dc0842d3061ab00b0735009166d
 T dbg line 8:
 T   "Ada"
 T   |> if String.contains?("A") {
-T           "initialed"
-T       } else {
-T           "plain"
-T       }
+T       "initialed"
+T   } else {
+T       "plain"
+T   }
 T   = "initialed"
 T dbg line 15:
 T   Some("Ada")
 T   |> case {
-T           .Some(name) -> "named ${name}"
-T           .None -> "missing"
-T       }
+T       .Some(name) -> "named ${name}"
+T       .None -> "missing"
+T   }
 T   = "named Ada"
 T
 C pipes.md:L40
@@ -754,8 +769,9 @@ T
 C pipes.md:L91
 E 0
 N 0
-H aa0012b810a78d1c287415799d92fcf9c407648aeaeccce70446bcb003f0d3c6
+H 2dbb8dfa2af6f8bcae5982cd021ab5c69b6d17d6a4aa7d625d02af530b0f92df
 T dbg line 6: 10 |> divide(100, _) = 10
+T dbg line 7: 100 |> divide(y: 4, x: _) = 25
 T
 C scalars-and-strings.md:L114
 E 0
@@ -1009,13 +1025,14 @@ T hello, stranger
 T ok asks for a name, then an age
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L251
+C testing.md:L249
 E 0
 N 1
-H f2bd4d358a0711cb60aa46191c1246f835d81388acdd02b91f70b68200206fc8
-T ok user labels / setup value is explicit
-T ok user labels / a test may ignore the setup value
-T test result: ok. 2 passed, 0 failed
+H 29f9191f9f1843ac32f0130f1f324909f10c53f3ca9cfbdb082f6f379d988540
+T -10.0 C |   14.0 F
+T  -5.0 C |   23.0 F
+T ok converts to Fahrenheit
+T test result: ok. 1 passed, 0 failed
 T
 C testing.md:L27
 E 0
@@ -1025,7 +1042,15 @@ T ok assert checks successful results
 T ok refute checks result errors
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L284
+C testing.md:L278
+E 0
+N 1
+H f2bd4d358a0711cb60aa46191c1246f835d81388acdd02b91f70b68200206fc8
+T ok user labels / setup value is explicit
+T ok user labels / a test may ignore the setup value
+T test result: ok. 2 passed, 0 failed
+T
+C testing.md:L311
 E 0
 N 1
 H 6f7cc69cd602b57272358318906f7cbbca164ac2f14b83912bd321c886fd9426
@@ -1034,7 +1059,7 @@ T ok app-backed behavior / reads the booted field
 T ok app-backed behavior / a with line replaces a field for the rest of the body
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L325
+C testing.md:L352
 E 0
 N 1
 H 5e5a6007494211f6690adb2b128d0333f87e2c428ddeb5a37b336cbbc10b226e

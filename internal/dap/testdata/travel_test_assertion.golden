@@ -1,0 +1,42 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"mode":"test","program":"$TESTDATA/half_test.nomi"}
+<- response launch
+<- event initialized
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event stopped {"allThreadsStopped":true,"description":"Failed assertion","reason":"exception","text":"line 11: assertion failed\n  assert got == 6\n  values:\n    got\n      = 5","threadId":2}
+-> stepBack {"threadId":2}
+<- response stepBack
+<- event output {"category":"console","output":"Going back runs the program again from its start, answering input, the clock, randomness and files from what this session recorded; nothing is printed or read again until it passes the point it had reached.\n"}
+<- event stopped {"allThreadsStopped":true,"reason":"step","threadId":2}
+-> stackTrace {"threadId":2}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":11,"name":"half of ten","source":{"name":"half_test.nomi","path":"$TESTDATA/half_test.nomi"}}],"totalFrames":1}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"got","type":"Int","value":"5","variablesReference":0}]}
+-> stepBack {"threadId":2}
+<- response stepBack
+<- event stopped {"allThreadsStopped":true,"reason":"step","threadId":2}
+-> stackTrace {"threadId":2}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":10,"name":"half of ten","source":{"name":"half_test.nomi","path":"$TESTDATA/half_test.nomi"}}],"totalFrames":1}
+-> continue {"threadId":2}
+<- response continue {"allThreadsContinued":true}
+<- event stopped {"allThreadsStopped":true,"description":"Failed assertion","reason":"exception","text":"line 11: assertion failed\n  assert got == 6\n  values:\n    got\n      = 5","threadId":2}
+-> continue {"threadId":2}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"ok testdata/half_test.nomi :: half of four\n"}
+<- event output {"category":"stdout","output":"FAIL testdata/half_test.nomi :: half of ten\n"}
+<- event output {"category":"stdout","output":"  line 11: assertion failed\n"}
+<- event output {"category":"stdout","output":"    assert got == 6\n"}
+<- event output {"category":"stdout","output":"    values:\n"}
+<- event output {"category":"stdout","output":"      got\n"}
+<- event output {"category":"stdout","output":"        = 5\n"}
+<- event output {"category":"stdout","output":"test result: FAILED. 1 passed, 1 failed\n"}
+<- event exited {"exitCode":1}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

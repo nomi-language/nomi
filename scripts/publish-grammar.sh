@@ -7,23 +7,26 @@
 # Zed and Helix build a grammar from a repository whose root is the grammar.
 # That repository is written only by this script:
 #
-#   1. `git subtree split --prefix=tree-sitter-nomi HEAD` gives the commit
-#      whose tree is tree-sitter-nomi/. The split is deterministic: the same
-#      history gives the same commit, so a publish with no grammar change
-#      since the last one is a no-op.
-#   2. Push that commit to the grammar repository's main branch. The push is
-#      never forced; if the remote has diverged, the script stops.
-#   3. Write the commit into editors/zed/extension.toml ([grammars.nomi] rev)
-#      and editors/helix/languages.toml (the [[grammar]] source rev).
+#   1. Fetch the grammar repository's main. If its tree already equals
+#      HEAD's tree-sitter-nomi/, there is nothing to publish.
+#   2. Otherwise make one commit whose tree is HEAD's tree-sitter-nomi/ and
+#      whose parent is the fetched main, and push it as main. The push is a
+#      fast-forward by construction and is never forced. Building on the
+#      repository's own tip, rather than a `git subtree split` of this
+#      repository's history, keeps publishing working after next is squashed
+#      into main and the split history changes.
+#   3. Write the published commit into editors/zed/extension.toml
+#      ([grammars.nomi] rev) and editors/helix/languages.toml (the
+#      [[grammar]] source rev).
 #
-# It refuses to run on a dirty tree, since the split reads committed history
+# It refuses to run on a dirty tree, since it publishes committed files
 # only. After it runs, commit the two pinned files; running it again then
 # does nothing.
 #
 # Usage:
 #   scripts/publish-grammar.sh [--dry-run] [--remote <url>]
 #
-#   --dry-run       split and report; push nothing and write nothing
+#   --dry-run       report what would be published; push nothing and write nothing
 #   --remote <url>  push to <url> instead of the default below (for example
 #                   git@github.com:nomi-language/tree-sitter-nomi.git)
 
@@ -54,23 +57,41 @@ fi
 grep -qF "repository = \"$URL\"" "$ZED_TOML" || die "$ZED_TOML does not name $URL"
 grep -qF "git = \"$URL\"" "$HELIX_TOML" || die "$HELIX_TOML does not name $URL"
 
-echo ">> Splitting tree-sitter-nomi/ at $(git -C "$REPO_ROOT" rev-parse --short HEAD)"
-SHA="$(git -C "$REPO_ROOT" subtree split --prefix=tree-sitter-nomi HEAD 2>/dev/null)"
-[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || die "git subtree split gave '$SHA'"
-echo "   split commit: $SHA"
+HEAD_SHORT="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
+TREE="$(git -C "$REPO_ROOT" rev-parse "HEAD:tree-sitter-nomi")"
+echo ">> Publishing tree-sitter-nomi/ at $HEAD_SHORT (tree $TREE)"
 
-if $DRY_RUN; then
-  echo ">> Dry run: would push $SHA to $PUSH_TO main and pin both editors to it"
-  exit 0
+# The fetch writes FETCH_HEAD only; no local ref changes.
+REMOTE_MAIN="$(git -C "$REPO_ROOT" ls-remote "$PUSH_TO" refs/heads/main | cut -f1)"
+if [[ -n "$REMOTE_MAIN" ]]; then
+  git -C "$REPO_ROOT" fetch --quiet "$PUSH_TO" main || die "could not fetch $PUSH_TO main"
+  REMOTE_TREE="$(git -C "$REPO_ROOT" rev-parse "$REMOTE_MAIN^{tree}")"
+else
+  REMOTE_TREE=""
 fi
 
-REMOTE_MAIN="$(git -C "$REPO_ROOT" ls-remote "$PUSH_TO" refs/heads/main | cut -f1)"
-if [[ "$REMOTE_MAIN" == "$SHA" ]]; then
-  echo ">> $PUSH_TO main is already $SHA; nothing to push"
+if [[ "$REMOTE_TREE" == "$TREE" ]]; then
+  SHA="$REMOTE_MAIN"
+  echo ">> $PUSH_TO main ($SHA) already has this grammar; nothing to push"
 else
+  PARENT=()
+  [[ -n "$REMOTE_MAIN" ]] && PARENT=(-p "$REMOTE_MAIN")
+  SHA="$(git -C "$REPO_ROOT" commit-tree "$TREE" ${PARENT[@]+"${PARENT[@]}"} \
+    -m "Publish tree-sitter-nomi from nomi $HEAD_SHORT")"
+  [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || die "git commit-tree gave '$SHA'"
+  echo "   commit: $SHA (parent ${REMOTE_MAIN:-none})"
+  if $DRY_RUN; then
+    echo ">> Dry run: would push $SHA to $PUSH_TO main and pin both editors to it"
+    exit 0
+  fi
   echo ">> Pushing to $PUSH_TO main (was ${REMOTE_MAIN:-empty})"
   git -C "$REPO_ROOT" push "$PUSH_TO" "$SHA:refs/heads/main" \
-    || die "push refused; the remote main is not an ancestor of $SHA. Inspect it; this script never forces"
+    || die "push refused; $PUSH_TO main moved while publishing. Run it again; this script never forces"
+fi
+
+if $DRY_RUN; then
+  echo ">> Dry run: both editors would pin $SHA"
+  exit 0
 fi
 
 changed=()

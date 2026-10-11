@@ -3,6 +3,8 @@ import {
     display.Display
     equatable.Equatable
     int.Int
+    iter.Iter
+    lists.List
     maybe.Maybe.{self, None, Some}
     results.Result
     strings.String
@@ -176,7 +178,7 @@ impl Assertable for Replayed {
             None
         } else {
             Some(AssertionDetails{
-                reason: replay_reason(replayed.unread),
+                reason: replay_reason(replayed),
                 actual: Some(replayed.transcript),
                 expected: Some(replayed.expected),
             })
@@ -184,27 +186,58 @@ impl Assertable for Replayed {
     }
 }
 
-fn replay_reason(unread: Int): String {
-    case unread {
-        0 -> "the transcript differs from the script"
+fn replay_reason(replayed: Replayed): String {
+    case replayed.unread {
+        0 -> "the transcript differs from the script${gutter_hint(replayed)}"
         1 -> "1 input line of the script was never read"
         n -> "${n} input lines of the script were never read"
     }
 }
 
+/// A hint for a failed script with no input that would match if four spaces
+/// came off each of its lines: one written behind the gutter that only a
+/// script with input takes.
+fn gutter_hint(replayed: Replayed): String {
+    if guttered?(String.lines(replayed.expected), String.lines(replayed.transcript)) {
+        ", and it has no `>>` input lines, so its lines are compared as written: the four-space gutter is only for a script with input"
+    } else {
+        ""
+    }
+}
+
+/// Whether each line of `expected` is the line of `actual` beside it behind
+/// four spaces, or blank where it is blank, with as many lines in each.
+fn guttered?(expected: List<String>, actual: List<String>): Bool {
+    ungutter = |line: String| {
+        if line == "" {
+            Some("")
+        } else {
+            String.strip_prefix(line, "    ")
+        }
+    }
+
+    Iter.map(expected, ungutter) |> Maybe.collect() == Some(actual)
+}
+
 /// Runs `run` against a script of an interactive session and answers a
 /// `Replayed` that `assert` checks: `assert io.replay(script, main)`.
 ///
-/// The script is written as `Captured.transcript` reads, behind a
-/// four-column gutter. A line that starts with `>>` and two spaces is
-/// input, fed to `io.read_line` in order: what follows is the line typed,
-/// and `>>` alone is an empty line. A line that starts with four spaces is
-/// output the program must print, as it printed it. A blank line is a
-/// blank output line. A prompt written before a read (`io.write("age: ")`)
-/// is output on a line of its own, with the input on the next line. Any
-/// other line traps, naming the line, with a hint that writes it with the
-/// right gutter (`>> 500` is one). In a `"""` script, write the input
-/// lines four columns left of the output, at the closing quotes' column.
+/// A script with input is written as `Captured.transcript` reads, in two
+/// columns. A line that starts with `>>` and two spaces is input, fed to
+/// `io.read_line` in order: what follows is the line typed, and `>>` alone
+/// is an empty line. A line that starts with four spaces is output the
+/// program must print, as it printed it. A blank line is a blank output
+/// line. A prompt written before a read (`io.write("age: ")`) is output on
+/// a line of its own, with the input on the next line. Any other line
+/// traps, naming the line, with a hint that writes it with the right gutter
+/// (`>> 500` is one). In a `"""` script, write the input lines four columns
+/// left of the output, at the closing quotes' column.
+///
+/// A script with no line that starts with `>>` is output only, and each of
+/// its lines is output exactly as written, with no gutter: in a `"""`
+/// script, write the output at the closing quotes' column, and any further
+/// indentation is part of the output. Output that starts with `>>` needs
+/// the two-column form, where it is written behind four spaces.
 ///
 /// `run` runs as under `io.capture`, and its transcript must equal the
 /// script. Trailing spaces, tabs and carriage returns on each line, and a
@@ -213,10 +246,9 @@ fn replay_reason(unread: Int): String {
 /// need not be written. Once the script's input is used up, `io.read_line`
 /// answers `Err("eof")`, and that read adds nothing to the transcript; the
 /// prompt it answered stays on one line with what is printed next. A `>>`
-/// line the program never read fails the replay. A program that reads
-/// nothing is checked more simply through `io.capture(input, run).output`.
-/// A failure shows a line diff: `-` lines are only in the script, `+` lines
-/// only in what the program did.
+/// line the program never read fails the replay. A failure shows a line
+/// diff: `-` lines are only in the script, `+` lines only in what the
+/// program did.
 //! greet = || {
 //!     write("name: ")
 //!
@@ -237,9 +269,22 @@ fn replay_reason(unread: Int): String {
 //!
 //! assert replay(
 //!     """
-//!         name: hello, stranger
+//!     name: hello, stranger
 //!     """,
 //!     greet,
+//! )
+//!
+//! table = || {
+//!     print("-10.0 C |   14.0 F")
+//!     print(" -5.0 C |   23.0 F")
+//! }
+//!
+//! assert replay(
+//!     """
+//!     -10.0 C |   14.0 F
+//!      -5.0 C |   23.0 F
+//!     """,
+//!     table,
 //! )
 //!
 //! refute replay(

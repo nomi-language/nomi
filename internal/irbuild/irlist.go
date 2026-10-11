@@ -145,8 +145,9 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 			// Any other value with a stored type: the VM's list holds values
 			// of every kind (a function, an Iter, a Context, a list of
 			// structs), and each consumer of the list (Debug, equality,
-			// patterns) checks the element kinds it reads itself.
-			!(k != kindUnit && bl.g.irValType(k) != nil)) {
+			// patterns) checks the element kinds it reads itself. A Unit
+			// item is held as the Unit value its temporary carries.
+			!(k != kindUnit && bl.g.irValType(k) != nil) && !(k == kindUnit && v != ir.NoTemp)) {
 			return no()
 		}
 		values[i] = v

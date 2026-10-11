@@ -1,0 +1,15 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"format":"json","line":5,"mode":"test","program":"$TESTDATA/half_test.nomi"}
+<- response launch
+<- event initialized
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event output {"category":"stdout","output":"{\"type\":\"test\",\"file\":\"$TESTDATA/half_test.nomi\",\"line\":5,\"end_line\":7,\"name\":\"testdata/half_test.nomi :: half of four\",\"status\":\"passed\",\"message\":\"\",\"report\":\"ok testdata/half_test.nomi :: half of four\\n\"}\n"}
+<- event output {"category":"stdout","output":"{\"type\":\"summary\",\"passed\":1,\"failed\":0,\"blocked\":0}\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

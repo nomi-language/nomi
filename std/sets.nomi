@@ -107,7 +107,7 @@ impl Iter for Set<T> {
     }
 }
 
-impl Display for Set<T> {
+impl Display for Set<T> where T: Display {
     fn to_string(s: Set<T>): String {
         inner =
             Iter.map(s, |e| "${e}")
@@ -133,13 +133,13 @@ impl Equatable for Set<T> {
     }
 }
 
-impl Hashable for Set<T> {
+impl Hashable for Set<T> where T: Hashable {
     // The hash of the backing `Map<T, Bool>`: each element is an entry whose
     // value is True (hash 31), combined with the same commutative `+`.
     fn hash(s: Set<T>): Int {
-        Iter.reduce(s, |acc = 0, x|
+        Iter.reduce(s, |acc = 0, x| {
             Int.wrapping_add(acc, Int.wrapping_add(Int.wrapping_mul(Hashable.hash(x), 31), 31))
-        )
+        })
     }
 }
 

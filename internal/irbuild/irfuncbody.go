@@ -57,6 +57,9 @@ type irScalarBuilder struct {
 	placed      map[ast.Node]irPlacedArg
 	inferReturn *resultInference
 	returnKind  kind
+	// stalledStmt is the innermost statement a `leading` run of this builder
+	// failed at, which a lambda's decline names when no site named a reason.
+	stalledStmt ast.Node
 	// defaultScope excludes caller locals while lowering callee defaults.
 	defaultScope bool
 	// deferOK admits `defer` and scoped block statements: only a named
@@ -246,6 +249,17 @@ type irScalarBuilder struct {
 	// recursive is the recursive nested fn whose lambda this builder is
 	// about to build (irnestedfn.go); nil otherwise.
 	recursive *irRecursiveFn
+	// stages maps a pipe's left operand to the stage it feeds: once the
+	// operand is lowered, the stage's own instructions start, and that is
+	// where its statement mark goes (irdebuginfo.go).
+	stages map[ast.Node]ast.Node
+	// pipeVals are the values of the pipeline stages lowered so far whose
+	// pipeline is not finished, which irdebuginfo.go's pipeValue records
+	// as an ir.Pipe once it is.
+	pipeVals []pipeVal
+	// root is the declaration, lambda or test body this builder lowers,
+	// which a variable's scope is measured in (irdebuginfo.go).
+	root ast.Node
 }
 
 // irSideSet records one consumer-side fact at t, growing the list.
@@ -344,6 +358,11 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		c := ir.NewString(bl.g.irPos(line, col), bl.f.NewTemp(), t.Value)
 		bl.b.Append(c)
 		return c.Dst(), kindString, true, true
+
+	case *ast.SelfExpr:
+		// `self` as a value in an interface default: the implementor's
+		// constructor (ownerfuncref.go).
+		return bl.selfCtorFuncRef(t)
 
 	case *ast.TypeIdent:
 		// `true` and `false` are not keywords in Nomi — `True` and `False`
@@ -553,6 +572,15 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		}
 		if dst, k, mobile, ok := bl.preludeCall(t); ok {
 			return dst, k, mobile, true
+		}
+		if _, ok := t.Func.(*ast.SelfExpr); ok {
+			// `self(x)` in an interface default: the constructor of the
+			// implementor this copy is emitted for (irdistinct.go).
+			if d := bl.g.selfDistinct(); d != nil {
+				if dst, k, mobile, ok := bl.distinctMakeOf(t, d); ok {
+					return dst, k, mobile, true
+				}
+			}
 		}
 		if dot, ok := t.Func.(*ast.DotVariant); ok && dot.ResolvedEnum != "" {
 			return bl.variantCall(t, bl.g.qualifiedDot(dot))
@@ -2002,6 +2030,7 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		deferOK:     true,
 		boot:        g.irBoot,
 		body:        fd.Body,
+		root:        fd,
 	}
 	if form := irNamedCtlForm(fd); form != irCtlNone && len(sh.paramTemps) == len(fd.Params) {
 		// An iter-sensitive function signals as a callback lambda does:
@@ -2019,13 +2048,16 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 	// and `ir.Lint`'s RuleLocalDeclared for how a missed one is reported.
 	for _, b := range sh.irPrologueBinds() {
 		k := sh.frame.kindOf(b.Dst())
-		if !irRetainedValueKind(k) {
-			// A destructured name outside the retained value domain is
-			// outside the shape, exactly as a parameter of that kind is.
+		if !irCallOperandKind(k) {
+			// A destructured name outside the domain a parameter takes is
+			// outside the shape, exactly as a parameter of that kind is:
+			// `fn f(Callback(g))` binds a function and `fn f(Done(u))` a
+			// Unit, as a plain parameter of either kind does.
 			irDeclineNote("a destructured name's kind outside the domain: " + k.nomi())
 			return nil, false
 		}
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), k
+		bl.declareBind(b, k)
 	}
 	scope := bl.openDeferScope(fd.Body)
 	bl.openWithScope(true)
@@ -2122,6 +2154,7 @@ func (bl *irScalarBuilder) tail(body ast.Node, sig irFuncSig) (ir.Temp, kind, bo
 	if !ok {
 		return ir.NoTemp, kindInvalid, false
 	}
+	bl.markStmt(body, ir.StmtStatement)
 	switch t := body.(type) {
 	case *ast.Return:
 		if bl.inTest {
@@ -2315,6 +2348,9 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	prevB := bl.b
 	bl.b = arm
 	defer func() { bl.b = prevB }()
+	if _, isBlock := body.(*ast.Block); !isBlock {
+		bl.markStmt(body, ir.StmtArm)
+	}
 	lp := bl.loop
 	if sig.testArms {
 		return bl.testArm(exit, body)
@@ -2366,6 +2402,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	if !unwrapped {
 		return kindInvalid, false
 	}
+	bl.markStmt(body, ir.StmtStatement)
 	if endless, ok := bl.endlessLoop(body); endless {
 		// `0 -> Iter.loop(|| …)` with no `break`: the arm never reaches the
 		// region's exit and writes nothing, as a `return` arm does.
@@ -2410,14 +2447,18 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	}
 	if ret, isReturn := body.(*ast.Return); isReturn && isNilNode(ret.Value) && bl.inferReturn != nil && !bl.inTest {
 		// A bare `return` ending an arm of a lambda leaves the lambda with
-		// Unit, which is the arm's value when the lambda's result is Unit.
-		if !sig.inferResult && sig.result != kindUnit {
-			return kindInvalid, false
-		}
+		// Unit. The arm's region need not be Unit: the else of
+		// `Some(d) = m else { return }` is a region of the payload's kind, and
+		// the arm reaches no exit, so its kind is the other arms'.
+		// explicitReturn checks Unit against the lambda's other returns.
 		if _, ok := bl.explicitReturn(ret); !ok {
+			irDeclineNote("a bare `return` in a lambda whose other returns answer a value")
 			return kindInvalid, false
 		}
-		return kindUnit, true
+		if sig.inferResult || sig.result == kindUnit {
+			return kindUnit, true
+		}
+		return kindDiverged, true
 	}
 	if ret, isReturn := body.(*ast.Return); isReturn && isNilNode(ret.Value) && bl.inferReturn == nil &&
 		bl.returnKind == kindUnit && !bl.inTest {
@@ -2642,6 +2683,9 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 	defer func() {
 		if !lowered && cur != nil {
 			irDeclineAtNode(cur)
+			if bl.stalledStmt == nil {
+				bl.stalledStmt = cur
+			}
 		}
 	}()
 	// The deferred calls of THIS run's block. A nested block's statements
@@ -2657,6 +2701,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 			irDeclineNote("a lead statement on a synthesized line")
 			return false
 		}
+		bl.markStmt(s, ir.StmtStatement)
 		if conditional, ok := s.(*ast.If); ok {
 			if bl.loop != nil && loopGuardShape(bl.g, conditional) {
 				// `if c { continue }` anywhere in a loop's callback.
@@ -2817,6 +2862,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		bl.b.Append(bind)
 		bl.side(bind.Dst(), irScalarSide{k: k})
 		bl.bound[b.Name], bl.boundK[b.Name] = bind.Dst(), k
+		bl.declareBind(bind, k)
 		// An assertion in this body that names the binding bare prints its
 		// "defined as:" block.
 		if bl.testDefs == nil {
@@ -2838,7 +2884,7 @@ func (bl *irScalarBuilder) bindingValue(b *ast.Binding) (ir.Temp, kind, bool) {
 	}
 	var sym *analysis.Symbol
 	if bl.g.fa != nil {
-		sym = bl.g.fa.Definitions[analysis.Pos{Line: b.Line, Col: b.Col}]
+		sym = bl.g.srcFA().Definitions[analysis.Pos{Line: b.Line, Col: b.Col}]
 	}
 	if sym == nil {
 		irDeclineNote("a branch or block binding with no checked definition")
@@ -2953,7 +2999,7 @@ func (g *gen) lambdaResultWant(lam *ast.Lambda, line, col int) func() {
 	if g.fa == nil {
 		return func() {}
 	}
-	sym := g.fa.Definitions[analysis.Pos{Line: line, Col: col}]
+	sym := g.srcFA().Definitions[analysis.Pos{Line: line, Col: col}]
 	if sym == nil {
 		return func() {}
 	}

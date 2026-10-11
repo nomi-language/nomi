@@ -875,6 +875,12 @@ type gen struct {
 	// resolves to that type's own method, through the receiver's method table.
 	stdSiblings map[string]*stdFunc
 	implSelf    string
+	// defaultSelf is set while an interface default is lowered for one
+	// implementor: the interface, and the implementor's kind every `self`
+	// position takes. The checker types a `self` value in a default as the
+	// interface, so a generic call it passes one to reads the implementor
+	// from here (checkedMonoCallKinds). See inheritDefaults.
+	defaultSelf *irDefaultSelf
 	// aliasResolving is the stack of MODULE-LEVEL `typealias` names currently
 	// being expanded, so a cycle is refused rather than recursed. The front end
 	// rejects a cyclic alias before the builder sees it, so this is

@@ -178,7 +178,7 @@ function adapter.build_spec(args)
   end
   vim.list_extend(cmd, { '--format', 'json' })
   vim.list_extend(cmd, args.extra_args or {})
-  return {
+  local spec = {
     command = cmd,
     cwd = project_root(pos.path),
     -- Each record's `report` is the text report for that test, coloured
@@ -187,6 +187,23 @@ function adapter.build_spec(args)
     env = { NOMI_COLOR = 'always' },
     context = { position_id = pos.id },
   }
+  if args.strategy == 'dap' then
+    -- neotest's dap strategy runs this configuration with nvim-dap (adding
+    -- the spec's env and cwd) and reads the session's output events, so the
+    -- run reports the same JSON records `results` parses.
+    local line = (pos.type == 'test' or pos.type == 'namespace') and (pos.range[1] + 1) or nil
+    spec.strategy = vim.tbl_extend('force', require('nomi.dap').test_config(pos.path, line, spec.cwd), {
+      format = 'json',
+      console = 'internalConsole',
+    })
+    -- nvim-dap must know the adapter when neotest starts the session. It is
+    -- required on the main loop, as neotest's strategy requires it.
+    if coroutine.running() then
+      nio().scheduler()
+    end
+    require('nomi.dap').dap()
+  end
+  return spec
 end
 
 local function realpath(path)

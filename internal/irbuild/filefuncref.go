@@ -164,7 +164,7 @@ func (bl *irScalarBuilder) wrapperRef(ref ast.Node, name string, params []kind, 
 // checkedRefValueKinds is the parameter and result kinds of the function type
 // the checker gave the reference at ref (checkedRefFuncType).
 func (g *gen) checkedRefValueKinds(ref ast.Node) ([]kind, kind, bool) {
-	ft := checkedRefFuncType(g.fa, ref)
+	ft := checkedRefFuncType(g.srcFA(), ref)
 	if ft == nil {
 		return nil, kindInvalid, false
 	}

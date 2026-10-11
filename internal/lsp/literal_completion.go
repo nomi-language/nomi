@@ -123,7 +123,6 @@ func (s *Server) literalCompletions(doc *analysis.DocSnapshot, lb literalBody) [
 		return nil
 	}
 	rng := protocol.Range{Start: offsetToPosition(doc.Content, lb.start), End: offsetToPosition(doc.Content, lb.end)}
-	rng = utf16RangeFromContent(doc.Content, rng)
 	kind := protocol.CompletionItemKindValue
 	detail := fmt.Sprintf("example from %s docs", lb.tag)
 	items := make([]protocol.CompletionItem, 0, len(examples))

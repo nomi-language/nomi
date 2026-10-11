@@ -97,7 +97,26 @@ if vim.g.nomi_keymaps ~= false then
   map('<leader>tl', test_key(function(nt)
     nt.run.run_last()
   end, runner.last), 'Nomi: rerun last')
+  -- Debug the nearest test: neotest's dap strategy, or nvim-dap directly.
+  map('<leader>td', test_key(function(nt)
+    nt.run.run({ strategy = 'dap' })
+  end, function()
+    require('nomi.dap').nearest()
+  end), 'Nomi: debug test under cursor')
+  -- Going back in a paused session, beside nvim-dap's own step keys.
+  map('<leader>dh', function()
+    require('nomi.dap').step_back()
+  end, 'Nomi: step back')
+  map('<leader>dH', function()
+    require('nomi.dap').reverse_continue()
+  end, 'Nomi: reverse continue')
   map('<leader>cx', runner.run, 'Nomi: run file')
+end
+
+-- nvim-dap loaded since the plugin started, by a manager other than
+-- lazy.nvim: register the adapter now. Never loads it.
+if package.loaded.dap then
+  require('nomi.dap').register(package.loaded.dap)
 end
 
 vim.b.undo_ftplugin = table.concat(undo, ' | ')

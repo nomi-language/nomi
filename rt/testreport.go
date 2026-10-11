@@ -577,6 +577,9 @@ type Test struct {
 	// ResetSupervisors, the per-case supervisor drain. It is a parameter
 	// because the drain has to happen inside the bubble to spend virtual time.
 	Bubble func(body func() error, cleanup func()) error
+	// Live, when set, receives the case's output as it is written, beside
+	// the output RunTestCases answers (Capture.Stream).
+	Live io.Writer
 }
 
 // RunTestsLabelled is the same run with the label a case is reported under
@@ -668,6 +671,9 @@ func RunTestCases(ctx context.Context, tests []Test) (failures []error, outputs 
 // state a correct program reaches.
 func runTest(fr *Frame, t Test) (output string, err error) {
 	fr, c := EnterTestCapture(NewFrame(fr.ctx))
+	if t.Live != nil {
+		c.Stream(t.Live)
+	}
 	err = runTestCase(fr, t)
 	return c.Close().Output, err
 }

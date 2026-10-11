@@ -531,6 +531,12 @@ func (d *decoder) funcBody(r *rbuf, f *Func) {
 				}
 			}
 			b.term = d.term(r)
+			if k, isNil := r.slen(); !isNil {
+				b.stmts = make([]StmtMark, k)
+				for i := range b.stmts {
+					b.stmts[i] = StmtMark{Index: int(r.uv()), Pos: d.pos(r), Kind: StmtKind(r.byte1())}
+				}
+			}
 			f.blocks[bi] = b
 		}
 	}
@@ -546,6 +552,26 @@ func (d *decoder) funcBody(r *rbuf, f *Func) {
 				continue
 			}
 			f.defs[i] = flat[at-1]
+		}
+	}
+	if n, isNil := r.slen(); !isNil {
+		f.vars = make([]Var, n)
+		for i := range f.vars {
+			f.vars[i] = Var{Name: d.str(r.uv()), Temp: r.temp(), Type: d.str(r.uv()), Scope: d.pos(r)}
+			f.vars[i].Decl = d.pos(r)
+		}
+	}
+	if n, isNil := r.slen(); !isNil {
+		f.pipes = make([]Pipe, n)
+		for i := range f.pipes {
+			p := Pipe{Pos: d.pos(r)}
+			if k, isNil := r.slen(); !isNil {
+				p.Stages = make([]PipeStage, k)
+				for j := range p.Stages {
+					p.Stages[j] = PipeStage{Text: d.str(r.uv()), Temp: r.temp(), Pos: d.pos(r)}
+				}
+			}
+			f.pipes[i] = p
 		}
 	}
 }

@@ -1,0 +1,23 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/task.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":7}],"source":{"path":"$TESTDATA/task.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":7,"source":{"path":"$TESTDATA/task.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":2}
+-> stepBack {"threadId":2}
+<- response stepBack failed "Step back is off: this program started a task (concurrent at task.nomi:12), and a program with more than one task does not replay exactly."
+-> reverseContinue {"threadId":2}
+<- response reverseContinue failed "Step back is off: this program started a task (concurrent at task.nomi:12), and a program with more than one task does not replay exactly."
+-> continue {"threadId":2}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"42\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

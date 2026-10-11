@@ -248,9 +248,9 @@ fn main(): Unit {
                     io.print(
                         "as_list ok: ${Iter.count(
                             items
-                        )} " + Iter.reduce(items, |acc = "", it: Dynamic|
+                        )} " + Iter.reduce(items, |acc = "", it: Dynamic| {
                             acc + "<" + Debug.inspect(it) + ">"
-                        )
+                        })
                     )
 
                 Err(e) ->

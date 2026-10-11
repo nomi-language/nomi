@@ -22,7 +22,7 @@ type unitTaskValue struct{ t rt.Task[rt.Unit] }
 func (*unitTaskValue) OpaqueText() string { return rt.TaskInspectText() }
 
 // supervisorSpawnHost is `Supervisor.spawn(sup, body)`.
-func supervisorSpawnHost(m *Machine, _ ir.Pos, args []any) (any, error) {
+func supervisorSpawnHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("vm: Supervisor.spawn: expected two operands, got %d", len(args))
 	}
@@ -37,7 +37,7 @@ func supervisorSpawnHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 	var h rt.Task[rt.Unit]
 	if err := rtFault(func() {
 		h = rt.SupervisorSpawn(m.hostFrame, sup, func(fr *rt.Frame) rt.Unit {
-			m.runTask(f, fr)
+			m.runTask(f, fr, pos)
 			return rt.Unit{}
 		})
 	}); err != nil {
@@ -125,7 +125,7 @@ func IdleSupervisor() any {
 // supervisorSpawnAllHost is `Supervisor.spawn_all(sup, source, f)`: one
 // supervised task per item of the list, through rt, which enrolls each under
 // the supervisor's own limit.
-func supervisorSpawnAllHost(m *Machine, _ ir.Pos, args []any) (any, error) {
+func supervisorSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	const name = "Supervisor.spawn_all"
 	if len(args) != 3 {
 		return nil, fmt.Errorf("vm: %s: expected three operands, got %d", name, len(args))
@@ -150,7 +150,7 @@ func supervisorSpawnAllHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 	var handles *rt.List[rt.Task[rt.Unit]]
 	if err := rtFault(func() {
 		handles = rt.SupervisorSpawnAll(m.hostFrame, sup, source, func(fr *rt.Frame, item any) rt.Unit {
-			m.runTask(f, fr, item)
+			m.runTask(f, fr, pos, item)
 			return rt.Unit{}
 		})
 	}); err != nil {

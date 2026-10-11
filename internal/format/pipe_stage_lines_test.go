@@ -10,11 +10,11 @@ func TestFormat_StageAfterStackedStageKeepsItsLine(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{
 			"fn main() {\n    g = 5 |> dbg double(P{\n        a: 1,\n        b: 2,\n    })\n}\n",
-			"fn main() {\n    g = 5 |> double(P{\n            a: 1,\n            b: 2,\n        }) |> dbg\n}\n",
+			"fn main() {\n    g = 5 |> double(P{\n        a: 1,\n        b: 2,\n    }) |> dbg\n}\n",
 		},
 		{
 			"fn main() {\n    k = s |> case (P{\n        a: 1,\n        b: 2,\n    }) {\n        _ -> 1\n    }\n}\n",
-			"fn main() {\n    k = s |> (P{\n            a: 1,\n            b: 2,\n        }) |> case {\n                _ -> 1\n            }\n}\n",
+			"fn main() {\n    k = s |> case (P{\n        a: 1,\n        b: 2,\n    }) {\n        _ -> 1\n    }\n}\n",
 		},
 		// A stage that starts a line still stacks the pipeline.
 		{

@@ -25,7 +25,7 @@ func (bl *irScalarBuilder) turbofishDispatch(t *ast.Call) (ir.Temp, kind, bool, 
 	if !isType || bl.g.fa == nil {
 		return no()
 	}
-	sym, found := bl.g.fa.References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
+	sym, found := bl.g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
 	if !found || sym.Kind != analysis.SymbolInterface {
 		return no()
 	}
@@ -69,11 +69,11 @@ func (bl *irScalarBuilder) returnSelfDispatch(t *ast.Call) (ir.Temp, kind, bool,
 	// The interface spelling only: stdKindQualCall re-lowers the call with
 	// the solved type as its owner at the same position, and that call must
 	// not come back here.
-	owner := bl.g.fa.References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
+	owner := bl.g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
 	if owner == nil || owner.Kind != analysis.SymbolInterface || owner.Name != ti.Name {
 		return no()
 	}
-	ref := bl.g.fa.References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
+	ref := bl.g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
 	if ref == nil || ref.ReturnSelf == nil {
 		return no()
 	}

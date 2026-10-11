@@ -643,12 +643,12 @@ fn smaller<T>(a: T, b: T): T where T: Comparable {
 	expectNoErrors(t, errs)
 }
 
-// …and an unbounded param keeps its pre-split behavior (no error today;
-// tightening unbounded-T ordering is a separate decision, out of scope
-// for the strong-Comparable-demand change).
+// …and an unbounded param is an error at the operand: a caller could pass a
+// type with no Comparable, which the body could not run for
+// (type_param_bound.go).
 func TestCheckComparisonOnUnboundedTypeParam(t *testing.T) {
 	_, errs := checkSource(`fn smaller<T>(a: T, b: T): Bool { a < b }`)
-	expectNoErrors(t, errs)
+	expectError(t, errs, "`a` is a `T`, and `smaller` does not require Comparable of `T`")
 }
 
 // Boolean operators

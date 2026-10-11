@@ -1,0 +1,29 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/task.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":7}],"source":{"path":"$TESTDATA/task.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":7,"source":{"path":"$TESTDATA/task.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":2}
+-> threads
+<- response threads {"threads":[{"id":1,"name":"main"},{"id":2,"name":"task at task.nomi:13"}]}
+-> stackTrace {"threadId":2}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":7,"name":"work","source":{"name":"task.nomi","path":"$TESTDATA/task.nomi"}},{"column":31,"id":2,"line":13,"name":"<lambda>","source":{"name":"task.nomi","path":"$TESTDATA/task.nomi"}}],"totalFrames":2}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"n","type":"Int","value":"21","variablesReference":0}]}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":19,"id":3,"line":14,"name":"Task.await","presentationHint":"subtle","source":{"name":"task.nomi","path":"$TESTDATA/task.nomi"}},{"column":19,"id":4,"line":14,"name":"<concurrent>","source":{"name":"task.nomi","path":"$TESTDATA/task.nomi"}},{"column":9,"id":5,"line":12,"name":"concurrent","presentationHint":"subtle","source":{"name":"task.nomi","path":"$TESTDATA/task.nomi"}},{"column":9,"id":6,"line":12,"name":"main","source":{"name":"task.nomi","path":"$TESTDATA/task.nomi"}}],"totalFrames":4}
+-> continue {"threadId":2}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"42\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

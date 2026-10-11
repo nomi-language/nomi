@@ -74,6 +74,10 @@ module.exports = grammar({
     [$.destructuring_binding, $.struct_pattern],
     [$._expression, $.enum_pattern, $._callable_expression],
     [$.enum_pattern, $._callable_expression],
+    // `self(...)` is the pattern `self(p)` or the construction `self(x)`
+    // wherever a pattern may be read as an expression; what follows the
+    // `)` decides, as for `Type(...)` above.
+    [$.self_type, $.self_expression],
     [$.list, $.list_pattern],
     [$._expression, $.pattern_field],
     [$.destructuring_binding, $.pattern_field],
@@ -133,6 +137,15 @@ module.exports = grammar({
     [$.enum_variant],
     // `Ok(n) = r` is a pattern_binding unless an `else` follows its value.
     [$.pattern_binding, $._else_binding_pattern],
+    // `{y, x: _c}`: a punned field before a labeled one keeps a block, an
+    // anonymous struct (a struct pattern with `as`) and a destructure alive
+    // until the labeled field or the `=` decides.
+    [$.anon_struct, $.destructuring_binding, $._expression],
+    [$.anon_struct, $.destructuring_binding],
+    [$.anon_struct, $._expression],
+    // `((a, b) as inner, c) = pair`: a destructure's nested pattern reads as
+    // the expression it is spelled as until the `=` decides.
+    [$._destructuring_subpattern, $._expression],
   ],
 
   rules: {
@@ -677,8 +690,10 @@ module.exports = grammar({
 
     // One `Name: Bound [and Bound]*` entry in a where clause. The bound list
     // is conjunctive (AND), the same form used by generic `where` clauses.
+    // `self` as the name bounds the implementing type for one interface
+    // default (`where self: Display`).
     where_constraint: $ => seq(
-      field('name', $.type_parameter_identifier),
+      field('name', choice($.type_parameter_identifier, $.self_type)),
       ':',
       $._type,
       repeat(seq('and', $._type)),
@@ -1037,7 +1052,18 @@ module.exports = grammar({
     // scanner-classified brace tokens and a plain `{`; explicit conflicts with
     // `body` keep the ambiguous block/literal states alive until the contents
     // decide the parse. A head-hugging `Type{…}` brace stays construction.
-    anon_struct: $ => prec(6, seq(choice('{', $._anon_struct_open), commaSep1($.anon_struct_field), optional(','), '}')),
+    //
+    // A punned field (`{x: _c, y}`) is a bare identifier child, as a struct
+    // update's punned field is: it names a variable. At least one field is
+    // labeled, since an all-punned `{x, y}` is a block.
+    anon_struct: $ => prec(6, seq(
+      choice('{', $._anon_struct_open),
+      repeat(seq($.identifier, ',')),
+      $.anon_struct_field,
+      repeat(seq(',', choice($.anon_struct_field, $.identifier))),
+      optional(','),
+      '}',
+    )),
 
     map_literal: $ => prec(6, seq(choice('{', $._map_open), commaSep1($.map_entry), optional(','), '}')),
 
@@ -1132,10 +1158,7 @@ module.exports = grammar({
     // comparisons, and the `=` alone decides.
     pattern_assertion_binding: $ => seq(
       'assert',
-      field('pattern', choice(
-        alias($._as_binding_pattern, $.as_pattern),
-        $._expression,
-      )),
+      field('pattern', $._expression),
       '=',
       field('value', $._expression),
     ),
@@ -1187,28 +1210,14 @@ module.exports = grammar({
     // expression spelling, as else_binding's is, so a statement-leading
     // pattern never competes with the expression it looks like; an
     // expression statement is never followed by `as`, so the `as` commits.
+    // A headless struct pattern is an anon_struct (`{x: _c, y} as p`), or a
+    // body when every field is punned (`{x, y} as p`).
     as_binding: $ => prec.right(seq(
-      field('pattern', alias($._as_binding_pattern, $.as_pattern)),
+      field('pattern', alias($._expression_as_pattern, $.as_pattern)),
       '=',
       field('value', $._expression),
       optional(seq('else', field('else', choice($.body, $.else_arms)))),
     )),
-
-    _as_binding_pattern: $ => seq(
-      field('pattern', choice(
-        $.call_expression,
-        $.list,
-        $.tuple_expression,
-        $.struct_construction,
-        $.anon_struct,
-        $.map_literal,
-        // `{x, y}`, which a statement start reads as a block.
-        $.body,
-        $.identifier,
-      )),
-      'as',
-      field('name', choice($.identifier, $.type_identifier)),
-    ),
 
     _else_binding_pattern: $ => choice(
       $.call_expression,
@@ -1288,7 +1297,10 @@ module.exports = grammar({
       // Tuple: (x, y) = expr
       seq(
         '(',
-        commaSep1(field('binding', choice($.identifier, '_'))),
+        commaSep1(choice(
+          field('binding', choice($.identifier, '_')),
+          field('pattern', $._destructuring_subpattern),
+        )),
         ')',
         '=',
         field('value', $._expression),
@@ -1303,7 +1315,10 @@ module.exports = grammar({
           field('binding', $.identifier),
           // `_field_identifier`, as anon_struct_field's name is, so the two
           // readings of `{x: a` stay alive until `=` decides.
-          seq(field('field', $._field_identifier), ':', field('binding', choice($.identifier, '_'))),
+          seq(field('field', $._field_identifier), ':', choice(
+            field('binding', choice($.identifier, '_')),
+            field('pattern', $._destructuring_subpattern),
+          )),
         )),
         '}',
         '=',
@@ -1315,11 +1330,27 @@ module.exports = grammar({
       // the brace as `_map_open`).
       seq(
         choice('{', $._map_open),
-        commaSep1(seq($._expression, '=>', field('binding', choice($.identifier, '_')))),
+        commaSep1(seq($._expression, '=>', choice(
+          field('binding', choice($.identifier, '_')),
+          field('pattern', $._destructuring_subpattern),
+        ))),
         '}',
         '=',
         field('value', $._expression),
       ),
+    ),
+
+    // A destructure's nested pattern other than a name, in its expression
+    // spelling: `((a, b) as inner, c) = pair`, `{x: Some(a), y} = q else
+    // { ... }`, `{"k" => (a, b)} = m`.
+    _destructuring_subpattern: $ => choice(
+      alias($._expression_as_pattern, $.as_pattern),
+      $.call_expression,
+      $.tuple_expression,
+      $.list,
+      $.struct_construction,
+      $.anon_struct,
+      $.map_literal,
     ),
 
     return_statement: $ => prec.right(seq('return', optional(seq($._same_line, $._expression)))),
@@ -1329,6 +1360,7 @@ module.exports = grammar({
     // Expressions
     _expression: $ => choice(
       $.identifier,
+      $.self_expression,
       $.type_identifier,
       $.dot_variant,
       $.field_accessor,
@@ -1373,11 +1405,24 @@ module.exports = grammar({
       $.return_statement,
       $.break_statement,
       $.continue_statement,
+      alias($._expression_as_pattern, $.as_pattern),
     ),
+
+    // `P as name` where a pattern is read in its expression spelling: the
+    // left side of a binding, a pattern assertion, an arm that took the
+    // expression reading, and a pattern nested in one
+    // (`Some((a, b) as p) as m = opt`). No expression is followed by `as`,
+    // so only a pattern reads this way.
+    _expression_as_pattern: $ => prec.left(1, seq(
+      field('pattern', $._expression),
+      'as',
+      field('name', choice($.identifier, $.type_identifier)),
+    )),
 
     // Expression excluding body — used where a { would be ambiguous (e.g., case value {)
     _non_block_expression: $ => choice(
       $.identifier,
+      $.self_expression,
       $.type_identifier,
       $.dot_variant,
       $.field_accessor,
@@ -1686,10 +1731,7 @@ module.exports = grammar({
       // wins over the pattern at its fields, so its `as` is read as an
       // as_binding's is (`.Rect{w, h} as r when w == h -> r`).
       seq(
-        choice(
-          $._expression,
-          alias($._as_binding_pattern, $.as_pattern),
-        ),
+        $._expression,
         optional(seq('when', $._expression)),
         '->',
         $._arm_body,
@@ -1700,10 +1742,7 @@ module.exports = grammar({
     // here too, so an arm's guard may be a pattern with a `when` (`Some(n)
     // when n > 0 -> ...`), and its `as` is read as an as_binding's is.
     guard_branch: $ => seq(
-      choice(
-        $._expression,
-        alias($._as_binding_pattern, $.as_pattern),
-      ),
+      $._expression,
       optional(seq('when', $._expression)),
       '->',
       $._arm_body,
@@ -1811,6 +1850,9 @@ module.exports = grammar({
       // (`type_field_access` + call); parameter position has no such fallback,
       // so the pattern grammar must accept the head directly.
       prec(11, seq($._simple_type, '(', commaSep($._case_pattern), ')')),
+      // `self(p)`: the implementor taken apart in an interface default
+      // bounded by `where self: Distinct<T>`.
+      prec(11, seq($.self_type, '(', commaSep($._case_pattern), ')')),
       // Dot-leading: .Variant(args)
       prec(11, seq($.dot_variant, '(', commaSep($._case_pattern), ')')),
     ),
@@ -1926,6 +1968,7 @@ module.exports = grammar({
 
     _callable_expression: $ => choice(
       $.identifier,
+      $.self_expression,
       $.type_identifier,
       $.dot_variant,
       $.field_access,
@@ -1965,16 +2008,16 @@ module.exports = grammar({
       ')',
     ))),
 
-    // `self` is admitted as a field-access object (`self.method(x)`, the
-    // in-block type-qualified call) but NOT as a general
-    // expression — a bare `self` only ever appears as the object of a
-    // qualified call inside an impl-block body, so scoping it here (rather
-    // than adding self_type to _expression) avoids the type-vs-expression
-    // ambiguity `self` would otherwise create inside parens/tuples.
     field_access: $ => choice(
       prec(12, seq($.type_identifier, token.immediate('.'), choice($._field_identifier, $.integer))),
-      prec(11, seq(choice($._expression, $.self_type), token.immediate('.'), choice($._field_identifier, $.integer))),
+      prec(11, seq($._expression, token.immediate('.'), choice($._field_identifier, $.integer))),
     ),
+
+    // `self` in expression position: inside an interface default bounded by
+    // `where self: Distinct<T>`, the implementor's constructor (`self(x)`,
+    // or `self` as a function value). The analyzer rejects it elsewhere,
+    // including as a field-access object (`self.method(x)`).
+    self_expression: _ => 'self',
     type_field_access: $ => choice(
       prec(11, seq($.type_identifier, token.immediate('.'), $.type_identifier)),
       prec(11, seq($._expression, token.immediate('.'), $.type_identifier)),

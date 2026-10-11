@@ -110,32 +110,35 @@ fn main() {
 
     io.print(
         "dot = ${apply_shape(
-            |s|
+            |s| {
                 case s {
                     Shape.Dot -> 0
                     Shape.Square(n) -> n
-                },
+                }
+            },
             Shape.Dot,
         )}"
     )
 
     io.print(
         "square = ${apply_shape(
-            |s|
+            |s| {
                 case s {
                     Shape.Dot -> 0
                     Shape.Square(n) -> n
-                },
+                }
+            },
             Shape.Square(9),
         )}"
     )
 
     io.print(
         "meters = ${apply_meters(
-            |m|
+            |m| {
                 case m {
                     Meters(v) -> v
-                },
+                }
+            },
             Meters(12),
         )}"
     )

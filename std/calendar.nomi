@@ -220,12 +220,12 @@ derive Comparable for Date
 
 impl Literal for Date {
     fn from_fragments(fragments: List<Fragment<String>>): Result<Date, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
             }
-        )
+        })
 
         Date.parse(body)
     }
@@ -385,12 +385,12 @@ derive Comparable for Time
 
 impl Literal for Time {
     fn from_fragments(fragments: List<Fragment<String>>): Result<Time, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
             }
-        )
+        })
 
         Time.parse(body)
     }
@@ -588,12 +588,12 @@ derive Comparable for NaiveDateTime
 
 impl Literal for NaiveDateTime {
     fn from_fragments(fragments: List<Fragment<String>>): Result<NaiveDateTime, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
             }
-        )
+        })
 
         NaiveDateTime.parse(body)
     }
@@ -880,12 +880,12 @@ impl OffsetDateTime {
 
 impl Literal for OffsetDateTime {
     fn from_fragments(fragments: List<Fragment<String>>): Result<OffsetDateTime, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
             }
-        )
+        })
 
         OffsetDateTime.parse(body)
     }
@@ -1317,12 +1317,12 @@ impl DateTime {
 
 impl Literal for DateTime {
     fn from_fragments(fragments: List<Fragment<String>>): Result<DateTime, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
             }
-        )
+        })
 
         DateTime.parse(body)
     }

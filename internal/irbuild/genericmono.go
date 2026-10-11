@@ -295,7 +295,7 @@ func (g *gen) checkedCallSignature(t *ast.Call) *analysis.FuncType {
 		return nil
 	}
 	line, col := calleeRefPos(t.Func)
-	sym := g.fa.References[analysis.Pos{Line: line, Col: col}]
+	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 	if sym == nil || sym.CallType == nil {
 		return nil
 	}
@@ -315,7 +315,7 @@ func (g *gen) checkedArgSignature(t *ast.Call) *analysis.FuncType {
 	}
 	params := make([]analysis.Type, len(t.Args))
 	for i, a := range t.Args {
-		ty, ok := g.fa.ExprTypes[a]
+		ty, ok := g.srcFA().ExprTypes[a]
 		if !ok || ty == nil {
 			return nil
 		}
@@ -365,6 +365,9 @@ func (g *gen) checkedMonoCallKinds(t *ast.Call, arity int) ([]kind, kind, bool) 
 			k = g.monoArgKind(t.Args[i])
 		} else {
 			k = g.project(pt)
+			if i < len(t.Args) && namedArgNode(t.Args[:i+1]) == nil {
+				k = g.defaultSelfArg(t.Args[i], k)
+			}
 		}
 		if !irCallableValueKind(k) {
 			return nil, kindInvalid, false
@@ -706,7 +709,7 @@ func (g *gen) checkedNodeType(n ast.Node) analysis.Type {
 			return ft.Return
 		}
 	case *ast.Ident:
-		if sym := g.fa.References[analysis.Pos{Line: t.Line, Col: t.Col}]; sym != nil {
+		if sym := g.srcFA().References[analysis.Pos{Line: t.Line, Col: t.Col}]; sym != nil {
 			return sym.Type
 		}
 	}
@@ -723,7 +726,7 @@ func (g *gen) checkedExprType(n ast.Node) analysis.Type {
 	if g.fa == nil {
 		return nil
 	}
-	return g.fa.ExprTypes[n]
+	return g.srcFA().ExprTypes[n]
 }
 
 // irUnsolvedType reports whether an inference variable the checker never

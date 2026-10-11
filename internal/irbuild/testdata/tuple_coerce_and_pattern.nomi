@@ -76,12 +76,12 @@ fn main() {
     // pattern introduces.
     counts =
         [("a", 1), ("b", 2), ("a", 3)]
-        |> Iter.reduce(|acc = Map.empty(), (k, v)|
+        |> Iter.reduce(|acc = Map.empty(), (k, v)| {
             case Map.get(acc, k) {
                 Some(prev) -> Map.put(acc, k, prev + v)
                 None -> Map.put(acc, k, v)
             }
-        )
+        })
 
     // Compared rather than interpolated: `"${a_Maybe}"` is a separate gap
     // (`rendering a non-scalar value`) and this file is not about that one.

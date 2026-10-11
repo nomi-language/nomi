@@ -1,0 +1,49 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/tiny_bank.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setFunctionBreakpoints {"breakpoints":[{"name":"Account.deposit"}]}
+<- response setFunctionBreakpoints {"breakpoints":[{"id":1,"line":9,"source":{"name":"tiny_bank.nomi","path":"$TESTDATA/tiny_bank.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"function breakpoint","threadId":1}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"function breakpoint","threadId":1}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"function breakpoint","threadId":1}
+-> reverseContinue {"threadId":1}
+<- response reverseContinue
+<- event output {"category":"console","output":"Going back runs the program again from its start, answering input, the clock, randomness and files from what this session recorded; nothing is printed or read again until it passes the point it had reached.\n"}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"function breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":9,"name":"Account.deposit","source":{"name":"tiny_bank.nomi","path":"$TESTDATA/tiny_bank.nomi"}},{"column":0,"id":1048577,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":27,"id":2,"line":18,"name":"Iter.reduce","presentationHint":"subtle","source":{"name":"tiny_bank.nomi","path":"$TESTDATA/tiny_bank.nomi"}},{"column":27,"id":3,"line":18,"name":"transact","source":{"name":"tiny_bank.nomi","path":"$TESTDATA/tiny_bank.nomi"}},{"column":17,"id":4,"line":22,"name":"main","source":{"name":"tiny_bank.nomi","path":"$TESTDATA/tiny_bank.nomi"}}],"totalFrames":5}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","namedVariables":1,"type":"Account","value":"Account{balance: 5}","variablesReference":2},{"declarationLocationReference":2,"name":"n","type":"Int","value":"20","variablesReference":0}]}
+-> reverseContinue {"threadId":1}
+<- response reverseContinue
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"function breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":9,"name":"Account.deposit","source":{"name":"tiny_bank.nomi","path":"$TESTDATA/tiny_bank.nomi"}},{"column":0,"id":1048578,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":27,"id":2,"line":18,"name":"Iter.reduce","presentationHint":"subtle","source":{"name":"tiny_bank.nomi","path":"$TESTDATA/tiny_bank.nomi"}},{"column":27,"id":3,"line":18,"name":"transact","source":{"name":"tiny_bank.nomi","path":"$TESTDATA/tiny_bank.nomi"}},{"column":17,"id":4,"line":22,"name":"main","source":{"name":"tiny_bank.nomi","path":"$TESTDATA/tiny_bank.nomi"}}],"totalFrames":5}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","namedVariables":1,"type":"Account","value":"Account{balance: 0}","variablesReference":2},{"declarationLocationReference":2,"name":"n","type":"Int","value":"5","variablesReference":0}]}
+-> reverseContinue {"threadId":1}
+<- response reverseContinue
+<- event stopped {"allThreadsStopped":true,"description":"Start of the program","reason":"entry","text":"No breakpoint stopped the program before this point, so going back stopped at its first statement.","threadId":1}
+-> setFunctionBreakpoints {"breakpoints":[]}
+<- response setFunctionBreakpoints {"breakpoints":[]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"55 done\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

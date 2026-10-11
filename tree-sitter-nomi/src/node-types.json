@@ -10,6 +10,10 @@
         {
           "type": "anon_struct_field",
           "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
         }
       ]
     }
@@ -24,6 +28,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -140,6 +148,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -311,6 +323,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -424,6 +440,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -541,6 +561,10 @@
             "named": true
           },
           {
+            "type": "binary_expression",
+            "named": true
+          },
+          {
             "type": "body",
             "named": true
           },
@@ -549,11 +573,31 @@
             "named": true
           },
           {
+            "type": "break_statement",
+            "named": true
+          },
+          {
             "type": "call_expression",
             "named": true
           },
           {
+            "type": "case_expression",
+            "named": true
+          },
+          {
             "type": "codepoint",
+            "named": true
+          },
+          {
+            "type": "concurrent_block",
+            "named": true
+          },
+          {
+            "type": "continue_statement",
+            "named": true
+          },
+          {
+            "type": "dbg_expression",
             "named": true
           },
           {
@@ -569,6 +613,14 @@
             "named": true
           },
           {
+            "type": "field_access",
+            "named": true
+          },
+          {
+            "type": "field_accessor",
+            "named": true
+          },
+          {
             "type": "float",
             "named": true
           },
@@ -577,7 +629,15 @@
             "named": true
           },
           {
+            "type": "if_expression",
+            "named": true
+          },
+          {
             "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
             "named": true
           },
           {
@@ -589,11 +649,51 @@
             "named": true
           },
           {
+            "type": "map_construction",
+            "named": true
+          },
+          {
             "type": "map_literal",
             "named": true
           },
           {
+            "type": "map_update",
+            "named": true
+          },
+          {
+            "type": "paren_expression",
+            "named": true
+          },
+          {
             "type": "pattern_field",
+            "named": true
+          },
+          {
+            "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "range_expression",
+            "named": true
+          },
+          {
+            "type": "raw_string",
+            "named": true
+          },
+          {
+            "type": "raw_tagged_string",
+            "named": true
+          },
+          {
+            "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
+            "named": true
+          },
+          {
+            "type": "set",
             "named": true
           },
           {
@@ -609,6 +709,30 @@
             "named": true
           },
           {
+            "type": "struct_update",
+            "named": true
+          },
+          {
+            "type": "tagged_type_string",
+            "named": true
+          },
+          {
+            "type": "tagged_type_triple_string",
+            "named": true
+          },
+          {
+            "type": "todo_expression",
+            "named": true
+          },
+          {
+            "type": "triple_string",
+            "named": true
+          },
+          {
+            "type": "try_expression",
+            "named": true
+          },
+          {
             "type": "tuple_expression",
             "named": true
           },
@@ -617,7 +741,23 @@
             "named": true
           },
           {
+            "type": "type_field_access",
+            "named": true
+          },
+          {
             "type": "type_identifier",
+            "named": true
+          },
+          {
+            "type": "typed_list",
+            "named": true
+          },
+          {
+            "type": "unary_expression",
+            "named": true
+          },
+          {
+            "type": "vector",
             "named": true
           },
           {
@@ -642,6 +782,10 @@
         "types": [
           {
             "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
             "named": true
           },
           {
@@ -761,6 +905,10 @@
             "named": true
           },
           {
+            "type": "self_expression",
+            "named": true
+          },
+          {
             "type": "set",
             "named": true
           },
@@ -838,6 +986,10 @@
           },
           {
             "type": "as_binding",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
             "named": true
           },
           {
@@ -1013,6 +1165,10 @@
             "named": true
           },
           {
+            "type": "self_expression",
+            "named": true
+          },
+          {
             "type": "set",
             "named": true
           },
@@ -1117,6 +1273,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -1236,6 +1396,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -1312,6 +1476,10 @@
         },
         {
           "type": "anon_struct_type",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -1447,6 +1615,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "self_type",
           "named": true
         },
@@ -1531,6 +1703,10 @@
         },
         {
           "type": "as_binding",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -1730,6 +1906,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -1831,6 +2011,10 @@
         "types": [
           {
             "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
             "named": true
           },
           {
@@ -1950,6 +2134,10 @@
             "named": true
           },
           {
+            "type": "self_expression",
+            "named": true
+          },
+          {
             "type": "set",
             "named": true
           },
@@ -2023,6 +2211,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -2139,6 +2331,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -2233,6 +2429,10 @@
             "named": true
           },
           {
+            "type": "self_expression",
+            "named": true
+          },
+          {
             "type": "type_field_access",
             "named": true
           },
@@ -2299,6 +2499,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -2415,6 +2619,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -2625,6 +2833,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -2816,6 +3028,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -2888,6 +3104,10 @@
         "types": [
           {
             "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
             "named": true
           },
           {
@@ -3007,6 +3227,10 @@
             "named": true
           },
           {
+            "type": "self_expression",
+            "named": true
+          },
+          {
             "type": "set",
             "named": true
           },
@@ -3103,6 +3327,10 @@
         },
         {
           "type": "as_binding",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -3302,6 +3530,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -3398,6 +3630,10 @@
         "types": [
           {
             "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
             "named": true
           },
           {
@@ -3514,6 +3750,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -3675,6 +3915,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -3788,6 +4032,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -3905,6 +4153,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -4018,6 +4270,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -4142,7 +4398,7 @@
     "fields": {
       "binding": {
         "multiple": true,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "_",
@@ -4164,12 +4420,50 @@
           }
         ]
       },
+      "pattern": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
+            "type": "call_expression",
+            "named": true
+          },
+          {
+            "type": "list",
+            "named": true
+          },
+          {
+            "type": "map_literal",
+            "named": true
+          },
+          {
+            "type": "struct_construction",
+            "named": true
+          },
+          {
+            "type": "tuple_expression",
+            "named": true
+          }
+        ]
+      },
       "value": {
         "multiple": false,
         "required": true,
         "types": [
           {
             "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
             "named": true
           },
           {
@@ -4289,6 +4583,10 @@
             "named": true
           },
           {
+            "type": "self_expression",
+            "named": true
+          },
+          {
             "type": "set",
             "named": true
           },
@@ -4357,6 +4655,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -4473,6 +4775,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -4702,6 +5008,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -4838,6 +5148,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -4951,6 +5265,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -5132,6 +5450,10 @@
         },
         {
           "type": "list_pattern",
+          "named": true
+        },
+        {
+          "type": "self_type",
           "named": true
         },
         {
@@ -5354,6 +5676,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -5470,7 +5796,7 @@
           "named": true
         },
         {
-          "type": "self_type",
+          "type": "self_expression",
           "named": true
         },
         {
@@ -5621,6 +5947,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -5746,6 +6076,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -6194,6 +6528,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -6266,6 +6604,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -6386,6 +6728,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -6542,6 +6888,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -6655,6 +7005,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -7175,6 +7529,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -7300,6 +7658,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -7985,6 +8347,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -8113,6 +8479,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "self_type",
           "named": true
         },
@@ -8193,6 +8563,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -8309,6 +8683,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -8481,6 +8859,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -8597,6 +8979,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -8703,6 +9089,10 @@
         "types": [
           {
             "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
             "named": true
           },
           {
@@ -8819,6 +9209,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -8973,6 +9367,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -9086,6 +9484,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -9207,6 +9609,10 @@
         },
         {
           "type": "anon_struct_type",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -9338,6 +9744,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "self_type",
           "named": true
         },
@@ -9433,6 +9843,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -9549,6 +9963,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -9747,6 +10165,10 @@
             "named": true
           },
           {
+            "type": "self_expression",
+            "named": true
+          },
+          {
             "type": "set",
             "named": true
           },
@@ -9814,6 +10236,10 @@
         "types": [
           {
             "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
             "named": true
           },
           {
@@ -9930,6 +10356,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -10023,6 +10453,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -10136,6 +10570,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -10293,6 +10731,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "assertion",
           "named": true
         },
@@ -10418,6 +10860,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -10557,6 +11003,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -10670,6 +11120,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -10789,6 +11243,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -10902,6 +11360,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -10968,6 +11430,11 @@
     }
   },
   {
+    "type": "self_expression",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "self_type",
     "named": true,
     "fields": {}
@@ -10982,6 +11449,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -11098,6 +11569,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -11180,6 +11655,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -11293,6 +11772,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -11372,6 +11855,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -11485,6 +11972,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -11565,6 +12056,10 @@
         },
         {
           "type": "as_binding",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -11760,6 +12255,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -11886,6 +12385,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -11999,6 +12502,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -12119,6 +12626,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -12232,6 +12743,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -12480,6 +12995,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -12590,6 +13109,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -12709,6 +13232,10 @@
           "named": true
         },
         {
+          "type": "self_expression",
+          "named": true
+        },
+        {
           "type": "set",
           "named": true
         },
@@ -12781,6 +13308,10 @@
         "types": [
           {
             "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
             "named": true
           },
           {
@@ -12897,6 +13428,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {
@@ -13224,6 +13759,10 @@
             "named": true
           },
           {
+            "type": "as_pattern",
+            "named": true
+          },
+          {
             "type": "binary_expression",
             "named": true
           },
@@ -13340,6 +13879,10 @@
             "named": true
           },
           {
+            "type": "self_expression",
+            "named": true
+          },
+          {
             "type": "set",
             "named": true
           },
@@ -13413,6 +13956,10 @@
       "types": [
         {
           "type": "anon_struct",
+          "named": true
+        },
+        {
+          "type": "as_pattern",
           "named": true
         },
         {
@@ -13529,6 +14076,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -13862,6 +14413,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -13975,6 +14530,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -14126,6 +14685,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -14239,6 +14802,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -14317,6 +14884,10 @@
           "named": true
         },
         {
+          "type": "as_pattern",
+          "named": true
+        },
+        {
           "type": "binary_expression",
           "named": true
         },
@@ -14430,6 +15001,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "self_expression",
           "named": true
         },
         {
@@ -14519,6 +15094,10 @@
         "required": true,
         "types": [
           {
+            "type": "self_type",
+            "named": true
+          },
+          {
             "type": "type_parameter_identifier",
             "named": true
           }
@@ -14580,6 +15159,10 @@
         "types": [
           {
             "type": "anon_struct",
+            "named": true
+          },
+          {
+            "type": "as_pattern",
             "named": true
           },
           {
@@ -14696,6 +15279,10 @@
           },
           {
             "type": "return_statement",
+            "named": true
+          },
+          {
+            "type": "self_expression",
             "named": true
           },
           {

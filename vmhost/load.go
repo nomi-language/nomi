@@ -470,7 +470,7 @@ func Warm() {
 // or a table the host passed, and the analysis already recorded the project
 // root and the virtual files std/compiler's table resolves imports against.
 func newProgram(prog *irbuild.Program, res *irbuild.Result, declines map[string]string, cfg config) *Program {
-	p := &Program{prog: prog, res: res, declines: declines, out: cfg.out, errOut: cfg.errOut, env: cfg.env}
+	p := &Program{prog: prog, res: res, declines: declines, out: cfg.out, errOut: cfg.errOut, env: cfg.env, cfg: cfg}
 	if cfg.input != nil {
 		p.input = rt.NewInput(cfg.input)
 	}

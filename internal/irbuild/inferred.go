@@ -92,7 +92,7 @@ func (g *gen) inferredParamKind(p ast.Param) (analysis.Type, kind) {
 	if g.fa == nil {
 		return nil, kindInvalid
 	}
-	sym, found := g.fa.Definitions[analysis.Pos{Line: p.Line, Col: p.Col}]
+	sym, found := g.srcFA().Definitions[analysis.Pos{Line: p.Line, Col: p.Col}]
 	if !found || sym.Kind != analysis.SymbolParam || sym.Name != p.Name || sym.Type == nil {
 		// The predicate mirrors attachParamType exactly — position, kind and
 		// NAME — so this asks the same question that recording answered, and
@@ -369,6 +369,16 @@ func (g *gen) project(t analysis.Type) kind {
 		// type typeOf lowers in the same gen. See solvedIface, which resolves
 		// by `(Origin, Name)` rather than by name for the identity reason
 		// siblingNamed gives below.
+		// A `self` value of the default being lowered (gen.defaultSelf) is
+		// the implementor: the default is lowered once per implementor, so
+		// every position the checker typed as this default's `self` (a
+		// lambda's parameter, a binding, an element of `[t, t]`, a pipe
+		// stage) takes the implementor's kind, as the `self` parameters
+		// themselves do. A value annotated with the interface's name is not
+		// DefaultSelf and stays an existential.
+		if k, isSelf := g.projectDefaultSelf(ty); isSelf {
+			return k
+		}
 		if k, isStd := g.projectStdIface(ty); isStd {
 			return k
 		}

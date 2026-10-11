@@ -28,6 +28,7 @@ func (bl *irScalarBuilder) blockValue(block *ast.Block) (ir.Temp, kind, bool, bo
 	if !bl.leading(lead) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
+	bl.markStmt(tail, ir.StmtStatement)
 	val, k, _, ok := bl.lower(tail)
 	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
@@ -59,6 +60,7 @@ func (bl *irScalarBuilder) blockBinding(block *ast.Block, want kind) (kind, bool
 	}
 	var k kind
 	var ok bool
+	bl.markStmt(tail, ir.StmtStatement)
 	switch t := tail.(type) {
 	case *ast.If:
 		k, ok = bl.ifRegion(t, irFuncSig{result: want})

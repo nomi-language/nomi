@@ -1,6 +1,10 @@
 //# `Struct` — the interface every struct satisfies, named or anonymous. Its
 //# sole function, `update`, returns a copy of a struct with selected fields
 //# replaced, and is reached type-qualified: `Struct.update(original, updates)`.
+//#
+//# `Distinct<T>` — the interface every distinct type `type X T` satisfies. It
+//# has no functions; it is a bound that lets an interface default take
+//# `self` apart (`self(n)`) and build one (`self(x)`).
 
 /// The universal struct interface. Every struct value — a named `struct` type
 /// or an anonymous `{...}` — satisfies `Struct`, so its functions are callable on
@@ -26,3 +30,34 @@ pub interface Struct {
     /// ```
     host fn update(original: self, updates: Partial<self>): self
 }
+
+/// The universal distinct-type interface. Every distinct type that wraps a
+/// value, `type Celsius Decimal`, satisfies `Distinct<T>` for exactly the type
+/// it wraps, so `Celsius` is a `Distinct<Decimal>`; a zero-sized `type Done`
+/// wraps nothing and satisfies no `Distinct<T>`. It is never implemented by
+/// hand.
+///
+/// It has no functions. Its use is the bound `where self: Distinct<T>` on an
+/// interface default, which lets the default take the implementing type apart
+/// with the pattern `self(p)` and build one with `self(x)`, so a family of
+/// distinct types shares one body:
+///
+/// ```nomi
+/// interface Temperature {
+///     fn unit(t: self): String
+///
+///     fn label(self(n) as t): String where self: Distinct<Decimal> {
+///         "${Decimal.round(n, 1, .HalfUp)} ${Temperature.unit(t)}"
+///     }
+///
+///     fn scale(self(n), by: Decimal): self where self: Distinct<Decimal> {
+///         self(n * by)
+///     }
+/// }
+/// ```
+///
+/// `T` may be a type parameter of the interface, so one interface serves
+/// wrappers of different types. An opaque type implemented outside its own
+/// file gets no default that uses `self(p)` or `self(x)`; it writes that
+/// function instead.
+pub interface Distinct<T> {}

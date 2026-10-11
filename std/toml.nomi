@@ -37,12 +37,12 @@ impl Toml {
 
 impl Literal for Toml {
     fn from_fragments(fragments: List<Fragment<Display>>): Toml {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "${v}"
             }
-        )
+        })
 
         Toml(body)
     }

@@ -3508,6 +3508,90 @@ func TestInterfaceMethodWhereClause(t *testing.T) {
 	}
 }
 
+// TestInterfaceMethodWhereSelf verifies `where self: ...` parses with `self`
+// as the constraint's subject, beside a type-variable constraint.
+func TestInterfaceMethodWhereSelf(t *testing.T) {
+	nodes := parse(t, `interface Scale<T> {
+	fn format(scale: self): String where self: Display and Hashable, T: Display {
+		"${scale}"
+	}
+}`)
+	m := nodes[0].(*ast.InterfaceDef).Methods[0]
+	if m.Body == nil {
+		t.Fatal("expected default body after where clause")
+	}
+	if len(m.WhereClauses) != 2 {
+		t.Fatalf("expected 2 where constraints, got %d", len(m.WhereClauses))
+	}
+	wc := m.WhereClauses[0]
+	if wc.Name != "self" || wc.Line != 2 || wc.Col != 39 {
+		t.Errorf("expected `self` at 2:39, got %q at %d:%d", wc.Name, wc.Line, wc.Col)
+	}
+	if len(wc.Bounds) != 2 || wc.Bounds[0].TypeString() != "Display" || wc.Bounds[1].TypeString() != "Hashable" {
+		t.Errorf("expected Display and Hashable, got %#v", wc.Bounds)
+	}
+	if m.WhereClauses[1].Name != "T" {
+		t.Errorf("expected T second, got %q", m.WhereClauses[1].Name)
+	}
+}
+
+// TestSelfPatternsAndConstruction verifies `self(p)` parses as a variant
+// pattern whose head is the `self` type, in a parameter, a binding and a
+// `case` arm, and that `self` in expression position is a SelfExpr, called
+// or named as a value.
+func TestSelfPatternsAndConstruction(t *testing.T) {
+	nodes := parse(t, `interface S {
+	fn f(self(n) as t, xs: List<Int>): self where self: Distinct<Int> {
+		self(m) = t
+		_ = xs |> Iter.map(self)
+		case t {
+			self(0) -> self(m)
+			_ -> self(n)
+		}
+	}
+}`)
+	m := nodes[0].(*ast.InterfaceDef).Methods[0]
+	as, ok := m.Params[0].Destructure.(*ast.AsPattern)
+	if !ok {
+		t.Fatalf("parameter: expected an as pattern, got %T", m.Params[0].Destructure)
+	}
+	if ep, ok := as.Pattern.(*ast.EnumPattern); !ok || ep.Binding != "n" || ep.Line != 2 || ep.Col != 7 {
+		t.Fatalf("parameter: expected self(n) at 2:7, got %#v", as.Pattern)
+	} else if _, isSelf := ep.Variant.(*ast.SelfType); !isSelf {
+		t.Fatalf("parameter: head is %T, want *ast.SelfType", ep.Variant)
+	}
+	stmts := m.Body.(*ast.Block).Stmts
+	pb, ok := stmts[0].(*ast.PatternBinding)
+	if !ok {
+		t.Fatalf("binding: got %T", stmts[0])
+	}
+	if ep, ok := pb.Pattern.(*ast.EnumPattern); !ok {
+		t.Fatalf("binding pattern: got %T", pb.Pattern)
+	} else if _, isSelf := ep.Variant.(*ast.SelfType); !isSelf {
+		t.Fatalf("binding head is %T", ep.Variant)
+	}
+	value := stmts[1].(*ast.Binding).Value.(*ast.Binary).Right.(*ast.Call).Args[0]
+	if _, ok := value.(*ast.SelfExpr); !ok {
+		t.Fatalf("value: got %T, want *ast.SelfExpr", value)
+	}
+	c := stmts[2].(*ast.ExprStmt).Expr.(*ast.Case)
+	arm := c.Branches[0]
+	if ep, ok := arm.Pattern.(*ast.EnumPattern); !ok {
+		t.Fatalf("case arm: got %T", arm.Pattern)
+	} else if _, isSelf := ep.Variant.(*ast.SelfType); !isSelf {
+		t.Fatalf("case arm head is %T", ep.Variant)
+	}
+	if call, ok := arm.Body.(*ast.Call); !ok {
+		t.Fatalf("arm body: got %T", arm.Body)
+	} else if _, isSelf := call.Func.(*ast.SelfExpr); !isSelf {
+		t.Fatalf("arm body callee: got %T", call.Func)
+	}
+	if _, err := Parse(lexer.Lex("fn f(x: Int): Int {\n  case x {\n    self -> 1\n  }\n}\n")); err == nil ||
+		!strings.Contains(err.Error(), "`self` in a pattern takes the wrapped value apart: write `self(x)`") {
+		t.Fatalf("bare self pattern: got %v", err)
+	}
+}
+
 // TestInterfaceMethodWhereClauseMultiple verifies a where clause with several
 // constraints and an `and`-joined bound list parses fully.
 func TestInterfaceMethodWhereClauseMultiple(t *testing.T) {

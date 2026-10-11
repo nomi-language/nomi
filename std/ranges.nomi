@@ -69,7 +69,7 @@ impl Range<T> {
     //! assert Range.contains?(1..=5, 5)
     //! assert Range.contains?(1.25d..=2.50d, 1.50d)
     //
-    pub fn contains?<T>(r: Range<T>, n: T): Bool {
+    pub fn contains?<T>(r: Range<T>, n: T): Bool where T: Comparable {
         case r.end {
             Some(e) -> {
                 if r.inclusive {

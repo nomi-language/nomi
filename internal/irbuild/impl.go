@@ -1070,18 +1070,21 @@ func (g *gen) inheritDefaults(d *implDef) {
 			// run-time trap in place of a refusal.
 			gap.why = "sibling file interface default"
 			gap.detail = d.iface.foreign + "." + d.ifaceName + "." + m.name
-		case m.why != "" && m.why != "interface function without a self-typed parameter" && m.why != gapMultiSelf:
-			// Two of the erased-receiver rows do not apply to a MONOMORPHIZED
-			// default: the body is emitted once per implementing type with
-			// every self position bound to that concrete type, so "no receiver
-			// to dispatch on" and "two self positions that may disagree" are
-			// both answered by construction here. Every other reason still
-			// refuses the method, rather than the block.
+		case m.why != "" && !monomorphizedDefaultAnswers[m.why]:
+			// The erased-receiver rows and the rows about `self` in the
+			// signature do not apply to a MONOMORPHIZED default: the body is
+			// emitted once per implementing type with every self position,
+			// bare or inside a composite, bound to that concrete type
+			// (inheritedDefaultSig). Every other reason still refuses the
+			// method, rather than the block.
 			gap.why = m.why
-		case m.shape.recvAt() < 0:
-			// No receiver, so nothing to substitute self with and no way to
-			// reach the default type-qualified either.
+		}
+		params, result, sigOK := g.inheritedDefaultSig(d, m)
+		if !gap.named() && !sigOK {
 			gap.why = m.why
+			if gap.why == "" {
+				gap.why = "non-scalar interface parameter type"
+			}
 		}
 		if gap.named() {
 			if !d.mayWithhold(m.name) {
@@ -1107,7 +1110,8 @@ func (g *gen) inheritDefaults(d *implDef) {
 			params0:   m.decl.Params,
 			body:      body,
 			line:      m.decl.Line,
-			result:    m.result,
+			result:    result,
+			params:    params,
 			inherited: true,
 			lowerable: true,
 			// params0 carries the interface's PARAMETER DEFAULTS as well as its
@@ -1117,15 +1121,57 @@ func (g *gen) inheritDefaults(d *implDef) {
 			// is what makes emitting one in THIS module's scope the same
 			// program the programmer wrote there.
 		}
-		for i, k := range m.params {
-			if m.shape.selfTyped(i) {
-				k = d.recv
-			}
-			it.params = append(it.params, k)
-		}
 		d.items[m.name] = it
 		d.order = append(d.order, it)
 	}
+}
+
+// monomorphizedDefaultAnswers are the ifaceMethod.why rows a default
+// monomorphized per implementor answers by construction: no receiver to
+// dispatch on, several self positions that may disagree, and `self` in the
+// result or inside a parameter's type, which name the implementor here.
+var monomorphizedDefaultAnswers = map[string]bool{
+	"interface function without a self-typed parameter": true,
+	gapMultiSelf:                          true,
+	"interface function returning self":   true,
+	gapNestedSelfResult:                   true,
+	"non-scalar interface parameter type": true,
+	"non-scalar interface return type":    true,
+}
+
+// inheritedDefaultSig is default m's parameter and result kinds for
+// implementor d, with every `self` in its signature, bare or inside a
+// composite (`(self, self)`, `List<self>`), read as d's receiver. ok is false
+// when a kind is still outside the subset.
+func (g *gen) inheritedDefaultSig(d *implDef, m *ifaceMethod) ([]kind, kind, bool) {
+	prev := g.defaultSelf
+	g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv}
+	defer func() { g.defaultSelf = prev }()
+	if d.iface.foreign != "" && d.iface.unit >= 0 {
+		// The signature is written in the declaring file, so the checker's
+		// answers about its type expressions (`Maybe<self>`) are that file's.
+		defer g.lowerNamesFrom(d.iface.unit)()
+	}
+	ok := true
+	params := make([]kind, len(m.params))
+	for i, k := range m.params {
+		switch {
+		case m.shape.selfTyped(i):
+			k = d.recv
+		case typeExprHasSelf(m.decl.Params[i].TypeAnnotation):
+			k = g.paramKind(m.decl.Params[i])
+		}
+		// kindInvalid: reports — the caller refuses the method under m.why.
+		ok = ok && k != kindInvalid
+		params[i] = k
+	}
+	result := m.result
+	if ret := m.decl.ReturnTypeExpr; ret != nil && typeExprHasSelf(ret) {
+		result = g.typeOf(ret)
+		// kindInvalid: reports — as a parameter's does.
+		ok = ok && result != kindInvalid
+	}
+	return params, result, ok
 }
 
 // --- runtime type identity ---------------------------------------------------

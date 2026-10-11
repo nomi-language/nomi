@@ -27,6 +27,9 @@ func (m *Machine) Boot(args ...string) (*Machine, error) {
 		return m, nil
 	}
 	root := rt.NewFrame(m.background())
+	if m.dbg != nil {
+		m.dbg.adopt(root)
+	}
 	return m.bootWith(m.boot, startupValue(args, m.hostEnv), root)
 }
 
@@ -46,6 +49,9 @@ func (m *Machine) BootTest(group ir.TestGroup) (*Machine, error) {
 // is the Startup the boot receives. A group whose boot takes no parameter
 // has no startup function.
 func (m *Machine) bootTestOn(group ir.TestGroup, root *rt.Frame) (*Machine, error) {
+	if m.dbg != nil {
+		m.dbg.adopt(root)
+	}
 	if !m.testBoots[group.Boot] {
 		return nil, fmt.Errorf("vm: %s is not a test-group boot this program records", group.Boot.Name())
 	}

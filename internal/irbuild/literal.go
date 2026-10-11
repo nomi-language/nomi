@@ -59,7 +59,7 @@ func (g *gen) literalHandlerDecl(t *ast.TaggedString) (*ast.FuncDef, bool) {
 		return nil, false
 	}
 	pos := analysis.Pos{Line: t.Line, Col: max(t.Col-len(t.Tag), 1)}
-	sym := g.fa.References[pos]
+	sym := g.srcFA().References[pos]
 	if sym == nil || sym.DispatchImpl == nil {
 		return nil, false
 	}

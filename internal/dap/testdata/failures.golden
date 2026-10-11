@@ -1,0 +1,40 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/failures.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":9}],"source":{"path":"$TESTDATA/failures.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":9,"source":{"path":"$TESTDATA/failures.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":9,"name":"count","source":{"name":"failures.nomi","path":"$TESTDATA/failures.nomi"}},{"column":18,"id":2,"line":13,"name":"main","source":{"name":"failures.nomi","path":"$TESTDATA/failures.nomi"}}],"totalFrames":2}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":9,"name":"count","source":{"name":"failures.nomi","path":"$TESTDATA/failures.nomi"}},{"column":0,"id":1048577,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":18,"id":2,"line":13,"name":"main","source":{"name":"failures.nomi","path":"$TESTDATA/failures.nomi"}}],"totalFrames":3}
+-> setBreakpoints {"breakpoints":[],"source":{"path":"$TESTDATA/failures.nomi"}}
+<- response setBreakpoints {"breakpoints":[]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"total 6\n"}
+<- event stopped {"allThreadsStopped":true,"description":"Trap","reason":"exception","text":"line 4: division by zero","threadId":1}
+-> exceptionInfo {"threadId":1}
+<- response exceptionInfo {"breakMode":"always","description":"line 4: division by zero","details":{"message":"line 4: division by zero","typeName":"Trap"},"exceptionId":"trap"}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":11,"id":1,"line":4,"name":"ratio","source":{"name":"failures.nomi","path":"$TESTDATA/failures.nomi"}},{"column":22,"id":2,"line":16,"name":"main","source":{"name":"failures.nomi","path":"$TESTDATA/failures.nomi"}}],"totalFrames":2}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","type":"Int","value":"10","variablesReference":0},{"declarationLocationReference":2,"name":"b","type":"Int","value":"0","variablesReference":0}]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stderr","output":"line 4: division by zero\n"}
+<- event exited {"exitCode":1}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

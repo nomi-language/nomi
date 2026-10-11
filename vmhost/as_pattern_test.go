@@ -186,3 +186,77 @@ tests "setup" {
 		t.Fatalf("want two passing cases and one pattern mismatch:\n%s", out)
 	}
 }
+
+// An anonymous record pattern, with or without `as`, nested in a variant
+// payload, a struct field or a tuple: in a pattern assertion, a `case` arm,
+// a binding with `else` and a lambda parameter. A record pattern of names
+// cannot fail, so `assert Holder{r: {a: x, b}} = h` has no mismatch edge.
+func TestAsPattern_NestedRecordPatternsRun(t *testing.T) {
+	t.Setenv("NOMI_COLOR", "never")
+	const name = "record_as_test.nomi"
+	p, err := vmhost.LoadSource(name, `struct Holder {
+    r: {a: Int, b: Int}
+}
+
+test "assertion" {
+    rec: Result<{a: Int, b: Int}, String> = Ok({a: 1, b: 2})
+    assert Ok({a: x, b} as whole) = rec
+    assert x + b == whole.a + whole.b
+    assert Some({a: y, b: _} as w) = Some({a: 3, b: 4})
+    assert y + w.b == 7
+}
+
+test "case arm" {
+    rec: Maybe<{a: Int, b: Int}> = Some({a: 1, b: 2})
+    n = case rec {
+        Some({a: 2, b} as whole) -> b + whole.a
+        Some({a: x, b: _} as whole) -> x + whole.b
+        None -> 0
+    }
+    assert n == 3
+}
+
+test "binding with else" {
+    rec: Result<{a: Int, b: Int}, String> = Ok({a: 1, b: 2})
+    Ok({a: x, b} as whole) = rec else {
+        Err(_) -> {
+            assert False
+            return
+        }
+    }
+    assert x + b + whole.b == 5
+}
+
+test "lambda parameter" {
+    pairs = [({a: 1, b: 2}, 3), ({a: 4, b: 5}, 6)]
+    sums = pairs |> Iter.map(|({a: x, b} as whole, c)| x + b + c + whole.a) |> Iter.to_list()
+    assert sums == [7, 19]
+}
+
+test "struct field and tuple" {
+    h = Holder{r: {a: 1, b: 2}}
+    assert Holder{r: {a: x, b}} = h
+    assert Holder{r: {a: 1, b: y} as whole} = h
+    assert ({a: p, b: q} as rec, c) = (whole, 3)
+    assert x + b + y + p + q + c + rec.a == 12
+}
+
+test "a record test fails" {
+    rec: Result<{a: Int, b: Int}, String> = Ok({a: 1, b: 2})
+    assert Ok({a: 9, b} as whole) = rec
+    assert b == whole.b
+}
+`)
+	if err != nil {
+		t.Fatalf("the front end rejects the tests: %v", err)
+	}
+	var buf bytes.Buffer
+	rep := vmhost.NewTestReport(&buf)
+	p.Test(&buf, rep, name, vmhost.TestOptions{}, func(n string) string { return vmhost.TestName(name, n) })
+	rep.Summary()
+	out := buf.String()
+	if strings.Contains(out, "BLOCKED") || !strings.Contains(out, "5 passed, 1 failed") ||
+		!strings.Contains(out, "pattern did not match\n    assert Ok({a: 9, b} as whole) = rec") {
+		t.Fatalf("want five passing cases and one pattern mismatch:\n%s", out)
+	}
+}

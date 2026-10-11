@@ -134,10 +134,12 @@ shallow block may break, and be set apart, in a deeper one. A `case`, a nested
 block, a triple-quoted string and a struct literal you write across lines
 always span lines. The rule holds
 in every block: function, lambda, test and `case` arm bodies and `if`/`else`
-branches.
+branches. A pipe statement is no exception: a stacked pipeline, or one `fmt`
+breaks because it does not fit, is set apart, and one that fits on its line,
+such as `a = c |> Int.to_string() |> String.pad_start(5)`, sits with its
+neighbours.
 
-`fmt` also puts a blank line after every pipe statement (a `|>` chain, inline
-or stacked, bound or not) and after a block's imports. One-line statements sit
+`fmt` also puts a blank line after a block's imports. One-line statements sit
 together; `fmt` keeps a single blank line you write between them, so use one to
 mark a step. It removes a blank line at the top or bottom of a block:
 
@@ -157,7 +159,6 @@ fn pad(generation: Int): String {
 ```nomi
 s = #{1, 2, 3}
 Set.size(s) |> io.print() // expect: 3
-
 Set.contains?(s, 2) |> io.print() // expect: True
 
 s
@@ -512,13 +513,13 @@ When an attached assertion's subject becomes multi-line, keep the assertion at
 the front and prompt each continuation line:
 
 ```nomi
-//! assert Iter.loop(|n = 0|
+//! assert Iter.loop(|n = 0| {
 //!     if n >= 3 {
 //!         break n
 //!     } else {
 //!         n + 1
 //!     }
-//! ) == 3
+//! }) == 3
 ```
 
 When a compact example needs setup, write the setup as ordinary prompted lines:
@@ -529,9 +530,13 @@ When a compact example needs setup, write the setup as ordinary prompted lines:
 ```
 
 `fmt` applies the same layout in ordinary code: a single-expression lambda
-whose body is an `if` containing `break`, `continue` or `return` breaks after
-the lambda header. A value-producing conditional lambda stays inline when it
-fits.
+whose body is an `if` containing `break`, `continue` or `return` goes below
+the lambda header in braces. A value-producing conditional lambda stays inline
+when it fits; when it does not, its body goes below the header in braces too,
+and a call it ends closes with `})`. A lambda body written in braces with its contents on the lines below the
+`{` stays that way, even when it would fit on one line; write `|x| x + 1`, or
+`|x| { x + 1 }` on one line, to let `fmt` put a short body on the header's
+line.
 
 Use `assert` for the positive shape and `refute` when the thing under test is
 already a predicate. Don't wrap simple value checks in `io.inspect` or string
@@ -551,8 +556,9 @@ Test an interactive program, one that prompts and reads in turn, with
 `io.capture(input, main)` and separate input and output strings. The script
 shows each answer next to the prompt it answers, so the reader follows one
 conversation instead of matching two lists. Keep `io.capture` for a program
-that reads its input in one go, for one that reads nothing (compare its
-`output`), or when the value `main` returns matters.
+that reads its input in one go, or when the value `main` returns matters.
+A program that reads nothing is checked with `io.replay` too, with a
+script of its output and no gutter.
 
 Indent the output lines four columns past the input lines and the closing
 `"""`, so each output line keeps its four-space gutter, and put two spaces
@@ -577,6 +583,22 @@ test "deposit money" {
 
 A prompt of `> ` is output like any other: it is the line `    >` above the
 input line `>>  north`.
+
+A script with no input has no `>>` lines and no gutter. Write its output at
+the closing `"""`'s column, so the literal keeps only the indentation that
+is part of the output.
+
+```nomi
+test "prints the table" {
+    assert io.replay(
+        """
+        -10.0 C |   14.0 F
+         -5.0 C |   23.0 F
+        """,
+        main,
+    )
+}
+```
 
 When the value under test comes from a pipeline and the intermediate meaning is
 useful, bind the pipeline result and assert the binding. The failure report
@@ -904,9 +926,9 @@ status
 
 input
 |> case parse_id() {
-        Ok(id) -> id
-        Err(_) -> 0
-    }
+    Ok(id) -> id
+    Err(_) -> 0
+}
 ```
 
 ## 11. Thread one binding instead of inventing name ladders

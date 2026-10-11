@@ -48,6 +48,9 @@ type regStack struct {
 	nf     int
 	// hw is the most records in use since the stack was last parked.
 	hw int
+	// thread is the debugger's record of the goroutine using this stack, on
+	// a debug machine. See debug.go.
+	thread *thread
 }
 
 // newFrame is the activation record for the next activation on s, with its
@@ -235,6 +238,24 @@ type frame struct {
 	// bad is a value a handler wrote that its destination's bank cannot
 	// hold. The loop reports it after the handler returns.
 	bad error
+	// The rest is written on a debug machine only (debug.go). parent is the
+	// activation that started this one, on this stack or another; pc is the
+	// statement or call this activation is at; ldepth is its depth in the
+	// logical call stack; tail says a tail call replaced the activation's
+	// first function; via names the Go-driven operation (`Iter.map`, a host
+	// call) that started it from Go.
+	parent *frame
+	pc     int
+	ldepth int
+	tail   bool
+	via    string
+	// taps are what each lazy pipeline stage of the activation has passed
+	// on, by the stage's temporary (debugpipe.go).
+	taps map[ir.Temp]*stageTap
+	// entered says the activation has reached no statement since it
+	// started or a tail call replaced its function: its next statement is
+	// its function's first, where a function breakpoint stops.
+	entered bool
 }
 
 // read is temporary t's value, boxed out of its bank.
@@ -469,10 +490,13 @@ func (m *Machine) activateSlot(slot *fnSlot, args, caps []any, runtime *rt.Frame
 		fr.writeParam(c.params[len(args)+i], params[len(args)+i].Temp, a)
 	}
 	var err error
-	if fr.bad != nil {
+	switch {
+	case fr.bad != nil:
 		err = fr.bad
 		stk.pop(fr)
-	} else {
+	case m.dbg != nil:
+		err = m.debugActivation(fr, pooled)
+	default:
 		err = m.exec(fr)
 	}
 	var v any
@@ -489,6 +513,9 @@ func (m *Machine) activateSlot(slot *fnSlot, args, caps []any, runtime *rt.Frame
 // written, leaving its result as the stack's last return, and closes the
 // window.
 func (m *Machine) exec(fr *frame) error {
+	if m.dbg != nil {
+		return m.execDebug(fr, "")
+	}
 	var err error
 	if fr.c.guard {
 		err = m.execGuarded(fr)
@@ -547,6 +574,10 @@ func (m *Machine) finish(fr *frame, err error) error {
 	if len(fr.deferred) == 0 {
 		return err
 	}
+	if err != nil && errors.Is(err, errAbandon) {
+		// An abandoned pass runs nothing more (debugtravel.go).
+		return err
+	}
 	if err == nil && m.isBootFunc(fr.fn) {
 		m.deferToBootCleanup(fr)
 		return nil
@@ -580,6 +611,9 @@ func (m *Machine) transfer(fr *frame, next *tailTransfer) error {
 			next.fn.Name(), len(next.fn.Params()), len(next.args))
 	}
 	fr.enterCode(m.codeOf(m.slotFor(next.fn)))
+	if m.dbg != nil {
+		fr.tail, fr.taps, fr.entered = true, nil, true
+	}
 	for i, p := range next.fn.Params() {
 		fr.write(p.Temp, next.args[i])
 	}
@@ -607,6 +641,21 @@ func (m *Machine) fault(fr *frame, pc int, err error) (int, error) {
 		// A compiler bug, not a fault: no handler takes it and it is not
 		// marked as one on the way out.
 		return -1, err
+	}
+	if m.dbg != nil {
+		if errors.Is(err, errAbandon) {
+			return -1, err
+		}
+		if to, out, restart := restarting(fr, err); restart {
+			return to, out
+		}
+		if restart := m.dbg.fault(m, fr, pc, err); restart != nil {
+			if errors.Is(restart, errAbandon) {
+				return -1, restart
+			}
+			to, out, _ := restarting(fr, restart)
+			return to, out
+		}
 	}
 	st := fr.c.siteAt(pc)
 	if st != nil {
@@ -970,6 +1019,9 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 					}
 				} else {
 					m.moveTailArgs(fr, callee, args)
+					if m.dbg != nil {
+						fr.tail, fr.taps, fr.entered = true, nil, true
+					}
 				}
 				c = fr.c
 				code = c.code
@@ -1118,7 +1170,13 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 					goto failed
 				}
 			}
-			v, herr := callAdapter(h.fn, fr.runtime, args)
+			var v any
+			var herr error
+			if m.dbg != nil {
+				v, herr = m.debugCallAdapter(fr, h, args)
+			} else {
+				v, herr = callAdapter(h.fn, fr.runtime, args)
+			}
 			w, s, r = stk.w[fr.wb:fr.wb+c.nW], stk.s[fr.sb:fr.sb+c.nS], stk.r[fr.rb:fr.rb+c.nR]
 			if herr != nil {
 				err = herr
@@ -1133,6 +1191,23 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 
 		case opFail:
 			return m.finish(fr, c.fails[d])
+
+		case opStmt:
+			fr.pc = pc
+			if m.dbg.active.Load() {
+				if err = m.dbg.stmt(fr, int(d)); err != nil {
+					fr.entered = false
+					goto failed
+				}
+			}
+			fr.entered = false
+			pc++
+		case opPC:
+			fr.pc = pc
+			pc++
+		case opTap:
+			m.dbg.tap(fr, ir.Temp(d))
+			pc++
 
 		default:
 			return fmt.Errorf("vm: %s: opcode %d at %d", fr.fn.Name(), ins&0xff, pc)

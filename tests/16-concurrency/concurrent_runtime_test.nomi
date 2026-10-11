@@ -16,12 +16,12 @@ fn produce(ch: Channel<Int>, n: Int): Unit {
 }
 
 fn consume(ch: Channel<Int>): Int {
-    Iter.loop(|sum = 0|
+    Iter.loop(|sum = 0| {
         case Receiver.receive(ch.receiver) {
             Some(v) -> sum + v
             None -> break sum
         }
-    )
+    })
 }
 
 fn long_sleep(): Result<Int, String> {

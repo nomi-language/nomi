@@ -34,12 +34,12 @@ fn main() {
 
     xs =
         [Tree.Node(Point{x: 1}), Tree.Leaf, Tree.Node(Point{x: 4})]
-        |> Iter.map(|t|
+        |> Iter.map(|t| {
             case t {
                 Tree.Node(p) -> p.x
                 Tree.Leaf -> 0
             }
-        )
+        })
         |> Iter.to_list()
 
     io.print("points ${xs}")

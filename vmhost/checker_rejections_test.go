@@ -79,3 +79,11 @@ func TestLoadBearingStdImportsStayAdmitted(t *testing.T) {
 	admits(t, "import std/iter.Iter as It\nimport std/comparable.Ordering.{Less}\n\n"+
 		"fn main() {\n  _n = It.count([1])\n  _o = Less\n}\n")
 }
+
+// A lowering fuzz find: calling a value of type parameter `T` was admitted
+// and the IR builder declined the body.
+func TestCallingATypeParameterValueIsACheckError(t *testing.T) {
+	rejects(t, "fn evens<T>(xs: List<T>): List<T> {\n  case xs {\n    [] -> []\n    [x, ..rest] -> [x(rest)]\n  }\n}\n\n"+
+		"fn main() {\n  _ = evens([1])\n}\n",
+		"main.nomi:4:21: `T` is not a function")
+}

@@ -3420,6 +3420,16 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 					TypeExprBaseName(n.Receiver)),
 			})
 		}
+		// `Distinct<T>` is decided the same way: every distinct type
+		// satisfies it for the type it wraps.
+		if TypeExprBaseName(n.Interface) == "Distinct" {
+			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
+				Line: n.Line, Col: n.Col,
+				Message: fmt.Sprintf(
+					"`Distinct` is a built-in marker and cannot be implemented; every distinct type satisfies `Distinct<T>` for the type it wraps — remove this `impl Distinct for %s`",
+					TypeExprBaseName(n.Receiver)),
+			})
+		}
 	}
 	b.walkWhereClauses(n.WhereClauses, inner)
 

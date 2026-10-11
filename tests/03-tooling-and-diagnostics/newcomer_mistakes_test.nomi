@@ -22,13 +22,13 @@ test "a bare name is not a pipe stage" {
 
     assert places == [(8, 8), (8, 18)]
 
-    assert Iter.any?(diagnostics, |d|
+    assert Iter.any?(diagnostics, |d| {
         String.starts_with?(d.message, "a pipe stage is a call: write `double()`")
-    )
+    })
 
-    assert Iter.any?(diagnostics, |d|
+    assert Iter.any?(diagnostics, |d| {
         String.starts_with?(d.message, "a pipe stage is a call: write `io.print()`")
-    )
+    })
 }
 
 test "a type name is not a conversion function" {
@@ -44,16 +44,16 @@ test "a type name is not a conversion function" {
 
     assert Iter.count(diagnostics) == 2
 
-    assert Iter.any?(diagnostics, |d|
+    assert Iter.any?(diagnostics, |d| {
         String.starts_with?(d.message, "`Int` is a type, not a function") and String.contains?(
             d.message,
             "`String.to_int`",
         )
-    )
+    })
 
-    assert Iter.any?(diagnostics, |d|
+    assert Iter.any?(diagnostics, |d| {
         String.starts_with?(d.message, "`String` is a type, not a function")
-    )
+    })
 }
 
 test "the conversions the errors point to" {
@@ -95,9 +95,9 @@ test "a lambda is not a pipe stage" {
             """
         |> compiler.check()
 
-    assert Iter.any?(diagnostics, |d|
+    assert Iter.any?(diagnostics, |d| {
         String.contains?(d.message, "a lambda is not a pipe stage: write `then |v| ...`")
-    )
+    })
 }
 
 test "a braced lambda keeps the pipe inside its body" {

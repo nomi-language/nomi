@@ -30,7 +30,7 @@ func (g *gen) inferredPatternKind(pat ast.Node) (kind, bool) {
 	if g.fa == nil {
 		return kindInvalid, false
 	}
-	ty, found := g.fa.LambdaPatternTypes[pat]
+	ty, found := g.srcFA().LambdaPatternTypes[pat]
 	if !found {
 		return kindInvalid, false
 	}

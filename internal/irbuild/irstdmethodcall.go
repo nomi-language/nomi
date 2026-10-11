@@ -74,11 +74,39 @@ func (bl *irScalarBuilder) stdFuncPlan(t *ast.Call, args irQualArgs, f *stdFunc)
 		// call spells.
 		sym := bl.g.irStdSiblingSym(view)
 		if sym == nil {
-			return nil
+			return bl.stdUnretainedPlan(view)
 		}
 		return &irQualPlan{token: view, name: view.key, result: view.result, sym: sym}
 	}
 	return &irQualPlan{token: f, name: f.key, result: f.result, sym: f.irBody.Sym()}
+}
+
+// stdUnretainedPlan plans a call to a monomorphic stdlib body the cache did
+// not retain because it reaches a generic template (stdUnretainedMonoBody):
+// the program builds it as an instance with no arguments, as a qualified
+// call to it does (stdInstCallAt), whichever route selected it: a sibling's
+// bare call, an interface-qualified call, or an `assert` on a std type's
+// `Assertable` impl. nil when the body is not one of those or does not
+// build.
+func (bl *irScalarBuilder) stdUnretainedPlan(f *stdFunc) *irQualPlan {
+	s := bl.g.stdInsts
+	if s == nil || !s.stdUnretainedMonoBody(f) {
+		return nil
+	}
+	inst, why := s.instantiate(f, nil, nil, nil, bl.g)
+	if inst == nil {
+		irDeclineNote(why)
+		return nil
+	}
+	if len(inst.view.params) != len(f.params) || inst.view.result != f.result {
+		return nil
+	}
+	for i, k := range f.params {
+		if inst.view.params[i] != k {
+			return nil
+		}
+	}
+	return &irQualPlan{token: f, name: f.key, result: f.result, sym: inst.sym}
 }
 
 // irStdSiblingSym is the declaration symbol of a same-module stdlib body that

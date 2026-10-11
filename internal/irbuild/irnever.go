@@ -127,7 +127,7 @@ func (bl *irScalarBuilder) isNeverOperand(n ast.Node) bool {
 	case *ast.Ident:
 		return bl.localKindOf(t.Name) == kindNever
 	case *ast.Call:
-		if bl.g.fa != nil && bl.g.project(bl.g.fa.ExprTypes[n]) == kindNever {
+		if bl.g.fa != nil && bl.g.project(bl.g.srcFA().ExprTypes[n]) == kindNever {
 			return true
 		}
 		return bl.isNeverLedCall(t)
@@ -164,7 +164,7 @@ func (bl *irScalarBuilder) neverResultKind(n ast.Node) kind {
 	if bl.g.fa == nil {
 		return kindInvalid
 	}
-	return bl.g.project(bl.g.fa.ExprTypes[n])
+	return bl.g.project(bl.g.srcFA().ExprTypes[n])
 }
 
 // lowerNever lowers an operand isNeverOperand accepted at kindNever.
@@ -178,7 +178,7 @@ func (bl *irScalarBuilder) lowerNever(n ast.Node) (ir.Temp, kind, bool, bool) {
 		// A call the checker typed as something else, which never returns
 		// because its first argument does not: the call's value is that
 		// argument's, of Infallible, and the call itself is never made.
-		if !(bl.g.fa != nil && bl.g.project(bl.g.fa.ExprTypes[n]) == kindNever) && bl.isNeverLedCall(t) {
+		if !(bl.g.fa != nil && bl.g.project(bl.g.srcFA().ExprTypes[n]) == kindNever) && bl.isNeverLedCall(t) {
 			return bl.lowerNever(t.Args[0])
 		}
 	}
@@ -210,7 +210,7 @@ func (g *gen) neverSettledKind(n ast.Node) kind {
 	if g.fa == nil {
 		return kindInvalid
 	}
-	ty, ok := g.fa.ExpectedTypes[n]
+	ty, ok := g.srcFA().ExpectedTypes[n]
 	if !ok {
 		return kindInvalid
 	}

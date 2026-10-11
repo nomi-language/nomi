@@ -87,3 +87,70 @@ fn main() {
 		}
 	}
 }
+
+// A bare `return` ending the else of a fallback-shaped binding in a lambda
+// leaves the lambda. The else is a region of the payload's kind (Int, String),
+// not Unit, and the arm reaches no exit, so the builder lowers it as it lowers
+// `return v` there; it declined every one of these. vmhost's
+// TestLambdaElseReturn_RunsInEveryCallback runs them.
+func TestBindingElse_BareReturnLeavesALambda(t *testing.T) {
+	src := `import std/io
+
+fn block(xs: List<Maybe<Int>>) {
+    Iter.each(xs, |m| {
+        Some(v) = m else { return }
+        io.inspect(v)
+    })
+}
+
+fn statements(xs: List<Maybe<Int>>) {
+    Iter.each(xs, |m| {
+        Some(v) = m else {
+            io.print("none")
+            return
+        }
+        io.inspect(v)
+    })
+}
+
+fn arms(xs: List<Result<Int, String>>) {
+    Iter.each(xs, |r| {
+        Ok(v) = r else {
+            Err(e) -> {
+                io.print(e)
+                return
+            }
+        }
+        io.inspect(v)
+    })
+}
+
+fn named() {
+    show = |m: Maybe<String>| {
+        Some(s) = m else { return }
+        io.print(s)
+    }
+    show(None)
+}
+
+fn nested(rows: List<List<Maybe<Int>>>) {
+    Iter.each(rows, |row| {
+        Iter.each(row, |m| {
+            Some(v) = m else { return }
+            io.inspect(v)
+        })
+    })
+}
+
+fn main() {
+    block([Some(1), None])
+    statements([None])
+    arms([Err("e")])
+    named()
+    nested([[Some(2)]])
+}
+`
+	if declines := irDeclinesOf(t, src); len(declines) != 0 {
+		t.Fatalf("declined: %v", declines)
+	}
+}

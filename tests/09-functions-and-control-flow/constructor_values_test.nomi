@@ -64,18 +64,18 @@ test "a type name and a generic constructor with nothing to solve it stay errors
             """
         |> compiler.check()
 
-    assert Iter.any?(diagnostics, |d|
+    assert Iter.any?(diagnostics, |d| {
         String.starts_with?(d.message, "`Int` is a type, not a value")
-    )
+    })
 
-    assert Iter.any?(diagnostics, |d|
+    assert Iter.any?(diagnostics, |d| {
         String.starts_with?(d.message, "`Point` is a type, not a value")
-    )
+    })
 
-    assert Iter.any?(diagnostics, |d|
+    assert Iter.any?(diagnostics, |d| {
         String.starts_with?(
             d.message,
             "cannot infer type parameter T of generic constructor 'Some' used as a value",
         )
-    )
+    })
 }

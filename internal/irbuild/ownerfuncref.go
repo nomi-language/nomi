@@ -84,6 +84,37 @@ func (bl *irScalarBuilder) callFuncValue(ref ast.Node, name string) (ir.Temp, ki
 	if !ok {
 		return no()
 	}
+	return bl.callFuncValueOf(ref, name, params, result)
+}
+
+// selfCtorFuncRef lowers `self` named as a value inside an interface default
+// bounded by `where self: Distinct<T>`: the constructor of the implementor
+// this copy of the default is emitted for, a function from what it wraps to
+// it. Its kinds are the implementor's own, which the checker cannot name: it
+// typed the value with the interface's `self`.
+func (bl *irScalarBuilder) selfCtorFuncRef(t *ast.SelfExpr) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	d := bl.g.selfDistinct()
+	if d == nil || !irCallOperandKind(d.inner) {
+		return no()
+	}
+	g := bl.g
+	if g.funcValueRefs[t] {
+		return no()
+	}
+	if g.funcValueRefs == nil {
+		g.funcValueRefs = map[ast.Node]bool{}
+	}
+	g.funcValueRefs[t] = true
+	defer delete(g.funcValueRefs, t)
+	return bl.callFuncValueOf(t, d.nomi, []kind{d.inner}, named(d))
+}
+
+// callFuncValueOf builds the function value of ref at the given kinds: a
+// function whose body calls ref with its parameters.
+func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []kind, result kind) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	g := bl.g
 	line, col := calleeRefPos(ref)
 	at := g.irNodePos(ref)
 	f := ir.NewFunc(at, name)
@@ -133,7 +164,7 @@ func (g *gen) checkedValueKinds(ref ast.Node) ([]kind, kind, bool) {
 		return nil, kindInvalid, false
 	}
 	line, col := calleeRefPos(ref)
-	sym := g.fa.References[analysis.Pos{Line: line, Col: col}]
+	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 	if sym == nil {
 		return nil, kindInvalid, false
 	}
@@ -147,7 +178,9 @@ func (g *gen) checkedValueKinds(ref ast.Node) ([]kind, kind, bool) {
 	params := make([]kind, len(ft.Params))
 	for i, pt := range ft.Params {
 		params[i] = g.project(pt)
-		if !irCallableValueKind(params[i]) {
+		if !irCallOperandKind(params[i]) {
+			// A Unit parameter is a call operand too: `Done` for `type
+			// Done Unit` is a `(Unit) -> Done`.
 			return nil, kindInvalid, false
 		}
 	}
@@ -166,7 +199,7 @@ func (g *gen) distinctCtorRef(ref ast.Node) bool {
 		return false
 	}
 	line, col := calleeRefPos(ref)
-	sym := g.fa.References[analysis.Pos{Line: line, Col: col}]
+	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 	if sym == nil {
 		return false
 	}

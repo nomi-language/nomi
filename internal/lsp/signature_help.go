@@ -4,6 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
+	"github.com/nomi-language/nomi/internal/textpos"
 	"strings"
 
 	"github.com/tliron/glsp"
@@ -129,7 +130,7 @@ func buildSignatureInfo(sym *analysis.Symbol) (string, []protocol.ParameterInfor
 
 // findCallContext scans backwards from the cursor to find the enclosing function call
 // and which argument position the cursor is at. Returns ("", 0) if not in a call.
-// line and character are 0-based.
+// line and character are 0-based, character in UTF-16 code units.
 func findCallContext(content string, line, character int) (string, int) {
 	lines := strings.Split(content, "\n")
 	if line >= len(lines) {
@@ -141,11 +142,7 @@ func findCallContext(content string, line, character int) (string, int) {
 	for i := 0; i < line; i++ {
 		offset += len(lines[i]) + 1 // +1 for \n
 	}
-	col := character
-	if col > len(lines[line]) {
-		col = len(lines[line])
-	}
-	offset += col
+	offset += textpos.ByteCol(lines[line], character)
 
 	// Walk backwards from offset to find the opening '(' that we're inside.
 	depth := 0

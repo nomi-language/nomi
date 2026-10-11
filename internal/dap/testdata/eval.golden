@@ -1,0 +1,58 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/eval.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":33}],"source":{"path":"$TESTDATA/eval.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":33,"source":{"path":"$TESTDATA/eval.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event output {"category":"stdout","output":"pt 1\n"}
+<- event output {"category":"stdout","output":"pt 2\n"}
+<- event output {"category":"stdout","output":"pt 3\n"}
+<- event output {"category":"stdout","output":"pt 4\n"}
+<- event output {"category":"stdout","output":"pt 5\n"}
+<- event output {"category":"stdout","output":"pt 6\n"}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":33,"name":"main","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}}],"totalFrames":1}
+-> evaluate {"context":"watch","expression":"p","frameId":1}
+<- response evaluate {"namedVariables":2,"result":"Point{x: 3, y: 4}","type":"Point","variablesReference":1}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"name":"x","type":"Int","value":"3","variablesReference":0},{"name":"y","type":"Int","value":"4","variablesReference":0}]}
+-> evaluate {"context":"hover","expression":"p.x","frameId":1}
+<- response evaluate {"result":"3","type":"Int","variablesReference":0}
+-> evaluate {"context":"hover","expression":"label","frameId":1}
+<- response evaluate {"result":"\"pt\"","type":"String","variablesReference":0}
+-> evaluate {"context":"watch","expression":"norm(p) + Iter.count(xs)","frameId":1}
+<- response evaluate {"result":"28","type":"Int","variablesReference":0}
+-> evaluate {"context":"repl","expression":"Point{x: p.y, y: p.x}","frameId":1}
+<- response evaluate {"namedVariables":2,"result":"Point{x: 4, y: 3}","type":"Point","variablesReference":2}
+-> variables {"variablesReference":2}
+<- response variables {"variables":[{"name":"x","type":"Int","value":"4","variablesReference":0},{"name":"y","type":"Int","value":"3","variablesReference":0}]}
+-> evaluate {"context":"repl","expression":"xs |> Iter.map(|x| x * label.length) |> Iter.to_list()","frameId":1}
+<- response evaluate failed "String has no field 'length'"
+-> evaluate {"context":"repl","expression":"xs |> Iter.map(|x| x * 10) |> Iter.to_list()","frameId":1}
+<- response evaluate {"indexedVariables":3,"result":"[10, 20, 30]","type":"List<Int>","variablesReference":3}
+-> evaluate {"context":"repl","expression":"io.print(\"from the console\")","frameId":1}
+<- response evaluate failed "not run, because the expression calls io.print, which is an effect. End the expression with `// allow effects` to run it anyway; what it does is not undone."
+-> evaluate {"context":"repl","expression":"io.print(\"from the console\") // allow effects","frameId":1}
+<- response evaluate {"result":"Unit","type":"Unit","variablesReference":0}
+-> evaluate {"context":"hover","expression":"io.print(\"from a hover\") // allow effects","frameId":1}
+<- response evaluate failed "not run, because the expression calls io.print, which is an effect. End the expression with `// allow effects` to run it anyway; what it does is not undone."
+-> evaluate {"context":"repl","expression":"spin(0)","frameId":1}
+<- response evaluate failed "stopped after 1000000 steps or 2s without finishing; does the expression loop forever?"
+-> evaluate {"context":"repl","expression":"nosuch + 1","frameId":1}
+<- response evaluate failed "undefined variable 'nosuch'"
+-> evaluate {"context":"clipboard","expression":"xs","frameId":1}
+<- response evaluate {"indexedVariables":3,"result":"[1, 2, 3]","type":"List<Int>","variablesReference":4}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"from the console\n"}
+<- event output {"category":"stdout","output":"25 3\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

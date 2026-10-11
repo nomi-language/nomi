@@ -85,7 +85,7 @@ impl Add<List<T>, List<T>> for List<T> {
     }
 }
 
-impl Display for List<T> {
+impl Display for List<T> where T: Display {
     fn to_string(value: List<T>): String {
         // Render `[v1, v2, v3]`, or `[]` when empty.
         body =
@@ -116,13 +116,13 @@ impl Equatable for List<T> {
     }
 }
 
-impl Hashable for List<T> {
+impl Hashable for List<T> where T: Hashable {
     // FNV-style fold; agrees with `==` (equal lists hash equally) and requires the
     // element type to be Hashable. Wrapping arithmetic — hashes are modular.
     fn hash(list: List<T>): Int {
-        Iter.reduce(list, |acc = 17, x|
+        Iter.reduce(list, |acc = 17, x| {
             Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
-        )
+        })
     }
 }
 

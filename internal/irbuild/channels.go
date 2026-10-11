@@ -180,7 +180,7 @@ func (g *gen) channelSignature(t *ast.Call, fn channelFn, owner, method string) 
 	if !isField || fa.Field == nil || g.fa == nil {
 		return nil, false
 	}
-	sym := g.fa.References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
+	sym := g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
 	if sym == nil || sym.CallType == nil {
 		return nil, false
 	}

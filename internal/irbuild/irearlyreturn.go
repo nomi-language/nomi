@@ -49,6 +49,7 @@ func (bl *irScalarBuilder) guardReturn(t *ast.If) bool {
 	if !bl.leading(lead) || bl.b != arm {
 		return false
 	}
+	bl.markStmt(tail, ir.StmtStatement)
 	if isReturn {
 		if _, ok := bl.explicitReturn(ret); !ok {
 			return false

@@ -2,8 +2,14 @@ name = "Nomi"
 grammar = "nomi"
 path_suffixes = ["nomi"]
 first_line_pattern = '^#!.*\bnomi\b'
-line_comments = ["/// ", "//! ", "// "]
+line_comments = ["// ", "/// ", "//! "]
 tab_size = 4
+# Nomi indents with spaces (nomi fmt writes four), as the Neovim and
+# Helix configs set; a tab typed inside a """ string would stay in it.
+hard_tabs = false
+# The debug adapter Zed asks the extension's locator to turn the `nomi run`
+# and `nomi test` tasks into debug sessions for (extension.toml).
+debuggers = ["Nomi"]
 autoclose_before = ";:.,=}])>"
 brackets = [
     { start = "{", end = "}", close = true, newline = true },

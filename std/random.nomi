@@ -174,12 +174,12 @@ impl Generator<T> {
         all = [first, ..rest]
 
         unsafe_int(0, Iter.count(rest))
-        |> map(|i|
+        |> map(|i| {
             case Iter.at(all, i) {
                 .Some(x) -> x
                 .None -> first
             }
-        )
+        })
     }
 
     /// Weighted choice; each option carries a relative weight. Non-empty.

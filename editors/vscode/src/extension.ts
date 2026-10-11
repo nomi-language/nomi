@@ -4,6 +4,13 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from "vscode-languageclient/node";
 import { AttachedTestDimmer } from "./attachedTestDecorations";
+import {
+  debugMainConfiguration,
+  debugTestConfiguration,
+  initialConfigurations,
+  NomiDebugConfiguration,
+  resolveConfiguration,
+} from "./debugConfig";
 import { enclosingTestLine } from "./testLine";
 
 const installGuide = "https://github.com/nomi-language/nomi/blob/main/docs/install.md";
@@ -27,7 +34,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<NomiEx
       runOnUri(uri, (file) => ["test", file, "--line", String(line)]),
     ),
     vscode.commands.registerCommand("nomi.runMain", (uri: string) => runOnUri(uri, (file) => ["run", file])),
+    vscode.commands.registerCommand("nomi.debugTest", (uri: string, line: number) =>
+      debugOnUri(uri, (file, cwd) => debugTestConfiguration(file, line, cwd)),
+    ),
+    vscode.commands.registerCommand("nomi.debugMain", (uri: string) =>
+      debugOnUri(uri, (file, cwd) => debugMainConfiguration(file, cwd)),
+    ),
+    vscode.commands.registerCommand("nomi.debugFile", () => debugActive((file, cwd) => debugMainConfiguration(file, cwd))),
+    vscode.commands.registerCommand("nomi.debugTestAtCursor", () => debugTestAtCursor()),
     vscode.commands.registerCommand("nomi.restartLanguageServer", () => restartClient()),
+    vscode.debug.registerDebugConfigurationProvider("nomi", new NomiDebugConfigurationProvider()),
+    vscode.debug.registerDebugAdapterDescriptorFactory("nomi", new NomiDebugAdapterFactory()),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("nomi.lsp.path")) {
         void restartClient();
@@ -228,4 +245,84 @@ function rootOf(file: vscode.Uri): string {
     }
   }
   return vscode.workspace.getWorkspaceFolder(file)?.uri.fsPath ?? path.dirname(file.fsPath);
+}
+
+// ---- Debugging ------------------------------------------------------------
+
+/** Starts `nomi dap` for a debug session. */
+class NomiDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
+  createDebugAdapterDescriptor(session: vscode.DebugSession): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
+    const folder = session.workspaceFolder?.uri;
+    const configured = vscode.workspace.getConfiguration("nomi", folder).get<string>("path") || "nomi";
+    const nomi = findExecutable(configured);
+    if (!nomi) {
+      void notFound(
+        `Nomi: the nomi CLI '${configured}' was not found, so there is nothing to debug with. Install it from a ` +
+          "Nomi checkout with `go install ./cmd/nomi`, or set nomi.path.",
+        "nomi.path",
+      );
+      return undefined;
+    }
+    return new vscode.DebugAdapterExecutable(nomi, ["dap"]);
+  }
+}
+
+/** launch.json's initial configurations, and F5 with no launch.json. */
+class NomiDebugConfigurationProvider implements vscode.DebugConfigurationProvider {
+  provideDebugConfigurations(): vscode.ProviderResult<vscode.DebugConfiguration[]> {
+    return initialConfigurations();
+  }
+
+  resolveDebugConfiguration(
+    folder: vscode.WorkspaceFolder | undefined,
+    config: vscode.DebugConfiguration,
+  ): vscode.ProviderResult<vscode.DebugConfiguration> {
+    const editor = vscode.window.activeTextEditor;
+    const active =
+      editor && editor.document.languageId === "nomi" && !editor.document.isUntitled
+        ? { file: editor.document.uri.fsPath, source: editor.document.getText() }
+        : undefined;
+    const cwd = editor && active ? rootOf(editor.document.uri) : folder?.uri.fsPath;
+    const resolved = resolveConfiguration(config, active, cwd);
+    if (!resolved) {
+      void vscode.window.showWarningMessage("Nomi: open a .nomi file to debug, or name its program in launch.json.");
+      return undefined;
+    }
+    return resolved;
+  }
+}
+
+async function startDebugging(file: vscode.Uri, config: NomiDebugConfiguration): Promise<void> {
+  await vscode.debug.startDebugging(vscode.workspace.getWorkspaceFolder(file), config);
+}
+
+// Debugs the file a code lens names, saving it first.
+async function debugOnUri(uri: string, config: (file: string, cwd: string) => NomiDebugConfiguration): Promise<void> {
+  const file = vscode.Uri.parse(uri);
+  const doc = vscode.workspace.textDocuments.find((d) => d.uri.toString() === file.toString());
+  if (doc?.isDirty && !(await doc.save())) {
+    return;
+  }
+  await startDebugging(file, config(file.fsPath, rootOf(file)));
+}
+
+async function debugActive(config: (file: string, cwd: string) => NomiDebugConfiguration): Promise<void> {
+  const editor = await activeNomiFile();
+  if (editor) {
+    await startDebugging(editor.document.uri, config(editor.document.uri.fsPath, rootOf(editor.document.uri)));
+  }
+}
+
+async function debugTestAtCursor(): Promise<void> {
+  const editor = await activeNomiFile();
+  if (!editor) {
+    return;
+  }
+  const line = enclosingTestLine(editor.document.getText(), editor.selection.active.line);
+  if (line === undefined) {
+    void vscode.window.showWarningMessage("Nomi: the cursor is not inside a test.");
+    return;
+  }
+  const file = editor.document.uri;
+  await startDebugging(file, debugTestConfiguration(file.fsPath, line, rootOf(file)));
 }

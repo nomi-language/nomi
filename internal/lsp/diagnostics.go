@@ -8,6 +8,8 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/testdirectives"
 	"github.com/nomi-language/nomi/internal/token"
+	"github.com/nomi-language/nomi/std"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -150,18 +152,19 @@ func buildDiagnostics(uri string, parseErrs []parser.ParseError, typeErrs []anal
 // buildPublishedDiagnostics is uri's diagnostics for a client that reads
 // relatedInformation.
 func buildPublishedDiagnostics(uri string, content string, nodes []ast.Node, parseErrs []parser.ParseError, typeErrs []analysis.TypeError) []protocol.Diagnostic {
-	return buildPublishedDiagnosticsFor(uri, content, nil, nodes, parseErrs, typeErrs, true)
+	return buildPublishedDiagnosticsFor(uri, content, diskContent, nil, nodes, parseErrs, typeErrs, true)
 }
 
 // buildPublishedDiagnosticsFor is uri's diagnostics: the parser's, the
 // analysis's, and the dbg and todo warnings. A point error spans the token it
 // names (analysis.CompleteSpans). related reports whether the client reads
 // relatedInformation; when it does not, related locations become `note:`
-// lines of the message.
+// lines of the message. contentOf reads the text of another file a related
+// location is in.
 //
 // tokens, when not nil, returns content's tokens, which the server may hold
 // already; otherwise content is lexed here, at most once.
-func buildPublishedDiagnosticsFor(uri string, content string, tokens func() []token.Token, nodes []ast.Node, parseErrs []parser.ParseError, typeErrs []analysis.TypeError, related bool) []protocol.Diagnostic {
+func buildPublishedDiagnosticsFor(uri string, content string, contentOf func(protocol.DocumentUri) (string, bool), tokens func() []token.Token, nodes []ast.Node, parseErrs []parser.ParseError, typeErrs []analysis.TypeError, related bool) []protocol.Diagnostic {
 	var toks []token.Token
 	lexed := func() []token.Token {
 		if toks == nil {
@@ -189,21 +192,41 @@ func buildPublishedDiagnosticsFor(uri string, content string, tokens func() []to
 	diags = append(diags, todoWarningDiagnostics(todos)...)
 	// Diagnostic columns are byte-based (analyzer positions); convert to the
 	// UTF-16 columns the protocol expects so a squiggle after a non-ASCII
-	// character on its line lands on the right span. A related location in
-	// this document is converted the same way; one in another file is left
-	// in bytes.
+	// character on its line lands on the right span. A related location is
+	// converted the same way, against the text of the file it is in, which
+	// contentOf reads for a file other than this document.
+	var lines *lineIndex
 	if content != "" {
-		lines := newLineIndex(content)
-		for i := range diags {
+		lines = newLineIndex(content)
+	}
+	others := map[protocol.DocumentUri]*lineIndex{}
+	for i := range diags {
+		if lines != nil {
 			diags[i].Range = lines.utf16Range(diags[i].Range)
-			for j, r := range diags[i].RelatedInformation {
-				if string(r.Location.URI) == uri {
-					diags[i].RelatedInformation[j].Location.Range = lines.utf16Range(r.Location.Range)
+		}
+		for j, r := range diags[i].RelatedInformation {
+			li := lines
+			if string(r.Location.URI) != uri {
+				var seen bool
+				if li, seen = others[r.Location.URI]; !seen {
+					if text, ok := contentOf(r.Location.URI); ok {
+						li = newLineIndex(text)
+					}
+					others[r.Location.URI] = li
 				}
+			}
+			if li != nil {
+				diags[i].RelatedInformation[j].Location.Range = li.utf16Range(r.Location.Range)
 			}
 		}
 	}
 	return diags
+}
+
+// diskContent is the text of the file at uri on disk.
+func diskContent(uri protocol.DocumentUri) (string, bool) {
+	b, err := os.ReadFile(uriToPath(string(uri)))
+	return string(b), err == nil
 }
 
 // clientRelatedInformation reports whether the client reads a diagnostic's
@@ -243,7 +266,7 @@ func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnaps
 	if snap.Open {
 		tokens = func() []token.Token { return s.pipeTokens.get(snap.URI, snap.Content).toks }
 	}
-	diags := buildPublishedDiagnosticsFor(snap.URI, snap.Content, tokens, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors, s.relatedInformation)
+	diags := buildPublishedDiagnosticsFor(snap.URI, snap.Content, s.contentForURI, tokens, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors, s.relatedInformation)
 	if lits := s.literalDiagnostics(snap, false); len(lits) > 0 {
 		lines := newLineIndex(snap.Content)
 		for _, d := range lits {
@@ -254,10 +277,33 @@ func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnaps
 	if snap.Open {
 		diags = append(diags, s.lowering.diagnostics(snap.URI)...)
 	}
+	if d, ok := stdSyntaxDiagnostic(s.std); ok {
+		diags = append([]protocol.Diagnostic{d}, diags...)
+	}
 	notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 		URI:         protocol.DocumentUri(snap.URI),
 		Diagnostics: diags,
 	})
+}
+
+// stdSyntaxDiagnostic is an error on every document's first line when the
+// std this server embeds does not parse (std.StdLib.SyntaxError): every
+// document is checked against that std, and what the analysis says about
+// one follows from the part of the std file recovery skipped. The message
+// names each syntax error's file, line and column.
+func stdSyntaxDiagnostic(lib *std.StdLib) (protocol.Diagnostic, bool) {
+	err := lib.SyntaxError()
+	if err == nil {
+		return protocol.Diagnostic{}, false
+	}
+	severity := protocol.DiagnosticSeverityError
+	source := serverName
+	return protocol.Diagnostic{
+		Range:    protocol.Range{},
+		Severity: &severity,
+		Source:   &source,
+		Message:  err.Error() + "\nFix it and rebuild nomi-lsp.",
+	}, true
 }
 
 // stdDiffersDiagnostic is the one diagnostic of an open std file whose text

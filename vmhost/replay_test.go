@@ -64,7 +64,8 @@ func runReplayTests(t *testing.T, src string) string {
 // sits behind a four-space gutter, a prompt written without a newline is an
 // output line of its own, output starting with `>` needs no escape, a prompt
 // left waiting at end of input is output like any other, and the `"""`
-// literal's missing final newline does not count.
+// literal's missing final newline does not count. A script with no `>>` line
+// is the output as written, with no gutter.
 func TestReplay_PassesOnAMatchingScript(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
 test "deposit money" {
@@ -86,11 +87,11 @@ test "deposit money" {
 
 test "no input at all" {
     assert io.replay("""
-            What is the starting balance?
-            Your starting balance: 0
+        What is the starting balance?
+        Your starting balance: 0
 
-            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-            amount: bye
+        Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        amount: bye
         """, main)
 }
 `)
@@ -197,11 +198,13 @@ fn main() {
 	}
 }
 
-// A script line that is neither input (`>>  `) nor output (four spaces)
-// traps before the program runs, naming the line, with a hint that writes it
-// with the right gutter: output with no gutter or two columns of it, `>>`
-// with one, none or three spaces after it, and a one-character marker `> `.
-// Output that starts with `>>` needs the gutter like any other.
+// A script line that is neither input (`>>  `) nor output (four spaces), in
+// a script with a `>>` line, traps before the program runs, naming the line,
+// with a hint that writes it with the right gutter: output with no gutter or
+// two columns of it, `>>` with one, none or three spaces after it, and a
+// one-character marker `> `. Output that starts with `>>` needs the gutter
+// like any other, and a script with no other two-column line, which may have
+// been meant as written, says so.
 func TestReplay_AScriptLineWithoutTheGutterTraps(t *testing.T) {
 	out := runReplayTests(t, `import std/io
 
@@ -267,6 +270,7 @@ test "a short marker" {
         """
             Your age:
         > 36
+        >>  37
         """,
         ask,
     )
@@ -285,8 +289,22 @@ test "output that starts with the marker, behind the gutter" {
     assert io.replay(
         """
             >>  not input
+        >>
         """,
-        || io.print(">>  not input"),
+        || {
+            io.print(">>  not input")
+            _ = io.read_line()
+        },
+    )
+}
+
+test "output that starts with the marker, as written" {
+    assert io.replay(
+        """
+        >> done
+        balance 0
+        """,
+        || io.print(">> done\nbalance 0"),
     )
 }
 `)
@@ -310,7 +328,12 @@ test "output that starts with the marker, behind the gutter" {
 		"  hint: an input line is `>>  36`, and an output line is `    > 36`\n" +
 		"ok bank_test.nomi :: output that starts with the marker\n" +
 		"ok bank_test.nomi :: output that starts with the marker, behind the gutter\n" +
-		"test result: FAILED. 2 passed, 6 failed\n"
+		"FAIL bank_test.nomi :: output that starts with the marker, as written\n" +
+		"  io.replay: line 1 of the script, \">> done\", must have two spaces after `>>`\n" +
+		"  hint: an input line is `>>  done`\n" +
+		"  hint: a script with a line that starts with `>>` is in two columns; " +
+		"output that starts with `>>` is written behind four spaces, as every output line is: `    >> ...`\n" +
+		"test result: FAILED. 2 passed, 7 failed\n"
 	if out != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
 	}
@@ -544,7 +567,7 @@ test "script first" {
 
 test "run first" {
     assert io.replay(run: || io.print("hullo"), script: """
-            hello
+        hello
         """)
 }
 `)
@@ -566,10 +589,120 @@ test "run first" {
     assert io.replay(run: || io.print("hullo"), script: """ line 44 """)
     io.replay: the transcript (-) and what the function printed (+) differ
 
-        44 - │     hello
-           + │     hullo
+        44 - │ hello
+           + │ hullo
 `
 	if !strings.Contains(out, tail) {
 		t.Fatalf("got:\n%s\nwant it to hold:\n%s", out, tail)
+	}
+}
+
+// A script with no `>>` line is the output as written, with no gutter. Its
+// lines sit at the closing quotes' column, and indentation past that column
+// is output: a line that starts with a space keeps it, and so does output
+// whose every line is indented, as padded columns are.
+func TestReplay_AScriptWithNoInputIsTheOutputAsWritten(t *testing.T) {
+	out := runReplayTests(t, `import std/io
+
+fn main() {
+    io.print("-10.0 C |   14.0 F")
+    io.print(" -5.0 C |   23.0 F")
+}
+
+fn padded() {
+    io.print(String.pad_start("1", 6))
+    io.print("")
+    io.print(String.pad_start("22", 6))
+}
+
+test "e2e" {
+    assert io.replay(
+        """
+        -10.0 C |   14.0 F
+         -5.0 C |   23.0 F
+        """,
+        main,
+    )
+}
+
+test "every line indented" {
+    assert io.replay(
+        """
+             1
+
+            22
+        """,
+        padded,
+    )
+}
+
+test "the indentation counts" {
+    refute io.replay(
+        """
+            -10.0 C |   14.0 F
+             -5.0 C |   23.0 F
+        """,
+        main,
+    )
+}
+`)
+	if !strings.HasSuffix(out, "test result: ok. 3 passed, 0 failed\n") {
+		t.Fatalf("want every replay to pass:\n%s", out)
+	}
+}
+
+// A script with no input that the output does not follow fails with the
+// same line diff, its lines numbered by source line and shown as written.
+// One written behind the four-space gutter, which would match without it,
+// gets a hint that the gutter is only for scripts with input.
+func TestReplay_AScriptWithNoInputFailsWithALineDiff(t *testing.T) {
+	out := runReplayTests(t, `import std/io
+
+fn main() {
+    io.print("-10.0 C |   14.0 F")
+    io.print(" -5.0 C |   23.0 F")
+}
+
+test "a wrong line" {
+    assert io.replay(
+        """
+        -10.0 C |   14.0 F
+         -5.0 C |   24.0 F
+        """,
+        main,
+    )
+}
+
+test "behind the gutter" {
+    assert io.replay(
+        """
+            -10.0 C |   14.0 F
+             -5.0 C |   23.0 F
+        """,
+        main,
+    )
+}
+`)
+	want := `FAIL bank_test.nomi :: a wrong line
+  line 9: the transcript differs from the script
+    assert io.replay(""" lines 11-12 """, main)
+    io.replay: the transcript (-) and what main printed (+) differ
+
+        11   │ -10.0 C |   14.0 F
+        12 - │  -5.0 C |   24.0 F
+           + │  -5.0 C |   23.0 F
+FAIL bank_test.nomi :: behind the gutter
+  line 19: the transcript differs from the script, and it has no ` + "`>>`" + ` input lines, so its lines are compared as written: the four-space gutter is only for a script with input
+    assert io.replay(""" lines 21-22 """, main)
+    io.replay: the transcript (-) and what main printed (+) differ
+
+        21 - │     -10.0 C |   14.0 F
+        22 - │      -5.0 C |   23.0 F
+           + │ -10.0 C |   14.0 F
+           + │  -5.0 C |   23.0 F
+test result: FAILED. 0 passed, 2 failed
+`
+	if out != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
 	}
 }

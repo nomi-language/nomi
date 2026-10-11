@@ -1,0 +1,68 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/imports/main.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":8}],"source":{"path":"$TESTDATA/imports/main.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":8,"source":{"path":"$TESTDATA/imports/main.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":8,"name":"main","source":{"name":"main.nomi","path":"$TESTDATA/imports/main.nomi"}}],"totalFrames":1}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"c","namedVariables":2,"type":"Point","value":"Point{x: 3, y: 3}","variablesReference":2}]}
+-> evaluate {"context":"watch","expression":"c.x + c.y","frameId":1}
+<- response evaluate {"result":"6","type":"Int","variablesReference":0}
+-> evaluate {"context":"repl","expression":"geo.corner(c.x)","frameId":1}
+<- response evaluate {"namedVariables":2,"result":"Point{x: 3, y: 3}","type":"Point","variablesReference":3}
+-> variables {"variablesReference":3}
+<- response variables {"variables":[{"name":"x","type":"Int","value":"3","variablesReference":0},{"name":"y","type":"Int","value":"3","variablesReference":0}]}
+-> evaluate {"context":"repl","expression":"[c, c] |> Iter.count()","frameId":1}
+<- response evaluate {"result":"2","type":"Int","variablesReference":0}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"3\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect
+-------------------- a standard library frame
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","justMyCode":false,"mode":"run","program":"$TESTDATA/stdstep.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":6}],"source":{"path":"$TESTDATA/stdstep.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":6,"source":{"path":"$TESTDATA/stdstep.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stepIn {"threadId":1}
+<- response stepIn
+<- event stopped {"allThreadsStopped":true,"reason":"step","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":53,"name":"maybe.Maybe.map<Int, Int>","presentationHint":"subtle","source":{"name":"maybe.nomi","path":"$STD/maybe.nomi"}},{"column":18,"id":2,"line":6,"name":"main","source":{"name":"stdstep.nomi","path":"$TESTDATA/stdstep.nomi"}}],"totalFrames":2}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"maybe","namedVariables":1,"type":"Maybe<Int>","value":"Some(2)","variablesReference":2},{"declarationLocationReference":2,"name":"f","type":"(Int) -> Int","value":"<func: <lambda>>","variablesReference":0}]}
+-> evaluate {"context":"watch","expression":"Maybe.with_default(maybe, 0) + 1","frameId":1}
+<- response evaluate {"result":"3","type":"Int","variablesReference":0}
+-> evaluate {"context":"repl","expression":"f(5)","frameId":1}
+<- response evaluate {"result":"15","type":"Int","variablesReference":0}
+-> evaluate {"context":"repl","expression":"maybe |> Maybe.map(f)","frameId":1}
+<- response evaluate {"namedVariables":1,"result":"Some(6)","type":"Maybe<Int>","variablesReference":3}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"Some(6)\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

@@ -671,6 +671,20 @@ type Ident struct {
 func (*Ident) NodeType() string { return "Ident" }
 func (n *Ident) LineNum() int   { return n.Line }
 
+// SelfExpr is `self` in expression position. Inside an interface default
+// bounded by `where self: Distinct<T>` it is the implementing type's
+// constructor: called, `self(x)` builds a `self` from a `T`, and as a value it
+// is that constructor function. The checker rejects it anywhere else.
+type SelfExpr struct {
+	TriviaCarrier
+	SpanCarrier
+	Line int
+	Col  int
+}
+
+func (*SelfExpr) NodeType() string { return "SelfExpr" }
+func (n *SelfExpr) LineNum() int   { return n.Line }
+
 type TypeIdent struct {
 	TriviaCarrier
 	SpanCarrier
@@ -733,6 +747,10 @@ type If struct {
 	CondPattern Node // non-nil for `if Pattern = expr`
 	Then        *Block
 	Else        Node // *Block, *If, or nil
+	// StagePrefix is set on a pipe stage written `|> if f() { ... }`: the
+	// parser makes `f()` a stage of its own before this condition-less `if`,
+	// and the formatter writes the two back as the one stage they were.
+	StagePrefix bool
 	Line        int
 	Col         int
 }
@@ -2328,8 +2346,13 @@ type Case struct {
 	SpanCarrier
 	Value    Node // nil for ad-hoc conditionals
 	Branches []CaseBranch
-	Line     int
-	Col      int
+	// StagePrefix is set on a pipe stage written `|> case f() { ... }`:
+	// the parser makes `f()` a stage of its own before this subject-less
+	// `case`, and the formatter writes the two back as the one stage they
+	// were.
+	StagePrefix bool
+	Line        int
+	Col         int
 }
 
 func (*Case) NodeType() string { return "Case" }
@@ -2416,7 +2439,7 @@ func WithoutAs(n Node) Node {
 type EnumPattern struct {
 	TriviaCarrier
 	SpanCarrier
-	Variant    TypeExpr // always present — SimpleType for bare or dotted variant names
+	Variant    TypeExpr // always present — SimpleType for bare or dotted variant names; SelfType for `self(p)`
 	Binding    string   // variable name for inner value, empty for bare or when Payload is set
 	BindingCol int      // 1-based column of the binding identifier
 	Payload    Node     // nested pattern for destructure (TuplePattern, IntLit, EnumPattern, etc.)

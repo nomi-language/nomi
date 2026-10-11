@@ -26,22 +26,22 @@ impl Literal for Sql {
     fn from_fragments(fragments: List<Fragment<Display>>): Query {
         sql =
             fragments
-            |> Iter.map(|fragment|
+            |> Iter.map(|fragment| {
                 case fragment {
                     .Static(text) -> text
                     .Dynamic(_) -> "?"
                 }
-            )
+            })
             |> String.join()
 
         args =
             fragments
-            |> Iter.flat_map(|fragment|
+            |> Iter.flat_map(|fragment| {
                 case fragment {
                     .Static(_) -> []
                     .Dynamic(value) -> [Display.to_string(value)]
                 }
-            )
+            })
             |> Iter.to_list()
 
         Query{sql, args}

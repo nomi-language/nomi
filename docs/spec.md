@@ -532,6 +532,7 @@ A positional construction has no names either: a variant's payload (`Some(1)`, `
 ### Anonymous Functions (Lambdas)
 
 Lambda syntax is `|params| body`. The body is a single expression.
+A body of several statements is a block, `|x| { ... }`. In a call's arguments, a line below an unbraced lambda body, indented deeper than the line the lambda starts on, is the error `this lambda's body continues on the next line; a lambda body with more than one statement needs braces`, and the language server offers a quick fix that adds the braces.
 
 A block body's result type is inferred from its final expression and its
 explicit `return` values. All returning paths must agree; bare `return`
@@ -651,7 +652,7 @@ Each `_` leaves exactly one argument open. Can be named. Defaults are preserved.
 
 A partial application is a function of its open arguments, in the order the `_`s are written, returning the callee's result. Where a function type is expected, that function meets it, and a generic callee's type parameters are solved from it: `f: (Int) -> Int = pick(True, _, 4)` instantiates `pick` at `Int`.
 
-`_` stands for a value only as a call's argument, positional or named (`add(1, _)`, `connect(port: _)`), including the argument a pipe fills (`10 |> divide(100, _)`). Elsewhere `_` is a binding-position name: a discard binding (`_ = expr`), a discard parameter (`|_| 0`, `fn f(_: Int)`), a wildcard pattern, or a subject-less `case`'s catch-all arm. Any other `_` read as a value (`Point{x: _}`, `.A -> _`, `x = _`, `[1, _]`, `add(1 + _, 2)`) is the error `` `_` has no value here ``, whose hint says that `_` stands for a missing argument only in a call.
+`_` stands for a value only as a call's argument, positional or named (`add(1, _)`, `connect(port: _)`), including the argument a pipe fills, positional or named (`10 |> divide(100, _)`, `3000 |> connect("localhost", port: _)`). Elsewhere `_` is a binding-position name: a discard binding (`_ = expr`), a discard parameter (`|_| 0`, `fn f(_: Int)`), a wildcard pattern, or a subject-less `case`'s catch-all arm. Any other `_` read as a value (`Point{x: _}`, `.A -> _`, `x = _`, `[1, _]`, `add(1 + _, 2)`) is the error `` `_` has no value here ``, whose hint says that `_` stands for a missing argument only in a call.
 
 ```nomi
 halve = divide(_, 2)
@@ -773,13 +774,24 @@ Left-to-right piping with `|>`. A stage is a call, and by default the piped valu
 // explicit: fills a different position
 10 |> divide(100, _)
 
+// or the argument a named `_` names
+"7" |> String.pad_start(width: 3, s: _)
+
 // works with case — piped value becomes the match target
 value
 |> case transform() {
-        Some(x) -> x
-        None -> default
-    }
+    Some(x) -> x
+    None -> default
+}
 ```
+
+A `_` in a stage may be positional or named. The piped value fills it and
+the call's other arguments fill the remaining parameters as they would in a
+direct call, so `x |> connect(port: _, "localhost")` is
+`connect("localhost", port: x)` and a named `_` may skip a defaulted
+parameter. A stage with several `_`s passes the piped value to each, computed
+once: `n |> add(_, b: _)` is `add(n, n)`. Outside a pipe stage a named `_` is
+a partial application (§5).
 
 **A stage is a call.** `x |> f()` is `f(x)` and `x |> f(a)` is `f(x, a)`:
 the pipe inserts its value into the call that follows it. A name without
@@ -791,6 +803,15 @@ offers a quick fix that appends the `()`. A `.Variant` stage is a call
 written through its enum (`x |> Shape.Dot()`), since a bare `.Variant`
 stage cannot see its enum (§8). The stages that are not calls are the
 `then` and `tap` stages and the keyword stages below.
+
+**A stage that does not take the piped value is the error.** It is reported
+at the stage (at its `_` when one names the slot) and names the argument the
+value fills: `` `String.pad_start` takes a String as its first argument, but
+the pipe passes a Fahrenheit ``, or, for a named `_`, the parameter
+(`` `label` takes a String as `text`, but the pipe passes an Int ``), with a
+note at the expression the value comes from. When the value's type implements `Display` and the stage takes a
+`String`, the help says to add `|> Display.to_string()` before the stage, and
+the language server offers a quick fix that inserts it.
 
 **A lambda's body runs to the end of its expression,** or to the `)`, `]`,
 `}` or `,` that closes the construct it stands in. A `|>` inside it belongs
@@ -892,10 +913,15 @@ status
 
 input
 |> case parse_id() {
-        Ok(id) -> id
-        Err(_) -> 0
-    }
+    Ok(id) -> id
+    Err(_) -> 0
+}
 ```
+
+`input |> case parse_id() {` and `input |> parse_id() |> case {` are the same
+program, and `nomi fmt` keeps whichever was written. Unlike `try`, it does not
+move a stage into a keyword's subject. The arms or branches sit one indent in
+from the line the `|>` is on.
 
 **Debugging pipes:** `dbg` prints a source-located Debug rendering and returns
 the value, so you can insert it anywhere in a pipe chain without breaking the
@@ -2021,6 +2047,20 @@ case {
 
 `_` in patterns means "ignore this value."
 
+An arm's body is one expression. A body of several statements is a block, in braces:
+
+```nomi
+case result {
+    Ok(n) -> {
+        io.print("got ${n}")
+        n
+    }
+    Err(_) -> 0
+}
+```
+
+Indentation never ends an arm. A line below an unbraced body, indented deeper than its arm and not itself an arm, is the error ``this `case` arm continues on the next line; an arm with more than one statement needs braces``, whose hint shows the arm braced (``this `else` arm ...`` in a binding's `else` arms). The language server offers a quick fix that adds the braces.
+
 A no-payload pattern (`None`, `True`, `.Point`) matches only variants that carry no data. Data-carrying variants must spell their payload explicitly — `Some(_)`, `Err(_)`, `.Rectangle{_, _}` — so the reader sees the shape of what the variant actually holds:
 
 ```nomi
@@ -2546,12 +2586,12 @@ The keywords are the entire surface of the iteration control protocol. A callbac
 The `break` / `continue` / `return` keywords are valid as `case`-arm bodies, not just block statements — they unwind to the enclosing loop / lambda exactly as they do elsewhere, so a callback can dispatch with `case` and break or continue from an arm:
 
 ```nomi
-Iter.loop(|sum = 0|
+Iter.loop(|sum = 0| {
     case Receiver.receive(ch.receiver) {
         Some(v) -> sum + v // bare expr: next state, loop again
         None -> break sum // stop, loop value = sum
     }
-)
+})
 ```
 
 **`continue`** — skip this element, never takes a value:
@@ -2612,7 +2652,7 @@ The other callbacks read the value the same way. In `find`, `any?` and `all?` it
 
 ```nomi
 // continue — retry
-Iter.loop(||
+Iter.loop(|| {
     case acquire_lock(handle) {
         Ok(lock) -> {
             use_lock(lock)
@@ -2624,10 +2664,10 @@ Iter.loop(||
             continue
         }
     }
-)
+})
 
 // break — stop with the current state; a stateless loop's state is Unit
-Iter.loop(||
+Iter.loop(|| {
     case Receiver.receive(inbox) {
         Some(Message.Shutdown) -> {
             break
@@ -2640,7 +2680,7 @@ Iter.loop(||
             break
         }
     }
-)
+})
 
 // break value — stop and return a value; the state carries the attempt
 // count and the last result, since `break` answers the state's type
@@ -2749,13 +2789,13 @@ account = Iter.loop(|account = Account{}| {
 })
 
 // reading input
-lines = Iter.loop(|lines = []|
+lines = Iter.loop(|lines = []| {
     case io.read_line() {
         Ok("") -> break lines
         Ok(line) -> [line, ..lines]
         Err(_) -> break lines
     }
-)
+})
 ```
 
 Multiple state values use a tuple parameter with destructuring in the body:
@@ -3057,7 +3097,7 @@ interface Ranked<T> {
 }
 ```
 
-The named variable is the interface's own type parameter (`best`'s `T` above) or an explicit method-local type parameter introduced by that interface function:
+The named variable is the interface's own type parameter (`best`'s `T` above), an explicit method-local type parameter introduced by that interface function, or, on a default, `self` (below):
 
 ```nomi
 interface Ranked<T> {
@@ -3073,6 +3113,83 @@ interface Ranked<T> {
 ```
 
 Here `K` is declared by `fn prefer<K>` and then constrained by `where K: Comparable`. A bare `K` that appears only in parameters, returns, or a `where` clause is an error; interface methods do not invent implicit function-local generics. The bound list uses the same `: A and B` form everywhere `where` appears. This is Rust's `fn max(self) -> Option<Self::Item> where Self::Item: Ord` — a per-function bound on the element type, so a function like `best` can require `Comparable` while the interface's other functions stay usable on any element. The bound is enforced and its `(concrete, Iface)` dispatch demand recorded at each call site. `where` is a hard keyword. Ordinary `fn` declarations, implementation functions, `host fn` declarations, required interface functions, and interface defaults may all use a `where` clause; a Nomi-bodied function writes it between the return type and the body, while a bodyless signature or `host fn` writes it at the end of the signature.
+
+**`where self` on a default.** A default function runs once for each implementor, with `self` replaced by the implementing type, so its body may use only what every implementor has: the interface's own functions and `Debug`, which every type implements. Anything else it needs of a `self` value (another interface's function, `"${value}"`, an ordering operator, a generic call whose bound names another interface) is an error at the use, `` `scale` is a `self`, and Scale does not require Display of its implementors ``, with a hint showing the clause to add. `==` is not, since it compares structurally where a type has no `Equatable`. The default states what it needs with `where self: Display` (the usual `: A and B` list, beside the function's other constraints):
+
+```nomi
+interface Scale {
+    fn unit(scale: self): String
+
+    fn format(scale: self): String where self: Display {
+        "${scale} ${unit(scale)}"
+    }
+}
+
+type Grams Int
+
+impl Display for Grams {
+    fn to_string(Grams(n)): String {
+        "${n}"
+    }
+}
+
+impl Scale for Grams {
+    fn unit(_g: Grams): String {
+        "g"
+    }
+}
+
+type Secret Int
+
+impl Scale for Secret {
+    fn unit(_s: Secret): String {
+        "?"
+    }
+
+    fn format(_s: Secret): String {
+        "hidden"
+    }
+}
+```
+
+Inside the body `self` has the bound: a `self` value enters a parameter, list or other position typed with a bound interface (`shown(scale)` with `fn shown(x: Display)`, `items: List<Display> = [scale]`), and a bound such as `where self: Add<self, self>` gives it the operator (`scale + scale`). Another value of the interface's own type (`other: Scale`) does not get the bound, since its implementor may lack it. A `self` passed to a generic function (`inspect_all(scale)` with `fn inspect_all<T>(x: T)`) instantiates it at the implementor. An implementor that implements every bound gets the default, which stays final unless it is `open`. An implementor that lacks one does not get it and writes the function itself, final or not, as `Secret` does; an `impl` block that does neither is the error `` `Secret` does not implement Display, which `Scale.format`'s default requires (`where self: Display`) `` at the block, with the hint ``implement Display for Secret, or write `fn format` in this impl``. So every implementor has the function, and a call (`Scale.format(x)`, `Secret.format(x)`, `T.format(x)` under `where T: Scale`, or through a `Scale` value) checks no `self` bound. This is Rust's `where Self: Display` on a provided method, except that an implementor without the bound supplies the function rather than losing it. `where self` belongs to a default only: on a required function it is the error ``interface function 'unit': `where self` is only allowed on a default function, and 'unit' is a required function`` (every implementor writes a required function, so the bound would restrict nothing), and on anything outside an interface it is ``function 'f': `where self` is only allowed on an interface's default function``.
+
+A default runs for one implementor at a time, so its signature may name `self` anywhere: in its result (`fn grown(x: self): self`), inside a composite (`fn pair(x: self): (self, self)`, `fn twice(x: self, y: self): List<self>`), and with no `self` parameter at all (`fn zero(): self { Sized.make(0) }`, calling a required `fn make(n: Int): self`). An interface-qualified call of a function with no `self` parameter inside the interface's own default runs the implementor's function.
+
+**Defaults over distinct types.** A family of distinct types over one representation (temperatures in several units, IDs over `Int`, money in several currencies) would otherwise repeat one body per type, because a default cannot name the implementor to take it apart. The built-in interface `Distinct<T>` (§*Distinct Types*) gives it a way: in a default bounded by `where self: Distinct<T>`, the pattern `self(p)` takes a `self` value apart, binding what it wraps to `p`, and `self(x)` builds a `self` from a `T`:
+
+```nomi
+type Celsius Decimal
+type Fahrenheit Decimal
+
+interface Temperature {
+    fn unit(t: self): String
+
+    fn label(self(n) as t): String where self: Distinct<Decimal> {
+        "${Decimal.round(n, 1, .HalfUp)} ${Temperature.unit(t)}"
+    }
+
+    fn scale(self(n), by: Decimal): self where self: Distinct<Decimal> {
+        self(n * by)
+    }
+}
+
+impl Temperature for Celsius {
+    fn unit(_t: Celsius): String {
+        "C"
+    }
+}
+
+impl Temperature for Fahrenheit {
+    fn unit(_t: Fahrenheit): String {
+        "F"
+    }
+}
+```
+
+`Temperature.label(Celsius(21.456d))` is `"21.5 C"` and `Celsius.scale(Celsius(10d), 2d)` is `Celsius(20d)`. A default is lowered once per implementor, so `self(p)` is that implementor's own destructuring (`Celsius(n)`) and `self(x)` its constructor. A parameter written `self(p)` has type `self`, and needs no annotation; `self(p)` is also a pattern in a `case` arm and in a binding (`self(m) = other`) for another `self` value, and a `case` over `self` patterns must cover the wrapped value as one over `Celsius(...)` would. Named as a value, `self` is the constructor function (`ns |> Iter.map(self)`, `n |> self()`). `T` may be a type parameter of the interface, so `interface Wrapper<T>` with `fn unwrap(self(x)): T where self: Distinct<T>` serves `impl Wrapper<Int> for UserId` and `impl Wrapper<String> for Name`. A free function bounded by `where D: Distinct<T>` cannot take `D` apart or build one; only interface defaults can.
+
+An implementor that is not a distinct type, or wraps another type, lacks the bound and writes the function itself, as for any `where self` bound; the error at the impl names it, `` `Count` does not implement Distinct<Decimal>, which `Temperature.label`'s default requires (`where self: Distinct<Decimal>`) ``, with the hint `` `Count` wraps Int, so it is not a Distinct<Decimal>; write `fn label` in this impl ``. An opaque type implemented outside its own file (§*Opaque distinct types*) satisfies `Distinct<T>`, but a default that takes it apart or builds it would open its representation there, so it does not get such a default: the `impl` is the error `` `Meters` is opaque here, so it can't use `Scaled.scale`'s default, which builds and takes apart `self`; write `fn scale` in this impl ``, and writing the function is allowed even when the default is final. An impl in the type's own file gets the default as usual. `self(...)` in a default without the bound is the error `` `self(...)` needs `where self: Distinct<T>` on this function ``, with the clause in the hint; anywhere outside an interface default it is `` `self(...)` only appears in an interface's default function `` (an `impl` names its own type: `Celsius(n)`). A pattern or argument that does not fit `T` is the usual mismatch at it, and `self(p)` against a value of the interface's own type (`other: Temperature`, any implementor) is `` `self(...)` takes apart a value of type `self` ``.
 
 Interfaces can provide default implementations. Default implementations can call other interface functions unqualified. Implementors get defaults for free; defaults are **final by default** — implementors only get to override them when the interface marks the default `open`:
 
@@ -3433,7 +3550,7 @@ Generic type parameters can be constrained to types that implement a specific in
 fn sort<T>(list: List<T>): List<T> where T: Comparable
 ```
 
-`T` must implement `Comparable`. The compiler rejects calls with types that don't satisfy the bound: `sort([(1, 2)])` fails with ``no impl of `Comparable` for `(Int, Int)`; tuple types cannot implement `Comparable` ``.
+`T` must implement `Comparable`. The bound is also what the body may use: a generic body runs for every type argument its callers pass, so an interface it needs of a value of type `T` (an interface-qualified call or pipe, `"${value}"`, an ordering or arithmetic operator, a call of a generic function bounding it) must be one of `T`'s bounds, from the function's `where`, its impl block's or its type's declaration. Without it the use is an error, `` `x` is a `T`, and `f` does not require Display of `T` ``, with a hint showing the signature with `where T: Display` added; a value that holds `T` (`xs: List<T>` in `"${xs}"`) is reported as `` `xs` holds values of `T` ``. On an interface impl the hint shows the bound on the block (`impl Display for Box<T> where T: Display`), and on an inherent impl, whose block has no `where`, on the function. `Debug` needs no bound, since every type implements it, and neither does `==`, which compares structurally. The compiler rejects calls with types that don't satisfy the bound: `sort([(1, 2)])` fails with ``no impl of `Comparable` for `(Int, Int)`; tuple types cannot implement `Comparable` ``.
 
 The error's help offers what the program can write. For a type it declares, that is `derive` when the interface is derivable (§38.1) and an impl block spelled with the interface's required functions (``write an `impl Shape for Point` block with `fn area(s: Point): Float` ``). Where it declares neither the type nor the interface, the orphan rule forbids the impl, and the help says so. For an interface at most four types implement, it names them: `String.split("a1b", 1)` reports ``Int does not implement Matcher (required by `where M: Matcher`)`` with the help ``only std can implement `Matcher` for `Int`; `Regex` and `String` implement it``. For one that more types implement, it says to wrap the type: ``only std can implement `Hashable` for `Unit`; wrap it in a type of your own that implements `Hashable` ``.
 
@@ -3508,6 +3625,34 @@ identity, and the call selects the implementation by the receiver's identity.
 The standard library depends on this: every lazy adapter in `std/iter` takes
 its upstream as an existential `Iter<T>`, and typed literals pass
 `List<Fragment<I>>` whose slots are heterogeneous per element.
+
+A value of interface type may hold any implementor, and an interface
+requires nothing of its implementors but its own functions; there are no
+supertraits. So the only interfaces a value of type `Scale` can be used at
+are `Scale` itself and `Debug`, and `==` compares it structurally. Using
+another one on it (`Display.to_string(other)`, `"${other}"`, `a < b`, a
+generic call whose bound names another interface, or the same through a
+`List<Scale>`) is an error at the use, `` `other` is a `Scale`, and Scale
+does not require Display of its implementors ``, whose hint writes a type
+parameter bounded by both: `fn f<T>(other: T): String where T: Scale and
+Display`.
+
+A call through the interface on such a value needs nothing but the receiver
+to be the implementor. `Sized.same(e)` with `fn same(x: self): self`, a
+result holding `self` (`(self, self)`), a second `self` argument, or a
+parameter holding `self` values (`xs: List<self>`) would each need the
+implementor's own type, which a `Sized` value does not name, so each is an
+error at the argument, `` `Sized.same` cannot be called on `e`, a `Sized`:
+its result is `self`, the implementor's own type, and a `Sized` value does
+not say which implementor it holds ``, with a hint naming a type parameter
+bounded by `Sized`. A function with no `self` parameter
+(`fn make(n: Int): self`) called through the interface is an error unless
+where the result goes names the implementor (`p: Pot = Sized.make(1)`) or
+the call is in one of the interface's own defaults: `` `Sized.make` has no
+`self` parameter, so this call does not say which implementor of Sized runs
+``. This is the rule Rust calls object safety. Through the implementing type
+(`Pot.same(p)`) or a bounded type parameter (`T.same(t)`) every one of these
+calls is fine.
 
 A generic function that instantiates itself at an ever-growing type
 (`fn grow<T>(x: T)` calling `grow(Box{inner: x})`) has no finite set of
@@ -3772,7 +3917,7 @@ Name collisions between specific imports are a compiler error.
 - File API aliases use `as`: `import http/request as req`, then `req.get(...)`.
 - Stdlib files use the `std/` prefix: `import std/io`, `import std/iter`. The `std/` prefix routes to the embedded stdlib filesystem and prevents user modules from shadowing stdlib names. `std` alone, like any other module's short name alone, is a directory and names no file: `import std` and `import std.io` (which selects `io` from a file `std`) are errors whose hint spells `import std/io`.
 - Variants must come through their enum. `import shape.Circle` (a flat selective variant import) is rejected with a clear error pointing at the owner selector form (`import shape.Shape.Circle`) or the qualified form (`import shape.Shape` then `Shape.Circle`). The owner selector path makes the originating enum visible at the import line, so cross-module collisions are caught at the import rather than silently shadowed.
-- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
+- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
 - Imports may appear inside a function body. A nested `import` binds names in the enclosing block's scope only and shadows any file-level binding of the same name. The file load itself is cached, so a nested import has no per-call cost beyond the first.
 
 ```nomi
@@ -3953,6 +4098,8 @@ The body shape attached to the `type` declaration determines its kind:
 
 The wrapped type is the distinct type's representation, so it cannot contain the type itself, directly or through other distinct types: `type E E`, `type L List<L>`, `type M Maybe<M>` and the pair `type A B` / `type B A` are each an error at the declaration (`type 'L' is defined in terms of itself`). A recursive type is a struct or an enum, and a distinct type may wrap one: `struct Node { next: Maybe<Node> }` is legal, and so is `type Wrapped Node`.
 
+Every distinct type that wraps a value satisfies the prelude interface `Distinct<T>` for exactly the type it wraps: `type Celsius Decimal` is a `Distinct<Decimal>`, `type Twice Meters` a `Distinct<Meters>` (not a `Distinct<Int>`), and a zero-sized type no `Distinct<T>`. Like `Struct` (§7), conformance is decided by the type, so `impl Distinct<Int> for X` is an error. `Distinct<T>` declares no functions. It is a bound (`fn tag<D>(d: D): String where D: Distinct<Int>`), and on an interface default (`where self: Distinct<T>`) it lets the body take the implementor apart with `self(p)` and build one with `self(x)` (§13, *Defaults over distinct types*).
+
 Derives are sibling `derive Iface for Type` declarations. Distinct type names
 may be dotted PascalCase paths (`type Civil.Days Int`) when the type belongs
 under a real parent type; the full dotted name is the nominal identity.
@@ -4130,7 +4277,7 @@ Inside `positive.nomi`, every form of the construction surface works — that's 
 
 **Opacity restricts operations, never conformance.** An opaque type satisfies every interface a transparent one would — `Struct`, `Debug`, `Display`, `Equatable` — and it satisfies them at bounds and existentials too (`fn dump(s: Struct)` accepts an opaque struct). Only the operations in the table above are closed, and only from outside the defining file. Two consequences worth naming, because the alternative reading looks equally defensible:
 
-- **The universal interfaces stay universal.** `Struct` is satisfied by every struct value (§7) and `Debug` by every type, with no opacity carve-out in either. Withdrawing `Struct` conformance from an opaque struct would be the other way to close the `Struct.update` hole, and it would also withdraw the bound and the existential, which name no field and expose nothing.
+- **The universal interfaces stay universal.** `Struct` is satisfied by every struct value (§7), `Distinct<T>` by every distinct type over `T`, and `Debug` by every type, with no opacity carve-out in any. What an opaque type implemented outside its file does not get is an interface default that takes `self` apart or builds one (`self(p)`, `self(x)`, §13); that impl writes the function. Withdrawing `Struct` conformance from an opaque struct would be the other way to close the `Struct.update` hole, and it would also withdraw the bound and the existential, which name no field and expose nothing.
 - **The auto-`Debug` default is the model.** An opaque type with no explicit `Debug` gets a name-only `"<opaque T>"` body rather than the structural one. Conformance is untouched; the *behaviour* changes because the structural body would leak the representation. `Struct.update` is the same move on the same reasoning. The one place they differ: `Debug`'s adjustment is unconditional — `<opaque T>` renders identically inside and outside the defining file, because a synthesized impl body is fixed at the declaration and has no call site to consult — whereas every operation in the table is *positional*, allowed inside the defining file and rejected outside.
 
 **Allowed forms.** `opaque` can wrap any distinct type with a representation:
@@ -4674,12 +4821,12 @@ pub opaque struct Date {}
 
 impl Literal for Date {
     fn from_fragments(fragments: List<Fragment<String>>): Result<Date, Error> {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
             }
-        )
+        })
 
         Date.parse(body)
     }
@@ -4725,12 +4872,12 @@ pub struct Box {
 
 impl Literal for Box {
     fn from_fragments(fragments: List<Fragment<String>>): Box {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
             }
-        )
+        })
 
         Box{contents: body}
     }
@@ -4751,6 +4898,8 @@ Owner functions on `String`, called `String.length(s)` and so on:
 ```nomi
 fn length(s: String): Int                                          // grapheme count
 fn slice(s: String, start: Int, end: Int): String                  // grapheme indices
+fn pad_start(s: String, width: Int, fill: String = " "): String    // to `width` graphemes; never truncates
+fn pad_end(s: String, width: Int, fill: String = " "): String
 fn contains?<M>(s: String, needle: M): Bool where M: Matcher
 fn starts_with?<M>(s: String, prefix: M): Bool where M: Matcher
 fn ends_with?<M>(s: String, suffix: M): Bool where M: Matcher
@@ -4856,7 +5005,7 @@ Containers recurse through the **same** interface as the caller — Display cont
 
 Tuples and anon structs are syntactic intrinsics with no named type to attach an impl to; they get language-level rendering (similar to how their literal syntax is privileged). Every other intrinsic gets a Nomi-side impl in stdlib.
 
-Container impls require their elements to implement the corresponding interface — `${[some_fn]}` errors because functions have no `Display` impl. The constraint is enforced at the recursive dispatch (`Display.to_string(item)` inside the container's impl); a static `where T: Display` bound on the impl would not change runtime behavior.
+Container impls require their elements to implement the corresponding interface — `${[some_fn]}` errors because functions have no `Display` impl. Each container impl states the constraint as a bound (`impl Display for List<T> where T: Display`), which its body needs to render an element, so `List<Foo>` is Display exactly when `Foo` is; a missing element impl is reported as the element's (``no impl of `Display` for `Foo` ``).
 
 For `Maybe` / `Result`, the variant constructor is always rendered (`Some(...)` / `None` / `Ok(...)` / `Err(...)`) — never unwrapped. Display preserves variant identity; the user-facing form of `Maybe.None` is `"None"`, not the empty string.
 
@@ -4997,6 +5146,7 @@ fn main() {
 - Doc comments are preserved in the AST and available to tooling (LSP hover, documentation generation)
 - A `///` comment with no declaration after it to document (above an `import` or a `test` block, for instance) is a parse error; write `//` or `//#` there
 - A `//!` line is an attached test (§36), so `//!` must start its line: after code on the same line (`x = 1 //! note`) it is a parse error; write `//` there
+- Inside a body, a `///` line is a parse error (a doc comment documents the declaration after it), and so is a `//!` line not followed by a nested declaration; the language server offers a quick fix that makes each such line of the run a `//` comment
 
 File-level documentation uses `//#`. To the
 compiler these are ordinary line comments — they are **not** doc comments and do
@@ -5814,12 +5964,12 @@ fn produce(out: Sender<Int>, n: Int): Unit {
 }
 
 fn consume(inbox: Receiver<Int>): Int {
-    Iter.loop(|sum: Int = 0|
+    Iter.loop(|sum: Int = 0| {
         case Receiver.receive(inbox) {
             Some(v) -> sum + v
             None -> break sum
         }
-    )
+    })
 }
 
 fn main(): Unit {
@@ -6198,7 +6348,7 @@ The stdlib `.nomi` files are embedded in the compiler binary and analyzed once p
 
 ### Prelude
 
-One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only `import` statements — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
+One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only `import` statements — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
 
 Stdlib files themselves do **not** receive the prelude — they each import their dependencies by hand. The "is this a stdlib file?" check is the only place that distinguishes who gets the implicit imports. A stdlib file's `//!` prompts are part of the file and see the file's scope, as its bodies do: a prompt that writes a bare `False` or `Some` needs the file to import it (`import bool.Bool.False`). `nomi test`, `nomi check`, the language server and the reference editors all check a prompt in that scope.
 
@@ -6254,7 +6404,7 @@ A native backend could come back as a reader of the typed IR if native compilati
 - Opinionated formatter: `nomi fmt [-w|-l|-d] <paths>`
 - Check without running: `nomi check`, which also reports, at its source, any code the program reaches that type-checks but cannot be compiled to run yet
 - Language server: `nomi-lsp` (diagnostics, hover, go-to-definition, completion, rename, code actions)
-- There is no debugger yet (see `roadmap.md`).
+- Debugger: `nomi dap`, a Debug Adapter Protocol server that editors start (VS Code's extension, Neovim's nvim-dap). It debugs `main` of a file, or a file's tests, or the one test `--line` would select, as `nomi run` and `nomi test` run them: line breakpoints (a breakpoint on a line with no statement lands on the next one that has one), step over, into and out, pause, the call stack, and each frame's locals by their Nomi names, shown as a tree whose lists page. A callback's stack shows the operation that called it (`main`, then `Iter.map`, then the lambda), and a frame a tail call replaced is marked, since its caller is gone. It stops where a trap happens, at a failed assertion, and when `main` returns `Err`, and optionally where a failed task's fault reaches the `Task.await` that awaits it. Stepping passes through the standard library unless the launch sets `justMyCode` to false. An interactive program reads its input from the editor's terminal. Watches, expression evaluation and conditional breakpoints are not part of it.
 
 ## 26. Entry Point
 
@@ -7735,8 +7885,9 @@ inner `io.capture`'s reads are in its own transcript only.
 
 `io.replay(script, run)` runs `run` against a script of an interactive
 session and answers an `io.Replayed`, an `Assertable` that holds when the
-transcript matches the script. The script is written as a transcript reads.
-A line that starts with `>>` and two spaces is input, and the text after
+transcript matches the script. A script with a line that starts with `>>`
+is written as a transcript reads, in two columns, and every line of it
+follows these rules. A line that starts with `>>` and two spaces is input, and the text after
 the two spaces is what the next `io.read_line` answers; `>>` alone is an
 empty line. A line that starts with four spaces is output the program must
 print. A blank line is a blank output line. Any other line is an error:
@@ -7760,10 +7911,43 @@ hint: an input line is `>>  36`
 So typed text that starts with a space cannot be replayed. Once the
 script's input lines are used up, `io.read_line` answers `Err("eof")`.
 
-The gutter is what lets output start with `>>`, so it is required even when
-the script has no input lines. A program that reads nothing is checked
-through `io.capture(input, run).output`, which holds the output with no
-gutter; `io.replay` is for sessions with input.
+A script with no line that starts with `>>` is output only. Each of its
+lines is an output line exactly as written, a blank line a blank output
+line, and no gutter is required or removed: a line that starts with four
+spaces expects output that starts with four spaces. The test is made on the
+script after a `"""` literal's baseline is removed, so in a `"""` script
+write the output at the closing delimiter's column; indentation past it is
+part of the output, even on every line:
+
+```nomi
+import std/io
+
+fn main() {
+    io.print("-10.0 C |   14.0 F")
+    io.print(" -5.0 C |   23.0 F")
+}
+
+test "converts" {
+    assert io.replay(
+        """
+        -10.0 C |   14.0 F
+         -5.0 C |   23.0 F
+        """,
+        main,
+    )
+}
+```
+
+Output that starts with `>>` needs the two-column form, where it is written
+behind four spaces like any other output line. A script whose `>>` lines
+are all malformed and which has no other two-column line may have been
+meant as written, and its error adds a second hint:
+
+```text
+io.replay: line 1 of the script, ">> done", must have two spaces after `>>`
+hint: an input line is `>>  done`
+hint: a script with a line that starts with `>>` is in two columns; output that starts with `>>` is written behind four spaces, as every output line is: `    >> ...`
+```
 
 In a `"""` script, the input lines sit four columns left of the output
 lines, at the closing delimiter's column. The baseline the literal removes
@@ -7802,14 +7986,21 @@ the last included, ended by a newline, so a `"""` script, which drops its
 final newline, matches output that ends in one, and a prompt's trailing
 space need not be written. `Replayed`'s `transcript` and `expected` fields
 hold the two in that form, and `output` holds what `run` printed byte for
-byte. An input line that `run` never read fails the replay, and the reason
+byte; for an output-only script, `transcript` is the output in that form,
+with no gutter. A failed output-only script whose every non-blank line
+starts with four spaces, and which would match with them removed, says so
+in its reason: ``the transcript differs from the script, and it has no `>>`
+input lines, so its lines are compared as written: the four-space gutter is
+only for a script with input``. An input line that `run` never read fails
+the replay, and the reason
 says how many were left. A failed replay shows the
 same line diff a failed `==` over multi-line Strings shows, with the script
 as expected (`-`) and the transcript as actual (`+`), under the header
 `io.replay: the transcript (-) and what main printed (+) differ`. Each
 script line written in a `"""` literal carries its line in the file, and
-the text column holds each line with its gutter, so `>>` input lines and
-four-space output lines read as written. The assertion above the diff
+the text column holds each line as the script writes it: with its gutter in
+a two-column script, so `>>` input lines and four-space output lines read
+as written, and with none in an output-only one. The assertion above the diff
 writes that literal collapsed, as `==`'s does:
 `assert io.replay(""" lines 11-23 """, main)`. What `run` returned is not
 checked; use `io.capture` for that.

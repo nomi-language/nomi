@@ -219,6 +219,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
 	bl.b = lp.head
+	bl.markStmt(lam, ir.StmtIteration)
 	if irBodyWrites(lam.Body) {
 		lp.scope = bl.f.NewTemp()
 		bl.f.SetType(lp.scope, ir.NewHandleType(bl.g.irTypes().Symbol(irScopeHandle{}, "Scope")))
@@ -247,6 +248,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		bl.b.Append(param)
 		bl.side(param.Dst(), irScalarSide{k: sk})
 		bl.bound[p.Name], bl.boundK[p.Name] = param.Dst(), sk
+		bl.declareBindAt(param, sk, p.Line, p.Col)
 	}
 	tail := bl.f.NewTemp()
 	bl.b.Append(ir.NewSlot(bl.g.irNodePos(lam), tail, ty))
@@ -280,6 +282,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 // `if c { break v }` followed by e.
 func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopBuild, tail ir.Temp) bool {
 	for _, s := range lead {
+		bl.markStmt(s, ir.StmtStatement)
 		if guard, isIf := s.(*ast.If); isIf && loopGuardShape(bl.g, guard) {
 			if !bl.loopGuard(guard, lp) {
 				irDeclineNote("an Iter.loop guard outside `if c { break v | return v | continue }`")
@@ -309,6 +312,7 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 	if !ok {
 		return false
 	}
+	bl.markStmt(final, ir.StmtStatement)
 	if endless, ok := bl.endlessLoop(final); endless {
 		// An inner `Iter.loop` with no `break` ending the body: this
 		// iteration never ends, and writes no next state.
@@ -515,6 +519,7 @@ func (bl *irScalarBuilder) loopGuard(t *ast.If, lp *irLoopBuild) bool {
 			return false
 		}
 	}
+	bl.markStmt(exit, ir.StmtStatement)
 	var target *ir.Block
 	switch s := exit.(type) {
 	case *ast.Break:

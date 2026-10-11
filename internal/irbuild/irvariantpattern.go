@@ -463,9 +463,11 @@ func (bl *irScalarBuilder) structVariantCaseTest(pat *ast.StructPattern, subj ir
 }
 
 // irFieldSubPattern reports whether a struct-pattern field's sub-pattern is
-// one the retained tests carry: none, a name, a wildcard, or an Int or String
-// literal of the field's kind. Retained struct and struct-variant fields are
-// unboxed scalar leaves, so a nested variant pattern never reaches a field.
+// one the retained tests carry: none, a name, a wildcard, a literal of the
+// field's kind, or a nested pattern patternValueTest builds over that kind.
+// It also decides `Some(P as name)`'s P, so a struct pattern takes every kind
+// a payload's own struct pattern does (irNominalCaseKind: a retained struct,
+// an anonymous record, a distinct over a value) or a struct-shaped variant.
 func irFieldSubPattern(p ast.Node, k kind) bool {
 	switch p.(type) {
 	case nil, *ast.IdentPattern, *ast.WildcardPattern:
@@ -485,7 +487,7 @@ func irFieldSubPattern(p ast.Node, k kind) bool {
 		// which patternValueTest builds; `Id(n)` over a distinct unwraps it.
 		return k == kindBool || (k.tag == tagNamed && irRetainedEnumKind(k.def)) || (k.tag == tagNamed && irWrappingDistinct(k.def))
 	case *ast.StructPattern:
-		return k.tag == tagNamed && (irRetainedEnumKind(k.def) || irRetainedStructKind(k.def))
+		return irNominalCaseKind(k) || (k.tag == tagNamed && irRetainedEnumKind(k.def))
 	case *ast.TuplePattern:
 		return irRetainedTupleKind(k)
 	case *ast.MapPattern:

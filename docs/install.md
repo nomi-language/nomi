@@ -20,7 +20,10 @@ nomi --version
 ```
 
 `go install` writes `nomi` and `nomi-lsp` to `$(go env GOPATH)/bin`, usually
-`~/go/bin`, which must be on `PATH`. A source build's `nomi --version` prints
+`~/go/bin`, which must be on `PATH`. Editors find the language server as
+`nomi-lsp` and the debugger as `nomi dap`, so these two binaries are all an
+editor needs from the install (Neovim also needs the nvim-dap plugin to
+debug). A source build's `nomi --version` prints
 the commit, with `-dirty` appended when the checkout had uncommitted changes:
 
 ```

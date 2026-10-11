@@ -334,3 +334,41 @@ interface Keyed<T> {
           (type_identifier)))
       (body
         (identifier)))))
+
+================================================================================
+Where self on an interface default
+================================================================================
+
+interface Scale<T> {
+  fn format(scale: self): String where self: Display and Hashable, T: Display {
+    scale
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (interface_definition
+    name: (type_identifier)
+    (type_parameters
+      (type_parameter
+        name: (type_parameter_identifier
+          (type_identifier))))
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type)))
+      (type_identifier)
+      (where_clause
+        (where_constraint
+          name: (self_type)
+          (type_identifier)
+          (type_identifier))
+        (where_constraint
+          name: (type_parameter_identifier
+            (type_identifier))
+          (type_identifier)))
+      (body
+        (identifier)))))

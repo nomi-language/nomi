@@ -52,9 +52,9 @@ test "a bare case stage reports two pipeline rows" {
     flag =
         Some(3)
         |> case {
-                Some(_) -> False
-                None -> True
-            }
+            Some(_) -> False
+            None -> True
+        }
 
     assert flag
 }
@@ -70,9 +70,9 @@ test "a call stage before a keyword stage reports cumulative prefixes" {
 
 test "a piped case scrutinee contributes no values row" {
     assert (wrap(3) |> case {
-            Some(n) -> n
-            None -> 0
-        }) == 99
+        Some(n) -> n
+        None -> 0
+    }) == 99
 }
 
 test "a directly written case scrutinee does contribute one" {

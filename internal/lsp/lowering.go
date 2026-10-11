@@ -368,12 +368,16 @@ func loweringDiagnostics(path, content string, a *analyzedlowering.Analyzed) []p
 			diag.Range = lines.utf16Range(errorRange(d.Line, d.Col, d.EndLine, d.EndCol))
 		} else if d.Line > 0 && filepath.IsAbs(d.Path) {
 			diag.Message = fmt.Sprintf("in %s:%d:%d: %s", filepath.Base(d.Path), d.Line, d.Col, msg)
+			uri := protocol.DocumentUri(pathToURI(d.Path))
+			rng := errorRange(d.Line, d.Col, d.EndLine, d.EndCol)
+			// The lowering read the other file from disk; its columns
+			// convert against that text.
+			if text, ok := diskContent(uri); ok {
+				rng = newLineIndex(text).utf16Range(rng)
+			}
 			diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{{
-				Location: protocol.Location{
-					URI:   protocol.DocumentUri(pathToURI(d.Path)),
-					Range: errorRange(d.Line, d.Col, d.EndLine, d.EndCol),
-				},
-				Message: d.Message,
+				Location: protocol.Location{URI: uri, Range: rng},
+				Message:  d.Message,
 			}}
 		} else {
 			// The body has no source position (a derive-synthesized one).

@@ -3,6 +3,7 @@ package format
 import (
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/strlit"
@@ -573,6 +574,8 @@ func emitNode(n ast.Node) Doc {
 		return Text(encodeNomiString(v.Value))
 	case *ast.Ident:
 		return Text(v.Name)
+	case *ast.SelfExpr:
+		return Text("self")
 	case *ast.TypeIdent:
 		// Nomi's True/False are parsed as TypeIdent (uppercase identifiers).
 		return Text(v.Name)
@@ -593,11 +596,11 @@ func emitNode(n ast.Node) Doc {
 		if v.Op == "|>" {
 			return emitPipeChain(v)
 		}
-		return emitBinary(v, false)
+		return emitBinary(v, followsOther)
 	case *ast.GroupedExpr:
 		return emitGroupedExpr(v)
 	case *ast.Unary:
-		return emitUnary(v, false)
+		return emitUnary(v, followsOther)
 	case *ast.Block:
 		// Flat form:   "{ expr }"
 		// Broken form: "{\n  stmt1\n  stmt2\n  ...\n}"
@@ -948,9 +951,18 @@ func emitNode(n ast.Node) Doc {
 // always breaks; a single pipe that fits stays inline via the Group).
 func emitBindingValue(target Doc, value ast.Node) Doc {
 	if b, ok := value.(*ast.Binary); ok && b.Op == "|>" {
-		return Group(Concat(target, Text(" ="), Nest(defaultIndent, Concat(Line(), emitPipeChain(b)))))
+		return Group(Concat(target, Text(" ="), pipeAfterEquals(emitPipeChain(b))))
 	}
 	return Concat(target, Text(" = "), emit(value))
+}
+
+// pipeAfterEquals places a pipeline after a binding's `=`: on the `=` line
+// when the enclosing Group is flat, or on the lines below one indent in. On
+// the `=` line it gets no indent of its own, so an `if` or `case` stage's
+// block (pipeStageDoc) is indented from the binding's line, as
+// `y = case x {` is.
+func pipeAfterEquals(chain Doc) Doc {
+	return IfBroken(Concat(Text(" "), chain), Nest(defaultIndent, Concat(Line(), chain)))
 }
 
 // emitPatternBinding renders `Pattern = value [else { ... }]`.
@@ -972,7 +984,7 @@ func emitPatternBinding(v *ast.PatternBinding) Doc {
 	var head Doc
 	if pipe, ok := v.Value.(*ast.Binary); ok && pipe.Op == "|>" {
 		head = Group(Concat(target, Text(" ="),
-			Nest(defaultIndent, Concat(Line(), emitPipeChain(pipe))),
+			pipeAfterEquals(emitPipeChain(pipe)),
 			IfBroken(Text(" "), HardLine()),
 			Text("else ")))
 	} else {
@@ -1531,7 +1543,7 @@ func startsWithDigit(s string) bool {
 
 func groupedExprCanDropParens(n ast.Node) bool {
 	switch n.(type) {
-	case *ast.Ident, *ast.TypeIdent, *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit,
+	case *ast.Ident, *ast.SelfExpr, *ast.TypeIdent, *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit,
 		*ast.StringLit, *ast.StringInterp, *ast.TaggedString, *ast.DotVariant,
 		*ast.Call, *ast.FieldAccess:
 		return true
@@ -1604,6 +1616,10 @@ func emitIfCondition(v *ast.If) Doc {
 	if v.CondPattern != nil {
 		return Concat(emitPattern(v.CondPattern), Text(" = "), emit(v.Cond))
 	}
+	if v.StagePrefix {
+		// A pipe stage keeps its parentheses (emitStage).
+		return emitStage(v.Cond, false)
+	}
 	return emit(v.Cond)
 }
 
@@ -1619,7 +1635,7 @@ func emitIfCondition(v *ast.If) Doc {
 func isAtomicExpr(n ast.Node) bool {
 	switch v := n.(type) {
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit,
-		*ast.Ident, *ast.TypeIdent, *ast.Placeholder:
+		*ast.Ident, *ast.SelfExpr, *ast.TypeIdent, *ast.Placeholder:
 		return true
 	case *ast.FieldAccess:
 		return isAtomicExpr(v.Object)
@@ -1844,8 +1860,9 @@ func newStatementItem(s ast.Node, doc Doc) statementItem {
 // blank line between two of them when:
 //   - either one spans more than one line, so a multi-line statement stands
 //     apart from its neighbours (no blank line is added at the top or bottom
-//     of the block);
-//   - the first is a pipe statement;
+//     of the block). A pipe statement is no exception either way: a stacked
+//     one, or one that breaks to fit the width, is set apart, and one that
+//     fits on its line sits with its neighbours;
 //   - the first is an import and the second is not;
 //   - the source wrote one there.
 //
@@ -1888,9 +1905,6 @@ func statementsWantBlank(prev, next statementItem, prevMultiline, nextMultiline 
 	if prev.node == nil {
 		return false
 	}
-	if isPipeStatement(prev.node) {
-		return true
-	}
 	return isImportNode(prev.node) && (next.node == nil || !isImportNode(next.node))
 }
 
@@ -1932,27 +1946,6 @@ func containsHardLine(d Doc) bool {
 		return containsHardLine(v.f(0, unboundedWidth))
 	}
 	return false
-}
-
-func isPipeStatement(n ast.Node) bool {
-	switch v := n.(type) {
-	case *ast.Binding:
-		return isPipeExpr(v.Value)
-	case *ast.TupleDestructure:
-		return isPipeExpr(v.Value)
-	case *ast.StructDestructure:
-		return isPipeExpr(v.Value)
-	case *ast.MapDestructure:
-		return isPipeExpr(v.Value)
-	case *ast.DistinctDestructure:
-		return isPipeExpr(v.Value)
-	case *ast.PatternBinding:
-		return isPipeExpr(v.Value)
-	}
-	if stmt, ok := n.(*ast.ExprStmt); ok {
-		return isPipeExpr(stmt.Expr)
-	}
-	return isPipeExpr(n)
 }
 
 func isPipeExpr(n ast.Node) bool {
@@ -2754,8 +2747,12 @@ func emitStructFieldValWithLeading(f ast.StructFieldVal, cascadeMustBreak, punna
 // arm from that column.
 func emitCase(v *ast.Case) Doc {
 	parts := []Doc{Text("case")}
-	if v.Value != nil {
-		parts = append(parts, Text(" "), emit(v.Value))
+	if _, grouped := v.Value.(*ast.GroupedExpr); grouped && v.StagePrefix {
+		// A pipe stage keeps its parentheses: `|> case (f()) {` pipes into
+		// the value f() returns, and `|> case f() {` calls f.
+		parts = append(parts, Text(" "), emitStage(v.Value, false))
+	} else if v.Value != nil {
+		parts = append(parts, Text(" "), emitOperand(v.Value, 0, followsBrace))
 	}
 	parts = append(parts, Text(" {"))
 	// Trivia sitting between the last arm and the closing `}` was attached
@@ -2907,9 +2904,10 @@ func emitCall(v *ast.Call) Doc {
 				}
 				parts = append(parts,
 					emitLambdaHeader(lam),
+					Text(" {"),
 					Nest(defaultIndent, Concat(HardLine(), emitLambdaSingleExprBody(expr))),
 					HardLine(),
-					Text(")"),
+					Text("})"),
 				)
 				return Concat(callee, Concat(parts...))
 			}
@@ -2924,20 +2922,20 @@ func emitCall(v *ast.Call) Doc {
 				return Concat(callee, Concat(parts...))
 			}
 
-			// Single-expression tail lambda: dangle the `)` onto its own line
-			// when the body breaks, rather than hugging it to the body's closing
-			// brace (the `else { acc })` pile-up — there's no lambda block brace
-			// here, so the hugged `)` collides with the body's own `}` from an
-			// inline if/case). One Group governs the whole thing so the body
-			// break and the dangle move together: flat hugs, broken dangles.
+			// Single-expression tail lambda: when the body does not fit on
+			// the parameters' line it moves below them in braces, and the
+			// call closes `})` as a block-bodied tail lambda's does. One
+			// Group governs the whole thing so the body break and the braces
+			// move together: flat stays bare, broken is a block.
 			parts := []Doc{Text("(")}
 			for _, a := range leading {
 				parts = append(parts, emitCallArg(a), Text(", "))
 			}
 			parts = append(parts,
 				emitLambdaHeader(lam),
+				openBraceWhenBroken(),
 				Nest(defaultIndent, Concat(Line(), emit(expr))),
-				LineOrEmpty(),
+				closeBraceWhenBroken(),
 				Text(")"),
 			)
 			return Concat(callee, Group(Concat(parts...)))
@@ -2978,10 +2976,11 @@ func lambdaSingleExpr(lam *ast.Lambda) (ast.Node, bool) {
 		return nil, false
 	}
 	es, ok := lam.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok || (isPipeExpr(es.Expr) && authoredLambdaBlock(lam)) || statementOrBlockHasComment(lam.Body, es) {
+	if !ok || (isPipeExpr(es.Expr) && authoredLambdaBlock(lam)) || lambdaKeepsBlock(lam) || statementOrBlockHasComment(lam.Body, es) {
 		// A braced pipe body keeps its braces (see emitLambda), so it hugs
-		// `})` like a block body, and so does a body with a comment,
-		// which only the block form writes.
+		// `})` like a block body, and so do a block written across lines
+		// (lambdaKeepsBlock) and a body with a comment, which only the
+		// block form writes.
 		return nil, false
 	}
 	return es.Expr, true
@@ -2991,6 +2990,17 @@ func lambdaSingleExpr(lam *ast.Lambda) (ast.Node, bool) {
 // parser wraps a bare body in a Block with no closing line.
 func authoredLambdaBlock(lam *ast.Lambda) bool {
 	return lam.Body != nil && lam.Body.EndLine != 0
+}
+
+// lambdaKeepsBlock reports whether lam's body was written as a braced block
+// whose first statement starts on a line below the `{`. Such a body stays a
+// block with its statements on their own lines, however short: the line
+// break after the `{` is the author's, as a break after an object
+// literal's `{` is in Prettier. A braced body that starts on the `{` line
+// (`|x| { x + 1 }`) is laid out as a bare body would be.
+func lambdaKeepsBlock(lam *ast.Lambda) bool {
+	return authoredLambdaBlock(lam) && len(lam.Body.Stmts) > 0 &&
+		nodeStartLine(lam.Body.Stmts[0]) > lam.Body.Line
 }
 
 // emitTypeArgs renders a turbofish type-argument list, `<Int>` /
@@ -3139,6 +3149,8 @@ func emitCallArg(n ast.Node) Doc {
 //
 // Body layout:
 //   - Empty body: "|params| {}".
+//   - A braced body whose first statement the source starts on a line
+//     below the `{` (lambdaKeepsBlock): a block, however short.
 //   - Exactly one ExprStmt: emit the expression inline ("|params| expr"),
 //     flat-or-break via Group.
 //   - Otherwise: emit a block ("|params| {\n  stmt1\n  stmt2\n}").
@@ -3186,16 +3198,25 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
 	//   * ExprStmt — emit bare expression `|params| expr`, flat-or-break.
 	//   * Other stmt (break/return/continue) — the parser required a block
 	//     wrapper, so emit as `|params| { stmt }` flat-or-break.
+	if es, ok := soleExprStmt(body); ok && !statementOrBlockHasComment(body, es) && lambdaExprBodyShouldBreak(es.Expr) {
+		// An if that breaks or continues always goes below the
+		// parameters, broken, in braces; whether the author wrote the
+		// braces does not change it.
+		return Concat(
+			header,
+			Text(" {"),
+			Nest(defaultIndent, Concat(HardLine(), emitLambdaSingleExprBody(es.Expr))),
+			HardLine(),
+			Text("}"),
+		)
+	}
+	if lambdaKeepsBlock(v) {
+		return emitLambdaBlock(header, body)
+	}
 	if len(body.Stmts) == 1 {
 		if es, ok := body.Stmts[0].(*ast.ExprStmt); ok {
 			if statementOrBlockHasComment(body, es) {
 				return emitLambdaBlock(header, body)
-			}
-			if lambdaExprBodyShouldBreak(es.Expr) {
-				return Concat(
-					header,
-					Nest(defaultIndent, Concat(HardLine(), emitLambdaSingleExprBody(es.Expr))),
-				)
 			}
 			if authoredLambdaBlock(v) && (keepBraces || isPipeExpr(es.Expr)) {
 				// Braces the author wrote around a pipe stay. A lambda body
@@ -3218,9 +3239,15 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
 				// the next line would not survive a second format.
 				return Concat(header, Text(" "), emit(es.Expr))
 			}
+			// A body too long for the parameters' line moves below them as
+			// a braced block, as rustfmt writes a closure. Read back, that
+			// block starts below its `{`, so lambdaKeepsBlock keeps it on
+			// later runs.
 			return Group(Concat(
 				header,
+				openBraceWhenBroken(),
 				Nest(defaultIndent, Concat(Line(), emit(es.Expr))),
+				closeBraceWhenBroken(),
 			))
 		}
 		if statementOrBlockHasComment(body, body.Stmts[0]) {
@@ -3238,6 +3265,25 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
 	// Multi-statement body: always break into `|params| {\n stmts \n}`.
 	return emitLambdaBlock(header, body)
 }
+
+// soleExprStmt returns body's statement when it is its only one and an
+// expression statement.
+func soleExprStmt(body *ast.Block) (*ast.ExprStmt, bool) {
+	if len(body.Stmts) != 1 {
+		return nil, false
+	}
+	es, ok := body.Stmts[0].(*ast.ExprStmt)
+	return es, ok && es.Expr != nil
+}
+
+// openBraceWhenBroken writes the ` {` that opens a lambda's one-expression
+// body when the enclosing Group breaks and the body moves below the
+// parameters, and nothing when the body stays on their line.
+func openBraceWhenBroken() Doc { return IfBroken(Nil(), Text(" {")) }
+
+// closeBraceWhenBroken closes what openBraceWhenBroken opened, on its own
+// line at the lambda's indentation.
+func closeBraceWhenBroken() Doc { return Concat(LineOrEmpty(), IfBroken(Nil(), Text("}"))) }
 
 // isStructLitExpr reports whether n is a struct literal, in any number of
 // parentheses.
@@ -3678,14 +3724,32 @@ func precedence(op string) int {
 // binary child of a unary needs parenthesizing.
 const unaryPrecedence = 10
 
-// emitBinary writes a binary operation other than a pipe. beforeLess says a
-// `<` follows it (emitOperand).
-func emitBinary(v *ast.Binary, beforeLess bool) Doc {
+// follower is the token written straight after an operand whose
+// parentheses the formatter may drop, when that token can join a bare
+// name in front of it into something else (emitOperand).
+type follower int
+
+const (
+	followsOther follower = iota
+	// followsLess: a `<`, which makes a name a call with type arguments.
+	followsLess
+	// followsBrace: the `{` opening a case's arms, which makes a type name
+	// a struct literal's head.
+	followsBrace
+)
+
+// emitBinary writes a binary operation other than a pipe. next is what
+// follows it (emitOperand).
+func emitBinary(v *ast.Binary, next follower) Doc {
 	p := precedence(v.Op)
 	// Left child: all Nomi binary operators are left-associative (parser
 	// uses prec+1 for the right operand), so a left child at the same
 	// precedence level doesn't need parens.
-	left := emitOperand(v.Left, p, v.Op == "<")
+	leftNext := followsOther
+	if v.Op == "<" {
+		leftNext = followsLess
+	}
+	left := emitOperand(v.Left, p, leftNext)
 	// Right child: for left-associative operators, a right child at the
 	// same precedence level DOES need parens to preserve the tree shape
 	// (e.g., `1 - (2 - 3)`).
@@ -3693,30 +3757,35 @@ func emitBinary(v *ast.Binary, beforeLess bool) Doc {
 	if b, ok := v.Right.(*ast.Binary); ok && b.Op != "|>" && precedence(b.Op) <= p {
 		right = Concat(Text("("), emit(v.Right), Text(")"))
 	} else {
-		right = emitOperand(v.Right, p, beforeLess)
+		right = emitOperand(v.Right, p, next)
 	}
 	return Concat(left, Text(" "), Text(v.Op), Text(" "), right)
 }
 
 // emitUnary writes a unary operation. Unary binds tighter than any binary,
 // so any binary operand is parenthesized.
-func emitUnary(v *ast.Unary, beforeLess bool) Doc {
-	return Concat(Text(v.Op), emitOperand(v.Right, unaryPrecedence, beforeLess))
+func emitUnary(v *ast.Unary, next follower) Doc {
+	return Concat(Text(v.Op), emitOperand(v.Right, unaryPrecedence, next))
 }
 
 // emitOperand writes child as an operand of an operator that binds at
 // minPrec, in parentheses when its own operator binds looser.
 //
-// beforeLess says a `<` follows the operand. The parser reads a name, a
-// field path or a type name followed by `<T>(` as a call with type
-// arguments, so a parenthesized one there keeps its parentheses: dropping
-// them from `(f) < Dog > (x)`, two comparisons, writes the call
-// `f<Dog>(x)`. The name may end a longer operand, `-(f)` or `a + (f)`.
-func emitOperand(child ast.Node, minPrec int, beforeLess bool) Doc {
+// next is what follows the operand, and some parentheses must stay because
+// of it. The name they hold may end a longer operand, `-(f)` or `a + (f)`.
+//
+//   - followsLess: the parser reads a name, a field path or a type name
+//     followed by `<T>(` as a call with type arguments, so dropping the
+//     parentheses from `(f) < Dog > (x)`, two comparisons, writes the call
+//     `f<Dog>(x)`.
+//   - followsBrace: the parser reads a struct literal's head followed by
+//     `{` as the literal (braceAttaches), so dropping them from
+//     `case (Shape) {` writes `case Shape {`, which opens a literal.
+func emitOperand(child ast.Node, minPrec int, next follower) Doc {
 	if b, ok := child.(*ast.Binary); ok && precedence(b.Op) < minPrec {
 		return Concat(Text("("), emit(child), Text(")"))
 	}
-	if !beforeLess {
+	if next == followsOther {
 		return emit(child)
 	}
 	switch c := child.(type) {
@@ -3728,13 +3797,25 @@ func emitOperand(child ast.Node, minPrec int, beforeLess bool) Doc {
 		for g, ok := inner.(*ast.GroupedExpr); ok && g.Expr != nil; g, ok = inner.(*ast.GroupedExpr) {
 			inner = g.Expr
 		}
+		if next == followsBrace {
+			if braceAttaches(inner) {
+				return withDangling(c, Concat(Text("("), emit(inner), Text(")")))
+			}
+			break
+		}
 		switch inner.(type) {
 		case *ast.Ident, *ast.FieldAccess, *ast.TypeIdent:
-			return Concat(Text("("), emit(inner), Text(")"))
+			return withDangling(c, Concat(Text("("), emit(inner), Text(")")))
+		}
+	case *ast.FieldAccess, *ast.TypeIdent, *ast.DotVariant:
+		// A path whose receiver had the parentheses, `(m).Shape`, is
+		// written bare as `m.Shape`, so they go around all of it.
+		if next == followsBrace && braceAttaches(c) {
+			return Concat(Text("("), emit(child), Text(")"))
 		}
 	case *ast.Binary:
 		if c.Op != "|>" {
-			return emitBinary(c, true)
+			return withDangling(c, emitBinary(c, next))
 		}
 		// `x |> f |> try` is written `x |> try f`, and `x |> try f < T > (y)`
 		// would try the call `f<T>(y)`.
@@ -3742,15 +3823,64 @@ func emitOperand(child ast.Node, minPrec int, beforeLess bool) Doc {
 			return Concat(Text("("), emit(child), Text(")"))
 		}
 	case *ast.Unary:
-		return emitUnary(c, true)
+		return withDangling(c, emitUnary(c, next))
 	case *ast.TryOp:
 		// `try (f) < User > (x)` is `(try (f)) < User > (x)`; `try f<User>(x)`
 		// would try the call.
 		if c.Expr != nil {
-			return Concat(Text("try "), emitOperand(c.Expr, tryOperandPrecedence, true))
+			return withDangling(c, Concat(Text("try "), emitOperand(c.Expr, tryOperandPrecedence, next)))
 		}
 	}
 	return emit(child)
+}
+
+// braceAttaches reports whether n, written as the formatter writes it with
+// no parentheses around it, ends in a struct literal's head, so a `{`
+// straight after it opens a literal where the parser allows one (a case's
+// subject). The heads are a type name (`Shape`), a dot variant (`.Circle`)
+// and a path of type names after a name (`Shape.Circle`, `shapes.Circle`,
+// `shapes.Shape.Circle`). `shapes.circle.Radius` and `f(x).Shape` are field
+// reads, which a `{` does not join.
+func braceAttaches(n ast.Node) bool {
+	switch v := stripDroppedParens(n).(type) {
+	case *ast.TypeIdent, *ast.DotVariant:
+		return true
+	case *ast.FieldAccess:
+		return isTypeName(v.Field) && typePathBase(v.Object)
+	}
+	return false
+}
+
+// typePathBase reports whether n, the receiver of a type-name field, starts
+// a struct literal's head: a name, or a path of type names after one.
+func typePathBase(n ast.Node) bool {
+	switch v := stripDroppedParens(n).(type) {
+	case *ast.Ident, *ast.TypeIdent:
+		return true
+	case *ast.FieldAccess:
+		return isTypeName(v.Field) && typePathBase(v.Object)
+	}
+	return false
+}
+
+// stripDroppedParens is n without the parentheses emitGroupedExpr drops
+// around it.
+func stripDroppedParens(n ast.Node) ast.Node {
+	for {
+		g, ok := n.(*ast.GroupedExpr)
+		if !ok || g.Expr == nil || itemComments(g.Expr) != nil {
+			return n
+		}
+		if _, nested := g.Expr.(*ast.GroupedExpr); !nested && !groupedExprCanDropParens(g.Expr) {
+			return n
+		}
+		n = g.Expr
+	}
+}
+
+// isTypeName reports whether a field's name lexes as a type name.
+func isTypeName(id *ast.Ident) bool {
+	return id != nil && id.Name != "" && unicode.IsUpper(rune(id.Name[0]))
 }
 
 // tryOperandPrecedence is the binding level of `try`'s operand (the
@@ -5669,16 +5799,13 @@ func emitPipeChainWithMode(n *ast.Binary, mode pipeStackMode) Doc {
 			if decorated, ok := emitDecoratedPipeStage(step, steps[i+1], i+2 < len(steps)); ok {
 				decorated = pipeDecoratedStageDoc(step, steps[i+1], decorated)
 				if authoredMultiline {
-					if ht, ok := step.(ast.HasTrivia); ok {
-						leading := ht.GetLeading()
-						if len(leading) > 0 {
-							for _, leadingDoc := range emitLeadingTriviaDocs(leading) {
-								parts = append(parts, sep, leadingDoc)
-							}
-							parts = append(parts, Concat(sep, Text("|> "), decorated))
-							i++
-							continue
+					if leading := decoratedStageLeading(step, steps[i+1]); len(leading) > 0 {
+						for _, leadingDoc := range emitLeadingTriviaDocs(leading) {
+							parts = append(parts, sep, leadingDoc)
 						}
+						parts = append(parts, Concat(sep, Text("|> "), decorated))
+						i++
+						continue
 					}
 				}
 				parts = append(parts, Concat(sep, Text("|> "), decorated))
@@ -5788,16 +5915,13 @@ func emitPrefixedPipeParts(prefix Doc, source ast.Node, steps []ast.Node, forceS
 			if decorated, ok := emitDecoratedPipeStage(step, steps[i+1], i+2 < len(steps)); ok {
 				decorated = pipeDecoratedStageDoc(step, steps[i+1], decorated)
 				if authoredMultiline {
-					if ht, ok := step.(ast.HasTrivia); ok {
-						leading := ht.GetLeading()
-						if len(leading) > 0 {
-							for _, leadingDoc := range emitLeadingTriviaDocs(leading) {
-								parts = append(parts, Nest(defaultIndent, Concat(sep, leadingDoc)))
-							}
-							parts = append(parts, Nest(defaultIndent, Concat(sep, Text("|> "), decorated)))
-							i++
-							continue
+					if leading := decoratedStageLeading(step, steps[i+1]); len(leading) > 0 {
+						for _, leadingDoc := range emitLeadingTriviaDocs(leading) {
+							parts = append(parts, Nest(defaultIndent, Concat(sep, leadingDoc)))
 						}
+						parts = append(parts, Nest(defaultIndent, Concat(sep, Text("|> "), decorated)))
+						i++
+						continue
 					}
 				}
 				parts = append(parts, Nest(defaultIndent, Concat(sep, Text("|> "), decorated)))
@@ -5826,21 +5950,40 @@ func emitPrefixedPipeParts(prefix Doc, source ast.Node, steps []ast.Node, forceS
 	return Group(chain)
 }
 
+// decoratedStageLeading is the comments above a stage written with its
+// keyword before it, `|> try f()` or `|> case f() {`: the parser gives them
+// to the stage or, for `case` and `if`, to the keyword.
+func decoratedStageLeading(stage, keyword ast.Node) []ast.Trivia {
+	var leading []ast.Trivia
+	for _, n := range []ast.Node{stage, keyword} {
+		if ht, ok := n.(ast.HasTrivia); ok {
+			leading = append(leading, ht.GetLeading()...)
+		}
+	}
+	return leading
+}
+
+// pipeStageDoc lays out an `if` or `case` stage as a block in the line the
+// `|>` is on: its arms or branches one indent in from that line and its `}`
+// back at the line's indent, as a block lambda stage is. Only its first line
+// counts against an inline pipeline's width, so `x |> case {` stays one line
+// with the `|>` rather than stacking the pipeline, and a `|> case f() {`
+// too wide for the line stacks it.
 func pipeStageDoc(stage ast.Node, doc Doc) Doc {
-	if pipeStageWantsNestedContinuation(stage) {
-		return LocalBroken(Nest(defaultIndent, doc))
+	if pipeStageIsBlock(stage) {
+		return LocalBrokenBlock(doc)
 	}
 	return doc
 }
 
 func pipeDecoratedStageDoc(stage ast.Node, keyword ast.Node, doc Doc) Doc {
-	if pipeStageWantsNestedContinuation(stage) || pipeStageWantsNestedContinuation(keyword) {
-		return LocalBroken(Nest(defaultIndent, doc))
+	if pipeStageIsBlock(stage) || pipeStageIsBlock(keyword) {
+		return LocalBrokenBlock(doc)
 	}
 	return doc
 }
 
-func pipeStageWantsNestedContinuation(stage ast.Node) bool {
+func pipeStageIsBlock(stage ast.Node) bool {
 	switch stage.(type) {
 	case *ast.If, *ast.Case:
 		return true
@@ -5892,20 +6035,23 @@ func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node, more bool) (Doc, b
 		}
 		return Concat(Text("try "), emitStage(stage, more)), true
 	case *ast.If:
-		if _, grouped := stage.(*ast.GroupedExpr); grouped || kw.Cond != nil {
+		// `|> f() |> if {` and `|> if f() {` are the same stages; each
+		// stays as it was written (StagePrefix).
+		if !kw.StagePrefix || kw.Cond != nil {
 			return nil, false
 		}
 		return emitIf(&ast.If{
-			Cond: stage,
-			Then: kw.Then,
-			Else: kw.Else,
-			Line: kw.Line,
-			Col:  kw.Col,
+			Cond:        stage,
+			Then:        kw.Then,
+			Else:        kw.Else,
+			StagePrefix: true,
+			Line:        kw.Line,
+			Col:         kw.Col,
 		}), true
 	case *ast.Case:
-		// A parenthesized stage stays a stage of its own, `|> (f())`
-		// then `|> case {`, which keeps its parentheses (emitStage).
-		if _, grouped := stage.(*ast.GroupedExpr); grouped || kw.Value != nil {
+		// `|> f() |> case {` and `|> case f() {` are the same stages; each
+		// stays as it was written (StagePrefix).
+		if !kw.StagePrefix || kw.Value != nil {
 			return nil, false
 		}
 		// The case's Trailing are the comments before its `}`, which
@@ -5914,6 +6060,7 @@ func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node, more bool) (Doc, b
 			TriviaCarrier: ast.TriviaCarrier{Trailing: kw.GetTrailing()},
 			Value:         stage,
 			Branches:      kw.Branches,
+			StagePrefix:   true,
 			Line:          kw.Line,
 			Col:           kw.Col,
 		}), true

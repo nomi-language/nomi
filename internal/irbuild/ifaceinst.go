@@ -396,6 +396,11 @@ func (g *gen) ifaceMethodTypeParamIsOpen(im *ast.InterfaceMethod) bool {
 		return true
 	}
 	for _, wc := range im.WhereClauses {
+		// `where self: X` bounds the implementor, which a default is lowered
+		// per; it names no type parameter to bind.
+		if wc.Name == "self" {
+			continue
+		}
 		if _, bound := g.genericSubstKind(wc.Name); !bound {
 			return true
 		}

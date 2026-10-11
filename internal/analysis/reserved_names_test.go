@@ -171,7 +171,7 @@ func TestCheckReservedTypeName_PreludeInterfaceNames(t *testing.T) {
 // asserts over, spelled out so a prelude change shows up as a diff here rather
 // than as a silently smaller test.
 var preludeInterfaceNames = []string{
-	"Add", "Comparable", "Debug", "Discrete", "Display", "Divide",
+	"Add", "Comparable", "Debug", "Discrete", "Display", "Distinct", "Divide",
 	"Equatable", "Hashable", "Iter", "Multiply", "Steppable", "Struct",
 	"Subtract",
 }

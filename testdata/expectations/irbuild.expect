@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 364
+records 365
 declared-cases 0
 failing 74
 C assert_subject_test.nomi@76e4dc034f8c1f74
@@ -1665,6 +1665,258 @@ T ok <dir>/group_test.nomi :: virtual clock / a short-circuit cancels its siblin
 T ok <dir>/group_test.nomi :: virtual clock / time passes in the bubble
 T test result: ok. 2 passed, 0 failed
 T
+C group_test.nomi@563c2391dba255bf
+E 0
+N 0
+H e019c6e21c78ff249c81afe7868bda70b47a34ab26570bb52c25d9e725941521
+S -- counter_app.nomi 6103 --
+S //# A single long-lived worker owning mutable state, driven by messages.
+S //#
+S //# This is the shape you reach for when several callers need to share
+S //# state that has to change: instead of guarding it, give it to one task
+S //# and talk to that task. Nothing else can reach the state, and one task
+S //# handles one message at a time, so there is nothing to guard.
+S //#
+S //# **The server is a value started by a helper.** `start()` builds
+S //# the inbox, the group, and the worker, and hands back the one field the
+S //# app's config struct stores. Callers touch neither a channel nor a group.
+S //#
+S //# Owning its group is what lets the server declare `Restart.Permanent`
+S //# — a worker meant to run until something stops it has failed if it
+S //# returns on its own. A group shared with one-shot work could not say
+S //# that, since for that work returning is exactly the point.
+S //#
+S //# The state lives in `Iter.loop`'s accumulator, inside the task. That is
+S //# what makes it private: a binding inside a running task is not
+S //# reachable from anywhere else, so "who else might be writing this?" has
+S //# one answer, and it is nobody.
+S
+S import {
+S     std/channels.{Channel, Receiver, Sender}
+S     std/duration.Duration
+S     std/io
+S     std/supervisors.{Backoff, Restart, Supervisor}
+S }
+S
+S /// What callers can ask the worker to do.
+S ///
+S /// `Increment` is fire-and-forget. `Get` needs an answer, so it carries
+S /// the channel to answer on — a request wanting a reply brings its own
+S /// return address, since a channel only goes one way.
+S pub enum Request {
+S     Increment Int
+S     Get {reply: Channel<Int>}
+S     Explode
+S }
+S
+S /// A running counter. Holding one is how you address the worker; the
+S /// channel inside is an implementation detail callers never see.
+S pub struct Counter {
+S     inbox: Channel<Request>
+S }
+S
+S /// Create the inbox, the group, and the worker. One call, and the
+S /// caller stores one field.
+S ///
+S /// Creating the group here is legal because `boot` calls this — the
+S /// rule is that groups are created *during* boot, not that the call is
+S /// written inside it. Calling `start()` from anywhere boot does not reach is a
+S /// compile error.
+S ///
+S /// Owning its own group is what lets the server set
+S /// `Restart.Permanent`. A shared group cannot: permanence says
+S /// returning is a failure, which is right for this worker and wrong for
+S /// the one-shot work that would sit beside it.
+S fn start(): Counter {
+S     inbox = Channel.buffered<Request>(16)
+S
+S     // The group handle is not kept. Every group is registered with the
+S     // runtime when it is created, and shutdown drains all of them, so
+S     // holding one only matters if you want to `Supervisor.flush` on it —
+S     // which for a permanent worker you cannot do anyway, since it never
+S     // finishes.
+S     _ =
+S         Supervisor.new(
+S             shutdown_timeout: Duration.seconds(5),
+S             max_running: 1,
+S             restart: Restart.Permanent,
+S             backoff: Backoff.Exponential{
+S                 max_restarts: 3,
+S                 max_elapsed: Duration.minutes(5),
+S             },
+S         )
+S         |> Supervisor.spawn(|| serve(inbox))
+S
+S     Counter{inbox}
+S }
+S
+S /// The worker. Runs until its inbox closes or shutdown cancels it.
+S ///
+S /// `count` is the state. It is an ordinary loop accumulator, so each
+S /// branch returns the next value: updating the state and returning from
+S /// the handler are the same act, and there is no way to forget one.
+S ///
+S /// What serializes the work is that exactly one of these runs per
+S /// inbox — not the group's `max_running`, which is about how much of
+S /// the group's whole workload runs at once.
+S fn serve(inbox: Channel<Request>): Unit {
+S     _final = Iter.loop(|count = 0| {
+S         case Receiver.receive(inbox.receiver) {
+S             Some(Request.Increment(n)) ->
+S                 count + n
+S
+S             Some(Request.Get{reply}) -> {
+S                 // Best-effort: a caller that gave up is not worth crashing over.
+S                 _ = Sender.send(reply.sender, count)
+S                 count
+S             }
+S
+S             // Stands in for a handler with a bug in it.
+S             Some(Request.Explode) ->
+S                 count / 0
+S
+S             // The inbox closed and drained: no more work is coming.
+S             None ->
+S                 break count
+S         }
+S     })
+S
+S     Unit
+S }
+S
+S /// Fire-and-forget: returns as soon as the message is queued.
+S pub fn increment(counter: Counter, n: Int): Unit {
+S     case Sender.send(counter.inbox.sender, Request.Increment(n)) {
+S         Ok(_) -> Unit
+S         Err(_) -> Unit
+S     }
+S }
+S
+S /// Ask and wait. The reply channel is made per call, so two callers in
+S /// flight can never take each other's answer.
+S ///
+S /// Capacity 1 so the worker never blocks handing the reply back, even
+S /// if this caller has already given up and stopped listening.
+S pub fn get(counter: Counter): Int {
+S     reply = Channel.buffered<Int>(1)
+S     _ = Sender.send(counter.inbox.sender, Request.Get{reply})
+S
+S     case Receiver.receive(reply.receiver) {
+S         Some(v) -> v
+S         None -> 0
+S     }
+S }
+S
+S pub fn explode(counter: Counter): Unit {
+S     case Sender.send(counter.inbox.sender, Request.Explode) {
+S         Ok(_) -> Unit
+S         Err(_) -> Unit
+S     }
+S }
+S
+S // There is deliberately no `flush` here.
+S //
+S // `Supervisor.flush` waits for a group's tasks to *finish*, and a
+S // permanent worker never does — waiting on this server's group blocks
+S // until shutdown cancels it, which under a virtual clock is reported as
+S // a deadlock. It is the right answer to the wrong question.
+S //
+S // `get` is the synchronisation point instead: it round-trips through
+S // the worker, so everything queued before it has necessarily been
+S // handled by the time it returns. A request that wants an answer is
+S // also a barrier.
+S pub struct Config {
+S     context: Context
+S
+S     // One field. The server owns its inbox, its group, and its policy, so
+S     // adding a second server adds one more field and nothing else.
+S     counter: Counter
+S }
+S
+S pub fn boot(): Config {
+S     Config{context: Context.root(), counter: start()}
+S }
+S
+S fn main() {
+S     increment(Config.counter, 5)
+S     increment(Config.counter, 7)
+S     io.print("count=${get(Config.counter)}")
+S }
+S
+S -- group_test.nomi 2354 --
+S // Exercises the message-driven counter in counter_app.nomi, booted as that
+S // entry file boots it.
+S import {
+S     std/testing.Clock
+S     counter_app.{self, Config, explode, get, increment}
+S }
+S
+S tests "a message-driven worker" {
+S     // Nothing here sleeps, but the worker blocks on its inbox and the group
+S     // drains at the end of every case — all of which a virtual clock makes
+S     // instant and repeatable.
+S     clock Clock.Virtual
+S
+S     boot counter_app.boot()
+S
+S     test "messages accumulate into state a caller can read back" {
+S         increment(Config.counter, 5)
+S         increment(Config.counter, 7)
+S
+S         assert get(Config.counter) == 12
+S     }
+S
+S     test "each caller gets its own reply" {
+S         increment(Config.counter, 1)
+S         first = get(Config.counter)
+S         increment(Config.counter, 1)
+S         second = get(Config.counter)
+S
+S         assert first == 1
+S         assert second == 2
+S     }
+S
+S     test "a handler that breaks restarts the worker with fresh state" {
+S         increment(Config.counter, 5)
+S         explode(Config.counter) // the handler divides by zero
+S         increment(Config.counter, 7)
+S
+S         // The group re-invoked the spawn's closure, so the loop started over
+S         // from 0 and only the message after the crash counts. Restarting
+S         // rebuilds state, exactly as re-running the function would — there is
+S         // nothing else it could do, since the closure is the only description
+S         // of the work.
+S         //
+S         // Note what survived: the inbox. The closure captured it, so the
+S         // restarted worker reads the same channel and messages queued during
+S         // the crash are still there. The failed message itself is gone,
+S         // consumed before the handler broke, so a poison message cannot loop.
+S         assert get(Config.counter) == 7
+S     }
+S
+S     test "a call observes every cast queued before it" {
+S         // Casts return as soon as the message is queued, so nothing here has
+S         // necessarily run yet.
+S         increment(Config.counter, 1)
+S         increment(Config.counter, 2)
+S         increment(Config.counter, 3)
+S
+S         // The inbox is FIFO and one worker drains it, so this reply cannot
+S         // come back before all three have been applied. That ordering is the
+S         // whole reason to put state behind a single task.
+S         assert get(Config.counter) == 6
+S     }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: a message-driven worker / messages accumulate into state a caller can read back
+T ok <dir>/group_test.nomi :: a message-driven worker / each caller gets its own reply
+T ok <dir>/group_test.nomi :: a message-driven worker / a handler that breaks restarts the worker with fresh state
+T ok <dir>/group_test.nomi :: a message-driven worker / a call observes every cast queued before it
+T test result: ok. 4 passed, 0 failed
+T --- stderr ---
+T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
+T
 C group_test.nomi@84d61378a038fbc8
 E 1
 N 0
@@ -3008,7 +3260,7 @@ T strings = ab
 T second_ctor = 99
 T both = 41
 T
-C internal/irbuild/testdata/check_project.nomi@ecccea86ad2ea395
+C internal/irbuild/testdata/check_project.nomi@d9e8f1c89dc963cc
 E 0
 N 0
 H 8a7387e24053852d10a8579ceb451d2cf990f87f65d2b29058c8ae8948925683
@@ -4035,7 +4287,7 @@ T clean = False
 T clean-first = none
 T own = mine
 T
-C internal/irbuild/testdata/fragment.nomi@56fb345f7d297109
+C internal/irbuild/testdata/fragment.nomi@175331f7b11e8e81
 E 0
 N 0
 H 42d5787d5a36a3a9a9653d5a1fbc2572039d6d98b0672cdd3a2213ab526d46ad
@@ -4569,7 +4821,7 @@ T None
 T {a: 1, a0: 2}
 T ["a", "b"]
 T
-C internal/irbuild/testdata/iter_adapter_ctrl.nomi@d155884392b72ffd
+C internal/irbuild/testdata/iter_adapter_ctrl.nomi@951c9ad7fe5e38d6
 E 0
 N 0
 H 994fc8b79823b3190674867707473ac4a361d6b9dd3b20f591b6e3a85fdfcce6
@@ -4595,7 +4847,7 @@ T map return is the element: [10, 20, 300, 40, 50]
 T nested fn early returns: 185
 T done
 T
-C internal/irbuild/testdata/iter_loop.nomi@5502d8369d58c067
+C internal/irbuild/testdata/iter_loop.nomi@8e8d89ea635d4fce
 E 0
 N 0
 H 6b6242afa045bf6e7ab263c57f3df3c621211cbb302a6cc62f45859cba0c7a01
@@ -4688,7 +4940,7 @@ T return advances the accumulator: 3
 T break before the element keeps the fold so far: 9
 T done
 T
-C internal/irbuild/testdata/iter_reduce_seed.nomi@31ed760c637d7b52
+C internal/irbuild/testdata/iter_reduce_seed.nomi@4d6610e06fc4e8c5
 E 0
 N 0
 H ce1f3b13bc640f2c2f1d4b4ec17deba3679802ea091be7507f456fb5c83b0b87
@@ -4931,7 +5183,7 @@ T plus = 42
 T twice = 42
 T offset = 105
 T
-C internal/irbuild/testdata/lambda_inferred.nomi@9fc0f3661dcf916d
+C internal/irbuild/testdata/lambda_inferred.nomi@5d364fef2f843934
 E 0
 N 0
 H 635a7087319c897f55f234325a2a0c089bf9ede7e83e4f970005e73b85c586f3
@@ -5093,7 +5345,7 @@ T static/c
 T dynamic/7
 T |static/a|dynamic/b|static/z
 T
-C internal/irbuild/testdata/literal_sibling_impl/main.nomi@54c2f47fa2713bff
+C internal/irbuild/testdata/literal_sibling_impl/main.nomi@dec96b16345b1d97
 E 0
 N 0
 H 00614806df1427eb8d57357fea2abc13b892f808b61d01df1c56f0b13874e563
@@ -5586,7 +5838,7 @@ T
 C internal/irbuild/testdata/pipe_stage_keyword_report.nomi@b1a40170b5fbf032
 E 1
 N 0
-H 69257ebcd29152d85cac2de4e53fecc2eaa5b08337338d127cc5e8a1ea2f9817
+H c411fdf4bcb85b1b69e7a29b0f343c5d0f66206cc63f45d3dea20ce3e477654c
 T FAIL <dir>/pipe_stage_keyword_report.nomi :: a keyword-prefixed if stage reports three pipeline rows
 T   line 48: assertion failed
 T     assert flag
@@ -5608,17 +5860,17 @@ T     assert flag
 T     defined as:
 T       Some(3)
 T       |> case {
-T               Some(_) -> False
-T               None -> True
-T           }
+T           Some(_) -> False
+T           None -> True
+T       }
 T     pipeline values:
 T       Some(3)
 T         = Some(3)
 T       Some(3)
 T       |> case {
-T               Some(_) -> False
-T               None -> True
-T           }
+T           Some(_) -> False
+T           None -> True
+T       }
 T         = False
 T FAIL <dir>/pipe_stage_keyword_report.nomi :: a call stage before a keyword stage reports cumulative prefixes
 T   line 68: assertion failed
@@ -5644,14 +5896,14 @@ T         = False
 T FAIL <dir>/pipe_stage_keyword_report.nomi :: a piped case scrutinee contributes no values row
 T   line 72: assertion failed
 T     assert (wrap(3) |> case {
-T             Some(n) -> n
-T             None -> 0
-T         }) == 99
+T         Some(n) -> n
+T         None -> 0
+T     }) == 99
 T     values:
 T       (wrap(3) |> case {
-T               Some(n) -> n
-T               None -> 0
-T           })
+T           Some(n) -> n
+T           None -> 0
+T       })
 T         = 3
 T FAIL <dir>/pipe_stage_keyword_report.nomi :: a directly written case scrutinee does contribute one
 T   line 79: assertion failed
@@ -6328,7 +6580,7 @@ T lt True
 T ge False
 T compare Less
 T
-C internal/irbuild/testdata/std_dynamic_boundary.nomi@93a0f65c4e877cc4
+C internal/irbuild/testdata/std_dynamic_boundary.nomi@6a5bfe25ca624bc3
 E 0
 N 0
 H 528387c1452195b03cecc14c78033fa358f46391624db5a5218bc6e920f198b1
@@ -6922,10 +7174,10 @@ T       xs
 T         = ["a", "b"]
 T test result: FAILED. 0 passed, 1 failed
 T
-C internal/irbuild/testdata/tests_lambda_boundary.nomi@4cd1db9d4eb9de38
+C internal/irbuild/testdata/tests_lambda_boundary.nomi@0fc0784b2a1bc1f7
 E 1
 N 0
-H f0d2b4ee3604c8574052846d277fe3a8df8f6d0dd160a0b265a07889c8532a75
+H 58520f6fabf33904c4d1bc6e4cd5c27f6084bd1d43b13438aba7a5bb76c5950f
 T FAIL <dir>/tests_lambda_boundary.nomi :: a lambda body's comparison stays out of the report
 T   line 22: assertion failed
 T     assert applies?(2, |x| x * 5 > 90)
@@ -6946,12 +7198,12 @@ T       2 > 3
 T         = False
 T FAIL <dir>/tests_lambda_boundary.nomi :: a case scrutinee inside a lambda body stays out too
 T   line 39: assertion failed
-T     assert applies?(2, |v|
+T     assert applies?(2, |v| {
 T         case v {
 T             1 -> True
 T             _ -> v > 90
 T         }
-T     )
+T     })
 T     values:
 T       2
 T         = 2
@@ -7319,7 +7571,7 @@ T   after the lambda
 T ok <dir>/try_in_test.nomi :: the case after a propagating one still runs
 T test result: FAILED. 3 passed, 4 failed
 T
-C internal/irbuild/testdata/tuple_coerce_and_pattern.nomi@5182fb80e709f85a
+C internal/irbuild/testdata/tuple_coerce_and_pattern.nomi@f990d77b1b6a172f
 E 0
 N 0
 H f7417b0b336cecaddde47cd35eeedbf61ff98fff935b4b37132e7cf113aaaafa
@@ -7399,7 +7651,7 @@ T wrong_tag = fell through
 T wrong_arity = fell through
 T wrong_items = fell through
 T
-C internal/irbuild/testdata/typed_literal.nomi@fa7d9cc893926be8
+C internal/irbuild/testdata/typed_literal.nomi@3673e1074ce4cbab
 E 0
 N 0
 H b2440d42949f32ed14f7b377fdcb8229a7f8956819d9bb79cd786f47b629d342
@@ -8693,7 +8945,7 @@ T [INFO] hello, Ada
 T [WARN] config checked
 T console ready
 T
-C tests/16-concurrency/supervisors/supervisors_test.nomi@90a6520ebaa73165
+C tests/16-concurrency/supervisors/supervisors_test.nomi@0956e2f9fdaad93c
 E 0
 N 0
 H d2caeccdfc0a9c5e2d9a1ecff6e49c162eb0c8e7eaa586b4fe9f2ddebefe06fe

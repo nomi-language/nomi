@@ -102,3 +102,58 @@ func buildLambdaPipeStageActions(content, uri string, diags []protocol.Diagnosti
 	}
 	return actions
 }
+
+// hasHelpEndingIn reports whether one of a published diagnostic's `help:`
+// lines ends in suffix.
+func hasHelpEndingIn(msg, suffix string) bool {
+	for _, line := range strings.Split(msg, "\n") {
+		if strings.HasPrefix(line, "help: ") && strings.HasSuffix(line, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// "Add `|> Display.to_string()`" answers the checker's error for a value
+// whose type implements Display piped into a stage that takes a String
+// (`temp |> String.pad_start(6)`): the help says to render the value first,
+// and the fix inserts that stage. The diagnostic spans the stage's callee,
+// and the fix is offered only when a `|>` directly precedes it, so a stage
+// prefixed with `try` or `dbg`, or a `_` slot, gets none.
+func buildPipeToStringActions(content, uri string, diags []protocol.Diagnostic) []protocol.CodeAction {
+	var lines *lineIndex
+	var actions []protocol.CodeAction
+	for _, d := range diags {
+		if !hasHelpEndingIn(d.Message, analysis.PipeToStringHint) || d.Range.Start.Line != d.Range.End.Line {
+			continue
+		}
+		if lines == nil {
+			lines = newLineIndex(content)
+		}
+		text, ok := lines.line(d.Range.Start.Line)
+		if !ok {
+			continue
+		}
+		start := lines.byteCol(d.Range.Start.Line, d.Range.Start.Character) - 1
+		if start < 0 || start > len(text) || !strings.HasSuffix(strings.TrimRight(text[:start], " \t"), "|>") {
+			continue
+		}
+		kind := protocol.CodeActionKindQuickFix
+		preferred := true
+		actions = append(actions, protocol.CodeAction{
+			Title:       "Add `|> Display.to_string()` before this stage",
+			Kind:        &kind,
+			Diagnostics: []protocol.Diagnostic{d},
+			IsPreferred: &preferred,
+			Edit: &protocol.WorkspaceEdit{
+				Changes: map[protocol.DocumentUri][]protocol.TextEdit{
+					protocol.DocumentUri(uri): {{
+						Range:   protocol.Range{Start: d.Range.Start, End: d.Range.Start},
+						NewText: "Display.to_string() |> ",
+					}},
+				},
+			},
+		})
+	}
+	return actions
+}

@@ -315,6 +315,7 @@ func (g *gen) irTestBodyAttempt(c testCaseDecl, name string, group ir.TestGroup,
 		g: g, sh: sh, f: fn, b: sh.entry,
 		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
 		inTest: true, testApp: group.Boot != nil, testWalked: walked,
+		root: c.body,
 	}
 	// Types the body declares resolve by name for the extent of the body,
 	// as they do for the front end (blocklocaltype.go).
@@ -358,6 +359,7 @@ func (bl *irScalarBuilder) testStmts(stmts []ast.Node) bool {
 	for i, s := range stmts {
 		bl.testAfter = stmts[i+1:]
 		bl.testTail = tail && i == len(stmts)-1
+		bl.markStmt(s, ir.StmtStatement)
 		if leaves, ok := bl.testLeaving(s); leaves {
 			if !ok {
 				irDeclineNote("a test-body region that leaves, outside the shape")
@@ -761,6 +763,7 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: k})
 	bl.bound[b.Name], bl.boundK[b.Name] = bind.Dst(), k
+	bl.declareBind(bind, k)
 	if bl.testDefs == nil {
 		bl.testDefs = map[string]*ast.Binding{}
 	}
@@ -783,6 +786,7 @@ func (bl *irScalarBuilder) testAssertionBinding(b *ast.Binding, a *ast.Assertion
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: k})
 	bl.bound[b.Name], bl.boundK[b.Name] = bind.Dst(), k
+	bl.declareBind(bind, k)
 	if bl.testDefs == nil {
 		bl.testDefs = map[string]*ast.Binding{}
 	}

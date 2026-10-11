@@ -171,6 +171,12 @@ const (
 	// RuleTempType: each stored type agrees with what writes the temporary
 	// and with what the positions that read it require. See typelint.go.
 	RuleTempType LintRule = "temp type"
+	// RuleVarTemp: every variable-table entry names a temporary the function
+	// has: a parameter's, or one an instruction writes. See debuginfo.go.
+	RuleVarTemp LintRule = "var temp"
+	// RuleStmtMark: every statement mark names an instruction of its block,
+	// in order, at a source position. See debuginfo.go.
+	RuleStmtMark LintRule = "stmt mark"
 )
 
 // Violation is one node failing one rule.
@@ -320,6 +326,7 @@ func lintFuncTree(f *Func, vs *[]Violation, seen map[*Func]bool) {
 	lintOperandShapes(f, vs)
 	lintDefers(f, vs)
 	lintTempTypes(f, vs)
+	lintDebugInfo(f, vs)
 }
 
 // lintModuleDecls applies RuleModuleDeclaredOnce.
@@ -678,33 +685,7 @@ func lintTempDefs(f *Func, vs *[]Violation) {
 		return
 	}
 	n := f.NumTemps() + 1
-	c := buildCFG(f)
-
-	gen := make([][]bool, len(blocks))
-	faultGen := make([][]bool, len(blocks))
-	for i, b := range blocks {
-		gen[i] = make([]bool, n)
-		faultGen[i] = make([]bool, n)
-		cut := b.FirstFaultAt()
-		for j, in := range b.Instrs() {
-			d := in.Dst()
-			if d == NoTemp || int(d) >= n {
-				continue
-			}
-			gen[i][d] = true
-			if j < cut {
-				faultGen[i][d] = true
-			}
-		}
-	}
-
-	entry := make([]bool, n)
-	for _, p := range f.Params() {
-		if int(p.Temp) < n {
-			entry[p.Temp] = true
-		}
-	}
-	in := c.available(n, entry, gen, faultGen)
+	in, entry := definedSets(f)
 
 	var uses []Temp
 	for i, b := range blocks {

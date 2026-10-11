@@ -47,9 +47,9 @@ test "print, write and inspect are captured byte for byte" {
 }
 
 test "read_line reads the input a line at a time, then Err at the end" {
-    run = io.capture("one\n\nlast", ||
+    run = io.capture("one\n\nlast", || {
         [io.read_line(), io.read_line(), io.read_line(), io.read_line()]
-    )
+    })
 
     assert run.value == [Ok("one"), Ok(""), Ok("last"), Err("eof")]
     assert run.output == ""
@@ -73,7 +73,7 @@ test "an inner capture keeps its own output" {
 }
 
 test "tasks started inside the capture are captured" {
-    run = io.capture("", ||
+    run = io.capture("", || {
         concurrent {
             t = Task.spawn(|| {
                 io.print("from task")
@@ -82,7 +82,7 @@ test "tasks started inside the capture are captured" {
 
             Task.await(t)
         }
-    )
+    })
 
     assert run.value == 2
     assert run.output == "from task\n"

@@ -1,0 +1,48 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/restart.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":6}],"source":{"path":"$TESTDATA/restart.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":6,"source":{"path":"$TESTDATA/restart.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event output {"category":"stdout","output":"adding 3 and 4\n"}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":6,"name":"add","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}},{"column":14,"id":2,"line":11,"name":"main","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}}],"totalFrames":2}
+-> restartFrame {"frameId":1}
+<- response restartFrame
+<- event output {"category":"console","output":"Restarted add from its first statement with the same arguments. What it already did outside the program, such as output, is not undone.\n"}
+<- event stopped {"allThreadsStopped":true,"reason":"restart","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":4,"name":"add","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}},{"column":14,"id":2,"line":11,"name":"main","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}}],"totalFrames":2}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"a","type":"Int","value":"3","variablesReference":0},{"declarationLocationReference":2,"name":"b","type":"Int","value":"4","variablesReference":0}]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"adding 3 and 4\n"}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"adding 1 and 10\n"}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":6,"name":"add","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}},{"column":0,"id":1048577,"line":0,"name":"(tail call)","presentationHint":"label"},{"column":58,"id":2,"line":12,"name":"Iter.map","presentationHint":"subtle","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}},{"column":58,"id":3,"line":12,"name":"main","source":{"name":"restart.nomi","path":"$TESTDATA/restart.nomi"}}],"totalFrames":4}
+-> restartFrame {"frameId":3}
+<- response restartFrame failed "Cannot restart this frame: a call from Go (Iter.map) is between this frame and the top of the stack, and Go's stack cannot be unwound."
+-> restartFrame {"frameId":1}
+<- response restartFrame failed "Cannot restart this frame: a tail call replaced this frame's function, so its own first statement and arguments are gone."
+-> setBreakpoints {"breakpoints":[],"source":{"path":"$TESTDATA/restart.nomi"}}
+<- response setBreakpoints {"breakpoints":[]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"7 [11]\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

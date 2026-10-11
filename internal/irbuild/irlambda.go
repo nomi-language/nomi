@@ -10,7 +10,7 @@ import (
 // Bodies contain fresh bindings and effects followed by an expression, with
 // plain parameters and stable captures.
 // Enclosing functions combine stable captures with no rebinding; lambdas in
-// test bodies and destructuring lambdas are declined.
+// test bodies are declined.
 type irLambdaPlan struct {
 	// ctl is the signalling convention the enclosing Iter call widened this
 	// callback to, or irCtlNone.
@@ -37,9 +37,6 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	params := make([]kind, len(t.Params))
 	for i, p := range t.Params {
-		if p.Destructure != nil && (p.Default != nil && !(i == 0 && bl.reduceSeeds[t])) {
-			return no()
-		}
 		_, tuple := p.Destructure.(*ast.TuplePattern)
 		if po, partial := bl.partialOpen[t]; partial {
 			params[i] = po.kinds[i]
@@ -78,6 +75,7 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 		}
 		supplier, fk, _, ok := bl.lambdaFunction(t, params[:i], p.Default, group, i)
 		if !ok || funcResult(fk) != params[i] {
+			irDeclineNote("a lambda parameter default outside the parameter's kind: " + params[i].nomi())
 			return no()
 		}
 		group.suppliers[i] = supplier
@@ -86,7 +84,24 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 }
 
 func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expression ast.Node, group *irLambdaGroup, supplier int) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	// why is the stage the lambda stopped at, noted when nothing inside it
+	// named a reason, so a decline says more than "a Lambda".
+	var child *irScalarBuilder
+	why := "a lambda body that is not a block ending in an expression"
+	no := func() (ir.Temp, kind, bool, bool) {
+		if irDeclineWhy == "" {
+			if child != nil && child.stalledStmt != nil {
+				why = "a lambda statement that declined: " + constructName(child.stalledStmt)
+			}
+			// Reported at the lambda, as the enclosing `lower` would have
+			// placed it; the reason names the stage.
+			if line, col := nodePos(t); emittableLine(line) {
+				irDeclineLine, irDeclineCol = line, col
+			}
+			irDeclineNote(why)
+		}
+		return ir.NoTemp, kindInvalid, false, false
+	}
 	var lead []ast.Node
 	body := expression
 	if supplier < 0 {
@@ -109,7 +124,9 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
 	sh.frame = newIRFuncFrame(f)
 	sh.entry = f.NewBlock(at, "entry")
-	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	child = &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	child.root = t
+	why = "a lambda parameter pattern"
 	var tries []irPendingTry
 	if supplier < 0 {
 		child.inferReturn = &resultInference{}
@@ -157,6 +174,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		}
 		if !ast.IsDiscardName(p.Name) {
 			child.bound[p.Name], child.boundK[p.Name] = temp, params[i]
+			child.declareVar(p.Name, temp, params[i], p.Line, p.Col)
 		}
 	}
 	// A recursive nested fn refers to itself through its own closure: the
@@ -228,6 +246,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	if !child.leading(lead) {
 		return no()
 	}
+	why = "a lambda's final expression: " + constructName(body)
 	var answer ir.Temp
 	var k kind
 	var ok bool
@@ -239,6 +258,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	if !unwrapped {
 		return no()
 	}
+	child.markStmt(body, ir.StmtStatement)
 	switch t := body.(type) {
 	case *ast.Return:
 		if supplier >= 0 {
@@ -376,6 +396,7 @@ func (bl *irScalarBuilder) capture(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	}
 	bl.captured[t.Name] = irLambdaCapture{temp: dst, k: k}
 	bl.bound[t.Name], bl.boundK[t.Name] = dst, k
+	bl.declareCapture(t.Name, dst, k, bl.capturedDecl(t.Name, src))
 	return dst, k, true, true
 }
 
@@ -625,7 +646,7 @@ func (g *gen) lambdaCheckedResult(lam *ast.Lambda) kind {
 	if g.fa == nil {
 		return kindInvalid
 	}
-	ty := g.fa.ExpectedTypes[lam]
+	ty := g.srcFA().ExpectedTypes[lam]
 	for {
 		tv, isVar := ty.(*analysis.TypeVar)
 		if !isVar || tv.Resolved == nil {
@@ -649,7 +670,7 @@ func (g *gen) lambdaTypedResult(lam *ast.Lambda) kind {
 	if k := g.lambdaCheckedResult(lam); k != kindInvalid || g.fa == nil {
 		return k
 	}
-	ft, isFunc := g.fa.ExprTypes[lam].(*analysis.FuncType)
+	ft, isFunc := g.srcFA().ExprTypes[lam].(*analysis.FuncType)
 	if !isFunc || ft.Return == nil || irUnsolvedType(ft.Return) {
 		return kindInvalid
 	}

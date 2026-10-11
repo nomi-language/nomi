@@ -1,0 +1,31 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":true,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"mode":"run","program":"$TESTDATA/interactive.nomi"}
+<- response launch
+<- request runInTerminal {"args":["nomi","dap-terminal","$SOCKET"],"cwd":"$TESTDATA","kind":"integrated","title":"nomi: interactive.nomi"}
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":9}],"source":{"path":"$TESTDATA/interactive.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":9,"source":{"path":"$TESTDATA/interactive.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":17,"id":1,"line":9,"name":"main","source":{"name":"interactive.nomi","path":"$TESTDATA/interactive.nomi"}}],"totalFrames":1}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1}]}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"seen","type":"Int","value":"0","variablesReference":0},{"declarationLocationReference":2,"name":"line","type":"String","value":"\"alpha\"","variablesReference":0}]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> setBreakpoints {"breakpoints":[],"source":{"path":"$TESTDATA/interactive.nomi"}}
+<- response setBreakpoints {"breakpoints":[]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event exited {"exitCode":0}
+<- event terminated {}
+## terminal: "type lines; end with ctrl-d\ngot alpha\ngot beta\n2 lines\n"
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

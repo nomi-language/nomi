@@ -4,7 +4,8 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
-	"unicode/utf8"
+
+	"github.com/nomi-language/nomi/internal/textpos"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
@@ -32,19 +33,7 @@ func utf16ToByteCol(content string, line, character uint32) int {
 
 // byteColOnLine is utf16ToByteCol within one line's text.
 func byteColOnLine(lineText string, character uint32) int {
-	var u16, byteOff int
-	for _, r := range lineText {
-		if uint32(u16) >= character {
-			break
-		}
-		if r > 0xFFFF {
-			u16 += 2 // astral-plane rune: encoded as a UTF-16 surrogate pair
-		} else {
-			u16++
-		}
-		byteOff += utf8.RuneLen(r)
-	}
-	return byteOff + 1
+	return textpos.ByteCol(lineText, int(character)) + 1
 }
 
 // byteToUTF16Col is the inverse of utf16ToByteCol: it converts a 0-based byte
@@ -64,19 +53,7 @@ func byteToUTF16Col(content string, line, byteCol uint32) uint32 {
 
 // utf16ColOnLine is byteToUTF16Col within one line's text.
 func utf16ColOnLine(lineText string, byteCol uint32) uint32 {
-	var byteOff, u16 uint32
-	for _, r := range lineText {
-		if byteOff >= byteCol {
-			break
-		}
-		byteOff += uint32(utf8.RuneLen(r))
-		if r > 0xFFFF {
-			u16 += 2 // astral-plane rune: UTF-16 surrogate pair
-		} else {
-			u16++
-		}
-	}
-	return u16
+	return uint32(textpos.UTF16Col(lineText, int(byteCol)))
 }
 
 // contentForURI returns the text of the document at uri — from the open-document

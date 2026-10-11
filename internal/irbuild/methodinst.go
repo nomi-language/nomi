@@ -212,6 +212,11 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, here [
 			inherited: true,
 			lowerable: true,
 		}
+		// A `self` inside a parameter or result type (`(self, U)`) is the
+		// implementor, as in inheritedDefaultSig.
+		prevSelf := g.defaultSelf
+		g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv}
+		defer func() { g.defaultSelf = prevSelf }()
 		for i, p := range w.params {
 			// kindInvalid: sentinel — no kind read yet for this parameter.
 			k := kindInvalid

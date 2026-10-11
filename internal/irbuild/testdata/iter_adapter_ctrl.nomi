@@ -90,13 +90,13 @@ fn main() {
     // take_while: `continue` skips WITHOUT ending, which is the one signal that
     // distinguishes it from a False answer. [1, 3] and not [1].
     skipped =
-        Iter.take_while([1, 2, 3, 4, 5], |x|
+        Iter.take_while([1, 2, 3, 4, 5], |x| {
             if x == 2 {
                 continue
             } else {
                 x < 4
             }
-        )
+        })
         |> Iter.to_list()
 
     io.print("take_while continue skips without ending: ${skipped}")
@@ -105,13 +105,13 @@ fn main() {
     // and the `x < 4` arm must reconcile to Bool, which is what pre-settling a
     // predicate callback's result kind buys.
     kept_then_stopped =
-        Iter.take_while([1, 2, 3, 4, 5], |x|
+        Iter.take_while([1, 2, 3, 4, 5], |x| {
             if x == 2 {
                 break True
             } else {
                 x < 4
             }
-        )
+        })
         |> Iter.to_list()
 
     io.print("take_while break True keeps then stops: ${kept_then_stopped}")

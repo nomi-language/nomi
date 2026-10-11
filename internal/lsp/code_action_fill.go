@@ -645,9 +645,7 @@ func lineDiffEdit(before, after string) protocol.TextEdit {
 	}
 	start := len(strings.Join(a[:p], ""))
 	end := len(before) - len(strings.Join(a[len(a)-s:], ""))
-	edit := rangeEdit(before, start, end, strings.Join(b[p:len(b)-s], ""))
-	edit.Range = utf16RangeFromContent(before, edit.Range)
-	return edit
+	return rangeEdit(before, start, end, strings.Join(b[p:len(b)-s], ""))
 }
 
 // diagCovers reports whether the position line:col (1-based, byte column)

@@ -1,0 +1,274 @@
+// Discard names (`_` and `_name`) are highlighted as comments wherever a
+// pattern binds them, at any depth. A name that is read stays a variable,
+// even one that starts with an underscore. The caret lines below each line
+// name the highlight of the token they point at.
+struct Point {
+    x: Int
+    y: Int
+}
+
+struct Slot {
+    x: Maybe<Int>
+    y: Int
+}
+
+struct Pad {
+    _w: Int
+}
+
+type Wrap (Int, Int)
+
+enum Shape {
+    Rect {w: Int, h: Int}
+    Ring Point
+    Tags Map<String, Int>
+    Items List<Int>
+}
+
+enum Error {
+    Invalid String
+}
+
+fn add(a: Int, b: Int): Int {
+    a + b
+}
+
+fn parse(s: String): Result<Int, Error> {
+    Err(Error.Invalid(s))
+}
+
+fn _helper(x: Int): Int {
+    x
+}
+
+once _cache = 1
+
+fn tuple_param((_, n): (Int, Int), _: Int): Int {
+    //          ^ comment
+    //             ^ variable
+    //                             ^ comment
+    n
+}
+
+fn struct_param(Point{x, y: _y}): Int {
+    //                      ^ comment
+    x
+}
+
+fn pad_param(Pad{_w}): Int {
+    //           ^ comment
+    0
+}
+
+fn variant_param(Wrap((_c, d))): Int {
+    //                 ^ comment
+    d
+}
+
+fn as_param((a, _b) as _all: (Int, Int)): Int {
+    //          ^ comment
+    //                 ^ comment
+    a
+}
+
+fn tuple_lambda(xs: List<(Int, String)>): Iter<(Int, String)> {
+    xs |> Iter.filter(|(divisor, _word)| divisor > 0)
+    //                  ^ variable
+    //                           ^ comment
+}
+
+fn wildcard_lambda(xs: List<(Int, String)>): Iter<Int> {
+    xs |> Iter.map(|(_, _w)| 0)
+    //               ^ comment
+    //                  ^ comment
+}
+
+fn struct_lambda(xs: List<Point>): Iter<Int> {
+    xs |> Iter.map(|Point{x, y: _y}| x)
+    //                          ^ comment
+}
+
+fn plain_lambda(xs: List<Int>): Iter<Int> {
+    xs |> Iter.map(|_x| 0)
+    //              ^ comment
+}
+
+fn discard_binding(): Int {
+    _ = 1
+    // <- comment
+    0
+}
+
+fn wildcard_binding(pair: (Int, Int)): Int {
+    (i, _) = pair
+    //  ^ comment
+    i
+}
+
+fn map_binding(m: Map<String, Int>, key: String): Int {
+    {"a" => _a, key => b} = m
+    //      ^ comment
+    //          ^ variable
+    b
+}
+
+fn if_pattern(opt: Maybe<(Int, Int)>): Int {
+    if Some((_ia, ib)) = opt { ib } else { 0 }
+    //       ^ comment
+}
+
+fn tuple_binding(pair: (Int, Int)): Int {
+    (i, _h) = pair
+    //  ^ comment
+    i
+}
+
+fn else_binding(opt: Maybe<(Int, Int)>): Int {
+    Some((o, _n)) = opt else {
+        //   ^ comment
+        return 0
+    }
+
+    o
+}
+
+fn list_binding(items: List<Int>): Int {
+    [first, .._rest] = items else {
+        //    ^ comment
+        return 0
+    }
+
+    first
+}
+
+fn as_binding(pair: (Int, Int)): Int {
+    (t, _s) as _u = pair
+    //  ^ comment
+    //         ^ comment
+    t
+}
+
+fn struct_as_binding(q: Point): Int {
+    {x: _c, y} as p = q
+    //  ^ comment
+    //      ^ variable
+    y + p.x
+}
+
+fn nested_as(opt: Maybe<(Int, Int)>): Int {
+    Some((_a, b) as _p) as _m = opt else {
+        //^ comment
+        //          ^ comment
+        return 0
+    }
+
+    b
+}
+
+fn nested_destructure(pair: ((Int, Int), Int)): Int {
+    ((_a, b), c) = pair
+    //^ comment
+    b + c
+}
+
+fn struct_else(q: Slot): Int {
+    {x: Some(_n), y} = q else {
+        //   ^ comment
+        return 0
+    }
+
+    y
+}
+
+fn nested(r: Result<Maybe<(Int, Int)>, List<Int>>): Int {
+    Ok(Some((_a, b))) = r else {
+        //   ^ comment
+        Err([_x, .._xs]) -> return 0
+        //   ^ comment
+        //         ^ comment
+        Ok(None) -> return 0
+        Err(_) -> return 0
+    }
+
+    b
+}
+
+fn strings(s: String): Int {
+    case s {
+        "pre" + _rest -> 1
+        //      ^ comment
+        _ -> 2
+        // <- comment
+    }
+}
+
+fn maps(m: Map<String, (Int, Int)>, key: String): Int {
+    case m {
+        {"a" => _l, key => (_p, q)} -> q
+        //      ^ comment
+        //          ^ variable
+        //                  ^ comment
+        _other -> 0
+        // <- comment
+    }
+}
+
+fn piped(v: Maybe<Result<(Int, Int), String>>): Int {
+    v |> case {
+        Some(Ok((_ga, gb))) when gb > 0 -> gb
+        //       ^ comment
+        Some(Err(_)) -> 0
+        //       ^ comment
+        _ -> 0
+        // <- comment
+    }
+}
+
+fn shapes(shape: Shape): Int {
+    case shape {
+        .Rect{w: _w, h} -> h
+        //       ^ comment
+        Shape.Ring(Point{x: _px, y}) -> y
+        //                  ^ comment
+        Shape.Tags{"a" => _tag} -> 0
+        //                ^ comment
+        .Items[_first, .._more] -> 0
+        //     ^ comment
+        //               ^ comment
+        _ -> 0
+    }
+}
+
+fn helper_use(): List<Int> {
+    [1, 2] |> Iter.map(_helper) |> Iter.to_list()
+    //                 ^ variable
+}
+
+fn placeholder_use(): (Int) -> Int {
+    add(1, _)
+    //     ^ variable
+}
+
+fn once_use(): Maybe<Int> {
+    Some(_cache)
+    //   ^ variable
+}
+
+tests "setup" {
+    setup (1, True)
+
+    test "binds", (_ta, tb) {
+        //         ^ comment
+        assert tb
+    }
+}
+
+test "assertion" {
+    assert Err(_) = parse("x")
+    //         ^ comment
+}
+
+test "nested assertion" {
+    assert Err(Error.Invalid(_msg)) = parse("x")
+    //                       ^ comment
+}

@@ -191,7 +191,7 @@ func (g *gen) calleeDeclParams(callee ast.Node) []ast.Param {
 		return nil
 	}
 	line, col := calleeRefPos(callee)
-	sym := g.fa.References[analysis.Pos{Line: line, Col: col}]
+	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 	if sym == nil {
 		return nil
 	}

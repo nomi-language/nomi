@@ -389,7 +389,7 @@ func TestListComment_BreaksAListWrittenFlat(t *testing.T) {
 			// A comment after a lambda parameter's comma keeps the
 			// header's own layout (TestFormat_LambdaParameterCommentStaysAfterItsComma).
 			"f = |a, // the first\n    b| a\n",
-			"f = |a, // the first\n    b|\n    a\n",
+			"f = |a, // the first\n    b| {\n    a\n}\n",
 		},
 		{
 			"f = |a, b // the second\n| a\n",

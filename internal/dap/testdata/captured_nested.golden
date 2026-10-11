@@ -1,0 +1,44 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"line":46,"mode":"test","program":"$TESTDATA/teller.nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":19}],"source":{"path":"$TESTDATA/teller.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":19,"source":{"path":"$TESTDATA/teller.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":19,"name":"<lambda>","source":{"name":"teller.nomi","path":"$TESTDATA/teller.nomi"}},{"column":17,"id":2,"line":145,"name":"io.run_captured","presentationHint":"subtle","source":{"name":"io.nomi","path":"$STD/io.nomi","presentationHint":"deemphasize"}},{"column":17,"id":3,"line":145,"name":"io.capture<String>","presentationHint":"subtle","source":{"name":"io.nomi","path":"$STD/io.nomi","presentationHint":"deemphasize"}},{"column":15,"id":4,"line":17,"name":"receipt","source":{"name":"teller.nomi","path":"$TESTDATA/teller.nomi"}},{"column":16,"id":5,"line":25,"name":"teller_with_receipt","source":{"name":"teller.nomi","path":"$TESTDATA/teller.nomi"}},{"column":17,"id":6,"line":319,"name":"io.run_replayed","presentationHint":"subtle","source":{"name":"io.nomi","path":"$STD/io.nomi","presentationHint":"deemphasize"}},{"column":17,"id":7,"line":319,"name":"io.replay<Unit>","presentationHint":"subtle","source":{"name":"io.nomi","path":"$STD/io.nomi","presentationHint":"deemphasize"}},{"column":21,"id":8,"line":47,"name":"the teller prints a receipt","source":{"name":"teller.nomi","path":"$TESTDATA/teller.nomi"}}],"totalFrames":8}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Captured output (io.capture at teller.nomi:17)","namedVariables":2,"variablesReference":2},{"expensive":false,"name":"Captured output (io.replay at teller.nomi:47)","namedVariables":4,"variablesReference":3}]}
+-> variables {"variablesReference":2}
+<- response variables {"variables":[{"declarationLocationReference":1,"indexedVariables":1,"name":"output","type":"String","value":"\"receipt for one deposit\n\"","variablesReference":4},{"declarationLocationReference":1,"indexedVariables":1,"name":"transcript","type":"String","value":"\"    receipt for one deposit\n\"","variablesReference":5}]}
+-> variables {"variablesReference":4}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"receipt for one deposit\"","variablesReference":0}]}
+-> variables {"variablesReference":5}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"    receipt for one deposit\"","variablesReference":0}]}
+-> variables {"variablesReference":3}
+<- response variables {"variables":[{"declarationLocationReference":2,"indexedVariables":1,"name":"output","type":"String","value":"\"Receipt next\n\"","variablesReference":6},{"declarationLocationReference":2,"indexedVariables":1,"name":"transcript","type":"String","value":"\"    Receipt next\n\"","variablesReference":7},{"declarationLocationReference":2,"name":"input read","type":"List<String>","value":"[]","variablesReference":0},{"declarationLocationReference":2,"name":"input to come","type":"List<String>","value":"[]","variablesReference":0}]}
+-> variables {"variablesReference":6}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"Receipt next\"","variablesReference":0}]}
+-> variables {"variablesReference":7}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"    Receipt next\"","variablesReference":0}]}
+-> scopes {"frameId":4}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":8},{"expensive":false,"name":"Captured output (io.replay at teller.nomi:47)","namedVariables":4,"variablesReference":9}]}
+-> variables {"variablesReference":9}
+<- response variables {"variables":[{"declarationLocationReference":2,"indexedVariables":1,"name":"output","type":"String","value":"\"Receipt next\n\"","variablesReference":10},{"declarationLocationReference":2,"indexedVariables":1,"name":"transcript","type":"String","value":"\"    Receipt next\n\"","variablesReference":11},{"declarationLocationReference":2,"name":"input read","type":"List<String>","value":"[]","variablesReference":0},{"declarationLocationReference":2,"name":"input to come","type":"List<String>","value":"[]","variablesReference":0}]}
+-> variables {"variablesReference":10}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"Receipt next\"","variablesReference":0}]}
+-> variables {"variablesReference":11}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"    Receipt next\"","variablesReference":0}]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"ok testdata/teller.nomi :: the teller prints a receipt\n"}
+<- event output {"category":"stdout","output":"test result: ok. 1 passed, 0 failed\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

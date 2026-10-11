@@ -1,0 +1,12 @@
+fn half(n: Int): Int {
+    n / 2
+}
+
+test "half of four" {
+    assert half(4) == 2
+}
+
+test "half of ten" {
+    got = half(10)
+    assert got == 6
+}

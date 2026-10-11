@@ -1,0 +1,13 @@
+import std/io
+
+fn main() {
+    n = Iter.loop(|i = 0| {
+        if i < 0 {
+            break i
+        } else {
+            i + 1
+        }
+    })
+
+    io.print("${n}")
+}

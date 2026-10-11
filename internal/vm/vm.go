@@ -99,6 +99,9 @@ type Machine struct {
 	// errOut is where the runtime's own diagnostics go, or nil for os.Stderr.
 	// See WithErrorOutput.
 	errOut io.Writer
+	// liveTests receives each test case's output as it is written. See
+	// WithLiveTestOutput.
+	liveTests io.Writer
 	// input is what `io.read_line` reads, or nil for no input. See WithInput.
 	input *rt.Input
 	// hosts is the Go function each marked crossing lands on, keyed on the
@@ -137,6 +140,13 @@ type Machine struct {
 	codes *codeTable
 	// fuel is an Evaluate's remaining Limits, or nil. See evaluate.go.
 	fuel *fuel
+	// dbg is the debugger this machine reports to, or nil. A machine with
+	// one compiles its functions with statement hooks (debug.go).
+	dbg *Debugger
+	// dvia names, on a debug machine's view, the Go-driven operation whose
+	// callbacks the view starts (`Iter.map`, a host call), which the logical
+	// call stack shows between the callback and its caller.
+	dvia string
 }
 
 // hostFn is one crossing into Go: it reads the operands and answers a value.
@@ -166,6 +176,15 @@ func (m *Machine) WithHostEnv(env map[string]string) *Machine {
 // passes it here.
 func (m *Machine) WithErrorOutput(w io.Writer) *Machine {
 	m.errOut = w
+	return m
+}
+
+// WithLiveTestOutput makes RunCases write each case's output to w as the
+// case writes it, beside the output it answers for the case: a debugger
+// shows what a stopped case has printed so far. Output an `io.capture` or
+// `io.replay` inside the case takes stays in that capture.
+func (m *Machine) WithLiveTestOutput(w io.Writer) *Machine {
+	m.liveTests = w
 	return m
 }
 
@@ -350,6 +369,9 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		// package for the two facts that are this consumer's own: which
 		// writer the colour decision is made about, and the Debug rendering.
 		dbgKey: dbgHost,
+	}
+	if debugEveryMachine.Load() {
+		m.WithDebugger(NewDebugger())
 	}
 	return m
 }
@@ -745,6 +767,11 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 	case *ir.RunDefer:
 		return m.runDeferInstr(fr, n)
 	case *ir.Iter:
+		if m.dbg != nil {
+			view := *m.at(fr)
+			view.dvia = "Iter." + n.Op().String()
+			return view.iterInstr(fr, n)
+		}
 		return m.at(fr).iterInstr(fr, n)
 	}
 	return fmt.Errorf("vm: %s: this machine runs no %s", fr.fn.Name(), in)
@@ -806,6 +833,12 @@ func (m *Machine) invoke(fr *frame, n *ir.Call, args []any, fn any) (any, error)
 			return nil, fmt.Errorf("vm: function takes %d operands, got %d", f.arity, len(args))
 		}
 		if f.host != nil {
+			if m.dbg != nil {
+				// A host-backed function value is the machine's own (an
+				// each_while's yield), so a replay runs it again.
+				th, prev, prevName := m.dbg.crossIn(fr, "<host function>")
+				defer m.dbg.crossOut(th, prev, prevName)
+			}
 			return f.host(fr.runtime, args)
 		}
 		return m.activateSlot(f.fnSlot(m), args, f.captures, fr.runtime, false, fr.depth, fr.stk)
@@ -827,27 +860,40 @@ func (m *Machine) invoke(fr *frame, n *ir.Call, args []any, fn any) (any, error)
 	// selects, and it is one field rather than a mechanism.
 	if n.Crosses() {
 		name := n.Callee().Name()
-		if host := m.hosts[name]; host != nil {
-			bound := *m
-			bound.hostFrame = fr.runtime
-			bound.depth = fr.depth
-			return host(&bound, n.Pos(), args)
+		if m.dbg != nil {
+			// Recorded, or answered from the recording in a replay
+			// (debugtravel.go).
+			return m.dbg.cross(fr, name, func() (any, error) { return m.crossInto(fr, n, name, args) })
 		}
-		fn, err := m.adapter(name)
-		if err != nil {
-			return nil, err
-		}
-		if fn != nil {
-			return callAdapter(fn, fr.runtime, args)
-		}
-		return nil, fmt.Errorf("vm: %s: %s crosses into Go and this machine binds no "+
-			"implementation for it", fr.fn.Name(), name)
+		return m.crossInto(fr, n, name, args)
 	}
 	callee, err := m.resolveFunc(n.Callee(), fr.fn.Name())
 	if err != nil {
 		return nil, err
 	}
 	return m.callFrom(fr, callee, args)
+}
+
+// crossInto performs a crossing into Go: an intrinsic, or a bound adapter.
+func (m *Machine) crossInto(fr *frame, n *ir.Call, name string, args []any) (any, error) {
+	if host := m.hosts[name]; host != nil {
+		bound := *m
+		bound.hostFrame = fr.runtime
+		bound.depth = fr.depth
+		if m.dbg != nil {
+			bound.dvia = name
+		}
+		return host(&bound, n.Pos(), args)
+	}
+	fn, err := m.adapter(name)
+	if err != nil {
+		return nil, err
+	}
+	if fn != nil {
+		return callAdapter(fn, fr.runtime, args)
+	}
+	return nil, fmt.Errorf("vm: %s: %s crosses into Go and this machine binds no "+
+		"implementation for it", fr.fn.Name(), name)
 }
 
 // match answers one refutable question.

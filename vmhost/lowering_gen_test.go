@@ -20,8 +20,9 @@ import (
 // generic struct, a generic enum and a distinct type, and functions held in
 // tuples and boxes and called through the field chain that reads them. A
 // program's types sit at file level or inside the body that uses them, and
-// statement blocks, some nested, declare types of their own. The body is a
-// `fn main` or a test.
+// statement blocks, some nested, declare types of their own, among them
+// distinct types over Decimal, Bytes, Regex, Unit and containers of them
+// (leafDistinctBlock). The body is a `fn main` or a test.
 //
 // The generator stays clear of the shapes knownLoweringGaps lists, each at
 // the line that avoids it, so every decline it produces is a new cause. When
@@ -95,7 +96,12 @@ type gen struct {
 	div *rand.Rand
 	// rec draws the statements recursiveBlock writes, so the rest of each
 	// program is the one it was without them.
-	rec     *rand.Rand
+	rec *rand.Rand
+	// wrap draws the blocks leafDistinctBlock writes, and wn names their
+	// types apart, so the rest of each program is the one it was without
+	// them.
+	wrap    *rand.Rand
+	wn      int
 	dn      int
 	n       int
 	blocks  int      // statement blocks' declared types, named apart
@@ -1033,6 +1039,74 @@ func (g *gen) recursiveCall(sc []gvar) string {
 	return "io.inspect(" + call + ")\n"
 }
 
+// genLeafInners are the inner types leafDistinctBlock wraps, beside the
+// types the rest of the generator draws: rt leaves (Decimal, Bytes, a
+// Codepoint, Regex, Duration), Unit, and containers and distincts over
+// them. Each is a type and a function of a small number giving a value of
+// it; decl, when set, is a declaration the type needs, written in the same
+// block.
+var genLeafInners = []struct {
+	typ, decl string
+	val       func(n int) string
+}{
+	{typ: "Decimal", val: func(n int) string { return fmt.Sprintf("%d.%dd", n, n+1) }},
+	{typ: "Bytes", val: func(n int) string { return fmt.Sprintf("String.to_bytes(\"b%d\")", n) }},
+	{typ: "Maybe<Byte>", val: func(n int) string { return fmt.Sprintf("Bytes.at(String.to_bytes(\"b%d\"), 0)", n) }},
+	{typ: "Codepoint", val: func(n int) string { return fmt.Sprintf("'%c'", 'a'+rune(n%26)) }},
+	{typ: "Unit", val: func(int) string { return "Unit" }},
+	{typ: "Regex", val: func(n int) string { return fmt.Sprintf("Regex`a{%d}`", n+1) }},
+	{typ: "Duration", val: func(n int) string { return fmt.Sprintf("Duration.seconds(%d)", n) }},
+	{typ: "List<Decimal>", val: func(n int) string { return fmt.Sprintf("[%d.5d, 0.25d]", n) }},
+	{typ: "Maybe<Decimal>", val: func(n int) string { return fmt.Sprintf("Some(%d.5d)", n) }},
+	{typ: "(Decimal, Bytes)", val: func(n int) string { return fmt.Sprintf("(%d.5d, String.to_bytes(\"t\"))", n) }},
+	{typ: "Map<String, Decimal>", val: func(n int) string { return fmt.Sprintf("{\"k\" => %d.5d}", n) }},
+	{typ: "Set<Decimal>", val: func(n int) string { return fmt.Sprintf("#{%d.5d}", n) }},
+	{typ: "Vector<Bytes>", val: func(n int) string { return fmt.Sprintf("#[String.to_bytes(\"v%d\")]", n) }},
+	{typ: "InnerAmount", decl: "type InnerAmount Decimal", val: func(n int) string { return fmt.Sprintf("InnerAmount(%d.5d)", n) }},
+	{typ: "(Decimal) -> Decimal", val: func(n int) string { return fmt.Sprintf("|dd: Decimal| dd + %d.5d", n) }},
+}
+
+// leafDistinctBlock is a statement block that declares a distinct type over
+// one of genLeafInners and builds, destructures, matches, shows and maps
+// with it: the call form prefix or piped, a destructuring binding, a `case`
+// arm, a destructuring lambda parameter, and the type name as a function
+// value. A distinct over a function is called instead of shown. It draws
+// from g.wrap only and names from g.wn, so the program around it is the one
+// it would be without it.
+func (g *gen) leafDistinctBlock() string {
+	r := g.wrap
+	g.wn++
+	in := genLeafInners[r.Intn(len(genLeafInners))]
+	name := fmt.Sprintf("Wrap%d", g.wn)
+	v := func(i int) string { return fmt.Sprintf("w%d_%d", g.wn, i) }
+	a, b := in.val(r.Intn(5)), in.val(r.Intn(5))
+	var out strings.Builder
+	out.WriteString("{\n")
+	if in.decl != "" {
+		out.WriteString(in.decl + "\n")
+	}
+	out.WriteString("type " + name + " " + in.typ + "\n")
+	if r.Intn(2) == 0 {
+		fmt.Fprintf(&out, "%s = %s(%s)\n", v(0), name, a)
+	} else {
+		fmt.Fprintf(&out, "%s = %s |> %s()\n", v(0), pipeHead(a), name)
+	}
+	fmt.Fprintf(&out, "%s(%s) = %s\n", name, v(1), v(0))
+	show := func(x string) string { return x }
+	if strings.HasPrefix(in.typ, "(Decimal) ->") {
+		show = func(x string) string { return x + "(1.0d)" }
+	}
+	fmt.Fprintf(&out, "io.inspect(%s)\n", show(v(1)))
+	if !strings.Contains(in.typ, "->") {
+		fmt.Fprintf(&out, "io.inspect(%s)\n", v(0))
+	}
+	fmt.Fprintf(&out, "io.inspect(case %s {\n%s(%s) -> %s\n})\n", v(0), name, v(2), show(v(2)))
+	fmt.Fprintf(&out, "%s = [%s, %s] |> Iter.map(%s) |> Iter.to_list()\n", v(3), a, b, name)
+	fmt.Fprintf(&out, "io.inspect(Iter.map(%s, |%s(%s)| %s) |> Iter.to_list())\n", v(3), name, v(4), show(v(4)))
+	out.WriteString("}\n")
+	return out.String()
+}
+
 // divergingBlock is a statement block holding an `Iter.loop`, or an
 // Iter.map, filter, each, reduce, find, any?, all?, drop_while or flat_map
 // callback or a Map.map_values one, whose tail `case` or `if`
@@ -1157,7 +1231,8 @@ func generatedProgram(i int) loweringSeed { return generatedProgramSized(i, 3, 3
 // expression up to depth deep. Small sizes make readable reproducers.
 func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	g := &gen{r: rand.New(rand.NewSource(int64(i))), aux: rand.New(rand.NewSource(int64(i) + 1<<32)),
-		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32))}
+		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32)),
+		wrap: rand.New(rand.NewSource(int64(i) + 4<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -1183,6 +1258,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.rec.Intn(2) == 0 {
 			body.WriteString(g.recursiveCall(sc))
+		}
+		if g.wrap.Intn(3) == 0 {
+			body.WriteString(g.leafDistinctBlock())
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")
@@ -1233,6 +1311,13 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		out = "import std/io\nimport std/io.{inspect as peek}\n\n" + out
 	default:
 		out = "import std/io.{inspect as peek}\n\n" + out
+	}
+	// leafDistinctBlock's std types outside the prelude.
+	if strings.Contains(out, "Regex`") {
+		out = "import std/regex.Regex\n" + out
+	}
+	if strings.Contains(out, "Duration.seconds(") {
+		out = "import std/duration.Duration\n" + out
 	}
 	if formatted, err := format.Format(out); err == nil {
 		out = formatted

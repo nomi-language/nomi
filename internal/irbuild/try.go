@@ -123,7 +123,7 @@ func (g *gen) recordedTryBoundary(t *ast.TryOp) (string, bool) {
 	if g.fa == nil {
 		return "", false
 	}
-	sym, found := g.fa.References[analysis.Pos{Line: t.Line, Col: t.Col}]
+	sym, found := g.srcFA().References[analysis.Pos{Line: t.Line, Col: t.Col}]
 	if !found || sym == nil || sym.Kind != analysis.SymbolTryOp || sym.TryOp == nil {
 		return "", false
 	}

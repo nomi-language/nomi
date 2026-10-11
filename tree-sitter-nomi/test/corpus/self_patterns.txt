@@ -1,0 +1,93 @@
+================================================================================
+self patterns and construction in an interface default
+================================================================================
+
+interface Scaled {
+  fn scale(self(n) as t, by: Int): self where self: Distinct<Int> {
+    self(m) = t
+    case t {
+      self(0) -> self(m)
+      _ -> n |> self()
+    }
+  }
+
+  fn all(_t: self, ns: List<Int>): Int where self: Distinct<Int> {
+    ns |> Iter.map(self) |> Iter.count()
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (interface_definition
+    name: (type_identifier)
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (as_pattern
+            pattern: (enum_pattern
+              (self_type)
+              (identifier))
+            name: (identifier)))
+        (parameter
+          name: (identifier)
+          (type_identifier)))
+      (self_type)
+      (where_clause
+        (where_constraint
+          name: (self_type)
+          (generic_type
+            (type_identifier)
+            (type_identifier))))
+      (body
+        (pattern_binding
+          pattern: (call_expression
+            function: (self_expression)
+            (identifier))
+          value: (identifier))
+        (case_expression
+          (identifier)
+          (case_branch
+            (enum_pattern
+              (self_type)
+              (integer))
+            (call_expression
+              function: (self_expression)
+              (identifier)))
+          (case_branch
+            (pipe_expression
+              (identifier)
+              (call_expression
+                function: (self_expression)))))))
+    (interface_method
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (self_type))
+        (parameter
+          name: (identifier)
+          (generic_type
+            (type_identifier)
+            (type_identifier))))
+      (type_identifier)
+      (where_clause
+        (where_constraint
+          name: (self_type)
+          (generic_type
+            (type_identifier)
+            (type_identifier))))
+      (body
+        (pipe_expression
+          (pipe_expression
+            (identifier)
+            (call_expression
+              function: (field_access
+                (type_identifier)
+                (identifier))
+              (self_expression)))
+          (call_expression
+            function: (field_access
+              (type_identifier)
+              (identifier))))))))

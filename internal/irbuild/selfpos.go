@@ -90,7 +90,7 @@ type selfShape struct {
 func selfShapeOf(params []ast.Param, ret ast.TypeExpr) selfShape {
 	sh := selfShape{self: make([]bool, len(params))}
 	for i := range params {
-		if isSelfType(params[i].TypeAnnotation) {
+		if isSelfType(paramTypeExpr(params[i])) {
 			sh.self[i] = true
 			sh.at = append(sh.at, i)
 		}
@@ -103,6 +103,21 @@ func selfShapeOf(params []ast.Param, ret ast.TypeExpr) selfShape {
 		sh.result = selfResultNested
 	}
 	return sh
+}
+
+// paramTypeExpr is the type a parameter declares: its annotation, or for the
+// pattern `self(p)` written without one, the pattern's own `self` head, which
+// types it as `Dur(x)`'s head types a distinct parameter.
+func paramTypeExpr(p ast.Param) ast.TypeExpr {
+	if p.TypeAnnotation != nil {
+		return p.TypeAnnotation
+	}
+	if ep, ok := ast.WithoutAs(p.Destructure).(*ast.EnumPattern); ok {
+		if st, isSelf := ep.Variant.(*ast.SelfType); isSelf {
+			return st
+		}
+	}
+	return nil
 }
 
 // selfTyped reports whether parameter i is a self position. Out-of-range is
@@ -132,6 +147,12 @@ func (s selfShape) resultBareSelf() bool { return s.result == selfResultBare }
 
 // resultNestedSelf reports a return type that CONTAINS self without being it.
 func (s selfShape) resultNestedSelf() bool { return s.result == selfResultNested }
+
+// mentionsSelfAt reports whether parameter i's declared type holds `self`
+// without being it (`List<self>`).
+func (m *ifaceMethod) mentionsSelfAt(i int) bool {
+	return m.decl != nil && i < len(m.decl.Params) && !m.shape.selfTyped(i) && typeExprHasSelf(m.decl.Params[i].TypeAnnotation)
+}
 
 // typeExprHasSelf reports whether te mentions `self` anywhere inside it.
 //

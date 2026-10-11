@@ -515,7 +515,7 @@ func (g *gen) preludeAt(line, col int) (*preludeAnchor, *analysis.Symbol, bool) 
 	if g.fa == nil || len(g.preludeByDecl) == 0 {
 		return nil, nil, false
 	}
-	sym, found := g.fa.References[analysis.Pos{Line: line, Col: col}]
+	sym, found := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 	if !found || sym == nil {
 		return nil, nil, false
 	}
@@ -766,7 +766,7 @@ func (g *gen) resolvedPreludeVariant(variant string, line, col int) (*preludeAnc
 	if !isPrelude || sym.Name != variant {
 		return nil, nil, preludeVariantSpec{}, false
 	}
-	_, canonical, isVariant := variantRefAt(g.fa, variant, line, col)
+	_, canonical, isVariant := variantRefAt(g.srcFA(), variant, line, col)
 	if !isVariant {
 		return nil, nil, preludeVariantSpec{}, false
 	}

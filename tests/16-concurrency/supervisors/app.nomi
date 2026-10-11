@@ -67,12 +67,12 @@ pub fn slow_work(): Unit {
 pub fn drain_alerts(): List<String> {
     Sender.close(Config.alerts.sender)
 
-    Iter.loop(|seen = []|
+    Iter.loop(|seen = []| {
         case Receiver.receive(Config.alerts.receiver) {
             Some(message) -> [message, ..seen]
             None -> break seen
         }
-    )
+    })
 }
 
 pub fn boot(): Config {

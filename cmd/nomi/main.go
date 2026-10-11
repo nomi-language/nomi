@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/dap"
 	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/termcolor"
@@ -41,6 +42,8 @@ const usage = `usage:
   nomi build <file> [-o <out>] [--target <goos>/<goarch>]
                                         build a single executable: a VM runner with the
                                         program's IR appended (runs at nomi run speed)
+  nomi dap                              serve the Debug Adapter Protocol on stdin and
+                                        stdout, for an editor's debugger
   nomi version                          print the version
 `
 
@@ -88,6 +91,16 @@ func main() {
 			}
 			os.Exit(1)
 		}
+	} else if len(os.Args) > 1 && os.Args[1] == "dap" {
+		os.Exit(runDAP(os.Args[2:]))
+	} else if len(os.Args) > 1 && os.Args[1] == dap.TerminalCommand {
+		// Hidden: what a debugger's terminal runs to carry a program's
+		// input and output (internal/dap's RunTerminal).
+		if len(os.Args) != 3 {
+			fmt.Fprintf(os.Stderr, "usage: nomi %s <socket>\n", dap.TerminalCommand)
+			os.Exit(1)
+		}
+		os.Exit(dap.RunTerminal(os.Args[2], os.Stdin, os.Stdout))
 	} else if len(os.Args) > 1 && os.Args[1] == "fmt" {
 		if err := runFmt(os.Args[2:]); err != nil {
 			if !errors.Is(err, errFormatFailed) {

@@ -424,6 +424,9 @@ type Block struct {
 	fault    BlockID
 	faultPos Pos
 	hasFault bool
+	// stmts are the instructions a debugger's step stops before. See
+	// debuginfo.go.
+	stmts []StmtMark
 }
 
 // ID is this block's identity within its Func.
@@ -590,6 +593,11 @@ type Func struct {
 	// what the producer said the value written there is. See valtype.go and
 	// RuleTempTyped.
 	types []*ValType
+	// vars is the variable table a debugger reads. See debuginfo.go.
+	vars []Var
+	// pipes are the pipelines a debugger shows stage by stage. See
+	// debuginfo.go.
+	pipes []Pipe
 }
 
 // NewFunc starts a function at the position of its declaration.

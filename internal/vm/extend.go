@@ -35,6 +35,9 @@ func (m *Machine) Extend(entry *ir.Module, rest []*ir.Module) {
 	}
 	m.mod = entry
 	m.boot = entry.Boot()
+	if m.dbg != nil {
+		m.dbg.AddModules(append([]*ir.Module{entry}, rest...)...)
+	}
 	m.tasks = &taskLimit{}
 	if !m.modules[entry] {
 		m.modules[entry] = true

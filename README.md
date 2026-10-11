@@ -121,6 +121,19 @@ strength. Neovim and VS Code show the attached test under the cursor normally
 (their READMEs have the settings). In Zed, if you turn semantic tokens on, the
 extension's `semantic_token_rules.json` keeps their identifiers dimmed too.
 
+VS Code, Neovim, Zed and Helix debug Nomi through `nomi dap`, a Debug Adapter
+Protocol server: breakpoints with conditions, hit counts and logpoints,
+stepping, the call stack, locals, each pipeline stage's value, watches, hovers
+and a debug console that evaluate Nomi in the paused frame, restart frame,
+function breakpoints, step into target, go to a variable's binding, and step
+back and reverse continue (by replaying the program with the input, clock and
+randomness it recorded), for a program's `main` or a single test. VS Code and Neovim put a Debug lens
+beside each Run lens; VS Code needs nothing more, and Neovim needs
+[nvim-dap](https://github.com/mfussenegger/nvim-dap). Zed's extension
+registers the adapter and gives each `nomi run` and `nomi test` task a debug
+entry. Helix's `languages.toml` block adds run and test templates to
+`:debug-start`. The VS Code and Neovim READMEs have the launch settings.
+
 Comments wrap at 100 columns, `nomi fmt`'s line width. Neovim sets
 `textwidth=100`, so a comment breaks as you type and `gw` reflows it (`gq`
 goes to the formatter in most LSP setups, and `nomi fmt` leaves comments

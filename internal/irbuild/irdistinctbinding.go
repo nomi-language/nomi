@@ -29,5 +29,6 @@ func (bl *irScalarBuilder) distinctBinding(t *ast.DistinctDestructure) bool {
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: k.def.inner})
 	bl.bound[name], bl.boundK[name] = bind.Dst(), k.def.inner
+	bl.declareBind(bind, k.def.inner)
 	return true
 }

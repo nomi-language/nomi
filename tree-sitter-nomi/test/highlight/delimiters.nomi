@@ -1,0 +1,526 @@
+// The delimiters of data shape are highlighted as type, the colour of a struct
+// name: a literal that builds a value (struct, anonymous struct, map, set and
+// update braces, list and vector brackets, tuple parentheses), a constructor
+// call's parentheses (`Some(1)`, `Shape.Circle(2)`, `Balance(5)`), and every
+// pattern's delimiters, including a pattern spelled as the expression it
+// looks like. Program structure keeps punctuation.bracket: blocks,
+// declaration bodies, function calls, grouping, parameter lists and types. A
+// string interpolation keeps punctuation.special. The caret lines below each
+// line name the highlight of the token they point at.
+import std/json
+
+struct Point {
+    //       ^ punctuation.bracket
+    x: Int
+    y: Int
+}
+
+struct Geo {
+    city: String
+    zip: String
+}
+
+struct User {
+    name: String
+    geo: Geo
+    tags: List<Int>
+}
+
+enum Shape {
+    //     ^ punctuation.bracket
+    Rect {w: Int, h: Int}
+    //   ^ punctuation.bracket
+    //                  ^ punctuation.bracket
+    Dot
+    Circle Int
+}
+
+type Kvs Map<String, Int>
+
+type Items List<Int>
+
+interface Named {
+    //          ^ punctuation.bracket
+    fn name(value: self): String
+    //     ^ punctuation.bracket
+    //                 ^ punctuation.bracket
+}
+
+impl Named for Point {
+    //               ^ punctuation.bracket
+    fn name(_value: Point): String {
+        // ^ punctuation.bracket
+        //                         ^ punctuation.bracket
+        "point"
+    }
+}
+
+fn struct_literal(): Point {
+    //           ^ punctuation.bracket
+    //                     ^ punctuation.bracket
+    Point{x: 1, y: 2}
+    //   ^ type
+    //              ^ type
+}
+
+fn interpolation(): String {
+    n = 1
+    "n is ${n}"
+    //    ^ punctuation.special
+    //       ^ punctuation.special
+}
+
+fn variant_literal(): Shape {
+    Shape.Rect{w: 2, h: 3}
+    //        ^ type
+    //                   ^ type
+}
+
+fn dot_variant_literal(): Shape {
+    .Rect{w: 2, h: 3}
+    //   ^ type
+    //              ^ type
+}
+
+fn record(): {a: Int, b: Int} {
+    //       ^ punctuation.bracket
+    //                      ^ punctuation.bracket
+    //                        ^ punctuation.bracket
+    {a: 1, b: 2}
+    // <- type
+    //         ^ type
+}
+
+fn take(r: {a: Int}): Int {
+    r.a
+}
+
+fn record_argument(): Int {
+    take({a: 1})
+    //  ^ punctuation.bracket
+    //   ^ type
+    //        ^ type
+    //         ^ punctuation.bracket
+}
+
+fn record_binding(): Int {
+    r = {a: 1, b: 2}
+    //  ^ type
+    //             ^ type
+    r.a + r.b
+}
+
+fn map_literal(): Map<String, Int> {
+    {"k" => 1, "j" => 2}
+    // <- type
+    //                 ^ type
+}
+
+fn map_construction(): Kvs {
+    Kvs{"k" => 1}
+    // ^ type
+    //          ^ type
+}
+
+fn struct_update(user: User): User {
+    {..user, name: "x"}
+    // <- type
+    //                ^ type
+}
+
+fn bare_update(user: User): User {
+    {..user, geo: {.., city: "NYC"}, tags: [0, ..]}
+    // <- type
+    //            ^ type
+    //                            ^ type
+    //                                     ^ type
+    //                                           ^ type
+    //                                            ^ type
+}
+
+fn map_update(m: Map<String, Int>): Map<String, Int> {
+    {..m, "k" => 3}
+    // <- type
+    //            ^ type
+}
+
+fn list_literal(xs: List<Int>): List<Int> {
+    [1, ..xs]
+    // <- type
+    //      ^ type
+}
+
+fn typed_list(): Items {
+    Items[1, 2]
+    //   ^ type
+    //        ^ type
+}
+
+fn vector_literal(): Vector<Int> {
+    #[1, 2]
+    // <- type
+    //    ^ type
+}
+
+fn set_literal(s: Set<Int>): Set<Int> {
+    #{..s, 3}
+    // <- type
+    //      ^ type
+}
+
+fn tuple_literal(): (Int, String) {
+    //              ^ punctuation.bracket
+    //                          ^ punctuation.bracket
+    (1, "x")
+    // <- type
+    //     ^ type
+}
+
+fn nested_tuples(): ((Int, Int), List<(Int, Int)>) {
+    ((1, 2), [(3, 4)])
+    // <- type
+    //       ^ type
+    //        ^ type
+    //             ^ type
+    //               ^ type
+}
+
+fn grouping(p: Point): Int {
+    (p.x + p.y) * (Named.name(p) |> String.length())
+    // <- punctuation.bracket
+    //        ^ punctuation.bracket
+    //            ^ punctuation.bracket
+    //                       ^ punctuation.bracket
+    //                                             ^ punctuation.bracket
+}
+
+fn if_block(flag: Bool): Int {
+    if flag { 1 } else { 2 }
+    //      ^ punctuation.bracket
+    //          ^ punctuation.bracket
+    //                 ^ punctuation.bracket
+    //                     ^ punctuation.bracket
+}
+
+fn blocks(xs: List<Int>, n: Int): Int {
+    total =
+        xs
+        |> Iter.map(|x| {
+            //     ^ punctuation.bracket
+            //          ^ punctuation.bracket
+            x + n
+        })
+        // <- punctuation.bracket
+        |> Iter.reduce(|a = 0, b| a + b)
+
+    case total {
+        //     ^ punctuation.bracket
+        100 -> {
+            // ^ punctuation.bracket
+            n
+        }
+
+        _ ->
+            total
+    }
+}
+
+fn tuple_param((a, b): (Int, Int), Point{x, y}): Int {
+    //         ^ type
+    //              ^ type
+    //                 ^ punctuation.bracket
+    //                                  ^ type
+    //                                       ^ type
+    a + b + x + y
+}
+
+fn tuple_lambda(pairs: List<(Int, Int)>): Int {
+    pairs |> Iter.map(|(a, _b)| a) |> Iter.reduce(|s = 0, n| s + n)
+    //                 ^ type
+    //                       ^ type
+}
+
+fn struct_lambda(points: List<Point>): Int {
+    points |> Iter.map(|Point{x, y: _y}| x) |> Iter.reduce(|s = 0, n| s + n)
+    //                       ^ type
+    //                                ^ type
+}
+
+fn bindings(pair: (Int, Int), user: User, m: Map<String, Int>): Int {
+    (a, b) = pair
+    // <- type
+    //   ^ type
+    {name, geo} = user
+    // <- type
+    //        ^ type
+    {"k" => v} = m else { return 0 }
+    //       ^ type
+    //                  ^ punctuation.bracket
+    a + b + v + String.length(name) + String.length(geo.city)
+}
+
+fn nested_bindings(nested: ((Int, Int), Int), p: Point): Int {
+    ((a, b), c) = nested
+    // <- type
+    //    ^ type
+    //        ^ type
+    {x: _c, y} as q = p
+    // <- type
+    //       ^ type
+    a + b + c + y + q.x
+}
+
+fn else_bindings(found: Maybe<(Int, List<Int>)>, r: Result<{a: Int}, String>): Int {
+    Some((n, [first, .._rest])) = found else {
+        //   ^ type
+        //                  ^ type
+        //                   ^ type
+        return 0
+    }
+
+    Ok({a: 1} as whole) = r else {
+        //  ^ type
+        _ -> return 1
+    }
+
+    n + first + whole.a
+}
+
+fn case_arms(r: Result<(Int, Point), String>, v: List<Int>, m: Map<String, Int>): Int {
+    from_r = case r {
+        Ok((0, Point{x, y})) -> x + y
+        // ^ type
+        //          ^ type
+        //               ^ type
+        //                ^ type
+        Ok((n, _)) -> n
+        // ^ type
+        //      ^ type
+        Err(_) -> 0
+    }
+
+    from_v = case v {
+        [a, b] -> a + b
+        // <- type
+        //   ^ type
+        _ -> 0
+    }
+
+    from_m = case m {
+        {"k" => k} -> k
+        // <- type
+        //       ^ type
+        _ -> 0
+    }
+
+    from_r + from_v + from_m
+}
+
+fn guard_arms(found: Maybe<(Int, Int)>): Int {
+    found |> case {
+        Some((a, b)) when a > b -> a
+        //  ^ type
+        //         ^ type
+        //   ^ type
+        //        ^ type
+        Some((_, b)) -> b
+        //  ^ type
+        //         ^ type
+        //   ^ type
+        //        ^ type
+        None -> 0
+    }
+}
+
+test "pattern assertion" {
+    r: Result<(Int, List<Int>), String> = Ok((1, [2]))
+    //        ^ punctuation.bracket
+    //                                       ^ type
+    //                                           ^ type
+    //                                             ^ type
+    //                                              ^ type
+    assert Ok((1, [n])) = r
+    //        ^ type
+    //            ^ type
+    //              ^ type
+    //               ^ type
+    assert n == 2
+    found: Maybe<(Int, List<Int>)> = Some((1, [2, 3]))
+    //                                   ^ type
+    //                                    ^ type
+    //                                        ^ type
+    //                                              ^ type
+    //                                               ^ type
+    assert Some((m, [first, .._rest])) = found
+    //          ^ type
+    //              ^ type
+    //                             ^ type
+    //                              ^ type
+    assert m + first == 3
+    rec: Result<{a: Int, b: Int}, String> = Ok({a: 1, b: 2})
+    assert Ok({a: 1, b}) = rec
+    //       ^ type
+    //        ^ type
+    //                ^ type
+    assert b == 2
+    e: Result<Int, String> = Err("no")
+    //                          ^ type
+    //                               ^ type
+    assert Err(_) = e
+    //        ^ type
+    //          ^ type
+}
+
+type Balance Int
+
+enum Two {
+    Both (Int, String)
+}
+
+fn variant_call(): Result<Int, String> {
+    Err("x")
+    // ^ type
+    //     ^ type
+}
+
+fn some_call(): Maybe<Int> {
+    Some(1)
+    //  ^ type
+    //    ^ type
+}
+
+fn qualified_variant_call(): Shape {
+    Shape.Circle(2)
+    //          ^ type
+    //            ^ type
+}
+
+fn module_variant_call(): json.Json {
+    json.Json.Int(1)
+    //           ^ type
+    //             ^ type
+}
+
+fn dot_variant_call(): Shape {
+    .Circle(2)
+    //     ^ type
+    //       ^ type
+}
+
+fn distinct_call(): Balance {
+    Balance(5)
+    //     ^ type
+    //       ^ type
+}
+
+fn print_balance(_account: Balance): String {
+    //          ^ punctuation.bracket
+    //                            ^ punctuation.bracket
+    "balance"
+}
+
+fn function_calls(n: Int): String {
+    print_balance(Balance(n)) + Int.to_string(n)
+    //           ^ punctuation.bracket
+    //                   ^ type
+    //                     ^ type
+    //                      ^ punctuation.bracket
+    //                                       ^ punctuation.bracket
+    //                                         ^ punctuation.bracket
+}
+
+fn pipe_constructs(n: Int): (Maybe<Int>, Result<Int, String>) {
+    pair = (n |> Some(), n |> Ok(_))
+    //     ^ type
+    //               ^ type
+    //                ^ type
+    //                          ^ type
+    //                            ^ type
+    //                             ^ type
+    pair
+}
+
+// A partial application of a constructor is @type too: it parses as the
+// pattern `Two.Both(_, "c")` does.
+fn partial_constructor(): Two {
+    make = Two.Both(_, "c")
+    //             ^ type
+    //                    ^ type
+    make(1)
+    //  ^ punctuation.bracket
+    //    ^ punctuation.bracket
+}
+
+fn constructor_patterns(input: String, r: Result<Int, String>, s: Shape): Int {
+    Some(number) = String.to_int(input) else {
+        // <- type
+        //     ^ type
+        //                      ^ punctuation.bracket
+        //                            ^ punctuation.bracket
+        //                                   ^ punctuation.bracket
+        return 0
+    }
+
+    from_r = case r {
+        Result.Ok(n) -> n
+        //       ^ type
+        //         ^ type
+        Result.Err(_) -> 0
+        //        ^ type
+        //          ^ type
+    }
+
+    from_s = case s {
+        .Circle(c) -> c
+        //     ^ type
+        //       ^ type
+        _ -> 0
+    }
+
+    number + from_r + from_s
+}
+
+fn as_pattern(found: Maybe<(Int, Int)>): Int {
+    Some((a, b)) as m = found else {
+        // <- type
+        //    ^ type
+        //     ^ type
+        //                         ^ punctuation.bracket
+        return 0
+    }
+
+    case m {
+        Some(_) -> a + b
+        None -> 0
+    }
+}
+
+fn unwrap_balance(Balance(v)): Int {
+    //           ^ punctuation.bracket
+    //                   ^ type
+    //                     ^ type
+    //                      ^ punctuation.bracket
+    v
+}
+
+fn balance_lambda(xs: List<Balance>): Int {
+    xs |> Iter.map(|Balance(v)| v) |> Iter.reduce(|s = 0, n| s + n)
+    //            ^ punctuation.bracket
+    //                     ^ type
+    //                       ^ type
+    //                           ^ punctuation.bracket
+}
+
+tests "group" {
+    //        ^ punctuation.bracket
+    setup (1, 2)
+
+    test "setup pattern", (a, b) {
+        //                ^ type
+        //                     ^ type
+        assert (a, b) == (1, 2)
+        //     ^ type
+        //               ^ type
+        //                    ^ type
+    }
+}

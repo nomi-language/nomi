@@ -19,12 +19,12 @@ test "a task group created in a plain function is rejected" {
     )
 
     assert diagnostics
-        |> Iter.any?(|diagnostic|
+        |> Iter.any?(|diagnostic| {
             String.contains?(
                 diagnostic.message,
                 "the bound would be per call rather than per downstream",
             )
-        )
+        })
 }
 
 test "boot can create task groups" {
@@ -131,12 +131,12 @@ test "a group-owned body must return Unit" {
     )
 
     assert diagnostics
-        |> Iter.any?(|diagnostic|
+        |> Iter.any?(|diagnostic| {
             String.contains?(
                 diagnostic.message,
                 "expected () -> Unit, got () -> Result<Unit, String>",
             )
-        )
+        })
 }
 
 // The requirement is temporal — created *during* boot — so a constructor
@@ -224,10 +224,10 @@ test "calling that constructor outside boot is rejected" {
     )
 
     assert diagnostics
-        |> Iter.any?(|diagnostic|
+        |> Iter.any?(|diagnostic| {
             String.contains?(
                 diagnostic.message,
                 "the bound would be per call rather than per downstream",
             )
-        )
+        })
 }

@@ -156,7 +156,7 @@ fn deserialize(content: String): Result<Map<Int, TodoTask>, String> {
         Ok(Map.empty())
     } else {
         String.split(trimmed, "\n")
-        |> Iter.reduce(|acc = Ok(Map.empty()), line|
+        |> Iter.reduce(|acc = Ok(Map.empty()), line| {
             case acc {
                 Err(e) ->
                     Err(e)
@@ -167,7 +167,7 @@ fn deserialize(content: String): Result<Map<Int, TodoTask>, String> {
                         Ok(t) -> Ok(Map.put(tasks, t.id, t))
                     }
             }
-        )
+        })
     }
 }
 

@@ -28,7 +28,7 @@ func TestFormat_LambdaStageBeforeAnotherStageKeepsItsEnd(t *testing.T) {
 		// The lambda's body takes in the stage on the next line.
 		{
 			"x\n    // note\n    |> dbg || y\n    |> f()\n",
-			"x\n// note\n|> (||\n    y\n    |> f())\n|> dbg\n",
+			"x\n// note\n|> (|| {\n    y\n    |> f()\n})\n|> dbg\n",
 		},
 		// The last stage needs no parentheses, and a decorating `try`
 		// stays the stage's prefix.

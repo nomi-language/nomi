@@ -170,8 +170,20 @@ func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes []ast.Node, 
 // declaration shadowing it, so an arm that declines a locally declared
 // `Channel` or `Result` as a possible shadow does not apply. Each arm still
 // checks the operands' identity (the channel spec, the prelude spec).
+//
+// A lambda in the test body is built by a child builder, which is not
+// itself a test body (its `return` leaves the lambda), so the test is
+// whichever enclosing builder is one.
 func (bl *irScalarBuilder) stdTestOwnType() bool {
-	return bl.inTest && bl.g.stdModule != ""
+	if bl.g.stdModule == "" {
+		return false
+	}
+	for scope := bl; scope != nil; scope = scope.parent {
+		if scope.inTest {
+			return true
+		}
+	}
+	return false
 }
 
 // testImport admits an `import` at the top of a block (a test body, a `//!`

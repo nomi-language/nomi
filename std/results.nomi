@@ -13,12 +13,13 @@ import {
 pub host type Infallible
 
 /// A value that is either a success (Ok) or a failure (Err).
-//! parse = |s: String|
+//! parse = |s: String| {
 //!     if s == "" {
 //!         Result.Err("empty")
 //!     } else {
 //!         Result.Ok(s)
 //!     }
+//! }
 //!
 //! value = case parse("hi") {
 //!     .Ok(v) -> v
@@ -78,12 +79,13 @@ impl Result<T, E> {
     }
 
     /// Like map, but the function returns a Result. Flattens the result.
-    //! parse_int = |s: String|
+    //! parse_int = |s: String| {
     //!     if s == "1" {
     //!         Result.Ok(1)
     //!     } else {
     //!         Result.Err("nope")
     //!     }
+    //! }
     //!
     //! assert Result.flat_map(Result.Ok("1"), |s| parse_int(s)) == Result.Ok(1)
     //! assert Result.flat_map(Result.Ok("x"), |s| parse_int(s)) == Result.Err("nope")
@@ -128,13 +130,13 @@ impl Result<T, E> {
     //!
     //! checked =
     //!     [3, 1, 2]
-    //!     |> Iter.map(|n|
+    //!     |> Iter.map(|n| {
     //!         if n > 0 {
     //!             Result.Ok(n * 10)
     //!         } else {
     //!             Result.Err(n)
     //!         }
-    //!     )
+    //!     })
     //!     |> Result.collect()
     //!
     //! assert checked == Result.Ok([30, 10, 20])
@@ -148,12 +150,12 @@ impl Result<T, E> {
     //! assert stopped == Result.Err(3)
     //
     pub fn collect<T, E>(results: Iter<Result<T, E>>): Result<List<T>, E> {
-        reversed = Iter.reduce(results, |acc: Result<List<T>, E> = Result.Ok([]), item|
+        reversed = Iter.reduce(results, |acc: Result<List<T>, E> = Result.Ok([]), item| {
             case item {
                 Ok(v) -> Result.map(acc, |vs| [v, ..vs])
                 Err(e) -> break Result.Err(e)
             }
-        )
+        })
 
         Result.map(reversed, |vs| Iter.reverse(vs))
     }

@@ -790,7 +790,7 @@ T
 C pipe_stage_keyword_report.nomi
 E 1
 N 5
-H 8393f16d7ca067b0f2b58cee361c61db0ab83200ed6eccd867b2dbcc0606aaf9
+H 1f67c9bbdf67c6379de73c65aeb697504b0e47e4736fe4ce2aed736fd70c4f12
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a keyword-prefixed if stage reports three pipeline rows
 T   line 48: assertion failed
 T     assert flag
@@ -812,17 +812,17 @@ T     assert flag
 T     defined as:
 T       Some(3)
 T       |> case {
-T               Some(_) -> False
-T               None -> True
-T           }
+T           Some(_) -> False
+T           None -> True
+T       }
 T     pipeline values:
 T       Some(3)
 T         = Some(3)
 T       Some(3)
 T       |> case {
-T               Some(_) -> False
-T               None -> True
-T           }
+T           Some(_) -> False
+T           None -> True
+T       }
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a call stage before a keyword stage reports cumulative prefixes
 T   line 68: assertion failed
@@ -848,14 +848,14 @@ T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a piped case scrutinee contributes no values row
 T   line 72: assertion failed
 T     assert (wrap(3) |> case {
-T             Some(n) -> n
-T             None -> 0
-T         }) == 99
+T         Some(n) -> n
+T         None -> 0
+T     }) == 99
 T     values:
 T       (wrap(3) |> case {
-T               Some(n) -> n
-T               None -> 0
-T           })
+T           Some(n) -> n
+T           None -> 0
+T       })
 T         = 3
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a directly written case scrutinee does contribute one
 T   line 79: assertion failed
@@ -1115,7 +1115,7 @@ T
 C tests_lambda_boundary.nomi
 E 1
 N 5
-H 49fba02b52ecd1e30068681e311431855a22a9c952fe23855dbe4611cdb62c31
+H 46a1409db650364479f2e0486c40ea3e74bb05e599f850a268fce66d7cd7651d
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: a lambda body's comparison stays out of the report
 T   line 22: assertion failed
 T     assert applies?(2, |x| x * 5 > 90)
@@ -1136,12 +1136,12 @@ T       2 > 3
 T         = False
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: a case scrutinee inside a lambda body stays out too
 T   line 39: assertion failed
-T     assert applies?(2, |v|
+T     assert applies?(2, |v| {
 T         case v {
 T             1 -> True
 T             _ -> v > 90
 T         }
-T     )
+T     })
 T     values:
 T       2
 T         = 2

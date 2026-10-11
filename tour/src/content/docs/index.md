@@ -55,7 +55,7 @@ to try the language in the browser while the design is still being worked out.
 The core surfaces — expressions, types, pattern matching, imports, interfaces,
 derives, tests, collections, and standard control flow — are the most
 exercised. Concurrency, FFI, and module management are younger. Next on the
-list: a debugger and faster editor tooling.
+list: faster editor tooling, and watches and expressions in the debugger.
 :::
 
 ## Running Nomi

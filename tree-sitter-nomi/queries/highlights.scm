@@ -80,47 +80,240 @@
 (once_binding
   name: (type_identifier) @constant)
 
-; Discard bindings/patterns (`_` / `_name`) are intentionally not readable.
+; Discard names (`_` and `_name`) bind nothing a program can read, so a name
+; a pattern binds that way reads as a comment. The
+; anonymous `_` token appears only where a pattern binds (and as a blank Go
+; package name); a `_` that stands for a missing call argument (`add(1, _)`)
+; lexes as an identifier and keeps its variable colour, and so does a read of
+; a top-level `fn _helper` or `once _cache`. The regex allows leading
+; whitespace because some identifiers after a field name or `as` carry it.
+"_" @comment
 (binding
   . (identifier) @comment
-  (#match? @comment "^_($|[^_])"))
+  (#match? @comment "^\\s*_($|[^_])"))
 (parameter
   name: (identifier) @comment
-  (#match? @comment "^_($|[^_])"))
+  (#match? @comment "^\\s*_($|[^_])"))
 (lambda_parameter
   name: (identifier) @comment
-  (#match? @comment "^_($|[^_])"))
+  (#match? @comment "^\\s*_($|[^_])"))
 (destructuring_binding
   binding: (identifier) @comment
-  (#match? @comment "^_($|[^_])"))
+  (#match? @comment "^\\s*_($|[^_])"))
+; A destructure's nested pattern (`((_a, b), c) = pair`,
+; `{x: Some(_n), y} = q else { ... }`), spelled as an expression.
 (destructuring_binding
-  binding: "_" @comment)
+  pattern: [
+    (call_expression (identifier) @comment)
+    (tuple_expression (identifier) @comment)
+    (list (identifier) @comment)
+    (struct_construction ":" . (identifier) @comment)
+    (struct_construction field_name: (identifier) @comment . ["," "}"])
+    (anon_struct (anon_struct_field ":" . (identifier) @comment))
+    (map_literal (map_entry (_) . (identifier) @comment))
+  ]
+  (#match? @comment "^\\s*_($|[^_])"))
+; A test's setup binding, an `if` pattern condition, `x as y`.
+(_
+  pattern: (identifier) @comment
+  (#match? @comment "^\\s*_($|[^_])"))
 (case_branch
   . (identifier) @comment
-  (#match? @comment "^_($|[^_])"))
+  (#match? @comment "^\\s*_($|[^_])"))
 (else_arm
   . (identifier) @comment
-  (#match? @comment "^_($|[^_])"))
-(pattern_field
-  name: (identifier) @comment
-  (#match? @comment "^_($|[^_])"))
+  (#match? @comment "^\\s*_($|[^_])"))
+; A subject-less `case`'s catch-all. Any other leading name there is a guard.
+(guard_branch
+  . (identifier) @comment
+  (#eq? @comment "_"))
+; Pattern nodes. Each rule names a direct parent, so a discard nested in
+; patterns at any depth (`Some(Ok((_a, b)))`, `[_x, .._rest]`) matches one.
+(tuple_pattern
+  (identifier) @comment
+  (#match? @comment "^\\s*_($|[^_])"))
+(list_pattern
+  (identifier) @comment
+  (#match? @comment "^\\s*_($|[^_])"))
 (enum_pattern
   (identifier) @comment
-  (#match? @comment "^_($|[^_])"))
+  (#match? @comment "^\\s*_($|[^_])"))
+; A map pattern's value; its key (`key => v`) is an expression and is read.
+(struct_pattern
+  "=>" . (identifier) @comment
+  (#match? @comment "^\\s*_($|[^_])"))
+; A punned field binds its name (`{_w}`); a labeled one binds its pattern.
+(pattern_field
+  . name: (identifier) @comment .
+  (#match? @comment "^\\s*_($|[^_])"))
+(pattern_field
+  ":" . (identifier) @comment
+  (#match? @comment "^\\s*_($|[^_])"))
 (as_pattern
   name: (identifier) @comment
-  (#match? @comment "^_($|[^_])"))
-; A pattern assertion spells its pattern as an expression:
-; `assert Err(_) = r`, `assert Err(Error.Invalid(_msg)) = r`.
-(pattern_assertion_binding
-  pattern: (call_expression
-    (identifier) @comment
-    (#match? @comment "^_($|[^_])")))
-(pattern_assertion_binding
-  pattern: (call_expression
-    (call_expression
-      (identifier) @comment
-      (#match? @comment "^_($|[^_])"))))
+  (#match? @comment "^\\s*_($|[^_])"))
+(as_pattern
+  pattern: (body
+    (identifier) @comment)
+  (#match? @comment "^\\s*_($|[^_])"))
+; A pattern spelled as the expression it looks like: the left side of a
+; binding with `else` or a pattern assertion (`Some((_n, o)) = opt`,
+; `assert Err(_) = r`), the pattern before `as`, and a case, guard or else
+; arm that took the expression reading (`Some(Ok((_g, n))) when n > 0 ->`).
+; Those expressions also occur as values, where an identifier is read, so
+; the match starts at the pattern itself: the first named child of any node,
+; directly followed by `=`, `as`, `when` or `->`. The outer call must have a
+; constructor head, since a guard arm may start with an ordinary call
+; (`ready(_x) ->`); inside a pattern every call is a variant. A query has no
+; descendant operator, so the alternation spells out each depth: a discard
+; directly in a call, tuple, list, struct construction, anonymous struct or
+; map value, under at most two calls, tuples or lists (`Ok(Some((_a, b)))`).
+; A deeper one keeps its colour. Each depth costs query compile time (the
+; tour compiles this file once per page), which is what stops it at three.
+((_ .
+  [
+    (call_expression function: [(type_identifier) (type_field_access) (dot_variant)] (identifier) @comment)
+    (tuple_expression (identifier) @comment)
+    (list (identifier) @comment)
+    (struct_construction ":" . (identifier) @comment)
+    (struct_construction field_name: (identifier) @comment . ["," "}"])
+    (anon_struct (anon_struct_field ":" . (identifier) @comment))
+    (map_literal (map_entry (_) . (identifier) @comment))
+    (map_construction (map_entry (_) . (identifier) @comment))
+    (call_expression function: [(type_identifier) (type_field_access) (dot_variant)]
+      [
+        (call_expression (identifier) @comment)
+        (tuple_expression (identifier) @comment)
+        (list (identifier) @comment)
+        (struct_construction ":" . (identifier) @comment)
+        (struct_construction field_name: (identifier) @comment . ["," "}"])
+        (anon_struct (anon_struct_field ":" . (identifier) @comment))
+        (map_literal (map_entry (_) . (identifier) @comment))
+        (map_construction (map_entry (_) . (identifier) @comment))
+        (call_expression
+          [
+            (call_expression (identifier) @comment)
+            (tuple_expression (identifier) @comment)
+            (list (identifier) @comment)
+            (struct_construction ":" . (identifier) @comment)
+            (struct_construction field_name: (identifier) @comment . ["," "}"])
+            (anon_struct (anon_struct_field ":" . (identifier) @comment))
+            (map_literal (map_entry (_) . (identifier) @comment))
+            (map_construction (map_entry (_) . (identifier) @comment))
+          ])
+        (tuple_expression
+          [
+            (call_expression (identifier) @comment)
+            (tuple_expression (identifier) @comment)
+            (list (identifier) @comment)
+            (struct_construction ":" . (identifier) @comment)
+            (struct_construction field_name: (identifier) @comment . ["," "}"])
+            (anon_struct (anon_struct_field ":" . (identifier) @comment))
+            (map_literal (map_entry (_) . (identifier) @comment))
+            (map_construction (map_entry (_) . (identifier) @comment))
+          ])
+        (list
+          [
+            (call_expression (identifier) @comment)
+            (tuple_expression (identifier) @comment)
+            (list (identifier) @comment)
+            (struct_construction ":" . (identifier) @comment)
+            (struct_construction field_name: (identifier) @comment . ["," "}"])
+            (anon_struct (anon_struct_field ":" . (identifier) @comment))
+            (map_literal (map_entry (_) . (identifier) @comment))
+            (map_construction (map_entry (_) . (identifier) @comment))
+          ])
+      ])
+    (tuple_expression
+      [
+        (call_expression (identifier) @comment)
+        (tuple_expression (identifier) @comment)
+        (list (identifier) @comment)
+        (struct_construction ":" . (identifier) @comment)
+        (struct_construction field_name: (identifier) @comment . ["," "}"])
+        (anon_struct (anon_struct_field ":" . (identifier) @comment))
+        (map_literal (map_entry (_) . (identifier) @comment))
+        (map_construction (map_entry (_) . (identifier) @comment))
+        (call_expression
+          [
+            (call_expression (identifier) @comment)
+            (tuple_expression (identifier) @comment)
+            (list (identifier) @comment)
+            (struct_construction ":" . (identifier) @comment)
+            (struct_construction field_name: (identifier) @comment . ["," "}"])
+            (anon_struct (anon_struct_field ":" . (identifier) @comment))
+            (map_literal (map_entry (_) . (identifier) @comment))
+            (map_construction (map_entry (_) . (identifier) @comment))
+          ])
+        (tuple_expression
+          [
+            (call_expression (identifier) @comment)
+            (tuple_expression (identifier) @comment)
+            (list (identifier) @comment)
+            (struct_construction ":" . (identifier) @comment)
+            (struct_construction field_name: (identifier) @comment . ["," "}"])
+            (anon_struct (anon_struct_field ":" . (identifier) @comment))
+            (map_literal (map_entry (_) . (identifier) @comment))
+            (map_construction (map_entry (_) . (identifier) @comment))
+          ])
+        (list
+          [
+            (call_expression (identifier) @comment)
+            (tuple_expression (identifier) @comment)
+            (list (identifier) @comment)
+            (struct_construction ":" . (identifier) @comment)
+            (struct_construction field_name: (identifier) @comment . ["," "}"])
+            (anon_struct (anon_struct_field ":" . (identifier) @comment))
+            (map_literal (map_entry (_) . (identifier) @comment))
+            (map_construction (map_entry (_) . (identifier) @comment))
+          ])
+      ])
+    (list
+      [
+        (call_expression (identifier) @comment)
+        (tuple_expression (identifier) @comment)
+        (list (identifier) @comment)
+        (struct_construction ":" . (identifier) @comment)
+        (struct_construction field_name: (identifier) @comment . ["," "}"])
+        (anon_struct (anon_struct_field ":" . (identifier) @comment))
+        (map_literal (map_entry (_) . (identifier) @comment))
+        (map_construction (map_entry (_) . (identifier) @comment))
+        (call_expression
+          [
+            (call_expression (identifier) @comment)
+            (tuple_expression (identifier) @comment)
+            (list (identifier) @comment)
+            (struct_construction ":" . (identifier) @comment)
+            (struct_construction field_name: (identifier) @comment . ["," "}"])
+            (anon_struct (anon_struct_field ":" . (identifier) @comment))
+            (map_literal (map_entry (_) . (identifier) @comment))
+            (map_construction (map_entry (_) . (identifier) @comment))
+          ])
+        (tuple_expression
+          [
+            (call_expression (identifier) @comment)
+            (tuple_expression (identifier) @comment)
+            (list (identifier) @comment)
+            (struct_construction ":" . (identifier) @comment)
+            (struct_construction field_name: (identifier) @comment . ["," "}"])
+            (anon_struct (anon_struct_field ":" . (identifier) @comment))
+            (map_literal (map_entry (_) . (identifier) @comment))
+            (map_construction (map_entry (_) . (identifier) @comment))
+          ])
+        (list
+          [
+            (call_expression (identifier) @comment)
+            (tuple_expression (identifier) @comment)
+            (list (identifier) @comment)
+            (struct_construction ":" . (identifier) @comment)
+            (struct_construction field_name: (identifier) @comment . ["," "}"])
+            (anon_struct (anon_struct_field ":" . (identifier) @comment))
+            (map_literal (map_entry (_) . (identifier) @comment))
+            (map_construction (map_entry (_) . (identifier) @comment))
+          ])
+      ])
+  ] . ["=" "as" "when" "->"])
+  (#match? @comment "^\\s*_($|[^_])"))
 
 ; Test declarations and assertions.
 (test_declaration
@@ -180,7 +373,7 @@
   (string)
   "+"
   (identifier) @comment
-  (#match? @comment "^[[:space:]]*_($|[^_])"))
+  (#match? @comment "^\\s*_($|[^_])"))
 (enum_pattern
   (string)
   "+"
@@ -189,7 +382,7 @@
   (string)
   "+"
   (identifier) @comment
-  (#match? @comment "^[[:space:]]*_($|[^_])"))
+  (#match? @comment "^\\s*_($|[^_])"))
 (case_branch
   (string)
   "+"
@@ -373,6 +566,7 @@
 "impl" @keyword
 "for" @keyword
 (self_type) @keyword
+(self_expression) @keyword
 (import_self) @keyword
 
 ; Built-in constants
@@ -432,6 +626,57 @@
 "!" @operator
 "=" @operator
 "->" @operator
+
+; Delimiters. The delimiters of data shape are @type, the colour of a struct
+; name: a literal that builds a value (the braces of a struct, anonymous
+; struct, map, set, struct update or map update, the brackets of a list or
+; vector, a tuple's parentheses), a constructor call's parentheses, and every
+; pattern's delimiters (tuple, list, struct, map and variant-payload patterns,
+; wherever they appear). Every other delimiter is program structure and is
+; @punctuation.bracket: blocks, declaration bodies, function calls, grouping,
+; parameter lists and types. A pattern spelled as the expression it looks like
+; (`Some((n, [a])) = found else {...}`, `assert Err(_) = r`) parses as the
+; literal and call nodes below, so it takes @type with no rule of its own.
+;
+; An anonymous struct or map literal, a struct or map pattern and a destructure
+; are captured whole, because the scanner may lex the opening brace as a hidden
+; token that no query can name; every other token inside has a capture of its
+; own, so each visible delimiter is also captured directly.
+[
+  (anon_struct)
+  (map_literal)
+  (struct_update)
+  (map_update)
+  (struct_pattern)
+  (destructuring_binding)
+] @type
+(anon_struct ["{" "}"] @type)
+(map_literal ["{" "}"] @type)
+(struct_update ["{" "}"] @type)
+(map_update ["{" "}"] @type)
+(struct_construction ["{" "}"] @type)
+(map_construction ["{" "}"] @type)
+(set ["#{" "}"] @type)
+(list ["[" "]"] @type)
+(vector ["#[" "]"] @type)
+(tuple_expression ["(" ")"] @type)
+(struct_pattern ["{" "}"] @type)
+(destructuring_binding ["(" ")" "{" "}"] @type)
+(tuple_pattern ["(" ")"] @type)
+(list_pattern ["[" "]"] @type)
+(enum_pattern ["(" ")"] @type)
+
+; A constructor call: a call whose head is a PascalCase name, a variant
+; (`Some(1)`, `Shape.Circle(r)`, `shapes.Shape.Circle(r)`, `.Circle(r)`) or a
+; distinct type (`Balance(5)`). A call whose head ends in a lowercase name
+; (`Int.to_string(n)`, `io.print(x)`) is a function call and keeps
+; @punctuation.bracket. A partial application of a constructor
+; (`Two.Both(_, "c")`) is @type as well: it parses exactly as the pattern
+; `Two.Both(_, "c")` does, and it names the data shape it will build.
+(call_expression
+  function: [(type_identifier) (type_field_access) (dot_variant)]
+  ["(" ")"] @type)
+
 "#[" @punctuation.bracket
 "#{" @punctuation.bracket
 ":" @punctuation.delimiter

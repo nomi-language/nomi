@@ -88,7 +88,7 @@ fn start(): Counter {
 /// inbox — not the group's `max_running`, which is about how much of
 /// the group's whole workload runs at once.
 fn serve(inbox: Channel<Request>): Unit {
-    _final = Iter.loop(|count = 0|
+    _final = Iter.loop(|count = 0| {
         case Receiver.receive(inbox.receiver) {
             Some(Request.Increment(n)) ->
                 count + n
@@ -107,7 +107,7 @@ fn serve(inbox: Channel<Request>): Unit {
             None ->
                 break count
         }
-    )
+    })
 
     Unit
 }

@@ -31,7 +31,7 @@ func TestFormat_CommentOnlyLambdaBodyKeepsItsComments(t *testing.T) {
 		},
 		{
 			name: "nested",
-			src:  "    r = f(|x|\n        g(x, |y| {\n            // c\n        })\n    )\n",
+			src:  "    r = f(|x| {\n        g(x, |y| {\n            // c\n        })\n    })\n",
 		},
 		{
 			name: "then stage",

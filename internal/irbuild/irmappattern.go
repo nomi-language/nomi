@@ -251,7 +251,8 @@ func (bl *irScalarBuilder) mapBinding(t *ast.MapDestructure) bool {
 		miss.SetTerm(ir.NewJump(bl.g.irNodePos(t), done.ID()))
 		value, vk := bl.mapSomeTest(t, got, maybe, some, miss)
 		if named && !ast.IsDiscardName(id.Name) {
-			if !bl.destructureBind(id, id.Name, vk, func() ir.Temp { return value }) {
+			line, col := nodePos(id)
+			if !bl.destructureBind(id, id.Name, line, col, vk, func() ir.Temp { return value }) {
 				return false
 			}
 		}

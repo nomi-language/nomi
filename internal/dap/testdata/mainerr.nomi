@@ -1,0 +1,4 @@
+fn main(): Result<Unit, String> {
+    reason = "boom"
+    Err(reason)
+}

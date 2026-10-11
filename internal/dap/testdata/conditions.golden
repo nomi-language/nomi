@@ -1,0 +1,51 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/eval.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"condition":"i == 3","line":29},{"condition":"p.x > 100","line":33},{"condition":"nosuch > 1","line":23},{"condition":"p.x + 1","line":24},{"hitCondition":"every other","line":25}],"source":{"path":"$TESTDATA/eval.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":29,"source":{"path":"$TESTDATA/eval.nomi"},"verified":true},{"id":2,"line":33,"source":{"path":"$TESTDATA/eval.nomi"},"verified":true},{"line":23,"message":"the condition does not compile: undefined variable 'nosuch'","source":{"path":"$TESTDATA/eval.nomi"},"verified":false},{"line":24,"message":"the condition is an Int, not a Bool","source":{"path":"$TESTDATA/eval.nomi"},"verified":false},{"line":25,"message":"the hit count is not understood: write N, == N, >= N, > N, <= N, < N or % N","source":{"path":"$TESTDATA/eval.nomi"},"verified":false}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event output {"category":"stdout","output":"pt 1\n"}
+<- event output {"category":"stdout","output":"pt 2\n"}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":29,"name":"<lambda>","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}},{"column":17,"id":2,"line":28,"name":"Iter.each","presentationHint":"subtle","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}},{"column":17,"id":3,"line":28,"name":"main","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}}],"totalFrames":3}
+-> evaluate {"context":"watch","expression":"i","frameId":1}
+<- response evaluate {"result":"3","type":"Int","variablesReference":0}
+-> setBreakpoints {"breakpoints":[{"hitCondition":"% 2","line":29}],"source":{"path":"$TESTDATA/eval.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":3,"line":29,"source":{"path":"$TESTDATA/eval.nomi"},"verified":true}]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"pt 3\n"}
+<- event output {"category":"stdout","output":"pt 4\n"}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[3],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":29,"name":"<lambda>","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}},{"column":17,"id":2,"line":28,"name":"Iter.each","presentationHint":"subtle","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}},{"column":17,"id":3,"line":28,"name":"main","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}}],"totalFrames":3}
+-> evaluate {"context":"watch","expression":"i","frameId":1}
+<- response evaluate {"result":"5","type":"Int","variablesReference":0}
+-> setBreakpoints {"breakpoints":[{"line":29,"logMessage":"{label} {{i}} is {i}, doubled {i * 2}, over zero {i / 0}"},{"condition":"10 / (p.x - 3) > 0","hitCondition":">= 1","line":33}],"source":{"path":"$TESTDATA/eval.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":4,"line":29,"source":{"path":"$TESTDATA/eval.nomi"},"verified":true},{"id":5,"line":33,"source":{"path":"$TESTDATA/eval.nomi"},"verified":true}]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"pt 5\n"}
+<- event output {"category":"console","line":29,"output":"pt {i} is 6, doubled 12, over zero <the expression failed: division by zero>\n","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}}
+<- event output {"category":"stdout","output":"pt 6\n"}
+<- event output {"category":"console","output":"The breakpoint's condition `10 / (p.x - 3) > 0` could not be evaluated: the expression failed: division by zero\n"}
+<- event stopped {"allThreadsStopped":true,"description":"Breakpoint condition failed","hitBreakpointIds":[5],"reason":"breakpoint","text":"The breakpoint's condition `10 / (p.x - 3) > 0` could not be evaluated: the expression failed: division by zero","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":33,"name":"main","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}}],"totalFrames":1}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":2,"variablesReference":2}]}
+-> variables {"variablesReference":1}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"p","namedVariables":2,"type":"Point","value":"Point{x: 3, y: 4}","variablesReference":3},{"declarationLocationReference":2,"indexedVariables":3,"name":"xs","type":"List<Int>","value":"[1, 2, 3]","variablesReference":4},{"declarationLocationReference":3,"name":"label","type":"String","value":"\"pt\"","variablesReference":0}]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"25 3\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

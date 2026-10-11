@@ -15,6 +15,28 @@ text-width = 100
 formatter = { command = "nomi", args = ["fmt"] }
 language-servers = ["nomi-lsp"]
 
+# `nomi dap`: Helix's :debug-start (space-G) offers these templates.
+[language.debugger]
+name = "nomi"
+transport = "stdio"
+command = "nomi"
+args = ["dap"]
+
+[[language.debugger.templates]]
+name = "run"
+request = "launch"
+completion = [{ name = "program", completion = "filename", default = "." }]
+args = { mode = "run", program = "{0}" }
+
+[[language.debugger.templates]]
+name = "test"
+request = "launch"
+completion = [
+  { name = "test file", completion = "filename", default = "." },
+  { name = "line of one test (empty for every test)", default = "" },
+]
+args = { mode = "test", program = "{0}", line = "{1}" }
+
 [[grammar]]
 name = "nomi"
-source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "30456e0e8ee4a7104fdcd4edeac0ced47a416525" }
+source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "7c89ec8cb28063739b67c5effb72dbb3a8d52d0f" }

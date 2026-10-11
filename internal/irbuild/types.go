@@ -402,8 +402,12 @@ func (d *typeDef) zeroSizedOn(path typePath) bool {
 		if d.rtOpaque {
 			return false
 		}
+		// A distinct with an inner is not, even over a zero-sized one
+		// (`type Done Unit`): the VM holds it as a record over its inner
+		// value (ir.Make's MakeDistinct), and an enum payload of it needs
+		// a slot for that record.
 		// kindInvalid: marker — a marker distinct is zero-sized; a layout question, not a refusal.
-		return d.inner == kindInvalid || d.inner.zeroSizedOn(path)
+		return d.inner == kindInvalid
 	}
 	for _, f := range d.fields {
 		if f.boxed || !f.k.zeroSizedOn(path) {
@@ -1053,6 +1057,15 @@ func (g *gen) settleLowerable(order []*typeDef) {
 // sigreason.go names WHICH of those it was, so a signature position reports the
 // type's own gap rather than the position's shape.
 func (g *gen) typeOf(te ast.TypeExpr) kind {
+	if _, isSelf := te.(*ast.SelfType); isSelf {
+		// `self` names the implementor while an interface default is
+		// monomorphized for one (inheritDefaults, irImplLower); anywhere else
+		// it is outside the subset, as structuralTypeOf would answer.
+		if ds := g.defaultSelf; ds != nil {
+			return ds.recv
+		}
+		return kindInvalid
+	}
 	if ft, isFunc := te.(*ast.FuncType); isFunc {
 		if ft.Return == nil {
 			return g.structuralTypeOf(ft)

@@ -118,7 +118,7 @@ impl Iter for Map<K, V> {
     }
 }
 
-impl Display for Map<K, V> {
+impl Display for Map<K, V> where K: Display, V: Display {
     fn to_string(value: Map<K, V>): String {
         // Render `{k1 => v1, k2 => v2}`, or `{=>}` when empty, as a map literal
         // is written. Entries follow the map's insertion order.
@@ -160,17 +160,17 @@ impl Equatable for Map<K, V> {
     }
 }
 
-impl Hashable for Map<K, V> {
+impl Hashable for Map<K, V> where K: Hashable, V: Hashable {
     // Order-insensitive hash: combine per-entry hashes with a commutative `+`, so
     // it agrees with `==` (which ignores insertion order). Requires Hashable keys
     // and values.
     fn hash(m: Map<K, V>): Int {
-        Iter.reduce(m, |acc = 0, (k, v)|
+        Iter.reduce(m, |acc = 0, (k, v)| {
             Int.wrapping_add(
                 acc,
                 Int.wrapping_add(Int.wrapping_mul(Hashable.hash(k), 31), Hashable.hash(v)),
             )
-        )
+        })
     }
 }
 

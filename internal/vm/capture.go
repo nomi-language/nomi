@@ -37,7 +37,8 @@ func captureHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 // capture whose input is the script's input lines (rt.ParseReplayScript,
 // rt.EnterReplay). finish gets run's value, the output, the transcript and
 // the script's expected transcript each as replay compares them
-// (rt.ReplayText), and how many input lines no read reached. A script with a
+// (rt.ReplayText; for an output-only script with the gutter off,
+// rt.ReplayScript.Compared), and how many input lines no read reached. A script with a
 // line that is neither input nor output traps before run runs.
 func replayHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 	script, run, finish, err := captureOperands(m, replayKey, args, 5)
@@ -50,7 +51,7 @@ func replayHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 	}
 	inner, c := rt.EnterReplay(m.hostFrame, parsed)
 	return m.runCaptured(inner, c, run, finish, func(v any, r rt.CaptureResult) []any {
-		return []any{v, r.Output, rt.ReplayText(r.Transcript), parsed.Expected, int64(r.Unread)}
+		return []any{v, r.Output, parsed.Compared(rt.ReplayText(r.Transcript)), parsed.Expected, int64(r.Unread)}
 	})
 }
 

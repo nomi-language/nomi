@@ -8,6 +8,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/textpos"
 
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -26,9 +27,13 @@ import (
 //   - the fill fixes (code_action_fill.go): missing impl functions, struct
 //     literal fields and case arms.
 //   - "Call `f()`" for a bare name used as a pipe stage
-//     (code_action_pipe_stage.go).
+//     (code_action_pipe_stage.go), and "Add `|> Display.to_string()` before
+//     this stage" for a Display value piped into a stage that takes a String.
 //   - "Remove the `return`" for a bare return that ends a body
 //     (code_action_useless_return.go).
+//   - the fix a parse error carries: braces around a body written over
+//     several lines, `//` for a `///` or `//!` inside a body
+//     (code_action_parse_fix.go).
 //
 // and the actions over the requested range (code_action_refactor.go).
 func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeActionParams) (any, error) {
@@ -45,7 +50,9 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		actions = append(actions, s.buildFillActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildBarePipeStageActions(snap.Content, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildLambdaPipeStageActions(snap.Content, uri, params.Context.Diagnostics)...)
+		actions = append(actions, buildPipeToStringActions(snap.Content, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildUselessReturnActions(snap.Content, uri, params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, snap.Errors, params.Context.Diagnostics)...)
 	}
 	actions = append(actions, s.buildRefactorActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range, params.Context.Diagnostics, only)...)
 	if kindAllowed(only, protocol.CodeActionKindSourceOrganizeImports) {
@@ -727,20 +734,17 @@ func lineIndexOf(lineOffs []int, offset int) int {
 	return max(sort.SearchInts(lineOffs, offset+1)-1, 0)
 }
 
-// offsetToPosition converts a byte offset into a 0-based protocol.Position.
+// offsetToPosition converts a byte offset into a 0-based protocol.Position,
+// its column in the UTF-16 code units the protocol counts.
 func offsetToPosition(content string, offset int) protocol.Position {
-	line, col := 0, 0
-	for i := 0; i < offset && i < len(content); i++ {
-		if content[i] == '\n' {
-			line++
-			col = 0
-		} else {
-			col++
-		}
-	}
-	return protocol.Position{Line: uint32(line), Character: uint32(col)}
+	offset = min(max(offset, 0), len(content))
+	start := strings.LastIndexByte(content[:offset], '\n') + 1
+	line := strings.Count(content[:start], "\n")
+	return protocol.Position{Line: uint32(line), Character: uint32(textpos.UTF16Len(content[start:offset]))}
 }
 
+// rangeEdit is the edit replacing content's bytes startOff to endOff with
+// newText, in UTF-16 columns.
 func rangeEdit(content string, startOff, endOff int, newText string) protocol.TextEdit {
 	return protocol.TextEdit{
 		Range: protocol.Range{

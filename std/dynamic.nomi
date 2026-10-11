@@ -218,12 +218,12 @@ impl Display for DecodeError {
                 "<root>"
 
             _ ->
-                Iter.reduce(e.path, |acc = "", seg|
+                Iter.reduce(e.path, |acc = "", seg| {
                     case seg {
                         .Field(name) -> if acc == "" { name } else { acc + "." + name }
                         .Index(i) -> acc + "[" + Int.to_string(i) + "]"
                     }
-                )
+                })
         }
 
         "decode error at " + path_str + ": expected " + e.expected + ", got " + e.got

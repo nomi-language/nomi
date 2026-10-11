@@ -53,9 +53,9 @@ fn main() {
     // against the outer's, the inner fold would start at 1000 and this would be
     // 3060 instead of 1074.
     io.print(
-        "${Iter.reduce([1, 2], |outer = 1000, _a|
+        "${Iter.reduce([1, 2], |outer = 1000, _a| {
             outer + Iter.reduce([10, 20], |inner = 7, b| inner + b)
-        )}"
+        })}"
     )
 
     // Order and count. The list literal is eager, so both source elements print

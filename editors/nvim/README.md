@@ -14,6 +14,7 @@ Neovim support for Nomi. Requires Neovim 0.11 or newer.
 | Function/class/parameter/comment textobjects (`textobjects.scm`) | [nvim-treesitter-textobjects](https://github.com/nvim-treesitter/nvim-treesitter-textobjects) |
 | Scope/definition data (`locals.scm`) | a plugin that reads locals queries |
 | Test explorer, per-test results and diagnostics (`lua/nomi/neotest.lua`) | [neotest](https://github.com/nvim-neotest/neotest) plus the parser |
+| Debugging: breakpoints, stepping, the stack and locals through `nomi dap` (`lua/nomi/dap.lua`) | [nvim-dap](https://github.com/mfussenegger/nvim-dap) |
 
 The ftplugin sets `indentexpr` to nvim-treesitter's when that plugin is
 installed; without it Neovim keeps `autoindent`.
@@ -86,11 +87,17 @@ project root (the nearest `nomi.toml`, else `.git`):
 | `<leader>tt` | `:NomiTest file` | every test in the file |
 | `<leader>tT` | `:NomiTest all` | `nomi test` from the project root |
 | `<leader>tl` | `:NomiTest last` | the previous command again; a single test is found again by name (an attached test by its owner and its place among that owner's prompts) and run at the line it starts on now, or reported gone |
+| `<leader>td` | `:NomiDebug` / `:NomiDebug nearest` | the test around the cursor under the debugger, or the file's `main` when the cursor is in no test (see [Debugging](#debugging)) |
+| `<leader>dh` | `:NomiDebug back` | step back in the paused debug session |
+| `<leader>dH` | `:NomiDebug reverse` | reverse continue in the paused debug session |
+| | `:NomiDebug target` | step into one of the calls on the paused line, chosen from a list |
+| | `:NomiDebug break <function>` | toggle a function breakpoint (`:NomiDebug break` lists them) |
 | `<leader>cx` | `:NomiRun` | `nomi run <file>` |
 
 `nomi-lsp` also serves code lenses (Run test, Run tests, Run attached test,
-and Run above `fn main`), and the plugin defines their commands, so
-`vim.lsp.codelens.run()` on a lens's line runs it in the same terminal.
+and Run above `fn main`, each with a Debug lens beside it), and the plugin
+defines their commands, so `vim.lsp.codelens.run()` on a lens's line runs it
+in the same terminal, or starts the debugger on it.
 Neovim draws lenses only after `vim.lsp.codelens.refresh()`; to keep them
 current, call it from an autocmd, for example on `LspAttach`, `BufEnter` and
 `InsertLeave` for `*.nomi` (LazyVim does this when `codelens.enabled` is set
@@ -144,7 +151,8 @@ text stay plain.
 
 When neotest is configured with the adapter, `<leader>tr`, `<leader>tt`,
 `<leader>tT` and `<leader>tl` call neotest (`run.run()`, `run.run(<file>)`,
-`run.run(<project root>)`, `run.run_last()`). The buffer's keys hide
+`run.run(<project root>)`, `run.run_last()`), and `<leader>td` calls
+`run.run({ strategy = 'dap' })`, neotest's debug strategy (needs nvim-dap). The buffer's keys hide
 LazyVim's global ones, which are what would load a lazy neotest, so at
 keypress the plugin requires neotest itself when it is installed (in
 lazy.nvim's plugin list, or on 'runtimepath'). That loads it and runs its
@@ -153,6 +161,81 @@ adapters. Otherwise they use the terminal runner. When neotest is not
 installed it is never loaded; when it is installed without the adapter, the
 first test key loads it to find that out. `<leader>cx` always uses the terminal. A `nomi` too old for
 `--format json` shows up in neotest as failed tests whose error says so.
+
+## Debugging
+
+`nomi dap` is a Debug Adapter Protocol server, and `lua/nomi/dap.lua` makes it
+an [nvim-dap](https://github.com/mfussenegger/nvim-dap) adapter named `nomi`
+(`{ type = 'executable', command = 'nomi', args = { 'dap' } }`) with three
+configurations for Nomi buffers: debug the file's `main`, the test under the
+cursor, or every test in the file. Nothing in `plugin/` or `ftplugin/`
+requires nvim-dap: the adapter is registered when nvim-dap is already loaded,
+when lazy.nvim loads it (its `User LazyLoad` event), or at the first debug
+command. An adapter or configurations you define for `nomi` yourself are
+kept.
+
+With nvim-dap installed:
+
+- `<leader>td` or `:NomiDebug` debugs the test around the cursor, or `main`
+  when the cursor is in no test; `:NomiDebug file` debugs every test in the
+  file, and `:NomiDebug run` the file's `main`.
+- In a paused session, `<leader>dh` or `:NomiDebug back` steps back to the
+  previous statement (reverse next: it passes over calls), and `<leader>dH`
+  or `:NomiDebug reverse` reverse continues to the latest earlier breakpoint
+  stop, or to the program's first statement. They are nvim-dap's
+  `step_back()` and `reverse_continue()`; `nomi dap` replays the program from
+  its start, answering input, the clock, randomness and files from what the
+  session recorded, so nothing is printed or read twice. A program that
+  starts a task cannot go back, and the session says why.
+- In a paused session, `:NomiDebug target` is nvim-dap's
+  `step_into({ askForTargets = true })`: it lists the calls on the paused
+  line, lambdas passed to `Iter` adapters included (`Iter.map(|n| ...)
+  callback`), and steps into the one you pick. If the line finishes without
+  calling it, the step stops at the next statement and the REPL says so.
+- `:NomiDebug break transact` toggles a function breakpoint, which stops at
+  the function's first statement each time it is called. nvim-dap keeps only
+  line breakpoints, so the plugin keeps the names and sends them to the
+  running Nomi session and to each new one before its line breakpoints. Name
+  a function as the call stack does: `transact`, `Account.deposit`,
+  `Card.to_string`, `Display.to_string` (every impl) or `tiny_bank.transact`.
+  A name nothing matches is reported with the closest ones. `:NomiDebug
+  break` alone lists them.
+- `Ctrl-]` on a variable in nvim-dap's scopes or REPL widget jumps to where
+  it is bound (nvim-dap's tag function, through the `locations` request).
+- The Debug code lenses start the same sessions.
+- `dap.continue()` in a Nomi buffer offers the three configurations.
+- With neotest and the adapter configured, `<leader>td` runs the nearest
+  test with neotest's `dap` strategy, and neotest shows its result as for
+  any other run (the session reports `nomi test --format json` records).
+
+A launch configuration takes `mode` (`run` or `test`), `program`, `line` (one
+test, as `nomi test --line` selects it), `args`, `cwd`, `env`, `console`,
+`justMyCode` (default true: step through the standard library without
+stopping in it) and `stopOnEntry`. A program's `console` defaults to
+`integratedTerminal`: nvim-dap opens a terminal (its `runInTerminal`) where
+the program reads its input and prints, so an interactive program works.
+Tests default to `internalConsole`, the REPL buffer, where the program has
+no input. The exception breakpoints are `trap`, `assertion` and `mainError`
+(on by default) and `taskFailure` (off); set them with
+`require('dap').set_exception_breakpoints({ 'trap', 'assertion', 'mainError', 'taskFailure' })`.
+
+While paused, the REPL (`:DapToggleRepl`), `require('dap.ui.widgets').hover()`
+and nvim-dap-ui's watches evaluate Nomi in the selected frame. An expression
+with an effect is refused unless it ends with `// allow effects`. Breakpoints
+take a condition, a hit count or a log message:
+`require('dap').set_breakpoint('attempt == 3')`,
+`require('dap').set_breakpoint(nil, '% 10')`,
+`require('dap').set_breakpoint(nil, nil, 'total is {total}')`. The scopes
+include **Pipeline**, each stage of the `|>` chain the frame is in, and
+**Captured output**, one per `io.capture` or `io.replay` call the frame is
+inside, with what it printed so far and, for a replay, the transcript, the
+script's input read and to come, and where it already diverged. A test's own
+output reaches the REPL buffer as the test prints it.
+`require('dap').restart_frame()` runs the selected frame again from its first
+statement. For values beside the code, install
+[nvim-dap-virtual-text](https://github.com/theHamsta/nvim-dap-virtual-text)
+and call `require('nvim-dap-virtual-text').setup()`; it reads the paused
+frame's variables from `nomi dap`, so it needs nothing Nomi-specific.
 
 ## Configuration
 
@@ -296,5 +379,7 @@ capture is not a name Neovim or the nvim-treesitter plugins recognise.
 
 `make test-nvim` builds the parser and runs `tests/run.lua` headless: the
 test keys' neotest detection, the runner's rerun of a moved or deleted test,
-and the neotest adapter's position ids, with neotest, lazy.nvim and
-snacks.nvim stubbed.
+the neotest adapter's position ids and its `dap` strategy spec, and the
+nvim-dap adapter's registration (never loading nvim-dap), the Debug lenses
+and the debug key, with neotest, nvim-dap, lazy.nvim and snacks.nvim
+stubbed.

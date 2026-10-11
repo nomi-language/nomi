@@ -77,6 +77,7 @@ var requestFreshness = map[string]freshness{
 	string(protocol.MethodTextDocumentDocumentSymbol):     preferCurrent,
 	string(protocol.MethodTextDocumentSemanticTokensFull): preferCurrent,
 	"textDocument/inlayHint":                              preferCurrent,
+	"textDocument/inlineValue":                            preferCurrent,
 	string(protocol.MethodTextDocumentRename):             requireCurrent,
 	string(protocol.MethodTextDocumentCodeAction):         requireCurrent,
 }

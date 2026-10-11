@@ -21,18 +21,18 @@ pub type Wrap
 impl Literal for Wrap {
     fn from_fragments(fragments: List<Fragment<String>>): Boxed {
         Boxed{
-            text: Iter.reduce(fragments, |acc = "", frag|
+            text: Iter.reduce(fragments, |acc = "", frag| {
                 case frag {
                     .Static(s) -> acc + s
                     .Dynamic(v) -> acc + v
                 }
-            ),
-            slots: Iter.reduce(fragments, |acc = 0, frag|
+            }),
+            slots: Iter.reduce(fragments, |acc = 0, frag| {
                 case frag {
                     .Static(_) -> acc
                     .Dynamic(_) -> acc + 1
                 }
-            ),
+            }),
         }
     }
 }
@@ -49,11 +49,11 @@ pub type Slots
 
 impl Literal for Slots {
     fn from_fragments(fragments: List<Fragment<Slot>>): Int {
-        Iter.reduce(fragments, |acc = 0, frag|
+        Iter.reduce(fragments, |acc = 0, frag| {
             case frag {
                 .Static(s) -> acc + String.length(s)
                 .Dynamic(v) -> acc + v.n
             }
-        )
+        })
     }
 }

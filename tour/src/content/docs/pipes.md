@@ -95,14 +95,18 @@ fn divide(x: Int, y: Int): Int {
 
 fn main() {
     10 |> divide(100, _) |> dbg
+    100 |> divide(y: 4, x: _) |> dbg
 }
 
 ```
 <!-- expect
 dbg line 6: 10 |> divide(100, _) = 10
+dbg line 7: 100 |> divide(y: 4, x: _) = 25
 -->
 
-That `_` becomes `divide(100, 10)`, which is `100 / 10`.
+That first `_` becomes `divide(100, 10)`, which is `100 / 10`. A named
+argument can be the `_` too: `x: _` puts the piped value in `x`, so the
+second stage is `divide(100, 4)`.
 
 ## The `then` stage
 
@@ -214,17 +218,17 @@ test "pipeline result is true" {
 fn main() {
     "Ada"
     |> if String.contains?("A") {
-            "initialed"
-        } else {
-            "plain"
-        }
+        "initialed"
+    } else {
+        "plain"
+    }
     |> dbg
 
     Some("Ada")
     |> case {
-            .Some(name) -> "named ${name}"
-            .None -> "missing"
-        }
+        .Some(name) -> "named ${name}"
+        .None -> "missing"
+    }
     |> dbg
 }
 ```
@@ -232,17 +236,17 @@ fn main() {
 dbg line 8:
   "Ada"
   |> if String.contains?("A") {
-          "initialed"
-      } else {
-          "plain"
-      }
+      "initialed"
+  } else {
+      "plain"
+  }
   = "initialed"
 dbg line 15:
   Some("Ada")
   |> case {
-          .Some(name) -> "named ${name}"
-          .None -> "missing"
-      }
+      .Some(name) -> "named ${name}"
+      .None -> "missing"
+  }
   = "named Ada"
 -->
 

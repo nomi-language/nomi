@@ -23,8 +23,9 @@ package irbuild
 //	*ast.Dbg with a nil Expr   `bl.dbgOf`, whose operand is the piped value
 //
 // Placeholder calls evaluate the left operand first and substitute its stable
-// temporary at each hole. Copy's injected delivery handles forcing and name
-// allocation. A named argument beside a hole declines.
+// temporary at the hole, positional or named (`x |> f(1, w: _)`), and the
+// ordinary call path routes the arguments by name. Copy's injected delivery
+// handles forcing and name allocation.
 //
 // A `then` stage uses the same indirect-call path as a prefix lambda call. A
 // `tap` stage holds the piped value, calls its lambda with it through that
@@ -59,9 +60,10 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		}
 		right = grouped.Expr
 	}
+	defer bl.stageAfter(t.Left, right)()
 	switch r := right.(type) {
 	case *ast.Call:
-		if len(placeholderSlots(r.Args)) > 0 {
+		if hasPlaceholder(r.Args) {
 			return bl.pipePlaceholderCall(t, r)
 		}
 		// The order is the divergence risk pipe.go names: a pipe evaluates
@@ -183,9 +185,6 @@ func (bl *irScalarBuilder) pipedInto(spliced *ast.Call) (ir.Temp, kind, bool, bo
 
 func (bl *irScalarBuilder) pipePlaceholderCall(t *ast.Binary, r *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if hasNamedArg(r.Args) {
-		return no()
-	}
 	src, k, mobile, ok := bl.lower(t.Left)
 	if !ok {
 		return no()
@@ -203,6 +202,13 @@ func (bl *irScalarBuilder) pipePlaceholderCall(t *ast.Binary, r *ast.Call) (ir.T
 	for i, a := range spliced.Args {
 		if _, placeholder := a.(*ast.Placeholder); placeholder {
 			spliced.Args[i] = hole
+		}
+		if na, named := a.(*ast.NamedArg); named {
+			if _, placeholder := na.Value.(*ast.Placeholder); placeholder {
+				filled := *na
+				filled.Value = hole
+				spliced.Args[i] = &filled
+			}
 		}
 	}
 	return bl.pipedInto(&spliced)

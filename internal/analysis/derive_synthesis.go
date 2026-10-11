@@ -1279,7 +1279,7 @@ func equatableEnumExpr(e *ast.EnumDef, line, col int) ast.Node {
 
 // enumVariantPatternForA builds the outer-case pattern that matches the
 // variant in `a` and binds its payload components to a-side names
-// (`a0`, `a1`, ...) for positional / embedded variants, or `<field>_a` for
+// (`a0`, `a1`, ...) for positional / embedded variants, or `a_<field>` for
 // struct variants. Bare variants produce a bare EnumPattern with no
 // payload bindings.
 func enumVariantPatternForA(enumName string, v ast.EnumVariant, line, col int) ast.Node {
@@ -1288,7 +1288,7 @@ func enumVariantPatternForA(enumName string, v ast.EnumVariant, line, col int) a
 
 // enumVariantPatternForB is the b-side mirror: bind names with a `_b`
 // suffix so the inner case branch body can reference both sides without
-// collision (`a0` / `b0`, or `<field>_a` / `<field>_b`).
+// collision (`a0` / `b0`, or `a_<field>` / `b_<field>`).
 func enumVariantPatternForB(enumName string, v ast.EnumVariant, line, col int) ast.Node {
 	return enumVariantPattern(enumName, v, "_b", line, col)
 }
@@ -1340,7 +1340,7 @@ func enumVariantPattern(enumName string, v ast.EnumVariant, suffix string, line,
 		for i, f := range v.Fields {
 			fields[i] = ast.StructPatternField{
 				Name:    f.Name,
-				Binding: f.Name + suffix,
+				Binding: fieldBindName(f.Name, suffix),
 			}
 		}
 		return &ast.StructPattern{
@@ -1371,6 +1371,14 @@ func enumVariantPattern(enumName string, v ast.EnumVariant, suffix string, line,
 // the leading underscore so the binding is a clean identifier.
 func positionalBindName(i int, suffix string) string {
 	return suffix[1:] + strconv.Itoa(i)
+}
+
+// fieldBindName returns the binding a struct-variant pattern gives field
+// `field`: the side letter, an underscore, then the field name (`a_w`,
+// `b_w`, `v_w`). The letter comes first so a field spelled with a leading
+// underscore (`_w`) still binds a readable name; `_w_a` would be a discard.
+func fieldBindName(field, suffix string) string {
+	return suffix[1:] + "_" + field
 }
 
 // equatableNestedCaseOnB builds the inner `case b { Variant(...) -> <eq> | _ -> False }`
@@ -1405,7 +1413,7 @@ func equatableNestedCaseOnB(enumName string, v ast.EnumVariant, line, col int) a
 //   - bare:       True (no payload to compare)
 //   - positional arity 1: Equatable.equal?(a0, b0)
 //   - positional arity N: AND-chain of Equatable.equal?(aI, bI)
-//   - struct:     AND-chain of Equatable.equal?(<field>_a, <field>_b)
+//   - struct:     AND-chain of Equatable.equal?(a_<field>, b_<field>)
 //   - embedded:   Equatable.equal?(a0, b0) on the bound embedded value
 func equatableVariantPayloadEq(v ast.EnumVariant, line, col int) ast.Node {
 	switch v.Kind {
@@ -1432,8 +1440,8 @@ func equatableVariantPayloadEq(v ast.EnumVariant, line, col int) ast.Node {
 		parts := make([]ast.Node, len(v.Fields))
 		for i, f := range v.Fields {
 			parts[i] = equatableEqualsCall(
-				identExpr(f.Name+"_a", line, col),
-				identExpr(f.Name+"_b", line, col),
+				identExpr(fieldBindName(f.Name, "_a"), line, col),
+				identExpr(fieldBindName(f.Name, "_b"), line, col),
 				line, col,
 			)
 		}
@@ -2476,12 +2484,12 @@ func hashableEnumExpr(e *ast.EnumDef, line, col int) ast.Node {
 //   - positional arity 1:   index * 31 + Hashable.hash(v0)
 //   - positional arity N:   index * 31 + (Hashable.hash(v0) * 31 + Hashable.hash(v1) ...)
 //   - struct, 0 fields:     IntLit(index)
-//   - struct, N fields:     index * 31 + (Hashable.hash(<f>_v) ... mix)
+//   - struct, N fields:     index * 31 + (Hashable.hash(v_<f>) ... mix)
 //   - embedded:             index * 31 + Hashable.hash(v0)
 //
 // The variant pattern's binding suffix is "_v" (see enumVariantPattern call
 // in hashableEnumExpr); `positionalBindName(i, "_v")` yields `v0`, `v1`, ...
-// and struct patterns bind each field name suffixed with `_v`.
+// and struct patterns bind each field as `v_<field>` (fieldBindName).
 func hashableVariantBody(v ast.EnumVariant, index int, line, col int) ast.Node {
 	idx := intLit(int64(index), line, col)
 	switch v.Kind {
@@ -2503,7 +2511,7 @@ func hashableVariantBody(v ast.EnumVariant, index int, line, col int) ast.Node {
 		}
 		parts := make([]ast.Node, len(v.Fields))
 		for i, f := range v.Fields {
-			parts[i] = hashableHashCall(identExpr(f.Name+"_v", line, col), line, col)
+			parts[i] = hashableHashCall(identExpr(fieldBindName(f.Name, "_v"), line, col), line, col)
 		}
 		return mixHash(idx, mixHashChain(parts, line, col), line, col)
 	case "embedded":
@@ -2867,12 +2875,12 @@ func comparableNestedCaseOnB(e *ast.EnumDef, i int, vi ast.EnumVariant, line, co
 //   - positional arity 1:   Comparable.compare(a0, b0)
 //   - positional arity N:   lex chain over (a0, b0), (a1, b1), ...
 //   - struct, 0 fields:     Equal
-//   - struct, N fields:     lex chain over (<f>_a, <f>_b) for each field
+//   - struct, N fields:     lex chain over (a_<f>, b_<f>) for each field
 //   - embedded:             Comparable.compare(a0, b0) on the bound value
 //
 // Binding names match what enumVariantPattern uses with suffixes "_a" and
 // "_b" — `positionalBindName(i, "_a")` yields `a0`, `a1`, ... and struct
-// patterns bind each field name suffixed with `_a` / `_b`.
+// patterns bind each field as `a_<field>` / `b_<field>` (fieldBindName).
 func comparableVariantPayload(v ast.EnumVariant, line, col int) ast.Node {
 	switch v.Kind {
 	case "bare":
@@ -2897,8 +2905,8 @@ func comparableVariantPayload(v ast.EnumVariant, line, col int) ast.Node {
 		pairs := make([]exprPair, len(v.Fields))
 		for i, f := range v.Fields {
 			pairs[i] = exprPair{
-				left:  identExpr(f.Name+"_a", line, col),
-				right: identExpr(f.Name+"_b", line, col),
+				left:  identExpr(fieldBindName(f.Name, "_a"), line, col),
+				right: identExpr(fieldBindName(f.Name, "_b"), line, col),
 			}
 		}
 		return lexCompare(pairs, line, col)
@@ -3153,7 +3161,7 @@ func stringifyEnumExpr(iface string, e *ast.EnumDef, wrapping map[string]bool, l
 // names that enumVariantPattern (with suffix "_v") produced:
 //
 //   - positional bindings: v0, v1, ... (via positionalBindName)
-//   - struct bindings:     <field>_v
+//   - struct bindings:     v_<field>
 //
 // Variant name in the rendered string is BARE (not enum-qualified) — that
 // matches what Debug-style stringification looks like in most languages
@@ -3177,7 +3185,7 @@ func stringifyVariantBody(iface string, v ast.EnumVariant, wrapping map[string]b
 		for i, f := range v.Fields {
 			exprs[i] = fieldDbg{
 				name: f.Name,
-				expr: identExpr(f.Name+"_v", line, col),
+				expr: identExpr(fieldBindName(f.Name, "_v"), line, col),
 			}
 		}
 		return stringifyStructLikeBody(iface, v.Name, exprs, line, col)
@@ -3419,7 +3427,7 @@ func toJsonVariantExpr(v ast.EnumVariant, opts deriveOptions, line, col int) ast
 		for _, f := range v.Fields {
 			entries = append(entries, ast.MapEntry{
 				Key:   staticString(jsonFieldName(f.Name, opts), line, col),
-				Value: toJsonCall(identExpr(f.Name+"_v", line, col), line, col),
+				Value: toJsonCall(identExpr(fieldBindName(f.Name, "_v"), line, col), line, col),
 			})
 		}
 		return jsonObj([]ast.MapEntry{{Key: staticString(v.Name, line, col), Value: jsonObj(entries, line, col)}}, line, col)
@@ -3546,7 +3554,7 @@ func fromJsonStructFieldsExpr(t *ast.StructDef, opts deriveOptions, idx int, dec
 	field := t.Fields[idx]
 	key := jsonFieldName(field.Name, opts)
 	jvName := "__json_" + field.Name
-	valueName := field.Name + "_value"
+	valueName := "__value_" + field.Name
 	nextDecoded := append(append([]ast.StructFieldVal{}, decoded...), ast.StructFieldVal{
 		Name:  field.Name,
 		Value: identExpr(valueName, line, col),

@@ -3,6 +3,7 @@ package rt
 import (
 	"errors"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,7 +49,9 @@ import (
 //
 // EnterReplay's capture takes its input from a script in the transcript's
 // form (ParseReplayScript): the text of each input line answers one read, in
-// order, and the rest is the transcript the script expects.
+// order, and the rest is the transcript the script expects. A script with
+// no `>>` line is output written without the gutter, and is compared with
+// the transcript's gutter taken off (ReplayScript.Compared).
 type Capture struct {
 	mu sync.Mutex
 	in *Input
@@ -56,7 +59,12 @@ type Capture struct {
 	replay bool
 	script []string
 	next   int
-	out    strings.Builder
+	// expected is the replay script as ReplayText spells it, and verbatim
+	// says it is an output-only script written without the gutter
+	// (ReplayScript.Verbatim).
+	expected string
+	verbatim bool
+	out      strings.Builder
 	// tr holds the finished transcript lines; line is the output line in
 	// progress, which a read may end.
 	tr     strings.Builder
@@ -66,6 +74,8 @@ type Capture struct {
 	// test is set for a test case's capture (EnterTestCapture): it collects
 	// the case's output, `dbg` included, and never answers a read.
 	test bool
+	// live, when set, receives every write as it is made (Stream).
+	live io.Writer
 }
 
 // InputMarker starts a transcript line the program read; OutputGutter starts
@@ -105,7 +115,8 @@ func EnterCapture(parent *Frame, input string) (*Frame, *Capture) {
 // EnterReplay is EnterCapture for `io.replay`: the input is the script's
 // input lines, one per read.
 func EnterReplay(parent *Frame, script ReplayScript) (*Frame, *Capture) {
-	return enter(parent, &Capture{replay: true, script: script.Input})
+	return enter(parent, &Capture{replay: true, script: script.Input, expected: script.Expected,
+		verbatim: script.Verbatim})
 }
 
 // EnterTestCapture returns the frame a test case runs on and the capture
@@ -118,6 +129,15 @@ func EnterReplay(parent *Frame, script ReplayScript) (*Frame, *Capture) {
 // that goes to the program's output.
 func EnterTestCapture(parent *Frame) (*Frame, *Capture) {
 	return enter(parent, &Capture{test: true})
+}
+
+// Stream makes every write to c reach w as well, as it is made: a debugger
+// shows a test case's output while the case is stopped, not only when it
+// ends. A write an `io.capture` inside the case takes is not streamed.
+func (c *Capture) Stream(w io.Writer) {
+	c.mu.Lock()
+	c.live = w
+	c.mu.Unlock()
 }
 
 func enter(parent *Frame, c *Capture) (*Frame, *Capture) {
@@ -162,6 +182,9 @@ func CaptureWrite(fr *Frame, s string) bool {
 // write appends s to the output and the transcript. c.mu is held.
 func (c *Capture) write(s string) {
 	c.out.WriteString(s)
+	if c.live != nil {
+		_, _ = io.WriteString(c.live, s)
+	}
 	for {
 		i := strings.IndexByte(s, '\n')
 		if i < 0 {
@@ -237,6 +260,12 @@ func captureFor(fr *Frame) *Capture {
 	return nil
 }
 
+// ReadsCaptured reports whether `io.read_line` on fr reads an open
+// `io.capture` or `io.replay` call's input rather than the program's.
+func (fr *Frame) ReadsCaptured() bool {
+	return fr != nil && captureFor(fr) != nil
+}
+
 // readLine is `io.read_line` inside the capture: the next line of its input,
 // written into the transcript after the prompt it ends, or Err("eof"), which
 // writes nothing and leaves the prompt in place.
@@ -266,30 +295,171 @@ func (c *Capture) readLine() Result[string, string] {
 	return Ok[string, string](text)
 }
 
+// CaptureView is what an open `io.capture` or `io.replay` call holds so
+// far, for a debugger stopped inside it.
+type CaptureView struct {
+	// Replay says the call is `io.replay`.
+	Replay bool
+	// Output is everything written so far, byte for byte.
+	Output string
+	// Transcript is the transcript so far: for a replay as ReplayText spells
+	// it, in two columns even for a Verbatim script, and for a capture as
+	// CaptureResult.Transcript does. An output line in progress is its last
+	// line.
+	Transcript string
+	// Read and Unread are a replay script's input lines that reads have
+	// taken and those still to come.
+	Read, Unread []string
+	// Diverged, for a replay, says where the transcript so far already
+	// differs from the script's, or is "" while it matches so far
+	// (Divergence).
+	Diverged string
+}
+
+// OpenCaptures are the `io.capture` and `io.replay` calls in force on fr,
+// innermost first: the open captures a write or a read on fr can reach. A
+// test case's own capture is not one.
+func (fr *Frame) OpenCaptures() []*Capture {
+	if fr == nil {
+		return nil
+	}
+	var out []*Capture
+	for c := fr.capture; c != nil; c = c.outer {
+		if c.test {
+			continue
+		}
+		c.mu.Lock()
+		open := !c.closed
+		c.mu.Unlock()
+		if open {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// Carries reports whether c is one of fr's captures: whether fr runs inside
+// the call c belongs to.
+func (fr *Frame) Carries(c *Capture) bool {
+	if fr == nil {
+		return false
+	}
+	for in := fr.capture; in != nil; in = in.outer {
+		if in == c {
+			return true
+		}
+	}
+	return false
+}
+
+// View is what c holds so far. It reads c and changes nothing.
+func (c *Capture) View() CaptureView {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	finished, partial := c.tr.String(), c.line.String()
+	v := CaptureView{Replay: c.replay, Output: c.out.String(), Transcript: finished + outputLine(partial)}
+	if !c.replay {
+		return v
+	}
+	v.Transcript = ReplayText(v.Transcript)
+	v.Read = append([]string{}, c.script[:c.next]...)
+	v.Unread = append([]string{}, c.script[c.next:]...)
+	script := ReplayScript{Verbatim: c.verbatim}
+	v.Diverged = Divergence(c.expected, script.Compared(finished), script.Compared(outputLine(partial)))
+	return v
+}
+
+// Divergence says where a replay's transcript so far, finished lines and
+// the output line in progress, already differs from expected, the script as
+// ReplayText spells it, or answers "" while it matches so far. Both parts of
+// the transcript are in the form the replay compares (ReplayScript.Compared),
+// the line in progress without a newline. An output line in progress
+// matches while the script's line starts with it, since more of the line may
+// still come.
+func Divergence(expected, finished, partial string) string {
+	var want []string
+	if expected != "" {
+		want = strings.Split(strings.TrimSuffix(expected, "\n"), "\n")
+	}
+	var got []string
+	if finished != "" {
+		got = strings.Split(strings.TrimSuffix(finished, "\n"), "\n")
+	}
+	at := func(i int, line, what string) string {
+		if i >= len(want) {
+			return "the script ends after line " + strconv.Itoa(len(want)) + ", and the transcript " + what + " " +
+				strconv.Quote(line)
+		}
+		return "line " + strconv.Itoa(i+1) + " of the script is " + strconv.Quote(want[i]) +
+			", and the transcript " + what + " " + strconv.Quote(line)
+	}
+	for i, line := range got {
+		line = strings.TrimRight(line, " \t\r")
+		if i >= len(want) || line != want[i] {
+			return at(i, line, "has")
+		}
+	}
+	if partial == "" {
+		return ""
+	}
+	line := strings.TrimRight(partial, " \t\r")
+	if i := len(got); i >= len(want) || !strings.HasPrefix(want[i], line) {
+		return at(i, line, "has begun")
+	}
+	return ""
+}
+
 // ReplayScript is an `io.replay` script taken apart: the text of each input
 // line, in order, and the transcript the script expects, as ReplayText
 // spells it.
 type ReplayScript struct {
 	Input    []string
 	Expected string
+	// Verbatim says the script is output only and written without the
+	// gutter: Expected is the output itself, and a transcript is compared
+	// with the gutter taken off (Compared).
+	Verbatim bool
+}
+
+// Compared is a transcript in the form the script compares it: as it is,
+// or for a Verbatim script with OutputGutter taken off each line. A
+// Verbatim script has no input, so its transcript has no input lines.
+func (s ReplayScript) Compared(transcript string) string {
+	if !s.Verbatim || transcript == "" {
+		return transcript
+	}
+	lines := strings.Split(transcript, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimPrefix(line, OutputGutter)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // ParseReplayScript takes an `io.replay` script apart. Trailing whitespace
 // and carriage returns on each line do not count (ReplayText).
 //
-// A script is in the transcript's form, whether or not it has input. A line
-// that is InputMarker followed by text that does not start with a space, or
-// `>>` alone (empty input, InputMarker with its trailing spaces stripped),
-// is input, and its text is what follows InputMarker. A blank line is blank
-// output, and a line that starts with OutputGutter is output. Any other line
-// is an error naming it (replayLineError): `>>` followed by other than two
-// spaces (`>> 500`, `>>500`, `>>   500`), or output behind fewer than four
-// columns. Without the gutter, output that starts with `>>` would read as
-// input.
+// A script with no line that starts with `>>` is output only and Verbatim:
+// each line is an output line exactly as written, leading spaces included,
+// and a blank line is a blank output line. No gutter is required or taken
+// off, so output whose every line starts with spaces keeps them.
+//
+// A script with a line that starts with `>>` is in the transcript's form.
+// A line that is InputMarker followed by text that does not start with a
+// space, or `>>` alone (empty input, InputMarker with its trailing spaces
+// stripped), is input, and its text is what follows InputMarker. A blank
+// line is blank output, and a line that starts with OutputGutter is output.
+// Any other line is an error naming it (replayLineError): `>>` followed by
+// other than two spaces (`>> 500`, `>>500`, `>>   500`), or output behind
+// fewer than four columns. Output that starts with `>>` is written in this
+// form, behind the gutter, since without it the line would read as input.
 func ParseReplayScript(script string) (ReplayScript, error) {
 	expected := ReplayText(script)
+	lines := strings.Split(strings.TrimSuffix(expected, "\n"), "\n")
+	if !slices.ContainsFunc(lines, func(line string) bool { return strings.HasPrefix(line, ">>") }) {
+		return ReplayScript{Expected: expected, Verbatim: true}, nil
+	}
 	var input []string
-	for i, line := range strings.Split(strings.TrimSuffix(expected, "\n"), "\n") {
+	for i, line := range lines {
 		switch {
 		case line == "" || strings.HasPrefix(line, OutputGutter):
 		case line == ">>":
@@ -297,23 +467,50 @@ func ParseReplayScript(script string) (ReplayScript, error) {
 		case strings.HasPrefix(line, InputMarker) && line[len(InputMarker)] != ' ':
 			input = append(input, line[len(InputMarker):])
 		default:
-			return ReplayScript{}, replayLineError(i+1, line)
+			return ReplayScript{}, replayLineError(i+1, line, twoColumns(lines))
 		}
 	}
 	return ReplayScript{Input: input, Expected: expected}, nil
+}
+
+// twoColumns reports whether a script that has a `>>` line was written in
+// two columns: some line is output behind OutputGutter or well-formed
+// input. When neither is, the author may have meant the script verbatim,
+// with output that starts with `>>`.
+func twoColumns(lines []string) bool {
+	for _, line := range lines {
+		if strings.HasPrefix(line, OutputGutter) || line == ">>" ||
+			strings.HasPrefix(line, InputMarker) && line[len(InputMarker)] != ' ' {
+			return true
+		}
+	}
+	return false
 }
 
 // replayLineError is the error for line n of a script, which is neither
 // input nor output, with a hint that writes the line with the right gutter:
 // behind InputMarker when it starts with `>>`; behind OutputGutter
 // otherwise, and behind InputMarker as well when it starts with `>`, which
-// reads as input written with a short marker. The number is the script's
-// line, not a source line, so it is not one of the positioned fault texts.
-func replayLineError(n int, line string) error {
+// reads as input written with a short marker. When the script is not
+// written in two columns (twoColumns), a second hint says that its `>>`
+// line makes it so, and how to write output that starts with `>>`. The
+// number is the script's line, not a source line, so it is not one of the
+// positioned fault texts.
+func replayLineError(n int, line string, twoColumns bool) error {
+	text := replayLineErrorText(n, line)
+	if !twoColumns {
+		text += "\nhint: a script with a line that starts with `>>` is in two columns; " +
+			"output that starts with `>>` is written behind four spaces, as every output line is: `" +
+			OutputGutter + ">> ...`"
+	}
+	return errors.New(text)
+}
+
+func replayLineErrorText(n int, line string) string {
 	at := "io.replay: line " + strconv.Itoa(n) + " of the script, " + strconv.Quote(line) + ", "
 	if rest, ok := strings.CutPrefix(line, ">>"); ok {
-		return errors.New(at + "must have two spaces after `>>`\n" +
-			"hint: an input line is `" + InputMarker + strings.TrimLeft(rest, " ") + "`")
+		return at + "must have two spaces after `>>`\n" +
+			"hint: an input line is `" + InputMarker + strings.TrimLeft(rest, " ") + "`"
 	}
 	text := strings.TrimLeft(line, " ")
 	hint := "hint: an output line is `" + OutputGutter + text + "`"
@@ -321,7 +518,7 @@ func replayLineError(n int, line string) error {
 		hint = "hint: an input line is `" + InputMarker + strings.TrimLeft(rest, " ") +
 			"`, and an output line is `" + OutputGutter + text + "`"
 	}
-	return errors.New(at + "must start with `" + InputMarker + "` (input) or four spaces (output)\n" + hint)
+	return at + "must start with `" + InputMarker + "` (input) or four spaces (output)\n" + hint
 }
 
 // ReplayText is a transcript or a replay script in the form `io.replay`

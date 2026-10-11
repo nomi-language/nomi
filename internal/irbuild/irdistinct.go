@@ -64,6 +64,11 @@ func irCompositeDistinctIn(d *typeDef, outer []*typeDef) bool {
 		return false
 	}
 	in := d.inner
+	if in == kindUnit {
+		// `type Done Unit`: the record holds the one Unit value, as a
+		// struct field of type Unit does.
+		return true
+	}
 	if in.tag != tagTuple && in.tag != tagMap && in.tag != tagList && in.tag != tagFunc && in.tag != tagNamed {
 		return false
 	}
@@ -100,11 +105,17 @@ func irEmbedsValueDistinct(v *variantDef) bool {
 
 // irNominalInner reports whether a distinct's inner is itself a declared
 // type the VM carries: a struct, an enum (`type Wrapped Maybe<Int>`), or
-// another distinct (`type Twice Meters`), or a std Set or Vector (`type Ids
-// Set<Int>`). The distinct record holds that value as it holds a tuple.
+// another distinct (`type Twice Meters`), a std Set or Vector (`type Ids
+// Set<Int>`), or an rt leaf (`Decimal`, `Byte`, `Bytes`, a host handle such
+// as `Regex`). The distinct record holds that value as it holds a tuple.
 func irNominalInner(in kind) bool {
 	if in.tag != tagNamed || in.def == nil {
 		return false
+	}
+	if isDecimalKind(in) || irByteValueKind(in) || irHostHandleKind(in) {
+		// An rt leaf the VM holds as one value: `type Money Decimal`, `type
+		// Payload Bytes`, `type Pattern Regex`.
+		return true
 	}
 	if _, isSet := setElem(in); isSet {
 		return in != kindEmptySet && irRetainedSetKind(in)
@@ -159,8 +170,29 @@ func irRetainedLeafKind(k kind) bool {
 // flat, which is the other legal arity; a tuple inner is not a scalar so
 // `irWrappingDistinct` has already declined the declaration.
 func (bl *irScalarBuilder) distinctMake(t *ast.Call, ti *ast.TypeIdent) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	d, found := bl.g.namedType(ti.Name)
+	if !found {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	return bl.distinctMakeOf(t, d)
+}
+
+// selfDistinct is the distinct type an interface default is being lowered
+// for (gen.defaultSelf), which `self(x)` builds and `self(p)` takes apart, or
+// nil outside one.
+func (g *gen) selfDistinct() *typeDef {
+	ds := g.defaultSelf
+	if ds == nil || ds.recv.tag != tagNamed || ds.recv.def == nil || !ds.recv.def.isDistinct {
+		return nil
+	}
+	return ds.recv.def
+}
+
+// distinctMakeOf is distinctMake for the declaration d: `self(x)` in a
+// default names it through the implementor rather than a type name.
+func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	found := d != nil
 	if found && irCompositeDistinct(d) && namedArgNode(t.Args) == nil {
 		return bl.compositeDistinctMake(t, d)
 	}

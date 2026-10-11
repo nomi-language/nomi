@@ -79,7 +79,7 @@ func (g *gen) checkedRefKinds(ref ast.Node, arity int) ([]kind, kind, bool) {
 		return nil, kindInvalid, false
 	}
 	line, col := calleeRefPos(ref)
-	sym := g.fa.References[analysis.Pos{Line: line, Col: col}]
+	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 	if sym == nil {
 		return nil, kindInvalid, false
 	}

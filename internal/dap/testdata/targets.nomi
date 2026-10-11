@@ -1,0 +1,24 @@
+import std/io
+
+fn double(n: Int): Int {
+    n * 2
+}
+
+fn add(a: Int, b: Int): Int {
+    a + b
+}
+
+fn main() {
+    x = add(double(1), double(2))
+
+    ys =
+        [1, 2, 3]
+        |> Iter.map(|n| n * x)
+        |> Iter.filter(|n| n > 12)
+        |> Iter.to_list()
+
+    empty: List<Int> = []
+    zs = empty |> Iter.map(|n| double(n)) |> Iter.to_list()
+
+    io.print("${x} ${ys} ${zs}")
+}

@@ -43,23 +43,23 @@ test "lambdas compose through iterator pipelines" {
 }
 
 test "lambda defaults drive parameter inference" {
-    square = Iter.loop(|n = 5|
+    square = Iter.loop(|n = 5| {
         if n == 0 {
             break 0
         } else {
             n - 1
         }
-    )
+    })
 
     any_pos =
         [-1, -2, 3, -4]
-        |> Iter.reduce(|_seen = False, x|
+        |> Iter.reduce(|_seen = False, x| {
             if x > 0 {
                 break True
             } else {
                 False
             }
-        )
+        })
 
     fib = Iter.loop(|state = (0, 1)| {
         (a, b) = state
@@ -74,12 +74,12 @@ test "lambda defaults drive parameter inference" {
 
     found =
         [1, 2, 3, 4]
-        |> Iter.reduce(|acc = None, x|
+        |> Iter.reduce(|acc = None, x| {
             case acc {
                 Some(v) -> Some(v)
                 None -> if x == 3 { Some(x) } else { None }
             }
-        )
+        })
 
     taken = Iter.reduce([10, 20, 30, 40], |state = (0, []), x| {
         (count, acc) = state
@@ -95,12 +95,12 @@ test "lambda defaults drive parameter inference" {
 
     counts =
         [("a", 1), ("b", 2), ("a", 3)]
-        |> Iter.reduce(|acc = Map.empty(), (k, v)|
+        |> Iter.reduce(|acc = Map.empty(), (k, v)| {
             case Map.get(acc, k) {
                 Some(prev) -> Map.put(acc, k, prev + v)
                 None -> Map.put(acc, k, v)
             }
-        )
+        })
 
     assert square == 0
     assert any_pos

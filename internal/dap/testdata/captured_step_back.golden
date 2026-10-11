@@ -1,0 +1,44 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"line":29,"mode":"test","program":"$TESTDATA/teller.nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":10}],"source":{"path":"$TESTDATA/teller.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":10,"source":{"path":"$TESTDATA/teller.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event output {"category":"stdout","output":"before the replay\n"}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stepBack {"threadId":1}
+<- response stepBack
+<- event output {"category":"console","output":"Going back runs the program again from its start, answering input, the clock, randomness and files from what this session recorded; nothing is printed or read again until it passes the point it had reached.\n"}
+<- event stopped {"allThreadsStopped":true,"reason":"step","threadId":1}
+-> stepBack {"threadId":1}
+<- response stepBack
+<- event stopped {"allThreadsStopped":true,"reason":"step","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":8,"name":"teller","source":{"name":"teller.nomi","path":"$TESTDATA/teller.nomi"}},{"column":17,"id":2,"line":319,"name":"io.run_replayed","presentationHint":"subtle","source":{"name":"io.nomi","path":"$STD/io.nomi","presentationHint":"deemphasize"}},{"column":17,"id":3,"line":319,"name":"io.replay<Unit>","presentationHint":"subtle","source":{"name":"io.nomi","path":"$STD/io.nomi","presentationHint":"deemphasize"}},{"column":21,"id":4,"line":32,"name":"the teller greets and takes a deposit","source":{"name":"teller.nomi","path":"$TESTDATA/teller.nomi"}}],"totalFrames":4}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":2,"variablesReference":2},{"expensive":false,"name":"Captured output (io.replay at teller.nomi:32)","namedVariables":4,"variablesReference":3}]}
+-> variables {"variablesReference":3}
+<- response variables {"variables":[{"declarationLocationReference":1,"indexedVariables":2,"name":"output","type":"String","value":"\"Welcome to the bank\nName: \"","variablesReference":4},{"declarationLocationReference":1,"indexedVariables":3,"name":"transcript","type":"String","value":"\"    Welcome to the bank\n    Name:\n>>  Ada\n\"","variablesReference":5},{"declarationLocationReference":1,"indexedVariables":1,"name":"input read","type":"List<String>","value":"[\"Ada\"]","variablesReference":6},{"declarationLocationReference":1,"indexedVariables":1,"name":"input to come","type":"List<String>","value":"[\"50\"]","variablesReference":7}]}
+-> variables {"variablesReference":4}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"Welcome to the bank\"","variablesReference":0},{"name":"[1]","type":"String","value":"\"Name: \"","variablesReference":0}]}
+-> variables {"variablesReference":5}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"    Welcome to the bank\"","variablesReference":0},{"name":"[1]","type":"String","value":"\"    Name:\"","variablesReference":0},{"name":"[2]","type":"String","value":"\">>  Ada\"","variablesReference":0}]}
+-> variables {"variablesReference":6}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"Ada\"","variablesReference":0}]}
+-> variables {"variablesReference":7}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"50\"","variablesReference":0}]}
+-> setBreakpoints {"breakpoints":[],"source":{"path":"$TESTDATA/teller.nomi"}}
+<- response setBreakpoints {"breakpoints":[]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"ok testdata/teller.nomi :: the teller greets and takes a deposit\n"}
+<- event output {"category":"stdout","output":"test result: ok. 1 passed, 0 failed\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

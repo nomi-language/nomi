@@ -14,33 +14,33 @@ test "take drop and take_while materialize expected values" {
 
 test "take_while callbacks can continue or break with keep decisions" {
     skipped =
-        Iter.take_while([1, 2, 3, 4, 5], |x|
+        Iter.take_while([1, 2, 3, 4, 5], |x| {
             if x == 2 {
                 continue
             } else {
                 x < 4
             }
-        )
+        })
         |> Iter.to_list()
 
     kept_then_stopped =
-        Iter.take_while([1, 2, 3, 4, 5], |x|
+        Iter.take_while([1, 2, 3, 4, 5], |x| {
             if x == 2 {
                 break True
             } else {
                 x < 4
             }
-        )
+        })
         |> Iter.to_list()
 
     stopped_without_taking =
-        Iter.take_while([1, 2, 3, 4, 5], |x|
+        Iter.take_while([1, 2, 3, 4, 5], |x| {
             if x == 2 {
                 break False
             } else {
                 x < 4
             }
-        )
+        })
         |> Iter.to_list()
 
     assert skipped == [1, 3]
@@ -50,33 +50,33 @@ test "take_while callbacks can continue or break with keep decisions" {
 
 test "filter break values decide whether to keep the current element" {
     keep_then_stop =
-        Iter.filter([1, 2, 3, 4], |x|
+        Iter.filter([1, 2, 3, 4], |x| {
             if x == 3 {
                 break True
             } else {
                 x > 1
             }
-        )
+        })
         |> Iter.to_list()
 
     drop_then_stop =
-        Iter.filter([1, 2, 3, 4], |x|
+        Iter.filter([1, 2, 3, 4], |x| {
             if x == 3 {
                 break False
             } else {
                 x > 1
             }
-        )
+        })
         |> Iter.to_list()
 
     stop_without_decision =
-        Iter.filter([1, 2, 3, 4], |x|
+        Iter.filter([1, 2, 3, 4], |x| {
             if x == 3 {
                 break
             } else {
                 x > 1
             }
-        )
+        })
         |> Iter.to_list()
 
     assert keep_then_stop == [2, 3]

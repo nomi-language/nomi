@@ -29,12 +29,12 @@ pub type Local
 
 impl Literal for Local {
     fn from_fragments(fragments: List<Fragment<String>>): String {
-        Iter.reduce(fragments, |acc = "<", frag|
+        Iter.reduce(fragments, |acc = "<", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "[" + v + "]"
             }
-        ) + ">"
+        }) + ">"
     }
 }
 

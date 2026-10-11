@@ -96,7 +96,7 @@ func (bl *irScalarBuilder) nominalCaseTest(pattern ast.Node, subj ir.Temp, k kin
 		if !irDistinctOverValue(k.def) || (p.Binding != "" && p.Payload != nil) {
 			return false
 		}
-		if owner, member, ok := patternHeadAsWritten(p.Variant); !ok || owner != "" || member != k.def.nomi {
+		if owner, member, ok := bl.g.patternHead(p.Variant); !ok || owner != "" || member != k.def.nomi {
 			return false
 		}
 		inner := bl.distinctProjection(p, subj, k, true, "irstructpattern.go nominalCaseTest")

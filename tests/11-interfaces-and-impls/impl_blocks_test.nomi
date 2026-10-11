@@ -87,7 +87,7 @@ fn get<T>(b: Wrapped<T>): T {
     b.value
 }
 
-impl Describe for Wrapped<T> {
+impl Describe for Wrapped<T> where T: Describe {
     fn describe(b: Wrapped<T>): String {
         "Wrapped(" + Describe.describe(b.value) + ")"
     }
@@ -97,12 +97,12 @@ type Sql
 
 impl Literal for Sql {
     fn from_fragments(fragments: List<Fragment<String>>): String {
-        Iter.reduce(fragments, |acc = "", frag|
+        Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "'" + v + "'"
             }
-        )
+        })
     }
 }
 

@@ -46,7 +46,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 15
+const FormatVersion = 18
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -560,6 +560,12 @@ func (e *encoder) funcBody(w *wbuf, f *Func) {
 			e.instr(w, in)
 		}
 		e.term(w, b.term)
+		w.slen(len(b.stmts), b.stmts == nil)
+		for _, m := range b.stmts {
+			w.uv(uint64(m.Index))
+			e.pos(w, m.Pos)
+			w.byte1(byte(m.Kind))
+		}
 	}
 	w.slen(len(f.defs), f.defs == nil)
 	for t, d := range f.defs {
@@ -572,6 +578,24 @@ func (e *encoder) funcBody(w *wbuf, f *Func) {
 			e.fail("%s: the definition of %s is not in any block", f.name, Temp(t))
 		}
 		w.uv(at)
+	}
+	w.slen(len(f.vars), f.vars == nil)
+	for _, v := range f.vars {
+		w.uv(e.str(v.Name))
+		w.temp(v.Temp)
+		w.uv(e.str(v.Type))
+		e.pos(w, v.Scope)
+		e.pos(w, v.Decl)
+	}
+	w.slen(len(f.pipes), f.pipes == nil)
+	for _, p := range f.pipes {
+		e.pos(w, p.Pos)
+		w.slen(len(p.Stages), p.Stages == nil)
+		for _, s := range p.Stages {
+			w.uv(e.str(s.Text))
+			w.temp(s.Temp)
+			e.pos(w, s.Pos)
+		}
 	}
 }
 

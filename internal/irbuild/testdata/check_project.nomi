@@ -39,9 +39,9 @@ fn main() {
     io.print("private import count is 1: ${Iter.count(private_import) == 1}")
 
     io.print(
-        "private import says private: ${Iter.any?(private_import, |d|
+        "private import says private: ${Iter.any?(private_import, |d| {
             String.contains?(d.message, "'ping' is private and cannot be imported")
-        )}"
+        })}"
     )
 
     entry_points_ok = compiler.check_project(Project{
@@ -94,15 +94,15 @@ fn main() {
     io.print("a manifest naming the wrong entry gives 2: ${Iter.count(entry_points_wrong) == 2}")
 
     io.print(
-        "it names main: ${Iter.any?(entry_points_wrong, |d|
+        "it names main: ${Iter.any?(entry_points_wrong, |d| {
             String.contains?(d.message, "entry callback in main but file is not declared")
-        )}"
+        })}"
     )
 
     io.print(
-        "it names other: ${Iter.any?(entry_points_wrong, |d|
+        "it names other: ${Iter.any?(entry_points_wrong, |d| {
             String.contains?(d.message, "other is declared in nomi.toml entry_points")
-        )}"
+        })}"
     )
 
     first = Iter.first(private_import)

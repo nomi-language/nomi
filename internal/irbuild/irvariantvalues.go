@@ -734,7 +734,7 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 		if bl.g.fa == nil {
 			return nil, nil, false
 		}
-		sym := bl.g.fa.References[analysis.Pos{Line: field.Field.Line, Col: field.Field.Col}]
+		sym := bl.g.srcFA().References[analysis.Pos{Line: field.Field.Line, Col: field.Field.Col}]
 		if sym == nil || sym.VariantType == nil {
 			return nil, nil, false
 		}

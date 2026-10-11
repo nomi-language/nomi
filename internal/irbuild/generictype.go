@@ -615,11 +615,11 @@ func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, decla
 		if ann == nil || !namesTypeParam(ann, params) {
 			continue
 		}
-		labels := g.fa.References
+		labels := g.srcFA().References
 		if analysis.IsPunnedField(f) {
 			// `Span{start, stop}`: References at a punned label holds the
 			// variable, and the field's instantiated type is kept apart.
-			labels = g.fa.PunnedFieldLabels
+			labels = g.srcFA().PunnedFieldLabels
 		}
 		sym := labels[analysis.Pos{Line: f.Line, Col: f.Col}]
 		if sym == nil || sym.Kind != analysis.SymbolField {

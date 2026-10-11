@@ -39,7 +39,7 @@ import {
     startup.Startup export
     steppable.Steppable export
     strings.String export
-    structs.Struct export
+    structs.{Distinct, Struct} export
     subtract.Subtract export
     type.Type export
     unit.Unit export

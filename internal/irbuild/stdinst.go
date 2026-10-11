@@ -346,9 +346,17 @@ func stdModuleGenericTemplate(v *stdModuleView, recv, name string) *stdFunc {
 // whose cached body was not retained because it calls a generic sibling in
 // its own module (`Generator.bool` calls `map`) or a generic template of
 // another std module (Regex's Debug calls `String.contains?`), which a
-// program builds for itself. A body the cache declined for any other reason
-// keeps that reason.
+// program builds for itself, or calls a monomorphic std function that is
+// not retained for that reason (io's `Replayed` failure reaches
+// `guttered?`, which calls `String.starts_with?`). A body the cache
+// declined for any other reason keeps that reason.
 func (s *stdInstances) stdUnretainedMonoBody(f *stdFunc) bool {
+	return s.unretainedMono(f, map[*stdFunc]bool{})
+}
+
+// unretainedMono is stdUnretainedMonoBody with the functions whose answer is
+// being worked out, which answer false so a recursive pair terminates.
+func (s *stdInstances) unretainedMono(f *stdFunc, visiting map[*stdFunc]bool) bool {
 	if f == nil || f.why != "" || f.rtCall != "" || f.decl == nil || f.decl.Body == nil ||
 		len(f.decl.Decorators) > 0 || len(f.decl.TypeParams) > 0 {
 		return false
@@ -357,13 +365,19 @@ func (s *stdInstances) stdUnretainedMonoBody(f *stdFunc) bool {
 	if f.canon != nil {
 		c = f.canon
 	}
-	return c.irBody == nil && s.callsGenericSibling(f)
+	if c.irBody != nil || visiting[f] {
+		return false
+	}
+	visiting[f] = true
+	defer delete(visiting, f)
+	return s.callsGenericSibling(f, visiting)
 }
 
 // callsGenericSibling reports whether f's body names, as a bare or
 // type-qualified callee, a generic template of its own module, or as a
-// type-qualified callee one of another std module.
-func (s *stdInstances) callsGenericSibling(f *stdFunc) bool {
+// type-qualified callee one of another std module, or names either way a
+// monomorphic std function a program builds for itself (unretainedMono).
+func (s *stdInstances) callsGenericSibling(f *stdFunc, visiting map[*stdFunc]bool) bool {
 	v := s.std.views[f.module]
 	if v == nil {
 		return false
@@ -378,14 +392,17 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc) bool {
 			switch callee := c.Func.(type) {
 			case *ast.Ident:
 				if stdModuleGenericTemplate(v, f.recv, callee.Name) != nil ||
-					stdModuleGenericTemplate(v, "", callee.Name) != nil {
+					stdModuleGenericTemplate(v, "", callee.Name) != nil ||
+					s.unretainedMono(stdModuleMonoFunc(v, f.recv, callee.Name), visiting) ||
+					s.unretainedMono(stdModuleMonoFunc(v, "", callee.Name), visiting) {
 					found = true
 					return
 				}
 			case *ast.FieldAccess:
 				if ti, isType := callee.Object.(*ast.TypeIdent); isType && callee.Field != nil &&
 					(stdModuleGenericTemplate(v, ti.Name, callee.Field.Name) != nil ||
-						s.otherModuleGenericTemplate(f.module, ti.Name, callee.Field.Name)) {
+						s.unretainedMono(stdModuleMonoFunc(v, ti.Name, callee.Field.Name), visiting) ||
+						s.otherModuleTemplate(f.module, ti.Name, callee.Field.Name, visiting)) {
 					found = true
 					return
 				}
@@ -399,12 +416,36 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc) bool {
 	return found
 }
 
-// otherModuleGenericTemplate reports whether `owner.method` names one generic
+// stdModuleMonoFunc is the one monomorphic Nomi-bodied function the module
+// declares under `recv.name` ("" for a free function), or nil.
+func stdModuleMonoFunc(v *stdModuleView, recv, name string) *stdFunc {
+	if v == nil {
+		return nil
+	}
+	var found *stdFunc
+	for _, c := range v.cands {
+		if c.f == nil || c.f.recv != recv || c.f.name != name {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = c.f
+	}
+	if found == nil || found.decl == nil || len(found.decl.TypeParams) > 0 {
+		return nil
+	}
+	return found
+}
+
+// otherModuleTemplate reports whether `owner.method` names one generic
 // template another std module declares (`String.contains?` named in
-// std/regex), which a program builds for itself as it builds a sibling's.
-func (s *stdInstances) otherModuleGenericTemplate(module, owner, method string) bool {
+// std/regex), or one monomorphic function of it that a program builds for
+// itself (unretainedMono), as a program builds a sibling's.
+func (s *stdInstances) otherModuleTemplate(module, owner, method string, visiting map[*stdFunc]bool) bool {
 	fs := s.std.byType[owner+"."+method]
-	return len(fs) == 1 && fs[0].module != module && stdGenericTemplateUsable(fs[0])
+	return len(fs) == 1 && fs[0].module != module &&
+		(stdGenericTemplateUsable(fs[0]) || s.unretainedMono(fs[0], visiting))
 }
 
 // stdGenericTemplate is the generic stdlib declaration `owner.method` names,

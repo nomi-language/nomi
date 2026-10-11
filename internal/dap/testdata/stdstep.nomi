@@ -1,0 +1,12 @@
+import std/io
+
+fn main() {
+    m = Some(2)
+
+    r = Maybe.map(m, |v| {
+        w = v * 3
+        w
+    })
+
+    io.print("${r}")
+}

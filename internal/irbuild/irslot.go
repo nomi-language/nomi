@@ -135,6 +135,9 @@ func (g *gen) irFuncShellAt(node ast.Node, declared []ast.Param, sig irFuncSig, 
 		}
 		sh.params[p.Name] = t
 		sh.paramTemps = append(sh.paramTemps, t)
+		if i < len(params) {
+			g.irAddVar(fn, node, p.Name, t, params[i], p.Line, p.Col, g.irNameSite(p.Name, p.Line, p.Col))
+		}
 	}
 	sh.entry = fn.NewBlock(at, "entry")
 	sh.result = fn.NewTemp()

@@ -88,40 +88,40 @@ fn yes_no(b: Bool): String {
 fn size(n: Int): String {
     n
     |> if Int.equal?(0) {
-            "zero"
-        } else if n > 100 {
-            "big"
-        } else {
-            "some"
-        }
+        "zero"
+    } else if n > 100 {
+        "big"
+    } else {
+        "some"
+    }
 }
 
 // The keyword-prefixed `case`, with an arm that USES the scrutinee.
 fn matched(s: String): Int {
     s
     |> case parse_id() {
-            Ok(id) -> id
-            Err(_) -> 0
-        }
+        Ok(id) -> id
+        Err(_) -> 0
+    }
 }
 
 // The BARE `case`, with an arm that IGNORES the scrutinee.
 fn ignored(m: Maybe<Int>): String {
     m
     |> case {
-            Some(_) -> "something"
-            None -> "nothing"
-        }
+        Some(_) -> "something"
+        None -> "nothing"
+    }
 }
 
 // A `_` arm BETWEEN two tag arms: arm order is observable.
 fn overlap(n: Int): String {
     n
     |> case {
-            0 -> "zero"
-            _ -> "other"
-            1 -> "one"
-        }
+        0 -> "zero"
+        _ -> "other"
+        1 -> "one"
+    }
 }
 
 // An `if` stage and a `case` stage in ONE chain.
@@ -139,9 +139,9 @@ fn mixed(n: Int): String {
     n
     |> if big?() { Some("large") } else { None }
     |> case {
-            Some(word) -> "yes:${word}"
-            None -> "no"
-        }
+        Some(word) -> "yes:${word}"
+        None -> "no"
+    }
 }
 
 // A `return` inside a pipe stage body leaves the FUNCTION.
@@ -149,10 +149,10 @@ fn early(n: Int): String {
     tag =
         n
         |> if Int.equal?(7) {
-                return "returned early"
-            } else {
-                "fell through"
-            }
+            return "returned early"
+        } else {
+            "fell through"
+        }
 
     "tag=${tag}"
 }
@@ -162,9 +162,9 @@ fn propagate(s: String): Result<Int, String> {
     doubled =
         s
         |> case {
-                "" -> 0
-                _ -> try parse_id(s)
-            }
+            "" -> 0
+            _ -> try parse_id(s)
+        }
 
     Ok(doubled * 2)
 }
@@ -197,9 +197,9 @@ fn main() {
     // ONCE-ness, for all three stage shapes. Each `loud_*` prints one line, and
     // exactly one, however many arms the stage tests.
     io.print("once case = ${loud_maybe("case", 3) |> case {
-                Some(n) -> n
-                None -> 0
-            }}")
+            Some(n) -> n
+            None -> 0
+        }}")
 
     io.print("once if = ${loud_bool("if", True) |> if { "t" } else { "f" }}")
     io.print("once kw = ${loud_int("kw", 42) |> if Int.equal?(42) { "eq" } else { "ne" }}")
@@ -211,10 +211,10 @@ fn main() {
         |> Iter.map(|n: Int| {
             n
             |> if Int.equal?(7) {
-                    return "seven"
-                } else {
-                    "n${n}"
-                }
+                return "seven"
+            } else {
+                "n${n}"
+            }
         })
         |> Iter.to_list()
 

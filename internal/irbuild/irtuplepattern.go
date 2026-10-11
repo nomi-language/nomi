@@ -126,4 +126,6 @@ func (bl *irScalarBuilder) patternBinding(at ast.Node, name string, part ir.Temp
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: k})
 	bl.bound[name], bl.boundK[name] = bind.Dst(), k
+	line, col := irBindingSite(at, name)
+	bl.declareBindAt(bind, k, line, col)
 }

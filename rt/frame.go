@@ -114,7 +114,20 @@ type Frame struct {
 	// frame. See capture.go.
 	capture *Capture
 	startup *Startup
+	// debug is a debugger's record of the thread this lineage runs on, or
+	// nil (internal/vm's debug.go). Every child frame on the same goroutine
+	// carries it; a task's frame starts without one, because a task is
+	// another thread.
+	debug any
 }
+
+// DebugThread is the debugger's thread record this frame's lineage carries,
+// or nil.
+func (fr *Frame) DebugThread() any { return fr.debug }
+
+// SetDebugThread records the debugger's thread for this frame's lineage.
+// Frames derived from fr afterwards carry it.
+func (fr *Frame) SetDebugThread(th any) { fr.debug = th }
 
 // EnterBoot returns the frame the app value is constructed on.
 //

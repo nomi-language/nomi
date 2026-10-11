@@ -1,0 +1,24 @@
+import std/io
+
+fn square(n: Int): Int {
+    s = n * n
+    s
+}
+
+fn sum_squares(n: Int, acc: Int): Int {
+    case n {
+        0 ->
+            acc
+
+        _ -> {
+            sq = square(n)
+            sum_squares(n - 1, acc + sq)
+        }
+    }
+}
+
+fn main() {
+    io.print("summing")
+    total = sum_squares(5, 0)
+    io.print("${total}")
+}

@@ -466,6 +466,17 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 		}
 		return fmt.Errorf("%s does not implement Struct", concrete)
 	}
+	// Universal distinct interface: every distinct type wrapping exactly T
+	// is a `Distinct<T>`, with no impl-table entry; T unifies with what the
+	// type wraps (distinct_self.go).
+	if isStdDistinct(iface) {
+		if distinctConforms(concrete, iface, func(want, inner Type) bool {
+			return unifyIn(m.nested(), want, inner, subs, impls, implTypeArgs) == nil
+		}) {
+			return nil
+		}
+		return fmt.Errorf("%s does not implement %s", concrete, iface)
+	}
 	concreteName := interfaceImplName(concrete)
 	if concreteName == "" {
 		return typeErrorf("cannot unify %s with %s", iface, concrete)
@@ -535,6 +546,11 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 	}
 	if iface.Name == "Struct" {
 		return isStructShaped(concrete)
+	}
+	if isStdDistinct(iface) {
+		return distinctConforms(concrete, iface, func(want, inner Type) bool {
+			return ContainsTypeParam(want) || containsTypeVar(want) || TypesEqual(want, inner)
+		})
 	}
 	if iface.Name == "Display" {
 		implements, decided := structuralDisplay(concrete, func(p Type) bool {
@@ -1008,6 +1024,7 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 			TypeParamDefs: t.TypeParamDefs,
 			TypeArgs:      args,
 			SelfParam:     t.SelfParam,
+			DefaultSelf:   t.DefaultSelf,
 		}
 		out.unbuilt = t.unbuilt.recordInstance(out)
 		return out

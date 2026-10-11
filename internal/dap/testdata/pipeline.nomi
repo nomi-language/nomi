@@ -1,0 +1,26 @@
+import std/io
+
+fn double(n: Int): Int {
+    n * 2
+}
+
+fn add(n: Int, m: Int): Int {
+    n + m
+}
+
+fn main() {
+    xs = [1, 2, 3, 4]
+
+    total =
+        3
+        |> double()
+        |> add(1)
+
+    big =
+        xs
+        |> Iter.map(|x| x * 10)
+        |> Iter.filter(|x| x > 15)
+        |> Iter.to_list()
+
+    io.print("${total} ${big}")
+}

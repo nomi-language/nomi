@@ -20,7 +20,7 @@ func TestFormat_PatternGroupCommentStaysInItsBrackets(t *testing.T) {
 		"    )\n" +
 		"}\n"
 	want := "fn f(fragments: List<Fragment<String>>): String {\n" +
-		"    Iter.reduce(fragments, |acc = \"\", frag|\n" +
+		"    Iter.reduce(fragments, |acc = \"\", frag| {\n" +
 		"        case frag {\n" +
 		"            .Static(s) -> acc + s\n" +
 		"            .Dynamic(\n" +
@@ -28,7 +28,7 @@ func TestFormat_PatternGroupCommentStaysInItsBrackets(t *testing.T) {
 		"                v\n" +
 		"            ) -> acc + v // t6\n" +
 		"        }\n" +
-		"    )\n" +
+		"    })\n" +
 		"}\n"
 	formatsKeepingMeaning(t, src, want)
 }

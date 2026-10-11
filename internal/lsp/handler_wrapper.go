@@ -23,6 +23,13 @@ func (h *handlerWrapper) Handle(ctx *glsp.Context) (any, bool, bool, error) {
 		}
 		r, err := h.server.textDocumentInlayHint(ctx, &params)
 		return r, true, true, err
+	case "textDocument/inlineValue":
+		var params InlineValueParams
+		if err := json.Unmarshal(ctx.Params, &params); err != nil {
+			return nil, true, false, err
+		}
+		r, err := h.server.textDocumentInlineValue(ctx, &params)
+		return r, true, true, err
 	default:
 		return h.inner.Handle(ctx)
 	}

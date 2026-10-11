@@ -1,0 +1,6 @@
+import shapes
+
+pub fn corner(n: Int): shapes.Point {
+    p = shapes.origin()
+    shapes.Point{x: p.x + n, y: p.y + n}
+}

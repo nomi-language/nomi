@@ -446,7 +446,11 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 	case docLocalBroken:
 		// Hide from ancestor fits: claim to fit, contribute 0 width. Local
 		// breaking is the whole point — ancestors should not be forced
-		// broken on our behalf.
+		// broken on our behalf. A LocalBrokenBlock counts its first line.
+		if v.firstLine {
+			ok, _ := fitsFirstLine(v.d, rem)
+			return ok
+		}
 		return true
 	case docHidden:
 		// Hide from ancestor fits: claim to fit, contribute 0 width.
@@ -462,6 +466,33 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 		return fitsWalk(brokenView(v.d), rem, inTail)
 	}
 	return false
+}
+
+// fitsFirstLine is fitsWalk over d's flat width up to its first HardLine,
+// which ends the walk; hitHard says one did.
+func fitsFirstLine(d Doc, rem *int) (ok, hitHard bool) {
+	switch v := d.(type) {
+	case docHard:
+		return true, true
+	case docConcat:
+		if ok, hit := fitsFirstLine(v.a, rem); !ok || hit {
+			return ok, hit
+		}
+		return fitsFirstLine(v.b, rem)
+	case docNest:
+		return fitsFirstLine(v.d, rem)
+	case docGroup:
+		return fitsFirstLine(v.d, rem)
+	case docIfBroken:
+		return fitsFirstLine(v.flat, rem)
+	case docLocalBroken:
+		return fitsFirstLine(v.d, rem)
+	case docInString:
+		return fitsFirstLine(v.d, rem)
+	case docWithIndent:
+		return fitsFirstLine(v.f(0, unboundedWidth), rem)
+	}
+	return fitsWalk(d, rem, false), false
 }
 
 // brokenView is d as it renders in a broken Group, one level deep: an

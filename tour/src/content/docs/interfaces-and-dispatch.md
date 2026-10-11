@@ -188,6 +188,123 @@ function from the same interface. Inside an `impl` block, the same-owner rule
 applies too: sibling implementation functions can be called bare from that body
 when unambiguous. At outside call sites, keep the qualifier.
 
+### Defaults that need another interface
+
+A default runs for every implementor, so its body can use only what every
+implementor has: its own interface's functions and `Debug`. To use another
+interface on `self`, say so with `where self: Display` on that default. An
+implementor with `Display` gets the default; one without it writes the
+function itself, and an `impl` that does neither is an error.
+
+```nomi-run
+import std/io
+
+interface Scale {
+    fn unit(value: self): String
+
+    fn format(value: self): String where self: Display {
+        "${value} ${unit(value)}"
+    }
+}
+
+type Grams Int
+
+impl Display for Grams {
+    fn to_string(Grams(n)): String {
+        "${n}"
+    }
+}
+
+impl Scale for Grams {
+    fn unit(_g: Grams): String {
+        "g"
+    }
+}
+
+type Secret Int
+
+// No Display, so Secret writes `format` itself.
+impl Scale for Secret {
+    fn unit(_s: Secret): String {
+        "?"
+    }
+
+    fn format(_s: Secret): String {
+        "hidden"
+    }
+}
+
+fn main() {
+    io.print(Scale.format(Grams(250)))
+    io.print(Scale.format(Secret(7)))
+}
+
+```
+<!-- expect
+250 g
+hidden
+-->
+
+Without the `where self` clause, `"${value}"` in that default is an error:
+`` `value` is a `self`, and Scale does not require Display of its implementors ``.
+
+### Defaults over distinct types
+
+Every distinct type is a `Distinct<T>` for the type it wraps: `Celsius`
+below is a `Distinct<Decimal>`. A default with `where self: Distinct<T>`
+can take `self` apart with the pattern `self(n)` and build one with
+`self(x)`, so a family of wrappers shares one body. Each implementor's
+copy of the default destructures and builds that implementor.
+
+```nomi-run
+import std/io
+
+type Celsius Decimal
+type Fahrenheit Decimal
+
+interface Temperature {
+    fn unit(t: self): String
+
+    fn label(self(n) as t): String where self: Distinct<Decimal> {
+        "${Decimal.round(n, 1, .HalfUp)} ${Temperature.unit(t)}"
+    }
+
+    fn scale(self(n), by: Decimal): self where self: Distinct<Decimal> {
+        self(n * by)
+    }
+}
+
+impl Temperature for Celsius {
+    fn unit(_t: Celsius): String {
+        "C"
+    }
+}
+
+impl Temperature for Fahrenheit {
+    fn unit(_t: Fahrenheit): String {
+        "F"
+    }
+}
+
+fn main() {
+    io.print(Temperature.label(Celsius(21.456d)))
+    io.print(Temperature.label(Fahrenheit(70d)))
+    io.inspect(Celsius.scale(Celsius(10d), 2d))
+}
+```
+<!-- expect
+21.5 C
+70.0 F
+Celsius(20d)
+-->
+
+`self(n)` also works in a `case` arm and a binding (`self(m) = other`), and
+`self` alone is the constructor as a function value (`Iter.map(ns, self)`).
+An implementor that is not a distinct type over `Decimal` writes the
+function itself, as with any `where self` bound. So does an opaque type
+implemented outside its own file, since the default would open its
+representation there.
+
 ## Requiring a value
 
 An interface declares functions only. To require that every implementor

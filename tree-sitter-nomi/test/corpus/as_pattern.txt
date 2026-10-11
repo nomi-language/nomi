@@ -177,3 +177,318 @@ fn main() {
             (guard_branch
               (type_identifier)
               (integer))))))))
+
+================================================================================
+An as pattern on the left side of a binding and nested in a pattern spelled as an expression
+================================================================================
+
+fn bindings(q: P, pair: ((Int, Int), Int), xs: List<Int>, m: Map<String, Int>): Int {
+    {x: _c, y} as p = q
+    {y, x: _c} as p = q
+    {x: (a, b) as inner, y} as p = q
+    ((a, b) as inner, c) as t = pair
+    [x, ..rest] as all = xs else { return 0 }
+    Some((a, b) as inner) as n = opt else { return 0 }
+    {"a" => (a, b) as v} as all = m else { return 0 }
+    0
+}
+
+fn nested_destructures(q: P, pair: ((Int, Int), Int)): Int {
+    ((a, b), c) = pair
+    ((a, b) as inner, c) = pair
+    {x: (a, b), y} = q
+    {x: Some(a), y} = q else { return 0 }
+    {"a" => (a, b)} = m else { return 0 }
+    0
+}
+
+fn arms(q: P, v: Option<(Int, Int)>): Int {
+    case q {
+        {x: (a, b) as xs, y} as p -> y
+    }
+
+    v |> case {
+            Some((a, b) as p) -> a
+            _ -> 0
+        }
+}
+
+fn lambdas(xs: List<P>): Iter<Int> {
+    xs |> Iter.map(|{x: (a, b) as t, y}| y)
+}
+
+test "pattern assert" {
+    assert {x: _c, y} as p = q
+    assert Some((a, b) as p) = v
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier))
+      (parameter
+        name: (identifier)
+        (tuple_type
+          (tuple_type
+            (type_identifier)
+            (type_identifier))
+          (type_identifier)))
+      (parameter
+        name: (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)))
+      (parameter
+        name: (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (as_binding
+        pattern: (as_pattern
+          pattern: (anon_struct
+            (anon_struct_field
+              (identifier)
+              (identifier))
+            (identifier))
+          name: (identifier))
+        value: (identifier))
+      (as_binding
+        pattern: (as_pattern
+          pattern: (anon_struct
+            (identifier)
+            (anon_struct_field
+              (identifier)
+              (identifier)))
+          name: (identifier))
+        value: (identifier))
+      (as_binding
+        pattern: (as_pattern
+          pattern: (anon_struct
+            (anon_struct_field
+              (identifier)
+              (as_pattern
+                pattern: (tuple_expression
+                  (identifier)
+                  (identifier))
+                name: (identifier)))
+            (identifier))
+          name: (identifier))
+        value: (identifier))
+      (as_binding
+        pattern: (as_pattern
+          pattern: (tuple_expression
+            (as_pattern
+              pattern: (tuple_expression
+                (identifier)
+                (identifier))
+              name: (identifier))
+            (identifier))
+          name: (identifier))
+        value: (identifier))
+      (as_binding
+        pattern: (as_pattern
+          pattern: (list
+            (identifier)
+            (identifier))
+          name: (identifier))
+        value: (identifier)
+        else: (body
+          (return_statement
+            (integer))))
+      (as_binding
+        pattern: (as_pattern
+          pattern: (call_expression
+            function: (type_identifier)
+            (as_pattern
+              pattern: (tuple_expression
+                (identifier)
+                (identifier))
+              name: (identifier)))
+          name: (identifier))
+        value: (identifier)
+        else: (body
+          (return_statement
+            (integer))))
+      (as_binding
+        pattern: (as_pattern
+          pattern: (map_literal
+            (map_entry
+              (string
+                (string_content))
+              (as_pattern
+                pattern: (tuple_expression
+                  (identifier)
+                  (identifier))
+                name: (identifier))))
+          name: (identifier))
+        value: (identifier)
+        else: (body
+          (return_statement
+            (integer))))
+      (integer)))
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier))
+      (parameter
+        name: (identifier)
+        (tuple_type
+          (tuple_type
+            (type_identifier)
+            (type_identifier))
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (destructuring_binding
+        pattern: (tuple_expression
+          (identifier)
+          (identifier))
+        binding: (identifier)
+        value: (identifier))
+      (destructuring_binding
+        pattern: (as_pattern
+          pattern: (tuple_expression
+            (identifier)
+            (identifier))
+          name: (identifier))
+        binding: (identifier)
+        value: (identifier))
+      (destructuring_binding
+        field: (identifier)
+        pattern: (tuple_expression
+          (identifier)
+          (identifier))
+        binding: (identifier)
+        value: (identifier))
+      (else_binding
+        binding: (destructuring_binding
+          field: (identifier)
+          pattern: (call_expression
+            function: (type_identifier)
+            (identifier))
+          binding: (identifier)
+          value: (identifier))
+        else: (body
+          (return_statement
+            (integer))))
+      (else_binding
+        binding: (destructuring_binding
+          (string
+            (string_content))
+          pattern: (tuple_expression
+            (identifier)
+            (identifier))
+          value: (identifier))
+        else: (body
+          (return_statement
+            (integer))))
+      (integer)))
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier))
+      (parameter
+        name: (identifier)
+        (generic_type
+          (type_identifier)
+          (tuple_type
+            (type_identifier)
+            (type_identifier)))))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (as_pattern
+            pattern: (struct_pattern
+              (pattern_field
+                name: (identifier)
+                (as_pattern
+                  pattern: (tuple_pattern
+                    (identifier)
+                    (identifier))
+                  name: (identifier)))
+              (pattern_field
+                name: (identifier)))
+            name: (identifier))
+          (identifier)))
+      (pipe_expression
+        (identifier)
+        (case_expression
+          (guard_branch
+            (call_expression
+              function: (type_identifier)
+              (as_pattern
+                pattern: (tuple_expression
+                  (identifier)
+                  (identifier))
+                name: (identifier)))
+            (identifier))
+          (guard_branch
+            (identifier)
+            (integer))))))
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    (generic_type
+      (type_identifier)
+      (type_identifier))
+    (body
+      (pipe_expression
+        (identifier)
+        (call_expression
+          function: (field_access
+            (type_identifier)
+            (identifier))
+          (lambda
+            (lambda_parameter
+              name: (struct_pattern
+                (pattern_field
+                  name: (identifier)
+                  (as_pattern
+                    pattern: (tuple_pattern
+                      (identifier)
+                      (identifier))
+                    name: (identifier)))
+                (pattern_field
+                  name: (identifier))))
+            body: (identifier))))))
+  (test_declaration
+    name: (string
+      (string_content))
+    (body
+      (pattern_assertion_binding
+        pattern: (as_pattern
+          pattern: (anon_struct
+            (anon_struct_field
+              (identifier)
+              (identifier))
+            (identifier))
+          name: (identifier))
+        value: (identifier))
+      (pattern_assertion_binding
+        pattern: (call_expression
+          function: (type_identifier)
+          (as_pattern
+            pattern: (tuple_expression
+              (identifier)
+              (identifier))
+            name: (identifier)))
+        value: (identifier)))))

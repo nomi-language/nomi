@@ -57,7 +57,7 @@ test "an unannotated binding of a todo asks for a type" {
             """
         |> compiler.check()
 
-    assert Iter.any?(diagnostics, |d|
+    assert Iter.any?(diagnostics, |d| {
         String.contains?(d.message, "cannot infer a type for 'x' from `todo`")
-    )
+    })
 }

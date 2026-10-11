@@ -82,6 +82,7 @@ func (b *Block) InsertSlot(index int, slot *Slot) {
 	b.instrs = append(b.instrs, nil)
 	copy(b.instrs[index+1:], b.instrs[index:])
 	b.instrs[index] = slot
+	b.shiftStmts(index)
 	if b.owner != nil {
 		b.owner.noteDef(slot)
 	}

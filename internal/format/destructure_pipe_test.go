@@ -50,7 +50,7 @@ func TestFormat_DestructurePipeBindingThatFits(t *testing.T) {
 		{
 			name: "fits on one line",
 			in:   "fn f(words: List<String>): Int {\n    (first, rest) = words |> Iter.to_list() |> split_first()\n    1\n}\n",
-			want: "fn f(words: List<String>): Int {\n    (first, rest) = words |> Iter.to_list() |> split_first()\n\n    1\n}\n",
+			want: "fn f(words: List<String>): Int {\n    (first, rest) = words |> Iter.to_list() |> split_first()\n    1\n}\n",
 		},
 		{
 			name: "fits after the =",

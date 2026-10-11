@@ -1276,7 +1276,7 @@ func (g *gen) projectStdEnum(ty *analysis.EnumType) (kind, bool) {
 // for the symbol shapes.
 func (g *gen) stdEnumVariantAt(variant string, line, col int) (*typeDef, *variantDef, bool) {
 	g.loadStdEnums()
-	ref, canonical, isVariant := variantRefAt(g.fa, variant, line, col)
+	ref, canonical, isVariant := variantRefAt(g.srcFA(), variant, line, col)
 	if !isVariant {
 		return nil, nil, false
 	}

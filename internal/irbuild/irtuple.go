@@ -93,7 +93,8 @@ func (bl *irScalarBuilder) tupleProjection(at ast.Node, subj ir.Temp, index int,
 // value read produces, under the plain binding's rebind rule: a fresh
 // identity, declined where a callable is rebound.
 // The subject is read before any component binds.
-func (bl *irScalarBuilder) destructureBind(t ast.Node, name string, part kind, read func() ir.Temp) bool {
+// The name is written at (line, col).
+func (bl *irScalarBuilder) destructureBind(t ast.Node, name string, line, col int, part kind, read func() ir.Temp) bool {
 	sym := bl.sh.localSym(name)
 	previous, shadows := bl.g.lookup(name)
 	_, bound := bl.bound[name]
@@ -120,6 +121,7 @@ func (bl *irScalarBuilder) destructureBind(t ast.Node, name string, part kind, r
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: part})
 	bl.bound[name], bl.boundK[name] = bind.Dst(), part
+	bl.declareBindAt(bind, part, line, col)
 	return true
 }
 
@@ -138,6 +140,7 @@ func (bl *irScalarBuilder) structBinding(t *ast.StructDestructure) bool {
 	}
 	type read struct {
 		name, field string
+		line, col   int
 		part        kind
 		f           *fieldDef
 	}
@@ -151,7 +154,10 @@ func (bl *irScalarBuilder) structBinding(t *ast.StructDestructure) bool {
 		if name == "" {
 			name = fd.Name
 		}
-		r := read{name: name, field: fd.Name}
+		r := read{name: name, field: fd.Name, line: fd.BindingLine, col: fd.BindingCol}
+		if r.line == 0 {
+			r.line, r.col = fd.NameLine, fd.NameCol
+		}
 		if record {
 			part, found := anonFieldKind(k, fd.Name)
 			if !found {
@@ -191,7 +197,7 @@ func (bl *irScalarBuilder) structBinding(t *ast.StructDestructure) bool {
 			bl.side(p.Dst(), irScalarSide{k: r.part})
 			return p.Dst()
 		}
-		if !bl.destructureBind(t, r.name, r.part, project) {
+		if !bl.destructureBind(t, r.name, r.line, r.col, r.part, project) {
 			return false
 		}
 	}
@@ -218,7 +224,7 @@ func (bl *irScalarBuilder) tupleBinding(t *ast.TupleDestructure) bool {
 			continue
 		}
 		part := k.comp.parts[i]
-		if !bl.destructureBind(t, id.Name, part, func() ir.Temp { return bl.tupleProjection(t, subj, i, part) }) {
+		if !bl.destructureBind(t, id.Name, id.Line, id.Col, part, func() ir.Temp { return bl.tupleProjection(t, subj, i, part) }) {
 			return false
 		}
 	}

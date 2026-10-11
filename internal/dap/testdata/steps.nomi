@@ -1,0 +1,21 @@
+import std/io
+
+fn double(n: Int): Int {
+    m = n * 2
+    m
+}
+
+fn main() {
+    x = 1
+    y = double(x)
+
+    ys =
+        [1, 2, 3]
+        |> Iter.map(|v| {
+            w = v + y
+            w
+        })
+        |> Iter.to_list()
+
+    io.print("${ys}")
+}

@@ -174,6 +174,24 @@ func parseDiagnostics(path, src string, errs []parser.ParseError) Diagnostics {
 	return typeDiagnostics(path, src, tes)
 }
 
+// stdSyntaxDiagnostics are the syntax errors lib's embedded modules recorded
+// (std.StdLib.SyntaxErrors), each at "std/<module>.nomi", or nil when it
+// recorded none.
+func stdSyntaxDiagnostics(lib *std.StdLib) Diagnostics {
+	if lib == nil || len(lib.SyntaxErrors) == 0 {
+		return nil
+	}
+	var ds Diagnostics
+	for _, name := range lib.SyntaxErrorModules() {
+		path := "std/" + name + ".nomi"
+		ds = append(ds, parseDiagnostics(path, fileSource(path), lib.SyntaxErrors[name])...)
+	}
+	for i := range ds {
+		ds[i].Hints = append(ds[i].Hints, "this file is the standard library built into this nomi, which does not parse; fix it and rebuild nomi")
+	}
+	return ds
+}
+
 // sourceLines splits src into lines, without their line endings.
 func sourceLines(src string) []string {
 	if src == "" {

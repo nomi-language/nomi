@@ -341,7 +341,7 @@ impl FromJson for Map<String, V> where V: FromJson {
     fn from_json(json: Json): Result<Map<String, V>, Json.ShapeError> {
         case json {
             Json.Obj(items) ->
-                Iter.reduce(items, |state = Ok(Map.empty()), (key, value)|
+                Iter.reduce(items, |state = Ok(Map.empty()), (key, value)| {
                     case state {
                         Err(e) ->
                             break Err(e)
@@ -352,7 +352,7 @@ impl FromJson for Map<String, V> where V: FromJson {
                                 Err(e) -> break Err(shape_error_prepend(e, key))
                             }
                     }
-                )
+                })
 
             _ ->
                 Err(shape_error_root("object", json))

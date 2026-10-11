@@ -198,7 +198,7 @@ func call(n ast.Node) (callee ast.Node, args []ast.Node, ok bool) {
 			return nil, nil, false
 		}
 		for _, a := range x.Args {
-			if _, hole := a.(*ast.Placeholder); hole {
+			if isPlaceholderArg(a) {
 				return nil, nil, false
 			}
 		}
@@ -215,11 +215,16 @@ func call(n ast.Node) (callee ast.Node, args []ast.Node, ok bool) {
 			filled := false
 			out := make([]ast.Node, 0, len(rhs.Args)+1)
 			for _, a := range rhs.Args {
-				if _, hole := a.(*ast.Placeholder); hole {
+				if isPlaceholderArg(a) {
 					if filled {
 						return nil, nil, false
 					}
 					filled = true
+					// A named `_` (`w: _`) passes the piped value by name.
+					if na, named := a.(*ast.NamedArg); named {
+						out = append(out, &ast.NamedArg{Name: na.Name, Value: x.Left, Line: na.Line, Col: na.Col})
+						continue
+					}
 					out = append(out, x.Left)
 					continue
 				}

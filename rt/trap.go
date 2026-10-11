@@ -19,6 +19,10 @@ import (
 // Nothing wraps it and nothing prefixes it: `nomi run` prints it verbatim.
 type Error struct {
 	Msg string
+	// Awaited says the fault is a task's failure reaching the code that
+	// awaited it (TrapAwaited), rather than one that started here. A
+	// debugger stops for it under its own filter.
+	Awaited bool
 }
 
 func (e *Error) Error() string { return e.Msg }
@@ -29,6 +33,9 @@ func (e *Error) Error() string { return e.Msg }
 // check that the optimizer can see through, which is what keeps the checks
 // themselves cheap.
 func Trap(msg string) { panic(&Error{Msg: msg}) }
+
+// TrapAwaited aborts the awaiter of a failed task with the task's fault.
+func TrapAwaited(msg string) { panic(&Error{Msg: msg, Awaited: true}) }
 
 // NoCaseMatchError is the failure a `case` whose arms all missed reports.
 //

@@ -19,7 +19,7 @@ func publishedFor(t *testing.T, s *Server, src string, related bool) []protocol.
 	if snap == nil || snap.Analysis == nil {
 		t.Fatal("no analysis")
 	}
-	return buildPublishedDiagnosticsFor(spanURI, snap.Content, nil, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors, related)
+	return buildPublishedDiagnosticsFor(spanURI, snap.Content, diskContent, nil, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors, related)
 }
 
 func findDiag(t *testing.T, diags []protocol.Diagnostic, headline string) protocol.Diagnostic {

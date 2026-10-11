@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"fmt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/stdcache"
 	"github.com/nomi-language/nomi/std"
@@ -92,6 +93,11 @@ func NewServer() *Server {
 	stdRoot, _ := analysis.StdlibPath()
 	s.docs.SetStdlibSource(stdRoot, std.ReadFile)
 	s.std = lib
+	if err := lib.SyntaxError(); err != nil {
+		panicLogMu.Lock()
+		fmt.Fprintf(panicLog, "%s: %v\n", serverName, err)
+		panicLogMu.Unlock()
+	}
 
 	s.handler = protocol.Handler{
 		Initialize:                       s.initialize,
@@ -216,8 +222,9 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 
 	return initializeResult{
 		Capabilities: initCapabilities{
-			ServerCapabilities: capabilities,
-			InlayHintProvider:  true,
+			ServerCapabilities:  capabilities,
+			InlayHintProvider:   true,
+			InlineValueProvider: true,
 		},
 		ServerInfo: &protocol.InitializeResultServerInfo{
 			Name:    serverName,
@@ -381,6 +388,8 @@ type initializeResult struct {
 type initCapabilities struct {
 	protocol.ServerCapabilities
 	InlayHintProvider bool `json:"inlayHintProvider,omitempty"`
+	// InlineValueProvider answers textDocument/inlineValue (inline_values.go).
+	InlineValueProvider bool `json:"inlineValueProvider,omitempty"`
 }
 
 func (s *Server) propagateAsync(uri string) {

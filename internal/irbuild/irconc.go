@@ -41,6 +41,7 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 	var tries []irPendingTry
 	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{},
 		boundK: map[string]kind{}, inferReturn: &resultInference{}, concTries: &tries, tryBoundary: "concurrent"}
+	child.root = t
 	child.openWithScope(true)
 	if !child.leading(lead) {
 		return no()
@@ -56,6 +57,7 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 	if !unwrapped {
 		return no()
 	}
+	child.markStmt(body, ir.StmtStatement)
 	switch t := body.(type) {
 	case *ast.Return:
 		k, ok = child.explicitReturn(t)
@@ -73,7 +75,7 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 			if _, ok = child.endlessLoop(body); ok {
 				// kindInvalid: sentinel — no `return v` settled it.
 				if k = child.returnKind; k == kindInvalid && bl.g.fa != nil {
-					if ty := bl.g.fa.ExprTypes[block]; ty != nil && !irUnsolvedType(ty) {
+					if ty := bl.g.srcFA().ExprTypes[block]; ty != nil && !irUnsolvedType(ty) {
 						k = bl.g.project(ty)
 					}
 				}

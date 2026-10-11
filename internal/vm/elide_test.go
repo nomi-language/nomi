@@ -39,8 +39,8 @@ fn main() {
 test "replay" {
     assert io.replay(
         """
-            a
-            c
+        a
+        c
         """,
         main,
     )
@@ -67,7 +67,7 @@ test "unnumbered" {
 		"  line 9: the transcript differs from the script\n" +
 			"    assert io.replay(\"\"\" lines 11-12 \"\"\", main)\n" +
 			"    io.replay: the transcript (-) and what main printed (+) differ\n\n" +
-			"        11   │     a\n",
+			"        11   │ a\n",
 		"  line 20: assertion failed\n" +
 			"    assert out == \"\"\" lines 21-22 \"\"\"\n" +
 			"    expected \"\"\" ... \"\"\" (-) and actual out (+) differ\n\n" +

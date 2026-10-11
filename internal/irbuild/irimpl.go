@@ -1,6 +1,9 @@
 package irbuild
 
-import "github.com/nomi-language/nomi/internal/ast"
+import (
+	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // irImplSource presents a source-written inherited body to the common function
 // builder. The implItem, not this view or its shared body, owns callee identity.
@@ -31,6 +34,9 @@ func (g *gen) irImplLower(d *implDef, it *implItem, plan *tailPlan, params []kin
 		if unit, foreign := g.declaredIn[it.body]; foreign {
 			defer g.lowerNamesFrom(unit)()
 		}
+		prev := g.defaultSelf
+		g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv}
+		defer func() { g.defaultSelf = prev }()
 	}
 	g.irImplPrologue(fd, sh, params)
 	return g.irScalarLower(fd, sig, plan, sh, it.result)
@@ -141,4 +147,48 @@ func (g *gen) irImplHostLower(d *implDef, ef *ast.ExternFunc, sh *irFuncShell, r
 		return decline(why)
 	}
 	return result, true
+}
+
+// irDefaultSelf is the implementor an interface default is being lowered
+// for. See gen.defaultSelf.
+type irDefaultSelf struct {
+	iface *ifaceDef
+	recv  kind
+}
+
+// projectDefaultSelf answers project for a checked type that is the `self` of
+// the default being lowered (analysis.InterfaceType.DefaultSelf, of the
+// default's own interface): the implementor's kind. Any other interface type,
+// including the same interface named by annotation, is not answered here.
+func (g *gen) projectDefaultSelf(ty *analysis.InterfaceType) (kind, bool) {
+	ds := g.defaultSelf
+	if ds == nil || !ty.DefaultSelf || ds.iface == nil {
+		return kindInvalid, false
+	}
+	d, found := g.solvedIface(ty.Origin, ty.Name)
+	if !found || d == nil || d.decl != ds.iface.decl {
+		return kindInvalid, false
+	}
+	return ds.recv, true
+}
+
+// defaultSelfArg is the implementor's kind when arg is a `self` value of the
+// default being lowered and k, the kind the checker's signature gives its
+// parameter, is the default's interface: the checker types `self` as the
+// interface, and the body is lowered with every `self` position bound to the
+// implementor. Any other argument keeps k, so an existential value of the same
+// interface stays one.
+func (g *gen) defaultSelfArg(arg ast.Node, k kind) kind {
+	ds := g.defaultSelf
+	if ds == nil || k.tag != tagIface || k.iface != ds.iface {
+		return k
+	}
+	id, ok := argExpr(arg).(*ast.Ident)
+	if !ok {
+		return k
+	}
+	if l, bound := g.lookup(id.Name); bound && l.k == ds.recv {
+		return ds.recv
+	}
+	return k
 }

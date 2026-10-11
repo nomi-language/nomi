@@ -86,6 +86,7 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: fk})
 	bl.bound[name], bl.boundK[name] = bind.Dst(), fk
+	bl.declareBind(bind, fk)
 	return true
 }
 
@@ -360,7 +361,7 @@ func (bl *irScalarBuilder) genericNestedRef(id *ast.Ident) (inst *ast.Ident, isN
 	ok := false
 	if bl.g.fa != nil {
 		pos := analysis.Pos{Line: id.Line, Col: id.Col}
-		if sym := bl.g.fa.References[pos]; sym != nil {
+		if sym := bl.g.srcFA().References[pos]; sym != nil {
 			ft, isFunc := sym.CallType.(*analysis.FuncType)
 			if !isFunc && bl.g.nestedGenericCalls(fd) != nil && bl.g.nestedWithin[pos] == fd {
 				// A call in fd's own body, which the checker does not
@@ -436,6 +437,7 @@ func (bl *irScalarBuilder) recursiveNestedFunc(fd *ast.FuncDef, lam *ast.Lambda,
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: fk})
 	bl.bound[name], bl.boundK[name] = bind.Dst(), fk
+	bl.declareBind(bind, fk)
 	return true
 }
 

@@ -154,6 +154,7 @@ func (bl *irScalarBuilder) testDestructure(pat ast.Node, ctx ir.Temp, k kind) bo
 		}
 		bl.side(b.Dst(), irScalarSide{k: bk})
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), bk
+		bl.declareBind(b, bk)
 	}
 	return true
 }

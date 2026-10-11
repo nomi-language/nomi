@@ -63,7 +63,7 @@ func (g *gen) assertionBoundary(line, col int) (string, bool) {
 	if g.fa == nil {
 		return "", false
 	}
-	sym, found := g.fa.References[analysis.Pos{Line: line, Col: col}]
+	sym, found := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 	if !found || sym == nil || sym.Kind != analysis.SymbolAssertion || sym.Assertion == nil {
 		return "", false
 	}

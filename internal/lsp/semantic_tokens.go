@@ -42,12 +42,13 @@ const (
 )
 
 // encodeSemanticTokens builds the LSP semantic-tokens data array from a
-// FileAnalysis and the nodes it was built from. Identifier classification is
-// shared with the language-tour highlighter via the semtokens package; this
-// function maps the shared token-type names into this legend's indices, sets
-// the modifiers, and delta-encodes them.
-func encodeSemanticTokens(fa *analysis.FileAnalysis, nodes []ast.Node) []protocol.UInteger {
-	toks := semtokens.Collect(fa)
+// FileAnalysis, the nodes it was built from and the text it analyzed.
+// Identifier classification is shared with the language-tour highlighter via
+// the semtokens package; this function maps the shared token-type names into
+// this legend's indices, sets the modifiers, and delta-encodes them, with
+// start columns and lengths in the UTF-16 code units the protocol counts.
+func encodeSemanticTokens(fa *analysis.FileAnalysis, nodes []ast.Node, content string) []protocol.UInteger {
+	toks := semtokens.UTF16(content, semtokens.Collect(fa))
 	if len(toks) == 0 {
 		// Never nil: it marshals as `"data": null`, which Neovim's
 		// semantic-tokens handler crashes on when a file is empty.
@@ -101,6 +102,6 @@ func (s *Server) textDocumentSemanticTokensFull(ctx *glsp.Context, params *proto
 	if doc == nil {
 		return nil, nil
 	}
-	data := encodeSemanticTokens(doc.Analysis, doc.Nodes)
+	data := encodeSemanticTokens(doc.Analysis, doc.Nodes, doc.Content)
 	return &protocol.SemanticTokens{Data: data}, nil
 }

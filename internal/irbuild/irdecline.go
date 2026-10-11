@@ -234,6 +234,8 @@ func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
 	}
 	if ok {
 		bl.g.irTypeTemp(bl.f, t, k)
+		bl.pipeValue(n, t)
+		bl.stageReached(n)
 	}
 	if !ok && irDeclineWhy == "" {
 		if line, col := nodePos(n); emittableLine(line) {

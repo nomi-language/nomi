@@ -224,10 +224,5 @@ func (r *completionRequest) textNodes() []ast.Node {
 // importEdit is the edit that adds c's import, rendered as organize-imports
 // renders imports, in UTF-16 columns.
 func (r *completionRequest) importEdit(m analysis.MissingImport) (protocol.TextEdit, bool) {
-	edit, ok := addImportEdit(r.doc.Content, r.lines.starts, r.textNodes(), m)
-	if !ok {
-		return protocol.TextEdit{}, false
-	}
-	edit.Range = r.lines.utf16Range(edit.Range)
-	return edit, true
+	return addImportEdit(r.doc.Content, r.lines.starts, r.textNodes(), m)
 }

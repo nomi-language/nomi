@@ -19,18 +19,18 @@ pub type SQL
 impl Literal for SQL {
     fn from_fragments(fragments: List<Fragment<Display>>): Query {
         Query{
-            sql: Iter.reduce(fragments, |acc = "", frag|
+            sql: Iter.reduce(fragments, |acc = "", frag| {
                 case frag {
                     .Static(s) -> acc + s
                     .Dynamic(_) -> acc + "?"
                 }
-            ),
-            params: Iter.flat_map(fragments, |frag|
+            }),
+            params: Iter.flat_map(fragments, |frag| {
                 case frag {
                     .Static(_) -> []
                     .Dynamic(v) -> [v]
                 }
-            )
+            })
             |> Iter.to_list(),
         }
     }

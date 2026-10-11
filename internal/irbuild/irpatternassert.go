@@ -130,6 +130,13 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 			return false
 		}
 	}
+	if refutable && !irBlockTargeted(bl.f, failed.ID()) {
+		// The tests built no failure edge: every nested sub-pattern only
+		// binds (`Holder{r: {a, b}}`, a record inside a struct). The
+		// mismatch block is unreachable, so it reads nothing.
+		failed.SetTerm(ir.NewReturnUnit(pos))
+		refutable = false
+	}
 	if refutable {
 		text := renderNode(&ast.PatternDestructure{Pattern: t.Pattern, Value: t.Value, Line: t.Line, Col: t.Col})
 		a := ir.NewAssertMismatch(pos, subj, text)
@@ -189,6 +196,26 @@ func irNominalIrrefutable(pattern ast.Node) bool {
 		return true
 	case *ast.EnumPattern:
 		return binds(p.Payload)
+	}
+	return false
+}
+
+// irBlockTargeted reports whether any block of f branches, jumps or faults
+// to id.
+func irBlockTargeted(f *ir.Func, id ir.BlockID) bool {
+	var succ []ir.BlockID
+	for _, b := range f.Blocks() {
+		if h, faults := b.Fault(); faults && h == id {
+			return true
+		}
+		if t := b.Term(); t != nil {
+			succ = t.AppendSuccessors(succ[:0])
+			for _, s := range succ {
+				if s == id {
+					return true
+				}
+			}
+		}
 	}
 	return false
 }

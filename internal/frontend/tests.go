@@ -475,13 +475,18 @@ func SourceContainsTests(src string) (bool, error) {
 }
 
 // FileDeclaresTests reports whether the file at path declares a test case,
-// which decides whether it is checked in test mode.
+// which decides whether it is checked in test mode. A syntax error is
+// answered at path, so a directory walk names the file that does not parse.
 func FileDeclaresTests(path string) (bool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false, err
 	}
-	return SourceDeclaresTests(string(data))
+	declares, err := SourceDeclaresTests(string(data))
+	if err != nil {
+		return false, located(path, string(data), err)
+	}
+	return declares, nil
 }
 
 // SourceDeclaresTests is FileDeclaresTests for source.

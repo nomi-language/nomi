@@ -7,12 +7,12 @@ type Sql
 
 impl Literal for Sql {
     fn from_fragments(fragments: List<Fragment<String>>): String {
-        Iter.reduce(fragments, |acc = "", frag|
+        Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "'" + v + "'"
             }
-        )
+        })
     }
 }
 
@@ -20,12 +20,12 @@ type Sum
 
 impl Literal for Sum {
     fn from_fragments(fragments: List<Fragment<Int>>): String {
-        Iter.reduce(fragments, |acc = "", frag|
+        Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + "[" + s + "]"
                 .Dynamic(n) -> acc + "{" + Int.to_string(n) + "}"
             }
-        )
+        })
     }
 }
 
@@ -55,12 +55,12 @@ impl Display for Tag {
 
 impl Literal for Doc {
     fn from_fragments(fragments: List<Fragment<Display>>): Doc {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "<" + Display.to_string(v) + ">"
             }
-        )
+        })
 
         Doc{body}
     }

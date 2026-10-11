@@ -37,7 +37,7 @@ The repository root is the compiler's Go module,
 | `vmhost/` | The public embedding API. |
 | `vmrunner/` | What a built executable runs. Generated FFI runners import it. |
 | `hostadapt/` | Support package that generated FFI wrappers import. |
-| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `std*` (Go-backed stdlib adapters), and the tooling behind them. |
+| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `std*` (Go-backed stdlib adapters), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
 | `docs/` | The spec, style guide, feature status, roadmap and install guide. |
@@ -46,10 +46,10 @@ The repository root is the compiler's Go module,
 | `testdata/expectations/` | Golden files. |
 | `benchmarks/` | Engine benchmark programs. |
 | `tree-sitter-nomi/` | The tree-sitter grammar, source of truth for editor parsing. The generated `src/` and `tree-sitter-nomi.wasm` are committed. Published read-only to github.com/nomi-language/tree-sitter-nomi by `scripts/publish-grammar.sh`. |
-| `editors/zed/` | Zed extension (highlighting, LSP launch). |
+| `editors/zed/` | Zed extension (highlighting, LSP launch, the `nomi dap` debug adapter and a locator for the run and test tasks; `cargo test --manifest-path editors/zed/Cargo.toml` tests the locator). |
 | `editors/helix/` | Helix language config and runtime queries. |
-| `editors/nvim/` | Neovim 0.11+ plugin: filetype, LSP config, generated queries, test runner, neotest adapter. |
-| `editors/vscode/` | VS Code extension (TypeScript): language configuration, a TextMate grammar derived from the bat syntax, the `nomi-lsp` client, run and test commands. |
+| `editors/nvim/` | Neovim 0.11+ plugin: filetype, LSP config, generated queries, test runner, neotest adapter, nvim-dap adapter. |
+| `editors/vscode/` | VS Code extension (TypeScript): language configuration, a TextMate grammar derived from the bat syntax, the `nomi-lsp` client, run and test commands, the `nomi` debugger. |
 | `editors/bat/` | `bat`/syntect syntax definition. |
 | `scripts/` | Tour wasm build, release, grammar publish, and editor sync scripts. |
 
@@ -110,6 +110,25 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   Interface dispatch selects an impl body by the runtime type name of the
   declared `self` operand. The VM links no front end
   (`TestVM_ReadsTheIRAndNothingElse`).
+- **Debugging.** The builder records each function's variables
+  (`ir.Func.Vars`: name, temporary, Nomi type, scope) and statement marks
+  (`ir.Block.Stmts`: statements, arms, loop iterations, pipe stages); the
+  image carries both. A machine opened `WithDebugger` (`internal/vm/debug.go`,
+  `vmhost.Program.SetDebugger`) compiles a `stmt` hook at each mark and a
+  `pc` hook before each instruction that may call back into Nomi, and
+  `vm.Debugger` answers breakpoints, steps, pauses, exception stops, the
+  logical call stack and each frame's locals (rendered by `rt.Inspect`). A
+  machine without a debugger compiles neither hook
+  (`TestDebug_AMachineWithoutADebuggerCompilesNoHooks`).
+- **`nomi dap`.** `internal/dap` is a Debug Adapter Protocol server over
+  stdio (message types from `github.com/google/go-dap`) that loads the
+  program with `vmhost`, gives it a `vm.Debugger`, and runs `main` or a
+  file's tests in process. A launch with `console: "integratedTerminal"`
+  asks the client to `runInTerminal` the hidden `nomi dap-terminal <socket>`
+  (`dap.RunTerminal`), which connects back over a Unix socket and carries the
+  program's input and output. The VS Code extension and the Neovim plugin
+  start it; `nomi-lsp`'s Debug lenses name `nomi.debugTest` and
+  `nomi.debugMain`.
 - **rt.** The runtime library holds collections, checked arithmetic and its
   trap text, Float semantics, hashing, equality, rendering, the task and
   supervisor runtime, and the test reporter. It links no front end
@@ -220,6 +239,14 @@ programs and every seed with a `fn main` (about 9 seconds), and
 `TestKnownRunGaps` pins each known crash in `knownRunGaps`
 (`vmhost/run_gaps_test.go`) by a reproducer.
 
+A debug machine must run every program as a plain one does.
+`TestExpectation_ADebugMachineRunsEveryProgramAsAPlainOneDoes`
+(`internal/expectation`) runs every fourth corpus file and tour block, and
+every deliberately failing fixture, on debug machines and compares each
+transcript with its committed record; `NOMI_DEBUG_IDENTICAL=full` runs them
+all. `vmhost`'s `TestSpecProgramsOnADebugMachine` does the same for the
+spec's programs.
+
 A program's lowering must not depend on what the process loaded before it.
 `TestLoadOrderDoesNotChangeAProgram` (`vmhost/load_order_test.go`, about 6
 seconds) loads a sample of seeds and generated programs in two child
@@ -326,6 +353,12 @@ comparing and needs a named cause. No Go test pins a population count, and
 tests name a tour block by a substring of its code
 (`tourBlock(t, "pipes.md", marker)` in `internal/vm`), never by its
 `chapter:L<line>` id.
+
+`internal/dap/testdata/*.golden` are scripted debug sessions: each test in
+`internal/dap/session_test.go` and `eval_test.go` plays a client against the server in process
+and records every request, response and event, with paths normalized.
+`NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/dap -count=1` rewrites
+them; a moved transcript needs a named reason like any golden file.
 
 `vm-retained.txt` lists every function the builder retains over the corpus
 with whether the VM ran it (`TestIRRetainedPopulationRuns`). A new corpus file
@@ -493,6 +526,17 @@ After changing `tree-sitter-nomi/grammar.js`:
    pinned CLI is missing.
 2. Update `tree-sitter-nomi/queries/highlights.scm` (first match wins:
    specific patterns first) and `queries/injections.scm`.
+   `scripts/tree-sitter.sh test` also checks the `// ^ capture` assertions
+   in `tree-sitter-nomi/test/highlight/*.nomi` against this file, and
+   `make test-nvim` checks which of `discards.nomi`'s tokens read as
+   comments, and which of `delimiters.nomi`'s read as `@type`, against the
+   Neovim query generated from Zed's (step 6). Those fixtures are tracked `.nomi` files, so they must parse,
+   be formatted and type-check (`TestWorkspaceFixtureDiagnosticsAreQuietWhenExpectationsMatch`
+   in `internal/lsp` analyzes them); a caret can only point at a column
+   three or more past the comment's indentation, `// <-` points at the
+   indentation itself, and an assertion separated from its line by a blank
+   line checks the blank line. `nomi fmt` indents a comment after a line
+   ending in `{` into the block.
 3. Update `editors/zed/languages/nomi/highlights.scm` by hand. Its priority
    order is reversed: catch-alls first, specific patterns last.
 4. `cp tree-sitter-nomi/queries/injections.scm editors/zed/languages/nomi/injections.scm`
@@ -519,11 +563,14 @@ After changing `tree-sitter-nomi/grammar.js`:
 github.com/nomi-language/tree-sitter-nomi, a read-only mirror of
 `tree-sitter-nomi/`, at the rev pinned in `editors/zed/extension.toml` and
 `editors/helix/languages.toml`. Never commit to the mirror directly.
-`scripts/publish-grammar.sh` (on a clean tree) runs
-`git subtree split --prefix=tree-sitter-nomi HEAD`, pushes the split commit to
-the mirror's `main` without forcing, and writes its sha into both files;
-commit those two files afterwards. The split is deterministic, so a rerun with
-no grammar change does nothing. `--dry-run` splits and reports only;
+`scripts/publish-grammar.sh` (on a clean tree) fetches the mirror's `main`
+and, when its tree differs from HEAD's `tree-sitter-nomi/`, makes one commit
+with that tree on top of the mirror's tip and pushes it as `main` (a
+fast-forward, never forced). It then writes the published sha into both
+files; commit those two files afterwards. Building on the mirror's tip rather
+than a `git subtree split` keeps publishing working after `next` is squashed
+into `main`. A rerun with no grammar change does nothing. `--dry-run` reports
+only;
 `--remote <url>` pushes somewhere other than the https URL (for example over
 ssh).
 
@@ -549,11 +596,13 @@ checkout's `tree-sitter-nomi/` path, so local grammar changes need no publish.
 **Neovim.** Load `editors/nvim` from this checkout (lazy.nvim `dir =`) and run
 `make dev-nvim` to compile `editors/nvim/parser/nomi.so`. `make install-nvim`
 copies a snapshot into Neovim's package directory, for people who only use
-Nomi. Nothing under `plugin/` or `ftplugin/` may require neotest at load
-time; the test keys require it at keypress only when it is installed.
+Nomi. Nothing under `plugin/` or `ftplugin/` may require neotest or nvim-dap
+at load time; the test keys require neotest at keypress only when it is
+installed, and the debug commands require nvim-dap at keypress
+(`lua/nomi/dap.lua` registers its adapter when lazy.nvim loads it).
 `make test-nvim` runs the plugin's headless checks
-(`editors/nvim/tests/run.lua`, with neotest, lazy.nvim and snacks.nvim
-stubbed); CI does not run them. See `editors/nvim/README.md`.
+(`editors/nvim/tests/run.lua`, with neotest, nvim-dap, lazy.nvim and
+snacks.nvim stubbed); CI does not run them. See `editors/nvim/README.md`.
 
 **Local editors after a change.** `make dev-editors`
 (`scripts/dev-editors.sh`) installs `nomi` and `nomi-lsp` from this checkout,

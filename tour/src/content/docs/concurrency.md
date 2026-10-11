@@ -91,12 +91,12 @@ fn produce(out: Sender<Int>, n: Int): Unit {
 }
 
 fn consume(inbox: Receiver<Int>): Int {
-    Iter.loop(|sum = 0|
+    Iter.loop(|sum = 0| {
         case Receiver.receive(inbox) {
             Some(v) -> sum + v
             None -> break sum
         }
-    )
+    })
 }
 
 fn main() {
@@ -1135,7 +1135,7 @@ fn start(): Counter {
 }
 
 fn serve(inbox: Channel<Request>): Unit {
-    _final = Iter.loop(|count = 0|
+    _final = Iter.loop(|count = 0| {
         case Receiver.receive(inbox.receiver) {
             Some(.Increment(n)) ->
                 count + n
@@ -1148,7 +1148,7 @@ fn serve(inbox: Channel<Request>): Unit {
             None ->
                 break count
         }
-    )
+    })
 
     Unit
 }

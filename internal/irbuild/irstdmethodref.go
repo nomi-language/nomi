@@ -14,7 +14,7 @@ func (bl *irScalarBuilder) stdMethodRef(t *ast.FieldAccess) (ir.Temp, kind, bool
 	// These value categories precede methods in bareVariant. Leave their
 	// construction to their own builders instead of resolving by spelling.
 	if _, sym, prelude := bl.g.preludeAt(t.Field.Line, t.Field.Col); prelude && sym.Name == t.Field.Name {
-		if _, _, found := variantRefAt(bl.g.fa, t.Field.Name, t.Field.Line, t.Field.Col); found {
+		if _, _, found := variantRefAt(bl.g.srcFA(), t.Field.Name, t.Field.Line, t.Field.Col); found {
 			return no()
 		}
 	}

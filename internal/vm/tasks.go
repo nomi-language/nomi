@@ -73,8 +73,12 @@ func (l *taskLimit) reached() error {
 }
 
 // runTask runs a task body's function value on the task's frame. A VM error
-// becomes the rt fault the task wrapper classifies.
-func (m *Machine) runTask(f *functionValue, fr *rt.Frame, args ...any) any {
+// becomes the rt fault the task wrapper classifies. spawn is where the task
+// was spawned, which names its thread on a debug machine.
+func (m *Machine) runTask(f *functionValue, fr *rt.Frame, spawn ir.Pos, args ...any) any {
+	if m.dbg != nil {
+		m.dbg.nameTask(fr, spawn)
+	}
 	// A task body runs on a goroutine of its own, whose stack starts empty,
 	// so its call depth starts at zero rather than at the spawner's.
 	root := *m
@@ -122,14 +126,14 @@ func concurrentHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 	return m.settled(v, err)
 }
 
-func taskSpawnHost(m *Machine, _ ir.Pos, args []any) (any, error) {
+func taskSpawnHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	f, err := nullary("Task.spawn", args)
 	if err != nil {
 		return nil, err
 	}
 	var h rt.Task[any]
 	if err := rtFault(func() {
-		h = rt.TaskSpawn(m.hostFrame, func(fr *rt.Frame) any { return m.runTask(f, fr) })
+		h = rt.TaskSpawn(m.hostFrame, func(fr *rt.Frame) any { return m.runTask(f, fr, pos) })
 	}); err != nil {
 		return nil, err
 	}
@@ -189,7 +193,7 @@ func outcomeValue(o rt.Outcome[any]) any {
 
 // taskSpawnAllHost drains the source on the caller's frame and spawns one task
 // per item through rt, which bounds how many run at once.
-func taskSpawnAllHost(m *Machine, _ ir.Pos, args []any) (any, error) {
+func taskSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("vm: Task.spawn_all: expected three operands, got %d", len(args))
 	}
@@ -208,7 +212,7 @@ func taskSpawnAllHost(m *Machine, _ ir.Pos, args []any) (any, error) {
 	var handles *rt.List[rt.Task[any]]
 	if err := rtFault(func() {
 		handles = rt.TaskSpawnAll(m.hostFrame, src, func(fr *rt.Frame, item any) any {
-			return m.runTask(f, fr, item)
+			return m.runTask(f, fr, pos, item)
 		}, limit)
 	}); err != nil {
 		return nil, err

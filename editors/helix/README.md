@@ -2,7 +2,7 @@
 
 This directory provides:
 
-- `languages.toml` for `.nomi` file detection (and an extensionless script whose `#!` line names `nomi`), `nomi-lsp`, `nomi fmt`, and the external tree-sitter grammar
+- `languages.toml` for `.nomi` file detection (and an extensionless script whose `#!` line names `nomi`), `nomi-lsp`, `nomi fmt`, the debugger (`nomi dap`), and the external tree-sitter grammar
 - tree-sitter highlighting and typed-literal injection queries mirrored from `tree-sitter-nomi/queries/`
 - Helix-specific indentation, textobject, locals, and fold queries
 
@@ -72,6 +72,18 @@ whether Nomi's parser was built. Rebuild after a grammar update.
 The query files are needed because Nomi is not part of Helix's bundled
 runtime: the `[[grammar]]` entry builds the parser, but highlighting,
 indentation, textobjects and folds come from `runtime/queries/nomi/`.
+
+## Debugging
+
+The `[language.debugger]` block runs `nomi dap` over stdio. `:debug-start`
+offers two templates: `run`, which asks for the program (default `.`, a
+project with one entry point), and `test`, which asks for the test file and a
+line (empty runs every test in the file; a line runs the test starting on it,
+as `nomi test --line` does). This block has been checked as TOML against
+Helix's documented debugger schema but not yet run in Helix. Helix has no
+step back or reverse continue command, so `nomi dap`'s time travel is not
+available there, and it has no step into target, function breakpoints or
+go-to-binding either.
 
 ## Local Development
 

@@ -1,0 +1,54 @@
+{
+  "type": "object",
+  "required": ["request", "program"],
+  "properties": {
+    "request": {
+      "type": "string",
+      "enum": ["launch"],
+      "description": "nomi dap launches the program."
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["run", "test"],
+      "default": "run",
+      "description": "What to debug: `run` runs `main`, `test` runs the file's tests."
+    },
+    "program": {
+      "type": "string",
+      "description": "The .nomi file to debug. In run mode, a directory names a project whose nomi.toml lists one entry point."
+    },
+    "line": {
+      "type": ["integer", "string"],
+      "description": "In test mode, debug only the test, `tests` group or `//!` attached test starting on this line, as `nomi test --line` selects it."
+    },
+    "args": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "The program's arguments."
+    },
+    "cwd": {
+      "type": "string",
+      "description": "The working directory the program runs in."
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Environment variables to set for the program."
+    },
+    "console": {
+      "type": "string",
+      "enum": ["integratedTerminal", "internalConsole"],
+      "description": "Where the program's input and output go. Zed shows them in the debug console."
+    },
+    "justMyCode": {
+      "type": "boolean",
+      "default": true,
+      "description": "Step through the standard library's code without stopping in it."
+    },
+    "stopOnEntry": {
+      "type": "boolean",
+      "default": false,
+      "description": "Stop at the program's first statement."
+    }
+  }
+}

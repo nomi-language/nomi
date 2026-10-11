@@ -292,6 +292,12 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	for key, sibNodes := range siblingNodes {
 		modules[key] = sibNodes
 	}
+	// A syntax error in the embedded stdlib is a defect in this nomi, and
+	// every program is checked against that stdlib, so it is reported ahead
+	// of anything the program's own files say.
+	if ds := stdSyntaxDiagnostics(c.lib); ds != nil {
+		return fa, modules, ds
+	}
 	// A syntax error in an imported file is reported alone, as one in the
 	// entry is: what the checker says about a file recovery read only part
 	// of follows from the syntax error.
@@ -338,6 +344,9 @@ func (c *Checker) buildErrors(fa *analysis.FileAnalysis) []analysis.TypeError {
 func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*analysis.FileAnalysis, error) {
 	if c.lib == nil {
 		return nil, nil
+	}
+	if ds := stdSyntaxDiagnostics(c.lib); ds != nil {
+		return nil, ds
 	}
 	fa := analysis.BuildFileWithStdlibAtPath(nodes, nil, c.lib.Modules, c.root, c.Loader(), moduleKey+".nomi")
 	// The impl index holds THIS analysis for the module, not the shared
@@ -500,8 +509,15 @@ func (c *Checker) CheckStdlibSource(moduleKey, src string, mode Mode) ([]ast.Nod
 // would. Without this, `nomi test std/<module>.nomi` lowered prompts the
 // checker had rejected, and the builder resolved a name such as a bare
 // `False` that the module never imported.
+//
+// A syntax error anywhere in the embedded stdlib is answered first and alone,
+// for every module: the shared analysis read that file only as far as
+// recovery could, and what it says about any module follows from that.
 func StdlibModuleErrors(module string) error {
 	name := strings.TrimSuffix(strings.TrimPrefix(module, "std/"), ".nomi")
+	if ds := stdSyntaxDiagnostics(std.Shared()); ds != nil {
+		return ds
+	}
 	errs := std.Shared().Errors[name]
 	if len(errs) == 0 {
 		return nil

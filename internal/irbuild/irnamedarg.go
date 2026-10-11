@@ -30,7 +30,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	if fa.Field == nil || bl.g.fa == nil {
 		return no()
 	}
-	sym := bl.g.fa.References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
+	sym := bl.g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
 	if sym == nil {
 		return no()
 	}

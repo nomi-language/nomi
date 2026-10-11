@@ -3,12 +3,20 @@ name = "Nomi"
 version = "0.0.1"
 schema_version = 1
 authors = ["David Baldwin"]
-description = "Syntax highlighting and language server support for the Nomi programming language"
+description = "Syntax highlighting, language server and debugger support for the Nomi programming language"
 
 [language_servers.nomi-lsp]
 name = "Nomi LSP"
 languages = ["Nomi"]
 
+# `nomi dap` (src/lib.rs get_dap_binary), configured as
+# debug_adapter_schemas/Nomi.json describes.
+[debug_adapters.Nomi]
+schema_path = "debug_adapter_schemas/Nomi.json"
+
+# Turns the `nomi run` and `nomi test` tasks into debug sessions.
+[debug_locators.nomi]
+
 [grammars.nomi]
 repository = "https://github.com/nomi-language/tree-sitter-nomi"
-rev = "30456e0e8ee4a7104fdcd4edeac0ced47a416525"
+rev = "7c89ec8cb28063739b67c5effb72dbb3a8d52d0f"

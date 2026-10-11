@@ -83,7 +83,7 @@ impl Add<Vector<T>, Vector<T>> for Vector<T> {
     }
 }
 
-impl Display for Vector<T> {
+impl Display for Vector<T> where T: Display {
     fn to_string(vector: Vector<T>): String {
         body =
             vector
@@ -111,11 +111,11 @@ impl Equatable for Vector<T> {
     }
 }
 
-impl Hashable for Vector<T> {
+impl Hashable for Vector<T> where T: Hashable {
     fn hash(vector: Vector<T>): Int {
-        Iter.reduce(vector, |acc = 19, x|
+        Iter.reduce(vector, |acc = 19, x| {
             Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
-        )
+        })
     }
 }
 

@@ -5,6 +5,7 @@ go 1.27.0
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/chzyer/readline v1.5.1
+	github.com/google/go-dap v0.12.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/rivo/uniseg v0.4.7
 	github.com/sourcegraph/jsonrpc2 v0.2.0
@@ -16,12 +17,10 @@ require (
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/petermattis/goid v0.0.0-20250813065127-a731cc31b4fe // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sasha-s/go-deadlock v0.3.6 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/tliron/go-kutil v0.4.0 // indirect

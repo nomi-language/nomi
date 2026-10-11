@@ -6,6 +6,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/strlit"
 	"github.com/nomi-language/nomi/internal/token"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -45,6 +46,12 @@ type Parser struct {
 	// probes holds detectMapPatternEntry's answers, and the keys it parsed
 	// for the parse that follows it to take (map_probe.go).
 	probes map[probeAt]probeResult
+	// softErrors is set once softError recorded an error.
+	softErrors bool
+	// lambdaBars maps a lambda whose body is one expression, ending a
+	// line, to the token indexes of its opening and closing `|`
+	// (continuedLambdaArg).
+	lambdaBars map[*ast.Lambda][2]int
 }
 
 // Span is a closed source region, in 1-based line / 1-based byte column,
@@ -78,7 +85,7 @@ func (s Span) Contains(line, col int) bool {
 func Parse(tokens []token.Token) ([]ast.Node, error) {
 	p := &Parser{tokens: tokens}
 	stmts, err := p.parse()
-	if err = withStrayPrompt(tokens, err); err != nil {
+	if err = withStrayPrompt(tokens, p.firstError(err)); err != nil {
 		return nil, err
 	}
 	return stmts, nil
@@ -93,7 +100,7 @@ func Parse(tokens []token.Token) ([]ast.Node, error) {
 func ParseFile(tokens []token.Token) ([]ast.Node, []ast.Trivia, error) {
 	p := &Parser{tokens: tokens}
 	stmts, err := p.parse()
-	if err = withStrayPrompt(tokens, err); err != nil {
+	if err = withStrayPrompt(tokens, p.firstError(err)); err != nil {
 		return nil, nil, err
 	}
 	attachDangling(stmts, p.fileEndTrivia, tokens)
@@ -209,6 +216,14 @@ func (p *Parser) parseWithRecovery() ([]ast.Node, []ParseError) {
 			p.damaged = append(p.damaged, p.spanOfTokens(declStart, p.pos))
 		}
 		stmts = append(stmts, node)
+	}
+	if p.softErrors {
+		// A soft error is recorded where it is found, which may be after
+		// a later declaration's error was.
+		sort.SliceStable(p.errors, func(i, j int) bool {
+			a, b := p.errors[i], p.errors[j]
+			return a.Line < b.Line || a.Line == b.Line && a.Col < b.Col
+		})
 	}
 	return stmts, withStrayPrompts(p.tokens, p.errors)
 }
@@ -772,6 +787,13 @@ func parseAttachedTestBody(tokens []token.Token, openTok, closeTok token.Token, 
 	}
 	for _, t := range endTrivia {
 		body.AddTrailing(t)
+	}
+	if !resilient && len(bodyParser.errors) > 0 {
+		// A fix's edit would cut across the `//!` prompts, so none is
+		// offered here.
+		first := bodyParser.firstError(nil).(ParseError)
+		first.Fix = nil
+		return nil, 0, first
 	}
 	return body, bodyParser.recoveries, nil
 }
@@ -1980,7 +2002,7 @@ func (p *Parser) parsePipeIfStage(left ast.Node, pipeTok token.Token, leadingFor
 		p.pos = savedPos
 	}
 
-	ifNode := &ast.If{Cond: nil, Then: thenNode.(*ast.Block), Else: elseNode, Line: tok.Line, Col: tok.Col}
+	ifNode := &ast.If{Cond: nil, Then: thenNode.(*ast.Block), Else: elseNode, StagePrefix: condition != nil, Line: tok.Line, Col: tok.Col}
 	p.recordSpan(ifNode, stageStart)
 	for _, tr := range leadingForRight {
 		ifNode.AddLeading(tr)
@@ -2019,7 +2041,10 @@ func (p *Parser) parsePipeCaseStage(left ast.Node, pipeTok token.Token, leadingF
 			endTrivia = leading
 			break
 		}
-		branch, err := p.parseCaseBranch(true)
+		if p.strayBodyMarker() {
+			continue
+		}
+		branch, err := p.parseCaseBranch(true, "case")
 		if err != nil {
 			return nil, err
 		}
@@ -2039,7 +2064,7 @@ func (p *Parser) parsePipeCaseStage(left ast.Node, pipeTok token.Token, leadingF
 	}
 	p.advance()
 
-	caseNode := &ast.Case{Value: nil, Branches: branches, Line: tok.Line, Col: tok.Col}
+	caseNode := &ast.Case{Value: nil, Branches: branches, StagePrefix: value != nil, Line: tok.Line, Col: tok.Col}
 	p.recordSpan(caseNode, stageStart)
 	for _, tr := range leadingForRight {
 		caseNode.AddLeading(tr)
@@ -2277,7 +2302,21 @@ func (p *Parser) parseArgList() (args []ast.Node, end []ast.Trivia, err error) {
 			return args, nil, nil
 		}
 		if p.peek().Type != token.COMMA {
-			return nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in argument list")
+			continued, err := p.continuedLambdaArg(args[len(args)-1])
+			if err != nil {
+				return nil, nil, err
+			}
+			if continued {
+				p.listAfter(&lc)
+				if !p.atEnd() && p.peek().Type == token.RPAREN {
+					lc.close()
+					p.advance()
+					return args, nil, nil
+				}
+			}
+			if p.atEnd() || p.peek().Type != token.COMMA {
+				return nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ')' in argument list")
+			}
 		}
 		p.advance() // consume COMMA
 		p.listAfter(&lc)
@@ -2581,12 +2620,12 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		return &ast.Ident{Name: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
 
 	case token.SELF:
-		// `self` in expression position is parsed as a plain Ident so the
-		// analyzer can report the precise source error. In current Nomi,
-		// `self` is an interface type placeholder only; it is not a value or call
-		// qualifier.
+		// `self` in expression position is the implementing type's
+		// constructor inside an interface default bounded by
+		// `where self: Distinct<T>` (`self(x)`, or `self` as a function
+		// value). The analyzer reports it anywhere else.
 		p.advance()
-		return &ast.Ident{Name: "self", Line: tok.Line, Col: tok.Col}, nil
+		return &ast.SelfExpr{Line: tok.Line, Col: tok.Col}, nil
 
 	case token.BAR:
 		return p.parseLambda()
@@ -3816,6 +3855,9 @@ func (p *Parser) parseBlock() (ast.Node, error) {
 			endTrivia = leading
 			break
 		}
+		if p.strayBodyMarker() {
+			continue
+		}
 		stmtStart := p.pos
 		node, attachedDoc, attachedLeading, err := p.parseStmt()
 		if err != nil {
@@ -3899,7 +3941,7 @@ func (p *Parser) parseCase() (ast.Node, error) {
 	}
 	p.advance() // consume LBRACE
 
-	branches, endTrivia, err := p.parseCaseArms(hasValue)
+	branches, endTrivia, err := p.parseCaseArms(hasValue, "case")
 	if err != nil {
 		return nil, err
 	}
@@ -3918,14 +3960,17 @@ func (p *Parser) parseCase() (ast.Node, error) {
 // parseCaseArms parses case arms after an opening `{` up to, not including,
 // the closing `}`. The returned trivia is what follows the last arm, which
 // belongs to the node holding the arms (there is no next arm to attach to).
-func (p *Parser) parseCaseArms(hasValue bool) ([]ast.CaseBranch, []ast.Trivia, error) {
+func (p *Parser) parseCaseArms(hasValue bool, keyword string) ([]ast.CaseBranch, []ast.Trivia, error) {
 	var branches []ast.CaseBranch
 	for {
 		leading := p.collectLeadingTrivia()
 		if p.atEnd() || p.peek().Type == token.RBRACE {
 			return branches, leading, nil
 		}
-		branch, err := p.parseCaseBranch(hasValue)
+		if p.strayBodyMarker() {
+			continue
+		}
+		branch, err := p.parseCaseBranch(hasValue, keyword)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -3966,7 +4011,7 @@ func (p *Parser) parsePatternBindingElse() (*ast.BindingElse, error) {
 	}
 	lbrace := p.peek()
 	p.advance() // consume LBRACE
-	arms, endTrivia, err := p.parseCaseArms(true)
+	arms, endTrivia, err := p.parseCaseArms(true, "else")
 	if err != nil {
 		return nil, err
 	}
@@ -4058,6 +4103,12 @@ func (p *Parser) tryParsePatternBinding() (ast.Node, bool, error) {
 	start := p.peek()
 	savedPos, savedRecoveries := p.pos, p.recoveries
 	pattern, err := p.parseSinglePattern()
+	// `[first, ..] = xs`: a list with a bare `..` is never an expression
+	// statement, so a pattern followed by `=` reports its unnamed rest rather
+	// than the `=` the expression reading stops at.
+	if perr, ok := err.(ParseError); ok && perr.Message == unnamedListRestMessage && p.groupBeforeEQ(savedPos) {
+		return nil, true, err
+	}
 	if err != nil || p.atEnd() || p.peek().Type != token.EQ {
 		p.pos, p.recoveries = savedPos, savedRecoveries
 		return nil, false, nil
@@ -4076,10 +4127,96 @@ func (p *Parser) tryParsePatternBinding() (ast.Node, bool, error) {
 	return n, true, nil
 }
 
-// parseCaseBranch parses one branch of a case expression: pattern [when guard] -> body
-func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
+// groupBeforeEQ reports whether the token at from opens a bracketed group
+// whose closing token is directly followed by `=`.
+func (p *Parser) groupBeforeEQ(from int) bool {
+	depth := 0
+	for i := from; i < len(p.tokens); i++ {
+		switch p.tokens[i].Type {
+		case token.LPAREN, token.LBRACKET, token.LBRACE:
+			depth++
+		case token.RPAREN, token.RBRACKET, token.RBRACE:
+			depth--
+			if depth == 0 {
+				return i+1 < len(p.tokens) && p.tokens[i+1].Type == token.EQ
+			}
+		case token.EOF:
+			return false
+		}
+		if depth == 0 {
+			return false
+		}
+	}
+	return false
+}
+
+// unnamedListRestMessage is the error for a list pattern's `..` with no
+// pattern after it (`[first, ..]`).
+const unnamedListRestMessage = "a list pattern's rest needs a name: write `..rest` or `.._`"
+
+// parseCaseBranch parses one branch of a case expression: pattern [when
+// guard] -> body. keyword names what holds the arms (`case`, `else`) in the
+// error for an arm whose body runs on below it.
+func (p *Parser) parseCaseBranch(hasValue bool, keyword string) (ast.CaseBranch, error) {
 	line := p.peek().Line
 	col := p.peek().Col
+	headStart := p.pos
+	pattern, guard, err := p.parseCaseArmHead(hasValue)
+	if err != nil {
+		return ast.CaseBranch{}, err
+	}
+
+	// Expect ARROW (->)
+	if p.atEnd() || p.peek().Type != token.ARROW {
+		return ast.CaseBranch{}, errorAt(p.peek().Line, p.peek().Col, "expected '->' in case branch")
+	}
+	arrow := p.pos
+	p.advance() // consume ARROW
+
+	// Parse the arm body. A leading break/continue/return is a control-flow
+	// node — it unwinds to the enclosing loop/lambda just as in statement
+	// position; otherwise the body is an expression. The parser stays
+	// permissive; the checker (analysis/iter_sensitive.go) enforces that
+	// break/continue only appear inside an iteration callback.
+	var body ast.Node
+	switch p.peek().Type {
+	case token.BREAK:
+		body, err = p.parseBreak()
+	case token.CONTINUE:
+		body, err = p.parseContinue()
+	case token.RETURN:
+		body, err = p.parseReturn()
+	default:
+		body, err = p.parseExpr(1)
+	}
+	if err != nil {
+		return ast.CaseBranch{}, err
+	}
+	if _, braced := body.(*ast.Block); !braced {
+		if body, err = p.continuedArm(hasValue, keyword, headStart, arrow, body); err != nil {
+			return ast.CaseBranch{}, err
+		}
+	}
+
+	endLine, endCol := tokenEnd(p.tokens[p.pos-1])
+	return ast.CaseBranch{Pattern: pattern, Guard: guard, Body: body, Line: line, Col: col, EndLine: endLine, EndCol: endCol}, nil
+}
+
+// startsCaseArm reports whether the tokens at i begin a case arm: a pattern,
+// an optional guard, then `->`. It always rewinds.
+func (p *Parser) startsCaseArm(i int, hasValue bool) bool {
+	savedPos, savedRecoveries, savedErrors := p.pos, p.recoveries, len(p.errors)
+	defer func() { p.pos, p.recoveries, p.errors = savedPos, savedRecoveries, p.errors[:savedErrors] }()
+	p.pos = i
+	if _, _, err := p.parseCaseArmHead(hasValue); err != nil {
+		return false
+	}
+	return !p.atEnd() && p.peek().Type == token.ARROW
+}
+
+// parseCaseArmHead parses an arm's pattern and its optional `when` guard,
+// up to the `->`.
+func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 	patternStart := p.pos
 	var pattern ast.Node
 	var err error
@@ -4095,14 +4232,14 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			p.advance()
 			val, e := strconv.ParseInt(tok.Lexeme, 0, 64)
 			if e != nil {
-				return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "invalid integer %q", tok.Lexeme)
+				return nil, nil, errorAt(tok.Line, tok.Col, "invalid integer %q", tok.Lexeme)
 			}
 			pattern = &ast.IntLit{Value: val, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}
 		case token.FLOAT:
 			p.advance()
 			val, e := strconv.ParseFloat(tok.Lexeme, 64)
 			if e != nil {
-				return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "invalid float %q", tok.Lexeme)
+				return nil, nil, errorAt(tok.Line, tok.Col, "invalid float %q", tok.Lexeme)
 			}
 			pattern = &ast.FloatLit{Value: val, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}
 		case token.DECIMAL:
@@ -4114,13 +4251,13 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 		case token.MINUS:
 			pattern, err = p.parseNegativeLiteralPattern()
 			if err != nil {
-				return ast.CaseBranch{}, err
+				return nil, nil, err
 			}
 		case token.STRING_LITERAL:
 			p.advance()
 			pattern = &ast.StringLit{Value: tok.Lexeme, Line: tok.Line, Col: tok.Col}
 			if prefixed, ok, err := p.tryParseStringPrefixPattern(pattern, tok.Line, tok.Col); err != nil {
-				return ast.CaseBranch{}, err
+				return nil, nil, err
 			} else if ok {
 				pattern = prefixed
 			}
@@ -4128,7 +4265,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			p.advance()
 			pattern = &ast.StringLit{Value: tok.Lexeme, Triple: true, Line: tok.Line, Col: tok.Col}
 			if prefixed, ok, err := p.tryParseStringPrefixPattern(pattern, tok.Line, tok.Col); err != nil {
-				return ast.CaseBranch{}, err
+				return nil, nil, err
 			} else if ok {
 				pattern = prefixed
 			}
@@ -4136,7 +4273,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			p.advance()
 			pattern = &ast.StringLit{Value: tok.Lexeme, Raw: true, Line: tok.Line, Col: tok.Col}
 			if prefixed, ok, err := p.tryParseStringPrefixPattern(pattern, tok.Line, tok.Col); err != nil {
-				return ast.CaseBranch{}, err
+				return nil, nil, err
 			} else if ok {
 				pattern = prefixed
 			}
@@ -4144,7 +4281,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			p.advance()
 			pattern = &ast.StringLit{Value: tok.Lexeme, Triple: true, Raw: true, Line: tok.Line, Col: tok.Col}
 			if prefixed, ok, err := p.tryParseStringPrefixPattern(pattern, tok.Line, tok.Col); err != nil {
-				return ast.CaseBranch{}, err
+				return nil, nil, err
 			} else if ok {
 				pattern = prefixed
 			}
@@ -4154,26 +4291,26 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 				startTok := tok
 				typeExpr, lastTok := p.parseDottedPatternType(tok)
 				if !p.atEnd() && p.peek().Type == token.DOT {
-					return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "expected variant name after '.'")
+					return nil, nil, errorAt(tok.Line, tok.Col, "expected variant name after '.'")
 				}
 				tok = lastTok
 
 				if !p.atEnd() && p.peek().Type == token.LPAREN {
 					ep, err := p.parseEnumPatternPayload(typeExpr, startTok.Line, startTok.Col)
 					if err != nil {
-						return ast.CaseBranch{}, err
+						return nil, nil, err
 					}
 					pattern = ep
 				} else if !p.atEnd() && p.peek().Type == token.LBRACKET {
 					lp, err := p.parseTypePrefixedListPattern(typeExpr, startTok.Line, startTok.Col)
 					if err != nil {
-						return ast.CaseBranch{}, err
+						return nil, nil, err
 					}
 					pattern = lp
 				} else if !p.atEnd() && p.peek().Type == token.LBRACE {
 					bp, err := p.parseTypePrefixedBracePattern(typeExpr, startTok.Line, startTok.Col, tok.Line)
 					if err != nil {
-						return ast.CaseBranch{}, err
+						return nil, nil, err
 					}
 					pattern = bp
 				} else {
@@ -4187,7 +4324,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			p.advance() // consume LPAREN
 			patterns, err := p.parsePatternList(tok)
 			if err != nil {
-				return ast.CaseBranch{}, err
+				return nil, nil, err
 			}
 			if len(patterns) < 2 {
 				// Single-element (x) is just grouping, use inner pattern
@@ -4214,22 +4351,22 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 					// literals use for keys), then '=>'.
 					keyNode, err := p.parseExpr(1)
 					if err != nil {
-						return ast.CaseBranch{}, err
+						return nil, nil, err
 					}
 					lc.item(nodeComments(keyNode))
 					if p.atEnd() || p.peek().Type != token.FAT_ARROW {
-						return ast.CaseBranch{}, errorAt(p.peek().Line, p.peek().Col, "expected '=>' in map pattern")
+						return nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected '=>' in map pattern")
 					}
 					p.advance() // consume FAT_ARROW
 					valPat, err := p.parseSinglePattern()
 					if err != nil {
-						return ast.CaseBranch{}, err
+						return nil, nil, err
 					}
 					entries = append(entries, ast.MapPatternEntry{Key: keyNode, Pattern: valPat})
 					p.listSeparators(&lc)
 				}
 				if p.atEnd() || p.peek().Type != token.RBRACE {
-					return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "expected '}' in map pattern")
+					return nil, nil, errorAt(tok.Line, tok.Col, "expected '}' in map pattern")
 				}
 				p.advance() // consume RBRACE
 				pattern = &ast.MapPattern{Entries: entries, EndTrivia: lc.end(), Line: tok.Line, Col: tok.Col}
@@ -4238,7 +4375,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 				var fields []ast.StructPatternField
 				for !p.atEnd() && p.peek().Type != token.RBRACE {
 					if p.peek().Type != token.IDENT {
-						return ast.CaseBranch{}, errorAt(p.peek().Line, p.peek().Col, "expected field name in struct pattern")
+						return nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected field name in struct pattern")
 					}
 					fieldTok := p.peek()
 					fieldName := fieldTok.Lexeme
@@ -4247,7 +4384,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 					if !p.atEnd() && p.peek().Type == token.COLON {
 						p.advance() // consume COLON
 						if err := p.parseStructFieldValue(&spf); err != nil {
-							return ast.CaseBranch{}, err
+							return nil, nil, err
 						}
 					}
 					fields = append(fields, spf)
@@ -4255,7 +4392,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 					p.listSeparators(&lc)
 				}
 				if p.atEnd() || p.peek().Type != token.RBRACE {
-					return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "expected '}' in struct pattern")
+					return nil, nil, errorAt(tok.Line, tok.Col, "expected '}' in struct pattern")
 				}
 				lc.close()
 				p.advance() // consume RBRACE
@@ -4264,7 +4401,13 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 		case token.LBRACKET:
 			pat, err := p.parseSinglePattern()
 			if err != nil {
-				return ast.CaseBranch{}, err
+				return nil, nil, err
+			}
+			pattern = pat
+		case token.SELF:
+			pat, err := p.parseSelfPattern()
+			if err != nil {
+				return nil, nil, err
 			}
 			pattern = pat
 		case token.DOT:
@@ -4273,7 +4416,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			// *ast.DotVariantType, telling the analyzer to resolve the
 			// variant against the scrutinee's enum type.
 			if p.peekAt(1).Type != token.TYPE_IDENT {
-				return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "expected variant name after '.'")
+				return nil, nil, errorAt(tok.Line, tok.Col, "expected variant name after '.'")
 			}
 			p.advance() // consume DOT
 			nameTok := p.peek()
@@ -4282,19 +4425,19 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			if !p.atEnd() && p.peek().Type == token.LPAREN {
 				ep, err := p.parseEnumPatternPayload(dvt, tok.Line, tok.Col)
 				if err != nil {
-					return ast.CaseBranch{}, err
+					return nil, nil, err
 				}
 				pattern = ep
 			} else if !p.atEnd() && p.peek().Type == token.LBRACKET {
 				lp, err := p.parseTypePrefixedListPattern(dvt, tok.Line, tok.Col)
 				if err != nil {
-					return ast.CaseBranch{}, err
+					return nil, nil, err
 				}
 				pattern = lp
 			} else if !p.atEnd() && p.peek().Type == token.LBRACE {
 				bp, err := p.parseTypePrefixedBracePattern(dvt, tok.Line, tok.Col, nameTok.Line)
 				if err != nil {
-					return ast.CaseBranch{}, err
+					return nil, nil, err
 				}
 				pattern = bp
 			} else {
@@ -4309,7 +4452,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			startTok := tok // preserve start position for TypeExpr
 			typeExpr, lastTok := p.parseDottedPatternType(tok)
 			if !p.atEnd() && p.peek().Type == token.DOT {
-				return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "expected variant name after '.'")
+				return nil, nil, errorAt(tok.Line, tok.Col, "expected variant name after '.'")
 			}
 			tok = lastTok // update tok for line/bindingCol references below
 
@@ -4317,7 +4460,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 				// Enum positional pattern: Variant(...) — may destructure into a nested pattern.
 				ep, err := p.parseEnumPatternPayload(typeExpr, startTok.Line, startTok.Col)
 				if err != nil {
-					return ast.CaseBranch{}, err
+					return nil, nil, err
 				}
 				pattern = ep
 			} else if !p.atEnd() && p.peek().Type == token.LBRACKET {
@@ -4326,7 +4469,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 				// list literal `Arr[1, 2, 3]` on the construction side.
 				lp, err := p.parseTypePrefixedListPattern(typeExpr, startTok.Line, startTok.Col)
 				if err != nil {
-					return ast.CaseBranch{}, err
+					return nil, nil, err
 				}
 				pattern = lp
 			} else if !p.atEnd() && p.peek().Type == token.LBRACE {
@@ -4337,7 +4480,7 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 				// inside another pattern's call-form parens (`Ok(Obj{"k" => v})`).
 				bp, err := p.parseTypePrefixedBracePattern(typeExpr, startTok.Line, startTok.Col, tok.Line)
 				if err != nil {
-					return ast.CaseBranch{}, err
+					return nil, nil, err
 				}
 				pattern = bp
 			} else {
@@ -4346,9 +4489,9 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 			}
 		default:
 			if tok.Problem != "" {
-				return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "%s", tok.Problem)
+				return nil, nil, errorAt(tok.Line, tok.Col, "%s", tok.Problem)
 			}
-			return ast.CaseBranch{}, errorAt(tok.Line, tok.Col, "unexpected token %s %q in case pattern", tok.Type, tok.Lexeme)
+			return nil, nil, errorAt(tok.Line, tok.Col, "unexpected token %s %q in case pattern", tok.Type, tok.Lexeme)
 		}
 	} else {
 		// Ad-hoc conditionals: _ is wildcard, otherwise parse as expression
@@ -4359,13 +4502,13 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 		} else {
 			pattern, err = p.parseExpr(1)
 			if err != nil {
-				return ast.CaseBranch{}, err
+				return nil, nil, err
 			}
 		}
 	}
 	if pattern != nil && hasValue {
 		if pattern, err = p.parsePatternAs(pattern, patternStart); err != nil {
-			return ast.CaseBranch{}, err
+			return nil, nil, err
 		}
 	}
 	if pattern != nil {
@@ -4378,38 +4521,10 @@ func (p *Parser) parseCaseBranch(hasValue bool) (ast.CaseBranch, error) {
 		p.advance() // consume WHEN
 		guard, err = p.parseExpr(1)
 		if err != nil {
-			return ast.CaseBranch{}, err
+			return nil, nil, err
 		}
 	}
-
-	// Expect ARROW (->)
-	if p.atEnd() || p.peek().Type != token.ARROW {
-		return ast.CaseBranch{}, errorAt(p.peek().Line, p.peek().Col, "expected '->' in case branch")
-	}
-	p.advance() // consume ARROW
-
-	// Parse the arm body. A leading break/continue/return is a control-flow
-	// node — it unwinds to the enclosing loop/lambda just as in statement
-	// position; otherwise the body is an expression. The parser stays
-	// permissive; the checker (analysis/iter_sensitive.go) enforces that
-	// break/continue only appear inside an iteration callback.
-	var body ast.Node
-	switch p.peek().Type {
-	case token.BREAK:
-		body, err = p.parseBreak()
-	case token.CONTINUE:
-		body, err = p.parseContinue()
-	case token.RETURN:
-		body, err = p.parseReturn()
-	default:
-		body, err = p.parseExpr(1)
-	}
-	if err != nil {
-		return ast.CaseBranch{}, err
-	}
-
-	endLine, endCol := tokenEnd(p.tokens[p.pos-1])
-	return ast.CaseBranch{Pattern: pattern, Guard: guard, Body: body, Line: line, Col: col, EndLine: endLine, EndCol: endCol}, nil
+	return pattern, guard, nil
 }
 
 // parseBlockOrLambda disambiguates between { expr } blocks and { params -> body } lambdas.
@@ -4470,6 +4585,9 @@ func (p *Parser) parseBlockOrLambda() (ast.Node, error) {
 			(p.resilient && p.blockClosedByColumnOneDecl()) {
 			endTrivia = leading
 			break
+		}
+		if p.strayBodyMarker() {
+			continue
 		}
 		stmtStart := p.pos
 		node, attachedDoc, attachedLeading, err := p.parseStmt()
@@ -4540,6 +4658,7 @@ func (p *Parser) parseLambda() (ast.Node, error) {
 // its body at the next `|>` of the enclosing pipeline.
 func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 	startTok := p.peek()
+	startPos := p.pos
 	p.advance() // consume opening BAR
 
 	var params []ast.Param
@@ -4626,14 +4745,21 @@ func (p *Parser) parseLambdaStop(stopAtPipe bool) (ast.Node, error) {
 	}
 
 	endLine, endCol := tokenEnd(p.tokens[p.pos-1])
-	return &ast.Lambda{
+	lam := &ast.Lambda{
 		Params:  params,
 		Body:    body,
 		Line:    startTok.Line,
 		Col:     startTok.Col,
 		EndLine: endLine,
 		EndCol:  endCol,
-	}, nil
+	}
+	if body.EndLine == 0 && !p.atEnd() && p.peek().Type == token.NEWLINE {
+		if p.lambdaBars == nil {
+			p.lambdaBars = map[*ast.Lambda][2]int{}
+		}
+		p.lambdaBars[lam] = [2]int{startPos, bodyStart - 1}
+	}
+	return lam, nil
 }
 
 // parseAnonStructLit parses an anonymous struct literal: { field: value, ... } (LBRACE already consumed).
@@ -7187,9 +7313,23 @@ func (p *Parser) parseEnumPatternPayload(variant ast.TypeExpr, line, col int) (a
 	}, nil
 }
 
+// parseSelfPattern parses `self(p)`: the implementing type's destructuring
+// inside an interface default bounded by `where self: Distinct<T>`, binding
+// the wrapped value to p. Its head is the `self` type, so the pattern is the
+// variant-shaped one a distinct type's own `Celsius(n)` is. `self` with no
+// payload names no value to match.
+func (p *Parser) parseSelfPattern() (ast.Node, error) {
+	tok := p.peek()
+	p.advance() // consume SELF
+	if p.atEnd() || p.peek().Type != token.LPAREN {
+		return nil, errorAt(tok.Line, tok.Col, "`self` in a pattern takes the wrapped value apart: write `self(x)`")
+	}
+	return p.parseEnumPatternPayload(&ast.SelfType{Line: tok.Line, Col: tok.Col}, tok.Line, tok.Col)
+}
+
 func canStartPatternAssertion(t token.TokenType) bool {
 	switch t {
-	case token.IDENT, token.UNDERSCORE,
+	case token.IDENT, token.UNDERSCORE, token.SELF,
 		token.LBRACKET, token.LBRACE, token.LPAREN, token.TYPE_IDENT, token.DOT,
 		token.INT, token.FLOAT, token.DECIMAL, token.CODEPOINT_LITERAL, token.MINUS,
 		token.STRING_LITERAL, token.TRIPLE_STRING_LITERAL,
@@ -7502,6 +7642,8 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 		return &ast.EnumPattern{Variant: typeExpr, Binding: "", Line: tok.Line, Col: tok.Col}, nil
 	case token.LBRACKET:
 		return p.parseListPatternBody(nil, tok.Line, tok.Col)
+	case token.SELF:
+		return p.parseSelfPattern()
 	case token.LBRACE:
 		// Brace-led inner pattern. Two shapes share this branch, disambiguated
 		// by `<keyExpr> => ...` lookahead:
@@ -7837,6 +7979,9 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 			spreadTok := p.peek()
 			p.advance() // consume DOTDOT
 			p.skipNewlines()
+			if !p.atEnd() && (p.peek().Type == token.RBRACKET || p.peek().Type == token.COMMA) {
+				return nil, errorAt(spreadTok.Line, spreadTok.Col, unnamedListRestMessage)
+			}
 			tail, err := p.parseSinglePattern()
 			if err != nil {
 				return nil, err
@@ -8655,7 +8800,20 @@ func (p *Parser) parseWhereClause() ([]ast.WhereConstraint, error) {
 	p.advance() // consume WHERE
 	var clauses []ast.WhereConstraint
 	for {
-		name, line, col, err := p.parseTypeParamName()
+		var (
+			name      string
+			line, col int
+			err       error
+		)
+		if !p.atEnd() && p.peek().Type == token.SELF {
+			// `where self: Display` bounds the implementing type for one
+			// interface function; the analyzer rejects it anywhere else.
+			tok := p.peek()
+			p.advance()
+			name, line, col = "self", tok.Line, tok.Col
+		} else {
+			name, line, col, err = p.parseTypeParamName()
+		}
 		if err != nil {
 			return nil, p.errorOnLine(line, "expected a type variable name in `where` clause")
 		}

@@ -62,6 +62,14 @@ type Program struct {
 	// input is what `io.read_line` reads, shared by every machine this
 	// program opens, or nil for no input.
 	input *rt.Input
+	// debugger is what every machine this program opens reports to, or nil.
+	debugger *vm.Debugger
+	// liveTests receives each test case's output as it is written
+	// (StreamTestOutput).
+	liveTests io.Writer
+	// cfg is the configuration the program was loaded with, which a debugger
+	// expression (CompileExpr) is loaded with too.
+	cfg config
 }
 
 // HostTable is a table of host adapters: bound against a machine's Env, it
@@ -165,7 +173,33 @@ func (p *Program) machine(out io.Writer) *vm.Machine {
 	if p.input != nil {
 		m = m.WithInput(p.input)
 	}
+	if p.debugger != nil {
+		m = m.WithDebugger(p.debugger)
+	}
+	if p.liveTests != nil {
+		m = m.WithLiveTestOutput(p.liveTests)
+	}
 	return m
+}
+
+// StreamTestOutput makes each test case write its output to w as it writes
+// it, as well as into its CaseResult: a debugger shows what a stopped case
+// has printed so far. Test then leaves each case's output out of a text
+// report, which would print it a second time; a JSON report's records still
+// carry it. Output an `io.capture` or `io.replay` takes is not streamed.
+func (p *Program) StreamTestOutput(w io.Writer) {
+	p.liveTests = w
+}
+
+// SetDebugger makes every machine the program opens from now on a debug
+// machine reporting to d (internal/vm's debug.go): Run, Call and the test
+// entry points then stop where d says. The program's modules become places
+// d's breakpoints can land.
+func (p *Program) SetDebugger(d *vm.Debugger) {
+	p.debugger = d
+	if d != nil {
+		d.AddModules(append([]*ir.Module{p.entry}, p.res.IRModules()...)...)
+	}
 }
 
 // Run boots the program and calls `main`, writing its output to out. A
@@ -209,7 +243,8 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 // selected case in source order: a case that ran through rep.Result, and a
 // case the VM cannot run through rep.Blocked with its reasons. label names a
 // case in the report. Every runnable case runs before anything is reported,
-// and the report prints each case's own output under its line. out receives
+// and the report prints each case's own output under its line, unless it was
+// streamed (StreamTestOutput) and the report is text. out receives
 // only output written outside every case (see Cases).
 //
 // file is the absolute path a JSON report locates each case by, with the
@@ -217,6 +252,10 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 func (p *Program) Test(out io.Writer, rep *TestReport, file string, opts TestOptions, label func(string) string) {
 	for _, c := range p.Cases(out, opts) {
 		loc := TestLocation{File: file, Line: c.Line, EndLine: c.EndLine}
+		if p.liveTests != nil && rep.Format() != TestFormatJSON {
+			// Streamed as the case wrote it (StreamTestOutput).
+			c.Output = ""
+		}
 		if c.Blocked != nil {
 			if c.BlockedPath == file {
 				loc.ErrorLine = c.BlockedLine

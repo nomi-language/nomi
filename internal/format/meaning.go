@@ -156,7 +156,7 @@ func canonicalTypeBody(n ast.Node) {
 }
 
 // astSkipFields are the struct fields SameMeaning does not compare, beside
-// every []ast.Trivia field: source positions and doc text (whose text
+// every ast.Trivia and []ast.Trivia field: source positions and doc text (whose text
 // changedComments compares instead).
 // Any field named ...Line, ...Col or ...Span is skipped as well.
 var astSkipFields = map[string]bool{
@@ -269,8 +269,14 @@ var groupedType = reflect.TypeOf(&ast.GroupedExpr{})
 
 // triviaType is the type of every field that holds comments and blank
 // lines (Leading, Trailing, EndTrivia, LeadingComments, ...), whose
-// placement SameMeaning ignores.
-var triviaType = reflect.TypeOf([]ast.Trivia(nil))
+// placement SameMeaning ignores. oneTriviaType is a field that holds one,
+// an AttachedTestAfter's comment line between `//!` prompts. A comment's
+// text is compared by changedComments, trimmed of trailing space as the
+// renderer trims every line it writes.
+var (
+	triviaType    = reflect.TypeOf([]ast.Trivia(nil))
+	oneTriviaType = reflect.TypeOf(ast.Trivia{})
+)
 
 func isGrouped(v reflect.Value) bool {
 	if v.Kind() == reflect.Interface && !v.IsNil() {
@@ -342,7 +348,7 @@ func equalAST(a, b reflect.Value, path string) (string, bool) {
 		t := a.Type()
 		for i := 0; i < a.NumField(); i++ {
 			name := t.Field(i).Name
-			if astSkipField(name) || t.Field(i).Type == triviaType {
+			if astSkipField(name) || t.Field(i).Type == triviaType || t.Field(i).Type == oneTriviaType {
 				continue
 			}
 			// A destructured parameter's synthesized name, `__destr_N`,

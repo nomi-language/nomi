@@ -17,7 +17,7 @@ func (bl *irScalarBuilder) narrowedRead(t *ast.Ident, v ir.Temp, k kind, mobile 
 		return v, k, mobile, true
 	}
 	var name string
-	switch ty := bl.g.fa.ExprTypes[t].(type) {
+	switch ty := bl.g.srcFA().ExprTypes[t].(type) {
 	case *analysis.StructType:
 		name = ty.Name
 	case *analysis.DistinctType:

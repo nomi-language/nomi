@@ -166,7 +166,7 @@ func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []str
 		fn := c.Fn()
 		group := c.Group()
 		var caseLimits []string
-		test := rt.Test{Name: c.Name()}
+		test := rt.Test{Name: c.Name(), Live: m.liveTests}
 		switch {
 		case len(fn.Params()) != 0:
 			limits[i] = fmt.Sprintf("the body declares %d parameter(s)", len(fn.Params()))

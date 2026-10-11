@@ -48,10 +48,10 @@ test "keyword-prefixed if can use multiline branches" {
     label =
         "Ada"
         |> if String.contains?("A") {
-                "initialed"
-            } else {
-                "plain"
-            }
+            "initialed"
+        } else {
+            "plain"
+        }
 
     assert label == "initialed"
 }
@@ -68,9 +68,9 @@ test "keyword-prefixed case matches the decorated stage result" {
     value =
         "42"
         |> case parse_id() {
-                Ok(id) -> id
-                Err(_) -> 0
-            }
+            Ok(id) -> id
+            Err(_) -> 0
+        }
 
     assert value == 42
 }
@@ -79,9 +79,9 @@ test "bare case pipe stages match the previous value" {
     value =
         Some(3)
         |> case {
-                Some(n) -> n
-                None -> 0
-            }
+            Some(n) -> n
+            None -> 0
+        }
 
     assert value == 3
 }

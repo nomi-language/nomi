@@ -103,6 +103,9 @@ func (m *Machine) Call(ctx context.Context, f *ir.Func, args []any) (any, error)
 // entry is Main and Call: boot, body, shutdown.
 func (m *Machine) entry(ctx context.Context, args []string, handleSignals bool, body func(*Machine) (any, error)) (result any, err error) {
 	fr := rt.NewFrame(m.withDiagnostics(ctx))
+	if m.dbg != nil {
+		m.dbg.adopt(fr)
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			e, isFault := r.(*rt.Error)

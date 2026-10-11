@@ -83,7 +83,7 @@ const SEM_CLASS = {
 };
 
 function lineStarts(src) {
-  const offs = [0, 0]; // index 0 unused; index L = byte offset of line L start
+  const offs = [0, 0]; // index 0 unused; index L = string index of line L start
   for (let i = 0; i < src.length; i++) if (src[i] === "\n") offs.push(i + 1);
   return offs;
 }
@@ -153,7 +153,8 @@ function applyRegexLiteralOverlay(code, cls) {
 
 // render produces highlighted HTML by layering, exactly as an editor does:
 // tree-sitter `captures` form the base (keywords/strings/numbers/punctuation),
-// then the analyzer's `semTokens` (each {line, col, len, type}, 1-based)
+// then the analyzer's `semTokens` (each {line, col, len, type}, 1-based, col
+// and len in UTF-16 code units, which is how `code` indexes)
 // override identifiers (so a module reads as a module, a parameter as a
 // parameter, etc.) — the same syntax-plus-semantic-tokens model Zed uses.
 export function render(captures, semTokens, code, options = {}) {

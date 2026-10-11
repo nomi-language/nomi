@@ -91,12 +91,12 @@ impl Matcher for Regex {
 
 impl Literal for Regex {
     fn from_fragments(fragments: List<Fragment<String>>): Result<Regex, String> {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
             }
-        )
+        })
 
         Regex.compile(body)
     }

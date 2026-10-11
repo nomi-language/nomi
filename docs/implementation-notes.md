@@ -50,6 +50,25 @@ short form of a block of one statement (`if`, `else`), and a case arm's body
 below its `->` (`keepsBrokenLines` in
 `internal/format/list_comments.go`).
 
+A lambda body written in braces whose first statement starts on a line below the `{` stays a block,
+each statement on its own line, however short; this is Prettier's rule that
+a line break after an object literal's `{` keeps it expanded. A braced body
+whose contents start on the `{` line (`|x| { x + 1 }`) and a bare body
+(`|x| x + 1`) are laid out by width, one expression going on the
+parameters' line without braces when it fits. When it does not fit, the
+formatter writes the body as a braced block below the parameters, as
+rustfmt writes a closure, wherever the lambda stands: a call argument, a
+named argument, a pipe or `then`/`tap` stage, a binding, a struct field or
+a list item (`openBraceWhenBroken` and `closeBraceWhenBroken`, inside the
+lambda's own Group). An `if` that holds `break`, `continue` or `return`
+always goes there, broken. The parser builds the same tree for
+`|x| { e }` and `|x| e`, a `Block` holding one `ExprStmt`, and records the
+`{` line and the first statement's line, which is all the formatter reads
+(`lambdaKeepsBlock` in `internal/format/emit.go`). So the braces the
+formatter adds stay on later runs, even after the body shrinks to fit the
+parameters' line; delete the line break after the `{` to let it go back.
+A block as a call's last argument hugs its `)` (`})`).
+
 ## Formatter: comments in lists
 
 A comment inside a bracketed, comma-separated list belongs to one of its

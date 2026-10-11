@@ -235,6 +235,14 @@ func checkParamPatternRefutable(pattern ast.Node, ty Type, reg *TypeRegistry, ad
 		addError(p.Line, p.Col, refutableParamMsg)
 
 	case *ast.EnumPattern:
+		if _, isSelf := p.Variant.(*ast.SelfType); isSelf {
+			// `self(p)` takes apart a distinct type, which is irrefutable;
+			// its payload is matched against what self wraps.
+			if p.Payload != nil {
+				checkParamPatternRefutable(p.Payload, nil, reg, addError)
+			}
+			return
+		}
 		// Distinct heads are irrefutable; multi-variant enum variants are not.
 		switch ty := ty.(type) {
 		case *DistinctType:

@@ -19,7 +19,7 @@ func TestSemanticTokens_BasicFunction(t *testing.T) {
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
 
-	data := encodeSemanticTokens(fa, nodes)
+	data := encodeSemanticTokens(fa, nodes, src)
 
 	if len(data)%5 != 0 {
 		t.Fatalf("encoded data length %d is not a multiple of 5", len(data))
@@ -101,7 +101,7 @@ impl Label {
 	if sym := fa.References[analysis.Pos{Line: 5, Col: 12}]; sym == nil || sym.Name != "ready_label" {
 		t.Fatalf("expected attached test call to keep analysis reference, got %#v", sym)
 	}
-	toks := decodeSemanticTokenData(encodeSemanticTokens(fa, nodes))
+	toks := decodeSemanticTokenData(encodeSemanticTokens(fa, nodes, src))
 
 	// 1-based (line, col) of each identifier, and whether it is on a `//!` line.
 	want := []struct {
@@ -180,7 +180,7 @@ fn main() {
 	s := NewServer()
 	uri := pathToURI(mainPath)
 	doc := s.docs.Open(uri, src)
-	data := encodeSemanticTokens(doc.Analysis, doc.Nodes)
+	data := encodeSemanticTokens(doc.Analysis, doc.Nodes, doc.Content)
 	toks := decodeSemanticTokenData(data)
 
 	for _, tok := range toks {
@@ -198,7 +198,7 @@ fn move(p: Point): Point { p }`
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	fa := buildFile(nodes)
 
-	data := encodeSemanticTokens(fa, nodes)
+	data := encodeSemanticTokens(fa, nodes, src)
 
 	if len(data)%5 != 0 {
 		t.Fatalf("encoded data length %d is not a multiple of 5", len(data))
@@ -214,7 +214,7 @@ func TestSemanticTokens_EmptyFile(t *testing.T) {
 		References:  map[analysis.Pos]*analysis.Symbol{},
 	}
 
-	data := encodeSemanticTokens(fa, nil)
+	data := encodeSemanticTokens(fa, nil, "")
 
 	if len(data) != 0 {
 		t.Fatalf("expected empty data for empty file, got %d elements", len(data))

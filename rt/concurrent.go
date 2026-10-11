@@ -148,7 +148,8 @@ func EnterScope(parent *Frame) *Frame {
 	ctx, cancel := context.WithCancel(parent.ctx)
 	s := &Scope{ctx: ctx, cancel: cancel, failed: make(chan struct{})}
 	return &Frame{ctx: ctx, forcing: parent.forcing, scopedFields: parent.scopedFields, scopedContext: parent.scopedContext,
-		booted: parent.booted, scope: s, inTask: parent.inTask, underDeadline: parent.underDeadline, park: parent.park, capture: parent.capture}
+		booted: parent.booted, scope: s, inTask: parent.inTask, underDeadline: parent.underDeadline, park: parent.park, capture: parent.capture,
+		debug: parent.debug}
 }
 
 // ScopeExit ends a `concurrent { }` block: cancel every task still running,
@@ -480,7 +481,7 @@ func TaskAwait[T any](fr *Frame, h Task[T]) T {
 		// that means on the main line.
 		raiseAwaitedCancel(fr)
 	default:
-		Trap(t.fail.Msg)
+		TrapAwaited(t.fail.Msg)
 	}
 	// Unreachable: every arm above either returns or panics. Go needs a
 	// terminal statement and a zero value would be a wrong answer, so this is a
@@ -637,7 +638,7 @@ func TaskAwaitAll[T any](fr *Frame, tasks *List[Task[T]]) *List[T] {
 			select {
 			case <-t.done:
 			case <-s.failed:
-				Trap(s.firstFailure.Msg)
+				TrapAwaited(s.firstFailure.Msg)
 			case <-fr.ctx.Done():
 				raiseCanceled(fr)
 			}
@@ -654,7 +655,7 @@ func TaskAwaitAll[T any](fr *Frame, tasks *List[Task[T]]) *List[T] {
 		case TagCancelled:
 			raiseAwaitedCancel(fr)
 		default:
-			Trap(t.fail.Msg)
+			TrapAwaited(t.fail.Msg)
 		}
 	}
 	return listFromSlice(out)

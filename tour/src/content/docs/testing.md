@@ -233,14 +233,41 @@ the four spaces in front of each output line. When the program writes a
 prompt without a newline before it reads, as `io.write("Hello, Ada. Your
 age: ")` does, the prompt is an output line of its own and the typed text
 goes on the `>>` line below it. Output that starts with `>`, such as a `> `
-prompt, is just output: `    >` above `>>  north`. Every line needs one of the
-two gutters, even in a script with no input, so for a program that reads
-nothing compare `io.capture(input, main).output` instead. Trailing spaces
-and the final newline don't count. A failed replay prints a line diff, `-`
+prompt, is just output: `    >` above `>>  north`. Trailing spaces and the
+final newline don't count. A failed replay prints a line diff, `-`
 for script lines (numbered by line in the file) the program did not produce
 and `+` for what it did instead, and shows the script above it only as
 `""" lines 11-23 """`. A `>>` line it never read fails it too. Each `Captured`
 has the same view in `transcript`, if you want to check it yourself.
+
+A script with no `>>` line is output only, and it needs no gutter: each line
+is compared exactly as written. Write the output at the closing `"""`'s
+column. Spaces past that column are part of the output, so the second line
+below expects its leading space. Output that starts with `>>` needs the
+two-column form, with four spaces in front of every output line.
+
+```nomi-run
+import std/io
+
+fn main() {
+    io.print("-10.0 C |   14.0 F")
+    io.print(" -5.0 C |   23.0 F")
+}
+
+test "converts to Fahrenheit" {
+    assert io.replay(
+        """
+        -10.0 C |   14.0 F
+         -5.0 C |   23.0 F
+        """,
+        main,
+    )
+}
+```
+<!-- expect
+-10.0 C |   14.0 F
+ -5.0 C |   23.0 F
+-->
 
 ## Groups And Setup
 
@@ -440,3 +467,86 @@ It is off by default because the virtual clock changes behaviour:
 
 The first two usually indicate a test worth fixing, but they are behaviour
 changes, so you opt in per run.
+
+## Debugging A Test
+
+When a failure needs more than its report, run the test under the debugger.
+In VS Code, and in Neovim with nvim-dap, a **Debug test** lens sits beside
+each **Run test** (and **Debug** beside **Run** on `fn main`); Zed offers a
+debug entry beside each test task, and Helix a test template. It starts
+`nomi dap`, a Debug Adapter Protocol server, on that one test; the
+[editor support](https://github.com/nomi-language/nomi#editor-support)
+section of the README has the setup.
+
+A failed `assert` stops the test where it failed, before the case ends, with
+the report you would have read and every binding in scope still readable. A
+trap stops the same way, where it happened. Breakpoints, stepping into the
+code under test and the call stack work as they do for a program. A callback
+shows the operation that called it, so a breakpoint inside an `Iter.map`
+lambda shows the test, then `Iter.map`, then the lambda. Stepping passes
+through the standard library rather than into it.
+
+While the test is paused, ask it questions in Nomi. A watch, a hover over a
+name, and a line typed into the debug console are evaluated in the paused
+frame, with its bindings in scope: `Iter.count(orders)`, `total > limit`,
+`orders |> Iter.filter(.paid) |> Iter.to_list()`. A result that is a struct
+or a collection opens as a tree. Because values never change, reading them
+cannot disturb the test. An expression that would act on the world (print,
+read a file, look at the clock) is refused rather than run. End it with
+`// allow effects` to run it anyway, knowing that what it does stays done. An
+expression that runs too long, such as a loop that never ends, is stopped
+and reported.
+
+The same evaluation drives breakpoints that decide for themselves. A
+conditional breakpoint stops only when its condition, a `Bool` expression,
+holds (`attempt == 3`). A hit count stops at the Nth pass (`5`, `>= 5`, or
+`% 10` for every tenth). A logpoint stops nowhere and writes its message to
+the console instead, with each `{expression}` replaced by its value:
+`charging {order.id} for {total}`. A condition that does not compile is
+shown on the breakpoint, and one that fails when it runs stops with the
+reason.
+
+Paused in or just after a pipeline, the **Pipeline** scope lists each stage
+with the value it produced, as `dbg` after every stage would print it. A
+lazy `Iter` stage shows the values that flowed through it once a later
+stage ran the pipeline. Restart frame runs the selected function again from
+its first statement with the same arguments; anything it printed already
+stays printed.
+
+**Step Into Target** lists the calls on the paused line, a lambda handed to
+an `Iter` adapter among them (`Iter.map(|n| ...) callback`), and steps into
+the one you pick. If the line finishes without calling it (the list was
+empty, say), the step stops at the next statement and the console says so.
+A function breakpoint stops at the first statement of a function each time
+it is called, named as the call stack names it: `transact`,
+`Account.deposit`, `Card.to_string`, or `Display.to_string` for every
+impl. A generic function stops for every type it is called with. A variable
+in the paused frame also knows where it was bound (the parameter, the
+`name =`, or its name in a pattern), and an editor that follows a
+variable's declaration, as Neovim's nvim-dap does with `Ctrl-]`, opens it.
+
+What a paused test printed so far is already in the debug console. Output
+inside `io.capture` or `io.replay` goes into the capture instead, so a frame
+inside one has a **Captured output** scope for each such call, innermost
+first, named by where it was made: `Captured output (io.replay at
+bank.nomi:32)`. It shows the `output` so far and the `transcript`, each line
+a child you can page through. For a replay the transcript is in the two
+columns a script with input uses, even when the script has none, beside the
+script's input lines read so far and those still to come, and `diverged` names the first script line the transcript already
+differs from, before the replay reaches its `assert`.
+
+Stepped past the line that went wrong? Step back. **Step back** goes to the
+statement before the current one, passing over calls as step over does, and
+**reverse continue** goes back to the last place a breakpoint stopped (or to
+the start). The debugger recorded every effect as the test ran: each line of
+input, each reading of the clock, each random number and each file read. Going
+back runs the test again from its start with those answers, printing nothing
+and reading nothing, and stops at the earlier statement with every binding as
+it was then. Stepping forward again replays the same history, and past the
+point you had reached the test runs live once more. A test that starts a task
+cannot go back, because how its tasks interleave is not recorded; the debugger
+says so.
+
+The test runs exactly as `nomi test --line` runs it, and the session's output
+is the same report, except that what the test printed appears as it printed
+it rather than again under the test's line.

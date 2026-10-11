@@ -158,6 +158,11 @@ func DetectMissingImpls(idx *ProjectImplIndex, typeDecls map[string]Pos) []TypeE
 		if iface == "Struct" {
 			continue
 		}
+		// `Distinct<T>` is decided the same way, by what a distinct type
+		// wraps (distinct_self.go).
+		if iface == "Distinct" {
+			continue
+		}
 		byType := idx.ImplManifest[iface]
 		typeNames := make([]string, 0, len(byType))
 		for t := range byType {
@@ -490,6 +495,12 @@ func pipeBoundCol(n *ast.Binary, stage *ast.Call) int {
 // boundError is a call's unmet interface bound: at the call, naming the
 // bound it violates, with the missing-impl help.
 func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType, param string, over ...ast.Node) {
+	if c.implBoundsUnmetByNamedTypes(concrete, bound) {
+		// `List<Foo>` has Display only where Foo does: the demand is Foo's,
+		// and the missing-impl report names Foo with its own help.
+		c.recordBoundConformance(concrete, bound.Name, c.recPos(line, col), RecordingKindGenericBoundCheck)
+		return
+	}
 	end := TypeError{}
 	for _, n := range over {
 		if sp, ok := spanOf(n); ok && sp.StartLine == line && sp.StartCol == col {
@@ -563,4 +574,40 @@ func formatRecordingVia(rec Recording) string {
 	default:
 		return "unknown"
 	}
+}
+
+// implBoundsUnmetByNamedTypes reports whether concrete's type has an impl of
+// bound (`impl Display for List<T> where T: Display`) whose receiver it
+// matches but for a bound on the impl's type parameters, and each type
+// argument that misses one is a named type. Recording the demand then
+// reaches that argument, which the missing-impl report names.
+func (c *checker) implBoundsUnmetByNamedTypes(concrete Type, bound *InterfaceType) bool {
+	if c == nil || bound == nil {
+		return false
+	}
+	name := interfaceImplName(concrete)
+	if name == "" {
+		return false
+	}
+	info := lookupImplTypeArgs(name, bound.Name, c.implTypeArgsContext())
+	if info == nil || info.Receiver == nil {
+		return false
+	}
+	subs := map[*TypeParam_]Type{}
+	if unifyFull(info.Receiver, concrete, subs, c.implsContext(), c.implTypeArgsContext()) != nil {
+		return false
+	}
+	unmet := false
+	for tp, arg := range subs {
+		for _, b := range tp.Bounds {
+			if typeSatisfiesInterfaceForImplMatch(arg, b, c.implsContext(), c.implTypeArgsContext(), nil) {
+				continue
+			}
+			if concreteTypeName(resolveTypeVar(arg)) == "" {
+				return false
+			}
+			unmet = true
+		}
+	}
+	return unmet
 }

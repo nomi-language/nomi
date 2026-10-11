@@ -142,6 +142,10 @@ func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k ki
 		return bl.equalityCompare(t, ir.OpEq, irParamShape(k), lhs, rhs), true
 	case isDecimalKind(k):
 		return bl.equalityCompare(t, ir.OpEq, ir.ValDecimal, lhs, rhs), true
+	case irByteValueKind(k):
+		// rt.Equal compares a Byte or Bytes by content, which is the body
+		// of std's own `impl Equatable` for each; binary's bytes route.
+		return bl.equalityCompare(t, ir.OpEq, ir.ValContainer, lhs, rhs), true
 	case irEqualityContainerKind(k):
 		return bl.equalityCompare(t, ir.OpEq, ir.ValContainer, lhs, rhs), true
 	case irRetainedRecordKind(k):
@@ -483,7 +487,7 @@ func (g *gen) recordedPreludeKind(n ast.Node, a *preludeAnchor) (kind, bool) {
 	if g.fa == nil {
 		return kindInvalid, false
 	}
-	et, ok := resolvedEnumType(g.fa.ExprTypes[n])
+	et, ok := resolvedEnumType(g.srcFA().ExprTypes[n])
 	if !ok || len(et.TypeArgs) != len(a.spec.params) {
 		return kindInvalid, false
 	}

@@ -89,6 +89,42 @@ type StdLib struct {
 	// to users, so a stdlib mistake that changes what a name means (an enum
 	// variant shadowing an import, say) is visible only here.
 	Errors map[string][]analysis.TypeError
+	// SyntaxErrors holds the parse errors of each module's embedded source,
+	// keyed by module name. The loader parses with recovery, so a module with
+	// one still loads as far as recovery read it, and what the checker then
+	// says about it (an unused import, an undefined name) follows from the
+	// syntax error. A stdlib that parses leaves it empty, and
+	// TestEmbeddedStdlibParses holds every file to the strict parser. The
+	// front end and the language server report these ahead of anything else
+	// (SyntaxError).
+	SyntaxErrors map[string][]parser.ParseError
+}
+
+// SyntaxError answers every parse error in the embedded stdlib, one
+// "std/<module>.nomi:line:col: message" line each in module order, or nil
+// when the stdlib parses.
+func (lib *StdLib) SyntaxError() error {
+	if lib == nil || len(lib.SyntaxErrors) == 0 {
+		return nil
+	}
+	var lines []string
+	for _, name := range lib.SyntaxErrorModules() {
+		for _, e := range lib.SyntaxErrors[name] {
+			lines = append(lines, fmt.Sprintf("std/%s.nomi:%d:%d: %s", name, e.Line, e.Col, e.Message))
+		}
+	}
+	return fmt.Errorf("the standard library built into this nomi does not parse:\n%s", strings.Join(lines, "\n"))
+}
+
+// SyntaxErrorModules answers the names of the modules SyntaxErrors holds,
+// sorted.
+func (lib *StdLib) SyntaxErrorModules() []string {
+	names := make([]string, 0, len(lib.SyntaxErrors))
+	for name := range lib.SyntaxErrors {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // stdlibRoot is analysis.StdlibPath, asked once per process: it reads the
@@ -147,6 +183,50 @@ func (lib *StdLib) FileURI(moduleName string) string {
 	return "file://" + navigator().Path(physicalPath)
 }
 
+// sourcePaths maps the path positions name each embedded module's source by
+// (SourcePath) to the module's file under std/.
+var sourcePaths = sync.OnceValue(func() map[string]string {
+	out := map[string]string{}
+	_ = fs.WalkDir(stdlibFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !isEmbeddedStdlibSource(path) {
+			return err
+		}
+		out[(*StdLib)(nil).SourcePath(strings.TrimSuffix(path, ".nomi"))] = path
+		return nil
+	})
+	return out
+})
+
+// IsSourcePath reports whether path is the path positions name a stdlib
+// module's source by (SourcePath).
+func IsSourcePath(path string) bool {
+	_, ok := sourcePaths()[path]
+	return ok
+}
+
+// EditorPath is the file an editor opens for path, a position's file: for a
+// stdlib module, the file navigation into it opens (FileURI's choice, written
+// out when it is the materialized copy); any other path is itself.
+func EditorPath(path string) string {
+	rel, ok := sourcePaths()[path]
+	if !ok {
+		return path
+	}
+	return navigator().Path(rel)
+}
+
+// PositionPath is EditorPath's inverse: for a file an editor opened in place of
+// a stdlib module's source, the path positions name that module by; any other
+// path is itself.
+func PositionPath(path string) string {
+	for source, rel := range sourcePaths() {
+		if path == source || path == navigator().Path(rel) || path == materialized().Location(rel) {
+			return source
+		}
+	}
+	return path
+}
+
 // MaterializedURI is the file:// URI of rel, a slash-separated path under
 // std/ such as "maybe.nomi", in this std version's materialized directory:
 // ~/.cache/nomi/std/<version>/, where <version> is a hash of the embedded
@@ -199,7 +279,23 @@ func MakeLoader() analysis.FileLoader { return MakeReportingLoader(nil) }
 // MakeReportingLoader is MakeLoader that hands the syntax errors of every
 // project file it reads to report, with the file's path. A file with syntax
 // errors still loads, as far as recovery reads it. Nil reports nothing.
+// An embedded stdlib module's syntax errors are not reported here; Load
+// records them (StdLib.SyntaxErrors).
 func MakeReportingLoader(report func(path string, errs []parser.ParseError)) analysis.FileLoader {
+	return makeLoader(report, nil)
+}
+
+// makeLoader is MakeReportingLoader that also hands the syntax errors of
+// every embedded stdlib module it parses to reportStd, with the module's
+// name, when reportStd is not nil.
+func makeLoader(report func(path string, errs []parser.ParseError), reportStd func(name string, errs []parser.ParseError)) analysis.FileLoader {
+	parseStd := func(name string, data []byte) []ast.Node {
+		nodes, errs := parser.ParseWithRecovery(lexer.Lex(string(data)))
+		if reportStd != nil {
+			reportStd(name, errs)
+		}
+		return nodes
+	}
 	return func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		stdlibLoad := isStdlibLoad(projectRoot, modulePath)
 		stdlibName := embeddedStdlibName(modulePath)
@@ -210,7 +306,7 @@ func MakeReportingLoader(report func(path string, errs []parser.ParseError)) ana
 		}
 		if stdlibLoad {
 			if data, ok := ReadFile(stdlibName); ok {
-				return parseNomi(data), nil
+				return parseStd(stdlibName, data), nil
 			}
 		}
 		filePath := filepath.Join(projectRoot, filepath.Join(modulePath...)) + ".nomi"
@@ -227,17 +323,11 @@ func MakeReportingLoader(report func(path string, errs []parser.ParseError)) ana
 		// from the binary.
 		if stdlibLoad {
 			if data, ok := ReadFile(stdlibName); ok {
-				return parseNomi(data), nil
+				return parseStd(stdlibName, data), nil
 			}
 		}
 		return nil, fmt.Errorf("module not found: %s", filepath.Join(modulePath...))
 	}
-}
-
-func parseNomi(data []byte) []ast.Node {
-	tokens := lexer.Lex(string(data))
-	nodes, _ := parser.ParseWithRecovery(tokens)
-	return nodes
 }
 
 func embeddedStdlibName(modulePath []string) string {
@@ -356,6 +446,8 @@ func Load() *StdLib {
 		Files:   make(map[string]*analysis.FileAnalysis),
 		Nodes:   make(map[string][]ast.Node),
 		Errors:  make(map[string][]analysis.TypeError),
+
+		SyntaxErrors: make(map[string][]parser.ParseError),
 	}
 
 	// Synthesize an internal entry whose imports cover every stdlib module,
@@ -370,7 +462,13 @@ func Load() *StdLib {
 	}
 	entryNodes = append(entryNodes, stdlibDependencyImport("prelude", line))
 
-	loader := MakeLoader()
+	loader := makeLoader(nil, func(name string, errs []parser.ParseError) {
+		if len(errs) == 0 {
+			delete(lib.SyntaxErrors, name)
+			return
+		}
+		lib.SyntaxErrors[name] = errs
+	})
 	// projectRoot = "" so DiscoverProject skips manifest + go.mod loading
 	// for the synthetic entry. This matters because stdlib's own nomi.toml
 	// declares `name = "std"`, which the manifest validator (rightly)

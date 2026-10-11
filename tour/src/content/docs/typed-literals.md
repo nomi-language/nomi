@@ -33,12 +33,12 @@ type Sql String
 
 impl Literal for Sql {
     fn from_fragments(fragments: List<Fragment<String>>): Sql {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "'" + v + "'"
             }
-        )
+        })
 
         Sql(body)
     }
@@ -80,12 +80,12 @@ struct Box {
 
 impl Literal for Box {
     fn from_fragments(fragments: List<Fragment<String>>): Box {
-        body = Iter.reduce(fragments, |acc = "", frag|
+        body = Iter.reduce(fragments, |acc = "", frag| {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
             }
-        )
+        })
 
         Box{contents: body}
     }

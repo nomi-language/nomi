@@ -46,12 +46,17 @@ end
 
 local function reset_modules()
   for name in pairs(package.loaded) do
-    if name == 'neotest' or name:match('^neotest%.') or name:match('^nomi') or name:match('^lazy') then
+    if name == 'neotest' or name:match('^neotest%.') or name:match('^nomi') or name:match('^lazy')
+      or name == 'dap' or name == 'nio' then
       package.loaded[name] = nil
     end
   end
   package.preload.neotest = nil
   package.preload['neotest.config'] = nil
+  -- An nvim-dap installed on this machine must not stand in for the stubs.
+  package.preload.dap = function()
+    error("module 'dap' not found")
+  end
 end
 
 local dir = vim.fn.tempname()
@@ -429,6 +434,252 @@ test('neotest with no JSON results reports plain text', function()
   eq(r.status, 'failed', 'status')
   check(r.short:find('Output began: panic: boom', 1, true) ~= nil, 'short = ' .. r.short)
   check(not r.short:find(esc, 1, true), 'short carries escapes: ' .. vim.inspect(r.short))
+end)
+
+-- nvim-dap. The stub records each session it is asked to run.
+local function stub_dap()
+  local dap = {
+    adapters = {},
+    configurations = {},
+    runs = {},
+    travels = {},
+    listeners = { before = {}, after = {} },
+    requests = {},
+  }
+  function dap.run(config)
+    table.insert(dap.runs, config)
+  end
+  function dap.step_back()
+    table.insert(dap.travels, 'step_back')
+  end
+  function dap.reverse_continue()
+    table.insert(dap.travels, 'reverse_continue')
+  end
+  function dap.step_into(opts)
+    table.insert(dap.travels, { step_into = opts })
+  end
+  -- A running Nomi session that records its requests and answers
+  -- setFunctionBreakpoints as `nomi dap` would, with no function named
+  -- `nope`.
+  dap.running = {
+    config = { type = 'nomi' },
+    capabilities = { supportsFunctionBreakpoints = true, supportsStepInTargetsRequest = true },
+  }
+  function dap.running:request(command, args, callback)
+    table.insert(dap.requests, { command = command, args = args })
+    local bps = {}
+    for _, b in ipairs(args.breakpoints or {}) do
+      table.insert(bps, b.name == 'nope' and { verified = false, message = 'no function named `nope`' } or { verified = true })
+    end
+    callback(nil, { breakpoints = bps })
+  end
+  function dap.session()
+    return dap.current
+  end
+  package.preload.dap = function()
+    return dap
+  end
+  return dap
+end
+
+local function source_plugin()
+  vim.g.loaded_nomi = nil
+  vim.g.nomi_lsp = false
+  vim.cmd('runtime plugin/nomi.lua')
+end
+
+local nomi_adapter = { type = 'executable', command = 'nomi', args = { 'dap' } }
+
+test('the plugin registers the dap adapter when lazy.nvim loads nvim-dap, never loading it', function()
+  local dap = stub_dap()
+  local required = false
+  local preload = package.preload.dap
+  package.preload.dap = function()
+    required = true
+    return preload()
+  end
+  source_plugin()
+  open_with_ftplugin('dap_lazy_test.nomi')
+  check(not required, 'loading the plugin and opening a file required nvim-dap')
+  eq(dap.adapters.nomi, nil, 'adapter before nvim-dap loads')
+  package.loaded.dap = dap
+  vim.api.nvim_exec_autocmds('User', { pattern = 'LazyLoad', data = 'nvim-dap' })
+  eq(dap.adapters.nomi, nomi_adapter, 'adapter after nvim-dap loads')
+  eq(#dap.configurations.nomi, 3, 'configurations')
+  eq(dap.configurations.nomi[1].mode, 'run', 'first configuration mode')
+end)
+
+test('an adapter the user defined is kept', function()
+  local dap = stub_dap()
+  dap.adapters.nomi = { type = 'executable', command = '/opt/nomi', args = { 'dap' } }
+  dap.configurations.nomi = {}
+  package.loaded.dap = dap
+  source_plugin()
+  eq(dap.adapters.nomi.command, '/opt/nomi', 'adapter command')
+  eq(dap.configurations.nomi, {}, 'configurations')
+end)
+
+test('a Debug lens starts nvim-dap on its test, and on main', function()
+  local dap = stub_dap()
+  source_plugin()
+  local path = write('lens_test.nomi', source)
+  vim.lsp.commands['nomi.debugTest']({ arguments = { vim.uri_from_fname(path), 8 } })
+  eq(dap.runs[1], {
+    type = 'nomi', request = 'launch', name = 'Debug test at lens_test.nomi:8',
+    mode = 'test', program = path, line = 8, cwd = dir,
+  }, 'test session')
+  eq(dap.adapters.nomi, nomi_adapter, 'adapter')
+  vim.lsp.commands['nomi.debugMain']({ arguments = { vim.uri_from_fname(path) } })
+  eq(dap.runs[2], {
+    type = 'nomi', request = 'launch', name = 'Debug lens_test.nomi', mode = 'run', program = path, cwd = dir,
+  }, 'main session')
+end)
+
+test('the debug key debugs the test under the cursor, else main, through nvim-dap', function()
+  local dap = stub_dap()
+  local path = open_with_ftplugin('key_test.nomi')
+  vim.api.nvim_win_set_cursor(0, { 9, 4 })
+  press('<leader>td')
+  eq(dap.runs[1] and dap.runs[1].line, 8, 'test line')
+  eq(dap.runs[1] and dap.runs[1].program, path, 'program')
+  vim.api.nvim_win_set_cursor(0, { 5, 4 })
+  press('<leader>td')
+  eq(dap.runs[2] and dap.runs[2].mode, 'run', 'mode outside a test')
+end)
+
+test('the step back keys and :NomiDebug back and reverse go back through nvim-dap', function()
+  local dap = stub_dap()
+  source_plugin()
+  open_with_ftplugin('back_test.nomi')
+  press('<leader>dh')
+  press('<leader>dH')
+  vim.cmd('NomiDebug back')
+  vim.cmd('NomiDebug reverse')
+  eq(dap.travels, { 'step_back', 'reverse_continue', 'step_back', 'reverse_continue' }, 'requests')
+end)
+
+test(':NomiDebug target asks nvim-dap which call to step into', function()
+  local dap = stub_dap()
+  source_plugin()
+  vim.cmd('NomiDebug target')
+  eq(dap.travels, { { step_into = { askForTargets = true } } }, 'requests')
+end)
+
+test(':NomiDebug break toggles function breakpoints, sent to the running session and to each new one', function()
+  local dap = stub_dap()
+  package.loaded.dap = dap
+  source_plugin()
+  local nomi_dap = require('nomi.dap')
+  nomi_dap.function_breakpoints = {}
+  vim.cmd('NomiDebug break Account.deposit')
+  eq(dap.requests, {}, 'requests with no session')
+  dap.current = dap.running
+  vim.cmd('NomiDebug break nope')
+  eq(dap.requests[1], {
+    command = 'setFunctionBreakpoints',
+    args = { breakpoints = { { name = 'Account.deposit' }, { name = 'nope' } } },
+  }, 'request to the running session')
+  check(notes[#notes] and notes[#notes]:find('no function named `nope`', 1, true), 'notification ' .. vim.inspect(notes))
+  vim.cmd('NomiDebug break nope')
+  eq(dap.requests[2].args, { breakpoints = { { name = 'Account.deposit' } } }, 'after removing nope')
+  dap.current = nil
+  local hook = dap.listeners.before.event_initialized['nomi.function_breakpoints']
+  check(hook ~= nil, 'no listener on a session starting')
+  hook(dap.running)
+  eq(dap.requests[3].args, { breakpoints = { { name = 'Account.deposit' } } }, 'sent to a new session')
+  package.loaded.dap = nil
+  nomi_dap.function_breakpoints = {}
+end)
+
+test('without nvim-dap the debug key says so', function()
+  open_with_ftplugin('nodap_test.nomi')
+  vim.api.nvim_win_set_cursor(0, { 9, 4 })
+  press('<leader>td')
+  check(notes[#notes] and notes[#notes]:find('needs nvim-dap', 1, true), 'notification ' .. vim.inspect(notes))
+end)
+
+test("neotest's dap strategy debugs the test through nomi dap, reporting JSON", function()
+  stub_neotest_lib()
+  local dap = stub_dap()
+  local path = write('strategy_test.nomi', source)
+  local bad = stub_tree(path):children()[2]
+  local spec = require('nomi.neotest').build_spec({ tree = bad, strategy = 'dap' })
+  eq(spec.strategy, {
+    type = 'nomi', request = 'launch', name = 'Debug test at strategy_test.nomi:5', mode = 'test',
+    program = path, line = 5, cwd = dir, format = 'json', console = 'internalConsole',
+  }, 'strategy')
+  eq(dap.adapters.nomi, nomi_adapter, 'adapter')
+  local plain = require('nomi.neotest').build_spec({ tree = bad })
+  eq(plain.strategy, nil, 'strategy of a plain run')
+end)
+
+test("the debug key goes to neotest's dap strategy when neotest has the adapter", function()
+  package.loaded['lazy.core.config'] = { plugins = { neotest = {} } }
+  local calls = stub_neotest(true)
+  open_with_ftplugin('nt_dap_test.nomi')
+  press('<leader>td')
+  eq(calls[1], { 'run', { strategy = 'dap' } }, 'neotest call')
+end)
+
+-- The highlight query, checked against the caret assertions in a fixture
+-- under tree-sitter-nomi/test/highlight/, which `scripts/tree-sitter.sh test`
+-- checks against the grammar's own first-wins query. Neovim's query is
+-- generated from Zed's last-wins one, so this checks that ordering. Capture
+-- names differ between the two, so an assertion here only says whether the
+-- token reads as the one capture the fixture is about: `// ^ <capture>` must,
+-- any other name must not.
+local function check_highlight_fixture(name, capture, at_least)
+  local fixture = vim.fs.joinpath(vim.fs.dirname(plugin), '..', 'tree-sitter-nomi', 'test', 'highlight', name)
+  local lines = vim.fn.readfile(vim.fs.normalize(fixture))
+  check(#lines > 0, 'fixture ' .. fixture .. ' is empty or missing')
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  local root = vim.treesitter.get_parser(buf, 'nomi'):parse()[1]:root()
+  local query = vim.treesitter.query.get('nomi', 'highlights')
+  -- The capture the highlighter shows at a position: Neovim draws a later
+  -- pattern's capture over an earlier one on the same node, and an inner
+  -- node's over an outer one's, and iter_captures yields them in that order.
+  local function capture_at(row, col)
+    local got = 'none'
+    for id, node in query:iter_captures(root, buf, row, row + 1) do
+      local sr, sc, er, ec = node:range()
+      if (sr < row or (sr == row and sc <= col)) and (er > row or (er == row and ec > col)) then
+        got = query.captures[id]
+      end
+    end
+    return got
+  end
+  local checked, target = 0, nil
+  for i, line in ipairs(lines) do
+    local col, want
+    local arrow, arrow_want = line:match('^(%s*)//%s*<%-%s*(%S+)')
+    local caret_at, caret_want = line:match('^%s*//%s*()%^%s*(%S+)')
+    if arrow then
+      col, want = #arrow, arrow_want
+    elseif caret_at then
+      col, want = caret_at - 1, caret_want
+    else
+      target = i - 1
+    end
+    if col and target then
+      local got = capture_at(target, col)
+      if want == capture then
+        check(got == capture, ('%s line %d col %d: got @%s, want @%s'):format(name, target + 1, col, got, capture))
+      else
+        check(got ~= capture, ('%s line %d col %d: got @%s, want @%s'):format(name, target + 1, col, got, want))
+      end
+      checked = checked + 1
+    end
+  end
+  check(checked >= at_least, ('%s: checked %d assertions; the fixture parse found too few'):format(name, checked))
+end
+
+test('discard names in patterns read as comments, and reads of them do not', function()
+  check_highlight_fixture('discards.nomi', 'comment', 40)
+end)
+
+test('data-shape delimiters read as type, and block, call, grouping, type and interpolation ones do not', function()
+  check_highlight_fixture('delimiters.nomi', 'type', 200)
 end)
 
 vim.fn.delete(dir, 'rf')

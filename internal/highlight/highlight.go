@@ -8,10 +8,13 @@
 package highlight
 
 import (
+	"strings"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/semtokens"
+	"github.com/nomi-language/nomi/internal/textpos"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -57,8 +60,10 @@ func Analyze(code string, lib *std.StdLib) *analysis.FileAnalysis {
 }
 
 // SemanticTokens analyzes a snippet and returns its analyzer-derived semantic
-// tokens (the overlay layer). Best-effort: a snippet that fails to
-// parse/analyze (e.g. a fragment, or lib == nil) yields none.
+// tokens (the overlay layer), with columns and lengths in UTF-16 code units:
+// the browser indexes the snippet as a JavaScript string. Best-effort: a
+// snippet that fails to parse/analyze (e.g. a fragment, or lib == nil)
+// yields none.
 func SemanticTokens(code string, lib *std.StdLib) (toks []semtokens.Token) {
 	defer func() {
 		if recover() != nil {
@@ -69,5 +74,16 @@ func SemanticTokens(code string, lib *std.StdLib) (toks []semtokens.Token) {
 	if fa == nil {
 		return nil
 	}
-	return semtokens.Collect(fa)
+	return semtokens.UTF16(code, semtokens.Collect(fa))
+}
+
+// ByteCol converts a 1-based column the browser counts in UTF-16 code units
+// on line (1-based) of code into the 1-based byte column the analyzer
+// counts. A line out of range keeps its column.
+func ByteCol(code string, line, col int) int {
+	lines := strings.Split(code, "\n")
+	if line < 1 || line > len(lines) || col < 1 {
+		return col
+	}
+	return textpos.ByteCol(lines[line-1], col-1) + 1
 }

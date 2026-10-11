@@ -106,6 +106,12 @@ const (
 	opIR            // idx                an instruction run by its handler
 	opHost          // idx                a crossing into a bound host adapter
 	opFail          // idx                a compile-time refusal, raised on arrival
+	// The opcodes below are emitted only for a machine with a debugger
+	// (debug.go). A machine without one compiles none of them, and its
+	// bytecode is what it would be if they did not exist.
+	opStmt // idx                a statement boundary: the debugger's hook
+	opPC   // _                  saves this pc before an instruction that may call
+	opTap  // t                  records what a lazy pipeline stage passes on (debugpipe.go)
 )
 
 // Comparison conditions for opCmpI and opCmpF.
@@ -178,6 +184,9 @@ type code struct {
 	// guard says an activation needs its exit hooks: the function registers
 	// deferred calls or rebinds the Context, whose deadlines must end.
 	guard bool
+	// dbg is the statement and position table of a function compiled for a
+	// debugger, or nil. See debug.go.
+	dbg *codeDebug
 }
 
 // site is one instruction's entry in the line and fault table.
@@ -278,16 +287,32 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 		cp.fail(f.Pos(), fmt.Errorf("vm: %s has no entry block", f.Name()))
 		return c
 	}
+	if cp.m.dbg != nil {
+		c.dbg = &codeDebug{stageTemps: stageTemps(f)}
+	}
 	for _, b := range blocks {
 		cp.blocks[b.ID()] = len(c.code)
 		handler := -1
 		if h, has := b.Fault(); has {
 			handler = -2 - int(h) // patched below
 		}
-		for _, in := range b.Instrs() {
+		marks := b.Stmts()
+		for i, in := range b.Instrs() {
+			if c.dbg != nil {
+				marks = cp.debugBefore(b, i, in, marks)
+			}
 			cp.instr(in, handler)
+			if c.dbg != nil {
+				cp.debugAfter(in)
+			}
+		}
+		if c.dbg != nil {
+			cp.debugBefore(b, len(b.Instrs()), nil, marks)
 		}
 		cp.term(b)
+	}
+	if c.dbg != nil {
+		c.dbg.markLineStarts()
 	}
 	for _, at := range cp.patches {
 		id := ir.BlockID(c.code[at])
@@ -1101,6 +1126,7 @@ var opNames = [...]string{
 	opMatchV: "matchv", opProjP: "projp", opProjF: "projf", opMake: "make",
 	opCall: "call", opTail: "tail", opJmp: "jmp", opBr: "br", opBrX: "brx",
 	opRet: "ret", opRetU: "retu", opRetCtl: "retctl", opIR: "ir", opHost: "host", opFail: "fail",
+	opStmt: "stmt", opPC: "pc", opTap: "tap",
 }
 
 // String disassembles c, one instruction per line: its offset, opcode, the

@@ -95,7 +95,7 @@ func (g *gen) importedVariantAt(at ast.Node, local string, line, col int) (*type
 	if d, v, ok := g.stdEnumVariantAt(local, line, col); ok {
 		return d, v, true
 	}
-	ref, canonical, ok := variantRefAt(g.fa, local, line, col)
+	ref, canonical, ok := variantRefAt(g.srcFA(), local, line, col)
 	if !ok || ref.Resolved == nil {
 		return nil, nil, false
 	}

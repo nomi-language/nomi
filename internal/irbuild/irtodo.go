@@ -34,7 +34,7 @@ func (bl *irScalarBuilder) todo(t *ast.Todo, want kind) (ir.Temp, kind, bool, bo
 // Infallible when it expected none this builder can represent.
 func (bl *irScalarBuilder) todoCheckedKind(t *ast.Todo) kind {
 	if bl.g.fa != nil {
-		if ty, ok := bl.g.fa.ExpectedTypes[t]; ok {
+		if ty, ok := bl.g.srcFA().ExpectedTypes[t]; ok {
 			// kindInvalid: lookup — a type this builder cannot represent falls back to Infallible.
 			if k := bl.g.project(ty); k != kindInvalid {
 				return k

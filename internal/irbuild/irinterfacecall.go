@@ -83,10 +83,18 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 	// call whose first operand is a concrete implementing type reaches that
 	// type's impl item exactly as a plain interface's does; the item's own
 	// signature is checked against the operands below.
-	if recvAt < 0 || recvAt >= len(args.kinds) {
+	var recv kind
+	switch ds := bl.g.defaultSelf; {
+	case recvAt < 0 && m != nil && ds != nil && ds.iface == d:
+		// `I.make(0)` in a default of I: no operand names the implementor,
+		// and the default is being lowered for exactly one, so the call is
+		// that implementor's own.
+		recv = ds.recv
+	case recvAt < 0 || recvAt >= len(args.kinds):
 		return nil
+	default:
+		recv = args.kinds[recvAt]
 	}
-	recv := args.kinds[recvAt]
 	if recv.tag == tagIface {
 		if m == nil {
 			return nil

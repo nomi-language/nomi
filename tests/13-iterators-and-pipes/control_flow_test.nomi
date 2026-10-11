@@ -111,19 +111,19 @@ test "find returns Maybe values" {
 test "each accepts break continue and return in callbacks" {
     stop_at_sentinel =
         ["hello", "world", "STOP", "ignored"]
-        |> Iter.each(|s|
+        |> Iter.each(|s| {
             if s == "STOP" {
                 break
             }
-        )
+        })
 
     skip_even =
         [1, 2, 3, 4, 5]
-        |> Iter.each(|x|
+        |> Iter.each(|x| {
             if x % 2 == 0 {
                 continue
             }
-        )
+        })
 
     return_from_callback =
         [1, 2, 3]

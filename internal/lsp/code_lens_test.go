@@ -67,12 +67,19 @@ func TestCodeLens(t *testing.T) {
 	}
 	want := []string{
 		"0:0-0:3 Run attached test nomi.runTest 1",
+		"0:0-0:3 Debug attached test nomi.debugTest 1",
 		"8:4-8:7 Run attached test nomi.runTest 9",
+		"8:4-8:7 Debug attached test nomi.debugTest 9",
 		"12:3-12:7 Run nomi.runMain ",
+		"12:3-12:7 Debug nomi.debugMain ",
 		"16:0-16:4 Run test nomi.runTest 17",
+		"16:0-16:4 Debug test nomi.debugTest 17",
 		"20:0-20:5 Run tests nomi.runTest 21",
+		"20:0-20:5 Debug tests nomi.debugTest 21",
 		"21:4-21:8 Run test nomi.runTest 22",
+		"21:4-21:8 Debug test nomi.debugTest 22",
 		"25:4-25:8 Run test nomi.runTest 26",
+		"25:4-25:8 Debug test nomi.debugTest 26",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("lenses:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

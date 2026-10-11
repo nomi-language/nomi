@@ -229,6 +229,23 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 			ctors = append(ctors, ctor)
 		}
 		return ctors
+	case *InterfaceType:
+		// `self` inside a default bounded by `where self: Distinct<T>` is
+		// a distinct type, whose one constructor `self(p)` names.
+		inner, ok := c.selfColumnInner(tt, column)
+		if !ok {
+			return nil
+		}
+		return []patCtor{{
+			variant:  "self",
+			subTypes: []Type{inner},
+			render: func(s []string) string {
+				if s[0] == "_" {
+					return "_"
+				}
+				return "self(" + s[0] + ")"
+			},
+		}}
 	case *DistinctType:
 		name := tt.Name
 		ctor := patCtor{variant: name}
@@ -377,6 +394,15 @@ func (c *checker) specializePattern(t Type, ctor patCtor, p ast.Node) ([]ast.Nod
 		return make([]ast.Node, len(ctor.subTypes)), true
 	}
 	switch tt := t.(type) {
+	case *InterfaceType:
+		v, ok := p.(*ast.EnumPattern)
+		if !ok || ctor.variant != "self" {
+			return nil, false
+		}
+		if _, isSelf := v.Variant.(*ast.SelfType); !isSelf {
+			return nil, false
+		}
+		return []ast.Node{payloadOfVariantPattern(v)}, true
 	case *EnumType:
 		payload, ok := c.variantPatternPayload(p, ctor.variant)
 		if !ok {

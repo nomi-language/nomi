@@ -36,12 +36,12 @@ fn find(list: List<Int>, target: Int): Maybe<Int> {
     if list == [] {
         None
     } else {
-        Iter.reduce(list, |acc = None, x|
+        Iter.reduce(list, |acc = None, x| {
             case acc {
                 Some(v) -> Some(v)
                 None -> if x == target { Some(x) } else { None }
             }
-        )
+        })
     }
 }
 

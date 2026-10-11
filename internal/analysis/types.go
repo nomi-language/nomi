@@ -484,6 +484,17 @@ type MethodSig struct {
 	// WhereBound). interfaceMethodFuncType copies them onto the call's FuncType
 	// so the checker records the (concrete, Iface) demand per dispatch.
 	WhereBounds []WhereBound
+	// SelfBounds are the interfaces a default function's `where self: ...`
+	// requires of the implementing type. They are kept out of WhereBounds
+	// because a call never checks them: an implementor without them must
+	// write the function itself (checkImplBlock), so every implementor has
+	// one. Inside the default body they bound `self` (checkInterfaceDefaults).
+	SelfBounds []*InterfaceType
+	// TakesSelfApart and BuildsSelf record that a default uses `self(p)`
+	// patterns or `self(x)` construction (distinct_self.go). An opaque
+	// implementor outside its own file does not get such a default.
+	TakesSelfApart bool
+	BuildsSelf     bool
 }
 
 // InterfaceType represents an interface type.
@@ -501,6 +512,12 @@ type InterfaceType struct {
 	TypeParamDefs []*TypeParam_ // the actual TypeParam_ pointers referenced by Methods
 	TypeArgs      []Type        // concrete type arguments at a use site (e.g. [(K, V)] for Iter<(K, V)>)
 	SelfParam     *TypeParam_   // the dedicated TypeParam_ for interface `self` referenced inside Methods (impl validation substitutes it for the implementing type)
+	// DefaultSelf marks the type of a `self` value inside one of the
+	// interface's default bodies (interfaceSelfType). Such a value is the
+	// implementor, not an existential of the interface, so it also conforms
+	// to what the default's `where self` requires (defaultSelfConforms); a
+	// value annotated with the interface's name does not.
+	DefaultSelf bool
 	// unbuilt: see StructType.unbuilt.
 	unbuilt *unbuiltDecl
 }

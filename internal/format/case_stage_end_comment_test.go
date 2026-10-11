@@ -16,10 +16,10 @@ func TestFormat_CaseStageKeepsClosingComment(t *testing.T) {
 	want := "fn f(input: String): Int {\n" +
 		"    input\n" +
 		"    |> case parse_id() {\n" +
-		"            Ok(id) -> id\n" +
-		"            Err(_) -> 0\n" +
-		"            // trailing\n" +
-		"        }\n" +
+		"        Ok(id) -> id\n" +
+		"        Err(_) -> 0\n" +
+		"        // trailing\n" +
+		"    }\n" +
 		"}\n"
 	formatsKeepingMeaning(t, src, want)
 }

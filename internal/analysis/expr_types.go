@@ -52,6 +52,9 @@ func ImplementsInterface(fa *FileAnalysis, t Type, iface string) bool {
 		return true
 	case "Struct":
 		return isStructShaped(t)
+	case "Distinct":
+		dt, ok := t.(*DistinctType)
+		return ok && distinctInnerOf(dt) != nil
 	}
 	if it, ok := t.(*InterfaceType); ok {
 		return it.Name == iface

@@ -7,6 +7,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 
 	"github.com/nomi-language/nomi/internal/format"
+	"github.com/nomi-language/nomi/internal/textpos"
 )
 
 // textDocumentFormatting handles textDocument/formatting requests.
@@ -36,10 +37,12 @@ func (s *Server) textDocumentFormatting(_ *glsp.Context, params *protocol.Docume
 	}}, nil
 }
 
+// fullDocumentRange is the range of all of content, its end column in
+// UTF-16 code units.
 func fullDocumentRange(content string) protocol.Range {
 	lines := strings.Split(content, "\n")
 	endLine := uint32(len(lines) - 1)
-	endChar := uint32(len(lines[len(lines)-1]))
+	endChar := uint32(textpos.UTF16Len(lines[len(lines)-1]))
 	return protocol.Range{
 		Start: protocol.Position{Line: 0, Character: 0},
 		End:   protocol.Position{Line: endLine, Character: endChar},

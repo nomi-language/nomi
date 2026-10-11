@@ -108,6 +108,53 @@ impl String {
     //
     pub host fn slice(s: String, start: Int, end: Int): String
 
+    /// Prepends copies of `fill` until `s` is `width` grapheme clusters long,
+    /// the units `String.length` counts. A multi-character `fill` repeats and
+    /// is cut to fit exactly. A string already `width` long or longer comes
+    /// back unchanged, never truncated, and so does any `s` when `fill` is
+    /// empty or `width` is zero or negative. The "é" below is "e" followed by
+    /// U+0301 COMBINING ACUTE ACCENT: two code points, one grapheme cluster.
+    //! assert String.pad_start("5", 3) == "  5"
+    //! assert String.pad_start("5", 3, "0") == "005"
+    //! assert String.pad_start("5", 4, "ab") == "aba5"
+    //! assert String.pad_start("é", 3) == "  é"
+    //! assert String.pad_start("👋🏽", 2, "-") == "-👋🏽"
+    //! assert String.pad_start("hello", 3) == "hello"
+    //! assert String.pad_start("hi", 0) == "hi"
+    //! assert String.pad_start("hi", -4) == "hi"
+    //! assert String.pad_start("hi", 5, "") == "hi"
+    //!
+    //! // Right-align a column of amounts.
+    //! assert String.pad_start("9.50", 7) == "   9.50"
+    //! assert String.pad_start("120.00", 7) == " 120.00"
+    //
+    pub fn pad_start(s: String, width: Int, fill: String = " "): String {
+        padding(fill, width - length(s)) + s
+    }
+
+    /// Appends copies of `fill` until `s` is `width` grapheme clusters long,
+    /// the units `String.length` counts. A multi-character `fill` repeats and
+    /// is cut to fit exactly. A string already `width` long or longer comes
+    /// back unchanged, never truncated, and so does any `s` when `fill` is
+    /// empty or `width` is zero or negative. The "é" in "café" below is "e"
+    /// followed by U+0301 COMBINING ACUTE ACCENT, one grapheme cluster.
+    //! assert String.pad_end("ab", 4) == "ab  "
+    //! assert String.pad_end("5", 4, "ab") == "5aba"
+    //! assert String.pad_end("café", 6, ".") == "café.."
+    //! assert String.pad_end("👋🏽", 3, "*") == "👋🏽**"
+    //! assert String.pad_end("hello", 2) == "hello"
+    //! assert String.pad_end("hi", -1, "*") == "hi"
+    //! assert String.pad_end("hi", 5, "") == "hi"
+    //!
+    //! // A table row: the name left-aligned, the count right-aligned.
+    //! row = String.pad_end("fig", 8) + String.pad_start("12", 4)
+    //! assert row == "fig       12"
+    //! assert String.length(row) == 12
+    //
+    pub fn pad_end(s: String, width: Int, fill: String = " "): String {
+        s + padding(fill, width - length(s))
+    }
+
     /// Joins the strings of any `Iter<String>` (a List, Set or Vector, a
     /// String's graphemes, or a lazy adapter chain) with `separator` between
     /// each element and nowhere else. The source is driven once, with no
@@ -258,6 +305,19 @@ impl String {
 /// 1 if `a > b`, 0 if equal. Private helper backing the `Comparable` impl.
 host fn string_compare(a: String, b: String): Int
 
+/// `count` grapheme clusters of `fill` repeated, cut to fit; "" when `count`
+/// is not positive or `fill` is empty. Private helper behind
+/// `String.pad_start` and `String.pad_end`.
+fn padding(fill: String, count: Int): String {
+    fill_length = String.length(fill)
+
+    if count <= 0 or fill_length == 0 {
+        ""
+    } else {
+        String.repeat(fill, count / fill_length + 1) |> String.slice(0, count)
+    }
+}
+
 impl Matcher for String {
     /// True if `needle` occurs in `text`.
     host fn contained_in?(needle: String, text: String): Bool
@@ -299,7 +359,7 @@ impl Add<String, String> for String {
 impl Debug for String {
     fn inspect(s: String): String {
         escaped =
-            Iter.map(s, |g|
+            Iter.map(s, |g| {
                 if g == "\\" {
                     "\\\\"
                 } else if g == "\"" {
@@ -307,7 +367,7 @@ impl Debug for String {
                 } else {
                     g
                 }
-            )
+            })
             |> String.join()
 
         "\"" + escaped + "\""

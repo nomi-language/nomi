@@ -32,8 +32,8 @@ import (
 // without an error (compareStatementCounts).
 //
 // The inputs are every tracked `.nomi` file, every ```nomi and ```nomi-run
-// block of the tour, every ```nomi block of docs/spec.md, and lineBreakInputs,
-// each kept only when parser.Parse accepts it as a whole file. A fragment the
+// block of the tour, every ```nomi block of docs/spec.md, lineBreakInputs and
+// patternInputs, each kept only when parser.Parse accepts it as a whole file. A fragment the
 // parser rejects is not a parity question.
 //
 // Go has no tree-sitter runtime in this module, so the test runs the
@@ -221,12 +221,17 @@ func parityInputs(t *testing.T) []parityInput {
 			}
 		}
 	}
-	for _, in := range lineBreakInputs {
-		if !parses(in.code) {
-			t.Errorf("lineBreakInputs %q: the parser rejects it, so it is no parity question", in.name)
-			continue
+	for _, list := range []struct {
+		name   string
+		inputs []parityInput
+	}{{"lineBreakInputs", lineBreakInputs}, {"patternInputs", patternInputs}} {
+		for _, in := range list.inputs {
+			if !parses(in.code) {
+				t.Errorf("%s %q: the parser rejects it, so it is no parity question", list.name, in.name)
+				continue
+			}
+			inputs = append(inputs, parityInput{name: list.name + ": " + in.name, code: in.code})
 		}
-		inputs = append(inputs, parityInput{name: "lineBreakInputs: " + in.name, code: in.code})
 	}
 	sort.Slice(inputs, func(i, j int) bool { return inputs[i].name < inputs[j].name })
 	return inputs
@@ -288,6 +293,46 @@ var lineBreakInputs = []parityInput{
 	{"body on the next line", "fn f(): Int\n{\n    1\n}\n"},
 	{"where on the next line", "fn f<T>(x: T): T\nwhere T: Display {\n    x\n}\n"},
 	{"impl body on the next line", "impl Foo {\n    fn f(): Int\n    {\n        1\n    }\n}\n"},
+}
+
+// patternInputs put a pattern where the parser reads one: the left side of a
+// binding (with `as`, with `else`, nested), a case, guard or else arm, a
+// lambda or function parameter, an `if` condition and a pattern assertion.
+var patternInputs = []parityInput{
+	{"headless struct as", "fn main() {\n    {x: _c, y} as p = q\n    0\n}\n"},
+	{"headless struct punned first as", "fn main() {\n    {y, x: _c} as p = q\n    0\n}\n"},
+	{"headless struct as with else", "fn main() {\n    {x: _c, y} as p = q else { return 0 }\n    0\n}\n"},
+	{"headless struct with a nested as", "fn main() {\n    {x: (a, b) as inner, y} as p = q\n    0\n}\n"},
+	{"punned headless struct as", "fn main() {\n    {x, y} as p = q\n    0\n}\n"},
+	{"labeled headless struct as", "fn main() {\n    {x: a, y: b} as p = q\n    0\n}\n"},
+	{"headed struct with a nested as", "fn main() {\n    P{x: (a, b) as inner, y} as p = q\n    0\n}\n"},
+	{"tuple as", "fn main() {\n    (a, b) as t = pair\n    0\n}\n"},
+	{"tuple with a nested as", "fn main() {\n    ((a, b) as inner, c) as t = pair\n    0\n}\n"},
+	{"list as", "fn main() {\n    [x, ..rest] as all = xs\n    0\n}\n"},
+	{"list as with else", "fn main() {\n    [x, ..rest] as all = xs else { return 0 }\n    0\n}\n"},
+	{"list with a nested as", "fn main() {\n    [(a, b) as first, ..rest] as all = xs else { return 0 }\n    0\n}\n"},
+	{"variant as", "fn main() {\n    Some(n) as m = opt else { return 0 }\n    0\n}\n"},
+	{"variant with a nested as", "fn main() {\n    Some((a, b) as inner) as m = opt else { return 0 }\n    0\n}\n"},
+	{"variant with a nested as and no outer as", "fn main() {\n    Some((a, b) as inner) = opt else { return 0 }\n    0\n}\n"},
+	{"map as", "fn main() {\n    {\"a\" => v} as all = m else { return 0 }\n    0\n}\n"},
+	{"map with a nested as", "fn main() {\n    {\"a\" => (a, b) as v} as all = m else { return 0 }\n    0\n}\n"},
+	{"nested tuple destructure", "fn main() {\n    ((a, b), c) = pair\n    0\n}\n"},
+	{"tuple destructure with a nested as", "fn main() {\n    ((a, b) as inner, c) = pair\n    0\n}\n"},
+	{"struct destructure with a nested tuple", "fn main() {\n    {x: (a, b), y} = q\n    0\n}\n"},
+	{"struct destructure with a variant and else", "fn main() {\n    {x: Some(a), y} = q else { return 0 }\n    0\n}\n"},
+	{"map destructure with a nested tuple", "fn main() {\n    {\"a\" => (a, b)} = m else { return 0 }\n    0\n}\n"},
+	{"case arm headless struct as", "fn main() {\n    case q {\n        {x: _c, y} as p -> y\n        {x: (a, b) as xs, y} as p -> y\n    }\n}\n"},
+	{"case arm tuple and list as", "fn main() {\n    case q {\n        ([x, ..rest] as all, n) as t -> x\n        _ -> 0\n    }\n}\n"},
+	{"guard arm nested as", "fn main() {\n    v |> case {\n            Some((a, b) as p) -> a\n            _ -> 0\n        }\n}\n"},
+	{"else arm headless struct as", "fn main() {\n    Ok(v) = r else {\n        Err({x: _c, y} as p) -> return y\n    }\n}\n"},
+	{"if condition headless struct as", "fn main() {\n    if {x: _c, y} as p = q { y } else { 0 }\n}\n"},
+	{"lambda headless struct as", "fn main() {\n    xs |> Iter.map(|{x: _c, y} as p| y)\n}\n"},
+	{"lambda nested as", "fn main() {\n    xs |> Iter.map(|((a, b) as t, c)| a)\n    xs |> Iter.map(|{x: (a, b) as t, y}| y)\n}\n"},
+	{"parameter headless struct as", "fn f({x: _c, y} as p: P): Int {\n    y\n}\n"},
+	{"pattern assertion headless struct as", "test \"t\" {\n    assert {x: _c, y} as p = q\n    assert Some((a, b) as p) = v\n}\n"},
+	{"self parameter pattern", "interface S {\n    fn f(self(n) as t, by: Int): self where self: Distinct<Int> {\n        t\n    }\n}\n"},
+	{"self binding and case", "interface S {\n    fn f(t: self): self where self: Distinct<Int> {\n        self(m) = t\n        case t {\n            self(0) -> self(m)\n            self((a, b)) -> t\n            _ -> m |> self()\n        }\n    }\n}\n"},
+	{"self as a value", "interface S {\n    fn f(_t: self, ns: List<Int>): Int where self: Distinct<Int> {\n        make = self\n        ns |> Iter.map(self) |> Iter.count()\n    }\n}\n"},
 }
 
 // treeSitterCLI returns a function that runs scripts/tree-sitter.sh with its

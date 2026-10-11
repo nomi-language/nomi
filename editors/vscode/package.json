@@ -1,7 +1,7 @@
 {
   "name": "nomi",
   "displayName": "Nomi",
-  "description": "Nomi language support: highlighting, the nomi-lsp language server, and run and test commands.",
+  "description": "Nomi language support: highlighting, the nomi-lsp language server, run and test commands, and the debugger.",
   "version": "0.1.0",
   "publisher": "nomi-language",
   "license": "(MIT OR Apache-2.0)",
@@ -19,7 +19,9 @@
   ],
   "main": "./out/src/extension.js",
   "activationEvents": [
-    "onLanguage:nomi"
+    "onLanguage:nomi",
+    "onDebugResolve:nomi",
+    "onDebugInitialConfigurations"
   ],
   "contributes": {
     "languages": [
@@ -77,9 +79,142 @@
         "category": "Nomi"
       },
       {
+        "command": "nomi.debugFile",
+        "title": "Debug File",
+        "category": "Nomi"
+      },
+      {
+        "command": "nomi.debugTestAtCursor",
+        "title": "Debug Test at Cursor",
+        "category": "Nomi"
+      },
+      {
         "command": "nomi.restartLanguageServer",
         "title": "Restart Language Server",
         "category": "Nomi"
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "nomi"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "nomi",
+        "label": "Nomi",
+        "languages": [
+          "nomi"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "program"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "test"
+                ],
+                "enumDescriptions": [
+                  "Run the program's `main`, as `nomi run` does.",
+                  "Run the file's tests, as `nomi test` does."
+                ],
+                "default": "run",
+                "description": "What to debug."
+              },
+              "program": {
+                "type": "string",
+                "default": "${file}",
+                "description": "The .nomi file to debug. In run mode, a directory names a project whose nomi.toml lists one entry point."
+              },
+              "line": {
+                "type": "integer",
+                "description": "In test mode, debug only the test, `tests` group or `//!` attached test starting on this line, as `nomi test --line` selects it."
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "The program's arguments."
+              },
+              "cwd": {
+                "type": "string",
+                "description": "The working directory the program runs in."
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Environment variables to set for the program."
+              },
+              "console": {
+                "type": "string",
+                "enum": [
+                  "integratedTerminal",
+                  "internalConsole",
+                  "externalTerminal"
+                ],
+                "description": "Where the program's input and output go. The default is the integrated terminal for a program, so it can read input, and the debug console for tests."
+              },
+              "justMyCode": {
+                "type": "boolean",
+                "default": true,
+                "description": "Step through the standard library's code without stopping in it."
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "default": false,
+                "description": "Stop at the program's first statement."
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "nomi",
+            "request": "launch",
+            "name": "Debug current file",
+            "mode": "run",
+            "program": "${file}"
+          },
+          {
+            "type": "nomi",
+            "request": "launch",
+            "name": "Debug tests in current file",
+            "mode": "test",
+            "program": "${file}"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Nomi: Debug a program",
+            "description": "Run a file's main under the debugger.",
+            "body": {
+              "type": "nomi",
+              "request": "launch",
+              "name": "Debug ${1:program}",
+              "mode": "run",
+              "program": "^\"\\${workspaceFolder}/${1:main}.nomi\""
+            }
+          },
+          {
+            "label": "Nomi: Debug tests",
+            "description": "Run a file's tests under the debugger.",
+            "body": {
+              "type": "nomi",
+              "request": "launch",
+              "name": "Debug tests",
+              "mode": "test",
+              "program": "^\"\\${file}\""
+            }
+          }
+        ]
       }
     ],
     "menus": {
@@ -95,6 +230,14 @@
         {
           "command": "nomi.testAtCursor",
           "when": "editorLangId == nomi"
+        },
+        {
+          "command": "nomi.debugFile",
+          "when": "editorLangId == nomi"
+        },
+        {
+          "command": "nomi.debugTestAtCursor",
+          "when": "editorLangId == nomi"
         }
       ]
     },
@@ -105,7 +248,7 @@
           "type": "string",
           "default": "nomi",
           "scope": "machine-overridable",
-          "description": "The nomi CLI that the run and test commands invoke: a name looked up on PATH, or an absolute path."
+          "description": "The nomi CLI that the run, test and debug commands invoke (debugging runs `nomi dap`): a name looked up on PATH, or an absolute path."
         },
         "nomi.lsp.path": {
           "type": "string",

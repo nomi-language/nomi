@@ -1,0 +1,10 @@
+-> initialize {"adapterID":"nomi"}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"line":3,"mode":"test","program":"$TESTDATA/half_test.nomi"}
+<- response launch failed "no test at testdata/half_test.nomi:3; the nearest test starts on line 5"
+-> launch {"mode":"run","program":"$TESTDATA/half_test.nomi"}
+<- response launch failed "testdata/half_test.nomi declares no `fn main`, so there is no program to run; to run its tests, use `nomi test testdata/half_test.nomi`"
+-> launch {"mode":"run","program":"$TESTDATA/missing.nomi"}
+<- response launch failed "$TESTDATA/missing.nomi: no such file or directory"
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

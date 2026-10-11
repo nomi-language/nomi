@@ -408,7 +408,7 @@ func (g *gen) declaredCallSignature(t *ast.Call) *analysis.FuncType {
 		return nil
 	}
 	line, col := calleeRefPos(t.Func)
-	sym := g.fa.References[analysis.Pos{Line: line, Col: col}]
+	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
 	if sym == nil {
 		return nil
 	}
@@ -1625,7 +1625,7 @@ func (g *gen) stdOwnerAlias(ti *ast.TypeIdent) string {
 	if g.fa == nil || ti == nil {
 		return ""
 	}
-	sym := g.fa.References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
+	sym := g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
 	for sym != nil && sym.Resolved != nil {
 		sym = sym.Resolved
 	}

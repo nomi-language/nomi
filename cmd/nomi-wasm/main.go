@@ -262,7 +262,8 @@ func indent(s, prefix string) string {
 }
 
 // semToken is the JSON shape the browser highlighter consumes for the semantic
-// overlay layer.
+// overlay layer. Line and Col are 1-based; Col and Len count UTF-16 code
+// units, as the browser indexes the source string.
 type semToken struct {
 	Line int    `json:"line"`
 	Col  int    `json:"col"`
@@ -294,7 +295,8 @@ func semTokensSrc(this js.Value, args []js.Value) (res any) {
 }
 
 // hoverSrc returns the hover markdown for the symbol at (line, col) — both
-// 1-based — in args[0], or "" if there's nothing to show. It runs the same
+// 1-based, col in UTF-16 code units as the browser counts — in args[0], or
+// "" if there's nothing to show. It runs the same
 // renderer the LSP runs (internal/hoverdoc) over the same analysis the LSP
 // builds for a single pathless buffer (highlight.Analyze, which builds the
 // project). It does not call lsp.HoverAt — the LSP framework is deliberately
@@ -309,11 +311,13 @@ func hoverSrc(this js.Value, args []js.Value) (res any) {
 	if len(args) < 3 {
 		return ""
 	}
-	fa := highlight.Analyze(args[0].String(), stdLib)
+	src := args[0].String()
+	fa := highlight.Analyze(src, stdLib)
 	if fa == nil {
 		return ""
 	}
-	return hoverdoc.At(fa, analysis.Pos{Line: args[1].Int(), Col: args[2].Int()})
+	line := args[1].Int()
+	return hoverdoc.At(fa, analysis.Pos{Line: line, Col: highlight.ByteCol(src, line, args[2].Int())})
 }
 
 func result(output, errStr string) any {

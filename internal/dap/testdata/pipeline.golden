@@ -1,0 +1,45 @@
+-> initialize {"adapterID":"nomi","clientID":"test","columnsStartAt1":true,"linesStartAt1":true,"pathFormat":"path","supportsRunInTerminalRequest":false,"supportsVariablePaging":true,"supportsVariableType":true}
+<- response initialize {"exceptionBreakpointFilters":[{"default":true,"description":"Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm.","filter":"trap","label":"Traps"},{"default":true,"description":"Stop at a failed `assert`, `refute` or `testing.check`.","filter":"assertion","label":"Failed assertions"},{"default":true,"description":"Stop when `main` returns `Err`, before it ends.","filter":"mainError","label":"Err from main"},{"description":"Stop where a failed task's fault reaches the code awaiting it (`Task.await`, `Task.await_all`).","filter":"taskFailure","label":"Uncaught task failures"}],"supportTerminateDebuggee":true,"supportsClipboardContext":true,"supportsConditionalBreakpoints":true,"supportsConfigurationDoneRequest":true,"supportsDelayedStackTraceLoading":true,"supportsEvaluateForHovers":true,"supportsExceptionInfoRequest":true,"supportsFunctionBreakpoints":true,"supportsHitConditionalBreakpoints":true,"supportsLogPoints":true,"supportsRestartFrame":true,"supportsStepBack":true,"supportsStepInTargetsRequest":true,"supportsTerminateRequest":true}
+-> launch {"console":"internalConsole","mode":"run","program":"$TESTDATA/pipeline.nomi","request":"launch","type":"nomi"}
+<- response launch
+<- event initialized
+-> setBreakpoints {"breakpoints":[{"line":17},{"line":23},{"line":25}],"source":{"path":"$TESTDATA/pipeline.nomi"}}
+<- response setBreakpoints {"breakpoints":[{"id":1,"line":17,"source":{"path":"$TESTDATA/pipeline.nomi"},"verified":true},{"id":2,"line":23,"source":{"path":"$TESTDATA/pipeline.nomi"},"verified":true},{"id":3,"line":25,"source":{"path":"$TESTDATA/pipeline.nomi"},"verified":true}]}
+-> setExceptionBreakpoints {"filters":["trap","assertion","mainError"]}
+<- response setExceptionBreakpoints {}
+-> configurationDone
+<- response configurationDone
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":12,"id":1,"line":17,"name":"main","source":{"name":"pipeline.nomi","path":"$TESTDATA/pipeline.nomi"}}],"totalFrames":1}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":3,"variablesReference":2}]}
+-> variables {"variablesReference":2}
+<- response variables {"variables":[{"declarationLocationReference":1,"name":"3","value":"3","variablesReference":0},{"declarationLocationReference":2,"name":"|> double()","value":"6","variablesReference":0},{"declarationLocationReference":3,"name":"|> add(1)","value":"not run yet","variablesReference":0}]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[2],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":12,"id":1,"line":23,"name":"main","source":{"name":"pipeline.nomi","path":"$TESTDATA/pipeline.nomi"}}],"totalFrames":1}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":4,"variablesReference":2}]}
+-> variables {"variablesReference":2}
+<- response variables {"variables":[{"declarationLocationReference":4,"indexedVariables":4,"name":"xs","value":"[1, 2, 3, 4]","variablesReference":3},{"declarationLocationReference":5,"name":"|> Iter.map(|x| x * 10)","type":"Iter","value":"lazy; not run yet","variablesReference":0},{"declarationLocationReference":6,"name":"|> Iter.filter(|x| x > 15)","type":"Iter","value":"lazy; not run yet","variablesReference":0},{"declarationLocationReference":7,"name":"|> Iter.to_list()","value":"not run yet","variablesReference":0}]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[3],"reason":"breakpoint","threadId":1}
+-> stackTrace {"threadId":1}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":25,"name":"main","source":{"name":"pipeline.nomi","path":"$TESTDATA/pipeline.nomi"}}],"totalFrames":1}
+-> scopes {"frameId":1}
+<- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":4,"variablesReference":2}]}
+-> variables {"variablesReference":2}
+<- response variables {"variables":[{"declarationLocationReference":4,"indexedVariables":4,"name":"xs","value":"[1, 2, 3, 4]","variablesReference":3},{"declarationLocationReference":5,"indexedVariables":4,"name":"|> Iter.map(|x| x * 10)","type":"Iter","value":"[10, 20, 30, 40]","variablesReference":4},{"declarationLocationReference":6,"indexedVariables":3,"name":"|> Iter.filter(|x| x > 15)","type":"Iter","value":"[20, 30, 40]","variablesReference":5},{"declarationLocationReference":7,"indexedVariables":3,"name":"|> Iter.to_list()","value":"[20, 30, 40]","variablesReference":6}]}
+-> variables {"variablesReference":5}
+<- response variables {"variables":[{"name":"[0]","type":"Int","value":"20","variablesReference":0},{"name":"[1]","type":"Int","value":"30","variablesReference":0},{"name":"[2]","type":"Int","value":"40","variablesReference":0}]}
+-> continue {"threadId":1}
+<- response continue {"allThreadsContinued":true}
+<- event output {"category":"stdout","output":"7 [20, 30, 40]\n"}
+<- event exited {"exitCode":0}
+<- event terminated {}
+-> disconnect {"terminateDebuggee":true}
+<- response disconnect

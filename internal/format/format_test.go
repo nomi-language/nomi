@@ -799,27 +799,25 @@ func TestFormat_LambdaTail_BlockBody_MultiArg(t *testing.T) {
 	}
 }
 
-func TestFormat_LambdaTail_ExprBody_Dangles(t *testing.T) {
-	// A single-expression tail lambda whose body breaks: the ) dangles on its
-	// own line rather than hugging the body's closing brace (the `else { acc })`
-	// pile-up). The if-expr body stays inline on its own indented line.
+func TestFormat_LambdaTail_ExprBody_BreaksIntoBlock(t *testing.T) {
+	// A single-expression tail lambda whose body does not fit on the
+	// parameters' line: the body moves below them in braces and the call
+	// closes `})`. The if-expr body stays inline on its own indented line.
 	src := "Iterator.reduce(list_of_every_item_seen_so_far, |acc = [], item| if f(item) { [item, ..acc] } else { acc })\n"
-	want := "Iterator.reduce(list_of_every_item_seen_so_far, |acc = [], item|\n    if f(item) { [item, ..acc] } else { acc }\n)\n"
-	got, _ := Format(src)
+	want := "Iterator.reduce(list_of_every_item_seen_so_far, |acc = [], item| {\n    if f(item) { [item, ..acc] } else { acc }\n})\n"
+	got := formatTwice(t, src)
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
 
-func TestFormat_LambdaTail_ExprBody_SoleArg_Dangles(t *testing.T) {
+func TestFormat_LambdaTail_ExprBody_SoleArg_BreaksIntoBlock(t *testing.T) {
 	// Same with no leading args — the lambda is the sole argument.
 	src := "some_long_receiver_name.filter_every_item_of_the_receiver(|item| if predicate(item) { keep_it } else { drop_it })\n"
-	got, _ := Format(src)
-	if strings.Contains(got, "})") {
-		t.Errorf("expected dangled ), not a })-hug, got:\n%s", got)
-	}
-	if !strings.Contains(got, "\n)\n") {
-		t.Errorf("expected ) alone on its own line, got:\n%s", got)
+	want := "some_long_receiver_name.filter_every_item_of_the_receiver(|item| {\n    if predicate(item) { keep_it } else { drop_it }\n})\n"
+	got := formatTwice(t, src)
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
 
@@ -832,16 +830,14 @@ func TestFormat_LambdaTail_ExprBody_FitsInline(t *testing.T) {
 	}
 }
 
-func TestFormat_LambdaTail_CaseBody_Dangles(t *testing.T) {
-	// A case body is inherently multi-line; the tail lambda's ) dangles
-	// instead of hugging the case's closing brace.
+func TestFormat_LambdaTail_CaseBody_BreaksIntoBlock(t *testing.T) {
+	// A case body is inherently multi-line, so it goes below the
+	// parameters in braces and the call closes `})`.
 	src := "Iter.reduce(frags, |acc = 0, frag| case frag {\n0 -> acc\n1 -> acc + 1\n})\n"
-	got, _ := Format(src)
-	if strings.Contains(got, "})") {
-		t.Errorf("expected dangled ), not a })-hug, got:\n%s", got)
-	}
-	if !strings.Contains(got, "\n)\n") {
-		t.Errorf("expected ) alone on its own line, got:\n%s", got)
+	want := "Iter.reduce(frags, |acc = 0, frag| {\n    case frag {\n        0 -> acc\n        1 -> acc + 1\n    }\n})\n"
+	got := formatTwice(t, src)
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
 
@@ -1367,9 +1363,9 @@ fn answer_again(): Int {
     42
 }
 
-//! assert Result.map_err(Result.Err("bad"), |e: String|
+//! assert Result.map_err(Result.Err("bad"), |e: String| {
 //!     "error: " + e + ", retried: none"
-//! ) == Result.Err("error: bad, retried: none")
+//! }) == Result.Err("error: bad, retried: none")
 fn answer_lambda(): Int {
     42
 }
@@ -1648,13 +1644,13 @@ func TestFormat_AttachedAssertionBreaksControlFlowLambdaBody(t *testing.T) {
 	src := `//! assert loop(|n = 0| if n >= 3 { break n } else { n + 1 }) == 3
 pub host fn loop(f: (S) -> S): S
 `
-	want := `//! assert loop(|n = 0|
+	want := `//! assert loop(|n = 0| {
 //!     if n >= 3 {
 //!         break n
 //!     } else {
 //!         n + 1
 //!     }
-//! ) == 3
+//! }) == 3
 pub host fn loop(f: (S) -> S): S
 `
 	got, err := Format(src)
@@ -5432,76 +5428,6 @@ func TestFormat_GroupedExpression_CollapsesDuplicateParens(t *testing.T) {
 	}
 	if got != want {
 		t.Errorf("duplicate grouping not collapsed\ngot:\n%s\nwant:\n%s", got, want)
-	}
-}
-
-func TestFormat_PipeKeywordStage_IfIndentsBlockInsideStage(t *testing.T) {
-	src := `fn main(): String {
-    "Ada"
-    |> if strings.contains?("A") {
-        "initialed"
-    } else {
-        "plain"
-    }
-    |> dbg
-}
-`
-	want := `fn main(): String {
-    "Ada"
-    |> if strings.contains?("A") {
-            "initialed"
-        } else {
-            "plain"
-        }
-    |> dbg
-}
-`
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("format failed: %v", err)
-	}
-	if got != want {
-		t.Errorf("pipe if stage not indented as nested stage\ngot:\n%s\nwant:\n%s", got, want)
-	}
-	twice, err := Format(got)
-	if err != nil {
-		t.Fatalf("second format failed: %v", err)
-	}
-	if twice != got {
-		t.Errorf("non-idempotent\nonce:\n%s\ntwice:\n%s", got, twice)
-	}
-}
-
-func TestFormat_PipeKeywordStage_CaseIndentsArmsInsideStage(t *testing.T) {
-	src := `fn main(): String {
-    "Ada"
-    |> case {
-        "Ada" -> "found"
-        _ -> "plain"
-    }
-}
-`
-	want := `fn main(): String {
-    "Ada"
-    |> case {
-            "Ada" -> "found"
-            _ -> "plain"
-        }
-}
-`
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("format failed: %v", err)
-	}
-	if got != want {
-		t.Errorf("pipe case stage not indented as nested stage\ngot:\n%s\nwant:\n%s", got, want)
-	}
-	twice, err := Format(got)
-	if err != nil {
-		t.Fatalf("second format failed: %v", err)
-	}
-	if twice != got {
-		t.Errorf("non-idempotent\nonce:\n%s\ntwice:\n%s", got, twice)
 	}
 }
 
