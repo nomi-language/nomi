@@ -470,83 +470,20 @@ changes, so you opt in per run.
 
 ## Debugging A Test
 
-When a failure needs more than its report, run the test under the debugger.
-In VS Code, and in Neovim with nvim-dap, a **Debug test** lens sits beside
-each **Run test** (and **Debug** beside **Run** on `fn main`); Zed offers a
-debug entry beside each test task, and Helix a test template. It starts
-`nomi dap`, a Debug Adapter Protocol server, on that one test; the
+Click **Debug test** beside a test (VS Code, Neovim with nvim-dap, or Zed's
+debug entries) to run it under `nomi dap`; the
 [editor support](https://github.com/nomi-language/nomi#editor-support)
-section of the README has the setup.
+section of the README has the setup. Breakpoints, stepping, watches and the
+rest work as in any debugger. A few things are particular to Nomi:
 
-A failed `assert` stops the test where it failed, before the case ends, with
-the report you would have read and every binding in scope still readable. A
-trap stops the same way, where it happened. Breakpoints, stepping into the
-code under test and the call stack work as they do for a program. A callback
-shows the operation that called it, so a breakpoint inside an `Iter.map`
-lambda shows the test, then `Iter.map`, then the lambda. Stepping passes
-through the standard library rather than into it.
-
-While the test is paused, ask it questions in Nomi. A watch, a hover over a
-name, and a line typed into the debug console are evaluated in the paused
-frame, with its bindings in scope: `Iter.count(orders)`, `total > limit`,
-`orders |> Iter.filter(.paid) |> Iter.to_list()`. A result that is a struct
-or a collection opens as a tree. Because values never change, reading them
-cannot disturb the test. An expression that would act on the world (print,
-read a file, look at the clock) is refused rather than run. End it with
-`// allow effects` to run it anyway, knowing that what it does stays done. An
-expression that runs too long, such as a loop that never ends, is stopped
-and reported.
-
-The same evaluation drives breakpoints that decide for themselves. A
-conditional breakpoint stops only when its condition, a `Bool` expression,
-holds (`attempt == 3`). A hit count stops at the Nth pass (`5`, `>= 5`, or
-`% 10` for every tenth). A logpoint stops nowhere and writes its message to
-the console instead, with each `{expression}` replaced by its value:
-`charging {order.id} for {total}`. A condition that does not compile is
-shown on the breakpoint, and one that fails when it runs stops with the
-reason.
-
-Paused in or just after a pipeline, the **Pipeline** scope lists each stage
-with the value it produced, as `dbg` after every stage would print it. A
-lazy `Iter` stage shows the values that flowed through it once a later
-stage ran the pipeline. Restart frame runs the selected function again from
-its first statement with the same arguments; anything it printed already
-stays printed.
-
-**Step Into Target** lists the calls on the paused line, a lambda handed to
-an `Iter` adapter among them (`Iter.map(|n| ...) callback`), and steps into
-the one you pick. If the line finishes without calling it (the list was
-empty, say), the step stops at the next statement and the console says so.
-A function breakpoint stops at the first statement of a function each time
-it is called, named as the call stack names it: `transact`,
-`Account.deposit`, `Card.to_string`, or `Display.to_string` for every
-impl. A generic function stops for every type it is called with. A variable
-in the paused frame also knows where it was bound (the parameter, the
-`name =`, or its name in a pattern), and an editor that follows a
-variable's declaration, as Neovim's nvim-dap does with `Ctrl-]`, opens it.
-
-What a paused test printed so far is already in the debug console. Output
-inside `io.capture` or `io.replay` goes into the capture instead, so a frame
-inside one has a **Captured output** scope for each such call, innermost
-first, named by where it was made: `Captured output (io.replay at
-bank.nomi:32)`. It shows the `output` so far and the `transcript`, each line
-a child you can page through. For a replay the transcript is in the two
-columns a script with input uses, even when the script has none, beside the
-script's input lines read so far and those still to come, and `diverged` names the first script line the transcript already
-differs from, before the replay reaches its `assert`.
-
-Stepped past the line that went wrong? Step back. **Step back** goes to the
-statement before the current one, passing over calls as step over does, and
-**reverse continue** goes back to the last place a breakpoint stopped (or to
-the start). The debugger recorded every effect as the test ran: each line of
-input, each reading of the clock, each random number and each file read. Going
-back runs the test again from its start with those answers, printing nothing
-and reading nothing, and stops at the earlier statement with every binding as
-it was then. Stepping forward again replays the same history, and past the
-point you had reached the test runs live once more. A test that starts a task
-cannot go back, because how its tasks interleave is not recorded; the debugger
-says so.
-
-The test runs exactly as `nomi test --line` runs it, and the session's output
-is the same report, except that what the test printed appears as it printed
-it rather than again under the test's line.
+- A failed `assert` or a trap stops the test where it happened, with every
+  binding still readable.
+- Watches and the debug console evaluate Nomi in the paused frame. Values
+  never change, so looking can't disturb the test; an expression that would
+  act on the world, such as printing or reading the clock, is refused unless
+  it ends with `// allow effects`.
+- The **Pipeline** scope shows the value each `|>` stage produced, and a
+  frame inside `io.replay` or `io.capture` shows the output captured so far.
+- **Step back** and **reverse continue** run the test again from its start
+  with the input, clock and randomness it saw the first time, and stop at
+  the earlier point. A test that starts tasks can't go back.
