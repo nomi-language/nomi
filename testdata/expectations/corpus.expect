@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 274
-declared-cases 869
+records 276
+declared-cases 877
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -2599,6 +2599,16 @@ T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.de
 T ok <root>/tests/18-ffi-and-dynamic/json_decode_error_text_test.nomi :: Json.decode error text (Nomi-owned contract) / a well-formed but unrepresentable number reports its lexeme
 T test result: ok. 11 passed, 0 failed
 T
+C 18-ffi-and-dynamic/json_derive_defaults_test.nomi
+E 0
+N 4
+H c8537c4151c83aebbae38eb2caac3be3bc8cc58abbe14783ceb178b9c263ab30
+T ok <root>/tests/18-ffi-and-dynamic/json_derive_defaults_test.nomi :: a derived FromJson fills a missing field from its default
+T ok <root>/tests/18-ffi-and-dynamic/json_derive_defaults_test.nomi :: a derived FromJson decodes a present field over its default
+T ok <root>/tests/18-ffi-and-dynamic/json_derive_defaults_test.nomi :: a struct with defaulted fields round-trips through ToJson and FromJson
+T ok <root>/tests/18-ffi-and-dynamic/json_derive_defaults_test.nomi :: a derived FromJson fills a record variant's missing field from its default
+T test result: ok. 4 passed, 0 failed
+T
 C 18-ffi-and-dynamic/json_derive_test.nomi
 E 0
 N 4
@@ -2607,6 +2617,16 @@ T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON interface dec
 T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON derives encode and decode structs with options
 T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON derive reports missing required fields
 T ok <root>/tests/18-ffi-and-dynamic/json_derive_test.nomi :: JSON derives round-trip nested structs through interface functions
+T test result: ok. 4 passed, 0 failed
+T
+C 18-ffi-and-dynamic/json_enum_derive_test.nomi
+E 0
+N 4
+H 920509157017968def9074f44d397511f5f5264cd6751e5e02dfbefad67625e6
+T ok <root>/tests/18-ffi-and-dynamic/json_enum_derive_test.nomi :: a derived enum's FromJson reads what its ToJson writes
+T ok <root>/tests/18-ffi-and-dynamic/json_enum_derive_test.nomi :: a derived enum's FromJson names what it could not read
+T ok <root>/tests/18-ffi-and-dynamic/json_enum_derive_test.nomi :: vectors and sets cross as JSON arrays
+T ok <root>/tests/18-ffi-and-dynamic/json_enum_derive_test.nomi :: a whole JSON number reads as a Float
 T test result: ok. 4 passed, 0 failed
 T
 C 18-ffi-and-dynamic/json_test.nomi

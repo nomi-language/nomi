@@ -1232,6 +1232,7 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 			c.checkFunc(n)
 			c.checkMainParams(n)
 			c.checkMainReturn(n)
+			c.checkExport(n)
 		case *ast.ExternFunc:
 			c.checkExternFunc(n)
 		case *ast.OnceBinding:
@@ -1756,12 +1757,6 @@ func (c *checker) checkImportNaming(n *ast.ImportStmt) {
 	if n.ModuleAlias != nil {
 		line, col := nodeLineCol(n.ModuleAlias)
 		c.requireStrictSnakeCase(ast.ImportNodeName(n.ModuleAlias), line, col, "import alias")
-	}
-	for i, alias := range n.ExportAliases {
-		if alias == nil {
-			continue
-		}
-		c.validateImportAliasNode(alias, c.importAliasTargetKind(n, i, alias), "export alias")
 	}
 }
 

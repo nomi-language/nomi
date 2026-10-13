@@ -759,10 +759,6 @@ func processTypeDeclDeriveDecorators(n ast.Node, site synthSite, prior priorDeri
 				errs = append(errs, optErrs...)
 				continue
 			}
-			if targetErrs := validateDeriveTarget(ifaceName, n, argLine, argCol); len(targetErrs) > 0 {
-				errs = append(errs, targetErrs...)
-				continue
-			}
 
 			// Spec §38.1: a manual `impl Iface for T { fn ... }` alongside
 			// `@derive Iface` on the same type is a compile error.
@@ -3509,12 +3505,225 @@ func fromJsonBody(typeNode ast.Node, opts deriveOptions, line, col int) []ast.No
 	case *ast.ExternType:
 		return []ast.Node{exprStmt(okCall(&ast.TypeIdent{Name: t.Name, Line: line, Col: col}, line, col), line, col)}
 	case *ast.EnumDef:
-		return nil
+		return []ast.Node{exprStmt(fromJsonEnumExpr(t, opts, line, col), line, col)}
 	}
 	return nil
 }
 
+// fromJsonEnumExpr decodes the shape derived ToJson writes for an enum: a
+// bare variant as the JSON string of its name, and a payload variant as an
+// object whose key is its name, holding the payload (an array for a tuple
+// payload, an object of its fields for a struct variant).
+func fromJsonEnumExpr(e *ast.EnumDef, opts deriveOptions, line, col int) ast.Node {
+	json := func() ast.Node { return identExpr("json", line, col) }
+	var branches []ast.CaseBranch
+	var tagged []ast.EnumVariant
+	var bare []ast.CaseBranch
+	for _, v := range e.Variants {
+		if v.Kind == "bare" {
+			bare = append(bare, ast.CaseBranch{
+				Pattern: staticString(v.Name, line, col),
+				Body:    okCall(fieldAccess(&ast.TypeIdent{Name: e.Name, Line: line, Col: col}, v.Name, line, col), line, col),
+				Line:    line,
+				Col:     col,
+			})
+			continue
+		}
+		tagged = append(tagged, v)
+	}
+	hasBare := len(bare) > 0
+	if hasBare {
+		// An unknown name is reported with its text: `got "Purple"`.
+		unknown := errCall(&ast.StructLit{
+			TypeName: &ast.SimpleType{Name: "Json.ShapeError", Line: line, Col: col},
+			Fields: []ast.StructFieldVal{
+				{Name: "path", Value: &ast.ListLit{Line: line, Col: col}, Line: line, Col: col},
+				{Name: "expected", Value: staticString(e.Name, line, col), Line: line, Col: col},
+				{Name: "got", Value: &ast.StringInterp{Parts: []ast.StringPart{
+					ast.StringText{Value: `"`},
+					ast.StringExpr{Expr: identExpr("__tag", line, col)},
+					ast.StringText{Value: `"`},
+				}, Line: line, Col: col}, Line: line, Col: col},
+			},
+			Line: line,
+			Col:  col,
+		}, line, col)
+		bare = append(bare, ast.CaseBranch{Pattern: &ast.WildcardPattern{Line: line, Col: col}, Body: unknown, Line: line, Col: col})
+		branches = append(branches, ast.CaseBranch{
+			Pattern: &ast.EnumPattern{
+				Variant: qualifiedTypeExpr("Json", "String", line, col),
+				Payload: &ast.IdentPattern{Name: "__tag", Line: line, Col: col},
+				Line:    line,
+				Col:     col,
+			},
+			Body: &ast.Case{Value: identExpr("__tag", line, col), Branches: bare, Line: line, Col: col},
+			Line: line,
+			Col:  col,
+		})
+	}
+	if len(tagged) > 0 {
+		// Each payload variant's key is looked up in declaration order; an
+		// object holding none of them is the shape error.
+		var chain ast.Node = jsonShapeErr(e.Name, json(), line, col)
+		for i := len(tagged) - 1; i >= 0; i-- {
+			v := tagged[i]
+			var decoded ast.Node
+			if tupleVariant(v) {
+				// Its errors carry the variant's name already.
+				decoded = fromJsonVariantPayloadExpr(e, v, opts, line, col)
+			} else {
+				decoded = &ast.Case{
+					Value: fromJsonVariantPayloadExpr(e, v, opts, line, col),
+					Branches: []ast.CaseBranch{
+						{Pattern: enumBindPattern("Ok", "__variant", line, col), Body: okCall(identExpr("__variant", line, col), line, col), Line: line, Col: col},
+						{Pattern: enumBindPattern("Err", "__err", line, col), Body: errCall(jsonShapePrepend(identExpr("__err", line, col), v.Name, line, col), line, col), Line: line, Col: col},
+					},
+					Line: line,
+					Col:  col,
+				}
+			}
+			chain = &ast.Case{
+				Value: mapGetCall(identExpr("__tagged", line, col), staticString(v.Name, line, col), line, col),
+				Branches: []ast.CaseBranch{
+					{Pattern: enumBindPattern("Some", "__payload", line, col), Body: decoded, Line: line, Col: col},
+					{Pattern: &ast.EnumPattern{Variant: &ast.SimpleType{Name: "None", Line: line, Col: col}, Line: line, Col: col}, Body: chain, Line: line, Col: col},
+				},
+				Line: line,
+				Col:  col,
+			}
+		}
+		branches = append(branches, ast.CaseBranch{
+			Pattern: &ast.EnumPattern{
+				Variant: qualifiedTypeExpr("Json", "Obj", line, col),
+				Payload: &ast.IdentPattern{Name: "__tagged", Line: line, Col: col},
+				Line:    line,
+				Col:     col,
+			},
+			Body: chain,
+			Line: line,
+			Col:  col,
+		})
+	}
+	expected := "string"
+	switch {
+	case hasBare && len(tagged) > 0:
+		expected = "string or object"
+	case len(tagged) > 0:
+		expected = "object"
+	}
+	branches = append(branches, ast.CaseBranch{
+		Pattern: &ast.WildcardPattern{Line: line, Col: col},
+		Body:    jsonShapeErr(expected, json(), line, col),
+		Line:    line,
+		Col:     col,
+	})
+	return &ast.Case{Value: json(), Branches: branches, Line: line, Col: col}
+}
+
+// tupleVariant reports a variant whose payload is a tuple, `V (A, B)`.
+func tupleVariant(v ast.EnumVariant) bool {
+	ft, isTuple := v.DataTypeExpr.(*ast.FuncType)
+	return v.Kind == "positional" && isTuple && ft.Return == nil && len(ft.Params) >= 2
+}
+
+// fromJsonVariantPayloadExpr decodes `__payload`, the value under a payload
+// variant's key, into the variant: `Ok(E.V(...))`, or the payload's error.
+// A tuple variant's errors name the variant and the element; the caller
+// prepends the variant's name to the others'. (A tuple variant's `case`
+// cannot be the subject of that prepending `case`: the checker leaves the
+// error binding untyped there.)
+func fromJsonVariantPayloadExpr(e *ast.EnumDef, v ast.EnumVariant, opts deriveOptions, line, col int) ast.Node {
+	payload := func() ast.Node { return identExpr("__payload", line, col) }
+	ctor := func(args ...ast.Node) ast.Node {
+		return &ast.Call{
+			Func: fieldAccess(&ast.TypeIdent{Name: e.Name, Line: line, Col: col}, v.Name, line, col),
+			Args: args,
+			Line: line,
+			Col:  col,
+		}
+	}
+	// decodeThen is `case T.from_json(subject) { Ok(bind) -> then; Err(e) ->
+	// Err(prepend(e, segment)) }`, with no prepend when segment is "".
+	decodeThen := func(te ast.TypeExpr, subject ast.Node, bind, segment string, then ast.Node) ast.Node {
+		var fail ast.Node = errCall(identExpr("__err", line, col), line, col)
+		if segment != "" {
+			fail = errCall(jsonShapePrepend(jsonShapePrepend(identExpr("__err", line, col), segment, line, col), v.Name, line, col), line, col)
+		}
+		return &ast.Case{
+			Value: fromJsonCallForType(te, subject, line, col),
+			Branches: []ast.CaseBranch{
+				{Pattern: enumBindPattern("Ok", bind, line, col), Body: then, Line: line, Col: col},
+				{Pattern: enumBindPattern("Err", "__err", line, col), Body: fail, Line: line, Col: col},
+			},
+			Line: line,
+			Col:  col,
+		}
+	}
+	switch v.Kind {
+	case "positional":
+		ft, isTuple := v.DataTypeExpr.(*ast.FuncType)
+		if !isTuple || ft.Return != nil || len(ft.Params) < 2 {
+			return decodeThen(v.DataTypeExpr, payload(), "__a0", "", okCall(ctor(identExpr("__a0", line, col)), line, col))
+		}
+		items := make([]ast.Node, len(ft.Params))
+		heads := make([]ast.Node, len(ft.Params))
+		for i := range ft.Params {
+			items[i] = identExpr(fmt.Sprintf("__a%d", i), line, col)
+			heads[i] = &ast.IdentPattern{Name: fmt.Sprintf("__j%d", i), Line: line, Col: col}
+		}
+		var body ast.Node = okCall(ctor(&ast.TupleLit{Items: items, Line: line, Col: col}), line, col)
+		for i := len(ft.Params) - 1; i >= 0; i-- {
+			body = decodeThen(ft.Params[i], identExpr(fmt.Sprintf("__j%d", i), line, col), fmt.Sprintf("__a%d", i), fmt.Sprintf("[%d]", i), body)
+		}
+		return &ast.Case{
+			Value: payload(),
+			Branches: []ast.CaseBranch{
+				{
+					Pattern: &ast.EnumPattern{
+						Variant: qualifiedTypeExpr("Json", "Arr", line, col),
+						Payload: &ast.ListPattern{Heads: heads, Line: line, Col: col},
+						Line:    line,
+						Col:     col,
+					},
+					Body: body,
+					Line: line,
+					Col:  col,
+				},
+				{
+					Pattern: &ast.WildcardPattern{Line: line, Col: col},
+					Body: errCall(jsonShapePrepend(
+						qualifiedCall("json", "shape_error_root", []ast.Node{staticString(fmt.Sprintf("array of %d", len(ft.Params)), line, col), payload()}, line, col),
+						v.Name, line, col), line, col),
+					Line: line,
+					Col:  col,
+				},
+			},
+			Line: line,
+			Col:  col,
+		}
+	case "struct":
+		build := func(decoded []ast.StructFieldVal) ast.Node {
+			return &ast.StructLit{TypeName: qualifiedTypeExpr(e.Name, v.Name, line, col), Fields: decoded, Line: line, Col: col}
+		}
+		return fromJsonObjectExpr(payload(), v.Fields, build, opts, line, col)
+	case "embedded":
+		return decodeThen(v.EmbeddedTypeExpr, payload(), "__a0", "", okCall(identExpr("__a0", line, col), line, col))
+	}
+	return jsonShapeErr(e.Name, payload(), line, col)
+}
+
 func fromJsonStructExpr(t *ast.StructDef, opts deriveOptions, line, col int) ast.Node {
+	build := func(decoded []ast.StructFieldVal) ast.Node {
+		return &ast.StructLit{TypeName: &ast.SimpleType{Name: t.Name, Line: line, Col: col}, Fields: decoded, Line: line, Col: col}
+	}
+	return fromJsonObjectExpr(identExpr("json", line, col), t.Fields, build, opts, line, col)
+}
+
+// fromJsonObjectExpr decodes subject, a Json, as an object holding fields
+// and answers `Ok(build(decoded))`, or an Err naming the field that failed.
+// A derived struct decodes its whole JSON this way, and an enum's struct
+// variant its payload.
+func fromJsonObjectExpr(subject ast.Node, fields []ast.StructField, build func([]ast.StructFieldVal) ast.Node, opts deriveOptions, line, col int) ast.Node {
 	objPattern := &ast.EnumPattern{
 		Variant: qualifiedTypeExpr("Json", "Obj", line, col),
 		Payload: &ast.IdentPattern{Name: "fields", Line: line, Col: col},
@@ -3522,17 +3731,17 @@ func fromJsonStructExpr(t *ast.StructDef, opts deriveOptions, line, col int) ast
 		Col:     col,
 	}
 	return &ast.Case{
-		Value: identExpr("json", line, col),
+		Value: subject,
 		Branches: []ast.CaseBranch{
 			{
 				Pattern: objPattern,
-				Body:    fromJsonStructFieldsExpr(t, opts, 0, nil, line, col),
+				Body:    fromJsonStructFieldsExpr(fields, build, opts, 0, nil, line, col),
 				Line:    line,
 				Col:     col,
 			},
 			{
 				Pattern: &ast.WildcardPattern{Line: line, Col: col},
-				Body:    jsonShapeErr("object", identExpr("json", line, col), line, col),
+				Body:    jsonShapeErr("object", subject, line, col),
 				Line:    line,
 				Col:     col,
 			},
@@ -3542,16 +3751,11 @@ func fromJsonStructExpr(t *ast.StructDef, opts deriveOptions, line, col int) ast
 	}
 }
 
-func fromJsonStructFieldsExpr(t *ast.StructDef, opts deriveOptions, idx int, decoded []ast.StructFieldVal, line, col int) ast.Node {
-	if idx >= len(t.Fields) {
-		return okCall(&ast.StructLit{
-			TypeName: &ast.SimpleType{Name: t.Name, Line: line, Col: col},
-			Fields:   decoded,
-			Line:     line,
-			Col:      col,
-		}, line, col)
+func fromJsonStructFieldsExpr(fields []ast.StructField, build func([]ast.StructFieldVal) ast.Node, opts deriveOptions, idx int, decoded []ast.StructFieldVal, line, col int) ast.Node {
+	if idx >= len(fields) {
+		return okCall(build(decoded), line, col)
 	}
-	field := t.Fields[idx]
+	field := fields[idx]
 	key := jsonFieldName(field.Name, opts)
 	jvName := "__json_" + field.Name
 	valueName := "__value_" + field.Name
@@ -3561,7 +3765,7 @@ func fromJsonStructFieldsExpr(t *ast.StructDef, opts deriveOptions, idx int, dec
 		Line:  line,
 		Col:   col,
 	})
-	rest := fromJsonStructFieldsExpr(t, opts, idx+1, nextDecoded, line, col)
+	rest := fromJsonStructFieldsExpr(fields, build, opts, idx+1, nextDecoded, line, col)
 	decodePresent := &ast.Case{
 		Value: fromJsonCallForType(field.TypeAnnotation, identExpr(jvName, line, col), line, col),
 		Branches: []ast.CaseBranch{
@@ -3590,15 +3794,15 @@ func fromJsonStructFieldsExpr(t *ast.StructDef, opts deriveOptions, idx int, dec
 			Line:  line,
 			Col:   col,
 		})
-		missing = fromJsonStructFieldsExpr(t, opts, idx+1, missingDecoded, line, col)
+		missing = fromJsonStructFieldsExpr(fields, build, opts, idx+1, missingDecoded, line, col)
 	case field.Default != nil:
-		defaultDecoded := append(append([]ast.StructFieldVal{}, decoded...), ast.StructFieldVal{
-			Name:  field.Name,
-			Value: field.Default,
-			Line:  line,
-			Col:   col,
-		})
-		missing = fromJsonStructFieldsExpr(t, opts, idx+1, defaultDecoded, line, col)
+		// The literal leaves the field out and the struct literal's own
+		// default rule fills it. Placing field.Default here would share the
+		// declaration's node with the synthesized body: uniquifyPositions
+		// would restamp the declaration's positions into the synthesized
+		// band, and would refuse any default expression its walker does not
+		// list (`#{}`, a lambda).
+		missing = fromJsonStructFieldsExpr(fields, build, opts, idx+1, decoded, line, col)
 	default:
 		missing = errCall(&ast.StructLit{
 			TypeName: &ast.SimpleType{Name: "Json.ShapeError", Line: line, Col: col},
@@ -3662,20 +3866,6 @@ func fromJsonDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		Col:  col,
 	}
 	return []ast.Node{exprStmt(body, line, col)}
-}
-
-func validateDeriveTarget(ifaceName string, typeNode ast.Node, line, col int) []TypeError {
-	if ifaceName != "FromJson" {
-		return nil
-	}
-	if e, ok := typeNode.(*ast.EnumDef); ok {
-		return []TypeError{{
-			Line:    line,
-			Col:     col,
-			Message: fmt.Sprintf("derive FromJson for enum '%s' is not supported", e.Name),
-		}}
-	}
-	return nil
 }
 
 func jsonFieldName(name string, opts deriveOptions) string {

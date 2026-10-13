@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"runtime/debug"
 
+	"github.com/nomi-language/nomi/internal/buildversion"
 	"github.com/nomi-language/nomi/internal/ffirun"
 )
 
@@ -44,13 +45,8 @@ import (
 // is named rather than rendered as an empty token.
 
 // revisionAbbrev is how many hex digits of the revision the version token
-// carries. scripts/release.sh names its archives from `git describe --tags
-// --always --dirty`, whose abbreviation is git's `core.abbrev` (7 by default
-// and auto-widening with repository size); 12 is what git itself widens to
-// well before a repository this size needs more, so a version token and an
-// archive name refer to the same commit by a prefix of the same length or
-// longer.
-const revisionAbbrev = 12
+// carries (internal/buildversion).
+const revisionAbbrev = buildversion.RevisionAbbrev
 
 // runVersion is `nomi --version`.
 func runVersion() { fmt.Println(currentVersionLine()) }
@@ -87,42 +83,17 @@ func versionLineFor(release string, info *debug.BuildInfo) string {
 	return fmt.Sprintf("nomi %s (%s %s/%s)", versionToken(info), runtime.Version(), runtime.GOOS, runtime.GOARCH)
 }
 
-// versionToken is the version itself: the revision this binary was built from,
-// with git's own `-dirty` suffix when the tree had uncommitted changes, or
-// the module version when the build carries no revision. A build from a
-// checkout also has a module version, which Go derives from the nearest tag
-// (`v0.1.0+dirty`, or a pseudo-version); the revision names the commit
-// exactly, so it wins.
-func versionToken(info *debug.BuildInfo) string {
-	if info == nil {
-		return "unknown"
+// versionToken is the version itself (internal/buildversion).
+func versionToken(info *debug.BuildInfo) string { return buildversion.Token(info) }
+
+// imageWriterVersion is the version `nomi build --no-vm` records in a .nomic
+// file's header: the release tag and the revision for a release, the version
+// token otherwise.
+func imageWriterVersion() string {
+	if ffirun.ReleaseVersion != "" {
+		return ffirun.ReleaseVersion + " (" + buildversion.Current() + ")"
 	}
-	revision := ""
-	modified := false
-	for _, s := range info.Settings {
-		switch s.Key {
-		case "vcs.revision":
-			revision = s.Value
-		case "vcs.modified":
-			modified = s.Value == "true"
-		}
-	}
-	if revision == "" {
-		// A build resolved from the module proxy (`go install ...@v0.2.0`)
-		// has a module version and no VCS information. `(devel)` is a build
-		// from a directory with no VCS information, which names nothing.
-		if v := info.Main.Version; v != "" && v != "(devel)" {
-			return v
-		}
-		return "unknown"
-	}
-	if len(revision) > revisionAbbrev {
-		revision = revision[:revisionAbbrev]
-	}
-	if modified {
-		return revision + "-dirty"
-	}
-	return revision
+	return buildversion.Current()
 }
 
 // versionRequested reports whether args name the version query.

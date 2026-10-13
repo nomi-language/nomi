@@ -49,7 +49,7 @@ func FindForFFIWrapper() (string, error) {
 // runner a program's IR is appended to with `go build` (and caches it).
 func FindForBuild() (string, error) {
 	return find(&NotFoundError{
-		Why:  "`nomi build` builds the runner a program is appended to with `go build`",
+		Why:  "`nomi build` builds nomi-vm, which a program is appended to, with `go build`",
 		Then: "`nomi run` needs no toolchain",
 	})
 }
@@ -59,9 +59,9 @@ func FindForBuild() (string, error) {
 // adapters generated for them, so no prebuilt runner can stand in for it.
 func FindForProjectRunner() (string, error) {
 	return find(&NotFoundError{
-		Why: "this project has Go FFI, so `nomi build` compiles a runner that links " +
-			"your Go bindings with `go build`, and a prebuilt runner cannot carry bindings it has never seen",
-		Then: "A project with no Go FFI builds with no toolchain from a release, which ships a prebuilt runner",
+		Why: "this project has Go FFI, so `nomi build` compiles a nomi-vm that links " +
+			"your Go bindings with `go build`, and a prebuilt nomi-vm cannot carry bindings it has never seen",
+		Then: "A project with no Go FFI builds with no toolchain from a release, which ships a prebuilt nomi-vm",
 	})
 }
 

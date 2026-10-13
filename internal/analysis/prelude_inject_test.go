@@ -57,7 +57,7 @@ func TestPreludeAutoprepend_SuppressedInStdlibFiles(t *testing.T) {
 	// Minimal fake stdlib. nomi.toml is required for the resolver to
 	// accept this as a real module root.
 	mustWrite("nomi.toml", "[module]\nname = \"std\"\nentry_points = []\n")
-	mustWrite("prelude.nomi", "import std/probe.{OrphanProbe} export\n")
+	mustWrite("prelude.nomi", "pub import std/probe.{OrphanProbe}\n")
 	mustWrite("probe.nomi", "pub type OrphanProbe\n")
 	// Stdlib's consumer.nomi: bare reference to OrphanProbe. The whole
 	// point of the test — would resolve via auto-prepend if stdlib

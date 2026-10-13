@@ -12,7 +12,7 @@
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
 records 31
-declared-cases 300
+declared-cases 301
 failing 0
 C assertions
 E 0
@@ -293,12 +293,13 @@ T test result: ok. 44 passed, 0 failed
 T
 C json
 E 0
-N 3
-H 715695027db643f1d1e8c5cadd13d06ce12078c2456d3cd8f5df0a96acded286
-T ok <root>/std/json.nomi :: impl / decode //! test lines 49-53
-T ok <root>/std/json.nomi :: impl / encode //! test lines 63-65
-T ok <root>/std/json.nomi :: impl / to_dynamic //! test lines 71-72
-T test result: ok. 3 passed, 0 failed
+N 4
+H 05897b38ca78c64ea34663c947e25a230bcafa929d2c0f3929be2436cbe7db70
+T ok <root>/std/json.nomi :: impl / decode //! test lines 51-55
+T ok <root>/std/json.nomi :: impl / encode //! test lines 65-67
+T ok <root>/std/json.nomi :: impl / to_dynamic //! test lines 73-74
+T ok <root>/std/json.nomi :: impl / from_json //! test lines 258-259
+T test result: ok. 4 passed, 0 failed
 T
 C lists
 E 0

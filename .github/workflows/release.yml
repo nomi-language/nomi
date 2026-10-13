@@ -8,8 +8,8 @@
 # per-OS runners would be slower, would need an extra job to merge the checksum
 # manifest, and would prove nothing extra.
 #
-# Each archive holds nomi, nomi-lsp and nomi-runner, built from one commit.
-# `nomi build` uses the runner beside nomi, and for `--target` another
+# Each archive holds nomi, nomi-lsp and nomi-vm, built from one commit.
+# `nomi build` uses the nomi-vm beside nomi, and for `--target` another
 # platform it downloads that platform's archive from this release and checks
 # it against the checksum manifest, so both the archives and the manifest must
 # be attached under the names scripts/release.sh gives them.

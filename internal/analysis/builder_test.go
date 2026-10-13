@@ -1195,15 +1195,14 @@ func reExportLoader(t *testing.T, modSources map[string]string) func(string, []s
 	}
 }
 
-// Per-item re-export under the imported name (no rename) should mark the
-// local binding public. Consumers look up `thing` in main's ModuleScope and
-// see Public=true.
-func TestBuilder_ReExport_PerItemUnderImportedName(t *testing.T) {
+// A re-export under the imported name should mark the local binding public.
+// Consumers look up `thing` in main's ModuleScope and see Public=true.
+func TestBuilder_ReExport_UnderImportedName(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
 		"other": `pub fn thing(): Int { 0 }`,
 	})
 
-	src := `import other.{thing export}`
+	src := `pub import other.{thing}`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	file := BuildFileWithStdlib(nodes, nil, nil, "/project", loader)
 
@@ -1222,33 +1221,24 @@ func TestBuilder_ReExport_PerItemUnderImportedName(t *testing.T) {
 	}
 }
 
-// Per-item re-export with rename: `import other.{thing export as t}`.
-// The local binding `thing` stays private; a separate public symbol `t`
-// is registered, with Resolved pointing at the upstream fn.
-func TestBuilder_ReExport_PerItemWithRename(t *testing.T) {
+// A re-export with an alias, `pub import other.{thing as t}`, publishes the
+// alias: `t` is public and resolves to the upstream fn, and `thing` is not
+// bound at all.
+func TestBuilder_ReExport_AliasIsThePublicName(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
 		"other": `pub fn thing(): Int { 0 }`,
 	})
 
-	src := `import other.{thing export as t}`
+	src := `pub import other.{thing as t}`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	file := BuildFileWithStdlib(nodes, nil, nil, "/project", loader)
 
 	for _, e := range file.TypeErrors {
 		t.Errorf("unexpected TypeError: %v", e)
 	}
-
-	// Local `thing` exists but is NOT public — the importing module sees it
-	// only by its original name.
-	thingSym := file.ModuleScope.Lookup("thing")
-	if thingSym == nil {
-		t.Fatal("expected local binding `thing` in main's ModuleScope")
+	if sym := file.ModuleScope.Lookup("thing"); sym != nil {
+		t.Errorf("`thing` should not be bound under its upstream name, got %v", sym)
 	}
-	if thingSym.Public {
-		t.Error("local `thing` should be private when the export uses a different name")
-	}
-
-	// Public `t` exists and resolves to the upstream fn.
 	tSym := file.ModuleScope.Lookup("t")
 	if tSym == nil {
 		t.Fatal("expected public re-export symbol `t` in main's ModuleScope")
@@ -1261,15 +1251,15 @@ func TestBuilder_ReExport_PerItemWithRename(t *testing.T) {
 	}
 }
 
-// Line-level shorthand: `import other.{a, b} export` re-exports every
-// selected item under its imported name.
-func TestBuilder_ReExport_LineLevelShorthand(t *testing.T) {
+// `pub import other.{a, b}` re-exports every selected item under its
+// imported name.
+func TestBuilder_ReExport_EveryItem(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
 		"other": `pub fn a(): Int { 1 }
 pub fn b(): Int { 2 }`,
 	})
 
-	src := `import other.{a, b} export`
+	src := `pub import other.{a, b}`
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	file := BuildFileWithStdlib(nodes, nil, nil, "/project", loader)
 
@@ -1282,13 +1272,13 @@ pub fn b(): Int { 2 }`,
 			t.Fatalf("expected `%s` in main's ModuleScope", name)
 		}
 		if !sym.Public {
-			t.Errorf("line-level export should mark `%s` Public=true", name)
+			t.Errorf("`pub import` should mark `%s` Public=true", name)
 		}
 	}
 }
 
-// Without an explicit `export` modifier, an imported name must remain
-// private to the importing module.
+// Without `pub`, an imported name must remain private to the importing
+// module.
 func TestBuilder_ReExport_NotExportedByDefault(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
 		"other": `pub fn thing(): Int { 0 }`,
@@ -1303,7 +1293,7 @@ func TestBuilder_ReExport_NotExportedByDefault(t *testing.T) {
 		t.Fatal("expected `thing` in main's ModuleScope")
 	}
 	if sym.Public {
-		t.Error("`thing` should be private to main when no `export` modifier is present")
+		t.Error("`thing` should be private to main when the import has no `pub`")
 	}
 }
 
@@ -1324,8 +1314,8 @@ func TestBuilder_ReExport_NotExportedByDefault(t *testing.T) {
 func TestBuilder_ReExport_MultiHopChain(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
 		"leaf":   `pub fn deep(): Int { 42 }`,
-		"middle": `import leaf.{deep export}`,
-		"top":    `import middle.{deep export}`,
+		"middle": `pub import leaf.{deep}`,
+		"top":    `pub import middle.{deep}`,
 	})
 
 	// Positive case: a 0-arg call resolves cleanly. Confirm the chain
@@ -1399,7 +1389,7 @@ fn use_it(): Int { deep(1) }`
 func TestBuilder_ReExport_DownstreamConsumerCanImportReExport(t *testing.T) {
 	loader := reExportLoader(t, map[string]string{
 		"other": `pub fn thing(): Int { 0 }`,
-		"main": `import other.{thing export}
+		"main": `pub import other.{thing}
 
 pub fn use_it(): Int { thing() }`,
 	})

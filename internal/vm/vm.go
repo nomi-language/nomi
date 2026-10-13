@@ -140,6 +140,9 @@ type Machine struct {
 	codes *codeTable
 	// fuel is an Evaluate's remaining Limits, or nil. See evaluate.go.
 	fuel *fuel
+	// stopCtx is StopOn's context, which the frames the machine starts
+	// from Go are built over, or nil.
+	stopCtx context.Context
 	// dbg is the debugger this machine reports to, or nil. A machine with
 	// one compiles its functions with statement hooks (debug.go).
 	dbg *Debugger
@@ -212,6 +215,9 @@ func (m *Machine) withDiagnostics(ctx context.Context) context.Context {
 // background is the context a frame the machine starts from Go is built
 // over.
 func (m *Machine) background() context.Context {
+	if m.stopCtx != nil {
+		return m.withDiagnostics(m.stopCtx)
+	}
 	return m.withDiagnostics(context.Background())
 }
 

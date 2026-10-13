@@ -132,6 +132,8 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			prefix := "fn "
 			if resolved.Kind == analysis.SymbolEnumVariant {
 				prefix = "variant "
+			} else if fd, ok := resolved.Node.(*ast.FuncDef); ok && fd.Export {
+				prefix = "export fn "
 			}
 			receiverName := ""
 			if resolved.Kind != analysis.SymbolInterfaceMethod {
@@ -303,6 +305,9 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 				}
 			}
 			sig = RenderFuncSigResolvedSelf(n.Name, n.TypeParams, n.Params, ret, sym.Type, nil, sym.OwningType) + renderWhereClauses(n.WhereClauses)
+			if n.Export {
+				sig = "export " + sig
+			}
 			doc = n.Doc
 		case *ast.ExternFunc:
 			sig = RenderFuncSigResolvedSelf(n.Name, n.TypeParams, n.Params, n.ReturnTypeExpr, sym.Type, nil, sym.OwningType) + renderWhereClauses(n.WhereClauses)

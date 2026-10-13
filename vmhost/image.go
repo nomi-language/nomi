@@ -3,14 +3,17 @@ package vmhost
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/compilerhosts"
 	"github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
+	"github.com/nomi-language/nomi/internal/webtypes"
 )
 
 // BuildImage is what `nomi build` appends to a runner: the program's linked
@@ -25,24 +28,77 @@ import (
 // asked, because they link the whole front end.
 //
 // A file with no `fn main` is refused too, the way `go build` writes nothing
-// for a package that is not main: `nomi run` would run nothing.
+// for a package that is not main: `nomi run` would run nothing. A program
+// whose exported functions a host calls is built by BuildExportsImage.
 //
 // So is a program with a `todo` or a `dbg` in any of its files, reached or
 // not, with a *LeftoversRemain listing each one: a built binary is a release,
 // a `todo` is code nobody has written yet, and a `dbg` is development-only
 // instrumentation. The stdlib has neither.
 func (p *Program) BuildImage() (image []byte, usesCompiler bool, err error) {
-	if err := p.RequireMain("build"); err != nil {
-		return nil, false, err
+	return p.buildImage(false)
+}
+
+// BuildExportsImage is BuildImage for a host that calls the program's
+// exported functions: `nomi build --web`, and the wasip1 reactor `nomi build
+// --target wasip1/wasm` writes for a program with an `export fn`. The
+// program may have no `fn main` when it has exported functions, the image
+// records each one, and each is a root the build must be able to run.
+func (p *Program) BuildExportsImage() (image []byte, usesCompiler bool, err error) {
+	return p.buildImage(true)
+}
+
+// WebDeclarations is the nomi.d.ts `nomi build --web` writes beside
+// nomi.js: the loader's API, with a typed `call` for each exported function
+// (internal/webtypes).
+func (p *Program) WebDeclarations() string {
+	nodes := make([][]ast.Node, len(p.prog.Modules))
+	for i, m := range p.prog.Modules {
+		nodes[i] = m.Nodes
+	}
+	return webtypes.Declarations(filepath.Base(p.prog.Entry().Path), p.res.Exports, nodes)
+}
+
+func (p *Program) buildImage(withExports bool) (image []byte, usesCompiler bool, err error) {
+	if !withExports || !p.HasExports() {
+		if err := p.RequireMain("build"); err != nil {
+			return nil, false, err
+		}
 	}
 	if sites := p.leftovers(); len(sites) > 0 {
 		return nil, false, &LeftoversRemain{Sites: sites}
 	}
-	mainFn := p.entryFunc("main")
-	if mainFn == nil {
-		return nil, false, p.blockedName("main")
+	var roots []*ir.Func
+	if p.HasMain() {
+		mainFn := p.entryFunc("main")
+		if mainFn == nil {
+			return nil, false, p.blockedName("main")
+		}
+		roots = vm.MainRoots(p.entry, mainFn)
 	}
-	roots := vm.MainRoots(p.entry, mainFn)
+	var exports []ir.Export
+	if withExports {
+		for _, e := range p.res.Exports {
+			if e.Func == nil {
+				return nil, false, p.blockedName(e.Name)
+			}
+			if !e.Lowered() {
+				return nil, false, &Blocked{Reasons: []string{fmt.Sprintf(
+					"[%s] the JSON conversion of its arguments or result is not supported yet", e.Name)}}
+			}
+			x := ir.Export{Name: e.Name, Func: e.Func, Encode: e.Encode}
+			roots = append(roots, e.Func)
+			for _, prm := range e.Params {
+				x.Params = append(x.Params, ir.ExportParam{Name: prm.Name, Type: prm.Type.String(), Decode: prm.Decode})
+				roots = append(roots, prm.Decode)
+			}
+			if e.Encode != nil {
+				x.Result = e.Result.String()
+				roots = append(roots, e.Encode)
+			}
+			exports = append(exports, x)
+		}
+	}
 	var boots []*ir.Symbol
 	if p.entry != nil {
 		if boot := p.entry.Boot(); boot != nil {
@@ -73,6 +129,7 @@ func (p *Program) BuildImage() (image []byte, usesCompiler bool, err error) {
 		HostKeys: p.res.HostKeys(),
 		HasMain:  p.HasMain(),
 		Root:     p.prog.Root,
+		Exports:  exports,
 	})
 	return image, usesCompiler, err
 }

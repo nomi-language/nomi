@@ -5,7 +5,7 @@ description: Write Nomi tests with test declarations, assertions, checks, setup,
 
 Nomi tests are just Nomi code. A `test` declaration names a behavior and runs a
 block. Put tests next to the code they exercise or in a conventional
-`*_test.nomi` file, then run them with `nomi test`. What a test prints, `dbg` included, appears under its `ok` or `FAIL` line.
+`*_test.nomi` file, then run them with `nomi test`. What a test prints, `dbg` included, appears under its `ok` or `FAIL` line. `nomi test --watch` runs them again each time you save a file under the path or one the tests import.
 
 ## Assertions
 

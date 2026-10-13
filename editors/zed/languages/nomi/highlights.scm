@@ -57,8 +57,8 @@
 "and" @keyword
 "or" @keyword
 (pub) @keyword
+(export) @keyword
 "opaque" @keyword
-"export" @keyword
 "once" @keyword
 "extern" @keyword
 "embeds" @keyword

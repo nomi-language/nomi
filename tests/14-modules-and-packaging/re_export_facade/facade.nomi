@@ -1,5 +1,5 @@
 // Facade file that re-exports items from the two leaf files.
-import {
-    leaf.{add, double, make_box, open_box} export
-    parser_lib.{greet, shout} export
+pub import {
+    leaf.{add, double, make_box, open_box}
+    parser_lib.{greet, shout}
 }

@@ -36,9 +36,9 @@ var (
 
 // preludeImports returns the chain of `import` statements the auto-
 // prepend pass should prepend to every non-stdlib user file. The
-// statements are derived from std/prelude.nomi: each top-level
-// `import std/X.{...} export` entry there becomes an equivalent
-// `import std/X.{...}` (export flag stripped) in the returned slice.
+// statements are derived from std/prelude.nomi: each entry of its
+// `pub import { ... }` becomes an equivalent plain `import std/X.{...}`
+// (Pub cleared) in the returned slice.
 // ImportBlocks are flattened to their constituent ImportStmts.
 //
 // Why mirror prelude.nomi's structure instead of synthesizing one
@@ -203,7 +203,7 @@ func cloneImportStmtForInject(src *ast.ImportStmt, index int) *ast.ImportStmt {
 	// auto-prepend would otherwise leak any sibling `import` line a
 	// future prelude.nomi adds for its own purposes (e.g., a helper
 	// that prelude uses internally but never re-exports).
-	if !stmtIsReExport(src) {
+	if !src.Pub {
 		return nil
 	}
 	base := synthPreludeBase(index)
@@ -221,8 +221,8 @@ func cloneImportStmtForInject(src *ast.ImportStmt, index int) *ast.ImportStmt {
 	// SelfCol slot) take cols 2, 3, … in the same synth-line band.
 	stmtLine, stmtCol := nextSynthPos()
 	// ModulePath gains a leading `std` segment. prelude.nomi is a stdlib
-	// file, so it writes its re-exports bare (`maybe.Maybe.{self, None,
-	// Some} export`) like any intra-module import; the clone is prepended to
+	// file, so it writes its re-exports bare (`pub import maybe.Maybe.{self,
+	// None, Some}`) like any intra-module import; the clone is prepended to
 	// files OUTSIDE the stdlib, where the same module is `std/maybe`. Without
 	// the segment every user file's prelude chain would resolve against the
 	// user's own project root and every prelude name would be undefined.
@@ -246,8 +246,7 @@ func cloneImportStmtForInject(src *ast.ImportStmt, index int) *ast.ImportStmt {
 		// in the synth band rather than pointing into prelude.nomi.
 		// Zero out when IncludeParent is false — no consumer reads
 		// SelfLine/SelfCol in that case, and zeros document intent.
-		// ExportAll, ExportFlags, ExportAliases all left
-		// at their zero values: the user file is consuming names, not
+		// Pub is left false: the user file is consuming names, not
 		// re-exporting them.
 	}
 	if src.IncludeParent {
@@ -304,21 +303,6 @@ func cloneIdentNodeSynth(n ast.Node, nextPos func() (int, int)) ast.Node {
 	default:
 		return n
 	}
-}
-
-// stmtIsReExport reports whether the statement carries any re-export
-// modifier — line-level `export` on a selective import, or any per-item
-// ExportFlags entry being true.
-func stmtIsReExport(s *ast.ImportStmt) bool {
-	if s.ExportAll {
-		return true
-	}
-	for _, f := range s.ExportFlags {
-		if f {
-			return true
-		}
-	}
-	return false
 }
 
 // prependPreludeImports returns a node slice with every prelude

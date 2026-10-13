@@ -1554,11 +1554,10 @@ func TestRegularCommentNotDocComment(t *testing.T) {
 }
 
 func TestExportKeyword(t *testing.T) {
-	assertTokens(t, "export { foo }", []token.Token{
+	assertTokens(t, "export fn foo", []token.Token{
 		tok(token.EXPORT, "export"),
-		tok(token.LBRACE, "{"),
+		tok(token.FN, "fn"),
 		tok(token.IDENT, "foo"),
-		tok(token.RBRACE, "}"),
 		tok(token.EOF, ""),
 	})
 }

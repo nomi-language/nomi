@@ -87,7 +87,7 @@ func runCommand(t *testing.T, path string) (observed, int) {
 		return runTests(t, path)
 	}
 	var out, errOut bytes.Buffer
-	code := vmcmd.Run(path, &out, &errOut, bytes.NewReader(nil), nil, false)
+	code := vmcmd.Run(context.Background(), path, &out, &errOut, bytes.NewReader(nil), nil, false)
 	return observed{stdout: out.String(), stderr: errOut.String(), exit: code}, 0
 }
 

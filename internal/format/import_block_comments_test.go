@@ -38,23 +38,21 @@ func TestFormat_ImportBlockComments(t *testing.T) {
 	}
 }
 
-// A blank line before a comment inside a block survives even when the preceding
-// entry ends in line-level `export` — the lexer used to drop that blank because
-// EXPORT wasn't treated as a statement-ender (so no BLANK_LINE token followed).
-// This is the prelude shape (every import is re-exported).
-func TestFormat_BlankBeforeCommentAfterExport(t *testing.T) {
-	src := "import {\n" +
-		"    std/maps.Map export\n" +
+// A blank line before a comment inside a `pub import` block survives. This
+// is the prelude shape (every import is re-exported).
+func TestFormat_BlankBeforeCommentInPubImportBlock(t *testing.T) {
+	src := "pub import {\n" +
+		"    std/maps.Map\n" +
 		"\n" +
 		"    // a comment\n" +
-		"    std/unit.Unit export\n" +
+		"    std/unit.Unit\n" +
 		"}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("Format: %v", err)
 	}
 	if got != src {
-		t.Errorf("blank line before comment after an export entry was not preserved:\ngot:\n%s\nwant:\n%s", got, src)
+		t.Errorf("blank line before comment in a `pub import` block was not preserved:\ngot:\n%s\nwant:\n%s", got, src)
 	}
 }
 

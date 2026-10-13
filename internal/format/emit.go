@@ -3946,9 +3946,12 @@ func emitDecorator(d *ast.Decorator) Doc {
 // emitFuncDefHeader renders the function signature up to but not including
 // the body:
 //
-//	[pub ]fn name[<T, ...>](params)[: ReturnType][ where T: Bound]
+//	[pub |export ]fn name[<T, ...>](params)[: ReturnType][ where T: Bound]
 func emitFuncDefHeader(v *ast.FuncDef) Doc {
 	parts := make([]Doc, 0, 6)
+	if v.Export {
+		parts = append(parts, Text("export "))
+	}
 	if v.Public {
 		parts = append(parts, Text("pub "))
 	}
@@ -5497,30 +5500,30 @@ func emitExternType(v *ast.ExternType) Doc {
 //	import <path>.A
 //	import <path>.{A, B, ...}
 //	import <path>.Owner.{A, B as C, ...}
-//	import <path>.{A, B export, C export as Cp}
-//	import <path>.{A, B, C} export
+//	pub import <path>.{A, B, C}
 //
 // The selective list stays inline when it fits. When the full import exceeds
 // the width budget, the formatter breaks after the module path and renders one
 // top-level selector per continuation line. A selective-name alias (`Name as
 // Alias`) stays on the same line as its original name — it's emitted as an
-// atomic Text so the layout engine can't break between the name and `as`. The
-// per-item `export [as <P>]` suffix is rendered into the same atomic Text for
-// the same reason.
-//
-// Re-export modifiers come from the AST (B.1):
-//   - Per-item: ExportFlags[i] / ExportAliases[i] are emitted alongside each
-//     selected name.
-//   - Line-level export renders after the full selector list.
+// atomic Text so the layout engine can't break between the name and `as`.
 func emitImport(v *ast.ImportStmt) Doc {
-	return Concat(Text("import "), emitImportBody(v))
+	return Concat(Text(importKeyword(v.Pub)), emitImportBody(v))
+}
+
+// importKeyword is the statement's keyword with the space after it.
+func importKeyword(pub bool) string {
+	if pub {
+		return "pub import "
+	}
+	return "import "
 }
 
 // emitImportBody renders an import without the leading `import ` keyword: the
-// path, optional drill-through type, explicit selectors, and re-export
-// modifiers. Shared by emitImport (which prepends `import `) and
-// emitImportBlock (which contributes the keyword once for the whole block, so
-// each entry is just its body).
+// path, optional drill-through type and explicit selectors. Shared by
+// emitImport (which prepends `import `) and emitImportBlock (which
+// contributes the keyword once for the whole block, so each entry is just
+// its body).
 func emitImportBody(v *ast.ImportStmt) Doc {
 	pathParts, owners := importPathAndOwners(v)
 	path := strings.Join(pathParts, "/")
@@ -5540,28 +5543,17 @@ func emitImportBody(v *ast.ImportStmt) Doc {
 		for _, o := range owners {
 			head += "." + o
 		}
-		list := Concat(Text(head+"."), emitCommentedList("{", "}", docs, cs, nil))
-		if v.ExportAll {
-			return Concat(list, Text(" export"))
-		}
-		return list
+		return Concat(Text(head+"."), emitCommentedList("{", "}", docs, cs, nil))
 	}
 	if len(v.Names) > 0 || v.IncludeParent {
 		if v.IncludeParent && len(owners) == 0 && !importHasItemModifiers(v) {
 			return Text(path + ".{" + strings.Join(importSelectorItemStrings(v), ", ") + "}")
 		}
 		selectors := importSelectorStrings(v)
-		if !v.ExportAll {
-			if importCanUseDottedSingleSelector(v, selectors) {
-				return Text(path + "." + selectors[0])
-			}
-			return emitImportSelectorBody(path, selectors)
+		if importCanUseDottedSingleSelector(v, selectors) {
+			return Text(path + "." + selectors[0])
 		}
-		// Line-level `export` shorthand — preserved after the selector body.
-		// This may be redundant when every item also carries a per-item flag
-		// (per the plan, B.4 silently allows that combination); the formatter
-		// preserves what was parsed.
-		return Concat(emitImportSelectorBody(path, selectors), Text(" export"))
+		return emitImportSelectorBody(path, selectors)
 	} else if v.ModuleAlias != nil {
 		parts = append(parts, Text(" as "+ast.ImportNodeName(v.ModuleAlias)))
 	}
@@ -5569,7 +5561,7 @@ func emitImportBody(v *ast.ImportStmt) Doc {
 }
 
 func importCanUseDottedSingleSelector(v *ast.ImportStmt, selectors []string) bool {
-	if len(selectors) != 1 || len(v.Names) != 1 || v.IncludeParent || importNeedsFlatBraceList(v) {
+	if len(selectors) != 1 || len(v.Names) != 1 || v.IncludeParent {
 		return false
 	}
 	// A dotted name, `A.{B.C}`, stays in braces: without them its segments
@@ -5633,12 +5625,6 @@ func importSelectorItemStrings(v *ast.ImportStmt) []string {
 		if i < len(v.Aliases) && v.Aliases[i] != nil {
 			n += " as " + ast.ImportNodeName(v.Aliases[i])
 		}
-		if i < len(v.ExportFlags) && v.ExportFlags[i] {
-			n += " export"
-			if i < len(v.ExportAliases) && v.ExportAliases[i] != nil {
-				n += " as " + ast.ImportNodeName(v.ExportAliases[i])
-			}
-		}
 		items = append(items, n)
 	}
 	return items
@@ -5649,7 +5635,7 @@ func importSelectorStrings(v *ast.ImportStmt) []string {
 	items := importSelectorItemStrings(v)
 	ownerPrefix := strings.Join(owners, ".")
 	if ownerPrefix == "" {
-		if v.IncludeParent || importNeedsFlatBraceList(v) {
+		if v.IncludeParent {
 			return []string{"{" + strings.Join(items, ", ") + "}"}
 		}
 		return items
@@ -5660,32 +5646,8 @@ func importSelectorStrings(v *ast.ImportStmt) []string {
 	return []string{ownerPrefix + ".{" + strings.Join(items, ", ") + "}"}
 }
 
-func importNeedsFlatBraceList(v *ast.ImportStmt) bool {
-	for _, flag := range v.ExportFlags {
-		if flag {
-			return true
-		}
-	}
-	for _, alias := range v.ExportAliases {
-		if alias != nil {
-			return true
-		}
-	}
-	return false
-}
-
 func importHasItemModifiers(v *ast.ImportStmt) bool {
 	for _, alias := range v.Aliases {
-		if alias != nil {
-			return true
-		}
-	}
-	for _, flag := range v.ExportFlags {
-		if flag {
-			return true
-		}
-	}
-	for _, alias := range v.ExportAliases {
 		if alias != nil {
 			return true
 		}
@@ -5700,7 +5662,7 @@ func importHasItemModifiers(v *ast.ImportStmt) bool {
 //	  std/lists: List
 //	}
 //
-// Always multiline, one entry per line, newline-separated — no commas and no
+// or the same after `pub` for a block of re-exports. Always multiline, one entry per line, newline-separated — no commas and no
 // trailing comma. This is the analog of Go's `import ( ... )`: a block of 2+
 // entries never collapses onto a single line. (Single-entry blocks are
 // collapsed to the bare per-statement form before we get here, by
@@ -5709,14 +5671,14 @@ func importHasItemModifiers(v *ast.ImportStmt) bool {
 // breaks correctly under the block indent.
 func emitImportBlock(v *ast.ImportBlock) Doc {
 	if len(v.Entries) == 0 {
-		open := "import {"
+		open := importKeyword(v.Pub) + "{"
 		if trailingHasComment(v.EndTrivia) {
 			// Only comments: they stay inside the braces.
 			return Concat(Text(open), Nest(defaultIndent, emitEndTrivia(v.EndTrivia)), HardLine(), Text("}"))
 		}
 		return Text(open + "}")
 	}
-	blockHead := "import {"
+	blockHead := importKeyword(v.Pub) + "{"
 	parts := []Doc{Text(blockHead)}
 	for _, e := range v.Entries {
 		// emitWithTriviaDoc renders the entry's leading comments (each on its own

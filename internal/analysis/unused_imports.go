@@ -16,9 +16,8 @@ import (
 //   - `self` in a brace list is its own item, used iff the parent
 //     module/enum name it binds is referenced.
 //
-// Re-exports are used by definition: `import path.{a export}` and line-level
-// `export` on a selective list exempt the re-exported items (the prelude is
-// the canonical consumer). Synthesized imports (the auto-prepended prelude
+// Re-exports are used by definition: `pub import path.{a, b}` exempts the
+// re-exported items (the prelude is the canonical consumer). Synthesized imports (the auto-prepended prelude
 // chain — synth-band positions) are skipped entirely: they are compiler output,
 // not visible text.
 //
@@ -175,9 +174,6 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 		}
 		for _, alias := range n.Aliases {
 			markImportNodePos(ownPos, alias)
-		}
-		for _, ea := range n.ExportAliases {
-			markImportNodePos(ownPos, ea)
 		}
 		markImportNodePos(ownPos, n.ModuleAlias)
 		if n.IncludeParent && n.SelfLine > 0 {
@@ -446,7 +442,7 @@ func collectImportItems(fa *FileAnalysis, stmts []*ast.ImportStmt) []importItem 
 		if len(n.Names) == 0 {
 			// File import (`import std/io`, `import std/io as console`): the
 			// file API object is the one item. A file is never re-exported,
-			// so no `export` exempts it.
+			// so no `pub` exempts it.
 			bindNode := n.ModulePath[len(n.ModulePath)-1]
 			if n.ModuleAlias != nil {
 				bindNode = n.ModuleAlias
@@ -478,10 +474,10 @@ func collectImportItems(fa *FileAnalysis, stmts []*ast.ImportStmt) []importItem 
 			continue
 		}
 
-		// Selective import: each brace name is its own item; line-level
-		// `export` and per-item `export` flags exempt the re-exported ones.
+		// Selective import: each brace name is its own item. A re-export
+		// (`pub import`) is used by the files that import it.
 		for i, nameNode := range n.Names {
-			if n.ExportAll || (i < len(n.ExportFlags) && n.ExportFlags[i]) {
+			if n.Pub {
 				continue
 			}
 			bindNode := nameNode
@@ -529,10 +525,10 @@ func collectImportItems(fa *FileAnalysis, stmts []*ast.ImportStmt) []importItem 
 
 		// `Owner.{self, ...}`: binds the brace group's explicit owner under
 		// the last path segment's name.
-		// Line-level `export` re-exports the full selection, an owner type's
-		// `self` included (prelude's `std/bool.Bool.{self, False, True}
-		// export`), so the self item is exempt there like its siblings.
-		if n.IncludeParent && !n.ExportAll {
+		// `pub import` re-exports the full selection, an owner type's `self`
+		// included (prelude's `pub import bool.Bool.{self, False, True}`),
+		// so the self item is exempt there like its siblings.
+		if n.IncludeParent && !n.Pub {
 			lastSeg := n.ModulePath[len(n.ModulePath)-1]
 			pos, ok := importNodePos(lastSeg)
 			if !ok {

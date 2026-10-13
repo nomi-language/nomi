@@ -22,11 +22,11 @@ pub struct Box {
 }
 `
 
-// A facade that re-exports a whole file is a check error at its `export`,
+// A facade that re-exports a whole file is a check error at its `pub`,
 // reported for the facade file, not the entry that imports it.
 func TestFileReExport_IsACheckErrorInTheFacade(t *testing.T) {
 	path := writeCycleProject(t, map[string]string{
-		"facade.nomi": "import {\n    leaf export\n}\n",
+		"facade.nomi": "pub import {\n    leaf\n}\n",
 		"leaf.nomi":   reexportLeaf,
 		"main.nomi":   "import facade.{leaf}\n\nfn main() {\n    _b = leaf.make_box(7)\n}\n",
 	})
@@ -44,7 +44,7 @@ func TestFileReExport_IsACheckErrorInTheFacade(t *testing.T) {
 // The same facade listing its items runs, selected or aliased.
 func TestFileReExport_ItemFacadeRuns(t *testing.T) {
 	path := writeCycleProject(t, map[string]string{
-		"facade.nomi": "import {\n    leaf.{Box, make_box, open_box} export\n}\n",
+		"facade.nomi": "pub import {\n    leaf.{Box, make_box, open_box}\n}\n",
 		"leaf.nomi":   reexportLeaf,
 		"main.nomi": `import {
     std/io

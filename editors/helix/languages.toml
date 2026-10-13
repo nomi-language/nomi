@@ -39,4 +39,4 @@ args = { mode = "test", program = "{0}", line = "{1}" }
 
 [[grammar]]
 name = "nomi"
-source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "7c89ec8cb28063739b67c5effb72dbb3a8d52d0f" }
+source = { git = "https://github.com/nomi-language/tree-sitter-nomi", rev = "a85d07eb549038923c503cd223eb077e7c234237" }

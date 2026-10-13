@@ -137,29 +137,41 @@ func (m *Machine) entry(ctx context.Context, args []string, handleSignals bool, 
 		// runs — the REPL's next input, the tour's next block.
 		rt.ResetSupervisors()
 	}()
-	run := *m
-	run.hostFrame = fr
-	if m.boot != nil {
-		booted, bootErr := m.bootWith(m.boot, startupValue(args, m.hostEnv), fr)
-		if bootErr != nil {
-			if failed, isFailed := bootErr.(*bootFailed); isFailed {
-				return nil, &Fault{err: failed}
-			}
-			if _, internal := AsCompilePanic(bootErr); internal {
-				return nil, bootErr
-			}
-			if _, isLimit := ProgramFailure(bootErr); isLimit {
-				return nil, bootErr
-			}
-			return nil, &Fault{err: fmt.Errorf("boot() failed: %w", bootErr)}
-		}
-		run = *booted
+	run, err := m.bootOn(fr, args)
+	if err != nil {
+		return nil, err
 	}
 	if handleSignals {
 		stop := rt.InstallShutdownSignals(fr)
 		defer stop()
 	}
-	return body(&run)
+	return body(run)
+}
+
+// bootOn answers the machine whose calls run on fr: this one when the
+// program records no boot, and otherwise the view boot published its app
+// in, booted with the program arguments args. A boot failure is wrapped as
+// `boot() failed`.
+func (m *Machine) bootOn(fr *rt.Frame, args []string) (*Machine, error) {
+	run := *m
+	run.hostFrame = fr
+	if m.boot == nil {
+		return &run, nil
+	}
+	booted, bootErr := m.bootWith(m.boot, startupValue(args, m.hostEnv), fr)
+	if bootErr != nil {
+		if failed, isFailed := bootErr.(*bootFailed); isFailed {
+			return nil, &Fault{err: failed}
+		}
+		if _, internal := AsCompilePanic(bootErr); internal {
+			return nil, bootErr
+		}
+		if _, isLimit := ProgramFailure(bootErr); isLimit {
+			return nil, bootErr
+		}
+		return nil, &Fault{err: fmt.Errorf("boot() failed: %w", bootErr)}
+	}
+	return booted, nil
 }
 
 // ProgramFailure sorts an error this machine answered. A Nomi fault or a

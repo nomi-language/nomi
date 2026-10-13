@@ -1,6 +1,7 @@
 package vmhost
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -32,6 +33,7 @@ type config struct {
 	errOut       io.Writer
 	env          map[string]string
 	input        io.Reader
+	stop         context.Context
 	// allowUnusedBindings drops unused-binding errors. See
 	// WithUnusedBindingsAllowed.
 	allowUnusedBindings bool
@@ -106,6 +108,15 @@ func WithErrorOutput(w io.Writer) Option {
 // passes os.Stdin.
 func WithInput(r io.Reader) Option {
 	return func(c *config) { c.input = r }
+}
+
+// WithStop makes every machine the program opens end its run when ctx
+// does: a run blocked in a wait wakes at once, and one that is computing
+// stops at its next call, loop iteration or iteration element. `nomi test
+// --watch` stops a test file's cases this way when a file changes. Run also
+// stops on its own ctx without it.
+func WithStop(ctx context.Context) Option {
+	return func(c *config) { c.stop = ctx }
 }
 
 // WithEnv overrides environment variables in the Startup a program's boot

@@ -1,0 +1,21 @@
+================================================================================
+Exported function
+================================================================================
+
+export fn guess(n: Int): Int {
+    n
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (export)
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (identifier))))

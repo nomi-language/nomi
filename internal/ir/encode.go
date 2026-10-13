@@ -42,11 +42,12 @@ import (
 	"hash/crc32"
 	"math"
 	"sort"
+	"strings"
 )
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 18
+const FormatVersion = 19
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -69,6 +70,52 @@ type Image struct {
 	// Root is the project root std/compiler's hosts resolve imports
 	// against, the one the program was lowered with.
 	Root string
+	// Exports are the program's exported functions (`export fn`), the
+	// functions a host calls by name, in declaration order.
+	Exports []Export
+}
+
+// Export is one exported function as a host calls it: each argument's JSON
+// text is decoded by its parameter's Decode, Func is called with the
+// values, and its result is encoded as JSON text by Encode.
+type Export struct {
+	Name   string
+	Func   *Func
+	Params []ExportParam
+	// Result is the declared result type as Nomi writes it, or "" for a
+	// Unit result, which crosses as nothing and has no Encode.
+	Result string
+	// Encode takes the result and answers its JSON text (a String).
+	Encode *Func
+}
+
+// ExportParam is one parameter of an exported function.
+type ExportParam struct {
+	Name string
+	// Type is the declared type as Nomi writes it.
+	Type string
+	// Decode takes the argument's JSON text and answers a
+	// Result<Type, String>, whose Err is why the text is not a Type.
+	Decode *Func
+}
+
+// Signature is e as Nomi declares it, without `export fn`:
+// `guess(game: Game, letter: String): Game`.
+func (e *Export) Signature() string {
+	var b strings.Builder
+	b.WriteString(e.Name)
+	b.WriteByte('(')
+	for i, p := range e.Params {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(p.Name + ": " + p.Type)
+	}
+	b.WriteByte(')')
+	if e.Result != "" {
+		b.WriteString(": " + e.Result)
+	}
+	return b.String()
 }
 
 // EntryModule is Modules[Entry], or nil.
@@ -217,6 +264,25 @@ func EncodeImage(im Image) ([]byte, error) {
 	}
 	w.bool1(im.HasMain)
 	w.uv(e.str(im.Root))
+	w.uv(uint64(len(im.Exports)))
+	for _, x := range im.Exports {
+		if x.Func == nil {
+			return nil, fmt.Errorf("ir: EncodeImage: exported function %s has no body", x.Name)
+		}
+		w.uv(e.str(x.Name))
+		w.uv(e.fn(x.Func))
+		w.uv(uint64(len(x.Params)))
+		for _, p := range x.Params {
+			if p.Decode == nil {
+				return nil, fmt.Errorf("ir: EncodeImage: parameter %s of exported function %s has no decoder", p.Name, x.Name)
+			}
+			w.uv(e.str(p.Name))
+			w.uv(e.str(p.Type))
+			w.uv(e.fn(p.Decode))
+		}
+		w.uv(e.str(x.Result))
+		w.uv(e.fn(x.Encode))
+	}
 	e.drain()
 	if e.err != nil {
 		return nil, e.err

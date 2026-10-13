@@ -18,8 +18,9 @@ import (
 // Unsupported reports, as front-end diagnostics, every body the program
 // reaches that the compiler accepted and cannot lower for the VM: exactly
 // what `nomi run` would stop with and `nomi test` would report BLOCKED,
-// found without running anything. The roots are `main` and its boot, and every test case
-// with its group's boot. Each diagnostic sits at the expression the lowering
+// found without running anything. The roots are `main` and its boot, every
+// exported function with the boot, and every test case with its group's
+// boot. Each diagnostic sits at the expression the lowering
 // stopped at, or at the declaration when the body was refused as a whole,
 // and is worded for the program's author: it names the construct, never the
 // compiler's internal reason. Nil when everything the program reaches runs.
@@ -55,6 +56,17 @@ func (p *Program) Unsupported() error {
 			}
 			reach(vm.MainRoots(p.entry, mainFn), boots)
 		}
+	}
+	for _, e := range p.res.Exports {
+		if e.Func == nil || m == nil {
+			add(e.Name)
+			continue
+		}
+		var boots []*ir.Symbol
+		if boot := p.entry.Boot(); boot != nil {
+			boots = append(boots, boot)
+		}
+		reach([]*ir.Func{e.Func}, boots)
 	}
 	if p.prog.HasTests {
 		plan, _ := frontend.SelectTests(p.prog.Entry().Nodes, TestOptions{})

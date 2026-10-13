@@ -73,10 +73,10 @@ const (
 	IMPORT      // import
 	EXTERN      // extern
 	HOST        // host
-	EXPORT      // export
+	EXPORT      // export — marks a top-level function a host calls by name
 	PUB         // pub — inline visibility modifier on declarations
 	ONCE        // once — file-level immutable, lazy on first access
-	OPAQUE      // opaque — qualifier in export blocks for opaque distinct types
+	OPAQUE      // opaque — hides a pub type's representation from other files
 	WHERE       // where — method-level interface-bound clause on interface default methods
 	WITH        // with — scoped binding statement introducer
 	DEFER       // defer — block-scoped cleanup statement

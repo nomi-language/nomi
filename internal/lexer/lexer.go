@@ -1262,7 +1262,6 @@ func canEndStatement(tt token.TokenType) bool {
 		token.RPAREN, token.RBRACKET, token.RBRACE, token.GT,
 		token.RETURN, token.BREAK, token.CONTINUE,
 		token.ASSERT, token.REFUTE, token.TRY, token.DBG, token.TODO,
-		token.EXPORT,
 		token.UNDERSCORE:
 		return true
 	default:

@@ -91,6 +91,14 @@ nomi test                                  # run every test under the current di
 nomi                                       # an interactive REPL
 nomi build app.nomi                        # write a standalone executable
 nomi build app.nomi --target linux/amd64   # ... for another platform
+nomi build app.nomi --target wasip1/wasm   # ... as a WebAssembly module
+nomi build app.nomi --web                  # write app-web/, a page that runs it in a browser,
+                                           # with the files of web/ beside it copied in
+nomi run --web app.nomi                    # serve that page and web/ on localhost; reload it on every edit
+nomi build app.nomi --no-vm                # write app.nomic, the compiled program alone, for any platform's nomi-vm
+nomi build --vm                            # write nomi-vm, which runs a compiled program it is given:
+nomi-vm app.nomic a b                      #   by path, or
+cat app.nomic input | nomi-vm              #   framed on stdin, the rest being the program's input
 nomi check app.nomi                        # type-check without running
 nomi fmt -w .                              # format
 ```

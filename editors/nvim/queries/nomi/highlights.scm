@@ -60,8 +60,8 @@
 "and" @keyword.operator
 "or" @keyword.operator
 (pub) @keyword.modifier
+(export) @keyword
 "opaque" @keyword.modifier
-"export" @keyword.import
 "once" @keyword.modifier
 "extern" @keyword.modifier
 "embeds" @keyword

@@ -335,6 +335,22 @@ func TestCodeAction_AddImport_JoinsBlock(t *testing.T) {
 	}
 }
 
+// A re-export is never where an added import goes: neither a `pub import`
+// of the same file nor a `pub import { ... }` block takes it, since either
+// would re-export the added name.
+func TestCodeAction_AddImport_NeverJoinsAReExport(t *testing.T) {
+	got := runAddFix(t, "pub import std/calendar.Date\n\npub fn f(_t: Time): Bool {\n  True\n}\n")
+	want := "pub import std/calendar.Date\nimport std/calendar.Time\n\npub fn f(_t: Time): Bool {\n  True\n}\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	got = runAddFix(t, "pub import {\n  std/lists.List\n}\n\nfn main() {\n  io.inspect(42)\n}\n")
+	want = "pub import {\n  std/lists.List\n}\nimport std/io\n\nfn main() {\n  io.inspect(42)\n}\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
 // A type-qualified use of an unimported stdlib type adds the owner import.
 func TestCodeAction_AddModule_NoImports(t *testing.T) {
 	got := runAddFix(t, "fn main() {\n  Duration.seconds(5)\n}\n")

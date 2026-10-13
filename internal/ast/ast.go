@@ -1865,17 +1865,12 @@ func AttachedTestsOf(n Node) []AttachedTest {
 //     aliases: `import mod.{Name as Alias}`. Aliases[i] is nil when the i-th
 //     selected name has no alias.
 //
-// Re-export modifiers:
-//   - ExportAll is true when a line-level `export` follows a selective import:
-//     `import path: a, b export` re-exports every selected item under its
-//     imported name. It never follows an import that binds a file (`import
-//     leaf export`, or `self` naming the file): a file cannot be re-exported,
-//     and the parser rejects both.
-//   - ExportFlags is a parallel slice to Names (same length) for per-item
-//     re-exports: `import mod.{a export, b}` sets ExportFlags[0] = true.
-//   - ExportAliases is a parallel slice to Names (same length) for per-item
-//     re-export renames: `import mod.{a export as A, b}` sets
-//     ExportAliases[0] to the `A` ident. Nil entry = no rename on re-export.
+// Re-export:
+//   - Pub is set by `pub import`: the statement re-exports every item it
+//     selects, under its local name (the `as` alias when there is one). In
+//     a block, `pub import { ... }`, every entry carries it. It never marks
+//     an import that binds a file (`pub import leaf`, or `self` naming the
+//     file): a file cannot be re-exported, and the parser rejects both.
 type ImportStmt struct {
 	TriviaCarrier
 	SpanCarrier
@@ -1884,13 +1879,11 @@ type ImportStmt struct {
 	// path, the `/`-joined part; the segments after it are owners written
 	// after a `.` (`Shape` in `shape.Shape.{Circle}`). Zero when the import
 	// was not parsed from source.
-	FileSegments  int
-	Names         []Node // *Ident or *TypeIdent for each imported name
-	Aliases       []Node // parallel to Names; nil entry = no alias for that name
-	ModuleAlias   Node   // alias for empty-name file imports
-	ExportAll     bool   // true for line-level `export` on a selective import
-	ExportFlags   []bool // parallel to Names; true when item carries `export`
-	ExportAliases []Node // parallel to Names; nil entry = no rename on re-export
+	FileSegments int
+	Names        []Node // *Ident or *TypeIdent for each imported name
+	Aliases      []Node // parallel to Names; nil entry = no alias for that name
+	ModuleAlias  Node   // alias for empty-name file imports
+	Pub          bool   // `pub import`: re-export every selected item
 	// Braced is set for the selective-list forms — `mod.{A, B}` and the
 	// drill-through `mod.Owner.{A, B}`. It distinguishes them from the
 	// plain `mod: Owner.Name`, which names one thing rather than
@@ -1928,6 +1921,8 @@ type ImportBlock struct {
 	TriviaCarrier
 	SpanCarrier
 	Entries []*ImportStmt
+	// Pub is set by `pub import { ... }`; every entry carries it too.
+	Pub bool
 	// EndTrivia holds comments / blank-line trivia between the last entry and
 	// the closing `}` (the analog of AnonStructType.EndTrivia). Without it a
 	// trailing in-block comment has nowhere to live and would be dropped.
@@ -2016,10 +2011,16 @@ type Param struct {
 type FuncDef struct {
 	TriviaCarrier
 	SpanCarrier
-	AttachedTests   []AttachedTest // prompt tests attached to this declaration
-	Decorators      []Decorator    // always nil: source has no decorators, and the derive lowering decorates types only
-	Name            string
-	Public          bool
+	AttachedTests []AttachedTest // prompt tests attached to this declaration
+	Decorators    []Decorator    // always nil: source has no decorators, and the derive lowering decorates types only
+	Name          string
+	Public        bool
+	// Export marks an `export fn`: a top-level function a host calls by
+	// name, with its arguments and result crossing as JSON. ExportLine and
+	// ExportCol are the `export` keyword's position.
+	Export          bool
+	ExportLine      int
+	ExportCol       int
 	TypeParams      []TypeParam
 	Params          []Param
 	ParamsEndTrivia []Trivia // the comments in a parameter list with no parameter, `f( // why` then `)`

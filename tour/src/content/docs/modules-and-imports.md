@@ -287,39 +287,44 @@ zero-sized `type` markers — since there's nothing to hide.
 ## Re-exports
 
 A file can re-publish items it imports — promoting them into its own
-public surface — with the `export` modifier on the import. That's how a
-facade file curates an API out of sibling files or dependencies
-without making consumers chase the underlying source:
+public surface — with `pub import`. That's how a facade file curates an
+API out of sibling files or dependencies without making consumers chase
+the underlying source:
 
 ```nomi
 // Re-export an imported type — consumers of this file see `Parser`.
-import other/parser.Parser export
+pub import other/parser.Parser
 
-// Re-export an imported function under a different name.
-import other/parser.{parse export as parse_source}
+// Re-export several items at once.
+pub import std/io.{IOError, print}
 
-// Per-item — `add` re-exported under its own name; `subtract`
-// re-exported under the alias `minus`; `helper` stays private.
-import calc.{add export, subtract export as minus, helper}
+// An alias is the name consumers see: `parse_source`, not `parse`.
+pub import other/parser.{parse as parse_source}
 
-// Line-level shorthand — every selected name re-exported.
-import std/io.{IOError, print} export
+// A block re-exports every entry.
+pub import {
+    calc.{add, subtract}
+    std/comparable.Ordering
+}
 ```
+
+`pub import` re-exports everything the statement selects. Items you only
+use yourself go in a plain `import`, so a facade that also has private
+imports writes both.
 
 Re-exports are explicit by item — there's no `import path.*` glob —
 so an upstream dependency adding new public names never silently
 expands your file's API. The name being re-exported must already be
 `pub` upstream; re-exporting a private name is an error.
 
-A facade re-exports items, never a whole file: `import other/parser
-export` is an error at the `export`. List the items consumers need, or
-have them import `other/parser` themselves.
+A facade re-exports items, never a whole file: `pub import other/parser`
+is an error at the `pub`. List the items consumers need, or have them
+import `other/parser` themselves.
 
-`export as ...` applies only to imported names, not to your file's
-own declarations, and the alias has to match the imported symbol's
-naming shape (`parse_source` for a function; `Parser` for a type).
-To expose a local definition under a different name, rename the declaration
-itself or write a thin wrapper.
+`pub import` applies only to imported names, and an alias has to match
+the imported symbol's naming shape (`parse_source` for a function;
+`Parser` for a type). To expose a local definition under a different
+name, rename the declaration itself or write a thin wrapper.
 
 ## Nomi modules
 

@@ -97,12 +97,14 @@ pre.nomi-tour {
   white-space: pre;
 }
 pre.nomi-tour.nomi-code-nomi,
-pre.nomi-tour.nomi-code-go {
+pre.nomi-tour.nomi-code-go,
+pre.nomi-tour.nomi-code-js {
   position: relative;
   padding-right: 4.75em;
 }
 pre.nomi-tour.nomi-code-nomi::before,
-pre.nomi-tour.nomi-code-go::before {
+pre.nomi-tour.nomi-code-go::before,
+pre.nomi-tour.nomi-code-js::before {
   position: absolute;
   top: 0.55em;
   right: 0.75em;
@@ -123,6 +125,11 @@ pre.nomi-tour.nomi-code-nomi::before {
 pre.nomi-tour.nomi-code-go::before {
   content: "Go";
   background: #25845f;
+}
+pre.nomi-tour.nomi-code-js::before {
+  content: "JS";
+  background: #f0db4f;
+  color: #323330;
 }
 /* SSR'd runnable blocks keep an inner <code> until the client enhances them;
    keep it flush with the surrounding .nomi-tour (no Starlight code styling). */

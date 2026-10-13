@@ -183,6 +183,10 @@ module.exports = grammar({
     // identifier reachable through `_expression_or_statement`.
     pub: $ => 'pub',
 
+    // `export fn`: a top-level function a host calls by name. A rule of its
+    // own for the same reason as `pub`.
+    export: $ => 'export',
+
     attached_test_prompt: $ => seq(
       $.attached_comment_test_prompt_marker,
       // A prompt body is a block: it may declare local types and functions
@@ -245,18 +249,18 @@ module.exports = grammar({
 
     // Import
     //
-    // Optional line-level `export [as <name>]` re-exports the imported
-    // module/names from this file. Order is: alias first, then export.
-    //   import some_mod export
-    //   import some_mod as sm export as Public
-    //   import some_mod: a, b export
-    import_statement: $ => seq('import', $._import_body),
+    // A leading `pub` re-exports every item the import selects from this
+    // file, under its local name:
+    //   pub import some_mod.{a, b}
+    //   pub import some_mod.{Helper as Helpr}
+    import_statement: $ => seq(optional($.pub), 'import', $._import_body),
 
     // Import block: `import { entry entry ... }` — bundles multiple imports
     // into a single statement. Entries use the same `_import_body` shape as a
     // standalone import. Commas appear only inside an entry's selective name
-    // list (`mod.{a, b}`).
+    // list (`mod.{a, b}`). `pub import { ... }` re-exports every entry.
     import_block: $ => seq(
+      optional($.pub),
       'import',
       '{',
       repeat1($._import_body),
@@ -274,7 +278,7 @@ module.exports = grammar({
     //   path: Owner.Type          (single-name owner selective)
     //   path: Owner.{Names}       (owner selective)
     //   path: {Names}             (flat selective)
-    // plus optional `as` alias and `export` re-export. The `.` boundary is the
+    // plus an optional `as` alias. The `.` boundary is the
     // owner/member boundary inside the declaration selector; `/` joins
     // module-path segments inside `module_path`.
     _import_body: $ => seq(
@@ -291,7 +295,6 @@ module.exports = grammar({
         )),
       )),
       optional(seq('as', choice($.identifier, $.type_identifier))),
-      optional(seq('export', optional(seq('as', choice($.identifier, $.type_identifier))))),
     ),
 
     module_path: $ => seq(
@@ -340,22 +343,16 @@ module.exports = grammar({
     // `self` inside a selective brace list lifts the LHS of the brace
     // group: `import path.{self, X, Y}` also binds `path` (the module);
     // `import path.Enum.{self, X, Y}` also binds `Enum` (the type).
-    // No alias / no export modifier — it's a marker, not a name.
+    // No alias — it's a marker, not a name.
     import_self: $ => 'self',
 
     // One name in a selective-import brace list:
     //   Name
     //   Name as Local
-    //   Name export
-    //   Name export as Pub
-    //   Name as Local export
-    //   Name as Local export as Pub
-    // Order is fixed: rename-on-import first, then re-export modifier.
     import_entry: $ => seq(
       choice($.identifier, $.type_identifier),
       repeat(seq('.', choice($.identifier, $.type_identifier))),
       optional(seq('as', choice($.identifier, $.type_identifier))),
-      optional(seq('export', optional(seq('as', choice($.identifier, $.type_identifier))))),
     ),
 
     gopkg_declaration: $ => seq(
@@ -376,7 +373,7 @@ module.exports = grammar({
 
     // Functions
     function_definition: $ => prec.right(seq(
-      optional($.pub),
+      optional(choice($.pub, $.export)),
       optional('impl'),
       'fn',
       choice(

@@ -21,15 +21,17 @@ const (
 // the structural hashing and the record value model) and the machine that
 // executes bytecode over it.
 //
-// nomi/vmrunner and cmd/nomi-runner are `nomi build`'s runner: what a built
-// executable links. The nomi_compiler build tag, which a program crossing
-// into std/compiler builds its runner with, is the one variant that links
-// the front end, and it is not checked here.
+// nomi/vmrunner, cmd/nomi-vm and cmd/nomi-vm-reactor (the wasip1 reactor)
+// are `nomi build`'s runners: what a built executable links. The
+// nomi_compiler build tag, which a program crossing into std/compiler builds
+// its runner with, is the one variant that links the front end, and it is
+// not checked here.
 var artifactRuntimePackages = []string{
 	runtimePackagePath,
 	"github.com/nomi-language/nomi/internal/vm",
 	"github.com/nomi-language/nomi/vmrunner",
-	"github.com/nomi-language/nomi/cmd/nomi-runner",
+	"github.com/nomi-language/nomi/cmd/nomi-vm",
+	"github.com/nomi-language/nomi/cmd/nomi-vm-reactor",
 }
 
 // frontEndPackages must not appear anywhere in a runtime package's transitive

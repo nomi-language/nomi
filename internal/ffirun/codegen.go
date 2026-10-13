@@ -59,6 +59,7 @@ import (
 {{if not .Runner}}
 const ffiTestResultMarker = "__NOMI_FFI_TEST_RESULT"
 const imageUsesCompilerMarker = "__NOMI_IMAGE_USES_COMPILER"
+const imageHasExportsMarker = "__NOMI_IMAGE_HAS_EXPORTS"
 const wrapperModeFlag = "--nomi-wrapper-mode"
 {{end}}
 {{if .Runner}}
@@ -195,6 +196,9 @@ func buildImageVM(entryPath string, args []string) {
 	}
 	if usesCompiler {
 		stdfmt.Println(imageUsesCompilerMarker)
+	}
+	if p.HasExports() {
+		stdfmt.Println(imageHasExportsMarker)
 	}
 }
 

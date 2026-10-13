@@ -25,9 +25,17 @@ function setCodeLabel(pre, label) {
   addClass(pre, `nomi-code-${label.toLowerCase()}`);
 }
 
-async function highlightGo(code) {
+// Static blocks Shiki highlights at build time, by fence language: the
+// shiki grammar and the chip class (`nomi-code-<chip>`) each one gets.
+const SHIKI_LANGS = {
+  go: { lang: "go", chip: "go" },
+  js: { lang: "javascript", chip: "js" },
+  javascript: { lang: "javascript", chip: "js" },
+};
+
+async function highlight(code, { lang, chip }) {
   const root = await codeToHast(code, {
-    lang: "go",
+    lang,
     themes: { light: "one-light", dark: "one-dark-pro" },
   });
   const pre = root.children?.find((node) => node.type === "element" && node.tagName === "pre");
@@ -35,12 +43,12 @@ async function highlightGo(code) {
   return {
     type: "element",
     tagName: "pre",
-    properties: { className: "nomi-tour nomi-code-go" },
+    properties: { className: `nomi-tour nomi-code-${chip}` },
     children: codeNode?.children || [],
   };
 }
 
-export default function rehypeGoShiki() {
+export default function rehypeShiki() {
   return async function transform(tree) {
     const edits = [];
 
@@ -50,8 +58,9 @@ export default function rehypeGoShiki() {
         const child = node.children[i];
         if (child?.type === "element" && child.tagName === "pre") {
           const code = child.children?.find((c) => c.type === "element" && c.tagName === "code");
-          if (hasClass(code, "language-go")) {
-            edits.push({ parent: node, index: i, code: textContent(code).replace(/\n+$/, "") });
+          const fence = Object.keys(SHIKI_LANGS).find((name) => hasClass(code, `language-${name}`));
+          if (fence) {
+            edits.push({ parent: node, index: i, fence, code: textContent(code).replace(/\n+$/, "") });
           } else if (
             hasClass(code, "language-nomi") ||
             hasClass(code, "language-nomi-run") ||
@@ -66,7 +75,7 @@ export default function rehypeGoShiki() {
 
     visit(tree, null);
     for (const edit of edits) {
-      edit.parent.children[edit.index] = await highlightGo(edit.code);
+      edit.parent.children[edit.index] = await highlight(edit.code, SHIKI_LANGS[edit.fence]);
     }
   };
 }

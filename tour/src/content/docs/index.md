@@ -61,29 +61,29 @@ list: faster editor tooling, and watches and expressions in the debugger.
 ## Running Nomi
 
 ```
-nomi run app.nomi       # run a program
-nomi test               # run every test under the current directory
-nomi                    # an interactive REPL
-nomi build app.nomi     # write a standalone executable
+nomi run app.nomi           # run a program
+nomi run --watch app.nomi   # run it again on every save
+nomi test                   # run every test under the current directory
+nomi test --watch           # run the tests again on every save
+nomi                        # an interactive REPL
+nomi build app.nomi         # write a standalone executable
 ```
 
 `nomi build` writes a **single executable** that needs nothing installed to
-run. Build for another platform with `--target`, for example
-`--target linux/amd64`.
-
-A file can also run as a script. Start it with a `#!/usr/bin/env nomi` line,
-make it executable, and `./hi.nomi a b` runs it as `nomi run hi.nomi a b`
-would; `nomi hi.nomi a b` does the same.
+run, for this machine or, with `--target`, another platform. `nomi build
+--web` writes a page that runs the program in the browser, the way the
+examples on this site run, and a page can keep the program loaded and call its
+functions. WebAssembly runners such as wasmtime can load and call a Nomi
+module too. [Building & Shipping](/building-and-shipping/) covers each of
+these.
 
 ### The Nomi VM
 
 Nomi compiles your program to bytecode and runs it on its own virtual machine,
-the way Lua, Python and Erlang do. There is one VM, and it is the same
-everywhere Nomi runs:
+the way Lua, Python and Erlang do:
 
 - `nomi run`, `nomi test` and the REPL run your program on it.
-- `nomi build` packages it with your program into one executable; a built
-  program is the VM plus your code, not native machine code.
+- `nomi build` packages it with your program into one executable.
 - The examples on this site run on it in your browser. Edit one and it
   re-runs as you type.
 - A Go application can embed it to load a Nomi program and call its

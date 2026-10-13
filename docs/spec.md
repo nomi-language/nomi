@@ -220,7 +220,7 @@ pub enum Error {
 fn validate_internal(c: Config): Bool { ... }              // private
 ```
 
-A file qualifies the declarations it exports. Other files import the file and call through its file API object (`io.print(...)`, `io.IOError.NotFound{...}`). The file API object is only a qualifier: `io` alone, as a statement, a bound value or an argument, is the error `` `io` is a file, not a value ``. Inside the defining file, sibling declarations remain bare (`IOError`, `print`). Plain imports are lexical aliases only. An imported item marked `export` is re-exported by the current file and becomes part of its public surface; a file itself is never re-exported, so a file's public surface is its own declarations and the items it lists.
+A file qualifies the declarations it exports. Other files import the file and call through its file API object (`io.print(...)`, `io.IOError.NotFound{...}`). The file API object is only a qualifier: `io` alone, as a statement, a bound value or an argument, is the error `` `io` is a file, not a value ``. Inside the defining file, sibling declarations remain bare (`IOError`, `print`). Plain imports are lexical aliases only. An item imported with `pub import` is re-exported by the current file and becomes part of its public surface; a file itself is never re-exported, so a file's public surface is its own declarations and the items it lists.
 
 ```nomi
 pub enum IOError {
@@ -233,16 +233,17 @@ pub fn print(value: String): Unit { ... }
 Rules:
 
 - **Placement.** `pub` is the leftmost modifier on a declaration. Order: `pub [opaque] <keyword> <name> ...`.
-- **Applicable to.** `fn`, `struct`, `enum`, `type` (distinct), `interface`, `typealias`, `once`, `host fn`, `host type`. Structs, enums, and distinct types may also take `opaque` after `pub`: `pub opaque struct Name { ... }`, `pub opaque enum Name { ... }`, or `pub opaque type Name InnerType` (primitive-distinct).
-- **Not applicable to.** Interface implementation functions (inherit visibility from the implemented interface), struct fields (inherit from the struct), enum variants (inherit from the enum), and local bindings inside function bodies (always block-scoped).
+- **Applicable to.** `fn`, `struct`, `enum`, `type` (distinct), `interface`, `typealias`, `once`, `host fn`, `host type`, and `import` (a re-export; see below). Structs, enums, and distinct types may also take `opaque` after `pub`: `pub opaque struct Name { ... }`, `pub opaque enum Name { ... }`, or `pub opaque type Name InnerType` (primitive-distinct).
+- **Not applicable to.** Interface implementation functions (inherit visibility from the implemented interface), struct fields (inherit from the struct), enum variants (inherit from the enum), and anything declared inside a body, a function's, a lambda's, a test's or a `once` initializer's, which is always block-scoped: `pub` there is the error `` `pub` applies to top-level declarations only ``.
+- **Not `export`.** `export fn` (§5, *Exported Functions*) makes a function callable from outside the program, which is a different thing from visible to other files; the two do not combine.
 - **Root-level public functions are file API.** A file can publish root-level `pub fn` and `pub host fn`; callers reach them through the imported file API object (`users.find(...)`, `io.print(...)`). Functions and `once`s declared in an `impl` block are not file API: they are reached through their owner (`Duration.seconds(1)`, `Int.max_value`, `Int.to_string(n)`, `Display.to_string(n)`), and a file-qualified spelling such as `duration.seconds(1)` is an error that names the owner.
 - **Private declarations are invisible to other files.** No other file can name a private function, type or interface in any spelling: a call (`other.helper()`), a type annotation or type argument (`x: other.Hidden`, `List<other.Hidden>`), a struct literal or pattern head (`other.Hidden{v: 1}`), an enum variant or constructor (`other.Color.Red`), an interface bound or `impl other.Shape for ...` header, or a selective import (`import other.Hidden`). A file-qualified spelling is the error "file 'other' has no member 'Hidden'", and an import is "'Hidden' is private and cannot be imported". A file may still pass its own private type as the type argument of another file's public generic (`other.ident(Point{x: 1})`, `other.Span{start: p, stop: q}`): only the declaring file names the type.
-- **No renames at the declaration site.** A declaration is published under its own name. Re-exporting an imported name under a different alias is handled by import statements (see §14 *Files and Imports* — re-export forms are documented alongside imports).
+- **No renames at the declaration site.** A declaration is published under its own name. An imported name is re-exported under its local name, the alias when it has one, by `pub import` (see *Re-exporting imported names* below).
 - **Opaque qualifier.** `pub opaque struct`, `pub opaque enum`, and `pub opaque type Name InnerType` publish the type's *type name* while keeping its construction surface (constructor, destructuring, field access) private. Applies only to types with a representation — using `opaque` on functions, type aliases, interfaces, `once` bindings, or zero-sized `type` declarations is rejected. See §15 *Opaque distinct types*.
 - **Interface implementation functions inherit interface visibility.** A function inside an `impl Iface for Type { ... }` block has no per-function `pub` marker. If the interface is `pub`, other files can call the implementation functions; if the interface is private, those functions stay private too. See §13 for the private-wrapper pattern when you want a public interface's defaults only inside the file.
 - **Struct fields and enum variants are not separately publishable.** Field access follows the struct's visibility; enum variant visibility follows the enum.
 
-Keywords are always lowercase: `pub`, `opaque`, `once`, `fn`, `struct`, `enum`, `interface`, `impl`, `for`, `type`, `typealias`, `as`, `todo`.
+Keywords are always lowercase: `pub`, `export`, `opaque`, `once`, `fn`, `struct`, `enum`, `interface`, `impl`, `for`, `type`, `typealias`, `as`, `todo`.
 
 PascalCase is a compiler-enforced style rule for type names (`type`, `interface`, `typealias`) and enum variants — it is not a visibility mechanism.
 
@@ -280,29 +281,33 @@ This prevents private types from leaking into the public API. If a type appears 
 
 ### Re-exporting imported names
 
-A file or module can re-export items it imports, making them part of its own public surface. This is opt-in: an `import` is private by default; adding the `export` modifier promotes the imported items to public.
+A file or module can re-export items it imports, making them part of its own public surface. This is opt-in: an `import` is private by default, and `pub import` makes every item the statement selects public, under its local name.
 
 ```nomi
-// Per-item re-export.
-import other.{Helper export as Helpr, Internal, Thing export}
+// Every selected item, re-exported under its imported name.
+pub import std/io.{IOError, print}
 
-// Line-level shorthand — every selected item re-exported under its imported name.
-import std/io.{IOError, print} export
+// An aliased item is re-exported under its alias.
+pub import other.{Helper as Helpr, Thing}
 
 // An owner type and its variants, re-exported together.
-import std/bool.Bool.{self, False, True} export
+pub import std/bool.Bool.{self, False, True}
+
+// A block re-exports every entry.
+pub import {
+    add.Add
+    lists.List
+}
 ```
 
 Rules:
 
-- **Items only, never a file.** A facade publishes exactly the items it lists. Re-exporting a file is a compile-time error at the `export`, in every spelling: `import leaf export`, `import leaf as lf export`, and a brace list whose `self` is the file (`import std/io.{self, IOError} export`) all report `` `leaf` is a file, and a file cannot be re-exported ``, with a hint to list the items or have importers import the file directly. `self` after an owner type (`Bool.{self, False, True}`) is the type, not a file, and re-exports like any item. A file a facade imports is not one of its items either: `import facade.{leaf}` is the error `` `leaf` is a file that `facade` imports, not an item it exports; import `leaf` directly ``.
-
-- **Per-item placement.** `export` follows the optional `as <Local>` rename: `Name [as Local] [export [as Pub]]`. The `Local` (if any) governs the local binding; the `Pub` (if any) governs the externally-visible name.
-- **Line-level placement.** `export` follows the full import entry and re-exports every selected item under its imported name: `import path.{A, B} export`. Use braces when the selector needs per-item detail (`A export as Pub`, `A as Local`) or an owner selector (`Owner.{self, A, B}`). There is no line-level `export as <Alias>` for multi-name selector lists, since there is no single name to rename. Use per-item `export as` inside braces instead.
-- **No globbing.** There is no `import path.*` form. Each re-exported name is enumerated, either individually or via the selector-list shorthand. This keeps the public surface explicit and prevents upstream changes from silently expanding a downstream module's API.
-- **Shorthand vs per-item.** A line-level `export` means "re-export every selected item under its imported name." Per-item `export [as Pub]` overrides this for that item. Both can appear in the same statement; per-item wins for the item it's on.
-- **Visibility.** A re-exported name's upstream definition must already be public — `import other.{private_thing export}` errors at the import site, since `private_thing` isn't reachable to begin with.
-- **No alias-on-export for local definitions.** `export` applies only to imported names. To expose a local definition under a different name, rename it or write a wrapper.
+- **Items only, never a file.** A facade publishes exactly the items it lists. Re-exporting a file is a compile-time error at the `pub`, in every spelling: `pub import leaf`, `pub import leaf as lf`, and a brace list whose `self` is the file (`pub import std/io.{self, IOError}`) all report `` `leaf` is a file, and a file cannot be re-exported ``, with a hint to list the items or have importers import the file directly. `self` after an owner type (`Bool.{self, False, True}`) is the type, not a file, and re-exports like any item. A file a facade imports is not one of its items either: `import facade.{leaf}` is the error `` `leaf` is a file that `facade` imports, not an item it exports; import `leaf` directly ``.
+- **The whole statement.** `pub` re-exports every item the statement selects, and in a block every entry. A file that re-exports some items and imports others privately writes two statements, an `import { ... }` and a `pub import { ... }`; `nomi fmt` groups each run of imports into those two blocks, the private one first.
+- **One name per item.** A re-exported item is public under its local name: the `as` alias when there is one, the imported name otherwise. Importers of the file see the same name the file itself uses.
+- **No globbing.** There is no `import path.*` form. Each re-exported name is enumerated. This keeps the public surface explicit and prevents upstream changes from silently expanding a downstream module's API.
+- **Visibility.** A re-exported name's upstream definition must already be public — `pub import other.{private_thing}` errors at the import site, since `private_thing` isn't reachable to begin with.
+- **Imported names only.** `pub import` applies only to imported names. To expose a local definition under a different name, rename it or write a wrapper.
 
 ## 4. Naming Conventions
 
@@ -762,6 +767,201 @@ fn area(shape: Shape): Float {
   code that is not written yet; the message carries the reason. The quick
   fixes that write missing functions, fields and `case` arms fill each hole
   with `todo`, so their result checks.
+
+### Exported Functions
+
+`export fn` marks a top-level function that a host calls by name: a web page
+through `nomi build --web`, a WASI runtime through the reactor `nomi build
+--target wasip1/wasm` writes, and in time a Go embedder. Its arguments and its
+result cross as JSON, through `ToJson` and `FromJson`.
+
+```nomi
+import std/json.{ToJson, FromJson}
+
+struct Game {
+    word: String
+    guesses: List<String>
+}
+
+derive ToJson for Game
+derive FromJson for Game
+
+export fn new_game(word: String): Game {
+    Game{word, guesses: []}
+}
+
+export fn guess(game: Game, letter: String): Game {
+    {..game, guesses: [letter, ..game.guesses]}
+}
+```
+
+The signature is a contract with a caller the compiler cannot see: renaming
+the function or changing a parameter breaks that caller with no build error.
+A program that wants its logic free of the marker keeps its exported functions
+in a thin entry file of short wrappers over plain functions in other files.
+
+Rules:
+
+- **Top level only.** `export` is the leftmost modifier and the only one:
+  `export fn name(...)`. `export` before anything else is the error
+  `` `export` marks a function: `export fn name(...)` ``. Inside a body it is
+  `` `export` applies to top-level functions only ``, and inside an `impl`
+  block `` a function in an `impl Type` block cannot be exported: `export fn`
+  declares a top-level function ``. A `host fn` has no body to export:
+  `export host fn` is an error, and so is `export fn` with a `go` binding.
+- **Independent of `pub`.** `pub` makes a function visible to other files of
+  the program; `export` makes it callable from outside the program. An
+  exported function needs no `pub`, and `pub export fn` is the error
+  `` an exported function takes no `pub`: write `export fn` ``. Other files
+  call the plain function an exported one wraps.
+- **Concrete signature.** An exported function cannot be generic
+  (`` exported function `ident` cannot be generic: a host calls it with JSON
+  values of one known type ``), and every parameter and result type is one
+  known type: an interface value such as `Display` is refused.
+- **JSON crossing.** Each parameter's type implements `FromJson`, since the
+  host's JSON is decoded into it, and the result's type implements `ToJson`,
+  since it is encoded for the host. A generic type's arguments must too, so
+  `List<Plain>` needs `FromJson` for `Plain`. A `Unit` result crosses as
+  nothing. The error names the parameter, the type and the interface, with
+  the derive that fixes it:
+  `` parameter `p` of exported function `sum` cannot cross as JSON: `Plain`
+  does not implement `FromJson` `` with the help `` add `derive FromJson for
+  Plain` ``. A struct, an enum and a distinct type the program declares
+  derive both.
+- **Unique names.** The host calls by name, so no two files of a program
+  export the same name: `` exported function `guess` is already exported by
+  other.nomi: a host calls exported functions by name, so each name is
+  exported once ``, at the second declaration, with the first as a related
+  location.
+- **Effects.** An exported function may do anything a function may: print,
+  read the clock, use randomness.
+
+A program with exported functions needs no `fn main`. `nomi check` and
+`nomi test` treat it as any program. Exported functions are lowered whether
+or not `main` reaches them, so `nomi check` reports an exported body the VM
+cannot run as it reports one `main` reaches. `nomi run` of such a program with
+no `main` is the error `` <file> declares no `fn main`, so there is no program
+to run; its exported functions are called by a host, so build it for a page
+with `nomi build --web`, or as a WASI reactor with `nomi build --target
+wasip1/wasm` ``, and a plain `nomi build` gives the same error for `build`.
+`nomi build --web` and `nomi build --target wasip1/wasm` build it.
+
+Values cross as `ToJson` writes them and `FromJson` reads them:
+
+| Nomi | JSON | JavaScript |
+|---|---|---|
+| `Int`, `Float` | number | `number` |
+| `String`, `Bool` | string, boolean | `string`, `boolean` |
+| `List<T>`, `Vector<T>`, `Set<T>` | array | array |
+| `Map<String, V>` | object | object |
+| struct | object, as `derive ToJson` writes it | object |
+| enum | a bare variant's name as a string; `{"Variant": payload}` for one with a payload | string or object |
+| `Maybe<T>` | the value, or `null` for `None` | the value or `null` |
+| `Unit` (a result only) | nothing | `undefined` |
+
+A `Float` parameter reads a whole number too (JavaScript writes `2.0` as `2`).
+An `Int` result outside ±2⁵³ is refused rather than rounded: a JavaScript
+number cannot hold it exactly, and the call fails with
+`` the result of `f` holds the Int 9007199254740993, outside ±2^53: a JSON
+number cannot hold it exactly ``.
+
+**Calling from a page.** `nomi build --web` records each exported function in
+the program it builds, and `nomi.js` beside it loads the program once and
+calls the functions any number of times:
+
+```js
+import { load } from "./nomi.js";
+
+const nomi = await load("./app.wasm");
+let game = await nomi.call("new_game", "pipeline");
+game = await nomi.call("guess", game, "e");
+```
+
+`load(url, options)` starts the program in its own worker and runs its `main`
+first when it has one, so `main` can print or force `once` values; its output
+goes to `options.stdout` and `options.stderr` as `run()`'s does. It resolves
+when the functions can be called, and rejects with `main`'s failure when
+`main` fails. `call(name, ...args)` encodes the arguments as JSON, runs the
+function, and resolves with its decoded result. Calls run one at a time, in
+the order they are made, on the one program, so a `once` value an earlier
+call forced is not computed again. A call that traps, or whose argument its
+parameter's `FromJson` refuses, rejects with an `Error` whose message is the
+Nomi diagnostic (`` argument `game` of `guess(game: Game, letter: String):
+Game`: guesses: expected List<String>, got missing ``), and the next call runs
+normally; so does a call to a name the program does not export, whose error
+lists the exported names. `exports()` resolves with each exported function's
+name, parameters, result type and signature, and `close()` stops the worker.
+
+`nomi build --web` also writes `nomi.d.ts`, TypeScript declarations for
+`nomi.js` with a typed `call` overload for each exported function. A type
+maps as the table above says; a struct or enum whose `ToJson` is derived
+becomes an interface or a union of its JSON shape, and a type whose impls are
+written by hand is `unknown`.
+
+**Calling from a WASI host.** `nomi build --target wasip1/wasm` writes one of
+two module shapes, chosen by the program, with no flag. Either carries its
+program in its own linear memory, so it needs no file access, no
+environment and no particular argv: a browser's WASI shim with no file
+system, or any runner that only calls its exports, runs it.
+
+- **No `export fn`: a command module.** It exports `_start`, which runs `main`
+  with WASI stdin, stdout and arguments, then exits.
+- **At least one `export fn`: a reactor.** It exports `_initialize`, which
+  the runner calls once (the WASI reactor convention), its `memory`, and a
+  generic call ABI over that memory:
+
+  | Export | Signature | Does |
+  |---|---|---|
+  | `nomi_alloc` | `(len: i32) -> i32` | reserves `len` bytes and returns a pointer the runner writes into |
+  | `nomi_call` | `(name_ptr, name_len, args_ptr, args_len: i32) -> i64` | calls the exported function named by the UTF-8 name with the JSON array of arguments; returns the result's pointer in the high 32 bits and its length in the low 32 bits |
+  | `nomi_free` | `(ptr, len: i32)` | releases a buffer from `nomi_alloc` or a result from `nomi_call` |
+  | `nomi_main` | `() -> i32` | runs `main` over WASI stdin, stdout and stderr and returns the exit status, 0 or 1 |
+
+The result is UTF-8 JSON: `{"ok": value}` on success, with `null` for a
+`Unit` result, and `{"error": "diagnostic"}` on a trap, a `FromJson` failure
+or an argument list that is not a JSON array of the right length. The module
+stays usable after an error. A name the program does not export is an error
+result naming the exported functions. `nomi_call` copies the name and the
+arguments before it runs anything, so the runner may free them as soon as it
+returns; a result stays where it is until `nomi_free` releases it.
+
+A runner in JavaScript, after instantiating the module with its WASI imports:
+
+```js
+wasi.initialize(instance);
+const x = instance.exports;
+const put = (text) => {
+  const bytes = new TextEncoder().encode(text);
+  const ptr = x.nomi_alloc(bytes.length);
+  new Uint8Array(x.memory.buffer, ptr, bytes.length).set(bytes);
+  return [ptr, bytes.length];
+};
+const [name, nameLen] = put("guess");
+const [args, argsLen] = put(JSON.stringify([game, "e"]));
+const packed = BigInt.asUintN(64, x.nomi_call(name, nameLen, args, argsLen));
+x.nomi_free(name, nameLen);
+x.nomi_free(args, argsLen);
+const ptr = Number(packed >> 32n), len = Number(packed & 0xffffffffn);
+const answer = JSON.parse(new TextDecoder().decode(new Uint8Array(x.memory.buffer, ptr, len)));
+x.nomi_free(ptr, len);
+```
+
+The program boots on the first `nomi_call` or `nomi_main`, and every later
+call runs on that booted program, so a `once` value an earlier call forced is
+not computed again. A boot that fails makes every `nomi_call` answer its
+error. `main` does not run unless the runner calls `nomi_main`, which it may
+do before, between or after calls; in a program with no `fn main` it writes
+`` this program has no `fn main`; it is called through its exported
+functions `` to stderr and returns 1. Calls run one at a time: the module is
+single-threaded, and tasks a call starts make progress only while some
+export is running.
+
+Go fixes a module's
+export names when the runner is compiled, and one runner serves every
+program, so the program's own function names travel as data rather than as
+per-function exports such as `guess(i32, i32) -> i32`. A project with Go
+bindings and an `export fn` cannot be built for `wasip1/wasm`: the reactor
+links no project's Go bindings.
 
 ## 6. Pipe Operator
 
@@ -3950,12 +4150,12 @@ Real value cycles in `once` bindings — where forcing one binding transitively 
 - An import path that names no file is a compile-time error at the path, in every import form, whether or not the file uses the import: `import lib` with no `lib.nomi` reports ``no module `lib`: no file lib.nomi in this file's directory``. The message names the directory searched, relative to the importing file, and a hint names a sibling file the path is a misspelling of, or a file inside a directory the path names (`sub` is a directory, not a file). `import std/x` with no standard library module `x` is the same error. A selected name the file does not export is an error at the name: `file 'std/io' has no exported name 'nosuchname'`.
 - The `/`-joined segments always name the file: `import utils/inner.Thing` needs `utils/inner.nomi`, and is not a lookup of `inner` inside `utils.nomi`.
 - Files cannot be reopened or split across files
-- Importing `http` does not import `http/request` — each must be imported separately. A facade file can flatten this for its own consumers by re-exporting the items they need (`import http/request.{Request, get} export` in `http.nomi` lets consumers write `import http.{Request, get}`); it cannot re-export the file `request` itself (see §3 *Re-exporting imported names*).
+- Importing `http` does not import `http/request` — each must be imported separately. A facade file can flatten this for its own consumers by re-exporting the items they need (`pub import http/request.{Request, get}` in `http.nomi` lets consumers write `import http.{Request, get}`); it cannot re-export the file `request` itself (see §3 *Re-exporting imported names*).
 - Visibility rules apply: declarations carrying `pub` are public, everything else is private (see §3)
 
 ### Unused imports are errors
 
-An imported item that no visible text in the file uses is a compile-time error (an analyzer error: it fails `nomi run` and surfaces as the editor diagnostic). The granularity is the imported **item**: in `import std/comparable.{Comparable, Ordering}` with `Ordering` dead, the error names `Ordering` at its own position (`imported name 'Ordering' is unused — remove it from the import`); an aliased item is used through its alias; `self` in a brace list is its own item, used iff the parent name it binds is referenced. Any reference resolving to the imported name counts as a use — expressions, patterns, type annotations, `impl Iface for Type { ... }` blocks, `where` bounds (`where T: Comparable`), `derive Iface for Type` declarations, and typed-literal tags (`Date"..."` uses `Date`). Two carve-outs: a re-exported item (`import mod.{a export}` or line-level `export` on a selective list) is used by definition, and names appearing only in comments or doc-comment ` ```nomi ` examples are not uses. Note that a dot-shorthand pattern (`.Some(v)`) resolves through the scrutinee's type, not through scope — so it does **not** keep a variant import alive. Nomi has no warning tier; the rule is an error by design (a later LSP quick-fix, not a softer diagnostic, is the iteration-friction mitigation). `fmt` does not auto-prune imports — layout is fmt's job, semantics are the compiler's.
+An imported item that no visible text in the file uses is a compile-time error (an analyzer error: it fails `nomi run` and surfaces as the editor diagnostic). The granularity is the imported **item**: in `import std/comparable.{Comparable, Ordering}` with `Ordering` dead, the error names `Ordering` at its own position (`imported name 'Ordering' is unused — remove it from the import`); an aliased item is used through its alias; `self` in a brace list is its own item, used iff the parent name it binds is referenced. Any reference resolving to the imported name counts as a use — expressions, patterns, type annotations, `impl Iface for Type { ... }` blocks, `where` bounds (`where T: Comparable`), `derive Iface for Type` declarations, and typed-literal tags (`Date"..."` uses `Date`). Two carve-outs: a re-exported item (`pub import mod.{a}`) is used by definition, and names appearing only in comments or doc-comment ` ```nomi ` examples are not uses. Note that a dot-shorthand pattern (`.Some(v)`) resolves through the scrutinee's type, not through scope — so it does **not** keep a variant import alive. Nomi has no warning tier; the rule is an error by design (a later LSP quick-fix, not a softer diagnostic, is the iteration-friction mitigation). `fmt` does not auto-prune imports — layout is fmt's job, semantics are the compiler's.
 
 An import of a whole project file (`import html_impls`) also puts that file's impl blocks into the program (§*Foreign Types*), so it is used when nothing in the file names it but the program uses one of those impl blocks: a call that resolves to one of its functions (`User.to_html(u)`, `Html.to_html(u)`) or a conformance the program requires of the `(type, interface)` pair it implements (a `where` bound, an interface-typed parameter, an operator, an interpolation). The use may be anywhere in the program, not only in the importing file, and it is decided once every file is checked. Two kinds of impl do not count: an impl for a type the imported file itself declares (a value of that type can only come from naming something in that file, so another import already brings the file in), and a call from inside the imported file to its own impl. An import of a standard-library file is never used this way, since the standard library's impls are always in the program.
 
@@ -6348,7 +6548,7 @@ The stdlib `.nomi` files are embedded in the compiler binary and analyzed once p
 
 ### Prelude
 
-One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only `import` statements — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
+One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
 
 Stdlib files themselves do **not** receive the prelude — they each import their dependencies by hand. The "is this a stdlib file?" check is the only place that distinguishes who gets the implicit imports. A stdlib file's `//!` prompts are part of the file and see the file's scope, as its bodies do: a prompt that writes a bare `False` or `Some` needs the file to import it (`import bool.Bool.False`). `nomi test`, `nomi check`, the language server and the reference editors all check a prompt in that scope.
 
@@ -6384,16 +6584,98 @@ One engine runs a Nomi program: the VM, for `nomi run`, `nomi test`, the REPL an
 
 ### Standalone executables
 
-`nomi build <file> [-o <out>] [--target <goos>/<goarch>]` writes one executable: a VM runner binary with the program's lowered IR appended to it, the way `deno compile` and `bun build --compile` work. At startup the runner reads the IR from its own file and runs `main` exactly as `nomi run` does: the same arguments, standard input, signal handling, output and exit status. The binary skips the front end and the lowering, so a hello-world program starts in a few milliseconds, and then runs on the same VM at `nomi run` speed. It is not native code.
+`nomi build <file> [-o <out>] [--target <goos>/<goarch>]` writes one executable: the `nomi-vm` binary with the program's lowered IR appended to it, the way `deno compile` and `bun build --compile` work. At startup `nomi-vm` reads the IR from its own file and runs `main` exactly as `nomi run` does: the same arguments, standard input, signal handling, output and exit status. The binary skips the front end and the lowering, so a hello-world program starts in a few milliseconds, and then runs on the same VM at `nomi run` speed. It is not native code.
 
-A program `nomi run` would refuse is refused at build time with the same text, and nothing is written: a front-end error, or an error at each piece of code the compiler cannot lower. A file without `fn main` has nothing to build. A program with a `todo` or a `dbg` in any of its files is refused with one list of every `todo` (§5, *Unwritten Code*) and every `dbg` (§6, *Debugging pipes*), whether or not a run would reach it. `--target`, or `GOOS`/`GOARCH` in the environment, picks the platform. The runner comes from, in order:
+A program `nomi run` would refuse is refused at build time with the same text, and nothing is written: a front-end error, or an error at each piece of code the compiler cannot lower. A file without `fn main` has nothing to build, unless it has an `export fn` and the target is `wasip1/wasm` (below). A program with a `todo` or a `dbg` in any of its files is refused with one list of every `todo` (§5, *Unwritten Code*) and every `dbg` (§6, *Debugging pipes*), whether or not a run would reach it. `--target`, or `GOOS`/`GOARCH` in the environment, picks the platform. `nomi-vm` comes from, in order:
 
-1. `nomi-runner` beside `nomi` (or beside the file a symlinked `nomi` resolves to), built for the target. Every release archive ships one.
-2. A source checkout of the compiler: the runner is built with `go build` and cached. This is how `go install` and a development tree work, with no release involved.
-3. A runner downloaded earlier for this release and target.
-4. Download: the target's archive from the release this `nomi` was cut as, verified against the release's checksum file, with only `nomi-runner` extracted and cached. `nomi build` prints the URL it downloads, and with no network the error names it.
+1. `nomi-vm` beside `nomi` (or beside the file a symlinked `nomi` resolves to), built for the target. Every release archive ships one.
+2. A source checkout of the compiler: `nomi-vm` is built with `go build` and cached. This is how `go install` and a development tree work, with no release involved.
+3. A `nomi-vm` downloaded earlier for this release and target.
+4. Download: the target's archive from the release this `nomi` was cut as, verified against the release's checksum file, with only `nomi-vm` extracted and cached. `nomi build` prints the URL it downloads, and with no network the error names it.
 
-A prebuilt runner must come from the same commit as `nomi`; both carry it in their build information, and `nomi build` refuses a runner from another commit. So a release builds executables for every platform with no Go toolchain, and a built binary needs nothing at all. Two kinds of program still need `go`, which builds their runner from the compiler module at the release's version: a project with Go FFI bindings, whose runner links them, and a program importing `std/compiler`, whose runner links the front end and is not shipped.
+A prebuilt `nomi-vm` must come from the same commit as `nomi`; both carry it in their build information, and `nomi build` refuses a `nomi-vm` from another commit. So a release builds executables for every platform with no Go toolchain, and a built binary needs nothing at all. Two kinds of program still need `go`, which builds their own `nomi-vm` from the compiler module at the release's version: a project with Go FFI bindings, whose `nomi-vm` links them, and a program importing `std/compiler`, whose `nomi-vm` links the front end and is not shipped.
+
+A WebAssembly target, `js/wasm` or `wasip1/wasm`, writes `<name>.wasm` by default. Nothing may follow a module's last section, so the program goes inside the module:
+
+- A `wasip1/wasm` module carries it as one more active data segment, which the WebAssembly engine writes into a 16 MiB area of the `nomi-vm`'s own memory when it instantiates the module. The module reads its program from there, so it needs no file access: `wasmtime run hello.wasm` runs it, and so does a browser's WASI shim with no file system. The area is uninitialized memory in the `nomi-vm`, so it adds nothing to the file; it raises the module's declared initial memory by 16 MiB. A program whose compiled form is larger than the area is refused by `nomi build`, naming the limit.
+- A `js/wasm` module carries it in a custom section named `nomi.image`, which every runtime skips. A module cannot read its own sections, so it looks for the section where its host can supply it: it uses `globalThis.nomiImage` when a loader has set it to the section's bytes (`new Uint8Array(WebAssembly.Module.customSections(module, "nomi.image")[0])`), and otherwise reads the file argv[0] names through the host's `fs`. Go's own loader runs it under Node unchanged: `node "$(go env GOROOT)/lib/wasm/wasm_exec_node.js" hello.wasm`.
+
+A `wasip1/wasm` program with at least one `export fn` is written as a WASI reactor instead of a command module (§5, *Exported Functions*): the program is appended to `nomi-vm-reactor`, the same VM linked as a reactor, found, built and downloaded as `nomi-vm` is and checked the same way.
+
+The `js/wasm` build keeps the browser build's limits: `io.read_file` and `io.write_file` fail with an `IOError`, even under Node, and a call nests at most 1,000 deep. A command-line program that reads files belongs on `wasip1/wasm`. Every release ships a runner-only archive for each WebAssembly target, so a release `nomi` downloads it as it would any other platform's; the `js/wasm` archive also carries the `wasm_exec.js` of the Go that built its `nomi-vm`, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
+
+### Compiled programs and nomi-vm
+
+`nomi build <file> --no-vm [-o <out>]` writes the program's lowered IR alone, as a compiled program (`<name>.nomic` in the working directory by default), for a `nomi-vm` that does not carry it. It needs no Go toolchain and no `nomi-vm`, and the same file runs on every platform's `nomi-vm`. It refuses what `nomi build` refuses, with the same text, and also a project with Go bindings, whose bindings only a VM built with them can answer: `` nomi build --no-vm: this project has Go bindings, which only a VM built with them can answer, so it has no portable compiled program ``. `--no-vm` takes no `--target` and no `--web`. A test file has no compiled program.
+
+A `.nomic` file is a header followed by the program's IR image:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 8 | Magic: the bytes `NOMIC` and three zero bytes |
+| 8 | 4 | The program format version, a little-endian u32 |
+| 12 | 4 | Flags, a little-endian u32. Bit 0: the program imports `std/compiler`. Every other bit is zero. |
+| 16 | 2 | `n`, the length of the next field, a little-endian u16 |
+| 18 | `n` | The version of `nomi` that wrote it, in UTF-8, as `nomi --version` names it (the commit, or for a release, the tag and the commit) |
+| 18 + `n` | 8 | `L`, the image's length, a little-endian u64 |
+| 26 + `n` | `L` | The image, the same bytes `nomi build` appends to `nomi-vm` |
+
+`nomi build --vm [--compiler] [-o <out>] [--target <goos>/<goarch>]` writes a copy of the `nomi-vm` that `nomi build` appends programs to, with no program: `nomi-vm` by default, with `.exe` or `.wasm` as the target needs. It comes from where `nomi build` gets one, so a release needs no Go toolchain for it. For `js/wasm` it also writes the matching `wasm_exec.js` beside it. For `wasip1/wasm` it writes the command module; `nomi-vm-reactor` reads its program only from its own memory, so a copy with no program could run nothing. `--compiler` writes the `nomi-vm` that links `std/compiler`'s hosts, which a compiled program importing `std/compiler` needs, and which needs Go to build.
+
+A `nomi-vm` with no program of its own takes one when it starts:
+
+```
+nomi-vm <program.nomic> [args...]
+nomi-vm [-] [args...]          # the .nomic file framed on stdin
+nomi-vm --version
+nomi-vm --help
+```
+
+Given a path, it reads the `.nomic` file there and passes the words after the path to the program as `startup.args`. Given no path, or `-`, it reads one `.nomic` file from the start of standard input, using the header's length, and reads nothing past its last byte: the rest of standard input is the program's own input, and the words after `-` are its arguments. So `cat app.nomic input.txt | nomi-vm` runs `app` over `input.txt`. Stdin is the way to hand a program to a host with no filesystem, such as a browser's WASI shim. A `wasip1/wasm` `nomi-vm` takes a path through a preopened directory (`wasmtime run --dir=. nomi-vm.wasm app.nomic`), and a `js/wasm` one under Go's loader reads a path through Node's `fs` (`node wasm_exec_node.js nomi-vm.wasm app.nomic`). Either takes the program on stdin. A `nomi-vm` whose terminal is its standard input, or whose standard input is empty or not a `.nomic` file, prints its usage. A word starting with `-` other than these is a usage error. A `nomi-vm` that `nomi build` appended a program to runs that program and treats every argument as the program's, so `./app --version` passes `--version` to `app`.
+
+`nomi-vm` refuses a compiled program whose format version differs from the one it reads, before it runs anything: `` app.nomic was written by nomi v0.4.0 in program format 17, and this nomi-vm (nomi v0.5.0) reads format 18 ``, followed by how to fix it. Programs written by different versions of `nomi` in the same format run. It also refuses a program with a flag it does not know, and a program importing `std/compiler` when it does not link that module's hosts. A damaged or truncated file is an error naming it. All of these, and every usage error, exit 1, as a failed program does.
+
+`nomi run <file.nomic> [args...]` runs a compiled program in the `nomi` process, as `nomi-vm` would, with `std/compiler`'s hosts linked. `nomi run` recognizes a `.nomic` file by its first eight bytes, whatever its name.
+
+### A program in the browser
+
+`nomi build <file> --web [-o <dir>] [--static <dir>]` writes a folder that any static file host can serve, which runs the program's `main` in a browser. The default folder is `<name>-web` in the working directory. It holds three generated files and the author's static files:
+
+| File | What it is |
+|---|---|
+| `app.wasm` | The `js/wasm` module `--target js/wasm` writes, with its memory capped at 1 GiB. |
+| `nomi.js` | An ES module: the loader and its `run` function, with Go's JS support file `wasm_exec.js` from the Go toolchain that built the js/wasm `nomi-vm` inside it. Each run starts this same file as its module worker. |
+| `index.html` | A page that runs `main` with an output pane and an input line. |
+
+`nomi.js` keeps `wasm_exec.js`'s text unchanged as the body of a function, which runs only where a program runs: in the worker, or on the page for a `worker: false` run. A page whose programs run in workers gets none of the globals `wasm_exec.js` sets (`Go`, and `fs`, `process` and `path` when missing). Since the worker is a file the host serves and not a `blob:` URL, a policy of `worker-src 'self'` allows it.
+
+The static files are the files of a `web/` folder: the one at the root of the program's project, beside its `nomi.toml`, or, for a file outside a project, the one beside the file. `--static <dir>` names another folder in its place; it must exist, while a missing `web/` folder only means there are no static files. Every file under the folder is copied to the same path in the output, subfolders included (`web/img/logo.png` becomes `img/logo.png`), except files and folders whose names start with a dot. A static file wins over a generated one of the same name, so `web/index.html` replaces the generated page; such a page loads `nomi.js` and calls `run` itself. A static `app.wasm` or `nomi.js` is refused, naming the file: `` nomi build --web: web/app.wasm: the build writes app.wasm, so a static file cannot have that name ``. So is an output folder inside the static folder. A rebuild replaces only the generated files and the static files it copies; anything else in the output folder stays, such as a host's `_headers`, and so does a file copied by an earlier build whose source has since been deleted from `web/`. The one exception is the files earlier versions of `nomi build --web` generated and this one does not, `wasm_exec.js`, `nomi-web.js` and `nomi-worker.js`: a rebuild removes each one whose contents are what such a build wrote (Go's `wasm_exec.js`, or the exact loader or worker it wrote), and leaves a file of that name with any other contents. A static file may have one of those names, and is copied like any other.
+
+`--static` without `--web` is a usage error. `--web` with a `--target` other than `js/wasm` is a usage error. A project with Go bindings is refused: `` nomi build --web: this project has Go bindings, and the browser build cannot link them ``. A program importing `std/compiler` builds, and its `app.wasm` is larger because its `nomi-vm` links the front end; `nomi build` says how to serve a module over 20 MB.
+
+A page runs the program with `run`:
+
+```js
+import { run } from "./nomi.js";
+
+const { exitCode, fatal } = await run("./app.wasm", {
+  args: ["--verbose"],     // startup.args; default []
+  env: { NAME: "x" },      // startup.env; default {}
+  stdout: (text) => {},    // default: console.log, one call per line
+  stderr: (text) => {},    // default: console.error, one call per line
+  stdin: "all of it\n",    // or an async () => string | null; default: end of input
+  timeoutMs: 10_000,       // default: none
+  signal: controller.signal,
+});
+```
+
+`run` fetches and compiles the module once per URL; every later run of it reuses the compiled module. Each run gets a fresh instance in its own worker, so a page stays responsive while a program loops, and `timeoutMs` and `signal` can stop it: the run then resolves with exit code 124 (timeout) or 130 (abort) and a `fatal` text. `worker: false` runs on the page's own thread, one run at a time; a timeout or abort then resolves the run and drops its output, but cannot stop the program. Output reaches the callbacks as written, so a prompt written with `io.write` and no newline appears before the program waits for input. Standard input is a string, served and then ended; an async function, asked for one line at a time, with `null` ending the input; or absent, so `io.read_line` returns `Err("eof")` at once. The environment holds what `env` gives plus `NOMI_COLOR=never`, unless `env` sets it, so diagnostics carry no colour codes; nothing comes from the page's URL or cookies. Arguments and environment together must fit in the 8 KB Go's loader reserves for them.
+
+The exit code is `nomi run`'s: 0, or 1 for a `main` returning `Err`, a trap or a failed assertion. When the Go runtime stops (an allocation past the 1 GiB cap, a deadlock), the run resolves with exit code 2 and Go's own line, such as `fatal error: out of memory`, as `fatal`. The browser build's limits apply as under `--target js/wasm`: file access fails with an `IOError`, a call nests at most 1,000 deep, and no signal arrives. The clock, `std/random`, tasks, channels and `sleep` work; tasks share the worker's one thread, so a task that never yields starves the others.
+
+`index.html` loads `nomi.js` with a `<script type="module" src>` and no inline script, so it works under a strict `script-src`. `nomi.js` mounts itself on every element with a `data-nomi-program="app.wasm"` attribute: an output pane with standard error in a distinct colour, an input line that is enabled while the program waits for a line (Enter sends it, Ctrl-D on an empty line ends the input), the exit status, and a button that runs the program again. A page that imports `run` itself needs no such element. The page needs a server, since a browser does not fetch modules from `file:` URLs: `python3 -m http.server -d hello-web` serves one locally. Serve `app.wasm` as `Content-Type: application/wasm`, compressed with brotli or gzip (a hello world is 11 MB, 2 MB with brotli); Cloudflare Pages, Netlify and Vercel do both themselves. Without that content type the loader still works, compiling from the whole response instead of streaming it.
+
+`nomi run --web [--port N] [--open] [--static <dir>] <file>` is the loop for working on such a program. It builds the generated files into a temporary directory and serves them, with the static files served from where they are, by the same rule and with the same precedence and refusals as `nomi build --web`, on `http://localhost:<port>/`, on port 8000 or the next free one up to 8099 unless `--port` names one (`--port 0` takes any free port), with `app.wasm` as `application/wasm` and every response marked `Cache-Control: no-cache`. It prints the URL; `--open` also opens it in the default browser. It then watches the entry, every file the program loads and the project's `nomi.toml`, polling them every 250 ms, and rebuilds once a burst of changes has settled. It polls the static folder too, and a change there reloads the page without a rebuild. The page reloads itself after a successful rebuild. A failed build is printed on the terminal and shown over the page, which keeps running the last build that succeeded until the error is fixed; when the first build fails, the page shows the error alone. A static file given a generated name while the server runs is reported the same way and not served. Every `.html` page served, the generated one or a static one, gets one more script for this, `/__nomi/dev.js`, added before its `</head>` (or at its end when it has none), which listens to the server-sent event stream `/__nomi/events`. Each event is `{"build": n, "static": m, "error": "..."}`: `n` counts the successful builds and `m` the changes to the static files, and a page reloads when either differs from the one it was served at. `nomi build --web` never writes any of this. Ctrl-C stops the server and removes the temporary directory. A project with Go bindings is refused as `--web` refuses it, and the browser program takes no arguments, so a word after the file is a usage error; `--port`, `--open` and `--static` without `--web` are too, and so is `--watch` with `--web`, since `--web` already rebuilds on every change. Without `--web`, `nomi run` takes no flags but `--watch` (§26, *Running again on every change*), and every word after the file is the program's.
 
 ### Future: native code
 
@@ -6412,7 +6694,7 @@ Nomi programs can be run in two ways, file mode and project mode; a script is fi
 
 ### File mode: `nomi run <file>`
 
-Runs a specific file. The file must define a top-level `fn main()` callback. `fn main` is the program entry point — the host invokes it from the file's own scope, so it does not need to be `pub`. The project root is the directory containing the file — all imports resolve relative to that directory.
+Runs a specific file. The file must define a top-level `fn main()` callback; a program whose functions a host calls (§5, *Exported Functions*) has none, and is built with `nomi build --web` instead. `fn main` is the program entry point — the host invokes it from the file's own scope, so it does not need to be `pub`. The project root is the directory containing the file — all imports resolve relative to that directory.
 
 ```
 my_project/
@@ -6427,6 +6709,25 @@ nomi run app.nomi
 ```
 
 This is the simplest way to run Nomi — no config file needed. Good for scripts, small projects, and getting started quickly.
+
+### Running again on every change: `--watch`
+
+`nomi run --watch <file> [args]` runs the program, then watches the files it
+is built from: the entry, every file it imports (not the standard library's)
+and its project's `nomi.toml`, polled every 250 ms as `nomi run --web` polls
+them. Once a burst of saves has settled, it stops the run if it is still
+going, prints `<file> changed; running again` on standard error, and runs the
+program again with the same arguments. A run that is computing stops at its
+next call or loop iteration, and one waiting on input, a timer, a channel or a
+task stops waiting; what a stopped run would still write is dropped. A
+program that fails to compile is reported as `nomi run` reports it, and the
+next change runs it again. The watched files are worked out again on every
+run, so a file the program starts importing is watched from then on.
+
+The program reads standard input as under `nomi run`. A read still waiting
+when a file changes ends with the run, and a line typed while the program
+restarts goes to the new run. Ctrl-C stops the run and exits with status 130.
+A compiled program (`.nomic`) has no source to watch and is refused.
 
 ### Scripts: `nomi <file>`
 
@@ -7053,8 +7354,11 @@ The `nomi` CLI is the single tool:
   (see §26, *Scripts*).
 - `nomi run <module>/<entry>` — project mode (a module with
   `nomi.toml`'s entry_points; see §26).
-- `nomi test [path] [--line N] [--format text|json]` — run tests in a
-  `.nomi` file or discover tests under a directory; see §36.
+- `nomi run --watch <file> [args]` — run the program, and stop it and run
+  it again whenever a file it is built from changes (see §26).
+- `nomi test [path] [--line N] [--format text|json] [--watch]` — run tests
+  in a `.nomi` file or discover tests under a directory; `--watch` runs them
+  again on every change; see §36.
 - `nomi` — the REPL.
 - `nomi check <path>` — type-check and compile without running; code
   the program reaches that the compiler cannot lower is the error at its
@@ -7067,9 +7371,15 @@ The `nomi` CLI is the single tool:
   listed as `ok <file> (through <importer>)`; a file nothing there imports
   is checked on its own.
 - `nomi build <file> [-o <binary>] [--target <goos>/<goarch>]` — one
-  executable: a VM runner with the program's IR appended. It runs at
+  executable: nomi-vm with the program's IR appended. It runs at
   `nomi run` speed without the startup lowering; it is not native code
   (see §25).
+- `nomi build <file> --web [-o <dir>] [--static <dir>]` — a folder a static
+  host serves that runs the program in a browser, with the files of its
+  `web/` folder copied in (see §25, *A program in the browser*).
+- `nomi run --web [--port N] [--open] [--static <dir>] <file>` — serve that
+  folder on localhost, rebuilding and reloading the page when the source
+  changes and reloading it when a static file changes.
 - `nomi fmt [-w|-l|-d] <paths>` — format Nomi source.
 - `nomi version` — print the version.
 
@@ -7393,6 +7703,13 @@ or a `tests` group, whose header line runs every test in the group. When
 nothing starts there, `nomi test` runs nothing and exits non-zero with
 `no test at <file>:<N>` and the nearest test's first line; with
 `--format json` that error is a `"type":"file"` failure record.
+
+`nomi test --watch [path]`, with any of the other flags, runs the tests,
+then runs them again whenever a `.nomi` file under the path, or a file the
+tests import, changes, as `nomi run --watch` does (§26): tests still running
+are stopped, `<file> changed; running again` is printed on standard error,
+and a file that fails to compile is reported as `nomi test` reports it. A
+new test file under the path is picked up by the next run.
 
 What a test writes while it runs (`io.print`, `io.write`, `io.inspect` and
 `dbg`) is reported under the test, not where it was written. Each test's
@@ -8251,7 +8568,7 @@ Names referenced only by the **synthesized** code resolve through the compiler-k
 | `Debug` | Structural string in literal-shape form. For struct `Point{x: 3, y: 4}` → `"Point{x: 3, y: 4}"`. For enum `Shape.Circle(5.0)` → `"Circle(5.0)"` (the variant, with no enum-name prefix). |
 | `Display` | Same structural shape as `Debug`, but nested `String` values render **unquoted** — `C{name: bob}` where Debug emits `C{name: "bob"}`. A convenience default; authors usually hand-write a `Display.to_string` function for real user-facing presentation (see below). |
 | `ToJson` | Struct fields encode as JSON object keys; distinct wrappers encode through their inner value; enums encode as strings for bare variants and externally-tagged objects for payload variants. `ToJson.Options{rename_all: ...}` controls generated field keys with a `Json.Case` variant. |
-| `FromJson` | Struct fields decode from JSON objects with missing `Maybe<T>` fields as `None` and missing defaulted fields from their declaration defaults; distinct wrappers decode through their inner value. Callers name the target with the implementing type (`User.from_json(value)`), an explicit target type argument on the interface (`FromJson.from_json<User>(value)`), or an expected target type (`user: User = try FromJson.from_json(value)`). `FromJson.Options{rename_all: ...}` controls expected field keys with a `Json.Case` variant. |
+| `FromJson` | Struct fields decode from JSON objects with missing `Maybe<T>` fields as `None` and missing defaulted fields from their declaration defaults; distinct wrappers decode through their inner value; enums decode what derived `ToJson` writes: a bare variant from the string of its name, a payload variant from an object whose key is its name (an array for a tuple payload, an object of the fields for a struct variant), with an error naming the variant and field that did not match. Callers name the target with the implementing type (`User.from_json(value)`), an explicit target type argument on the interface (`FromJson.from_json<User>(value)`), or an expected target type (`user: User = try FromJson.from_json(value)`). `FromJson.Options{rename_all: ...}` controls expected field keys with a `Json.Case` variant. |
 
 `Display` **is** derivable — `derive Display` synthesizes the same structural shape as `derive Debug`, except nested strings render unquoted (`C{name: bob}` where Debug emits `C{name: "bob"}`). It's a convenience for throwaway / structural output and for generic code that just needs *some* `Display` impl to satisfy a bound. Real user-facing presentation usually wants a per-type opinion rather than the structural dump, so authors typically hand-write a `Display.to_string` function instead — the same split Rust draws between `Debug` (`#[derive]`-friendly) and `Display` (hand-written), except Nomi *also* lets you derive `Display` when the structural form is good enough.
 
@@ -8293,7 +8610,7 @@ For opaque types this is the load-bearing case of universal Debug's opaque rule 
 
 Spec note: `derive Debug` on a type with sensitive fields (tokens, passwords, credentials) leaks those fields through Debug output. Hand-write a `Debug.inspect` function and redact rather than relying on the derive.
 
-#### Extern types
+#### Host types
 
 The `derive` entry on a declared `host type` is the author's **assertion that the type has trivial structure** — a zero-sized singleton with exactly one inhabitant (the `True`/`False` shape). The declaration carries no payload shape the synthesizer can see (internals are host-side), so the synthesized bodies are constants: `Equatable.equal?` returns `True`, `Comparable.compare` returns `Equal`, and `Hashable.hash` returns `0` (all values equal ⇒ equal hashes, so the equals/hash agreement law holds by construction). `Debug` / `Display` derives render the bare type name — the same rendering as universal Debug's host-type default (§38.2), so `derive Debug` on a host type is the explicit spelling of what happens automatically. There are no field-type requirements to check — the assertion is vacuously consistent. A **value-carrying** host type (the `Instant` class of types) would get semantically wrong impls from these constant bodies — that is the rule, not a gap: value-carrying host types hand-write host-backed impls (`host fn` items satisfying `impl` entries), as every such stdlib type does.
 

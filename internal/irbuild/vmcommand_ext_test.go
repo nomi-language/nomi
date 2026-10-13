@@ -2,6 +2,7 @@ package irbuild_test
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/vmcmd"
@@ -28,7 +29,7 @@ func init() {
 			}
 			return out.String(), errOut.String(), exit
 		}
-		exit := vmcmd.Run(path, &out, &errOut, bytes.NewReader(nil), nil, false)
+		exit := vmcmd.Run(context.Background(), path, &out, &errOut, bytes.NewReader(nil), nil, false)
 		return out.String(), errOut.String(), exit
 	}
 }

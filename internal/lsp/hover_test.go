@@ -53,6 +53,18 @@ func TestHover_FuncWithParamsAndReturn(t *testing.T) {
 	}
 }
 
+func TestHover_ExportFnShowsItsKeyword(t *testing.T) {
+	sym := buildSymbol("export fn double(n: Int): Int { n + n }", "double")
+	if sym == nil {
+		t.Fatal("symbol not found")
+	}
+	result := renderHover(sym)
+	expected := "```nomi\nexport fn double(n: Int): Int\n```"
+	if result != expected {
+		t.Errorf("got:\n%s\n\nexpected:\n%s", result, expected)
+	}
+}
+
 func TestHover_FuncNoReturnNoDoc(t *testing.T) {
 	sym := buildSymbol("fn greet(name: String) { io.print(name) }", "greet")
 	if sym == nil {

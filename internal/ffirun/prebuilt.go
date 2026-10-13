@@ -3,27 +3,34 @@ package ffirun
 // Prebuilt runners: how `nomi build` finds a runner without building one, the
 // way `deno compile` copies the `denort` that ships with Deno.
 //
-// A release archive carries `nomi-runner` beside `nomi` and `nomi-lsp`, built
+// A release archive carries `nomi-vm` beside `nomi` and `nomi-lsp`, built
 // from the same commit (scripts/release.sh). For a pure-Nomi program the
 // runner is looked up in this order (Runner):
 //
-//  1. `nomi-runner` beside this `nomi`, and beside the file it resolves to
+//  1. `nomi-vm` beside this `nomi`, and beside the file it resolves to
 //     when it is a symlink, when that runner is built for the target.
 //  2. A source checkout of the compiler: build the runner with `go build`
 //     and cache it, as a development tree always has. A versioned `nomi`
 //     that is not a release archive (`go install ...@version`) builds it the
 //     same way from that version in the module cache, which Go fetches.
 //  3. A runner downloaded earlier for this release and target, under the
-//     cache root's `runners/<version>/<goos>_<goarch>/`.
+//     cache root's `nomi-vm/<version>/<goos>_<goarch>/`.
 //  4. Download: the target's archive from the release this `nomi` was cut
 //     as, verified against the release's checksum file, with only
-//     `nomi-runner` extracted into (3).
+//     `nomi-vm` extracted into (3).
 //
 // Every prebuilt runner (1, 3 and 4) must come from the same commit as this
 // `nomi`: both carry Go's VCS stamp in their build info, which
-// debug/buildinfo reads from a binary of any platform without running it. A
-// mismatch is refused. In a source checkout a mismatched or dirty sibling is
+// internal/gobuildinfo reads from a binary of any platform, a WebAssembly
+// module included, without running it. A mismatch is refused. In a source checkout a mismatched or dirty sibling is
 // passed over instead, because step 2 can build the right one.
+//
+// A release also ships a runner-only archive for js/wasm and wasip1/wasm. The
+// js/wasm one carries wasm_exec.js beside the runner, from the Go that built
+// it, and the download caches both (WasmExec). The wasip1 one also carries
+// `nomi-vm-reactor`, the reactor a program with an `export fn` is appended
+// to (Variant); each runner is looked up, cached and checked under its own
+// name, and its build info must name its own main package.
 //
 // std/compiler's runner variant links the whole front end: 16.7 MB stripped
 // against the plain runner's 9.5 MB and `nomi`'s 21.3 MB (6.5, 3.7 and 8.3 MB
@@ -38,7 +45,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
-	"debug/buildinfo"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -50,6 +56,8 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/nomi-language/nomi/internal/gobuildinfo"
 )
 
 // ReleaseVersion is the release tag this `nomi` was cut as. scripts/release.sh
@@ -65,8 +73,13 @@ const releaseBaseURLEnv = "NOMI_RELEASE_BASE_URL"
 // defaultReleaseBaseURL is the GitHub release download root install.md uses.
 const defaultReleaseBaseURL = "https://github.com/nomi-language/nomi/releases/download"
 
-// runnerMainPath is the main package every prebuilt runner is built from.
-const runnerMainPath = "github.com/nomi-language/nomi/cmd/nomi-runner"
+// runnerMainPath is the main package every prebuilt command runner is built
+// from.
+const runnerMainPath = "github.com/nomi-language/nomi/cmd/nomi-vm"
+
+// reactorMainPath is the main package the prebuilt wasip1 reactor is built
+// from.
+const reactorMainPath = "github.com/nomi-language/nomi/cmd/nomi-vm-reactor"
 
 // buildIdentity is what a Go binary's build info says about where it came
 // from.
@@ -130,7 +143,7 @@ var executablePath = os.Executable
 // readIdentity reads a binary's build info without running it, so it works on
 // a runner for another platform.
 func readIdentity(bin string) (buildIdentity, error) {
-	info, err := buildinfo.ReadFile(bin)
+	info, err := gobuildinfo.ReadFile(bin)
 	if err != nil {
 		return buildIdentity{}, err
 	}
@@ -143,12 +156,12 @@ type errRunnerMismatch struct{ msg string }
 
 func (e *errRunnerMismatch) Error() string { return e.msg }
 
-// checkRunner requires runner (read from bin) to be a nomi runner built for
-// target from the same commit as self.
-func checkRunner(self, runner buildIdentity, bin string, target Target) error {
-	if runner.Path != runnerMainPath {
-		return &errRunnerMismatch{fmt.Sprintf("%s is not a Nomi runner (its main package is %q, want %q)",
-			bin, runner.Path, runnerMainPath)}
+// checkRunner requires runner (read from bin) to be a nomi runner of variant
+// v built for target from the same commit as self.
+func checkRunner(self, runner buildIdentity, bin string, target Target, v Variant) error {
+	if runner.Path != v.mainPath() {
+		return &errRunnerMismatch{fmt.Sprintf("%s is not a %s (its main package is %q, want %q)",
+			bin, v.binaryName(), runner.Path, v.mainPath())}
 	}
 	if runner.GOOS != target.GOOS || runner.GOARCH != target.GOARCH {
 		return &errRunnerMismatch{fmt.Sprintf("%s is built for %s/%s, not %s",
@@ -156,12 +169,12 @@ func checkRunner(self, runner buildIdentity, bin string, target Target) error {
 	}
 	if self.Revision == "" {
 		return &errRunnerMismatch{fmt.Sprintf("this nomi records no source commit, so it cannot check that "+
-			"the runner at %s matches it; build nomi from a commit, or from a release", bin)}
+			"the nomi-vm at %s matches it; build nomi from a commit, or from a release", bin)}
 	}
 	if runner.Revision != self.Revision || runner.Modified != self.Modified {
-		return &errRunnerMismatch{fmt.Sprintf("the runner at %s was built from %s and this nomi from %s; "+
-			"a runner must come from the same commit as the nomi that appends programs to it. "+
-			"Install nomi and nomi-runner from one release archive",
+		return &errRunnerMismatch{fmt.Sprintf("the nomi-vm at %s was built from %s and this nomi from %s; "+
+			"a nomi-vm must come from the same commit as the nomi that appends programs to it. "+
+			"Install nomi and nomi-vm from one release archive",
 			bin, runner.commit(), self.commit())}
 	}
 	return nil
@@ -175,15 +188,15 @@ func exeName(name, goos string) string {
 	return name
 }
 
-// siblingRunners are the places a runner installed beside this `nomi` can be:
-// its directory, and the directory of the file it resolves to when it is a
-// symlink (Homebrew links bin/nomi into the Cellar).
-func siblingRunners(target Target) []string {
+// siblingRunners are the places a runner of variant v installed beside this
+// `nomi` can be: its directory, and the directory of the file it resolves to
+// when it is a symlink (Homebrew links bin/nomi into the Cellar).
+func siblingRunners(target Target, v Variant) []string {
 	exe, err := executablePath()
 	if err != nil {
 		return nil
 	}
-	name := exeName(runnerBinaryBaseName, target.GOOS)
+	name := exeName(v.binaryName(), target.GOOS)
 	out := []string{filepath.Join(filepath.Dir(exe), name)}
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil && filepath.Dir(resolved) != filepath.Dir(exe) {
 		out = append(out, filepath.Join(filepath.Dir(resolved), name))
@@ -195,9 +208,9 @@ func siblingRunners(target Target) []string {
 // "" when there is none. haveSource says whether step 2 can build a runner, in
 // which case a sibling that is dirty or mismatched is passed over rather than
 // refused.
-func siblingRunner(target Target, haveSource bool) (string, error) {
+func siblingRunner(target Target, v Variant, haveSource bool) (string, error) {
 	self := selfIdentity()
-	for _, bin := range siblingRunners(target) {
+	for _, bin := range siblingRunners(target, v) {
 		info, err := os.Stat(bin)
 		if err != nil || info.IsDir() {
 			continue
@@ -207,7 +220,7 @@ func siblingRunner(target Target, haveSource bool) (string, error) {
 			if haveSource {
 				continue
 			}
-			return "", fmt.Errorf("ffirun: reading the runner at %s: %w", bin, err)
+			return "", fmt.Errorf("ffirun: reading the %s at %s: %w", v.binaryName(), bin, err)
 		}
 		// A runner for another platform beside nomi is not this target's.
 		if id.GOOS != target.GOOS || id.GOARCH != target.GOARCH {
@@ -218,7 +231,7 @@ func siblingRunner(target Target, haveSource bool) (string, error) {
 			// source can build the exact runner.
 			continue
 		}
-		if err := checkRunner(self, id, bin, target); err != nil {
+		if err := checkRunner(self, id, bin, target, v); err != nil {
 			if haveSource {
 				continue
 			}
@@ -229,15 +242,16 @@ func siblingRunner(target Target, haveSource bool) (string, error) {
 	return "", nil
 }
 
-// releaseRunner answers the runner for target from this `nomi`'s release:
-// the cached download when there is one, otherwise a fresh download.
-func releaseRunner(target Target, progress io.Writer) (string, error) {
+// releaseRunner answers the runner of variant v for target from this
+// `nomi`'s release: the cached download when there is one, otherwise a fresh
+// download.
+func releaseRunner(target Target, v Variant, progress io.Writer) (string, error) {
 	version := ReleaseVersion
 	if version == "" {
-		return "", fmt.Errorf("ffirun: `nomi build` needs a runner for %s. None is installed beside this nomi, "+
+		return "", fmt.Errorf("ffirun: `nomi build` needs a nomi-vm for %s. None is installed beside this nomi, "+
 			"it is a development build whose source tree is gone, so it has nothing to build one from, and it "+
 			"is not a release build, so there is no release to download one from. Install nomi from a release "+
-			"archive, which ships nomi-runner beside it, or with Go installed set "+compilerSourceEnv+
+			"archive, which ships nomi-vm beside it, or with Go installed set "+compilerSourceEnv+
 			" to a checkout of the compiler", target)
 	}
 	if strings.ContainsAny(version, `/\`) || strings.Contains(version, "..") {
@@ -247,12 +261,13 @@ func releaseRunner(target Target, progress io.Writer) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(root, "runners", version, target.GOOS+"_"+target.GOARCH)
-	bin := filepath.Join(dir, exeName(runnerBinaryBaseName, target.GOOS))
+	dir := filepath.Join(root, "nomi-vm", version, target.GOOS+"_"+target.GOARCH)
+	bin := filepath.Join(dir, exeName(v.binaryName(), target.GOOS))
 	self := selfIdentity()
 	if _, err := os.Stat(bin); err == nil {
 		id, err := readIdentity(bin)
-		if err == nil && checkRunner(self, id, bin, target) == nil {
+		complete := !target.needsWasmExec() || fileExists(filepath.Join(dir, WasmExecName))
+		if err == nil && complete && checkRunner(self, id, bin, target, v) == nil {
 			return bin, nil
 		}
 		// A damaged or foreign file where the download goes is replaced.
@@ -260,16 +275,16 @@ func releaseRunner(target Target, progress io.Writer) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("ffirun: creating %s: %w", dir, err)
 	}
-	if err := downloadRunner(releaseBaseURL(), version, target, bin, progress); err != nil {
+	if err := downloadRunner(releaseBaseURL(), version, target, v, bin, progress); err != nil {
 		return "", err
 	}
 	id, err := readIdentity(bin)
 	if err == nil {
-		err = checkRunner(self, id, bin, target)
+		err = checkRunner(self, id, bin, target, v)
 	}
 	if err != nil {
 		_ = os.Remove(bin)
-		return "", fmt.Errorf("ffirun: the downloaded runner: %w", err)
+		return "", fmt.Errorf("ffirun: the downloaded %s: %w", v.binaryName(), err)
 	}
 	return bin, nil
 }
@@ -302,8 +317,10 @@ var httpClient = &http.Client{Timeout: 10 * time.Minute}
 
 // downloadRunner fetches target's archive for version from base, checks its
 // SHA-256 against the release's checksum manifest, and writes the archive's
-// nomi-runner to dest. Nothing is written to dest unless every check passes.
-func downloadRunner(base, version string, target Target, dest string, progress io.Writer) error {
+// runner of variant v (nomi-vm, or nomi-vm-reactor) to dest, and for js/wasm
+// its wasm_exec.js beside dest first. Nothing is written to dest unless
+// every check passes.
+func downloadRunner(base, version string, target Target, v Variant, dest string, progress io.Writer) error {
 	archive := releaseArchiveName(version, target)
 	archiveURL := base + "/" + version + "/" + archive
 	sumsURL := base + "/" + version + "/" + releaseChecksumsName(version)
@@ -314,13 +331,13 @@ func downloadRunner(base, version string, target Target, dest string, progress i
 			advice = fmt.Sprintf("The server answered, so check that %s is a published release with an "+
 				"archive for %s", version, target)
 		}
-		return fmt.Errorf("ffirun: no runner for %s is installed, and downloading it from the %s release failed: "+
-			"%s: %v. `nomi build` fetches the runner for a platform other than the installed one from the "+
-			"release this nomi was cut as. %s, or unpack nomi-runner from %s yourself into %s",
-			target, version, url, err, advice, archiveURL, filepath.Dir(dest))
+		return fmt.Errorf("ffirun: no %s for %s is installed, and downloading it from the %s release failed: "+
+			"%s: %v. `nomi build` fetches nomi-vm for a platform other than the installed one from the "+
+			"release this nomi was cut as. %s, or unpack %s from %s yourself into %s",
+			v.binaryName(), target, version, url, err, advice, v.binaryName(), archiveURL, filepath.Dir(dest))
 	}
 	if progress != nil {
-		fmt.Fprintf(progress, "nomi build: downloading the %s runner from %s\n", target, archiveURL)
+		fmt.Fprintf(progress, "nomi build: downloading %s for %s from %s\n", v.binaryName(), target, archiveURL)
 	}
 	sums, err := httpGet(sumsURL, 1<<20)
 	if err != nil {
@@ -339,40 +356,32 @@ func downloadRunner(base, version string, target Target, dest string, progress i
 		return fmt.Errorf("ffirun: %s does not match the release's checksum file %s: the file says sha256 %s, "+
 			"the download is %s. Nothing was installed", archiveURL, sumsURL, want, got)
 	}
-	name := exeName(runnerBinaryBaseName, target.GOOS)
+	name := exeName(v.binaryName(), target.GOOS)
 	var runner []byte
 	if target.GOOS == "windows" {
 		runner, err = extractZip(data, name)
 	} else {
 		runner, err = extractTarGz(data, name)
 	}
+	if err == errNotInArchive {
+		err = fmt.Errorf("the archive holds no %s", name)
+	}
 	if err != nil {
 		return fmt.Errorf("ffirun: reading %s: %w", archiveURL, err)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(dest), name+".*.tmp")
-	if err != nil {
-		return err
+	if target.needsWasmExec() {
+		js, err := extractTarGz(data, WasmExecName)
+		if err == errNotInArchive {
+			err = fmt.Errorf("the archive holds no %s", WasmExecName)
+		}
+		if err != nil {
+			return fmt.Errorf("ffirun: reading %s: %w", archiveURL, err)
+		}
+		if err := writeFileAtomic(filepath.Join(filepath.Dir(dest), WasmExecName), js, 0o644); err != nil {
+			return err
+		}
 	}
-	tmpPath := tmp.Name()
-	if _, err := tmp.Write(runner); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := tmp.Chmod(0o755); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := os.Rename(tmpPath, dest); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	return nil
+	return writeFileAtomic(dest, runner, 0o755)
 }
 
 // httpStatusError is a server that answered with something other than 200.
@@ -416,8 +425,8 @@ func checksumFor(manifest []byte, name string) (string, bool) {
 	return "", false
 }
 
-// errNotInArchive is an archive with no runner in it.
-var errNotInArchive = errors.New("the archive holds no nomi-runner")
+// errNotInArchive is an archive without the member asked for.
+var errNotInArchive = errors.New("the archive holds no nomi-vm")
 
 // archiveMember reports whether an archive entry's name is the runner at the
 // archive's top level.

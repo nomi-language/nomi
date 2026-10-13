@@ -31,7 +31,7 @@ nomi 0123456789ab (go1.27.0 darwin/arm64)
 ```
 
 Keep the checkout where it is. A `nomi` built from a clone is a development
-build: `nomi build` builds its runner from the checkout, and a project with Go
+build: `nomi build` builds its nomi-vm from the checkout, and a project with Go
 bindings compiles against it. To point a development build at another
 checkout, for instance after moving it, set `NOMI_COMPILER_SOURCE` to that
 checkout's root. The variable also makes a `go install`ed `nomi` build Go
@@ -52,6 +52,6 @@ names another one. `nomi --version` prints the module's pseudo-version.
 This `nomi` needs no checkout. A project with Go bindings compiles against the
 compiler module at `nomi`'s own version, which the Go toolchain fetches into
 the module cache like any other dependency, through your `GOPROXY` and
-checksum database. `go install` installs no `nomi-runner`, so `nomi build`
-builds the runner with Go from that module, for `--target` platforms too, and
+checksum database. `go install` installs no `nomi-vm`, so `nomi build`
+builds nomi-vm with Go from that module, for `--target` platforms too, and
 caches it. The executable `nomi build` writes needs nothing installed.

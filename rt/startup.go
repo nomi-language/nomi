@@ -26,7 +26,15 @@ func NewStartup(environ, args []string) Startup {
 	return s
 }
 
-func StartupSnapshot() Startup { return NewStartup(os.Environ(), os.Args[1:]) }
+// StartupSnapshot reads the process's environment and arguments. A WASI
+// runner may pass no argv at all, not even a name, so os.Args can be empty.
+func StartupSnapshot() Startup {
+	var args []string
+	if len(os.Args) > 0 {
+		args = os.Args[1:]
+	}
+	return NewStartup(os.Environ(), args)
+}
 
 // ActiveContext reads the current scoped execution context.
 func ActiveContext(fr *Frame) Context {

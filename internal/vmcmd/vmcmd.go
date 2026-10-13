@@ -13,8 +13,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ffirun"
@@ -26,12 +29,17 @@ import (
 // status the command exits with.
 //
 // handleSignals installs the process-wide signal handler, which only a CLI
-// that owns the process may do.
-func Run(absPath string, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals bool) int {
+// that owns the process may do. The run ends when ctx does: in process
+// through vmhost.Program.Run, and an FFI project's wrapper is interrupted,
+// then killed if it has not exited a second later.
+func Run(ctx context.Context, absPath string, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals bool) int {
 	res, err := ffirun.Prepare(absPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "nomi run: %v\n", err)
 		return 1
+	}
+	if !res.FastPath && ctx.Done() != nil {
+		return runWrapper(ctx, res, absPath, stdout, stderr, stdin, args)
 	}
 	if !res.FastPath {
 		code, err := ffirun.RunCapturedVM(res, absPath, stdout, stderr, stdin, args...)
@@ -50,12 +58,50 @@ func Run(absPath string, stdout, stderr io.Writer, stdin io.Reader, args []strin
 		fmt.Fprintf(stderr, "nomi run: %v\n", err)
 		return 1
 	}
-	if err := p.Run(context.Background(), stdout, args, handleSignals); err != nil {
+	if err := p.Run(ctx, stdout, args, handleSignals); err != nil {
 		if blocked, ok := vmhost.IsBlocked(err); ok {
 			blocked.Write(stderr, vmhost.DisplayPath(absPath))
 		} else {
 			vmhost.WriteFailure(stderr, err)
 		}
+		return 1
+	}
+	return 0
+}
+
+// runWrapper runs an FFI project's wrapper until it exits or ctx ends.
+func runWrapper(ctx context.Context, res *ffirun.Result, absPath string, stdout, stderr io.Writer, stdin io.Reader, args []string) int {
+	cmd, err := ffirun.CommandVM(res, absPath, args...)
+	if err != nil {
+		fmt.Fprintf(stderr, "nomi run: %v\n", err)
+		return 1
+	}
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = stdin, stdout, stderr
+	cmd.WaitDelay = time.Second
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(stderr, "nomi run: launching wrapper: %v\n", err)
+		return 1
+	}
+	exited := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = cmd.Process.Signal(os.Interrupt)
+			select {
+			case <-exited:
+			case <-time.After(time.Second):
+				_ = cmd.Process.Kill()
+			}
+		case <-exited:
+		}
+	}()
+	err = cmd.Wait()
+	close(exited)
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		return exitErr.ExitCode()
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "nomi run: %v\n", err)
 		return 1
 	}
 	return 0
@@ -76,6 +122,9 @@ type Tester struct {
 	Stdin  io.Reader
 	Rep    *vmhost.TestReport
 	Format vmhost.TestFormat
+	// Stop, when set, ends the cases running in process when it ends
+	// (vmhost.WithStop). An FFI wrapper's cases run to the end.
+	Stop context.Context
 
 	ffi map[string]*ffirun.Result
 }
@@ -139,10 +188,14 @@ func (t *Tester) File(file string, opts vmhost.TestOptions) int {
 }
 
 func (t *Tester) loadOptions() []vmhost.Option {
-	if t.Stderr == nil {
-		return nil
+	var opts []vmhost.Option
+	if t.Stderr != nil {
+		opts = append(opts, vmhost.WithErrorOutput(t.Stderr))
 	}
-	return []vmhost.Option{vmhost.WithErrorOutput(t.Stderr)}
+	if t.Stop != nil {
+		opts = append(opts, vmhost.WithStop(t.Stop))
+	}
+	return opts
 }
 
 func (t *Tester) test(p *vmhost.Program, file string, opts vmhost.TestOptions, label func(string) string) int {

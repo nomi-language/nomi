@@ -14,7 +14,7 @@ const RedundantPreludeImportCode = "redundant-prelude-import"
 // CheckRedundantPreludeImports reports a TypeError for every imported item
 // that re-imports a name the prelude already puts in scope. Writing
 // `import std/iter.Iter` in a user file binds `Iter` to exactly the symbol
-// the prelude's `std/iter.Iter export` already bound, so the import is inert
+// the prelude's `pub import iter.Iter` already bound, so the import is inert
 // text: deleting it cannot change what the file means.
 //
 // This is distinct from CheckUnusedImports. A redundant prelude import is
@@ -160,7 +160,7 @@ func injectedPreludeTargets(fa *FileAnalysis, nodes []ast.Node) map[string]map[*
 }
 
 // collectInjectedImportItems is collectImportItems over prepended prelude
-// imports: every one is a selective import with no export flags, so each
+// imports: every one is a plain selective import, so each
 // brace name and each `self` owner is an item.
 func collectInjectedImportItems(fa *FileAnalysis, stmts []*ast.ImportStmt) []importItem {
 	var items []importItem

@@ -18,7 +18,9 @@ import (
 // Module.lint is the one field deliberately not encoded: it is
 // LintModuleAdded's progress, and a decoded module starts it over.
 var encodedFields = map[reflect.Type]string{
-	reflect.TypeFor[ir.Image]():         "Modules Entry HostKeys HasMain Root",
+	reflect.TypeFor[ir.Image]():         "Modules Entry HostKeys HasMain Root Exports",
+	reflect.TypeFor[ir.Export]():        "Name Func Params Result Encode",
+	reflect.TypeFor[ir.ExportParam]():   "Name Type Decode",
 	reflect.TypeFor[ir.Pos]():           "file line col endLine endCol synth",
 	reflect.TypeFor[ir.Symbol]():        "name",
 	reflect.TypeFor[ir.Block]():         "pos id label instrs term owner fault faultPos hasFault stmts",

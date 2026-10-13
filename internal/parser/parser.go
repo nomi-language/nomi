@@ -52,6 +52,9 @@ type Parser struct {
 	// line, to the token indexes of its opening and closing `|`
 	// (continuedLambdaArg).
 	lambdaBars map[*ast.Lambda][2]int
+	// blockDepth counts the blocks whose statements are being parsed, so
+	// a top-level-only modifier (`pub`, `export`) inside one is refused.
+	blockDepth int
 }
 
 // Span is a closed source region, in 1-based line / 1-based byte column,
@@ -1135,11 +1138,24 @@ func rejectAttachedTestsOnNonDeclaration(tests []ast.AttachedTest, context strin
 	return errorAt(tests[0].Line, tests[0].Col, "attached test prompt is not supported on %s", context)
 }
 
+// parseBlockStmt parses one statement of a block body.
+func (p *Parser) parseBlockStmt() (ast.Node, string, []ast.Trivia, error) {
+	p.blockDepth++
+	defer func() { p.blockDepth-- }()
+	return p.parseStmt()
+}
+
 func (p *Parser) parseStmtInner() (ast.Node, error) {
+	if p.peek().Type == token.EXPORT {
+		return p.parseExportFunc()
+	}
 	// Inline visibility modifier: `pub fn`, `pub type`, `pub opaque type`,
 	// `pub interface`, `pub typealias`, `pub once`, and `pub host (fn|type)`.
 	if p.peek().Type == token.PUB {
 		pubTok := p.peek()
+		if p.blockDepth > 0 {
+			return nil, errorAt(pubTok.Line, pubTok.Col, "`pub` applies to top-level declarations only")
+		}
 		p.advance() // consume PUB
 		if p.atEnd() {
 			return nil, errorAt(pubTok.Line, pubTok.Col, "expected 'fn', 'struct', 'enum', 'type', 'opaque', 'interface', 'typealias', 'once', or 'host' after 'pub'")
@@ -1174,6 +1190,10 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			return p.parseTypeAlias(true)
 		case token.ONCE:
 			return p.parseOnceBinding(true)
+		case token.IMPORT:
+			return p.parseImportStmt(&pubTok)
+		case token.EXPORT:
+			return nil, errorAt(pubTok.Line, pubTok.Col, "an exported function takes no `pub`: write `export fn`")
 		case token.IDENT:
 			if p.peek().Lexeme != "host" {
 				return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", p.peek().Type)
@@ -1236,18 +1256,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 
 	// Import statement: import Path
 	if p.peek().Type == token.IMPORT {
-		return p.parseImportStmt()
-	}
-
-	// Visibility is declared inline with `pub` on each declaration; there
-	// is no top-level `export` block. Consume the EXPORT token (and
-	// synchronize past any malformed body) so the recovery loop doesn't
-	// spin on the same token forever.
-	if p.peek().Type == token.EXPORT {
-		exportTok := p.peek()
-		p.advance() // consume EXPORT
-		p.synchronize()
-		return nil, errorAt(exportTok.Line, exportTok.Col, "unexpected 'export' — declare visibility inline with `pub` on each declaration")
+		return p.parseImportStmt(nil)
 	}
 
 	// Once binding: once name: T = expression
@@ -3859,7 +3868,7 @@ func (p *Parser) parseBlock() (ast.Node, error) {
 			continue
 		}
 		stmtStart := p.pos
-		node, attachedDoc, attachedLeading, err := p.parseStmt()
+		node, attachedDoc, attachedLeading, err := p.parseBlockStmt()
 		if err != nil {
 			if !p.resilient {
 				return nil, err
@@ -4590,7 +4599,7 @@ func (p *Parser) parseBlockOrLambda() (ast.Node, error) {
 			continue
 		}
 		stmtStart := p.pos
-		node, attachedDoc, attachedLeading, err := p.parseStmt()
+		node, attachedDoc, attachedLeading, err := p.parseBlockStmt()
 		if err != nil {
 			if !p.resilient {
 				return nil, err
@@ -6198,17 +6207,43 @@ func (p *Parser) skipEnumVariantTrailingSeparators() {
 //	import models.{A, B}              → ModulePath=[Ident"models"], Names=[TypeIdent"A", TypeIdent"B"]
 //	import models.{A as X, B}         → ModulePath=[Ident"models"], Names=[A, B], Aliases=[X, nil]
 //	import { math, models.User }      → ImportBlock with two ImportStmt entries
-func (p *Parser) parseImportStmt() (ast.Node, error) {
+//	pub import models.{A, B}          → as above, with Pub set (a re-export)
+//
+// pubTok is the `pub` before `import`, nil when there is none.
+func (p *Parser) parseImportStmt(pubTok *token.Token) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume IMPORT
 
+	var node ast.Node
+	var err error
 	// Block form: `import { entry1, entry2, ... }` bundles multiple imports.
 	// Each entry is parsed with the same logic as a standalone import.
 	if !p.atEnd() && p.peek().Type == token.LBRACE {
-		return p.parseImportBlock(tok)
+		node, err = p.parseImportBlock(tok)
+	} else {
+		node, err = p.parseImportEntry(tok)
 	}
-
-	return p.parseImportEntry(tok)
+	if err != nil {
+		return nil, err
+	}
+	if pubTok == nil {
+		return node, nil
+	}
+	var entries []*ast.ImportStmt
+	switch v := node.(type) {
+	case *ast.ImportStmt:
+		entries = []*ast.ImportStmt{v}
+	case *ast.ImportBlock:
+		v.Pub = true
+		entries = v.Entries
+	}
+	for _, entry := range entries {
+		if err := fileReExportError(entry, *pubTok); err != nil {
+			return nil, err
+		}
+		entry.Pub = true
+	}
+	return node, nil
 }
 
 // parseImportEntry parses the body of an import — everything after the
@@ -6244,9 +6279,6 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 	segments = append(segments, p.makeImportNode(p.peek()))
 	p.advance() // consume first segment
 
-	// hasBraces tracks whether the entry used the `.{...}` selective form, so
-	// the line-level `export as <name>` rename can be rejected appropriately.
-	hasBraces := false
 	parseImportNameChain := func() (ast.Node, error) {
 		if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
 			return nil, errorAt(tok.Line, tok.Col, "expected name in import list")
@@ -6270,7 +6302,7 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 		}
 		return &ast.Ident{Name: name, Line: last.Line, Col: last.Col}, nil
 	}
-	parseBraceList := func() (names []ast.Node, aliases []ast.Node, exportFlags []bool, exportAliases []ast.Node, includeParent bool, selfLine int, selfCol int, err error) {
+	parseBraceList := func() (names []ast.Node, aliases []ast.Node, includeParent bool, selfLine int, selfCol int, err error) {
 		var lc listComments
 		lc.open(p)
 		for {
@@ -6295,10 +6327,6 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 				p.advance() // consume SELF
 				if p.peek().Type == token.AS {
 					err = errorAt(p.peek().Line, p.peek().Col, "`self` in an import list is a marker, not a name; it cannot be aliased")
-					return
-				}
-				if p.peek().Type == token.EXPORT {
-					err = errorAt(p.peek().Line, p.peek().Col, "`self` in an import list cannot carry `export`; re-export an owner type with a line-level `export` (`import path.Type.{self, A} export`)")
 					return
 				}
 				p.listAfter(&lc)
@@ -6329,25 +6357,6 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 			}
 			aliases = append(aliases, aliasNode)
 
-			// Optional per-item `export [as Pub]` modifier. Must come AFTER any
-			// `as <local>` rename. Order: Name [as Local] [export [as Pub]].
-			exportFlag := false
-			var exportAlias ast.Node
-			if !p.atEnd() && p.peek().Type == token.EXPORT {
-				p.advance() // consume EXPORT
-				exportFlag = true
-				if !p.atEnd() && p.peek().Type == token.AS {
-					p.advance() // consume AS
-					if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
-						err = errorAt(tok.Line, tok.Col, "expected name after 'export as'")
-						return
-					}
-					exportAlias = p.makeImportNode(p.peek())
-					p.advance() // consume export alias
-				}
-			}
-			exportFlags = append(exportFlags, exportFlag)
-			exportAliases = append(exportAliases, exportAlias)
 			lc.item(nodeComments(nameNode))
 			p.listAfter(&lc)
 
@@ -6369,36 +6378,17 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 		p.advance() // consume RBRACE
 		return
 	}
-	applyLineExport := func(entries []*ast.ImportStmt, hasBraces bool) error {
-		if p.atEnd() || p.peek().Type != token.EXPORT {
-			return nil
-		}
-		exportTok := p.peek()
-		for _, entry := range entries {
-			if err := fileReExportError(entry, exportTok); err != nil {
-				return err
-			}
-		}
-		p.advance() // consume EXPORT
-		for _, entry := range entries {
-			entry.ExportAll = true
-		}
-		if !p.atEnd() && p.peek().Type == token.AS {
-			return errorAt(exportTok.Line, exportTok.Col, "'export as <name>' is not supported on import statements; use per-item 'export as' inside the braces")
-		}
-		return nil
-	}
-	parseSelectorClause := func() (*ast.ImportStmt, bool, error) {
+	parseSelectorClause := func() (*ast.ImportStmt, error) {
 		if p.peek().Type == token.LBRACE {
 			p.advance() // consume LBRACE
-			names, aliases, exportFlags, exportAliases, includeParent, selfLine, selfCol, err := parseBraceList()
+			names, aliases, includeParent, selfLine, selfCol, err := parseBraceList()
 			if err != nil {
-				return nil, true, err
+				return nil, err
 			}
-			return &ast.ImportStmt{ModulePath: segments, FileSegments: len(segments), Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, true, nil
+			return &ast.ImportStmt{ModulePath: segments, FileSegments: len(segments), Names: names, Aliases: aliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, nil
 		}
 		if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
-			return nil, false, errorAt(tok.Line, tok.Col, "expected import name after ':'")
+			return nil, errorAt(tok.Line, tok.Col, "expected import name after ':'")
 		}
 		var selector []ast.Node
 		selector = append(selector, p.makeImportNode(p.peek()))
@@ -6407,15 +6397,15 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 			p.advance() // consume DOT
 			if p.peek().Type == token.LBRACE {
 				p.advance() // consume LBRACE
-				names, aliases, exportFlags, exportAliases, includeParent, selfLine, selfCol, err := parseBraceList()
+				names, aliases, includeParent, selfLine, selfCol, err := parseBraceList()
 				if err != nil {
-					return nil, true, err
+					return nil, err
 				}
 				path := append(append([]ast.Node(nil), segments...), selector...)
-				return &ast.ImportStmt{ModulePath: path, FileSegments: len(segments), Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, true, nil
+				return &ast.ImportStmt{ModulePath: path, FileSegments: len(segments), Names: names, Aliases: aliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, nil
 			}
 			if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
-				return nil, false, errorAt(tok.Line, tok.Col, "expected import owner or name after '.'")
+				return nil, errorAt(tok.Line, tok.Col, "expected import owner or name after '.'")
 			}
 			selector = append(selector, p.makeImportNode(p.peek()))
 			p.advance() // consume selector segment
@@ -6423,17 +6413,15 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 		path := append(append([]ast.Node(nil), segments...), selector[:len(selector)-1]...)
 		names := selector[len(selector)-1:]
 		aliases := make([]ast.Node, len(names))
-		exportFlags := make([]bool, len(names))
-		exportAliases := make([]ast.Node, len(names))
 		if !p.atEnd() && p.peek().Type == token.AS {
 			p.advance() // consume AS
 			if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
-				return nil, false, errorAt(tok.Line, tok.Col, "expected alias name after 'as'")
+				return nil, errorAt(tok.Line, tok.Col, "expected alias name after 'as'")
 			}
 			aliases[0] = p.makeImportNode(p.peek())
 			p.advance() // consume alias
 		}
-		return &ast.ImportStmt{ModulePath: path, FileSegments: len(segments), Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Line: tok.Line, Col: tok.Col}, false, nil
+		return &ast.ImportStmt{ModulePath: path, FileSegments: len(segments), Names: names, Aliases: aliases, Line: tok.Line, Col: tok.Col}, nil
 	}
 	sameImportPath := func(a, b *ast.ImportStmt) bool {
 		if len(a.ModulePath) != len(b.ModulePath) {
@@ -6456,8 +6444,6 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 			prev := out[len(out)-1]
 			prev.Names = append(prev.Names, entry.Names...)
 			prev.Aliases = append(prev.Aliases, entry.Aliases...)
-			prev.ExportFlags = append(prev.ExportFlags, entry.ExportFlags...)
-			prev.ExportAliases = append(prev.ExportAliases, entry.ExportAliases...)
 		}
 		return out
 	}
@@ -6473,7 +6459,6 @@ loop:
 		// boundary.
 		if sep == token.DOT && p.peek().Type == token.LBRACE {
 			p.advance() // consume LBRACE
-			hasBraces = true
 			// includeParent tracks whether the brace list carries the
 			// `self` marker — `std/foo.{self, X, Y}` lifts X and Y AND
 			// also binds `foo` (or for the drill-through form
@@ -6481,21 +6466,19 @@ loop:
 			// to Names; it's a flag on the ImportStmt. selfLine/selfCol
 			// pin the marker's source position so the analyzer can
 			// register a hover/go-to-def target at it.
-			names, aliases, exportFlags, exportAliases, includeParent, selfLine, selfCol, err := parseBraceList()
+			names, aliases, includeParent, selfLine, selfCol, err := parseBraceList()
 			if err != nil {
 				return nil, err
 			}
-			result = &ast.ImportStmt{ModulePath: segments, FileSegments: len(segments), Names: names, Aliases: aliases, ExportFlags: exportFlags, ExportAliases: exportAliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}
+			result = &ast.ImportStmt{ModulePath: segments, FileSegments: len(segments), Names: names, Aliases: aliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}
 			break loop
 		}
 		if sep == token.DOT {
-			var clauseHadBraces bool
 			var err error
-			result, clauseHadBraces, err = parseSelectorClause()
+			result, err = parseSelectorClause()
 			if err != nil {
 				return nil, err
 			}
-			hasBraces = hasBraces || clauseHadBraces
 			break loop
 		}
 
@@ -6517,11 +6500,10 @@ loop:
 			p.advance() // consume COLON
 			var entries []*ast.ImportStmt
 			for {
-				entry, clauseHadBraces, err := parseSelectorClause()
+				entry, err := parseSelectorClause()
 				if err != nil {
 					return nil, err
 				}
-				hasBraces = hasBraces || clauseHadBraces
 				entries = append(entries, entry)
 				if p.atEnd() || p.peek().Type != token.COMMA {
 					break
@@ -6529,9 +6511,6 @@ loop:
 				p.advance() // consume selector-list COMMA
 			}
 			entries = mergeSelectorEntries(entries)
-			if err := applyLineExport(entries, hasBraces); err != nil {
-				return nil, err
-			}
 			if len(entries) == 1 {
 				return entries[0], nil
 			}
@@ -6556,29 +6535,18 @@ loop:
 		result = &ast.ImportStmt{ModulePath: segments, FileSegments: len(segments), ModuleAlias: moduleAlias, Line: tok.Line, Col: tok.Col}
 	}
 
-	// Optional line-level `export` shorthand.
-	//
-	//   import some_mod: a, b, c export        → ExportAll = true (re-export each)
-	//   import some_mod: a, b export as foo    → ERROR (use per-item export as)
-	//
-	// The per-item `export` modifier inside braces (B.2) is independent: per-item
-	// flags survive in ExportFlags/ExportAliases and the line-level `export` adds
-	// a blanket re-export for the rest.
-	if err := applyLineExport([]*ast.ImportStmt{result}, hasBraces); err != nil {
-		return nil, err
-	}
-
 	return result, nil
 }
 
-// fileReExportError reports a line-level `export` on an import that binds a
-// file: `import leaf export`, `import leaf as lf export`, or a brace list
-// whose `self` is the file (`import std/io.{self, IOError} export`). A facade
-// publishes the items it lists, never a whole file. The parser can tell these
-// apart from an item re-export because the `/`-joined segments always name the
-// file and everything after the first `.` is an item or owner: `self` after an
-// owner (`bool.Bool.{self, True} export`) is the type, and stays valid.
-func fileReExportError(entry *ast.ImportStmt, exportTok token.Token) error {
+// fileReExportError reports a re-export of an import that binds a file:
+// `pub import leaf`, `pub import leaf as lf`, or a brace list whose `self` is
+// the file (`pub import std/io.{self, IOError}`). A facade publishes the items
+// it lists, never a whole file. The parser can tell these apart from an item
+// re-export because the `/`-joined segments always name the file and
+// everything after the first `.` is an item or owner: `self` after an owner
+// (`pub import bool.Bool.{self, True}`) is the type, and stays valid. at is
+// the token the error points at, the `pub`.
+func fileReExportError(entry *ast.ImportStmt, at token.Token) error {
 	if entry == nil || len(entry.ModulePath) == 0 {
 		return nil
 	}
@@ -6592,13 +6560,13 @@ func fileReExportError(entry *ast.ImportStmt, exportTok token.Token) error {
 		parts[i] = ast.ImportNodeName(seg)
 	}
 	path := strings.Join(parts, "/")
-	hint := fmt.Sprintf("list the items to re-export, as in `import %s.{name, Type} export`, or have importers import `%s` directly", path, path)
+	hint := fmt.Sprintf("list the items to re-export, as in `pub import %s.{name, Type}`, or have importers import `%s` directly", path, path)
 	if selfIsFile {
 		hint = fmt.Sprintf("remove `self` to re-export only the listed items, or have importers import `%s` directly", path)
 	}
 	return ParseError{
-		Line:    exportTok.Line,
-		Col:     exportTok.Col,
+		Line:    at.Line,
+		Col:     at.Col,
 		Message: fmt.Sprintf("`%s` is a file, and a file cannot be re-exported", parts[len(parts)-1]),
 		Hints:   []string{hint},
 	}
@@ -8381,6 +8349,8 @@ func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node
 				}
 			}
 			items = append(items, item)
+		case tk.Type == token.EXPORT:
+			return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "a function in an %s cannot be exported: `export fn` declares a top-level function", blockNoun)
 		case tk.Type == token.FN || tk.Type == token.PUB || p.startsHostFuncDecl():
 			item, err := p.parseImplBlockItem(allowPub, false, blockNoun)
 			if err != nil {
@@ -9332,4 +9302,32 @@ func enumVariantDefaultError(eq token.Token, v *ast.EnumVariant) error {
 		return errorAt(eq.Line, eq.Col, "enum variant `%s` carries no value, so it can't be assigned one", v.Name)
 	}
 	return errorAt(eq.Line, eq.Col, "enum variants can't have defaults; give a struct-shaped variant's fields defaults instead")
+}
+
+// parseExportFunc parses `export fn name(...): T { ... }`, a top-level
+// function a host calls by name. `export` is the leftmost modifier and
+// combines with nothing else.
+func (p *Parser) parseExportFunc() (ast.Node, error) {
+	exportTok := p.peek()
+	p.advance() // consume EXPORT
+	if p.blockDepth > 0 {
+		return nil, errorAt(exportTok.Line, exportTok.Col, "`export` applies to top-level functions only")
+	}
+	if p.startsHostFuncDecl() {
+		return nil, errorAt(exportTok.Line, exportTok.Col, "a `host fn` is supplied by the host and cannot be exported; an `export fn` has a body")
+	}
+	if p.atEnd() || p.peek().Type != token.FN {
+		return nil, errorAt(exportTok.Line, exportTok.Col, "`export` marks a function: `export fn name(...)`")
+	}
+	node, err := p.parseFuncDef(false, false)
+	if err != nil {
+		return nil, err
+	}
+	fd, ok := node.(*ast.FuncDef)
+	if !ok {
+		return nil, errorAt(exportTok.Line, exportTok.Col, "a Go binding cannot be exported; an `export fn` has a body")
+	}
+	fd.Export = true
+	fd.ExportLine, fd.ExportCol = exportTok.Line, exportTok.Col
+	return fd, nil
 }

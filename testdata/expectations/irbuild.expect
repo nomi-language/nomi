@@ -4566,7 +4566,7 @@ T eval X
 T eval Y
 T named-first=23:59:0
 T
-C internal/irbuild/testdata/identity/identity.nomi@c448fa925d32e024
+C internal/irbuild/testdata/identity/identity.nomi@19aaf18750434318
 E 0
 N 0
 H 5cff2e0caa986758fe8fe8f2f26bb9e56c47983a9b425099e2d1fa2e32787f72

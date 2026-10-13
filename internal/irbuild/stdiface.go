@@ -473,7 +473,7 @@ func stdImportModuleOf(sym *analysis.Symbol, importerKey string) (string, bool) 
 // file's own. Without it — an installed binary with no source tree, the tour's
 // wasm in a browser — the prelude's module scope is the file's PARENT, and the
 // name is the prelude's own import statement, which spells its sibling bare
-// (`import context.{Context} export`). Qualifying that bare path by the USER
+// (`pub import context.Context`). Qualifying that bare path by the USER
 // file's key reads `context` rather than `std/context`, and every anchor keyed
 // on a std module then misses, so a boot result holding a `Context` would not
 // lower and the VM would refuse every program with a boot.

@@ -252,7 +252,7 @@ const LIVE_HELP_HTML =
   "<p>Hover any identifier in the code for its signature and docs.</p>";
 
 function labelStaticGoBlocks(root = document) {
-  for (const pre of root.querySelectorAll("pre.nomi-tour:not(.nomi-code-go):not(.nomi-code-nomi)")) {
+  for (const pre of root.querySelectorAll("pre.nomi-tour:not(.nomi-code-go):not(.nomi-code-js):not(.nomi-code-nomi)")) {
     if (pre.querySelector(":scope > span.line")) pre.classList.add("nomi-code-go");
   }
 }

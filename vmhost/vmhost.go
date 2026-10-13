@@ -151,14 +151,18 @@ func (p *Program) HasMain() bool { return p.res.HasMain }
 
 // RequireMain is nil when the entry declares `fn main`, and otherwise the
 // error `nomi run` and `nomi build` give for it: there is nothing to run or
-// build, where verb is "run" or "build". An entry that declares tests is
-// pointed at `nomi test`.
+// build, where verb is "run" or "build". A program with exported functions
+// is pointed at `nomi build --web` and the wasip1 reactor, and an entry that declares tests at
+// `nomi test`.
 func (p *Program) RequireMain(verb string) error {
 	if p.HasMain() {
 		return nil
 	}
 	path := DisplayPath(p.prog.Entry().Path)
 	msg := fmt.Sprintf("%s declares no `fn main`, so there is no program to %s", path, verb)
+	if p.HasExports() {
+		msg += "; its exported functions are called by a host, so build it for a page with `nomi build --web`, or as a WASI reactor with `nomi build --target wasip1/wasm`"
+	}
 	if p.prog.HasTests {
 		msg += fmt.Sprintf("; to run its tests, use `nomi test %s`", path)
 	}
@@ -178,6 +182,9 @@ func (p *Program) machine(out io.Writer) *vm.Machine {
 	}
 	if p.liveTests != nil {
 		m = m.WithLiveTestOutput(p.liveTests)
+	}
+	if p.cfg.stop != nil && p.cfg.stop.Done() != nil {
+		m = m.StopOn(p.cfg.stop)
 	}
 	return m
 }
@@ -210,6 +217,9 @@ func (p *Program) SetDebugger(d *vm.Debugger) {
 // `nomi run` does: a fault, a failed assertion, or a *MainError when `main`
 // returns `Err`. A main that returns `Ok`, or any value that is not a Result,
 // succeeds.
+//
+// The run ends when ctx does (vm.Machine.StopOn), and then a run that did
+// not finish answers ctx.Err().
 func (p *Program) Run(ctx context.Context, out io.Writer, args []string, handleSignals bool) error {
 	return p.run(ctx, out, args, handleSignals, p.env)
 }
@@ -225,6 +235,9 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 		return p.blockedName("main")
 	}
 	m := p.machine(out).WithHostEnv(hostEnv)
+	if ctx.Done() != nil {
+		m = m.StopOn(ctx)
+	}
 	var boots []*ir.Symbol
 	if boot := p.entry.Boot(); boot != nil {
 		boots = append(boots, boot)
@@ -233,6 +246,10 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 		return p.blocked(found)
 	}
 	failure, limit := programFailure(m.Main(ctx, args, handleSignals))
+	if err := ctx.Err(); err != nil && failure != nil {
+		// Stopped: whatever the run answered is the stop's doing.
+		return err
+	}
 	if limit {
 		return &Blocked{Reasons: []string{machineLimit(failure)}}
 	}
@@ -503,3 +520,6 @@ func IsBlocked(err error) (*Blocked, bool) {
 	}
 	return nil, false
 }
+
+// HasExports reports whether the program declares an `export fn`.
+func (p *Program) HasExports() bool { return len(p.res.Exports) > 0 }

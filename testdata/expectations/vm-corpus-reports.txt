@@ -118,5 +118,7 @@
 18-ffi-and-dynamic/dynamic_decoder_test.nomi
 18-ffi-and-dynamic/json_container_decode_test.nomi
 18-ffi-and-dynamic/json_decode_error_text_test.nomi
+18-ffi-and-dynamic/json_derive_defaults_test.nomi
 18-ffi-and-dynamic/json_derive_test.nomi
+18-ffi-and-dynamic/json_enum_derive_test.nomi
 18-ffi-and-dynamic/json_test.nomi

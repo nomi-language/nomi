@@ -12,7 +12,7 @@ import (
 // operand position does plus the statement-only forms.
 var (
 	topLevelKeywords = []string{
-		"fn", "pub", "import", "struct", "enum", "impl", "interface", "type",
+		"fn", "pub", "export", "import", "struct", "enum", "impl", "interface", "type",
 		"typealias", "tests", "test", "once", "derive", "opaque", "host",
 	}
 	expressionKeywords = []string{"if", "case", "try", "dbg", "todo", "concurrent"}

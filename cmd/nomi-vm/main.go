@@ -1,6 +1,9 @@
-// Command nomi-runner is the runner `nomi build` appends a program's linked IR
-// image to. It reads the image from its own executable's tail and runs `main`
-// on the VM as `nomi run` does (nomi/vmrunner).
+// Command nomi-vm is the Nomi VM as its own binary: `nomi build` appends a
+// program's linked IR image to it, and it reads the image from its own
+// executable's tail and runs `main` as `nomi run` does (nomi/vmrunner). With
+// nothing appended it runs the compiled program (.nomic) `nomi build --no-vm`
+// wrote that it is handed: `nomi-vm app.nomic [args...]`, or framed at the
+// start of stdin.
 //
 // `nomi build` builds it with the Go toolchain and caches it per compiler,
 // target and variant (internal/ffirun's runner.go). The build tag

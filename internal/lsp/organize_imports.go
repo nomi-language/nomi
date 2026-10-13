@@ -155,19 +155,22 @@ func addMissingQualifiedImports(set []ast.Node, nodes []ast.Node, fa *analysis.F
 // applyMissingToSet merges m into an existing same-module statement already in
 // out — a top-level statement or a block entry, in place. Returns true when an
 // existing statement handles m (merged, or already satisfied) so the caller does
-// not also append it.
+// not also append it. A re-export (`pub import`) never takes m.
 func applyMissingToSet(out []ast.Node, m analysis.MissingImport) bool {
 	segs := strings.Split(m.ModulePath, "/")
 	for i, node := range out {
 		switch v := node.(type) {
 		case *ast.ImportStmt:
-			if importStmtPathMatches(v, segs) {
+			if !v.Pub && importStmtPathMatches(v, segs) {
 				if merged, ok := mergeInto(v, m); ok {
 					out[i] = merged
 				}
 				return true
 			}
 		case *ast.ImportBlock:
+			if v.Pub {
+				continue
+			}
 			for j, e := range v.Entries {
 				if importStmtPathMatches(e, segs) {
 					if merged, ok := mergeInto(e, m); ok {
@@ -210,10 +213,11 @@ func importStmtFor(m analysis.MissingImport) *ast.ImportStmt {
 	return stmt
 }
 
-// firstImportBlock returns the first ImportBlock among nodes, or nil.
+// firstImportBlock returns the first ImportBlock among nodes that is not a
+// re-export (`pub import { ... }`), or nil.
 func firstImportBlock(nodes []ast.Node) *ast.ImportBlock {
 	for _, n := range nodes {
-		if b, ok := n.(*ast.ImportBlock); ok {
+		if b, ok := n.(*ast.ImportBlock); ok && !b.Pub {
 			return b
 		}
 	}
@@ -356,16 +360,13 @@ func pruneStmt(stmt *ast.ImportStmt, pi *pruneInfo) (*ast.ImportStmt, bool) {
 	}
 	if len(stmt.Names) > 0 {
 		c := *stmt
-		var names, aliases, exportAliases []ast.Node
-		var flags []bool
+		var names, aliases []ast.Node
 		for i, n := range stmt.Names {
 			if pi.idx[i] {
 				continue
 			}
 			names = append(names, n)
 			aliases = append(aliases, itemAt(stmt.Aliases, i))
-			exportAliases = append(exportAliases, itemAt(stmt.ExportAliases, i))
-			flags = append(flags, flagAt(stmt.ExportFlags, i))
 		}
 		newSelf := stmt.IncludeParent && !pi.self
 		if len(names) == 0 && !newSelf {
@@ -373,8 +374,6 @@ func pruneStmt(stmt *ast.ImportStmt, pi *pruneInfo) (*ast.ImportStmt, bool) {
 		}
 		c.Names = names
 		c.Aliases = aliases
-		c.ExportAliases = exportAliases
-		c.ExportFlags = flags
 		c.IncludeParent = newSelf
 		return &c, true
 	}
@@ -392,11 +391,4 @@ func itemAt(s []ast.Node, i int) ast.Node {
 		return s[i]
 	}
 	return nil
-}
-
-func flagAt(s []bool, i int) bool {
-	if i < len(s) {
-		return s[i]
-	}
-	return false
 }

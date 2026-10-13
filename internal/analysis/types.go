@@ -869,3 +869,6 @@ func isEmptyTuple(t Type) bool {
 func isUnitLike(t Type) bool {
 	return resolveTypeVar(t) == TypeUnit || isEmptyTuple(t)
 }
+
+// IsUnitType reports whether t denotes "no value": Unit or `()`.
+func IsUnitType(t Type) bool { return isUnitLike(t) }

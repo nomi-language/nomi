@@ -39,8 +39,7 @@ type Meters Int
 		{"Debug", "", []string{"P", "Shape", "Meters"}},
 		{"Display", "", []string{"P", "Shape", "Meters"}},
 		{"ToJson", "; std/json.ToJson", []string{"P", "Shape", "Meters"}},
-		// FromJson refuses an enum target by design (validateDeriveTarget).
-		{"FromJson", "; std/json.FromJson", []string{"P", "Meters"}},
+		{"FromJson", "; std/json.FromJson", []string{"P", "Shape", "Meters"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.iface, func(t *testing.T) {

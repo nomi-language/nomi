@@ -105,7 +105,7 @@ contexts:
         3: comment.line.prompt.nomi
     # Keyword-shaped import path segments are filenames, not language syntax:
     # `std/structs.Struct` should color `structs` like a path segment while the
-    # trailing `export` modifier still colors as a keyword.
+    # `as` after the path still colors as a keyword.
     - match: '\b({{import_path_keyword}})\b(?=/)|(?<=/)\b({{import_path_keyword}})\b'
       scope: variable.other.nomi
     - match: '\bhost\b(?=\s+(fn|type)\b)'

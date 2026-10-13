@@ -1,0 +1,72 @@
+import {
+    std/json.{FromJson, ToJson}
+    std/json.Json
+}
+
+struct Game {
+    word: String
+    guessed: Set<String> = #{}
+    misses: Int = 0
+    scores: Vector<Int> = Vector.empty()
+    hint: String = "no ${"hint"}"
+    ratio: Float = -0.5
+    hard: Bool = if 1 > 2 { True } else { False }
+    letters: List<String> = ["a", "b"] |> Iter.map(|s| String.to_upper(s)) |> Iter.to_list()
+}
+
+derive Equatable for Game
+derive ToJson for Game
+derive FromJson for Game
+
+enum Shape {
+    Box {
+        tags: Set<String> = #{"x"},
+        width: Int = 1,
+    }
+}
+
+derive Equatable for Shape
+derive ToJson for Shape
+derive FromJson for Shape
+
+test "a derived FromJson fills a missing field from its default" {
+    decoded = Game.from_json(Json.Obj{"word" => Json.String("cat")})
+
+    assert decoded == Result.Ok(Game{word: "cat"})
+
+    assert decoded == Result.Ok(Game{
+        word: "cat",
+        guessed: #{},
+        misses: 0,
+        scores: Vector.empty(),
+        hint: "no hint",
+        ratio: -0.5,
+        hard: False,
+        letters: ["A", "B"],
+    })
+}
+
+test "a derived FromJson decodes a present field over its default" {
+    decoded = Game.from_json(
+        Json.Obj{
+            "word" => Json.String("cat"),
+            "guessed" => Json.Arr([Json.String("a")]),
+            "misses" => Json.Int(2),
+        }
+    )
+
+    assert decoded == Result.Ok(Game{word: "cat", guessed: #{"a"}, misses: 2})
+}
+
+test "a struct with defaulted fields round-trips through ToJson and FromJson" {
+    game = Game{word: "dog", guessed: #{"d", "o"}, misses: 1}
+
+    assert Game.from_json(Game.to_json(game)) == Result.Ok(game)
+}
+
+test "a derived FromJson fills a record variant's missing field from its default" {
+    decoded = Shape.from_json(Json.Obj{"Box" => Json.Obj{"width" => Json.Int(3)}})
+
+    assert decoded == Result.Ok(Shape.Box{width: 3})
+    assert decoded == Result.Ok(Shape.Box{tags: #{"x"}, width: 3})
+}

@@ -1,11 +1,9 @@
 // `shapes` joins the program through a re-exported item rather than a call,
 // so the output is the entry file's alone. An unused import is an analysis
-// error, so re-exporting `origin_x` is what keeps the import, and with it the
-// second `Point`, in the program.
-import {
-    std/io
-    shapes.origin_x export
-}
+// error, so the `pub import` of `origin_x` is what keeps the import, and with
+// it the second `Point`, in the program.
+import std/io
+pub import shapes.origin_x
 
 /// The entry file's own `Point`, unrelated to `shapes.Point` beyond the
 /// spelling. Different field set, so a mix-up would also be observable — but

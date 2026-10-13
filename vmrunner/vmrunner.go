@@ -8,11 +8,15 @@
 // exception, and its runner links nomi/vmrunner/compiler, which brings the
 // front end with it.
 //
-// The executable is the runner's bytes, then the image, then a fixed
+// A native executable is the runner's bytes, then the image, then a fixed
 // 24-byte trailer: the image's offset and length as little-endian uint64s
-// and the magic "NOMIEXE\x01". A built binary runs at `nomi run` speed: it
+// and the magic "NOMIEXE\x01". A WebAssembly runner carries the image in a
+// custom section instead (wasm.go). A built binary runs at `nomi run` speed: it
 // skips the front end and the lowering at startup and runs the same VM over
 // the same IR. It is not native code.
+//
+// A runner nothing was appended to (nomi-vm) runs a .nomic file `nomi build --no-vm`
+// wrote, handed to it by path or framed on stdin (imagefile.go, bare.go).
 //
 // It is a public package because an FFI project's runner is generated into a
 // separate Go module, which can import only this module's public packages.
@@ -53,9 +57,11 @@ func Trailer(offset, n int64) []byte {
 // ErrNoImage is what ReadImage answers for an executable nothing was
 // appended to: the bare runner.
 var ErrNoImage = errors.New("no Nomi program is appended to this executable; " +
-	"it is the runner `nomi build` appends one to")
+	"it is the nomi-vm `nomi build` appends one to")
 
-// ReadImage reads the image appended to the executable at path.
+// ReadImage reads the image `nomi build` added to the executable at path:
+// after its end for a native executable, or for a WebAssembly module as
+// ReadWasmImage reads it.
 func ReadImage(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -67,6 +73,10 @@ func ReadImage(path string) ([]byte, error) {
 		return nil, err
 	}
 	size := info.Size()
+	head := make([]byte, len(wasmHeader))
+	if n, _ := f.ReadAt(head, 0); IsWasm(head[:n]) {
+		return ReadWasmImage(f, size)
+	}
 	if size < int64(TrailerSize) {
 		return nil, ErrNoImage
 	}
@@ -118,19 +128,42 @@ func WithCompiler(table func(root string) HostTable) Option {
 
 // Main runs the program appended to this executable with the process's own
 // streams, arguments and signal handling, and exits with `nomi run`'s status.
+//
+// A runner nothing was appended to runs the image file its arguments or
+// stdin hand it (RunBare). A js/wasm runner a page loaded to call the
+// program's exported functions serves those calls instead (calls_js.go).
 func Main(opts ...Option) {
-	exe, err := os.Executable()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "nomi: locating this executable: %v\n", err)
-		os.Exit(1)
+	args := ProgramArgs()
+	image, err := ownImage()
+	if errors.Is(err, ErrNoImage) {
+		os.Exit(RunBare(args, os.Stdout, os.Stderr, os.Stdin, true, err, opts...))
 	}
-	image, err := ReadImage(exe)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "nomi: %v\n", err)
 		os.Exit(1)
 	}
-	os.Exit(Run(image, os.Stdout, os.Stderr, os.Stdin, os.Args[1:], true, opts...))
+	if serveCalls(image, opts) {
+		return
+	}
+	os.Exit(Run(image, os.Stdout, os.Stderr, os.Stdin, args, true, opts...))
 }
+
+// ProgramArgs answers the program's arguments: os.Args after the runner's own
+// name. A WASI runner may pass no argv at all, not even a name (Node's
+// node:wasi does by default), so os.Args can be empty.
+func ProgramArgs() []string {
+	if len(os.Args) == 0 {
+		return nil
+	}
+	return os.Args[1:]
+}
+
+// OwnImage answers the image `nomi build` added to this runner, read as Main
+// reads it: from the executable's tail, from a wasip1 module's own memory,
+// or from a js/wasm module's nomi.image custom section. The wasip1 reactor (cmd/nomi-vm-reactor),
+// which has no Main, reads its program with it. A runner with no program
+// answers an error that is ErrNoImage.
+func OwnImage() ([]byte, error) { return ownImage() }
 
 // Run decodes image and runs its `main` as `nomi run` does, and answers the
 // exit status `nomi run` would exit with. handleSignals installs the
@@ -143,7 +176,7 @@ func Run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string,
 	}
 	im, err := ir.DecodeImage(image)
 	if err != nil {
-		fmt.Fprintf(stderr, "nomi: the appended program cannot be read: %v\n", err)
+		fmt.Fprintf(stderr, "nomi: the compiled program cannot be read: %v\n", err)
 		return 1
 	}
 	entry := im.EntryModule()
@@ -250,7 +283,7 @@ func checkHostKeys(keys []string, tables []HostTable) error {
 	}
 	for _, k := range keys {
 		if !have[k] {
-			return fmt.Errorf("this runner has no Go binding for %s; the program was built for a runner "+
+			return fmt.Errorf("this nomi-vm has no Go binding for %s; the program was built for a nomi-vm "+
 				"that links its project's Go bindings", k)
 		}
 	}

@@ -1,47 +1,47 @@
-// Prelude surface: every exported import here is auto-in-scope in non-stdlib
+// Prelude surface: every re-export here is auto-in-scope in non-stdlib
 // files. Stdlib files import dependencies explicitly.
 //
 // Whole-file imports bind a file API object. The prelude intentionally avoids
 // those: user files get universal types, variants, core protocols, and lifecycle
 // types. File API objects such as `io` still require imports.
-import {
-    add.Add export
+pub import {
+    add.Add
 
     // `Literal` / `Fragment` are intentionally not preluded. Typed-literal authors
     // import them explicitly; ordinary call sites only name the prefix type.
-    bool.Bool.{self, False, True} export
-    bytes.{Byte, Bytes} export
-    codepoints.Codepoint export
-    comparable.{Comparable, Ordering} export
-    context.Context export
+    bool.Bool.{self, False, True}
+    bytes.{Byte, Bytes}
+    codepoints.Codepoint
+    comparable.{Comparable, Ordering}
+    context.Context
 
     // Ordering's variants are intentionally not preluded; use `Ordering.Less` or
     // `.Less`.
-    debug.Debug export
-    decimal.Decimal export
-    discrete.Discrete export
-    display.Display export
-    divide.Divide export
-    equatable.Equatable export
-    float.Float export
-    hashable.Hashable export
-    int.Int export
-    iter.Iter export
-    lists.List export
-    maps.Map export
-    maybe.Maybe export
-    maybe.Maybe.{None, Some} export
-    multiply.Multiply export
-    ranges.Range export
-    results.{Infallible, Result} export
-    results.Result.{Err, Ok} export
-    sets.Set export
-    startup.Startup export
-    steppable.Steppable export
-    strings.String export
-    structs.{Distinct, Struct} export
-    subtract.Subtract export
-    type.Type export
-    unit.Unit export
-    vectors.Vector export
+    debug.Debug
+    decimal.Decimal
+    discrete.Discrete
+    display.Display
+    divide.Divide
+    equatable.Equatable
+    float.Float
+    hashable.Hashable
+    int.Int
+    iter.Iter
+    lists.List
+    maps.Map
+    maybe.Maybe
+    maybe.Maybe.{None, Some}
+    multiply.Multiply
+    ranges.Range
+    results.{Infallible, Result}
+    results.Result.{Err, Ok}
+    sets.Set
+    startup.Startup
+    steppable.Steppable
+    strings.String
+    structs.{Distinct, Struct}
+    subtract.Subtract
+    type.Type
+    unit.Unit
+    vectors.Vector
 }

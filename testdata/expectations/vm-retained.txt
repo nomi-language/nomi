@@ -1030,6 +1030,14 @@
 18-ffi-and-dynamic/json_container_decode_test.nomi:decode	ran
 18-ffi-and-dynamic/json_container_decode_test.nomi:decode	ran
 18-ffi-and-dynamic/json_decode_error_text_test.nomi:decode_error	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.equal?	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.from_json	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.inspect	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.to_json	PROBE: a synthesized argument is not a value of the declared type
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.equal?	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.from_json	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.inspect	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.to_json	PROBE: a synthesized argument is not a value of the declared type
 18-ffi-and-dynamic/json_derive_test.nomi:Account.equal?	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.from_json	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.inspect	ran
@@ -1042,6 +1050,15 @@
 18-ffi-and-dynamic/json_derive_test.nomi:User.from_json	ran
 18-ffi-and-dynamic/json_derive_test.nomi:User.inspect	ran
 18-ffi-and-dynamic/json_derive_test.nomi:User.to_json	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.equal?	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.from_json	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.inspect	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.to_json	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.equal?	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.from_json	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.inspect	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.to_json	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:decoded	ran
 18-ffi-and-dynamic/json_test.nomi:describe_root	ran
 18-ffi-and-dynamic/json_test.nomi:extract_first_tag	ran
 18-ffi-and-dynamic/json_test.nomi:sample_json	ran

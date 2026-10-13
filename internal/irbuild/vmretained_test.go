@@ -958,10 +958,10 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 		return false
 	}
 	if strings.Contains(err.Error(), "reads a field off") || strings.Contains(err.Error(), "variant test reads rt.Context") ||
-		strings.Contains(err.Error(), "iteration reads rt.Context") {
-		// A field read, variant test or iteration on the leaf the probe
-		// supplied for a parameter it cannot build (a nominal type, or an
-		// `Iter<T>`).
+		strings.Contains(err.Error(), "iteration reads rt.Context") || strings.Contains(err.Error(), "set receiver is rt.Context") {
+		// A field read, variant test, iteration or Set operation on the leaf
+		// the probe supplied for a parameter it cannot build (a nominal type,
+		// an `Iter<T>`, or a struct whose field is a Set).
 		return true
 	}
 	for _, p := range fn.Params() {

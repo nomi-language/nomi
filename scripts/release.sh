@@ -3,17 +3,17 @@
 # Build the per-platform release artifacts for the `nomi` toolchain.
 #
 # A release carries THREE binaries per platform: `nomi` (the CLI), `nomi-lsp`
-# (the editor language server) and `nomi-runner` (the VM runner `nomi build`
-# appends a program to). The editor integrations name `nomi-lsp` —
+# (the editor language server) and `nomi-vm` (the VM: `nomi build`
+# appends a program to it, and it runs a .nomic file). The editor integrations name `nomi-lsp` —
 # editors/helix/languages.toml runs it by name and the Zed extension does
 # `worktree.which("nomi-lsp")` — so shipping only `nomi` would leave every
-# editor on the from-source path. `nomi build` looks for `nomi-runner` beside
+# editor on the from-source path. `nomi build` looks for `nomi-vm` beside
 # `nomi` (internal/ffirun/prebuilt.go), and without it a release
-# could not build executables without Go. The runner must come from the same
+# could not build executables without Go. nomi-vm must come from the same
 # commit as `nomi`, which `nomi build` checks against the VCS stamp both carry;
-# this script checks it too. Only the plain runner ships: std/compiler's variant
-# links the whole front end (6.5 MB gzipped against the plain runner's 3.7 MB),
-# so a program importing std/compiler needs Go, which builds its runner from
+# this script checks it too. Only the plain nomi-vm ships: std/compiler's variant
+# links the whole front end (6.5 MB gzipped against the plain one's 3.7 MB),
+# so a program importing std/compiler needs Go, which builds its nomi-vm from
 # the compiler module at the release's version.
 #
 # Built at its tag, every binary carries the tag as its main module's version,
@@ -25,10 +25,19 @@
 # downloads another platform's archive from the release of that tag and
 # checks it against this script's checksum manifest.
 #
+# Two more archives carry only runners: js/wasm and wasip1/wasm, for
+# `nomi build --target js/wasm`, `--target wasip1/wasm` and `--web`. The
+# js/wasm archive carries nomi-vm and Go's wasm_exec.js from the toolchain
+# that built it, since the two must match; `nomi build --web` copies it into
+# the folder it writes. The wasip1 archive carries nomi-vm, the WASI command
+# module a program with no `export fn` is appended to, and nomi-vm-reactor,
+# the same VM linked with -buildmode=c-shared as a WASI reactor
+# (cmd/nomi-vm-reactor), which a program with an `export fn` is appended to.
+#
 # Nothing else ships. The standard library is `//go:embed`ed into each binary
 # (std/std.go: `//go:embed *.nomi nomi.toml all:_fixtures`), so there
 # is no data directory to install beside them, and an archive is exactly the
-# executables.
+# executables (and wasm_exec.js).
 #
 # Go cross-compiles the whole matrix from one machine: no cross-toolchain, no
 # per-OS runner. CGO is off so every artifact is a static binary with no libc
@@ -42,6 +51,8 @@
 # $NOMI_RELEASE_DIST when it is set (a local dry run into a scratch directory):
 #
 #	dist/nomi_<version>_<os>_<arch>.tar.gz   (.zip on windows)
+#	dist/nomi_<version>_js_wasm.tar.gz       (nomi-vm, wasm_exec.js)
+#	dist/nomi_<version>_wasip1_wasm.tar.gz   (nomi-vm, nomi-vm-reactor)
 #	dist/nomi_<version>_checksums.txt
 #
 # `nomi build --target` downloads another platform's archive from the release
@@ -75,6 +86,17 @@ targets=(
 	"windows/amd64"
 )
 
+# The WebAssembly targets ship only nomi-vm (and for wasip1 its reactor):
+# `nomi` and `nomi-lsp` do not run there.
+vm_targets=(
+	"js/wasm"
+	"wasip1/wasm"
+)
+
+# The wasip1 reactor, built -buildmode=c-shared so the module exports
+# `_initialize` and the nomi_call ABI instead of `_start`.
+wasip1_reactor="nomi-vm-reactor:./cmd/nomi-vm-reactor"
+
 # The three commands. `nomi-wasm` and `nomi-docgen` are deliberately absent:
 # nomi-wasm is a browser artifact built by scripts/build-tour-wasm.sh for the
 # tour, and nomi-docgen generates reference pages at build time and is never
@@ -82,7 +104,7 @@ targets=(
 binaries=(
 	"nomi:./cmd/nomi"
 	"nomi-lsp:./cmd/nomi-lsp"
-	"nomi-runner:./cmd/nomi-runner"
+	"nomi-vm:./cmd/nomi-vm"
 )
 
 sha256() {
@@ -96,8 +118,21 @@ sha256() {
 rm -rf "$dist_dir"
 mkdir -p "$dist_dir"
 
+# `go version -m` cannot read a WebAssembly module, so every artifact's build
+# info is read with internal/gobuildinfo, which prints the same layout.
+tools_dir="$(mktemp -d)"
+trap 'rm -rf "$tools_dir"' EXIT
+CGO_ENABLED=0 GOOS= GOARCH= go build -C "$module_dir" -o "$tools_dir/gobuildinfo" ./internal/gobuildinfo/cmd/gobuildinfo
+buildinfo() {
+	"$tools_dir/gobuildinfo" "$1"
+}
+
+# Every binary of the release carries one VCS stamp.
+revisions=""
+
+all_targets=("${targets[@]}" "${vm_targets[@]}")
 built=0
-for target in "${targets[@]}"; do
+for target in "${all_targets[@]}"; do
 	goos="${target%%/*}"
 	goarch="${target##*/}"
 	ext=""
@@ -108,17 +143,27 @@ for target in "${targets[@]}"; do
 	stage="$dist_dir/nomi_${version}_${goos}_${goarch}"
 	mkdir -p "$stage"
 
-	revisions=""
-	for spec in "${binaries[@]}"; do
+	specs=("${binaries[@]}")
+	if [ "$goarch" = "wasm" ]; then
+		specs=("nomi-vm:./cmd/nomi-vm")
+	fi
+	if [ "$goos" = "wasip1" ]; then
+		specs+=("$wasip1_reactor")
+	fi
+	for spec in "${specs[@]}"; do
 		name="${spec%%:*}"
 		pkg="${spec##*:}"
 		ldflags="-s -w"
 		if [ "$name" = "nomi" ]; then
 			ldflags="$ldflags -X github.com/nomi-language/nomi/internal/ffirun.ReleaseVersion=$version"
 		fi
+		buildmode="default"
+		if [ "$name" = "nomi-vm-reactor" ]; then
+			buildmode="c-shared"
+		fi
 		echo "building $name for $goos/$goarch"
 		CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-			go build -C "$module_dir" -trimpath -ldflags "$ldflags" \
+			go build -C "$module_dir" -trimpath -buildmode="$buildmode" -ldflags "$ldflags" \
 			-o "$stage/$name$ext" "$pkg"
 
 		out="$stage/$name$ext"
@@ -130,22 +175,22 @@ for target in "${targets[@]}"; do
 		# Read the platform back off the artifact. Exporting GOOS/GOARCH and
 		# then trusting them proves nothing: a matrix that silently produced
 		# five host-native copies would look identical from the outside.
-		got_os="$(go version -m "$out" | awk '$1 == "build" && $2 ~ /^GOOS=/ { sub(/^GOOS=/, "", $2); print $2 }')"
-		got_arch="$(go version -m "$out" | awk '$1 == "build" && $2 ~ /^GOARCH=/ { sub(/^GOARCH=/, "", $2); print $2 }')"
+		got_os="$(buildinfo "$out" | awk '$1 == "build" && $2 ~ /^GOOS=/ { sub(/^GOOS=/, "", $2); print $2 }')"
+		got_arch="$(buildinfo "$out" | awk '$1 == "build" && $2 ~ /^GOARCH=/ { sub(/^GOARCH=/, "", $2); print $2 }')"
 		if [ "$got_os" != "$goos" ] || [ "$got_arch" != "$goarch" ]; then
 			echo "release.sh: $out reports $got_os/$got_arch, wanted $goos/$goarch" >&2
 			exit 1
 		fi
 
-		# `nomi build` refuses a runner from another commit than `nomi`, so
+		# `nomi build` refuses a nomi-vm from another commit than `nomi`, so
 		# every binary in one archive must carry the same VCS stamp.
-		stamp="$(go version -m "$out" | awk '$1 == "build" && ($2 ~ /^vcs.revision=/ || $2 ~ /^vcs.modified=/) { print $2 }' | tr '\n' ' ')"
+		stamp="$(buildinfo "$out" | awk '$1 == "build" && ($2 ~ /^vcs.revision=/ || $2 ~ /^vcs.modified=/) { print $2 }' | tr '\n' ' ')"
 		if [ -z "$stamp" ]; then
-			echo "release.sh: $out carries no VCS stamp; nomi build could not check its runner" >&2
+			echo "release.sh: $out carries no VCS stamp; nomi build could not check it against nomi" >&2
 			exit 1
 		fi
 		if [ -n "$revisions" ] && [ "$stamp" != "$revisions" ]; then
-			echo "release.sh: $out is stamped '$stamp', the archive's other binaries '$revisions'" >&2
+			echo "release.sh: $out is stamped '$stamp', the release's other binaries '$revisions'" >&2
 			exit 1
 		fi
 		revisions="$stamp"
@@ -156,13 +201,22 @@ for target in "${targets[@]}"; do
 		# fetched through the Go toolchain. A release without it would treat
 		# itself as a development build and refuse Go bindings.
 		if [ "$at_tag" = "true" ]; then
-			mod_version="$(go version -m "$out" | awk '$1 == "mod" { print $3; exit }')"
+			mod_version="$(buildinfo "$out" | awk '$1 == "mod" { print $3; exit }')"
 			if [ "$mod_version" != "$version" ]; then
 				echo "release.sh: $out carries module version '$mod_version', not the tag $version; is the tree clean?" >&2
 				exit 1
 			fi
 		fi
 	done
+
+	if [ "$goos" = "js" ]; then
+		# The JS support file of the Go that just built nomi-vm: the same
+		# `go` in the same module directory, so a toolchain line selects the
+		# same toolchain.
+		goroot="$(go -C "$module_dir" env GOROOT)"
+		cp "$goroot/lib/wasm/wasm_exec.js" "$stage/wasm_exec.js"
+		chmod 0644 "$stage/wasm_exec.js"
+	fi
 
 	archive_base="nomi_${version}_${goos}_${goarch}"
 	if [ "$goos" = "windows" ]; then
@@ -177,8 +231,8 @@ done
 # Anti-vacuity: a loop whose matrix went empty, or whose archive step silently
 # skipped, would otherwise reach the checksum step and write an empty manifest
 # that looks like a clean run.
-if [ "$built" -ne "${#targets[@]}" ]; then
-	echo "release.sh: built $built archive(s), expected ${#targets[@]}" >&2
+if [ "$built" -ne "${#all_targets[@]}" ]; then
+	echo "release.sh: built $built archive(s), expected ${#all_targets[@]}" >&2
 	exit 1
 fi
 

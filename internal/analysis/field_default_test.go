@@ -606,6 +606,9 @@ fn main() {
 // `07-structs-and-enums/nested_update/nested_update_test.nomi` adds five,
 // all top-level struct declarations (Address.zip, Geo.lat, Geo.city,
 // Floor.geo, Floor.rooms), which a missing map key builds from.
+// `18-ffi-and-dynamic/json_derive_defaults_test.nomi` adds nine, seven on the
+// top-level struct `Game` and two on the record variant `Shape.Box`, which a
+// derived FromJson fills when the JSON object lacks the key.
 //
 // `std` reads 11: std/assertions 3, std/compiler 2, std/json 2,
 // std/startup 2 (`Startup` declares `env` and `args` with empty defaults, so
@@ -620,7 +623,7 @@ fn main() {
 // survivor the census prints is `structs-enums-distinct.md:L29`'s `age@3:3`.
 var fieldDefaultDenominator = map[string]int{
 	"std":             12,
-	"tests":           33,
+	"tests":           42,
 	"tour (nomi-run)": 1,
 	"tour (nomi)":     0,
 }

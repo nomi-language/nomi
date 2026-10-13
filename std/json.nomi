@@ -12,7 +12,9 @@ import {
     maybe.Maybe.{self, None, Some}
     results.Result
     results.Result.{Err, Ok}
+    sets.Set
     strings.String
+    vectors.Vector
 }
 
 /// Tagged enum representing a parsed JSON value.
@@ -251,9 +253,15 @@ impl ToJson for Float {
 }
 
 impl FromJson for Float {
+    /// Reads a JSON number. A whole number, which `Json.decode` reads as
+    /// `Json.Int`, is a Float too: JSON writes `2.0` as `2`.
+    //! assert Float.from_json(Json.Float(2.5)) == Ok(2.5)
+    //! assert Float.from_json(Json.Int(2)) == Ok(2.0)
+    //
     fn from_json(json: Json): Result<Float, Json.ShapeError> {
         case json {
             Json.Float(value) -> Ok(value)
+            Json.Int(value) -> Ok(Int.to_float(value))
             _ -> Err(shape_error_root("float", json))
         }
     }
@@ -303,6 +311,56 @@ impl FromJson for List<T> where T: FromJson {
         case json {
             Json.Arr(items) -> decode_list(items, 0, [], |item| T.from_json(item))
             _ -> Err(shape_error_root("array", json))
+        }
+    }
+}
+
+impl ToJson for Vector<T> where T: ToJson {
+    fn to_json(value: Vector<T>): Json {
+        Json.Arr(
+            Iter.map(value, |item| ToJson.to_json(item))
+            |> Iter.to_list()
+        )
+    }
+}
+
+impl FromJson for Vector<T> where T: FromJson {
+    /// A vector crosses as a JSON array, as a list does.
+    fn from_json(json: Json): Result<Vector<T>, Json.ShapeError> {
+        case json {
+            Json.Arr(items) ->
+                case decode_list(items, 0, [], |item| T.from_json(item)) {
+                    Ok(list) -> Ok(Iter.to_vector(list))
+                    Err(e) -> Err(e)
+                }
+
+            _ ->
+                Err(shape_error_root("array", json))
+        }
+    }
+}
+
+impl ToJson for Set<T> where T: ToJson {
+    fn to_json(value: Set<T>): Json {
+        Json.Arr(
+            Iter.map(value, |item| ToJson.to_json(item))
+            |> Iter.to_list()
+        )
+    }
+}
+
+impl FromJson for Set<T> where T: FromJson {
+    /// A set crosses as a JSON array of its elements.
+    fn from_json(json: Json): Result<Set<T>, Json.ShapeError> {
+        case json {
+            Json.Arr(items) ->
+                case decode_list(items, 0, [], |item| T.from_json(item)) {
+                    Ok(list) -> Ok(Iter.to_set(list))
+                    Err(e) -> Err(e)
+                }
+
+            _ ->
+                Err(shape_error_root("array", json))
         }
     }
 }
@@ -358,4 +416,26 @@ impl FromJson for Map<String, V> where V: FromJson {
                 Err(shape_error_root("object", json))
         }
     }
+}
+
+// A host's call of an exported function (`export fn`) decodes each argument
+// from its JSON text with export_argument, at the parameter's type, and
+// encodes the result with export_result. The IR builder instantiates both
+// for each exported signature (internal/irbuild/exports.go); no Nomi code
+// calls them.
+fn export_argument<T>(text: String): Result<T, String> where T: FromJson {
+    case Json.decode(text) {
+        Ok(json) ->
+            case T.from_json(json) {
+                Ok(value) -> Ok(value)
+                Err(e) -> Err(Display.to_string(e))
+            }
+
+        Err(e) ->
+            Err(Display.to_string(e))
+    }
+}
+
+fn export_result<T>(value: T): String where T: ToJson {
+    Json.encode(ToJson.to_json(value))
 }

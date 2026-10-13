@@ -82,7 +82,7 @@ It writes `dist/nomi_<version>_<os>_<arch>.{tar.gz,zip}` and
 `dist/nomi_<version>_checksums.txt` (`NOMI_RELEASE_DIST=<dir>` writes them
 elsewhere, for a dry run). The version must be the release's tag: it is
 stamped into `nomi` (`-X github.com/nomi-language/nomi/internal/ffirun.ReleaseVersion=<version>`), and
-`nomi build --target` downloads other platforms' runners from that tag. The
+`nomi build --target` downloads other platforms' nomi-vm from that tag. The
 script reads each binary's platform and commit back with `go version -m` and
 fails if they disagree with the target or with each other.
 

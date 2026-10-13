@@ -33,9 +33,9 @@ The repository root is the compiler's Go module,
 
 | Path | What it is |
 |---|---|
-| `cmd/` | Binaries: `nomi` (the CLI), `nomi-lsp`, `nomi-runner` (what `nomi build` appends a program to), `nomi-wasm` (the browser build), `nomi-docgen` (stdlib reference). |
+| `cmd/` | Binaries: `nomi` (the CLI), `nomi-lsp`, `nomi-vm` (the VM binary: what `nomi build` appends a program to, and what runs a `.nomic` file), `nomi-vm-reactor` (the wasip1 reactor a program with an `export fn` is appended to), `nomi-wasm` (the browser build), `nomi-docgen` (stdlib reference). |
 | `vmhost/` | The public embedding API. |
-| `vmrunner/` | What a built executable runs. Generated FFI runners import it. |
+| `vmrunner/` | What `nomi-vm` and a built executable run. Generated FFI runners import it. |
 | `hostadapt/` | Support package that generated FFI wrappers import. |
 | `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `std*` (Go-backed stdlib adapters), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. |
@@ -168,12 +168,58 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   no rebuild; Go changes invalidate the cache key. Tests must set
   `NOMI_FFIRUN_CACHE_ROOT`: `cacheRoot()` refuses the real cache under
   `go test`. The cache is safe to delete.
-- **`nomi build`.** Writes one executable: a VM runner binary with the
+- **`nomi build`.** Writes one executable: the `nomi-vm` binary with the
   program's linked IR image appended (`ir.EncodeImage`). It is not native
   code; it skips the front end at startup. `--target goos/goarch`
-  cross-compiles. A field added to an IR node fails
+  cross-compiles. Nothing may follow a WebAssembly module's last section,
+  so a wasm target carries the image inside the module
+  (`vmrunner/wasm.go`). A wasip1 runner (`nomi-vm` or `nomi-vm-reactor`)
+  declares a 16 MiB bss array and an initialized slot holding a magic,
+  the array's address and its size (`vmrunner/image_wasip1.go`); `nomi build` finds the slot in the
+  data segments (no symbols needed, so a stripped release runner works)
+  and adds an active data segment at the array's address holding the
+  image's length and the image, which the engine writes before Go starts.
+  The array is bss below Go's heap, so it costs no file bytes and the
+  allocator never reuses it, and the module needs no file access. A
+  js/wasm module carries the image in a `nomi.image` custom section that
+  nomi.js hands it. `--web` writes a browser folder instead: the js/wasm
+  module `app.wasm`, `nomi.js` (the `wasm_exec.js` cached beside its `nomi-vm`,
+  unchanged inside a function, then the loader from `cmd/nomi/web/nomi.js`,
+  which starts itself as each run's module worker), `nomi.d.ts` (its
+  TypeScript declarations, with a typed `call` per exported function:
+  `internal/webtypes`, from the front end's `irbuild.Result.Exports`) and
+  the page, plus the author's static
+  files from the program's `web/` folder or `--static <dir>`
+  (`webStaticDir`). A program with `export fn`s records each in the image
+  (`ir.Image.Exports`: the function, and std/json's `export_argument` and
+  `export_result` instantiated at each parameter's and the result's type,
+  which convert JSON text). `vmrunner.Start` boots an image once, runs its
+  `main`, and answers an `Instance` whose `Call(name, argsJSON)` runs one
+  exported function at a time on that booted program; nomi.js's `load`
+  starts the worker in call mode, and the js/wasm runner serves its calls
+  through `globalThis.nomiServe` (`vmrunner/calls_js.go`).
+  `nomi run --web` (`cmd/nomi/run_web.go`) serves the
+  generated files from a temporary directory and the static files from
+  where they are on localhost, polls both, and rebuilds on a source change
+  or only reloads on a static one; the reload script (`web/nomi-dev.js`)
+  is added to each `.html` page only as it is served, never written.
+  `--target wasip1/wasm` of a program with an `export fn` appends it to
+  `cmd/nomi-vm-reactor` instead, the VM linked `-buildmode=c-shared` as a
+  WASI reactor that exports `_initialize` and the generic call ABI
+  `nomi_alloc`, `nomi_call`, `nomi_free` and `nomi_main`
+  (`ffirun.Variant`); a program without one stays a command module.
+  Releases ship the reactor in the wasip1 archive beside `nomi-vm`.
+  `--no-vm` writes the image alone as a compiled program, `<entry>.nomic`
+  (a header with magic `NOMIC\0\0\0`, `ir.FormatVersion`, flags, the
+  writer's version and the length; `vmrunner/imagefile.go`, where Go code
+  calls it an image file) and needs no Go toolchain; Go-FFI projects are
+  refused. `--vm [--compiler]` copies out the `nomi-vm` binary
+  `ffirun.Runner` answers. A `nomi-vm` with nothing appended runs a
+  `.nomic` file by path or framed on stdin (`vmrunner/bare.go`), and
+  `nomi run` runs one in process. A field added to an IR node fails
   `TestImage_EveryNodeFieldIsEncoded` until the encoder, decoder and
-  `ir.FormatVersion` carry it.
+  `ir.FormatVersion` carry it; the bump makes every `nomi-vm` refuse
+  `.nomic` files of the old format by name.
 - **REPL.** `nomi` with no arguments keeps one live VM and links each input
   into it as a new program (`cmd/nomi/repl_vm.go`, `vmhost.Session`). It is lexically
   scoped across inputs, as GHCi is.

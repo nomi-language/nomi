@@ -122,7 +122,7 @@ func TestRun_ADamagedImageIsAnErrorNotAPanic(t *testing.T) {
 	img[len(img)-1] ^= 0xff
 	var errOut bytes.Buffer
 	if code := vmrunner.Run(img, &bytes.Buffer{}, &errOut, nil, nil, false); code != 1 ||
-		!strings.Contains(errOut.String(), "the appended program cannot be read") {
+		!strings.Contains(errOut.String(), "the compiled program cannot be read") {
 		t.Fatalf("exit %d, stderr %q", code, errOut.String())
 	}
 }
@@ -186,5 +186,48 @@ func TestRun_ACompilePanicIsAnInternalCompilerError(t *testing.T) {
 	}
 	if strings.Contains(errOut.String(), "BLOCKED") {
 		t.Errorf("stderr %q reports the panic as BLOCKED", errOut.String())
+	}
+}
+
+// wasmModule is a minimal WebAssembly module: the header, an empty type
+// section and an empty custom section named "name", then extra.
+func wasmModule(extra []byte) []byte {
+	m := []byte{0, 'a', 's', 'm', 1, 0, 0, 0}
+	m = append(m, 1, 1, 0)                     // type section: zero types
+	m = append(m, 0, 5, 4, 'n', 'a', 'm', 'e') // custom section "name"
+	return append(m, extra...)
+}
+
+func TestReadImage_ReadsAWasmModulesImageSection(t *testing.T) {
+	img := image(t, "fn main() {\n  Unit\n}\n")
+	path := filepath.Join(t.TempDir(), "app.wasm")
+	if err := os.WriteFile(path, wasmModule(vmrunner.WasmImageSection(img)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := vmrunner.ReadImage(path)
+	if err != nil || !bytes.Equal(got, img) {
+		t.Fatalf("read %d bytes of %d, err %v", len(got), len(img), err)
+	}
+}
+
+func TestReadImage_AWasmRunnerWithoutTheSectionHasNoImage(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "runner.wasm")
+	if err := os.WriteFile(path, wasmModule(nil), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := vmrunner.ReadImage(path); !errors.Is(err, vmrunner.ErrNoImage) {
+		t.Fatalf("got %v, want ErrNoImage", err)
+	}
+}
+
+func TestReadImage_ATruncatedWasmSectionIsAnError(t *testing.T) {
+	img := image(t, "fn main() {\n  Unit\n}\n")
+	section := vmrunner.WasmImageSection(img)
+	path := filepath.Join(t.TempDir(), "app.wasm")
+	if err := os.WriteFile(path, wasmModule(section[:len(section)-1]), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := vmrunner.ReadImage(path); err == nil || !strings.Contains(err.Error(), "overruns the file") {
+		t.Fatalf("got %v", err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // ImplTypeArgs is the type-argument template for an `impl Iface for T<...>` or
@@ -4359,49 +4360,11 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				}.Spanning(nameNode).WithHint(importSuggestion(origName, modScope, ownerSegments)))
 			}
 
-			// Per-item re-export: `import mod.{a export [as Pub]}` or the
-			// line-level shorthand `import mod.{a, b} export`. The item is
-			// re-exported when either the per-item flag is set or the
-			// line-level ExportAll flag is set on a selective import.
-			//
-			// The publicly-exposed name is ExportAliases[i] if present,
-			// otherwise the local bind name (Aliases[i] ?? Names[i]).
-			//
-			//   - If the export name matches the local bind name (the
-			//     common case, including the line-level shorthand), just
-			//     mark the local binding's Public flag true. Consumers see
-			//     the same name.
-			//   - If the export name differs (export-rename case), register
-			//     an additional public symbol under the export name. The
-			//     local sym stays private — the importer uses the local
-			//     name, downstream consumers use the export name.
-			perItemExport := i < len(n.ExportFlags) && n.ExportFlags[i]
-			itemExported := n.ExportAll || perItemExport
-			if itemExported {
-				exportName := bindName
-				exportNode := bindNode
-				if i < len(n.ExportAliases) && n.ExportAliases[i] != nil {
-					exportName = ast.ImportNodeName(n.ExportAliases[i])
-					exportNode = n.ExportAliases[i]
-				}
-				if exportName == bindName {
-					sym.Public = true
-				} else {
-					pubSym := &Symbol{
-						Name:   exportName,
-						Kind:   sym.Kind,
-						Pos:    Pos{Line: exportNode.LineNum(), Col: b.nodeCol(exportNode)},
-						Public: true,
-						Node:   n,
-					}
-					if real != nil {
-						pubSym.Resolved = real
-					} else if sym.Resolved != nil {
-						pubSym.Resolved = sym.Resolved
-					}
-					scope.Define(pubSym)
-					b.file.Definitions[pubSym.Pos] = pubSym
-				}
+			// A re-export, `pub import mod.{a, b}`, makes each selected
+			// item public under its local name (the alias when there is
+			// one), so importers of this file see the same name.
+			if n.Pub {
+				sym.Public = true
 			}
 
 			// A user-written selective import and a local DECLARATION of the
@@ -4827,6 +4790,15 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		b.walkNode(n.Right, scope)
 
 	case *ast.FieldAccess:
+		if obj, ok := n.Object.(*ast.TypeIdent); ok {
+			if modSym := b.synthStdFileQualifier(obj); modSym != nil {
+				b.file.References[Pos{Line: obj.Line, Col: obj.Col}] = modSym
+				if sym := modSym.ModuleScope.LookupLocal(n.Field.Name); sym != nil && sym.Kind != SymbolModule {
+					b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = sym
+				}
+				return
+			}
+		}
 		b.walkNode(n.Object, scope)
 		b.recordImportedTypeQualifiedAccess(n, scope)
 		// Resolve qualified names: io.inspect, Iter.map, etc.
@@ -5264,6 +5236,27 @@ func (b *builder) lookupModuleScope(name string, scope *Scope) *Scope {
 		}
 	}
 	return nil
+}
+
+// synthStdFileQualifier resolves the file qualifier of a std function call
+// derive synthesis writes (`json.shape_error_prepend(...)` in a derived
+// FromJson) to that std file. Synthesized code spells it as a lowercase
+// TypeIdent on a synthesized line; the file deriving need not import the std
+// file whole, and a derived FromJson's own `json` parameter would shadow it in
+// scope. Scope lookup would find the parameter and the checker would give the
+// call no type, so a `case` whose error type only such calls fix (a derived
+// enum's record variant with a defaulted field) would leave its error
+// binding undetermined. The IR builder resolves the same spelling by the
+// same rule (synthStdFilePlan). Nil for anything else.
+func (b *builder) synthStdFileQualifier(n *ast.TypeIdent) *Symbol {
+	if n == nil || n.Name == "" || !IsSynthesizedLine(n.Line) || !unicode.IsLower([]rune(n.Name)[0]) {
+		return nil
+	}
+	modScope := b.file.StdlibModuleScopes[n.Name]
+	if modScope == nil {
+		return nil
+	}
+	return &Symbol{Name: n.Name, Kind: SymbolModule, Pos: Pos{Line: n.Line, Col: n.Col}, ModuleScope: modScope}
 }
 
 // moduleScopeOfSym returns sym's ModuleScope when sym is a file API object

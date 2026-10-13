@@ -244,7 +244,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// std/strings.nomi would re-import String, which is declared there).
 	//
 	// preludeImports() parses prelude.nomi once and returns its
-	// re-export `import` chain with `export` flags stripped — mirroring
+	// `pub import` chain as plain imports — mirroring
 	// prelude.nomi's drill-through structure (e.g. `std/maybe.Maybe.{self,
 	// None, Some}`) is what lets the variant names land in user scope
 	// without tripping the "cannot import variant 'X' directly" check.
@@ -421,6 +421,13 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		entryFB.fa.TypeErrors,
 		CheckEntryPlacement(proj.Manifest, entryNodes, placedEntry, proj.Files)...,
 	)
+	exportFiles := make([]ExportFile, 0, len(all))
+	for _, fb := range all {
+		if !IsStdlibKey(fb.key) {
+			exportFiles = append(exportFiles, ExportFile{Path: fb.fa.FilePath, Nodes: fb.nodes, FA: fb.fa})
+		}
+	}
+	CheckExportNames(exportFiles)
 	// derive Attach validation errors to each file's FileAnalysis now
 	// that the per-file FA exists.
 	entryFB.fa.TypeErrors = append(entryFB.fa.TypeErrors, entryDeriveErrs...)

@@ -837,19 +837,20 @@ import shape.Shape.{self, Circle, Rectangle}
 If you need only the owner or only one member, don't add `self` for its own
 sake: `import shape.Shape` and `import shape.Shape.Circle` stay as they are.
 
-When a line-level `export` applies to every name selected from a path, put it
-once after the selector list:
+A file that re-exports some items and imports others privately writes two
+statements, and `fmt` keeps them as an `import` block followed by a
+`pub import` block:
 
 ```nomi
-// no: valid, but says export twice
-import std/comparable.{Comparable export, Ordering export}
-
-// yes
-import std/comparable.{Comparable, Ordering} export
+import {
+    calc.helper
+    std/io
+}
+pub import {
+    calc.{add, subtract as minus}
+    std/comparable.{Comparable, Ordering}
+}
 ```
-
-Use per-item `export` when only some selected names are re-exported or an item
-needs its own alias: `import calc.{add export, helper, subtract export as minus}`.
 
 Don't write imports you don't use; the compiler rejects each unused imported
 item, module, alias or `self` marker (spec §14). Dot-shorthand patterns

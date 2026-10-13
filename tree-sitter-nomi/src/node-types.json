@@ -6203,6 +6203,10 @@
           "named": true
         },
         {
+          "type": "export",
+          "named": true
+        },
+        {
           "type": "function_type",
           "named": true
         },
@@ -7216,6 +7220,10 @@
           "named": true
         },
         {
+          "type": "pub",
+          "named": true
+        },
+        {
           "type": "type_identifier",
           "named": true
         }
@@ -7352,6 +7360,10 @@
         },
         {
           "type": "module_path",
+          "named": true
+        },
+        {
+          "type": "pub",
           "named": true
         },
         {
@@ -15563,7 +15575,7 @@
   },
   {
     "type": "export",
-    "named": false
+    "named": true
   },
   {
     "type": "extends",

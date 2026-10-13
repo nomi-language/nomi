@@ -528,8 +528,8 @@
 ; === Keywords ===
 
 (pub) @keyword
+(export) @keyword
 "opaque" @keyword
-"export" @keyword
 "once" @keyword
 "fn" @keyword
 "type" @keyword

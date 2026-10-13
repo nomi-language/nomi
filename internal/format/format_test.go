@@ -4297,88 +4297,57 @@ func TestFormat_SelectiveList_KeepsCommasInline(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Per-item and line-level re-export modifiers on imports (plan B.6)
+// Re-exports: `pub import`
 // ---------------------------------------------------------------------------
 
-func TestFormat_ImportExport_PerItem(t *testing.T) {
-	src := "import some_mod.{Thing export}\n"
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("Format error: %v", err)
+func TestFormat_PubImport(t *testing.T) {
+	cases := []struct{ src, want string }{
+		{"pub import some_mod.{b, a}\n", "pub import some_mod.{a, b}\n"},
+		{"pub import some_mod: a, b, c\n", "pub import some_mod.{a, b, c}\n"},
+		{"pub import some_mod.{Thing as Tng}\n", "pub import some_mod.Thing as Tng\n"},
+		{"pub import std/bool.Bool.{self, True, False}\n", "pub import std/bool.Bool.{self, False, True}\n"},
+		{"pub import {\n    lists.List\n    add.Add\n}\n", "pub import {\n    add.Add\n    lists.List\n}\n"},
+		{"pub import {\n    add.Add\n}\n", "pub import add.Add\n"},
 	}
-	if !strings.Contains(got, "Thing export") {
-		t.Errorf("expected `Thing export` in output, got:\n%s", got)
-	}
-}
-
-func TestFormat_ImportExport_PerItemRename(t *testing.T) {
-	src := "import some_mod.{Thing export as Tng}\n"
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("Format error: %v", err)
-	}
-	if !strings.Contains(got, "Thing export as Tng") {
-		t.Errorf("expected `Thing export as Tng` in output, got:\n%s", got)
-	}
-}
-
-func TestFormat_ImportExport_LocalAndExportRename(t *testing.T) {
-	src := "import some_mod.{a as l export as p}\n"
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("Format error: %v", err)
-	}
-	if !strings.Contains(got, "a as l export as p") {
-		t.Errorf("expected `a as l export as p` in output, got:\n%s", got)
-	}
-}
-
-func TestFormat_ImportExport_LineLevelShorthand(t *testing.T) {
-	src := "import some_mod: a, b, c export\n"
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("Format error: %v", err)
-	}
-	want := "import some_mod.{a, b, c} export\n"
-	if got != want {
-		t.Errorf("got:\n%q\nwant:\n%q", got, want)
-	}
-}
-
-func TestFormat_ImportExport_BraceLineLevelNormalizesToFlat(t *testing.T) {
-	src := "import some_mod: {a, b, c} export\n"
-	got, err := Format(src)
-	if err != nil {
-		t.Fatalf("Format error: %v", err)
-	}
-	want := "import some_mod.{a, b, c} export\n"
-	if got != want {
-		t.Errorf("got:\n%q\nwant:\n%q", got, want)
-	}
-}
-
-// Round-trip stability: parse → format → parse should produce equivalent
-// output. Once the formatter has normalized a form, re-formatting must be
-// idempotent.
-func TestFormat_ImportExport_RoundTripStable(t *testing.T) {
-	forms := []string{
-		"import x.{a export}\n",
-		"import x.{a export as A}\n",
-		"import x.{a as l export as p}\n",
-		"import x: a, b export\n",
-	}
-	for _, src := range forms {
-		out, err := Format(src)
+	for _, tc := range cases {
+		got, err := Format(tc.src)
 		if err != nil {
-			t.Fatalf("Format(%q) error: %v", src, err)
+			t.Fatalf("Format(%q): %v", tc.src, err)
 		}
-		out2, err := Format(out)
-		if err != nil {
-			t.Fatalf("Format(%q) (second pass) error: %v", out, err)
+		if got != tc.want {
+			t.Errorf("Format(%q):\ngot:\n%q\nwant:\n%q", tc.src, got, tc.want)
 		}
-		if out != out2 {
-			t.Errorf("format not idempotent on %q:\nfirst:  %q\nsecond: %q", src, out, out2)
+		again, err := Format(got)
+		if err != nil || again != got {
+			t.Errorf("Format(%q) is not idempotent: %q, %v", got, again, err)
 		}
+	}
+}
+
+// A section holding imports and re-exports becomes two blocks, the imports
+// first, and an import never merges with a re-export of the same file.
+func TestFormat_PubImportSectionSplitsFromImports(t *testing.T) {
+	src := "pub import std/io.{print}\n" +
+		"import std/lists.List\n" +
+		"pub import std/maps.Map\n" +
+		"import std/io.{IOError}\n"
+	want := "import {\n" +
+		"    std/io.IOError\n" +
+		"    std/lists.List\n" +
+		"}\n" +
+		"pub import {\n" +
+		"    std/io.print\n" +
+		"    std/maps.Map\n" +
+		"}\n"
+	got, err := Format(src)
+	if err != nil {
+		t.Fatalf("Format: %v", err)
+	}
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	if again, err := Format(got); err != nil || again != got {
+		t.Errorf("not idempotent: %q, %v", again, err)
 	}
 }
 

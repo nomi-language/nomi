@@ -189,10 +189,6 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, index int, decls map[string]
 			*errs = append(*errs, optErrs...)
 			continue
 		}
-		if targetErrs := validateDeriveTarget(ifaceName, decl, conf.Line, conf.Col); len(targetErrs) > 0 {
-			*errs = append(*errs, targetErrs...)
-			continue
-		}
 		if manualImpls[recvName][ifaceName] {
 			addErr(line, col, "`derive %s for %s` conflicts with a hand-written `impl %s for %s { ... }` block — a derived impl is synthesized whole, so it cannot coexist with a manual impl; drop one", ifaceName, recvName, ifaceName, recvName)
 			continue

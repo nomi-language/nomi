@@ -248,6 +248,18 @@ func (d *decoder) image(r *rbuf) Image {
 	}
 	im.HasMain = modSec.bool1()
 	im.Root = d.str(modSec.uv())
+	for k := modSec.count(); k > 0 && modSec.err == nil; k-- {
+		x := Export{Name: d.str(modSec.uv()), Func: d.fn(modSec.uv())}
+		for n := modSec.count(); n > 0 && modSec.err == nil; n-- {
+			x.Params = append(x.Params, ExportParam{Name: d.str(modSec.uv()), Type: d.str(modSec.uv()), Decode: d.fn(modSec.uv())})
+		}
+		x.Result = d.str(modSec.uv())
+		x.Encode = d.fn(modSec.uv())
+		if x.Func == nil {
+			d.fail("exported function %s has no body", x.Name)
+		}
+		im.Exports = append(im.Exports, x)
+	}
 	for _, s := range []*rbuf{vtSec, tySec, fnSec, modSec} {
 		if s.err != nil {
 			d.fail("%v", s.err)

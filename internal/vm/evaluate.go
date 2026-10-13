@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"sync/atomic"
 	"time"
@@ -42,7 +43,11 @@ var ErrLimit = errors.New("vm: the evaluation reached its step or time limit")
 type fuel struct {
 	left     atomic.Int64
 	deadline time.Time
-	ticks    atomic.Uint32
+	// stop is StopOn's context's Done channel, or nil, read with the
+	// deadline every 1024 steps. stopped records that it closed.
+	stop    <-chan struct{}
+	stopped atomic.Bool
+	ticks   atomic.Uint32
 }
 
 func newFuel(lim Limits) *fuel {
@@ -56,12 +61,22 @@ func newFuel(lim Limits) *fuel {
 // call or backward branch.
 func (f *fuel) burn() error {
 	if f.left.Add(-1) < 0 {
+		if f.stopped.Load() {
+			return ErrStopped
+		}
 		return ErrLimit
 	}
-	if !f.deadline.IsZero() {
-		if f.ticks.Add(1)&1023 == 0 && time.Now().After(f.deadline) {
+	if (!f.deadline.IsZero() || f.stop != nil) && f.ticks.Add(1)&1023 == 0 {
+		if !f.deadline.IsZero() && time.Now().After(f.deadline) {
 			f.left.Store(-1)
 			return ErrLimit
+		}
+		select {
+		case <-f.stop:
+			f.stopped.Store(true)
+			f.left.Store(-1)
+			return ErrStopped
+		default:
 		}
 	}
 	return nil
@@ -78,6 +93,26 @@ func (f *fuel) spent() bool { return f != nil && f.left.Load() < 0 }
 func (m *Machine) WithLimits(lim Limits) *Machine {
 	run := *m
 	run.fuel = newFuel(lim)
+	return &run
+}
+
+// ErrStopped is what a run on a machine StopOn gave answers when the
+// context ended while it ran.
+var ErrStopped = errors.New("vm: the run was stopped")
+
+// StopOn is m with every run it starts (Main, Call, RunCases) ending when
+// ctx does. A run blocked in a wait (a timer, a channel, a task) wakes at
+// once, because the frames it builds from Go are over ctx; a run that is
+// computing stops at its next call, backward branch or iteration element,
+// checked as WithLimits' deadline is, with ErrStopped. It replaces any
+// limits WithLimits gave. `nomi run --watch` stops a run this way when a
+// source file changes.
+func (m *Machine) StopOn(ctx context.Context) *Machine {
+	run := *m
+	run.stopCtx = ctx
+	f := newFuel(Limits{Steps: math.MaxInt64})
+	f.stop = ctx.Done()
+	run.fuel = f
 	return &run
 }
 

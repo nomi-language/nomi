@@ -224,7 +224,7 @@ func TestBuildCommand_NoGoToolchainSaysSo(t *testing.T) {
 	env := append(withoutEnv(buildEnv(t.TempDir()), "PATH"), "PATH="+t.TempDir())
 	bin := filepath.Join(t.TempDir(), "hello")
 	b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin)
-	if b.exit == 0 || !strings.Contains(b.stderr, "no Go toolchain: `nomi build` builds the runner") ||
+	if b.exit == 0 || !strings.Contains(b.stderr, "no Go toolchain: `nomi build` builds nomi-vm") ||
 		!strings.Contains(b.stderr, "`nomi run` needs no toolchain") {
 		t.Fatalf("exit %d:\n%s", b.exit, b.transcript())
 	}

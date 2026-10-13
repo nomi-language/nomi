@@ -27,12 +27,24 @@ var (
 // usage is the command summary `nomi help` prints.
 const usage = `usage:
   nomi                                  start the REPL (bindings, functions and types carry between inputs)
-  nomi run <file> [args]                run a program on the VM
+  nomi run <file> [args]                run a program on the VM, from its source or
+                                        from a compiled program (.nomic) nomi build --no-vm wrote
+  nomi run --watch <file> [args]        run the program, and stop it and run it again
+                                        whenever a file it is built from changes
+  nomi run --web [--port N] [--open] [--static <dir>] <file>
+                                        serve the program in a browser on localhost
+                                        (port 8000 or the next free one), and rebuild
+                                        and reload the page when its source changes;
+                                        serves the files of the web/ folder beside the
+                                        program (or --static's) too, a web/index.html
+                                        in place of the generated page
   nomi <file> [args]                    the same as nomi run, for a file that ends in
                                         .nomi or starts with #!; with a first line of
                                         #!/usr/bin/env nomi it runs as an executable script
-  nomi test [path] [--line N] [--format text|json]
-                                        run test files on the VM
+  nomi test [path] [--line N] [--format text|json] [--watch]
+                                        run test files on the VM; --watch runs them
+                                        again whenever a .nomi file under path, or a
+                                        file the tests load, changes
   nomi check [--format full|short] <path>
                                         analyze and lower without running, test
                                         files and their cases included; short prints
@@ -40,8 +52,17 @@ const usage = `usage:
                                         (NOMI_DIAGNOSTICS=short does so for every command)
   nomi fmt [-w|-l] <paths>              format source
   nomi build <file> [-o <out>] [--target <goos>/<goarch>]
-                                        build a single executable: a VM runner with the
+                                        build a single executable: nomi-vm with the
                                         program's IR appended (runs at nomi run speed)
+  nomi build <file> --no-vm [-o <out>]  write the compiled program alone, as <file>.nomic,
+                                        which any nomi-vm of the same program format
+                                        runs: nomi-vm app.nomic [args]
+  nomi build --vm [--compiler] [-o <out>] [--target <goos>/<goarch>]
+                                        write nomi-vm itself, with no program (default nomi-vm)
+  nomi build <file> --web [-o <dir>] [--static <dir>]
+                                        build a folder that runs the program in a browser,
+                                        with the files of its web/ folder (or --static's)
+                                        copied in
   nomi dap                              serve the Debug Adapter Protocol on stdin and
                                         stdout, for an editor's debugger
   nomi version                          print the version
@@ -55,14 +76,26 @@ func main() {
 	} else if len(os.Args) > 1 && os.Args[1] == "run" {
 		args := os.Args[2:]
 		if len(args) < 1 {
-			fmt.Fprintln(os.Stderr, "usage: nomi run <file> [args]")
+			fmt.Fprintln(os.Stderr, runUsage)
 			os.Exit(1)
 		}
-		// Everything after the file is the program's own arguments; before
-		// it, `nomi run` takes no flag.
+		// Everything after the file is the program's own arguments. A flag
+		// before it is --watch's (watch_cmd.go) or the browser dev loop's
+		// (run_web.go), whose flags may also follow the file.
 		if isFlag(args[0]) {
-			fmt.Fprintln(os.Stderr, unknownFlag("nomi run", args[0], "usage: nomi run <file> [args]"))
-			os.Exit(1)
+			watch, entry, progArgs, err := parseRunWatchArgs(args)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			if watch {
+				os.Exit(runWatchCommand(entry, progArgs))
+			}
+			if err := runWebCommand(args); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			return
 		}
 		runFileVM(args[0], args[1:]...)
 	} else if len(os.Args) > 1 && os.Args[1] == "check" {
@@ -464,12 +497,15 @@ func runTest(args []string) error {
 	if err != nil {
 		return err
 	}
+	if parsed.watch {
+		os.Exit(testWatchCommand(parsed))
+	}
 	return runTestVM(parsed.root, parsed.opts, parsed.format)
 }
 
 func isStdlibTestPath(path string) bool { return vmcmd.IsStdlibPath(path) }
 
-const testUsage = "usage: nomi test [path] [--line N] [--format text|json]"
+const testUsage = "usage: nomi test [path] [--line N] [--format text|json] [--watch]"
 
 // testArgs is `nomi test`'s parsed command line. Flags may appear in any order
 // around the path.
@@ -477,6 +513,8 @@ type testArgs struct {
 	root   string
 	opts   vmhost.TestOptions
 	format vmhost.TestFormat
+	// watch is --watch: run the tests again on every change (watch_cmd.go).
+	watch bool
 }
 
 func parseTestArgs(args []string) (testArgs, error) {
@@ -496,6 +534,8 @@ func parseTestArgs(args []string) (testArgs, error) {
 			}
 			parsed.opts.Line = line
 			parsed.opts.LineSet = true
+		case arg == "--watch":
+			parsed.watch = true
 		case arg == "--format" || strings.HasPrefix(arg, "--format="):
 			value, inline := strings.CutPrefix(arg, "--format=")
 			if !inline {

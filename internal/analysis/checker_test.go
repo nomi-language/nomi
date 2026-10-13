@@ -4172,22 +4172,6 @@ func TestNaming_VariantImportAliasSnakeCase_Rejected(t *testing.T) {
 	expectError(t, errs, `import alias "just" must be PascalCase`)
 }
 
-func TestNaming_FunctionExportAliasPascalCase_Rejected(t *testing.T) {
-	src := `import strings.{length export as Length}`
-	_, errs := checkSourceWithModules(t, src, map[string]string{
-		"strings": `pub fn length() {}`,
-	})
-	expectError(t, errs, `export alias "Length" must be snake_case`)
-}
-
-func TestNaming_TypeExportAliasSnakeCase_Rejected(t *testing.T) {
-	src := `import maybe.{Maybe export as maybe_type}`
-	_, errs := checkSourceWithModules(t, src, map[string]string{
-		"maybe": `pub enum Maybe<T> { Some T; None }`,
-	})
-	expectError(t, errs, `export alias "maybe_type" must be PascalCase`)
-}
-
 func TestVisibility_NestedPrivateInGenericArg(t *testing.T) {
 	// `fn lookup(): List<Secret>` — secret is buried inside a List
 	// type-argument but the leak is just as real.

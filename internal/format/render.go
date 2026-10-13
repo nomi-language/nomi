@@ -93,8 +93,6 @@ func cloneImportStmt(s *ast.ImportStmt) *ast.ImportStmt {
 	c.ModulePath = append([]ast.Node(nil), s.ModulePath...)
 	c.Names = append([]ast.Node(nil), s.Names...)
 	c.Aliases = append([]ast.Node(nil), s.Aliases...)
-	c.ExportFlags = append([]bool(nil), s.ExportFlags...)
-	c.ExportAliases = append([]ast.Node(nil), s.ExportAliases...)
 	return &c
 }
 

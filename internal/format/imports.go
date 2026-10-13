@@ -8,7 +8,8 @@ import (
 )
 
 // combineImports gathers each comment-delimited run of top-level imports into a
-// canonical `import { … }` block. Bare blank lines between imports are
+// canonical `import { … }` block, and its re-exports into a `pub import { … }`
+// block after it. Bare blank lines between imports are
 // formatting noise and collapse; a comment between imports keeps that boundary
 // visible. Same-module selective statements merge; entries that cannot be
 // merged losslessly pass through unchanged. A single-construct group is left
@@ -25,11 +26,11 @@ func combineImports(nodes []ast.Node) []ast.Node {
 	groupStart := 0
 	for i := 1; i < end; i++ {
 		if startsImportSection(nodes[i]) {
-			out = append(out, combineGroup(nodes[groupStart:i]))
+			out = append(out, combineGroup(nodes[groupStart:i])...)
 			groupStart = i
 		}
 	}
-	out = append(out, combineGroup(nodes[groupStart:end]))
+	out = append(out, combineGroup(nodes[groupStart:end])...)
 	return append(out, nodes[end:]...)
 }
 
@@ -197,21 +198,27 @@ func trimLeadingBlankTrivia(trivia []ast.Trivia) []ast.Trivia {
 }
 
 // combineGroup combines one import section into a single block, or returns the
-// lone construct unchanged for a one-element group.
-func combineGroup(group []ast.Node) ast.Node {
+// lone construct unchanged for a one-element group. A section holding both
+// imports and re-exports (`pub import`) becomes two blocks: the imports, then
+// the re-exports.
+func combineGroup(group []ast.Node) []ast.Node {
 	if len(group) == 1 {
 		setImportLeading(group[0], trimBareLeadingBlankTrivia(importLeading(group[0])))
-		return group[0]
+		return group
 	}
-	var entries []*ast.ImportStmt
-	var endTrivia []ast.Trivia
+	var entries, pubEntries []*ast.ImportStmt
+	var endTrivia, pubEndTrivia []ast.Trivia
 	for i, n := range group {
 		switch v := n.(type) {
 		case *ast.ImportStmt:
 			if i > 0 {
 				v.Leading = trimBareLeadingBlankTrivia(v.Leading)
 			}
-			entries = append(entries, v)
+			if v.Pub {
+				pubEntries = append(pubEntries, v)
+			} else {
+				entries = append(entries, v)
+			}
 		case *ast.ImportBlock:
 			if i > 0 && len(v.Entries) > 0 {
 				// A non-first block's own leading comment moves onto its first
@@ -219,22 +226,41 @@ func combineGroup(group []ast.Node) ast.Node {
 				// collapse into one sorted section.
 				v.Entries[0].Leading = append(append([]ast.Trivia(nil), trimBareLeadingBlankTrivia(v.Leading)...), v.Entries[0].Leading...)
 			}
-			entries = append(entries, v.Entries...)
-			endTrivia = append(endTrivia, v.EndTrivia...)
+			if v.Pub {
+				pubEntries = append(pubEntries, v.Entries...)
+				pubEndTrivia = append(pubEndTrivia, v.EndTrivia...)
+			} else {
+				entries = append(entries, v.Entries...)
+				endTrivia = append(endTrivia, v.EndTrivia...)
+			}
 		}
 	}
-	entries = mergeSameModule(entries)
-	block := &ast.ImportBlock{Entries: entries, EndTrivia: endTrivia, Line: group[0].LineNum()}
 	// The group head's leading (usually a section/header comment) stays above
-	// the block. If the head was a flat statement it is also entries[0]; clear
-	// its copy so the comment isn't emitted twice.
+	// the first block. If the head was a flat statement it is also an entry;
+	// clear its copy so the comment isn't emitted twice.
+	var head []ast.Trivia
 	if h, ok := group[0].(ast.HasTrivia); ok {
-		block.Leading = trimBareLeadingBlankTrivia(h.GetLeading())
+		head = trimBareLeadingBlankTrivia(h.GetLeading())
 	}
 	if first, ok := group[0].(*ast.ImportStmt); ok {
 		first.Leading = nil
 	}
-	return block
+	var out []ast.Node
+	for _, part := range []struct {
+		pub       bool
+		entries   []*ast.ImportStmt
+		endTrivia []ast.Trivia
+	}{{false, entries, endTrivia}, {true, pubEntries, pubEndTrivia}} {
+		if len(part.entries) == 0 {
+			continue
+		}
+		block := &ast.ImportBlock{Entries: mergeSameModule(part.entries), EndTrivia: part.endTrivia, Pub: part.pub, Line: group[0].LineNum()}
+		if len(out) == 0 {
+			block.Leading = head
+		}
+		out = append(out, block)
+	}
+	return out
 }
 
 // startsImportSection reports whether n, in a run of top-level imports,
@@ -270,15 +296,15 @@ func importRunEnd(nodes []ast.Node) int {
 }
 
 // mergeSameModule merges entries that share a module path. Entries with
-// legacy module aliases or line-level export shorthand are left separate
-// because their bindings/modifiers must be preserved exactly, and so is a
+// module aliases are left separate because their bindings must be preserved
+// exactly, and so is a
 // pair that cannot merge losslessly (canMergeImportPair). Order follows first
 // occurrence.
 func mergeSameModule(entries []*ast.ImportStmt) []*ast.ImportStmt {
 	var out []*ast.ImportStmt
 	idx := map[string]int{}
 	for _, e := range entries {
-		if e.ModuleAlias != nil || e.ExportAll {
+		if e.ModuleAlias != nil {
 			out = append(out, e)
 			continue
 		}
@@ -343,12 +369,10 @@ func bindsImportModule(s *ast.ImportStmt) bool {
 }
 
 // mergeImportPair merges b into a (same module path, canMergeImportPair),
-// returning a fresh statement. Names concatenate with their aliases and
-// export flags; `self` is set when the result has names and either input
+// returning a fresh statement. Names concatenate with their aliases; `self` is set when the result has names and either input
 // bound the module; comments concatenate in a→b order.
 func mergeImportPair(a, b *ast.ImportStmt) *ast.ImportStmt {
-	var names, aliases, exportAliases []ast.Node
-	var flags []bool
+	var names, aliases []ast.Node
 	add := func(s *ast.ImportStmt) {
 		for i, n := range s.Names {
 			var alias ast.Node
@@ -357,12 +381,6 @@ func mergeImportPair(a, b *ast.ImportStmt) *ast.ImportStmt {
 			}
 			names = append(names, n)
 			aliases = append(aliases, alias)
-			flags = append(flags, i < len(s.ExportFlags) && s.ExportFlags[i])
-			var exAlias ast.Node
-			if i < len(s.ExportAliases) {
-				exAlias = s.ExportAliases[i]
-			}
-			exportAliases = append(exportAliases, exAlias)
 		}
 	}
 	add(a)
@@ -370,8 +388,6 @@ func mergeImportPair(a, b *ast.ImportStmt) *ast.ImportStmt {
 	merged := *a
 	merged.Names = names
 	merged.Aliases = aliases
-	merged.ExportFlags = flags
-	merged.ExportAliases = exportAliases
 	merged.IncludeParent = len(names) > 0 && (bindsImportModule(a) || bindsImportModule(b))
 	merged.Leading = append(append([]ast.Trivia(nil), a.Leading...), b.Leading...)
 	merged.Trailing = append(append([]ast.Trivia(nil), a.Trailing...), b.Trailing...)
@@ -520,10 +536,14 @@ func setImportLeading(n ast.Node, tr []ast.Trivia) {
 	}
 }
 
-// sortImportStmts sorts a slice of *ast.ImportStmt in-place by group
-// (std.* first) then alphabetical module path.
+// sortImportStmts sorts a slice of *ast.ImportStmt in-place: imports before
+// re-exports (`pub import`), as combineGroup orders its two blocks, then by
+// group (std.* first), then alphabetical module path.
 func sortImportStmts(stmts []*ast.ImportStmt) {
 	sort.SliceStable(stmts, func(i, j int) bool {
+		if stmts[i].Pub != stmts[j].Pub {
+			return !stmts[i].Pub
+		}
 		gi, gj := importGroup(stmts[i]), importGroup(stmts[j])
 		if gi != gj {
 			return gi < gj
@@ -532,10 +552,8 @@ func sortImportStmts(stmts []*ast.ImportStmt) {
 	})
 }
 
-// sortSelectiveList sorts the selective Names plus the parallel Aliases,
-// ExportFlags, and ExportAliases of an import statement alphabetically by
-// the original (pre-alias) name. All four parallel slices must reorder
-// together so the per-item re-export flags stay attached to their names.
+// sortSelectiveList sorts the selective Names plus the parallel Aliases of an
+// import statement alphabetically by the original (pre-alias) name.
 func sortSelectiveList(imp *ast.ImportStmt) {
 	if len(imp.Names) <= 1 {
 		return
@@ -550,34 +568,14 @@ func sortSelectiveList(imp *ast.ImportStmt) {
 	})
 	newNames := make([]ast.Node, len(imp.Names))
 	newAliases := make([]ast.Node, len(imp.Aliases))
-	var newExportFlags []bool
-	if len(imp.ExportFlags) > 0 {
-		newExportFlags = make([]bool, len(imp.ExportFlags))
-	}
-	var newExportAliases []ast.Node
-	if len(imp.ExportAliases) > 0 {
-		newExportAliases = make([]ast.Node, len(imp.ExportAliases))
-	}
 	for newPos, oldPos := range idx {
 		newNames[newPos] = imp.Names[oldPos]
 		if oldPos < len(imp.Aliases) {
 			newAliases[newPos] = imp.Aliases[oldPos]
 		}
-		if oldPos < len(imp.ExportFlags) {
-			newExportFlags[newPos] = imp.ExportFlags[oldPos]
-		}
-		if oldPos < len(imp.ExportAliases) {
-			newExportAliases[newPos] = imp.ExportAliases[oldPos]
-		}
 	}
 	imp.Names = newNames
 	imp.Aliases = newAliases
-	if newExportFlags != nil {
-		imp.ExportFlags = newExportFlags
-	}
-	if newExportAliases != nil {
-		imp.ExportAliases = newExportAliases
-	}
 }
 
 // importGroup returns the origin-group index for grouping imports. std.* is

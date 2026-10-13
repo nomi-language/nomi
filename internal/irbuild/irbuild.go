@@ -237,6 +237,9 @@ type Result struct {
 	// Literals are the backtick typed literals checked at compile time
 	// that the user units lowered, in unit order (irliteralcell.go).
 	Literals []LiteralSite
+	// Exports are the program's `export fn` declarations, in unit order
+	// and then declaration order (exports.go).
+	Exports []Export
 }
 
 // IRModules returns the graphs needed to link this compilation, including the
@@ -359,6 +362,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// A generic function instance one file asked another for after that
 	// file's walk ended. See siblinggeneric.go.
 	irFlushLateInstances(gens)
+	exports := collectExports(p, gens)
 	var irMods []*ir.Module
 	var literals []LiteralSite
 	hostKeys := map[string]bool{}
@@ -395,7 +399,8 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		irLintFinished(m)
 	}
 	return &Result{HasMain: hasMain,
-		IR: irMods, irLibraries: irLibraries, irHostKeys: hostKeys, Literals: literals}, refusal, nil
+		IR: irMods, irLibraries: irLibraries, irHostKeys: hostKeys, Literals: literals,
+		Exports: exports}, refusal, nil
 }
 
 // definesMain reports whether the module declares a zero-parameter `fn main`.

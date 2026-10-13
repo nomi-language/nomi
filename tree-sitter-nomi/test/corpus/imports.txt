@@ -242,108 +242,86 @@ import models.{User as U, Point}
         (type_identifier)))))
 
 ==========
-Line-level export on simple import
+Re-export with pub import
 ==========
 
-import some_mod export
+pub import models.{User, Point}
 
 ---
 
 (source_file
   (import_statement
-    (module_path
-      (identifier))))
-
-==========
-Line-level export with alias
-==========
-
-import some_mod as sm export as Public
-
----
-
-(source_file
-  (import_statement
+    (pub)
     (module_path
       (identifier))
-    (identifier)
+    (import_names
+      (import_entry
+        (type_identifier))
+      (import_entry
+        (type_identifier)))))
+
+==========
+Re-export with an alias
+==========
+
+pub import models.{User as U, Point}
+
+---
+
+(source_file
+  (import_statement
+    (pub)
+    (module_path
+      (identifier))
+    (import_names
+      (import_entry
+        (type_identifier)
+        (type_identifier))
+      (import_entry
+        (type_identifier)))))
+
+==========
+Re-export of an owner type with self
+==========
+
+pub import std/bool.Bool.{self, False, True}
+
+---
+
+(source_file
+  (import_statement
+    (pub)
+    (module_path
+      (identifier)
+      (identifier))
+    (type_identifier)
+    (import_names
+      (import_self)
+      (import_entry
+        (type_identifier))
+      (import_entry
+        (type_identifier)))))
+
+==========
+Re-export block
+==========
+
+pub import {
+  add.Add
+  lists.List
+}
+
+---
+
+(source_file
+  (import_block
+    (pub)
+    (module_path
+      (identifier))
+    (type_identifier)
+    (module_path
+      (identifier))
     (type_identifier)))
-
-==========
-Line-level export on selective import
-==========
-
-import models.{User, Point} export
-
----
-
-(source_file
-  (import_statement
-    (module_path
-      (identifier))
-    (import_names
-      (import_entry
-        (type_identifier))
-      (import_entry
-        (type_identifier)))))
-
-==========
-Per-item export modifier
-==========
-
-import models.{User export, Point}
-
----
-
-(source_file
-  (import_statement
-    (module_path
-      (identifier))
-    (import_names
-      (import_entry
-        (type_identifier))
-      (import_entry
-        (type_identifier)))))
-
-==========
-Per-item export with alias
-==========
-
-import models.{User as U export as Pub, Point}
-
----
-
-(source_file
-  (import_statement
-    (module_path
-      (identifier))
-    (import_names
-      (import_entry
-        (type_identifier)
-        (type_identifier)
-        (type_identifier))
-      (import_entry
-        (type_identifier)))))
-
-==========
-Mixed per-item modifiers (line-level export plus per-item rename)
-==========
-
-import models.{User as Local export as Pub, Point export} export
-
----
-
-(source_file
-  (import_statement
-    (module_path
-      (identifier))
-    (import_names
-      (import_entry
-        (type_identifier)
-        (type_identifier)
-        (type_identifier))
-      (import_entry
-        (type_identifier)))))
 
 ==========
 Existing imports unaffected (sanity)
@@ -392,7 +370,7 @@ Import block (multi-import braces)
 import {
   std/io
   std/lists as l
-  models.{User} export
+  models.{User}
 }
 
 ---

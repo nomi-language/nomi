@@ -255,3 +255,37 @@ func TestFixAll_BailsOnInterleavedCode(t *testing.T) {
 		t.Error("expected no fixAll action when a declaration is interleaved between imports")
 	}
 }
+
+// A missing import never joins a re-export: merging `Time` into
+// `pub import std/calendar.Date`, or adding `std/io` to a `pub import { ... }`
+// block, would re-export it. The add is a plain import of its own.
+func TestFixAll_NeverAddsToAReExport(t *testing.T) {
+	src := "pub import std/calendar.Date\n\n" +
+		"pub fn f(_t: Time): Bool {\n  True\n}\n"
+	got, ok := runFixAll(t, src)
+	if !ok {
+		t.Fatal("expected a fixAll action")
+	}
+	want := "import std/calendar.Time\n" +
+		"pub import std/calendar.Date\n\n" +
+		"pub fn f(_t: Time): Bool {\n  True\n}\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+
+	src = "pub import {\n" +
+		"    std/calendar.Date\n" +
+		"    std/duration.Duration\n" +
+		"}\n\n" +
+		"fn main() {\n  io.inspect(42)\n}\n"
+	got, ok = runFixAll(t, src)
+	if !ok {
+		t.Fatal("expected a fixAll action")
+	}
+	if !strings.HasPrefix(got, "import std/io\n") && !strings.Contains(got, "\nimport std/io\n") {
+		t.Errorf("std/io was not added as a plain import:\n%s", got)
+	}
+	if !strings.Contains(got, "pub import {\n    std/calendar.Date\n    std/duration.Duration\n}\n") {
+		t.Errorf("the re-export block changed:\n%s", got)
+	}
+}

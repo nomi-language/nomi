@@ -166,7 +166,7 @@ func (p *Parser) parseContinuation(indent int, stop func() bool) ([]ast.Node, er
 		if p.strayBodyMarker() {
 			continue
 		}
-		node, doc, attachedLeading, err := p.parseStmt()
+		node, doc, attachedLeading, err := p.parseBlockStmt()
 		if err != nil {
 			return nil, err
 		}

@@ -229,13 +229,13 @@ fn f(): Result<Int, String> { Ok(1) }
 `))
 }
 
-// Re-exports are used by definition: line-level `export` and per-item
-// `export` exempt their items. (The prelude is the canonical consumer of this
-// carve-out.)
-func TestUnusedImport_ExportIsUse(t *testing.T) {
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std/maybe.{Maybe} export
+// Re-exports are used by definition: `pub import` exempts its items, an
+// owner type's `self` included. (The prelude is the canonical consumer of
+// this carve-out.)
+func TestUnusedImport_ReExportIsUse(t *testing.T) {
+	expectNoUnused(t, buildErrsWithStdlib(t, `pub import std/maybe.{Maybe}
 `))
-	expectNoUnused(t, buildErrsWithStdlib(t, `import std/maybe.{Maybe export}
+	expectNoUnused(t, buildErrsWithStdlib(t, `pub import std/results.Result.{self, Ok}
 `))
 }
 

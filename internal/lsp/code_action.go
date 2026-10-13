@@ -231,8 +231,6 @@ func braceItemEdit(content string, lineOffs []int, u analysis.UnusedImport) (pro
 		c := *stmt
 		c.Names = []ast.Node{stmt.Names[keptIdx]}
 		c.Aliases = nodeAt(stmt.Aliases, keptIdx)
-		c.ExportFlags = boolAt(stmt.ExportFlags, keptIdx)
-		c.ExportAliases = nodeAt(stmt.ExportAliases, keptIdx)
 		start, end := statementBounds(content, lineOffs, stmt)
 		return rangeEdit(content, start, end, format.RenderImportBody(&c)), true
 	}
@@ -268,8 +266,6 @@ func replaceWithSelfOnlyImportEdit(content string, lineOffs []int, stmt *ast.Imp
 	c := *stmt
 	c.Names = nil
 	c.Aliases = nil
-	c.ExportFlags = nil
-	c.ExportAliases = nil
 	c.IncludeParent = true
 	return rangeEdit(content, start, end, format.RenderImportBody(&c)), true
 }
@@ -350,9 +346,6 @@ func statementBounds(content string, lineOffs []int, stmt *ast.ImportStmt) (int,
 	for _, n := range stmt.Aliases {
 		consider(n)
 	}
-	for _, n := range stmt.ExportAliases {
-		consider(n)
-	}
 	consider(stmt.ModuleAlias)
 	if stmt.IncludeParent && stmt.SelfLine > 0 {
 		if e := posToOffset(lineOffs, stmt.SelfLine, stmt.SelfCol) + len("self"); e > end {
@@ -378,14 +371,6 @@ func nodeAt(nodes []ast.Node, idx int) []ast.Node {
 	out := make([]ast.Node, 1)
 	if idx >= 0 && idx < len(nodes) {
 		out[0] = nodes[idx]
-	}
-	return out
-}
-
-func boolAt(flags []bool, idx int) []bool {
-	out := make([]bool, 1)
-	if idx >= 0 && idx < len(flags) {
-		out[0] = flags[idx]
 	}
 	return out
 }
@@ -452,14 +437,15 @@ func matchAllMissing(lines *lineIndex, missing []analysis.MissingImport, diag pr
 
 // addImportEdit computes the TextEdit that makes m's module importable: either
 // merging `self` into an existing selective import of the same module, or
-// inserting a new `import <path>` statement. Both are rendered through
+// inserting a new `import <path>` statement. A re-export (`pub import`) is
+// never the target: adding to it would re-export the added name. Both are rendered through
 // format.RenderImports so the output matches `nomi fmt`. Both edits are
 // localized (a single-statement replace or a single-line insert), so neither
 // can clobber comments elsewhere in the import region.
 func addImportEdit(content string, lineOffs []int, nodes []ast.Node, m analysis.MissingImport) (protocol.TextEdit, bool) {
 	segs := strings.Split(m.ModulePath, "/")
 	for _, stmt := range lspTopLevelImportStmts(nodes) {
-		if !importStmtPathMatches(stmt, segs) {
+		if stmt.Pub || !importStmtPathMatches(stmt, segs) {
 			continue
 		}
 		merged, ok := mergeInto(stmt, m)
@@ -528,8 +514,6 @@ func cloneImportStmtAddName(stmt *ast.ImportStmt, name string) *ast.ImportStmt {
 	names := append(append([]ast.Node(nil), stmt.Names...), &ast.TypeIdent{Name: name})
 	c.Names = names
 	c.Aliases = padNodes(stmt.Aliases, len(names))
-	c.ExportAliases = padNodes(stmt.ExportAliases, len(names))
-	c.ExportFlags = padBools(stmt.ExportFlags, len(names))
 	return &c
 }
 
@@ -539,17 +523,11 @@ func padNodes(s []ast.Node, n int) []ast.Node {
 	return out
 }
 
-func padBools(s []bool, n int) []bool {
-	out := make([]bool, n)
-	copy(out, s)
-	return out
-}
-
 // firstNonSynthImportBlock returns the first non-synthesized ImportBlock among
-// nodes, or nil.
+// nodes that is not a re-export (`pub import { ... }`), or nil.
 func firstNonSynthImportBlock(nodes []ast.Node) *ast.ImportBlock {
 	for _, n := range nodes {
-		if b, ok := n.(*ast.ImportBlock); ok && !analysis.IsSynthesizedLine(b.Line) {
+		if b, ok := n.(*ast.ImportBlock); ok && !b.Pub && !analysis.IsSynthesizedLine(b.Line) {
 			return b
 		}
 	}
@@ -655,8 +633,6 @@ func cloneImportStmtWithSelf(stmt *ast.ImportStmt) *ast.ImportStmt {
 	c.IncludeParent = true
 	c.Names = append([]ast.Node(nil), stmt.Names...)
 	c.Aliases = append([]ast.Node(nil), stmt.Aliases...)
-	c.ExportFlags = append([]bool(nil), stmt.ExportFlags...)
-	c.ExportAliases = append([]ast.Node(nil), stmt.ExportAliases...)
 	return &c
 }
 
