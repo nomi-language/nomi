@@ -157,6 +157,35 @@ fn main() {
 	}
 }
 
+// TestBuildCommand_AnEntryThatDeclaresAGoBindingRuns builds a Go-FFI project
+// whose entry declares its own `go` binding. The runner keys that binding by
+// the image's entry name, which the image writes relative to the project
+// root, so the wrapper must recognize the declaring file by that name.
+func TestBuildCommand_AnEntryThatDeclaresAGoBindingRuns(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; builds a Go-FFI runner; -short")
+	}
+	env := buildEnv(t.TempDir())
+	dir := t.TempDir()
+	goMod, err := os.ReadFile(filepath.Join(repoRoot(t), "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	goLine := regexp.MustCompile(`(?m)^go .*$`).FindString(string(goMod))
+	mustWrite(t, filepath.Join(dir, "go.mod"), "module entryffi\n\n"+goLine+"\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"entry_ffi\"\nentry_points = [\"app\"]\n")
+	mustWrite(t, filepath.Join(dir, "binding.go"), "package entryffi\n\nfunc Answer() int64 {\n\treturn 42\n}\n")
+	entry := filepath.Join(dir, "app.nomi")
+	mustWrite(t, entry, "import std/io\n\ngopkg \"entryffi\" as ffi\n\nfn answer(): Int go ffi.Answer\n\nfn main() {\n  io.print(answer())\n}\n")
+	bin := filepath.Join(t.TempDir(), "app")
+	if b := runProcess(t, env, dir, "", nomiBin, "build", entry, "-o", bin); b.exit != 0 {
+		t.Fatalf("nomi build: exit %d\n%s", b.exit, b.transcript())
+	}
+	if got := runProcess(t, env, t.TempDir(), "", bin); got.exit != 0 || got.stdout != "42\n" {
+		t.Fatalf("the built binary: exit %d\n%s", got.exit, got.transcript())
+	}
+}
+
 // TestBuildCommand_DefaultOutputIsTheEntryName: like `go build`, no -o
 // writes the entry's base name into the working directory.
 func TestBuildCommand_DefaultOutputIsTheEntryName(t *testing.T) {

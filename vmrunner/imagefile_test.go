@@ -127,7 +127,7 @@ func TestRunBare_AnImageUsingStdCompilerNeedsItsRunner(t *testing.T) {
 	var errOut bytes.Buffer
 	code := vmrunner.RunBare([]string{path}, &bytes.Buffer{}, &errOut, nil, false, vmrunner.ErrNoImage)
 	if code != 1 || !strings.Contains(errOut.String(), "imports std/compiler") ||
-		!strings.Contains(errOut.String(), "nomi build --vm --compiler") {
+		!strings.Contains(errOut.String(), "nomi build-vm --compiler") {
 		t.Fatalf("exit %d, stderr %q", code, errOut.String())
 	}
 }

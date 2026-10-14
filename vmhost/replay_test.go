@@ -60,28 +60,28 @@ func runReplayTests(t *testing.T, src string) string {
 	return buf.String()
 }
 
-// A script that matches passes: `>>  ` lines feed the reads, every output line
-// sits behind a four-space gutter, a prompt written without a newline is an
-// output line of its own, output starting with `>` needs no escape, a prompt
-// left waiting at end of input is output like any other, and the `"""`
-// literal's missing final newline does not count. A script with no `>>` line
-// is the output as written, with no gutter.
+// A script that matches passes: indented `> ` lines feed the reads, output
+// sits at the script's left edge, a prompt written without a newline is an
+// output line of its own, output starting with `>` at the left edge needs
+// no escape, a prompt left waiting at end of input is output like any
+// other, and the `"""` literal's missing final newline does not count. A
+// script with no input follows the same rule.
 func TestReplay_PassesOnAMatchingScript(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
 test "deposit money" {
     assert io.replay("""
-            What is the starting balance?
-        >>  500
-            Your starting balance: 500
+        What is the starting balance?
+            > 500
+        Your starting balance: 500
 
-            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-            amount:
-        >>  deposit 25
-            25 deposited, new balance is 525
-            amount:
-        >>  withdraw
-            > unknown command
-            amount: bye
+        Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        amount:
+            > deposit 25
+        25 deposited, new balance is 525
+        amount:
+            > withdraw
+        > unknown command
+        amount: bye
         """, main)
 }
 
@@ -116,11 +116,11 @@ fn main() {
 test "asks name and age" {
     assert io.replay(
         """
-            What is your name?
-        >>  Ada
-            Hello, Ada. Your age:
-        >>  36
-            Ada is 36
+        What is your name?
+            > Ada
+        Hello, Ada. Your age:
+            > 36
+        Ada is 36
         """,
         main,
     )
@@ -132,9 +132,10 @@ test "asks name and age" {
 }
 
 // A program whose prompt is `> ` replays from a script where each prompt is
-// an output line `    >` and each input line follows it; `>>` alone is an
-// empty line, typed text that itself starts with `>` follows `>>  `, and the
-// prompt left waiting at end of input is output on the last line.
+// an output line `>` at the left edge and each input line follows it,
+// indented; an indented `>` alone is an empty line, typed text that itself
+// starts with `>` follows `> `, and the prompt left waiting at end of input
+// is output on the last line.
 func TestReplay_APromptStartingWithTheMarker(t *testing.T) {
 	out := runReplayTests(t, `import std/io
 
@@ -160,17 +161,17 @@ fn play() {
 
 test "walks north" {
     assert io.replay("""
-            Exits: north, east.
+        Exits: north, east.
+        >
+            > north
+        You are in an old armory.
+        >
             >
-        >>  north
-            You are in an old armory.
-            >
-        >>
-            I don't know how to ''.
-            >
-        >>  > dance
-            I don't know how to '> dance'.
-            > Bye.
+        I don't know how to ''.
+        >
+            > > dance
+        I don't know how to '> dance'.
+        > Bye.
         """, main)
 }
 `)
@@ -193,183 +194,104 @@ fn main() {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if want := "[    > \n>>  north\n    ok\n    > |> ok\n> ]"; got != want {
+	if want := "[> \n    > north\nok\n> |> ok\n> ]"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}
 }
 
-// A script line that is neither input (`>>  `) nor output (four spaces), in
-// a script with a `>>` line, traps before the program runs, naming the line,
-// with a hint that writes it with the right gutter: output with no gutter or
-// two columns of it, `>>` with one, none or three spaces after it, and a
-// one-character marker `> `. Output that starts with `>>` needs the gutter
-// like any other, and a script with no other two-column line, which may have
-// been meant as written, says so.
-func TestReplay_AScriptLineWithoutTheGutterTraps(t *testing.T) {
+// Every line that is not input is output as written. Padded output, `>>`
+// at the left edge and indented, and `>` with no space after it are output.
+// An indented output line that starts with `> ` is written with a
+// backslash before its `>`, which the script and the transcript both carry;
+// without the backslash the line is input, which the program never reads.
+// A backslash anywhere else is the character itself.
+func TestReplay_OutputThatReadsAsInputIsEscaped(t *testing.T) {
 	out := runReplayTests(t, `import std/io
 
-fn ask() {
-    io.print("ran")
-    io.write("Your age: ")
+fn quoted() {
+    io.print("    > quoted")
+    io.print("  >")
+    io.print("    >> double")
+    io.print(">> at the edge")
+    io.print("    >x")
+    io.print("\\> kept")
+    io.print("    \\x")
+    io.write("ask: ")
     _ = io.read_line()
 }
 
-test "no gutter" {
+test "escaped" {
     assert io.replay(
         """
-            Your age:
-        >>  36
-        Ada is 36
+            \> quoted
+          \>
+            >> double
+        >> at the edge
+            >x
+        \> kept
+            \x
+        ask:
+            > typed
         """,
-        ask,
+        quoted,
     )
 }
 
-test "two columns of gutter" {
-    assert io.replay(
-        """
-          Your age:
-        >>  36
-        """,
-        ask,
-    )
-}
-
-test "one space after the marker" {
-    assert io.replay(
-        """
-            Your age:
-        >> 36
-        """,
-        ask,
-    )
-}
-
-test "no space after the marker" {
-    assert io.replay(
-        """
-            Your age:
-        >>36
-        """,
-        ask,
-    )
-}
-
-test "three spaces after the marker" {
-    assert io.replay(
-        """
-            Your age:
-        >>   36
-        """,
-        ask,
-    )
-}
-
-test "a short marker" {
-    assert io.replay(
-        """
-            Your age:
-        > 36
-        >>  37
-        """,
-        ask,
-    )
-}
-
-test "output that starts with the marker" {
+test "not escaped" {
     refute io.replay(
         """
-        >>  not input
+            > quoted
         """,
-        || io.print(">>  not input"),
+        || io.print("    > quoted"),
     )
 }
 
-test "output that starts with the marker, behind the gutter" {
+test "a backslash in the output" {
     assert io.replay(
         """
-            >>  not input
-        >>
+            \\> slashed
         """,
-        || {
-            io.print(">>  not input")
-            _ = io.read_line()
-        },
-    )
-}
-
-test "output that starts with the marker, as written" {
-    assert io.replay(
-        """
-        >> done
-        balance 0
-        """,
-        || io.print(">> done\nbalance 0"),
+        || io.print("    \\> slashed"),
     )
 }
 `)
-	want := "FAIL bank_test.nomi :: no gutter\n" +
-		"  io.replay: line 3 of the script, \"Ada is 36\", must start with `>>  ` (input) or four spaces (output)\n" +
-		"  hint: an output line is `    Ada is 36`\n" +
-		"FAIL bank_test.nomi :: two columns of gutter\n" +
-		"  io.replay: line 1 of the script, \"  Your age:\", must start with `>>  ` (input) or four spaces (output)\n" +
-		"  hint: an output line is `    Your age:`\n" +
-		"FAIL bank_test.nomi :: one space after the marker\n" +
-		"  io.replay: line 2 of the script, \">> 36\", must have two spaces after `>>`\n" +
-		"  hint: an input line is `>>  36`\n" +
-		"FAIL bank_test.nomi :: no space after the marker\n" +
-		"  io.replay: line 2 of the script, \">>36\", must have two spaces after `>>`\n" +
-		"  hint: an input line is `>>  36`\n" +
-		"FAIL bank_test.nomi :: three spaces after the marker\n" +
-		"  io.replay: line 2 of the script, \">>   36\", must have two spaces after `>>`\n" +
-		"  hint: an input line is `>>  36`\n" +
-		"FAIL bank_test.nomi :: a short marker\n" +
-		"  io.replay: line 2 of the script, \"> 36\", must start with `>>  ` (input) or four spaces (output)\n" +
-		"  hint: an input line is `>>  36`, and an output line is `    > 36`\n" +
-		"ok bank_test.nomi :: output that starts with the marker\n" +
-		"ok bank_test.nomi :: output that starts with the marker, behind the gutter\n" +
-		"FAIL bank_test.nomi :: output that starts with the marker, as written\n" +
-		"  io.replay: line 1 of the script, \">> done\", must have two spaces after `>>`\n" +
-		"  hint: an input line is `>>  done`\n" +
-		"  hint: a script with a line that starts with `>>` is in two columns; " +
-		"output that starts with `>>` is written behind four spaces, as every output line is: `    >> ...`\n" +
-		"test result: FAILED. 2 passed, 7 failed\n"
-	if out != want {
-		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
+	if !strings.HasSuffix(out, "test result: ok. 3 passed, 0 failed\n") {
+		t.Fatalf("want every replay to pass:\n%s", out)
 	}
 }
 
 // A script the program does not follow fails with a line diff of the script
 // (`-`) against the transcript (`+`), each line right of the `│` as written,
-// four-column gutter included, and a `>>` line no read reached is named in the reason. The echo of the assertion
-// writes the script as the source lines the diff numbers, `""" lines 36-44
-// """`, rather than repeating it.
+// input lines at their indentation, and an input line no read reached is
+// named in the reason. The echo of the assertion writes the script as the
+// source lines the diff numbers, `""" lines 36-44 """`, rather than
+// repeating it.
 func TestReplay_FailureIsALineDiff(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
 test "deposit money" {
     assert io.replay("""
-            What is the starting balance?
-        >>  500
-            Your starting balance is 500
+        What is the starting balance?
+            > 500
+        Your starting balance is 500
 
-            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-            amount:
-        >>  deposit 25
-            25 deposited, new balance is 525
-            amount: bye
+        Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        amount:
+            > deposit 25
+        25 deposited, new balance is 525
+        amount: bye
         """, main)
 }
 
 test "input left over" {
     assert io.replay("""
-            What is the starting balance?
-        >>  500
-            Your starting balance: 500
+        What is the starting balance?
+            > 500
+        Your starting balance: 500
 
-            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-            amount: bye
-        >>  7
-        >>  8
+        Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        amount: bye
+            > 7
+            > 8
         """, || {
         io.print("What is the starting balance?")
         _ = io.read_line()
@@ -386,13 +308,13 @@ test "input left over" {
     assert io.replay(""" lines 36-44 """, main)
     io.replay: the transcript (-) and what main printed (+) differ
 
-        36   │     What is the starting balance?
-        37   │ >>  500
-        38 - │     Your starting balance is 500
-           + │     Your starting balance: 500
+        36   │ What is the starting balance?
+        37   │     > 500
+        38 - │ Your starting balance is 500
+           + │ Your starting balance: 500
         39   │
-        40   │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-        41   │     amount:
+        40   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        41   │ amount:
              │   ... 3 lines match ...
 FAIL bank_test.nomi :: input left over
   line 49: 2 input lines of the script were never read
@@ -405,10 +327,10 @@ FAIL bank_test.nomi :: input left over
 
              │   ... 3 lines match ...
         53   │
-        54   │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-        55   │     amount: bye
-        56 - │ >>  7
-        57 - │ >>  8
+        54   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        55   │ amount: bye
+        56 - │     > 7
+        57 - │     > 8
 test result: FAILED. 0 passed, 2 failed
 `
 	if !strings.HasSuffix(out, tail) {
@@ -430,9 +352,9 @@ tests "bank" {
     test "replayed", starting_balance {
         assert io.replay(
             """
-                What is the starting balance?
-            >>  ${starting_balance}
-                Your starting balance is ${starting_balance}
+            What is the starting balance?
+                > ${starting_balance}
+            Your starting balance is ${starting_balance}
             """,
             main,
         )
@@ -453,13 +375,13 @@ test "compared" {
     assert io.replay(""" lines 42-44 """, main)
     io.replay: the transcript (-) and what main printed (+) differ
 
-        42   │     What is the starting balance?
-        43   │ >>  500
-        44 - │     Your starting balance is 500
-           + │     Your starting balance: 500
+        42   │ What is the starting balance?
+        43   │     > 500
+        44 - │ Your starting balance is 500
+           + │ Your starting balance: 500
            + │ (empty line)
-           + │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-           + │     amount: bye
+           + │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+           + │ amount: bye
 FAIL bank_test.nomi :: compared
   line 54: assertion failed
     assert io.capture("500\n", g).output == """ lines 55-56 """
@@ -489,22 +411,22 @@ func TestReplay_AScriptNotWrittenAtTheCallIsNotNumbered(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
 test "bound script" {
     script = """
-            What is the starting balance?
-        >>  500
-            Your starting balance is 500
+        What is the starting balance?
+            > 500
+        Your starting balance is 500
         """
     assert io.replay(script, main)
 }
 `)
 	want := `    io.replay: the transcript (-) and what main printed (+) differ
 
-          │     What is the starting balance?
-          │ >>  500
-        - │     Your starting balance is 500
-        + │     Your starting balance: 500
+          │ What is the starting balance?
+          │     > 500
+        - │ Your starting balance is 500
+        + │ Your starting balance: 500
         + │ (empty line)
-        + │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-        + │     amount: bye
+        + │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        + │ amount: bye
 test result: FAILED. 0 passed, 1 failed
 `
 	if !strings.HasSuffix(out, want) {
@@ -513,9 +435,12 @@ test result: FAILED. 0 passed, 1 failed
 }
 
 // Captured.transcript and Replayed's fields read as documented: the output
-// behind the gutter with each read written in as `>>  ` and the text, a
-// partial-line prompt on a line of its own, output starting with `>` as it
-// is, and an inner capture's reads only in its own transcript.
+// as written with each read written in as four spaces, `> ` and the text,
+// a partial-line prompt on a line of its own, output starting with `>` at
+// the left edge as it is, indented output that reads as input escaped, and
+// an inner capture's reads only in its own transcript (the outer one escapes
+// them when the inner transcript is printed). A replay writes each
+// read at the indentation its script line has.
 func TestReplay_TranscriptFields(t *testing.T) {
 	got, err := runCaptureProgram(t, `import std/io
 
@@ -529,12 +454,13 @@ fn main() {
         })
         io.print("got ${inner.transcript}")
         io.print("> quoted")
+        io.print("  > padded")
         _ = io.read_line()
         _ = io.read_line()
     })
     io.write("transcript [${run.transcript}]\n")
     io.write("output [${run.output}]\n")
-    r = io.replay("    q?\n>>  a  \n>>  b\n", || {
+    r = io.replay("q?\n  > a  \n\t> b\n", || {
         io.print("q?  ")
         _ = io.read_line()
     })
@@ -544,9 +470,9 @@ fn main() {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	want := "transcript [    name: \n>>  Ada\n    got     inner\n    >>  x\n\n    > quoted\n>>  Grace\n]\n" +
-		"output [name: got     inner\n>>  x\n\n> quoted\n]\n" +
-		"replayed [q?  \n|    q?\n>>  a\n|    q?\n>>  a\n>>  b\n|1]\n"
+	want := "transcript [name: \n    > Ada\ngot inner\n    \\> x\n\n> quoted\n  \\> padded\n    > Grace\n]\n" +
+		"output [name: got inner\n    > x\n\n> quoted\n  > padded\n]\n" +
+		"replayed [q?  \n|q?\n  > a\n|q?\n  > a\n\t> b\n|1]\n"
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
 	}
@@ -559,9 +485,9 @@ func TestReplay_NamedArgumentsNumberAndCollapse(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
 test "script first" {
     assert io.replay(script: """
-            What is the starting balance?
-        >>  500
-            Your starting balance is 500
+        What is the starting balance?
+            > 500
+        Your starting balance is 500
         """, run: main)
 }
 
@@ -576,10 +502,10 @@ test "run first" {
     assert io.replay(script: """ lines 36-38 """, run: main)
     io.replay: the transcript (-) and what main printed (+) differ
 
-        36   │     What is the starting balance?
-        37   │ >>  500
-        38 - │     Your starting balance is 500
-           + │     Your starting balance: 500
+        36   │ What is the starting balance?
+        37   │     > 500
+        38 - │ Your starting balance is 500
+           + │ Your starting balance: 500
 `
 	if !strings.HasPrefix(out, want) {
 		t.Fatalf("got:\n%s\nwant it to start with:\n%s", out, want)
@@ -597,10 +523,10 @@ test "run first" {
 	}
 }
 
-// A script with no `>>` line is the output as written, with no gutter. Its
-// lines sit at the closing quotes' column, and indentation past that column
-// is output: a line that starts with a space keeps it, and so does output
-// whose every line is indented, as padded columns are.
+// A script with no input is the output as written. Its lines sit at the
+// closing quotes' column, and indentation past that column is output: a
+// line that starts with a space keeps it, and so does output whose every
+// line is indented, as padded columns are.
 func TestReplay_AScriptWithNoInputIsTheOutputAsWritten(t *testing.T) {
 	out := runReplayTests(t, `import std/io
 
@@ -652,9 +578,8 @@ test "the indentation counts" {
 }
 
 // A script with no input that the output does not follow fails with the
-// same line diff, its lines numbered by source line and shown as written.
-// One written behind the four-space gutter, which would match without it,
-// gets a hint that the gutter is only for scripts with input.
+// same line diff, its lines numbered by source line and shown as written,
+// indentation included.
 func TestReplay_AScriptWithNoInputFailsWithALineDiff(t *testing.T) {
 	out := runReplayTests(t, `import std/io
 
@@ -673,7 +598,7 @@ test "a wrong line" {
     )
 }
 
-test "behind the gutter" {
+test "indented" {
     assert io.replay(
         """
             -10.0 C |   14.0 F
@@ -691,8 +616,8 @@ test "behind the gutter" {
         11   │ -10.0 C |   14.0 F
         12 - │  -5.0 C |   24.0 F
            + │  -5.0 C |   23.0 F
-FAIL bank_test.nomi :: behind the gutter
-  line 19: the transcript differs from the script, and it has no ` + "`>>`" + ` input lines, so its lines are compared as written: the four-space gutter is only for a script with input
+FAIL bank_test.nomi :: indented
+  line 19: the transcript differs from the script
     assert io.replay(""" lines 21-22 """, main)
     io.replay: the transcript (-) and what main printed (+) differ
 

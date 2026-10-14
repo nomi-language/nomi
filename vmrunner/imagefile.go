@@ -136,7 +136,7 @@ func (f ImageFile) check(name string, haveCompiler bool) error {
 	}
 	if f.Flags&FlagUsesCompiler != 0 && !haveCompiler {
 		return fmt.Errorf("%s imports std/compiler, whose hosts this nomi-vm does not link. Run it with the "+
-			"nomi-vm `nomi build --vm --compiler` writes", name)
+			"nomi-vm `nomi build-vm --compiler` writes", name)
 	}
 	return nil
 }

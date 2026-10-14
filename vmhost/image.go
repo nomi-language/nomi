@@ -14,11 +14,13 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/internal/webtypes"
+	"github.com/nomi-language/nomi/std"
 )
 
 // BuildImage is what `nomi build` appends to a runner: the program's linked
-// IR (its own units, every stdlib module and generic instance it links),
-// with the entry, the Go-bound host keys, whether it has a `fn main`, and the
+// IR (its own units, the stdlib modules and generic instances it links),
+// pruned to the functions the program can reach (vm.PruneImage), with the
+// entry, the Go-bound host keys, whether it has a `fn main`, and the
 // project root std/compiler's hosts resolve against.
 //
 // A program the VM would block is refused here with the *Blocked `nomi run`
@@ -108,10 +110,13 @@ func (p *Program) buildImage(withExports bool) (image []byte, usesCompiler bool,
 	if found := p.machine(io.Discard).Unretained(roots, boots); len(found) > 0 {
 		return nil, false, p.blocked(found)
 	}
-	mods := p.res.IRModules()
+	// The image carries only what the program can run: the functions the
+	// VM's own walk reaches from main, the boot and the exports. A lowering
+	// links the whole stdlib, most of which a program never calls.
+	entryMod, mods := vm.PruneImage(p.entry, p.res.IRModules(), roots, boots)
 	// p.hosts[0] is std/compiler's table (newProgram puts it first). A
 	// crossing only it answers is what makes the runner link it.
-	bare := vm.NewProgram(p.entry, mods, io.Discard).WithHosts(p.hosts[1:]...)
+	bare := vm.NewProgram(entryMod, mods, io.Discard).WithHosts(p.hosts[1:]...)
 	for _, u := range bare.Unretained(roots, boots) {
 		if u.Kind == vm.NoBinding && slices.Contains(compilerhosts.Names(), u.Name) {
 			usesCompiler = true
@@ -119,19 +124,48 @@ func (p *Program) buildImage(withExports bool) (image []byte, usesCompiler bool,
 	}
 	entry := -1
 	for i, m := range mods {
-		if m == p.entry && p.entry != nil {
+		if m == entryMod && entryMod != nil {
 			entry = i
 		}
+	}
+	// The project root is what std/compiler's hosts resolve imports
+	// against; a program that never reaches them does not need the build
+	// machine's directory in its image.
+	root := ""
+	if usesCompiler {
+		root = p.prog.Root
 	}
 	image, err = ir.EncodeImage(ir.Image{
 		Modules:  mods,
 		Entry:    entry,
 		HostKeys: p.res.HostKeys(),
 		HasMain:  p.HasMain(),
-		Root:     p.prog.Root,
+		Root:     root,
 		Exports:  exports,
-	})
+	}, ir.WithFileNames(p.imageName))
 	return image, usesCompiler, err
+}
+
+// imageName is how a built image names a source file, as `go build
+// -trimpath` does: a stdlib module as `std/<file>.nomi`, a file under the
+// project root by its slash-separated path from the root (`app.nomi`,
+// `lib/util.nomi`), and any other file by its base name. A refusal a built
+// program prints names the entry as the project knows it, and a
+// distributed image carries none of the build machine's directories.
+func (p *Program) imageName(path string) string {
+	if name, ok := std.ImageName(path); ok {
+		return name
+	}
+	if !filepath.IsAbs(path) {
+		return filepath.ToSlash(path)
+	}
+	if p.prog.Root != "" {
+		if rel, err := filepath.Rel(p.prog.Root, path); err == nil && rel != ".." &&
+			!strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return filepath.ToSlash(rel)
+		}
+	}
+	return filepath.Base(path)
 }
 
 // LeftoverKind says which development-only form a Leftover is.

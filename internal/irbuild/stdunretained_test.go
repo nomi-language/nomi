@@ -8,12 +8,10 @@ import (
 
 // A monomorphic std body the cache declines because it reaches a generic
 // template, directly or through other bodies declined for that reason, is
-// built per program (stdUnretainedMonoBody). io's `Replayed` failure reaches
-// `String.strip_prefix` through `replay_reason`, `gutter_hint` and
-// `guttered?`'s lambda, and `strip_prefix` calls the generic
-// `String.starts_with?`; before the reach was followed through siblings,
-// that chain was declined in the cache and had no per-program route, so
-// every `assert io.replay(...)` was BLOCKED.
+// built per program (stdUnretainedMonoBody). `String.strip_prefix` calls
+// the generic `String.starts_with?`, and `Regex`'s `impl Debug`, reached
+// through an interface, calls the generic `String.contains?`; without a
+// per-program route a program that reaches either is BLOCKED.
 //
 // Every Nomi-bodied monomorphic std function the cache did not retain must
 // be one a program builds, and must build.
@@ -45,11 +43,10 @@ func TestStdBodiesTheCacheDeclinesAreBuiltPerProgram(t *testing.T) {
 			t.Errorf("std %s is built per program, and does not build: %s", name, why)
 		}
 	}
-	for _, want := range []string{"io.Replayed.failure", "io.replay_reason", "io.gutter_hint", "io.guttered?"} {
+	for _, want := range []string{"strings.String.strip_prefix", "regex.Regex.inspect"} {
 		if !checked[want] {
 			t.Errorf("std %s is no longer a body the cache declines and a program builds, so this "+
-				"test no longer covers a chain of such bodies reached through an interface; "+
-				"point it at another one", want)
+				"test no longer covers it; point it at another one", want)
 		}
 	}
 }

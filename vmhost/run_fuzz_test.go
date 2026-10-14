@@ -114,6 +114,7 @@ const (
 	crashHang     = "hang"
 	crashLoopFree = "loop-free program used its step budget"
 	crashDiffers  = "nondeterministic"
+	crashImage    = "built image differs"
 )
 
 func (o runOutcome) failed() bool { return o.class == runCrash }
@@ -290,7 +291,7 @@ func runInput(dir, src string) (out runOutcome) {
 	if plan.skip != "" {
 		return runOutcome{skip: plan.skip}
 	}
-	first := runOnce(p, plan, dir)
+	first := runOnce(p, plan, dir, nil)
 	if first.class == runCrash || first.class == runSkipped {
 		return first
 	}
@@ -309,7 +310,7 @@ func runInput(dir, src string) (out runOutcome) {
 		first.once = true
 		return first
 	}
-	second := runOnce(p, plan, dir)
+	second := runOnce(p, plan, dir, nil)
 	if second.class == runCrash {
 		return second
 	}
@@ -317,8 +318,36 @@ func runInput(dir, src string) (out runOutcome) {
 		first.class = runCrash
 		first.crash = crashDiffers + ": two runs of a program with no clock, randomness or concurrency differ\n" +
 			"first run (" + first.class.String() + "):\n" + first.transcript + "\nsecond run (" + second.class.String() + "):\n" + second.transcript
+		return first
+	}
+	// The same program from the image `nomi build` writes, which holds only
+	// what the VM's walk reaches (vm.PruneImage), must run the same way.
+	if img := builtImage(p); img != nil && plan.main != nil {
+		third := runOnce(p, plan, dir, img)
+		if third.class == runCrash {
+			return third
+		}
+		if third.transcript != first.transcript || third.class != first.class {
+			first.class = runCrash
+			first.crash = crashImage + ": the program's built image runs differently from its source\n" +
+				"from source (" + first.class.String() + "):\n" + first.transcript + "\nfrom the image (" + third.class.String() + "):\n" + third.transcript
+		}
 	}
 	return first
+}
+
+// builtImage is p's image as `nomi build` writes it, decoded, or nil when
+// the build refuses p (a `todo` or `dbg` left in it, no `fn main`).
+func builtImage(p *Program) *ir.Image {
+	data, _, err := p.BuildImage()
+	if err != nil {
+		return nil
+	}
+	im, err := ir.DecodeImage(data)
+	if err != nil {
+		panic(fmt.Sprintf("a built image does not decode: %v", err))
+	}
+	return &im
 }
 
 // runPlan is what an input runs: main, or its test cases.
@@ -391,10 +420,11 @@ func runPlanFor(p *Program) runPlan {
 
 // runOnce runs plan on a fresh machine under the step budget, in its own
 // goroutine so that a run that hangs where no step is taken is reported
-// rather than hanging the test.
-func runOnce(p *Program, plan runPlan, dir string) runOutcome {
+// rather than hanging the test. A non-nil img runs main from that image
+// instead of from p's lowering.
+func runOnce(p *Program, plan runPlan, dir string, img *ir.Image) runOutcome {
 	done := make(chan runOutcome, 1)
-	go func() { done <- runBounded(p, plan, dir) }()
+	go func() { done <- runBounded(p, plan, dir, img) }()
 	select {
 	case o := <-done:
 		return o
@@ -406,7 +436,7 @@ func runOnce(p *Program, plan runPlan, dir string) runOutcome {
 	}
 }
 
-func runBounded(p *Program, plan runPlan, dir string) (out runOutcome) {
+func runBounded(p *Program, plan runPlan, dir string, img *ir.Image) (out runOutcome) {
 	var buf bytes.Buffer
 	defer func() {
 		if r := recover(); r != nil {
@@ -415,15 +445,28 @@ func runBounded(p *Program, plan runPlan, dir string) (out runOutcome) {
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), runContextLimit)
 	defer cancel()
-	base := p.machine(&buf).WithErrorOutput(&buf).WithInput(rt.NewInput(strings.NewReader("")))
+	entry, mainFn, base := p.entry, plan.main, p.machine(&buf)
+	if img != nil {
+		entry, mainFn = img.EntryModule(), nil
+		for _, f := range entry.Funcs() {
+			if f.Name() == "main" && len(f.Params()) == 0 {
+				mainFn = f
+			}
+		}
+		base = vm.NewProgram(entry, img.Modules, &buf).WithHosts(p.hosts...)
+	}
+	base = base.WithErrorOutput(&buf).WithInput(rt.NewInput(strings.NewReader("")))
 	m := base.WithLimits(vm.Limits{Steps: runSteps, Deadline: time.Now().Add(runDeadline)})
 	clean := func(s string) string { return strings.ReplaceAll(s, dir+string(filepath.Separator), "") }
 	if plan.main != nil {
 		var boots []*ir.Symbol
-		if boot := p.entry.Boot(); boot != nil {
+		if boot := entry.Boot(); boot != nil {
 			boots = append(boots, boot)
 		}
-		if found := m.Unretained(vm.MainRoots(p.entry, plan.main), boots); len(found) > 0 {
+		if found := m.Unretained(vm.MainRoots(entry, mainFn), boots); len(found) > 0 && img != nil {
+			// The source run was not blocked, so the image dropped something.
+			return runOutcome{class: runCrash, crash: crashImage + ": the built image lacks what main reaches: " + p.blocked(found).Error()}
+		} else if len(found) > 0 {
 			return runOutcome{skip: "blocked before it runs: " + p.blocked(found).Error()}
 		}
 		err := m.Main(ctx, nil, false)

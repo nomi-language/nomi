@@ -33,7 +33,7 @@ The repository root is the compiler's Go module,
 
 | Path | What it is |
 |---|---|
-| `cmd/` | Binaries: `nomi` (the CLI), `nomi-lsp`, `nomi-vm` (the VM binary: what `nomi build` appends a program to, and what runs a `.nomic` file), `nomi-vm-reactor` (the wasip1 reactor a program with an `export fn` is appended to), `nomi-wasm` (the browser build), `nomi-docgen` (stdlib reference). |
+| `cmd/` | Binaries: `nomi` (the CLI), `nomi-lsp`, `nomi-vm` (the VM binary: what `nomi build` appends a program to, and what runs a `.nomic` file), `nomi-vm-reactor` (the wasip1 reactor a program with an `export fn` is appended to; with none appended it loads a `.nomic` through `nomi_load`), `nomi-wasm` (the browser build), `nomi-docgen` (stdlib reference). |
 | `vmhost/` | The public embedding API. |
 | `vmrunner/` | What `nomi-vm` and a built executable run. Generated FFI runners import it. |
 | `hostadapt/` | Support package that generated FFI wrappers import. |
@@ -169,12 +169,24 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   `NOMI_FFIRUN_CACHE_ROOT`: `cacheRoot()` refuses the real cache under
   `go test`. The cache is safe to delete.
 - **`nomi build`.** Writes one executable: the `nomi-vm` binary with the
-  program's linked IR image appended (`ir.EncodeImage`). It is not native
+  program's linked IR image appended (`ir.EncodeImage`). The image holds
+  only the functions the VM's own reachability walk (`vm.Machine.Reached`,
+  the walk behind `Unretained`) reaches from `main`, the boot and each
+  `export fn` (`vm.PruneImage`); a call it did not foresee fails naming
+  the callee, never running something else.
+  `TestIRImage_PrunedProgramsMatchTheCommittedRecords` (`internal/vm`)
+  runs every corpus and tour program pruned against its record. The image
+  names each source file as `go build -trimpath` would
+  (`ir.WithFileNames`, `vmhost`'s `imageName`): a stdlib module as
+  `std/<file>.nomi`, a project file by its path from the project root. It
+  records the project root only for a program that reaches `std/compiler`.
+  A Go-FFI runner recognizes an entry that declares its own bindings by
+  that relative name (`nomiExternKey`). It is not native
   code; it skips the front end at startup. `--target goos/goarch`
   cross-compiles. Nothing may follow a WebAssembly module's last section,
   so a wasm target carries the image inside the module
   (`vmrunner/wasm.go`). A wasip1 runner (`nomi-vm` or `nomi-vm-reactor`)
-  declares a 16 MiB bss array and an initialized slot holding a magic,
+  declares a 4 MiB bss array and an initialized slot holding a magic,
   the array's address and its size (`vmrunner/image_wasip1.go`); `nomi build` finds the slot in the
   data segments (no symbols needed, so a stripped release runner works)
   and adds an active data segment at the array's address holding the
@@ -206,14 +218,31 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   `--target wasip1/wasm` of a program with an `export fn` appends it to
   `cmd/nomi-vm-reactor` instead, the VM linked `-buildmode=c-shared` as a
   WASI reactor that exports `_initialize` and the generic call ABI
-  `nomi_alloc`, `nomi_call`, `nomi_free` and `nomi_main`
+  `nomi_alloc`, `nomi_call`, `nomi_free`, `nomi_load` and `nomi_main`
   (`ffirun.Variant`); a program without one stays a command module.
-  Releases ship the reactor in the wasip1 archive beside `nomi-vm`.
+  `nomi build-vm --reactor` (`cmd/nomi/build_vm.go`) copies out
+  `nomi-vm-reactor` with nothing embedded; its
+  image area's length is zero, so a runner compiles it once, instantiates
+  it per script and hands each instance one `.nomic` through `nomi_load`
+  (`vmrunner.LoadProgram`); one program per instance, and a reactor with an
+  embedded program refuses it. Releases ship the reactor in the wasip1
+  archive beside `nomi-vm`. It also writes `nomi-wasi.js` and
+  `nomi-wasi.d.ts` beside the reactor (`cmd/nomi/wasi/`, embedded): an ES
+  module with no dependency that implements the WASI preview1 imports the
+  reactor needs (stdio, clocks, random, a blocking `poll_oneoff` sleep, no
+  preopens, `ENOSYS` for any import it does not know) and offers
+  `loadRuntime`, `load`/`call` and `run` over that ABI in browsers and Node
+  (`TestBuildCommand_ReactorWritesTheWasiLoader` drives it in Node).
+  `nomi build --target wasip1/wasm` writes the same two files beside a
+  reactor with an embedded program, whose `load()` and `run()` with no
+  argument call `nomi_load` with length 0: that boots the embedded program
+  and answers its exports, and a reactor with none refuses it.
   `--no-vm` writes the image alone as a compiled program, `<entry>.nomic`
   (a header with magic `NOMIC\0\0\0`, `ir.FormatVersion`, flags, the
   writer's version and the length; `vmrunner/imagefile.go`, where Go code
   calls it an image file) and needs no Go toolchain; Go-FFI projects are
-  refused. `--vm [--compiler]` copies out the `nomi-vm` binary
+  refused. It records the program's exported functions, so a reactor can
+  call them. `nomi build-vm [--compiler]` copies out the `nomi-vm` binary
   `ffirun.Runner` answers. A `nomi-vm` with nothing appended runs a
   `.nomic` file by path or framed on stdin (`vmrunner/bare.go`), and
   `nomi run` runs one in process. A field added to an IR node fails
@@ -277,11 +306,12 @@ with no input, its output in a buffer and a step budget
 (`vm.Machine.WithLimits`). A Nomi trap, a failed assertion and an `Err` from
 main are the program's own outcomes. It fails on a Go panic, a bytecode
 compiler panic, a machine limit reached mid-run, a loop-free program that
-uses its budget, or two runs of a program with no clock, randomness or
-concurrency that differ. A program that may loop and uses its budget is
+uses its budget, two runs of a program with no clock, randomness or
+concurrency that differ, or such a program's `main` running differently
+from the image `nomi build` writes. A program that may loop and uses its budget is
 skipped, and so is one whose effects reach outside the machine (files,
 `std/compiler`, Go bindings). `TestLoweredProgramsRun` runs the generated
-programs and every seed with a `fn main` (about 9 seconds), and
+programs and every seed with a `fn main` (about 13 seconds), and
 `TestKnownRunGaps` pins each known crash in `knownRunGaps`
 (`vmhost/run_gaps_test.go`) by a reproducer.
 

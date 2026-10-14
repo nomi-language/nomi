@@ -1259,8 +1259,8 @@ test result: FAILED. 0 passed, 1 failed
 // TestTestCommand_FailedReplayNumbersTheScript: a failed `io.replay` names
 // what it compared, echoes the assertion with the script collapsed to the
 // lines it spans, numbers each script line with its line in the file,
-// shows a changed empty line as `(empty line)`, and keeps the transcript's
-// four-column gutter in the text column.
+// shows a changed empty line as `(empty line)`, and keeps each input line's
+// indentation in the text column.
 func TestTestCommand_FailedReplayNumbersTheScript(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -1298,24 +1298,24 @@ fn prompt(balance: Int) {
 test "deposits" {
     assert io.replay(
         """
-            What is the starting balance?
-        >>  500
-            Your starting balance is 500
+        What is the starting balance?
+            > 500
+        Your starting balance is 500
 
-            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
 
-        >>  deposit 25
-            25 deposited, new balance is 525
+            > deposit 25
+        25 deposited, new balance is 525
 
-            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-        >>  deposit 5
-            5 deposited, new balance is 530
+        Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+            > deposit 5
+        5 deposited, new balance is 530
 
-            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-        >>  deposit nope
-            nope is not a number
+        Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+            > deposit nope
+        nope is not a number
 
-            Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
         """,
         main,
     )
@@ -1328,22 +1328,22 @@ test "deposits" {
 	want := `    io.replay: the transcript (-) and what main printed (+) differ
 
            + │ (empty line)
-        32   │     What is the starting balance?
-        33   │ >>  500
-        34   │     Your starting balance is 500
+        32   │ What is the starting balance?
+        33   │     > 500
+        34   │ Your starting balance is 500
         35   │
-        36   │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        36   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
         37 - │ (empty line)
-        38   │ >>  deposit 25
-        39   │     25 deposited, new balance is 525
+        38   │     > deposit 25
+        39   │ 25 deposited, new balance is 525
         40   │
              │   ... 3 lines match ...
         44   │
-        45   │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
-        46   │ >>  deposit nope
-        47 - │     nope is not a number
+        45   │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        46   │     > deposit nope
+        47 - │ nope is not a number
         48 - │ (empty line)
-        49 - │     Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
+        49 - │ Enter a deposit (e.g. deposit 50) or withdrawal (e.g. withdraw 10)
 test result: FAILED. 0 passed, 1 failed
 `
 	// The echo writes the script as the lines the diff numbers rather than

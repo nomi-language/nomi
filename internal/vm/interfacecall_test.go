@@ -24,8 +24,8 @@ func TestVMInterfaceCall_InheritedDefaultsMatchRecordedAnswers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "interfaces-and-dispatch.md", `open fn brief(value: self)`), tourBlock(t, "interfaces-and-dispatch.md", `io.print(HasName.greet(alice))`)}, vmPathResolver(t, "tour"))
-	if len(got.Cases) != 2 || len(refused) != 0 {
+	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "interfaces-and-dispatch.md", `open fn brief(value: self)`)}, vmPathResolver(t, "tour"))
+	if len(got.Cases) != 1 || len(refused) != 0 {
 		t.Fatalf("inherited default programs incomplete: %v", refused)
 	}
 	if diffs := recorded.CompareSubset(got); len(diffs) != 0 {

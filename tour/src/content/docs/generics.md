@@ -1,18 +1,18 @@
 ---
 title: Generics
-description: Type parameters, reusable declarations, and `where` bounds.
+description: Write one function or type that works with many types, and require what those types must support with `where`.
 ---
 
-Generics let one declaration work with many concrete types while keeping those
-types visible in the signature. The names in `<...>` are type placeholders that
-the declaration can reuse in parameters, fields, return types, and bodies. Each
-call or concrete type fills those placeholders with real types. Bounds go in a
-`where` clause.
+A generic function or type works with many types. The names in `<...>` stand
+for types. They are called type parameters. The declaration can use them for
+its parameters, fields and return type. Each use fills them in with real
+types.
 
 ## Generic functions
 
-A generic function introduces type parameters before its value parameters. The
-call site usually pins those types from the arguments and expected return type:
+A generic function lists its type parameters in `<...>`, before its ordinary
+parameters. You don't usually write the types at the call. Nomi works them out
+from the arguments:
 
 ```nomi-run
 fn pair<T, U>(first: T, second: U): (T, U) {
@@ -28,14 +28,13 @@ fn main() {
 dbg line 6: pair("age", 30) = ("age", 30)
 -->
 
-Here `T` is `String` and `U` is `Int` for this call. Another call can choose a
-different pair of concrete types.
+In this call, `T` is `String` and `U` is `Int`. Another call can use
+different types.
 
 ## Generic types
 
-Structs, enums, opaque types, host types, interfaces, and type aliases can
-all introduce type parameters. Those names are available anywhere the
-declaration needs to talk about its parts:
+Structs, enums, opaque types, host types, interfaces and type aliases can all
+have type parameters:
 
 ```nomi-run
 struct Box<T> {
@@ -52,18 +51,18 @@ fn main() {
 dbg line 7: box.value = 42
 -->
 
-`Box<T>` says every `Box` carries one value, and the type of that value is the
-same `T` wherever it appears. `Box<Int>` and `Box<String>` are different
-concrete types made from the same generic definition.
+Every `Box` holds one value, of type `T`. `Box<Int>` and `Box<String>` are
+different types, made from the same definition.
 
 ## Bounds with where
 
-An unconstrained `T` can be stored, returned, and passed around, but it does not
-promise any extra capabilities. A `where` clause adds those promises.
+A function can store, return and pass along a value of type `T`. It can't do
+anything else with it, such as compare two of them, because `T` could be any
+type. A `where` clause says what `T` must support. This is called a bound.
 
-For now, read a bound like `where T: Comparable` as "`T` must be a type that can
-be compared." Bounds name interfaces; the next chapter explains how interfaces
-are defined and implemented. Here, the important part is the generic shape:
+Read `where T: Comparable` as "`T` must be a type whose values can be
+compared." `Comparable` is an interface. The
+[next chapter](/interfaces-and-dispatch/) explains interfaces.
 
 ```nomi-run
 fn first_two_sorted<T>(xs: List<T>): List<T> where T: Comparable {
@@ -87,21 +86,21 @@ dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
 dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana"]
 -->
 
-Both [`Int`](/reference/int/) and [`String`](/reference/strings/#type-string) implement [`Comparable`](/reference/comparable/), so both calls satisfy
-`where T: Comparable`.
+[`Int`](/reference/int/) and [`String`](/reference/strings/#type-string) both
+implement [`Comparable`](/reference/comparable/), so both calls are allowed.
 
-Multiple bounds use `and`:
+To require more than one interface, join them with `and`:
 
 ```nomi ignore
 fn describe<T>(value: T): String where T: Display and Debug
 ```
 
-The type parameter has to satisfy every listed interface.
+`T` must implement every interface listed.
 
 ## Relational bounds
 
-A bound can mention another type parameter. That ties the choices together
-without requiring them to be the same type:
+A bound can mention another type parameter. This links two type parameters
+without making them the same type:
 
 ```nomi-run
 interface StepBy<S> {
@@ -130,20 +129,19 @@ fn main() {
 dbg line 19: advance(Counter(10), 5) = Counter(15)
 -->
 
-`advance<T, S>` introduces two independent type parameters. The bound
-`where T: StepBy<S>` says the chosen `T` must know how to step by the chosen
-`S`. In this example, `T` is `Counter` and `S` is `Int`.
+`advance<T, S>` has two type parameters. The bound `where T: StepBy<S>` says
+`T` must be able to step by an `S`. In this call, `T` is `Counter` and `S` is
+`Int`.
 
-That shape matters for APIs like ranges and dates: a value type might step by
-an `Int`, a duration, or some other unit type instead of stepping by another
-value of its own type. The [Dates & Times](/dates-and-times/) chapter uses the
-same idea for adding and subtracting durations, calendar days, months, and
-other time units.
+This matters for ranges and dates. A value often steps by something of a
+different type: a date steps by a number of days, not by another date. The
+[Dates & Times](/dates-and-times/) chapter uses this for adding durations,
+days and months.
 
-The same idea lets operator interfaces infer a result that is not necessarily
-the left-hand type. [`Add<Rhs, Out>`](/reference/add/) says what the right-hand operand may be
-and what the expression returns; [`Subtract`](/reference/subtract/), [`Multiply`](/reference/multiply/), and [`Divide`](/reference/divide/) use the
-same rhs/result shape:
+Operators work the same way. [`Add<Rhs, Out>`](/reference/add/) says what the
+right-hand side of `+` may be, and what type the sum is. So do
+[`Subtract`](/reference/subtract/), [`Multiply`](/reference/multiply/) and
+[`Divide`](/reference/divide/) for their operators:
 
 ```nomi-run
 type Day Int
@@ -179,19 +177,21 @@ fn main() {
 dbg line 26: plus(Day(10), Days(4)) = Day(14)
 -->
 
-Here the call arguments set `L` to `Day` and `R` to `Days`. The bound then
-matches `impl Add<Days, Day> for Day`, so `Out` is `Day`, with nothing else
-at the call saying so.
+From the arguments, `L` is `Day` and `R` is `Days`. The only matching impl is
+`impl Add<Days, Day> for Day`, so Nomi works out that `Out` is `Day`. The call
+doesn't have to say so.
 
 ## Bounds on declarations
 
-`where` can appear on the generic declaration that needs the constraint:
+Types, impls and derives can have a `where` clause too:
 
 ```nomi ignore
 struct Range<T> where T: Comparable {
     start: T
     end: T
+}
 
+impl Range<T> {
     fn contains?(r: Range<T>, value: T): Bool {
         r.start <= value and value <= r.end
     }
@@ -200,11 +200,10 @@ struct Range<T> where T: Comparable {
 derive Display for Box<T> where T: Display
 ```
 
-Constraints on a type declaration apply to that type everywhere. Constraints on
-an `impl`, `derive`, or function are narrower: they apply only to that
-implementation, derive, or function.
+A bound on a type declaration applies everywhere the type is used. A bound on
+an `impl`, a `derive` or a function applies only to that one declaration.
 
-Generic interface functions can introduce their own type parameters too:
+A function in an interface can have its own type parameters:
 
 ```nomi ignore
 interface Ranked<T> {
@@ -213,7 +212,7 @@ interface Ranked<T> {
 }
 ```
 
-`T` comes from `Ranked<T>`. `K` comes from `prefer<K>`. A type parameter must be
-introduced before a `where` clause can constrain it.
+`T` comes from `Ranked<T>`. `K` comes from `prefer<K>`. A `where` clause can
+only name type parameters declared in one of those two places.
 
 Next: [Interfaces & Dispatch](/interfaces-and-dispatch/).

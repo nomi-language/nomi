@@ -112,7 +112,7 @@ func RunBare(args []string, stdout, stderr io.Writer, stdin io.Reader, handleSig
 		}
 		return fail("%v", err)
 	}
-	return Run(image, stdout, stderr, stdin, args, handleSignals, opts...)
+	return RunCompiled(image, stdout, stderr, stdin, args, handleSignals, opts...)
 }
 
 // LoadImageFile reads the image file at path and answers its image, or why a

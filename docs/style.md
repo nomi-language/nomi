@@ -558,35 +558,34 @@ shows each answer next to the prompt it answers, so the reader follows one
 conversation instead of matching two lists. Keep `io.capture` for a program
 that reads its input in one go, or when the value `main` returns matters.
 A program that reads nothing is checked with `io.replay` too, with a
-script of its output and no gutter.
+script of its output alone.
 
-Indent the output lines four columns past the input lines and the closing
-`"""`, so each output line keeps its four-space gutter, and put two spaces
-after each `>>`. Write a prompt the program writes with `io.write` as its
-own output line, without its trailing space, and the answer on the `>>`
-line under it.
+Write the output at the closing `"""`'s column, so the literal keeps only
+the indentation that is part of the output. Indent each input line four
+columns past it and put one space after its `>`. Write a prompt the program
+writes with `io.write` as its own output line, without its trailing space,
+and the answer on the input line under it.
 
 ```nomi
 test "deposit money" {
     assert io.replay(
         """
-            What is the starting balance?
-        >>  500
-            deposit:
-        >>  25
-            new balance is 525
+        What is the starting balance?
+            > 500
+        deposit:
+            > 25
+        new balance is 525
         """,
         main,
     )
 }
 ```
 
-A prompt of `> ` is output like any other: it is the line `    >` above the
-input line `>>  north`.
+A prompt of `> ` is output like any other: it is the line `>` at the left
+edge, above the input line `    > north`. Output that is indented and starts
+with `> ` would read as input; write it as `    \> text`.
 
-A script with no input has no `>>` lines and no gutter. Write its output at
-the closing `"""`'s column, so the literal keeps only the indentation that
-is part of the output.
+A script with no input is its output, written the same way:
 
 ```nomi
 test "prints the table" {

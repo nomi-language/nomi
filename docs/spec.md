@@ -914,8 +914,9 @@ system, or any runner that only calls its exports, runs it.
   |---|---|---|
   | `nomi_alloc` | `(len: i32) -> i32` | reserves `len` bytes and returns a pointer the runner writes into |
   | `nomi_call` | `(name_ptr, name_len, args_ptr, args_len: i32) -> i64` | calls the exported function named by the UTF-8 name with the JSON array of arguments; returns the result's pointer in the high 32 bits and its length in the low 32 bits |
-  | `nomi_free` | `(ptr, len: i32)` | releases a buffer from `nomi_alloc` or a result from `nomi_call` |
+  | `nomi_free` | `(ptr, len: i32)` | releases a buffer from `nomi_alloc` or a result from `nomi_call` or `nomi_load` |
   | `nomi_main` | `() -> i32` | runs `main` over WASI stdin, stdout and stderr and returns the exit status, 0 or 1 |
+  | `nomi_load` | `(ptr, len: i32) -> i64` | boots the compiled program (`.nomic`) at `ptr` in a reactor that has none, or with `len` 0 the program built into the module; returns its result as `nomi_call` does |
 
 The result is UTF-8 JSON: `{"ok": value}` on success, with `null` for a
 `Unit` result, and `{"error": "diagnostic"}` on a trap, a `FromJson` failure
@@ -955,6 +956,76 @@ do before, between or after calls; in a program with no `fn main` it writes
 functions `` to stderr and returns 1. Calls run one at a time: the module is
 single-threaded, and tasks a call starts make progress only while some
 export is running.
+
+**Loading a program into a reactor.** A runner that runs many scripts can
+ship the reactor once and each script as a small `.nomic` file (§25,
+*Compiled programs and nomi-vm*). `nomi build-vm --reactor` writes the
+reactor with no program of its own: the module a
+program with an `export fn` is embedded in, with its image area empty.
+The runner compiles it once, instantiates it for each script, calls
+`_initialize`, writes the whole `.nomic` file, header included, into a buffer
+from `nomi_alloc`, and calls `nomi_load` with it. `nomi_load` copies the
+bytes before it returns, boots the program, and answers like `nomi_call`:
+
+- `{"ok": ["add(a: Int, b: Int): Int", ...]}` on success: the program's
+  exported functions as `export fn` declares them, without `export fn`, in
+  declaration order. A program with only a `main` answers `{"ok": []}`.
+- `{"error": "..."}` when the bytes are not a `.nomic` file (`` the loaded
+  program: not a compiled Nomi program (.nomic) ``), are cut short or carry
+  bytes after the program, are in a program format this reactor does not
+  read (the text `nomi-vm` gives, §25), import `std/compiler` in a reactor
+  that does not link its hosts, hold neither a `fn main` nor an `export fn`,
+  or the program's `boot` fails.
+
+After a successful load, `nomi_call` and `nomi_main` work on the loaded
+program exactly as on an embedded one. A failed load leaves the reactor with
+no program, so the runner may load again. A reactor with no program answers
+`nomi_call` with `` {"error": "this reactor has no program yet: write a
+compiled program (.nomic) into memory from nomi_alloc and pass it to
+nomi_load first"} ``, and `nomi_main` writes that text to stderr and returns 1.
+
+One instance runs one program. A second `nomi_load` after a successful one
+is an error result, `` this reactor already loaded a program, and a reactor
+runs one program for its life. To run another, instantiate the module again
+``, and the loaded program keeps running. A booted program leaves state
+behind in the instance (its `once` values, the tasks it started, the memory
+it grew), and nothing can return an instance to the state `_initialize` left
+it in; instantiating the compiled module again gives a clean one cheaply,
+since the engine compiles a module once however many instances it makes. A
+reactor `nomi build` embedded a program in refuses `nomi_load` the same way:
+`` this reactor carries the program `nomi build` embedded in it, so it loads
+no other. Load programs into a reactor `nomi build-vm --reactor` writes,
+which carries none ``.
+
+`nomi_load` with a length of 0 loads nothing (`ptr` is not read). In a
+reactor `nomi build` embedded a program in, it boots that program, as the
+first `nomi_call` would, and answers as a load does: the exported functions'
+signatures, or the boot's error. A runner calls it to learn what it can call
+before it calls anything; calling it again answers the same. In a reactor
+with no program it is the error result `` this reactor has no program built
+in: pass it a compiled program (.nomic) ``, and the reactor stays ready for
+a load.
+
+`nomi build-vm --reactor` also writes `nomi-wasi.js` beside the reactor,
+with its TypeScript declarations in `nomi-wasi.d.ts`, and `nomi build
+--target wasip1/wasm` writes both beside a reactor it embeds a program in: the toolchain's
+JavaScript host for this ABI, an ES module that runs in browsers and in Node
+with no WASI library, as Go's `wasm_exec.js` is the host for `js/wasm`. It
+implements the WASI preview1 imports the reactor needs (no preopened
+directories; an import it does not know answers `ENOSYS`), and over the ABI
+above it offers `loadRuntime(reactor)`, which compiles the module once;
+`runtime.load(nomic)`, which instantiates it, calls `nomi_load`, and resolves
+to a program whose `exports` are the load's signatures and whose
+`call(name, ...args)` JSON-encodes the arguments, calls `nomi_call`, and
+resolves with `ok` or rejects with an `Error` carrying `error`; and
+`runtime.run(nomic, {stdin, args, env})`, which loads into a fresh instance,
+calls `nomi_main`, and resolves with its exit status and output. Without
+`nomic`, `load()` and `run()` call `nomi_load` with length 0, so they use
+the program built into the module, and reject with that error result on a
+reactor that has none; a `.nomic` handed to a reactor with a program built
+in rejects with the refusal above. A WASI call
+is synchronous, so a sleeping task blocks the calling thread for its duration
+(with `Atomics.wait` where the thread may block, by spinning elsewhere).
 
 Go fixes a module's
 export names when the runner is compiled, and one runner serves every
@@ -6597,16 +6668,16 @@ A prebuilt `nomi-vm` must come from the same commit as `nomi`; both carry it in 
 
 A WebAssembly target, `js/wasm` or `wasip1/wasm`, writes `<name>.wasm` by default. Nothing may follow a module's last section, so the program goes inside the module:
 
-- A `wasip1/wasm` module carries it as one more active data segment, which the WebAssembly engine writes into a 16 MiB area of the `nomi-vm`'s own memory when it instantiates the module. The module reads its program from there, so it needs no file access: `wasmtime run hello.wasm` runs it, and so does a browser's WASI shim with no file system. The area is uninitialized memory in the `nomi-vm`, so it adds nothing to the file; it raises the module's declared initial memory by 16 MiB. A program whose compiled form is larger than the area is refused by `nomi build`, naming the limit.
+- A `wasip1/wasm` module carries it as one more active data segment, which the WebAssembly engine writes into a 4 MiB area of the `nomi-vm`'s own memory when it instantiates the module. The module reads its program from there, so it needs no file access: `wasmtime run hello.wasm` runs it, and so does a browser's WASI shim with no file system. The area is uninitialized memory in the `nomi-vm`, so it adds nothing to the file; it raises the module's declared initial memory by 4 MiB, to 9.8 MiB for the reactor. A program whose compiled form is larger than the area is refused by `nomi build`, naming the limit.
 - A `js/wasm` module carries it in a custom section named `nomi.image`, which every runtime skips. A module cannot read its own sections, so it looks for the section where its host can supply it: it uses `globalThis.nomiImage` when a loader has set it to the section's bytes (`new Uint8Array(WebAssembly.Module.customSections(module, "nomi.image")[0])`), and otherwise reads the file argv[0] names through the host's `fs`. Go's own loader runs it under Node unchanged: `node "$(go env GOROOT)/lib/wasm/wasm_exec_node.js" hello.wasm`.
 
-A `wasip1/wasm` program with at least one `export fn` is written as a WASI reactor instead of a command module (§5, *Exported Functions*): the program is appended to `nomi-vm-reactor`, the same VM linked as a reactor, found, built and downloaded as `nomi-vm` is and checked the same way.
+A `wasip1/wasm` program with at least one `export fn` is written as a WASI reactor instead of a command module (§5, *Exported Functions*): the program is appended to `nomi-vm-reactor`, the same VM linked as a reactor, found, built and downloaded as `nomi-vm` is and checked the same way. `nomi-wasi.js` and `nomi-wasi.d.ts`, the JavaScript host for it, are written beside the module.
 
 The `js/wasm` build keeps the browser build's limits: `io.read_file` and `io.write_file` fail with an `IOError`, even under Node, and a call nests at most 1,000 deep. A command-line program that reads files belongs on `wasip1/wasm`. Every release ships a runner-only archive for each WebAssembly target, so a release `nomi` downloads it as it would any other platform's; the `js/wasm` archive also carries the `wasm_exec.js` of the Go that built its `nomi-vm`, and the `wasip1/wasm` archive carries `nomi-vm-reactor` beside `nomi-vm`.
 
 ### Compiled programs and nomi-vm
 
-`nomi build <file> --no-vm [-o <out>]` writes the program's lowered IR alone, as a compiled program (`<name>.nomic` in the working directory by default), for a `nomi-vm` that does not carry it. It needs no Go toolchain and no `nomi-vm`, and the same file runs on every platform's `nomi-vm`. It refuses what `nomi build` refuses, with the same text, and also a project with Go bindings, whose bindings only a VM built with them can answer: `` nomi build --no-vm: this project has Go bindings, which only a VM built with them can answer, so it has no portable compiled program ``. `--no-vm` takes no `--target` and no `--web`. A test file has no compiled program.
+`nomi build <file> --no-vm [-o <out>]` writes the program's lowered IR alone, as a compiled program (`<name>.nomic` in the working directory by default), for a `nomi-vm` that does not carry it, or for a reactor to load (§5, *Loading a program into a reactor*). It records the program's exported functions, so a program with an `export fn` and no `fn main` builds too; `nomi-vm` and `nomi run` refuse to run such a program, with `` this program has no `fn main`; it is called through its exported functions ``, and exit 1. It needs no Go toolchain and no `nomi-vm`, and the same file runs on every platform's `nomi-vm`. It refuses what `nomi build` refuses, with the same text, and also a project with Go bindings, whose bindings only a VM built with them can answer: `` nomi build --no-vm: this project has Go bindings, which only a VM built with them can answer, so it has no portable compiled program ``. `--no-vm` takes no `--target` and no `--web`. A test file has no compiled program.
 
 A `.nomic` file is a header followed by the program's IR image:
 
@@ -6620,7 +6691,7 @@ A `.nomic` file is a header followed by the program's IR image:
 | 18 + `n` | 8 | `L`, the image's length, a little-endian u64 |
 | 26 + `n` | `L` | The image, the same bytes `nomi build` appends to `nomi-vm` |
 
-`nomi build --vm [--compiler] [-o <out>] [--target <goos>/<goarch>]` writes a copy of the `nomi-vm` that `nomi build` appends programs to, with no program: `nomi-vm` by default, with `.exe` or `.wasm` as the target needs. It comes from where `nomi build` gets one, so a release needs no Go toolchain for it. For `js/wasm` it also writes the matching `wasm_exec.js` beside it. For `wasip1/wasm` it writes the command module; `nomi-vm-reactor` reads its program only from its own memory, so a copy with no program could run nothing. `--compiler` writes the `nomi-vm` that links `std/compiler`'s hosts, which a compiled program importing `std/compiler` needs, and which needs Go to build.
+`nomi build-vm [--target <goos>/<goarch>] [--compiler] [-o <out>]` writes a copy of the `nomi-vm` that `nomi build` appends programs to, with no program: `nomi-vm` by default, with `.exe` or `.wasm` as the target needs. It comes from where `nomi build` gets one, so a release needs no Go toolchain for it. For `js/wasm` it also writes the matching `wasm_exec.js` beside it. For `wasip1/wasm` it writes the command module. `nomi build-vm --reactor [--compiler] [-o <out>]` writes `nomi-vm-reactor` with no program instead (`nomi-vm-reactor.wasm` by default), which takes its program through `nomi_load` (§5, *Loading a program into a reactor*), and writes `nomi-wasi.js` and `nomi-wasi.d.ts` beside it, the JavaScript host that runs it in a browser or Node, creating the folder they go in if it does not exist. The reactor exists only for `wasip1/wasm`, so that is its target, and `--target` with any other value is a usage error. `nomi build-vm` takes no program file, and neither form takes `nomi build`'s `--no-vm`, `--web` or `--static`: a program with an `export fn` built with `nomi build --target wasip1/wasm` is already a reactor with that program inside it. `--compiler` writes the `nomi-vm` or reactor that links `std/compiler`'s hosts, which a compiled program importing `std/compiler` needs, and which needs Go to build.
 
 A `nomi-vm` with no program of its own takes one when it starts:
 
@@ -7377,6 +7448,12 @@ The `nomi` CLI is the single tool:
 - `nomi build <file> --web [-o <dir>] [--static <dir>]` — a folder a static
   host serves that runs the program in a browser, with the files of its
   `web/` folder copied in (see §25, *A program in the browser*).
+- `nomi build <file> --no-vm [-o <out>]` — the compiled program alone, a
+  `.nomic` file (see §25, *Compiled programs and nomi-vm*).
+- `nomi build-vm [--target <goos>/<goarch>] [--compiler] [-o <out>]` —
+  nomi-vm with no program, which runs a `.nomic` file it is given;
+  `nomi build-vm --reactor [--compiler] [-o <out>]` writes the WASI reactor
+  with no program and `nomi-wasi.js` beside it (see §25).
 - `nomi run --web [--port N] [--open] [--static <dir>] <file>` — serve that
   folder on localhost, rebuilding and reloading the page when the source
   changes and reloading it when a static file changes.
@@ -8187,54 +8264,73 @@ the trap propagates as it would without the capture and the output captured
 so far is dropped. `io.capture` works outside tests too, in `nomi run` and in
 `nomi build` executables.
 
-A transcript shows the session behind a four-column gutter, Nomi's
-indent. A line read is `>>` and two spaces, followed by exactly the text
-read. Every output line is four spaces followed by the line exactly as
-`run` wrote it, whatever it starts with, so output is never escaped; a
-blank output line is blank. Part of a line written before a read (a
-prompt with no newline) is output: it ends its own transcript line, and
-the line read follows on the next. After `io.write("age: ")`, a read of
-`36` gives `    age: ` and then `>>  36`; after `io.write("> ")`, a read of
-`north` gives `    > ` and then `>>  north`. A read
-at the end of the input adds nothing, and the prompt it answered stays
-output, on one line with whatever is printed after it, as in `output`. An
-inner `io.capture`'s reads are in its own transcript only.
+A transcript is in the form an `io.replay` script takes. Every output line
+is the line exactly as `run` wrote it, and a blank output line is blank. A
+line read is four spaces, `>` and a space, followed by exactly the text
+read. An output line that would read as input (see below) gets a backslash
+before its `>`. Part of a line written before a read (a prompt with no
+newline) is output: it ends its own transcript line, and the line read
+follows on the next. After `io.write("age: ")`, a read of `36` gives
+`age: ` and then `    > 36`; after `io.write("> ")`, a read of `north`
+gives `> ` and then `    > north`. A read at the end of the input adds
+nothing, and the prompt it answered stays output, on one line with
+whatever is printed after it, as in `output`. An inner `io.capture`'s
+reads are in its own transcript only.
 
 `io.replay(script, run)` runs `run` against a script of an interactive
 session and answers an `io.Replayed`, an `Assertable` that holds when the
-transcript matches the script. A script with a line that starts with `>>`
-is written as a transcript reads, in two columns, and every line of it
-follows these rules. A line that starts with `>>` and two spaces is input, and the text after
-the two spaces is what the next `io.read_line` answers; `>>` alone is an
-empty line. A line that starts with four spaces is output the program must
-print. A blank line is a blank output line. Any other line is an error:
-`io.replay` traps before `run` runs, with a message naming the line and a
-hint that writes it with the right gutter. Output indented fewer than four
-columns reads
+transcript matches the script. The script's base column is the start of
+each line of its value; for a `"""` script, which removes its baseline
+(see the multi-line string rules), that is the closing delimiter's column
+when no line sits left of it. Every line of the script follows one rule:
 
-```text
-io.replay: line 3 of the script, "Ada is 36", must start with `>>  ` (input) or four spaces (output)
-hint: an output line is `    Ada is 36`
+- A line indented past the base column, by spaces or tabs, whose text then
+  starts with `> ` is input. What follows `> ` is what the next
+  `io.read_line` answers, leading spaces included. `>` alone after the
+  indentation (a `> ` whose trailing space was dropped) is an empty line.
+- Every other line is output the program must print, exactly as written,
+  indentation included. A blank line is a blank output line. `>` at the
+  base column, `>>`, and `>` with no space after it are output.
+- An indented output line whose text starts with `> ` would read as input,
+  so it is written with a backslash before the `>`: the script line
+  `    \> quoted` is the output `    > quoted`. The backslash is removed
+  only there, after the indentation and before what would otherwise be
+  input; one already there takes one more (`    \\> x` is the output
+  `    \> x`). A backslash anywhere else is the character itself. A `"""`
+  literal does not process escapes, so the script writes `\>` as it is.
+
+Every script is accepted. Once the script's input lines are used up,
+`io.read_line` answers `Err("eof")`.
+
+```nomi
+import std/io
+
+fn main() {
+    io.print("What is your name?")
+    name = io.read_line() |> Result.with_default("")
+    io.write("Hello, ${name}. Your age: ")
+    age = io.read_line() |> Result.with_default("")
+    io.print("${name} is ${age}")
+}
+
+test "asks name and age" {
+    assert io.replay(
+        """
+        What is your name?
+            > Ada
+        Hello, Ada. Your age:
+            > 36
+        Ada is 36
+        """,
+        main,
+    )
+}
 ```
 
-and `>>` followed by other than two spaces (`>> 36`, `>>36`, `>>   36`)
-reads
-
-```text
-io.replay: line 2 of the script, ">> 36", must have two spaces after `>>`
-hint: an input line is `>>  36`
-```
-
-So typed text that starts with a space cannot be replayed. Once the
-script's input lines are used up, `io.read_line` answers `Err("eof")`.
-
-A script with no line that starts with `>>` is output only. Each of its
-lines is an output line exactly as written, a blank line a blank output
-line, and no gutter is required or removed: a line that starts with four
-spaces expects output that starts with four spaces. The test is made on the
-script after a `"""` literal's baseline is removed, so in a `"""` script
-write the output at the closing delimiter's column; indentation past it is
-part of the output, even on every line:
+The prompt `Hello, Ada. Your age: ` is written without a newline, so it is
+an output line of its own, and the input line follows it. A script with no
+input is the output as written; indentation past the closing delimiter's
+column is part of the output, even on every line:
 
 ```nomi
 import std/io
@@ -8255,72 +8351,37 @@ test "converts" {
 }
 ```
 
-Output that starts with `>>` needs the two-column form, where it is written
-behind four spaces like any other output line. A script whose `>>` lines
-are all malformed and which has no other two-column line may have been
-meant as written, and its error adds a second hint:
-
-```text
-io.replay: line 1 of the script, ">> done", must have two spaces after `>>`
-hint: an input line is `>>  done`
-hint: a script with a line that starts with `>>` is in two columns; output that starts with `>>` is written behind four spaces, as every output line is: `    >> ...`
-```
-
-In a `"""` script, the input lines sit four columns left of the output
-lines, at the closing delimiter's column. The baseline the literal removes
-is the least indentation among its non-blank lines and the closing
-delimiter (see the multi-line string rules), so the `>>` lines and the
-closing `"""` set it and the output lines keep their four spaces:
-
-```nomi
-import std/io
-
-fn main() {
-    io.print("What is your name?")
-    name = io.read_line() |> Result.with_default("")
-    io.write("Hello, ${name}. Your age: ")
-    age = io.read_line() |> Result.with_default("")
-    io.print("${name} is ${age}")
-}
-
-test "asks name and age" {
-    assert io.replay(
-        """
-            What is your name?
-        >>  Ada
-            Hello, Ada. Your age:
-        >>  36
-            Ada is 36
-        """,
-        main,
-    )
-}
-```
-
 Replay compares the transcript and the script line by line, with each
 line's trailing spaces, tabs and carriage return dropped and every line,
 the last included, ended by a newline, so a `"""` script, which drops its
 final newline, matches output that ends in one, and a prompt's trailing
-space need not be written. `Replayed`'s `transcript` and `expected` fields
-hold the two in that form, and `output` holds what `run` printed byte for
-byte; for an output-only script, `transcript` is the output in that form,
-with no gutter. A failed output-only script whose every non-blank line
-starts with four spaces, and which would match with them removed, says so
-in its reason: ``the transcript differs from the script, and it has no `>>`
-input lines, so its lines are compared as written: the four-space gutter is
-only for a script with input``. An input line that `run` never read fails
-the replay, and the reason
-says how many were left. A failed replay shows the
-same line diff a failed `==` over multi-line Strings shows, with the script
-as expected (`-`) and the transcript as actual (`+`), under the header
+space need not be written. A read writes its line into the transcript at
+the indentation the script's input line has, so a transcript that matches
+is the script line for line. `Replayed`'s `transcript` and `expected`
+fields hold the two in that form, and `output` holds what `run` printed
+byte for byte. An input line that `run` never read fails the replay, and
+the reason says how many were left. A failed replay shows the same line
+diff a failed `==` over multi-line Strings shows, with the script as
+expected (`-`) and the transcript as actual (`+`), under the header
 `io.replay: the transcript (-) and what main printed (+) differ`. Each
 script line written in a `"""` literal carries its line in the file, and
-the text column holds each line as the script writes it: with its gutter in
-a two-column script, so `>>` input lines and four-space output lines read
-as written, and with none in an output-only one. The assertion above the diff
-writes that literal collapsed, as `==`'s does:
-`assert io.replay(""" lines 11-23 """, main)`. What `run` returned is not
-checked; use `io.capture` for that.
+the text column holds each line as the script writes it. The assertion
+above the diff writes that literal collapsed, as `==`'s does:
+
+```text
+  line 12: the transcript differs from the script
+    assert io.replay(""" lines 14-18 """, main)
+    io.replay: the transcript (-) and what main printed (+) differ
+
+        14   │ What is your name?
+        15   │     > Ada
+        16 - │ Hello, Ada. Your age?
+           + │ Hello, Ada. Your age:
+        17   │     > 36
+        18   │ Ada is 36
+```
+
+What `run` returned is not checked; use `io.capture` for that.
 
 An `Assertable` can ask for that diff itself: an `AssertionDetails` with
 both `actual` and `expected` set, and different, shows a line diff of the

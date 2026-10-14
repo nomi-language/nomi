@@ -11,15 +11,15 @@
 <- response configurationDone
 <- event stopped {"allThreadsStopped":true,"hitBreakpointIds":[1],"reason":"breakpoint","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":9,"name":"teller","source":{"name":"teller.nomi","path":"$TESTDATA/teller.nomi"}},{"column":17,"id":2,"line":319,"name":"io.run_replayed","presentationHint":"subtle","source":{"name":"io.nomi","path":"$STD/io.nomi","presentationHint":"deemphasize"}},{"column":17,"id":3,"line":319,"name":"io.replay<Unit>","presentationHint":"subtle","source":{"name":"io.nomi","path":"$STD/io.nomi","presentationHint":"deemphasize"}},{"column":21,"id":4,"line":57,"name":"the teller has diverged","source":{"name":"teller.nomi","path":"$TESTDATA/teller.nomi"}}],"totalFrames":4}
+<- response stackTrace {"stackFrames":[{"column":5,"id":1,"line":9,"name":"teller","source":{"name":"teller.nomi","path":"$TESTDATA/teller.nomi"}},{"column":17,"id":2,"line":299,"name":"io.run_replayed","presentationHint":"subtle","source":{"name":"io.nomi","path":"$STD/io.nomi","presentationHint":"deemphasize"}},{"column":17,"id":3,"line":299,"name":"io.replay<Unit>","presentationHint":"subtle","source":{"name":"io.nomi","path":"$STD/io.nomi","presentationHint":"deemphasize"}},{"column":21,"id":4,"line":57,"name":"the teller has diverged","source":{"name":"teller.nomi","path":"$TESTDATA/teller.nomi"}}],"totalFrames":4}
 -> scopes {"frameId":1}
 <- response scopes {"scopes":[{"expensive":false,"name":"Locals","presentationHint":"locals","variablesReference":1},{"expensive":false,"name":"Pipeline","namedVariables":2,"variablesReference":2},{"expensive":false,"name":"Captured output (io.replay at teller.nomi:57)","namedVariables":5,"variablesReference":3}]}
 -> variables {"variablesReference":3}
-<- response variables {"variables":[{"declarationLocationReference":1,"indexedVariables":2,"name":"output","type":"String","value":"\"Welcome to the bank\nName: Hello, Ada\n\"","variablesReference":4},{"declarationLocationReference":1,"indexedVariables":4,"name":"transcript","type":"String","value":"\"    Welcome to the bank\n    Name:\n>>  Ada\n    Hello, Ada\n\"","variablesReference":5},{"declarationLocationReference":1,"indexedVariables":1,"name":"input read","type":"List<String>","value":"[\"Ada\"]","variablesReference":6},{"declarationLocationReference":1,"name":"input to come","type":"List<String>","value":"[]","variablesReference":0},{"declarationLocationReference":1,"name":"diverged","type":"String","value":"line 4 of the script is \"    Hello, Ada!\", and the transcript has \"    Hello, Ada\"","variablesReference":0}]}
+<- response variables {"variables":[{"declarationLocationReference":1,"indexedVariables":2,"name":"output","type":"String","value":"\"Welcome to the bank\nName: Hello, Ada\n\"","variablesReference":4},{"declarationLocationReference":1,"indexedVariables":4,"name":"transcript","type":"String","value":"\"Welcome to the bank\nName:\n    > Ada\nHello, Ada\n\"","variablesReference":5},{"declarationLocationReference":1,"indexedVariables":1,"name":"input read","type":"List<String>","value":"[\"Ada\"]","variablesReference":6},{"declarationLocationReference":1,"name":"input to come","type":"List<String>","value":"[]","variablesReference":0},{"declarationLocationReference":1,"name":"diverged","type":"String","value":"line 4 of the script is \"Hello, Ada!\", and the transcript has \"Hello, Ada\"","variablesReference":0}]}
 -> variables {"variablesReference":4}
 <- response variables {"variables":[{"name":"[0]","type":"String","value":"\"Welcome to the bank\"","variablesReference":0},{"name":"[1]","type":"String","value":"\"Name: Hello, Ada\"","variablesReference":0}]}
 -> variables {"variablesReference":5}
-<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"    Welcome to the bank\"","variablesReference":0},{"name":"[1]","type":"String","value":"\"    Name:\"","variablesReference":0},{"name":"[2]","type":"String","value":"\">>  Ada\"","variablesReference":0},{"name":"[3]","type":"String","value":"\"    Hello, Ada\"","variablesReference":0}]}
+<- response variables {"variables":[{"name":"[0]","type":"String","value":"\"Welcome to the bank\"","variablesReference":0},{"name":"[1]","type":"String","value":"\"Name:\"","variablesReference":0},{"name":"[2]","type":"String","value":"\"    > Ada\"","variablesReference":0},{"name":"[3]","type":"String","value":"\"Hello, Ada\"","variablesReference":0}]}
 -> variables {"variablesReference":6}
 <- response variables {"variables":[{"name":"[0]","type":"String","value":"\"Ada\"","variablesReference":0}]}
 -> setBreakpoints {"breakpoints":[],"source":{"path":"$TESTDATA/teller.nomi"}}
@@ -32,13 +32,13 @@
 <- event output {"category":"stdout","output":"  line 57: the transcript differs from the script\n"}
 <- event output {"category":"stdout","output":"    assert io.replay(\"\"\" lines 59-62 \"\"\", teller)\n"}
 <- event output {"category":"stdout","output":"    io.replay: the transcript (-) and what teller printed (+) differ\n\n"}
-<- event output {"category":"stdout","output":"        59   │     Welcome to the bank\n"}
-<- event output {"category":"stdout","output":"        60   │     Name:\n"}
-<- event output {"category":"stdout","output":"        61   │ >>  Ada\n"}
-<- event output {"category":"stdout","output":"        62 - │     Hello, Ada!\n"}
-<- event output {"category":"stdout","output":"           + │     Hello, Ada\n"}
-<- event output {"category":"stdout","output":"           + │     Deposit: noted\n"}
-<- event output {"category":"stdout","output":"           + │     Deposited 0\n"}
+<- event output {"category":"stdout","output":"        59   │ Welcome to the bank\n"}
+<- event output {"category":"stdout","output":"        60   │ Name:\n"}
+<- event output {"category":"stdout","output":"        61   │     > Ada\n"}
+<- event output {"category":"stdout","output":"        62 - │ Hello, Ada!\n"}
+<- event output {"category":"stdout","output":"           + │ Hello, Ada\n"}
+<- event output {"category":"stdout","output":"           + │ Deposit: noted\n"}
+<- event output {"category":"stdout","output":"           + │ Deposited 0\n"}
 <- event output {"category":"stdout","output":"test result: FAILED. 0 passed, 1 failed\n"}
 <- event exited {"exitCode":1}
 <- event terminated {}

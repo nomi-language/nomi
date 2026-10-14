@@ -254,7 +254,7 @@ func writeFailureBody(w io.Writer, err error) {
 		return
 	}
 	// Every line of a fault's text sits in the block, a hint below its
-	// message included (`io.replay`'s malformed script line).
+	// message included.
 	fmt.Fprintf(w, "  %s\n", strings.ReplaceAll(err.Error(), "\n", "\n  "))
 }
 

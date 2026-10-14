@@ -221,18 +221,36 @@ type encoder struct {
 	fnL  []*Func
 
 	fnBuf, vtBuf, tyBuf, modBuf wbuf
+	// files renames each source file a module name or a position names
+	// (WithFileNames), memoized in named; nil keeps every name.
+	files func(string) string
+	named map[string]string
 	// doneX is how many entries of each list drain has written.
 	doneFn, doneVT, doneTy int
 	err                    error
 }
 
+// EncodeOption changes how EncodeImage writes an image.
+type EncodeOption func(*encoder)
+
+// WithFileNames writes each module's name and each position's file as
+// rename answers for it, as `go build -trimpath` does: a built image names
+// its source files without the build machine's directories. Both are
+// display only (NewModule), so the graph is unchanged.
+func WithFileNames(rename func(string) string) EncodeOption {
+	return func(e *encoder) { e.files = rename }
+}
+
 // EncodeImage writes im in the current format. The same image gives the same
 // bytes.
-func EncodeImage(im Image) ([]byte, error) {
+func EncodeImage(im Image, opts ...EncodeOption) ([]byte, error) {
 	e := &encoder{
 		strs: map[string]uint64{}, syms: map[*Symbol]uint64{},
 		vts: map[*ValType]uint64{}, tys: map[*Type]uint64{},
 		tabs: map[*Table]uint64{}, fns: map[*Func]uint64{},
+	}
+	for _, o := range opts {
+		o(e)
 	}
 	for i, v := range sharedValTypes {
 		e.vts[v] = uint64(i + 1)
@@ -346,6 +364,22 @@ func (e *encoder) drain() {
 	e.doneFn, e.doneVT, e.doneTy = fn, vt, ty
 }
 
+// file is the name the image gives source file path.
+func (e *encoder) file(path string) string {
+	if e.files == nil || path == "" {
+		return path
+	}
+	if name, ok := e.named[path]; ok {
+		return name
+	}
+	if e.named == nil {
+		e.named = map[string]string{}
+	}
+	name := e.files(path)
+	e.named[path] = name
+	return name
+}
+
 func (e *encoder) str(s string) uint64 {
 	if i, ok := e.strs[s]; ok {
 		return i
@@ -426,7 +460,7 @@ func (e *encoder) fn(f *Func) uint64 {
 // pos writes a position as a delta from the previous one in the same buffer:
 // most positions share a file and sit a few lines apart.
 func (e *encoder) pos(w *wbuf, p Pos) {
-	file := e.str(p.file)
+	file := e.str(e.file(p.file))
 	var flags byte
 	if file == w.file {
 		flags |= 1
@@ -468,7 +502,7 @@ func (e *encoder) symList(w *wbuf, ss []*Symbol) {
 }
 
 func (e *encoder) module(w *wbuf, m *Module) {
-	w.uv(e.str(m.name))
+	w.uv(e.str(e.file(m.name)))
 	w.slen(len(m.funcs), m.funcs == nil)
 	for _, f := range m.funcs {
 		w.uv(e.fn(f))

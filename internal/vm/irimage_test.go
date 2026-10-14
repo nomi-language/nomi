@@ -313,3 +313,64 @@ func TestIRImage_DecodedProgramsMatchTheCommittedRecords(t *testing.T) {
 		t.Errorf("%d round trips failed:\n%s", len(linkErrs), strings.Join(linkErrs, "\n"))
 	}
 }
+
+// TestIRImage_PrunedProgramsMatchTheCommittedRecords runs the whole-program
+// harness again with every program's linked set pruned as `nomi build`
+// prunes it (vm.PruneImage from main, its failure renderer and the boot) and
+// round-tripped through the format, and holds it to the same records and the
+// same required comparable set as the unpruned run. A function the pruning
+// dropped and the program calls fails the run ("did not retain"), which
+// vmRequireComparable reports by name.
+func TestIRImage_PrunedProgramsMatchTheCommittedRecords(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; lowers every candidate program in two populations; -short")
+	}
+	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+	saved := vmLink
+	defer func() { vmLink = saved }()
+	var linkErrs []string
+	before, after := 0, 0
+	vmLink = func(entry *ir.Module, mods []*ir.Module) (*ir.Module, []*ir.Module, error) {
+		var main *ir.Func
+		for _, f := range entry.Funcs() {
+			if f.Name() == "main" && len(f.Params()) == 0 {
+				main = f
+			}
+		}
+		var boots []*ir.Symbol
+		if boot := entry.Boot(); boot != nil {
+			boots = append(boots, boot)
+		}
+		pEntry, pMods := vm.PruneImage(entry, mods, vm.MainRoots(entry, main), boots)
+		for _, m := range mods {
+			before += len(m.Funcs())
+		}
+		for _, m := range pMods {
+			after += len(m.Funcs())
+		}
+		e, ms, err := imageRoundTrip(pEntry, pMods, 0)
+		if err != nil {
+			linkErrs = append(linkErrs, entry.Name()+": "+err.Error())
+		}
+		return e, ms, err
+	}
+	for _, population := range []string{"corpus", "tour"} {
+		recorded, err := expectation.Load(population)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids, _, _ := candidateIDs(recorded)
+		got, refused := vmSubsetOf(t, population, ids, vmPathResolver(t, population))
+		if diffs := recorded.CompareSubset(got); len(diffs) != 0 {
+			t.Errorf("%s: pruned programs disagree with the records:\n%s", population, strings.Join(diffs, "\n"))
+		}
+		vmRequireComparable(t, "programs", population, ids, got, refused, false)
+	}
+	if len(linkErrs) > 0 {
+		t.Errorf("%d round trips failed:\n%s", len(linkErrs), strings.Join(linkErrs, "\n"))
+	}
+	t.Logf("pruning kept %d of %d linked functions", after, before)
+	if after == 0 || after*4 > before {
+		t.Errorf("pruning kept %d of %d linked functions; expected it to drop most of the stdlib", after, before)
+	}
+}

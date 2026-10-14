@@ -57,12 +57,18 @@ const usage = `usage:
   nomi build <file> --no-vm [-o <out>]  write the compiled program alone, as <file>.nomic,
                                         which any nomi-vm of the same program format
                                         runs: nomi-vm app.nomic [args]
-  nomi build --vm [--compiler] [-o <out>] [--target <goos>/<goarch>]
-                                        write nomi-vm itself, with no program (default nomi-vm)
   nomi build <file> --web [-o <dir>] [--static <dir>]
                                         build a folder that runs the program in a browser,
                                         with the files of its web/ folder (or --static's)
                                         copied in
+  nomi build-vm [--target <goos>/<goarch>] [--compiler] [-o <out>]
+                                        write nomi-vm itself, with no program (default nomi-vm)
+  nomi build-vm --reactor [--compiler] [-o <out>]
+                                        write the WASI reactor with no program (default nomi-vm-reactor.wasm),
+                                        which a runner instantiates per .nomic and hands it
+                                        through nomi_load, with nomi-wasi.js (and its types,
+                                        nomi-wasi.d.ts) beside it: the loader that runs .nomic
+                                        programs in it in a browser or Node
   nomi dap                              serve the Debug Adapter Protocol on stdin and
                                         stdout, for an editor's debugger
   nomi version                          print the version
@@ -115,6 +121,11 @@ func main() {
 			if !errors.Is(err, errBuildRefused) {
 				fmt.Fprintln(os.Stderr, err)
 			}
+			os.Exit(1)
+		}
+	} else if len(os.Args) > 1 && os.Args[1] == "build-vm" {
+		if err := runBuildVM(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	} else if len(os.Args) > 1 && os.Args[1] == "test" {

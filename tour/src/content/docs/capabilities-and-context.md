@@ -1,12 +1,16 @@
 ---
 title: "App Fields, Defer & Context"
-description: "Typed application fields, scoped overrides, startup inputs, and resource lifetimes."
+description: "Give a whole program settings and services through app fields, replace one for part of the program with `with`, clean up with `defer`, and set deadlines with a context."
 ---
 
-Boot returns the application's initial environment as an ordinary struct.
-Code reads one of its top-level fields by naming the type: `App.port`. An
-application may declare one field of type [`Context`](/reference/context/);
-its name is your choice.
+A program can define a function named `boot`. It returns a struct that holds
+the things the program needs everywhere, such as settings or a logger. Any
+code can then read one of the struct's fields through the struct's type name,
+as in `App.port`. These are called app fields.
+
+The struct may have one field of type [`Context`](/reference/context/), with
+any name you like. A context carries a deadline, explained
+[below](#context-and-concurrency).
 
 ## The basic shape
 
@@ -32,19 +36,23 @@ fn main() {
 listening on :8080
 -->
 
-`Startup` and `Context` are in the prelude, so no imports are needed for either type.
+`Startup` and `Context` are available everywhere, so you don't import them.
 
-`boot` lives in the entry file, beside `main`. A boot that needs no startup
-input takes no parameter, as here; one that does is `fn boot(startup: Startup)`.
-`Startup` supplies `env: Map<String, String>` and `args: List<String>` as
-immutable snapshots, read with `Map.get(startup.env, "APP_ENV")`. Pass startup
-inputs explicitly to helpers that construct the application value. Boot builds
-its context with `Context.root()`, or derives a tighter one from it.
+`boot` goes in the same file as `main`. This `boot` takes no parameter. To
+read the environment or the command-line arguments, declare
+`fn boot(startup: Startup)` instead. `startup.env` is a
+`Map<String, String>` of environment variables, read with
+`Map.get(startup.env, "APP_ENV")`. `startup.args` is a `List<String>` of the
+arguments. If a helper builds part of the struct, pass it what it needs from
+`startup`.
 
-The returned struct defines the available application fields and their types.
-Here, `port: Int` makes `App.port` an `Int`. The struct itself can be named
-`App`, `Config`, or whatever suits your program; a file that reads its fields
-imports it like any other type. The context field may have any name:
+`boot` makes the context with `Context.root()`, or with a narrower context
+made from that one, such as one with a deadline.
+
+The struct's fields are the app fields, with the same types. Here,
+`port: Int` makes `App.port` an `Int`. You can name the struct `App`,
+`Config`, or anything else. Another file that reads its fields imports it
+like any other type. The context field can have any name too:
 
 ```nomi
 struct Server {
@@ -62,20 +70,26 @@ fn bounded_work() {
 }
 ```
 
-The runtime identifies the context field by its declared `Context` type.
-A `main` runs under its file's boot, and each test under the boot its group
-names; the boot must return the type every field read in the code it runs
-names. Code that reads no application field runs under any boot, or none.
+Nomi finds the context field by its type, not its name.
+
+`main` runs with the struct its file's `boot` returns. A test runs with the
+one its group's `boot` line returns (see
+[Testing](/testing/#booting-the-application)). Code that reads `Server.port`
+must run under a `boot` that returns a `Server`. Code that reads no app field
+runs under any `boot`, or none.
 
 ## `with` replaces a field for the rest of the block
 
-The statement `with App.field = value` replaces one top-level application
-field from that line to the end of the enclosing block, and the replacement
-reaches every function called there. It is the same extent a `defer` written
-on that line would have. The value keeps the field's declared type, so
-`.Variant` shorthand works from the field's enum type. Several fields take
-several `with` lines, and each line sees the ones above it. A nested field is
-replaced by constructing an updated value, for example
+`with App.field = value` replaces one app field from that line to the end of
+the block it is in. Every function called in that part of the block sees the
+new value.
+
+The new value must have the field's type. If the field is an enum, you can
+write just `.Variant`. To replace several fields, write several `with` lines.
+Each line sees the values set by the lines above it.
+
+`with` replaces whole fields of the app struct. To change one part of a
+field, build an updated copy of it:
 `with App.database = {..App.database, host: "localhost"}`.
 
 ```nomi-run
@@ -131,14 +145,16 @@ fn greet(name: String) {
 [log] hello, Bob
 -->
 
-The original value returns when the block exits, however it exits: at its
-end, through `return`, or through `try`. A callee cannot override its caller's
-environment. To limit an override to part of a function, move that part into a
-helper, as `audit_greet` does here.
+When the block ends, the field gets its old value back. This happens however
+the block ends: at its last line, through `return`, or through `try`. So a
+function you call can't change the fields you see.
 
-Captured ordinary values remain unchanged. A closure reads the fields in force
-when it is called, so a closure returned from a function after a `with` line
-does not carry the override:
+To replace a field for only part of a function, move that part into a
+function of its own, as `audit_greet` does here.
+
+A closure reads app fields when it is called, not when it is made. So a
+closure returned from a function after a `with` line doesn't keep the
+replacement:
 
 ```nomi-run
 import std/io
@@ -171,12 +187,13 @@ psst, world
 hello, world
 -->
 
-A spawned task is different: it takes a snapshot of the fields in force when it
-is spawned.
+A task is different. It keeps the app fields that were in force when it was
+spawned.
 
 ## `defer` runs block-scoped cleanup
 
-Deferred calls run in reverse registration order at the end of their block.
+`defer` runs a call when the block it is in ends. Several deferred calls run
+in reverse order, last one first:
 
 ```nomi-run
 import std/io
@@ -211,37 +228,39 @@ close first
 after
 -->
 
-Acquisition failure is ordinary control flow: write
-`db = try Sqlite.temp(); defer Sqlite.close(db)` when setup returns
-`Result`. If the acquisition fails, the `try` returns before the `defer`
-statement runs, and any earlier deferred calls in the same block still run
-while the failure returns.
+Opening something can fail. When it returns a `Result`, open it with `try`
+and then defer the cleanup: `db = try Sqlite.temp(); defer Sqlite.close(db)`.
+If opening fails, `try` returns before the `defer` line runs, so there is
+nothing to close. Calls deferred earlier in the block still run.
 
 ## Boot cleanup and initialization
 
-Defers registered directly in entry-point boot's outer body live until main and
-owned tasks finish. Test boot cleanup lives through the individual test. Helpers
-and nested blocks retain ordinary block-scoped cleanup. A helper returning an
-open resource leaves boot responsible for registering its cleanup.
+A `defer` written directly in the body of the program's `boot` runs after
+`main` and the tasks it owns have finished. In a test, a `defer` in `boot`
+runs when that test finishes. A `defer` inside a function `boot` calls, or
+inside a nested block, runs when that function or block ends, as usual. So
+if a helper opens something and returns it, `boot` must defer its cleanup.
 
-Initialization failure skips main or the test's setup/body, shuts down started
-work, and runs registered cleanup. The application fields are unavailable until
-boot returns successfully, so boot works from its `startup` input, if it takes
-one, and the helpers it calls while building the value.
+If `boot` fails, `main` doesn't run. In a test, the setup and body don't
+run. Any work already started is shut down, and the deferred cleanup runs.
+
+App fields can't be read until `boot` has returned. So `boot` builds the
+struct from its `startup` parameter, if it has one, and from the functions
+it calls.
 
 ## Context and concurrency
 
-[`Context`](/reference/context/) carries a deadline and typed execution-scoped
-values. Boot returns `Context.root()` or a tighter context derived from it.
-Cancellation from the host or the test runner still reaches the program, and
-the earliest inherited deadline remains effective.
+A [`Context`](/reference/context/) carries a deadline and values that apply to
+the work done under it. `boot` returns `Context.root()`, or a narrower context
+made from it. The program can still be cancelled from outside, for example by
+the test runner, and the earliest deadline still applies.
 
-An override such as
-`with App.context = Context.with_timeout(App.context, duration)` bounds the
-calls in the rest of its block. If the application calls the field `execution`, use
-`App.execution` instead. The field name does not change deadline semantics.
+To set a deadline for the rest of a block, replace the context field:
+`with App.context = Context.with_timeout(App.context, duration)`. If the field
+is named `execution`, write `App.execution` instead. The name makes no
+difference.
 
-A context deadline bounds blocking operations including timer sleeps, channel
-operations, task waits, and supervisor flushes. See [Concurrency](/concurrency/)
-for task ownership and cancellation, and [Testing](/testing/) for independent
-per-test boot and clock selection.
+The deadline limits anything that waits: timer sleeps, channel sends and
+receives, waiting for a task, and flushing a supervisor. See
+[Concurrency](/concurrency/) for how tasks are owned and cancelled, and
+[Testing](/testing/) for how each test gets its own `boot` and clock.

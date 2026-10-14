@@ -170,6 +170,19 @@ func OwnImage() ([]byte, error) { return ownImage() }
 // process-wide signal handler, which only a caller that owns the process may
 // do.
 func Run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals bool, opts ...Option) int {
+	return run(image, stdout, stderr, stdin, args, handleSignals, false, opts)
+}
+
+// RunCompiled is Run for a compiled program (.nomic) a runner was handed:
+// one with exported functions and no `fn main` was built for a host that
+// calls them, so it exits 1 and says where it runs rather than exiting
+// quietly. A page's js/wasm module runs such a program through Run, which
+// runs nothing and exits 0.
+func RunCompiled(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals bool, opts ...Option) int {
+	return run(image, stdout, stderr, stdin, args, handleSignals, true, opts)
+}
+
+func run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string, handleSignals, compiled bool, opts []Option) int {
 	var cfg config
 	for _, o := range opts {
 		o(&cfg)
@@ -195,6 +208,10 @@ func Run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		return 1
 	}
 	if !im.HasMain {
+		if compiled && len(im.Exports) > 0 {
+			fmt.Fprintf(stderr, "nomi: %v. Load it into the reactor `nomi build-vm --reactor` writes\n", ErrNoMain)
+			return 1
+		}
 		return 0
 	}
 	label := "main"

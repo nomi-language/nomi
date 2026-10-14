@@ -14,48 +14,47 @@ hero:
     dark: ../../assets/nomi-wordmark-dark.svg
 ---
 
-Nomi is a statically typed, immutable language for writing expression-shaped
-programs that stay explicit as they grow. This site is both
-the language tour and the public reference: runnable examples execute in the
-browser, format themselves after valid edits, and show the same hovers as the
-editor.
+Nomi is a statically typed language where every value is immutable. Most
+code is written as expressions: `if`, `case` and blocks all produce values.
+
+This site is the language tour and the public reference. You can edit and run
+every example in your browser. An example formats itself after each edit that
+parses, and hovering shows the same information your editor does.
 
 ## Nomi at a glance
 
-- **Statically typed**, with local inference — named functions spell out
-  parameters and every non-`Unit` return type; bindings and lambdas infer.
-- **Fully immutable** — bindings, structs, and collections are all
-  persistent; "modifying" returns a new value.
-- **Functional-first and pattern-matching** — first-class functions, algebraic
-  data types, exhaustive [`case` destructuring](/pattern-matching/), and tail
-  calls that run in constant stack space.
-- **Clear local control flow** — `return`, `break`, `continue`, and prefix
-  `try` are available when they make a function easier to read.
-- **Explicit interfaces** — types implement interfaces with
-  `impl Interface for Type { ... }`, opt into generated implementations with
-  `derive`, and call dispatch through qualified names.
-- **Qualified calls, not value methods** — behavior lives in the nearest API
-  container: usually a type owner, interface, or file API. Calls look like
-  `User.rename(user)`,
-  `String.length(name)`, or `Display.to_string(value)`, never `user.rename()`.
-- **Pipe-oriented** — `x |> f()` keeps data flow reading top-to-bottom.
-- **Structured concurrency** — [`concurrent { ... }` blocks](/concurrency/),
-  tasks, channels, and context-style cancellation keep spawned work scoped.
-- **Typed app fields** — runtime context, configuration, and dependencies live
-  on a single [app value](/capabilities-and-context/); tests can swap
-  dependencies with a scoped
-  `with App.logger = ...` line.
-- **Built-in tests** — named [`test` / `tests` blocks](/testing/),
-  assertions, setup, and `//!` attached examples are ordinary Nomi code run by
-  `nomi test`.
+- **Static types.** Named functions write out their parameter types and any
+  return type other than `Unit`. Bindings and lambdas infer their types.
+- **Immutable values.** Bindings, structs and collections never change. To
+  "modify" a value, you make a new one.
+- **Functional style.** Functions are values, types can be sums of variants,
+  and [`case`](/pattern-matching/) must cover every shape a value can take.
+  Tail calls run in constant stack space.
+- **Plain control flow.** `return`, `break`, `continue` and prefix `try` are
+  there when they make a function easier to read.
+- **Explicit interfaces.** A type implements an interface with
+  `impl Interface for Type { ... }`, or gets a generated implementation with
+  `derive`.
+- **Qualified calls.** A function is called through the type, interface or
+  file that owns it: `User.rename(user)`, `String.length(name)`,
+  `Display.to_string(value)`. There is no `user.rename()`.
+- **Pipes.** `x |> f()` lets data flow read from top to bottom.
+- **Structured concurrency.** Tasks are started inside a
+  [`concurrent { ... }` block](/concurrency/), which keeps them scoped to it.
+  Channels and context-style cancellation are built in.
+- **App fields.** Configuration and dependencies live on one
+  [app value](/capabilities-and-context/). A test can swap one with a line
+  such as `with App.logger = ...`.
+- **Built-in tests.** [`test` blocks](/testing/), assertions and `//!`
+  examples are ordinary Nomi code, and `nomi test` runs them.
 
 :::note[Design Status]
-Nomi is very early. This site is the main public artifact right now: the place
-to try the language in the browser while the design is still being worked out.
-The core surfaces — expressions, types, pattern matching, imports, interfaces,
-derives, tests, collections, and standard control flow — are the most
-exercised. Concurrency, FFI, and module management are younger. Next on the
-list: faster editor tooling, and watches and expressions in the debugger.
+Nomi is very early. This site is the main place to try the language while the
+design is still being worked out. Expressions, types, pattern matching,
+imports, interfaces, derives, tests, collections and control flow are the most
+used and tested parts. Concurrency, calling Go, and module management are
+newer. Next on the list is incremental compilation, which will make the
+editor and `nomi check` faster.
 :::
 
 ## Running Nomi
@@ -69,64 +68,61 @@ nomi                        # an interactive REPL
 nomi build app.nomi         # write a standalone executable
 ```
 
-`nomi build` writes a **single executable** that needs nothing installed to
-run, for this machine or, with `--target`, another platform. `nomi build
---web` writes a page that runs the program in the browser, the way the
-examples on this site run, and a page can keep the program loaded and call its
-functions. WebAssembly runners such as wasmtime can load and call a Nomi
-module too. [Building & Shipping](/building-and-shipping/) covers each of
-these.
+`nomi build` writes one executable file that needs nothing else installed.
+`--target` builds it for another platform. `nomi build --web` writes a web
+page that runs the program in the browser, the way the examples on this site
+run. [Building & Shipping](/building-and-shipping/) covers these and the other
+ways to ship a program.
 
 ### The Nomi VM
 
-Nomi compiles your program to bytecode and runs it on its own virtual machine,
-the way Lua, Python and Erlang do:
+Nomi compiles your program to bytecode and runs it on its own virtual
+machine (VM), the way Lua, Python and Erlang do:
 
 - `nomi run`, `nomi test` and the REPL run your program on it.
-- `nomi build` packages it with your program into one executable.
-- The examples on this site run on it in your browser. Edit one and it
-  re-runs as you type.
+- `nomi build` puts it in the executable beside your program.
+- The examples on this site run on it in your browser. Edit one and it runs
+  again as you type.
 - A Go application can embed it to load a Nomi program and call its
   functions.
 
 ## Where Go fits
 
-Nomi is **implemented in Go**, and follows Go's lead on practical things:
-garbage collection, cross-platform builds, single-binary distribution, strong
-tooling, and dependency management. The language itself is its own.
+Nomi is written in Go. It follows Go on practical matters: garbage
+collection, builds for other platforms, shipping one file, formatting and
+tooling, and dependencies. The language itself is different from Go.
 
-- A Nomi **module** works like a Go module: a directory tree with a manifest
-  (`nomi.toml`), versioned and depended on as one unit. Inside a module, the
-  **file** is the unit you import and the unit `pub` controls visibility
-  across. There are no packages.
-- Nomi can [**call Go code**](/ffi-and-dynamic/) through a typed FFI when you need a library the
-  standard library doesn't cover. Programs that do need the Go toolchain to
-  build; programs that don't, don't.
+- A Nomi module works like a Go module. It is a directory tree with a
+  manifest, `nomi.toml`, and it is versioned and used as one unit. Inside a
+  module, you import a file, and `pub` controls what other files can see.
+  There are no packages.
+- Nomi can [call Go code](/ffi-and-dynamic/) when you need a library the
+  standard library doesn't have. A program that calls Go needs the Go
+  toolchain to build. Other programs don't.
 
 ## Coming from another language
 
-**Elixir** — Pipes, pattern matching, immutable data, and
-transformation-heavy functions transfer well. Expect static types, declared
-ADTs instead of atoms/tagged tuples, `Iter` pipelines instead of
-`Enum`/`Stream`, and structured `concurrent { }` blocks plus supervisors
-rather than actor mailboxes.
+**Elixir.** Pipes, pattern matching, immutable data and functions that
+transform data will feel familiar. What is different: types are static,
+variants are declared types rather than atoms or tagged tuples, `Iter`
+pipelines replace `Enum` and `Stream`, and concurrency uses
+`concurrent { }` blocks and supervisors rather than mailboxes.
 
-**Gleam** — ADTs, `Result`/`Maybe`, no null, local inference, and
-expression-shaped code should feel familiar. Nomi adds bare bindings,
-explicit `impl Interface for Type` blocks, `derive`, app fields, `defer`,
-typed literals, and pragmatic local control flow.
+**Gleam.** Sum types, `Result` and `Maybe`, no null, local type inference and
+expression-oriented code will feel familiar. Nomi adds bindings without
+`let`, `impl Interface for Type` blocks, `derive`, app fields, `defer`, typed
+literals, and early `return`, `break` and `continue`.
 
-**Rust** — Traits map to interfaces, conformances use
-`impl Interface for Type { ... }`, `where` bounds are checked at call sites,
-`Result`/`Maybe` use prefix `try`, and distinct types fill the newtype role.
-There is no ownership system, no `mut`, no macros, no value-dot methods, and
-inference stays local to function bodies.
+**Rust.** Traits become interfaces, and an implementation is
+`impl Interface for Type { ... }`. `where` bounds are checked at each call.
+`Result` and `Maybe` use prefix `try`. Distinct types do the job of
+newtypes. There is no ownership, no `mut`, no macros and no `value.method()`
+calls. Type inference stays inside a function body.
 
-**Go** — You will recognize `go.mod`, `go get`, strong formatting, explicit
-imports, channels, and context-style cancellation. Nomi does not have Go's
-packages. The language model is not Go's: values are immutable, errors are
-`Result`/sum types, interface conformance is explicit, and concurrency is
-structured.
+**Go.** You will recognize modules that work like Go modules, a standard formatter,
+explicit imports, channels and context-style cancellation. Nomi has no Go
+packages. Values are immutable, errors are `Result` values, a type says which
+interfaces it implements, and concurrency is structured.
 
-[Bindings & Expressions](/bindings-and-expressions/) is the place to
-start; each chapter builds on the last.
+Start with [Bindings & Expressions](/bindings-and-expressions/). Each chapter
+builds on the one before.

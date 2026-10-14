@@ -1,16 +1,13 @@
 ---
 title: "Bindings & Expressions"
-description: The shape of a Nomi program — values, bindings, expressions, and the constructs you'll use in almost every file.
+description: Values, bindings, blocks, if and case, and the other pieces you'll use in almost every Nomi file.
 ---
 
-A Nomi program is a set of declarations. Execution starts at `fn main`. This
-chapter covers the bones: values, bindings, expressions, and the handful of
-constructs you'll use in almost every file.
+A Nomi program is a list of declarations, and it starts running at
+`fn main`. This chapter covers the pieces you'll use in almost every file:
+values, bindings, blocks, and `if` and `case`.
 
 ## A first program
-
-For quick tracing, use `dbg`. It prints the source location, the expression,
-and the value's debug rendering, then returns the original value:
 
 ```nomi-run
 fn main() {
@@ -23,11 +20,12 @@ fn main() {
 dbg line 3: greeting = "Hello, Nomi!"
 -->
 
-You'll see `dbg` throughout the tour because it works for every value and is
-transparent in expressions and pipelines.
+`dbg` prints the line it is on, the expression, and the value. Then it
+returns the value unchanged, so you can put it in the middle of an
+expression. It works on every value, and the tour uses it throughout.
 
-For user-facing output, [`std/io`](/reference/io/) gives you two printers that cover almost
-every need:
+To print output for the people using your program, use
+[`std/io`](/reference/io/):
 
 ```nomi-run
 import std/io
@@ -43,17 +41,21 @@ Hello, Nomi!
 "Hello, Nomi!"
 -->
 
-[`io.print`](/reference/io/#ioprint) writes a value in its **user-facing** form — strings (no quotes),
-numbers, booleans, and any type that opts in to `Display` (a contract we'll
-meet in [Interfaces & Dispatch](/interfaces-and-dispatch/)). [`io.inspect`](/reference/io/#ioinspect)
-writes **any** value in a debug-friendly form (note the quotes around the
-string) and returns [`Unit`](/reference/unit/). `Unit` is the single value used when an expression
-has nothing interesting to return. Use `io.inspect` when you want output as a
-statement; use `dbg` when you want to inspect while keeping the value in an
-expression or pipeline. When you build your own types later in the tour,
-`io.inspect` is the printer that always works.
+[`io.print`](/reference/io/#ioprint) prints a value the way a user should see
+it. A string prints without quotes. It works for strings, numbers, booleans,
+and any type that implements `Display`, which
+[Interfaces & Dispatch](/interfaces-and-dispatch/) covers.
 
-Because `dbg` returns the original value, it works as a pipe stage:
+[`io.inspect`](/reference/io/#ioinspect) prints any value in its debug form,
+which is why the string has quotes. When you define your own types later,
+`io.inspect` can print them with no extra work.
+
+`io.inspect` returns [`Unit`](/reference/unit/), the value an expression
+gives when it has nothing useful to return. So use `io.inspect` as a
+statement on its own line. Use `dbg` when you want to look at a value and
+keep using it.
+
+Because `dbg` returns its value, it can be a stage in a pipeline:
 
 ```nomi-run
 import std/io
@@ -79,16 +81,12 @@ dbg line 10:
 20
 -->
 
-The pipe operator `|>` passes each stage's result into the next stage below it.
-The pipeline above is the same calculation as
-`io.print(double(dbg double(5)))`: `dbg` inspects the intermediate value without
-changing it. [Pipes](/pipes/) goes deeper later.
+The pipe operator `|>` passes each stage's result to the stage below it.
+This pipeline computes `io.print(double(dbg double(5)))`. The `dbg` stage
+prints the value in the middle and passes it on. [Pipes](/pipes/) covers
+pipelines in detail.
 
 ## Tiny functions
-
-Functions give a name to an expression you want to reuse. The pocket version
-is `fn name(params): ReturnType { body }`, and the body's last expression is
-the return value:
 
 ```nomi-run
 fn double(n: Int): Int {
@@ -104,21 +102,16 @@ fn main() {
 dbg line 6: double(4) = 8
 -->
 
-That is enough for small helpers and examples. The full function model,
-including defaults, lambdas, trailing callbacks, destructuring parameters, and
-higher-order code, gets its own chapter in
-[Functions & Lambdas](/functions-and-lambdas/).
+A function is written `fn name(params): ReturnType { body }`. The last
+expression in the body is the value the function returns.
+
+That is enough for the examples in this chapter.
+[Functions & Lambdas](/functions-and-lambdas/) covers the rest: default
+values, lambdas, callbacks, and parameters that unpack their arguments.
 
 ## Comments and tiny tests
 
-Nomi code tends to keep comments, docs, and tests close to the declarations
-they describe. The tour introduces all three; the standard library leans on
-them heavily, and its generated reference is built from those same docs and
-attached examples.
-
-Use `//` for ordinary comments near the code they explain. Use `//#` for
-file-level documentation, and `///` directly above a declaration for
-documentation that appears in hovers and generated reference pages:
+Nomi keeps comments, documentation and tests next to the code they describe.
 
 ```nomi-run
 //# Geometry helpers.
@@ -138,8 +131,14 @@ fn main() {
 dbg line 10: area(6, 7) = 42
 -->
 
-Tests can live in the same `.nomi` files as regular code, close to the
-behavior they protect. A regular test names the behavior and runs a block:
+There are three kinds of comment:
+
+- `//` is an ordinary comment.
+- `//#` documents the whole file.
+- `///` documents the declaration below it. Editors show it on hover, and
+  the generated reference pages are built from it.
+
+A test can live in the same file as the code it checks:
 
 ```nomi-run
 fn double(n: Int): Int {
@@ -153,13 +152,10 @@ test "double doubles its input" {
 
 ```
 
-When tiny examples belong directly with a declaration, write them above the
-declaration as `//!` attached tests. `nomi test` runs them, and editors treat
-them as code, with hover and diagnostics. Editors draw them dimmed so they
-don't compete with the code below; Neovim and VS Code show the one under the
-cursor in full color. For a real stdlib example, see
-[`String.contains?`](/reference/strings/#stringcontains), whose reference entry
-is generated from attached tests like these.
+`assert` fails the test when its condition is false. `refute` fails it when
+its condition is true.
+
+For a small example, write it directly above the declaration with `//!`:
 
 ```nomi-run
 //! assert double(4) == 8
@@ -170,19 +166,21 @@ fn double(n: Int): Int {
 
 ```
 
-Use `assert` and `refute` for tests: `test` blocks and `//!` attached
-examples. In non-test code, expected failures are usually represented with
-[`Result`](/reference/results/) or [`Maybe`](/reference/maybe/), then handled explicitly with `case` or short-circuited
-with `try`. The [Pattern Matching, Maybe, Result & Try](/pattern-matching/)
-chapter covers those forms, and [Testing](/testing/) covers named `test`
-blocks, `refute`, setup, pattern assertions, and captured checks.
+`nomi test` runs these as tests. Editors treat them as code, with hovers and
+errors. They are drawn dimmed so they stand back from the code below. Neovim
+and VS Code show the line under the cursor in full color. The standard
+library uses them for its examples: the reference entry for
+[`String.contains?`](/reference/strings/#stringcontains) is generated from
+them.
+
+`assert` and `refute` are for tests. Ordinary code reports failure with a
+[`Result`](/reference/results/) or a [`Maybe`](/reference/maybe/) value,
+which the caller handles with `case` or passes on with `try`.
+[Pattern Matching, Maybe, Result & Try](/pattern-matching/) covers those.
+[Testing](/testing/) covers the rest of testing: setup, pattern assertions
+and captured checks.
 
 ## Bindings
-
-You introduce a name with `name = expression`. Bindings are immutable: a name
-stands for one value. In a binding position, `=` is a match/bind separator, not
-assignment: the expression on the right is matched by the binding shape on the
-left.
 
 ```nomi-run
 fn main() {
@@ -198,12 +196,19 @@ dbg line 4: name = "Nomi"
 dbg line 5: port = 8080
 -->
 
-A binding's type is inferred from the expression on the right. Later in this
-chapter, [Type annotations](#type-annotations) shows when to write that type
-explicitly.
+`name = expression` gives a name to a value. There is no `let`. A binding
+never changes: the name stands for that one value.
 
-Every ordinary binding must be read. If a value is intentionally ignored, bind
-it to `_` or a descriptive discard name such as `_unused_port`:
+The `=` does not assign to a variable. It matches the value on the right
+against the name or pattern on the left. Later chapters use patterns there
+to unpack values.
+
+Nomi works out a binding's type from the expression on the right.
+[Type annotations](#type-annotations) below shows when you need to write the
+type yourself.
+
+Every binding must be read. If you mean to ignore a value, bind it to `_`
+or to a name that starts with `_`, such as `_unused_port`:
 
 ```nomi-run
 fn main() {
@@ -216,10 +221,10 @@ fn main() {
 dbg line 3: "done" = "done"
 -->
 
-The same rule applies to expression statements. A non-final expression can
-stand alone only when it returns `Unit`, such as `io.print(...)` or
-`io.inspect(...)`. If it returns
-a value, either use the value, inspect it with `dbg`, or explicitly discard it:
+The same rule applies to an expression on a line by itself. Before the last
+line of a block, such an expression must return `Unit`, as `io.print(...)`
+does. If it returns a value, use the value, look at it with `dbg`, or
+discard it with `_ =`:
 
 ```nomi-run
 fn compute(): Int {
@@ -237,7 +242,8 @@ fn main() {
 dbg line 7: compute() = 42
 -->
 
-By contrast, this does not use or discard the `Int` returned by `compute()`:
+This version is an error, because nothing uses the `Int` that `compute()`
+returns:
 
 ```nomi-run ignore
 fn compute(): Int {
@@ -250,19 +256,15 @@ fn main() {
 }
 ```
 
-Only `Unit` results can stand alone before the end of a block. Write
-`_ = compute()` when discarding the value is intentional. If `compute()` were
-the final expression instead, it would be `main`'s result, and `main` may
-only return `Unit` or `Result<Unit, E>`, so `_ = compute()` is still the fix.
+Write `_ = compute()` to discard it on purpose. Moving `compute()` to the
+last line doesn't help either. It would become `main`'s result, and `main`
+can only return `Unit` or `Result<Unit, E>`.
 
-You can reuse a name within a scope: the new binding **shadows** the previous
-one, so from there the name refers to the new value. This isn't mutation — each
-binding is still immutable; shadowing just introduces a fresh binding over the
-old name (top-level declarations like functions and types can't be redeclared
-this way).
+You can bind a name that is already in use. The new binding shadows the old
+one: from that line on, the name means the new value. Nothing is mutated.
+Functions and types at the top of a file can't be redeclared this way.
 
-The natural shape is to **thread a value through successive refinements**, each
-line transforming the previous binding:
+Shadowing is useful when you refine a value one step at a time:
 
 ```nomi-run
 fn main() {
@@ -277,9 +279,8 @@ fn main() {
 dbg line 5: name = "jane"
 -->
 
-Each `name = …` reads the prior `name` and rebinds it — no mutation, just a new
-binding shadowing the old one. When every step feeds directly into the next,
-a vertical pipeline often expresses the same flow more cleanly:
+Each line reads the previous `name` and binds a new one. When each step
+feeds straight into the next, a pipeline says the same thing more simply:
 
 ```nomi
 "  JANE  "
@@ -288,17 +289,15 @@ a vertical pipeline often expresses the same flow more cleanly:
 |> dbg
 ```
 
-The shape you should *not* reach for is a shadowed value that's never read
-before it's replaced (`name = "Jane"; name = "John"`): that reads as a likely
-bug rather than a refinement.
+A binding that is replaced before anything reads it is an error. In
+`name = "Jane"` followed by `name = "John"`, the compiler reports that the
+first `name` is never read.
 
 ## Type annotations
 
-Most bindings don't need one — Nomi's inference reads the type from the
-right-hand side, and leaving the annotation off keeps signatures clean.
-Reach for an explicit annotation when inference *can't* see the type.
-The canonical case: a constructor that takes no value of the type it
-returns, so the compiler has nothing to read from.
+Most bindings don't need a type written out, because Nomi reads it from the
+right-hand side. You need one when the right-hand side doesn't say what the
+type is. The usual case is a function that creates an empty value:
 
 ```nomi-run
 fn main() {
@@ -324,16 +323,19 @@ dbg line 12:
   = 0
 -->
 
-Without one of these annotations, the compiler reports "cannot infer type" —
-it genuinely requires the information. Pick whichever form reads more cleanly
-at the call site: the LHS annotation when you're naming the value, the
-turbofish (`f<T>(...)`, `mod.f<T>(...)`) when you're not.
+`Map.empty()` alone could make a map of any key and value types, so you say
+which. There are two ways:
+
+- Annotate the binding: `scores: Map<String, Int> = Map.empty()`. Use this
+  when you name the value.
+- Give the type arguments on the call: `Map.empty<String, Int>()`. This form
+  is called a turbofish. Use it when the value goes straight into a pipe or
+  another call.
+
+Without either, the compiler reports that the binding's type is not locally
+determined.
 
 ## Blocks are expressions
-
-A `{ ... }` block is an expression: it runs its statements and evaluates to its
-last expression. That makes it a tidy way to name intermediate steps without
-leaking them into the surrounding scope:
 
 ```nomi-run
 fn main() {
@@ -351,13 +353,13 @@ fn main() {
 dbg line 8: total = 30
 -->
 
+A `{ ... }` block runs its lines and gives the value of its last expression.
+Names bound inside the block, like `a` and `b`, are not visible outside it.
+That makes a block a tidy place for intermediate steps.
+
 ## `if`/`else` and `case` are expressions
 
-Because blocks are expressions, control flow is too: `if`/`else` and `case`
-both produce a value you can bind. `if` conditions are booleans; `case x { … }`
-matches the value's shape; `case { … }` (no scrutinee) is the multi-way
-conditional that replaces long `else if` chains. [Pattern Matching](/pattern-matching/) shows the
-refutable `if Pattern = expr` form. Here, focus on the expression shape:
+`if`/`else` and `case` also give values, so you can bind their result:
 
 ```nomi-run
 fn main() {
@@ -390,12 +392,16 @@ dbg line 13: label = "many"
 dbg line 22: range = "medium"
 -->
 
-## `once` — file-level values
+- `if` takes a `Bool` condition.
+- `case x { ... }` compares `x` against each pattern in turn and uses the
+  first arm that matches. `_` matches anything.
+- `case { ... }`, with nothing after `case`, takes the first arm whose
+  condition is true. Use it instead of a long `else if` chain.
 
-Top-level "set once, never changes" values are declared with `once`. The
-right-hand side is evaluated lazily the first time the value is used, then
-cached for later uses, so it's the natural home for configuration constants and
-derived values:
+[Pattern Matching](/pattern-matching/) covers patterns in full, including
+the `if Pattern = expr` form.
+
+## `once` — file-level values
 
 ```nomi-run
 once max_retries = 3
@@ -412,60 +418,47 @@ dbg line 5: max_retries = 3
 dbg line 6: timeout_ms = 30000
 -->
 
+`once` declares a value at the top level of a file. Its expression runs the
+first time the value is used, and later uses get the saved result. Use it
+for constants and configuration.
+
 :::note[Continue or dig deeper]
-The tour moves on to [**Functions & Lambdas**](/functions-and-lambdas/) —
-the units of code that put these values to work. Or stay here for the
-deep-dive on Nomi's inference policy below.
+The next chapter is [Functions & Lambdas](/functions-and-lambdas/). The
+section below explains how far Nomi's type inference reaches, if you want
+the detail now.
 :::
 
 ## Going deeper
 
 ### Type inference: local unification, explicit boundaries
 
-Within a function body, Nomi uses familiar local unification:
+Inside a function body, Nomi works out types from how values are used:
 
-- **Call-site unification.** `Iter.map(xs, |x| x + 1)` pins `xs`'s element
-  type and the lambda's parameter type *together*, in one step.
-- **Generic return propagation.** `Ok(42)` produces `Result<Int, ?>`; the
-  unsolved `?` flows up until something in the surrounding context pins
-  it (a binding annotation, a function return type, a `case` arm).
-- **Lambda parameters from a function-typed context.** Given
-  `f: (Int) -> Int = |x| x + 1`, the lambda's parameter takes its type
-  from the annotation — no `|x: Int|` needed.
-- **Bidirectional flow from LHS annotations.** `m: Map<String, Int> = Map.empty()`
-  pushes `Map<String, Int>` into the polymorphic `empty()`'s return.
+- In `Iter.map(xs, |x| x + 1)`, the type of `xs`'s elements and the type of
+  the lambda's `x` are worked out together.
+- `Ok(42)` is a `Result<Int, ?>`. The error type `?` stays open until
+  something nearby fixes it: a binding's annotation, the function's return
+  type, or another `case` arm.
+- In `f: (Int) -> Int = |x| x + 1`, the lambda's `x` gets its type from the
+  annotation, so you don't write `|x: Int|`.
+- In `m: Map<String, Int> = Map.empty()`, the annotation tells `empty()`
+  which map to make.
 
-Nomi deliberately draws boundaries around that inference. Two rules:
+Inference stops at two boundaries.
 
-**1. Function signatures must be annotated explicitly.**
+**Function signatures are written out.** Every `fn` writes its parameter
+types, and its return type unless it returns `Unit`. Leaving the return
+type off means the function returns `Unit`. Nomi never works out a
+signature from the body.
 
-Parameter types and every non-`Unit` return type are required at every
-`fn`. Omitting the return annotation means the function returns `Unit`.
-There's no whole-signature-from-body inference. Three reasons stack behind
-the rule:
+This keeps a function's types visible where it is declared. Readers,
+reviewers and editors see them without tracing other code. If you change a
+function's body, its signature stays the same, so callers keep working or
+the error appears in the function you changed rather than in some caller.
 
-- **Readability at the declaration site.** A signature is the function's
-  published contract; readers, reviewers, IDEs, and stack traces see
-  the types at the source where they're declared, not by replaying
-  inference across the call graph to figure out what each function ended
-  up being.
-- **Clearer diagnostic boundaries.** A body edit can't silently change the
-  inferred signature of a function and push the resulting mismatch into some
-  downstream caller. Type errors can still require context to understand, but
-  the checker doesn't infer across function signatures that the source never
-  wrote down.
-- **Stable contracts under body edits.** Changing the body of an
-  annotated function can't silently widen or narrow what the function
-  *appears* to be. The signature is the contract; callers' types stay
-  valid as long as the signature holds. Bodies and contracts evolve on
-  separate axes.
-
-**2. Nomi currently requires every binding to be locally determined.**
-
-A binding's type has to be readable where the binding is written: either from
-an annotation on the binding, or from enough information in the right-hand
-expression and its immediate expected type. This is independent of how far
-inference *could* reach:
+**Each binding's type is settled where it is written.** The type has to come
+from an annotation on the binding, or from the expression on the right and
+what is expected of it there. Later lines don't count:
 
 ```nomi
 m = Map.empty() // Map<?, ?> — locally undetermined
@@ -475,15 +468,11 @@ m = Map.put(m, "alice", 90) // K=String, V=Int could be solved
 // rejected anyway.
 ```
 
-The checker isn't blind — inference would in fact solve `m`'s type
-from the later use. The point is that solvability isn't the bar. A
-separate **policy** sits in front of inference and rejects any binding
-whose type can't be read locally, regardless of what the checker would
-discover by looking further. A reader scanning top-to-bottom shouldn't
-need to peek ahead to learn what `m` is.
+The second line would tell the compiler that `m` maps `String` to `Int`.
+Nomi rejects the first line anyway. This is a deliberate rule: someone
+reading from the top should know what `m` is without looking ahead.
 
-The fix is the form you've already seen — an LHS annotation, or a
-turbofish on the RHS:
+The fix is one of the two forms from earlier, an annotation or a turbofish:
 
 ```nomi
 m: Map<String, Int> = Map.empty() // LHS annotation
@@ -491,15 +480,7 @@ m: Map<String, Int> = Map.empty() // LHS annotation
 m = Map.empty<String, Int>() // RHS turbofish
 ```
 
-The key split is that inference and the requirement to annotate are
-decoupled. Inference is a capability the checker maximizes; annotation
-discipline is a **policy**, applied where reading top-to-bottom would otherwise
-force a forward scan.
+Most lines in a function body need no annotation. You write types at
+signatures, and on the few bindings whose type the line itself doesn't show.
 
-The result is a language where most body-level lines don't need annotations,
-but the boundaries that matter for reading and review do. The two ends are
-independent: inside, lean as far as the checker reaches; at signatures and
-locally-undetermined bindings, name the type.
-
-That's the binding-and-expression shape. [Functions & Lambdas](/functions-and-lambdas/)
-introduces the units of code that put these values to work.
+[Functions & Lambdas](/functions-and-lambdas/) is next.

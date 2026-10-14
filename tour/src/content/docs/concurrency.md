@@ -1,32 +1,31 @@
 ---
 title: "Concurrency"
-description: "Structured concurrency with `concurrent { ... }`, tasks, channels, supervisors, cancellation, and restart policies."
+description: "Run work at the same time with `concurrent { ... }` and tasks, pass values over channels, and keep background work running under supervisors."
 ---
 
-Nomi's concurrency is **structured**. Every task belongs to an owner, and
-that owner is responsible for finishing, cancelling, or reporting it.
-Nothing is spawned into the void.
+In Nomi, every task has an owner. The owner makes sure the task finishes, is
+cancelled, or has its failure reported. You can't start a task that nothing
+owns.
 
-There are two common lifetimes:
+There are two kinds of owner. Pick by asking how long the work should live:
 
-> **Need the value here?** → `concurrent { … }` and `Task.spawn(|| …)`
->
-> **Should the work outlive this call?** → `Supervisor.spawn(supervisor, || …)`
+- If you need the result here, use a `concurrent { … }` block and
+  `Task.spawn(|| …)`.
+- If the work should keep running after this call returns, use
+  `Supervisor.spawn(supervisor, || …)`.
 
-They fit together. A request handler might use a `concurrent` block to
-compute the response, then hand one audit write to a supervisor so the
-response can return while the audit finishes.
+One function can use both. A request handler might compute its response in
+a `concurrent` block, then give an audit write to a supervisor. The response
+goes back without waiting for the audit.
 
-Underneath, tasks run as goroutines, channels map closely to Go channels,
-and cancellation flows through Go-style contexts. Tasks are cheap. The
-limits you choose are usually about what the work touches: a database pool,
-an API rate limit, a single worker, or the number of cores for CPU-bound
-work.
+Each task runs as a Go goroutine, and channels work much like Go channels,
+so tasks are cheap to start. When you limit how many run at once, the reason
+is usually what the work talks to: a database pool, an API's rate limit, a
+single worker, or the number of CPU cores.
 
 ## `concurrent`, `Task.spawn`, `Task.await`
 
-Start with a block. It owns the tasks spawned inside it and returns after
-those tasks are consumed:
+Start with a block:
 
 ```nomi-run
 import std/tasks.Task
@@ -51,30 +50,28 @@ fn main() {
 dbg line 15: total = 120
 -->
 
-- **`concurrent { ... }`** opens a scope that owns the tasks spawned inside
-  it. The block's value is its last expression.
-- **[`Task.spawn(|| expr)`](/reference/tasks/#taskspawn)** starts the
-  lambda as a `Task<T>` owned by that scope and returns its handle
-  immediately.
-- **[`Task.await(task)`](/reference/tasks/#taskawait)** waits for the
-  task and yields its return value.
+- `concurrent { ... }` owns every task started inside it. Its value is its
+  last expression.
+- [`Task.spawn(|| expr)`](/reference/tasks/#taskspawn) starts the lambda as
+  a task and returns a handle to it, a `Task<T>`, right away.
+- [`Task.await(task)`](/reference/tasks/#taskawait) waits for the task and
+  returns its result.
 
-The compiler enforces the ownership rules: every block-owned `Task<T>`
-must be consumed before the block ends, and it cannot escape the block it
-was spawned in. `Task.await` is one way to consume a task;
-[`Task.outcome`](#when-a-task-actually-breaks), later on this page, is the
-other.
+The compiler checks two rules. You must use each task's handle before the
+block ends, and the handle can't leave the block. `Task.await` is one way to
+use a handle. [`Task.outcome`](#when-a-task-actually-breaks), later on this
+page, is the other.
 
-`Task.spawn` does not name an owner because the current `concurrent` block
-is the only possible one. Supervisors, introduced below, are named owners
-with longer lifetimes.
+`Task.spawn` doesn't name an owner, because the enclosing `concurrent` block
+is the only one it could be. Supervisors, later on this page, are owners
+with names, and they live longer.
 
 ## Channels
 
-Use a [`Channel`](/reference/channels/) to pass values between tasks. Create
-the channel, then hand out the two halves: producers send on the
-[`Sender`](/reference/channels/#type-sender), the consumer receives on the
-[`Receiver`](/reference/channels/#type-receiver) until the channel is closed.
+A [`Channel`](/reference/channels/) passes values between tasks. It has two
+halves. Producers send on the [`Sender`](/reference/channels/#type-sender).
+A consumer receives on the [`Receiver`](/reference/channels/#type-receiver)
+until the channel is closed.
 
 ```nomi-run
 import {
@@ -123,38 +120,35 @@ fn main() {
 dbg line 40: total = 60
 -->
 
-[`Receiver.receive`](/reference/channels/#receiverreceive) returns
-[`Maybe<T>`](/reference/maybe/). It blocks until a value arrives, returns
-`Some(v)` for a value, and returns `None` after the channel is closed and
-drained. That `None` ends the consumer's loop, so the example closes the
-sender only after all producers have finished.
+[`Receiver.receive`](/reference/channels/#receiverreceive) waits until a
+value arrives and returns `Some(v)`. Once the channel is closed and empty,
+it returns `None` instead. That `None` ends the consumer's loop, so the
+example closes the sender only after all three producers have finished.
 
-`consume` only receives a `Receiver<Int>`. It cannot send, and it cannot
-close the channel. Closing is on [`Sender.close`](/reference/channels/#senderclose)
-because it means "nothing more is coming," which is a promise only the
-writing side can make.
+`consume` gets only the `Receiver<Int>`, so it can't send or close the
+channel. Closing is done with
+[`Sender.close`](/reference/channels/#senderclose). Closing means "nothing
+more is coming", and only the sending side can promise that.
 
-There are two constructors:
+There are two ways to make a channel:
 
-- **[`Channel.buffered<T>(n)`](/reference/channels/#channelbuffered)** lets a
-  producer run up to `n` values ahead of its consumer before `send` blocks.
-  Pick `n` the way you'd pick any queue depth: how far ahead is useful, and
-  how much are you willing to hold in memory.
-- **[`Channel.unbuffered<T>()`](/reference/channels/#channelunbuffered)** makes
-  every `send` a rendezvous — it doesn't return until somebody receives.
+- [`Channel.buffered<T>(n)`](/reference/channels/#channelbuffered) holds up
+  to `n` values. A producer can get `n` values ahead of its consumer before
+  `send` waits. Choose `n` by how far ahead is useful and how much you are
+  willing to hold in memory.
+- [`Channel.unbuffered<T>()`](/reference/channels/#channelunbuffered) holds
+  nothing. Each `send` waits until another task receives the value.
 
-Unbuffered channels couple the producer's schedule to the consumer's
-schedule. That is occasionally useful, but it is the easy way to deadlock
-when one task sends and then receives on the same channel. `buffered` is
-the common choice; reach for `unbuffered` when the hand-off itself is the
-synchronisation you need.
+With an unbuffered channel, the producer runs only as fast as the consumer.
+That makes deadlock easy: a task that sends and then receives on the same
+channel waits forever. Use `buffered` by default. Use `unbuffered` when you
+want the sender to wait for the hand-off.
 
 ## Errors cancel siblings
 
-A `concurrent` block still owns its tasks when something goes wrong. When
-`try` sees an `Err` from [`Task.await`](/reference/tasks/#taskawait),
-the block short-circuits, cancels sibling tasks, waits for them to unwind,
-and returns the error:
+Suppose one task in a block returns an `Err`. When `try` sees that `Err`
+from [`Task.await`](/reference/tasks/#taskawait), the block stops. It
+cancels the other tasks, waits for them to stop, and returns the error:
 
 ```nomi-run
 import {
@@ -190,14 +184,12 @@ fn main() {
 dbg line 26: outcome = Err("boom")
 -->
 
-Without structured concurrency, the long sleep could keep running for
-five seconds after the short task returned `Err`. Here the block returns
-in about 10 ms because `try` sees the `Err`, then cancels and unwinds the
-sibling.
+The block returns after about 10 ms. The five-second sleep is cancelled; it
+doesn't keep running after the error.
 
-Await order still matters. The block reacts when you await the task that
-went wrong; it does not watch all tasks in the background. Swap the two
-awaits above:
+The order of the awaits matters. The block only notices a problem when you
+await the task that has it. It doesn't watch all its tasks in the
+background. Swap the two awaits above:
 
 ```nomi
 _ = try Task.await(long) // blocks the full five seconds
@@ -205,20 +197,19 @@ _ = try Task.await(long) // blocks the full five seconds
 n = try Task.await(short) // the Err has been sitting here the whole time
 ```
 
-Now the same program takes five seconds instead of ten milliseconds. It
-still returns `Err("boom")`; it just waited for the slower sibling first.
+Now the program takes five seconds. It still returns `Err("boom")`, but only
+after waiting for the slow task.
 
-The same rule applies to runtime failures such as divide-by-zero: the
-failure surfaces when that task is awaited. Await first whatever you most
-want to hear from.
+A runtime failure, such as dividing by zero, works the same way. You find
+out about it when you await that task. So await first the task you most want
+to hear from.
 
-[`Task.await_all`](#running-a-batch) is different. It is watching a whole
-batch whose results you have committed to collecting, so a failure
-anywhere in the batch surfaces immediately.
+[`Task.await_all`](#running-a-batch) is different. It waits for a whole
+batch, so a failure in any task of the batch shows up right away.
 
 ## Running a batch
 
-You can spawn one task per item:
+You could start one task per item:
 
 ```nomi
 // Ten thousand items, ten thousand simultaneous database queries.
@@ -234,11 +225,11 @@ concurrent {
 }
 ```
 
-The tasks are cheap. The queries are not: ten thousand simultaneous
-database calls will exhaust the connection pool.
+The tasks are cheap, but the queries are not. Ten thousand database queries
+at once will use up the connection pool.
 
-`Task.spawn_all` spawns a bounded batch, and `Task.await_all` collects
-the results in order:
+`Task.spawn_all` starts a batch with a limit on how many run at once.
+`Task.await_all` collects the results in order:
 
 ```nomi-run
 import {
@@ -269,21 +260,21 @@ fn main() {
 dbg line 21: results = ["user-3", "user-1"]
 -->
 
-That means eight at a time no matter how many inputs you pass. The ten
-thousand queries above would queue behind the bound instead of opening ten
-thousand connections.
+At most eight run at a time, however many inputs you pass. With ten
+thousand ids, the rest wait their turn instead of opening ten thousand
+connections.
 
-Results come back in spawn order, not finish order. Here that is `3` then
-`1`, matching the filtered input.
+Results come back in the order the tasks were started, not the order they
+finished. Here that is `3`, then `1`, the same order as the filtered input.
 
-**`max_running` is required.** For CPU-bound work, the core count is a
-good default. For most concurrent work, the limit protects something
-downstream: a pool, a queue, an API, or a single worker. Nomi asks for the
-bound instead of guessing.
+`max_running` is required. For work that only uses the CPU, the number of
+cores is a good choice. For most other work, the limit protects something
+the tasks talk to: a pool, a queue, an API, or a single worker. Nomi makes
+you choose the number instead of guessing one.
 
-The bound belongs on the spawn, because by the time you await, the work is
-already running. It is per batch rather than per block, because one block
-may talk to more than one service:
+The limit goes on the spawn, because by the time you await, the work is
+already running. Each batch has its own limit, because one block may talk to
+more than one service:
 
 ```nomi
 concurrent {
@@ -298,12 +289,12 @@ concurrent {
 }
 ```
 
-Eight database queries at a time, fifty API calls at a time. A single
-block-wide limit could not express both.
+This runs eight database queries at a time, then fifty API calls at a time.
+One limit for the whole block couldn't do both.
 
-If a body returns a `Result`, you get a list of them back. A returned
-`Err` is a task that *completed* — it isn't a failure, so it doesn't
-short-circuit the batch, and you decide what a partial success means:
+If the function returns a `Result`, you get a list of `Result`s back. A task
+that returns `Err` still finished normally, so it doesn't stop the batch.
+You decide what to do when some succeed and some don't:
 
 ```nomi
 outcomes = concurrent {
@@ -315,49 +306,47 @@ outcomes = concurrent {
 failures = Iter.filter(outcomes, |r| Result.err?(r))
 ```
 
-The short-circuiting from [a moment ago](#errors-cancel-siblings) is for
-tasks that *break*. Returned `Err` values travel in ordinary values;
-failure and cancellation travel through task ownership.
+The stopping in [Errors cancel siblings](#errors-cancel-siblings) happens
+because `try` sees an `Err`, or because a task breaks. Here, nothing uses
+`try` on the results, so each `Err` is just a value in the list.
 
 ### Choosing `max_running`
 
-The number comes from whatever is at the other end, and what it will
-tolerate.
+Pick the number based on what the tasks talk to and how much load it can
+take.
 
-| The work talks to | Reach for |
+| The work talks to | Use |
 | --- | --- |
-| A database | Your connection pool size, or under it — more just queues inside the driver |
-| An API you own | Tens, and watch what the other side does |
-| A rate-limited third party | The limit, with headroom for retries |
+| A database | Your connection pool size or less. More just queue inside the driver. |
+| An API you own | Tens, and watch how the other side copes |
+| A third party with a rate limit | The limit, with room left for retries |
 | One long-lived worker | `1` |
-| Pure computation | The core count is finally the right answer |
+| Only the CPU | The number of cores |
 
-When you do not know, start low. Too low costs latency you can measure and
-raise; too high may cause errors in the system you are calling.
+If you don't know, start low. A limit that is too low makes things slower,
+which you can measure and then raise. A limit that is too high can cause
+errors in the system you are calling.
 
 ---
 
 ## Work that outlives the call
 
-Some work shouldn't make the caller wait. A signup responds now and sends
-the welcome email after. A request returns before its audit record is
-written. A worker drains a queue for the life of the process.
+Some work shouldn't make the caller wait. A signup responds right away and
+sends the welcome email afterwards. A request returns before its audit
+record is written. A worker processes a queue for as long as the program
+runs.
 
-A `concurrent` block can't express any of these: **it can't return until
-every task inside it has finished.**
+A `concurrent` block can't do any of these, because it doesn't return until
+every task inside it has finished.
 
-A `concurrent { ... }` block is an anonymous owner that ends with the
-block. A named `Supervisor` is an owner with a longer lifetime: your
-function can return while the work keeps running, and the supervisor
-decides how shutdown and failures are handled.
-
-Either way, the task is owned by something with a policy.
+A `Supervisor` is an owner that lives longer. Your function can return while
+the supervisor's tasks keep running. The supervisor decides what happens
+when a task fails and when the program shuts down.
 
 ## Declaring your supervisors
 
-Define one supervisor for each policy your app needs. Supervisors are
-built while `boot` assembles the app value, and the usual place to keep
-them is the app payload:
+Make one supervisor for each set of rules your app needs. Build them in
+`boot`, and keep them in the app struct:
 
 ```nomi
 import {
@@ -391,44 +380,38 @@ fn boot(): Config {
 }
 ```
 
-The important parts:
+- `max_running:` is required. It is how many of this supervisor's tasks can
+  run at once. A supervisor for one long-lived worker uses
+  `max_running: 1`. For anything else, see
+  [Choosing `max_running`](#choosing-max_running).
+- `shutdown_timeout:` is how long the program waits for this supervisor's
+  work when it shuts down. Each supervisor has its own. The default is five
+  seconds, so most examples below leave it out. Set it when the work is
+  slow, like a large upload, or when it doesn't matter much if it is lost,
+  like a notification.
+- You build supervisors during `boot`. A supervisor is a limit for the whole
+  program. If each request built its own `max_running: 8` supervisor, a
+  thousand requests at once could run eight thousand tasks against the same
+  database.
 
-- **`max_running:` is required.** It is the number of tasks under this
-  supervisor that may run at once. A supervisor with one long-lived worker
-  uses `max_running: 1`; for anything else, see
-  [choosing `max_running`](#choosing-max_running).
-- **`shutdown_timeout:` is how long shutdown waits** for that
-  supervisor's work when the program is stopping. Each has its own, and
-  they're unrelated to each other. It defaults to five seconds, which is
-  why most of the examples below don't mention it — set it when this
-  supervisor's work is unusually slow (a large upload) or unusually
-  disposable (a notification nobody will miss).
-- **Supervisors are built during `boot`.** A supervisor is a program-wide
-  bound, not a per-request object. If each request built its own
-  `max_running: 8` supervisor, a thousand in-flight requests could run
-  eight thousand tasks against the same database.
+"During `boot`" includes functions that `boot` calls. A server type can have
+a constructor that builds its own supervisor, and `boot` calls it. Calling
+that constructor from anywhere outside `boot` is a compile error.
 
-Built *during* `boot` does not mean written directly inside `boot`. A
-constructor called by `boot` may build a supervisor, which is how a server
-type owns its lifetime and restart behavior. Calling that constructor from
-outside the boot path is a compile error.
+Group work by how it should be handled, not by feature. The `notify`
+supervisor handles all outgoing notifications, not one email or one request.
+Its tasks share one `max_running` limit, one shutdown timeout, one restart
+rule, and one `Supervisor.flush`.
 
-Think in policies, not features. The `notify` supervisor owns all outbound
-notifications, not one email or one request.
-
-That advice is about fire-and-forget work, which shares. A long-lived
-worker is the other case: its shutdown budget and restart policy describe
-that one worker, so it usually owns a supervisor of its own and isn't
-stored here at all — see [where mutable state lives](#where-mutable-state-lives).
-
-A supervisor is a set of tasks that share one policy. Those tasks share
-one `max_running` bound, one shutdown budget, one restart policy, and one
-flush target. Put work together when it should be treated together.
+That advice is for short tasks you start and don't wait for. A long-lived
+worker is different. Its shutdown timeout and restart rule are about that
+one worker, so it usually builds its own supervisor and isn't stored in the
+app struct. See [Where mutable state lives](#where-mutable-state-lives).
 
 ## Spawning
 
-Read supervisors straight off the app payload, by naming its type. There
-is no need to pass them through parameters:
+Read a supervisor from the app struct by its type name. You don't need to
+pass it as a parameter:
 
 ```nomi
 fn handle_order(id: Int): Response {
@@ -441,14 +424,14 @@ fn handle_order(id: Int): Response {
 }
 ```
 
-`handle_order` returns immediately. The audit write and the notification
-keep running, owned by their supervisors.
+`handle_order` returns right away. The audit write and the notification keep
+running under their supervisors.
 
-The `_ =` is there because spawning returns a `Task` either way. Here you
-want neither to await it nor cancel it, so you discard it explicitly.
+`Supervisor.spawn` returns a `Task`. This code doesn't want to await or
+cancel either task, so it throws the handle away with `_ =`.
 
-Here it is end to end: a supervisor declared in `boot`, two tasks spawned
-into it, and a handler that returns before either task finishes:
+Here is a complete program. It builds a supervisor in `boot`, starts two
+tasks under it, and the handler returns before either task finishes:
 
 ```nomi-run
 import {
@@ -513,30 +496,29 @@ dbg line 50: handle_order(2) = "order 2 accepted"
 dbg line 54: audited_total() = 3
 -->
 
-Both responses come back before either audit lands. The example does not
-claim which audit finishes first: `max_running` bounds how many run at
-once, not their order.
+Both responses come back before either audit is written. Either audit may
+finish first. `max_running` limits how many run at once, not their order.
 
-The API name follows the value it needs. Creating a supervisor, spawning
-into one, or waiting for all its work needs the supervisor:
+Each function lives on the type it needs. Creating a supervisor, starting a
+task under it, and waiting for all its work need the supervisor:
 `Supervisor.new`, `Supervisor.spawn`, `Supervisor.flush`. Awaiting,
-inspecting, or cancelling needs only the task handle: `Task.await`,
-`Task.outcome`, `Task.cancel`. Those task operations behave the same for
-block-owned and supervisor-owned tasks.
+inspecting and cancelling one task need only its handle: `Task.await`,
+`Task.outcome`, `Task.cancel`. Those work the same whichever kind of owner
+the task has.
 
-Consuming the handle is where the two owners differ: a block-owned task
-**must** be awaited or inspected before its `concurrent` block can close,
-while a supervisor-owned task needn't be, because the supervisor drains it.
+The difference is whether you must use the handle. A task owned by a
+`concurrent` block must be awaited or inspected before the block can end. A
+task owned by a supervisor need not be, because the supervisor waits for it.
 
-For batches, `Supervisor.spawn_all` mirrors
-[`Task.spawn_all`](#running-a-batch) — without `max_running`, since the
-supervisor already carries one:
+For batches, `Supervisor.spawn_all` works like
+[`Task.spawn_all`](#running-a-batch). It takes no `max_running`, because the
+supervisor already has one:
 
 ```nomi
 _ = Supervisor.spawn_all(Config.notify, users, send_welcome)
 ```
 
-Both owners in one function, each doing what the other can't:
+This handler uses both kinds of owner:
 
 ```nomi
 fn handle_order(id: Int): Response {
@@ -560,24 +542,25 @@ fn handle_order(id: Int): Response {
 
 ## Shutdown
 
-Two things start a shutdown: `main` returning, or the process getting a
-`SIGINT`/`SIGTERM` — Ctrl-C, or a container stopping you.
+Shutdown starts when `main` returns, or when the process gets `SIGINT` or
+`SIGTERM`. Pressing Ctrl-C sends `SIGINT`. A container being stopped sends
+`SIGTERM`.
 
-Each supervisor gets its `shutdown_timeout:` to finish work already in
-progress. Supervisors drain concurrently, so a 30 second budget and a
-200 ms budget do not add together. Shutdown takes as long as the slowest
-supervisor that still has work.
+Each supervisor then gets its `shutdown_timeout:` to finish the work it
+already started. The supervisors wait in parallel, so a 30-second timeout
+and a 200 ms timeout don't add up. Shutdown takes as long as the
+slowest supervisor that still has work.
 
-The budget is a grace period, not an estimate. In-flight work may finish.
-When the budget runs out, whatever remains is **cancelled and abandoned**;
-the runtime does not keep waiting. Nothing rewinds work a cancelled task
-already performed, so a multi-step write can still be left halfway done.
+Work that finishes within the timeout finishes normally. When the timeout
+runs out, the remaining work is cancelled and the program stops waiting for
+it. Anything a cancelled task already did stays done, so a write with
+several steps can be left half finished.
 
-A second Ctrl-C skips the drain entirely and exits now.
+A second Ctrl-C skips the wait and exits immediately.
 
 ## Failures can't vanish quietly
 
-The classic fire-and-forget bug looks like this:
+Here is a common bug with background work:
 
 ```nomi
 // Rejected at compile time — send_email returns Result, and nobody
@@ -585,13 +568,12 @@ The classic fire-and-forget bug looks like this:
 _ = Supervisor.spawn(Config.notify, || send_email(user.email, body))
 ```
 
-Nobody is obliged to await a supervisor-owned task, so a returned
-`Result` has nowhere reliable to go. Nomi rejects it:
-**a body spawned into a supervisor must return `Unit`.**
+Nobody has to await a supervisor's task, so a `Result` it returns could be
+lost without anyone seeing the error. Nomi rejects this. A function you start
+under a supervisor must return `Unit`.
 
-`Unit` does not mean "does nothing." It means "nothing is left over." The
-task still does the work, but it must decide what a failure means before
-it returns:
+The task still does its work. Before it returns, it decides what to do if
+that work failed:
 
 ```nomi
 _ = Supervisor.spawn(Config.notify, || send_welcome(user))
@@ -617,17 +599,13 @@ fn report(ch: Channel<String>, msg: String): Unit {
 }
 ```
 
-`Supervisor.spawn` returns when the task is enrolled, not when the body
-finishes. `send_welcome` can still block on the mail server; it simply
-leaves no unhandled value behind.
-
-This is the same ownership idea as block-owned tasks: work must end with
-its result handled somewhere.
+`Supervisor.spawn` returns as soon as the task is started. `send_welcome`
+can still take a long time waiting on the mail server.
 
 ## Cancelling one task
 
-`Task.cancel` stops one task and leaves its siblings alone. It works on
-any task handle, whether the task came from a block or a supervisor.
+`Task.cancel` stops one task and leaves the others running. It works on any
+task handle, from a block or from a supervisor.
 
 ```nomi
 fn start_conn(conn: Int): Task<Unit> {
@@ -643,11 +621,11 @@ fn main() {
 }
 ```
 
-This is what a `concurrent` block cannot express by itself: stopping work
-from a different place than the spawn.
+This lets you stop work from somewhere other than where it started, which a
+`concurrent` block alone can't do.
 
-A cancelled task stops promptly rather than running to completion, and
-`Task.outcome` is how you see which happened:
+A cancelled task stops right away. `Task.outcome` tells you whether a task
+finished or was cancelled:
 
 ```nomi-run
 import {
@@ -679,38 +657,37 @@ fn main() {
 dbg line 22: outcome = Cancelled
 -->
 
-That returned immediately, even though the body was sleeping for thirty
-seconds. Cancellation reaches blocking operations rather than waiting them
-out.
+This returns immediately, even though the task was in a 30-second sleep.
+Cancelling interrupts a task that is waiting.
 
-Cancellation cascades. `serve_conn` might run its read and write loops in
-a nested `concurrent` block; cancelling the task unwinds those too.
+Cancelling a task also cancels everything it started. If `serve_conn` ran
+its read and write loops in its own `concurrent` block, cancelling the task
+stops those loops too.
 
-Some useful guarantees:
+Some more rules:
 
-- **Dropping the handle leaks nothing.** The supervisor still owns the task
-  and still drains it at shutdown. The handle is an *extra* way to stop
-  work early, never the only one.
-- **Cancelling twice is fine**, as is cancelling after shutdown already
-  took the task. Both are no-ops.
-- **You can't escape shutdown.** A task's cancellation is always derived
-  from its owner's, so `SIGTERM` still reaches it no matter what.
+- You can drop the handle. The supervisor still owns the task and still
+  waits for it at shutdown. The handle only gives you a way to stop the task
+  early.
+- Cancelling a task twice does nothing the second time. So does cancelling a
+  task that shutdown already cancelled.
+- A task can't avoid shutdown. A task is cancelled whenever its owner is, so
+  `SIGTERM` always reaches it.
 
-It works on block-owned tasks too, so you can stop the losers in a race.
-Cancelling does not excuse you from consuming the handle; every task still
-gets an `await` or an `outcome`. A cancelled task comes back promptly
-instead of making the block wait for the slowest task.
+`Task.cancel` works on tasks in a `concurrent` block too. For example, when
+several tasks race, you can stop the ones that lose. You still have to await
+or inspect each handle, but a cancelled task returns quickly, so the block
+doesn't wait for the slowest one.
 
 ## A task's own context
 
-Inside a task, `Config.context` is *that task's* context, not the one
-`boot` built. Two things follow from that.
+Inside a task, `Config.context` is that task's own context, not the one
+`boot` built. This has two effects.
 
-**You don't poll for cancellation.** The runtime checks at every loop
-iteration, every function call, and every blocking operation, and unwinds
-the task there — sooner than a check of your own could run, since your
-check sits behind one of those same points. A worker loop is written as
-though it runs forever:
+First, you don't need to check whether your task was cancelled. The runtime
+checks for you at every loop iteration, every function call, and every
+operation that waits, and stops the task there. Your own check would run
+later than that anyway. So you write a worker loop as if it runs forever:
 
 ```nomi
 fn outbox_worker() {
@@ -721,18 +698,16 @@ fn outbox_worker() {
 }
 ```
 
-Cancelling it stops the sleep, unwinds the loop, and reports `Cancelled`
-to whoever asks with `Task.outcome`. Cleanup belongs in `defer`, which
-runs on the way out however the work ends, not in a branch you hope to
-reach.
+Cancelling it interrupts the sleep, ends the loop, and makes `Task.outcome`
+return `Cancelled`. Put cleanup in a `defer`, which runs however the work
+ends.
 
-A `Context` carries a deadline and any typed values you put on it. It
-does not carry a cancellation flag. `Context.deadline_remaining` answers
-`Some(0)` once a deadline has passed, but that is information about the
-clock, not the task. Being stopped is not a state a task reads; it is what
-the runtime does to the task.
+A `Context` holds a deadline and any typed values you add to it. It has no
+"cancelled" flag. `Context.deadline_remaining` returns `Some(0)` once the
+deadline has passed, but that only tells you about the clock. A task never
+reads whether it was cancelled; the runtime stops it.
 
-**Deriving from the context gives you a deadline:**
+Second, you can give the work a deadline by deriving a new context:
 
 ```nomi
 fn send_welcome(user: User): Unit {
@@ -744,36 +719,36 @@ fn send_welcome(user: User): Unit {
 }
 ```
 
-There is no `timeout:` argument on the spawn. A context deadline is the
-general way to bound blocking work, and the task stops on whichever comes
-first: the timeout, `Task.cancel`, or shutdown.
+`Supervisor.spawn` has no `timeout:` argument. A context deadline is how you
+limit how long work can take. The task stops at whichever comes first: the
+deadline, `Task.cancel`, or shutdown.
 
-Supervisor-owned work does not inherit the deadline of the call that
-spawned it. Its owner is the supervisor, and the supervisor's budget is
-its `shutdown_timeout:`. Inheriting the request deadline would defeat the
-point of background work. Context values still come along, so a trace id
-set on the request is still readable from the background task; only the
-deadline is dropped. Block-owned tasks inherit the caller's deadline
-because the caller is waiting for them.
+A task under a supervisor doesn't get the deadline of the code that started
+it. Its owner is the supervisor, and the supervisor's limit is its
+`shutdown_timeout:`. If background work had the request's deadline, the
+request's deadline would stop it, and the point of running it in the
+background is to let it outlast the request. The
+context's values do carry over, so a trace id set on the request can still
+be read in the background task. Only the deadline is dropped.
 
-An operation duration and a context deadline answer different questions.
-The `Duration` passed to `timer.sleep` is how long that operation intends
-to wait. The deadline is how long the caller will keep the whole activity
-alive. Whichever is shorter wins.
+A task in a `concurrent` block does get the caller's deadline, because the
+caller is waiting for it.
 
-Deadlines only tighten. A nested context cannot extend an outer deadline,
-and rebinding to a context with no deadline cannot remove one already in
-force. Usually you bound a region, not one call, and everything inside
-inherits the ceiling without taking its own `timeout:` argument.
+A `Duration` you pass to `timer.sleep` is how long that one call waits. A
+deadline is how long the caller lets the whole piece of work run. Whichever
+is shorter wins.
+
+A deadline can only get shorter. A context inside it can't extend it, and
+switching to a context with no deadline doesn't remove it. You usually set
+one deadline for a whole section of code, and everything inside gets it.
 
 ### A deadline aborts; it doesn't return
 
-Exceeding a deadline is not a value you inspect. The work unwinds at its
-next cancellation point and everything after it in that region is skipped.
-In `main` that ends the program; in a task it ends the task.
+When a deadline passes, you don't get a value back. The work stops at the
+next point where the runtime checks, and the rest of the code under that
+deadline is skipped. In `main`, the program ends. In a task, the task ends.
 
-That means this attempt to "try for a while, then fall back" **does not
-work**:
+So this attempt to try for a while and then fall back does not work:
 
 ```nomi
 fn attempt(): String {
@@ -795,8 +770,8 @@ fn attempt(): String {
 }
 ```
 
-**Put the deadline inside the task and watch from outside it.** Observe a
-deadline from outside the region it covers:
+Instead, set the deadline inside the task, and check the result from
+outside it:
 
 ```nomi-run
 import {
@@ -844,44 +819,43 @@ fn main() {
 dbg line 39: result = "timed out, falling back"
 -->
 
-Five minutes of sleeping resolves in fifty milliseconds, and the caller
-gets an ordinary outcome value to branch on.
+The five-minute sleep ends after 50 milliseconds, and the caller gets an
+ordinary value to `case` on.
 
 ## When a task actually breaks
 
-Everything above is about work ending in ways you asked for. Tasks can
-also break: a bug, a bad FFI call, a divide by zero.
+So far, tasks ended because they finished or because you stopped them. A
+task can also break: a bug, a bad FFI call, a division by zero.
 
-A task ends one of three ways:
+A task ends in one of three ways:
 
 | Outcome | Meaning |
 | --- | --- |
-| **Completed** | The body returned normally. |
-| **Cancelled** | You asked it to stop — `Task.cancel`, or shutdown. |
-| **Failed** | It broke. Nobody asked. |
+| Completed | The function returned normally. |
+| Cancelled | Something stopped it: `Task.cancel`, or shutdown. |
+| Failed | It broke. |
 
-`Task.await` gives you the value from a completed task. If the task was
-cancelled or failed, `await` propagates that outcome to your owner.
+`Task.await` returns the value of a completed task. If the task was
+cancelled or failed, `await` passes that on to the code that awaited it, as
+if it had happened there.
 
-One thing `await` leaves alone is an `Err` your body returned
-deliberately. That's a `Completed` task carrying an `Err` value,
-and `await` hands it straight back to you — propagating it is `try`'s job,
-as in the [example above](#errors-cancel-siblings). The two travel by
-different routes:
+A task that returns `Err` on purpose has completed. `await` gives you the
+`Err` as a value, and you pass it on with `try`, as in
+[Errors cancel siblings](#errors-cancel-siblings). The two cases travel
+differently:
 
-| What happened | Travels via | Through |
+| What happened | Passed on by | How |
 | --- | --- | --- |
-| Body returned `Err(e)` | `try` | the value channel |
-| Task `Failed` or `Cancelled` | `await` | the ownership chain |
+| The function returned `Err(e)` | `try` | as a value |
+| The task failed or was cancelled | `await` | to the owner, and its owner, and so on |
 
-You will not see a marker at the call site for the second route:
-`Task.await` is typed `Task<Int> → Int`. It behaves like any other Nomi
-call: it returns the promised value unless something breaks. A failing
-task is in the same category as divide-by-zero, not the same category as
+Nothing at the call site shows the second case. `Task.await` on a
+`Task<Int>` returns an `Int`. Like any other call, it returns its value
+unless something breaks. A failed task is like a division by zero, not like
 an `Err` your code chose to return.
 
-When you'd rather look at the outcome than inherit it, ask for it
-directly:
+To look at what happened instead of having it passed on, ask for the
+outcome:
 
 ```nomi
 case Task.outcome(worker) {
@@ -891,41 +865,39 @@ case Task.outcome(worker) {
 }
 ```
 
-`Task.await` is `Task.outcome` with the non-`Completed` cases propagated
-for you. Use `outcome` when you cancelled the task yourself or want to
-inspect background work.
+`Task.await` is `Task.outcome` with the `Cancelled` and `Failed` cases passed
+on for you. Use `outcome` when you cancelled the task yourself, or when you
+want to check on background work.
 
-If you `await` and do not catch a failure, it keeps travelling through
-owners. A failure stops in one of three places:
+If nothing catches a failure, it keeps going up through owners until one of
+these stops it:
 
 | Where | How | When |
 | --- | --- | --- |
-| At the await | `Task.outcome(t)` instead of `Task.await(t)` | You want to inspect or recover right here |
-| At a supervisor | its restart policy | Background work — restart it, or report it |
-| At the root | nothing — the program exits with a diagnostic | The default for main-line work |
+| At the await | `Task.outcome(t)` instead of `Task.await(t)` | You want to check or recover right here |
+| At a supervisor | its restart rule | Background work: restart it, or report it |
+| At the top | nothing; the program exits with an error message | Work that isn't under a supervisor |
 
-Programs still die. What changes is that the failure is seen by an owner:
+So programs can still crash, but an owner always sees the failure:
 
-- **Supervised work doesn't take the program down.** Its supervisor
-  handles it — reporting, restarting, or giving up according to its
-  policy.
-- **An uncaught main-line failure ends the program**, as a reported exit
-  rather than a panic dump.
-- **You can catch it anywhere along the chain**, with `Task.outcome`.
+- A failure under a supervisor doesn't stop the program. The supervisor
+  reports it, restarts the task, or gives up, as you told it to.
+- A failure that nothing catches ends the program with a report, not a
+  panic dump.
+- You can catch it at any owner along the way with `Task.outcome`.
 
-This is useful because Nomi values are immutable. A task that dies halfway
-through cannot leave shared memory in a half-written state; there is no
-shared mutable memory to corrupt.
+Nomi values are immutable, so a task that dies halfway through can't leave
+shared data half written. There is no shared data that can change.
 
 ## Testing background work
 
-Background work is hard to test: your test calls the code, the code
-returns immediately, and the work happens elsewhere. Sleeping for a fixed
-duration and hoping gives you a slow test that fails intermittently.
+Background work is hard to test. Your test calls the code, the code returns
+at once, and the work happens somewhere else. If you sleep for a while and
+hope, the test is slow and sometimes fails.
 
-`Supervisor.flush` blocks until the work outstanding under a supervisor has
-finished. The unbounded form has no useful value to inspect, so examples
-usually bind it to `_`:
+`Supervisor.flush` waits until the supervisor's tasks have finished. It
+returns nothing useful when called without a limit, so the examples assign
+it to `_`:
 
 ```nomi
 test "signup sends a welcome email" {
@@ -937,7 +909,7 @@ test "signup sends a welcome email" {
 }
 ```
 
-To cap it, hand it a `Wait`:
+To limit how long it waits, pass a `Wait`:
 
 ```nomi
 case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5))) {
@@ -946,12 +918,12 @@ case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5))) {
 }
 ```
 
-The bound is a **ceiling, not a duration to spend**. It returns when the
-work is done, so a flush that usually takes 3 ms costs 3 ms. `TimedOut`
-cancels nothing: the work carries on, and shutdown is still what
-eventually bounds it. You stopped watching.
+The limit is the longest it will wait. It returns as soon as the work is
+done, so a flush that usually takes 3 ms still takes 3 ms. `TimedOut`
+doesn't cancel anything. The work carries on until it finishes or shutdown
+stops it. You just stopped waiting for it.
 
-That is different from wrapping the call in a context deadline:
+A context deadline around the call is different:
 
 ```nomi
 // Exceeding this deadline aborts the rest of the block.
@@ -959,38 +931,36 @@ with Config.context = Context.with_timeout(Config.context, Duration.seconds(5))
 _ = Supervisor.flush(Config.notify)
 ```
 
-A deadline unwinds a whole region when it expires. `Wait.UpTo` asks one
-question and answers it either way. Use a deadline when nothing past the
-bound is worth doing; use `Wait.UpTo` when you want to know and then
-decide.
+When a deadline passes, it stops all the code under it. `Wait.UpTo` gives
+you an answer either way. Use a deadline when there's nothing worth doing
+after the limit. Use `Wait.UpTo` when you want to find out and then decide.
 
-In tests, prefer [`clock Clock.Virtual`](/testing/#virtual-time). It makes
-waits free and reports work that can never finish as a deadlock.
+In tests, use [`clock Clock.Virtual`](/testing/#virtual-time). With it,
+waiting takes no real time, and work that can never finish is reported as a
+deadlock.
 
-Three things it does **not** do:
+Some things `Supervisor.flush` does not do:
 
-- **It doesn't cancel anything**, bounded or not. Shutdown cancels what is
-  left when its budget expires; a flush never cancels, it only stops
-  watching.
-- **It doesn't only wait for work that existed when you called it.** If a
-  task spawns more work under the same supervisor, that work is waited for
-  too. Work that endlessly spawns work never goes quiet; `Wait.UpTo` is
-  the answer if that's a risk.
-- **It doesn't answer anything useful about a
-  [permanent](#work-that-shouldnt-finish) supervisor.** Unbounded it never
-  returns; a bound gets you out with `TimedOut`, but the answer is always
-  the same, because work declared never to finish never flushes. To
-  synchronise with a permanent worker, send it a request that wants a
-  reply. Getting the answer proves everything queued before it has been
-  handled.
+- It never cancels anything, with or without a limit. Shutdown cancels what
+  is left when its timeout runs out. A flush only stops waiting.
+- It doesn't wait only for the work that existed when you called it. If a
+  task starts more work under the same supervisor, flush waits for that too.
+  Work that keeps starting new work never finishes. Use `Wait.UpTo` if that
+  can happen.
+- It tells you nothing about a supervisor whose tasks are
+  [meant to run forever](#work-that-shouldnt-finish). Without a limit it
+  never returns. With a limit it always returns `TimedOut`. To wait for such
+  a worker, send it a request and wait for its reply. When the reply comes,
+  everything you sent before the request has been handled.
 
-Outside tests, the same call flushes at a checkpoint: make sure the
-queued notifications actually went out before you report success.
+Outside tests, you can call flush at a checkpoint, for example to make sure
+the queued notifications went out before you report success.
 
 ## Restarting work that breaks
 
-Supervisors do not restart anything by default: `Restart.Temporary`. Add a
-restart policy when a failure should be handled by running the work again:
+By default a supervisor restarts nothing. That default is
+`Restart.Temporary`. Choose another restart rule when a failed task should
+run again:
 
 ```nomi
 fn boot(): Config {
@@ -1014,19 +984,18 @@ fn boot(): Config {
 }
 ```
 
-Work that **fails** gets restarted. Work that completed normally, or that
-you cancelled, is left alone.
+`Restart.Transient` restarts a task that failed. A task that completed, or
+that you cancelled, is not restarted.
 
-A supervisor without a `restart:` keeps the default and simply reports
-failures.
+A supervisor without `restart:` only reports failures.
 
 ### Work that shouldn't finish
 
-Restart fires on failure. For one-shot work, a task that returns is done,
-and re-running it would be a bug. A worker meant to run until stopped is
-different: if it returns on its own, something went wrong.
+A restart happens when a task fails. For one-off work, a task that returns
+is done, and running it again would be a bug. A worker that should run until
+it is stopped is different. If it returns by itself, something went wrong.
 
-Nothing can tell those two apart from the outside, so say which you have:
+Nomi can't tell these apart, so you say which one you have:
 
 ```nomi
 workers: Supervisor.new(
@@ -1034,78 +1003,78 @@ workers: Supervisor.new(
     restart: Restart.Permanent),
 ```
 
-`Restart.Permanent` says the work has no normal end. A task that returns
-has failed, so it is reported and restarted like any other failure.
-Without it, the worker would stop while `boot` still lists it as running.
+`Restart.Permanent` means the work should never end on its own. If a task
+returns, that counts as a failure, so it is reported and restarted. Without
+it, the worker would stop while `boot` still treats it as running.
 
-Being stopped isn't returning on your own, so shutdown stays clean: a
-permanent task cancelled by the drain or by `Task.cancel` is cancelled,
-never a failure.
+Being cancelled isn't returning on its own, so shutdown still works. When
+shutdown or `Task.cancel` stops a permanent task, it is cancelled, not
+failed.
 
 ### Restarts wait, and the wait grows
 
-A task that breaks instantly and restarts instantly can spin, consume CPU,
-and fill logs. Built-in restarts back off: the first retry waits a second,
-each retry after that waits twice as long, and the delay levels off at a
-minute. Randomness is added so identical tasks do not all retry at the
-same instant.
+A task that fails at once and restarts at once could loop, use up the CPU,
+and fill the logs. So restarts wait. The first wait is one second. Each
+wait after that is twice as long, up to a maximum of one minute. A little
+randomness is added, so many identical tasks don't all retry at the same
+moment.
 
-The configurable parts are the bounds: `max_restarts` and `max_elapsed`.
+You set the limits: `max_restarts` and `max_elapsed`.
 
-If a task runs for longer than the ceiling and *then* fails, it counts as
-recovered: the next failure starts over from the first delay with a full
-count and a fresh clock, so a worker that fails once a month doesn't
-inherit last month's backoff. And if shutdown starts while a task is
-waiting out its backoff, it isn't restarted.
+If a task runs for longer than one minute, the longest wait, and then fails,
+it counts as recovered. The next failure starts again from a one-second
+wait, with the restart count and the clock reset. So a worker that fails
+once a month isn't affected by last month's failure. If shutdown starts
+while a task is waiting to restart, it isn't restarted.
 
 ### When it gives up
 
-The runtime stops trying when either bound runs out: `max_restarts`
-attempts, or `max_elapsed` spent trying, whichever comes first. Both have
-defaults, ten restarts and fifteen minutes, so setting only `restart:` uses
-the built-in schedule. What happens next is
-`on_give_up`:
+The supervisor stops restarting a task when it reaches either limit:
+`max_restarts` restarts, or `max_elapsed` time spent retrying. The defaults
+are ten restarts and fifteen minutes, so if you set only `restart:`, you get
+those. Then `on_give_up` decides what happens:
 
-- **`GiveUp.Report`** (the default) — report the failure and carry on.
-  The rest of the supervisor's work keeps running. Suitable for the welcome
-  email.
-- **`GiveUp.Exit`** — end the process. Every supervisor is drained on the
-  way out, then the program exits non-zero. Suitable for the outbox drainer,
-  where continuing without a working queue drain isn't useful.
+- `GiveUp.Report`, the default, reports the failure and carries on. The
+  supervisor's other tasks keep running. This suits the welcome email.
+- `GiveUp.Exit` ends the program. Every supervisor gets its shutdown
+  timeout first, then the program exits with a non-zero status. This suits
+  an outbox worker, where the program is no use if the queue isn't being
+  processed.
 
-**`Exit` exits; it does not restart.** Nomi does not restart itself. The
-process dies, and whatever runs it decides whether to bring it back:
-systemd's `Restart=`, a Kubernetes `restartPolicy`, `docker run --restart`,
-or something similar. A new process runs `boot` again, rebuilding
-connections, app state, and supervisors from scratch.
+`GiveUp.Exit` doesn't restart the program. Nomi never restarts itself.
+Whatever started the process decides whether to start it again: systemd's
+`Restart=`, a Kubernetes `restartPolicy`, `docker run --restart`, or
+something like them. The new process runs `boot` again and builds its
+connections, app state and supervisors from scratch.
 
-That makes `Exit` a poor fit when nothing is supervising the process: a
-desktop app, an embedded runtime, or anything else without a service
-manager. Use `GiveUp.Report` and your own monitoring there.
+So `Exit` is a poor choice when nothing will restart the process, such as a
+desktop app or an embedded runtime. Use `GiveUp.Report` there, with your own
+monitoring.
 
-`max_restarts` counts **restarts, not runs**, so
-`Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(5)}` sends that email at most four
-times: once, then three retries, waiting 1s, 2s, and 4s in between.
+`max_restarts` counts restarts, not runs. With
+`Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(5)}`,
+the email is sent at most four times: the first try, then three retries
+after waits of 1s, 2s and 4s.
 
-Choose `max_restarts` and `max_elapsed` against the outage you want to
-survive. They are two ways to stop, and whichever comes first wins. The
-worker above tolerates roughly an hour of database downtime; three retries
-would give up much sooner.
+Choose `max_restarts` and `max_elapsed` to match the outage you want to
+survive. Whichever limit is reached first stops the retries. The worker
+above keeps trying through about an hour of database downtime. Three
+retries would give up much sooner.
 
-A task can retry its own `Err` values in a loop, but a panic or runtime
-error is not catchable inside the body; the restart policy is the first
-code that sees it.
+A task can retry its own `Err` values in a loop. It can't catch a panic or a
+runtime error inside its own code. The restart rule is the first thing that
+sees those.
 
-When you test restart schedules, use `clock Clock.Virtual`; the schedule
-is still the production schedule, but the wait costs nothing.
+To test restart schedules, use `clock Clock.Virtual`. The waits are the same
+as in production, but they take no real time.
 
 ## Where mutable state lives
 
-Nomi has no mutable cell. Values are immutable, and app fields are fixed
-once `boot` returns. When several callers need to share something that
-*changes* — a rate limiter's tokens, a connection pool's free list, an
-in-memory cache — give that state to one task and talk to it over
-channels.
+Nomi has no variable you can change. Values are immutable, and app fields
+can't change once `boot` returns. Sometimes several callers need to share
+something that changes: a rate limiter's tokens, a connection pool's free
+list, an in-memory cache. Give that state to one task, and talk to the task
+over channels.
 
 ```nomi-run
 import {
@@ -1210,52 +1179,54 @@ tests "a counter server" {
 count: 2
 -->
 
-The state is `count`, an ordinary loop accumulator. It is private because
-a binding inside a running task is not reachable from anywhere else. One
-task drains the inbox, so requests are handled one at a time and there is
-nothing to guard.
+The state is `count`, the loop's running total. Nothing outside the task can
+reach it. One task reads the inbox, so it handles requests one at a time,
+and no locks are needed.
 
-`start()` builds the supervisor during `boot`, so the server owns
-its `Restart.Permanent` policy and callers only see `increment`
-and `get`. They never see the channel or supervisor directly.
+`start()` builds the supervisor during `boot`, so the counter has its own
+`Restart.Permanent` rule. Callers use `increment` and `get`. They never see
+the channel or the supervisor.
 
-`increment` is a **tell**: it returns as soon as the message is queued.
-`get` is an **ask**: the request carries a fresh reply channel, so two
-callers in flight cannot take each other's answer. The ask also
-synchronises with earlier tells, because the inbox is FIFO and one worker
-drains it.
+`increment` returns as soon as its message is queued. It doesn't wait for an
+answer. `get` sends a request that carries a new reply channel, then waits
+for the answer on it. Each `get` has its own reply channel, so two callers
+can't get each other's answers. The inbox delivers messages in the order
+they were sent, and one task handles them, so `get` sees every `increment`
+sent before it.
 
-Every read is a round-trip: two channel operations and a task switch. For
-read-mostly state, ask whether the state needs to be in-process and
-mutable at all. A value you can recompute, or a row in a store you already
-query, avoids the machinery entirely.
+Each read costs two channel operations and a switch between tasks. If the
+state is mostly read, ask whether it needs to live in the program and change
+at all. A value you can compute again, or a row in a database you already
+query, needs none of this.
 
-It earns its keep when several callers mutate shared state and
-serializing the mutations is the point.
+This pattern is worth it when several callers change shared state and you
+need those changes to happen one at a time.
 
 ## What background work can't promise
 
-Supervised work is **in-process**. If the machine dies between "response
-sent" and "email sent", that email is gone. The shutdown budget buys a
-graceful finish; it does not buy delivery.
+Supervised work runs inside your program's process. If the machine dies
+after the response is sent but before the email is sent, that email is lost.
+The shutdown timeout gives work time to finish. It doesn't guarantee that
+the work happens.
 
-For a welcome email that's fine. For a password reset or a receipt it
-isn't. The fix is not a longer budget; it is not backgrounding the send at
-all:
+That's fine for a welcome email. It isn't fine for a password reset or a
+receipt. A longer timeout won't fix it. Instead, don't send it in the
+background at all:
 
-1. On the request's critical path, write a durable outbox row **in the
-   same transaction** as the business change. Once that commits, the
-   message is guaranteed — it's a row in a database, not a task in memory.
-2. Run a long-lived worker in the background that drains the outbox:
-   fetch pending, send, mark sent. If a send fails the row stays pending
-   and gets retried. If the process dies the rows are still there when it
-   comes back.
+1. In the request, write an outbox row to the database in the same
+   transaction as the change itself. Once the transaction commits, the
+   message is safely stored, because it is a row in a database, not a task
+   in memory.
+2. Run a long-lived background worker that processes the outbox: fetch the
+   pending rows, send each message, and mark it sent. If a send fails, the
+   row stays pending and is tried again. If the process dies, the rows are
+   still there when it starts again.
 
-A supervisor still appears here — for the *worker*, which is genuinely
-long-lived background work — but not for the send itself.
+The worker still runs under a supervisor, because it is long-lived
+background work. The send itself doesn't.
 
 ---
 
-The next chapter — [Dates & Times](/dates-and-times/) — covers Nomi's
-civil-time types: `Date`, `Time`, `DateTime`, `NaiveDateTime`, and the DST
-handling that comes with them.
+The next chapter, [Dates & Times](/dates-and-times/), covers Nomi's types
+for dates and times, such as `Date`, `Time`, `DateTime` and
+`NaiveDateTime`, and how they handle daylight saving time.

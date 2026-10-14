@@ -1,22 +1,21 @@
 ---
 title: "Modules & Imports"
-description: "Files are import and visibility units; Nomi modules are directory trees rooted at `nomi.toml`."
+description: "Import from other files, choose what each file makes public, hide a type's contents, and group files into a module."
 ---
 
-Nomi has two layers of file organization. A **file** is a single `.nomi`
-source file — what imports point at, and the unit `pub` operates on
-(visibility is file-level). A **Nomi module** is a directory tree rooted at
-`nomi.toml` — what ships together and what the [orphan rule](#the-orphan-rule)
-operates on. Nomi modules also use a sibling `go.mod` and lean on Go module
-tooling for dependency mechanics. Each file imports the names it needs
-explicitly; the compiler resolves the whole program in one pass, so imports
-never need to be ordered or untangled.
+Nomi organizes code at two levels:
+
+- A file is one `.nomi` file. An import names a file. `pub` makes a
+  declaration visible to other files.
+- A Nomi module is a directory with a `nomi.toml` file, and everything under
+  it. A module is what you publish as a project or library.
+
+Each file imports the names it uses from other files.
 
 ## Import syntax
 
-Single imports stand on their own; two or more imports merge into one block.
-You can select several exported names from one file, select children from an
-owner, or alias an imported item to dodge a collision:
+One import stands alone. Two or more go in one `import { ... }` block. You can
+import a file, import single items from it, and rename what you import:
 
 ```nomi-run
 import {
@@ -41,40 +40,43 @@ abcd
 Ok(2026-05-27)
 -->
 
-- `std/io` — import the `std/io` file API object as `io`; reach members as [`io.print`](/reference/io/#ioprint).
-- `{ … }` — group several imports in one block.
-- `Date.parse` — import a child function from the `Date` owner as bare `parse`.
-- `as console` — rename an imported item to dodge a local name conflict.
+- `std/io` imports the file `std/io`. You then reach its functions through
+  `io`, as in [`io.print`](/reference/io/#ioprint).
+- `std/calendar.Date.parse` imports the function `parse` from the type `Date`.
+  You then call it as plain `parse`.
+- `as console` renames what you import. Here `std/io` is reached as `console`
+  instead of `io`. Use this when a name clashes with one you already have.
 
-To select children from an owner, write the owner before `.{...}`:
+To import several items from one type or file, list them in `.{...}`:
 
 ```nomi ignore
 import shape.Shape.{Circle, Rectangle}
 ```
 
-That binds `Circle` and `Rectangle` from the exported `Shape` enum. Add `self`
-when you also want the owner itself:
+That imports the variants `Circle` and `Rectangle` of the `Shape` enum. To
+import `Shape` itself as well, add `self`:
 
 ```nomi ignore
 import shape.Shape.{self, Circle, Rectangle}
 ```
 
-That binds `Shape`, `Circle`, and `Rectangle`. The `self` marker binds the
-left-hand side of the brace group, so `import std/maps.{self, Map}` binds both
-the `maps` file API object and the `Map` type.
+That imports `Shape`, `Circle` and `Rectangle`. `self` means whatever is
+before the `.{`. So `import std/maps.{self, Map}` imports both the file
+`maps` and the type `Map`.
 
 ## Files And Modules
 
-For a single-file program (everything in the tour so far) you don't need
-anything more. A larger project is a **Nomi module**: a directory with a
-`nomi.toml` and one or more `.nomi` files inside. Files within the module
-import each other by path from the module root, without the module's own name as
-a prefix. A sibling file can be imported by its bare stem (`math`); a nested
-file uses its slash path (`http/header`).
+A program in one file, like every example so far, needs nothing more. A
+larger project is a Nomi module: a directory with a `nomi.toml` and one or
+more `.nomi` files.
+
+Files in a module import each other by their path from the module's
+directory, without `.nomi`. A file in the same directory is imported by its
+name (`math`). A file in a subdirectory is imported by its path
+(`http/header`).
 
 The next example is a small module with two `.nomi` files and a `nomi.toml`.
-In a real project, these files would sit next to each other in the same
-directory.
+In a real project, the three files would sit side by side in one directory.
 
 ```nomi-run
 // FILE: math.nomi
@@ -103,16 +105,17 @@ entry_points = ["main"]
 14
 -->
 
-`entry_points` lists the files whose `fn main` is allowed to be the
-program's entry. An `internal/` subdirectory creates an access barrier —
-files inside `internal/` can only be imported from elsewhere in the same
-module.
+`entry_points` lists the files that have a `fn main`, and so can be run as a
+program.
+
+Files in a directory named `internal/` can be imported only by files in the
+same module.
 
 ## Visibility
 
-Top-level declarations are **private by default**. Private means visible only
-inside the declaring file. To make a declaration reachable from another file,
-mark it `pub`:
+A declaration at the top of a file is private unless you mark it `pub`. Only
+its own file can use a private declaration. Mark it `pub` to let other files
+use it:
 
 ```nomi-run
 // FILE: math.nomi
@@ -150,14 +153,12 @@ entry_points = ["main"]
 14
 -->
 
-`pub` works on every kind of declaration — `pub fn`,
-`pub struct`, `pub enum`, `pub interface`, `pub type`, `pub once`.
+Every kind of declaration can be `pub`: `pub fn`, `pub struct`, `pub enum`,
+`pub interface`, `pub type` and `pub once`.
 
-Executable entry files are listed in `entry_points` and define a top-level
-`fn main()` callback; `main` is the program entry point, not part of the file's
-imported API surface.
+`main` is where a program starts. It is never something other files import.
 
-Use another file when an API has a natural sub-surface:
+A part of an API that stands on its own can go in a file of its own:
 
 ```nomi-run
 // FILE: header.nomi
@@ -186,32 +187,26 @@ entry_points = ["main"]
 content-type
 -->
 
-The rule is about the **file** boundary, not the module boundary: two files
-in the same Nomi module are still different visibility units. The module (the
-`nomi.toml`-rooted directory tree) is a separate layer — the orphan-rule and
-distribution unit, not the visibility unit.
+Privacy is per file, not per module. Two files in the same module still can't
+see each other's private declarations.
 
-Interface implementation functions don't take a `pub` of their own. Their
-visibility comes from the interface they implement:
+Functions in an `impl Interface for Type` block don't take `pub`. If the
+interface is `pub`, other files can call them. If the interface is private,
+so are they.
 
-- If the interface is `pub`, other files can call the implementation functions.
-- If the interface is private, the implementation functions stay private too.
-- The rule applies to every `impl Interface for Type { ... }` block.
-
-Ordinary helper functions use per-item `pub`, just like other top-level
-declarations. They belong in the file that exposes them; use `impl Interface for
-Type` for cross-file interface implementations, not extension-style helper
-APIs.
+Other functions take `pub` one by one, like any declaration. A file can't add
+functions to a type declared in another file. To give another file's type new
+behavior, implement an interface for it.
 
 ## Opaque types
 
-A `pub` declaration exposes both the type's *name* and its
-*representation* — its fields (struct), variants (enum), or wrapped
-inner type (distinct `type`). For an abstract data type whose
-representation you want to protect — invariants the constructor enforces,
-a representation you might change later — `opaque` publishes the
-name while keeping the construction surface (constructor, unwrap,
-destructuring, and field access) private:
+A `pub` type shows its contents to other files: a struct's fields, an enum's
+variants, or the value a distinct type wraps. Other files can build a value,
+take one apart and read its fields.
+
+Sometimes you want to stop that. The constructor may check something, such
+as that a number is positive. Or you may want to change the contents later.
+`opaque` makes the type's name public and keeps its contents private:
 
 ```nomi-run
 // FILE: ids.nomi
@@ -266,30 +261,27 @@ entry_points = ["main"]
 error: user IDs must be positive
 -->
 
-From `main.nomi`, `UserId` is a type you can hold, pass, and store
-in collections — but you can't construct one (`UserId(7)` is
-rejected), destructure one (`UserId(raw) = id` errors), or read the
-inner `Int` directly. The only way in and out is through `UserId`'s
-`pub` functions. The validation in `UserId.new` becomes a real
-invariant: no `UserId` value can exist with a non-positive inner.
+In `main.nomi`, you can hold a `UserId`, pass it around and store it in a
+list. You can't build one with `UserId(7)`, take one apart with
+`UserId(raw) = id`, or read the `Int` inside. Only `UserId`'s `pub` functions
+can do those things. Since `UserId.new` checks its argument, every `UserId`
+holds a positive number.
 
-`opaque` composes with each of the three type-declaration keywords:
+`opaque` works with each of the three kinds of type:
 
-- `pub opaque struct` — hides the field list.
-- `pub opaque enum` — hides the variants.
-- `pub opaque type Name InnerType` — hides the wrapped
-  representation (the form shown above).
+- `pub opaque struct` hides the fields.
+- `pub opaque enum` hides the variants.
+- `pub opaque type Name InnerType` hides the wrapped value, as above.
 
-`opaque` is rejected on declarations without a representation —
-functions, type aliases, interfaces, `once` bindings, and
-zero-sized `type` markers — since there's nothing to hide.
+Declarations with no contents to hide can't be `opaque`. These are
+functions, type aliases, interfaces, `once` bindings, and `type` declarations
+that wrap nothing.
 
 ## Re-exports
 
-A file can re-publish items it imports — promoting them into its own
-public surface — with `pub import`. That's how a facade file curates an
-API out of sibling files or dependencies without making consumers chase
-the underlying source:
+`pub import` imports items and makes them public from your file too. Other
+files can then import them from your file. This lets one file gather an API
+from several files, so its users import from one place:
 
 ```nomi
 // Re-export an imported type — consumers of this file see `Parser`.
@@ -308,34 +300,33 @@ pub import {
 }
 ```
 
-`pub import` re-exports everything the statement selects. Items you only
-use yourself go in a plain `import`, so a facade that also has private
-imports writes both.
+`pub import` makes public every item the statement imports. Items you only
+use yourself go in a separate plain `import`.
 
-Re-exports are explicit by item — there's no `import path.*` glob —
-so an upstream dependency adding new public names never silently
-expands your file's API. The name being re-exported must already be
-`pub` upstream; re-exporting a private name is an error.
+You list each item you re-export. There is no `*` to re-export everything.
+So when a file you import gains a new public name, your file's API doesn't
+change. You can only re-export an item that is already `pub` where it is
+declared.
 
-A facade re-exports items, never a whole file: `pub import other/parser`
-is an error at the `pub`. List the items consumers need, or have them
-import `other/parser` themselves.
+You can re-export items, but not a whole file. `pub import other/parser` is
+an error. List the items your users need, or have them import `other/parser`
+themselves.
 
-`pub import` applies only to imported names, and an alias has to match
-the imported symbol's naming shape (`parse_source` for a function;
-`Parser` for a type). To expose a local definition under a different
-name, rename the declaration itself or write a thin wrapper.
+`pub import` works only on imported names. A new name given with `as` must be
+the same kind of name as the original: snake_case for a function, such as
+`parse_source`, and PascalCase for a type, such as `Parser`. To make a
+declaration of your own public under another name, rename it, or write a
+small function that calls it.
 
 ## Nomi modules
 
-Nomi module management is one of Nomi's younger layers. A Nomi module is a
-directory rooted at `nomi.toml`, with files inside forming the import graph.
-That manifest alone is what makes a module: the standard library is one Nomi
-module with a `nomi.toml` and no `go.mod` of its own.
+Modules are one of the newer parts of Nomi, and they will change. A directory
+with a `nomi.toml` is a Nomi module, and the files under it import each other.
+The `nomi.toml` alone makes a module. The standard library is one module, with
+a `nomi.toml` and no `go.mod`.
 
-A module you **distribute** pairs the manifest with a `go.mod`, because Nomi
-leans on Go tooling for dependency mechanics. Creating one uses the standard
-Go pair:
+A module you distribute also needs a `go.mod`, because Nomi uses Go's tools to
+fetch dependencies. Create it the way you would for a Go project:
 
 ```text
 mkdir myproject
@@ -344,37 +335,33 @@ go mod init myproject
 # then add nomi.toml + your .nomi files
 ```
 
-After that, `nomi.toml` describes the Nomi module and `go.mod` carries the
-current dependency mechanics. For local and Git-hosted module experiments, use
-Go's familiar tooling — `go get github.com/user/somelib`, then import files
-from `somelib` in your Nomi code. The long-term ergonomics are still an open
-design area.
+`nomi.toml` describes the Nomi module, and `go.mod` lists its dependencies.
+To use another module, fetch it with Go's tools, as in
+`go get github.com/user/somelib`. Then import files from `somelib` in your
+Nomi code.
 
-Nomi uses Go modules underneath, so the word **module** intentionally lines up
-at this layer. When the tour says "Go package," it means an importable Go code
-package used by a `gopkg` FFI binding; when it says "Nomi module," it means the
-`nomi.toml`-rooted project or library.
+A Nomi module is built on a Go module, which is why both use the word
+"module". When the tour says "Go package", it means Go code that a `gopkg`
+declaration binds to. When it says "Nomi module", it means a directory with a
+`nomi.toml`.
 
 ## Import order doesn't matter
 
-The compiler resolves names whole-program in two phases, so a file can
-refer to a name declared in any other file without forward declarations
-or careful ordering. No header files, no "include guard" ceremony. (As a
-side effect, cyclic imports between files aren't build errors either —
-though they may be a sign module boundaries want rethinking.)
+A file can use a name declared in any other file, in any order. You don't need
+to declare anything ahead of time. Two files can even import each other. That
+works, though it may mean the code should be split differently.
 
 ## The orphan rule
 
-The flip side of the [impl/interface decoupling](/interfaces-and-dispatch/) is the **orphan rule**: an
-impl must be declared in the Nomi module that owns either `Iface` or `T`.
-That rule applies uniformly to `impl Iface for T { ... }` blocks, including
-local, foreign, generic, and constrained-generic implementations such as
-`impl Iface for Box<T> where T: Bound { ... }`. You can't add an
-impl in your own code that bridges two third-party libraries' types and
-interfaces together — that would create coherence conflicts when both libraries
-are linked. The compiler reports the violation as a build error.
+The [orphan rule](/interfaces-and-dispatch/#the-orphan-rule) says an impl must
+be in the Nomi module that declares either the interface or the type. It
+applies to every `impl Iface for T { ... }` block, including generic ones such
+as `impl Iface for Box<T> where T: Bound { ... }`. So you can't write an impl
+of one library's interface for another library's type. If two of your
+dependencies each wrote that same impl, no program could use both of them.
+Breaking the rule is a compile error.
 
-The next chapter — [App Fields, Defer & Context](/capabilities-and-context/)
-— covers Nomi's answer to "how do you pass runtime dependencies around without
-a tangle of globals or DI containers": app fields, `with App.field = value` overrides,
-deferred cleanup, and context.
+The next chapter, [App Fields, Defer & Context](/capabilities-and-context/),
+shows how to give code things like a logger or a config without global
+variables. It covers app fields, replacing one with `with App.field = value`,
+cleanup with `defer`, and contexts.

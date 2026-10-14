@@ -8,6 +8,7 @@
 //	nomi_alloc(len: i32) -> i32
 //	nomi_call(name_ptr, name_len, args_ptr, args_len: i32) -> i64
 //	nomi_free(ptr, len: i32)
+//	nomi_load(ptr, len: i32) -> i64
 //	nomi_main() -> i32
 //
 // Go fixes a module's export names when it is linked, and this runner is
@@ -15,6 +16,10 @@
 // data. It reads the program from its own linear memory, where `nomi build`
 // wrote it, as nomi-vm does (vmrunner/image_wasip1.go), so it needs no file
 // access, and runs it on the same VM.
+//
+// With nothing embedded (`nomi build-vm --reactor` copies it out as it
+// is), its image area's length is zero, and a runner hands it one .nomic
+// file through nomi_load instead.
 //
 // The build tag nomi_compiler links std/compiler's hosts (compiler.go), as
 // it does for nomi-vm. On any target but wasip1 it is a stub that says what

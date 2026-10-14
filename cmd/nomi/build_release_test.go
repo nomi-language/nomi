@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"debug/buildinfo"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -595,6 +596,26 @@ func TestBuildFromRelease_WasmTargetsDownloadTheirRunners(t *testing.T) {
 		again := runProcess(t, env, dir, "", nomi, "build", "--target", "wasip1/wasm", lib, "-o", out)
 		if again.exit != 0 || again.stderr != "" {
 			t.Fatalf("a second build did not use the cached reactor, exit %d:\n%s", again.exit, again.transcript())
+		}
+	})
+	// `nomi build-vm --reactor` downloads the archive's reactor and
+	// copies it out with nothing embedded, ready for nomi_load.
+	t.Run("wasip1 reactor with no program", func(t *testing.T) {
+		env := releaseEnv(t, t.TempDir(), "NOMI_RELEASE_BASE_URL="+srv.URL)
+		out := filepath.Join(t.TempDir(), "nomi-vm-reactor.wasm")
+		got := runProcess(t, env, dir, "", nomi, "build-vm", "--reactor", "-o", out)
+		if got.exit != 0 || !strings.Contains(got.stderr, "downloading nomi-vm-reactor for wasip1/wasm") {
+			t.Fatalf("exit %d:\n%s", got.exit, got.transcript())
+		}
+		data, err := os.ReadFile(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if exports := wasmExports(t, data); !slices.Contains(exports, "nomi_load") || slices.Contains(exports, "_start") {
+			t.Fatalf("the reactor exports %v", exports)
+		}
+		if _, err := vmrunner.ReadImage(out); !errors.Is(err, vmrunner.ErrNoImage) {
+			t.Fatalf("the reactor --reactor wrote carries a program: %v", err)
 		}
 	})
 	// `--web` uses the cached js/wasm runner and the wasm_exec.js its

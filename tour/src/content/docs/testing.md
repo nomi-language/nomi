@@ -1,17 +1,20 @@
 ---
 title: Testing
-description: Write Nomi tests with test declarations, assertions, checks, setup, and ordinary language features.
+description: Write tests with assertions, check what a program prints, share setup, control time, and debug a failing test.
 ---
 
-Nomi tests are just Nomi code. A `test` declaration names a behavior and runs a
-block. Put tests next to the code they exercise or in a conventional
-`*_test.nomi` file, then run them with `nomi test`. What a test prints, `dbg` included, appears under its `ok` or `FAIL` line. `nomi test --watch` runs them again each time you save a file under the path or one the tests import.
+A test is ordinary Nomi code. A `test` declaration gives a name and a block to
+run. You can put tests next to the code they check, or in a file whose name
+ends in `_test.nomi`.
+
+`nomi test` runs them. Anything a test prints, `dbg` included, appears under
+its `ok` or `FAIL` line. `nomi test --watch` runs the tests again each time
+you save a `.nomi` file under the path, or a file the tests import.
 
 ## Assertions
 
-Use `assert` for the shape you expect and `refute` for the shape you expect not
-to hold. They work with ordinary booleans, and failed assertions produce
-source-located reports.
+`assert` checks that something is true. `refute` checks that it is false. When
+one fails, the report shows the line and the values involved.
 
 ```nomi-run
 test "arithmetic has the expected shape" {
@@ -20,9 +23,10 @@ test "arithmetic has the expected shape" {
 }
 ```
 
-[`Maybe`](/reference/maybe/) and [`Result`](/reference/results/) values can be asserted directly. `assert` checks success
-shapes; `refute` checks failure shapes. These checks return the original value,
-so payload extraction stays explicit.
+You can also assert a [`Maybe`](/reference/maybe/) or a
+[`Result`](/reference/results/) directly. `assert` passes on `Some` or `Ok`.
+`refute` passes on `None` or `Err`. To get the value inside, match it with a
+pattern, as the second line of each test below does.
 
 ```nomi-run
 fn parse_id(text: String): Result<Int, String> {
@@ -47,9 +51,9 @@ test "refute checks result errors" {
 }
 ```
 
-You can also assert a pattern. Pattern assertions use the same pattern language
-as `case` arms, which is useful when the expected shape matters and the bound
-names are the values you want to inspect next.
+`assert pattern = value` checks that the value matches the pattern. Patterns
+work the same as in `case` arms. The names the pattern binds are available on
+the following lines.
 
 ```nomi-run
 test "assert can destructure expected shapes" {
@@ -59,8 +63,8 @@ test "assert can destructure expected shapes" {
 }
 ```
 
-That same pattern form works well with enum variants because the whole expected
-shape is visible at the assertion site.
+This is a good way to check for a particular enum variant, such as one kind of
+error:
 
 ```nomi-run
 import {
@@ -73,8 +77,9 @@ test "assert can match an error variant" {
 }
 ```
 
-Use `try` when a fallible value is setup for the rest of the test. Use a
-pattern assertion when the returned shape is part of what the test is checking.
+When a value that might fail is only setup for the rest of the test, use
+`try`. If it fails, the test fails. Use a pattern assertion instead when the
+result is the thing you are testing.
 
 ```nomi-run
 import std/calendar.Date
@@ -88,9 +93,8 @@ test "formats parsed date" {
 
 ## Attached Tests
 
-Use `//!` directly above a declaration when the test is a compact example of
-that declaration's behavior. Each contiguous prompt group is a regular runnable
-test under `nomi test`.
+A short test can sit right above the function it checks. Write each line of
+it after `//!`. `nomi test` runs each group of `//!` lines as one test.
 
 ```nomi-run
 //! assert answer() == 42
@@ -107,7 +111,7 @@ fn label(text: String): String {
 }
 ```
 
-When setup is useful, put it in the attached test before the assertion.
+An attached test can bind names before it asserts:
 
 ```nomi-run
 //! value = parse_int("42")
@@ -118,7 +122,7 @@ fn parse_int(text: String): Maybe<Int> {
 }
 ```
 
-One attached test may contain shared setup and multiple assertions.
+It can also hold several assertions:
 
 ```nomi-run
 //! value = parse_int_again("42")
@@ -132,8 +136,8 @@ fn parse_int_again(text: String): Maybe<Int> {
 
 ## Pipelines
 
-`assert` and `refute` can wrap pipelines. Put the keyword at the head so the
-whole pipeline reads as the assertion subject.
+`assert` and `refute` can check the result of a pipeline. Put the keyword
+before the pipeline's first value:
 
 ```nomi-run
 test "pipeline assertions validate transformed values" {
@@ -151,10 +155,10 @@ test "pipeline assertions validate transformed values" {
 
 ## Input And Output
 
-[`io.capture`](/reference/io/) runs a function with the text you give it as
-standard input and hands back what the function returned (`value`) and
-everything it printed (`output`). Pass a program's `main` to check what the
-program prints for a given input.
+[`io.capture`](/reference/io/) runs a function and gives it the text you pass
+as its input. It returns what the function returned, in `value`, and
+everything it printed, in `output`. Pass it `main` to check what a program
+prints for some input.
 
 ```nomi-run
 import std/io
@@ -180,18 +184,22 @@ test "greets a stranger when there is no input" {
 hello, stranger
 -->
 
-Inside the call, `io.read_line` reads the given text a line at a time and
-answers `Err("eof")` at its end, and `io.print`, `io.write` and `io.inspect`
-write to `output` instead of the terminal. Tasks the function starts are
-captured too. `dbg` still prints to the terminal, so you can debug a captured
-function as usual.
+Inside the call, `io.read_line` reads the text you passed, one line at a
+time. When the text runs out, it returns `Err("eof")`. `io.print`, `io.write`
+and `io.inspect` write to `output` instead of the terminal. This includes
+anything printed by tasks the function starts. `dbg` still prints to the
+terminal, so you can debug the function as usual.
 
-A program that asks and answers in turn is easier to test as one
-conversation. [`io.replay`](/reference/io/) takes a script of the session as
-a terminal would show it, behind a four-column gutter: lines starting with
-`>>` and two spaces are what the user types, and lines starting with four
-spaces are what the program prints. It feeds the `>>` lines to
-`io.read_line` in order, and `assert` checks the rest came at the right points.
+Some programs ask a question, read the answer, then ask another.
+[`io.replay`](/reference/io/) tests such a program against a script of the
+whole session:
+
+- Output lines are what the program prints. Write them at the column of the
+  closing `"""`.
+- Input lines are what the user types. Indent them and start them with `> `.
+
+`io.replay` gives the input lines to `io.read_line` in order. `assert` then
+checks that the program printed each output line, at the right point.
 
 ```nomi-run
 import std/io
@@ -213,11 +221,11 @@ fn main() {
 test "asks for a name, then an age" {
     assert io.replay(
         """
-            What is your name?
-        >>  Ada
-            Hello, Ada. Your age:
-        >>  36
-            Ada is 36
+        What is your name?
+            > Ada
+        Hello, Ada. Your age:
+            > 36
+        Ada is 36
         """,
         main,
     )
@@ -228,23 +236,29 @@ What is your name?
 hello, stranger
 -->
 
-The `>>` lines sit four columns left of the output, so the `"""` string keeps
-the four spaces in front of each output line. When the program writes a
-prompt without a newline before it reads, as `io.write("Hello, Ada. Your
-age: ")` does, the prompt is an output line of its own and the typed text
-goes on the `>>` line below it. Output that starts with `>`, such as a `> `
-prompt, is just output: `    >` above `>>  north`. Trailing spaces and the
-final newline don't count. A failed replay prints a line diff, `-`
-for script lines (numbered by line in the file) the program did not produce
-and `+` for what it did instead, and shows the script above it only as
-`""" lines 11-23 """`. A `>>` line it never read fails it too. Each `Captured`
-has the same view in `transcript`, if you want to check it yourself.
+Some programs print a prompt with no newline and then read, as
+`io.write("Hello, Ada. Your age: ")` does here. In the script, the prompt is
+an output line of its own, and the typed text goes on the input line below
+it.
 
-A script with no `>>` line is output only, and it needs no gutter: each line
-is compared exactly as written. Write the output at the closing `"""`'s
-column. Spaces past that column are part of the output, so the second line
-below expects its leading space. Output that starts with `>>` needs the
-two-column form, with four spaces in front of every output line.
+Every line that is not an input line is output, exactly as written. Spaces
+past the closing `"""` column are part of the output. A `> ` prompt at the
+start of a line is output too: write `>`, then the input line `    > north`
+under it. If an indented output line starts with `> `, write a backslash
+before the `>`, as in `    \> quoted`, so it is not read as input.
+
+Trailing spaces and the final newline are ignored. An input line the program
+never reads fails the test.
+
+When a replay fails, the report shows a diff, with each line's number in the
+file. A `-` line is in the script but the program didn't print it. A `+` line
+is what the program printed instead. Above the diff, the script is shortened
+to `""" lines 11-23 """`. To check the session some other way, use
+`io.capture`: its result holds the session in this same form, in
+`transcript`.
+
+A program that reads nothing gets a script of output lines only. The second
+line below expects one leading space.
 
 ```nomi-run
 import std/io
@@ -271,9 +285,9 @@ test "converts to Fahrenheit" {
 
 ## Groups And Setup
 
-Use `tests` to group related cases. A group can define `setup`, which runs
-before each of its tests and produces a value. A test receives that value
-through a pattern after its name.
+`tests` groups related tests under one name. A group can have a `setup`. It
+runs before each test in the group and produces a value. A test receives that
+value through a pattern after its name.
 
 ```nomi-run
 tests "user labels" {
@@ -290,23 +304,27 @@ tests "user labels" {
 }
 ```
 
-Setup is for shared test values, not hidden globals. Bindings inside a setup
-block do not reach the tests unless the block returns them. The value can be
-anything: a record, a tuple bound with `(left, right)`, or a single value bound
-with a name, as in `test "loads rows", db { ... }`. The pattern has to match
-every value setup can produce, so a pattern such as `Some(n)` is an error; bind
-a name and match it in the body.
+A test sees only the value `setup` returns. Names bound inside the `setup`
+block don't reach the tests.
 
-Groups do not nest. When two sets of tests need different setup, write two
-sibling groups and share the common part through an ordinary function.
+The value can be anything. A test can bind a record with `{name, role}`, a
+tuple with `(left, right)`, or the whole value with a name, as in
+`test "loads rows", db { ... }`. The pattern has to match every value setup
+can produce, so a pattern such as `Some(n)` is an error. Bind a name instead,
+and match it in the test's body.
+
+Groups don't nest. When two sets of tests need different setup, write two
+groups side by side. Put the part they share in an ordinary function.
 
 ## Booting The Application
 
-When code under test reads [application fields](/capabilities-and-context/)
-such as `Config.env`, the group calls the entry's boot on a `boot` line, with
-the `Startup` it takes, if any. Each test runs fresh: the group's clock is
-selected, the boot call runs, then `setup`, then the test's body. Code under
-test that reads no application field needs no boot.
+Some code reads [application fields](/capabilities-and-context/), such as
+`Config.env`. Those fields come from the program's `boot` function. To test
+that code, the group calls `boot` on a `boot` line, passing a `Startup` if
+`boot` takes one. Code that reads no application field needs no `boot` line.
+
+Each test starts fresh. First the group's clock is chosen, then `boot` runs,
+then `setup`, then the test's body.
 
 ```nomi-run
 import std/io
@@ -340,14 +358,15 @@ tests "app-backed behavior" {
 env: dev
 -->
 
-This example keeps the tests beside `main` in one file, so the `boot` line
-calls `boot` by its bare name. `Startup`'s fields default to empty, so the
-test sets only `env`.
+The tests here are in the same file as `main`, so the `boot` line calls
+`boot` by its bare name. `Startup`'s fields are empty unless you set them, so
+the group sets only `env`. The `with` line in the second test is explained in
+[App Fields, Defer & Context](/capabilities-and-context/#with-replaces-a-field-for-the-rest-of-the-block).
 
-Most tests need no startup input. A boot that reads none declares no
-parameter, and its groups write `boot boot()`. A boot that does read startup
-can give its parameter a default, so the groups that need no input write
-`boot boot()` and the others pass the inputs they set:
+Most tests need no startup input. If `boot` reads none, it takes no
+parameter, and groups write `boot boot()`. If `boot` does read startup input,
+give its parameter a default. Then a group that needs no input writes
+`boot boot()`, and the others pass the inputs they want:
 
 ```nomi-run
 import std/io
@@ -384,13 +403,15 @@ tests "verbose" {
 verbose: False
 -->
 
-`main` still receives the real program arguments; the default applies only to
-a `boot` line that passes none.
+When the program itself runs, `boot` still gets the real arguments. The
+default is used only by a `boot` line that passes nothing.
 
-In a project, tests live in their own file and reach the boot by importing the
-entry file, as `server.boot` below. A `with` line in `setup` stays in force for
-each test's body, which makes `setup` the place to install fakes. `defer` in
-boot or setup runs when that test finishes:
+In a larger project, tests live in their own file. They import the file that
+holds `main` and call its boot, as `server.boot` below.
+
+A `with` line in `setup` stays in force for the whole test, so `setup` is a
+good place to swap in a fake. A `defer` in `boot` or `setup` runs when the
+test finishes:
 
 ```nomi
 // server_test.nomi
@@ -417,17 +438,21 @@ tests "welcome email" {
 
 Here `test_support.startup()` builds the inputs this group needs. If
 `server.nomi` declares `pub fn boot(startup: Startup = Startup{}): App`, a group
-that needs none writes `boot server.boot()`.
+that needs no input writes `boot server.boot()`.
 
 ## Virtual Time
 
-Tests that involve waiting are slow when they pass and unreliable when the
-machine is busy. Declare `clock Clock.Virtual` on a group and its tests run under a
-clock that jumps forward whenever every task in the test is blocked, so waiting
-costs nothing.
+A test that waits is slow, and on a busy machine it may fail by accident.
+Add `clock Clock.Virtual` to a group to avoid both. Its tests run under a fake
+clock. Whenever every task in the test is waiting, the clock jumps forward,
+so waiting takes no real time.
 
 ```nomi
-import std/testing.Clock
+import {
+    std/duration.Duration
+    std/testing.Clock
+    std/timer
+}
 
 tests "retry policy" {
     clock Clock.Virtual
@@ -439,51 +464,55 @@ tests "retry policy" {
 }
 ```
 
-That test finishes immediately, and it finishes the same way every time — the
-clock moves in response to the program rather than alongside it.
+That test finishes at once. It also takes the same path every time, because
+the clock only moves when the program is waiting.
 
 `clock` takes an ordinary expression naming a
-[`testing.Clock`](/reference/testing/) variant, the same way `boot` and `setup`
-take expressions — so the type has to be imported, exactly like any other
-reference. Import the file API object instead and it reads
-`clock testing.Clock.Virtual`. A group's `clock`, `boot` and `setup` lines may
-be written in any order, since they always run clock first, then boot, then
-setup; `nomi fmt` moves them to the top of the group in that order.
+[`testing.Clock`](/reference/testing/) variant, so `Clock` has to be imported,
+as above. If you import `std/testing` instead, write
+`clock testing.Clock.Virtual`.
 
-Tests outside any group that declares a `clock` use the real one, so nothing
-changes for suites that never opt in.
+A group's `clock`, `boot` and `setup` lines can be in any order. They always
+run clock first, then boot, then setup. `nomi fmt` moves them to the top of
+the group in that order.
 
-A test that can never finish is reported as a deadlock instead of hanging the
-run, which is what makes blocking calls without timeouts — like
-[`Supervisor.flush`](/concurrency/#testing-background-work) — safe to write.
+Tests outside a group with a `clock` line use the real clock.
 
-It is off by default because the virtual clock changes behaviour:
+Under the fake clock, a test that can never finish is reported as a deadlock.
+It doesn't hang the run. So you can safely test calls that wait with no
+timeout, such as [`Supervisor.flush`](/concurrency/#testing-background-work).
+
+The fake clock is off by default because it changes how a test behaves:
 
 - Waiting on something outside the program, such as reading input or a real
   network call, never lets the clock move. The test is reported as deadlocked.
-- Background work still running when a test ends is an error, not something
-  that carries on into the next test.
-- `Instant.now` starts at midnight on 1 January 2000.
+- Background work still running when a test ends is an error. It does not
+  carry on into the next test.
+- `Instant.now` starts at midnight UTC on 1 January 2000.
 
-The first two usually indicate a test worth fixing, but they are behaviour
-changes, so you opt in per run.
+The first two usually point to a problem in the test. Still, they change
+behaviour, so each group opts in.
 
 ## Debugging A Test
 
-Click **Debug test** beside a test (VS Code, Neovim with nvim-dap, or Zed's
-debug entries) to run it under `nomi dap`; the
+In VS Code and Neovim (with nvim-dap), click Debug test beside a test. In
+Zed, pick the test's debug entry. Helix starts one with `:debug-start`. Each
+runs the test under `nomi dap`, Nomi's debugger. The
 [editor support](https://github.com/nomi-language/nomi#editor-support)
-section of the README has the setup. Breakpoints, stepping, watches and the
-rest work as in any debugger. A few things are particular to Nomi:
+section of the README has the setup.
 
-- A failed `assert` or a trap stops the test where it happened, with every
-  binding still readable.
-- Watches and the debug console evaluate Nomi in the paused frame. Values
-  never change, so looking can't disturb the test; an expression that would
-  act on the world, such as printing or reading the clock, is refused unless
-  it ends with `// allow effects`.
-- The **Pipeline** scope shows the value each `|>` stage produced, and a
-  frame inside `io.replay` or `io.capture` shows the output captured so far.
-- **Step back** and **reverse continue** run the test again from its start
-  with the input, clock and randomness it saw the first time, and stop at
-  the earlier point. A test that starts tasks can't go back.
+Breakpoints, stepping and watches work as in any debugger. A few things are
+particular to Nomi:
+
+- A failed `assert`, or a runtime error such as dividing by zero, stops the
+  test where it happened. Every binding is still there to read.
+- Watches and the debug console run Nomi code in the paused frame. Values
+  can't change, so looking at them can't disturb the test. An expression that
+  would do something outside the program, such as printing or reading the
+  clock, is refused unless it ends with `// allow effects`.
+- The Pipeline scope shows the value each `|>` stage produced.
+- In a frame inside `io.replay` or `io.capture`, you can see the output
+  captured so far.
+- Step back and reverse continue run the test again from the start. It gets
+  the same input, clock readings and random numbers as the first time, and
+  stops at the earlier point. You can't go back in a test that starts tasks.

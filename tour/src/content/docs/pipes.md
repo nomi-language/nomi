@@ -1,17 +1,14 @@
 ---
 title: Pipes
-description: The `|>` operator threads a value through successive calls — once you have it, every Nomi program reads top-to-bottom.
+description: The `|>` operator passes a value through a series of calls, so code reads from top to bottom.
 ---
 
-`x |> f()` is `f(x)`. The piped value goes into the **first argument** of the
-call on its right; any additional arguments come after. Pipes let you describe
-a computation as a top-to-bottom flow rather than an inside-out chain of
-nested calls — which is how most idiomatic Nomi reads.
+`x |> f()` means `f(x)`. The value on the left becomes the first argument of
+the call on the right. Pipes let you write a series of calls from top to
+bottom, instead of nesting them inside each other. Most Nomi code is written
+this way.
 
 ## The pipe operator
-
-The simplest pipe is one stage. When the call has more than one argument, the
-piped value fills the first slot and the rest are written after:
 
 ```nomi-run
 fn double(x: Int): Int {
@@ -34,8 +31,10 @@ dbg line 10: 5 |> double() = 10
 dbg line 12: 5 |> add(3) = 8
 -->
 
-Longer chains stack one stage per line — the data flows top-to-bottom and each
-stage gets its own row:
+When the call takes more arguments, you write the rest in the parentheses.
+`5 |> add(3)` is `add(5, 3)`.
+
+A longer pipeline puts one stage on each line:
 
 ```nomi-run
 fn main() {
@@ -56,8 +55,8 @@ dbg line 5:
 
 ## Pipes start from data
 
-Pipes read most clearly when the chain *starts* from concrete data and ends at
-where it's used. Compare:
+A pipeline reads best when it starts with the data and ends where the result
+is used. Here is the same calculation written both ways:
 
 ```nomi-run
 fn main() {
@@ -81,12 +80,13 @@ dbg line 9:
   = 3
 -->
 
-Both produce `3`; only the second reads top-to-bottom.
+Both give `3`. The nested version runs from the inside out, so you read it
+backwards. The pipeline runs in the order you read it.
 
 ## The `_` placeholder
 
-The piped value goes into the first argument by default. To pipe into a
-different position, write `_` where the piped value should land:
+To pass the value as some argument other than the first, write `_` where it
+should go:
 
 ```nomi-run
 fn divide(x: Int, y: Int): Int {
@@ -104,15 +104,10 @@ dbg line 6: 10 |> divide(100, _) = 10
 dbg line 7: 100 |> divide(y: 4, x: _) = 25
 -->
 
-That first `_` becomes `divide(100, 10)`, which is `100 / 10`. A named
-argument can be the `_` too: `x: _` puts the piped value in `x`, so the
-second stage is `divide(100, 4)`.
+`10 |> divide(100, _)` is `divide(100, 10)`. A named argument can be `_`
+too: `100 |> divide(y: 4, x: _)` is `divide(100, 4)`.
 
 ## The `then` stage
-
-`then` applies a lambda to the piped value, for a small step that no named
-function covers. Its body ends at the next `|>`, so the stages after it
-still belong to the pipeline:
 
 ```nomi-run
 fn find_name(id: Int): Maybe<String> {
@@ -137,11 +132,12 @@ dbg line 12:
   = True
 -->
 
-## The `tap` stage
+`then` calls a lambda with the piped value and passes on what the lambda
+returns. Use it for a small step that no named function does. The lambda's
+body ends at the next `|>`, so the stages after it are still part of the
+pipeline.
 
-`tap` runs a lambda on the piped value for its effect, such as logging, and
-passes the value on unchanged. The lambda runs once, at its place in the
-pipeline, and returns `Unit`:
+## The `tap` stage
 
 ```nomi-run
 import std/io
@@ -162,19 +158,26 @@ got 3 words
 GO NORTH NOW
 -->
 
-A `tap` lambda that answers a value is an error that points to `then`, since
-`tap` would throw the value away. For a quick look at a value while
-debugging, a bare `dbg` stage is shorter; `tap` is for effects the program
-keeps.
+`tap` calls a lambda with the piped value and then passes the same value on.
+Use it for a side effect, such as logging. The lambda must return `Unit`.
+
+If a `tap` lambda returns some other value, the compiler reports an error
+and suggests `then`, because `tap` would throw that value away. To look at a
+value while debugging, a bare `dbg` stage is shorter. Use `tap` for effects
+the program keeps.
 
 ## Keyword stages
 
-Expression keywords can also be pipeline stages. Bare `dbg` inspects the
-current value; [`try`](/pattern-matching/#the-try-keyword) unwraps
-[`Maybe`](/reference/maybe/) and [`Result`](/reference/results/) stages; [assertions](/testing/#assertions) usually sit at the head of test
-pipelines.
+Some keywords can be pipeline stages too:
 
-`try` short-circuits on `None` or `Err`:
+- A bare `dbg` prints the value and passes it on.
+- [`try`](/pattern-matching/#the-try-keyword) unwraps a
+  [`Maybe`](/reference/maybe/) or [`Result`](/reference/results/).
+- [Assertions](/testing/#assertions) often start a pipeline in a test.
+- `if` and `case` can take the piped value.
+
+`try` unwraps a `Some` or an `Ok` and passes the value inside on. On `None`
+or `Err`, it returns that from the function straight away:
 
 ```nomi-run
 fn parse(): Maybe<Int> {
@@ -199,7 +202,7 @@ dbg line 6:
   = Some(42)
 -->
 
-Assertions keep the subject visually complete:
+An assertion can check the result of a whole pipeline:
 
 ```nomi-run
 test "pipeline result is true" {
@@ -212,7 +215,9 @@ test "pipeline result is true" {
 <!-- expect
 -->
 
-`if` and `case` follow the same idea for branchy expressions:
+`if` and `case` can take the piped value as well. Here the value becomes the
+first argument of `String.contains?`, the call that computes the `if`
+condition. The `case` matches its arms against the piped value:
 
 ```nomi-run
 fn main() {
@@ -250,5 +255,4 @@ dbg line 15:
   = "named Ada"
 -->
 
-The next chapter — [Scalars & Strings](/scalars-and-strings/) — uses pipes
-from the first example onward.
+[Scalars & Strings](/scalars-and-strings/) is next.

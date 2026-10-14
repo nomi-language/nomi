@@ -7,6 +7,7 @@ import (
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/vmhost"
+	"github.com/nomi-language/nomi/vmrunner"
 	"os"
 	"regexp"
 	"strings"
@@ -95,5 +96,44 @@ func TestSpecProgramsOnADebugMachine(t *testing.T) {
 	}
 	if programs < 10 {
 		t.Fatalf("found %d complete programs, want at least 10", programs)
+	}
+}
+
+// TestSpecProgramsFromABuiltImage builds every complete spec program as
+// `nomi build` does (an image pruned to what main reaches) and runs it as a
+// built executable does (vmrunner.Run), and requires the output `nomi run`
+// gives.
+func TestSpecProgramsFromABuiltImage(t *testing.T) {
+	data, err := os.ReadFile("../docs/spec.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	programs := 0
+	for _, b := range doctest.ExtractBlocks(string(data), "nomi") {
+		if !specMainRe.MatchString(b.Code) || strings.Contains(b.Code, "...") {
+			continue
+		}
+		p, err := vmhost.LoadSource("main.nomi", b.Code)
+		if err != nil {
+			t.Fatalf("docs/spec.md:%d: %v", b.Line, err)
+		}
+		var want bytes.Buffer
+		if err := p.Run(context.Background(), &want, nil, false); err != nil {
+			t.Fatalf("docs/spec.md:%d: %v", b.Line, err)
+		}
+		img, _, err := p.BuildImage()
+		if err != nil {
+			// A program with a `todo` or `dbg` left in it is not built.
+			continue
+		}
+		programs++
+		var got, errOut bytes.Buffer
+		if code := vmrunner.Run(img, &got, &errOut, strings.NewReader(""), nil, false); code != 0 || got.String() != want.String() {
+			t.Errorf("docs/spec.md:%d from its built image: exit %d, stderr %q\nstdout:\n%s\nnomi run printed:\n%s",
+				b.Line, code, errOut.String(), got.String(), want.String())
+		}
+	}
+	if programs < 10 {
+		t.Fatalf("built %d complete programs, want at least 10", programs)
 	}
 }

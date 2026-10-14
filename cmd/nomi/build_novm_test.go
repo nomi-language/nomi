@@ -1,6 +1,6 @@
 package main
 
-// `nomi build --no-vm` and `nomi build --vm`: a compiled program (.nomic), run
+// `nomi build --no-vm` and `nomi build-vm`: a compiled program (.nomic), run
 // by a nomi-vm that does not embed it, by path or framed on stdin
 // (vmrunner/imagefile.go, vmrunner/bare.go), and by `nomi run`.
 
@@ -84,16 +84,16 @@ func TestBuildNoVM_TheRunnerRunsItAsNomiRunDoes(t *testing.T) {
 		mustWrite(t, filepath.Join(dir, name), src)
 	}
 	runner := filepath.Join(t.TempDir(), "nomi-vm")
-	if b := runProcess(t, env, dir, "", nomiBin, "build", "--vm", "-o", runner); b.exit != 0 {
-		t.Fatalf("nomi build --vm: exit %d\n%s", b.exit, b.transcript())
+	if b := runProcess(t, env, dir, "", nomiBin, "build-vm", "-o", runner); b.exit != 0 {
+		t.Fatalf("nomi build-vm: exit %d\n%s", b.exit, b.transcript())
 	}
 	node, nodeErr := exec.LookPath("node")
 	wasm := ""
 	script := filepath.Join(t.TempDir(), "wasi.mjs")
 	if nodeErr == nil && nodeMajor(t, node) >= 20 {
 		wasm = filepath.Join(t.TempDir(), "nomi-vm.wasm")
-		if b := runProcess(t, env, dir, "", nomiBin, "build", "--vm", "--target", "wasip1/wasm", "-o", wasm); b.exit != 0 {
-			t.Fatalf("nomi build --vm --target wasip1/wasm: exit %d\n%s", b.exit, b.transcript())
+		if b := runProcess(t, env, dir, "", nomiBin, "build-vm", "--target", "wasip1/wasm", "-o", wasm); b.exit != 0 {
+			t.Fatalf("nomi build-vm --target wasip1/wasm: exit %d\n%s", b.exit, b.transcript())
 		}
 		mustWrite(t, script, wasiImageScript)
 	} else {
@@ -214,9 +214,24 @@ func TestBuildNoVM_Refusals(t *testing.T) {
 		{[]string{"build", "--no-vm", project, "-o", "ffi.nomic"}, "nomi build --no-vm: this project has Go bindings"},
 		{[]string{"build", "--no-vm", "--target", "linux/amd64", "echo.nomi"}, "a compiled program runs on every target's nomi-vm, so it takes no --target"},
 		{[]string{"build", "--no-vm", "--web", "echo.nomi"}, "--no-vm and --web are different outputs"},
-		{[]string{"build", "--compiler", "echo.nomi"}, "--compiler needs --vm"},
-		{[]string{"build", "--vm", "echo.nomi"}, "nomi-vm carries no program, so it takes no file"},
-		{[]string{"build", "--vm", "--web"}, "--vm takes only -o, --target and --compiler"},
+		{[]string{"build", "--compiler", "echo.nomi"}, "nomi build: unknown flag \"--compiler\""},
+		{[]string{"build", "--vm"}, "nomi build: unknown flag \"--vm\""},
+		{[]string{"build", "echo.nomi", "--vm"}, "nomi build: unknown flag \"--vm\""},
+		{[]string{"build", "--reactor"}, "nomi build: unknown flag \"--reactor\""},
+		{[]string{"build", "echo.nomi", "--reactor"}, "nomi build: unknown flag \"--reactor\""},
+		{[]string{"build"}, buildUsage},
+		{[]string{"build-vm", "echo.nomi"}, "nomi build-vm: the VM carries no program, so it takes no file (echo.nomi). " +
+			"nomi build echo.nomi writes the program with the VM"},
+		{[]string{"build-vm", "--web"}, "nomi build-vm: unknown flag \"--web\""},
+		{[]string{"build-vm", "--no-vm"}, "nomi build-vm: unknown flag \"--no-vm\""},
+		{[]string{"build-vm", "echo.nomi", "--reactor"}, "nomi build-vm: the reactor carries no program, so it takes no file (echo.nomi). " +
+			"A program with an `export fn` already builds a reactor: nomi build echo.nomi --target wasip1/wasm"},
+		{[]string{"build-vm", "--reactor", "--no-vm"}, "nomi build-vm: unknown flag \"--no-vm\""},
+		{[]string{"build-vm", "--reactor", "--web"}, "nomi build-vm: unknown flag \"--web\""},
+		{[]string{"build-vm", "--reactor", "--target", "js/wasm"}, "nomi build-vm --reactor: the reactor is a WASI module, so it builds for wasip1/wasm, not js/wasm"},
+		{[]string{"build-vm", "--reactor", "--target", "linux/amd64"}, "so it builds for wasip1/wasm, not linux/amd64"},
+		{[]string{"build-vm", "--target", "linux"}, "nomi build-vm: --target takes <goos>/<goarch>"},
+		{[]string{"build-vm", "-o"}, "nomi build-vm: -o needs a value\n" + buildVMUsage},
 	} {
 		got := runProcess(t, env, dir, "", nomiBin, c.args...)
 		if got.exit == 0 || !strings.Contains(got.stderr, c.want) {

@@ -1,17 +1,16 @@
 ---
 title: Scalars & Strings
-description: Integers, floats, decimals, booleans, and strings — the values you build with.
+description: Integers, floats, decimals, booleans, strings and bytes.
 ---
 
-Nomi has three numeric scalar types — [`Int`](/reference/int/),
-[`Float`](/reference/float/), [`Decimal`](/reference/decimal/) — plus
-[`Bool`](/reference/bool/), [`String`](/reference/strings/#type-string),
-[`Byte`](/reference/bytes/#type-byte), and [`Bytes`](/reference/bytes/#type-bytes).
+Nomi has three number types: [`Int`](/reference/int/),
+[`Float`](/reference/float/) and [`Decimal`](/reference/decimal/). The other
+basic types are [`Bool`](/reference/bool/),
+[`String`](/reference/strings/#type-string), and
+[`Byte`](/reference/bytes/#type-byte) and
+[`Bytes`](/reference/bytes/#type-bytes) for binary data.
 
 ## Numbers, booleans, operators
-
-Arithmetic, comparisons, and the logical operators `and` / `or` / `!` all read
-as you'd expect:
 
 ```nomi-run
 fn main() {
@@ -35,10 +34,10 @@ dbg line 7: 42 > 10 = True
 dbg line 8: True and !False = True
 -->
 
-## Number literal forms
+Arithmetic and comparisons work as in most languages. The logical operators
+are `and`, `or` and `!`.
 
-Numbers can use digit separators, alternate radices (hex / binary / octal), or
-scientific notation — different spellings of the same values:
+## Number literal forms
 
 ```nomi-run
 fn main() {
@@ -56,13 +55,11 @@ dbg line 4: 0b1010 = 10
 dbg line 5: 1.0e10 = 10000000000.0
 -->
 
-## Decimal — exact arithmetic
+A number can use `_` to separate digits. `0x` starts a hexadecimal number,
+`0b` a binary one, and `0o` an octal one. `e` writes a number in scientific
+notation.
 
-[`Float`](/reference/float/) is fast but approximate: small rounding errors accumulate, and
-familiar identities like the one below quietly fail. [`Decimal`](/reference/decimal/) is the exact
-alternative — use it whenever rounding error is a bug (money, billing,
-anywhere correctness matters more than speed). Decimal literals carry a `d`
-suffix:
+## Decimal — exact arithmetic
 
 ```nomi-run
 fn main() {
@@ -83,9 +80,14 @@ dbg line 6: 0.1d + 0.2d == 0.3d = True
 dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 -->
 
-## Strings — interpolation and concatenation
+[`Float`](/reference/float/) is fast but not exact. It stores numbers in
+binary, so `0.1 + 0.2` is not quite `0.3`.
 
-Strings interpolate `${expr}` and concatenate with `+`:
+[`Decimal`](/reference/decimal/) stores numbers in base 10 and adds them
+exactly. Use it when a rounding error would be a bug, as with money. A
+decimal literal ends in `d`.
+
+## Strings — interpolation and concatenation
 
 ```nomi-run
 import std/io
@@ -104,12 +106,17 @@ Hello, Nomi!
 Hello, Nomi
 -->
 
-[`io.print`](/reference/io/#ioprint) accepts any value that can be displayed, so
-you rarely need to stringify before printing — interpolation calls each value's
-[`Display.to_string`](/reference/display/#displayto_string) for you.
+`${expr}` inside a string inserts the value of `expr`. `+` joins two
+strings.
 
-`${` is the only special pair in a string. Write `\${` for a literal `${`; a
-`$` on its own, `#` and `#{` are ordinary text:
+Interpolation turns each value into text with
+[`Display.to_string`](/reference/display/#displayto_string).
+[`io.print`](/reference/io/#ioprint) accepts any value that implements
+`Display`. So you rarely convert a value to a string yourself before
+printing it.
+
+`${` is the only special sequence in a string. To write a literal `${`,
+write `\${`. A `$` on its own, `#` and `#{` are ordinary text:
 
 ```nomi-run
 import std/io
@@ -123,23 +130,27 @@ fn main() {
 echo ${HOME} costs $5 #{not a set}
 -->
 
-`+`, `-`, `*`, and `/` are backed by standard operator interfaces:
-[`Add`](/reference/add/), [`Subtract`](/reference/subtract/),
-[`Multiply`](/reference/multiply/), and [`Divide`](/reference/divide/). The
-built-in scalar impls cover numeric arithmetic; `+` also covers string
-concatenation. Custom types can implement the same interfaces when the operator
-is the clearest domain operation.
+Each arithmetic operator comes from an interface: `+` from
+[`Add`](/reference/add/), `-` from [`Subtract`](/reference/subtract/), `*`
+from [`Multiply`](/reference/multiply/) and `/` from
+[`Divide`](/reference/divide/). The number types implement them, and
+`String` implements `Add`, which is how `+` joins strings. Your own types can
+implement them too, when an operator is the clearest way to write the
+operation.
 
-To take text apart, [`String.split`](/reference/strings/#stringsplit) cuts at
-an exact separator, [`String.words`](/reference/strings/#stringwords) splits on
-any run of whitespace, and [`String.lines`](/reference/strings/#stringlines)
-splits into lines. The [`String` reference](/reference/strings/) lists the
-rest.
+To split text:
+
+- [`String.split`](/reference/strings/#stringsplit) splits at a separator.
+- [`String.words`](/reference/strings/#stringwords) splits at runs of
+  whitespace.
+- [`String.lines`](/reference/strings/#stringlines) splits into lines.
+
+The [`String` reference](/reference/strings/) lists the rest.
 
 `String.split`, `String.contains?`, `String.starts_with?`,
-`String.ends_with?`, `String.replace` and `String.find_all` look for any
-[`Matcher`](/reference/matcher/): a plain `String`, or a compiled
-[`Regex`](/typed-literals/#regex-literals).
+`String.ends_with?`, `String.replace` and `String.find_all` take a
+[`Matcher`](/reference/matcher/) for the text to look for. A `Matcher` is
+either a plain `String` or a [`Regex`](/typed-literals/#regex-literals):
 
 ```nomi-run
 import std/regex.Regex
@@ -160,28 +171,28 @@ dbg line 8: String.contains?(text, Regex`\d`) = False
 
 ## Text model
 
-Nomi's text model has three pieces:
+Nomi looks at text at four levels:
 
-- [`String`](/reference/strings/#type-string) is text. Nomi has no separate `Char` type, so even one-character
-  text is a `String`.
-- A grapheme is one user-visible character. `é` and many emoji count as one
-  grapheme even when they are built from multiple Unicode values. Nomi
-  represents graphemes as `String` values.
-- [`Codepoint`](/reference/codepoints/) is an integer-backed Unicode scalar value: a valid number in
-  Unicode's scalar-value range. Use it when you need to inspect the lower-level
-  values that make up text.
-- [`Bytes`](/reference/bytes/#type-bytes) is immutable binary data, and
-  [`Byte`](/reference/bytes/#type-byte) is one byte in that buffer. Use it for
-  UTF-8 boundaries, file/network payloads, and Go `[]byte` FFI.
+- A [`String`](/reference/strings/#type-string) is text. There is no
+  separate `Char` type, so a single character is a `String` too.
+- A grapheme is one character as a reader sees it. `é` and many emoji are
+  one grapheme even when Unicode builds them from several code points. Nomi
+  represents a grapheme as a `String`.
+- A [`Codepoint`](/reference/codepoints/) is one Unicode code point: a
+  number Unicode assigns to a character. Use it when you need the numbers
+  that make up text.
+- [`Bytes`](/reference/bytes/#type-bytes) is immutable binary data, and a
+  [`Byte`](/reference/bytes/#type-byte) is one byte of it. Use it for UTF-8
+  encoding, file and network data, and Go's `[]byte` when calling Go.
 
-Most string operations use the grapheme view: [`String.length`](/reference/strings/#stringlength),
-[`String.slice`](/reference/strings/#stringslice), and
-[`String.reverse`](/reference/strings/#stringreverse) work in user-visible
-characters rather than raw bytes. A `String` iterates by grapheme too, so
-`Iter.to_list("café")` is its list of graphemes.
+Most string functions count graphemes. [`String.length`](/reference/strings/#stringlength),
+[`String.slice`](/reference/strings/#stringslice) and
+[`String.reverse`](/reference/strings/#stringreverse) work in characters as
+a reader sees them, not in bytes. Iterating over a `String` also gives its
+graphemes, so `Iter.to_list("café")` is a list of four strings.
 
-Use [`String.to_codepoints`](/reference/strings/#stringto_codepoints) when you need the
-lower-level scalar values:
+[`String.to_codepoints`](/reference/strings/#stringto_codepoints) gives the
+code points instead:
 
 ```nomi-run
 fn main() {
@@ -207,12 +218,14 @@ dbg line 9:
   = [99, 97, 102, 233]
 -->
 
-An ASCII codepoint has a literal: the character in single quotes, `'a'`, or an
-escape, `'\n'`, `'\''`, `'\u{7F}'`. It is a `Codepoint`, not a one-character
-string, so `"a" == 'a'` is a type error. Use it for codepoint-level work such
-as scanning and matching, and keep text in strings. The literal is ASCII only
-because only there do the character, its codepoint and its UTF-8 byte agree;
-`"é"` stays a string.
+An ASCII character in single quotes is a `Codepoint` literal: `'a'`. Escapes
+work too: `'\n'`, `'\''`, `'\u{7F}'`. It is a `Codepoint`, not a string, so
+`"a" == 'a'` is a type error.
+
+Use codepoint literals for work such as scanning and matching characters,
+and keep text in strings. They are limited to ASCII because only there are
+the character, its code point and its UTF-8 byte the same thing. `'é'` is an
+error; write `"é"` as a string.
 
 ```nomi-run
 fn kind(cp: Codepoint): String {
@@ -241,18 +254,12 @@ dbg line 14:
   = ["a", "comma", "space", "b"]
 -->
 
-String equality is byte-based, so visually identical text can compare unequal
-when it uses different Unicode forms. Normalize with
-[`String.normalize`](/reference/strings/#stringnormalize) before comparing text
-from mixed sources.
+`==` compares strings byte by byte. The same visible text can be stored in
+more than one Unicode form, and two such strings are not equal. Before
+comparing text from different sources, put both in the same form with
+[`String.normalize`](/reference/strings/#stringnormalize).
 
 ## Bytes — binary data
-
-Use [`String.to_bytes`](/reference/strings/#stringto_bytes) to encode text as
-UTF-8 bytes. `Bytes` is iterable, so the generic `Iter.*` functions work on it,
-and [`Byte.to_int`](/reference/bytes/#byteto_int) exposes each `Byte` as an
-integer when you need to inspect it. `Bytes + Bytes` concatenates buffers; the
-named form is [`Bytes.concat`](/reference/bytes/#bytesconcat).
 
 ```nomi-run
 import {
@@ -278,14 +285,21 @@ dbg line 8: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 
 go:café
 -->
 
-`Byte` itself is not numeric. Convert through
-[`Byte.from_int`](/reference/bytes/#bytefrom_int) and `Byte.to_int` when a
-boundary really needs integer values.
+- [`String.to_bytes`](/reference/strings/#stringto_bytes) encodes text as
+  UTF-8. `é` takes two bytes, so `café` is 5 bytes.
+- `Bytes` can be iterated, so the `Iter` functions work on it.
+- [`Byte.to_int`](/reference/bytes/#byteto_int) turns a `Byte` into an
+  `Int`.
+- `+` joins two `Bytes` values, as
+  [`Bytes.concat`](/reference/bytes/#bytesconcat) does.
+- `Bytes.to_string` decodes UTF-8 and returns a `Result`, since the bytes
+  may not be valid UTF-8.
+
+A `Byte` is not a number, so you can't do arithmetic on it. Convert with
+[`Byte.from_int`](/reference/bytes/#bytefrom_int) and `Byte.to_int` when you
+need the number.
 
 ## Triple-quoted strings
-
-A `"""…"""` literal spans multiple lines. Interpolation works the same way,
-and leading indentation common to every line is stripped:
 
 ```nomi-run
 import std/io
@@ -309,11 +323,10 @@ FROM users
 WHERE name = 'Alice'
 -->
 
-## Raw strings
+A string in `"""` quotes can span several lines. Interpolation works as
+usual. The indentation that every line shares is removed.
 
-A backtick string is raw: escapes and `${...}` interpolation are not
-processed. Use it for embedded text where those characters should pass through
-literally:
+## Raw strings
 
 ```nomi-run
 import std/io
@@ -342,11 +355,12 @@ FROM invoices
 WHERE total > ${MIN_TOTAL}
 -->
 
-Multi-line raw strings use the same indentation rules as triple-quoted
-strings.
+A string in backticks is raw. Backslashes and `${...}` are kept as written.
+Use it for text that contains those characters. A raw string can span
+several lines, and its shared indentation is removed the same way.
 
-For compiled regular expressions, use the `Regex` typed literal form shown in
+For regular expressions, use the `Regex` typed literal shown in
 [Typed Literals](/typed-literals/#regex-literals).
 
-The next chapter — [Collections](/collections/) — uses these scalar values
-inside lists, maps, and sets.
+[Collections](/collections/) is next. It puts these values into lists, maps
+and sets.

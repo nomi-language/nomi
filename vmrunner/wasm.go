@@ -28,7 +28,7 @@ const WasmSectionName = "nomi.image"
 // WasmImageAreaSize is the size of a wasip1 runner's image area: an 8-byte
 // length, then the image. The area is bss, so it adds nothing to the module
 // file; it raises the module's initial linear memory by its size.
-const WasmImageAreaSize = 16 << 20
+const WasmImageAreaSize = 4 << 20
 
 // WasmImageSlotMagic opens the initialized global through which `nomi
 // build` finds a wasip1 runner's image area (image_wasip1.go's imageSlot).

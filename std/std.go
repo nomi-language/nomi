@@ -204,6 +204,18 @@ func IsSourcePath(path string) bool {
 	return ok
 }
 
+// ImageName is how a built image names path when it is the path positions
+// name a stdlib module's source by (SourcePath): `std/` and the module's
+// file under it, the same on every machine, since the source is embedded in
+// the binary. Any other path answers false.
+func ImageName(path string) (string, bool) {
+	rel, ok := sourcePaths()[path]
+	if !ok {
+		return "", false
+	}
+	return "std/" + rel, true
+}
+
 // EditorPath is the file an editor opens for path, a position's file: for a
 // stdlib module, the file navigation into it opens (FileURI's choice, written
 // out when it is the materialized copy); any other path is itself.

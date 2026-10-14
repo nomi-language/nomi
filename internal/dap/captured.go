@@ -17,8 +17,7 @@ import (
 //
 // A scope holds `output`, everything written so far, and `transcript`, the
 // output with each line read written in. For `io.replay` the transcript is
-// in the two-column form (rt.ReplayText), whether or not the script has
-// input, and the scope also holds
+// in the form the replay compares (rt.ReplayText), and the scope also holds
 // the script's input lines read so far and still to come, and `diverged`
 // when the transcript already differs from the script's. A text's value is
 // the whole text as a String shows, which a client copies, and its children

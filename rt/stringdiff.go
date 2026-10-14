@@ -27,8 +27,8 @@ import (
 // literal written in the file (ExpectedLine), then the marker, then ` │ `
 // and the line's text exactly as it is. A line only the actual side has
 // carries no number. The marker has a column of its own so that text
-// starting with spaces or `>>`, as a replay transcript's four-column gutter
-// does, reads unchanged. A changed empty line reads `(empty line)`.
+// starting with spaces, as a replay transcript's input lines do, reads
+// unchanged. A changed empty line reads `(empty line)`.
 //
 // # Which side is expected
 //

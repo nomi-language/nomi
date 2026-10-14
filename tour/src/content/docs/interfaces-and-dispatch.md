@@ -1,24 +1,22 @@
 ---
 title: "Interfaces & Dispatch"
-description: "Declare contracts with `interface`, implement them with `impl Iface for Type` blocks. Qualified call shapes, universal Debug, derives, and interface-bounded generics."
+description: "Declare an interface, implement it for your types, and call its functions. Defaults, Debug and Display, generic bounds, operators and derives."
 ---
 
-Nomi has functions, not value-dot methods. Type-related helpers live on their
-type owner (`User.rename(user)`, [`List.concat(xs, ys)`](/reference/lists/#listconcat));
-receiverless helpers live in files ([`io.print(value)`](/reference/io/#ioprint)).
-The [Structs, Enums, Distinct Types](/structs-enums-distinct/#type-owned-functions)
-chapter shows ordinary `impl Type { ... }` blocks. This chapter adds
-`impl Interface for Type { ... }` blocks: functions supplied for a contract,
-still called through an explicit qualifier. The everyday spelling usually names
-the implementing type (`User.to_json(user)`). Use the interface qualifier when
-you need it: most often to disambiguate two interfaces with the same function
-name, or in generic code where the bound is the available owner
-([`Display.to_string(value)`](/reference/display/#displayto_string)).
+Nomi has no `value.method()` calls. A function about a type is called through
+the type's name, as in `User.rename(user)` or
+[`List.concat(xs, ys)`](/reference/lists/#listconcat). A function that
+belongs to no type is called through its file's name, as in
+[`io.print(value)`](/reference/io/#ioprint).
 
-An `interface` declares a contract: the functions a type must provide. A type
-supplies that contract with an `impl Iface for Type { ... }` block. This
-chapter starts with the direct shape, then shows how qualified calls, defaults,
-generic bounds, operators, derives, and the orphan rule fit around it.
+The [Structs, Enums, Distinct Types](/structs-enums-distinct/#type-owned-functions)
+chapter showed `impl Type { ... }` blocks, which add functions to a type. This
+chapter covers interfaces. An `interface` lists functions that a type must
+provide. A type provides them in an `impl Interface for Type { ... }` block.
+
+You call these functions through the type's name, as in `User.to_json(user)`,
+or through the interface's name, as in
+[`Display.to_string(value)`](/reference/display/#displayto_string).
 
 ## Defining and implementing an interface
 
@@ -60,23 +58,19 @@ Rex says woof
 Whiskers says meow
 -->
 
-In an interface signature, `self` is a type placeholder for the concrete
-implementing type. It is not a value, not an implicit parameter, and not a
-qualifier. Every `self` in one interface function signature denotes that same
-concrete type for a given implementation.
+In the interface, `self` is a type. It stands for whichever type implements
+the interface: `Dog` in one impl, `Cat` in the other. It is not a value or a
+hidden parameter.
 
-The concrete functions spell their real implementing types (`Dog`, `Cat`)
-directly. The parameter's *name* (`animal`) is documentation; the impl can
-rename it (`d`, `c`).
+Each impl writes its own type in place of `self`. The parameter's name doesn't
+have to match: the interface says `animal`, and the impls say `d` and `c`.
 
 ## Qualified call shapes
 
-At ordinary call sites, interface implementation functions are called through an
-explicit qualifier, not as a bare `speak(dog)`. The qualifier is the name before
-`.`. Use the implementing type for the everyday spelling (`Dog.speak(dog)`), and
-use the interface qualifier when you need to disambiguate or when generic code
-only has the interface bound available (`Speech.speak(dog)`). Both forms select
-the implementation for the concrete type bound to `self`:
+You call an interface function through a name and a dot, never bare as
+`speak(dog)`. Usually you write the type's name: `Dog.speak(dog)`. You can
+also write the interface's name: `Speech.speak(dog)`. Both call the `Dog`
+impl:
 
 ```nomi-run
 import std/io
@@ -115,22 +109,28 @@ Rex says woof
 42
 -->
 
-Functions are qualified by their nearest API container. Inherent functions use
-their type or interface owner, like [`Iter.map(xs, f)`](/reference/iter/#itermap)
-or [`List.concat(xs, ys)`](/reference/lists/#listconcat). Interface contract
-functions use the implementing type (`Dog.speak(dog)`) or, when needed, the
-interface (`Speech.speak(dog)`). Receiverless file APIs use the imported file
-name, like [`io.print(x)`](/reference/io/#ioprint). A bare name still resolves
-to a local helper or binding, not to ambient interface dispatch.
+Use the interface's name when two interfaces have a function with the same
+name, or in generic code that knows only the interface (see
+[Interface-bounded generics](#interface-bounded-generics)).
+
+To sum up the rule for every call:
+
+- A function declared in an `impl Type` or `impl Interface` block is called
+  through its type or interface:
+  [`Iter.map(xs, f)`](/reference/iter/#itermap), `Dog.speak(dog)`,
+  `Speech.speak(dog)`.
+- A function declared at the top of a file is called through the file's name
+  once you import it: [`io.print(x)`](/reference/io/#ioprint).
+- A bare name such as `speak` means a function or binding in the current
+  file. It never finds an interface function by itself.
 
 ## Default Functions
 
-Interface functions can include a *body* — that body becomes the
-**default implementation**. Every type implementing the interface gets
-the default for free; the type only needs to provide functions
-for the ones that don't have a default. Defaults are **final by default** —
-implementors *can't* override them. Mark a default `open` to
-explicitly permit override:
+A function in an interface can have a body. That body is the default: every
+type that implements the interface gets it, and the impl doesn't write it.
+An impl must write every function that has no body.
+
+A type can't replace a default unless the interface marks it `open`:
 
 ```nomi-run
 import std/io
@@ -178,23 +178,24 @@ Alice!
 user:Alice
 -->
 
-Defaults are closed unless marked `open`. A closed default is part of the
-interface's promised behavior; an `open` default says implementors may replace
-it. An interface item with no body is required, and interface items do not use
-`pub` — they share the interface's visibility.
+A default without `open` behaves the same for every type, so code that calls
+it knows what it does. Interface functions don't take `pub`. They are visible
+wherever the interface is.
 
-Inside an interface default, a bare call such as `label(value)` names a sibling
-function from the same interface. Inside an `impl` block, the same-owner rule
-applies too: sibling implementation functions can be called bare from that body
-when unambiguous. At outside call sites, keep the qualifier.
+Inside a default, a bare call such as `label(value)` calls another function of
+the same interface. Inside an `impl` block, you can likewise call the block's
+other functions by their bare names. Everywhere else, write the qualifier.
 
 ### Defaults that need another interface
 
-A default runs for every implementor, so its body can use only what every
-implementor has: its own interface's functions and `Debug`. To use another
-interface on `self`, say so with `where self: Display` on that default. An
-implementor with `Display` gets the default; one without it writes the
-function itself, and an `impl` that does neither is an error.
+A default runs for every type that implements the interface. So its body can
+only use what all of those types have: the interface's own functions, and
+`Debug`.
+
+To use another interface, add `where self: Display` (or whichever interface)
+to that default. A type that implements `Display` gets the default. A type
+that doesn't must write the function itself. An `impl` that does neither is
+an error.
 
 ```nomi-run
 import std/io
@@ -250,11 +251,14 @@ Without the `where self` clause, `"${value}"` in that default is an error:
 
 ### Defaults over distinct types
 
-Every distinct type is a `Distinct<T>` for the type it wraps: `Celsius`
-below is a `Distinct<Decimal>`. A default with `where self: Distinct<T>`
-can take `self` apart with the pattern `self(n)` and build one with
-`self(x)`, so a family of wrappers shares one body. Each implementor's
-copy of the default destructures and builds that implementor.
+A distinct type wraps another type. Every distinct type implements
+`Distinct<T>`, where `T` is the type it wraps: `Celsius` below wraps
+`Decimal`, so it is a `Distinct<Decimal>`.
+
+A default with `where self: Distinct<T>` can unwrap `self` with the pattern
+`self(n)`, and wrap a value with `self(x)`. This lets several wrapper types
+share one function body. For `Celsius`, `self(n)` unwraps a `Celsius` and
+`self(x)` makes one.
 
 ```nomi-run
 import std/io
@@ -298,87 +302,20 @@ fn main() {
 Celsius(20d)
 -->
 
-`self(n)` also works in a `case` arm and a binding (`self(m) = other`), and
-`self` alone is the constructor as a function value (`Iter.map(ns, self)`).
-An implementor that is not a distinct type over `Decimal` writes the
-function itself, as with any `where self` bound. So does an opaque type
-implemented outside its own file, since the default would open its
-representation there.
+`self(n)` also works in a `case` arm and in a binding (`self(m) = other`).
+`self` on its own is the wrapping function, which you can pass around:
+`Iter.map(ns, self)`.
 
-## Requiring a value
-
-An interface declares functions only. To require that every implementor
-supply a value, declare a function requirement for it. A struct implements
-it by returning its field, and any other type computes it, so the contract
-doesn't care how the value is stored:
-
-```nomi-run
-import std/io
-
-interface HasName {
-    fn name(value: self): String
-
-    // Default — reads the name through the required function.
-    fn greet(value: self): String {
-        "Hello, ${name(value)}"
-    }
-}
-
-struct User {
-    name: String
-    age: Int
-}
-
-impl HasName for User {
-    fn name(user: User): String {
-        user.name
-    }
-}
-
-enum Pet {
-    Dog String
-    Cat String
-}
-
-impl HasName for Pet {
-    fn name(pet: Pet): String {
-        case pet {
-            .Dog(name) -> name
-            .Cat(name) -> name
-        }
-    }
-}
-
-fn main() {
-    alice = User{name: "Alice", age: 30}
-    rex = Pet.Dog("Rex")
-    io.print(HasName.greet(alice))
-    io.print(HasName.greet(rex))
-}
-
-```
-<!-- expect
-Hello, Alice
-Hello, Rex
--->
-
-Read the value with a qualified call: `HasName.name(x)` on a value of
-interface type, `T.name(x)` through a bound. A value of interface type or of
-a type parameter has no fields, so `x.name` on one is a compile error.
-
-[App Fields, Defer & Context](/capabilities-and-context/) uses a related
-shape: an app payload's `logger: Logger` is a *field whose type is an
-interface*. The natural follow-up question — "why not just write
-`fn greet(v: {name: String})` and match on the shape?" — is covered in
-[Why not structural field matching?](#why-not-structural-field-matching)
-in the deep-dive section below.
+A type that isn't a distinct type over `Decimal` must write these functions
+itself, as with any `where self` bound. So must an opaque type whose impl is
+in another file, because the default would unwrap it there, where its
+contents are hidden.
 
 ## Universal `Debug`
 
-[`Debug`](/reference/debug/) is the only interface that's automatic. Every value can be
-debugged — including the types you just declared, with no `impl`
-conformance, no `derive`. Nomi provides structural Debug output for every
-declared type:
+[`Debug`](/reference/debug/) is the only interface every type has
+automatically. You don't write an `impl` or a `derive` for it. Every value,
+including those of types you declare, can be shown with `dbg`:
 
 ```nomi-run
 struct Point {
@@ -406,18 +343,17 @@ dbg line 15: Status.Pending(7) = Pending(7)
 dbg line 16: Email("a@b.com") = Email("a@b.com")
 -->
 
-That's why `dbg` has been working everywhere in the tour with no ceremony.
-[`io.print`](/reference/io/#ioprint), in contrast, requires [`Display`](/reference/display/) — which is opt-in.
+That's why `dbg` has worked on everything in the tour so far.
 
-Automatic Debug is a *default*, not a fixed rule. When you want custom
-formatting, write `impl Debug for Type { ... }` (or `derive Debug` for the
-structural one). Your impl takes precedence.
+To show a type differently, write `impl Debug for Type { ... }`. Your impl is
+used in place of the automatic one.
 
 ## Opting in to `Display`
 
-[`io.print`](/reference/io/#ioprint) requires [`Display`](/reference/display/) — the user-facing format. For your own types,
-you provide it with an `impl Display for Type { ... }` block containing a
-`to_string` function:
+[`io.print`](/reference/io/#ioprint) needs a different interface,
+[`Display`](/reference/display/). `Display` is the text you show to users, and
+your types don't get it automatically. Write an `impl Display for Type { ... }`
+block with a `to_string` function:
 
 ```nomi-run
 import std/io
@@ -442,13 +378,13 @@ fn main() {
 Alice (30)
 -->
 
-The function name (`to_string`) matches the function in the `Display`
-interface; the implementation spells the concrete implementing type, `User`.
+The function is named `to_string`, as in the `Display` interface, and takes a
+`User`.
 
 ## Interface-bounded generics
 
 A generic function can require its type parameter to implement an interface.
-The bound is checked at the call site:
+Each call is checked against that requirement:
 
 ```nomi-run
 fn first_two_sorted<T>(xs: List<T>): List<T> where T: Comparable {
@@ -472,20 +408,17 @@ dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
 dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana"]
 -->
 
-Both [`Int`](/reference/int/) and [`String`](/reference/strings/#type-string) already implement [`Comparable`](/reference/comparable/) (in stdlib), so both
-calls satisfy the bound automatically.
+The standard library makes [`Int`](/reference/int/) and
+[`String`](/reference/strings/#type-string) implement
+[`Comparable`](/reference/comparable/), so both calls are allowed.
 
-Generic headers introduce names; `where` constrains those names. See
-[Generics](/generics/) for the full shape, including multiple and relational
-bounds. The short version is:
+[Generics](/generics/) covers bounds in full. Some examples:
 `where T: Comparable`, `where T: Display and Debug`,
 `where T: Steppable<S>`.
 
-Interface signatures use the same function-level form. A required interface
-function can carry a `where` clause when only that function needs an extra
-bound; a default function writes the clause in the same place, before its body.
-If the interface function needs its own type parameter, introduce it explicitly
-on the function before constraining it:
+A function in an interface can have its own `where` clause, written before
+its body if it has one. If it needs its own type parameter, declare it in
+`<...>` after the function's name:
 
 ```nomi ignore
 interface Ranked<T> {
@@ -500,22 +433,22 @@ interface Ranked<T> {
 }
 ```
 
-`T` comes from `Ranked<T>`; `K` comes from `prefer<K>`. A type variable that is
-not introduced by the interface or the function's own `<...>` header is an
-error.
+`T` comes from `Ranked<T>`. `K` comes from `prefer<K>`. Naming a type
+parameter that neither of them declares is an error.
 
 ## Operators that dispatch
 
-Most interface functions are called directly through their qualifier:
-[`Display.to_string(value)`](/reference/display/#displayto_string),
-`Dog.speak(dog)`, `Iter.each_while(xs, yield)`. A few operators are also backed
-by interfaces. Equality can route through [`Equatable`](/reference/equatable/), ordering
-requires [`Comparable`](/reference/comparable/), and arithmetic uses [`Add`](/reference/add/), [`Subtract`](/reference/subtract/), [`Multiply`](/reference/multiply/), and
-[`Divide`](/reference/divide/).
+Some operators call interface functions:
 
-The arithmetic interfaces are deliberately two-parameter: the impl chooses both
-the right-hand operand type and the expression result. That means same-type
-arithmetic and domain-specific stepping use the same protocol:
+- `==` uses [`Equatable`](/reference/equatable/), when the type implements it.
+- `<`, `>` and the other comparisons use [`Comparable`](/reference/comparable/).
+- `+`, `-`, `*` and `/` use [`Add`](/reference/add/),
+  [`Subtract`](/reference/subtract/), [`Multiply`](/reference/multiply/) and
+  [`Divide`](/reference/divide/).
+
+The arithmetic interfaces take two type parameters: the type of the right-hand
+side, and the type of the result. So the same interface covers adding two
+scores, and adding a number of days to a day:
 
 ```nomi-run
 type Score Int
@@ -567,22 +500,20 @@ dbg line 39: day_number(day) = 14
 
 ## `derive` entries — structural shortcuts
 
-`derive` asks Nomi to write the obvious structural implementation for a common
-interface. The main derives are:
+`derive Interface for Type` asks Nomi to write the impl for you. The impl it
+writes works field by field, or variant by variant. You can derive:
 
-- **Display** and **Debug** for rendering values.
-- **Equatable** and **Hashable** for equality and hash-based collections.
-- **Comparable** for ordering with `<`, `>`, and `Iter.sort`.
-- **ToJson** and **FromJson** for structural JSON conversion.
+- `Display` and `Debug`, to turn values into text.
+- `Equatable` and `Hashable`, for `==` and for use as `Map` keys and `Set`
+  elements.
+- `Comparable`, for `<`, `>` and `Iter.sort`.
+- `ToJson` and `FromJson`, to convert to and from JSON.
 
-Display is often hand-written for real user-facing text, and Debug is automatic
-unless you override it. The derives that need the most explanation are the
-comparison and collection ones.
+You will often write `Display` by hand, since text for users rarely matches
+the fields one for one.
 
-Some derives accept options with `with`. JSON derives use that slot for field
-names. Encoding has a `User` value to dispatch from, so type and interface
-qualification both work. Decoding has no existing `User` value, so the target
-type usually qualifies the call:
+Some derives take options after `with`. The JSON derives use them to rename
+fields:
 
 ```nomi-run
 import {
@@ -626,41 +557,36 @@ dbg line 25:
 
 ### Choosing a dispatch surface
 
-Nomi usually wants one everyday way to write a call: import the owner whose API
-you are using, then call through that owner. Interface dispatch is the one place
-where the language keeps a little optionality. The implementation is the same;
-choose the surface that makes the call read best.
+An interface function can be called through the type or through the
+interface. Both run the same code, so pick the one that reads best.
 
-For a `User` declared in `users.nomi`, type-qualified calls are the normal
-application spelling:
+For a `User` declared in `users.nomi`, you would usually write the type:
 
 ```nomi
 encoded = User.to_json(user)
 user = try User.from_json(encoded)
 ```
 
-The interface name is useful when type qualification would be ambiguous, or
-when generic code names the bound rather than a concrete implementing type:
+The interface's name helps when the type's name would be ambiguous, or in
+generic code that has a bound instead of a type. `from_json` has no `User`
+argument to go by, so this form names the type in `<...>`:
 
 ```nomi
 encoded = ToJson.to_json(user)
 user = try FromJson.from_json<User>(encoded)
 ```
 
-If the target type is already written nearby, the annotation can carry it:
+A type annotation on the binding works too:
 
 ```nomi
 user: User = try FromJson.from_json(encoded)
 ```
 
-That flexibility belongs to interface dispatch. The structural derives
-themselves stay plain.
-
 ### Structural equality
 
-Equality is structural out of the box. Two values are `==` when they have
-the same shape and equal parts — no impl, no derive, no ceremony. The same
-goes for hashing: any value can be a Map key.
+You can compare any two values of the same type with `==`, with no impl or
+derive. They are equal when their fields are equal. In the same way, any value
+can be a `Map` key.
 
 ```nomi-run
 struct Point {
@@ -681,11 +607,12 @@ dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
 dbg line 9: {Point{x: 1, y: 2} => "home"} = {Point{x: 1, y: 2} => "home"}
 -->
 
-So what are `derive Equatable` and `derive Hashable` for? Two things:
+You still sometimes need `derive Equatable` or `derive Hashable`, for one of
+two reasons.
 
-**Generic bounds.** A function that demands `where T: Equatable` only accepts
-types that *declare* conformance — structural equality working at runtime
-isn't a declaration. Without the derive, this is a compile error:
+The first is generic bounds. A function with `where T: Equatable` accepts only
+types that implement `Equatable`. Built-in `==` doesn't count. Without the
+derive, this call is a compile error:
 
 ```nomi
 fn contains<T>(xs: List<T>, needle: T): Bool where T: Equatable {
@@ -696,19 +623,18 @@ contains([Point{x: 1, y: 2}], Point{x: 1, y: 2})
 // error: Point does not implement Equatable (required by `where T: Equatable`)
 ```
 
-Add `derive Equatable for Point` and the bound is satisfied — the compiler
-generates the field-by-field impl.
+Add `derive Equatable for Point` and the call compiles.
 
-**Custom equality.** A hand-written `Equatable` implementation in an
-`impl Equatable for Type { ... }` block *overrides* the structural default.
-That's how `DateTime` compares by instant — the same moment in two time zones
-is `==` (see [Dates and times](/dates-and-times/)).
+The second is custom equality. An `impl Equatable for Type { ... }` block you
+write replaces the built-in `==` for that type. That's how `DateTime` compares
+by the moment it names: the same moment in two time zones is `==` (see
+[Dates and times](/dates-and-times/)).
 
-Ordering is the exception: there is no structural fallback for `<`. The
-compiler can't guess whether a `Point` orders by `x`, by `y`, or by distance
-from the origin, so comparing values of your own type without a `Comparable`
-impl is a compile error. `derive Comparable` generates field-by-field
-lexicographic ordering:
+Ordering is different. There is no built-in `<` for your types. Nomi can't
+guess whether a `Point` should order by `x`, by `y`, or by distance from the
+origin. So using `<` on your own type without a `Comparable` impl is a compile
+error. `derive Comparable` compares the first field, then the next field if
+those are equal, and so on:
 
 ```nomi-run
 struct Money {
@@ -732,9 +658,9 @@ dbg line 11: Iter.sort(ms) = [Money{amount: 1}, Money{amount: 2}, Money{amount: 
 
 ### Ranked enums
 
-On an enum, `derive Comparable` uses **variant declaration order** as the
-ranking — earlier variants sort first. Payloads break ties only *within*
-the same variant; the rank always dominates:
+On an enum, `derive Comparable` orders the variants as they are declared.
+Earlier variants sort first. Payloads are compared only between two values of
+the same variant:
 
 ```nomi-run
 enum Severity {
@@ -758,18 +684,18 @@ dbg line 11: Severity.Warning(9) < Severity.Error(1) = True
 dbg line 12: Severity.Warning(1) < Severity.Warning(2) = True
 -->
 
-`Warning(9) < Error(1)` is `True` — the payload never outranks the variant.
-This makes the variant list itself the single place the ordering is read
-and changed, which is exactly what you want for severity levels, lifecycle
-states, and priority ladders.
+`Warning(9) < Error(1)` is `True`, because `Warning` comes before `Error`. To
+change the order, reorder the variants. This suits severity levels, stages of
+a process and priorities.
 
 ### Deriving vs sorting by key
 
-Most domain types shouldn't implement [`Comparable`](/reference/comparable/) at all. A `User` or an
-`Order` has no *intrinsic* order — it has many contextual ones (by name in
-the directory, by date in the feed). That's a use-site decision, and the
-use-site tool is [`Iter.sort_by`](/reference/iter/#itersort_by) with a key projection (or [`Iter.sort_with`](/reference/iter/#itersort_with)
-with a full comparator):
+Most of your types shouldn't implement [`Comparable`](/reference/comparable/)
+at all. A `User` or an `Order` has no single natural order. A directory sorts
+users by name, and a feed sorts orders by date. Choose the order where you
+sort, with [`Iter.sort_by`](/reference/iter/#itersort_by) and the field to
+sort on, or [`Iter.sort_with`](/reference/iter/#itersort_with) and a function
+that compares two values:
 
 ```nomi-run
 struct User {
@@ -789,99 +715,89 @@ fn main() {
 dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
 -->
 
-Reach for `derive Comparable` only when declaration order *is* the
-ordering — the type has one true ranking and the declaration states it:
+Use `derive Comparable` only when the type has one obvious order, and the
+order of its fields or variants gives it:
 
-- **Single-field wrappers** — `type Score Int`, `type Priority Int`.
-- **Ranked enums** — `Severity` above; the variant list is the ladder.
-- **Place-value structs** — `Version{major, minor, patch}`-shaped types,
-  where field-by-field comparison is the *definition* of the order (the
-  stdlib's `Date` and `Time` are this case).
+- A type that wraps one value, such as `type Score Int` or
+  `type Priority Int`.
+- An enum whose variants are in rank order, such as `Severity` above.
+- A struct like `Version{major, minor, patch}`, where comparing field by field
+  is what the order means. The standard library's `Date` and `Time` are like
+  this.
 
-Deriving `Comparable` on an ordinary domain struct bakes one arbitrary
-order into the type — call sites quietly start depending on it, and
-reordering the fields (an otherwise meaningless refactor) silently changes
-every sort. When the compiler tells you a type has no `Comparable` impl,
-the right response is usually `sort_by`, not the derive.
+On an ordinary struct, deriving `Comparable` picks one order for every sort.
+Code comes to depend on it without saying so. Then reordering the struct's
+fields changes how every sort behaves. So when the compiler says a type has no
+`Comparable` impl, the fix is usually `sort_by`, not the derive.
 
 :::note[Continue or dig deeper]
-The tour moves on to [**Modules & Imports**](/modules-and-imports/),
-which covers how `interface` and `impl` declarations interact with module
-boundaries, import cycles, and dispatch across files. Or stay here for the
-deep-dive section below.
+The next chapter is [Modules & Imports](/modules-and-imports/), which covers
+how a program is split across files. The rest of this chapter goes into more
+detail on impls.
 :::
 
 ## Going deeper
 
 ### Coherence: at most one impl per (Iface, T)
 
-A type implements an interface **at most once program-wide**. Two
-`impl Display for User { ... }` blocks, anywhere in the build graph, are a
-compile error. Nomi checks the whole build graph, so collisions are caught
-before the program runs.
+A type can implement an interface only once in a whole program. Two
+`impl Display for User { ... }` blocks anywhere in the program are a compile
+error, reported before anything runs.
 
-The check uses the resolved type and interface owners, so a `Display` impl for
-one module's `Date` does not collide with a `Display` impl for another module's
-different `Date`.
+Two types with the same name in different files are different types. So a
+`Display` impl for one file's `Date` doesn't clash with a `Display` impl for
+another file's `Date`.
 
 ### The orphan rule
 
-Coherence alone isn't enough — two libraries each reopening `Int` with an
-`impl Display for Int { … }` block would silently collide only when both are
-linked into the same program. The **orphan rule** prevents the
-situation upstream: an `impl Iface for T { ... }` block must
-live in the Nomi module that owns either `Iface` or `T`. Third-party code
-that owns neither can't write the impl directly.
+Suppose two libraries each wrote `impl Display for Int { … }`. Each would
+compile alone, but a program using both would have two impls. The orphan
+rule prevents this. An `impl Iface for T { ... }` block must be in the Nomi
+module that declares either `Iface` or `T`. Code that declares neither can't
+write the impl.
 
-An impl's home module is the directory tree rooted at its `nomi.toml` and
-`go.mod`. The escape valve is the newtype wrapper: declare `type MyId Int` in
-your module, then `impl Display for MyId { ... }` is legal because
-`MyId` is yours.
+A Nomi module is the directory tree that holds its `nomi.toml` and `go.mod`.
+To implement someone else's interface for someone else's type, wrap the type
+in your own. Declare `type MyId Int` in your module, and then
+`impl Display for MyId { ... }` is allowed, because `MyId` is yours.
 
-Ordinary helper functions are just file functions. A sibling file
-can define receiverless helpers around an imported type, but it cannot add a new
-type-owned function, field, variant, or orphan interface implementation to that
-imported type.
+Any file can write ordinary functions that take an imported type. But it
+can't add a function, field or variant to that type, or an impl the orphan
+rule forbids.
 
 ### Why not structural field matching?
 
-The natural question after seeing an interface require a `name` is:
-why not just write `fn greet(v: {name: String})` and accept any
-struct with a `name` field? Other languages do this — TypeScript and
-Go (interface satisfaction by shape), OCaml row polymorphism.
+Why not write `fn greet(v: {name: String})` and accept any struct with a
+`name` field? TypeScript, Go and OCaml each allow something like this.
 
-Nomi rejects it explicitly. A function parameter typed `{x: Int, y: Int}`
-accepts **only** values with that exact shape — not anon structs with
-additional fields, and not nominal structs that happen to have
-matching fields. Width is part of the type's identity.
+Nomi doesn't. A parameter of type `{x: Int, y: Int}` accepts only values with
+exactly those fields. It rejects an anonymous struct with more fields. It also
+rejects a named struct, such as a `Point`, even if its fields match.
 
-The reasoning: field-name coincidence is not a semantic contract. An
-`id: String` field on `User`, `Order`, and `Invoice` shares a type
-but rarely shares a meaning, and silent acceptance erodes trust as
-the codebase grows. So Nomi gives three explicit alternatives instead
-of a structural-acceptance default:
+Two fields with the same name often mean different things. An `id: String`
+on a `User`, an `Order` and an `Invoice` is three different kinds of id. A
+function that accepted all three by accident would hide mistakes. Nomi gives
+you three explicit ways instead:
 
-1. **Declare an interface** — capture the shared contract as a
-   nominal type. A function requirement such as `fn name(value: self): String`
-   gives every implementor the same accessor, **nominally** opted in via an
-   `impl Iface for Type` block, not matched by accident on layout.
-2. **Construct an anon struct at the call site** — e.g.
-   `distance({x: p.x, y: p.y}, {x: q.x, y: q.y})`. Explicit shape
-   adaptation; the call site shows exactly which fields are borrowed.
-3. **Define a nominal domain type + conversion function** — e.g.
-   `fn to_coord(p: Point): Coord2D { … }`. Mismatches surface where a
-   reviewer can see them.
+1. Declare an interface. A function such as `fn name(value: self): String`
+   gives every type that implements it the same way to get a name. Each type
+   opts in with an `impl` block.
+2. Build an anonymous struct at the call, such as
+   `distance({x: p.x, y: p.y}, {x: q.x, y: q.y})`. The call shows exactly
+   which fields it passes.
+3. Declare a type for the purpose and a function that converts to it, such
+   as `fn to_coord(p: Point): Coord2D { … }`.
 
-The choice is usually clear from context: if several types should
-share a contract long-term, (1); if one call site needs a one-shot
-reshape, (2); if there's a meaningful domain conversion, (3).
+Use an interface when several types should share the behavior for a long
+time. Build an anonymous struct when one call needs a different shape.
+Declare a type and a conversion when the conversion means something in your
+program.
 
-The same intuition is why Nomi requires an explicit `impl Iface for Type`
-block instead of Go's "satisfies any interface whose functions
-you happen to match." Coincidence of functions, like coincidence of
-field names, isn't a contract — the `impl` block is the type opting in,
-visibly and grep-ably, to a published protocol.
+For the same reason, a type implements an interface only through an `impl`
+block. In Go, a type implements any interface whose functions it happens to
+have. In Nomi, the `impl` block shows that the type means to, and you can
+search for it.
 
-Dispatch uses explicit qualifiers for the same reason. Outside a same-owner
-body, a bare name might be a local binding or a file function; `Type.fn(value)`,
-`Iface.fn(value)`, and `file.fn(value)` say which API or contract is being used.
+Calls are qualified for the same reason too. A bare name could be a local
+binding or a function in the file. `Type.fn(value)`, `Iface.fn(value)` and
+`file.fn(value)` each say where the function comes from.

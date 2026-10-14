@@ -163,5 +163,5 @@ func runImageFile(path string, args []string) int {
 		fmt.Fprintf(os.Stderr, "nomi run: %v\n", err)
 		return 1
 	}
-	return vmrunner.Run(image, os.Stdout, os.Stderr, os.Stdin, args, true, opts...)
+	return vmrunner.RunCompiled(image, os.Stdout, os.Stderr, os.Stdin, args, true, opts...)
 }

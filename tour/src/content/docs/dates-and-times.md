@@ -1,28 +1,32 @@
 ---
 title: "Dates & Times"
-description: "civil types, machine instants, and exact durations — the three layers that cover date-and-time arithmetic in Nomi."
+description: "Calendar dates and clock times, machine timestamps, and exact durations, and how Nomi handles time zones and daylight saving."
 ---
 
-Three stdlib areas cover dates and times, each handling a different layer:
+Three standard library modules cover dates and times:
 
-- **[`std/calendar`](/reference/calendar/)** — `Date`, `Time`,
-  `NaiveDateTime`, `OffsetDateTime`, `DateTime`, and shared civil-period
-  vocabulary. What humans read off a calendar or clock face.
-- **[`std/instant.Instant`](/reference/instant/)** — `Instant`, the machine timestamp. What hardware
-  records.
-- **[`std/duration.Duration`](/reference/duration/)** — `Duration`, an exact span of time (`5 seconds`,
-  `30 minutes`).
+- [`std/calendar`](/reference/calendar/) has `Date`, `Time`,
+  `NaiveDateTime`, `OffsetDateTime` and `DateTime`, plus periods such as
+  `Days` and `Months`. These are what a person reads off a calendar or a
+  clock.
+- [`std/instant.Instant`](/reference/instant/) is a machine timestamp.
+- [`std/duration.Duration`](/reference/duration/) is an exact length of
+  time, such as 5 seconds or 30 minutes.
 
-The everyday zoned civil type is `DateTime`: when you say "10:30 AM on June 15
-in New York," you mean a real moment in history, and a `DateTime` is what
-models it (IANA-zoned, DST-aware). `NaiveDateTime` carries the "Naive" prefix as
-a footgun marker — it's a wall-clock reading without a zone, useful for
-templates and unzoned data, not for "the meeting happens at."
+For an event that happens at a real moment, use `DateTime`. "10:30 AM on
+June 15 in New York" names one moment, and a `DateTime` holds exactly that:
+a date, a time, and a time zone such as `America/New_York`. It knows the
+zone's daylight saving rules.
+
+`NaiveDateTime` is a date and time with no zone. It is useful for templates
+and for data that came without a zone. It does not name a real moment, so
+don't use it for "when the meeting happens". The word "Naive" in its name is
+there as a warning.
 
 ## Civil Construction
 
-Each civil type has a typed-literal form. `DateTime` uses RFC 9557's bracket
-suffix to name the IANA zone:
+Each calendar type has a typed literal. `DateTime` puts the zone name in
+square brackets at the end, a format from RFC 9557:
 
 ```nomi-run
 import {
@@ -55,8 +59,9 @@ dbg line 16: DateTime.hour(dt) = 14
 
 ## Civil Periods
 
-`Date` shifts by civil calendar periods with `+` and `-`. Days and weeks move
-by whole dates; months and years clamp when the target month has fewer days:
+Add or subtract days, weeks, months and years from a `Date` with `+` and
+`-`. When you add months or years and the target month is too short for the
+day, you get the month's last day. January 31 plus one month is February 28:
 
 ```nomi-run
 import {
@@ -90,13 +95,18 @@ dbg line 16: leap + Years(1) = 2025-02-28
 
 ## Machine clock and durations
 
-An [`Instant`](/reference/instant/) is a machine timestamp — an absolute point in time backed by
-Unix epoch nanoseconds. It's what [`Instant.now()`](/reference/instant/#instantnow) returns, and what you store
-when you need a moment independent of calendar names or time zones. A
-[`Duration`](/reference/duration/) is an exact span of nanoseconds — the value you add to or subtract from an instant,
-get back from `later - earlier`, or pass to [`timer.sleep`](/reference/timer/#timersleep). Construct durations with
-unit functions ([`Duration.seconds(5)`](/reference/duration/#durationseconds), [`Duration.minutes(30)`](/reference/duration/#durationminutes)) and combine
-them with `+`, `-`, `*`, and `/`:
+An [`Instant`](/reference/instant/) is a point in time, stored as
+nanoseconds since the Unix epoch. It has no calendar and no time zone.
+[`Instant.now()`](/reference/instant/#instantnow) returns one. Store an
+`Instant` when you need a moment that doesn't depend on any zone.
+
+A [`Duration`](/reference/duration/) is an exact number of nanoseconds. You
+add it to an instant, subtract it from one, get it back from
+`later - earlier`, or pass it to [`timer.sleep`](/reference/timer/#timersleep).
+Make one with a unit function such as
+[`Duration.seconds(5)`](/reference/duration/#durationseconds) or
+[`Duration.minutes(30)`](/reference/duration/#durationminutes). Combine
+durations with `+`, `-`, `*` and `/`:
 
 ```nomi-run
 import {
@@ -129,15 +139,15 @@ dbg line 17: Duration.as_seconds(gap) = 300
 dbg line 18: later - start == gap = True
 -->
 
-`Instant.now()` and `timer.sleep` aren't shown here because their output isn't
-deterministic — they read the real wall clock and pause for real time. See
-the [Concurrency](/concurrency/) chapter for `timer.sleep` in practice.
+This example doesn't use `Instant.now()` or `timer.sleep`, because they read
+the real clock and wait in real time, so their output changes from run to
+run. The [Concurrency](/concurrency/) chapter uses `timer.sleep`.
 
 ## Instant-only equality
 
-A `DateTime` holds a moment plus a display zone. Equality is **instant-only**
-— same moment in two different zones compares equal, even though their
-local readings differ:
+A `DateTime` holds a moment and the zone to show it in. Two `DateTime`s are
+equal when they are the same moment, even if their zones differ. Noon in
+New York and 6 PM in Paris on the same day are equal:
 
 ```nomi-run
 import {
@@ -164,10 +174,9 @@ dbg line 12: paris = 2026-06-15T18:00:00+02:00[Europe/Paris]
 
 ## DST is real
 
-The 2026 spring-forward in America/New_York lands the small hours of
-March 8th. Adding one calendar day to noon March 7 lands at noon March 8 —
-the *civil reading* you'd want. Adding an exact 24-hour `Duration` lands an
-hour later, because one wall-clock hour disappeared overnight:
+In 2026, New York's clocks jump forward one hour early on March 8. Start at
+noon on March 7. Adding one calendar day gives noon on March 8. Adding
+exactly 24 hours gives 1 PM, because that night was one hour short:
 
 ```nomi-run
 import {
@@ -194,34 +203,36 @@ dbg line 13: civil = 2026-03-08T12:00:00-04:00[America/New_York]
 dbg line 14: physical = 2026-03-08T13:00:00-04:00[America/New_York]
 -->
 
-Both answers are correct. `+ Days(1)` preserves the local calendar
-reading and re-resolves the UTC offset. `+ Duration.hours(24)` advances the
-underlying instant by exactly 24 elapsed hours. The split lets the caller
-spell which intent applies.
+Both answers are correct; they answer different questions. `+ Days(1)`
+keeps the clock reading, noon, and works out the new UTC offset.
+`+ Duration.hours(24)` moves the moment forward by exactly 24 hours. You
+pick the one you mean.
 
 :::note[Continue or dig deeper]
-The tour moves on to [**Typed Literals**](/typed-literals/), which
-covers how `Date"…"` and `DateTime"…"` actually work: a
-`Literal` conformance in `Date`'s body makes the bracket syntax
-dispatch to user code. Or stay here for the deep-dive section below.
+The next chapter, [Typed Literals](/typed-literals/), shows how `Date"…"`
+and `DateTime"…"` work, and how to write literals for your own types. The
+rest of this page goes into more detail on dates and times.
 :::
 
 ## Going deeper
 
 ### Five civil types
 
-The calendar family defines a ladder from less specific to more specific:
+From least to most specific:
 
-- `Date` — calendar day
-- `Time` — time of day
-- `NaiveDateTime` — wall reading, no zone (**not** a real moment)
-- `OffsetDateTime` — anchored at a fixed UTC offset
-- `DateTime` — anchored in an IANA zone (DST-aware)
+- `Date`: a day on the calendar.
+- `Time`: a time of day.
+- `NaiveDateTime`: a date and a time with no zone. It is not a real moment.
+- `OffsetDateTime`: a date and time at a fixed offset from UTC, such as
+  `-04:00`.
+- `DateTime`: a date and time in a named zone such as `America/New_York`,
+  which follows that zone's daylight saving rules.
 
 ### Re-projecting a moment into another zone
 
-[`DateTime.with_zone(dt, zone)`](/reference/calendar/#datetimewith_zone) keeps the underlying instant and re-renders the wall
-reading through a different IANA zone:
+[`DateTime.with_zone(dt, zone)`](/reference/calendar/#datetimewith_zone)
+keeps the same moment and shows it in another zone. Noon in New York is
+1 AM the next day in Tokyo:
 
 ```nomi-run
 import {
@@ -245,10 +256,13 @@ dbg line 10: ny == tokyo = True
 
 ### DST: gaps and folds
 
-Projecting a wall reading into an IANA zone can hit a **gap** (the wall
-reading never exists — clocks jumped over it) or a **fold** (the wall
-reading exists twice — clocks rolled back). The `Disambiguation` enum
-controls how [`DateTime.in_zone`](/reference/calendar/#datetimein_zone) resolves them:
+[`DateTime.in_zone`](/reference/calendar/#datetimein_zone) puts a
+`NaiveDateTime` into a zone. Daylight saving makes two cases hard:
+
+- A gap: the clock time never happens, because the clocks jumped over it.
+- A fold: the clock time happens twice, because the clocks went back.
+
+The `Disambiguation` argument says which moment to pick:
 
 ```nomi-run
 import {
@@ -297,16 +311,19 @@ dbg line 32: later_sec - earlier_sec = 3600
 dbg line 35: earlier == later = False
 -->
 
-The default mode is `Disambiguation.Compatible` (total resolution matching
-naive intuition — earlier in folds, advances forward through gaps).
-`Disambiguation.Reject` is the strict mode for when the wall reading came
-from user input and the right answer is to bounce the ambiguity back via
-`Err`.
+If you pass no mode, you get `Disambiguation.Compatible`. In a fold it picks
+the earlier moment. In a gap it moves forward past the jump, so 2:30 becomes
+3:30.
+
+`Disambiguation.Reject` returns an `Err` for a gap or a fold instead of
+picking. Use it when a person typed the time, so you can ask them which one
+they meant.
 
 ### Reading the current time
 
-[`DateTime.now_in(zone)`](/reference/calendar/#datetimenow_in) reads the system clock and projects it into the
-given zone in one call (sugar for `Instant.now() |> DateTime.from_instant_in(zone)`):
+[`DateTime.now_in(zone)`](/reference/calendar/#datetimenow_in) reads the
+system clock and gives the time in that zone. It is short for
+`Instant.now() |> DateTime.from_instant_in(zone)`:
 
 ```nomi-run ignore
 import {
@@ -322,4 +339,4 @@ fn main(): Result<Unit, Error> {
 
 ```
 
-The output changes each time because this reads the real wall clock.
+The output changes each time, because it reads the real clock.

@@ -1,32 +1,31 @@
 ---
 title: Collections
-description: Lists, Vectors, Maps, Sets — immutable and persistent; every operation returns a new collection.
+description: Lists, vectors, maps, sets and ranges. Collections never change; each operation gives you a new one.
 ---
 
-Nomi has four core collection types — [`List<T>`](/reference/lists/#type-list),
-[`Vector<T>`](/reference/vectors/#type-vector), [`Map<K, V>`](/reference/maps/#type-map), and
-[`Set<T>`](/reference/sets/#struct-set) — plus [`Range<T>`](/reference/ranges/#struct-range), an interval over comparable values. Ranges over
-discrete start and end values, such as [`Int`](/reference/int/) and
-[`Codepoint`](/reference/codepoints/), also iterate. The
-collections are all **immutable and persistent**: every operation returns a new collection,
-leaving the original alone. The stdlib puts the value being transformed first on
-every operation, so chains read naturally through pipes.
+Nomi has four collection types: [`List<T>`](/reference/lists/#type-list),
+[`Vector<T>`](/reference/vectors/#type-vector), [`Map<K, V>`](/reference/maps/#type-map)
+and [`Set<T>`](/reference/sets/#struct-set). It also has
+[`Range<T>`](/reference/ranges/#struct-range), the values between a start and an
+end.
+
+A collection never changes. An operation that adds, removes or replaces
+something gives you a new collection, and the original stays as it was.
+Collections that work this way are called persistent.
+
+Every stdlib function takes the collection it works on as its first argument.
+That is what lets you chain calls with pipes.
 
 ## Iter
 
-Every collection, every iterable range and `String` (one grapheme at a time)
-implements [`Iter`](/reference/iter/#interface-iter). The generic algorithms
-live once, on the `Iter` owner: `Iter.map`, `Iter.filter`, `Iter.take`,
-`Iter.reduce`, `Iter.count`, `Iter.min`, `Iter.max`, and the rest. A collection's own owner keeps only
-what is specific to it, such as `Map.get` or `List.head`.
+Every collection is an [`Iter`](/reference/iter/#interface-iter): something you
+can walk through one value at a time. So is a range of whole numbers or
+codepoints, and so is a `String`, which gives one character at a time.
 
-The adapters are lazy. `Iter.map`, `Iter.filter`, `Iter.take` and the like
-build a pipeline and run nothing; no intermediate collection is made between
-stages. The work happens when a consumer pulls values through: `Iter.to_list`,
-`Iter.to_vector`, `Iter.to_set`, `Iter.to_map`, `String.join`, `Iter.reduce`,
-`Iter.count`, `Iter.each`. Each value then passes through every stage before
-the next one starts, and the pipeline stops as soon as the consumer has enough.
-That is why an unbounded source is safe:
+The general operations live on `Iter` and work on all of them: `Iter.map`,
+`Iter.filter`, `Iter.take`, `Iter.reduce`, `Iter.count`, `Iter.min`,
+`Iter.max` and more. Each collection type keeps only the operations specific to
+it, such as `Map.get` or `List.head`.
 
 ```nomi-run
 import std/io
@@ -56,15 +55,20 @@ squaring 5
 dbg line 14: result = [16, 25]
 -->
 
-Only 0 through 5 are squared: `Iter.take(2)` has its two values after 25.
+`Range.naturals()` counts 0, 1, 2 and on without end. The program still
+finishes, and it squares only 0 through 5.
+
+That is because `Iter.map`, `Iter.filter` and `Iter.take` are lazy. Each one
+describes a step but runs nothing, and no list is built between steps. The work
+starts when a final call asks for values. Here that is `Iter.to_list`. Others
+are `Iter.to_vector`, `Iter.to_set`, `Iter.to_map`, `String.join`,
+`Iter.reduce`, `Iter.count` and `Iter.each`.
+
+Each value goes through every step before the next value starts. The work stops
+as soon as the final call has what it needs. `Iter.take(2)` has its two values
+once 25 arrives, so nothing after 5 is squared.
 
 ## Lists
-
-`[a, b, c]` is the literal syntax. The [`List`](/reference/lists/#type-list) owner provides the
-List-specific operations (`concat`, `head`, `tail`, …). A pipeline over a list
-goes through `Iter`, and [`Iter.to_list()`](/reference/iter/#iterto_list)
-materializes a List again when you want one. `[x, ..xs]` builds a list with `x`
-in front of `xs` (see [Spreads](#spreads)):
 
 ```nomi-run
 fn main() {
@@ -87,15 +91,16 @@ dbg line 8:
   = 50
 -->
 
-## Vectors
+You write a list as `[a, b, c]`. The [`List`](/reference/lists/#type-list) type
+has the functions specific to lists, such as `concat`, `head` and `tail`.
 
-`#[a, b, c]` is the vector literal, and [`Iter.to_vector`](/reference/iter/#iterto_vector)
-builds one from any iterator. `Vector<T>` is an immutable random-access sequence.
-Use `List<T>` for cons-list pattern matching and cheap prepends; use `Vector<T>` when indexed
-lookup and push-at-end are the natural operations. Lists and vectors both implement [`Add`](/reference/add/),
-so `xs + ys` concatenates two values of the same collection type; the named functions
-[`List.concat`](/reference/lists/#listconcat) and
-[`Vector.concat`](/reference/vectors/#vectorconcat) are the explicit equivalents.
+To transform a list, use the `Iter` functions, as above. When you want a list
+back at the end, finish with [`Iter.to_list()`](/reference/iter/#iterto_list).
+
+`[x, ..xs]` is a new list with `x` in front of `xs`. [Spreads](#spreads) covers
+this.
+
+## Vectors
 
 ```nomi-run
 fn main() {
@@ -118,13 +123,18 @@ dbg line 8: Vector.at(names, 1) = Some("Grace")
 dbg line 9: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
 -->
 
-## Maps
+You write a vector as `#[a, b, c]`.
+[`Iter.to_vector`](/reference/iter/#iterto_vector) builds one from any `Iter`.
 
-`{"key" => value, …}` is the map literal. [`Map.get`](/reference/maps/#mapget) returns [`Maybe<V>`](/reference/maybe/) —
-`Some(value)` when the key exists, `None` when it doesn't. `a + b` merges two
-maps, the right-hand map winning on a shared key ([`Map.merge`](/reference/maps/#mapmerge)
-is the named equivalent). [Spreads](#spreads) below builds a map from another
-with some entries added or replaced:
+A vector is a sequence you can read by position. Use a vector when you look
+items up by index or add them at the end. Use a list when you add items at the
+front or take it apart with patterns.
+
+`xs + ys` joins two lists, or two vectors.
+[`List.concat`](/reference/lists/#listconcat) and
+[`Vector.concat`](/reference/vectors/#vectorconcat) do the same thing by name.
+
+## Maps
 
 ```nomi-run
 fn main() {
@@ -142,21 +152,17 @@ dbg line 5: Map.get(config, "host") = Some("localhost")
 dbg line 6: Map.get(config, "user") = None
 -->
 
-We'll see how to unwrap `Maybe<T>` properly in [Pattern Matching](/pattern-matching/).
+You write a map as `{"key" => value, ...}`.
+
+[`Map.get`](/reference/maps/#mapget) returns a [`Maybe<V>`](/reference/maybe/).
+That is `Some(value)` when the key is there and `None` when it is not.
+[Pattern Matching](/pattern-matching/) shows how to get the value out.
+
+`a + b` merges two maps. When both have the same key, the value from `b` wins.
+[`Map.merge`](/reference/maps/#mapmerge) does the same thing by name. To add or
+replace a few entries, use a spread, shown [below](#spreads).
 
 ## Sets
-
-`#{a, b, c}` is the set literal. `Set<T>` stores unique values and keeps the
-first occurrence's insertion order for iteration, so building one from
-`[1, 2, 3, 2, 1]` keeps three elements. Writing the same constant twice in one
-literal, as in `#{1, 2, 1}`, is a compile error, and so is a repeated constant
-key in a map literal. Empty sets need type context:
-`empty: Set<Int> = #{}`. Like lists and vectors, sets combine with another set of
-the same type: `a + b` is the union and `a - b` the difference
-([`Set.union`](/reference/sets/#setunion) and
-[`Set.difference`](/reference/sets/#setdifference)). To add or remove one
-element, use [`Set.insert`](/reference/sets/#setinsert) and
-[`Set.remove`](/reference/sets/#setremove), or combine with a one-element set.
 
 ```nomi-run
 fn main() {
@@ -178,12 +184,25 @@ dbg line 7: s + #{4, 5} = #{1, 2, 3, 4, 5}
 dbg line 8: s - #{1} = #{2, 3}
 -->
 
+You write a set as `#{a, b, c}`. A set holds each value once, so the set built
+from `[1, 2, 3, 2, 1]` has three values. It keeps them in the order each one
+first appeared.
+
+If you write the same value twice in a set literal, as in `#{1, 2, 1}`, the
+compiler reports an error. It does the same for a key written twice in a map
+literal.
+
+An empty set needs its type written out: `empty: Set<Int> = #{}`.
+
+`a + b` is every value in either set, and `a - b` is the values of `a` that are
+not in `b`. [`Set.union`](/reference/sets/#setunion) and
+[`Set.difference`](/reference/sets/#setdifference) do the same by name. To add
+or remove one value, use [`Set.insert`](/reference/sets/#setinsert) and
+[`Set.remove`](/reference/sets/#setremove).
+
 ## Spreads
 
-A spread, `..`, builds a new collection from an existing one. A list takes it
-last, as its patterns do. A set and a map take it first, since `#{..s, x}` is
-one insert into `s` and `{..m, k => v}` is `m + {k => v}`. A vector takes it at
-either end:
+A spread, written `..`, builds a new collection from an existing one:
 
 ```nomi-run
 fn main() {
@@ -208,10 +227,15 @@ dbg line 10: #{..s, "blue"} = #{"red", "blue"}
 dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
 -->
 
-Inside an update, a bare `..` with nothing after it stands for the value
-already there: the collection at a struct field, or the value at a map key.
-Without it, a field or an entry replaces that value whole. A key the map lacks
-starts from an empty value:
+Where the spread goes depends on the collection:
+
+- In a list it goes last, so you add items at the front.
+- In a vector it can go first or last.
+- In a set or a map it goes first. `#{..s, x}` is `s` with `x` added.
+  `{..m, k => v}` is `m` with the entry `k => v` added or replaced.
+
+A spread also works inside a struct or a map that you are updating. There, a
+`..` with nothing after it means the value that is already there:
 
 ```nomi-run
 struct Team {
@@ -237,16 +261,22 @@ dbg line 13: {..teams, "hawks" => {.., "city" => "Atlanta"}, "kites" => {.., "ci
 dbg line 14: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
 -->
 
+`members: ["Ada", ..]` puts `"Ada"` in front of the members the team already
+has. Without the `..`, the new list would replace the old one.
+
+For a map key that is not there yet, `..` starts from an empty collection. That
+is why `"kites"` and `"bob"` come out with only the new values.
+
 ## Ranges
 
-`1..5` (half-open) and `1..=5` (inclusive) are range literals. The start and
-end values determine the range type: `1..5` is `Range<Int>`, `"a".."m"` is
-`Range<String>`, and `0.0..=1.0` is `Range<Float>`.
+`1..5` is a range that leaves out its end: 1, 2, 3 and 4. `1..=5` includes its
+end. The type of the start and end decides the type of the range: `1..5` is a
+`Range<Int>`, `"a".."m"` is a `Range<String>` and `0.0..=1.0` is a
+`Range<Float>`.
 
-Every range is an interval over comparable values, so it can answer containment
-questions. A range is also iterable only when its value type has a well-defined
-next value. That makes integer and codepoint ranges natural
-replacements for generated lists:
+Any range can tell you whether a value falls inside it. Some ranges can also be
+walked through one value at a time, like a list. A range of whole numbers can,
+because each number has a next one:
 
 ```nomi-run
 fn main() {
@@ -271,9 +301,9 @@ dbg line 9:
   = [0, 1, 2]
 -->
 
-`Codepoint` is discrete too, so a range of codepoints iterates. An ASCII
-codepoint has a literal, the character in single quotes (`'a'`), so the range
-is written with its two ends:
+So does a range of [`Codepoint`](/reference/codepoints/) values. A codepoint is
+the number of one character. An ASCII character in single quotes, such as
+`'a'`, is a codepoint:
 
 ```nomi-run
 fn main() {
@@ -292,10 +322,9 @@ dbg line 5:
   = ["a", "b", "c", "d"]
 -->
 
-Strings and floats are comparable, so they work as range bounds. They are not
-plain iterables because neither type has one canonical successor: a string
-range like `"a".."m"` can test whether `"a" <= "h" < "m"`, but there is no
-single obvious next string after `"a"` to enumerate.
+A range of strings or floats cannot be walked through, because there is no
+single next value. There is no obvious string that comes right after `"a"`.
+You can still ask whether a value is inside it:
 
 ```nomi-run
 fn main() {
@@ -309,8 +338,10 @@ dbg line 2: Range.contains?("a".."m", "h") = True
 dbg line 3: Range.contains?(0.0..=1.0, 1.0) = True
 -->
 
-When the caller supplies the step, [`Range.step_by`](/reference/ranges/#rangestep_by) turns [`Steppable`](/reference/steppable/) ranges into
-lazy iterables:
+[`Range.step_by`](/reference/ranges/#rangestep_by) walks through a range in
+steps of the size you give. It works on a range of any
+[`Steppable`](/reference/steppable/) type. Below, that type is `Decimal`,
+written with a `d` suffix. Like `Iter.map`, `Range.step_by` is lazy:
 
 ```nomi-run
 fn main() {
@@ -331,9 +362,6 @@ dbg line 5:
 
 ## Persistent immutability
 
-A "modifying" operation returns a *new* collection; the original binding still
-holds its original value:
-
 ```nomi-run
 fn main() {
     m1 = {"a" => 1, "b" => 2}
@@ -349,6 +377,10 @@ dbg line 5: Map.size(m1) = 2
 dbg line 6: Map.size(m2) = 3
 -->
 
-The next chapter — [Iteration & Loops](/iteration-and-loops/) — covers
-[`Iter.loop`](/reference/iter/#iterloop) for stateful iteration and how `break` / `continue` / `return`
-behave inside the callbacks you pass to these collection ops.
+`Map.put` returns a new map with the extra entry. `m1` still has its two
+entries.
+
+The next chapter, [Iteration & Loops](/iteration-and-loops/), covers
+[`Iter.loop`](/reference/iter/#iterloop) for loops that carry state. It also
+covers what `break`, `continue` and `return` do inside the functions you pass
+to `Iter.map` and the others.

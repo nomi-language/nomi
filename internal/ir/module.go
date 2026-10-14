@@ -493,3 +493,51 @@ func (m *Module) Cell(sym *Symbol) *Cell {
 }
 
 func (m *Module) String() string { return "module " + m.name }
+
+// Pruned is a copy of m holding only what a built program may run: each
+// function keep accepts, each `once` cell whose initializer it accepts, and
+// each dispatch, Display, row Debug, Equatable and Hashable entry whose body
+// keepBody accepts (an entry names its body by Symbol, which may be declared
+// in another module). The boot and the main failure renderer are kept as names (a
+// consumer resolves them); the tests and the test boots are dropped, since a
+// built program runs no test. m itself is not changed: the stdlib's modules
+// are shared by every program a process lowers.
+func (m *Module) Pruned(keep func(*Func) bool, keepBody func(*Symbol) bool) *Module {
+	out := &Module{name: m.name, boot: m.boot, mainFailure: m.mainFailure}
+	for _, f := range m.funcs {
+		if keep(f) {
+			out.funcs = append(out.funcs, f)
+		}
+	}
+	for _, c := range m.cells {
+		if c.initializer != nil && keep(c.initializer) {
+			out.cells = append(out.cells, &Cell{owner: out, sym: c.sym, ty: c.ty, initializer: c.initializer})
+		}
+	}
+	for _, im := range m.impls {
+		if keepBody(im.Func) {
+			out.impls = append(out.impls, im)
+		}
+	}
+	filter := func(table []DisplayImpl) []DisplayImpl {
+		var rows []DisplayImpl
+		for _, d := range table {
+			if keepBody(d.Func) {
+				rows = append(rows, d)
+			}
+		}
+		return rows
+	}
+	out.displays = filter(m.displays)
+	out.rowDebugs = filter(m.rowDebugs)
+	out.equates = filter(m.equates)
+	out.hashes = filter(m.hashes)
+	return out
+}
+
+// Empty reports whether m holds nothing a consumer could run or look up.
+func (m *Module) Empty() bool {
+	return len(m.funcs) == 0 && len(m.cells) == 0 && len(m.tests) == 0 && m.boot == nil &&
+		m.mainFailure == nil && len(m.testBoots) == 0 && len(m.impls) == 0 && len(m.displays) == 0 &&
+		len(m.rowDebugs) == 0 && len(m.equates) == 0 && len(m.hashes) == 0
+}

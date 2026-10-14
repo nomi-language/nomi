@@ -22,20 +22,20 @@ import (
 // startup and runs the same VM over the same IR. It is not native code.
 //
 // `--no-vm` writes the encoded IR alone as a compiled program (.nomic), for a
-// nomi-vm that does not embed it, and `--vm` writes that bare nomi-vm
-// (vmrunner/imagefile.go).
+// nomi-vm that does not embed it (vmrunner/imagefile.go). `nomi build-vm`
+// (build_vm.go) writes that nomi-vm.
 //
 // For wasip1/wasm the program picks the module's shape, with no flag: one
 // with no `export fn` is a WASI command module (nomi-vm, `_start` runs
 // main), and one with at least one `export fn` is a WASI reactor
 // (nomi-vm-reactor: `_initialize`, nomi_alloc, nomi_call, nomi_free and
-// nomi_main), whose image carries the exported functions as `--web`'s does.
+// nomi_main), whose image carries the exported functions as `--web`'s does,
+// with nomi-wasi.js and nomi-wasi.d.ts written beside it.
 //
 // A program the front end rejects, or one the VM would block, is refused with
 // the text `nomi run` prints, and nothing is written.
 
-const buildUsage = "usage: nomi build <file.nomi> [-o <out>] [--target <goos>/<goarch> | --web [--static <dir>] | --no-vm]\n" +
-	"       nomi build --vm [--compiler] [-o <out>] [--target <goos>/<goarch>]"
+const buildUsage = "usage: nomi build <file.nomi> [-o <out>] [--target <goos>/<goarch> | --web [--static <dir>] | --no-vm]"
 
 // errBuildRefused is a build that already reported why on stderr.
 var errBuildRefused = errors.New("build refused")
@@ -55,10 +55,6 @@ type buildArgs struct {
 	// noVM writes the program alone as a .nomic file, for a nomi-vm that
 	// does not embed it (vmrunner/imagefile.go).
 	noVM bool
-	// vm writes a copy of nomi-vm itself, with no program; compiler picks
-	// the one that links std/compiler's hosts.
-	vm       bool
-	compiler bool
 }
 
 func parseBuildArgs(args []string) (buildArgs, error) {
@@ -95,10 +91,6 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 			b.web = true
 		case arg == "--no-vm":
 			b.noVM = true
-		case arg == "--vm":
-			b.vm = true
-		case arg == "--compiler":
-			b.compiler = true
 		case arg == "--static" || strings.HasPrefix(arg, "--static="):
 			v, inline := strings.CutPrefix(arg, "--static=")
 			if !inline {
@@ -118,22 +110,6 @@ func parseBuildArgs(args []string) (buildArgs, error) {
 		default:
 			return b, fmt.Errorf("nomi build: unexpected argument %q\n%s", arg, buildUsage)
 		}
-	}
-	if b.compiler && !b.vm {
-		return b, fmt.Errorf("nomi build: --compiler needs --vm\n%s", buildUsage)
-	}
-	if b.vm {
-		switch {
-		case b.entry != "":
-			return b, fmt.Errorf("nomi build --vm: nomi-vm carries no program, so it takes no file (%s)\n%s", b.entry, buildUsage)
-		case b.web || b.noVM || b.static != "":
-			return b, fmt.Errorf("nomi build: --vm takes only -o, --target and --compiler\n%s", buildUsage)
-		}
-		b.target = ffirun.ResolveTarget(goos, goarch)
-		if b.out == "" {
-			b.out = defaultExecutableName("nomi-vm", b.target)
-		}
-		return b, nil
 	}
 	if b.entry == "" {
 		return b, errors.New(buildUsage)
@@ -194,9 +170,6 @@ func runBuild(args []string) error {
 }
 
 func build(b buildArgs, stderr io.Writer) error {
-	if b.vm {
-		return writeRunner(b, stderr)
-	}
 	absPath, err := programEntry("build", b.entry)
 	if err != nil {
 		return err
@@ -228,15 +201,18 @@ func build(b buildArgs, stderr io.Writer) error {
 	}
 	var image []byte
 	var runner, decls string
+	var reactor bool
 	if res.FastPath {
 		p, err := vmhost.Load(absPath)
 		if err != nil {
 			vmhost.WriteFailure(stderr, err)
 			return errBuildRefused
 		}
-		reactor := b.target == wasip1 && p.HasExports()
+		reactor = b.target == wasip1 && p.HasExports()
 		buildImage := p.BuildImage
-		if b.web || reactor {
+		// A .nomic carries the exported functions too, for a reactor
+		// to load (`nomi build-vm --reactor`).
+		if b.web || reactor || b.noVM {
 			buildImage = p.BuildExportsImage
 		}
 		img, usesCompiler, err := buildImage()
@@ -290,6 +266,11 @@ func build(b buildArgs, stderr io.Writer) error {
 	}
 	if err := writeExecutable(b.out, runner, image, b.target); err != nil {
 		return fmt.Errorf("nomi build: %w", err)
+	}
+	if reactor {
+		if err := writeWasiLoader(filepath.Dir(b.out)); err != nil {
+			return fmt.Errorf("nomi build: %w", err)
+		}
 	}
 	return nil
 }
@@ -431,44 +412,6 @@ func writeImageFile(out string, image []byte, usesCompiler bool) error {
 		return err
 	}); err != nil {
 		return fmt.Errorf("nomi build: %w", err)
-	}
-	return nil
-}
-
-// writeRunner is `nomi build --vm`: a copy of nomi-vm for b.target with no
-// program, which runs the .nomic file it is handed. It is the runner
-// `nomi build` would append a program to, found, built or downloaded as that
-// does (ffirun.Runner). A js/wasm runner gets Go's wasm_exec.js beside it,
-// from the toolchain that linked it. For wasip1 it is the command runner:
-// the reactor reads its program only from its own memory, so a bare copy of
-// it could run nothing.
-func writeRunner(b buildArgs, stderr io.Writer) error {
-	runner, err := ffirun.Runner(b.target, ffirun.Variant{Compiler: b.compiler}, stderr)
-	if err != nil {
-		return fmt.Errorf("nomi build --vm: %w", err)
-	}
-	copyTo := func(out, src string, perm os.FileMode) error {
-		f, err := os.Open(src)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		return writeAtomic(out, perm, func(w io.Writer) error {
-			_, err := io.Copy(w, f)
-			return err
-		})
-	}
-	if err := copyTo(b.out, runner, 0o755); err != nil {
-		return fmt.Errorf("nomi build --vm: %w", err)
-	}
-	if b.target.GOOS == "js" && b.target.GOARCH == "wasm" {
-		support, err := ffirun.WasmExec(runner)
-		if err != nil {
-			return fmt.Errorf("nomi build --vm: %w", err)
-		}
-		if err := copyTo(filepath.Join(filepath.Dir(b.out), ffirun.WasmExecName), support, 0o644); err != nil {
-			return fmt.Errorf("nomi build --vm: %w", err)
-		}
 	}
 	return nil
 }

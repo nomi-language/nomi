@@ -55,6 +55,16 @@ type Unretained struct {
 // answers each declaration this machine could not run, sorted by name. A nil
 // root is skipped.
 func (m *Machine) Unretained(roots []*ir.Func, boots []*ir.Symbol) []Unretained {
+	_, found := m.Reached(roots, boots)
+	return found
+}
+
+// Reached is Unretained's walk, answering with what it reports every
+// function it reached: each body a call, a dispatch, a once, a closure, a
+// boot or one of this machine's tables (keys, Display, row Debug) may run.
+// A built image keeps only these (PruneImage), so a function this walk
+// misses is one a built program cannot call.
+func (m *Machine) Reached(roots []*ir.Func, boots []*ir.Symbol) (map[*ir.Func]bool, []Unretained) {
 	w := reachWalk{m: m, seen: map[*ir.Func]bool{}, found: map[string]Unretained{}}
 	for _, sym := range boots {
 		if sym == nil {
@@ -80,7 +90,7 @@ func (m *Machine) Unretained(roots []*ir.Func, boots []*ir.Symbol) []Unretained 
 		}
 		return out[i].Kind < out[j].Kind
 	})
-	return out
+	return w.seen, out
 }
 
 type reachWalk struct {
@@ -188,8 +198,11 @@ func (w *reachWalk) visit(f *ir.Func) {
 				for _, impl := range n.DebugImpls() {
 					w.symbol(impl.Fn, f.Name(), NotRetained)
 				}
-				if n.Erased() {
+				if n.Kind() == ir.RenderDisplay && (n.Erased() || !scalarType(f.TempType(n.Src()))) {
 					// Any retained Display body may run; each is reachable.
+					// An erased rendering selects one by the value's type,
+					// and a structural one (displayStructural) renders each
+					// nested value of a declared type through its own.
 					names := make([]string, 0, len(w.m.displays))
 					for name := range w.m.displays {
 						names = append(names, name)
@@ -228,4 +241,18 @@ func (w *reachWalk) call(n *ir.Call, from string) {
 			w.symbol(impl, from, NotRetained)
 		}
 	}
+}
+
+// scalarType reports whether every value of t is a scalar, whose Display no
+// impl answers. A nil type (none stated) is not.
+func scalarType(t *ir.ValType) bool {
+	if t == nil {
+		return false
+	}
+	switch t.Kind() {
+	case ir.KindUnit, ir.KindBool, ir.KindInt, ir.KindFloat, ir.KindDecimal, ir.KindString,
+		ir.KindByte, ir.KindBytes:
+		return true
+	}
+	return false
 }

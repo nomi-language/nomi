@@ -236,9 +236,9 @@ T
 C io
 E 0
 N 2
-H 7b9c343ec07523537b5d1de5ea7cba6812123f12e52745cbab1ee76f67d3385d
-T ok <root>/std/io.nomi :: capture //! test lines 119-142
-T ok <root>/std/io.nomi :: replay //! test lines 252-316
+H b8f62c2d4dd61d97108c4ee51adbae542c750e1525822b40eb0352f7dac3bb53
+T ok <root>/std/io.nomi :: capture //! test lines 118-141
+T ok <root>/std/io.nomi :: replay //! test lines 223-296
 T test result: ok. 2 passed, 0 failed
 T
 C iter

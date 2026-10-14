@@ -95,6 +95,9 @@ func boot(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string
 	if entry == nil {
 		return nil, errors.New("the compiled program has no entry module")
 	}
+	if !im.HasMain && len(im.Exports) == 0 {
+		return nil, errNothingToRun
+	}
 	var hosts []HostTable
 	if cfg.compiler != nil {
 		hosts = append(hosts, cfg.compiler(im.Root))

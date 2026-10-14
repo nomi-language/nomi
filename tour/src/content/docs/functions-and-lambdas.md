@@ -1,18 +1,13 @@
 ---
 title: Functions & Lambdas
-description: Named functions, anonymous lambdas, and the call-site conveniences — defaults, named arguments, destructuring, and trailing callbacks.
+description: Named functions and lambdas, with default values, named arguments, parameters that unpack their arguments, and trailing callbacks.
 ---
 
-A function names a piece of computation; a lambda is the anonymous version of
-the same thing. Both share the same call shape and the same parameter
-conveniences — defaults, named arguments, irrefutable destructuring — and both
-slot interchangeably into pipes and higher-order code.
+A function is a named piece of code. A lambda is a function without a name.
+Both are called the same way and take the same kinds of parameters. Either
+one can go into a pipe or be passed to another function.
 
 ## Defining a function
-
-`fn name(params): ReturnType { body }`. The body is a block expression: its
-**last expression is the return value** — no `return` keyword needed for the
-happy path. `return` exists for early exits from inside a conditional:
 
 ```nomi-run
 fn add(x: Int, y: Int): Int {
@@ -35,18 +30,21 @@ dbg line 11: add(3, 4) = 7
 dbg line 12: abs(-9) = 9
 -->
 
-Every ordinary parameter must be read in its body. Use `_` or `_name` when a
-parameter is intentionally unused, for example `fn constant(_input: Int): Int { 42 }`.
-This applies to functions, lambdas, methods, and `boot`. Discard parameters are
-not readable bindings. Bodyless interface and host declarations are exempt.
-When implementing an interface, retain its parameter labels and use `_ = name`
-in the body to explicitly discard a value.
+A function is written `fn name(params): ReturnType { body }`. The last
+expression in the body is the return value, so most functions never write
+`return`. Use `return` to leave early, as `abs` does for a negative number.
+
+Every parameter must be read in the body. If a parameter is unused on
+purpose, name it `_` or start its name with `_`, as in
+`fn constant(_input: Int): Int { 42 }`. The rule covers functions, lambdas,
+functions in `impl` blocks, and `boot`. Interface and host declarations have
+no body, so it doesn't apply to them.
+
+A function that implements an interface sometimes has to keep the
+interface's parameter name. To ignore that parameter, write `_ = name` in the
+body.
 
 ## Lambdas
-
-Lambdas are written `|params| body`. Annotate parameter types when there's no
-other clue; otherwise let inference handle it. A lambda is a first-class value
-— bind it to a name, pass it to another function, or return one.
 
 ```nomi-run
 fn main() {
@@ -59,13 +57,20 @@ fn main() {
 dbg line 3: inc(41) = 42
 -->
 
-Named functions are first-class too: `f = add` binds the value of `add` to `f`,
-and `f(3, 4)` works exactly like `add(3, 4)`.
+A lambda is written `|params| body`. Write a parameter's type when nothing
+else tells the compiler what it is. When the lambda is passed to a function
+that expects a certain type, the type is inferred.
+
+A lambda is a value. You can bind it to a name, pass it to a function, or
+return it from one.
+
+Named functions are values too. After `f = add`, the call `f(3, 4)` works
+the same as `add(3, 4)`.
 
 ## No Function Overloads
 
-Within a scope, a function name has one meaning. Nomi does not choose between
-multiple same-named functions by argument type:
+Two functions in the same scope can't have the same name. Nomi never picks
+between functions by the types of the arguments, so this is an error:
 
 ```nomi-run ignore
 type UserId String
@@ -83,20 +88,17 @@ fn main() {
 }
 ```
 
-Use names that describe the conversion or construction path:
-[`String.to_int(text)`](/reference/strings/#stringto_int),
-[`Date.parse(text)`](/reference/calendar/#dateparse), or
-[`Date.new(year, month, day)`](/reference/calendar/#datenew). For polymorphism, define an
-[interface](/interfaces-and-dispatch/) and implement it for each type; dispatch
-is explicit at the call site with a type or interface qualifier.
+Give each function a name that says what it does, as the standard library
+does: [`String.to_int(text)`](/reference/strings/#stringto_int),
+[`Date.parse(text)`](/reference/calendar/#dateparse),
+[`Date.new(year, month, day)`](/reference/calendar/#datenew).
+
+When you want one operation that works on several types, define an
+[interface](/interfaces-and-dispatch/) and implement it for each type. The
+call names the type or the interface, so it is always clear which version
+runs.
 
 ## Default parameter values
-
-Any parameter — in a function or a lambda — can carry a default. Callers can
-omit it, or pass a value to override. Named `fn` signatures still write their
-parameter types explicitly, even when a default would make the type obvious;
-lambdas are local expressions, so their parameter types can come from context
-or from the default value itself.
 
 ```nomi-run
 fn greet(name: String, greeting: String = "Hello"): String {
@@ -121,12 +123,14 @@ dbg line 11: add(5) = 15
 dbg line 12: add(5, 2) = 7
 -->
 
-## Named arguments
+A parameter can have a default value. A caller can leave that argument out,
+or pass a value to replace the default.
 
-Any parameter can be passed by name at the call site, in any order. Positional
-and named arguments can mix — positional first, then named. Named arguments
-make defaulted middle parameters easy to override without remembering
-positions:
+A named function still writes the type of a parameter with a default, as
+`greeting: String` does. A lambda can leave it off, as `y = 10` does, and
+the type comes from the default value.
+
+## Named arguments
 
 ```nomi-run
 fn connect(host: String, port: Int = 8080, timeout: Int = 30): String {
@@ -146,16 +150,13 @@ dbg line 7: connect("localhost", timeout: 10) = "localhost:8080:10"
 dbg line 8: connect(host: "api", port: 443, timeout: 5) = "api:443:5"
 -->
 
+You can pass any argument by name, as `timeout: 10`. Named arguments can come
+in any order. When you mix the two kinds, positional arguments come first.
+
+Names help most with defaults. The second call sets `timeout` and keeps the
+default `port` without writing it.
+
 ## Destructuring parameters
-
-A function or lambda parameter can take any *irrefutable* pattern in place of a
-plain name — tuple, anonymous struct, distinct-type wrapper, single-variant
-enum. The pattern unpacks the argument on the way in.
-
-A pattern whose head names a concrete type (a distinct constructor like
-`Dur(...)`, a typed struct like `Point{...}`) is **self-typing** — the type is
-in the pattern, so no `: Type` annotation needed. A type-less pattern (a plain
-tuple, an anonymous struct) needs the annotation:
 
 ```nomi-run
 type Dur Int
@@ -191,12 +192,19 @@ dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
 dbg line 24: add_pair((20, 22)) = 42
 -->
 
-## Trailing callbacks
+A parameter can be a pattern instead of a plain name. The pattern unpacks the
+argument as the function is called. `sum_point` gets the `x` and `y` fields
+of its `Point` directly.
 
-When a function's last parameter takes a function, the call site can leave that
-argument *unnamed at the end* and it routes into the last slot automatically —
-even when middle defaulted parameters are overridden by name. The pattern keeps
-callback-style functions readable:
+The pattern must match every possible value of its type. Patterns like that
+are called irrefutable. Tuples, structs, distinct types such as `Dur`, and
+enums with one variant all qualify.
+
+When the pattern names a type, as `Dur(a)` and `Point{x, y}` do, you don't
+write the type again. A tuple or an anonymous struct pattern names no type,
+so it needs one, as in `(a, b): (Int, Int)`.
+
+## Trailing callbacks
 
 ```nomi-run
 fn transform(x: Int, factor: Int = 1, f: (Int) -> Int): Int {
@@ -220,21 +228,20 @@ dbg line 11: transform(5, factor: 3, |x| x + 1) = 16
 dbg line 12: transform(5, factor: 3, double) = 30
 -->
 
-The last two lines pass the same kind of thing — a function — so they route the
-same way. Writing the callback inline is the common case, but it is not what
-makes the routing work: an existing function passed by name lands in the same
-slot.
+When a function's last parameter is a function, you can pass that argument
+last without a name. In `transform(5, |x| x + 1)`, the lambda skips `factor`
+and goes to `f`, so `factor` keeps its default. The same happens after a
+named argument, as in the second call.
 
-Nomi settles the routing from the parameter list, not from how the argument was
-written. A trailing argument goes to the final parameter when that parameter
-takes a function and the slot it would otherwise fill does not. When both take
-functions there is a real choice between them, and the call keeps the
-left-to-right order it already states.
+The last call passes `double`, an existing function, instead of a lambda. It
+goes to `f` the same way. What decides is the parameter list, not how the
+argument is written.
+
+The rule: a final unnamed argument goes to the last parameter when that
+parameter takes a function and the parameter it would otherwise fill does
+not. When both take functions, the arguments fill the parameters in order.
 
 ## Unwritten code
-
-`todo` stands in for a body or a value you have not written yet. It fits
-whatever type its place expects, so the rest of the program checks and runs:
 
 ```nomi
 fn parse(text: String): Header {
@@ -242,9 +249,12 @@ fn parse(text: String): Header {
 }
 ```
 
-Reaching it stops the program with `todo reached at main.nomi:2: parse the
-header`. The editor lists every `todo` as a warning, and `nomi build` refuses
-a program that still has one.
+`todo` marks a body or a value you haven't written yet. It fits any type, so
+the rest of the program still checks and runs.
 
-The next chapter — [Pipes](/pipes/) — shows how `|>` weaves everything in this
-chapter into expressions that read top-to-bottom.
+If the program reaches it, the program stops with
+`todo reached at main.nomi:2: parse the header`. The editor shows each
+`todo` as a warning, and `nomi build` refuses a program that still has one.
+
+[Pipes](/pipes/) is next. It shows how `|>` joins these calls into code that
+reads from top to bottom.

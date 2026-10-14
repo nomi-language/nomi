@@ -1,54 +1,65 @@
 ---
 title: "Building & Shipping"
-description: "Build a Nomi program into an executable, a web page, or a WebAssembly module another runner calls."
+description: "Build a Nomi program into an executable, a web page, or a WebAssembly module another program runs."
 ---
 
-`nomi run` is for working on a program. To hand it to someone else, `nomi
-build` packages it: as an executable, as a page that runs in the browser, or
-as a WebAssembly module that another program loads and calls.
+`nomi run` runs a program while you work on it. When you want to give the
+program to someone else, `nomi build` packages it. This chapter covers each
+way to package it, starting with the most common.
 
 ## Executables
 
 ```
-nomi build app.nomi                        # ./app, for this machine
+nomi build app.nomi                        # writes ./app
 nomi build app.nomi --target linux/amd64   # for another platform
 ```
 
-`nomi build` writes a **single executable** that needs nothing installed to
-run: the [Nomi VM](/#the-nomi-vm) with your program attached.
-`--target goos/goarch` builds for another platform, as Go does.
+`nomi build` writes one executable file. It needs nothing else installed to
+run, because it holds both your program and the [Nomi VM](/#the-nomi-vm)
+that runs it. `--target` builds for another platform, the way Go does.
 
-`nomi build --no-vm app.nomi` writes the compiled program alone, as
-`app.nomic`. It is small (about 125 KB for hello world), and anything with
-`nomi-vm` installed runs it with `nomi-vm app.nomic`; `nomi run app.nomic`
-runs it too.
+You can also build the program without the VM:
 
-A file can also run as a script. Start it with a `#!/usr/bin/env nomi` line,
-make it executable, and `./hi.nomi a b` runs it as `nomi run hi.nomi a b`
-would; `nomi hi.nomi a b` does the same.
+```
+nomi build --no-vm app.nomi                # writes app.nomic
+```
+
+`app.nomic` is small, about 1 KB for hello world, because it holds only the
+code your program uses. To run it, you need the VM: `nomi-vm app.nomic`, or
+`nomi run app.nomic`. `nomi build-vm` writes `nomi-vm` for you.
+
+A `.nomi` file can also run as a script. Make its first line
+`#!/usr/bin/env nomi` and make the file executable. Then `./hi.nomi a b`
+runs it, the same as `nomi run hi.nomi a b`.
 
 ## Web pages
 
-`nomi build app.nomi --web` writes a folder instead: a page any static host
-can serve that runs the program in the browser, the way the examples on this
-site run. The folder holds `app.wasm` (the VM and your program), `nomi.js`
-(the loader) and `index.html`.
+```
+nomi build app.nomi --web                  # writes a folder
+```
 
-`nomi run --web app.nomi` serves that page on `http://localhost:8000/` while
-you work on it: each time you save, it rebuilds and the page reloads, and a
-build error shows on the page until you fix it. `--open` opens the page in
-your browser.
+This writes a folder you can put on any static web host. Opening its page
+runs your program in the browser, the way the examples on this site run. The
+folder holds:
 
-Your own pages, scripts and images go in a `web/` folder beside the program:
-both commands include them, and a `web/index.html` replaces the generated
-page. A page of your own runs the program with `run` from `nomi.js`, passing
-callbacks for what it prints and reads.
+- `app.wasm`: your program and the VM, as WebAssembly
+- `nomi.js`: the JavaScript that runs it
+- `index.html`: the page
+
+While you work, `nomi run --web app.nomi` serves the page at
+`http://localhost:8000/`. Each time you save, it rebuilds and reloads the
+page. If the build fails, the error shows on the page until you fix it.
+`--open` opens the page in your browser.
+
+To use your own page, scripts or images, put them in a folder named `web/`
+next to your program. Both commands include it, and a `web/index.html`
+replaces the generated page. Your page runs the program with `run` from
+`nomi.js`.
 
 ## Calling Nomi from a page
 
-A page can also keep a program loaded and call its functions. Mark each one
-with `export`; its arguments and result cross as JSON, so their types derive
-`ToJson` and `FromJson`. Such a program needs no `main`.
+A page can also call functions in your program, as often as it likes. Mark
+each function the page may call with `export`:
 
 ```nomi
 import std/json.{ToJson, FromJson}
@@ -70,8 +81,13 @@ export fn guess(game: Game, letter: String): Game {
 }
 ```
 
-The page's script loads the program once and calls it as often as it likes. A
-struct arrives as a plain object and goes back the same way:
+Values go between JavaScript and Nomi as JSON, so each type they use derives
+`ToJson` and `FromJson`. A program like this needs no `main`.
+
+Build it with `nomi build game.nomi --web`, or serve it with
+`nomi run --web game.nomi`. Then your page loads it and calls its functions.
+A Nomi struct arrives as a plain JavaScript object, and you pass it back the
+same way:
 
 ```js
 import { load } from "./nomi.js";
@@ -81,35 +97,38 @@ let game = await nomi.call("new_game", "pipeline");
 game = await nomi.call("guess", game, "e"); // { word: "pipeline", guesses: ["e"] }
 ```
 
-A call that fails rejects with the Nomi error, and the program stays loaded
-for the next one. The build also writes `nomi.d.ts`, so an editor checks each
-`call` against the function's Nomi signature.
+If a call fails, its promise rejects with the Nomi error, and the next call
+still works. The build also writes `nomi.d.ts`, so your editor can check
+each `call` against the Nomi function.
 
-An exported function is a contract with a caller the compiler can't see:
-renaming it or changing a parameter breaks the page without a build error. A
-program that wants its logic free of that keeps the exported functions in a
-small entry file of their own, a few wrappers over ordinary files.
+Renaming an exported function, or changing its parameters, breaks the page,
+and the compiler can't tell you. To keep that risk in one place, put the
+exported functions in a small file of their own that calls your other code.
 
 ## WebAssembly runners
 
-A runner that loads WebAssembly itself, such as wasmtime, Node's `node:wasi`
-or a browser's WASI shim, runs Nomi without `nomi.js`.
-`nomi build --target wasip1/wasm app.nomi` writes the module, and what the
-program declares decides how a runner uses it:
+A `--web` page is best when one program drives the page. It runs in the
+background, so it can wait for the user's input, or pause, without freezing
+the page.
 
-| The program has | The module is | The runner |
-|---|---|---|
-| no `export fn` | a WASI command module | starts it, and `main` runs |
-| at least one `export fn` | a WASI reactor | calls its exported functions |
+Sometimes you want something different: many small Nomi scripts on one page
+or in one Node program, or a single program for a tool like wasmtime. The
+rest of this chapter covers those.
 
-Either way the module carries its program in its own memory, so the runner
-needs to give it no file access.
+### Loading programs from JavaScript
 
-### Running a program
+Here, the VM is downloaded once and each script is a small separate file.
+Build the VM and the scripts:
 
-A program with no `export fn` builds a command module, which runs like any
-WASI program: `main` reads the runner's stdin and arguments and writes to its
-stdout. Given this `greet.nomi`:
+```
+nomi build-vm --reactor          # nomi-vm-reactor.wasm and nomi-wasi.js
+nomi build --no-vm game.nomi     # game.nomic
+nomi build --no-vm greet.nomi    # greet.nomic
+```
+
+The example below uses two scripts. It calls functions in `game.nomic`, the
+game from [Calling Nomi from a page](#calling-nomi-from-a-page), and it runs
+`greet.nomic` from start to finish. Here is `greet.nomi`:
 
 ```nomi
 import std/io
@@ -120,49 +139,66 @@ fn main() {
 }
 ```
 
-build it with `nomi build --target wasip1/wasm greet.nomi -o greet.wasm`.
-`echo Ada | wasmtime greet.wasm` prints `Hello, Ada!`, and so does this
-script under Node:
+The page or Node program loads the VM once, then loads each script into it:
 
 ```js
-import { readFile } from "node:fs/promises";
-import { WASI } from "node:wasi";
+import { loadRuntime } from "./nomi-wasi.js";
 
-const wasi = new WASI({ version: "preview1" });
-const module = await WebAssembly.compile(await readFile("greet.wasm"));
-const instance = await WebAssembly.instantiate(module, wasi.getImportObject());
-process.exitCode = wasi.start(instance);
+const vm = await loadRuntime("./nomi-vm-reactor.wasm");
+
+const game = await vm.load("./game.nomic");
+console.log(game.exports);
+// ["new_game(word: String): Game", "guess(game: Game, letter: String): Game"]
+let state = await game.call("new_game", "pipeline");
+state = await game.call("guess", state, "e");
+console.log(state); // { word: "pipeline", guesses: ["e"] }
+
+const { status, output } = await vm.run("./greet.nomic", { stdin: "Ada\n" });
+console.log(status, output); // 0 "Hello, Ada!\n"
 ```
 
-### Calling functions
+Each script gets its own copy of the VM, so scripts can't affect each other.
+`run` gives back the exit status and everything the script printed;
+`stdout` and `stderr` are there separately too. `nomi-wasi.d.ts` describes
+the API for your editor.
 
-A program with an `export fn`, like the game in
-[Calling Nomi from a page](#calling-nomi-from-a-page), builds a reactor. It
-exports `nomi_alloc`, `nomi_call` and `nomi_free`, plus `nomi_main`, which runs
-`main` if the program has one.
+Two limits: a script gets all of its input up front, and it runs on the
+thread that called it. So a script that pauses, or runs for a long time,
+holds up that thread. On a page, run such a script in a Worker.
 
-The runner calls `_initialize` once, writes the function's
-name and its JSON arguments into memory the module hands out, and reads back
-`{"ok": value}` or `{"error": "message"}`:
+If you only have one program, you can ship it as a single file instead, with
+the VM inside it. Build a program that has exported functions for
+WebAssembly, and `nomi-wasi.js` is written next to it. Calling `load` with
+nothing loads the program inside:
+
+```
+nomi build game.nomi --target wasip1/wasm -o game.wasm
+```
 
 ```js
-wasi.initialize(instance);
-const x = instance.exports;
-const put = (text) => {
-  const bytes = new TextEncoder().encode(text);
-  const ptr = x.nomi_alloc(bytes.length);
-  new Uint8Array(x.memory.buffer, ptr, bytes.length).set(bytes);
-  return [ptr, bytes.length];
-};
-const [name, nameLen] = put("new_game");
-const [args, argsLen] = put(JSON.stringify(["pipeline"]));
-const packed = BigInt.asUintN(64, x.nomi_call(name, nameLen, args, argsLen));
-const ptr = Number(packed >> 32n), len = Number(packed & 0xffffffffn);
-const answer = JSON.parse(new TextDecoder().decode(new Uint8Array(x.memory.buffer, ptr, len)));
-// { ok: { word: "pipeline", guesses: [] } }
-for (const [p, n] of [[name, nameLen], [args, argsLen], [ptr, len]]) x.nomi_free(p, n);
+import { loadRuntime } from "./nomi-wasi.js";
+
+const app = await loadRuntime("./game.wasm");
+const game = await app.load();
+console.log(await game.call("new_game", "pipeline")); // { word: "pipeline", guesses: [] }
 ```
 
-`nomi_call` returns where the answer is, its address in the high 32 bits and
-its length in the low 32, and `nomi_free` releases each buffer. A failed call
-leaves the module ready for the next one.
+### One program for a WASI runner
+
+Tools like wasmtime run WebAssembly programs on their own, outside a
+browser. To give one of them a program, build it like this:
+
+```
+nomi build --target wasip1/wasm greet.nomi -o greet.wasm
+```
+
+Then `echo Ada | wasmtime greet.wasm` prints `Hello, Ada!`. The program's
+`main` reads the tool's input and prints to its output, like any
+command-line program. The file holds the VM, so it is about 11 MB.
+
+### Your own WASI host
+
+If you are writing your own host for WebAssembly, you can call a Nomi
+module's functions without `nomi-wasi.js`. The
+[spec's Exported Functions section](https://github.com/nomi-language/nomi/blob/main/docs/spec.md#exported-functions)
+describes each function the module provides and the JSON it sends back.

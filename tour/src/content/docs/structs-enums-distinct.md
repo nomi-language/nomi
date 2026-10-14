@@ -1,30 +1,24 @@
 ---
 title: Structs, Enums, Distinct Types
-description: Records, tuples, sums, zero-cost wrappers, and tag-only types — the building blocks for your own data.
+description: Structs, tuples, wrapper types, tag types and enums, the ways to declare your own data.
 ---
 
-Nomi gives you these building blocks for declaring and grouping your own data:
+This chapter covers the ways to declare your own data:
 
-- **`struct`** — records with named fields, one field line at a time.
-- **`tuple`** — fixed positional groupings for small local shapes.
-- **`type`** — distinct wrappers around an existing type (`type Id Int`)
-  and tag-only "bare" types with no payload (`type Expired`).
-- **`enum`** — sum types (a value that's exactly one of several variants),
-  declared one variant line at a time.
+- A `struct` is a record with named fields.
+- A tuple groups a few values by position.
+- A `type` wraps an existing type under a new name (`type Id Int`), or declares
+  a tag with no data at all (`type Expired`).
+- An `enum` is a value that is one of several variants.
 
-Declaration bodies are newline-separated: struct fields and enum variants do
-not use commas. Construction literals still do.
+In a declaration, each struct field and each enum variant goes on its own line,
+with no commas between them. When you build a value, you do use commas.
 
-We'll start with named and anonymous records, then tuples, wrappers, tags, and
-sums. The examples use `dbg` so you can inspect values before the next chapter
-introduces [Interfaces & Dispatch](/interfaces-and-dispatch/) and
-[`Display`](/reference/display/).
+The examples print values with `dbg`. The next chapter,
+[Interfaces & Dispatch](/interfaces-and-dispatch/), shows how to give a type
+its own printed form with [`Display`](/reference/display/).
 
 ## Structs
-
-A struct is a record with named fields. Construct with
-`TypeName{field: value, …}`, access fields with `.field`. Fields can carry
-default values:
 
 ```nomi-run
 struct User {
@@ -57,9 +51,13 @@ dbg line 13: bob.age = 0
 dbg line 20: carol = User{name: "Carol", age: 28}
 -->
 
-Where the position already says which struct it wants (an annotation, a
-parameter, a field, a return type), the type name can be left out: a brace
-literal builds the struct its position expects.
+You build a struct with `TypeName{field: value, ...}` and read a field with
+`.field`. A field can have a default value, like `age: Int = 0`. Then you can
+leave that field out when you build the struct.
+
+You can often leave out the type name too. When the code around a brace
+literal already says which struct it needs, the literal builds that struct.
+That happens with a type annotation, a parameter, a field or a return type:
 
 ```nomi-run
 struct Address {
@@ -83,13 +81,10 @@ fn main() {
 dbg line 14: ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
 -->
 
-Without an expected struct type, a brace literal is an anonymous struct.
+When nothing says which struct is needed, a brace literal is an anonymous
+struct.
 
 ## Anonymous structs
-
-When you want a quick record without declaring a named type, drop the type
-name and write the struct literally. The value carries its own structural
-type — `{x: Int, y: Int}` here — and field access works the same way:
 
 ```nomi-run
 fn main() {
@@ -104,11 +99,14 @@ dbg line 3: point = {x: 10, y: 20}
 dbg line 4: point.x + point.y = 30
 -->
 
+An anonymous struct is a quick record with no declared type. Its type is just
+its fields, here `{x: Int, y: Int}`. You read its fields the same way.
+
 ## Updating a struct
 
-Bindings are immutable, so changing a field means building a new value from an
-existing one. `{..base, field: value}` copies `base` and replaces the fields
-written after the spread:
+A value never changes. To change a field, you build a new value from the old
+one. `{..base, field: value}` copies `base` and replaces the fields you write
+after it:
 
 ```nomi-run
 struct User {
@@ -136,15 +134,11 @@ dbg line 12: {..point, x: 9} = {x: 9, y: 20}
 dbg line 16: {..alice, age} = User{name: "Alice", age: 32}
 -->
 
-The result has the base's type: a `User` in gives a `User` out, and an
-anonymous struct gives an anonymous struct. That is why there is no
-`User{..alice, age: 31}` spelling; the name would repeat what the base already
-says.
+The result has the same type as `base`. Update a `User` and you get a `User`;
+update an anonymous struct and you get an anonymous struct. So you do not write
+the type name: `User{..alice, age: 31}` is an error.
 
-To change a field inside a nested struct, spread the inner value as well, or
-write `..` with no base at the field. A bare `..` stands for the value the
-field already holds, so `{.., city: "NYC"}` is that address with a new city,
-and both lines replace `address.city` and keep `address.street`:
+To change a field inside a nested struct, there are two ways:
 
 ```nomi-run
 struct Address {
@@ -169,27 +163,27 @@ dbg line 13: {..ada, address: {..ada.address, city: "NYC"}} = Person{name: "Ada"
 dbg line 14: {..ada, address: {.., city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
 -->
 
-[`Struct.update`](/reference/structs/) does the same by name, taking the patch
-as an argument (`Struct.update(ada, {address: {.., city: "NYC"}})`), which is
-what a computed patch or a pipe stage needs.
+The first line spreads `ada.address` by name. The second writes a `..` with
+nothing after it, which means the value the field already holds. Both change
+the city and keep the street.
 
-Everything else at a field position is a whole value. A brace without `..`
-(`{street: "2 Elm", city: "NYC"}`) or a nominal literal replaces the field, a
-binding or a call is whatever it evaluates to, and a nested spread is already
-a complete `Address`. An interface-typed field takes values only, since an
-update cannot name fields the interface does not declare.
+[`Struct.update`](/reference/structs/) does the same as a function call. It
+takes the changes as an argument:
+`Struct.update(ada, {address: {.., city: "NYC"}})`. Use it when the changes
+are computed, or as a step in a pipe.
 
-So `{..ada, address: {city: "NYC"}}` is an error: the brace is a whole
-`Address` with no `street`, and the compiler reports `missing field 'street'
-of Address` with a hint to write `{.., city: "NYC"}`. The same `..` works for
-a map's values and a list field (`[t, ..]`), as the collections chapter shows.
+Anything else you put in a field replaces the whole value. That includes a
+brace literal without `..`. So `{..ada, address: {city: "NYC"}}` is an error,
+because it builds a new `Address` with no street. The compiler says
+`missing field 'street' of Address` and suggests `{.., city: "NYC"}`.
+
+A field whose type is an interface can only be replaced whole. An interface
+declares no fields, so there are none to update.
+
+The same `..` works for a map's values and for list fields (`[t, ..]`), as the
+[collections chapter](/collections/#spreads) shows.
 
 ## Tuples
-
-Tuples group a fixed number of values by position instead of by field name.
-They are handy for small, local pairings where the positions are obvious.
-A tuple's slots are read by position with `.0`, `.1`, …, or by destructuring
-with a tuple pattern:
 
 ```nomi-run
 fn main() {
@@ -208,16 +202,16 @@ dbg line 6: name = "Ada"
 dbg line 7: pair.1 = 37
 -->
 
-Use a struct when the grouped values deserve names at the boundary of an API.
-`(String, Int)` is fine while the meaning is local; `User{name: String, score:
-Int}` is clearer once the shape starts traveling.
+A tuple groups a fixed number of values by position instead of by name. You
+read a slot with `.0`, `.1` and so on, or take the tuple apart with a pattern
+like `(name, _)`.
+
+Tuples suit small groupings used in one place, where the positions are
+obvious. When the values travel further, such as through a public function,
+give them names with a struct: `User{name: String, score: Int}` says more than
+`(String, Int)`.
 
 ## Field accessors
-
-A lambda that only reads a field, like `|user| user.name`, can be written
-`.name`: a function that reads that field from its argument. It works wherever
-a function is expected and the argument's type is already known, such as a
-call that follows the collection it runs over:
 
 ```nomi-run
 struct User {
@@ -242,17 +236,15 @@ dbg line 11:
   = ["Ada", "Alan"]
 -->
 
-`.address.city` reads a chain of fields, and a tuple's slots read the same way:
-`Iter.map(pairs, .1)`. An accessor is always an argument; to read a field of a
-value you already have, write `user.name`.
+`.name` is short for the lambda `|user| user.name`. You can use it wherever a
+function is expected and the argument's type is already known. In a pipe, the
+type comes from the collection before it.
+
+`.address.city` reads a field of a field. A tuple slot works too:
+`Iter.map(pairs, .1)`. An accessor is only ever passed to a function. To read
+a field of a value you have, write `user.name`.
 
 ## Distinct types
-
-`type Name UnderlyingType` declares a *distinct* type that wraps an existing
-one. The two share a runtime representation but the compiler keeps them
-separate — a function taking `Id` will refuse a plain `Int`, even though
-both use the same representation. This catches whole categories of
-domain bugs at compile time:
 
 ```nomi-run
 type Id Int
@@ -280,17 +272,20 @@ dbg line 14: n = 42
 dbg line 16: raw(id) = 42
 -->
 
-The pattern `Id(n)` mirrors the construction `Id(42)`, and it works wherever a
-pattern does: a binding, a `case` arm, or a parameter, as in `raw`. Calling
-the inner type's name is not a conversion: `Int(id)` is an error whose hint
-shows the destructuring to write instead.
+`type Id Int` declares a new type, `Id`, that holds an `Int`. At run time an
+`Id` is stored just like an `Int`. The compiler still treats them as different
+types, so a function that takes an `Id` will not accept a plain `Int`. That
+catches mix-ups, like passing a user's ID where an order's ID belongs, before
+the program runs.
+
+You build one with `Id(42)`. To get the `Int` back, use the pattern `Id(n)`.
+It works anywhere a pattern does: in a binding, in a `case` arm, or as a
+parameter, as in `raw`.
+
+`Int(id)` does not convert. It is an error, and the compiler's hint shows the
+pattern to write instead.
 
 ## Bare types
-
-A `type` declaration with **nothing after the name** declares a zero-sized
-"bare" type — just a tag, no payload. Useful as a sentinel value or as a
-no-data variant when embedded in an enum (see the deep-dive below), and for
-stateless adapters that need a real value to implement an interface:
 
 ```nomi-run
 type Expired
@@ -309,11 +304,14 @@ dbg line 7: state = Expired
 dbg line 8: Online = Online
 -->
 
-## Enums
+A `type` with nothing after its name is a bare type. It is a tag with no data,
+and it takes no memory. You write its value as just its name.
 
-An enum is a value that's exactly one of a fixed set of variants. Variants
-can be bare (no payload), positional (a single anonymous field), or
-struct-shaped (named fields):
+Bare types are useful as marker values, and as data-free variants of an enum
+(see [Embedding existing types](#embedding-existing-types)). They also suit
+an interface implementation that needs a value but no data.
+
+## Enums
 
 ```nomi-run
 enum Direction {
@@ -345,13 +343,11 @@ dbg line 17: c = Circle(3.0)
 dbg line 20: r = Rectangle{width: 4.0, height: 5.0}
 -->
 
-### Dot-leading shorthand
+An enum value is exactly one of a fixed set of variants. A variant can hold
+nothing (`North`), one value (`Circle Float`), or named fields
+(`Rectangle {width: Float, height: Float}`).
 
-The fully-qualified `Direction.North` / `Shape.Circle(...)` form
-always works. When the **expected type is known** — most commonly
-inside a `case` whose subject is a known enum, but also a binding
-annotation, a function parameter, or a return value — you can drop
-the enum name and use the dot-leading shorthand:
+### Dot-leading shorthand
 
 ```nomi-run
 enum Direction {
@@ -383,17 +379,16 @@ dbg line 21: describe(.North) = "up"
 dbg line 22: describe(.West) = "left"
 -->
 
-This previews `case`, which [Pattern Matching](/pattern-matching/) covers in full — but
-the dot-leading rule is the same in any position the compiler can
-pin the type: pattern arms, function arguments, return values, list
-element types (`walk: List<Direction> = [.North, .East]`), annotated
-bindings (`d: Direction = .North`).
+`Direction.North` always works. When the compiler already knows the code needs
+a `Direction`, you can write just `.North`.
+
+That works in the arms of a `case` on a `Direction`, as above. `case` is
+covered in [Pattern Matching](/pattern-matching/). It also works for an
+argument (`describe(.North)`), a return value, a list element
+(`walk: List<Direction> = [.North, .East]`) and an annotated binding
+(`d: Direction = .North`).
 
 ## Type-Owned Functions
-
-Named types can own helper functions in an `impl Type { ... }` block. Nomi
-does not have `value.method()` syntax; the owner stays visible at the call site:
-`User.full_name(user)`, `String.trim(text)`, `List.concat(xs, ys)`.
 
 ```nomi-run
 struct User {
@@ -425,28 +420,26 @@ dbg line 18: User.full_name(alice) = "Ada Lovelace"
 dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
 -->
 
-Use `impl Type` for operations whose natural home is a real value type:
-constructors, projections, validations, conversions, and transformations. The
-same shape works for structs, enums, distinct types, opaque types, host types,
-and generic types such as `impl Box<T> { ... }`.
+An `impl User { ... }` block holds functions that belong to `User`. You call
+them with the type's name in front: `User.full_name(user)`. Nomi has no
+`value.method()` syntax, so the type is always visible where you call. The
+stdlib works the same way: `String.trim(text)`, `List.concat(xs, ys)`.
+
+Put functions here that build, read, check, convert or change values of the
+type. An `impl` block works for any named type: structs, enums, distinct
+types, opaque types, host types, and generic types such as
+`impl Box<T> { ... }`.
 
 :::note[Continue or dig deeper]
 The tour moves on to [**Pattern Matching, Maybe, Result & Try**](/pattern-matching/),
-which shows how `case` destructures every value you've now learned to
-build. Or stay here for the deep-dive section below — `embeds` for
-composing existing types as enum variants, and `typealias` for
-shorthand over complex generic types.
+which shows how `case` takes apart every value you can now build. The section
+below covers `embeds`, for using existing types as enum variants, and
+`typealias`, for short names for long types.
 :::
 
 ## Going deeper
 
 ### Embedding existing types
-
-When a variant's payload would be a type you've already defined as a
-standalone struct, distinct type, or bare type, declare it with `embeds`
-instead of repeating the shape inline. The embedded type stays
-independently usable, and values of that type flow into the enum
-*without* a wrapping constructor:
 
 ```nomi-run
 struct Click {
@@ -478,21 +471,21 @@ fn main() {
 dbg line 22: events = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
 -->
 
-The benefit is **subtype coercion**: a `Click` value flows into any
-`Event`-typed slot (list elements, function arguments, return values)
-without explicit construction. The coercion goes one way: an `Event` is not a `Click`, since it may hold another variant, so a function taking a `Click` needs a match first.
-Pattern matching destructures embedded structs the same way as struct variants —
-`case e { Event.Click{x, y} -> … }` — shown in [Pattern Matching](/pattern-matching/).
+`embeds Click` makes the existing type `Click` a variant of `Event`. You do not
+repeat its fields in the enum, and `Click` is still a type of its own. You can
+embed a struct, a distinct type or a bare type.
 
-`embeds` is Nomi's replacement for the OO `extends` pattern: a
-`List<Event>` of mixed UI event values is an enum with one `embeds`
-declaration per concrete event shape rather than a class hierarchy.
+A `Click` value can go anywhere an `Event` is expected, with no wrapping: a
+list element, an argument or a return value. It does not work the other way.
+An `Event` might hold a different variant, so to pass it to a function that
+takes a `Click`, match it first. A `case` takes an embedded variant apart like
+any other: `case e { Event.Click{x, y} -> ... }`. See
+[Pattern Matching](/pattern-matching/).
+
+Where another language would use a class hierarchy, Nomi uses an enum like
+this one, with one `embeds` per kind of event.
 
 ### Type aliases
-
-A `typealias` is a *transparent* synonym for an existing type — the alias
-and the original are fully interchangeable, no wrapping or conversion. The
-payoff is making complex generic signatures readable:
 
 ```nomi-run
 typealias Index Map<String, List<Int>>
@@ -522,14 +515,16 @@ fn main() {
 dbg line 21: result = {"evens" => [4, 2], "odds" => [1]}
 -->
 
-`record`'s signature reads `(Index, String, Int) -> Index` instead of
-the noisier `(Map<String, List<Int>>, String, Int) -> Map<String, List<Int>>`.
-`Index` is **literally** a [`Map`](/reference/maps/#type-map) of [`List`](/reference/lists/#type-list)
-values — call sites pass plain map literals, and `result` is the same type
-whether you spell it `Index` or the full generic.
+A `typealias` is another name for an existing type. `Index` and
+`Map<String, List<Int>>` are the same type, and you can use either one
+anywhere. There is no wrapping and no conversion.
 
-Use `type` when you want a *new* type the compiler distinguishes from
-its representation (`UserId` shouldn't accidentally be passed where
-`OrderId` is expected — both are represented as `Int`, but the wrapper
-keeps them apart). Use `typealias` when a complex type expression has
-a meaningful name and writing it out everywhere clutters signatures.
+The point is shorter signatures. `record` reads
+`(Index, String, Int) -> Index` instead of
+`(Map<String, List<Int>>, String, Int) -> Map<String, List<Int>>`. Its callers
+still pass ordinary [`Map`](/reference/maps/#type-map) values.
+
+Use `type` when you want the compiler to tell two things apart. A `UserId` and
+an `OrderId` may both hold an `Int`, but you should not pass one where the
+other belongs. Use `typealias` when a long type has a useful name and writing
+it out everywhere makes signatures hard to read.

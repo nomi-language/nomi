@@ -291,6 +291,10 @@ func nomiHostTable(targetPath string) func(*hostadapt.Env) (map[string]hostadapt
 // one is an argument the user typed, the other came out of a filesystem walk.
 // A resolution failure falls back to string equality, which is the same answer
 // for every path with no symlink in it.
+//
+// A built executable passes its image's name for the entry, which is relative
+// to the project root (vmhost names image files as go build -trimpath does):
+// it is the declaring file when it ends that file's path at a separator.
 func nomiExternKey(target, module, entry string, declared ...string) string {
 	if entry == "" {
 		return module
@@ -299,6 +303,12 @@ func nomiExternKey(target, module, entry string, declared ...string) string {
 	for _, d := range declared {
 		if target == d {
 			return entry
+		}
+		if !stdfilepath.IsAbs(target) {
+			if s := stdfilepath.ToSlash(d); len(s) > len(target) && s[len(s)-len(target)-1:] == "/"+target {
+				return entry
+			}
+			continue
 		}
 		rd, derr := stdfilepath.EvalSymlinks(d)
 		if terr == nil && derr == nil && rt == rd {

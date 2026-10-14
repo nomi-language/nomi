@@ -332,7 +332,9 @@ int.nomi:PositiveInt.to_string	ran
 io.nomi:IOError.equal?	ran
 io.nomi:IOError.inspect	ran
 io.nomi:IOError.to_string	ran
+io.nomi:Replayed.failure	ran
 io.nomi:Replayed.inspect	ran
+io.nomi:replay_reason	ran
 json.nomi:Bool.from_json	ran
 json.nomi:Bool.to_json	ran
 json.nomi:Float.from_json	ran

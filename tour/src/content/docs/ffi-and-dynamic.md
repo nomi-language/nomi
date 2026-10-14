@@ -1,33 +1,31 @@
 ---
 title: "FFI & Dynamic"
-description: "How Nomi wraps Go packages and handles loose boundary values."
+description: "Call Go packages from Nomi, and handle values whose shape you don't know yet with Dynamic."
 ---
 
 :::caution[Early FFI surface]
-The binding syntax below is stable enough to build real programs on, and the
-FFI fixtures in this repository do. What is still moving is the packaging around
-it: how an adapter is laid out, how it is published, and what the diagnostics
-say when it is wrong. Treat the conventions as a snapshot of the current
-direction rather than a settled interface.
+You can build real programs on the binding syntax below, and the FFI tests
+in this repository do. What may still change is the packaging around it:
+how you lay out and publish a Go adapter, and the error messages you get
+when something is wrong.
 :::
 
-Nomi modules can bind ordinary Go packages. The usual shape is:
+A Nomi module can call functions from ordinary Go packages. The usual steps:
 
-- write Go adapter code in a normal `.go` file,
-- declare a compile-time Go package handle with `gopkg`,
-- bind Nomi declarations to Go symbols with `go handle.Symbol`,
-- expose domain-shaped Nomi APIs instead of raw Go package details,
-- use `nomi run`, `nomi check`, and `nomi test` as the workflow.
+- Write Go adapter code in a normal `.go` file.
+- Name the Go package in your Nomi file with `gopkg`.
+- Bind each Nomi function to a Go function with `go package.Function`.
+- Give the rest of your Nomi code functions and types that fit your
+  program, rather than the Go package's own shapes.
+- Work with `nomi run`, `nomi check` and `nomi test` as usual.
 
-For app-specific boundaries, the adapter can live next to the Nomi module in
-the same codebase: a small `.go` file that speaks to an existing app service,
-vendor SDK, or platform API, with a Nomi file exposing the shape the rest of the
-app uses. Common boundaries belong in the ecosystem: SQL, SQLite, HTTP, and
-other standard integrations can be ordinary Nomi modules backed by Go adapter
-code.
+The adapter can live next to your Nomi code: a small `.go` file that talks
+to a service your app already has, a vendor SDK, or a platform API. Common
+integrations such as SQL, SQLite and HTTP can be shared Nomi modules backed
+by Go adapter code in the same way.
 
-`gopkg` is not a Nomi import. It is a Go package handle used only by FFI
-bindings:
+`gopkg` is not a Nomi import. It names a Go package, and only `go` bindings
+use that name:
 
 ```nomi
 gopkg "urltools"
@@ -49,7 +47,7 @@ pub fn parse_query(raw: String): Result<Map<String, List<String>>, String> go ur
 pub fn parse(raw: String): Result<ParsedURL, String> go urltools.Parse
 ```
 
-The corresponding Go file is regular Go:
+The Go file is regular Go:
 
 ```go
 package urltools
@@ -91,35 +89,31 @@ func Parse(raw string) (ParsedURL, error) {
 }
 ```
 
-The Nomi signature is the contract. The Go function should project to that
-contract through a small adapter rather than exposing raw Go package details.
-At the binding boundary, Nomi generates the wrapper code that calls the Go
-symbol and converts the common shapes: scalars like `String`, `Bool`, `Int`,
-`Float`, `Byte`, and `Bytes`; containers like `List` and `Map`; a Go function's
-extra return values as a tuple; optional and fallible shapes like `Maybe` and
-`Result`; plain structs by matching exported Go fields to Nomi fields; and
-opaque handles declared with `opaque type`.
+The Nomi signature decides what the function looks like to Nomi code. The Go
+function's job is to match it. Nomi writes the code that calls the Go
+function and converts values in both directions. The table below lists the
+Go types it converts.
 
-Shapes outside that set should be normalized in the Go adapter. If Nomi only
-needs to hold a Go-owned value and pass it back, declare an opaque handle. If
-Nomi needs to inspect a loose value whose shape is not known at the signature,
-cross it as `Dynamic` and decode it deliberately at the edge.
+For any other Go type, convert it in your Go adapter. If Nomi only needs to
+hold a Go value and hand it back, declare an `opaque type` for it. If Nomi
+needs to look inside a value whose shape you can't write in the signature,
+pass it as `Dynamic` and decode it on the Nomi side.
 
-| Go boundary shape | Nomi surface | Notes |
+| Go type | Nomi type | Notes |
 | --- | --- | --- |
-| `string`, `bool`, `int64`, `float64`, `uint8` | `String`, `Bool`, `Int`, `Float`, `Byte` | These are the exact widths; `Int` is Go's `int64`. |
-| a narrower Go integer (`int32`, `int8`, …) | `Int` | Range-checked at the boundary, not truncated. A value that will not fit is an error, not a wrong answer. |
-| `[]byte` | `Bytes` | A byte buffer, distinct from `List<Byte>`. |
-| `[]T`, `map[K]V` | `List<T>`, `Map<K, V>` | Keys and values must also be supported shapes. |
-| `time.Duration`, `time.Time` | `Duration`, `Instant` | The standard time types cross directly. |
-| `*T` | `Maybe<T>` | Explicit opaque handles are passed as the handle type instead. |
+| `string`, `bool`, `int64`, `float64`, `uint8` | `String`, `Bool`, `Int`, `Float`, `Byte` | `Int` is Go's `int64`. |
+| a smaller Go integer (`int32`, `int8`, …) | `Int` | A value that doesn't fit is an error. It is never cut short. |
+| `[]byte` | `Bytes` | A byte buffer, not the same type as `List<Byte>`. |
+| `[]T`, `map[K]V` | `List<T>`, `Map<K, V>` | The element, key and value types must be in this table too. |
+| `time.Duration`, `time.Time` | `Duration`, `Instant` | |
+| `*T` | `Maybe<T>` | A pointer to a Go type you bound with `opaque type` crosses as that opaque type instead. |
 | two or more return values | a Nomi tuple | `func(string, string) (string, string)` binds to `(String, String)`. |
-| a trailing `error` | `Result<_, String>` | `(T, error)` becomes `Result<T, String>` and a lone `error` becomes `Result<Unit, String>`. The `Err` side carries the Go error's message. |
-| exported Go structs | Nomi `struct` | Exported Go fields are matched to Nomi fields. |
+| a trailing `error` | `Result<_, String>` | `(T, error)` becomes `Result<T, String>`, and a lone `error` becomes `Result<Unit, String>`. The `Err` holds the Go error's message. |
+| exported Go structs | Nomi `struct` | Exported Go fields match Nomi fields by name: `RawQuery` matches `raw_query`. |
 | a `func(A) R` parameter | a Nomi function `(A) -> R` | Pass a lambda or a named function, and Go calls it. The Go function may return nothing (`(A) -> Unit`), one value, or a value and an `error` (`(A) -> Result<R, String>`). |
-| Go-owned resources | `opaque type` | Use when Nomi should hold and return the value, not inspect it. |
-| loose runtime values | `Dynamic` | Use when Nomi will decode or pattern over an unknown shape. |
-| channels, non-empty interfaces, named function types | Go adapter or opaque handle | Normalize to a supported shape, or keep the value opaque. |
+| a Go value Nomi only holds | `opaque type` | Nomi stores it and passes it back, but can't look inside. |
+| a value of unknown shape | `Dynamic` | Nomi decodes it or matches on it. |
+| channels, non-empty interfaces, named function types | Go adapter or opaque handle | Convert to a type in this table, or keep the value opaque. |
 
 ## Binding the Go standard library
 
@@ -144,10 +138,10 @@ fn main() {
 ```
 
 This runs from any directory, as a `.nomi` file or as a `#!` script. The Go
-signature must still be one of the shapes above: a function that takes an
-`io.Reader`, or a generic one such as `slices.Max`, needs a small adapter of
-your own, like `urltools` above. A package internal to the standard
-library, such as `internal/abi`, cannot be bound.
+function must still use the types in the table above. A function that takes
+an `io.Reader`, or a generic one such as `slices.Max`, needs a small adapter
+of your own, like `urltools` above. You can't bind a package that is internal
+to the standard library, such as `internal/abi`.
 
 ## Shipping a binding
 
@@ -164,7 +158,7 @@ go-bindings/
 ```
 
 The `go.mod` is an ordinary Go module file. It names your module and your own
-Go dependencies, and nothing about Nomi:
+Go dependencies. It says nothing about Nomi:
 
 ```
 module gobindings
@@ -172,57 +166,49 @@ module gobindings
 go 1.27.0
 ```
 
-Add a third-party Go package the usual way, with `go get` in the project
-directory, and import it from your `.go` file.
+To use a third-party Go package, run `go get` in the project directory and
+import the package from your `.go` file.
 
-Go bindings need the Go toolchain installed. The project's Go side is compiled
-together with Nomi's own Go module: a released `nomi` uses the module at its
-own version, which Go downloads like any other dependency, and a `nomi` built
-from a clone uses that clone. Programs without Go bindings need no Go.
+Go bindings need the Go toolchain installed. Your Go code is compiled
+together with Nomi's own Go module. A released `nomi` uses the module at its
+own version, which Go downloads like any other dependency. A `nomi` you built
+from a clone of the repository uses that clone. Programs without Go bindings
+don't need Go.
 
-`nomi run`, `nomi test` and `nomi check` compile the Go side for you. The first
-run of a project is slower while that happens; later runs reuse the result
-until the project's Go code, its `go.mod`, or Nomi itself changes. Editing
-`.nomi` files does not recompile it.
+`nomi run`, `nomi test` and `nomi check` compile the Go side for you. The
+first run of a project is slower while that happens. Later runs reuse the
+result until the project's Go code, its `go.mod`, or Nomi itself changes.
+Editing `.nomi` files doesn't trigger a recompile.
 
 `nomi build` compiles the Go side into the executable it writes, so the
 program runs without Nomi or Go installed.
 
-The examples on this site run in your browser, which cannot compile Go, so
-examples that use Go bindings are shown here but do not run.
+The examples on this site run in your browser, which can't compile Go. So
+the examples that use Go bindings are shown here but don't run.
 
 ## Dynamic Values
 
-Some boundary values do not have a known Nomi shape: plugin messages, decoded
-payloads, loosely typed configuration, or data from another runtime.
-[`Dynamic`](/reference/dynamic/) is the escape hatch for that case.
+Sometimes you get a value with no known Nomi type: a plugin message, a
+decoded payload, loosely typed configuration, or data from another runtime.
+[`Dynamic`](/reference/dynamic/) holds such a value.
 
-Use it at the edge, then decode deliberately when the expected shape is known.
-Every navigator and extractor in [`std/dynamic`](/reference/dynamic/) returns a
-`Result`, and the error side is a structured
-[`DecodeError`](/reference/dynamic/#struct-decodeerror) carrying the path to
-the failure along with what was expected and what was there, so a bad payload
-tells you *where* it was bad.
+Take the value in as `Dynamic`, then decode it into a real type once you
+know what shape to expect. Every function in
+[`std/dynamic`](/reference/dynamic/) that reads a `Dynamic` returns a
+`Result`. Its error is a [`DecodeError`](/reference/dynamic/#struct-decodeerror),
+which holds the path to the bad part, what was expected, and what was
+there. So when a payload is wrong, the error tells you where.
 
-When a format has a typed representation, prefer that. For JSON,
+If the data's format has its own type, use that instead. For JSON,
 [`std/json`](/reference/json/) decodes into a [`Json`](/reference/json/#enum-json)
-enum you pattern-match directly with `case`, which keeps the shape in the type
-system instead of in a decode chain.
+enum, which you can match on directly with `case`.
 
-`Dynamic` is useful for crossing messy boundaries. It should not become the
-default way to model data inside Nomi.
+Use `Dynamic` where data comes in from outside. Inside your program, give
+data real types.
 
 ---
 
-That's the tour. You've seen Nomi's core syntax
-([Bindings & Expressions](/bindings-and-expressions/),
-[Functions](/functions-and-lambdas/), [Pipes](/pipes/)), its data story
-([Scalars](/scalars-and-strings/), [Collections](/collections/),
-[Structs/Enums](/structs-enums-distinct/),
-[Pattern Matching](/pattern-matching/)), its abstraction layer
-([Interfaces](/interfaces-and-dispatch/), [Modules](/modules-and-imports/)),
-its distinctive features ([App Fields, Defer](/capabilities-and-context/),
-[Concurrency](/concurrency/), [Dates & Times](/dates-and-times/),
-[Typed Literals](/typed-literals/)), and how it talks to host programs.
-The [Standard Library](/reference/) reference is generated from the stdlib's
-own docs.
+The last chapter, [Building & Shipping](/building-and-shipping/), shows how
+to package a Nomi program as an executable, a web page, or a WebAssembly
+module. After that, the [Standard Library](/reference/) reference covers
+every module, generated from the library's own doc comments.

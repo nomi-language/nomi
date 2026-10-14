@@ -31,13 +31,13 @@ test "the teller greets and takes a deposit" {
 
     assert io.replay(
         """
-            Welcome to the bank
-            Name:
-        >>  Ada
-            Hello, Ada
-            Deposit: noted
-        >>  50
-            Deposited 50
+        Welcome to the bank
+        Name:
+            > Ada
+        Hello, Ada
+        Deposit: noted
+            > 50
+        Deposited 50
         """,
         teller,
     )
@@ -56,10 +56,10 @@ test "the teller prints a receipt" {
 test "the teller has diverged" {
     assert io.replay(
         """
-            Welcome to the bank
-            Name:
-        >>  Ada
-            Hello, Ada!
+        Welcome to the bank
+        Name:
+            > Ada
+        Hello, Ada!
         """,
         teller,
     )
