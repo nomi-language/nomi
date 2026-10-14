@@ -1,0 +1,2 @@
+go test fuzz v1
+string("//FILE:a_test.nomi\nimport ffi\n\ntest \"0\" {\n    assert(ffi.0)\n}\n//FILE:ffi.nomi\n")

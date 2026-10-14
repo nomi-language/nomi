@@ -132,14 +132,17 @@ func (c *Checker) Loader() analysis.FileLoader {
 	}
 	return func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		var nodes []ast.Node
+		virtual := false
 		if len(modulePath) == 1 {
 			if src, ok := c.cfg.VirtualFiles[modulePath[0]]; ok {
 				var errs []parser.ParseError
 				nodes, errs = parser.ParseWithRecovery(lexer.Lex(src))
 				c.recordSyntax(modulePath[0]+".nomi", errs)
+				virtual = true
 			}
 		}
-		if nodes == nil {
+		// An empty virtual file parses to no nodes and is still that file.
+		if !virtual {
 			var err error
 			nodes, err = base(projectRoot, modulePath)
 			if err != nil {

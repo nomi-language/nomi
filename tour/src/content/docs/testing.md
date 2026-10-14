@@ -153,6 +153,50 @@ test "pipeline assertions validate transformed values" {
 }
 ```
 
+## Subtests
+
+`subtests` runs the same check over a list of cases. Each case is a row.
+
+```nomi-run
+fn palindrome?(text: String): Bool {
+    String.reverse(text) == text
+}
+
+test "determines palindromes" {
+    cases = [("abba", True), ("abc", False), ("x", True)]
+
+    subtests cases, (line, known_palindrome) {
+        assert palindrome?(line) == known_palindrome
+    }
+}
+```
+
+The body runs once for each row, in order. The pattern after the comma names
+the parts of the row. The rows can be a list, a range, a map's entries or any
+other `Iter`.
+
+A failed assertion ends its row, and the next row still runs. After the last
+row, the test fails if any row failed. The report shows each failed row, then
+how many failed. If the second row were `("abc", True)`, the test above would
+report:
+
+```text
+FAIL palindrome_test.nomi :: determines palindromes
+  subtest ("abc", True): line 10: assertion failed
+    assert palindrome?(line) == known_palindrome
+    values:
+      line
+        = "abc"
+      palindrome?(line)
+        = False
+      known_palindrome
+        = True
+  1 of 3 subtests failed
+```
+
+The whole statement is still one test. A row cannot `return`, `break` or
+`try`: every row runs to its end.
+
 ## Input And Output
 
 [`io.capture`](/reference/io/) runs a function and gives it the text you pass

@@ -547,6 +547,28 @@ pipeline for a simple call-and-compare; direct equality is clearer:
 assert Decimal.from_string("1.50") == Some(1.50d)
 ```
 
+Use `subtests` when one claim is checked over a table of inputs: the same
+assertions, rows that differ only in data. Each row then reports on its own,
+and a failure names the row. Write the rows as a named binding of tuples or
+structs above the statement, and bind them with a pattern that names each
+column:
+
+```nomi
+test "parses ids" {
+    cases = [("42", Ok(42)), ("007", Ok(7)), ("nope", Err("expected a numeric id"))]
+
+    subtests cases, (text, expected) {
+        assert parse_id(text) == expected
+    }
+}
+```
+
+Write separate tests instead when the rows need different setup, different
+assertions or a name of their own: a row has no name beyond its data, and a
+`subtests` body that branches on its row is several tests in one. Keep a
+table to one claim, and split a long one into tests by what the rows have in
+common.
+
 Write the value under test on the left of `==` and the expected value on the
 right. A failed comparison of multi-line Strings prints a diff that reads the
 right operand as expected and the left as actual.

@@ -295,6 +295,15 @@
           }
         },
         {
+          "comment": "`subtests` is a keyword only where a statement starts with it and its rows follow.",
+          "match": "^\\s*(subtests)\\b(?=[ \\t]+[^\\s=.,:|)\\]}-])",
+          "captures": {
+            "1": {
+              "name": "keyword.control.nomi"
+            }
+          }
+        },
+        {
           "name": "entity.other.attribute-name.nomi",
           "match": "\\binternal(?=/)"
         },

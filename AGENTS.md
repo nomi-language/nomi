@@ -375,21 +375,23 @@ runs `go vet ./...` and `go test ./...` with `internal/irbuild` as its own
 job, builds the tour bundle and runs `TestTourWasm*` against it, and runs
 `make test-vscode`'s tests. It does not run the tree-sitter tests.
 
-**Verification cadence.** The whole `go test ./internal/irbuild
--count=1 -timeout 0` run takes about 100 seconds, so it is not the per-change
-check:
+**Verification cadence.** Full runs happen once, right before a batch is
+squashed to `main`, not per change. The whole `go test ./internal/irbuild
+-count=1 -timeout 0` run takes about 150 seconds and `go test ./...` about
+five minutes, so neither is a per-change check:
 
-- **Per change:** the tests of the packages you touched, with narrow `-run`
+- **Per change, including an agent's change in its own worktree:** `go build`,
+  `go vet ./...`, and the tests of the packages you touched, with narrow `-run`
   filters over the tests that exercise the change (for example
   `go test ./lsp ./analysis`, or
   `go test ./internal/irbuild -run 'AppField|Scoped'`), plus
-  `go test ./rt/...` if `rt` changed.
-- **Before merging a batch to `main`:** `go build` and `go vet`, and
-  `go test ./...`. Run the whole
-  irbuild package one at a time, never several in parallel.
-- **A change to what the front end accepts or rejects** can break any
-  `internal/irbuild` fixture, whatever files it touched, so it always needs
-  the whole irbuild package before merging.
+  `go test ./rt/...` if `rt` changed. Do not run the whole irbuild package,
+  `go test ./...` or the fuzzers per change, even for a change to what the
+  front end accepts; say in your report which wider checks you skipped.
+- **Before squashing a batch to `main`:** the full check, once: `go test ./...`
+  (the whole irbuild package run on its own, never several in parallel) and
+  the three fuzz targets above. A failure there is attributed to the batch's
+  changes by rerunning narrow tests on each.
 - When running several suites, capture each exit status separately; a chain
   reports only the last one.
 - For concurrency changes, also run

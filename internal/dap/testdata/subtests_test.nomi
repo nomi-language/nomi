@@ -1,0 +1,6 @@
+test "halves" {
+    subtests [(4, 2), (10, 6)], (n, want) {
+        got = n / 2
+        assert got == want
+    }
+}

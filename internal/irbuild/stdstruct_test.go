@@ -325,6 +325,7 @@ func stdSpecIndexOffences() []string {
 		{stdSpecAssertionBinding, "AssertionBinding"},
 		{stdSpecAssertionDetail, "AssertionDetail"},
 		{stdSpecAssertionFailure, "AssertionFailure"},
+		{stdSpecSubtestFailure, "SubtestFailure"},
 	} {
 		if c.i >= len(stdStructSpecs) {
 			out = append(out, fmt.Sprintf("index %d is past the end of the table (%d rows)",

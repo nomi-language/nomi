@@ -87,6 +87,19 @@ type checker struct {
 	// the SymbolTryOp hover marker. Empty when not inside any function
 	// body (top-level expressions don't legally contain `try`).
 	tryBoundary string
+	// subtestsRow is the `subtests` statement whose body is being checked,
+	// and nil inside any boundary within it (enterBoundaryExits). A failed
+	// assertion there ends the row, so it has no boundary of its own to
+	// check, and `return`, `break`, `continue` and `try` have nothing to
+	// leave (subtests.go).
+	subtestsRow *ast.Subtests
+	// subtestsRowAsserts is set when an assertion is checked directly in the
+	// body of subtestsRow, one whose failure ends the row (checkSubtests).
+	subtestsRowAsserts bool
+	// setupBoundary is the tryBoundary of the `tests` group setup being
+	// checked, or "", so a statement written directly in it can be told
+	// apart from one in a lambda or fn inside it.
+	setupBoundary string
 	// exitless is the innermost enclosing expression no function encloses (a
 	// `once` initializer, a parameter or field default) while one is being
 	// checked, and nil inside any boundary within it. An early exit checked
@@ -1045,6 +1058,8 @@ func nodeLineCol(n ast.Node) (int, int) {
 	case *ast.PatternBinding:
 		return v.Line, v.Col
 	case *ast.With:
+		return v.Line, v.Col
+	case *ast.Subtests:
 		return v.Line, v.Col
 	case *ast.IntLit:
 		return v.Line, v.Col
@@ -2399,6 +2414,14 @@ func (c *checker) reportMissingFileMember(n *ast.FieldAccess) bool {
 	if sym := modScope.LookupLocal(n.Field.Name); sym != nil && sym.Kind != SymbolModule {
 		return false
 	}
+	// `ffi.0` reads a tuple element, and a file is not a tuple or any other
+	// value. A name never starts with a digit, so one that does is an index.
+	if name := n.Field.Name; name != "" && name[0] >= '0' && name[0] <= '9' {
+		file := moduleObjectName(n.Object)
+		c.report(errAt(n.Field, fmt.Sprintf("`%s` is a file, not a value, so `%s.%s` has no element to read", file, file, n.Field.Name)).
+			WithHint(fmt.Sprintf("name one of its members, as in `%s.function(x)`", file)))
+		return true
+	}
 	e := errAt(n.Field, fmt.Sprintf("file '%s' has no member '%s'", moduleObjectName(n.Object), n.Field.Name))
 	if hint := c.typeOwnedMemberHint(modScope, n.Field.Name); hint != "" {
 		e = e.WithHint(hint)
@@ -3272,6 +3295,11 @@ func (c *checker) checkAssertionSubject(n *ast.Assertion, ty Type) Type {
 		return resultTy
 	}
 	c.registerAssertionHoverAt(n.Line, n.Col, n, kw, ty, successTy, successTy)
+	if c.subtestsRow != nil {
+		// The failure ends the row it is in, which the statement collects.
+		c.subtestsRowAsserts = true
+		return successTy
+	}
 	if c.tryUnwinds != nil && c.tryBoundary != "lambda" {
 		*c.tryUnwinds = append(*c.tryUnwinds, tryUnwind{
 			Flavour: "Result", Err: c.assertionFailureType(), Assertion: true,
@@ -3599,9 +3627,12 @@ func (c *checker) checkTestDeclWithContext(n *ast.TestDecl, contextTy Type) Type
 			prevReturns, prevReturnTy := c.returnUnwinds, c.returnTy
 			returns := []boundaryReturn{}
 			c.tryBoundary = fmt.Sprintf("setup of tests %q", n.Name)
+			prevSetup := c.setupBoundary
+			c.setupBoundary = c.tryBoundary
 			c.returnUnwinds, c.returnTy = &returns, nil
 			groupContextTy = c.checkNode(n.Setup)
 			c.tryBoundary = prevBoundary
+			c.setupBoundary = prevSetup
 			c.returnUnwinds, c.returnTy = prevReturns, prevReturnTy
 			line, col := n.SetupLine, n.SetupCol
 			if line <= 0 {
@@ -4389,6 +4420,9 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 
 	case *ast.Assertion:
 		return c.checkAssertion(n)
+
+	case *ast.Subtests:
+		return c.checkSubtests(n)
 
 	case *ast.CurrentValue:
 		return c.checkCurrentValue(n)
@@ -11314,6 +11348,11 @@ func (c *checker) checkPatternDestructure(n *ast.PatternDestructure) Type {
 	c.checkPattern(n.Pattern, valTy)
 	c.notePatternBindings(patternSites(n.Pattern), n.Value)
 	c.registerAssertionHoverAt(n.AssertLine, n.AssertCol, n, "assert", valTy, TypeUnit, TypeUnit)
+	if c.subtestsRow != nil {
+		// The failure ends the row it is in, which the statement collects.
+		c.subtestsRowAsserts = true
+		return TypeUnit
+	}
 	if c.tryUnwinds != nil && c.tryBoundary != "lambda" {
 		*c.tryUnwinds = append(*c.tryUnwinds, tryUnwind{
 			Flavour: "Result", Err: c.assertionFailureType(), Assertion: true,

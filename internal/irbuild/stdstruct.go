@@ -513,6 +513,12 @@ var stdStructSpecs = []stdStructSpec{{
 		}),
 		stdListField("values", stdSpecAssertionValue),
 		stdListField("details", stdSpecAssertionDetail),
+		// A `subtests` statement's failing rows. The only field that
+		// names a row placed after this one, and the only cycle in the
+		// table: a SubtestFailure holds an AssertionFailure. Both are
+		// pointers at run time, through the List, and stdStructDefs builds
+		// every shell before any field.
+		withDefault(stdListField("subtests", stdSpecSubtestFailure), stdEmptyListDefault()),
 	},
 	transparent: true,
 }, {
@@ -796,6 +802,17 @@ var stdStructSpecs = []stdStructSpec{{
 		stdScalarField("unread", kindInt),
 	},
 	transparent: true,
+}, {
+	// One failing row of a `subtests` statement, `AssertionFailure.subtests`'
+	// element. Last, for the reason the constants below give.
+	origin: "std/assertions",
+	nomi:   "SubtestFailure",
+	goType: reflect.TypeFor[rt.NomiSubtestFailure](),
+	fields: []stdStructField{
+		stdScalarField("row", kindString),
+		stdStructRowField("failure", stdSpecAssertionFailure),
+	},
+	transparent: true,
 }}
 
 // The spec indices a row needs to name another row. Constants rather than
@@ -826,6 +843,8 @@ const (
 	stdSpecCalendarOffsetDateTime = 2
 	stdSpecCalendarDate           = 13
 	stdSpecCalendarTime           = 14
+	// The last row, named by AssertionFailure.subtests.
+	stdSpecSubtestFailure = 25
 )
 
 // stdStructDefs is the process-wide *typeDef per spec, keyed by spec index.
@@ -917,15 +936,21 @@ func stdStructKindOfGoType(t reflect.Type) kind {
 // `Diagnostic` has a different
 // Origin and cannot collide.
 //
-// # A FIXED POINT, and it grows from nothing
+// # A FIXED POINT, and it shrinks from every declared row
 //
-// A row may name another in a field, so a row is admitted only once every row
-// it names is already admitted. Seeded empty and grown, never retracted, so it
-// settles in at most one round per spec and two rows that name each other and
-// nothing else can never certify one another. Only SAME-ORIGIN rows are offered
-// to a field check: a field naming a row from another std module is not
-// something this table has, and admitting one would make the check depend on a
-// name resolving in a module that does not declare it.
+// A row may name another in a field, and two may name each other:
+// `AssertionFailure.subtests` is a `List<SubtestFailure>` and a
+// `SubtestFailure` holds an `AssertionFailure`. So every row whose declaration
+// exists starts admitted, and a row is retracted when its own shape does not
+// match with the rows still admitted offered to its fields; that repeats until
+// nothing is retracted, at most one round per spec. A row that names a
+// retracted row is retracted in turn. Each admitted row's own fields were
+// checked against its own declaration, so a cycle certifies only rows whose
+// every shape was read, never a row on the strength of another's say-so. Only
+// SAME-ORIGIN rows are offered to a field check: a field naming a row from
+// another std module is not something this table has, and admitting one would
+// make the check depend on a name resolving in a module that does not declare
+// it.
 var stdStructValidated = sync.OnceValue(func() []bool {
 	ok := make([]bool, len(stdStructSpecs))
 	lib := stdAnchorLib()
@@ -936,10 +961,13 @@ var stdStructValidated = sync.OnceValue(func() []bool {
 		fas[i] = lib.Files[strings.TrimPrefix(s.origin, "std/")]
 		decls[i] = stdStructDeclIn(fas[i], s)
 	}
+	for i := range stdStructSpecs {
+		ok[i] = decls[i] != nil
+	}
 	for changed := true; changed; {
 		changed = false
 		for i := range stdStructSpecs {
-			if ok[i] || decls[i] == nil {
+			if !ok[i] {
 				continue
 			}
 			anchors := stdBaseAnchors(fas[i])
@@ -949,8 +977,8 @@ var stdStructValidated = sync.OnceValue(func() []bool {
 					anchors.structs[stdStructSpecs[j].nomi] = j
 				}
 			}
-			if stdStructSpecs[i].matches(decls[i], anchors) {
-				ok[i] = true
+			if !stdStructSpecs[i].matches(decls[i], anchors) {
+				ok[i] = false
 				changed = true
 			}
 		}

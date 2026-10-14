@@ -444,6 +444,10 @@ type FileAnalysis struct {
 	// pattern introduces cannot always say what the parameter is. Nil until
 	// a pattern is recorded (recordLambdaPatternType).
 	LambdaPatternTypes map[ast.Node]Type
+	// SubtestsRowTypes maps each `subtests` statement the checker accepted
+	// to the type of its rows: the element type of what it iterates, which
+	// its pattern binds. Nil until the first record.
+	SubtestsRowTypes map[*ast.Subtests]Type
 	// ExprTypes maps every node the checker checked to the type it gave the
 	// node, and ExpectedTypes maps every node checked against an expected
 	// type to that expected type: the declared parameter type at an argument,
@@ -945,6 +949,7 @@ func (b *builder) defineQualifiedTypeMember(scope *Scope, sym *Symbol, line, col
 }
 
 // FileLoader loads AST nodes for a user module given the project root and module path segments.
+// A file that does not exist is an error; nil nodes and no error are an empty file.
 type FileLoader func(projectRoot string, modulePath []string) ([]ast.Node, error)
 
 // BuildFileWithStdlib builds analysis with a prelude/parent scope and stdlib module scopes.
@@ -1211,12 +1216,12 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 	b.loading[cacheKey] = true
 	defer func() { delete(b.loading, cacheKey) }()
 
+	// A loader reports a missing file as an error. Nil nodes are an empty
+	// file, which still has a scope: one with no members, so `empty.x` is
+	// "file 'empty' has no member 'x'" like any other missing member.
 	nodes, err := b.loader(loadRoot, loadPath)
 	if err != nil {
 		return nil, "", &importMiss{root: loadRoot, path: loadPath, dep: dep, std: modulePath[0] == "std"}
-	}
-	if nodes == nil {
-		return nil, "", nil
 	}
 
 	// Create a sub-builder sharing cache and loading sets. The sub-
@@ -4730,6 +4735,18 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 
 	case *ast.Defer:
 		b.walkNode(n.Call, scope)
+
+	case *ast.Subtests:
+		// The rows are read in the enclosing scope; the pattern's names
+		// are the body's, a fresh scope each row runs in.
+		b.walkNode(n.Rows, scope)
+		if n.Body != nil {
+			child := NewScope(scope)
+			setScopeSpan(child, n.Body.Line, n.Body.Col, n.Body.EndLine, n.Body.EndCol)
+			b.definePatternIn(n.Pattern, child, n.Body)
+			b.walkNode(n.Pattern, child)
+			b.walkBlock(n.Body, child)
+		}
 
 	case *ast.Assertion:
 		b.walkNode(n.Expr, scope)

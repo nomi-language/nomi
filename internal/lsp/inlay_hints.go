@@ -243,6 +243,14 @@ func (c *hintCollector) walkNode(node ast.Node) {
 	case *ast.With:
 		c.walkNode(n.Value)
 
+	case *ast.Subtests:
+		c.walkNode(n.Rows)
+		if n.Body != nil {
+			for _, stmt := range n.Body.Stmts {
+				c.walkNode(stmt)
+			}
+		}
+
 	case *ast.Binary:
 		if n.Op == "|>" {
 			// The whole chain at once: its inner pipes are stages of

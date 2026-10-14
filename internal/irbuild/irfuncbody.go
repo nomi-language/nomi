@@ -111,6 +111,10 @@ type irScalarBuilder struct {
 	// It gates four widenings; irtestbody.go's header names each and the
 	// reason it is safe only here.
 	inTest bool
+	// subtestsRow marks the body of a `subtests` statement's row function
+	// (irsubtests.go): a test body of its own, whose assertions' checker
+	// boundary is the row.
+	subtestsRow bool
 	// testApp is set for a test body whose group chain starts an app: the
 	// VM runner boots it before the body, so an app-field read has an app to
 	// read. See irtestgroup.go.
@@ -1889,7 +1893,7 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 			// An assertion in an ordinary `fn`, whose failure is the
 			// function's `Err(AssertionFailure)`; `leading` checks the
 			// checker's boundary.
-			*ast.Assertion, *ast.PatternDestructure,
+			*ast.Assertion, *ast.PatternDestructure, *ast.Subtests,
 			// A pattern binding, whose else branches off the block.
 			*ast.PatternBinding:
 			lead = append(lead, st)
@@ -1942,6 +1946,10 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		// A `with` ending a block: the override holds to the block's end,
 		// which is right after it, and the block answers Unit.
 		return append(lead, w), &ast.TypeIdent{Name: "Unit", Line: w.Line, Col: w.Col}
+	}
+	if st, isSubtests := n.(*ast.Subtests); isSubtests {
+		// A `subtests` statement ending a block, which answers Unit.
+		return append(lead, st), &ast.TypeIdent{Name: "Unit", Line: st.Line, Col: st.Col}
 	}
 	if b, isBinding := n.(*ast.Binding); isBinding && ast.IsDiscardName(b.Name) && b.TypeAnnotation == nil {
 		// `_ = Sender.send(ch.sender, 1)` ending a block: the value is
@@ -2797,6 +2805,12 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		}
 		if pd, ok := s.(*ast.PatternDestructure); ok {
 			if !bl.fnAssertion(pd.AssertLine, pd.AssertCol) || !bl.patternAssert(pd) {
+				return false
+			}
+			continue
+		}
+		if st, ok := s.(*ast.Subtests); ok {
+			if !bl.fnAssertion(st.Line, st.Col) || !bl.subtests(st) {
 				return false
 			}
 			continue

@@ -116,6 +116,32 @@ func TestSession_AFailedAssertionInATest(t *testing.T) {
 	h.check("test_assertion")
 }
 
+// A breakpoint in a `subtests` body stops once per row, each row its own
+// frame under the test's, with the row's pattern names as its locals; the
+// failed row stops at its assertion and the run carries on.
+func TestSession_SubtestsRowsStopInTurn(t *testing.T) {
+	h := newHarness(t)
+	h.start(false, map[string]any{"mode": "test", "program": testdata("subtests_test.nomi")})
+	h.breakAt("subtests_test.nomi", 3)
+	h.configure()
+	thread := h.stopped()
+	frames := h.stack(thread)
+	h.locals(frames[0])
+	h.do("continue", thread)
+	h.stopped()
+	frames = h.stack(thread)
+	h.locals(frames[0])
+	h.do("next", thread)
+	h.stopped()
+	h.do("next", thread)
+	h.stopped()
+	h.request("exceptionInfo", map[string]any{"threadId": thread})
+	h.do("continue", thread)
+	h.wait("terminated")
+	h.disconnect()
+	h.check("subtests")
+}
+
 // format "json" reports a test run as `nomi test --format json` does, which
 // is what neotest's dap strategy reads from the session's output.
 func TestSession_ATestRunReportsJSONRecords(t *testing.T) {

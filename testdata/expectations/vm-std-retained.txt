@@ -9,6 +9,7 @@ assertions.nomi:AssertionDetails.inspect	ran
 assertions.nomi:AssertionFailure.inspect	ran
 assertions.nomi:AssertionPipelineStage.inspect	ran
 assertions.nomi:AssertionValue.inspect	ran
+assertions.nomi:SubtestFailure.inspect	ran
 bool.nomi:Bool.compare	ran
 bool.nomi:Bool.equal?	ran
 bool.nomi:Bool.hash	ran

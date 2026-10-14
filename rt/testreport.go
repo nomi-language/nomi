@@ -357,8 +357,33 @@ func FormatEarlyReturnFailure(failure *EarlyReturnFailure) string {
 }
 
 func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionReportStyle) {
+	if len(failure.Subtests) > 0 {
+		writeSubtestsReport(w, failure, st)
+		return
+	}
+	writeAssertionBlock(w, failure, st, st.label(failure.Error()))
+}
+
+// writeSubtestsReport renders a `subtests` statement's failure: each failing
+// row's own report, its header naming the row, then the count line.
+//
+//	subtest ("abc", True): line 9: assertion failed
+//	  assert palindrome?(line) == known_palindrome
+//	  ...
+//	2 of 5 subtests failed
+func writeSubtestsReport(w io.Writer, failure *AssertionFailure, st assertionReportStyle) {
+	for _, sub := range failure.Subtests {
+		header := st.label("subtest ") + st.source(sub.Row) + st.label(": "+sub.Failure.Error())
+		writeAssertionBlock(w, sub.Failure, st, header)
+	}
+	fmt.Fprintf(w, "%s%s\n", st.indent, st.label(failure.Reason))
+}
+
+// writeAssertionBlock renders one assertion's failure under header, which is
+// already decorated.
+func writeAssertionBlock(w io.Writer, failure *AssertionFailure, st assertionReportStyle, header string) {
 	p := st.indent
-	fmt.Fprintf(w, "%s%s\n", p, st.label(failure.Error()))
+	fmt.Fprintf(w, "%s%s\n", p, header)
 	exprHeader := failure.Keyword + " " + failure.Expr
 	if assertionExprAlreadyIncludesKeyword(failure.Expr, failure.Keyword) {
 		exprHeader = failure.Expr

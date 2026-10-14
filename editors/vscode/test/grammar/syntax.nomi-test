@@ -123,5 +123,11 @@ tests "group" {
 // <~~~~~~~~~~~~~~~---- constant.language.boolean.nomi
 // <~~~~~~~~~~~~~~~~~~~~--- keyword.operator.word.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~--------- variable.other.nomi
+        subtests cases, (a, b) {
+// <~~~~~~~~-------- keyword.control.nomi
+            assert a == b
+        }
+        subtests = 3
+// <~~~~~~~~-------- variable.other.nomi
     }
 }

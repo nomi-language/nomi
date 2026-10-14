@@ -515,6 +515,9 @@ func (s *iterSensitivity) walkBody(owner *Symbol, n ast.Node, caughtHere bool) {
 		}
 	case *ast.With:
 		s.walkBody(owner, node.Value, caughtHere)
+	case *ast.Subtests:
+		s.walkBody(owner, node.Rows, caughtHere)
+		s.walkBody(owner, node.Body, caughtHere)
 	case *ast.FieldAccess:
 		s.walkBody(owner, node.Object, caughtHere)
 	case *ast.Return:
@@ -836,6 +839,9 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 			}
 		case *ast.With:
 			walk(node.Value, inIter)
+		case *ast.Subtests:
+			walk(node.Rows, inIter)
+			walk(node.Body, inIter)
 		case *ast.FieldAccess:
 			walk(node.Object, inIter)
 		case *ast.Return:
@@ -1039,6 +1045,9 @@ func (s *iterSensitivity) findFirstDirectBC(n ast.Node) (int, int, bool) {
 			}
 		case *ast.With:
 			walk(node.Value, caught)
+		case *ast.Subtests:
+			walk(node.Rows, caught)
+			walk(node.Body, caught)
 		case *ast.FieldAccess:
 			walk(node.Object, caught)
 		case *ast.Return:
@@ -1241,6 +1250,9 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 			}
 		case *ast.With:
 			walk(node.Value, enclosing, immediateIter)
+		case *ast.Subtests:
+			walk(node.Rows, enclosing, immediateIter)
+			walk(node.Body, enclosing, immediateIter)
 		case *ast.FieldAccess:
 			walk(node.Object, enclosing, immediateIter)
 		case *ast.Return:

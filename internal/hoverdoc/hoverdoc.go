@@ -1584,6 +1584,9 @@ func renderAssertionHover(sym *analysis.Symbol) string {
 	if _, ok := sym.Node.(*ast.PatternDestructure); ok {
 		return renderPatternAssertionHover(sym)
 	}
+	if _, ok := sym.Node.(*ast.Subtests); ok {
+		return renderSubtestsHover(sym)
+	}
 	info := sym.Assertion
 	inputStr := displayValueType(info.InputTy)
 	resultStr := displayValueType(info.ResultTy)
@@ -1594,6 +1597,25 @@ func renderAssertionHover(sym *analysis.Symbol) string {
 		b.WriteString("\n\n")
 		b.WriteString(prose)
 	}
+	return b.String()
+}
+
+// renderSubtestsHover is the `subtests` keyword's hover: what it iterates,
+// what each row binds, and where a failed row's report goes.
+func renderSubtestsHover(sym *analysis.Symbol) string {
+	info := sym.Assertion
+	var b strings.Builder
+	fmt.Fprintf(&b, "```nomi\nsubtests: %s -> Unit\n```", displayValueType(info.InputTy))
+	row := "each row"
+	if info.SuccessTy != nil {
+		row = fmt.Sprintf("each row, a `%s`", displayValueType(info.SuccessTy))
+	}
+	fmt.Fprintf(&b, "\n\nRuns the body once for %s, in order. A failed assertion ends its row and the next row runs.", row)
+	b.WriteString(" After the last row, if any row failed, returns `AssertionFailure` listing each failing row")
+	if info.Boundary != "" {
+		fmt.Fprintf(&b, " and unwinds to `%s`", info.Boundary)
+	}
+	b.WriteString(".")
 	return b.String()
 }
 

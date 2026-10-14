@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
-records 49
-declared-cases 232
-failing 49
+records 50
+declared-cases 237
+failing 50
 C anon_struct.nomi
 E 1
 N 1
@@ -146,12 +146,12 @@ T
 C check_shape_report.nomi
 E 1
 N 2
-H 07aa98998d6c3dfb11ce2e7f3ca0eb3662df67f8a49d71b5281177dec6aaad0d
+H 1643cfe490603dc9cb24db603c1a2c7eb3e3c96acaac9a47769784ef0496c7fd
 T ok <root>/internal/irbuild/testdata/check_shape_report.nomi :: a shape check that holds keeps the whole file honest
 T FAIL <root>/internal/irbuild/testdata/check_shape_report.nomi :: a failing shape check renders its own failure value
 T   line 34: pattern did not match
 T     assert Ok(_) = testing.check(find_name(2))
-T     actual: Err(AssertionFailure{actual: Some("None"), binding: None, details: [], expression: "find_name(2)", keyword: "check", line: 34, reason: "check failed", values: []})
+T     actual: Err(AssertionFailure{actual: Some("None"), binding: None, details: [], expression: "find_name(2)", keyword: "check", line: 34, reason: "check failed", subtests: [], values: []})
 T test result: FAILED. 1 passed, 1 failed
 T
 C context_values_report.nomi
@@ -876,7 +876,7 @@ T
 C pipe_stages.nomi
 E 1
 N 4
-H 522166213d3669efd12c0e236e817bffa7eeb1c461389971a5722d24eecff122
+H 4fa1a503e78f05cf5e6e20ced88a8c79022f647da75c4e48e3fe46be6d5f52ba
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: a pipeline-bound name prints its stages uncompacted
 T   line 62: assertion failed
 T     assert found
@@ -910,13 +910,13 @@ T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: a piped check carrie
 T   line 75: pattern did not match
 T     assert Ok(True) = piped_check()
 T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: ""Ada Lovelace"
-T |> String.contains?("Grace")", keyword: "check", line: 43, reason: "check failed", values: [AssertionValue{expression: ""Ada Lovelace"
+T |> String.contains?("Grace")", keyword: "check", line: 43, reason: "check failed", subtests: [], values: [AssertionValue{expression: ""Ada Lovelace"
 T |> String.contains?("Grace")", pipeline: [AssertionPipelineStage{expression: ""Ada Lovelace"", value: ""Ada Lovelace""}, AssertionPipelineStage{expression: ""Ada Lovelace"
 T |> String.contains?("Grace")", value: "False"}], value: "False"}]})
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: an unpiped check beside it carries no pipeline at all
 T   line 79: pattern did not match
 T     assert Ok(True) = unpiped_check()
-T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?("Ada Lovelace", "Grace")", keyword: "check", line: 52, reason: "check failed", values: [AssertionValue{expression: ""Ada Lovelace"", pipeline: [], value: ""Ada Lovelace""}, AssertionValue{expression: ""Grace"", pipeline: [], value: ""Grace""}]})
+T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?("Ada Lovelace", "Grace")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [AssertionValue{expression: ""Ada Lovelace"", pipeline: [], value: ""Ada Lovelace""}, AssertionValue{expression: ""Grace"", pipeline: [], value: ""Grace""}]})
 T test result: FAILED. 0 passed, 4 failed
 T
 C scalar_operator_traps.nomi
@@ -980,6 +980,56 @@ T     values:
 T       chosen()
 T         = HalfEven
 T test result: FAILED. 4 passed, 1 failed
+T
+C subtests_report.nomi
+E 1
+N 5
+H 0bf09b42fb629dbf6ae8e1633a5d952ef0c8e74aae0196069745d94a9323caba
+T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: two of four rows fail
+T   subtest ("abc", True): line 18: assertion failed
+T     assert palindrome?(line) == known_palindrome
+T     values:
+T       line
+T         = "abc"
+T       palindrome?(line)
+T         = False
+T       known_palindrome
+T         = True
+T   subtest ("ab", True): line 18: assertion failed
+T     assert palindrome?(line) == known_palindrome
+T     values:
+T       line
+T         = "ab"
+T       palindrome?(line)
+T         = False
+T       known_palindrome
+T         = True
+T   2 of 4 subtests failed
+T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: a row ends at its first failed assertion
+T   subtest 2: line 26: assertion failed
+T     assert n < 2
+T     values:
+T       n
+T         = 2
+T   subtest 3: line 25: assertion failed
+T     assert n < 3
+T     values:
+T       n
+T         = 3
+T   2 of 3 subtests failed
+T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: a helper's failed rows fail the test that calls it
+T   subtest Point{x: 4, y: 3}: line 32: assertion failed
+T     assert x < y
+T     values:
+T       x
+T         = 4
+T       y
+T         = 3
+T   1 of 2 subtests failed
+T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: a trap in a row fails the test as a trap
+T   line 46: division by zero
+T ok <root>/internal/irbuild/testdata/subtests_report.nomi :: every row passes
+T test result: FAILED. 1 passed, 4 failed
 T
 C tests_attached.nomi
 E 1

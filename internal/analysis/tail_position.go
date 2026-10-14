@@ -188,6 +188,10 @@ func mark(n ast.Node, tail bool) {
 	case *ast.With:
 		// A statement: its value is never the block's.
 		mark(x.Value, false)
+	case *ast.Subtests:
+		// A statement whose body runs once per row and answers nothing.
+		mark(x.Rows, false)
+		markBlock(x.Body, false)
 	case *ast.Defer:
 		mark(x.Call, false)
 	case *ast.TryOp:

@@ -239,7 +239,9 @@ func irKindReaches(k kind, deciding []*typeDef) bool {
 // itself through one of them is a finite layout.
 func irRecursiveFieldKind(k kind, deciding []*typeDef) bool {
 	switch {
-	case irUserNominal(k):
+	case irUserNominal(k), irStdStructNominal(k):
+		// A std struct is decided as a user one is: `SubtestFailure.failure`
+		// is the `AssertionFailure` whose `subtests` hold it.
 		return irNominalCoinductive(k, deciding)
 	case k.tag == tagNamed && k.def != nil && k.def.isDistinct:
 		// `b: B` for `type B W` where W is the struct being decided.
@@ -263,6 +265,19 @@ func irUserNominal(k kind) bool {
 		return false
 	}
 	return true
+}
+
+// irStdStructNominal is a non-generic std struct with a spec row, which a
+// field may reach its own struct back through.
+func irStdStructNominal(k kind) bool {
+	if k.tag != tagNamed || k.def == nil || k.def.isEnum || k.def.isDistinct || k.def.preludeOf != nil || k.def.genStructOf != nil {
+		return false
+	}
+	if _, vector := vectorElem(k); vector {
+		return false
+	}
+	_, std := stdStructIndex(k.def)
+	return std
 }
 
 // irComposedFieldKind is a user struct field composed of retained values:

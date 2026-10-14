@@ -749,6 +749,10 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 	case *ir.Record:
 		return m.recordInstr(fr, n)
 
+	case *ir.Subtests:
+		// See subtests.go in this package.
+		return m.at(fr).subtestsInstr(fr, n)
+
 	case *ir.Not:
 		v, err := fr.read(n.Val())
 		if err != nil {

@@ -17,7 +17,7 @@ failing 74
 C assert_subject_test.nomi@76e4dc034f8c1f74
 E 1
 N 0
-H 413d909e9e7de81684491a3cb416849aecc226469dc796ff1be4cec48815883b
+H 53ffaa73765a6087c8b6ef4ff870b77addcc964871c9255ec7f642da917fb077
 S -- assert_subject_test.nomi 1100 --
 S
 S import {
@@ -75,7 +75,7 @@ T ok <dir>/assert_subject_test.nomi :: an assert in an ordinary fn is its Err
 T FAIL <dir>/assert_subject_test.nomi :: a failing assert in an ordinary fn reports through the caller
 T   line 31: pattern did not match
 T     assert Ok(12) = ensure_small(12)
-T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: "n < limit", keyword: "assert", line: 13, reason: "assertion failed", values: [AssertionValue{expression: "n", pipeline: [], value: "12"}, AssertionValue{expression: "limit", pipeline: [], value: "10"}]})
+T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: "n < limit", keyword: "assert", line: 13, reason: "assertion failed", subtests: [], values: [AssertionValue{expression: "n", pipeline: [], value: "12"}, AssertionValue{expression: "limit", pipeline: [], value: "10"}]})
 T ok <dir>/assert_subject_test.nomi :: a check over a pipe inside an ordinary fn
 T FAIL <dir>/assert_subject_test.nomi :: a failing piped check reports its pipeline
 T   line 45: assertion failed
@@ -83,7 +83,7 @@ T     assert result == Ok(True)
 T     values:
 T       result
 T         = Err(AssertionFailure{actual: None, binding: None, details: [], expression: "[1, 2]
-T |> Iter.any?(|x| x > 2)", keyword: "check", line: 41, reason: "check failed", values: [AssertionValue{expression: "[1, 2]
+T |> Iter.any?(|x| x > 2)", keyword: "check", line: 41, reason: "check failed", subtests: [], values: [AssertionValue{expression: "[1, 2]
 T |> Iter.any?(|x| x > 2)", pipeline: [AssertionPipelineStage{expression: "[1, 2]", value: "[1, 2]"}, AssertionPipelineStage{expression: "[1, 2]
 T |> Iter.any?(|x| x > 2)", value: "False"}], value: "False"}]})
 T FAIL <dir>/assert_subject_test.nomi :: a failing shape assertion shows the value
@@ -3290,12 +3290,12 @@ T
 C internal/irbuild/testdata/check_shape_report.nomi@b99e682165cbe67b
 E 1
 N 0
-H 6ae27c07f8f0820b310468709ac2a54e5a6898edf2513143f484c5bc58b36576
+H 0a05733ea75a6d7378b9e7553fff435c9e8b59d183993dab9484b25b1e93df2a
 T ok <dir>/check_shape_report.nomi :: a shape check that holds keeps the whole file honest
 T FAIL <dir>/check_shape_report.nomi :: a failing shape check renders its own failure value
 T   line 34: pattern did not match
 T     assert Ok(_) = testing.check(find_name(2))
-T     actual: Err(AssertionFailure{actual: Some("None"), binding: None, details: [], expression: "find_name(2)", keyword: "check", line: 34, reason: "check failed", values: []})
+T     actual: Err(AssertionFailure{actual: Some("None"), binding: None, details: [], expression: "find_name(2)", keyword: "check", line: 34, reason: "check failed", subtests: [], values: []})
 T test result: FAILED. 1 passed, 1 failed
 T
 C internal/irbuild/testdata/closures.nomi@ea8923c154005571
@@ -5924,7 +5924,7 @@ T
 C internal/irbuild/testdata/pipe_stages.nomi@43bab1e07722ca44
 E 1
 N 0
-H 4627172352da1805199c19765280ae1450e28c2b6368b227679a23febdf9ac2b
+H 8e3b10b358b127e9ed5445f448422da20ea70e3875ca407912a2f26c39fb1878
 T FAIL <dir>/pipe_stages.nomi :: a pipeline-bound name prints its stages uncompacted
 T   line 62: assertion failed
 T     assert found
@@ -5958,13 +5958,13 @@ T FAIL <dir>/pipe_stages.nomi :: a piped check carries its stages on the whole-s
 T   line 75: pattern did not match
 T     assert Ok(True) = piped_check()
 T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: ""Ada Lovelace"
-T |> String.contains?("Grace")", keyword: "check", line: 43, reason: "check failed", values: [AssertionValue{expression: ""Ada Lovelace"
+T |> String.contains?("Grace")", keyword: "check", line: 43, reason: "check failed", subtests: [], values: [AssertionValue{expression: ""Ada Lovelace"
 T |> String.contains?("Grace")", pipeline: [AssertionPipelineStage{expression: ""Ada Lovelace"", value: ""Ada Lovelace""}, AssertionPipelineStage{expression: ""Ada Lovelace"
 T |> String.contains?("Grace")", value: "False"}], value: "False"}]})
 T FAIL <dir>/pipe_stages.nomi :: an unpiped check beside it carries no pipeline at all
 T   line 79: pattern did not match
 T     assert Ok(True) = unpiped_check()
-T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?("Ada Lovelace", "Grace")", keyword: "check", line: 52, reason: "check failed", values: [AssertionValue{expression: ""Ada Lovelace"", pipeline: [], value: ""Ada Lovelace""}, AssertionValue{expression: ""Grace"", pipeline: [], value: ""Grace""}]})
+T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?("Ada Lovelace", "Grace")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [AssertionValue{expression: ""Ada Lovelace"", pipeline: [], value: ""Ada Lovelace""}, AssertionValue{expression: ""Grace"", pipeline: [], value: ""Grace""}]})
 T test result: FAILED. 0 passed, 4 failed
 T
 C internal/irbuild/testdata/pipes.nomi@f3eccd368eb8338a

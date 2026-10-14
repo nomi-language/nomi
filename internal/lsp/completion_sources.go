@@ -17,7 +17,7 @@ var (
 	}
 	expressionKeywords = []string{"if", "case", "try", "dbg", "todo", "concurrent"}
 	statementKeywords  = append([]string{
-		"return", "defer", "with", "assert", "refute", "import", "fn", "once",
+		"return", "defer", "with", "assert", "refute", "subtests", "import", "fn", "once",
 		"break", "continue",
 	}, expressionKeywords...)
 )

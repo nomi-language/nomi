@@ -257,12 +257,8 @@ func (m *Machine) testFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]string) 
 			// A `try` that carried an AssertionFailure (`try testing.check(e)`)
 			// is that assertion's failure, so the report is the check's own,
 			// and the `try` was only transport.
-			if e, isRec := enumRecord(early.value); isRec && isEnum(e, "results.Result") && variantName(e) == "Err" {
-				if payload, has := payloadOf(e); has {
-					if f, isFailure := nomiFailureOf(payload); isFailure {
-						return f.Report()
-					}
-				}
+			if f, isFailure := rowVerdict(err); isFailure {
+				return f
 			}
 			return &rt.EarlyReturnFailure{Line: early.at.Pos().Line(), Expr: early.at.Text(),
 				Value: rt.RowText(early.value)}

@@ -479,6 +479,8 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 		return bl.assertion(st)
 	case *ast.PatternDestructure:
 		return bl.patternAssert(st)
+	case *ast.Subtests:
+		return bl.subtests(st)
 	case *ast.PatternBinding:
 		return bl.patternBindingStmt(st, nil)
 	case *ast.Binding:

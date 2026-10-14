@@ -7877,6 +7877,11 @@ groups tests. A group's `setup` produces a value, and a test receives it
 through a pattern after the test's name (`test "default user", {name}` above).
 A group's parts are described after attached tests, below.
 
+A test must be able to fail, so its body holds at least one `assert`,
+`refute` or `subtests` statement; a test without one is
+`test block must contain at least one assert or refute`, and an attached
+test without one is `attached test must contain at least one assert or refute`.
+
 An attached test uses a docs-flavored `//!` prompt immediately before the
 declaration it exercises. It is discovered and run by `nomi test` like an
 ordinary test declaration, and the body is type-checked in the following
@@ -8206,6 +8211,101 @@ test's claim, such as `assert Err(Error.InvalidFormat(_)) = Date.parse(text)`.
 A `try` or an assertion in a `tests` group's `setup` block behaves the same
 way: the setup runs inside each case it serves, so an early exit there fails
 that case with the same report, and none of the case's body runs.
+
+`subtests rows, pattern { body }` runs one test's body over a table of rows.
+`rows` is anything an `Iter` accepts (a `List`, `Vector`, `Set`, a `Map`,
+whose rows are its `(key, value)` pairs, a `Range` or an `Iter`), and the body
+runs once per row, in order, with `pattern` bound to the row. The pattern
+must match every row, as a test's setup pattern must; a refutable one is
+`` a `subtests` pattern must match every row; bind it with a name or an irrefutable pattern and match it in the body ``,
+and rows that are not iterable are
+`` `subtests` runs its body once per element of what it is given, which must be something `Iter` accepts, such as a List, a Range or an Iter; got Int ``.
+
+```nomi
+test "determines palindromes" {
+    cases = [("abba", True), ("abc", False), ("x", True)]
+
+    subtests cases, (line, known_palindrome) {
+        assert palindrome?(line) == known_palindrome
+    }
+}
+```
+
+A failed assertion in the body ends that row only, and the next row runs.
+After the last row, when any row failed, the statement fails as one
+assertion does, with a report that lists each failed row: the row rendered
+as a `values:` row renders a value, then that row's own assertion report,
+then the count. Rows that pass print nothing, and a test whose rows all pass
+prints its one `ok` line. Were the second row above `("abc", True)`, the test
+would report:
+
+```text
+FAIL palindrome_test.nomi :: determines palindromes
+  subtest ("abc", True): line 5: assertion failed
+    assert palindrome?(line) == known_palindrome
+    values:
+      line
+        = "abc"
+      palindrome?(line)
+        = False
+      known_palindrome
+        = True
+  1 of 3 subtests failed
+```
+
+A row's final statement whose value is `Err(AssertionFailure)` fails the
+row, as it fails a test body, so a row may end with a helper that asserts:
+
+```nomi
+fn check_row(line: String, known_palindrome: Bool): Result<Unit, AssertionFailure> {
+    assert palindrome?(line) == known_palindrome
+    Ok(Unit)
+}
+
+test "determines palindromes" {
+    subtests [("abba", True), ("abc", False)], (line, known_palindrome) {
+        check_row(line, known_palindrome)
+    }
+}
+```
+
+A `subtests` statement is its test's assertion, so its body must be able to
+fail a row: one with no `assert` or `refute` of its own (outside a lambda or
+a nested `fn`) whose final value is not a `Result<_, AssertionFailure>`, in
+any arm of a final `if` or `case`, is
+`` `subtests` body must contain an assert or refute, or end each row with a Result<_, AssertionFailure> ``. A trap in a row (a division by zero, a `case`
+with no arm, a `todo`) is not caught: it fails the test as a trap anywhere in
+it does, and the rows after it do not run.
+
+`subtests` is a statement, and its value is `Unit`. It stands where a
+statement assertion may, and its failure leaves the same way: it fails a test
+body, and in a function returning `Result<_, AssertionFailure>` the function
+returns `Err(failure)`, whose `keyword` is `"subtests"`, whose `reason` is the
+count line (`2 of 3 subtests failed`), and whose `subtests` field lists each
+failed row as a `SubtestFailure` with its `row` and its `failure`;
+`AssertionFailure.format` renders the same report. Anywhere an assertion is
+not allowed, `subtests` is the same error with `subtests` named in it: in a
+function with any other result
+(`` `subtests` can return AssertionFailure, but the enclosing function returns Int ``),
+in a lambda, in a `once` initializer or a default. It cannot be written in a
+`tests` group's `setup`
+(`` `subtests` cannot be used in a `setup`: a setup builds the value each test binds ``),
+or inside another `subtests` body
+(`` `subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case ``).
+
+A row is not a function, and every row runs to its end, so `return`, `break`,
+`continue` and `try` written directly in the body are errors, such as
+`` `return` cannot be used in a `subtests` body: a row is not a function, and each row runs to its end ``.
+Inside a lambda or a nested `fn` in the body they leave that, as anywhere.
+
+A test that uses `subtests` is still one test: it counts once in the totals,
+and `--line`, an editor's test lens and the debugger treat it as one test. A
+breakpoint in the body stops once per row, in a frame of its own.
+
+`subtests` is a keyword only where a statement starts with it, an expression
+starts on its line, and a comma follows that expression. Anywhere else it is
+an ordinary name: `subtests = rows`, `subtests(2)` and a function named
+`subtests` keep working.
 
 That makes assertions usable in production code as runtime checks as well as in
 tests. Inside `nomi test`, a failed assertion stops that test and reports the

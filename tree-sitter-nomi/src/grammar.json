@@ -4831,6 +4831,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "subtests_statement"
+        },
+        {
+          "type": "SYMBOL",
           "name": "return_statement"
         },
         {
@@ -5574,6 +5578,48 @@
         {
           "type": "STRING",
           "value": "refute"
+        }
+      ]
+    },
+    "subtests_statement": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_subtests_keyword"
+          },
+          "named": false,
+          "value": "subtests"
+        },
+        {
+          "type": "FIELD",
+          "name": "rows",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_expression"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ","
+        },
+        {
+          "type": "FIELD",
+          "name": "pattern",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_param_pattern"
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "body",
+          "content": {
+            "type": "SYMBOL",
+            "name": "body"
+          }
         }
       ]
     },
@@ -10942,6 +10988,10 @@
     {
       "type": "SYMBOL",
       "name": "_same_line"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_subtests_keyword"
     }
   ],
   "inline": [],

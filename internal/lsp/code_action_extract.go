@@ -182,6 +182,9 @@ func hoistsThrough(parent, child ast.Node) bool {
 		return p.Value == child
 	case *ast.PatternDestructure:
 		return p.Value == child
+	case *ast.Subtests:
+		// The rows are evaluated once, before any row runs.
+		return p.Rows == child
 	}
 	return false
 }

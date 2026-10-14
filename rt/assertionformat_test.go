@@ -27,6 +27,37 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 		failure *AssertionFailure
 		want    string
 	}{{
+		// A `subtests` statement: each failed row's own report under a
+		// header naming the row, then the count, and no header of its own.
+		name: "subtests",
+		failure: SubtestsFailure(4, "cases", 3, []SubtestFailure{{
+			Row: `("abc", True)`,
+			Failure: &AssertionFailure{Line: 5, Keyword: "assert", Expr: "ok?(s) == want", Reason: "assertion failed",
+				Values: []AssertionValueContext{{Expr: "ok?(s)", Value: "False"}, {Expr: "want", Value: "True"}}},
+		}, {
+			Row:     "2",
+			Failure: &AssertionFailure{Line: 6, Keyword: "refute", Expr: "False", Reason: "refutation failed"},
+		}}),
+		want: "subtest (\"abc\", True): line 5: assertion failed\n" +
+			"  assert ok?(s) == want\n" +
+			"  values:\n" +
+			"    ok?(s)\n" +
+			"      = False\n" +
+			"    want\n" +
+			"      = True\n" +
+			"subtest 2: line 6: refutation failed\n" +
+			"  refute False\n" +
+			"2 of 3 subtests failed",
+	}, {
+		// One row of one: the count line's noun is singular.
+		name: "one subtest",
+		failure: SubtestsFailure(1, "rows", 1, []SubtestFailure{{
+			Row: "0", Failure: &AssertionFailure{Line: 2, Keyword: "assert", Expr: "False", Reason: "assertion failed"},
+		}}),
+		want: "subtest 0: line 2: assertion failed\n" +
+			"  assert False\n" +
+			"1 of 1 subtest failed",
+	}, {
 		// The floor: header plus the assertion as written, keyword prefixed.
 		name: "bare bool",
 		failure: &AssertionFailure{
@@ -337,5 +368,22 @@ func TestFormatAssertionFailureIsPinned(t *testing.T) {
 				t.Errorf("FormatAssertionFailure mismatch\n--- got ---\n%s\n--- want ---\n%s", got, tc.want)
 			}
 		})
+	}
+}
+
+// A `subtests` failure survives the trip through the Nomi value a function
+// returns (`Err(AssertionFailure)`) and back into a report, and a statement
+// whose rows all passed has no failure.
+func TestSubtestsFailureRoundTripsThroughTheNomiValue(t *testing.T) {
+	if f := SubtestsFailure(3, "rows", 2, nil); f != nil {
+		t.Fatalf("no failed row gave a failure: %#v", f)
+	}
+	f := SubtestsFailure(3, "rows", 2, []SubtestFailure{{
+		Row: "1", Failure: &AssertionFailure{Line: 4, Keyword: "assert", Expr: "n > 1", Reason: "assertion failed",
+			Values: []AssertionValueContext{{Expr: "n", Value: "1"}}},
+	}})
+	want := FormatAssertionFailure(f)
+	if got := FormatAssertionFailure(f.NomiFailure().Report()); got != want {
+		t.Errorf("after the round trip:\n%s\nwant:\n%s", got, want)
 	}
 }

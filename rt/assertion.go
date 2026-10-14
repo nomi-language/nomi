@@ -34,6 +34,37 @@ type AssertionFailure struct {
 	// Diff is the line diff of a failed `==` over two Strings (StringDiff),
 	// shown in place of its two operands' `values:` rows, or nil.
 	Diff *AssertionStringDiff
+	// Subtests is a `subtests` statement's failing rows, in the order they
+	// ran, and empty for every other failure. Such a failure reports each
+	// row's own failure under the row, then Reason (SubtestsFailure).
+	Subtests []SubtestFailure
+}
+
+// SubtestFailure is one failing row of a `subtests` statement: the row,
+// rendered as a `values:` row renders a value, and the failure that ended it.
+type SubtestFailure struct {
+	Row     string
+	Failure *AssertionFailure
+}
+
+// SubtestsFailure is the failure of the `subtests` statement at line over
+// rows (the rows expression as written) when failed of its total rows failed,
+// or nil when none did.
+func SubtestsFailure(line int, rows string, total int, failed []SubtestFailure) *AssertionFailure {
+	if len(failed) == 0 {
+		return nil
+	}
+	noun := "subtests"
+	if total == 1 {
+		noun = "subtest"
+	}
+	return &AssertionFailure{
+		Line:     line,
+		Keyword:  "subtests",
+		Expr:     rows,
+		Reason:   fmt.Sprintf("%d of %d %s failed", len(failed), total, noun),
+		Subtests: failed,
+	}
 }
 
 // rowHidden reports whether a direct `values:` row is left out of the report

@@ -2490,6 +2490,33 @@ func TestHover_Assertion_TestBoundary(t *testing.T) {
 	}
 }
 
+// The `subtests` keyword's hover names what it iterates and each row's
+// type; an assertion in its body unwinds to the row.
+func TestHover_Subtests(t *testing.T) {
+	src := "test \"rows\" {\n" +
+		"  subtests [(1, \"a\")], (n, s) {\n" +
+		"    assert n > 0\n" +
+		"  }\n" +
+		"}"
+	file := checkedFile(src)
+	sym := file.SymbolAt(analysis.Pos{Line: 2, Col: 3})
+	if sym == nil {
+		t.Fatal("expected a symbol at the `subtests` keyword")
+	}
+	got := renderHover(sym)
+	want := "```nomi\nsubtests: List<(Int, String)> -> Unit\n```\n\nRuns the body once for each row, a `(Int, String)`, in order. A failed assertion ends its row and the next row runs. After the last row, if any row failed, returns `AssertionFailure` listing each failing row and unwinds to `test \"rows\"`."
+	if got != want {
+		t.Errorf("got:\n%s\n\nwant:\n%s", got, want)
+	}
+	inner := file.SymbolAt(analysis.Pos{Line: 3, Col: 5})
+	if inner == nil {
+		t.Fatal("expected a symbol at the row's `assert`")
+	}
+	if got := renderHover(inner); !strings.Contains(got, "unwinds to `subtests row`") {
+		t.Errorf("the row's assertion hover:\n%s\nwant it to unwind to `subtests row`", got)
+	}
+}
+
 func TestHover_Assertion_PipelineBool(t *testing.T) {
 	inputWithMarker := `test "maybe equality works as a pipeline predicate" {
   3.7

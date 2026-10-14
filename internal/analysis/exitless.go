@@ -56,9 +56,9 @@ func (c *checker) checkExitless(site *exitlessSite, check func() Type) Type {
 // enterBoundaryExits clears the exitless site for a boundary's body and
 // returns what restores it.
 func (c *checker) enterBoundaryExits() func() {
-	prev := c.exitless
-	c.exitless = nil
-	return func() { c.exitless = prev }
+	prev, prevRow := c.exitless, c.subtestsRow
+	c.exitless, c.subtestsRow = nil, nil
+	return func() { c.exitless, c.subtestsRow = prev, prevRow }
 }
 
 // rejectExitlessExit reports an early exit (`kw`) at line:col when no function
@@ -68,6 +68,9 @@ func (c *checker) enterBoundaryExits() func() {
 // when this expression was reached (a `once` is checked on demand, from its
 // first read).
 func (c *checker) rejectExitlessExit(kw string, line, col int) bool {
+	if c.rejectRowExit(kw, line, col) {
+		return true
+	}
 	site := c.exitless
 	if site == nil {
 		return false

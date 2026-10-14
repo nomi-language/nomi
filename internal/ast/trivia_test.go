@@ -17,7 +17,7 @@ func TestTriviaCarrier_Interface(t *testing.T) {
 		&Return{}, &Break{}, &Continue{}, &TryOp{}, &Placeholder{},
 		&NamedArg{}, &Case{}, &WildcardPattern{}, &IdentPattern{}, &AsPattern{},
 		&EnumPattern{}, &StructPattern{}, &TuplePattern{}, &ListPattern{},
-		&MapPattern{}, &TestDecl{}, &Assertion{}, &Dbg{}, &CurrentValue{},
+		&MapPattern{}, &TestDecl{}, &Assertion{}, &Subtests{}, &Dbg{}, &CurrentValue{},
 	}
 	for _, n := range nodes {
 		h, ok := n.(HasTrivia)

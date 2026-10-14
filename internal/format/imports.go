@@ -95,6 +95,9 @@ func normalizeNestedImportLayout(node ast.Node) {
 		normalizeNestedImportLayout(n.Expr)
 	case *ast.With:
 		normalizeNestedImportLayout(n.Value)
+	case *ast.Subtests:
+		normalizeNestedImportLayout(n.Rows)
+		normalizeBlockImportLayout(n.Body)
 	case *ast.Defer:
 		normalizeNestedImportLayout(n.Call)
 	case *ast.GroupedExpr:

@@ -27,7 +27,10 @@ var (
 		{Name: "line", Type: rt.SlotInt}, {Name: "keyword", Type: rt.SlotString},
 		{Name: "expression", Type: rt.SlotString}, {Name: "reason", Type: rt.SlotString},
 		{Name: "actual", Type: rt.SlotRef}, {Name: "binding", Type: rt.SlotRef},
-		{Name: "values", Type: rt.SlotRef}, {Name: "details", Type: rt.SlotRef}})
+		{Name: "values", Type: rt.SlotRef}, {Name: "details", Type: rt.SlotRef},
+		{Name: "subtests", Type: rt.SlotRef}})
+	subtestFailureDesc = structDesc("assertions.SubtestFailure", []rt.FieldSpec{
+		{Name: "row", Type: rt.SlotString}, {Name: "failure", Type: rt.SlotRef}})
 	assertionBindingDesc = structDesc("assertions.AssertionBinding", append(stringFields("name", "expression", "value"),
 		rt.FieldSpec{Name: "pipeline", Type: rt.SlotRef}))
 	assertionValueDesc = structDesc("assertions.AssertionValue", append(stringFields("expression", "value"),
@@ -63,8 +66,12 @@ func nomiFailureValue(f rt.NomiAssertionFailure) any {
 	for _, d := range rtListSlice(f.Details) {
 		details = append(details, assertionDetailDesc.Make(d.Label, d.Value))
 	}
+	var subtests []any
+	for _, sub := range rtListSlice(f.Subtests) {
+		subtests = append(subtests, subtestFailureDesc.Make(sub.Row, nomiFailureValue(sub.Failure)))
+	}
 	return assertionFailureDesc.Make(f.Line, f.Keyword, f.Expression, f.Reason, actual, binding,
-		listOf(values), listOf(details))
+		listOf(values), listOf(details), listOf(subtests))
 }
 
 // nomiFailureOf reads an `AssertionFailure` record back into rt's Nomi shape,
@@ -135,6 +142,18 @@ func nomiFailureOf(v any) (rt.NomiAssertionFailure, bool) {
 		}
 	}
 	f.Details = rtSliceList(ds)
+	subtests, _ := field("subtests").(*list)
+	var subs []rt.NomiSubtestFailure
+	for _, item := range listSlice(subtests) {
+		if sr, ok := structRecord(item, "assertions.SubtestFailure"); ok {
+			row, _ := sr.FieldNamed("row")
+			inner, _ := sr.FieldNamed("failure")
+			if failure, ok := nomiFailureOf(inner); ok {
+				subs = append(subs, rt.NomiSubtestFailure{Row: str(row), Failure: failure})
+			}
+		}
+	}
+	f.Subtests = rtSliceList(subs)
 	return f, true
 }
 

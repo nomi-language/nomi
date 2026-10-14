@@ -110,6 +110,13 @@ type NomiAssertionFailure struct {
 	Binding    Maybe[NomiAssertionBinding]
 	Values     *List[NomiAssertionValue]
 	Details    *List[NomiAssertionDetail]
+	Subtests   *List[NomiSubtestFailure]
+}
+
+// NomiSubtestFailure is std/assertions' `SubtestFailure`.
+type NomiSubtestFailure struct {
+	Row     string
+	Failure NomiAssertionFailure
 }
 
 // NomiFailure converts a report into the value a Nomi program sees.
@@ -128,7 +135,16 @@ func (e *AssertionFailure) NomiFailure() NomiAssertionFailure {
 		Binding:    nomiMaybeBinding(e.Binding),
 		Values:     nomiAssertionValues(e.Values),
 		Details:    nomiAssertionDetails(e.Details),
+		Subtests:   nomiSubtestFailures(e.Subtests),
 	}
+}
+
+func nomiSubtestFailures(subs []SubtestFailure) *List[NomiSubtestFailure] {
+	var out *List[NomiSubtestFailure]
+	for i := len(subs) - 1; i >= 0; i-- {
+		out = Cons(NomiSubtestFailure{Row: subs[i].Row, Failure: subs[i].Failure.NomiFailure()}, out)
+	}
+	return out
 }
 
 // nomiMaybeString reads "" as absence, not an empty string.
@@ -212,15 +228,27 @@ func FormatNomiAssertionFailure(failure NomiAssertionFailure) string {
 // build a whole string anyway.
 func (f NomiAssertionFailure) Report() *AssertionFailure {
 	return &AssertionFailure{
-		Line:    int(f.Line),
-		Keyword: f.Keyword,
-		Expr:    f.Expression,
-		Reason:  f.Reason,
-		Actual:  reportMaybeString(f.Actual),
-		Binding: reportBinding(f.Binding),
-		Values:  reportValues(f.Values),
-		Details: reportDetails(f.Details),
+		Line:     int(f.Line),
+		Keyword:  f.Keyword,
+		Expr:     f.Expression,
+		Reason:   f.Reason,
+		Actual:   reportMaybeString(f.Actual),
+		Binding:  reportBinding(f.Binding),
+		Values:   reportValues(f.Values),
+		Details:  reportDetails(f.Details),
+		Subtests: reportSubtests(f.Subtests),
 	}
+}
+
+func reportSubtests(xs *List[NomiSubtestFailure]) []SubtestFailure {
+	if xs == nil {
+		return nil
+	}
+	out := make([]SubtestFailure, 0, xs.Len)
+	for cell := xs; cell != nil; cell = cell.Tail {
+		out = append(out, SubtestFailure{Row: cell.Head.Row, Failure: cell.Head.Failure.Report()})
+	}
+	return out
 }
 
 // reportMaybeString is nomiMaybeString read backwards: `None` is "", which is

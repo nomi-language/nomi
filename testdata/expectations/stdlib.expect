@@ -17,8 +17,8 @@ failing 0
 C assertions
 E 0
 N 1
-H 3f052f72bc0aba4b9bb73fd627ab5b85e592b32e5281ddc971a5c199b3c5d7cc
-T ok <root>/std/assertions.nomi :: impl / format //! test lines 102-113
+H 5132118c2a7cbd032ca4452650945921c8dbc1eea39bbf7dcd8b95d3cb0a72f5
+T ok <root>/std/assertions.nomi :: impl / format //! test lines 113-124
 T test result: ok. 1 passed, 0 failed
 T
 C bool

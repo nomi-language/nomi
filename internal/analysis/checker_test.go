@@ -5088,6 +5088,30 @@ func TestCheckFileQualifierIsNotAValue(t *testing.T) {
 	expectNoErrors(t, errs)
 }
 
+// A file is not a value whether it declares members or none: an empty file
+// still has a scope, so its name used alone, `ffi.0` (a tuple element) and
+// `ffi.x` (a member it lacks) are each an error at the checker. Before, an
+// empty file's import bound no scope, `ffi.0` checked clean with no type, and
+// the IR builder declined `ffi`.
+func TestCheckFileIsNotAValueEvenWhenEmpty(t *testing.T) {
+	for _, file := range []string{"", "pub fn four(): Int {\n  4\n}\n"} {
+		modules := map[string]string{"ffi": file}
+		for _, tc := range []struct{ body, want string }{
+			{"  _ = ffi.0", "`ffi` is a file, not a value, so `ffi.0` has no element to read"},
+			{"  _ = ffi.0 == 1", "`ffi` is a file, not a value, so `ffi.0` has no element to read"},
+			{"  _ = f(ffi.1)", "`ffi` is a file, not a value, so `ffi.1` has no element to read"},
+			{"  _ = ffi.zz", "file 'ffi' has no member 'zz'"},
+			{"  _ = ffi", "`ffi` is a file, not a value"},
+			{"  _ = f(ffi)", "`ffi` is a file, not a value"},
+			{"  _ = (ffi, 1)", "`ffi` is a file, not a value"},
+		} {
+			src := "import ffi\n\nfn f(x: Int): Bool {\n  x > 0\n}\n\nfn main() {\n" + tc.body + "\n}\n"
+			_, errs := checkSourceWithModules(t, src, modules)
+			expectError(t, errs, tc.want)
+		}
+	}
+}
+
 // An annotation's type arguments steer a generic struct literal's field
 // lambda, and the values still decide the literal's type: one that does
 // not fit the annotation is the binding's mismatch.

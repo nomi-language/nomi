@@ -67,6 +67,9 @@ enum TokenType {
     // Zero-width, before the operand of `dbg`, `try`, `return`, `break` or
     // `todo` when the operand starts on the keyword's line.
     SAME_LINE,
+    // The contextual keyword `subtests` at the start of a statement, emitted
+    // only when an expression and a comma follow it (scan_subtests_keyword).
+    SUBTESTS_KEYWORD,
 };
 
 typedef struct {
@@ -472,6 +475,77 @@ static bool starts_operand(TSLexer *lexer) {
     return true;
 }
 
+// Skip a `"..."` or `'.'` literal whose opening quote is the lookahead, so a
+// comma inside it is not read as the comma that ends the rows of `subtests`.
+static void skip_quoted(TSLexer *lexer) {
+    int32_t quote = lexer->lookahead;
+    advance(lexer);
+    while (lexer->lookahead != 0 && lexer->lookahead != quote && lexer->lookahead != '\n') {
+        if (lexer->lookahead == '\\') advance(lexer);
+        advance(lexer);
+    }
+    if (lexer->lookahead == quote) advance(lexer);
+}
+
+// The contextual keyword `subtests`, at the lookahead at the start of a
+// statement. As in the Go parser, the word is the keyword only when an
+// expression follows it on its line and then a comma at the top level
+// (`subtests cases, (input, want) { ... }`); `subtests = 3`, `subtests(2)` or
+// a bare `subtests` leave it an identifier. The rows may span lines inside
+// brackets, or continue on a line starting with `|>`. The token ends after
+// the word; everything after is look-ahead.
+static bool scan_subtests_keyword(TSLexer *lexer) {
+    if (!at_word(lexer, "subtests")) return false;
+    lexer->mark_end(lexer);
+    if (lexer->lookahead != ' ' && lexer->lookahead != '\t') return false;
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+    switch (lexer->lookahead) {
+        case 0: case '\n': case '\r': case '=': case '.': case '-': case ',':
+        case ')': case ']': case '}': case ':': case '|':
+            return false;
+    }
+    int depth = 0;
+    for (;;) {
+        int32_t c = lexer->lookahead;
+        switch (c) {
+            case 0:
+                return false;
+            case '"':
+            case '\'':
+                skip_quoted(lexer);
+                continue;
+            case '/':
+                advance(lexer);
+                if (lexer->lookahead == '/') {
+                    while (lexer->lookahead != 0 && lexer->lookahead != '\n') advance(lexer);
+                }
+                continue;
+            case '(': case '[': case '{':
+                depth++;
+                break;
+            case ')': case ']': case '}':
+                if (depth == 0) return false;
+                depth--;
+                break;
+            case ',':
+                if (depth == 0) {
+                    lexer->result_symbol = SUBTESTS_KEYWORD;
+                    return true;
+                }
+                break;
+            case '\n':
+                if (depth == 0) {
+                    while (is_ws(lexer->lookahead)) advance(lexer);
+                    if (lexer->lookahead != '|') return false;
+                    advance(lexer);
+                    if (lexer->lookahead != '>') return false;
+                }
+                break;
+        }
+        advance(lexer);
+    }
+}
+
 // Scan a line-leading `//!` prompt, or the end of a prompt group, at the
 // position after the leading whitespace run, which held `newlines` line
 // breaks. A prompt token ends right after its `!`: the spaces after it are
@@ -583,6 +657,10 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
         if (line_continues(lexer)) return false;
         lexer->result_symbol = STATEMENT_END;
         return true;
+    }
+
+    if (valid_symbols[SUBTESTS_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 's') {
+        return scan_subtests_keyword(lexer);
     }
 
     // The operand of `dbg`, `try`, `return`, `break` and `todo` must start on

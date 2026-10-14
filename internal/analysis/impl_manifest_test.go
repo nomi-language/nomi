@@ -1,6 +1,8 @@
 package analysis_test
 
 import (
+	"fmt"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
@@ -146,7 +148,7 @@ func buildProjectManifest(t *testing.T, entrySrc string, siblings map[string]str
 		key := strings.Join(modulePath, "/")
 		src, ok := siblings[key]
 		if !ok {
-			return nil, nil
+			return nil, fmt.Errorf("module not found: %s", key)
 		}
 		tokens := lexer.Lex(src)
 		nodes, _ := parser.ParseWithRecovery(tokens)

@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 276
-declared-cases 877
+records 277
+declared-cases 886
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -298,6 +298,21 @@ T ok <root>/tests/02-testing/setup_try_test.nomi :: try in a pipe stage in setup
 T ok <root>/tests/02-testing/setup_try_test.nomi :: try after other statements in setup / the setup's earlier bindings reach the try's result
 T ok <root>/tests/02-testing/setup_try_test.nomi :: assert in setup / the setup's assertion held
 T test result: ok. 5 passed, 0 failed
+T
+C 02-testing/subtests_test.nomi
+E 0
+N 9
+H 34b5f202e9d72b22a7f2a4f8d887b0b3a03c956c2bb976775c8d4661f3d922c6
+T ok <root>/tests/02-testing/subtests_test.nomi :: each row runs the body once
+T ok <root>/tests/02-testing/subtests_test.nomi :: rows from a range
+T ok <root>/tests/02-testing/subtests_test.nomi :: rows of structs bound by a struct pattern
+T ok <root>/tests/02-testing/subtests_test.nomi :: rows from a map are its entries
+T ok <root>/tests/02-testing/subtests_test.nomi :: no rows run no body
+T ok <root>/tests/02-testing/subtests_test.nomi :: a row may bind and assert several times
+T ok <root>/tests/02-testing/subtests_test.nomi :: in a function, the failed rows are its Err
+T ok <root>/tests/02-testing/subtests_test.nomi :: subtests is a name everywhere else
+T ok <root>/tests/02-testing/subtests_test.nomi :: a row may end with a helper that asserts
+T test result: ok. 9 passed, 0 failed
 T
 C 03-tooling-and-diagnostics/compiler_project/compiler_project_test.nomi
 E 0

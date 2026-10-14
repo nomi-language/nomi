@@ -77,7 +77,8 @@ pub interface Assertable {
     fn failure(value: self): Maybe<AssertionDetails>
 }
 
-/// Structured failure produced by `assert`, `refute`, and `testing.check`.
+/// Structured failure produced by `assert`, `refute`, `testing.check` and
+/// `subtests`.
 ///
 /// `actual` is present when the failure report should show the whole assertion
 /// subject value, such as a non-matching Result or Maybe shape.
@@ -85,7 +86,9 @@ pub interface Assertable {
 /// the runtime can show where that value came from. `values` captures observed
 /// sub-expressions such as the left and right sides of a comparison, plus
 /// value-bearing arguments to predicate calls. `details` captures custom
-/// explanation rows supplied by an `Assertable` value.
+/// explanation rows supplied by an `Assertable` value. `subtests` holds the
+/// failing rows of a `subtests` statement, whose `keyword` is `"subtests"`,
+/// and is empty for every other failure.
 pub struct AssertionFailure {
     line: Int
     keyword: String
@@ -95,6 +98,14 @@ pub struct AssertionFailure {
     binding: Maybe<AssertionBinding>
     values: List<AssertionValue>
     details: List<AssertionDetail>
+    subtests: List<SubtestFailure> = []
+}
+
+/// One failing row of a `subtests` statement: the row, rendered as a
+/// `values:` row renders a value, and the failure that ended it.
+pub struct SubtestFailure {
+    row: String
+    failure: AssertionFailure
 }
 
 impl AssertionFailure {

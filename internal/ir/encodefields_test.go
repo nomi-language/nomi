@@ -71,6 +71,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Render]():        "pos dst src kind impls erased",
 	reflect.TypeFor[ir.DebugImpl]():     "Type Inst Fn",
 	reflect.TypeFor[ir.Try]():           "pos src text",
+	reflect.TypeFor[ir.Subtests]():      "pos rows row text",
 }
 
 func TestImage_EveryNodeFieldIsEncoded(t *testing.T) {

@@ -18,6 +18,7 @@
 02-testing/io_capture_test.nomi
 02-testing/setup_semantics_test.nomi
 02-testing/setup_try_test.nomi
+02-testing/subtests_test.nomi
 03-tooling-and-diagnostics/formatting_test.nomi
 04-scalars-and-text/codepoint_literals_test.nomi
 04-scalars-and-text/codepoints_test.nomi

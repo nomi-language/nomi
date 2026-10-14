@@ -354,6 +354,8 @@ func positionOf(n ast.Node) (int, int) {
 		return node.Line, node.Col
 	case *ast.With:
 		return node.Line, node.Col
+	case *ast.Subtests:
+		return node.Line, node.Col
 	case *ast.Case:
 		return node.Line, node.Col
 	case *ast.Block:

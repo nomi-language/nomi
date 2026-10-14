@@ -72,6 +72,7 @@
 "test" @keyword
 "assert" @keyword
 "refute" @keyword
+"subtests" @keyword
 "dbg" @keyword.debug
 "todo" @keyword
 "concurrent" @keyword.coroutine
@@ -253,6 +254,8 @@
   "assert" @keyword)
 (bare_assertion
   "refute" @keyword)
+(subtests_statement
+  "subtests" @keyword)
 ; Recovery fallback for list-led assertions that can be confused with
 ; `assert <list-pattern> = ...` while editing/highlighting.
 (assertion

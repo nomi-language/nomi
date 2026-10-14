@@ -899,6 +899,12 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 		return firstNestedAssertion(v.Value)
 	case *ast.With:
 		return firstNestedAssertion(v.Value)
+	case *ast.Subtests:
+		// The statement fails as one assertion does, whatever its body
+		// holds: a row may fail by a helper's final Err(AssertionFailure),
+		// which only the checker can see. The checker rejects a body that
+		// can never fail.
+		return v.Line, v.Col, true
 	case *ast.Defer:
 		return firstNestedAssertion(v.Call)
 	case *ast.TupleDestructure:
@@ -1337,6 +1343,12 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	// Assertions: assert expr / refute expr / assert pattern = expr
 	if p.peek().Type == token.ASSERT || p.peek().Type == token.REFUTE {
 		return p.parseAssertion()
+	}
+
+	// `subtests rows, pattern { body }`: a contextual keyword, so a name
+	// `subtests` keeps working everywhere else.
+	if node, ok, err := p.tryParseSubtests(); ok || err != nil {
+		return node, err
 	}
 
 	// Map destructuring: {keyExpr => ident, ...} = expr
@@ -3817,6 +3829,65 @@ func (p *Parser) parseAssertion() (ast.Node, error) {
 		Line:   tok.Line,
 		Col:    tok.Col,
 	}, nil
+}
+
+// tryParseSubtests parses `subtests rows, pattern { body }` at the start of a
+// block statement. `subtests` is a contextual keyword: the statement is one
+// only when, after a space, an expression starts on the word's line and a
+// comma follows it, which no other statement can start with. Anything else
+// (`subtests = 3`, `subtests(x)`, a bare `subtests`) is restored and parsed
+// as the ordinary statement it is, where `subtests` is an identifier. Once
+// the comma is seen the statement is committed, and a missing pattern or
+// body is an error at the keyword.
+func (p *Parser) tryParseSubtests() (ast.Node, bool, error) {
+	tok := p.peek()
+	if p.blockDepth == 0 || tok.Type != token.IDENT || tok.Lexeme != "subtests" {
+		return nil, false, nil
+	}
+	next := p.peekAt(1)
+	if next.Line != tok.Line || next.Col == tok.Col+len(tok.Lexeme) || !canStartRangeOperand(next.Type) {
+		// `subtests(x)`, with nothing between the word and what follows,
+		// is a call, as tree-sitter's scanner reads it.
+		return nil, false, nil
+	}
+	switch next.Type {
+	case token.EQ, token.DOT, token.MINUS:
+		// A binding, a field read or a subtraction of the name.
+		return nil, false, nil
+	}
+	saved, savedErrors, savedRecoveries, savedSoft := p.pos, len(p.errors), p.recoveries, p.softErrors
+	restore := func() (ast.Node, bool, error) {
+		p.pos, p.errors, p.recoveries, p.softErrors = saved, p.errors[:savedErrors], savedRecoveries, savedSoft
+		return nil, false, nil
+	}
+	p.advance() // consume the contextual `subtests`
+	rows, err := p.parseExpr(1)
+	if err != nil || p.atEnd() || p.peek().Type != token.COMMA {
+		return restore()
+	}
+	comma := p.peek()
+	p.advance() // consume COMMA
+	if p.atEnd() || p.peek().Line != comma.Line || !canStartPatternAssertion(p.peek().Type) {
+		return nil, true, errorAt(tok.Line, tok.Col, "expected a pattern after the rows in `subtests`, such as `subtests cases, (input, expected) { ... }`")
+	}
+	pattern, err := p.parseSinglePattern()
+	if err != nil {
+		return nil, true, err
+	}
+	if p.atEnd() || p.peek().Type != token.LBRACE {
+		return nil, true, errorAt(tok.Line, tok.Col, "expected '{' for the `subtests` body after its pattern")
+	}
+	bodyNode, err := p.parseBlock()
+	if err != nil {
+		return nil, true, err
+	}
+	return &ast.Subtests{
+		Rows:    rows,
+		Pattern: pattern,
+		Body:    bodyNode.(*ast.Block),
+		Line:    tok.Line,
+		Col:     tok.Col,
+	}, true, nil
 }
 
 func (p *Parser) tryParseHeadPatternAssertion(assertTok token.Token) (ast.Node, bool, error) {

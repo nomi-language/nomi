@@ -1,0 +1,105 @@
+================================================================================
+Subtests over a list with a tuple pattern
+================================================================================
+
+test "palindromes" {
+  subtests cases, (line, known) {
+    assert palindrome?(line) == known
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (test_declaration
+    (string
+      (string_content))
+    (body
+      (subtests_statement
+        (identifier)
+        (tuple_pattern
+          (identifier)
+          (identifier))
+        (body
+          (assertion
+            (binary_expression
+              (call_expression
+                (identifier)
+                (identifier))
+              (identifier))))))))
+
+================================================================================
+Subtests rows spanning lines, with a struct pattern
+================================================================================
+
+test "points" {
+  subtests [
+    Point{x: 1, y: 2},
+    Point{x: 3, y: 4},
+  ], Point{x, y} {
+    assert x < y
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (test_declaration
+    (string
+      (string_content))
+    (body
+      (subtests_statement
+        (list
+          (struct_construction
+            (type_identifier)
+            (identifier)
+            (integer)
+            (identifier)
+            (integer))
+          (struct_construction
+            (type_identifier)
+            (identifier)
+            (integer)
+            (identifier)
+            (integer)))
+        (struct_pattern
+          (type_identifier)
+          (pattern_field
+            (identifier))
+          (pattern_field
+            (identifier)))
+        (body
+          (assertion
+            (binary_expression
+              (identifier)
+              (identifier))))))))
+
+================================================================================
+Subtests as an ordinary name
+================================================================================
+
+fn f() {
+  subtests = 3
+  subtests(2)
+  g(subtests, 1)
+  subtests
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters)
+    (body
+      (binding
+        (identifier)
+        (integer))
+      (call_expression
+        (identifier)
+        (integer))
+      (call_expression
+        (identifier)
+        (identifier)
+        (integer))
+      (identifier))))

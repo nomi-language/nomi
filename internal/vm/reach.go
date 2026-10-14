@@ -183,7 +183,7 @@ func (w *reachWalk) visit(f *ir.Func) {
 					}
 					w.push(cell.body)
 				}
-			case *ir.Assert, *ir.Record:
+			case *ir.Assert, *ir.Record, *ir.Subtests:
 				// A `values:` row renders a value of a type with a
 				// hand-written Debug through it (rowText); each is reachable.
 				names := make([]string, 0, len(w.m.rowDebugs))

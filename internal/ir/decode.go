@@ -669,6 +669,8 @@ func (d *decoder) instr(r *rbuf) Instr {
 		return &NoMatch{pos: d.pos(r), key: r.temp()}
 	case tagTodo:
 		return &Todo{pos: d.pos(r), dst: r.temp(), reason: d.str(r.uv())}
+	case tagSubtests:
+		return &Subtests{pos: d.pos(r), rows: r.temp(), row: r.temp(), text: d.str(r.uv())}
 	case tagNot:
 		return &Not{pos: d.pos(r), dst: r.temp(), val: r.temp()}
 	case tagProj:

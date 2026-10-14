@@ -1,0 +1,54 @@
+// `subtests` failure reports: each failed row under the test, its row
+// rendered as a `values:` row renders a value, then the count.
+import std/assertions.AssertionFailure
+
+struct Point {
+    x: Int
+    y: Int
+}
+
+fn palindrome?(s: String): Bool {
+    String.reverse(s) == s
+}
+
+test "two of four rows fail" {
+    cases = [("abba", True), ("abc", True), ("ab", True), ("x", True)]
+
+    subtests cases, (line, known_palindrome) {
+        assert palindrome?(line) == known_palindrome
+    }
+}
+
+test "a row ends at its first failed assertion" {
+    subtests [1, 2, 3], n {
+        assert n > 0
+        assert n < 3
+        assert n < 2
+    }
+}
+
+fn all_ordered(points: List<Point>): Result<Unit, AssertionFailure> {
+    subtests points, Point{x, y} {
+        assert x < y
+    }
+
+    Ok(Unit)
+}
+
+test "a helper's failed rows fail the test that calls it" {
+    assert True
+
+    all_ordered([Point{x: 1, y: 2}, Point{x: 4, y: 3}])
+}
+
+test "a trap in a row fails the test as a trap" {
+    subtests [2, 1, 0], n {
+        assert 10 / n > 0
+    }
+}
+
+test "every row passes" {
+    subtests [1, 2], n {
+        assert n > 0
+    }
+}

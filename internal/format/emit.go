@@ -827,6 +827,8 @@ func emitNode(n ast.Node) Doc {
 		return emitTestDecl(v)
 	case *ast.Assertion:
 		return emitAssertion(v)
+	case *ast.Subtests:
+		return emitSubtests(v)
 	case *ast.Dbg:
 		return emitDbg(v)
 	case *ast.Todo:
@@ -1335,6 +1337,13 @@ func emitWith(v *ast.With) Doc {
 		value = lit
 	}
 	return Group(Concat(Text("with "), emit(v.Target), Text(" = "), emit(value)))
+}
+
+// emitSubtests renders `subtests rows, pattern { body }`. The body is always
+// broken across lines, as a test's is.
+func emitSubtests(v *ast.Subtests) Doc {
+	header := Concat(Text("subtests "), emit(v.Rows), Text(", "), emitPattern(v.Pattern))
+	return Concat(header, Text(" "), emitBlockForceBroken(v.Body))
 }
 
 // emitDefer renders `defer call(...)`.

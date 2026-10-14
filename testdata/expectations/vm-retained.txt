@@ -56,6 +56,11 @@
 02-testing/setup_semantics_test.nomi:parent_fixture	ran
 02-testing/setup_try_test.nomi:find	ran
 02-testing/setup_try_test.nomi:parse	ran
+02-testing/subtests_test.nomi:Point.inspect	ran
+02-testing/subtests_test.nomi:all_ordered	ran
+02-testing/subtests_test.nomi:check_palindrome	ran
+02-testing/subtests_test.nomi:palindrome?	ran
+02-testing/subtests_test.nomi:subtests	ran
 03-tooling-and-diagnostics/compiler_project/test_helpers.nomi:has_diagnostic?	ran
 03-tooling-and-diagnostics/compiler_project/test_helpers.nomi:hover_signature	ran
 03-tooling-and-diagnostics/formatting_test.nomi:Color.inspect	ran

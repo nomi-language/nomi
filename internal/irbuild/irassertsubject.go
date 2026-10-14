@@ -35,7 +35,8 @@ func (bl *irScalarBuilder) fnAssertion(line, col int) bool {
 	boundary, ok := bl.g.assertionBoundary(line, col)
 	inBlock := boundary == "concurrent" && bl.tryBoundary == "concurrent"
 	inCase := ok && bl.inTest && bl.parent == nil && isTestBoundary(boundary)
-	if inCase {
+	inRow := ok && bl.subtestsRow && isSubtestsRowBoundary(boundary)
+	if inCase || inRow {
 		return true
 	}
 	if !ok || bl.inTest || !(strings.HasPrefix(boundary, "fn ") || inBlock) {

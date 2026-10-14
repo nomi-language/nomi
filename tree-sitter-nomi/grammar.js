@@ -56,6 +56,10 @@ module.exports = grammar({
     // ends the statement at a line break after the keyword, so `n |> dbg`
     // followed by a line `same = dbg n` is two statements, not `dbg same`.
     $._same_line,
+    // The contextual keyword `subtests`: the word at the start of a
+    // statement when an expression and a comma follow it, as the Go parser
+    // reads it. Anywhere else it is an identifier.
+    $._subtests_keyword,
   ],
 
   word: $ => $.identifier,
@@ -1140,6 +1144,7 @@ module.exports = grammar({
       $.else_binding,
       $.pattern_binding,
       $.assertion,
+      $.subtests_statement,
       $.return_statement,
       $.break_statement,
       $.continue_statement,
@@ -1289,6 +1294,16 @@ module.exports = grammar({
     )),
 
     bare_assertion: $ => choice('assert', 'refute'),
+
+    // `subtests rows, pattern { body }`: the body runs once per row, with the
+    // pattern bound to it.
+    subtests_statement: $ => seq(
+      alias($._subtests_keyword, 'subtests'),
+      field('rows', $._expression),
+      ',',
+      field('pattern', $._param_pattern),
+      field('body', $.body),
+    ),
 
     destructuring_binding: $ => choice(
       // Tuple: (x, y) = expr

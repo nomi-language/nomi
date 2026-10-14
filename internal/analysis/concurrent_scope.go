@@ -662,6 +662,9 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 			}
 		case *ast.With:
 			walk(node.Value, enclosing, inConcurrent)
+		case *ast.Subtests:
+			walk(node.Rows, enclosing, inConcurrent)
+			walk(node.Body, enclosing, inConcurrent)
 		case *ast.Defer:
 			walk(node.Call, enclosing, inConcurrent)
 		}

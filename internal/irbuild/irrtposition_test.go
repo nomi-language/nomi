@@ -97,10 +97,11 @@ func TestIRRtOperationsThatTakeAPosition(t *testing.T) {
 		if declared[n] {
 			continue
 		}
-		// The error/text CONSTRUCTORS build a boxed error for the same
-		// operation. They carry a line for the message, not as an
-		// operation's position.
-		if strings.HasSuffix(n, "Error") || strings.HasSuffix(n, "Text") {
+		// The error/text/failure CONSTRUCTORS build a boxed error or a
+		// report for the same operation (rt.SubtestsFailure is a
+		// `subtests` statement's report). They carry a line for the
+		// message, not as an operation's position.
+		if strings.HasSuffix(n, "Error") || strings.HasSuffix(n, "Text") || strings.HasSuffix(n, "Failure") {
 			continue
 		}
 		extra = append(extra, n)

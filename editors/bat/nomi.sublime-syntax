@@ -127,6 +127,12 @@ contexts:
     - match: '^\s*(clock|boot)\b(?=[ \t]+[A-Za-z_(])'
       captures:
         1: keyword.declaration.nomi
+    # `subtests` is a keyword only where a statement starts with it and its
+    # rows follow (`subtests cases, (a, b) { ... }`); `subtests = 3` and
+    # `subtests(2)` stay names.
+    - match: '^\s*(subtests)\b(?=[ \t]+[^\s=.,:|)\]}-])'
+      captures:
+        1: keyword.control.nomi
     # `internal` path segment in imports — the packaging convention
     # for sub-tree access barriers. Matches `internal` only when
     # followed by `/`, so bare `internal` identifiers (rare; not a

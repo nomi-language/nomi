@@ -865,6 +865,29 @@ type Assertion struct {
 func (*Assertion) NodeType() string { return "Assertion" }
 func (n *Assertion) LineNum() int   { return n.Line }
 
+// Subtests is `subtests rows, pattern { body }`: the body runs once per
+// element of Rows, in order, with Pattern bound to the element. A failed
+// assertion in the body ends that row only; once every row has run, the
+// statement fails, as one assertion does, when any row failed, and its
+// report lists each failing row. Pattern is irrefutable for the element
+// type. The statement's value is Unit.
+//
+// `subtests` is a keyword only where a statement starts with it, an
+// expression starts on its line, and a comma follows the expression;
+// anywhere else it is an ordinary identifier.
+type Subtests struct {
+	TriviaCarrier
+	SpanCarrier
+	Rows    Node
+	Pattern Node
+	Body    *Block
+	Line    int // the `subtests` keyword
+	Col     int
+}
+
+func (*Subtests) NodeType() string { return "Subtests" }
+func (n *Subtests) LineNum() int   { return n.Line }
+
 // Dbg is `dbg expr`, a debug-print expression that returns the evaluated value.
 // Expr is nil only for the pipe-stage form `value |> dbg`, where the piped
 // value is supplied by the pipe's checker and IR builder.
