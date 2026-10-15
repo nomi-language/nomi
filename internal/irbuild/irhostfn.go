@@ -80,7 +80,13 @@ func (g *gen) irHostFnRetain(ef *ast.ExternFunc, sig *fnSig) {
 	}
 	if why := g.irHostCrossingBody(ef, sh, sig.result, g.irHostBindingKey(ef)); why != "" {
 		decline(why)
+		return
 	}
+	// A defaulted parameter is filled in Nomi before the crossing, as a
+	// `fn`'s is: by the caller in this file (callDefaults), and through
+	// the accessors built here when another file calls a `pub` one
+	// (siblingdefault.go).
+	g.irFileSlotDefaults(shell, sig)
 }
 
 // irHostCrossingBody fills sh, the VM function of a Go-bound declaration,

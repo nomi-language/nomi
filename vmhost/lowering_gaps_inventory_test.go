@@ -386,18 +386,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapDecimalDoubledUnderscore",
-		fix:    "builder: decimal doubled underscore. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.decimalLiteral | false | err != nil#1",
-		reason: "a DecimalLit",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.inspect(1__0.5d)
-}
-`,
-	},
-	{
 		name:   "gapEqualImplSelfRecursion",
 		fix:    "builder: equal impl self recursion. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.equatableImplCall | false | bl.f.Sym() == sym#1",
 		reason: "the comparison operator `==`",
@@ -863,82 +851,6 @@ import a.A
 pub struct B {
     n: Int
     parent: Maybe<A>
-}
-`,
-	},
-	{
-		name:   "gapForeignFnIter",
-		fix:    "builder: foreign fn iter. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.importKind | false | unguarded#2",
-		reason: "qualified call, file.fn: nums.",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    nums
-}
-
-fn main() {
-    io.print("${nums.sum_of([1, 2])}")
-}
-
-test "record param" {
-    assert nums.px({x: 1, y: 2}) == 1
-}
-// FILE: nums.nomi
-pub fn evens(): Iter<Int> {
-    [2, 4, 6]
-}
-
-pub fn sum_of(xs: Iter<Int>): Int {
-    Iter.reduce(xs, |acc = 0, x| acc + x)
-}
-
-pub fn px(p: {x: Int, y: Int}): Int {
-    p.x
-}
-`,
-	},
-	{
-		name:   "gapGoFnDefaultedParam",
-		fix:    "builder: go fn defaulted param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.hostFnReject | note | reason#1",
-		reason: "a direct callee that is not lowerable: upper",
-		noSkip: true,
-		src: `import std/io
-
-gopkg "strings" as strs
-
-fn upper(s: String = "abc"): String go strs.ToUpper
-
-fn main() {
-    io.print(upper())
-}
-`,
-	},
-	{
-		name:   "gapSiblingFnReturnsStructWithRecordField",
-		fix:    "builder: sibling fn returns struct with record field. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.importNamed | false | !d.lowerable#1; gen.importNamed | false | !d.lowerable#2",
-		reason: "qualified call, file.fn: shapes.make",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    shapes
-}
-
-fn main() {
-    io.print("${shapes.width(shapes.make())}")
-}
-// FILE: shapes.nomi
-pub struct Box {
-    at: {x: Int, y: Int}
-}
-
-pub fn make(): Box {
-    Box{at: {x: 1, y: 2}}
-}
-
-pub fn width(b: Box): Int {
-    b.at.x
 }
 `,
 	},

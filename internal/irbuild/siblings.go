@@ -344,8 +344,9 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef) *fileFunc {
 	// A Go-bound `host fn` has no Body and IS lowerable, so the body clause is
 	// asked about the shell rather than about the shape. Everything else here
 	// still applies to one: it must be `pub` to be reachable and it must not be
-	// generic. A call omitting one of its defaulted parameters declines, since
-	// its unit builds no default accessors. See hostpkg.go's hostShellOf.
+	// generic. Its unit builds the accessors a call that omits a defaulted
+	// parameter fills it with, as for a `fn` (irHostFnRetain). See
+	// hostpkg.go's hostShellOf.
 	_, host := hostExtOf(fd)
 	if len(fd.Decorators) > 0 || (fd.Body == nil && !host) {
 		// Its own file refuses it under `decorator` / `function without a

@@ -630,9 +630,30 @@ func (g *gen) importKind(k kind) (kind, bool) {
 	case tagInvalid:
 		g.importWhy = "unlowered type"
 		return kindInvalid, false
-	case tagUnit, tagInt, tagFloat, tagString, tagBool,
+	case tagUnit, tagInt, tagFloat, tagString, tagBool, tagNever,
 		tagEmptyList, tagBareNone, tagEmptyMap, tagEmptySet, tagEmptyVector:
 		return k, true
+	case tagSeq:
+		elem, ok := g.importKind(k.comp.parts[0])
+		if !ok {
+			return kindInvalid, false
+		}
+		return seqKindIn(g, elem), true
+	case tagAnonStruct:
+		parts := make([]kind, 0, len(k.comp.parts))
+		for _, p := range k.comp.parts {
+			ip, ok := g.importKind(p)
+			if !ok {
+				return kindInvalid, false
+			}
+			parts = append(parts, ip)
+		}
+		rk := g.anonStructKind(k.comp.names, parts)
+		if rk == kindInvalid {
+			g.importWhy = "unlowered type"
+			return kindInvalid, false
+		}
+		return rk, true
 	case tagIface:
 		if _, isStd := stdIfaceOf(k.iface); isStd {
 			// A STDLIB interface's *ifaceDef is PROCESS-WIDE and its dispatch

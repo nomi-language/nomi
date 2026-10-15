@@ -5069,6 +5069,12 @@ func TestCheckHostFnParamDefault(t *testing.T) {
 	expectError(t, errs, "default value for parameter 'width' is String, expected Int")
 	_, errs = checkSource("host fn pad(s: String, width: Int = 8, fill: String = \" \"): String\n\nfn main() {\n  _ = pad(\"a\")\n}\n")
 	expectNoErrors(t, errs)
+	// A default may name the file's functions and an earlier parameter, as
+	// a fn's default may.
+	_, errs = checkSource("fn twice(n: Int): Int {\n  n * 2\n}\n\nhost fn pad(s: String, n: Int, width: Int = twice(n)): String\n\nfn main() {\n  _ = pad(\"a\", 3)\n}\n")
+	expectNoErrors(t, errs)
+	_, errs = checkSource("host fn pad(s: String, width: Int = nowhere): String\n")
+	expectError(t, errs, "undefined variable 'nowhere'")
 }
 
 // A file qualifier is not a value: alone as a statement, bound, or in a
