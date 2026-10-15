@@ -1,6 +1,7 @@
 package format
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -492,7 +493,60 @@ func hasTrailingLineComment(n ast.Node) bool {
 // emit dispatches to a per-node-kind emit function. Unimplemented node kinds
 // panic — later bundles fill in the remaining cases.
 func emit(n ast.Node) Doc {
+	if pipe, ok := n.(*ast.Binary); ok && pipe.Op == "|>" {
+		return withPipeDangling(pipe, emitNode(n))
+	}
 	return withDangling(n, emitNode(n))
+}
+
+// withPipeDangling writes the dangling comments of the pipeline n around d,
+// the document for it: n's own and those of each pipeline in its left spine,
+// which collectPipeChain flattens into stages so no emit call writes them.
+// Every place that writes a pipeline without emit calls it once.
+func withPipeDangling(n *ast.Binary, d Doc) Doc {
+	before, after := pipeDangling(n)
+	parts := make([]Doc, 0, len(before)+1+len(after))
+	for _, t := range before {
+		parts = append(parts, CommentBefore(t.Text))
+	}
+	parts = append(parts, d)
+	for _, t := range after {
+		parts = append(parts, LineSuffix(t.Text))
+	}
+	return Concat(parts...)
+}
+
+// withPipeDanglingAfter is withPipeDangling for a pipeline after a
+// binding's `=`, which may break onto the lines below (pipeAfterEquals). No
+// comment may come between the `=` and the pipeline, so all of them end the
+// pipeline's last line, as a comment before a one-line value ends its line.
+func withPipeDanglingAfter(n *ast.Binary, d Doc) Doc {
+	before, after := pipeDangling(n)
+	parts := []Doc{d}
+	for _, t := range append(before, after...) {
+		parts = append(parts, LineSuffix(t.Text))
+	}
+	return Concat(parts...)
+}
+
+// pipeDangling is the dangling comments of the pipeline n and of each
+// pipeline in its left spine, each list in source order.
+func pipeDangling(n *ast.Binary) (before, after []ast.Trivia) {
+	for cur := n; ; {
+		before = append(before, cur.GetDanglingBefore()...)
+		after = append(after, cur.GetDanglingAfter()...)
+		inner, ok := cur.Left.(*ast.Binary)
+		if !ok || inner.Op != "|>" {
+			break
+		}
+		cur = inner
+	}
+	for _, ts := range [][]ast.Trivia{before, after} {
+		sort.SliceStable(ts, func(i, j int) bool {
+			return ts[i].Line < ts[j].Line || ts[i].Line == ts[j].Line && ts[i].Col < ts[j].Col
+		})
+	}
+	return before, after
 }
 
 // withDangling writes n's dangling comments (ast.TriviaCarrier) around d,
@@ -929,7 +983,7 @@ func emitNode(n ast.Node) Doc {
 		if pipe, ok := v.Value.(*ast.Binary); ok && pipe.Op == "|>" {
 			source, steps := collectPipeChain(pipe)
 			prefix := Concat(Text("assert "), emitPattern(v.Pattern), Text(" = "), emitWithTrivia(source))
-			return emitPrefixedPipeParts(prefix, source, steps, false)
+			return withPipeDangling(pipe, emitPrefixedPipeParts(prefix, source, steps, false))
 		}
 		return Concat(Text("assert "), emitPattern(v.Pattern), Text(" = "), emit(v.Value))
 	case *ast.DistinctDestructure:
@@ -953,7 +1007,7 @@ func emitNode(n ast.Node) Doc {
 // always breaks; a single pipe that fits stays inline via the Group).
 func emitBindingValue(target Doc, value ast.Node) Doc {
 	if b, ok := value.(*ast.Binary); ok && b.Op == "|>" {
-		return Group(Concat(target, Text(" ="), pipeAfterEquals(emitPipeChain(b))))
+		return Group(Concat(target, Text(" ="), pipeAfterEquals(withPipeDanglingAfter(b, emitPipeChain(b)))))
 	}
 	return Concat(target, Text(" = "), emit(value))
 }
@@ -986,7 +1040,7 @@ func emitPatternBinding(v *ast.PatternBinding) Doc {
 	var head Doc
 	if pipe, ok := v.Value.(*ast.Binary); ok && pipe.Op == "|>" {
 		head = Group(Concat(target, Text(" ="),
-			pipeAfterEquals(emitPipeChain(pipe)),
+			pipeAfterEquals(withPipeDanglingAfter(pipe, emitPipeChain(pipe))),
 			IfBroken(Text(" "), HardLine()),
 			Text("else ")))
 	} else {
@@ -1044,7 +1098,7 @@ func emitStringInterp(v *ast.StringInterp) Doc {
 // pipeline elsewhere, but a line break would split a one-line string.
 func emitInterpolatedExpr(n ast.Node) Doc {
 	if pipe, ok := n.(*ast.Binary); ok && pipe.Op == "|>" {
-		return emitPipeChainWithMode(pipe, pipeStackAsWritten)
+		return withPipeDangling(pipe, emitPipeChainWithMode(pipe, pipeStackAsWritten))
 	}
 	return emit(n)
 }
@@ -1504,7 +1558,7 @@ func emitAssertion(v *ast.Assertion) Doc {
 		return Text(kw)
 	}
 	if pipe, ok := v.Expr.(*ast.Binary); ok && pipe.Op == "|>" {
-		return emitKeywordPrefixedPipe(kw, pipe)
+		return withPipeDangling(pipe, emitKeywordPrefixedPipe(kw, pipe))
 	}
 	return Group(Concat(Text(kw), Text(" "), emit(v.Expr)))
 }
@@ -3104,7 +3158,7 @@ func emitCallArg(n ast.Node) Doc {
 	switch v := n.(type) {
 	case *ast.Binary:
 		if v.Op == "|>" {
-			return emitPipeChainForced(v)
+			return withPipeDangling(v, emitPipeChainForced(v))
 		}
 	case *ast.StringLit:
 		switch {
