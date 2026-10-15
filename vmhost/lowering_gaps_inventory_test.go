@@ -102,27 +102,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapGuardWithInnerIf",
-		fix:    "builder: guard with inner if. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.guardReturn | false | !bl.leading(lead) ¦¦ bl.b != arm#1; irScalarBuilder.leading | note | \"a leading conditional outside a straight return guard\"#1",
-		reason: "a leading conditional outside a straight return guard",
-		src: `import std/io
-
-fn f(x: Int): Int {
-    if x > 0 {
-        if x > 5 {
-            io.print("big")
-        }
-        return 1
-    }
-    0
-}
-
-fn main() {
-    io.inspect(f(7))
-}
-`,
-	},
-	{
 		name:   "gapInterfaceInBlockBinding",
 		fix:    "builder: interface in block binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.blockBinding | note | irDeclineBodyWhy#1",
 		reason: "a leading statement form outside the shape: *ast.InterfaceDef",
@@ -1004,74 +983,6 @@ fn main() {
     _ -> 0
   }
   io.inspect(n)
-}
-`,
-	},
-	{
-		name:   "gapLoopElseBranchingStatement",
-		fix:    "builder: loop else branching statement. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopElsePath | note | \"an Iter.loop binding else whose statements branch\"#1",
-		reason: "an Iter.loop binding else whose statements branch",
-		src: `import std/iter.Iter.loop
-import std/io
-
-fn find(n: Int): Maybe<Int> {
-  if n > 3 { None } else { Some(n) }
-}
-
-fn main() {
-  r = loop(|n = 0| {
-    Some(v) = find(n) else {
-      if n > 10 { io.print("big") }
-      break n
-    }
-    v + 1
-  })
-  io.inspect(r)
-}
-`,
-	},
-	{
-		name:   "gapLoopElseFallbackIf",
-		fix:    "builder: loop else fallback if. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopElsePath | note | \"an Iter.loop binding else fallback outside a straight value of the payload kind\"#1",
-		reason: "an Iter.loop binding else fallback outside a straight value of the payload kind",
-		src: `import std/iter.Iter.loop
-import std/io
-
-fn find(n: Int): Maybe<Int> {
-  if n > 3 { None } else { Some(n) }
-}
-
-fn main() {
-  r = loop(|n = 0| {
-    Some(v) = find(n) else {
-      if n > 5 { 10 } else { 20 }
-    }
-    if v > 2 { break v }
-    n + 1
-  })
-  io.inspect(r)
-}
-`,
-	},
-	{
-		name:   "gapLoopElseIfBothBreak",
-		fix:    "builder: loop else if both break. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopElsePath | note | \"an Iter.loop binding else path that neither leaves nor falls back\"#1",
-		reason: "an Iter.loop binding else path that neither leaves nor falls back",
-		src: `import std/iter.Iter.loop
-import std/io
-
-fn find(n: Int): Maybe<Maybe<Int>> {
-  if n > 3 { None } else { Some(Some(n)) }
-}
-
-fn main() {
-  r = loop(|n = 0| {
-    Some(Some(v)) = find(n) else {
-      if n > 10 { break 1 } else { break 2 }
-    }
-    v + n + 1
-  })
-  io.inspect(r)
 }
 `,
 	},
