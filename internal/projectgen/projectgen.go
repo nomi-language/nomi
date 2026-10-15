@@ -7,7 +7,9 @@
 //
 //   - three hub files under core/ that most files import: ids.nomi (a
 //     distinct type, shared structs and enums, the Describe interface),
-//     util.nomi (generic functions and a generic struct) and text.nomi;
+//     util.nomi (generic functions, a generic struct, and a struct with a
+//     record field beside functions over a record and an `Iter<Int>`,
+//     which a unit calls with a list) and text.nomi;
 //   - unit files of 50 to 300 lines in a handful of directories, grouped in
 //     clusters. A cluster's first unit declares an interface the cluster's
 //     other units implement; a unit imports the one before it in its
@@ -539,6 +541,26 @@ pub fn sum_money(amounts: List<Money>): Money {
     Iter.reduce(amounts, |acc = Money.of(0), m| Money.add(acc, m))
 }
 
+/// A place on a page, held as a record.
+pub struct Spot {
+    at: {x: Int, y: Int}
+}
+
+/// The spot at n.
+pub fn spot(n: Int): Spot {
+    Spot{at: {x: n, y: n + 1}}
+}
+
+/// Where a spot is.
+pub fn place(s: Spot): {x: Int, y: Int} {
+    s.at
+}
+
+/// The sum of any numbers.
+pub fn sum_all(xs: Iter<Int>): Int {
+    Iter.reduce(xs, |acc = 0, x| acc + x)
+}
+
 /// What a change to the util hub changes.
 pub fn probe(n: Int): Int {
     n + 1
@@ -879,7 +901,9 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 			calls += fmt.Sprintf(" + %s.base%d", d.name, d.i)
 		}
 		if u.usesUtil {
-			calls += " + util.ratio"
+			// A record and an Iter<Int> in another file's signatures and
+			// fields, the Iter fed a list.
+			calls += " + util.ratio + util.sum_all([n, 1]) + util.place(util.spot(n)).y"
 		}
 		if u.usesText {
 			calls += " + text.width([\"${n}\"])"
