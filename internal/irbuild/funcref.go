@@ -99,7 +99,7 @@ func (g *gen) funcTypeKinds(ft *analysis.FuncType, arity int) ([]kind, kind, boo
 			return nil, kindInvalid, false
 		}
 		params[i] = g.project(pt)
-		if !irCallableValueKind(params[i]) {
+		if params[i] != kindUnit && !irCallableValueKind(params[i]) {
 			return nil, kindInvalid, false
 		}
 	}

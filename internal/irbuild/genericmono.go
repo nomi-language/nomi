@@ -369,7 +369,7 @@ func (g *gen) checkedMonoCallKinds(t *ast.Call, arity int) ([]kind, kind, bool) 
 				k = g.defaultSelfArg(t.Args[i], k)
 			}
 		}
-		if !irCallableValueKind(k) {
+		if k != kindUnit && !irCallableValueKind(k) {
 			return nil, kindInvalid, false
 		}
 		params[i] = k
@@ -403,7 +403,7 @@ func (g *gen) monoSolve(tpl *monoTemplate, params []kind, result kind) ([]kind, 
 	args := make([]kind, len(tpl.params))
 	for i, name := range tpl.params {
 		k, found := solved[name]
-		if !found || !irCallableValueKind(k) {
+		if !found || (k != kindUnit && !irCallableValueKind(k)) {
 			return nil, false
 		}
 		args[i] = k
@@ -414,31 +414,58 @@ func (g *gen) monoSolve(tpl *monoTemplate, params []kind, result kind) ([]kind, 
 // checkedMonoTypeArgsFilled is checkedMonoTypeArgs for a call whose checked
 // signature holds an inference variable nothing solved: a type argument the
 // checker admits undetermined because no value of it is made (spec,
-// "Determined type arguments"), as in `ident(Ok(1))`, whose error type is
-// open. The hole is read as Unit, as stdInstCallAt reads a std call's; when
-// every hole is the element of an empty list literal (`count_all([])`), as
-// Int, the representation `List.head([])` gets, since a type parameter
-// solved to Unit itself has no instance. It reports false for a signature
-// with no hole.
+// "Determined type arguments"), as in `is_some(None)` or `ident(Ok(1))`,
+// whose error type is open. No value of the hole's type exists, so any
+// type serves; the hole is read as Unit, as stdInstCallAt reads a std
+// call's. A type parameter with a bound cannot be Unit, which implements no
+// interface, so when Unit lands on one the hole is read as Int, which
+// implements the std interfaces a bound names (`show_all([])` with
+// `T: Display`). It reports false for a signature with no hole.
 func (g *gen) checkedMonoTypeArgsFilled(t *ast.Call, tpl *monoTemplate) ([]kind, bool) {
 	ft := g.checkedCallSignature(t)
 	if ft == nil || len(ft.Params) != len(tpl.decl.Params) || !irUnsolvedType(ft) {
 		return nil, false
 	}
-	fills := []analysis.Type{analysis.TypeUnit}
-	if irOnlyEmptyListsUnsolved(t, ft) {
-		fills = append(fills, analysis.TypeInt)
-	}
-	for _, fill := range fills {
+	var fallback []kind
+	for _, fill := range []analysis.Type{analysis.TypeUnit, analysis.TypeInt} {
 		params := make([]kind, len(ft.Params))
 		for i, p := range ft.Params {
 			params[i] = g.project(irFillHoles(p, fill))
 		}
-		if args, ok := g.monoSolve(tpl, params, g.project(irFillHoles(ft.Return, fill))); ok {
+		args, ok := g.monoSolve(tpl, params, g.project(irFillHoles(ft.Return, fill)))
+		if !ok {
+			continue
+		}
+		if !monoBoundedAtUnit(tpl, args) {
 			return args, true
 		}
+		if fallback == nil {
+			fallback = args
+		}
 	}
-	return nil, false
+	return fallback, fallback != nil
+}
+
+// monoBoundedAtUnit reports whether a type parameter of tpl that carries a
+// bound is solved to Unit in args.
+func monoBoundedAtUnit(tpl *monoTemplate, args []kind) bool {
+	bounded := map[string]bool{}
+	for _, tp := range tpl.decl.TypeParams {
+		if len(tp.Bounds) > 0 {
+			bounded[tp.Name] = true
+		}
+	}
+	for _, wc := range tpl.decl.WhereClauses {
+		if len(wc.Bounds) > 0 {
+			bounded[wc.Name] = true
+		}
+	}
+	for i, name := range tpl.params {
+		if args[i] == kindUnit && bounded[name] {
+			return true
+		}
+	}
+	return false
 }
 
 // monoArgKind is the kind an argument expression the checker left open

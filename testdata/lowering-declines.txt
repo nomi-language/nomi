@@ -86,12 +86,12 @@ b	gen.checkedRefKinds | false | g.fa == nil#1	funcref.go:79	-	defensive fence: g
 b	gen.checkedRefKinds | false | sym == nil#1	funcref.go:84	-	the checker records a Reference at every resolved callee/function-value position
 b	gen.funcTypeKinds | false | ft == nil ¦¦ len(ft.Params) != arity ¦¦ irUnsolvedType(ft.Return)#1	funcref.go:94	-	checker rejects unsolved generic references: "cannot infer type parameter T of generic function 'x' used as a value"; arity always matches the declaration
 b	gen.funcTypeKinds | false | irUnsolvedType(pt)#1	funcref.go:99	-	same checker rule: "cannot infer type parameter ... used as a value" (tried `[] |> Iter.each(io.inspect)`)
-c	gen.funcTypeKinds | false | !irCallableValueKind(params[i])#1	funcref.go:103	-	pinned as gapUnitParamGenericFnValue (reason: an ident bound nowhere this builder can see)
+?	gen.funcTypeKinds | false | params[i] != kindUnit && !irCallableValueKind(params[i])#1	funcref.go:103	?	
 d	gen.funcTypeKinds | false | result != kindUnit && !irCallableValueKind(result)#1	funcref.go:108	-	could not find a projected result kind outside the callable domain whose params pass; Maybe<Unit> results fail earlier in monoSolve instead
 b	gen.monoSolve | false | len(params) != len(tpl.decl.Params)#1	genericmono.go:392	-	every caller passes kinds of len(tpl.decl.Params) (checkedRefKinds/checkedMonoCallKinds arity), so the lengths always agree
-a	gen.monoSolve | false | !found ¦¦ !irCallableValueKind(k)#1	genericmono.go:407	irbuild	
-a	gen.checkedMonoTypeArgsFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:426	irbuild	
-c	gen.checkedMonoTypeArgsFilled | false | unguarded#1	genericmono.go:441	-	pinned as gapGenericCallBareNone (reason: a direct callee that is not lowerable: is_some)
+?	gen.monoSolve | false | !found ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	genericmono.go:407	?	
+a	gen.checkedMonoTypeArgsFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:427	irbuild	
+?	gen.checkedMonoTypeArgsFilled | computed | return fallback != nil#1	genericmono.go:446	?	
 b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:584	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
 b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:594	-	defensive fence: callers pass an enum template (enumDecl non-nil)
 b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:601	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)

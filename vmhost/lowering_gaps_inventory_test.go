@@ -2714,25 +2714,6 @@ pub struct Dog {
 `,
 	},
 	{
-		name:   "gapGenericCallBareNone",
-		fix:    "builder: generic call bare none. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.checkedMonoTypeArgsFilled | false | unguarded#1",
-		reason: "a direct callee that is not lowerable: is_some",
-		noSkip: true,
-		src: `import std/io
-
-fn is_some<T>(m: Maybe<T>): Bool {
-    case m {
-        Some(_) -> True
-        None -> False
-    }
-}
-
-fn main() {
-    io.print(is_some(None))
-}
-`,
-	},
-	{
 		name:   "gapGenericVariantUnsolvedParam",
 		fix:    "builder: generic variant unsolved param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.checkedFieldTypeArgs | false | !ok#1",
 		reason: "a struct literal: Either2.L",
@@ -2947,33 +2928,6 @@ pub fn greet(name: String, punct: String = "!"): String {
 `,
 	},
 	{
-		name:   "gapSiblingDefaultGenericHole",
-		fix:    "builder: sibling default generic hole. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.irFileSlotRetain | note | \"a default that does not lower\"#1",
-		reason: "a direct callee that is not lowerable: is_some",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    lib
-}
-
-fn main() {
-    io.print(lib.show(1))
-}
-// FILE: lib.nomi
-fn is_some<T>(m: Maybe<T>): Bool {
-    case m {
-        Some(_) -> True
-        None -> False
-    }
-}
-
-pub fn show(x: Int, flag: Bool = is_some(None)): String {
-    "${x} ${flag}"
-}
-`,
-	},
-	{
 		name:   "gapSiblingGenericEmptyList",
 		fix:    "builder: sibling generic empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.siblingCall | false | !ok ¦¦ len(params) != len(f.decl.Params) ¦¦ (!irCallableValueKind(result) && result != kin…#1",
 		reason: "a direct callee outside this module's fn table: cnt",
@@ -3043,42 +2997,6 @@ fn main() {
 
 fn main() {
     io.inspect(Maybe.map<Int, String>(Some(1), |x| "${x}"))
-}
-`,
-	},
-	{
-		name:   "gapUnitElemOutputRef",
-		fix:    "builder: unit elem output ref. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.outputRef | false | !ok ¦¦ result != kindUnit#1",
-		reason: "a field access on an unbound name io: .inspect",
-		noSkip: true,
-		src: `import std/io
-
-fn u() {
-}
-
-fn main() {
-    [u(), u()] |> Iter.each(io.inspect)
-}
-`,
-	},
-	{
-		name:   "gapUnitParamGenericFnValue",
-		fix:    "builder: unit param generic fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.funcTypeKinds | false | !irCallableValueKind(params[i])#1",
-		reason: "an ident bound nowhere this builder can see",
-		noSkip: true,
-		src: `import std/io
-
-fn ident<T>(x: T): T {
-    x
-}
-
-fn u() {
-}
-
-fn main() {
-    f: (Unit) -> Unit = ident
-    f(u())
-    io.print("done")
 }
 `,
 	},
