@@ -1422,7 +1422,18 @@ func (g *gen) callBlock() string {
 	n := r.Intn(4)
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(5) {
+	switch r.Intn(6) {
+	case 5:
+		// A generic helper with a destructuring parameter and a default
+		// that reads its names, called with named arguments. A nested fn
+		// cannot destructure yet, so a local program skips it.
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<A, B>((a, b): (A, B), keep: Bool = False, fallback: A = a): (B, A) {\n"+
+			"if keep {\n(b, fallback)\n} else {\n(b, a)\n}\n}", name("csw")))
+		fmt.Fprintf(&out, "io.inspect(%s(keep: True, (%d, \"x\")))\n", name("csw"), n)
+		fmt.Fprintf(&out, "io.inspect(%s((%d, %s), fallback: 9, keep: %s))\n", name("csw"), n, g.boolLitFrom(r), g.boolLitFrom(r))
 	case 0:
 		fmt.Fprintf(&out, "%s = concurrent {\n%s = Task.spawn(body: || %d)\nTask.await(task: %s)\n}\n", name("ct"), name("tk"), n, name("tk"))
 		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))

@@ -199,13 +199,16 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 		tpl.params = append(tpl.params, tp.Name)
 		tpl.paramSet[tp.Name] = true
 	}
-	// Every parameter must be an annotated slot: a destructuring or an
-	// unannotated parameter reports at funcDecl's own clause, so claiming the
-	// declaration here would lower past a refusal. A default is evaluated at
-	// the call against the instance's signature, as for any `fn`.
+	// Every parameter must be annotated: an unannotated one reports at
+	// funcDecl's own clause, so claiming the declaration here would lower
+	// past a refusal. An annotated destructuring parameter (`(a, b): (A, B)`)
+	// is a slot of its annotation's type whose names the instance's prologue
+	// binds, as funcDecl binds a non-generic function's. A default is
+	// evaluated at the call against the instance's signature, as for any
+	// `fn`.
 	mentioned := make(map[string]bool, len(tpl.params))
 	for _, p := range fd.Params {
-		if p.Destructure != nil || p.TypeAnnotation == nil {
+		if p.TypeAnnotation == nil {
 			return nil
 		}
 		markMentionedParams(p.TypeAnnotation, tpl.paramSet, mentioned)

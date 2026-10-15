@@ -1172,29 +1172,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapNamedArgDestructuredParam",
-		fix:    "builder: named arg destructured param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.namedQualCall | false | p.Destructure != nil#1",
-		reason: "a named argument",
-		noSkip: true,
-		src: `import std/io
-
-struct Point {
-    x: Int
-    y: Int
-}
-
-impl Point {
-    fn scale(Point{x, y}, by: Int): Int {
-        x * by + y
-    }
-}
-
-fn main() {
-    io.print(Point.scale(Point{x: 1, y: 2}, by: 3))
-}
-`,
-	},
-	{
 		name:   "gapStructUpdatePatchBinding",
 		fix:    "builder: struct update patch binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | !isLit ¦¦ lit.TypeName != nil ¦¦ lit.Spread != nil#1",
 		reason: "qualified call, Type.method: Struct.update",

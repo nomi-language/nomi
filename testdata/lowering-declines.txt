@@ -88,10 +88,10 @@ b	gen.funcTypeKinds | false | ft == nil ¦¦ len(ft.Params) != arity ¦¦ irUnso
 b	gen.funcTypeKinds | false | irUnsolvedType(pt)#1	funcref.go:99	-	same checker rule: "cannot infer type parameter ... used as a value" (tried `[] |> Iter.each(io.inspect)`)
 ?	gen.funcTypeKinds | false | params[i] != kindUnit && !irCallableValueKind(params[i])#1	funcref.go:105	?	
 d	gen.funcTypeKinds | false | result != kindUnit && !irCallableValueKind(result)#1	funcref.go:110	-	could not find a projected result kind outside the callable domain whose params pass; Maybe<Unit> results fail earlier in monoSolve instead
-b	gen.monoSolve | false | len(params) != len(tpl.decl.Params)#1	genericmono.go:392	-	every caller passes kinds of len(tpl.decl.Params) (checkedRefKinds/checkedMonoCallKinds arity), so the lengths always agree
-?	gen.monoSolve | false | !found ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	genericmono.go:407	?	
-?	gen.solveFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:436	?	
-?	gen.solveFilled | computed | return fallback != nil#1	genericmono.go:459	?	
+b	gen.monoSolve | false | len(params) != len(tpl.decl.Params)#1	genericmono.go:395	-	every caller passes kinds of len(tpl.decl.Params) (checkedRefKinds/checkedMonoCallKinds arity), so the lengths always agree
+?	gen.monoSolve | false | !found ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	genericmono.go:410	?	
+?	gen.solveFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:439	?	
+?	gen.solveFilled | computed | return fallback != nil#1	genericmono.go:462	?	
 b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:595	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
 b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:605	-	defensive fence: callers pass an enum template (enumDecl non-nil)
 b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:612	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
@@ -113,9 +113,11 @@ b	irScalarBuilder.attachedVariant | false | !ok#1	irattach.go:27	-	parser fence:
 b	irScalarBuilder.attachedVariant | false | tn.ResolvedEnum == ""#1	irattach.go:36	-	checker resolves `.X[...]`/`.X{...}` against the expected enum or reports an error, so ResolvedEnum is never empty after checking
 b	irScalarBuilder.attachedVariant | false | unguarded#1	irattach.go:54	-	parser fence: a literal-attach prefix is only QualifiedType, DotVariantType or SimpleType
 d	irScalarBuilder.blockBinding | note | "a block's value is not the binding's kind: " + k.nomi() + " vs " + want.nomi()#1	irblockbinding.go:72	-	tried Display/user-interface/empty-list typed block bindings; `d: Display = { ...; 5 }` crashes the compiler (IR lint) instead of reaching this note, user interfaces lower
-b	irScalarBuilder.callDefaults | false | len(sig.decl.Params) != len(args)#1	ircalldefaults.go:13	-	defensive: every caller builds args with one slot per declared parameter (irsupervisor.go, irfuncbody.go:1252, irqualcall.go, irnamedarg.go)
-b	irScalarBuilder.callDefaults | false | p.Default == nil#1	ircalldefaults.go:33	-	checker rejects an omitted parameter with no default ("missing argument for parameter")
-c	irScalarBuilder.callDefaults | false | !ok ¦¦ k != sig.params[i] ¦¦ !irCallOperandKind(k)#1	ircalldefaults.go:42	-	pinned as gapDefaultGenericLambda (reason: a lambda parameter outside the domain: an unsupported type)
+b	irScalarBuilder.callDefaults | false | len(sig.decl.Params) != len(args)#1	ircalldefaults.go:15	-	defensive: every caller builds args with one slot per declared parameter (irsupervisor.go, irfuncbody.go:1252, irqualcall.go, irnamedarg.go)
+b	irScalarBuilder.callDefaults | false | p.Default == nil#1	ircalldefaults.go:35	-	checker rejects an omitted parameter with no default ("missing argument for parameter")
+c	irScalarBuilder.callDefaults | false | !ok ¦¦ k != sig.params[i] ¦¦ !irCallOperandKind(k)#1	ircalldefaults.go:44	-	pinned as gapDefaultGenericLambda (reason: a lambda parameter outside the domain: an unsupported type)
+?	irScalarBuilder.callDefaults | false | p.Destructure != nil && slices.Contains(args[i+1:], ir.NoTemp) && !bl.bindParamPattern(p.D…#1	ircalldefaults.go:52	?	
+?	irScalarBuilder.bindParamPattern | note | "a destructuring parameter before a defaulted one, outside the retained case tests: " + k.…#1	ircalldefaults.go:76	?	
 b	irScalarBuilder.runCaptured | false | namedArgNode(t.Args) != nil ¦¦ len(t.Args) != 3#1	ircapture.go:19	-	std-only fence: runCaptured lowers std/io's private run_captured/run_replayed, called only from io.capture/io.replay bodies with three positional args
 b	irScalarBuilder.runCaptured | false | !args.ok ¦¦ args.kinds[0] != kindString#1	ircapture.go:23	-	std-only fence: io.capture/io.replay pass a String first argument
 b	irScalarBuilder.runCaptured | false | run.tag != tagFunc ¦¦ run.comp == nil ¦¦ len(funcParams(run)) != 0#1	ircapture.go:27	-	std-only fence: the run argument in the std bodies is always a zero-parameter function value
@@ -568,18 +570,17 @@ b	irScalarBuilder.mapBinding | note | "a map destructure entry outside names and
 b	irScalarBuilder.namedQualCall | false | fa.Field == nil ¦¦ bl.g.fa == nil#1	irnamedarg.go:31	-	defensive: fa is set and the parser sets Field for a qualified call
 b	irScalarBuilder.namedQualCall | false | sym == nil#1	irnamedarg.go:35	-	checker records a reference for every qualified callee it resolves
 b	irScalarBuilder.namedQualCall | false | unguarded#1	irnamedarg.go:62	-	checker rejects named arguments to anything but a fn, host fn or interface method ("no parameter named", positional payloads)
-c	irScalarBuilder.namedQualCall | false | p.Destructure != nil#1	irnamedarg.go:68	-	pinned as gapNamedArgDestructuredParam (reason: a named argument)
-b	irScalarBuilder.namedQualCall | false | !planned#1	irnamedarg.go:74	-	checker rejects every argument list argSlotPlan cannot place (duplicates, unknown names, positional after named)
-b	irScalarBuilder.namedQualCall | false | s < 0 ¦¦ s >= len(names)#1	irnamedarg.go:89	-	fence: argSlotPlan only yields slots inside the parameter list
-c	irScalarBuilder.namedQualCall | false | !ok ¦¦ !irCallOperandKind(k)#1	irnamedarg.go:103	-	pinned as gapNamedArgValueDeclines (reason: the comparison operator `==`)
+b	irScalarBuilder.namedQualCall | false | !planned#1	irnamedarg.go:73	-	checker rejects every argument list argSlotPlan cannot place (duplicates, unknown names, positional after named)
+b	irScalarBuilder.namedQualCall | false | s < 0 ¦¦ s >= len(names)#1	irnamedarg.go:88	-	fence: argSlotPlan only yields slots inside the parameter list
+c	irScalarBuilder.namedQualCall | false | !ok ¦¦ !irCallOperandKind(k)#1	irnamedarg.go:102	-	pinned as gapNamedArgValueDeclines (reason: the comparison operator `==`)
 b	irScalarBuilder.namedQualCall | false | p.TypeAnnotation == nil#1	irnamedarg.go:142	-	fence: a non-destructured fn parameter always has a type annotation, and a destructured one returns at irnamedarg.go:68 first
-c	irScalarBuilder.namedQualCall | false | !irCallOperandKind(kinds[i])#1	irnamedarg.go:151	-	pinned as gapNamedGapGenericParam (reason: a named argument)
-d	irScalarBuilder.ifaceGapDefaults | false | recvAt < 0 ¦¦ recvAt >= len(temps) ¦¦ temps[recvAt] == ir.NoTemp#1	irnamedarg.go:211	-	needs an interface fn with defaults whose receiver position is not self (constructor-style); not built
-d	irScalarBuilder.ifaceGapDefaults | false | m == nil ¦¦ m.decl != im ¦¦ len(m.params) != len(temps)#1	irnamedarg.go:217	-	needs an erased receiver whose interface method table disagrees with the declaration; not found
-c	irScalarBuilder.ifaceGapDefaults | false | impl == nil ¦¦ !impl.lowerable#1	irnamedarg.go:235	-	pinned as gapIfaceGapDefaultImplElsewhere (reason: a named argument)
-d	irScalarBuilder.ifaceGapDefaults | false | it == nil ¦¦ !it.lowerable#1	irnamedarg.go:242	-	needs the impl to lack or fail to lower the method; not constructed
-b	irScalarBuilder.ifaceGapDefaults | false | fd == nil ¦¦ len(fd.Params) != len(temps) ¦¦ len(it.params) != len(temps)#1	irnamedarg.go:246	-	fence: the impl item is the interface method's implementation, which the checker holds to the same parameter count
-c	irScalarBuilder.ifaceGapDefaults | false | unguarded#1	irnamedarg.go:250	-	pinned as gapIfaceGapDefaultCrossFile (reason: a named argument)
+c	irScalarBuilder.namedQualCall | false | !irCallOperandKind(kinds[i])#1	irnamedarg.go:150	-	pinned as gapNamedGapGenericParam (reason: a named argument)
+d	irScalarBuilder.ifaceGapDefaults | false | recvAt < 0 ¦¦ recvAt >= len(temps) ¦¦ temps[recvAt] == ir.NoTemp#1	irnamedarg.go:210	-	needs an interface fn with defaults whose receiver position is not self (constructor-style); not built
+d	irScalarBuilder.ifaceGapDefaults | false | m == nil ¦¦ m.decl != im ¦¦ len(m.params) != len(temps)#1	irnamedarg.go:216	-	needs an erased receiver whose interface method table disagrees with the declaration; not found
+c	irScalarBuilder.ifaceGapDefaults | false | impl == nil ¦¦ !impl.lowerable#1	irnamedarg.go:234	-	pinned as gapIfaceGapDefaultImplElsewhere (reason: a named argument)
+d	irScalarBuilder.ifaceGapDefaults | false | it == nil ¦¦ !it.lowerable#1	irnamedarg.go:241	-	needs the impl to lack or fail to lower the method; not constructed
+b	irScalarBuilder.ifaceGapDefaults | false | fd == nil ¦¦ len(fd.Params) != len(temps) ¦¦ len(it.params) != len(temps)#1	irnamedarg.go:245	-	fence: the impl item is the interface method's implementation, which the checker holds to the same parameter count
+c	irScalarBuilder.ifaceGapDefaults | false | unguarded#1	irnamedarg.go:249	-	pinned as gapIfaceGapDefaultCrossFile (reason: a named argument)
 d	irScalarBuilder.narrowedRead | false | !irRetainedEmbed(k.def, variant)#1	irnarrow.go:33	-	embedded structs with function fields, distincts over Int, functions and enums all narrow; a host-type embed (rtOpaque) needs an embedder
 c	irScalarBuilder.nestedFunc/no | note | "a nested fn: " + why#1	irnestedfn.go:29	-	pinned as gapNestedFnDestructuringParam (reason: a nested fn: a parameter without an annotation, or a destructuring one)
 c	irScalarBuilder.nestedInstance/no | note | "a nested fn: " + why#1	irnestedfn.go:56	-	pinned as gapNestedFnEmptyListResult (reason: a nested fn: a result that is not the declared return type: List<_> vs List<Int>)
@@ -921,11 +922,10 @@ a	gen.checkedValueKinds | false | ft == nil ¦¦ irUnsolvedType(ft)#1	ownerfuncr
 d	gen.checkedValueKinds | false | !irCallOperandKind(params[i])#1	ownerfuncref.go:184	-	Unit params are admitted; no out-of-domain param found
 d	gen.checkedValueKinds | false | result != kindUnit && !irCallableValueKind(result)#1	ownerfuncref.go:189	-	no out-of-domain result found
 a	gen.rangeWalks | computed | return g.rangeOrders(elem, at) && g.rangeDiscrete(elem, at)#1	ranges.go:227	expect,irbuild,projectgen,vmhost	
-c	gen.irFileSlotRetain | note | "a destructuring parameter before a defaulted one"#1	siblingdefault.go:107	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([area default 2] a destructuring parameter before a defaulted one)
-d	gen.irFileSlotRetain | note | "a parameter kind outside the call domain: " + k.nomi()#1	siblingdefault.go:113	-	needs a pub fn param kind outside the call domain before a default; not found
-b	gen.irFileSlotRetain | note | "no function shell"#1	siblingdefault.go:130	-	defensive fence: irFuncShellWithCallee returns nil only for a malformed signature the earlier checks exclude
-c	gen.irFileSlotRetain | note | "a default that does not lower"#1	siblingdefault.go:143	-	pinned as gapSiblingDefaultGenericHole (reason: a direct callee that is not lowerable: is_some)
-d	gen.irFileSlotRetain | note | "a default accessor that does not lint: " + err.Error()#1	siblingdefault.go:152	-	no lint failure found
+d	gen.irFileSlotRetain | note | "a parameter kind outside the call domain: " + k.nomi()#1	siblingdefault.go:109	-	needs a pub fn param kind outside the call domain before a default; not found
+b	gen.irFileSlotRetain | note | "no function shell"#1	siblingdefault.go:126	-	defensive fence: irFuncShellWithCallee returns nil only for a malformed signature the earlier checks exclude
+c	gen.irFileSlotRetain | note | "a default that does not lower"#1	siblingdefault.go:139	-	pinned as gapSiblingDefaultGenericHole (reason: a direct callee that is not lowerable: is_some)
+d	gen.irFileSlotRetain | note | "a default accessor that does not lint: " + err.Error()#1	siblingdefault.go:148	-	no lint failure found
 b	gen.siblingGenericRef | false | f == nil ¦¦ !f.generic ¦¦ f.decl == nil ¦¦ g.reg == nil ¦¦ to < 0 ¦¦ to >= len(g.reg.gens)#1	siblinggeneric.go:71	-	defensive fence: callers pass a generic fileFunc with a valid unit
 b	gen.siblingGenericRef | false | owner == nil ¦¦ owner == g#1	siblinggeneric.go:75	-	defensive fence: the owner unit is another file's gen
 b	gen.siblingGenericRef | false | sig == nil ¦¦ sig.decl != f.decl#1	siblinggeneric.go:79	-	defensive fence: the owner's funcs table holds the same declaration

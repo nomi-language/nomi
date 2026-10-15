@@ -98,16 +98,12 @@ func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
 // parameters before slot, then that parameter's default lowered as a local
 // call's is (callDefaults), seeing this file's functions and the earlier
 // parameters. A default that does not lower leaves no accessor, and a program
-// that reaches one is reported BLOCKED under the accessor's name.
+// that reaches one is reported BLOCKED under the accessor's name, at the
+// default.
 func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, slot int) {
 	name := fileSlotName(fd.Name, slot)
 	g.irDeclineOpen(name)
-	for _, p := range fd.Params[:slot] {
-		if p.Destructure != nil {
-			irDeclineNote("a destructuring parameter before a defaulted one")
-			return
-		}
-	}
+	defer irDeclineAtNode(fd.Params[slot].Default)
 	for _, k := range sig.params[:slot+1] {
 		if !irCallOperandKind(k) {
 			irDeclineNote("a parameter kind outside the call domain: " + k.nomi())
@@ -118,7 +114,7 @@ func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, s
 	defer g.popScope()
 	params := sig.params[:slot]
 	for i, p := range fd.Params[:slot] {
-		if !ast.IsDiscardName(p.Name) {
+		if p.Destructure == nil && !ast.IsDiscardName(p.Name) {
 			g.bind(p.Name, local{k: params[i]})
 		}
 	}

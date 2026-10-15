@@ -62,11 +62,10 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		return no()
 	}
 	isFunc := fd != nil
+	// A destructuring parameter's name is the parser's synthesized one,
+	// which no named argument can spell, so only a positional fills it.
 	names := make([]string, len(params))
 	for i, p := range params {
-		if p.Destructure != nil {
-			return no()
-		}
 		names[i] = p.Name
 	}
 	plan, planned := argSlotPlan(t.Args, make([]kind, len(names)), names)
@@ -138,10 +137,10 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 			checked = nil
 		}
 		for i, p := range fd.Params {
-			if p.TypeAnnotation == nil {
-				return no()
-			}
 			if temps[i] == ir.NoTemp {
+				if p.TypeAnnotation == nil {
+					return no()
+				}
 				if checked != nil {
 					kinds[i] = bl.g.projectFilledHoles(checked.Params[i])
 				} else {
