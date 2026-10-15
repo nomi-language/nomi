@@ -110,13 +110,13 @@ type gen struct {
 	// fix draws the blocks fixedKindBlock writes, and fn names their
 	// declarations apart, so the rest of each program is the one it was
 	// without them.
-	fix     *rand.Rand
-	fn      int
+	fix *rand.Rand
+	fn  int
 	// call draws the blocks callBlock writes, and cn names their
 	// declarations apart, so the rest of each program is the one it was
 	// without them.
-	call *rand.Rand
-	cn   int
+	call    *rand.Rand
+	cn      int
 	wn      int
 	dn      int
 	n       int
@@ -1422,7 +1422,14 @@ func (g *gen) callBlock() string {
 	n := r.Intn(4)
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(11) {
+	switch r.Intn(12) {
+	case 11:
+		// A partial that leaves a slot with a computed default unmentioned,
+		// before a slot it names or after the open one.
+		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = a + %d, c: Int = 0): Int {\na * 100 + b * 10 + c\n}\n", name("cpf"), n)
+		partials := []string{"%s(_, c: 1)", "%s(_)", "%s(c: 2, a: _)"}
+		fmt.Fprintf(&out, "%s = %s\n", name("cpg"), fmt.Sprintf(partials[r.Intn(len(partials))], name("cpf")))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("cpg"), n)
 	case 10:
 		// A typed literal whose handler answers a function.
 		if g.local {

@@ -28,8 +28,9 @@ import (
 // placeholder the call omits takes it, and partialOpen hands the lambda the
 // slot's kind and the callee's parameter name, by which the partial is
 // called (`f(port: 3000)`). A slot the partial does not mention takes the
-// callee's default in the body's call. A default is admitted only when it is
-// a literal, which reads the same wherever it is lowered. The body's call
+// callee's default in the body's call, which leaves the slot out. An open
+// slot's default is admitted only when it is a literal, which reads the same
+// wherever it is lowered. The body's call
 // names the callee exactly as the partial wrote it, so it is lowered as the
 // same call written in full would be.
 func (bl *irScalarBuilder) partialApplication(t *ast.Call) (ir.Temp, kind, bool, bool) {
@@ -99,19 +100,47 @@ func (bl *irScalarBuilder) partialApplication(t *ast.Call) (ir.Temp, kind, bool,
 		}
 		slots.names = append(slots.names, name)
 	}
-	args := make([]ast.Node, len(params))
-	for slot, p := range params {
+	// A slot the partial does not mention is left out of the body's call,
+	// which fills it from the callee's default in the callee's scope, as any
+	// call omitting it does. A trailing one is simply not written; one
+	// before a written slot is skipped by writing the call's arguments by
+	// name, unless its default is a literal, which reads the same written
+	// in place.
+	last := -1
+	named := false
+	for slot := range params {
+		if filled[slot] {
+			last = slot
+		}
+	}
+	for slot, p := range params[:last+1] {
+		if !filled[slot] && (p.Default == nil || !irClosedLiteral(p.Default)) {
+			named = true
+		}
+	}
+	var args []ast.Node
+	for slot, p := range params[:last+1] {
 		line, col := t.Line, t.Col
+		var arg ast.Node
 		switch {
 		case written[slot] != "":
-			args[slot] = &ast.Ident{Name: written[slot], Line: line, Col: col}
+			arg = &ast.Ident{Name: written[slot], Line: line, Col: col}
 		case filled[slot]:
-			args[slot] = &ast.Ident{Name: openName[slot], Line: line, Col: col}
+			arg = &ast.Ident{Name: openName[slot], Line: line, Col: col}
+		case named && p.Default != nil:
+			continue
 		case p.Default != nil && irClosedLiteral(p.Default):
-			args[slot] = p.Default
+			arg = p.Default
 		default:
 			return no()
 		}
+		if named {
+			if names[slot] == "" || names[slot] == "_" {
+				return no()
+			}
+			arg = &ast.NamedArg{Name: names[slot], Value: arg, Line: line, Col: col}
+		}
+		args = append(args, arg)
 	}
 	lam.Body = &ast.Block{Line: t.Line, Col: t.Col, Stmts: []ast.Node{
 		&ast.Call{Func: t.Func, Args: args, TypeArgs: t.TypeArgs, Line: t.Line, Col: t.Col},
