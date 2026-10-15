@@ -1,0 +1,400 @@
+package irbuild
+
+import (
+	"slices"
+	"strings"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
+
+// Types that refer to each other across files.
+//
+// One file's type table is built on demand (typeRegistry.ensureTypes): when
+// file a's `struct A { bs: List<B> }` resolves `B`, b's table is built first
+// and a takes a mirror of B with B's finished layout. That order cannot serve
+// `struct B { parent: Maybe<A> }` in b, because b's table would then need a's,
+// which is half built.
+//
+// One file already handles the same shape: buildTypes registers every shell,
+// then resolves every field against the shells, then boxes, lays out slots and
+// settles lowerability over the finished graph. A TYPE GROUP runs those phases
+// over several files at once. The group is a strongly connected component of
+// the graph whose edge a→b says a type, interface or alias declaration in a
+// names a type or interface b declares. A file outside every such cycle is not
+// in a group and builds on demand as before, so an acyclic program builds
+// exactly as it did.
+//
+// Inside a group, a mirror of another member's type is made while fields are
+// still being resolved, so it starts as an identity with no layout (a pending
+// mirror). Once every member's fields are resolved, each pending mirror's kinds
+// are imported; that may make more pending mirrors, which are imported in turn.
+// Boxing and slot assignment then run over a graph in which every mirror has
+// its components, and each pending mirror takes its owner's boxing and slots.
+// Lowerability is settled over the whole group until no mirror or declaration
+// changes, so a refusal in one file reaches every container in the others.
+// Interface signatures are resolved after that, member by member, and a mirror
+// of another member's interface made before then gets its methods once every
+// member's are resolved.
+//
+// The edges are a superset of what resolution demands: they count every type
+// name in a declaration, including one a type parameter shadows. A superset
+// only groups a file that did not need it, and the phases build such a file's
+// types as its own buildTypes would. A demand the edges miss would be refused
+// as `sibling file type cycle`, as every cycle was before groups existed. Names
+// are resolved through the file's module scope; a block-local type naming a
+// block-level import would be missed, but the checker does not resolve such a
+// name today.
+
+// typeGroupState is how far a type group's build has gone.
+type typeGroupState int
+
+const (
+	// groupIdle: not started.
+	groupIdle typeGroupState = iota
+	// groupShells: registering shells. Nothing in the group is readable.
+	groupShells
+	// groupResolving: every member's shells and generic templates are
+	// registered. A member asking for another member's type gets a pending
+	// mirror.
+	groupResolving
+	// groupLayingOut: boxing, slots and lowerability. No mirror of a member
+	// may be made, since it could take no layout.
+	groupLayingOut
+	// groupLaidOut: every member's type layout and lowerability is final, so
+	// a mirror of a member type is built whole, as for any finished table.
+	groupLaidOut
+	// groupIfacesResolved: every member's interface signatures are resolved
+	// too.
+	groupIfacesResolved
+)
+
+// typeGroup is the files whose type declarations refer to each other in a
+// cycle, built together.
+type typeGroup struct {
+	units   []int
+	state   typeGroupState
+	pending []pendingMirror
+	// pendingIfaces are interface mirrors made before their owners'
+	// signatures were resolved. A type's layout never reads an interface's
+	// methods, only whether it is lowerable, which its shell already says.
+	pendingIfaces []pendingIfaceMirror
+}
+
+// pendingIfaceMirror is an interface mirror waiting for its methods.
+type pendingIfaceMirror struct {
+	g   *gen
+	d   *ifaceDef
+	src *ifaceDef
+}
+
+// pendingMirror is a mirror made while its owner's fields were unresolved,
+// waiting for its kinds and layout.
+type pendingMirror struct {
+	g   *gen
+	d   *typeDef
+	src *typeDef
+	o   *typeOwner
+	// imported says importMirrorKinds imported every kind. A mirror that
+	// failed is refused already and takes no layout.
+	imported bool
+}
+
+// groupFor is the type group unit belongs to, or nil for a file on no cycle.
+func (r *typeRegistry) groupFor(unit int) *typeGroup {
+	if !r.groupsFound {
+		r.groupsFound = true
+		r.groupOf = findTypeGroups(r.gens, r.owner)
+	}
+	if r.groupOf == nil || unit < 0 || unit >= len(r.groupOf) {
+		return nil
+	}
+	return r.groupOf[unit]
+}
+
+// ensureLayout is ensureTypes for a caller that reads the owner's finished
+// layout: fields, boxing, slots and lowerability.
+func (r *typeRegistry) ensureLayout(unit int) bool {
+	if !r.ensureTypes(unit) {
+		return false
+	}
+	grp := r.groupFor(unit)
+	return grp == nil || r.gens[unit].typesDone || grp.state >= groupLaidOut
+}
+
+// ensureIfaces is ensureTypes for a caller that reads the owner's resolved
+// interface signatures.
+func (r *typeRegistry) ensureIfaces(unit int) bool {
+	if !r.ensureTypes(unit) {
+		return false
+	}
+	grp := r.groupFor(unit)
+	return grp == nil || r.gens[unit].typesDone || grp.state >= groupIfacesResolved
+}
+
+// defersMirror reports that a mirror unit `from` asks for of a type unit `to`
+// declares is made pending: both are in one group, which is resolving fields.
+func (r *typeRegistry) defersMirror(from, to int) bool {
+	grp := r.groupFor(to)
+	return grp != nil && grp.state == groupResolving && r.groupFor(from) == grp
+}
+
+// defersIfaceMirror is defersMirror for an interface, whose signatures are
+// resolved after every member's types are laid out.
+func (r *typeRegistry) defersIfaceMirror(from, to int) bool {
+	grp := r.groupFor(to)
+	return grp != nil && grp.state >= groupResolving && grp.state <= groupLaidOut && r.groupFor(from) == grp
+}
+
+// pendingIfaceMirror makes this gen's mirror of src, an interface another
+// member of its type group declares, with its methods to be imported once
+// every member's signatures are resolved.
+func (g *gen) pendingIfaceMirror(src *ifaceDef, o *typeOwner) *ifaceDef {
+	d := g.ifaceMirrorShell(src, o)
+	grp := g.reg.groupFor(o.unit)
+	grp.pendingIfaces = append(grp.pendingIfaces, pendingIfaceMirror{g: g, d: d, src: src})
+	return d
+}
+
+// pendingMirror makes this gen's mirror of src, the declaration o names in
+// another member of its type group, as an identity whose kinds and layout
+// buildGroup fills in.
+func (g *gen) pendingMirror(src *typeDef, o *typeOwner) *typeDef {
+	d := g.mirrorShell(src, o)
+	grp := g.reg.groupFor(o.unit)
+	grp.pending = append(grp.pending, pendingMirror{g: g, d: d, src: src, o: o})
+	return d
+}
+
+// buildGroup builds every member's type table, one phase over every member
+// before the next. The phases are declareTypes', with buildTypes' split out.
+func (r *typeRegistry) buildGroup(grp *typeGroup) {
+	gens := make([]*gen, 0, len(grp.units))
+	for _, u := range grp.units {
+		gens = append(gens, r.gens[u])
+	}
+	grp.state = groupShells
+	for _, g := range gens {
+		g.collectHostPkgs()
+		g.declareIfaces(g.nodes)
+		g.declareTypeShells(g.nodes)
+	}
+	grp.state = groupResolving
+	for _, g := range gens {
+		g.resolveTypeShells(g.nodes)
+	}
+	// By index: importing one mirror's kinds can make another pending mirror.
+	for i := 0; i < len(grp.pending); i++ {
+		p := grp.pending[i]
+		grp.pending[i].imported = p.g.importMirrorKinds(p.d, p.src, p.o)
+	}
+	grp.state = groupLayingOut
+	for _, g := range gens {
+		g.boxTypeFields()
+	}
+	// A mirror's boxing before any slot is assigned: zero-sizedness reads it.
+	for _, p := range grp.pending {
+		if p.imported {
+			for i := range p.d.fields {
+				p.d.fields[i].boxed = p.src.fields[i].boxed
+			}
+		}
+	}
+	for _, g := range gens {
+		g.assignTypeSlots()
+	}
+	for _, p := range grp.pending {
+		if p.imported {
+			p.g.copyMirrorLayout(p.d, p.src, p.o)
+		}
+	}
+	// settleLowerable starts each declaration over from its own refusals, and
+	// a mirror only ever turns unlowerable, so this ends.
+	for changed := true; changed; {
+		changed = false
+		for _, g := range gens {
+			g.settleLowerable(g.typeSettleOrder())
+		}
+		for _, p := range grp.pending {
+			if p.d.lowerable && !p.src.lowerable {
+				refuseMirror(p.d, p.src, p.o)
+				changed = true
+			}
+		}
+	}
+	grp.state = groupLaidOut
+	for _, g := range gens {
+		g.resolveIfaces()
+	}
+	// By index, as above: importing one interface's methods can make another
+	// pending interface mirror.
+	for i := 0; i < len(grp.pendingIfaces); i++ {
+		p := grp.pendingIfaces[i]
+		p.g.importIfaceMethods(p.d, p.src)
+	}
+	grp.state = groupIfacesResolved
+	for _, g := range gens {
+		g.mintTypeIDs()
+		g.typesDone = true
+	}
+}
+
+// findTypeGroups is every type group in the program, indexed by unit: nil for a
+// unit on no cycle. Nil when there is none.
+//
+// Only files that share an import cycle can share a type cycle, since naming
+// another file's type needs an import, so only those are walked. owner is
+// componentOwners' answer.
+func findTypeGroups(gens []*gen, owner []int) []*typeGroup {
+	n := len(gens)
+	if n < 2 || len(owner) != n {
+		return nil
+	}
+	size := map[int]int{}
+	for _, o := range owner {
+		size[o]++
+	}
+	edges := make([][]int, n)
+	found := false
+	for u, g := range gens {
+		if g == nil || size[owner[u]] < 2 {
+			continue
+		}
+		for _, v := range g.typeDeclEdges() {
+			if owner[v] == owner[u] {
+				edges[u] = append(edges[u], v)
+				found = true
+			}
+		}
+	}
+	if !found {
+		return nil
+	}
+	var out []*typeGroup
+	groupOf := make([]*typeGroup, n)
+	for _, scc := range stronglyConnected(edges) {
+		if len(scc) < 2 {
+			continue
+		}
+		grp := &typeGroup{units: scc}
+		for _, u := range scc {
+			groupOf[u] = grp
+		}
+		out = append(out, grp)
+	}
+	if out == nil {
+		return nil
+	}
+	return groupOf
+}
+
+// typeDeclEdges is every other unit that declares a type or interface this
+// file's type, interface or alias declarations name, at any depth (a block's
+// own declarations included).
+func (g *gen) typeDeclEdges() []int {
+	seen := map[int]bool{}
+	var out []int
+	add := func(o *typeOwner) {
+		if o != nil && !seen[o.unit] {
+			seen[o.unit] = true
+			out = append(out, o.unit)
+		}
+	}
+	names := func(n ast.Node) {
+		ast.Inspect(n, func(m ast.Node) bool {
+			switch t := m.(type) {
+			case *ast.SimpleType:
+				add(g.typeRefOwner(t.Name))
+			case *ast.GenericType:
+				add(g.typeRefOwner(t.Name))
+			case *ast.TypeIdent:
+				add(g.typeRefOwner(t.Name))
+			case *ast.QualifiedType:
+				var member string
+				switch mt := t.Member.(type) {
+				case *ast.SimpleType:
+					member = mt.Name
+				case *ast.GenericType:
+					member = mt.Name
+				}
+				add(g.ownerOfSymbol(resolvedScopeSymbol(g.moduleScope(t.Module), member)))
+			}
+			return true
+		})
+	}
+	for _, n := range g.nodes {
+		ast.Inspect(n, func(m ast.Node) bool {
+			switch m.(type) {
+			case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.InterfaceDef, *ast.TypeAlias:
+				names(m)
+				return false
+			}
+			return true
+		})
+	}
+	return out
+}
+
+// typeRefOwner is the other file's declaration a type name in this file
+// resolves to, bare (`B`) or module-qualified in one name (`b.B`).
+func (g *gen) typeRefOwner(name string) *typeOwner {
+	if o := g.foreignDecl(name); o != nil {
+		return o
+	}
+	if dot := strings.LastIndex(name, "."); dot > 0 && dot < len(name)-1 {
+		return g.ownerOfSymbol(resolvedScopeSymbol(g.moduleScope(name[:dot]), name[dot+1:]))
+	}
+	return nil
+}
+
+// stronglyConnected is Tarjan's strongly connected components of a graph given
+// as adjacency lists, each component's members in ascending order and the
+// components in the order Tarjan finishes them.
+func stronglyConnected(edges [][]int) [][]int {
+	n := len(edges)
+	index := make([]int, n)
+	low := make([]int, n)
+	onStack := make([]bool, n)
+	for i := range index {
+		index[i] = -1
+	}
+	var stack []int
+	var out [][]int
+	next := 0
+	var visit func(u int)
+	visit = func(u int) {
+		index[u], low[u] = next, next
+		next++
+		stack = append(stack, u)
+		onStack[u] = true
+		for _, v := range edges[u] {
+			switch {
+			case index[v] < 0:
+				visit(v)
+				low[u] = min(low[u], low[v])
+			case onStack[v]:
+				low[u] = min(low[u], index[v])
+			}
+		}
+		if low[u] != index[u] {
+			return
+		}
+		var scc []int
+		for {
+			v := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			onStack[v] = false
+			scc = append(scc, v)
+			if v == u {
+				break
+			}
+		}
+		slices.Sort(scc)
+		out = append(out, scc)
+	}
+	for u := range n {
+		if index[u] < 0 {
+			visit(u)
+		}
+	}
+	return out
+}

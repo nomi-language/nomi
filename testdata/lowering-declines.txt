@@ -31,11 +31,11 @@ a	gen.dottedTypeQualifier | false | !isFA ¦¦ fa.Field == nil#1	dottedqual.go:8
 a	gen.dottedTypeQualifier | false | bound#1	dottedqual.go:99	expect,irbuild,projectgen,vmhost	
 b	gen.dottedTypeQualifier | false | o.Field == nil#1	dottedqual.go:104	-	parser always sets FieldAccess.Field (parser.go:1803/1817/2734/3450); a nil Field never reaches the builder from an accepted program
 a	gen.dottedTypeQualifier | false | unguarded#1	dottedqual.go:110	expect,irbuild	
-b	gen.importIfaceKind | false | g.reg == nil ¦¦ src == nil ¦¦ src.decl == nil#1	existential.go:274	-	defensive fence: importKind only runs with a registry, and k.iface/its decl are never nil for a user interface kind
-b	gen.importIfaceKind | false | o == nil ¦¦ !o.isIface#1	existential.go:283	-	defensive fence: every user interface declaration is registered in reg.byDecl as an interface owner
-b	gen.importIfaceKind | false | local == nil ¦¦ local.decl != src.decl#1	existential.go:293	-	defensive fence: on the crossing-back arm the local def for the same name is that declaration (names are unique per file; duplicates are a checker error)
-b	gen.importIfaceKind | false | !local.lowerable#1	existential.go:297	-	a local interface def is only unlowerable as a duplicate declaration (impl.go:410), which the checker rejects
-d	gen.importIfaceKind | false | !d.lowerable#1	existential.go:308	-	mirror unlowerable only on "sibling file type cycle" (ensureTypes false) or a duplicate; could not build a cross-file interface/type cycle that hits it in the time box
+b	gen.importIfaceKind | false | g.reg == nil ¦¦ src == nil ¦¦ src.decl == nil#1	existential.go:279	-	defensive fence: importKind only runs with a registry, and k.iface/its decl are never nil for a user interface kind
+b	gen.importIfaceKind | false | o == nil ¦¦ !o.isIface#1	existential.go:288	-	defensive fence: every user interface declaration is registered in reg.byDecl as an interface owner
+b	gen.importIfaceKind | false | local == nil ¦¦ local.decl != src.decl#1	existential.go:298	-	defensive fence: on the crossing-back arm the local def for the same name is that declaration (names are unique per file; duplicates are a checker error)
+b	gen.importIfaceKind | false | !local.lowerable#1	existential.go:302	-	a local interface def is only unlowerable as a duplicate declaration (impl.go:410), which the checker rejects
+d	gen.importIfaceKind | false | !d.lowerable#1	existential.go:313	-	mirror unlowerable only on "sibling file type cycle" (ensureTypes false) or a duplicate; could not build a cross-file interface/type cycle that hits it in the time box
 a	irScalarBuilder.fileFuncRef | false | t.Field == nil ¦¦ irQualIsLocal(bl, owner.Name)#1	filefuncref.go:35	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.fileFuncRef | false | f == nil#1	filefuncref.go:41	-	probe: handled=false falls back to the field read; a non-fn sibling member (`lib.base`, a once) lowers there (tested)
 a	irScalarBuilder.fileFuncRef | false | unguarded#1	filefuncref.go:57	irbuild	
@@ -49,24 +49,26 @@ b	gen.checkedRefValueKinds | false | ft == nil#1	filefuncref.go:183	-	the checke
 d	irScalarBuilder.siblingFuncRef | false | host && !irHostFnHasVMBody(params, result)#1	filefuncref.go:229	-	needs a Go-bound sibling host fn returning a function; Go FFI not exercisable from `nomi check` here (user host fns need an embedder host table)
 b	irScalarBuilder.siblingFuncRef | false | sym == nil#1	filefuncref.go:234	-	defensive fence: irSiblingCalleeSym is nil only without a registry, and g.files implies one
 b	irScalarBuilder.siblingFuncRef | false | !irCallableValueKind(fk)#1	filefuncref.go:238	-	a lowerable sibling signature's params/result are already in the callable domain (Unit params allowed by irCallableValueKind)
-b	typeRegistry.ensureTypes | false | unit < 0 ¦¦ unit >= len(r.gens)#1	foreign.go:201	-	unit index always comes from typeOwner.unit, an index into r.gens (defensive fence)
-b	typeRegistry.ensureTypes | false | g == nil#1	foreign.go:205	-	every registry unit has a gen (defensive fence)
-a	typeRegistry.ensureTypes | false | g.typesBusy#1	foreign.go:211	vmhost	pinned as gapCrossFileTypeCycle (reason: a struct literal: A)
-a	gen.namedType | computed | return d != nil#1	foreign.go:422	expect,irbuild,vmhost	
-b	gen.importKind | false | unguarded#1	foreign.go:632	-	importKind is only fed kinds of lowerable defs and lowerable signatures, which carry no tagInvalid component (an invalid field makes src.lowerable false, caught at foreign.go:550)
--	gen.importKind | false | rk == kindInvalid#1	foreign.go:654	-	
-c	gen.importKind | false | unguarded#2	foreign.go:712	-	pinned as gapForeignFnIter (reason: qualified call, file.fn: nums.)
-b	gen.importNamed | false | !anchored#1	foreign.go:734	-	preludeSpecAnchor always anchors Maybe/Result from std's own declaration (defensive fence)
-b	gen.importNamed | false | k == kindInvalid#1	foreign.go:749	-	preludeInstance returns kindInvalid only for an invalid arg, and every arg was just imported ok
-b	gen.importNamed | false | !ok#1	foreign.go:778	-	genStructInstance with imported args fails only where the owner's own instance failed, which makes the owner def unlowerable first
-b	gen.importNamed | false | !ok#2	foreign.go:796	-	genHostInstance with imported args fails only for a nil spec or g == nil, neither of which occurs here
-a	gen.importNamed | computed | return src.lowerable#1	foreign.go:833	expect,irbuild,projectgen,vmhost	
-b	gen.importNamed | false | o == nil#1	foreign.go:841	-	only a synthesized declaration is missing from the registry, and none is nameable across files
-a	gen.importNamed | computed | return local.lowerable#1	foreign.go:848	expect,irbuild,vmhost	
-b	gen.importNamed | false | o.unit == g.fileUnit#1	foreign.go:851	-	a component declared in this file always has its def in g.types under its name (duplicates are front-end errors)
-c	gen.importNamed | false | !d.lowerable#1	foreign.go:856	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
-b	gen.importNamed | false | inner == nil#1	foreign.go:867	-	inner == nil only for a duplicate declaration its own file refuses, a front-end error
-c	gen.importNamed | false | !d.lowerable#2	foreign.go:872	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
+b	typeRegistry.ensureTypes | false | unit < 0 ¦¦ unit >= len(r.gens)#1	foreign.go:212	-	unit index always comes from typeOwner.unit, an index into r.gens (defensive fence)
+b	typeRegistry.ensureTypes | false | g == nil#1	foreign.go:216	-	every registry unit has a gen (defensive fence)
+d	typeRegistry.ensureTypes | computed | return grp.state >= groupResolving#1	foreign.go:225	-	false only while a type group registers its shells, which resolves no type name (typecycle.go); a fail-safe
+d	typeRegistry.ensureTypes | false | g.typesBusy#1	foreign.go:228	-	a cycle of type declarations across files builds as a type group (typecycle.go), so this is reached only by a demand the group edges miss; none found (a block-local type cannot name a block-imported one)
+a	gen.namedType | computed | return d != nil#1	foreign.go:445	expect,irbuild,vmhost	
+b	gen.importKind | false | unguarded#1	foreign.go:698	-	importKind is only fed kinds of lowerable defs and lowerable signatures, which carry no tagInvalid component (an invalid field makes src.lowerable false, caught at foreign.go:550)
+-	gen.importKind | false | rk == kindInvalid#1	foreign.go:721	-	
+c	gen.importKind | false | unguarded#2	foreign.go:779	-	pinned as gapForeignFnIter (reason: qualified call, file.fn: nums.)
+b	gen.importNamed | false | !anchored#1	foreign.go:801	-	preludeSpecAnchor always anchors Maybe/Result from std's own declaration (defensive fence)
+b	gen.importNamed | false | k == kindInvalid#1	foreign.go:816	-	preludeInstance returns kindInvalid only for an invalid arg, and every arg was just imported ok
+b	gen.importNamed | false | !ok#1	foreign.go:845	-	genStructInstance with imported args fails only where the owner's own instance failed, which makes the owner def unlowerable first
+b	gen.importNamed | false | !ok#2	foreign.go:863	-	genHostInstance with imported args fails only for a nil spec or g == nil, neither of which occurs here
+a	gen.importNamed | computed | return src.lowerable#1	foreign.go:900	expect,irbuild,projectgen,vmhost	
+b	gen.importNamed | false | o == nil#1	foreign.go:908	-	only a synthesized declaration is missing from the registry, and none is nameable across files
+a	gen.importNamed | computed | return local.lowerable#1	foreign.go:915	expect,irbuild,vmhost	
+b	gen.importNamed | false | o.unit == g.fileUnit#1	foreign.go:918	-	a component declared in this file always has its def in g.types under its name (duplicates are front-end errors)
+c	gen.importNamed | false | !d.lowerable#1	foreign.go:923	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
+d	gen.importNamed | false | !deferred && !g.reg.ensureLayout(o.unit)#1	foreign.go:932	-	same as typeRegistry.ensureTypes g.typesBusy: a type cycle builds as a group, so a missing layout needs a demand the group edges miss; none found
+b	gen.importNamed | false | inner == nil#1	foreign.go:937	-	inner == nil only for a duplicate declaration its own file refuses, a front-end error
+c	gen.importNamed | false | !d.lowerable#2	foreign.go:945	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
 b	irScalarBuilder.foreignFieldDefault | false | src == nil ¦¦ g.reg == nil ¦¦ !irCallOperandKind(want)#1	foreignfielddefault.go:57	-	a mirror always carries ownerDef and a registry; a lowerable struct's field kinds are call-operand kinds (tried 15 default shapes cross-file, all lower)
 b	irScalarBuilder.foreignFieldDefault | false | o == nil#1	foreignfielddefault.go:65	-	the mirror's owner decl is always in the registry (generic instances map to genericOf.decl)
 b	irScalarBuilder.foreignFieldDefault | false | owner == nil ¦¦ owner == g#1	foreignfielddefault.go:69	-	a mirror's owner is another unit by construction

@@ -444,7 +444,21 @@ func (d *typeDef) reachesOn(target *typeDef, path typePath) bool {
 // may precede `struct B`, and two types may refer to each other. So every
 // declaration gets its shell first and the components are resolved afterwards
 // against a complete table.
+//
+// The phases are separate functions because a group of files whose types
+// refer to each other runs each phase over every file before the next one
+// (typecycle.go). One file on its own runs them in a row.
 func (g *gen) buildTypes(nodes []ast.Node) {
+	g.declareTypeShells(nodes)
+	g.resolveTypeShells(nodes)
+	g.boxTypeFields()
+	g.assignTypeSlots()
+	g.settleLowerable(g.typeSettleOrder())
+}
+
+// declareTypeShells registers a shell for every struct, enum and distinct type
+// the module declares, and its generic templates, without resolving any field.
+func (g *gen) declareTypeShells(nodes []ast.Node) {
 	order := make([]*typeDef, 0, len(nodes))
 	for _, n := range nodes {
 		var name string
@@ -525,7 +539,14 @@ func (g *gen) buildTypes(nodes []ast.Node) {
 	// inside a generic declaration is a type PARAMETER and genericInstance
 	// declines one. See generictype.go.
 	g.collectGenericTemplates(nodes)
-	for _, d := range order {
+	g.typeOrder = order
+}
+
+// resolveTypeShells resolves the fields, payloads and inner types of every
+// shell declareTypeShells registered, then the declarations written inside
+// bodies.
+func (g *gen) resolveTypeShells(nodes []ast.Node) {
+	for _, d := range g.typeOrder {
 		switch t := d.decl.(type) {
 		case *ast.StructDef:
 			g.resolveStruct(d, t)
@@ -544,11 +565,20 @@ func (g *gen) buildTypes(nodes []ast.Node) {
 	// blocklocaltype.go.
 	g.blockLocalOrder = g.collectBlockTypeDecls(nodes)
 	g.resolveBlockTypeDecls()
-	all := append(order[:len(order):len(order)], g.blockLocalOrder...)
-	// Boxing before slot assignment: a boxed payload is a pointer, which is
-	// never zero-sized, and zero-sizedness decides whether a payload gets a
-	// slot at all.
-	for _, d := range all {
+}
+
+// declaredTypes is every type the module declares, its own and those written
+// inside bodies, in the order the layout passes walk them.
+func (g *gen) declaredTypes() []*typeDef {
+	return append(g.typeOrder[:len(g.typeOrder):len(g.typeOrder)], g.blockLocalOrder...)
+}
+
+// boxTypeFields boxes every field that can reach its own container.
+//
+// Boxing before slot assignment: a boxed payload is a pointer, which is never
+// zero-sized, and zero-sizedness decides whether a payload gets a slot at all.
+func (g *gen) boxTypeFields() {
+	for _, d := range g.declaredTypes() {
 		for i := range d.fields {
 			for _, c := range appendInlineDefs(nil, d.fields[i].k) {
 				if c == d || c.reaches(d) {
@@ -558,25 +588,34 @@ func (g *gen) buildTypes(nodes []ast.Node) {
 			}
 		}
 	}
-	for _, d := range all {
+}
+
+// assignTypeSlots lays out every declared enum's payload storage.
+func (g *gen) assignTypeSlots() {
+	for _, d := range g.declaredTypes() {
 		d.assignSlots()
 	}
-	// Prelude instances created while resolving these declarations join the
-	// relaxation: `struct A { m: Maybe<B> }` must be refused when B is, or the
-	// emitted `rt.Maybe[NomiT_B]` would name a type nobody declared. They
-	// carry no refusals of their own, so they can only ever be retracted
-	// through a payload. See prelude.go.
-	//
-	// The per-gen GENERIC STD instances join for the identical reason and it is
-	// the same sentence one family over: `struct Counter { inbox: Channel<Bad> }`
-	// would emit `rt.Channel[NomiT_Bad]`. A shared instance is never in either
-	// order slice, because every argument admitted to the shared table is
-	// lowerable by construction. See stdgenstruct.go and stdgenhost.go.
-	settle := append(all[:len(all):len(all)], g.preludeOrder...)
+}
+
+// typeSettleOrder is the defs settleLowerable relaxes after the module's types
+// are laid out.
+//
+// Prelude instances created while resolving these declarations join the
+// relaxation: `struct A { m: Maybe<B> }` must be refused when B is, or the
+// emitted `rt.Maybe[NomiT_B]` would name a type nobody declared. They
+// carry no refusals of their own, so they can only ever be retracted
+// through a payload. See prelude.go.
+//
+// The per-gen GENERIC STD instances join for the identical reason and it is
+// the same sentence one family over: `struct Counter { inbox: Channel<Bad> }`
+// would emit `rt.Channel[NomiT_Bad]`. A shared instance is never in either
+// order slice, because every argument admitted to the shared table is
+// lowerable by construction. See stdgenstruct.go and stdgenhost.go.
+func (g *gen) typeSettleOrder() []*typeDef {
+	settle := g.declaredTypes()
+	settle = append(settle, g.preludeOrder...)
 	settle = append(settle, g.genStructOrder...)
-	settle = append(settle, g.genHostOrder...)
-	g.settleLowerable(settle)
-	g.typeOrder = order
+	return append(settle, g.genHostOrder...)
 }
 
 func (g *gen) resolveStruct(d *typeDef, t *ast.StructDef) {

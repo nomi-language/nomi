@@ -20,6 +20,9 @@
 //     Comparable, Display, ToJson), an inherent impl block, impls of
 //     interfaces declared in other files, an unannotated `once` that other
 //     files read, `case`, `try`, pipes and Iter chains;
+//   - where two units import each other, types that refer to each other
+//     across the two files: one's Link holds the other's Nodes, and a
+//     Node's parent is a Link;
 //   - main.nomi, the entry, which imports every unit no other unit imports;
 //   - a test file beside about one unit in four, with a `group`, tests and
 //     `subtests`.
@@ -235,6 +238,17 @@ func (u *unit) hasDep(d *unit) bool {
 		}
 	}
 	return false
+}
+
+// cycleFront is the unit whose back u is when each imports the other, so the
+// two declare types that refer to each other; nil otherwise.
+func (u *unit) cycleFront() *unit {
+	for _, d := range u.deps {
+		if d.back == u {
+			return d
+		}
+	}
+	return nil
 }
 
 func countLines(s string) int { return strings.Count(s, "\n") }
@@ -790,6 +804,42 @@ pub fn doubled%[1]d(n: Int): Result<Int, String> {
 
 `, i)
 	}
+	// Types that refer to each other across the import cycle between u and
+	// u.back: u's Link holds back's Nodes and a Node's parent is a Link.
+	if u.back != nil && u.back.hasDep(u) {
+		w(`/// A link of unit %[1]d, whose nodes unit %[2]d declares.
+pub struct Link%[1]d {
+    label: String
+    nodes: List<%[3]s.Node%[2]d>
+}
+
+derive Equatable for Link%[1]d
+
+`, i, u.back.i, u.back.name)
+	}
+	if front := u.cycleFront(); front != nil {
+		w(`/// A node of unit %[1]d, whose parent unit %[2]d declares.
+pub struct Node%[1]d {
+    rec: Rec%[1]d
+    parent: Maybe<%[3]s.Link%[2]d>
+}
+
+derive Equatable for Node%[1]d
+
+/// A link of unit %[2]d over nodes of this unit, read back.
+pub fn linked%[1]d(n: Int): Int {
+    leaf = Node%[1]d{rec: Rec%[1]d.new(n), parent: None}
+    link = %[3]s.Link%[2]d{label: "l${n}", nodes: [leaf, leaf]}
+    top = Node%[1]d{rec: Rec%[1]d.new(n + 1), parent: Some(link)}
+    same = top == leaf
+    case top.parent {
+        Some(l) -> if same { 0 } else { Iter.count(l.nodes) + String.length(l.label) }
+        None -> 1
+    }
+}
+
+`, i, front.i, front.name)
+	}
 	w(`/// What a change to this unit changes.
 pub fn probe%[1]d(n: Int): Int {
     n + 1
@@ -907,6 +957,9 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 		}
 		if u.usesText {
 			calls += " + text.width([\"${n}\"])"
+		}
+		if u.cycleFront() != nil {
+			calls += fmt.Sprintf(" + linked%d(n)", i)
 		}
 		if calls != "" {
 			return fmt.Sprintf("/// Step 0 of unit %d.\npub fn f%d_0(n: Int): Int {\n    value = {\n%s\n    }\n    value%s\n}\n\n",

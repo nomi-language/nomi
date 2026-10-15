@@ -294,41 +294,6 @@ fn main() {
 }
 `,
 	},
-	{
-		name:   "gapCrossFileTypeCycle",
-		fix:    "builder: cross file type cycle. Found unreached by the decline inventory (testdata/lowering-declines.txt) at typeRegistry.ensureTypes | false | g.typesBusy#1",
-		reason: "a struct literal: A",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    a
-}
-
-fn main() {
-    io.print(a.make())
-}
-// FILE: a.nomi
-import b.B
-
-pub struct A {
-    name: String
-    bs: List<B>
-}
-
-pub fn make(): String {
-    x = A{name: "a", bs: []}
-    x.name
-}
-// FILE: b.nomi
-import a.A
-
-pub struct B {
-    n: Int
-    parent: Maybe<A>
-}
-`,
-	},
 }
 
 func init() {
