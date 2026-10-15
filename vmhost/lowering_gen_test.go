@@ -1779,7 +1779,8 @@ func (g *gen) callBlock() string {
 // arm of which leaves, in parentheses, under `!` or as a call's argument,
 // a failing `try`), a nested fn's destructuring parameter, and a
 // `Struct.update` patch that is a value rather than a literal, and a
-// partial whose open slot has a computed default.
+// partial whose open slot has a computed default, and a Context value keyed
+// by a std type with an rt Go type.
 func (g *gen) leaveBlock() string {
 	r := g.leave
 	g.ln++
@@ -1807,7 +1808,14 @@ func (g *gen) leaveBlock() string {
 	}
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(7) {
+	switch r.Intn(8) {
+	case 7:
+		// A Context value keyed by std's rt-backed Duration or Codepoint.
+		vals := [][2]string{{fmt.Sprintf("Duration.seconds(%d)", n), "Duration"}, {"'c'", "Codepoint"}}
+		v := vals[r.Intn(2)]
+		fmt.Fprintf(&out, "%s = Context.with_value(Context.root(), %s)\n", name("lx"), v[0])
+		fmt.Fprintf(&out, "io.inspect(Context.value(%s, %s))\n", name("lx"), v[1])
+		fmt.Fprintf(&out, "io.inspect(Context.value(Context.root(), %s))\n", v[1])
 	case 6:
 		// A partial whose open slot has a computed default, over a nested
 		// fn, called omitting the slot and giving it.

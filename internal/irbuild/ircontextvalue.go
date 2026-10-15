@@ -44,8 +44,32 @@ func irWitnessableKind(x kind) bool {
 		return true
 	case tagNamed:
 		d := x.def
-		return d != nil && d.preludeOf == nil && d.genericOf == nil && !d.rtOpaque &&
-			(irRetainedStructKind(d) || irRetainedEnumKind(d) || d.isDistinct)
+		if d == nil || d.preludeOf != nil || d.genericOf != nil || d.genHostOf != nil {
+			return false
+		}
+		if d.rtOpaque {
+			return irStdLeafIdentity(d)
+		}
+		return irRetainedStructKind(d) || irRetainedEnumKind(d) || d.isDistinct
+	}
+	return false
+}
+
+// irStdLeafIdentity reports whether d is one of std's process-wide types
+// with an rt Go type, an opaque one (`Duration`, `Codepoint`) or a host
+// type with a declaring module (`Regex`): its symbol's name is its
+// declaring module's qualified spelling in every gen (irTypeSymName), so
+// a witness for it names one slot wherever it is written.
+func irStdLeafIdentity(d *typeDef) bool {
+	for _, od := range opaqueDefs() {
+		if od == d {
+			return true
+		}
+	}
+	for i, hd := range stdHostDefs() {
+		if hd == d && stdHostSpecs[i].origin != "" {
+			return true
+		}
 	}
 	return false
 }
@@ -94,12 +118,12 @@ func (bl *irScalarBuilder) namesType(at ast.Node, x kind) bool {
 func (bl *irScalarBuilder) witnessTypeKind(at ast.Node) (kind, bool) {
 	switch t := at.(type) {
 	case *ast.TypeIdent:
-		return bl.g.qualifierKind(t.Name), true
+		return bl.g.namedWitnessKind(t, t.Name), true
 	case *ast.Ident:
 		if bl.isBoundName(t.Name) {
 			return kindInvalid, false
 		}
-		return bl.g.qualifierKind(t.Name), true
+		return bl.g.namedWitnessKind(t, t.Name), true
 	case *ast.FieldAccess:
 		root := t.Object
 		for fa, chained := root.(*ast.FieldAccess); chained; fa, chained = root.(*ast.FieldAccess) {
@@ -118,6 +142,25 @@ func (bl *irScalarBuilder) witnessTypeKind(at ast.Node) (kind, bool) {
 		return kindInvalid, true
 	}
 	return kindInvalid, false
+}
+
+// namedWitnessKind is the kind the bare type name at spells: one this file
+// declares or a primitive (qualifierKind), else the X of the `Type<X>` the
+// checker typed at as, which names an imported std type (`Duration` after
+// `import std/duration.Duration`) that this file's type table does not
+// hold.
+func (g *gen) namedWitnessKind(at ast.Node, name string) kind {
+	if k := g.qualifierKind(name); k != kindInvalid {
+		return k
+	}
+	t := g.checkedExprType(at)
+	if t == nil {
+		return kindInvalid
+	}
+	if x, ok := typeWitnessArg(g.project(t)); ok {
+		return x
+	}
+	return kindInvalid
 }
 
 // contextValueCall lowers `Context.with_value(c, v)` and

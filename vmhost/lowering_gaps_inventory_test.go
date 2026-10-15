@@ -72,18 +72,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapContextValueUnwitnessable",
-		fix:    "builder: context value unwitnessable. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.contextValueCall | note | \"a Context.value witness whose type has no single-name identity\"#1",
-		reason: "a Context.value witness whose type has no single-name identity",
-		src: `import std/io
-import std/duration.Duration
-
-fn main() {
-    io.inspect(Context.value(Context.root(), Duration))
-}
-`,
-	},
-	{
 		name:   "gapDeferLambda",
 		fix:    "builder: defer lambda. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.deferCall | note | \"a defer inside a lambda\"#1",
 		reason: "a defer inside a lambda",
