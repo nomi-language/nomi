@@ -1783,7 +1783,8 @@ func (g *gen) callBlock() string {
 // engineering reasons alone: an `and` or `or` whose right operand leaves (a
 // block ending in `return`, `break` or `continue`, a `case` or `if` every
 // arm of which leaves, in parentheses, under `!` or as a call's argument,
-// a failing `try`), and a nested fn's destructuring parameter.
+// a failing `try`), a nested fn's destructuring parameter, and a
+// `Struct.update` patch that is a value rather than a literal.
 func (g *gen) leaveBlock() string {
 	r := g.leave
 	g.ln++
@@ -1811,7 +1812,18 @@ func (g *gen) leaveBlock() string {
 	}
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(5) {
+	switch r.Intn(6) {
+	case 5:
+		// A Struct.update patch held in a binding or answered by a call.
+		fmt.Fprintf(&out, "struct %s {\nname: String\nage: Int\n}\n", name("Lu"))
+		fmt.Fprintf(&out, "%s = %s{name: \"n\", age: %d}\n", name("lu"), name("Lu"), n)
+		patches := []string{"{age: %d}", "{name: \"p\", age: %d}"}
+		fmt.Fprintf(&out, "%s = %s\n", name("lp"), fmt.Sprintf(patches[r.Intn(2)], r.Intn(9)))
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "io.inspect(Struct.update(%s, %s))\n", name("lu"), name("lp"))
+		} else {
+			fmt.Fprintf(&out, "io.inspect(Struct.update(updates: %s, original: %s))\n", name("lp"), name("lu"))
+		}
 	case 0:
 		res := []string{"Bool", "Int", "String"}[r.Intn(3)]
 		answer := map[string]string{"Bool": "b", "Int": "if b { 1 } else { 2 }", "String": `"${b}"`}[res]

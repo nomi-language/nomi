@@ -164,25 +164,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapStructUpdatePatchBinding",
-		fix:    "builder: struct update patch binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | !isLit ¦¦ lit.TypeName != nil ¦¦ lit.Spread != nil#1",
-		reason: "qualified call, Type.method: Struct.update",
-		noSkip: true,
-		src: `import std/io
-
-struct User {
-    name: String
-    age: Int
-}
-
-fn main() {
-    u = User{name: "a", age: 1}
-    patch = {name: "b"}
-    io.inspect(Struct.update(u, patch))
-}
-`,
-	},
-	{
 		name:   "gapPartialOpenNonliteralDefault",
 		fix:    "builder: partial open nonliteral default. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.partialApplication | false | p.Default != nil && !irClosedLiteral(p.Default)#1",
 		reason: "a partial application over a callee whose parameters the builder cannot see, or with a non-literal default",
