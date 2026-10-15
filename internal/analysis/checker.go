@@ -7729,6 +7729,20 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 		return nil
 	}
 
+	// Defaults belong to a declaration, as names do: a call through a
+	// function value with none behind it (a parameter, a field, a pattern's
+	// binding, a call's result) passes every argument, even when the value
+	// came from a function with defaults. A copy of a lambda or partial bound
+	// to a name keeps them (calleeCopiesADeclaration).
+	if ft.DefaultCount > 0 && !isDispatch && len(n.Args) < len(ft.Params) && c.calleeIsNamelessValue(n.Func) && !c.calleeCopiesADeclaration(n.Func) {
+		c.report(errAt(n, fmt.Sprintf("expected %d arguments, got %d", len(ft.Params), len(n.Args))).
+			WithHint("a function type's parameters have no defaults; pass every argument"))
+		for _, arg := range n.Args {
+			c.checkNode(arg)
+		}
+		return ft.Return
+	}
+
 	// A flat call of a tuple-payload variant (`Two.Both(1, 2)`) is checked
 	// as a call taking the tuple's elements.
 	flatVariant := false
@@ -8929,6 +8943,33 @@ func (c *checker) calleeIsNamelessValue(funcNode ast.Node) bool {
 		return false
 	case *ast.Call:
 		return true
+	}
+	return false
+}
+
+// calleeCopiesADeclaration reports whether a call's callee is a binding that
+// copies, directly or through other copies, a lambda or a partial
+// application bound to a name (`alias = f` after `f = |x = 1| x`). Such a
+// copy keeps the declaration's defaults, which the IR builder supplies by
+// following the value back to it (callablePlan); it has no parameter names.
+func (c *checker) calleeCopiesADeclaration(funcNode ast.Node) bool {
+	for depth := 0; depth < maxPartialChain; depth++ {
+		id, ok := funcNode.(*ast.Ident)
+		if !ok {
+			return false
+		}
+		sym, ok := c.callFuncSym(id)
+		if !ok || sym.Kind != SymbolBinding {
+			return false
+		}
+		b, ok := sym.Node.(*ast.Binding)
+		if !ok {
+			return false
+		}
+		if c.calleeParams(id) != nil {
+			return depth > 0
+		}
+		funcNode = b.Value
 	}
 	return false
 }

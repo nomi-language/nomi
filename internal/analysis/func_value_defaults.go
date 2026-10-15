@@ -14,8 +14,10 @@ import (
 // §5, *Default Arguments*: "Defaults apply to calls, not to function values").
 // A call through the value passes every argument: after `g = parse`, `g("1")`
 // is an error. A lambda that calls it states which arguments the defaults
-// fill. A lambda's own defaults and a partial's open defaults are part of
-// that value and travel with it.
+// fill. A lambda's own defaults and a partial's open defaults belong to
+// the name the value is bound to and its copies: a call through any other
+// value with no declaration behind it passes every argument (checkCall,
+// calleeIsNamelessValue, calleeCopiesADeclaration).
 
 // defaultedFuncValueHint is the hint appended to a mismatch between an
 // expected function type and a function value that has the expected
@@ -66,7 +68,7 @@ func (c *checker) defaultedFuncValueHint(expected, got Type, arg ast.Node) strin
 // (`parse`, `Parser.parse`, `io.print`, `Display.to_string`): a `fn`, a
 // `host fn` or an interface function. A binding or a parameter that holds a
 // function is not one: a lambda's defaults and a partial's open defaults
-// travel with its value (spec §5), a named function's do not.
+// belong to its binding (spec §5), a named function's to the function.
 func (c *checker) namedFuncParams(node ast.Node) ([]ast.Param, bool) {
 	if na, ok := node.(*ast.NamedArg); ok {
 		node = na.Value

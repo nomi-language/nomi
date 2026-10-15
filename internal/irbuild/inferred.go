@@ -342,12 +342,13 @@ func (g *gen) project(t analysis.Type) kind {
 		return g.anonStructKind(names, parts)
 
 	case *analysis.FuncType:
-		// A function VALUE with defaults or a method-level `where` bound is
-		// not a plain Go func: the first needs a call-site arity rule the
-		// builder does not encode in a kind, the second is dispatch. Both are
-		// refused rather than flattened away, because flattening them
-		// produces a kind that lowers and then loses an argument.
-		if ty.Return == nil || ty.DefaultCount > 0 || len(ty.WhereBounds) > 0 {
+		// A function type with defaults is its full parameter list: a call
+		// that omits one goes through a declaration (a declared fn, a lambda
+		// or partial bound to a name), whose suppliers the builder finds from
+		// the value (callablePlan), and the checker requires every argument
+		// of any other call through a function value. A function VALUE with
+		// a method-level `where` bound is dispatch, and is refused.
+		if ty.Return == nil || len(ty.WhereBounds) > 0 {
 			return kindInvalid
 		}
 		params := make([]kind, len(ty.Params))
