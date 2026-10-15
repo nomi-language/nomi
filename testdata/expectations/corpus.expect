@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 281
-declared-cases 897
+declared-cases 898
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -2429,13 +2429,14 @@ T base
 T
 C 15-app-and-defer/with_overrides/with_overrides_test.nomi
 E 0
-N 4
-H cff594e117a44a75b05decf92b8fe32dcc792fc9d628f346a61ce5d1916d0f29
+N 5
+H 614c8ffea68a0ea84ad66e66ba77ff067908457c204057c6c1662608ce93f054
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a .Variant value takes the field's enum
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a later with line sees the overrides above it
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a closure reads the fields in force when it is called
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in a branch ends with the branch
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in an assertion subject's arm ends with the arm
+T test result: ok. 5 passed, 0 failed
 T
 C 16-concurrency/concurrent_diagnostics/concurrent_diagnostics_test.nomi
 E 0

@@ -44,46 +44,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapBlockInAssertSubjectTest",
-		fix:    "builder: block in assert subject test. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.blockValue | false | bl.recording > 0#1",
-		reason: "a Block",
-		noSkip: true,
-		src: `fn id(x: Int): Int {
-    x
-}
-
-test "a block operand in an assertion subject" {
-    assert id({
-        y = 2
-        y + 1
-    }) == 3
-}
-`,
-	},
-	{
-		name:   "gapCaseInAssertSubjectFn",
-		fix:    "builder: case in assert subject fn. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.inferredRegionValue | false | bl.recording > 0 && !bl.inTest#1",
-		reason: "a Case",
-		noSkip: true,
-		src: `import {
-    std/io
-    std/assertions.AssertionFailure
-}
-
-fn f(x: Int): Result<Bool, AssertionFailure> {
-    assert case x {
-        1 -> False
-        _ -> x > 0
-    }
-    Ok(True)
-}
-
-fn main() {
-    io.inspect(f(1))
-}
-`,
-	},
-	{
 		name:   "gapEmptyCaseInfallible",
 		fix:    "builder: empty case infallible. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.caseRegion | note | \"a tail `case` with no branches\"#1",
 		reason: "a tail `case` with no branches",
@@ -526,21 +486,6 @@ fn main() {
         if Some(v) = m { n + v } else { n + 1 }
     })
     io.inspect(n)
-}
-`,
-	},
-	{
-		name:   "gapCLoopInAssertMain",
-		fix:    "builder: c loop in assert main. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterLoop | note | \"an Iter.loop inside a recorded assertion subject outside a test\"#1",
-		reason: "an Iter.loop inside a recorded assertion subject outside a test",
-		src: `import std/assertions.AssertionFailure
-
-fn main(): Result<Unit, AssertionFailure> {
-    assert Iter.loop(|n = 0| {
-        if n > 3 { break n }
-        n + 1
-    }) == 4
-    Ok(Unit)
 }
 `,
 	},
@@ -1220,27 +1165,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapAssertTypeWitnessRow",
-		fix:    "builder: assert type witness row. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.assertionValue | note | \"an assertion row over a Type witness\"#1",
-		reason: "an assertion row over a Type witness",
-		src: `type TraceId String
-
-fn has(c: Context, t: Type<TraceId>): Bool {
-    Context.value(c, t) != None
-}
-
-fn witness(): Type<TraceId> {
-    TraceId
-}
-
-test "an assertion over a call taking a Type witness binding" {
-    c = Context.with_value(Context.root(), TraceId("x"))
-    t = witness()
-    assert has(c, t)
-}
-`,
-	},
-	{
 		name:   "gapChannelNamedArg",
 		fix:    "builder: channel named arg. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.channelCall | false | bl.rowsUnrecorded(t) ¦¦ namedArgNode(t.Args) != nil#1",
 		reason: "a named argument",
@@ -1252,21 +1176,6 @@ fn main() {
     ch = Channel.buffered<Int>(2)
     _ = Sender.send(sender: ch.sender, value: 1)
     io.inspect(Receiver.receive(ch.receiver))
-}
-`,
-	},
-	{
-		name:   "gapConcurrentInAssert",
-		fix:    "builder: concurrent in assert. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.concurrent | false | bl.recording > 0 ¦¦ t.Body == nil#1",
-		reason: "a ConcurrentBlock",
-		noSkip: true,
-		src: `import std/tasks.Task
-
-test "concurrent in an assertion subject" {
-    assert concurrent {
-        t = Task.spawn(|| 1)
-        Task.await(t)
-    } == 1
 }
 `,
 	},
@@ -1325,23 +1234,6 @@ import std/duration.Duration
 
 fn main() {
     io.inspect(Context.value(Context.root(), Duration))
-}
-`,
-	},
-	{
-		name:   "gapContextValueWitnessParamAssert",
-		fix:    "builder: context value witness param assert. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.contextValueCall | false | !ok ¦¦ !irTypeWitnessKind(k) ¦¦ bl.recording > 0#1",
-		reason: "qualified call, Type.method: Context.value",
-		noSkip: true,
-		src: `type TraceId String
-
-fn witness(): Type<TraceId> {
-    TraceId
-}
-
-test "a Type binding witness in an assertion subject" {
-    t = witness()
-    assert Context.value(Context.root(), t) == None
 }
 `,
 	},
@@ -1408,28 +1300,6 @@ test "defer in a test arm" {
         assert id(1) == 1
     } else {
         assert id(2) == 2
-    }
-}
-`,
-	},
-	{
-		name:   "gapScopedBlockInAssertArm",
-		fix:    "builder: scoped block in assert arm. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.scopedBlock | note | \"a scoped block inside an assertion subject\"#1",
-		reason: "a scoped block inside an assertion subject",
-		src: `import std/io
-
-fn id(n: Int): Int {
-    n
-}
-
-test "a block statement in an assertion's if arm" {
-    assert if id(1) == 1 {
-        {
-            io.print("inner")
-        }
-        True
-    } else {
-        False
     }
 }
 `,
@@ -1738,29 +1608,6 @@ test "testing.check over a pipe whose stage holds a pipe" {
 `,
 	},
 	{
-		name:   "gapTestingCheckTypeWitnessRow",
-		fix:    "builder: testing check type witness row. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testingCheck | note | \"a testing.check row over a Type witness\"#1",
-		reason: "a testing.check row over a Type witness",
-		src: `import std/testing
-
-type TraceId String
-
-fn has(c: Context, t: Type<TraceId>): Bool {
-    Context.value(c, t) != None
-}
-
-fn witness(): Type<TraceId> {
-    TraceId
-}
-
-test "a testing.check over a call taking a Type witness binding" {
-    c = Context.with_value(Context.root(), TraceId("x"))
-    t = witness()
-    assert testing.check(has(c, t))
-}
-`,
-	},
-	{
 		name:   "gapTypeParamQualifiedWitness",
 		fix:    "builder: type param qualified witness. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.namesType | false | unguarded#1; irScalarBuilder.typeWitnessValue | false | !irWitnessableKind(x) ¦¦ !bl.namesType(at, x)#1",
 		reason: "an ident bound nowhere this builder can see",
@@ -1779,41 +1626,6 @@ fn main() {
 }
 // FILE: domain.nomi
 pub type Token Int
-`,
-	},
-	{
-		name:   "gapWithInAssertArm",
-		fix:    "builder: with in assert arm. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.withStmt | note | \"a `with` inside an assertion subject\"#1",
-		reason: "a `with` inside an assertion subject",
-		src: `struct App {
-    context: Context
-    label: String
-}
-
-fn boot(): App {
-    App{context: Context.root(), label: "base"}
-}
-
-fn label(): String {
-    App.label
-}
-
-fn main() {
-    _ = label()
-}
-
-group "g" {
-    boot boot()
-
-    test "a with in an assertion's if arm" {
-        assert if label() == "base" {
-            with App.label = "arm"
-            label() == "arm"
-        } else {
-            False
-        }
-    }
-}
 `,
 	},
 	{

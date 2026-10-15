@@ -25,7 +25,7 @@ import (
 // concurrent lowers `concurrent { body }` in expression position.
 func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if bl.recording > 0 || t.Body == nil {
+	if t.Body == nil {
 		return no()
 	}
 	defer bl.g.enterBlockTypes(t.Body)()

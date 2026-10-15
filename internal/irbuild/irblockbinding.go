@@ -11,9 +11,6 @@ import (
 // deferred calls. The tail's temporary is the block's value; the block's
 // names do not escape.
 func (bl *irScalarBuilder) blockValue(block *ast.Block) (ir.Temp, kind, bool, bool) {
-	if bl.recording > 0 {
-		return ir.NoTemp, kindInvalid, false, false
-	}
 	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {

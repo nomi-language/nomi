@@ -11,12 +11,8 @@ import (
 // exists; the slot and its type are immutable once constructed.
 func (bl *irScalarBuilder) inferredRegionValue(value ast.Node, statement bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	// Inside an assertion subject only in a body built for the VM: a row
-	// recorded in an arm is an `ir.Record` the machine appends when that arm
-	// runs.
-	if bl.recording > 0 && !bl.inTest {
-		return no()
-	}
+	// Inside an assertion subject a row recorded in an arm is an `ir.Record`
+	// the machine appends when that arm runs.
 	entry, index := bl.b, len(bl.b.Instrs())
 	result := bl.f.NewTemp()
 	outer := bl.sh.result

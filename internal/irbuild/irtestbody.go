@@ -897,19 +897,12 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 	if t.Refute {
 		kw = ir.KeywordRefute
 	}
-	witnessRow := bl.witnessRow
-	bl.witnessRow = false
 	bl.recording++
 	root := bl.assertRoot
 	bl.assertRoot = t.Expr
 	subj, k, mobile, ok := bl.lower(t.Expr)
 	bl.assertRoot = root
 	bl.recording--
-	if bl.witnessRow {
-		irDeclineNote("an assertion row over a Type witness")
-		return ir.NoTemp, kindInvalid, false
-	}
-	bl.witnessRow = witnessRow
 	if !ok {
 		return ir.NoTemp, kindInvalid, false
 	}
@@ -972,10 +965,6 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 // does not decide that.
 func (bl *irScalarBuilder) record(at ast.Node, val ir.Temp, k kind, suppressRedundantLiteral bool) {
 	if bl.recording == 0 || isNilNode(at) || val == ir.NoTemp {
-		return
-	}
-	if _, witness := typeWitnessArg(k); witness {
-		bl.witnessRow = true
 		return
 	}
 	// THE ROW'S GO RENDERING IS THE READER'S, AND THE KIND DECIDES WHETHER

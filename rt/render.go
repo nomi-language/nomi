@@ -92,6 +92,9 @@ func DisplayText(v any) string {
 		return InspectBytes(x)
 	case Unit:
 		return InspectUnit(x)
+	case Type[any]:
+		// A `Type<T>` witness renders as its Debug does: the bare name.
+		return "Type"
 	case Dynamic:
 		return InspectDynamic(x)
 	case *List[any]:

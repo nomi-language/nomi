@@ -188,10 +188,6 @@ type irScalarBuilder struct {
 	// pipedCase is the spliced `case` a `x |> case { ... }` stage lowered
 	// to, whose scrutinee records no row. See irpipe.go.
 	pipedCase *ast.Case
-	// witnessRow is set when a `values:` row would show a `Type<T>` witness,
-	// which renders by the spelling it was written with; the
-	// assertion declines rather than print another spelling.
-	witnessRow bool
 	// testDefs is each ordinary binding a test body introduced, by name: the
 	// initializer a later bare-name subject's "defined as:" block renders.
 	testDefs map[string]*ast.Binding

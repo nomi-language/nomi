@@ -121,10 +121,6 @@ func irDeferOperand(in ir.Instr) bool {
 // statement ends in, where its deferred calls run and its overrides are
 // restored.
 func (bl *irScalarBuilder) scopedBlock(block *ast.Block) bool {
-	if bl.recording > 0 {
-		irDeclineNote("a scoped block inside an assertion subject")
-		return false
-	}
 	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {
@@ -189,9 +185,6 @@ func (bl *irScalarBuilder) withStmt(w *ast.With, ws *irWithScope) bool {
 	switch {
 	case ws == nil:
 		irDeclineNote("a `with` in a block whose exit the builder does not restore")
-		return false
-	case bl.recording > 0:
-		irDeclineNote("a `with` inside an assertion subject")
 		return false
 	case bl.inTest && !bl.testApp:
 		irDeclineNote("an app-field write in a test case with no boot")
