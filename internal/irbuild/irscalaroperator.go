@@ -77,3 +77,25 @@ func (bl *irScalarBuilder) scalarEqualCall(t *ast.Call, args irQualArgs, owner, 
 	bl.side(c.Dst(), irScalarSide{k: kindBool})
 	return c.Dst(), kindBool, false, true, true
 }
+
+// structuralEqualCall lowers `Equatable.equal?(a, b)` over two tuples or two
+// records of one kind as `a == b` lowers them: a tuple or a record is
+// Equatable structurally and has no impl to select, so the call and the
+// operator are one comparison (valueEquality). owned is false for any other
+// call, which the caller lowers as before.
+func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool, bool) {
+	if owner != "Equatable" || method != "equal?" || len(t.Args) != 2 || !args.ok || len(args.kinds) != 2 {
+		return ir.NoTemp, false, false
+	}
+	if d, found := bl.g.ifaceNamed(owner); found && !d.stdShared {
+		// A program's own Equatable.
+		return ir.NoTemp, false, false
+	}
+	k := args.kinds[0]
+	if k != args.kinds[1] || !irRetainedTupleKind(k) && !irRetainedRecordKind(k) {
+		return ir.NoTemp, false, false
+	}
+	at := &ast.Binary{Op: "==", Left: t.Args[0], Right: t.Args[1], Line: t.Line, Col: t.Col}
+	v, _, ok := bl.valueEquality(at, ir.OpEq, args.temps[0], args.temps[1], k)
+	return v, ok, true
+}

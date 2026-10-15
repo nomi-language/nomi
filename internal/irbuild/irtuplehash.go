@@ -8,13 +8,15 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// `Hashable.hash` over a tuple. A tuple is Hashable structurally, as it is
-// Equatable structurally (spec §Hashable on tuples): its hash is the derive
-// mix over its slots, `Hashable.hash(t0) * 31 + Hashable.hash(t1) ...`, with
+// `Hashable.hash` over a tuple or a record. A tuple is Hashable structurally,
+// as it is Equatable structurally (spec §Hashable on tuples): its hash is the
+// derive mix over its slots, `Hashable.hash(t0) * 31 + Hashable.hash(t1) ...`, with
 // wrapping arithmetic, which is what `derive Hashable` answers for a
 // positional payload of the same slots without the variant index. Each
 // slot's hash is its own type's `Hashable.hash`, so a slot of a declared type
 // with a hand-written impl hashes through it.
+// A record is the same mix over its fields in name order, which is the order
+// its type lists them in, so `{a: 1, b: 2}` and `{b: 2, a: 1}` hash alike.
 //
 // It is lowered as that expression: each slot is projected and bound to a
 // name no program can spell, and the mix is lowered as the Nomi a derive
@@ -22,18 +24,21 @@ import (
 // where the checker records nothing, so no route reads the call's own
 // checker facts for them.
 
-// tupleHashCall lowers `Hashable.hash(x)` when x is a tuple. handled is false
+// tupleHashCall lowers `Hashable.hash(x)` when x is a tuple or a record. handled is false
 // when the operand is not one, and the caller lowers the call as usual.
 func (bl *irScalarBuilder) tupleHashCall(t *ast.Call) (v ir.Temp, k kind, mobile, ok, handled bool) {
 	if len(t.Args) != 1 || namedArgNode(t.Args) != nil {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	ft := bl.g.checkedCallSignature(t)
-	if ft == nil || len(ft.Params) != 1 || bl.g.project(ft.Params[0]).tag != tagTuple {
+	if ft == nil || len(ft.Params) != 1 {
+		return ir.NoTemp, kindInvalid, false, false, false
+	}
+	if tag := bl.g.project(ft.Params[0]).tag; tag != tagTuple && tag != tagAnonStruct {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	subj, sk, _, sok := bl.lower(t.Args[0])
-	if !sok || !irRetainedTupleKind(sk) {
+	if !sok || !irRetainedTupleKind(sk) && !irRetainedRecordKind(sk) {
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
 	if bl.qualRecord == t {
@@ -52,7 +57,13 @@ func (bl *irScalarBuilder) tupleHashCall(t *ast.Call) (v ir.Temp, k kind, mobile
 	var mix ast.Node
 	for i, part := range sk.comp.parts {
 		name := "%hash" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + "." + strconv.Itoa(i)
-		bl.patternBinding(t, name, bl.tupleProjection(t, subj, i, part), part)
+		var slot ir.Temp
+		if sk.tag == tagAnonStruct {
+			slot, _, _, _ = bl.recordRead(t, sk.comp.names[i], subj, sk, true)
+		} else {
+			slot = bl.tupleProjection(t, subj, i, part)
+		}
+		bl.patternBinding(t, name, slot, part)
 		hash := &ast.Call{
 			Func: &ast.FieldAccess{
 				Object: &ast.TypeIdent{Name: "Hashable", Line: line},

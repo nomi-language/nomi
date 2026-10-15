@@ -601,6 +601,9 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 		if v, k, mobile, ok, owned := bl.scalarEqualCall(t, args, ti.Name, method); owned {
 			return v, k, mobile, ok
 		}
+		if v, ok, owned := bl.structuralEqualCall(t, args, ti.Name, method); owned {
+			return v, kindBool, false, ok
+		}
 		if method == "to_string" && (ti.Name == "Int" || ti.Name == "Float" || ti.Name == "Bool" || ti.Name == "String") {
 			return bl.scalarTextCall(t, args, ti.Name)
 		}

@@ -186,50 +186,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapMaybeEqualEmbeddedWiden",
-		fix:    "builder: maybe equal embedded widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.containerEqualCall | false | at == 1 && bare[1] == kindInvalid#1",
-		reason: "qualified call, Type.method: Maybe.equal?",
-		noSkip: true,
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-derive Equatable for Circle
-derive Equatable for Shape
-
-fn main() {
-    c = Circle{r: 1}
-    s: Shape = Shape.Dot
-    io.print(Maybe.equal?(Some(c), Some(s)))
-}
-`,
-	},
-	{
-		name:   "gapMaybeEqualStructPayload",
-		fix:    "builder: maybe equal struct payload. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.containerEqualCall | false | !bl.g.irPreludeEqualityKind(rk) ¦¦ lk != rk#1",
-		reason: "qualified call, Type.method: Maybe.equal?",
-		noSkip: true,
-		src: `import std/io
-
-struct Inner {
-    a: Int
-}
-
-derive Equatable for Inner
-
-fn main() {
-    io.print(Maybe.equal?(Some(Inner{a: 1}), None))
-}
-`,
-	},
-	{
 		name:   "gapStructUpdatePatchBinding",
 		fix:    "builder: struct update patch binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | !isLit ¦¦ lit.TypeName != nil ¦¦ lit.Spread != nil#1",
 		reason: "qualified call, Type.method: Struct.update",

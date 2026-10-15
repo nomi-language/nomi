@@ -362,6 +362,14 @@ func (bl *irScalarBuilder) equatableContainerOwner(t *ast.Call) string {
 // a second time by a later arm.
 func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	if (owner == "Maybe" || owner == "Result") && bl.recording == 0 && !bl.preludeEqualStructural(t) {
+		// `Maybe.equal?(a, b)` over payloads whose own impls decide (a
+		// struct with a derived Equatable) or of two instances an embedded
+		// value tells apart (`Some(circle)`, `Some(shape)`): the prelude
+		// wrapper's Equatable is derived, so the call is `a == b`, lowered
+		// as the operator is.
+		return bl.compare(&ast.Binary{Op: "==", Left: t.Args[0], Right: t.Args[1], Line: t.Line, Col: t.Col}, ir.OpEq)
+	}
 	// kindInvalid: sentinel — the operand at this position is not bare.
 	bare := []kind{kindInvalid, kindInvalid}
 	for i, arg := range t.Args {
@@ -440,6 +448,22 @@ func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Tem
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: kindBool})
 	return c.Dst(), kindBool, false, true
+}
+
+// preludeEqualStructural reports whether the checker typed both operands of
+// a `Maybe.equal?` or `Result.equal?` call as one instance whose payloads
+// compare structurally (irPreludeEqualityKind), which containerEqualCall
+// compares directly.
+func (bl *irScalarBuilder) preludeEqualStructural(t *ast.Call) bool {
+	if len(t.Args) != 2 {
+		return true
+	}
+	tl, tr := bl.g.checkedExprType(t.Args[0]), bl.g.checkedExprType(t.Args[1])
+	if tl == nil || tr == nil {
+		return true
+	}
+	l, r := bl.g.project(tl), bl.g.project(tr)
+	return l == r && bl.g.irPreludeEqualityKind(l)
 }
 
 // irEqualityListKind is a list `==` compares with rt.Equal: equality never
