@@ -515,7 +515,7 @@ a	irScalarBuilder.taggedLiteral/no | note | "a typed literal: " + why#1	irlitera
 a	irScalarBuilder.taggedLiteral | false | why != ""#1	irliteral.go:33	irbuild	
 b	irScalarBuilder.taggedLiteral | false | f.irBody == nil ¦¦ f.rtCall != ""#1	irliteral.go:45	-	std-only fence: every std Literal handler (calendar, regex, toml) has a retained Nomi body
 b	irScalarBuilder.taggedLiteral | false | it == nil ¦¦ irImplSource(it) == nil#1	irliteral.go:55	-	a local handler's impl item always has an impl source (fence)
-c	irScalarBuilder.taggedLiteral | false | len(h.params) != 1 ¦¦ !irListTransportKind(h.params[0]) ¦¦ !irRetainedValueKind(h.result)#1	irliteral.go:61	-	pinned as gapTypedLiteralFnResult (reason: a typed literal: a handler signature outside the retained domain)
+?	irScalarBuilder.taggedLiteral | false | len(h.params) != 1 ¦¦ !irListTransportKind(h.params[0]) ¦¦ !irCallableValueKind(h.result)#1	irliteral.go:61	?	
 b	irScalarBuilder.taggedLiteral | false | d == nil ¦¦ d.preludeOf == nil ¦¦ fragmentSpec == nil ¦¦ d.preludeOf.spec != fragmentSpec …#1	irliteral.go:67	-	the param is List<Fragment<I>> by the Literal interface, and the list-transport check above already requires a retained element (Fragment<fn>, Fragment<Display>, Fragment<Int> lower)
 b	irScalarBuilder.taggedLiteral | false | !shaped#1	irliteral.go:72	-	std's Fragment always has Static and Dynamic
 b	irScalarBuilder.taggedLiteral | false | !ok ¦¦ k != want#1	irliteral.go:102	-	slot values are checked against I by the checker, so coerce lands on want (fence)

@@ -1422,7 +1422,17 @@ func (g *gen) callBlock() string {
 	n := r.Intn(4)
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(10) {
+	switch r.Intn(11) {
+	case 10:
+		// A typed literal whose handler answers a function.
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("type %s\n\nimpl Literal for %s {\n"+
+			"fn from_fragments(fragments: List<Fragment<Int>>): (Int) -> Int {\nn = Iter.count(fragments)\n|x| x + n\n}\n}",
+			name("Adder"), name("Adder")))
+		fmt.Fprintf(&out, "%s = %s\"a${%d}\"\n", name("cl"), name("Adder"), n)
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("cl"), n)
 	case 9:
 		// testing.check, an intrinsic with no body, as a value.
 		fmt.Fprintf(&out, "%s: (Bool) -> Result<Bool, testing.AssertionFailure> = testing.check\n", name("cck"))
@@ -1621,6 +1631,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	}
 	if strings.Contains(out, "testing.check") {
 		out = "import std/testing\n" + out
+	}
+	if strings.Contains(out, "impl Literal for") {
+		out = "import std/literals.{Fragment, Literal}\n" + out
 	}
 	if strings.Contains(out, "Duration.seconds(") {
 		out = "import std/duration.Duration\n" + out

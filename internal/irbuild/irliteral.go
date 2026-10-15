@@ -56,7 +56,7 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 		}
 		callee = bl.g.irCalleeSym(it, h.label)
 	}
-	if len(h.params) != 1 || !irListTransportKind(h.params[0]) || !irRetainedValueKind(h.result) {
+	if len(h.params) != 1 || !irListTransportKind(h.params[0]) || !irCallableValueKind(h.result) {
 		why = "a handler signature outside the retained domain"
 		return no()
 	}
