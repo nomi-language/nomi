@@ -22,8 +22,9 @@ import (
 // program's types sit at file level or inside the body that uses them, and
 // statement blocks, some nested, declare types of their own, among them
 // distinct types over Decimal, Bytes, Regex, Unit and containers of them
-// (leafDistinctBlock), or store concrete values where Display's existential
-// is expected (erasedBlock). The body is a `fn main` or a test.
+// (leafDistinctBlock), store concrete values where Display's existential
+// is expected (erasedBlock), or iterate over sources and hold function
+// values in containers (iterBlock). The body is a `fn main` or a test.
 //
 // The generator stays clear of the shapes knownLoweringGaps lists, each at
 // the line that avoids it, so every decline it produces is a new cause. When
@@ -105,8 +106,13 @@ type gen struct {
 	// dyn draws the blocks erasedBlock writes, and en names their
 	// declarations apart, so the rest of each program is the one it was
 	// without them.
-	dyn     *rand.Rand
-	en      int
+	dyn *rand.Rand
+	en  int
+	// itr draws the blocks iterBlock writes, and itn names their
+	// bindings apart, so the rest of each program is the one it was
+	// without them.
+	itr     *rand.Rand
+	itn     int
 	wn      int
 	dn      int
 	n       int
@@ -1311,6 +1317,160 @@ func (g *gen) erasedBlock() string {
 	return out.String()
 }
 
+// genIterDecls are the file-level declarations iterBlock's user sources
+// read: a user Iter source that writes its own known_count, and a distinct
+// with its own Discrete impl, one that counts and one that leaves
+// steps_between to the default. Written only when a block names them.
+const genIterDecls = `struct ItPair {
+    a: Int
+    b: Int
+}
+
+impl Iter for ItPair {
+    fn each_while(p: ItPair, yield: (Int) -> Bool): Bool {
+        if yield(p.a) { yield(p.b) } else { False }
+    }
+
+    fn known_count(_p: ItPair): Maybe<Int> {
+        Some(2)
+    }
+}
+
+type ItId Int
+
+derive Equatable for ItId
+derive Comparable for ItId
+
+impl Discrete for ItId {
+    fn next(ItId(n)): Maybe<ItId> {
+        Some(ItId(n + 1))
+    }
+
+    fn steps_between(ItId(a), ItId(b)): Maybe<Int> {
+        Some(b - a)
+    }
+}
+
+type ItLap Int
+
+derive Equatable for ItLap
+derive Comparable for ItLap
+
+impl Discrete for ItLap {
+    fn next(ItLap(n)): Maybe<ItLap> {
+        if n >= 9 { None } else { Some(ItLap(n + 1)) }
+    }
+}
+`
+
+// iterBlock is a statement block over iteration and containers of function
+// values: a list of lambdas through every Iter stage that builds a
+// container or a tuple from it (concat, zip, chunks, flatten, flat_map,
+// to_vector, to_map, group_by, repeat, iterate) and a list pattern over
+// one; vector and map literals of lambdas; flat_map and flatten over a
+// String, Range, Set or Vector inner part; a user source with its own
+// known_count and a Range over a user Discrete type (genIterDecls); a
+// Range's own members, ranges as set elements and a Bool range; Iter.loop
+// over a function state, an if-pattern tail and a defaulted parameter;
+// and an empty Set or Vector passed as an Iter. It draws from g.itr only
+// and names from g.itn, so the program around it is the one it would be
+// without it.
+func (g *gen) iterBlock() string {
+	r := g.itr
+	g.itn++
+	name := func(s string) string { return fmt.Sprintf("%s%d", s, g.itn) }
+	a, b, k := 1+r.Intn(5), 2+r.Intn(4), r.Intn(4)
+	fs := name("it")
+	lambdas := fmt.Sprintf("[|x: Int| x + %d, |x: Int| x * %d]", a, b)
+	apply := func(src string) string {
+		return fmt.Sprintf("io.inspect(%s |> Iter.map(|f| f(%d)) |> Iter.to_list())\n", src, k)
+	}
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(10) {
+	case 0:
+		sub := r.Intn(10)
+		if sub != 4 && sub != 8 && sub != 9 {
+			fmt.Fprintf(&out, "%s = %s\n", fs, lambdas)
+		}
+		switch sub {
+		case 0:
+			out.WriteString(apply(fmt.Sprintf("Iter.concat(%s, %s)", fs, fs)))
+		case 1:
+			fmt.Fprintf(&out, "io.inspect(Iter.zip([%d, %d], %s) |> Iter.map(|(n, f)| f(n)) |> Iter.to_list())\n", a, b, fs)
+		case 2:
+			fmt.Fprintf(&out, "io.inspect(Iter.chunks(%s, %d) |> Iter.map(|c| Iter.count(c)) |> Iter.to_list())\n", fs, 1+r.Intn(2))
+		case 3:
+			out.WriteString(apply(fmt.Sprintf("Iter.flatten([%s, %s])", fs, fs)))
+		case 4:
+			out.WriteString(apply(fmt.Sprintf("[%d, %d] |> Iter.flat_map(|n| [|y: Int| y + n])", a, b)))
+		case 5:
+			fmt.Fprintf(&out, "%s = Iter.to_vector(%s)\nio.inspect(Vector.length(%s))\n", name("iv"), fs, name("iv"))
+			out.WriteString(apply(name("iv")))
+		case 6:
+			fmt.Fprintf(&out, "%s = Iter.to_map(Iter.with_index(%s))\nio.inspect(Map.keys(%s))\n", name("im"), fs, name("im"))
+		case 7:
+			fmt.Fprintf(&out, "io.inspect(Map.keys(Iter.group_by(%s, |f| f(%d) %% 2)))\n", fs, k)
+		case 8:
+			out.WriteString(apply(fmt.Sprintf("Iter.repeat(|x: Int| x + %d) |> Iter.take(%d)", a, 1+k)))
+		default:
+			out.WriteString(apply(fmt.Sprintf("Iter.iterate(|x: Int| x, |f| |x: Int| f(x) + %d) |> Iter.take(%d)", a, 1+k)))
+		}
+	case 1:
+		fmt.Fprintf(&out, "%s = %s\n", fs, lambdas)
+		fmt.Fprintf(&out, "case %s {\n[] -> io.inspect(0)\n[f, .._] -> io.inspect(f(%d))\n}\n", fs, k)
+		fmt.Fprintf(&out, "%s = #[|x: Int| x + %d, |x: Int| x * %d]\n", name("iv"), a, b)
+		fmt.Fprintf(&out, "case Vector.at(%s, 1) {\nSome(f) -> io.inspect(f(%d))\nNone -> io.inspect(0)\n}\n", name("iv"), k)
+		fmt.Fprintf(&out, "%s = {\"a\" => |x: Int| x + %d}\n", name("im"), a)
+		fmt.Fprintf(&out, "case Map.get(%s, \"a\") {\nSome(f) -> io.inspect(f(%d))\nNone -> io.inspect(0)\n}\n", name("im"), k)
+	case 2:
+		inner := []string{
+			`|s| s`,
+			fmt.Sprintf(`|s| 1..String.length(s) + %d`, k),
+			`|s| #{s}`,
+			`|s| #[s, s]`,
+		}[r.Intn(4)]
+		fmt.Fprintf(&out, "io.inspect([\"ab\", \"c\"] |> Iter.flat_map(%s) |> Iter.to_list())\n", inner)
+		flat := []string{`["ab", "c"]`, fmt.Sprintf("[1..%d, %d..=%d]", a, b, b+k), fmt.Sprintf("[#{%d}, #{%d}]", a, b), fmt.Sprintf("#[#[%d], #[%d, %d]]", a, b, k)}[r.Intn(4)]
+		fmt.Fprintf(&out, "io.inspect(Iter.flatten(%s))\n", flat)
+	case 3:
+		fmt.Fprintf(&out, "%s = ItPair{a: %d, b: %d}\n", name("ip"), a, b)
+		fmt.Fprintf(&out, "fn %s(xs: Iter<Int>): Int {\nIter.count(xs)\n}\n", name("tot"))
+		fmt.Fprintf(&out, "io.inspect(%s(%s))\n", name("tot"), name("ip"))
+		fmt.Fprintf(&out, "io.inspect(Iter.known_count(%s))\n", name("ip"))
+		fmt.Fprintf(&out, "io.inspect(%s |> Iter.map(|x| x + %d) |> Iter.to_list())\n", name("ip"), k)
+	case 4:
+		fmt.Fprintf(&out, "%s = ItId(%d)..ItId(%d)\n", name("ir"), a, a+b)
+		fmt.Fprintf(&out, "io.inspect(%s |> Iter.map(|ItId(n)| n) |> Iter.to_list())\n", name("ir"))
+		fmt.Fprintf(&out, "io.inspect(Iter.known_count(%s))\n", name("ir"))
+		fmt.Fprintf(&out, "io.inspect(Iter.zip([%d], %s) |> Iter.count())\n", k, name("ir"))
+		fmt.Fprintf(&out, "io.inspect(Iter.known_count(ItLap(%d)..ItLap(%d)))\n", a, a+k)
+		fmt.Fprintf(&out, "io.inspect(ItLap(%d)..=ItLap(%d) |> Iter.count())\n", a, a+k)
+	case 5:
+		fmt.Fprintf(&out, "io.print(Range.to_string(%d..%d))\n", a, a+b)
+		fmt.Fprintf(&out, "io.print(Range.inspect(%d..=%d))\n", a, a+b)
+		fmt.Fprintf(&out, "io.inspect(Range.known_count(%d..%d))\n", a, a+b)
+		fmt.Fprintf(&out, "io.inspect(Range.each_while(%d..=%d, |n| n < %d))\n", a, a+b, a+k)
+		fmt.Fprintf(&out, "io.inspect(Iter.to_set([%d..%d, %d..%d]))\n", a, b, a, b)
+		fmt.Fprintf(&out, "io.inspect(Range.contains?(False..=True, %s))\n", g.boolLitFrom(r))
+	case 6:
+		fmt.Fprintf(&out, "%s = Iter.loop(|g = |x: Int| x| {\nif g(0) > %d { break g }\n|x: Int| g(x) + 1\n})\nio.inspect(%s(%d))\n", name("il"), k, name("il"), a)
+	case 7:
+		fmt.Fprintf(&out, "%s: Maybe<Int> = Some(%d)\n", name("io"), a)
+		fmt.Fprintf(&out, "io.inspect(Iter.loop(|n = 0| {\nif n > %d { break n }\nif Some(v) = %s { n + v } else { n + 1 }\n}))\n", b+k, name("io"))
+		fmt.Fprintf(&out, "io.inspect(Iter.loop(|n = 0, step = %d| {\nif n > %d { break n }\nn + step\n}))\n", a, b+k)
+	case 8:
+		fmt.Fprintf(&out, "fn %s(xs: Iter<Int>): Int {\nIter.count(xs)\n}\n", name("tot"))
+		fmt.Fprintf(&out, "io.inspect(%s(#{}))\nio.inspect(%s(#[]))\nio.inspect(%s(#{%d, %d}))\n", name("tot"), name("tot"), name("tot"), a, a+10)
+	default:
+		fmt.Fprintf(&out, "%s = %s\n", fs, lambdas)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", fs)
+		out.WriteString(apply(fmt.Sprintf("[|x: Int| x, ..%s]", fs)))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
 // boolLitFrom is a Bool literal drawn from r.
 func (g *gen) boolLitFrom(r *rand.Rand) string {
 	return []string{"True", "False"}[r.Intn(2)]
@@ -1324,7 +1484,8 @@ func generatedProgram(i int) loweringSeed { return generatedProgramSized(i, 3, 3
 func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	g := &gen{r: rand.New(rand.NewSource(int64(i))), aux: rand.New(rand.NewSource(int64(i) + 1<<32)),
 		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32)),
-		wrap: rand.New(rand.NewSource(int64(i) + 4<<32)), dyn: rand.New(rand.NewSource(int64(i) + 5<<32))}
+		wrap: rand.New(rand.NewSource(int64(i) + 4<<32)), dyn: rand.New(rand.NewSource(int64(i) + 5<<32)),
+		itr: rand.New(rand.NewSource(int64(i) + 11<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -1357,6 +1518,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		if g.dyn.Intn(3) == 0 {
 			body.WriteString(g.erasedBlock())
 		}
+		if g.itr.Intn(3) == 0 {
+			body.WriteString(g.iterBlock())
+		}
 	}
 	body.WriteString("io.inspect(s0)\n")
 	// One program in four spells its output through an aliased selective
@@ -1386,6 +1550,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		helpers, localHelpers = "", strings.Join(used, "\n\n")+"\n\n"
 	}
 	src.WriteString(helpers + "\n" + usedRecursiveHelpers(body.String()) + genGenericTypes + "\n" + genDerives + "\n")
+	if uses(body.String(), "ItPair") || uses(body.String(), "ItId") {
+		src.WriteString(genIterDecls + "\n")
+	}
 	if !g.local {
 		src.WriteString(genPlainTypes + "\n" + genShapeDerive + "\n" + strings.Join(g.helpers, "\n\n") + "\n\n")
 	}
