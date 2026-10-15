@@ -120,15 +120,21 @@ func nomiImportGraph(p *Program) [][]bool {
 	for i := range p.Modules {
 		scopedTypeEdges(p, i, func(j int) { g[i][j] = true })
 		for _, node := range p.Modules[i].Nodes {
-			for _, target := range importTargets(node) {
-				// A file's own directory-relative key, matched against the
-				// program's module keys. A stdlib or Go import resolves to
-				// nothing here and contributes no edge, which is right: only
-				// user files become unit packages.
-				if j, ok := byKey[target]; ok && j != i {
-					g[i][j] = true
+			// An `import` at the top of a block is an import too: a
+			// block-local declaration may name a type it binds.
+			ast.Inspect(node, func(m ast.Node) bool {
+				for _, target := range importTargets(m) {
+					// A file's own directory-relative key, matched against
+					// the program's module keys. A stdlib or Go import
+					// resolves to nothing here and contributes no edge, which
+					// is right: only user files become unit packages.
+					if j, ok := byKey[target]; ok && j != i {
+						g[i][j] = true
+					}
 				}
-			}
+				_, isBlock := m.(*ast.ImportBlock)
+				return !isBlock
+			})
 		}
 	}
 	for k := range n {

@@ -2907,7 +2907,16 @@ func (c *checker) blockTypeRegistry(block *ast.Block) *TypeRegistry {
 // type-qualified member check, so `Json.Number(1.5)` passed with no such
 // variant. It answers nil for a block that imports nothing.
 func (c *checker) blockImportRegistry(block *ast.Block) *TypeRegistry {
-	if c.fa == nil || len(c.fa.BlockImportScopes) == 0 {
+	return blockImportTypes(c.fa, c.reg, block)
+}
+
+// blockImportTypes is the registry over reg that holds every type the
+// imports at the top of block bind, or nil when block imports nothing. The
+// type builder resolves a block's own declarations and nested signatures
+// under it (buildNestedFuncTypes), and the checker the block's statements,
+// so `import b.B` then `struct Local { x: B }` names the imported B in both.
+func blockImportTypes(fa *FileAnalysis, parent *TypeRegistry, block *ast.Block) *TypeRegistry {
+	if fa == nil || block == nil || len(fa.BlockImportScopes) == 0 {
 		return nil
 	}
 	var reg *TypeRegistry
@@ -2916,12 +2925,12 @@ func (c *checker) blockImportRegistry(block *ast.Block) *TypeRegistry {
 		if !ok {
 			continue
 		}
-		scope := c.fa.BlockImportScopes[imp]
+		scope := fa.BlockImportScopes[imp]
 		if scope == nil {
 			continue
 		}
 		if reg == nil {
-			reg = NewChildTypeRegistry(c.reg)
+			reg = NewChildTypeRegistry(parent)
 		}
 		// Sorted, so a name two imports bind registers the same declaration
 		// on every run.

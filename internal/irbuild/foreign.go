@@ -453,6 +453,12 @@ func (g *gen) namedType(name string) (*typeDef, bool) {
 	if d, isBlockLocal := g.blockLocalNamed(name); isBlockLocal {
 		return d, true
 	}
+	// A type an `import` at the top of an enclosing block binds, which
+	// shadows the module scope's binding of the name there, as it does for
+	// the checker. See bindBlockImports.
+	if d, isImported := g.blockImportedNamed(name); isImported {
+		return d, true
+	}
 	if d, local := g.types[name]; local {
 		return d, true
 	}
@@ -514,6 +520,11 @@ func (g *gen) userTypeNamed(name string) bool {
 	}
 	if _, isBlockLocal := g.blockLocalNamed(name); isBlockLocal {
 		return true
+	}
+	if d, isImported := g.blockImportedNamed(name); isImported {
+		// A block import of a std type names no user type, though this
+		// file may declare one of the same name.
+		return d.foreign != ""
 	}
 	if _, local := g.types[name]; local {
 		return true

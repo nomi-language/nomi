@@ -54,21 +54,21 @@ b	typeRegistry.ensureTypes | false | g == nil#1	foreign.go:216	-	every registry 
 d	typeRegistry.ensureTypes | computed | return grp.state >= groupResolving#1	foreign.go:225	-	false only while a type group registers its shells, which resolves no type name (typecycle.go); a fail-safe
 d	typeRegistry.ensureTypes | computed | return g.building != nil && g.building.state >= groupResolving#1	foreign.go:230	-	false only while a file on no cycle registers its shells, which resolves no type name; once it resolves, a demand gets a pending mirror (deferringGroup); a fail-safe
 a	gen.namedType | computed | return d != nil#1	foreign.go:448	expect,irbuild,vmhost	
-b	gen.importKind | false | unguarded#1	foreign.go:701	-	importKind is only fed kinds of lowerable defs and lowerable signatures, which carry no tagInvalid component (an invalid field makes src.lowerable false, caught at foreign.go:550)
--	gen.importKind | false | rk == kindInvalid#1	foreign.go:724	-	
-c	gen.importKind | false | unguarded#2	foreign.go:782	-	pinned as gapForeignFnIter (reason: qualified call, file.fn: nums.)
-b	gen.importNamed | false | !anchored#1	foreign.go:804	-	preludeSpecAnchor always anchors Maybe/Result from std's own declaration (defensive fence)
-b	gen.importNamed | false | k == kindInvalid#1	foreign.go:819	-	preludeInstance returns kindInvalid only for an invalid arg, and every arg was just imported ok
-b	gen.importNamed | false | !ok#1	foreign.go:848	-	genStructInstance with imported args fails only where the owner's own instance failed, which makes the owner def unlowerable first
-b	gen.importNamed | false | !ok#2	foreign.go:866	-	genHostInstance with imported args fails only for a nil spec or g == nil, neither of which occurs here
-a	gen.importNamed | computed | return src.lowerable#1	foreign.go:903	expect,irbuild,projectgen,vmhost	
-b	gen.importNamed | false | o == nil#1	foreign.go:911	-	only a synthesized declaration is missing from the registry, and none is nameable across files
-a	gen.importNamed | computed | return local.lowerable#1	foreign.go:918	expect,irbuild,vmhost	
-b	gen.importNamed | false | o.unit == g.fileUnit#1	foreign.go:921	-	a component declared in this file always has its def in g.types under its name (duplicates are front-end errors)
-c	gen.importNamed | false | !d.lowerable#1	foreign.go:926	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
-d	gen.importNamed | false | deferred == nil && !g.reg.ensureLayout(o.unit)#1	foreign.go:935	-	a type cycle builds as a group and a finished file gets a pending mirror of a resolving file's type (deferringGroup), so a missing layout needs a demand from a file still registering shells; none found
-b	gen.importNamed | false | inner == nil#1	foreign.go:940	-	inner == nil only for a duplicate declaration its own file refuses, a front-end error
-c	gen.importNamed | false | !d.lowerable#2	foreign.go:948	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
+b	gen.importKind | false | unguarded#1	foreign.go:712	-	importKind is only fed kinds of lowerable defs and lowerable signatures, which carry no tagInvalid component (an invalid field makes src.lowerable false, caught at foreign.go:550)
+-	gen.importKind | false | rk == kindInvalid#1	foreign.go:735	-	
+c	gen.importKind | false | unguarded#2	foreign.go:793	-	pinned as gapForeignFnIter (reason: qualified call, file.fn: nums.)
+b	gen.importNamed | false | !anchored#1	foreign.go:815	-	preludeSpecAnchor always anchors Maybe/Result from std's own declaration (defensive fence)
+b	gen.importNamed | false | k == kindInvalid#1	foreign.go:830	-	preludeInstance returns kindInvalid only for an invalid arg, and every arg was just imported ok
+b	gen.importNamed | false | !ok#1	foreign.go:859	-	genStructInstance with imported args fails only where the owner's own instance failed, which makes the owner def unlowerable first
+b	gen.importNamed | false | !ok#2	foreign.go:877	-	genHostInstance with imported args fails only for a nil spec or g == nil, neither of which occurs here
+a	gen.importNamed | computed | return src.lowerable#1	foreign.go:914	expect,irbuild,projectgen,vmhost	
+b	gen.importNamed | false | o == nil#1	foreign.go:922	-	only a synthesized declaration is missing from the registry, and none is nameable across files
+a	gen.importNamed | computed | return local.lowerable#1	foreign.go:929	expect,irbuild,vmhost	
+b	gen.importNamed | false | o.unit == g.fileUnit#1	foreign.go:932	-	a component declared in this file always has its def in g.types under its name (duplicates are front-end errors)
+c	gen.importNamed | false | !d.lowerable#1	foreign.go:937	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
+d	gen.importNamed | false | deferred == nil && !g.reg.ensureLayout(o.unit)#1	foreign.go:946	-	a type cycle builds as a group and a finished file gets a pending mirror of a resolving file's type (deferringGroup), so a missing layout needs a demand from a file still registering shells; none found
+b	gen.importNamed | false | inner == nil#1	foreign.go:951	-	inner == nil only for a duplicate declaration its own file refuses, a front-end error
+c	gen.importNamed | false | !d.lowerable#2	foreign.go:959	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
 b	irScalarBuilder.foreignFieldDefault | false | src == nil ¦¦ g.reg == nil ¦¦ !irCallOperandKind(want)#1	foreignfielddefault.go:57	-	a mirror always carries ownerDef and a registry; a lowerable struct's field kinds are call-operand kinds (tried 15 default shapes cross-file, all lower)
 b	irScalarBuilder.foreignFieldDefault | false | o == nil#1	foreignfielddefault.go:65	-	the mirror's owner decl is always in the registry (generic instances map to genericOf.decl)
 b	irScalarBuilder.foreignFieldDefault | false | owner == nil ¦¦ owner == g#1	foreignfielddefault.go:69	-	a mirror's owner is another unit by construction
@@ -97,13 +97,13 @@ b	gen.monoSolve | false | len(params) != len(tpl.decl.Params)#1	genericmono.go:3
 -	gen.monoSolve | false | !found ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	genericmono.go:410	-	
 a	gen.solveFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:439	irbuild	
 -	gen.solveFilled | computed | return fallback != nil#1	genericmono.go:462	-	
-b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:637	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
-b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:647	-	defensive fence: callers pass an enum template (enumDecl non-nil)
-b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:654	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
-a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.SymbolField#1	generictype.go:679	irbuild	
-a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:683	irbuild	
-c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:690	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
-b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:697	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
+b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:645	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
+b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:655	-	defensive fence: callers pass an enum template (enumDecl non-nil)
+b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:662	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
+a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.SymbolField#1	generictype.go:687	irbuild	
+a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:691	irbuild	
+c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:698	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
+b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:705	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
 c	gen.hostFnReject | note | reason#1	hostpkg.go:542	-	pinned as gapGoFnDefaultedParam (reason: a direct callee that is not lowerable: upper)
 b	gen.irBootRetain | note | "a boot without a body or a declared result"#1	irappboot.go:258	-	checker rejects: "boot must return a struct, the application type" (fn boot without result); a host fn boot is not a boot (tried boot_noresult.nomi, boot_host.nomi)
 a	gen.irBootRetain | note | "a boot result whose fields are not all retained values: " + result.nomi()#1	irappboot.go:267	irbuild	

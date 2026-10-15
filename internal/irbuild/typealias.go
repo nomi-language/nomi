@@ -280,6 +280,9 @@ func (g *gen) aliasNamedDef(name string) (d *typeDef, found bool) {
 		if _, isBlockLocal := g.blockLocalNamed(name); isBlockLocal {
 			return nil, false
 		}
+		if _, isImported := g.blockImportedNamed(name); isImported {
+			return nil, false
+		}
 		if _, isModule := g.types[name]; isModule {
 			return nil, false
 		}

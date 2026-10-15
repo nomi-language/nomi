@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"slices"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -84,6 +86,14 @@ type blockTypeDecls struct {
 	// also has a shell in defs, as a module-level generic has one in
 	// gen.types, so a bare mention of the name reports `generic type`.
 	templates map[string]*genericTemplate
+	// imports are the `import` statements at the top of the block, and
+	// imported the def of each type they bind, by the name it is bound
+	// under (bindBlockImports): the declaration the checker resolved the
+	// import to, so the name resolves to it for the rest of the block, as it
+	// does for the checker (blockImportTypes). Apart from defs because the
+	// block does not declare them: an imported std type is not a user type.
+	imports  []*ast.ImportStmt
+	imported map[string]*typeDef
 	// outer is the nearest enclosing block's declarations, or nil. A
 	// declaration here may name one there (`struct Inner { p: P<Int> }`
 	// under the block declaring `P`), so wherever this scope is made
@@ -159,6 +169,12 @@ func (g *gen) declareBlockTypes(b *ast.Block, order *[]*typeDef) {
 			}
 			scope.aliasOrder = append(scope.aliasOrder, t)
 			continue
+		case *ast.ImportStmt:
+			if scope == nil {
+				scope = newBlockTypeDecls()
+			}
+			scope.imports = append(scope.imports, t)
+			continue
 		default:
 			continue
 		}
@@ -199,6 +215,7 @@ func (g *gen) declareBlockTypes(b *ast.Block, order *[]*typeDef) {
 func newBlockTypeDecls() *blockTypeDecls {
 	return &blockTypeDecls{
 		defs:      map[string]*typeDef{},
+		imported:  map[string]*typeDef{},
 		aliases:   map[string]kind{},
 		templates: map[string]*genericTemplate{},
 	}
@@ -304,6 +321,8 @@ func (g *gen) resolveBlockTypeDecls() {
 // resolveBlockScope resolves one block's declarations with its overlay active.
 func (g *gen) resolveBlockScope(scope *blockTypeDecls) {
 	defer g.enterTypeScope(scope)()
+	// Imported types first: a declaration or an alias may name one.
+	g.bindBlockImports(scope)
 	// Aliases first: a struct field may be annotated with one.
 	for _, a := range scope.aliasOrder {
 		scope.aliases[a.Name] = g.aliasTarget(a)
@@ -318,6 +337,64 @@ func (g *gen) resolveBlockScope(scope *blockTypeDecls) {
 			g.resolveDistinct(d, t)
 		}
 	}
+}
+
+// bindBlockImports puts each monomorphic struct, enum or distinct type the
+// block's imports bind into the block's overlay under the name the import
+// binds, as the def of the declaration the checker resolved it to: another
+// file's type by its mirror, a std type by the def its analyzer type projects
+// to. A generic type or an interface is left to the name-keyed lookups, and
+// testImport declines an import that rebinds one.
+func (g *gen) bindBlockImports(scope *blockTypeDecls) {
+	if len(scope.imports) == 0 || g.fa == nil {
+		return
+	}
+	fa := g.srcFA()
+	for _, imp := range scope.imports {
+		bound := fa.BlockImportScopes[imp]
+		if bound == nil {
+			continue
+		}
+		// Sorted, so the mirrors are made in the same order on every run.
+		names := make([]string, 0, len(bound.Symbols))
+		for name, sym := range bound.Symbols {
+			if sym != nil && sym.Node == ast.Node(imp) {
+				names = append(names, name)
+			}
+		}
+		slices.Sort(names)
+		for _, name := range names {
+			if d := g.importedTypeDef(resolveSymbol(bound.Symbols[name])); d != nil {
+				scope.imported[name] = d
+			}
+		}
+	}
+}
+
+// importedTypeDef is the def of the monomorphic struct, enum or distinct type
+// sym declares, found by its declaration rather than by its name, or nil.
+func (g *gen) importedTypeDef(sym *analysis.Symbol) *typeDef {
+	if sym == nil {
+		return nil
+	}
+	switch sym.Kind {
+	case analysis.SymbolStruct, analysis.SymbolEnum, analysis.SymbolType:
+	default:
+		return nil
+	}
+	if len(typeDeclTypeParams(sym.Node)) > 0 {
+		return nil
+	}
+	if o := g.ownerOfSymbol(sym); o != nil {
+		if o.isIface {
+			return nil
+		}
+		return g.mirrorOf(o)
+	}
+	if k := g.project(sym.Type); k.tag == tagNamed && k.def != nil && k.def.genericOf == nil {
+		return k.def
+	}
+	return nil
 }
 
 // aliasTarget is the kind a `typealias` names, or kindInvalid.
@@ -396,6 +473,17 @@ func (g *gen) blockLocalNamed(name string) (*typeDef, bool) {
 	return nil, false
 }
 
+// blockImportedNamed answers a type name from the innermost enclosing block
+// whose imports bind it, as the def of the declaration the import names.
+func (g *gen) blockImportedNamed(name string) (*typeDef, bool) {
+	for i := len(g.typeScopes) - 1; i >= 0; i-- {
+		if d, found := g.typeScopes[i].imported[name]; found {
+			return d, true
+		}
+	}
+	return nil, false
+}
+
 // blockLocalTemplate answers a generic type name from the innermost enclosing
 // block that declares it, or nil. A module-level type of the same name wins,
 // as it does for the checker: `Box{v: 1}` beside a module-level `Box<T>`
@@ -460,6 +548,10 @@ func (g *gen) declaredAs(owner string, d *typeDef) bool {
 			return isTemplate && tpl == d.genericOf
 		}
 		return bl == d
+	}
+	if imported, isImported := g.blockImportedNamed(owner); isImported {
+		// So does a type an enclosing block's import binds.
+		return imported == d
 	}
 	if g.types[owner] == d {
 		return true
