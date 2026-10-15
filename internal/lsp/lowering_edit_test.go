@@ -59,6 +59,7 @@ func (c *rpcClient) waitNoLowering(uri string) {
 // An edit that introduces code the compiler cannot lower publishes the
 // diagnostic without a save, and the edit that fixes it clears it.
 func TestLoweringOnEdit_ReportedAndClearedWithoutSave(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -66,7 +67,7 @@ func TestLoweringOnEdit_ReportedAndClearedWithoutSave(t *testing.T) {
 	c.waitDiagnostics(uri)
 
 	c.change(uri, 2, loweringBlocked)
-	p := c.waitMessage(uri, "this call to `skip_odd` is not supported yet, so `fn evens` cannot run")
+	p := c.waitMessage(uri, "this call to `planted_decline` is not supported yet, so `fn evens` cannot run")
 	if n := len(notSupported(s.lowering.diagnostics(uri))); n != 1 {
 		t.Fatalf("%d stored lowering diagnostics after the edit, want 1 (published %q)", n, p.msgs)
 	}

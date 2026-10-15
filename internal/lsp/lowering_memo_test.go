@@ -45,6 +45,7 @@ func waitLoweringRuns(t *testing.T, s *Server, lowered, reused int64) {
 // and the save's run of the same text answers from the memo and publishes
 // what the edit's run published. An edit after the save lowers again.
 func TestLoweringMemo_SaveWithNoChangeDoesNotLowerAgain(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -54,7 +55,7 @@ func TestLoweringMemo_SaveWithNoChangeDoesNotLowerAgain(t *testing.T) {
 	waitLoweringRuns(t, s, 1, 0)
 
 	c.change(uri, 2, loweringBlocked)
-	const blocked = "this call to `skip_odd` is not supported yet, so `fn evens` cannot run"
+	const blocked = "this call to `planted_decline` is not supported yet, so `fn evens` cannot run"
 	c.waitMessage(uri, blocked)
 	waitLoweringRuns(t, s, 2, 0)
 	afterEdit := s.lowering.diagnostics(uri)
@@ -76,6 +77,7 @@ func TestLoweringMemo_SaveWithNoChangeDoesNotLowerAgain(t *testing.T) {
 // (from its text, since the analysis read the old one), and so does a
 // change to nomi.toml; the file back as it was answers from the memo.
 func TestLoweringMemo_AnImportedFileChangedOnDiskLowersAgain(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -127,6 +129,7 @@ func TestLoweringMemo_AnImportedFileChangedOnDiskLowersAgain(t *testing.T) {
 // nothing, from the analysis and from the text alike, and the memo keeps
 // nothing of it.
 func TestLowering_AStoppedContextStopsTheLowering(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}

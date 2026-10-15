@@ -71,8 +71,10 @@ func TestExport_AProgramWithNoMainBuildsForTheWeb(t *testing.T) {
 }
 
 // An exported function main never calls is still lowered, so `nomi check`
-// reports a body the VM cannot run.
+// reports a body the VM cannot run. It blocks at its call to
+// `planted_decline` (plantDecline).
 func TestExport_AnUnreachedExportedFunctionIsChecked(t *testing.T) {
+	plantDecline(t)
 	src := `import std/io
 
 fn main() {
@@ -80,10 +82,11 @@ fn main() {
 }
 
 export fn short(x: Int): Bool {
-    x > 0 and case x {
-        1 -> return True
-        _ -> return False
-    }
+    planted_decline(x) > 0
+}
+
+fn planted_decline(x: Int): Int {
+    x
 }
 `
 	p, _, err := loadFiles(t, map[string]string{"main.nomi": src})

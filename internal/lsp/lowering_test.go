@@ -9,27 +9,24 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analyzedlowering"
+	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/vmhost"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// loweringBlocked calls `skip_odd`, which uses `continue`, from inside a
-// lambda: the front end accepts it and the IR builder declines `evens`, so
-// `nomi check` reports the call. loweringFixed passes `skip_odd` itself,
-// which lowers. If the builder learns the first shape, this fixture needs
-// another declined construct, not a looser assertion.
+// loweringBlocked calls `planted_decline` from inside a lambda: the front
+// end accepts it and, under plantDecline, the IR builder declines `evens`,
+// so `nomi check` reports the call. loweringFixed passes `planted_decline`
+// itself, which is no call, and lowers.
 const loweringBlocked = `import std/io
 
-fn skip_odd(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+fn planted_decline(n: Int): Int {
   n
 }
 
 fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
 }
 
 fn main() {
@@ -37,7 +34,14 @@ fn main() {
 }
 `
 
-var loweringFixed = strings.Replace(loweringBlocked, "|x| skip_odd(x)", "skip_odd", 1)
+var loweringFixed = strings.Replace(loweringBlocked, "|x| planted_decline(x)", "planted_decline", 1)
+
+// plantDecline makes the builder decline every call to `planted_decline`
+// until t ends (irbuild.PlantDeclineForTest), so a test of how the server
+// reports a blocked program needs no real lowering gap.
+func plantDecline(t *testing.T) {
+	t.Cleanup(irbuild.PlantDeclineForTest("planted_decline", "a planted decline"))
+}
 
 // openLoweringDoc opens main.nomi, holding src on disk and in the editor, on
 // a new server whose publications arrive on the returned channel.
@@ -97,6 +101,7 @@ func notSupported(diags []protocol.Diagnostic) []protocol.Diagnostic {
 // here, so the save's run is the one that clears it
 // (lowering_edit_test.go covers the edit's).
 func TestLoweringDiagnostics_ReportedOnOpenAndClearedBySave(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -108,13 +113,13 @@ func TestLoweringDiagnostics_ReportedOnOpenAndClearedBySave(t *testing.T) {
 		return len(notSupported(d)) > 0
 	})
 	got := notSupported(diags)
-	want := "this call to `skip_odd` is not supported yet, so `fn evens` cannot run"
-	if len(got) != 1 || !strings.HasPrefix(got[0].Message, want+"\nhelp: `skip_odd` uses break or continue") {
+	want := "this call to `planted_decline` is not supported yet, so `fn evens` cannot run"
+	if len(got) != 1 || !strings.HasPrefix(got[0].Message, want+"\nhelp: this is a gap in Nomi") {
 		t.Fatalf("lowering diagnostics %+v; want one %q with its hint", got, want)
 	}
 	r := got[0].Range
-	if r.Start.Line != 10 || r.Start.Character != 19 {
-		t.Fatalf("the diagnostic is at %d:%d; want 10:19 (the callee of line 11's call)", r.Start.Line, r.Start.Character)
+	if r.Start.Line != 7 || r.Start.Character != 19 {
+		t.Fatalf("the diagnostic is at %d:%d; want 7:19 (the callee of line 8's call)", r.Start.Line, r.Start.Character)
 	}
 	if strings.Contains(got[0].Message, "not retained") || strings.Contains(got[0].Message, "direct call") {
 		t.Fatalf("the diagnostic names compiler internals: %q", got[0].Message)

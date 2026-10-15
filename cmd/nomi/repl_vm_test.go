@@ -148,17 +148,16 @@ func TestReplVM_RedeclaringATypeDropsItsValues(t *testing.T) {
 		"note: p is no longer in scope", "undefined variable 'p'")
 }
 
-const replBlockedDecls = `struct Node {
-  f: Map<String, {a: Iter<Int>}>
-}
-fn weigh(_d: Node): Int {
-  0
+// replBlockedDecls declares `count`, which the builder declines under
+// plantDecline at its call to `planted_decline`.
+const replBlockedDecls = `fn planted_decline(n: Int): Int {
+  n
 }
 fn count(n: Int, acc: Int): Int {
   if n == 0 {
     acc
   } else {
-    weigh(Node{f: Map.empty()}) + 3
+    planted_decline(n) + 3
   }
 }
 `
@@ -166,6 +165,7 @@ fn count(n: Int, acc: Int): Int {
 // An input the VM cannot run prints its BLOCKED lines before any effect and
 // binds nothing.
 func TestReplVM_ABlockedInputChangesNothing(t *testing.T) {
+	plantDecline(t)
 	out, errOut := replRun(t, replBlockedDecls+"z = 1\nw = count(3, 0)\nw\nz + 1\n")
 	if out != "2\n" {
 		t.Errorf("stdout %q, want %q\nstderr:\n%s", out, "2\n", errOut)
@@ -183,27 +183,26 @@ func TestReplVM_AnImportIsUsedByLaterInputs(t *testing.T) {
 		"hi\n2\n")
 }
 
-// replBlockLocalValue binds v to a block whose value has a type declared
-// inside the block.
-const replBlockLocalValue = "v = {\n  struct Q {\n    a: Int\n  }\n  Q{a: 1}\n}\n"
+// replPlantedDecl declares `planted_decline`, every call to which the builder
+// declines under plantDecline.
+const replPlantedDecl = "fn planted_decline(n: Int): Int {\n  n\n}\n"
 
 // An input whose `main` the builder declines, and which therefore lowers no
 // entry module at all, is reported BLOCKED and commits nothing. It crashed
 // the session's machine with a nil-pointer dereference when the input came
 // after an earlier one, because Session.Run linked the missing entry before
-// asking whether `main` was retained. A block whose value has a type
-// declared inside it is such an input: the front end accepts it and the
-// builder declines it (gapBlockLocalTypeEscapesItsBlock). If it starts
-// lowering, these cases need another input the builder declines.
+// asking whether `main` was retained. An input that binds a call to
+// `planted_decline` is such an input under plantDecline.
 func TestReplVM_AnInputWithNoRetainedEntryIsBlocked(t *testing.T) {
+	plantDecline(t)
 	cases := []struct {
 		name, script string
 		wantOut      string
 		wantErr      string
 	}{
-		{"after an earlier input", "x = 1\n" + replBlockLocalValue + "x\n",
+		{"after an earlier input", replPlantedDecl + "x = 1\nv = planted_decline(1)\nx\n",
 			"1\n", "[main] not retained"},
-		{"value stored", replBlockLocalValue + "v\nimport std/io\nio.print(\"after\")\n",
+		{"value stored", replPlantedDecl + "v = planted_decline(1)\nv\nimport std/io\nio.print(\"after\")\n",
 			"after\n", "[main] not retained"},
 	}
 	for _, c := range cases {

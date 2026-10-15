@@ -7,17 +7,16 @@ import (
 
 // A decline taken outside `lower` (a tail `if` or `case`, a test-body
 // statement) is reported at the innermost node the builder could not
-// handle, not at the `fn` or the test's line. Each source here leans on
-// gapPartialDefaultBeforeLaterPlaceholder (`span(b: _, _)`) to decline.
-// When that gap is fixed, its cases here need another construct the
-// builder declines at the same place.
+// handle, not at the `fn` or the test's line. Each source here declines at
+// its call to `planted_decline` (plantDecline).
 //
 // A pattern test (irDeclineAtPattern) reports the same way, but that path
 // has no reproducer here. Add a pattern case when a real pattern decline
 // turns up.
 func TestDeclinePosition_IsTheInnermostNode(t *testing.T) {
-	const span = `fn span(a: Int, b: Int = a * 2): (Int, Int) {
-    (a, b)
+	plantDecline(t)
+	const planted = `fn planted_decline(a: Int): Int {
+    a
 }
 `
 	for _, c := range []struct {
@@ -29,11 +28,11 @@ func TestDeclinePosition_IsTheInnermostNode(t *testing.T) {
 			name: "a call in a tail if's arm",
 			src: `import std/io
 
-` + span + `
+` + planted + `
 fn first(x: Int): Int {
     if x == 1 {
-        w = span(b: _, _)
-        w(1, 2).0
+        w = planted_decline(1)
+        w
     } else {
         0
     }
@@ -43,17 +42,17 @@ fn main() {
     io.inspect(first(1))
 }
 `,
-			want: "main.nomi:9:13: this call to `span` is not supported yet, so `fn first` cannot run",
+			want: "main.nomi:9:13: this call to `planted_decline` is not supported yet, so `fn first` cannot run",
 		},
 		{
 			name: "a call in a test body",
-			src: span + `
+			src: planted + `
 test "loc" {
-    w = span(b: _, _)
-    assert w(1, 2).0 == 1
+    w = planted_decline(1)
+    assert w == 1
 }
 `,
-			want: "main.nomi:6:9: this call to `span` is not supported yet, so test \"loc\" cannot run",
+			want: "main.nomi:6:9: this call to `planted_decline` is not supported yet, so test \"loc\" cannot run",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -65,8 +64,7 @@ test "loc" {
 				t.Fatalf("the compiler panics:\n%s", o.internal)
 			}
 			if len(o.declines) != 1 {
-				t.Fatalf("want one decline, got %q; if the gap this source leans on is fixed, "+
-					"replace it with another decline at the same place", o.declines)
+				t.Fatalf("want one decline, got %q", o.declines)
 			}
 			if !strings.HasPrefix(o.declines[0], c.want+"\n") {
 				t.Fatalf("decline:\n%s\nwant it to start with %q", o.declines[0], c.want)

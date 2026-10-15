@@ -329,10 +329,11 @@ func TestIRConcurrency_TryAndLoopInsideTheBlockRun(t *testing.T) {
 
 // A task whose body reaches a function the producer did not retain fails the
 // VM's run rather than settling as a Failed outcome the program can observe:
-// `slow_bounded` calls `Context.with_value` over a generic Maybe, whose
-// type has no single-name identity to key the store, so the body is not
-// retained, and `main` inspects the task's outcome.
+// `slow_bounded` calls `planted_decline`, which the builder declines under
+// plantDecline, so the body is not retained, and `main` inspects the task's
+// outcome.
 func TestIRConcurrency_AMachineLimitInATaskFailsTheRun(t *testing.T) {
+	plantDecline(t)
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	src := `import {
   std/tasks.Task
@@ -340,8 +341,12 @@ func TestIRConcurrency_AMachineLimitInATaskFailsTheRun(t *testing.T) {
   std/timer
 }
 
+fn planted_decline(n: Int): Int {
+  n
+}
+
 fn slow_bounded(): Int {
-  _ = Context.with_value(Run.context, Some(1))
+  _ = planted_decline(1)
   timer.sleep(Duration.minutes(5))
   1
 }

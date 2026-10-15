@@ -67,6 +67,7 @@ func lowerAnalyzed(t *testing.T, path, text string, a *analyzedlowering.Analyzed
 // after the lowering as before it. The process's first lowering, which
 // lowers the stdlib once, runs before the first fingerprint.
 func TestLoweringFromAnalysis_LeavesTheAnalysisUnchanged(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -109,6 +110,7 @@ func TestLoweringFromAnalysis_LeavesTheAnalysisUnchanged(t *testing.T) {
 // handlers read it, other documents are analyzed, and the front end checks
 // another program, all over the one stdlib analysis. Run with -race.
 func TestLoweringFromAnalysis_ConcurrentWithRequests(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}

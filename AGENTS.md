@@ -337,6 +337,10 @@ plain `go test`, `TestFrontEndAcceptsSoItLowers` checks the generated programs
 and `TestKnownLoweringGaps` pins each known decline in `knownLoweringGaps`
 (`vmhost/lowering_gaps_test.go`) by a reproducer; the generator avoids those
 shapes, so remove a gap and its avoidance together when it is fixed.
+A test about how a blocked program is reported (`nomi run`, `nomi test`,
+`nomi check`, the REPL, exports, the language server) blocks on a planted
+decline, a call to `planted_decline` that `irbuild.PlantDeclineForTest`
+makes the builder decline, never on a real gap, which a fix would close.
 
 `testdata/lowering-declines.txt` lists every place the builder can decline a
 body, one line per site with its class (reached by a suite, dead because the

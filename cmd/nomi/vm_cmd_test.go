@@ -12,16 +12,16 @@ import (
 // The CLI surfaces of `nomi run`, `nomi test` and the REPL over a program the
 // VM cannot fully run.
 
-// vmBlockedProgram reaches a function the IR builder declines (a literal of a
-// struct whose field is a Map of Iters), from `main` and from
-// one test case.
+// vmBlockedProgram reaches a function the IR builder declines under
+// withPlantedDecline (`count`, at its call to `planted_decline`), from
+// `main` and from one test case.
 const vmBlockedProgram = `import std/io
 
 fn count(n: Int, acc: Int): Int {
   if n == 0 {
     acc
   } else {
-    weigh(Node{f: Map.empty()}) + 3
+    planted_decline(n) + 3
   }
 }
 
@@ -38,12 +38,8 @@ test "adds" {
   assert 1 + 2 == 3
 }
 
-struct Node {
-  f: Map<String, {a: Iter<Int>}>
-}
-
-fn weigh(_d: Node): Int {
-  0
+fn planted_decline(n: Int): Int {
+  n
 }
 `
 
@@ -51,6 +47,7 @@ func TestRunCommand_VMRefusesABlockedProgram(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
+	withPlantedDecline(t)
 	entry := filepath.Join(t.TempDir(), "main.nomi")
 	mustWrite(t, entry, vmBlockedProgram)
 
@@ -58,17 +55,17 @@ func TestRunCommand_VMRefusesABlockedProgram(t *testing.T) {
 	if err == nil {
 		t.Fatalf("nomi run on a blocked program exited 0:\n%s", out)
 	}
-	want := "error: this struct literal is not supported yet, so `fn count` cannot run\n" +
-		" --> " + entry + ":7:11\n" +
+	want := "error: this call to `planted_decline` is not supported yet, so `fn count` cannot run\n" +
+		" --> " + entry + ":7:5\n" +
 		"  |\n" +
-		"7 |     weigh(Node{f: Map.empty()}) + 3\n" +
-		"  |           ^^^^\n" +
+		"7 |     planted_decline(n) + 3\n" +
+		"  |     ^^^^^^^^^^^^^^^\n" +
 		"  = help: this is a gap in Nomi, not a mistake in your code; please report it at https://github.com/nomi-language/nomi/issues\n"
 	if termcolor.StripANSI(out) != want {
 		t.Fatalf("nomi run printed:\n%s\nwant the diagnostic `nomi check` gives:\n%s", out, want)
 	}
 	// The builder's own reason is shown only on request.
-	for _, internal := range []string{"BLOCKED", "not retained", "a struct literal: Node"} {
+	for _, internal := range []string{"BLOCKED", "not retained", plantedReason} {
 		if strings.Contains(out, internal) {
 			t.Fatalf("nomi run names compiler internals (%q):\n%s", internal, out)
 		}
@@ -80,7 +77,7 @@ func TestRunCommand_VMRefusesABlockedProgram(t *testing.T) {
 	cmd := exec.Command(nomiBin, "run", entry)
 	cmd.Env = append(cmd.Environ(), "NOMI_FFIRUN_CACHE_ROOT="+t.TempDir(), "NOMI_DEBUG_LOWERING=1")
 	debug, _ := cmd.CombinedOutput()
-	if !strings.Contains(string(debug), "= help: the lowering's reason: [count] a struct literal: Node\n") {
+	if !strings.Contains(string(debug), "= help: the lowering's reason: [count] "+plantedReason+"\n") {
 		t.Fatalf("NOMI_DEBUG_LOWERING=1 nomi run did not add the lowering's reason:\n%s", debug)
 	}
 }
@@ -89,6 +86,7 @@ func TestTestCommand_VMReportsBlockedCases(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
+	withPlantedDecline(t)
 	entry := filepath.Join(t.TempDir(), "main.nomi")
 	mustWrite(t, entry, vmBlockedProgram)
 
@@ -98,7 +96,7 @@ func TestTestCommand_VMReportsBlockedCases(t *testing.T) {
 		t.Fatalf("nomi test with a blocked case exited 0:\n%s", plain)
 	}
 	for _, want := range []string{
-		":: counts " + entry + ":7:11: this struct literal is not supported yet, so `fn count` cannot run\n",
+		":: counts " + entry + ":7:5: this call to `planted_decline` is not supported yet, so `fn count` cannot run\n",
 		"ok " + entry + " :: adds\n",
 		"test result: BLOCKED. 1 passed, 0 failed, 1 blocked\n",
 	} {
@@ -187,6 +185,7 @@ func TestTestCommand_VMJSONFormatReportsBlocked(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
+	withPlantedDecline(t)
 	dir := t.TempDir()
 	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
 		dir = resolved
@@ -205,8 +204,8 @@ func TestTestCommand_VMJSONFormatReportsBlocked(t *testing.T) {
 	blocked := records[0]
 	if blocked.Type != "test" || blocked.File != path || blocked.Line != 16 || blocked.EndLine != 18 ||
 		blocked.Status != "blocked" || blocked.Message == nil ||
-		*blocked.Message != "main.nomi:7:11: this struct literal is not supported yet, so `fn count` cannot run\n"+
-			"main.nomi:7:11: help: this is a gap in Nomi, not a mistake in your code; please report it at https://github.com/nomi-language/nomi/issues" ||
+		*blocked.Message != "main.nomi:7:5: this call to `planted_decline` is not supported yet, so `fn count` cannot run\n"+
+			"main.nomi:7:5: help: this is a gap in Nomi, not a mistake in your code; please report it at https://github.com/nomi-language/nomi/issues" ||
 		blocked.ErrorLine != 7 {
 		t.Errorf("blocked record = %+v", blocked)
 	}

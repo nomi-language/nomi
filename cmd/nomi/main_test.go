@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/nomi-language/nomi/internal/expectation"
+	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/termcolor"
 	"os"
 	"os/exec"
@@ -21,7 +22,31 @@ import (
 // installed from a different worktree.
 var nomiBin string
 
+// plantedEnv, set in a child's environment, makes the test binary run as
+// `nomi` with every call to `planted_decline` declined by the IR builder
+// (irbuild.PlantDeclineForTest), so a test about how `nomi run`, `nomi test`
+// and `nomi check` report a blocked program needs no real lowering gap.
+// withPlantedDecline sets it.
+const plantedEnv = "NOMI_TEST_RUN_AS_NOMI_WITH_PLANTED_DECLINE"
+
+// plantedReason is the builder's reason for a planted decline.
+const plantedReason = "a planted decline"
+
+// testBin is this test binary, which runs as `nomi` under plantedEnv.
+var testBin string
+
 func TestMain(m *testing.M) {
+	if os.Getenv(plantedEnv) != "" {
+		irbuild.PlantDeclineForTest("planted_decline", plantedReason)
+		main()
+		os.Exit(0)
+	}
+	self, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "TestMain: %v\n", err)
+		os.Exit(1)
+	}
+	testBin = self
 	tmp, err := os.MkdirTemp("", "nomi-test-*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: mkdir: %v\n", err)
@@ -42,6 +67,22 @@ func TestMain(m *testing.M) {
 	}
 	nomiBin = binPath
 	os.Exit(m.Run())
+}
+
+// withPlantedDecline makes nomiBin this test binary run as `nomi` with a
+// planted decline (plantedEnv) until t ends.
+func withPlantedDecline(t *testing.T) {
+	t.Setenv(plantedEnv, "1")
+	bin := nomiBin
+	nomiBin = testBin
+	t.Cleanup(func() { nomiBin = bin })
+}
+
+// plantDecline makes the builder decline every call to `planted_decline`
+// in this process until t ends (irbuild.PlantDeclineForTest), for a test of
+// the in-process REPL.
+func plantDecline(t *testing.T) {
+	t.Cleanup(irbuild.PlantDeclineForTest("planted_decline", plantedReason))
 }
 
 // repoRoot returns the absolute path of the repository root, two
@@ -721,6 +762,7 @@ func TestCheckCommand_TestFiles(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
+	withPlantedDecline(t)
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "main.nomi"), `fn main() {}
@@ -729,17 +771,14 @@ func TestCheckCommand_TestFiles(t *testing.T) {
   assert 1 + 1 == 2
 }
 `)
-	// skip_odd's `continue` cannot be lowered inside a callback; the case
-	// type-checks, so its error is the lowering's.
-	mustWrite(t, filepath.Join(dir, "lowering_test.nomi"), `fn skip_odd(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+	// The case type-checks and declines at its call to `planted_decline`
+	// (withPlantedDecline), so its error is the lowering's.
+	mustWrite(t, filepath.Join(dir, "lowering_test.nomi"), `fn planted_decline(n: Int): Int {
   n
 }
 
 test "evens" {
-  assert Iter.map([1, 2], |x| skip_odd(x)) |> Iter.to_list() == [2]
+  assert Iter.map([1, 2], |x| planted_decline(x)) |> Iter.to_list() == [1, 2]
 }
 `)
 	mustWrite(t, filepath.Join(dir, "types_test.nomi"), `test "collect" {
@@ -755,7 +794,7 @@ test "evens" {
 		"ok " + filepath.Join(dir, "main.nomi"),
 		"ok " + filepath.Join(dir, "passes_test.nomi"),
 		"FAIL " + filepath.Join(dir, "lowering_test.nomi"),
-		"this call to `skip_odd` is not supported yet, so test \"evens\" cannot run",
+		"this call to `planted_decline` is not supported yet, so test \"evens\" cannot run",
 		"FAIL " + filepath.Join(dir, "types_test.nomi"),
 		"the element type of `[]` is not determined",
 	} {

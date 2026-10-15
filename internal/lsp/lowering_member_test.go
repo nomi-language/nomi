@@ -147,15 +147,12 @@ test "evens" {
     assert evens([2]) == [2]
 }
 `,
-	"dep.nomi": `fn skip_odd(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+	"dep.nomi": `fn planted_decline(n: Int): Int {
   n
 }
 
 pub fn halves(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
 }
 `,
 }
@@ -319,6 +316,7 @@ func withoutDuplicateImpl(files map[string]string) map[string]string {
 // errors, and the library of memberForeignImpl, whose program alone lacks
 // the entry's impl) lower their text.
 func TestLoweringFromTheKeptProgramMatchesTheSource(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}

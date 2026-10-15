@@ -120,6 +120,7 @@ func TestLoad_AHostFnNoTableAnswersIsAFrontEndError(t *testing.T) {
 }
 
 func TestCall_AnUnretainedFunctionIsBlocked(t *testing.T) {
+	plantDecline(t)
 	p, err := vmhost.Load(writeProgram(t, blockedProgram))
 	if err != nil {
 		t.Fatal(err)

@@ -16,25 +16,20 @@ import (
 )
 
 // loweringProbe is appended to a corpus file to give its lowering a
-// blocker: `lowering_probe_skip` uses `continue` outside a loop, which the
-// front end accepts and the IR builder declines when it is called from a
-// lambda (loweringBlocked). The test reaches it, and makes the file a test
-// file.
+// blocker under plantDecline: a call to `planted_decline` from a lambda
+// (loweringBlocked). The test reaches it, and makes the file a test file.
 const loweringProbe = `
 
-fn lowering_probe_skip(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+fn planted_decline(n: Int): Int {
   n
 }
 
 fn lowering_probe(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| lowering_probe_skip(x)) |> Iter.to_list()
+  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
 }
 
 test "lowering probe" {
-  assert lowering_probe([1, 2]) == [2]
+  assert lowering_probe([1, 2]) == [1, 2]
 }
 `
 
@@ -79,6 +74,7 @@ var loweringVariantNames = []string{"as written", "with a blocker", "with a capt
 // NOMI_LOWERING_EQUIVALENCE=full checks every file in every variant,
 // about 45 seconds.
 func TestLoweringFromAnalysisMatchesTheSource(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the corpus; -short")
 	}
@@ -199,6 +195,7 @@ func recordLoweringInput(t *testing.T) func(text string) (*analyzedlowering.Anal
 // The run an open starts waits for the document's analysis and lowers it,
 // rather than the text: the program is main.nomi alone.
 func TestLoweringRun_LowersTheDocumentsAnalysis(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}

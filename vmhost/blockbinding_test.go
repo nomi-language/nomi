@@ -62,21 +62,20 @@ func TestBlockBindingBranches_RunInTests(t *testing.T) {
 
 // A block-valued binding that cannot lower is reported at the innermost
 // construct inside it that declined, the call in the inner block, not at
-// the enclosing function. The call is a known gap
-// (gapPartialDefaultBeforeLaterPlaceholder); if it starts lowering, this
-// test needs another construct the builder declines at a statement.
+// the enclosing function. The call is to `planted_decline` (plantDecline).
 func TestBlockBindingDecline_IsReportedAtTheStatement(t *testing.T) {
+	plantDecline(t)
 	src := `import std/io
 
-fn span(a: Int, b: Int = a * 2): (Int, Int) {
-    (a, b)
+fn planted_decline(a: Int): Int {
+    a
 }
 
 fn main() {
     v = {
         w = {
-            u = span(b: _, _)
-            u(1, 2).0
+            u = planted_decline(1)
+            u
         }
         io.inspect(w)
         if True { 1 } else { 2 }
@@ -94,7 +93,7 @@ fn main() {
 	if len(o.declines) != 1 {
 		t.Fatalf("want one decline, got %q", o.declines)
 	}
-	want := "main.nomi:10:17: this call to `span` is not supported yet, so `fn main` cannot run"
+	want := "main.nomi:10:17: this call to `planted_decline` is not supported yet, so `fn main` cannot run"
 	if !strings.Contains(o.declines[0], want) {
 		t.Fatalf("decline:\n%s\nwant it to contain %q", o.declines[0], want)
 	}

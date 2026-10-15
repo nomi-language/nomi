@@ -16,19 +16,17 @@ import (
 const multiManifest = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n"
 
 // multiMain imports shapes and calls `shapes.evens`, which the IR builder
-// declines (loweringBlocked's shape), and declines a body of its own.
+// declines under plantDecline (loweringBlocked's shape), and declines a body
+// of its own.
 const multiMain = `import std/io
 import shapes
 
-fn skip_odd(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+fn planted_decline(n: Int): Int {
   n
 }
 
 fn halves(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
 }
 
 fn main() {
@@ -42,15 +40,12 @@ const multiShapes = `pub fn area(r: Int): Int {
   r * 3
 }
 
-fn skip_odd(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+fn planted_decline(n: Int): Int {
   n
 }
 
 pub fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
 }
 `
 
@@ -201,6 +196,7 @@ func write(t *testing.T, path, text string) {
 // another file has an error, the run lowers the text instead. Lowering
 // from the analysis writes nothing any of its files' analyses reach.
 func TestLoweringFromAnalysis_ProgramsOfSeveralFiles(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
@@ -284,6 +280,7 @@ func TestLoweringFromAnalysis_ProgramsOfSeveralFiles(t *testing.T) {
 // program the run lowers holds analyses of two checks. It lowers as the
 // source does, and lowering it writes nothing the analyses reach.
 func TestLoweringFromAnalysis_AfterADependentsRecheck(t *testing.T) {
+	plantDecline(t)
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}

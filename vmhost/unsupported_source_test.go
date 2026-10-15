@@ -9,19 +9,16 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// A body that uses break or continue, called directly from a callback, is a
-// gap the docs name, so it declines stably for these tests.
+// declinedSource blocks under plantDecline: the builder declines `evens` at
+// the call to `planted_decline` in its callback.
 const declinedSource = `import std/io
 
-fn skip_odd(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+fn planted_decline(n: Int): Int {
   n
 }
 
 fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
 }
 
 fn main() {
@@ -56,6 +53,7 @@ func blockedReport(t *testing.T, p *vmhost.Program) (string, string) {
 // its line quoted, from the run, from Unsupported and from a blocked test
 // case. Only the path differs.
 func TestLoadSource_ADeclineReadsAsOnDisk(t *testing.T) {
+	plantDecline(t)
 	path := writeProgram(t, declinedSource)
 	onDisk, err := vmhost.Load(path)
 	if err != nil {
@@ -70,7 +68,7 @@ func TestLoadSource_ADeclineReadsAsOnDisk(t *testing.T) {
 	if strings.ReplaceAll(diskReport, path, "main.nomi") != memReport {
 		t.Errorf("in-memory report:\n%s\nwant the on-disk one:\n%s", memReport, diskReport)
 	}
-	if !strings.Contains(memReport, " --> main.nomi:11:20\n") || !strings.Contains(memReport, "11 |   Iter.map(xs, |x| skip_odd(x))") {
+	if !strings.Contains(memReport, " --> main.nomi:8:20\n") || !strings.Contains(memReport, "8 |   Iter.map(xs, |x| planted_decline(x))") {
 		t.Errorf("the report does not locate and quote the call:\n%s", memReport)
 	}
 	if strings.ReplaceAll(diskErr, path, "main.nomi") != memErr {
@@ -89,6 +87,7 @@ func TestLoadSource_ADeclineReadsAsOnDisk(t *testing.T) {
 // A decline in an in-memory sibling file is located in that file and quotes
 // its line from the virtual source, as the entry's does.
 func TestLoadSource_ADeclineInAVirtualSiblingQuotesIt(t *testing.T) {
+	plantDecline(t)
 	entry := `import {
   std/io
   lib
@@ -98,15 +97,12 @@ fn main() {
   io.print(lib.evens([1, 2]))
 }
 `
-	lib := `fn skip_odd(n: Int): Int {
-  if n % 2 == 1 {
-    continue
-  }
+	lib := `fn planted_decline(n: Int): Int {
   n
 }
 
 pub fn evens(xs: List<Int>): List<Int> {
-  Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()
+  Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()
 }
 `
 	p, err := vmhost.LoadSource("main", entry, vmhost.WithVirtualFiles(map[string]string{"lib": lib}))
@@ -114,8 +110,8 @@ pub fn evens(xs: List<Int>): List<Int> {
 		t.Fatal(err)
 	}
 	report, _ := blockedReport(t, p)
-	want := "error: this call to `skip_odd` is not supported yet, so `fn evens` cannot run\n" +
-		" --> lib.nomi:9:20\n  |\n9 |   Iter.map(xs, |x| skip_odd(x)) |> Iter.to_list()\n  |                    ^^^^^^^^\n"
+	want := "error: this call to `planted_decline` is not supported yet, so `fn evens` cannot run\n" +
+		" --> lib.nomi:6:20\n  |\n6 |   Iter.map(xs, |x| planted_decline(x)) |> Iter.to_list()\n  |                    ^^^^^^^^^^^^^^^\n"
 	if !strings.HasPrefix(report, want) {
 		t.Errorf("report:\n%s\nwant it to start:\n%s", report, want)
 	}

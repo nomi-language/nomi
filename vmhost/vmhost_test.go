@@ -12,18 +12,15 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// A literal of a struct whose field is a Map of Iters is a body
-// the IR builder declines, so a caller that reaches it is the fixture for
-// a blocked program. If the builder learns that
-// shape these tests fail on their positive controls and need another
-// unretained construct, not a looser assertion.
+// blockedProgram is the fixture for a blocked program: under plantDecline
+// the builder declines `count` at its call to `planted_decline`.
 const blockedProgram = `import std/io
 
 fn count(n: Int, acc: Int): Int {
   if n == 0 {
     acc
   } else {
-    weigh(Node{f: Map.empty()}) + 3
+    planted_decline(n) + 3
   }
 }
 
@@ -44,12 +41,8 @@ test "fails" {
   assert 1 + 2 == 4
 }
 
-struct Node {
-  f: Map<String, {a: Iter<Int>}>
-}
-
-fn weigh(_d: Node): Int {
-  0
+fn planted_decline(n: Int): Int {
+  n
 }
 `
 
@@ -89,6 +82,7 @@ fn main() {
 // The run is refused before its first effect: `main` prints "before" first,
 // and nothing is printed.
 func TestRun_ABlockedProgramNamesItsFunctionAndRunsNothing(t *testing.T) {
+	plantDecline(t)
 	path := writeProgram(t, blockedProgram)
 	p, err := vmhost.Load(path)
 	if err != nil {
@@ -103,20 +97,20 @@ func TestRun_ABlockedProgramNamesItsFunctionAndRunsNothing(t *testing.T) {
 	if out.Len() != 0 {
 		t.Fatalf("a blocked program printed %q; it must be refused before its first effect", out.String())
 	}
-	want := "[count] not retained: a struct literal: Node"
+	want := "[count] not retained: " + plantedReason
 	if len(blocked.Reasons) != 1 || blocked.Reasons[0] != want {
 		t.Fatalf("reasons %q, want [%q]", blocked.Reasons, want)
 	}
-	// The report is the diagnostic `nomi check` gives, at the struct literal
+	// The report is the diagnostic `nomi check` gives, at the call
 	// the lowering stopped at, and never the builder's reason.
-	diag := "this struct literal is not supported yet, so `fn count` cannot run"
+	diag := "this call to `planted_decline` is not supported yet, so `fn count` cannot run"
 	var report bytes.Buffer
 	blocked.Write(&report, "main.nomi")
-	wantReport := "error: " + diag + "\n --> " + path + ":7:11\n  |\n7 |     weigh(Node{f: Map.empty()}) + 3\n  |           ^^^^\n  = help: " + gapHint + "\n"
+	wantReport := "error: " + diag + "\n --> " + path + ":7:5\n  |\n7 |     planted_decline(n) + 3\n  |     ^^^^^^^^^^^^^^^\n  = help: " + gapHint + "\n"
 	if report.String() != wantReport {
 		t.Fatalf("report:\n%s\nwant:\n%s", report.String(), wantReport)
 	}
-	if got := blocked.Error(); got != path+":7:11: "+diag+"\n"+path+":7:11: help: "+gapHint {
+	if got := blocked.Error(); got != path+":7:5: "+diag+"\n"+path+":7:5: help: "+gapHint {
 		t.Fatalf("Error() = %q", got)
 	}
 	checked := vmhost.Check(path)
@@ -139,6 +133,7 @@ func TestBlocked_WithoutADiagnosticKeepsItsReason(t *testing.T) {
 // Every case is reported, in source order: the
 // retained ones run to their verdict and the blocked one names its reason.
 func TestTest_ReportsRunnableAndBlockedCasesInOrder(t *testing.T) {
+	plantDecline(t)
 	path := writeProgram(t, blockedProgram)
 	p, err := vmhost.Load(path)
 	if err != nil {
@@ -148,10 +143,10 @@ func TestTest_ReportsRunnableAndBlockedCasesInOrder(t *testing.T) {
 	if len(cases) != 3 {
 		t.Fatalf("%d cases, want 3: %+v", len(cases), cases)
 	}
-	diag := path + ":7:11: this struct literal is not supported yet, so `fn count` cannot run\n" +
-		path + ":7:11: help: " + gapHint
+	diag := path + ":7:5: this call to `planted_decline` is not supported yet, so `fn count` cannot run\n" +
+		path + ":7:5: help: " + gapHint
 	if cases[0].Name != "counts" || len(cases[0].Blocked) != 1 || cases[0].Blocked[0] != diag ||
-		len(cases[0].Reasons) != 1 || cases[0].Reasons[0] != "[count] not retained: a struct literal: Node" ||
+		len(cases[0].Reasons) != 1 || cases[0].Reasons[0] != "[count] not retained: "+plantedReason ||
 		cases[0].BlockedPath != path || cases[0].BlockedLine != 7 {
 		t.Fatalf("case 0 = %+v, want counts blocked on count", cases[0])
 	}
@@ -184,6 +179,7 @@ func TestTest_ReportsRunnableAndBlockedCasesInOrder(t *testing.T) {
 // A blocked JSON record carries the diagnostic as its message and the line of
 // the code the compiler could not lower as its error_line.
 func TestTest_JSONBlockedRecordLocatesItsBlocker(t *testing.T) {
+	plantDecline(t)
 	path := writeProgram(t, blockedProgram)
 	p, err := vmhost.Load(path)
 	if err != nil {
@@ -197,8 +193,8 @@ func TestTest_JSONBlockedRecordLocatesItsBlocker(t *testing.T) {
 	if err := json.Unmarshal([]byte(first), &rec); err != nil {
 		t.Fatalf("%v: %s", err, first)
 	}
-	want := path + ":7:11: this struct literal is not supported yet, so `fn count` cannot run\n" +
-		path + ":7:11: help: " + gapHint
+	want := path + ":7:5: this call to `planted_decline` is not supported yet, so `fn count` cannot run\n" +
+		path + ":7:5: help: " + gapHint
 	if rec["status"] != "blocked" || rec["message"] != want || rec["error_line"] != float64(7) {
 		t.Fatalf("blocked record %s", first)
 	}
@@ -206,6 +202,7 @@ func TestTest_JSONBlockedRecordLocatesItsBlocker(t *testing.T) {
 
 // --line selects the one case whose lines contain it.
 func TestTest_LineSelectsOneCase(t *testing.T) {
+	plantDecline(t)
 	p, err := vmhost.Load(writeProgram(t, blockedProgram))
 	if err != nil {
 		t.Fatal(err)
