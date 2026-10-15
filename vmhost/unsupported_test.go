@@ -103,17 +103,17 @@ fn main() {
 }
 
 // When `main` itself cannot be lowered, the report is at the expression it
-// stopped at.
+// stopped at. The program is gapBareImportedMaybeMethod's reproducer
+// (lowering_gaps_inventory_test.go); when that gap is fixed, take another
+// known gap whose decline sits in `main`.
 func TestCheck_ReportsADeclinedMainAtTheExpression(t *testing.T) {
-	path := writeProgram(t, `import std/io
-
-fn parse(s: String, strict: Bool = False): Int {
-  if strict { 0 } else { String.length(s) }
+	path := writeProgram(t, `import {
+    std/io
+    std/maybe.Maybe.{with_default}
 }
 
 fn main() {
-  g = parse
-  io.print(g("ab"))
+    io.inspect(with_default(Some(1), 2))
 }
 `)
 	err := vmhost.Check(path)
@@ -121,7 +121,7 @@ fn main() {
 	if !errors.As(err, &ds) || len(ds) != 1 {
 		t.Fatalf("Check answered %v; want one diagnostic", err)
 	}
-	if d := ds[0]; d.Line != 8 || d.Col != 7 || d.Message != "using `parse` here is not supported yet, so `fn main` cannot run" {
+	if d := ds[0]; d.Line != 7 || d.Col != 16 || d.Message != "this call to `with_default` is not supported yet, so `fn main` cannot run" {
 		t.Errorf("got %d:%d %q", d.Line, d.Col, d.Message)
 	}
 }

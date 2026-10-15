@@ -55,3 +55,63 @@ fn main() {
 `)
 	expectNoStdlibErrors(t, errs)
 }
+
+// Only a call of a function by name fills its defaults. Named as a value, it
+// is called with every argument, through a binding, a chain of bindings, a
+// pipe, parentheses, a parameter, a field or a generic function. The checker
+// used to carry the defaults on the value's type, so `g("1")` after
+// `g = parse` was admitted and the IR builder then declined the call.
+func TestFuncValueDefaults_ACallThroughTheValuePassesEveryArgument(t *testing.T) {
+	const held = "expected 2 arguments, got 1: `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name" +
+		"\nhelp: call `parse` directly, or bind a lambda that leaves the rest to its defaults: `g = |s| parse(s)`"
+	for _, tc := range []struct{ body, want string }{
+		{"g = parse\n  _ = g(\"1\")", held},
+		{"g: (String, Bool) -> Maybe<Int> = parse\n  _ = g(\"1\")", held},
+		{"f = parse\n  g = f\n  _ = g(\"1\")", held},
+		{"g = parse\n  _ = \"1\" |> g()", "expected 2 arguments, got 1 (counting the piped value): `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name"},
+		{"_ = (parse)(\"1\")", "expected 2 arguments, got 1"},
+		{"_ = \"1\" |> (parse)()", "expected 2 arguments, got 1 (counting the piped value)"},
+		{"_ = pass(parse)(\"1\")", "expected 2 arguments, got 1"},
+		{"b = Holder{f: parse}\n  _ = b.f(\"1\")", "expected 2 arguments, got 1"},
+		{"_ = through(parse)", "expected 2 arguments, got 1 (counting the piped value)"},
+		// A function value's parameters have no names.
+		{"g = parse\n  _ = g(s: \"1\", strict: True)", "no parameter named 's'"},
+	} {
+		t.Run(tc.body, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + `
+fn pass<T>(x: T): T {
+  x
+}
+
+struct Holder {
+  f: (String, Bool) -> Maybe<Int>
+}
+
+fn through(f: (String, Bool) -> Maybe<Int>): Maybe<Int> {
+  "1" |> f()
+}
+
+fn main() {
+  ` + tc.body + `
+}
+`)
+			expectStdlibError(t, errs, tc.want)
+		})
+	}
+}
+
+// A direct call fills the defaults, and so does a call of a lambda or a
+// partial application through its value: their defaults belong to the value.
+func TestFuncValueDefaults_ADirectCallALambdaAndAPartialKeepTheirDefaults(t *testing.T) {
+	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + `
+fn main() {
+  a = parse("1")
+  b = "1" |> parse()
+  h = |x = 1| x
+  k = parse(_)
+  g = parse
+  _ = (a, b, h(), h(2), k("1"), k(s: "1"), g("1", True), "1" |> g(True))
+}
+`)
+	expectNoStdlibErrors(t, errs)
+}

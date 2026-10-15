@@ -423,6 +423,8 @@ Iter.map(words, |w| parse(w)) // OK
 Iter.map(words, parse(_)) // OK — a partial application leaves strict to its default
 ```
 
+A call through the value passes every argument too, since only a call of `parse` by name fills its defaults. After `g = parse`, `g("12")` is the error `` expected 2 arguments, got 1: `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name ``, whose help suggests calling `parse` directly or binding `g = |s| parse(s)`. The same holds for `"12" |> g()`, for `(parse)("12")`, and for a value passed through a parameter, a field or a generic function. The value's parameters have no names either (*Named Arguments* below). A lambda's own defaults (*Lambda Default Parameters*) and a partial application's open defaults belong to that value, so `h = |x = 1| x` is called as `h()`.
+
 ### Parameter Destructuring
 
 A function or lambda parameter may be an **irrefutable** destructuring pattern instead of a plain name — the same pattern shapes a binding uses (§7). The body sees the bound sub-names directly:

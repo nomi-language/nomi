@@ -2808,7 +2808,7 @@ func (c *checker) checkOnce(n *ast.OnceBinding) {
 	if declared != nil {
 		if err := c.unifyInto(declared, valTy, map[*TypeParam_]Type{}); err != nil {
 			c.report(errAt(n.Value, c.typef(
-				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(mismatchHint(declared, valTy)))
+				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(mismatchHint(declared, valTy)))
 		}
 		return
 	}
@@ -4443,6 +4443,7 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 				WithHint(fmt.Sprintf("name one of its members, as in `%s.function(x)`", n.Name)))
 			return nil
 		}
+		ty = c.funcValueType(n, ty)
 		if node == c.funcRefNode {
 			return ty
 		}
@@ -4457,6 +4458,7 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 			return ft
 		}
 		ty = c.rejectTypeNameValue(n, ty)
+		ty = c.funcValueType(n, ty)
 		if node == c.funcRefNode {
 			return ty
 		}
@@ -4547,6 +4549,7 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 			}
 			ty = c.rejectTypeNameValue(n, ty)
 		}
+		ty = c.funcValueType(n, ty)
 		if node == c.funcRefNode {
 			return ty
 		}
@@ -6815,7 +6818,9 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 	var pipeSlots []int
 	if pipeCall != nil {
 		// Too many arguments, counting the piped value, as the direct call
-		// counts them. Too few is checkRequiredSlotsFilled's below.
+		// counts them. Too few is checkRequiredSlotsFilled's below for a
+		// callee whose parameters have names; a function value's have none,
+		// so its count is checked here (`x |> f()` for a two-parameter f).
 		if got := len(pipeCall.Args) + argShift; got > len(ft.Params) {
 			if ft.DefaultCount > 0 {
 				c.addError(pipeCall.Line, 1, fmt.Sprintf(
@@ -6823,6 +6828,17 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 			} else {
 				c.addError(pipeCall.Line, 1, fmt.Sprintf(
 					"expected %d arguments, got %d (counting the piped value)", len(ft.Params), got))
+			}
+		} else if fewest := len(ft.Params) - ft.DefaultCount; got < fewest && c.callDefParams(pipeCall.Func) == nil {
+			if c.tooFewThroughFuncValue(pipeCall, len(ft.Params), got, true) {
+				// Reported: the callee holds a named function whose
+				// defaults apply only to a call of it by name.
+			} else if ft.DefaultCount > 0 {
+				c.addError(pipeCall.Line, 1, fmt.Sprintf(
+					"expected %d to %d arguments, got %d (counting the piped value)", fewest, len(ft.Params), got))
+			} else {
+				c.addError(pipeCall.Line, 1, fmt.Sprintf(
+					"expected %d arguments, got %d (counting the piped value)", fewest, got))
 			}
 		}
 		pipeSlots = computePipeArgSlots(pipeCall.Args, argShift, c.callDefParams(pipeCall.Func), ft.Params)
@@ -7106,7 +7122,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 				if _, isPh := value.(*ast.Placeholder); !isPh && valTy != nil && expectedTy != nil {
 					argLine, argCol := nodeLineCol(value)
 					if !c.argMatchesParam(valTy, expectedTy, c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
-						c.report(errAt(value, c.typef("%s: expected %s, got %s", label, expectedTy, valTy)).WithHint(defaultedFuncValueHint(expectedTy, valTy, value)).WithHint(mismatchHint(expectedTy, valTy)))
+						c.report(errAt(value, c.typef("%s: expected %s, got %s", label, expectedTy, valTy)).WithHint(c.defaultedFuncValueHint(expectedTy, valTy, value)).WithHint(mismatchHint(expectedTy, valTy)))
 					}
 				}
 			} else {
@@ -7746,7 +7762,10 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 	// two-parameter add three, and `add(_)` leaves b with nothing.
 	minArgs := len(ft.Params) - ft.DefaultCount
 	if !isDispatch && (len(n.Args) < minArgs || len(n.Args) > len(ft.Params)) {
-		if ft.DefaultCount > 0 {
+		if c.tooFewThroughFuncValue(n, len(ft.Params), len(n.Args), false) {
+			// Reported: the callee holds a named function whose defaults
+			// apply only to a call of it by name.
+		} else if ft.DefaultCount > 0 {
 			c.addError(n.Line, 1, fmt.Sprintf(
 				"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args)))
 		} else {
@@ -7815,7 +7834,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(a.Value)
 				if !c.argMatchesParam(argTy, expectedParamTy, c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(a.Value, c.typef(
-						"argument '%s': expected %s, got %s", a.Name, expectedParamTy, argTy)).WithHint(defaultedFuncValueHint(expectedParamTy, argTy, a.Value)).WithHint(c.wholeResultHint(expectedParamTy, argTy, a.Value)).WithHint(mismatchHint(expectedParamTy, argTy)))
+						"argument '%s': expected %s, got %s", a.Name, expectedParamTy, argTy)).WithHint(c.defaultedFuncValueHint(expectedParamTy, argTy, a.Value)).WithHint(c.wholeResultHint(expectedParamTy, argTy, a.Value)).WithHint(mismatchHint(expectedParamTy, argTy)))
 				}
 			}
 		case *ast.Placeholder:
@@ -7841,7 +7860,7 @@ func (c *checker) checkCall(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(arg)
 				if !c.argMatchesParam(argTy, ft.Params[slot], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(arg, c.typef(
-						"argument %d: expected %s, got %s", i+1, ft.Params[slot], argTy)).WithHint(defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(mismatchHint(ft.Params[slot], argTy)))
+						"argument %d: expected %s, got %s", i+1, ft.Params[slot], argTy)).WithHint(c.defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(mismatchHint(ft.Params[slot], argTy)))
 				}
 			}
 		}
@@ -8794,7 +8813,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	}
 	if isSolvedParam(substituted) {
 		if !c.argSatisfiesConcreteParam(argTy, substituted, line, col) {
-			hint := defaultedFuncValueHint(substituted, argTy, arg)
+			hint := c.defaultedFuncValueHint(substituted, argTy, arg)
 			if hint == "" {
 				hint = c.functionJoinHint(param, substituted, argTy)
 			}
@@ -8807,7 +8826,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	// let `Maybe.map(m, parse)` through for a `parse` with a defaulted second
 	// parameter, and the program was BLOCKED at run time.
 	if funcArityDiffers(substituted, argTy) {
-		c.report(expectedGot(substituted).WithHint(defaultedFuncValueHint(substituted, argTy, arg)).WithHint(mismatchHint(substituted, argTy)))
+		c.report(expectedGot(substituted).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(mismatchHint(substituted, argTy)))
 		return
 	}
 	// A function value is never a non-function, and the reverse: no
@@ -9019,7 +9038,9 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// Check argument count.
 	minArgs := len(ft.Params) - ft.DefaultCount
 	if len(n.Args) < minArgs || len(n.Args) > len(ft.Params) {
-		if ft.DefaultCount > 0 {
+		if c.tooFewThroughFuncValue(n, len(ft.Params), len(n.Args), false) {
+			// Reported, as in checkCall.
+		} else if ft.DefaultCount > 0 {
 			c.addError(n.Line, 1, fmt.Sprintf(
 				"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args)))
 		} else {
@@ -11138,7 +11159,7 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 			subs := map[*TypeParam_]Type{}
 			if err := c.unifyInto(declared, valTy, subs); err != nil {
 				c.report(errAt(n.Value, c.typef(
-					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(mismatchHint(declared, valTy)))
+					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(mismatchHint(declared, valTy)))
 			} else if len(subs) > 0 {
 				valTy = Substitute(valTy, subs)
 			}
