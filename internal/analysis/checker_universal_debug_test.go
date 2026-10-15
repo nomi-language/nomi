@@ -45,7 +45,7 @@ func checkUniversalDebugProject(t *testing.T, src string) []analysis.TypeError {
 		t.Fatal("BuildProjectWithCache returned nil")
 	}
 	var errs []analysis.TypeError
-	errs = append(errs, entryFA.TypeErrors...)
+	errs = append(errs, entryErrors(entryFA)...)
 	errs = append(errs, analysis.CheckTypes(entryFA, entryNodes)...)
 	errs = append(errs, analysis.FinalizeCoherence(entryFA)...)
 	return errs

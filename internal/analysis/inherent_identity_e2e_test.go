@@ -57,7 +57,7 @@ func buildInherentFixture(t *testing.T, files map[string]string) *analysis.FileA
 
 func duplicateTypeOwnedDiagnostics(fa *analysis.FileAnalysis) []string {
 	var out []string
-	for _, e := range fa.TypeErrors {
+	for _, e := range entryErrors(fa) {
 		if strings.Contains(e.Message, duplicateTypeOwnedFn) {
 			out = append(out, e.Message)
 		}

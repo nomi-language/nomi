@@ -932,7 +932,10 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 			mainTokens := lexer.Lex(string(mainContent))
 			mainNodes, _ := parser.ParseWithRecovery(mainTokens)
 			loader := dm.makeLoaderWithOverride(uri, nodes)
-			entryFA, cache, siblingNodes := BuildProjectFromEntry(mainPath, mainNodes, dm.primitives, dm.modules, dm.stdlibFAs, root, loader)
+			// The entry is built under its module key, as the document is when
+			// it is its own entry, so each file's analysis is the same
+			// whichever file the build starts from.
+			entryFA, cache, siblingNodes := BuildProjectFromEntryWithManifest(mainPath, mainNodes, dm.primitives, dm.modules, dm.stdlibFAs, root, loader, nil, relModuleKey(root, mainPath), false)
 			docKey := relModuleKey(root, docPath)
 			if cached, ok := cache[docKey]; ok && cached != nil {
 				fa = cached
@@ -993,6 +996,10 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	rec := &loadRecord{}
 	docEntryFA, docSiblings, docSiblingNodes := BuildProjectFromEntryWithManifest(fallbackDocPath, prog, dm.primitives, dm.modules, dm.stdlibFAs, root, dm.makeRecordingLoaderWithOverride(uri, nodes, rec), nil, entryModRel, true)
 	fa = docEntryFA
+	// The program's own errors (duplicate and orphan impls) are shown with
+	// the document that is its entry, after its build-phase errors, as the
+	// front end reports them.
+	fa.TypeErrors = append(fa.TypeErrors, fa.Program().Errors...)
 	checkErrs := CheckTypes(fa, prog)
 	checkErrs = append(checkErrs, CheckAppRoots(fa, prog)...)
 	iterErrs := AnalyzeIterSensitivity(fa, prog)

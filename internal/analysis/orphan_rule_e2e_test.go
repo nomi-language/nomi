@@ -57,8 +57,8 @@ func TestOrphanRule_RejectsForeignIfaceForForeignType_E2E(t *testing.T) {
 	}
 
 	var orphanErr *analysis.TypeError
-	for i := range fa.TypeErrors {
-		e := &fa.TypeErrors[i]
+	for i := range entryErrors(fa) {
+		e := &entryErrors(fa)[i]
 		if strings.Contains(e.Message, "orphan impl") {
 			orphanErr = e
 			break
@@ -66,7 +66,7 @@ func TestOrphanRule_RejectsForeignIfaceForForeignType_E2E(t *testing.T) {
 	}
 	if orphanErr == nil {
 		t.Fatalf("expected an `orphan impl` TypeError from on-disk orphan_violator fixture, got %d errors: %v",
-			len(fa.TypeErrors), fa.TypeErrors)
+			len(entryErrors(fa)), entryErrors(fa))
 	}
 
 	// The diagnostic names both foreign sides and the implementing module.
@@ -116,8 +116,8 @@ func TestOrphanRule_RejectsForeignIfaceForNonPreludeStdlibType_E2E(t *testing.T)
 	}
 
 	var orphanErr *analysis.TypeError
-	for i := range fa.TypeErrors {
-		e := &fa.TypeErrors[i]
+	for i := range entryErrors(fa) {
+		e := &entryErrors(fa)[i]
 		if strings.Contains(e.Message, "orphan impl") {
 			orphanErr = e
 			break
@@ -125,7 +125,7 @@ func TestOrphanRule_RejectsForeignIfaceForNonPreludeStdlibType_E2E(t *testing.T)
 	}
 	if orphanErr == nil {
 		t.Fatalf("expected an `orphan impl` TypeError from on-disk orphan_violator_nonprelude fixture, got %d errors: %v",
-			len(fa.TypeErrors), fa.TypeErrors)
+			len(entryErrors(fa)), entryErrors(fa))
 	}
 
 	// The diagnostic names both foreign sides and the implementing module.
@@ -214,9 +214,15 @@ fn main() {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 
-	for _, e := range fa.TypeErrors {
+	for _, e := range entryErrors(fa) {
 		if strings.Contains(e.Message, "orphan impl") {
 			t.Errorf("unexpected orphan diagnostic (declaredLocally short-circuit regressed?): %s", e.Message)
 		}
 	}
+}
+
+// entryErrors are an entry's build-phase errors followed by its program's
+// own (Program.Errors), in the order the front end reports them.
+func entryErrors(fa *analysis.FileAnalysis) []analysis.TypeError {
+	return append(append([]analysis.TypeError{}, fa.TypeErrors...), fa.Program().Errors...)
 }

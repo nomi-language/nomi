@@ -242,6 +242,9 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	)
 	c.projectFiles = collectProjectFiles(siblingFAs, siblingNodes)
 	errs := c.buildErrors(fa)
+	// The program's own errors (duplicate and orphan impls) are reported with
+	// the entry's, after its build-phase errors.
+	errs = append(errs, c.kept(fa.Program().Errors)...)
 	errs = append(errs, c.kept(analysis.CheckTypes(fa, nodes))...)
 	// A sibling's CheckTypes records the conformance its bodies demand in its
 	// own ImplManifest, which the missing-impl check folds, and reports the

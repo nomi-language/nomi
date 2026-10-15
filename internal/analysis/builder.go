@@ -417,7 +417,8 @@ type FileAnalysis struct {
 	FilePath string
 	// Origin is the nominal-identity key for types this file declares —
 	// the build's own module-path key (`std/calendar`, `shapes`,
-	// `stringkit/pad`), or OriginEntry for the project entry file. It is
+	// `stringkit/pad`, the entry's own key), or OriginEntry for an entry
+	// file the build has no key for. It is
 	// build-relative and stable, unlike FilePath, which is absolute and
 	// (for stdlib) points into the per-process materialization cache.
 	// A nominal type's identity is (Origin, Name); see nominal_identity.go.

@@ -59,7 +59,7 @@ pub struct B {
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
-	for _, e := range fa.TypeErrors {
+	for _, e := range entryErrors(fa) {
 		if e.Code == analysis.UnusedBindingCode {
 			continue
 		}
@@ -167,7 +167,7 @@ pub fn make(): Holder {
 	// entry file's CheckTypes pass.
 	checkErrs := analysis.CheckTypes(fa, entryNodes)
 
-	allErrs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	allErrs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	allErrs = append(allErrs, checkErrs...)
 	for _, e := range allErrs {
 		if e.Code == analysis.UnusedBindingCode {
@@ -219,7 +219,7 @@ func buildProjectExpectingErrors(t *testing.T, entry string, siblings map[string
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
-	errs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	errs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	errs = append(errs, analysis.CheckTypes(fa, entryNodes)...)
 	return errs
 }
@@ -351,7 +351,7 @@ func TestBuildProject_MalformedManifestSurfacesAsTypeError(t *testing.T) {
 		t.Fatal("expected non-nil FileAnalysis even with malformed nomi.toml")
 	}
 	found := false
-	for _, e := range fa.TypeErrors {
+	for _, e := range entryErrors(fa) {
 		if strings.Contains(e.Message, "nomi.toml") {
 			found = true
 			break
@@ -359,7 +359,7 @@ func TestBuildProject_MalformedManifestSurfacesAsTypeError(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected a TypeError mentioning nomi.toml, got %d errors: %v",
-			len(fa.TypeErrors), fa.TypeErrors)
+			len(entryErrors(fa)), entryErrors(fa))
 	}
 }
 
@@ -458,7 +458,7 @@ fn main() {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 	checkErrs := analysis.CheckTypes(fa, entryNodes)
-	allErrs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	allErrs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	allErrs = append(allErrs, checkErrs...)
 	for _, e := range allErrs {
 		if e.Message == "" {
@@ -531,7 +531,7 @@ fn main() {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 	found := false
-	for _, e := range fa.TypeErrors {
+	for _, e := range entryErrors(fa) {
 		if strings.Contains(e.Message, "internal/") && strings.Contains(e.Message, "unreachable") {
 			found = true
 			break
@@ -539,7 +539,7 @@ fn main() {
 	}
 	if !found {
 		t.Errorf("expected an `internal/ paths are unreachable` type error, got %d: %v",
-			len(fa.TypeErrors), fa.TypeErrors)
+			len(entryErrors(fa)), entryErrors(fa))
 	}
 }
 
@@ -605,7 +605,7 @@ fn main() {
 		t.Errorf("expected siblingFAs to contain key %q", "helper")
 	}
 	checkErrs := analysis.CheckTypes(fa, entryNodes)
-	allErrs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	allErrs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	allErrs = append(allErrs, checkErrs...)
 	for _, e := range allErrs {
 		if e.Message == "" {
@@ -666,8 +666,8 @@ fn main() {
 	}
 
 	var orphanErr *analysis.TypeError
-	for i := range fa.TypeErrors {
-		e := &fa.TypeErrors[i]
+	for i := range entryErrors(fa) {
+		e := &entryErrors(fa)[i]
 		if strings.Contains(e.Message, "orphan impl") {
 			orphanErr = e
 			break
@@ -675,7 +675,7 @@ fn main() {
 	}
 	if orphanErr == nil {
 		t.Fatalf("expected an `orphan impl` TypeError, got %d errors: %v",
-			len(fa.TypeErrors), fa.TypeErrors)
+			len(entryErrors(fa)), entryErrors(fa))
 	}
 	for _, substr := range []string{"Display", "Pad", "todo"} {
 		if !strings.Contains(orphanErr.Message, substr) {
@@ -718,8 +718,8 @@ fn main() {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 
-	if len(fa.TypeErrors) != 0 {
-		t.Fatalf("local type impl block should be allowed, got %v", fa.TypeErrors)
+	if len(entryErrors(fa)) != 0 {
+		t.Fatalf("local type impl block should be allowed, got %v", entryErrors(fa))
 	}
 }
 
@@ -756,8 +756,8 @@ fn main() {
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
-	if len(fa.TypeErrors) != 0 {
-		t.Fatalf("local constrained generic impl block should be allowed, got %v", fa.TypeErrors)
+	if len(entryErrors(fa)) != 0 {
+		t.Fatalf("local constrained generic impl block should be allowed, got %v", entryErrors(fa))
 	}
 }
 
@@ -788,8 +788,8 @@ fn main() {
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
-	if !hasTypeErrorContaining(fa.TypeErrors, "'name' is already defined") {
-		t.Fatalf("expected duplicate module function error, got %v", fa.TypeErrors)
+	if !hasTypeErrorContaining(entryErrors(fa), "'name' is already defined") {
+		t.Fatalf("expected duplicate module function error, got %v", entryErrors(fa))
 	}
 }
 
@@ -825,7 +825,7 @@ fn main() {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 	checkErrs := analysis.CheckTypes(fa, entryNodes)
-	allErrs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	allErrs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	allErrs = append(allErrs, checkErrs...)
 	for _, e := range allErrs {
 		if e.Message == "" {
@@ -1064,8 +1064,8 @@ fn main() {
 	}
 
 	var orphanErr *analysis.TypeError
-	for i := range fa.TypeErrors {
-		e := &fa.TypeErrors[i]
+	for i := range entryErrors(fa) {
+		e := &entryErrors(fa)[i]
 		if strings.Contains(e.Message, "orphan impl") {
 			orphanErr = e
 			break
@@ -1075,11 +1075,11 @@ fn main() {
 		// Dump all errors to make debugging regressions easier
 		// (e.g. stdlib loading misconfigured).
 		var allMsgs []string
-		for _, e := range fa.TypeErrors {
+		for _, e := range entryErrors(fa) {
 			allMsgs = append(allMsgs, e.Message)
 		}
 		t.Fatalf("expected an `orphan impl` TypeError from prelude-implicit Display use, got %d errors: %v",
-			len(fa.TypeErrors), allMsgs)
+			len(entryErrors(fa)), allMsgs)
 	}
 	for _, substr := range []string{"Display", "Pad", "todo"} {
 		if !strings.Contains(orphanErr.Message, substr) {

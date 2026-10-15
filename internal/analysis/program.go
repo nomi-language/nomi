@@ -45,6 +45,13 @@ type Program struct {
 	BootFunctions       map[*ast.FuncDef]bool
 	AppTypes            []*StructType
 
+	// Errors are the build's diagnostics about the program as a whole
+	// rather than about one of its files: duplicate impls and impls that
+	// break the orphan rule, each positioned at an impl. The front end
+	// reports them with the entry's diagnostics, right after the entry's
+	// build-phase errors.
+	Errors []TypeError
+
 	// ContextType is the canonical std/context.Context identity.
 	ContextType Type
 	// StdlibModuleScopes maps each stdlib module's short name ("iter",
@@ -175,6 +182,21 @@ func (p *Program) setFiles(byKey map[string]*FileAnalysis) {
 // "shapes"), or nil.
 func (p *Program) File(key string) *FileAnalysis {
 	return p.filesByKey[key]
+}
+
+// entryOrigin is the Origin of the program's entry: its module key, or
+// OriginEntry when the build was given none.
+func (p *Program) entryOrigin() string {
+	return entryOriginOf(p.filesByKey)
+}
+
+// entryOriginOf is the Origin of the entry among a build's files by key,
+// which holds the entry under "".
+func entryOriginOf(filesByKey map[string]*FileAnalysis) string {
+	if entry := filesByKey[""]; entry != nil {
+		return entry.Origin
+	}
+	return OriginEntry
 }
 
 // Files answers every file the program reaches, the stdlib's included, in

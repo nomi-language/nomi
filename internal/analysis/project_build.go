@@ -378,7 +378,11 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 	entryFB := makeBuilder(entryNodes, "")
 	if entryModRel != "" {
+		// The entry is a file of the module like any other: its key names
+		// it in the import graph and is the Origin of what it declares, so
+		// its analysis is the one it gets when another file is the entry.
 		cache[entryModRel] = entryFB.fa
+		entryFB.fa.Origin = originForKey(entryModRel)
 	}
 	all = append(all, entryFB)
 	// Surface manifest-load failures (e.g. malformed nomi.toml) as a
@@ -553,7 +557,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// nil primitives: this pass runs before BuildTypes, so it yields bare
 		// names for everything regardless, and PopulateQualifiedReceivers
 		// overwrites every entry below once types exist.
-		qualifiedImplBlockReceivers[fn] = qualifyReceiver(faByKey[ifaceImplFiles[fn]], recv, nil)
+		qualifiedImplBlockReceivers[fn] = qualifyReceiver(faByKey[ifaceImplFiles[fn]], recv, nil, entryOriginOf(faByKey))
 	}
 	// The build's own impl-method tables, which its Program holds. A
 	// file's own maps (fa.ImplBlockReceiver) are not guaranteed to contain
@@ -863,6 +867,11 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// implIndex.QualifiedReceiver (above), and the interface-key map is
 	// merged the same way, so every member of the union groups on the same
 	// key shape.
+	//
+	// These checks and the orphan rule below are about the program, not
+	// about the file that happens to be its entry: their errors are the
+	// Program's (Program.Errors), and a caller reports them where it likes.
+	var programErrs []TypeError
 	collisionIndex, collisionFiles := CollisionImplIndex(ifaceImpls, ifaceImplFiles, implIndex)
 	collisionIfaceKeys := make(map[*ast.FuncDef]string, len(implBlockInterfaceKeys)+len(implIndex.ImplBlockInterfaceKey))
 	for fn, key := range implIndex.ImplBlockInterfaceKey {
@@ -871,18 +880,18 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	for fn, key := range implBlockInterfaceKeys {
 		collisionIfaceKeys[fn] = key
 	}
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors, detectImplCollisions(collisionIndex, collisionFiles, qualifiedImplBlockReceivers, collisionIfaceKeys, implIndex.ImplIfaceOrigin)...,
+	programErrs = append(
+		programErrs, detectImplCollisions(collisionIndex, collisionFiles, qualifiedImplBlockReceivers, collisionIfaceKeys, implIndex.ImplIfaceOrigin)...,
 	)
 	// Inherent type-function name collisions (two type-body `fn m` items
 	// for one type after lowering).
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors, detectInherentImplCollisions(inherentImpls)...,
+	programErrs = append(
+		programErrs, detectInherentImplCollisions(inherentImpls)...,
 	)
 	// Synthesized inherent-block collisions with the same receiver/signature
 	// in one file.
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors, detectInherentImplBlockCollisions(inherentBlocks)...,
+	programErrs = append(
+		programErrs, detectInherentImplBlockCollisions(inherentBlocks)...,
 	)
 
 	// Orphan rule check fires later in this function (declaringModuleIndex
@@ -912,8 +921,8 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	implModuleOf := func(fn *ast.FuncDef) string {
 		return moduleNameFromKey(ifaceImplFiles[fn], currentModuleName, crossModuleSegments)
 	}
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors,
+	programErrs = append(
+		programErrs,
 		detectOrphanImpls(ifaceImpls, declModule, implModuleOf, implBlockReceivers)...,
 	)
 	// Inherent-block orphan rule: the receiver type must be declared in the
@@ -922,8 +931,8 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	inherentDeclaredLocally := func(module, name string) bool {
 		return declaredTypesByFile[module][name]
 	}
-	entryFB.fa.TypeErrors = append(
-		entryFB.fa.TypeErrors,
+	programErrs = append(
+		programErrs,
 		detectInherentImplBlockOrphans(inherentBlocks, inherentDeclaredLocally)...,
 	)
 
@@ -984,6 +993,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		ContextType:         contextType,
 		StdlibModuleScopes:  stdlibScopes,
 		unindexedImpls:      unionImpls(unindexed),
+		Errors:              programErrs,
 		results:             newProgramResults(),
 	}
 	program.setFiles(filesByKey)

@@ -48,6 +48,7 @@ func RunFrontEnd(source, root string, virtualFiles map[string]string) ([]ast.Nod
 	)
 	var errs []analysis.TypeError
 	errs = append(errs, fa.TypeErrors...)
+	errs = append(errs, fa.Program().Errors...)
 	errs = append(errs, analysis.CheckTypes(fa, nodes)...)
 	program := []analysis.ProgramFile{{FA: fa, Nodes: nodes}}
 	for key, sibFA := range siblingFAs {

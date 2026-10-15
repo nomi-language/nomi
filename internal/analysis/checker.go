@@ -16640,7 +16640,7 @@ func (c *checker) interfacesWritingMethod(typeName, method string) []string {
 	for _, iface := range out {
 		seen[iface] = true
 	}
-	qualified := qualifyReceiver(c.fa, typeName, nil)
+	qualified := qualifyReceiver(c.fa, typeName, nil, c.fa.Program().entryOrigin())
 	for _, iface := range c.interfacesImplementedBy(typeName) {
 		if seen[iface] {
 			continue

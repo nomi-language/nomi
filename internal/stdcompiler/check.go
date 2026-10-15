@@ -112,6 +112,7 @@ func ProjectDiagnostics(entryNodes []ast.Node, root string, loader analysis.File
 
 	errs := append([]analysis.TypeError{}, prepErrs...)
 	errs = append(errs, fa.TypeErrors...)
+	errs = append(errs, fa.Program().Errors...)
 	errs = append(errs, analysis.CheckTypes(fa, entryNodes)...)
 	var sibErrs []analysis.TypeError
 	var sibFAs []*analysis.FileAnalysis

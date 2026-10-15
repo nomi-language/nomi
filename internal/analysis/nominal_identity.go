@@ -6,7 +6,8 @@ package analysis
 // identified by the pair (Origin, Name) — never by Name alone. Origin is the
 // declaring file's build key, the same key BuildProject files itself by:
 //
-//	OriginEntry     the project entry file
+//	"main"          the project entry file, by its module key
+//	OriginEntry     a project entry file the build has no key for
 //	"std/calendar"  a stdlib file
 //	"shapes"        a sibling file in the entry's module
 //	"stringkit/pad" a file in a cross-module dependency
@@ -18,9 +19,12 @@ package analysis
 // short means every display, hover, and diagnostic consumer reads it
 // unchanged.
 
-// OriginEntry is the Origin of types declared in the project entry file.
-// The entry's build key is "" — the empty string is reserved for
-// OriginUnresolved, so the entry gets an explicit token instead. The
+// OriginEntry is the Origin of types declared in a project entry file whose
+// module key the build was not given (BuildProject, an in-memory REPL
+// input). An entry with a key (BuildProjectFromEntryWithManifest's
+// entryModRel) has that key as its Origin, as every other file does. The
+// empty string is reserved for OriginUnresolved, so a keyless entry gets an
+// explicit token instead. The
 // angle brackets cannot collide with a real key: import path segments
 // are restricted to [_A-Za-z][_A-Za-z0-9]* (parser.isImportPathSegment).
 const OriginEntry = "<entry>"

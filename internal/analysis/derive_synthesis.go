@@ -475,8 +475,9 @@ func SynthesizeDerives(nodes []ast.Node) ([]ast.Node, []TypeError) {
 	wrapping := wrappingDistincts(typeDeclsInNodeList(nodes))
 	var synthesized []ast.Node
 	var errs []TypeError
+	index := sourceIndices(nodes)
 	for i, n := range nodes {
-		site := synthSiteOf(i, n)
+		site := synthSiteOf(index[i], n)
 		site.wrapping = wrapping
 		decls, decErrs := processTypeDeclDeriveDecorators(n, site, prior)
 		synthesized = append(synthesized, decls...)
@@ -493,6 +494,24 @@ func SynthesizeDerives(nodes []ast.Node) ([]ast.Node, []TypeError) {
 	out = append(out, nodes...)
 	out = append(out, synthesized...)
 	return out, errs
+}
+
+// sourceIndices answers each node's index among the nodes the file's source
+// wrote. A prelude import a project build prepends to a user file takes no
+// index, so a declaration's synthesized positions are the same whether its
+// file was synthesized before the build prepended them (the front end's and
+// the language server's entry) or after (every other file of the build).
+func sourceIndices(nodes []ast.Node) []int {
+	out := make([]int, len(nodes))
+	next := 0
+	for i, n := range nodes {
+		out[i] = next
+		if imp, ok := n.(*ast.ImportStmt); ok && isPreludeInjectLine(imp.Line) {
+			continue
+		}
+		next++
+	}
+	return out
 }
 
 // synthSiteOf builds the site for the declaration at top-level index i.
@@ -918,6 +937,7 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 	explicit := typesWithExplicitDebug(nodes)
 	wrapping := wrappingDistincts(typeDeclsInNodeList(nodes))
 	var synthesized []ast.Node
+	index := sourceIndices(nodes)
 	for i, n := range nodes {
 		// typeDeclName recognises struct/enum/typedef AND host types:
 		// declared host types are nominal types too — values of them
@@ -941,7 +961,7 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 		// synthesized impl would add a duplicate-impl error at a
 		// synthesized line that says nothing about the real cause.
 		explicit[typeName] = true
-		site := synthSiteOf(i, n)
+		site := synthSiteOf(index[i], n)
 		site.wrapping = wrapping
 		synthesized = append(synthesized, synthesizeAutoDebug(n, site)...)
 	}

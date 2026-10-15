@@ -95,9 +95,10 @@ func lowerNodeListDerives(nodes []ast.Node, errs *[]TypeError) ([]ast.Node, bool
 	seenDerives := map[string]map[string]bool{}
 	var out []ast.Node
 	changed := false
+	index := sourceIndices(nodes)
 	for i, n := range nodes {
 		if conf, ok := n.(*ast.ImplConformance); ok && conf.Derive && conf.Receiver != nil {
-			replacement := lowerTopLevelDerive(conf, i, decls, manualImpls, seenDerives, errs)
+			replacement := lowerTopLevelDerive(conf, index[i], decls, manualImpls, seenDerives, errs)
 			if !changed {
 				out = append(out, nodes[:i]...)
 				changed = true

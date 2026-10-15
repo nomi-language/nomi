@@ -40,7 +40,7 @@ func buildSiblingProject(t *testing.T, entry string, siblings map[string]string)
 	lib := std.Load()
 	fa, sibFAs, sibNodes := analysis.BuildProjectFromEntry(
 		mainPath, nodes, lib.Primitives, lib.Modules, lib.Files, tmp, std.MakeLoader())
-	errs := append([]analysis.TypeError{}, fa.TypeErrors...)
+	errs := append([]analysis.TypeError{}, entryErrors(fa)...)
 	errs = append(errs, analysis.CheckTypes(fa, nodes)...)
 	for key, sibFA := range sibFAs {
 		errs = append(errs, sibFA.TypeErrors...)

@@ -500,6 +500,7 @@ func PopulateQualifiedReceivers(idx *ProjectImplIndex, filesByKey map[string]*Fi
 	if idx.QualifiedReceiver == nil {
 		idx.QualifiedReceiver = make(map[*ast.FuncDef]string, len(idx.ImplBlockReceiver))
 	}
+	entry := entryOriginOf(filesByKey)
 	primitives := primitiveOriginIndex(filesByKey)
 	populate := func(fn *ast.FuncDef) {
 		if fn == nil {
@@ -509,7 +510,7 @@ func PopulateQualifiedReceivers(idx *ProjectImplIndex, filesByKey map[string]*Fi
 		if recv == "" {
 			return
 		}
-		idx.QualifiedReceiver[fn] = qualifyReceiver(filesByKey[idx.ImplFiles[fn]], recv, primitives)
+		idx.QualifiedReceiver[fn] = qualifyReceiver(filesByKey[idx.ImplFiles[fn]], recv, primitives, entry)
 	}
 	for fn := range idx.ImplBlockReceiver {
 		populate(fn)
@@ -591,7 +592,12 @@ func primitiveOriginIndex(filesByKey map[string]*FileAnalysis) map[string]string
 // singleton with no Origin, so `Int` reached through the prelude had no
 // identity and keyed bare. Nil is accepted — the callers that pass nil
 // (single-file paths) get exactly the previous answer.
-func qualifyReceiver(fa *FileAnalysis, typeName string, primitives map[string]string) string {
+//
+// The program entry's own types key bare, as their runtime type names do.
+// entryOrigin is the entry's Origin, its module key (entryOriginOf); the
+// entry is a fact about the program, not about the file that declares the
+// type.
+func qualifyReceiver(fa *FileAnalysis, typeName string, primitives map[string]string, entryOrigin string) string {
 	if typeName == "" {
 		return typeName
 	}
@@ -607,7 +613,7 @@ func qualifyReceiver(fa *FileAnalysis, typeName string, primitives map[string]st
 	if origin == "" {
 		origin = primitives[head]
 	}
-	if origin == "" || origin == OriginEntry {
+	if origin == "" || origin == OriginEntry || origin == entryOrigin {
 		return typeName
 	}
 	return lastSegment(origin) + "." + typeName
