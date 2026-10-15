@@ -19,8 +19,9 @@ type Analyzed struct {
 	Nodes []ast.Node
 	FA    *analysis.FileAnalysis
 	Root  string
-	// Files are the program's other project files, checked in the same
-	// build as FA, each with the text it was parsed from.
+	// Files are the program's other project files, checked as part of FA's
+	// program (a recheck may have kept one's analysis from an earlier
+	// check), each with the text it was parsed from.
 	Files []analysis.EntryProgramFile
 	// ReachesEntry reports that a file of the program imports the entry,
 	// and the build answered that import with the entry's analyzed text.

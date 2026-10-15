@@ -145,8 +145,8 @@ func TestIncremental_BodyEditsConcurrentWithRequests(t *testing.T) {
 	if !s.awaitAnalysis(ctx, uri("shapes.nomi"), 10*time.Second) {
 		t.Fatal("the last edit was not analyzed")
 	}
-	bodies, full, reused := s.docs.ProgramChecks()
-	t.Logf("%d analyses rebuilt bodies, %d checked whole programs, %d reused one", bodies, full, reused)
+	bodies, dependents, full, reused := s.docs.ProgramChecks()
+	t.Logf("%d analyses rebuilt bodies, %d checked dependents, %d checked whole programs, %d reused one", bodies, dependents, full, reused)
 	t.Logf("whole programs checked because: %v", s.docs.FullCheckReasons())
 	if bodies == 0 {
 		t.Errorf("no edit rebuilt only bodies")

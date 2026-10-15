@@ -277,3 +277,49 @@ func TestLoweringFromAnalysis_ProgramsOfSeveralFiles(t *testing.T) {
 		})
 	}
 }
+
+// An edit that changes the entry's interface checks the entry afresh and
+// keeps the analysis of the file it imports (a dependents recheck), so the
+// program the run lowers holds analyses of two checks. It lowers as the
+// source does, and lowering it writes nothing the analyses reach.
+func TestLoweringFromAnalysis_AfterADependentsRecheck(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	dir := writeProject(t, map[string]string{"nomi.toml": multiManifest, "main.nomi": multiMain, "shapes.nomi": multiShapes})
+	s := NewServer()
+	path := filepath.Join(dir, "main.nomi")
+	uri := pathToURI(path)
+	s.docs.Open(pathToURI(filepath.Join(dir, "shapes.nomi")), multiShapes)
+	s.docs.Open(uri, multiMain)
+	text := strings.Replace(multiMain, "fn halves(xs: List<Int>): List<Int> {", "fn halves(xs: List<Int>, _n: Int = 0): List<Int> {", 1)
+	if text == multiMain {
+		t.Fatal("the edit does not apply")
+	}
+	_, dependents, _, _ := s.docs.ProgramChecks()
+	s.docs.Update(uri, text)
+	if _, after, _, _ := s.docs.ProgramChecks(); after != dependents+1 {
+		t.Fatalf("the edit checked %d programs by their dependents, want 1; whole programs because: %v", after-dependents, s.docs.FullCheckReasons())
+	}
+	a, latest := s.loweringAnalysis(uri, text)
+	if a == nil || !latest || len(a.Files) != 1 {
+		t.Fatalf("loweringAnalysis = %+v, %v; want main.nomi's program with shapes.nomi", a, latest)
+	}
+	// From the source first, which marks the shared stdlib's tail calls as any
+	// first lowering in a process does.
+	want := loweringDiagnostics(path, text, nil)
+	prints := fingerprint(a)
+	if _, ok, err := analyzedlowering.Check(path, text, a); !ok || err != nil {
+		t.Fatalf("lowered from the analysis: %v, %v", ok, err)
+	}
+	got := loweringDiagnostics(path, text, a)
+	if changed := prints.diff(fingerprint(a)); len(changed) > 0 {
+		t.Errorf("lowering changed objects the analysis reaches, of types:\n  %s", strings.Join(changed, "\n  "))
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("from the analysis\n%s\nfrom the source\n%s", renderDiagnostics(got), renderDiagnostics(want))
+	}
+	if n := len(notSupported(want)); n != 2 {
+		t.Errorf("%d lowering diagnostics, want 2:\n%s", n, renderDiagnostics(want))
+	}
+}

@@ -88,15 +88,24 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
 - **Language server analysis.** An open document is analyzed as part of a
   whole program the `DocumentManager` keeps per project root and entry
   (`internal/analysis/document_programs.go`): the program of the first entry
-  candidate that reaches it, else its own. An edit that leaves a file's
-  interface fingerprint as it was rebuilds only that file's bodies, in place
-  (`DocumentManager.Recheck`, `internal/analysis/recheck.go`); any other
-  change checks the program afresh. Since the rebuild rewrites installed
-  analyses, a reader of one holds `DocumentManager.View`, and a recheck
-  takes that lock exclusively until it has installed its answer.
+  candidate that reaches it, else its own. Edits to one file or several
+  (`DocumentManager.Recheck`, `RecheckEdits`) that leave each file's
+  interface fingerprint as it was rebuild only those files' bodies, in place
+  (`internal/analysis/recheck.go`); a `once`'s value is a body, and an
+  unannotated one is inferred again and must keep its type (early cutoff,
+  `OnceTable.reinfer`). Any other edit checks the edited files and the files
+  that import them, directly or through others, afresh and keeps every other
+  file's analysis (`recheck_dependents.go`, `checkProgramFrom`), unless the
+  edit changes the impls a file brings (`implsFingerprint`), a kept file
+  holds something of a rechecked one, or that is every file; then the
+  program is checked afresh. Since a recheck rewrites installed analyses, a
+  reader of one holds `DocumentManager.View`, and a recheck takes that lock
+  exclusively until it has installed its answer.
   `TestIncrementalMatchesFull` and `FuzzIncrementalMatchesFull` hold a
-  recheck to a full check, and `TestOpenDocumentEditsMatchFreshBuilds`
-  holds each document's diagnostics to an analysis of the file on its own.
+  recheck to a full check, dump for dump and with no kept analysis holding
+  one a recheck replaced (`StaleForTest`), and
+  `TestOpenDocumentEditsMatchFreshBuilds` holds each document's diagnostics
+  to an analysis of the file on its own.
 - **IR builder.** `internal/irbuild` lowers every body a program runs (module
   functions, impl functions, `once` initializers, test bodies, lambdas, stdlib
   bodies) into an `ir.Func`. Generic functions, types and impls are

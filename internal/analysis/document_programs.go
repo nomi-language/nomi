@@ -17,12 +17,15 @@ import (
 // front end checks it (CheckProgram): the program of the first entry
 // candidate under its project root that reaches it, or else the program it
 // is the entry of. The manager keeps each such program between analyses
-// (rootProgram), and the next analysis of a document it reaches rechecks it:
-// when one file's text changed and its interface did not, only that file's
-// bodies are rebuilt (rebuildEditedBodies).
+// (rootProgram), and the next analysis of a document it reaches rechecks it
+// with every file whose text changed: when no changed file's interface did,
+// only their bodies are rebuilt (rebuildEditedBodies), and otherwise the
+// changed files and their importers are checked afresh beside the other
+// files' kept analyses (recheckDependents).
 //
 // A recheck that rebuilds bodies rewrites the kept program's analyses,
-// nodes and symbols in place, and documents have them installed. So a
+// nodes and symbols in place, and one that checks importers afresh hands
+// the kept analyses a new Program; documents have them installed. So a
 // reader of an installed analysis holds the view lock (View) while it
 // reads, and a recheck that rewrites installed objects takes it exclusively
 // (lockView) from before it rewrites anything until the rewritten analysis
@@ -83,7 +86,7 @@ func (dm *DocumentManager) lockView() bool {
 // programCounts counts how the manager answered the programs its open
 // documents' analyses asked for.
 type programCounts struct {
-	bodies, full, reused atomic.Int64
+	bodies, dependents, full, reused atomic.Int64
 	// reasons counts why whole programs were checked.
 	mu      sync.Mutex
 	reasons map[string]int
@@ -99,10 +102,12 @@ func (c *programCounts) note(reason string) {
 	c.reasons[reason]++
 }
 
-// ProgramChecks reports how many of the open documents' analyses rebuilt one
-// file's bodies, checked a whole program, and reused a program as it was.
-func (dm *DocumentManager) ProgramChecks() (bodies, full, reused int64) {
-	return dm.programCounts.bodies.Load(), dm.programCounts.full.Load(), dm.programCounts.reused.Load()
+// ProgramChecks reports how many of the open documents' analyses rebuilt
+// only edited files' bodies, checked edited files and the files that import
+// them afresh, checked a whole program, and reused a program as it was.
+func (dm *DocumentManager) ProgramChecks() (bodies, dependents, full, reused int64) {
+	c := &dm.programCounts
+	return c.bodies.Load(), c.dependents.Load(), c.full.Load(), c.reused.Load()
 }
 
 // FullCheckReasons counts why the open documents' analyses checked whole
@@ -191,8 +196,8 @@ func (dm *DocumentManager) openTexts(root, uri, content string) map[string]strin
 
 // programFor answers the program whose entry has module key entry under
 // root, with uri's text content: the kept one when no file's text changed
-// since it was checked, rebuilt in one file's bodies when only that file's
-// changed and its interface did not, and otherwise checked afresh. It
+// since it was checked, and otherwise rechecked with the changed texts
+// (recheckIncremental), or checked afresh when that cannot answer. It
 // answers the release of the view lock when it took it. The caller holds
 // analyzeMu, which programFor may let go of and take again while it waits
 // for the view lock.
@@ -201,10 +206,12 @@ func (dm *DocumentManager) programFor(root, entry, docKey, uri, content, manifes
 	texts := dm.openTexts(root, uri, content)
 	key := programKey{root, entry}
 	reason := ""
+	// parsed holds the changed texts parsed, which a full check takes.
+	var parsed map[string]*parsedFile
 	fresh := func() (*CheckedProgram, func()) {
 		dm.programCounts.full.Add(1)
 		dm.programCounts.note(reason)
-		p := dm.checkProgramLocked(root, entry, texts)
+		p := dm.checkProgramFrom(root, entry, texts, nil, nil, parsed)
 		if dm.programs == nil {
 			dm.programs = map[programKey]*rootProgram{}
 		}
@@ -242,10 +249,6 @@ func (dm *DocumentManager) programFor(root, entry, docKey, uri, content, manifes
 			changed = append(changed, k)
 		}
 	}
-	if len(changed) > 1 {
-		reason = "several files changed"
-		return fresh()
-	}
 	if len(changed) == 0 && prev.Files[docKey] == nil {
 		// The program does not reach the document, so nothing of it is
 		// installed for it.
@@ -277,13 +280,34 @@ func (dm *DocumentManager) programFor(root, entry, docKey, uri, content, manifes
 		dm.programCounts.reused.Add(1)
 		return prev, release
 	}
-	next, why := dm.rebuildEditedBodies(prev, ProgramEdit{Key: changed[0], Text: texts[changed[0]]})
-	if next == nil {
-		reason = why
+	slices.Sort(changed)
+	edits := make([]ProgramEdit, len(changed))
+	for i, k := range changed {
+		edits[i] = ProgramEdit{Key: k, Text: texts[k]}
+	}
+	parsed = parseEdits(edits)
+	next, outcome := dm.recheckIncremental(prev, edits, parsed)
+	switch {
+	case next != nil && outcome.Path == RecheckBodies:
+		dm.programCounts.bodies.Add(1)
+	case next != nil:
+		dm.programCounts.dependents.Add(1)
+	case !prev.consumed:
+		// A full check writes nothing anyone reads, so it runs without the
+		// view lock.
+		reason = outcome.Reason
 		release()
 		return fresh()
+	default:
+		// The bodies were rebuilt in place before a `once` turned out to
+		// have a new type, and its readers could not be checked alone: the
+		// installed analyses have changed, so the full check is installed
+		// before readers come back.
+		reason = outcome.Reason
+		dm.programCounts.full.Add(1)
+		dm.programCounts.note(reason)
+		next = dm.checkProgramFrom(root, entry, texts, nil, nil, parsed)
 	}
-	dm.programCounts.bodies.Add(1)
 	kept.prog = next
 	return next, release
 }

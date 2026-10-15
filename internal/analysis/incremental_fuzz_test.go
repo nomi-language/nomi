@@ -28,7 +28,7 @@ func fuzzProjects(tb testing.TB) []incrementalProject {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	return append([]incrementalProject{orderIncremental()}, corpus...)
+	return append(append([]incrementalProject{orderIncremental()}, corpus...), layeredProject())
 }
 
 // projectFile answers the project and the file an input's indexes name.
@@ -70,7 +70,7 @@ func notePaths(outcomes []analysis.RecheckOutcome) {
 		return
 	}
 	defer f.Close()
-	fmt.Fprintf(f, "bodies %d full %d unchanged %d\n", counts[analysis.RecheckBodies], counts[analysis.RecheckFull], counts[analysis.RecheckUnchanged])
+	fmt.Fprintf(f, "bodies %d dependents %d full %d unchanged %d\n", counts[analysis.RecheckBodies], counts[analysis.RecheckDependents], counts[analysis.RecheckFull], counts[analysis.RecheckUnchanged])
 }
 
 // fuzzEdits is one input's edit sequence over the file key of p: its text
@@ -208,10 +208,13 @@ func TestIncrementalMatchesFullSample(t *testing.T) {
 			}
 		}
 	}
-	// The sample's edits must reach the fast path, or the comparisons above
-	// say nothing about it.
+	// The sample's edits must reach the incremental paths, or the
+	// comparisons above say nothing about them.
 	if n, ok := fuzzPaths.Load(analysis.RecheckBodies); !ok || n.(*atomic.Int64).Load() == 0 {
 		t.Errorf("no edit of the sample rebuilt only bodies")
+	}
+	if n, ok := fuzzPaths.Load(analysis.RecheckDependents); !ok || n.(*atomic.Int64).Load() == 0 {
+		t.Errorf("no edit of the sample checked only the edited file and its importers")
 	}
 }
 

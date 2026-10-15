@@ -2,6 +2,7 @@ package analysis_test
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -114,6 +115,7 @@ func runEdits(tb testing.TB, p incrementalProject, steps []editStep, recheck rec
 			texts[key] = t
 		}
 		texts[s.key] = text
+		was := analysis.NodesForTest(prev)
 		got, outcome := recheck(prev, edit)
 		outcomes = append(outcomes, outcome)
 		want := analysis.DumpProgramForTest(fullCheck(p, texts))
@@ -124,30 +126,71 @@ func runEdits(tb testing.TB, p incrementalProject, steps []editStep, recheck rec
 			return fmt.Sprintf("%s: after step %d (%s, editing %s, recheck %s) the recheck's program differs from a full check:\n%s",
 				p.name, i+1, s.kind, s.key, outcome.Path, dumpDiff(want, gotDump)), outcomes
 		}
+		if stale := analysis.StaleForTest(got, was); stale != "" {
+			return fmt.Sprintf("%s: after step %d (%s, editing %s, recheck %s) the recheck's program holds a stale analysis: %s",
+				p.name, i+1, s.kind, s.key, outcome.Path, stale), outcomes
+		}
 		prev, lastDump = got, want
 	}
 	return "", outcomes
 }
 
 // bodyOnly reports whether a step of kind changes only bodies, so that the
-// recheck must rebuild the edited file's bodies alone.
+// recheck must rebuild the edited file's bodies alone: a function's body, or
+// the value of a `once` whose type stays the same (early cutoff).
 func bodyOnly(kind string) bool {
-	return strings.Contains(kind, "body only") || kind == "body back"
+	return strings.Contains(kind, "body only") || kind == "body back" || strings.Contains(kind, "once value, same type")
 }
 
-// checkPaths fails tb for each step whose recheck went the wrong way: a
-// body-only step (bodyOnly) that checked the whole program, or any other
-// step that rebuilt only bodies. An incremental check that never runs passes
-// every comparison, so the harness checks that it ran.
+// needsFull reports whether a step of kind must check the whole program: it
+// leaves a file that does not parse, edits one that did not, or changes the
+// impls a file brings into the program, which every file may read.
+func needsFull(kind string) bool {
+	for _, k := range []string{"unparseable", "parses again", "impl", "derive"} {
+		if strings.Contains(kind, k) {
+			return true
+		}
+	}
+	return false
+}
+
+// dependentsMayBeFull are the reasons a step that changes an interface may
+// check the whole program: the files that import the edited one are all of
+// them, or a file that does not import it calls one of its impls, or the
+// program exports functions, whose names are checked across every file.
+var dependentsMayBeFull = map[string]bool{
+	"every file of the program depends on the edited files":                true,
+	"a file that does not import the edited files holds something of them": true,
+	"the program exports functions":                                        true,
+}
+
+// checkPaths fails tb for each step whose recheck went the wrong way. A
+// body-only step (bodyOnly) must rebuild only bodies; a step that needs a
+// full check (needsFull) must take one; any other step changes an interface
+// and must check the edited file and the files that import it alone, or the
+// whole program for one of the reasons dependentsMayBeFull names. A step
+// whose kind says "[dependents]" must check its dependents alone. An
+// incremental check that never runs passes every comparison, so the harness
+// checks that it ran.
 func checkPaths(tb testing.TB, name string, steps []editStep, outcomes []analysis.RecheckOutcome) {
 	tb.Helper()
 	for i, o := range outcomes {
 		s := steps[i]
-		switch fast := o.Path == analysis.RecheckBodies; {
-		case bodyOnly(s.kind) && !fast:
-			tb.Errorf("%s: step %d (%s, editing %s) changes only a body, but the recheck went %s: %s", name, i+1, s.kind, s.key, o.Path, o.Reason)
-		case !bodyOnly(s.kind) && fast:
-			tb.Errorf("%s: step %d (%s, editing %s) changes the file's interface, but the recheck rebuilt only its bodies", name, i+1, s.kind, s.key)
+		at := fmt.Sprintf("%s: step %d (%s, editing %s)", name, i+1, s.kind, s.key)
+		switch {
+		case bodyOnly(s.kind):
+			if o.Path != analysis.RecheckBodies {
+				tb.Errorf("%s changes only a body, but the recheck went %s: %s", at, o.Path, o.Reason)
+			}
+		case needsFull(s.kind):
+			if o.Path != analysis.RecheckFull {
+				tb.Errorf("%s needs a full check, but the recheck went %s", at, o.Path)
+			}
+		case o.Path == analysis.RecheckDependents:
+		case strings.Contains(s.kind, "[dependents]"):
+			tb.Errorf("%s must check only the files that import the edited one, but the recheck went %s: %s", at, o.Path, o.Reason)
+		case o.Path != analysis.RecheckFull || !dependentsMayBeFull[o.Reason]:
+			tb.Errorf("%s changes an interface, but the recheck went %s: %s", at, o.Path, o.Reason)
 		}
 	}
 }
@@ -380,7 +423,7 @@ var dungeonEdits = []editStep{
 	replace("body only", "world", `.North -> "north"`, `.North -> "the north"`),
 	replace("signature", "world", "pub fn parse(word: String): Maybe<Direction> {", "pub fn parse(word: String, strict: Bool): Maybe<Direction> {"),
 	restore("signature back", "world"),
-	replace("once value, same type", "world", "pub once directions: List<Direction> = [.North, .South, .East, .West]", "pub once directions = [Direction.North, Direction.South, Direction.East, Direction.West]"),
+	replace("once annotation dropped, same type", "world", "pub once directions: List<Direction> = [.North, .South, .East, .West]", "pub once directions = [Direction.North, Direction.South, Direction.East, Direction.West]"),
 	replace("once value, new type", "world", "pub once directions = [Direction.North, Direction.South, Direction.East, Direction.West]", "pub once directions = Direction.North"),
 	restore("once back", "world"),
 	replace("impl removed", "world", "impl Display for Item {", "impl Item {\n    fn unused_display(item: Item): String {\n        \"\"\n    }\n}\n\nimpl Item {"),
@@ -390,9 +433,161 @@ var dungeonEdits = []editStep{
 	restore("entry parses again", "main"),
 }
 
+// layeredProject is a project whose imports form layers, so that an edit to
+// one file has importers that are not every file: util, which model, view
+// and the entry import; model, which view and the entry import; view and
+// palette, which only the entry imports.
+func layeredProject() incrementalProject {
+	return incrementalProject{name: "layered", entry: "main", texts: map[string]string{
+		"main": `import {
+    std/io
+    model
+    view
+    util
+    palette
+}
+
+fn main() {
+    item = model.make("anvil", model.default_weight)
+    io.print(view.show(item))
+    io.print("${util.clamp(-1)} ${model.heavy(item)} ${palette.name()}")
+}
+`,
+		"util": `pub fn clamp(n: Int): Int {
+    if n < 0 { 0 } else { n }
+}
+
+pub struct Span {
+    from: Int
+    to: Int
+}
+`,
+		"model": `import util
+
+pub struct Item {
+    name: String
+    weight: Int
+}
+
+pub fn make(name: String, weight: Int): Item {
+    Item{name: name, weight: util.clamp(weight)}
+}
+
+pub fn heavy(item: Item): Bool {
+    item.weight > 10
+}
+
+pub once default_weight = util.clamp(3)
+
+pub once label = "weight ${default_weight}"
+`,
+		"view": `import {
+    model.Item
+    util
+}
+
+pub fn show(item: Item): String {
+    "${item.name}: ${util.clamp(item.weight)}"
+}
+`,
+		"palette": `pub fn name(): String {
+    "red"
+}
+
+pub fn unused(n: Int): Int {
+    n
+}
+`,
+	}}
+}
+
+// layeredEdits change signatures with one importer, none and many, add and
+// remove a public declaration, add an impl to the leaf, and change a
+// `once`'s value keeping its type and changing it.
+var layeredEdits = []editStep{
+	replace("signature used by one importer [dependents]", "view", "pub fn show(item: Item): String {", "pub fn show(item: Item, prefix: String = \"\"): String {"),
+	replace("body only, the new parameter used", "view", `"${item.name}: `, `"${prefix}${item.name}: `),
+	restore("signature back [dependents]", "view"),
+	replace("signature used by none [dependents]", "palette", "pub fn unused(n: Int): Int {", "pub fn unused(n: Int, m: Int = 0): Int {"),
+	restore("signature back [dependents]", "palette"),
+	replace("signature used by many [dependents]", "util", "pub fn clamp(n: Int): Int {", "pub fn clamp(n: Int, low: Int = 0): Int {"),
+	replace("body only, the new parameter used", "util", "if n < 0 { 0 } else { n }", "if n < low { low } else { n }"),
+	replace("signature breaks its callers [dependents]", "util", "pub fn clamp(n: Int, low: Int = 0): Int {", "pub fn clamp(n: String, low: Int = 0): Int {"),
+	restore("signature back [dependents]", "util"),
+	appendText("public declaration added [dependents]", "model", "\npub fn light(item: Item): Bool {\n    item.weight < 2\n}\n"),
+	replace("body only, the new declaration used", "main", "${model.heavy(item)}", "${model.heavy(item)} ${model.light(item)}"),
+	restore("body only, the new declaration's use removed", "main"),
+	restore("public declaration removed [dependents]", "model"),
+	appendText("impl added in the leaf", "util", "\nimpl Display for Span {\n    fn to_string(value: Span): String {\n        \"${value.from}..${value.to}\"\n    }\n}\n"),
+	restore("impl removed from the leaf", "util"),
+	replace("once value, same type", "model", "pub once default_weight = util.clamp(3)", "pub once default_weight = util.clamp(4)"),
+	replace("once value, same type, a once of the file reads it", "model", "pub once label = \"weight ${default_weight}\"", "pub once label = \"weight: ${default_weight}\""),
+	replace("once value, new type [dependents]", "model", "pub once default_weight = util.clamp(4)", "pub once default_weight = \"four\""),
+	restore("once back [dependents]", "model"),
+}
+
+// dispatchProject is a project where a file the entry imports calls an impl
+// the entry declares: shade does not import main, but its call to
+// Shade.shade dispatches to main's impl.
+func dispatchProject() incrementalProject {
+	return incrementalProject{name: "dispatch", entry: "main", texts: map[string]string{
+		"main": `import {
+    std/io
+    shade.{self, Shade, Tint}
+}
+
+impl Shade for Tint {
+    fn shade(value: Tint): String {
+        "tint ${value.level}"
+    }
+}
+
+fn main() {
+    io.print(shade.describe())
+}
+`,
+		"shade": `pub interface Shade {
+    fn shade(value: self): String
+}
+
+pub struct Tint {
+    level: Int
+}
+
+pub fn describe(): String {
+    Shade.shade(Tint{level: 2})
+}
+`,
+	}}
+}
+
+// dispatchEdits change the entry's interface while shade holds its impl.
+var dispatchEdits = []editStep{
+	appendText("declaration added, a file the entry imports calls its impl", "main", "\npub fn extra(): Int {\n    1\n}\n"),
+	restore("declaration removed, a file the entry imports calls its impl", "main"),
+}
+
 func TestIncrementalMatchesFull(t *testing.T) {
 	dm := newManager()
 	recheck := dm.RecheckWithOutcome
+	t.Run("layered", func(t *testing.T) {
+		runChecked(t, layeredProject(), layeredEdits, recheck)
+	})
+	t.Run("dispatch", func(t *testing.T) {
+		p := dispatchProject()
+		diff, outcomes := runEdits(t, p, dispatchEdits, recheck, true)
+		if diff != "" {
+			t.Fatal(diff)
+		}
+		for i, o := range outcomes {
+			if o.Path != analysis.RecheckFull || o.Reason != "a file that does not import the edited files holds something of them" {
+				t.Errorf("step %d (%s) went %s (%s), want a full check because shade holds main's impl", i+1, dispatchEdits[i].kind, o.Path, o.Reason)
+			}
+		}
+		if errs := fullCheck(p, p.texts).Errors; len(errs["main"])+len(errs["shade"]) > 0 {
+			t.Errorf("the project does not check: %v", errs)
+		}
+	})
 	t.Run("order", func(t *testing.T) {
 		p := orderIncremental()
 		runChecked(t, p, orderEdits, recheck)
@@ -438,6 +633,60 @@ func TestIncrementalMatchesFull(t *testing.T) {
 				runChecked(t, p, genericEdits(key, p.texts[key]), recheck)
 			}
 		})
+	}
+}
+
+// TestIncrementalMatchesFullForSeveralFiles: edits to several files at once
+// (RecheckEdits), as a save of every file or a checkout makes them, answer
+// what a full check of the edited texts does. Edits that each change only
+// bodies rebuild only those bodies; any other set checks the edited files
+// and the files that import them.
+func TestIncrementalMatchesFullForSeveralFiles(t *testing.T) {
+	p := layeredProject()
+	type multi struct {
+		kind  string
+		path  analysis.RecheckPath
+		steps []editStep
+	}
+	viewBody := replace("", "view", `"${item.name}: `, `"item ${item.name}: `)
+	paletteBody := replace("", "palette", `"red"`, `"blue"`)
+	viewSignature := replace("", "view", "pub fn show(item: Item): String {", "pub fn show(item: Item, prefix: String = \"\"): String {")
+	utilSignature := replace("", "util", "pub fn clamp(n: Int): Int {", "pub fn clamp(n: Int, low: Int = 0): Int {")
+	modelBody := replace("", "model", "item.weight > 10", "item.weight > 12")
+	sets := []multi{
+		{"two bodies", analysis.RecheckBodies, []editStep{viewBody, paletteBody}},
+		{"bodies back", analysis.RecheckBodies, []editStep{restore("", "view"), restore("", "palette")}},
+		{"a signature and a body", analysis.RecheckDependents, []editStep{viewSignature, paletteBody}},
+		{"a signature and a body back", analysis.RecheckDependents, []editStep{restore("", "view"), restore("", "palette")}},
+		{"a leaf's signature and its importer's body", analysis.RecheckDependents, []editStep{utilSignature, modelBody}},
+		{"both back", analysis.RecheckDependents, []editStep{restore("", "util"), restore("", "model")}},
+	}
+	dm := newManager()
+	prev := fullCheck(p, p.texts)
+	for i, set := range sets {
+		texts := maps.Clone(prev.Texts)
+		var edits []analysis.ProgramEdit
+		for _, s := range set.steps {
+			text, ok := s.change(texts[s.key], p.texts[s.key])
+			if !ok {
+				t.Fatalf("set %d (%s) does not apply to %s", i+1, set.kind, s.key)
+			}
+			texts[s.key] = text
+			edits = append(edits, analysis.ProgramEdit{Key: s.key, Text: text})
+		}
+		was := analysis.NodesForTest(prev)
+		got, outcome := dm.RecheckEdits(prev, edits)
+		if outcome.Path != set.path {
+			t.Errorf("set %d (%s) went %s (%s), want %s", i+1, set.kind, outcome.Path, outcome.Reason, set.path)
+		}
+		want := analysis.DumpProgramForTest(fullCheck(p, texts))
+		if gotDump := analysis.DumpProgramForTest(got); gotDump != want {
+			t.Fatalf("after set %d (%s) the recheck's program differs from a full check:\n%s", i+1, set.kind, dumpDiff(want, gotDump))
+		}
+		if stale := analysis.StaleForTest(got, was); stale != "" {
+			t.Fatalf("after set %d (%s) the recheck's program holds a stale analysis: %s", i+1, set.kind, stale)
+		}
+		prev = got
 	}
 }
 
@@ -594,17 +843,22 @@ func TestCheckProgramPrintsWhatTheFrontEndPrints(t *testing.T) {
 	}
 }
 
-// BenchmarkRecheckDungeon times a recheck of the dungeon (dungeonDir) after
-// an edit that alternates between two texts of one file: a body-only edit to
-// game.nomi, which rebuilds that file's bodies, a signature edit to it,
-// which checks the whole program, and a body-only edit to the entry.
+// BenchmarkRecheckDungeon times a recheck of the dungeon (dungeonDir), copied
+// to a temporary directory, after an edit that alternates between two texts
+// of one file: a body-only edit to game.nomi, which rebuilds that file's
+// bodies; a signature edit to game.nomi, which the entry imports; a
+// signature edit to world.nomi, which every other file imports; a signature
+// edit to the entry; and a body-only edit to the entry.
 func BenchmarkRecheckDungeon(b *testing.B) {
 	p := dungeonProject(b)
+	dir := writeProject(b, p)
 	for _, bench := range []struct {
 		name, key, old, new string
 	}{
 		{"body", "game", "{ 3 } else { 1 }", "{ 4 } else { 1 }"},
 		{"signature", "game", "fn strength(game: Game): Int {", "fn strength(game: Game, _bonus: Int = 0): Int {"},
+		{"leaf signature", "world", "pub fn room(place: Place): Room {", "pub fn room(place: Place, _lit: Bool = True): Room {"},
+		{"entry signature", "main", "fn turn(state: Game, line: String): Game {", "fn turn(state: Game, line: String, _echo: Bool = False): Game {"},
 		{"entry body", "main", "You wake up in the dark.", "You wake up."},
 	} {
 		b.Run(bench.name, func(b *testing.B) {
@@ -613,7 +867,7 @@ func BenchmarkRecheckDungeon(b *testing.B) {
 				b.Skipf("the dungeon has changed: %q is not in %s", bench.old, bench.key)
 			}
 			dm := newManager()
-			prog := dm.CheckProgram(p.root(), p.entry, p.texts)
+			prog := dm.CheckProgram(dir, p.entry, p.texts)
 			texts := []string{edited, p.texts[bench.key]}
 			b.ResetTimer()
 			for i := range b.N {

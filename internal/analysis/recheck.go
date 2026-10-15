@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/lexer"
-	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // An edit that leaves a file's interface alone (interfaceFingerprint) changes
@@ -32,6 +30,10 @@ const (
 	// RecheckUnchanged answered the program as it was: the edit changed no
 	// text.
 	RecheckUnchanged
+	// RecheckDependents checked the edited files and the files that import
+	// them afresh and kept every other file's analysis
+	// (recheckDependents).
+	RecheckDependents
 )
 
 func (p RecheckPath) String() string {
@@ -40,6 +42,8 @@ func (p RecheckPath) String() string {
 		return "bodies"
 	case RecheckUnchanged:
 		return "unchanged"
+	case RecheckDependents:
+		return "dependents"
 	}
 	return "full"
 }
@@ -54,13 +58,17 @@ type RecheckOutcome struct {
 
 // bodyFields are the fields of a declaration that hold what an edit to a
 // body may change without changing the file's interface: a function's body,
-// an attached test's body, and everything a test declaration runs. Nothing
-// another file reads is in them. A parameter's default and an interface
-// method's default body are not among them: other files lower them.
+// an attached test's body, everything a test declaration runs, and a
+// `once`'s value. Nothing another file reads is in them but an unannotated
+// `once`'s type, which checking its value gives it: a recheck infers it
+// again and compares (OnceTable.reinfer). A parameter's default and an
+// interface method's default body are not among them: other files lower
+// them.
 var bodyFields = map[reflect.Type]map[string]bool{
 	reflect.TypeFor[ast.FuncDef]():      {"Body": true},
 	reflect.TypeFor[ast.AttachedTest](): {"Body": true},
 	reflect.TypeFor[ast.TestDecl]():     {"Body": true, "Clock": true, "Boot": true, "Setup": true, "ContextPattern": true},
+	reflect.TypeFor[ast.OnceBinding]():  {"Value": true},
 }
 
 // triviaTypes are the types that hold comments and the layout around them.
@@ -434,120 +442,188 @@ func preparedNodes(nodes []ast.Node, entry bool, kept []ast.Node) (prepared []as
 	return SynthesizeUniversalDebug(extended), nil
 }
 
+// bodyEdit is one edited file's graft, decided and not yet written.
+type bodyEdit struct {
+	key      string
+	fa       *FileAnalysis
+	nodes    []ast.Node
+	g        *grafter
+	frontEnd []TypeError
+	// The functions the old and the new bodies declare.
+	oldFuncs, newFuncs []*ast.FuncDef
+}
+
 // rebuildEditedBodies is Recheck's fast path: it answers the program after
-// edit, which leaves the edited file's interface as it was, by rebuilding
-// only that file's bodies, and false with the reason when the edit needs a
-// full check. It writes nothing until it has decided; once it has, prev's
-// analyses are the answer's.
-func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edit ProgramEdit) (*CheckedProgram, string) {
-	key := edit.Key
-	fa, nodes := prev.Files[key], prev.Nodes[key]
+// edits, each of which leaves its file's interface as it was, by rebuilding
+// only those files' bodies, and false with the reason when the edits need
+// more. parsed holds each edited text parsed; it deletes the entry of a file
+// whose nodes it prepared, since the graft takes them.
+//
+// It writes nothing until it has decided; once it has, prev's analyses are
+// the answer's. A `once` value is a body, but an unannotated one's type,
+// which other files read, is what checking the value says: the bindings are
+// inferred again (OnceTable.reinfer), and when a type may have changed it
+// answers false after writing, with prev consumed and the edited files'
+// bodies rebuilt, for the caller to check the files that read it.
+func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []ProgramEdit, parsed map[string]*parsedFile) (*CheckedProgram, string) {
 	c := prev.checks
 	switch {
-	case fa == nil || c == nil:
-		return nil, "the program does not reach the file"
-	case fa.kept == nil:
-		return nil, "the file's declarations were not kept"
-	case len(prev.Syntax[key]) > 0:
-		return nil, "the old text has a syntax error"
-	case prev.fingerprints[key] == "":
-		return nil, "the old text has no interface fingerprint"
+	case c == nil:
+		return nil, "the program was not checked"
 	case prev.externs:
 		return nil, "the project declares Go bindings"
 	}
-	fresh, errs, _ := parser.ParseResilient(lexer.Lex(edit.Text))
-	if len(errs) > 0 {
-		return nil, "the new text has a syntax error"
+	var plan []bodyEdit
+	moves := false
+	for _, edit := range edits {
+		key := edit.Key
+		fa, nodes := prev.Files[key], prev.Nodes[key]
+		switch {
+		case fa == nil:
+			return nil, "the program does not reach the file"
+		case fa.kept == nil:
+			return nil, "the file's declarations were not kept"
+		case len(prev.Syntax[key]) > 0:
+			return nil, "the old text has a syntax error"
+		case prev.fingerprints[key] == "":
+			return nil, "the old text has no interface fingerprint"
+		}
+		pf := parsed[key]
+		if len(pf.errs) > 0 {
+			return nil, "the new text has a syntax error"
+		}
+		if pf.fingerprint != prev.fingerprints[key] {
+			return nil, "the file's interface changed"
+		}
+		delete(parsed, key)
+		prepared, frontEnd := preparedNodes(pf.nodes, key == prev.Entry, nodes)
+		if len(prepared) != len(nodes) {
+			return nil, "the prepared declarations differ in number"
+		}
+		g := &grafter{kept: map[ast.Node]bool{}}
+		for i := range nodes {
+			g.value(reflect.ValueOf(&nodes[i]).Elem(), reflect.ValueOf(&prepared[i]).Elem())
+		}
+		if g.reason == "" {
+			g.placeMoves(prev.Texts[key], edit.Text)
+		}
+		if g.reason != "" {
+			return nil, g.reason
+		}
+		// An import at the top of a block may load a module the program
+		// reaches no other way, so the bodies must import what they imported
+		// before.
+		oldFuncs, oldImports := bodyContents(g.oldBodies)
+		newFuncs, newImports := bodyContents(g.newBodies)
+		if !slices.Equal(oldImports, newImports) {
+			return nil, "a body's imports changed"
+		}
+		if reason := shiftableKept(fa, g.shift); reason != "" {
+			return nil, reason
+		}
+		moves = moves || g.shift.moves()
+		plan = append(plan, bodyEdit{key: key, fa: fa, nodes: nodes, g: g, frontEnd: frontEnd, oldFuncs: oldFuncs, newFuncs: newFuncs})
 	}
-	if interfaceFingerprint(fresh) != prev.fingerprints[key] {
-		return nil, "the file's interface changed"
-	}
-	prepared, frontEnd := preparedNodes(fresh, key == prev.Entry, nodes)
-	if len(prepared) != len(nodes) {
-		return nil, "the prepared declarations differ in number"
-	}
-	g := &grafter{kept: map[ast.Node]bool{}}
-	for i := range nodes {
-		g.value(reflect.ValueOf(&nodes[i]).Elem(), reflect.ValueOf(&prepared[i]).Elem())
-	}
-	if g.reason == "" {
-		g.placeMoves(prev.Texts[key], edit.Text)
-	}
-	if g.reason != "" {
-		return nil, g.reason
-	}
-	// An import at the top of a block may load a module the program reaches
-	// no other way, so the bodies must import what they imported before.
-	oldFuncs, oldImports := bodyContents(g.oldBodies)
-	newFuncs, newImports := bodyContents(g.newBodies)
-	if !slices.Equal(oldImports, newImports) {
-		return nil, "a body's imports changed"
-	}
-	prog := fa.Program()
-	if g.shift.moves() && len(prog.Errors) > 0 && prog.programErrors == nil {
+	prog := prev.Files[prev.Entry].Program()
+	if moves && len(prog.Errors) > 0 && prog.programErrors == nil {
 		// They name no file, so which of them to move is not known.
 		return nil, "the program has errors of its own and positions move"
-	}
-	if reason := shiftableKept(fa, g.shift); reason != "" {
-		return nil, reason
 	}
 
 	// Decided: from here prev's analyses become the answer's.
 	prev.consumed = true
 	prog.revision++
-	g.commit()
-	if g.shift.moves() {
-		shiftDeclarations(prev, fa, g.shift, g.kept)
-		if prog.programErrors != nil {
-			// They name no file; they are worked out again from the
-			// declarations, which now hold the new positions.
-			prog.Errors = prog.programErrors()
+	for _, e := range plan {
+		e.g.commit()
+		if e.g.shift.moves() {
+			shiftDeclarations(prev, e.fa, e.g.shift, e.g.kept)
+		}
+		// The functions the old bodies declared leave the program's table
+		// of every function's file, and the new bodies' join it.
+		if prog.ScopedFunctionFiles != nil {
+			for _, fn := range e.oldFuncs {
+				delete(prog.ScopedFunctionFiles, fn)
+			}
+			for _, fn := range e.newFuncs {
+				prog.ScopedFunctionFiles[fn] = e.fa
+			}
+		}
+		if prog.results != nil {
+			for _, ii := range e.fa.ImplImports {
+				delete(prog.results.implImportsUnused, ii)
+			}
 		}
 	}
-	// The functions the old bodies declared leave the program's table of
-	// every function's file, and the new bodies' join it.
-	if prog.ScopedFunctionFiles != nil {
-		for _, fn := range oldFuncs {
-			delete(prog.ScopedFunctionFiles, fn)
-		}
-		for _, fn := range newFuncs {
-			prog.ScopedFunctionFiles[fn] = fa
-		}
+	if moves && prog.programErrors != nil {
+		// They name no file; they are worked out again from the
+		// declarations, which now hold the new positions.
+		prog.Errors = prog.programErrors()
 	}
-	if prog.results != nil {
-		for _, ii := range fa.ImplImports {
-			delete(prog.results.implImportsUnused, ii)
-		}
+
+	edited := make(map[*FileAnalysis]bool, len(plan))
+	for _, e := range plan {
+		e.fa.walkBodiesAgain(e.nodes)
+		edited[e.fa] = true
+	}
+	if prog.Onces.reinfer(edited) {
+		return nil, "an unannotated once's type may have changed"
 	}
 
 	next := &CheckedProgram{
 		Root: prev.Root, Entry: prev.Entry,
-		Texts:        maps.Clone(prev.Texts),
-		Files:        prev.Files,
-		Nodes:        prev.Nodes,
-		Syntax:       prev.Syntax,
-		fingerprints: prev.fingerprints,
-		externs:      prev.externs,
-		damaged:      prev.damaged,
-		reachesEntry: prev.reachesEntry,
-		unread:       prev.unread,
-		entryOwn:     prev.entryOwn,
-		checks:       c,
+		Texts:            maps.Clone(prev.Texts),
+		Files:            prev.Files,
+		Nodes:            prev.Nodes,
+		Syntax:           prev.Syntax,
+		fingerprints:     prev.fingerprints,
+		implFingerprints: prev.implFingerprints,
+		externs:          prev.externs,
+		damaged:          prev.damaged,
+		reachesEntry:     prev.reachesEntry,
+		unread:           prev.unread,
+		entryOwn:         prev.entryOwn,
+		checks:           c,
 	}
-	next.Texts[key] = edit.Text
-	check, _ := fa.rebuildBodies(nodes)
-	c.build[key] = slices.Clone(fa.TypeErrors)
-	c.check[key] = check
-	if key == prev.Entry {
-		c.frontEnd = frontEnd
+	// Checked in the order a full check checks them: the entry, then the
+	// others by key.
+	slices.SortFunc(plan, func(a, b bodyEdit) int {
+		switch {
+		case a.key == prev.Entry:
+			return -1
+		case b.key == prev.Entry:
+			return 1
+		}
+		return strings.Compare(a.key, b.key)
+	})
+	entryEdited := false
+	for _, e := range plan {
+		next.Texts[e.key] = editedText(edits, e.key)
+		c.build[e.key] = slices.Clone(e.fa.TypeErrors)
+		c.check[e.key] = CheckTypes(e.fa, e.nodes)
+		if e.key == prev.Entry {
+			c.frontEnd = e.frontEnd
+			entryEdited = true
+		}
 	}
 	c.reduce(next)
-	if key == prev.Entry {
+	if entryEdited {
 		c.checkEntry(next)
 	}
-	MarkTailCalls(nodes)
+	for _, e := range plan {
+		MarkTailCalls(e.nodes)
+	}
 	c.assemble(next)
 	return next, ""
+}
+
+// editedText is the text edits give the file with module key.
+func editedText(edits []ProgramEdit, key string) string {
+	for _, e := range edits {
+		if e.Key == key {
+			return e.Text
+		}
+	}
+	return ""
 }
 
 // bodyContents are the functions declared in bodies, and the imports in

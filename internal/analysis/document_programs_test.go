@@ -95,6 +95,7 @@ func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 	}
 	order := orderIncremental()
 	runs := []run{
+		{layeredProject(), layeredEdits},
 		{order, orderEdits},
 		{order, genericEdits("main", order.texts["main"])},
 		{order, genericEdits("shapes", order.texts["shapes"])},
@@ -134,9 +135,9 @@ func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 				if err := os.WriteFile(strings.TrimPrefix(uri(s.key), "file://"), []byte(text), 0o644); err != nil {
 					t.Fatal(err)
 				}
-				bodies, _, _ := dm.ProgramChecks()
+				bodies, _, _, _ := dm.ProgramChecks()
 				dm.Update(uri(s.key), text)
-				after, _, _ := dm.ProgramChecks()
+				after, _, _, _ := dm.ProgramChecks()
 				if fast := after > bodies; fast != bodyOnly(s.kind) {
 					t.Errorf("step %d (%s, editing %s): rebuilt bodies alone: %v", i+1, s.kind, s.key, fast)
 				}
@@ -161,6 +162,53 @@ func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 	}
 }
 
+// TestOpenDocumentAfterSeveralFilesChange: when files the open entry's
+// program reads change on disk together, as a checkout changes them, the
+// next analysis of the entry rechecks the program with all of them, and gets
+// what a fresh analysis of the entry on its own gives. Changes to bodies
+// alone rebuild those bodies; a changed signature checks the changed files
+// and the files that import them.
+func TestOpenDocumentAfterSeveralFilesChange(t *testing.T) {
+	p := layeredProject()
+	dir := writeProject(t, p)
+	path := func(key string) string { return filepath.Join(dir, key+".nomi") }
+	uri := "file://" + path("main")
+	dm := newManager()
+	dm.Open(uri, p.texts["main"])
+	for i, change := range []struct {
+		kind  string
+		files map[string]string
+		path  string
+	}{
+		{"three bodies", map[string]string{
+			"view":    strings.Replace(p.texts["view"], `"${item.name}: `, `"item ${item.name}: `, 1),
+			"palette": strings.Replace(p.texts["palette"], `"red"`, `"blue"`, 1),
+		}, "bodies"},
+		{"a signature and a body", map[string]string{
+			"view": strings.Replace(p.texts["view"], "pub fn show(item: Item): String {", "pub fn show(item: Item, prefix: String = \"\"): String {", 1),
+		}, "dependents"},
+		{"back", map[string]string{"view": p.texts["view"], "palette": p.texts["palette"]}, "dependents"},
+	} {
+		for key, text := range change.files {
+			if err := os.WriteFile(path(key), []byte(text), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		// The entry's own edit, a body, makes the analysis run.
+		main := strings.Replace(p.texts["main"], `"anvil"`, fmt.Sprintf(`"anvil %d"`, i), 1)
+		bodies, dependents, full, _ := dm.ProgramChecks()
+		dm.Update(uri, main)
+		afterBodies, afterDependents, afterFull, _ := dm.ProgramChecks()
+		got := map[string]int64{"bodies": afterBodies - bodies, "dependents": afterDependents - dependents, "full": afterFull - full}
+		if got[change.path] != 1 {
+			t.Errorf("step %d (%s) went %v, want %s; whole programs because: %v", i+1, change.kind, got, change.path, dm.FullCheckReasons())
+		}
+		if got, want := renderBuild(analysis.InstalledForTest(dm, uri)), renderBuild(analysis.BuildForTest(newManager(), uri, main, false)); got != want {
+			t.Fatalf("step %d (%s): the entry gets\n%s\nand a fresh analysis of it gives\n%s", i+1, change.kind, got, want)
+		}
+	}
+}
+
 // BenchmarkOpenDocumentEdit times one analysis of an edited open document of
 // the dungeon (dungeonDir), every file of it open, alternating between two
 // texts: through the program kept for the root ("kept"), as the language
@@ -173,6 +221,8 @@ func BenchmarkOpenDocumentEdit(b *testing.B) {
 	}{
 		{"body", "game", "{ 3 } else { 1 }", "{ 4 } else { 1 }"},
 		{"signature", "game", "fn strength(game: Game): Int {", "fn strength(game: Game, _bonus: Int = 0): Int {"},
+		{"leaf signature", "world", "pub fn room(place: Place): Room {", "pub fn room(place: Place, _lit: Bool = True): Room {"},
+		{"entry signature", "main", "fn turn(state: Game, line: String): Game {", "fn turn(state: Game, line: String, _echo: Bool = False): Game {"},
 		{"entry body", "main", "You wake up in the dark.", "You wake up."},
 	} {
 		edited := strings.Replace(p.texts[bench.key], bench.old, bench.new, 1)
@@ -192,7 +242,7 @@ func BenchmarkOpenDocumentEdit(b *testing.B) {
 				for key, text := range p.texts {
 					dm.Open(uri(key), text)
 				}
-				bodies, _, _ := dm.ProgramChecks()
+				bodies, dependents, _, _ := dm.ProgramChecks()
 				b.ResetTimer()
 				for i := range b.N {
 					if kept {
@@ -202,8 +252,9 @@ func BenchmarkOpenDocumentEdit(b *testing.B) {
 					}
 				}
 				b.StopTimer()
-				if after, _, _ := dm.ProgramChecks(); kept {
+				if after, afterDependents, _, _ := dm.ProgramChecks(); kept {
 					b.ReportMetric(float64(after-bodies)/float64(b.N), "bodies/op")
+					b.ReportMetric(float64(afterDependents-dependents)/float64(b.N), "dependents/op")
 				}
 			})
 		}

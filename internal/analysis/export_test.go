@@ -1,6 +1,11 @@
 package analysis
 
-import "slices"
+import (
+	"fmt"
+	"slices"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // RebuildBodiesForTest throws away the body part of the analysis of p's file
 // with module key and rebuilds it against the file's kept declarations and
@@ -29,6 +34,50 @@ func RebuildBodiesForTest(p *CheckedProgram, key string) bool {
 	MarkTailCalls(nodes)
 	c.assemble(p)
 	return true
+}
+
+// NodesForTest answers every node of p's syntax trees.
+func NodesForTest(p *CheckedProgram) map[ast.Node]bool {
+	nodes := map[ast.Node]bool{}
+	for _, ns := range p.Nodes {
+		for _, n := range ns {
+			WalkNodes(n, func(m ast.Node) { nodes[m] = true })
+		}
+	}
+	return nodes
+}
+
+// StaleForTest describes the first thing p's analyses hold of an analysis
+// that is no longer p's, or answers "": a file whose Program is not the
+// entry's, or a symbol or dispatch a file's facts name whose node is one of
+// was, the nodes of the program p was rechecked from, and not one of p's
+// own (a declaration of a file that was checked afresh, held by one that was
+// kept). A dump renders symbols by name and position, so it cannot show
+// this.
+func StaleForTest(p *CheckedProgram, was map[ast.Node]bool) string {
+	entry := p.Files[p.Entry]
+	if entry == nil {
+		return ""
+	}
+	now := NodesForTest(p)
+	// The prelude's imports are one set of nodes every build prepends, to an
+	// entry's nodes too, which p.Nodes leaves out.
+	stale := func(n ast.Node) bool { return n != nil && was[n] && !now[n] && !isPreludeInjectLine(n.LineNum()) }
+	for key, fa := range p.Files {
+		if fa.kept != nil && fa.Program() != entry.Program() {
+			return fmt.Sprintf("file %s holds another program than the entry's", key)
+		}
+		for _, m := range []map[Pos]*Symbol{fa.References, fa.Definitions, fa.PunnedFieldLabels} {
+			for pos, sym := range m {
+				for s, hops := sym, 0; s != nil && hops < 64; s, hops = s.Resolved, hops+1 {
+					if stale(s.Node) || s.DispatchImpl != nil && stale(s.DispatchImpl) {
+						return fmt.Sprintf("file %s at %d:%d names %s, whose node is the program's before the recheck", key, pos.Line, pos.Col, s.Name)
+					}
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // BuiltForTest is what one document's build gives the language server.

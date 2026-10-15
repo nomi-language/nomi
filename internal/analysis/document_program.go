@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -59,6 +60,9 @@ type CheckedProgram struct {
 	// fingerprints holds each project file's interface fingerprint, by
 	// module key, for a text the parser read without error.
 	fingerprints map[string]string
+	// implFingerprints holds each such file's impls fingerprint
+	// (implsFingerprint), by module key.
+	implFingerprints map[string]string
 	// externs reports that the root declared Go bindings, which the build
 	// injected into the files' nodes.
 	externs bool
@@ -98,8 +102,11 @@ func (p *CheckedProgram) Keys() []string {
 // Recheck answers the program prev becomes when edit replaces the text of
 // one of its files. Its answer is the program CheckProgram builds from the
 // edited texts, fact for fact (TestIncrementalMatchesFull). An edit that
-// leaves the file's interface as it was (interfaceFingerprint) rebuilds that
-// file's bodies alone (rebuildEditedBodies); any other is a full check.
+// leaves the file's interface as it was (interfaceFingerprint), and the type
+// of each of its unannotated `once` bindings, rebuilds that file's bodies
+// alone (rebuildEditedBodies). Any other checks the file and the files that
+// import it afresh (recheckDependents), or, when that would not be sound,
+// the whole program.
 //
 // Recheck consumes prev (see CheckedProgram): the caller must not read prev
 // or recheck it again afterwards. The caller serializes Rechecks of one
@@ -111,30 +118,97 @@ func (dm *DocumentManager) Recheck(prev *CheckedProgram, edit ProgramEdit) *Chec
 
 // RecheckWithOutcome is Recheck, also answering which way it went.
 func (dm *DocumentManager) RecheckWithOutcome(prev *CheckedProgram, edit ProgramEdit) (*CheckedProgram, RecheckOutcome) {
-	dm.lockBuild(true)
-	defer dm.analyzeMu.Unlock()
-	return dm.recheckLocked(prev, edit)
+	return dm.RecheckEdits(prev, []ProgramEdit{edit})
 }
 
-// recheckLocked is RecheckWithOutcome for a caller that holds analyzeMu.
-func (dm *DocumentManager) recheckLocked(prev *CheckedProgram, edit ProgramEdit) (*CheckedProgram, RecheckOutcome) {
+// RecheckEdits is RecheckWithOutcome for edits to several files at once, as
+// after a save of every file or a checkout: the program after all of them.
+// Each file appears in edits at most once.
+func (dm *DocumentManager) RecheckEdits(prev *CheckedProgram, edits []ProgramEdit) (*CheckedProgram, RecheckOutcome) {
+	dm.lockBuild(true)
+	defer dm.analyzeMu.Unlock()
+	return dm.recheckLocked(prev, edits)
+}
+
+// recheckLocked is RecheckEdits for a caller that holds analyzeMu.
+func (dm *DocumentManager) recheckLocked(prev *CheckedProgram, edits []ProgramEdit) (*CheckedProgram, RecheckOutcome) {
 	if prev.consumed {
 		panic("analysis: Recheck of a program an earlier Recheck consumed")
 	}
-	if text, ok := prev.Texts[edit.Key]; ok && text == edit.Text {
+	var changed []ProgramEdit
+	for _, e := range edits {
+		if text, ok := prev.Texts[e.Key]; !ok || text != e.Text {
+			changed = append(changed, e)
+		}
+	}
+	if len(changed) == 0 {
 		return prev, RecheckOutcome{Path: RecheckUnchanged}
 	}
-	next, reason := dm.rebuildEditedBodies(prev, edit)
+	parsed := parseEdits(changed)
+	next, outcome := dm.recheckIncremental(prev, changed, parsed)
+	if next != nil {
+		return next, outcome
+	}
+	texts := maps.Clone(prev.Texts)
+	for _, e := range changed {
+		texts[e.Key] = e.Text
+	}
+	prev.consumed = true
+	return dm.checkProgramFrom(prev.Root, prev.Entry, texts, nil, nil, parsed), outcome
+}
+
+// parseEdits parses each edited text once, for whichever way of
+// rechecking answers.
+func parseEdits(edits []ProgramEdit) map[string]*parsedFile {
+	parsed := make(map[string]*parsedFile, len(edits))
+	for _, e := range edits {
+		parsed[e.Key] = parseFile(e.Text)
+	}
+	return parsed
+}
+
+// recheckIncremental answers the program after edits, each of which changes
+// its file's text, without checking every file: by rebuilding the edited
+// files' bodies (rebuildEditedBodies), or else by checking them and the
+// files that import them afresh (recheckDependents). It answers nil with
+// the outcome of a full check, and the reason one is needed, when neither
+// can answer; prev is then consumed exactly when the bodies were rebuilt
+// in place first. parsed holds the edited texts parsed (parseEdits); what
+// is left of it after a nil answer is a full check's to take.
+func (dm *DocumentManager) recheckIncremental(prev *CheckedProgram, edits []ProgramEdit, parsed map[string]*parsedFile) (*CheckedProgram, RecheckOutcome) {
+	next, reason := dm.rebuildEditedBodies(prev, edits, parsed)
 	if next != nil {
 		return next, RecheckOutcome{Path: RecheckBodies}
 	}
-	texts := make(map[string]string, len(prev.Texts)+1)
-	for key, text := range prev.Texts {
-		texts[key] = text
+	// When prev is consumed, the bodies were rebuilt and an unannotated
+	// `once` may have a new type, which the files that import its file
+	// read. The graft took the parsed edited files from parsed, and they
+	// are parsed again.
+	next, why := dm.recheckDependents(prev, edits, parsed)
+	if next != nil {
+		return next, RecheckOutcome{Path: RecheckDependents, Reason: reason}
 	}
-	texts[edit.Key] = edit.Text
-	prev.consumed = true
-	return dm.checkProgramLocked(prev.Root, prev.Entry, texts), RecheckOutcome{Path: RecheckFull, Reason: reason}
+	return nil, RecheckOutcome{Path: RecheckFull, Reason: why}
+}
+
+// parsedFile is one text parsed as CheckProgram parses a project file, with
+// its fingerprints when it parsed without error.
+type parsedFile struct {
+	text                         string
+	nodes                        []ast.Node
+	errs                         []parser.ParseError
+	damaged                      []parser.Span
+	fingerprint, implFingerprint string
+}
+
+// parseFile parses text resiliently.
+func parseFile(text string) *parsedFile {
+	nodes, errs, damaged := parser.ParseResilient(lexer.Lex(text))
+	pf := &parsedFile{text: text, nodes: nodes, errs: errs, damaged: damaged}
+	if len(errs) == 0 {
+		pf.fingerprint, pf.implFingerprint = interfaceFingerprint(nodes), implsFingerprint(nodes)
+	}
+	return pf
 }
 
 // CheckProgram checks the program whose entry is the file with module key
@@ -150,21 +224,75 @@ func (dm *DocumentManager) CheckProgram(root, entry string, texts map[string]str
 
 // checkProgramLocked is CheckProgram for a caller that holds analyzeMu.
 func (dm *DocumentManager) checkProgramLocked(root, entry string, texts map[string]string) *CheckedProgram {
+	return dm.checkProgramFrom(root, entry, texts, nil, nil, nil)
+}
+
+// checkProgramFrom is checkProgramLocked that takes the analyses of the
+// files keep names from from, a program checked earlier from the same
+// root and entry, as they are (reusedFile): it neither parses, builds nor
+// checks them. Every other file is parsed, built and checked afresh, and the
+// program's reductions run over every file. The caller has made sure that
+// nothing a kept file's analysis holds depends on a file that changed
+// (recheckDependents), and that the root declares no Go bindings, which a
+// program with kept files does not look for again. With keep nil it is a
+// check of every file. parsed holds texts already parsed, by module key,
+// each of which the check takes instead of parsing its text again; nothing
+// else may hold their nodes.
+func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string]string, from *CheckedProgram, keep map[string]bool, parsed map[string]*parsedFile) *CheckedProgram {
 	dm.mu.RLock()
 	primitives, modules, stdlibFAs := dm.primitives, dm.modules, dm.stdlibFAs
 	dm.mu.RUnlock()
 
 	p := &CheckedProgram{
 		Root: root, Entry: entry,
-		Texts:        make(map[string]string, len(texts)),
-		Files:        map[string]*FileAnalysis{},
-		Nodes:        map[string][]ast.Node{},
-		Syntax:       map[string][]parser.ParseError{},
-		Errors:       map[string][]TypeError{},
-		fingerprints: map[string]string{},
+		Texts:            make(map[string]string, len(texts)),
+		Files:            map[string]*FileAnalysis{},
+		Nodes:            map[string][]ast.Node{},
+		Syntax:           map[string][]parser.ParseError{},
+		Errors:           map[string][]TypeError{},
+		fingerprints:     map[string]string{},
+		implFingerprints: map[string]string{},
 	}
 	for key, text := range texts {
 		p.Texts[key] = text
+	}
+	var reused map[string]reusedFile
+	var onces *OnceTable
+	keptFAs := map[*FileAnalysis]bool{}
+	revision := 0
+	if len(keep) > 0 {
+		reused = make(map[string]reusedFile, len(keep))
+		for key := range keep {
+			reused[key] = reusedFile{fa: from.Files[key], nodes: from.Nodes[key]}
+			keptFAs[from.Files[key]] = true
+			if errs := from.Syntax[key]; len(errs) > 0 {
+				p.Syntax[key] = errs
+			}
+			if f, ok := from.fingerprints[key]; ok {
+				p.fingerprints[key] = f
+			}
+			if f, ok := from.implFingerprints[key]; ok {
+				p.implFingerprints[key] = f
+			}
+			if d := from.damaged[key]; len(d) > 0 {
+				if p.damaged == nil {
+					p.damaged = map[string][]parser.Span{}
+				}
+				p.damaged[key] = d
+			}
+		}
+		prog := from.Files[from.Entry].Program()
+		onces, revision = prog.Onces, prog.revision
+		funcs := map[*FileAnalysis][]*ast.FuncDef{}
+		for fn, fa := range prog.ScopedFunctionFiles {
+			if keptFAs[fa] {
+				funcs[fa] = append(funcs[fa], fn)
+			}
+		}
+		for key, r := range reused {
+			r.funcs = funcs[r.fa]
+			reused[key] = r
+		}
 	}
 	var mu sync.Mutex
 	// text is the text of the file with module key, and whether there is one.
@@ -182,30 +310,36 @@ func (dm *DocumentManager) checkProgramLocked(root, entry string, texts map[stri
 		return string(data), true
 	}
 	parse := func(key, src string) []ast.Node {
-		nodes, errs, damaged := parser.ParseResilient(lexer.Lex(src))
-		fingerprint := ""
-		if len(errs) == 0 {
-			fingerprint = interfaceFingerprint(nodes)
+		mu.Lock()
+		pf := parsed[key]
+		delete(parsed, key)
+		mu.Unlock()
+		if pf == nil || pf.text != src {
+			pf = parseFile(src)
 		}
 		mu.Lock()
-		if len(errs) > 0 {
-			p.Syntax[key] = errs
+		if len(pf.errs) > 0 {
+			p.Syntax[key] = pf.errs
 		} else {
-			p.fingerprints[key] = fingerprint
+			p.fingerprints[key] = pf.fingerprint
+			p.implFingerprints[key] = pf.implFingerprint
 		}
-		if len(damaged) > 0 {
+		if len(pf.damaged) > 0 {
 			if p.damaged == nil {
 				p.damaged = map[string][]parser.Span{}
 			}
-			p.damaged[key] = damaged
+			p.damaged[key] = pf.damaged
 		}
 		mu.Unlock()
-		return nodes
+		return pf.nodes
 	}
 
 	entryText, _ := text(entry)
 	nodes := parse(entry, entryText)
-	externs := dm.syntheticExternsForRoot(root)
+	var externs []syntheticextern.Decl
+	if reused == nil {
+		externs = dm.syntheticExternsForRoot(root)
+	}
 	p.externs = len(externs) > 0
 	entryPath := filepath.Join(root, filepath.FromSlash(entry)+".nomi")
 	if injected, err := syntheticextern.Inject(nodes, externs, isFFIEntryPath(entryPath)); err == nil {
@@ -248,9 +382,37 @@ func (dm *DocumentManager) checkProgramLocked(root, entry string, texts map[stri
 		if !ok {
 			return elsewhere(projectRoot, modulePath)
 		}
-		return syntheticextern.Inject(parse(key, src), dm.syntheticExternsForRoot(projectRoot), false)
+		// A file of root: its bindings are the entry's, looked up once.
+		return syntheticextern.Inject(parse(key, src), externs, false)
 	}
-	entryFA, siblings, siblingNodes := BuildProjectFromEntryWithManifest(entryPath, prog, primitives, modules, stdlibFAs, root, loader, nil, entry, true)
+	entryFA, siblings, siblingNodes := buildProjectWithCache(prog, primitives, modules, stdlibFAs, root, entryPath, entry, true, loader, nil, reused)
+	if reused != nil {
+		// The kept files' `once` bindings keep the types the earlier check
+		// inferred, and so do the cycles their values read themselves
+		// through: none of them reads a file that changed. The program's
+		// inference phase infers the others'.
+		now := entryFA.Program()
+		for n, site := range onces.sites {
+			if site.fa == nil || !keptFAs[site.fa] {
+				continue
+			}
+			if onces.checked[n] {
+				now.Onces.checked[n] = true
+			}
+			if cycle := onces.cycles[n]; cycle != nil {
+				now.Onces.cycles[n] = cycle
+			}
+			if reads := onces.reads[n]; reads != nil {
+				if now.Onces.reads == nil {
+					now.Onces.reads = map[*ast.OnceBinding][]*ast.OnceBinding{}
+				}
+				now.Onces.reads[n] = reads
+			}
+		}
+		// A cache of facts read from a kept analysis holds the analysis and
+		// its revision (FileAnalysis.Revision), and its program is now this.
+		now.revision = revision + 1
+	}
 
 	// What the front end runs, in its order (frontend.Checker.Analyze).
 	c := &programChecks{
@@ -276,8 +438,13 @@ func (dm *DocumentManager) checkProgramLocked(root, entry string, texts map[stri
 			c.program = append(c.program, ProgramFile{FA: fa, Nodes: siblingNodes[key]})
 			continue
 		}
-		c.build[key] = slices.Clone(fa.TypeErrors)
-		c.check[key] = CheckTypes(fa, siblingNodes[key])
+		if keep[key] {
+			// Built and checked by the earlier check, whose diagnostics hold.
+			c.build[key], c.check[key] = from.checks.build[key], from.checks.check[key]
+		} else {
+			c.build[key] = slices.Clone(fa.TypeErrors)
+			c.check[key] = CheckTypes(fa, siblingNodes[key])
+		}
 		c.program = append(c.program, ProgramFile{FA: fa, Nodes: siblingNodes[key]})
 		c.checked = append(c.checked, key)
 		if !IsStdlibKey(key) {
@@ -290,7 +457,9 @@ func (dm *DocumentManager) checkProgramLocked(root, entry string, texts map[stri
 	c.checkEntry(p)
 	MarkTailCalls(prog)
 	for _, key := range c.checked {
-		MarkTailCalls(siblingNodes[key])
+		if !keep[key] {
+			MarkTailCalls(siblingNodes[key])
+		}
 	}
 	// The front end reports these before analysis; the language server
 	// adds them to the entry's.

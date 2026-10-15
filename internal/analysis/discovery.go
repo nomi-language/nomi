@@ -31,6 +31,10 @@ type Project struct {
 	// this file's discovery walk to follow imports into sibling
 	// modules.
 	ModuleIndex ModuleIndex
+	// reused holds the keys of the files the walk reached whose analysis
+	// the build was handed (reusedFile): it neither loaded nor parsed them,
+	// and walked their imports from the nodes it was handed.
+	reused map[string]bool
 }
 
 // DiscoverProjectWithManifest BFS-walks the import graph starting from
@@ -53,7 +57,7 @@ type Project struct {
 // embedders. When mfst is nil and projectRoot is set, the manifest is loaded
 // from disk.
 func DiscoverProjectWithManifest(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest) (*Project, error) {
-	return discoverProject(entryNodes, projectRoot, loader, mfst, nil)
+	return discoverProject(entryNodes, projectRoot, loader, mfst, nil, nil)
 }
 
 // discoverProject is DiscoverProjectWithManifest that neither loads nor walks
@@ -62,7 +66,11 @@ func DiscoverProjectWithManifest(entryNodes []ast.Node, projectRoot string, load
 // was handed, so `import std/io` resolves to that analysis
 // (resolveStdlibImport) instead of parsing and analyzing std/io and every
 // module it imports again for each program. Nil walks every file.
-func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest, analyzed func(key string) bool) (*Project, error) {
+//
+// reused are the project files whose analysis the caller holds from an
+// earlier build (reusedFile): a reached one is noted in Project.reused, not
+// loaded, and its imports are walked from the nodes it was built from.
+func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest, analyzed func(key string) bool, reused map[string]reusedFile) (*Project, error) {
 	p := &Project{
 		Entry:       entryNodes,
 		Files:       make(map[string][]ast.Node),
@@ -179,12 +187,26 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 		if analyzed != nil && analyzed(wi.key) {
 			continue
 		}
-		nodes, err := loader(wi.root, wi.modPath)
-		if err != nil || nodes == nil {
-			continue
+		var nodes []ast.Node
+		if r, ok := reused[wi.key]; ok && wi.root == projectRoot {
+			if p.reused[wi.key] {
+				continue
+			}
+			if p.reused == nil {
+				p.reused = map[string]bool{}
+			}
+			p.reused[wi.key] = true
+			p.FilePaths[wi.key] = r.fa.FilePath
+			nodes = r.nodes
+		} else {
+			var err error
+			nodes, err = loader(wi.root, wi.modPath)
+			if err != nil || nodes == nil {
+				continue
+			}
+			p.Files[wi.key] = nodes
+			p.FilePaths[wi.key] = ResolveModulePath(wi.root, wi.modPath)
 		}
-		p.Files[wi.key] = nodes
-		p.FilePaths[wi.key] = ResolveModulePath(wi.root, wi.modPath)
 		// Sibling-module imports inside a freshly-loaded sibling
 		// module are walked relative to ITS module index, not the
 		// importing project's. Only one-hop deps are supported

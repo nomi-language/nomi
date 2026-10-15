@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -37,7 +38,7 @@ import (
 // CheckTypes is NOT run here — callers (DocumentManager.analyze,
 // internal/frontend's Checker.Analyze) layer it on top.
 func BuildProject(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader) *FileAnalysis {
-	entryFA, _, _ := buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil)
+	entryFA, _, _ := buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil, nil)
 	return entryFA
 }
 
@@ -69,7 +70,7 @@ func BuildProject(entryNodes []ast.Node, primitives *Scope, modules map[string]*
 // want them use the first return value (entry FA) and the nodes they
 // passed in.
 func BuildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
-	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil)
+	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, "", "", false, loader, nil, nil)
 }
 
 // BuildProjectFromEntry is BuildProjectWithCache plus the entry
@@ -80,7 +81,7 @@ func BuildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 // path (LSP per-document analysis, tests) keep using
 // BuildProjectWithCache and accept the empty FilePath for the entry.
 func BuildProjectFromEntry(entryAbsPath string, entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
-	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, "", false, loader, nil)
+	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, "", false, loader, nil, nil)
 }
 
 // BuildProjectFromEntryWithManifest is BuildProjectFromEntry plus a
@@ -98,17 +99,33 @@ func BuildProjectFromEntry(entryAbsPath string, entryNodes []ast.Node, primitive
 // since it is not an entry point. When mfst is nil this behaves
 // identically to BuildProjectFromEntry.
 func BuildProjectFromEntryWithManifest(entryAbsPath string, entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, loader FileLoader, mfst *Manifest, entryModRel string, placeEntry bool) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
-	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, entryModRel, placeEntry, loader, mfst)
+	return buildProjectWithCache(entryNodes, primitives, modules, stdlibFAs, projectRoot, entryAbsPath, entryModRel, placeEntry, loader, mfst, nil)
 }
 
-func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
+// reusedFile is a project file whose analysis an earlier build of the
+// program made and a new build takes as it is, with the nodes it was built
+// from: the file and every file it imports are unchanged, so its
+// declarations and its checked bodies hold. A build handed reused files
+// (buildProjectWithCache) neither parses, declares, walks nor types them;
+// it folds their declarations into the new program like any of its files'
+// and hands them the new Program. The caller checks the other files and
+// runs the program's reductions.
+type reusedFile struct {
+	fa    *FileAnalysis
+	nodes []ast.Node
+	// funcs are the functions nodes declare, nested ones included, as the
+	// earlier build's Program.ScopedFunctionFiles has them.
+	funcs []*ast.FuncDef
+}
+
+func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest, reused map[string]reusedFile) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
 	var analyzed func(key string) bool
 	if len(stdlibFAs) > 0 {
 		analyzed = func(key string) bool {
 			return IsStdlibKey(key) && stdlibFAs[strings.TrimPrefix(key, "std/")] != nil
 		}
 	}
-	proj, discoverErr := discoverProject(entryNodes, projectRoot, loader, mfst, analyzed)
+	proj, discoverErr := discoverProject(entryNodes, projectRoot, loader, mfst, analyzed, reused)
 	if entryAbsPath != "" {
 		proj.EntryPath = entryAbsPath
 		if proj.FilePaths == nil {
@@ -129,6 +146,10 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		nodes   []ast.Node
 		fa      *FileAnalysis
 		builder *builder
+		// reused is set for a file the build was handed (reusedFile),
+		// which has no builder: the sweeps that declare, walk and type a
+		// file skip it.
+		reused bool
 	}
 	all := make([]*fileBuilder, 0, len(proj.Files)+1)
 
@@ -370,15 +391,26 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// adds a stdlib module without updating stdlibBuildOrder above).
 	// Sorted, so every build of a program builds its files in one order and
 	// a defect that depends on that order shows on every run or none.
-	userKeys := make([]string, 0, len(proj.Files))
+	userKeys := make([]string, 0, len(proj.Files)+len(proj.reused))
 	for key := range proj.Files {
 		if IsStdlibKey(key) && seenStdlib[key] {
 			continue
 		}
 		userKeys = append(userKeys, key)
 	}
+	for key := range proj.reused {
+		userKeys = append(userKeys, key)
+	}
 	sort.Strings(userKeys)
 	for _, key := range userKeys {
+		if proj.reused[key] {
+			// In the cache where its builder would have put it, so that the
+			// files after it see it as they would in a build of every file.
+			r := reused[key]
+			cache[key] = r.fa
+			all = append(all, &fileBuilder{key: key, nodes: r.nodes, fa: r.fa, reused: true})
+			continue
+		}
 		all = append(all, makeBuilder(proj.Files[key], key))
 	}
 	entryFB := makeBuilder(entryNodes, "")
@@ -392,6 +424,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	all = append(all, entryFB)
 	loweredLen[""] = len(loweredEntry)
 	for _, fb := range all {
+		if fb.reused {
+			continue
+		}
 		fb.fa.ownNodes = loweredLen[fb.key]
 		if !IsStdlibKey(fb.key) {
 			fb.fa.ownNodes -= len(preludeStmts)
@@ -437,9 +472,16 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	if placeEntry {
 		placedEntry = entryModRel
 	}
+	placementFiles := proj.Files
+	if len(proj.reused) > 0 {
+		placementFiles = maps.Clone(proj.Files)
+		for key := range proj.reused {
+			placementFiles[key] = reused[key].nodes
+		}
+	}
 	entryFB.fa.TypeErrors = append(
 		entryFB.fa.TypeErrors,
-		CheckEntryPlacement(proj.Manifest, entryNodes, placedEntry, proj.Files)...,
+		CheckEntryPlacement(proj.Manifest, entryNodes, placedEntry, placementFiles)...,
 	)
 	exportFiles := make([]ExportFile, 0, len(all))
 	for _, fb := range all {
@@ -486,12 +528,23 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			stdlibScopes[name] = scope
 		}
 	}
-	for _, fb := range all {
+	// built are the files the build declares, walks and types: every file
+	// but those it was handed (reusedFile).
+	built := all
+	if len(proj.reused) > 0 {
+		built = make([]*fileBuilder, 0, len(all))
+		for _, fb := range all {
+			if !fb.reused {
+				built = append(built, fb)
+			}
+		}
+	}
+	for _, fb := range built {
 		fb.builder.stdlibScopes = stdlibScopes
 	}
 
 	// Sweep A: register top-level symbols.
-	for _, fb := range all {
+	for _, fb := range built {
 		fb.builder.fileScope = fb.fa.ModuleScope
 		for _, node := range fb.nodes {
 			fb.builder.defineSymbolStub(node, fb.fa.ModuleScope)
@@ -504,7 +557,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// populates each file's own Impls table via
 	// defineImplBlockAnnotations. A file holds only its own impls; the
 	// program's impl index (below) is where every file's are looked up.
-	for _, fb := range all {
+	for _, fb := range built {
 		for _, node := range fb.nodes {
 			fb.builder.defineSymbolAnnotations(node, fb.fa.ModuleScope)
 		}
@@ -682,7 +735,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// by defineImplBlockStub on the synthesizer's emitted
 	// impl block during Sweep A/B-ann), letting recursive types
 	// pass their own self-reference check naturally.
-	for _, fb := range all {
+	for _, fb := range built {
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes, implIndex)...)
 	}
 
@@ -690,7 +743,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// they left in the fields its bodies add to, so its bodies can be thrown
 	// away and walked and checked again (rebuildBodies). The stdlib's files
 	// are checked once and never rebuilt.
-	for _, fb := range all {
+	for _, fb := range built {
 		if !IsStdlibKey(fb.key) {
 			fb.fa.keepDecls(fb.builder)
 		}
@@ -699,7 +752,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// Sweep B-bodies: walk function bodies. By now every file's
 	// symbols and impls are visible, so cross-file references in
 	// expressions resolve cleanly.
-	for _, fb := range all {
+	for _, fb := range built {
 		fb.builder.buildModuleBodies(fb.nodes, fb.fa.ModuleScope)
 	}
 
@@ -711,7 +764,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// Single-file callers get the same checks at the tail of buildModule;
 	// on-demand resolveImport loads go through buildModule too, so files
 	// in `cache` but not `all` are already covered.
-	for _, fb := range all {
+	for _, fb := range built {
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, checkUnused(fb.fa, fb.nodes)...)
 	}
 
@@ -725,7 +778,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// Pass 1 hadn't run yet). The pre-pass eliminates that order
 	// dependency: every file's shells are in place before any file's
 	// Pass 2 (resolveTypeExpr) consults them.
-	for _, fb := range all {
+	for _, fb := range built {
 		BuildTypeShells(fb.fa, fb.nodes)
 	}
 	// Before BuildTypes, which reads TypeBool and TypeOrdering. See
@@ -736,7 +789,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// slice (it does not append to fa.TypeErrors itself), so capture
 	// them here. Callers that layer CheckTypes / AnalyzeIterSensitivity
 	// on top should append to fa.TypeErrors rather than overwrite it.
-	for _, fb := range all {
+	for _, fb := range built {
 		from := len(fb.fa.TypeErrors)
 		declErrs, bodyErrs := buildTypeHalves(fb.fa, fb.nodes, stdlibScopes)
 		if k := fb.fa.kept; k != nil {
@@ -827,6 +880,10 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 	var entryBoots []entryBoot
 	for _, fb := range all {
+		if fb.reused {
+			// Worked out again below, from its declarations as they are.
+			fb.fa.BootErrors = nil
+		}
 		if fn := findBootFunc(fb.nodes); fn != nil {
 			if hasTopLevelMain(fb.nodes) {
 				bootFunctions[fn] = true
@@ -837,6 +894,12 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 					Message: "`boot` belongs in an entry file, one that defines `fn main`; a `group` names an entry's boot with `boot entry.boot(startup)`",
 				})
 			}
+		}
+		if fb.reused {
+			for _, fn := range reused[fb.key].funcs {
+				scopedFunctions[fn] = fb.fa
+			}
+			continue
 		}
 		for _, node := range fb.nodes {
 			WalkNodes(node, func(n ast.Node) {
@@ -990,6 +1053,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	siblingNodes := make(map[string][]ast.Node, len(proj.Files))
 	for key, nodes := range proj.Files {
 		siblingNodes[key] = nodes
+	}
+	for key := range proj.reused {
+		siblingNodes[key] = reused[key].nodes
 	}
 	siblingFAs := cache
 	if entryModRel != "" {

@@ -397,9 +397,19 @@ func (fa *FileAnalysis) attachDeclType(pos Pos, sym *Symbol, typ Type) {
 // iteration and concurrency checks, read the rebuilt bodies and have to run
 // again, and so does MarkTailCalls on nodes.
 func (fa *FileAnalysis) rebuildBodies(nodes []ast.Node) ([]TypeError, bool) {
+	if !fa.walkBodiesAgain(nodes) {
+		return nil, false
+	}
+	return CheckTypes(fa, nodes), true
+}
+
+// walkBodiesAgain is rebuildBodies up to CheckTypes: it throws the body part
+// away, walks the bodies, runs the unused checks and types what the bodies
+// declare. It answers false when fa was not kept.
+func (fa *FileAnalysis) walkBodiesAgain(nodes []ast.Node) bool {
 	k := fa.kept
 	if k == nil {
-		return nil, false
+		return false
 	}
 	fa.FileBodies = FileBodies{
 		References:        maps.Clone(k.references),
@@ -428,5 +438,5 @@ func (fa *FileAnalysis) rebuildBodies(nodes []ast.Node) ([]TypeError, bool) {
 	}
 	fa.TypeErrors = append(fa.TypeErrors, k.typeErrors...)
 	fa.TypeErrors = append(fa.TypeErrors, buildBodyTypes(fa, k.types, nodes)...)
-	return CheckTypes(fa, nodes), true
+	return true
 }
