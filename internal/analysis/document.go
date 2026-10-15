@@ -899,6 +899,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 		// and hover shows a bare name instead of `ns: Int`.
 		typeErrs := BuildTypes(fa, nodes)
 		checkErrs := CheckTypes(fa, nodes)
+		checkErrs = append(checkErrs, CheckAppRoots(fa, nodes)...)
 		iterErrs := AnalyzeIterSensitivity(fa, nodes)
 		MarkTailCalls(nodes)
 		fa.TypeErrors = append(fa.TypeErrors, typeErrs...)
@@ -936,6 +937,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 			if cached, ok := cache[docKey]; ok && cached != nil {
 				fa = cached
 				checkErrs := CheckTypes(fa, nodes)
+				checkErrs = append(checkErrs, CheckAppRoots(fa, nodes)...)
 				iterErrs := AnalyzeIterSensitivity(fa, nodes)
 				// MarkTailCalls mutates the AST in place, setting
 				// Call.IsTailCall on every call in tail position, which the
@@ -993,6 +995,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	docEntryFA, docSiblings, docSiblingNodes := BuildProjectFromEntryWithManifest(fallbackDocPath, prog, dm.primitives, dm.modules, dm.stdlibFAs, root, dm.makeRecordingLoaderWithOverride(uri, nodes, rec), nil, entryModRel, true)
 	fa = docEntryFA
 	checkErrs := CheckTypes(fa, prog)
+	checkErrs = append(checkErrs, CheckAppRoots(fa, prog)...)
 	iterErrs := AnalyzeIterSensitivity(fa, prog)
 	// MarkTailCalls mutates the AST in place, setting Call.IsTailCall on
 	// every call in tail position, which the IR carries as ir.Call.Tail.
@@ -1056,6 +1059,7 @@ func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*Fil
 	merged := &FileAnalysis{program: fa.program, Impls: fa.Impls}
 	mergeImplManifest(merged, fa)
 	program := []ProgramFile{{FA: fa, Nodes: nodes}}
+	var checked []ProgramFile
 	for _, key := range keys {
 		sibFA := files[key]
 		if sibFA == nil {
@@ -1070,11 +1074,20 @@ func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*Fil
 		// analysis every document reads.
 		_, built := fileNodes[key]
 		check := !IsStdlibKey(key) || (settles && built)
-		if check && len(CheckTypes(sibFA, fileNodes[key])) > 0 {
-			clean = false
+		if check {
+			if len(CheckTypes(sibFA, fileNodes[key])) > 0 {
+				clean = false
+			}
+			checked = append(checked, ProgramFile{FA: sibFA, Nodes: fileNodes[key]})
 		}
 		mergeImplManifest(merged, sibFA)
 		program = append(program, ProgramFile{FA: sibFA, Nodes: fileNodes[key]})
+	}
+	// Their application-field roots, once every file is checked.
+	for _, f := range checked {
+		if len(CheckAppRoots(f.FA, f.Nodes)) > 0 {
+			clean = false
+		}
 	}
 	for f, errs := range CheckImplImports(program) {
 		if f == fa {

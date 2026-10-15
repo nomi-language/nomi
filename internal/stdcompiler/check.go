@@ -116,15 +116,21 @@ func ProjectDiagnostics(entryNodes []ast.Node, root string, loader analysis.File
 	var sibErrs []analysis.TypeError
 	var sibFAs []*analysis.FileAnalysis
 	program := []analysis.ProgramFile{{FA: fa, Nodes: entryNodes}}
+	sibCheckErrs := make(map[*analysis.FileAnalysis][]analysis.TypeError, len(siblingFAs))
 	for key, sibFA := range siblingFAs {
-		checkErrs := analysis.CheckTypes(sibFA, siblingNodes[key])
-		if includeSiblingDiagnostics {
-			sibErrs = append(sibErrs, sibFA.TypeErrors...)
-			sibErrs = append(sibErrs, checkErrs...)
-		}
+		sibCheckErrs[sibFA] = append(sibCheckErrs[sibFA], analysis.CheckTypes(sibFA, siblingNodes[key])...)
 		analysis.MergeImplManifest(fa, sibFA)
 		program = append(program, analysis.ProgramFile{FA: sibFA, Nodes: siblingNodes[key]})
 		sibFAs = append(sibFAs, sibFA)
+	}
+	// The application-field roots, once every file is checked.
+	errs = append(errs, analysis.CheckAppRoots(fa, entryNodes)...)
+	for _, f := range program[1:] {
+		checkErrs := append(sibCheckErrs[f.FA], analysis.CheckAppRoots(f.FA, f.Nodes)...)
+		if includeSiblingDiagnostics {
+			sibErrs = append(sibErrs, f.FA.TypeErrors...)
+			sibErrs = append(sibErrs, checkErrs...)
+		}
 	}
 	// Whole-file imports nothing names, once every file's uses of impl
 	// blocks are known.

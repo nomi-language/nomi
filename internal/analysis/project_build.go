@@ -1040,7 +1040,13 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 
 	// The Program is complete: hand it to every file of the build. Nothing
-	// writes it from here on.
+	// writes it from here on. Its files are those the impl index folded and
+	// any module a function body's import loaded since.
+	for key, fa := range cache {
+		if _, present := filesByKey[key]; !present {
+			filesByKey[key] = fa
+		}
+	}
 	program := &Program{
 		ImplIndex:           implIndex,
 		implTables:          *own,
@@ -1051,6 +1057,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		ContextType:         contextType,
 		StdlibModuleScopes:  stdlibScopes,
 	}
+	program.setFiles(filesByKey)
 	for _, fb := range all {
 		fb.fa.program = program
 	}

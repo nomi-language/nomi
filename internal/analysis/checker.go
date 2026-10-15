@@ -1296,10 +1296,8 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	c.checkInstantiationCycles()
 	c.checkUndeterminedPatternBindings()
 	c.checkUndeterminedTypeArgs()
-	c.errors = append(c.errors, checkAppRoots(fa, nodes)...)
-	// A boot's signature and placement are checked once per project build,
-	// and reported with the file that declares the boot.
-	c.errors = append(c.errors, fa.BootErrors...)
+	// The application-field roots and the file's boot errors are reported
+	// by CheckAppRoots, once the program's files are checked.
 
 	return c.errors
 }

@@ -531,9 +531,14 @@ func Load() *StdLib {
 	// are kept in lib.Errors rather than reported: the user-facing project
 	// pipeline reports errors against user code, and a stdlib error is a
 	// defect in this repository, caught by TestStdlib_AnalyzesWithoutErrors.
+	checked := make(map[string][]analysis.TypeError, len(names))
 	for _, name := range names {
 		errs := append([]analysis.TypeError(nil), lib.Files[name].TypeErrors...)
-		errs = append(errs, analysis.CheckTypes(lib.Files[name], lib.Nodes[name])...)
+		checked[name] = append(errs, analysis.CheckTypes(lib.Files[name], lib.Nodes[name])...)
+	}
+	// The application-field roots, once every module is checked.
+	for _, name := range names {
+		errs := append(checked[name], analysis.CheckAppRoots(lib.Files[name], lib.Nodes[name])...)
 		if len(errs) > 0 {
 			lib.Errors[name] = errs
 		}

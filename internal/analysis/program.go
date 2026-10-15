@@ -1,6 +1,10 @@
 package analysis
 
-import "github.com/nomi-language/nomi/internal/ast"
+import (
+	"sort"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // Program is what one build knows about the whole program rather than about
 // one file: the impl index, the impl-method tables of the build's own files,
@@ -49,6 +53,30 @@ type Program struct {
 	// stdlib symbol (the iter-sensitivity pass, derive synthesis, the IR
 	// builder).
 	StdlibModuleScopes map[string]*Scope
+
+	// files is every file the program reaches, the stdlib's analyses
+	// included, in module-key order: the files whose own facts the
+	// program-wide reductions fold. filesByKey holds them by module key.
+	files      []*FileAnalysis
+	filesByKey map[string]*FileAnalysis
+}
+
+// setFiles records byKey as the program's files.
+func (p *Program) setFiles(byKey map[string]*FileAnalysis) {
+	p.filesByKey = byKey
+	p.files = filesInKeyOrder(byKey)
+}
+
+// File answers the analysis of the program's file with module key key ("std/iter",
+// "shapes"), or nil.
+func (p *Program) File(key string) *FileAnalysis {
+	return p.filesByKey[key]
+}
+
+// Files answers every file the program reaches, the stdlib's included, in
+// module-key order.
+func (p *Program) Files() []*FileAnalysis {
+	return p.files
 }
 
 // implTables are the impl-method tables of a build's own files.
@@ -103,17 +131,44 @@ func (fa *FileAnalysis) Program() *Program {
 
 // standaloneProgram is the Program of a file analyzed on its own: its own
 // impl-block tables and `once` bindings, the stdlib it was built against, and
-// impls (nil, or an index over the stdlib).
-func standaloneProgram(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, stdlibScopes map[string]*Scope, contextType Type) *Program {
+// impls (nil, or an index over the stdlib). Its files are fa and the modules
+// its build loaded (loaded, by module key).
+func standaloneProgram(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, stdlibScopes map[string]*Scope, contextType Type, loaded map[string]*FileAnalysis) *Program {
 	onces := NewOnceTable()
 	onces.Index(fa, nodes)
-	return &Program{
+	files := map[string]*FileAnalysis{"": fa}
+	for key, file := range loaded {
+		if file != fa {
+			files[key] = file
+		}
+	}
+	p := &Program{
 		ImplIndex:          impls,
 		implTables:         fileImplTables(fa),
 		Onces:              onces,
 		ContextType:        contextType,
 		StdlibModuleScopes: stdlibScopes,
 	}
+	p.setFiles(files)
+	return p
+}
+
+// filesInKeyOrder answers the distinct analyses of byKey in module-key order.
+func filesInKeyOrder(byKey map[string]*FileAnalysis) []*FileAnalysis {
+	keys := make([]string, 0, len(byKey))
+	for key := range byKey {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]*FileAnalysis, 0, len(keys))
+	seen := make(map[*FileAnalysis]bool, len(keys))
+	for _, key := range keys {
+		if file := byKey[key]; file != nil && !seen[file] {
+			seen[file] = true
+			out = append(out, file)
+		}
+	}
+	return out
 }
 
 // implTablesOf answers the impl-method tables fa's impls are listed in: own

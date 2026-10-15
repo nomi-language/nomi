@@ -272,6 +272,16 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		analysis.MergeImplManifest(fa, sibFA)
 		program = append(program, analysis.ProgramFile{FA: sibFA, Nodes: siblingNodes[key]})
 	}
+	// The application-field roots of every file, now that every file is
+	// checked: a root's walk reads the checks of the files it calls into.
+	errs = append(errs, c.kept(analysis.CheckAppRoots(fa, nodes))...)
+	for _, key := range sibKeys {
+		sibFA := siblingFAs[key]
+		if _, shared := c.sharedStdlib(key, sibFA); shared {
+			continue
+		}
+		sibErrs[key] = append(sibErrs[key], c.kept(analysis.CheckAppRoots(sibFA, siblingNodes[key]))...)
+	}
 	// Whole-file imports nothing names, now that every file's uses of impl
 	// blocks are known.
 	implImportErrs := analysis.CheckImplImports(program)
@@ -398,6 +408,7 @@ func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*anal
 	// function types and receiver identities are read off typed symbols.
 	analysis.AttachStdlibProjectImpls(fa, files)
 	errs = append(errs, analysis.CheckTypes(fa, nodes)...)
+	errs = append(errs, analysis.CheckAppRoots(fa, nodes)...)
 	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
 	errs = append(errs, analysis.CheckConcurrentScope(fa, nodes)...)
 	errs = append(errs, analysis.CheckBootScope(fa, nodes)...)

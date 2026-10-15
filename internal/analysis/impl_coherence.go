@@ -707,9 +707,21 @@ func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalys
 	// is a user's own `Error` is judged satisfied by std/calendar's
 	// `derive Equatable for Error`. See missing_impl_identity.go.
 	PopulateImplsByIdentity(idx, filesByKey)
-	// A new Program in place of the old one, which other code may hold.
+	// A new Program in place of the old one, which other code may hold. It
+	// reaches the stdlib files the index folds as well as its own.
 	with := *fa.Program()
 	with.ImplIndex = idx
+	files := make(map[string]*FileAnalysis, len(filesByKey)+len(with.filesByKey))
+	for key, sfa := range filesByKey {
+		files[key] = sfa
+	}
+	for key, own := range with.filesByKey {
+		files[key] = own
+	}
+	if len(with.filesByKey) == 0 {
+		files[""] = fa
+	}
+	with.setFiles(files)
 	fa.program = &with
 }
 

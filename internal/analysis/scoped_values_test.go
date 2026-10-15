@@ -451,7 +451,8 @@ func appScopeCheckSibling(t *testing.T, root, entry, key string) []analysis.Type
 	if fa == nil {
 		t.Fatalf("%s.nomi was not loaded: %v", key, siblings)
 	}
-	return append(append([]analysis.TypeError{}, fa.TypeErrors...), analysis.CheckTypes(fa, siblingNodes[key])...)
+	errs := append(append([]analysis.TypeError{}, fa.TypeErrors...), analysis.CheckTypes(fa, siblingNodes[key])...)
+	return append(errs, analysis.CheckAppRoots(fa, siblingNodes[key])...)
 }
 
 // Without a boot anywhere in the project, Settings is no application type,

@@ -69,3 +69,18 @@ fn pong(x: Int): (Int) -> Int {
 test "default" { assert ping(1)(0) == 1 }
 `), "this test has no boot, but code it runs reads `App.n` (line 10)")
 }
+
+// A stdlib function's body is walked against the stdlib file that declares
+// it. `Iter.count` asks `Iter.known_count`, which dispatches to the program's
+// impls, and this one reads the field. The walk used to look the stdlib
+// body's positions up in the calling file's references, where they name
+// nothing, and found no read.
+func TestAppFields_ReadThroughAStdlibFunction(t *testing.T) {
+	onlyAppFieldError(t, buildProjectForDefaultConfig(appFieldsRecursionPrefix+`struct Bag { items: List<Int> }
+impl Iter<Int> for Bag {
+  fn each_while(collection: Bag, yield: (Int) -> Bool): Bool { Iter.each_while(collection.items, yield) }
+  fn known_count(_collection: Bag): Maybe<Int> { Some(App.n) }
+}
+test "default" { assert Iter.count(Bag{items: [1]}) == 1 }
+`), "this test has no boot, but code it runs reads `App.n` (line 9)")
+}

@@ -55,6 +55,8 @@ func RunFrontEnd(source, root string, virtualFiles map[string]string) ([]ast.Nod
 		analysis.MergeImplManifest(fa, sibFA)
 		program = append(program, analysis.ProgramFile{FA: sibFA, Nodes: siblingNodes[key]})
 	}
+	// The entry's application-field roots, once every file is checked.
+	errs = append(errs, analysis.CheckAppRoots(fa, nodes)...)
 	errs = append(errs, analysis.CheckImplImports(program)[fa]...)
 	errs = append(errs, analysis.FinalizeCoherence(fa)...)
 	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)

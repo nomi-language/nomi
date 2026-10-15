@@ -954,7 +954,7 @@ func buildFileWithStdlibAtPath(nodes []ast.Node, primitives *Scope, modules map[
 		loading:      make(map[string]bool),
 	}
 	b.buildModule(nodes, moduleScope)
-	b.file.program = standaloneProgram(b.file, nodes, nil, stdlibScopes, findContextType(modules))
+	b.file.program = standaloneProgram(b.file, nodes, nil, stdlibScopes, findContextType(modules), b.cache)
 	return b.file
 }
 
@@ -1216,7 +1216,7 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 	sub.file.TypeErrors = append(sub.file.TypeErrors, lowerErrs...)
 	sub.buildModule(loweredNodes, moduleScope)
 	BuildTypes(sub.file, loweredNodes)
-	sub.file.program = standaloneProgram(sub.file, loweredNodes, nil, nil, nil)
+	sub.file.program = standaloneProgram(sub.file, loweredNodes, nil, nil, nil, sub.cache)
 	b.cache[cacheKey] = sub.file
 	mergeImpls(b.file, sub.file)
 	mergeImplManifest(b.file, sub.file)
