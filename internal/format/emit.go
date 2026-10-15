@@ -1518,12 +1518,23 @@ func emitTestBoot(expr ast.Node) Doc {
 func emitTestSetup(expr ast.Node) Doc {
 	header := Text("setup")
 	if block, ok := expr.(*ast.Block); ok {
-		if single := singlePlainExprStmt(block); single != nil {
+		if single := singlePlainExprStmt(block); single != nil && !isBlockExpr(single) {
 			return Group(Concat(header, Text(" "), emit(single)))
 		}
 		return Concat(header, Text(" "), emitBlockForceBroken(block))
 	}
 	return Group(Concat(header, Text(" "), emit(expr)))
+}
+
+// isBlockExpr reports whether n is a block expression. A body whose one
+// statement is a block (`setup { {} }`, `|| { {} }`) keeps its own braces
+// around it: written bare after the header, the inner block's braces would
+// read back as the body's, one level gone. flattenBodyBlocks has already
+// merged every inner block that may take the body's place, so the ones left
+// here are empty or hold a `defer`, `with`, nested `fn` or import.
+func isBlockExpr(n ast.Node) bool {
+	_, ok := n.(*ast.Block)
+	return ok
 }
 
 func singlePlainExprStmt(block *ast.Block) ast.Node {
@@ -3042,7 +3053,7 @@ func lambdaSingleExpr(lam *ast.Lambda) (ast.Node, bool) {
 		return nil, false
 	}
 	es, ok := lam.Body.Stmts[0].(*ast.ExprStmt)
-	if !ok || (isPipeExpr(es.Expr) && authoredLambdaBlock(lam)) || lambdaKeepsBlock(lam) || statementOrBlockHasComment(lam.Body, es) {
+	if !ok || isBlockExpr(es.Expr) || (isPipeExpr(es.Expr) && authoredLambdaBlock(lam)) || lambdaKeepsBlock(lam) || statementOrBlockHasComment(lam.Body, es) {
 		// A braced pipe body keeps its braces (see emitLambda), so it hugs
 		// `})` like a block body, and so do a block written across lines
 		// (lambdaKeepsBlock) and a body with a comment, which only the
@@ -3284,12 +3295,13 @@ func emitLambdaKeepingBraces(v *ast.Lambda, keepBraces bool) Doc {
 			if statementOrBlockHasComment(body, es) {
 				return emitLambdaBlock(header, body)
 			}
-			if authoredLambdaBlock(v) && (keepBraces || isPipeExpr(es.Expr)) {
+			if isBlockExpr(es.Expr) || authoredLambdaBlock(v) && (keepBraces || isPipeExpr(es.Expr)) {
 				// Braces the author wrote around a pipe stay. A lambda body
 				// runs to the end of its expression, so they are not
 				// needed there, but removing them is not the formatter's
 				// call. A `then` lambda's braces always stay, since its bare
-				// body ends at the next `|>`.
+				// body ends at the next `|>`. Braces around a body that is
+				// one block always stay (isBlockExpr).
 				return Group(Concat(
 					header,
 					Text(" {"),
