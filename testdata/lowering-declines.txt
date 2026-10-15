@@ -86,8 +86,8 @@ b	gen.checkedRefKinds | false | g.fa == nil#1	funcref.go:79	-	defensive fence: g
 b	gen.checkedRefKinds | false | sym == nil#1	funcref.go:84	-	the checker records a Reference at every resolved callee/function-value position
 b	gen.funcTypeKinds | false | ft == nil ¦¦ len(ft.Params) != arity ¦¦ irUnsolvedType(ft.Return)#1	funcref.go:94	-	checker rejects unsolved generic references: "cannot infer type parameter T of generic function 'x' used as a value"; arity always matches the declaration
 b	gen.funcTypeKinds | false | irUnsolvedType(pt)#1	funcref.go:99	-	same checker rule: "cannot infer type parameter ... used as a value" (tried `[] |> Iter.each(io.inspect)`)
-c	gen.funcTypeKinds | false | !irCallableValueKind(params[i])#1	funcref.go:103	-	pinned as gapUnitParamGenericFnValue (reason: an ident bound nowhere this builder can see)
-d	gen.funcTypeKinds | false | result != kindUnit && !irCallableValueKind(result)#1	funcref.go:108	-	could not find a projected result kind outside the callable domain whose params pass; Maybe<Unit> results fail earlier in monoSolve instead
+?	gen.funcTypeKinds | false | params[i] != kindUnit && !irCallableValueKind(params[i])#1	funcref.go:105	?	
+d	gen.funcTypeKinds | false | result != kindUnit && !irCallableValueKind(result)#1	funcref.go:110	-	could not find a projected result kind outside the callable domain whose params pass; Maybe<Unit> results fail earlier in monoSolve instead
 b	gen.monoSolve | false | len(params) != len(tpl.decl.Params)#1	genericmono.go:392	-	every caller passes kinds of len(tpl.decl.Params) (checkedRefKinds/checkedMonoCallKinds arity), so the lengths always agree
 a	gen.monoSolve | false | !found ¦¦ !irCallableValueKind(k)#1	genericmono.go:407	irbuild	
 a	gen.checkedMonoTypeArgsFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:426	irbuild	
@@ -179,9 +179,10 @@ d	irScalarBuilder.taskCall | false | !irRetainedValueKind(result)#1	irconc.go:17
 b	irScalarBuilder.taskSpawnAll | false | !planned ¦¦ len(t.Args) != 3#1	irconc.go:189	-	checker rejects unknown named arguments and missing ones (spawn_all has no defaults), so the placement always plans 3 args
 b	irScalarBuilder.taskSpawnAll | false | !contiguous#1	irconc.go:192	-	defensive fence: all three spawn_all parameters are required, so the slots are always contiguous (reordered named args lowered)
 c	irScalarBuilder.taskSpawnAll | false | src.tag != tagSeq ¦¦ src.comp == nil ¦¦ kinds[2] != kindInt#1	irconc.go:215	-	pinned as gapTaskSpawnAllVector (reason: a named argument)
-c	irScalarBuilder.taskSpawnAll | false | fn.tag != tagFunc ¦¦ fn.comp == nil ¦¦ len(funcParams(fn)) != 1 ¦¦ funcParams(fn)[0] != el…#1	irconc.go:219	-	pinned as gapTaskSpawnAllExistentialParam (reason: a named argument)
-d	irScalarBuilder.taskSpawnAll | false | !built#1	irconc.go:224	-	could not find a spawn_all result kind whose task handle does not build
-b	irScalarBuilder.taskSpawnAll | false | result == kindInvalid#1	irconc.go:229	-	defensive fence: listKind of a built task handle is always interned
+?	irScalarBuilder.taskSpawnAll | false | fn.tag != tagFunc ¦¦ fn.comp == nil ¦¦ len(funcParams(fn)) != 1#1	irconc.go:219	?	
+?	irScalarBuilder.taskSpawnAll | false | p != elem && !(irExistentialKind(p) && bl.g.irErases(p, elem))#1	irconc.go:224	?	
+d	irScalarBuilder.taskSpawnAll | false | !built#1	irconc.go:229	-	could not find a spawn_all result kind whose task handle does not build
+b	irScalarBuilder.taskSpawnAll | false | result == kindInvalid#1	irconc.go:234	-	defensive fence: listKind of a built task handle is always interned
 b	irScalarBuilder.containerCompare | false | !args.ok ¦¦ len(args.kinds) != 2#1	ircontainercompare.go:68	-	probe: containerCompareAny falls back to ifaceContainerCall on false
 b	irScalarBuilder.containerCompare | false | owner == "List" && !bl.untypedListPair(t, args)#1	ircontainercompare.go:71	-	probe: containerCompareAny falls back to ifaceContainerCall on false
 b	irScalarBuilder.containerCompare | false | !isVector ¦¦ !(irRetainedVectorKind(k) ¦¦ bl.g.irVectorValueKind(k))#1	ircontainercompare.go:82	-	probe: containerCompareAny falls back to ifaceContainerCall on false
@@ -381,8 +382,8 @@ a	irScalarBuilder.typedRegionValue | note | "a branch or block value kind with n
 c	irScalarBuilder.typedRegionValue | note | "an `if` or `case` whose every arm leaves the body, used as an operand"#1	irfuncbody.go:2948	-	pinned as gapLeavingRegionTypedOperand (reason: an `if` or `case` whose every arm leaves the body, used as an operand)
 a	irScalarBuilder.typedRegionValue | computed | return ok#1	irfuncbody.go:2955	expect,irbuild,projectgen,vmhost	
 a	irScalarBuilder.bindingExpression | note | "a binding annotation outside the retained value domain: " + want.nomi()#1	irfuncbody.go:2975	irbuild	
-?	irScalarBuilder.bindingExpression | note | "a value of kind " + k.nomi() + " held as the existential " + want.nomi()#1	irfuncbody.go:2988	?	
-c	irScalarBuilder.bindingExpression | false | !ok ¦¦ (k != want && !bl.g.irErases(want, k))#1	irfuncbody.go:2991	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([main] the builder declined without naming a reason (a compiler bug; please report it))
+?	irScalarBuilder.bindingExpression | note | "a value of kind " + k.nomi() + " held as the existential " + want.nomi()#1	irfuncbody.go:2989	?	
+c	irScalarBuilder.bindingExpression | false | !ok ¦¦ (k != want && !bl.g.irErases(want, k))#1	irfuncbody.go:2992	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([main] the builder declined without naming a reason (a compiler bug; please report it))
 a	irScalarBuilder.holeBoundCall | false | len(names) == 0 ¦¦ len(t.Args) == 0#1	irholecall.go:36	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.holeBoundCall | false | bl.g.std == nil#1	irholecall.go:45	-	defensive fence: g.std is always set when building a std instance with holes
 a	irScalarBuilder.holeBoundCall | false | !isIface#1	irholecall.go:49	expect,irbuild	
@@ -551,10 +552,10 @@ d	irScalarBuilder.loopGuard | false | !ok ¦¦ (t.CondPattern == nil && ck != ki
 b	irScalarBuilder.loopGuard | false | unguarded#1	irloop.go:538	-	loopGuardShape and the final-if path admit only break/return/continue exits
 b	irScalarBuilder.loopValue | false | isNilNode(value)#1	irloop.go:563	-	checker rejects a bare `return` in a non-Unit loop guard ("return type mismatch: expected Int, got Unit")
 c	irScalarBuilder.loopValue | false | !ok ¦¦ vk != k#1	irloop.go:567	-	pinned as gapCLoopGuardReturnEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
-b	irScalarBuilder.mapMakeOf | false | t.TypeName != nil ¦¦ len(t.Entries) == 0#1	irmap.go:148	-	parser builds `{}` as a block, never an empty MapLit; a typed MapLit returns before this line
-d	irScalarBuilder.mapUpdate | false | bk != lk ¦¦ !irRetainedMapKind(lk)#1	irmap.go:189	-	needs a map spread whose entries lower but whose kind differs from the base or is not a retained map; not found
-c	irScalarBuilder.mapEntriesOver | false | !joined ¦¦ (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructu…#1	irmap.go:273	-	pinned as gapMapOfFunctions (reason: a MapLit)
-b	irScalarBuilder.mapEntriesOver | false | !ok#1	irmap.go:283	-	fence: the key test at irmap.go:273 already admits only kinds irMapKeyOK admits
+b	irScalarBuilder.mapMakeOf | false | t.TypeName != nil ¦¦ len(t.Entries) == 0#1	irmap.go:151	-	parser builds `{}` as a block, never an empty MapLit; a typed MapLit returns before this line
+d	irScalarBuilder.mapUpdate | false | bk != lk ¦¦ !irRetainedMapKind(lk)#1	irmap.go:192	-	needs a map spread whose entries lower but whose kind differs from the base or is not a retained map; not found
+c	irScalarBuilder.mapEntriesOver | false | !joined ¦¦ (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructu…#1	irmap.go:276	-	pinned as gapMapOfFunctions (reason: a MapLit)
+b	irScalarBuilder.mapEntriesOver | false | !ok#1	irmap.go:286	-	fence: the key test at irmap.go:273 already admits only kinds irMapKeyOK admits
 b	irScalarBuilder.mapEntryGet | false | mk.tag != tagMap ¦¦ !irRetainedMapKind(mk)#1	irmappattern.go:38	-	every caller passes a retained map kind; a map pattern over a non-map is a checker error
 b	irScalarBuilder.mapEntryGet | note | "a map pattern key of kind " + kk.nomi() + " over " + mk.nomi()#1	irmappattern.go:57	-	tried enum, tuple, struct, record, list, Float and Unit keys over String/Bool-keyed maps: all lower (irMapKeyKind admits them)
 b	irScalarBuilder.mapEntryGet | false | !ok ¦¦ (kk != keyK && !irMapKeyKind(kk))#1	irmappattern.go:59	-	same as :57; !ok propagates the key expression's own decline

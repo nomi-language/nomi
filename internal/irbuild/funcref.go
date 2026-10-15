@@ -99,7 +99,9 @@ func (g *gen) funcTypeKinds(ft *analysis.FuncType, arity int) ([]kind, kind, boo
 			return nil, kindInvalid, false
 		}
 		params[i] = g.project(pt)
-		if !irCallableValueKind(params[i]) {
+		// A Unit parameter (`Iter.each(units, io.inspect)`) is in the
+		// domain, as irCallableValueKind admits it in a function kind.
+		if params[i] != kindUnit && !irCallableValueKind(params[i]) {
 			return nil, kindInvalid, false
 		}
 	}

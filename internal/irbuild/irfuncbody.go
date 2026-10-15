@@ -2980,9 +2980,10 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		return v, k, ok
 	}
 	if existential {
-		// The VM's existential is the concrete value, so the binding keeps
-		// the concrete implementer's kind; every later use erases it where
-		// the interface is expected, as the value itself would be.
+		// The VM's existential is the concrete value, so the binding holds
+		// it unchanged at the interface's kind, the checker's type for the
+		// name: a record or tuple built from it (`{d: d}`) then has the
+		// kind the checker gives it.
 		v, k, _, ok := bl.lowerTypedOperand(b.Value, want)
 		if ok && k != want && !bl.g.irErases(want, k) {
 			irDeclineNote("a value of kind " + k.nomi() + " held as the existential " + want.nomi())
@@ -2990,7 +2991,7 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		if !ok || (k != want && !bl.g.irErases(want, k)) {
 			return ir.NoTemp, kindInvalid, false
 		}
-		return v, k, true
+		return v, want, true
 	}
 	v, k, _, ok := bl.lowerWant(b.Value, want)
 	return v, k, ok

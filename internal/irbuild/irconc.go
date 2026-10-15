@@ -215,7 +215,12 @@ func (bl *irScalarBuilder) taskSpawnAll(t *ast.Call) (ir.Temp, kind, bool, bool)
 		return no()
 	}
 	elem := seqElem(src)
-	if fn.tag != tagFunc || fn.comp == nil || len(funcParams(fn)) != 1 || funcParams(fn)[0] != elem {
+	if fn.tag != tagFunc || fn.comp == nil || len(funcParams(fn)) != 1 {
+		return no()
+	}
+	// `Task.spawn_all([1, 2], show)` for `fn show(x: Display)`: an
+	// element entering the parameter's existential is the value itself.
+	if p := funcParams(fn)[0]; p != elem && !(irExistentialKind(p) && bl.g.irErases(p, elem)) {
 		return no()
 	}
 	payload := funcResult(fn)

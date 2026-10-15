@@ -12,7 +12,7 @@ import (
 // boxed value, so reading it is a RefOnce and calling it is a closure call on
 // that temporary.
 func irOnceKind(k kind) bool {
-	return irRetainedValueKind(k) || k.tag == tagFunc && irCallableValueKind(k)
+	return irRetainedValueKind(k) || k.tag == tagFunc && irCallableValueKind(k) || irExistentialKind(k) || k == kindUnit
 }
 
 func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {

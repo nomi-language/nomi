@@ -109,6 +109,9 @@ func irMapTransportKind(k kind) bool {
 // hashing and ordering are unchanged.
 func irMapValueKind(k kind) bool {
 	return irScalarLeafKind(k) || (k.tag == tagList && irRetainedListKind(k)) || irSelfContainerEnum(k) || irNominalElemKind(k) || irDynamicKind(k) || irHostHandleKind(k) ||
+		// An interface's existential, which the map holds as the
+		// concrete value (`Map<String, Display>`).
+		irExistentialKind(k) ||
 		// Any value a key may be, a nested map among them.
 		(k != kindEmptyMap && k != kindEmptyList && irMapKeyKind(k))
 }

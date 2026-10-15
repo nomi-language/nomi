@@ -746,32 +746,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCWithIndexExistential",
-		fix:    "builder: c with index existential. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterCall | false | !irRetainedTupleKind(pair)#2",
-		reason: "qualified call, Type.method: Iter.with_index",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    xs: List<Display> = [1, "a"]
-    io.inspect(Iter.with_index(xs) |> Iter.count())
-}
-`,
-	},
-	{
-		name:   "gapCZipExistential",
-		fix:    "builder: c zip existential. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterCall | false | !irRetainedTupleKind(pair)#3",
-		reason: "qualified call, Type.method: Iter.zip",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    xs: List<Display> = [1, "a"]
-    io.inspect(Iter.zip(xs, [1, 2]) |> Iter.count())
-}
-`,
-	},
-	{
 		name:   "gapCZipFnListRight",
 		fix:    "builder: c zip fn list right. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterPlainView | false | unguarded#1",
 		reason: "qualified call, Type.method: Iter.zip",
@@ -1217,19 +1191,6 @@ fn f(t: (Pair, Int)): Int {
 
 fn main() {
   io.inspect(f((Pair(1, "a"), 2)))
-}
-`,
-	},
-	{
-		name:   "gapTupleUnitPart",
-		fix:    "builder: tuple unit part. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.tupleMakeWant | false | !ok ¦¦ !irCompositePartKind(k)#1",
-		reason: "a TupleLit",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-  t = (1, io.print("a"))
-  io.inspect(t)
 }
 `,
 	},
@@ -1683,27 +1644,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapTaskSpawnAllExistentialParam",
-		fix:    "builder: task spawn all existential param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.taskSpawnAll | false | fn.tag != tagFunc ¦¦ fn.comp == nil ¦¦ len(funcParams(fn)) != 1 ¦¦ funcParams(fn)[0] != el…#1",
-		reason: "a named argument",
-		noSkip: true,
-		src: `import std/io
-import std/tasks.Task
-
-fn show(x: Display): String {
-    Display.to_string(x)
-}
-
-fn main() {
-    xs = concurrent {
-        ts = Task.spawn_all([1, 2, 3], show, max_running: 2)
-        Task.await_all(ts)
-    }
-    io.inspect(xs)
-}
-`,
-	},
-	{
 		name:   "gapTaskSpawnAllVector",
 		fix:    "builder: task spawn all vector. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.taskSpawnAll | false | src.tag != tagSeq ¦¦ src.comp == nil ¦¦ kinds[2] != kindInt#1",
 		reason: "a named argument",
@@ -2085,19 +2025,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapFieldAccessorRecordExistential",
-		fix:    "builder: field accessor record existential. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.fieldAccessor | note | \"a field accessor over a type outside the domain: \" + pk.nomi()#1",
-		reason: "a field accessor over a type outside the domain: {d: Display, x: Int}",
-		src: `import std/io
-
-fn main() {
-    d: Display = 1
-    rs = [{x: 1, d: d}]
-    io.inspect(rs |> Iter.map(.x) |> Iter.to_list())
-}
-`,
-	},
-	{
 		name:   "gapFieldDefaultIterWiden",
 		fix:    "builder: field default iter widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.declDefault | false | !ok ¦¦ k != want#1",
 		reason: "a struct literal: H",
@@ -2204,23 +2131,6 @@ fn main() {
     c = Circle{r: 2}
     it: Iter<Shape> = [c]
     io.print(Iter.count(it))
-}
-`,
-	},
-	{
-		name:   "gapListExistentialField",
-		fix:    "builder: list existential field. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.coerceEmpty | false | !bl.g.emptyRetypes(have, want)#1",
-		reason: "a ListLit",
-		noSkip: true,
-		src: `import std/io
-
-struct Holder {
-    ds: List<Display>
-}
-
-fn main() {
-    h = Holder{ds: [1, "a"]}
-    io.print(Iter.map(h.ds, |d| Display.to_string(d)) |> String.join(","))
 }
 `,
 	},
@@ -2495,8 +2405,8 @@ fn main() {
 	},
 	{
 		name:   "gapTupleHashUnitSlot",
-		fix:    "builder: tuple hash unit slot. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.tupleHashCall | false | !sok ¦¦ !irRetainedTupleKind(sk)#1",
-		reason: "a TupleLit",
+		fix:    "checker or builder: the tuple now lowers, and tupleHashCall's synthesized `Hashable.hash` of the Unit part declines; the checker rejects `Hashable.hash(Unit)` itself (\"no impl of `Hashable` for `Unit`\") yet accepts a tuple holding Unit as Hashable, so either the checker should reject this tuple or Unit should hash. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.tupleHashCall | false | !sok ¦¦ !irRetainedTupleKind(sk)#1",
+		reason: "qualified call, Type.method: Hashable.hash",
 		noSkip: true,
 		src: `import std/io
 
@@ -3047,21 +2957,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapUnitElemOutputRef",
-		fix:    "builder: unit elem output ref. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.outputRef | false | !ok ¦¦ result != kindUnit#1",
-		reason: "a field access on an unbound name io: .inspect",
-		noSkip: true,
-		src: `import std/io
-
-fn u() {
-}
-
-fn main() {
-    [u(), u()] |> Iter.each(io.inspect)
-}
-`,
-	},
-	{
 		name:   "gapUnitParamGenericFnValue",
 		fix:    "builder: unit param generic fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.funcTypeKinds | false | !irCallableValueKind(params[i])#1",
 		reason: "an ident bound nowhere this builder can see",
@@ -3183,21 +3078,6 @@ fn main() {
 pub enum Holder<T> {
     Of T
     Empty
-}
-`,
-	},
-	{
-		name:   "gapOnceUnit",
-		fix:    "builder: once unit. Found unreached by the decline inventory (testdata/lowering-declines.txt) at declineOnceRead | note | \"a read of `once \" + d.nomi + \"`, which cannot lower: \" + why#1; gen.irOnceCellLower | note | \"a once of a kind outside the domain: \" + k.nomi()#1",
-		reason: "a read of `once setup`, which cannot lower: a once of a kind outside the domain: Unit",
-		src: `import std/io
-
-once setup: Unit = io.print("initialized")
-
-fn main() {
-    setup
-    setup
-    io.print("done")
 }
 `,
 	},

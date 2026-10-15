@@ -631,7 +631,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		return bl.recordMakeOf(sl, want)
 	}
 	if ll, isList := at.(*ast.ListLit); isList && want.tag == tagList && want.comp != nil && len(want.comp.parts) == 1 &&
-		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc || irTypedWithin(want.comp.parts[0])) && ll.TypeName == nil && len(ll.Items) != 0 {
+		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc || irExistentialKind(want.comp.parts[0]) || irTypedWithin(want.comp.parts[0])) && ll.TypeName == nil && len(ll.Items) != 0 {
 		// `[xs, [1, 2]]` where a `List<Iter<Int>>` is expected: each element
 		// enters the declared `Iter<T>`. `[cnt]` where a
 		// `List<(List<Int>) -> Int>` is: each function value enters the
