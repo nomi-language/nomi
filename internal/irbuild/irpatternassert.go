@@ -114,6 +114,10 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 				next = matched
 			}
 			tested = bl.nominalCaseTest(p, subj, sk, matched, next)
+		default:
+			// A string prefix (`"a" + rest`), tested as a nested pattern
+			// is.
+			tested = bl.patternValueTest(p, subj, sk, matched, failed)
 		}
 		if !tested {
 			irDeclineAtPattern(p, "an `assert pattern = value` pattern outside the retained case tests: "+sk.nomi())

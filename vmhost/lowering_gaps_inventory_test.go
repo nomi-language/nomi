@@ -612,17 +612,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapAssertPatternStringPrefix",
-		fix:    "builder: assert pattern string prefix. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.patternAssert | note | \"an `assert pattern = value` pattern outside the retained case tests: \" + sk.nomi()#1",
-		reason: "an `assert pattern = value` pattern outside the retained case tests: String",
-		src: `test "assert string prefix pattern" {
-  s = "abc"
-  assert "a" + rest = s
-  assert rest == "bc"
-}
-`,
-	},
-	{
 		name:   "gapDistinctDestructureFileQualified",
 		fix:    "builder: distinct destructure file qualified. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.distinctBinding | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irDistinctOverValue(k.def) ¦¦ t.TypeName != k.def.nomi#1; irScalarBuilder.distinctBinding | note | \"a distinct destructure outside the retained wrapping domain\"#1",
 		reason: "a distinct destructure outside the retained wrapping domain",

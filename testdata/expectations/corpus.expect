@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 284
-declared-cases 918
+declared-cases 919
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -211,11 +211,12 @@ T nomi run: <root>/tests/02-testing/assertion_context/test_helpers.nomi declares
 T
 C 02-testing/assertion_pattern_destructuring_test.nomi
 E 0
-N 2
-H e1ebe049936aea096474d1acc766cc0d89f4d05a3573199f6d60e39c09860331
+N 3
+H 081743bf7aa8e21ac16088445f30292ebc2633a80ced038fcb7ab81793c9af11
 T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can destructure list tuple struct map type and enum patterns
 T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can match literal patterns
-T test result: ok. 2 passed, 0 failed
+T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can match a string prefix
+T test result: ok. 3 passed, 0 failed
 T
 C 02-testing/assertion_pipe_test.nomi
 E 0

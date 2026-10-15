@@ -46,3 +46,9 @@ test "assert can match literal patterns" {
     assert 42 = 42
     assert -7 = -7
 }
+
+test "assert can match a string prefix" {
+    path = "/users/42"
+    assert "/users/" + id = path
+    assert id == "42"
+}
