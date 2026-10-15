@@ -102,15 +102,19 @@ fn main() {
 }
 
 // When `main` itself cannot be lowered, the report is at the expression it
-// stopped at. The program is gapContextValueUnwitnessable's reproducer
-// (lowering_gaps_inventory_test.go); when that gap is fixed, take another
+// stopped at. The program is gapPartialDefaultBeforeLaterPlaceholder's
+// reproducer (lowering_gaps_test.go); when that gap is fixed, take another
 // known gap whose decline sits in `main`.
 func TestCheck_ReportsADeclinedMainAtTheExpression(t *testing.T) {
 	path := writeProgram(t, `import std/io
-import std/duration.Duration
+
+fn span(a: Int, b: Int = a * 2): (Int, Int) {
+    (a, b)
+}
 
 fn main() {
-    io.inspect(Context.value(Context.root(), Duration))
+    u = span(b: _, _)
+    io.inspect(u(1, 2))
 }
 `)
 	err := vmhost.Check(path)
@@ -118,7 +122,7 @@ fn main() {
 	if !errors.As(err, &ds) || len(ds) != 1 {
 		t.Fatalf("Check answered %v; want one diagnostic", err)
 	}
-	if d := ds[0]; d.Line != 5 || d.Col != 16 || d.Message != "this call to `Context.value` is not supported yet, so `fn main` cannot run" {
+	if d := ds[0]; d.Line != 8 || d.Col != 9 || d.Message != "this call to `span` is not supported yet, so `fn main` cannot run" {
 		t.Errorf("got %d:%d %q", d.Line, d.Col, d.Message)
 	}
 }
