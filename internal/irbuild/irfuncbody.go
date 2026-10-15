@@ -1039,7 +1039,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// `import std/iter.Iter.{loop}` then `loop(...)`: Iter.loop.
 		return bl.iterLoop(t)
 	}
-	if id, ok := t.Func.(*ast.Ident); ok && !hasNamed {
+	if id, ok := t.Func.(*ast.Ident); ok {
 		if v, k, mobile, lowered, handled := bl.genericNestedCall(t, id); handled {
 			return v, k, mobile, lowered
 		}

@@ -205,20 +205,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapNestedFnDestructuringParam",
-		fix:    "builder: nested fn destructuring param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.nestedFunc/no | note | \"a nested fn: \" + why#1",
-		reason: "a nested fn: a parameter without an annotation, or a destructuring one",
-		src: `import std/io
-
-fn main() {
-    fn sum((a, b): (Int, Int)): Int {
-        a + b
-    }
-    io.print(sum((1, 2)))
-}
-`,
-	},
-	{
 		name:   "gapPartialOpenNonliteralDefault",
 		fix:    "builder: partial open nonliteral default. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.partialApplication | false | p.Default != nil && !irClosedLiteral(p.Default)#1",
 		reason: "a partial application over a callee whose parameters the builder cannot see, or with a non-literal default",

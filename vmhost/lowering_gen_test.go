@@ -1739,11 +1739,7 @@ func (g *gen) callBlock() string {
 		fmt.Fprintf(&out, "io.inspect(%s(None))\n", name("cp"))
 	case 5:
 		// A generic helper with a destructuring parameter and a default
-		// that reads its names, called with named arguments. A nested fn
-		// cannot destructure yet, so a local program skips it.
-		if g.local {
-			break
-		}
+		// that reads its names, called with named arguments.
 		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<A, B>((a, b): (A, B), keep: Bool = False, fallback: A = a): (B, A) {\n"+
 			"if keep {\n(b, fallback)\n} else {\n(b, a)\n}\n}", name("csw")))
 		fmt.Fprintf(&out, "io.inspect(%s(keep: True, (%d, \"x\")))\n", name("csw"), n)

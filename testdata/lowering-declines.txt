@@ -97,13 +97,13 @@ b	gen.monoSolve | false | len(params) != len(tpl.decl.Params)#1	genericmono.go:3
 -	gen.monoSolve | false | !found ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	genericmono.go:410	-	
 a	gen.solveFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:439	irbuild	
 -	gen.solveFilled | computed | return fallback != nil#1	genericmono.go:462	-	
-b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:637	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
-b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:647	-	defensive fence: callers pass an enum template (enumDecl non-nil)
-b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:654	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
-a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.SymbolField#1	generictype.go:679	irbuild	
-a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:683	irbuild	
-c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:690	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
-b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:697	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
+b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:645	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
+b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:655	-	defensive fence: callers pass an enum template (enumDecl non-nil)
+b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:662	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
+a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.SymbolField#1	generictype.go:687	irbuild	
+a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:691	irbuild	
+c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:698	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
+b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:705	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
 c	gen.hostFnReject | note | reason#1	hostpkg.go:542	-	pinned as gapGoFnDefaultedParam (reason: a direct callee that is not lowerable: upper)
 b	gen.irBootRetain | note | "a boot without a body or a declared result"#1	irappboot.go:258	-	checker rejects: "boot must return a struct, the application type" (fn boot without result); a host fn boot is not a boot (tried boot_noresult.nomi, boot_host.nomi)
 a	gen.irBootRetain | note | "a boot result whose fields are not all retained values: " + result.nomi()#1	irappboot.go:267	irbuild	
@@ -608,17 +608,17 @@ b	irScalarBuilder.ifaceGapDefaults | false | fd == nil ¦¦ len(fd.Params) != le
 -	irScalarBuilder.siblingIfaceGapDefaults | false | !declares#1	irnamedarg.go:284	-	
 -	irScalarBuilder.siblingIfaceGapDefaults | false | chosen == nil ¦¦ len(chosen.fn.params0) != arity ¦¦ len(params) != arity#1	irnamedarg.go:288	-	
 d	irScalarBuilder.narrowedRead | false | !irRetainedEmbed(k.def, variant)#1	irnarrow.go:33	-	embedded structs with function fields, distincts over Int, functions and enums all narrow; a host-type embed (rtOpaque) needs an embedder
-a	irScalarBuilder.nestedFunc/no | note | "a nested fn: " + why#1	irnestedfn.go:29	vmhost	pinned as gapNestedFnDestructuringParam (reason: a nested fn: a parameter without an annotation, or a destructuring one)
-c	irScalarBuilder.nestedInstance/no | note | "a nested fn: " + why#1	irnestedfn.go:56	-	pinned as gapNestedFnEmptyListResult (reason: a nested fn: a result that is not the declared return type: List<_> vs List<Int>)
-a	gen.nestedInstanceArgs | false | len(ft.Params) != len(fd.Params)#1	irnestedfn.go:216	irbuild	
-a	gen.nestedInstanceArgs | false | !found ¦¦ !(irCallableValueKind(k) ¦¦ k == kindUnit)#1	irnestedfn.go:236	irbuild	
-d	irScalarBuilder.genericNestedCall | false | inst == nil#1	irnestedfn.go:346	-	reached only after genericNestedRef notes a decline (378/383); two- and three-level generic nested calls lower
-a	irScalarBuilder.genericNestedRef | false | gn == nil#1	irnestedfn.go:362	expect,irbuild,projectgen,vmhost	
-d	irScalarBuilder.genericNestedRef | note | "a generic nested fn whose type arguments are unsolved here: " + id.Name#1	irnestedfn.go:387	-	generic nested calls with unsolved args (is_some(None), ok_of(1)) and as values lower; not found
-d	irScalarBuilder.genericNestedRef | note | "a generic nested fn at a type its declaration did not build: " + fd.Name + "<" + kindsNom…#1	irnestedfn.go:392	-	three levels of generic nested fns and calls from lambdas lower; not found
-d	irScalarBuilder.reaches | false | unguarded#1	irnestedfn.go:405	-	helper probed by genericNestedRef:383; same search, not found
-d	irScalarBuilder.recursiveNestedFunc | note | "a recursive nested fn whose signature is outside the domain: " + fd.Name#1	irnestedfn.go:434	-	recursive nested fns with Maybe<Unit>/List params lower; no out-of-domain signature found
-c	irScalarBuilder.recursiveNestedFunc | note | "a recursive nested fn: its body is outside the lambda shape: " + fd.Name#1	irnestedfn.go:442	-	pinned as gapRecursiveNestedFnEmptyListTail (reason: a recursive nested fn: its body is outside the lambda shape: r)
+-	irScalarBuilder.nestedFunc/no | note | "a nested fn: " + why#1	irnestedfn.go:29	-	
+c	irScalarBuilder.nestedInstance/no | note | "a nested fn: " + why#1	irnestedfn.go:59	-	pinned as gapNestedFnEmptyListResult (reason: a nested fn: a result that is not the declared return type: List<_> vs List<Int>)
+a	gen.nestedInstanceArgs | false | len(ft.Params) != len(fd.Params)#1	irnestedfn.go:219	irbuild	
+a	gen.nestedInstanceArgs | false | !found ¦¦ !(irCallableValueKind(k) ¦¦ k == kindUnit)#1	irnestedfn.go:239	irbuild	
+d	irScalarBuilder.genericNestedCall | false | inst == nil#1	irnestedfn.go:349	-	reached only after genericNestedRef notes a decline (378/383); two- and three-level generic nested calls lower
+a	irScalarBuilder.genericNestedRef | false | gn == nil#1	irnestedfn.go:365	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.genericNestedRef | note | "a generic nested fn whose type arguments are unsolved here: " + id.Name#1	irnestedfn.go:390	-	generic nested calls with unsolved args (is_some(None), ok_of(1)) and as values lower; not found
+d	irScalarBuilder.genericNestedRef | note | "a generic nested fn at a type its declaration did not build: " + fd.Name + "<" + kindsNom…#1	irnestedfn.go:395	-	three levels of generic nested fns and calls from lambdas lower; not found
+d	irScalarBuilder.reaches | false | unguarded#1	irnestedfn.go:408	-	helper probed by genericNestedRef:383; same search, not found
+d	irScalarBuilder.recursiveNestedFunc | note | "a recursive nested fn whose signature is outside the domain: " + fd.Name#1	irnestedfn.go:437	-	recursive nested fns with Maybe<Unit>/List params lower; no out-of-domain signature found
+c	irScalarBuilder.recursiveNestedFunc | note | "a recursive nested fn: its body is outside the lambda shape: " + fd.Name#1	irnestedfn.go:445	-	pinned as gapRecursiveNestedFnEmptyListTail (reason: a recursive nested fn: its body is outside the lambda shape: r)
 d	irScalarBuilder.neverCaseRegion | note | "a `case` on Infallible whose result has no kind"#1	irnever.go:102	-	inferred, binding and statement `case` on Infallible with arms all lower
 d	irScalarBuilder.neverCaseRegion | false | !ok ¦¦ k != kindNever#1	irnever.go:107	-	as 102; lowerNever answered Never for every Infallible subject tried
 a	irScalarBuilder.neverAs | false | have != kindNever ¦¦ want == kindNever ¦¦ bl.g.irValType(want) == nil#1	irnever.go:225	expect,irbuild,projectgen,vmhost	

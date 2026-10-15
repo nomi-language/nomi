@@ -22,7 +22,7 @@ import (
 // A generic one is lowered once per type-argument tuple its calls reach
 // (genericNestedFunc).
 //
-// DECLINED: a parameter without an annotation, a name that is already bound
+// DECLINED: a plain parameter without an annotation, a name that is already bound
 // here, and a lambda whose result is not the declared return type.
 func (bl *irScalarBuilder) nestedFunc(fd *ast.FuncDef) bool {
 	no := func(why string) bool {
@@ -36,8 +36,11 @@ func (bl *irScalarBuilder) nestedFunc(fd *ast.FuncDef) bool {
 		return no("with decorators or attached tests")
 	}
 	for _, p := range fd.Params {
-		if p.TypeAnnotation == nil || p.Destructure != nil {
-			return no("a parameter without an annotation, or a destructuring one")
+		// A destructuring parameter builds as a lambda's does
+		// (irlambdapattern.go), which reads its kind off its head when it
+		// has no annotation.
+		if p.TypeAnnotation == nil && p.Destructure == nil {
+			return no("a parameter without an annotation")
 		}
 	}
 	if _, shadows := bl.g.lookup(fd.Name); shadows || bl.bound[fd.Name] != ir.NoTemp {
@@ -423,7 +426,7 @@ type irRecursiveFn struct {
 func (bl *irScalarBuilder) recursiveNestedFunc(fd *ast.FuncDef, lam *ast.Lambda, name string) bool {
 	params := make([]kind, len(fd.Params))
 	for i, p := range fd.Params {
-		params[i] = bl.g.typeOf(p.TypeAnnotation)
+		params[i] = bl.g.irParamPatternKind(p)
 	}
 	result := kindUnit
 	if fd.ReturnTypeExpr != nil {
