@@ -943,6 +943,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if bl.testingCheckCall(t) {
 		return bl.testingCheck(t)
 	}
+	if fa, qualified := t.Func.(*ast.FieldAccess); qualified && bl.namedIntrinsic(t, fa) {
+		// `Task.await(task: t)`: planned as its positional form
+		// (irintrinsicnamed.go).
+		return bl.namedIntrinsicCall(t, fa)
+	}
 	if fa, qualified := t.Func.(*ast.FieldAccess); qualified && fa.Field != nil {
 		if owner := bl.stdIntrinsicOwner(fa); owner == "Channel" || owner == "Sender" || owner == "Receiver" {
 			// Channel calls take the checker's solved signature, including a

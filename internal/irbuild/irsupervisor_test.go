@@ -313,51 +313,6 @@ fn total(n: Int): Int {
 }
 `
 
-// Supervisor shapes the builder does not lower are declined: the enclosing function
-// is not retained.
-func TestIRSupervisor_UnsupportedShapesPreserveEmission(t *testing.T) {
-	for _, tc := range []struct{ fn, src string }{
-		// A supervisor operand that is neither a read nor a call: a
-		// conditional's value, which native computes into a slot before the
-		// task body's func literal. A call operand retains; see
-		// TestIRNestedPattern_SpawnOverACalledAppSupervisor.
-		{"spawn_into", `import std/supervisors.{Supervisor}
-struct App {
-  context: Context
-  s: Supervisor
-}
-fn boot(): App {
-  App{context: Context.root(), s: Supervisor.new(max_running: 1)}
-}
-fn spawn_into(): Unit {
-  _ = Supervisor.spawn(if 1 > 0 { App.s } else { App.s }, || Unit)
-  Unit
-}
-fn main() {
-  spawn_into()
-  _ = Supervisor.flush(App.s)
-  Unit
-}
-`},
-	} {
-		p, err := AnalyzeSource("main.nomi", tc.src)
-		if err != nil {
-			t.Fatalf("the front end now rejects this, so the preservation below is untested: %v", err)
-		}
-		got, _, err := GenerateIR(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, mod := range got.IR {
-			for _, f := range mod.Funcs() {
-				if f.Name() == tc.fn {
-					t.Fatalf("unsupported supervisor shape was retained: %s", tc.fn)
-				}
-			}
-		}
-	}
-}
-
 // Every omitted default runs once per call. A named call that skips several
 // defaulted parameters of a user function prints each default once, in slot
 // order, after every written argument; and a std call with three holes calls

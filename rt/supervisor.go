@@ -345,17 +345,18 @@ func SupervisorSpawn(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 // a batch, leaving every ordinary `Supervisor.spawn` unbounded — which is not
 // what anyone means by bounding a supervisor.
 //
-// A `List` in and a `List` of handles out, in source order. Bodies return Unit,
-// as all supervised work does, so the handles come back for cancellation or for
+// Any Iter in, as std declares it, each item enrolled as the source pushes
+// it, and a `List` of handles out, in source order. Bodies return Unit, as all
+// supervised work does, so the handles come back for cancellation or for
 // `Task.await_all` on this batch rather than the supervisor's whole workload.
-func SupervisorSpawnAll[T any](fr *Frame, sup Supervisor, source *List[T], f func(*Frame, T) Unit) *List[Task[Unit]] {
-	items := listToSlice(source)
-	handles := make([]Task[Unit], 0, len(items))
-	for _, item := range items {
+func SupervisorSpawnAll[T any](fr *Frame, sup Supervisor, source Seq[T], f func(*Frame, T) Unit) *List[Task[Unit]] {
+	var handles []Task[Unit]
+	source.Run(fr, func(_ *Frame, item T) bool {
 		handles = append(handles, supervisorEnrol(fr, sup, func(taskFr *Frame) Unit {
 			return f(taskFr, item)
 		}))
-	}
+		return true
+	})
 	return listFromSlice(handles)
 }
 

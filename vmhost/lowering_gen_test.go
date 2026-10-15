@@ -112,6 +112,11 @@ type gen struct {
 	// without them.
 	fix     *rand.Rand
 	fn      int
+	// call draws the blocks callBlock writes, and cn names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	call *rand.Rand
+	cn   int
 	wn      int
 	dn      int
 	n       int
@@ -1406,6 +1411,48 @@ func (g *gen) fixedKindBlock() string {
 	return out.String()
 }
 
+// callBlock is a statement block of calls placed by name, functions passed
+// as values and the sources std's concurrency functions take: named
+// arguments to the concurrency functions in any order, a named function
+// spawned as a task, and `Task.spawn_all` over each kind of Iter.
+func (g *gen) callBlock() string {
+	r := g.call
+	g.cn++
+	name := func(s string) string { return fmt.Sprintf("%s%dc", s, g.cn) }
+	n := r.Intn(4)
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(5) {
+	case 0:
+		fmt.Fprintf(&out, "%s = concurrent {\n%s = Task.spawn(body: || %d)\nTask.await(task: %s)\n}\n", name("ct"), name("tk"), n, name("tk"))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
+	case 1:
+		fmt.Fprintf(&out, "%s = Channel.buffered<Int>(1)\n", name("ch"))
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "_ = Sender.send(value: %d, sender: %s.sender)\n", n, name("ch"))
+		} else {
+			fmt.Fprintf(&out, "_ = Sender.send(%s.sender, value: %d)\n", name("ch"), n)
+		}
+		fmt.Fprintf(&out, "io.inspect(Receiver.receive(receiver: %s.receiver))\n", name("ch"))
+	case 2:
+		fmt.Fprintf(&out, "%s = Context.with_value(value: %d, c: Context.root())\n", name("cx"), n)
+		fmt.Fprintf(&out, "io.inspect(Context.value(value_type: Int, c: %s))\n", name("cx"))
+	case 3:
+		fmt.Fprintf(&out, "fn %s(): Int {\n%d\n}\n", name("cw"), n)
+		fmt.Fprintf(&out, "%s = concurrent {\nTask.await(Task.spawn(%s))\n}\n", name("ct"), name("cw"))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
+	default:
+		sources := []string{fmt.Sprintf("#[%d, 2]", n), fmt.Sprintf("#{%d}", n), fmt.Sprintf("1..=%d", n+1),
+			fmt.Sprintf("[%d] |> Iter.map(|x: Int| x + 1)", n), fmt.Sprintf("[%d]", n)}
+		fmt.Fprintf(&out, "fn %s(x: Int): Int {\nx * 2\n}\n", name("cd"))
+		fmt.Fprintf(&out, "%s = concurrent {\nTask.await_all(Task.spawn_all(%s, %s, max_running: %d))\n}\n",
+			name("ct"), sources[r.Intn(len(sources))], name("cd"), n+1)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
 // boolLitFrom is a Bool literal drawn from r.
 func (g *gen) boolLitFrom(r *rand.Rand) string {
 	return []string{"True", "False"}[r.Intn(2)]
@@ -1420,7 +1467,7 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	g := &gen{r: rand.New(rand.NewSource(int64(i))), aux: rand.New(rand.NewSource(int64(i) + 1<<32)),
 		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32)),
 		wrap: rand.New(rand.NewSource(int64(i) + 4<<32)), dyn: rand.New(rand.NewSource(int64(i) + 5<<32)),
-		fix: rand.New(rand.NewSource(int64(i) + 6<<32))}
+		fix: rand.New(rand.NewSource(int64(i) + 6<<32)), call: rand.New(rand.NewSource(int64(i) + 7<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -1455,6 +1502,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.fix.Intn(3) == 0 {
 			body.WriteString(g.fixedKindBlock())
+		}
+		if g.call.Intn(3) == 0 {
+			body.WriteString(g.callBlock())
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")
@@ -1513,6 +1563,13 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	// fixedKindBlock's Captured.
 	if strings.Contains(out, "Captured{") {
 		out = "import std/io.Captured\n" + out
+	}
+	// callBlock's std types outside the prelude.
+	if strings.Contains(out, "Task.") {
+		out = "import std/tasks.Task\n" + out
+	}
+	if strings.Contains(out, "Channel.") {
+		out = "import std/channels.{Channel, Receiver, Sender}\n" + out
 	}
 	if strings.Contains(out, "Duration.seconds(") {
 		out = "import std/duration.Duration\n" + out
