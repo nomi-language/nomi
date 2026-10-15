@@ -66,19 +66,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapPipeDbgGrouped",
-		fix:    "builder: pipe dbg grouped. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.pipe | false | r.Expr != nil#2",
-		reason: "the pipe operator `|>`",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    x = 5 |> (dbg 1)
-    io.inspect(x)
-}
-`,
-	},
-	{
 		name:   "gapListPatternOverEmptyLiteral",
 		fix:    "builder: list pattern over empty literal. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.listCaseTest | false | k.comp == nil && (spread ¦¦ len(pat.Heads) != 0)#1",
 		reason: "a list case pattern outside flat bindings and wildcards",

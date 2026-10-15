@@ -97,13 +97,13 @@ b	gen.monoSolve | false | len(params) != len(tpl.decl.Params)#1	genericmono.go:3
 -	gen.monoSolve | false | !found ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	genericmono.go:410	-	
 a	gen.solveFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:439	irbuild	
 -	gen.solveFilled | computed | return fallback != nil#1	genericmono.go:462	-	
-b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:637	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
-b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:647	-	defensive fence: callers pass an enum template (enumDecl non-nil)
-b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:654	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
-a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.SymbolField#1	generictype.go:679	irbuild	
-a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:683	irbuild	
-c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:690	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
-b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:697	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
+b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:645	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
+b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:655	-	defensive fence: callers pass an enum template (enumDecl non-nil)
+b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:662	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
+a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.SymbolField#1	generictype.go:687	irbuild	
+a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:691	irbuild	
+c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:698	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
+b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:705	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
 c	gen.hostFnReject | note | reason#1	hostpkg.go:542	-	pinned as gapGoFnDefaultedParam (reason: a direct callee that is not lowerable: upper)
 b	gen.irBootRetain | note | "a boot without a body or a declared result"#1	irappboot.go:258	-	checker rejects: "boot must return a struct, the application type" (fn boot without result); a host fn boot is not a boot (tried boot_noresult.nomi, boot_host.nomi)
 a	gen.irBootRetain | note | "a boot result whose fields are not all retained values: " + result.nomi()#1	irappboot.go:267	irbuild	
@@ -648,8 +648,8 @@ d	irScalarBuilder.patternIfRegion | note | "a pattern `if` whose arms disagree: 
 b	irScalarBuilder.pipe | false | r.Expr != nil#1	irpipe.go:95	-	checker: "right side of `|>` must be bare `try`"
 b	irScalarBuilder.pipe | false | r.Cond != nil ¦¦ r.CondPattern != nil#1	irpipe.go:100	-	checker: a grouped `if` stage is "a pipe stage is a call ... or a keyword stage"
 b	irScalarBuilder.pipe | false | r.Value != nil#1	irpipe.go:107	-	checker: same rule for a grouped `case` stage
-a	irScalarBuilder.pipe | false | r.Expr != nil#2	irpipe.go:124	vmhost	pinned as gapPipeDbgGrouped (reason: the pipe operator `|>`)
-b	irScalarBuilder.pipe | false | unguarded#1	irpipe.go:135	-	checker: a bare function name stage is "a pipe stage is a call: write `inc()`"; every other stage form is handled above
+b	irScalarBuilder.pipe | false | r.Expr != nil#2	irpipe.go:121	-	the checker rejects a parenthesized `dbg expr` stage (`x |> (dbg 1)`, TestPipeStage_GroupedDbgIsRejected)
+b	irScalarBuilder.pipe | false | unguarded#1	irpipe.go:132	-	checker: a bare function name stage is "a pipe stage is a call: write `inc()`"; every other stage form is handled above
 a	irScalarBuilder.preludePredicateCall | false | !args.ok ¦¦ len(args.kinds) != 1#1	irpreludepred.go:38	vmhost	the checker gives Maybe.some? and siblings exactly one argument; !ok propagates the argument's decline
 b	irScalarBuilder.preludePredicateCall | false | k.tag != tagNamed ¦¦ k.def == nil ¦¦ k.def.preludeOf == nil ¦¦ k.def.preludeOf.spec != spe…#1	irpreludepred.go:42	-	the checker types the operand as std Maybe/Result
 b	irScalarBuilder.preludePredicateCall | false | v == nil#1	irpreludepred.go:46	-	Some/None/Ok/Err always exist

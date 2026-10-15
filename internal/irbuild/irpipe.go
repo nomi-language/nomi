@@ -116,11 +116,8 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		return bl.lower(&spliced)
 	case *ast.Dbg:
 		if r.Expr != nil {
-			// `5 |> (dbg 1)` slips the checker's `n.Right.(*ast.Dbg)` match
-			// because the pipe unwraps `GroupedExpr` first, so it would trap
-			// at run time. That is a
-			// front-end defect, and this producer declines rather than
-			// reproducing it.
+			// `5 |> (dbg 1)`: the checker rejects a parenthesized
+			// `dbg expr` stage, so no accepted program reaches this.
 			return no()
 		}
 		return bl.dbgOf(r, t.Left)

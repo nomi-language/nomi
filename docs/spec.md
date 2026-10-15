@@ -1212,7 +1212,9 @@ users
 
 `dbg expr` works in expression position too. It uses the same universal
 `Debug` rendering as `io.inspect`, but includes the source expression and line
-number in its output. Because `dbg` is development-only instrumentation, the
+number in its output. A parenthesized `dbg expr` is the value of `expr`, not
+a pipe stage, so `x |> (dbg 1)` is an error whose help names `|> dbg`.
+Because `dbg` is development-only instrumentation, the
 LSP reports it as a warning, and `nomi build` refuses a program with a `dbg`
 anywhere in its files, reached or not, so it does not ship. `nomi check`,
 `nomi run`, `nomi test` and the REPL accept and run it. The refusal lists each
