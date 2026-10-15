@@ -357,14 +357,34 @@ one of source and output and rejects the other. `go test ./vmhost -run '^$' -fuz
 `TestKnownFormatGaps` pins each known break in `knownFormatGaps`
 (`vmhost/format_gaps_test.go`) by a reproducer that fails once it is fixed.
 
-**Rotating sets.** Those fixed inputs are the regression baseline; four
+An incremental check must answer what a full check answers. The seam is
+`analysis.DocumentManager.Recheck` (`internal/analysis/document_program.go`):
+it takes a `CheckedProgram` and an edit to one file and answers the program
+after the edit, and today it checks the edited texts from scratch
+(`CheckProgram`). `analysis.DumpProgramForTest` renders a checked program as
+text: each file's syntax errors, diagnostics in front-end order, analysis and
+syntax tree, the program's own errors, every `once` with its type, and the
+diagnostics `nomi check` prints (`TestCheckProgramPrintsWhatTheFrontEndPrints`
+holds that list to the front end). `TestIncrementalMatchesFull`
+(`internal/analysis/incremental_test.go`, about 13 seconds) applies fixed edit
+sequences to `orderProject`, the multi-file corpus directories and, when it is
+there, the dungeon game, and after each edit compares the recheck's dump with
+a fresh full check's byte for byte. `TestIncrementalHarnessCatchesAStaleResult`
+proves a stale recheck fails it. `go test ./internal/analysis -run '^$' -fuzz
+'^FuzzIncrementalMatchesFull$' -fuzztime 5m -fuzzminimizetime 5s -parallel 4`
+mutates a project file and edits it the same way, and
+`TestIncrementalMatchesFullSample` (about 2 seconds) runs a fixed sample of
+those edits under plain `go test`.
+
+**Rotating sets.** Those fixed inputs are the regression baseline; five
 tests check a rotating set beside them, from a start seed that changes
 every UTC day (`internal/rotation`), so each day checks inputs no earlier
 run did. `TestFrontEndAcceptsSoItLowersRotating` checks 150 more generated
 programs, `TestLoweredProgramsRunRotating` runs 150 more,
 `TestFormatKeepsMeaningRotating` two more layout variants of every
-format input, and `TestLSPSurvivesTypingRotating` types five more documents
-of at most 400 lines. Each adds 2 to 4 seconds. The log names the start
+format input, `TestLSPSurvivesTypingRotating` types five more documents
+of at most 400 lines, and `TestIncrementalMatchesFullRotating` runs six more
+edit sequences. Each adds 2 to 4 seconds, the last under one. The log names the start
 seed. `NOMI_GEN_SEED=<n>` pins it and makes the run repeatable, and
 `NOMI_GEN_COUNT=<n>` changes how many seeds the set holds. A failure there
 says it came from the rotating set and prints its seed and a command that
@@ -393,7 +413,7 @@ five minutes, so neither is a per-change check:
   front end accepts; say in your report which wider checks you skipped.
 - **Before squashing a batch to `main`:** the full check, once: `go test ./...`
   (the whole irbuild package run on its own, never several in parallel) and
-  the three fuzz targets above. A failure there is attributed to the batch's
+  the four fuzz targets above. A failure there is attributed to the batch's
   changes by rerunning narrow tests on each.
 - When running several suites, capture each exit status separately; a chain
   reports only the last one.
