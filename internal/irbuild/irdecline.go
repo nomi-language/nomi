@@ -360,9 +360,6 @@ func (bl *irScalarBuilder) declineReason(n ast.Node) string {
 
 // declineCallReason splits the call arm, which is the widest one.
 func (bl *irScalarBuilder) declineCallReason(t *ast.Call) string {
-	if len(t.TypeArgs) != 0 {
-		return "a turbofish on a call"
-	}
 	for _, a := range t.Args {
 		if _, named := a.(*ast.NamedArg); named {
 			return "a named argument"

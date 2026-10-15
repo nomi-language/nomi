@@ -104,7 +104,9 @@ func (bl *irScalarBuilder) namesType(at ast.Node, x kind) bool {
 // `Context.value(c, T)`.
 func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if len(t.Args) != 2 || len(t.TypeArgs) != 0 {
+	// A turbofish (`Context.value<TraceId>(c, TraceId)`) names the type
+	// the witness argument already does.
+	if len(t.Args) != 2 {
 		return no()
 	}
 	for _, a := range t.Args {

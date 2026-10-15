@@ -295,21 +295,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapTurbofishNested",
-		fix:    "builder: turbofish nested. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.call | false | !direct ¦¦ bl.g.irMonoTemplate(bl.g.funcs[id.Name]) == nil#1",
-		reason: "a turbofish on a call",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fn ident<T>(x: T): T {
-        x
-    }
-    io.inspect(ident<Int>(3))
-}
-`,
-	},
-	{
 		name:   "gapCChunksFnList",
 		fix:    "builder: c chunks fn list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !irRetainedListKind(chunk) && !irListTransportKind(chunk)#1",
 		reason: "qualified call, Type.method: Iter.chunks",
@@ -1388,21 +1373,6 @@ fn main() {
 }
 // FILE: domain.nomi
 pub type Token Int
-`,
-	},
-	{
-		name:   "gapContextValueTurbofish",
-		fix:    "builder: context value turbofish. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.contextValueCall | false | len(t.Args) != 2 ¦¦ len(t.TypeArgs) != 0#1",
-		reason: "a turbofish on a call",
-		noSkip: true,
-		src: `import std/io
-
-type TraceId String
-
-fn main() {
-    c = Context.with_value(Context.root(), TraceId("t"))
-    io.inspect(Context.value<TraceId>(c, TraceId))
-}
 `,
 	},
 	{
@@ -2858,43 +2828,6 @@ pub fn greet(name: String, punct: String = "!"): String {
 fn main() {
     c: (Bool) -> Result<Bool, testing.AssertionFailure> = testing.check
     io.inspect(c(True))
-}
-`,
-	},
-	{
-		name:   "gapTurbofishFileQualified",
-		fix:    "builder: turbofish file qualified. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.turbofishDispatch | false | !isType ¦¦ bl.g.fa == nil#1",
-		reason: "a turbofish on a call",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    c = io.capture<Int>("", || 1)
-    io.inspect(c.value)
-}
-`,
-	},
-	{
-		name:   "gapTurbofishStdOwner",
-		fix:    "builder: turbofish std owner. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.turbofishDispatch | false | !found ¦¦ sym.Kind != analysis.SymbolInterface#1",
-		reason: "a turbofish on a call",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.inspect(Maybe.collect<Int>([None, None]))
-}
-`,
-	},
-	{
-		name:   "gapTurbofishTwoTypeArgs",
-		fix:    "builder: turbofish two type args. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.turbofishDispatch | false | len(t.TypeArgs) != 1#1",
-		reason: "a turbofish on a call",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.inspect(Maybe.map<Int, String>(Some(1), |x| "${x}"))
 }
 `,
 	},
