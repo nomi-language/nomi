@@ -14,7 +14,7 @@ import (
 // Use a map for O(1) membership but keep the canonical list as a slice so the
 // "unknown protocol" error message can name the supported set in deterministic
 // order.
-var deriveSupportedList = []string{"Equatable", "Hashable", "Comparable", "Debug", "Display", "ToJson", "FromJson"}
+var deriveSupportedList = []string{"Equatable", "Hashable", "Comparable", "Debug", "Display", "ToJson", "FromJson", "Variants"}
 
 var deriveSupported = func() map[string]bool {
 	m := make(map[string]bool, len(deriveSupportedList))
@@ -39,6 +39,7 @@ var deriveProtocolHomeModule = map[string]string{
 	"Debug":      "std/debug",
 	"ToJson":     "std/json",
 	"FromJson":   "std/json",
+	"Variants":   "std/variants",
 }
 
 // synthSupportNames is the closed set of names synthesized derive /
@@ -71,6 +72,7 @@ var synthSupportNames = map[string]bool{
 	"Debug":      true,
 	"ToJson":     true,
 	"FromJson":   true,
+	"Variants":   true,
 	"Result":     true,
 	"Map":        true,
 	"maps":       true,
@@ -373,6 +375,7 @@ const (
 	synthKindDisplay
 	synthKindToJson
 	synthKindFromJson
+	synthKindVariants
 	// synthKindAutoDebug is the universal-default Debug pass. It is a
 	// separate slot from synthKindDebug even though the two never fire for
 	// one declaration (SynthesizeUniversalDebug skips types that already
@@ -832,6 +835,8 @@ func synthesizeDeriveFor(ifaceName string, typeNode ast.Node, options ast.Node, 
 		fns = synthesizeDeriveToJson(typeNode, opts, site)
 	case "FromJson":
 		fns = synthesizeDeriveFromJson(typeNode, opts, site)
+	case "Variants":
+		fns = synthesizeDeriveVariants(typeNode, site)
 	default:
 		// deriveSupported gate above guarantees this is unreachable; kept as
 		// a belt-and-braces guard so a future addition to deriveSupported
@@ -848,7 +853,8 @@ func synthesizeDeriveFor(ifaceName string, typeNode ast.Node, options ast.Node, 
 // T { fn }` blocks. The interface comes from the caller-supplied
 // ifaceName, the receiver from the FuncDef's first param type except for
 // receiver-less constructor interfaces such as FromJson, whose receiver is
-// recovered from `Result<Receiver, Json.ShapeError>`. Generics are COPIED onto the block
+// recovered from `Result<Receiver, Json.ShapeError>`, and Variants, whose
+// `variants()` takes nothing and returns `List<Receiver>`. Generics are COPIED onto the block
 // header (so the receiver `Box<T>` resolves through the block) AND kept on the
 // FuncDef (checkImplBlock checks each item via checkFunc, which reads
 // fn.TypeParams to bring T into scope; the generic-derive tests also read the
@@ -895,6 +901,12 @@ func wrapSynthAsImplBlocks(nodes []ast.Node, ifaceName string, site synthSite) [
 func synthImplReceiver(fn *ast.FuncDef, ifaceName string) ast.TypeExpr {
 	if ifaceName == "FromJson" {
 		if ret, ok := fn.ReturnTypeExpr.(*ast.GenericType); ok && ret.Name == "Result" && len(ret.Params) >= 1 {
+			return ret.Params[0]
+		}
+		return nil
+	}
+	if ifaceName == "Variants" {
+		if ret, ok := fn.ReturnTypeExpr.(*ast.GenericType); ok && ret.Name == "List" && len(ret.Params) == 1 {
 			return ret.Params[0]
 		}
 		return nil

@@ -508,6 +508,7 @@ writes works field by field, or variant by variant. You can derive:
   elements.
 - `Comparable`, for `<`, `>` and `Iter.sort`.
 - `ToJson` and `FromJson`, to convert to and from JSON.
+- `Variants`, to list every variant of an enum whose variants carry no data.
 
 You will often write `Display` by hand, since text for users rarely matches
 the fields one for one.
@@ -687,6 +688,45 @@ dbg line 12: Severity.Warning(1) < Severity.Warning(2) = True
 `Warning(9) < Error(1)` is `True`, because `Warning` comes before `Error`. To
 change the order, reorder the variants. This suits severity levels, stages of
 a process and priorities.
+
+### Listing an enum's variants
+
+`derive Variants` gives an enum whose variants carry no data a `variants()`
+function. It returns every variant in a `List`, in the order they are
+declared, which is also the order `derive Comparable` ranks them in:
+
+```nomi-run
+enum Coin {
+    Penny
+    Nickel
+    Dime
+    Quarter
+}
+
+derive Variants for Coin
+
+fn cents(coin: Coin): Int {
+    case coin {
+        .Penny -> 1
+        .Nickel -> 5
+        .Dime -> 10
+        .Quarter -> 25
+    }
+}
+
+fn main() {
+    dbg Coin.variants()
+    dbg Coin.variants() |> Iter.map(cents) |> Iter.to_list()
+}
+
+```
+<!-- expect
+dbg line 20: Coin.variants() = [Penny, Nickel, Dime, Quarter]
+dbg line 21: Coin.variants() |> Iter.map(cents) |> Iter.to_list() = [1, 5, 10, 25]
+-->
+
+A variant that carries data has no single value to list, so deriving
+`Variants` for such an enum is a compile error that names the variant.
 
 ### Deriving vs sorting by key
 

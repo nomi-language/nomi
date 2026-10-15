@@ -259,6 +259,7 @@ comparable.nomi:Direction.inspect	ran
 comparable.nomi:Direction.to_string	ran
 comparable.nomi:Ordering.inspect	ran
 comparable.nomi:Ordering.to_string	ran
+comparable.nomi:Ordering.variants	ran
 compiler.nomi:Diagnostic.inspect	ran
 compiler.nomi:Hover.inspect	ran
 compiler.nomi:Project.inspect	ran

@@ -173,7 +173,7 @@ func TestCheckReservedTypeName_PreludeInterfaceNames(t *testing.T) {
 var preludeInterfaceNames = []string{
 	"Add", "Comparable", "Debug", "Discrete", "Display", "Distinct", "Divide",
 	"Equatable", "Hashable", "Iter", "Multiply", "Steppable", "Struct",
-	"Subtract",
+	"Subtract", "Variants",
 }
 
 // TestCheckReservedTypeName_PreludeInterfaceSetIsExactlyWhatPreludeInjects

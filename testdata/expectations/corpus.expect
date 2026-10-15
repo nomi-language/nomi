@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 277
-declared-cases 886
+records 279
+declared-cases 891
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1672,6 +1672,24 @@ H 8e0b4cda33bad8c75a6f672390fe5d7e38ab53e4ed0e62f42ea96c84424c2e8b
 T ok <root>/tests/12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi :: universal Debug renders declared types structurally
 T ok <root>/tests/12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi :: universal Debug works for opaque values generics and existentials
 T test result: ok. 2 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/variants/coins.nomi
+E 1
+N 0
+H dea0df3401c98a16f04b1086c3fbba450a6698be0636467a8e8ecb3e7b91acb0
+T --- stderr ---
+T nomi run: <root>/tests/12-derives-and-standard-interfaces/variants/coins.nomi declares no `fn main`, so there is no program to run
+T
+C 12-derives-and-standard-interfaces/variants/variants_test.nomi
+E 0
+N 5
+H ecdec660b737a4ae27b8345712ab9517632746aa131e4bbd46cc29cf26e524d8
+T ok <root>/tests/12-derives-and-standard-interfaces/variants/variants_test.nomi :: variants lists every variant in declaration order
+T ok <root>/tests/12-derives-and-standard-interfaces/variants/variants_test.nomi :: an enum declared in another file lists its variants
+T ok <root>/tests/12-derives-and-standard-interfaces/variants/variants_test.nomi :: variants agrees with the order derive Comparable ranks them in
+T ok <root>/tests/12-derives-and-standard-interfaces/variants/variants_test.nomi :: variants feeds a pipe
+T ok <root>/tests/12-derives-and-standard-interfaces/variants/variants_test.nomi :: generic code calls variants through a bound
+T test result: ok. 5 passed, 0 failed
 T
 C 13-iterators-and-pipes/collect_results_test.nomi
 E 0

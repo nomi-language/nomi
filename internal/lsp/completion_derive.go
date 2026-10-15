@@ -69,7 +69,8 @@ func (r *completionRequest) deriveConformance() *ast.ImplConformance {
 // deriveIfaceCandidates offers the interfaces `derive` can synthesize. With
 // the type already written (`derive ‸ for Point`) it leaves out the ones
 // the checker would reject there: one the type already derives or
-// implements by hand. `Debug` ranks last: every
+// implements by hand, and one its shape does not take (`Variants` for a
+// struct). `Debug` ranks last: every
 // type has the structural Debug a derive would write. An interface the file
 // does not have in scope (`ToJson`) adds its import.
 func (r *completionRequest) deriveIfaceCandidates() []candidate {
@@ -77,11 +78,14 @@ func (r *completionRequest) deriveIfaceCandidates() []candidate {
 	if conf := r.deriveConformance(); conf != nil && conf.Receiver != nil {
 		recv = analysis.TypeExprBaseName(conf.Receiver)
 	}
-	_, has := deriveFacts(r.deriveNodes(), r.pos.Line)
+	decls, has := deriveFacts(r.deriveNodes(), r.pos.Line)
 	var out []candidate
 	for i, iface := range analysis.DerivableInterfaces() {
 		if recv != "" {
 			if has[recv][iface] {
+				continue
+			}
+			if decl := decls[recv]; decl != nil && !analysis.DeriveTakes(iface, decl) {
 				continue
 			}
 		}
@@ -119,7 +123,7 @@ func (r *completionRequest) deriveTypeCandidates() []candidate {
 		if name == "" || decls[name] != n || strings.Contains(name, completionSentinel) {
 			continue
 		}
-		if iface != "" && has[name][iface] {
+		if iface != "" && (has[name][iface] || !analysis.DeriveTakes(iface, n)) {
 			continue
 		}
 		c := candidate{label: name, kind: protocol.CompletionItemKindStruct, order: i, locality: 1}

@@ -781,6 +781,14 @@
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:debug_show	ran
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:debug_show	ran
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi:describe_named	ran
+12-derives-and-standard-interfaces/variants/coins.nomi:Coin.compare	ran
+12-derives-and-standard-interfaces/variants/coins.nomi:Coin.inspect	ran
+12-derives-and-standard-interfaces/variants/coins.nomi:Coin.variants	ran
+12-derives-and-standard-interfaces/variants/coins.nomi:cents	ran
+12-derives-and-standard-interfaces/variants/variants_test.nomi:Suit.inspect	ran
+12-derives-and-standard-interfaces/variants/variants_test.nomi:Suit.variants	ran
+12-derives-and-standard-interfaces/variants/variants_test.nomi:others	ran
+12-derives-and-standard-interfaces/variants/variants_test.nomi:others	ran
 13-iterators-and-pipes/collect_results_test.nomi:ParseError.inspect	ran
 13-iterators-and-pipes/collect_results_test.nomi:Point.inspect	ran
 13-iterators-and-pipes/collect_results_test.nomi:parse	ran

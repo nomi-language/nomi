@@ -43,5 +43,6 @@ pub import {
     subtract.Subtract
     type.Type
     unit.Unit
+    variants.Variants
     vectors.Vector
 }

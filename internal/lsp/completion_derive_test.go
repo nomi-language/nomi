@@ -26,7 +26,7 @@ impl Display for Color {
 `
 
 func TestCompletion_Derive(t *testing.T) {
-	all := []string{"Equatable", "Hashable", "Comparable", "Display", "ToJson", "FromJson", "Debug"}
+	all := []string{"Equatable", "Hashable", "Comparable", "Display", "Variants", "ToJson", "FromJson", "Debug"}
 	tests := []struct {
 		name string
 		src  string
@@ -35,12 +35,13 @@ func TestCompletion_Derive(t *testing.T) {
 		{"interface, nothing typed", deriveDecls + "\nderive ‸\n", all},
 		{"interface, typed", deriveDecls + "\nderive Ha‸\n", []string{"Hashable"}},
 		{"interface before an existing for", deriveDecls + "\nderive ‸ for Point\n", []string{"Hashable", "Comparable", "Display", "ToJson", "FromJson", "Debug"}},
-		{"interface for an enum", deriveDecls + "\nderive ‸ for Color\n", []string{"Equatable", "Hashable", "Comparable", "ToJson", "FromJson", "Debug"}},
+		{"interface for an enum", deriveDecls + "\nderive ‸ for Color\n", []string{"Equatable", "Hashable", "Comparable", "Variants", "ToJson", "FromJson", "Debug"}},
 		{"type", deriveDecls + "\nderive Hashable for ‸\n", []string{"Point", "Color", "Meters"}},
 		{"type, typed", deriveDecls + "\nderive Hashable for Po‸\n", []string{"Point"}},
 		{"type without one already deriving it", deriveDecls + "\nderive Equatable for ‸\n", []string{"Color", "Meters"}},
 		{"type without one implementing it", deriveDecls + "\nderive Display for ‸\n", []string{"Point", "Meters"}},
 		{"type FromJson takes", deriveDecls + "\nderive FromJson for ‸\n", []string{"Point", "Color", "Meters"}},
+		{"type Variants takes", deriveDecls + "\nderive Variants for ‸\n", []string{"Color"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

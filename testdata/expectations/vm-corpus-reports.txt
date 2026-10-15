@@ -87,6 +87,7 @@
 12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi
 12-derives-and-standard-interfaces/set_debug_test.nomi
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi
+12-derives-and-standard-interfaces/variants/variants_test.nomi
 13-iterators-and-pipes/collect_results_test.nomi
 13-iterators-and-pipes/constrained_sort/constrained_sort_test.nomi
 13-iterators-and-pipes/control_flow_test.nomi

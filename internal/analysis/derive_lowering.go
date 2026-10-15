@@ -60,6 +60,8 @@ package analysis
 //   - duplicate derive declarations.
 //   - derive: `derive X for T` for an unknown derivable protocol; conflicting
 //     with a hand-written `impl X for T { ... }` block.
+//   - `derive Variants for T` where T is not an enum without type parameters
+//     whose variants all carry no data (variantsDeriveError).
 
 import (
 	"fmt"
@@ -193,6 +195,12 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, index int, decls map[string]
 		if manualImpls[recvName][ifaceName] {
 			addErr(line, col, "`derive %s for %s` conflicts with a hand-written `impl %s for %s { ... }` block — a derived impl is synthesized whole, so it cannot coexist with a manual impl; drop one", ifaceName, recvName, ifaceName, recvName)
 			continue
+		}
+		if ifaceName == "Variants" {
+			if msg := variantsDeriveError(decl); msg != "" {
+				addErr(line, col, "%s", msg)
+				continue
+			}
 		}
 		one := *conf
 		one.Interface = iface

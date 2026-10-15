@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
-records 31
-declared-cases 299
+records 32
+declared-cases 300
 failing 0
 C assertions
 E 0
@@ -425,6 +425,11 @@ E 0
 N 1
 H 7222a78180e1863eed1aa4b0587ae514f49025b40853ad43e7640be69b1b4eb4
 T ok Toml.text
+C variants
+E 0
+N 1
+H f01ff405457379af3a290ce9aab350978e30af5a10358920b9a8ea7d31e0eafb
+T ok interface Variants
 C vectors
 E 0
 N 8

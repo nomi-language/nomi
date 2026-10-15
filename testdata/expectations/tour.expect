@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 140
+records 141
 declared-cases 20
 failing 0
 C bindings-and-expressions.md:L116
@@ -512,7 +512,7 @@ H f12f79d6ac3b9e6e9d458a8ad753090fa0ec5586b264cfab0cc43d7396a69c9e
 T dbg line 38: score_number(score) = 5
 T dbg line 39: day_number(day) = 14
 T
-C interfaces-and-dispatch.md:L518
+C interfaces-and-dispatch.md:L519
 E 0
 N 0
 H f88edf1a782c8bf35268abdbca965b1b78d1395ab20944e728b5f9f31d7806cd
@@ -523,7 +523,7 @@ T   |> ToJson.to_json()
 T   |> Json.encode()
 T   = "{\"firstName\":\"Ada\",\"age\":36}"
 T
-C interfaces-and-dispatch.md:L591
+C interfaces-and-dispatch.md:L592
 E 0
 N 0
 H 21a4d30d1a44789ef5c7ae1f3a29aa4c38146ec8530dfcd9c9d9e1ca5f3ae4d0
@@ -531,14 +531,14 @@ T dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
 T dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
 T dbg line 9: {Point{x: 1, y: 2} => "home"} = {Point{x: 1, y: 2} => "home"}
 T
-C interfaces-and-dispatch.md:L639
+C interfaces-and-dispatch.md:L640
 E 0
 N 0
 H b4e4fc5f4ce7c0de421fbd8dcb5ac4bb712b36fc5369f8b666c6fd3129d8d497
 T dbg line 8: Money{amount: 100} < Money{amount: 250} = True
 T dbg line 11: Iter.sort(ms) = [Money{amount: 1}, Money{amount: 2}, Money{amount: 3}]
 T
-C interfaces-and-dispatch.md:L665
+C interfaces-and-dispatch.md:L666
 E 0
 N 0
 H a13f73cc0db59201e1a1ea8d94eb09c1b105cd5dcf56627b6e3cdf1b3224c1c0
@@ -546,7 +546,14 @@ T dbg line 10: Severity.Info < Severity.Warning(1) = True
 T dbg line 11: Severity.Warning(9) < Severity.Error(1) = True
 T dbg line 12: Severity.Warning(1) < Severity.Warning(2) = True
 T
-C interfaces-and-dispatch.md:L700
+C interfaces-and-dispatch.md:L698
+E 0
+N 0
+H 7e19a9e585a20e8395616f4f3df7b35f8674d950cf0296b9b7efeb01617df84e
+T dbg line 20: Coin.variants() = [Penny, Nickel, Dime, Quarter]
+T dbg line 21: Coin.variants() |> Iter.map(cents) |> Iter.to_list() = [1, 5, 10, 25]
+T
+C interfaces-and-dispatch.md:L740
 E 0
 N 0
 H f1feaa82465a86d0de7d8507de0eae8cb9fe185341895b9cf5254b4a277df66a
