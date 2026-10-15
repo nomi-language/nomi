@@ -237,12 +237,13 @@ func (dm *DocumentManager) programFor(root, entry, docKey, uri, content, manifes
 	for k, old := range prev.Texts {
 		cur, ok := texts[k]
 		if !ok {
-			data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(k)+".nomi"))
+			// A closed file: read again only when its stat changed.
+			data, err := dm.readProjectFile(filepath.Join(root, filepath.FromSlash(k)+".nomi"))
 			if err != nil {
 				reason = "a file is gone"
 				return fresh()
 			}
-			cur = string(data)
+			cur = data
 			texts[k] = cur
 		}
 		if cur != old {

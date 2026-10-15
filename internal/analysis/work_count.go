@@ -54,3 +54,23 @@ func noteProgramWork(key string) {
 		programWork.Add(1)
 	}
 }
+
+// countingDiskReads turns on diskReads, which records the path of each
+// project file readProjectFile reads from disk rather than answering from
+// what it read before. Only a test counts.
+var (
+	countingDiskReads atomic.Bool
+	diskReadsMu       sync.Mutex
+	diskReads         []string
+)
+
+// noteDiskRead records that readProjectFile reads path, when counting is on.
+func noteDiskRead(path string) {
+	if !countingDiskReads.Load() {
+		return
+	}
+	diskReadsMu.Lock()
+	diskReads = append(diskReads, path)
+	diskReadsMu.Unlock()
+}
+

@@ -29,3 +29,21 @@ func CountProgramWorkForTest(f func()) (visits, scans int64) {
 	f()
 	return programWork.Load() - v0, recordingScans.Load() - r0
 }
+
+// DiskReadsForTest runs f with the disk-read counter on and answers the
+// paths of the project files read from disk while it ran, once per read, in
+// order (noteDiskRead).
+func DiskReadsForTest(f func()) []string {
+	diskReadsMu.Lock()
+	diskReads = nil
+	diskReadsMu.Unlock()
+	countingDiskReads.Store(true)
+	defer countingDiskReads.Store(false)
+	f()
+	diskReadsMu.Lock()
+	defer diskReadsMu.Unlock()
+	out := diskReads
+	diskReads = nil
+	return out
+}
+
