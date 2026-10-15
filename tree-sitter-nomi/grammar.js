@@ -585,17 +585,12 @@ module.exports = grammar({
     // Struct bodies hold newline-separated fields plus the type's own
     // inherent API (`fn` / `once`). Interface impls, derives, and tests stay
     // outside the type.
-    struct_body: $ => seq(
-      '{',
-      repeat(choice(
-        $._decorated_inherent_item,
-        $.field_definition,
-        $.function_definition,
-        $.extern_func_definition,
-        $.once_binding,
-      )),
-      '}',
-    ),
+    struct_body: $ => typeBody($, choice(
+      $.field_definition,
+      $.function_definition,
+      $.extern_func_definition,
+      $.once_binding,
+    ), $._decorated_inherent_item),
 
     // Enum — sum type. Variants are always one per line; no `|` separators.
     enum_definition: $ => seq(
@@ -608,17 +603,12 @@ module.exports = grammar({
       $.enum_body,
     ),
 
-    enum_body: $ => seq(
-      '{',
-      repeat(choice(
-        $._decorated_inherent_item,
-        $.enum_variant,
-        $.function_definition,
-        $.extern_func_definition,
-        $.once_binding,
-      )),
-      '}',
-    ),
+    enum_body: $ => typeBody($, choice(
+      $.enum_variant,
+      $.function_definition,
+      $.extern_func_definition,
+      $.once_binding,
+    ), $._decorated_inherent_item),
 
     // One enum variant. Payload shapes:
     //   embeds Other            → embedded variant
@@ -665,9 +655,7 @@ module.exports = grammar({
       optional($.type_parameters),
       optional(seq('extends', $._type)),
       optional($.where_clause),
-      '{',
-      repeat($.interface_method),
-      '}',
+      typeBody($, $.interface_method),
     ),
 
     interface_method: $ => seq(
@@ -831,9 +819,9 @@ module.exports = grammar({
       $.anon_struct_type,
     ),
 
-    // Enum positional payloads (`Some T`) must stay on the same line as the
-    // variant name. The leading-space token keeps tree-sitter from treating
-    // adjacent bare variants (`A` newline `B`) as one positional variant.
+    // Enum positional payloads (`Some T`) stay on the variant name's line:
+    // the enum body ends a variant at a line break (`_statement_end`), so
+    // adjacent bare variants (`A` newline `B`) are two variants.
     _enum_payload_type: $ => choice(
       $._enum_payload_simple_type,
       $._enum_payload_generic_type,
@@ -842,23 +830,20 @@ module.exports = grammar({
       $._enum_payload_parenthesized_type,
     ),
 
-    _same_line_type_identifier: $ => alias(token.immediate(seq(/[ \t]+/, /[A-Z][A-Za-z0-9_]*/)), $.type_identifier),
-    _same_line_lparen: $ => token.immediate(seq(/[ \t]+/, '(')),
-
     _enum_payload_simple_type: $ => prec(1, seq(
-      $._same_line_type_identifier,
+      $.type_identifier,
       repeat(seq(token.immediate('.'), $.type_identifier)),
     )),
 
     _enum_payload_generic_type: $ => prec(2, seq(
-      $._same_line_type_identifier,
+      $.type_identifier,
       '<',
       commaSep1($._type),
       '>',
     )),
 
     _enum_payload_function_type: $ => prec.right(3, seq(
-      $._same_line_lparen,
+      '(',
       commaSep($._type),
       ')',
       '->',
@@ -866,7 +851,7 @@ module.exports = grammar({
     )),
 
     _enum_payload_tuple_type: $ => seq(
-      $._same_line_lparen,
+      '(',
       $._type,
       repeat1(seq(',', $._type)),
       optional(','),
@@ -876,7 +861,7 @@ module.exports = grammar({
     // `Num (Int)` / `Num ((Int) -> Int)`: one payload type in parentheses,
     // which the Go parser reads as the type itself (there are no 1-tuples).
     _enum_payload_parenthesized_type: $ => seq(
-      $._same_line_lparen,
+      '(',
       $._type,
       ')',
     ),
@@ -2069,4 +2054,24 @@ function commaSep1(rule) {
   // comma list (params, call args, struct/list/map literals, type args, …),
   // and the interpreter's parser accepts it, so the grammar must too.
   return seq(rule, repeat(seq(',', rule)), optional(','));
+}
+
+// A type body: `{`, items one per line, `}`. As in the Go parser, an item
+// ends at a line break (`_statement_end`) or a semicolon, and semicolons may
+// stand anywhere between the braces, so a second item on an item's line
+// without one is an error (`x: Int y: Int`). An item led by `//!` prompts
+// (`decorated`) needs no separator before it: a prompt starts its line, and
+// the scanner emits it where the line's statement end would be.
+function typeBody($, item, decorated) {
+  const separator = repeat1(choice(';', $._statement_end));
+  const next = decorated
+    ? choice(seq(separator, choice(item, decorated)), decorated)
+    : seq(separator, item);
+  const first = decorated ? choice(item, decorated) : item;
+  return seq(
+    '{',
+    repeat(';'),
+    optional(seq(first, repeat(next), optional(separator))),
+    '}',
+  );
 }

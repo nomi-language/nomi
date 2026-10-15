@@ -713,7 +713,9 @@ After changing `tree-sitter-nomi/grammar.js`:
    `lineBreakInputs`, and fails on each one with an ERROR or MISSING node,
    or with a statement list (top level, block, `//!` prompt, case or else
    arms) whose statement count differs from the Go parser's, unless
-   `treeSitterParityGaps` pins it with a reason. It runs the CLI through
+   `treeSitterParityGaps` pins it with a reason. It also parses each
+   malformed source in `rejectedInputs`, which the Go parser must reject,
+   and fails on one tree-sitter reads with no ERROR or MISSING node. It runs the CLI through
    `scripts/tree-sitter.sh` and skips when `npx` or a cached copy of the
    pinned CLI is missing.
 2. Update `tree-sitter-nomi/queries/highlights.scm` (first match wins:

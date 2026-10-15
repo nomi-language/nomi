@@ -34,7 +34,9 @@ import (
 // The inputs are every tracked `.nomi` file, every ```nomi and ```nomi-run
 // block of the tour, every ```nomi block of docs/spec.md, lineBreakInputs and
 // patternInputs, each kept only when parser.Parse accepts it as a whole file. A fragment the
-// parser rejects is not a parity question.
+// parser rejects is not a parity question, except rejectedInputs: malformed
+// sources the parser rejects, each of which tree-sitter must mark with an ERROR
+// or MISSING node.
 //
 // Go has no tree-sitter runtime in this module, so the test runs the
 // tree-sitter CLI through scripts/tree-sitter.sh, which pins the CLI version
@@ -85,6 +87,19 @@ func TestTreeSitterParsesWhatTheParserAccepts(t *testing.T) {
 		t.Fatal(err)
 	}
 	paths = append(paths, sentinel)
+	rejectedByPath := map[string]parityInput{}
+	for i, in := range rejectedInputs {
+		if parses(in.code) {
+			t.Errorf("rejectedInputs %q: the parser accepts it", in.name)
+			continue
+		}
+		p := filepath.Join(dir, fmt.Sprintf("rejected-%02d.nomi", i))
+		if err := os.WriteFile(p, []byte(in.code), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, p)
+		rejectedByPath[p] = in
+	}
 	list := filepath.Join(dir, "paths.txt")
 	if err := os.WriteFile(list, []byte(strings.Join(paths, "\n")+"\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -106,6 +121,10 @@ func TestTreeSitterParsesWhatTheParserAccepts(t *testing.T) {
 			sawSentinel = true
 			continue
 		}
+		if _, ok := rejectedByPath[m[1]]; ok {
+			delete(rejectedByPath, m[1])
+			continue
+		}
 		in, ok := byPath[m[1]]
 		if !ok {
 			continue
@@ -116,6 +135,9 @@ func TestTreeSitterParsesWhatTheParserAccepts(t *testing.T) {
 	}
 	if !sawSentinel {
 		t.Fatalf("the tree-sitter CLI did not report the malformed sentinel input, so its output cannot be trusted:\n%s", firstLines(out, 40))
+	}
+	for _, in := range rejectedByPath {
+		t.Errorf("rejectedInputs %q: the parser rejects it and tree-sitter parses it with no ERROR or MISSING node:\n%s", in.name, in.code)
 	}
 	compared := 0
 	for i, p := range paths[:len(inputs)] {
@@ -224,7 +246,7 @@ func parityInputs(t *testing.T) []parityInput {
 	for _, list := range []struct {
 		name   string
 		inputs []parityInput
-	}{{"lineBreakInputs", lineBreakInputs}, {"patternInputs", patternInputs}} {
+	}{{"lineBreakInputs", lineBreakInputs}, {"patternInputs", patternInputs}, {"typeBodyInputs", typeBodyInputs}} {
 		for _, in := range list.inputs {
 			if !parses(in.code) {
 				t.Errorf("%s %q: the parser rejects it, so it is no parity question", list.name, in.name)
@@ -293,6 +315,29 @@ var lineBreakInputs = []parityInput{
 	{"body on the next line", "fn f(): Int\n{\n    1\n}\n"},
 	{"where on the next line", "fn f<T>(x: T): T\nwhere T: Display {\n    x\n}\n"},
 	{"impl body on the next line", "impl Foo {\n    fn f(): Int\n    {\n        1\n    }\n}\n"},
+}
+
+// typeBodyInputs separate the items of a struct, enum or interface body by a
+// line break, a semicolon, or a line break after a trailing comment.
+var typeBodyInputs = []parityInput{
+	{"struct fields on lines", "struct P {\n    x: Int\n    y: Int = 1\n}\n"},
+	{"struct fields after a comment", "struct P {\n    x: Int // c\n    y: Int\n}\n"},
+	{"struct fields and semicolons", "struct P {\n    ; x: Int; y: Int;; z: Int;\n}\n"},
+	{"struct field after a semicolon line", "struct P {\n    x: Int\n    ;y: Int\n}\n"},
+	{"enum variants and semicolons", "enum E {\n    A; B Int; C {x: Int}\n    D\n}\n"},
+	{"interface functions and semicolons", "interface I {\n    fn f(v: self): Int; fn g(v: self): Int { 1 };\n    fn h(v: self): Int\n}\n"},
+}
+
+// rejectedInputs are malformed sources the parser rejects, each of which
+// tree-sitter must also mark with an ERROR or MISSING node, so an editor shows
+// the error `nomi check` reports. A type body holds one item per line.
+var rejectedInputs = []parityInput{
+	{"two struct fields on one line", "struct P {\n    x: Int    y: Int\n}\n"},
+	{"a struct field after a default on its line", "struct P {\n    x: Int = 1 y: Int\n}\n"},
+	{"two enum variants on one line", "enum E {\n    A Int B\n}\n"},
+	{"an enum variant after a struct payload on its line", "enum E {\n    A {x: Int} B\n}\n"},
+	{"two interface functions on one line", "interface I {\n    fn f(v: self): Int    fn g(v: self): Int\n}\n"},
+	{"an interface function after a default on its line", "interface I {\n    fn f(v: self): Int { 1 } fn g(v: self): Int\n}\n"},
 }
 
 // patternInputs put a pattern where the parser reads one: the left side of a
