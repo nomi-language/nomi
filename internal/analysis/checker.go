@@ -6893,8 +6893,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 			if fill.slot >= len(ft.Params) || argTy == nil {
 				continue
 			}
-			slotTy := coerceMapToList(argTy, ft.Params[fill.slot])
-			slotTy = coerceRangeToList(slotTy, ft.Params[fill.slot])
+			slotTy := argTy
 			slotArgs[fill.slot] = n.Left
 			if err := c.unifyInto(ft.Params[fill.slot], slotTy, subs); err != nil {
 				c.reportGenericArgMismatch(pipeCallee(pipeCall, n.Right), ft.Params[fill.slot], slotTy, subs, n.Left, positionalArgLabel(fill.slot), n.Line, n.Col, newPipeHead(n, pipeCall, fill))
@@ -9266,14 +9265,6 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 			continue
 		}
 		slotArgs[slot] = arg
-
-		// Coerce Map<K,V> to List<(K,V)> when param expects List<T>,
-		// matching the runtime's iterNext which yields (key, value) tuples.
-		argTy = coerceMapToList(argTy, ft.Params[slot])
-
-		// Coerce Range to List<Int> when param expects List<T>,
-		// matching the runtime's iterNext which yields Int values.
-		argTy = coerceRangeToList(argTy, ft.Params[slot])
 
 		instArgs = append(instArgs, [2]Type{ft.Params[slot], argTy})
 
@@ -17618,38 +17609,6 @@ func concreteTypeName(t Type) string {
 		return "Map"
 	}
 	return ""
-}
-
-// coerceMapToList converts Map<K,V> to List<(K,V)> when the expected type is
-// List<_>. This matches the runtime's iterNext which yields (key, value) tuples
-// when iterating over a map.
-func coerceMapToList(argTy Type, expectedTy Type) Type {
-	mt, ok := argTy.(*MapType)
-	if !ok {
-		return argTy
-	}
-	if _, ok := expectedTy.(*ListType); !ok {
-		return argTy
-	}
-	return &ListType{Elem: &TupleType{Elems: []Type{mt.Key, mt.Val}}}
-}
-
-// coerceRangeToList converts Range<T> to List<T> when the expected type is
-// List<_>. The normal Iter conformance check still decides whether the
-// specific Range<T> is actually iterable (T must satisfy Discrete).
-func coerceRangeToList(argTy Type, expectedTy Type) Type {
-	st, ok := argTy.(*StructType)
-	if !ok || st.Name != "Range" {
-		return argTy
-	}
-	if _, ok := expectedTy.(*ListType); !ok {
-		return argTy
-	}
-	var elem Type = TypeInt
-	if len(st.TypeArgs) > 0 {
-		elem = st.TypeArgs[0]
-	}
-	return &ListType{Elem: elem}
 }
 
 // checkTaggedString type-checks a typed literal `<tag>"..."` and
