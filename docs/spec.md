@@ -1289,6 +1289,8 @@ Nominal record types are declared with `struct` — snake_case field names follo
 
 Struct *declarations* take a single space before `{` (matching every other brace-bodied declaration keyword); struct *construction* uses no space (`Foo{a: 3, b: "x"}`).
 
+Each name in a declaration is declared once: a struct field, a struct-shaped variant's field, an enum variant, an interface function, or a function's or lambda's parameter declared twice is a compile error at the second (``field 'x' is declared twice in struct `Point`; the first is at line 2``), as a repeated field in an anonymous record type is. Two fields on one line of a struct body, or two functions on one line of an interface body, are a parse error; a semicolon may separate them.
+
 The newline-separated field layout applies only to **declaration bodies**. Anonymous struct *type expressions* (`{name: String, age: Int}` in type position), struct construction literals (`Foo{a: 3}`), struct-shaped enum variant payloads (`Card {rank: Int}`), and pattern syntax all keep their comma-separated shape unchanged.
 
 ### Shape and Implementations

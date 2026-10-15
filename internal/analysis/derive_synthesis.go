@@ -818,6 +818,7 @@ func processTypeDeclDeriveDecorators(n ast.Node, site synthSite, prior priorDeri
 // validated (supported) interface name. Each synthesizer emits a full
 // structural body (Equatable / Hashable / Comparable / Debug).
 func synthesizeDeriveFor(ifaceName string, typeNode ast.Node, options ast.Node, site synthSite) []ast.Node {
+	typeNode = withoutRepeatedNames(typeNode)
 	var fns []ast.Node
 	opts := parseDeriveOptionsForSynthesis(ifaceName, options)
 	switch ifaceName {
@@ -1073,6 +1074,7 @@ func typesWithExplicitDebug(nodes []ast.Node) map[string]bool {
 // structural OVERRIDE (`NonZeroInt(5)`), so the structural synthesizer must
 // stay opacity-blind. Only this auto path goes name-only for opaque types.
 func synthesizeAutoDebug(typeNode ast.Node, site synthSite) []ast.Node {
+	typeNode = withoutRepeatedNames(typeNode)
 	var out []ast.Node
 	if et, ok := typeNode.(*ast.ExternType); ok {
 		out = synthesizeExternNameOnlyDebug(et, site)
@@ -4111,4 +4113,58 @@ func deriveSupportedDescription() string {
 		out += ", " + name
 	}
 	return out
+}
+
+// withoutRepeatedNames answers a struct or enum declaration as synthesis
+// should read it: each field and variant once, the first of a repeated name
+// kept. A repeated name is CheckRepeatedFields' error at the declaration; the
+// code synthesized from the declaration as written would repeat it again, in
+// a pattern or literal with no source of its own. A declaration with no
+// repeat is answered unchanged.
+func withoutRepeatedNames(typeNode ast.Node) ast.Node {
+	switch n := typeNode.(type) {
+	case *ast.StructDef:
+		if fields, ok := firstOfEachField(n.Fields); ok {
+			c := *n
+			c.Fields = fields
+			return &c
+		}
+	case *ast.EnumDef:
+		changed := false
+		seen := map[string]bool{}
+		var variants []ast.EnumVariant
+		for _, v := range n.Variants {
+			if seen[v.Name] {
+				changed = true
+				continue
+			}
+			seen[v.Name] = true
+			if fields, ok := firstOfEachField(v.Fields); ok {
+				v.Fields = fields
+				changed = true
+			}
+			variants = append(variants, v)
+		}
+		if changed {
+			c := *n
+			c.Variants = variants
+			return &c
+		}
+	}
+	return typeNode
+}
+
+// firstOfEachField answers fields with each name's first field only, and
+// whether that dropped any.
+func firstOfEachField(fields []ast.StructField) ([]ast.StructField, bool) {
+	seen := map[string]bool{}
+	var out []ast.StructField
+	for _, f := range fields {
+		if seen[f.Name] {
+			continue
+		}
+		seen[f.Name] = true
+		out = append(out, f)
+	}
+	return out, len(out) != len(fields)
 }

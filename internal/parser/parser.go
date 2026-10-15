@@ -7098,6 +7098,14 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 		trailing := p.collectCommentOnLine(p.prevLine())
 		fields = append(fields, ast.StructField{SpanCarrier: ast.SpanCarrier{Span: fieldSpan}, Name: fieldName, TypeAnnotation: fieldTypeExpr, Default: defaultExpr, LeadingComments: leading, Trailing: trailing, Doc: doc, Line: fieldTok.Line, Col: fieldTok.Col})
 
+		// A struct body is a newline-separated list of fields (spec §4):
+		// anything but a separator or `}` after a field on its line is a
+		// second item on that line. A comma keeps its own error at the top
+		// of the next iteration.
+		if next := p.peek(); !p.atEnd() && next.Line == p.prevLine() && next.Type != token.RBRACE && next.Type != token.NEWLINE && next.Type != token.SEMICOLON && next.Type != token.COMMA {
+			return nil, errorAt(next.Line, next.Col, "struct fields are newline- or semicolon-separated")
+		}
+
 		// Skip newline/semicolon separators only — items are
 		// newline-separated, so a stray comma errors at the top of the
 		// next iteration. Trivia (COMMENT/BLANK_LINE) after the
@@ -8291,6 +8299,11 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 			return nil, errorAt(p.peek().Line, p.peek().Col, "'pub' is not allowed on interface methods — a method's visibility is the interface's; drop 'pub' (it becomes a default), or use 'host fn' for a host-backed default")
 		default:
 			return nil, errorAt(p.peek().Line, p.peek().Col, "expected 'fn', 'open fn' or 'host fn' inside interface body, got %s", p.peek().Type)
+		}
+		// An interface body is newline-separated, as every type body is: a
+		// second function on a member's last line is an error.
+		if next := p.peek(); !p.atEnd() && next.Line == p.prevLine() && next.Type != token.RBRACE && next.Type != token.NEWLINE && next.Type != token.SEMICOLON {
+			return nil, errorAt(next.Line, next.Col, "interface functions are newline- or semicolon-separated")
 		}
 		// Consume separators between members but preserve COMMENT /
 		// BLANK_LINE so they can be captured at the top of the next

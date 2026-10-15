@@ -118,3 +118,95 @@ derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel, rename_a
 		t.Fatalf("want one `duplicate derive option` error, got %v", got)
 	}
 }
+
+// TestRepeatedDeclaredNames_RejectedAtTheSecondName pins that a name declared
+// twice in one declaration is rejected at the second name, with the line of
+// the first, top-level and block-local. Each was accepted before except the
+// anonymous record type: a struct's repeated field reached the IR builder,
+// which declined its literal, and the others kept one of the two silently.
+func TestRepeatedDeclaredNames_RejectedAtTheSecondName(t *testing.T) {
+	cases := []struct {
+		name      string
+		src       string
+		line, col int
+		msg       string
+	}{
+		{"struct field", "struct Point {\n    x: Int\n    x: Int\n    y: Int\n}\n\nfn run(): Point {\n    Point{x: 3, y: 4}\n}\n",
+			3, 5, "field 'x' is declared twice in struct `Point`; the first is at line 2"},
+		{"block-local struct field", "test \"local\" {\n    struct Point {\n        x: Int\n        x: Int\n        y: Int\n    }\n\n    p = Point{x: 3, y: 4}\n    assert p.x + p.y == 7\n}\n",
+			4, 9, "field 'x' is declared twice in struct `Point`; the first is at line 3"},
+		{"enum variant field", "enum Shape {\n    Rect {\n        w: Int\n        w: Int\n    }\n    Dot\n}\n\nfn run(): Shape {\n    Shape.Dot\n}\n",
+			4, 9, "field 'w' is declared twice in variant `Shape.Rect`; the first is at line 3"},
+		{"enum variant field on one line", "enum Shape {\n    Rect { w: Int, w: Int }\n    Dot\n}\n\nfn run(): Shape {\n    Shape.Dot\n}\n",
+			2, 20, "field 'w' is declared twice in variant `Shape.Rect`; the first is at line 2"},
+		{"enum variant", "enum Color {\n    Red\n    Red\n}\n\nfn run(): Color {\n    Color.Red\n}\n",
+			3, 5, "variant 'Red' is declared twice in enum `Color`; the first is at line 2"},
+		{"block-local enum variant", "fn run(): Int {\n    enum Color {\n        Red\n        Red\n    }\n\n    _ = Color.Red\n    1\n}\n",
+			4, 9, "variant 'Red' is declared twice in enum `Color`; the first is at line 3"},
+		{"interface function", "interface Named {\n    fn name(value: self): String\n    fn name(value: self): String\n}\n",
+			3, 8, "function 'name' is declared twice in interface `Named`; the first is at line 2"},
+		{"function parameter", "fn f(a: Int, a: Int): Int {\n    a\n}\n",
+			1, 14, "parameter 'a' is declared twice in `fn f`; the first is at line 1"},
+		{"interface function parameter", "interface Named {\n    fn name(value: self, value: Int): String\n}\n",
+			2, 26, "parameter 'value' is declared twice in `fn name`; the first is at line 2"},
+		{"lambda parameter", "fn run(): Int {\n    f = |a: Int, a: Int| a\n    f(1, 2)\n}\n",
+			2, 18, "parameter 'a' is declared twice in this lambda; the first is at line 2"},
+		{"anonymous record type", "fn f(_r: {a: Int, a: String}): Int {\n    1\n}\n",
+			1, 19, "duplicate field 'a' in anon struct type"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib(tc.src)
+			var all []string
+			for _, e := range errs {
+				all = append(all, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message))
+				if e.Message == tc.msg && e.Line == tc.line && e.Col == tc.col {
+					return
+				}
+			}
+			t.Fatalf("want %d:%d %q; the front end reported:\n  %s", tc.line, tc.col, tc.msg, strings.Join(all, "\n  "))
+		})
+	}
+}
+
+// TestRepeatedDeclaredNames_OneErrorForADerivedType pins that a type with a
+// repeated field or variant gets the declaration's error and nothing from
+// the code derives synthesize from it (universal Debug's pattern bound a
+// variant's field twice, at the enum's name).
+func TestRepeatedDeclaredNames_OneErrorForADerivedType(t *testing.T) {
+	src := `enum Shape {
+    Rect {
+        w: Int
+        w: Int
+    }
+    Dot
+    Dot
+}
+
+struct Point {
+    x: Int
+    x: Int
+}
+
+derive Equatable, Hashable, Comparable, Display for Shape
+derive Equatable, Hashable, Comparable, Display for Point
+
+fn run(): Shape {
+    _ = Point{x: 1}
+    Shape.Dot
+}
+`
+	_, errs := checkSourceWithStdlib(src)
+	var got []string
+	for _, e := range errs {
+		got = append(got, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message))
+	}
+	want := []string{
+		"4:9 field 'w' is declared twice in variant `Shape.Rect`; the first is at line 3",
+		"7:5 variant 'Dot' is declared twice in enum `Shape`; the first is at line 6",
+		"12:5 field 'x' is declared twice in struct `Point`; the first is at line 11",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("want:\n  %s\ngot:\n  %s", strings.Join(want, "\n  "), strings.Join(got, "\n  "))
+	}
+}

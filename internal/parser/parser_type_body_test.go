@@ -155,6 +155,30 @@ func TestParseStructBody_CommaSeparatedFieldsRejected(t *testing.T) {
 	}
 }
 
+// A type body holds one item per line: a second field or interface function
+// after an item on its line is rejected at the second item, and a semicolon
+// or a trailing comment is still allowed.
+func TestParseTypeBody_TwoItemsOnOneLineRejected(t *testing.T) {
+	for _, tc := range []struct{ src, msg string }{
+		{"struct Point {\n    x: Int    y: Int\n}\n", "struct fields are newline- or semicolon-separated"},
+		{"struct Point {\n    x: Int    x: Int\n}\n", "struct fields are newline- or semicolon-separated"},
+		{"struct Point {\n    x: Int = 1 y: Int\n}\n", "struct fields are newline- or semicolon-separated"},
+		{"interface Named {\n    fn name(value: self): String    fn other(value: self): String\n}\n", "interface functions are newline- or semicolon-separated"},
+	} {
+		err := parseError(t, tc.src)
+		if !strings.Contains(err.Error(), tc.msg) || !strings.Contains(err.Error(), "line 2,") {
+			t.Errorf("Parse(%q): want %q on line 2, got %q", tc.src, tc.msg, err.Error())
+		}
+	}
+	for _, src := range []string{
+		"struct Point {\n    x: Int; y: Int\n}\n",
+		"struct Point {\n    x: Int // across\n    y: Int\n}\n",
+		"interface Named {\n    fn name(value: self): String; fn other(value: self): String\n}\n",
+	} {
+		parse(t, src)
+	}
+}
+
 func TestParseStructBody_FieldItemNamedField(t *testing.T) {
 	sd := parseSingleStructDef(t, "struct Box {\n  field: Int\n}\n")
 	if len(sd.Fields) != 1 || sd.Fields[0].Name != "field" {
