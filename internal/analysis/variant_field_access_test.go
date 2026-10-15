@@ -45,3 +45,34 @@ func TestFieldAccessOnBareVariant_Rejected(t *testing.T) {
 		})
 	}
 }
+
+// A field read off an enum value takes the type every variant that has the
+// field gives it. Variants that disagree leave the read no one type, so it
+// is rejected at the field; variants that agree read as that type.
+func TestEnumFieldRead_VariantsMustAgreeOnItsType(t *testing.T) {
+	const decl = `enum Shape {
+    Rect {w: Int, label: String}
+    Circle {w: Float, label: String}
+    Dot
+}
+
+`
+	errs := checkWithStdlib(decl + `fn f(s: Shape): String {
+    s.label
+}
+`)
+	if len(errs) != 0 {
+		t.Fatalf("the front end rejects a field every variant types alike: %v", errs)
+	}
+	errs = checkWithStdlib(decl + `fn f(s: Shape): Int {
+    s.w
+}
+`)
+	want := "field 'w' is Int in Shape.Rect and Float in Shape.Circle, so reading it off a Shape has no one type"
+	for _, e := range errs {
+		if strings.Contains(e.Message, want) {
+			return
+		}
+	}
+	t.Fatalf("want an error containing %q, got %v", want, errs)
+}

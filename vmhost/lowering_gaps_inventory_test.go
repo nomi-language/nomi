@@ -1031,23 +1031,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapEnumFieldReadDisagree",
-		fix:    "builder: enum field read disagree. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.enumFieldRead | note | \"an enum field read whose variants disagree on its type: .\" + name#1",
-		reason: "an enum field read whose variants disagree on its type: .w",
-		src: `import std/io
-
-enum Shape {
-    Rect {w: Int}
-    Circle {w: Float}
-}
-
-fn main() {
-    s = Shape.Rect{w: 1}
-    io.print(s.w)
-}
-`,
-	},
-	{
 		name:   "gapEnumFieldReadFunction",
 		fix:    "builder: enum field read function. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.enumFieldRead | false | !found ¦¦ !irRetainedValueKind(fk)#1",
 		reason: "a field access on an unbound name o: .f",

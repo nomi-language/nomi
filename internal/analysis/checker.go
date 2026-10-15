@@ -12578,7 +12578,7 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 			}
 		}
 	case *EnumType:
-		for _, v := range ty.Variants {
+		for i, v := range ty.Variants {
 			for _, f := range v.Fields {
 				if f.Name == fieldName {
 					if variantSym := c.fa.ModuleScope.Lookup(v.Name); variantSym != nil {
@@ -12589,7 +12589,7 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 							c.fa.References[fieldPos] = fieldSym
 						}
 					}
-					return f.Type, true
+					return c.enumFieldAgreed(ty, i, f.Type, fieldName, fieldPos), true
 				}
 			}
 			if v.DataType != nil {
@@ -12601,7 +12601,7 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 									c.fa.References[fieldPos] = fieldSym
 								}
 							}
-							return f.Type, true
+							return c.enumFieldAgreed(ty, i, f.Type, fieldName, fieldPos), true
 						}
 					}
 				}
@@ -17967,4 +17967,42 @@ func typeStringOrUnknown(t Type) string {
 		return "<unknown>"
 	}
 	return t.String()
+}
+
+// enumFieldAgreed is t, the type of field name in et's variant first, when
+// every later variant that has the field gives it the same type. A read of
+// the field off an enum value takes whichever variant the value is, so
+// variants that disagree (`w: Int` in one and `w: Float` in another) leave
+// the read no one type: it is an error at the field, and the answer is nil.
+func (c *checker) enumFieldAgreed(et *EnumType, first int, t Type, name string, at Pos) Type {
+	for _, v := range et.Variants[first+1:] {
+		other, has := variantFieldType(v, name)
+		if !has || TypesEqual(t, other) {
+			continue
+		}
+		c.report(TypeError{Line: at.Line, Col: at.Col, Message: c.typef(
+			"field '%s' is %s in %s.%s and %s in %s.%s, so reading it off a %s has no one type",
+			name, t, et.Name, et.Variants[first].Name, other, et.Name, v.Name, et.Name)}.WithHint(
+			"match the variant in a `case` and read the field there"))
+		return nil
+	}
+	return t
+}
+
+// variantFieldType is the type of field name in variant v's payload: an
+// inline struct-shaped variant's field or an embedded struct's.
+func variantFieldType(v VariantDef, name string) (Type, bool) {
+	for _, f := range v.Fields {
+		if f.Name == name {
+			return f.Type, true
+		}
+	}
+	if st, ok := v.DataType.(*StructType); ok {
+		for _, f := range st.Fields {
+			if f.Name == name {
+				return f.Type, true
+			}
+		}
+	}
+	return nil, false
 }
