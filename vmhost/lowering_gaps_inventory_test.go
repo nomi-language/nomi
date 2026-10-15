@@ -1211,27 +1211,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapSiblingDefaultFnValue",
-		fix:    "builder: sibling default fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.siblingFuncRef | false | !f.lowerable() ¦¦ f.defaults#1",
-		reason: "a field access on an unbound name lib: .greet",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    lib
-}
-
-fn main() {
-    f = lib.greet
-    io.print(f("a", "?"))
-}
-// FILE: lib.nomi
-pub fn greet(name: String, punct: String = "!"): String {
-    name + punct
-}
-`,
-	},
-	{
 		name:   "gapStdGenericHostFnValue",
 		fix:    "builder: std generic host fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.stdFileFuncRef | false | generic == nil && (g.std == nil ¦¦ g.std.byFile[module+\".\"+name] == nil)#1",
 		reason: "a field access on an unbound name testing: .check",

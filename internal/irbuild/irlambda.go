@@ -590,7 +590,9 @@ func irRetainedSeqKind(k kind) bool {
 	return k.tag == tagSeq && k.comp != nil && len(k.comp.parts) == 1 && (irCallableValueKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit)
 }
 
-// funcRef retains module-function values with no defaults. A generic one is
+// funcRef retains module-function values. A function with defaults is its
+// full parameter list as a value, since defaults apply to calls (spec
+// "Defaults apply to calls, not to function values"). A generic one is
 // the instance the checker instantiated the reference at (funcref.go). The
 // symbol is shared with direct calls and bodies.
 func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
@@ -619,7 +621,7 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		}
 		sig = inst.sig
 	}
-	if sig == nil || !sig.lowerable || sig.decl == nil || sig.dict != nil || sig.tps != nil || funcHasDefault(sig.decl) {
+	if sig == nil || !sig.lowerable || sig.decl == nil || sig.dict != nil || sig.tps != nil {
 		return no()
 	}
 	fk := funcKindIn(bl.g, sig.params, sig.result)

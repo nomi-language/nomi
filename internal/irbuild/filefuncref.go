@@ -203,7 +203,7 @@ func (bl *irScalarBuilder) siblingFuncRef(ref ast.Node, to int, f *fileFunc, hos
 			return no()
 		}
 	} else {
-		if !f.lowerable() || f.defaults {
+		if !f.lowerable() {
 			return no()
 		}
 		var ok bool

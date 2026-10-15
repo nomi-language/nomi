@@ -44,7 +44,7 @@ c	irScalarBuilder.outputRef | false | !ok ¦¦ result != kindUnit#1	filefuncref.
 d	irScalarBuilder.wrapperRef | false | !ok ¦¦ k != result ¦¦ len(child.captures) != 0#1	filefuncref.go:150	-	tried io.read_file/read_line/write_file/capture/replay, json.shape_error_root, timer.sleep, compiler.* as values: all lower
 d	irScalarBuilder.wrapperRef | note | "a function value over " + name + " that does not lint: " + err.Error()#1	filefuncref.go:154	-	no lint failure found for wrapper function values
 b	gen.checkedRefValueKinds | false | ft == nil#1	filefuncref.go:169	-	the checker records a function type for every reference used as a function value (CallType or ExprTypes)
-c	irScalarBuilder.siblingFuncRef | false | !f.lowerable() ¦¦ f.defaults#1	filefuncref.go:207	-	pinned as gapSiblingDefaultFnValue (reason: a field access on an unbound name lib: .greet)
+?	irScalarBuilder.siblingFuncRef | false | !f.lowerable()#1	filefuncref.go:207	?	
 d	irScalarBuilder.siblingFuncRef | false | host && !irHostFnHasVMBody(params, result)#1	filefuncref.go:215	-	needs a Go-bound sibling host fn returning a function; Go FFI not exercisable from `nomi check` here (user host fns need an embedder host table)
 b	irScalarBuilder.siblingFuncRef | false | sym == nil#1	filefuncref.go:220	-	defensive fence: irSiblingCalleeSym is nil only without a registry, and g.files implies one
 b	irScalarBuilder.siblingFuncRef | false | !irCallableValueKind(fk)#1	filefuncref.go:224	-	a lowerable sibling signature's params/result are already in the callable domain (Unit params allowed by irCallableValueKind)
@@ -82,12 +82,12 @@ a	gen.foreignTemplate | false | g.reg == nil#1	foreigngeneric.go:163	expect,irbu
 a	gen.foreignTemplateOf | false | o == nil ¦¦ o.unit == g.fileUnit#1	foreigngeneric.go:208	expect,irbuild,projectgen,vmhost	
 b	gen.foreignTemplateOf | false | src == nil#1	foreigngeneric.go:215	-	defensive fence: every unit has a gen in the registry after ensureTypes succeeds
 a	gen.foreignTemplateOf | false | tpl == nil#1	foreigngeneric.go:219	expect,irbuild,projectgen,vmhost	
-b	gen.checkedRefKinds | false | g.fa == nil#1	funcref.go:79	-	defensive fence: g.fa is set for every program file the builder lowers
-b	gen.checkedRefKinds | false | sym == nil#1	funcref.go:84	-	the checker records a Reference at every resolved callee/function-value position
-b	gen.funcTypeKinds | false | ft == nil ¦¦ len(ft.Params) != arity ¦¦ irUnsolvedType(ft.Return)#1	funcref.go:94	-	checker rejects unsolved generic references: "cannot infer type parameter T of generic function 'x' used as a value"; arity always matches the declaration
-b	gen.funcTypeKinds | false | irUnsolvedType(pt)#1	funcref.go:99	-	same checker rule: "cannot infer type parameter ... used as a value" (tried `[] |> Iter.each(io.inspect)`)
-?	gen.funcTypeKinds | false | params[i] != kindUnit && !irCallableValueKind(params[i])#1	funcref.go:105	?	
-d	gen.funcTypeKinds | false | result != kindUnit && !irCallableValueKind(result)#1	funcref.go:110	-	could not find a projected result kind outside the callable domain whose params pass; Maybe<Unit> results fail earlier in monoSolve instead
+b	gen.checkedRefKinds | false | g.fa == nil#1	funcref.go:62	-	defensive fence: g.fa is set for every program file the builder lowers
+b	gen.checkedRefKinds | false | sym == nil#1	funcref.go:67	-	the checker records a Reference at every resolved callee/function-value position
+b	gen.funcTypeKinds | false | ft == nil ¦¦ len(ft.Params) != arity ¦¦ irUnsolvedType(ft.Return)#1	funcref.go:77	-	checker rejects unsolved generic references: "cannot infer type parameter T of generic function 'x' used as a value"; arity always matches the declaration
+b	gen.funcTypeKinds | false | irUnsolvedType(pt)#1	funcref.go:82	-	same checker rule: "cannot infer type parameter ... used as a value" (tried `[] |> Iter.each(io.inspect)`)
+?	gen.funcTypeKinds | false | params[i] != kindUnit && !irCallableValueKind(params[i])#1	funcref.go:88	?	
+d	gen.funcTypeKinds | false | result != kindUnit && !irCallableValueKind(result)#1	funcref.go:93	-	could not find a projected result kind outside the callable domain whose params pass; Maybe<Unit> results fail earlier in monoSolve instead
 b	gen.monoSolve | false | len(params) != len(tpl.decl.Params)#1	genericmono.go:395	-	every caller passes kinds of len(tpl.decl.Params) (checkedRefKinds/checkedMonoCallKinds arity), so the lengths always agree
 ?	gen.monoSolve | false | !found ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	genericmono.go:410	?	
 ?	gen.solveFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:439	?	
@@ -490,7 +490,7 @@ c	irScalarBuilder.indirectCall | false | !planned#1	irlambda.go:501	-	pinned as 
 c	irScalarBuilder.indirectCall | false | defaulted && metadata == nil#1	irlambda.go:509	-	pinned as gapCapturedDefaultLambdaCall (reason: a direct callee outside this module's fn table: f)
 b	irScalarBuilder.indirectCall | false | !irCallableValueKind(result) && result != kindUnit#1	irlambda.go:513	-	a callee value's func kind comes from a lowered value, whose kinds are already in the callable domain
 b	irScalarBuilder.indirectCall | false | supplier == ir.NoTemp#1	irlambda.go:536	-	an omitted argument without a default is a checker error ("missing argument for parameter")
-c	irScalarBuilder.funcRef | note | "an iter-sensitive function passed where its break or continue cannot be caught: " + t.Nam…#1	irlambda.go:631	-	pinned as gapIterSensitiveFnValue (reason: an iter-sensitive function passed where its break or continue cannot be caught: stop)
+c	irScalarBuilder.funcRef | note | "an iter-sensitive function passed where its break or continue cannot be caught: " + t.Nam…#1	irlambda.go:633	-	pinned as gapIterSensitiveFnValue (reason: an iter-sensitive function passed where its break or continue cannot be caught: stop)
 d	irScalarBuilder.patternParams | note | "a lambda destructuring parameter the prologue did not build"#1	irlambdapattern.go:103	-	tuple/struct/nested/as/distinct/embedded-variant/anon-record lambda patterns all lower; generic-head patterns decline earlier (irlambda.go parameter domain)
 d	irScalarBuilder.patternParams | note | "a destructured lambda name's kind outside the domain: " + k.nomi()#1	irlambdapattern.go:115	-	no destructured name with an out-of-domain kind found
 c	irScalarBuilder.listMakeOf | false | !ok ¦¦ !(irRetainedListKind(k) ¦¦ irListTransportKind(k))#1	irlist.go:124	-	pinned as gapListSpreadFunctionTail (reason: a ListSpreadLit)

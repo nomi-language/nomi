@@ -1422,7 +1422,14 @@ func (g *gen) callBlock() string {
 	n := r.Intn(4)
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(8) {
+	switch r.Intn(9) {
+	case 8:
+		// A function with a default named as a value: its full parameter
+		// list.
+		fmt.Fprintf(&out, "fn %s(x: Int, y: Int = %d): Int {\nx + y\n}\n", name("cdf"), n)
+		fmt.Fprintf(&out, "%s = %s\n", name("cdv"), name("cdf"))
+		fmt.Fprintf(&out, "io.inspect(%s(1, 2))\n", name("cdv"))
+		fmt.Fprintf(&out, "io.inspect(%s(1))\n", name("cdf"))
 	case 6:
 		// A lambda with a default, captured by another closure and called
 		// there short, by name and partially.
