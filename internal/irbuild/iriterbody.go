@@ -612,26 +612,49 @@ func (g *gen) irSeqKindOf(t analysis.Type) (kind, bool) {
 // userSource is the `each_while` a named source's own `impl Iter` declares,
 // and the element it pushes, when the retained pipeline can walk it:
 // iterUserSource's recognition, a retained element, and a source-written body
-// the VM can link. A written `known_count` override declines.
+// the VM can link. A written `known_count` override the VM cannot link
+// declines.
 func (bl *irScalarBuilder) userSource(sk kind) (*implItem, kind) {
 	it, elem, ok := bl.g.iterUserEachWhile(sk)
 	if !ok || irImplSource(it) == nil || !irRetainedValueKind(elem) {
 		return nil, kindInvalid
 	}
-	if kc := bl.g.implsByIface["Iter"][sk].items["known_count"]; kc != nil && !kc.inherited {
+	if kc := bl.g.implsByIface["Iter"][sk].items["known_count"]; kc != nil && !kc.inherited && bl.userKnownCount(sk) == nil {
 		return nil, kindInvalid
 	}
 	return it, elem
 }
 
+// userKnownCount is the `known_count` a named source's own `impl Iter`
+// writes, when its body is one the VM can link, or nil: the view carries
+// it as the sequence's count, so `Iter.known_count` answers it as std's
+// dispatch would.
+func (bl *irScalarBuilder) userKnownCount(sk kind) *implItem {
+	kc := bl.g.implsByIface["Iter"][sk].items["known_count"]
+	if kc == nil || kc.inherited || !kc.lowerable || irImplSource(kc) == nil || len(kc.params) != 1 || kc.params[0] != sk {
+		return nil
+	}
+	if mk, shared := bl.g.sharedMaybe(kindInt); !shared || kc.result != mk {
+		return nil
+	}
+	return kc
+}
+
 // userView views a user source through rt.UserSeq. The view's second operand
-// references the impl's `each_while`, which Go names by its Go identifier.
+// references the impl's `each_while`, and a third its written `known_count`.
 func (bl *irScalarBuilder) userView(at ast.Node, src ir.Temp, sk kind, it *implItem, elem kind) ir.Temp {
 	pos := bl.g.irNodePos(at)
 	ref := ir.NewRefFunc(pos, bl.f.NewTemp(), bl.g.irCalleeSym(it, sk.nomi()+"."+it.name))
 	bl.b.Append(ref)
 	bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, it.params, it.result)})
-	n := ir.NewIter(pos, bl.f.NewTemp(), ir.IterView, ir.IterOverUserImpl, src, ref.Dst())
+	operands := []ir.Temp{src, ref.Dst()}
+	if kc := bl.userKnownCount(sk); kc != nil {
+		count := ir.NewRefFunc(pos, bl.f.NewTemp(), bl.g.irCalleeSym(kc, sk.nomi()+"."+kc.name))
+		bl.b.Append(count)
+		bl.side(count.Dst(), irScalarSide{k: funcKindIn(bl.g, kc.params, kc.result)})
+		operands = append(operands, count.Dst())
+	}
+	n := ir.NewIter(pos, bl.f.NewTemp(), ir.IterView, ir.IterOverUserImpl, operands...)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: seqKindIn(bl.g, elem)})
 	return n.Dst()

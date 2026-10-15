@@ -182,37 +182,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCIterParamUserSourceKnownCount",
-		fix:    "builder: c iter param user source known count. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.seqView | false | !(it != nil && userElem == elem)#1",
-		reason: "a direct call's operand: total",
-		noSkip: true,
-		src: `import std/io
-
-struct Pair {
-    a: Int
-    b: Int
-}
-
-impl Iter for Pair {
-    fn each_while(p: Pair, yield: (Int) -> Bool): Bool {
-        if yield(p.a) { yield(p.b) } else { False }
-    }
-
-    fn known_count(_p: Pair): Maybe<Int> {
-        Some(2)
-    }
-}
-
-fn total(xs: Iter<Int>): Int {
-    Iter.count(xs)
-}
-
-fn main() {
-    io.inspect(total(Pair{a: 1, b: 2}))
-}
-`,
-	},
-	{
 		name:   "gapCLoopFinalBreakEmptyList",
 		fix:    "builder: c loop final break empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopBody | note | \"an Iter.loop final `break` without a value of the state type\"#1",
 		reason: "an Iter.loop final `break` without a value of the state type",
@@ -413,33 +382,6 @@ fn main() {
 
 fn main() {
     io.inspect(Iter.to_set([1..2, 3..4]))
-}
-`,
-	},
-	{
-		name:   "gapCUserSourceKnownCount",
-		fix:    "builder: c user source known count. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterCall | false | sk.tag != tagList && sk.tag != tagSeq && sk != kindString && sk != irBytesKind() && !isRan…#1",
-		reason: "qualified call, Type.method: Iter.map",
-		noSkip: true,
-		src: `import std/io
-
-struct Pair {
-    a: Int
-    b: Int
-}
-
-impl Iter for Pair {
-    fn each_while(p: Pair, yield: (Int) -> Bool): Bool {
-        if yield(p.a) { yield(p.b) } else { False }
-    }
-
-    fn known_count(_p: Pair): Maybe<Int> {
-        Some(2)
-    }
-}
-
-fn main() {
-    io.inspect(Pair{a: 1, b: 2} |> Iter.map(|x| x + 1) |> Iter.to_list())
 }
 `,
 	},

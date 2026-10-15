@@ -424,27 +424,27 @@ b	irScalarBuilder.iterCall | false | elem != kindString ¦¦ args.kinds[1] != ki
 b	irScalarBuilder.iterCall | false | bl.ctlSeed == ir.NoTemp#1	iriterbody.go:438	-	signalling is true only for a callback iterReduceCall marked (named forwardee or callbackCarriesSignal), and that path sets ctlSeed first
 b	irScalarBuilder.iterReduceCall | false | len(t.Args) != 2#1	iriterbody.go:476	-	checker rejects a reduce without a seeded lambda: "`Iter.reduce` needs a starting value"
 b	irScalarBuilder.iterReduceCall | false | !ok ¦¦ len(lam.Params) != 2 ¦¦ lam.Params[0].Default == nil#1	iriterbody.go:480	-	checker rejects a reduce without a seeded lambda (checkReduceSeed); Iter.reduce(xs, add) is rejected
-d	irScalarBuilder.seqView | false | !irCallableValueKind(elem) && elem != kindUnit#1	iriterbody.go:647	-	could not find an Iter<T> parameter type with a non-callable T that the checker accepts (Iter<Maybe<fn>> lowers)
-b	irScalarBuilder.seqView | false | rangeElem != elem#1	iriterbody.go:681	-	checker unifies Range<T> with the wanted Iter<T>
-b	irScalarBuilder.seqView | false | !shared#1	iriterbody.go:691	-	Maybe<Int> is always in the process-wide table
-b	irScalarBuilder.seqView | false | steps == nil ¦¦ steps.irBody == nil#1	iriterbody.go:695	-	irIterRangeElem admits Int and wrapping distincts; a user distinct stops at rangeView's std compare (735) first, and std's Int/Codepoint have steps_between
-?	irScalarBuilder.seqView | false | (vecElem != elem && !erased) ¦¦ !(irRetainedVectorKind(sk) ¦¦ irCallableValueKind(vecElem)…#1	iriterbody.go:705	?	
-b	irScalarBuilder.seqView | false | pair != elem ¦¦ !irRetainedTupleKind(pair)#1	iriterbody.go:712	-	checker types the Map's (K, V) pair as the wanted element; retained maps give retained pairs
-c	irScalarBuilder.seqView | false | sk == kindEmptySet ¦¦ !irRetainedSetKind(sk) ¦¦ member != elem#1	iriterbody.go:718	-	pinned as gapCIterParamEmptySet (reason: a direct call's operand: total)
-c	irScalarBuilder.seqView | false | !(it != nil && userElem == elem)#1	iriterbody.go:725	-	pinned as gapCIterParamUserSourceKnownCount (reason: a direct call's operand: total)
-c	irScalarBuilder.rangeView | false | cmp == nil ¦¦ cmp.irBody == nil ¦¦ !shared#1	iriterbody.go:741	-	pinned as gapCRangeUserDiscrete (reason: qualified call, Type.method: Iter.map)
-b	irScalarBuilder.rangeView | false | next == nil ¦¦ next.irBody == nil#1	iriterbody.go:745	-	reached only when std compare exists (Int, Codepoint), and both have std Discrete.next; a user distinct stops at 735
-b	irScalarBuilder.rangeKnownCount | false | cmp == nil ¦¦ cmp.irBody == nil ¦¦ !shared#1	iriterbody.go:776	-	rangeWalks runs first and refuses an element without std Discrete (user distinct); Int and Codepoint have std compare
-b	irScalarBuilder.rangeKnownCount | false | steps == nil ¦¦ steps.irBody == nil#1	iriterbody.go:780	-	rangeWalks (rangeDiscrete) already requires std steps_between
-b	irScalarBuilder.iterGroupBy | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != elem#1	iriterbody.go:804	-	checker types group_by's key_fn as (T) -> K over the element
-b	irScalarBuilder.iterGroupBy | false | !irMapKeyKind(key)#1	iriterbody.go:808	-	checker rejects non-key K: "`(Int) -> Int` cannot be a Map key"
-c	irScalarBuilder.iterGroupBy | false | result.tag != tagMap ¦¦ !irRetainedMapKind(result)#1	iriterbody.go:812	-	pinned as gapCGroupByFnList (reason: qualified call, Type.method: Iter.group_by)
-d	irScalarBuilder.iterGroupBy | false | !ok#1	iriterbody.go:816	-	did not find a key kind that passes irMapKeyKind and fails irMapKeyOK
-a	irScalarBuilder.sortComparator | false | f == nil ¦¦ (f.irBody == nil && !(f.rtCall != "" && irScalarHost(f)))#1	iriterbody.go:847	irbuild	
-b	irScalarBuilder.iterMaybeKind | false | !anchored#1	iriterbody.go:985	-	the prelude always anchors Maybe
-d	irScalarBuilder.iterMaybeKind | false | !shared ¦¦ !irRetainedValueKind(mk)#1	iriterbody.go:996	-	Maybe<elem> answered for every element tried (fn, Unit, existential, nominal); no failing kind found
-c	irScalarBuilder.iterPlainView | false | sourced#1	iriterbody.go:1042	-	pinned as gapCZipUserDiscreteRange (reason: qualified call, Type.method: Iter.zip)
-c	irScalarBuilder.iterPlainView | false | unguarded#1	iriterbody.go:1055	-	pinned as gapCZipFnListRight (reason: qualified call, Type.method: Iter.zip)
+d	irScalarBuilder.seqView | false | !irCallableValueKind(elem) && elem != kindUnit#1	iriterbody.go:670	-	could not find an Iter<T> parameter type with a non-callable T that the checker accepts (Iter<Maybe<fn>> lowers)
+b	irScalarBuilder.seqView | false | rangeElem != elem#1	iriterbody.go:704	-	checker unifies Range<T> with the wanted Iter<T>
+b	irScalarBuilder.seqView | false | !shared#1	iriterbody.go:714	-	Maybe<Int> is always in the process-wide table
+b	irScalarBuilder.seqView | false | steps == nil ¦¦ steps.irBody == nil#1	iriterbody.go:718	-	irIterRangeElem admits Int and wrapping distincts; a user distinct stops at rangeView's std compare (735) first, and std's Int/Codepoint have steps_between
+?	irScalarBuilder.seqView | false | (vecElem != elem && !erased) ¦¦ !(irRetainedVectorKind(sk) ¦¦ irCallableValueKind(vecElem)…#1	iriterbody.go:728	?	
+b	irScalarBuilder.seqView | false | pair != elem ¦¦ !irRetainedTupleKind(pair)#1	iriterbody.go:735	-	checker types the Map's (K, V) pair as the wanted element; retained maps give retained pairs
+c	irScalarBuilder.seqView | false | sk == kindEmptySet ¦¦ !irRetainedSetKind(sk) ¦¦ member != elem#1	iriterbody.go:741	-	pinned as gapCIterParamEmptySet (reason: a direct call's operand: total)
+c	irScalarBuilder.seqView | false | !(it != nil && userElem == elem)#1	iriterbody.go:748	-	pinned as gapCIterParamUserSourceKnownCount (reason: a direct call's operand: total)
+c	irScalarBuilder.rangeView | false | cmp == nil ¦¦ cmp.irBody == nil ¦¦ !shared#1	iriterbody.go:764	-	pinned as gapCRangeUserDiscrete (reason: qualified call, Type.method: Iter.map)
+b	irScalarBuilder.rangeView | false | next == nil ¦¦ next.irBody == nil#1	iriterbody.go:768	-	reached only when std compare exists (Int, Codepoint), and both have std Discrete.next; a user distinct stops at 735
+b	irScalarBuilder.rangeKnownCount | false | cmp == nil ¦¦ cmp.irBody == nil ¦¦ !shared#1	iriterbody.go:799	-	rangeWalks runs first and refuses an element without std Discrete (user distinct); Int and Codepoint have std compare
+b	irScalarBuilder.rangeKnownCount | false | steps == nil ¦¦ steps.irBody == nil#1	iriterbody.go:803	-	rangeWalks (rangeDiscrete) already requires std steps_between
+b	irScalarBuilder.iterGroupBy | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != elem#1	iriterbody.go:827	-	checker types group_by's key_fn as (T) -> K over the element
+b	irScalarBuilder.iterGroupBy | false | !irMapKeyKind(key)#1	iriterbody.go:831	-	checker rejects non-key K: "`(Int) -> Int` cannot be a Map key"
+c	irScalarBuilder.iterGroupBy | false | result.tag != tagMap ¦¦ !irRetainedMapKind(result)#1	iriterbody.go:835	-	pinned as gapCGroupByFnList (reason: qualified call, Type.method: Iter.group_by)
+d	irScalarBuilder.iterGroupBy | false | !ok#1	iriterbody.go:839	-	did not find a key kind that passes irMapKeyKind and fails irMapKeyOK
+a	irScalarBuilder.sortComparator | false | f == nil ¦¦ (f.irBody == nil && !(f.rtCall != "" && irScalarHost(f)))#1	iriterbody.go:870	irbuild	
+b	irScalarBuilder.iterMaybeKind | false | !anchored#1	iriterbody.go:1008	-	the prelude always anchors Maybe
+d	irScalarBuilder.iterMaybeKind | false | !shared ¦¦ !irRetainedValueKind(mk)#1	iriterbody.go:1019	-	Maybe<elem> answered for every element tried (fn, Unit, existential, nominal); no failing kind found
+c	irScalarBuilder.iterPlainView | false | sourced#1	iriterbody.go:1065	-	pinned as gapCZipUserDiscreteRange (reason: qualified call, Type.method: Iter.zip)
+c	irScalarBuilder.iterPlainView | false | unguarded#1	iriterbody.go:1078	-	pinned as gapCZipFnListRight (reason: qualified call, Type.method: Iter.zip)
 b	irScalarBuilder.iterPlainCallback | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != param#1	iriterstage.go:44	-	chunk_by only; checker types key_fn as (T) -> K over the element
 b	irScalarBuilder.iterPlainCallback | false | bl.iterSignalling(args, i)#1	iriterstage.go:47	-	checker rejects break/continue in a chunk_by callback ("no iter-callback call site")
 b	irScalarBuilder.iterSignalledCallback | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != param#1	iriterstage.go:91	-	checker types the callback parameter as the element
