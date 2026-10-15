@@ -649,6 +649,7 @@ func (g *gen) importKind(k kind) (kind, bool) {
 			parts = append(parts, ip)
 		}
 		rk := g.anonStructKind(k.comp.names, parts)
+		// kindInvalid: reports — sets importWhy, which the caller rejects under.
 		if rk == kindInvalid {
 			g.importWhy = "unlowered type"
 			return kindInvalid, false
