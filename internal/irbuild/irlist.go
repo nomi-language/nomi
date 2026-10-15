@@ -663,7 +663,9 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		}
 	}
 	if vl, isVector := at.(*ast.VectorLit); isVector && len(vl.Items) != 0 {
-		if elem, vector := vectorElem(want); vector && want != kindEmptyVector && irTypedWithin(elem) {
+		// `#[[1]]` where a `Vector<Iter<Int>>` is expected: each element
+		// enters the declared `Iter<T>`, as a list literal's does.
+		if elem, vector := vectorElem(want); vector && want != kindEmptyVector && (irTypedWithin(elem) || elem.tag == tagSeq) {
 			return bl.vectorMakeOf(vl, elem)
 		}
 	}
