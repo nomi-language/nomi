@@ -691,46 +691,113 @@ func validateNoIllegalNestedDecls(node ast.Node) []TypeError {
 // into a fresh child registry. Returns the child registry plus any errors
 // from resolving type details. The child registry chains to `reg` so
 // outer/module types remain visible.
+//
+// The block binds a name to its first type declaration of that name, as its
+// scope does; a later one is the builder's "already defined in this scope"
+// error. Such a declaration is still built, against a registry of its own
+// that maps the name to its own type, so it never fills in the type the
+// name binds (ownRegistry does the same for a top-level declaration).
 func buildBlockNestedTypes(fa *FileAnalysis, reg *TypeRegistry, block *ast.Block) (*TypeRegistry, []TypeError) {
 	if block == nil {
 		return reg, nil
 	}
 	child := NewChildTypeRegistry(reg)
+	binds := blockTypeDeclsBinding(block)
+	// regFor is the registry the declaration n named name is built against.
+	regFor := func(n ast.Node, name string) *TypeRegistry {
+		if binds[n] {
+			return child
+		}
+		own := NewChildTypeRegistry(child)
+		if shell := blockTypeShell(fa, n); shell != nil {
+			own.Register(name, shell)
+		}
+		return own
+	}
 	// Pass 1: register shells so types can reference each other.
 	for _, stmt := range block.Stmts {
-		switch n := stmt.(type) {
-		case *ast.StructDef:
-			child.Register(n.Name, &StructType{Name: n.Name, unbuilt: &unbuiltDecl{}})
-		case *ast.EnumDef:
-			child.Register(n.Name, &EnumType{Name: n.Name, unbuilt: &unbuiltDecl{}})
-		case *ast.TypeDef:
-			child.Register(n.Name, &DistinctType{Name: n.Name, unbuilt: &unbuiltDecl{}})
-		case *ast.InterfaceDef:
-			child.Register(n.Name, &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: &unbuiltDecl{}})
+		if !binds[stmt] {
+			continue
+		}
+		if shell := blockTypeShell(fa, stmt); shell != nil {
+			child.Register(blockTypeDeclName(stmt), shell)
 		}
 	}
 	// Pass 2: resolve details against the child registry, each alias at its
 	// declaration or its first lookup (newAliasBuilder).
 	var errs []TypeError
-	aliases := newAliasBuilder(fa, block.Stmts, func(*ast.TypeAlias) (*TypeRegistry, bool) {
-		return child, true
+	aliases := newAliasBuilder(fa, block.Stmts, func(n *ast.TypeAlias) (*TypeRegistry, bool) {
+		if binds[n] {
+			return child, true
+		}
+		return NewChildTypeRegistry(child), false
 	})
 	for _, stmt := range block.Stmts {
 		switch n := stmt.(type) {
 		case *ast.TypeAlias:
 			aliases.build(n)
 		case *ast.StructDef:
-			errs = append(errs, buildStructType(fa, child, n)...)
+			errs = append(errs, buildStructType(fa, regFor(n, n.Name), n)...)
 		case *ast.EnumDef:
-			errs = append(errs, buildEnumType(fa, child, n)...)
+			errs = append(errs, buildEnumType(fa, regFor(n, n.Name), n)...)
 		case *ast.TypeDef:
-			errs = append(errs, buildTypeDef(fa, child, n)...)
+			errs = append(errs, buildTypeDef(fa, regFor(n, n.Name), n)...)
 		case *ast.InterfaceDef:
-			errs = append(errs, buildInterfaceMethods(fa, child, n)...)
+			errs = append(errs, buildInterfaceMethods(fa, regFor(n, n.Name), n)...)
 		}
 	}
 	errs = append(errs, aliases.errs...)
 	return child, errs
+}
+
+// blockTypeDeclName answers the name a block's type declaration n
+// declares, or "" when n is not one.
+func blockTypeDeclName(n ast.Node) string {
+	switch n := n.(type) {
+	case *ast.StructDef:
+		return n.Name
+	case *ast.EnumDef:
+		return n.Name
+	case *ast.TypeDef:
+		return n.Name
+	case *ast.TypeAlias:
+		return n.Name
+	case *ast.InterfaceDef:
+		return n.Name
+	}
+	return ""
+}
+
+// blockTypeDeclsBinding answers the type declarations of block that bind
+// their names: the first declaration of each name.
+func blockTypeDeclsBinding(block *ast.Block) map[ast.Node]bool {
+	binds := map[ast.Node]bool{}
+	seen := map[string]bool{}
+	for _, stmt := range block.Stmts {
+		name := blockTypeDeclName(stmt)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		binds[stmt] = true
+	}
+	return binds
+}
+
+// blockTypeShell answers the unbuilt type a block's type declaration n
+// fills in, or nil for an alias, which registers its target when built.
+func blockTypeShell(fa *FileAnalysis, n ast.Node) Type {
+	switch n := n.(type) {
+	case *ast.StructDef:
+		return &StructType{Name: n.Name, unbuilt: &unbuiltDecl{}}
+	case *ast.EnumDef:
+		return &EnumType{Name: n.Name, unbuilt: &unbuiltDecl{}}
+	case *ast.TypeDef:
+		return &DistinctType{Name: n.Name, unbuilt: &unbuiltDecl{}}
+	case *ast.InterfaceDef:
+		return &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: &unbuiltDecl{}}
+	}
+	return nil
 }
 
 // buildNestedFuncTypes walks a function body looking for nested FuncDef

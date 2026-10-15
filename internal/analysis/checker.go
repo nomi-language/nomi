@@ -80,6 +80,7 @@ type checker struct {
 	typeVarID         int                  // counter for generating fresh type variables
 	fileTypeSymbols   map[string]*Symbol   // file-local type definitions (struct/enum/type/typealias/interface) by name; populated by checkVisibilityConsistency for the visibility check, bypassing the variant-shadowed scope
 	fileEnumDecls     map[string][]*Symbol // every enum this file declares, block-local ones included, by name; built on first use by enumDeclSymbol
+	fileStructDecls   map[string][]*Symbol // every struct this file declares, block-local ones included, by name; built on first use by structDeclSymbol
 	attachedTestScope *Scope               // declaration-associated fallback scope while checking an attached test body
 	// tryBoundary describes the innermost enclosing fn or lambda for
 	// purposes of `try` (and `return`) unwinding. Push/pop in checkFunc
@@ -771,6 +772,50 @@ func (c *checker) enumDeclSymbol(et *EnumType) *Symbol {
 		return nil
 	}
 	return nominal
+}
+
+// structDeclSymbol answers the declaring symbol of st's struct, as
+// enumDeclSymbol answers an enum's. The candidates are the symbol st's name
+// binds in this file's scope and every struct this file declares,
+// block-local ones included. The first that declared st wins: st is its
+// type, or an instantiation of it, which shares its type parameters. Two
+// blocks may each declare a struct of the same name, so the name alone
+// does not say which. Failing that, the symbol the name binds in the
+// file's scope answers, or else the one struct of that name the file
+// declares.
+func (c *checker) structDeclSymbol(st *StructType) *Symbol {
+	scoped := lookupSymbolDeep(c.fa.ModuleScope, st.Name)
+	for scoped != nil && scoped.Resolved != nil {
+		scoped = scoped.Resolved
+	}
+	if c.fileStructDecls == nil {
+		c.fileStructDecls = map[string][]*Symbol{}
+		for _, sym := range c.fa.Definitions {
+			if sym != nil && sym.Kind == SymbolStruct {
+				c.fileStructDecls[sym.Name] = append(c.fileStructDecls[sym.Name], sym)
+			}
+		}
+	}
+	declared := c.fileStructDecls[st.Name]
+	for _, sym := range append([]*Symbol{scoped}, declared...) {
+		if sym == nil {
+			continue
+		}
+		decl, ok := sym.Type.(*StructType)
+		if sym.Kind != SymbolStruct || !ok {
+			continue
+		}
+		if decl == st || len(decl.TypeParamDefs) > 0 && len(st.TypeParamDefs) == len(decl.TypeParamDefs) && decl.TypeParamDefs[0] == st.TypeParamDefs[0] {
+			return sym
+		}
+	}
+	if scoped != nil {
+		return scoped
+	}
+	if len(declared) == 1 {
+		return declared[0]
+	}
+	return nil
 }
 
 // dotVariantNoEnumMessage formats the diagnostic for a `.Variant` that
@@ -2820,7 +2865,13 @@ func (c *checker) blockTypeRegistry(block *ast.Block) *TypeRegistry {
 		return nil
 	}
 	var reg *TypeRegistry
+	// A later declaration of a name the block declares already binds
+	// nothing (buildBlockNestedTypes).
+	binds := blockTypeDeclsBinding(block)
 	for _, stmt := range block.Stmts {
+		if !binds[stmt] {
+			continue
+		}
 		var name string
 		var line, col int
 		switch n := stmt.(type) {
@@ -12458,19 +12509,9 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 				if subs != nil {
 					resolvedTy = Substitute(resolvedTy, subs)
 				}
-				// Resolve the struct's defining Symbol. ModuleScope covers
-				// top-level structs; nested structs (declared inside a fn
-				// or block) aren't in ModuleScope, so fall back to scanning
-				// Definitions for a SymbolStruct of the same name.
-				structSym := lookupSymbolDeep(c.fa.ModuleScope, ty.Name)
-				if structSym == nil {
-					for _, defSym := range c.fa.Definitions {
-						if defSym.Name == ty.Name && defSym.Kind == SymbolStruct {
-							structSym = defSym
-							break
-						}
-					}
-				}
+				// The struct's defining Symbol: the declaration ty is, which
+				// may be one of several block-local structs of its name.
+				structSym := c.structDeclSymbol(ty)
 				if structSym != nil {
 					real := structSym
 					if real.Resolved != nil {
@@ -12537,12 +12578,9 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 				if st, ok := v.DataType.(*StructType); ok {
 					for _, f := range st.Fields {
 						if f.Name == fieldName {
-							for _, defSym := range c.fa.Definitions {
-								if defSym.Name == st.Name && defSym.Kind == SymbolStruct {
-									if fieldSym, ok := defSym.Members[f.Name]; ok {
-										c.fa.References[fieldPos] = fieldSym
-									}
-									break
+							if structSym := c.structDeclSymbol(st); structSym != nil {
+								if fieldSym, ok := structSym.Members[f.Name]; ok {
+									c.fa.References[fieldPos] = fieldSym
 								}
 							}
 							return f.Type, true
