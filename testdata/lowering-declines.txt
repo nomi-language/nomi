@@ -536,33 +536,35 @@ b	gen.literalCell | note | "a backtick typed literal whose handler call is not i
 b	gen.literalCell | note | "a backtick typed literal cell that does not lint: " + err.Error()#1	irliteralcell.go:146	-	lint fence: builder invariant check
 ?	irScalarBuilder.iterLoop | note | "an Iter.loop with std/iter not loaded"#1	irloop.go:133	?	
 b	irScalarBuilder.iterLoop | note | "an Iter.loop call without one callback"#1	irloop.go:144	-	checker types Iter.loop(f: (S) -> S): exactly one argument
-b	irScalarBuilder.iterLoop | note | "an Iter.loop callback that is not a lambda literal of at most one parameter"#1	irloop.go:148	-	checker rejects a function-valued loop callback: "`Iter.loop` needs a starting state"
-b	irScalarBuilder.iterLoop | note | "an Iter.loop callback without a seeded state"#1	irloop.go:163	-	checker rejects a loop lambda whose parameter has no default: "`Iter.loop` needs a starting state"
-b	irScalarBuilder.iterLoop | note | "an Iter.loop seed whose element type the checker did not solve"#1	irloop.go:186	-	checker rejects an unsolved empty seed: "binding 'xs' type is not locally determined"
-d	irScalarBuilder.iterLoop | note | "an Iter.loop seed outside the retained empty-container coercions"#1	irloop.go:189	-	did not find a solved empty seed coerceEmpty refuses (List<Int> seed coerces; a Map-of-functions seed declines elsewhere first)
-c	irScalarBuilder.iterLoop | note | "an Iter.loop state outside the retained value domain: " + sk.nomi()#1	irloop.go:194	-	pinned as gapCLoopFnState (reason: an Iter.loop state outside the retained value domain: (Int) -> Int)
-b	irScalarBuilder.iterLoop | note | "an Iter.loop state without an IR type: " + sk.nomi()#1	irloop.go:198	-	defensive: every retained value kind and Unit has an IR type
-b	irScalarBuilder.iterLoop | note | "an Iter.loop state pattern outside the retained pattern tests: " + sk.nomi()#1	irloop.go:235	-	checker rejects refutable state patterns ("refutable pattern in parameter"); irrefutable tuple and struct patterns lower
-d	irScalarBuilder.iterLoop | note | "an Iter.loop body outside the statement shape: " + irDeclineBodyWhy#1	irloop.go:255	-	irScalarBlock answers nil only for nil nodes or a leading statement form outside its list; found no accepted loop body that does this
-b	irScalarBuilder.iterLoop | note | "an Iter.loop without a break, in a position that reads its value"#1	irloop.go:268	-	endlessLoop admits a loop with no break where its value is read last (io.inspect(Iter.loop(|n = 0| n + 1)) lowers); found no accepted placement that reaches this
-c	irScalarBuilder.loopBody | note | "an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`"#1	irloop.go:283	-	pinned as gapCLoopGuardBreakEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
-c	irScalarBuilder.loopBody | note | "an Iter.loop final `break` without a value of the state type"#1	irloop.go:320	-	pinned as gapCLoopFinalBreakEmptyList (reason: an Iter.loop final `break` without a value of the state type)
-d	irScalarBuilder.loopBody | note | "an Iter.loop case tail outside value and `break v` arms"#1	irloop.go:333	-	case tails with `[]` arms lower (coerced by caseRegion); no failing arm kind found
-b	irScalarBuilder.loopBody | false | isNilNode(f.Value)#1	irloop.go:339	-	checker rejects a bare `return` in a non-Unit loop callback ("return type mismatch: expected Int, got Unit") and flags a final bare return as doing nothing
-d	irScalarBuilder.loopBody | false | exit == nil#1	irloop.go:352	-	needs an `if c {...} else {...}` final whose then-block irScalarBlock cannot split; none found
-c	irScalarBuilder.loopBody | note | "an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`"#2	irloop.go:365	-	pinned as gapCLoopIfElseBreakEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
-d	irScalarBuilder.loopBody | false | elseFinal == nil#1	irloop.go:373	-	needs an else block irScalarBlock cannot split; none found
-b	irScalarBuilder.loopBody | false | unguarded#1	irloop.go:379	-	parser builds an else only as a Block or an else-if
-c	irScalarBuilder.loopTail | note | "an Iter.loop body without a straight tail expression"#1	irloop.go:389	-	pinned as gapCLoopIfLetTail (reason: an Iter.loop body without a straight tail expression)
-c	irScalarBuilder.loopTail | note | "an Iter.loop tail that is not the state type"#1	irloop.go:399	-	pinned as gapCLoopTailEmptyList (reason: an Iter.loop tail that is not the state type)
-d	irScalarBuilder.loopCase | false | !ok ¦¦ k != lp.k#1	irloop.go:417	-	same as 338: case tails with `[]` arms lower; no failing arm kind found
-d	irScalarBuilder.loopIf | note | "an Iter.loop `if` tail outside value arms of the state type"#1	irloop.go:431	-	if tails with `[]` arms lower (ifRegion coerces); no failing arm kind found
-b	irScalarBuilder.loopGuard | false | t.Else != nil ¦¦ isNilNode(t.Cond) ¦¦ t.Then == nil#1	irloop.go:480	-	callers pass an if with Else cleared and Then set (loopGuardShape or the final-if path)
-b	irScalarBuilder.loopGuard | false | exit == nil#1	irloop.go:485	-	both callers already checked the then-block splits (loopGuardShape, final-if path)
-d	irScalarBuilder.loopGuard | false | !ok ¦¦ (t.CondPattern == nil && ck != kindBool)#1	irloop.go:491	-	only propagates a decline from lowering the guard condition (checker guarantees Bool); reachable whenever the condition hits another gap
-b	irScalarBuilder.loopGuard | false | unguarded#1	irloop.go:533	-	loopGuardShape and the final-if path admit only break/return/continue exits
-b	irScalarBuilder.loopValue | false | isNilNode(value)#1	irloop.go:558	-	checker rejects a bare `return` in a non-Unit loop guard ("return type mismatch: expected Int, got Unit")
-c	irScalarBuilder.loopValue | false | !ok ¦¦ vk != k#1	irloop.go:562	-	pinned as gapCLoopGuardReturnEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
+b	irScalarBuilder.iterLoop | note | "an Iter.loop callback that is not a lambda literal"#1	irloop.go:148	-	checker rejects a function-valued loop callback: "`Iter.loop` needs a starting state"
+b	irScalarBuilder.iterLoop | note | "an Iter.loop callback parameter after the state without a default"#1	irloop.go:154	-	checker rejects it: "argument 1: expected (S) -> S, got (Int, ?) -> Int"
+b	irScalarBuilder.iterLoop | note | "an Iter.loop callback without a seeded state"#1	irloop.go:170	-	checker rejects a loop lambda whose parameter has no default: "`Iter.loop` needs a starting state"
+b	irScalarBuilder.iterLoop | note | "an Iter.loop seed whose element type the checker did not solve"#1	irloop.go:193	-	checker rejects an unsolved empty seed: "binding 'xs' type is not locally determined"
+d	irScalarBuilder.iterLoop | note | "an Iter.loop seed outside the retained empty-container coercions"#1	irloop.go:196	-	did not find a solved empty seed coerceEmpty refuses (List<Int> seed coerces; a Map-of-functions seed declines elsewhere first)
+c	irScalarBuilder.iterLoop | note | "an Iter.loop state outside the retained value domain: " + sk.nomi()#1	irloop.go:201	-	pinned as gapCLoopFnState (reason: an Iter.loop state outside the retained value domain: (Int) -> Int)
+b	irScalarBuilder.iterLoop | note | "an Iter.loop state without an IR type: " + sk.nomi()#1	irloop.go:205	-	defensive: every retained value kind and Unit has an IR type
+b	irScalarBuilder.iterLoop | note | "an Iter.loop state pattern outside the retained pattern tests: " + sk.nomi()#1	irloop.go:242	-	checker rejects refutable state patterns ("refutable pattern in parameter"); irrefutable tuple and struct patterns lower
+b	irScalarBuilder.iterLoop | note | "an Iter.loop parameter pattern outside the retained pattern tests: " + k.nomi()#1	irloop.go:269	-	checker rejects refutable parameter patterns ("refutable pattern in parameter"); irrefutable tuple and struct patterns lower
+d	irScalarBuilder.iterLoop | note | "an Iter.loop body outside the statement shape: " + irDeclineBodyWhy#1	irloop.go:292	-	irScalarBlock answers nil only for nil nodes or a leading statement form outside its list; found no accepted loop body that does this
+b	irScalarBuilder.iterLoop | note | "an Iter.loop without a break, in a position that reads its value"#1	irloop.go:305	-	endlessLoop admits a loop with no break where its value is read last (io.inspect(Iter.loop(|n = 0| n + 1)) lowers); found no accepted placement that reaches this
+c	irScalarBuilder.loopBody | note | "an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`"#1	irloop.go:320	-	pinned as gapCLoopGuardBreakEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
+c	irScalarBuilder.loopBody | note | "an Iter.loop final `break` without a value of the state type"#1	irloop.go:357	-	pinned as gapCLoopFinalBreakEmptyList (reason: an Iter.loop final `break` without a value of the state type)
+d	irScalarBuilder.loopBody | note | "an Iter.loop case tail outside value and `break v` arms"#1	irloop.go:370	-	case tails with `[]` arms lower (coerced by caseRegion); no failing arm kind found
+b	irScalarBuilder.loopBody | false | isNilNode(f.Value)#1	irloop.go:376	-	checker rejects a bare `return` in a non-Unit loop callback ("return type mismatch: expected Int, got Unit") and flags a final bare return as doing nothing
+d	irScalarBuilder.loopBody | false | exit == nil#1	irloop.go:389	-	needs an `if c {...} else {...}` final whose then-block irScalarBlock cannot split; none found
+c	irScalarBuilder.loopBody | note | "an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`"#2	irloop.go:402	-	pinned as gapCLoopIfElseBreakEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
+d	irScalarBuilder.loopBody | false | elseFinal == nil#1	irloop.go:410	-	needs an else block irScalarBlock cannot split; none found
+b	irScalarBuilder.loopBody | false | unguarded#1	irloop.go:416	-	parser builds an else only as a Block or an else-if
+c	irScalarBuilder.loopTail | note | "an Iter.loop body without a straight tail expression"#1	irloop.go:426	-	pinned as gapCLoopIfLetTail (reason: an Iter.loop body without a straight tail expression)
+c	irScalarBuilder.loopTail | note | "an Iter.loop tail that is not the state type"#1	irloop.go:436	-	pinned as gapCLoopTailEmptyList (reason: an Iter.loop tail that is not the state type)
+d	irScalarBuilder.loopCase | false | !ok ¦¦ k != lp.k#1	irloop.go:454	-	same as 338: case tails with `[]` arms lower; no failing arm kind found
+d	irScalarBuilder.loopIf | note | "an Iter.loop `if` tail outside value arms of the state type"#1	irloop.go:468	-	if tails with `[]` arms lower (ifRegion coerces); no failing arm kind found
+b	irScalarBuilder.loopGuard | false | t.Else != nil ¦¦ isNilNode(t.Cond) ¦¦ t.Then == nil#1	irloop.go:517	-	callers pass an if with Else cleared and Then set (loopGuardShape or the final-if path)
+b	irScalarBuilder.loopGuard | false | exit == nil#1	irloop.go:522	-	both callers already checked the then-block splits (loopGuardShape, final-if path)
+d	irScalarBuilder.loopGuard | false | !ok ¦¦ (t.CondPattern == nil && ck != kindBool)#1	irloop.go:528	-	only propagates a decline from lowering the guard condition (checker guarantees Bool); reachable whenever the condition hits another gap
+b	irScalarBuilder.loopGuard | false | unguarded#1	irloop.go:570	-	loopGuardShape and the final-if path admit only break/return/continue exits
+b	irScalarBuilder.loopValue | false | isNilNode(value)#1	irloop.go:595	-	checker rejects a bare `return` in a non-Unit loop guard ("return type mismatch: expected Int, got Unit")
+c	irScalarBuilder.loopValue | false | !ok ¦¦ vk != k#1	irloop.go:599	-	pinned as gapCLoopGuardReturnEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
 b	irScalarBuilder.mapMakeOf | false | t.TypeName != nil ¦¦ len(t.Entries) == 0#1	irmap.go:174	-	parser builds `{}` as a block, never an empty MapLit; a typed MapLit returns before this line
 d	irScalarBuilder.mapUpdate | false | bk != lk ¦¦ !irRetainedMapKind(lk)#1	irmap.go:215	-	needs a map spread whose entries lower but whose kind differs from the base or is not a retained map; not found
 c	irScalarBuilder.mapEntriesOver | false | !joined ¦¦ (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructu…#1	irmap.go:299	-	pinned as gapMapOfFunctions (reason: a MapLit)

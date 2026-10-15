@@ -144,8 +144,15 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		return no("an Iter.loop call without one callback")
 	}
 	lam, isLambda := t.Args[0].(*ast.Lambda)
-	if !isLambda || len(lam.Params) > 1 {
-		return no("an Iter.loop callback that is not a lambda literal of at most one parameter")
+	if !isLambda {
+		return no("an Iter.loop callback that is not a lambda literal")
+	}
+	for _, extra := range lam.Params[min(1, len(lam.Params)):] {
+		// `|a = 0, b = 1|`: the loop calls the callback with the state
+		// alone, so each later parameter takes its default every iteration.
+		if extra.Default == nil {
+			return no("an Iter.loop callback parameter after the state without a default")
+		}
 	}
 	stateless := len(lam.Params) == 0
 	seed, sk, stateName := ir.NoTemp, kindUnit, "$state"
@@ -190,7 +197,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	// A Unit state (`|u: Unit = Unit|`) is a loop run for its effects.
-	if (!irRetainedValueKind(sk) && sk != kindUnit) || (p != nil && p.TypeAnnotation != nil && bl.g.typeOf(p.TypeAnnotation) != sk) {
+	if (!irCallableValueKind(sk) && sk != kindUnit) || (p != nil && p.TypeAnnotation != nil && bl.g.typeOf(p.TypeAnnotation) != sk) {
 		return no("an Iter.loop state outside the retained value domain: " + sk.nomi())
 	}
 	ty := bl.g.irTypeOf(sk)
@@ -244,6 +251,36 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		bl.side(param.Dst(), irScalarSide{k: sk})
 		bl.bound[p.Name], bl.boundK[p.Name] = param.Dst(), sk
 		bl.declareBindAt(param, sk, p.Line, p.Col)
+	}
+	for _, extra := range lam.Params[min(1, len(lam.Params)):] {
+		v, k, _, ok := bl.lower(extra.Default)
+		if !ok {
+			return ir.NoTemp, kindInvalid, false, false
+		}
+		if extra.Destructure != nil {
+			// `(b, c) = (1, 2)`: the pattern's names, read off the
+			// default, as the state's pattern is read off the state.
+			at := bl.g.irNodePos(extra.Destructure)
+			cont := bl.f.NewBlock(at, "loop parameter bound")
+			nomatch := bl.f.NewBlock(at, "loop parameter mismatch")
+			nomatch.Append(ir.NewNoMatch(at))
+			nomatch.SetTerm(ir.NewJump(at, cont.ID()))
+			if !bl.patternValueTest(extra.Destructure, v, k, cont, nomatch) {
+				return no("an Iter.loop parameter pattern outside the retained pattern tests: " + k.nomi())
+			}
+			bl.b = cont
+			continue
+		}
+		if ast.IsDiscardName(extra.Name) {
+			continue
+		}
+		sym := ir.NewSymbol(extra.Name)
+		bl.sh.syms[extra.Name] = sym
+		param := ir.NewBind(bl.g.irNodePos(extra.Default), bl.f.NewTemp(), v, sym)
+		bl.b.Append(param)
+		bl.side(param.Dst(), irScalarSide{k: k})
+		bl.bound[extra.Name], bl.boundK[extra.Name] = param.Dst(), k
+		bl.declareBindAt(param, k, extra.Line, extra.Col)
 	}
 	tail := bl.f.NewTemp()
 	bl.b.Append(ir.NewSlot(bl.g.irNodePos(lam), tail, ty))
@@ -345,7 +382,7 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 			// stateless loop's may: a statement, then the Unit tail.
 			return bl.loopBody([]ast.Node{f}, &ast.TypeIdent{Name: "Unit", Line: f.Line, Col: f.Col}, lp, tail)
 		}
-		if f.Else == nil || f.CondPattern != nil || f.Then == nil {
+		if f.Else == nil || f.Then == nil {
 			break
 		}
 		if _, exit := bl.g.irScalarBlock(f.Then, ""); exit == nil {

@@ -197,21 +197,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCLoopFnState",
-		fix:    "builder: c loop fn state. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterLoop | note | \"an Iter.loop state outside the retained value domain: \" + sk.nomi()#1",
-		reason: "an Iter.loop state outside the retained value domain: (Int) -> Int",
-		src: `import std/io
-
-fn main() {
-    f = Iter.loop(|g = |x: Int| x| {
-        if g(0) > 3 { break g }
-        |x: Int| g(x) + 1
-    })
-    io.inspect(f(1))
-}
-`,
-	},
-	{
 		name:   "gapCLoopGuardBreakEmptyList",
 		fix:    "builder: c loop guard break empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopBody | note | \"an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`\"#1",
 		reason: "an Iter.loop guard outside `if c { break v | return v | continue }`",
@@ -253,22 +238,6 @@ fn main() {
         if Iter.count(acc) > 2 { break [] } else { [1, ..acc] }
     })
     io.inspect(xs)
-}
-`,
-	},
-	{
-		name:   "gapCLoopIfLetTail",
-		fix:    "builder: c loop if let tail. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopTail | note | \"an Iter.loop body without a straight tail expression\"#1",
-		reason: "an Iter.loop body without a straight tail expression",
-		src: `import std/io
-
-fn main() {
-    m: Maybe<Int> = Some(3)
-    n = Iter.loop(|n = 0| {
-        if n > 3 { break n }
-        if Some(v) = m { n + v } else { n + 1 }
-    })
-    io.inspect(n)
 }
 `,
 	},
