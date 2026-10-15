@@ -1,0 +1,978 @@
+# Every place internal/irbuild can decline a body, with whether anything
+# reaches it. internal/declinesites says what counts as a site (its package
+# comment) and TestDeclineSitesAreListed fails when a site is added or removed
+# without this file. Columns, tab-separated:
+#
+#   class   a  reached: a suite below executes the site
+#           b  unreached, and the checker rejects every program that would reach it
+#           c  unreached, and the checker accepts such a program: a gap, pinned in
+#              vmhost's knownLoweringGaps (it moves to a once the coverage reruns)
+#           d  unreached, and this inventory could not decide which
+#           -  unreached, not classified yet
+#           ?  added since the coverage last ran
+#   key     function | kind | description#n (kinds: note, false, computed)
+#   pos     file:line in internal/irbuild, refreshed by regeneration
+#   reached the suites whose coverage executes the site, or -
+#   note    the reason for a b or d, the reproducer for a c
+#
+# Suites: expect (corpus, stdlib, tour and failure records), vmhost (generated
+# programs, known gaps, lowered-program runs, spec programs, and the two
+# lowering fuzz targets' corpora), projectgen (generated projects at about 1k
+# and 10k lines), irbuild (the builder's own tests). A site a suite executes
+# need not decline there: a caller may try another lowering when it fails.
+#
+# Regenerate the list, keeping classes and notes:
+#   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/declinesites -run TestDeclineSitesAreListed -count=1
+# Rerun the coverage too (about ten minutes; runs the whole irbuild package):
+#   NOMI_DECLINE_COVERAGE=1 go test ./internal/declinesites -run TestDeclineSitesAreListed -count=1 -timeout 0 -v
+# With NOMI_DECLINE_PROFILES=<dir> as well, the profiles stay in <dir>; with
+# it alone, the list is rewritten from the profiles already there.
+a	gen.dottedTypeQualifier | false | !isFA ¦¦ fa.Field == nil#1	dottedqual.go:86	expect,irbuild,projectgen,vmhost	
+a	gen.dottedTypeQualifier | false | bound#1	dottedqual.go:99	expect,irbuild,projectgen,vmhost	
+b	gen.dottedTypeQualifier | false | o.Field == nil#1	dottedqual.go:104	-	parser always sets FieldAccess.Field (parser.go:1803/1817/2734/3450); a nil Field never reaches the builder from an accepted program
+a	gen.dottedTypeQualifier | false | unguarded#1	dottedqual.go:110	expect,irbuild	
+b	gen.importIfaceKind | false | g.reg == nil ¦¦ src == nil ¦¦ src.decl == nil#1	existential.go:274	-	defensive fence: importKind only runs with a registry, and k.iface/its decl are never nil for a user interface kind
+b	gen.importIfaceKind | false | o == nil ¦¦ !o.isIface#1	existential.go:283	-	defensive fence: every user interface declaration is registered in reg.byDecl as an interface owner
+b	gen.importIfaceKind | false | local == nil ¦¦ local.decl != src.decl#1	existential.go:293	-	defensive fence: on the crossing-back arm the local def for the same name is that declaration (names are unique per file; duplicates are a checker error)
+b	gen.importIfaceKind | false | !local.lowerable#1	existential.go:297	-	a local interface def is only unlowerable as a duplicate declaration (impl.go:410), which the checker rejects
+d	gen.importIfaceKind | false | !d.lowerable#1	existential.go:308	-	mirror unlowerable only on "sibling file type cycle" (ensureTypes false) or a duplicate; could not build a cross-file interface/type cycle that hits it in the time box
+a	irScalarBuilder.fileFuncRef | false | t.Field == nil ¦¦ irQualIsLocal(bl, owner.Name)#1	filefuncref.go:35	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.fileFuncRef | false | f == nil#1	filefuncref.go:41	-	probe: handled=false falls back to the field read; a non-fn sibling member (`lib.base`, a once) lowers there (tested)
+a	irScalarBuilder.fileFuncRef | false | unguarded#1	filefuncref.go:57	irbuild	
+c	irScalarBuilder.stdFileFuncRef | false | generic == nil && (g.std == nil ¦¦ g.std.byFile[module+"."+name] == nil)#1	filefuncref.go:84	-	pinned as gapStdGenericHostFnValue (reason: a field access on an unbound name testing: .check)
+c	irScalarBuilder.outputRef | false | !ok ¦¦ result != kindUnit#1	filefuncref.go:116	-	pinned as gapUnitElemOutputRef (reason: a field access on an unbound name io: .inspect)
+d	irScalarBuilder.wrapperRef | false | !ok ¦¦ k != result ¦¦ len(child.captures) != 0#1	filefuncref.go:150	-	tried io.read_file/read_line/write_file/capture/replay, json.shape_error_root, timer.sleep, compiler.* as values: all lower
+d	irScalarBuilder.wrapperRef | note | "a function value over " + name + " that does not lint: " + err.Error()#1	filefuncref.go:154	-	no lint failure found for wrapper function values
+b	gen.checkedRefValueKinds | false | ft == nil#1	filefuncref.go:169	-	the checker records a function type for every reference used as a function value (CallType or ExprTypes)
+c	irScalarBuilder.siblingFuncRef | false | !f.lowerable() ¦¦ f.defaults#1	filefuncref.go:207	-	pinned as gapSiblingDefaultFnValue (reason: a field access on an unbound name lib: .greet)
+d	irScalarBuilder.siblingFuncRef | false | host && !irHostFnHasVMBody(params, result)#1	filefuncref.go:215	-	needs a Go-bound sibling host fn returning a function; Go FFI not exercisable from `nomi check` here (user host fns need an embedder host table)
+b	irScalarBuilder.siblingFuncRef | false | sym == nil#1	filefuncref.go:220	-	defensive fence: irSiblingCalleeSym is nil only without a registry, and g.files implies one
+b	irScalarBuilder.siblingFuncRef | false | !irCallableValueKind(fk)#1	filefuncref.go:224	-	a lowerable sibling signature's params/result are already in the callable domain (Unit params allowed by irCallableValueKind)
+b	typeRegistry.ensureTypes | false | unit < 0 ¦¦ unit >= len(r.gens)#1	foreign.go:201	-	unit index always comes from typeOwner.unit, an index into r.gens (defensive fence)
+b	typeRegistry.ensureTypes | false | g == nil#1	foreign.go:205	-	every registry unit has a gen (defensive fence)
+c	typeRegistry.ensureTypes | false | g.typesBusy#1	foreign.go:211	-	pinned as gapCrossFileTypeCycle (reason: a struct literal: A)
+b	gen.importKind | false | unguarded#1	foreign.go:627	-	importKind is only fed kinds of lowerable defs and lowerable signatures, which carry no tagInvalid component (an invalid field makes src.lowerable false, caught at foreign.go:550)
+c	gen.importKind | false | unguarded#2	foreign.go:686	-	pinned as gapForeignFnIter (reason: qualified call, file.fn: nums.)
+b	gen.importNamed | false | !anchored#1	foreign.go:708	-	preludeSpecAnchor always anchors Maybe/Result from std's own declaration (defensive fence)
+b	gen.importNamed | false | k == kindInvalid#1	foreign.go:723	-	preludeInstance returns kindInvalid only for an invalid arg, and every arg was just imported ok
+b	gen.importNamed | false | !ok#1	foreign.go:752	-	genStructInstance with imported args fails only where the owner's own instance failed, which makes the owner def unlowerable first
+b	gen.importNamed | false | !ok#2	foreign.go:770	-	genHostInstance with imported args fails only for a nil spec or g == nil, neither of which occurs here
+a	gen.importNamed | computed | return src.lowerable#1	foreign.go:807	expect,irbuild,projectgen,vmhost	
+b	gen.importNamed | false | o == nil#1	foreign.go:815	-	only a synthesized declaration is missing from the registry, and none is nameable across files
+a	gen.importNamed | computed | return local.lowerable#1	foreign.go:822	expect,irbuild,vmhost	
+b	gen.importNamed | false | o.unit == g.fileUnit#1	foreign.go:825	-	a component declared in this file always has its def in g.types under its name (duplicates are front-end errors)
+c	gen.importNamed | false | !d.lowerable#1	foreign.go:830	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
+b	gen.importNamed | false | inner == nil#1	foreign.go:841	-	inner == nil only for a duplicate declaration its own file refuses, a front-end error
+c	gen.importNamed | false | !d.lowerable#2	foreign.go:846	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
+b	irScalarBuilder.foreignFieldDefault | false | src == nil ¦¦ g.reg == nil ¦¦ !irCallOperandKind(want)#1	foreignfielddefault.go:57	-	a mirror always carries ownerDef and a registry; a lowerable struct's field kinds are call-operand kinds (tried 15 default shapes cross-file, all lower)
+b	irScalarBuilder.foreignFieldDefault | false | o == nil#1	foreignfielddefault.go:65	-	the mirror's owner decl is always in the registry (generic instances map to genericOf.decl)
+b	irScalarBuilder.foreignFieldDefault | false | owner == nil ¦¦ owner == g#1	foreignfielddefault.go:69	-	a mirror's owner is another unit by construction
+b	irScalarBuilder.foreignFieldDefault | false | f == nil#1	foreignfielddefault.go:76	-	callers pass a field name read from the same def (irstruct.go fieldDefault)
+b	irScalarBuilder.foreignFieldDefault | false | v == nil#1	foreignfielddefault.go:82	-	callers pass a variant read from the same def (irvariantvalues.go:1046)
+b	irScalarBuilder.foreignFieldDefault | false | deflt == nil#1	foreignfielddefault.go:91	-	callers call only for a field whose deflt is non-nil
+b	gen.irFieldDefaultRetain | note | "a field kind outside the call domain: " + r.k.nomi()#1	foreignfielddefault.go:141	-	r.k is the owner's kind of a field the importer already checked with irCallOperandKind at foreignfielddefault.go:56
+b	gen.irFieldDefaultRetain | note | "no function shell"#1	foreignfielddefault.go:146	-	irFuncShellAt returns nil only when irTypeOf(result) is nil, which a call-operand kind never is
+d	gen.irFieldDefaultRetain | note | "a default that does not lower"#1	foreignfielddefault.go:153	-	tried defaults calling private fns, onces, generic fns, lambdas, case, Set/Vector/Map/Result/tuple literals and generic-struct defaults across files; all lower; a default that fails here would also fail a same-file literal, not determined
+b	gen.irFieldDefaultRetain | note | "a field default accessor that does not lint: " + err.Error()#1	foreignfielddefault.go:162	-	lint fence: builder invariant check
+d	gen.importGenericInstance | false | !src.lowerable#1	foreigngeneric.go:59	-	needs a crossing-back generic instance the owner refused; no reproducer found
+d	gen.importGenericInstance | false | !d.lowerable#1	foreigngeneric.go:67	-	needs a cached mirror of an unlowerable foreign generic instance; no reproducer found
+b	gen.importGenericInstance | false | o == nil#1	foreigngeneric.go:74	-	instanceOwner is nil only for a template that is not another file's, which importGenericInstance is never asked for
+d	gen.importGenericInstance | false | !d.lowerable#2	foreigngeneric.go:83	-	needs a foreign generic instance whose mirror is unlowerable; lib.Box<Unit>/Holder<Int> etc. lower
+a	gen.foreignTemplate | false | g.reg == nil#1	foreigngeneric.go:163	expect,irbuild,projectgen,vmhost	
+a	gen.foreignTemplateOf | false | o == nil ¦¦ o.unit == g.fileUnit#1	foreigngeneric.go:208	expect,irbuild,projectgen,vmhost	
+b	gen.foreignTemplateOf | false | src == nil#1	foreigngeneric.go:215	-	defensive fence: every unit has a gen in the registry after ensureTypes succeeds
+a	gen.foreignTemplateOf | false | tpl == nil#1	foreigngeneric.go:219	expect,irbuild,projectgen,vmhost	
+b	gen.checkedRefKinds | false | g.fa == nil#1	funcref.go:79	-	defensive fence: g.fa is set for every program file the builder lowers
+b	gen.checkedRefKinds | false | sym == nil#1	funcref.go:84	-	the checker records a Reference at every resolved callee/function-value position
+b	gen.funcTypeKinds | false | ft == nil ¦¦ len(ft.Params) != arity ¦¦ irUnsolvedType(ft.Return)#1	funcref.go:94	-	checker rejects unsolved generic references: "cannot infer type parameter T of generic function 'x' used as a value"; arity always matches the declaration
+b	gen.funcTypeKinds | false | irUnsolvedType(pt)#1	funcref.go:99	-	same checker rule: "cannot infer type parameter ... used as a value" (tried `[] |> Iter.each(io.inspect)`)
+c	gen.funcTypeKinds | false | !irCallableValueKind(params[i])#1	funcref.go:103	-	pinned as gapUnitParamGenericFnValue (reason: an ident bound nowhere this builder can see)
+d	gen.funcTypeKinds | false | result != kindUnit && !irCallableValueKind(result)#1	funcref.go:108	-	could not find a projected result kind outside the callable domain whose params pass; Maybe<Unit> results fail earlier in monoSolve instead
+b	gen.monoSolve | false | len(params) != len(tpl.decl.Params)#1	genericmono.go:392	-	every caller passes kinds of len(tpl.decl.Params) (checkedRefKinds/checkedMonoCallKinds arity), so the lengths always agree
+a	gen.monoSolve | false | !found ¦¦ !irCallableValueKind(k)#1	genericmono.go:407	irbuild	
+a	gen.checkedMonoTypeArgsFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:426	irbuild	
+c	gen.checkedMonoTypeArgsFilled | false | unguarded#1	genericmono.go:441	-	pinned as gapGenericCallBareNone (reason: a direct callee that is not lowerable: is_some)
+b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:584	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
+b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:594	-	defensive fence: callers pass an enum template (enumDecl non-nil)
+b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:601	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
+a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.SymbolField#1	generictype.go:626	irbuild	
+a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:630	irbuild	
+c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:636	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
+b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:643	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
+c	gen.hostFnReject | note | reason#1	hostpkg.go:542	-	pinned as gapGoFnDefaultedParam (reason: a direct callee that is not lowerable: upper)
+b	gen.irBootRetain | note | "a boot without a body or a declared result"#1	irappboot.go:212	-	checker rejects: "boot must return a struct, the application type" (fn boot without result); a host fn boot is not a boot (tried boot_noresult.nomi, boot_host.nomi)
+a	gen.irBootRetain | note | "a boot result whose fields are not all retained values: " + result.nomi()#1	irappboot.go:221	irbuild	
+b	gen.irBootRetain | note | "no function shell"#1	irappboot.go:238	-	defensive fence: irFuncShell is nil only when the result has no IR type, and the result already passed irBootStructKind/irBootRecordKind just above
+b	irScalarBuilder.appFieldStore | note | "an app-field write the checker did not resolve"#1	irappboot.go:464	-	checker rejects an unresolved with target: "`with` replaces an application field, such as `MyApp.logger`; `App.label` is not one"
+b	irScalarBuilder.appFieldStore | note | "an app-field write in a program with no boot"#1	irappboot.go:470	-	checker rejects app-field writes without an entry boot ("reads an application field only when an entry boot returns `App`"; "`with` replaces an application field ... is not one"), tried with_noboot.nomi
+b	irScalarBuilder.appFieldStore | note | "an app-field write of an unretained field"#1	irappboot.go:474	-	defensive fence: a boot whose struct has a field outside irAppFieldKind already declines at the boot (irBootStructKind), so no writable field is unretained
+c	irScalarBuilder.appFieldStore | false | !ok ¦¦ (vk != k && !bl.g.irErases(k, vk))#1	irappboot.go:479	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([main] the builder declined without naming a reason (a compiler bug; please report it))
+a	irScalarBuilder.appFieldRead | false | k == kindInvalid ¦¦ !irAppFieldKind(k) ¦¦ (bl.inTest && !bl.testApp) ¦¦ (!bl.g.irDeclaresB…#1	irappboot.go:501	irbuild	
+b	irScalarBuilder.fnAssertion | note | "an assertion whose boundary is not an ordinary fn, a concurrent block or a test case"#1	irassertsubject.go:43	-	only a lambda boundary reaches the decline, and the checker rejects every assertion inside a lambda ("`assert` inside a lambda becomes the lambda's return value..."); value assertions in fn, concurrent, test, setup, if/case arms and nested fns inside tests all lower (tried)
+b	irScalarBuilder.attachedVariant | false | !ok#1	irattach.go:27	-	parser fence: every QualifiedType the parser builds for a literal-attach prefix has a SimpleType member (parser.go 2631/2700/2718)
+b	irScalarBuilder.attachedVariant | false | tn.ResolvedEnum == ""#1	irattach.go:36	-	checker resolves `.X[...]`/`.X{...}` against the expected enum or reports an error, so ResolvedEnum is never empty after checking
+b	irScalarBuilder.attachedVariant | false | unguarded#1	irattach.go:54	-	parser fence: a literal-attach prefix is only QualifiedType, DotVariantType or SimpleType
+c	irScalarBuilder.blockValue | false | bl.recording > 0#1	irblockbinding.go:15	-	pinned as gapBlockInAssertSubjectTest (reason: a Block)
+d	irScalarBuilder.blockBinding | note | "a block's value is not the binding's kind: " + k.nomi() + " vs " + want.nomi()#1	irblockbinding.go:75	-	tried Display/user-interface/empty-list typed block bindings; `d: Display = { ...; 5 }` crashes the compiler (IR lint) instead of reaching this note, user interfaces lower
+b	irScalarBuilder.callDefaults | false | len(sig.decl.Params) != len(args)#1	ircalldefaults.go:13	-	defensive: every caller builds args with one slot per declared parameter (irsupervisor.go, irfuncbody.go:1252, irqualcall.go, irnamedarg.go)
+b	irScalarBuilder.callDefaults | false | p.Default == nil#1	ircalldefaults.go:27	-	checker rejects an omitted parameter with no default ("missing argument for parameter")
+c	irScalarBuilder.callDefaults | false | !ok ¦¦ k != sig.params[i] ¦¦ !irCallOperandKind(k)#1	ircalldefaults.go:36	-	pinned as gapDefaultGenericLambda (reason: a lambda parameter outside the domain: an unsupported type)
+b	irScalarBuilder.runCaptured | false | namedArgNode(t.Args) != nil ¦¦ len(t.Args) != 3#1	ircapture.go:19	-	std-only fence: runCaptured lowers std/io's private run_captured/run_replayed, called only from io.capture/io.replay bodies with three positional args
+b	irScalarBuilder.runCaptured | false | !args.ok ¦¦ args.kinds[0] != kindString#1	ircapture.go:23	-	std-only fence: io.capture/io.replay pass a String first argument
+b	irScalarBuilder.runCaptured | false | run.tag != tagFunc ¦¦ run.comp == nil ¦¦ len(funcParams(run)) != 0#1	ircapture.go:27	-	std-only fence: the run argument in the std bodies is always a zero-parameter function value
+b	irScalarBuilder.runCaptured | false | finish.tag != tagFunc ¦¦ finish.comp == nil ¦¦ len(funcParams(finish)) != 1+len(rest) ¦¦ f…#1	ircapture.go:31	-	std-only fence: the finish argument in the std bodies always has the matching shape
+b	irScalarBuilder.runCaptured | false | funcParams(finish)[1+i] != k#1	ircapture.go:35	-	std-only fence: finish's trailing parameter kinds are fixed by the std declarations
+a	irScalarBuilder.caseArmTest | note | "a `case` pattern outside the retained tests"#1	ircaseguard.go:61	irbuild	
+b	irScalarBuilder.caseArmTest | note | "a case guard that is not Bool: " + ck.nomi()#1	ircaseguard.go:71	-	the checker requires a `when` guard to be Bool
+b	irScalarBuilder.caseArmTest | false | !ok ¦¦ ck != kindBool#1	ircaseguard.go:73	-	ck != Bool is a checker error; !ok only propagates a decline the guard expression already placed
+b	irScalarBuilder.casePatternTest | note | "an ad-hoc case condition outside a straight Bool expression"#1	ircaseguard.go:90	-	the checker requires a subject-less case arm condition to be Bool; !ok propagates the condition's own decline
+b	irScalarBuilder.casePatternTest | note | "a codepoint literal pattern over a subject that is not a Codepoint"#1	ircaseguard.go:98	-	literal-type rule: a codepoint pattern over a non-Codepoint is a checker error
+b	irScalarBuilder.casePatternTest | note | "a string prefix pattern over a subject that is not a String: " + sk.nomi()#1	ircaseguard.go:105	-	string prefix patterns are String-only; the checker rejects them over another type
+a	irScalarBuilder.casePatternTest | note | "a list case pattern outside flat bindings and wildcards"#1	ircaseguard.go:113	irbuild	
+c	irScalarBuilder.casePatternTest | note | "a struct or distinct case pattern outside retained field and payload patterns"#1	ircaseguard.go:119	-	pinned as gapListDistinctUntypedListPattern (reason: a struct or distinct case pattern outside retained field and payload patterns)
+c	irScalarBuilder.casePatternTest | note | "a map case pattern outside retained keys and value patterns"#1	ircaseguard.go:125	-	pinned as gapMapValueLiteralAttachDistinct (reason: a nested pattern outside the retained tests: a MapPattern over Kvs)
+c	irScalarBuilder.casePatternTest | note | "a `case` enum pattern outside retained bare/positional payload tests"#1	ircaseguard.go:131	-	pinned as gapStructVariantFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+b	irScalarBuilder.casePatternTest | note | "a `case` literal pattern's kind: " + lk.nomi()#1	ircaseguard.go:141	-	literal-type rule: the checker rejects a literal whose type is not the subject's
+b	irScalarBuilder.casePatternTest | note | "a `case` pattern outside the retained tests"#1	ircaseguard.go:143	-	subjects outside list/nominal/map/enum/tuple kinds (Unit, Set, Range, functions) are refused earlier by the case scrutinee check, and a literal over them is a checker error
+b	irScalarBuilder.casePatternTest | false | !lok ¦¦ lk != sk#1	ircaseguard.go:145	-	guard of the two notes above: literal-type rule, or a subject kind refused earlier
+c	irScalarBuilder.channelCall | false | bl.rowsUnrecorded(t) ¦¦ namedArgNode(t.Args) != nil#1	irchannels.go:111	-	pinned as gapChannelNamedArg (reason: a named argument)
+b	irScalarBuilder.channelCall | false | !known#1	irchannels.go:115	-	defensive fence: channelFuncs lists all five std/channels functions (buffered, unbuffered, send, close, receive) and the owner already resolved to std's declaration
+a	irScalarBuilder.channelCall | false | !args.ok ¦¦ len(args.kinds) != fn.args#1	irchannels.go:123	irbuild	
+d	irScalarBuilder.channelCall | false | bl.g.project(sig.Params[i]) != k#1	irchannels.go:127	-	could not find an argument whose lowered kind differs from the solved parameter; Maybe/None, empty list, Result payloads all lowered
+a	irScalarBuilder.channelCall | false | result != kindUnit && !irCallableValueKind(result)#1	irchannels.go:132	irbuild	
+b	irScalarBuilder.channelCall | false | !isChannel ¦¦ got != "Channel"#1	irchannels.go:137	-	defensive fence: an explicitTypeArg constructor (buffered/unbuffered) always answers Channel<T> from std's signature
+d	irScalarBuilder.channelCtorFromTarget | false | fn.owner != "Channel" ¦¦ !wanted ¦¦ !irCallableValueKind(want)#1	irchannels.go:149	-	could not build a constructor call the checker leaves uninstantiated without a target; Channel<Display> targets decline earlier at the caller ("a direct callee's result kind outside the domain")
+b	irScalarBuilder.channelCtorFromTarget | false | !isChannel ¦¦ got != "Channel"#1	irchannels.go:153	-	defensive fence: channelWantedInstance answers a Channel instance for a Channel constructor
+b	irScalarBuilder.channelCtorFromTarget | false | !args.ok ¦¦ len(args.kinds) != fn.args#1	irchannels.go:157	-	checker enforces constructor arity
+b	irScalarBuilder.channelCtorFromTarget | false | k != kindInt#1	irchannels.go:161	-	checker types the capacity as Int (std declares capacity: Int)
+b	irScalarBuilder.channelHalf | false | f == nil ¦¦ f.boxed ¦¦ !irConcHandleKind(f.k)#1	irchannels.go:171	-	defensive fence: std Channel always has unboxed sender/receiver handle fields; the checker rejects other field names
+b	irScalarBuilder.codepointLiteral | false | k == kindInvalid#1	ircodepoint.go:16	-	Codepoint is prelude: std/codepoints is always in the program; a codepoint-literal-only program lowers (g5/n_cp.nomi)
+b	irScalarBuilder.codepointCaseTest | false | sk != codepointKind()#1	ircodepoint.go:32	-	checker rejects a codepoint literal pattern over a non-Codepoint subject; nested codepoint patterns lower (g5/m_pat.nomi)
+a	irScalarBuilder.compare | computed | return bare()#1	ircompare.go:69	expect,irbuild	
+d	irScalarBuilder.compare | false | bl.b != at ¦¦ len(bl.b.Instrs()) != n#1	ircompare.go:128	-	needs preludeCallWant to fail after lowering the payload of `x == Maybe.Some(v)`; could not build one
+c	irScalarBuilder.compareOperands | false | !ok ¦¦ lk != rk#1	ircompare.go:253	-	pinned as gapTupleEmptyListEquality (reason: the comparison operator `==`)
+c	irScalarBuilder.compareOperands | false | (!irScalarLeafKind(lk) ¦¦ lk.def != nil) && !prelude && !decimal && !list && !structural#1	ircompare.go:346	-	pinned as gapSenderEquality (reason: the comparison operator `==`)
+d	irScalarBuilder.compareOperands | false | shape == ir.ValUnknown ¦¦ (op.Ordering() && shape != ir.ValInt && shape != ir.ValFloat && …#1	ircompare.go:359	-	needs an operand past the 346 test whose irParamShape is unknown, or an ordering on a non-Int/Float shape that no ranked route took; none found
+c	irScalarBuilder.shortCircuit | false | !ok ¦¦ lk != kindBool#1	ircompare.go:431	-	pinned as gapAndLeftDeclines (reason: the comparison operator `==`)
+a	irScalarBuilder.shortCircuit | false | !ok ¦¦ rk != kindBool#1	ircompare.go:455	vmhost	
+d	irScalarBuilder.rankedCompare | false | sym == nil#1	ircompare.go:497	-	needs a non-local Comparable impl that callerImplPlan and siblingCompareSym both miss; cross-file impls lowered (g5/proj1/main.nomi)
+d	irScalarBuilder.rankedCompare | false | !impl.lowerable#1	ircompare.go:508	-	needs an impl Comparable whose receiver declaration has refusals (implDef.lowerable false); not constructed
+b	irScalarBuilder.rankedCompare | false | it == nil ¦¦ !it.lowerable ¦¦ len(it.params) != 2 ¦¦ it.params[0] != k ¦¦ it.params[1] != …#1	ircompare.go:512	-	checker validates the impl's compare signature (two self params, Ordering result) before this
+b	irScalarBuilder.comparableRankedCompare | false | f == nil ¦¦ f.irBody == nil#1	ircompare.go:549	-	std declares impl Comparable for String and Bool with retained bodies; String/Bool ordering lowers (g5/b_ord.nomi)
+b	irScalarBuilder.stdRankedCompare | false | bl.g.implsByIface["Comparable"][k] != nil#1	ircompare.go:569	-	fence: compareOperands calls stdRankedCompare only when implsByIface has no Comparable for k, or for Decimal, which a program cannot impl (orphan rule)
+b	irScalarBuilder.stdRankedCompare | false | f == nil#1	ircompare.go:573	-	fence: callers checked stdCompareAt(k) != nil first, or k is Decimal whose std compare always exists
+d	irScalarBuilder.stdRankedCompare | false | p == nil#1	ircompare.go:579	-	needs stdFuncPlan to refuse std's Comparable.compare for Decimal or a std type; not found
+c	irScalarBuilder.concurrent | false | bl.recording > 0 ¦¦ t.Body == nil#1	irconc.go:29	-	pinned as gapConcurrentInAssert (reason: a ConcurrentBlock)
+d	irScalarBuilder.concurrent | false | body == nil#1	irconc.go:34	-	an empty `concurrent { }` lowers; could not find a body irScalarBlock answers no tail for
+d	irScalarBuilder.concurrent | false | !ok ¦¦ (!irCallableValueKind(k) && k != kindUnit)#1	irconc.go:97	-	could not find a concurrent body whose value kind is neither callable nor Unit (tuples, Results, functions all lowered)
+d	irScalarBuilder.concurrent | false | !agree ¦¦ !child.settleConcurrentTries(tries, k)#1	irconc.go:100	-	could not find a concurrent body whose `try`/`return` kinds disagree after checking
+b	irScalarBuilder.concurrent | note | "a `concurrent` body graph that does not lint: " + err.Error()#1	irconc.go:103	-	defensive fence: a lint failure is a producer bug, not a user construct
+c	irScalarBuilder.taskCall | false | namedArgNode(t.Args) != nil ¦¦ len(t.Args) != 1#1	irconc.go:124	-	pinned as gapTaskAwaitNamedArg (reason: a named argument)
+c	irScalarBuilder.taskCall | false | !isLambda ¦¦ len(lam.Params) != 0#1	irconc.go:129	-	pinned as gapTaskSpawnNamedFn (reason: qualified call, Type.method: Task.spawn)
+d	irScalarBuilder.taskCall | false | !built#1	irconc.go:138	-	could not find a spawn payload kind whose task handle does not build (Int, tuple, function payloads all lowered)
+b	irScalarBuilder.taskCall | false | !known ¦¦ fn.spawn#1	irconc.go:144	-	defensive fence: taskFuncs lists every std/tasks function, and spawn/spawn_all are dispatched before this point
+b	irScalarBuilder.taskCall | false | !args.ok#1	irconc.go:148	-	propagation: an argument that fails to lower records its own decline; the checker types every operand
+b	irScalarBuilder.taskCall | false | handle.tag != tagList ¦¦ handle.comp == nil#1	irconc.go:153	-	checker types await_all's argument as List<Task<U>>
+b	irScalarBuilder.taskCall | false | !isTask#1	irconc.go:159	-	checker types the operand as Task<T>
+b	irScalarBuilder.taskCall | false | result == kindInvalid#1	irconc.go:167	-	defensive fence: listKind of a payload that already has a task handle is always interned
+d	irScalarBuilder.taskCall | false | !irRetainedValueKind(result)#1	irconc.go:176	-	Outcome<(Int, String)> lowered; could not find a payload whose Outcome is unretained
+b	irScalarBuilder.taskSpawnAll | false | !planned ¦¦ len(t.Args) != 3#1	irconc.go:189	-	checker rejects unknown named arguments and missing ones (spawn_all has no defaults), so the placement always plans 3 args
+b	irScalarBuilder.taskSpawnAll | false | !contiguous#1	irconc.go:192	-	defensive fence: all three spawn_all parameters are required, so the slots are always contiguous (reordered named args lowered)
+c	irScalarBuilder.taskSpawnAll | false | src.tag != tagSeq ¦¦ src.comp == nil ¦¦ kinds[2] != kindInt#1	irconc.go:215	-	pinned as gapTaskSpawnAllVector (reason: a named argument)
+c	irScalarBuilder.taskSpawnAll | false | fn.tag != tagFunc ¦¦ fn.comp == nil ¦¦ len(funcParams(fn)) != 1 ¦¦ funcParams(fn)[0] != el…#1	irconc.go:219	-	pinned as gapTaskSpawnAllExistentialParam (reason: a named argument)
+d	irScalarBuilder.taskSpawnAll | false | !built#1	irconc.go:224	-	could not find a spawn_all result kind whose task handle does not build
+b	irScalarBuilder.taskSpawnAll | false | result == kindInvalid#1	irconc.go:229	-	defensive fence: listKind of a built task handle is always interned
+b	irScalarBuilder.containerCompare | false | !args.ok ¦¦ len(args.kinds) != 2#1	ircontainercompare.go:68	-	probe: containerCompareAny falls back to ifaceContainerCall on false
+b	irScalarBuilder.containerCompare | false | owner == "List" && !bl.untypedListPair(t, args)#1	ircontainercompare.go:71	-	probe: containerCompareAny falls back to ifaceContainerCall on false
+b	irScalarBuilder.containerCompare | false | !isVector ¦¦ !(irRetainedVectorKind(k) ¦¦ bl.g.irVectorValueKind(k))#1	ircontainercompare.go:82	-	probe: containerCompareAny falls back to ifaceContainerCall on false
+b	irScalarBuilder.containerCompare | false | unguarded#1	ircontainercompare.go:85	-	probe: containerCompareAny falls back to ifaceContainerCall on false
+b	irScalarBuilder.containerCompare | false | i > 0 && e != elem#1	ircontainercompare.go:88	-	probe: containerCompareAny falls back to ifaceContainerCall on false
+b	irScalarBuilder.containerCompare | false | local == nil#1	ircontainercompare.go:97	-	probe: containerCompareAny falls back to ifaceContainerCall on false (hit by a lowering program, g5/proj1/main.nomi)
+b	irScalarBuilder.containerCompare | false | elem != kindInt && elem != kindFloat && elem != kindString && elem != kindBool#1	ircontainercompare.go:104	-	probe: containerCompareAny falls back to ifaceContainerCall on false (hit by a lowering program, `[[1]] < [[2]]` in g5/b_ord.nomi)
+b	irScalarBuilder.containerCompare | false | cmp == nil ¦¦ cmp.irBody == nil#1	ircontainercompare.go:108	-	probe: containerCompareAny falls back to ifaceContainerCall on false
+c	irScalarBuilder.typeWitnessValue | false | !irWitnessableKind(x) ¦¦ !bl.namesType(at, x)#1	ircontextvalue.go:74	-	pinned as gapTypeParamQualifiedWitness (reason: an ident bound nowhere this builder can see)
+b	irScalarBuilder.namesType | false | local#1	ircontextvalue.go:91	-	probe: lowerTypedOperand falls back to ordinary lowering for a bound name (a Type<T> local lowers, ctx_witness_bound.nomi), and contextValueCall takes bound names on its own branch first
+b	irScalarBuilder.namesType | false | bound#1	ircontextvalue.go:94	-	probe: same as line 91 for a module-level binding; lowerTypedOperand falls back to the ordinary read
+c	irScalarBuilder.namesType | false | unguarded#1	ircontextvalue.go:98	-	pinned as gapTypeParamQualifiedWitness (reason: an ident bound nowhere this builder can see)
+a	irScalarBuilder.namesType | computed | return bl.g.qualifierKind(name) == x#1	ircontextvalue.go:100	expect,irbuild	
+c	irScalarBuilder.contextValueCall | false | len(t.Args) != 2 ¦¦ len(t.TypeArgs) != 0#1	ircontextvalue.go:108	-	pinned as gapContextValueTurbofish (reason: a turbofish on a call)
+c	irScalarBuilder.contextValueCall | false | named#1	ircontextvalue.go:112	-	pinned as gapContextValueNamedArg (reason: a type name in value position: TraceId)
+b	irScalarBuilder.contextValueCall | false | !ok ¦¦ !irContextKind(ck)#1	ircontextvalue.go:118	-	propagation: the checker types the first operand Context; ok is false only when that operand declined itself
+a	irScalarBuilder.contextValueCall | note | "a Context.with_value whose value's type has no single-name identity"#1	ircontextvalue.go:127	irbuild	
+b	irScalarBuilder.contextValueCall | false | !ok#1	ircontextvalue.go:132	-	defensive fence: std/type's Type always instantiates at a witnessable kind
+c	irScalarBuilder.contextValueCall | false | !ok ¦¦ !irTypeWitnessKind(k) ¦¦ bl.recording > 0#1	ircontextvalue.go:148	-	pinned as gapContextValueWitnessParamAssert (reason: qualified call, Type.method: Context.value)
+c	irScalarBuilder.contextValueCall | note | "a Context.value witness that is not a type name"#1	ircontextvalue.go:160	-	pinned as gapContextValueQualifiedWitness (reason: a Context.value witness that is not a type name)
+c	irScalarBuilder.contextValueCall | note | "a Context.value witness whose type has no single-name identity"#1	ircontextvalue.go:165	-	pinned as gapContextValueUnwitnessable (reason: a Context.value witness whose type has no single-name identity)
+b	irScalarBuilder.contextValueCall | false | !ok#2	ircontextvalue.go:169	-	defensive fence: std/type's Type always instantiates at a witnessable kind
+b	irScalarBuilder.contextValueCall | false | result == kindInvalid ¦¦ !irRetainedValueKind(result)#1	ircontextvalue.go:180	-	defensive fence: Maybe<X> of a witnessable X (scalar, retained struct/enum, distinct) is retained
+b	irScalarBuilder.contextValueCall | false | unguarded#1	ircontextvalue.go:183	-	defensive fence: the caller passes only "with_value" or "value"
+b	irScalarBuilder.currentValue | note | "a bare `..` with no current value recorded"#1	ircurrentvalue.go:68	-	checker rejects a bare `..` with no current value: "a bare `..` has no value to update here"
+b	irScalarBuilder.emptyOf | note | "a bare `..` at a missing key of kind " + k.nomi()#1	ircurrentvalue.go:108	-	missing-key `..` literals are only struct (updateBuild) or list/map/set/vector forms; checker rejects the others ("struct spread `..` requires a struct, got Maybe<...>")
+b	irScalarBuilder.emptyOf | false | !ok ¦¦ got != k#1	ircurrentvalue.go:113	-	coerceEmpty of an empty collection to its own collection kind always succeeds (fence)
+b	irScalarBuilder.updateBuild | false | !found#1	ircurrentvalue.go:127	-	field names in an update literal are checked by the checker ("X has no field")
+b	irScalarBuilder.updateBuild | false | unguarded#1	ircurrentvalue.go:139	-	`{.., f: v}` at a missing key requires a struct or record, which the two arms cover
+b	irScalarBuilder.updateEntry | note | "a bare `..` at a key of a map whose kind is open"#1	ircurrentvalue.go:161	-	checker rejects an open nested map base: "map spread `..` requires a map, got ?2"
+b	irScalarBuilder.updateEntry | false | !ok ¦¦ mk.def == nil#1	ircurrentvalue.go:167	-	maybeOf of a retained value kind always answers (fence)
+b	irScalarBuilder.updateEntry | false | some == nil ¦¦ len(some.payloads) != 1 ¦¦ ty == nil#1	ircurrentvalue.go:172	-	Maybe's Some always has one payload and vk is a retained kind (fence)
+b	irScalarBuilder.updateEntry/edge | false | !ok ¦¦ k != vk#1	ircurrentvalue.go:201	-	lowerWant at vk answers vk or an empty literal coerceEmpty widens (fence; tried map of sets, vectors, records, structs, nested maps)
+b	irScalarBuilder.setUpdate | false | bk != lk ¦¦ !irRetainedSetKind(lk)#1	ircurrentvalue.go:250	-	set elements are checked against the base's element type by the checker
+b	irScalarBuilder.structUpdateHoles | false | !ok ¦¦ !irRetainedUpdateKind(k)#1	ircurrentvalue.go:289	-	Struct.update's base is a struct per the checker ("Int does not implement Struct"); tried generic, patch-first and recorded forms, all lower
+b	irScalarBuilder.structUpdateHoles | false | !irRetainedRecordKind(rk)#1	ircurrentvalue.go:307	-	a record of retained field kinds is a retained record kind (fence)
+b	irScalarBuilder.vectorUpdate | false | bk != kindEmptyVector#1	ircurrentvalue.go:341	-	checker requires a vector base for a vector spread
+b	irScalarBuilder.vectorUpdate | false | !ok ¦¦ lk != bk#1	ircurrentvalue.go:355	-	vector elements are checked against the base's element type by the checker
+b	irScalarBuilder.dbgOf | false | isNilNode(operand)#1	irdbg.go:183	-	fence: `dbg` always has an operand from the parser, and the pipe form passes t.Left
+c	irScalarBuilder.decimalLiteral | false | err != nil#1	irdecimal.go:12	-	pinned as gapDecimalDoubledUnderscore (reason: a DecimalLit)
+c	irScalarBuilder.deferCall | note | "a defer outside a named function's body or scoped block"#1	irdefer.go:52	-	pinned as gapDeferLoop (reason: a defer outside a named function's body or scoped block)
+c	irScalarBuilder.deferCall | note | "a defer inside a lambda"#1	irdefer.go:55	-	pinned as gapDeferLambda (reason: a defer inside a lambda)
+b	irScalarBuilder.deferCall | note | "a defer of something other than a call"#1	irdefer.go:58	-	checker rejects: "`defer` requires a function call"
+b	irScalarBuilder.deferCall | note | "a defer inside a loop"#1	irdefer.go:61	-	defensive fence: g.ctrl is never set non-nil in the VM builder (only saved and reset to nil in native.go, once.go, stdonce.go)
+c	irScalarBuilder.deferCall | note | "a defer in a test-body arm"#1	irdefer.go:64	-	pinned as gapDeferTest (reason: a defer in a test-body arm)
+d	irScalarBuilder.deferCall | note | "a deferred call that does not lower to one call"#1	irdefer.go:75	-	every call shape tried (user fn, generic, default args, closure, interface/impl/bounded calls, io.print) lowers to one deferrable call
+d	irScalarBuilder.deferCall | note | "a deferred call to a function that answers no value"#1	irdefer.go:80	-	same as line 75: could not find a Unit-returning call whose IR call is not marked deferrable
+a	irScalarBuilder.deferCall | note | "a deferred call whose operands are not constants or local reads"#1	irdefer.go:85	irbuild	
+c	irScalarBuilder.scopedBlock | note | "a scoped block inside an assertion subject"#1	irdefer.go:125	-	pinned as gapScopedBlockInAssertArm (reason: a scoped block inside an assertion subject)
+d	irScalarBuilder.withStmt | note | "a `with` in a block whose exit the builder does not restore"#1	irdefer.go:191	-	`with` in if/case arms, lambdas, Iter.loop callbacks, let-else blocks, test blocks, test arms, subtests rows and setups all lowered; could not find a leading run with no with scope
+c	irScalarBuilder.withStmt | note | "a `with` inside an assertion subject"#1	irdefer.go:194	-	pinned as gapWithInAssertArm (reason: a `with` inside an assertion subject)
+b	irScalarBuilder.withStmt | note | "an app-field write in a test case with no boot"#1	irdefer.go:197	-	checker rejects: "this test has no boot, but code it runs reads `App.label`" (a with in an unbooted test counts as a read), tried with_test.nomi
+b	irScalarBuilder.displayHole | false | local && bl.g.stdModule == ""#1	irdisplayhole.go:24	-	checker reserves the name Display ("type name 'Display' is reserved by the language and cannot be redeclared"), so no user file declares a local Display
+a	irScalarBuilder.displayHole | computed | return ok && rk == kindString#1	irdisplayhole.go:67	expect,irbuild,vmhost	
+a	irScalarBuilder.displayHole | false | k.tag != tagNamed ¦¦ k.def == nil#1	irdisplayhole.go:78	vmhost	
+a	irScalarBuilder.displayHole | false | plan == nil ¦¦ plan.result != kindString#1	irdisplayhole.go:82	irbuild,vmhost	
+c	irScalarBuilder.compositeDistinctMake | false | !vok ¦¦ vk != d.inner.comp.parts[i]#1	irdistinct.go:232	-	pinned as gapDistinctTupleIterWiden (reason: a value of kind List<Circle> where Iter<Shape> is expected)
+c	irScalarBuilder.compositeDistinctMake | false | !ok ¦¦ k != d.inner#1	irdistinct.go:244	-	pinned as gapDistinctTupleCallformIterWiden (reason: a value of kind List<Circle> where Iter<Shape> is expected)
+a	irScalarBuilder.distinctBinding | note | "a distinct destructure without a retained named binding"#1	irdistinctbinding.go:12	expect,irbuild	
+c	irScalarBuilder.distinctBinding | note | "a rebind: " + name#1	irdistinctbinding.go:17	-	pinned as gapDistinctDestructureRebind (reason: a rebind: s)
+c	irScalarBuilder.distinctBinding | note | "a distinct destructure outside the retained wrapping domain"#1	irdistinctbinding.go:23	-	pinned as gapDistinctDestructureFileQualified (reason: a distinct destructure outside the retained wrapping domain)
+c	irScalarBuilder.distinctBinding | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irDistinctOverValue(k.def) ¦¦ t.TypeName != k.def.nomi#1	irdistinctbinding.go:25	-	pinned as gapDistinctDestructureFileQualified (reason: a distinct destructure outside the retained wrapping domain)
+a	irScalarBuilder.guardShape | false | bl.inTest ¦¦ (bl.returnKind == kindInvalid && bl.inferReturn == nil) ¦¦ t.Else != nil ¦¦ t…#1	irearlyreturn.go:18	irbuild	
+a	irScalarBuilder.guardShape | computed | return isReturn ¦¦ (bl.ctl != irCtlNone && (isBreak ¦¦ isContinue))#1	irearlyreturn.go:24	expect,irbuild,vmhost	
+b	irScalarBuilder.guardReturn | false | !ok ¦¦ ck != kindBool#1	irearlyreturn.go:36	-	propagation only: the condition's own lowering names any decline; the checker requires a Bool condition
+c	irScalarBuilder.guardReturn | false | !bl.leading(lead) ¦¦ bl.b != arm#1	irearlyreturn.go:50	-	pinned as gapGuardWithInnerIf (reason: a leading conditional outside a straight return guard)
+d	irScalarBuilder.explicitReturn | note | "a `return` in an Iter.loop callback that is not a guard or an arm"#1	irearlyreturn.go:69	-	tried tail, block, arm, guard and exiting-operand `return`s in Iter.loop callbacks; all lower, so I could not find a non-guard non-arm return with bl.loop set
+c	irScalarBuilder.explicitReturn | false | !ok ¦¦ k != bl.returnKind#1	irearlyreturn.go:85	-	pinned as gapLambdaReturnEmptyListFirst (reason: a value of kind List<Int> where List<_> is expected)
+d	irScalarBuilder.ctlReturn | note | "a `break` or `continue` in an Iter.loop callback that is not a guard or an arm"#1	irearlyreturn.go:114	-	could not build a `break`/`continue` reaching ctlReturn with bl.loop set; loop guards and arms take loopGuard/loopBreakArm first
+c	irScalarBuilder.ctlReturn | false | !ok ¦¦ k != bl.returnKind#1	irearlyreturn.go:148	-	pinned as gapMapBreakEmptyListFirst (reason: a value of kind List<Int> where List<_> is expected)
+b	irScalarBuilder.ctlReturn | false | unguarded#1	irearlyreturn.go:152	-	fence: every caller passes a Break or Continue node
+b	irScalarBuilder.patternBindingStmt | false | isNilNode(t.Value) ¦¦ isNilNode(t.Pattern)#1	irelsebinding.go:42	-	the parser always sets a PatternBinding's Value and Pattern
+c	irScalarBuilder.patternBindingStmt | note | "a pattern binding outside the retained case tests: " + sk.nomi()#1	irelsebinding.go:61	-	pinned as gapBindingTupleCompositeDistinct (reason: a `case` tuple pattern outside flat Int/String tests with bindings and wildcards)
+c	irScalarBuilder.patternBindingStmt | note | "a pattern binding outside the retained case tests: " + sk.nomi()#2	irelsebinding.go:74	-	pinned as gapBindingElseTupleCompositeDistinct (reason: a `case` tuple pattern outside flat Int/String tests with bindings and wildcards)
+b	irScalarBuilder.fallbackBinding | note | "a binding else whose payload kind has no IR type: " + pk.nomi()#1	irelsebinding.go:282	-	irTypeOf is nil only for tagInvalid, and a variant payload kind is never invalid (a Unit payload lowers)
+c	irScalarBuilder.fallbackBinding | note | "a binding else payload pattern outside the retained case tests: " + pk.nomi()#1	irelsebinding.go:313	-	pinned as gapElseFallbackTupleCompositeDistinct (reason: a `case` tuple pattern outside flat Int/String tests with bindings and wildcards)
+d	irScalarBuilder.loopElsePath | false | tail == nil#1	irelsebinding.go:378	-	needs an Iter.loop else block whose leading statement irScalarBlock refuses; found none the checker accepts
+c	irScalarBuilder.loopElsePath | note | "an Iter.loop binding else whose statements branch"#1	irelsebinding.go:402	-	pinned as gapLoopElseBranchingStatement (reason: an Iter.loop binding else whose statements branch)
+c	irScalarBuilder.loopElsePath | note | "an Iter.loop binding else path that neither leaves nor falls back"#1	irelsebinding.go:422	-	pinned as gapLoopElseIfBothBreak (reason: an Iter.loop binding else path that neither leaves nor falls back)
+c	irScalarBuilder.loopElsePath | note | "an Iter.loop binding else fallback outside a straight value of the payload kind"#1	irelsebinding.go:427	-	pinned as gapLoopElseFallbackIf (reason: an Iter.loop binding else fallback outside a straight value of the payload kind)
+b	irScalarBuilder.rebuildSelfRef | note | "a value of " + key[0].nomi() + " where " + key[1].nomi() + " is expected, whose type hold…#1	irembedsrebuild.go:316	-	only adapters (rebuildBody) or the self function reach rebuildSelfRef while a key is being built; the top-level caller's caps are always empty
+a	irScalarBuilder.enumEquality | false | k.tag != tagNamed ¦¦ k.def == nil ¦¦ !k.def.isEnum ¦¦ !irRetainedEnumKind(k.def) ¦¦ irPara…#1	irequality.go:33	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.enumEquality | false | !known#1	irequality.go:36	-	handWrittenEquatableImpl known=false needs a foreign (Go FFI) enum or an incomplete impl table; not tried
+a	irScalarBuilder.valueEquality | false | k.tag != tagNamed ¦¦ k.def == nil ¦¦ isDecimalKind(k)#1	irequality.go:60	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.valueEquality | false | !known#1	irequality.go:70	-	same as irequality.go:36, for a zero-sized marker distinct; not tried with an FFI type
+a	irScalarBuilder.valueEquality | false | d.rtOpaque ¦¦ !irDistinctOverValue(d)#1	irequality.go:82	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.valueEquality | false | !known#2	irequality.go:87	-	same as irequality.go:36, for a value distinct; not tried with an FFI type
+a	irScalarBuilder.valueEquality | false | d.isEnum ¦¦ !irRetainedStructKind(d) ¦¦ irParamShape(k) != ir.ValStruct#1	irequality.go:101	expect,irbuild	
+b	irScalarBuilder.valueEquality | false | impl == nil#1	irequality.go:110	-	probe: answers not-owned, and compareOperands goes on to the generic routes (a std impl is stdEquality's)
+d	irScalarBuilder.structuralEqual | false | unguarded#1	irequality.go:178	-	needs a distinct whose inner kind no structuralEqual arm takes; distinct over an existential fails earlier at construction ("a type name in value position")
+d	irScalarBuilder.equatableImplCall | false | og == nil ¦¦ d == nil ¦¦ !d.lowerable#1	irequality.go:196	-	needs an Equatable impl whose implDef is unlowerable; not constructed
+b	irScalarBuilder.equatableImplCall | false | it == nil ¦¦ !it.lowerable ¦¦ len(it.params) != 2 ¦¦ it.result != kindBool#1	irequality.go:200	-	checker validates equal?'s signature (two self params, Bool) against the interface
+b	irScalarBuilder.equatableImplCall | false | p.tag != tagNamed ¦¦ p.def == nil ¦¦ k.def == nil ¦¦ p.def.decl != k.def.decl#1	irequality.go:204	-	fence: the impl found for k's declaration has params of that declaration; generic impls lowered (g5/b_eq2.nomi)
+b	irScalarBuilder.equatableImplCall | false | og != bl.g && u < 0#1	irequality.go:208	-	fence: equatableImplOf only returns og from g.reg.gens, so irGenUnit finds it; cross-file impls lowered (g5/proj1/main.nomi)
+c	irScalarBuilder.equatableImplCall | false | bl.f.Sym() == sym#1	irequality.go:213	-	pinned as gapEqualImplSelfRecursion (reason: the comparison operator `==`)
+b	irScalarBuilder.bareVariantOwnKind | false | !ok#1	irequality.go:290	-	defensive: preludeValueName succeeded on the caller's bareEqualityOperand test, which already resolved the variant
+a	irScalarBuilder.bareVariantOwnKind | false | !ok ¦¦ vs.carries()#1	irequality.go:294	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.bareVariantOwnKind | false | k.tag != tagNamed ¦¦ !irRetainedEnumKind(k.def)#1	irequality.go:311	-	needs preludeInstance over the solved or Unit arguments to give a non-retained enum; `None == None` forms lower (g5/u_none.nomi)
+a	irScalarBuilder.containerEqualCall | false | !args.ok ¦¦ len(args.kinds) != 2#1	irequality.go:376	irbuild	
+d	irScalarBuilder.containerEqualCall | false | !ok ¦¦ lk != rk ¦¦ !irEqualityListKind(lk)#1	irequality.go:385	-	List.equal? with a non-retained list kind; not constructed (checker rejects embedded mismatch for List.equal?)
+d	irScalarBuilder.containerEqualCall | false | lk != rk ¦¦ !irEqualityContainerKind(lk)#1	irequality.go:391	-	Vector.equal?/Map.equal? with differing or non-container kinds; checker rejects the embedded mismatch
+a	irScalarBuilder.containerEqualCall/maybe | computed | return k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && k.def.preludeOf.spec…#1	irequality.go:402	expect,irbuild,vmhost	
+c	irScalarBuilder.containerEqualCall | false | at == 1 && bare[1] == kindInvalid#1	irequality.go:417	-	pinned as gapMaybeEqualEmbeddedWiden (reason: qualified call, Type.method: Maybe.equal?)
+c	irScalarBuilder.containerEqualCall | false | !bl.g.irPreludeEqualityKind(rk) ¦¦ lk != rk#1	irequality.go:427	-	pinned as gapMaybeEqualStructPayload (reason: qualified call, Type.method: Maybe.equal?)
+b	irScalarBuilder.containerEqualCall | false | unguarded#1	irequality.go:431	-	fence: owner is one of List, Vector, Map, Maybe, Result (equatableContainerOwner)
+b	irScalarBuilder.fieldAccessor | false | bl.g.fa == nil#1	irfieldaccessor.go:21	-	defensive: fa is set whenever a body is lowered from a checked file
+b	irScalarBuilder.fieldAccessor | false | !found#1	irfieldaccessor.go:25	-	checker records every accessor it accepts in FieldAccessors; a rejected one never reaches the builder
+c	irScalarBuilder.fieldAccessor | note | "a field accessor over a type outside the domain: " + pk.nomi()#1	irfieldaccessor.go:29	-	pinned as gapFieldAccessorRecordExistential (reason: a field accessor over a type outside the domain: {d: Display, x: Int})
+b	irScalarBuilder.fieldAccessor | false | !irRetainedTupleKind(k) ¦¦ index < 0 ¦¦ index >= len(k.comp.parts)#1	irfieldaccessor.go:44	-	checker types tuple-index accessors against the tuple's arity (`.1.0` on nested tuples lowers, g5/e_fields.nomi)
+d	irScalarBuilder.fieldAccessor | note | "a field accessor result outside the domain: " + k.nomi()#1	irfieldaccessor.go:57	-	needs a field whose kind is not callable on a parameter kind that is; a struct holding such a record declines earlier at its literal
+b	irScalarBuilder.fieldAccessor | note | "a field accessor graph that does not lint: " + err.Error()#1	irfieldaccessor.go:62	-	defensive: the accessor graph is built from parts that each lint; no failing case found
+b	irScalarBuilder.fieldRead | false | t.Field == nil#1	irfieldread.go:50	-	parser always sets FieldAccess.Field for a parsed `x.f`
+b	irScalarBuilder.fieldRead | false | dotted && !appObject#1	irfieldread.go:63	-	a dotted type qualifier object (`Json.Case.Snake`) is a variant, never a field read the checker types as one
+b	irScalarBuilder.fieldRead | false | unguarded#1	irfieldread.go:72	-	fence: the remaining object node kinds are bare variants, dotted qualifiers and sibling onces that other lowerings own; every value expression tried lowered (g5/proj1/main2.nomi)
+b	irScalarBuilder.fieldProject | false | k.tag != tagNamed ¦¦ !irRetainedStructKind(k.def)#1	irfieldread.go:117	-	checker rejects field access on a non-struct, non-record, non-enum value
+b	irScalarBuilder.fieldProject | false | f == nil#1	irfieldread.go:122	-	checker rejects an unknown struct field ("has no field")
+c	irScalarBuilder.enumFieldRead | note | "an enum field read whose variants disagree on its type: ." + name#1	irfieldread.go:152	-	pinned as gapEnumFieldReadDisagree (reason: an enum field read whose variants disagree on its type: .w)
+c	irScalarBuilder.enumFieldRead | false | !found ¦¦ !irRetainedValueKind(fk)#1	irfieldread.go:157	-	pinned as gapEnumFieldReadFunction (reason: a field access on an unbound name o: .f)
+b	irScalarBuilder.lowerNode | false | isNilNode(n)#1	irfuncbody.go:299	-	fence: callers never pass a nil node (irScalarBlock drops nil statements first)
+b	irScalarBuilder.lowerNode | note | "a `with` statement in an operand position"#1	irfuncbody.go:328	-	parser accepts `with` only as a statement (`1 -> with X.f = v` is "unexpected token WITH"), and irScalarBlock moves a block-ending `with` into the lead
+b	irScalarBuilder.lowerNode | false | !(t.ResolvedEnum != "")#1	irfuncbody.go:339	-	checker resolves a bare `.Variant` against the expected enum or reports an error
+b	irScalarBuilder.lowerNode | false | t.Op != "-" && t.Op != "!"#1	irfuncbody.go:430	-	parser fence: Unary is built only with "!" and "-"
+b	irScalarBuilder.lowerNode | false | k != kindBool#1	irfuncbody.go:439	-	checker requires a Bool operand for `!`
+b	irScalarBuilder.lowerNode | false | !modelled#1	irfuncbody.go:447	-	checker: "unary - operand must be numeric, got X" (Int, Float, Decimal all modelled)
+a	irScalarBuilder.lowerNode | false | unguarded#1	irfuncbody.go:646	expect,irbuild	
+b	irScalarBuilder.binary | false | !arithmetic#1	irfuncbody.go:672	-	parser fence: every binary token other than and/or/comparisons/|> is in irArithOps (infixPrecedence)
+d	irScalarBuilder.binary | false | t.Op == "+" && (lk.tag == tagList ¦¦ rk.tag == tagList ¦¦ (lk == kindEmptyList && rk == ki…#1	irfuncbody.go:710	-	tried `+` over empty, function, struct, Maybe, tuple, nested list, map, enum, Float and Unit lists; listCallPlan answered every one
+b	irScalarBuilder.binary | false | lk != rk#1	irfuncbody.go:715	-	checker requires one type for built-in arithmetic; named and Decimal operands route to impl calls before this
+b	irScalarBuilder.binary | false | t.Op != "+"#1	irfuncbody.go:724	-	checker: String has only `+` (no Subtract/Multiply/... impl)
+a	irScalarBuilder.binary | false | !modelled#1	irfuncbody.go:733	irbuild	
+a	irScalarBuilder.interp | note | "an interpolation of `" + renderNode(part.Expr) + "`, a " + k.nomi() + ", which no Display…#1	irfuncbody.go:807	vmhost	
+b	irScalarBuilder.interp | note | "an interpolation part of an unknown form"#1	irfuncbody.go:816	-	parser fence: interpolation parts are only text and holes
+c	irScalarBuilder.call | false | !direct ¦¦ bl.g.irMonoTemplate(bl.g.funcs[id.Name]) == nil#1	irfuncbody.go:969	-	pinned as gapTurbofishNested (reason: a turbofish on a call)
+b	irScalarBuilder.call | false | bound#1	irfuncbody.go:972	-	a local value cannot be generic, so the checker rejects type arguments on a call through a local name
+b	irScalarBuilder.call | false | bound#2	irfuncbody.go:976	-	as 972, for a name bound in an enclosing builder
+b	irScalarBuilder.call | false | !direct#1	irfuncbody.go:1073	-	unreachable: a non-Ident callee returns indirectCall in the else branch just above
+b	irScalarBuilder.call | false | shadowed#1	irfuncbody.go:1078	-	a local function-valued name already went to indirectCall; calling a non-function local is a checker error
+a	irScalarBuilder.call | false | f != nil#1	irfuncbody.go:1103	irbuild	
+c	irScalarBuilder.call | false | localType ¦¦ localIface#1	irfuncbody.go:1119	-	pinned as gapBareStdMethodLocalType (reason: a direct callee outside this module's fn table: parse)
+c	irScalarBuilder.call/lower | false | !(p != nil)#1	irfuncbody.go:1131	-	pinned as gapBareImportedMaybeMethod (reason: a direct callee outside this module's fn table: with_default)
+d	irScalarBuilder.call | false | p != nil#1	irfuncbody.go:1185	-	bare calls to sibling impl functions with scalar, empty-list and None arguments all lower; no signature mismatch found
+b	irScalarBuilder.call | false | len(t.Args) > len(tpl.decl.Params)#1	irfuncbody.go:1195	-	checker rejects a call with more arguments than parameters
+d	irScalarBuilder.call | false | why != "" ¦¦ inst == nil#1	irfuncbody.go:1206	-	tried function, Unit, tuple-of-collections, Range, Iter and Result instances; the one decline (`ident(Unit)`) is at line 1203 (checkedMonoTypeArgs), not here
+a	irScalarBuilder.call | false | sig == nil ¦¦ !sig.lowerable ¦¦ sig.decl == nil ¦¦ sig.dict != nil ¦¦ sig.tps != nil#1	irfuncbody.go:1215	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.call | false | !irCallableValueKind(sig.result) && sig.result != kindUnit#1	irfuncbody.go:1219	irbuild	
+a	irScalarBuilder.call | note | "a direct call to a function that uses break or continue: " + callee.Name#1	irfuncbody.go:1223	irbuild	
+b	irScalarBuilder.call | false | !planned#1	irfuncbody.go:1230	-	checker validates named and positional argument placement, so argSlotPlan plans every accepted call (named args on generic and plain fns lower)
+a	irScalarBuilder.call | false | !ok ¦¦ !irCallOperandKind(k)#1	irfuncbody.go:1240	irbuild	
+b	irScalarBuilder.hostOutputKey | false | len(t.Args) != 1#1	irfuncbody.go:1465	-	checker enforces print/write/inspect's single parameter
+a	irScalarBuilder.hostOutputKey | false | !ok ¦¦ (!irScalarLeafKind(k) && !isDecimalKind(k) && !(debug && irDebugValueKind(k)) && !n…#1	irfuncbody.go:1535	irbuild	
+a	irScalarBuilder.debugOver | computed | return rk == kindString#1	irfuncbody.go:1576	irbuild,vmhost	
+a	irScalarBuilder.debugOver | computed | return ok && rk == kindString#1	irfuncbody.go:1579	irbuild,vmhost	
+d	irScalarBuilder.debugOver | false | plan == nil ¦¦ plan.result != kindString#1	irfuncbody.go:1583	-	io.inspect/dbg over generic structs, enums, block-local structs, hand-written Debug impls, functions, Iter and main's Err never entered debugOver's failing branch
+a	gen.neverFinishes | false | !isBlock ¦¦ block == nil#1	irfuncbody.go:1692	expect,irbuild,projectgen,vmhost	
+a	gen.neverFinishes | computed | return tail != nil && g.neverFinishes(tail)#1	irfuncbody.go:1695	irbuild,vmhost	
+a	irScalarBuilder.endlessLoop | false | !isCall ¦¦ !bl.g.fa.LoopNeverBreaks(call)#1	irfuncbody.go:1721	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.leavingBlocks | note | "a block that leaves inside an assertion subject"#1	irfuncbody.go:1756	-	a leaving block inside an assertion subject needs `return` in a fn subject, which declines earlier at irinferredbranch.go:18, or `return` in a test arm, which declines as "a Return" elsewhere
+b	gen.exitingOperand | false | isNilNode(n)#1	irfuncbody.go:1788	-	fence: irScalarBlock and armInto never pass a nil operand
+a	gen.exitingOperand/in | false | unguarded#1	irfuncbody.go:1808	expect,irbuild,projectgen,vmhost	
+a	gen.exitingOperand | false | unguarded#1	irfuncbody.go:1854	expect,irbuild,projectgen,vmhost	
+b	gen.irScalarBlock | note | irDeclineBodyWhy#1	irfuncbody.go:1871	-	fence: every block the builder lowers and every built fn has a parsed body
+b	gen.irScalarBlock | note | irDeclineBodyWhy#2	irfuncbody.go:1916	-	parser never builds an ExprStmt with a nil expression
+c	gen.irScalarBlock | note | irDeclineBodyWhy#3	irfuncbody.go:1926	-	pinned as gapInterfaceInFnBody (reason: a leading statement form outside the shape: *ast.InterfaceDef)
+b	gen.irScalarBlock | note | irDeclineBodyWhy#4	irfuncbody.go:1935	-	parser never builds a nil final statement
+b	gen.irScalarBuild | note | "no function shell"#1	irfuncbody.go:1985	-	fence: every caller builds a shell before irScalarBuild
+b	gen.irScalarBuild | note | "a tail plan"#1	irfuncbody.go:1991	-	fence: a tail-plan member is built as an ordinary body with its calls marked (comment at the call site), plan is nil here
+a	gen.irScalarBuild | note | "a bounded generic's dictionaries"#1	irfuncbody.go:1996	expect,irbuild,vmhost	
+d	gen.irScalarBuild | note | "a destructuring parameter that did not lower"#1	irfuncbody.go:2004	-	tuple, struct, distinct, function-distinct, Unit-distinct, nested, Iter and Unit-component destructuring parameters all lower; generic ones decline elsewhere
+d	gen.irScalarBuild | note | "a destructured name's kind outside the domain: " + k.nomi()#1	irfuncbody.go:2064	-	destructured function, Unit, Iter names all lower; found no destructured kind outside irCallOperandKind
+b	gen.irScalarBuild | note | "the final expression is on a synthesized line"#1	irfuncbody.go:2080	-	fence: derive synthesis produces whole synthesized bodies; a source body's final expression is on a source line
+b	irScalarBuilder.inSynthesized | false | unguarded#1	irfuncbody.go:2132	-	not a decline: the predicate's ordinary false answer
+a	irScalarBuilder.positionOK | computed | return bl.inSynthesized() && analysis.IsSynthesizedLine(line)#1	irfuncbody.go:2142	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.tail | note | "the tail's kind is not the declared result: " + k.nomi() + " vs " + sig.result.nomi()#1	irfuncbody.go:2191	-	tried Iter, Maybe<List>, tuple, Result, Map tails with empty literals and interface results; none mismatched (std Display results crash the compiler instead)
+b	irScalarBuilder.ifRegion | note | "a tail `if` without a condition or `else`"#1	irfuncbody.go:2241	-	checker types an else-less `if` as Unit, so its region is Unit or inferred whenever it has no else
+b	irScalarBuilder.ifRegion | note | "a tail `if` condition that is not Bool: " + ck.nomi()#1	irfuncbody.go:2247	-	checker requires a Bool condition
+a	irScalarBuilder.ifRegion | false | !ok ¦¦ ck != kindBool#1	irfuncbody.go:2249	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.ifRegion | note | "a tail `if` whose arms disagree: " + tk.nomi() + " vs " + ek.nomi()#1	irfuncbody.go:2274	-	if-arms over empty/nonempty lists in Maybe, tuple, generic struct, function values, Err/Ok all agree; found no disagreement
+b	irScalarBuilder.armInto | note | "an arm body that is not one expression"#1	irfuncbody.go:2348	-	fence: parser never builds an arm with a nil body
+b	irScalarBuilder.armInto | note | "an arm body on a synthesized line"#1	irfuncbody.go:2353	-	fence: synthesized arms appear only in synthesized declarations
+c	irScalarBuilder.armInto | false | tail == nil#1	irfuncbody.go:2389	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([f] the builder declined without naming a reason (a compiler bug; please report it))
+c	irScalarBuilder.armInto | note | "an Iter.loop arm's `return` without a value of the state type"#1	irfuncbody.go:2435	-	pinned as gapLoopArmReturnEmpty (reason: an Iter.loop arm's `return` without a value of the state type)
+b	irScalarBuilder.armInto | note | "a bare `return` in a lambda whose other returns answer a value"#1	irfuncbody.go:2463	-	checker: "return type mismatch: boundary returns X, got Unit" for a bare return beside value returns or a non-Unit tail
+d	irScalarBuilder.armInto | note | "an arm's kind is not the declared result: " + k.nomi() + " vs " + sig.result.nomi()#1	irfuncbody.go:2529	-	tried existential, empty-literal and generic arms; std Display arms crash the compiler (IR lint) instead of reaching this note
+a	irScalarBuilder.armInto | false | !ok ¦¦ (!sig.inferResult && k != sig.result)#1	irfuncbody.go:2532	expect,irbuild,vmhost	
+c	irScalarBuilder.caseRegion | note | "a tail `case` with no branches"#1	irfuncbody.go:2563	-	pinned as gapEmptyCaseInfallible (reason: a tail `case` with no branches)
+a	irScalarBuilder.caseRegion | note | "a tail `case` scrutinee outside retained literal-pattern kinds: " + sk.nomi()#1	irfuncbody.go:2578	irbuild,vmhost	
+a	irScalarBuilder.caseRegion | false | !ok ¦¦ (sk != kindInt && sk != kindString && sk != kindBool && !irLiteralCaseKind(sk, bl) …#1	irfuncbody.go:2580	irbuild,vmhost	
+d	irScalarBuilder.caseRegion | note | "two `case` arms disagree: " + k.nomi() + " vs " + result.nomi()#1	irfuncbody.go:2639	-	case arms over empty/nonempty collections and generic structs agree; found no disagreement
+a	irScalarBuilder.caseRegion | computed | return irJoinArms(kindDiverged, kindDiverged, sig)#1	irfuncbody.go:2653	irbuild,vmhost	
+d	irScalarBuilder.litFor | false | unguarded#1	irfuncbody.go:2676	-	negative, Float, Decimal and nested (variant, Maybe, record, tuple) literal patterns all lower; callers switch on the literal node types first
+b	irScalarBuilder.leading | note | "a lead statement on a synthesized line"#1	irfuncbody.go:2709	-	fence: synthesized lead statements appear only in synthesized declarations
+c	irScalarBuilder.leading | note | "an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`"#1	irfuncbody.go:2717	-	pinned as gapLoopNestedGuardReturnEmpty (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
+c	irScalarBuilder.leading | note | "a leading conditional outside a straight return guard"#1	irfuncbody.go:2724	-	pinned as gapGuardWithInnerIf (reason: a leading conditional outside a straight return guard)
+c	irScalarBuilder.leading | note | "a test-body rebind: " + b.Name#1	irfuncbody.go:2864	-	pinned as gapTestRebindTest (reason: a test-body rebind: x)
+d	irScalarBuilder.bindingValue | note | "a branch or block binding with no checked definition"#1	irfuncbody.go:2904	-	every if/case/block binding I wrote has a checker Definition; could not find one without
+a	irScalarBuilder.typedRegionValue | note | "a branch or block value kind with no IR type: " + k.nomi()#1	irfuncbody.go:2921	irbuild,vmhost	
+c	irScalarBuilder.typedRegionValue | note | "an `if` or `case` whose every arm leaves the body, used as an operand"#1	irfuncbody.go:2948	-	pinned as gapLeavingRegionTypedOperand (reason: an `if` or `case` whose every arm leaves the body, used as an operand)
+a	irScalarBuilder.typedRegionValue | computed | return ok#1	irfuncbody.go:2955	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.bindingExpression | note | "a binding annotation outside the retained value domain: " + want.nomi()#1	irfuncbody.go:2975	irbuild	
+c	irScalarBuilder.bindingExpression | false | !ok ¦¦ (k != want && !bl.g.irErases(want, k))#1	irfuncbody.go:2988	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([main] the builder declined without naming a reason (a compiler bug; please report it))
+a	irScalarBuilder.holeBoundCall | false | len(names) == 0 ¦¦ len(t.Args) == 0#1	irholecall.go:36	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.holeBoundCall | false | bl.g.std == nil#1	irholecall.go:45	-	defensive fence: g.std is always set when building a std instance with holes
+a	irScalarBuilder.holeBoundCall | false | !isIface#1	irholecall.go:49	expect,irbuild	
+b	irScalarBuilder.holeBoundCall | false | !isIdent#1	irholecall.go:58	-	std-only: unhandled falls back to ordinary dispatch; only std derive-synthesized bodies reach it and their receivers are idents
+a	irScalarBuilder.holeBoundCall | false | !bound ¦¦ k != kindUnit ¦¦ len(byRecv[kindUnit]) != 0#1	irholecall.go:62	expect,irbuild	
+b	irScalarBuilder.holeBoundCall | false | f.result != result#1	irholecall.go:73	-	an interface method has one declared result, so impls never disagree
+b	irScalarBuilder.holeBoundCall | false | result == kindInvalid ¦¦ (result != kindUnit && !irCallableValueKind(result))#1	irholecall.go:82	-	std-only: interface results in std are all in the callable domain or Unit
+b	gen.irHostFnRetain | note | "a `host fn` returning a function, which a Go func cannot become"#1	irhostfn.go:67	-	FFI binding validation rejects a function result before lowering: "function type func() is only supported in direct callback parameter position"
+b	gen.irHostFnRetain | note | "no function shell"#1	irhostfn.go:78	-	irFuncShellWithCallee returns nil only for a result with no IR type, which a lowerable host signature never has
+b	gen.irHostFnRetain | note | why#1	irhostfn.go:82	-	lint fence: builder invariant check
+b	gen.irImplHostLower | note | "a Go-bound impl function in the stdlib"#1	irimpl.go:140	-	std-only fence: no std module declares a Go-bound impl function
+b	gen.irImplHostLower | note | "no function shell"#1	irimpl.go:142	-	irFuncShellAt returns nil only for a result with no IR type (fence)
+b	gen.irImplHostLower | note | "a `host fn` returning a function, which a Go func cannot become"#1	irimpl.go:144	-	FFI binding validation rejects a function result before lowering
+b	gen.irImplHostLower | note | why#1	irimpl.go:147	-	lint fence: builder invariant check
+c	irScalarBuilder.inferredRegionValue | false | bl.recording > 0 && !bl.inTest#1	irinferredbranch.go:18	-	pinned as gapCaseInAssertSubjectFn (reason: a Case)
+a	irScalarBuilder.inferredRegionValue | note | "an `if` or `case` whose every arm leaves the body, used for its value"#1	irinferredbranch.go:46	vmhost	
+d	irScalarBuilder.inferredRegionValue | note | "an `if` or `case` whose value's kind is outside the domain: " + k.nomi()#1	irinferredbranch.go:48	-	if/case values of Unit lists, Maybe<Unit>, nested functions, Range, Sender and Task all lower
+a	irScalarBuilder.inferredRegionValue | false | !ok ¦¦ k == kindDiverged ¦¦ (!irCallableValueKind(k) && k != kindUnit)#1	irinferredbranch.go:52	vmhost	
+d	irScalarBuilder.inferredRegionValue | note | "an `if` or `case` whose value has no IR type: " + k.nomi()#1	irinferredbranch.go:56	-	as line 48; found no callable kind without an IR type
+a	irScalarBuilder.iterCall | false | !args.ok ¦¦ !bl.g.iterOwns("Iter")#1	iriterbody.go:34	expect,irbuild,vmhost	
+b	irScalarBuilder.iterCall | false | len(args.temps) != 1 ¦¦ args.kinds[0] != kindInt#1	iriterbody.go:39	-	checker types Iter.from(start: Int): one Int argument always
+b	irScalarBuilder.iterCall | false | !own#1	iriterbody.go:52	-	every Iter method outside irIterOwnArity is answered earlier by stdGenericQualCall (Iter.frequencies, Iter.min, Iter.max_by lower)
+b	irScalarBuilder.iterCall | false | dk.tag != tagNamed ¦¦ dk.def != stdEnumDefs()[stdEnumDirection]#1	iriterbody.go:60	-	checker types sort/sort_by's extra operand as std Direction (a local Direction is a type error)
+b	irScalarBuilder.iterCall | false | len(args.temps) != want#1	iriterbody.go:71	-	arity fixed by the checker (defaults filled for sort/sort_by/String.join before this point)
+c	irScalarBuilder.iterCall | false | sk.tag != tagList && sk.tag != tagSeq && sk != kindString && sk != irBytesKind() && !isRan…#1	iriterbody.go:133	-	pinned as gapCUserSourceKnownCount (reason: qualified call, Type.method: Iter.map)
+b	irScalarBuilder.iterCall | false | !irRetainedTupleKind(elem)#1	iriterbody.go:139	-	a retained Map's key and value kinds are retained values, so the (K, V) pair is a retained tuple
+d	irScalarBuilder.iterCall | false | sk.comp == nil ¦¦ len(sk.comp.parts) != 1 ¦¦ !(irCallableValueKind(sk.comp.parts[0]) ¦¦ sk…#1	iriterbody.go:153	-	could not build a List whose element is not a callable value that the checker accepts (List<Maybe<fn>>, List<Display>, List<Unit>, List<fn> all pass)
+b	irScalarBuilder.iterCall | false | args.kinds[1] != kindInt#1	iriterbody.go:161	-	checker types Iter.take(n: Int)
+b	irScalarBuilder.iterCall | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != elem#1	iriterbody.go:180	-	checker types sort_by's key as (T) -> K over the source element
+b	irScalarBuilder.iterCall | false | cb.tag != tagFunc ¦¦ len(funcParams(cb)) != 2 ¦¦ funcParams(cb)[0] != elem ¦¦ funcParams(c…#1	iriterbody.go:192	-	checker types sort_with's compare as (T, T) -> Ordering
+b	irScalarBuilder.iterCall | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != elem ¦¦ !(irCallable…#1	iriterbody.go:198	-	checker fixes the callback shape; results that are functions or Maybe<fn> lower (Iter.map(xs, |x| Some(|y: Int| y + x)) lowers)
+b	irScalarBuilder.iterCall | false | funcResult(fk) != kindBool#1	iriterbody.go:203	-	checker types filter's predicate as (T) -> Bool
+b	irScalarBuilder.iterCall | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != elem ¦¦ funcResult(f…#1	iriterbody.go:212	-	checker types any?/all?/each_while/find/partition predicates as (T) -> Bool
+b	irScalarBuilder.iterCall | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 2 ¦¦ funcParams(fk)[1] != elem ¦¦ funcParams(f…#1	iriterbody.go:226	-	checker fixes (U, T) -> U; function-valued and Maybe<fn> accumulators lower
+b	irScalarBuilder.iterCall | false | reduceSeed(t) == nil#1	iriterbody.go:231	-	checker rejects a reduce with no seed: "`Iter.reduce` needs a starting value"
+b	irScalarBuilder.iterCall | false | !ok ¦¦ args.kinds[1] != kindInt#1	iriterbody.go:322	-	checker types the index as Int; Maybe<elem> answers for fn, Unit and existential elements (Iter.at over List<fn> lowers)
+b	irScalarBuilder.iterCall | false | !irRetainedTupleKind(pair)#1	iriterbody.go:329	-	(List<T>, List<T>) is a retained tuple for every element that passes line 152 (fn, Unit, existential lists all partition)
+c	irScalarBuilder.iterCall | false | !irRetainedTupleKind(pair)#2	iriterbody.go:339	-	pinned as gapCWithIndexExistential (reason: qualified call, Type.method: Iter.with_index)
+c	irScalarBuilder.iterCall | false | !irRetainedTupleKind(pair)#3	iriterbody.go:350	-	pinned as gapCZipExistential (reason: qualified call, Type.method: Iter.zip)
+c	irScalarBuilder.iterCall | false | !ok ¦¦ relem != elem#1	iriterbody.go:359	-	pinned as gapCConcatFnList (reason: qualified call, Type.method: Iter.concat)
+b	irScalarBuilder.iterCall | false | elem != kindString ¦¦ args.kinds[1] != kindString#1	iriterbody.go:407	-	checker types String.join over Iter<String> with a String separator
+b	irScalarBuilder.iterCall | false | bl.ctlSeed == ir.NoTemp#1	iriterbody.go:438	-	signalling is true only for a callback iterReduceCall marked (named forwardee or callbackCarriesSignal), and that path sets ctlSeed first
+b	irScalarBuilder.iterReduceCall | false | len(t.Args) != 2#1	iriterbody.go:476	-	checker rejects a reduce without a seeded lambda: "`Iter.reduce` needs a starting value"
+b	irScalarBuilder.iterReduceCall | false | !ok ¦¦ len(lam.Params) != 2 ¦¦ lam.Params[0].Default == nil#1	iriterbody.go:480	-	checker rejects a reduce without a seeded lambda (checkReduceSeed); Iter.reduce(xs, add) is rejected
+d	irScalarBuilder.seqView | false | !irCallableValueKind(elem) && elem != kindUnit#1	iriterbody.go:647	-	could not find an Iter<T> parameter type with a non-callable T that the checker accepts (Iter<Maybe<fn>> lowers)
+b	irScalarBuilder.seqView | false | rangeElem != elem#1	iriterbody.go:676	-	checker unifies Range<T> with the wanted Iter<T>
+b	irScalarBuilder.seqView | false | !shared#1	iriterbody.go:686	-	Maybe<Int> is always in the process-wide table
+b	irScalarBuilder.seqView | false | steps == nil ¦¦ steps.irBody == nil#1	iriterbody.go:690	-	irIterRangeElem admits Int and wrapping distincts; a user distinct stops at rangeView's std compare (735) first, and std's Int/Codepoint have steps_between
+d	irScalarBuilder.seqView | false | vecElem != elem ¦¦ !(irRetainedVectorKind(sk) ¦¦ irRetainedValueKind(vecElem))#1	iriterbody.go:699	-	Vector<fn> into Iter<fn> would reach it, but every way to build a Vector of functions (#[f], Iter.to_vector) declines earlier
+b	irScalarBuilder.seqView | false | pair != elem ¦¦ !irRetainedTupleKind(pair)#1	iriterbody.go:706	-	checker types the Map's (K, V) pair as the wanted element; retained maps give retained pairs
+c	irScalarBuilder.seqView | false | sk == kindEmptySet ¦¦ !irRetainedSetKind(sk) ¦¦ member != elem#1	iriterbody.go:712	-	pinned as gapCIterParamEmptySet (reason: a direct call's operand: total)
+c	irScalarBuilder.seqView | false | !(it != nil && userElem == elem)#1	iriterbody.go:719	-	pinned as gapCIterParamUserSourceKnownCount (reason: a direct call's operand: total)
+c	irScalarBuilder.rangeView | false | cmp == nil ¦¦ cmp.irBody == nil ¦¦ !shared#1	iriterbody.go:735	-	pinned as gapCRangeUserDiscrete (reason: qualified call, Type.method: Iter.map)
+b	irScalarBuilder.rangeView | false | next == nil ¦¦ next.irBody == nil#1	iriterbody.go:739	-	reached only when std compare exists (Int, Codepoint), and both have std Discrete.next; a user distinct stops at 735
+b	irScalarBuilder.rangeKnownCount | false | cmp == nil ¦¦ cmp.irBody == nil ¦¦ !shared#1	iriterbody.go:770	-	rangeWalks runs first and refuses an element without std Discrete (user distinct); Int and Codepoint have std compare
+b	irScalarBuilder.rangeKnownCount | false | steps == nil ¦¦ steps.irBody == nil#1	iriterbody.go:774	-	rangeWalks (rangeDiscrete) already requires std steps_between
+b	irScalarBuilder.iterGroupBy | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != elem#1	iriterbody.go:798	-	checker types group_by's key_fn as (T) -> K over the element
+b	irScalarBuilder.iterGroupBy | false | !irMapKeyKind(key)#1	iriterbody.go:802	-	checker rejects non-key K: "`(Int) -> Int` cannot be a Map key"
+c	irScalarBuilder.iterGroupBy | false | result.tag != tagMap ¦¦ !irRetainedMapKind(result)#1	iriterbody.go:806	-	pinned as gapCGroupByFnList (reason: qualified call, Type.method: Iter.group_by)
+d	irScalarBuilder.iterGroupBy | false | !ok#1	iriterbody.go:810	-	did not find a key kind that passes irMapKeyKind and fails irMapKeyOK
+a	irScalarBuilder.sortComparator | false | f == nil ¦¦ (f.irBody == nil && !(f.rtCall != "" && irScalarHost(f)))#1	iriterbody.go:841	irbuild	
+b	irScalarBuilder.iterMaybeKind | false | !anchored#1	iriterbody.go:979	-	the prelude always anchors Maybe
+d	irScalarBuilder.iterMaybeKind | false | !shared ¦¦ !irRetainedValueKind(mk)#1	iriterbody.go:990	-	Maybe<elem> answered for every element tried (fn, Unit, existential, nominal); no failing kind found
+c	irScalarBuilder.iterPlainView | false | sourced#1	iriterbody.go:1036	-	pinned as gapCZipUserDiscreteRange (reason: qualified call, Type.method: Iter.zip)
+c	irScalarBuilder.iterPlainView | false | unguarded#1	iriterbody.go:1049	-	pinned as gapCZipFnListRight (reason: qualified call, Type.method: Iter.zip)
+b	irScalarBuilder.iterPlainCallback | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != param#1	iriterstage.go:44	-	chunk_by only; checker types key_fn as (T) -> K over the element
+b	irScalarBuilder.iterPlainCallback | false | bl.iterSignalling(args, i)#1	iriterstage.go:47	-	checker rejects break/continue in a chunk_by callback ("no iter-callback call site")
+b	irScalarBuilder.iterSignalledCallback | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != param#1	iriterstage.go:91	-	checker types the callback parameter as the element
+b	irScalarBuilder.iterStage | false | args.kinds[1] != kindInt#1	iriterstage.go:104	-	checker types Iter.drop(n: Int)
+b	irScalarBuilder.iterStage | false | !ok ¦¦ r != kindBool#1	iriterstage.go:110	-	checker types take_while's predicate as (T) -> Bool
+b	irScalarBuilder.iterStage | false | !ok ¦¦ r != kindBool#2	iriterstage.go:116	-	checker types drop_while's predicate as (T) -> Bool
+c	irScalarBuilder.iterStage | false | !irRetainedSetKind(k)#1	iriterstage.go:130	-	pinned as gapCToSetRanges (reason: qualified call, Type.method: Iter.to_set)
+c	irScalarBuilder.iterStage | false | !irRetainedVectorKind(k) && !bl.g.irVectorValueKind(k)#1	iriterstage.go:136	-	pinned as gapCToVectorFn (reason: qualified call, Type.method: Iter.to_vector)
+b	irScalarBuilder.iterStage | false | elem.tag != tagTuple ¦¦ elem.comp == nil ¦¦ len(elem.comp.parts) != 2#1	iriterstage.go:141	-	checker types to_map's source as Iter<(K, V)>
+c	irScalarBuilder.iterStage | false | !irRetainedMapKind(k)#1	iriterstage.go:145	-	pinned as gapCToMapFnValues (reason: qualified call, Type.method: Iter.to_map)
+c	irScalarBuilder.iterStage | false | !ok ¦¦ r.comp == nil ¦¦ len(r.comp.parts) != 1#1	iriterstage.go:151	-	pinned as gapCFlatMapString (reason: qualified call, Type.method: Iter.flat_map)
+c	irScalarBuilder.iterStage | false | unguarded#1	iriterstage.go:161	-	pinned as gapCFlatMapFnList (reason: qualified call, Type.method: Iter.flat_map)
+c	irScalarBuilder.iterStage | false | elem.comp == nil ¦¦ len(elem.comp.parts) != 1#1	iriterstage.go:164	-	pinned as gapCFlattenStrings (reason: qualified call, Type.method: Iter.flatten)
+c	irScalarBuilder.iterStage | false | !irRetainedListKind(k) && !irListTransportKind(k)#1	iriterstage.go:169	-	pinned as gapCFlattenFnLists (reason: qualified call, Type.method: Iter.flatten)
+b	irScalarBuilder.iterStage | false | unguarded#2	iriterstage.go:177	-	only List and Seq kinds carry one comp part (Range/Set/Vector are named kinds with no comp and stop at 164)
+c	irScalarBuilder.iterStage | false | !irRetainedListKind(chunk) && !irListTransportKind(chunk)#1	iriterstage.go:181	-	pinned as gapCChunksFnList (reason: qualified call, Type.method: Iter.chunks)
+b	irScalarBuilder.iterStage | false | args.kinds[1] != kindInt#2	iriterstage.go:186	-	checker types Iter.chunks(size: Int)
+b	irScalarBuilder.iterStage | false | !ok ¦¦ !irRetainedValueKind(key)#1	iriterstage.go:191	-	checker rejects break/continue in chunk_by and function keys (K: Equatable)
+a	irScalarBuilder.iterStage | false | unguarded#3	iriterstage.go:195	expect,irbuild,projectgen,vmhost	
+c	irScalarBuilder.iterConstructor | false | len(args.temps) != 1 ¦¦ !irRetainedValueKind(args.kinds[0])#1	iriterstage.go:204	-	pinned as gapCRepeatFn (reason: qualified call, Type.method: Iter.repeat)
+c	irScalarBuilder.iterConstructor | false | len(args.temps) != 2 ¦¦ !irRetainedValueKind(args.kinds[0])#1	iriterstage.go:210	-	pinned as gapCIterateFn (reason: qualified call, Type.method: Iter.iterate)
+b	irScalarBuilder.iterConstructor | false | !ok ¦¦ r != elem#1	iriterstage.go:215	-	checker types step as (T) -> T; an empty-list seed is coerced (Iter.iterate([], |l: List<Int>| ...) lowers)
+a	irScalarBuilder.lambda | note | "a lambda parameter outside the domain: " + params[i].nomi()#1	irlambda.go:61	irbuild	
+a	irScalarBuilder.lambda | note | "a lambda parameter default outside the parameter's kind: " + params[i].nomi()#1	irlambda.go:78	irbuild	
+c	irScalarBuilder.lambdaFunction/no | note | why#1	irlambda.go:101	-	pinned as gapLambdaBlockLocalDerive (reason: a lambda body that is not a block ending in an expression)
+c	irScalarBuilder.lambdaFunction | false | body == nil#1	irlambda.go:113	-	pinned as gapLambdaBlockLocalDerive (reason: a lambda body that is not a block ending in an expression)
+d	irScalarBuilder.lambdaFunction | false | len(patterned) != 0 && !child.patternParams(patterned)#1	irlambda.go:192	-	same guard as irlambdapattern.go:103; no destructuring lambda parameter found that the prologue refuses
+b	irScalarBuilder.lambdaFunction | false | supplier >= 0#1	irlambda.go:265	-	checker rejects `return` in a parameter default ("`try`/`return` cannot be used in the default of parameter")
+b	irScalarBuilder.lambdaFunction | false | supplier >= 0 ¦¦ child.ctl == irCtlNone#1	irlambda.go:272	-	checker rejects break/continue outside an iter callback ("uses break/continue but has no iter-callback call site") and in defaults
+d	irScalarBuilder.lambdaFunction | false | k == kindInvalid#1	irlambda.go:285	-	needs a signalling callback whose result neither break v nor the checker records; not found
+d	irScalarBuilder.lambdaFunction | false | k == kindInvalid#2	irlambda.go:308	-	needs an endless Iter.loop lambda with no checker type; not found
+d	irScalarBuilder.lambdaFunction | note | "a lambda result outside the domain: " + k.nomi()#1	irlambda.go:338	-	List<Unit>, Maybe<Unit> lambda results lower; no out-of-domain lambda result found
+a	irScalarBuilder.lambdaFunction | false | !ok ¦¦ (!irCallableValueKind(k) && k != kindUnit)#1	irlambda.go:340	expect,irbuild,vmhost	
+c	irScalarBuilder.lambdaFunction | note | "a lambda whose returns disagree"#1	irlambda.go:344	-	pinned as gapLambdaReturnEmptyList (reason: a lambda whose returns disagree)
+d	irScalarBuilder.lambdaFunction | note | "a try whose operand does not exit to the lambda's result: " + k.nomi()#1	irlambda.go:348	-	try in lambdas with Result/Maybe results and empty-list Ok payloads all lower
+d	irScalarBuilder.lambdaFunction | note | "a lambda graph that does not lint: " + err.Error()#1	irlambda.go:354	-	no lambda lint failure found
+a	irScalarBuilder.indirectCall | false | !ok ¦¦ fk.tag != tagFunc#1	irlambda.go:433	irbuild	
+c	irScalarBuilder.indirectCall | false | !planned#1	irlambda.go:443	-	pinned as gapCapturedLambdaNamedArgs (reason: a named argument)
+c	irScalarBuilder.indirectCall | false | defaulted && metadata == nil#1	irlambda.go:451	-	pinned as gapCapturedDefaultLambdaCall (reason: a direct callee outside this module's fn table: f)
+b	irScalarBuilder.indirectCall | false | !irCallableValueKind(result) && result != kindUnit#1	irlambda.go:455	-	a callee value's func kind comes from a lowered value, whose kinds are already in the callable domain
+b	irScalarBuilder.indirectCall | false | supplier == ir.NoTemp#1	irlambda.go:478	-	an omitted argument without a default is a checker error ("missing argument for parameter")
+c	irScalarBuilder.funcRef | note | "an iter-sensitive function passed where its break or continue cannot be caught: " + t.Nam…#1	irlambda.go:573	-	pinned as gapIterSensitiveFnValue (reason: an iter-sensitive function passed where its break or continue cannot be caught: stop)
+d	irScalarBuilder.patternParams | note | "a lambda destructuring parameter the prologue did not build"#1	irlambdapattern.go:103	-	tuple/struct/nested/as/distinct/embedded-variant/anon-record lambda patterns all lower; generic-head patterns decline earlier (irlambda.go parameter domain)
+d	irScalarBuilder.patternParams | note | "a destructured lambda name's kind outside the domain: " + k.nomi()#1	irlambdapattern.go:115	-	no destructured name with an out-of-domain kind found
+c	irScalarBuilder.listMakeOf | false | !ok ¦¦ !(irRetainedListKind(k) ¦¦ irListTransportKind(k))#1	irlist.go:113	-	pinned as gapListSpreadFunctionTail (reason: a ListSpreadLit)
+a	irScalarBuilder.listMakeOf | false | !ok ¦¦ (!irRetainedLeafKind(k) && !irRetainedListKind(k) && !irNominalElemKind(k) && !irLe…#1	irlist.go:151	irbuild	
+d	irScalarBuilder.listMakeOf | false | !ok ¦¦ k != elem#1	irlist.go:175	-	needs a deferred bare None whose typed lowering does not give the joined element kind; not found
+d	irScalarBuilder.literalItemsCoerced | false | j >= len(parts) ¦¦ untypedLiteral(parts[j])#1	irlist.go:382	-	needs a collection literal whose checked type is untyped; the callers then decline at their own return
+c	irScalarBuilder.literalItemsCoerced | false | !ok ¦¦ k != want#1	irlist.go:389	-	pinned as gapVectorItemsJoinCaptured (reason: a VectorLit)
+b	irScalarBuilder.widenEmbedded | false | !widens#1	irlist.go:430	-	fence: widenEmbedded runs only after irEmbedsJoin or literalItemsCoerced, which leave every item either the element kind or embedded in it
+d	irScalarBuilder.coerceEmpty | false | want.tag == tagFunc && have.tag == tagFunc#1	irlist.go:474	-	needs a function value whose kind funcWiden cannot adapt to an accepted expected function type; result covariance is rejected by the checker
+c	irScalarBuilder.coerceEmpty | false | want.tag == tagSeq && want.comp != nil#1	irlist.go:482	-	pinned as gapIterOfEmbeddingEnumFromList (reason: a value of kind List<Circle> where Iter<Shape> is expected)
+c	irScalarBuilder.coerceEmpty | false | !bl.g.emptyRetypes(have, want)#1	irlist.go:491	-	pinned as gapListExistentialField (reason: a ListLit)
+c	irScalarBuilder.lowerWant | note | "a value of kind " + have.nomi() + " where " + want.nomi() + " is expected"#1	irlist.go:554	-	pinned as gapCapturedEmptyList (reason: a value of kind Captured<List<_>> where Captured<List<Int>> is expected)
+d	irScalarBuilder.listCallPlan | note | "a List function without a retained typed list operand"#1	irlistops.go:32	-	needs a List.head/tail/concat operand with no stored type; lists of functions, existentials and Iters all have one (g5/l_list.nomi)
+d	irScalarBuilder.listCallPlan | note | "a List function result outside the retained domain: " + result.nomi()#1	irlistops.go:49	-	needs a Maybe of an element with no stored type; not found
+b	irScalarBuilder.listCaseTest | false | !ok ¦¦ pat.TypeName != nil#1	irlistpattern.go:13	-	only a List subject reaches here and the checker allows no prefix on a list pattern over a plain List (a prefix needs a distinct, which goes to nominalCaseTest)
+a	irScalarBuilder.listCaseTest | false | spread && len(pat.Heads) == 0#1	irlistpattern.go:17	irbuild	
+c	irScalarBuilder.listCaseTest | false | k.comp == nil && (spread ¦¦ len(pat.Heads) != 0)#1	irlistpattern.go:22	-	pinned as gapListPatternOverEmptyLiteral (reason: a list case pattern outside flat bindings and wildcards)
+b	irScalarBuilder.listCaseTest | false | spread && !simple(pat.TailSpread)#1	irlistpattern.go:60	-	the parser only allows `..name` or `.._` as a list rest
+b	irScalarBuilder.listCaseTestNested | false | unguarded#1	irlistpattern.go:111	-	the parser only allows `..name` or `.._` as a list rest
+a	irScalarBuilder.taggedLiteral/no | note | "a typed literal: " + why#1	irliteral.go:17	irbuild	
+a	irScalarBuilder.taggedLiteral | false | why != ""#1	irliteral.go:33	irbuild	
+b	irScalarBuilder.taggedLiteral | false | f.irBody == nil ¦¦ f.rtCall != ""#1	irliteral.go:45	-	std-only fence: every std Literal handler (calendar, regex, toml) has a retained Nomi body
+b	irScalarBuilder.taggedLiteral | false | it == nil ¦¦ irImplSource(it) == nil#1	irliteral.go:55	-	a local handler's impl item always has an impl source (fence)
+c	irScalarBuilder.taggedLiteral | false | len(h.params) != 1 ¦¦ !irListTransportKind(h.params[0]) ¦¦ !irRetainedValueKind(h.result)#1	irliteral.go:61	-	pinned as gapTypedLiteralFnResult (reason: a typed literal: a handler signature outside the retained domain)
+b	irScalarBuilder.taggedLiteral | false | d == nil ¦¦ d.preludeOf == nil ¦¦ fragmentSpec == nil ¦¦ d.preludeOf.spec != fragmentSpec …#1	irliteral.go:67	-	the param is List<Fragment<I>> by the Literal interface, and the list-transport check above already requires a retained element (Fragment<fn>, Fragment<Display>, Fragment<Int> lower)
+b	irScalarBuilder.taggedLiteral | false | !shaped#1	irliteral.go:72	-	std's Fragment always has Static and Dynamic
+b	irScalarBuilder.taggedLiteral | false | !ok ¦¦ k != want#1	irliteral.go:102	-	slot values are checked against I by the checker, so coerce lands on want (fence)
+b	irScalarBuilder.taggedLiteral | false | unguarded#1	irliteral.go:110	-	the parser builds only StringText and StringExpr parts
+b	irScalarBuilder.checkedLiteral/no | note | "a backtick typed literal: " + why#1	irliteralcell.go:65	-	Result's Ok always has one payload, and irTypeOf of a retained payload is non-nil (tried Unit, fn, tuple, Iter Ok payloads)
+b	gen.literalCell | note | "a backtick typed literal whose Result has no IR type: " + k.nomi()#1	irliteralcell.go:116	-	irCheckedLiteralKind already requires a retained Result enum, which has an IR type
+b	gen.literalCell | note | "a backtick typed literal whose handler call is not its Result: " + got.nomi()#1	irliteralcell.go:139	-	the cell's taggedLiteral returns the handler's result kind, which is k by construction
+b	gen.literalCell | note | "a backtick typed literal cell that does not lint: " + err.Error()#1	irliteralcell.go:146	-	lint fence: builder invariant check
+c	irScalarBuilder.iterLoop | note | "an Iter.loop inside a recorded assertion subject outside a test"#1	irloop.go:138	-	pinned as gapCLoopInAssertMain (reason: an Iter.loop inside a recorded assertion subject outside a test)
+b	irScalarBuilder.iterLoop | note | "an Iter.loop call without one callback"#1	irloop.go:149	-	checker types Iter.loop(f: (S) -> S): exactly one argument
+c	irScalarBuilder.iterLoop | note | "an Iter.loop callback that is not a lambda literal of at most one parameter"#1	irloop.go:153	-	pinned as gapCLoopNamedCallback (reason: an Iter.loop callback that is not a lambda literal of at most one parameter)
+c	irScalarBuilder.iterLoop | note | "an Iter.loop callback without a seeded state"#1	irloop.go:168	-	pinned as gapCLoopUnseeded (reason: an Iter.loop callback without a seeded state)
+b	irScalarBuilder.iterLoop | note | "an Iter.loop seed whose element type the checker did not solve"#1	irloop.go:191	-	checker rejects an unsolved empty seed: "binding 'xs' type is not locally determined"
+d	irScalarBuilder.iterLoop | note | "an Iter.loop seed outside the retained empty-container coercions"#1	irloop.go:194	-	did not find a solved empty seed coerceEmpty refuses (List<Int> seed coerces; a Map-of-functions seed declines elsewhere first)
+c	irScalarBuilder.iterLoop | note | "an Iter.loop state outside the retained value domain: " + sk.nomi()#1	irloop.go:199	-	pinned as gapCLoopFnState (reason: an Iter.loop state outside the retained value domain: (Int) -> Int)
+b	irScalarBuilder.iterLoop | note | "an Iter.loop state without an IR type: " + sk.nomi()#1	irloop.go:203	-	defensive: every retained value kind and Unit has an IR type
+b	irScalarBuilder.iterLoop | note | "an Iter.loop state pattern outside the retained pattern tests: " + sk.nomi()#1	irloop.go:240	-	checker rejects refutable state patterns ("refutable pattern in parameter"); irrefutable tuple and struct patterns lower
+d	irScalarBuilder.iterLoop | note | "an Iter.loop body outside the statement shape: " + irDeclineBodyWhy#1	irloop.go:260	-	irScalarBlock answers nil only for nil nodes or a leading statement form outside its list; found no accepted loop body that does this
+b	irScalarBuilder.iterLoop | note | "an Iter.loop without a break, in a position that reads its value"#1	irloop.go:273	-	endlessLoop admits a loop with no break where its value is read last (io.inspect(Iter.loop(|n = 0| n + 1)) lowers); found no accepted placement that reaches this
+c	irScalarBuilder.loopBody | note | "an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`"#1	irloop.go:288	-	pinned as gapCLoopGuardBreakEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
+c	irScalarBuilder.loopBody | note | "an Iter.loop final `break` without a value of the state type"#1	irloop.go:325	-	pinned as gapCLoopFinalBreakEmptyList (reason: an Iter.loop final `break` without a value of the state type)
+d	irScalarBuilder.loopBody | note | "an Iter.loop case tail outside value and `break v` arms"#1	irloop.go:338	-	case tails with `[]` arms lower (coerced by caseRegion); no failing arm kind found
+b	irScalarBuilder.loopBody | false | isNilNode(f.Value)#1	irloop.go:344	-	checker rejects a bare `return` in a non-Unit loop callback ("return type mismatch: expected Int, got Unit") and flags a final bare return as doing nothing
+d	irScalarBuilder.loopBody | false | exit == nil#1	irloop.go:357	-	needs an `if c {...} else {...}` final whose then-block irScalarBlock cannot split; none found
+c	irScalarBuilder.loopBody | note | "an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`"#2	irloop.go:370	-	pinned as gapCLoopIfElseBreakEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
+d	irScalarBuilder.loopBody | false | elseFinal == nil#1	irloop.go:378	-	needs an else block irScalarBlock cannot split; none found
+b	irScalarBuilder.loopBody | false | unguarded#1	irloop.go:384	-	parser builds an else only as a Block or an else-if
+c	irScalarBuilder.loopTail | note | "an Iter.loop body without a straight tail expression"#1	irloop.go:394	-	pinned as gapCLoopIfLetTail (reason: an Iter.loop body without a straight tail expression)
+c	irScalarBuilder.loopTail | note | "an Iter.loop tail that is not the state type"#1	irloop.go:404	-	pinned as gapCLoopTailEmptyList (reason: an Iter.loop tail that is not the state type)
+d	irScalarBuilder.loopCase | false | !ok ¦¦ k != lp.k#1	irloop.go:422	-	same as 338: case tails with `[]` arms lower; no failing arm kind found
+d	irScalarBuilder.loopIf | note | "an Iter.loop `if` tail outside value arms of the state type"#1	irloop.go:436	-	if tails with `[]` arms lower (ifRegion coerces); no failing arm kind found
+b	irScalarBuilder.loopGuard | false | t.Else != nil ¦¦ isNilNode(t.Cond) ¦¦ t.Then == nil#1	irloop.go:485	-	callers pass an if with Else cleared and Then set (loopGuardShape or the final-if path)
+b	irScalarBuilder.loopGuard | false | exit == nil#1	irloop.go:490	-	both callers already checked the then-block splits (loopGuardShape, final-if path)
+d	irScalarBuilder.loopGuard | false | !ok ¦¦ (t.CondPattern == nil && ck != kindBool)#1	irloop.go:496	-	only propagates a decline from lowering the guard condition (checker guarantees Bool); reachable whenever the condition hits another gap
+b	irScalarBuilder.loopGuard | false | unguarded#1	irloop.go:538	-	loopGuardShape and the final-if path admit only break/return/continue exits
+b	irScalarBuilder.loopValue | false | isNilNode(value)#1	irloop.go:563	-	checker rejects a bare `return` in a non-Unit loop guard ("return type mismatch: expected Int, got Unit")
+c	irScalarBuilder.loopValue | false | !ok ¦¦ vk != k#1	irloop.go:567	-	pinned as gapCLoopGuardReturnEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
+b	irScalarBuilder.mapMakeOf | false | t.TypeName != nil ¦¦ len(t.Entries) == 0#1	irmap.go:148	-	parser builds `{}` as a block, never an empty MapLit; a typed MapLit returns before this line
+d	irScalarBuilder.mapUpdate | false | bk != lk ¦¦ !irRetainedMapKind(lk)#1	irmap.go:189	-	needs a map spread whose entries lower but whose kind differs from the base or is not a retained map; not found
+c	irScalarBuilder.mapEntriesOver | false | !joined ¦¦ (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructu…#1	irmap.go:273	-	pinned as gapMapOfFunctions (reason: a MapLit)
+b	irScalarBuilder.mapEntriesOver | false | !ok#1	irmap.go:283	-	fence: the key test at irmap.go:273 already admits only kinds irMapKeyOK admits
+b	irScalarBuilder.mapEntryGet | false | mk.tag != tagMap ¦¦ !irRetainedMapKind(mk)#1	irmappattern.go:38	-	every caller passes a retained map kind; a map pattern over a non-map is a checker error
+b	irScalarBuilder.mapEntryGet | note | "a map pattern key of kind " + kk.nomi() + " over " + mk.nomi()#1	irmappattern.go:57	-	tried enum, tuple, struct, record, list, Float and Unit keys over String/Bool-keyed maps: all lower (irMapKeyKind admits them)
+b	irScalarBuilder.mapEntryGet | false | !ok ¦¦ (kk != keyK && !irMapKeyKind(kk))#1	irmappattern.go:59	-	same as :57; !ok propagates the key expression's own decline
+b	irScalarBuilder.mapEntryGet | note | "a map pattern over values outside the retained Maybe payloads: " + mk.nomi()#1	irmappattern.go:63	-	Maybe of a retained map's value is a retained enum; tried Int, function, Set and Vector values
+b	irScalarBuilder.mapEntryGet | false | some == nil ¦¦ len(some.payloads) != 1#1	irmappattern.go:68	-	std Maybe's Some always has one payload
+b	irScalarBuilder.mapEntryGet | false | !ok#1	irmappattern.go:71	-	a retained map's key kind passes irMapKeyOK; no accepted map type found with an unkeyable key
+b	irScalarBuilder.mapCaseTest | false | !ok ¦¦ pat.TypeName != nil#1	irmappattern.go:108	-	a prefixed map pattern over a plain Map is a checker error (prefix must match the scrutinee type)
+c	irScalarBuilder.patternValueTest | note | "a nested pattern outside the retained tests: " + irNodeWord(pat) + " over " + k.nomi()#1	irmappattern.go:139	-	pinned as gapMapValueLiteralAttachDistinct (reason: a nested pattern outside the retained tests: a MapPattern over Kvs)
+b	irScalarBuilder.mapBinding | note | "a map destructure outside the retained map domain: " + mk.nomi()#1	irmappattern.go:226	-	a map destructure over a non-map is a checker error; non-retained map kinds decline before the statement
+b	irScalarBuilder.mapBinding | false | !ok ¦¦ mk.tag != tagMap ¦¦ !irRetainedMapKind(mk)#1	irmappattern.go:228	-	same as :226
+b	irScalarBuilder.mapBinding | note | "a map destructure entry outside names and wildcards"#1	irmappattern.go:242	-	the checker requires `else` for any nested entry pattern, which makes it a PatternBinding; `v as w` is rejected
+b	irScalarBuilder.namedQualCall | false | fa.Field == nil ¦¦ bl.g.fa == nil#1	irnamedarg.go:31	-	defensive: fa is set and the parser sets Field for a qualified call
+b	irScalarBuilder.namedQualCall | false | sym == nil#1	irnamedarg.go:35	-	checker records a reference for every qualified callee it resolves
+b	irScalarBuilder.namedQualCall | false | unguarded#1	irnamedarg.go:62	-	checker rejects named arguments to anything but a fn, host fn or interface method ("no parameter named", positional payloads)
+c	irScalarBuilder.namedQualCall | false | p.Destructure != nil#1	irnamedarg.go:68	-	pinned as gapNamedArgDestructuredParam (reason: a named argument)
+b	irScalarBuilder.namedQualCall | false | !planned#1	irnamedarg.go:74	-	checker rejects every argument list argSlotPlan cannot place (duplicates, unknown names, positional after named)
+b	irScalarBuilder.namedQualCall | false | s < 0 ¦¦ s >= len(names)#1	irnamedarg.go:89	-	fence: argSlotPlan only yields slots inside the parameter list
+c	irScalarBuilder.namedQualCall | false | !ok ¦¦ !irCallOperandKind(k)#1	irnamedarg.go:103	-	pinned as gapNamedArgValueDeclines (reason: the comparison operator `==`)
+b	irScalarBuilder.namedQualCall | false | p.TypeAnnotation == nil#1	irnamedarg.go:136	-	fence: a non-destructured fn parameter always has a type annotation, and a destructured one returns at irnamedarg.go:68 first
+c	irScalarBuilder.namedQualCall | false | !irCallOperandKind(kinds[i])#1	irnamedarg.go:141	-	pinned as gapNamedGapGenericParam (reason: a named argument)
+d	irScalarBuilder.ifaceGapDefaults | false | recvAt < 0 ¦¦ recvAt >= len(temps) ¦¦ temps[recvAt] == ir.NoTemp#1	irnamedarg.go:201	-	needs an interface fn with defaults whose receiver position is not self (constructor-style); not built
+d	irScalarBuilder.ifaceGapDefaults | false | m == nil ¦¦ m.decl != im ¦¦ len(m.params) != len(temps)#1	irnamedarg.go:207	-	needs an erased receiver whose interface method table disagrees with the declaration; not found
+c	irScalarBuilder.ifaceGapDefaults | false | impl == nil ¦¦ !impl.lowerable#1	irnamedarg.go:225	-	pinned as gapIfaceGapDefaultImplElsewhere (reason: a named argument)
+d	irScalarBuilder.ifaceGapDefaults | false | it == nil ¦¦ !it.lowerable#1	irnamedarg.go:232	-	needs the impl to lack or fail to lower the method; not constructed
+b	irScalarBuilder.ifaceGapDefaults | false | fd == nil ¦¦ len(fd.Params) != len(temps) ¦¦ len(it.params) != len(temps)#1	irnamedarg.go:236	-	fence: the impl item is the interface method's implementation, which the checker holds to the same parameter count
+c	irScalarBuilder.ifaceGapDefaults | false | unguarded#1	irnamedarg.go:240	-	pinned as gapIfaceGapDefaultCrossFile (reason: a named argument)
+d	irScalarBuilder.narrowedRead | false | !irRetainedEmbed(k.def, variant)#1	irnarrow.go:33	-	embedded structs with function fields, distincts over Int, functions and enums all narrow; a host-type embed (rtOpaque) needs an embedder
+c	irScalarBuilder.nestedFunc/no | note | "a nested fn: " + why#1	irnestedfn.go:29	-	pinned as gapNestedFnDestructuringParam (reason: a nested fn: a parameter without an annotation, or a destructuring one)
+c	irScalarBuilder.nestedInstance/no | note | "a nested fn: " + why#1	irnestedfn.go:56	-	pinned as gapNestedFnEmptyListResult (reason: a nested fn: a result that is not the declared return type: List<_> vs List<Int>)
+a	gen.nestedInstanceArgs | false | len(ft.Params) != len(fd.Params)#1	irnestedfn.go:207	irbuild	
+a	gen.nestedInstanceArgs | false | !found ¦¦ !(irCallableValueKind(k) ¦¦ k == kindUnit)#1	irnestedfn.go:227	irbuild	
+d	irScalarBuilder.genericNestedCall | false | inst == nil#1	irnestedfn.go:337	-	reached only after genericNestedRef notes a decline (378/383); two- and three-level generic nested calls lower
+a	irScalarBuilder.genericNestedRef | false | gn == nil#1	irnestedfn.go:353	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.genericNestedRef | note | "a generic nested fn whose type arguments are unsolved here: " + id.Name#1	irnestedfn.go:378	-	generic nested calls with unsolved args (is_some(None), ok_of(1)) and as values lower; not found
+d	irScalarBuilder.genericNestedRef | note | "a generic nested fn at a type its declaration did not build: " + fd.Name + "<" + kindsNom…#1	irnestedfn.go:383	-	three levels of generic nested fns and calls from lambdas lower; not found
+d	irScalarBuilder.reaches | false | unguarded#1	irnestedfn.go:396	-	helper probed by genericNestedRef:383; same search, not found
+d	irScalarBuilder.recursiveNestedFunc | note | "a recursive nested fn whose signature is outside the domain: " + fd.Name#1	irnestedfn.go:425	-	recursive nested fns with Maybe<Unit>/List params lower; no out-of-domain signature found
+c	irScalarBuilder.recursiveNestedFunc | note | "a recursive nested fn: its body is outside the lambda shape: " + fd.Name#1	irnestedfn.go:433	-	pinned as gapRecursiveNestedFnEmptyListTail (reason: a recursive nested fn: its body is outside the lambda shape: r)
+d	irScalarBuilder.neverCaseRegion | note | "a `case` on Infallible whose result has no kind"#1	irnever.go:102	-	inferred, binding and statement `case` on Infallible with arms all lower
+d	irScalarBuilder.neverCaseRegion | false | !ok ¦¦ k != kindNever#1	irnever.go:107	-	as 102; lowerNever answered Never for every Infallible subject tried
+a	irScalarBuilder.neverAs | false | have != kindNever ¦¦ want == kindNever ¦¦ bl.g.irValType(want) == nil#1	irnever.go:225	expect,irbuild,projectgen,vmhost	
+c	declineOnceRead | note | "a read of `once " + d.nomi + "`, which cannot lower: " + why#1	ironce.go:133	-	pinned as gapOnceUnit (reason: a read of `once setup`, which cannot lower: a once of a kind outside the domain: Unit)
+c	gen.irOnceCellLower | note | "a once of a kind outside the domain: " + k.nomi()#1	ironce.go:151	-	pinned as gapOnceUnit (reason: a read of `once setup`, which cannot lower: a once of a kind outside the domain: Unit)
+b	gen.irOnceCellLower | note | "a `once` initializer graph that does not lint: " + err.Error()#1	ironce.go:202	-	lint fence: builder invariant check
+c	irScalarBuilder.partialApplication/no | note | "a partial application over a callee whose parameters the builder cannot see, or with a no…#1	irpartial.go:37	-	pinned as gapPartialOmittedNonliteralDefault (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
+c	irScalarBuilder.partialApplication | false | !ok ¦¦ len(params) != len(kinds)#1	irpartial.go:42	-	pinned as gapPartialCapturedLambda (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
+d	irScalarBuilder.partialApplication | false | !planned#1	irpartial.go:55	-	named placeholders on local/sibling callees plan fine; a bad name is a checker error; not found
+b	irScalarBuilder.partialApplication | false | slot < 0 ¦¦ slot >= len(params) ¦¦ filled[slot]#1	irpartial.go:63	-	a slot given twice is a checker error (argument slot planning)
+d	irScalarBuilder.partialApplication | false | !ok ¦¦ k != kinds[slot]#1	irpartial.go:75	-	no decline found; nearby, `show(5, _)` with an existential slot is an internal compiler error (partial_existential_arg_ice.nomi), not a decline
+b	irScalarBuilder.partialApplication | false | len(open) == 0#1	irpartial.go:82	-	a call with no placeholder is not a partial application (the builder only routes calls containing `_` here)
+c	irScalarBuilder.partialApplication | false | p.Default != nil && !irClosedLiteral(p.Default)#1	irpartial.go:90	-	pinned as gapPartialOpenNonliteralDefault (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
+c	irScalarBuilder.partialApplication | false | unguarded#1	irpartial.go:113	-	pinned as gapPartialOmittedNonliteralDefault (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
+d	irScalarBuilder.partialCallee | false | !ok ¦¦ fk.tag != tagFunc#1	irpartial.go:143	-	a local callable whose lowered kind is not a func kind; not found
+c	irScalarBuilder.partialCallee | false | plan == nil ¦¦ plan.source == nil ¦¦ len(plan.names) != len(plan.source.Params)#1	irpartial.go:147	-	pinned as gapPartialCapturedLambda (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
+b	irScalarBuilder.patternAssert | false | isNilNode(t.Value) ¦¦ isNilNode(t.Pattern)#1	irpatternassert.go:36	-	the parser always sets the assert's Value and Pattern
+c	irScalarBuilder.patternAssert | note | "an `assert pattern = value` tuple pattern outside the retained case tests"#1	irpatternassert.go:82	-	pinned as gapAssertTupleCompositeDistinct (reason: a `case` tuple pattern outside flat Int/String tests with bindings and wildcards)
+b	irScalarBuilder.patternAssert | note | "an `assert pattern = value` literal pattern over " + sk.nomi()#1	irpatternassert.go:93	-	literal-type rule
+c	irScalarBuilder.patternAssert | note | "an `assert pattern = value` pattern outside the retained case tests: " + sk.nomi()#1	irpatternassert.go:122	-	pinned as gapAssertPatternStringPrefix (reason: an `assert pattern = value` pattern outside the retained case tests: String)
+c	irScalarBuilder.patternAssert | note | "an `assert pattern = value` that rebinds " + name#1	irpatternassert.go:129	-	pinned as gapAssertPatternRebind (reason: an `assert pattern = value` that rebinds x)
+c	irScalarBuilder.assertDefinedAs | note | "a defined-as block over a pipe binding"#1	irpatternassert.go:171	-	pinned as gapAssertPatternAnnotatedPipe (reason: a defined-as block over a pipe binding)
+d	irScalarBuilder.patternIfRegion | note | "a pattern `if` without `else` whose value is not Unit"#1	irpatternif.go:21	-	needs a no-else pattern `if` at a non-Unit, non-inferred position; every position tried was Unit or inferred
+b	irScalarBuilder.patternIfRegion | note | "a pattern `if` without a subject"#1	irpatternif.go:24	-	the parser always sets a pattern if's subject
+b	irScalarBuilder.patternIfRegion | note | "a pattern `if` whose pattern always matches " + sk.nomi()#1	irpatternif.go:57	-	the checker rejects a pattern `if` whose pattern always matches
+d	irScalarBuilder.patternIfRegion | note | "a pattern `if` whose arms disagree: " + tk.nomi() + " vs " + ek.nomi()#1	irpatternif.go:71	-	tried list/[] , None/Some, Map.empty/literal, Ok/Err, lambda/named fn, tuple-with-[] arms: all join; found no accepted disagreement
+b	irScalarBuilder.pipe | false | r.Expr != nil#1	irpipe.go:95	-	checker: "right side of `|>` must be bare `try`"
+b	irScalarBuilder.pipe | false | r.Cond != nil ¦¦ r.CondPattern != nil#1	irpipe.go:100	-	checker: a grouped `if` stage is "a pipe stage is a call ... or a keyword stage"
+b	irScalarBuilder.pipe | false | r.Value != nil#1	irpipe.go:107	-	checker: same rule for a grouped `case` stage
+c	irScalarBuilder.pipe | false | r.Expr != nil#2	irpipe.go:124	-	pinned as gapPipeDbgGrouped (reason: the pipe operator `|>`)
+b	irScalarBuilder.pipe | false | unguarded#1	irpipe.go:135	-	checker: a bare function name stage is "a pipe stage is a call: write `inc()`"; every other stage form is handled above
+b	irScalarBuilder.preludePredicateCall | false | !args.ok ¦¦ len(args.kinds) != 1#1	irpreludepred.go:38	-	the checker gives Maybe.some? and siblings exactly one argument; !ok propagates the argument's decline
+b	irScalarBuilder.preludePredicateCall | false | k.tag != tagNamed ¦¦ k.def == nil ¦¦ k.def.preludeOf == nil ¦¦ k.def.preludeOf.spec != spe…#1	irpreludepred.go:42	-	the checker types the operand as std Maybe/Result
+b	irScalarBuilder.preludePredicateCall | false | v == nil#1	irpreludepred.go:46	-	Some/None/Ok/Err always exist
+a	irScalarBuilder.preludeBareValue | false | want.tag != tagNamed ¦¦ !irRetainedEnumKind(want.def) ¦¦ want.def.preludeOf == nil#1	irpreludevalues.go:115	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.preludeBareValue | false | !anchored ¦¦ a.spec != want.def.preludeOf.spec#1	irpreludevalues.go:123	-	probe: most callers fall back (irfuncbody.go:334, irlist.go:569, irqualcall.go:113/117); `.None` in annotation, ==, list, tuple and lambda positions all lower
+b	irScalarBuilder.preludeBareValue | false | !found ¦¦ vs.carries()#1	irpreludevalues.go:127	-	same as :123; None carries nothing
+a	irScalarBuilder.preludeBareValue | false | !ok#1	irpreludevalues.go:132	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.preludeBareValue | false | !ok ¦¦ resolved.carries() ¦¦ a.spec != want.def.preludeOf.spec#1	irpreludevalues.go:136	-	same as :123
+b	irScalarBuilder.preludeBareValue | false | v == nil#1	irpreludevalues.go:142	-	same as :123; the resolved prelude variant exists
+a	irScalarBuilder.ifaceContainerCall | false | (bl.g.stdModule != "" && !bl.stdInstRangeReceiver(args) && !bl.stdTestOwnType()) ¦¦ !args.…#1	irqualcall.go:290	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.ifaceContainerCall | false | local#1	irqualcall.go:293	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.ifaceContainerCall | false | isIface && d != nil && bl.g.stdInstCur == nil#1	irqualcall.go:300	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.ifaceContainerCall | false | base == ""#1	irqualcall.go:314	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.ifaceContainerCall | false | f == nil ¦¦ bl.g.stdInsts == nil#1	irqualcall.go:318	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.ifaceContainerCall | false | ib == nil ¦¦ ib.Interface == nil ¦¦ typeText(ib.Interface) != iface && !strings.HasPrefix(…#1	irqualcall.go:322	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.qualCallLowered | false | fa.Field == nil#1	irqualcall.go:450	-	parser always sets FieldAccess.Field
+b	irScalarBuilder.qualCallLowered | false | applied#1	irqualcall.go:473	-	user code cannot spell `Type<Args>.f(...)` (checker: "`Box` is a type, not a value"); only derive FromJson synthesizes it, for std containers stdKindQualCall handles
+d	irScalarBuilder.qualCallLowered | false | plan == nil#1	irqualcall.go:499	-	tried ~17 three-segment std calls (strings.String.trim, maps.Map.get, calendar.Date.parse, regex.Regex.compile, ...): all lower
+b	irScalarBuilder.qualCallLowered | false | !ok#1	irqualcall.go:532	-	callbackCarriesSignal is true only for a *ast.Lambda (ctrlflow.go:128), so the assertion cannot fail
+c	irScalarBuilder.qualCallLowered | false | bound#1	irqualcall.go:585	-	pinned as gapGenericBoundCallAtTuple (reason: qualified call, Type.method: T.to_string)
+b	irScalarBuilder.qualCallLowered | false | irQualIsLocal(bl, obj.Name)#1	irqualcall.go:724	-	a call on a bound local's member is routed to indirectCall earlier (qualCalleeIsValue); s.k(1, 2) lowers
+a	irScalarBuilder.qualCallLowered | false | plan == nil#2	irqualcall.go:732	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.siblingCall | false | f == nil ¦¦ f.decl == nil#1	irqualcall.go:1296	-	defensive fence: lookupBare/siblingQualSite only answer sites with a fn and decl
+c	irScalarBuilder.siblingCall | false | !ok ¦¦ len(params) != len(f.decl.Params) ¦¦ (!irCallableValueKind(result) && result != kin…#1	irqualcall.go:1308	-	pinned as gapSiblingGenericEmptyList (reason: a direct callee outside this module's fn table: cnt)
+d	irScalarBuilder.siblingCall | note | "a `go`-bound sibling declaration with no VM body"#1	irqualcall.go:1314	-	needs a Go-bound sibling host fn taking/returning a function; Go FFI not exercised here
+d	irScalarBuilder.siblingCall | false | !planned#1	irqualcall.go:1323	-	bare/qualified sibling calls with named args, defaults and trailing-lambda routing all plan; not found
+d	irScalarBuilder.siblingCall | false | !ok ¦¦ !irCallOperandKind(k)#1	irqualcall.go:1334	-	sibling calls with existential, empty-list, None and lambda arguments lower; not found
+d	irScalarBuilder.siblingCall | false | !ok ¦¦ k != params[slot]#1	irqualcall.go:1339	-	same as 1334; not found
+d	irScalarBuilder.siblingCall | false | len(t.Args) != len(params) && (site.host ¦¦ !bl.siblingFill(t, bl.g.unitGen(site.unit), pl…#1	irqualcall.go:1350	-	non-literal and lambda defaults across files fill; a failing accessor is reported under the accessor's own name instead
+b	irScalarBuilder.scalarTextCall | false | !args.ok ¦¦ len(args.kinds) != 1 ¦¦ !irScalarLeafKind(args.kinds[0]) ¦¦ args.kinds[0] != b…#1	irqualcall.go:1466	-	checker requires the operand to be the owner's type ("argument 1: expected Float, got Int")
+a	irScalarBuilder.qualDottedOwner | false | !isFA ¦¦ inner.Field == nil#1	irqualcall.go:1585	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.qualDottedOwner | false | !isIdent ¦¦ irQualIsLocal(bl, mod.Name)#1	irqualcall.go:1592	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.qualDottedOwner | false | !isStd#1	irqualcall.go:1596	irbuild	
+b	irScalarBuilder.rangeMake | false | t.Start == nil ¦¦ t.End == nil#1	irrange.go:22	-	parser/checker: `3..` gets a Unit end and is rejected ("range endpoints must have the same type"); no open-start syntax
+b	irScalarBuilder.rangeMake | false | !ok ¦¦ ek != elem#1	irrange.go:30	-	checker requires both endpoints of one type
+c	irScalarBuilder.rangeMake | false | !irRetainedRangeKind(k)#1	irrange.go:34	-	pinned as gapCRangeBool (reason: a RangeLit)
+a	irScalarBuilder.rangeCall | false | !args.ok ¦¦ len(args.kinds) == 0 ¦¦ !irRetainedRangeKind(args.kinds[0])#1	irrange.go:53	irbuild	
+b	irScalarBuilder.rangeCall | false | len(args.kinds) != 1#1	irrange.go:59	-	checker types Range.bounded?(r) with one argument
+b	irScalarBuilder.rangeCall | false | len(args.kinds) != 2 ¦¦ args.kinds[1] != elem#1	irrange.go:66	-	checker types Range.contains?(r, n: T)
+c	irScalarBuilder.rangeCall | false | unguarded#1	irrange.go:81	-	pinned as gapCRangeToString (reason: qualified call, Type.method: Range.to_string)
+b	irScalarBuilder.rangeFrom | false | !args.ok ¦¦ len(args.kinds) != want ¦¦ (want == 1 && args.kinds[0] != kindInt)#1	irrange.go:95	-	checker types Range.from(n: Int) and Range.naturals()
+b	irScalarBuilder.rangeFrom | false | !irRetainedRangeKind(k)#1	irrange.go:99	-	Range<Int> is always a retained range kind
+b	irScalarBuilder.rangeStructLit | false | len(t.Fields) != 3#1	irrange.go:124	-	std-only fence: Range is an opaque struct, its literal lowers only in std/ranges, whose two bodies have three fields
+b	irScalarBuilder.rangeStructLit | false | !bare ¦¦ name != "None"#1	irrange.go:133	-	std-only fence: std/ranges' Range.from/naturals write `end: None`
+b	irScalarBuilder.rangeStructLit | false | !bare ¦¦ name != "False"#1	irrange.go:137	-	std-only fence: std/ranges' bodies write `inclusive: False`
+b	irScalarBuilder.rangeStructLit | false | unguarded#1	irrange.go:140	-	std-only fence: std/ranges' bodies name only start/end/inclusive
+b	irScalarBuilder.rangeStructLit | false | start == nil#1	irrange.go:144	-	std-only fence: std/ranges' bodies set start
+b	irScalarBuilder.rangeStructLit | false | !ok ¦¦ k != kindInt#1	irrange.go:148	-	std-only fence: std/ranges' start is an Int (n or 0)
+b	irScalarBuilder.rangeStructLit | false | !irRetainedRangeKind(rk)#1	irrange.go:152	-	std-only fence: Range<Int> is always retained
+b	irScalarBuilder.rangeStepBy | false | len(args.kinds) != 2 ¦¦ !irRetainedValueKind(args.kinds[1])#1	irrange.go:167	-	checker requires T: Steppable<S>; std impls step Int/Decimal/Codepoint by retained kinds, Float is rejected
+b	irScalarBuilder.elemStepper | false | !shared#1	irrange.go:214	-	a program Steppable impl takes the impl branch first (user struct Range.step_by lowers); std Steppable elements Int, Decimal, Codepoint have a shared Maybe
+b	irScalarBuilder.elemStepper | false | step == nil ¦¦ step.irBody == nil#1	irrange.go:218	-	std's Steppable.step_by bodies exist for Int, Decimal and Codepoint
+b	irScalarBuilder.recordMakeOf | false | t.Spread != nil ¦¦ len(t.Fields) == 0#1	irrecord.go:34	-	parser builds `{}` as a block, never an empty StructLit; a spread returned above
+a	irScalarBuilder.recordMakeOf | false | !ok ¦¦ !irCompositePartKind(k)#1	irrecord.go:50	irbuild	
+b	irScalarBuilder.recordMakeOf | false | !irRetainedRecordKind(k)#1	irrecord.go:60	-	fence: every field passed irCompositePartKind, which is what irRetainedRecordKind checks
+b	irScalarBuilder.recordRead | false | !found#1	irrecord.go:89	-	checker rejects an unknown record field
+c	irScalarBuilder.structSpread | false | !ok ¦¦ !irRetainedUpdateKind(k)#1	irrecord.go:107	-	pinned as gapSpreadBaseDeclines (reason: the comparison operator `==`)
+b	irScalarBuilder.structMergeVals | false | !found#1	irrecord.go:160	-	checker rejects an unknown field in a spread or a Struct.update patch
+c	irScalarBuilder.structMergeVals | false | !ok ¦¦ vk != fk#1	irrecord.go:188	-	pinned as gapStructSpreadIterFieldWiden (reason: a struct literal: <none>)
+b	irScalarBuilder.updateBaseField | false | f == nil#1	irrecord.go:205	-	checker rejects a nested `..` update on an unknown field
+a	irScalarBuilder.structUpdateCall | false | len(t.Args) != 2 ¦¦ !bl.g.stdStructUpdateIsStds()#1	irrecord.go:223	irbuild	
+b	irScalarBuilder.structUpdateCall | false | local#1	irrecord.go:226	-	checker: "type name 'Struct' is reserved by the language and cannot be redeclared as an interface"
+c	irScalarBuilder.structUpdateCall | false | bound#1	irrecord.go:229	-	pinned as gapTypeParamNamedStruct (reason: qualified call, Type.method: Struct.update)
+b	irScalarBuilder.structUpdateCall | false | !ok#1	irrecord.go:233	-	checker rejects a Struct.update call whose two arguments cannot be placed
+c	irScalarBuilder.structUpdateCall | false | !isLit ¦¦ lit.TypeName != nil ¦¦ lit.Spread != nil#1	irrecord.go:237	-	pinned as gapStructUpdatePatchBinding (reason: qualified call, Type.method: Struct.update)
+c	irScalarBuilder.structUpdateCall | false | !ok ¦¦ !irRetainedUpdateKind(k)#1	irrecord.go:256	-	pinned as gapUpdateNamedBaseDeclines (reason: the comparison operator `==`)
+c	irScalarBuilder.structUpdateCall | false | !ok ¦¦ !irRetainedUpdateKind(k)#2	irrecord.go:278	-	pinned as gapUpdateBaseDeclines (reason: the comparison operator `==`)
+b	irScalarBuilder.recordMerge | false | !found ¦¦ !inRecord#1	irrecord.go:330	-	checker rejects a patch field the target lacks
+c	irScalarBuilder.recordMerge | false | !ok ¦¦ vk != fk#1	irrecord.go:337	-	pinned as gapStructUpdateNamedIterFieldWiden (reason: a named argument)
+b	irScalarBuilder.tryValue | false | !recorded ¦¦ (bl.inTest && !testBoundary) ¦¦ isNilNode(operand)#1	irretainedtry.go:29	-	the checker records every try's boundary and rejects try in subtests rows, once and defaults; tries in test bodies, test blocks, test lambdas and group setup lower
+b	irScalarBuilder.tryValue | false | !concurrent && !testBoundary && !boot && (!strings.HasPrefix(boundary, "fn ") ¦¦ boundary …#1	irretainedtry.go:32	-	boundaries are fn, lambda, concurrent, test and setup; lambdas and concurrent bodies take the concurrent path, nested fns lower
+b	irScalarBuilder.tryValue | false | !concurrent && !testBoundary && !boot && !irTryBoundaryKind(bl.returnKind)#1	irretainedtry.go:35	-	the checker requires the enclosing fn to return Result or Maybe
+a	irScalarBuilder.tryValue | false | !ok ¦¦ d == nil ¦¦ !irRetainedEnumKind(d) ¦¦ d.preludeOf == nil ¦¦ !d.preludeOf.spec.tryOp…#1	irretainedtry.go:40	irbuild	
+b	irScalarBuilder.tryValue | false | !anchored#1	irretainedtry.go:52	-	fence: std/assertions' AssertionFailure always anchors
+b	irScalarBuilder.tryValue | false | !concurrent && !boot && !irTryFits(bl.returnKind, d, carried)#1	irretainedtry.go:55	-	the checker's tryBoundaryFits decides the same fit
+b	irScalarBuilder.settleConcurrentTries | false | !irTryFits(boundary, p.operand, p.carried)#1	irretainedtry.go:100	-	the checker requires a try in a lambda or concurrent block to fit its result
+a	irScalarBuilder.scalarEqualCall | false | method != "equal?" ¦¦ len(t.Args) != 2#1	irscalaroperator.go:43	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.scalarEqualCall | false | unguarded#1	irscalaroperator.go:48	irbuild	
+d	irScalarBuilder.scalarEqualCall | false | !args.ok ¦¦ args.kinds[0] != args.kinds[1]#1	irscalaroperator.go:53	-	equal? over None/Some, Err/Ok and []/List lowers; operand kinds come out equal
+b	irScalarBuilder.scalarEqualCall | false | unguarded#2	irscalaroperator.go:66	-	checker: "no impl of `Equatable` for `Unit`"
+a	irScalarBuilder.scalarEqualCall | false | unguarded#3	irscalaroperator.go:68	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.setMakeOf | false | !irRetainedSetKind(k)#1	irset.go:75	-	needs set items that join to an accepted element kind whose Set is not retained; not found
+d	irScalarBuilder.setMakeOf | false | !ok#1	irset.go:79	-	needs a Set element that mapKeyOK refuses after irSetElemKind accepted it; not found
+b	irScalarBuilder.stdFieldDefault | false | f.k != kindString#1	irstdfielddefault.go:40	-	std-only fence: the stdStringDefault anchor matches only a String default on the declared field (stdstruct.go:533)
+b	irScalarBuilder.stdFieldDefault | false | f.k.tag != tagNamed ¦¦ !irRetainedEnumKind(f.k.def)#1	irstdfielddefault.go:48	-	std-only fence: stdNoneDefault anchors are on Maybe fields std declares (stdstruct.go:535-591)
+b	irScalarBuilder.stdFieldDefault | false | v == nil ¦¦ len(v.payloads) != 0#1	irstdfielddefault.go:52	-	std-only fence: None is payload-free in std/maybe
+a	irScalarBuilder.stdFieldDefault | computed | return ok && k == f.k#1	irstdfielddefault.go:55	expect,irbuild	
+a	irScalarBuilder.stdFieldDefault | computed | return ok && k == f.k#2	irstdfielddefault.go:63	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdFieldDefault | computed | return ok && k == f.k#3	irstdfielddefault.go:69	expect,irbuild,vmhost	
+b	irScalarBuilder.stdFieldDefault | false | unguarded#1	irstdfielddefault.go:71	-	std-only fence: every anchored default has a form; the zero form is never attached (stdstruct.go:521-790)
+d	irScalarBuilder.stdUnretainedPlan | note | why#1	irstdmethodcall.go:98	-	std mono bodies that reach generics (Generator.bool, uniform, list, map) build; not found
+a	irScalarBuilder.stdOperatorCall | false | f.irBody == nil ¦¦ f.rtCall != "" ¦¦ (!irCallableValueKind(f.result) && f.result != kindUn…#1	irstdoperator.go:13	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdGenericOperatorCall | false | !found ¦¦ lk.tag == tagList#1	irstdoperator.go:31	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdGenericOperatorCall | false | base == "" ¦¦ bl.g.stdGenericTemplate(base, spec.method) == nil#1	irstdoperator.go:35	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.strPrefixTest | false | !ok ¦¦ k != kindString#1	irstrprefix.go:30	-	checker rejects a string prefix pattern over a non-String subject; nested prefix patterns lower (g5/m_pat.nomi)
+b	irScalarBuilder.strPrefixTest | false | !ok ¦¦ lk != kindString#1	irstrprefix.go:34	-	defensive: the prefix is a String literal, which litFor lowers at String
+b	irScalarBuilder.structMake | false | k.tag != tagNamed ¦¦ k.def == nil#1	irstruct.go:630	-	fence: TargetStructs holds only StructTypes, which project to named kinds
+b	irScalarBuilder.structMake | false | t.Spread != nil#1	irstruct.go:639	-	checker: "struct spread `..` has no named form"
+c	irScalarBuilder.structMake | false | tn.Member == nil ¦¦ bl.g.genericTemplates[tn.Module+"."+tn.Member.TypeString()] != nil#1	irstruct.go:647	-	pinned as gapDottedGenericStructLiteral (reason: a struct literal: Tree.Node)
+b	irScalarBuilder.structMake | false | tn.ResolvedEnum == ""#1	irstruct.go:663	-	checker resolves every `.Variant{...}` literal it accepts (ResolvedEnum set)
+b	irScalarBuilder.structMake | false | !isSimple#1	irstruct.go:673	-	parser builds a struct literal's type name only as a simple, qualified or dot-variant name; `Box<Int>{v: 1}` does not parse as one
+d	irScalarBuilder.genericStructMake | false | !ok ¦¦ k.tag != tagNamed#1	irstruct.go:710	-	needs a user generic struct literal whose checked type arguments do not instantiate; generic literals lowered everywhere tried
+a	irScalarBuilder.structMakeOf | false | !(irRetainedStructKind(d) ¦¦ bl.boot && irBootStructKind(d))#1	irstruct.go:719	irbuild	
+b	irScalarBuilder.structMakeOf | false | fd == nil#1	irstruct.go:727	-	checker rejects an unknown field in a struct literal
+b	irScalarBuilder.structMakeOf | false | dup#1	irstruct.go:730	-	checker: "field 'name' is given twice in this ... literal"
+a	irScalarBuilder.structMakeOf | false | !ok ¦¦ (k != fd.k && !erased)#1	irstruct.go:743	irbuild	
+b	irScalarBuilder.structMakeOf | false | len(vals) != len(d.fields)#1	irstruct.go:775	-	fence: written fields plus defaulted ones fill d.fields exactly once each
+b	irScalarBuilder.fieldDefault | false | f.deflt == nil ¦¦ f.stdDeflt != nil#1	irstruct.go:820	-	checker rejects an omitted field with no default ("missing field")
+c	irScalarBuilder.declDefault | false | !ok ¦¦ k != want#1	irstruct.go:855	-	pinned as gapFieldDefaultIterWiden (reason: a struct literal: H)
+b	irScalarBuilder.stdGenStructMake | false | len(t.Fields) != len(a.decl.Fields)#1	irstruct.go:884	-	checker rejects a std generic struct literal missing a field without a default
+b	irScalarBuilder.stdGenStructMake | false | ann == nil#1	irstruct.go:900	-	checker rejects an unknown field
+b	irScalarBuilder.stdGenStructMake | false | dup#1	irstruct.go:903	-	checker rejects a repeated field
+d	irScalarBuilder.stdGenStructMake | false | !ok ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	irstruct.go:924	-	needs a Captured/Channel literal whose value leaves T unsolved or non-callable; None, [], Unit, lambdas, Iters, existentials all lowered (g5/g_stdgen*.nomi)
+d	irScalarBuilder.stdGenStructMake | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irRetainedStructKind(k.def)#1	irstruct.go:930	-	needs a std generic struct instance that is not retained; not found
+b	irScalarBuilder.stdGenStructMake | false | len(d.fields) != len(vals)#1	irstruct.go:934	-	fence: genStructInstance's fields are the declaration's, already matched by count at irstruct.go:884
+d	irScalarBuilder.stdGenStructMake | false | !given ¦¦ fk != d.fields[i].k#1	irstruct.go:938	-	needs a field value whose kind differs from the instance's field after unification; not found
+c	irScalarBuilder.nominalCaseTest | false | p.TypeName != nil ¦¦ !bl.recordCaseFields(p, subj, k, next)#1	irstructpattern.go:34	-	pinned as gapRecordFieldLiteralAttachDistinct (reason: a nested pattern outside the retained tests: a ListPattern over Stack)
+b	irScalarBuilder.nominalCaseTest | false | k.tag != tagNamed ¦¦ k.def == nil#1	irstructpattern.go:41	-	irNominalCaseKind admits only records (handled above) and named kinds
+b	irScalarBuilder.nominalCaseTest | false | !irRetainedStructKind(k.def)#1	irstructpattern.go:46	-	checker: struct pattern requires a struct type
+b	irScalarBuilder.nominalCaseTest | false | fd == nil#1	irstructpattern.go:54	-	checker rejects an unknown field
+b	irScalarBuilder.nominalCaseTest | false | !irCompositeDistinct(k.def) ¦¦ k.def.inner.tag != tagMap ¦¦ (p.TypeName != nil && typeText…#1	irstructpattern.go:80	-	checker rejects a mismatched or aliased map prefix (`KvsAlias{...}`: prefix does not match scrutinee type)
+c	irScalarBuilder.nominalCaseTest | false | !irCompositeDistinct(k.def) ¦¦ k.def.inner.tag != tagList ¦¦ p.TypeName == nil ¦¦ typeText…#1	irstructpattern.go:89	-	pinned as gapListDistinctUntypedListPattern (reason: a struct or distinct case pattern outside retained field and payload patterns)
+b	irScalarBuilder.nominalCaseTest | false | !irDistinctOverValue(k.def) ¦¦ (p.Binding != "" && p.Payload != nil)#1	irstructpattern.go:97	-	the parser never sets both Binding and Payload; irNominalCaseKind only admits distincts over values
+b	irScalarBuilder.nominalCaseTest | false | !ok ¦¦ owner != "" ¦¦ member != k.def.nomi#1	irstructpattern.go:100	-	the checker rejects a qualified distinct head in a case pattern (`shapes.Id(...)`: module, not a type) and an aliased one
+b	irScalarBuilder.nominalCaseTest | false | unguarded#1	irstructpattern.go:114	-	other pattern forms over a struct/record/distinct are checker errors (tuple pattern requires a tuple type, etc.)
+b	irScalarBuilder.recordCaseFields | false | !found#1	irstructpattern.go:127	-	checker rejects an unknown record field
+b	irScalarBuilder.subtests | note | "a `subtests` statement in a body the builder reads back"#1	irsubtests.go:35	-	defensive fence: testWalked is always true (irTestBodyAttempt is only called with walked=true) and testStmt never runs while an assertion subject is recording
+b	irScalarBuilder.subtests | note | "a `subtests` statement inside a `subtests` row"#1	irsubtests.go:39	-	checker rejects: "`subtests` cannot be written inside another `subtests` body"
+b	irScalarBuilder.subtests | note | "a `subtests` statement whose row type the checker did not record"#1	irsubtests.go:44	-	defensive fence: the checker records SubtestsRowTypes for every subtests statement it accepts
+d	irScalarBuilder.subtests | note | "a `subtests` row type outside the domain"#1	irsubtests.go:50	-	rows of Int, tuples, structs, map entries, strings, functions all lowered; could not find a row type outside the domain
+d	irScalarBuilder.subtests | note | "`subtests` rows the builder cannot view as a sequence: " + rk.nomi()#1	irsubtests.go:59	-	List, Range, Map, Set, Vector, Iter and String rows all lowered; could not find rows seqView refuses
+b	irScalarBuilder.subtestsRowFunc | note | "a `subtests` statement with an empty body"#1	irsubtests.go:76	-	checker rejects a body without an assert/refute or verdict: "`subtests` body must contain an assert or refute ..."
+b	irScalarBuilder.subtestsRowFunc | note | "a `subtests` row graph that does not lint: " + err.Error()#1	irsubtests.go:112	-	defensive fence: a lint failure is a producer bug
+c	irScalarBuilder.supervisorSpawn | false | bl.rowsUnrecorded(t) ¦¦ namedArgNode(t.Args) != nil ¦¦ len(t.Args) != 2#1	irsupervisor.go:48	-	pinned as gapSupervisorSpawnNamedArg (reason: a named argument)
+c	irScalarBuilder.supervisorSpawn | false | !isLambda ¦¦ len(lam.Params) != 0#1	irsupervisor.go:52	-	pinned as gapSupervisorSpawnNamedFn (reason: qualified call, Type.method: Supervisor.spawn)
+c	irScalarBuilder.supervisorSpawn | false | !app#1	irsupervisor.go:62	-	pinned as gapSupervisorSpawnFieldOperand (reason: qualified call, Type.method: Supervisor.spawn)
+a	irScalarBuilder.supervisorSpawn | false | unguarded#1	irsupervisor.go:65	irbuild	
+b	irScalarBuilder.supervisorSpawn | false | !ok ¦¦ !irSupervisorKind(sk)#1	irsupervisor.go:69	-	propagation: the checker types the operand Supervisor; ok is false only when it declined itself
+b	irScalarBuilder.supervisorSpawn | false | !ok ¦¦ funcResult(fk) != kindUnit#1	irsupervisor.go:73	-	checker types the body as () -> Unit (std: `body: () -> Unit`)
+b	irScalarBuilder.supervisorSpawn | false | !built#1	irsupervisor.go:77	-	defensive fence: Task<Unit>'s handle always builds
+b	irScalarBuilder.stdShortCallPlan | false | f != nil#1	irsupervisor.go:186	-	defensive fence: stdShortCallShape already required exactly one lowerable candidate
+b	irScalarBuilder.stdShortCallPlan | false | f == nil ¦¦ f.decl == nil#1	irsupervisor.go:192	-	defensive fence: stdShortCallShape already required one lowerable candidate with a declaration
+b	irScalarBuilder.stdShortCallPlan | false | !planned#1	irsupervisor.go:200	-	checker rejects unknown or duplicate named arguments, so argSlotPlan plans every accepted call
+d	irScalarBuilder.stdShortCallPlan | false | !callDefaultFill(f, slot) ¦¦ canon.irSlot[slot] == nil#1	irsupervisor.go:217	-	a hole is always a defaulted slot (checker); could not find a default whose _DEFAULT accessor is not retained
+d	irScalarBuilder.stdShortCallPlan | false | body == nil#1	irsupervisor.go:228	-	could not find a short call whose arity wrapper is not built (Time.new 2 and 3 args with a named hole, String.pad_start, Supervisor.new all lowered)
+d	irScalarBuilder.stdShortCallPlan | false | namedArgNode(t.Args) != nil#1	irsupervisor.go:252	-	named args in a short call that is the assertion subject itself (`assert Time.new(1, 2, nanosecond: 5)`) lowered; could not reach the qualRecord==t branch with a named arg
+d	irScalarBuilder.stdShortCallPlan | false | !irSlotSignature(prefix.kinds, f.params[:slot], f.params[slot])#1	irsupervisor.go:265	-	could not find a defaulted std call whose operand kinds differ from the declared params
+d	irScalarBuilder.stdShortCallPlan | false | !irSlotSignature(args.kinds, f.params[:width], f.result)#1	irsupervisor.go:275	-	same as line 265
+a	irScalarBuilder.stdShortCall | false | g.std == nil ¦¦ (g.stdModule != "" && !bl.stdTestOwnType()) ¦¦ bl.rowsUnrecorded(t)#1	irsupervisor.go:306	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdShortCallShape | false | bl.g.std == nil#1	irsupervisor.go:325	irbuild	
+a	irScalarBuilder.stdShortCallShape | false | local#1	irsupervisor.go:329	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdShortCallShape | false | local#2	irsupervisor.go:332	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdShortCallShape | computed | return len(fs) == 1 && fs[0].lowerable() && len(t.Args) < len(fs[0].params)#1	irsupervisor.go:336	expect,irbuild,projectgen,vmhost	
+c	irScalarBuilder.supervisorSpawnAll | false | bl.rowsUnrecorded(t) ¦¦ namedArgNode(t.Args) != nil ¦¦ len(t.Args) != 3#1	irsupervisor.go:379	-	pinned as gapSupervisorSpawnAllNamedArg (reason: a named argument)
+b	irScalarBuilder.supervisorSpawnAll | false | !args.ok ¦¦ !irSupervisorKind(args.kinds[0])#1	irsupervisor.go:383	-	propagation/checker: operands are checker-typed and the first is Supervisor
+c	irScalarBuilder.supervisorSpawnAll | false | src.tag != tagList ¦¦ src.comp == nil#1	irsupervisor.go:387	-	pinned as gapSupervisorSpawnAllIterSource (reason: qualified call, Type.method: Supervisor.spawn_all)
+d	irScalarBuilder.supervisorSpawnAll | false | fn.tag != tagFunc ¦¦ fn.comp == nil ¦¦ len(funcParams(fn)) != 1 ¦¦ funcParams(fn)[0] != el…#1	irsupervisor.go:391	-	a function over an existential (`show(x: Display)`) with Int rows lowered; could not find an accepted function whose parameter differs from the element
+b	irScalarBuilder.supervisorSpawnAll | false | !built#1	irsupervisor.go:395	-	defensive fence: Task<Unit>'s handle always builds
+b	irScalarBuilder.supervisorSpawnAll | false | result == kindInvalid#1	irsupervisor.go:400	-	defensive fence: List<Task<Unit>> is always interned
+b	gen.irTestBodyBuild | note | "a case the builder refused: " + c.refusedBy#1	irtestbody.go:144	-	refusals come from an unreadable clock clause (checker.checkTestClock rejects first), a non-test statement in a group body (parser rejects), or prompt cases of an imported module, which no check or run builds (tried prompt_import/)
+b	gen.irTestBodyBuild | note | "an empty test body"#1	irtestbody.go:147	-	checker rejects: "test block must contain at least one assert or refute"
+b	gen.irTestBodyBuild | note | "a test on a synthesized line"#1	irtestbody.go:150	-	defensive fence: only synthesized test cases have a non-emittable line; source tests always have one
+a	gen.irTestBodyBuild | note | "a `group` setup outside the retained shape"#1	irtestbody.go:155	irbuild	
+c	irScalarBuilder.testStmts | note | "a test-body region that leaves, outside the shape"#1	irtestbody.go:365	-	pinned as gapSetupLeavingBinding (reason: a test-body region that leaves, outside the shape)
+a	irScalarBuilder.testStmts | note | fmt.Sprintf("a test-body statement outside the shape: %T", s)#1	irtestbody.go:374	irbuild	
+a	irScalarBuilder.testLeaving | false | unguarded#1	irtestbody.go:416	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.testLeaving | false | isStmt && region == e && !endless#1	irtestbody.go:424	irbuild	
+c	irScalarBuilder.testLeaving | false | bl.setupExit != nil ¦¦ bl.recording > 0#1	irtestbody.go:428	-	pinned as gapSetupLeavingBinding (reason: a test-body region that leaves, outside the shape)
+b	irScalarBuilder.testStmt | false | !emittableLine(line)#1	irtestbody.go:471	-	defensive fence: source statements always carry an emittable line
+b	irScalarBuilder.testStmt | false | isNilNode(st.Expr)#1	irtestbody.go:516	-	defensive fence: the parser never builds an ExprStmt with a nil expression
+c	irScalarBuilder.testStmt | note | fmt.Sprintf("a test-body statement form: %T", s)#1	irtestbody.go:539	-	pinned as gapTestLocalImpl (reason: a test-body statement form: *ast.ImplBlock)
+b	irScalarBuilder.testReturn | note | "a return in a test body the builder reads back"#1	irtestbody.go:556	-	defensive fence: testStmt is only reached from test-body statement runs, never while an assertion subject is recording (subject blocks go through leading, not testStmt)
+b	irScalarBuilder.testRegion | note | "an `if` or `case` statement in a test body the builder reads back"#1	irtestbody.go:609	-	defensive fence: same as line 556
+b	irScalarBuilder.testBlock | note | "a test-body block in a body the builder reads back"#1	irtestbody.go:628	-	defensive fence: same as line 556
+b	irScalarBuilder.testBinding | note | "an annotated or discarded test-body binding"#1	irtestbody.go:717	-	defensive fence: testBinding is only reached from testStmt, whose builders (test body, setup, subtests row) all have inTest set, and a discard is handled above
+d	irScalarBuilder.testBinding | note | "a test-body binding that shadows or rebinds: " + b.Name#1	irtestbody.go:728	-	shadowing a `once` and rebinding setup/row pattern names all lowered; could not find a name g.lookup sees that the checker lets a test binding reuse
+c	irScalarBuilder.testAssertionBinding | note | "a test-body binding that shadows or rebinds: " + b.Name#1	irtestbody.go:780	-	pinned as gapTestAssertionBindingRebind (reason: a test-body binding that shadows or rebinds: v)
+c	irScalarBuilder.testPipeStages | note | "a defined-as block over a pipe whose stages are not its spine"#1	irtestbody.go:818	-	pinned as gapTestPipeBindingNestedPipe (reason: a defined-as block over a pipe whose stages are not its spine)
+b	irScalarBuilder.assertionValue | false | t.Check ¦¦ isNilNode(t.Expr)#1	irtestbody.go:890	-	defensive fence: nothing in the parser or analysis sets Assertion.Check, and the parser requires an expression
+c	irScalarBuilder.assertionValue | note | "an assertion row over a Type witness"#1	irtestbody.go:909	-	pinned as gapAssertTypeWitnessRow (reason: an assertion row over a Type witness)
+d	irScalarBuilder.assertionValue | note | "an assertion subject that is not a Bool, Maybe, Result or retained Assertable"#1	irtestbody.go:925	-	could not find an Assertable subject type that is not retained
+a	gen.irTestGroup | note | "a test boot that names no entry boot this program lowers"#1	irtestgroup.go:44	irbuild	
+b	gen.irTestStartup | note | "a test boot line that does not pass at most one Startup"#1	irtestgroup.go:105	-	checker rejects: a boot line must call an entry's boot ("`boot` in a `group` calls an entry's boot"), and boot takes at most one Startup
+b	gen.irTestStartup | note | "a test boot line that passes no Startup to a boot whose parameter has no default"#1	irtestgroup.go:120	-	checker rejects: "expected 1 arguments, got 0" for `boot app.boot()` when the parameter has no default
+b	gen.irStartupFunc | note | "a test boot whose Startup parameter has no retained kind"#1	irtestgroup.go:141	-	defensive fence: the boot's parameter is std's Startup struct, which is retained
+d	gen.irStartupFunc | note | "a test boot's Startup argument outside the retained shape"#1	irtestgroup.go:156	-	call, literal, named-argument and if-valued Startup arguments all lowered; could not find one outside the retained shape
+b	gen.irStartupFunc | note | "a test boot startup graph that does not lint: " + err.Error()#1	irtestgroup.go:163	-	defensive fence: a lint failure is a producer bug
+a	irScalarBuilder.recordedQualCall | false | !ok#1	irtestgroup.go:212	irbuild	
+d	irScalarBuilder.recordedQualCall | note | "a qualified call in an assertion subject whose operands no row can name"#1	irtestgroup.go:218	-	String/Map/List/Iter/Display/Int/Debug owner calls and Iter.loop in grouped assertion subjects all lowered; could not find a qualified call that leaves no recorded operands
+b	irScalarBuilder.testingCheck | false | !ok#1	irtestingcheck.go:75	-	defensive fence: std/assertions' AssertionFailure always anchors once testing is imported
+c	irScalarBuilder.testingCheck | note | "a testing.check over a pipe whose stages are not its spine"#1	irtestingcheck.go:93	-	pinned as gapTestingCheckNestedPipe (reason: a testing.check over a pipe whose stages are not its spine)
+c	irScalarBuilder.testingCheck | note | "a testing.check row over a Type witness"#1	irtestingcheck.go:103	-	pinned as gapTestingCheckTypeWitnessRow (reason: a testing.check row over a Type witness)
+d	irScalarBuilder.testingCheck | note | "a testing.check subject that is not a Bool, Maybe, Result or retained Assertable"#1	irtestingcheck.go:116	-	could not find an Assertable subject type that is not retained
+d	irScalarBuilder.testingCheck | note | "a testing.check whose Result<T, AssertionFailure> is outside the retained payloads"#1	irtestingcheck.go:123	-	could not find a subject kind whose Result<T, AssertionFailure> is not retained
+b	irScalarBuilder.testDestructure | note | "a test pattern over a setup with no value"#1	irtestsetup.go:118	-	checker rejects a test pattern in a group with no setup; a setup always yields a value temp (Unit included)
+d	irScalarBuilder.testDestructure | note | "a test pattern the builder did not destructure"#1	irtestsetup.go:141	-	tuple, struct (with a function field) and plain patterns over setups all destructured; could not find one g.destructure refuses
+d	irScalarBuilder.testDestructure | note | "a test pattern name's kind outside the domain: " + bk.nomi()#1	irtestsetup.go:152	-	could not find a pattern name whose kind is outside the domain (function and struct fields lowered)
+d	irScalarBuilder.testSetupReturning | note | "a setup whose value's kind is outside the domain: " + k.nomi()#1	irtestsetup.go:204	-	List, Maybe and Map setups with returns lowered; could not find a setup join kind outside the domain
+b	irScalarBuilder.testSetupReturning | note | "a setup whose value has no IR type: " + k.nomi()#1	irtestsetup.go:212	-	defensive fence: a retained or callable kind always has an IR type
+b	irScalarBuilder.setupValue | note | "a setup's value inside an assertion subject"#1	irtestsetup.go:251	-	defensive fence: setupValue is only reached through testStmt/testReturn, which never run while an assertion subject is recording
+d	irScalarBuilder.setupValue | note | "a setup value whose kind is not the setup's: " + k.nomi() + " vs " + se.k.nomi()#1	irtestsetup.go:270	-	`return []` against List<Int> and `None` against Maybe<Int> lowered; could not find a setup value lowerWant leaves at another kind
+b	irScalarBuilder.setupValue | note | "a bare return in a setup whose value is not Unit"#1	irtestsetup.go:276	-	checker rejects: "return type mismatch: boundary returns Int, got Unit" for a bare return in a non-Unit setup
+b	irScalarBuilder.tupleMakeWant | false | len(t.Items) < 2#1	irtuple.go:42	-	the parser builds no tuple of fewer than two items
+c	irScalarBuilder.tupleMakeWant | false | !ok ¦¦ !irCompositePartKind(k)#1	irtuple.go:57	-	pinned as gapTupleUnitPart (reason: a TupleLit)
+b	irScalarBuilder.tupleRead | false | !ok ¦¦ !irRetainedTupleKind(k) ¦¦ index >= len(k.comp.parts)#1	irtuple.go:79	-	a tuple with a non-retained part cannot be built (irtuple.go:57) and a parameter of that type declines its function before the body
+c	irScalarBuilder.destructureBind | note | "a rebind: " + name#1	irtuple.go:110	-	pinned as gapTupleDestructureRebindsFunction (reason: a rebind: f)
+b	irScalarBuilder.structBinding | note | "a struct destructure outside retained records and structs"#1	irtuple.go:138	-	a struct destructure over a non-struct is a checker error; `{} = set` goes through PatternBinding
+b	irScalarBuilder.structBinding | note | "a struct destructure with a field sub-pattern"#1	irtuple.go:150	-	the parser builds StructDestructure only for flat name/rename fields; nested fields go to PatternBinding
+b	irScalarBuilder.structBinding | false | !found#1	irtuple.go:164	-	checker rejects an unknown record field
+b	irScalarBuilder.structBinding | false | f == nil#1	irtuple.go:170	-	checker rejects an unknown struct field
+b	irScalarBuilder.tupleBinding | note | "a tuple destructure outside the retained tuple domain"#1	irtuple.go:212	-	arity mismatch is a checker error; a non-retained tuple cannot be built or passed (see irtuple.go:79)
+b	irScalarBuilder.tupleBinding | false | !ok ¦¦ !irRetainedTupleKind(k) ¦¦ len(k.comp.parts) != len(t.Bindings)#1	irtuple.go:214	-	same as :212
+b	irScalarBuilder.tupleHashCall | false | len(t.Args) != 1 ¦¦ namedArgNode(t.Args) != nil#1	irtuplehash.go:29	-	probe: returns handled=false and the caller lowers the call as usual
+a	irScalarBuilder.tupleHashCall | false | ft == nil ¦¦ len(ft.Params) != 1 ¦¦ bl.g.project(ft.Params[0]).tag != tagTuple#1	irtuplehash.go:33	expect,irbuild,projectgen,vmhost	
+c	irScalarBuilder.tupleHashCall | false | !sok ¦¦ !irRetainedTupleKind(sk)#1	irtuplehash.go:37	-	pinned as gapTupleHashUnitSlot (reason: a TupleLit)
+b	irScalarBuilder.tupleHashCall | false | ok && k != kindInt#1	irtuplehash.go:79	-	fence: each slot's Hashable.hash answers Int, and the mix is wrapping Int arithmetic
+c	irScalarBuilder.tupleCaseTest | note | "a `case` tuple pattern outside flat Int/String tests with bindings and wildcards"#1	irtuplepattern.go:49	-	pinned as gapTuplePatternCompositeDistinct (reason: a `case` tuple pattern outside flat Int/String tests with bindings and wildcards)
+c	irScalarBuilder.turbofishDispatch | false | len(t.TypeArgs) != 1#1	irturbofish.go:18	-	pinned as gapTurbofishTwoTypeArgs (reason: a turbofish on a call)
+b	irScalarBuilder.turbofishDispatch | false | !qualified ¦¦ fa.Field == nil#1	irturbofish.go:22	-	parser always sets FieldAccess.Field
+c	irScalarBuilder.turbofishDispatch | false | !isType ¦¦ bl.g.fa == nil#1	irturbofish.go:26	-	pinned as gapTurbofishFileQualified (reason: a turbofish on a call)
+c	irScalarBuilder.turbofishDispatch | false | !found ¦¦ sym.Kind != analysis.SymbolInterface#1	irturbofish.go:30	-	pinned as gapTurbofishStdOwner (reason: a turbofish on a call)
+d	irScalarBuilder.turbofishDispatch | false | !simple#1	irturbofish.go:43	-	interface turbofish at List/Maybe/Map lowers; Vector declines earlier inside stdKindQualCall; not found
+a	irScalarBuilder.returnSelfDispatch | false | !qualified ¦¦ fa.Field == nil ¦¦ len(t.TypeArgs) != 0 ¦¦ bl.g.fa == nil#1	irturbofish.go:63	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.returnSelfDispatch | false | !isType#1	irturbofish.go:67	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.returnSelfDispatch | false | owner == nil ¦¦ owner.Kind != analysis.SymbolInterface ¦¦ owner.Name != ti.Name#1	irturbofish.go:74	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.returnSelfDispatch | false | ref == nil ¦¦ ref.ReturnSelf == nil#1	irturbofish.go:78	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.returnSelfDispatch | false | !isMethod ¦¦ selfShapeOf(im.Params, im.ReturnTypeExpr).recvAt() >= 0#1	irturbofish.go:82	-	the checker sets ReturnSelf only for interface methods whose self is in the return alone
+d	irScalarBuilder.returnSelfDispatch | false | k == kindInvalid#1	irturbofish.go:87	-	needs a ReturnSelf type with no representation; not found
+b	irScalarBuilder.userOperatorCall | false | !found ¦¦ lk.def == nil#1	iruseroperator.go:13	-	`%` on a named type is a checker error ("modulo is not defined on Meters"); the other arithmetic ops are all in operIfaceByOp
+a	irScalarBuilder.userOperatorCall | false | rival ¦¦ it == nil ¦¦ !it.lowerable ¦¦ len(it.params) != 2 ¦¦ len(it.params0) != 2 ¦¦ it.p…#1	iruseroperator.go:17	irbuild	
+b	gen.retainedEnumPattern | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irRetainedEnumKind(k.def)#1	irvariantpattern.go:11	-	enumCaseTest calls it only for a retained enum subject
+c	gen.retainedEnumPattern | false | !ok ¦¦ (owner != "" && !g.declaredAs(owner, k.def) && !g.preludeOwns(owner, k.def) && !g.s…#1	irvariantpattern.go:15	-	pinned as gapVariantPatternAliasQualifier (reason: a `case` enum pattern outside retained bare/positional payload tests)
+b	gen.retainedEnumPattern | false | v == nil#1	irvariantpattern.go:19	-	checker rejects an unknown variant
+c	gen.retainedEnumPattern | false | v.kind == "struct"#1	irvariantpattern.go:32	-	pinned as gapStructVariantRecordPayloadPattern (reason: a `case` enum pattern outside retained bare/positional payload tests)
+b	gen.retainedEnumPattern | false | len(v.payloads) != 1#1	irvariantpattern.go:35	-	a positional variant has one payload (a tuple for several)
+b	gen.retainedEnumPattern | false | pk != kindInt#1	irvariantpattern.go:49	-	literal-type rule
+b	gen.retainedEnumPattern | false | pk != kindString#1	irvariantpattern.go:53	-	literal-type rule
+b	gen.retainedEnumPattern | false | pk != kindFloat#1	irvariantpattern.go:57	-	literal-type rule
+b	gen.retainedEnumPattern | false | !isDecimalKind(pk)#1	irvariantpattern.go:61	-	literal-type rule
+b	gen.retainedEnumPattern | false | pk != codepointKind()#1	irvariantpattern.go:65	-	literal-type rule
+b	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !(irNestedPatternKind(pk) ¦¦ irNominalCaseKind(pk))#1	irvariantpattern.go:76	-	Binding is empty when Payload is set; a nested variant/struct payload pattern's kind is an enum, struct, record or distinct over a value (tuple distincts lower here)
+b	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ pk.tag != tagMap ¦¦ !irRetainedMapKind(pk)#1	irvariantpattern.go:82	-	a map payload of a retained enum is a retained map
+b	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !(irRetainedListKind(pk) ¦¦ irListTransportKind(pk))#1	irvariantpattern.go:88	-	a List<tuple distinct> payload makes the enum non-retained (Maybe<List<Pair>> declines as an annotation), so :11 fires first
+c	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !ok#1	irvariantpattern.go:94	-	pinned as gapVariantPayloadTupleCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+c	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !irFieldSubPattern(pat.Payload, pk)#1	irvariantpattern.go:101	-	pinned as gapVariantPayloadAsCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+b	gen.retainedEnumPattern | false | unguarded#1	irvariantpattern.go:104	-	every payload pattern node form the parser builds is a listed case
+b	irScalarBuilder.enumCaseTest | false | !ok#1	irvariantpattern.go:186	-	a non-variant pattern over Bool is a checker error
+b	irScalarBuilder.enumCaseTest | false | !ok ¦¦ (owner != "" && owner != "Bool") ¦¦ (member != "True" && member != "False")#1	irvariantpattern.go:190	-	checker: a Bool pattern names True or False
+b	irScalarBuilder.enumCaseTest | false | !wild && pat.Payload != nil#1	irvariantpattern.go:201	-	checker: True/False carry only a binding
+b	irScalarBuilder.enumCaseTest | false | singleton == kindInvalid#1	irvariantpattern.go:207	-	fence: std/bool's host marker rows always exist
+c	irScalarBuilder.enumCaseTest | note | "a `case` enum pattern outside retained bare/positional payload tests"#1	irvariantpattern.go:230	-	pinned as gapVariantPayloadAsCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+b	irScalarBuilder.variantRecord | note | "a struct-shaped variant's payload outside the retained records: " + k.nomi()#1	irvariantpattern.go:395	-	the fields of a retained enum's struct-shaped variant form a retained record
+b	irScalarBuilder.structVariantCaseTest | false | pat.TypeName == nil ¦¦ k.tag != tagNamed ¦¦ !irRetainedEnumKind(k.def)#1	irvariantpattern.go:415	-	enumCaseTest calls it for a StructPattern only over a retained enum, and the checker requires the head
+c	irScalarBuilder.structVariantCaseTest | false | !ok ¦¦ (owner != "" && !bl.g.declaredAs(owner, k.def) && !bl.g.preludeOwns(owner, k.def) &…#1	irvariantpattern.go:419	-	pinned as gapStructVariantPatternAliasQualifier (reason: a `case` enum pattern outside retained bare/positional payload tests)
+b	irScalarBuilder.structVariantCaseTest | false | v == nil ¦¦ v.kind != "struct"#1	irvariantpattern.go:427	-	checker rejects a brace pattern naming a non-struct variant
+c	irScalarBuilder.structVariantCaseTest | false | idx[i] < 0 ¦¦ !irFieldSubPattern(f.Pattern, v.payloads[idx[i]].k)#1	irvariantpattern.go:438	-	pinned as gapStructVariantFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+c	irScalarBuilder.embeddedStructCaseTest | false | fields[i] == nil ¦¦ !irFieldSubPattern(f.Pattern, fields[i].k)#1	irvariantpattern.go:577	-	pinned as gapEmbeddedStructFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+a	irScalarBuilder.variantBare | false | v.kind != "bare"#1	irvariantvalues.go:666	expect,irbuild,vmhost	
+a	irScalarBuilder.genericVariantBare | false | !ok ¦¦ v.kind != "bare"#1	irvariantvalues.go:680	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.genericVariant | false | field.Field == nil#1	irvariantvalues.go:702	-	the parser always sets a FieldAccess's Field
+a	irScalarBuilder.genericVariant | false | !isTemplate ¦¦ tpl.enumDecl() == nil#1	irvariantvalues.go:714	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.genericVariant | false | !(ty != nil)#1	irvariantvalues.go:727	-	needs a generic variant call with neither a recorded signature nor a checked type; did not find one
+b	irScalarBuilder.genericVariant | false | bl.g.fa == nil#1	irvariantvalues.go:735	-	fence: fa is nil only outside a checked file
+a	irScalarBuilder.genericVariant | false | sym == nil ¦¦ sym.VariantType == nil#1	irvariantvalues.go:739	irbuild	
+a	irScalarBuilder.genericVariant | false | k.tag != tagNamed ¦¦ k.def == nil ¦¦ k.def.genericOf != tpl ¦¦ !irRetainedEnumKind(k.def)#1	irvariantvalues.go:744	expect,irbuild	
+a	irScalarBuilder.genericVariant | computed | return v != nil#1	irvariantvalues.go:747	expect,irbuild,vmhost	
+b	irScalarBuilder.variantCallOf | false | !vok ¦¦ k != v.embeds.inner#1	irvariantvalues.go:849	-	the checker types an embedded distinct's argument as its inner value; tried E.W(circle) widening, lowers
+b	irScalarBuilder.variantCallOf | false | v.kind != "positional" ¦¦ len(call.Args) == 0#1	irvariantvalues.go:859	-	checker: bare variants take no call, positional ones take arguments
+b	irScalarBuilder.variantCallOf | false | pk.tag != tagTuple ¦¦ pk.comp == nil ¦¦ len(pk.comp.parts) != len(call.Args)#1	irvariantvalues.go:866	-	checker arity for a flat tuple payload
+b	irScalarBuilder.variantCallOf | false | !ok ¦¦ k != v.payloads[0].k#1	irvariantvalues.go:877	-	tried embedded-struct, list, Maybe, function-value and tuple payloads that widen: coerceEmpty covers them
+b	irScalarBuilder.variantCallForm | false | len(call.Args) != 1#1	irvariantvalues.go:893	-	checker arity for the record call form
+b	irScalarBuilder.variantFromLit | false | !ok ¦¦ k != named(v.embeds)#1	irvariantvalues.go:909	-	the embedded struct literal is typed by the checker; tried literal and record forms
+d	irScalarBuilder.variantStructLit | false | !ok ¦¦ k.tag != tagNamed ¦¦ k.def == nil#1	irvariantvalues.go:932	-	generic struct variant whose args the checker did not record; `Box.Named({value: 5})` is rejected by the checker (expected T, got Int), so not reached
+a	irScalarBuilder.variantStructLit | false | !found#1	irvariantvalues.go:943	irbuild	
+d	irScalarBuilder.variantStructLitOf | false | !irRetainedEnumKind(d)#1	irvariantvalues.go:952	-	`S.Rec{w: 1, n: 2}` with `typealias S Shape` declines as `a struct literal: S.Rec`; could not tell whether here or at variantStructLit's unlisted !found
+d	irScalarBuilder.variantStructLitOf | false | v == nil ¦¦ !irStructShapedVariant(v)#1	irvariantvalues.go:955	-	same as :952
+b	irScalarBuilder.variantFields | false | target == nil#1	irvariantvalues.go:974	-	checker rejects an unknown field
+b	irScalarBuilder.variantFields | false | dup#1	irvariantvalues.go:977	-	checker rejects a repeated field
+b	irScalarBuilder.variantFields | false | !ok ¦¦ k != target.k#1	irvariantvalues.go:993	-	tried widening field values (Circle into Shape, Some(c), [c]): coerceEmpty covers them
+b	irScalarBuilder.variantFromRecord | false | len(call.Args) != 1 ¦¦ namedArgNode(call.Args) != nil#1	irvariantvalues.go:1009	-	the checker gives the record call form one positional argument
+b	irScalarBuilder.variantFromRecord | false | !ok ¦¦ !irRetainedRecordKind(k)#1	irvariantvalues.go:1013	-	checker rejects a non-record argument (`Shape.Circle(c)`: already a Circle, use it where a Shape is expected)
+b	irScalarBuilder.variantFinish | false | args[i] == ir.NoTemp#1	irvariantvalues.go:1041	-	std-only: goDefault for a Go-declared default
+b	irScalarBuilder.variantFinish | false | p.goDeflt != "" ¦¦ p.deflt == nil ¦¦ d.foreign != ""#1	irvariantvalues.go:1054	-	std-only fence: goDeflt/foreign defaults are handled above
+a	irScalarBuilder.importedVariantCall | false | !ok ¦¦ !irRetainedEnumKind(d) ¦¦ v.kind != "positional" ¦¦ hasNamedArg(call.Args)#1	irvariantvalues.go:1072	irbuild	
+d	irScalarBuilder.vectorMakeOf | false | !irRetainedVectorKind(k) && bl.g.irValType(k) == nil#1	irvector.go:57	-	needs vector items accepted as one element kind whose Vector has no stored type; not found
+c	irScalarBuilder.lowerSameKindItems | false | !accept(want)#1	irvector.go:146	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([main] the builder declined without naming a reason (a compiler bug; please report it))
+c	irScalarBuilder.lowerSameKindItems | false | !ok ¦¦ k != want#1	irvector.go:151	-	pinned as gapVectorCapturedElemWiden (reason: a value of kind Captured<Circle> where Captured<Shape> is expected)
+c	irScalarBuilder.lowerSameKindItems | false | !joined ¦¦ !accept(elem) ¦¦ !bl.widenEmbedded(typedItems, typedValues, typedKinds, elem)#1	irvector.go:182	-	pinned as gapVectorOfFunctions (reason: a VectorLit)
+d	irScalarBuilder.lowerSameKindItems | false | !ok ¦¦ k != elem#1	irvector.go:195	-	needs a deferred bare None in a set or vector whose typed lowering misses the element kind; not found
+b	gen.elemOrders | computed | return (k == kindInt ¦¦ k == kindFloat) && g.compareResolves(at, k, stdEnumKind(stdEnumOrd…#1	lists.go:115	-	only a Range literal or Range walk asks compareResolves about a List element, and irRetainedRangeKind admits no List element, so a non-Int/Float list element never reaches it
+d	gen.irBuildMainFailure | note | "an error type outside the call domain: " + errK.nomi()#1	mainfailure.go:56	-	a main-failure decline never fails nomi check (the VM falls back to structural text), so it cannot be observed; tried Infallible, fn and Iter error types
+d	gen.irBuildMainFailure | note | "an error type with no rendering: " + errK.nomi()#1	mainfailure.go:66	-	same as above: non-blocking and unobservable from nomi check; fn and Iter error types run and print <function>/<iter>
+b	gen.irErrorRenderFunc | false | sh == nil#1	mainfailure.go:87	-	irFuncShellAt returns nil only for a result with no IR type, and the result is String
+b	gen.irErrorRenderFunc | false | err != nil#1	mainfailure.go:124	-	lint fence: builder invariant check
+a	gen.moduleQualifiedType | false | o == nil#1	modulequaltype.go:88	expect,irbuild,projectgen,vmhost	
+a	gen.moduleQualifiedDotted | false | dot <= 0 ¦¦ dot == len(name)-1#1	modulequaltype.go:209	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.ownerFuncRef | false | !ok ¦¦ t.Field == nil#1	ownerfuncref.go:33	-	parser always sets FieldAccess.Field
+b	irScalarBuilder.callFuncValue | false | g.funcValueRefs[ref]#1	ownerfuncref.go:76	-	recursion guard: reached only after the call route already failed for the same reference
+d	irScalarBuilder.selfCtorFuncRef | false | d == nil ¦¦ !irCallOperandKind(d.inner)#1	ownerfuncref.go:99	-	self as constructor value at Int, tuple and Unit distincts lowers; not found
+b	irScalarBuilder.selfCtorFuncRef | false | g.funcValueRefs[t]#1	ownerfuncref.go:103	-	recursion guard, as ownerfuncref.go:76
+d	irScalarBuilder.callFuncValueOf | false | !ok ¦¦ k != result ¦¦ len(child.captures) != 0#1	ownerfuncref.go:138	-	inherent, interface, ctor, generic and std owner function values all lower; not found
+d	irScalarBuilder.callFuncValueOf | note | "an owner function value that does not lint: " + err.Error()#1	ownerfuncref.go:147	-	no lint failure found
+b	gen.checkedValueKinds | false | g.fa == nil#1	ownerfuncref.go:164	-	defensive fence: g.fa always set
+b	gen.checkedValueKinds | false | sym == nil#1	ownerfuncref.go:169	-	the checker records a Reference at every owner-qualified reference
+a	gen.checkedValueKinds | false | ft == nil ¦¦ irUnsolvedType(ft)#1	ownerfuncref.go:176	irbuild	
+d	gen.checkedValueKinds | false | !irCallOperandKind(params[i])#1	ownerfuncref.go:184	-	Unit params are admitted; no out-of-domain param found
+d	gen.checkedValueKinds | false | result != kindUnit && !irCallableValueKind(result)#1	ownerfuncref.go:189	-	no out-of-domain result found
+a	gen.rangeWalks | computed | return g.rangeOrders(elem, at) && g.rangeDiscrete(elem, at)#1	ranges.go:227	expect,irbuild,projectgen,vmhost	
+c	gen.irFileSlotRetain | note | "a destructuring parameter before a defaulted one"#1	siblingdefault.go:107	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([area default 2] a destructuring parameter before a defaulted one)
+d	gen.irFileSlotRetain | note | "a parameter kind outside the call domain: " + k.nomi()#1	siblingdefault.go:113	-	needs a pub fn param kind outside the call domain before a default; not found
+b	gen.irFileSlotRetain | note | "no function shell"#1	siblingdefault.go:130	-	defensive fence: irFuncShellWithCallee returns nil only for a malformed signature the earlier checks exclude
+c	gen.irFileSlotRetain | note | "a default that does not lower"#1	siblingdefault.go:143	-	pinned as gapSiblingDefaultGenericHole (reason: a direct callee that is not lowerable: is_some)
+d	gen.irFileSlotRetain | note | "a default accessor that does not lint: " + err.Error()#1	siblingdefault.go:152	-	no lint failure found
+b	gen.siblingGenericRef | false | f == nil ¦¦ !f.generic ¦¦ f.decl == nil ¦¦ g.reg == nil ¦¦ to < 0 ¦¦ to >= len(g.reg.gens)#1	siblinggeneric.go:62	-	defensive fence: callers pass a generic fileFunc with a valid unit
+b	gen.siblingGenericRef | false | owner == nil ¦¦ owner == g#1	siblinggeneric.go:66	-	defensive fence: the owner unit is another file's gen
+b	gen.siblingGenericRef | false | sig == nil ¦¦ sig.decl != f.decl#1	siblinggeneric.go:70	-	defensive fence: the owner's funcs table holds the same declaration
+b	gen.siblingGenericRef | false | tpl == nil#1	siblinggeneric.go:74	-	defensive fence: a generic owner func always has a mono template
+d	gen.siblingInstanceAt | false | why != "" ¦¦ inst == nil#1	siblinggeneric.go:115	-	needs an owner instance that fails to resolve after monoSolve succeeds; not found
+d	gen.compareResolves | false | !impl.lowerable#1	stdenum.go:1414	-	derive Comparable over Vector/Float/enum/Duration/List fields lowers; needs a synthesized impl whose emission fails
+a	gen.compareResolves | computed | return it != nil && len(it.params) == 2 && it.params[0] == k && it.params[1] == k && it.re…#1	stdenum.go:1417	irbuild	
+a	gen.compareResolves | computed | return scalarCompares(k)#1	stdenum.go:1428	irbuild	
+a	irScalarBuilder.stdInstCallAt | false | f == nil ¦¦ bl.g.stdInsts == nil#1	stdinst.go:610	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdInstCallAt/no | false | unguarded#1	stdinst.go:616	expect,irbuild,vmhost	
+b	irScalarBuilder.stdInstCallAt | note | "a generic stdlib call with no type parameters to solve: " + f.key#1	stdinst.go:633	-	std-only fence: every usable std generic template declares type parameters
+d	irScalarBuilder.stdInstCallAt | note | "a generic stdlib call whose type arguments are unsolved or outside the domain: " + f.key#1	stdinst.go:678	-	unsolved std generics (Maybe.some?(None), Maybe.to_result(None, e)) fill holes and lower; not found
+a	irScalarBuilder.stdInstCallAt | note | why#1	stdinst.go:693	expect,irbuild,vmhost	
+b	irScalarBuilder.stdInstCall | false | len(t.Args) != len(params)#1	stdinst.go:717	-	no std generic template has defaulted params, and the checker rejects arity mismatches
+d	irScalarBuilder.stdInstCall | false | !pre.ok ¦¦ len(pre.temps) != len(params)#1	stdinst.go:724	-	pre-lowered operands always match the instance arity; not found
+d	irScalarBuilder.stdInstCall | false | !ok ¦¦ k != params[i]#1	stdinst.go:729	-	not found
+d	irScalarBuilder.stdInstCall | false | named#1	stdinst.go:740	-	named args to std generics (Maybe.map(f: ...), Generator.uniform(rest: ...)) lower, so they are reordered before here; not found
+d	irScalarBuilder.stdInstCall | false | !ok ¦¦ k != params[i]#2	stdinst.go:748	-	not found
+a	irScalarBuilder.stdGenericQualCall | false | local && bl.g.stdModule == ""#1	stdinst.go:777	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdGenericQualCall | false | irOwnOperationFamily(owner, method)#1	stdinst.go:781	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdGenericFileCall | false | bl.g.stdInsts == nil#1	stdinst.go:793	irbuild	
+a	irScalarBuilder.stdGenericFileCall | false | isSibling#1	stdinst.go:797	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdGenericFileCall | false | f == nil#1	stdinst.go:809	expect,irbuild,vmhost	
+a	irScalarBuilder.stdGenericSiblingCall | false | g.stdModule == "" ¦¦ g.stdInsts == nil#1	stdinst.go:857	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.stdKindQualCall | false | !qualified ¦¦ fa.Field == nil#1	stdinst.go:916	-	parser always sets FieldAccess.Field
+c	irScalarBuilder.stdKindQualCall | false | base == ""#1	stdinst.go:946	-	pinned as gapNestedGenericBoundCallTuple (reason: qualified call, Type.method: T.to_string)
+d	irScalarBuilder.stdKindQualCall | false | f == nil#1	stdinst.go:950	-	bounded calls at List/Map/Set/Vector/Maybe/Result for Display/Equatable/Hashable lower; not found
+c	irScalarBuilder.kindImplCall | false | plan == nil#1	stdinst.go:1035	-	pinned as gapGenericBoundImplOtherFile (reason: qualified call, Type.method: T.to_string)
+a	irScalarBuilder.stdTestOwnType | false | bl.g.stdModule == ""#1	stdtests.go:179	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.stdTestOwnType | false | unguarded#1	stdtests.go:186	expect,irbuild,projectgen,vmhost	
+c	irScalarBuilder.testImport/no | note | "an `import` in a block that rebinds a name the module scope binds differently"#1	stdtests.go:208	-	pinned as gapTestImportRebind (reason: an `import` in a block that rebinds a name the module scope binds differently)
+a	irScalarBuilder.stdOwnFileQualifier | false | !bl.stdTestOwnType() ¦¦ g.fa == nil ¦¦ owner != path.Base(g.stdModule)#1	stdtests.go:256	irbuild	
+b	irScalarBuilder.stdOwnFileQualifier | false | !(scope != nil && scope == g.fa.ModuleScope)#1	stdtests.go:261	-	std-only fence: only a stdlib module's own test bodies reach it (stdTestOwnType)
+a	gen.importedVariantAt | false | !ok ¦¦ ref.Resolved == nil#1	variantalias.go:100	expect,irbuild,projectgen,vmhost	
+a	gen.importedVariantAt | false | decl.Kind != analysis.SymbolEnumVariant#1	variantalias.go:107	expect,irbuild,projectgen,vmhost	
+c	gen.importedVariantAt | false | !isEnum ¦¦ irUnsolvedType(et)#1	variantalias.go:115	-	pinned as gapImportedVariantUnsolved (reason: a type name in value position: Empty)
+b	gen.importedVariantAt | false | !ok ¦¦ de.Origin != et.Origin ¦¦ de.Name != et.Name#1	variantalias.go:124	-	checker resolves the imported name to that enum's variant, so the checked type is that enum (fence)
+a	gen.importedVariantAt | false | strings.HasPrefix(et.Origin, "std/")#1	variantalias.go:131	expect,irbuild	
+d	gen.importedVariantAt | false | k.tag != tagNamed ¦¦ k.def == nil#1	variantalias.go:135	-	whether project of an unlowerable sibling enum answers a non-named kind here or a named unlowerable def was not determined
+b	gen.importedVariantAt | false | v == nil#1	variantalias.go:139	-	the checker resolved the variant from this enum's declaration, so the def has it

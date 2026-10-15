@@ -30,7 +30,13 @@ type loweringGap struct {
 	// alsoSkip are other reasons the same cause declines with, in other
 	// shapes the fuzzer finds; the fuzz target skips them too.
 	alsoSkip []string
-	src      string
+	// noSkip marks a reason the builder derives from the node alone
+	// (declineReason: "a named argument", "a ListLit", "qualified call,
+	// Type.method: Iter.map"), which unrelated declines share. The fuzz
+	// target does not excuse a decline by it, so a new cause behind the
+	// same node still fails there.
+	noSkip bool
+	src    string
 }
 
 var knownLoweringGaps = []loweringGap{
@@ -109,7 +115,7 @@ func knownGapFor(reasons []string) *loweringGap {
 		var match *loweringGap
 		for i := range knownLoweringGaps {
 			gap := &knownLoweringGaps[i]
-			if gap.panics {
+			if gap.panics || gap.noSkip {
 				continue
 			}
 			for _, want := range append([]string{gap.reason}, gap.alsoSkip...) {
