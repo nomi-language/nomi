@@ -523,7 +523,7 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 	if isType && ti.Name == "Iter" && method == "reduce" {
 		return bl.iterReduceCall(t)
 	}
-	if isType && ti.Name == "Struct" && method == "update" {
+	if isType && ti.Name == "Struct" && method == "update" && !bl.g.isBoundTypeParam("Struct") {
 		return bl.structUpdateCall(t)
 	}
 	if signalOwner && method != "reduce" && callbackCarriesSignal(t.Args[1]) {

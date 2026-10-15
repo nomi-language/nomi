@@ -437,6 +437,15 @@ func (g *gen) genericSubstKind(name string) (kind, bool) {
 	return kindInvalid, false
 }
 
+// isBoundTypeParam reports whether name is a type parameter of the instance
+// being built (`Struct` in `fn bump<Struct>(p: Struct)`), which a qualified
+// call spells as that instance's argument, never as the std name it
+// shadows (`Struct.update`).
+func (g *gen) isBoundTypeParam(name string) bool {
+	_, bound := g.genericSubstKind(name)
+	return bound
+}
+
 // --- reading an annotation, an inferred type and a literal -------------------
 
 // userGenericTypeOf reads the annotation `Box<Inner>`, declining when the name

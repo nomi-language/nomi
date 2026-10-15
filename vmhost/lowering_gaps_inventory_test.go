@@ -2419,36 +2419,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapTypeParamNamedStruct",
-		fix:    "builder: type param named struct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | bound#1",
-		reason: "qualified call, Type.method: Struct.update",
-		noSkip: true,
-		src: `import std/io
-
-interface Up {
-    fn update(a: self, b: {x: Int}): self
-}
-
-struct P {
-    x: Int
-}
-
-impl Up for P {
-    fn update(_a: P, b: {x: Int}): P {
-        P{x: b.x}
-    }
-}
-
-fn bump<Struct>(p: Struct): Struct where Struct: Up {
-    Struct.update(p, {x: 2})
-}
-
-fn main() {
-    io.print(bump(P{x: 1}).x)
-}
-`,
-	},
-	{
 		name:   "gapUpdateBaseDeclines",
 		fix:    "builder: update base declines. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | !ok ¦¦ !irRetainedUpdateKind(k)#2",
 		reason: "the comparison operator `==`",
