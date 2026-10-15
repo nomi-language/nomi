@@ -248,6 +248,8 @@ fn demo(): Int {
 		}
 	}
 	wantRecorded(t, fa, "Binary", 2, "Iter<T>", "List<T>")
-	wantRecorded(t, fa, "Lambda", 5, "(Maybe<T>, T) -> Infallible")
+	// `break Some(x)` is `return Some(x)` then stop, so the callback's
+	// result is the accumulator's type.
+	wantRecorded(t, fa, "Lambda", 5, "(Maybe<T>, T) -> Maybe<T>")
 	wantNoTypeParamsBetween(t, fa, 7, 9)
 }

@@ -315,12 +315,11 @@ fn demo(): Int {
 		"`try` cannot propagate a Result out of a concurrent block whose result is Int")
 }
 
-// The divergent body: a lambda whose body only ever `break`s has result type
-// Infallible, which is the bottom type and has no result to disagree with.
-// This is the shape TypesEqual gets WRONG — it treats Infallible as compatible
-// with everything, so a TypesEqual-based guard here silenced every boundary,
-// including the conflicting-error-types one. Pointer identity is the test.
-func TestTryBoundary_DivergentLambdaBodyIsExempt(t *testing.T) {
+// A callback whose body only `break`s still has a result: `break value` is
+// `return value` then stop (spec §12), so `break v` with v an Int makes the
+// `Iter.loop` callback's result Int, and a `try` there has no Result or
+// Maybe to propagate into (spec §9, clause 1).
+func TestTryBoundary_BreakOnlyLambdaBodyHasTheBreakValuesResult(t *testing.T) {
 	src := `fn parse(n: Int): Result<Int, String> {
   Ok(n)
 }
@@ -330,8 +329,25 @@ fn demo(): Int {
     break v
   })
 }`
+	expectConcurrentError(t, analyzeConcurrentRaw(src),
+		"`try` cannot propagate a Result out of a lambda whose result is Int")
+}
+
+// The same loop over a Result state holds the `try`: the break value is the
+// Result the propagated Err inhabits.
+func TestTryBoundary_BreakOnlyLambdaBodyWithAResultHoldsTheTry(t *testing.T) {
+	src := `fn parse(n: Int): Result<Int, String> {
+  Ok(n)
+}
+fn demo(): Result<Int, String> {
+  Iter.loop(|acc: Result<Int, String> = Ok(0)| {
+    v = try parse(Result.with_default(acc, 0))
+    break Ok(v)
+  })
+}`
 	errs := analyzeConcurrentRaw(src)
 	expectNoConcurrentError(t, errs, "cannot propagate")
+	expectNoConcurrentError(t, errs, "mismatch")
 }
 
 // An `assert` inside a `concurrent` block exits the block as

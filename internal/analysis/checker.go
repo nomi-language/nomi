@@ -12979,12 +12979,12 @@ func (c *checker) checkBreak(n *ast.Break) Type {
 			subs := map[*TypeParam_]Type{}
 			if err := c.unify(c.iterBreakTy, vTy, subs); err != nil {
 				c.addMismatch(n.Line, n.Col, c.iterBreakTy, vTy, c.typef("break value type mismatch: expected %s, got %s", c.iterBreakTy, vTy))
-			} else if c.returnUnwinds != nil && containsTypeVar(vTy) {
-				// `break value` is `return value` then stop, so a value
-				// whose type is still open joins the callback's result with
-				// its tail and returns: a `break []` before `break [x]` in
-				// an `Iter.map` callback is a `List<Int>`, as it would be
-				// written as a `return`.
+			} else if c.returnUnwinds != nil {
+				// `break value` is `return value` then stop (spec §12), so
+				// the value joins the callback's result with its tail and
+				// returns: a `break []` before `break [x]` in an `Iter.map`
+				// callback is a `List<Int>`, and a `break "s"` in one whose
+				// tail is an Int is a mismatch, as the same `return` is.
 				*c.returnUnwinds = append(*c.returnUnwinds, boundaryReturn{ty: vTy, line: n.Line, col: n.Col, isBreak: true})
 			}
 		}
