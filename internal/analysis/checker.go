@@ -17282,7 +17282,10 @@ func resolveConcreteImplMatching(idx *ProjectImplIndex, ifaceName, ifaceKey, met
 			continue
 		}
 		if match != nil {
-			if match.Line != fn.Line || match.Col != fn.Col {
+			// Two impls of two files are two impls even at one position:
+			// a file copied from another holds its impls where the other
+			// does.
+			if match.Line != fn.Line || match.Col != fn.Col || idx.ImplFiles[match] != idx.ImplFiles[fn] {
 				return nil // genuinely ambiguous — two distinct impls match
 			}
 			continue // duplicate pointer to the same source impl
@@ -17328,7 +17331,7 @@ func resolveConcreteImplExternMatching(idx *ProjectImplIndex, ifaceName, ifaceKe
 			continue
 		}
 		if match != nil {
-			if match.Line != ext.Line || match.Col != ext.Col {
+			if match.Line != ext.Line || match.Col != ext.Col || idx.ImplExternFiles[match] != idx.ImplExternFiles[ext] {
 				return nil // genuinely ambiguous — two distinct externs match
 			}
 			continue // duplicate pointer to the same source impl
