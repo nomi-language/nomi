@@ -418,6 +418,38 @@ document. Such a failure may be a bug that was already there and that day's
 inputs found, not one the change under test made: check it on `next`
 before blaming the change, then fix it or pin it as a known gap.
 
+**Scale.** `internal/projectgen` generates a multi-file project from a seed
+and a line count: hub files most files import, unit files of 50 to 300
+lines in clusters with chains and import cycles, an entry and test files.
+Every project checks with no diagnostic, runs, and passes its tests
+(`TestGeneratedProjectsAreClean`, at about 1k and 10k lines). To open one
+in an editor:
+
+```
+NOMI_GENPROJECT_DIR=/tmp/gen NOMI_GENPROJECT_LINES=50000 go test ./internal/projectgen -run TestWriteGeneratedProject -count=1 -v
+```
+
+`TestEditWorkStaysFlatAsAProjectGrows` (`internal/analysis`, under a
+second) counts the files whose bodies each kind of edit re-checks
+(`BodyChecksForTest`) at about 1k and 10k lines: a body-only edit
+re-checks the edited file alone, and a signature edit the edited file and
+the files that import it. It also counts the program-wide passes' visits
+to project files (`CountProgramWorkForTest`), and pins, each with a
+comment, the work that still grows with the project: the reductions a
+body-only edit reruns over every file, the full check after an impl is
+added, and the recordings a dependents recheck scans. The table of time and allocations per operation (check cold and
+warm, `nomi check`, the language server's edits and lowering, `nomi run`,
+the heap a kept program holds) at 1k, 10k and 50k lines and on the stdlib
+takes about two minutes:
+
+```
+NOMI_SCALE_TABLE=1 go test ./internal/scalebench -run TestScaleTable -count=1 -v -timeout 0
+```
+
+`NOMI_SCALE_SIZES=1000,10000` picks the sizes. The same operations are Go
+benchmarks for profiling one: `go test ./internal/scalebench -run '^$'
+-bench 'Scale/50000/signature_edit_hub' -cpuprofile cpu.out`.
+
 CI (`.github/workflows/test.yml`, on pushes to `main` and on pull requests)
 runs `go vet ./...` and `go test ./...` with `internal/irbuild` as its own
 job, builds the tour bundle and runs `TestTourWasm*` against it, and runs
