@@ -69,3 +69,47 @@ fn main() {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s", got.exit, got.stdout, got.stderr)
 	}
 }
+
+// A block-local struct may name a type an import at the top of its block
+// binds, as an expression in the block may.
+func TestBlockImport_ABlockLocalTypeNamesIt(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+
+fn main() {
+    import b.B
+    struct Local {
+        x: B
+    }
+    io.inspect(Local{x: B{v: 3}})
+}
+`, "Local{x: B{v: 3}}\n", map[string]string{"b.nomi": `pub struct B {
+    v: Int
+}
+`})
+}
+
+// The same, where the imported file names a type of the importing one: the
+// two files' types refer to each other only through the block's import, so
+// the import graph and the type groups must count it (nomiImportGraph,
+// typeDeclEdges), or the field's type is refused as a sibling type cycle.
+func TestBlockImport_ClosesATypeCycle(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+
+pub struct A {
+    n: Int
+}
+
+fn main() {
+    import b.B
+    struct Local {
+        x: B
+    }
+    io.inspect(Local{x: B{a: A{n: 1}}})
+}
+`, "Local{x: B{a: A{n: 1}}}\n", map[string]string{"b.nomi": `import main.A
+
+pub struct B {
+    a: A
+}
+`})
+}

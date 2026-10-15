@@ -1254,6 +1254,13 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		}
 		return kindInvalid
 	}
+	if d, isImported := g.blockImportedNamed(st.Name); isImported {
+		// A type an enclosing block's import binds. See bindBlockImports.
+		if d.lowerable {
+			return named(d)
+		}
+		return kindInvalid
+	}
 	if d, found := g.types[st.Name]; found {
 		if d.lowerable {
 			return named(d)

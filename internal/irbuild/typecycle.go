@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -48,9 +49,9 @@ import (
 // only groups a file that did not need it, and the phases build such a file's
 // types as its own buildTypes would. A demand the edges miss would be refused
 // as `sibling file type cycle`, as every cycle was before groups existed. Names
-// are resolved through the file's module scope; a block-local type naming a
-// block-level import would be missed, but the checker does not resolve such a
-// name today.
+// are resolved through the checker's reference at each name, then through the
+// file's module scope, so a block-local type naming a type an import at the
+// top of its block binds is an edge too (typeRefOwnerAt).
 
 // typeGroupState is how far a type group's build has gone.
 type typeGroupState int
@@ -381,11 +382,11 @@ func (g *gen) typeDeclEdges() []int {
 		ast.Inspect(n, func(m ast.Node) bool {
 			switch t := m.(type) {
 			case *ast.SimpleType:
-				add(g.typeRefOwner(t.Name))
+				add(g.typeRefOwnerAt(t.Name, t.Line, t.Col))
 			case *ast.GenericType:
-				add(g.typeRefOwner(t.Name))
+				add(g.typeRefOwnerAt(t.Name, t.Line, t.Col))
 			case *ast.TypeIdent:
-				add(g.typeRefOwner(t.Name))
+				add(g.typeRefOwnerAt(t.Name, t.Line, t.Col))
 			case *ast.QualifiedType:
 				var member string
 				switch mt := t.Member.(type) {
@@ -410,6 +411,19 @@ func (g *gen) typeDeclEdges() []int {
 		})
 	}
 	return out
+}
+
+// typeRefOwnerAt is typeRefOwner for the type name written at line:col,
+// resolved first through the checker's reference there, which also sees a name
+// an import at the top of an enclosing block binds (`import b.B`, then a
+// block-local `struct Local { x: B }`).
+func (g *gen) typeRefOwnerAt(name string, line, col int) *typeOwner {
+	if g.fa != nil {
+		if o := g.ownerOfSymbol(resolveSymbol(g.fa.References[analysis.Pos{Line: line, Col: col}])); o != nil {
+			return o
+		}
+	}
+	return g.typeRefOwner(name)
 }
 
 // typeRefOwner is the other file's declaration a type name in this file

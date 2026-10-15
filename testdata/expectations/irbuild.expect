@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 366
+records 368
 declared-cases 0
-failing 74
+failing 76
 C assert_subject_test.nomi@76e4dc034f8c1f74
 E 1
 N 0
@@ -380,6 +380,44 @@ T       Date.new(y)
 T         = Date{day: 1, month: 1, year: 2026}
 T test result: FAILED. 2 passed, 1 failed
 T
+C control_test.nomi@1e179a1c693a963e
+E 1
+N 0
+H 7b737a4b721f474087a7d3508b2f622bc13b3d7a70ee447150437238298a8a10
+S -- control_test.nomi 426 --
+S struct Duration {
+S     ms: Int
+S }
+S
+S impl Duration {
+S     fn seconds(n: Int): Duration {
+S         Duration{ms: n * 7}
+S     }
+S }
+S
+S test "a block import that rebinds a module-level name" {
+S     import std/duration.Duration
+S     d: Duration = Duration.seconds(1)
+S     assert d == Duration.milliseconds(1000)
+S     assert Duration.as_millis(d) == 999
+S }
+S
+S test "the module-level name outside the block" {
+S     assert Duration.seconds(1).ms == 7
+S }
+S
+S
+T FAIL <dir>/control_test.nomi :: a block import that rebinds a module-level name
+T   line 15: assertion failed
+T     assert Duration.as_millis(d) == 999
+T     values:
+T       d
+T         = Duration(1000000000)
+T       Duration.as_millis(d)
+T         = 1000
+T ok <dir>/control_test.nomi :: the module-level name outside the block
+T test result: FAILED. 1 passed, 1 failed
+T
 C control_test.nomi@22bb5f972224f501
 E 1
 N 0
@@ -558,6 +596,27 @@ S
 S
 T ok <dir>/control_test.nomi :: a literal argument
 T test result: ok. 1 passed, 0 failed
+T
+C control_test.nomi@6960112d30ff227d
+E 1
+N 0
+H 76f79c6671bf9a0999bd3ce3ede1e9e65310b5fc3919ba045cb75b50fe6a440d
+S -- control_test.nomi 166 --
+S import std/maybe.Maybe.{with_default}
+S
+S test "bare prelude methods in an assertion" {
+S     assert with_default(Some(1), 2) == 1
+S     assert with_default(None, 2) == 3
+S }
+S
+S
+T FAIL <dir>/control_test.nomi :: bare prelude methods in an assertion
+T   line 5: assertion failed
+T     assert with_default(None, 2) == 3
+T     values:
+T       with_default(None, 2)
+T         = 2
+T test result: FAILED. 0 passed, 1 failed
 T
 C control_test.nomi@723b91e98ef8baee
 E 1

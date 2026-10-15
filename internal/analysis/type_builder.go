@@ -820,6 +820,11 @@ func buildNestedFuncTypes(fa *FileAnalysis, reg *TypeRegistry, node ast.Node) []
 	case *ast.Block:
 		// Build a child registry containing this block's nested type defs,
 		// then process the block's statements with that registry visible.
+		// Both see the types the block's own imports bind, as the checker's
+		// walk of the block does (enterBlockImports).
+		if imported := blockImportTypes(fa, reg, n); imported != nil {
+			reg = imported
+		}
 		childReg, typeErrs := buildBlockNestedTypes(fa, reg, n)
 		errs = append(errs, typeErrs...)
 		for _, stmt := range n.Stmts {

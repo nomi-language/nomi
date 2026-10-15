@@ -16,7 +16,6 @@ import (
 // and this test would say nothing about lowering.
 func TestCheck_ReportsWhatTheCompilerCannotLower(t *testing.T) {
 	path := writeProgram(t, `import std/io
-import std/iter.Iter.{find}
 
 fn skip_odd(n: Int): Int {
   if n % 2 == 1 {
@@ -37,7 +36,7 @@ fn evens(xs: List<Int>): List<Int> {
 }
 
 fn first_big(xs: List<Int>): Maybe<Int> {
-  find(xs, is_big)
+  Iter.find(xs, f: is_big)
 }
 
 fn unused(xs: List<Int>): Maybe<Int> {
@@ -60,9 +59,9 @@ fn main() {
 		hint      string
 	}
 	wants := []want{
-		{19, 20, "this call to `skip_odd` is not supported yet, so `fn evens` cannot run",
+		{18, 20, "this call to `skip_odd` is not supported yet, so `fn evens` cannot run",
 			"`skip_odd` uses break or continue, so pass it as the callback itself"},
-		{23, 12, "using `is_big` here is not supported yet, so `fn first_big` cannot run",
+		{22, 20, "using `is_big` here is not supported yet, so `fn first_big` cannot run",
 			"runs as a callback only when the iteration function is named with its owner, as in `Iter.find(xs, is_big)`"},
 	}
 	if len(ds) != len(wants) {
@@ -103,17 +102,15 @@ fn main() {
 }
 
 // When `main` itself cannot be lowered, the report is at the expression it
-// stopped at. The program is gapBareImportedMaybeMethod's reproducer
+// stopped at. The program is gapContextValueUnwitnessable's reproducer
 // (lowering_gaps_inventory_test.go); when that gap is fixed, take another
 // known gap whose decline sits in `main`.
 func TestCheck_ReportsADeclinedMainAtTheExpression(t *testing.T) {
-	path := writeProgram(t, `import {
-    std/io
-    std/maybe.Maybe.{with_default}
-}
+	path := writeProgram(t, `import std/io
+import std/duration.Duration
 
 fn main() {
-    io.inspect(with_default(Some(1), 2))
+    io.inspect(Context.value(Context.root(), Duration))
 }
 `)
 	err := vmhost.Check(path)
@@ -121,7 +118,7 @@ fn main() {
 	if !errors.As(err, &ds) || len(ds) != 1 {
 		t.Fatalf("Check answered %v; want one diagnostic", err)
 	}
-	if d := ds[0]; d.Line != 7 || d.Col != 16 || d.Message != "this call to `with_default` is not supported yet, so `fn main` cannot run" {
+	if d := ds[0]; d.Line != 5 || d.Col != 16 || d.Message != "this call to `Context.value` is not supported yet, so `fn main` cannot run" {
 		t.Errorf("got %d:%d %q", d.Line, d.Col, d.Message)
 	}
 }

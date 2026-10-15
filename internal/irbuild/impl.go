@@ -1604,6 +1604,13 @@ func (g *gen) qualifierKind(owner string) kind {
 		}
 		return kindInvalid
 	}
+	if d, isImported := g.blockImportedNamed(owner); isImported {
+		// So does a type an enclosing block's import binds.
+		if d.lowerable {
+			return named(d)
+		}
+		return kindInvalid
+	}
 	if d, found := g.types[owner]; found && d.lowerable {
 		return named(d)
 	}
