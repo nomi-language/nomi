@@ -1740,56 +1740,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapDistinctTupleCallformIterWiden",
-		fix:    "builder: distinct tuple callform iter widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.compositeDistinctMake | false | !ok ¦¦ k != d.inner#1",
-		reason: "a value of kind List<Circle> where Iter<Shape> is expected",
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-type P (Iter<Shape>, Int)
-
-fn main() {
-    c = Circle{r: 1}
-    q = P(([c], 2))
-    P(it, n) = q
-    io.print(Iter.count(it) + n)
-}
-`,
-	},
-	{
-		name:   "gapDistinctTupleIterWiden",
-		fix:    "builder: distinct tuple iter widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.compositeDistinctMake | false | !vok ¦¦ vk != d.inner.comp.parts[i]#1",
-		reason: "a value of kind List<Circle> where Iter<Shape> is expected",
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-type P (Iter<Shape>, Int)
-
-fn main() {
-    c = Circle{r: 1}
-    p = P([c], 1)
-    P(it, n) = p
-    io.print(Iter.count(it) + n)
-}
-`,
-	},
-	{
 		name:   "gapDottedGenericStructLiteral",
 		fix:    "builder: dotted generic struct literal. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structMake | false | tn.Member == nil ¦¦ bl.g.genericTemplates[tn.Module+\".\"+tn.Member.TypeString()] != nil#1",
 		reason: "a struct literal: Tree.Node",
@@ -1865,32 +1815,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapFieldDefaultIterWiden",
-		fix:    "builder: field default iter widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.declDefault | false | !ok ¦¦ k != want#1",
-		reason: "a struct literal: H",
-		noSkip: true,
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-struct H {
-    it: Iter<Shape> = [Circle{r: 1}]
-}
-
-fn main() {
-    h = H{}
-    io.print(Iter.count(h.it))
-}
-`,
-	},
-	{
 		name:   "gapIfaceGapDefaultCrossFile",
 		fix:    "builder: iface gap default cross file. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.ifaceGapDefaults | false | unguarded#1",
 		reason: "a named argument",
@@ -1949,28 +1873,6 @@ impl Shape for Sq {
     fn area(s: Sq, scale: Int = 1, extra: Int = 0): Int {
         s.side * scale + extra
     }
-}
-`,
-	},
-	{
-		name:   "gapIterOfEmbeddingEnumFromList",
-		fix:    "builder: iter of embedding enum from list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.coerceEmpty | false | want.tag == tagSeq && want.comp != nil#1",
-		reason: "a value of kind List<Circle> where Iter<Shape> is expected",
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-fn main() {
-    c = Circle{r: 2}
-    it: Iter<Shape> = [c]
-    io.print(Iter.count(it))
 }
 `,
 	},
@@ -2151,64 +2053,6 @@ fn main() {
     p = P{x: 1}
     q = {..(if ch.sender == ch.sender { p } else { p }), x: 2}
     io.print(q.x)
-}
-`,
-	},
-	{
-		name:   "gapStructSpreadIterFieldWiden",
-		fix:    "builder: struct spread iter field widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structMergeVals | false | !ok ¦¦ vk != fk#1",
-		reason: "a struct literal: <none>",
-		noSkip: true,
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-struct H {
-    it: Iter<Shape>
-    n: Int
-}
-
-fn main() {
-    c = Circle{r: 1}
-    h = H{it: [Shape.Dot], n: 1}
-    h2 = {..h, it: [c]}
-    io.print(Iter.count(h2.it))
-}
-`,
-	},
-	{
-		name:   "gapStructUpdateNamedIterFieldWiden",
-		fix:    "builder: struct update named iter field widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.recordMerge | false | !ok ¦¦ vk != fk#1",
-		reason: "a named argument",
-		noSkip: true,
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-struct H {
-    it: Iter<Shape>
-    n: Int
-}
-
-fn main() {
-    c = Circle{r: 1}
-    h = H{it: [Shape.Dot], n: 1}
-    h2 = Struct.update(updates: {it: [c]}, original: h)
-    io.print(Iter.count(h2.it))
 }
 `,
 	},
