@@ -1,6 +1,7 @@
 package vmhost
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"os"
@@ -24,11 +25,17 @@ import (
 // failure: the front end's errors, which an editor reports from its own
 // analysis, or an *InternalError when the compiler panicked. A stdlib file is
 // not a program and answers nil, nil.
-func CheckLowering(path, src string, opts ...Option) (problems, err error) {
+//
+// When ctx is done the check stops at its next step (after the front end,
+// before each file's declarations and bodies are lowered, before the
+// literals are checked and before the unsupported bodies are looked for)
+// and answers ctx's error as err.
+func CheckLowering(ctx context.Context, path, src string, opts ...Option) (problems, err error) {
 	if _, _, ok := frontend.StdlibFile(path); ok {
 		return nil, nil
 	}
 	cfg := newConfig(opts)
+	cfg.lowering = ctx
 	fc, err := cfg.frontendConfig()
 	if err != nil {
 		return nil, err
@@ -61,11 +68,12 @@ func offeredAnalyzed(path, src string, a *analyzedlowering.Analyzed) bool {
 
 // checkLoweringAnalyzed is analyzedlowering.Check: CheckLowering for a
 // file whose text src the language server has already analyzed as a.
-func checkLoweringAnalyzed(path, src string, a *analyzedlowering.Analyzed) (problems error, ok bool, err error) {
+func checkLoweringAnalyzed(ctx context.Context, path, src string, a *analyzedlowering.Analyzed) (problems error, ok bool, err error) {
 	if _, _, ok := frontend.StdlibFile(path); ok {
 		return nil, true, nil
 	}
 	cfg := newConfig(nil)
+	cfg.lowering = ctx
 	fc, err := cfg.frontendConfig()
 	if err != nil {
 		return nil, true, err
@@ -154,6 +162,9 @@ func loweringProblems(p *Program, src string) (problems, err error) {
 			problems, err = nil, &InternalError{Panic: r, Stack: debug.Stack()}
 		}
 	}()
+	if err := p.cfg.loweringStopped(); err != nil {
+		return nil, err
+	}
 	var found frontend.Diagnostics
 	if lit := p.checkLiterals(); lit != nil {
 		var ds frontend.Diagnostics
@@ -161,6 +172,9 @@ func loweringProblems(p *Program, src string) (problems, err error) {
 			return nil, lit
 		}
 		found = append(found, ds...)
+	}
+	if err := p.cfg.loweringStopped(); err != nil {
+		return nil, err
 	}
 	if u := p.Unsupported(); u != nil {
 		var ds frontend.Diagnostics

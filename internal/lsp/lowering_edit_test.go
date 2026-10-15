@@ -1,6 +1,8 @@
 package lsp
 
 import (
+	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -77,33 +79,44 @@ func TestLoweringOnEdit_ReportedAndClearedWithoutSave(t *testing.T) {
 }
 
 // countingLowering replaces the lowering with one that records each text
-// it lowers for path and reports "<first line> is not supported yet" at
-// the top of it. A text in block waits until it is closed.
+// it lowers for path and reports "<first line> is not supported yet (run
+// <n>)" at the top of it, n counting its runs from 1. A text in block waits
+// until it is closed. The first run of a text in finishStopped waits until
+// the run is stopped and then until the channel is closed, and reports
+// all the same, as a lowering that ends after it was stopped would.
 type countingLowering struct {
-	mu    sync.Mutex
-	path  string
-	texts []string
-	block map[string]chan struct{}
+	mu            sync.Mutex
+	path          string
+	texts         []string
+	block         map[string]chan struct{}
+	finishStopped map[string]chan struct{}
 }
 
 func installCountingLowering(t *testing.T) *countingLowering {
 	t.Helper()
-	cl := &countingLowering{block: map[string]chan struct{}{}}
+	cl := &countingLowering{block: map[string]chan struct{}{}, finishStopped: map[string]chan struct{}{}}
 	saved := checkLoweringFn
-	checkLoweringFn = func(path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (error, error) {
+	checkLoweringFn = func(ctx context.Context, path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (error, error) {
 		cl.mu.Lock()
 		if path != cl.path {
 			cl.mu.Unlock()
 			return nil, nil
 		}
 		cl.texts = append(cl.texts, src)
+		n := len(cl.texts)
 		wait := cl.block[src]
+		finish := cl.finishStopped[src]
+		delete(cl.finishStopped, src)
 		cl.mu.Unlock()
 		if wait != nil {
 			<-wait
 		}
+		if finish != nil {
+			<-ctx.Done()
+			<-finish
+		}
 		first, _, _ := strings.Cut(src, "\n")
-		return frontend.Diagnostics{{Path: path, Line: 1, Col: 1, Message: first + " is not supported yet"}}, nil
+		return frontend.Diagnostics{{Path: path, Line: 1, Col: 1, Message: fmt.Sprintf("%s is not supported yet (run %d)", first, n)}}, nil
 	}
 	t.Cleanup(func() { checkLoweringFn = saved })
 	return cl
@@ -235,9 +248,68 @@ func TestLoweringOnEdit_StaleRunIsDropped(t *testing.T) {
 	if len(runs) != 2 || runs[1] != v2 {
 		t.Fatalf("lowered %q; want v1 and then v2", runs)
 	}
+	if n := s.lowering.stopped.Load(); n != 1 {
+		t.Fatalf("%d runs stopped, want v1's", n)
+	}
 	d := s.lowering.diagnostics(uri)
 	if len(d) != 1 || !strings.Contains(d[0].Message, "// v2") {
 		t.Fatalf("stored lowering diagnostics %+v; want v2's only", d)
+	}
+}
+
+// An edit stops the run in progress of the text it replaced, and that run
+// stores and publishes nothing, even when a later edit has brought the
+// document back to the text it lowered by the time it ends. The run of the
+// text the edits leave publishes.
+func TestLoweringOnEdit_SupersededRunPublishesNothing(t *testing.T) {
+	cl := installCountingLowering(t)
+	v1, v2 := lowerOnEditSource("v1"), lowerOnEditSource("v2")
+	finish := make(chan struct{})
+	cl.finishStopped[v1] = finish
+	dir := writeProject(t, map[string]string{"main.nomi": v1, "nomi.toml": entryToml})
+	cl.path = filepath.Join(dir, "main.nomi")
+	uri := "file://" + cl.path
+	s := NewServer()
+	s.lowering.delay = 20 * time.Millisecond
+	c := startRPC(t, s, dir)
+	c.open(uri, v1)
+	cl.waitRuns(t, 1) // the open's run of v1, waiting to be stopped
+
+	c.change(uri, 2, v2)
+	c.change(uri, 3, v1)
+	waitText(t, s, uri, v1)
+	// The revert's debounced run of v1 queues behind the stopped one.
+	time.Sleep(100 * time.Millisecond)
+	close(finish)
+
+	timeout := time.After(30 * time.Second)
+	for done := false; !done; {
+		select {
+		case p := <-c.diags:
+			if p.uri != uri {
+				continue
+			}
+			for _, m := range p.msgs {
+				if strings.Contains(m, "(run 1)") {
+					t.Fatalf("the stopped run published %q", p.msgs)
+				}
+				if strings.Contains(m, "// v1 is not supported yet (run 2)") {
+					done = true
+				}
+			}
+		case <-timeout:
+			t.Fatalf("the revert's run never published; lowered %q", cl.runs())
+		}
+	}
+	if runs := cl.runs(); len(runs) != 2 || runs[0] != v1 || runs[1] != v1 {
+		t.Fatalf("lowered %q; want v1 twice", runs)
+	}
+	if n := s.lowering.stopped.Load(); n != 1 {
+		t.Fatalf("%d runs stopped, want 1", n)
+	}
+	d := s.lowering.diagnostics(uri)
+	if len(d) != 1 || !strings.Contains(d[0].Message, "(run 2)") {
+		t.Fatalf("stored lowering diagnostics %+v; want the second run's only", d)
 	}
 }
 

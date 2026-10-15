@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -53,10 +54,16 @@ import (
 //
 // A document has one run at a time. An open, save or edit during a run
 // queues one more run of the newest text, which replaces any text queued
-// before it. A run whose text is no longer the document's latest when it
-// finishes is dropped: the edit that replaced the text scheduled its own
-// run. So a run never stores or publishes results for an older version. A
-// save starts its run at once and drops the debounced one.
+// before it. An edit, or an open or save of another text, also stops the
+// run in progress (vmhost.CheckLowering's and analyzedlowering.Check's
+// ctx): the lowering asks between its phases and before each file's part
+// of a phase, so at 50k lines it returns within about a millisecond, and
+// lets go of the view lock a recheck of the edit waits for. A stopped run
+// stores and publishes nothing, even when the document holds its text
+// again by then, and a run whose text is no longer the document's latest
+// when it finishes is dropped: the edit that replaced the text scheduled
+// its own run. So a run never stores or publishes results for an older
+// version. A save starts its run at once and drops the debounced one.
 //
 // A finished run of the latest text replaces the document's lowering
 // diagnostics, and they are published with every later publish of its
@@ -79,9 +86,9 @@ type loweringChecks struct {
 	mu sync.Mutex
 	// docs holds each document's latest finished run of its latest text.
 	docs map[string][]protocol.Diagnostic
-	// running marks a document with a run in progress; queued is the text
-	// an open, save or edit during it asked for next.
-	running map[string]bool
+	// running holds the run in progress of each document that has one;
+	// queued is the text an open, save or edit during it asked for next.
+	running map[string]*loweringRun
 	queued  map[string]string
 	// timers holds each edited document's debounced run.
 	timers map[string]*loweringWait
@@ -93,9 +100,9 @@ type loweringChecks struct {
 	// memo keeps each document's last lowering from its analysis, which a
 	// run of the same input answers again (analyzedlowering.Memo).
 	memo analyzedlowering.Memo
-	// lowered counts the runs that lowered, and reused those the memo
-	// answered.
-	lowered, reused atomic.Int64
+	// lowered counts the runs that lowered, reused those the memo
+	// answered, and stopped those a newer text or a close stopped.
+	lowered, reused, stopped atomic.Int64
 	// delay replaces loweringDelay when set (tests).
 	delay time.Duration
 }
@@ -104,6 +111,14 @@ type loweringChecks struct {
 // loweringChecks.mu only.
 type loweringWait struct {
 	timer *time.Timer
+}
+
+// loweringRun is a document's run in progress: the text it lowers, and
+// the cancel of the context that stops it. Read under loweringChecks.mu
+// only.
+type loweringRun struct {
+	content string
+	cancel  context.CancelFunc
 }
 
 // loweringChecksEnabled turns the lowering runs on.
@@ -116,27 +131,31 @@ var checkLoweringFn = lowerFromAnalysis
 // lowerFromAnalysis lowers the file at path whose text is src from a, the
 // document's analysis of src, when a is the program `nomi check` builds,
 // and keeps what it found in memo; otherwise it lowers the text
-// (vmhost.CheckLowering). a and memo may be nil.
-func lowerFromAnalysis(path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (problems, err error) {
+// (vmhost.CheckLowering). a and memo may be nil. Once ctx is done the
+// lowering stops at its next step and answers ctx's error, which the memo
+// does not keep.
+func lowerFromAnalysis(ctx context.Context, path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (problems, err error) {
 	if a != nil {
-		if problems, ok, err := analyzedlowering.Check(path, src, a); ok {
-			memo.Store(path, src, a, problems, err)
+		if problems, ok, err := analyzedlowering.Check(ctx, path, src, a); ok {
+			if ctx.Err() == nil {
+				memo.Store(path, src, a, problems, err)
+			}
 			return problems, err
 		}
 	}
-	return vmhost.CheckLowering(path, src)
+	return vmhost.CheckLowering(ctx, path, src)
 }
 
 // lower is what lowering the file at path whose text is src from a finds:
 // the memo's answer when the document's last lowering read the same texts,
 // else checkLoweringFn's.
-func (c *loweringChecks) lower(path, src string, a *analyzedlowering.Analyzed) (problems, err error) {
+func (c *loweringChecks) lower(ctx context.Context, path, src string, a *analyzedlowering.Analyzed) (problems, err error) {
 	if problems, err, ok := c.memo.Lookup(path, src, a); ok {
 		c.reused.Add(1)
 		return problems, err
 	}
 	c.lowered.Add(1)
-	return checkLoweringFn(path, src, a, &c.memo)
+	return checkLoweringFn(ctx, path, src, a, &c.memo)
 }
 
 // analysisWaitForLowering bounds how long a run waits for the analysis of
@@ -153,7 +172,7 @@ func (c *loweringChecks) editDelay() time.Duration {
 // init makes the maps. c.mu is held.
 func (c *loweringChecks) init() {
 	if c.running == nil {
-		c.running, c.queued, c.docs = map[string]bool{}, map[string]string{}, map[string][]protocol.Diagnostic{}
+		c.running, c.queued, c.docs = map[string]*loweringRun{}, map[string]string{}, map[string][]protocol.Diagnostic{}
 		c.timers = map[string]*loweringWait{}
 		if c.gen == nil {
 			c.gen = map[string]int{}
@@ -176,8 +195,16 @@ func (c *loweringChecks) stopTimer(uri string) {
 	}
 }
 
+// stopStale stops uri's run in progress unless it lowers content, the
+// document's latest text. c.mu is held.
+func (c *loweringChecks) stopStale(uri, content string) {
+	if r := c.running[uri]; r != nil && r.content != content {
+		r.cancel()
+	}
+}
+
 // forget drops a closed document's diagnostics, its debounced run and any
-// queued run.
+// queued run, and stops its run in progress.
 func (c *loweringChecks) forget(uri string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -185,6 +212,9 @@ func (c *loweringChecks) forget(uri string) {
 	delete(c.docs, uri)
 	delete(c.queued, uri)
 	c.stopTimer(uri)
+	if r := c.running[uri]; r != nil {
+		r.cancel()
+	}
 	c.gen[uri]++
 	c.memo.Forget(uriToPath(uri))
 }
@@ -196,15 +226,21 @@ func lowers(uri string) bool {
 }
 
 // scheduleLowering lowers uri's latest text once loweringDelay passes with
-// no newer edit. Each edit restarts the wait.
+// no newer edit. Each edit restarts the wait, and stops a run in progress
+// of another text.
 func (s *Server) scheduleLowering(uri string) {
 	if !lowers(uri) {
 		return
+	}
+	latest := ""
+	if snap := s.docs.Snapshot(uri); snap != nil {
+		latest = snap.Text
 	}
 	c := &s.lowering
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.init()
+	c.stopStale(uri, latest)
 	c.stopTimer(uri)
 	w := &loweringWait{}
 	w.timer = time.AfterFunc(c.editDelay(), func() { s.lowerEdited(uri, w) })
@@ -235,7 +271,8 @@ func (s *Server) lowerEdited(uri string, w *loweringWait) {
 // checkLowering lowers uri's text content in the background and publishes
 // the document's diagnostics again when the run finishes. It returns at
 // once. A debounced run waiting for uri is dropped: content is the text it
-// would lower.
+// would lower. A run in progress of another text is stopped, and content's
+// run follows it.
 func (s *Server) checkLowering(uri, content string) {
 	if !lowers(uri) {
 		return
@@ -244,22 +281,34 @@ func (s *Server) checkLowering(uri, content string) {
 	c.mu.Lock()
 	c.init()
 	c.stopTimer(uri)
-	if c.running[uri] {
+	if c.running[uri] != nil {
+		c.stopStale(uri, content)
 		c.queued[uri] = content
 		c.mu.Unlock()
 		return
 	}
-	c.running[uri] = true
+	ctx, run := c.start(uri, content)
 	gen := c.gen[uri]
 	c.mu.Unlock()
-	go s.runLoweringChecks(uri, content, gen)
+	go s.runLoweringChecks(ctx, uri, run, gen)
 }
 
-// runLoweringChecks runs uri's lowering for content, then for each text
-// queued meanwhile. A panic outside the lowering itself (which
-// safeLoweringDiagnostics answers) ends the runs and frees the document
-// for its next one.
-func (s *Server) runLoweringChecks(uri, content string, gen int) {
+// start records uri's run of content as the one in progress and answers
+// it with the context that stops it. c.mu is held.
+func (c *loweringChecks) start(uri, content string) (context.Context, *loweringRun) {
+	ctx, cancel := context.WithCancel(context.Background())
+	run := &loweringRun{content: content, cancel: cancel}
+	c.running[uri] = run
+	return ctx, run
+}
+
+// runLoweringChecks runs uri's lowering run, which ctx stops, then one for
+// each text queued meanwhile. A run that a newer text or a close stopped
+// stores and publishes nothing: what it found is of an older text, even
+// when the document holds that text again by the time it ends. A panic
+// outside the lowering itself (which safeLoweringDiagnostics answers) ends
+// the runs and frees the document for its next one.
+func (s *Server) runLoweringChecks(ctx context.Context, uri string, run *loweringRun, gen int) {
 	c := &s.lowering
 	defer recoverPanic("publishing the lowering of "+uri, func(*serverPanic) {
 		c.mu.Lock()
@@ -269,21 +318,29 @@ func (s *Server) runLoweringChecks(uri, content string, gen int) {
 	})
 	for {
 		start := time.Now()
+		content := run.content
 		var diags []protocol.Diagnostic
-		if _, latest := s.loweringAnalysis(uri, content); latest {
+		if _, latest := s.waitLoweringAnalysis(ctx, uri, content); latest && ctx.Err() == nil {
 			// The analysis is taken again under the view lock, which keeps
 			// a recheck from rewriting it while it is lowered.
 			release := s.docs.View()
 			if a, latest := s.installedLoweringAnalysis(uri, content); latest {
-				diags = s.safeLoweringDiagnostics(uri, content, a)
+				diags = s.safeLoweringDiagnostics(ctx, uri, content, a)
 			}
 			release()
 		}
-		s.finishLowering(uri, content, gen, diags, time.Since(start))
+		if ctx.Err() != nil {
+			c.stopped.Add(1)
+		} else {
+			s.finishLowering(uri, content, gen, diags, time.Since(start))
+		}
+		run.cancel()
 		c.mu.Lock()
 		next, more := c.queued[uri]
 		delete(c.queued, uri)
-		if !more {
+		if more {
+			ctx, run = c.start(uri, next)
+		} else {
 			delete(c.running, uri)
 		}
 		// A text queued after a close was queued by the reopened document.
@@ -292,7 +349,6 @@ func (s *Server) runLoweringChecks(uri, content string, gen int) {
 		if !more {
 			return
 		}
-		content = next
 	}
 }
 
@@ -304,6 +360,12 @@ func (s *Server) runLoweringChecks(uri, content string, gen int) {
 // document's latest text, whose run finishLowering would drop, so it need
 // not lower at all.
 func (s *Server) loweringAnalysis(uri, content string) (a *analyzedlowering.Analyzed, latest bool) {
+	return s.waitLoweringAnalysis(context.Background(), uri, content)
+}
+
+// waitLoweringAnalysis is loweringAnalysis, whose wait for the analysis
+// also ends when ctx is done.
+func (s *Server) waitLoweringAnalysis(ctx context.Context, uri, content string) (a *analyzedlowering.Analyzed, latest bool) {
 	deadline := time.NewTimer(analysisWaitForLowering)
 	defer deadline.Stop()
 	for {
@@ -318,6 +380,8 @@ func (s *Server) loweringAnalysis(uri, content string) (a *analyzedlowering.Anal
 		select {
 		case <-installed:
 		case <-deadline.C:
+			return nil, true
+		case <-ctx.Done():
 			return nil, true
 		}
 	}
@@ -386,13 +450,13 @@ func (s *Server) finishLowering(uri, content string, gen int, diags []protocol.D
 // its memo (loweringChecks.lower), with a panic in the server around the
 // lowering (one vmhost does not already answer as an InternalError)
 // answered as one diagnostic at the top of the file (recover.go).
-func (s *Server) safeLoweringDiagnostics(uri, content string, a *analyzedlowering.Analyzed) (diags []protocol.Diagnostic) {
+func (s *Server) safeLoweringDiagnostics(ctx context.Context, uri, content string, a *analyzedlowering.Analyzed) (diags []protocol.Diagnostic) {
 	defer recoverPanic("lowering "+uri, func(p *serverPanic) {
 		diags = []protocol.Diagnostic{p.diagnostic()}
 	})
 	fault("lowering")
 	path := uriToPath(uri)
-	problems, err := s.lowering.lower(path, content, a)
+	problems, err := s.lowering.lower(ctx, path, content, a)
 	return problemDiagnostics(path, content, problems, err)
 }
 
@@ -401,7 +465,7 @@ func (s *Server) safeLoweringDiagnostics(uri, content string, a *analyzedlowerin
 // what `nomi check` would report beyond the front end, as protocol
 // diagnostics in content's UTF-16 columns (problemDiagnostics).
 func loweringDiagnostics(path, content string, a *analyzedlowering.Analyzed) []protocol.Diagnostic {
-	problems, err := checkLoweringFn(path, content, a, nil)
+	problems, err := checkLoweringFn(context.Background(), path, content, a, nil)
 	return problemDiagnostics(path, content, problems, err)
 }
 

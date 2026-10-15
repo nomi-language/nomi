@@ -75,7 +75,9 @@ every other file it read still holds that text on disk
 check <file>` lowers it, from the kept analyses of the files it reaches
 (`analysis.memberProgramOf`), unless a file outside those could change
 what the front end decides about them. A run of the same texts as the
-document's last answers from `analyzedlowering.Memo`. Every load, `nomi check`'s included,
+document's last answers from `analyzedlowering.Memo`, and an edit stops
+the document's run in progress (`irbuild.Program.Stop`, through
+`vmhost.CheckLowering`'s context). Every load, `nomi check`'s included,
 executes one thing on the VM before the program runs: the handler of each
 backtick typed literal whose handler returns a `Result`, refused when
 `vm.Machine.Effects` finds something it can reach acts outside the machine

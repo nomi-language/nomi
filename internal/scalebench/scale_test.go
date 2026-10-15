@@ -126,7 +126,7 @@ func ops() []op {
 				tb.Fatal("the entry's analysis is not the program nomi check builds")
 			}
 			return func(tb testing.TB, _ int) {
-				problems, ok, err := analyzedlowering.Check(p.entry, src, a)
+				problems, ok, err := analyzedlowering.Check(context.Background(), p.entry, src, a)
 				if !ok || problems != nil || err != nil {
 					tb.Fatalf("lowering from the analysis: ok %v, problems %v, err %v", ok, problems, err)
 				}
@@ -145,7 +145,7 @@ func ops() []op {
 				tb.Fatal("the entry's analysis is not the program nomi check builds")
 			}
 			var memo analyzedlowering.Memo
-			problems, ok, err := analyzedlowering.Check(p.entry, src, a)
+			problems, ok, err := analyzedlowering.Check(context.Background(), p.entry, src, a)
 			if !ok {
 				tb.Fatal("the entry was not lowered from its analysis")
 			}
@@ -159,7 +159,7 @@ func ops() []op {
 		op{"lsp lowering, from the text", func(tb testing.TB, p *project) func(testing.TB, int) {
 			src := p.gen.Files[p.gen.Entry]
 			return func(tb testing.TB, _ int) {
-				problems, err := vmhost.CheckLowering(p.entry, src)
+				problems, err := vmhost.CheckLowering(context.Background(), p.entry, src)
 				if problems != nil || err != nil {
 					tb.Fatalf("lowering: problems %v, err %v", problems, err)
 				}
@@ -194,7 +194,7 @@ func memberLowering(kind projectgen.EditKind, kept bool) func(tb testing.TB, p *
 		path, src := p.path(key), p.gen.Files[key]
 		if !kept {
 			return func(tb testing.TB, _ int) {
-				if _, err := vmhost.CheckLowering(path, src); err != nil {
+				if _, err := vmhost.CheckLowering(context.Background(), path, src); err != nil {
 					tb.Fatalf("lowering %s: %v", key, err)
 				}
 			}
@@ -209,7 +209,7 @@ func memberLowering(kind projectgen.EditKind, kept bool) func(tb testing.TB, p *
 			tb.Fatalf("%s's program is not offered for lowering", key)
 		}
 		return func(tb testing.TB, _ int) {
-			if _, ok, err := analyzedlowering.Check(path, src, a); !ok || err != nil {
+			if _, ok, err := analyzedlowering.Check(context.Background(), path, src, a); !ok || err != nil {
 				tb.Fatalf("lowering %s from the kept program: ok %v, err %v", key, ok, err)
 			}
 		}

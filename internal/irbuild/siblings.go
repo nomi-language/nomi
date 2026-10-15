@@ -466,6 +466,11 @@ func (x *fileIndex) closeReferences(p *Program, reg *typeRegistry) {
 		x.reaches[i] = make([]bool, n)
 	}
 	for i := range p.Modules {
+		// A stopped lowering leaves the index unfinished; GenerateIR asks
+		// again before it reads it.
+		if p.stopped() {
+			return
+		}
 		scopedTypeEdges(p, i, func(j int) { x.reaches[i][j] = true })
 		fa := p.Modules[i].FA
 		if fa == nil {

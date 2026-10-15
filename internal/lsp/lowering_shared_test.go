@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"fmt"
 	"hash/fnv"
 	"math"
@@ -54,7 +55,7 @@ func sharedLoweringDoc(t *testing.T, s *Server, rel string) (path, uri, text str
 // lowerAnalyzed lowers a, which must be lowered from the analysis, and
 // must report lowering diagnostics.
 func lowerAnalyzed(t *testing.T, path, text string, a *analyzedlowering.Analyzed) {
-	problems, ok, err := analyzedlowering.Check(path, text, a)
+	problems, ok, err := analyzedlowering.Check(context.Background(), path, text, a)
 	if !ok || err != nil || problems == nil {
 		t.Errorf("%s: lowered from its analysis %v, problems %v, err %v; want problems from the analysis", path, ok, problems, err)
 	}
@@ -71,7 +72,7 @@ func TestLoweringFromAnalysis_LeavesTheAnalysisUnchanged(t *testing.T) {
 	}
 	s := NewServer()
 	warm, _, warmText, _ := sharedLoweringDoc(t, s, "tests/01-foundations/literals_test.nomi")
-	if _, err := vmhost.CheckLowering(warm, warmText); err != nil {
+	if _, err := vmhost.CheckLowering(context.Background(), warm, warmText); err != nil {
 		t.Fatal(err)
 	}
 	for _, rel := range sharedLoweringFiles {
@@ -164,7 +165,7 @@ func TestLoweringFromAnalysis_ConcurrentWithRequests(t *testing.T) {
 	})
 	run(func() {
 		for range rounds {
-			if _, err := vmhost.CheckLowering(otherPath, otherText); err != nil {
+			if _, err := vmhost.CheckLowering(context.Background(), otherPath, otherText); err != nil {
 				t.Errorf("checking %s: %v", otherPath, err)
 			}
 		}

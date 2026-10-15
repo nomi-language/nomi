@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -227,7 +228,7 @@ func BenchmarkLoweringDiagnostics(b *testing.B) {
 		}
 		src := string(data)
 		start := time.Now()
-		if _, err := vmhost.CheckLowering(path, src); err != nil {
+		if _, err := vmhost.CheckLowering(context.Background(), path, src); err != nil {
 			b.Fatalf("the file does not load, so nothing is lowered: %v", err)
 		}
 		b.Logf("%s: first run: %v", rel, time.Since(start))
@@ -261,7 +262,7 @@ func BenchmarkLoweringDiagnostics(b *testing.B) {
 // keeps running.
 func TestLoweringDiagnostics_InternalErrorIsOneDiagnostic(t *testing.T) {
 	saved := checkLoweringFn
-	checkLoweringFn = func(path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (error, error) {
+	checkLoweringFn = func(_ context.Context, path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (error, error) {
 		return nil, &vmhost.InternalError{Panic: "boom"}
 	}
 	defer func() { checkLoweringFn = saved }()

@@ -1,6 +1,8 @@
 package lsp
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -8,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
+	"github.com/nomi-language/nomi/vmhost"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -88,7 +92,7 @@ func TestLoweringMemo_AnImportedFileChangedOnDiskLowersAgain(t *testing.T) {
 		}
 		release := s.docs.View()
 		defer release()
-		return s.safeLoweringDiagnostics(uri, multiMain, a)
+		return s.safeLoweringDiagnostics(context.Background(), uri, multiMain, a)
 	}
 	want := run()
 	if n := len(notSupported(want)); n != 2 {
@@ -116,5 +120,43 @@ func TestLoweringMemo_AnImportedFileChangedOnDiskLowersAgain(t *testing.T) {
 		if l, r := s.lowering.lowered.Load(), s.lowering.reused.Load(); l != step.lowered || r != step.reused {
 			t.Errorf("%s: %d lowerings and %d memo answers, want %d and %d", step.name, l, r, step.lowered, step.reused)
 		}
+	}
+}
+
+// A lowering whose context is done answers the context's error and finds
+// nothing, from the analysis and from the text alike, and the memo keeps
+// nothing of it.
+func TestLowering_AStoppedContextStopsTheLowering(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	dir := writeProject(t, map[string]string{"nomi.toml": multiManifest, "main.nomi": multiMain, "shapes.nomi": multiShapes})
+	s := NewServer()
+	path := filepath.Join(dir, "main.nomi")
+	uri := pathToURI(path)
+	s.docs.Open(uri, multiMain)
+	a, _ := s.loweringAnalysis(uri, multiMain)
+	if a == nil {
+		t.Fatal("main.nomi's program is not offered")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	release := s.docs.View()
+	problems, ok, err := analyzedlowering.Check(ctx, path, multiMain, a)
+	release()
+	if !ok || problems != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("from the analysis: %v, %v, %v; want the context's error", problems, ok, err)
+	}
+	if problems, err := vmhost.CheckLowering(ctx, path, multiMain); problems != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("from the text: %v, %v; want the context's error", problems, err)
+	}
+	release = s.docs.View()
+	problems, err = lowerFromAnalysis(ctx, path, multiMain, a, &s.lowering.memo)
+	release()
+	if problems != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("the server's lowering: %v, %v; want the context's error", problems, err)
+	}
+	if _, _, ok := s.lowering.memo.Lookup(path, multiMain, a); ok {
+		t.Fatal("the memo kept a stopped lowering")
 	}
 }

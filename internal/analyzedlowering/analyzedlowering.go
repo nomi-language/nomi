@@ -6,6 +6,8 @@
 package analyzedlowering
 
 import (
+	"context"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -32,7 +34,7 @@ type Analyzed struct {
 }
 
 // CheckFunc is the lowering Check runs.
-type CheckFunc func(path, src string, a *Analyzed) (problems error, ok bool, err error)
+type CheckFunc func(ctx context.Context, path, src string, a *Analyzed) (problems error, ok bool, err error)
 
 // OfferedFunc is the test Offered runs.
 type OfferedFunc func(path, src string, a *Analyzed) bool
@@ -55,12 +57,14 @@ func SetCheck(f CheckFunc, o OfferedFunc) { check, offered = f, o }
 // front end's; or a file it read (another project file, nomi.toml, or the
 // entry itself when the program imports it back) does not hold on disk the
 // text the build read, which vmhost.CheckLowering would read now. The
-// caller then runs vmhost.CheckLowering.
+// caller then runs vmhost.CheckLowering. When ctx is done the lowering
+// stops at its next step and answers ctx's error as err, as
+// vmhost.CheckLowering does.
 //
 // Lowering only reads a, so a may be shared with concurrent readers. The
 // caller must import nomi/vmhost, which installs the lowering.
-func Check(path, src string, a *Analyzed) (problems error, ok bool, err error) {
-	return check(path, src, a)
+func Check(ctx context.Context, path, src string, a *Analyzed) (problems error, ok bool, err error) {
+	return check(ctx, path, src, a)
 }
 
 // Offered reports whether Check would lower a, the ok Check answers,

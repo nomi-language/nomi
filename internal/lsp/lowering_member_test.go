@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"maps"
 	"os"
 	"path/filepath"
@@ -363,7 +364,7 @@ func TestLoweringFromTheKeptProgramMatchesTheSource(t *testing.T) {
 				release := s.docs.View()
 				ok := false
 				if a != nil {
-					_, ok, _ = analyzedlowering.Check(path, text, a)
+					_, ok, _ = analyzedlowering.Check(context.Background(), path, text, a)
 				}
 				got := loweringDiagnostics(path, text, a)
 				release()

@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -124,7 +125,7 @@ func TestLoweringFromAnalysisMatchesTheSource(t *testing.T) {
 			if a == nil {
 				continue
 			}
-			if _, ok, _ := analyzedlowering.Check(path, text, a); !ok {
+			if _, ok, _ := analyzedlowering.Check(context.Background(), path, text, a); !ok {
 				continue
 			}
 			analyzed[name]++
@@ -180,11 +181,11 @@ func recordLoweringInput(t *testing.T) func(text string) (*analyzedlowering.Anal
 	var mu sync.Mutex
 	got := map[string]*analyzedlowering.Analyzed{}
 	saved := checkLoweringFn
-	checkLoweringFn = func(path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (error, error) {
+	checkLoweringFn = func(ctx context.Context, path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (error, error) {
 		mu.Lock()
 		got[src] = a
 		mu.Unlock()
-		return saved(path, src, a, memo)
+		return saved(ctx, path, src, a, memo)
 	}
 	t.Cleanup(func() { checkLoweringFn = saved })
 	return func(text string) (*analyzedlowering.Analyzed, bool) {
@@ -243,7 +244,7 @@ func TestLoweringRun_ProgramOfSeveralFilesLowersTheAnalysis(t *testing.T) {
 	if a == nil || !latest || a.FA != snap.Analysis || len(a.Files) != 1 {
 		t.Fatalf("loweringAnalysis = %+v, %v; want the document's program", a, latest)
 	}
-	if _, ok, err := analyzedlowering.Check(filepath.Join(dir, "main.nomi"), src, a); !ok || err != nil {
+	if _, ok, err := analyzedlowering.Check(context.Background(), filepath.Join(dir, "main.nomi"), src, a); !ok || err != nil {
 		t.Fatalf("lowered from the analysis: %v, %v", ok, err)
 	}
 }
