@@ -1899,9 +1899,11 @@ type ImportStmt struct {
 	SpanCarrier
 	ModulePath []Node // *Ident or *TypeIdent for each path segment
 	// FileSegments is how many leading ModulePath segments are the file
-	// path, the `/`-joined part; the segments after it are owners written
-	// after a `.` (`Shape` in `shape.Shape.{Circle}`). Zero when the import
-	// was not parsed from source.
+	// path; the segments after it are owners written after a `.` (`Shape`
+	// in `shape.Shape.{Circle}`). The file path is the `/`-joined part and
+	// any lowercase segment written after a `.` (`io` in `std.io.print`):
+	// an owner is a type, and only a trailing run of PascalCase segments
+	// is owners. Zero when the import was not parsed from source.
 	FileSegments int
 	Names        []Node // *Ident or *TypeIdent for each imported name
 	Aliases      []Node // parallel to Names; nil entry = no alias for that name

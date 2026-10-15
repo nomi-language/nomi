@@ -22,6 +22,9 @@ func TestFileReExportIsAParseError(t *testing.T) {
 		{"pub import {\n    std/comparable.Ordering\n    lib/leaf\n}", "leaf", "`pub import lib/leaf.{name, Type}`", 1, 1},
 		{"pub import std/io.{self, IOError}", "io", "remove `self` to re-export only the listed items, or have importers import `std/io` directly", 1, 1},
 		{"pub import std/io.{self}", "io", "remove `self`", 1, 1},
+		// A lowercase segment after a dot is a path step, so this `self`
+		// is the file `std/io` too.
+		{"pub import std.io.{self}", "io", "remove `self`", 1, 1},
 	}
 	for _, tc := range cases {
 		err := parseError(t, tc.src)

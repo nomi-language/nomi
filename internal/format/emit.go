@@ -5673,10 +5673,19 @@ func emitImportSelectorBody(path string, selectors []string) Doc {
 	))
 }
 
+// importPathAndOwners splits an import's path into the file path, written
+// `/`-joined, and the owners after it. A parsed import records the split
+// (FileSegments); one built without it takes its trailing PascalCase
+// segments as owners, the rule the parser applies.
 func importPathAndOwners(v *ast.ImportStmt) ([]string, []string) {
 	modulePath := v.ModulePath
 	var owners []string
-	if len(v.Names) > 0 || v.IncludeParent {
+	if v.FileSegments > 0 && v.FileSegments <= len(modulePath) {
+		for _, p := range modulePath[v.FileSegments:] {
+			owners = append(owners, ast.ImportNodeName(p))
+		}
+		modulePath = modulePath[:v.FileSegments]
+	} else if len(v.Names) > 0 || v.IncludeParent {
 		for len(modulePath) > 1 {
 			if _, isType := modulePath[len(modulePath)-1].(*ast.TypeIdent); isType {
 				owners = append([]string{ast.ImportNodeName(modulePath[len(modulePath)-1])}, owners...)

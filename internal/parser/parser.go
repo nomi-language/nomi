@@ -6519,7 +6519,7 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 					return nil, err
 				}
 				path := append(append([]ast.Node(nil), segments...), selector...)
-				return &ast.ImportStmt{ModulePath: path, FileSegments: len(segments), Names: names, Aliases: aliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, nil
+				return &ast.ImportStmt{ModulePath: path, FileSegments: importFileSegments(path, len(segments)), Names: names, Aliases: aliases, Braced: true, IncludeParent: includeParent, SelfLine: selfLine, SelfCol: selfCol, Line: tok.Line, Col: tok.Col}, nil
 			}
 			if p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT {
 				return nil, errorAt(tok.Line, tok.Col, "expected import owner or name after '.'")
@@ -6538,7 +6538,7 @@ func (p *Parser) parseImportEntry(tok token.Token) (ast.Node, error) {
 			aliases[0] = p.makeImportNode(p.peek())
 			p.advance() // consume alias
 		}
-		return &ast.ImportStmt{ModulePath: path, FileSegments: len(segments), Names: names, Aliases: aliases, Line: tok.Line, Col: tok.Col}, nil
+		return &ast.ImportStmt{ModulePath: path, FileSegments: importFileSegments(path, len(segments)), Names: names, Aliases: aliases, Line: tok.Line, Col: tok.Col}, nil
 	}
 	sameImportPath := func(a, b *ast.ImportStmt) bool {
 		if len(a.ModulePath) != len(b.ModulePath) {
@@ -6653,6 +6653,23 @@ loop:
 	}
 
 	return result, nil
+}
+
+// importFileSegments returns how many leading segments of an import's path
+// name the file. The first slashSegments are the `/`-joined path. A segment
+// written after a `.` is an owner only when it and every segment after it are
+// PascalCase: an owner is a type, and a type's name is PascalCase. A
+// lowercase segment after a dot is a path step, so `std.io.print` is
+// `std/io.print` and `api.http.Header.{self}` is `api/http.Header.{self}`.
+func importFileSegments(path []ast.Node, slashSegments int) int {
+	n := len(path)
+	for n > slashSegments {
+		if _, isType := path[n-1].(*ast.TypeIdent); !isType {
+			break
+		}
+		n--
+	}
+	return n
 }
 
 // fileReExportError reports a re-export of an import that binds a file:
