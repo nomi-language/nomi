@@ -112,14 +112,14 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		args.temps[0], args.kinds[0] = v, k
 	}
 	rangeElem, isRange := irIterRangeElem(sk)
-	if isRange && method == "known_count" {
+	if isRange && method == "known_count" && !bl.inheritsStepsBetween(rangeElem) {
 		// A Range's count protocol is answered with rt.RangeKnownCount
 		// rather than through the view; `count`, `empty?` and `not_empty?`
 		// walk the view.
 		return bl.rangeKnownCount(t, src, rangeElem)
 	}
 	vecElem, isVector := vectorElem(sk)
-	isVector = isVector && (irRetainedVectorKind(sk) || (irRetainedValueKind(vecElem)))
+	isVector = isVector && (irRetainedVectorKind(sk) || irCallableValueKind(vecElem))
 	// A Map pushes `(K, V)` pairs and a Set its members.
 	isMap := sk.tag == tagMap && sk != kindEmptyMap && irRetainedMapKind(sk)
 	setMember, isSet := setElem(sk)
@@ -612,26 +612,49 @@ func (g *gen) irSeqKindOf(t analysis.Type) (kind, bool) {
 // userSource is the `each_while` a named source's own `impl Iter` declares,
 // and the element it pushes, when the retained pipeline can walk it:
 // iterUserSource's recognition, a retained element, and a source-written body
-// the VM can link. A written `known_count` override declines.
+// the VM can link. A written `known_count` override the VM cannot link
+// declines.
 func (bl *irScalarBuilder) userSource(sk kind) (*implItem, kind) {
 	it, elem, ok := bl.g.iterUserEachWhile(sk)
 	if !ok || irImplSource(it) == nil || !irRetainedValueKind(elem) {
 		return nil, kindInvalid
 	}
-	if kc := bl.g.implsByIface["Iter"][sk].items["known_count"]; kc != nil && !kc.inherited {
+	if kc := bl.g.implsByIface["Iter"][sk].items["known_count"]; kc != nil && !kc.inherited && bl.userKnownCount(sk) == nil {
 		return nil, kindInvalid
 	}
 	return it, elem
 }
 
+// userKnownCount is the `known_count` a named source's own `impl Iter`
+// writes, when its body is one the VM can link, or nil: the view carries
+// it as the sequence's count, so `Iter.known_count` answers it as std's
+// dispatch would.
+func (bl *irScalarBuilder) userKnownCount(sk kind) *implItem {
+	kc := bl.g.implsByIface["Iter"][sk].items["known_count"]
+	if kc == nil || kc.inherited || !kc.lowerable || irImplSource(kc) == nil || len(kc.params) != 1 || kc.params[0] != sk {
+		return nil
+	}
+	if mk, shared := bl.g.sharedMaybe(kindInt); !shared || kc.result != mk {
+		return nil
+	}
+	return kc
+}
+
 // userView views a user source through rt.UserSeq. The view's second operand
-// references the impl's `each_while`, which Go names by its Go identifier.
+// references the impl's `each_while`, and a third its written `known_count`.
 func (bl *irScalarBuilder) userView(at ast.Node, src ir.Temp, sk kind, it *implItem, elem kind) ir.Temp {
 	pos := bl.g.irNodePos(at)
 	ref := ir.NewRefFunc(pos, bl.f.NewTemp(), bl.g.irCalleeSym(it, sk.nomi()+"."+it.name))
 	bl.b.Append(ref)
 	bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, it.params, it.result)})
-	n := ir.NewIter(pos, bl.f.NewTemp(), ir.IterView, ir.IterOverUserImpl, src, ref.Dst())
+	operands := []ir.Temp{src, ref.Dst()}
+	if kc := bl.userKnownCount(sk); kc != nil {
+		count := ir.NewRefFunc(pos, bl.f.NewTemp(), bl.g.irCalleeSym(kc, sk.nomi()+"."+kc.name))
+		bl.b.Append(count)
+		bl.side(count.Dst(), irScalarSide{k: funcKindIn(bl.g, kc.params, kc.result)})
+		operands = append(operands, count.Dst())
+	}
+	n := ir.NewIter(pos, bl.f.NewTemp(), ir.IterView, ir.IterOverUserImpl, operands...)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: seqKindIn(bl.g, elem)})
 	return n.Dst()
@@ -650,8 +673,15 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 	if sk == want {
 		return src, true
 	}
-	if sk == kindEmptyList {
-		v, k, ok := bl.coerceEmpty(at, src, sk, bl.g.listKind(elem))
+	if sk == kindEmptyList || sk == kindEmptySet || sk == kindEmptyVector {
+		// `[]`, `#{}` or `#[]` entering an `Iter<T>` is built at T.
+		target := bl.g.listKind(elem)
+		if sk == kindEmptySet {
+			target = bl.g.setKindOf(elem)
+		} else if sk == kindEmptyVector {
+			target = bl.g.vectorKindOf(elem)
+		}
+		v, k, ok := bl.coerceEmpty(at, src, sk, target)
 		if !ok {
 			return ir.NoTemp, false
 		}
@@ -702,23 +732,24 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 			return ir.NoTemp, false
 		}
 		// The view answers the Range's own known_count, so it carries the
-		// element's distance function (rt.Seq's Count).
+		// element's distance function (rt.Seq's Count). One whose impl
+		// inherits the None default has no count to carry.
+		if bl.inheritsStepsBetween(elem) {
+			return view(ir.IterOverRange, ops...), true
+		}
 		maybeInt, shared := bl.g.sharedMaybe(kindInt)
 		if !shared {
 			return ir.NoTemp, false
 		}
-		steps := bl.g.stdIfaceFnAt("Discrete.steps_between", elem, []kind{elem, elem}, maybeInt)
-		if steps == nil || steps.irBody == nil {
+		steps, ok := bl.discreteRef(at, elem, "steps_between", []kind{elem, elem}, maybeInt)
+		if !ok {
 			return ir.NoTemp, false
 		}
-		stepsRef := ir.NewRefFunc(bl.g.irNodePos(at), bl.f.NewTemp(), steps.irBody.Sym())
-		bl.b.Append(stepsRef)
-		bl.side(stepsRef.Dst(), irScalarSide{k: funcKindIn(bl.g, steps.params, steps.result)})
-		return view(ir.IterOverRange, append(ops, stepsRef.Dst())...), true
+		return view(ir.IterOverRange, append(ops, steps)...), true
 	}
 	if vecElem, isVector := vectorElem(sk); isVector {
 		erased := irExistentialKind(elem) && bl.g.irErases(elem, vecElem)
-		if (vecElem != elem && !erased) || !(irRetainedVectorKind(sk) || irRetainedValueKind(vecElem)) {
+		if (vecElem != elem && !erased) || !(irRetainedVectorKind(sk) || irCallableValueKind(vecElem)) {
 			return ir.NoTemp, false
 		}
 		return view(ir.IterOverVector, src), true
@@ -767,63 +798,50 @@ func irIterRangeElem(k kind) (kind, bool) {
 }
 
 // rangeView answers a Range view's operands: the range, and references to the
-// cached stdlib bodies of the element's `Comparable.compare` and
-// `Discrete.next`. Go delivers both references as Go function values.
+// element's `Comparable.compare` and `Discrete.next`, std's or the program's
+// own impls (elemComparator, discreteRef).
 func (bl *irScalarBuilder) rangeView(at ast.Node, src ir.Temp, elem kind) ([]ir.Temp, bool) {
-	cmp := bl.g.stdCompareAt(elem, stdEnumKind(stdEnumOrdering))
-	maybeElem, shared := bl.g.sharedMaybe(elem)
-	if cmp == nil || cmp.irBody == nil || !shared {
+	if !bl.rangeWalksAt(elem, at) {
 		return nil, false
 	}
-	next := bl.g.stdIfaceFnAt("Discrete.next", elem, []kind{elem}, maybeElem)
-	if next == nil || next.irBody == nil {
+	if _, _, _, ok := bl.sortComparator(elem); !ok {
 		return nil, false
 	}
-	if ok := bl.g.rangeWalks(elem, at); !ok {
+	maybeElem, _ := bl.g.sharedMaybe(elem)
+	cmp, _ := bl.elemComparator(at, elem)
+	next, ok := bl.discreteRef(at, elem, "next", []kind{elem}, maybeElem)
+	if !ok {
 		return nil, false
 	}
-	cmpRef := ir.NewRefFunc(bl.g.irNodePos(at), bl.f.NewTemp(), cmp.irBody.Sym())
-	bl.b.Append(cmpRef)
-	bl.side(cmpRef.Dst(), irScalarSide{k: funcKindIn(bl.g, cmp.params, cmp.result)})
-	nextRef := ir.NewRefFunc(bl.g.irNodePos(at), bl.f.NewTemp(), next.irBody.Sym())
-	bl.b.Append(nextRef)
-	bl.side(nextRef.Dst(), irScalarSide{k: funcKindIn(bl.g, next.params, next.result)})
-	return []ir.Temp{src, cmpRef.Dst(), nextRef.Dst()}, true
+	return []ir.Temp{src, cmp, next}, true
 }
 
 // rangeKnownCount lowers `Iter.known_count(range)` as a host call to
-// rt.RangeKnownCount whose extra operands reference the element's cached
-// `Comparable.compare` and `Discrete.steps_between` bodies. Go delivers both
-// as Go function values; the VM drives the same rt function over the linked
-// bodies.
+// rt.RangeKnownCount whose extra operands reference the element's
+// `Comparable.compare` and `Discrete.steps_between`, std's or the program's
+// own impls; the VM drives the rt function over the linked bodies.
 func (bl *irScalarBuilder) rangeKnownCount(t *ast.Call, src ir.Temp, elem kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	mk, ok := bl.iterMaybeKind(kindInt)
 	if !ok {
 		return no()
 	}
-	if ok := bl.g.rangeWalks(elem, t.Args[0]); !ok {
-		return no()
-	}
-	cmp := bl.g.stdCompareAt(elem, stdEnumKind(stdEnumOrdering))
-	maybeInt, shared := bl.g.sharedMaybe(kindInt)
-	if cmp == nil || cmp.irBody == nil || !shared {
-		return no()
-	}
-	steps := bl.g.stdIfaceFnAt("Discrete.steps_between", elem, []kind{elem, elem}, maybeInt)
-	if steps == nil || steps.irBody == nil {
-		return no()
-	}
 	at := t.Args[0]
+	if !bl.rangeWalksAt(elem, at) {
+		return no()
+	}
+	maybeInt, shared := bl.g.sharedMaybe(kindInt)
+	if _, _, _, ok := bl.sortComparator(elem); !ok || !shared {
+		return no()
+	}
+	cmp, _ := bl.elemComparator(at, elem)
+	steps, ok := bl.discreteRef(at, elem, "steps_between", []kind{elem, elem}, maybeInt)
+	if !ok {
+		return no()
+	}
 	pos := bl.g.irNodePos(at)
-	cmpRef := ir.NewRefFunc(pos, bl.f.NewTemp(), cmp.irBody.Sym())
-	bl.b.Append(cmpRef)
-	bl.side(cmpRef.Dst(), irScalarSide{k: funcKindIn(bl.g, cmp.params, cmp.result)})
-	stepsRef := ir.NewRefFunc(pos, bl.f.NewTemp(), steps.irBody.Sym())
-	bl.b.Append(stepsRef)
-	bl.side(stepsRef.Dst(), irScalarSide{k: funcKindIn(bl.g, steps.params, steps.result)})
 	c := ir.NewHostCall(pos, bl.f.NewTemp(), irCallSite(at),
-		bl.g.irCalleeSym(irRangeKnownCountHost, irRangeKnownCountHost), src, cmpRef.Dst(), stepsRef.Dst())
+		bl.g.irCalleeSym(irRangeKnownCountHost, irRangeKnownCountHost), src, cmp, steps)
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: mk, deferrable: true})
 	return c.Dst(), mk, false, true
@@ -1052,7 +1070,7 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 		bl.side(n.Dst(), irScalarSide{k: seqKindIn(bl.g, elem)})
 		return n.Dst(), elem, true
 	}
-	if vecElem, isVector := vectorElem(sk); isVector && irRetainedVectorKind(sk) {
+	if vecElem, isVector := vectorElem(sk); isVector && irRetainedValueKind(sk) {
 		return view(ir.IterOverVector, vecElem)
 	}
 	if member, isSet := setElem(sk); isSet && sk != kindEmptySet && irRetainedSetKind(sk) {
@@ -1081,7 +1099,7 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 		return view(ir.IterOverString, kindString)
 	case sk == irBytesKind():
 		return view(ir.IterOverBytes, irByteKind())
-	case (sk.tag == tagSeq || sk.tag == tagList) && sk.comp != nil && len(sk.comp.parts) == 1 && irRetainedValueKind(sk.comp.parts[0]):
+	case (sk.tag == tagSeq || sk.tag == tagList) && sk.comp != nil && len(sk.comp.parts) == 1 && irCallableValueKind(sk.comp.parts[0]):
 		if sk.tag == tagSeq {
 			return src, sk.comp.parts[0], true
 		}

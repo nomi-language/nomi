@@ -77,31 +77,19 @@ fn main() {
 `, "a\n1\nb\n2\nc\n3\nc\nSome(3)\n2\n")
 }
 
-// A distinct key (`{Key(1) => 2}`) retains since map keys are structural
-// values; TestIRMapFuncs_Intrinsics runs one.
-func TestIRMap_DiscardedBuildKeepsNativeEmission(t *testing.T) {
-	for _, src := range []string{
-		`struct Point { x: Int }
+// A struct field holding a Map of function values is a value like any
+// other: it is defaulted, built from a literal of lambdas and rendered.
+func TestIRMap_FunctionValuedFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+struct Point { x: Int }
 struct Outer {
   p: List<Point>
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
-fn main() { m = {"a" => 1} dbg Outer{p: [Point{x: Map.size(m)}]} return }`,
-	} {
-		p, err := AnalyzeSource("main.nomi", src)
-		if err != nil {
-			t.Fatalf("front end rejects boundary control: %v", err)
-		}
-		got, _, err := GenerateIR(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, m := range got.IR {
-			for _, f := range m.Funcs() {
-				if f.Name() == "main" {
-					t.Fatal("unsupported map/Debug body retained")
-				}
-			}
-		}
-	}
+fn main() {
+  m = {"a" => 1}
+  io.inspect(Outer{p: [Point{x: Map.size(m)}]})
+  io.inspect(Outer{p: [], hooks: {"inc" => |x: Int| x + 1}})
+}
+`, "Outer{p: [Point{x: 1}], hooks: {=>}}\nOuter{p: [], hooks: {\"inc\" => <function>}}\n")
 }

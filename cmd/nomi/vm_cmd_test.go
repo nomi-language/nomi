@@ -13,7 +13,7 @@ import (
 // VM cannot fully run.
 
 // vmBlockedProgram reaches a function the IR builder declines (a literal of a
-// struct whose field is a Map of function values), from `main` and from
+// struct whose field is a Map of Iters), from `main` and from
 // one test case.
 const vmBlockedProgram = `import std/io
 
@@ -39,7 +39,7 @@ test "adds" {
 }
 
 struct Node {
-  f: Map<String, (Int) -> Int>
+  f: Map<String, Iter<Int>>
 }
 
 fn weigh(_d: Node): Int {

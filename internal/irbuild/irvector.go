@@ -49,7 +49,7 @@ func (bl *irScalarBuilder) vectorMakeOf(t *ast.VectorLit, elem kind) (ir.Temp, k
 	values, elem, ok := bl.lowerSameKindItems(t, tagEmptyVector, t.Items, want, func(k kind) bool {
 		// A sequence is held as the value its temporary carries, as a
 		// list holds one.
-		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k) || irRetainedSeqKind(k)
+		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k) || irRetainedSeqKind(k) || irHeldValueKind(k)
 	})
 	if !ok {
 		return no()
@@ -99,7 +99,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 	}
 	// A sequence element is held as a list holds one; these operations
 	// never read an element.
-	if !irScalarLeafKind(elem) && !bl.g.irStructuralValueKind(elem) && !irRetainedSeqKind(elem) {
+	if !irScalarLeafKind(elem) && !bl.g.irStructuralValueKind(elem) && !irRetainedSeqKind(elem) && !irHeldValueKind(elem) {
 		return nil
 	}
 	for i, have := range args.kinds {

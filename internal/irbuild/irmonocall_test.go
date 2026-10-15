@@ -4,8 +4,10 @@ import (
 	"testing"
 )
 
-func TestIRMonoCall_DeclinedRetentionDoesNotChangeEmission(t *testing.T) {
-	const src = `import std/io
+// A generic instance's call runs beside a struct whose field holds a Map
+// of function values.
+func TestIRMonoCall_BesideAFunctionMapFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
 struct Point { x: Int }
 struct Outer {
   p: List<Point>
@@ -14,24 +16,9 @@ struct Outer {
 fn pair<T, U>(a: T, b: U): (T, U) { (a, b) }
 fn main() {
   io.inspect(pair(1, "a"))
-  dbg Outer{p: [Point{x: 2}]}
-  return
-}`
-	p, err := AnalyzeSource("main.nomi", src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	retained, _, err := GenerateIR(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, mod := range retained.IR {
-		for _, fn := range mod.Funcs() {
-			if fn.Name() == "main" {
-				t.Fatal("nominal Debug must decline after instance resolution")
-			}
-		}
-	}
+  io.inspect(Outer{p: [Point{x: 2}]})
+}
+`, "(1, \"a\")\nOuter{p: [Point{x: 2}], hooks: {=>}}\n")
 }
 
 func TestIRMonoCall_MissingCheckedSignatureKeepsNativeFallback(t *testing.T) {

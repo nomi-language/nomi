@@ -6,10 +6,10 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-func TestIRInterfaceCall_ADeclinedBodyIsNotRetained(t *testing.T) {
-	for _, tail := range []string{"", "dbg Outer{p: [Point{x: 1}]}"} {
-		t.Run(tail, func(t *testing.T) {
-			p, err := AnalyzeSource("main.nomi", `import std/io
+// An interface call runs beside a struct whose field holds a Map of
+// function values.
+func TestIRInterfaceCall_BesideAFunctionMapFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
 type Token
 struct Point { x: Int }
 struct Outer {
@@ -18,28 +18,8 @@ struct Outer {
 }
 interface Named { fn name(value: self): String }
 impl Named for Token { fn name(value: Token): String { _ = value; "token" } }
-fn main() { io.print(Named.name(Token)); `+tail+` }
-`)
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, _, err := GenerateIR(p)
-			if err != nil {
-				t.Fatal(err)
-			}
-			retained := false
-			for _, mod := range got.IR {
-				for _, f := range mod.Funcs() {
-					if f.Name() == "main" {
-						retained = true
-					}
-				}
-			}
-			if retained != (tail == "") {
-				t.Fatalf("main retained=%v", retained)
-			}
-		})
-	}
+fn main() { io.print(Named.name(Token)); io.inspect(Outer{p: [Point{x: 1}]}) }
+`, "token\nOuter{p: [Point{x: 1}], hooks: {=>}}\n")
 }
 
 // An interface-typed parameter is an existential: the call through it is a

@@ -678,9 +678,23 @@ func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
 		}
 		return more
 	})
-	// The builder views only a source that inherits known_count's
-	// declining default, so the view has no Count.
-	fr.write(n.Dst(), sourceView(view, src, nil))
+	// A source that inherits known_count's declining default has no
+	// Count; one whose impl writes known_count carries it as operand 2.
+	var count func(*rt.Frame) rt.Maybe[int64]
+	if n.NumArgs() == 3 {
+		v, err := fr.read(n.Arg(2))
+		if err != nil {
+			return err
+		}
+		kc, ok := v.(*functionValue)
+		if !ok || kc == nil || kc.arity != 1 {
+			return fmt.Errorf("vm: user source view operand 2 is %T, not its known_count", v)
+		}
+		count = func(runtime *rt.Frame) rt.Maybe[int64] {
+			return rangeSteps(m.iterInvoke(kc, runtime, src))
+		}
+	}
+	fr.write(n.Dst(), sourceView(view, src, count))
 	return nil
 }
 

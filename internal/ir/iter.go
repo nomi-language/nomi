@@ -393,7 +393,8 @@ type Iter struct {
 // source, plus a Range's comparator and successor functions, or a user
 // source's own `each_while`. A Range view may carry one more operand, the
 // element's `Discrete.steps_between`, when the view enters a declared
-// `Iter<T>` position and must answer the Range's `known_count`.
+// `Iter<T>` position and must answer the Range's `known_count`, and a user
+// source's view one more, the `known_count` its impl writes.
 func IterViewOperands(d IterDomain) int {
 	switch d {
 	case IterOverRange:
@@ -443,7 +444,7 @@ func newIter(pos Pos, dst Temp, op IterOp, over IterDomain, sig bool, args []Tem
 	if !op.Admits(over) {
 		panic("ir.NewIter: " + op.Name() + " does not run over a " + over.String())
 	}
-	if op == IterView && len(args) != IterViewOperands(over) && !(over == IterOverRange && len(args) == IterViewOperands(over)+1) {
+	if op == IterView && len(args) != IterViewOperands(over) && !((over == IterOverRange || over == IterOverUserImpl) && len(args) == IterViewOperands(over)+1) {
 		panic("ir.NewIter: a " + over.String() + " view takes " +
 			strconv.Itoa(IterViewOperands(over)) + " operand(s), got " + strconv.Itoa(len(args)))
 	}

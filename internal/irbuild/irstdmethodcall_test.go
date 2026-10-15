@@ -27,22 +27,11 @@ fn main() { io.print(Duration.as_hours(Duration{n: 9})) }
 `, "9\n")
 }
 
-func TestIRStdMethodCall_DeclinedBuildKeepsNativeEmission(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", "import std/duration.Duration\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n hooks: Map<String, (Int) -> Int> = Map.empty() }\nfn main() { n = Duration.as_hours(Duration.hours(2)) dbg Outer{p: [Point{x: n}]} return }")
-	if err != nil {
-		t.Fatal(err)
-	}
-	retained, _, err := GenerateIR(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, mod := range retained.IR {
-		for _, fn := range mod.Funcs() {
-			if fn.Name() == "main" {
-				t.Fatal("nominal Debug must decline after resolving stdlib calls")
-			}
-		}
-	}
+// A std method call's result builds a struct whose field holds a Map of
+// function values.
+func TestIRStdMethodCall_BesideAFunctionMapFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, "import { std/io std/duration.Duration }\nstruct Point { x: Int }\nstruct Outer { p: List<Point>\n hooks: Map<String, (Int) -> Int> = Map.empty() }\nfn main() { n = Duration.as_hours(Duration.hours(2)) io.inspect(Outer{p: [Point{x: n}]}) }\n",
+		"Outer{p: [Point{x: 2}], hooks: {=>}}\n")
 }
 
 func TestIRStdMethodCall_HostBodiesStayOutsideRetainedCalls(t *testing.T) {

@@ -4,28 +4,16 @@ import (
 	"testing"
 )
 
-func TestIRRange_DiscardedBuildPreservesNativeEmission(t *testing.T) {
-	src := `struct Point { x: Int }
+// A Range test inside a struct with a Map-of-functions field runs.
+func TestIRRange_InAStructWithAFunctionMapFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+struct Point { x: Int }
 struct Outer {
   p: List<Point>
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
-fn main() { r = 1..5 dbg Outer{p: [Point{x: if Range.contains?(r, 3) { 1 } else { 0 }}]} return }`
-	p, err := AnalyzeSource("main.nomi", src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, _, err := GenerateIR(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, mod := range got.IR {
-		for _, f := range mod.Funcs() {
-			if f.Name() == "main" {
-				t.Fatal("unsupported nominal Debug retained")
-			}
-		}
-	}
+fn main() { r = 1..5 io.inspect(Outer{p: [Point{x: if Range.contains?(r, 3) { 1 } else { 0 }}]}) }
+`, "Outer{p: [Point{x: 1}], hooks: {=>}}\n")
 }
 
 func TestIRRange_NaNOrdering(t *testing.T) {

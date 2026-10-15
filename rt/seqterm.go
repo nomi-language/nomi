@@ -149,18 +149,21 @@ func SeqEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) U) Unit 
 	return Unit{}
 }
 
-// SeqCount is `Iter.count`'s fold arm: `reduce(source, |acc = 0, _item| acc + 1)`.
-//
-// Reached only when `known_count` answers None, which for a `Seq` it always
-// does — a List is answered in O(1) from its cached length by ListCount, and
-// internal/irbuild chooses between the two from the source's static kind, exactly
-// as std chooses between them at run time (std/iter.nomi:659).
+// SeqCount is `Iter.count`: the source's `known_count` when its view carries
+// one that answers Some (a user source's written override among them), and
+// otherwise the fold arm `reduce(source, |acc = 0, _item| acc + 1)`, as std
+// chooses between them (std/iter.nomi's `count`). A List is answered in O(1)
+// from its cached length by ListCount, which internal/irbuild chooses from the
+// source's static kind.
 //
 // The counter is `n++` and not CheckedAdd, and unlike FromEach's `n++` this is
 // not even a reachable divergence: every increment costs one yield, so tripping
 // Nomi's Int overflow trap would take 2^63 elements. std's `acc + 1` would trap
 // there and this would wrap; no program can reach the disagreement.
 func SeqCount[T any](fr *Frame, src Seq[T]) int64 {
+	if known := SeqKnownCount(fr, src); known.Tag == 1 {
+		return known.Some
+	}
 	var n int64
 	src.Run(fr, func(fr *Frame, item T) bool {
 		n++

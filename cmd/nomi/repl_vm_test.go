@@ -149,7 +149,7 @@ func TestReplVM_RedeclaringATypeDropsItsValues(t *testing.T) {
 }
 
 const replBlockedDecls = `struct Node {
-  f: Map<String, (Int) -> Int>
+  f: Map<String, Iter<Int>>
 }
 fn weigh(_d: Node): Int {
   0

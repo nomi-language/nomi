@@ -4,31 +4,16 @@ import (
 	"testing"
 )
 
-func TestIRSet_DiscardedBuildPreservesNativeEmission(t *testing.T) {
-	for _, src := range []string{
-		`struct Point { x: Int }
+// A Set's size builds a struct whose field holds a Map of function values.
+func TestIRSet_BesideAFunctionMapFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+struct Point { x: Int }
 struct Outer {
   p: List<Point>
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
-fn main() { s = #{1, 2} dbg Outer{p: [Point{x: Set.size(s)}]} return }`,
-	} {
-		p, err := AnalyzeSource("main.nomi", src)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got, _, err := GenerateIR(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, mod := range got.IR {
-			for _, f := range mod.Funcs() {
-				if f.Name() == "main" {
-					t.Fatal("unsupported nominal body retained")
-				}
-			}
-		}
-	}
+fn main() { s = #{1, 2} io.inspect(Outer{p: [Point{x: Set.size(s)}]}) }
+`, "Outer{p: [Point{x: 2}], hooks: {=>}}\n")
 }
 
 // A declared distinct is a set element: hashed and compared as `==` is.

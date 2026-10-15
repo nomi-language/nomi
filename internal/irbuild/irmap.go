@@ -33,6 +33,11 @@ func irMapKeyKind(k kind) bool {
 		// order-insensitively, as its elements are.
 		return irSetElemKind(elem)
 	}
+	if elem, isRange := rangeElem(k); isRange && irRetainedRangeKind(k) {
+		// A Range is std's struct of its bounds: hashed and compared
+		// structurally, as its endpoints are.
+		return irMapKeyKind(elem)
+	}
 	// kindInvalid: marker — a zero-sized marker has no inner value.
 	if k.tag == tagNamed && k.def != nil && k.def.isDistinct && !k.def.rtOpaque && irCompositeDistinct(k.def) && k.def.inner != kindInvalid {
 		// A distinct over a key (`Items(List<Int>)`): hashed and compared
@@ -113,7 +118,25 @@ func irMapValueKind(k kind) bool {
 		// concrete value (`Map<String, Display>`).
 		irExistentialKind(k) ||
 		// Any value a key may be, a nested map among them.
-		(k != kindEmptyMap && k != kindEmptyList && irMapKeyKind(k))
+		(k != kindEmptyMap && k != kindEmptyList && irMapKeyKind(k)) ||
+		irHeldValueKind(k)
+}
+
+// irHeldValueKind is a function value, or a List or Vector of any value the
+// callable domain holds (`(Int) -> Int`, `group_by`'s `List<(Int) -> Int>`
+// groups), as a container's element or a map's value. The VM's containers
+// hold values of every kind, and nothing a container does with an element
+// it only carries looks at one: the checker rejects `==` over functions,
+// and Debug keeps its own checks.
+func irHeldValueKind(k kind) bool {
+	if k.tag == tagFunc {
+		return irCallableValueKind(k)
+	}
+	if k == kindEmptyList || k == kindEmptyVector {
+		return false
+	}
+	_, vector := vectorElem(k)
+	return (k.tag == tagList || vector) && irRetainedValueKind(k)
 }
 
 // irSelfContainerEnum is a retained std enum whose payloads include its own

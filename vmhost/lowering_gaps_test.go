@@ -41,27 +41,6 @@ type loweringGap struct {
 
 var knownLoweringGaps = []loweringGap{
 	{
-		name: "gapListPatternOverFunctions",
-		fix: "builder: a `case` whose subject is a list of function values, as in `case xs { [] -> 0 " +
-			"[_, ..rest] -> 1 + size(rest) }` with `xs: List<(Int) -> Int>`. caseRegion admits a list " +
-			"subject only when its element is a retained leaf or transport kind, and a function value " +
-			"is neither, though the VM holds one in a list like any reference",
-		reason: "a tail `case` scrutinee outside retained literal-pattern kinds: List<(",
-		src: `import std/io
-
-fn size(xs: List<(Int) -> Int>): Int {
-    case xs {
-        [] -> 0
-        [_, ..rest] -> 1 + size(rest)
-    }
-}
-
-fn main() {
-    io.inspect(size([|x: Int| x + 1]))
-}
-`,
-	},
-	{
 		name: "gapBlockLocalTypeEscapesItsBlock",
 		fix: "builder or checker: a block whose value has a type declared inside the block. The " +
 			"checker types the binding at that block-local type; the builder projects the binding's " +

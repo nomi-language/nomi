@@ -101,6 +101,48 @@ fn main() {
 	}
 }
 
+// `Iter.loop` starts only from its callback lambda's parameter default, or
+// with no state from a lambda with no parameter. A lambda whose parameter
+// has no default and a function value are rejected at the callback, in a
+// call or a pipe; a seeded lambda, a stateless one and a seeded lambda
+// forwarding to a named function are accepted.
+func TestIterCallback_LoopNeedsAStartingState(t *testing.T) {
+	const prelude = `fn step(n: Int): Int {
+  if n > 3 { break n }
+  n + 1
+}
+
+fn main() {
+  `
+	const msg = "`Iter.loop` needs a starting state"
+	for _, c := range []struct {
+		src, at, help string
+	}{
+		{`_ = Iter.loop(step)`, "7:17", "call it from a lambda whose state has a starting value: `|state = <start>| step(state)`"},
+		{`_ = step |> Iter.loop()`, "7:7", "call it from a lambda whose state has a starting value: `|state = <start>| step(state)`"},
+		{"_ = Iter.loop(|n: Int| {\n    if n > 3 { break n }\n    n + 1\n  })", "7:17", "give the state a starting value: `|n = <start>| ...`, or take no parameter for a loop with no state: `|| ...`"},
+	} {
+		err := checkSource(t, prelude+c.src+"\n}\n")
+		if err == nil {
+			t.Errorf("%s: admitted", c.src)
+			continue
+		}
+		got := err.Error()
+		if !strings.Contains(got, c.at+": "+msg) || !strings.Contains(got, c.help) || strings.Count(got, msg) != 1 {
+			t.Errorf("%s: want one %q at %s with help %q, got\n%s", c.src, msg, c.at, c.help, got)
+		}
+	}
+	for _, good := range []string{
+		`_ = Iter.loop(|n = 0| step(n))`,
+		"_ = Iter.loop(|n = 0| {\n    if n > 3 { break n }\n    n + 1\n  })\n  _ = Iter.loop(|m = 0| step(m))",
+		"Iter.loop(|| { break })\n  _ = Iter.loop(|m = 0| step(m))",
+	} {
+		if err := checkSource(t, prelude+good+"\n}\n"); err != nil {
+			t.Errorf("%s: rejected: %v", good, err)
+		}
+	}
+}
+
 // A function named `min` or `max` passed to `Iter.reduce` also points at
 // `Iter.min` / `Iter.max`.
 func TestIterCallback_ReduceWithMaxPointsAtIterMax(t *testing.T) {

@@ -51,31 +51,19 @@ fn main() { v = #[Meter(1)] io.print(Vector.length(v)) }
 `, "1\n")
 }
 
-func TestIRVector_DiscardedBuildPreservesNativeEmission(t *testing.T) {
-	for _, src := range []string{
-		`struct Point { x: Int }
-struct Outer {
-  p: List<Point>
-  hooks: Map<String, (Int) -> Int> = Map.empty()
+// A Vector of function values is built from a literal of lambdas and read
+// back by the element-agnostic operations.
+func TestIRVector_OfFunctionValuesRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+fn main() {
+  v = #[|x: Int| x + 1, |x: Int| x * 2]
+  io.print(Vector.length(v))
+  case Vector.at(v, 1) {
+    Some(f) -> io.print(f(5))
+    None -> io.print(0)
+  }
 }
-fn main() { v = #[1, 2] dbg Outer{p: [Point{x: Vector.length(v)}]} return }`,
-	} {
-		p, err := AnalyzeSource("main.nomi", src)
-		if err != nil {
-			t.Fatalf("front end rejects boundary control: %v", err)
-		}
-		got, _, err := GenerateIR(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, mod := range got.IR {
-			for _, f := range mod.Funcs() {
-				if f.Name() == "main" {
-					t.Fatal("unsupported nominal body retained")
-				}
-			}
-		}
-	}
+`, "2\n10\n")
 }
 
 func TestIRVector_EvaluationOrder(t *testing.T) {

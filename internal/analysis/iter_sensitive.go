@@ -726,6 +726,7 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 	// pipeLHS != nil, iter-callback slot indices shift by +1 against call.Args.
 	walkCall := func(call *ast.Call, pipeLHS ast.Node, inIter bool) {
 		s.checkReduceSeed(call, pipeLHS)
+		s.checkLoopSeed(call, pipeLHS)
 		if callee := s.resolveCalleeSym(call.Func); callee != nil {
 			result[callee] = append(result[callee], callSite{
 				call:           call,
@@ -1354,6 +1355,60 @@ func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
 		return
 	}
 	s.errors = append(s.errors, reduceSeedError(cb, reduceSeedHints(cb)...))
+}
+
+// checkLoopSeed reports an `Iter.loop` whose callback carries no starting
+// state. The state starts from the callback lambda's parameter default
+// (`|n = 0| ...`), and a stateless loop is a lambda with no parameter
+// (`|| ...`), so a lambda whose parameter has no default and a function
+// value (`Iter.loop(step)`) are rejected: the loop would have no first
+// state to call the callback with.
+func (s *iterSensitivity) checkLoopSeed(call *ast.Call, pipeLHS ast.Node) {
+	if !s.isIterOwnerCall(call, "loop") {
+		return
+	}
+	var cb ast.Node
+	switch {
+	case len(call.Args) == 1 && pipeLHS == nil:
+		cb = call.Args[0]
+	case len(call.Args) == 0 && pipeLHS != nil:
+		cb = pipeLHS
+	default:
+		return
+	}
+	if lam, ok := cb.(*ast.Lambda); ok && (len(lam.Params) == 0 || lam.Params[0].Default != nil) {
+		return
+	}
+	if _, open := cb.(*ast.Placeholder); open {
+		return
+	}
+	e := errAt(cb, loopSeedMessage)
+	switch n := cb.(type) {
+	case *ast.Lambda:
+		name := "state"
+		if n.Params[0].Destructure == nil {
+			name = n.Params[0].Name
+		}
+		e.Hints = []string{fmt.Sprintf("give the state a starting value: `|%s = <start>| ...`, or take no parameter for a loop with no state: `|| ...`", name)}
+	case *ast.Ident, *ast.FieldAccess:
+		e.Hints = []string{fmt.Sprintf("call it from a lambda whose state has a starting value: `|state = <start>| %s(state)`", calleeText(n))}
+	default:
+		e.Hints = []string{"pass a lambda whose state has a starting value: `|state = <start>| ...`"}
+	}
+	s.errors = append(s.errors, e)
+}
+
+// loopSeedMessage is the error every unseeded `Iter.loop` reports.
+const loopSeedMessage = "`Iter.loop` needs a starting state"
+
+// isIterOwnerCall reports whether call calls std's `Iter.<name>`, however it
+// is spelled, as isIterReduceCall does for `reduce`.
+func (s *iterSensitivity) isIterOwnerCall(call *ast.Call, name string) bool {
+	if callSiteKey(call) == "Iter."+name || s.canonicalQualifiedOwnerKey(call) == "Iter."+name {
+		return true
+	}
+	sym := s.resolveIterCallbackSymbol(call.Func)
+	return sym != nil && sym.OwningType == "Iter" && sym.Name == name
 }
 
 // isIterReduceCall reports whether call calls std's `Iter.reduce`, however

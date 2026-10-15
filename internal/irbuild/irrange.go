@@ -7,7 +7,7 @@ import (
 
 func irRetainedRangeKind(k kind) bool {
 	elem, ok := rangeElem(k)
-	return ok && (elem == kindInt || elem == kindFloat || elem == kindString || isDecimalKind(elem) || irRangeDistinctElem(elem) || irNominalElemKind(elem))
+	return ok && (elem == kindInt || elem == kindFloat || elem == kindString || elem == kindBool || isDecimalKind(elem) || irRangeDistinctElem(elem) || irNominalElemKind(elem))
 }
 
 // irRangeDistinctElem is a wrapping distinct element, such as Codepoint, whose
@@ -60,6 +60,20 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		}
 	case "step_by":
 		return bl.rangeStepBy(t, args)
+	case "known_count", "each_while":
+		// `impl Iter for Range<T>`'s members, named by the type: the Iter
+		// protocol over the Range's view.
+		return bl.iterCall(t, args, method)
+	case "to_string", "inspect":
+		// std's Debug impl for a Range is its Display (`to_string(r)`), so
+		// both render as `Debug.inspect(r)` does.
+		if len(args.kinds) != 1 {
+			return no()
+		}
+		if v, k, mobile, ok := bl.synthDebugRender(t, args, "Debug", "inspect"); ok {
+			return v, k, mobile, true
+		}
+		return no()
 	case "contains?":
 		elem, _ := rangeElem(args.kinds[0])
 		if len(args.kinds) != 2 || args.kinds[1] != elem {
@@ -245,4 +259,105 @@ func (bl *irScalarBuilder) stdFuncOperand(at ast.Node, f *stdFunc) (ir.Temp, boo
 	n := ir.NewFuncValue(bl.g.irNodePos(at), bl.f.NewTemp(), bl.irHostForward(at, f))
 	bl.b.Append(n)
 	return n.Dst(), true
+}
+
+// discreteRef is elem's `Discrete.<name>` as a function value, chosen as
+// `Iter.sort` chooses a comparator (sortComparator): this file's impl, the
+// declaring file's, or std's retained body at stdResult. A user distinct
+// (`type Id Int` with `impl Discrete for Id`) walks and counts by its own
+// impl.
+func (bl *irScalarBuilder) discreteRef(at ast.Node, elem kind, name string, params []kind, stdResult kind) (ir.Temp, bool) {
+	pos := bl.g.irNodePos(at)
+	ref := func(sym *ir.Symbol, result kind) (ir.Temp, bool) {
+		r := ir.NewRefFunc(pos, bl.f.NewTemp(), sym)
+		bl.b.Append(r)
+		bl.side(r.Dst(), irScalarSide{k: funcKindIn(bl.g, params, result)})
+		return r.Dst(), true
+	}
+	if irNominalElemKind(elem) || irRangeDistinctElem(elem) {
+		if it := bl.localDiscreteItem(elem, name, params); it != nil {
+			return ref(bl.g.irCalleeSym(it, elem.nomi()+"."+it.name), it.result)
+		}
+		if sym, result := bl.siblingDiscreteSym(elem, name, params); sym != nil {
+			return ref(sym, result)
+		}
+	}
+	f := bl.g.stdIfaceFnAt("Discrete."+name, elem, params, stdResult)
+	if f == nil || f.irBody == nil {
+		return ir.NoTemp, false
+	}
+	return ref(f.irBody.Sym(), f.result)
+}
+
+// localDiscreteItem is this file's `impl Discrete for elem` member name,
+// written or inherited, with a body the builder can retain.
+func (bl *irScalarBuilder) localDiscreteItem(elem kind, name string, params []kind) *implItem {
+	impl := bl.g.implsByIface["Discrete"][elem]
+	if impl == nil || !impl.lowerable {
+		return nil
+	}
+	it := impl.items[name]
+	if it == nil || !it.lowerable || len(it.params) != len(params) {
+		return nil
+	}
+	for i, p := range params {
+		if it.params[i] != p {
+			return nil
+		}
+	}
+	return it
+}
+
+// siblingDiscreteSym is the callee symbol and result of the `impl Discrete
+// for elem` member name another file of the program writes for the type it
+// declares, as siblingCompareSym finds a sibling's compare, or nil.
+func (bl *irScalarBuilder) siblingDiscreteSym(elem kind, name string, params []kind) (*ir.Symbol, kind) {
+	if elem.tag != tagNamed || elem.def == nil {
+		return nil, kindInvalid
+	}
+	call := &ast.Call{Args: make([]ast.Node, len(params))}
+	args := irQualArgs{temps: make([]ir.Temp, len(params)), kinds: params, mobile: make([]bool, len(params)), ok: true}
+	for i := range args.temps {
+		args.temps[i], args.mobile[i] = ir.NoTemp, true
+	}
+	p := bl.qualSiblingIfaceImplPlan(call, args, elem.def, name, "Discrete")
+	if p == nil || p.sym == nil {
+		return nil, kindInvalid
+	}
+	return p.sym, p.result
+}
+
+// rangeWalksAt is gen.rangeWalks for an element whose Discrete impl the
+// program writes: std's impls answer only its own types, and discreteRef
+// resolves the program's (declining when it names none).
+func (bl *irScalarBuilder) rangeWalksAt(elem kind, at ast.Node) bool {
+	if bl.ownsDiscrete(elem) {
+		return bl.g.rangeOrders(elem, at)
+	}
+	return bl.g.rangeWalks(elem, at)
+}
+
+// ownsDiscrete reports whether the program writes elem's `Discrete.next`,
+// in this file or the one declaring elem.
+func (bl *irScalarBuilder) ownsDiscrete(elem kind) bool {
+	if !irNominalElemKind(elem) && !irRangeDistinctElem(elem) {
+		return false
+	}
+	if bl.localDiscreteItem(elem, "next", []kind{elem}) != nil {
+		return true
+	}
+	sym, _ := bl.siblingDiscreteSym(elem, "next", []kind{elem})
+	return sym != nil
+}
+
+// inheritsStepsBetween reports whether elem's Discrete impl is the
+// program's and leaves `steps_between` to the interface's default, which
+// answers None: a Range of elem then has no count, which a view with no
+// Count answers.
+func (bl *irScalarBuilder) inheritsStepsBetween(elem kind) bool {
+	if !bl.ownsDiscrete(elem) || bl.localDiscreteItem(elem, "steps_between", []kind{elem, elem}) != nil {
+		return false
+	}
+	sym, _ := bl.siblingDiscreteSym(elem, "steps_between", []kind{elem, elem})
+	return sym == nil
 }
