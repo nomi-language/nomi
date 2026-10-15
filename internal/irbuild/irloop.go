@@ -65,6 +65,10 @@ type irLoopBuild struct {
 	// holds a `with`, or ir.NoTemp: every jump back to the head or out to the
 	// exit restores it, so an override ends with the iteration that made it.
 	scope ir.Temp
+	// defers is the callback body's own defer scope: every jump back to the
+	// head or out to the exit runs what the iteration registered, in it and
+	// in the blocks it opened, so a `defer` runs when its iteration ends.
+	defers *irDeferScope
 }
 
 // irBodyWrites reports whether a callback body holds a `with` statement in
@@ -114,6 +118,22 @@ func (bl *irScalarBuilder) loopWithScope(lp *irLoopBuild) {
 // loopJump ends block b with a jump to target, restoring the scope read at
 // the loop's head first when the body holds a `with`.
 func (bl *irScalarBuilder) loopJump(b *ir.Block, at ast.Node, lp *irLoopBuild, target *ir.Block) {
+	// The iteration ends here: the deferred calls it registered on this
+	// path run, innermost block first and most recent first in each. The
+	// path has registered exactly the `defer`s lowered before this jump,
+	// since a scope admits them only among its own straight statements.
+	var open []*irDeferScope
+	for s := bl.openDefers; s != nil && lp.defers != nil; s = s.outer {
+		open = append(open, s)
+		if s == lp.defers {
+			for _, s := range open {
+				for i := len(s.ids) - 1; i >= 0; i-- {
+					b.Append(ir.NewRunDefer(bl.g.irNodePos(at), s.ids[i]))
+				}
+			}
+			break
+		}
+	}
 	if lp.scope != ir.NoTemp {
 		b.Append(ir.NewStoreScope(bl.g.irNodePos(at), bl.g.irTypes().Symbol(irScopeHandle{}, "$scope"), lp.scope))
 	}
@@ -291,10 +311,12 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if final == nil {
 		return no("an Iter.loop body outside the statement shape: " + irDeclineBodyWhy)
 	}
-	outerLoop := bl.loop
+	outerLoop, outerDefers := bl.loop, bl.openDefers
 	bl.loop = lp
+	lp.defers = &irDeferScope{block: lam.Body, outer: outerDefers}
+	bl.openDefers = lp.defers
 	lowered := bl.loopBody(lead, final, lp, tail)
-	bl.loop = outerLoop
+	bl.loop, bl.openDefers = outerLoop, outerDefers
 	if !lowered {
 		return ir.NoTemp, kindInvalid, false, false
 	}
@@ -331,8 +353,11 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		}
 		// A region in the statement (`x = case c { 0 -> continue  _ -> 1
 		// }`) may branch: an arm ending in `break v`, `return v` or
-		// `continue` leaves the iteration, and the others join.
+		// `continue` leaves the iteration, and the others join. A
+		// `defer` among the body's own statements registers in the
+		// iteration's scope.
 		bl.loopWithScope(lp)
+		bl.deferScope = lp.defers
 		if !bl.leading([]ast.Node{s}) {
 			return false
 		}
@@ -543,10 +568,16 @@ func (bl *irScalarBuilder) loopGuard(t *ast.If, lp *irLoopBuild) bool {
 		bl.b.SetTerm(br)
 	}
 	bl.b = arm
+	// The arm is a block of its own: a `defer` in it runs when the arm
+	// leaves the iteration, before the iteration's own (loopJump).
+	armDefers := &irDeferScope{block: t.Then, outer: bl.openDefers}
+	bl.openDefers = armDefers
+	defer func() { bl.openDefers = armDefers.outer }()
 	for _, s := range lead {
 		// A statement in the arm may branch and join; the arm goes on from
 		// its join.
 		bl.loopWithScope(lp)
+		bl.deferScope = armDefers
 		if !bl.leading([]ast.Node{s}) {
 			return false
 		}

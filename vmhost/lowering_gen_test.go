@@ -144,6 +144,12 @@ type gen struct {
 	// without them.
 	hold *rand.Rand
 	hn   int
+	// dfr draws the blocks deferBlock writes (a `defer` in a lambda or a loop
+	// callback, an `equal?` recursing into fields of its own type), and fdn
+	// names their declarations apart, so the rest of each program is the one
+	// it was without them.
+	dfr *rand.Rand
+	fdn int
 }
 
 func (g *gen) fresh(prefix string) string {
@@ -1854,6 +1860,54 @@ func (g *gen) holdBlock() string {
 	return out.String()
 }
 
+// deferBlock writes a block whose lambdas and `Iter.loop` callbacks hold
+// `defer`s, each run when its invocation or iteration ends (by its end,
+// `return`, `break`, `continue` or `try`), or, at file level, an `equal?`
+// that compares fields of its own type with `==`.
+func (g *gen) deferBlock(asTest bool) string {
+	r := g.dfr
+	g.fdn++
+	name := func(s string) string { return fmt.Sprintf("%s%dd", s, g.fdn) }
+	n := r.Intn(5)
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(6) {
+	case 0:
+		fmt.Fprintf(&out, "%s = |x: Int| {\ndefer io.print(\"first %d\")\ndefer io.print(\"second\")\nif x > %d {\nreturn x * 2\n}\nx + 1\n}\n", name("dl"), n, n)
+		fmt.Fprintf(&out, "io.inspect(%s(%d) + %s(%d))\n", name("dl"), n, name("dl"), n+1+r.Intn(3))
+	case 1:
+		fmt.Fprintf(&out, "%s = Iter.loop(|n = %d| {\ndefer io.print(\"leave\")\nif n == %d {\nreturn n + 2\n}\nif n > %d {\ndefer io.print(\"guard\")\nbreak n * 10\n}\nn + 1\n})\n", name("dt"), n, n+1, n+2)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("dt"))
+	case 2:
+		fmt.Fprintf(&out, "%s = [%d, %d, %d, %d]\n|> Iter.filter(|x| {\ndefer io.print(\"seen\")\nif x == %d {\ncontinue\n}\nif x > %d {\nbreak\n}\nTrue\n})\n|> Iter.to_list()\n", name("df"), n, n+1, n+2, n+3, n+1, n+2)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("df"))
+	case 3:
+		fmt.Fprintf(&out, "%s = |x: Int| {\ndefer io.print(\"tried\")\nchecked: Result<Int, String> = if x > %d { Ok(x) } else { Err(\"low\") }\nv = try checked\nOk(v + 1)\n}\n", name("dr"), n)
+		fmt.Fprintf(&out, "%s: Result<Int, String> = %s(%d)\n", name("dv"), name("dr"), n+r.Intn(3))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("dv"))
+	case 4:
+		if asTest {
+			// A test body declines a `defer` in an arm block (a known
+			// gap outside loops too), so only a function body gets one.
+			break
+		}
+		fmt.Fprintf(&out, "_ = Iter.loop(|n = 0| {\ndefer io.print(\"leave\")\ncase n {\n%d -> {\ndefer io.print(\"arm\")\nbreak n\n}\n_ -> {\ndefer io.print(\"next\")\nn + 1\n}\n}\n})\n", n)
+	default:
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("enum %s {\nLeaf\nNode(%s, Int)\n}\n\n"+
+			"impl Equatable for %s {\nfn equal?(a: %s, b: %s): Bool {\ncase (a, b) {\n(.Leaf, .Leaf) -> True\n(.Node(l, x), .Node(r, y)) -> x == y and l == r\n_ -> False\n}\n}\n}",
+			name("Tr"), name("Tr"), name("Tr"), name("Tr"), name("Tr")))
+		leaf := name("Tr") + ".Leaf"
+		node := func(k int) string { return fmt.Sprintf("%s.Node(%s.Node(%s, %d), 1)", name("Tr"), name("Tr"), leaf, k) }
+		fmt.Fprintf(&out, "io.inspect(%s == %s)\n", node(n), node(n+r.Intn(2)))
+		fmt.Fprintf(&out, "io.inspect(%s != %s)\n", leaf, node(n))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
 // boolLitFrom is a Bool literal drawn from r.
 func (g *gen) boolLitFrom(r *rand.Rand) string {
 	return []string{"True", "False"}[r.Intn(2)]
@@ -1872,6 +1926,7 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		itr:  rand.New(rand.NewSource(int64(i) + 11<<32)),
 		pat:  rand.New(rand.NewSource(int64(i) + 20<<32)),
 		hold: rand.New(rand.NewSource(int64(i) + 27<<32)),
+		dfr:  rand.New(rand.NewSource(int64(i) + 43<<32)),
 		call: rand.New(rand.NewSource(int64(i) + 7<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
@@ -1919,6 +1974,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.hold.Intn(3) == 0 {
 			body.WriteString(boundedBlock(g.holdBlock()))
+		}
+		if g.dfr.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.deferBlock(asTest)))
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")

@@ -243,9 +243,13 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	if block := t.Body; block != nil && supplier < 0 {
 		// The lambda's own statements: a `with` there holds for the rest of
 		// the lambda's activation, as a named function's does for its own.
-		// A defer is still declined.
+		// A `defer` there runs when this invocation ends: the VM runs an
+		// activation's pending deferred calls at each of its exits (a
+		// normal end, a `return`, a callback's `break` or `continue`, a
+		// `try` and a trap). A block statement in the body scopes its own.
 		child.body = block
-		child.deferScope = &irDeferScope{block: block}
+		child.deferOK = true
+		child.openDeferScope(block)
 		child.openWithScope(true)
 	}
 	if !child.leading(lead) {

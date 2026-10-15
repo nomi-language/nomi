@@ -68,6 +68,9 @@ type irScalarBuilder struct {
 	// handed out. See irdefer.go.
 	deferOK    bool
 	deferScope *irDeferScope
+	// openDefers is the innermost defer scope opened and not yet closed,
+	// chained through irDeferScope.outer.
+	openDefers *irDeferScope
 	defers     int
 	// withScope is the scope the next `leading` run lowers its `with`
 	// statements in, consumed as deferScope is; testWithScope is a test
@@ -1759,10 +1762,10 @@ func (bl *irScalarBuilder) leavingBlocks(n ast.Node) (tail ast.Node, restore fun
 		lead, inner := bl.g.irScalarBlock(block, "")
 		bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 		bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
-		deferScope, withScope := bl.deferScope, bl.withScope
+		deferScope, withScope, openDefers := bl.deferScope, bl.withScope, bl.openDefers
 		undo = append(undo, func() {
 			bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms
-			bl.deferScope, bl.withScope = deferScope, withScope
+			bl.deferScope, bl.withScope, bl.openDefers = deferScope, withScope, openDefers
 		})
 		bl.openDeferScope(block)
 		bl.openWithScope(false)
@@ -2343,6 +2346,7 @@ func (bl *irScalarBuilder) testElse(els, exit *ir.Block, t *ast.If, then kind, s
 // armInto lowers an arm into the result slot and jumps to exit. Ordinary
 // function and lambda arms carry leading statements in isolated lexical scopes.
 func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFuncSig) (kind, bool) {
+	defer bl.keepOpenDefers()()
 	if isNilNode(body) {
 		irDeclineNote("an arm body that is not one expression")
 		return kindInvalid, false

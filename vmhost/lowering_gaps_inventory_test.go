@@ -93,44 +93,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapDeferLambda",
-		fix:    "builder: defer lambda. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.deferCall | note | \"a defer inside a lambda\"#1",
-		reason: "a defer inside a lambda",
-		src: `import std/io
-
-fn close(name: String): Unit {
-    io.print("close " + name)
-}
-
-fn main() {
-    f = |name: String| {
-        defer close(name)
-        io.print("body")
-    }
-    f("a")
-}
-`,
-	},
-	{
-		name:   "gapDeferLoop",
-		fix:    "builder: defer loop. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.deferCall | note | \"a defer outside a named function's body or scoped block\"#1",
-		reason: "a defer outside a named function's body or scoped block",
-		src: `import std/io
-
-fn close(name: String): Unit {
-    io.print("close " + name)
-}
-
-fn main() {
-    _ = Iter.loop(|n = 0| {
-        defer close("loop")
-        if n == 2 { break n }
-        n + 1
-    })
-}
-`,
-	},
-	{
 		name:   "gapTestImportRebind",
 		fix:    "builder: test import rebind. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testImport/no | note | \"an `import` in a block that rebinds a name the module scope binds differently\"#1",
 		reason: "an `import` in a block that rebinds a name the module scope binds differently",

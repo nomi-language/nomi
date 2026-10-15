@@ -392,9 +392,18 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 		defer func() { bl.withScope = outer }()
 		ws = bl.openWithScope(false)
 	}
+	var pathDefers *irDeferScope
+	if leaves {
+		// A leaving path is a block of its own, as a loop guard's arm is: a
+		// `defer` in it runs as it leaves the iteration (loopJump).
+		pathDefers = &irDeferScope{outer: bl.openDefers}
+		bl.openDefers = pathDefers
+		defer func() { bl.openDefers = pathDefers.outer }()
+	}
 	for _, s := range lead {
 		if leaves {
 			bl.loopWithScope(lp)
+			bl.deferScope = pathDefers
 		} else {
 			bl.withScope = ws
 		}
