@@ -2336,7 +2336,7 @@ case result {
 
 Indentation never ends an arm. A line below an unbraced body, indented deeper than its arm and not itself an arm, is the error ``this `case` arm continues on the next line; an arm with more than one statement needs braces``, whose hint shows the arm braced (``this `else` arm ...`` in a binding's `else` arms). The language server offers a quick fix that adds the braces.
 
-A no-payload pattern (`None`, `True`, `.Point`) matches only variants that carry no data. Data-carrying variants must spell their payload explicitly — `Some(_)`, `Err(_)`, `.Rectangle{_, _}` — so the reader sees the shape of what the variant actually holds:
+A no-payload pattern (`None`, `True`, `.Point`) matches only variants that carry no data. Data-carrying variants must spell their payload explicitly — `Some(_)`, `Err(_)`, `.Rectangle{_, _}` — so the reader sees the shape of what the variant actually holds. A payload of a type with one value is still data: with `Ping(Unit)` or `Marked(Mark)` (for `type Mark`), the variant is built as `Signal.Ping(Unit)` and matched as `Signal.Ping(_)`, and only an `embeds` of a zero-sized type (`embeds Expired`) is written bare:
 
 ```nomi
 case maybe {

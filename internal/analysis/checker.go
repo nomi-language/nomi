@@ -897,7 +897,7 @@ func (c *checker) checkDotVariant(n *ast.DotVariant) Type {
 			// Call validates its args against the payload. No-payload
 			// variant: return the enum type directly (the bare `.None`
 			// form).
-			if dataType != nil && !IsZeroSized(dataType) {
+			if !variantIsValue(vd, dataType) {
 				ft := &FuncType{Params: []Type{dataType}, Return: et}
 				// A generic enum's constructor records its instantiation at
 				// the call site, as the written `Enum.Variant(x)` does after
@@ -13941,7 +13941,7 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		// or `embeds <ZeroSizedType>` variants). Without this check, the
 		// formatter rewriting `Err(_)` → `Err` silently strips a binding the
 		// reader needs.
-		if dataType != nil && !IsZeroSized(dataType) && n.Payload == nil && n.Binding == "" {
+		if !variantIsValue(found, dataType) && n.Payload == nil && n.Binding == "" {
 			c.addError(n.Line, n.Col, fmt.Sprintf(
 				"variant %s carries data; pattern needs an explicit payload (e.g. %s(_) or %s(name))",
 				variantName, variantName, variantName))

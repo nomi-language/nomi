@@ -210,7 +210,7 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 			switch {
 			case payload == nil:
 				ctor.render = func([]string) string { return name }
-			case IsZeroSized(payload):
+			case variantIsValue(&v, payload):
 				// `True`, or an `embeds` of a zero-sized type: written bare.
 				ctor.subTypes = []Type{payload}
 				ctor.render = func([]string) string { return name }

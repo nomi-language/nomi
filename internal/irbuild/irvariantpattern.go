@@ -329,10 +329,27 @@ func (bl *irScalarBuilder) variantTest(at ast.Node, subj ir.Temp, d *typeDef, v 
 	return ir.NewMatchVariantInto(bl.g.irNodePos(at), bl.f.NewTemp(), subj, bl.g.irTypeSym(d), v.nomi)
 }
 
+// irSlotlessValue is the one value of a slotless payload's type
+// (irSlotlessPayload): Unit, or the marker itself.
+func (bl *irScalarBuilder) irSlotlessValue(at ast.Node, k kind) ir.Temp {
+	var c *ir.Const
+	if k == kindUnit {
+		c = ir.NewUnit(bl.g.irNodePos(at), bl.f.NewTemp())
+	} else {
+		c = ir.NewMarker(bl.g.irNodePos(at), bl.f.NewTemp(), bl.g.irTypeSym(k.def))
+	}
+	bl.b.Append(c)
+	bl.side(c.Dst(), irScalarSide{k: k})
+	return c.Dst()
+}
+
 // variantPayload reads v's single payload off subj, as payloadValue does. A
 // zero-sized embedded marker has no slot and is reconstructed from its type.
 func (bl *irScalarBuilder) variantPayload(at ast.Node, subj ir.Temp, d *typeDef, v *variantDef) ir.Temp {
 	part := v.payloads[0]
+	if part.slot < 0 && v.kind != "embedded" && irSlotlessPayload(part.k) {
+		return bl.irSlotlessValue(at, part.k)
+	}
 	if part.slot < 0 {
 		c := ir.NewMarker(bl.g.irNodePos(at), bl.f.NewTemp(), bl.g.irTypeSym(v.embeds))
 		bl.b.Append(c)

@@ -106,6 +106,15 @@ func (c *checker) isVariantQualifier(fa *ast.FieldAccess, et *EnumType) bool {
 	return false
 }
 
+// variantIsValue reports whether a variant, whose payload at the instance in
+// hand is dataType, is a value rather than a constructor: it carries no
+// payload, or it embeds a zero-sized type (`embeds Expired`), which is its
+// one value. A positional payload of a zero-sized type (`Ping(Unit)`) is
+// still a payload: `Signal.Ping(Unit)` constructs the variant.
+func variantIsValue(vd *VariantDef, dataType Type) bool {
+	return dataType == nil || vd.Kind == VariantEmbedded && IsZeroSized(dataType)
+}
+
 // embeddedZeroSized reports whether an embedded variant's type carries no
 // value, so the variant is a value rather than a constructor.
 func embeddedZeroSized(vd *VariantDef) bool {

@@ -1292,7 +1292,7 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 		if vd == nil {
 			continue
 		}
-		if vd.DataType != nil && !IsZeroSized(vd.DataType) {
+		if !variantIsValue(vd, vd.DataType) {
 			// Data-carrying variant: constructor function, e.g. Ok: (T) -> Result<T, E>
 			vsym.Type = &FuncType{Params: []Type{vd.DataType}, Return: enumReturnTy}
 		} else if len(vd.Fields) > 0 {
