@@ -571,11 +571,18 @@ func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 		return false
 	}
 	val, vk, _, ok := bl.lowerTypedOperand(w.Value, k)
-	if ok && vk != k && !bl.g.irErases(k, vk) {
-		irDeclineNote("an app-field write of kind " + vk.nomi() + " where " + k.nomi() + " is the field's")
-	}
-	if !ok || (vk != k && !bl.g.irErases(k, vk)) {
+	if !ok {
 		return false
+	}
+	if vk != k {
+		// `with App.cache = Map.empty()`: an empty collection takes the
+		// field's type, an embedded value widens and a concrete value
+		// enters its interface, as an argument enters its parameter.
+		have := vk
+		if val, vk, ok = bl.coerceEmpty(w.Value, val, vk, k); !ok || vk != k {
+			irDeclineNote("an app-field write of kind " + have.nomi() + " where " + k.nomi() + " is the field's")
+			return false
+		}
 	}
 	name := read.Field.Name
 	sym := bl.g.irTypes().Symbol(scopedFieldToken{name, k}, "$"+name)

@@ -105,8 +105,13 @@ type gen struct {
 	// dyn draws the blocks erasedBlock writes, and en names their
 	// declarations apart, so the rest of each program is the one it was
 	// without them.
-	dyn     *rand.Rand
-	en      int
+	dyn *rand.Rand
+	en  int
+	// fix draws the blocks fixedKindBlock writes, and fn names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	fix     *rand.Rand
+	fn      int
 	wn      int
 	dn      int
 	n       int
@@ -1316,6 +1321,91 @@ func (g *gen) erasedBlock() string {
 	return out.String()
 }
 
+// fixedKindBlock is a statement block that writes a value where its type
+// is already fixed by what surrounds it: an empty list literal after or
+// before a typed one (a lambda's and a nested fn's returns, a recursive
+// nested fn's tail, `break` in an `Iter.map` callback, `break`, `return`
+// and the tail of an `Iter.loop` over `List<Int>` state, a tuple compared
+// with another, a generic struct's field), or a value of an embedded type
+// where its embedding enum's `Iter` is expected (an annotated binding, a
+// distinct tuple's payload, a field default, a spread, `Struct.update`, a
+// Vector's elements, and Captured holding the embedded type). It draws
+// from g.fix only and names from g.fn, so the program around it is the one
+// it would be without it.
+func (g *gen) fixedKindBlock() string {
+	r := g.fix
+	g.fn++
+	name := func(s string) string { return fmt.Sprintf("%s%d", s, g.fn) }
+	n := r.Intn(4)
+	var out strings.Builder
+	out.WriteString("{\n")
+	fig, pt, fc := name("Fig"), name("Fig")+"."+name("Pt"), name("fc")
+	embeds := func() {
+		fmt.Fprintf(&out, "struct %s {\nr: Int\n}\n", name("Ring"))
+		fmt.Fprintf(&out, "enum %s {\nembeds %s\n%s\n}\n", fig, name("Ring"), name("Pt"))
+		fmt.Fprintf(&out, "%s = %s{r: %d}\n", fc, name("Ring"), n)
+	}
+	switch r.Intn(12) {
+	case 0:
+		fmt.Fprintf(&out, "%s = |x: Int| {\nif x > 1 {\nreturn []\n}\nif x < 1 {\nreturn [x]\n}\n[x, x]\n}\n", name("fl"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("fl"), n)
+	case 1:
+		fmt.Fprintf(&out, "fn %s(x: Int): List<Int> {\nif x > 1 {\nreturn [x]\n}\n[]\n}\n", name("fe"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("fe"), n)
+	case 2:
+		fmt.Fprintf(&out, "fn %s(x: Int): List<Int> {\nif x > 0 {\nio.inspect(%s(x - 1))\n}\n[]\n}\n", name("fr"), name("fr"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("fr"), n)
+	case 3:
+		fmt.Fprintf(&out, "%s = [1, 2, 3]\n|> Iter.map(|x| {\nif x > %d {\nbreak []\n}\nif x > 1 {\nbreak [x]\n}\n[x, x]\n})\n|> Iter.to_list()\n", name("fm"), n)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("fm"))
+	case 4:
+		exits := []string{"break []", "return []", "break acc"}
+		fmt.Fprintf(&out, "%s = Iter.loop(|acc: List<Int> = [1]| {\nif Iter.count(acc) > %d {\nbreak []\n}\nif Iter.count(acc) == 0 {\n%s\n}\n[1, ..acc]\n})\n", name("fo"), n, exits[r.Intn(len(exits))])
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("fo"))
+	case 5:
+		rhs := []string{"[]", fmt.Sprintf("[%d]", n)}[r.Intn(2)]
+		fmt.Fprintf(&out, "io.print((%d, []) == (%d, %s))\n", n, n, rhs)
+	case 6:
+		fmt.Fprintf(&out, "%s: Captured<List<Int>> = Captured{value: [], output: \"\", transcript: \"\"}\n", name("fk"))
+		fmt.Fprintf(&out, "io.inspect(%s.value)\n", name("fk"))
+	case 7:
+		embeds()
+		fmt.Fprintf(&out, "%s: Iter<%s> = [%s, %s]\n", name("fi"), fig, fc, pt)
+		fmt.Fprintf(&out, "io.print(Iter.count(%s))\n", name("fi"))
+	case 8:
+		embeds()
+		fmt.Fprintf(&out, "type %s (Iter<%s>, Int)\n", name("Pair"), fig)
+		fmt.Fprintf(&out, "%s(%s, %s) = %s([%s], %d)\n", name("Pair"), name("fi"), name("fq"), name("Pair"), fc, n)
+		fmt.Fprintf(&out, "io.print(Iter.count(%s) + %s)\n", name("fi"), name("fq"))
+	case 9:
+		embeds()
+		fmt.Fprintf(&out, "struct %s {\nit: Iter<%s> = [%s{r: 1}]\nn: Int = 0\n}\n", name("Held"), fig, name("Ring"))
+		fmt.Fprintf(&out, "%s = %s{}\n", name("fh"), name("Held"))
+		switch r.Intn(3) {
+		case 0:
+			fmt.Fprintf(&out, "%s = {..%s, it: [%s, %s]}\n", name("fg"), name("fh"), fc, fc)
+		case 1:
+			fmt.Fprintf(&out, "%s = Struct.update(updates: {it: [%s, %s]}, original: %s)\n", name("fg"), fc, fc, name("fh"))
+		default:
+			fmt.Fprintf(&out, "%s = %s{it: [%s], n: Iter.count(%s.it)}\n", name("fg"), name("Held"), fc, name("fh"))
+		}
+		fmt.Fprintf(&out, "io.print(Iter.count(%s.it))\n", name("fg"))
+	case 10:
+		embeds()
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "%s: Vector<Iter<%s>> = #[[%s], [%s, %s]]\n", name("fv"), fig, fc, pt, fc)
+		} else {
+			fmt.Fprintf(&out, "%s: Vector<Captured<%s>> = #[Captured{value: %s, output: \"\", transcript: \"\"}]\n", name("fv"), fig, fc)
+		}
+		fmt.Fprintf(&out, "io.print(Vector.length(%s))\n", name("fv"))
+	default:
+		fmt.Fprintf(&out, "%s: Vector<Iter<Int>> = #[[%d], [1, 2]]\n", name("fv"), n)
+		fmt.Fprintf(&out, "io.print(%s |> Iter.map(Iter.count) |> Iter.reduce(|t = 0, c| t + c))\n", name("fv"))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
 // boolLitFrom is a Bool literal drawn from r.
 func (g *gen) boolLitFrom(r *rand.Rand) string {
 	return []string{"True", "False"}[r.Intn(2)]
@@ -1329,7 +1419,8 @@ func generatedProgram(i int) loweringSeed { return generatedProgramSized(i, 3, 3
 func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	g := &gen{r: rand.New(rand.NewSource(int64(i))), aux: rand.New(rand.NewSource(int64(i) + 1<<32)),
 		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32)),
-		wrap: rand.New(rand.NewSource(int64(i) + 4<<32)), dyn: rand.New(rand.NewSource(int64(i) + 5<<32))}
+		wrap: rand.New(rand.NewSource(int64(i) + 4<<32)), dyn: rand.New(rand.NewSource(int64(i) + 5<<32)),
+		fix: rand.New(rand.NewSource(int64(i) + 6<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -1361,6 +1452,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.dyn.Intn(3) == 0 {
 			body.WriteString(g.erasedBlock())
+		}
+		if g.fix.Intn(3) == 0 {
+			body.WriteString(g.fixedKindBlock())
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")
@@ -1415,6 +1509,10 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	// leafDistinctBlock's std types outside the prelude.
 	if strings.Contains(out, "Regex`") {
 		out = "import std/regex.Regex\n" + out
+	}
+	// fixedKindBlock's Captured.
+	if strings.Contains(out, "Captured{") {
+		out = "import std/io.Captured\n" + out
 	}
 	if strings.Contains(out, "Duration.seconds(") {
 		out = "import std/duration.Duration\n" + out

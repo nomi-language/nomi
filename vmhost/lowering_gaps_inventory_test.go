@@ -44,22 +44,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapLambdaReturnEmptyListFirst",
-		fix:    "builder: lambda return empty list first. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.explicitReturn | false | !ok ¦¦ k != bl.returnKind#1",
-		reason: "a value of kind List<Int> where List<_> is expected",
-		src: `import std/io
-
-fn main() {
-    g = |x: Int| {
-        if x > 0 { return [] }
-        if x < 0 { return [x] }
-        [x, x]
-    }
-    io.inspect(g(1))
-}
-`,
-	},
-	{
 		name:   "gapLeavingRegionTypedOperand",
 		fix:    "builder: leaving region typed operand. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.typedRegionValue | note | \"an `if` or `case` whose every arm leaves the body, used as an operand\"#1",
 		reason: "an `if` or `case` whose every arm leaves the body, used as an operand",
@@ -78,62 +62,6 @@ fn f(x: Int): Bool {
 
 fn main() {
     io.inspect(f(1))
-}
-`,
-	},
-	{
-		name:   "gapLoopArmReturnEmpty",
-		fix:    "builder: loop arm return empty. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.armInto | note | \"an Iter.loop arm's `return` without a value of the state type\"#1",
-		reason: "an Iter.loop arm's `return` without a value of the state type",
-		src: `import std/io
-
-fn main() {
-    r = Iter.loop(|xs = [1, 2, 3]| {
-        case xs {
-            [] -> break [0]
-            [_] -> return []
-            [_, ..rest] -> rest
-        }
-    })
-    io.inspect(r)
-}
-`,
-	},
-	{
-		name:   "gapLoopNestedGuardReturnEmpty",
-		fix:    "builder: loop nested guard return empty. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.leading | note | \"an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`\"#1",
-		reason: "an Iter.loop guard outside `if c { break v | return v | continue }`",
-		src: `import std/io
-
-fn main() {
-    r = Iter.loop(|xs = [1, 2, 3]| {
-        case xs {
-            [] -> break [0]
-            [_, ..rest] -> {
-                if rest == [1] { return [] }
-                rest
-            }
-        }
-    })
-    io.inspect(r)
-}
-`,
-	},
-	{
-		name:   "gapMapBreakEmptyListFirst",
-		fix:    "builder: map break empty list first. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.ctlReturn | false | !ok ¦¦ k != bl.returnKind#1",
-		reason: "a value of kind List<Int> where List<_> is expected",
-		src: `import std/io
-
-fn main() {
-    ys = [1, 2, 3]
-        |> Iter.map(|x| {
-            if x > 2 { break [] }
-            if x > 1 { break [x] }
-            [x, x]
-        })
-        |> Iter.to_list()
-    io.inspect(ys)
 }
 `,
 	},
@@ -301,21 +229,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCLoopFinalBreakEmptyList",
-		fix:    "builder: c loop final break empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopBody | note | \"an Iter.loop final `break` without a value of the state type\"#1",
-		reason: "an Iter.loop final `break` without a value of the state type",
-		src: `import std/io
-
-fn main() {
-    xs = Iter.loop(|acc: List<Int> = [1]| {
-        if Iter.count(acc) > 2 { break acc }
-        break []
-    })
-    io.inspect(xs)
-}
-`,
-	},
-	{
 		name:   "gapCLoopFnState",
 		fix:    "builder: c loop fn state. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterLoop | note | \"an Iter.loop state outside the retained value domain: \" + sk.nomi()#1",
 		reason: "an Iter.loop state outside the retained value domain: (Int) -> Int",
@@ -327,51 +240,6 @@ fn main() {
         |x: Int| g(x) + 1
     })
     io.inspect(f(1))
-}
-`,
-	},
-	{
-		name:   "gapCLoopGuardBreakEmptyList",
-		fix:    "builder: c loop guard break empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopBody | note | \"an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`\"#1",
-		reason: "an Iter.loop guard outside `if c { break v | return v | continue }`",
-		src: `import std/io
-
-fn main() {
-    xs = Iter.loop(|acc: List<Int> = [1]| {
-        if Iter.count(acc) > 2 { break [] }
-        [1, ..acc]
-    })
-    io.inspect(xs)
-}
-`,
-	},
-	{
-		name:   "gapCLoopGuardReturnEmptyList",
-		fix:    "builder: c loop guard return empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopValue | false | !ok ¦¦ vk != k#1",
-		reason: "an Iter.loop guard outside `if c { break v | return v | continue }`",
-		src: `import std/io
-
-fn main() {
-    xs = Iter.loop(|acc: List<Int> = [1]| {
-        if Iter.count(acc) > 2 { break acc }
-        if Iter.count(acc) == 0 { return [] }
-        [1, ..acc]
-    })
-    io.inspect(xs)
-}
-`,
-	},
-	{
-		name:   "gapCLoopIfElseBreakEmptyList",
-		fix:    "builder: c loop if else break empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopBody | note | \"an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`\"#2",
-		reason: "an Iter.loop guard outside `if c { break v | return v | continue }`",
-		src: `import std/io
-
-fn main() {
-    xs = Iter.loop(|acc: List<Int> = [1]| {
-        if Iter.count(acc) > 2 { break [] } else { [1, ..acc] }
-    })
-    io.inspect(xs)
 }
 `,
 	},
@@ -404,21 +272,6 @@ fn step(n: Int): Int {
 
 fn main() {
     io.inspect(Iter.loop(step))
-}
-`,
-	},
-	{
-		name:   "gapCLoopTailEmptyList",
-		fix:    "builder: c loop tail empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopTail | note | \"an Iter.loop tail that is not the state type\"#1",
-		reason: "an Iter.loop tail that is not the state type",
-		src: `import std/io
-
-fn main() {
-    xs = Iter.loop(|acc: List<Int> = [1]| {
-        if Iter.count(acc) > 2 { break acc }
-        []
-    })
-    io.inspect(xs)
 }
 `,
 	},
@@ -1335,19 +1188,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCapturedEmptyList",
-		fix:    "builder: captured empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.lowerWant | note | \"a value of kind \" + have.nomi() + \" where \" + want.nomi() + \" is expected\"#1",
-		reason: "a value of kind Captured<List<_>> where Captured<List<Int>> is expected",
-		src: `import std/io
-import std/io.Captured
-
-fn main() {
-    c: Captured<List<Int>> = Captured{value: [], output: "", transcript: ""}
-    io.inspect(c.value)
-}
-`,
-	},
-	{
 		name:   "gapDecimalDoubledUnderscore",
 		fix:    "builder: decimal doubled underscore. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.decimalLiteral | false | err != nil#1",
 		reason: "a DecimalLit",
@@ -1356,56 +1196,6 @@ fn main() {
 
 fn main() {
     io.inspect(1__0.5d)
-}
-`,
-	},
-	{
-		name:   "gapDistinctTupleCallformIterWiden",
-		fix:    "builder: distinct tuple callform iter widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.compositeDistinctMake | false | !ok ¦¦ k != d.inner#1",
-		reason: "a value of kind List<Circle> where Iter<Shape> is expected",
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-type P (Iter<Shape>, Int)
-
-fn main() {
-    c = Circle{r: 1}
-    q = P(([c], 2))
-    P(it, n) = q
-    io.print(Iter.count(it) + n)
-}
-`,
-	},
-	{
-		name:   "gapDistinctTupleIterWiden",
-		fix:    "builder: distinct tuple iter widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.compositeDistinctMake | false | !vok ¦¦ vk != d.inner.comp.parts[i]#1",
-		reason: "a value of kind List<Circle> where Iter<Shape> is expected",
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-type P (Iter<Shape>, Int)
-
-fn main() {
-    c = Circle{r: 1}
-    p = P([c], 1)
-    P(it, n) = p
-    io.print(Iter.count(it) + n)
 }
 `,
 	},
@@ -1468,32 +1258,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapFieldDefaultIterWiden",
-		fix:    "builder: field default iter widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.declDefault | false | !ok ¦¦ k != want#1",
-		reason: "a struct literal: H",
-		noSkip: true,
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-struct H {
-    it: Iter<Shape> = [Circle{r: 1}]
-}
-
-fn main() {
-    h = H{}
-    io.print(Iter.count(h.it))
-}
-`,
-	},
-	{
 		name:   "gapIfaceGapDefaultCrossFile",
 		fix:    "builder: iface gap default cross file. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.ifaceGapDefaults | false | unguarded#1",
 		reason: "a named argument",
@@ -1552,28 +1316,6 @@ impl Shape for Sq {
     fn area(s: Sq, scale: Int = 1, extra: Int = 0): Int {
         s.side * scale + extra
     }
-}
-`,
-	},
-	{
-		name:   "gapIterOfEmbeddingEnumFromList",
-		fix:    "builder: iter of embedding enum from list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.coerceEmpty | false | want.tag == tagSeq && want.comp != nil#1",
-		reason: "a value of kind List<Circle> where Iter<Shape> is expected",
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-fn main() {
-    c = Circle{r: 2}
-    it: Iter<Shape> = [c]
-    io.print(Iter.count(it))
 }
 `,
 	},
@@ -1733,64 +1475,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapStructSpreadIterFieldWiden",
-		fix:    "builder: struct spread iter field widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structMergeVals | false | !ok ¦¦ vk != fk#1",
-		reason: "a struct literal: <none>",
-		noSkip: true,
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-struct H {
-    it: Iter<Shape>
-    n: Int
-}
-
-fn main() {
-    c = Circle{r: 1}
-    h = H{it: [Shape.Dot], n: 1}
-    h2 = {..h, it: [c]}
-    io.print(Iter.count(h2.it))
-}
-`,
-	},
-	{
-		name:   "gapStructUpdateNamedIterFieldWiden",
-		fix:    "builder: struct update named iter field widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.recordMerge | false | !ok ¦¦ vk != fk#1",
-		reason: "a named argument",
-		noSkip: true,
-		src: `import std/io
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-struct H {
-    it: Iter<Shape>
-    n: Int
-}
-
-fn main() {
-    c = Circle{r: 1}
-    h = H{it: [Shape.Dot], n: 1}
-    h2 = Struct.update(updates: {it: [c]}, original: h)
-    io.print(Iter.count(h2.it))
-}
-`,
-	},
-	{
 		name:   "gapStructUpdatePatchBinding",
 		fix:    "builder: struct update patch binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | !isLit ¦¦ lit.TypeName != nil ¦¦ lit.Spread != nil#1",
 		reason: "qualified call, Type.method: Struct.update",
@@ -1806,18 +1490,6 @@ fn main() {
     u = User{name: "a", age: 1}
     patch = {name: "b"}
     io.inspect(Struct.update(u, patch))
-}
-`,
-	},
-	{
-		name:   "gapTupleEmptyListEquality",
-		fix:    "builder: tuple empty list equality. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.compareOperands | false | !ok ¦¦ lk != rk#1",
-		reason: "the comparison operator `==`",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.print((1, []) == (1, [2]))
 }
 `,
 	},
@@ -1870,54 +1542,6 @@ fn main() {
     p = P{x: 1}
     q = Struct.update(updates: {x: 2}, original: if ch.sender == ch.sender { p } else { p })
     io.print(q.x)
-}
-`,
-	},
-	{
-		name:   "gapVectorCapturedElemWiden",
-		fix:    "builder: vector captured elem widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.lowerSameKindItems | false | !ok ¦¦ k != want#1",
-		reason: "a value of kind Captured<Circle> where Captured<Shape> is expected",
-		src: `import std/io
-import std/io.Captured
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-fn main() {
-    c = Circle{r: 1}
-    v: Vector<Captured<Shape>> = #[Captured{value: c, output: "", transcript: ""}]
-    io.print(Vector.length(v))
-}
-`,
-	},
-	{
-		name:   "gapVectorItemsJoinCaptured",
-		fix:    "builder: vector items join captured. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.literalItemsCoerced | false | !ok ¦¦ k != want#1",
-		reason: "a VectorLit",
-		noSkip: true,
-		src: `import std/io
-import std/io.Captured
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-fn main() {
-    a = Captured{value: Circle{r: 1}, output: "", transcript: ""}
-    b = Captured{value: Shape.Dot, output: "", transcript: ""}
-    v = #[a, b]
-    io.print(Vector.length(v))
 }
 `,
 	},
@@ -1988,23 +1612,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapLambdaReturnEmptyList",
-		fix:    "builder: lambda return empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.lambdaFunction | note | \"a lambda whose returns disagree\"#1",
-		reason: "a lambda whose returns disagree",
-		src: `import std/io
-
-fn main() {
-    a = |x: Int| {
-        if x > 0 {
-            return []
-        }
-        [1]
-    }
-    io.inspect(a(1))
-}
-`,
-	},
-	{
 		name:   "gapNestedFnDestructuringParam",
 		fix:    "builder: nested fn destructuring param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.nestedFunc/no | note | \"a nested fn: \" + why#1",
 		reason: "a nested fn: a parameter without an annotation, or a destructuring one",
@@ -2015,20 +1622,6 @@ fn main() {
         a + b
     }
     io.print(sum((1, 2)))
-}
-`,
-	},
-	{
-		name:   "gapNestedFnEmptyListResult",
-		fix:    "builder: nested fn empty list result. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.nestedInstance/no | note | \"a nested fn: \" + why#1",
-		reason: "a nested fn: a result that is not the declared return type: List<_> vs List<Int>",
-		src: `import std/io
-
-fn main() {
-    fn none_list(_x: Int): List<Int> {
-        []
-    }
-    io.inspect(none_list(1))
 }
 `,
 	},
@@ -2082,23 +1675,6 @@ fn conn(host: String, port: Int = base() + 1): String {
 fn main() {
     c = conn("h", _)
     io.print(c(3))
-}
-`,
-	},
-	{
-		name:   "gapRecursiveNestedFnEmptyListTail",
-		fix:    "builder: recursive nested fn empty list tail. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.recursiveNestedFunc | note | \"a recursive nested fn: its body is outside the lambda shape: \" + fd.Name#1",
-		reason: "a recursive nested fn: its body is outside the lambda shape: r",
-		src: `import std/io
-
-fn main() {
-    fn r(n: Int): List<Int> {
-        if n > 0 {
-            io.inspect(r(n - 1))
-        }
-        []
-    }
-    io.inspect(r(2))
 }
 `,
 	},

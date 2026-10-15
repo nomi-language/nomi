@@ -35,3 +35,32 @@ fn show() {
 `
 	irRunSource(t, src, "1\nx\n2,y\n")
 }
+
+// A `with` sets a Map application field from `Map.empty()`, whose element
+// types are the field's.
+func TestIRAppFieldEmptyMapWrite_Runs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	const src = `import std/io
+
+struct App {
+    cache: Map<String, Int>
+}
+
+fn boot(_startup: Startup): App {
+    App{cache: {"a" => 1}}
+}
+
+fn size(): Int {
+    Map.size(App.cache)
+}
+
+fn main() {
+    io.print(size())
+    with App.cache = Map.empty()
+    io.print(size())
+}
+`
+	irRunSource(t, src, "1\n0\n")
+}

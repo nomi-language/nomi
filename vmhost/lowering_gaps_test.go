@@ -106,24 +106,6 @@ fn main() {
 }
 `,
 	},
-	{
-		name: "gapVectorOfIters",
-		fix: "builder: a vector literal where a `Vector<Iter<T>>` is expected, as in " +
-			"`v: Vector<Iter<Int>> = #[[1]]` or `#[[circle]]` for `Vector<Iter<Shape>>`. " +
-			"lowerTypedOperand builds a vector literal at the expected element only when that " +
-			"element holds embeds or an empty collection (irTypedWithin), so each list element " +
-			"is built as a List and the vector is not viewed as one of Iters; letting it through " +
-			"reaches vectorMakeOf, whose element predicate refuses an Iter with no reason. " +
-			"A list in the same position (`List<Iter<Shape>>`) lowers",
-		reason: "a value of kind Vector<List<Int>> where Vector<Iter<Int>> is expected",
-		src: `import std/io
-
-fn main() {
-    v: Vector<Iter<Int>> = #[[1]]
-    io.print(Iter.count(v))
-}
-`,
-	},
 }
 
 // knownGapFor is the known gap every one of reasons matches, or nil.

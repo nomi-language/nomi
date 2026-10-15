@@ -93,6 +93,9 @@ func irSameGeneric(a, b *typeDef) bool {
 	if a.genericOf != nil {
 		return a.genericOf == b.genericOf
 	}
+	if a.genStructOf != nil {
+		return a.genStructOf == b.genStructOf
+	}
 	return a.preludeOf != nil && b.preludeOf != nil && a.preludeOf.spec == b.preludeOf.spec
 }
 

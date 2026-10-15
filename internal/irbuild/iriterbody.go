@@ -676,6 +676,23 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 	case sk == irBytesKind() && elem == irByteKind():
 		return view(ir.IterOverBytes, src), true
 	}
+	if from, ok := irSeqSourceElem(sk); ok && from != elem && irCallableValueKind(from) && !(irExistentialKind(elem) && bl.g.irErases(elem, from)) {
+		// `it: Iter<Shape> = [circle]` for `enum Shape { embeds Circle }`:
+		// each element is a Circle record, and a Shape holding one is the
+		// enum's record around it, so the source is viewed at its own
+		// element and each element converted as it is read (rebuildAdapter:
+		// an embedded value widened, a Maybe<Circle> rebuilt as a
+		// Maybe<Shape>, a List<Int> viewed as an Iter<Int>).
+		if fn, ok := bl.rebuildAdapter(at, from, elem); ok {
+			inner := src
+			if sk.tag != tagSeq {
+				inner, ok = bl.seqView(at, src, sk, from)
+			}
+			if ok {
+				return bl.iterAppend(at, ir.IterMap, ir.IterOverSeq, want, inner, fn), true
+			}
+		}
+	}
 	if rangeElem, isRange := irIterRangeElem(sk); isRange {
 		if rangeElem != elem {
 			return ir.NoTemp, false
@@ -723,6 +740,24 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 		return bl.userView(at, src, sk, it, elem), true
 	}
 	return ir.NoTemp, false
+}
+
+// irSeqSourceElem is the element a typed list, vector, set or sequence
+// holds: the element seqView views it at before converting each one.
+func irSeqSourceElem(k kind) (kind, bool) {
+	switch {
+	case k.tag == tagSeq && k.comp != nil:
+		return seqElem(k), true
+	case k.tag == tagList && k != kindEmptyList && k.comp != nil && len(k.comp.parts) == 1:
+		return k.comp.parts[0], true
+	}
+	if elem, ok := vectorElem(k); ok && k != kindEmptyVector {
+		return elem, true
+	}
+	if elem, ok := setElem(k); ok && k != kindEmptySet {
+		return elem, true
+	}
+	return kindInvalid, false
 }
 
 // irIterRangeElem is the element of a Range the retained pipeline can walk.
