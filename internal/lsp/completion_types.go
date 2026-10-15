@@ -46,7 +46,9 @@ func nodePos(n ast.Node) (int, int) {
 // ExpectedTypes. Built on the first completion request against that
 // analysis and reused until the document is analyzed again.
 type exprIndex struct {
-	fa       *analysis.FileAnalysis
+	fa *analysis.FileAnalysis
+	// revision is fa's when the index was built (FileAnalysis.Revision).
+	revision int
 	types    map[exprKey]analysis.Type
 	expected map[exprKey]analysis.Type
 }
@@ -59,11 +61,12 @@ type exprIndexCache struct {
 func (c *exprIndexCache) get(fa *analysis.FileAnalysis) *exprIndex {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.idx != nil && c.idx.fa == fa {
+	if c.idx != nil && c.idx.fa == fa && c.idx.revision == fa.Revision() {
 		return c.idx
 	}
 	idx := &exprIndex{
 		fa:       fa,
+		revision: fa.Revision(),
 		types:    make(map[exprKey]analysis.Type, len(fa.ExprTypes)),
 		expected: make(map[exprKey]analysis.Type, len(fa.ExpectedTypes)),
 	}

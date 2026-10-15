@@ -278,6 +278,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// straight to BuildProject (e.g. the LSP) we still want the same
 	// synthesis behaviour.
 	deriveErrsByKey := make(map[string][]TypeError, len(proj.Files)+1)
+	// loweredLen is each file's node count once lowered, before synthesis
+	// appends to it (FileAnalysis.ownNodes).
+	loweredLen := make(map[string]int, len(proj.Files))
 	for key, nodes := range proj.Files {
 		// Derive lowering FIRST: derive declarations become top-level impl
 		// blocks, which the derive + universal-Debug passes
@@ -286,6 +289,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// Errors are internal parser-regression guards; surface them
 		// alongside the derive errors.
 		lowered, lowerErrs := LowerDerives(nodes)
+		loweredLen[key] = len(lowered)
 		extended, errs := SynthesizeDerives(lowered)
 		errs = append(lowerErrs, errs...)
 		// Universal default Debug: after derive synthesis, eagerly synthesize
@@ -386,6 +390,13 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		entryFB.fa.Origin = originForKey(entryModRel)
 	}
 	all = append(all, entryFB)
+	loweredLen[""] = len(loweredEntry)
+	for _, fb := range all {
+		fb.fa.ownNodes = loweredLen[fb.key]
+		if !IsStdlibKey(fb.key) {
+			fb.fa.ownNodes -= len(preludeStmts)
+		}
+	}
 	// Surface manifest-load failures (e.g. malformed nomi.toml) as a
 	// TypeError on the entry FA. Missing nomi.toml is not an error —
 	// DiscoverProject swallows ErrManifestMissing and leaves

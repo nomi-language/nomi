@@ -62,6 +62,16 @@ type CheckedProgram struct {
 	// externs reports that the root declared Go bindings, which the build
 	// injected into the files' nodes.
 	externs bool
+	// damaged holds the declarations the resilient parse repaired in each
+	// file, by module key (parser.ParseResilient).
+	damaged map[string][]parser.Span
+	// reachesEntry reports that a file of the program imports the entry,
+	// and unread that the build loaded a file whose text Texts does not
+	// hold: one of another module, or one no text and no file answered.
+	reachesEntry, unread bool
+	// entryOwn is how many of the entry's nodes are its declarations, as
+	// lowered, before the impls synthesis appends.
+	entryOwn int
 	// consumed is set once a Recheck has taken the program's analyses for
 	// its answer.
 	consumed bool
@@ -172,7 +182,7 @@ func (dm *DocumentManager) checkProgramLocked(root, entry string, texts map[stri
 		return string(data), true
 	}
 	parse := func(key, src string) []ast.Node {
-		nodes, errs, _ := parser.ParseResilient(lexer.Lex(src))
+		nodes, errs, damaged := parser.ParseResilient(lexer.Lex(src))
 		fingerprint := ""
 		if len(errs) == 0 {
 			fingerprint = interfaceFingerprint(nodes)
@@ -182,6 +192,12 @@ func (dm *DocumentManager) checkProgramLocked(root, entry string, texts map[stri
 			p.Syntax[key] = errs
 		} else {
 			p.fingerprints[key] = fingerprint
+		}
+		if len(damaged) > 0 {
+			if p.damaged == nil {
+				p.damaged = map[string][]parser.Span{}
+			}
+			p.damaged[key] = damaged
 		}
 		mu.Unlock()
 		return nodes
@@ -196,22 +212,41 @@ func (dm *DocumentManager) checkProgramLocked(root, entry string, texts map[stri
 		nodes = injected
 	}
 	nodes, lowerErrs := LowerDerives(nodes)
+	p.entryOwn = len(nodes)
 	testNameErrs := CheckDuplicateTestNames(nodes)
 	prog, _ := SynthesizeDerives(nodes)
 	prog = SynthesizeUniversalDebug(prog)
 
 	base := dm.makeLoader()
+	// elsewhere loads a file whose text Texts does not hold, and notes it
+	// when there is one.
+	elsewhere := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
+		nodes, err := base(projectRoot, modulePath)
+		if err == nil {
+			mu.Lock()
+			p.unread = true
+			mu.Unlock()
+		}
+		return nodes, err
+	}
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		key := strings.Join(modulePath, "/")
-		if _, _, std := dm.stdlibLoad(projectRoot, modulePath); std || filepath.Clean(projectRoot) != filepath.Clean(root) || IsStdlibKey(key) {
+		if _, _, std := dm.stdlibLoad(projectRoot, modulePath); std || IsStdlibKey(key) {
 			return base(projectRoot, modulePath)
 		}
+		if filepath.Clean(projectRoot) != filepath.Clean(root) {
+			// A file of another module.
+			return elsewhere(projectRoot, modulePath)
+		}
 		if key == entry {
+			mu.Lock()
+			p.reachesEntry = true
+			mu.Unlock()
 			return nodes, nil
 		}
 		src, ok := text(key)
 		if !ok {
-			return base(projectRoot, modulePath)
+			return elsewhere(projectRoot, modulePath)
 		}
 		return syntheticextern.Inject(parse(key, src), dm.syntheticExternsForRoot(projectRoot), false)
 	}

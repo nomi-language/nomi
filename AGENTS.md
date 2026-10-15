@@ -85,6 +85,18 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   `BuildTypes` registers types, `CheckTypes` walks bodies. Names resolve
   whole-program, so the import graph may be cyclic and import order never
   matters.
+- **Language server analysis.** An open document is analyzed as part of a
+  whole program the `DocumentManager` keeps per project root and entry
+  (`internal/analysis/document_programs.go`): the program of the first entry
+  candidate that reaches it, else its own. An edit that leaves a file's
+  interface fingerprint as it was rebuilds only that file's bodies, in place
+  (`DocumentManager.Recheck`, `internal/analysis/recheck.go`); any other
+  change checks the program afresh. Since the rebuild rewrites installed
+  analyses, a reader of one holds `DocumentManager.View`, and a recheck
+  takes that lock exclusively until it has installed its answer.
+  `TestIncrementalMatchesFull` and `FuzzIncrementalMatchesFull` hold a
+  recheck to a full check, and `TestOpenDocumentEditsMatchFreshBuilds`
+  holds each document's diagnostics to an analysis of the file on its own.
 - **IR builder.** `internal/irbuild` lowers every body a program runs (module
   functions, impl functions, `once` initializers, test bodies, lambdas, stdlib
   bodies) into an `ir.Func`. Generic functions, types and impls are

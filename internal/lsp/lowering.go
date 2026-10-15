@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/vmhost"
@@ -238,8 +239,14 @@ func (s *Server) runLoweringChecks(uri, content string, gen int) {
 	for {
 		start := time.Now()
 		var diags []protocol.Diagnostic
-		if a, latest := s.loweringAnalysis(uri, content); latest {
-			diags = safeLoweringDiagnostics(uri, content, a)
+		if _, latest := s.loweringAnalysis(uri, content); latest {
+			// The analysis is taken again under the view lock, which keeps
+			// a recheck from rewriting it while it is lowered.
+			release := s.docs.View()
+			if a, latest := s.installedLoweringAnalysis(uri, content); latest {
+				diags = safeLoweringDiagnostics(uri, content, a)
+			}
+			release()
 		}
 		s.finishLowering(uri, content, gen, diags, time.Since(start))
 		c.mu.Lock()
@@ -275,24 +282,44 @@ func (s *Server) loweringAnalysis(uri, content string) (a *analyzedlowering.Anal
 			return nil, false
 		}
 		if snap.Analysis != nil && snap.Current() {
-			if snap.Program == nil || len(snap.Errors) > 0 || len(snap.Damaged) > 0 {
-				return nil, true
-			}
-			p := snap.Program
-			return &analyzedlowering.Analyzed{
-				Nodes:        p.Nodes,
-				FA:           snap.Analysis,
-				Root:         p.Root,
-				Files:        p.Files,
-				ReachesEntry: p.ReachesEntry,
-				Manifest:     p.Manifest,
-			}, true
+			return analyzedOf(snap), true
 		}
 		select {
 		case <-installed:
 		case <-deadline.C:
 			return nil, true
 		}
+	}
+}
+
+// installedLoweringAnalysis is loweringAnalysis without the wait: the
+// analysis of content installed now, or nil, and whether content is still
+// the document's latest text.
+func (s *Server) installedLoweringAnalysis(uri, content string) (*analyzedlowering.Analyzed, bool) {
+	snap := s.docs.Snapshot(uri)
+	if snap == nil || snap.Text != content {
+		return nil, false
+	}
+	if snap.Analysis == nil || !snap.Current() {
+		return nil, true
+	}
+	return analyzedOf(snap), true
+}
+
+// analyzedOf is the program to lower from snap's analysis, which is of its
+// latest text, or nil when it is not the program `nomi check` builds.
+func analyzedOf(snap *analysis.DocSnapshot) *analyzedlowering.Analyzed {
+	if snap.Program == nil || len(snap.Errors) > 0 || len(snap.Damaged) > 0 {
+		return nil
+	}
+	p := snap.Program
+	return &analyzedlowering.Analyzed{
+		Nodes:        p.Nodes,
+		FA:           snap.Analysis,
+		Root:         p.Root,
+		Files:        p.Files,
+		ReachesEntry: p.ReachesEntry,
+		Manifest:     p.Manifest,
 	}
 }
 
@@ -307,6 +334,7 @@ func (s *Server) finishLowering(uri, content string, gen int, diags []protocol.D
 	sch.publishMu.Lock()
 	defer sch.publishMu.Unlock()
 	fault("lowering publish")
+	defer s.docs.View()()
 	snap := s.docs.Snapshot(uri)
 	c.mu.Lock()
 	c.last = elapsed

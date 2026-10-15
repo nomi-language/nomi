@@ -105,6 +105,19 @@ type FileDecls struct {
 	// rebuildBodies; nil for a file built any other way and for a stdlib
 	// file.
 	kept *keptDecls
+	// ownNodes is how many of a project build's nodes for the file are the
+	// file's own: its declarations as lowered, after the prelude imports the
+	// build put before them and before the impls synthesis put after them.
+	ownNodes int
+}
+
+// Revision counts the times a recheck rewrote the analysis's program in
+// place (rebuildEditedBodies): this file's bodies, or another file's and
+// the positions this file's facts hold of it. A cache of facts read from an
+// analysis holds the analysis and its revision, since the analysis alone
+// no longer names one set of facts.
+func (fa *FileAnalysis) Revision() int {
+	return fa.Program().revision
 }
 
 // FileBodies is the body part of a file's analysis. See FileAnalysis.

@@ -242,6 +242,7 @@ func clientRelatedInformation(params *protocol.InitializeParams) bool {
 // publish publishes uri's diagnostics from its current snapshot, if it has
 // one with an analysis.
 func (s *Server) publish(notify glsp.NotifyFunc, uri string) {
+	defer s.docs.View()()
 	if snap := s.docs.Snapshot(uri); snap != nil && snap.Analysis != nil {
 		s.publishSnapshot(notify, snap)
 	}
@@ -253,6 +254,9 @@ func (s *Server) publish(notify glsp.NotifyFunc, uri string) {
 // as its last lowering run found it (lowering.go). Neither part waits: what is
 // not cached yet is evaluated in the background, which publishes again.
 func (s *Server) publishSnapshot(notify glsp.NotifyFunc, snap *analysis.DocSnapshot) {
+	// The snapshot's analysis is read under the view lock, so a recheck
+	// that rewrites it waits, or checks afresh instead.
+	defer s.docs.View()()
 	if snap.StdDiffers {
 		notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
 			URI:         protocol.DocumentUri(snap.URI),

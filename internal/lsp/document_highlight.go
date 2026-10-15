@@ -110,6 +110,8 @@ func identityKeyOf(sym *analysis.Symbol) identityKey {
 // the whole maps would.
 type occurrenceIndex struct {
 	fa *analysis.FileAnalysis
+	// revision is fa's when the index was built (FileAnalysis.Revision).
+	revision int
 	// byLine holds each line's references, then its definitions, the order
 	// FileAnalysis.TokenAt checks them in.
 	byLine     map[int][]occurrence
@@ -120,6 +122,7 @@ type occurrenceIndex struct {
 func newOccurrenceIndex(fa *analysis.FileAnalysis) *occurrenceIndex {
 	idx := &occurrenceIndex{
 		fa:         fa,
+		revision:   fa.Revision(),
 		byLine:     map[int][]occurrence{},
 		byPointer:  map[*analysis.Symbol][]occurrence{},
 		byIdentity: map[identityKey][]occurrence{},
@@ -193,7 +196,7 @@ type occurrenceCache struct {
 func (c *occurrenceCache) get(uri string, fa *analysis.FileAnalysis) *occurrenceIndex {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if idx, ok := c.docs[uri]; ok && idx.fa == fa {
+	if idx, ok := c.docs[uri]; ok && idx.fa == fa && idx.revision == fa.Revision() {
 		return idx
 	}
 	if c.docs == nil {

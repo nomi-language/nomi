@@ -31,6 +31,53 @@ func RebuildBodiesForTest(p *CheckedProgram, key string) bool {
 	return true
 }
 
+// BuiltForTest is what one document's build gives the language server.
+type BuiltForTest struct {
+	TypeErrors             []TypeError
+	Syntax, Damaged, Nodes int
+	Program                bool
+	ProgramFiles           int
+	ReachesEntry           bool
+}
+
+// BuildForTest builds the open document uri's text content: through the
+// program kept for its root (buildOpen) when kept is set, and on its own
+// (build) otherwise.
+func BuildForTest(dm *DocumentManager, uri, content string, kept bool) BuiltForTest {
+	dm.lockBuild(true)
+	defer dm.analyzeMu.Unlock()
+	var b builtAnalysis
+	if kept {
+		var release func()
+		b, release = dm.buildOpen(uri, content)
+		release()
+	} else {
+		b = dm.build(uri, content)
+	}
+	out := BuiltForTest{Syntax: len(b.errs), Damaged: len(b.damaged), Nodes: len(b.nodes)}
+	if b.fa != nil {
+		out.TypeErrors = b.fa.TypeErrors
+	}
+	if b.program != nil {
+		out.Program, out.ProgramFiles, out.ReachesEntry = true, len(b.program.Files), b.program.ReachesEntry
+	}
+	return out
+}
+
+// InstalledForTest is BuildForTest's answer for what is installed on the
+// open document uri.
+func InstalledForTest(dm *DocumentManager, uri string) BuiltForTest {
+	snap := dm.Snapshot(uri)
+	out := BuiltForTest{Syntax: len(snap.Errors), Damaged: len(snap.Damaged), Nodes: len(snap.Nodes)}
+	if snap.Analysis != nil {
+		out.TypeErrors = snap.Analysis.TypeErrors
+	}
+	if p := snap.Program; p != nil {
+		out.Program, out.ProgramFiles, out.ReachesEntry = true, len(p.Files), p.ReachesEntry
+	}
+	return out
+}
+
 // UnionDemandsForTest exposes unionDemands, the fold of files' own
 // ImplManifests that MissingImpls reads, to external _test packages.
 func UnionDemandsForTest(files []*FileAnalysis) map[string]map[string][]Recording {

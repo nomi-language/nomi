@@ -54,6 +54,9 @@ type Program struct {
 	// programErrors works Errors out again from the program's declarations
 	// as they are now; nil for a program no project build made.
 	programErrors func() []TypeError
+	// revision counts the rechecks that rewrote the program in place
+	// (FileAnalysis.Revision).
+	revision int
 
 	// ContextType is the canonical std/context.Context identity.
 	ContextType Type

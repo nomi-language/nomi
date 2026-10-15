@@ -216,9 +216,12 @@ func (t textShift) at(line, col int) (int, int, bool) {
 // writes that give the kept nodes the new bodies, positions and comments.
 // Nothing is written until commit, so a walk that fails changes nothing.
 type grafter struct {
-	shift  textShift
+	shift  positionMap
 	reason string
-	ops    []func()
+	// moves are the kept nodes' positions beside the new ones: old line,
+	// old column, new line, new column.
+	moves [][4]int
+	ops   []func()
 	// oldBodies and newBodies are the bodies the graft takes out and puts in.
 	oldBodies, newBodies []ast.Node
 	// kept is every node of the kept declarations, which a symbol this file
@@ -319,7 +322,7 @@ func (g *grafter) fields(o, n reflect.Value) {
 			}
 			if name, ok := strings.CutSuffix(f.Name, "Line"); ok {
 				if col := o.FieldByName(name + "Col"); col.IsValid() && col.Kind() == reflect.Int {
-					g.checkMove(int(fo.Int()), int(col.Int()), int(fn.Int()), int(n.FieldByName(name+"Col").Int()))
+					g.moves = append(g.moves, [4]int{int(fo.Int()), int(col.Int()), int(fn.Int()), int(n.FieldByName(name + "Col").Int())})
 				}
 			}
 		case fo.Kind() == reflect.String:
@@ -332,14 +335,79 @@ func (g *grafter) fields(o, n reflect.Value) {
 	}
 }
 
-// checkMove fails the graft when the shift does not move the kept position
-// (line, col) to (newLine, newCol): then a position the declarations' kept
-// analysis holds may not move where the new text has it either.
-func (g *grafter) checkMove(line, col, newLine, newCol int) {
-	l, c, ok := g.shift.at(line, col)
-	if !ok || l != newLine || c != newCol {
-		g.fail("%d:%d moved to %d:%d, not where the edit moves it", line, col, newLine, newCol)
+// placeMoves chooses the map that moves every kept position the walk saw
+// where the new text has it: the one stretch between the texts' common
+// prefix and suffix (textShift), or failing that, line by line as the
+// declarations' own positions moved (lineShifts). With neither it fails the
+// graft: a position the declarations' kept analysis holds might not move
+// where the new text has it either.
+func (g *grafter) placeMoves(old, new string) {
+	fits := func(m positionMap) bool {
+		for _, mv := range g.moves {
+			if l, c, ok := m.at(mv[0], mv[1]); !ok || l != mv[2] || c != mv[3] {
+				return false
+			}
+		}
+		return true
 	}
+	if stretch := shiftBetween(old, new); fits(stretch) {
+		g.shift = stretch
+		return
+	}
+	if lines, ok := lineShiftsOf(g.moves); ok && fits(lines) {
+		g.shift = lines
+		return
+	}
+	g.fail("the declarations' positions do not move as one edit or line by line")
+}
+
+// positionMap answers where a position of a file's old text is in its new
+// one, and false when it has no place there.
+type positionMap interface {
+	at(line, col int) (int, int, bool)
+	// moves reports whether any position moves.
+	moves() bool
+}
+
+// lineShifts moves a position by the move of its line: each line that holds
+// a declaration's position moves to the line the new text has it on, its
+// columns by one amount. A position on any other line has no place.
+type lineShifts struct {
+	lines map[int][2]int // old line → new line, column change
+	moved bool
+}
+
+// lineShiftsOf is the lineShifts of moves (old line, old column, new line,
+// new column), or false when two positions on one line move apart.
+func lineShiftsOf(moves [][4]int) (lineShifts, bool) {
+	s := lineShifts{lines: map[int][2]int{}}
+	for _, mv := range moves {
+		if mv[0] <= 0 || mv[0] >= synthLineBase {
+			continue
+		}
+		shift := [2]int{mv[2], mv[3] - mv[1]}
+		if was, ok := s.lines[mv[0]]; ok && was != shift {
+			return s, false
+		}
+		s.lines[mv[0]] = shift
+		if mv[0] != mv[2] || mv[1] != mv[3] {
+			s.moved = true
+		}
+	}
+	return s, true
+}
+
+func (s lineShifts) moves() bool { return s.moved }
+
+func (s lineShifts) at(line, col int) (int, int, bool) {
+	if line <= 0 || line >= synthLineBase {
+		return line, col, true
+	}
+	shift, ok := s.lines[line]
+	if !ok {
+		return 0, 0, false
+	}
+	return shift[0], col + shift[1], true
 }
 
 // preparedNodes are a file's nodes from a new text as a build prepares
@@ -398,9 +466,12 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edit Progra
 	if len(prepared) != len(nodes) {
 		return nil, "the prepared declarations differ in number"
 	}
-	g := &grafter{shift: shiftBetween(prev.Texts[key], edit.Text), kept: map[ast.Node]bool{}}
+	g := &grafter{kept: map[ast.Node]bool{}}
 	for i := range nodes {
 		g.value(reflect.ValueOf(&nodes[i]).Elem(), reflect.ValueOf(&prepared[i]).Elem())
+	}
+	if g.reason == "" {
+		g.placeMoves(prev.Texts[key], edit.Text)
 	}
 	if g.reason != "" {
 		return nil, g.reason
@@ -423,6 +494,7 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edit Progra
 
 	// Decided: from here prev's analyses become the answer's.
 	prev.consumed = true
+	prog.revision++
 	g.commit()
 	if g.shift.moves() {
 		shiftDeclarations(prev, fa, g.shift, g.kept)
@@ -456,6 +528,10 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edit Progra
 		Syntax:       prev.Syntax,
 		fingerprints: prev.fingerprints,
 		externs:      prev.externs,
+		damaged:      prev.damaged,
+		reachesEntry: prev.reachesEntry,
+		unread:       prev.unread,
+		entryOwn:     prev.entryOwn,
 		checks:       c,
 	}
 	next.Texts[key] = edit.Text
@@ -495,7 +571,7 @@ func bodyContents(bodies []ast.Node) (funcs []*ast.FuncDef, imports []string) {
 
 // shiftableKept answers why a position fa's kept declarations hold cannot
 // move with shift, or "" when every one can.
-func shiftableKept(fa *FileAnalysis, shift textShift) string {
+func shiftableKept(fa *FileAnalysis, shift positionMap) string {
 	if !shift.moves() {
 		return ""
 	}
@@ -534,7 +610,7 @@ func shiftableKept(fa *FileAnalysis, shift textShift) string {
 // Node is one of the kept declarations' (an import's path segment, which
 // names no source), or when the file defines it at its own position (an
 // import's binding, which names the imported file).
-func shiftDeclarations(p *CheckedProgram, fa *FileAnalysis, shift textShift, nodes map[ast.Node]bool) {
+func shiftDeclarations(p *CheckedProgram, fa *FileAnalysis, shift positionMap, nodes map[ast.Node]bool) {
 	k := fa.kept
 	path := fa.FilePath
 	at := func(pos Pos) Pos {
@@ -742,7 +818,7 @@ func shiftRecording(r *Recording, path string, at func(Pos) Pos) {
 // shiftErrors moves the positions in errs that are in the file at path: the
 // errors' own when own (errs are that file's), and the related locations
 // that name it.
-func shiftErrors(errs []TypeError, path string, shift textShift, own bool) {
+func shiftErrors(errs []TypeError, path string, shift positionMap, own bool) {
 	for i := range errs {
 		e := &errs[i]
 		if own {

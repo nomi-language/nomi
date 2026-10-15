@@ -239,6 +239,16 @@ var orderEdits = []editStep{
 	restore("parses again", "report"),
 	replace("entry unparseable", "main", "fn main() {", "fn main( {"),
 	restore("entry parses again", "main"),
+	// Two bodies edited at once, as one analysis of a burst of typing sees
+	// them: the declaration between them moves by line, not as one stretch.
+	editStep{"body only, two places", "report", func(cur, _ string) (string, bool) {
+		if !strings.Contains(cur, "    Settings.tag\n") || !strings.Contains(cur, `"area ${Shape.area(shape)}"`) {
+			return "", false
+		}
+		cur = strings.Replace(cur, "    Settings.tag\n", "    // The tag.\n\n    Settings.tag\n", 1)
+		return strings.Replace(cur, `"area ${Shape.area(shape)}"`, `"the area ${Shape.area(shape)}"`, 1), true
+	}},
+	restore("body back", "report"),
 }
 
 // genericEdits are edits any project file takes: a declaration added, its

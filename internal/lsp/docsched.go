@@ -154,6 +154,9 @@ func (s *Server) publishCurrent(uri string, notify glsp.NotifyFunc) bool {
 	sch := &s.sched
 	sch.publishMu.Lock()
 	defer sch.publishMu.Unlock()
+	// The snapshot is taken under the view lock, so that no recheck
+	// rewrites its analysis before it is published.
+	defer s.docs.View()()
 	snap := s.docs.Snapshot(uri)
 	if snap == nil || snap.Analysis == nil || !snap.Current() {
 		return false
@@ -178,6 +181,7 @@ func (s *Server) republishLiterals(uri, content string, notify glsp.NotifyFunc) 
 	sch := &s.sched
 	sch.publishMu.Lock()
 	defer sch.publishMu.Unlock()
+	defer s.docs.View()()
 	snap := s.docs.Snapshot(uri)
 	if snap == nil || snap.Analysis == nil || !snap.Current() || snap.Content != content {
 		return
