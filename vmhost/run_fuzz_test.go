@@ -645,19 +645,40 @@ func TestRunInputClassifies(t *testing.T) {
 		})
 	}
 	// The generator writes no loop but divergingBlock's
-	// `Iter.loop(|di = ...|`, which counts to a limit of at most 3, and no
-	// recursion but recursiveCall's helpers, which walk one of the
-	// program's short lists or a range of at most two numbers. A generated program
-	// with neither that uses its budget is a crash, not a skip; one with
-	// either is classed as one that may loop.
+	// `Iter.loop(|di = ...|`, which counts to a limit of at most 3, the
+	// blocks it fences as bounded (boundedBlock), and no recursion but
+	// recursiveCall's helpers, which walk one of the program's short lists
+	// or a range of at most two numbers. A generated program with neither
+	// that uses its budget is a crash, not a skip; one with either is
+	// classed as one that may loop.
 	for _, g := range generatedPrograms() {
 		if recursiveHelperCalled(g.src) {
 			continue
 		}
-		if mayLoop(strings.ReplaceAll(g.src, "Iter.loop(|di = ", "bounded(|di = ")) {
+		if mayLoop(strings.ReplaceAll(withoutBoundedBlocks(g.src), "Iter.loop(|di = ", "bounded(|di = ")) {
 			t.Fatalf("%s: mayLoop says it may loop; the generator writes neither recursion nor loops other than divergingBlock's:\n%s", g.name, g.src)
 		}
 	}
+}
+
+// withoutBoundedBlocks drops the lines between a boundedBlock's fences.
+func withoutBoundedBlocks(src string) string {
+	var out strings.Builder
+	depth := 0
+	for _, l := range strings.Split(src, "\n") {
+		switch strings.TrimSpace(l) {
+		case boundedBlockStart:
+			depth++
+			continue
+		case boundedBlockEnd:
+			depth--
+			continue
+		}
+		if depth == 0 {
+			out.WriteString(l + "\n")
+		}
+	}
+	return out.String()
 }
 
 // TestLoweredProgramsRun runs every generated program and every seed with a

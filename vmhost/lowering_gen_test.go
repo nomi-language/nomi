@@ -1783,6 +1783,20 @@ func (g *gen) callBlock() string {
 // Maybe, a map of Iters, ChannelClosed inspected, a record hashed,
 // `Equatable.equal?` over tuples through a bound, and a partial that leaves
 // a defaulted slot open, passed through a generic call.
+// boundedBlockStart and boundedBlockEnd fence a block whose loops,
+// ranges, spreads and recursion are bounded by construction (erasedBlock,
+// fixedKindBlock, iterBlock, patternBlock, callBlock, holdBlock), so
+// TestRunInputClassifies can leave it out when it checks that the rest of
+// a generated program writes no loop.
+const (
+	boundedBlockStart = "// bounded block"
+	boundedBlockEnd   = "// end bounded block"
+)
+
+func boundedBlock(block string) string {
+	return boundedBlockStart + "\n" + block + boundedBlockEnd + "\n"
+}
+
 func (g *gen) holdBlock() string {
 	r := g.hold
 	g.hn++
@@ -1889,22 +1903,22 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 			body.WriteString(g.leafDistinctBlock())
 		}
 		if g.dyn.Intn(3) == 0 {
-			body.WriteString(g.erasedBlock())
+			body.WriteString(boundedBlock(g.erasedBlock()))
 		}
 		if g.fix.Intn(3) == 0 {
-			body.WriteString(g.fixedKindBlock())
+			body.WriteString(boundedBlock(g.fixedKindBlock()))
 		}
 		if g.itr.Intn(3) == 0 {
-			body.WriteString(g.iterBlock())
+			body.WriteString(boundedBlock(g.iterBlock()))
 		}
 		if g.pat.Intn(3) == 0 {
-			body.WriteString(g.patternBlock(asTest))
+			body.WriteString(boundedBlock(g.patternBlock(asTest)))
 		}
 		if g.call.Intn(3) == 0 {
-			body.WriteString(g.callBlock())
+			body.WriteString(boundedBlock(g.callBlock()))
 		}
 		if g.hold.Intn(3) == 0 {
-			body.WriteString(g.holdBlock())
+			body.WriteString(boundedBlock(g.holdBlock()))
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")
