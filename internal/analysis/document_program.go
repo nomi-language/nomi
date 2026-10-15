@@ -27,8 +27,14 @@ type ProgramEdit struct {
 // type-checked, has its application-field roots checked, and has its
 // whole-file imports settled, and the entry then gets the coherence, iteration
 // and concurrency checks. It is the state an incremental check starts from
-// (DocumentManager.Recheck). Nothing writes it after CheckProgram returns it,
-// except the test-only RebuildBodiesForTest, which rebuilds one file in place.
+// (DocumentManager.Recheck).
+//
+// Recheck consumes the program it is given: when it rebuilds only an edited
+// file's bodies, its answer is made of the given program's analyses, nodes
+// and symbols, rewritten in place, so the given program is no longer the
+// program before the edit and must not be read or rechecked again. A
+// program is written only by the Recheck that consumes it, and by the
+// test-only RebuildBodiesForTest, which rebuilds one file in place.
 type CheckedProgram struct {
 	// Root is the project root imports resolve against, and Entry the entry
 	// file's module key.
@@ -50,6 +56,20 @@ type CheckedProgram struct {
 	Errors map[string][]TypeError
 	// checks holds the diagnostics Errors is assembled from.
 	checks *programChecks
+	// fingerprints holds each project file's interface fingerprint, by
+	// module key, for a text the parser read without error.
+	fingerprints map[string]string
+	// externs reports that the root declared Go bindings, which the build
+	// injected into the files' nodes.
+	externs bool
+	// consumed is set once a Recheck has taken the program's analyses for
+	// its answer.
+	consumed bool
+}
+
+// Consumed reports whether a Recheck has consumed the program.
+func (p *CheckedProgram) Consumed() bool {
+	return p.consumed
 }
 
 // Keys answers the program's module keys, the entry first and then the
@@ -66,16 +86,45 @@ func (p *CheckedProgram) Keys() []string {
 }
 
 // Recheck answers the program prev becomes when edit replaces the text of
-// one of its files. It is the seam an incremental check implements: its
-// answer must be the program CheckProgram builds from the edited texts, fact
-// for fact (TestIncrementalMatchesFull). Today it is that full check.
+// one of its files. Its answer is the program CheckProgram builds from the
+// edited texts, fact for fact (TestIncrementalMatchesFull). An edit that
+// leaves the file's interface as it was (interfaceFingerprint) rebuilds that
+// file's bodies alone (rebuildEditedBodies); any other is a full check.
+//
+// Recheck consumes prev (see CheckedProgram): the caller must not read prev
+// or recheck it again afterwards. The caller serializes Rechecks of one
+// program, and keeps readers of prev's analyses away while one runs.
 func (dm *DocumentManager) Recheck(prev *CheckedProgram, edit ProgramEdit) *CheckedProgram {
+	next, _ := dm.RecheckWithOutcome(prev, edit)
+	return next
+}
+
+// RecheckWithOutcome is Recheck, also answering which way it went.
+func (dm *DocumentManager) RecheckWithOutcome(prev *CheckedProgram, edit ProgramEdit) (*CheckedProgram, RecheckOutcome) {
+	dm.lockBuild(true)
+	defer dm.analyzeMu.Unlock()
+	return dm.recheckLocked(prev, edit)
+}
+
+// recheckLocked is RecheckWithOutcome for a caller that holds analyzeMu.
+func (dm *DocumentManager) recheckLocked(prev *CheckedProgram, edit ProgramEdit) (*CheckedProgram, RecheckOutcome) {
+	if prev.consumed {
+		panic("analysis: Recheck of a program an earlier Recheck consumed")
+	}
+	if text, ok := prev.Texts[edit.Key]; ok && text == edit.Text {
+		return prev, RecheckOutcome{Path: RecheckUnchanged}
+	}
+	next, reason := dm.rebuildEditedBodies(prev, edit)
+	if next != nil {
+		return next, RecheckOutcome{Path: RecheckBodies}
+	}
 	texts := make(map[string]string, len(prev.Texts)+1)
 	for key, text := range prev.Texts {
 		texts[key] = text
 	}
 	texts[edit.Key] = edit.Text
-	return dm.CheckProgram(prev.Root, prev.Entry, texts)
+	prev.consumed = true
+	return dm.checkProgramLocked(prev.Root, prev.Entry, texts), RecheckOutcome{Path: RecheckFull, Reason: reason}
 }
 
 // CheckProgram checks the program whose entry is the file with module key
@@ -86,17 +135,23 @@ func (dm *DocumentManager) Recheck(prev *CheckedProgram, edit ProgramEdit) *Chec
 func (dm *DocumentManager) CheckProgram(root, entry string, texts map[string]string) *CheckedProgram {
 	dm.lockBuild(true)
 	defer dm.analyzeMu.Unlock()
+	return dm.checkProgramLocked(root, entry, texts)
+}
+
+// checkProgramLocked is CheckProgram for a caller that holds analyzeMu.
+func (dm *DocumentManager) checkProgramLocked(root, entry string, texts map[string]string) *CheckedProgram {
 	dm.mu.RLock()
 	primitives, modules, stdlibFAs := dm.primitives, dm.modules, dm.stdlibFAs
 	dm.mu.RUnlock()
 
 	p := &CheckedProgram{
 		Root: root, Entry: entry,
-		Texts:  make(map[string]string, len(texts)),
-		Files:  map[string]*FileAnalysis{},
-		Nodes:  map[string][]ast.Node{},
-		Syntax: map[string][]parser.ParseError{},
-		Errors: map[string][]TypeError{},
+		Texts:        make(map[string]string, len(texts)),
+		Files:        map[string]*FileAnalysis{},
+		Nodes:        map[string][]ast.Node{},
+		Syntax:       map[string][]parser.ParseError{},
+		Errors:       map[string][]TypeError{},
+		fingerprints: map[string]string{},
 	}
 	for key, text := range texts {
 		p.Texts[key] = text
@@ -118,9 +173,15 @@ func (dm *DocumentManager) CheckProgram(root, entry string, texts map[string]str
 	}
 	parse := func(key, src string) []ast.Node {
 		nodes, errs, _ := parser.ParseResilient(lexer.Lex(src))
+		fingerprint := ""
+		if len(errs) == 0 {
+			fingerprint = interfaceFingerprint(nodes)
+		}
 		mu.Lock()
 		if len(errs) > 0 {
 			p.Syntax[key] = errs
+		} else {
+			p.fingerprints[key] = fingerprint
 		}
 		mu.Unlock()
 		return nodes
@@ -129,6 +190,7 @@ func (dm *DocumentManager) CheckProgram(root, entry string, texts map[string]str
 	entryText, _ := text(entry)
 	nodes := parse(entry, entryText)
 	externs := dm.syntheticExternsForRoot(root)
+	p.externs = len(externs) > 0
 	entryPath := filepath.Join(root, filepath.FromSlash(entry)+".nomi")
 	if injected, err := syntheticextern.Inject(nodes, externs, isFFIEntryPath(entryPath)); err == nil {
 		nodes = injected

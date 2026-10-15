@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"os"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unicode/utf8"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/rotation"
 )
 
@@ -42,7 +45,33 @@ func projectFile(projects []incrementalProject, project, file uint) (incremental
 // fuzzRecheck is the one manager every input's rechecks go through, as one
 // language server sees edits to many projects: whatever an incremental
 // check keeps between edits, it keeps across inputs too.
-var fuzzRecheck = sync.OnceValue(func() recheckFunc { return newManager().Recheck })
+var fuzzRecheck = sync.OnceValue(func() recheckFunc { return newManager().RecheckWithOutcome })
+
+// fuzzPaths counts the ways the fuzzer's rechecks went, by path, in this
+// process. NOMI_RECHECK_LOG names a file each input appends its counts to,
+// so a fuzzing run's workers can be added up afterwards.
+var fuzzPaths sync.Map
+
+// notePaths counts outcomes in fuzzPaths and appends them to the file
+// NOMI_RECHECK_LOG names, if any.
+func notePaths(outcomes []analysis.RecheckOutcome) {
+	counts := map[analysis.RecheckPath]int{}
+	for _, o := range outcomes {
+		counts[o.Path]++
+		n, _ := fuzzPaths.LoadOrStore(o.Path, new(atomic.Int64))
+		n.(*atomic.Int64).Add(1)
+	}
+	path := os.Getenv("NOMI_RECHECK_LOG")
+	if path == "" {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "bodies %d full %d unchanged %d\n", counts[analysis.RecheckBodies], counts[analysis.RecheckFull], counts[analysis.RecheckUnchanged])
+}
 
 // fuzzEdits is one input's edit sequence over the file key of p: its text
 // becomes src, a stretch of src is deleted and a character typed there, a
@@ -51,6 +80,13 @@ var fuzzRecheck = sync.OnceValue(func() recheckFunc { return newManager().Rechec
 // first difference, or "".
 func fuzzEdits(tb testing.TB, p incrementalProject, key, src string, seed int64) string {
 	tb.Helper()
+	diff, outcomes := runEdits(tb, p, fuzzSteps(key, src, seed), fuzzRecheck(), false)
+	notePaths(outcomes)
+	return diff
+}
+
+// fuzzSteps are fuzzEdits' edits.
+func fuzzSteps(key, src string, seed int64) []editStep {
 	rng := rand.New(rand.NewSource(seed))
 	at := func() int {
 		off := rng.Intn(len(src) + 1)
@@ -78,8 +114,7 @@ func fuzzEdits(tb testing.TB, p incrementalProject, key, src string, seed int64)
 			setText("block pasted", key, src[:p]+block+src[p:]),
 		)
 	}
-	steps = append(steps, restore("original back", key))
-	return runEdits(tb, p, steps, fuzzRecheck(), false)
+	return append(steps, restore("original back", key))
 }
 
 // fuzzHang is how long one input's edits may take.
@@ -172,6 +207,11 @@ func TestIncrementalMatchesFullSample(t *testing.T) {
 				t.Fatal(diff)
 			}
 		}
+	}
+	// The sample's edits must reach the fast path, or the comparisons above
+	// say nothing about it.
+	if n, ok := fuzzPaths.Load(analysis.RecheckBodies); !ok || n.(*atomic.Int64).Load() == 0 {
+		t.Errorf("no edit of the sample rebuilt only bodies")
 	}
 }
 

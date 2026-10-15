@@ -93,10 +93,16 @@ func (r *TypeRegistry) RegisterLazy(name string, build func()) {
 func (r *TypeRegistry) SuggestDotted(bare string) string {
 	suffix := "." + bare
 	for reg := r; reg != nil; reg = reg.parent {
+		// The first in name order, so that two candidates give the same
+		// hint on every run.
+		best := ""
 		for name := range reg.types {
-			if strings.HasSuffix(name, suffix) {
-				return name
+			if strings.HasSuffix(name, suffix) && (best == "" || name < best) {
+				best = name
 			}
+		}
+		if best != "" {
+			return best
 		}
 	}
 	return ""

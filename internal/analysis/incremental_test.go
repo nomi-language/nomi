@@ -15,15 +15,15 @@ import (
 )
 
 // The equivalence harness an incremental check is held to. A recheck
-// (DocumentManager.Recheck, or anything with its signature) takes a checked
-// program and an edit to one file and answers the program after the edit.
-// After every edit the harness checks the edited texts again from scratch,
-// with a manager that has checked nothing, and compares the two programs'
-// dumps (analysis.DumpProgramForTest) byte for byte. Today Recheck is that
-// full check; an incremental one must keep every dump the same.
+// (DocumentManager.RecheckWithOutcome, or anything with its signature) takes
+// a checked program and an edit to one file and answers the program after
+// the edit, consuming the program it was given. After every edit, and before
+// the next one rewrites anything, the harness checks the edited texts again
+// from scratch, with a manager that has checked nothing, and compares the two
+// programs' dumps (analysis.DumpProgramForTest) byte for byte.
 
 // recheckFunc is the seam's signature.
-type recheckFunc func(prev *analysis.CheckedProgram, edit analysis.ProgramEdit) *analysis.CheckedProgram
+type recheckFunc func(prev *analysis.CheckedProgram, edit analysis.ProgramEdit) (*analysis.CheckedProgram, analysis.RecheckOutcome)
 
 // incrementalProject is a multi-file project held in memory: its files' texts
 // by module key, and the key of its entry.
@@ -90,13 +90,14 @@ func setText(kind, key, text string) editStep {
 
 // runEdits checks the project, then applies steps in order through recheck,
 // comparing the program recheck answers after each with a full check of the
-// same texts. It answers the first difference as readable text, or "".
-// With mustChange set, a step whose full check dumps as the one before it is
-// a broken fixture and fails tb.
-func runEdits(tb testing.TB, p incrementalProject, steps []editStep, recheck recheckFunc, mustChange bool) string {
+// same texts. It answers the first difference as readable text, or "", and
+// how recheck answered each step it ran. With mustChange set, a step whose
+// full check dumps as the one before it is a broken fixture and fails tb.
+func runEdits(tb testing.TB, p incrementalProject, steps []editStep, recheck recheckFunc, mustChange bool) (string, []analysis.RecheckOutcome) {
 	tb.Helper()
 	prev := fullCheck(p, p.texts)
 	lastDump := analysis.DumpProgramForTest(prev)
+	var outcomes []analysis.RecheckOutcome
 	for i, s := range steps {
 		cur, ok := prev.Texts[s.key]
 		if !ok {
@@ -107,23 +108,59 @@ func runEdits(tb testing.TB, p incrementalProject, steps []editStep, recheck rec
 			tb.Fatalf("%s: step %d (%s) does not apply to %s:\n%s", p.name, i+1, s.kind, s.key, cur)
 		}
 		edit := analysis.ProgramEdit{Key: s.key, Text: text}
-		got := recheck(prev, edit)
+		// The texts after the edit, read before the recheck consumes prev.
 		texts := map[string]string{}
 		for key, t := range prev.Texts {
 			texts[key] = t
 		}
 		texts[s.key] = text
+		got, outcome := recheck(prev, edit)
+		outcomes = append(outcomes, outcome)
 		want := analysis.DumpProgramForTest(fullCheck(p, texts))
 		if mustChange && want == lastDump {
 			tb.Fatalf("%s: step %d (%s) of %s changes nothing a dump shows", p.name, i+1, s.kind, s.key)
 		}
 		if gotDump := analysis.DumpProgramForTest(got); gotDump != want {
-			return fmt.Sprintf("%s: after step %d (%s, editing %s) the recheck's program differs from a full check:\n%s",
-				p.name, i+1, s.kind, s.key, dumpDiff(want, gotDump))
+			return fmt.Sprintf("%s: after step %d (%s, editing %s, recheck %s) the recheck's program differs from a full check:\n%s",
+				p.name, i+1, s.kind, s.key, outcome.Path, dumpDiff(want, gotDump)), outcomes
 		}
 		prev, lastDump = got, want
 	}
-	return ""
+	return "", outcomes
+}
+
+// bodyOnly reports whether a step of kind changes only bodies, so that the
+// recheck must rebuild the edited file's bodies alone.
+func bodyOnly(kind string) bool {
+	return strings.Contains(kind, "body only") || kind == "body back"
+}
+
+// checkPaths fails tb for each step whose recheck went the wrong way: a
+// body-only step (bodyOnly) that checked the whole program, or any other
+// step that rebuilt only bodies. An incremental check that never runs passes
+// every comparison, so the harness checks that it ran.
+func checkPaths(tb testing.TB, name string, steps []editStep, outcomes []analysis.RecheckOutcome) {
+	tb.Helper()
+	for i, o := range outcomes {
+		s := steps[i]
+		switch fast := o.Path == analysis.RecheckBodies; {
+		case bodyOnly(s.kind) && !fast:
+			tb.Errorf("%s: step %d (%s, editing %s) changes only a body, but the recheck went %s: %s", name, i+1, s.kind, s.key, o.Path, o.Reason)
+		case !bodyOnly(s.kind) && fast:
+			tb.Errorf("%s: step %d (%s, editing %s) changes the file's interface, but the recheck rebuilt only its bodies", name, i+1, s.kind, s.key)
+		}
+	}
+}
+
+// runChecked is runEdits through recheck, failing tb on a difference or on
+// a step that went the wrong way (checkPaths).
+func runChecked(tb testing.TB, p incrementalProject, steps []editStep, recheck recheckFunc) {
+	tb.Helper()
+	diff, outcomes := runEdits(tb, p, steps, recheck, true)
+	if diff != "" {
+		tb.Fatal(diff)
+	}
+	checkPaths(tb, p.name, steps, outcomes)
 }
 
 // dumpDiff shows where two dumps first disagree: the section it is in, and
@@ -173,13 +210,13 @@ var orderEdits = []editStep{
 		"        // The tag counts towards the area.\n\n        value.radius + Iter.count(Settings.tag)\n"),
 	replace("signature", "settings", "pub fn default_tag(): String {\n    main.greeting()\n}",
 		"pub fn default_tag(suffix: String): String {\n    main.greeting() + suffix\n}"),
-	replace("signature, a caller follows", "main", `io.print(report.title())`, `io.print(report.title())
+	replace("body only, a caller follows the new signature", "main", `io.print(report.title())`, `io.print(report.title())
     io.print(settings.default_tag("!"))`),
 	replace("import added", "main", "    settings.Settings\n", "    settings.{self, Settings}\n"),
 	restore("signature and import back", "settings"),
 	restore("caller and import back", "main"),
 	appendText("declaration added", "shapes", "\npub fn perimeter(circle: Circle): Int {\n    circle.radius * 6\n}\n"),
-	replace("declaration used from another file", "report", `"area: ${Shape.area(shape)}"`, `"area: ${Shape.area(shape)} ${shapes.perimeter(Circle{radius: 1})}"`),
+	replace("body only, uses a declaration from another file", "report", `"area: ${Shape.area(shape)}"`, `"area: ${Shape.area(shape)} ${shapes.perimeter(Circle{radius: 1})}"`),
 	replace("import added", "report", "    settings.Settings\n", "    settings.Settings\n    shapes\n"),
 	restore("declaration's use and import removed", "report"),
 	restore("declaration removed", "shapes"),
@@ -195,8 +232,8 @@ var orderEdits = []editStep{
 	restore("once back", "report"),
 	replace("import removed", "settings", "import main\n", ""),
 	restore("import back", "settings"),
-	replace("type error", "shapes", "value.radius + Iter.count(Settings.tag)", "value.radius + Settings.tag"),
-	restore("type error fixed", "shapes"),
+	replace("body only, a type error", "shapes", "value.radius + Iter.count(Settings.tag)", "value.radius + Settings.tag"),
+	restore("body only, type error fixed", "shapes"),
 	replace("unparseable", "report", "pub fn title(): String {", "pub fn title(: String {"),
 	replace("unparseable, typing on", "report", "pub fn title(: String {", "pub fn title(n: String {"),
 	restore("parses again", "report"),
@@ -345,16 +382,12 @@ var dungeonEdits = []editStep{
 
 func TestIncrementalMatchesFull(t *testing.T) {
 	dm := newManager()
-	recheck := dm.Recheck
+	recheck := dm.RecheckWithOutcome
 	t.Run("order", func(t *testing.T) {
 		p := orderIncremental()
-		if diff := runEdits(t, p, orderEdits, recheck, true); diff != "" {
-			t.Fatal(diff)
-		}
+		runChecked(t, p, orderEdits, recheck)
 		for _, key := range []string{"main", "shapes"} {
-			if diff := runEdits(t, p, genericEdits(key, p.texts[key]), recheck, true); diff != "" {
-				t.Fatal(diff)
-			}
+			runChecked(t, p, genericEdits(key, p.texts[key]), recheck)
 		}
 	})
 	t.Run("dungeon", func(t *testing.T) {
@@ -370,13 +403,9 @@ func TestIncrementalMatchesFull(t *testing.T) {
 			}
 			cur[s.key] = text
 		}
-		if diff := runEdits(t, p, dungeonEdits, recheck, true); diff != "" {
-			t.Fatal(diff)
-		}
+		runChecked(t, p, dungeonEdits, recheck)
 		for _, key := range []string{"game", "command"} {
-			if diff := runEdits(t, p, genericEdits(key, p.texts[key]), recheck, true); diff != "" {
-				t.Fatal(diff)
-			}
+			runChecked(t, p, genericEdits(key, p.texts[key]), recheck)
 		}
 	})
 	projects, err := corpusProjects()
@@ -396,9 +425,7 @@ func TestIncrementalMatchesFull(t *testing.T) {
 				keys = append(keys, other[1])
 			}
 			for _, key := range keys {
-				if diff := runEdits(t, p, genericEdits(key, p.texts[key]), recheck, true); diff != "" {
-					t.Fatal(diff)
-				}
+				runChecked(t, p, genericEdits(key, p.texts[key]), recheck)
 			}
 		})
 	}
@@ -445,40 +472,46 @@ func TestIncrementalHarnessCatchesAStaleResult(t *testing.T) {
 	dm := newManager()
 	p := orderIncremental()
 
-	ignoresBodies := func(prev *analysis.CheckedProgram, edit analysis.ProgramEdit) *analysis.CheckedProgram {
+	ignoresBodies := func(prev *analysis.CheckedProgram, edit analysis.ProgramEdit) (*analysis.CheckedProgram, analysis.RecheckOutcome) {
 		stale := *prev
 		stale.Texts = map[string]string{}
 		for key, text := range prev.Texts {
 			stale.Texts[key] = text
 		}
 		stale.Texts[edit.Key] = edit.Text
-		return &stale
+		return &stale, analysis.RecheckOutcome{Path: analysis.RecheckBodies}
 	}
-	diff := runEdits(t, p, orderEdits[:1], ignoresBodies, true)
-	for _, want := range []string{"step 1 (body only, editing report)", "== file report", "full check:", "recheck:", "> expr 22:14", "> expr 22:13"} {
+	diff, _ := runEdits(t, p, orderEdits[:1], ignoresBodies, true)
+	for _, want := range []string{"step 1 (body only, editing report, recheck bodies)", "== file report", "full check:", "recheck:", "> expr 22:14", "> expr 22:13"} {
 		if !strings.Contains(diff, want) {
 			t.Errorf("the harness's report on a recheck that ignores a body edit has no %q:\n%s", want, diff)
 		}
 	}
 
-	keepsOnceTypes := func(prev *analysis.CheckedProgram, edit analysis.ProgramEdit) *analysis.CheckedProgram {
-		next := dm.Recheck(prev, edit)
-		for key, fa := range next.Files {
-			old := prev.Files[key]
-			if old == nil {
-				continue
-			}
+	keepsOnceTypes := func(prev *analysis.CheckedProgram, edit analysis.ProgramEdit) (*analysis.CheckedProgram, analysis.RecheckOutcome) {
+		// The types before the recheck, which consumes prev.
+		was := map[string]map[analysis.Pos]analysis.Type{}
+		for key, fa := range prev.Files {
+			was[key] = map[analysis.Pos]analysis.Type{}
 			for pos, sym := range fa.Definitions {
-				if was := old.Definitions[pos]; was != nil && sym != nil && sym.Name == "base" && was.Name == "base" {
-					sym.Type = was.Type
+				if sym != nil && sym.Name == "base" {
+					was[key][pos] = sym.Type
 				}
 			}
 		}
-		return next
+		next, outcome := dm.RecheckWithOutcome(prev, edit)
+		for key, fa := range next.Files {
+			for pos, sym := range fa.Definitions {
+				if typ, ok := was[key][pos]; ok && sym != nil && sym.Name == "base" {
+					sym.Type = typ
+				}
+			}
+		}
+		return next, outcome
 	}
 	onceEdit := []editStep{replace("once value, new type", "report", "pub once base = Iter.count(main.greeting())", "pub once base = main.greeting()")}
-	diff = runEdits(t, p, onceEdit, keepsOnceTypes, true)
-	for _, want := range []string{"step 1 (once value, new type, editing report)", "full check:", "recheck:", "base", "= Int", "= String"} {
+	diff, _ = runEdits(t, p, onceEdit, keepsOnceTypes, true)
+	for _, want := range []string{"step 1 (once value, new type, editing report, recheck full)", "full check:", "recheck:", "base", "= Int", "= String"} {
 		if !strings.Contains(diff, want) {
 			t.Errorf("the harness's report on a recheck that keeps a stale once type has no %q:\n%s", want, diff)
 		}
@@ -548,5 +581,34 @@ func TestCheckProgramPrintsWhatTheFrontEndPrints(t *testing.T) {
 		if p.name == withTypeError.name && len(got) < 2 || p.name == order.name && len(got) == 0 {
 			t.Errorf("%s: the front end prints %d diagnostics, want the program's errors", p.name, len(got))
 		}
+	}
+}
+
+// BenchmarkRecheckDungeon times a recheck of the dungeon (dungeonDir) after
+// an edit that alternates between two texts of one file: a body-only edit to
+// game.nomi, which rebuilds that file's bodies, a signature edit to it,
+// which checks the whole program, and a body-only edit to the entry.
+func BenchmarkRecheckDungeon(b *testing.B) {
+	p := dungeonProject(b)
+	for _, bench := range []struct {
+		name, key, old, new string
+	}{
+		{"body", "game", "{ 3 } else { 1 }", "{ 4 } else { 1 }"},
+		{"signature", "game", "fn strength(game: Game): Int {", "fn strength(game: Game, _bonus: Int = 0): Int {"},
+		{"entry body", "main", "You wake up in the dark.", "You wake up."},
+	} {
+		b.Run(bench.name, func(b *testing.B) {
+			edited := strings.Replace(p.texts[bench.key], bench.old, bench.new, 1)
+			if edited == p.texts[bench.key] {
+				b.Skipf("the dungeon has changed: %q is not in %s", bench.old, bench.key)
+			}
+			dm := newManager()
+			prog := dm.CheckProgram(p.root(), p.entry, p.texts)
+			texts := []string{edited, p.texts[bench.key]}
+			b.ResetTimer()
+			for i := range b.N {
+				prog = dm.Recheck(prog, analysis.ProgramEdit{Key: bench.key, Text: texts[i%2]})
+			}
+		})
 	}
 }

@@ -51,6 +51,9 @@ type Program struct {
 	// reports them with the entry's diagnostics, right after the entry's
 	// build-phase errors.
 	Errors []TypeError
+	// programErrors works Errors out again from the program's declarations
+	// as they are now; nil for a program no project build made.
+	programErrors func() []TypeError
 
 	// ContextType is the canonical std/context.Context identity.
 	ContextType Type

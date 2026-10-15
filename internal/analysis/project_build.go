@@ -862,79 +862,97 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// These checks and the orphan rule below are about the program, not
 	// about the file that happens to be its entry: their errors are the
 	// Program's (Program.Errors), and a caller reports them where it likes.
-	var programErrs []TypeError
-	if share != nil {
-		programErrs = append(programErrs, share.implCollisions(implIndex, own, qualifiedImplBlockReceivers)...)
-	} else {
-		collisionIndex, collisionFiles := CollisionImplIndex(ifaceImpls, ifaceImplFiles, implIndex)
-		collisionIfaceKeys := make(map[*ast.FuncDef]string, len(implBlockInterfaceKeys)+len(implIndex.ImplBlockInterfaceKey))
-		for fn, key := range implIndex.ImplBlockInterfaceKey {
-			collisionIfaceKeys[fn] = key
+	//
+	// They read the declarations' nodes for the positions they report, so
+	// a recheck that moves a file's declarations (rebuildEditedBodies) asks
+	// for them again (Program.programErrors); the inherent blocks, which
+	// hold positions of their own, are collected again then.
+	recollect := false
+	programErrors := func() []TypeError {
+		inherentBlocks := inherentBlocks
+		if recollect {
+			inherentBlocks = nil
+			for _, fb := range all {
+				collectInherentImplBlocks(fb.nodes, fb.key, &inherentBlocks)
+			}
 		}
-		for fn, key := range implBlockInterfaceKeys {
-			collisionIfaceKeys[fn] = key
+		recollect = true
+		var programErrs []TypeError
+		if share != nil {
+			programErrs = append(programErrs, share.implCollisions(implIndex, own, qualifiedImplBlockReceivers)...)
+		} else {
+			collisionIndex, collisionFiles := CollisionImplIndex(ifaceImpls, ifaceImplFiles, implIndex)
+			collisionIfaceKeys := make(map[*ast.FuncDef]string, len(implBlockInterfaceKeys)+len(implIndex.ImplBlockInterfaceKey))
+			for fn, key := range implIndex.ImplBlockInterfaceKey {
+				collisionIfaceKeys[fn] = key
+			}
+			for fn, key := range implBlockInterfaceKeys {
+				collisionIfaceKeys[fn] = key
+			}
+			programErrs = append(
+				programErrs, detectImplCollisions(collisionIndex, collisionFiles, qualifiedImplBlockReceivers, collisionIfaceKeys, implIndex.ImplIfaceOrigin)...,
+			)
+		}
+		// Inherent type-function name collisions (two type-body `fn m` items
+		// for one type after lowering).
+		programErrs = append(
+			programErrs, detectInherentImplCollisions(inherentImpls)...,
+		)
+		// Synthesized inherent-block collisions with the same receiver/signature
+		// in one file.
+		programErrs = append(
+			programErrs, detectInherentImplBlockCollisions(inherentBlocks)...,
+		)
+
+		// Orphan rule check fires later in this function (declaringModuleIndex
+		// + detectOrphanImpls below) — see the cross-module-segments setup
+		// and the detectOrphanImpls call site for the orphan-check body.
+		//
+		// Orphan rule: every impl must declare either its interface or its
+		// receiver type in the implementing module. Without that anchor two
+		// independent libraries could ship the same (Iface, Type) pair and
+		// detectImplCollisions would have nothing to compare them against
+		// at any single user's build. Post-stdlib-as-package cutover, stdlib
+		// files are in `filesByKey` just like any other module, so
+		// declaringModuleIndex picks up stdlib-declared names from the
+		// regular files walk — the helper's stdlibInterfaces/stdlibTypes
+		// parameters are passed nil (legacy signature, kept for
+		// backwards-compat with hand-rolled callers in tests).
+		crossModuleSegments := map[string]bool{}
+		if proj != nil {
+			for shortName := range proj.ModuleIndex {
+				crossModuleSegments[shortName] = true
+			}
+		}
+		var declModule map[string][]string
+		if share != nil {
+			declModule = share.declaringModules(orphanRuleNames(ifaceImpls, implBlockReceivers), currentModuleName, crossModuleSegments)
+		} else {
+			declModule = declaringModuleIndex(
+				filesByKey, currentModuleName,
+				nil, nil, crossModuleSegments,
+			)
+		}
+		implModuleOf := func(fn *ast.FuncDef) string {
+			return moduleNameFromKey(ifaceImplFiles[fn], currentModuleName, crossModuleSegments)
 		}
 		programErrs = append(
-			programErrs, detectImplCollisions(collisionIndex, collisionFiles, qualifiedImplBlockReceivers, collisionIfaceKeys, implIndex.ImplIfaceOrigin)...,
+			programErrs,
+			detectOrphanImpls(ifaceImpls, declModule, implModuleOf, implBlockReceivers)...,
 		)
-	}
-	// Inherent type-function name collisions (two type-body `fn m` items
-	// for one type after lowering).
-	programErrs = append(
-		programErrs, detectInherentImplCollisions(inherentImpls)...,
-	)
-	// Synthesized inherent-block collisions with the same receiver/signature
-	// in one file.
-	programErrs = append(
-		programErrs, detectInherentImplBlockCollisions(inherentBlocks)...,
-	)
-
-	// Orphan rule check fires later in this function (declaringModuleIndex
-	// + detectOrphanImpls below) — see the cross-module-segments setup
-	// and the detectOrphanImpls call site for the orphan-check body.
-	//
-	// Orphan rule: every impl must declare either its interface or its
-	// receiver type in the implementing module. Without that anchor two
-	// independent libraries could ship the same (Iface, Type) pair and
-	// detectImplCollisions would have nothing to compare them against
-	// at any single user's build. Post-stdlib-as-package cutover, stdlib
-	// files are in `filesByKey` just like any other module, so
-	// declaringModuleIndex picks up stdlib-declared names from the
-	// regular files walk — the helper's stdlibInterfaces/stdlibTypes
-	// parameters are passed nil (legacy signature, kept for
-	// backwards-compat with hand-rolled callers in tests).
-	crossModuleSegments := map[string]bool{}
-	if proj != nil {
-		for shortName := range proj.ModuleIndex {
-			crossModuleSegments[shortName] = true
+		// Inherent-block orphan rule: the receiver type must be declared in the
+		// same file as the inherent impl. Type-qualified functions are the type's
+		// own API, not extension methods.
+		inherentDeclaredLocally := func(module, name string) bool {
+			return declaredTypesByFile[module][name]
 		}
-	}
-	var declModule map[string][]string
-	if share != nil {
-		declModule = share.declaringModules(orphanRuleNames(ifaceImpls, implBlockReceivers), currentModuleName, crossModuleSegments)
-	} else {
-		declModule = declaringModuleIndex(
-			filesByKey, currentModuleName,
-			nil, nil, crossModuleSegments,
+		programErrs = append(
+			programErrs,
+			detectInherentImplBlockOrphans(inherentBlocks, inherentDeclaredLocally)...,
 		)
+		return programErrs
 	}
-	implModuleOf := func(fn *ast.FuncDef) string {
-		return moduleNameFromKey(ifaceImplFiles[fn], currentModuleName, crossModuleSegments)
-	}
-	programErrs = append(
-		programErrs,
-		detectOrphanImpls(ifaceImpls, declModule, implModuleOf, implBlockReceivers)...,
-	)
-	// Inherent-block orphan rule: the receiver type must be declared in the
-	// same file as the inherent impl. Type-qualified functions are the type's
-	// own API, not extension methods.
-	inherentDeclaredLocally := func(module, name string) bool {
-		return declaredTypesByFile[module][name]
-	}
-	programErrs = append(
-		programErrs,
-		detectInherentImplBlockOrphans(inherentBlocks, inherentDeclaredLocally)...,
-	)
+	programErrs := programErrors()
 
 	// Missing-impl diagnostic does NOT run here — BuildProjectWithCache
 	// finishes before CheckTypes, and the recording sites that matter
@@ -994,6 +1012,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		StdlibModuleScopes:  stdlibScopes,
 		unindexedImpls:      unionImpls(unindexed),
 		Errors:              programErrs,
+		programErrors:       programErrors,
 		results:             newProgramResults(),
 	}
 	if share != nil {
