@@ -52,3 +52,51 @@ fn main() {
 }
 `, "True\nTrue\n")
 }
+
+// `==`, `<` and `Hashable.hash` on fields of the impl's own type inside its
+// `equal?`, `compare` and `hash` recurse into the children and end with the
+// data. The builder declined a `==` inside the `equal?` it would call.
+func TestIRStructEquality_ImplRecursesIntoItsOwnTypeFields(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+enum Tree {
+  Leaf
+  Node(Tree, Int)
+}
+impl Equatable for Tree {
+  fn equal?(a: Tree, b: Tree): Bool {
+    case (a, b) {
+      (.Leaf, .Leaf) -> True
+      (.Node(l, x), .Node(r, y)) -> x == y and l == r
+      _ -> False
+    }
+  }
+}
+impl Comparable for Tree {
+  fn compare(a: Tree, b: Tree): Ordering {
+    case (a, b) {
+      (.Leaf, .Leaf) -> Ordering.Equal
+      (.Leaf, _) -> Ordering.Less
+      (_, .Leaf) -> Ordering.Greater
+      (.Node(l, _), .Node(r, _)) -> if l < r { Ordering.Less } else if l > r { Ordering.Greater } else { Ordering.Equal }
+    }
+  }
+}
+impl Hashable for Tree {
+  fn hash(t: Tree): Int {
+    case t {
+      .Node(l, n) -> Hashable.hash(l) * 31 + n
+      .Leaf -> 1
+    }
+  }
+}
+fn main() {
+  one = Tree.Node(Tree.Leaf, 1)
+  two = Tree.Node(Tree.Node(Tree.Leaf, 2), 1)
+  io.print(one == Tree.Node(Tree.Leaf, 1))
+  io.print(one == two)
+  io.print(two != Tree.Node(Tree.Node(Tree.Leaf, 3), 1))
+  io.print(one < two)
+  io.print(Hashable.hash(two))
+}
+`, "True\nFalse\nTrue\nTrue\n1024\n")
+}

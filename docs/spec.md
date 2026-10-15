@@ -5251,6 +5251,13 @@ An impl that renders its own receiver through the function it defines never retu
 help: Debug.inspect(foo) renders its fields
 ```
 
+The same holds for equality, ordering and hashing. In `impl Equatable for P`, `fn equal?(a: P, b: P)` may not compare its own arguments with `==` or `!=`, or pass them to `Equatable.equal?` or `P.equal?`; in `impl Comparable for P`, `fn compare(a: P, b: P)` may not compare them with `<`, `>`, `<=` or `>=`, or pass them to `Comparable.compare` or `P.compare`; in `impl Hashable for P`, `fn hash(p: P)` may not pass `p` to `Hashable.hash` or `P.hash`. Each dispatches back to the function being defined with the values it was given, so it calls itself forever, and is a compile error at the comparison whose help says to compare the fields instead or to write `derive Equatable for P`. A plain binding of an argument is the same value. Comparing or hashing a field is legal, even a field of type `P`, as in a tree whose `equal?` compares its children with `==`:
+
+```
+`a == b` calls P's `equal?`, the function being defined, with its own arguments, so it calls itself forever
+help: compare the fields instead (`a.field == b.field`), or write `derive Equatable for P`
+```
+
 The two interfaces have **opposite default policies**:
 
 - **`Debug` is universal and automatic.** Every value is `Debug.inspect`-able with no derive and no hand-written impl — the compiler eagerly synthesizes a structural Debug impl (byte-identical to `derive Debug`) for every declared type that doesn't supply one, so `io.inspect(x)` never errors for missing-impl. There is no `where T: Debug` bound to write; the checker treats Debug as satisfied by every type (including bare type variables and interface existentials, so `Fragment<Display>` and `List<SomeInterface>` are inspectable). See §38.2 for precedence and the opaque/host rules.

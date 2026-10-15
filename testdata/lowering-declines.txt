@@ -295,7 +295,6 @@ d	irScalarBuilder.equatableImplCall | false | og == nil ¦¦ d == nil ¦¦ !d.lo
 b	irScalarBuilder.equatableImplCall | false | it == nil ¦¦ !it.lowerable ¦¦ len(it.params) != 2 ¦¦ it.result != kindBool#1	irequality.go:206	-	checker validates equal?'s signature (two self params, Bool) against the interface
 b	irScalarBuilder.equatableImplCall | false | p.tag != tagNamed ¦¦ p.def == nil ¦¦ k.def == nil ¦¦ p.def.decl != k.def.decl#1	irequality.go:210	-	fence: the impl found for k's declaration has params of that declaration; generic impls lowered (g5/b_eq2.nomi)
 b	irScalarBuilder.equatableImplCall | false | og != bl.g && u < 0#1	irequality.go:214	-	fence: equatableImplOf only returns og from g.reg.gens, so irGenUnit finds it; cross-file impls lowered (g5/proj1/main.nomi)
-a	irScalarBuilder.equatableImplCall | false | bl.f.Sym() == sym#1	irequality.go:219	vmhost	pinned as gapEqualImplSelfRecursion (reason: the comparison operator `==`)
 b	irScalarBuilder.bareVariantOwnKind | false | !ok#1	irequality.go:296	-	defensive: preludeValueName succeeded on the caller's bareEqualityOperand test, which already resolved the variant
 a	irScalarBuilder.bareVariantOwnKind | false | !ok ¦¦ vs.carries()#1	irequality.go:300	expect,irbuild,projectgen,vmhost	
 d	irScalarBuilder.bareVariantOwnKind | false | k.tag != tagNamed ¦¦ !irRetainedEnumKind(k.def)#1	irequality.go:317	-	needs preludeInstance over the solved or Unit arguments to give a non-retained enum; `None == None` forms lower (g5/u_none.nomi)

@@ -151,28 +151,6 @@ test "a block import that rebinds a module-level name" {
 `,
 	},
 	{
-		name:   "gapEqualImplSelfRecursion",
-		fix:    "builder: equal impl self recursion. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.equatableImplCall | false | bl.f.Sym() == sym#1",
-		reason: "the comparison operator `==`",
-		noSkip: true,
-		src: `import std/io
-
-struct P {
-    x: Int
-}
-
-impl Equatable for P {
-    fn equal?(a: P, b: P): Bool {
-        a.x == b.x or a == b
-    }
-}
-
-fn main() {
-    io.print(P{x: 1} == P{x: 2})
-}
-`,
-	},
-	{
 		name:   "gapStructUpdatePatchBinding",
 		fix:    "builder: struct update patch binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | !isLit ¦¦ lit.TypeName != nil ¦¦ lit.Spread != nil#1",
 		reason: "qualified call, Type.method: Struct.update",
