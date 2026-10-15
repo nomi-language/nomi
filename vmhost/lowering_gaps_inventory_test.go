@@ -1915,21 +1915,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapDefaultGenericLambda",
-		fix:    "builder: default generic lambda. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.callDefaults | false | !ok ¦¦ k != sig.params[i] ¦¦ !irCallOperandKind(k)#1",
-		reason: "a lambda parameter outside the domain: an unsupported type",
-		src: `import std/io
-
-fn apply<T>(x: T, f: (T) -> T = |y| y): T {
-    f(x)
-}
-
-fn main() {
-    io.print(apply(3))
-}
-`,
-	},
-	{
 		name:   "gapDistinctTupleCallformIterWiden",
 		fix:    "builder: distinct tuple callform iter widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.compositeDistinctMake | false | !ok ¦¦ k != d.inner#1",
 		reason: "a value of kind List<Circle> where Iter<Shape> is expected",
