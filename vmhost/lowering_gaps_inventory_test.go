@@ -166,22 +166,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCIterParamEmptySet",
-		fix:    "builder: c iter param empty set. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.seqView | false | sk == kindEmptySet ¦¦ !irRetainedSetKind(sk) ¦¦ member != elem#1",
-		reason: "a direct call's operand: total",
-		noSkip: true,
-		src: `import std/io
-
-fn total(xs: Iter<Int>): Int {
-    Iter.count(xs)
-}
-
-fn main() {
-    io.inspect(total(#{}))
-}
-`,
-	},
-	{
 		name:   "gapCLoopFinalBreakEmptyList",
 		fix:    "builder: c loop final break empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopBody | note | \"an Iter.loop final `break` without a value of the state type\"#1",
 		reason: "an Iter.loop final `break` without a value of the state type",
