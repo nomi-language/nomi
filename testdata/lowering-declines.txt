@@ -40,7 +40,7 @@ a	irScalarBuilder.fileFuncRef | false | t.Field == nil ¦¦ irQualIsLocal(bl, ow
 b	irScalarBuilder.fileFuncRef | false | f == nil#1	filefuncref.go:41	-	probe: handled=false falls back to the field read; a non-fn sibling member (`lib.base`, a once) lowers there (tested)
 a	irScalarBuilder.fileFuncRef | false | unguarded#1	filefuncref.go:57	irbuild	
 c	irScalarBuilder.stdFileFuncRef | false | generic == nil && (g.std == nil ¦¦ g.std.byFile[module+"."+name] == nil)#1	filefuncref.go:84	-	pinned as gapStdGenericHostFnValue (reason: a field access on an unbound name testing: .check)
-c	irScalarBuilder.outputRef | false | !ok ¦¦ result != kindUnit#1	filefuncref.go:116	-	pinned as gapUnitElemOutputRef (reason: a field access on an unbound name io: .inspect)
+-	irScalarBuilder.outputRef | false | !ok ¦¦ result != kindUnit#1	filefuncref.go:116	-	
 d	irScalarBuilder.wrapperRef | false | !ok ¦¦ k != result ¦¦ len(child.captures) != 0#1	filefuncref.go:150	-	tried io.read_file/read_line/write_file/capture/replay, json.shape_error_root, timer.sleep, compiler.* as values: all lower
 d	irScalarBuilder.wrapperRef | note | "a function value over " + name + " that does not lint: " + err.Error()#1	filefuncref.go:154	-	no lint failure found for wrapper function values
 b	gen.checkedRefValueKinds | false | ft == nil#1	filefuncref.go:169	-	the checker records a function type for every reference used as a function value (CallType or ExprTypes)
@@ -97,7 +97,7 @@ b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.
 b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:612	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
 a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.SymbolField#1	generictype.go:637	irbuild	
 a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:641	irbuild	
-c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:648	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
+-	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:648	-	
 b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:655	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
 c	gen.hostFnReject | note | reason#1	hostpkg.go:542	-	pinned as gapGoFnDefaultedParam (reason: a direct callee that is not lowerable: upper)
 b	gen.irBootRetain | note | "a boot without a body or a declared result"#1	irappboot.go:212	-	checker rejects: "boot must return a struct, the application type" (fn boot without result); a host fn boot is not a boot (tried boot_noresult.nomi, boot_host.nomi)
@@ -116,7 +116,7 @@ c	irScalarBuilder.blockValue | false | bl.recording > 0#1	irblockbinding.go:15	-
 d	irScalarBuilder.blockBinding | note | "a block's value is not the binding's kind: " + k.nomi() + " vs " + want.nomi()#1	irblockbinding.go:75	-	tried Display/user-interface/empty-list typed block bindings; `d: Display = { ...; 5 }` crashes the compiler (IR lint) instead of reaching this note, user interfaces lower
 b	irScalarBuilder.callDefaults | false | len(sig.decl.Params) != len(args)#1	ircalldefaults.go:13	-	defensive: every caller builds args with one slot per declared parameter (irsupervisor.go, irfuncbody.go:1252, irqualcall.go, irnamedarg.go)
 b	irScalarBuilder.callDefaults | false | p.Default == nil#1	ircalldefaults.go:33	-	checker rejects an omitted parameter with no default ("missing argument for parameter")
-c	irScalarBuilder.callDefaults | false | !ok ¦¦ k != sig.params[i] ¦¦ !irCallOperandKind(k)#1	ircalldefaults.go:42	-	pinned as gapDefaultGenericLambda (reason: a lambda parameter outside the domain: an unsupported type)
+-	irScalarBuilder.callDefaults | false | !ok ¦¦ k != sig.params[i] ¦¦ !irCallOperandKind(k)#1	ircalldefaults.go:42	-	
 b	irScalarBuilder.runCaptured | false | namedArgNode(t.Args) != nil ¦¦ len(t.Args) != 3#1	ircapture.go:19	-	std-only fence: runCaptured lowers std/io's private run_captured/run_replayed, called only from io.capture/io.replay bodies with three positional args
 b	irScalarBuilder.runCaptured | false | !args.ok ¦¦ args.kinds[0] != kindString#1	ircapture.go:23	-	std-only fence: io.capture/io.replay pass a String first argument
 b	irScalarBuilder.runCaptured | false | run.tag != tagFunc ¦¦ run.comp == nil ¦¦ len(funcParams(run)) != 0#1	ircapture.go:27	-	std-only fence: the run argument in the std bodies is always a zero-parameter function value
@@ -570,7 +570,7 @@ b	irScalarBuilder.namedQualCall | false | !planned#1	irnamedarg.go:74	-	checker 
 b	irScalarBuilder.namedQualCall | false | s < 0 ¦¦ s >= len(names)#1	irnamedarg.go:89	-	fence: argSlotPlan only yields slots inside the parameter list
 c	irScalarBuilder.namedQualCall | false | !ok ¦¦ !irCallOperandKind(k)#1	irnamedarg.go:103	-	pinned as gapNamedArgValueDeclines (reason: the comparison operator `==`)
 b	irScalarBuilder.namedQualCall | false | p.TypeAnnotation == nil#1	irnamedarg.go:142	-	fence: a non-destructured fn parameter always has a type annotation, and a destructured one returns at irnamedarg.go:68 first
-c	irScalarBuilder.namedQualCall | false | !irCallOperandKind(kinds[i])#1	irnamedarg.go:151	-	pinned as gapNamedGapGenericParam (reason: a named argument)
+-	irScalarBuilder.namedQualCall | false | !irCallOperandKind(kinds[i])#1	irnamedarg.go:151	-	
 d	irScalarBuilder.ifaceGapDefaults | false | recvAt < 0 ¦¦ recvAt >= len(temps) ¦¦ temps[recvAt] == ir.NoTemp#1	irnamedarg.go:211	-	needs an interface fn with defaults whose receiver position is not self (constructor-style); not built
 d	irScalarBuilder.ifaceGapDefaults | false | m == nil ¦¦ m.decl != im ¦¦ len(m.params) != len(temps)#1	irnamedarg.go:217	-	needs an erased receiver whose interface method table disagrees with the declaration; not found
 c	irScalarBuilder.ifaceGapDefaults | false | impl == nil ¦¦ !impl.lowerable#1	irnamedarg.go:235	-	pinned as gapIfaceGapDefaultImplElsewhere (reason: a named argument)
@@ -639,11 +639,11 @@ b	irScalarBuilder.qualCallLowered | false | fa.Field == nil#1	irqualcall.go:450	
 b	irScalarBuilder.qualCallLowered | false | applied#1	irqualcall.go:473	-	user code cannot spell `Type<Args>.f(...)` (checker: "`Box` is a type, not a value"); only derive FromJson synthesizes it, for std containers stdKindQualCall handles
 d	irScalarBuilder.qualCallLowered | false | plan == nil#1	irqualcall.go:499	-	tried ~17 three-segment std calls (strings.String.trim, maps.Map.get, calendar.Date.parse, regex.Regex.compile, ...): all lower
 b	irScalarBuilder.qualCallLowered | false | !ok#1	irqualcall.go:532	-	callbackCarriesSignal is true only for a *ast.Lambda (ctrlflow.go:128), so the assertion cannot fail
-c	irScalarBuilder.qualCallLowered | false | bound#1	irqualcall.go:585	-	pinned as gapGenericBoundCallAtTuple (reason: qualified call, Type.method: T.to_string)
+-	irScalarBuilder.qualCallLowered | false | bound#1	irqualcall.go:585	-	
 b	irScalarBuilder.qualCallLowered | false | irQualIsLocal(bl, obj.Name)#1	irqualcall.go:724	-	a call on a bound local's member is routed to indirectCall earlier (qualCalleeIsValue); s.k(1, 2) lowers
 a	irScalarBuilder.qualCallLowered | false | plan == nil#2	irqualcall.go:732	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.siblingCall | false | f == nil ¦¦ f.decl == nil#1	irqualcall.go:1296	-	defensive fence: lookupBare/siblingQualSite only answer sites with a fn and decl
-c	irScalarBuilder.siblingCall | false | !ok ¦¦ len(params) != len(f.decl.Params) ¦¦ (!irCallableValueKind(result) && result != kin…#1	irqualcall.go:1308	-	pinned as gapSiblingGenericEmptyList (reason: a direct callee outside this module's fn table: cnt)
+-	irScalarBuilder.siblingCall | false | !ok ¦¦ len(params) != len(f.decl.Params) ¦¦ (!irCallableValueKind(result) && result != kin…#1	irqualcall.go:1308	-	
 d	irScalarBuilder.siblingCall | note | "a `go`-bound sibling declaration with no VM body"#1	irqualcall.go:1314	-	needs a Go-bound sibling host fn taking/returning a function; Go FFI not exercised here
 d	irScalarBuilder.siblingCall | false | !planned#1	irqualcall.go:1323	-	bare/qualified sibling calls with named args, defaults and trailing-lambda routing all plan; not found
 d	irScalarBuilder.siblingCall | false | !ok ¦¦ !irCallOperandKind(k)#1	irqualcall.go:1334	-	sibling calls with existential, empty-list, None and lambda arguments lower; not found
@@ -927,7 +927,7 @@ a	gen.rangeWalks | computed | return g.rangeOrders(elem, at) && g.rangeDiscrete(
 c	gen.irFileSlotRetain | note | "a destructuring parameter before a defaulted one"#1	siblingdefault.go:107	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([area default 2] a destructuring parameter before a defaulted one)
 d	gen.irFileSlotRetain | note | "a parameter kind outside the call domain: " + k.nomi()#1	siblingdefault.go:113	-	needs a pub fn param kind outside the call domain before a default; not found
 b	gen.irFileSlotRetain | note | "no function shell"#1	siblingdefault.go:130	-	defensive fence: irFuncShellWithCallee returns nil only for a malformed signature the earlier checks exclude
-c	gen.irFileSlotRetain | note | "a default that does not lower"#1	siblingdefault.go:143	-	pinned as gapSiblingDefaultGenericHole (reason: a direct callee that is not lowerable: is_some)
+-	gen.irFileSlotRetain | note | "a default that does not lower"#1	siblingdefault.go:143	-	
 d	gen.irFileSlotRetain | note | "a default accessor that does not lint: " + err.Error()#1	siblingdefault.go:152	-	no lint failure found
 b	gen.siblingGenericRef | false | f == nil ¦¦ !f.generic ¦¦ f.decl == nil ¦¦ g.reg == nil ¦¦ to < 0 ¦¦ to >= len(g.reg.gens)#1	siblinggeneric.go:71	-	defensive fence: callers pass a generic fileFunc with a valid unit
 b	gen.siblingGenericRef | false | owner == nil ¦¦ owner == g#1	siblinggeneric.go:75	-	defensive fence: the owner unit is another file's gen
@@ -954,9 +954,9 @@ a	irScalarBuilder.stdGenericFileCall | false | isSibling#1	stdinst.go:797	expect
 a	irScalarBuilder.stdGenericFileCall | false | f == nil#1	stdinst.go:809	expect,irbuild,vmhost	
 a	irScalarBuilder.stdGenericSiblingCall | false | g.stdModule == "" ¦¦ g.stdInsts == nil#1	stdinst.go:857	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.stdKindQualCall | false | !qualified ¦¦ fa.Field == nil#1	stdinst.go:916	-	parser always sets FieldAccess.Field
-c	irScalarBuilder.stdKindQualCall | false | base == ""#1	stdinst.go:950	-	pinned as gapNestedGenericBoundCallTuple (reason: qualified call, Type.method: T.to_string)
+-	irScalarBuilder.stdKindQualCall | false | base == ""#1	stdinst.go:950	-	
 d	irScalarBuilder.stdKindQualCall | false | f == nil#1	stdinst.go:954	-	bounded calls at List/Map/Set/Vector/Maybe/Result for Display/Equatable/Hashable lower; not found
-c	irScalarBuilder.kindImplCall | false | plan == nil#1	stdinst.go:1049	-	pinned as gapGenericBoundImplOtherFile (reason: qualified call, Type.method: T.to_string)
+-	irScalarBuilder.kindImplCall | false | plan == nil#1	stdinst.go:1049	-	
 a	irScalarBuilder.stdTestOwnType | false | bl.g.stdModule == ""#1	stdtests.go:179	expect,irbuild,projectgen,vmhost	
 a	irScalarBuilder.stdTestOwnType | false | unguarded#1	stdtests.go:186	expect,irbuild,projectgen,vmhost	
 c	irScalarBuilder.testImport/no | note | "an `import` in a block that rebinds a name the module scope binds differently"#1	stdtests.go:208	-	pinned as gapTestImportRebind (reason: an `import` in a block that rebinds a name the module scope binds differently)
