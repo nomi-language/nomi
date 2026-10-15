@@ -482,13 +482,11 @@ func (want *ValType) Accepts(have *ValType) bool {
 		return true
 	}
 	// Widening to an existential: an erased value is its concrete value,
-	// held where the interface is stated, so a declared type in the same
-	// register class is stored as it is.
-	if want.kind == KindIface && have.kind != KindIface && want.Class() == have.Class() {
-		switch have.kind {
-		case KindStruct, KindEnum, KindDistinct, KindHandle:
-			return true
-		}
+	// held where the interface is stated. A value in another register class
+	// (an Int, a String) is boxed as its own type by the move across banks
+	// (the VM's opXMov), so the existential still holds the concrete value.
+	if want.kind == KindIface && have.kind != KindIface {
+		return true
 	}
 	if want.kind != have.kind || want.sym != have.sym ||
 		len(want.elems) != len(have.elems) || len(want.names) != len(have.names) {
