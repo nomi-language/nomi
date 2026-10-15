@@ -332,6 +332,22 @@ and `TestKnownLoweringGaps` pins each known decline in `knownLoweringGaps`
 (`vmhost/lowering_gaps_test.go`) by a reproducer; the generator avoids those
 shapes, so remove a gap and its avoidance together when it is fixed.
 
+`testdata/lowering-declines.txt` lists every place the builder can decline a
+body, one line per site with its class (reached by a suite, dead because the
+checker rejects what would reach it, a gap found and pinned, or undecided)
+and a reproducer or reason. `internal/declinesites` finds the sites by reading
+`internal/irbuild`'s source (its package comment gives the rule), and
+`TestDeclineSitesAreListed` fails when a site is added or removed without the
+file. `NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/declinesites -run
+TestDeclineSitesAreListed -count=1` rewrites the list and keeps each site's
+class and note; classify a new site by hand. `NOMI_DECLINE_COVERAGE=1` instead
+runs the suites that hold programs to lowering, with coverage of
+`internal/irbuild`, and records which execute each site (about ten minutes,
+including the whole irbuild package; add `-timeout 0`, and
+`NOMI_DECLINE_PROFILES=<dir>` to keep the profiles there or, alone, to reread
+them). An unreached site is a place to look for a gap: write the program that
+reaches it, and pin it in `knownLoweringGaps` if the front end accepts it.
+
 A program that lowers must run without crashing the VM. `go test ./vmhost
 -run '^$' -fuzz '^FuzzLoweredProgramsRun$' -fuzztime 5m -parallel 4`
 (`vmhost/run_fuzz_test.go`) runs each input's `main`, or its test cases,
