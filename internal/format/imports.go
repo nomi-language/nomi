@@ -229,12 +229,25 @@ func combineGroup(group []ast.Node) []ast.Node {
 				// collapse into one sorted section.
 				v.Entries[0].Leading = append(append([]ast.Trivia(nil), trimBareLeadingBlankTrivia(v.Leading)...), v.Entries[0].Leading...)
 			}
+			blockEnd := append([]ast.Trivia(nil), v.EndTrivia...)
+			if trailingHasComment(v.Trailing) && len(v.Entries) > 0 {
+				// The comment after the block's `}` has no `}` to follow in the
+				// combined block. It ends the block's last entry's line, or,
+				// when that line already ends in a comment, goes on its own
+				// line before the combined block's `}`.
+				last := v.Entries[len(v.Entries)-1]
+				if trailingHasComment(last.Trailing) {
+					blockEnd = append(blockEnd, commentTrivia(v.Trailing)...)
+				} else {
+					last.Trailing = append(append([]ast.Trivia(nil), last.Trailing...), commentTrivia(v.Trailing)...)
+				}
+			}
 			if v.Pub {
 				pubEntries = append(pubEntries, v.Entries...)
-				pubEndTrivia = append(pubEndTrivia, v.EndTrivia...)
+				pubEndTrivia = append(pubEndTrivia, blockEnd...)
 			} else {
 				entries = append(entries, v.Entries...)
-				endTrivia = append(endTrivia, v.EndTrivia...)
+				endTrivia = append(endTrivia, blockEnd...)
 			}
 		}
 	}
@@ -273,6 +286,17 @@ func combineGroup(group []ast.Node) []ast.Node {
 // end and a sort never moves an import across a comment.
 func startsImportSection(n ast.Node) bool {
 	return hasLeadingComment(n)
+}
+
+// commentTrivia is the comments in trivia, without its blank lines.
+func commentTrivia(trivia []ast.Trivia) []ast.Trivia {
+	var out []ast.Trivia
+	for _, t := range trivia {
+		if t.Kind == ast.TriviaComment {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 func trimBareLeadingBlankTrivia(trivia []ast.Trivia) []ast.Trivia {
