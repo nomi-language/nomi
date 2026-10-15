@@ -290,11 +290,11 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 			hover: "variant Warm", decl: "tones.nomi:1:4",
 			uses: []string{m("tones.tint(.Warm)", "Warm"), "tones.nomi:7:13"}},
 		{name: "std function argument", marker: "[3, 1, 2], .Descending", word: "Descending",
-			hover: "variant Descending", decl: "comparable.nomi:20:4", uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
+			hover: "variant Descending", decl: "comparable.nomi:24:4", uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
 		{name: "prelude enum", marker: "= .Some(1)", written: "= Maybe.Some(1)", word: "Some",
 			hover: "variant Some", decl: "maybe.nomi:20:4", uses: []string{m("= .Some(1)", "Some"), m("= Maybe.Some(1)", "Some")}, std: true},
 		{name: "lambda result", marker: "|_x, _y| .Less", written: "|_x, _y| Ordering.Less", word: "Less",
-			hover: "variant Less", decl: "comparable.nomi:6:4", uses: []string{m("|_x, _y| .Less", "Less"), m("|_x, _y| Ordering.Less", "Less")}, std: true},
+			hover: "variant Less", decl: "comparable.nomi:9:4", uses: []string{m("|_x, _y| .Less", "Less"), m("|_x, _y| Ordering.Less", "Less")}, std: true},
 	}
 	for _, s := range sites {
 		t.Run(s.name, func(t *testing.T) {
