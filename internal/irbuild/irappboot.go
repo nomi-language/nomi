@@ -108,6 +108,13 @@ func (g *gen) irErases(want, have kind) bool {
 		// retained impl (vm.displayErased).
 		return true
 	}
+	if irStdDisplayExistential(want) && g.irDisplayErasedContainer(want, have) {
+		// A list, vector or map (`a: Display = [1, 2]`): its Display text is
+		// its shape around each element's Display text, which the erased
+		// rendering answers structurally, each element of a declared type
+		// through its own retained impl (vm.displayStructural).
+		return true
+	}
 	if irStdStructExistential(want) {
 		// std's universal Struct: every declared struct and anonymous
 		// record implements it structurally, and the VM holds the value.
@@ -132,6 +139,34 @@ func (g *gen) irErases(want, have kind) bool {
 		g.erasedInstances[have] = true
 	}
 	return erases
+}
+
+// irDisplayErasedContainer reports whether have is a list, vector or map
+// whose every element (and key) is empty or enters Display's existential
+// want itself (irErases), so the erased rendering can answer it
+// structurally.
+func (g *gen) irDisplayErasedContainer(want, have kind) bool {
+	var parts []kind
+	switch {
+	case have == kindEmptyList || have == kindEmptyMap:
+		return true
+	case have.tag == tagList && have.comp != nil && len(have.comp.parts) == 1:
+		parts = have.comp.parts
+	case have.tag == tagMap && have.comp != nil && len(have.comp.parts) == 2:
+		parts = have.comp.parts
+	default:
+		elem, vector := vectorElem(have)
+		if !vector || have == kindEmptyVector {
+			return false
+		}
+		parts = []kind{elem}
+	}
+	for _, p := range parts {
+		if p != kindEmptyList && p != kindEmptyMap && !g.irErases(want, p) {
+			return false
+		}
+	}
+	return true
 }
 
 // irErasesFields reports whether an anonymous record of kind have enters a

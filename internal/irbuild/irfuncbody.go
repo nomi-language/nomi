@@ -2984,6 +2984,9 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		// the concrete implementer's kind; every later use erases it where
 		// the interface is expected, as the value itself would be.
 		v, k, _, ok := bl.lowerTypedOperand(b.Value, want)
+		if ok && k != want && !bl.g.irErases(want, k) {
+			irDeclineNote("a value of kind " + k.nomi() + " held as the existential " + want.nomi())
+		}
 		if !ok || (k != want && !bl.g.irErases(want, k)) {
 			return ir.NoTemp, kindInvalid, false
 		}

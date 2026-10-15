@@ -112,9 +112,15 @@ func (m *Machine) displayErased(fr *frame, v any) (string, error) {
 				return "", fmt.Errorf("vm: %s: Display impl %s returned %T, not a String", fr.fn.Name(), sym.Name(), out)
 			}
 			return text, nil
+		case rt.KindTuple:
+			return m.displayStructural(fr, v)
 		}
 		return "", fmt.Errorf("vm: %s: Display over an existential holding %s, and this program's modules did not "+
 			"retain its Display implementation", fr.fn.Name(), x.Desc.Name)
+	case *list, rt.Vector[any], vmap:
+		// A container the builder erased only when its Display text is
+		// structural (irStructuralDisplayKind).
+		return m.displayStructural(fr, v)
 	}
 	return "", fmt.Errorf("vm: %s: Display over an existential holding %T is not implemented", fr.fn.Name(), v)
 }

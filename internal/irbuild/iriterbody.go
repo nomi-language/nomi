@@ -666,6 +666,11 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 	switch {
 	case sk.tag == tagList && sk.comp != nil && len(sk.comp.parts) == 1 && sk.comp.parts[0] == elem:
 		return view(ir.IterOverList, src), true
+	case sk.tag == tagList && sk.comp != nil && len(sk.comp.parts) == 1 && irExistentialKind(elem) && bl.g.irErases(elem, sk.comp.parts[0]):
+		// `it: Iter<Shape> = [circle]` for an interface Shape: an
+		// existential is the concrete value, so each element is already
+		// the interface's value and the list is viewed as it is.
+		return view(ir.IterOverList, src), true
 	case sk == kindString && elem == kindString:
 		return view(ir.IterOverString, src), true
 	case sk == irBytesKind() && elem == irByteKind():
@@ -695,7 +700,8 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 		return view(ir.IterOverRange, append(ops, stepsRef.Dst())...), true
 	}
 	if vecElem, isVector := vectorElem(sk); isVector {
-		if vecElem != elem || !(irRetainedVectorKind(sk) || irRetainedValueKind(vecElem)) {
+		erased := irExistentialKind(elem) && bl.g.irErases(elem, vecElem)
+		if (vecElem != elem && !erased) || !(irRetainedVectorKind(sk) || irRetainedValueKind(vecElem)) {
 			return ir.NoTemp, false
 		}
 		return view(ir.IterOverVector, src), true
