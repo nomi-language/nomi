@@ -3135,6 +3135,10 @@ func lambdaTailExpected(ret Type) Type {
 type boundaryReturn struct {
 	ty        Type
 	line, col int
+	// isBreak marks an iteration callback's `break value`, which is
+	// `return value` then stop (spec §12), so it joins the result as a
+	// return does.
+	isBreak bool
 }
 
 // A return statement diverges from its block, but its operand is a result of
@@ -3149,7 +3153,7 @@ func (c *checker) resolveBoundaryReturns(bodyTy Type, returns []boundaryReturn, 
 	if len(returns) > 0 && c.returnTy != nil && !ContainsTypeParam(c.returnTy) && !containsTypeVar(c.returnTy) {
 		result = c.returnTy
 		declared = true
-		returns = append([]boundaryReturn{{bodyTy, line, col}}, returns...)
+		returns = append([]boundaryReturn{{ty: bodyTy, line: line, col: col}}, returns...)
 	}
 	for _, ret := range returns {
 		if ret.ty == nil || isInfallibleLike(ret.ty) {
@@ -3160,8 +3164,13 @@ func (c *checker) resolveBoundaryReturns(bodyTy Type, returns []boundaryReturn, 
 			continue
 		}
 		if err := c.unify(result, ret.ty, nil); err != nil && !TypesEqual(result, ret.ty) {
-			c.addError(ret.line, ret.col, c.typef(
-				"return type mismatch: boundary returns %s, got %s", result, ret.ty))
+			if ret.isBreak {
+				c.addError(ret.line, ret.col, c.typef(
+					"break value type mismatch: the callback's result is %s, got %s", result, ret.ty))
+			} else {
+				c.addError(ret.line, ret.col, c.typef(
+					"return type mismatch: boundary returns %s, got %s", result, ret.ty))
+			}
 		} else if !declared {
 			result, _ = embedsJoin(result, ret.ty)
 		}
@@ -3171,7 +3180,7 @@ func (c *checker) resolveBoundaryReturns(bodyTy Type, returns []boundaryReturn, 
 
 func (c *checker) recordBoundaryReturn(n *ast.Return, ty Type) {
 	if c.returnUnwinds != nil {
-		*c.returnUnwinds = append(*c.returnUnwinds, boundaryReturn{ty, n.Line, n.Col})
+		*c.returnUnwinds = append(*c.returnUnwinds, boundaryReturn{ty: ty, line: n.Line, col: n.Col})
 	}
 }
 
@@ -12944,8 +12953,14 @@ func (c *checker) checkBreak(n *ast.Break) Type {
 			// surfaces as Int vs String.
 			subs := map[*TypeParam_]Type{}
 			if err := c.unify(c.iterBreakTy, vTy, subs); err != nil {
-				_ = err
 				c.addMismatch(n.Line, n.Col, c.iterBreakTy, vTy, c.typef("break value type mismatch: expected %s, got %s", c.iterBreakTy, vTy))
+			} else if c.returnUnwinds != nil && containsTypeVar(vTy) {
+				// `break value` is `return value` then stop, so a value
+				// whose type is still open joins the callback's result with
+				// its tail and returns: a `break []` before `break [x]` in
+				// an `Iter.map` callback is a `List<Int>`, as it would be
+				// written as a `return`.
+				*c.returnUnwinds = append(*c.returnUnwinds, boundaryReturn{ty: vTy, line: n.Line, col: n.Col, isBreak: true})
 			}
 		}
 	}

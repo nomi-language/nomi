@@ -218,6 +218,29 @@ func irEmptyCollectionKind(k kind) bool {
 	return k == kindEmptyMap || k == kindEmptySet || k == kindEmptyVector
 }
 
+// irEmptyListsAtInt is tuple kind k with each untyped empty list in it, at
+// any depth of tuples, a `List<Int>`, and whether k held one. An element
+// nothing reads is unobservable, so any element type compares the same.
+func (g *gen) irEmptyListsAtInt(k kind) (kind, bool) {
+	if k == kindEmptyList {
+		return listKindIn(g, kindInt), true
+	}
+	if k.tag != tagTuple || k.comp == nil {
+		return k, false
+	}
+	parts := make([]kind, len(k.comp.parts))
+	held := false
+	for i, p := range k.comp.parts {
+		var h bool
+		parts[i], h = g.irEmptyListsAtInt(p)
+		held = held || h
+	}
+	if !held {
+		return k, false
+	}
+	return g.tupleKind(parts), true
+}
+
 // compareOperands is `compare` once both operands are lowered.
 func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs ir.Temp, lk kind,
 	rhs ir.Temp, rk kind, rmobile bool) (ir.Temp, kind, bool, bool) {
@@ -228,6 +251,12 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 			// `[] == []`: no element is read, so the element type is
 			// unobservable; see untypedListPair.
 			want := listKindIn(bl.g, kindInt)
+			if lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, want); ok {
+				rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, want)
+			}
+		} else if want, holds := bl.g.irEmptyListsAtInt(lk); holds && lk == rk {
+			// `(1, []) == (1, [])`: the same, as `[] == []` is, for an
+			// empty list inside a tuple whose element type nothing fixed.
 			if lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, want); ok {
 				rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, want)
 			}

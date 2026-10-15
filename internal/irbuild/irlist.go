@@ -94,6 +94,17 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 	if len(items) == 0 && tail == nil {
 		c := ir.NewEmptyList(bl.g.irNodePos(at), bl.f.NewTemp(), nil)
 		bl.b.Append(c)
+		// The checker types `[]` from where it sits (`return []` after a
+		// `return [x]`, `break []` against a loop's `List<Int>` state, the
+		// `[]` in `(1, []) == (1, [2])`). When it solved the element type,
+		// the literal is that list, so every position compares it as one.
+		if parts := bl.checkedLiteralParts(at, tagList); len(parts) == 1 && irFullyTyped(parts[0]) {
+			want := bl.g.listKind(parts[0])
+			bl.side(c.Dst(), irScalarSide{k: kindEmptyList})
+			if v, k, ok := bl.coerceEmpty(at, c.Dst(), kindEmptyList, want); ok && k == want {
+				return v, k, true, true
+			}
+		}
 		return c.Dst(), kindEmptyList, true, true
 	}
 	// kindInvalid: sentinel — no annotation supplies the element kind.
