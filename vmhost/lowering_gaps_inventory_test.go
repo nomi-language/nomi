@@ -9,41 +9,6 @@ package vmhost
 // shapes, so it needs no avoidance for them.
 var inventoryLoweringGaps = []loweringGap{
 	{
-		name:   "gapBareImportedMaybeMethod",
-		fix:    "builder: bare imported maybe method. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.call/lower | false | !(p != nil)#1",
-		reason: "a direct callee outside this module's fn table: with_default",
-		noSkip: true,
-		src: `import {
-    std/io
-    std/maybe.Maybe.{with_default}
-}
-
-fn main() {
-    io.inspect(with_default(Some(1), 2))
-}
-`,
-	},
-	{
-		name:   "gapBareStdMethodLocalType",
-		fix:    "builder: bare std method local type. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.call | false | localType ¦¦ localIface#1",
-		reason: "a direct callee outside this module's fn table: parse",
-		noSkip: true,
-		src: `import {
-    std/io
-    std/calendar.Date.parse
-}
-
-struct Date {
-    day: Int
-}
-
-fn main() {
-    io.inspect(Result.ok?(parse("2024-01-02")))
-    io.inspect(Date{day: 1})
-}
-`,
-	},
-	{
 		name:   "gapLeavingRegionTypedOperand",
 		fix:    "builder: leaving region typed operand. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.typedRegionValue | note | \"an `if` or `case` whose every arm leaves the body, used as an operand\"#1",
 		reason: "an `if` or `case` whose every arm leaves the body, used as an operand",
@@ -140,26 +105,6 @@ fn main() {
         if n == 2 { break n }
         n + 1
     })
-}
-`,
-	},
-	{
-		name:   "gapTestImportRebind",
-		fix:    "builder: test import rebind. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testImport/no | note | \"an `import` in a block that rebinds a name the module scope binds differently\"#1",
-		reason: "an `import` in a block that rebinds a name the module scope binds differently",
-		src: `import std/io
-
-struct Duration {
-    ms: Int
-}
-
-fn main() {
-    io.inspect(Duration{ms: 1}.ms)
-}
-
-test "a block import that rebinds a module-level name" {
-    import std/duration.Duration
-    assert Duration.seconds(1) == Duration.milliseconds(1000)
 }
 `,
 	},

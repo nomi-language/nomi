@@ -199,9 +199,15 @@ func (bl *irScalarBuilder) stdTestOwnType() bool {
 //     prompts open with `import std/strings.String`).
 //   - a whole-module import of the stdlib module whose test body this is,
 //     whose alias the builder resolves as that module's own file alias.
+//   - a monomorphic std struct, enum or distinct type, whatever the module
+//     scope binds the name to (`import std/duration.Duration` beside a local
+//     `struct Duration`). The block's overlay answers the name in a type
+//     position (bindBlockImports), and an owner qualifier naming it is
+//     lowered through its module (stdOwnerByDecl).
 //
-// An import that rebinds a name the module scope binds to something else is
-// declined: a name-keyed lookup would answer the module scope's binding.
+// Any other import that rebinds a name the module scope binds to something
+// else is declined: a name-keyed lookup would answer the module scope's
+// binding.
 func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 	g := bl.g
 	no := func() bool {
@@ -225,7 +231,7 @@ func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 		if outer == nil {
 			continue
 		}
-		if outer != resolveSymbol(sym) {
+		if real := resolveSymbol(sym); outer != real && !g.stdTypeRebind(real) {
 			return no()
 		}
 	}

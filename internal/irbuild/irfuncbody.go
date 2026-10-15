@@ -1107,34 +1107,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	// `import std/calendar.Date.parse` puts a stdlib type's method in this
-	// file's scope; the bare call reaches the same impl plan the qualified
+	// file's scope; the bare call reaches the same route the qualified
 	// spelling reaches.
-	if _, local := bl.g.funcs[callee.Name]; !local && !hasNamed && bl.g.std != nil {
-		if sym := resolvedBareSymbolAt(bl.g.srcFA(), callee); sym != nil && sym.OwningType != "" && sym.Name != "" &&
-			len(bl.g.std.byType[sym.OwningType+"."+sym.Name]) != 0 {
-			_, localType := bl.g.types[sym.OwningType]
-			_, localIface := bl.g.ifaces[sym.OwningType]
-			if localType || localIface {
-				return no()
-			}
-			lower := func() (ir.Temp, kind, bool, bool) {
-				// A generic member (`import std/strings.String.{split}`) is
-				// instantiated per program, as its qualified spelling is.
-				if v, k, mobile, ok, handled := bl.stdGenericQualCall(t, sym.OwningType, sym.Name); handled {
-					return v, k, mobile, ok
-				}
-				args := bl.irQualLowerArgs(t)
-				if p := bl.qualImplPlan(t, args, sym.OwningType, sym.Name); p != nil {
-					return bl.qualEmit(t, args, p)
-				}
-				return no()
-			}
-			if bl.recording > 0 {
-				// Inside a VM-only assertion subject the call's rows are
-				// recorded after it, as a qualified call's are.
-				return bl.recordedQualCall(t, lower)
-			}
-			return lower()
+	if _, local := bl.g.funcs[callee.Name]; !local && !hasNamed {
+		if v, k, mobile, ok, handled := bl.bareStdMethodCall(t, callee); handled {
+			return v, k, mobile, ok
 		}
 	}
 	sig := bl.g.funcs[callee.Name]
