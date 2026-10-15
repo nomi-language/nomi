@@ -295,7 +295,7 @@ func qualifierEdits(dm *analysis.DocumentManager, uri string, requalify map[anal
 			continue
 		}
 		newName, ok := requalify[target.Pos]
-		if !ok || target.SourceFile != "" {
+		if !ok || (target.SourceFile != "" && target.SourceFile != fa.FilePath) {
 			continue
 		}
 		e := makeTextEdit(pos, target.Name, newName)

@@ -289,11 +289,11 @@ func (c *Checked) TopLevelRefs() []TopLevelRef {
 	}
 	var refs []TopLevelRef
 	for pos, sym := range fa.References {
-		if sym == nil || sym.SourceFile != "" || (sym.Kind != analysis.SymbolFunction && sym.Kind != analysis.SymbolOnce) {
+		if sym == nil || (sym.SourceFile != "" && sym.SourceFile != fa.FilePath) || (sym.Kind != analysis.SymbolFunction && sym.Kind != analysis.SymbolOnce) {
 			continue
 		}
 		def, ok := fa.Definitions[sym.Pos]
-		if !ok || def == nil || def.Name != sym.Name || def.Kind != sym.Kind || def.SourceFile != "" {
+		if !ok || def == nil || def.Name != sym.Name || def.Kind != sym.Kind || (def.SourceFile != "" && def.SourceFile != fa.FilePath) {
 			continue
 		}
 		refs = append(refs, TopLevelRef{Line: pos.Line, Col: pos.Col, Name: sym.Name, DefLine: sym.Pos.Line, DefCol: sym.Pos.Col})

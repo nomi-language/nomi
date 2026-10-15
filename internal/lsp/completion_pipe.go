@@ -123,7 +123,7 @@ func (r *completionRequest) pipeCandidates() []candidate {
 	for _, sym := range r.fa.ModuleScope.Symbols {
 		real := realSymbol(sym)
 		switch {
-		case sameFileSymbol(sym) && real.Kind == analysis.SymbolFunction && valueSymbol(sym):
+		case sameFileSymbol(r.fa, sym) && real.Kind == analysis.SymbolFunction && valueSymbol(sym):
 			if r.firstParamAccepts(real, lhs) {
 				add("", real, 1, nil)
 			}

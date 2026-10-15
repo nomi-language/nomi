@@ -408,11 +408,11 @@ type Recording struct {
 type FileAnalysis struct {
 	ModuleScope *Scope
 	// FilePath is the absolute path of the file this analysis describes.
-	// Set by BuildProject for every project-loaded file (so its value
-	// matches the SourceFile imported sibling files set on shared
-	// symbols). Empty for the project entry and for standalone single-
-	// file analysis (BuildFile). Used by the opaque-types boundary check
-	// to tell same-module access apart from out-of-module access.
+	// Set by BuildProject for every project-loaded file. A user file's
+	// symbols carry it as their SourceFile (builder.define). Empty for an
+	// entry whose caller gave no path and for standalone single-file
+	// analysis (BuildFile). Used by the opaque-types boundary check to tell
+	// same-module access apart from out-of-module access.
 	FilePath string
 	// Origin is the nominal-identity key for types this file declares —
 	// the build's own module-path key (`std/calendar`, `shapes`,
@@ -1292,12 +1292,10 @@ func mergeTypeMethods(dst, src *FileAnalysis, srcPath string) {
 				continue
 			}
 			// Non-transitive: skip a method the source itself merged from
-			// elsewhere (its SourceFile names a different file).
-			if sym.SourceFile != "" && sym.SourceFile != srcPath {
+			// elsewhere (its SourceFile, which the declaring file set,
+			// names a different file).
+			if sym.SourceFile != srcPath {
 				continue
-			}
-			if sym.SourceFile == "" {
-				sym.SourceFile = srcPath
 			}
 			if dst.TypeMethods == nil {
 				dst.TypeMethods = make(map[string]map[string]*Symbol)
@@ -1662,7 +1660,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 					scope.Define(sym)
 				}
 			}
-			b.file.Definitions[sym.Pos] = sym
+			b.define(sym.Pos, sym)
 
 		case *ast.StructDestructure:
 			b.walkNode(s.Value, scope)
@@ -1678,7 +1676,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 					if !ast.IsDiscardName(f.Binding) {
 						scope.Define(sym)
 					}
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 
@@ -1702,7 +1700,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 					if !ast.IsDiscardName(binding.Name) {
 						scope.Define(sym)
 					}
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 
@@ -1722,7 +1720,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 					if !ast.IsDiscardName(ip.Name) {
 						scope.Define(sym)
 					}
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 
@@ -1743,7 +1741,7 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 				if !ast.IsDiscardName(s.Binding.Name) {
 					scope.Define(sym)
 				}
-				b.file.Definitions[sym.Pos] = sym
+				b.define(sym.Pos, sym)
 			}
 
 		case *ast.ImportStmt:
@@ -2024,7 +2022,7 @@ func (b *builder) defineTypeParams(typeParams []ast.TypeParam, parent *Scope) *S
 			Pos:  Pos{Line: tp.Line, Col: tp.Col},
 		}
 		child.Define(sym)
-		b.file.Definitions[sym.Pos] = sym
+		b.define(sym.Pos, sym)
 	}
 	for _, tp := range typeParams {
 		sym := child.LookupLocal(tp.Name)
@@ -2212,7 +2210,7 @@ func (b *builder) defineInterfaceMethodSymbols(n *ast.InterfaceDef, iface *Symbo
 			OwningInterface: n.Name,
 		}
 		iface.Members[m.Name] = methodSym
-		b.file.Definitions[methodSym.Pos] = methodSym
+		b.define(methodSym.Pos, methodSym)
 		for _, p := range m.Params {
 			// A destructuring parameter's names are defined by
 			// defineParamPattern when the body is walked; its synthesized
@@ -2221,12 +2219,12 @@ func (b *builder) defineInterfaceMethodSymbols(n *ast.InterfaceDef, iface *Symbo
 				continue
 			}
 			ppos := Pos{Line: p.Line, Col: p.Col}
-			b.file.Definitions[ppos] = &Symbol{
+			b.define(ppos, &Symbol{
 				Name: p.Name,
 				Kind: SymbolParam,
 				Pos:  ppos,
 				Node: m,
-			}
+			})
 		}
 	}
 }
@@ -2254,7 +2252,7 @@ func (b *builder) defineInterface(n *ast.InterfaceDef, scope *Scope) *Scope {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 	}
 	inner := b.defineTypeParams(n.TypeParams, scope)
 	// Define `self` in the method-signature scope so `self` in type position
@@ -2299,7 +2297,7 @@ func (b *builder) defineTypeDef(n *ast.TypeDef, scope *Scope) {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 	}
 	b.walkTypeExpr(n.InnerTypeExpr, scope)
 	b.walkNamespaceItems(n.Items, scope)
@@ -2322,7 +2320,7 @@ func (b *builder) defineTypeAlias(n *ast.TypeAlias, scope *Scope) {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 	}
 	// For a bound alias (`typealias Foo A and B`), walk every entry in
 	// the bound list so each interface name registers a Reference. Without
@@ -2358,7 +2356,7 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(enumSym)
 		}
-		b.file.Definitions[pos] = enumSym
+		b.define(pos, enumSym)
 	} else if enumSym.Members == nil {
 		enumSym.Members = make(map[string]*Symbol)
 	}
@@ -2394,7 +2392,7 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 						Doc:  f.Doc,
 					}
 					vsym.Members[f.Name] = fieldSym
-					b.file.Definitions[fieldSym.Pos] = fieldSym
+					b.define(fieldSym.Pos, fieldSym)
 				}
 			}
 			// Embed variants share their name with the underlying type
@@ -2409,7 +2407,7 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 			if v.Kind != "embedded" && variantMayTakeScopeSlot(scope, v.Name) {
 				scope.Define(vsym)
 			}
-			b.file.Definitions[vsym.Pos] = vsym
+			b.define(vsym.Pos, vsym)
 			// Also expose the variant via the enum's Members so qualified
 			// access (`Error.HttpError`) can resolve through the enum
 			// without doing its own scope lookup.
@@ -2453,12 +2451,12 @@ func (b *builder) defineStruct(n *ast.StructDef, scope *Scope) {
 				Doc:  f.Doc,
 			}
 			sym.Members[f.Name] = fieldSym
-			b.file.Definitions[fieldSym.Pos] = fieldSym
+			b.define(fieldSym.Pos, fieldSym)
 		}
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 	}
 	inner := b.defineTypeParams(n.TypeParams, scope)
 	for _, f := range n.Fields {
@@ -2492,7 +2490,7 @@ func (b *builder) defineOnce(n *ast.OnceBinding, scope *Scope) {
 	if n.Public {
 		b.defineInterfaceModuleMethods(sym, scope)
 	}
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 // defineFunc registers a FuncDef's symbol in the given scope and walks its
@@ -2516,7 +2514,7 @@ func (b *builder) defineFunc(n *ast.FuncDef, scope *Scope) *Scope {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 	}
 	inner := b.defineTypeParams(n.TypeParams, scope)
 	for _, p := range n.Params {
@@ -2580,7 +2578,7 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 		if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[sym.Pos] = sym
+		b.define(sym.Pos, sym)
 
 	case *ast.ExternType:
 		sourceFile := ""
@@ -2603,7 +2601,7 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 			scope.Define(sym)
 		}
 		b.defineQualifiedTypeMember(scope, sym, n.Line, n.Col)
-		b.file.Definitions[sym.Pos] = sym
+		b.define(sym.Pos, sym)
 
 	case *ast.OnceBinding:
 		b.defineOnce(n, scope)
@@ -2632,7 +2630,7 @@ func (b *builder) defineSymbolStub(node ast.Node, scope *Scope) {
 		if !b.checkRedeclareInScope(scope, n.Alias, n.AliasLine, n.AliasCol) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[pos] = sym
+		b.define(pos, sym)
 
 	case *ast.Binding:
 		// Bindings are NOT defined in pass 1 — they need sequential visibility
@@ -2748,7 +2746,7 @@ func (b *builder) defineFuncStub(n *ast.FuncDef, scope *Scope) {
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 // defineFuncAnnotations walks the FuncDef's type-param declarations, where
@@ -2825,13 +2823,13 @@ func (b *builder) defineStructStub(n *ast.StructDef, scope *Scope) {
 			Doc:  f.Doc,
 		}
 		sym.Members[f.Name] = fieldSym
-		b.file.Definitions[fieldSym.Pos] = fieldSym
+		b.define(fieldSym.Pos, fieldSym)
 	}
 	b.collidesWithImportedModule(scope, n.Name, n.Line, n.Col)
 	if !b.checkRedeclareInScope(scope, n.Name, n.Line, n.Col) {
 		scope.Define(sym)
 	}
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 func applyNodeDefinitionOverride(sym *Symbol, node ast.Node) {
@@ -2946,7 +2944,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 			scope.Define(enumSym)
 		}
 		b.defineQualifiedTypeMember(scope, enumSym, n.Line, n.Col)
-		b.file.Definitions[pos] = enumSym
+		b.define(pos, enumSym)
 	} else if enumSym.Members == nil {
 		enumSym.Members = make(map[string]*Symbol)
 	}
@@ -2976,7 +2974,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 					Doc:  f.Doc,
 				}
 				vsym.Members[f.Name] = fieldSym
-				b.file.Definitions[fieldSym.Pos] = fieldSym
+				b.define(fieldSym.Pos, fieldSym)
 			}
 		}
 		// Embed variants share their name with the underlying type they
@@ -2991,7 +2989,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 		if v.Kind != "embedded" && variantMayTakeScopeSlot(scope, v.Name) {
 			scope.Define(vsym)
 		}
-		b.file.Definitions[vsym.Pos] = vsym
+		b.define(vsym.Pos, vsym)
 		// Also expose the variant via the enum's Members so qualified
 		// access (`Error.HttpError`) can resolve through the enum without
 		// doing its own scope lookup.
@@ -3063,7 +3061,7 @@ func (b *builder) defineTypeDefStub(n *ast.TypeDef, scope *Scope) {
 		scope.Define(sym)
 	}
 	b.defineQualifiedTypeMember(scope, sym, n.Line, n.Col)
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 // defineTypeAliasStub registers a TypeAlias's symbol in scope. Does not
@@ -3087,7 +3085,7 @@ func (b *builder) defineTypeAliasStub(n *ast.TypeAlias, scope *Scope) {
 		scope.Define(sym)
 	}
 	b.defineQualifiedTypeMember(scope, sym, n.Line, n.Col)
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 // defineInterfaceStub registers an InterfaceDef's symbol with method
@@ -3125,7 +3123,7 @@ func (b *builder) defineInterfaceStub(n *ast.InterfaceDef, scope *Scope) {
 	if n.Public {
 		b.defineInterfaceModuleMethods(sym, scope)
 	}
-	b.file.Definitions[pos] = sym
+	b.define(pos, sym)
 }
 
 func (b *builder) defineInterfaceModuleMethods(ifaceSym *Symbol, scope *Scope) {
@@ -3283,7 +3281,7 @@ func (b *builder) defineImplBlockStub(n *ast.ImplBlock, scope *Scope) {
 				Node:       node,
 				OwningType: recv,
 			}
-			b.file.Definitions[pos] = sym
+			b.define(pos, sym)
 		}
 		if sym.OwningType == "" {
 			sym.OwningType = recv
@@ -3874,38 +3872,29 @@ func (b *builder) registerStructLitFieldRefs(n *ast.StructLit, scope *Scope) {
 	}
 }
 
-// stampImportedSymbol records filePath, the user file an import resolved to,
-// as the file that declares sym and its members, where they name none yet.
-// Cross-file go-to-definition, related-information locations and the
-// module-private checks read it.
+// define records sym as the symbol this file defines at pos, and records
+// the file as the one that declares it (SourceFile), where sym names none
+// yet. Cross-file go-to-definition, related-information locations and the
+// module-private checks read SourceFile. Only the owning file writes it, so
+// a symbol says where it is declared whichever files import it and in
+// whatever order they are built.
 //
-// A stdlib import resolves to no file path and stamps nothing. Its symbols
+// A symbol a stdlib file defines keeps an empty SourceFile. Its symbols
 // belong to the process's one stdlib analysis (std.Shared), which every
-// check reads at once, and they keep an empty SourceFile: go-to-definition
-// finds a stdlib symbol through the stdlib's own module scopes instead.
-func stampImportedSymbol(sym *Symbol, filePath string) {
-	if sym == nil || filePath == "" {
-		return
-	}
-	if sym.SourceFile == "" {
-		sym.SourceFile = filePath
-	}
-	for _, m := range sym.Members {
-		if m != nil && m.SourceFile == "" {
-			m.SourceFile = filePath
-		}
+// check reads at once: go-to-definition finds a stdlib symbol through the
+// stdlib's own module scopes instead. So does a symbol of a file with no
+// path (an in-memory entry).
+func (b *builder) define(pos Pos, sym *Symbol) {
+	b.file.Definitions[pos] = sym
+	if sym != nil && sym.SourceFile == "" && b.stampsSourceFile() {
+		sym.SourceFile = b.file.FilePath
 	}
 }
 
-// stampImportedScope is stampImportedSymbol for every symbol a user module
-// declares at its top level.
-func stampImportedScope(modScope *Scope, filePath string) {
-	if modScope == nil || filePath == "" {
-		return
-	}
-	for _, s := range modScope.Symbols {
-		stampImportedSymbol(s, filePath)
-	}
+// stampsSourceFile reports whether the symbols this builder's file defines
+// carry its path as their SourceFile: a user file with a path.
+func (b *builder) stampsSourceFile() bool {
+	return b.file.FilePath != "" && !IsStdlibKey(b.file.Origin)
 }
 
 // defineImport registers the symbols and module bindings for an import
@@ -4011,17 +4000,16 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 		// field-access can find members regardless of b.modules state
 		// (notably for nested aliases that don't touch b.modules).
 		var modScope *Scope
-		var filePath string
 		if stdScope := b.resolveStdlibImport(modPathStrings); stdScope != nil {
 			modScope = stdScope
 		} else {
 			var miss *importMiss
-			modScope, filePath, miss = b.resolveImportOrMiss(modPathStrings)
+			modScope, _, miss = b.resolveImportOrMiss(modPathStrings)
 			b.reportMissingModule(n, n.ModulePath, miss)
 		}
 		sym.ModuleScope = modScope
 		scope.Define(sym)
-		b.file.Definitions[sym.Pos] = sym
+		b.define(sym.Pos, sym)
 
 		// Top-level imports also update b.modules so qualified-type
 		// resolution and FieldAccess (which currently consult it) use the
@@ -4029,9 +4017,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 		// defineImport — and instead rely on sym.ModuleScope, which is set
 		// above for both nested and top-level cases.
 		if nested {
-			// Tag user symbols with source path even for nested user
-			// imports so go-to-def works.
-			stampImportedScope(modScope, filePath)
+			// A nested import binds sym and nothing else.
 		} else if b.isStdlibImport(modPathStrings) {
 			b.moduleSyms[bindName] = sym
 			if bindName != origName {
@@ -4054,7 +4040,6 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			}
 			b.modules[bindName] = modScope
 			b.moduleSyms[bindName] = sym
-			stampImportedScope(modScope, filePath)
 			// Track explicit import for the function-shadow fallback.
 			if b.imported == nil {
 				b.imported = make(map[string]*Scope)
@@ -4084,7 +4069,6 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 		}
 
 		var modScope *Scope
-		var filePath string
 		// The `/`-joined segments name the file, so the module is never a
 		// shorter prefix of them: `import utils/inner.Thing` with no
 		// utils/inner.nomi is a missing file, not an owner `inner` in
@@ -4098,11 +4082,10 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				modScope = stdScope
 				break
 			}
-			if scope, path := b.resolveImport(candidate); scope != nil {
+			if scope, _ := b.resolveImport(candidate); scope != nil {
 				modulePath = candidate
 				ownerSegments = modPathStrings[split:]
 				modScope = scope
-				filePath = path
 				break
 			}
 		}
@@ -4126,10 +4109,9 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			modulePath = modPathStrings[:len(filePart)]
 			ownerSegments = nil
 			var miss *importMiss
-			modScope, filePath, miss = b.resolveImportOrMiss(modulePath)
+			modScope, _, miss = b.resolveImportOrMiss(modulePath)
 			b.reportMissingModule(n, filePart, miss)
 		}
-		stampImportedScope(modScope, filePath)
 
 		// For drill-through, look up the owner path within modScope and
 		// register references so hover/go-to-def works on every owner segment.
@@ -4175,7 +4157,6 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					Message: fmt.Sprintf("'%s' is private and cannot be imported through", ownerSym.Name),
 				})
 			}
-			stampImportedSymbol(ownerSym, filePath)
 			if ownerSym.ModuleScope != nil {
 				ownerScope = ownerSym.ModuleScope
 			} else {
@@ -4295,7 +4276,6 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 						Message: fmt.Sprintf("cannot import variant '%s' directly%s", origName, hint),
 					})
 				}
-				stampImportedSymbol(real, filePath)
 				sym.Resolved = real
 				sym.Kind = real.Kind
 			} else if modScope != nil {
@@ -4349,7 +4329,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			if b.importMayTakeScopeSlot(scope, bindName, sym.Pos) {
 				scope.Define(sym)
 			}
-			b.file.Definitions[sym.Pos] = sym
+			b.define(sym.Pos, sym)
 
 			// A dotted name is one name that happens to contain a dot — the
 			// declaration `pub enum Probe.Reading` is an ordinary module
@@ -4386,7 +4366,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 						sym.SourceFile = ownerSym.SourceFile
 					}
 					scope.Define(sym)
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 					b.defineDottedImportsForOwner(scope, modScope, ownerSym.Name, ownerName, sym.Pos, n)
 					// Register a hover/go-to-def target at the `self` token
 					// itself so clicking on `self` behaves like clicking on
@@ -4403,7 +4383,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 						if ownerSym.SourceFile != "" {
 							selfSym.SourceFile = ownerSym.SourceFile
 						}
-						b.file.Definitions[selfSym.Pos] = selfSym
+						b.define(selfSym.Pos, selfSym)
 					}
 				}
 			} else {
@@ -4420,7 +4400,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					ModuleScope: modScope,
 				}
 				scope.Define(sym)
-				b.file.Definitions[sym.Pos] = sym
+				b.define(sym.Pos, sym)
 				if b.imported == nil {
 					b.imported = map[string]*Scope{}
 				}
@@ -4448,7 +4428,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 						Node:        n,
 						ModuleScope: modScope,
 					}
-					b.file.Definitions[selfSym.Pos] = selfSym
+					b.define(selfSym.Pos, selfSym)
 				}
 			}
 		}
@@ -4589,7 +4569,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 					child.Define(sym)
 				}
 				if p.Line > 0 {
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 			if block, ok := m.Body.(*ast.Block); ok {
@@ -5290,7 +5270,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 					scope.Define(sym)
 				}
 			}
-			b.file.Definitions[sym.Pos] = sym
+			b.define(sym.Pos, sym)
 
 		case *ast.Defer:
 			b.walkNode(s.Call, scope)
@@ -5311,7 +5291,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 					if !ast.IsDiscardName(binding.Name) {
 						scope.Define(sym)
 					}
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 
@@ -5329,7 +5309,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 					if !ast.IsDiscardName(f.Binding) {
 						scope.Define(sym)
 					}
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 
@@ -5356,7 +5336,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 					if !ast.IsDiscardName(ip.Name) {
 						scope.Define(sym)
 					}
-					b.file.Definitions[sym.Pos] = sym
+					b.define(sym.Pos, sym)
 				}
 			}
 
@@ -5379,7 +5359,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 				if !ast.IsDiscardName(s.Binding.Name) {
 					scope.Define(sym)
 				}
-				b.file.Definitions[sym.Pos] = sym
+				b.define(sym.Pos, sym)
 			}
 
 		default:
@@ -5501,7 +5481,7 @@ func (b *builder) defineParams(params []ast.Param, scope *Scope, parentNode ast.
 			scope.Define(sym)
 		}
 		if p.Line > 0 {
-			b.file.Definitions[sym.Pos] = sym
+			b.define(sym.Pos, sym)
 		}
 	}
 }
@@ -5583,7 +5563,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		if !ast.IsDiscardName(n.Name) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[sym.Pos] = sym
+		b.define(sym.Pos, sym)
 
 	case *ast.AsPattern:
 		// The inner pattern's names first, then the name for the whole
@@ -5601,7 +5581,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		if !ast.IsDiscardName(n.Name) {
 			scope.Define(sym)
 		}
-		b.file.Definitions[sym.Pos] = sym
+		b.define(sym.Pos, sym)
 
 	case *ast.Binary:
 		b.definePatternOwned(n.Left, scope, owner)
@@ -5624,7 +5604,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 			if !ast.IsDiscardName(n.Binding) {
 				scope.Define(sym)
 			}
-			b.file.Definitions[sym.Pos] = sym
+			b.define(sym.Pos, sym)
 		}
 
 	case *ast.StructPattern:
@@ -5646,7 +5626,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 				if !ast.IsDiscardName(f.Binding) {
 					scope.Define(sym)
 				}
-				b.file.Definitions[sym.Pos] = sym
+				b.define(sym.Pos, sym)
 			}
 		}
 

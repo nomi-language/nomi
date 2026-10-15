@@ -172,7 +172,7 @@ type Symbol struct {
 	Opaque     bool
 	Doc        string             // from /// comments
 	Node       ast.Node           // the AST node that defined this symbol
-	SourceFile string             // file path where this symbol is defined (set for cross-file imports)
+	SourceFile string             // path of the user file that defines this symbol, set by that file (builder.define); "" for stdlib and path-less files
 	Resolved   *Symbol            // for selective imports: the real symbol in the imported module
 	Type       Type               // resolved type (filled by type resolution)
 	Members    map[string]*Symbol // child symbols (e.g., interface methods)

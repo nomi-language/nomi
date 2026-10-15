@@ -145,14 +145,12 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			fileParent = nil
 		}
 		moduleScope := NewScope(fileParent)
-		// FilePath uses the same ResolveModulePath the import-side
-		// propagation uses to populate sym.SourceFile, so an opaque
-		// type's OwningSourceFile (copied from sym.SourceFile during
-		// type build) compares cleanly against c.fa.FilePath inside the
-		// type's owning module. Empty for the project entry; the entry
-		// has no key and its symbols are never written to by import
-		// propagation, leaving OwningSourceFile blank for any opaque
-		// types it declares — which matches its empty FilePath here.
+		// FilePath uses the same ResolveModulePath an import resolves the
+		// file by. The file's symbols carry it as their SourceFile
+		// (builder.define), so an opaque type's OwningSourceFile (copied
+		// from sym.SourceFile during type build) compares cleanly against
+		// c.fa.FilePath inside the type's owning module. Empty for an entry
+		// whose caller gave no path, whose symbols then carry none either.
 		filePath := proj.FilePaths[key]
 		fa := &FileAnalysis{
 			ModuleScope: moduleScope,
