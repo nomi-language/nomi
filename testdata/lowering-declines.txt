@@ -90,15 +90,15 @@ b	gen.funcTypeKinds | false | irUnsolvedType(pt)#1	funcref.go:99	-	same checker 
 d	gen.funcTypeKinds | false | result != kindUnit && !irCallableValueKind(result)#1	funcref.go:108	-	could not find a projected result kind outside the callable domain whose params pass; Maybe<Unit> results fail earlier in monoSolve instead
 b	gen.monoSolve | false | len(params) != len(tpl.decl.Params)#1	genericmono.go:392	-	every caller passes kinds of len(tpl.decl.Params) (checkedRefKinds/checkedMonoCallKinds arity), so the lengths always agree
 ?	gen.monoSolve | false | !found ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	genericmono.go:407	?	
-a	gen.checkedMonoTypeArgsFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:427	irbuild	
-?	gen.checkedMonoTypeArgsFilled | computed | return fallback != nil#1	genericmono.go:446	?	
-b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:584	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
-b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:594	-	defensive fence: callers pass an enum template (enumDecl non-nil)
-b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:601	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
-a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.SymbolField#1	generictype.go:626	irbuild	
-a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:630	irbuild	
-c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:636	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
-b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:643	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
+a	gen.checkedMonoTypeArgsFilled | false | ft == nil ¦¦ len(ft.Params) != len(tpl.decl.Params) ¦¦ !irUnsolvedType(ft)#1	genericmono.go:429	irbuild	
+?	gen.checkedMonoTypeArgsFilled | computed | return fallback != nil#1	genericmono.go:452	?	
+b	gen.checkedStructTypeArgs | false | g.fa == nil ¦¦ sd == nil#1	generictype.go:586	-	defensive fence: callers pass a struct template (structDecl non-nil) and g.fa is always set
+b	gen.checkedVariantTypeArgs | false | g.fa == nil ¦¦ ed == nil#1	generictype.go:596	-	defensive fence: callers pass an enum template (enumDecl non-nil)
+b	gen.checkedVariantTypeArgs | false | unguarded#1	generictype.go:603	-	callers only ask for struct-shaped variants of the template, which exist (checker resolved the literal)
+a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.SymbolField#1	generictype.go:628	irbuild	
+a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:632	irbuild	
+c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:639	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
+b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:646	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
 c	gen.hostFnReject | note | reason#1	hostpkg.go:542	-	pinned as gapGoFnDefaultedParam (reason: a direct callee that is not lowerable: upper)
 b	gen.irBootRetain | note | "a boot without a body or a declared result"#1	irappboot.go:212	-	checker rejects: "boot must return a struct, the application type" (fn boot without result); a host fn boot is not a boot (tried boot_noresult.nomi, boot_host.nomi)
 a	gen.irBootRetain | note | "a boot result whose fields are not all retained values: " + result.nomi()#1	irappboot.go:221	irbuild	
@@ -971,8 +971,8 @@ a	irScalarBuilder.stdOwnFileQualifier | false | !bl.stdTestOwnType() ¦¦ g.fa =
 b	irScalarBuilder.stdOwnFileQualifier | false | !(scope != nil && scope == g.fa.ModuleScope)#1	stdtests.go:261	-	std-only fence: only a stdlib module's own test bodies reach it (stdTestOwnType)
 a	gen.importedVariantAt | false | !ok ¦¦ ref.Resolved == nil#1	variantalias.go:100	expect,irbuild,projectgen,vmhost	
 a	gen.importedVariantAt | false | decl.Kind != analysis.SymbolEnumVariant#1	variantalias.go:107	expect,irbuild,projectgen,vmhost	
-c	gen.importedVariantAt | false | !isEnum ¦¦ irUnsolvedType(et)#1	variantalias.go:115	-	pinned as gapImportedVariantUnsolved (reason: a type name in value position: Empty)
+?	gen.importedVariantAt | false | !isEnum#1	variantalias.go:115	?	
 b	gen.importedVariantAt | false | !ok ¦¦ de.Origin != et.Origin ¦¦ de.Name != et.Name#1	variantalias.go:124	-	checker resolves the imported name to that enum's variant, so the checked type is that enum (fence)
 a	gen.importedVariantAt | false | strings.HasPrefix(et.Origin, "std/")#1	variantalias.go:131	expect,irbuild	
-d	gen.importedVariantAt | false | k.tag != tagNamed ¦¦ k.def == nil#1	variantalias.go:135	-	whether project of an unlowerable sibling enum answers a non-named kind here or a named unlowerable def was not determined
-b	gen.importedVariantAt | false | v == nil#1	variantalias.go:139	-	the checker resolved the variant from this enum's declaration, so the def has it
+d	gen.importedVariantAt | false | k.tag != tagNamed ¦¦ k.def == nil#1	variantalias.go:137	-	whether project of an unlowerable sibling enum answers a non-named kind here or a named unlowerable def was not determined
+b	gen.importedVariantAt | false | v == nil#1	variantalias.go:141	-	the checker resolved the variant from this enum's declaration, so the def has it

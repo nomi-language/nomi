@@ -2714,27 +2714,6 @@ pub struct Dog {
 `,
 	},
 	{
-		name:   "gapGenericVariantUnsolvedParam",
-		fix:    "builder: generic variant unsolved param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.checkedFieldTypeArgs | false | !ok#1",
-		reason: "a struct literal: Either2.L",
-		noSkip: true,
-		src: `import std/io
-
-enum Either2<A, B> {
-    L {
-        a: A
-    }
-    R {
-        b: B
-    }
-}
-
-fn main() {
-    io.inspect(Either2.L{a: 1})
-}
-`,
-	},
-	{
 		name:   "gapIterSensitiveFnValue",
 		fix:    "builder: iter sensitive fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.funcRef | note | \"an iter-sensitive function passed where its break or continue cannot be caught: \" + t.Nam…#1",
 		reason: "an iter-sensitive function passed where its break or continue cannot be caught: stop",
@@ -3080,27 +3059,6 @@ fn upper(s: String = "abc"): String go strs.ToUpper
 
 fn main() {
     io.print(upper())
-}
-`,
-	},
-	{
-		name:   "gapImportedVariantUnsolved",
-		fix:    "builder: imported variant unsolved. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.importedVariantAt | false | !isEnum ¦¦ irUnsolvedType(et)#1",
-		reason: "a type name in value position: Empty",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    shapes.Holder.{Empty}
-}
-
-fn main() {
-    io.inspect(Empty)
-}
-// FILE: shapes.nomi
-pub enum Holder<T> {
-    Of T
-    Empty
 }
 `,
 	},

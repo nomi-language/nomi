@@ -111,7 +111,7 @@ func (g *gen) importedVariantAt(at ast.Node, local string, line, col int) (*type
 		ty = ft.Return
 	}
 	et, isEnum := resolvedEnumType(ty)
-	if !isEnum || irUnsolvedType(et) {
+	if !isEnum {
 		return nil, nil, false
 	}
 	// The checked type must be the enum the import names, not merely one
@@ -130,7 +130,9 @@ func (g *gen) importedVariantAt(at ast.Node, local string, line, col int) (*type
 	if strings.HasPrefix(et.Origin, "std/") {
 		return nil, nil, false
 	}
-	k := g.project(et)
+	// A type argument nothing determines (`Empty` of a `Holder<T>`) is
+	// filled by its position, as a generic literal's is.
+	k := g.project(irFillHolesByPosition(et, false))
 	if k.tag != tagNamed || k.def == nil {
 		return nil, nil, false
 	}

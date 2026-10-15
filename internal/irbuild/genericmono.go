@@ -416,23 +416,29 @@ func (g *gen) monoSolve(tpl *monoTemplate, params []kind, result kind) ([]kind, 
 // checker admits undetermined because no value of it is made (spec,
 // "Determined type arguments"), as in `is_some(None)` or `ident(Ok(1))`,
 // whose error type is open. No value of the hole's type exists, so any
-// type serves; the hole is read as Unit, as stdInstCallAt reads a std
-// call's. A type parameter with a bound cannot be Unit, which implements no
-// interface, so when Unit lands on one the hole is read as Int, which
-// implements the std interfaces a bound names (`show_all([])` with
-// `T: Display`). It reports false for a signature with no hole.
+// representable type serves; each hole is filled by its position
+// (irFillHolesByPosition), as a std call's and a generic literal's are, so
+// the instance agrees with the values passed to it. A type parameter with a
+// bound cannot be Unit, which implements no interface, so when Unit lands on
+// one every hole is read as Int, which implements the std interfaces a bound
+// names (`shown(None)` with `T: Display`). It reports false for a signature
+// with no hole.
 func (g *gen) checkedMonoTypeArgsFilled(t *ast.Call, tpl *monoTemplate) ([]kind, bool) {
 	ft := g.checkedCallSignature(t)
 	if ft == nil || len(ft.Params) != len(tpl.decl.Params) || !irUnsolvedType(ft) {
 		return nil, false
 	}
+	fills := []func(analysis.Type) analysis.Type{
+		func(ty analysis.Type) analysis.Type { return irFillHolesByPosition(ty, false) },
+		func(ty analysis.Type) analysis.Type { return irFillHoles(ty, analysis.TypeInt) },
+	}
 	var fallback []kind
-	for _, fill := range []analysis.Type{analysis.TypeUnit, analysis.TypeInt} {
+	for _, fill := range fills {
 		params := make([]kind, len(ft.Params))
 		for i, p := range ft.Params {
-			params[i] = g.project(irFillHoles(p, fill))
+			params[i] = g.project(fill(p))
 		}
-		args, ok := g.monoSolve(tpl, params, g.project(irFillHoles(ft.Return, fill)))
+		args, ok := g.monoSolve(tpl, params, g.project(fill(ft.Return)))
 		if !ok {
 			continue
 		}

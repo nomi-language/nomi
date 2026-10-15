@@ -1178,19 +1178,25 @@ func irFillHolesByPosition(ty analysis.Type, elem bool) analysis.Type {
 		c.Return = irFillHolesByPosition(t.Return, false)
 		return &c
 	case *analysis.EnumType:
+		// A user generic enum's argument is a payload's type, filled as an
+		// element is: a user enum at Unit has no representation, since a
+		// Unit payload does not lower. A std enum's (`Ok(1)`'s error type)
+		// is Unit.
+		user := !analysis.IsStdlibKey(t.Origin)
 		c := *t
 		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
 		for i, a := range t.TypeArgs {
-			c.TypeArgs[i] = irFillHolesByPosition(a, false)
+			c.TypeArgs[i] = irFillHolesByPosition(a, user)
 		}
 		return &c
 	case *analysis.StructType:
-		// A generic std struct here is a collection (`Set<T>`); a user
-		// generic struct's argument is filled as an enum's is.
+		// A generic std struct here is a collection (`Set<T>`), and a user
+		// generic struct's argument is a field's type, filled as a user
+		// enum's is.
 		c := *t
 		c.TypeArgs = make([]analysis.Type, len(t.TypeArgs))
 		for i, a := range t.TypeArgs {
-			c.TypeArgs[i] = irFillHolesByPosition(a, analysis.IsStdlibKey(t.Origin))
+			c.TypeArgs[i] = irFillHolesByPosition(a, true)
 		}
 		return &c
 	case *analysis.DistinctType:
