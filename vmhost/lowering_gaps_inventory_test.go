@@ -343,37 +343,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCRangeUserDiscrete",
-		fix:    "builder: c range user discrete. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.rangeView | false | cmp == nil ¦¦ cmp.irBody == nil ¦¦ !shared#1",
-		reason: "qualified call, Type.method: Iter.map",
-		noSkip: true,
-		src: `import std/io
-
-type Id Int
-
-derive Equatable for Id
-derive Comparable for Id
-
-impl Discrete for Id {
-    fn next(Id(n)): Maybe<Id> {
-        Some(Id(n + 1))
-    }
-
-    fn steps_between(Id(a), Id(b)): Maybe<Int> {
-        Some(b - a)
-    }
-}
-
-fn val(Id(n)): Int {
-    n
-}
-
-fn main() {
-    io.inspect(Id(1)..Id(4) |> Iter.map(|i| val(i)) |> Iter.to_list())
-}
-`,
-	},
-	{
 		name:   "gapCToSetRanges",
 		fix:    "builder: c to set ranges. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !irRetainedSetKind(k)#1",
 		reason: "qualified call, Type.method: Iter.to_set",
@@ -382,33 +351,6 @@ fn main() {
 
 fn main() {
     io.inspect(Iter.to_set([1..2, 3..4]))
-}
-`,
-	},
-	{
-		name:   "gapCZipUserDiscreteRange",
-		fix:    "builder: c zip user discrete range. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterPlainView | false | sourced#1",
-		reason: "qualified call, Type.method: Iter.zip",
-		noSkip: true,
-		src: `import std/io
-
-type Id Int
-
-derive Equatable for Id
-derive Comparable for Id
-
-impl Discrete for Id {
-    fn next(Id(n)): Maybe<Id> {
-        Some(Id(n + 1))
-    }
-
-    fn steps_between(Id(a), Id(b)): Maybe<Int> {
-        Some(b - a)
-    }
-}
-
-fn main() {
-    io.inspect(Iter.zip([1, 2], Id(1)..Id(4)) |> Iter.count())
 }
 `,
 	},
