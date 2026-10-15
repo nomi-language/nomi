@@ -69,9 +69,13 @@ cases as `nomi test` does, and reports each body the run would refuse as an
 error at its source (`vmhost.Program.Unsupported`); the LSP does the same in
 the background when a file is opened or saved and 400 ms after the last edit
 of a burst (`internal/lsp/lowering.go`), lowering its own analysis of the
-file's program when it analyzed the file as its own entry, the whole
-program checked cleanly, and every other file it read still holds that
-text on disk (`internal/analyzedlowering`). Every load, `nomi check`'s included,
+file's program when the program it keeps for the file checked cleanly and
+every other file it read still holds that text on disk
+(`internal/analyzedlowering`). A file an entry reaches is lowered as `nomi
+check <file>` lowers it, from the kept analyses of the files it reaches
+(`analysis.memberProgramOf`), unless a file outside those could change
+what the front end decides about them. A run of the same texts as the
+document's last answers from `analyzedlowering.Memo`. Every load, `nomi check`'s included,
 executes one thing on the VM before the program runs: the handler of each
 backtick typed literal whose handler returns a `Result`, refused when
 `vm.Machine.Effects` finds something it can reach acts outside the machine

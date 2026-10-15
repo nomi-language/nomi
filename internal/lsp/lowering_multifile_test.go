@@ -146,9 +146,9 @@ var multiFileCases = []multiFileCase{
 		name: "the imported file",
 		disk: map[string]string{"main.nomi": multiMain, "shapes.nomi": multiShapes},
 		doc:  "shapes.nomi",
-		// The server analyzes shapes.nomi through main.nomi, which is not
-		// the program `nomi check shapes.nomi` builds.
-		analyzed: false, parsed: 1, blocked: 0,
+		// The server analyzes shapes.nomi through main.nomi, and offers
+		// the program `nomi check shapes.nomi` builds from that analysis.
+		analyzed: true, parsed: 1, blocked: 0,
 	},
 	{
 		name: "an error in another file",

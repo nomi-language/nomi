@@ -29,18 +29,21 @@ import (
 // burst. A stdlib file is not lowered (vmhost.CheckLowering).
 //
 // A run lowers the program from the document's installed analysis of the
-// same text when that analysis is the program `nomi check` would build
-// (analysis.EntryProgram, analyzedlowering.Check): the document is its own
-// entry and has no errors, the program's other project files were checked
-// in the same analysis with none, and each still holds on disk the text
-// the analysis read, as nomi.toml does. An imported document with unsaved
-// edits therefore sends the run to the text: `nomi check` reads that file
-// from disk. A run waits for the analysis when the text's analysis is
-// still running. Such a run costs what lowering costs, 1 to 7 ms on the
-// corpus's largest such programs. Any other run checks the program as
-// `nomi check` does, its own front end included: 10 to 38 ms. The first
-// run in a process lowers the whole stdlib, about 120 ms. Hence a longer
-// quiet period than analysisDelay.
+// same text when that analysis holds the program `nomi check` would build
+// (analysis.EntryProgram, analyzedlowering.Check): the document and the
+// program's other project files were checked in the same analysis with no
+// errors, and each still holds on disk the text the analysis read, as
+// nomi.toml does. A document an entry reaches is analyzed in the entry's
+// program, and its run lowers the program of the files it reaches, from
+// those analyses, as `nomi check` lowers the document: its own main, tests
+// and exported functions are the roots, never the entry's. An imported
+// document with unsaved edits sends its importers' runs to the text:
+// `nomi check` reads that file from disk. A run waits for the analysis
+// when the text's analysis is still running. Such a run costs what
+// lowering costs, 1 to 7 ms on the corpus's largest such programs. Any
+// other run checks the program as `nomi check` does, its own front end
+// included: 10 to 38 ms. The first run in a process lowers the whole
+// stdlib, about 120 ms. Hence a longer quiet period than analysisDelay.
 //
 // A run that lowers from the analysis keeps what it found
 // (analyzedlowering.Memo), keyed by every text the lowering read. The next

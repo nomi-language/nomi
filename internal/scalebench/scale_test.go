@@ -165,6 +165,10 @@ func ops() []op {
 				}
 			}
 		}},
+		op{"lsp lowering of a leaf, from the kept program", memberLowering(projectgen.BodyLeaf, true)},
+		op{"lsp lowering of a leaf, from the text", memberLowering(projectgen.BodyLeaf, false)},
+		op{"lsp lowering of a hub, from the kept program", memberLowering(projectgen.BodyHub, true)},
+		op{"lsp lowering of a hub, from the text", memberLowering(projectgen.BodyHub, false)},
 		op{"nomi run (load + run)", func(tb testing.TB, p *project) func(testing.TB, int) {
 			return func(tb testing.TB, _ int) {
 				prog, err := vmhost.Load(p.entry)
@@ -178,6 +182,38 @@ func ops() []op {
 		}},
 	)
 	return list
+}
+
+// memberLowering is the language server's lowering run of the file kind
+// edits, a file the entry reaches, open beside the entry: from the program
+// the server keeps (analysis.EntryProgram offered through the entry), or,
+// as `nomi check <file>` does, from its text with its own front end.
+func memberLowering(kind projectgen.EditKind, kept bool) func(tb testing.TB, p *project) func(testing.TB, int) {
+	return func(tb testing.TB, p *project) func(testing.TB, int) {
+		key, _ := p.gen.Edit(kind, 0)
+		path, src := p.path(key), p.gen.Files[key]
+		if !kept {
+			return func(tb testing.TB, _ int) {
+				if _, err := vmhost.CheckLowering(path, src); err != nil {
+					tb.Fatalf("lowering %s: %v", key, err)
+				}
+			}
+		}
+		dm := newManager(p.dir)
+		dm.Open(p.uri(p.gen.Entry), p.gen.Files[p.gen.Entry])
+		dm.AnalyzeLatest(context.Background(), p.uri(p.gen.Entry))
+		dm.Open(p.uri(key), src)
+		dm.AnalyzeLatest(context.Background(), p.uri(key))
+		a := analyzedOf(dm.Snapshot(p.uri(key)))
+		if a == nil {
+			tb.Fatalf("%s's program is not offered for lowering", key)
+		}
+		return func(tb testing.TB, _ int) {
+			if _, ok, err := analyzedlowering.Check(path, src, a); !ok || err != nil {
+				tb.Fatalf("lowering %s from the kept program: ok %v, err %v", key, ok, err)
+			}
+		}
+	}
 }
 
 // analyzedOf is the language server's analyzedOf (internal/lsp/lowering.go).

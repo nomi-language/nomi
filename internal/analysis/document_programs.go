@@ -332,8 +332,9 @@ func ownNodes(p *CheckedProgram, key string) []ast.Node {
 // documentBuild is the build of the document with module key key from p,
 // the program it belongs to: its nodes, syntax errors and repaired
 // declarations, its analysis with the diagnostics the language server
-// publishes for it in TypeErrors, and its EntryProgram when it is p's entry
-// and the program is offered. The diagnostics are those the document's own
+// publishes for it in TypeErrors, and its EntryProgram when the program is
+// offered: p's (entryProgramOf) when it is p's entry, else that of the
+// files it reaches (memberProgramOf). The diagnostics are those the document's own
 // analysis reported before programs were kept, in the same order:
 //
 //   - the entry: the build's, the program's own, CheckTypes', the
@@ -382,6 +383,8 @@ func (dm *DocumentManager) documentBuild(p *CheckedProgram, key, content, manife
 	}
 	if key == p.Entry {
 		b.program = entryProgramOf(p, manifest)
+	} else {
+		b.program = memberProgramOf(p, key, manifest)
 	}
 	return b
 }
@@ -409,22 +412,35 @@ func entryProgramOf(p *CheckedProgram, manifest string) *EntryProgram {
 	if len(p.Files) == 1 {
 		return ep
 	}
-	if len(p.checks.frontEnd) > 0 || p.unread {
+	if !programClean(p) {
 		return nil
 	}
 	for key, fa := range p.Files {
-		if len(p.Syntax[key]) > 0 || len(p.damaged[key]) > 0 || len(p.Errors[key]) > 0 || len(fa.TypeErrors) > 0 && key == p.Entry {
-			return nil
+		if key != p.Entry {
+			ep.Files = append(ep.Files, EntryProgramFile{Key: key, Path: fa.FilePath, Nodes: p.Nodes[key], FA: fa, Text: p.Texts[key]})
 		}
-		if key == p.Entry {
-			continue
-		}
-		if !filepath.IsAbs(fa.FilePath) {
-			return nil
-		}
-		ep.Files = append(ep.Files, EntryProgramFile{Key: key, Path: fa.FilePath, Nodes: p.Nodes[key], FA: fa, Text: p.Texts[key]})
 	}
 	slices.SortFunc(ep.Files, func(a, b EntryProgramFile) int { return strings.Compare(a.Key, b.Key) })
 	ep.ReachesEntry = p.reachesEntry
 	return ep
+}
+
+// programClean reports whether p, a program of several files, may be
+// lowered from its analyses: no file has a syntax error or a diagnostic,
+// the entry no derive lowering or duplicate test name error, the build
+// read no file of another module, and every file but the entry has an
+// absolute path.
+func programClean(p *CheckedProgram) bool {
+	if len(p.checks.frontEnd) > 0 || p.unread {
+		return false
+	}
+	for key, fa := range p.Files {
+		if len(p.Syntax[key]) > 0 || len(p.damaged[key]) > 0 || len(p.Errors[key]) > 0 || len(fa.TypeErrors) > 0 && key == p.Entry {
+			return false
+		}
+		if key != p.Entry && !filepath.IsAbs(fa.FilePath) {
+			return false
+		}
+	}
+	return true
 }

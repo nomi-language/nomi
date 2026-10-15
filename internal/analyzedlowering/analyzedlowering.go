@@ -10,11 +10,12 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// Analyzed is a file the caller has already analyzed as the entry of its
-// own program, with the program's other project files: the language
-// server's analysis of an open document (analysis.EntryProgram). Nodes and
-// FA are the entry's prepared nodes and its analysis, Root the project root
-// it was resolved against.
+// Analyzed is a file the caller has already analyzed, with the other
+// project files of the program it is the entry of: the language server's
+// analysis of an open document (analysis.EntryProgram), as its own entry
+// or through an entry that reaches it. Nodes and FA are the entry's
+// prepared nodes and its analysis, Root the project root it was resolved
+// against.
 type Analyzed struct {
 	Nodes []ast.Node
 	FA    *analysis.FileAnalysis
