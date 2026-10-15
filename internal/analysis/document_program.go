@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"maps"
-	"os"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -302,12 +301,12 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 		if t, ok := p.Texts[key]; ok {
 			return t, true
 		}
-		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(key)+".nomi"))
+		data, err := dm.readProjectFile(filepath.Join(root, filepath.FromSlash(key)+".nomi"))
 		if err != nil {
 			return "", false
 		}
-		p.Texts[key] = string(data)
-		return string(data), true
+		p.Texts[key] = data
+		return data, true
 	}
 	parse := func(key, src string) []ast.Node {
 		mu.Lock()

@@ -451,6 +451,10 @@ type bodyEdit struct {
 	frontEnd []TypeError
 	// The functions the old and the new bodies declare.
 	oldFuncs, newFuncs []*ast.FuncDef
+	// importsInOrder reports that the old and the new bodies import the
+	// same paths in the same order, so the file's imports are as they were
+	// (carryImports).
+	importsInOrder bool
 }
 
 // rebuildEditedBodies is Recheck's fast path: it answers the program after
@@ -515,6 +519,9 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 		// before.
 		oldFuncs, oldImports := bodyContents(g.oldBodies)
 		newFuncs, newImports := bodyContents(g.newBodies)
+		inOrder := slices.Equal(oldImports, newImports)
+		slices.Sort(oldImports)
+		slices.Sort(newImports)
 		if !slices.Equal(oldImports, newImports) {
 			return nil, "a body's imports changed"
 		}
@@ -522,7 +529,7 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 			return nil, reason
 		}
 		moves = moves || g.shift.moves()
-		plan = append(plan, bodyEdit{key: key, fa: fa, nodes: nodes, g: g, frontEnd: frontEnd, oldFuncs: oldFuncs, newFuncs: newFuncs})
+		plan = append(plan, bodyEdit{key: key, fa: fa, nodes: nodes, g: g, frontEnd: frontEnd, oldFuncs: oldFuncs, newFuncs: newFuncs, importsInOrder: inOrder})
 	}
 	prog := prev.Files[prev.Entry].Program()
 	if moves && len(prog.Errors) > 0 && prog.programErrors == nil {
@@ -562,7 +569,11 @@ func (dm *DocumentManager) rebuildEditedBodies(prev *CheckedProgram, edits []Pro
 
 	edited := make(map[*FileAnalysis]bool, len(plan))
 	for _, e := range plan {
+		generation := e.fa.generation
 		e.fa.walkBodiesAgain(e.nodes)
+		if e.importsInOrder {
+			e.fa.carryImports(generation)
+		}
 		edited[e.fa] = true
 	}
 	if prog.Onces.reinfer(edited) {
@@ -627,7 +638,7 @@ func editedText(edits []ProgramEdit, key string) string {
 }
 
 // bodyContents are the functions declared in bodies, and the imports in
-// them rendered without positions and sorted.
+// them rendered without positions, in the order they appear.
 func bodyContents(bodies []ast.Node) (funcs []*ast.FuncDef, imports []string) {
 	for _, body := range bodies {
 		WalkNodes(body, func(n ast.Node) {
@@ -641,7 +652,6 @@ func bodyContents(bodies []ast.Node) (funcs []*ast.FuncDef, imports []string) {
 			}
 		})
 	}
-	slices.Sort(imports)
 	return funcs, imports
 }
 

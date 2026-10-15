@@ -183,6 +183,9 @@ type DocumentManager struct {
 	// wait out.
 	viewWaiting   atomic.Int32
 	programCounts programCounts
+	// disk holds the project files programs were checked from, as read
+	// (readProjectFile).
+	disk diskTexts
 }
 
 // DocSnapshot is a frozen view of a Document, taken under the manager's
