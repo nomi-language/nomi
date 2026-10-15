@@ -27,23 +27,43 @@ fn main() { _ = [Ready] }
 	t.Fatal("main, which builds a list of a marker, is not retained")
 }
 
-func TestIRMarker_ZeroSizedEnumPayloadPreservesFallback(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", `type Ready
-enum State { Present Ready; Missing }
-fn main() { _ = State.Present(Ready) }
-`)
-	if err != nil {
-		t.Fatal(err)
+// A variant whose positional payload is a marker is built and matched: the
+// payload is stored nowhere and read back from its type (irSlotlessPayload,
+// irSlotlessValue). A generic payload instantiated at a marker or at Unit
+// goes the same way.
+func TestIRMarker_ZeroSizedEnumPayloadRuns(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
 	}
-	got, _, err := GenerateIR(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, mod := range got.IR {
-		for _, f := range mod.Funcs() {
-			if f.Name() == "main" {
-				t.Fatal("zero-sized enum payload retained without native slot delivery")
-			}
-		}
-	}
+	const src = `import std/io
+
+type Ready
+
+enum State {
+    Present(Ready)
+    Missing
+}
+
+enum Box<T> {
+    Full(T)
+    Empty
+}
+
+fn describe(s: State): String {
+    case s {
+        State.Present(r) -> "present ${Debug.inspect(r)}"
+        State.Missing -> "missing"
+    }
+}
+
+fn main() {
+    s = State.Present(Ready)
+    io.inspect(s)
+    [s, State.Missing] |> Iter.each(|x| io.print(describe(x)))
+    b: Box<Ready> = Box.Full(Ready)
+    u: Box<Unit> = Box.Full(Unit)
+    io.inspect((b, u))
+}
+`
+	irRunSource(t, src, "Present(Ready)\npresent Ready\nmissing\n(Full(Ready), Full(Unit))\n")
 }
