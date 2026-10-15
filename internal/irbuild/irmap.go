@@ -306,6 +306,11 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 	if !known || len(args.kinds) != fn.args {
 		return nil
 	}
+	if method == "put" && args.kinds[0].tag == tagMap && args.kinds[0] != kindEmptyMap {
+		if v, k, ok := bl.mapAtSolvedExistential(t, args.temps[0], args.kinds[0]); ok {
+			args.temps[0], args.kinds[0] = v, k
+		}
+	}
 	if args.kinds[0] == kindEmptyMap && method == "put" && irMapKeyKind(args.kinds[1]) && irMapValueKind(args.kinds[2]) {
 		want := bl.g.mapKind(args.kinds[1], args.kinds[2])
 		v, k, ok := bl.coerceEmpty(t.Args[0], args.temps[0], args.kinds[0], want)
@@ -326,7 +331,9 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 	} else if len(args.kinds) > 1 && args.kinds[1] != key {
 		return nil
 	}
-	if method == "put" && args.kinds[2] != val {
+	if method == "put" && args.kinds[2] != val && !(irExistentialKind(val) && bl.g.irErases(val, args.kinds[2])) {
+		// A value entering an interface's existential value is the value
+		// itself (`Map.put(m, "b", True)` for a `Map<String, Display>`).
 		return nil
 	}
 	if method == "get" {
@@ -344,6 +351,32 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 	}
 	name := "Map." + method
 	return &irQualPlan{token: name, name: name, result: result, host: true}
+}
+
+// mapAtSolvedExistential is the map v of kind have retyped as the checker's
+// instantiation of call t's map parameter when that instantiation's value
+// is an interface's existential that have's value erases into
+// (`Map.put(m, "b", True)` for an `m` built as `Map<String, Int>` and solved
+// as `Map<String, Display>`). The existential is the concrete value, so the
+// map is the same value at the wider kind.
+func (bl *irScalarBuilder) mapAtSolvedExistential(t *ast.Call, v ir.Temp, have kind) (ir.Temp, kind, bool) {
+	ft := bl.g.checkedCallSignature(t)
+	if ft == nil || len(ft.Params) == 0 || have.comp == nil || len(have.comp.parts) != 2 {
+		return v, have, false
+	}
+	solved := bl.g.project(ft.Params[0])
+	if solved == have || solved.tag != tagMap || solved.comp == nil || len(solved.comp.parts) != 2 ||
+		!irRetainedMapKind(solved) || solved.comp.parts[0] != have.comp.parts[0] {
+		return v, have, false
+	}
+	val := solved.comp.parts[1]
+	if !irExistentialKind(val) || !bl.g.irErases(val, have.comp.parts[1]) {
+		return v, have, false
+	}
+	n := ir.NewCopy(bl.g.irNodePos(t), bl.f.NewTemp(), v)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: solved})
+	return n.Dst(), solved, true
 }
 
 // openEmptyCallKind is the collection an empty constructor's call stands
