@@ -139,6 +139,13 @@ func irDistinctOverValue(d *typeDef) bool {
 	return irWrappingDistinct(d) || irCompositeDistinct(d)
 }
 
+// irDistinctOverKind reports whether k is a composite distinct whose inner
+// is a map or a list (inner), which a map or list pattern matches through the
+// distinct (`Kvs{"a" => v}`, `Stack[a, .._]`, or the bare `[a, .._]`).
+func irDistinctOverKind(k kind, inner tag) bool {
+	return k.tag == tagNamed && irCompositeDistinct(k.def) && k.def.inner.tag == inner
+}
+
 // irRetainedLeafKind is the value domain the retained shape admits: the four
 // scalars, Infallible, scalar-wrapping distincts and zero-sized distinct
 // markers.

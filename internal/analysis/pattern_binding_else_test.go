@@ -321,3 +321,35 @@ fn main(): Result<Unit, String> {
 		}
 	}
 }
+
+// A `case` arm types a struct-shaped variant's paren payload as a binding's
+// `else` fallback does: the record of its fields. `.Valid(r)` binds r to it
+// and `.Valid({addr, score})` matches it, so the arm's body is checked
+// against those types.
+func TestStructVariantParenPayload_IsTheRecordOfItsFields(t *testing.T) {
+	ok := elseDecls + `fn f(c: Check): String {
+    case c {
+        .Valid({addr, score: 0}) -> addr
+        .Valid(r) -> "${r.addr}:${r.score}"
+        .Invalid(s) -> s
+    }
+}
+`
+	if errs := elseErrors(t, ok); len(errs) != 0 {
+		t.Fatalf("the front end rejects this: %v", errs)
+	}
+	bad := elseDecls + `fn f(c: Check): Int {
+    case c {
+        .Valid(r) -> r.score + r.addr
+        .Invalid(_) -> 0
+    }
+}
+`
+	errs := elseErrors(t, bad)
+	if len(errs) == 0 {
+		t.Fatal("the front end accepts adding a String field to an Int one through `.Valid(r)`")
+	}
+	if !strings.Contains(strings.Join(errs, "\n"), "type mismatch: Int vs String") {
+		t.Fatalf("rejected for another reason: %v", errs)
+	}
+}

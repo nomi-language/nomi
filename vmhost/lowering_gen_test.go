@@ -129,6 +129,11 @@ type gen struct {
 	// Opt, which the helpers and the file-level derives name, stay at file
 	// level.
 	local bool
+	// pat draws the blocks patternBlock writes, and pn names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	pat *rand.Rand
+	pn  int
 }
 
 func (g *gen) fresh(prefix string) string {
@@ -1561,6 +1566,108 @@ func (g *gen) iterBlock() string {
 	return out.String()
 }
 
+// patternBlock is a statement block that declares a distinct type over a
+// tuple, and over a list or a map, and an enum that holds one, and matches
+// them as sub-patterns: inside a tuple pattern in a `case`, a destructuring
+// binding and a binding `else`, in a variant's payload, struct field and
+// `as` pattern, and a list or map pattern through the distinct, bare or by
+// its name. Or it declares an enum and a `typealias` of it, and builds and
+// matches its variants through the alias, with a record pattern over a
+// struct-shaped variant's payload (`.Rec({w, h})`). Or it matches a string
+// prefix, by `assert pattern = value` in a test (inTest) and by a `case`
+// elsewhere. Or it rebinds a name through a distinct destructure and a
+// function value through a tuple destructure, or reads a function-typed
+// field off an enum value and calls it. It draws from g.pat
+// only and names from g.pn, so the program around it is the one it would
+// be without it.
+func (g *gen) patternBlock(inTest bool) string {
+	r := g.pat
+	g.pn++
+	name := func(s string) string { return fmt.Sprintf("%s%d", s, g.pn) }
+	pair := name("Pr")
+	a, b := r.Intn(4), r.Intn(4)
+	str := []string{`"a"`, `"b"`}[r.Intn(2)]
+	var out strings.Builder
+	out.WriteString("{\n")
+	shape := r.Intn(10)
+	if shape < 4 {
+		fmt.Fprintf(&out, "type %s (Int, String)\n", pair)
+	}
+	switch shape {
+	case 0:
+		fmt.Fprintf(&out, "%s = (%s(%d, %s), %d)\n", name("pv"), pair, a, str, b)
+		fmt.Fprintf(&out, "io.inspect(case %s {\n(%s(%d, \"a\"), _) -> 1\n(%s(n, _), %d) -> n\n_ -> 0\n})\n",
+			name("pv"), pair, r.Intn(4), pair, r.Intn(4))
+	case 1:
+		fmt.Fprintf(&out, "(%s(%s, _), %s) = (%s(%d, %s), %d)\n", pair, name("px"), name("py"), pair, a, str, b)
+		fmt.Fprintf(&out, "io.inspect(%s + %s)\n", name("px"), name("py"))
+	case 2:
+		fmt.Fprintf(&out, "fn %s(m: Maybe<(%s, Int)>): Int {\nSome((%s(x, _), %d)) = m else { return -1 }\nx\n}\n",
+			name("pf"), pair, pair, r.Intn(3))
+		fmt.Fprintf(&out, "io.inspect(%s(Some((%s(%d, %s), %d))))\nio.inspect(%s(None))\n",
+			name("pf"), pair, a, str, r.Intn(3), name("pf"))
+	case 3:
+		en := name("Pe")
+		fmt.Fprintf(&out, "enum %s {\nRec {p: %s}\nDist %s\nTp (%s, Int)\nNope\n}\n", en, pair, pair, pair)
+		vals := []string{
+			fmt.Sprintf("%s.Rec{p: %s(%d, %s)}", en, pair, a, str),
+			fmt.Sprintf("%s.Dist(%s(%d, %s))", en, pair, a, str),
+			fmt.Sprintf("%s.Tp((%s(%d, %s), %d))", en, pair, a, str, b),
+			en + ".Nope",
+		}
+		fmt.Fprintf(&out, "%s = %s\nio.inspect(case %s {\n.Rec{p: %s(n, \"a\")} -> n\n.Dist(%s(n, _) as _w) -> n + 10\n.Tp((%s(n, _), m)) -> n + m\n_ -> 0\n})\n",
+			name("pe"), vals[r.Intn(len(vals))], name("pe"), pair, pair, pair)
+	case 4:
+		stack := name("Stk")
+		fmt.Fprintf(&out, "type %s List<Int>\n", stack)
+		head := "[h, .._]"
+		if r.Intn(2) == 0 {
+			head = stack + head
+		}
+		fmt.Fprintf(&out, "%s = {r: %d, q: %s([%d, %d])}\nio.inspect(case %s {\n{q: %s} -> h\n_ -> 0\n})\n", name("pr"), a, stack, b, a, name("pr"), head)
+		fmt.Fprintf(&out, "io.inspect(case %s([%d]) {\n%s -> h\n_ -> 0\n})\n", stack, b, head)
+	case 6:
+		en, alias := name("Pa"), name("PaAlias")
+		fmt.Fprintf(&out, "enum %s {\nNum Int\nRec {w: Int, h: Int}\nDot\n}\ntypealias %s %s\n", en, alias, en)
+		vals := []string{
+			fmt.Sprintf("%s.Num(%d)", alias, a),
+			fmt.Sprintf("%s.Rec{w: %d, h: %d}", alias, a, b),
+			alias + ".Dot",
+		}
+		fmt.Fprintf(&out, "%s: %s = %s\nio.inspect(case %s {\n%s.Num(n) -> n\n.Rec({w: %d, h}) -> h + 100\n%s.Rec{w, h} -> w * h\n%s.Dot -> -1\n})\n",
+			name("pa"), en, vals[r.Intn(len(vals))], name("pa"), alias, r.Intn(4), alias, alias)
+	case 9:
+		en := name("Pop")
+		fmt.Fprintf(&out, "enum %s {\nUn {f: (Int) -> Int, k: Int}\nBi {f: (Int) -> Int, k: Int, m: Int}\nNo\n}\n", en)
+		vals := []string{
+			fmt.Sprintf("%s.Un{f: |x| x + %d, k: %d}", en, a, b),
+			fmt.Sprintf("%s.Bi{f: |x| x * %d, k: %d, m: 1}", en, a, b),
+		}
+		fmt.Fprintf(&out, "%s = %s\n%s = %s.f\nio.inspect(%s(%s.k))\n", name("po"), vals[r.Intn(len(vals))], name("pg"), name("po"), name("pg"), name("po"))
+	case 8:
+		id, f, v := name("Pid"), name("pf"), name("pn")
+		fmt.Fprintf(&out, "type %s Int\n%s = |x: Int| x + %d\n%s = %d\nio.inspect(%s(%s))\n%s(%s) = %s(%s + 1)\n(%s, %s) = (|x: Int| x * 2, %s)\nio.inspect(%s(%s))\n",
+			id, f, a, v, b, f, v, id, v, id, v, f, v, v, f, v)
+	case 7:
+		subject := fmt.Sprintf(`"/p/%d"`, a)
+		if inTest {
+			fmt.Fprintf(&out, "assert \"/p/\" + %s = %s\nio.inspect(%s)\n", name("ps"), subject, name("ps"))
+		} else {
+			fmt.Fprintf(&out, "io.inspect(case %s {\n\"/p/\" + %s -> %s\n_ -> \"\"\n})\n", subject, name("ps"), name("ps"))
+		}
+	default:
+		kvs := name("Kv")
+		fmt.Fprintf(&out, "type %s Map<String, Int>\n", kvs)
+		inner := `{"a" => v}`
+		if r.Intn(2) == 0 {
+			inner = kvs + inner
+		}
+		fmt.Fprintf(&out, "%s = {\"k\" => %s({%s => %d})}\nio.inspect(case %s {\n{\"k\" => %s} -> v\n_ -> 0\n})\n", name("pm"), kvs, str, a, name("pm"), inner)
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
 // boolLitFrom is a Bool literal drawn from r.
 func (g *gen) boolLitFrom(r *rand.Rand) string {
 	return []string{"True", "False"}[r.Intn(2)]
@@ -1576,7 +1683,8 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32)),
 		wrap: rand.New(rand.NewSource(int64(i) + 4<<32)), dyn: rand.New(rand.NewSource(int64(i) + 5<<32)),
 		fix: rand.New(rand.NewSource(int64(i) + 6<<32)),
-		itr: rand.New(rand.NewSource(int64(i) + 11<<32))}
+		itr: rand.New(rand.NewSource(int64(i) + 11<<32)),
+		pat: rand.New(rand.NewSource(int64(i) + 20<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -1614,6 +1722,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.itr.Intn(3) == 0 {
 			body.WriteString(g.iterBlock())
+		}
+		if g.pat.Intn(3) == 0 {
+			body.WriteString(g.patternBlock(asTest))
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")

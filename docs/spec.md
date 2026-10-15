@@ -1752,7 +1752,7 @@ embeds UserId // distinct type
 
 Only struct types and distinct types can be embedded. Embedding an interface (`embeds SomeIface`) is rejected by the checker — there is no meaningful subtyping relationship to install (open polymorphism over an interface would be `dyn Trait`-style dispatch, which Nomi does not support; see §13). For an interface-typed payload, use a single-payload variant: `Render Renderable`. Embedding an enum (`embeds Shape`), directly or through a `typealias` that names one, is rejected at the embedded name; carry the enum in a single-payload variant instead (`Shape Shape`, matched as `Drawable.Shape(Shape.Square(n))`). A distinct over an enum (`type Boxed Shape`) is a distinct type and embeds.
 
-Embedded structs and embedded distinct types are types of their own and can be used as function parameter types (see "Variants as Parameter Types" below). Struct variants and embedded structs are constructed with a struct's two forms — braces, or the record call form `Shape.Rectangle({...})` — and matched with braces; single-payload variants use parens at construction and pattern sites (only the declaration drops the parens). §8 "Embedded Types" states the construction rule in full.
+Embedded structs and embedded distinct types are types of their own and can be used as function parameter types (see "Variants as Parameter Types" below). Struct variants and embedded structs are constructed with a struct's two forms — braces, or the record call form `Shape.Rectangle({...})` — and matched with braces; a struct-shaped variant's paren pattern matches the anonymous struct of its fields, so `.Rectangle(r)` binds that record and `.Rectangle({width, height: 0.0})` is a record pattern over it. Single-payload variants use parens at construction and pattern sites (only the declaration drops the parens). §8 "Embedded Types" states the construction rule in full.
 
 ### Examples
 
@@ -2154,6 +2154,8 @@ The built value is the same value as V widened into the enum. `Session.UserId("a
 - **Struct embed** (`embeds Circle`): the payload is the struct itself. `case s { Shape.Circle{radius} -> ... }` destructures the struct fields.
 - **Wrapping-distinct embed** (`embeds UserId` where `type UserId String`): pattern destructure binds the *inner* value directly: `case id { Identifier.UserId(name) -> ... }` binds `name: String`. Qualified construction is the distinct's own call form, `Identifier.UserId("alice")`, which builds a `UserId` from the inner String; the value is a `UserId`, equal to `UserId("alice")` widened into `Identifier`. A distinct over any other value works the same way: for `type Wrapped Circle`, `Shape.Wrapped({r})` is a struct pattern over the Circle, and `Shape.Wrapped(Circle{r: 1})` builds a `Wrapped`.
 - **Zero-sized distinct embed** (`embeds Expired` where `type Expired`): the payload is the (zero-sized) distinct. The variant takes no arguments — `Session.Expired` is field-access, not a call.
+
+**Reading a field off the enum.** `s.radius` on a value typed as the enum reads the field of whichever variant the value is, from a struct-shaped variant or an embedded struct. A value of a variant without the field faults at run time (`variant 'Rect' has no field 'radius'`). Every variant that has the field must give it the same type: `w: Int` in one variant and `w: Float` in another makes `s.w` the error `field 'w' is Int in Shape.Rect and Float in Shape.Circle, so reading it off a Shape has no one type`; read it in a `case` arm that matches the variant.
 
 ## 9. Built-in Types: Maybe and Result
 

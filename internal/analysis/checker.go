@@ -11674,14 +11674,7 @@ func (c *checker) bindingFallbackPayload(pattern ast.Node, t Type) (Type, string
 			payload = Substitute(payload, subs)
 		}
 	case len(v.Fields) > 0:
-		fields := make([]FieldDef, len(v.Fields))
-		for i, f := range v.Fields {
-			fields[i] = f
-			if subs != nil && f.Type != nil {
-				fields[i].Type = Substitute(f.Type, subs)
-			}
-		}
-		payload = &AnonStructType{Fields: fields}
+		payload = variantFieldsRecord(v, subs)
 	default:
 		return nil, "", false
 	}
@@ -12605,7 +12598,7 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 			}
 		}
 	case *EnumType:
-		for _, v := range ty.Variants {
+		for i, v := range ty.Variants {
 			for _, f := range v.Fields {
 				if f.Name == fieldName {
 					if variantSym := c.fa.ModuleScope.Lookup(v.Name); variantSym != nil {
@@ -12616,7 +12609,7 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 							c.fa.References[fieldPos] = fieldSym
 						}
 					}
-					return f.Type, true
+					return c.enumFieldAgreed(ty, i, f.Type, fieldName, fieldPos), true
 				}
 			}
 			if v.DataType != nil {
@@ -12628,7 +12621,7 @@ func fieldTypeFromObject(c *checker, objTy Type, fieldName string, fieldPos Pos)
 									c.fa.References[fieldPos] = fieldSym
 								}
 							}
-							return f.Type, true
+							return c.enumFieldAgreed(ty, i, f.Type, fieldName, fieldPos), true
 						}
 					}
 				}
@@ -13960,6 +13953,12 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 				c.fa.References[variantPos] = &proxy
 			}
 		}
+		if dataType == nil && found.Kind == VariantStruct && len(found.Fields) > 0 {
+			// `.Rect(r)` and `.Rect({w, h})`: the payload is the record of
+			// the variant's fields, as a binding's `else` fallback types it
+			// (bindingFallbackPayload).
+			dataType = variantFieldsRecord(found, enumTypeArgSubs(et))
+		}
 		// Bind the inner value if present.
 		if n.Payload != nil {
 			// Flat-destructure shorthand `Variant(a, b, ...)` is now
@@ -14523,6 +14522,21 @@ func (c *checker) patternsExhaustiveOver(t Type, patterns []ast.Node) bool {
 // enumTypeArgSubs builds a TypeParam_ → TypeArg substitution for the enum so
 // each variant's DataType is concretized to the use-site instantiation
 // (Maybe<Result<Int, String>>'s Some.DataType = T → Result<Int, String>).
+// variantFieldsRecord is a struct-shaped variant's payload: the anonymous
+// struct of its fields, with the enum's type arguments substituted (subs,
+// from enumTypeArgSubs). `.Rect(r)` binds r to it and `.Rect({w, h})`
+// matches it, in a `case` arm as in a binding's `else` fallback.
+func variantFieldsRecord(v *VariantDef, subs map[*TypeParam_]Type) Type {
+	fields := make([]FieldDef, len(v.Fields))
+	for i, f := range v.Fields {
+		fields[i] = f
+		if subs != nil && f.Type != nil {
+			fields[i].Type = Substitute(f.Type, subs)
+		}
+	}
+	return &AnonStructType{Fields: fields}
+}
+
 func enumTypeArgSubs(enumTy *EnumType) map[*TypeParam_]Type {
 	if len(enumTy.TypeParamDefs) == 0 || len(enumTy.TypeArgs) != len(enumTy.TypeParamDefs) {
 		return nil
@@ -17979,4 +17993,42 @@ func typeStringOrUnknown(t Type) string {
 		return "<unknown>"
 	}
 	return t.String()
+}
+
+// enumFieldAgreed is t, the type of field name in et's variant first, when
+// every later variant that has the field gives it the same type. A read of
+// the field off an enum value takes whichever variant the value is, so
+// variants that disagree (`w: Int` in one and `w: Float` in another) leave
+// the read no one type: it is an error at the field, and the answer is nil.
+func (c *checker) enumFieldAgreed(et *EnumType, first int, t Type, name string, at Pos) Type {
+	for _, v := range et.Variants[first+1:] {
+		other, has := variantFieldType(v, name)
+		if !has || TypesEqual(t, other) {
+			continue
+		}
+		c.report(TypeError{Line: at.Line, Col: at.Col, Message: c.typef(
+			"field '%s' is %s in %s.%s and %s in %s.%s, so reading it off a %s has no one type",
+			name, t, et.Name, et.Variants[first].Name, other, et.Name, v.Name, et.Name)}.WithHint(
+			"match the variant in a `case` and read the field there"))
+		return nil
+	}
+	return t
+}
+
+// variantFieldType is the type of field name in variant v's payload: an
+// inline struct-shaped variant's field or an embedded struct's.
+func variantFieldType(v VariantDef, name string) (Type, bool) {
+	for _, f := range v.Fields {
+		if f.Name == name {
+			return f.Type, true
+		}
+	}
+	if st, ok := v.DataType.(*StructType); ok {
+		for _, f := range st.Fields {
+			if f.Name == name {
+				return f.Type, true
+			}
+		}
+	}
+	return nil, false
 }

@@ -444,6 +444,12 @@ func (g *gen) blockLocalAlias(name string) (kind, bool) {
 // through the same resolver a construction site uses, which answers for the
 // module-qualified spelling as well as the bare one.
 func (g *gen) declaredAs(owner string, d *typeDef) bool {
+	if a, isAlias := g.aliasNamedDef(owner); isAlias {
+		// `S.Num(n)` under `typealias S Shape`, or `M.Some(n)` under
+		// `typealias M Maybe<Int>`: the alias names its target, an instance
+		// included.
+		return a != nil && a == d
+	}
 	if bl, isBlockLocal := g.blockLocalNamed(owner); isBlockLocal {
 		// A block-local declaration WINS its name for the extent of its block,
 		// so a module-level type of the same name is not what `owner` meant

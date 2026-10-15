@@ -133,9 +133,11 @@ func (bl *irScalarBuilder) fieldProject(at ast.Node, name string, subj ir.Temp, 
 
 // enumFieldRead reads `s.f` off an enum value whose variant is not known:
 // the field of a struct-shaped variant, of an embedded struct, or of a
-// positional struct payload. The checker types the read from the first
-// variant that supplies f; a value of a variant that does not faults at run
-// time with rt's texts (ir.ProjEnumField's Faults says whether one exists).
+// positional struct payload, of any kind a retained enum holds, a function
+// value included. The checker requires every variant that supplies f to
+// type it alike (enumFieldAgreed); a value of a variant that does not supply
+// it faults at run time with rt's texts (ir.ProjEnumField's Faults says
+// whether one exists).
 func (bl *irScalarBuilder) enumFieldRead(at ast.Node, name string, subj ir.Temp, d *typeDef, mobile bool) (ir.Temp, kind, bool, bool) {
 	var fk kind
 	found, faults := false, false
@@ -153,7 +155,7 @@ func (bl *irScalarBuilder) enumFieldRead(at ast.Node, name string, subj ir.Temp,
 			return ir.NoTemp, kindInvalid, false, false
 		}
 	}
-	if !found || !irRetainedValueKind(fk) {
+	if !found {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	p := ir.NewProjEnumField(bl.g.irNodePos(at), bl.f.NewTemp(), subj, bl.g.irTypeSym(d), name, faults, irParamShape(fk))

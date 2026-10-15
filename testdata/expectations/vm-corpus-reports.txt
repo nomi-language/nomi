@@ -3,6 +3,7 @@
 # Regenerate with:
 #   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/vm -run 'TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts|TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords' -count=1
 01-foundations/comment_positions_test.nomi
+01-foundations/destructure_rebind_test.nomi
 01-foundations/interpolation_escapes_test.nomi
 01-foundations/literals_test.nomi
 01-foundations/raw_strings_test.nomi
@@ -55,6 +56,7 @@
 08-pattern-matching/binding_else_test.nomi
 08-pattern-matching/case_patterns_test.nomi
 08-pattern-matching/compound_patterns_test.nomi
+08-pattern-matching/distinct_sub_patterns_test.nomi
 08-pattern-matching/map_patterns_test.nomi
 08-pattern-matching/maybe_result_test.nomi
 08-pattern-matching/try_error_conversion_test.nomi

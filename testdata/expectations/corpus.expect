@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 283
-declared-cases 913
+records 285
+declared-cases 923
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -36,6 +36,14 @@ N 1
 H 0df4e18e55ebb0e72e613dc4dd41522d5a6f9b3763a032f34c8cd7cd1d42590e
 T ok <root>/tests/01-foundations/comment_positions_test.nomi :: comments are accepted around declarations and expressions
 T test result: ok. 1 passed, 0 failed
+T
+C 01-foundations/destructure_rebind_test.nomi
+E 0
+N 2
+H 0df1280a587c17d475beb14289ad2a0fb8d7b0064aa002e22167a600f9a65fe6
+T ok <root>/tests/01-foundations/destructure_rebind_test.nomi :: a destructure can rebind a parameter or a function value
+T ok <root>/tests/01-foundations/destructure_rebind_test.nomi :: a distinct destructure may name its type through its file
+T test result: ok. 2 passed, 0 failed
 T
 C 01-foundations/if_else/if_else_test.nomi
 E 0
@@ -211,11 +219,12 @@ T nomi run: <root>/tests/02-testing/assertion_context/test_helpers.nomi declares
 T
 C 02-testing/assertion_pattern_destructuring_test.nomi
 E 0
-N 2
-H e1ebe049936aea096474d1acc766cc0d89f4d05a3573199f6d60e39c09860331
+N 3
+H 081743bf7aa8e21ac16088445f30292ebc2633a80ced038fcb7ab81793c9af11
 T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can destructure list tuple struct map type and enum patterns
 T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can match literal patterns
-T test result: ok. 2 passed, 0 failed
+T ok <root>/tests/02-testing/assertion_pattern_destructuring_test.nomi :: assert can match a string prefix
+T test result: ok. 3 passed, 0 failed
 T
 C 02-testing/assertion_pipe_test.nomi
 E 0
@@ -825,13 +834,14 @@ T test result: ok. 5 passed, 0 failed
 T
 C 07-structs-and-enums/enums_test.nomi
 E 0
-N 4
-H f8d769ffb3bb11ffff58ad5dd91b4c8ffa4387f39019e2d96c06496786248f11
+N 5
+H 26898f5c388a7fe2a566a4cd61bdae3e09e3ae59b68d274be3d93f2e8f854b05
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum variants construct and compare by value
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum tuple payloads match and bind their contents
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum struct variants expose fields and defaults
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: embedded enum variants expose embedded fields
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: an enum field holding a function reads and calls
+T test result: ok. 5 passed, 0 failed
 T
 C 07-structs-and-enums/field_default_types/field_default_types_test.nomi
 E 0
@@ -1031,6 +1041,15 @@ H 9bf2bf2aad5db4068aa73d2f6956330cfe671f305f0a1ef70b9d242e1f9cc92f
 T ok <root>/tests/08-pattern-matching/compound_patterns_test.nomi :: compound patterns can match nested maps without wrappers counting as depth
 T test result: ok. 1 passed, 0 failed
 T
+C 08-pattern-matching/distinct_sub_patterns_test.nomi
+E 0
+N 3
+H 0a862748e1181cdd4683c3b8584a764986b695fd16976b0bc9fcf034b3d6af0c
+T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: tuple distinct sub-patterns
+T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: distinct sub-patterns in variants
+T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: list and map distinct sub-patterns
+T test result: ok. 3 passed, 0 failed
+T
 C 08-pattern-matching/map_patterns_test.nomi
 E 0
 N 5
@@ -1080,11 +1099,12 @@ T test result: ok. 3 passed, 0 failed
 T
 C 08-pattern-matching/variant_payloads_test.nomi
 E 0
-N 2
-H 3ded11e505b0cafed05c33bede76d621ddf258497449cfb2bdf590ce16f090c0
+N 3
+H f5c86970bbc23e9735b91624d819fa815c8ed840d541c8d42d8b755f478a9647
 T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: variant payloads support every payload shape
 T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: variant payloads can be pattern matched by shape
-T test result: ok. 2 passed, 0 failed
+T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: a struct-shaped variant's payload matches a record pattern
+T test result: ok. 3 passed, 0 failed
 T
 C 08-pattern-matching/variant_resolution/test_helpers.nomi
 E 1
@@ -1327,13 +1347,14 @@ T test result: ok. 3 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/type_wrappers_test.nomi
 E 0
-N 4
-H 4210d8f0885ba9a1d9a30bb278b2b228845559750446a28f23839186e83f0c3d
+N 5
+H f31934a702a01cb1520674cd898d250c63d1e133df05edbe4819fef419ec38b1
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: distinct types construct unwrap destructure and compare
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: type aliases can name function shapes
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: map distinct wrappers support literal attach and destructuring
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: tuple distinct wrappers support literal attach and destructuring
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: an enum alias qualifies variants in patterns and constructors
+T test result: ok. 5 passed, 0 failed
 T
 C 11-interfaces-and-impls/block_impl_diagnostics_test.nomi
 E 0
@@ -2249,15 +2270,16 @@ T nomi run: <root>/tests/15-app-and-defer/config_pattern/test.nomi declares no `
 T
 C 15-app-and-defer/context_module_values/context_module_values_test.nomi
 E 0
-N 6
-H 02b057978694cbd10f3b12dccdf7ad061fde0012cd154e12ccf836afb2e0d9a7
+N 7
+H ad58584b1cdf56f5fab547f22c8175352218b6874f6d49e0360d43c7ed5826c2
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared wrapped type round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared zero-sized type round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared struct round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared enum round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: two same-named module types keep separate Context slots
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a Type witness passed as a parameter still resolves
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a Type witness may name its type through its file
+T test result: ok. 7 passed, 0 failed
 T
 C 15-app-and-defer/context_module_values/domain.nomi
 E 1

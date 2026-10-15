@@ -17,6 +17,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -421,6 +422,29 @@ func (s *vmShaper) index(f *ir.Func) {
 				for i := range n.NumArgs() {
 					a := resolve(n.Arg(i))
 					byFwd[a] = append(byFwd[a], vmFwd{fn: callee, t: callee.Params()[i].Temp})
+				}
+			}
+		}
+	}
+	// A slot several paths copy into (a binding's `else` joins the payload
+	// it read with the fallback it built) demands of each source what is
+	// read off the slot, so `Some((Pair(x, _), y)) = m else { ... }`
+	// demands a tuple of m's payload. Repeated while a copy into a copied
+	// slot still carries a demand on.
+	for carried := true; carried; {
+		carried = false
+		for _, b := range f.Blocks() {
+			for _, in := range b.Instrs() {
+				c, isCopy := in.(*ir.Copy)
+				if !isCopy {
+					continue
+				}
+				dst, src := resolve(c.Dst()), resolve(c.Src())
+				for _, p := range byProj[dst] {
+					if dst != src && !slices.Contains(byProj[src], p) {
+						byProj[src] = append(byProj[src], p)
+						carried = true
+					}
 				}
 			}
 		}

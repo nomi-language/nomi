@@ -176,6 +176,9 @@ func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k k
 	case *ast.Binary:
 		return bl.strPrefixTest(p, value, k, arm, next)
 	case *ast.MapPattern:
+		if irDistinctOverKind(k, tagMap) {
+			return bl.nominalCaseTest(p, value, k, arm, next)
+		}
 		if p.TypeName != nil {
 			if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
 				return false
@@ -201,6 +204,9 @@ func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k k
 		}
 		return bl.enumCaseTest(p, value, k, arm, next)
 	case *ast.ListPattern:
+		if irDistinctOverKind(k, tagList) {
+			return bl.nominalCaseTest(p, value, k, arm, next)
+		}
 		if p.TypeName != nil {
 			if k.tag != tagNamed || !irRetainedEnumKind(k.def) {
 				return false
