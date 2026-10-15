@@ -1780,8 +1780,8 @@ func (g *gen) callBlock() string {
 // a failing `try`), a nested fn's destructuring parameter, and a
 // `Struct.update` patch that is a value rather than a literal, and a
 // partial whose open slot has a computed default, and a Context value keyed
-// by a std type with an rt Go type, and list patterns over `[]` and of a
-// suffix alone.
+// by a std type with an rt Go type, list patterns over `[]` and of a suffix
+// alone, and a value of a block-local type escaping its block.
 func (g *gen) leaveBlock() string {
 	r := g.leave
 	g.ln++
@@ -1809,7 +1809,17 @@ func (g *gen) leaveBlock() string {
 	}
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(9) {
+	switch r.Intn(10) {
+	case 9:
+		// A value of a block-local type, generic or not, escaping the
+		// block that declares it.
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "%s = {\nstruct %s {\nn: Int\n}\n%s{n: %d}\n}\n", name("lb"), name("Lk"), name("Lk"), n)
+		} else {
+			fmt.Fprintf(&out, "%s = {\nstruct %s<T> {\nn: T\n}\n%s{n: %d}\n}\n", name("lb"), name("Lk"), name("Lk"), n)
+		}
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("lb"))
+		fmt.Fprintf(&out, "io.inspect(%s.n + 1)\n", name("lb"))
 	case 8:
 		// A list pattern over the untyped `[]`, and one that is only a
 		// suffix.

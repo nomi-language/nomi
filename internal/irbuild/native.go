@@ -532,6 +532,14 @@ type gen struct {
 	blockTypeOrder  []*ast.Block
 	blockLocalOrder []*typeDef
 	typeScopes      []*blockTypeDecls
+	// blockLocalByType is each non-generic block-local def by the checker's
+	// type for its declaration, and blockLocalTemplates each generic one's
+	// template by its declaration's first type parameter, built by
+	// indexBlockLocals over the first blockLocalIndexed blocks of
+	// blockTypeOrder.
+	blockLocalByType    map[analysis.Type]*typeDef
+	blockLocalTemplates map[*analysis.TypeParam_]*genericTemplate
+	blockLocalIndexed   int
 	// nestedCalls is the checker's instantiated signature at each call of a
 	// generic fn, by the fn, indexed once (nestedGenericCalls in
 	// irnestedfn.go).

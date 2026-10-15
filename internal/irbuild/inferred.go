@@ -228,7 +228,7 @@ func (g *gen) project(t analysis.Type) kind {
 			// AFTER the std arm above, matching typeOf's precedence: a program
 			// declaring its own `Set` cannot shadow the std family through this
 			// door either.
-			if k, isUserGeneric := g.projectGenericInstance(ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
+			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
 				return k
 			}
 			// A generic instantiation with no representation. types.go refuses a
@@ -245,7 +245,7 @@ func (g *gen) project(t analysis.Type) kind {
 		if d, isStdStruct := stdStructOfType(ty.Origin, ty.Name); isStdStruct {
 			return named(d)
 		}
-		return g.localNamed(ty.Origin, ty.Name, func(d *typeDef) bool {
+		return g.localNamed(ty, ty.Origin, ty.Name, func(d *typeDef) bool {
 			return !d.isEnum && !d.isDistinct
 		})
 
@@ -269,12 +269,12 @@ func (g *gen) project(t analysis.Type) kind {
 		if len(ty.TypeArgs) > 0 {
 			// A user generic enum the checker solved (`Wrapper<Int>`), by
 			// the struct arm's rule.
-			if k, isUserGeneric := g.projectGenericInstance(ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
+			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
 				return k
 			}
 			return kindInvalid
 		}
-		return g.localNamed(ty.Origin, ty.Name, func(d *typeDef) bool { return d.isEnum })
+		return g.localNamed(ty, ty.Origin, ty.Name, func(d *typeDef) bool { return d.isEnum })
 
 	case *analysis.DistinctType:
 		// A GENERIC std HOST type — `Sender<Int>` — asked FIRST because it is
@@ -309,7 +309,7 @@ func (g *gen) project(t analysis.Type) kind {
 		if k, isStd := g.projectStdOpaque(ty); isStd {
 			return k
 		}
-		return g.localNamed(ty.Origin, ty.Name, func(d *typeDef) bool { return d.isDistinct })
+		return g.localNamed(ty, ty.Origin, ty.Name, func(d *typeDef) bool { return d.isDistinct })
 
 	case *analysis.ListType:
 		return g.listKind(g.project(ty.Elem))
@@ -419,7 +419,17 @@ func (g *gen) project(t analysis.Type) kind {
 // ANNOTATION (namedType consults foreignType). Without it project would answer
 // kindInvalid, and the reason-walk behind it would name `unlowered type` for a
 // mirror that is lowerable.
-func (g *gen) localNamed(origin, name string, shape func(*typeDef) bool) kind {
+func (g *gen) localNamed(t analysis.Type, origin, name string, shape func(*typeDef) bool) kind {
+	if bd := g.blockLocalOfType(t); bd != nil {
+		// A type a block of this file declares, found by the checker's
+		// type for its declaration rather than by name, so a value of it
+		// that escapes its block (`w = { struct Loc {…}  Loc{n: 1} }`) is
+		// still that type where the name no longer resolves.
+		if !bd.lowerable || !shape(bd) {
+			return kindInvalid
+		}
+		return named(bd)
+	}
 	if bd, isBlockLocal := g.blockLocalNamed(name); isBlockLocal && (origin == "" || origin == g.fa.Origin) {
 		// A type the enclosing block declares, which the checker stamps with
 		// no origin or with this file's. Its identity there is the name, so

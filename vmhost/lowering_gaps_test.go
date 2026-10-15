@@ -41,27 +41,6 @@ type loweringGap struct {
 
 var knownLoweringGaps = []loweringGap{
 	{
-		name: "gapBlockLocalTypeEscapesItsBlock",
-		fix: "builder or checker: a block whose value has a type declared inside the block. The " +
-			"checker types the binding at that block-local type; the builder projects the binding's " +
-			"type outside the block, where the declaration does not resolve, so the block's value " +
-			"has no IR type. Either the builder resolves it by declaration or the checker rejects " +
-			"the escape",
-		reason: "a branch or block value kind with no IR type: an unsupported type",
-		src: `import std/io
-
-fn main() {
-    w = {
-        struct Loc {
-            n: Int
-        }
-        Loc{n: 1}
-    }
-    io.inspect(w)
-}
-`,
-	},
-	{
 		name: "gapPartialDefaultBeforeLaterPlaceholder",
 		fix: "builder: a partial application whose open slot has a computed default that reads an " +
 			"earlier slot of the callee left open by a placeholder written after it, as in " +
