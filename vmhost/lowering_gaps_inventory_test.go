@@ -1980,23 +1980,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapDottedGenericStructLiteral",
-		fix:    "builder: dotted generic struct literal. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structMake | false | tn.Member == nil ¦¦ bl.g.genericTemplates[tn.Module+\".\"+tn.Member.TypeString()] != nil#1",
-		reason: "a struct literal: Tree.Node",
-		noSkip: true,
-		src: `import std/io
-
-struct Tree.Node<T> {
-    v: T
-}
-
-fn main() {
-    n = Tree.Node{v: 1}
-    io.print(n.v)
-}
-`,
-	},
-	{
 		name:   "gapEnumFieldReadDisagree",
 		fix:    "builder: enum field read disagree. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.enumFieldRead | note | \"an enum field read whose variants disagree on its type: .\" + name#1",
 		reason: "an enum field read whose variants disagree on its type: .w",

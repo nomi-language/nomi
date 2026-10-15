@@ -718,7 +718,7 @@ b	irScalarBuilder.strPrefixTest | false | !ok ¦¦ k != kindString#1	irstrprefix
 b	irScalarBuilder.strPrefixTest | false | !ok ¦¦ lk != kindString#1	irstrprefix.go:34	-	defensive: the prefix is a String literal, which litFor lowers at String
 b	irScalarBuilder.structMake | false | k.tag != tagNamed ¦¦ k.def == nil#1	irstruct.go:630	-	fence: TargetStructs holds only StructTypes, which project to named kinds
 b	irScalarBuilder.structMake | false | t.Spread != nil#1	irstruct.go:639	-	checker: "struct spread `..` has no named form"
-c	irScalarBuilder.structMake | false | tn.Member == nil ¦¦ bl.g.genericTemplates[tn.Module+"."+tn.Member.TypeString()] != nil#1	irstruct.go:647	-	pinned as gapDottedGenericStructLiteral (reason: a struct literal: Tree.Node)
+?	irScalarBuilder.structMake | false | tn.Member == nil#1	irstruct.go:647	?	
 b	irScalarBuilder.structMake | false | tn.ResolvedEnum == ""#1	irstruct.go:663	-	checker resolves every `.Variant{...}` literal it accepts (ResolvedEnum set)
 b	irScalarBuilder.structMake | false | !isSimple#1	irstruct.go:673	-	parser builds a struct literal's type name only as a simple, qualified or dot-variant name; `Box<Int>{v: 1}` does not parse as one
 d	irScalarBuilder.genericStructMake | false | !ok ¦¦ k.tag != tagNamed#1	irstruct.go:710	-	needs a user generic struct literal whose checked type arguments do not instantiate; generic literals lowered everywhere tried
