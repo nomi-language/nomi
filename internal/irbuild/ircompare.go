@@ -478,6 +478,25 @@ func (bl *irScalarBuilder) shortCircuit(t *ast.Binary) (ir.Temp, kind, bool, boo
 	}
 	dst := bl.f.NewTemp()
 	sc := ir.BeginShortCircuit(bl.f.Region, bl.b, op, opPos, leftPos, rightPos, dst, lhs)
+	if _, _, leaves := bl.g.exitingOperand(t.Right); leaves {
+		// `ready? or { return Err(e) }`, `x > 0 and f(case x { 1 -> return
+		// True  _ -> return False })`: the right operand leaves the body
+		// when it runs, so the operation is `if ready? { True } else {
+		// <right> }` (`and`: `if x { <right> } else { False }`), the right
+		// operand an arm into dst. Where it leaves, the answer is the
+		// left's, which the entry already copied into dst.
+		join := sc.Branched()
+		outer := bl.sh.result
+		bl.sh.result = dst
+		rk, ok := bl.armInto(sc.Rhs(), join, t.Right, irFuncSig{result: kindBool})
+		bl.sh.result = outer
+		if !ok || (rk != kindBool && rk != kindDiverged) {
+			return no()
+		}
+		bl.b = join
+		bl.side(dst, irScalarSide{k: kindBool})
+		return dst, kindBool, true, true
+	}
 	bl.b = sc.Rhs()
 	rhs, rk, _, ok := bl.lower(t.Right)
 	if !ok || rk != kindBool {

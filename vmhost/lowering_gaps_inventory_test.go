@@ -44,28 +44,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapLeavingRegionTypedOperand",
-		fix:    "builder: leaving region typed operand. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.typedRegionValue | note | \"an `if` or `case` whose every arm leaves the body, used as an operand\"#1",
-		reason: "an `if` or `case` whose every arm leaves the body, used as an operand",
-		src: `import std/io
-
-fn id(b: Bool): Bool {
-    b
-}
-
-fn f(x: Int): Bool {
-    x > 0 and id(case x {
-        1 -> return True
-        _ -> return False
-    })
-}
-
-fn main() {
-    io.inspect(f(1))
-}
-`,
-	},
-	{
 		name:   "gapPipeDbgGrouped",
 		fix:    "builder: pipe dbg grouped. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.pipe | false | r.Expr != nil#2",
 		reason: "the pipe operator `|>`",

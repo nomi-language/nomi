@@ -144,6 +144,11 @@ type gen struct {
 	// without them.
 	hold *rand.Rand
 	hn   int
+	// leave draws the blocks leaveBlock writes, and ln names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	leave *rand.Rand
+	ln    int
 }
 
 func (g *gen) fresh(prefix string) string {
@@ -1774,6 +1779,69 @@ func (g *gen) callBlock() string {
 	return out.String()
 }
 
+// leaveBlock writes a block whose code the IR builder once declined for
+// engineering reasons alone: an `and` or `or` whose right operand leaves (a
+// block ending in `return`, `break` or `continue`, a `case` or `if` every
+// arm of which leaves, in parentheses, under `!` or as a call's argument,
+// a failing `try`), and a nested fn's destructuring parameter.
+func (g *gen) leaveBlock() string {
+	r := g.leave
+	g.ln++
+	name := func(s string) string { return fmt.Sprintf("%s%dl", s, g.ln) }
+	n := r.Intn(5)
+	op, other := "and", "or"
+	if r.Intn(2) == 0 {
+		op, other = "or", "and"
+	}
+	// leaving is a right operand that leaves the fn whose result is res,
+	// with x an Int in scope.
+	leaving := func(res string) string {
+		ret := map[string]string{"Bool": "True", "Int": fmt.Sprint(n), "String": `"left"`}[res]
+		switch r.Intn(5) {
+		case 0:
+			return "{\nreturn " + ret + "\n}"
+		case 1:
+			return fmt.Sprintf("case x {\n%d -> return %s\n_ -> return %s\n}", n, ret, ret)
+		case 2:
+			return fmt.Sprintf("(if x > %d { return %s } else { return %s })", n, ret, ret)
+		case 3:
+			return fmt.Sprintf("!case x {\n%d -> return %s\n_ -> return %s\n}", n, ret, ret)
+		}
+		return fmt.Sprintf("Debug.inspect(case x {\n%d -> return %s\n_ -> return %s\n}) == \"True\"", n, ret, ret)
+	}
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(5) {
+	case 0:
+		res := []string{"Bool", "Int", "String"}[r.Intn(3)]
+		answer := map[string]string{"Bool": "b", "Int": "if b { 1 } else { 2 }", "String": `"${b}"`}[res]
+		fmt.Fprintf(&out, "fn %s(x: Int): %s {\nb = x > %d %s %s\n%s\n}\n", name("lf"), res, n, op, leaving(res), answer)
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lf"), n+r.Intn(3)-1)
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lf"), r.Intn(7)-1)
+	case 1:
+		// A chain whose last operand leaves.
+		fmt.Fprintf(&out, "fn %s(x: Int, y: Bool): String {\nb = x > %d %s y %s %s\n\"${b}\"\n}\n",
+			name("lc"), n, other, op, leaving("String"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d, %s))\n", name("lc"), r.Intn(7)-1, g.boolLitFrom(r))
+	case 2:
+		// `continue` and `break` in an Iter.map callback.
+		fmt.Fprintf(&out, "%s = Iter.map([1, 2, 3, 4, 5, 6], |x| {\n_ = x != %d or {\ncontinue\n}\n_ = x < %d or {\nbreak\n}\nx * 10\n}) |> Iter.to_list()\n",
+			name("lm"), n+1, n+2+r.Intn(3))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("lm"))
+	case 3:
+		// A `try` that fails as the right operand.
+		fmt.Fprintf(&out, "fn %s(x: Int): Result<Int, String> {\nif x %% 2 == 0 { Ok(x) } else { Err(\"odd ${x}\") }\n}\n", name("lh"))
+		fmt.Fprintf(&out, "fn %s(x: Int): Result<Bool, String> {\nOk(x > %d %s try %s(x) > 0)\n}\n", name("lt"), n, op, name("lh"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lt"), r.Intn(7)-1)
+	default:
+		// A nested fn's destructuring parameter.
+		fmt.Fprintf(&out, "fn %s((a, b): (Int, String)): String {\n\"${b}${a + %d}\"\n}\n", name("ld"), n)
+		fmt.Fprintf(&out, "io.inspect(%s((%d, \"d\")))\n", name("ld"), r.Intn(9))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
 // holdBlock writes a block over values a container or a variant holds:
 // a variant whose payload has one value (Unit, a marker), a Range in a
 // Maybe, a map of Iters, ChannelClosed inspected, a record hashed,
@@ -1867,8 +1935,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		fix:  rand.New(rand.NewSource(int64(i) + 6<<32)),
 		itr:  rand.New(rand.NewSource(int64(i) + 11<<32)),
 		pat:  rand.New(rand.NewSource(int64(i) + 20<<32)),
-		hold: rand.New(rand.NewSource(int64(i) + 27<<32)),
-		call: rand.New(rand.NewSource(int64(i) + 7<<32))}
+		hold:  rand.New(rand.NewSource(int64(i) + 27<<32)),
+		leave: rand.New(rand.NewSource(int64(i) + 41<<32)),
+		call:  rand.New(rand.NewSource(int64(i) + 7<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -1915,6 +1984,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.hold.Intn(3) == 0 {
 			body.WriteString(boundedBlock(g.holdBlock()))
+		}
+		if g.leave.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.leaveBlock()))
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")

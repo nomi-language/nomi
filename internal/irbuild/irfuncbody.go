@@ -1830,6 +1830,8 @@ func (g *gen) exitingOperand(n ast.Node) (prefix []ast.Node, region ast.Node, ok
 		return in(v.Left, v.Right)
 	case *ast.Unary:
 		return in(v.Right)
+	case *ast.GroupedExpr:
+		return in(v.Expr)
 	case *ast.TryOp:
 		return in(v.Expr)
 	case *ast.FieldAccess:
