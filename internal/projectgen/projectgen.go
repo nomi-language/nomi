@@ -27,12 +27,9 @@
 // programs like vmhost's generator (lowering_gen_test.go), so that a large
 // project is clean; none of them is a shape vmhost's knownLoweringGaps
 // lists (no `case` over a list of functions, no block-local type, no `and`
-// or `or` operand that leaves the body). It also steers clear of a gap not
-// pinned there: a derived Equatable or Hashable over a struct with a field
-// whose type derives the interface in another file does not lower ("its
-// body is not supported yet, so `fn Rec.equal?` cannot run", with no
-// line). So a unit's Rec, which holds core/ids' Id and Money, derives
-// nothing, and its Entry derives over its own file's types only.
+// or `or` operand that leaves the body). A unit's Rec derives Equatable,
+// Hashable and Display over core/ids' Id and Money, so each project
+// derives across files; its Entry derives over its own file's types.
 //
 // Each unit and the util hub hold a probe function that Edit rewrites, so a
 // benchmark or test can make the same kind of edit at every size.
@@ -639,6 +636,10 @@ pub struct Rec%[1]d {
     tags: List<String> = []
 }
 
+derive Equatable for Rec%[1]d
+derive Hashable for Rec%[1]d
+derive Display for Rec%[1]d
+
 /// The kinds unit %[1]d tells apart.
 pub enum Kind%[1]d {
     Plain
@@ -814,8 +815,8 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 	case 2:
 		body = fmt.Sprintf(`    r = Rec%[1]d.new(n)
     s = Rec%[1]d.score(r)
-    if r.amount == Money.of(n * 10 + %[2]d) {
-        s
+    if r == Rec%[1]d.new(n + %[2]d) {
+        s + String.length(Display.to_string(r)) + Hashable.hash(r) - Hashable.hash(Rec%[1]d.new(n + %[2]d))
     } else {
         s + Describe.weight(r) + Rank%[4]d.rank(r) + %[3]s
     }`, i, c, prev, u.headIndex)
@@ -925,7 +926,7 @@ func renderTest(u *unit) string {
     }
 `, u.name, u.i)
 	}
-	return fmt.Sprintf(`import %[1]s.{self, Entry%[2]d, Kind%[2]d, Score%[2]d}
+	return fmt.Sprintf(`import %[1]s.{self, Entry%[2]d, Kind%[2]d, Rec%[2]d, Score%[2]d}
 
 group "unit %[2]d" {
     test "steps give the same answer twice" {
@@ -939,6 +940,13 @@ group "unit %[2]d" {
         assert entry == Entry%[2]d{kind: .Sized(3), score: Score%[2]d(3), label: "e"}
         refute entry == Entry%[2]d{kind: .Plain, score: Score%[2]d(3), label: "e"}
         assert Hashable.hash(entry) == Hashable.hash(entry)
+    }
+
+    test "records derive over another file's types" {
+        assert Rec%[2]d.new(2) == Rec%[2]d.new(2)
+        refute Rec%[2]d.new(2) == Rec%[2]d.new(3)
+        assert Hashable.hash(Rec%[2]d.new(2)) == Hashable.hash(Rec%[2]d.new(2))
+        assert Display.to_string(Rec%[2]d.new(2)) == "Rec%[2]d{id: #2, name: r2, amount: 20 EUR, tags: [a, bb]}"
     }
 
     test "kinds" {
