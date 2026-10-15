@@ -139,6 +139,11 @@ type gen struct {
 	// without them.
 	pat *rand.Rand
 	pn  int
+	// hold draws the blocks holdBlock writes, and hn names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	hold *rand.Rand
+	hn   int
 }
 
 func (g *gen) fresh(prefix string) string {
@@ -1773,6 +1778,68 @@ func (g *gen) callBlock() string {
 	return out.String()
 }
 
+// holdBlock writes a block over values a container or a variant holds:
+// a variant whose payload has one value (Unit, a marker), a Range in a
+// Maybe, a map of Iters, ChannelClosed inspected, a record hashed,
+// `Equatable.equal?` over tuples through a bound, and a partial that leaves
+// a defaulted slot open, passed through a generic call.
+func (g *gen) holdBlock() string {
+	r := g.hold
+	g.hn++
+	name := func(s string) string { return fmt.Sprintf("%s%dh", s, g.hn) }
+	n := r.Intn(5)
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(7) {
+	case 0:
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("type %s\n\nderive Equatable for %s\n\n"+
+			"enum %s {\n%s\nMarked(%s)\nPinged(Unit)\nTagged {m: %s, n: Int}\n}\n\nderive Equatable for %s",
+			name("Mk"), name("Mk"), name("Kd"), name("Plain"), name("Mk"), name("Mk"), name("Kd")))
+		vals := []string{
+			fmt.Sprintf("%s.Marked(%s)", name("Kd"), name("Mk")), fmt.Sprintf("%s.Pinged(Unit)", name("Kd")),
+			fmt.Sprintf("%s.Tagged{m: %s, n: %d}", name("Kd"), name("Mk"), n), fmt.Sprintf("%s.%s", name("Kd"), name("Plain")),
+		}
+		v := vals[r.Intn(len(vals))]
+		fmt.Fprintf(&out, "%s = %s\n", name("hv"), v)
+		fmt.Fprintf(&out, "%s = [(%s, %d)]\n", name("hk"), name("hv"), n)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("hk"))
+		fmt.Fprintf(&out, "io.inspect(%s == %s)\n", name("hv"), vals[r.Intn(len(vals))])
+		fmt.Fprintf(&out, "io.print(case %s {\n%s.Pinged(u) -> Debug.inspect(u)\n%s.Marked(m) -> Debug.inspect(m)\n_ -> \"other\"\n})\n",
+			name("hv"), name("Kd"), name("Kd"))
+	case 1:
+		// A Range spelled without `..`, which mayLoop reads as a loop.
+		fmt.Fprintf(&out, "%s = Some(Range.from(%d))\n", name("hr"), n)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("hr"))
+		fmt.Fprintf(&out, "io.inspect(%s == Some(Range.from(%d)))\n", name("hr"), n+r.Intn(2))
+	case 2:
+		fmt.Fprintf(&out, "%s: Map<String, Iter<Int>> = {\"a\" => [%d, 2] |> Iter.map(|x: Int| x + 1)}\n", name("hm"), n)
+		fmt.Fprintf(&out, "io.inspect(Map.get(%s, \"a\") |> Maybe.map(|it: Iter<Int>| Iter.to_list(it)))\n", name("hm"))
+	case 3:
+		fmt.Fprintf(&out, "%s: Result<Unit, ChannelClosed> = %s\n", name("hc"), []string{"Ok(Unit)", "Err(ChannelClosed)"}[r.Intn(2)])
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("hc"))
+	case 4:
+		fmt.Fprintf(&out, "io.inspect(Hashable.hash({a: %d, b: \"x\"}) == Hashable.hash({b: \"x\", a: %d}))\n", n, n+r.Intn(2))
+	case 5:
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<T>(a: T, b: T): Bool where T: Equatable {\nEquatable.equal?(a, b)\n}", name("heq")))
+		fmt.Fprintf(&out, "io.inspect(%s((%d, \"x\"), (%d, \"x\")))\n", name("heq"), n, n+r.Intn(2))
+		fmt.Fprintf(&out, "io.inspect(Equatable.equal?({a: %d}, {a: %d}))\n", n, n+r.Intn(2))
+	default:
+		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = %d): Int {\na * 10 + b\n}\n", name("hd"), n)
+		fmt.Fprintf(&out, "%s = %s(_, b: _)\n", name("hp"), name("hd"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("hp"), n)
+		fmt.Fprintf(&out, "io.inspect(ident(%s)(%d, 1))\n", name("hp"), n)
+		fmt.Fprintf(&out, "io.inspect(Some(%s) |> Maybe.map(|f: (Int, Int) -> Int| f(1, 2)))\n", name("hp"))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
 // boolLitFrom is a Bool literal drawn from r.
 func (g *gen) boolLitFrom(r *rand.Rand) string {
 	return []string{"True", "False"}[r.Intn(2)]
@@ -1790,6 +1857,7 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		fix:  rand.New(rand.NewSource(int64(i) + 6<<32)),
 		itr:  rand.New(rand.NewSource(int64(i) + 11<<32)),
 		pat:  rand.New(rand.NewSource(int64(i) + 20<<32)),
+		hold: rand.New(rand.NewSource(int64(i) + 27<<32)),
 		call: rand.New(rand.NewSource(int64(i) + 7<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
@@ -1834,6 +1902,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.call.Intn(3) == 0 {
 			body.WriteString(g.callBlock())
+		}
+		if g.hold.Intn(3) == 0 {
+			body.WriteString(g.holdBlock())
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")
@@ -1902,6 +1973,10 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	}
 	if strings.Contains(out, "Channel.") {
 		out = "import std/channels.{Channel, Receiver, Sender}\n" + out
+	}
+	// holdBlock's ChannelClosed.
+	if strings.Contains(out, "ChannelClosed") {
+		out = "import std/channels.ChannelClosed\n" + out
 	}
 	if strings.Contains(out, "testing.check") {
 		out = "import std/testing\n" + out
