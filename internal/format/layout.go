@@ -35,7 +35,7 @@ type renderOut struct {
 	kept int
 	// suffix holds the LineSuffix comments waiting for the end of the
 	// line, and lineComment says the line already ends in a comment.
-	suffix      []string
+	suffix      []pendingComment
 	lineComment bool
 	// ownLine holds the comments that could not end their line, waiting
 	// for the next line with content, and ownLineIndent the indent of the
@@ -90,6 +90,13 @@ func (o *renderOut) lineBreak(indent int) {
 // line that ends in a case arm's `->` (insertAboveLine). A line that ends
 // in a binding's `=` takes no comment on it or on a line of its own below,
 // so the comments wait for the end of the next line, the value's first.
+//
+// A comment that waits for a line of its own keeps the indent of the line
+// it could not end, or the indent its document was written at, whichever is
+// shallower. A comment written after a broken pipeline or call, outside the
+// nest of its continuation lines, belongs to the statement: below the
+// statement's last line it reads back at the statement's indent, so it is
+// written there.
 func (o *renderOut) flushSuffix() {
 	if len(o.suffix) == 0 {
 		return
@@ -101,22 +108,29 @@ func (o *renderOut) flushSuffix() {
 	for _, c := range o.suffix {
 		o.trim()
 		if bytes.HasSuffix(o.buf.Bytes(), []byte("->")) {
-			o.insertAboveLine(c)
+			o.insertAboveLine(c.text)
 			continue
 		}
 		if o.lineComment || o.endsInOpener() {
 			if len(o.ownLine) == 0 {
-				o.ownLineIndent = o.lineIndent()
+				o.ownLineIndent = min(o.lineIndent(), c.indent)
 				o.ownLineOpener = !o.lineComment
 			}
-			o.ownLine = append(o.ownLine, c)
+			o.ownLine = append(o.ownLine, c.text)
 			continue
 		}
 		o.buf.WriteByte(' ')
-		o.buf.WriteString(c)
+		o.buf.WriteString(c.text)
 		o.lineComment = true
 	}
 	o.suffix = nil
+}
+
+// pendingComment is a LineSuffix comment waiting for the end of its line,
+// with the nest indent its document was rendered at.
+type pendingComment struct {
+	text   string
+	indent int
 }
 
 // endsInEquals reports whether the line being written ends in a lone `=`,
@@ -301,7 +315,7 @@ func render(sb *renderOut, d Doc, col, indent, localBase int, tail Doc, width in
 			sb.lineBreak(col)
 			return col
 		}
-		sb.suffix = append(sb.suffix, v.s)
+		sb.suffix = append(sb.suffix, pendingComment{text: v.s, indent: indent})
 		return col
 	case docInString:
 		sb.inString++

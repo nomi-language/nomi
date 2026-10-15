@@ -22,6 +22,18 @@ func TestFormat_PipelineKeepsItsDanglingComments(t *testing.T) {
 			"{A((//0\na))=0|>\"\"}\n",
 			"{ A(a) = 0 |> \"\" } //0\n",
 		},
+		// When the last stage's line already ends in a comment, the
+		// dangling one goes on a line of its own below the statement, at
+		// the statement's indent, where a second format reads it back. It
+		// used to take the stages' indent and move out on the next format.
+		{
+			"{A((//0\na))=0\n|>0//\n}\n",
+			"{\n    A(a) =\n        0\n        |> 0 //\n    //0\n}\n",
+		},
+		{
+			"fn main() {\n    g(|x| {\n        A(// c\n        a) = x\n            |> f // d\n    })\n}\n",
+			"fn main() {\n    g(|x| {\n        A(a) =\n            x\n            |> f // d\n        // c\n    })\n}\n",
+		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)
 	}

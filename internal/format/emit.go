@@ -1007,7 +1007,7 @@ func emitNode(n ast.Node) Doc {
 // always breaks; a single pipe that fits stays inline via the Group).
 func emitBindingValue(target Doc, value ast.Node) Doc {
 	if b, ok := value.(*ast.Binary); ok && b.Op == "|>" {
-		return Group(Concat(target, Text(" ="), pipeAfterEquals(withPipeDanglingAfter(b, emitPipeChain(b)))))
+		return Group(Concat(target, Text(" ="), withPipeDanglingAfter(b, pipeAfterEquals(emitPipeChain(b)))))
 	}
 	return Concat(target, Text(" = "), emit(value))
 }
@@ -1040,7 +1040,7 @@ func emitPatternBinding(v *ast.PatternBinding) Doc {
 	var head Doc
 	if pipe, ok := v.Value.(*ast.Binary); ok && pipe.Op == "|>" {
 		head = Group(Concat(target, Text(" ="),
-			pipeAfterEquals(withPipeDanglingAfter(pipe, emitPipeChain(pipe))),
+			withPipeDanglingAfter(pipe, pipeAfterEquals(emitPipeChain(pipe))),
 			IfBroken(Text(" "), HardLine()),
 			Text("else ")))
 	} else {
