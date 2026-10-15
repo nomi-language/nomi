@@ -1246,8 +1246,10 @@ var genDisplayValues = []func(n int) string{
 // into it: a nested fn's result and early `return`, `if` and `case` arms as
 // a result and under a binding annotation, an annotated binding, an
 // argument, a partial application's bound argument, a struct field, a
-// list's elements and a lambda's result under an annotated function type.
-// Each value is then shown through the existential. It draws from g.dyn
+// list's elements, a lambda's result under an annotated function type, a
+// list held as Display itself, a tuple's part, a map's values and a
+// record's field paired by `Iter.with_index`. Each value is then shown
+// through the existential. It draws from g.dyn
 // only and names from g.en, so the program around it is the one it would be
 // without it.
 func (g *gen) erasedBlock() string {
@@ -1258,7 +1260,21 @@ func (g *gen) erasedBlock() string {
 	show := func(e string) string { return "io.print(Display.to_string(" + e + "))\n" }
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(9) {
+	switch r.Intn(13) {
+	case 9:
+		a := genDisplayValues[r.Intn(len(genDisplayValues))]
+		fmt.Fprintf(&out, "%s: Display = [%s, %s]\n", name("ev"), a(1), a(2))
+		out.WriteString(show(name("ev")))
+	case 10:
+		fmt.Fprintf(&out, "%s: (Display, Int) = (%s, %d)\n(%s, %s) = %s\n", name("ev"), val(), r.Intn(10),
+			name("ea"), name("eb"), name("ev"))
+		fmt.Fprintf(&out, "io.print(\"${Display.to_string(%s)} ${Int.to_string(%s)}\")\n", name("ea"), name("eb"))
+	case 11:
+		fmt.Fprintf(&out, "%s: Map<String, Display> = Map.put(Map.put(Map.empty(), \"a\", %s), \"b\", %s)\n", name("ev"), val(), val())
+		fmt.Fprintf(&out, "io.print(Map.values(%s) |> Iter.map(Display.to_string) |> String.join(\",\"))\n", name("ev"))
+	case 12:
+		fmt.Fprintf(&out, "%s: Display = %s\n%s = [{n: 1, d: %s}]\n", name("ed"), val(), name("ev"), name("ed"))
+		fmt.Fprintf(&out, "io.print(%s |> Iter.with_index() |> Iter.map(|(i, x)| \"${Int.to_string(i)}:${Display.to_string(x.d)}\") |> String.join(\",\"))\n", name("ev"))
 	case 0:
 		fmt.Fprintf(&out, "fn %s(): Display {\n%s\n}\n", name("er"), val())
 		out.WriteString(show(name("er") + "()"))
