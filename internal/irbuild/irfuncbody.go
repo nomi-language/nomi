@@ -188,13 +188,17 @@ type irScalarBuilder struct {
 	// pipedCase is the spliced `case` a `x |> case { ... }` stage lowered
 	// to, whose scrutinee records no row. See irpipe.go.
 	pipedCase *ast.Case
-	// testDefs is each ordinary binding a test body introduced, by name: the
-	// initializer a later bare-name subject's "defined as:" block renders.
-	testDefs map[string]*ast.Binding
+	// testDefs is each ordinary binding a body introduced, by the Bind's
+	// destination: the initializer a later bare-name subject's "defined as:"
+	// block renders. Keyed by the binding rather than its name, a name's
+	// entry is the one bl.bound holds in the scope that reads it, whatever
+	// a nested block or a rebind bound under the same spelling.
+	testDefs map[ir.Temp]*ast.Binding
 	// testStages is the `pipeline values:` block of a pipe-valued test
-	// binding a later assertion names bare, by name; testAfter is the test
-	// body's statements after the one being lowered, which decides that.
-	testStages map[string][]ir.AssertStage
+	// binding a later assertion names bare, by the Bind's destination;
+	// testAfter is the test body's statements after the one being lowered,
+	// which decides that.
+	testStages map[ir.Temp][]ir.AssertStage
 	testAfter  []ast.Node
 	// boot marks the program boot's own body. It admits the Context kind
 	// for a parameter read and a struct field, and is never read back.
@@ -2856,8 +2860,8 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		// the previous one. A closure made before it captured the previous
 		// value, which it keeps (spec §23), so nothing here depends on
 		// whether one did.
-		if (shadows || bound) && bl.inTest {
-			irDeclineNote("a test-body rebind: " + b.Name)
+		if shadows && !bound && bl.inTest {
+			irDeclineNote("a test-body binding that shadows a module-level name: " + b.Name)
 			return false
 		}
 		src, k, ok := bl.bindingValue(b)
@@ -2876,9 +2880,9 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		// An assertion in this body that names the binding bare prints its
 		// "defined as:" block.
 		if bl.testDefs == nil {
-			bl.testDefs = map[string]*ast.Binding{}
+			bl.testDefs = map[ir.Temp]*ast.Binding{}
 		}
-		bl.testDefs[b.Name] = b
+		bl.testDefs[bind.Dst()] = b
 	}
 	return true
 }

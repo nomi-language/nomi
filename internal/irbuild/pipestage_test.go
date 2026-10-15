@@ -62,14 +62,6 @@ func TestPipeStages_UnrecordableShapesStayRefused(t *testing.T) {
 			pipe(&ast.GroupedExpr{Expr: plain, Line: 1, Col: 1}, call("c")),
 		},
 		{
-			// Same env, so the argument's own stages interleave into this
-			// chain's list.
-			"a nested pipe in a stage argument",
-			pipe(&ast.Ident{Name: "x", Line: 1, Col: 1},
-				&ast.Call{Func: &ast.Ident{Name: "f", Line: 1, Col: 1},
-					Args: []ast.Node{plain}, Line: 1, Col: 1}),
-		},
-		{
 			// A keyword stage consumes the piped value through its own
 			// machinery; three of the four are refused as pipe stages anyway.
 			"a keyword stage",
@@ -84,5 +76,12 @@ func TestPipeStages_UnrecordableShapesStayRefused(t *testing.T) {
 		if pipeStagesRecordable(prefixes) {
 			t.Fatalf("%s: must not be recordable", tc.name)
 		}
+	}
+	// A pipe inside a stage's argument is off the spine: the chain records
+	// one stage per spine prefix (pipeStageValues), `x` and the whole.
+	nested := pipe(&ast.Ident{Name: "x", Line: 1, Col: 1},
+		&ast.Call{Func: &ast.Ident{Name: "f", Line: 1, Col: 1}, Args: []ast.Node{plain}, Line: 1, Col: 1})
+	if !pipeStagesRecordable(pipeStagePrefixes(nested)) {
+		t.Fatalf("a nested pipe in a stage argument must be recordable")
 	}
 }

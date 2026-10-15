@@ -220,20 +220,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapTestRebindTest",
-		fix:    "builder: test rebind test. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.leading | note | \"a test-body rebind: \" + b.Name#1",
-		reason: "a test-body rebind: x",
-		src: `test "a name rebound inside a block in a test body" {
-    x = 1
-    z = {
-        x = x + 4
-        x
-    }
-    assert z == 5
-}
-`,
-	},
-	{
 		name:   "gapTurbofishNested",
 		fix:    "builder: turbofish nested. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.call | false | !direct ¦¦ bl.g.irMonoTemplate(bl.g.funcs[id.Name]) == nil#1",
 		reason: "a turbofish on a call",
@@ -732,28 +718,6 @@ impl Discrete for Id {
 
 fn main() {
     io.inspect(Iter.zip([1, 2], Id(1)..Id(4)) |> Iter.count())
-}
-`,
-	},
-	{
-		name:   "gapAssertPatternAnnotatedPipe",
-		fix:    "builder: assert pattern annotated pipe. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.assertDefinedAs | note | \"a defined-as block over a pipe binding\"#1",
-		reason: "a defined-as block over a pipe binding",
-		src: `test "assert pattern over an annotated pipe binding" {
-  xs: List<Int> = [1, 2] |> Iter.map(|x| x + 1) |> Iter.to_list()
-  assert [2, _] = xs
-}
-`,
-	},
-	{
-		name:   "gapAssertPatternRebind",
-		fix:    "builder: assert pattern rebind. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.patternAssert | note | \"an `assert pattern = value` that rebinds \" + name#1",
-		reason: "an `assert pattern = value` that rebinds x",
-		src: `test "assert pattern rebinds a name" {
-  x = 1
-  assert x == 1
-  assert Some(x) = Some(2)
-  assert x == 2
 }
 `,
 	},
@@ -1276,58 +1240,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapDeferTest",
-		fix:    "builder: defer test. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.deferCall | note | \"a defer in a test-body arm\"#1",
-		reason: "a defer in a test-body arm",
-		src: `import std/io
-
-fn close(name: String): Unit {
-    io.print("close " + name)
-}
-
-fn id(n: Int): Int {
-    n
-}
-
-test "defer in a test" {
-    defer close("t")
-    assert id(1) == 1
-}
-
-test "defer in a test arm" {
-    if id(1) == 1 {
-        defer close("arm")
-        assert id(1) == 1
-    } else {
-        assert id(2) == 2
-    }
-}
-`,
-	},
-	{
-		name:   "gapSetupLeavingBinding",
-		fix:    "builder: setup leaving binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testLeaving | false | bl.setupExit != nil ¦¦ bl.recording > 0#1; irScalarBuilder.testStmts | note | \"a test-body region that leaves, outside the shape\"#1",
-		reason: "a test-body region that leaves, outside the shape",
-		src: `fn id(n: Int): Int {
-    n
-}
-
-group "a setup binding whose every arm returns" {
-    setup {
-        v = case id(1) {
-            1 -> return 5
-            _ -> return 6
-        }
-        v
-    }
-
-    test "v", v {
-        assert v == 5
-    }
-}
-`,
-	},
-	{
 		name:   "gapSupervisorSpawnAllIterSource",
 		fix:    "builder: supervisor spawn all iter source. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.supervisorSpawnAll | false | src.tag != tagList ¦¦ src.comp == nil#1",
 		reason: "qualified call, Type.method: Supervisor.spawn_all",
@@ -1527,21 +1439,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapTestAssertionBindingRebind",
-		fix:    "builder: test assertion binding rebind. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testAssertionBinding | note | \"a test-body binding that shadows or rebinds: \" + b.Name#1",
-		reason: "a test-body binding that shadows or rebinds: v",
-		src: `fn double(n: Int): Int {
-    n * 2
-}
-
-test "an assertion binding that rebinds a name" {
-    v = 1
-    v = assert double(v) == 2
-    assert v
-}
-`,
-	},
-	{
 		name:   "gapTestImportRebind",
 		fix:    "builder: test import rebind. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testImport/no | note | \"an `import` in a block that rebinds a name the module scope binds differently\"#1",
 		reason: "an `import` in a block that rebinds a name the module scope binds differently",
@@ -1575,35 +1472,6 @@ test "a block import that rebinds a module-level name" {
         }
     }
     assert Q{a: 1}.a == 1
-}
-`,
-	},
-	{
-		name:   "gapTestPipeBindingNestedPipe",
-		fix:    "builder: test pipe binding nested pipe. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testPipeStages | note | \"a defined-as block over a pipe whose stages are not its spine\"#1",
-		reason: "a defined-as block over a pipe whose stages are not its spine",
-		src: `fn double(n: Int): Int {
-    n * 2
-}
-
-test "a pipe binding whose stage holds a pipe" {
-    ok = [1, 2] |> Iter.any?(|x: Int| x |> double() > 2)
-    assert ok
-}
-`,
-	},
-	{
-		name:   "gapTestingCheckNestedPipe",
-		fix:    "builder: testing check nested pipe. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testingCheck | note | \"a testing.check over a pipe whose stages are not its spine\"#1",
-		reason: "a testing.check over a pipe whose stages are not its spine",
-		src: `import std/testing
-
-fn double(n: Int): Int {
-    n * 2
-}
-
-test "testing.check over a pipe whose stage holds a pipe" {
-    assert testing.check([1, 2] |> Iter.any?(|x: Int| x |> double() > 2))
 }
 `,
 	},

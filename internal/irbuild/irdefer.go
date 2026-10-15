@@ -60,9 +60,6 @@ func (bl *irScalarBuilder) deferCall(t *ast.Defer, scope *irDeferScope) bool {
 	case bl.g.ctrl != nil:
 		irDeclineNote("a defer inside a loop")
 		return false
-	case scope.block == nil:
-		irDeclineNote("a defer in a test-body arm")
-		return false
 	}
 	entry := bl.b
 	start := len(entry.Instrs())
