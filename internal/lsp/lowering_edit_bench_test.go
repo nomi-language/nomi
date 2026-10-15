@@ -98,7 +98,9 @@ func writeTexts(tb testing.TB, texts map[string]string) string {
 // dungeon (dungeonDir; skipped when it is absent), the dungeon copied 4 and
 // 16 times (scaledDungeon), and the corpus's largest multi-file project by
 // lines and by files. "analyzed/op" is the share of runs that lowered the
-// document's analysis; only a program's entry document does.
+// document's analysis: an entry's program, or, for a document an entry
+// reaches, the program of the files it reaches, from the entry's kept
+// analyses.
 // "analyze-ms/op" is the server's analysis of the same edit, untimed, for
 // comparison.
 func BenchmarkLoweringEdit(b *testing.B) {

@@ -151,10 +151,17 @@ func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 				}
 				for _, u := range docs {
 					key := strings.TrimSuffix(strings.TrimPrefix(u, "file://"+dir+"/"), ".nomi")
-					got := renderBuild(analysis.InstalledForTest(dm, u))
+					installed := analysis.InstalledForTest(dm, u)
+					got := renderBuild(installed)
 					want := renderBuild(analysis.BuildForTest(newManager(), u, cur[key], false))
 					if got != want {
 						t.Fatalf("step %d (%s, editing %s): %s gets\n%s\nand a fresh analysis of it gives\n%s", i+1, s.kind, s.key, key, got, want)
+					}
+					// The program offered to a file an entry reaches, which
+					// analyzing the file on its own never offers, is the one a
+					// fresh program check offers.
+					if fresh := analysis.BuildForTest(newManager(), u, cur[key], true); installed.MemberProgramFiles != fresh.MemberProgramFiles {
+						t.Fatalf("step %d (%s, editing %s): %s is offered a program of %d files, and a fresh check of its program offers %d", i+1, s.kind, s.key, key, installed.MemberProgramFiles, fresh.MemberProgramFiles)
 					}
 				}
 			}

@@ -49,25 +49,29 @@ type Document struct {
 	// still covers the text, but its diagnostics judge another std against
 	// this one, and nothing else reads the text.
 	StdDiffers bool
-	// Program is the program the document is the entry of, when the
-	// analysis is of exactly that program; see EntryProgram.
+	// Program is the program `nomi check` builds with the document as its
+	// entry, when the analysis holds exactly that program; see
+	// EntryProgram.
 	Program *EntryProgram
 }
 
 // EntryProgram is an analyzed document seen as the entry of the program the
-// compiler would build from it: the document is analyzed as its own entry
-// (not through an entry that imports it, and not as a stdlib file), and no
-// synthetic host declarations were injected into it. Nodes are the entry's
-// nodes as the front end prepares them before analysis
-// (frontend.Checker.Prepare): derive impls and universal Debug impls
-// synthesized, every check run over them. The document's Analysis checked
-// them.
+// compiler would build from it: not a stdlib file, and no synthetic host
+// declarations were injected into it. Nodes are the entry's nodes as the
+// front end prepares them before analysis (frontend.Checker.Prepare):
+// derive impls and universal Debug impls synthesized, every check run over
+// them. The document's Analysis checked them.
 //
 // When the document imports other project files, the build ran over them
 // what the front end runs (frontend.Checker.Analyze: each file
 // type-checked, whole-file imports settled, coherence over every file's
 // demands), and the program is offered only when none of that, and no
 // file's syntax, reported an error. Files are those files.
+//
+// A document analyzed through an entry that reaches it is offered the
+// program of the files it reaches, from that analysis, when nothing else
+// in the entry's program changes what the front end decides about them
+// (memberProgramOf).
 //
 // A consumer that lowers the document (the language server's lowering
 // check) reads it instead of analyzing the text again. Like the rest of an
@@ -86,6 +90,9 @@ type EntryProgram struct {
 	// Manifest is root's nomi.toml as the build saw it, "" when there was
 	// none.
 	Manifest string
+	// member reports that the build checked the document through an entry
+	// that reaches it (memberProgramOf).
+	member bool
 }
 
 // EntryProgramFile is one project file of an EntryProgram other than its

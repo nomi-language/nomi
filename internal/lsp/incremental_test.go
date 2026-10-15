@@ -81,7 +81,7 @@ func TestIncremental_BodyEditsConcurrentWithRequests(t *testing.T) {
 	uri := func(name string) string { return "file://" + filepath.Join(dir, name) }
 	// The process's first lowering lowers the whole stdlib, holding the
 	// view for as long; it is done before the edits.
-	if _, err := vmhost.CheckLowering(filepath.Join(dir, "main.nomi"), incrementalProject["main.nomi"]); err != nil {
+	if _, err := vmhost.CheckLowering(context.Background(), filepath.Join(dir, "main.nomi"), incrementalProject["main.nomi"]); err != nil {
 		t.Fatal(err)
 	}
 	s := NewServer()

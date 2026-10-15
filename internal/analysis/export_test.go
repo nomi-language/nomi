@@ -87,6 +87,9 @@ type BuiltForTest struct {
 	Program                bool
 	ProgramFiles           int
 	ReachesEntry           bool
+	// MemberProgramFiles counts the files of the program offered to a
+	// document an entry reaches, 0 when none is.
+	MemberProgramFiles int
 }
 
 // BuildForTest builds the open document uri's text content: through the
@@ -107,10 +110,21 @@ func BuildForTest(dm *DocumentManager, uri, content string, kept bool) BuiltForT
 	if b.fa != nil {
 		out.TypeErrors = b.fa.TypeErrors
 	}
-	if b.program != nil {
-		out.Program, out.ProgramFiles, out.ReachesEntry = true, len(b.program.Files), b.program.ReachesEntry
-	}
+	out.setProgram(b.program)
 	return out
+}
+
+// setProgram records p, a document's offered program. A program offered
+// to a document an entry reaches (memberProgramOf) is counted apart:
+// analyzing the document on its own (build) never offers one.
+func (out *BuiltForTest) setProgram(p *EntryProgram) {
+	switch {
+	case p == nil:
+	case p.member:
+		out.MemberProgramFiles = len(p.Files) + 1
+	default:
+		out.Program, out.ProgramFiles, out.ReachesEntry = true, len(p.Files), p.ReachesEntry
+	}
 }
 
 // InstalledForTest is BuildForTest's answer for what is installed on the
@@ -121,9 +135,7 @@ func InstalledForTest(dm *DocumentManager, uri string) BuiltForTest {
 	if snap.Analysis != nil {
 		out.TypeErrors = snap.Analysis.TypeErrors
 	}
-	if p := snap.Program; p != nil {
-		out.Program, out.ProgramFiles, out.ReachesEntry = true, len(p.Files), p.ReachesEntry
-	}
+	out.setProgram(snap.Program)
 	return out
 }
 

@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -146,9 +147,9 @@ var multiFileCases = []multiFileCase{
 		name: "the imported file",
 		disk: map[string]string{"main.nomi": multiMain, "shapes.nomi": multiShapes},
 		doc:  "shapes.nomi",
-		// The server analyzes shapes.nomi through main.nomi, which is not
-		// the program `nomi check shapes.nomi` builds.
-		analyzed: false, parsed: 1, blocked: 0,
+		// The server analyzes shapes.nomi through main.nomi, and offers
+		// the program `nomi check shapes.nomi` builds from that analysis.
+		analyzed: true, parsed: 1, blocked: 0,
 	},
 	{
 		name: "an error in another file",
@@ -241,7 +242,7 @@ func TestLoweringFromAnalysis_ProgramsOfSeveralFiles(t *testing.T) {
 			}
 			ok := false
 			if a != nil {
-				_, ok, _ = analyzedlowering.Check(path, text, a)
+				_, ok, _ = analyzedlowering.Check(context.Background(), path, text, a)
 			}
 			if ok != c.analyzed {
 				t.Fatalf("lowered from the analysis: %v, want %v (analysis offered: %v)", ok, c.analyzed, a != nil)
@@ -309,7 +310,7 @@ func TestLoweringFromAnalysis_AfterADependentsRecheck(t *testing.T) {
 	// first lowering in a process does.
 	want := loweringDiagnostics(path, text, nil)
 	prints := fingerprint(a)
-	if _, ok, err := analyzedlowering.Check(path, text, a); !ok || err != nil {
+	if _, ok, err := analyzedlowering.Check(context.Background(), path, text, a); !ok || err != nil {
 		t.Fatalf("lowered from the analysis: %v, %v", ok, err)
 	}
 	got := loweringDiagnostics(path, text, a)
