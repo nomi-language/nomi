@@ -536,8 +536,8 @@ b	gen.literalCell | note | "a backtick typed literal whose handler call is not i
 b	gen.literalCell | note | "a backtick typed literal cell that does not lint: " + err.Error()#1	irliteralcell.go:146	-	lint fence: builder invariant check
 ?	irScalarBuilder.iterLoop | note | "an Iter.loop with std/iter not loaded"#1	irloop.go:133	?	
 b	irScalarBuilder.iterLoop | note | "an Iter.loop call without one callback"#1	irloop.go:144	-	checker types Iter.loop(f: (S) -> S): exactly one argument
-c	irScalarBuilder.iterLoop | note | "an Iter.loop callback that is not a lambda literal of at most one parameter"#1	irloop.go:148	-	pinned as gapCLoopNamedCallback (reason: an Iter.loop callback that is not a lambda literal of at most one parameter)
-c	irScalarBuilder.iterLoop | note | "an Iter.loop callback without a seeded state"#1	irloop.go:163	-	pinned as gapCLoopUnseeded (reason: an Iter.loop callback without a seeded state)
+b	irScalarBuilder.iterLoop | note | "an Iter.loop callback that is not a lambda literal of at most one parameter"#1	irloop.go:148	-	checker rejects a function-valued loop callback: "`Iter.loop` needs a starting state"
+b	irScalarBuilder.iterLoop | note | "an Iter.loop callback without a seeded state"#1	irloop.go:163	-	checker rejects a loop lambda whose parameter has no default: "`Iter.loop` needs a starting state"
 b	irScalarBuilder.iterLoop | note | "an Iter.loop seed whose element type the checker did not solve"#1	irloop.go:186	-	checker rejects an unsolved empty seed: "binding 'xs' type is not locally determined"
 d	irScalarBuilder.iterLoop | note | "an Iter.loop seed outside the retained empty-container coercions"#1	irloop.go:189	-	did not find a solved empty seed coerceEmpty refuses (List<Int> seed coerces; a Map-of-functions seed declines elsewhere first)
 c	irScalarBuilder.iterLoop | note | "an Iter.loop state outside the retained value domain: " + sk.nomi()#1	irloop.go:194	-	pinned as gapCLoopFnState (reason: an Iter.loop state outside the retained value domain: (Int) -> Int)

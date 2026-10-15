@@ -3015,7 +3015,7 @@ countdown = Iter.loop(|n = 5| {
 })
 ```
 
-The callback's type is `(S) -> S` — one parameter for the current state, returning the next state. The next state is the callback's result, never an operand of `continue`: bare `continue` repeats with the state unchanged, and `continue (i + 1, s)` is rejected rather than read as a new state. The default value (`n = 5`) provides the initial state and pins the type `S`. This is the same pattern as `Iter.reduce`, where the accumulator parameter's default provides the initial value.
+The callback's type is `(S) -> S` — one parameter for the current state, returning the next state. The next state is the callback's result, never an operand of `continue`: bare `continue` repeats with the state unchanged, and `continue (i + 1, s)` is rejected rather than read as a new state. The default value (`n = 5`) provides the initial state and pins the type `S`. This is the same pattern as `Iter.reduce`, where the accumulator parameter's default provides the initial value. That default is the only initial state, so a callback without one is a compile error at the callback, "`Iter.loop` needs a starting state": a lambda whose parameter has no default (`Iter.loop(|n: Int| …)`) and a function value (`Iter.loop(step)`). To loop with a named function, call it from a seeded lambda: `Iter.loop(|n = 0| step(n))`.
 
 `break value` exits the loop and produces the final value. The state type and the break type are the same type `S` — `break "hello"` inside `Iter.loop(|n = 5| …)` is a compile error.
 

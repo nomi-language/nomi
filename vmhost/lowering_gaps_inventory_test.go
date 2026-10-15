@@ -273,22 +273,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCLoopNamedCallback",
-		fix:    "builder: c loop named callback. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterLoop | note | \"an Iter.loop callback that is not a lambda literal of at most one parameter\"#1",
-		reason: "an Iter.loop callback that is not a lambda literal of at most one parameter",
-		src: `import std/io
-
-fn step(n: Int): Int {
-    if n > 3 { break n }
-    n + 1
-}
-
-fn main() {
-    io.inspect(Iter.loop(step))
-}
-`,
-	},
-	{
 		name:   "gapCLoopTailEmptyList",
 		fix:    "builder: c loop tail empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopTail | note | \"an Iter.loop tail that is not the state type\"#1",
 		reason: "an Iter.loop tail that is not the state type",
@@ -300,21 +284,6 @@ fn main() {
         []
     })
     io.inspect(xs)
-}
-`,
-	},
-	{
-		name:   "gapCLoopUnseeded",
-		fix:    "builder: c loop unseeded. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterLoop | note | \"an Iter.loop callback without a seeded state\"#1",
-		reason: "an Iter.loop callback without a seeded state",
-		src: `import std/io
-
-fn main() {
-    n = Iter.loop(|n: Int| {
-        if n > 3 { break n }
-        n + 1
-    })
-    io.inspect(n)
 }
 `,
 	},
