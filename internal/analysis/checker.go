@@ -6829,6 +6829,12 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 				c.addError(pipeCall.Line, 1, fmt.Sprintf(
 					"expected %d arguments, got %d (counting the piped value)", len(ft.Params), got))
 			}
+		} else if ft.DefaultCount > 0 && got < len(ft.Params) && c.calleeIsNamelessValue(pipeCall.Func) && !c.calleeCopiesADeclaration(pipeCall.Func) {
+			// Defaults belong to a declaration, as in checkCall: a pipe
+			// through a function value with none behind it passes every
+			// argument.
+			c.report(errAt(pipeCall, fmt.Sprintf("expected %d arguments, got %d (counting the piped value)", len(ft.Params), got)).
+				WithHint("a function type's parameters have no defaults; pass every argument"))
 		} else if fewest := len(ft.Params) - ft.DefaultCount; got < fewest && c.callDefParams(pipeCall.Func) == nil {
 			if c.tooFewThroughFuncValue(pipeCall, len(ft.Params), got, true) {
 				// Reported: the callee holds a named function whose
@@ -8922,8 +8928,11 @@ func (c *checker) reportUnknownNamedArg(na *ast.NamedArg, paramNames []string, f
 // calleeIsNamelessValue reports whether a call's callee is a function value
 // whose type is a function type with no declaration behind it: a parameter,
 // a struct field, a binding that holds neither a lambda nor a partial
-// application (an alias `g = f` included), or an expression such as a call's
-// result or a list element. Such a value has no parameter names, so a named
+// application (an alias `g = f` included), a `once` (whose value is computed
+// in its own initializer, so a caller has no default suppliers for it), or
+// any callee that is not a name, such as a call's result, a parenthesized
+// name, or an `if` or `case` that picks a function. Such a value has no
+// parameter names, so a named
 // argument through it names nothing. A declared function, a lambda binding
 // and a partial binding have names (calleeParams).
 func (c *checker) calleeIsNamelessValue(funcNode ast.Node) bool {
@@ -8937,11 +8946,25 @@ func (c *checker) calleeIsNamelessValue(funcNode ast.Node) bool {
 			return false
 		}
 		switch sym.Kind {
-		case SymbolParam, SymbolField, SymbolBinding:
+		case SymbolParam, SymbolField, SymbolBinding, SymbolOnce:
 			return true
 		}
 		return false
-	case *ast.Call:
+	case *ast.GroupedExpr:
+		// `(|x, y = 2| x + y)(1)` calls the literal, whose parameters are
+		// in hand; any other parenthesized callee, a name included, is a
+		// value (`(parse)("12")`).
+		inner := fn.Expr
+		for {
+			g, ok := inner.(*ast.GroupedExpr)
+			if !ok {
+				break
+			}
+			inner = g.Expr
+		}
+		_, literal := inner.(*ast.Lambda)
+		return !literal
+	case *ast.Call, *ast.If, *ast.Case, *ast.Block, *ast.TryOp, *ast.Dbg:
 		return true
 	}
 	return false

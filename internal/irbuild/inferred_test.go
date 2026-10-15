@@ -180,11 +180,13 @@ func TestProjectionRefusesWhatTheEmitterCannotRepresent(t *testing.T) {
 		// inferred.go's MapType arm and TestProjectionAgreesWithTheAnnotationPath.
 		{"List of Map of Any", &analysis.ListType{Elem: &analysis.MapType{Key: analysis.TypeString, Val: analysis.TypeAny}}},
 		{"tuple with an Any", &analysis.TupleType{Elems: []analysis.Type{analysis.TypeInt, analysis.TypeAny}}},
-		// A function VALUE carrying defaults is not a plain Go func: the
-		// call-site arity rule lives nowhere in a kind, so flattening it
-		// produces a kind that compiles and then loses an argument.
-		{"func with a default", &analysis.FuncType{
-			Params: []analysis.Type{analysis.TypeInt}, Return: analysis.TypeInt, DefaultCount: 1,
+		// A function type is only as projectable as its parameters and
+		// result, as a list or tuple is.
+		{"func over an Any", &analysis.FuncType{
+			Params: []analysis.Type{analysis.TypeAny}, Return: analysis.TypeInt,
+		}},
+		{"func returning an Any", &analysis.FuncType{
+			Params: []analysis.Type{analysis.TypeInt}, Return: analysis.TypeAny,
 		}},
 		{"func with a where bound", &analysis.FuncType{
 			Params: []analysis.Type{analysis.TypeInt}, Return: analysis.TypeInt,
@@ -207,6 +209,17 @@ func TestProjectionRefusesWhatTheEmitterCannotRepresent(t *testing.T) {
 	// most inferred parameters in the corpus.
 	if got := g.project(&analysis.TypeVar{ID: 2, Resolved: analysis.TypeInt}); got != kindInt {
 		t.Fatalf("a solved TypeVar must project to its solution, got %s", got.nomi())
+	}
+
+	// A function type with defaults is its full parameter list. Defaults
+	// belong to a declaration: a call that omits an argument names a
+	// declared fn or a lambda or partial bound to a name, whose suppliers the
+	// builder finds from the value, and the checker requires every argument
+	// of a call through any other function value (calleeIsNamelessValue).
+	defaulted := &analysis.FuncType{Params: []analysis.Type{analysis.TypeInt}, Return: analysis.TypeInt, DefaultCount: 1}
+	plain := &analysis.FuncType{Params: []analysis.Type{analysis.TypeInt}, Return: analysis.TypeInt}
+	if got, want := g.project(defaulted), g.project(plain); got == kindInvalid || got != want {
+		t.Fatalf("a defaulted (Int) -> Int must project to the plain one's kind %s, got %s", want.nomi(), got.nomi())
 	}
 
 	// A Map of representable parts projects, so an annotated and an inferred
