@@ -1031,25 +1031,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapEnumFieldReadFunction",
-		fix:    "builder: enum field read function. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.enumFieldRead | false | !found ¦¦ !irRetainedValueKind(fk)#1",
-		reason: "a field access on an unbound name o: .f",
-		noSkip: true,
-		src: `import std/io
-
-enum Op {
-    Unary {f: (Int) -> Int}
-    Nop
-}
-
-fn main() {
-    o = Op.Unary{f: |x| x + 1}
-    g = o.f
-    io.print(g(1))
-}
-`,
-	},
-	{
 		name:   "gapEqualImplSelfRecursion",
 		fix:    "builder: equal impl self recursion. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.equatableImplCall | false | bl.f.Sym() == sym#1",
 		reason: "the comparison operator `==`",

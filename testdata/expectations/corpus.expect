@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 285
-declared-cases 921
+declared-cases 922
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -834,13 +834,14 @@ T test result: ok. 5 passed, 0 failed
 T
 C 07-structs-and-enums/enums_test.nomi
 E 0
-N 4
-H f8d769ffb3bb11ffff58ad5dd91b4c8ffa4387f39019e2d96c06496786248f11
+N 5
+H 26898f5c388a7fe2a566a4cd61bdae3e09e3ae59b68d274be3d93f2e8f854b05
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum variants construct and compare by value
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum tuple payloads match and bind their contents
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: enum struct variants expose fields and defaults
 T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: embedded enum variants expose embedded fields
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/07-structs-and-enums/enums_test.nomi :: an enum field holding a function reads and calls
+T test result: ok. 5 passed, 0 failed
 T
 C 07-structs-and-enums/field_default_types/field_default_types_test.nomi
 E 0

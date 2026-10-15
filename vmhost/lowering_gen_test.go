@@ -1331,7 +1331,8 @@ func (g *gen) erasedBlock() string {
 // struct-shaped variant's payload (`.Rec({w, h})`). Or it matches a string
 // prefix, by `assert pattern = value` in a test (inTest) and by a `case`
 // elsewhere. Or it rebinds a name through a distinct destructure and a
-// function value through a tuple destructure. It draws from g.pat
+// function value through a tuple destructure, or reads a function-typed
+// field off an enum value and calls it. It draws from g.pat
 // only and names from g.pn, so the program around it is the one it would
 // be without it.
 func (g *gen) patternBlock(inTest bool) string {
@@ -1343,7 +1344,7 @@ func (g *gen) patternBlock(inTest bool) string {
 	str := []string{`"a"`, `"b"`}[r.Intn(2)]
 	var out strings.Builder
 	out.WriteString("{\n")
-	shape := r.Intn(9)
+	shape := r.Intn(10)
 	if shape < 4 {
 		fmt.Fprintf(&out, "type %s (Int, String)\n", pair)
 	}
@@ -1390,6 +1391,14 @@ func (g *gen) patternBlock(inTest bool) string {
 		}
 		fmt.Fprintf(&out, "%s: %s = %s\nio.inspect(case %s {\n%s.Num(n) -> n\n.Rec({w: %d, h}) -> h + 100\n%s.Rec{w, h} -> w * h\n%s.Dot -> -1\n})\n",
 			name("pa"), en, vals[r.Intn(len(vals))], name("pa"), alias, r.Intn(4), alias, alias)
+	case 9:
+		en := name("Pop")
+		fmt.Fprintf(&out, "enum %s {\nUn {f: (Int) -> Int, k: Int}\nBi {f: (Int) -> Int, k: Int, m: Int}\nNo\n}\n", en)
+		vals := []string{
+			fmt.Sprintf("%s.Un{f: |x| x + %d, k: %d}", en, a, b),
+			fmt.Sprintf("%s.Bi{f: |x| x * %d, k: %d, m: 1}", en, a, b),
+		}
+		fmt.Fprintf(&out, "%s = %s\n%s = %s.f\nio.inspect(%s(%s.k))\n", name("po"), vals[r.Intn(len(vals))], name("pg"), name("po"), name("pg"), name("po"))
 	case 8:
 		id, f, v := name("Pid"), name("pf"), name("pn")
 		fmt.Fprintf(&out, "type %s Int\n%s = |x: Int| x + %d\n%s = %d\nio.inspect(%s(%s))\n%s(%s) = %s(%s + 1)\n(%s, %s) = (|x: Int| x * 2, %s)\nio.inspect(%s(%s))\n",

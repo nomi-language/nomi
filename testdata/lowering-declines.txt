@@ -296,8 +296,8 @@ b	irScalarBuilder.fieldRead | false | dotted && !appObject#1	irfieldread.go:63	-
 b	irScalarBuilder.fieldRead | false | unguarded#1	irfieldread.go:72	-	fence: the remaining object node kinds are bare variants, dotted qualifiers and sibling onces that other lowerings own; every value expression tried lowered (g5/proj1/main2.nomi)
 b	irScalarBuilder.fieldProject | false | k.tag != tagNamed ¦¦ !irRetainedStructKind(k.def)#1	irfieldread.go:117	-	checker rejects field access on a non-struct, non-record, non-enum value
 b	irScalarBuilder.fieldProject | false | f == nil#1	irfieldread.go:122	-	checker rejects an unknown struct field ("has no field")
-c	irScalarBuilder.enumFieldRead | note | "an enum field read whose variants disagree on its type: ." + name#1	irfieldread.go:152	-	pinned as gapEnumFieldReadDisagree (reason: an enum field read whose variants disagree on its type: .w)
-c	irScalarBuilder.enumFieldRead | false | !found ¦¦ !irRetainedValueKind(fk)#1	irfieldread.go:157	-	pinned as gapEnumFieldReadFunction (reason: a field access on an unbound name o: .f)
+c	irScalarBuilder.enumFieldRead | note | "an enum field read whose variants disagree on its type: ." + name#1	irfieldread.go:154	-	pinned as gapEnumFieldReadDisagree (reason: an enum field read whose variants disagree on its type: .w)
+?	irScalarBuilder.enumFieldRead | false | !found#1	irfieldread.go:159	?	
 b	irScalarBuilder.lowerNode | false | isNilNode(n)#1	irfuncbody.go:299	-	fence: callers never pass a nil node (irScalarBlock drops nil statements first)
 b	irScalarBuilder.lowerNode | note | "a `with` statement in an operand position"#1	irfuncbody.go:328	-	parser accepts `with` only as a statement (`1 -> with X.f = v` is "unexpected token WITH"), and irScalarBlock moves a block-ending `with` into the lead
 b	irScalarBuilder.lowerNode | false | !(t.ResolvedEnum != "")#1	irfuncbody.go:339	-	checker resolves a bare `.Variant` against the expected enum or reports an error
