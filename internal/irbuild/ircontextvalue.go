@@ -82,22 +82,42 @@ func (bl *irScalarBuilder) typeWitnessValue(at ast.Node, x, want kind) (ir.Temp,
 // namesType reports whether at is a type name, not a binding, that resolves to
 // x.
 func (bl *irScalarBuilder) namesType(at ast.Node, x kind) bool {
-	var name string
+	k, ok := bl.witnessTypeKind(at)
+	return ok && k == x
+}
+
+// witnessTypeKind is the kind the type name at spells in value position,
+// bare (`Token`) or through a whole-file import's qualifier
+// (`domain.Token`). ok is false when at is not a type name: a binding, or
+// a field chain over one. A type name this builder cannot resolve answers
+// kindInvalid.
+func (bl *irScalarBuilder) witnessTypeKind(at ast.Node) (kind, bool) {
 	switch t := at.(type) {
 	case *ast.TypeIdent:
-		name = t.Name
+		return bl.g.qualifierKind(t.Name), true
 	case *ast.Ident:
-		if _, local := bl.bound[t.Name]; local {
-			return false
+		if bl.isBoundName(t.Name) {
+			return kindInvalid, false
 		}
-		if _, bound := bl.g.lookup(t.Name); bound {
-			return false
+		return bl.g.qualifierKind(t.Name), true
+	case *ast.FieldAccess:
+		root := t.Object
+		for fa, chained := root.(*ast.FieldAccess); chained; fa, chained = root.(*ast.FieldAccess) {
+			root = fa.Object
 		}
-		name = t.Name
-	default:
-		return false
+		if id, isIdent := root.(*ast.Ident); !isIdent || bl.isBoundName(id.Name) {
+			return kindInvalid, false
+		}
+		name, ok := bl.g.dottedTypeQualifier(t)
+		if !ok {
+			return kindInvalid, false
+		}
+		if d, found := bl.g.namedType(name); found && d.lowerable {
+			return named(d), true
+		}
+		return kindInvalid, true
 	}
-	return bl.g.qualifierKind(name) == x
+	return kindInvalid, false
 }
 
 // contextValueCall lowers `Context.with_value(c, v)` and
@@ -152,18 +172,13 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 			w, wk = v, k
 			x, _ = typeWitnessArg(k)
 		} else {
-			var name string
-			switch n := arg.(type) {
-			case *ast.TypeIdent:
-				name = n.Name
-			case *ast.Ident:
-				name = n.Name
-			default:
+			var typeName bool
+			if x, typeName = bl.witnessTypeKind(arg); !typeName {
 				irDeclineNote("a Context.value witness that is not a type name")
 				return no()
 			}
 			// kindInvalid: lookup — a name that is not a type declines.
-			if x = bl.g.qualifierKind(name); x == kindInvalid || !irWitnessableKind(x) {
+			if x == kindInvalid || !irWitnessableKind(x) {
 				irDeclineNote("a Context.value witness whose type has no single-name identity")
 				return no()
 			}

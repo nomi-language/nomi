@@ -657,22 +657,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapContextValueQualifiedWitness",
-		fix:    "builder: context value qualified witness. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.contextValueCall | note | \"a Context.value witness that is not a type name\"#1",
-		reason: "a Context.value witness that is not a type name",
-		src: `// FILE: main.nomi
-import std/io
-import domain
-
-fn main() {
-    c = Context.with_value(Context.root(), domain.Token(7))
-    io.inspect(Context.value(c, domain.Token))
-}
-// FILE: domain.nomi
-pub type Token Int
-`,
-	},
-	{
 		name:   "gapContextValueUnwitnessable",
 		fix:    "builder: context value unwitnessable. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.contextValueCall | note | \"a Context.value witness whose type has no single-name identity\"#1",
 		reason: "a Context.value witness whose type has no single-name identity",
@@ -918,27 +902,6 @@ test "a block import that rebinds a module-level name" {
     import std/duration.Duration
     assert Duration.seconds(1) == Duration.milliseconds(1000)
 }
-`,
-	},
-	{
-		name:   "gapTypeParamQualifiedWitness",
-		fix:    "builder: type param qualified witness. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.namesType | false | unguarded#1; irScalarBuilder.typeWitnessValue | false | !irWitnessableKind(x) ¦¦ !bl.namesType(at, x)#1",
-		reason: "an ident bound nowhere this builder can see",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import std/io
-import domain
-
-fn stored(c: Context, t: Type<domain.Token>): Maybe<domain.Token> {
-    Context.value(c, t)
-}
-
-fn main() {
-    c = Context.with_value(Context.root(), domain.Token(7))
-    io.inspect(stored(c, domain.Token))
-}
-// FILE: domain.nomi
-pub type Token Int
 `,
 	},
 	{

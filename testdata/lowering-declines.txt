@@ -193,21 +193,21 @@ b	irScalarBuilder.containerCompare | false | local == nil#1	ircontainercompare.g
 b	irScalarBuilder.containerCompare | false | elem != kindInt && elem != kindFloat && elem != kindString && elem != kindBool#1	ircontainercompare.go:104	-	probe: containerCompareAny falls back to ifaceContainerCall on false (hit by a lowering program, `[[1]] < [[2]]` in g5/b_ord.nomi)
 b	irScalarBuilder.containerCompare | false | cmp == nil ¦¦ cmp.irBody == nil#1	ircontainercompare.go:108	-	probe: containerCompareAny falls back to ifaceContainerCall on false
 c	irScalarBuilder.typeWitnessValue | false | !irWitnessableKind(x) ¦¦ !bl.namesType(at, x)#1	ircontextvalue.go:74	-	pinned as gapTypeParamQualifiedWitness (reason: an ident bound nowhere this builder can see)
-b	irScalarBuilder.namesType | false | local#1	ircontextvalue.go:91	-	probe: lowerTypedOperand falls back to ordinary lowering for a bound name (a Type<T> local lowers, ctx_witness_bound.nomi), and contextValueCall takes bound names on its own branch first
-b	irScalarBuilder.namesType | false | bound#1	ircontextvalue.go:94	-	probe: same as line 91 for a module-level binding; lowerTypedOperand falls back to the ordinary read
-c	irScalarBuilder.namesType | false | unguarded#1	ircontextvalue.go:98	-	pinned as gapTypeParamQualifiedWitness (reason: an ident bound nowhere this builder can see)
-a	irScalarBuilder.namesType | computed | return bl.g.qualifierKind(name) == x#1	ircontextvalue.go:100	expect,irbuild	
-?	irScalarBuilder.contextValueCall | false | len(t.Args) != 2#1	ircontextvalue.go:110	?	
-c	irScalarBuilder.contextValueCall | false | named#1	ircontextvalue.go:114	-	pinned as gapContextValueNamedArg (reason: a type name in value position: TraceId)
-b	irScalarBuilder.contextValueCall | false | !ok ¦¦ !irContextKind(ck)#1	ircontextvalue.go:120	-	propagation: the checker types the first operand Context; ok is false only when that operand declined itself
-a	irScalarBuilder.contextValueCall | note | "a Context.with_value whose value's type has no single-name identity"#1	ircontextvalue.go:129	irbuild	
-b	irScalarBuilder.contextValueCall | false | !ok#1	ircontextvalue.go:134	-	defensive fence: std/type's Type always instantiates at a witnessable kind
-?	irScalarBuilder.contextValueCall | false | !ok ¦¦ !irTypeWitnessKind(k)#1	ircontextvalue.go:150	?	
-c	irScalarBuilder.contextValueCall | note | "a Context.value witness that is not a type name"#1	ircontextvalue.go:162	-	pinned as gapContextValueQualifiedWitness (reason: a Context.value witness that is not a type name)
-c	irScalarBuilder.contextValueCall | note | "a Context.value witness whose type has no single-name identity"#1	ircontextvalue.go:167	-	pinned as gapContextValueUnwitnessable (reason: a Context.value witness whose type has no single-name identity)
-b	irScalarBuilder.contextValueCall | false | !ok#2	ircontextvalue.go:171	-	defensive fence: std/type's Type always instantiates at a witnessable kind
-b	irScalarBuilder.contextValueCall | false | result == kindInvalid ¦¦ !irRetainedValueKind(result)#1	ircontextvalue.go:182	-	defensive fence: Maybe<X> of a witnessable X (scalar, retained struct/enum, distinct) is retained
-b	irScalarBuilder.contextValueCall | false | unguarded#1	ircontextvalue.go:185	-	defensive fence: the caller passes only "with_value" or "value"
+?	irScalarBuilder.namesType | computed | return ok && k == x#1	ircontextvalue.go:86	?	
+?	irScalarBuilder.witnessTypeKind | false | bl.isBoundName(t.Name)#1	ircontextvalue.go:100	?	
+?	irScalarBuilder.witnessTypeKind | false | !isIdent ¦¦ bl.isBoundName(id.Name)#1	ircontextvalue.go:109	?	
+?	irScalarBuilder.witnessTypeKind | false | unguarded#1	ircontextvalue.go:120	?	
+?	irScalarBuilder.contextValueCall | false | len(t.Args) != 2#1	ircontextvalue.go:130	?	
+c	irScalarBuilder.contextValueCall | false | named#1	ircontextvalue.go:134	-	pinned as gapContextValueNamedArg (reason: a type name in value position: TraceId)
+b	irScalarBuilder.contextValueCall | false | !ok ¦¦ !irContextKind(ck)#1	ircontextvalue.go:140	-	propagation: the checker types the first operand Context; ok is false only when that operand declined itself
+a	irScalarBuilder.contextValueCall | note | "a Context.with_value whose value's type has no single-name identity"#1	ircontextvalue.go:149	irbuild	
+b	irScalarBuilder.contextValueCall | false | !ok#1	ircontextvalue.go:154	-	defensive fence: std/type's Type always instantiates at a witnessable kind
+?	irScalarBuilder.contextValueCall | false | !ok ¦¦ !irTypeWitnessKind(k)#1	ircontextvalue.go:170	?	
+c	irScalarBuilder.contextValueCall | note | "a Context.value witness that is not a type name"#1	ircontextvalue.go:177	-	pinned as gapContextValueQualifiedWitness (reason: a Context.value witness that is not a type name)
+c	irScalarBuilder.contextValueCall | note | "a Context.value witness whose type has no single-name identity"#1	ircontextvalue.go:182	-	pinned as gapContextValueUnwitnessable (reason: a Context.value witness whose type has no single-name identity)
+b	irScalarBuilder.contextValueCall | false | !ok#2	ircontextvalue.go:186	-	defensive fence: std/type's Type always instantiates at a witnessable kind
+b	irScalarBuilder.contextValueCall | false | result == kindInvalid ¦¦ !irRetainedValueKind(result)#1	ircontextvalue.go:197	-	defensive fence: Maybe<X> of a witnessable X (scalar, retained struct/enum, distinct) is retained
+b	irScalarBuilder.contextValueCall | false | unguarded#1	ircontextvalue.go:200	-	defensive fence: the caller passes only "with_value" or "value"
 b	irScalarBuilder.currentValue | note | "a bare `..` with no current value recorded"#1	ircurrentvalue.go:68	-	checker rejects a bare `..` with no current value: "a bare `..` has no value to update here"
 b	irScalarBuilder.emptyOf | note | "a bare `..` at a missing key of kind " + k.nomi()#1	ircurrentvalue.go:108	-	missing-key `..` literals are only struct (updateBuild) or list/map/set/vector forms; checker rejects the others ("struct spread `..` requires a struct, got Maybe<...>")
 b	irScalarBuilder.emptyOf | false | !ok ¦¦ got != k#1	ircurrentvalue.go:113	-	coerceEmpty of an empty collection to its own collection kind always succeeds (fence)

@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 285
-declared-cases 922
+declared-cases 923
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -2270,15 +2270,16 @@ T nomi run: <root>/tests/15-app-and-defer/config_pattern/test.nomi declares no `
 T
 C 15-app-and-defer/context_module_values/context_module_values_test.nomi
 E 0
-N 6
-H 02b057978694cbd10f3b12dccdf7ad061fde0012cd154e12ccf836afb2e0d9a7
+N 7
+H ad58584b1cdf56f5fab547f22c8175352218b6874f6d49e0360d43c7ed5826c2
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared wrapped type round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared zero-sized type round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared struct round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a module-declared enum round-trips through a Context
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: two same-named module types keep separate Context slots
 T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a Type witness passed as a parameter still resolves
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/15-app-and-defer/context_module_values/context_module_values_test.nomi :: a Type witness may name its type through its file
+T test result: ok. 7 passed, 0 failed
 T
 C 15-app-and-defer/context_module_values/domain.nomi
 E 1
