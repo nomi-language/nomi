@@ -118,11 +118,11 @@ b	irScalarBuilder.attachedVariant | false | !ok#1	irattach.go:27	-	parser fence:
 b	irScalarBuilder.attachedVariant | false | tn.ResolvedEnum == ""#1	irattach.go:36	-	checker resolves `.X[...]`/`.X{...}` against the expected enum or reports an error, so ResolvedEnum is never empty after checking
 b	irScalarBuilder.attachedVariant | false | unguarded#1	irattach.go:54	-	parser fence: a literal-attach prefix is only QualifiedType, DotVariantType or SimpleType
 d	irScalarBuilder.blockBinding | note | "a block's value is not the binding's kind: " + k.nomi() + " vs " + want.nomi()#1	irblockbinding.go:72	-	tried Display/user-interface/empty-list typed block bindings; `d: Display = { ...; 5 }` crashes the compiler (IR lint) instead of reaching this note, user interfaces lower
-b	irScalarBuilder.callDefaults | false | len(sig.decl.Params) != len(args)#1	ircalldefaults.go:15	-	defensive: every caller builds args with one slot per declared parameter (irsupervisor.go, irfuncbody.go:1252, irqualcall.go, irnamedarg.go)
-b	irScalarBuilder.callDefaults | false | p.Default == nil#1	ircalldefaults.go:35	-	checker rejects an omitted parameter with no default ("missing argument for parameter")
-c	irScalarBuilder.callDefaults | false | !ok ¦¦ k != sig.params[i] ¦¦ !irCallOperandKind(k)#1	ircalldefaults.go:44	-	pinned as gapDefaultGenericLambda (reason: a lambda parameter outside the domain: an unsupported type)
--	irScalarBuilder.callDefaults | false | p.Destructure != nil && slices.Contains(args[i+1:], ir.NoTemp) && !bl.bindParamPattern(p.D…#1	ircalldefaults.go:52	-	
--	irScalarBuilder.bindParamPattern | note | "a destructuring parameter before a defaulted one, outside the retained case tests: " + k.…#1	ircalldefaults.go:76	-	
+?	irScalarBuilder.callDefaultsThrough | false | len(sig.decl.Params) != len(args) ¦¦ n > len(args)#1	ircalldefaults.go:22	?	
+?	irScalarBuilder.callDefaultsThrough | false | p.Default == nil#1	ircalldefaults.go:42	?	
+?	irScalarBuilder.callDefaultsThrough | false | !ok ¦¦ k != sig.params[i] ¦¦ !irCallOperandKind(k)#1	ircalldefaults.go:51	?	
+?	irScalarBuilder.callDefaultsThrough | false | p.Destructure != nil && slices.Contains(args[i+1:n], ir.NoTemp) && !bl.bindParamPattern(p.…#1	ircalldefaults.go:59	?	
+-	irScalarBuilder.bindParamPattern | note | "a destructuring parameter before a defaulted one, outside the retained case tests: " + k.…#1	ircalldefaults.go:83	-	
 b	irScalarBuilder.runCaptured | false | namedArgNode(t.Args) != nil ¦¦ len(t.Args) != 3#1	ircapture.go:19	-	std-only fence: runCaptured lowers std/io's private run_captured/run_replayed, called only from io.capture/io.replay bodies with three positional args
 b	irScalarBuilder.runCaptured | false | !args.ok ¦¦ args.kinds[0] != kindString#1	ircapture.go:23	-	std-only fence: io.capture/io.replay pass a String first argument
 b	irScalarBuilder.runCaptured | false | run.tag != tagFunc ¦¦ run.comp == nil ¦¦ len(funcParams(run)) != 0#1	ircapture.go:27	-	std-only fence: the run argument in the std bodies is always a zero-parameter function value
@@ -500,17 +500,17 @@ b	irScalarBuilder.lambdaFunction | false | supplier >= 0#1	irlambda.go:270	-	che
 b	irScalarBuilder.lambdaFunction | false | supplier >= 0 ¦¦ child.ctl == irCtlNone#1	irlambda.go:277	-	checker rejects break/continue outside an iter callback ("uses break/continue but has no iter-callback call site") and in defaults
 d	irScalarBuilder.lambdaFunction | false | k == kindInvalid#1	irlambda.go:290	-	needs a signalling callback whose result neither break v nor the checker records; not found
 d	irScalarBuilder.lambdaFunction | false | k == kindInvalid#2	irlambda.go:313	-	needs an endless Iter.loop lambda with no checker type; not found
-d	irScalarBuilder.lambdaFunction | note | "a lambda result outside the domain: " + k.nomi()#1	irlambda.go:343	-	List<Unit>, Maybe<Unit> lambda results lower; no out-of-domain lambda result found
-a	irScalarBuilder.lambdaFunction | false | !ok ¦¦ (!irCallableValueKind(k) && k != kindUnit)#1	irlambda.go:345	expect,irbuild,vmhost	
-c	irScalarBuilder.lambdaFunction | note | "a lambda whose returns disagree"#1	irlambda.go:349	-	pinned as gapLambdaReturnEmptyList (reason: a lambda whose returns disagree)
-d	irScalarBuilder.lambdaFunction | note | "a try whose operand does not exit to the lambda's result: " + k.nomi()#1	irlambda.go:353	-	try in lambdas with Result/Maybe results and empty-list Ok payloads all lower
-d	irScalarBuilder.lambdaFunction | note | "a lambda graph that does not lint: " + err.Error()#1	irlambda.go:359	-	no lambda lint failure found
-a	irScalarBuilder.indirectCall | false | !ok ¦¦ fk.tag != tagFunc#1	irlambda.go:491	irbuild	
-c	irScalarBuilder.indirectCall | false | !planned#1	irlambda.go:501	-	pinned as gapCapturedLambdaNamedArgs (reason: a named argument)
-c	irScalarBuilder.indirectCall | false | defaulted && metadata == nil#1	irlambda.go:509	-	pinned as gapCapturedDefaultLambdaCall (reason: a direct callee outside this module's fn table: f)
-b	irScalarBuilder.indirectCall | false | !irCallableValueKind(result) && result != kindUnit#1	irlambda.go:513	-	a callee value's func kind comes from a lowered value, whose kinds are already in the callable domain
-b	irScalarBuilder.indirectCall | false | supplier == ir.NoTemp#1	irlambda.go:536	-	an omitted argument without a default is a checker error ("missing argument for parameter")
-c	irScalarBuilder.funcRef | note | "an iter-sensitive function passed where its break or continue cannot be caught: " + t.Nam…#1	irlambda.go:633	-	pinned as gapIterSensitiveFnValue (reason: an iter-sensitive function passed where its break or continue cannot be caught: stop)
+d	irScalarBuilder.lambdaFunction | note | "a lambda result outside the domain: " + k.nomi()#1	irlambda.go:348	-	List<Unit>, Maybe<Unit> lambda results lower; no out-of-domain lambda result found
+a	irScalarBuilder.lambdaFunction | false | !ok ¦¦ (!irCallableValueKind(k) && k != kindUnit)#1	irlambda.go:350	expect,irbuild,vmhost	
+c	irScalarBuilder.lambdaFunction | note | "a lambda whose returns disagree"#1	irlambda.go:354	-	pinned as gapLambdaReturnEmptyList (reason: a lambda whose returns disagree)
+d	irScalarBuilder.lambdaFunction | note | "a try whose operand does not exit to the lambda's result: " + k.nomi()#1	irlambda.go:358	-	try in lambdas with Result/Maybe results and empty-list Ok payloads all lower
+d	irScalarBuilder.lambdaFunction | note | "a lambda graph that does not lint: " + err.Error()#1	irlambda.go:364	-	no lambda lint failure found
+a	irScalarBuilder.indirectCall | false | !ok ¦¦ fk.tag != tagFunc#1	irlambda.go:496	irbuild	
+c	irScalarBuilder.indirectCall | false | !planned#1	irlambda.go:506	-	pinned as gapCapturedLambdaNamedArgs (reason: a named argument)
+c	irScalarBuilder.indirectCall | false | defaulted && metadata == nil#1	irlambda.go:514	-	pinned as gapCapturedDefaultLambdaCall (reason: a direct callee outside this module's fn table: f)
+b	irScalarBuilder.indirectCall | false | !irCallableValueKind(result) && result != kindUnit#1	irlambda.go:518	-	a callee value's func kind comes from a lowered value, whose kinds are already in the callable domain
+b	irScalarBuilder.indirectCall | false | supplier == ir.NoTemp#1	irlambda.go:541	-	an omitted argument without a default is a checker error ("missing argument for parameter")
+c	irScalarBuilder.funcRef | note | "an iter-sensitive function passed where its break or continue cannot be caught: " + t.Nam…#1	irlambda.go:638	-	pinned as gapIterSensitiveFnValue (reason: an iter-sensitive function passed where its break or continue cannot be caught: stop)
 d	irScalarBuilder.patternParams | note | "a lambda destructuring parameter the prologue did not build"#1	irlambdapattern.go:103	-	tuple/struct/nested/as/distinct/embedded-variant/anon-record lambda patterns all lower; generic-head patterns decline earlier (irlambda.go parameter domain)
 d	irScalarBuilder.patternParams | note | "a destructured lambda name's kind outside the domain: " + k.nomi()#1	irlambdapattern.go:115	-	no destructured name with an out-of-domain kind found
 c	irScalarBuilder.listMakeOf | false | !ok ¦¦ !(irRetainedListKind(k) ¦¦ irListTransportKind(k))#1	irlist.go:125	-	pinned as gapListSpreadFunctionTail (reason: a ListSpreadLit)
@@ -629,14 +629,16 @@ b	gen.irOnceCellLower | note | "a `once` initializer graph that does not lint: "
 a	irScalarBuilder.partialApplication/no | note | "a partial application over a callee whose parameters the builder cannot see, or with a no…#1	irpartial.go:38	vmhost	pinned as gapPartialOmittedNonliteralDefault (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
 c	irScalarBuilder.partialApplication | false | !ok ¦¦ len(params) != len(kinds)#1	irpartial.go:43	-	pinned as gapPartialCapturedLambda (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
 d	irScalarBuilder.partialApplication | false | !planned#1	irpartial.go:56	-	named placeholders on local/sibling callees plan fine; a bad name is a checker error; not found
-b	irScalarBuilder.partialApplication | false | slot < 0 ¦¦ slot >= len(params) ¦¦ filled[slot]#1	irpartial.go:64	-	a slot given twice is a checker error (argument slot planning)
-d	irScalarBuilder.partialApplication | false | !ok ¦¦ k != kinds[slot]#1	irpartial.go:76	-	no decline found; nearby, `show(5, _)` with an existential slot is an internal compiler error (partial_existential_arg_ice.nomi), not a decline
-b	irScalarBuilder.partialApplication | false | len(open) == 0#1	irpartial.go:83	-	a call with no placeholder is not a partial application (the builder only routes calls containing `_` here)
-a	irScalarBuilder.partialApplication | false | p.Default != nil && !irClosedLiteral(p.Default)#1	irpartial.go:91	vmhost	pinned as gapPartialOpenNonliteralDefault (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
-c	irScalarBuilder.partialApplication | false | unguarded#1	irpartial.go:135	-	pinned as gapPartialOmittedNonliteralDefault (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
--	irScalarBuilder.partialApplication | false | names[slot] == "" ¦¦ names[slot] == "_"#1	irpartial.go:139	-	
-d	irScalarBuilder.partialCallee | false | !ok ¦¦ fk.tag != tagFunc#1	irpartial.go:172	-	a local callable whose lowered kind is not a func kind; not found
-c	irScalarBuilder.partialCallee | false | plan == nil ¦¦ plan.source == nil ¦¦ len(plan.names) != len(plan.source.Params)#1	irpartial.go:176	-	pinned as gapPartialCapturedLambda (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
+b	irScalarBuilder.partialApplication | false | slot < 0 ¦¦ slot >= len(params) ¦¦ filled[slot]#1	irpartial.go:65	-	a slot given twice is a checker error (argument slot planning)
+d	irScalarBuilder.partialApplication | false | !ok ¦¦ k != kinds[slot]#1	irpartial.go:78	-	no decline found; nearby, `show(5, _)` with an existential slot is an internal compiler error (partial_existential_arg_ice.nomi), not a decline
+b	irScalarBuilder.partialApplication | false | len(open) == 0#1	irpartial.go:85	-	a call with no placeholder is not a partial application (the builder only routes calls containing `_` here)
+c	irScalarBuilder.partialApplication | false | unguarded#1	irpartial.go:148	-	pinned as gapPartialOmittedNonliteralDefault (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
+-	irScalarBuilder.partialApplication | false | names[slot] == "" ¦¦ names[slot] == "_"#1	irpartial.go:152	-	
+?	irScalarBuilder.partialCalleeDefault | note | "a partial's open slot whose default is not a literal, over a callee outside this file's f…#1	irpartial.go:216	?	
+?	irScalarBuilder.partialCalleeDefault | note | "a partial's open slot whose default is not a literal, after an unmentioned slot whose def…#1	irpartial.go:221	?	
+?	irScalarBuilder.partialCalleeDefault | note | "a partial's open slot whose default is not a literal, before a placeholder for an earlier…#1	irpartial.go:228	?	
+d	irScalarBuilder.partialCallee | false | !ok ¦¦ fk.tag != tagFunc#1	irpartial.go:294	-	a local callable whose lowered kind is not a func kind; not found
+c	irScalarBuilder.partialCallee | false | plan == nil ¦¦ plan.source == nil ¦¦ len(plan.names) != len(plan.source.Params)#1	irpartial.go:298	-	pinned as gapPartialCapturedLambda (reason: a partial application over a callee whose parameters the builder cannot see, or with a non-literal default)
 b	irScalarBuilder.patternAssert | false | isNilNode(t.Value) ¦¦ isNilNode(t.Pattern)#1	irpatternassert.go:37	-	the parser always sets the assert's Value and Pattern
 c	irScalarBuilder.patternAssert | note | "an `assert pattern = value` tuple pattern outside the retained case tests"#1	irpatternassert.go:79	-	pinned as gapAssertTupleCompositeDistinct (reason: a `case` tuple pattern outside flat Int/String tests with bindings and wildcards)
 b	irScalarBuilder.patternAssert | note | "an `assert pattern = value` literal pattern over " + sk.nomi()#1	irpatternassert.go:90	-	literal-type rule

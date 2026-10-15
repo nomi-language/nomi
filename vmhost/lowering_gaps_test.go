@@ -61,6 +61,29 @@ fn main() {
 }
 `,
 	},
+	{
+		name: "gapPartialDefaultBeforeLaterPlaceholder",
+		fix: "builder: a partial application whose open slot has a computed default that reads an " +
+			"earlier slot of the callee left open by a placeholder written after it, as in " +
+			"`span(b: _, _)` over `fn span(a: Int, b: Int = a * 2)`. The partial's parameters are " +
+			"its placeholders in written order, so `b` is its first and `a` its second, and a " +
+			"default supplier takes only the parameters before its own (indirectCall's convention). " +
+			"The supplier for `b` would need `a`. Either a call through the partial fills an " +
+			"omitted slot after the slots the callee reads first, or the supplier takes every " +
+			"parameter",
+		reason: "a partial's open slot whose default is not a literal, before a placeholder for an earlier slot",
+		src: `import std/io
+
+fn span(a: Int, b: Int = a * 2): (Int, Int) {
+    (a, b)
+}
+
+fn main() {
+    u = span(b: _, _)
+    io.inspect(u(1, 2))
+}
+`,
+	},
 }
 
 // knownGapFor is the known gap every one of reasons matches, or nil.

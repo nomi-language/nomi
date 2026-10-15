@@ -1728,13 +1728,7 @@ func (g *gen) callBlock() string {
 		// there short, by name and partially.
 		calls := []string{"%s(2)", "%s(y: 3, x: 2)", "%s(_, 3)(2)", "%s(2, _)(4)"}
 		call := fmt.Sprintf(calls[r.Intn(len(calls))], name("cf"))
-		dflt := fmt.Sprintf("x + %d", n)
-		if strings.Contains(call, "_") {
-			// A partial over a slot whose default is not a literal is
-			// gapPartialOpenNonliteralDefault.
-			dflt = fmt.Sprint(n)
-		}
-		fmt.Fprintf(&out, "%s = |x: Int, y: Int = %s| x * y\n", name("cf"), dflt)
+		fmt.Fprintf(&out, "%s = |x: Int, y: Int = x + %d| x * y\n", name("cf"), n)
 		fmt.Fprintf(&out, "%s = || %s\n", name("cg"), call)
 		fmt.Fprintf(&out, "io.inspect(%s())\n", name("cg"))
 	case 7:
@@ -1784,7 +1778,8 @@ func (g *gen) callBlock() string {
 // block ending in `return`, `break` or `continue`, a `case` or `if` every
 // arm of which leaves, in parentheses, under `!` or as a call's argument,
 // a failing `try`), a nested fn's destructuring parameter, and a
-// `Struct.update` patch that is a value rather than a literal.
+// `Struct.update` patch that is a value rather than a literal, and a
+// partial whose open slot has a computed default.
 func (g *gen) leaveBlock() string {
 	r := g.leave
 	g.ln++
@@ -1812,7 +1807,14 @@ func (g *gen) leaveBlock() string {
 	}
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(6) {
+	switch r.Intn(7) {
+	case 6:
+		// A partial whose open slot has a computed default, over a nested
+		// fn, called omitting the slot and giving it.
+		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = a * %d + 1): Int {\na + b\n}\n", name("lo"), n)
+		fmt.Fprintf(&out, "%s = %s(%d, _)\n", name("lq"), name("lo"), r.Intn(9))
+		fmt.Fprintf(&out, "io.inspect(%s())\n", name("lq"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lq"), r.Intn(9))
 	case 5:
 		// A Struct.update patch held in a binding or answered by a call.
 		fmt.Fprintf(&out, "struct %s {\nname: String\nage: Int\n}\n", name("Lu"))

@@ -163,26 +163,6 @@ fn main() {
 }
 `,
 	},
-	{
-		name:   "gapPartialOpenNonliteralDefault",
-		fix:    "builder: partial open nonliteral default. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.partialApplication | false | p.Default != nil && !irClosedLiteral(p.Default)#1",
-		reason: "a partial application over a callee whose parameters the builder cannot see, or with a non-literal default",
-		src: `import std/io
-
-fn base(): Int {
-    10
-}
-
-fn conn(host: String, port: Int = base() + 1): String {
-    "${host}:${port}"
-}
-
-fn main() {
-    c = conn("h", _)
-    io.print(c(3))
-}
-`,
-	},
 }
 
 func init() {
