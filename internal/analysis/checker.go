@@ -1234,6 +1234,9 @@ func newChecker(fa *FileAnalysis, nodes []ast.Node) *checker {
 
 // CheckTypes walks all function bodies and validates type consistency.
 func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
+	// Every unannotated `once` of the program gets its type before the first
+	// file is checked (OnceTable).
+	fa.Program().Onces.infer()
 	c := newChecker(fa, nodes)
 
 	for _, node := range nodes {
@@ -2719,18 +2722,20 @@ func (c *checker) checkOnce(n *ast.OnceBinding) {
 		})
 	}
 	var valTy Type
-	if t := c.fa.Program().Onces; t != nil {
-		if _, ok := t.sites[n]; ok {
+	if t := c.fa.Program().Onces; t != nil && t.sites[n].fa != nil {
+		// The inference phase records what it checks and the cycles it
+		// finds; CheckTypes, after it, only reads them.
+		if !t.inferred {
 			t.checking = append(t.checking, n)
 			valTy = check()
 			t.checking = t.checking[:len(t.checking)-1]
 			t.checked[n] = true
-			if cycle := t.cycles[n]; cycle != nil {
-				c.addError(n.Line, n.Col, onceCycleMessage(n.Name, cycle))
-				return
-			}
 		} else {
 			valTy = check()
+		}
+		if cycle := t.cycles[n]; cycle != nil {
+			c.addError(n.Line, n.Col, onceCycleMessage(n.Name, cycle))
+			return
 		}
 	} else {
 		valTy = check()

@@ -1,8 +1,11 @@
 package analysis
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
+	"sync"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -13,21 +16,29 @@ import (
 // declared in another file can find that file.
 //
 // An unannotated `once` takes the type of its value, and only checking the
-// value tells it. A read can be checked before the declaration is: later in
-// the same file, in an attached test above it, or in another file the front
-// end checks first. Such a read checks the declaration on demand
-// (checker.ensureOnceType), so a read never sees a `once` without its type.
+// value tells it. That type is part of its file's interface, so every one is
+// inferred in one phase before any file's CheckTypes runs (infer), in a fixed
+// order and with a checker for the declaring file, which is the only analysis
+// the phase writes. A value that reads another unannotated `once` infers that
+// one first, and a value that reads its own type is a cycle, which the
+// declaring file's CheckTypes reports at the declaration. After the phase the
+// table is read-only, so what a file's check sees does not depend on which
+// file was checked first.
 type OnceTable struct {
 	sites map[*ast.OnceBinding]onceSite
-	// checking is the bindings whose value is being checked, innermost last.
-	// A read of one of them is a cycle.
+	// checking is the bindings whose value the inference phase is checking,
+	// innermost last. A read of one of them is a cycle.
 	checking []*ast.OnceBinding
 	// cycles holds, for each unannotated binding whose value reads its own
 	// type, the names along the cycle, starting and ending with its own.
 	cycles map[*ast.OnceBinding][]string
-	// checked holds the bindings whose value some checker has checked, so
-	// a read of one whose value has no type does not check it again.
+	// checked holds the bindings whose value the inference phase has
+	// checked, so a read of one whose value has no type does not check it
+	// again.
 	checked map[*ast.OnceBinding]bool
+	// inferOnce runs the inference phase; inferred is set when it is done.
+	inferOnce sync.Once
+	inferred  bool
 }
 
 // onceSite is where a `once` is declared: its file, that file's nodes (a
@@ -89,10 +100,53 @@ func moduleOnces(node ast.Node) []*ast.OnceBinding {
 	return out
 }
 
+// infer runs the inference phase once: it gives every unannotated `once` its
+// type, in the order of its file's Origin and path and then its position.
+// CheckTypes runs it before it checks anything, so it is done before the
+// first file of the program is checked, whichever file that is.
+func (t *OnceTable) infer() {
+	if t == nil {
+		return
+	}
+	t.inferOnce.Do(func() {
+		pending := make([]*ast.OnceBinding, 0, len(t.sites))
+		for n := range t.sites {
+			if n.TypeAnnotation == nil && n.Value != nil {
+				pending = append(pending, n)
+			}
+		}
+		slices.SortFunc(pending, func(a, b *ast.OnceBinding) int {
+			sa, sb := t.sites[a].fa, t.sites[b].fa
+			return cmp.Or(
+				cmp.Compare(sa.Origin, sb.Origin),
+				cmp.Compare(sa.FilePath, sb.FilePath),
+				cmp.Compare(a.Line, b.Line),
+				cmp.Compare(a.Col, b.Col),
+			)
+		})
+		for _, n := range pending {
+			t.inferType(n)
+		}
+		t.inferred = true
+	})
+}
+
+// inferType checks an unannotated `once`'s value with a checker for its own
+// file, unless the phase already has. Errors that check finds are dropped:
+// the declaring file's own CheckTypes reports them at the declaration.
+func (t *OnceTable) inferType(n *ast.OnceBinding) {
+	if t.checked[n] {
+		return
+	}
+	site := t.sites[n]
+	sub := newChecker(site.fa, site.nodes)
+	sub.selfTypeName = site.owner
+	sub.checkOnce(n)
+}
+
 // ensureOnceType gives a module-level unannotated `once` its type before a
-// read uses it, checking its value with a checker for its own file if no
-// checker has yet. Errors that check finds are dropped: the declaring file's
-// own CheckTypes reports them at the declaration.
+// read uses it. Only the inference phase infers one: once the phase is done,
+// every type it could give is already on its symbol.
 func (c *checker) ensureOnceType(sym *Symbol) {
 	if sym == nil || sym.Kind != SymbolOnce || sym.Type != nil || c.fa == nil || c.fa.Program().Onces == nil {
 		return
@@ -102,8 +156,10 @@ func (c *checker) ensureOnceType(sym *Symbol) {
 		return
 	}
 	t := c.fa.Program().Onces
-	site, ok := t.sites[n]
-	if !ok {
+	if t.inferred {
+		return
+	}
+	if _, ok := t.sites[n]; !ok {
 		return
 	}
 	for i, open := range t.checking {
@@ -122,12 +178,7 @@ func (c *checker) ensureOnceType(sym *Symbol) {
 		}
 		return
 	}
-	if t.checked[n] {
-		return
-	}
-	sub := newChecker(site.fa, site.nodes)
-	sub.selfTypeName = site.owner
-	sub.checkOnce(n)
+	t.inferType(n)
 }
 
 // rotateCycle answers the cycle names (first == last) restarted at name.

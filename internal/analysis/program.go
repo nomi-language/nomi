@@ -15,9 +15,10 @@ import "github.com/nomi-language/nomi/internal/ast"
 // CheckDeriveBounds, the boot signature check) are given what they read as
 // arguments.
 //
-// The one part that changes while checking is Onces' inference state: an
-// unannotated `once` gets its type when the first checker reads it, from
-// whichever file that is. See OnceTable.
+// The one part that changes after that is Onces' inference state, and only
+// in the phase the program's first CheckTypes runs before it checks
+// anything: every unannotated `once` gets its type there, in a fixed order,
+// and the table is read-only from then on. See OnceTable.
 type Program struct {
 	// ImplIndex is the impl index of every file the program reaches, the
 	// stdlib's included. Nil for a file analyzed on its own with no stdlib
