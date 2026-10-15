@@ -1157,28 +1157,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapIterSensitiveFnValue",
-		fix:    "builder: iter sensitive fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.funcRef | note | \"an iter-sensitive function passed where its break or continue cannot be caught: \" + t.Nam…#1",
-		reason: "an iter-sensitive function passed where its break or continue cannot be caught: stop",
-		src: `import std/io
-
-fn stop(x: Int): Int {
-    if x > 2 {
-        break
-    }
-    x
-}
-
-fn main() {
-    xs = [1, 2, 3] |> Iter.map(stop) |> Iter.to_list()
-    io.inspect(xs)
-    f = stop
-    ys = [1, 2, 3] |> Iter.map(f) |> Iter.to_list()
-    io.inspect(ys)
-}
-`,
-	},
-	{
 		name:   "gapNestedFnDestructuringParam",
 		fix:    "builder: nested fn destructuring param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.nestedFunc/no | note | \"a nested fn: \" + why#1",
 		reason: "a nested fn: a parameter without an annotation, or a destructuring one",

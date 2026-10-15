@@ -2994,7 +2994,7 @@ result = Iter.reduce(values, |total = 0, value| sum_valid(total, value))
 
 `Iter.reduce` takes its starting value only from its callback lambda's first-parameter default, so a named function is passed to it from a seeded lambda that forwards both parameters, `|total = 0, value| sum_valid(total, value)`. The lambda only forwards, so `sum_valid`'s `break` and `continue` act on the reduction. Passing the function itself, `Iter.reduce(values, sum_valid)`, is a compile error (§19).
 
-Using the keywords makes the function **iter-sensitive**: the analyzer requires every call site to be an iter-callback position (passed as the callback to an iteration function, as above). Calling an iter-sensitive function directly — outside any iteration context — is a compiler error, because `break`/`continue` would have no iteration to control.
+Using the keywords makes the function **iter-sensitive**: the analyzer requires every call site to be an iter-callback position (passed as the callback to an iteration function, as above). Calling an iter-sensitive function directly — outside any iteration context — is a compiler error, because `break`/`continue` would have no iteration to control. So is naming one as a value anywhere but directly as an iteration function's callback: `f = stop`, `apply(stop, 1)` and `[stop]` are errors, since a call through the value is a call site the analyzer cannot see. Write `Iter.map(xs, stop)`, or a lambda that calls it in a callback position.
 
 Summary:
 
