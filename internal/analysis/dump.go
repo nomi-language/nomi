@@ -50,8 +50,13 @@ func dumpErrors(b *strings.Builder, prefix string, errs []TypeError, path func(s
 // DumpFileForTest renders what one file's analysis holds about itself as
 // canonical text: the given diagnostics in order, then, each sorted, the type
 // the checker gave every expression (by position and node kind), every
-// definition's type, what every reference resolves to, the file's own impls
-// and demands, and its imports. Two analyses of one file that dump alike hold
+// definition's type, what every reference resolves to and the type, call and
+// dispatch it carries, every other fact the checker records about a body
+// node (expected types, target structs, field accessors, lambda patterns,
+// subtests rows, application-field reads, punned labels, inferred bounds,
+// type-method modules, block imports), the file's own impls and demands, its
+// imports, and its scopes from the module scope down. Two analyses of one file
+// that dump alike hold
 // the same facts. root is stripped from the paths the dump names, so dumps of
 // one project in two directories compare.
 func DumpFileForTest(fa *FileAnalysis, errs []TypeError, root string) string {
@@ -90,7 +95,61 @@ func DumpFileForTest(fa *FileAnalysis, errs []TypeError, root string) string {
 		for real.Resolved != nil {
 			real = real.Resolved
 		}
-		lines = append(lines, fmt.Sprintf("ref %d:%d %s -> %s %d at %s:%d:%d", pos.Line, pos.Col, sym.Name, real.Name, real.Kind, path(real.SourceFile), real.Pos.Line, real.Pos.Col))
+		line := fmt.Sprintf("ref %d:%d %s -> %s %d at %s:%d:%d : %s", pos.Line, pos.Col, sym.Name, real.Name, real.Kind, path(real.SourceFile), real.Pos.Line, real.Pos.Col, typ(sym.Type))
+		if sym.CallType != nil {
+			line += " call " + typ(sym.CallType)
+		}
+		if sym.VariantType != nil {
+			line += " variant " + typ(sym.VariantType)
+		}
+		if sym.DispatchImpl != nil {
+			l, c := nodeLineCol(sym.DispatchImpl)
+			line += fmt.Sprintf(" dispatch %d:%d %s", l, c, typ(sym.DispatchReceiver))
+		}
+		lines = append(lines, line)
+	}
+	section(lines)
+	lines = lines[:0]
+	at := func(n ast.Node) string {
+		l, c := nodeLineCol(n)
+		return fmt.Sprintf("%d:%d %s", l, c, n.NodeType())
+	}
+	for n, t := range fa.ExpectedTypes {
+		lines = append(lines, fmt.Sprintf("expected %s = %s", at(n), typ(t)))
+	}
+	for n, st := range fa.TargetStructs {
+		lines = append(lines, fmt.Sprintf("target %s = %s", at(n), typ(st)))
+	}
+	for n, t := range fa.FieldAccessors {
+		lines = append(lines, fmt.Sprintf("accessor %s = %s", at(n), typ(t)))
+	}
+	for n, t := range fa.LambdaPatternTypes {
+		lines = append(lines, fmt.Sprintf("lambda pattern %s = %s", at(n), typ(t)))
+	}
+	for n, t := range fa.SubtestsRowTypes {
+		lines = append(lines, fmt.Sprintf("subtests %s = %s", at(n), typ(t)))
+	}
+	for n, r := range fa.AppReads {
+		lines = append(lines, fmt.Sprintf("app read %s = %s.%s %s", at(n), typ(r.App), r.Field.Name, r.ContextField))
+	}
+	for pos, r := range fa.AppReadsByPos {
+		lines = append(lines, fmt.Sprintf("app read %d:%d = %s.%s %s", pos.Line, pos.Col, typ(r.App), r.Field.Name, r.ContextField))
+	}
+	for pos, sym := range fa.PunnedFieldLabels {
+		if sym != nil {
+			lines = append(lines, fmt.Sprintf("punned %d:%d -> %s at %d:%d", pos.Line, pos.Col, sym.Name, sym.Pos.Line, sym.Pos.Col))
+		}
+	}
+	for fn, byParam := range fa.InferredTypeParamBounds {
+		for param, ifaces := range byParam {
+			lines = append(lines, fmt.Sprintf("inferred bound %s %s: %s", at(fn), param, strings.Join(ifaces, " ")))
+		}
+	}
+	for key := range fa.TypeMethodModules {
+		lines = append(lines, "type method module "+key)
+	}
+	for imp, scope := range fa.BlockImportScopes {
+		lines = append(lines, fmt.Sprintf("block import %d:%d scope %d:%d-%d:%d", imp.Line, imp.Col, scope.Start.Line, scope.Start.Col, scope.End.Line, scope.End.Col))
 	}
 	section(lines)
 	lines = lines[:0]
@@ -119,7 +178,35 @@ func DumpFileForTest(fa *FileAnalysis, errs []TypeError, root string) string {
 	for _, ii := range fa.ImplImports {
 		fmt.Fprintf(&b, "impl import %d:%d unused %v\n", ii.Pos.Line, ii.Pos.Col, fa.Program().ImplImportUnused(ii))
 	}
+	if fa.ModuleScope != nil {
+		b.WriteString("scopes\n")
+		dumpScope(&b, fa.ModuleScope, 1)
+	}
 	return b.String()
+}
+
+// dumpScope renders s and the scopes under it, one a line indented by depth:
+// its span, the receiver it displays, and its symbols by name with their
+// kind, position and type.
+func dumpScope(b *strings.Builder, s *Scope, depth int) {
+	b.WriteString(strings.Repeat("  ", depth))
+	fmt.Fprintf(b, "scope %d:%d-%d:%d", s.Start.Line, s.Start.Col, s.End.Line, s.End.Col)
+	if s.ReceiverDisplay != "" {
+		fmt.Fprintf(b, " receiver %s", s.ReceiverDisplay)
+	}
+	names := make([]string, 0, len(s.Symbols))
+	for name := range s.Symbols {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		sym := s.Symbols[name]
+		fmt.Fprintf(b, " %s=%d@%d:%d:%s", name, sym.Kind, sym.Pos.Line, sym.Pos.Col, dumpType(sym.Type))
+	}
+	b.WriteByte('\n')
+	for _, c := range s.Children {
+		dumpScope(b, c, depth+1)
+	}
 }
 
 // DumpProgramForTest renders a checked program as canonical text, every
