@@ -21,9 +21,10 @@ import (
 //     it, directly or through others, and no more.
 //
 // It also counts the visits the program-wide passes make to project files
-// (CountProgramWorkForTest) and pins where they grow with the project: the
-// reductions after a body-only edit, an impl added to a leaf (a full
-// check), and the recordings a dependents recheck scans.
+// (CountProgramWorkForTest). After a body-only edit they visit the edited
+// file alone, and the recordings a dependents recheck scans grow at most
+// linearly. It pins where the work still grows with the project: an impl
+// added to a leaf takes a full check.
 //
 // The program before and after every edit must check with no diagnostic.
 // The 50k-line project is in the benchmarks only (internal/scalebench).
@@ -97,36 +98,39 @@ func TestEditWorkStaysFlatAsAProjectGrows(t *testing.T) {
 		return
 	}
 
-	// FINDING, pinned: a body-only edit re-checks one file, but the
-	// program-wide reductions it reruns (CheckAppRoots, CheckImplImports,
-	// FinalizeCoherence's MissingImpls) visit every file: two visits per
-	// file at every size (16 at 1k lines, 100 at 10k). The time follows:
-	// 1.3 ms at 1k lines, 27 ms at 50k (internal/scalebench). When a fix
-	// makes these visits flat, expect a constant here.
+	// A body-only edit reruns the program-wide reductions, but each keeps
+	// what every file contributed (FinalizeCoherence's programDemands, and
+	// programChecks.reduce's application-field roots) and reads again only
+	// the file whose bodies were rebuilt: one visit, at every size. Before,
+	// they visited every file twice (100 visits at 10k lines, 27 ms at
+	// 50k).
 	for _, kind := range []projectgen.EditKind{projectgen.BodyLeaf, projectgen.BodyHub, projectgen.BodyEntry} {
 		for _, c := range work[kind] {
-			if c.visits != 2*int64(c.files) {
-				t.Errorf("%s: pinned at 2 program-wide visits per file, got %d for %d files; if the reductions now visit fewer files, update this pin",
+			if c.visits != 1 {
+				t.Errorf("%s: want 1 program-wide visit, to the edited file, got %d for %d files",
 					kind, c.visits, c.files)
 			}
 		}
 	}
 
-	// FINDING, pinned: on the dependents path, a signature edit to a leaf
-	// re-checks two files, but laying the kept files' facts over the
-	// stdlib's (programShare.layOver) drops duplicate recordings with a
-	// linear scan per recording (mergeRecordings), so the recordings
-	// scanned grow faster than the project: 116k at 1k lines, 2.2M at 10k
-	// and 50M at 50k, the square of the size between the last two. At 50k
-	// lines that scan is about 40% of the edit's 268 ms. When a fix makes it
-	// linear, this pin fails; replace it with a linear bound.
-	leaf := work[projectgen.SignatureLeaf]
-	if len(leaf) == 2 {
-		lines := float64(leaf[1].lines) / float64(leaf[0].lines)
-		scans := float64(leaf[1].scans) / float64(leaf[0].scans)
-		if !(scans > 1.5*lines) {
-			t.Errorf("signature edit, leaf: pinned as growing faster than the project (%d to %d lines), but the recordings scanned went from %d to %d; update this pin",
-				leaf[0].lines, leaf[1].lines, leaf[0].scans, leaf[1].scans)
+	// On the dependents path, laying the kept files' facts over the
+	// stdlib's (programShare.layOver, mergeRecordings) and folding the
+	// build's own files (buildProjectImplIndex) drop duplicate recordings
+	// with a set, one lookup per recording, so the recordings scanned grow
+	// no faster than the project: about 2.3k at 1k lines and 12k at 10k. A
+	// scan of the list kept so far per recording grew with the square of
+	// the project (2.2M at 10k lines, 50M at 50k).
+	for _, kind := range []projectgen.EditKind{projectgen.SignatureLeaf, projectgen.SignatureHub} {
+		c := work[kind]
+		if len(c) != 2 || c[0].scans == 0 {
+			t.Errorf("%s: want recordings scanned at both sizes, got %+v", kind, c)
+			continue
+		}
+		lines := float64(c[1].lines) / float64(c[0].lines)
+		scans := float64(c[1].scans) / float64(c[0].scans)
+		if scans > 1.5*lines {
+			t.Errorf("%s: the recordings scanned went from %d to %d as the project went from %d to %d lines, faster than the project grows",
+				kind, c[0].scans, c[1].scans, c[0].lines, c[1].lines)
 		}
 	}
 }

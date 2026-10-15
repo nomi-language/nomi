@@ -33,12 +33,12 @@ func noteBodyCheck(fa *FileAnalysis) {
 var (
 	countingProgramWork atomic.Bool
 	programWork         atomic.Int64
-	// recordingScans counts the recordings mergeRecordings scans to drop
-	// duplicates, at most the comparisons it makes.
+	// recordingScans counts the recordings mergeRecordings and
+	// buildProjectImplIndex look up to drop duplicates.
 	recordingScans atomic.Int64
 )
 
-// noteRecordingCompares counts n recordings scanned by mergeRecordings,
+// noteRecordingCompares counts n recordings looked up to drop duplicates,
 // when counting is on.
 func noteRecordingCompares(n int) {
 	if countingProgramWork.Load() {

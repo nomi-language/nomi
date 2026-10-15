@@ -98,7 +98,12 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   file's analysis (`recheck_dependents.go`, `checkProgramFrom`), unless the
   edit changes the impls a file brings (`implsFingerprint`), a kept file
   holds something of a rechecked one, or that is every file; then the
-  program is checked afresh. Since a recheck rewrites installed analyses, a
+  program is checked afresh. The reductions over every file's bodies keep
+  each file's part with the analysis and body part it came from
+  (`FileBodies.generation`, which `walkBodiesAgain` renews): coherence
+  (`programDemands`), whole-file imports (`keptImplUses`) and a rootless
+  file's application-field roots, so a body edit reads only the edited
+  files again. Since a recheck rewrites installed analyses, a
   reader of one holds `DocumentManager.View`, and a recheck takes that lock
   exclusively until it has installed its answer.
   `TestIncrementalMatchesFull` and `FuzzIncrementalMatchesFull` hold a
@@ -434,10 +439,11 @@ second) counts the files whose bodies each kind of edit re-checks
 (`BodyChecksForTest`) at about 1k and 10k lines: a body-only edit
 re-checks the edited file alone, and a signature edit the edited file and
 the files that import it. It also counts the program-wide passes' visits
-to project files (`CountProgramWorkForTest`), and pins, each with a
-comment, the work that still grows with the project: the reductions a
-body-only edit reruns over every file, the full check after an impl is
-added, and the recordings a dependents recheck scans. The table of time and allocations per operation (check cold and
+to project files (`CountProgramWorkForTest`): a body-only edit's
+reductions visit the edited file once, at every size, and the recordings
+a dependents recheck looks up to drop duplicates grow no faster than the
+project. It pins, with a comment, the work that still grows with the
+project: the full check after an impl is added. The table of time and allocations per operation (check cold and
 warm, `nomi check`, the language server's edits and lowering, `nomi run`,
 the heap a kept program holds) at 1k, 10k and 50k lines and on the stdlib
 takes about two minutes:

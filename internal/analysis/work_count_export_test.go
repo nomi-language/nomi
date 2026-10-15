@@ -20,7 +20,8 @@ func BodyChecksForTest(f func()) []*FileAnalysis {
 // CountProgramWorkForTest runs f with the program-work counter on and
 // answers how many visits to a project file, or to an impl a project file
 // declares, the program-wide passes made while it ran (noteProgramWork),
-// and how many recordings mergeRecordings scanned (noteRecordingCompares).
+// and how many recordings the impl-index folds looked up to drop
+// duplicates (noteRecordingCompares).
 func CountProgramWorkForTest(f func()) (visits, scans int64) {
 	countingProgramWork.Store(true)
 	defer countingProgramWork.Store(false)

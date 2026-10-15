@@ -3,6 +3,7 @@ package analysis
 import (
 	"maps"
 	"slices"
+	"sync/atomic"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -258,7 +259,16 @@ type FileBodies struct {
 	ImplImports []*ImplImport
 	// TypeErrors holds type-checking errors discovered after analysis.
 	TypeErrors []TypeError
+	// generation tells this body part from every other one the process
+	// made for the same analysis: 0 for a build's, and a number no other
+	// body part has for each walkBodiesAgain makes. A cache of what a
+	// file's bodies contribute to a program-wide check holds the analysis
+	// and its generation (fileReductions).
+	generation uint64
 }
+
+// bodyGenerations numbers the body parts walkBodiesAgain makes.
+var bodyGenerations atomic.Uint64
 
 // keptDecls is what a project build keeps of a file's declarations so its
 // bodies can be rebuilt (rebuildBodies): the declarations' share of each
@@ -419,6 +429,7 @@ func (fa *FileAnalysis) walkBodiesAgain(nodes []ast.Node) bool {
 		ImportedModules:   slices.Clone(k.imported),
 		TypeErrors:        slices.Clone(k.errors),
 		BlockImportScopes: maps.Clone(k.blockImports),
+		generation:        bodyGenerations.Add(1),
 	}
 	fa.ModuleScope.Symbols = maps.Clone(k.symbols)
 	fa.ModuleScope.Children = fa.ModuleScope.Children[:k.scopes]

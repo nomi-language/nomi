@@ -286,6 +286,13 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 		ext    *ast.ExternFunc
 	}
 	seenExterns := make(map[seenExternKey]bool)
+	// Dedupe key for ImplManifest: a recording is folded once per (iface,
+	// type) list, the first time a file in key order holds it.
+	type seenRecordingKey struct {
+		iface, typeName string
+		rec             Recording
+	}
+	seenRecordings := make(map[seenRecordingKey]bool)
 	// The files of one build share one set of impl-method tables, so the
 	// stdlib's fifty-odd analyses hold one set between them, and a program's
 	// files another. Folding a set a second time adds nothing, so each is
@@ -387,17 +394,13 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 			for typeName, recs := range types {
 				existing := idx.ImplManifest[ifaceName][typeName]
 				for _, rec := range recs {
-					dup := false
-					for _, prev := range existing {
-						if prev == rec {
-							dup = true
-							break
-						}
-					}
-					if !dup {
+					k := seenRecordingKey{iface: ifaceName, typeName: typeName, rec: rec}
+					if !seenRecordings[k] {
+						seenRecordings[k] = true
 						existing = append(existing, rec)
 					}
 				}
+				noteRecordingCompares(len(recs))
 				idx.ImplManifest[ifaceName][typeName] = existing
 			}
 		}

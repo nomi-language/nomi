@@ -655,21 +655,17 @@ func appendInner[K, K2 comparable, V any](dst, base, over map[K]map[K2][]V) {
 // source order (sortRecordings).
 func mergeRecordings(base, over []Recording) []Recording {
 	out := make([]Recording, 0, len(base)+len(over))
-	compares := 0
-	for _, rec := range base {
-		compares += len(out)
-		if !slices.Contains(out, rec) {
-			out = append(out, rec)
-		}
-	}
-	for _, rec := range over {
-		compares += len(out)
-		if !slices.Contains(out, rec) {
-			out = append(out, rec)
+	seen := make(map[Recording]bool, len(base)+len(over))
+	for _, recs := range [][]Recording{base, over} {
+		for _, rec := range recs {
+			if !seen[rec] {
+				seen[rec] = true
+				out = append(out, rec)
+			}
 		}
 	}
 	sortRecordings(out)
-	noteRecordingCompares(compares)
+	noteRecordingCompares(len(base) + len(over))
 	return out
 }
 

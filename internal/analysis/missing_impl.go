@@ -17,9 +17,11 @@ import (
 // TypedLiteralSlot / InterfaceTypedParam) in that file's own ImplManifest
 // while it checks the file. The errors are the program's, whichever file
 // the caller reports them with.
+//
+// The program keeps what each file contributes (programDemands), so a call
+// after a recheck rebuilt some files' bodies reads only those files again.
 func FinalizeCoherence(fa *FileAnalysis) []TypeError {
-	p := fa.Program()
-	return MissingImpls(p, p.Files())
+	return fa.Program().finalizeCoherence()
 }
 
 // MissingImpls reports each (interface, type) pair the demanders' own
@@ -229,28 +231,7 @@ func DetectMissingImpls(idx *ProjectImplIndex, typeDecls map[string]Pos) []TypeE
 	sort.Strings(ifaceNames)
 
 	for _, iface := range ifaceNames {
-		// Universal default Debug: Debug is satisfied by every type (the
-		// eager auto-synthesis pass materializes a structural / name-only
-		// Debug impl for every declared type), so a (Debug, T) pair is
-		// never genuinely missing. Skip the whole interface — belt-and-
-		// suspenders against any Debug demand the synth pass doesn't cover
-		// (e.g. a non-nominal kind that has no declaration to synthesize
-		// from but is rendered by a Go intrinsic). Every other interface
-		// stays subject to the missing-impl diagnostic.
-		if iface == "Debug" {
-			continue
-		}
-		// Universal struct interface `Struct`: satisfied structurally by every
-		// struct (named or anonymous), with no registered impl — conformance is
-		// a predicate (isStructShaped), so a (Struct, T) pair is never genuinely
-		// missing. Skip it like Debug; struct-only-ness is enforced at the call
-		// site by the structural conformance check, not here.
-		if iface == "Struct" {
-			continue
-		}
-		// `Distinct<T>` is decided the same way, by what a distinct type
-		// wraps (distinct_self.go).
-		if iface == "Distinct" {
+		if !missingImplsChecked(iface) {
 			continue
 		}
 		byType := idx.ImplManifest[iface]
@@ -261,68 +242,106 @@ func DetectMissingImpls(idx *ProjectImplIndex, typeDecls map[string]Pos) []TypeE
 		sort.Strings(typeNames)
 
 		for _, typeName := range typeNames {
-			recs := byType[typeName]
-			if len(recs) == 0 {
-				continue
+			if e, ok := idx.missingImpl(iface, typeName, byType[typeName], typeDecls); ok {
+				errs = append(errs, e)
 			}
-			// Supply side: is there an impl for this (T, Iface)?
-			//
-			// `Impls` is keyed by BARE type name, and so is this bucket, so a
-			// bare-name hit may be another module's conformance on a
-			// same-named type — and the bucket itself may hold demands for
-			// several of them. `unsuppliedRecordings` keeps only the demands
-			// whose OWN declaration has no impl; it returns nothing whenever
-			// the identity index cannot answer, which is what every path that
-			// does not populate the index relies on. See
-			// missing_impl_identity.go.
-			if idx.Impls != nil {
-				if ifaces, ok := idx.Impls[typeName]; ok && ifaces[iface] {
-					recs = idx.unsuppliedRecordings(recs, typeName, iface)
-					if len(recs) == 0 {
-						continue
-					}
-				}
-			}
-			// Stdlib hands-off: every Recording is stdlib-internal.
-			allStdlib := true
-			for _, rec := range recs {
-				if !isStdlibRecording(rec) {
-					allStdlib = false
-					break
-				}
-			}
-			if allStdlib {
-				continue
-			}
-			// Equality-operator demands are weak — see
-			// RecordingKindEqualityOperator. `==` / `!=` on a concrete
-			// type *prefer* a custom `impl Equatable` block when one
-			// exists, but they fall back to structural `rt.Equal` at
-			// runtime if no impl is supplied. So a
-			// group whose recordings are ALL equality-operator-kind
-			// shouldn't surface a missing-impl diagnostic — `pub type
-			// Id Int` keeps working with `==` even though it has no
-			// `impl Equatable`. A mix of equality-operator + "real"
-			// demands still surfaces (the real demand needs the impl).
-			// Ordering-operator demands (RecordingKindOrderingOperator)
-			// are NOT skipped: ordering has no structural fallback, so
-			// `<` on a type with no `impl Comparable` is an ordinary
-			// missing-impl error.
-			allEqualityOperator := true
-			for _, rec := range recs {
-				if rec.Kind != RecordingKindEqualityOperator {
-					allEqualityOperator = false
-					break
-				}
-			}
-			if allEqualityOperator {
-				continue
-			}
-
-			errs = append(errs, missingImplError(iface, typeName, recs, typeDecls))
 		}
 	}
 	return errs
+}
+
+// missingImplsChecked reports whether DetectMissingImpls reports a missing
+// impl of iface at all.
+func missingImplsChecked(iface string) bool {
+	// Universal default Debug: Debug is satisfied by every type (the
+	// eager auto-synthesis pass materializes a structural / name-only
+	// Debug impl for every declared type), so a (Debug, T) pair is
+	// never genuinely missing. Skip the whole interface — belt-and-
+	// suspenders against any Debug demand the synth pass doesn't cover
+	// (e.g. a non-nominal kind that has no declaration to synthesize
+	// from but is rendered by a Go intrinsic). Every other interface
+	// stays subject to the missing-impl diagnostic.
+	if iface == "Debug" {
+		return false
+	}
+	// Universal struct interface `Struct`: satisfied structurally by every
+	// struct (named or anonymous), with no registered impl — conformance is
+	// a predicate (isStructShaped), so a (Struct, T) pair is never genuinely
+	// missing. Skip it like Debug; struct-only-ness is enforced at the call
+	// site by the structural conformance check, not here.
+	if iface == "Struct" {
+		return false
+	}
+	// `Distinct<T>` is decided the same way, by what a distinct type
+	// wraps (distinct_self.go).
+	if iface == "Distinct" {
+		return false
+	}
+	return true
+}
+
+// missingImpl answers DetectMissingImpls' diagnostic for the bucket of
+// recordings recs that demand typeName's impl of iface, and false when the
+// bucket draws none.
+func (idx *ProjectImplIndex) missingImpl(iface, typeName string, recs []Recording, typeDecls map[string]Pos) (TypeError, bool) {
+	if len(recs) == 0 {
+		return TypeError{}, false
+	}
+	// Supply side: is there an impl for this (T, Iface)?
+	//
+	// `Impls` is keyed by BARE type name, and so is this bucket, so a
+	// bare-name hit may be another module's conformance on a
+	// same-named type — and the bucket itself may hold demands for
+	// several of them. `unsuppliedRecordings` keeps only the demands
+	// whose OWN declaration has no impl; it returns nothing whenever
+	// the identity index cannot answer, which is what every path that
+	// does not populate the index relies on. See
+	// missing_impl_identity.go.
+	if idx.Impls != nil {
+		if ifaces, ok := idx.Impls[typeName]; ok && ifaces[iface] {
+			recs = idx.unsuppliedRecordings(recs, typeName, iface)
+			if len(recs) == 0 {
+				return TypeError{}, false
+			}
+		}
+	}
+	// Stdlib hands-off: every Recording is stdlib-internal.
+	allStdlib := true
+	for _, rec := range recs {
+		if !isStdlibRecording(rec) {
+			allStdlib = false
+			break
+		}
+	}
+	if allStdlib {
+		return TypeError{}, false
+	}
+	// Equality-operator demands are weak — see
+	// RecordingKindEqualityOperator. `==` / `!=` on a concrete
+	// type *prefer* a custom `impl Equatable` block when one
+	// exists, but they fall back to structural `rt.Equal` at
+	// runtime if no impl is supplied. So a
+	// group whose recordings are ALL equality-operator-kind
+	// shouldn't surface a missing-impl diagnostic — `pub type
+	// Id Int` keeps working with `==` even though it has no
+	// `impl Equatable`. A mix of equality-operator + "real"
+	// demands still surfaces (the real demand needs the impl).
+	// Ordering-operator demands (RecordingKindOrderingOperator)
+	// are NOT skipped: ordering has no structural fallback, so
+	// `<` on a type with no `impl Comparable` is an ordinary
+	// missing-impl error.
+	allEqualityOperator := true
+	for _, rec := range recs {
+		if rec.Kind != RecordingKindEqualityOperator {
+			allEqualityOperator = false
+			break
+		}
+	}
+	if allEqualityOperator {
+		return TypeError{}, false
+	}
+
+	return missingImplError(iface, typeName, recs, typeDecls), true
 }
 
 // isStdlibRecording reports whether the Recording's Pos.File names a

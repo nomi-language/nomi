@@ -484,12 +484,23 @@ type programChecks struct {
 	// Each checked file's build errors, CheckTypes errors, application-field
 	// root errors and unused whole-file imports, by key.
 	build, check, appRoots, implImports map[string][]TypeError
+	// appRootsFrom is what each file's appRoots entry was worked out from.
+	appRootsFrom map[string]appRootsFrom
 	// The program's coherence errors and the entry's own checks: iteration
 	// sensitivity, then the concurrency, boot-scope and task-lifetime rules.
 	coherence, entryChecks []TypeError
 	// frontEnd holds the derive-lowering and duplicate test name errors the
 	// front end reports before analysis.
 	frontEnd []TypeError
+}
+
+// appRootsFrom is the analysis and body part a file's application-field
+// root errors were worked out from, and whether the file has a root whose
+// reads the check followed into other files (checkAppRootsOf).
+type appRootsFrom struct {
+	fa         *FileAnalysis
+	generation uint64
+	rooted     bool
 }
 
 // fileOf answers the analysis and nodes of the checked file with key.
@@ -503,13 +514,27 @@ func (c *programChecks) fileOf(p *CheckedProgram, key string) (*FileAnalysis, []
 // reduce runs what the program reduces over every checked file's bodies:
 // each file's application-field roots, the whole-file imports nothing
 // names, and coherence.
+//
+// A file's application-field root errors are kept with the analysis and
+// body part they came from (FileBodies.generation), and a file with no
+// root whose reads they follow is not checked again until its bodies are
+// rebuilt: its errors read nothing of another file's bodies. Coherence
+// keeps each file's part the same way (FinalizeCoherence).
 func (c *programChecks) reduce(p *CheckedProgram) {
-	c.appRoots = map[string][]TypeError{}
+	if c.appRoots == nil {
+		c.appRoots = map[string][]TypeError{}
+		c.appRootsFrom = map[string]appRootsFrom{}
+	}
 	for _, key := range append([]string{p.Entry}, c.checked...) {
 		fa, nodes := c.fileOf(p, key)
-		c.appRoots[key] = CheckAppRoots(fa, nodes)
+		if from, ok := c.appRootsFrom[key]; ok && from.fa == fa && from.generation == fa.generation && !from.rooted {
+			continue
+		}
+		var rooted bool
+		c.appRoots[key], rooted = checkAppRootsOf(fa, nodes)
+		c.appRootsFrom[key] = appRootsFrom{fa: fa, generation: fa.generation, rooted: rooted}
 	}
-	unused := CheckImplImports(c.program)
+	unused := c.entry.Program().checkImplImportsKept(c.program)
 	c.implImports = map[string][]TypeError{}
 	for _, key := range append([]string{p.Entry}, c.checked...) {
 		fa, _ := c.fileOf(p, key)
