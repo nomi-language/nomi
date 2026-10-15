@@ -2846,26 +2846,6 @@ pub fn greet(name: String, punct: String = "!"): String {
 `,
 	},
 	{
-		name:   "gapSiblingGenericEmptyList",
-		fix:    "builder: sibling generic empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.siblingCall | false | !ok ¦¦ len(params) != len(f.decl.Params) ¦¦ (!irCallableValueKind(result) && result != kin…#1",
-		reason: "a direct callee outside this module's fn table: cnt",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    lib.{cnt}
-}
-
-fn main() {
-    io.print(cnt([]))
-}
-// FILE: lib.nomi
-pub fn cnt<T>(xs: List<T>): Int {
-    Iter.count(xs)
-}
-`,
-	},
-	{
 		name:   "gapStdGenericHostFnValue",
 		fix:    "builder: std generic host fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.stdFileFuncRef | false | generic == nil && (g.std == nil ¦¦ g.std.byFile[module+\".\"+name] == nil)#1",
 		reason: "a field access on an unbound name testing: .check",

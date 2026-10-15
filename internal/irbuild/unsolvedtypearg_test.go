@@ -132,3 +132,41 @@ fn main() {
 }
 `})
 }
+
+// Another file's generic function called with a type argument nothing
+// determines is filled as a local one's is, and solved in its own file:
+// `cnt([])` imported bare, `lib.is_some(None)`, and `lib.shown(None)` with
+// a bounded parameter.
+func TestUnsolvedTypeArg_ASiblingGenericCallRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import {
+    std/io
+    lib.{cnt}
+    lib
+}
+
+fn main() {
+    io.print(cnt([]))
+    io.print(cnt([1, 2]))
+    io.print(lib.is_some(None))
+    io.print(lib.shown(None, "none"))
+    io.print(lib.shown(Some(4), "none"))
+}
+`, "0\n2\nFalse\nnone\n4\n", map[string]string{"lib.nomi": `pub fn cnt<T>(xs: List<T>): Int {
+    Iter.count(xs)
+}
+
+pub fn is_some<T>(m: Maybe<T>): Bool {
+    case m {
+        Some(_) -> True
+        None -> False
+    }
+}
+
+pub fn shown<T>(m: Maybe<T>, d: String): String where T: Display {
+    case m {
+        Some(x) -> T.to_string(x)
+        None -> d
+    }
+}
+`})
+}

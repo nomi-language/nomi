@@ -424,6 +424,13 @@ func (g *gen) monoSolve(tpl *monoTemplate, params []kind, result kind) ([]kind, 
 // names (`shown(None)` with `T: Display`). It reports false for a signature
 // with no hole.
 func (g *gen) checkedMonoTypeArgsFilled(t *ast.Call, tpl *monoTemplate) ([]kind, bool) {
+	return g.solveFilled(t, tpl, g.monoSolve)
+}
+
+// solveFilled is checkedMonoTypeArgsFilled with the solving step given:
+// solve binds tpl's parameters from the call's parameter and result kinds,
+// which are this gen's (a sibling file's template solves in its own gen).
+func (g *gen) solveFilled(t *ast.Call, tpl *monoTemplate, solve func(*monoTemplate, []kind, kind) ([]kind, bool)) ([]kind, bool) {
 	ft := g.checkedCallSignature(t)
 	if ft == nil || len(ft.Params) != len(tpl.decl.Params) || !irUnsolvedType(ft) {
 		return nil, false
@@ -438,7 +445,7 @@ func (g *gen) checkedMonoTypeArgsFilled(t *ast.Call, tpl *monoTemplate) ([]kind,
 		for i, p := range ft.Params {
 			params[i] = g.project(fill(p))
 		}
-		args, ok := g.monoSolve(tpl, params, g.project(fill(ft.Return)))
+		args, ok := solve(tpl, params, g.project(fill(ft.Return)))
 		if !ok {
 			continue
 		}
