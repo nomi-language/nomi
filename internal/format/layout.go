@@ -87,8 +87,17 @@ func (o *renderOut) lineBreak(indent int) {
 // line that ends in an opening bracket, whose comment reads back as the
 // first item's leading comment: it waits for the next line with content
 // and goes on a line of its own above it (placeOwnLine). Nor can it end a
-// line that ends in a case arm's `->` (insertAboveLine).
+// line that ends in a case arm's `->` (insertAboveLine). A line that ends
+// in a binding's `=` takes no comment on it or on a line of its own below,
+// so the comments wait for the end of the next line, the value's first.
 func (o *renderOut) flushSuffix() {
+	if len(o.suffix) == 0 {
+		return
+	}
+	o.trim()
+	if o.endsInEquals() {
+		return
+	}
 	for _, c := range o.suffix {
 		o.trim()
 		if bytes.HasSuffix(o.buf.Bytes(), []byte("->")) {
@@ -108,6 +117,14 @@ func (o *renderOut) flushSuffix() {
 		o.lineComment = true
 	}
 	o.suffix = nil
+}
+
+// endsInEquals reports whether the line being written ends in a lone `=`,
+// not in an operator such as `==` or `<=`.
+func (o *renderOut) endsInEquals() bool {
+	b := o.buf.Bytes()
+	n := len(b)
+	return n > 0 && b[n-1] == '=' && (n == 1 || !strings.ContainsRune("=!<>", rune(b[n-2])))
 }
 
 // insertAboveLine writes comment on a line of its own above the line being
