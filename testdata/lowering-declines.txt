@@ -526,10 +526,9 @@ c	irScalarBuilder.lowerWant | note | "a value of kind " + have.nomi() + " where 
 d	irScalarBuilder.listCallPlan | note | "a List function without a retained typed list operand"#1	irlistops.go:32	-	needs a List.head/tail/concat operand with no stored type; lists of functions, existentials and Iters all have one (g5/l_list.nomi)
 d	irScalarBuilder.listCallPlan | note | "a List function result outside the retained domain: " + result.nomi()#1	irlistops.go:49	-	needs a Maybe of an element with no stored type; not found
 b	irScalarBuilder.listCaseTest | false | !ok ¦¦ pat.TypeName != nil#1	irlistpattern.go:13	-	only a List subject reaches here and the checker allows no prefix on a list pattern over a plain List (a prefix needs a distinct, which goes to nominalCaseTest)
-a	irScalarBuilder.listCaseTest | false | spread && len(pat.Heads) == 0#1	irlistpattern.go:17	irbuild	
-a	irScalarBuilder.listCaseTest | false | k.comp == nil && (spread ¦¦ len(pat.Heads) != 0)#1	irlistpattern.go:22	vmhost	pinned as gapListPatternOverEmptyLiteral (reason: a list case pattern outside flat bindings and wildcards)
-b	irScalarBuilder.listCaseTest | false | spread && !simple(pat.TailSpread)#1	irlistpattern.go:60	-	the parser only allows `..name` or `.._` as a list rest
-b	irScalarBuilder.listCaseTestNested | false | unguarded#1	irlistpattern.go:111	-	the parser only allows `..name` or `.._` as a list rest
+-	irScalarBuilder.listCaseTest | false | k.comp == nil && (spread ¦¦ len(pat.Heads) != 0)#1	irlistpattern.go:29	-	
+b	irScalarBuilder.listCaseTest | false | spread && !simple(pat.TailSpread)#1	irlistpattern.go:67	-	the parser only allows `..name` or `.._` as a list rest
+b	irScalarBuilder.listCaseTestNested | false | unguarded#1	irlistpattern.go:134	-	the parser only allows `..name` or `.._` as a list rest
 a	irScalarBuilder.taggedLiteral/no | note | "a typed literal: " + why#1	irliteral.go:17	irbuild	
 a	irScalarBuilder.taggedLiteral | false | why != ""#1	irliteral.go:33	irbuild	
 b	irScalarBuilder.taggedLiteral | false | f.irBody == nil ¦¦ f.rtCall != ""#1	irliteral.go:45	-	std-only fence: every std Literal handler (calendar, regex, toml) has a retained Nomi body

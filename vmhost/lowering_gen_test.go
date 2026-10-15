@@ -1780,7 +1780,8 @@ func (g *gen) callBlock() string {
 // a failing `try`), a nested fn's destructuring parameter, and a
 // `Struct.update` patch that is a value rather than a literal, and a
 // partial whose open slot has a computed default, and a Context value keyed
-// by a std type with an rt Go type.
+// by a std type with an rt Go type, and list patterns over `[]` and of a
+// suffix alone.
 func (g *gen) leaveBlock() string {
 	r := g.leave
 	g.ln++
@@ -1808,7 +1809,13 @@ func (g *gen) leaveBlock() string {
 	}
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(8) {
+	switch r.Intn(9) {
+	case 8:
+		// A list pattern over the untyped `[]`, and one that is only a
+		// suffix.
+		heads := []string{"[_]", "[_, .._]", "[_, _]"}
+		fmt.Fprintf(&out, "io.inspect(case [] {\n%s -> %d\n_ -> %d\n})\n", heads[r.Intn(3)], n, n+1)
+		fmt.Fprintf(&out, "io.inspect(case [%d, %d] {\n[_, _, _] -> 0\n[..%s] -> Iter.count(%s)\n})\n", n, n+1, name("lr"), name("lr"))
 	case 7:
 		// A Context value keyed by std's rt-backed Duration or Codepoint.
 		vals := [][2]string{{fmt.Sprintf("Duration.seconds(%d)", n), "Duration"}, {"'c'", "Codepoint"}}

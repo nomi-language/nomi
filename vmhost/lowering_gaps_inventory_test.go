@@ -57,21 +57,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapListPatternOverEmptyLiteral",
-		fix:    "builder: list pattern over empty literal. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.listCaseTest | false | k.comp == nil && (spread ¦¦ len(pat.Heads) != 0)#1",
-		reason: "a list case pattern outside flat bindings and wildcards",
-		src: `import std/io
-
-fn main() {
-  n = case [] {
-    [_] -> 1
-    _ -> 0
-  }
-  io.inspect(n)
-}
-`,
-	},
-	{
 		name:   "gapDeferLambda",
 		fix:    "builder: defer lambda. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.deferCall | note | \"a defer inside a lambda\"#1",
 		reason: "a defer inside a lambda",
