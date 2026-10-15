@@ -22,7 +22,8 @@ import (
 // program's types sit at file level or inside the body that uses them, and
 // statement blocks, some nested, declare types of their own, among them
 // distinct types over Decimal, Bytes, Regex, Unit and containers of them
-// (leafDistinctBlock). The body is a `fn main` or a test.
+// (leafDistinctBlock), or store concrete values where Display's existential
+// is expected (erasedBlock). The body is a `fn main` or a test.
 //
 // The generator stays clear of the shapes knownLoweringGaps lists, each at
 // the line that avoids it, so every decline it produces is a new cause. When
@@ -100,7 +101,12 @@ type gen struct {
 	// wrap draws the blocks leafDistinctBlock writes, and wn names their
 	// types apart, so the rest of each program is the one it was without
 	// them.
-	wrap    *rand.Rand
+	wrap *rand.Rand
+	// dyn draws the blocks erasedBlock writes, and en names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	dyn     *rand.Rand
+	en      int
 	wn      int
 	dn      int
 	n       int
@@ -1224,6 +1230,81 @@ func (g *gen) divergingBlock(sc []gvar) string {
 	return "{\n" + name + " = Iter.reduce(" + xs + ", " + cb + ")\nio.inspect(" + name + ")\n}\n"
 }
 
+// genDisplayValues are concrete values of types that implement Display, as
+// functions of a small number: scalars in each register bank, a String, a
+// derived generic struct and a list.
+var genDisplayValues = []func(n int) string{
+	func(n int) string { return fmt.Sprint(n) },
+	func(n int) string { return fmt.Sprintf("\"e%d\"", n) },
+	func(n int) string { return []string{"True", "False"}[n%2] },
+	func(n int) string { return fmt.Sprintf("%d.5", n) },
+	func(n int) string { return fmt.Sprintf("Box{v: %d}", n) },
+}
+
+// erasedBlock is a statement block that stores concrete values where
+// Display's existential is expected, in every position that moves a value
+// into it: a nested fn's result and early `return`, `if` and `case` arms as
+// a result and under a binding annotation, an annotated binding, an
+// argument, a partial application's bound argument, a struct field, a
+// list's elements and a lambda's result under an annotated function type.
+// Each value is then shown through the existential. It draws from g.dyn
+// only and names from g.en, so the program around it is the one it would be
+// without it.
+func (g *gen) erasedBlock() string {
+	r := g.dyn
+	g.en++
+	name := func(s string) string { return fmt.Sprintf("%s%d", s, g.en) }
+	val := func() string { return genDisplayValues[r.Intn(len(genDisplayValues))](r.Intn(10)) }
+	show := func(e string) string { return "io.print(Display.to_string(" + e + "))\n" }
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(9) {
+	case 0:
+		fmt.Fprintf(&out, "fn %s(): Display {\n%s\n}\n", name("er"), val())
+		out.WriteString(show(name("er") + "()"))
+	case 1:
+		fmt.Fprintf(&out, "fn %s(c: Bool): Display {\nif c {\nreturn %s\n}\n%s\n}\n", name("er"), val(), val())
+		out.WriteString(show(name("er") + "(" + g.boolLitFrom(r) + ")"))
+	case 2:
+		a, b := genDisplayValues[r.Intn(len(genDisplayValues))], r.Intn(10)
+		fmt.Fprintf(&out, "fn %s(c: Bool): Display {\nif c { %s } else { %s }\n}\n", name("er"), a(b), a(b+1))
+		out.WriteString(show(name("er") + "(" + g.boolLitFrom(r) + ")"))
+	case 3:
+		a := genDisplayValues[r.Intn(len(genDisplayValues))]
+		fmt.Fprintf(&out, "%s: Display = case %d {\n0 -> %s\n_ -> %s\n}\n", name("ev"), r.Intn(2), a(1), a(2))
+		out.WriteString(show(name("ev")))
+	case 4:
+		a := genDisplayValues[r.Intn(len(genDisplayValues))]
+		fmt.Fprintf(&out, "%s: Display = if %s { %s } else { %s }\n", name("ev"), g.boolLitFrom(r), a(3), a(4))
+		out.WriteString(show(name("ev")))
+	case 5:
+		fmt.Fprintf(&out, "fn %s(d: Display, n: Int): String {\n\"${Display.to_string(d)}/${Int.to_string(n)}\"\n}\n", name("ef"))
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "io.print(%s(%s, 1))\n", name("ef"), val())
+		} else {
+			fmt.Fprintf(&out, "%s = %s(%s, _)\nio.print(%s(2))\n", name("ep"), name("ef"), val(), name("ep"))
+		}
+	case 6:
+		fmt.Fprintf(&out, "struct %s {\nd: Display\n}\n", name("Held"))
+		fmt.Fprintf(&out, "%s = %s{d: %s}\n", name("ev"), name("Held"), val())
+		out.WriteString(show(name("ev") + ".d"))
+	case 7:
+		fmt.Fprintf(&out, "%s: List<Display> = [%s, %s]\n", name("ev"), val(), val())
+		fmt.Fprintf(&out, "io.print(%s |> Iter.map(Display.to_string) |> String.join(\",\"))\n", name("ev"))
+	default:
+		a := genDisplayValues[r.Intn(len(genDisplayValues))]
+		fmt.Fprintf(&out, "%s: (Bool) -> Display = |c| if c { %s } else { %s }\n", name("ev"), a(5), a(6))
+		out.WriteString(show(name("ev") + "(" + g.boolLitFrom(r) + ")"))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
+// boolLitFrom is a Bool literal drawn from r.
+func (g *gen) boolLitFrom(r *rand.Rand) string {
+	return []string{"True", "False"}[r.Intn(2)]
+}
+
 // generatedProgram is program i.
 func generatedProgram(i int) loweringSeed { return generatedProgramSized(i, 3, 3) }
 
@@ -1232,7 +1313,7 @@ func generatedProgram(i int) loweringSeed { return generatedProgramSized(i, 3, 3
 func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	g := &gen{r: rand.New(rand.NewSource(int64(i))), aux: rand.New(rand.NewSource(int64(i) + 1<<32)),
 		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32)),
-		wrap: rand.New(rand.NewSource(int64(i) + 4<<32))}
+		wrap: rand.New(rand.NewSource(int64(i) + 4<<32)), dyn: rand.New(rand.NewSource(int64(i) + 5<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -1261,6 +1342,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.wrap.Intn(3) == 0 {
 			body.WriteString(g.leafDistinctBlock())
+		}
+		if g.dyn.Intn(3) == 0 {
+			body.WriteString(g.erasedBlock())
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")
