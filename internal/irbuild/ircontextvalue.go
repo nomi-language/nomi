@@ -150,6 +150,7 @@ func (bl *irScalarBuilder) witnessTypeKind(at ast.Node) (kind, bool) {
 // `import std/duration.Duration`) that this file's type table does not
 // hold.
 func (g *gen) namedWitnessKind(at ast.Node, name string) kind {
+	// kindInvalid: lookup — a name this file's table does not hold tries the checker's type.
 	if k := g.qualifierKind(name); k != kindInvalid {
 		return k
 	}
