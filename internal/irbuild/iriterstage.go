@@ -147,7 +147,21 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		return bl.iterAppend(t, ir.IterToMap, ir.IterOverSeq, k, src), k, true, true
 	case "flat_map":
 		r, signalling, ok := bl.iterSignalledCallback(args, 1, elem)
-		if !ok || r.comp == nil || len(r.comp.parts) != 1 {
+		if !ok {
+			return no()
+		}
+		if inner, viewed := bl.innerSourceElem(r); viewed {
+			// `|s| s` answering a String, a Range, a Set or a Vector: each
+			// result is mapped, then viewed as the Iter it is.
+			view, ok := bl.sourceViewFunc(t, r, inner)
+			if !ok {
+				return no()
+			}
+			k := seqKindIn(bl.g, inner)
+			mapped := bl.iterAppendSignalling(t, ir.IterMap, signalling, seqKindIn(bl.g, r), src, args.temps[1])
+			return bl.iterAppend(t, ir.IterFlatMap, ir.IterOverSeq, k, mapped, view), k, true, true
+		}
+		if r.comp == nil || len(r.comp.parts) != 1 {
 			return no()
 		}
 		inner := r.comp.parts[0]
@@ -160,6 +174,17 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		}
 		return no()
 	case "flatten":
+		if inner, viewed := bl.innerSourceElem(elem); viewed {
+			// A source of Strings, Ranges, Sets or Vectors: each element
+			// viewed as the Iter it is, then materialized.
+			view, ok := bl.sourceViewFunc(t, elem, inner)
+			k := listKindIn(bl.g, inner)
+			if !ok || (!irRetainedListKind(k) && !irListTransportKind(k)) {
+				return no()
+			}
+			flat := bl.iterAppend(t, ir.IterFlatMap, ir.IterOverSeq, seqKindIn(bl.g, inner), src, view)
+			return bl.iterAppend(t, ir.IterToList, ir.IterOverSeq, k, flat), k, true, true
+		}
 		if elem.comp == nil || len(elem.comp.parts) != 1 {
 			return no()
 		}
@@ -193,6 +218,60 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		return bl.iterAppend(t, ir.IterChunkBy, ir.IterOverSeq, k, src, args.temps[1]), k, true, true
 	}
 	return ir.NoTemp, kindInvalid, false, false
+}
+
+// innerSourceElem is the element a flat_map result or a flatten element of
+// kind k pushes when k is a source the view reads rather than a List or an
+// Iter: a String, Bytes, a Range, a Set, a Vector, a Map or a user source.
+func (bl *irScalarBuilder) innerSourceElem(k kind) (kind, bool) {
+	if k == kindString {
+		return kindString, true
+	}
+	if k == irBytesKind() {
+		return irByteKind(), true
+	}
+	if elem, ok := irIterRangeElem(k); ok {
+		return elem, true
+	}
+	if member, ok := setElem(k); ok && k != kindEmptySet {
+		return member, true
+	}
+	if elem, ok := vectorElem(k); ok && k != kindEmptyVector {
+		return elem, true
+	}
+	if k.tag == tagMap && k != kindEmptyMap && irRetainedMapKind(k) {
+		return bl.g.tupleKind([]kind{k.comp.parts[0], k.comp.parts[1]}), true
+	}
+	if it, elem := bl.userSource(k); it != nil {
+		return elem, true
+	}
+	return kindInvalid, false
+}
+
+// sourceViewFunc is a function value from a value of kind sk to the Iter of
+// elem it is (seqView's view), for flat_map and flatten to view each inner
+// source with.
+func (bl *irScalarBuilder) sourceViewFunc(at ast.Node, sk, elem kind) (ir.Temp, bool) {
+	pos := bl.g.irNodePos(at)
+	f := ir.NewFunc(pos, "view")
+	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
+	sh.frame = newIRFuncFrame(f)
+	sh.entry = f.NewBlock(pos, "entry")
+	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
+	param := bl.g.irAddParam(f, ir.NewSymbol("source"), sk)
+	v, ok := child.seqView(at, param, sk, elem)
+	if !ok {
+		return ir.NoTemp, false
+	}
+	child.b.SetTerm(ir.NewReturn(pos, v))
+	if err := bl.g.irLint(f); err != nil {
+		irDeclineNote("a source view function that does not lint: " + err.Error())
+		return ir.NoTemp, false
+	}
+	n := ir.NewFuncValue(pos, bl.f.NewTemp(), f)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: funcKindIn(bl.g, []kind{sk}, seqKindIn(bl.g, elem))})
+	return n.Dst(), true
 }
 
 // iterConstructor lowers `Iter.iterate(seed, step)` and `Iter.repeat(x)`:

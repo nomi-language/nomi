@@ -166,30 +166,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCFlatMapString",
-		fix:    "builder: c flat map string. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !ok ¦¦ r.comp == nil ¦¦ len(r.comp.parts) != 1#1",
-		reason: "qualified call, Type.method: Iter.flat_map",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.inspect(["ab", "cd"] |> Iter.flat_map(|s| s) |> Iter.to_list())
-}
-`,
-	},
-	{
-		name:   "gapCFlattenStrings",
-		fix:    "builder: c flatten strings. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | elem.comp == nil ¦¦ len(elem.comp.parts) != 1#1",
-		reason: "qualified call, Type.method: Iter.flatten",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.inspect(Iter.flatten(["ab", "cd"]))
-}
-`,
-	},
-	{
 		name:   "gapCIterParamEmptySet",
 		fix:    "builder: c iter param empty set. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.seqView | false | sk == kindEmptySet ¦¦ !irRetainedSetKind(sk) ¦¦ member != elem#1",
 		reason: "a direct call's operand: total",

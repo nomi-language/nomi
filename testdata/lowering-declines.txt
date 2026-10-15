@@ -455,18 +455,20 @@ c	irScalarBuilder.iterStage | false | !irRetainedSetKind(k)#1	iriterstage.go:130
 ?	irScalarBuilder.iterStage | false | !irRetainedValueKind(k) && !bl.g.irVectorValueKind(k)#1	iriterstage.go:136	?	
 b	irScalarBuilder.iterStage | false | elem.tag != tagTuple ¦¦ elem.comp == nil ¦¦ len(elem.comp.parts) != 2#1	iriterstage.go:141	-	checker types to_map's source as Iter<(K, V)>
 c	irScalarBuilder.iterStage | false | !irRetainedMapKind(k)#1	iriterstage.go:145	-	pinned as gapCToMapFnValues (reason: qualified call, Type.method: Iter.to_map)
-c	irScalarBuilder.iterStage | false | !ok ¦¦ r.comp == nil ¦¦ len(r.comp.parts) != 1#1	iriterstage.go:151	-	pinned as gapCFlatMapString (reason: qualified call, Type.method: Iter.flat_map)
-c	irScalarBuilder.iterStage | false | unguarded#1	iriterstage.go:161	-	pinned as gapCFlatMapFnList (reason: qualified call, Type.method: Iter.flat_map)
-c	irScalarBuilder.iterStage | false | elem.comp == nil ¦¦ len(elem.comp.parts) != 1#1	iriterstage.go:164	-	pinned as gapCFlattenStrings (reason: qualified call, Type.method: Iter.flatten)
-c	irScalarBuilder.iterStage | false | !irRetainedListKind(k) && !irListTransportKind(k)#1	iriterstage.go:169	-	pinned as gapCFlattenFnLists (reason: qualified call, Type.method: Iter.flatten)
-b	irScalarBuilder.iterStage | false | unguarded#2	iriterstage.go:177	-	only List and Seq kinds carry one comp part (Range/Set/Vector are named kinds with no comp and stop at 164)
-c	irScalarBuilder.iterStage | false | !irRetainedListKind(chunk) && !irListTransportKind(chunk)#1	iriterstage.go:181	-	pinned as gapCChunksFnList (reason: qualified call, Type.method: Iter.chunks)
-b	irScalarBuilder.iterStage | false | args.kinds[1] != kindInt#2	iriterstage.go:186	-	checker types Iter.chunks(size: Int)
-b	irScalarBuilder.iterStage | false | !ok ¦¦ !irRetainedValueKind(key)#1	iriterstage.go:191	-	checker rejects break/continue in chunk_by and function keys (K: Equatable)
-a	irScalarBuilder.iterStage | false | unguarded#3	iriterstage.go:195	expect,irbuild,projectgen,vmhost	
-?	irScalarBuilder.iterConstructor | false | len(args.temps) != 1 ¦¦ !irCallableValueKind(args.kinds[0])#1	iriterstage.go:204	?	
-?	irScalarBuilder.iterConstructor | false | len(args.temps) != 2 ¦¦ !irCallableValueKind(args.kinds[0])#1	iriterstage.go:210	?	
-b	irScalarBuilder.iterConstructor | false | !ok ¦¦ r != elem#1	iriterstage.go:215	-	checker types step as (T) -> T; an empty-list seed is coerced (Iter.iterate([], |l: List<Int>| ...) lowers)
+?	irScalarBuilder.iterStage | false | r.comp == nil ¦¦ len(r.comp.parts) != 1#1	iriterstage.go:165	?	
+c	irScalarBuilder.iterStage | false | unguarded#1	iriterstage.go:175	-	pinned as gapCFlatMapFnList (reason: qualified call, Type.method: Iter.flat_map)
+?	irScalarBuilder.iterStage | false | !ok ¦¦ (!irRetainedListKind(k) && !irListTransportKind(k))#1	iriterstage.go:183	?	
+c	irScalarBuilder.iterStage | false | elem.comp == nil ¦¦ len(elem.comp.parts) != 1#1	iriterstage.go:189	-	pinned as gapCFlattenStrings (reason: qualified call, Type.method: Iter.flatten)
+c	irScalarBuilder.iterStage | false | !irRetainedListKind(k) && !irListTransportKind(k)#1	iriterstage.go:194	-	pinned as gapCFlattenFnLists (reason: qualified call, Type.method: Iter.flatten)
+b	irScalarBuilder.iterStage | false | unguarded#2	iriterstage.go:202	-	only List and Seq kinds carry one comp part (Range/Set/Vector are named kinds with no comp and stop at 164)
+c	irScalarBuilder.iterStage | false | !irRetainedListKind(chunk) && !irListTransportKind(chunk)#1	iriterstage.go:206	-	pinned as gapCChunksFnList (reason: qualified call, Type.method: Iter.chunks)
+b	irScalarBuilder.iterStage | false | args.kinds[1] != kindInt#2	iriterstage.go:211	-	checker types Iter.chunks(size: Int)
+b	irScalarBuilder.iterStage | false | !ok ¦¦ !irRetainedValueKind(key)#1	iriterstage.go:216	-	checker rejects break/continue in chunk_by and function keys (K: Equatable)
+a	irScalarBuilder.iterStage | false | unguarded#3	iriterstage.go:220	expect,irbuild,projectgen,vmhost	
+?	irScalarBuilder.sourceViewFunc | note | "a source view function that does not lint: " + err.Error()#1	iriterstage.go:268	?	
+?	irScalarBuilder.iterConstructor | false | len(args.temps) != 1 ¦¦ !irCallableValueKind(args.kinds[0])#1	iriterstage.go:283	?	
+?	irScalarBuilder.iterConstructor | false | len(args.temps) != 2 ¦¦ !irCallableValueKind(args.kinds[0])#1	iriterstage.go:289	?	
+b	irScalarBuilder.iterConstructor | false | !ok ¦¦ r != elem#1	iriterstage.go:294	-	checker types step as (T) -> T; an empty-list seed is coerced (Iter.iterate([], |l: List<Int>| ...) lowers)
 a	irScalarBuilder.lambda | note | "a lambda parameter outside the domain: " + params[i].nomi()#1	irlambda.go:61	irbuild	
 a	irScalarBuilder.lambda | note | "a lambda parameter default outside the parameter's kind: " + params[i].nomi()#1	irlambda.go:78	irbuild	
 c	irScalarBuilder.lambdaFunction/no | note | why#1	irlambda.go:101	-	pinned as gapLambdaBlockLocalDerive (reason: a lambda body that is not a block ending in an expression)
