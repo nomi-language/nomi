@@ -27,6 +27,11 @@ type TypeError struct {
 	// recognize a diagnostic class without sniffing the message text. Empty
 	// for the vast majority of diagnostics.
 	Code string
+	// File is the path of the file Line and Col are in, when the error may
+	// be reported with another file's diagnostics: a missing impl a derive
+	// in an imported file demands is reported with the entry's. Empty means
+	// the file it is reported with.
+	File string
 }
 
 func (e TypeError) Error() string {

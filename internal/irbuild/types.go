@@ -76,6 +76,10 @@ import (
 type typeDef struct {
 	// nomi is the Nomi spelling, for refusal text.
 	nomi string
+	// layoutGroup is the type group whose layout phases will box and slot
+	// this def: a mirror made while its owner's fields were unresolved, or a
+	// generic instance built then (deferInstLayout). Nil once it is laid out.
+	layoutGroup *typeGroup
 	// decl is the declaration node, for refusal positions.
 	decl ast.Node
 	line int
@@ -449,11 +453,17 @@ func (d *typeDef) reachesOn(target *typeDef, path typePath) bool {
 // refer to each other runs each phase over every file before the next one
 // (typecycle.go). One file on its own runs them in a row.
 func (g *gen) buildTypes(nodes []ast.Node) {
+	grp := g.building
+	if grp == nil {
+		// A stdlib module, built outside the registry.
+		grp = &typeGroup{}
+		g.building = grp
+	}
+	grp.state = groupShells
 	g.declareTypeShells(nodes)
+	grp.state = groupResolving
 	g.resolveTypeShells(nodes)
-	g.boxTypeFields()
-	g.assignTypeSlots()
-	g.settleLowerable(g.typeSettleOrder())
+	grp.layOut([]*gen{g})
 }
 
 // declareTypeShells registers a shell for every struct, enum and distinct type
@@ -579,12 +589,17 @@ func (g *gen) declaredTypes() []*typeDef {
 // zero-sized, and zero-sizedness decides whether a payload gets a slot at all.
 func (g *gen) boxTypeFields() {
 	for _, d := range g.declaredTypes() {
-		for i := range d.fields {
-			for _, c := range appendInlineDefs(nil, d.fields[i].k) {
-				if c == d || c.reaches(d) {
-					d.fields[i].boxed = true
-					break
-				}
+		d.boxFields()
+	}
+}
+
+// boxFields boxes each of d's fields that can reach d.
+func (d *typeDef) boxFields() {
+	for i := range d.fields {
+		for _, c := range appendInlineDefs(nil, d.fields[i].k) {
+			if c == d || c.reaches(d) {
+				d.fields[i].boxed = true
+				break
 			}
 		}
 	}
@@ -1054,7 +1069,9 @@ func (d *typeDef) assignSlots() {
 // contain cycles.
 func (g *gen) settleLowerable(order []*typeDef) {
 	for _, d := range order {
-		d.lowerable = len(d.refusals) == 0
+		// A generic instance whose impls could not be registered carries why
+		// (typeGroup.registerInsts) and stays refused.
+		d.lowerable = len(d.refusals) == 0 && d.why == ""
 	}
 	for changed := true; changed; {
 		changed = false

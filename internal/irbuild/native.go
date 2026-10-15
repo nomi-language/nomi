@@ -923,6 +923,10 @@ type gen struct {
 	importWhy       string
 	typesBusy       bool
 	typesDone       bool
+	// building is the type group this file's types are built in, a group
+	// of this file alone when it is on no cycle; nil until the build starts
+	// and for a stdlib module. See typecycle.go.
+	building *typeGroup
 	// funcsDone marks declareFuncs having finished, which is the earliest this
 	// package's impl table is COMPLETE. A cross-package question about whether
 	// the program declares an impl at all — noEquatableImpl's foreign arm —

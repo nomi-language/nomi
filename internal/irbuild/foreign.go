@@ -225,9 +225,12 @@ func (r *typeRegistry) ensureTypes(unit int) bool {
 		return grp.state >= groupResolving
 	}
 	if g.typesBusy {
-		return false
+		// Its own build is under way: a file asking for its types while it
+		// resolves fields gets pending mirrors (deferringGroup).
+		return g.building != nil && g.building.state >= groupResolving
 	}
 	g.typesBusy = true
+	g.building = &typeGroup{units: []int{unit}}
 	g.declareTypes()
 	g.typesBusy = false
 	return true
@@ -371,9 +374,9 @@ func (g *gen) mirrorOf(o *typeOwner) *typeDef {
 	var d *typeDef
 	// A member of this file's type group whose fields are being resolved has
 	// no layout to copy yet. See typecycle.go.
-	deferred := g.reg.defersMirror(g.fileUnit, o.unit)
+	deferred := g.reg.deferringGroup(g.fileUnit, o.unit)
 	switch {
-	case !deferred && !g.reg.ensureLayout(o.unit):
+	case deferred == nil && !g.reg.ensureLayout(o.unit):
 		d = g.blockedMirror(o, "sibling file type cycle", o.fileKey+"."+o.nomi)
 	default:
 		src := g.reg.gens[o.unit].types[o.nomi]
@@ -382,8 +385,8 @@ func (g *gen) mirrorOf(o *typeOwner) *typeDef {
 			// The declaring file registered no shell for it, which happens
 			// only for a duplicate declaration its own file refuses.
 			d = g.blockedMirror(o, "unlowered type", o.fileKey+"."+o.nomi)
-		case deferred:
-			return g.pendingMirror(src, o)
+		case deferred != nil:
+			return g.pendingMirror(deferred, src, o)
 		default:
 			d = g.importDef(src, o)
 		}
@@ -926,8 +929,8 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 	}
 	// A member of this file's type group whose fields are being resolved has
 	// no layout to copy yet. See typecycle.go.
-	deferred := g.reg.defersMirror(g.fileUnit, o.unit)
-	if !deferred && !g.reg.ensureLayout(o.unit) {
+	deferred := g.reg.deferringGroup(g.fileUnit, o.unit)
+	if deferred == nil && !g.reg.ensureLayout(o.unit) {
 		g.importWhy = "sibling file type cycle"
 		return kindInvalid, false
 	}
@@ -936,8 +939,8 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 		g.importWhy = "unlowered type"
 		return kindInvalid, false
 	}
-	if deferred {
-		return named(g.pendingMirror(inner, o)), true
+	if deferred != nil {
+		return named(g.pendingMirror(deferred, inner, o)), true
 	}
 	d := g.importDef(inner, o)
 	if !d.lowerable {

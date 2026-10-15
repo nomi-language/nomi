@@ -827,7 +827,13 @@ func TestCheckProgramPrintsWhatTheFrontEndPrints(t *testing.T) {
 	}
 	withTypeError.texts["shapes"] = strings.Replace(withTypeError.texts["shapes"], "value.radius + Iter.count(Settings.tag)", "value.radius + Settings.tag", 1)
 	withTypeError.texts["report"] = strings.Replace(withTypeError.texts["report"], "pub once base = Iter.count(main.greeting())", "pub once base = main.greeting()", 1)
-	for _, p := range append([]incrementalProject{order, withTypeError}, corpus...) {
+	// A derive in an imported file over a field with no impl: the entry's
+	// coherence finds it, and both print it in the file with the derive.
+	deriveElsewhere := incrementalProject{name: "derive in an imported file", entry: "main", texts: map[string]string{
+		"main":  "import {\n    std/io\n    child.Holder\n}\n\nfn main() {\n    io.inspect(Holder{n: 1, o: Opaque{f: |x| x}})\n}\n",
+		"child": "pub struct Opaque {\n    f: (Int) -> Int\n}\n\npub struct Holder {\n    n: Int\n    o: Opaque\n}\n\nderive Equatable for Holder\n",
+	}}
+	for _, p := range append([]incrementalProject{order, withTypeError, deriveElsewhere}, corpus...) {
 		dir := t.TempDir()
 		for key, text := range p.texts {
 			path := filepath.Join(dir, filepath.FromSlash(key)+".nomi")
@@ -869,6 +875,9 @@ func TestCheckProgramPrintsWhatTheFrontEndPrints(t *testing.T) {
 		}
 		if strings.Join(got, "\n") != strings.Join(want, "\n") {
 			t.Errorf("%s: the front end prints\n%s\nand the checked program's dump lists\n%s", p.name, strings.Join(got, "\n"), strings.Join(want, "\n"))
+		}
+		if p.name == deriveElsewhere.name && !slices.ContainsFunc(got, func(l string) bool { return strings.HasPrefix(l, "child:7:5 no impl of `Equatable` for `Opaque`") }) {
+			t.Errorf("%s: the front end prints\n%s\nwithout the missing impl at child:7:5", p.name, strings.Join(got, "\n"))
 		}
 		if p.name == withTypeError.name && len(got) < 2 || p.name == order.name && len(got) == 0 {
 			t.Errorf("%s: the front end prints %d diagnostics, want the program's errors", p.name, len(got))

@@ -381,6 +381,7 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 		Line:    primary.Pos.Line,
 		Col:     primary.Pos.Col,
 		Message: b.String(),
+		File:    primary.Pos.File,
 	}
 
 	// Every other Recording is a related location.
