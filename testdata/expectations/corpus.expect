@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 282
-declared-cases 900
+records 283
+declared-cases 913
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1154,6 +1154,32 @@ T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: try o
 T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a nested fn's try inside a named fn
 T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a recursive nested fn with try
 T test result: ok. 4 passed, 0 failed
+T
+C 09-functions-and-control-flow/nested_statements_test.nomi
+E 0
+N 13
+H 14a5e7171aee32372057bf559481e4a06eae4299f855c9b740c16816ffe08d9f
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a guard's body may branch before it returns
+T   big
+T   one
+T   very negative
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an Iter.loop binding else may branch
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an empty case over Infallible is never reached
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a block may declare an interface
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: regions and blocks inside an assertion subject
+T   inner
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a case subject in a function reports its rows
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a Type witness is a row
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a nested block may rebind a name, and the outer one keeps its definition
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an assertion binding and a pattern may rebind a name
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a pipe binding whose stage holds a pipe records its spine
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an annotated pipe binding
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a defer in a test arm runs at the arm's end
+T   arm
+T   arm done
+T   after
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a setup binding whose every arm returns / the setup's value is the returned one
+T test result: ok. 13 passed, 0 failed
 T
 C 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi
 E 0

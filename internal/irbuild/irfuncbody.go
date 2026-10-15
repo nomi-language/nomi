@@ -2560,11 +2560,25 @@ func (bl *irScalarBuilder) tailCase(t *ast.Case, sig irFuncSig) (kind, bool) {
 
 // caseRegion leaves its join open for the caller's continuation.
 func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
-	if len(t.Branches) < 1 {
-		irDeclineNote("a tail `case` with no branches")
-		return kindInvalid, false
-	}
 	adHoc := isNilNode(t.Value)
+	if len(t.Branches) < 1 {
+		// `case e {}` over a type with no values (`Infallible`): the checker
+		// admits it only where no value reaches it, so it diverges as a
+		// failed match does and no arm writes the region.
+		if adHoc {
+			irDeclineNote("an ad hoc `case` with no branches")
+			return kindInvalid, false
+		}
+		if _, _, _, ok := bl.lower(t.Value); !ok {
+			return kindInvalid, false
+		}
+		pos := bl.g.irNodePos(t)
+		exit := bl.f.NewBlock(pos, "exit")
+		bl.b.Append(ir.NewNoMatch(pos))
+		bl.b.SetTerm(ir.NewJump(pos, exit.ID()))
+		bl.b = exit
+		return irJoinArms(kindDiverged, kindDiverged, sig)
+	}
 	if !adHoc && bl.isNeverOperand(t.Value) {
 		return bl.neverCaseRegion(t, sig)
 	}

@@ -44,24 +44,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapEmptyCaseInfallible",
-		fix:    "builder: empty case infallible. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.caseRegion | note | \"a tail `case` with no branches\"#1",
-		reason: "a tail `case` with no branches",
-		src: `import std/io
-
-fn unwrap(r: Result<Int, Infallible>): Int {
-    case r {
-        Ok(v) -> v
-        Err(e) -> case e {}
-    }
-}
-
-fn main() {
-    io.inspect(unwrap(Ok(1)))
-}
-`,
-	},
-	{
 		name:   "gapLambdaReturnEmptyListFirst",
 		fix:    "builder: lambda return empty list first. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.explicitReturn | false | !ok ¦¦ k != bl.returnKind#1",
 		reason: "a value of kind List<Int> where List<_> is expected",
