@@ -1239,6 +1239,7 @@ func newChecker(fa *FileAnalysis, nodes []ast.Node) *checker {
 
 // CheckTypes walks all function bodies and validates type consistency.
 func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
+	noteBodyCheck(fa)
 	// Every unannotated `once` of the program gets its type before the first
 	// file is checked (OnceTable).
 	fa.Program().Onces.infer()

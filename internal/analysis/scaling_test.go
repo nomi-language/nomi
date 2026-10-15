@@ -1,0 +1,187 @@
+package analysis_test
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+	"testing"
+
+	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/projectgen"
+)
+
+// TestEditWorkStaysFlatAsAProjectGrows counts the work each kind of edit
+// costs the language server's kept program (DocumentManager.RecheckEdits)
+// in generated projects of about 1k and 10k lines (internal/projectgen):
+// the files whose bodies CheckTypes walks. It counts work, not time.
+//
+//   - A body-only edit, in a leaf, a hub or the entry, re-checks the edited
+//     file and nothing else, at every size.
+//   - A signature edit re-checks the edited file and the files that import
+//     it, directly or through others, and no more.
+//
+// It also counts the visits the program-wide passes make to project files
+// (CountProgramWorkForTest) and pins where they grow with the project: the
+// reductions after a body-only edit, an impl added to a leaf (a full
+// check), and the recordings a dependents recheck scans.
+//
+// The program before and after every edit must check with no diagnostic.
+// The 50k-line project is in the benchmarks only (internal/scalebench).
+func TestEditWorkStaysFlatAsAProjectGrows(t *testing.T) {
+	work := map[projectgen.EditKind][]counts{}
+	for _, lines := range []int{1000, 10000} {
+		t.Run(fmt.Sprint(lines), func(t *testing.T) {
+			p := projectgen.Generate(projectgen.Config{Seed: 1, Lines: lines})
+			root := fmt.Sprintf("/nomi-scaling/%d", lines)
+			texts := p.ProgramTexts()
+			dm := newManager()
+			prog := dm.CheckProgram(root, p.Entry, texts)
+			requireClean(t, prog, "the generated program")
+			all := len(prog.Files)
+			for _, kind := range projectgen.EditKinds {
+				key, text := p.Edit(kind, 0)
+				if text == prog.Texts[key] {
+					t.Fatalf("%s: the edit changes nothing in %s", kind, key)
+				}
+				var next *analysis.CheckedProgram
+				var outcome analysis.RecheckOutcome
+				var walked []*analysis.FileAnalysis
+				visits, scans := analysis.CountProgramWorkForTest(func() {
+					walked = analysis.BodyChecksForTest(func() {
+						next, outcome = dm.RecheckEdits(prog, []analysis.ProgramEdit{{Key: key, Text: text}})
+					})
+				})
+				requireClean(t, next, fmt.Sprintf("the program after the %s", kind))
+				got := checkedKeys(next, walked)
+				dependents := p.Dependents(key)
+				t.Logf("%-22s %-10s %-20s rechecked %3d of %3d files (%d import it); program-wide visits %d, recordings scanned %d",
+					kind, outcome.Path, key, len(got), all, len(dependents), visits, scans)
+				work[kind] = append(work[kind], counts{files: all, lines: p.Lines(), visits: visits, scans: scans})
+
+				switch kind {
+				case projectgen.BodyLeaf, projectgen.BodyHub, projectgen.BodyEntry:
+					if outcome.Path != analysis.RecheckBodies || !sameKeys(got, []string{key}) {
+						t.Errorf("%s in %s: want the bodies path re-checking %s alone, got %s re-checking %d files: %s",
+							kind, key, key, outcome.Path, len(got), describeKeys(got))
+					}
+				case projectgen.SignatureLeaf, projectgen.SignatureHub:
+					// The hub, core/util, is imported directly or through
+					// others by most files, so its set is most of the
+					// program; still not core/ids, which it imports.
+					want := append([]string{key}, dependents...)
+					if len(want) >= all {
+						t.Fatalf("%s: every file imports %s, and recheckDependents takes a full check then; the generator changed, and this case needs its own expectation", kind, key)
+					}
+					if outcome.Path != analysis.RecheckDependents || !sameKeys(got, want) {
+						t.Errorf("%s in %s: want the dependents path re-checking %d files (%s), got %s re-checking %d: %s",
+							kind, key, len(want), describeKeys(want), outcome.Path, len(got), describeKeys(got))
+					}
+				case projectgen.ImplLeaf:
+					// FINDING, pinned: a new impl in a leaf that only the entry
+					// imports changes the leaf's impls fingerprint, and
+					// recheckDependents then takes a full check
+					// (implsFingerprint), so the work grows with the project:
+					// every file is re-checked where the leaf and the entry
+					// would do. When a fix narrows it, expect the leaf and
+					// its dependents here.
+					if outcome.Path != analysis.RecheckFull || len(got) != all {
+						t.Errorf("%s in %s: pinned as a full check of %d files, got %s re-checking %d; if an impl edit now re-checks less, update this case",
+							kind, key, all, outcome.Path, len(got))
+					}
+				}
+				prog = next
+			}
+		})
+	}
+	if t.Failed() {
+		return
+	}
+
+	// FINDING, pinned: a body-only edit re-checks one file, but the
+	// program-wide reductions it reruns (CheckAppRoots, CheckImplImports,
+	// FinalizeCoherence's MissingImpls) visit every file: two visits per
+	// file at every size (16 at 1k lines, 100 at 10k). The time follows:
+	// 1.3 ms at 1k lines, 27 ms at 50k (internal/scalebench). When a fix
+	// makes these visits flat, expect a constant here.
+	for _, kind := range []projectgen.EditKind{projectgen.BodyLeaf, projectgen.BodyHub, projectgen.BodyEntry} {
+		for _, c := range work[kind] {
+			if c.visits != 2*int64(c.files) {
+				t.Errorf("%s: pinned at 2 program-wide visits per file, got %d for %d files; if the reductions now visit fewer files, update this pin",
+					kind, c.visits, c.files)
+			}
+		}
+	}
+
+	// FINDING, pinned: on the dependents path, a signature edit to a leaf
+	// re-checks two files, but laying the kept files' facts over the
+	// stdlib's (programShare.layOver) drops duplicate recordings with a
+	// linear scan per recording (mergeRecordings), so the recordings
+	// scanned grow faster than the project: 116k at 1k lines, 2.2M at 10k
+	// and 50M at 50k, the square of the size between the last two. At 50k
+	// lines that scan is about 40% of the edit's 268 ms. When a fix makes it
+	// linear, this pin fails; replace it with a linear bound.
+	leaf := work[projectgen.SignatureLeaf]
+	if len(leaf) == 2 {
+		lines := float64(leaf[1].lines) / float64(leaf[0].lines)
+		scans := float64(leaf[1].scans) / float64(leaf[0].scans)
+		if !(scans > 1.5*lines) {
+			t.Errorf("signature edit, leaf: pinned as growing faster than the project (%d to %d lines), but the recordings scanned went from %d to %d; update this pin",
+				leaf[0].lines, leaf[1].lines, leaf[0].scans, leaf[1].scans)
+		}
+	}
+}
+
+// requireClean fails t when p holds a diagnostic.
+func requireClean(t *testing.T, p *analysis.CheckedProgram, what string) {
+	t.Helper()
+	for key, errs := range p.Syntax {
+		if len(errs) > 0 {
+			t.Fatalf("%s: %s has a syntax error: %v", what, key, errs[0])
+		}
+	}
+	for key, errs := range p.Errors {
+		if len(errs) > 0 {
+			t.Fatalf("%s: %s has %d diagnostics, the first %d:%d: %s", what, key, len(errs), errs[0].Line, errs[0].Col, errs[0].Message)
+		}
+	}
+}
+
+// checkedKeys answers the module keys of the project files among walked,
+// each once, in key order. Stdlib analyses have no key in p.
+func checkedKeys(p *analysis.CheckedProgram, walked []*analysis.FileAnalysis) []string {
+	keyOf := map[*analysis.FileAnalysis]string{}
+	for key, fa := range p.Files {
+		keyOf[fa] = key
+	}
+	seen := map[string]bool{}
+	for _, fa := range walked {
+		if key, ok := keyOf[fa]; ok {
+			seen[key] = true
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for key := range seen {
+		out = append(out, key)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func sameKeys(got, want []string) bool {
+	w := append([]string(nil), want...)
+	sort.Strings(w)
+	return strings.Join(got, ",") == strings.Join(w, ",")
+}
+
+func describeKeys(keys []string) string {
+	if len(keys) > 8 {
+		return strings.Join(keys[:8], ", ") + fmt.Sprintf(" and %d more", len(keys)-8)
+	}
+	return strings.Join(keys, ", ")
+}
+
+// counts is the work one edit cost at one size.
+type counts struct {
+	files, lines  int
+	visits, scans int64
+}

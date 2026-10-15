@@ -300,6 +300,7 @@ var (
 // impl that file declares, when counting is on and the file is the
 // stdlib's.
 func noteStdlibWork(key string) {
+	noteProgramWork(key)
 	if countingStdlibWork.Load() && IsStdlibKey(key) {
 		stdlibWork.Add(1)
 	}
@@ -654,17 +655,21 @@ func appendInner[K, K2 comparable, V any](dst, base, over map[K]map[K2][]V) {
 // source order (sortRecordings).
 func mergeRecordings(base, over []Recording) []Recording {
 	out := make([]Recording, 0, len(base)+len(over))
+	compares := 0
 	for _, rec := range base {
+		compares += len(out)
 		if !slices.Contains(out, rec) {
 			out = append(out, rec)
 		}
 	}
 	for _, rec := range over {
+		compares += len(out)
 		if !slices.Contains(out, rec) {
 			out = append(out, rec)
 		}
 	}
 	sortRecordings(out)
+	noteRecordingCompares(compares)
 	return out
 }
 
