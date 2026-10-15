@@ -11,6 +11,7 @@ import (
 // deferred calls. The tail's temporary is the block's value; the block's
 // names do not escape.
 func (bl *irScalarBuilder) blockValue(block *ast.Block) (ir.Temp, kind, bool, bool) {
+	defer bl.keepOpenDefers()()
 	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {
@@ -41,6 +42,7 @@ func (bl *irScalarBuilder) blockValue(block *ast.Block) (ir.Temp, kind, bool, bo
 // body's tail region does, and a tail block is lowered the same way, so the
 // block's value may branch at any depth.
 func (bl *irScalarBuilder) blockBinding(block *ast.Block, want kind) (kind, bool) {
+	defer bl.keepOpenDefers()()
 	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {

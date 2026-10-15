@@ -113,3 +113,26 @@ func TestPipeStage_LambdaIsRejected(t *testing.T) {
 		}
 	}
 }
+
+// A parenthesized `dbg expr` is the value of expr, not a stage: `5 |> (dbg 1)`
+// would pipe 5 into 1. It passed the checker and stopped at run time with
+// "the pipe operator". The error sits on the group and names `|> dbg`.
+func TestPipeStage_GroupedDbgIsRejected(t *testing.T) {
+	for _, stmt := range []string{
+		"x = 5 |> (dbg 1)",
+		"x = 5 |> ((dbg double))",
+	} {
+		src := pipeStageDecls + "fn main() {\n  " + stmt + "\n  _ = x\n}\n"
+		_, errs := checkSourceWithStdlib(src)
+		want := "a parenthesized `dbg expr` is not a pipe stage"
+		if len(errs) != 1 || !strings.HasPrefix(errs[0].Message, want) {
+			t.Fatalf("%s: errors = %v, want exactly one starting %q", stmt, errs, want)
+		}
+		if errs[0].Line != 20 || errs[0].Col != 12 {
+			t.Errorf("%s: the error is at %d:%d, want 20:12 (the group)", stmt, errs[0].Line, errs[0].Col)
+		}
+		if !strings.Contains(diagText(errs[0]), "write `|> dbg` to print the piped value") {
+			t.Errorf("%s: the error has no hint: %s", stmt, diagText(errs[0]))
+		}
+	}
+}

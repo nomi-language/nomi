@@ -213,11 +213,11 @@ func (bl *irScalarBuilder) equatableImplCall(t *ast.Binary, op ir.CompareOp, lhs
 	if u := irGenUnit(bl.g, og); og != bl.g && u < 0 {
 		return ir.NoTemp, false
 	}
+	// Inside the impl's own `equal?` this is a recursive call: on fields
+	// of the type (a tree's children) it ends with the data, and the
+	// checker rejects comparing the impl's own arguments
+	// (self_recursion.go, protocolErrors).
 	sym := og.irCalleeSym(it, d.recv.nomi()+"."+it.name)
-	if bl.f.Sym() == sym {
-		// `a == b` inside the impl it would call recurses without end.
-		return ir.NoTemp, false
-	}
 	call := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), sym, lhs, rhs)
 	bl.b.Append(call)
 	bl.side(call.Dst(), irScalarSide{k: kindBool})

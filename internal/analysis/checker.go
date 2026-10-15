@@ -6429,6 +6429,13 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			c.addError(dbg.Line, dbg.Col, "right side of `|>` must be bare `dbg`, not `dbg expr`")
 			return nil
 		}
+		if dbg, ok := ungroupExpr(n.Right).(*ast.Dbg); ok && dbg.Expr != nil {
+			// `x |> (dbg 1)`: the group is `dbg 1`'s value, `1`, which
+			// is not a call the pipe can pass x to.
+			c.report(errAt(n.Right, "a parenthesized `dbg expr` is not a pipe stage: it is the value of `expr`, and the pipe has nothing to call").
+				WithHint("write `|> dbg` to print the piped value and pass it on, or `dbg expr` as its own statement"))
+			return nil
+		}
 		if pipeCall != nil {
 			if form, ok := c.variantCtorCallee(pipeCall.Func, right); ok {
 				if !callHasPlaceholder(pipeCall.Args) {

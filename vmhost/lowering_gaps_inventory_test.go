@@ -31,19 +31,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapPipeDbgGrouped",
-		fix:    "builder: pipe dbg grouped. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.pipe | false | r.Expr != nil#2",
-		reason: "the pipe operator `|>`",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    x = 5 |> (dbg 1)
-    io.inspect(x)
-}
-`,
-	},
-	{
 		name:   "gapListPatternOverEmptyLiteral",
 		fix:    "builder: list pattern over empty literal. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.listCaseTest | false | k.comp == nil && (spread ¦¦ len(pat.Heads) != 0)#1",
 		reason: "a list case pattern outside flat bindings and wildcards",
@@ -67,66 +54,6 @@ import std/duration.Duration
 
 fn main() {
     io.inspect(Context.value(Context.root(), Duration))
-}
-`,
-	},
-	{
-		name:   "gapDeferLambda",
-		fix:    "builder: defer lambda. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.deferCall | note | \"a defer inside a lambda\"#1",
-		reason: "a defer inside a lambda",
-		src: `import std/io
-
-fn close(name: String): Unit {
-    io.print("close " + name)
-}
-
-fn main() {
-    f = |name: String| {
-        defer close(name)
-        io.print("body")
-    }
-    f("a")
-}
-`,
-	},
-	{
-		name:   "gapDeferLoop",
-		fix:    "builder: defer loop. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.deferCall | note | \"a defer outside a named function's body or scoped block\"#1",
-		reason: "a defer outside a named function's body or scoped block",
-		src: `import std/io
-
-fn close(name: String): Unit {
-    io.print("close " + name)
-}
-
-fn main() {
-    _ = Iter.loop(|n = 0| {
-        defer close("loop")
-        if n == 2 { break n }
-        n + 1
-    })
-}
-`,
-	},
-	{
-		name:   "gapEqualImplSelfRecursion",
-		fix:    "builder: equal impl self recursion. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.equatableImplCall | false | bl.f.Sym() == sym#1",
-		reason: "the comparison operator `==`",
-		noSkip: true,
-		src: `import std/io
-
-struct P {
-    x: Int
-}
-
-impl Equatable for P {
-    fn equal?(a: P, b: P): Bool {
-        a.x == b.x or a == b
-    }
-}
-
-fn main() {
-    io.print(P{x: 1} == P{x: 2})
 }
 `,
 	},

@@ -11,6 +11,9 @@ import (
 type irDeferScope struct {
 	block *ast.Block
 	ids   []int
+	// outer is the scope that was innermost when this one opened, so an
+	// `Iter.loop` iteration can run every scope it opened (loopJump).
+	outer *irDeferScope
 	// scoped is true when the block holds its own app-field writes: the
 	// running scope was read at its entry and is restored at its exit.
 	scoped bool
@@ -22,9 +25,18 @@ func (bl *irScalarBuilder) openDeferScope(block *ast.Block) *irDeferScope {
 	if !bl.deferOK {
 		return nil
 	}
-	scope := &irDeferScope{block: block}
+	scope := &irDeferScope{block: block, outer: bl.openDefers}
 	bl.deferScope = scope
+	bl.openDefers = scope
 	return scope
+}
+
+// keepOpenDefers answers a func that makes the open scopes what they are now.
+// A lowering that opens a block's scope defers it, so the scope leaves the
+// chain however the block's lowering ends, its exit lowered or not.
+func (bl *irScalarBuilder) keepOpenDefers() func() {
+	saved := bl.openDefers
+	return func() { bl.openDefers = saved }
 }
 
 // closeDefers appends the scope's runs, most recent first, after the last
@@ -49,10 +61,7 @@ func (bl *irScalarBuilder) deferCall(t *ast.Defer, scope *irDeferScope) bool {
 	call, isCall := t.Call.(*ast.Call)
 	switch {
 	case scope == nil:
-		irDeclineNote("a defer outside a named function's body or scoped block")
-		return false
-	case bl.parent != nil:
-		irDeclineNote("a defer inside a lambda")
+		irDeclineNote("a defer outside the own statements of a body, a block or a loop callback")
 		return false
 	case !isCall:
 		irDeclineNote("a defer of something other than a call")
@@ -118,6 +127,7 @@ func irDeferOperand(in ir.Instr) bool {
 // statement ends in, where its deferred calls run and its overrides are
 // restored.
 func (bl *irScalarBuilder) scopedBlock(block *ast.Block) bool {
+	defer bl.keepOpenDefers()()
 	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
 	if tail == nil {

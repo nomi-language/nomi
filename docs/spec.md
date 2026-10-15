@@ -345,6 +345,7 @@ fn add(x: Int, y: Int): Int {
 - Last expression is the return value
 - `return` keyword for early exit — `return value` exits the nearest function boundary with `value`. This applies equally to named functions (`fn`) and lambdas (`|...| ...`) — no non-local returns. Bare `return` is valid when the function returns `Unit`. A bare `return` that the body would reach its end without is a compiler error: one that is the last statement of a function, lambda or test body, reached through the last statement of a block, either branch of a final `if` or any arm of a final `case` (`` this `return` does nothing: it is the last statement of `reset` ``), and a final `if` or `case` whose every branch is empty or a bare `return` (`` this `if` does nothing: every branch returns and nothing follows it ``). A bare `return` after a `dbg`, or after an assertion outside a test body, is not one: it discards that statement's value. A tail `return value` is legal, and `nomi fmt` rewrites it to `value`. A statement after one that always exits can never run, and is a compiler error at that statement whose help is "remove it". A statement always exits when it is a `return`, `break` or `continue` (`unreachable code after return`); an `if` with an `else` whose every branch always exits (`` unreachable code: the `if` above returns in every branch ``); a `case` whose every arm always exits (`` unreachable code: the `case` above returns in every arm ``); or a block statement that holds one (`unreachable code: the block above always returns`). An `Iter.loop` statement whose callback holds no `break` of its own never finishes, and counts the same way (`unreachable code after a loop that never breaks`, with the help "remove it, or give the loop a `break` that ends it"); see §12 *`loop`*. A `todo` statement is `Unit` and does not exit, so code after a stub stays legal while it is written, and no other call counts as an exit.
 - `try x` is sugar for `case x { Ok(val) -> val, Err(e) -> return Err(e) }` (and similarly for `Maybe`). Since `return` exits the nearest function boundary, `try` inside a lambda returns from that lambda, not from an outer function.
+- `defer call(args)` evaluates the call's operands where it stands and runs the call when the block it is written in ends, the most recently registered first. A function's or a lambda's body is such a block, so a `defer` in a lambda runs when that invocation of the lambda ends, and one in an `Iter.loop` or other iteration callback runs at the end of each iteration, before the next starts. Every way out of the block runs them: reaching its end, `return`, a callback's `break` or `continue`, `try` propagating a failure, and a trap.
 - `:` separates parameters from return type
 - Data-first convention — the primary data argument comes first (works naturally with `|>`)
 - Named functions are first-class values. Reference without parens, call with parens:
@@ -1212,7 +1213,9 @@ users
 
 `dbg expr` works in expression position too. It uses the same universal
 `Debug` rendering as `io.inspect`, but includes the source expression and line
-number in its output. Because `dbg` is development-only instrumentation, the
+number in its output. A parenthesized `dbg expr` is the value of `expr`, not
+a pipe stage, so `x |> (dbg 1)` is an error whose help names `|> dbg`.
+Because `dbg` is development-only instrumentation, the
 LSP reports it as a warning, and `nomi build` refuses a program with a `dbg`
 anywhere in its files, reached or not, so it does not ship. `nomi check`,
 `nomi run`, `nomi test` and the REPL accept and run it. The refusal lists each
@@ -5247,6 +5250,13 @@ An impl that renders its own receiver through the function it defines never retu
 ```
 "${foo}" calls Display.to_string(foo), the function being defined, so it never returns
 help: Debug.inspect(foo) renders its fields
+```
+
+The same holds for equality, ordering and hashing. In `impl Equatable for P`, `fn equal?(a: P, b: P)` may not compare its own arguments with `==` or `!=`, or pass them to `Equatable.equal?` or `P.equal?`; in `impl Comparable for P`, `fn compare(a: P, b: P)` may not compare them with `<`, `>`, `<=` or `>=`, or pass them to `Comparable.compare` or `P.compare`; in `impl Hashable for P`, `fn hash(p: P)` may not pass `p` to `Hashable.hash` or `P.hash`. Each dispatches back to the function being defined with the values it was given, so it calls itself forever, and is a compile error at the comparison whose help says to compare the fields instead or to write `derive Equatable for P`. A plain binding of an argument is the same value. Comparing or hashing a field is legal, even a field of type `P`, as in a tree whose `equal?` compares its children with `==`:
+
+```
+`a == b` calls P's `equal?`, the function being defined, with its own arguments, so it calls itself forever
+help: compare the fields instead (`a.field == b.field`), or write `derive Equatable for P`
 ```
 
 The two interfaces have **opposite default policies**:

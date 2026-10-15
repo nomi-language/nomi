@@ -248,3 +248,177 @@ fn main() {
 		t.Fatal("a defer with a call operand was retained")
 	}
 }
+
+// A `defer` in a lambda runs when that invocation ends, on each exit: the
+// normal end, `return`, `try` propagating, and in an iteration callback
+// `break` and `continue`. Several run most recent first. The builder
+// declined a defer in any lambda.
+func TestIRDefer_ALambdaRunsItsDeferredCallsWhenEachInvocationEnds(t *testing.T) {
+	verifyDeferProgram(t, `import std/io
+
+fn note(label: String): Unit {
+  io.print("cleanup ${label}")
+}
+
+fn check(n: Int): Result<Int, String> {
+  if n > 0 { Ok(n) } else { Err("no") }
+}
+
+fn main() {
+  greet = |name: String| {
+    defer note("first")
+    defer note(name)
+    io.print("hello ${name}")
+  }
+  greet("a")
+  greet("b")
+  early = |n: Int| {
+    defer note("early")
+    if n > 1 { return n * 10 }
+    n
+  }
+  io.print(early(1) + early(2))
+  attempt = |n: Int| {
+    defer note("attempt")
+    v = try check(n)
+    io.print("checked")
+    Ok(v + 1)
+  }
+  io.inspect(attempt(1))
+  io.inspect(attempt(0))
+  kept = [1, 2, 3, 4]
+    |> Iter.filter(|x| {
+      defer note("filter")
+      if x == 2 { continue }
+      if x == 4 { break }
+      True
+    })
+    |> Iter.to_list()
+  io.inspect(kept)
+}
+`, "hello a\ncleanup a\ncleanup first\nhello b\ncleanup b\ncleanup first\ncleanup early\ncleanup early\n21\nchecked\ncleanup attempt\nOk(2)\ncleanup attempt\nErr(\"no\")\ncleanup filter\ncleanup filter\ncleanup filter\ncleanup filter\n[1, 3]\n", "main")
+}
+
+// An `Iter.loop` callback lowers inline in its enclosing function, so the
+// iteration runs its deferred calls at each of its exits: the next state, a
+// `return` from the callback, a `break`, and a block statement's own scope
+// inside it, innermost first. The builder declined a defer in a loop callback.
+func TestIRDefer_AnIterLoopIterationRunsItsDeferredCalls(t *testing.T) {
+	verifyDeferProgram(t, `import std/io
+
+fn note(label: String): Unit {
+  io.print("cleanup ${label}")
+}
+
+fn leave(n: Int): Unit {
+  io.print("leave ${n}")
+}
+
+fn main() {
+  defer note("main")
+  total = Iter.loop(|n = 0| {
+    defer leave(n)
+    defer note("second")
+    if n == 1 {
+      return 2
+    }
+    if n == 3 { break n * 10 }
+    io.print("step ${n}")
+    n + 1
+  })
+  io.print("total ${total}")
+  _ = Iter.loop(|n = 0| {
+    defer leave(n)
+    {
+      defer note("block")
+      if n == 1 { break n }
+      io.print("in block ${n}")
+    }
+    n + 1
+  })
+  _ = Iter.loop(|| {
+    defer note("stateless")
+    break
+  })
+  io.print("end")
+}
+`, "step 0\ncleanup second\nleave 0\ncleanup second\nleave 1\nstep 2\ncleanup second\nleave 2\ncleanup second\nleave 3\ntotal 30\nin block 0\ncleanup block\nleave 0\ncleanup block\nleave 1\ncleanup stateless\nend\ncleanup main\n", "main")
+}
+
+// A block that leaves an `Iter.loop` iteration (a guard's arm, a `case`
+// arm, a binding's `else`) runs its own deferred calls, then the
+// iteration's; a value arm runs its own where it ends, and the paths that
+// did not pass a `defer` run nothing for it.
+func TestIRDefer_AnArmLeavingAnIterationRunsItsDeferredCalls(t *testing.T) {
+	verifyDeferProgram(t, `import std/io
+
+fn note(label: String): Unit {
+  io.print("cleanup ${label}")
+}
+
+fn main() {
+  a = Iter.loop(|n = 0| {
+    defer note("iteration")
+    if n == 3 {
+      defer note("guard")
+      break n
+    }
+    case n {
+      2 -> {
+        defer note("case arm")
+        return n + 1
+      }
+      _ -> {
+        defer note("value arm")
+        n + 1
+      }
+    }
+  })
+  io.print(a)
+  m: Maybe<Int> = None
+  b = Iter.loop(|n = 0| {
+    defer note("iteration b")
+    Some(x) = m else {
+      defer note("else")
+      break n
+    }
+    x
+  })
+  io.print(b)
+}
+`, "cleanup value arm\ncleanup iteration\ncleanup value arm\ncleanup iteration\ncleanup case arm\ncleanup iteration\ncleanup guard\ncleanup iteration\n3\ncleanup else\ncleanup iteration b\n0\n", "main")
+}
+
+// A trap inside a lambda or a loop iteration runs that invocation's pending
+// deferred calls, then the enclosing function's, before it leaves.
+func TestIRDefer_ATrapInALambdaOrIterationRunsItsDeferredCalls(t *testing.T) {
+	src := `import std/io
+
+fn note(label: String): Unit {
+  io.print("cleanup ${label}")
+}
+
+fn main() {
+  defer note("main")
+  divide = |d: Int| {
+    defer note("divide")
+    10 / d
+  }
+  io.print(divide(2))
+  _ = Iter.loop(|n = 1| {
+    defer note("iteration")
+    io.print(divide(n))
+    n - 1
+  })
+}
+`
+	const stdout = "cleanup divide\n5\ncleanup divide\n10\ncleanup iteration\ncleanup divide\ncleanup iteration\ncleanup main\n"
+	const fault = "line 11: division by zero"
+	path := filepath.Join(t.TempDir(), "main.nomi")
+	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got := vmReference(path); got.exit != 1 || got.stdout != stdout || got.stderr != fault+"\n" {
+		t.Fatalf("vm command: %s", got)
+	}
+}
