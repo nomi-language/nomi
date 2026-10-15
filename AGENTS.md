@@ -436,8 +436,9 @@ re-checks the edited file alone, and a signature edit the edited file and
 the files that import it. It also counts the program-wide passes' visits
 to project files (`CountProgramWorkForTest`), and pins, each with a
 comment, the work that still grows with the project: the reductions a
-body-only edit reruns over every file, the full check after an impl is
-added, and the recordings a dependents recheck scans. The table of time and allocations per operation (check cold and
+body-only edit reruns over every file and the full check after an impl is
+added. The recordings a dependents recheck looks up to drop duplicates
+must grow no faster than the project. The table of time and allocations per operation (check cold and
 warm, `nomi check`, the language server's edits and lowering, `nomi run`,
 the heap a kept program holds) at 1k, 10k and 50k lines and on the stdlib
 takes about two minutes:
