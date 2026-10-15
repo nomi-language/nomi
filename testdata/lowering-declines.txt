@@ -546,10 +546,10 @@ d	irScalarBuilder.loopGuard | false | !ok ¦¦ (t.CondPattern == nil && ck != ki
 b	irScalarBuilder.loopGuard | false | unguarded#1	irloop.go:533	-	loopGuardShape and the final-if path admit only break/return/continue exits
 b	irScalarBuilder.loopValue | false | isNilNode(value)#1	irloop.go:558	-	checker rejects a bare `return` in a non-Unit loop guard ("return type mismatch: expected Int, got Unit")
 c	irScalarBuilder.loopValue | false | !ok ¦¦ vk != k#1	irloop.go:562	-	pinned as gapCLoopGuardReturnEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
-b	irScalarBuilder.mapMakeOf | false | t.TypeName != nil ¦¦ len(t.Entries) == 0#1	irmap.go:169	-	parser builds `{}` as a block, never an empty MapLit; a typed MapLit returns before this line
-d	irScalarBuilder.mapUpdate | false | bk != lk ¦¦ !irRetainedMapKind(lk)#1	irmap.go:210	-	needs a map spread whose entries lower but whose kind differs from the base or is not a retained map; not found
-c	irScalarBuilder.mapEntriesOver | false | !joined ¦¦ (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructu…#1	irmap.go:294	-	pinned as gapMapOfFunctions (reason: a MapLit)
-b	irScalarBuilder.mapEntriesOver | false | !ok#1	irmap.go:304	-	fence: the key test at irmap.go:273 already admits only kinds irMapKeyOK admits
+b	irScalarBuilder.mapMakeOf | false | t.TypeName != nil ¦¦ len(t.Entries) == 0#1	irmap.go:174	-	parser builds `{}` as a block, never an empty MapLit; a typed MapLit returns before this line
+d	irScalarBuilder.mapUpdate | false | bk != lk ¦¦ !irRetainedMapKind(lk)#1	irmap.go:215	-	needs a map spread whose entries lower but whose kind differs from the base or is not a retained map; not found
+c	irScalarBuilder.mapEntriesOver | false | !joined ¦¦ (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructu…#1	irmap.go:299	-	pinned as gapMapOfFunctions (reason: a MapLit)
+b	irScalarBuilder.mapEntriesOver | false | !ok#1	irmap.go:309	-	fence: the key test at irmap.go:273 already admits only kinds irMapKeyOK admits
 b	irScalarBuilder.mapEntryGet | false | mk.tag != tagMap ¦¦ !irRetainedMapKind(mk)#1	irmappattern.go:38	-	every caller passes a retained map kind; a map pattern over a non-map is a checker error
 b	irScalarBuilder.mapEntryGet | note | "a map pattern key of kind " + kk.nomi() + " over " + mk.nomi()#1	irmappattern.go:57	-	tried enum, tuple, struct, record, list, Float and Unit keys over String/Bool-keyed maps: all lower (irMapKeyKind admits them)
 b	irScalarBuilder.mapEntryGet | false | !ok ¦¦ (kk != keyK && !irMapKeyKind(kk))#1	irmappattern.go:59	-	same as :57; !ok propagates the key expression's own decline

@@ -33,6 +33,11 @@ func irMapKeyKind(k kind) bool {
 		// order-insensitively, as its elements are.
 		return irSetElemKind(elem)
 	}
+	if elem, isRange := rangeElem(k); isRange && irRetainedRangeKind(k) {
+		// A Range is std's struct of its bounds: hashed and compared
+		// structurally, as its endpoints are.
+		return irMapKeyKind(elem)
+	}
 	// kindInvalid: marker — a zero-sized marker has no inner value.
 	if k.tag == tagNamed && k.def != nil && k.def.isDistinct && !k.def.rtOpaque && irCompositeDistinct(k.def) && k.def.inner != kindInvalid {
 		// A distinct over a key (`Items(List<Int>)`): hashed and compared

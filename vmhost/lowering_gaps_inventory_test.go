@@ -319,18 +319,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCRangeBool",
-		fix:    "builder: c range bool. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.rangeMake | false | !irRetainedRangeKind(k)#1",
-		reason: "a RangeLit",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.inspect(Range.contains?(False..True, True))
-}
-`,
-	},
-	{
 		name:   "gapCRangeToString",
 		fix:    "builder: c range to string. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.rangeCall | false | unguarded#1",
 		reason: "qualified call, Type.method: Range.to_string",
@@ -339,18 +327,6 @@ fn main() {
 
 fn main() {
     io.print(Range.to_string(1..4))
-}
-`,
-	},
-	{
-		name:   "gapCToSetRanges",
-		fix:    "builder: c to set ranges. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !irRetainedSetKind(k)#1",
-		reason: "qualified call, Type.method: Iter.to_set",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.inspect(Iter.to_set([1..2, 3..4]))
 }
 `,
 	},

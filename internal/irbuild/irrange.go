@@ -7,7 +7,7 @@ import (
 
 func irRetainedRangeKind(k kind) bool {
 	elem, ok := rangeElem(k)
-	return ok && (elem == kindInt || elem == kindFloat || elem == kindString || isDecimalKind(elem) || irRangeDistinctElem(elem) || irNominalElemKind(elem))
+	return ok && (elem == kindInt || elem == kindFloat || elem == kindString || elem == kindBool || isDecimalKind(elem) || irRangeDistinctElem(elem) || irNominalElemKind(elem))
 }
 
 // irRangeDistinctElem is a wrapping distinct element, such as Codepoint, whose
