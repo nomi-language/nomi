@@ -71,6 +71,15 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 	if astNamesIdent(fd.Body, fd.Name) {
 		return bl.recursiveNestedFunc(fd, lam, name)
 	}
+	if fd.ReturnTypeExpr != nil {
+		if want := bl.g.typeOf(fd.ReturnTypeExpr); irExistentialKind(want) {
+			// `fn f(): Display { 5 }`: the body and each `return` enter
+			// the declared existential, as a module function's do.
+			prevFor, prev := bl.g.lambdaWantFor, bl.g.lambdaWant
+			bl.g.lambdaWantFor, bl.g.lambdaWant = lam, want
+			defer func() { bl.g.lambdaWantFor, bl.g.lambdaWant = prevFor, prev }()
+		}
+	}
 	val, fk, _, ok := bl.lambda(lam)
 	if !ok {
 		return no("its body is outside the lambda shape")

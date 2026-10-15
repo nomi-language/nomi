@@ -218,10 +218,13 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 				sig = irFuncSig{result: want}
 			}
 		}
-		if want.tag == tagSeq {
+		if want.tag == tagSeq || irExistentialKind(want) {
 			// `|_| [20]` where an `(Int) -> Iter<Int>` is expected: the
 			// body's list enters the declared sequence, as a named
-			// function's result does.
+			// function's result does. `|n| n + 1` where an
+			// `(Int) -> Display` is expected, or a nested fn declared to
+			// return `Display`: the body's value and every `return`'s
+			// enter the existential.
 			sig = irFuncSig{result: want}
 			child.returnKind = want
 		}

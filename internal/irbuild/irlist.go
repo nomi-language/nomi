@@ -667,10 +667,12 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 			return v, k, true, ok
 		}
 	}
-	if lam, isLambda := at.(*ast.Lambda); isLambda && want.tag == tagFunc && want.comp != nil && funcResult(want).tag == tagSeq {
+	if lam, isLambda := at.(*ast.Lambda); isLambda && want.tag == tagFunc && want.comp != nil &&
+		(funcResult(want).tag == tagSeq || irExistentialKind(funcResult(want))) {
 		// `Maybe.map(m, |_| [20])` where the checker solved the callback's
 		// result as `Iter<Int>`: the lambda answers that sequence
-		// (lambdaFunction), so its function value is the wanted one.
+		// (lambdaFunction), so its function value is the wanted one. A
+		// lambda whose result is an interface's existential answers it.
 		prevFor, prev := bl.g.lambdaWantFor, bl.g.lambdaWant
 		bl.g.lambdaWantFor, bl.g.lambdaWant = lam, funcResult(want)
 		defer func() { bl.g.lambdaWantFor, bl.g.lambdaWant = prevFor, prev }()
