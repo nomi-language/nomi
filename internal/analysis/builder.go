@@ -4217,6 +4217,12 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	}
 
 	switch n := node.(type) {
+	case *ast.ExternFunc:
+		// A `host fn` or `go` binding has no body, but its defaults are
+		// code: one may name the file's functions and an earlier
+		// parameter, as a `fn`'s default may.
+		inner := b.defineTypeParams(n.TypeParams, scope)
+		b.defineParams(n.Params, NewScope(inner), n)
 	case *ast.OnceBinding:
 		// `once` is module-level only. A nested `once` inside a function
 		// body is rejected — function bodies use ordinary `name = value`
@@ -4802,7 +4808,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		*ast.WildcardPattern,
 		*ast.IdentPattern, *ast.AsPattern, *ast.EnumPattern, *ast.StructPattern,
 		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern,
-		*ast.ExternFunc, *ast.ExternPackage:
+		*ast.ExternPackage:
 		// nothing to walk
 	}
 }

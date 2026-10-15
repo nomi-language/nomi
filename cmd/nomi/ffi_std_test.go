@@ -77,6 +77,54 @@ func TestFFI_StdLibraryBindings(t *testing.T) {
 	}
 }
 
+// A `go` binding's defaulted parameter is filled in Nomi before the call
+// crosses into Go, as a `fn`'s is: by a call in the declaring file, and by
+// one in another file, qualified, imported bare or with a named argument.
+// A default may name the declaring file's private functions and an earlier
+// parameter.
+func TestFFI_DefaultedParameters(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; builds FFI wrappers; -short")
+	}
+	dir := t.TempDir()
+	if goModAbove(dir) {
+		t.Skip("a go.mod above the temp directory")
+	}
+	mustWrite(t, filepath.Join(dir, "lib.nomi"), `gopkg "strings" as strs
+
+fn twice(s: String): Int {
+    String.length(s) * 2
+}
+
+pub fn rep(s: String, n: Int = twice(s)): String go strs.Repeat
+`)
+	entry := filepath.Join(dir, "main.nomi")
+	mustWrite(t, entry, `import {
+    std/io
+    lib
+    lib.{rep}
+}
+
+gopkg "strings" as strs
+
+fn upper(s: String = "abc"): String go strs.ToUpper
+
+fn main() {
+    io.print(upper())
+    io.print(upper("x"))
+    io.print(lib.rep("ab"))
+    io.print(lib.rep("ab", 3))
+    io.print(rep("q"))
+    io.print(lib.rep(n: 2, s: "z"))
+}
+`)
+	const want = "ABC\nX\nabababab\nababab\nqq\nzz\n"
+	env := buildEnv(t.TempDir())
+	if r := runProcess(t, env, t.TempDir(), "", nomiBin, "run", entry); r.exit != 0 || r.stdout != want {
+		t.Errorf("nomi run: exit %d, stdout %q, want %q\nstderr:\n%s", r.exit, r.stdout, want, r.stderr)
+	}
+}
+
 // A binding to a function the standard library package does not declare is
 // refused before the program runs, naming the binding, the package and the
 // function; so is a `gopkg` naming a package internal to the standard library,

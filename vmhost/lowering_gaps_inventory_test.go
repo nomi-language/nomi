@@ -1739,22 +1739,6 @@ pub struct B {
 `,
 	},
 	{
-		name:   "gapGoFnDefaultedParam",
-		fix:    "builder: go fn defaulted param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.hostFnReject | note | reason#1",
-		reason: "a direct callee that is not lowerable: upper",
-		noSkip: true,
-		src: `import std/io
-
-gopkg "strings" as strs
-
-fn upper(s: String = "abc"): String go strs.ToUpper
-
-fn main() {
-    io.print(upper())
-}
-`,
-	},
-	{
 		name:   "gapTypedLiteralFnResult",
 		fix:    "builder: typed literal fn result. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.taggedLiteral | false | len(h.params) != 1 ¦¦ !irListTransportKind(h.params[0]) ¦¦ !irRetainedValueKind(h.result)#1",
 		reason: "a typed literal: a handler signature outside the retained domain",

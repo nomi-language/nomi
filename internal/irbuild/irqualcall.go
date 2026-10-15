@@ -1345,8 +1345,7 @@ func (bl *irScalarBuilder) siblingCall(t *ast.Call, site fileSite) (ir.Temp, kin
 		// A generic declaration's instance, interned in the declaring unit.
 		plan.sym = sym
 	}
-	if len(t.Args) != len(params) && (site.host || !bl.siblingFill(t, bl.g.unitGen(site.unit), plan.sym, f.decl, params, temps, mobile)) {
-		// A Go-bound declaration's defaults have no accessor.
+	if len(t.Args) != len(params) && !bl.siblingFill(t, bl.g.unitGen(site.unit), plan.sym, f.decl, params, temps, mobile) {
 		return no()
 	}
 	if t != bl.pipedCall {

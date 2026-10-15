@@ -100,7 +100,7 @@ a	gen.checkedFieldTypeArgs | false | sym == nil ¦¦ sym.Kind != analysis.Symbol
 a	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#1	generictype.go:641	irbuild	
 c	gen.checkedFieldTypeArgs | false | !ok#1	generictype.go:648	-	pinned as gapGenericVariantUnsolvedParam (reason: a struct literal: Either2.L)
 b	gen.checkedFieldTypeArgs | false | k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k)#2	generictype.go:655	-	args are unified out of field kinds that already passed the same domain check at :629, so their components are in the domain or Unit
-c	gen.hostFnReject | note | reason#1	hostpkg.go:542	-	pinned as gapGoFnDefaultedParam (reason: a direct callee that is not lowerable: upper)
+-	gen.hostFnReject | note | reason#1	hostpkg.go:542	-	gapGoFnDefaultedParam no longer reaches it (a defaulted parameter is lowerable); reclassify on the next coverage run
 b	gen.irBootRetain | note | "a boot without a body or a declared result"#1	irappboot.go:258	-	checker rejects: "boot must return a struct, the application type" (fn boot without result); a host fn boot is not a boot (tried boot_noresult.nomi, boot_host.nomi)
 a	gen.irBootRetain | note | "a boot result whose fields are not all retained values: " + result.nomi()#1	irappboot.go:267	irbuild	
 b	gen.irBootRetain | note | "no function shell"#1	irappboot.go:284	-	defensive fence: irFuncShell is nil only when the result has no IR type, and the result already passed irBootStructKind/irBootRecordKind just above
@@ -645,11 +645,11 @@ d	irScalarBuilder.siblingCall | note | "a `go`-bound sibling declaration with no
 d	irScalarBuilder.siblingCall | false | !planned#1	irqualcall.go:1323	-	bare/qualified sibling calls with named args, defaults and trailing-lambda routing all plan; not found
 d	irScalarBuilder.siblingCall | false | !ok ¦¦ !irCallOperandKind(k)#1	irqualcall.go:1334	-	sibling calls with existential, empty-list, None and lambda arguments lower; not found
 d	irScalarBuilder.siblingCall | false | !ok ¦¦ k != params[slot]#1	irqualcall.go:1339	-	same as 1334; not found
-d	irScalarBuilder.siblingCall | false | len(t.Args) != len(params) && (site.host ¦¦ !bl.siblingFill(t, bl.g.unitGen(site.unit), pl…#1	irqualcall.go:1350	-	non-literal and lambda defaults across files fill; a failing accessor is reported under the accessor's own name instead
-b	irScalarBuilder.scalarTextCall | false | !args.ok ¦¦ len(args.kinds) != 1 ¦¦ !irScalarLeafKind(args.kinds[0]) ¦¦ args.kinds[0] != b…#1	irqualcall.go:1466	-	checker requires the operand to be the owner's type ("argument 1: expected Float, got Int")
-a	irScalarBuilder.qualDottedOwner | false | !isFA ¦¦ inner.Field == nil#1	irqualcall.go:1585	expect,irbuild,projectgen,vmhost	
-a	irScalarBuilder.qualDottedOwner | false | !isIdent ¦¦ irQualIsLocal(bl, mod.Name)#1	irqualcall.go:1592	expect,irbuild,projectgen,vmhost	
-a	irScalarBuilder.qualDottedOwner | false | !isStd#1	irqualcall.go:1596	irbuild	
+d	irScalarBuilder.siblingCall | false | len(t.Args) != len(params) && !bl.siblingFill(t, bl.g.unitGen(site.unit), plan.sym, f.decl…#1	irqualcall.go:1349	-	non-literal and lambda defaults across files fill, a `go` binding's included; a failing accessor is reported under the accessor's own name instead
+b	irScalarBuilder.scalarTextCall | false | !args.ok ¦¦ len(args.kinds) != 1 ¦¦ !irScalarLeafKind(args.kinds[0]) ¦¦ args.kinds[0] != b…#1	irqualcall.go:1465	-	checker requires the operand to be the owner's type ("argument 1: expected Float, got Int")
+a	irScalarBuilder.qualDottedOwner | false | !isFA ¦¦ inner.Field == nil#1	irqualcall.go:1584	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.qualDottedOwner | false | !isIdent ¦¦ irQualIsLocal(bl, mod.Name)#1	irqualcall.go:1591	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.qualDottedOwner | false | !isStd#1	irqualcall.go:1595	irbuild	
 b	irScalarBuilder.rangeMake | false | t.Start == nil ¦¦ t.End == nil#1	irrange.go:22	-	parser/checker: `3..` gets a Unit end and is rejected ("range endpoints must have the same type"); no open-start syntax
 b	irScalarBuilder.rangeMake | false | !ok ¦¦ ek != elem#1	irrange.go:30	-	checker requires both endpoints of one type
 c	irScalarBuilder.rangeMake | false | !irRetainedRangeKind(k)#1	irrange.go:34	-	pinned as gapCRangeBool (reason: a RangeLit)

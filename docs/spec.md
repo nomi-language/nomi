@@ -389,7 +389,7 @@ connect("localhost", 3000, 10) // all explicit
 connect("localhost", _timeout: 10) // skip port, use default
 ```
 
-A default is checked against its parameter's type, on a `fn` and on a `host fn` alike: `host fn pad(s: String, width: Int = "wide"): String` is the error `default value for parameter 'width' is String, expected Int`.
+A default is checked against its parameter's type, on a `fn` and on a `host fn` alike: `host fn pad(s: String, width: Int = "wide"): String` is the error `default value for parameter 'width' is String, expected Int`. A `host fn`'s or `go` binding's default is Nomi code like a `fn`'s: it may name the declaring file's functions and an earlier parameter, and a call that omits the argument evaluates it before the call leaves Nomi.
 
 When a default is **not** trailing, positional args still fill consecutive slots from the start, so to leave a non-trailing default empty you switch to named args for everything after it:
 
