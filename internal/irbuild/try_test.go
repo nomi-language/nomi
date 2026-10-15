@@ -27,6 +27,7 @@ func TestPreludeInstanceSlotsAreNeverBoxed(t *testing.T) {
 	g := newGen(p.Entry(), "nomimod0", nil, nil, -1, nil)
 	g.declareTypes()
 	g.declareFuncs()
+	g.settleImpls()
 	if len(g.preludeOrder) == 0 {
 		t.Fatal("no prelude instance was created, so this asserts nothing")
 	}

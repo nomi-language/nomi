@@ -79,6 +79,7 @@ func TestMonoBound_TheDictionaryStillWinsWhenItCan(t *testing.T) {
 	g := newGen(&p.Modules[0], "nomimod0", nil, nil, -1, nil)
 	g.declareTypes()
 	g.declareFuncs()
+	g.settleImpls()
 
 	announce := g.funcs["announce"]
 	if announce == nil {

@@ -131,6 +131,7 @@ func TestGenericInstanceNeverSilentlyDropsAField(t *testing.T) {
 	g := newGen(&p.Modules[0], "nomimod0", nil, nil, -1, nil)
 	g.declareTypes()
 	g.declareFuncs()
+	g.settleImpls()
 	g.emitModule(&p.Modules[0])
 	if len(g.genericInstOrder) < 4 {
 		t.Fatalf("built %d instances, want at least the representable `Box<Int>`/`Holder<Int>` and the "+
@@ -215,6 +216,7 @@ func lowerableGen(t *testing.T, src string) *gen {
 	g := newGen(&p.Modules[0], "nomimod0", nil, nil, -1, nil)
 	g.declareTypes()
 	g.declareFuncs()
+	g.settleImpls()
 	if errs, _ := g.emitModule(&p.Modules[0]); len(errs) > 0 {
 		var got []string
 		for _, e := range errs {

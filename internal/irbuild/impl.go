@@ -647,15 +647,14 @@ func (g *gen) methodSignatureGap(im *ast.InterfaceMethod, m *ifaceMethod) (strin
 	return "", false
 }
 
-// buildImpls registers every impl block, then lowers the SYNTHESIZED ones.
+// buildImpls registers every impl block. The SYNTHESIZED ones are lowered
+// later, by settleImpls.
 //
 // Registration is complete before any body is emitted because an impl body may
-// call any other impl in the module — a derived `Debug.inspect` on a struct
-// with a struct field calls the field type's own inspect — and because a
-// synthesized block's lowerability has to be settled before an ordinary
-// function body that dispatches to it is emitted. Package-level Go
-// declarations have no order requirement, so emitting these first costs
-// nothing.
+// call any other impl in the program — a derived `Debug.inspect` on a struct
+// with a struct field calls the field type's own inspect, and that type may be
+// another file's — and because a synthesized block's lowerability has to be
+// settled before an ordinary function body that dispatches to it is emitted.
 func (g *gen) buildImpls(nodes []ast.Node) {
 	for _, n := range nodes {
 		ib, ok := n.(*ast.ImplBlock)
@@ -665,7 +664,6 @@ func (g *gen) buildImpls(nodes []ast.Node) {
 		g.registerImpl(ib)
 	}
 	g.registerBlockLocalDebug(g.blockTypeOrder)
-	g.emitSynthImpls(g.implOrder)
 }
 
 // emitSynthImpls lowers the synthesized blocks among impls.
@@ -1303,7 +1301,7 @@ func (g *gen) implDecl(ib *ast.ImplBlock) {
 		return
 	}
 	if d.synth {
-		// Already lowered (or already discarded) in buildImpls. Never refused
+		// Already lowered (or already discarded) in settleImpls. Never refused
 		// by name: nobody wrote it, and its position is fabricated.
 		return
 	}

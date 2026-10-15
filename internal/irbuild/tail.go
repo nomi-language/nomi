@@ -433,7 +433,7 @@ func (g *gen) tailMemberSig(u *tailUnit) (tailSig, bool) {
 		// the same reason the synth line fallback below is: a block refused at
 		// DECLARATION time has `order` empty, so it contributes no graph node
 		// at all; and the only route to an unlowerable block that still has
-		// items is buildImpls' speculation, which runs for SYNTHESIZED blocks
+		// items is settleImpls' speculation, which runs for SYNTHESIZED blocks
 		// only — and no synthesized body contains a tail-marked call. Falsified,
 		// this predicate is a wrong answer rather than a refusal, which is the
 		// wrong side to be cheap on.

@@ -322,6 +322,13 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// type-qualified call in one file may name an impl function declared in
 	// another. See siblingimpl.go.
 	files.resolveImplMembers(gens)
+	// The synthesized impls are lowered once the index exists, since a
+	// derived body may call another file's impl, and indexed again after,
+	// so a call never plans one the speculation refused. See settleImpls.
+	for _, g := range gens {
+		g.settleImpls()
+	}
+	files.resolveImplMembers(gens)
 	// Every file's impls are registered now and no body has been lowered yet,
 	// which is the one window in which "does this PROGRAM implement I for T?"
 	// is both answerable and needed: a boxing site in one file dispatches

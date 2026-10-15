@@ -21,6 +21,7 @@ func operGen(t *testing.T, src string) (*gen, []Unsupported) {
 	g := newGen(p.Entry(), "nomimod0", stdlibLowering(), nil, -1, nil)
 	g.declareTypes()
 	g.declareFuncs()
+	g.settleImpls()
 	errs, _ := g.emitModule(p.Entry())
 	return g, errs
 }

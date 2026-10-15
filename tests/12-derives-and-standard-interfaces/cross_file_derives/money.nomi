@@ -1,0 +1,86 @@
+// Types the test file's derives reach across a file boundary: a struct, an
+// enum and a distinct type that derive every interface, and a struct whose
+// impls are written by hand.
+import std/json.{FromJson, Json, ToJson}
+
+pub struct Money {
+    cents: Int
+}
+
+derive Equatable for Money
+derive Hashable for Money
+derive Comparable for Money
+derive Display for Money
+derive ToJson for Money
+derive FromJson for Money
+
+pub enum Coin {
+    Penny
+    Dime
+}
+
+derive Equatable for Coin
+derive Hashable for Coin
+derive Comparable for Coin
+derive Display for Coin
+derive ToJson for Coin
+derive FromJson for Coin
+derive Variants for Coin
+
+pub type Cents Int
+
+derive Equatable for Cents
+derive Hashable for Cents
+derive Comparable for Cents
+derive Display for Cents
+derive ToJson for Cents
+derive FromJson for Cents
+
+pub struct Tally {
+    n: Int
+}
+
+impl Equatable for Tally {
+    fn equal?(a: Tally, b: Tally): Bool {
+        a.n == b.n
+    }
+}
+
+impl Hashable for Tally {
+    fn hash(t: Tally): Int {
+        t.n
+    }
+}
+
+impl Comparable for Tally {
+    fn compare(a: Tally, b: Tally): Ordering {
+        Int.compare(a.n, b.n)
+    }
+}
+
+impl Debug for Tally {
+    fn inspect(t: Tally): String {
+        "Tally#${t.n}"
+    }
+}
+
+impl Display for Tally {
+    fn to_string(t: Tally): String {
+        "tally ${t.n}"
+    }
+}
+
+impl ToJson for Tally {
+    fn to_json(t: Tally): Json {
+        Json.Int(t.n)
+    }
+}
+
+impl FromJson for Tally {
+    fn from_json(json: Json): Result<Tally, Json.ShapeError> {
+        case json {
+            Json.Int(n) -> Ok(Tally{n})
+            _ -> Err(Json.ShapeError{path: [], expected: "int", got: "other"})
+        }
+    }
+}

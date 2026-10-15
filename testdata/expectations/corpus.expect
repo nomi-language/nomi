@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 279
-declared-cases 891
+records 281
+declared-cases 897
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1578,6 +1578,25 @@ N 0
 H aa03f2a3f1ed7da63eac5b737834b99e3df15cfba1b98185cbb7a2265c8f1321
 T --- stderr ---
 T nomi run: <root>/tests/12-derives-and-standard-interfaces/cross_file_debug/shapes.nomi declares no `fn main`, so there is no program to run
+T
+C 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi
+E 0
+N 6
+H 8c7740605382191205277cefc891d5620cad27d9524ab0ee75724c21ef05eade
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: a derived Equatable compares another file's types
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: a derived Hashable hashes another file's types
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: a derived Comparable orders by another file's types
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: a derived Debug and Display render another file's types
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: a derived ToJson and FromJson convert another file's types
+T ok <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi :: another file's derived Variants lists its variants
+T test result: ok. 6 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/cross_file_derives/money.nomi
+E 1
+N 0
+H bb079796813ea41444e739ede427430c51f7357ab465d6144e7bb621917d09bc
+T --- stderr ---
+T nomi run: <root>/tests/12-derives-and-standard-interfaces/cross_file_derives/money.nomi declares no `fn main`, so there is no program to run
 T
 C 12-derives-and-standard-interfaces/derives_test.nomi
 E 0

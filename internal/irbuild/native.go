@@ -1065,13 +1065,11 @@ func (g *gen) declareFuncs() {
 	// Signatures are collected before any body is emitted: Nomi has no
 	// forward-declaration rule, so a call on line 3 to a function declared on
 	// line 30 is legal and must resolve.
-	decls := map[string]*ast.FuncDef{}
 	for _, n := range g.nodes {
 		fd, ok := n.(*ast.FuncDef)
 		if !ok || fd.ImplFunction {
 			continue
 		}
-		decls[fd.Name] = fd
 		g.funcs[fd.Name] = g.signature(fd)
 	}
 	// A Go-bound `host fn`, on the same footing as a `fn` and for the reason
@@ -1093,15 +1091,36 @@ func (g *gen) declareFuncs() {
 	// once.go.
 	g.declareOnces()
 
-	// Impls next: an impl item's signature may name any declared type, and a
-	// synthesized block's body — which buildImpls lowers speculatively — may
-	// call any module function. Both have to be resolvable first.
+	// Impls next: an impl item's signature may name any declared type. Only
+	// registered here; settleImpls lowers the synthesized ones once every
+	// file's impls are registered and indexed.
 	g.buildImpls(g.nodes)
+	g.funcsDone = true
+}
 
+// settleImpls lowers the module's synthesized impl blocks speculatively, then
+// builds its tail-call graph.
+//
+// It runs after every file's declareFuncs and after the program's impl
+// members are indexed (resolveImplMembers), because a synthesized body may
+// call an impl another file declares: `derive Equatable for Rec` over a field
+// of a type another file declares compares that field with the other file's
+// `Equatable.equal?`. Lowered before that index exists, the call found no
+// candidate and the whole derived block was refused.
+func (g *gen) settleImpls() {
+	g.emitSynthImpls(g.implOrder)
+
+	decls := map[string]*ast.FuncDef{}
+	for _, n := range g.nodes {
+		if fd, ok := n.(*ast.FuncDef); ok && !fd.ImplFunction {
+			decls[fd.Name] = fd
+		}
+	}
 	// The tail-call graph LAST, because an impl block's items are half its
-	// nodes and buildImpls is what creates them. Built before buildImpls, or
-	// keyed on `decls` alone, it would miss an impl function's tail self-call.
-	// See tail.go.
+	// nodes and buildImpls is what creates them, and a synthesized block's
+	// lowerability is settled just above. Built before buildImpls, or keyed
+	// on `decls` alone, it would miss an impl function's tail self-call. See
+	// tail.go.
 	g.buildTailGraph(decls)
 
 	// A BOUND-FREE generic function on a tail cycle is refused, and this is the
@@ -1111,7 +1130,6 @@ func (g *gen) declareFuncs() {
 	// "" on the stated ground that every member is refused at its own
 	// declaration, which does not hold for a lowerable generic. See generic.go.
 	g.refuseGenericTailCycles()
-	g.funcsDone = true
 }
 
 func (g *gen) emitModule(m *Module) ([]Unsupported, []Suppression) {

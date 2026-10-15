@@ -382,6 +382,7 @@ func TestChannelKindsAgreeAcrossEveryChannel(t *testing.T) {
 	g := newGen(p.Entry(), "nomimod0", nil, nil, -1, nil)
 	g.declareTypes()
 	g.declareFuncs()
+	g.settleImpls()
 
 	// The generic host rows, both doors.
 	for i := range stdGenHostSpecs {

@@ -136,6 +136,7 @@ func TestSharedPreludeDefsAreNeverInPreludeOrder(t *testing.T) {
 	g := newGen(p.Entry(), "nomimod0", nil, nil, -1, nil)
 	g.declareTypes()
 	g.declareFuncs()
+	g.settleImpls()
 
 	neutral, nonNeutral := 0, 0
 	for _, d := range g.preludeOrder {

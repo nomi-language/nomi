@@ -72,6 +72,10 @@ func implMemberIndexFor(t *testing.T, p *Program) map[string][]implMemberSite {
 		g.declareFuncs()
 	}
 	files.resolveImplMembers(gens)
+	for _, g := range gens {
+		g.settleImpls()
+	}
+	files.resolveImplMembers(gens)
 	out := map[string][]implMemberSite{}
 	for k, sites := range files.implMembers {
 		recv := "?"
