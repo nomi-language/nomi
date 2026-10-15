@@ -162,7 +162,7 @@ impl Shape for Square {
   fn area(square: Square): Int { square.side * square.side }
 }
 
-struct Rect { w: Int  h: Int }
+struct Rect { w: Int; h: Int }
 impl Shape for Rect {
   fn area(rect: Rect): Int { rect.w * rect.h }
 }
