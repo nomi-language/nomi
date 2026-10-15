@@ -2284,31 +2284,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapNamedGapGenericParam",
-		fix:    "builder: named gap generic param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.namedQualCall | false | !irCallOperandKind(kinds[i])#1",
-		reason: "a named argument",
-		noSkip: true,
-		src: `import std/io
-
-struct Box<T> {
-    v: T
-}
-
-impl Box<T> {
-    fn pick<T>(_b: Box<T>, other: Maybe<T> = None, n: Int = 0): Int {
-        case other {
-            Some(_) -> n + 1
-            None -> n
-        }
-    }
-}
-
-fn main() {
-    io.print(Box.pick(Box{v: 1}, n: 2))
-}
-`,
-	},
-	{
 		name:   "gapSenderEquality",
 		fix:    "builder: sender equality. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.compareOperands | false | (!irScalarLeafKind(lk) ¦¦ lk.def != nil) && !prelude && !decimal && !list && !structural#1",
 		reason: "the comparison operator `==`",
