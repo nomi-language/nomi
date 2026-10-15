@@ -9279,6 +9279,28 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		retTy = Substitute(ft.Return, subs)
 	}
 
+	// A type parameter no argument solves and the result names
+	// (`fn first<T>(): Maybe<T>`) is solved by where the result goes, as a
+	// return-only self is above: `c: Maybe<Coin> = first()` calls first at
+	// Coin. Solved here, the parameter's bounds are checked below and the
+	// call's instantiation is recorded, as an argument-solved one's is.
+	// Only parameters still open are taken: what the arguments solved
+	// stands.
+	if len(openSlots) == 0 && !skipReturnInfer && concreteExpected(expected) && c.containsForeignTypeParam(Substitute(ft.Return, subs)) {
+		trial := make(map[*TypeParam_]Type, len(subs))
+		for k, v := range subs {
+			trial[k] = v
+		}
+		if c.unifyInto(expected, ft.Return, trial) == nil {
+			for tp, t := range trial {
+				if _, solved := subs[tp]; !solved && !ContainsTypeParam(t) && !containsTypeVar(t) {
+					subs[tp] = t
+				}
+			}
+			retTy = Substitute(ft.Return, subs)
+		}
+	}
+
 	// The return-only self, now solved, gets the records an argument-solved
 	// self gets above: its conformance demand and the dispatch it selects,
 	// which is what tells the IR builder which impl the call names.
