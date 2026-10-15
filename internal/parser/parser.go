@@ -4378,6 +4378,7 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 		case token.STRING_LITERAL:
 			p.advance()
 			pattern = &ast.StringLit{Value: tok.Lexeme, Line: tok.Line, Col: tok.Col}
+			p.recordSpan(pattern, p.pos-1)
 			if prefixed, ok, err := p.tryParseStringPrefixPattern(pattern, tok.Line, tok.Col); err != nil {
 				return nil, nil, err
 			} else if ok {
@@ -4386,6 +4387,7 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 		case token.TRIPLE_STRING_LITERAL:
 			p.advance()
 			pattern = &ast.StringLit{Value: tok.Lexeme, Triple: true, Line: tok.Line, Col: tok.Col}
+			p.recordSpan(pattern, p.pos-1)
 			if prefixed, ok, err := p.tryParseStringPrefixPattern(pattern, tok.Line, tok.Col); err != nil {
 				return nil, nil, err
 			} else if ok {
@@ -4394,6 +4396,7 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 		case token.RAW_STRING_LITERAL:
 			p.advance()
 			pattern = &ast.StringLit{Value: tok.Lexeme, Raw: true, Line: tok.Line, Col: tok.Col}
+			p.recordSpan(pattern, p.pos-1)
 			if prefixed, ok, err := p.tryParseStringPrefixPattern(pattern, tok.Line, tok.Col); err != nil {
 				return nil, nil, err
 			} else if ok {
@@ -4402,6 +4405,7 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 		case token.RAW_TRIPLE_STRING_LITERAL:
 			p.advance()
 			pattern = &ast.StringLit{Value: tok.Lexeme, Triple: true, Raw: true, Line: tok.Line, Col: tok.Col}
+			p.recordSpan(pattern, p.pos-1)
 			if prefixed, ok, err := p.tryParseStringPrefixPattern(pattern, tok.Line, tok.Col); err != nil {
 				return nil, nil, err
 			} else if ok {
@@ -7624,6 +7628,7 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 	case token.STRING_LITERAL:
 		p.advance()
 		pat := &ast.StringLit{Value: tok.Lexeme, Line: tok.Line, Col: tok.Col}
+		p.recordSpan(pat, p.pos-1)
 		if prefixed, ok, err := p.tryParseStringPrefixPattern(pat, tok.Line, tok.Col); err != nil {
 			return nil, err
 		} else if ok {
@@ -7633,6 +7638,7 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 	case token.TRIPLE_STRING_LITERAL:
 		p.advance()
 		pat := &ast.StringLit{Value: tok.Lexeme, Triple: true, Line: tok.Line, Col: tok.Col}
+		p.recordSpan(pat, p.pos-1)
 		if prefixed, ok, err := p.tryParseStringPrefixPattern(pat, tok.Line, tok.Col); err != nil {
 			return nil, err
 		} else if ok {
@@ -7642,6 +7648,7 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 	case token.RAW_STRING_LITERAL:
 		p.advance()
 		pat := &ast.StringLit{Value: tok.Lexeme, Raw: true, Line: tok.Line, Col: tok.Col}
+		p.recordSpan(pat, p.pos-1)
 		if prefixed, ok, err := p.tryParseStringPrefixPattern(pat, tok.Line, tok.Col); err != nil {
 			return nil, err
 		} else if ok {
@@ -7651,6 +7658,7 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 	case token.RAW_TRIPLE_STRING_LITERAL:
 		p.advance()
 		pat := &ast.StringLit{Value: tok.Lexeme, Triple: true, Raw: true, Line: tok.Line, Col: tok.Col}
+		p.recordSpan(pat, p.pos-1)
 		if prefixed, ok, err := p.tryParseStringPrefixPattern(pat, tok.Line, tok.Col); err != nil {
 			return nil, err
 		} else if ok {
