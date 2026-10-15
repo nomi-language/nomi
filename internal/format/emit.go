@@ -1640,9 +1640,12 @@ func emitIfCondition(v *ast.If) Doc {
 // without an atomic value — so idioms like `if x < 0 { continue }` and
 // `if n == 1 { break count }` stay on one line. Variant constructors with
 // atomic payloads are atomic too: `Some(x)`, `Ok(42)`, `Shape.Circle(5.0)`
-// are no more visually complex than their payloads.
+// are no more visually complex than their payloads. It judges n as the
+// formatter prints it, without the parentheses emitGroupedExpr drops:
+// `Ok((x))` prints as `Ok(x)`, and judging the parentheses would inline the
+// block only on a second format.
 func isAtomicExpr(n ast.Node) bool {
-	switch v := n.(type) {
+	switch v := stripDroppedParens(n).(type) {
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit,
 		*ast.Ident, *ast.SelfExpr, *ast.TypeIdent, *ast.Placeholder:
 		return true
@@ -1678,7 +1681,7 @@ func isAtomicExpr(n ast.Node) bool {
 // type constructor — a TypeIdent (uppercase) or a dotted chain ending in a
 // TypeIdent with TypeIdent roots (e.g. `Shape.Circle`).
 func isVariantCallee(n ast.Node) bool {
-	switch v := n.(type) {
+	switch v := stripDroppedParens(n).(type) {
 	case *ast.TypeIdent:
 		return true
 	case *ast.FieldAccess:
