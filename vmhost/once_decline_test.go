@@ -15,9 +15,12 @@ import (
 // initializer stopped at or at its declaration, and carries the builder's
 // reason; it does not blame the reading function as a whole.
 //
-// Each reproducer uses gapBlockLocalTypeEscapesItsBlock (a block whose value
-// has a type declared inside the block), which still declines. If that gap
-// is fixed, pick another construct that declines inside a `once`.
+// The reproducer uses gapPartialDefaultBeforeLaterPlaceholder
+// (`span(b: _, _)`), which still declines. If that gap is fixed, pick
+// another construct that declines inside a `once`. A `once` whose own type
+// the builder cannot represent, so that its initializer is never attempted,
+// has no reproducer here since block-local types lower outside their block;
+// add a case when one turns up.
 func TestUnsupported_NamesTheOnceItsReaderDeclinedFor(t *testing.T) {
 	t.Setenv("NOMI_DEBUG_LOWERING", "1")
 	cases := []struct {
@@ -32,42 +35,21 @@ func TestUnsupported_NamesTheOnceItsReaderDeclinedFor(t *testing.T) {
 			name: "initializer declines",
 			src: `import std/io
 
+fn span(a: Int, b: Int = a * 2): (Int, Int) {
+    (a, b)
+}
+
 once w: Int = {
-    x = {
-        struct Loc {
-            n: Int
-        }
-        Loc{n: 1}
-    }
-    x.n
+    u = span(b: _, _)
+    u(1, 2).0
 }
 
 fn main() {
     io.print("${w}")
 }
 `,
-			at:     "main.nomi:4:9: this `once w` is not supported yet, so `fn main` cannot run",
-			reason: "[main] reads `once w`, whose initializer did not lower; [once w] a branch or block value kind with no IR type",
-		},
-		{
-			// The once's own type is one the builder cannot represent, so
-			// its initializer is never attempted and the read declines.
-			name: "type not representable",
-			src: `import std/io
-
-once w = {
-    struct Loc {
-        n: Int
-    }
-    Loc{n: 1}
-}
-
-fn main() {
-    io.inspect(w)
-}
-`,
-			at:     "main.nomi:3:6: this `once w` is not supported yet, so `fn main` cannot run",
-			reason: "[main] a read of `once w`, which cannot lower: once binding without a determinable type",
+			at:     "main.nomi:8:9: this `once w` is not supported yet, so `fn main` cannot run",
+			reason: "[main] reads `once w`, whose initializer did not lower; [once w] a partial's open slot whose default is not a literal",
 		},
 	}
 	for _, tc := range cases {

@@ -11,7 +11,14 @@ import (
 // then defaults see module functions and earlier parameters, never caller locals.
 // Module value references remain outside this retained path.
 func (bl *irScalarBuilder) callDefaults(sig *fnSig, args []ir.Temp) bool {
-	if len(sig.decl.Params) != len(args) {
+	return bl.callDefaultsThrough(sig, args, len(args))
+}
+
+// callDefaultsThrough is callDefaults over the first n parameters only: a
+// partial application's open slot needs its own default and the defaults
+// before it, whatever the slots after it hold.
+func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int) bool {
+	if len(sig.decl.Params) != len(args) || n > len(args) {
 		return false
 	}
 	bound, kinds, parent, defaults := bl.bound, bl.boundK, bl.parent, bl.defaultScope
@@ -29,7 +36,7 @@ func (bl *irScalarBuilder) callDefaults(sig *fnSig, args []ir.Temp) bool {
 		bl.g.pushMonoSubst(inst.tpl, inst.args)
 		defer bl.g.popMonoSubst()
 	}
-	for i, p := range sig.decl.Params {
+	for i, p := range sig.decl.Params[:n] {
 		if args[i] == ir.NoTemp {
 			if p.Default == nil {
 				return false
@@ -48,7 +55,7 @@ func (bl *irScalarBuilder) callDefaults(sig *fnSig, args []ir.Temp) bool {
 		if p.Destructure == nil && !ast.IsDiscardName(p.Name) {
 			bl.bound[p.Name], bl.boundK[p.Name] = args[i], sig.params[i]
 		}
-		if p.Destructure != nil && slices.Contains(args[i+1:], ir.NoTemp) && !bl.bindParamPattern(p.Destructure, args[i], sig.params[i]) {
+		if p.Destructure != nil && slices.Contains(args[i+1:n], ir.NoTemp) && !bl.bindParamPattern(p.Destructure, args[i], sig.params[i]) {
 			return false
 		}
 	}

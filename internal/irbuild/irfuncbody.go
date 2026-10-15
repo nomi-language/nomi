@@ -1042,7 +1042,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// `import std/iter.Iter.{loop}` then `loop(...)`: Iter.loop.
 		return bl.iterLoop(t)
 	}
-	if id, ok := t.Func.(*ast.Ident); ok && !hasNamed {
+	if id, ok := t.Func.(*ast.Ident); ok {
 		if v, k, mobile, lowered, handled := bl.genericNestedCall(t, id); handled {
 			return v, k, mobile, lowered
 		}
@@ -1810,6 +1810,8 @@ func (g *gen) exitingOperand(n ast.Node) (prefix []ast.Node, region ast.Node, ok
 		return in(v.Left, v.Right)
 	case *ast.Unary:
 		return in(v.Right)
+	case *ast.GroupedExpr:
+		return in(v.Expr)
 	case *ast.TryOp:
 		return in(v.Expr)
 	case *ast.FieldAccess:

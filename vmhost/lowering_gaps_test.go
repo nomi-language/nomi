@@ -61,47 +61,25 @@ test "a defer in a value arm" {
 `,
 	},
 	{
-		name: "gapBlockLocalTypeEscapesItsBlock",
-		fix: "builder or checker: a block whose value has a type declared inside the block. The " +
-			"checker types the binding at that block-local type; the builder projects the binding's " +
-			"type outside the block, where the declaration does not resolve, so the block's value " +
-			"has no IR type. Either the builder resolves it by declaration or the checker rejects " +
-			"the escape",
-		reason: "a branch or block value kind with no IR type: an unsupported type",
+		name: "gapPartialDefaultBeforeLaterPlaceholder",
+		fix: "builder: a partial application whose open slot has a computed default that reads an " +
+			"earlier slot of the callee left open by a placeholder written after it, as in " +
+			"`span(b: _, _)` over `fn span(a: Int, b: Int = a * 2)`. The partial's parameters are " +
+			"its placeholders in written order, so `b` is its first and `a` its second, and a " +
+			"default supplier takes only the parameters before its own (indirectCall's convention). " +
+			"The supplier for `b` would need `a`. Either a call through the partial fills an " +
+			"omitted slot after the slots the callee reads first, or the supplier takes every " +
+			"parameter",
+		reason: "a partial's open slot whose default is not a literal, before a placeholder for an earlier slot",
 		src: `import std/io
 
-fn main() {
-    w = {
-        struct Loc {
-            n: Int
-        }
-        Loc{n: 1}
-    }
-    io.inspect(w)
-}
-`,
-	},
-	{
-		name: "gapShortCircuitOperandWhoseArmsAllLeave",
-		fix: "builder: an `if` or `case` every arm of which leaves the body by `return`, `break` " +
-			"or `continue`, as the right operand of `and` or `or`, as in `x > 0 and case x { 1 -> " +
-			"return True  _ -> return False }`. The operand runs only when the left one lets it, " +
-			"so the `and` still has a value on the other path, and the builder does not lower a " +
-			"region with no value there. An operand evaluated whatever the values before it (an " +
-			"argument, a field, a list item, a pipe's source) runs. The builder could lower the " +
-			"`and` as an `if` whose one arm is the region",
-		reason: "an `if` or `case` whose every arm leaves the body, used for its value",
-		src: `import std/io
-
-fn short(x: Int): Bool {
-    x > 0 and case x {
-        1 -> return True
-        _ -> return False
-    }
+fn span(a: Int, b: Int = a * 2): (Int, Int) {
+    (a, b)
 }
 
 fn main() {
-    io.inspect(short(1))
+    u = span(b: _, _)
+    io.inspect(u(1, 2))
 }
 `,
 	},

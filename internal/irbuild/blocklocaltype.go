@@ -29,7 +29,10 @@ import (
 // asked. A use of a block-local name from OUTSIDE its block is an analyzer error
 // ("undefined type"), so hoisting the Go declaration widens a scope nothing can
 // observe: the builder is only ever asked about names the checker approved at
-// the position it approved them.
+// the position it approved them. A VALUE of the type may still leave the
+// block (`w = { struct Loc {…}  Loc{n: 1} }`); outside it the checker's type
+// for the value is the declaration's own, and project finds the def by that
+// type rather than by name (blockLocalOfType, blockLocalTemplateOf).
 //
 // **Identity is the DECLARATION NODE, and the name-keyed table is the one thing
 // that could not express it.** typeRegistry.byDecl already keys every user type
@@ -464,6 +467,68 @@ func (g *gen) popTypeScope() { g.typeScopes = g.typeScopes[:len(g.typeScopes)-1]
 // Innermost first, which is the analyzer's own resolution order. See the file
 // comment for why the overlay can never actually shadow gen.types today, and
 // why it is still consulted first.
+// blockLocalOfType answers the block-local def whose declaration the
+// checker typed as t, or nil: the identity of a block-local type outside
+// the block that declares it, where its name resolves to nothing. A generic
+// one's instances are other types; blockLocalTemplateOf finds its template.
+func (g *gen) blockLocalOfType(t analysis.Type) *typeDef {
+	if g.fa == nil || t == nil {
+		return nil
+	}
+	g.indexBlockLocals()
+	return g.blockLocalByType[t]
+}
+
+// blockLocalTemplateOf answers the block-local generic template whose
+// declaration has the type parameters params, which every instance the
+// checker solves of it shares, or nil.
+func (g *gen) blockLocalTemplateOf(params []*analysis.TypeParam_) *genericTemplate {
+	if g.fa == nil || len(params) == 0 {
+		return nil
+	}
+	g.indexBlockLocals()
+	return g.blockLocalTemplates[params[0]]
+}
+
+// indexBlockLocals indexes the block-local declarations of the blocks
+// declared since it last ran by the checker's type for each declaration:
+// a non-generic def by that type, a generic template by its first type
+// parameter.
+func (g *gen) indexBlockLocals() {
+	if g.blockLocalIndexed >= len(g.blockTypeOrder) {
+		return
+	}
+	if g.blockLocalByType == nil {
+		g.blockLocalByType = map[analysis.Type]*typeDef{}
+		g.blockLocalTemplates = map[*analysis.TypeParam_]*genericTemplate{}
+	}
+	for _, b := range g.blockTypeOrder[g.blockLocalIndexed:] {
+		scope := g.blockTypes[b]
+		for _, d := range scope.orderedDefs() {
+			line, col := nodePos(d.decl)
+			sym := g.fa.Definitions[analysis.Pos{Line: line, Col: col}]
+			if sym == nil || sym.Type == nil {
+				continue
+			}
+			if len(typeDeclTypeParams(d.decl)) == 0 {
+				g.blockLocalByType[sym.Type] = d
+				continue
+			}
+			var params []*analysis.TypeParam_
+			switch t := sym.Type.(type) {
+			case *analysis.StructType:
+				params = t.TypeParamDefs
+			case *analysis.EnumType:
+				params = t.TypeParamDefs
+			}
+			if tpl := scope.templates[d.nomi]; tpl != nil && len(params) != 0 {
+				g.blockLocalTemplates[params[0]] = tpl
+			}
+		}
+	}
+	g.blockLocalIndexed = len(g.blockTypeOrder)
+}
+
 func (g *gen) blockLocalNamed(name string) (*typeDef, bool) {
 	for i := len(g.typeScopes) - 1; i >= 0; i-- {
 		if d, found := g.typeScopes[i].defs[name]; found {

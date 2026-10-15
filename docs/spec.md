@@ -6557,6 +6557,8 @@ generic code, where `a + b` with `a: Set<T>` and `b: Set<T>` is `Set<T>`.
 **Logical:**
 `and` `or` (keywords) `!` (negation)
 
+`and` and `or` short-circuit: the right operand runs only when the left does not decide the answer. `a and b` is `if a { b } else { False }`, and `a or b` is `if a { True } else { b }`. So the right operand may leave instead of answering: a block ending in `return`, `break` or `continue`, an `if` or `case` every arm of which leaves, a failing `try` or a trap. When it leaves, the expression has no value on that path, and its value is the left operand's on the other. `ok = ready? or { return Err("not ready") }` returns early when `ready?` is `False` and binds `ok` to `True` otherwise; `_ = n < limit or { break }` ends an `Iter` callback's iteration.
+
 **Other:**
 
 - `|>` — pipe

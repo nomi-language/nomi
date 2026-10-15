@@ -230,7 +230,10 @@ func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, b
 		return no()
 	}
 	lit, isLit := argExpr(t.Args[ops.patch]).(*ast.StructLit)
-	if !isLit || lit.TypeName != nil || lit.Spread != nil {
+	if !isLit {
+		return bl.structUpdateValue(t, ops)
+	}
+	if lit.TypeName != nil || lit.Spread != nil {
 		return no()
 	}
 	recorded := bl.recording > 0 && bl.qualRecord == t
@@ -257,7 +260,11 @@ func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, b
 				return no()
 			}
 		}
-		v, ok := bl.recordMerge(t, k, base, rec, rk, lit)
+		fields, from := make([]string, len(lit.Fields)), make([]ast.Node, len(lit.Fields))
+		for i, f := range lit.Fields {
+			fields[i], from[i] = f.Name, f.Value
+		}
+		v, ok := bl.recordMerge(t, k, base, rec, rk, fields, from)
 		if !ok {
 			return no()
 		}
@@ -280,6 +287,46 @@ func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, b
 	v, ok := bl.structMerge(t, k, base, lit)
 	if !ok {
 		return no()
+	}
+	return v, k, false, true
+}
+
+// structUpdateValue lowers `Struct.update(base, patch)` whose patch is a
+// value of an anonymous struct type rather than a literal: a binding, a
+// call, a field. The operands are evaluated in Nomi's order, and the update
+// writes every field the patch's type names, read back from the patch.
+func (bl *irScalarBuilder) structUpdateValue(t *ast.Call, ops structUpdateArgs) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	temps, kinds := make([]ir.Temp, 2), make([]kind, 2)
+	order := []int{ops.base, ops.patch}
+	if ops.patchFirst {
+		order = []int{ops.patch, ops.base}
+	}
+	for _, i := range order {
+		v, k, _, ok := bl.lower(argExpr(t.Args[i]))
+		if !ok {
+			return no()
+		}
+		temps[i], kinds[i] = v, k
+	}
+	base, k := temps[ops.base], kinds[ops.base]
+	rec, rk := temps[ops.patch], kinds[ops.patch]
+	if !irRetainedUpdateKind(k) || rk.tag != tagAnonStruct || rk.comp == nil {
+		irDeclineNote("a Struct.update patch value that is not an anonymous struct: " + rk.nomi())
+		return no()
+	}
+	patch := argExpr(t.Args[ops.patch])
+	from := make([]ast.Node, len(rk.comp.names))
+	for i := range from {
+		from[i] = patch
+	}
+	v, ok := bl.recordMerge(t, k, base, rec, rk, rk.comp.names, from)
+	if !ok {
+		return no()
+	}
+	if bl.recording > 0 && bl.qualRecord == t {
+		bl.qualRecordArgs = irQualArgs{temps: temps, kinds: kinds, mobile: []bool{true, true}, ok: true}
+		bl.qualRecordSeen = true
 	}
 	return v, k, false, true
 }
@@ -315,25 +362,28 @@ func structUpdateOperands(args []ast.Node) (structUpdateArgs, bool) {
 }
 
 // recordMerge is structMerge over a patch already built as the record rec of
-// kind rk: each field is read back from rec. A patch with a `..` field never
-// reaches it (structUpdateHoles).
-func (bl *irScalarBuilder) recordMerge(at ast.Node, k kind, base, rec ir.Temp, rk kind, lit *ast.StructLit) (ir.Temp, bool) {
-	names := make([]string, len(lit.Fields))
-	vals := make([]ir.Temp, len(lit.Fields))
-	for i, f := range lit.Fields {
-		fk, found := bl.g.updateField(k, f.Name)
-		part, inRecord := anonFieldKind(rk, f.Name)
+// kind rk: each field is read back from rec. fields names the fields the
+// update writes, and from the node each one's value is read at: a literal
+// patch's field values, or the patch itself when it is a value
+// (`Struct.update(u, patch)`). A patch with a `..` field never reaches it
+// (structUpdateHoles).
+func (bl *irScalarBuilder) recordMerge(at ast.Node, k kind, base, rec ir.Temp, rk kind, fields []string, from []ast.Node) (ir.Temp, bool) {
+	names := make([]string, len(fields))
+	vals := make([]ir.Temp, len(fields))
+	for i, name := range fields {
+		fk, found := bl.g.updateField(k, name)
+		part, inRecord := anonFieldKind(rk, name)
 		if !found || !inRecord {
 			return ir.NoTemp, false
 		}
-		p := ir.NewProjRecordField(bl.g.irNodePos(f.Value), bl.f.NewTemp(), rec, f.Name, irParamShape(part))
+		p := ir.NewProjRecordField(bl.g.irNodePos(from[i]), bl.f.NewTemp(), rec, name, irParamShape(part))
 		bl.b.Append(p)
 		bl.side(p.Dst(), irScalarSide{k: part})
-		v, vk, ok := bl.coerceEmpty(f.Value, p.Dst(), part, fk)
+		v, vk, ok := bl.coerceEmpty(from[i], p.Dst(), part, fk)
 		if !ok || vk != fk {
 			return ir.NoTemp, false
 		}
-		names[i], vals[i] = f.Name, v
+		names[i], vals[i] = name, v
 	}
 	n := ir.NewMakeUpdate(bl.g.irNodePos(at), bl.f.NewTemp(), base, names, vals)
 	bl.b.Append(n)

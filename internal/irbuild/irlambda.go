@@ -319,7 +319,12 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			}
 			break
 		}
-		if supplier >= 0 {
+		if fill := bl.partialOpen[lam].defaults; supplier >= 0 && fill != nil && fill[supplier] != nil {
+			// A partial's open slot whose callee default is not a literal:
+			// the callee's default, evaluated in the callee's scope.
+			answer, ok = fill[supplier](child)
+			k = group.params[supplier]
+		} else if supplier >= 0 {
 			answer, k, _, ok = child.lowerWant(body, group.params[supplier])
 		} else if !sig.inferResult {
 			answer, k, _, ok = child.lowerWant(body, sig.result)

@@ -150,6 +150,11 @@ type gen struct {
 	// it was without them.
 	dfr *rand.Rand
 	fdn int
+	// leave draws the blocks leaveBlock writes, and ln names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	leave *rand.Rand
+	ln    int
 }
 
 func (g *gen) fresh(prefix string) string {
@@ -1729,13 +1734,7 @@ func (g *gen) callBlock() string {
 		// there short, by name and partially.
 		calls := []string{"%s(2)", "%s(y: 3, x: 2)", "%s(_, 3)(2)", "%s(2, _)(4)"}
 		call := fmt.Sprintf(calls[r.Intn(len(calls))], name("cf"))
-		dflt := fmt.Sprintf("x + %d", n)
-		if strings.Contains(call, "_") {
-			// A partial over a slot whose default is not a literal is
-			// gapPartialOpenNonliteralDefault.
-			dflt = fmt.Sprint(n)
-		}
-		fmt.Fprintf(&out, "%s = |x: Int, y: Int = %s| x * y\n", name("cf"), dflt)
+		fmt.Fprintf(&out, "%s = |x: Int, y: Int = x + %d| x * y\n", name("cf"), n)
 		fmt.Fprintf(&out, "%s = || %s\n", name("cg"), call)
 		fmt.Fprintf(&out, "io.inspect(%s())\n", name("cg"))
 	case 7:
@@ -1745,11 +1744,7 @@ func (g *gen) callBlock() string {
 		fmt.Fprintf(&out, "io.inspect(%s(None))\n", name("cp"))
 	case 5:
 		// A generic helper with a destructuring parameter and a default
-		// that reads its names, called with named arguments. A nested fn
-		// cannot destructure yet, so a local program skips it.
-		if g.local {
-			break
-		}
+		// that reads its names, called with named arguments.
 		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<A, B>((a, b): (A, B), keep: Bool = False, fallback: A = a): (B, A) {\n"+
 			"if keep {\n(b, fallback)\n} else {\n(b, a)\n}\n}", name("csw")))
 		fmt.Fprintf(&out, "io.inspect(%s(keep: True, (%d, \"x\")))\n", name("csw"), n)
@@ -1779,6 +1774,114 @@ func (g *gen) callBlock() string {
 		fmt.Fprintf(&out, "%s = concurrent {\nTask.await_all(Task.spawn_all(%s, %s, max_running: %d))\n}\n",
 			name("ct"), sources[r.Intn(len(sources))], name("cd"), n+1)
 		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
+// leaveBlock writes a block whose code the IR builder once declined for
+// engineering reasons alone: an `and` or `or` whose right operand leaves (a
+// block ending in `return`, `break` or `continue`, a `case` or `if` every
+// arm of which leaves, in parentheses, under `!` or as a call's argument,
+// a failing `try`), a nested fn's destructuring parameter, and a
+// `Struct.update` patch that is a value rather than a literal, and a
+// partial whose open slot has a computed default, and a Context value keyed
+// by a std type with an rt Go type, list patterns over `[]` and of a suffix
+// alone, and a value of a block-local type escaping its block.
+func (g *gen) leaveBlock() string {
+	r := g.leave
+	g.ln++
+	name := func(s string) string { return fmt.Sprintf("%s%dl", s, g.ln) }
+	n := r.Intn(5)
+	op, other := "and", "or"
+	if r.Intn(2) == 0 {
+		op, other = "or", "and"
+	}
+	// leaving is a right operand that leaves the fn whose result is res,
+	// with x an Int in scope.
+	leaving := func(res string) string {
+		ret := map[string]string{"Bool": "True", "Int": fmt.Sprint(n), "String": `"left"`}[res]
+		switch r.Intn(5) {
+		case 0:
+			return "{\nreturn " + ret + "\n}"
+		case 1:
+			return fmt.Sprintf("case x {\n%d -> return %s\n_ -> return %s\n}", n, ret, ret)
+		case 2:
+			return fmt.Sprintf("(if x > %d { return %s } else { return %s })", n, ret, ret)
+		case 3:
+			return fmt.Sprintf("!case x {\n%d -> return %s\n_ -> return %s\n}", n, ret, ret)
+		}
+		return fmt.Sprintf("Debug.inspect(case x {\n%d -> return %s\n_ -> return %s\n}) == \"True\"", n, ret, ret)
+	}
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(10) {
+	case 9:
+		// A value of a block-local type, generic or not, escaping the
+		// block that declares it.
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "%s = {\nstruct %s {\nn: Int\n}\n%s{n: %d}\n}\n", name("lb"), name("Lk"), name("Lk"), n)
+		} else {
+			fmt.Fprintf(&out, "%s = {\nstruct %s<T> {\nn: T\n}\n%s{n: %d}\n}\n", name("lb"), name("Lk"), name("Lk"), n)
+		}
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("lb"))
+		fmt.Fprintf(&out, "io.inspect(%s.n + 1)\n", name("lb"))
+	case 8:
+		// A list pattern over the untyped `[]`, and one that is only a
+		// suffix.
+		heads := []string{"[_]", "[_, .._]", "[_, _]"}
+		fmt.Fprintf(&out, "io.inspect(case [] {\n%s -> %d\n_ -> %d\n})\n", heads[r.Intn(3)], n, n+1)
+		fmt.Fprintf(&out, "io.inspect(case [%d, %d] {\n[_, _, _] -> 0\n[..%s] -> Iter.count(%s)\n})\n", n, n+1, name("lr"), name("lr"))
+	case 7:
+		// A Context value keyed by std's rt-backed Duration or Codepoint.
+		vals := [][2]string{{fmt.Sprintf("Duration.seconds(%d)", n), "Duration"}, {"'c'", "Codepoint"}}
+		v := vals[r.Intn(2)]
+		fmt.Fprintf(&out, "%s = Context.with_value(Context.root(), %s)\n", name("lx"), v[0])
+		fmt.Fprintf(&out, "io.inspect(Context.value(%s, %s))\n", name("lx"), v[1])
+		fmt.Fprintf(&out, "io.inspect(Context.value(Context.root(), %s))\n", v[1])
+	case 6:
+		// A partial whose open slot has a computed default, over a nested
+		// fn, called omitting the slot and giving it.
+		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = a * %d + 1): Int {\na + b\n}\n", name("lo"), n)
+		fmt.Fprintf(&out, "%s = %s(%d, _)\n", name("lq"), name("lo"), r.Intn(9))
+		fmt.Fprintf(&out, "io.inspect(%s())\n", name("lq"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lq"), r.Intn(9))
+	case 5:
+		// A Struct.update patch held in a binding or answered by a call.
+		fmt.Fprintf(&out, "struct %s {\nname: String\nage: Int\n}\n", name("Lu"))
+		fmt.Fprintf(&out, "%s = %s{name: \"n\", age: %d}\n", name("lu"), name("Lu"), n)
+		patches := []string{"{age: %d}", "{name: \"p\", age: %d}"}
+		fmt.Fprintf(&out, "%s = %s\n", name("lp"), fmt.Sprintf(patches[r.Intn(2)], r.Intn(9)))
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "io.inspect(Struct.update(%s, %s))\n", name("lu"), name("lp"))
+		} else {
+			fmt.Fprintf(&out, "io.inspect(Struct.update(updates: %s, original: %s))\n", name("lp"), name("lu"))
+		}
+	case 0:
+		res := []string{"Bool", "Int", "String"}[r.Intn(3)]
+		answer := map[string]string{"Bool": "b", "Int": "if b { 1 } else { 2 }", "String": `"${b}"`}[res]
+		fmt.Fprintf(&out, "fn %s(x: Int): %s {\nb = x > %d %s %s\n%s\n}\n", name("lf"), res, n, op, leaving(res), answer)
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lf"), n+r.Intn(3)-1)
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lf"), r.Intn(7)-1)
+	case 1:
+		// A chain whose last operand leaves.
+		fmt.Fprintf(&out, "fn %s(x: Int, y: Bool): String {\nb = x > %d %s y %s %s\n\"${b}\"\n}\n",
+			name("lc"), n, other, op, leaving("String"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d, %s))\n", name("lc"), r.Intn(7)-1, g.boolLitFrom(r))
+	case 2:
+		// `continue` and `break` in an Iter.map callback.
+		fmt.Fprintf(&out, "%s = Iter.map([1, 2, 3, 4, 5, 6], |x| {\n_ = x != %d or {\ncontinue\n}\n_ = x < %d or {\nbreak\n}\nx * 10\n}) |> Iter.to_list()\n",
+			name("lm"), n+1, n+2+r.Intn(3))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("lm"))
+	case 3:
+		// A `try` that fails as the right operand.
+		fmt.Fprintf(&out, "fn %s(x: Int): Result<Int, String> {\nif x %% 2 == 0 { Ok(x) } else { Err(\"odd ${x}\") }\n}\n", name("lh"))
+		fmt.Fprintf(&out, "fn %s(x: Int): Result<Bool, String> {\nOk(x > %d %s try %s(x) > 0)\n}\n", name("lt"), n, op, name("lh"))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lt"), r.Intn(7)-1)
+	default:
+		// A nested fn's destructuring parameter.
+		fmt.Fprintf(&out, "fn %s((a, b): (Int, String)): String {\n\"${b}${a + %d}\"\n}\n", name("ld"), n)
+		fmt.Fprintf(&out, "io.inspect(%s((%d, \"d\")))\n", name("ld"), r.Intn(9))
 	}
 	out.WriteString("}\n")
 	return out.String()
@@ -1922,12 +2025,13 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	g := &gen{r: rand.New(rand.NewSource(int64(i))), aux: rand.New(rand.NewSource(int64(i) + 1<<32)),
 		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32)),
 		wrap: rand.New(rand.NewSource(int64(i) + 4<<32)), dyn: rand.New(rand.NewSource(int64(i) + 5<<32)),
-		fix:  rand.New(rand.NewSource(int64(i) + 6<<32)),
-		itr:  rand.New(rand.NewSource(int64(i) + 11<<32)),
-		pat:  rand.New(rand.NewSource(int64(i) + 20<<32)),
-		hold: rand.New(rand.NewSource(int64(i) + 27<<32)),
-		dfr:  rand.New(rand.NewSource(int64(i) + 43<<32)),
-		call: rand.New(rand.NewSource(int64(i) + 7<<32))}
+		fix:   rand.New(rand.NewSource(int64(i) + 6<<32)),
+		itr:   rand.New(rand.NewSource(int64(i) + 11<<32)),
+		pat:   rand.New(rand.NewSource(int64(i) + 20<<32)),
+		hold:  rand.New(rand.NewSource(int64(i) + 27<<32)),
+		dfr:   rand.New(rand.NewSource(int64(i) + 43<<32)),
+		leave: rand.New(rand.NewSource(int64(i) + 41<<32)),
+		call:  rand.New(rand.NewSource(int64(i) + 7<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -1977,6 +2081,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.dfr.Intn(3) == 0 {
 			body.WriteString(boundedBlock(g.deferBlock(asTest)))
+		}
+		if g.leave.Intn(3) == 0 {
+			body.WriteString(boundedBlock(g.leaveBlock()))
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")

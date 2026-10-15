@@ -565,8 +565,11 @@ func kindParts(k kind) []kind {
 // Identity is the analyzer's own `(Origin, Name)` rule and not a name match, so
 // a sibling module's same-named `Box` answers only for its own origin: this
 // file's templates for this file's origin, and the declaring file's for
-// another's (foreignTemplateAt).
-func (g *gen) projectGenericInstance(origin, name string, typeArgs []analysis.Type) (kind, bool) {
+// another's (foreignTemplateAt). A block-local template is found first by
+// params, the declaration's own type parameters, which every instance of it
+// shares, so an instance that escapes the block declaring it is still
+// found where its name does not resolve (blockLocalTemplateOf).
+func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name string, typeArgs []analysis.Type) (kind, bool) {
 	// An empty Origin is the checker's on a type argument inside a variant
 	// constructor's instantiated result (`Wrapper<Wrapper<Int>>`); the name
 	// resolves among this module's own templates.
@@ -583,7 +586,10 @@ func (g *gen) projectGenericInstance(origin, name string, typeArgs []analysis.Ty
 		}
 		instantiate = func(args []kind) (kind, bool) { return g.instantiateForeign(ref, args) }
 	} else {
-		tpl := g.blockLocalTemplate(name)
+		tpl := g.blockLocalTemplateOf(params)
+		if tpl == nil {
+			tpl = g.blockLocalTemplate(name)
+		}
 		if tpl == nil {
 			tpl = g.genericTemplates[name]
 		}
