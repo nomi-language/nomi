@@ -109,6 +109,25 @@ func TestDecimalLiteral(t *testing.T) {
 	}
 }
 
+// A decimal literal's `_` separators follow the Int and Float rule: one
+// between two digits. The parser rejects the rest in each position a decimal
+// literal may stand, as it rejects `1__0` and `1__0.5`.
+func TestDecimalLiteralMisplacedSeparator(t *testing.T) {
+	for _, lit := range []string{"1__0.5d", "1.5__0d", "1_d", "1_.5d", "1.5_d"} {
+		for _, src := range []string{
+			"x = " + lit,
+			"x = case y {\n    " + lit + " -> 1\n    _ -> 2\n}",
+			"x = case y {\n    -" + lit + " -> 1\n    _ -> 2\n}",
+			"x = case y {\n    [" + lit + ", _] -> 1\n    _ -> 2\n}",
+		} {
+			err := parseError(t, src)
+			if want := "invalid decimal \"" + lit + "\""; !strings.Contains(err.Error(), want) {
+				t.Errorf("Parse(%q): got %v, want an error containing %s", src, err, want)
+			}
+		}
+	}
+}
+
 func TestDecimalInBinary(t *testing.T) {
 	// 1.50d + 1.5d parses as Binary{DecimalLit, "+", DecimalLit}.
 	expr := parseExpr(t, "1.50d + 1.5d")

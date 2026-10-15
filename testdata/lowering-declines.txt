@@ -221,7 +221,7 @@ b	irScalarBuilder.structUpdateHoles | false | !irRetainedRecordKind(rk)#1	ircurr
 b	irScalarBuilder.vectorUpdate | false | bk != kindEmptyVector#1	ircurrentvalue.go:341	-	checker requires a vector base for a vector spread
 b	irScalarBuilder.vectorUpdate | false | !ok ¦¦ lk != bk#1	ircurrentvalue.go:355	-	vector elements are checked against the base's element type by the checker
 b	irScalarBuilder.dbgOf | false | isNilNode(operand)#1	irdbg.go:183	-	fence: `dbg` always has an operand from the parser, and the pipe form passes t.Left
-c	irScalarBuilder.decimalLiteral | false | err != nil#1	irdecimal.go:12	-	pinned as gapDecimalDoubledUnderscore (reason: a DecimalLit)
+b	irScalarBuilder.decimalLiteral | false | err != nil#1	irdecimal.go:12	-	the parser rejects a decimal literal rt.ParseDecimalLexeme refuses (decimalLit, "invalid decimal")
 c	irScalarBuilder.deferCall | note | "a defer outside a named function's body or scoped block"#1	irdefer.go:52	-	pinned as gapDeferLoop (reason: a defer outside a named function's body or scoped block)
 c	irScalarBuilder.deferCall | note | "a defer inside a lambda"#1	irdefer.go:55	-	pinned as gapDeferLambda (reason: a defer inside a lambda)
 b	irScalarBuilder.deferCall | note | "a defer of something other than a call"#1	irdefer.go:58	-	checker rejects: "`defer` requires a function call"

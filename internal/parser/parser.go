@@ -6,6 +6,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/strlit"
 	"github.com/nomi-language/nomi/internal/token"
+	"github.com/nomi-language/nomi/rt"
 	"sort"
 	"strconv"
 	"strings"
@@ -2405,7 +2406,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		// Keep the lexeme verbatim (incl. the trailing `d`);
 		// rt.ParseDecimalLexeme strips the suffix and parses it so scale is
 		// preserved (a Float would lose precision).
-		return &ast.DecimalLit{Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
+		return decimalLit(tok, "", tok.Line, tok.Col)
 
 	case token.CODEPOINT_LITERAL:
 		p.advance()
@@ -4361,7 +4362,11 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 			pattern = &ast.FloatLit{Value: val, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}
 		case token.DECIMAL:
 			p.advance()
-			pattern = &ast.DecimalLit{Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}
+			lit, e := decimalLit(tok, "", tok.Line, tok.Col)
+			if e != nil {
+				return nil, nil, e
+			}
+			pattern = lit
 		case token.CODEPOINT_LITERAL:
 			p.advance()
 			pattern = codepointLit(tok)
@@ -7442,7 +7447,7 @@ func (p *Parser) parseNegativeLiteralPattern() (ast.Node, error) {
 		return &ast.FloatLit{Value: -val, Lexeme: "-" + next.Lexeme, Line: minusTok.Line, Col: minusTok.Col}, nil
 	case token.DECIMAL:
 		p.advance()
-		return &ast.DecimalLit{Lexeme: "-" + next.Lexeme, Line: minusTok.Line, Col: minusTok.Col}, nil
+		return decimalLit(next, "-", minusTok.Line, minusTok.Col)
 	default:
 		return nil, errorAt(minusTok.Line, minusTok.Col, "expected number after '-' in pattern")
 	}
@@ -7610,7 +7615,7 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 		return &ast.FloatLit{Value: val, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
 	case token.DECIMAL:
 		p.advance()
-		return &ast.DecimalLit{Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
+		return decimalLit(tok, "", tok.Line, tok.Col)
 	case token.CODEPOINT_LITERAL:
 		p.advance()
 		return codepointLit(tok), nil
@@ -9438,4 +9443,14 @@ func (p *Parser) parseExportFunc() (ast.Node, error) {
 	fd.Export = true
 	fd.ExportLine, fd.ExportCol = exportTok.Line, exportTok.Col
 	return fd, nil
+}
+
+// decimalLit makes the literal a DECIMAL token spells, with sign ("" or "-")
+// in front, at line and col. Its `_` separators follow the Int and Float
+// rule, one between two digits, which rt.ParseDecimalLexeme holds it to.
+func decimalLit(tok token.Token, sign string, line, col int) (ast.Node, error) {
+	if _, err := rt.ParseDecimalLexeme(tok.Lexeme); err != nil {
+		return nil, errorAt(tok.Line, tok.Col, "invalid decimal %q", tok.Lexeme)
+	}
+	return &ast.DecimalLit{Lexeme: sign + tok.Lexeme, Line: line, Col: col}, nil
 }

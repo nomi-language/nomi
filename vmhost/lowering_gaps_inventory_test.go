@@ -1188,18 +1188,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapDecimalDoubledUnderscore",
-		fix:    "builder: decimal doubled underscore. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.decimalLiteral | false | err != nil#1",
-		reason: "a DecimalLit",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.inspect(1__0.5d)
-}
-`,
-	},
-	{
 		name:   "gapEnumFieldReadDisagree",
 		fix:    "builder: enum field read disagree. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.enumFieldRead | note | \"an enum field read whose variants disagree on its type: .\" + name#1",
 		reason: "an enum field read whose variants disagree on its type: .w",
