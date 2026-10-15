@@ -642,6 +642,12 @@ The spec is canonical; these are the rules most often gotten wrong.
   position.
 - Syntax gets an AST node. Do not synthesize data in the analysis builder for
   something the parser should emit.
+- `ast.Children` and `ast.Inspect` run a type switch generated from the
+  node types (`internal/ast/children_gen.go`, by `internal/ast/walkgen`)
+  that follows the reflective `ast.ReflectChildren`'s rules. After adding,
+  removing or reordering a node type or field, run
+  `go generate ./internal/ast`; `TestGeneratedChildrenAreCurrent` fails
+  until you do.
 - No fake symbols: a new concept gets its own representation at every layer.
 - No workarounds for type information the checker should provide; fix the
   checker.

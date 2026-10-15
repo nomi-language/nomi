@@ -105,14 +105,17 @@ func TestChildren_ATypeWithNoNodeFieldsHasNoWalk(t *testing.T) {
 	}
 }
 
-// Walks from many goroutines share the per-type cache; run under -race.
-func TestInspect_ConcurrentWalksShareTheCache(t *testing.T) {
+// Reflective walks from many goroutines share the per-type cache; run
+// under -race.
+func TestReflectChildren_ConcurrentWalksShareTheCache(t *testing.T) {
 	done := make(chan int)
 	for range 8 {
 		go func() {
 			tree := &Block{Stmts: []Node{&ExprStmt{Expr: &StringInterp{Parts: []StringPart{StringExpr{Expr: &Ident{Name: "x"}}}}}}}
 			count := 0
-			Inspect(tree, func(Node) bool { count++; return true })
+			var visit func(Node)
+			visit = func(n Node) { count++; ReflectChildren(n, visit) }
+			visit(tree)
 			done <- count
 		}()
 	}
