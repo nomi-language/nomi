@@ -20,9 +20,16 @@ import (
 // settles lowerability over the finished graph. A TYPE GROUP runs those phases
 // over several files at once. The group is a strongly connected component of
 // the graph whose edge a→b says a type, interface or alias declaration in a
-// names a type or interface b declares. A file outside every such cycle is not
-// in a group and builds on demand as before, so an acyclic program builds
-// exactly as it did.
+// names a type or interface b declares. A file outside every such cycle builds
+// on demand in a group of its own, through the same phases.
+//
+// A file that is finished may be asked, while a group resolves its fields, for
+// a generic instance over one of the group's declarations (`struct Parent { p:
+// Pair<Int, Child> }` with Pair in a finished file). Its mirror of Child is
+// pending in the group, as a member's would be, and the instance waits for the
+// group's layout too (deferInstLayout), as does every instance a member builds
+// while fields are resolved: an instance laid out then would read a
+// declaration with no fields as zero-sized.
 //
 // Inside a group, a mirror of another member's type is made while fields are
 // still being resolved, so it starts as an identity with no layout (a pending
@@ -74,10 +81,21 @@ type typeGroup struct {
 	units   []int
 	state   typeGroupState
 	pending []pendingMirror
+	// insts are the generic instances whose layout waits for the group's
+	// (deferInstLayout), with the gen that owns each; registered counts
+	// those whose impls are registered.
+	insts      []deferredInst
+	registered int
 	// pendingIfaces are interface mirrors made before their owners'
 	// signatures were resolved. A type's layout never reads an interface's
 	// methods, only whether it is lowerable, which its shell already says.
 	pendingIfaces []pendingIfaceMirror
+}
+
+// deferredInst is a generic instance waiting for a group's layout.
+type deferredInst struct {
+	g *gen
+	d *typeDef
 }
 
 // pendingIfaceMirror is an interface mirror waiting for its methods.
@@ -117,8 +135,8 @@ func (r *typeRegistry) ensureLayout(unit int) bool {
 	if !r.ensureTypes(unit) {
 		return false
 	}
-	grp := r.groupFor(unit)
-	return grp == nil || r.gens[unit].typesDone || grp.state >= groupLaidOut
+	g := r.gens[unit]
+	return g.typesDone || g.building == nil || g.building.state >= groupLaidOut
 }
 
 // ensureIfaces is ensureTypes for a caller that reads the owner's resolved
@@ -127,15 +145,24 @@ func (r *typeRegistry) ensureIfaces(unit int) bool {
 	if !r.ensureTypes(unit) {
 		return false
 	}
-	grp := r.groupFor(unit)
-	return grp == nil || r.gens[unit].typesDone || grp.state >= groupIfacesResolved
+	g := r.gens[unit]
+	return g.typesDone || g.building == nil || g.building.state >= groupIfacesResolved
 }
 
-// defersMirror reports that a mirror unit `from` asks for of a type unit `to`
-// declares is made pending: both are in one group, which is resolving fields.
-func (r *typeRegistry) defersMirror(from, to int) bool {
-	grp := r.groupFor(to)
-	return grp != nil && grp.state == groupResolving && r.groupFor(from) == grp
+// deferringGroup is the group in which a mirror unit `from` asks for of a type
+// unit `to` declares is made pending, or nil: `to` is resolving its fields,
+// and `from` is building in the same group or is finished. A finished file
+// asked for such a type is building a generic instance over it for `to`'s
+// fields (`struct Parent { p: Pair<Int, Child> }` with Pair in that file).
+func (r *typeRegistry) deferringGroup(from, to int) *typeGroup {
+	grp := r.gens[to].building
+	if grp == nil || grp.state != groupResolving {
+		return nil
+	}
+	if f := r.gens[from]; f.building == grp || f.typesDone {
+		return grp
+	}
+	return nil
 }
 
 // defersIfaceMirror is defersMirror for an interface, whose signatures are
@@ -156,11 +183,11 @@ func (g *gen) pendingIfaceMirror(src *ifaceDef, o *typeOwner) *ifaceDef {
 }
 
 // pendingMirror makes this gen's mirror of src, the declaration o names in
-// another member of its type group, as an identity whose kinds and layout
-// buildGroup fills in.
-func (g *gen) pendingMirror(src *typeDef, o *typeOwner) *typeDef {
+// another file whose group grp is resolving fields, as an identity whose
+// kinds and layout grp.layOut fills in.
+func (g *gen) pendingMirror(grp *typeGroup, src *typeDef, o *typeOwner) *typeDef {
 	d := g.mirrorShell(src, o)
-	grp := g.reg.groupFor(o.unit)
+	d.layoutGroup = grp
 	grp.pending = append(grp.pending, pendingMirror{g: g, d: d, src: src, o: o})
 	return d
 }
@@ -172,6 +199,9 @@ func (r *typeRegistry) buildGroup(grp *typeGroup) {
 	for _, u := range grp.units {
 		gens = append(gens, r.gens[u])
 	}
+	for _, g := range gens {
+		g.building = grp
+	}
 	grp.state = groupShells
 	for _, g := range gens {
 		g.collectHostPkgs()
@@ -182,46 +212,7 @@ func (r *typeRegistry) buildGroup(grp *typeGroup) {
 	for _, g := range gens {
 		g.resolveTypeShells(g.nodes)
 	}
-	// By index: importing one mirror's kinds can make another pending mirror.
-	for i := 0; i < len(grp.pending); i++ {
-		p := grp.pending[i]
-		grp.pending[i].imported = p.g.importMirrorKinds(p.d, p.src, p.o)
-	}
-	grp.state = groupLayingOut
-	for _, g := range gens {
-		g.boxTypeFields()
-	}
-	// A mirror's boxing before any slot is assigned: zero-sizedness reads it.
-	for _, p := range grp.pending {
-		if p.imported {
-			for i := range p.d.fields {
-				p.d.fields[i].boxed = p.src.fields[i].boxed
-			}
-		}
-	}
-	for _, g := range gens {
-		g.assignTypeSlots()
-	}
-	for _, p := range grp.pending {
-		if p.imported {
-			p.g.copyMirrorLayout(p.d, p.src, p.o)
-		}
-	}
-	// settleLowerable starts each declaration over from its own refusals, and
-	// a mirror only ever turns unlowerable, so this ends.
-	for changed := true; changed; {
-		changed = false
-		for _, g := range gens {
-			g.settleLowerable(g.typeSettleOrder())
-		}
-		for _, p := range grp.pending {
-			if p.d.lowerable && !p.src.lowerable {
-				refuseMirror(p.d, p.src, p.o)
-				changed = true
-			}
-		}
-	}
-	grp.state = groupLaidOut
+	grp.layOut(gens)
 	for _, g := range gens {
 		g.resolveIfaces()
 	}
@@ -236,6 +227,93 @@ func (r *typeRegistry) buildGroup(grp *typeGroup) {
 		g.mintTypeIDs()
 		g.typesDone = true
 	}
+}
+
+// layOut boxes, slots and settles the group's declarations once every
+// member's fields are resolved, with the mirrors and generic instances that
+// waited for them. A group of one file runs it too (buildTypes).
+func (grp *typeGroup) layOut(gens []*gen) {
+	// By index: importing one mirror's kinds can make another pending mirror,
+	// or an instance over one.
+	for i := 0; i < len(grp.pending); i++ {
+		p := grp.pending[i]
+		grp.pending[i].imported = p.g.importMirrorKinds(p.d, p.src, p.o)
+	}
+	grp.state = groupLayingOut
+	for _, g := range gens {
+		g.boxTypeFields()
+	}
+	for _, in := range grp.insts {
+		in.d.boxFields()
+	}
+	// A mirror's boxing before any slot is assigned: zero-sizedness reads it.
+	for _, p := range grp.pending {
+		if p.imported {
+			for i := range p.d.fields {
+				p.d.fields[i].boxed = p.src.fields[i].boxed
+			}
+		}
+	}
+	for _, g := range gens {
+		g.assignTypeSlots()
+	}
+	for _, in := range grp.insts {
+		in.d.assignSlots()
+	}
+	for _, p := range grp.pending {
+		if p.imported {
+			p.g.copyMirrorLayout(p.d, p.src, p.o)
+		}
+	}
+	var order []*typeDef
+	for _, g := range gens {
+		order = append(order, g.typeSettleOrder()...)
+	}
+	for _, in := range grp.insts {
+		order = append(order, in.d)
+	}
+	// settleLowerable starts each declaration over from its own refusals, and
+	// a mirror or an instance only ever turns unlowerable, so this ends.
+	for changed := true; changed; {
+		changed = false
+		gens[0].settleLowerable(order)
+		for _, p := range grp.pending {
+			if p.d.lowerable && !p.src.lowerable {
+				refuseMirror(p.d, p.src, p.o)
+				changed = true
+			}
+		}
+		if !changed {
+			changed = grp.registerInsts()
+		}
+	}
+	for _, p := range grp.pending {
+		p.d.layoutGroup = nil
+	}
+	for _, in := range grp.insts {
+		in.d.layoutGroup = nil
+	}
+	grp.state = groupLaidOut
+}
+
+// registerInsts registers the impls of every waiting instance still lowerable
+// once the group is settled, as genericInstance does for one built whole, and
+// reports whether one was refused, which the caller settles again so its
+// containers follow.
+func (grp *typeGroup) registerInsts() bool {
+	refused := false
+	for ; grp.registered < len(grp.insts); grp.registered++ {
+		in := grp.insts[grp.registered]
+		if !in.d.lowerable {
+			continue
+		}
+		if why, detail := in.g.registerDeferredInstImpls(in.d); why != "" {
+			in.d.lowerable = false
+			in.d.why, in.d.whyDetail = why, detail
+			refused = true
+		}
+	}
+	return refused
 }
 
 // findTypeGroups is every type group in the program, indexed by unit: nil for a

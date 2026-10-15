@@ -329,6 +329,10 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 	}
 	g.popGenericSubst()
 
+	if g.deferInstLayout(d) {
+		return named(d), true
+	}
+
 	// Boxing, slot assignment and the lowerability relaxation, which buildTypes
 	// does in three passes over the whole module and which are done here per
 	// instance. Sound in this order because an instance is built BOTTOM-UP: every
@@ -346,14 +350,7 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 	// So the loop below does nothing for an enum — `d.fields` is EMPTY for one,
 	// exactly as it is in buildTypes, where the identical loop runs over every
 	// def. Two passes over one list, each doing the half that is its own.
-	for i := range d.fields {
-		for _, c := range appendInlineDefs(nil, d.fields[i].k) {
-			if c == d || c.reaches(d) {
-				d.fields[i].boxed = true
-				break
-			}
-		}
-	}
+	d.boxFields()
 	// AFTER the field boxing, which is buildTypes' order and is load-bearing
 	// there for a reason that applies here unchanged: a boxed field is a
 	// pointer, a pointer is never zero-sized, and zero-sizedness decides whether
@@ -378,6 +375,59 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 		return kindInvalid, false
 	}
 	return named(d), true
+}
+
+// deferInstLayout queues an instance whose layout cannot be decided yet, and
+// reports whether it did.
+//
+// An instance built while a type group resolves its fields may store a
+// declaration whose fields are not resolved yet: in `struct Parent { t:
+// Tree<Int> }` before `struct Child { n: Int }`, `Tree<Int>`'s `Node Child`
+// payload is built while Child has no fields, so laying the instance out now
+// would call Child zero-sized and give it no slot. The same holds for an
+// instance built in a finished file over a mirror of such a declaration
+// (`Pair<Int, Child>` with Pair in another file). A queued instance is boxed,
+// slotted and settled with the group's own declarations (typeGroup.layOut)
+// and its impls registered after that, so declaration order changes nothing.
+//
+// An instance already refused by its own fields, or by a component settled
+// unlowerable, is not queued: the caller refuses it at once.
+func (g *gen) deferInstLayout(d *typeDef) bool {
+	grp := g.instLayoutGroup(d)
+	if grp == nil || len(d.refusals) > 0 {
+		return false
+	}
+	for _, c := range d.mentions {
+		if !c.lowerable {
+			return false
+		}
+	}
+	d.layoutGroup = grp
+	grp.insts = append(grp.insts, deferredInst{g: g, d: d})
+	return true
+}
+
+// instLayoutGroup is the group whose layout an instance must wait for: this
+// file's own while it resolves its fields, or the group of a component that
+// is not laid out yet. Nil when the instance can be laid out now.
+func (g *gen) instLayoutGroup(d *typeDef) *typeGroup {
+	if grp := g.building; grp != nil && grp.state == groupResolving {
+		return grp
+	}
+	for _, c := range d.mentions {
+		if grp := c.layoutGroup; grp != nil && grp.state == groupResolving {
+			return grp
+		}
+	}
+	return nil
+}
+
+// registerDeferredInstImpls is registerInstanceImpls for an instance
+// deferInstLayout queued, inside its template's scope as genericInstance
+// registers one built whole.
+func (g *gen) registerDeferredInstImpls(d *typeDef) (string, string) {
+	defer g.enterTypeScope(d.genericOf.scope)()
+	return g.registerInstanceImpls(d.genericOf, d, d.genericArgs)
 }
 
 // genericInstKey is the intern key: the template pointer plus every argument's
