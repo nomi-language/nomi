@@ -28,7 +28,10 @@ the inner indent.
 Fits are tail-aware: every Group's flat-or-broken decision considers the rest
 of the line that follows it, not only the Group's own content. A struct literal
 whose flat form fits at its column but whose trailing siblings push the line
-past the width breaks, instead of staying flat and overflowing. Trailing
+past the width breaks, instead of staying flat and overflowing. The rest of
+the line ends at the first place it may break, and at the `{` of a
+construct kept multi-line (below), so `A{a} + B{` measures the same whether
+`B{...}` was broken for width or kept broken from the source. Trailing
 comments (`x = 1 // explanatory note`) are invisible to fits, so the formatter
 does not break code to make room for a comment; the comment can run past the
 width instead.

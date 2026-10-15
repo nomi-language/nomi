@@ -478,7 +478,14 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 		// Hide from ancestor fits: claim to fit, contribute 0 width. Local
 		// breaking is the whole point — ancestors should not be forced
 		// broken on our behalf. A LocalBrokenBlock counts its first line.
-		if v.firstLine {
+		//
+		// In a tail, a LocalBroken counts its first line too, and a HardLine
+		// in it ends the line (endsAtLineBreak): it always renders broken,
+		// so what follows its HardLine is on a later line. Walking past it
+		// as zero width would charge `} != rest` to the line it opens on,
+		// and a Group before a preserved multi-line literal would break
+		// where it did not when that literal broke for width.
+		if v.firstLine || inTail {
 			ok, _ := fitsFirstLine(v.d, rem)
 			return ok
 		}
@@ -552,8 +559,8 @@ const unboundedWidth = 1 << 30
 // endsAtLineBreak reports whether d's flat traversal ends at (i.e.
 // contains) a HardLine or docLine. Used by tail-walk to short-circuit
 // Concat traversal once a line break has been seen — anything after it
-// is on a future line. LocalBroken contributes no line break to the
-// flat view (per its hide-from-ancestor semantics).
+// is on a future line. A LocalBroken ends at its first HardLine, since it
+// always renders broken.
 func endsAtLineBreak(d Doc) bool {
 	if d == nil {
 		return false
@@ -572,7 +579,9 @@ func endsAtLineBreak(d Doc) bool {
 	case docIfBroken:
 		return endsAtLineBreak(v.flat)
 	case docLocalBroken:
-		return false
+		w := unboundedWidth
+		_, hit := fitsFirstLine(v.d, &w)
+		return hit
 	case docHidden, docLineSuffix:
 		return false
 	case docInString:
