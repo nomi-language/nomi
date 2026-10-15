@@ -432,8 +432,8 @@ func stdlibDependencyImport(name string, line int) *ast.ImportStmt {
 // per consumer. It is what the LSP has always done with its one Load.
 //
 // Callers only read it. A project build writes nothing into a shared
-// FileAnalysis it does not own (analysis.buildProjectWithCache rebinds
-// ProjectImpls only on files that build owns, or on one that has none).
+// FileAnalysis it does not own (analysis.buildProjectWithCache gives its
+// Program only to the files it built).
 var Shared = sync.OnceValue(Load)
 
 // Load parses all embedded stdlib .nomi files and returns the analyzed

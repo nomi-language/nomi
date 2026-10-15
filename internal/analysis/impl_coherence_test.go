@@ -96,10 +96,12 @@ func TestBuildProjectImplIndex_Union(t *testing.T) {
 			Impls: map[string]map[string]bool{
 				"Dog": {"Speech": true},
 			},
-			IfaceMethodImpls: map[string]map[string][]*ast.FuncDef{
-				"Speech": {"speak": {fnA}},
-			},
-			IfaceMethodImplFiles: map[*ast.FuncDef]string{fnA: "a"},
+			program: &Program{implTables: implTables{
+				IfaceMethodImpls: map[string]map[string][]*ast.FuncDef{
+					"Speech": {"speak": {fnA}},
+				},
+				IfaceMethodImplFiles: map[*ast.FuncDef]string{fnA: "a"},
+			}},
 			ImplManifest: map[string]map[string][]Recording{
 				"Speech": {"Dog": {{Pos: Pos{File: "a", Line: 1, Col: 1}, Kind: RecordingKindCallSite}}},
 			},
@@ -108,16 +110,18 @@ func TestBuildProjectImplIndex_Union(t *testing.T) {
 			Impls: map[string]map[string]bool{
 				"Cat": {"Speech": true},
 			},
-			IfaceMethodImpls: map[string]map[string][]*ast.FuncDef{
-				"Speech": {"speak": {fnB}},
-			},
-			IfaceMethodImplFiles: map[*ast.FuncDef]string{fnB: "b"},
+			program: &Program{implTables: implTables{
+				IfaceMethodImpls: map[string]map[string][]*ast.FuncDef{
+					"Speech": {"speak": {fnB}},
+				},
+				IfaceMethodImplFiles: map[*ast.FuncDef]string{fnB: "b"},
+			}},
 			ImplManifest: map[string]map[string][]Recording{
 				"Speech": {"Cat": {{Pos: Pos{File: "b", Line: 1, Col: 1}, Kind: RecordingKindCallSite}}},
 			},
 		},
 	}
-	idx := buildProjectImplIndex(filesByKey)
+	idx := buildProjectImplIndex(filesByKey, nil, nil)
 	if !idx.Impls["Dog"]["Speech"] || !idx.Impls["Cat"]["Speech"] {
 		t.Errorf("Impls union missing entries; got %v", idx.Impls)
 	}
@@ -132,23 +136,23 @@ func TestBuildProjectImplIndex_Union(t *testing.T) {
 	}
 }
 
-// TestBuildProjectImplIndex_DedupesSharedPointers pins the dedupe
-// behavior that prevents N-fold duplicates in IfaceMethodImpls when
-// project_build.go broadcasts the same map pointer to every "all"-side
-// FA. Without dedupe, downstream consumers (collision detector, IR
+// TestBuildProjectImplIndex_DedupesSharedPrograms pins the dedupe
+// behavior that prevents N-fold duplicates in IfaceMethodImpls when every
+// file of one build holds the same Program. Without dedupe, downstream consumers (collision detector, IR
 // builder) would see len(fns) == N and emit spurious diagnostics.
-func TestBuildProjectImplIndex_DedupesSharedPointers(t *testing.T) {
+func TestBuildProjectImplIndex_DedupesSharedPrograms(t *testing.T) {
 	fn := &ast.FuncDef{Name: "speak"}
 	shared := map[string]map[string][]*ast.FuncDef{
 		"Speech": {"speak": {fn}},
 	}
 	sharedFiles := map[*ast.FuncDef]string{fn: "a"}
+	program := &Program{implTables: implTables{IfaceMethodImpls: shared, IfaceMethodImplFiles: sharedFiles}}
 	filesByKey := map[string]*FileAnalysis{
-		"a": {IfaceMethodImpls: shared, IfaceMethodImplFiles: sharedFiles},
-		"b": {IfaceMethodImpls: shared, IfaceMethodImplFiles: sharedFiles},
-		"c": {IfaceMethodImpls: shared, IfaceMethodImplFiles: sharedFiles},
+		"a": {program: program},
+		"b": {program: program},
+		"c": {program: program},
 	}
-	idx := buildProjectImplIndex(filesByKey)
+	idx := buildProjectImplIndex(filesByKey, nil, nil)
 	if got := len(idx.IfaceMethodImpls["Speech"]["speak"]); got != 1 {
 		t.Errorf("expected 1 FuncDef after dedupe; got %d", got)
 	}
@@ -168,9 +172,9 @@ func TestBuildProjectImplIndex_PreservesSharedFnAcrossSlots(t *testing.T) {
 	}
 	sharedFiles := map[*ast.FuncDef]string{fn: "std/int"}
 	filesByKey := map[string]*FileAnalysis{
-		"std/int": {IfaceMethodImpls: shared, IfaceMethodImplFiles: sharedFiles},
+		"std/int": {program: &Program{implTables: implTables{IfaceMethodImpls: shared, IfaceMethodImplFiles: sharedFiles}}},
 	}
-	idx := buildProjectImplIndex(filesByKey)
+	idx := buildProjectImplIndex(filesByKey, nil, nil)
 	if got := len(idx.IfaceMethodImpls["Display"]["to_string"]); got != 1 {
 		t.Errorf("Display.to_string: expected 1 FuncDef; got %d", got)
 	}
@@ -201,7 +205,7 @@ func TestProjectImplIndexUnionsRecordings(t *testing.T) {
 			},
 		},
 	}
-	idx := buildProjectImplIndex(filesByKey)
+	idx := buildProjectImplIndex(filesByKey, nil, nil)
 	recs := idx.ImplManifest["Display"]["Int"]
 	if len(recs) != 2 {
 		t.Fatalf("expected 2 recordings in project index union, got %d: %+v", len(recs), recs)

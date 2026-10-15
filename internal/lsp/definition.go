@@ -560,12 +560,12 @@ func (s *Server) resolveImportDefinition(currentURI string, imp *ast.ImportStmt,
 // dispatchImplLocation builds a go-to-def Location for the concrete impl
 // an interface-qualified call dispatches to (Symbol.DispatchImpl). The
 // impl FuncDef's source file is recovered from its project-wide home
-// module-path key (ProjectImpls.ImplFiles); the FuncDef's own Line/Col
+// module-path key (Program().ImplIndex.ImplFiles); the FuncDef's own Line/Col
 // place the cursor on the method name. Returns ok=false when the home
 // module can't be determined, so the caller falls back to the interface
 // method.
 func (s *Server) dispatchImplLocation(fa *analysis.FileAnalysis, impl ast.ImplMethodDecl, openDocURI string) (*protocol.Location, bool) {
-	if fa == nil || fa.ProjectImpls == nil || impl == nil {
+	if fa == nil || fa.Program().ImplIndex == nil || impl == nil {
 		return nil, false
 	}
 	// The home-module key + name/position come from a FuncDef impl
@@ -578,10 +578,10 @@ func (s *Server) dispatchImplLocation(fa *analysis.FileAnalysis, impl ast.ImplMe
 	)
 	switch n := impl.(type) {
 	case *ast.FuncDef:
-		key, ok = fa.ProjectImpls.ImplFiles[n]
+		key, ok = fa.Program().ImplIndex.ImplFiles[n]
 		line, col, name = n.Line, n.Col, n.Name
 	case *ast.ExternFunc:
-		key, ok = fa.ProjectImpls.ImplExternFiles[n]
+		key, ok = fa.Program().ImplIndex.ImplExternFiles[n]
 		line, col, name = n.Line, n.Col, n.Name
 	default:
 		return nil, false
@@ -602,7 +602,7 @@ func (s *Server) dispatchImplLocation(fa *analysis.FileAnalysis, impl ast.ImplMe
 }
 
 // moduleKeyToURI maps an impl FuncDef's home module-path key (as stored
-// in IfaceMethodImplFiles / ProjectImpls.ImplFiles) to the file URI its
+// in IfaceMethodImplFiles / Program().ImplIndex.ImplFiles) to the file URI its
 // source lives in:
 //
 //   - "" — the project entry file, which has no module-path key by

@@ -329,12 +329,12 @@ test "converts to Fahrenheit" {
 
 ## Groups And Setup
 
-`tests` groups related tests under one name. A group can have a `setup`. It
+`group` gathers related tests under one name. A group can have a `setup`. It
 runs before each test in the group and produces a value. A test receives that
 value through a pattern after its name.
 
 ```nomi-run
-tests "user labels" {
+group "user labels" {
     setup {name: "Ada", role: "admin"}
 
     test "setup value is explicit", {name, role} {
@@ -385,7 +385,7 @@ fn main() {
     io.print("env: ${Config.env}")
 }
 
-tests "app-backed behavior" {
+group "app-backed behavior" {
     boot boot(Startup{env: {"APP_ENV" => "test"}})
 
     test "reads the booted field" {
@@ -427,7 +427,7 @@ fn main() {
     io.print("verbose: ${Config.verbose}")
 }
 
-tests "quiet by default" {
+group "quiet by default" {
     boot boot()
 
     test "takes no arguments" {
@@ -435,7 +435,7 @@ tests "quiet by default" {
     }
 }
 
-tests "verbose" {
+group "verbose" {
     boot boot(Startup{args: ["-v"]})
 
     test "reads -v" {
@@ -466,7 +466,7 @@ import {
     test_support.FakeMailer
 }
 
-tests "welcome email" {
+group "welcome email" {
     boot server.boot(test_support.startup())
 
     setup {
@@ -498,7 +498,7 @@ import {
     std/timer
 }
 
-tests "retry policy" {
+group "retry policy" {
     clock Clock.Virtual
 
     test "gives up after backing off" {

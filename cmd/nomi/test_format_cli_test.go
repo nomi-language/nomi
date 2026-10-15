@@ -37,7 +37,7 @@ test "traps" {
   assert 10 / n == 1
 }
 
-tests "group" {
+group "group" {
   test "inner ok" {
     assert True
   }
@@ -385,7 +385,7 @@ func TestTestCommand_JSONFormatWithLine(t *testing.T) {
 	}{
 		{"4", []int{4}},       // an attached `//!` test
 		{"14", []int{14}},     // a test
-		{"24", []int{25, 29}}, // a `tests` header runs its group
+		{"24", []int{25, 29}}, // a `group` header runs its group
 	}
 	for _, c := range cases {
 		stdout, _, _ := runNomiSplit(t, t.TempDir(), dir, "test", path, "--line", c.line, "--format", "json")

@@ -14,7 +14,7 @@ test "" {
   assert 1 == 1
 }
 
-tests "  " {
+group "  " {
   test "\t" {
     assert True
   }
@@ -34,7 +34,7 @@ test "fine" {
 	}
 	want := []string{
 		"2:6 a test name must not be empty; name the test for what it checks, such as `test \"parses a date\"`",
-		"6:7 a `tests` group name must not be empty; name the group for what its tests share, such as `tests \"dates\"`",
+		"6:7 a `group` name must not be empty; name the group for what its tests share, such as `group \"dates\"`",
 		"7:8 a test name must not be empty; name the test for what it checks, such as `test \"parses a date\"`",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {

@@ -63,7 +63,7 @@ func (bl *irScalarBuilder) funcWiden(at ast.Node, fn ir.Temp, have, want kind) (
 		return ir.NoTemp, false
 	}
 	child.b.SetTerm(ir.NewReturn(pos, result))
-	if err := ir.Lint(f); err != nil {
+	if err := bl.g.irLint(f); err != nil {
 		return ir.NoTemp, false
 	}
 	n := ir.NewFuncValue(pos, bl.f.NewTemp(), f, fn)

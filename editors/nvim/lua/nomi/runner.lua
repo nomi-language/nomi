@@ -7,7 +7,7 @@ local M = {}
 -- tags them.
 local test_nodes = {
   test_declaration = true,
-  tests_declaration = true,
+  group_declaration = true,
   attached_test_prompt = true,
 }
 
@@ -92,7 +92,7 @@ local function tree_of(file)
 end
 
 -- Every test in file, in order, as { key, label, line }. The key names the
--- test independently of where it sits: a `test` or `tests` group by its
+-- test independently of where it sits: a `test` or `group` by its
 -- group and own names, an attached test by its owner and its place among
 -- that owner's prompts (its text is what an edit changes, so it is not part
 -- of the key). A repeated key gets an ordinal.
@@ -109,10 +109,10 @@ local function tests_in(file)
   end
   local function walk(node, groups)
     local t = node:type()
-    if t == 'test_declaration' or t == 'tests_declaration' then
+    if t == 'test_declaration' or t == 'group_declaration' then
       local names = vim.list_extend(vim.list_slice(groups), { field_text(node, 'name', source) or '?' })
       add(node, t, table.concat(names, ' / '))
-      if t == 'tests_declaration' then
+      if t == 'group_declaration' then
         groups = names
       end
     elseif t == 'attached_test_prompt' then

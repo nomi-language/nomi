@@ -60,6 +60,10 @@ module.exports = grammar({
     // statement when an expression and a comma follow it, as the Go parser
     // reads it. Anywhere else it is an identifier.
     $._subtests_keyword,
+    // The contextual keyword `group`: the word where a top-level item starts
+    // when the group's name string follows it, as the Go parser reads it.
+    // Anywhere else it is an identifier.
+    $._group_keyword,
   ],
 
   word: $ => $.identifier,
@@ -173,7 +177,7 @@ module.exports = grammar({
       $.interface_definition,
       $.impl_block,
       $.test_declaration,
-      $.tests_declaration,
+      $.group_declaration,
       $.import_statement,
       $.import_block,
       $.gopkg_declaration,
@@ -313,7 +317,7 @@ module.exports = grammar({
       alias($._import_path_keyword, $.identifier),
     ),
 
-    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|tests?|then|todo|try|type(alias)?|where|with/)),
+    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(alias)?|where|with/)),
 
     import_selector: $ => prec.right(seq(
       ':',
@@ -749,17 +753,20 @@ module.exports = grammar({
       $.body,
     ),
 
-    tests_declaration: $ => seq(
-      'tests',
-      field('name', $.string),
-      $.tests_body,
+    // The compiler rejects a group without a name; the grammar accepts it,
+    // so an editor keeps highlighting `group` as a keyword and the body as a
+    // group's.
+    group_declaration: $ => seq(
+      alias($._group_keyword, 'group'),
+      optional(field('name', $.string)),
+      $.group_body,
     ),
 
     // A group holds at most one each of its `clock`, `boot` and `setup` lines
     // and its tests, in any order: the lines run in a fixed order whatever
     // their position. The compiler rejects a second `clock`, `boot` or
     // `setup`; the grammar accepts it, so an editor keeps highlighting.
-    tests_body: $ => seq(
+    group_body: $ => seq(
       '{',
       repeat(choice($.clock_block, $.boot_block, $.setup_block, $.test_declaration)),
       '}',

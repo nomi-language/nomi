@@ -10,7 +10,7 @@ import (
 // Code lens commands. The client defines them; the server only names them.
 //
 //   - nomi.runTest, arguments [uri, line]: run `nomi test <file> --line
-//     <line>`, where line is the 1-based first line of a `test`, a `tests`
+//     <line>`, where line is the 1-based first line of a `test`, a `group`
 //     group or a `//!` attached test.
 //   - nomi.runMain, arguments [uri]: run `nomi run <file>`.
 //   - nomi.debugTest and nomi.debugMain, the same arguments: start a debug
@@ -25,7 +25,7 @@ const (
 	commandDebugMain = "nomi.debugMain"
 )
 
-// textDocumentCodeLens puts a lens above each `test`, `tests` group (and
+// textDocumentCodeLens puts a lens above each `test`, `group` (and
 // each test in it), `//!` attached test and top-level `fn main` of the
 // file, from its parse; no analysis is needed.
 func (s *Server) textDocumentCodeLens(_ *glsp.Context, params *protocol.CodeLensParams) ([]protocol.CodeLens, error) {
@@ -63,7 +63,7 @@ func codeLenses(uri string, nodes []ast.Node) []protocol.CodeLens {
 			runTest("test", t.Line, t.Col, len("test"))
 			return
 		}
-		runTest("tests", t.Line, t.Col, len("tests"))
+		runTest("group", t.Line, t.Col, len("group"))
 		if t.Body != nil {
 			for _, st := range t.Body.Stmts {
 				if child, ok := st.(*ast.TestDecl); ok {

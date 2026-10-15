@@ -104,10 +104,10 @@ var synthStdDecls = []struct{ module, name string }{
 }
 
 // synthStdSymbols resolves the synthStdDecls that fa's module scope leaves
-// unbound against the std module scopes the file was built with. A module the
+// unbound against the std module scopes stdlib, the ones the file is built with. A module the
 // build did not load contributes nothing: a file deriving ToJson imports
 // std/json, so a missing scope means nothing in the file derives it.
-func synthStdSymbols(fa *FileAnalysis) []*Symbol {
+func synthStdSymbols(fa *FileAnalysis, stdlib map[string]*Scope) []*Symbol {
 	if fa == nil || fa.ModuleScope == nil {
 		return nil
 	}
@@ -116,7 +116,7 @@ func synthStdSymbols(fa *FileAnalysis) []*Symbol {
 		if fa.ModuleScope.Lookup(d.name) != nil {
 			continue
 		}
-		scope := fa.StdlibModuleScopes[d.module]
+		scope := stdlib[d.module]
 		if scope == nil {
 			continue
 		}
@@ -131,7 +131,7 @@ func synthStdSymbols(fa *FileAnalysis) []*Symbol {
 // block of fa's file when name is one of synthStdDecls and the file's scope
 // leaves it unbound, or nil.
 func SynthSupportSymbol(fa *FileAnalysis, name string) *Symbol {
-	for _, sym := range synthStdSymbols(fa) {
+	for _, sym := range synthStdSymbols(fa, fa.Program().StdlibModuleScopes) {
 		if sym.Name == name {
 			return sym
 		}
@@ -143,8 +143,8 @@ func SynthSupportSymbol(fa *FileAnalysis, name string) *Symbol {
 // in: `parent` with synthStdSymbols bound over it. It is not registered among
 // parent's children: it covers no source region, so ScopeAt must never
 // descend into it.
-func synthSupportScope(fa *FileAnalysis, parent *Scope) *Scope {
-	syms := synthStdSymbols(fa)
+func synthSupportScope(fa *FileAnalysis, stdlib map[string]*Scope, parent *Scope) *Scope {
+	syms := synthStdSymbols(fa, stdlib)
 	if len(syms) == 0 {
 		return parent
 	}
@@ -158,8 +158,8 @@ func synthSupportScope(fa *FileAnalysis, parent *Scope) *Scope {
 // synthSupportRegistry is synthSupportScope's counterpart for type names: a
 // child of `parent` registering synthStdSymbols' types, for resolving the type
 // expressions in a synthesized impl block's signatures and bodies.
-func synthSupportRegistry(fa *FileAnalysis, parent *TypeRegistry) *TypeRegistry {
-	syms := synthStdSymbols(fa)
+func synthSupportRegistry(fa *FileAnalysis, stdlib map[string]*Scope, parent *TypeRegistry) *TypeRegistry {
+	syms := synthStdSymbols(fa, stdlib)
 	if len(syms) == 0 {
 		return parent
 	}
@@ -1983,7 +1983,7 @@ func receiverTypeExpr(typeName string, typeParams []ast.TypeParam, line, col int
 // `T: Iface` bound that the call-site's interface-bound enforcement
 // catches.
 //
-// When fa.ProjectImpls is nil (typical for `buildTypesFromSource` /
+// When impls is nil (typical for `buildTypesFromSource` /
 // BuildFileWithStdlib unit tests that skip the project pipeline), the
 // check is a no-op: we can't tell whether Int / String / Bool genuinely
 // lack impls or are simply missing because no project-level index was
@@ -1991,17 +1991,16 @@ func receiverTypeExpr(typeName string, typeParams []ast.TypeParam, line, col int
 // continue to exercise the @derive validation pass without false
 // positives.
 //
-// In BuildProjectWithCache, ProjectImpls is broadcast onto every FA
-// BEFORE this sweep runs (the broadcast moved to between Sweep B-impls
-// and Sweep B-bounds when the StdlibImpls global retired), so the
-// project path gets full project-wide impl knowledge here.
+// BuildProjectWithCache passes the impl index it is assembling, which is
+// complete for impls by Sweep B-bounds, so the project path gets full
+// project-wide impl knowledge here.
 //
 // Errors are appended to fa.TypeErrors at the @derive arg's position so
 // the squiggle lands on the offending interface name rather than on the
 // type decl. The message names the field/variant/payload so the user
 // knows exactly which component type lacks the impl.
-func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node) []TypeError {
-	if fa == nil || fa.ProjectImpls == nil {
+func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex) []TypeError {
+	if fa == nil || impls == nil {
 		// Single-file path (BuildFileWithStdlib / buildTypesFromSource):
 		// no project-level impl index was built. The check would flag
 		// every primitive-typed field as missing; skip rather than
@@ -2051,7 +2050,7 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 				ifaceName := st.Name
 				ifaceLine, ifaceCol := st.Line, st.Col
 				derivePos := Pos{File: fa.FilePath, Line: ifaceLine, Col: ifaceCol}
-				errs = append(errs, checkDeriveComponentTypes(fa, n, typeName, ifaceName, derivePos, typeParamSet)...)
+				errs = append(errs, checkDeriveComponentTypes(fa, impls, n, typeName, ifaceName, derivePos, typeParamSet)...)
 				// Synth bodies for Display/Debug emit StringInterp literals like
 				// "Some(${Iface.to_string(_v0)})". At runtime, evalStringInterp
 				// re-dispatches Display.to_string on the inner String parts
@@ -2105,7 +2104,7 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 // a synth-band position. The recursion uses the same DeriveCtx as the
 // outer field — the user's actionable fix is on Holder's `w` field,
 // not Wrapper's synthesizer.
-func checkDeriveComponentTypes(fa *FileAnalysis, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
+func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
 	var errs []TypeError
 	report := func(componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr) {
 		if te == nil {
@@ -2161,7 +2160,7 @@ func checkDeriveComponentTypes(fa *FileAnalysis, typeNode ast.Node, typeName, if
 		// (DetectMissingImpls) renders the richer "no impl of `Iface`
 		// for T" diagnostic with full DeriveCtx provenance. Emitting
 		// both produced two reports for one fix. CheckDeriveBounds's
-		// outer ProjectImpls-nil guard already short-circuits the
+		// outer Program().ImplIndex-nil guard already short-circuits the
 		// whole pass for raw-test callers (BuildFile without an
 		// AttachStdlibProjectImpls), so no graceful-degradation branch
 		// is needed here — if we got past that guard, FinalizeCoherence
@@ -2171,7 +2170,7 @@ func checkDeriveComponentTypes(fa *FileAnalysis, typeNode ast.Node, typeName, if
 			Kind:   RecordingKindDeriveSynth,
 			Derive: ctx,
 		})
-		if hasInterfaceImpl(fa, baseName, ifaceName) {
+		if hasInterfaceImpl(fa, impls, baseName, ifaceName) {
 			// Generic-instantiation recursion: when the base type itself
 			// implements `ifaceName` and is being instantiated with type
 			// arguments, the base type's @derive'd body will dispatch
@@ -2179,7 +2178,7 @@ func checkDeriveComponentTypes(fa *FileAnalysis, typeNode ast.Node, typeName, if
 			// recordings to the *current* field so the diagnostic points
 			// at the user's `w: Wrapper<C>` site, not Wrapper's synth.
 			for _, ta := range typeArgs(te) {
-				recordDeriveTypeArg(fa, ifaceName, ta, ctx, typeParamSet)
+				recordDeriveTypeArg(fa, impls, ifaceName, ta, ctx, typeParamSet)
 			}
 		}
 	}
@@ -2252,7 +2251,7 @@ func typeArgs(te ast.TypeExpr) []ast.TypeExpr {
 // own TypeArgs when the base type itself has an impl — same rationale as
 // the outer report closure's generic-instantiation recursion: the impl's
 // synth body will dispatch through each TypeArg slot too.
-func recordDeriveTypeArg(fa *FileAnalysis, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) {
+func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) {
 	if te == nil {
 		return
 	}
@@ -2276,9 +2275,9 @@ func recordDeriveTypeArg(fa *FileAnalysis, ifaceName string, te ast.TypeExpr, ct
 	})
 	// Recurse further: an impl on a generic type will dispatch through
 	// each layer of its TypeArgs in turn.
-	if hasInterfaceImpl(fa, baseName, ifaceName) {
+	if hasInterfaceImpl(fa, impls, baseName, ifaceName) {
 		for _, inner := range typeArgs(te) {
-			recordDeriveTypeArg(fa, ifaceName, inner, ctx, typeParamSet)
+			recordDeriveTypeArg(fa, impls, ifaceName, inner, ctx, typeParamSet)
 		}
 	}
 }
@@ -2289,23 +2288,23 @@ func recordDeriveTypeArg(fa *FileAnalysis, ifaceName string, te ast.TypeExpr, ct
 //   - fa.Impls — the file's local impl table (already absorbs imports'
 //     impls via mergeImpls and carries the @derive synthesizer's own emitted
 //     entries from the earlier build pass.
-//   - fa.ProjectImpls.Impls — the project-level impl index built by
+//   - impls.Impls — the project-level impl index built by
 //     buildProjectImplIndex (covers stdlib + sibling impls). In
-//     BuildProjectWithCache, ProjectImpls is broadcast BEFORE
-//     CheckDeriveBounds runs so this branch is the load-bearing
+//     BuildProjectWithCache it is built BEFORE CheckDeriveBounds
+//     runs, so this branch is the load-bearing
 //     source for cross-file / stdlib impl knowledge here.
 //
 // Caller treats `false` as "no impl found, error" — boolean is sufficient
 // because the per-component report names both the type and the missing
 // interface.
-func hasInterfaceImpl(fa *FileAnalysis, typeName, ifaceName string) bool {
+func hasInterfaceImpl(fa *FileAnalysis, impls *ProjectImplIndex, typeName, ifaceName string) bool {
 	if fa != nil && fa.Impls != nil {
 		if ifaces, ok := fa.Impls[typeName]; ok && ifaces[ifaceName] {
 			return true
 		}
 	}
-	if fa != nil && fa.ProjectImpls != nil {
-		if ifaces, ok := fa.ProjectImpls.Impls[typeName]; ok && ifaces[ifaceName] {
+	if impls != nil {
+		if ifaces, ok := impls.Impls[typeName]; ok && ifaces[ifaceName] {
 			return true
 		}
 	}

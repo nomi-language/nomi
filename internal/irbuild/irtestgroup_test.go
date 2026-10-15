@@ -12,7 +12,7 @@ import (
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
-// Grouped test cases — a `tests` group's `boot` line, setup, a case's pattern
+// Grouped test cases — a `group`'s `boot` line, setup, a case's pattern
 // and `clock` — retained and run by the VM's runner, compared against the
 // golden record of `nomi test`. Each fixture is one file that is its own entry:
 // it declares `fn main` and the `pub fn boot` its groups' `boot` lines call.
@@ -112,7 +112,7 @@ fn show(suffix: String): String {
   App.label + suffix
 }
 
-tests "group" {
+group "group" {
   boot boot(Startup{args: ["group"]})
   setup {n: 1, word: "one"}
 
@@ -166,7 +166,7 @@ pub fn boot(): App {
 
 fn main() {}
 
-tests "group" {
+group "group" {
   boot boot()
   setup {word: "one"}
 
@@ -213,7 +213,7 @@ fn slow(): Unit {
   io.print("slow work done")
 }
 
-tests "virtual" {
+group "virtual" {
   clock Clock.Virtual
 
   boot boot()
@@ -266,7 +266,7 @@ pub fn boot(): App {
 
 fn main() {}
 
-tests "group" {
+group "group" {
   boot boot()
 
   test "never reaches its body" {
@@ -302,7 +302,7 @@ fn label(): String {
   App.label
 }
 
-tests "group" {
+group "group" {
   boot boot()
 
   test "plain" {
@@ -310,7 +310,7 @@ tests "group" {
   }
 }
 
-tests "overridden" {
+group "overridden" {
   boot boot()
   setup {
     with App.label = "set up"
@@ -381,7 +381,7 @@ func TestIRTestGroup_ASetupReturnIsItsValue(t *testing.T) {
 
 fn main() {}
 
-tests "plain return" {
+group "plain return" {
   setup {
     x = 1
     return x + 1
@@ -392,7 +392,7 @@ tests "plain return" {
   }
 }
 
-tests "early return" {
+group "early return" {
   setup {
     flag = True
     if flag {
@@ -409,7 +409,7 @@ tests "early return" {
   }
 }
 
-tests "falls past an early return" {
+group "falls past an early return" {
   setup {
     flag = False
     if flag {
@@ -424,7 +424,7 @@ tests "falls past an early return" {
   }
 }
 
-tests "return in a case arm" {
+group "return in a case arm" {
   setup {
     case Some(3) {
       Some(n) -> return n * 10
@@ -438,7 +438,7 @@ tests "return in a case arm" {
   }
 }
 
-tests "return from a block" {
+group "return from a block" {
   setup {
     {
       defer io.print("block closed")
@@ -453,7 +453,7 @@ tests "return from a block" {
   }
 }
 
-tests "bare return in a Unit setup" {
+group "bare return in a Unit setup" {
   setup {
     io.print("before")
     if True {

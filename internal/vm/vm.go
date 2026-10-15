@@ -76,7 +76,7 @@ type Machine struct {
 	depth int
 	// boot is the program boot one of the program's modules records, or nil.
 	boot *ir.Symbol
-	// testBoots are the `tests` group boots the program's modules record.
+	// testBoots are the `group` boots the program's modules record.
 	testBoots map[*ir.Symbol]bool
 	// dispatch is every module's dispatch entries: by interface method, the
 	// implementing body for each declared type name a value carries.

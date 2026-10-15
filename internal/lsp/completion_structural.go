@@ -222,7 +222,7 @@ func (r *completionRequest) bootCandidates() []candidate {
 	var out []candidate
 	isBoot := func(sym *analysis.Symbol) bool {
 		fn, ok := realSymbol(sym).Node.(*ast.FuncDef)
-		return ok && r.fa.BootFunctions[fn]
+		return ok && r.fa.Program().BootFunctions[fn]
 	}
 	for name, sym := range r.fa.ModuleScope.Symbols {
 		real := realSymbol(sym)
@@ -238,7 +238,7 @@ func (r *completionRequest) bootCandidates() []candidate {
 	return append(out, r.scopeCandidates(valueSymbol)...)
 }
 
-// testGroupLine renders a `tests` group line for the keyword kw, its body
+// testGroupLine renders a `group` line for the keyword kw, its body
 // indented one formatter level below the line.
 func testGroupLine(kw, indent string) (snippet, plain string) {
 	inner := indent + strings.Repeat(" ", format.IndentWidth)

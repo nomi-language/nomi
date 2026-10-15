@@ -1,6 +1,6 @@
 package irbuild
 
-// A TEST CASE UNDER A `tests` GROUP, RETAINED FOR THE VM.
+// A TEST CASE UNDER A `group`, RETAINED FOR THE VM.
 //
 // A group contributes three things to each case in it:
 //
@@ -159,7 +159,7 @@ func (g *gen) irStartupFunc(token any, fd *ast.FuncDef, arg ast.Node) (*ir.Symbo
 	bl.resultCopy(arg, val)
 	bl.side(sh.result, irScalarSide{k: k})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	if err := ir.Lint(f); err != nil {
+	if err := g.irLint(f); err != nil {
 		irDeclineNote("a test boot startup graph that does not lint: " + err.Error())
 		return nil, false
 	}
@@ -173,7 +173,7 @@ func (g *gen) irEntryBootStartupKind(fd *ast.FuncDef) kind {
 	if g.fa == nil || fd == nil {
 		return kindInvalid
 	}
-	owner := g.fa.ScopedFunctionFiles[fd]
+	owner := g.fa.Program().ScopedFunctionFiles[fd]
 	if owner == nil {
 		owner = g.fa
 	}

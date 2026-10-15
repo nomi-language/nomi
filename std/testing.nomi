@@ -9,7 +9,7 @@ import {
     results.Result
 }
 
-/// Which clock a `tests` group runs under, declared as `clock Clock.Virtual`
+/// Which clock a `group` runs under, declared as `clock Clock.Virtual`
 /// or `clock Clock.System` beside the group's `boot` and `setup`.
 ///
 /// Tests that wait are slow when they pass and unreliable when the machine

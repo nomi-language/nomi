@@ -142,7 +142,7 @@ func TestAnalyze_AppFieldReadHovers(t *testing.T) {
 	}
 }
 
-// A read in a helper that a program and a `tests` group both run names its
+// A read in a helper that a program and a `group` both run names its
 // type, so it hovers as that type's field whichever boot runs it.
 const twoBootHoverSrc = `import std/io
 
@@ -163,7 +163,7 @@ fn main() {
   io.print(label())
 }
 
-tests "labels" {
+group "labels" {
   boot boot()
 
   test "reads the logger" {

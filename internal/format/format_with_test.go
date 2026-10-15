@@ -75,7 +75,7 @@ func TestFormat_WithLongValue(t *testing.T) {
 
 // A `with` line in a group's setup formats as it does in any block.
 func TestFormat_WithInSetup(t *testing.T) {
-	src := `tests "g" {
+	src := `group "g" {
     setup {
         with App.store = (FakeStore{})
         Fixture{a: 1}
@@ -86,7 +86,7 @@ func TestFormat_WithInSetup(t *testing.T) {
     }
 }
 `
-	want := `tests "g" {
+	want := `group "g" {
     setup {
         with App.store = FakeStore{}
         Fixture{a: 1}

@@ -10,7 +10,7 @@
   (import_block)
   (interface_definition)
   (struct_body)
-  (tests_body)
+  (group_body)
   (type_body)
   (triple_string)
   (tagged_type_triple_string)

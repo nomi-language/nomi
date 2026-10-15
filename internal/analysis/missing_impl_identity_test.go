@@ -172,7 +172,7 @@ fn main() {
 // tests also pass under a build that never populated the index at all.
 func TestImplIdentity_EveryKeyCarriesAnOrigin(t *testing.T) {
 	fa, _ := implIdentityFA(t, "fn main() {}\n")
-	idx := fa.ProjectImpls
+	idx := fa.Program().ImplIndex
 	if idx == nil {
 		t.Fatal("nil ProjectImpls")
 	}
@@ -195,7 +195,7 @@ func TestImplIdentity_EveryKeyCarriesAnOrigin(t *testing.T) {
 // each is its own entry.
 func TestImplIdentity_TheStdlibErrorsAreSeparateConformances(t *testing.T) {
 	fa, _ := implIdentityFA(t, "fn main() {}\n")
-	idx := fa.ProjectImpls
+	idx := fa.Program().ImplIndex
 	if idx == nil {
 		t.Fatal("nil ProjectImpls")
 	}
@@ -231,7 +231,7 @@ func TestImplIdentity_TheStdlibErrorsAreSeparateConformances(t *testing.T) {
 // assertion tells those apart. Growth in this set silently shrinks the check.
 func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 	fa, _ := implIdentityFA(t, "fn main() {}\n")
-	idx := fa.ProjectImpls
+	idx := fa.Program().ImplIndex
 	if idx == nil {
 		t.Fatal("nil ProjectImpls")
 	}

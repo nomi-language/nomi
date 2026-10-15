@@ -182,7 +182,7 @@ text = must_sub(text, r"\((case_branch|else_arm)\) @extend(?![\w.])", r"(\1) @in
 src = "editors/helix/runtime/queries/nomi/textobjects.scm"
 text = (helix / "textobjects.scm").read_text()
 # nvim-treesitter-textobjects has no test object: a test case is a function,
-# a `tests` group is a class.
+# a `group` is a class.
 text = must_replace(
     text,
     "(test_declaration\n  (body)? @test.inside) @test.around",
@@ -192,8 +192,8 @@ text = must_replace(
 )
 text = must_replace(
     text,
-    "(tests_declaration\n  (tests_body)? @test.inside) @test.around",
-    "(tests_declaration\n  (tests_body)? @class.inside) @class.around",
+    "(group_declaration\n  (group_body)? @test.inside) @test.around",
+    "(group_declaration\n  (group_body)? @class.inside) @class.around",
     src,
     1,
 )

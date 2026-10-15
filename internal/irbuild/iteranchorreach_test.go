@@ -35,7 +35,7 @@ const (
 	// doorSelf is the declaring module, std/iter itself.
 	doorSelf iterAnchorDoor = "declaring module"
 	// doorStdScope is `sym == nil` — `Iter` is not in the file's scope at all
-	// and the anchor is read out of fa.StdlibModuleScopes["iter"].
+	// and the anchor is read out of fa.Program().StdlibModuleScopes["iter"].
 	doorStdScope iterAnchorDoor = "StdlibModuleScopes"
 	// doorLocalForeign is a LOCAL declaration that is not std's. No stdlib
 	// module presents this shape; a user file cannot either, because declaring

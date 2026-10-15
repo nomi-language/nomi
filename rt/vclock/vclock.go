@@ -57,7 +57,7 @@
 //
 // # What a bubble changes
 //
-// It is opt-in — a `tests` group says `clock Clock.Virtual`, and its tests
+// It is opt-in — a `group` says `clock Clock.Virtual`, and its tests
 // run in a bubble — rather than the default, because a bubble genuinely
 // changes semantics:
 //

@@ -193,15 +193,15 @@ var stdLiteralExamples sync.Map // "std/calendar\x00Date" → []string
 // examples are read once per process.
 func (s *Server) literalExamplesOf(doc *analysis.DocSnapshot, tag string) []string {
 	fa := doc.Analysis
-	if fa == nil || fa.ProjectImpls == nil {
+	if fa == nil || fa.Program().ImplIndex == nil {
 		return nil
 	}
 	home, found := "", false
-	for _, fn := range fa.ProjectImpls.IfaceMethodImpls["Literal"]["from_fragments"] {
-		if fn == nil || fa.ProjectImpls.ReceiverOf(fn) != tag {
+	for _, fn := range fa.Program().ImplIndex.IfaceMethodImpls["Literal"]["from_fragments"] {
+		if fn == nil || fa.Program().ImplIndex.ReceiverOf(fn) != tag {
 			continue
 		}
-		h, ok := fa.ProjectImpls.ImplFiles[fn]
+		h, ok := fa.Program().ImplIndex.ImplFiles[fn]
 		if !ok || (found && h != home) {
 			return nil
 		}

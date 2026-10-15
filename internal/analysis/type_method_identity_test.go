@@ -315,8 +315,8 @@ fn main(): Unit { Unit }
 	}
 	lib := std.Load()
 	fa := analysis.BuildProject(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
-	if fa == nil || fa.ProjectImpls == nil {
+	if fa == nil || fa.Program().ImplIndex == nil {
 		t.Fatal("no project impl index")
 	}
-	return fa.ProjectImpls
+	return fa.Program().ImplIndex
 }

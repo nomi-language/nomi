@@ -818,7 +818,7 @@ func (bl *irScalarBuilder) stdBareGenericFileFunc(id *ast.Ident) *stdFunc {
 	if g.stdInsts == nil {
 		return nil
 	}
-	module, name, ok := stdBareFileFunc(g.fa, id)
+	module, name, ok := stdBareFileFunc(g.srcFA(), id)
 	if !ok {
 		return nil
 	}
@@ -838,7 +838,7 @@ func stdBareFileFunc(fa *analysis.FileAnalysis, id *ast.Ident) (string, string, 
 	if sym == nil || sym.OwningType != "" || sym.Name == "" {
 		return "", "", false
 	}
-	for module, scope := range fa.StdlibModuleScopes {
+	for module, scope := range fa.Program().StdlibModuleScopes {
 		if scope != nil && resolveSymbol(scope.Lookup(sym.Name)) == sym {
 			return module, sym.Name, true
 		}

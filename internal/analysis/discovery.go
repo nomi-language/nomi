@@ -31,12 +31,6 @@ type Project struct {
 	// this file's discovery walk to follow imports into sibling
 	// modules.
 	ModuleIndex ModuleIndex
-	// ImplIndex aggregates every reachable file's impl recordings
-	// into a project-level view consumed by checker /
-	// derive_synthesis / IR builder / collision detection. Populated
-	// by BuildProjectWithCache post-Sweep-B. nil for the single-file
-	// BuildFileWithStdlib path (consumers fall back to per-FA reads).
-	ImplIndex *ProjectImplIndex
 }
 
 // DiscoverProjectWithManifest BFS-walks the import graph starting from
@@ -59,6 +53,16 @@ type Project struct {
 // embedders. When mfst is nil and projectRoot is set, the manifest is loaded
 // from disk.
 func DiscoverProjectWithManifest(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest) (*Project, error) {
+	return discoverProject(entryNodes, projectRoot, loader, mfst, nil)
+}
+
+// discoverProject is DiscoverProjectWithManifest that neither loads nor walks
+// a file whose key analyzed reports: one the caller already holds an
+// analysis of. A build against the shared stdlib passes the stdlib modules it
+// was handed, so `import std/io` resolves to that analysis
+// (resolveStdlibImport) instead of parsing and analyzing std/io and every
+// module it imports again for each program. Nil walks every file.
+func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoader, mfst *Manifest, analyzed func(key string) bool) (*Project, error) {
 	p := &Project{
 		Entry:       entryNodes,
 		Files:       make(map[string][]ast.Node),
@@ -170,6 +174,9 @@ func DiscoverProjectWithManifest(entryNodes []ast.Node, projectRoot string, load
 		wi := queue[0]
 		queue = queue[1:]
 		if _, ok := p.Files[wi.key]; ok {
+			continue
+		}
+		if analyzed != nil && analyzed(wi.key) {
 			continue
 		}
 		nodes, err := loader(wi.root, wi.modPath)

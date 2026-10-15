@@ -13,7 +13,7 @@ import (
 var (
 	topLevelKeywords = []string{
 		"fn", "pub", "export", "import", "struct", "enum", "impl", "interface", "type",
-		"typealias", "tests", "test", "once", "derive", "opaque", "host",
+		"typealias", "group", "test", "once", "derive", "opaque", "host",
 	}
 	expressionKeywords = []string{"if", "case", "try", "dbg", "todo", "concurrent"}
 	statementKeywords  = append([]string{
@@ -211,7 +211,7 @@ func (r *completionRequest) moduleScopeOf(name string) *analysis.Scope {
 	return nil
 }
 
-// testGroupKeywords are a `tests` group's lines, in the order they run and
+// testGroupKeywords are a `group`'s lines, in the order they run and
 // `nomi fmt` places them.
 var testGroupKeywords = []string{"clock", "boot", "setup", "test"}
 

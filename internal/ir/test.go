@@ -38,7 +38,7 @@ import (
 // would be a third statement of a byte-for-byte contract.
 
 // TestCase is one lowered `test "name" { … }` declaration: the name the report
-// labels it with, the body to run, and what its enclosing `tests` group sets
+// labels it with, the body to run, and what its enclosing `group` sets
 // up around it.
 type TestCase struct {
 	name  string
@@ -46,7 +46,7 @@ type TestCase struct {
 	group TestGroup
 }
 
-// TestGroup is what a case inherits from its enclosing `tests` group and a
+// TestGroup is what a case inherits from its enclosing `group` and a
 // runner must arrange before the body runs.
 //
 // Boot is the entry boot the group's `boot` line calls, or nil. It names a
@@ -76,7 +76,7 @@ func (c TestCase) Name() string { return c.name }
 // ir.go's package header and assert.go.
 func (c TestCase) Fn() *Func { return c.fn }
 
-// Group is what the case's enclosing `tests` group sets up around it.
+// Group is what the case's enclosing `group` sets up around it.
 func (c TestCase) Group() TestGroup { return c.group }
 
 // DeclareTest records one case this module's file declares.

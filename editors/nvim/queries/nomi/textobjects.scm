@@ -13,8 +13,8 @@
 (test_declaration
   (body)? @function.inner) @function.outer
 
-(tests_declaration
-  (tests_body)? @class.inner) @class.outer
+(group_declaration
+  (group_body)? @class.inner) @class.outer
 
 (struct_definition
   (struct_body)? @class.inner) @class.outer

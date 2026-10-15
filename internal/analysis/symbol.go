@@ -55,10 +55,10 @@ const (
 	// information for editor hover.
 	SymbolAssertion
 	// SymbolTestSetup is a synthetic, hover-only Symbol attached to a
-	// contextual `setup` keyword inside a `tests` block.
+	// contextual `setup` keyword inside a `group` block.
 	SymbolTestSetup
 	// SymbolTestDecl is a synthetic, hover-only Symbol attached to a `test`
-	// or `tests` keyword.
+	// or `group` keyword.
 	SymbolTestDecl
 	// SymbolTryOp is a synthetic, hover-only Symbol attached to the `try`
 	// prefix keyword. Carries the operand's input type

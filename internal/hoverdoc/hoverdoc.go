@@ -253,10 +253,10 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		// this renders prose outside the code fence, so return directly.
 		return renderAssertionHover(sym)
 	case analysis.SymbolTestSetup:
-		// Synthetic hover-only marker for `setup` in a `tests` block.
+		// Synthetic hover-only marker for `setup` in a `group` block.
 		return renderTestSetupHover(sym)
 	case analysis.SymbolTestDecl:
-		// Synthetic hover-only marker for `test` and `tests` declarations.
+		// Synthetic hover-only marker for `test` and `group` declarations.
 		return renderTestDeclHover(sym)
 	case analysis.SymbolTryOp:
 		// Synthetic hover-only marker for the `try` prefix keyword.
@@ -434,8 +434,8 @@ func implementedInterfaceNames(sym *analysis.Symbol, fa *analysis.FileAnalysis) 
 	if fa.Impls != nil {
 		collect(fa.Impls[typeName])
 	}
-	if fa.ProjectImpls != nil && fa.ProjectImpls.Impls != nil {
-		collect(fa.ProjectImpls.Impls[typeName])
+	if fa.Program().ImplIndex != nil && fa.Program().ImplIndex.Impls != nil {
+		collect(fa.Program().ImplIndex.Impls[typeName])
 	}
 	if seen["Debug"] && !hasExplicitDebugImpl(typeName, fa) {
 		delete(seen, "Debug")
@@ -464,7 +464,7 @@ func hasExplicitDebugImpl(typeName string, fa *analysis.FileAnalysis) bool {
 	if fa == nil {
 		return false
 	}
-	if idx := fa.ProjectImpls; idx != nil {
+	if idx := fa.Program().ImplIndex; idx != nil {
 		for _, fns := range idx.IfaceMethodImpls["Debug"] {
 			for _, fn := range fns {
 				if idx.ReceiverOf(fn) == typeName && !fn.AutoSynth {
@@ -480,14 +480,14 @@ func hasExplicitDebugImpl(typeName string, fa *analysis.FileAnalysis) bool {
 			}
 		}
 	}
-	for _, fns := range fa.IfaceMethodImpls["Debug"] {
+	for _, fns := range fa.Program().IfaceMethodImpls["Debug"] {
 		for _, fn := range fns {
 			if localImplReceiverOf(fa, fn) == typeName && !fn.AutoSynth {
 				return true
 			}
 		}
 	}
-	for _, exts := range fa.IfaceMethodImplExterns["Debug"] {
+	for _, exts := range fa.Program().IfaceMethodImplExterns["Debug"] {
 		for _, ext := range exts {
 			if fa.ImplBlockReceiverExtern[ext] == typeName {
 				return true
@@ -498,8 +498,8 @@ func hasExplicitDebugImpl(typeName string, fa *analysis.FileAnalysis) bool {
 }
 
 func localImplReceiverOf(fa *analysis.FileAnalysis, fn *ast.FuncDef) string {
-	if fa != nil && fa.ImplBlockReceiver != nil {
-		if receiver := fa.ImplBlockReceiver[fn]; receiver != "" {
+	if fa != nil && fa.Program().ImplBlockReceiver != nil {
+		if receiver := fa.Program().ImplBlockReceiver[fn]; receiver != "" {
 			return receiver
 		}
 	}
@@ -1722,7 +1722,7 @@ func renderTestSetupHover(sym *analysis.Symbol) string {
 	fmt.Fprintf(&b, "```nomi\nsetup: %s -> %s\n```", inputStr, outputStr)
 	b.WriteString("\n\nRuns before each test")
 	if info.Group != "" {
-		fmt.Fprintf(&b, " in `tests %q`", info.Group)
+		fmt.Fprintf(&b, " in `group %q`", info.Group)
 	}
 	b.WriteString(", after the group's boot. A test binds the returned value with a pattern after its name.")
 	return b.String()
@@ -1740,7 +1740,7 @@ func renderTestDeclHover(sym *analysis.Symbol) string {
 	fmt.Fprintf(&b, "```nomi\n%s: %s -> %s\n```", info.Keyword, inputStr, outputStr)
 	b.WriteString("\n\n")
 	if info.Group {
-		fmt.Fprintf(&b, "Groups tests under `tests %q`.", info.Name)
+		fmt.Fprintf(&b, "Groups tests under `group %q`.", info.Name)
 		if info.HasSetup {
 			b.WriteString(" Its setup runs before each test and returns the value a test's pattern binds.")
 		}

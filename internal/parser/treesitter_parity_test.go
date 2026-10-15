@@ -272,7 +272,7 @@ var lineBreakInputs = []parityInput{
 	{"negative guard arm", "fn main() {\n    case {\n        a -> b\n        -1 == c -> d\n    }\n}\n"},
 	{"list pattern else arm", "fn main() {\n    Ok(v) = r else {\n        Err(e) -> Foo\n        [a] -> g\n    }\n}\n"},
 	{"minus in a test", "test \"t\" {\n    x = a\n    -1\n    assert x\n}\n"},
-	{"minus in a setup", "tests \"g\" {\n    setup {\n        x = a\n        -1\n    }\n\n    test \"t\", v {\n        assert v\n    }\n}\n"},
+	{"minus in a setup", "group \"g\" {\n    setup {\n        x = a\n        -1\n    }\n\n    test \"t\", v {\n        assert v\n    }\n}\n"},
 	{"minus in a concurrent block", "fn main() {\n    concurrent {\n        x = a\n        -1\n    }\n}\n"},
 	{"minus after a once", "once x = a\n-1\n"},
 	{"minus at the top level", "x = a\n-1\n"},

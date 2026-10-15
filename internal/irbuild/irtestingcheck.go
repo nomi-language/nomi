@@ -49,7 +49,7 @@ func (bl *irScalarBuilder) testingCheckCall(t *ast.Call) bool {
 	}
 	if id, bare := t.Func.(*ast.Ident); bare {
 		// `check(e)` after `import std/testing.check`, aliased or not.
-		module, name, isStd := stdBareFileFunc(bl.g.fa, id)
+		module, name, isStd := stdBareFileFunc(bl.g.srcFA(), id)
 		return isStd && module == "testing" && name == "check"
 	}
 	if !isTestingCheckCallee(t.Func) {

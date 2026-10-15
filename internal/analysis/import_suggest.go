@@ -49,7 +49,7 @@ func displayImportModulePath(path string) string {
 //     exports (struct/enum/type/alias/interface/module) → selective
 //     `std/<mod>.Name`.
 func FindMissingImports(fa *FileAnalysis, nodes []ast.Node) []MissingImport {
-	if fa == nil || len(fa.StdlibModuleScopes) == 0 {
+	if fa == nil || len(fa.Program().StdlibModuleScopes) == 0 {
 		return nil
 	}
 	typeIndex := buildStdlibTypeIndex(fa)
@@ -81,7 +81,7 @@ func addNamespaceSuggestion(fa *FileAnalysis, name string, pos Pos, seen map[Pos
 	if fa.References[pos] != nil || fa.Definitions[pos] != nil {
 		return
 	}
-	if fa.StdlibModuleScopes[name] == nil {
+	if fa.Program().StdlibModuleScopes[name] == nil {
 		return
 	}
 	seen[pos] = true
@@ -114,7 +114,7 @@ func addTypeSuggestions(fa *FileAnalysis, typeIndex map[string][]string, name st
 func buildStdlibTypeIndex(fa *FileAnalysis) map[string][]string {
 	idx := map[string][]string{}
 	seen := map[*Scope]bool{}
-	for short, scope := range fa.StdlibModuleScopes {
+	for short, scope := range fa.Program().StdlibModuleScopes {
 		indexStdlibScopeTypes(idx, scope, "std/"+short, seen)
 	}
 	return idx

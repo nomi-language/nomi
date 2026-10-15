@@ -1154,7 +1154,7 @@ fn main() {
     io.print("count: ${get(Config.counter)}")
 }
 
-tests "a counter server" {
+group "a counter server" {
     // Nothing here sleeps, but the worker blocks on its inbox and the
     // supervisor drains at the end of every case — both instant under a
     // virtual clock, and repeatable, which is what you want when the thing

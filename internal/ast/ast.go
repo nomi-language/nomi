@@ -794,7 +794,7 @@ type Defer struct {
 func (*Defer) NodeType() string { return "Defer" }
 func (n *Defer) LineNum() int   { return n.Line }
 
-// TestDecl is either `test "name" { ... }` or `tests "name" { ... }`.
+// TestDecl is either `test "name" { ... }` or `group "name" { ... }`.
 // Test declarations are inert during normal program execution and are run by
 // the test runner.
 type TestDecl struct {
@@ -1797,7 +1797,7 @@ type AttachedTestAfter struct {
 }
 
 // TestClockVariant reads the variant out of a `clock …` declaration on a
-// `tests` group, accepting every spelling that names one: the `.Virtual`
+// `group`, accepting every spelling that names one: the `.Virtual`
 // shorthand and the qualified `Clock.Virtual` / `testing.Clock.Virtual`.
 //
 // Reading it syntactically is safe because the analyzer has already

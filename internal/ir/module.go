@@ -147,7 +147,7 @@ type Module struct {
 	// mainFailure renders the payload of an `Err` this unit's `fn main`
 	// returns, or nil. See SetMainFailure.
 	mainFailure *Symbol
-	// testBoots are the boots this unit's `tests` groups declare. Each may
+	// testBoots are the boots this unit's test groups declare. Each may
 	// name a declaration the unit did not retain.
 	testBoots []*Symbol
 	// impls are the dispatch entries this unit's retained impl bodies answer.
@@ -321,7 +321,7 @@ func (m *Module) MainFailure() *Symbol {
 	return m.mainFailure
 }
 
-// AddTestBoot records sym as a boot one of this unit's `tests` groups
+// AddTestBoot records sym as a boot one of this unit's test groups
 // declares. The group's cases run in the app that boot publishes, so a
 // function they call may read its fields. Like SetBoot, the declaration need
 // not be retained.
@@ -332,7 +332,7 @@ func (m *Module) AddTestBoot(sym *Symbol) {
 	m.testBoots = append(m.testBoots, sym)
 }
 
-// TestBoots are the boots this unit's `tests` groups declare, in declaration
+// TestBoots are the boots this unit's test groups declare, in declaration
 // order.
 func (m *Module) TestBoots() []*Symbol {
 	if m == nil {

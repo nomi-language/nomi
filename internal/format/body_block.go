@@ -19,7 +19,7 @@ func normalizeBodies(nodes []ast.Node) {
 // flattenBodyBlocks rewrites a body whose only statement is a block
 // expression, `fn f(): Int { { a = 1  a + 1 } }`, to the block's statements,
 // `fn f(): Int { a = 1  a + 1 }`. A body is that of a `fn` (free, impl or
-// interface default), a lambda, a test, a `tests` group's `setup`, either
+// interface default), a lambda, a test, a `group`'s `setup`, either
 // branch of an `if`, or a braced `case` arm. The rewrite is syntactic: `nomi fmt` runs without
 // analysis.
 //

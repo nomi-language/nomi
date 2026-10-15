@@ -52,7 +52,7 @@ const (
 	ctxStructField                // a field label in a struct literal
 	ctxImportPath                 // a segment of an import path
 	ctxImportName                 // a name in an import's selector list
-	ctxTestGroup                  // a line of a `tests` group's body
+	ctxTestGroup                  // a line of a `group`'s body
 	ctxTestBoot                   // the call after a group's `boot`
 	ctxParamName                  // a typed parameter name in a `fn` signature
 	ctxImplItem                   // a declaration in an `impl Iface for T` body
@@ -95,7 +95,7 @@ type completionContext struct {
 	// name being typed.
 	importStmt *ast.ImportStmt
 	importSeg  int
-	// groupHas lists the `tests` group keywords already written anywhere in
+	// groupHas lists the `group` keywords already written anywhere in
 	// the group around the cursor (ctxTestGroup).
 	groupHas map[string]bool
 	// nextIsParen reports that the character after the word is `(`, so a
@@ -104,7 +104,7 @@ type completionContext struct {
 	// withTarget reports a member access that is a `with` statement's
 	// target, where only application fields fit.
 	withTarget bool
-	// groupClock reports a variant after a `tests` group's `clock`, read
+	// groupClock reports a variant after a `group`'s `clock`, read
 	// from the tokens because the group does not parse yet.
 	groupClock bool
 	// paramSlot and paramName locate a parameter of a `fn` signature
@@ -647,7 +647,7 @@ func nameNode(t token.Token) ast.Node {
 }
 
 // enclosingTestGroup reports whether token i sits directly in the body of a
-// `tests "name" { ... }` group, and which of the group's keyword lines
+// `group "name" { ... }`, and which of the group's keyword lines
 // (clock, boot, setup, test) come before it.
 func enclosingTestGroup(tokens []token.Token, i int) (map[string]bool, bool) {
 	// The sentinel must start its line: `boot |` is the boot call, not a
@@ -672,7 +672,7 @@ func enclosingTestGroup(tokens []token.Token, i int) (map[string]bool, bool) {
 			break
 		}
 	}
-	if open < 2 || tokens[open-2].Type != token.TESTS {
+	if open < 2 || tokens[open-2].Type != token.IDENT || tokens[open-2].Lexeme != "group" || tokens[open-1].Type != token.STRING_LITERAL {
 		return nil, false
 	}
 	has := map[string]bool{}

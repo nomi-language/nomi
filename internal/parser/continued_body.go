@@ -307,7 +307,10 @@ func (p *Parser) startsDeclarationAt(i int) bool {
 	switch t.Type {
 	case token.TEST_PROMPT, token.DOC_COMMENT, token.AT, token.PUB, token.EXTERN,
 		token.FN, token.ONCE, token.TYPE, token.STRUCT, token.ENUM, token.TYPEALIAS,
-		token.INTERFACE, token.IMPL, token.OPAQUE, token.TEST, token.TESTS:
+		token.INTERFACE, token.IMPL, token.OPAQUE, token.TEST:
+		return true
+	}
+	if i+1 < len(p.tokens) && isGroupStart(t, p.tokens[i+1]) {
 		return true
 	}
 	if isHostToken(t) && i+1 < len(p.tokens) {

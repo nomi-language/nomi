@@ -108,7 +108,7 @@ func (bl *irScalarBuilder) subtestsRowFunc(t *ast.Subtests, rowK kind) (ir.Temp,
 		end = bl.g.irNodePos(last)
 	}
 	child.b.SetTerm(ir.NewReturnUnit(end))
-	if err := ir.Lint(f); err != nil {
+	if err := bl.g.irLint(f); err != nil {
 		irDeclineNote("a `subtests` row graph that does not lint: " + err.Error())
 		return ir.NoTemp, false
 	}

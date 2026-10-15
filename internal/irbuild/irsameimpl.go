@@ -11,7 +11,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // `Formatted`'s `banner`, which the analyzer scopes as Formatted's).
 func (bl *irScalarBuilder) sameImplName(id *ast.Ident) bool {
 	name := id.Name
-	sym := resolvedBareSymbolAt(bl.g.fa, id)
+	sym := resolvedBareSymbolAt(bl.g.srcFA(), id)
 	if sym == nil {
 		return true
 	}

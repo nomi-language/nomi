@@ -66,7 +66,7 @@ func TestAppFieldsWithoutBoot(t *testing.T) {
  `))
 	expectErrorT(t, buildProjectForDefaultConfig(prefix+` test "default" { assert App.n == 1 }`),
 		"this test has no boot, but code it runs reads `App.n` (line 6)")
-	expectErrorT(t, buildProjectForDefaultConfig(prefix+startupFn+` tests "g" {
+	expectErrorT(t, buildProjectForDefaultConfig(prefix+startupFn+` group "g" {
   setup 1
   test "default" { assert App.n == 1 }
  }`),
@@ -198,12 +198,12 @@ func TestAppFieldsEntryBootCalledOnlyOnABootLine(t *testing.T) {
  fn boot(): App { App{context: Context.root(), n: 1} }
  fn main() {}
  `
-	expectNoErrorsT(t, buildProjectForDefaultConfig(prefix+` tests "g" {
+	expectNoErrorsT(t, buildProjectForDefaultConfig(prefix+` group "g" {
   boot boot()
   test "reads" { assert App.n == 1 }
  }`))
 	expectErrorT(t, buildProjectForDefaultConfig(prefix+` test "calls" { assert boot().n == 1 }`),
-		"entry-point boot cannot be called or captured as an ordinary function; a `tests` group calls it on its `boot` line")
+		"entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line")
 	expectErrorT(t, buildProjectForDefaultConfig(prefix+` fn again(): App { boot() }`),
 		"entry-point boot cannot be called or captured as an ordinary function")
 }
@@ -217,7 +217,7 @@ func TestAppFieldsBootLineArgumentReadsNoField(t *testing.T) {
  fn boot(_startup: Startup): App { App{context: Context.root(), n: 1} }
  fn main() {}
  fn st(): Startup { Startup{args: ["${App.n}"]} }
- tests "g" {
+ group "g" {
   boot boot(st())
   test "reads" { assert App.n == 1 }
  }`), "boot runs before any application field is published, but code it runs reads `App.n` (line 6)")
@@ -231,18 +231,18 @@ func TestAppFieldsGroupBootMustNameAnEntryBoot(t *testing.T) {
  fn make(_startup: Startup): Life { Life{life: Context.root(), n: 1} }
  fn main() {}
  `+startupFn+`
- tests "custom" {
+ group "custom" {
   boot make(st())
   test "read" { assert True }
  }
- `), "`boot` in a `tests` group calls an entry's boot, the `fn boot` of a file that defines `fn main`, such as `boot server.boot(startup)`; `make` is not one")
+ `), "`boot` in a `group` calls an entry's boot, the `fn boot` of a file that defines `fn main`, such as `boot server.boot(startup)`; `make` is not one")
 	// A `fn boot` in a file without `fn main` is not an entry boot either.
 	root := appScopeProject(t, map[string]string{
 		"lib.nomi": `pub struct Life { life: Context
 n: Int }
 pub fn boot(): Life { Life{life: Context.root(), n: 1} }`,
 		"lib_test.nomi": `import lib
-tests "custom" {
+group "custom" {
  boot lib.boot()
  test "read" { assert True }
 }`,
@@ -271,14 +271,14 @@ fn main() { _ = Other.text }`,
  other.Other
 }
 `
-	files["app_test.nomi"] = head + `tests "services" {
+	files["app_test.nomi"] = head + `group "services" {
  boot services.boot()
  test "reads" {
   assert Services.port == 3
   assert services.read() == 3
  }
 }
-tests "other" {
+group "other" {
  boot other.boot()
  test "reads" { assert Other.text == "yes" }
 }
@@ -287,7 +287,7 @@ tests "other" {
 	_, errs := appScopeAnalyze(t, root, "app_test.nomi", nil)
 	expectNoErrorsT(t, errs)
 
-	files["app_test.nomi"] = head + `tests "other" {
+	files["app_test.nomi"] = head + `group "other" {
  boot other.boot()
  test "reads" { assert services.read() == 3 }
 }
@@ -296,7 +296,7 @@ tests "other" {
 	_, errs = appScopeAnalyze(t, root, "app_test.nomi", nil)
 	expectErrorT(t, errs, "this test boots `Other`, but code it runs reads `Services.port` (services.nomi:4)")
 
-	files["app_test.nomi"] = head + `tests "other" {
+	files["app_test.nomi"] = head + `group "other" {
  boot other.boot()
  setup services.read()
  test "reads" { assert True }
@@ -332,7 +332,7 @@ pub fn both(): Int { A.n + B.n }`,
 		{"a", "both", "code this test runs reads `A.n` (helpers.nomi:6) and `B.n` (helpers.nomi:6); one boot publishes one application type"},
 	} {
 		files["app_test.nomi"] = "import {\n " + c.entry + "\n helpers\n}\n" +
-			"tests \"g\" {\n boot " + c.entry + ".boot()\n test \"reads\" { assert helpers." + c.call + "() > 0 }\n}\n"
+			"group \"g\" {\n boot " + c.entry + ".boot()\n test \"reads\" { assert helpers." + c.call + "() > 0 }\n}\n"
 		root := appScopeProject(t, files)
 		_, errs := appScopeAnalyze(t, root, "app_test.nomi", nil)
 		if c.want == "" {
@@ -477,7 +477,7 @@ func TestAppFieldsUnreadByMainWithCustomTests(t *testing.T) {
  fn read(): Int { 1 }
  fn boot(): Life { Life{life:Context.root(),n:1} }
  fn main() { _ = read() }
- tests "custom" {
+ group "custom" {
   boot boot()
   test "read" { assert Life.n == read() }
  }
@@ -487,13 +487,13 @@ func TestAppFieldsUnreadByMainWithCustomTests(t *testing.T) {
 // A test binds its group's setup value with an irrefutable pattern only.
 func TestAppFieldsTestPatternIsIrrefutable(t *testing.T) {
 	expectErrorT(t, buildProjectForDefaultConfig(`
- tests "g" {
+ group "g" {
   setup Some(1)
   test "x", Some(n) { assert n == 1 }
  }
  `), "a test's pattern must match every setup value")
 	expectNoErrorsT(t, buildProjectForDefaultConfig(`
- tests "g" {
+ group "g" {
   setup (Some(1), "a")
   test "x", (n, s) {
    assert n == Some(1)
@@ -588,8 +588,8 @@ func TestAppFieldsMetadata(t *testing.T) {
  `})
 	fa, errs := appScopeAnalyze(t, root, "main.nomi", nil)
 	expectNoErrorsT(t, errs)
-	if len(fa.AppTypes) != 1 || fa.AppTypes[0].Name != "App" {
-		t.Fatalf("application types: %v", fa.AppTypes)
+	if len(fa.Program().AppTypes) != 1 || fa.Program().AppTypes[0].Name != "App" {
+		t.Fatalf("application types: %v", fa.Program().AppTypes)
 	}
 	if len(fa.AppReadsByPos) != 2 {
 		t.Fatalf("app-field metadata: %v", fa.AppReadsByPos)

@@ -135,7 +135,7 @@ func (s *iterSensitivity) slotsForStdlibCallbackSymbol(sym *Symbol) map[int]bool
 		if real.OwningType == modName {
 			return slots
 		}
-		scope := s.fa.StdlibModuleScopes[modName]
+		scope := s.fa.Program().StdlibModuleScopes[modName]
 		if scope == nil {
 			continue
 		}
@@ -245,7 +245,7 @@ func (s *iterSensitivity) canonicalStdlibKey(call *ast.Call) string {
 	if real.Kind != SymbolModule || real.ModuleScope == nil {
 		return ""
 	}
-	for modName, scope := range s.fa.StdlibModuleScopes {
+	for modName, scope := range s.fa.Program().StdlibModuleScopes {
 		if scope == real.ModuleScope {
 			return modName + "." + fieldAcc.Field.Name
 		}

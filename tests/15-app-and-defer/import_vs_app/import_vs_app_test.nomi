@@ -5,7 +5,7 @@ import {
     wallclock.{Clock, FakeClock}
 }
 
-tests "imported helpers stay independent of active app fields" {
+group "imported helpers stay independent of active app fields" {
     boot import_app.boot()
 
     // The override is LOAD-BEARING: `boot` sets 1234 and the `with`

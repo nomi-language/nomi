@@ -46,13 +46,13 @@ func TestLoweringErrorsSurfaceAsDiagnostics(t *testing.T) {
 
 func TestDuplicateTestNamesSurfaceAsDiagnostics(t *testing.T) {
 	dm := analysis.NewDocumentManager()
-	src := `tests "math" {
+	src := `group "math" {
   test "adds" {
     assert True
   }
 }
 
-tests "math" {
+group "math" {
   test "adds" {
     assert True
   }
@@ -526,6 +526,35 @@ func TestGroupedImportPathPublishesAtTheBrace(t *testing.T) {
 		"help: to import several files, list each in an import block:\nimport {\n    std/io\n    std/regex.Regex\n}"
 	if strings.Join(got, "\n---\n") != want {
 		t.Errorf("publishes:\n%s\nwant:\n%s", strings.Join(got, "\n---\n"), want)
+	}
+}
+
+// A group written without a name publishes the missing name at the `{`,
+// and nothing about a file-level expression. Its body is still read as a
+// group's, so a type error in one of its tests is published too.
+func TestGroupWithoutANamePublishesTheMissingName(t *testing.T) {
+	dm := analysis.NewDocumentManager()
+	src := "group {\n    test \"a\" {\n        assert 1 == \"one\"\n    }\n}\n"
+	doc := dm.Open("file:///test.nomi", src)
+	var got []string
+	for _, d := range buildPublishedDiagnostics(doc.URI, doc.Content, doc.Nodes, doc.Errors, doc.Analysis.TypeErrors) {
+		got = append(got, fmt.Sprintf("%d:%d: %s", d.Range.Start.Line+1, d.Range.Start.Character+1, d.Message))
+	}
+	const missing = "1:7: a `group` needs a name; name the group for what its tests share, such as `group \"dates\" { ... }`"
+	if len(got) == 0 || got[0] != missing {
+		t.Fatalf("publishes:\n%s\nwant first:\n%s", strings.Join(got, "\n"), missing)
+	}
+	inBody := false
+	for _, g := range got[1:] {
+		if strings.HasPrefix(g, "1:") {
+			t.Errorf("a second diagnostic on the group's line: %s", g)
+		}
+		if strings.HasPrefix(g, "3:") {
+			inBody = true
+		}
+	}
+	if !inBody {
+		t.Errorf("nothing published for the test inside the group:\n%s", strings.Join(got, "\n"))
 	}
 }
 

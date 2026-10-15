@@ -161,7 +161,7 @@ test "assert fails on a mismatch" {
     assert m == None
 }
 
-tests "setup" {
+group "setup" {
     setup {
         (1, "one")
     }

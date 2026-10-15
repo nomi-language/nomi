@@ -19,7 +19,7 @@ func TestStdlibIterTypeArgsSolve(t *testing.T) {
 	lib := loadStdlibOnce()
 	fa := &analysis.FileAnalysis{}
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-	pi := fa.ProjectImpls
+	pi := fa.Program().ImplIndex
 	if pi == nil {
 		t.Fatal("no ProjectImpls built")
 	}
@@ -70,7 +70,7 @@ func TestStdlibAddTypeArgSetsSolve(t *testing.T) {
 	lib := loadStdlibOnce()
 	fa := &analysis.FileAnalysis{}
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-	pi := fa.ProjectImpls
+	pi := fa.Program().ImplIndex
 	if pi == nil {
 		t.Fatal("no ProjectImpls built")
 	}

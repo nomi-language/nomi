@@ -101,7 +101,13 @@ func BuildProjectFromEntryWithManifest(entryAbsPath string, entryNodes []ast.Nod
 }
 
 func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map[string]*Scope, stdlibFAs map[string]*FileAnalysis, projectRoot string, entryAbsPath string, entryModRel string, placeEntry bool, loader FileLoader, mfst *Manifest) (*FileAnalysis, map[string]*FileAnalysis, map[string][]ast.Node) {
-	proj, discoverErr := DiscoverProjectWithManifest(entryNodes, projectRoot, loader, mfst)
+	var analyzed func(key string) bool
+	if len(stdlibFAs) > 0 {
+		analyzed = func(key string) bool {
+			return IsStdlibKey(key) && stdlibFAs[strings.TrimPrefix(key, "std/")] != nil
+		}
+	}
+	proj, discoverErr := discoverProject(entryNodes, projectRoot, loader, mfst, analyzed)
 	if entryAbsPath != "" {
 		proj.EntryPath = entryAbsPath
 		if proj.FilePaths == nil {
@@ -440,23 +446,18 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		}
 	}
 
-	// Seed ContextType on every FileAnalysis with whatever the passed-in
-	// `modules` arg can offer up-front. After Sweep C-types runs (below)
-	// we re-seed from the cache so the value points at the freshly-built
-	// std/context FA's Context type — see the longer comment at the
-	// re-seed site. The early seed exists for two-pass consumers that
-	// touch ContextType during the sweeps; nothing in the project build
-	// itself reads it before re-seed, but downstream check passes that
-	// run on the same fb.fa do.
+	// The Context type the passed-in `modules` arg offers, which the
+	// Program keeps only when the cache has no std/context (see the
+	// ContextType comment after Sweep C-types).
 	earlyContextType := findContextType(modules)
-	// StdlibModuleScopes: short stdlib name → defining module Scope,
-	// broadcast to every FA (same pattern as ContextType) so the iter-
-	// sensitivity pass can discover stdlib module scopes — stdlib symbols
-	// carry no SourceFile, which is what its SourceFile-based discovery
-	// keys on. Prefer the cache's freshly-built "std/<name>" FAs (their
-	// scopes are what import resolution hands user files post-cutover —
-	// the Scope pointers are stable even though Sweep A hasn't filled
-	// them yet); the legacy `modules` arg fills any gaps.
+	// StdlibModuleScopes: short stdlib name → defining module Scope, the
+	// Program's StdlibModuleScopes, and given to every builder now since
+	// the sweeps read it before the Program exists. Stdlib symbols carry
+	// no SourceFile, so this is how a pass finds a stdlib module scope.
+	// Prefer the cache's freshly-built "std/<name>" FAs (their scopes are
+	// what import resolution hands user files post-cutover — the Scope
+	// pointers are stable even though Sweep A hasn't filled them yet); the
+	// legacy `modules` arg fills any gaps.
 	stdlibScopes := make(map[string]*Scope)
 	for key, cfa := range cache {
 		if !IsStdlibKey(key) || cfa == nil || cfa.ModuleScope == nil {
@@ -472,8 +473,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		}
 	}
 	for _, fb := range all {
-		fb.fa.ContextType = earlyContextType
-		fb.fa.StdlibModuleScopes = stdlibScopes
+		fb.builder.stdlibScopes = stdlibScopes
 	}
 
 	// Sweep A: register top-level symbols.
@@ -514,7 +514,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// impls that don't reach the cache via this transitive merge are
 	// still picked up downstream — the project-level ProjectImpls
 	// index folds every reachable stdlib FA via the eager fold
-	// below, so the checker's ProjectImpls branch covers the gap.
+	// below, so the checker's Program().ImplIndex branch covers the gap.
 	//
 	// Cache-key normalization mirrors resolveImport: a self-name
 	// import (head == currentModuleName) caches under the stripped
@@ -601,19 +601,22 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// overwrites every entry below once types exist.
 		qualifiedImplBlockReceivers[fn] = qualifyReceiver(faByKey[ifaceImplFiles[fn]], recv, nil)
 	}
+	// The build's own impl-method tables, which its Program holds. A
+	// file's own maps (fa.ImplBlockReceiver) are not guaranteed to contain
+	// the FuncDefs from this index (stdlib FAs can be reached through both
+	// the build and cache paths), so identity population reads these.
+	own := &implTables{
+		IfaceMethodImpls:            ifaceImpls,
+		IfaceMethodImplFiles:        ifaceImplFiles,
+		ImplBlockReceiver:           implBlockReceivers,
+		ImplBlockInterfaceKey:       implBlockInterfaceKeys,
+		IfaceMethodImplExterns:      ifaceImplExterns,
+		IfaceMethodImplExternFiles:  ifaceImplExternFiles,
+		ImplBlockInterfaceKeyExtern: implBlockInterfaceKeysExtern,
+	}
+	owned := make(map[*FileAnalysis]bool, len(all))
 	for _, fb := range all {
-		fb.fa.IfaceMethodImpls = ifaceImpls
-		fb.fa.IfaceMethodImplFiles = ifaceImplFiles
-		// Broadcast the canonical block-header receiver map alongside the
-		// method index. The per-file maps are not guaranteed to contain the
-		// FuncDefs from the shared index (stdlib FAs can be reached through
-		// both the build and cache paths), so leaving this local would make
-		// identity population depend on which FA the index fold visits.
-		fb.fa.ImplBlockReceiver = implBlockReceivers
-		fb.fa.ImplBlockInterfaceKey = implBlockInterfaceKeys
-		fb.fa.IfaceMethodImplExterns = ifaceImplExterns
-		fb.fa.IfaceMethodImplExternFiles = ifaceImplExternFiles
-		fb.fa.ImplBlockInterfaceKeyExtern = implBlockInterfaceKeysExtern
+		owned[fb.fa] = true
 	}
 
 	// filesByKey folds two sources together: `all` (every file in
@@ -659,56 +662,48 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 	// Project-level impl index: single source of truth for "which Ts
 	// implement which Ifaces" across the whole reachable program.
-	// Attached to proj for project-level consumers (checker, derive
-	// synthesis) and broadcast to every FA in filesByKey — that union
-	// covers `all` (entry + discovery-walked siblings), `cache` (on-
-	// demand-resolved siblings, plus every stdlib FA reached via
-	// resolveStdlibImport's write-through), and the stdlibFAs eager
-	// fold above (every other stdlib FA the prelude chain didn't
-	// touch). Broadcasting to cache FAs too matters because the
-	// FA-mediated pattern is used by several consumers (LSP, derive
-	// synthesis) and a uniform back-pointer avoids surprises when a
-	// non-entry FA flows into one of them.
+	// The Program's ImplIndex. It folds every FA in filesByKey: `all`
+	// (entry + discovery-walked siblings), `cache` (on-demand-resolved
+	// siblings, plus every stdlib FA reached via resolveStdlibImport's
+	// write-through), and the stdlibFAs eager fold above (every other
+	// stdlib FA the prelude chain didn't touch).
 	//
-	// Order matters: this runs BEFORE Sweep B-bounds below, so
-	// CheckDeriveBounds sees a populated fa.ProjectImpls. Inputs
-	// (fa.Impls, fa.ImplManifest, fa.IfaceMethodImpls) are all
+	// Order matters: this runs BEFORE Sweep B-bounds below, which is
+	// given it. Inputs (fa.Impls, fa.ImplManifest, the impl tables) are all
 	// populated by Sweep B-impls (just above) plus std.Load() for
 	// stdlib FAs.
-	implIndex := buildProjectImplIndex(filesByKey)
-	if proj != nil {
-		proj.ImplIndex = implIndex
+	implIndex := buildProjectImplIndex(filesByKey, own, owned)
+	// A module this build loaded on demand (resolveImport) has a Program of
+	// its own with no index; it gets one holding this index when the build
+	// is complete. A stdlib analysis this build was handed is shared by
+	// every build in the process, so it is never given this build's index:
+	// that once handed a later, unrelated build an index assembled for a
+	// different project, which showed up as an intermittent
+	// dispatch-collision panic where a stdlib impl lost its module
+	// qualifier.
+	shared := make(map[*FileAnalysis]bool, len(stdlibFAs))
+	for _, fa := range stdlibFAs {
+		shared[fa] = true
 	}
-	// Only the files THIS build owns get their pointer rebound. The
-	// stdlib FileAnalysis objects in filesByKey are shared across every
-	// Runtime in the process, so rebinding them lets one build hand a
-	// later, unrelated build an index assembled for a different project
-	// — which showed up as an intermittent dispatch-collision panic
-	// where a stdlib impl lost its module qualifier. A shared FA still
-	// gets an index the first time it needs one, since analyzing a
-	// stdlib file as a subject goes through AttachStdlibProjectImpls.
-	owned := make(map[*FileAnalysis]bool, len(all))
-	for _, fb := range all {
-		owned[fb.fa] = true
-	}
+	var loadedOnDemand []*FileAnalysis
 	for _, fa := range filesByKey {
-		if owned[fa] || fa.ProjectImpls == nil {
-			fa.ProjectImpls = implIndex
+		if !owned[fa] && !shared[fa] && fa.Program().ImplIndex == nil {
+			loadedOnDemand = append(loadedOnDemand, fa)
 		}
 	}
 
 	// Sweep B-bounds: the derive field/payload bound check (spec §38.1,
 	// *Field-type requirements*). Runs
 	// after Sweep B-impls so every file's local Impls is fully
-	// populated, and AFTER the project impl index has been broadcast
-	// onto every FA so CheckDeriveBounds can consult fa.ProjectImpls
+	// populated, and AFTER the project impl index has been built
+	// so CheckDeriveBounds can consult it
 	// for cross-file / stdlib impl knowledge. The (T, Iface) entries
 	// for the @derive'd types themselves are also present (registered
 	// by defineImplBlockStub on the synthesizer's emitted
 	// impl block during Sweep A/B-ann), letting recursive types
 	// pass their own self-reference check naturally.
 	for _, fb := range all {
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes)...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes, implIndex)...)
 	}
 
 	// Sweep B-bodies: walk function bodies. By now every file's
@@ -756,7 +751,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// them here. Callers that layer CheckTypes / AnalyzeIterSensitivity
 	// on top should append to fa.TypeErrors rather than overwrite it.
 	for _, fb := range all {
-		typeErrs := BuildTypes(fb.fa, fb.nodes)
+		typeErrs := buildTypes(fb.fa, fb.nodes, stdlibScopes)
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, typeErrs...)
 	}
 
@@ -785,10 +780,10 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// `impl Iface for T { ... }` template (`recordImplTypeArgsFromBlock`,
 	// type_builder.go Pass 3) is populated only here in Sweep C-types. The
 	// index's OTHER unions (Impls, ImplManifest, IfaceMethodImpls) are fine:
-	// they're recorded in the earlier Sweep B-impls. implIndex is shared by
-	// pointer with every fa.ProjectImpls (broadcast above), so mutating this map
-	// updates every consumer — notably the checker's CheckTypes pass, which runs
-	// after this function returns and uses ImplTypeArgs to bind a generic
+	// they're recorded in the earlier Sweep B-impls. The files get the index
+	// only with their Program, below, so every consumer sees the merged maps —
+	// notably the checker's CheckTypes pass, which runs after this function
+	// returns and uses ImplTypeArgs to bind a generic
 	// interface's type params when unifying an interface-typed parameter against
 	// a concrete argument (e.g. an `Iter<T>`-typed param against a custom
 	// `impl Iter` argument — Set, the std/iter.nomi lazy wrappers). Without this,
@@ -844,7 +839,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		PopulateEnumDecls(implIndex, filesByKey)
 	}
 
-	// Re-seed ContextType from the cache now that std/context.nomi's
+	// ContextType comes from the cache now that std/context.nomi's
 	// BuildTypes has populated its `Context` symbol's Type field.
 	// Stdlib flows through discovery so std/context
 	// lives in `cache`; lib.Modules from a parallel std.Load() carries
@@ -852,18 +847,17 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// User code's `context: Context` field is resolved via the cache
 	// chain (auto-prepended `import std/context.Context` flows
 	// through resolveImport→cache), so ContextType must match. Without
-	// this re-seed the no-boot synthesized `App` and any cross-file
+	// it the no-boot synthesized `App` and any cross-file
 	// `expected Context, got Context` argument-type comparisons fire
 	// pointer-inequality errors despite identical names.
-	if reseeded := findContextTypeFromCache(cache); reseeded != nil {
-		for _, fb := range all {
-			fb.fa.ContextType = reseeded
-		}
+	contextType := earlyContextType
+	if fromCache := findContextTypeFromCache(cache); fromCache != nil {
+		contextType = fromCache
 	}
 
 	// Every function of the project and every entry boot: a top-level
 	// `fn boot` in a file that defines `fn main`. The application-field root
-	// check (app_fields.go) follows calls across files, and a `tests`
+	// check (app_fields.go) follows calls across files, and a `group`
 	// group's `boot` line names one of these boots.
 	scopedFunctions := map[*ast.FuncDef]*FileAnalysis{}
 	bootFunctions := map[*ast.FuncDef]bool{}
@@ -880,7 +874,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			} else {
 				fb.fa.BootErrors = append(fb.fa.BootErrors, TypeError{
 					Line: fn.Line, Col: fn.Col,
-					Message: "`boot` belongs in an entry file, one that defines `fn main`; a `tests` group names an entry's boot with `boot entry.boot(startup)`",
+					Message: "`boot` belongs in an entry file, one that defines `fn main`; a `group` names an entry's boot with `boot entry.boot(startup)`",
 				})
 			}
 		}
@@ -894,19 +888,13 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 	var appTypes []*StructType
 	for _, eb := range entryBoots {
-		if st := validateScopedBootSignature(eb.fb.fa, eb.fn); st != nil {
+		if st := validateScopedBootSignature(eb.fb.fa, eb.fn, contextType); st != nil {
 			appTypes = append(appTypes, st)
 		}
 	}
 	onces := NewOnceTable()
 	for _, fb := range all {
 		onces.Index(fb.fa, fb.nodes)
-	}
-	for _, fb := range all {
-		fb.fa.Onces = onces
-		fb.fa.ScopedFunctionFiles = scopedFunctions
-		fb.fa.BootFunctions = bootFunctions
-		fb.fa.AppTypes = appTypes
 	}
 
 	// Coherence: reject duplicate (interface, type) impls. The dispatch
@@ -1053,6 +1041,27 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		}
 	}
 
+	// The Program is complete: hand it to every file of the build. Nothing
+	// writes it from here on.
+	program := &Program{
+		ImplIndex:           implIndex,
+		implTables:          *own,
+		Onces:               onces,
+		ScopedFunctionFiles: scopedFunctions,
+		BootFunctions:       bootFunctions,
+		AppTypes:            appTypes,
+		ContextType:         contextType,
+		StdlibModuleScopes:  stdlibScopes,
+	}
+	for _, fb := range all {
+		fb.fa.program = program
+	}
+	for _, fa := range loadedOnDemand {
+		indexed := *fa.Program()
+		indexed.ImplIndex = implIndex
+		fa.program = &indexed
+	}
+
 	return entryFB.fa, siblingFAs, siblingNodes
 }
 
@@ -1093,7 +1102,7 @@ const bootSignatureMsg = "boot must be `fn boot(): App` or `fn boot(startup: Sta
 // parameter or one `Startup`, which may have a default, and returns a struct
 // or an anonymous record with at most one Context-typed field. It answers the
 // struct a valid boot returns, which is an application type, or nil.
-func validateScopedBootSignature(fa *FileAnalysis, fn *ast.FuncDef) *StructType {
+func validateScopedBootSignature(fa *FileAnalysis, fn *ast.FuncDef, contextType Type) *StructType {
 	sym := fa.Definitions[Pos{Line: fn.Line, Col: fn.Col}]
 	if sym == nil {
 		return nil
@@ -1117,7 +1126,7 @@ func validateScopedBootSignature(fa *FileAnalysis, fn *ast.FuncDef) *StructType 
 	}
 	contexts := 0
 	for _, field := range SchemaFields(ft.Return) {
-		if SameScopedType(field.Type, fa.ContextType) {
+		if SameScopedType(field.Type, contextType) {
 			contexts++
 		}
 	}

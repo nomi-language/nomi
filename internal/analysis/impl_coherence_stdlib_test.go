@@ -86,20 +86,20 @@ func TestProjectImplIndex_PopulatedAfterBuild(t *testing.T) {
 	if entryFA == nil {
 		t.Fatal("BuildProjectWithCache returned nil entry FA")
 	}
-	if entryFA.ProjectImpls == nil {
+	if entryFA.Program().ImplIndex == nil {
 		t.Fatal("entry FA's ProjectImpls back-pointer is nil; BuildProjectWithCache did not attach the index")
 	}
-	if len(entryFA.ProjectImpls.Impls) == 0 {
+	if len(entryFA.Program().ImplIndex.Impls) == 0 {
 		t.Fatal("ProjectImpls.Impls is empty; the stdlibFAs eager fold did not run")
 	}
-	if len(entryFA.ProjectImpls.IfaceMethodImpls) == 0 {
+	if len(entryFA.Program().ImplIndex.IfaceMethodImpls) == 0 {
 		t.Fatal("ProjectImpls.IfaceMethodImpls is empty; per-FA IndexImplBlockFuncDefs did not contribute")
 	}
 
 	// Sanity-check a representative stdlib pair: Int impl Display.
 	// If this drops out, the stdlibFAs fold or the per-FA contribution
 	// path broke — both are stdlib-globals-retirement regressions.
-	intIfaces, ok := entryFA.ProjectImpls.Impls["Int"]
+	intIfaces, ok := entryFA.Program().ImplIndex.Impls["Int"]
 	if !ok {
 		t.Fatal("ProjectImpls.Impls missing Int")
 	}

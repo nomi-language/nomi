@@ -223,9 +223,10 @@ func (idx *ProjectImplIndex) ReceiverOf(fn *ast.FuncDef) string {
 // BuildProjectWithCache post-Sweep-B, at the same point
 // detectImplCollisions runs (after filesByKey is built).
 //
-// Duplicate FuncDef pointers (e.g. from shared per-FA map pointers
-// post-broadcast in project_build.go) are deduplicated by pointer
-// identity in the IfaceMethodImpls union — otherwise downstream
+// The impl-method tables come from each file's Program (implTablesOf), and
+// one build's files share one, so each Program's tables are folded once.
+// Duplicate FuncDef pointers that remain (a stdlib file reached under two
+// keys) are deduplicated by pointer identity in the IfaceMethodImpls union — otherwise downstream
 // consumers like detectImplCollisions would see len(fns) == N and
 // emit spurious diagnostics for every (iface, method, receiver-type)
 // triple. The same hazard does not exist for Impls / ImplManifest
@@ -242,7 +243,7 @@ func (idx *ProjectImplIndex) ReceiverOf(fn *ast.FuncDef) string {
 // (BuildProjectWithCache, AttachStdlibProjectImpls) pass closed module
 // sets, and the same FA pointer carries the same ImplTypeArgs across
 // every key it appears under.
-func buildProjectImplIndex(filesByKey map[string]*FileAnalysis) *ProjectImplIndex {
+func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables, owned map[*FileAnalysis]bool) *ProjectImplIndex {
 	idx := &ProjectImplIndex{
 		Impls:                 make(map[string]map[string]bool),
 		ImplManifest:          make(map[string]map[string][]Recording),
@@ -284,17 +285,84 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis) *ProjectImplInde
 		ext    *ast.ExternFunc
 	}
 	seenExterns := make(map[seenExternKey]bool)
-	for key, fa := range filesByKey {
-		for fn, recv := range fa.ImplBlockReceiver {
+	// The files of one build share one set of impl-method tables, so the
+	// stdlib's fifty-odd analyses hold one set between them, and a program's
+	// files another. Folding a set a second time adds nothing, so each is
+	// folded once.
+	foldedTables := make(map[*implTables]bool)
+	foldedFiles := make(map[*FileAnalysis]bool)
+	for _, fa := range filesByKey {
+		if foldedFiles[fa] {
+			continue
+		}
+		foldedFiles[fa] = true
+		tables := implTablesOf(fa, own, owned)
+		if foldedTables[tables] {
+			continue
+		}
+		foldedTables[tables] = true
+		for fn, recv := range tables.ImplBlockReceiver {
 			if fn != nil && recv != "" {
 				idx.ImplBlockReceiver[fn] = recv
 			}
 		}
-		for fn, key := range fa.ImplBlockInterfaceKey {
+		for fn, key := range tables.ImplBlockInterfaceKey {
 			if fn != nil && key != "" {
 				idx.ImplBlockInterfaceKey[fn] = key
 			}
 		}
+		for ifaceName, byMethod := range tables.IfaceMethodImpls {
+			if idx.IfaceMethodImpls[ifaceName] == nil {
+				idx.IfaceMethodImpls[ifaceName] = make(map[string][]*ast.FuncDef)
+			}
+			for methodName, fns := range byMethod {
+				for _, fn := range fns {
+					k := seenKey{iface: ifaceName, method: methodName, fn: fn}
+					if seenImpls[k] {
+						continue
+					}
+					seenImpls[k] = true
+					idx.IfaceMethodImpls[ifaceName][methodName] = append(idx.IfaceMethodImpls[ifaceName][methodName], fn)
+				}
+			}
+		}
+		// ImplFuncTypes is populated separately in a post-BuildTypes pass
+		// (see PopulateProjectImplFuncTypes), since sym.Type isn't set on
+		// impl FuncDef Symbols until BuildTypes runs — buildProjectImplIndex
+		// executes earlier in the build pipeline (post Sweep B-impls, pre
+		// Sweep C-types).
+		for fn, path := range tables.IfaceMethodImplFiles {
+			idx.ImplFiles[fn] = path
+		}
+		// Extern-impl parallel of the unions above. IfaceMethodImplExterns
+		// dedups by the (iface, method, ext) triple; ImplExternFiles
+		// overwrites idempotently (a given extern maps to one path), so a
+		// plain copy is correct.
+		for ifaceName, byMethod := range tables.IfaceMethodImplExterns {
+			if idx.IfaceMethodImplExterns[ifaceName] == nil {
+				idx.IfaceMethodImplExterns[ifaceName] = make(map[string][]*ast.ExternFunc)
+			}
+			for methodName, exts := range byMethod {
+				for _, ext := range exts {
+					k := seenExternKey{iface: ifaceName, method: methodName, ext: ext}
+					if seenExterns[k] {
+						continue
+					}
+					seenExterns[k] = true
+					idx.IfaceMethodImplExterns[ifaceName][methodName] = append(idx.IfaceMethodImplExterns[ifaceName][methodName], ext)
+				}
+			}
+		}
+		for ext, path := range tables.IfaceMethodImplExternFiles {
+			idx.ImplExternFiles[ext] = path
+		}
+		for ext, key := range tables.ImplBlockInterfaceKeyExtern {
+			if ext != nil && key != "" {
+				idx.ImplBlockInterfaceKeyExtern[ext] = key
+			}
+		}
+	}
+	for key, fa := range filesByKey {
 		for typeName, ifaces := range fa.Impls {
 			if idx.Impls[typeName] == nil {
 				idx.Impls[typeName] = make(map[string]bool)
@@ -324,61 +392,9 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis) *ProjectImplInde
 				idx.ImplManifest[ifaceName][typeName] = existing
 			}
 		}
-		for ifaceName, byMethod := range fa.IfaceMethodImpls {
-			if idx.IfaceMethodImpls[ifaceName] == nil {
-				idx.IfaceMethodImpls[ifaceName] = make(map[string][]*ast.FuncDef)
-			}
-			for methodName, fns := range byMethod {
-				for _, fn := range fns {
-					k := seenKey{iface: ifaceName, method: methodName, fn: fn}
-					if seenImpls[k] {
-						continue
-					}
-					seenImpls[k] = true
-					idx.IfaceMethodImpls[ifaceName][methodName] = append(idx.IfaceMethodImpls[ifaceName][methodName], fn)
-				}
-			}
-		}
-		for fn, path := range fa.IfaceMethodImplFiles {
-			idx.ImplFiles[fn] = path
-			// ImplFuncTypes is populated separately in a
-			// post-BuildTypes pass (see PopulateProjectImplFuncTypes),
-			// since sym.Type isn't set on impl FuncDef Symbols until
-			// BuildTypes runs — buildProjectImplIndex executes earlier
-			// in the build pipeline (post Sweep B-impls, pre Sweep
-			// C-types).
-		}
-		// Extern-impl parallel of the three unions above. IfaceMethodImplExterns
-		// is shared across project FAs (same fix-up as IfaceMethodImpls), so it
-		// dedups by the (iface, method, ext) triple; ImplExternFiles and
-		// ImplBlockReceiverExtern overwrite idempotently (a given extern maps to
-		// one path / one receiver), so a plain copy is correct.
-		for ifaceName, byMethod := range fa.IfaceMethodImplExterns {
-			if idx.IfaceMethodImplExterns[ifaceName] == nil {
-				idx.IfaceMethodImplExterns[ifaceName] = make(map[string][]*ast.ExternFunc)
-			}
-			for methodName, exts := range byMethod {
-				for _, ext := range exts {
-					k := seenExternKey{iface: ifaceName, method: methodName, ext: ext}
-					if seenExterns[k] {
-						continue
-					}
-					seenExterns[k] = true
-					idx.IfaceMethodImplExterns[ifaceName][methodName] = append(idx.IfaceMethodImplExterns[ifaceName][methodName], ext)
-				}
-			}
-		}
-		for ext, path := range fa.IfaceMethodImplExternFiles {
-			idx.ImplExternFiles[ext] = path
-		}
 		for ext, recv := range fa.ImplBlockReceiverExtern {
 			if ext != nil && recv != "" {
 				idx.ImplBlockReceiverExtern[ext] = recv
-			}
-		}
-		for ext, key := range fa.ImplBlockInterfaceKeyExtern {
-			if ext != nil && key != "" {
-				idx.ImplBlockInterfaceKeyExtern[ext] = key
 			}
 		}
 		for typeName, byIface := range fa.ImplTypeArgs {
@@ -640,9 +656,9 @@ func declaringOriginOfType(fa *FileAnalysis, name string, primitives map[string]
 }
 
 // AttachStdlibProjectImpls builds a stdlib-only ProjectImplIndex from
-// `stdlibFAs` (typically std.StdLib.Files) and assigns it to
-// `fa.ProjectImpls`. The single-file BuildFileWithStdlib path leaves
-// ProjectImpls nil — consumers (checker's implsContext /
+// `stdlibFAs` (typically std.StdLib.Files) and gives fa a Program holding it
+// in place of its own. The single-file BuildFileWithStdlib path leaves
+// Program().ImplIndex nil — consumers (checker's implsContext /
 // typeImplementsInterface, derive synthesis's CheckDeriveBounds /
 // hasInterfaceImpl) then miss every stdlib (Type, Iface) pair, which
 // surfaces as spurious "X does not implement Y" errors on routine
@@ -651,8 +667,8 @@ func declaringOriginOfType(fa *FileAnalysis, name string, primitives map[string]
 // single-file path and want the same stdlib impl coverage the project
 // path provides should call this after BuildFileWithStdlib.
 //
-// No-op when stdlibFAs is empty or fa is nil. Idempotent — overwrites
-// any prior ProjectImpls pointer (callers that already went through
+// No-op when stdlibFAs is empty or fa is nil. Idempotent — replaces
+// any prior index (callers that already went through
 // BuildProject have their richer index; they shouldn't call this).
 func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalysis) {
 	if fa == nil || len(stdlibFAs) == 0 {
@@ -662,7 +678,7 @@ func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalys
 	for name, sfa := range stdlibFAs {
 		filesByKey["std/"+name] = sfa
 	}
-	fa.ProjectImpls = buildProjectImplIndex(filesByKey)
+	idx := buildProjectImplIndex(filesByKey, nil, nil)
 	// PopulateProjectImplFuncTypes fills the post-BuildTypes
 	// ImplFuncTypes index — the stdlib FAs have already been through
 	// BuildTypes during std.Load (via BuildProjectWithCache), so their
@@ -670,27 +686,31 @@ func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalys
 	// into the freshly-built index. Without this, the checker's
 	// dispatch-return-type override (via `ImplFuncTypes`) sees an empty
 	// index and can't correct same-file multi-impl calls' return types.
-	PopulateProjectImplFuncTypes(fa.ProjectImpls, filesByKey)
+	PopulateProjectImplFuncTypes(idx, filesByKey)
 	// Same "stdlib FAs are already typed" reasoning: receiver identities
 	// can be read off Origin immediately. Without this the single-file
 	// path registers every stdlib `Error` under one bare key, and
 	// random.Error / calendar.Error collide on the Debug slot.
-	PopulateQualifiedReceivers(fa.ProjectImpls, filesByKey)
+	PopulateQualifiedReceivers(idx, filesByKey)
 	// And interface identities, for the same reason on the other side of
 	// the pair: without it a bound naming one `Renderer` is satisfied by an
 	// impl written against another. See interface_identity.go.
-	PopulateImplIfaceOrigins(fa.ProjectImpls, filesByKey)
+	PopulateImplIfaceOrigins(idx, filesByKey)
 	// And the type-method table's identity key, for the third time on the same
 	// precondition: without it `Error.to_string` resolves to whichever of
 	// std/calendar and std/random the union loop's map iteration happened
 	// to visit first. See type_method_identity.go.
-	PopulateTypeMethodIdentities(fa.ProjectImpls, filesByKey)
-	PopulateEnumDecls(fa.ProjectImpls, filesByKey)
+	PopulateTypeMethodIdentities(idx, filesByKey)
+	PopulateEnumDecls(idx, filesByKey)
 	// And the conformance table's identity key, for the fourth time on the
 	// same precondition: without it `Equatable.equal?` on a value whose type
 	// is a user's own `Error` is judged satisfied by std/calendar's
 	// `derive Equatable for Error`. See missing_impl_identity.go.
-	PopulateImplsByIdentity(fa.ProjectImpls, filesByKey)
+	PopulateImplsByIdentity(idx, filesByKey)
+	// A new Program in place of the old one, which other code may hold.
+	with := *fa.Program()
+	with.ImplIndex = idx
+	fa.program = &with
 }
 
 // PopulateProjectImplFuncTypes fills idx.ImplFuncTypes from every reachable
@@ -773,8 +793,8 @@ func PopulateProjectTypeMethodSymbols(idx *ProjectImplIndex, filesByKey map[stri
 // its interface's declaration, not under the interface's bare name.
 //
 // `index` is interface name -> method name -> impl FuncDefs (the shape of
-// FileAnalysis.IfaceMethodImpls); `files` maps each FuncDef to its
-// import-form home module key (FileAnalysis.IfaceMethodImplFiles). The
+// Program.IfaceMethodImpls); `files` maps each FuncDef to its
+// import-form home module key (Program.IfaceMethodImplFiles). The
 // caller passes the project's `ifaceImpls` / `ifaceImplFiles` built by
 // the per-file IndexImplBlockFuncDefs walk in BuildProjectWithCache —
 // stdlib impls reach this index via the same per-file walk over
@@ -1361,7 +1381,7 @@ func quotedList(items []string) string {
 // Inputs:
 //
 //   - index: the same interface-method-impl index detectImplCollisions
-//     consumes (FileAnalysis.IfaceMethodImpls unioned with stdlib).
+//     consumes (Program.IfaceMethodImpls unioned with stdlib).
 //   - declModule: base-name → declaring short-module-name, as built
 //     by declaringModuleIndex. A missing entry on EITHER side means
 //     the analyzer couldn't resolve that name; we silently skip

@@ -81,7 +81,6 @@ const (
 	WITH        // with — scoped binding statement introducer
 	DEFER       // defer — block-scoped cleanup statement
 	TEST        // test — executable test case declaration
-	TESTS       // tests — test container declaration
 	ASSERT      // assert — assertion statement
 	REFUTE      // refute — negated assertion statement
 	DBG         // dbg — debug-print expression and return its value
@@ -229,7 +228,6 @@ var tokenNames = [...]string{
 	WITH:                             "WITH",
 	DEFER:                            "DEFER",
 	TEST:                             "TEST",
-	TESTS:                            "TESTS",
 	ASSERT:                           "ASSERT",
 	REFUTE:                           "REFUTE",
 	DBG:                              "DBG",

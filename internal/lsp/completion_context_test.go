@@ -50,9 +50,9 @@ func TestClassifyCompletion(t *testing.T) {
 		{"import path", "import ‸\n", ctxImportPath},
 		{"import path segment", "import std/‸\n", ctxImportPath},
 		{"import selector", "import std/io.{‸}\n", ctxImportName},
-		{"tests group line", "tests \"g\" {\n  ‸\n}\n", ctxTestGroup},
-		{"tests group after boot", "tests \"g\" {\n  boot server.boot(s)\n  se‸\n}\n", ctxTestGroup},
-		{"tests group boot call", "tests \"g\" {\n  boot ‸\n}\n", ctxTestBoot},
+		{"group line", "group \"g\" {\n  ‸\n}\n", ctxTestGroup},
+		{"group after boot", "group \"g\" {\n  boot server.boot(s)\n  se‸\n}\n", ctxTestGroup},
+		{"group boot call", "group \"g\" {\n  boot ‸\n}\n", ctxTestBoot},
 		{"with target", "fn f() {\n  with App.‸\n}\n", ctxMember},
 		{"string literal", "fn f() {\n  x = \"a‸b\"\n}\n", ctxNone},
 		{"comment", "fn f() {\n  // com‸\n}\n", ctxNone},
@@ -94,7 +94,7 @@ func TestClassifyCompletion_Details(t *testing.T) {
 	if c.importSeg != 2 {
 		t.Fatalf("import segment = %d, want 2", c.importSeg)
 	}
-	c = classifyAt(t, "tests \"g\" {\n  clock .Virtual\n  boot server.boot(s)\n  ‸\n}\n")
+	c = classifyAt(t, "group \"g\" {\n  clock .Virtual\n  boot server.boot(s)\n  ‸\n}\n")
 	if !c.groupHas["clock"] || !c.groupHas["boot"] || c.groupHas["setup"] {
 		t.Fatalf("group lines above the cursor = %v, want clock and boot", c.groupHas)
 	}
@@ -102,12 +102,12 @@ func TestClassifyCompletion_Details(t *testing.T) {
 
 func TestCompletion_KeywordsByPosition(t *testing.T) {
 	top := complete(t, "‸\n")
-	labelsInclude(t, top, "fn", "struct", "enum", "impl", "import", "tests", "pub")
+	labelsInclude(t, top, "fn", "struct", "enum", "impl", "import", "group", "pub")
 	labelsExclude(t, top, "return", "defer", "if")
 
 	stmt := complete(t, "fn f(n: Int): Int {\n  total = n * 2\n  ‸\n}\n")
 	labelsInclude(t, stmt, "return", "defer", "with", "assert", "if", "case", "try", "n", "total")
-	labelsExclude(t, stmt, "struct", "impl", "tests")
+	labelsExclude(t, stmt, "struct", "impl", "group")
 
 	operand := complete(t, "fn f(n: Int): Int {\n  total = ‸\n}\n")
 	labelsInclude(t, operand, "if", "case", "try", "n")
@@ -135,10 +135,10 @@ func TestCompletion_NothingInStringsCommentsAndNewNames(t *testing.T) {
 
 func TestCompletion_TestGroupLinesNotYetWritten(t *testing.T) {
 	cases := []struct{ name, src, want string }{
-		{"empty group", "tests \"g\" {\n  ‸\n}\n", "clock,boot,setup,test"},
-		{"after boot", "tests \"g\" {\n  boot server.boot(s)\n  ‸\n}\n", "clock,setup,test"},
-		{"after a test", "tests \"g\" {\n  test \"t\" {\n    assert true\n  }\n  ‸\n}\n", "clock,boot,setup,test"},
-		{"setup below the cursor", "tests \"g\" {\n  ‸\n  setup {\n    1\n  }\n}\n", "clock,boot,test"},
+		{"empty group", "group \"g\" {\n  ‸\n}\n", "clock,boot,setup,test"},
+		{"after boot", "group \"g\" {\n  boot server.boot(s)\n  ‸\n}\n", "clock,setup,test"},
+		{"after a test", "group \"g\" {\n  test \"t\" {\n    assert true\n  }\n  ‸\n}\n", "clock,boot,setup,test"},
+		{"setup below the cursor", "group \"g\" {\n  ‸\n  setup {\n    1\n  }\n}\n", "clock,boot,test"},
 	}
 	for _, c := range cases {
 		items := complete(t, c.src)

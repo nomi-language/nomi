@@ -7,7 +7,7 @@ scope: source.nomi
 variables:
   ident: '[a-z_][a-zA-Z0-9_]*\??'
   type_ident: '[A-Z][a-zA-Z0-9_]*'
-  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|tests?|then|todo|try|type(alias)?|where|with'
+  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(alias)?|where|with'
 
 contexts:
   main:
@@ -119,7 +119,7 @@ contexts:
     # `open = 42`) are conventionally rare; the test programs only
     # mention them inside comments, which the `comments` context already
     # swallows before this rule can fire.
-    - match: '\b(pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|tests|setup|self|variant|open)\b'
+    - match: '\b(pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|variant|open)\b'
       scope: keyword.declaration.nomi
     # `clock` and `boot` are keywords only as a test group's lines
     # (`clock Clock.Virtual`, `boot server.boot(startup())`); `MyApp.clock`,
@@ -133,6 +133,13 @@ contexts:
     - match: '^\s*(subtests)\b(?=[ \t]+[^\s=.,:|)\]}-])'
       captures:
         1: keyword.control.nomi
+    # `group` is a keyword only where a top-level line starts with it and the
+    # group's name string follows (`group "parsing" { ... }`), or its `{`
+    # with the name missing (`group { ... }`, which the compiler reports);
+    # `group = 3` and `group(2)` stay names.
+    - match: '^(group)\b(?=[ \t]*["{])'
+      captures:
+        1: keyword.declaration.nomi
     # `internal` path segment in imports — the packaging convention
     # for sub-tree access barriers. Matches `internal` only when
     # followed by `/`, so bare `internal` identifiers (rare; not a

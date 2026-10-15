@@ -1,11 +1,11 @@
 // Finds the test under the cursor for `nomi test <file> --line N`, which runs
-// the test whose declaration starts on line N: a `test`, a `tests` group, or an
+// the test whose declaration starts on line N: a `test`, a `group`, or an
 // attached `//!` test. Zed and Neovim find it with tree-sitter
 // (editors/zed/languages/nomi/runnables.scm, editors/nvim/lua/nomi/runner.lua);
 // VS Code has no tree-sitter, so this scans the text, skipping comments and
 // string literals when it matches braces.
 
-const testHeader = /^\s*tests?\s+"/;
+const testHeader = /^\s*(?:test|group)\s+"/;
 const attachedTest = /^\s*\/\/!/;
 
 /**

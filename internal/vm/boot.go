@@ -33,7 +33,7 @@ func (m *Machine) Boot(args ...string) (*Machine, error) {
 	return m.bootWith(m.boot, startupValue(args, m.hostEnv), root)
 }
 
-// BootTest starts, on a fresh frame, the app a `tests` group's `boot` line
+// BootTest starts, on a fresh frame, the app a `group`'s `boot` line
 // builds, and answers the view whose calls run in it. group.Boot must be a
 // boot one of this program's modules records with ir.Module.AddTestBoot. Each
 // call runs the startup function and the boot again and publishes a fresh
@@ -42,7 +42,7 @@ func (m *Machine) BootTest(group ir.TestGroup) (*Machine, error) {
 	return m.bootTestOn(group, rt.NewFrame(m.background()))
 }
 
-// bootTestOn starts the boot a `tests` group's `boot` line calls on root, the
+// bootTestOn starts the boot a `group`'s `boot` line calls on root, the
 // frame rt's test runner hands a case, so the app is published where that
 // case's body runs and rt's per-case cleanup sees what boot registered. The
 // group's startup function runs first, on the same boot frame, and its value
@@ -137,7 +137,7 @@ func (m *Machine) bootWith(sym *ir.Symbol, startup any, root *rt.Frame) (*Machin
 }
 
 // isBootFunc reports whether f is a boot this program records, the program's
-// or a `tests` group's. Only called for an activation leaving with deferred
+// or a `group`'s. Only called for an activation leaving with deferred
 // calls pending, so the resolution is not on any hot path.
 func (m *Machine) isBootFunc(f *ir.Func) bool {
 	if f == nil {

@@ -311,20 +311,19 @@ func checkSourceWithStdlib(src string) (*analysis.FileAnalysis, []analysis.TypeE
 	lib := std.Load()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	// AttachStdlibProjectImpls builds a stdlib-only ProjectImplIndex
-	// from lib.Files and assigns it as fa.ProjectImpls. The checker's
+	// from lib.Files and gives fa a Program holding it. The checker's
 	// implsContext /
-	// typeImplementsInterface consult ProjectImpls for cross-file
+	// typeImplementsInterface consult that index for cross-file
 	// stdlib conformances; without this attach the single-file path
 	// would miss "Int impl Display" etc. and surface spurious
 	// interface-bound errors on routine io.inspect calls.
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-	// Re-run CheckDeriveBounds now that ProjectImpls is attached. The
-	// first call (inside BuildFileWithStdlib's buildModule) saw a nil
-	// ProjectImpls and short-circuited; the re-run lands the @derive
+	// Run CheckDeriveBounds now that the index is attached; the single-
+	// file build does not run it. It lands the @derive
 	// payload conformance recordings (e.g. (Float, Comparable) from
 	// `@derive Comparable enum Shape { Circle Float }`) on
 	// fa.ImplManifest so downstream consumers see them.
-	_ = analysis.CheckDeriveBounds(fa, nodes)
+	_ = analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex)
 	// Collect builder-phase errors first, then the per-pass returns.
 	// Omitting fa.TypeErrors here previously made this helper blind to
 	// redeclaration and other builder-phase diagnostics.
@@ -1057,7 +1056,7 @@ fn f(): List<Int> {
 // TestCheckerUserDefinedIterElementType — a user-defined iterator type
 // (non-stdlib) with `impl Iter for T` must have its element type resolved
 // via file-local FileAnalysis.ImplTypeArgs, not just the project-level
-// fa.ProjectImpls.ImplTypeArgs union.
+// fa.Program().ImplIndex.ImplTypeArgs union.
 func TestCheckerUserDefinedIterElementType(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 struct Counter { n: Int }

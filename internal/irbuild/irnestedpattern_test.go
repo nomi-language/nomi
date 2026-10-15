@@ -235,7 +235,7 @@ pub fn boot(): App {
 
 fn main() {}
 
-tests "spawn over a called supervisor" {
+group "spawn over a called supervisor" {
   clock Clock.Virtual
 
   boot boot()

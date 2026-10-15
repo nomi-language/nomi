@@ -107,7 +107,7 @@ func TestParseSubtestsCountsAsATestsAssertion(t *testing.T) {
 	for _, src := range []string{
 		"test \"t\" {\n  subtests [1], n {\n    assert n > 0\n  }\n}",
 		"test \"t\" {\n  subtests [1], n {\n    check(n)\n  }\n}",
-		"tests \"g\" {\n  test \"t\" {\n    subtests [1], n {\n      check(n)\n    }\n  }\n}",
+		"group \"g\" {\n  test \"t\" {\n    subtests [1], n {\n      check(n)\n    }\n  }\n}",
 	} {
 		if _, err := Parse(lexer.Lex(src)); err != nil {
 			t.Errorf("the parser rejects a test whose assertion is a `subtests`:\n%s\n%v", src, err)

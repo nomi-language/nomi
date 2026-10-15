@@ -241,10 +241,10 @@ func stdlibProjectImplIndex(t *testing.T) *analysis.ProjectImplIndex {
 	entryFA, _, _ := analysis.BuildProjectWithCache(
 		entryNodes, lib.Primitives, lib.Modules, lib.Files, "", loader,
 	)
-	if entryFA == nil || entryFA.ProjectImpls == nil {
+	if entryFA == nil || entryFA.Program().ImplIndex == nil {
 		t.Fatal("BuildProjectWithCache produced no project impl index")
 	}
-	return entryFA.ProjectImpls
+	return entryFA.Program().ImplIndex
 }
 
 // operatorOutputArg reads the SECOND type argument out of an operator impl's

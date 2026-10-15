@@ -175,7 +175,7 @@ fn pair_of(): (Int, String) {
   (1, "one")
 }
 
-tests "sibling cancellation under a virtual clock" {
+group "sibling cancellation under a virtual clock" {
   clock Clock.Virtual
 
   test "a short-circuit cancels its siblings instead of waiting for them" {

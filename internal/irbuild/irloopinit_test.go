@@ -195,7 +195,7 @@ struct Fix {
     f: (Int) -> Int
 }
 
-tests "loops in boot and setup" {
+group "loops in boot and setup" {
     boot boot()
     setup {
         n = Iter.loop(|i = 0| {

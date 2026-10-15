@@ -19,7 +19,7 @@ import (
 // host fns. A call is a call expression whose callee (`f`, `mod.f`,
 // `Type.f`, a pipe stage `|> Type.f()`) resolves to the function; a
 // function passed as a value is not a call. The callers are functions,
-// impl functions, `test` blocks (each test of a `tests` group) and `once`
+// impl functions, `test` blocks (each test of a `group`) and `once`
 // initializers, across the project via the workspace index (references'
 // file set: every open document and each closed file whose text holds
 // the name).

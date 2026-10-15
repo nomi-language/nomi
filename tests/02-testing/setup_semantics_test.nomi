@@ -2,7 +2,7 @@ fn parent_fixture(): {inherited: String, value: String} {
     {inherited: "parent", value: "parent"}
 }
 
-tests "setup semantics" {
+group "setup semantics" {
     setup parent_fixture()
 
     test "setup value is bound by the test's pattern", {inherited, value} {
@@ -16,7 +16,7 @@ tests "setup semantics" {
     }
 }
 
-tests "derived setup" {
+group "derived setup" {
     setup {
         parent = parent_fixture()
         {inherited: parent.inherited, value: "child", child_only: "ready"}

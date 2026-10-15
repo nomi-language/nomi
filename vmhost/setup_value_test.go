@@ -21,7 +21,7 @@ fn flag(): Bool {
   False
 }
 
-tests "asserted" {
+group "asserted" {
   setup {
     io.print("setup a")
     assert 1 == 1
@@ -40,7 +40,7 @@ tests "asserted" {
   }
 }
 
-tests "printed" {
+group "printed" {
   setup io.print("setup b")
 
   test "binds", u {
@@ -49,7 +49,7 @@ tests "printed" {
   }
 }
 
-tests "statement" {
+group "statement" {
   setup {
     io.print("setup c")
   }
@@ -59,7 +59,7 @@ tests "statement" {
   }
 }
 
-tests "maybe subject" {
+group "maybe subject" {
   setup {
     assert Some(2)
   }
@@ -69,7 +69,7 @@ tests "maybe subject" {
   }
 }
 
-tests "failing tail" {
+group "failing tail" {
   setup {
     assert flag()
   }
@@ -80,7 +80,7 @@ tests "failing tail" {
   }
 }
 
-tests "returning" {
+group "returning" {
   setup {
     if flag() {
       return False
@@ -93,7 +93,7 @@ tests "returning" {
   }
 }
 
-tests "returning unit" {
+group "returning unit" {
   setup {
     if flag() {
       return
@@ -106,7 +106,7 @@ tests "returning unit" {
   }
 }
 
-tests "empty" {
+group "empty" {
   setup {}
 
   test "binds unit", u {

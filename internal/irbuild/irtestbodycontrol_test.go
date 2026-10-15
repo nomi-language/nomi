@@ -429,7 +429,7 @@ test "second, walk-only" {
   if x > 2 { assert x == 3 } else { assert x == 0 }
 }
 
-tests "grouped" {
+group "grouped" {
   setup {n: 5}
 
   test "third, grouped", {n} {

@@ -17,7 +17,7 @@ func TestCompletion_KeywordShapes(t *testing.T) {
 		{"enum", "en" + cursorMark + "\n", "enum", "enum ${1:Name} {\n    $0\n}"},
 		{"impl", "im" + cursorMark + "\n", "impl", "impl ${1:Type} {\n    $0\n}"},
 		{"test", "te" + cursorMark + "\n", "test", "test \"${1:name}\" {\n    assert $0\n}"},
-		{"tests", "te" + cursorMark + "\n", "tests", "tests \"${1:name}\" {\n    $0\n}"},
+		{"group", "gr" + cursorMark + "\n", "group", "group \"${1:name}\" {\n    $0\n}"},
 		{"if at a statement", "fn f(n: Int) {\n    i" + cursorMark + "\n}\n", "if", "if ${1:condition} {\n    $0\n}"},
 		{"if else at a statement", "fn f(n: Int) {\n    i" + cursorMark + "\n}\n", "if else", "if ${1:condition} {\n    ${2}\n} else {\n    $0\n}"},
 		{"case in an operand", "fn f(n: Int): Int {\n    x = ca" + cursorMark + "\n    x\n}\n", "case", "case ${1:value} {\n    $0\n}"},

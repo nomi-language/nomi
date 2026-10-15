@@ -39,7 +39,7 @@ fn elapsed_ms(d: Duration): Int {
     Duration.as_millis(Instant.between(before, after))
 }
 
-tests "virtual time" {
+group "virtual time" {
     clock Clock.Virtual
 
     test "a thirty-second sleep costs no real time" {
@@ -61,7 +61,7 @@ tests "virtual time" {
 
 // A second group with the clause. The bubble is per CASE, not per group, so
 // each case of each group declaring it runs in one.
-tests "virtual time again" {
+group "virtual time again" {
     clock Clock.Virtual
 
     test "another group's virtual clock still bubbles" {
@@ -72,7 +72,7 @@ tests "virtual time again" {
 // The real clock declared explicitly, beside the virtual groups. This is the
 // row that would break if the clock were a per-FILE fact rather than the
 // group's own declaration.
-tests "back on the system clock" {
+group "back on the system clock" {
     clock Clock.System
 
     test "a tiny real sleep still works" {
@@ -82,7 +82,7 @@ tests "back on the system clock" {
 
 // A group with NO clause at all, so the file carries both table shapes: entries
 // with a Bubble and entries without, in one generated table.
-tests "no clause" {
+group "no clause" {
     test "the real clock is the default" {
         assert elapsed_ms(Duration.milliseconds(1)) >= 1
     }

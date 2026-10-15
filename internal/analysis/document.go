@@ -881,7 +881,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// Debug / ...). Detected by stdlibModuleForPath's directory rule.
 	if dm.isStdlibFile(uri) {
 		fa = BuildFileWithStdlibAtPath(nodes, nil, dm.modules, root, dm.makeLoaderWithOverride(uri, nodes), docPath)
-		// Attach the cached stdlib ProjectImpls index so the checker's
+		// Attach the cached stdlib Program().ImplIndex index so the checker's
 		// dispatch-return-type resolution (via `ImplFuncTypes`) sees the
 		// other stdlib impls when type-checking this stdlib file.
 		// Without this, a bare `add(value, ...)` inside std/calendar's
@@ -1042,18 +1042,18 @@ func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*Fil
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	// A stdlib module is type-checked again only when a whole-file import
-	// is to be settled, which reads every file's uses of impl blocks: it
-	// has no error to report, the lowering reads the process's own stdlib
-	// analysis rather than this build's, and checking the modules a
-	// program imports costs about 10 ms per analysis.
+	// A stdlib module this build parsed is type-checked only when a
+	// whole-file import is to be settled, which reads every file's uses of
+	// impl blocks: it has no error to report, and the lowering reads the
+	// process's own stdlib analysis rather than this build's. A build
+	// handed the shared stdlib parses none (discoverProject).
 	settles := len(fa.ImplImports) > 0
 	for _, sibFA := range files {
 		if sibFA != nil && len(sibFA.ImplImports) > 0 {
 			settles = true
 		}
 	}
-	merged := &FileAnalysis{ProjectImpls: fa.ProjectImpls, Impls: fa.Impls}
+	merged := &FileAnalysis{program: fa.program, Impls: fa.Impls}
 	mergeImplManifest(merged, fa)
 	program := []ProgramFile{{FA: fa, Nodes: nodes}}
 	for _, key := range keys {
@@ -1065,7 +1065,12 @@ func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*Fil
 		if len(sibFA.TypeErrors) > 0 {
 			clean = false
 		}
-		if (settles || !IsStdlibKey(key)) && len(CheckTypes(sibFA, fileNodes[key])) > 0 {
+		// One it did not parse is the shared stdlib's analysis, which
+		// std.Load checked once; checking it again would write to an
+		// analysis every document reads.
+		_, built := fileNodes[key]
+		check := !IsStdlibKey(key) || (settles && built)
+		if check && len(CheckTypes(sibFA, fileNodes[key])) > 0 {
 			clean = false
 		}
 		mergeImplManifest(merged, sibFA)

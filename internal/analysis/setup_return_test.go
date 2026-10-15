@@ -9,7 +9,7 @@ import (
 // tail as a lambda's returns are: the case's pattern binds the joined type.
 func TestSetupReturn_TypesTheSetupValue(t *testing.T) {
 	errs := checkWithStdlib(`
-tests "g" {
+group "g" {
   setup {
     x = 1
     if x > 0 {
@@ -31,7 +31,7 @@ tests "g" {
 // A setup whose only exit is a `return` has the returned value's type.
 func TestSetupReturn_ReturnOnly(t *testing.T) {
 	errs := checkWithStdlib(`
-tests "g" {
+group "g" {
   setup {
     x = 1
     return x + 1
@@ -46,7 +46,7 @@ tests "g" {
 		t.Fatalf("want no errors, got %v", errs)
 	}
 	errs = checkWithStdlib(`
-tests "g" {
+group "g" {
   setup {
     return "s"
   }
@@ -65,7 +65,7 @@ tests "g" {
 // return.
 func TestSetupReturn_DisagreeingReturnIsAnError(t *testing.T) {
 	errs := checkWithStdlib(`
-tests "g" {
+group "g" {
   setup {
     if True {
       return 1

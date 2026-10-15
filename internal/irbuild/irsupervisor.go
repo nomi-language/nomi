@@ -154,11 +154,11 @@ func (g *gen) irStdArityRetain(f *stdFunc, fd *ast.FuncDef, arity int) {
 	bl.b.Append(cp)
 	bl.side(sh.result, irScalarSide{k: f.result})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	if ir.Lint(sh.fn) != nil {
+	if g.irLint(sh.fn) != nil {
 		return
 	}
 	g.irModule().AddFunc(sh.fn)
-	if err := ir.LintModuleAdded(g.irModule()); err != nil {
+	if err := g.irLintAdded(); err != nil {
 		panic("irbuild: std arity wrapper: " + err.Error())
 	}
 	if f.canon != nil {
@@ -449,11 +449,11 @@ func (g *gen) irStdSlotRetain(f *stdFunc, fd *ast.FuncDef, slot int) {
 	bl.b.Append(cp)
 	bl.side(sh.result, irScalarSide{k: f.params[slot]})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	if ir.Lint(sh.fn) != nil {
+	if g.irLint(sh.fn) != nil {
 		return
 	}
 	g.irModule().AddFunc(sh.fn)
-	if err := ir.LintModuleAdded(g.irModule()); err != nil {
+	if err := g.irLintAdded(); err != nil {
 		panic("irbuild: std slot accessor: " + err.Error())
 	}
 	if f.canon != nil {

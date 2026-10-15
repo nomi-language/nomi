@@ -55,7 +55,7 @@ import (
 // and the refusal wants its declared parameter type, and re-deriving the
 // position math twice is how the two would drift apart.
 func (g *gen) literalHandlerDecl(t *ast.TaggedString) (*ast.FuncDef, bool) {
-	if g.fa == nil || g.fa.ProjectImpls == nil {
+	if g.fa == nil || g.fa.Program().ImplIndex == nil {
 		return nil, false
 	}
 	pos := analysis.Pos{Line: t.Line, Col: max(t.Col-len(t.Tag), 1)}

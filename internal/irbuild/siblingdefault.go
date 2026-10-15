@@ -148,12 +148,12 @@ func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, s
 	bl.b.Append(cp)
 	bl.side(sh.result, irScalarSide{k: sig.params[slot]})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	if err := ir.Lint(sh.fn); err != nil {
+	if err := g.irLint(sh.fn); err != nil {
 		irDeclineNote("a default accessor that does not lint: " + err.Error())
 		return
 	}
 	g.irModule().AddFunc(sh.fn)
-	if err := ir.LintModuleAdded(g.irModule()); err != nil {
+	if err := g.irLintAdded(); err != nil {
 		panic("irbuild: file default accessor: " + err.Error())
 	}
 }

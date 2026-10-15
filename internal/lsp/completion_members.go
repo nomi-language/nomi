@@ -127,8 +127,8 @@ func (r *completionRequest) ownerNameOf(sym *analysis.Symbol) string {
 // implementation is reachable wherever the interface is.
 func (r *completionRequest) ownerFunctions(owner string) map[string]*analysis.Symbol {
 	out := map[string]*analysis.Symbol{}
-	if r.fa.ProjectImpls != nil {
-		for name, sym := range r.fa.ProjectImpls.TypeMethods[owner] {
+	if r.fa.Program().ImplIndex != nil {
+		for name, sym := range r.fa.Program().ImplIndex.TypeMethods[owner] {
 			if sym != nil && (sym.Public || sym.ImplInterface != "") {
 				out[name] = sym
 			}
@@ -183,7 +183,7 @@ func (r *completionRequest) appStruct(owner *analysis.Symbol) *analysis.StructTy
 	if !ok {
 		return nil
 	}
-	for _, app := range r.fa.AppTypes {
+	for _, app := range r.fa.Program().AppTypes {
 		if app == st || (app.Name == st.Name && app.Origin == st.Origin) {
 			return app
 		}

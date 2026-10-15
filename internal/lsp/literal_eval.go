@@ -185,7 +185,7 @@ func (c *literalEvals) forget(uri string) {
 // handler the analysis resolved. It reads the tokens, where such a literal is
 // one token.
 func staticLiterals(content string, fa *analysis.FileAnalysis) []staticLiteral {
-	if fa == nil || fa.ProjectImpls == nil || !strings.ContainsAny(content, "\"`") {
+	if fa == nil || fa.Program().ImplIndex == nil || !strings.ContainsAny(content, "\"`") {
 		return nil
 	}
 	offs := lineOffsets(content)
@@ -258,11 +258,11 @@ func literalHandler(fa *analysis.FileAnalysis, tok token.Token, text string) (st
 	if !ok || fd == nil {
 		return staticLiteral{}, false
 	}
-	home, ok := fa.ProjectImpls.ImplFiles[fd]
+	home, ok := fa.Program().ImplIndex.ImplFiles[fd]
 	if !ok {
 		return staticLiteral{}, false
 	}
-	ft, ok := fa.ProjectImpls.ImplFuncTypes[fd].(*analysis.FuncType)
+	ft, ok := fa.Program().ImplIndex.ImplFuncTypes[fd].(*analysis.FuncType)
 	if !ok || ft.Return == nil {
 		return staticLiteral{}, false
 	}

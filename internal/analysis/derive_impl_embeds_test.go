@@ -21,7 +21,7 @@ func buildDeriveImplWithStdlib(src string) *analysis.FileAnalysis {
 	lib := loadStdlibOnce()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckDeriveBounds(fa, nodes)...)
+	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex)...)
 	analysis.BuildTypes(fa, nodes)
 	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckTypes(fa, nodes)...)
 	fa.TypeErrors = append(fa.TypeErrors, analysis.FinalizeCoherence(fa)...)

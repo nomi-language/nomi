@@ -997,7 +997,7 @@ func vmShapeOf(in ir.Instr) string {
 
 // vmProgram opens a machine over mod's program and boots it when the program's
 // boot is retained, so a body reading an app field finds the app published.
-// A test file with no program boot boots its first `tests` group boot instead,
+// A test file with no program boot boots its first `group` boot instead,
 // which is the app that group's cases call the file's functions in. An
 // unretained boot leaves the unbooted machine.
 func vmProgram(mod *ir.Module, links []*ir.Module) *vm.Machine {

@@ -204,7 +204,7 @@ test "env context timeout cancels blocked channel receives" {
 // These assertions discriminate: replacing the `try` with an
 // `outcome` — so nothing short-circuits and the siblings run to
 // completion — turns the 0 into the sleep's full duration.
-tests "sibling cancellation is observable under a virtual clock" {
+group "sibling cancellation is observable under a virtual clock" {
     clock Clock.Virtual
 
     test "a short-circuit cancels its siblings instead of waiting for them" {

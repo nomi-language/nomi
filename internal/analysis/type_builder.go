@@ -219,6 +219,12 @@ func buildExternTypeShell(fa *FileAnalysis, n *ast.ExternType) Type {
 //  1. Register all user-defined type names so they can reference each other.
 //  2. Resolve type details and attach to symbols.
 func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
+	return buildTypes(fa, nodes, fa.Program().StdlibModuleScopes)
+}
+
+// buildTypes is BuildTypes against the stdlib module scopes stdlib, which a
+// project build passes before its files have their Program.
+func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []TypeError {
 	reg := NewTypeRegistry()
 
 	// Pre-populate registry with types from parent scopes (e.g. primitives types
@@ -386,7 +392,7 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 			if isAutoSynthImplFor(n, unnamed) {
 				continue
 			}
-			errs = append(errs, buildImplBlockTypes(fa, reg, n)...)
+			errs = append(errs, buildImplBlockTypes(fa, stdlib, reg, n)...)
 		}
 	}
 
@@ -732,10 +738,10 @@ func buildNestedFuncTypes(fa *FileAnalysis, reg *TypeRegistry, node ast.Node) []
 }
 
 // buildTestDeclFuncTypes resolves the signatures of every `fn` declared inside
-// a `test` or `tests` declaration — its body, and the `boot` and `setup`
+// a `test` or `group` declaration — its body, and the `boot` and `setup`
 // expressions a group carries.
 //
-// Split out rather than inlined into pass 2b because a `tests` group's children
+// Split out rather than inlined into pass 2b because a `group`'s children
 // are TestDecls of their own, so the walk has to be able to re-enter itself
 // through buildNestedFuncTypes.
 func buildTestDeclFuncTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.TestDecl) []TypeError {
@@ -1905,7 +1911,7 @@ func compilerKnownSynthType(te ast.TypeExpr, reg *TypeRegistry, tp map[string]*T
 // item's resolved FuncType is attached to its symbol (looked up by position,
 // since impl-block fns are not always in module scope). Item-local type params
 // (`fn map<U>(...)`) layer on top of the block's generic params.
-func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) []TypeError {
+func buildImplBlockTypes(fa *FileAnalysis, stdlib map[string]*Scope, reg *TypeRegistry, n *ast.ImplBlock) []TypeError {
 	var errs []TypeError
 
 	// Derive-/auto-synthesized blocks (position in the synth band) are
@@ -1916,7 +1922,7 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 	// keep ordinary scope/registry resolution.
 	synthBlock := IsSynthesizedLine(n.Line)
 	if synthBlock {
-		reg = synthSupportRegistry(fa, reg)
+		reg = synthSupportRegistry(fa, stdlib, reg)
 	}
 
 	// Block-level generics shared by every item signature. Use semantic clones

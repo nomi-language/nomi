@@ -24,7 +24,7 @@ var keywordShapes = map[string]keywordShape{
 	"enum":   {"enum ${1:Name} {\n\t$0\n}", "enum Name { … }"},
 	"impl":   {"impl ${1:Type} {\n\t$0\n}", "impl Type { … }"},
 	"test":   {"test \"${1:name}\" {\n\tassert $0\n}", "test \"name\" { … }"},
-	"tests":  {"tests \"${1:name}\" {\n\t$0\n}", "tests \"name\" { … }"},
+	"group":  {"group \"${1:name}\" {\n\t$0\n}", "group \"name\" { … }"},
 }
 
 // ifElseShape is the `if` with its `else`, which an `if` whose value is not

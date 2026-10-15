@@ -27,7 +27,7 @@ fn boom(n: Int): Int {
     100 / n
 }
 
-tests "a fault under a virtual clock" {
+group "a fault under a virtual clock" {
     clock Clock.Virtual
 
     test "the trap's own text survives the bubble" {

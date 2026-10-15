@@ -51,7 +51,7 @@ func TestIRBootStartup_AGroupBootsAZeroParameterBoot(t *testing.T) {
   server.{self, App}
 }
 
-tests "group" {
+group "group" {
   boot server.boot()
 
   test "reads the app" {
@@ -97,7 +97,7 @@ func TestIRBootStartup_AGroupReliesOnTheBootsDefault(t *testing.T) {
   server.{self, App}
 }
 
-tests "defaulted" {
+group "defaulted" {
   boot server.boot()
 
   test "reads the default" {
@@ -105,7 +105,7 @@ tests "defaulted" {
   }
 }
 
-tests "given" {
+group "given" {
   boot server.boot(Startup{args: ["given"]})
 
   test "reads the argument" {

@@ -627,7 +627,7 @@ func interfaceImplemented(concreteName, ifaceName, ifaceOrigin string, impls []I
 
 // lookupImplTypeArgs consults the ImplTypeArgs tables in the order supplied by
 // the caller (checker.implTypeArgsContext threads FileAnalysis.ImplTypeArgs
-// first, then fa.ProjectImpls.ImplTypeArgs — the project-level union built by
+// first, then fa.Program().ImplIndex.ImplTypeArgs — the project-level union built by
 // buildProjectImplIndex over every reachable FA). The first hit wins, so
 // file-local user impls shadow a same-named project-wide entry — matching how
 // `interfaceImplemented` ranges its `impls` slice.

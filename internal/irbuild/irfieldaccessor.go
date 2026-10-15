@@ -20,7 +20,7 @@ func (bl *irScalarBuilder) fieldAccessor(t *ast.FieldAccessor) (ir.Temp, kind, b
 	if bl.g.fa == nil {
 		return no()
 	}
-	ty, found := bl.g.fa.FieldAccessors[t]
+	ty, found := bl.g.srcFA().FieldAccessors[t]
 	if !found {
 		return no()
 	}
@@ -58,7 +58,7 @@ func (bl *irScalarBuilder) fieldAccessor(t *ast.FieldAccessor) (ir.Temp, kind, b
 		return no()
 	}
 	child.b.SetTerm(ir.NewReturn(bl.g.irNodePos(t), cur))
-	if err := ir.Lint(f); err != nil {
+	if err := bl.g.irLint(f); err != nil {
 		irDeclineNote("a field accessor graph that does not lint: " + err.Error())
 		return no()
 	}

@@ -1,4 +1,4 @@
-// A `tests` group prefixes case NAMES and hands its `setup` value to each of
+// A `group` prefixes case NAMES and hands its `setup` value to each of
 // its cases. Both halves are pinned here by the recorded output, because what
 // could go wrong is a wrong VALUE or a wrong NAME, and neither is visible in a
 // type-checked file.
@@ -13,7 +13,7 @@
 //   - NON-leakage. Each setup runs inside each case, so the names it binds
 //     are the case's only through its pattern: a sibling group declared after
 //     another must still see its own setup's value.
-tests "config" {
+group "config" {
     setup {limit: 12, label: "root"}
 
     test "a case reads the value its group produced", {limit, label} {
@@ -31,7 +31,7 @@ tests "config" {
     }
 }
 
-tests "scaled" {
+group "scaled" {
     setup {
         limit = 12 * 2
         (limit, "root/scaled", True)
@@ -48,7 +48,7 @@ tests "scaled" {
     }
 }
 
-tests "unit" {
+group "unit" {
     setup {
         _ = 1 + 1
     }

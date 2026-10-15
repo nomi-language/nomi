@@ -25,7 +25,7 @@
 //
 // # THE REAL CLOCK, DELIBERATELY, AND NOT A COUNTER
 //
-// No `clock Clock.Virtual` and no `tests` group that would put this in a
+// No `clock Clock.Virtual` and no `group` that would put this in a
 // `testing/synctest` bubble. Virtual time makes a sleep INSTANT, so this file
 // would pass under it whether the deadline is observed or not — the bug
 // survives precisely where the sleep is real. The trade is that the file takes

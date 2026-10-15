@@ -367,7 +367,7 @@ func corpusSeeds(tb testing.TB) []loweringSeed {
 
 var (
 	topLevelMain = regexp.MustCompile(`(?m)^fn\s+main\(`)
-	topLevelTest = regexp.MustCompile(`(?m)^(test "|tests ")`)
+	topLevelTest = regexp.MustCompile(`(?m)^(test "|group ")`)
 	wordRe       = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
 )
 

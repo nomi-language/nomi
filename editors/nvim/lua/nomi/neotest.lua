@@ -106,9 +106,9 @@ local function positions_in(source, file_path)
 
   local function walk(node)
     local t = node:type()
-    if t == 'test_declaration' or t == 'tests_declaration' then
+    if t == 'test_declaration' or t == 'group_declaration' then
       table.insert(positions, {
-        type = t == 'tests_declaration' and 'namespace' or 'test',
+        type = t == 'group_declaration' and 'namespace' or 'test',
         path = file_path,
         name = unquote(field_text(node, 'name', source) or '?'),
         range = { node:range() },
@@ -171,7 +171,7 @@ end
 function adapter.build_spec(args)
   local pos = args.tree:data()
   local cmd = { 'nomi', 'test', pos.path }
-  -- A `tests` header's first line selects its whole group, as a test's first
+  -- A `group` header's first line selects its whole group, as a test's first
   -- line selects the test.
   if pos.type == 'test' or pos.type == 'namespace' then
     vim.list_extend(cmd, { '--line', tostring(pos.range[1] + 1) })

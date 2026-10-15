@@ -107,7 +107,7 @@ impl Named for User {
 
 once limit = 10
 
-tests "math" {
+group "math" {
   test "adds" {
     assert add(1, 2) == 3
   }

@@ -38,6 +38,9 @@ type stdModuleView struct {
 	// 1's answers unchanged. A caller that binds it at construction is asking
 	// a MORE GENEROUS question than the builder asks, and must say so.
 	withCycles map[*stdCandidate]bool
+	// embedded is set by buildStdlibIndex: this is the binary's own stdlib
+	// module, lowered the same way in every process. See lintEmbeddedStdlib.
+	embedded bool
 	// unlowered names each Go function in this module's package whose body the
 	// IR did not lower, with the reason. See irnative.go.
 	unlowered map[string]string

@@ -61,7 +61,7 @@ type loweredTest struct {
 
 // --- collecting the cases --------------------------------------------------
 
-// testSetup is a `tests` group's `boot` line and `setup`, as a case in the
+// testSetup is a `group`'s `boot` line and `setup`, as a case in the
 // group sees them.
 //
 // boot is the group's `boot` call; body is the setup, whose value the case's
@@ -71,7 +71,7 @@ type loweredTest struct {
 // boot rides along even when a group is refused, because a refusal must not
 // hide what is inside it and the boot line's argument is inside it.
 type testSetup struct {
-	// group is the `tests` declaration the frame came from, and the identity
+	// group is the `group` declaration the frame came from, and the identity
 	// probeTestBody dedupes on: a frame is shared by every case in the group,
 	// so probing it per case would report one blocker once per sibling.
 	group ast.Node
@@ -201,7 +201,7 @@ type testRefusal struct {
 	probe ast.Node
 }
 
-// collectTestDecl collects one `test` or `tests` declaration and its
+// collectTestDecl collects one `test` or `group` declaration and its
 // descendants. ref is inherited: a group this builder turns down refuses every
 // case beneath it, and the reason and position are the group's. clock is the
 // inherited `clock` variant, "" at the top level.
@@ -280,8 +280,8 @@ func collectTestDecl(t *ast.TestDecl, owner ast.Node, prefix []string, setups []
 	for _, stmt := range t.Body.Stmts {
 		child, ok := stmt.(*ast.TestDecl)
 		if !ok {
-			// The parser admits only boot, setup, test and tests in a group
-			// body ("tests body may contain only boot, setup, test, and tests
+			// The parser admits only clock, boot, setup and test in a group
+			// body ("a group body may contain only clock, boot, setup, and test
 			// declarations"), so this is unreachable from legal source. Carried
 			// as a refused case rather than dropped, so a parser change
 			// surfaces in the tally instead of losing a declaration silently.
@@ -506,7 +506,7 @@ func (g *gen) attachedTestDecls(cases []testCaseDecl) {
 	}
 }
 
-// testDecl emits the cases one file-scope `test` or `tests` declaration
+// testDecl emits the cases one file-scope `test` or `group` declaration
 // contributes, in declaration order.
 func (g *gen) testDecl(cases []testCaseDecl) {
 	for _, c := range cases {
@@ -609,7 +609,7 @@ func (g *gen) rejectTestBody(c testCaseDecl) {
 // covered.
 //
 // The name compared is the JOINED path, which is what makes this a group
-// question rather than a `test` question: `tests "a" { test "x" }` twice is one
+// question rather than a `test` question: `group "a" { test "x" }` twice is one
 // collision under `a / x`, and two bare `test "x"` in different groups are not
 // a collision at all. It reads the same list the cases are built from, so the names
 // in the table and the names checked here cannot disagree.

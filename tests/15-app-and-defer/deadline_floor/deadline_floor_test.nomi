@@ -105,7 +105,7 @@ test "a nested deadline still tightens" {
 // itself is the ordinary shape for request work; it used to kill the
 // background task it had just spawned, while `Supervisor.flush` reported
 // success and the work vanished. `supervisor_app.handler` is that handler.
-tests "supervisor work and the spawner's deadline" {
+group "supervisor work and the spawner's deadline" {
     boot supervisor_app.boot()
 
     test "background work does not inherit the spawner's deadline" {

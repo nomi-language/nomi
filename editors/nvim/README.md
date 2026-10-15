@@ -83,7 +83,7 @@ project root (the nearest `nomi.toml`, else `.git`):
 
 | Key | Command | Runs |
 |---|---|---|
-| `<leader>tr` | `:NomiTest` / `:NomiTest nearest` | the `test`, `tests` group or attached test around the cursor (`nomi test <file> --line <header line>`) |
+| `<leader>tr` | `:NomiTest` / `:NomiTest nearest` | the `test`, `group` or attached test around the cursor (`nomi test <file> --line <header line>`) |
 | `<leader>tt` | `:NomiTest file` | every test in the file |
 | `<leader>tT` | `:NomiTest all` | `nomi test` from the project root |
 | `<leader>tl` | `:NomiTest last` | the previous command again; a single test is found again by name (an attached test by its owner and its place among that owner's prompts) and run at the line it starts on now, or reported gone |
@@ -94,7 +94,7 @@ project root (the nearest `nomi.toml`, else `.git`):
 | | `:NomiDebug break <function>` | toggle a function breakpoint (`:NomiDebug break` lists them) |
 | `<leader>cx` | `:NomiRun` | `nomi run <file>` |
 
-`nomi-lsp` also serves code lenses (Run test, Run tests, Run attached test,
+`nomi-lsp` also serves code lenses (Run test, Run group, Run attached test,
 and Run above `fn main`, each with a Debug lens beside it), and the plugin
 defines their commands, so `vim.lsp.codelens.run()` on a lens's line runs it
 in the same terminal, or starts the debugger on it.
@@ -141,7 +141,7 @@ extra's adapter list instead of writing a second neotest spec:
 Over the terminal runner, neotest adds a per-test pass/fail mark in the sign
 column, failure diagnostics on the failing assertion's line, the summary
 tree, the per-test output panel, and jumping between failures. It discovers
-`test` declarations, `tests` groups (as namespaces) and attached `//!` tests
+`test` declarations, test groups (as namespaces) and attached `//!` tests
 in every `.nomi` file, and runs them with `nomi test --format json`, which
 prints one JSON record per test (see the spec's §36). Results are matched to
 positions by file and first line. The run sets `NOMI_COLOR=always`, so each
@@ -332,7 +332,7 @@ end)
 
 Captures available: `@function.{inner,outer}` (functions, lambdas, `boot`,
 `test` cases), `@class.{inner,outer}` (structs, enums, types, interfaces, impl
-blocks, `tests` groups), `@parameter.{inner,outer}` (parameters, type
+blocks, test groups), `@parameter.{inner,outer}` (parameters, type
 parameters, call arguments, and the entries of lists, vectors, tuples, maps,
 struct literals and updates, plus enum variants and struct fields), and
 `@comment.{inner,outer}`.

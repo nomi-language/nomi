@@ -63,7 +63,7 @@ func TestCompletion_DotVariantWithoutExpectedTypeOffersAll(t *testing.T) {
 }
 
 func TestCompletion_ClockVariants(t *testing.T) {
-	items := complete(t, "tests \"g\" {\n    clock ."+cursorMark+"\n}\n")
+	items := complete(t, "group \"g\" {\n    clock ."+cursorMark+"\n}\n")
 	got := itemLabels(items)
 	slices.Sort(got)
 	if strings.Join(got, ",") != "System,Virtual" {

@@ -262,7 +262,7 @@
         {
           "comment": "Keyword-shaped import path segments are file names: `std/structs.Struct`.",
           "name": "variable.other.nomi",
-          "match": "\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|tests?|then|todo|try|type(?:alias)?|where|with)\\b(?=/)|(?<=/)\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|tests?|then|todo|try|type(?:alias)?|where|with)\\b"
+          "match": "\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(?:alias)?|where|with)\\b(?=/)|(?<=/)\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(?:alias)?|where|with)\\b"
         },
         {
           "comment": "A function definition: `fn name`.",
@@ -283,7 +283,7 @@
         {
           "comment": "`variant`, `open` and `derive` are contextual keywords; like the bat syntax, match them everywhere.",
           "name": "keyword.declaration.nomi",
-          "match": "\\b(?:pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|tests|setup|self|variant|open)\\b"
+          "match": "\\b(?:pub|opaque|export|once|fn|type|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|variant|open)\\b"
         },
         {
           "comment": "`clock` and `boot` are keywords only as a test group's lines.",
@@ -300,6 +300,15 @@
           "captures": {
             "1": {
               "name": "keyword.control.nomi"
+            }
+          }
+        },
+        {
+          "comment": "`group` is a keyword only where a top-level line starts with it and the group's name string, or its `{` with the name missing, follows.",
+          "match": "^(group)\\b(?=[ \\t]*[\"{])",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.nomi"
             }
           }
         },

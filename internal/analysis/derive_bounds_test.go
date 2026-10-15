@@ -33,13 +33,10 @@ func loadStdlibOnce() *std.StdLib {
 }
 
 // buildWithStdlibForDerive parses and analyses src with stdlib loaded,
-// returning the FileAnalysis. CheckDeriveBounds (called from
-// BuildFileWithStdlib's buildModule) reads fa.ProjectImpls to
-// discover which stdlib primitives implement which interfaces — the
-// single-file path leaves that pointer nil, so the helper calls
-// AttachStdlibProjectImpls explicitly before any check fires. The
-// stdlib bound check via b.file's @derive sites runs inside
-// BuildFileWithStdlib, so the attach must precede the build call.
+// returning the FileAnalysis. CheckDeriveBounds needs an impl index to
+// discover which stdlib primitives implement which interfaces, and the
+// single-file path has none and does not run it, so the helper calls
+// AttachStdlibProjectImpls and then CheckDeriveBounds with that index.
 //
 // FinalizeCoherence is invoked at the tail so missing-impl gaps that
 // CheckDeriveBounds defers to DetectMissingImpls (the derive-gap
@@ -55,24 +52,24 @@ func buildWithStdlibForDerive(src string) *analysis.FileAnalysis {
 	// would never see a body-declared derive at all.
 	nodes, _ = analysis.LowerDerives(nodes)
 	lib := loadStdlibOnce()
-	// First build with no stdlib ProjectImpls (CheckDeriveBounds
-	// skips), then attach + re-run BuildTypes so the type-builder
+	// First build with no stdlib impl index (CheckDeriveBounds does
+	// not run), then attach + re-run BuildTypes so the type-builder
 	// errors that depend on stdlib conformances coexist with derive-
-	// bound errors. derive The-bound errors that need ProjectImpls
+	// bound errors. derive The-bound errors that need the index
 	// are produced by a separate CheckDeriveBounds pass below.
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
 	analysis.AttachStdlibProjectImpls(fa, lib.Files)
-	// Re-run CheckDeriveBounds now that ProjectImpls is attached, so
+	// Run CheckDeriveBounds now that the index is attached, so
 	// derive-bound errors that depend on knowing stdlib impl coverage
 	// (the common case) land on fa.TypeErrors. Idempotent re-walk —
 	// duplicate diagnostics from synth-band positions would be a
 	// regression, but this codepath is unit-test-only.
-	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckDeriveBounds(fa, nodes)...)
+	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckDeriveBounds(fa, nodes, fa.Program().ImplIndex)...)
 	analysis.BuildTypes(fa, nodes)
 	// CheckTypes populates fa.ImplManifest with call-site / generic-
 	// bound recordings; FinalizeCoherence then consumes the manifest
 	// to surface missing-impl diagnostics — including derive-gap cases
-	// CheckDeriveBounds intentionally defers when ProjectImpls is set.
+	// CheckDeriveBounds intentionally defers when it has an index.
 	fa.TypeErrors = append(fa.TypeErrors, analysis.CheckTypes(fa, nodes)...)
 	fa.TypeErrors = append(fa.TypeErrors, analysis.FinalizeCoherence(fa)...)
 	return fa
@@ -325,7 +322,7 @@ derive Debug for Holder`
 // diagnostic followup: when CheckDeriveBounds detects a derive gap,
 // it MUST NOT emit the terse "@derive Iface on T: field 'f' (type 'X')
 // does not implement Iface" error so long as the caller will run
-// FinalizeCoherence (signaled by fa.ProjectImpls != nil). Instead, the
+// FinalizeCoherence (signaled by fa.Program().ImplIndex != nil). Instead, the
 // DeriveSynth Recording lands in the manifest and DetectMissingImpls
 // surfaces the richer "no impl of `Iface` for `X` ... via @derive(Iface)
 // on T field f" message with DeriveCtx provenance. Producing both

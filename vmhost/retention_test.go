@@ -9,7 +9,7 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// A `try` in a `tests` group's setup ends each case the setup serves, as a
+// A `try` in a `group`'s setup ends each case the setup serves, as a
 // `try` in the case's body does: an Err or None fails the case with the
 // early-return report, and nothing of the case's body runs.
 func TestTest_TryInSetupEndsTheCase(t *testing.T) {
@@ -29,7 +29,7 @@ fn find(s: String): Maybe<Int> {
   }
 }
 
-tests "an Err in setup" {
+group "an Err in setup" {
   setup {
     n = try parse("")
     {n: n}
@@ -41,7 +41,7 @@ tests "an Err in setup" {
   }
 }
 
-tests "a None in setup" {
+group "a None in setup" {
   setup {
     n = try find("")
     {n: n}
@@ -53,7 +53,7 @@ tests "a None in setup" {
   }
 }
 
-tests "an Ok in setup" {
+group "an Ok in setup" {
   setup {
     n = try parse("abc")
     {n: n}
@@ -103,7 +103,7 @@ func TestTest_GroupLinesAfterTheTestsRunFirst(t *testing.T) {
 
 import std/testing.Clock
 
-tests "lines after the tests" {
+group "lines after the tests" {
   test "reads setup", n {
     io.print("test ${n}")
     assert n == 2

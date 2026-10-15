@@ -7003,7 +7003,7 @@ fn main() {
 
 `fn boot(): Config` declares its application type
 explicitly. `Config` is an ordinary developer-defined struct, and helpers that
-construct it use ordinary return-type checking. A `tests` group runs the same
+construct it use ordinary return-type checking. A `group` runs the same
 boot by naming it on its `boot` line (§36).
 
 ## 27. Scoped application fields
@@ -7038,7 +7038,7 @@ is empty, and `Startup{args: ["-v"]}` has arguments and an empty env.
 The runtime calls a boot that takes no parameter with no arguments, and passes
 the process's Startup to a boot that takes one. The parameter may have a
 default, `fn boot(startup: Startup = Startup{}): App`. The runtime always
-passes the real Startup, so the default serves only a `tests` group's `boot`
+passes the real Startup, so the default serves only a `group`'s `boot`
 line that passes none (§36).
 
 ```nomi
@@ -7066,10 +7066,10 @@ one that returns something other than a struct is
 `boot must return a struct, the application type`; a struct with two Context
 fields is `an application struct may have at most one Context-typed field`. A
 `fn boot` in a file without `fn main` is
-`` `boot` belongs in an entry file, one that defines `fn main`; a `tests` group names an entry's boot with `boot entry.boot(startup)` ``.
+`` `boot` belongs in an entry file, one that defines `fn main`; a `group` names an entry's boot with `boot entry.boot(startup)` ``.
 An entry boot is not an ordinary function. The one place code calls it is a
-`tests` group's `boot` line; a call or reference anywhere else is
-`` entry-point boot cannot be called or captured as an ordinary function; a `tests` group calls it on its `boot` line ``.
+`group`'s `boot` line; a call or reference anywhere else is
+`` entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line ``.
 A test file that names a boot imports its entry file, so a boot that tests run
 is `pub`, and so is the struct it returns.
 
@@ -7694,7 +7694,9 @@ do_something(
 |> execute()
 ```
 
-Bindings inside a block are scoped to that block — they don't leak into the enclosing scope.
+Bindings inside a block are scoped to that block — they don't leak into the enclosing scope. This holds for every block: an `if` or `else` arm, a `case` arm, a bare `{ }`, a lambda body, a `concurrent { }` body. A binding inside a block that shadows an outer name hides it until the block ends, and a read after the block reads the outer binding. So an inner binding nothing in its block reads is the unused-binding error (`binding 'total' is never read`), like any other.
+
+A block whose last statement is a binding has the value `Unit`. A `_` binding may end a block whose value is not used.
 
 Expressions, patterns and types nest at most 256 levels deep: blocks, parentheses, list, map and struct literals, lambdas, `if` bodies, unary operators, interpolations and type arguments each add a level, and a chain of binary operators, `|>` stages or `else if` arms does not. Deeper nesting is a parse error at the first token past the limit (`nesting deeper than 256 levels`).
 
@@ -7776,7 +7778,7 @@ are inert during ordinary `nomi run` loading and execute only under
 
 `nomi test <file> --line N` runs the test whose declaration starts on line
 `N` (or `N + 1`): a `test`, an attached `//!` test (any of its `//!` lines),
-or a `tests` group, whose header line runs every test in the group. When
+or a `group`, whose header line runs every test in the group. When
 nothing starts there, `nomi test` runs nothing and exits non-zero with
 `no test at <file>:<N>` and the nearest test's first line; with
 `--format json` that error is a `"type":"file"` failure record.
@@ -7862,7 +7864,7 @@ test "new user" {
     assert user.name == "Alice"
 }
 
-tests "defaults" {
+group "defaults" {
     setup {name: "No Name"}
 
     test "default user", {name} {
@@ -7872,9 +7874,14 @@ tests "defaults" {
 }
 ```
 
-`test "name" { ... }` is one executable test case. `tests "name" { ... }`
+`test "name" { ... }` is one executable test case. `group "name" { ... }`
 groups tests. A group's `setup` produces a value, and a test receives it
 through a pattern after the test's name (`test "default user", {name}` above).
+`group` is a keyword only at the top level and before the group's name
+string; anywhere else it is an ordinary name, so `group = Iter.group_by(...)`, a
+parameter or a field named `group` work as written. A top-level `group {`
+is a group with its name missing,
+`` a `group` needs a name; name the group for what its tests share, such as `group "dates" { ... }` ``.
 A group's parts are described after attached tests, below.
 
 A test must be able to fail, so its body holds at least one `assert`,
@@ -7904,15 +7911,15 @@ fn answer(): Int {
 Put setup before ordinary `assert` / `refute` statements, and keep related
 assertions in the same attached test.
 
-A `tests` group holds at most one `clock` line, at most one `boot` line, at
+A `group` holds at most one `clock` line, at most one `boot` line, at
 most one `setup`, and its `test` blocks. Each part is optional, and the lines
 may appear in any order, before, between or after the tests: they run in a
 fixed order whatever their position (below). `nomi fmt` places them first, in
 the order they run: `clock`, `boot`, `setup`, then the tests in source order.
-Groups do not nest; a `tests` inside a `tests` is
-`` a `tests` group cannot contain another `tests` group; write a sibling group instead ``.
+Groups do not nest; a `group` inside a `group` is
+`` a `group` cannot contain another `group`; write a sibling group instead ``.
 A second `clock`, `boot` or `setup` is a parse error, such as
-`` a `tests` group has at most one `setup` line ``.
+`` a `group` has at most one `setup` line ``.
 
 The `boot` line calls an entry's boot (§27). The call is an ordinary call
 checked against the boot's signature: `boot server.boot()` calls a boot that
@@ -7986,7 +7993,7 @@ impl Mailer for FakeMailer {
     }
 }
 
-tests "welcome" {
+group "welcome" {
     boot server.boot()
 
     setup {
@@ -8003,7 +8010,7 @@ tests "welcome" {
     }
 }
 
-tests "configured sender" {
+group "configured sender" {
     boot server.boot(test_support.startup())
 
     test "reads the booted sender" {
@@ -8012,10 +8019,10 @@ tests "configured sender" {
 }
 ```
 
-A group does not define its own boot: a `fn boot` inside `tests` is
-`` a `tests` group does not define `fn boot`; it names an entry's boot on a `boot` line, such as `boot server.boot(startup)` ``,
+A group does not define its own boot: a `fn boot` inside a `group` is
+`` a `group` does not define `fn boot`; it names an entry's boot on a `boot` line, such as `boot server.boot(startup)` ``,
 and a `boot` line that calls anything but an entry's boot is
-`` `boot` in a `tests` group calls an entry's boot, the `fn boot` of a file that defines `fn main`, such as `boot server.boot(startup)`; `make_app` is not one ``.
+`` `boot` in a `group` calls an entry's boot, the `fn boot` of a file that defines `fn main`, such as `boot server.boot(startup)`; `make_app` is not one ``.
 A test outside a group, or in a group with no `boot` line, runs with no boot
 and cannot read application fields.
 
@@ -8043,7 +8050,7 @@ fakes. `defer` statements in boot and in setup run when that test finishes,
 after its body and its owned work:
 
 ```nomi
-tests "store" {
+group "store" {
     setup {
         db = try sqlite.open("tasks.tsv")
         defer sqlite.close(db)
@@ -8059,7 +8066,7 @@ tests "store" {
 A `with App.field = value` line in a test body replaces an application field
 for the rest of that body; callees that read `App.field` see the replacement.
 
-A `tests` group may declare its clock on a `clock` line: `clock Clock.Virtual`,
+A `group` may declare its clock on a `clock` line: `clock Clock.Virtual`,
 or `clock Clock.System` (the default), with `Clock` imported from
 `std/testing`. Under a virtual clock, time moves only when every task in the
 test is blocked, so a test that sleeps or waits on a deadline costs nothing and
@@ -8096,7 +8103,7 @@ assert passed == Ok(True)
 refute failed
 ```
 
-A test body, or a `tests` group's `setup` block, whose final value is
+A test body, or a `group`'s `setup` block, whose final value is
 `Err(AssertionFailure)` fails with that failure's report, so a body ending in
 `testing.check(total == 10)` fails like one ending in `assert total == 10`.
 The rule reaches through a final `if`, `case` or block to the arm that ran. A
@@ -8208,7 +8215,7 @@ In tests, use `try` when a fallible value is setup for the rest of the test.
 The test runner reports the `try` source and returned value if setup exits
 early. Use a pattern assertion when the returned shape is itself part of the
 test's claim, such as `assert Err(Error.InvalidFormat(_)) = Date.parse(text)`.
-A `try` or an assertion in a `tests` group's `setup` block behaves the same
+A `try` or an assertion in a `group`'s `setup` block behaves the same
 way: the setup runs inside each case it serves, so an early exit there fails
 that case with the same report, and none of the case's body runs.
 
@@ -8288,7 +8295,7 @@ not allowed, `subtests` is the same error with `subtests` named in it: in a
 function with any other result
 (`` `subtests` can return AssertionFailure, but the enclosing function returns Int ``),
 in a lambda, in a `once` initializer or a default. It cannot be written in a
-`tests` group's `setup`
+`group`'s `setup`
 (`` `subtests` cannot be used in a `setup`: a setup builds the value each test binds ``),
 or inside another `subtests` body
 (`` `subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case ``).
@@ -8312,8 +8319,8 @@ tests. Inside `nomi test`, a failed assertion stops that test and reports the
 failure; other discovered tests continue to run. `nomi test` exits nonzero if
 any test file fails to load, any test case fails, or the VM cannot run a case
 (it is reported `BLOCKED`; see §25). Test names must be unique
-within a file by their full path, including enclosing `tests` groups. A
-`test` or `tests` name that is empty or only whitespace is a compile error.
+within a file by their full path, including enclosing test groups. A
+`test` or `group` name that is empty or only whitespace is a compile error.
 Assertion failures carry observed values for comparison operands, predicate-call
 arguments, and pipeline stages where available, so ordinary Nomi expressions can
 produce useful test reports without a separate assertion-helper API for each
@@ -8619,7 +8626,7 @@ pub fn configure(config: Config): Config {
 
 ### Testing
 
-Tests use the same language mechanisms as application code. A `tests` group
+Tests use the same language mechanisms as application code. A `group`
 runs the entry's boot on its `boot` line with a `Startup` the test builds,
 replaces fields with `with Config.field = value` lines in `setup` or in a test
 body, and uses `defer` for temporary databases, files, or servers that must
@@ -8632,7 +8639,7 @@ import {
     main
 }
 
-tests "limited app config" {
+group "limited app config" {
     boot main.boot(Startup{env: {"NOMI_ENV" => "test"}})
 
     test "handles connection limit" {

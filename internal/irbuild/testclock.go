@@ -1,6 +1,6 @@
 package irbuild
 
-// The `clock` clause on a `tests` group, lowered.
+// The `clock` clause on a `group`, lowered.
 //
 // # THE WHOLE MECHANISM IS ONE FIELD, AND THE REST OF THIS FILE IS WHY
 //

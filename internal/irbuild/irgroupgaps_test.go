@@ -27,7 +27,7 @@ pub fn boot(): App {
 
 fn main() {}
 
-tests "channel equality" {
+group "channel equality" {
   boot boot()
 
   test "a received value equals Some" {
@@ -121,7 +121,7 @@ pub fn boot(): App {
 
 fn main() {}
 
-tests "tasks" {
+group "tasks" {
   clock Clock.Virtual
 
   boot boot()
@@ -192,7 +192,7 @@ fn short_fail(): Result<Int, String> {
   Err("boom")
 }
 
-tests "virtual clock" {
+group "virtual clock" {
   clock Clock.Virtual
 
   test "a short-circuit cancels its siblings" {

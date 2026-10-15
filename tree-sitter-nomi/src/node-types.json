@@ -1822,6 +1822,10 @@
           "named": true
         },
         {
+          "type": "group_declaration",
+          "named": true
+        },
+        {
           "type": "identifier",
           "named": true
         },
@@ -1947,10 +1951,6 @@
         },
         {
           "type": "test_declaration",
-          "named": true
-        },
-        {
-          "type": "tests_declaration",
           "named": true
         },
         {
@@ -3450,6 +3450,10 @@
           "named": true
         },
         {
+          "type": "group_declaration",
+          "named": true
+        },
+        {
           "type": "identifier",
           "named": true
         },
@@ -3575,10 +3579,6 @@
         },
         {
           "type": "test_declaration",
-          "named": true
-        },
-        {
-          "type": "tests_declaration",
           "named": true
         },
         {
@@ -6405,6 +6405,59 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "group_body",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "boot_block",
+          "named": true
+        },
+        {
+          "type": "clock_block",
+          "named": true
+        },
+        {
+          "type": "setup_block",
+          "named": true
+        },
+        {
+          "type": "test_declaration",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "group_declaration",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "string",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "group_body",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -12195,6 +12248,10 @@
           "named": true
         },
         {
+          "type": "group_declaration",
+          "named": true
+        },
+        {
           "type": "identifier",
           "named": true
         },
@@ -12320,10 +12377,6 @@
         },
         {
           "type": "test_declaration",
-          "named": true
-        },
-        {
-          "type": "tests_declaration",
           "named": true
         },
         {
@@ -13897,59 +13950,6 @@
       "types": [
         {
           "type": "body",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "tests_body",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "boot_block",
-          "named": true
-        },
-        {
-          "type": "clock_block",
-          "named": true
-        },
-        {
-          "type": "setup_block",
-          "named": true
-        },
-        {
-          "type": "test_declaration",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "tests_declaration",
-    "named": true,
-    "fields": {
-      "name": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "string",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "tests_body",
           "named": true
         }
       ]
@@ -15866,6 +15866,10 @@
     "named": false
   },
   {
+    "type": "group",
+    "named": false
+  },
+  {
     "type": "host_keyword",
     "named": true
   },
@@ -15963,10 +15967,6 @@
   },
   {
     "type": "test",
-    "named": false
-  },
-  {
-    "type": "tests",
     "named": false
   },
   {

@@ -99,7 +99,7 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 	if _, agree := child.inferReturn.settle(k); !agree || !child.settleConcurrentTries(tries, k) {
 		return no()
 	}
-	if err := ir.Lint(f); err != nil {
+	if err := bl.g.irLint(f); err != nil {
 		irDeclineNote("a `concurrent` body graph that does not lint: " + err.Error())
 		return no()
 	}

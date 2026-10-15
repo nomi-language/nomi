@@ -1067,7 +1067,7 @@ func TestTestCommand_RunsGroups(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "math_test.nomi")
-	mustWrite(t, testPath, `tests "math" {
+	mustWrite(t, testPath, `group "math" {
   setup {base: 2}
 
   test "assertions", {base} {
@@ -1077,7 +1077,7 @@ func TestTestCommand_RunsGroups(t *testing.T) {
 
 }
 
-tests "sibling" {
+group "sibling" {
   setup (2, 3)
 
   test "setup is bound by a tuple pattern", (base, extra) {
@@ -2323,7 +2323,7 @@ func TestTestCommand_LineFilterRunsGroup(t *testing.T) {
 	cacheRoot := t.TempDir()
 	dir := t.TempDir()
 	testPath := filepath.Join(dir, "line_filter_group_test.nomi")
-	mustWrite(t, testPath, `tests "math" {
+	mustWrite(t, testPath, `group "math" {
   test "one" {
     assert True
   }
@@ -2362,7 +2362,7 @@ fn close(conn: Conn): Unit {
   io.print("close " + conn.label)
 }
 
-tests "setup cleanup" {
+group "setup cleanup" {
   setup {
     conn = Conn{label: "db"}
     defer close(conn)

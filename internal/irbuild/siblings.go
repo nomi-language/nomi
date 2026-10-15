@@ -713,7 +713,7 @@ func stdFileOfScope(fa *analysis.FileAnalysis, scope *analysis.Scope) (string, b
 	if scope == nil {
 		return "", false
 	}
-	for canon, std := range fa.StdlibModuleScopes {
+	for canon, std := range fa.Program().StdlibModuleScopes {
 		if std == scope {
 			return canon, true
 		}

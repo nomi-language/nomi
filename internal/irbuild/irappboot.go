@@ -25,7 +25,7 @@ import (
 // because boot's cleanup and failure reporting are program-lifetime rules the
 // retained body does not model. An anonymous record result is not retained.
 //
-// The entry boot a `tests` group's `boot` line calls is the same function,
+// The entry boot a `group`'s `boot` line calls is the same function,
 // recorded on the test file's module with `ir.Module.AddTestBoot`; the VM
 // starts it with `Machine.BootTest` (irtestgroup.go), and an app-field read in
 // a function its cases call reads that app.
@@ -246,7 +246,7 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 }
 
 // irDeclaresBoot reports whether this program starts an app: a program boot,
-// or a boot in one of the entry's `tests` groups. An app-field read in a
+// or a boot in one of the entry's test groups. An app-field read in a
 // program that starts none has nothing to find.
 func (g *gen) irDeclaresBoot() bool {
 	if g.bootDecl() != nil {

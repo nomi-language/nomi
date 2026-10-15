@@ -13,7 +13,7 @@ if vim.g.nomi_lsp ~= false then
 end
 
 -- The commands nomi-lsp's code lenses carry, which `vim.lsp.codelens.run()`
--- executes: Run test / Run tests / Run attached test, and Run on `fn main`.
+-- executes: Run test / Run group / Run attached test, and Run on `fn main`.
 vim.lsp.commands['nomi.runTest'] = function(command)
   local args = command.arguments or {}
   require('nomi.runner').test_uri_line(args[1], args[2])

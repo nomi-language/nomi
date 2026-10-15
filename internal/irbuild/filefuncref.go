@@ -60,11 +60,11 @@ func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir
 // stdBareFuncRef lowers a bare name a selective import bound to a top-level
 // std function, named as a value. handled is false for any other name.
 func (bl *irScalarBuilder) stdBareFuncRef(t *ast.Ident) (ir.Temp, kind, bool, bool, bool) {
-	if key, output := stdBareOutputKey(bl.g.fa, t); output {
+	if key, output := stdBareOutputKey(bl.g.srcFA(), t); output {
 		v, k, mobile, ok := bl.outputRef(t, key)
 		return v, k, mobile, ok, true
 	}
-	if module, name, isStd := stdBareFileFunc(bl.g.fa, t); isStd {
+	if module, name, isStd := stdBareFileFunc(bl.g.srcFA(), t); isStd {
 		return bl.stdFileFuncRef(t, module, name)
 	}
 	return ir.NoTemp, kindInvalid, false, false, false
@@ -150,7 +150,7 @@ func (bl *irScalarBuilder) wrapperRef(ref ast.Node, name string, params []kind, 
 		return no()
 	}
 	child.b.SetTerm(ir.NewReturn(at, dst))
-	if err := ir.Lint(f); err != nil {
+	if err := bl.g.irLint(f); err != nil {
 		irDeclineNote("a function value over " + name + " that does not lint: " + err.Error())
 		return no()
 	}

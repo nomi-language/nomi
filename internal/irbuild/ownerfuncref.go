@@ -143,7 +143,7 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 		dst = u.Dst()
 	}
 	child.b.SetTerm(ir.NewReturn(at, dst))
-	if err := ir.Lint(f); err != nil {
+	if err := bl.g.irLint(f); err != nil {
 		irDeclineNote("an owner function value that does not lint: " + err.Error())
 		return no()
 	}

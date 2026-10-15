@@ -112,8 +112,8 @@ func isTaskFunctionSymbol(fa *FileAnalysis, sym *Symbol, name string) bool {
 			if byName := fa.TypeMethods["Task"]; sameSymbolDefinition(sym, byName[name]) {
 				return true
 			}
-			if fa.ProjectImpls != nil {
-				if byName := fa.ProjectImpls.TypeMethods["Task"]; sameSymbolDefinition(sym, byName[name]) {
+			if fa.Program().ImplIndex != nil {
+				if byName := fa.Program().ImplIndex.TypeMethods["Task"]; sameSymbolDefinition(sym, byName[name]) {
 					return true
 				}
 			}
@@ -123,7 +123,7 @@ func isTaskFunctionSymbol(fa *FileAnalysis, sym *Symbol, name string) bool {
 		return false
 	}
 	if fa != nil {
-		if scope := fa.StdlibModuleScopes["tasks"]; scope != nil {
+		if scope := fa.Program().StdlibModuleScopes["tasks"]; scope != nil {
 			if sameSymbolDefinition(sym, scope.LookupLocal(name)) {
 				return true
 			}

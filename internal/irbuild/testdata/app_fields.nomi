@@ -57,7 +57,7 @@ fn closure(): () -> String {
     || middle()
 }
 
-tests "app fields" {
+group "app fields" {
     boot boot()
 
     test "a read with no override sees the booted value" {
@@ -112,7 +112,7 @@ tests "app fields" {
     }
 }
 
-tests "an override in a setup" {
+group "an override in a setup" {
     boot boot()
 
     setup {

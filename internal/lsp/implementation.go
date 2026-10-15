@@ -62,18 +62,18 @@ func (s *Server) textDocumentImplementation(ctx *glsp.Context, params *protocol.
 // implLocationsForInterface returns one Location per method of an
 // `impl Iface for T` block, across every method the interface declares.
 func (s *Server) implLocationsForInterface(fa *analysis.FileAnalysis, ifaceName, openDocURI string) []protocol.Location {
-	methodImpls, hasLocalImpls := fa.IfaceMethodImpls[ifaceName]
+	methodImpls, hasLocalImpls := fa.Program().IfaceMethodImpls[ifaceName]
 	externImpls := map[string][]*ast.ExternFunc(nil)
-	_, hasLocalExternImpls := fa.IfaceMethodImplExterns[ifaceName]
+	_, hasLocalExternImpls := fa.Program().IfaceMethodImplExterns[ifaceName]
 	if hasLocalExternImpls {
-		externImpls = fa.IfaceMethodImplExterns[ifaceName]
+		externImpls = fa.Program().IfaceMethodImplExterns[ifaceName]
 	}
-	if !hasLocalImpls && !hasLocalExternImpls && fa.ProjectImpls != nil {
-		if fa.ProjectImpls.IfaceMethodImpls != nil {
-			methodImpls = fa.ProjectImpls.IfaceMethodImpls[ifaceName]
+	if !hasLocalImpls && !hasLocalExternImpls && fa.Program().ImplIndex != nil {
+		if fa.Program().ImplIndex.IfaceMethodImpls != nil {
+			methodImpls = fa.Program().ImplIndex.IfaceMethodImpls[ifaceName]
 		}
-		if fa.ProjectImpls.IfaceMethodImplExterns != nil {
-			externImpls = fa.ProjectImpls.IfaceMethodImplExterns[ifaceName]
+		if fa.Program().ImplIndex.IfaceMethodImplExterns != nil {
+			externImpls = fa.Program().ImplIndex.IfaceMethodImplExterns[ifaceName]
 		}
 	}
 	if len(methodImpls) == 0 && len(externImpls) == 0 {
@@ -100,18 +100,18 @@ func (s *Server) implLocationsForInterface(fa *analysis.FileAnalysis, ifaceName,
 // implLocationsForMethod returns one Location per `impl Iface for T { fn method(...) }`
 // method for the specific (interface, method) pair.
 func (s *Server) implLocationsForMethod(fa *analysis.FileAnalysis, ifaceName, methodName, openDocURI string) []protocol.Location {
-	methodImpls, hasLocalImpls := fa.IfaceMethodImpls[ifaceName]
+	methodImpls, hasLocalImpls := fa.Program().IfaceMethodImpls[ifaceName]
 	externImpls := map[string][]*ast.ExternFunc(nil)
-	_, hasLocalExternImpls := fa.IfaceMethodImplExterns[ifaceName]
+	_, hasLocalExternImpls := fa.Program().IfaceMethodImplExterns[ifaceName]
 	if hasLocalExternImpls {
-		externImpls = fa.IfaceMethodImplExterns[ifaceName]
+		externImpls = fa.Program().IfaceMethodImplExterns[ifaceName]
 	}
-	if !hasLocalImpls && !hasLocalExternImpls && fa.ProjectImpls != nil {
-		if fa.ProjectImpls.IfaceMethodImpls != nil {
-			methodImpls = fa.ProjectImpls.IfaceMethodImpls[ifaceName]
+	if !hasLocalImpls && !hasLocalExternImpls && fa.Program().ImplIndex != nil {
+		if fa.Program().ImplIndex.IfaceMethodImpls != nil {
+			methodImpls = fa.Program().ImplIndex.IfaceMethodImpls[ifaceName]
 		}
-		if fa.ProjectImpls.IfaceMethodImplExterns != nil {
-			externImpls = fa.ProjectImpls.IfaceMethodImplExterns[ifaceName]
+		if fa.Program().ImplIndex.IfaceMethodImplExterns != nil {
+			externImpls = fa.Program().ImplIndex.IfaceMethodImplExterns[ifaceName]
 		}
 	}
 	fns := methodImpls[methodName]
@@ -134,17 +134,17 @@ func (s *Server) implLocationsForMethod(fa *analysis.FileAnalysis, ifaceName, me
 }
 
 func (s *Server) implFiles(fa *analysis.FileAnalysis) map[*ast.FuncDef]string {
-	if fa.ProjectImpls != nil && fa.ProjectImpls.ImplFiles != nil {
-		return fa.ProjectImpls.ImplFiles
+	if fa.Program().ImplIndex != nil && fa.Program().ImplIndex.ImplFiles != nil {
+		return fa.Program().ImplIndex.ImplFiles
 	}
-	return fa.IfaceMethodImplFiles
+	return fa.Program().IfaceMethodImplFiles
 }
 
 func (s *Server) implExternFiles(fa *analysis.FileAnalysis) map[*ast.ExternFunc]string {
-	if fa.ProjectImpls != nil && fa.ProjectImpls.ImplExternFiles != nil {
-		return fa.ProjectImpls.ImplExternFiles
+	if fa.Program().ImplIndex != nil && fa.Program().ImplIndex.ImplExternFiles != nil {
+		return fa.Program().ImplIndex.ImplExternFiles
 	}
-	return fa.IfaceMethodImplExternFiles
+	return fa.Program().IfaceMethodImplExternFiles
 }
 
 // implLocationFor builds a Location for an impl FuncDef. The path
@@ -207,7 +207,7 @@ func (s *Server) implExternLocationFor(fa *analysis.FileAnalysis, ext *ast.Exter
 // ImplBlockReceiver, then read that decorator. Returns ok=false when any link
 // is missing, so the caller drops the (un-navigable) synth target.
 func (s *Server) derivedConformanceLocation(fa *analysis.FileAnalysis, ifaceName string, fn *ast.FuncDef, uri protocol.DocumentUri) (protocol.Location, bool) {
-	recv := fa.ImplBlockReceiver[fn]
+	recv := fa.Program().ImplBlockReceiver[fn]
 	if recv == "" {
 		return protocol.Location{}, false
 	}

@@ -252,7 +252,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 `,
 		},
 		"a test group's tests are set apart": {
-			src: `tests "group" {
+			src: `group "group" {
     clock Clock.Virtual
 
     test "one" {
@@ -263,7 +263,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
     }
 }
 `,
-			want: `tests "group" {
+			want: `group "group" {
     clock Clock.Virtual
 
     test "one" {

@@ -94,7 +94,7 @@ func TestCompletion_TestGroupBootOffersEntryBoots(t *testing.T) {
 	s := NewServer()
 	s.snippetSupport = true
 	uri := "file://" + filepath.Join(dir, "server_test.nomi")
-	items := completeIn(t, s, uri, "import server\n\ntests \"g\" {\n    boot "+cursorMark+"\n}\n").Items
+	items := completeIn(t, s, uri, "import server\n\ngroup \"g\" {\n    boot "+cursorMark+"\n}\n").Items
 	if len(items) == 0 || items[0].Label != "server.boot" {
 		t.Fatalf("want server.boot first, got %v", itemLabels(items))
 	}
@@ -104,7 +104,7 @@ func TestCompletion_TestGroupBootOffersEntryBoots(t *testing.T) {
 }
 
 func TestCompletion_TestGroupLineSnippets(t *testing.T) {
-	src := "tests \"g\" {\n    boot server.boot(s)\n    " + cursorMark + "\n}\n"
+	src := "group \"g\" {\n    boot server.boot(s)\n    " + cursorMark + "\n}\n"
 	items := completeWith(t, true, src)
 	if got := strings.Join(itemLabels(items), ","); got != "clock,setup,test" {
 		t.Fatalf("group lines = %s", got)
@@ -121,7 +121,7 @@ func TestCompletion_TestGroupLineSnippets(t *testing.T) {
 // line inserts a placeholder name, as the snippet does, since an empty test
 // name is a checker error.
 func TestCompletion_TestGroupLinePlainNamesTheTest(t *testing.T) {
-	src := "tests \"g\" {\n    boot server.boot(s)\n    " + cursorMark + "\n}\n"
+	src := "group \"g\" {\n    boot server.boot(s)\n    " + cursorMark + "\n}\n"
 	items := completeWith(t, false, src)
 	if te := textEditOf(t, mustItem(t, items, "test")); te.NewText != "test \"name\" {\n        \n    }" {
 		t.Fatalf("test line = %q", te.NewText)

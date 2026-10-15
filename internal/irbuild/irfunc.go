@@ -13,6 +13,8 @@ package irbuild
 // is an `ir.Copy` in the function's own namespace.
 
 import (
+	"testing"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -150,13 +152,43 @@ func (g *gen) irScalarLower(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		}
 	}
 	g.irModule().AddFunc(p.fn)
-	if err := ir.LintModuleAdded(g.irModule()); err != nil {
+	if err := g.irLintAdded(); err != nil {
 		panic("irbuild: " + irScalarArithShape + ": " + err.Error())
 	}
 	if irFuncObserved != nil {
 		irFuncObserved(sig.origin, sig.name, p.fn, true)
 	}
 	return p.result, true
+}
+
+// lintEmbeddedStdlib is whether the embedded stdlib's shared lowering
+// (buildStdlibIndex) runs `ir.Lint`. That lowering is the same in every
+// process of one binary, so linting it in each one is wasted startup: about
+// 40% of the stdlib's lowering time. It stays on under `go test`, where every
+// shared lowering lints every stdlib body, and
+// TestStdlibLowersTheSameWithoutLint holds that skipping it retains the same
+// graphs, all of which pass lint. A test may set it.
+//
+// Only that lowering skips it. A generic stdlib body instantiated for a
+// program, a stdlib module's test cases, a stdlib file lowered from edited
+// source, and every user body are linted as before.
+var lintEmbeddedStdlib = testing.Testing()
+
+// irLint is `ir.Lint`, skipped on a gen lowering the embedded stdlib when
+// lintEmbeddedStdlib is off.
+func (g *gen) irLint(f *ir.Func) error {
+	if g.skipLint {
+		return nil
+	}
+	return ir.Lint(f)
+}
+
+// irLintAdded is `ir.LintModuleAdded` over the gen's module, skipped as irLint is.
+func (g *gen) irLintAdded() error {
+	if g.skipLint {
+		return nil
+	}
+	return ir.LintModuleAdded(g.irModule())
 }
 
 // irLintFinished lints a finished module whole, once, before a consumer reads

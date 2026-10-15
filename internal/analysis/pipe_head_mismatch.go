@@ -170,8 +170,8 @@ func (c *checker) hasImpl(t Type, iface string) bool {
 		return false
 	}
 	declared := c.fa.Impls[name][iface]
-	if !declared && c.fa.ProjectImpls != nil {
-		declared = c.fa.ProjectImpls.Impls[name][iface]
+	if !declared && c.fa.Program().ImplIndex != nil {
+		declared = c.fa.Program().ImplIndex.Impls[name][iface]
 	}
 	return declared && c.implReceiverMatches(t, iface)
 }

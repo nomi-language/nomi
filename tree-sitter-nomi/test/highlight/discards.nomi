@@ -254,7 +254,14 @@ fn once_use(): Maybe<Int> {
     //   ^ variable
 }
 
-tests "setup" {
+// `group` opens a test group only before the group's name; anywhere else it
+// is a name.
+fn next_group(group: Int): Int {
+    group + 1
+    // <- variable
+}
+
+group "setup" {
     setup (1, True)
 
     test "binds", (_ta, tb) {

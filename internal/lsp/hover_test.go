@@ -805,7 +805,7 @@ func TestHover_TestGroupSetupBindingInNestedTest(t *testing.T) {
   env: String
 }
 
-tests "config" {
+group "config" {
   setup {
     {cfg: Config{env: "test"}}
   }
@@ -2640,7 +2640,7 @@ fn value(m: Maybe<Int>): Int {
 }
 
 func TestHover_TestSetup_RootContext(t *testing.T) {
-	src := "tests \"numbers\" {\n" +
+	src := "group \"numbers\" {\n" +
 		"  setup {\n" +
 		"    42\n" +
 		"  }\n" +
@@ -2655,14 +2655,14 @@ func TestHover_TestSetup_RootContext(t *testing.T) {
 		t.Fatal("expected a symbol at the `setup` keyword position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nsetup: Unit -> Int\n```\n\nRuns before each test in `tests \"numbers\"`, after the group's boot. A test binds the returned value with a pattern after its name."
+	expected := "```nomi\nsetup: Unit -> Int\n```\n\nRuns before each test in `group \"numbers\"`, after the group's boot. A test binds the returned value with a pattern after its name."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
 }
 
-func TestHover_Tests_GroupContext(t *testing.T) {
-	src := "tests \"numbers\" {\n" +
+func TestHover_GroupContext(t *testing.T) {
+	src := "group \"numbers\" {\n" +
 		"  setup {\n" +
 		"    42\n" +
 		"  }\n" +
@@ -2674,17 +2674,17 @@ func TestHover_Tests_GroupContext(t *testing.T) {
 	pos := analysis.Pos{Line: 1, Col: 1}
 	sym := file.SymbolAt(pos)
 	if sym == nil {
-		t.Fatal("expected a symbol at the `tests` keyword position")
+		t.Fatal("expected a symbol at the `group` keyword position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\ntests: Unit -> Int\n```\n\nGroups tests under `tests \"numbers\"`. Its setup runs before each test and returns the value a test's pattern binds."
+	expected := "```nomi\ngroup: Unit -> Int\n```\n\nGroups tests under `group \"numbers\"`. Its setup runs before each test and returns the value a test's pattern binds."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
 }
 
 func TestHover_Test_ContextPattern(t *testing.T) {
-	src := "tests \"numbers\" {\n" +
+	src := "group \"numbers\" {\n" +
 		"  setup {\n" +
 		"    42\n" +
 		"  }\n" +
@@ -2706,7 +2706,7 @@ func TestHover_Test_ContextPattern(t *testing.T) {
 }
 
 func TestHover_TestSetup_RecordContext(t *testing.T) {
-	src := "tests \"child\" {\n" +
+	src := "group \"child\" {\n" +
 		"  setup {\n" +
 		"    {inherited: \"parent\", value: 2, child_only: \"ready\"}\n" +
 		"  }\n" +
@@ -2721,14 +2721,14 @@ func TestHover_TestSetup_RecordContext(t *testing.T) {
 		t.Fatal("expected a symbol at the `setup` keyword position")
 	}
 	got := renderHover(sym)
-	expected := "```nomi\nsetup: Unit -> {inherited: String, value: Int, child_only: String}\n```\n\nRuns before each test in `tests \"child\"`, after the group's boot. A test binds the returned value with a pattern after its name."
+	expected := "```nomi\nsetup: Unit -> {inherited: String, value: Int, child_only: String}\n```\n\nRuns before each test in `group \"child\"`, after the group's boot. A test binds the returned value with a pattern after its name."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
 }
 
 func TestHover_MultilineTestContextDoesNotLeakIntoTestTitle(t *testing.T) {
-	src := "tests \"child\" {\n" +
+	src := "group \"child\" {\n" +
 		"  setup {\n" +
 		"    {inherited: \"parent\", value: 2, child_only: \"ready\"}\n" +
 		"  }\n" +

@@ -67,7 +67,7 @@ func (g *gen) irBuildMainFailure() {
 		return
 	}
 	g.irModule().AddFunc(fn)
-	if err := ir.LintModuleAdded(g.irModule()); err != nil {
+	if err := g.irLintAdded(); err != nil {
 		panic("irbuild: main failure: " + err.Error())
 	}
 	g.irMod.SetMainFailure(sym)
@@ -120,7 +120,7 @@ func (g *gen) irErrorRenderFunc(node ast.Node, name string, sym *ir.Symbol, errK
 	bl.b.Append(cp)
 	bl.side(sh.result, irScalarSide{k: kindString})
 	bl.b.SetTerm(ir.NewReturn(pos, sh.result))
-	if err := ir.Lint(sh.fn); err != nil {
+	if err := g.irLint(sh.fn); err != nil {
 		return nil, false
 	}
 	return sh.fn, true

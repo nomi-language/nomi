@@ -948,5 +948,5 @@ func (g *gen) targetStruct(t *ast.StructLit) *analysis.StructType {
 	if g.fa == nil || t.Spread != nil {
 		return nil
 	}
-	return g.fa.TargetStructs[t]
+	return g.srcFA().TargetStructs[t]
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
-// The entry boot a `tests` group's `boot` line names, built for the VM and
+// The entry boot a `group`'s `boot` line names, built for the VM and
 // started with BootTest.
 //
 // The VM leg runs the file function the case calls, in the app the group's
@@ -33,7 +33,7 @@ fn show(suffix: String): String {
   App.label + suffix
 }
 
-tests "group" {
+group "group" {
   boot boot()
 
   test "reads the group's app" {

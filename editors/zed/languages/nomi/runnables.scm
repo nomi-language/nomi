@@ -7,7 +7,7 @@
   name: (string) @run)
   (#set! tag nomi-test))
 
-((tests_declaration
+((group_declaration
   name: (string) @run)
   (#set! tag nomi-test))
 

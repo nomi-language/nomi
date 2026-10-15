@@ -5919,15 +5919,15 @@ func TestParseRejectsTestWithoutAssertion(t *testing.T) {
 	}
 }
 
-func TestParseRejectsTestsGroupWithoutAssertion(t *testing.T) {
-	_, err := Parse(lexer.Lex(`tests "group" {
+func TestParseRejectsGroupWithoutAssertion(t *testing.T) {
+	_, err := Parse(lexer.Lex(`group "group" {
   test "only setup" {
     value = 42
   }
 }
 `))
 	if err == nil {
-		t.Fatal("expected tests group without assertion to be rejected")
+		t.Fatal("expected group without assertion to be rejected")
 	}
 	if !strings.Contains(err.Error(), "test block must contain at least one assert or refute") {
 		t.Fatalf("unexpected error: %v", err)
@@ -5936,7 +5936,7 @@ func TestParseRejectsTestsGroupWithoutAssertion(t *testing.T) {
 
 // A group's `boot` line holds the call to an entry's boot, as written.
 func TestParseTestsBootExpression(t *testing.T) {
-	nodes, err := Parse(lexer.Lex(`tests "env" {
+	nodes, err := Parse(lexer.Lex(`group "env" {
   clock Clock.Virtual
   boot server.boot(startup())
   setup Config{name: "Ada"}
@@ -5971,35 +5971,35 @@ func TestParseTestsBootExpression(t *testing.T) {
 
 // The group's declarations are each at most once, and a group neither
 // defines a boot function nor nests another group.
-func TestParseTestsGroupRejects(t *testing.T) {
+func TestParseGroupRejects(t *testing.T) {
 	for name, tc := range map[string]struct{ src, want string }{
 		"nested group": {
-			"tests \"outer\" {\n  tests \"inner\" {\n    test \"t\" { assert true }\n  }\n}\n",
+			"group \"outer\" {\n  group \"inner\" {\n    test \"t\" { assert true }\n  }\n}\n",
 			"write a sibling group instead",
 		},
 		"fn boot": {
-			"tests \"g\" {\n  fn boot(startup: Startup): App { App{} }\n  test \"t\" { assert true }\n}\n",
-			"a `tests` group does not define `fn boot`",
+			"group \"g\" {\n  fn boot(startup: Startup): App { App{} }\n  test \"t\" { assert true }\n}\n",
+			"a `group` does not define `fn boot`",
 		},
 		"duplicate clock": {
-			"tests \"g\" {\n  clock Clock.Virtual\n  clock Clock.System\n  test \"t\" { assert true }\n}\n",
-			"a `tests` group has at most one `clock` line",
+			"group \"g\" {\n  clock Clock.Virtual\n  clock Clock.System\n  test \"t\" { assert true }\n}\n",
+			"a `group` has at most one `clock` line",
 		},
 		"duplicate boot": {
-			"tests \"g\" {\n  boot server.boot(s)\n  boot server.boot(s)\n  test \"t\" { assert true }\n}\n",
-			"a `tests` group has at most one `boot` line",
+			"group \"g\" {\n  boot server.boot(s)\n  boot server.boot(s)\n  test \"t\" { assert true }\n}\n",
+			"a `group` has at most one `boot` line",
 		},
 		"duplicate setup": {
-			"tests \"g\" {\n  setup 1\n  setup 2\n  test \"t\" { assert true }\n}\n",
-			"a `tests` group has at most one `setup` line",
+			"group \"g\" {\n  setup 1\n  setup 2\n  test \"t\" { assert true }\n}\n",
+			"a `group` has at most one `setup` line",
 		},
 		"duplicate setup separated by a test": {
-			"tests \"g\" {\n  setup 1\n  test \"t\" { assert true }\n  setup 2\n}\n",
-			"a `tests` group has at most one `setup` line",
+			"group \"g\" {\n  setup 1\n  test \"t\" { assert true }\n  setup 2\n}\n",
+			"a `group` has at most one `setup` line",
 		},
 		"duplicate clock after boot and setup": {
-			"tests \"g\" {\n  clock Clock.Virtual\n  boot server.boot(s)\n  setup 1\n  clock Clock.Virtual\n  test \"t\" { assert true }\n}\n",
-			"a `tests` group has at most one `clock` line",
+			"group \"g\" {\n  clock Clock.Virtual\n  boot server.boot(s)\n  setup 1\n  clock Clock.Virtual\n  test \"t\" { assert true }\n}\n",
+			"a `group` has at most one `clock` line",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -6017,11 +6017,11 @@ func TestParseTestsGroupRejects(t *testing.T) {
 // A group's clock, boot and setup lines may appear in any order, before,
 // between or after its tests: they run in a fixed order whatever their
 // position.
-func TestParseTestsGroupLinesInAnyOrder(t *testing.T) {
+func TestParseGroupLinesInAnyOrder(t *testing.T) {
 	for name, src := range map[string]string{
-		"setup, boot, clock": "tests \"g\" {\n  setup 1\n  boot server.boot(s)\n  clock Clock.Virtual\n  test \"t\" { assert true }\n}\n",
-		"between tests":      "tests \"g\" {\n  test \"a\" { assert true }\n  boot server.boot(s)\n  test \"b\" { assert true }\n  setup 1\n  test \"c\" { assert true }\n  clock Clock.Virtual\n}\n",
-		"after tests":        "tests \"g\" {\n  test \"a\" { assert true }\n  clock Clock.Virtual\n  setup 1\n  boot server.boot(s)\n}\n",
+		"setup, boot, clock": "group \"g\" {\n  setup 1\n  boot server.boot(s)\n  clock Clock.Virtual\n  test \"t\" { assert true }\n}\n",
+		"between tests":      "group \"g\" {\n  test \"a\" { assert true }\n  boot server.boot(s)\n  test \"b\" { assert true }\n  setup 1\n  test \"c\" { assert true }\n  clock Clock.Virtual\n}\n",
+		"after tests":        "group \"g\" {\n  test \"a\" { assert true }\n  clock Clock.Virtual\n  setup 1\n  boot server.boot(s)\n}\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			nodes, err := Parse(lexer.Lex(src))
@@ -6045,7 +6045,7 @@ func TestParseTestsGroupLinesInAnyOrder(t *testing.T) {
 }
 
 func TestParseTestsSetupExpression(t *testing.T) {
-	nodes, err := Parse(lexer.Lex(`tests "fixture" {
+	nodes, err := Parse(lexer.Lex(`group "fixture" {
   setup Config{name: "Ada"}
 
   test "reads setup", {name} {

@@ -1638,7 +1638,7 @@ func (g *gen) stdOwnerAlias(ti *ast.TypeIdent) string {
 	if _, local := g.ifaces[sym.Name]; local {
 		return ""
 	}
-	for _, scope := range g.fa.StdlibModuleScopes {
+	for _, scope := range g.fa.Program().StdlibModuleScopes {
 		if scope == nil {
 			continue
 		}

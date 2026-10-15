@@ -179,7 +179,7 @@ func mark(n ast.Node, tail bool) {
 		markBlock(x.Body, true)
 	case *ast.TestDecl:
 		// A test body, a group's boot and setup: not functions, so walked
-		// with tail false; a `tests` group's nested cases arrive here too.
+		// with tail false; a `group`'s nested cases arrive here too.
 		mark(x.Boot, false)
 		mark(x.Setup, false)
 		markBlock(x.Body, false)

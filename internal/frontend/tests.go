@@ -16,7 +16,7 @@ import (
 // The test case list is the front end's, not the VM's: the VM runs the cases
 // CollectTestCases names, in its order, under its names.
 
-// SetupFrame is the enclosing `tests` group's boot line and setup.
+// SetupFrame is the enclosing `group`'s boot line and setup.
 type SetupFrame struct {
 	Boot ast.Node
 	Body ast.Node
@@ -350,7 +350,7 @@ func FilterTestCases(cases []TestCase, line int) []TestCase {
 
 // SourceSelectsTestLine reports whether `--line line` selects a case in src.
 // When it does not, nearest is the selectable line closest to line (a case's
-// first line or a `tests` header, the earlier on a tie), or 0 when src
+// first line or a `group` header, the earlier on a tie), or 0 when src
 // declares no tests. A parse error is err; loading the file reports it.
 func SourceSelectsTestLine(src string, line int) (selected bool, nearest int, err error) {
 	nodes, err := parser.Parse(lexer.Lex(src))

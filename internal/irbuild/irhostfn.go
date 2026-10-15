@@ -98,11 +98,11 @@ func (g *gen) irHostCrossingBody(ef *ast.ExternFunc, sh *irFuncShell, result kin
 	sh.entry.Append(call)
 	sh.entry.Append(ir.NewCopy(at, sh.result, call.Dst()))
 	sh.entry.SetTerm(ir.NewReturn(at, sh.result))
-	if err := ir.Lint(sh.fn); err != nil {
+	if err := g.irLint(sh.fn); err != nil {
 		return "a host crossing whose graph does not lint: " + err.Error()
 	}
 	g.irModule().AddFunc(sh.fn)
-	if err := ir.LintModuleAdded(g.irModule()); err != nil {
+	if err := g.irLintAdded(); err != nil {
 		panic("irbuild: host fn body: " + err.Error())
 	}
 	g.irHostKeys = append(g.irHostKeys, key)

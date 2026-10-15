@@ -30,8 +30,8 @@
 (test_declaration
   "test" @context
   name: (_) @name) @item
-(tests_declaration
-  "tests" @context
+(group_declaration
+  "group" @context
   name: (_) @name) @item
 
 ; Interface methods (children of interfaces)

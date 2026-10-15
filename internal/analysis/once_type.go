@@ -94,14 +94,14 @@ func moduleOnces(node ast.Node) []*ast.OnceBinding {
 // checker has yet. Errors that check finds are dropped: the declaring file's
 // own CheckTypes reports them at the declaration.
 func (c *checker) ensureOnceType(sym *Symbol) {
-	if sym == nil || sym.Kind != SymbolOnce || sym.Type != nil || c.fa == nil || c.fa.Onces == nil {
+	if sym == nil || sym.Kind != SymbolOnce || sym.Type != nil || c.fa == nil || c.fa.Program().Onces == nil {
 		return
 	}
 	n, ok := sym.Node.(*ast.OnceBinding)
 	if !ok || n.TypeAnnotation != nil {
 		return
 	}
-	t := c.fa.Onces
+	t := c.fa.Program().Onces
 	site, ok := t.sites[n]
 	if !ok {
 		return

@@ -258,7 +258,7 @@ func (bl *irScalarBuilder) rebuildAdapter(at ast.Node, have, want kind) (ir.Temp
 			child.b.SetTerm(ir.NewReturn(pos, out))
 		}
 	}
-	if !ok || ir.Lint(f) != nil {
+	if !ok || bl.g.irLint(f) != nil {
 		return ir.NoTemp, false
 	}
 	// The enclosing enum adapters this one reached through a collection,

@@ -20,7 +20,7 @@ function M.main_config(file, cwd)
 end
 
 -- The launch configuration that debugs the tests of file: the one test (or
--- `tests` group, or `//!` attached test) starting on line, else them all.
+-- `group`, or `//!` attached test) starting on line, else them all.
 function M.test_config(file, line, cwd)
   return {
     type = 'nomi',

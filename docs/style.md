@@ -502,12 +502,12 @@ test "result values can be asserted directly" {
 }
 ```
 
-Use unique full test names within a file. The enclosing `tests` group is part
+Use unique full test names within a file. The enclosing `group` is part
 of the full name, so repeated leaf names are fine in different groups.
 
 Use attached tests (§7) for compact examples that belong to one declaration,
 especially stdlib reference examples. Keep broader workflows and multi-case
-behavior in named `test` / `tests` blocks.
+behavior in named `test` / `group` blocks.
 
 When an attached assertion's subject becomes multi-line, keep the assertion at
 the front and prompt each continuation line:
@@ -701,7 +701,7 @@ import {
     test_support.FakeMailer
 }
 
-tests "signup" {
+group "signup" {
     boot server.boot(test_support.startup())
 
     setup {

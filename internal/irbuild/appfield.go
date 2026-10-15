@@ -38,11 +38,11 @@ func (g *gen) appRead(n ast.Node) (analysis.AppRead, bool) {
 	if g.fa == nil || !ok || access == nil {
 		return analysis.AppRead{}, false
 	}
-	if read, ok := g.fa.AppReads[access]; ok {
+	if read, ok := g.srcFA().AppReads[access]; ok {
 		return read, true
 	}
 	if access.Field != nil {
-		if read, ok := g.fa.AppReadsByPos[analysis.Pos{Line: access.Field.Line, Col: access.Field.Col}]; ok {
+		if read, ok := g.srcFA().AppReadsByPos[analysis.Pos{Line: access.Field.Line, Col: access.Field.Col}]; ok {
 			return read, true
 		}
 	}
@@ -55,7 +55,7 @@ func (g *gen) appFieldKind(read analysis.AppRead) kind {
 	if read.Field.Type == nil {
 		return kindInvalid
 	}
-	if analysis.SameScopedType(read.Field.Type, g.fa.ContextType) {
+	if analysis.SameScopedType(read.Field.Type, g.fa.Program().ContextType) {
 		return stdHostOriginKind("std/context", "Context")
 	}
 	return g.project(read.Field.Type)
@@ -69,7 +69,7 @@ func (g *gen) stageProgramApp(fd *ast.FuncDef) {
 
 // isProgramBoot reports whether fd is an entry boot this unit declares: the
 // top-level `fn boot` of a file that defines `fn main`. The entry unit's is
-// the program's boot; any unit's may be the boot a `tests` group's `boot`
+// the program's boot; any unit's may be the boot a `group`'s `boot`
 // line starts. Either is lowered as a boot rather than as a function.
 func (g *gen) isProgramBoot(fd *ast.FuncDef) bool {
 	return fd != nil && declaresBoot(g.nodes) == fd && declaresMain(g.nodes)

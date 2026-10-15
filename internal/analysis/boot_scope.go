@@ -168,7 +168,7 @@ func (s *bootScope) validate(nodes []ast.Node) {
 	if s.bootSym != nil {
 		covered[s.bootSym] = true
 	}
-	// A `tests "…" { boot … }` expression constructs the app value for the
+	// A `group "…" { boot … }` expression constructs the app value for the
 	// tests below it, so it is boot for this rule. Anything it calls is
 	// covered, exactly as if `fn boot` had called it — otherwise a server
 	// that starts itself would be untestable.
@@ -350,8 +350,8 @@ func isSupervisorNewSymbol(fa *FileAnalysis, sym *Symbol) bool {
 		if byName := fa.TypeMethods["Supervisor"]; sameSymbolDefinition(sym, byName["new"]) {
 			return true
 		}
-		if fa.ProjectImpls != nil {
-			if byName := fa.ProjectImpls.TypeMethods["Supervisor"]; sameSymbolDefinition(sym, byName["new"]) {
+		if fa.Program().ImplIndex != nil {
+			if byName := fa.Program().ImplIndex.TypeMethods["Supervisor"]; sameSymbolDefinition(sym, byName["new"]) {
 				return true
 			}
 		}

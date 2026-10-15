@@ -96,7 +96,7 @@ local source = {
   '    assert True', --  9
   '}', -- 10
   '', -- 11
-  'tests "g" {', -- 12
+  'group "g" {', -- 12
   '    test "b" {', -- 13
   '        assert True', -- 14
   '    }', -- 15

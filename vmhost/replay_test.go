@@ -344,7 +344,7 @@ test result: FAILED. 0 passed, 2 failed
 // names `main` again. `g`'s row stays: it says which function `g` holds.
 func TestReplay_DiffHidesTheRowsItRepeats(t *testing.T) {
 	out := runReplayTests(t, bankProgram+`
-tests "bank" {
+group "bank" {
     setup {
         500
     }

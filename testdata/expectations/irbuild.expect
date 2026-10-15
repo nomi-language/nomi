@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 365
+records 364
 declared-cases 0
 failing 74
 C assert_subject_test.nomi@76e4dc034f8c1f74
@@ -92,7 +92,7 @@ T     refute find(1)
 T     actual: Some("Ada")
 T test result: FAILED. 2 passed, 3 failed
 T
-C boot_test.nomi@32414ce1d19d9ed7
+C boot_test.nomi@1b647dc430161bd6
 E 0
 N 0
 H 2d97a44397a38f77696a7107a7d7154763e40891069701280f1cfba175a4c9a5
@@ -114,7 +114,7 @@ S fn show(suffix: String): String {
 S   App.label + suffix
 S }
 S
-S tests "group" {
+S group "group" {
 S   boot boot()
 S
 S   test "reads the group's app" {
@@ -415,38 +415,7 @@ T       p.q.f(2)
 T         = 102
 T test result: FAILED. 1 passed, 1 failed
 T
-C control_test.nomi@29a19915b7d25a11
-E 1
-N 0
-H 9df82e32d8b8e995c20e487a7f1cee612f7eb5b6bed0d12fc9af444d13cef4ba
-S -- control_test.nomi 240 --
-S import std/calendar.Date
-S
-S test "formats parsed date" {
-S   d = try Date.parse("2026-05-04")
-S
-S   assert Date.to_string(d) == "2026-05-04"
-S }
-S
-S test "a wrong date" {
-S   d = try Date.parse("2026-05-04")
-S
-S   assert Date.to_string(d) == "2026-05-05"
-S }
-S
-S
-T ok <dir>/control_test.nomi :: formats parsed date
-T FAIL <dir>/control_test.nomi :: a wrong date
-T   line 12: assertion failed
-T     assert Date.to_string(d) == "2026-05-05"
-T     values:
-T       d
-T         = Date{day: 4, month: 5, year: 2026}
-T       Date.to_string(d)
-T         = "2026-05-04"
-T test result: FAILED. 1 passed, 1 failed
-T
-C control_test.nomi@36f1ca6fa3b468f7
+C control_test.nomi@2959bf062438631e
 E 1
 N 0
 H 490d512489db51dc38562f1f400fc6988d6d53f3687b96254380f85ff710fab7
@@ -460,7 +429,7 @@ S   x = 3
 S   if x > 2 { assert x == 3 } else { assert x == 0 }
 S }
 S
-S tests "grouped" {
+S group "grouped" {
 S   setup {n: 5}
 S
 S   test "third, grouped", {n} {
@@ -492,6 +461,37 @@ T     values:
 T       y
 T         = 1
 T test result: FAILED. 4 passed, 1 failed
+T
+C control_test.nomi@29a19915b7d25a11
+E 1
+N 0
+H 9df82e32d8b8e995c20e487a7f1cee612f7eb5b6bed0d12fc9af444d13cef4ba
+S -- control_test.nomi 240 --
+S import std/calendar.Date
+S
+S test "formats parsed date" {
+S   d = try Date.parse("2026-05-04")
+S
+S   assert Date.to_string(d) == "2026-05-04"
+S }
+S
+S test "a wrong date" {
+S   d = try Date.parse("2026-05-04")
+S
+S   assert Date.to_string(d) == "2026-05-05"
+S }
+S
+S
+T ok <dir>/control_test.nomi :: formats parsed date
+T FAIL <dir>/control_test.nomi :: a wrong date
+T   line 12: assertion failed
+T     assert Date.to_string(d) == "2026-05-05"
+T     values:
+T       d
+T         = Date{day: 4, month: 5, year: 2026}
+T       Date.to_string(d)
+T         = "2026-05-04"
+T test result: FAILED. 1 passed, 1 failed
 T
 C control_test.nomi@57ec78ce0df66f9d
 E 0
@@ -1353,319 +1353,7 @@ T   "hi"
 T   dbg line 10: Json.to_dynamic(Json.String("four")) = "four"
 T test result: ok. 1 passed, 0 failed
 T
-C group_test.nomi@00ebc287a0857755
-E 1
-N 0
-H a5379f4412fc5acaa4776971f3a442fb20314a14aee52df5e9aa7b5d5d536a34
-S -- group_test.nomi 1847 --
-S import {
-S   std/channels.{Channel, Receiver, Sender}
-S   std/duration.Duration
-S   std/supervisors.Supervisor
-S   std/tasks.{Outcome, Task}
-S   std/testing.Clock
-S   std/timer
-S }
-S
-S pub struct App {
-S   context: Context
-S   work: Supervisor
-S   alerts: Channel<String>
-S }
-S
-S fn report(message: String): Unit {
-S   case Sender.send(App.alerts.sender, message) {
-S     Ok(_) -> Unit
-S     Err(_) -> Unit
-S   }
-S }
-S
-S fn slow(): Unit {
-S   timer.sleep(Duration.seconds(30))
-S   report("SHOULD NOT ARRIVE")
-S }
-S
-S fn drain(): List<String> {
-S   Sender.close(App.alerts.sender)
-S   Iter.loop(|seen = []|
-S     case Receiver.receive(App.alerts.receiver) {
-S       Some(message) -> [message, ..seen]
-S       None -> break seen
-S     }
-S   )
-S }
-S
-S pub fn boot(): App {
-S   App{
-S     context: Context.root(),
-S     work: Supervisor.new(max_running: 2),
-S     alerts: Channel.buffered<String>(8),
-S   }
-S }
-S
-S fn main() {}
-S
-S tests "tasks" {
-S   clock Clock.Virtual
-S
-S   boot boot()
-S
-S   test "a cancelled task reports Cancelled" {
-S     doomed = Supervisor.spawn(App.work, || slow())
-S     Task.cancel(doomed)
-S     cancelled: Outcome<Unit> = .Cancelled
-S     assert Task.outcome(doomed) == cancelled
-S   }
-S
-S   test "a failing outcome comparison shows its rows" {
-S     done = Supervisor.spawn(App.work, || report("quick"))
-S     _ = Supervisor.flush(App.work)
-S     cancelled: Outcome<Unit> = .Cancelled
-S     assert Task.outcome(done) == cancelled
-S   }
-S
-S   test "any and all over a drained list" {
-S     _ = Supervisor.spawn(App.work, || report("audited 7"))
-S     _ = Supervisor.flush(App.work)
-S     seen = drain()
-S     assert Iter.any?(seen, |m| m == "audited 7")
-S     assert Iter.all?(seen, |m| String.contains?(m, "audited"))
-S     refute Iter.any?(seen, |m| m == "missing")
-S   }
-S
-S   test "a failing any shows its operand" {
-S     _ = Supervisor.spawn(App.work, || report("x"))
-S     _ = Supervisor.flush(App.work)
-S     assert drain() |> Iter.all?(|m| m == "y")
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: tasks / a cancelled task reports Cancelled
-T FAIL <dir>/group_test.nomi :: tasks / a failing outcome comparison shows its rows
-T   line 64: assertion failed
-T     assert Task.outcome(done) == cancelled
-T     values:
-T       done
-T         = <task>
-T       Task.outcome(done)
-T         = Completed(Unit)
-T       cancelled
-T         = Cancelled
-T ok <dir>/group_test.nomi :: tasks / any and all over a drained list
-T FAIL <dir>/group_test.nomi :: tasks / a failing any shows its operand
-T   line 79: assertion failed
-T     assert drain() |> Iter.all?(|m| m == "y")
-T test result: FAILED. 2 passed, 2 failed
-T
-C group_test.nomi@042e6996d91faa3f
-E 0
-N 0
-H 350efb91cc8aa888cdfe1c8f9e305e4e5cc50526e58f2273a291512d3e7c10a0
-S -- group_test.nomi 275 --
-S import {
-S   server.{self, App}
-S }
-S
-S tests "defaulted" {
-S   boot server.boot()
-S
-S   test "reads the default" {
-S     assert App.first == "default"
-S   }
-S }
-S
-S tests "given" {
-S   boot server.boot(Startup{args: ["given"]})
-S
-S   test "reads the argument" {
-S     assert App.first == "given"
-S   }
-S }
-S
-S -- server.nomi 292 --
-S import std/io
-S
-S pub struct App {
-S   first: String
-S }
-S
-S fn default_startup(): Startup {
-S   Startup{args: ["default"]}
-S }
-S
-S pub fn boot(startup: Startup = default_startup()): App {
-S   io.print("boot ${startup.args}")
-S   App{first: Iter.first(startup.args) |> Maybe.with_default("none")}
-S }
-S
-S fn main() {}
-S
-S
-T ok <dir>/group_test.nomi :: defaulted / reads the default
-T   boot [default]
-T ok <dir>/group_test.nomi :: given / reads the argument
-T   boot [given]
-T test result: ok. 2 passed, 0 failed
-T
-C group_test.nomi@3018a709bf290556
-E 1
-N 0
-H d2828260e9fe2cf37a29fbd48d677362d38216981faf9116c3810a922ccf609f
-S -- group_test.nomi 367 --
-S pub struct App {
-S   context: Context
-S   label: String
-S }
-S
-S pub fn boot(): App {
-S   App{context: Context.root(), label: "booted"}
-S }
-S
-S fn main() {}
-S
-S tests "group" {
-S   boot boot()
-S   setup {word: "one"}
-S
-S   test "a failing qualified call shows its rows", {word} {
-S     assert String.length(word) == 5
-S   }
-S
-S   test "a failing app read", {word} {
-S     assert App.label == word
-S   }
-S }
-S
-S
-T FAIL <dir>/group_test.nomi :: group / a failing qualified call shows its rows
-T   line 17: assertion failed
-T     assert String.length(word) == 5
-T     values:
-T       word
-T         = "one"
-T       String.length(word)
-T         = 3
-T FAIL <dir>/group_test.nomi :: group / a failing app read
-T   line 21: assertion failed
-T     assert App.label == word
-T     values:
-T       App.label
-T         = "booted"
-T       word
-T         = "one"
-T test result: FAILED. 0 passed, 2 failed
-T
-C group_test.nomi@32ce2f1b50fc61fd
-E 0
-N 0
-H 98afb7ef4d52deb592cc504b06e20f03e8c5f2f0e6be9c92f520b0554853bb20
-S -- group_test.nomi 956 --
-S import {
-S   std/channels.{Channel, Receiver, Sender}
-S   std/duration.Duration
-S   std/supervisors.{Restart, Supervisor}
-S   std/testing.Clock
-S }
-S
-S pub struct App {
-S   context: Context
-S   done: Channel<Int>
-S }
-S
-S fn group(timeout: Duration): Supervisor {
-S   Supervisor.new(shutdown_timeout: timeout, max_running: 2, restart: Restart.Temporary)
-S }
-S
-S fn start(done: Channel<Int>): Unit {
-S   _ = Supervisor.spawn(group(Duration.seconds(1)), || report(done, 1))
-S   _ = group(Duration.seconds(2)) |> Supervisor.spawn(|| report(done, 2))
-S   Unit
-S }
-S
-S fn report(done: Channel<Int>, n: Int): Unit {
-S   _ = Sender.send(done.sender, n)
-S   Unit
-S }
-S
-S pub fn boot(): App {
-S   done = Channel.buffered<Int>(4)
-S   start(done)
-S   App{context: Context.root(), done}
-S }
-S
-S fn main() {}
-S
-S tests "spawn over a called supervisor" {
-S   clock Clock.Virtual
-S
-S   boot boot()
-S
-S   test "both tasks report" {
-S     a = Receiver.receive(App.done.receiver)
-S     b = Receiver.receive(App.done.receiver)
-S     assert a != b
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: spawn over a called supervisor / both tasks report
-T test result: ok. 1 passed, 0 failed
-T
-C group_test.nomi@3da10317fb3d7e86
-E 0
-N 0
-H ce3c5c5db875733f7a8e6d65d188599feb85ec376f89ebcaf542412274688302
-S -- group_test.nomi 881 --
-S import {
-S   std/instant.Instant
-S   std/duration.Duration
-S   std/tasks.Task
-S   std/testing.Clock
-S   std/timer
-S }
-S
-S fn long_sleep(): Unit {
-S   timer.sleep(Duration.seconds(5))
-S }
-S
-S fn short_fail(): Result<Int, String> {
-S   Err("boom")
-S }
-S
-S tests "virtual clock" {
-S   clock Clock.Virtual
-S
-S   test "a short-circuit cancels its siblings" {
-S     before = Instant.now()
-S
-S     outcome = concurrent {
-S       short = Task.spawn(|| short_fail())
-S       long = Task.spawn(|| long_sleep())
-S       _l = long
-S       Ok(try Task.await(short))
-S     }
-S
-S     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
-S     failed: Result<Int, String> = Err("boom")
-S
-S     assert outcome == failed
-S     assert elapsed == 0
-S   }
-S
-S   test "time passes in the bubble" {
-S     before = Instant.now()
-S     timer.sleep(Duration.seconds(7))
-S     assert Instant.to_seconds(Instant.now()) - Instant.to_seconds(before) == 7
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: virtual clock / a short-circuit cancels its siblings
-T ok <dir>/group_test.nomi :: virtual clock / time passes in the bubble
-T test result: ok. 2 passed, 0 failed
-T
-C group_test.nomi@563c2391dba255bf
+C group_test.nomi@08b3e8b037028771
 E 0
 N 0
 H e019c6e21c78ff249c81afe7868bda70b47a34ab26570bb52c25d9e725941521
@@ -1851,7 +1539,7 @@ S     std/testing.Clock
 S     counter_app.{self, Config, explode, get, increment}
 S }
 S
-S tests "a message-driven worker" {
+S group "a message-driven worker" {
 S     // Nothing here sleeps, but the worker blocks on its inbox and the group
 S     // drains at the end of every case — all of which a virtual clock makes
 S     // instant and repeatable.
@@ -1917,7 +1605,7 @@ T test result: ok. 4 passed, 0 failed
 T --- stderr ---
 T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
 T
-C group_test.nomi@84d61378a038fbc8
+C group_test.nomi@11fcbb047923827f
 E 1
 N 0
 H d30e279a268202cc1bc9ad18c95461eafffab0e4c8e68cf71b717b775c9b9aab
@@ -1937,7 +1625,7 @@ S }
 S
 S fn main() {}
 S
-S tests "group" {
+S group "group" {
 S   boot boot()
 S
 S   test "never reaches its body" {
@@ -1950,7 +1638,406 @@ T FAIL <dir>/group_test.nomi :: group / never reaches its body
 T   line 11: division by zero
 T test result: FAILED. 0 passed, 1 failed
 T
-C group_test.nomi@8b2d5da419c0603d
+C group_test.nomi@1247f5afabdfdef1
+E 0
+N 0
+H 236157263803fe1ce52c0756ac47ff1846250a9cdb21ccb4902b0a258d0cde29
+S -- group_test.nomi 666 --
+S import {
+S   std/duration.Duration
+S   std/io
+S   std/supervisors.Supervisor
+S   std/testing.Clock
+S   std/timer
+S }
+S
+S pub struct App {
+S   context: Context
+S   work: Supervisor
+S }
+S
+S pub fn boot(): App {
+S   App{context: Context.root(), work: Supervisor.new(max_running: 2)}
+S }
+S
+S fn main() {}
+S
+S fn slow(): Unit {
+S   timer.sleep(Duration.minutes(10))
+S   io.print("slow work done")
+S }
+S
+S group "virtual" {
+S   clock Clock.Virtual
+S
+S   boot boot()
+S
+S   test "an hour passes at once" {
+S     timer.sleep(Duration.minutes(60))
+S     assert 1 == 1
+S   }
+S
+S   test "a group's work is flushed in virtual time" {
+S     _ = Supervisor.spawn(App.work, || slow())
+S     _ = Supervisor.flush(App.work)
+S     assert 2 == 2
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: virtual / an hour passes at once
+T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual time
+T   slow work done
+T test result: ok. 2 passed, 0 failed
+T
+C group_test.nomi@16fa0ab9c24e421f
+E 0
+N 0
+H ce3c5c5db875733f7a8e6d65d188599feb85ec376f89ebcaf542412274688302
+S -- group_test.nomi 881 --
+S import {
+S   std/instant.Instant
+S   std/duration.Duration
+S   std/tasks.Task
+S   std/testing.Clock
+S   std/timer
+S }
+S
+S fn long_sleep(): Unit {
+S   timer.sleep(Duration.seconds(5))
+S }
+S
+S fn short_fail(): Result<Int, String> {
+S   Err("boom")
+S }
+S
+S group "virtual clock" {
+S   clock Clock.Virtual
+S
+S   test "a short-circuit cancels its siblings" {
+S     before = Instant.now()
+S
+S     outcome = concurrent {
+S       short = Task.spawn(|| short_fail())
+S       long = Task.spawn(|| long_sleep())
+S       _l = long
+S       Ok(try Task.await(short))
+S     }
+S
+S     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
+S     failed: Result<Int, String> = Err("boom")
+S
+S     assert outcome == failed
+S     assert elapsed == 0
+S   }
+S
+S   test "time passes in the bubble" {
+S     before = Instant.now()
+S     timer.sleep(Duration.seconds(7))
+S     assert Instant.to_seconds(Instant.now()) - Instant.to_seconds(before) == 7
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: virtual clock / a short-circuit cancels its siblings
+T ok <dir>/group_test.nomi :: virtual clock / time passes in the bubble
+T test result: ok. 2 passed, 0 failed
+T
+C group_test.nomi@2f58653217739b57
+E 1
+N 0
+H a5379f4412fc5acaa4776971f3a442fb20314a14aee52df5e9aa7b5d5d536a34
+S -- group_test.nomi 1847 --
+S import {
+S   std/channels.{Channel, Receiver, Sender}
+S   std/duration.Duration
+S   std/supervisors.Supervisor
+S   std/tasks.{Outcome, Task}
+S   std/testing.Clock
+S   std/timer
+S }
+S
+S pub struct App {
+S   context: Context
+S   work: Supervisor
+S   alerts: Channel<String>
+S }
+S
+S fn report(message: String): Unit {
+S   case Sender.send(App.alerts.sender, message) {
+S     Ok(_) -> Unit
+S     Err(_) -> Unit
+S   }
+S }
+S
+S fn slow(): Unit {
+S   timer.sleep(Duration.seconds(30))
+S   report("SHOULD NOT ARRIVE")
+S }
+S
+S fn drain(): List<String> {
+S   Sender.close(App.alerts.sender)
+S   Iter.loop(|seen = []|
+S     case Receiver.receive(App.alerts.receiver) {
+S       Some(message) -> [message, ..seen]
+S       None -> break seen
+S     }
+S   )
+S }
+S
+S pub fn boot(): App {
+S   App{
+S     context: Context.root(),
+S     work: Supervisor.new(max_running: 2),
+S     alerts: Channel.buffered<String>(8),
+S   }
+S }
+S
+S fn main() {}
+S
+S group "tasks" {
+S   clock Clock.Virtual
+S
+S   boot boot()
+S
+S   test "a cancelled task reports Cancelled" {
+S     doomed = Supervisor.spawn(App.work, || slow())
+S     Task.cancel(doomed)
+S     cancelled: Outcome<Unit> = .Cancelled
+S     assert Task.outcome(doomed) == cancelled
+S   }
+S
+S   test "a failing outcome comparison shows its rows" {
+S     done = Supervisor.spawn(App.work, || report("quick"))
+S     _ = Supervisor.flush(App.work)
+S     cancelled: Outcome<Unit> = .Cancelled
+S     assert Task.outcome(done) == cancelled
+S   }
+S
+S   test "any and all over a drained list" {
+S     _ = Supervisor.spawn(App.work, || report("audited 7"))
+S     _ = Supervisor.flush(App.work)
+S     seen = drain()
+S     assert Iter.any?(seen, |m| m == "audited 7")
+S     assert Iter.all?(seen, |m| String.contains?(m, "audited"))
+S     refute Iter.any?(seen, |m| m == "missing")
+S   }
+S
+S   test "a failing any shows its operand" {
+S     _ = Supervisor.spawn(App.work, || report("x"))
+S     _ = Supervisor.flush(App.work)
+S     assert drain() |> Iter.all?(|m| m == "y")
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: tasks / a cancelled task reports Cancelled
+T FAIL <dir>/group_test.nomi :: tasks / a failing outcome comparison shows its rows
+T   line 64: assertion failed
+T     assert Task.outcome(done) == cancelled
+T     values:
+T       done
+T         = <task>
+T       Task.outcome(done)
+T         = Completed(Unit)
+T       cancelled
+T         = Cancelled
+T ok <dir>/group_test.nomi :: tasks / any and all over a drained list
+T FAIL <dir>/group_test.nomi :: tasks / a failing any shows its operand
+T   line 79: assertion failed
+T     assert drain() |> Iter.all?(|m| m == "y")
+T test result: FAILED. 2 passed, 2 failed
+T
+C group_test.nomi@43976a4503bd4ba0
+E 0
+N 0
+H 948b5dec549328c30d9c542c0d6ad177d80e5f6e8ade95edf28086511cc9082d
+S -- group_test.nomi 133 --
+S import {
+S   server.{self, App}
+S }
+S
+S group "group" {
+S   boot server.boot()
+S
+S   test "reads the app" {
+S     assert App.label == "zero"
+S   }
+S }
+S
+S -- server.nomi 128 --
+S import std/io
+S
+S pub struct App {
+S   label: String
+S }
+S
+S pub fn boot(): App {
+S   io.print("boot")
+S   App{label: "zero"}
+S }
+S
+S fn main() {}
+S
+S
+T ok <dir>/group_test.nomi :: group / reads the app
+T   boot
+T test result: ok. 1 passed, 0 failed
+T
+C group_test.nomi@529279c9df282ecb
+E 0
+N 0
+H 0a5fde324db6f998faf15d5b5166759a09335b74e58d8dd0afe02f5bdbacb723
+S -- group_test.nomi 704 --
+S import std/io
+S
+S pub struct App {
+S   context: Context
+S   label: String
+S }
+S
+S pub fn boot(startup: Startup): App {
+S   io.print("boot ${startup.args}")
+S   App{context: Context.root(), label: "booted"}
+S }
+S
+S fn main() {}
+S
+S fn show(suffix: String): String {
+S   App.label + suffix
+S }
+S
+S group "group" {
+S   boot boot(Startup{args: ["group"]})
+S   setup {n: 1, word: "one"}
+S
+S   test "reads the app and the setup value", {n, word} {
+S     io.print(show("!"))
+S     assert App.label == "booted"
+S     assert n == 1
+S     assert word == "one"
+S   }
+S
+S   test "binds the value with a name", value {
+S     assert value.n == 1
+S   }
+S
+S   test "binds the value with a nested pattern", {n: count, word} {
+S     assert count == 1
+S     assert word == "one"
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: group / reads the app and the setup value
+T   boot [group]
+T   booted!
+T ok <dir>/group_test.nomi :: group / binds the value with a name
+T   boot [group]
+T ok <dir>/group_test.nomi :: group / binds the value with a nested pattern
+T   boot [group]
+T test result: ok. 3 passed, 0 failed
+T
+C group_test.nomi@61cf18bde8f31f8b
+E 1
+N 0
+H d2828260e9fe2cf37a29fbd48d677362d38216981faf9116c3810a922ccf609f
+S -- group_test.nomi 367 --
+S pub struct App {
+S   context: Context
+S   label: String
+S }
+S
+S pub fn boot(): App {
+S   App{context: Context.root(), label: "booted"}
+S }
+S
+S fn main() {}
+S
+S group "group" {
+S   boot boot()
+S   setup {word: "one"}
+S
+S   test "a failing qualified call shows its rows", {word} {
+S     assert String.length(word) == 5
+S   }
+S
+S   test "a failing app read", {word} {
+S     assert App.label == word
+S   }
+S }
+S
+S
+T FAIL <dir>/group_test.nomi :: group / a failing qualified call shows its rows
+T   line 17: assertion failed
+T     assert String.length(word) == 5
+T     values:
+T       word
+T         = "one"
+T       String.length(word)
+T         = 3
+T FAIL <dir>/group_test.nomi :: group / a failing app read
+T   line 21: assertion failed
+T     assert App.label == word
+T     values:
+T       App.label
+T         = "booted"
+T       word
+T         = "one"
+T test result: FAILED. 0 passed, 2 failed
+T
+C group_test.nomi@767b06b9b213c6ac
+E 0
+N 0
+H 1a684ae52eb5443ab1db810b2a2cf2e83c63f6f03504a22e0e59cb410a2c70c0
+S -- group_test.nomi 547 --
+S pub struct App {
+S   context: Context
+S   label: String
+S }
+S
+S pub fn boot(): App {
+S   App{context: Context.root(), label: "booted"}
+S }
+S
+S fn main() {}
+S
+S fn label(): String {
+S   App.label
+S }
+S
+S group "group" {
+S   boot boot()
+S
+S   test "plain" {
+S     assert App.label == "booted"
+S   }
+S }
+S
+S group "overridden" {
+S   boot boot()
+S   setup {
+S     with App.label = "set up"
+S   }
+S
+S   test "reads the setup's override" {
+S     assert App.label == "set up"
+S     assert label() == "set up"
+S   }
+S
+S   test "reads its own override" {
+S     with App.label = "own"
+S     assert label() == "own"
+S   }
+S }
+S
+S
+T ok <dir>/group_test.nomi :: group / plain
+T ok <dir>/group_test.nomi :: overridden / reads the setup's override
+T ok <dir>/group_test.nomi :: overridden / reads its own override
+T test result: ok. 3 passed, 0 failed
+T
+C group_test.nomi@b7571b43e2d6adec
 E 1
 N 0
 H 2e7cbd02625b424f2f68da1c20fb11a74804c9ebb4ccb0a218f8a5d705114678
@@ -1971,7 +2058,7 @@ S }
 S
 S fn main() {}
 S
-S tests "channel equality" {
+S group "channel equality" {
 S   boot boot()
 S
 S   test "a received value equals Some" {
@@ -2039,364 +2126,7 @@ T         = Duration(1000000000)
 T ok <dir>/group_test.nomi :: channel equality / a closed channel answers None
 T test result: FAILED. 2 passed, 4 failed
 T
-C group_test.nomi@8d82ddb1e4adce66
-E 0
-N 0
-H e019c6e21c78ff249c81afe7868bda70b47a34ab26570bb52c25d9e725941521
-S -- counter_app.nomi 6100 --
-S //# A single long-lived worker owning mutable state, driven by messages.
-S //#
-S //# This is the shape you reach for when several callers need to share
-S //# state that has to change: instead of guarding it, give it to one task
-S //# and talk to that task. Nothing else can reach the state, and one task
-S //# handles one message at a time, so there is nothing to guard.
-S //#
-S //# **The server is a value started by a helper.** `start()` builds
-S //# the inbox, the group, and the worker, and hands back the one field the
-S //# app's config struct stores. Callers touch neither a channel nor a group.
-S //#
-S //# Owning its group is what lets the server declare `Restart.Permanent`
-S //# — a worker meant to run until something stops it has failed if it
-S //# returns on its own. A group shared with one-shot work could not say
-S //# that, since for that work returning is exactly the point.
-S //#
-S //# The state lives in `Iter.loop`'s accumulator, inside the task. That is
-S //# what makes it private: a binding inside a running task is not
-S //# reachable from anywhere else, so "who else might be writing this?" has
-S //# one answer, and it is nobody.
-S
-S import {
-S     std/channels.{Channel, Receiver, Sender}
-S     std/duration.Duration
-S     std/io
-S     std/supervisors.{Backoff, Restart, Supervisor}
-S }
-S
-S /// What callers can ask the worker to do.
-S ///
-S /// `Increment` is fire-and-forget. `Get` needs an answer, so it carries
-S /// the channel to answer on — a request wanting a reply brings its own
-S /// return address, since a channel only goes one way.
-S pub enum Request {
-S     Increment Int
-S     Get {reply: Channel<Int>}
-S     Explode
-S }
-S
-S /// A running counter. Holding one is how you address the worker; the
-S /// channel inside is an implementation detail callers never see.
-S pub struct Counter {
-S     inbox: Channel<Request>
-S }
-S
-S /// Create the inbox, the group, and the worker. One call, and the
-S /// caller stores one field.
-S ///
-S /// Creating the group here is legal because `boot` calls this — the
-S /// rule is that groups are created *during* boot, not that the call is
-S /// written inside it. Calling `start()` from anywhere boot does not reach is a
-S /// compile error.
-S ///
-S /// Owning its own group is what lets the server set
-S /// `Restart.Permanent`. A shared group cannot: permanence says
-S /// returning is a failure, which is right for this worker and wrong for
-S /// the one-shot work that would sit beside it.
-S fn start(): Counter {
-S     inbox = Channel.buffered<Request>(16)
-S
-S     // The group handle is not kept. Every group is registered with the
-S     // runtime when it is created, and shutdown drains all of them, so
-S     // holding one only matters if you want to `Supervisor.flush` on it —
-S     // which for a permanent worker you cannot do anyway, since it never
-S     // finishes.
-S     _ =
-S         Supervisor.new(
-S             shutdown_timeout: Duration.seconds(5),
-S             max_running: 1,
-S             restart: Restart.Permanent,
-S             backoff: Backoff.Exponential{
-S                 max_restarts: 3,
-S                 max_elapsed: Duration.minutes(5),
-S             },
-S         )
-S         |> Supervisor.spawn(|| serve(inbox))
-S
-S     Counter{inbox}
-S }
-S
-S /// The worker. Runs until its inbox closes or shutdown cancels it.
-S ///
-S /// `count` is the state. It is an ordinary loop accumulator, so each
-S /// branch returns the next value: updating the state and returning from
-S /// the handler are the same act, and there is no way to forget one.
-S ///
-S /// What serializes the work is that exactly one of these runs per
-S /// inbox — not the group's `max_running`, which is about how much of
-S /// the group's whole workload runs at once.
-S fn serve(inbox: Channel<Request>): Unit {
-S     _final = Iter.loop(|count = 0|
-S         case Receiver.receive(inbox.receiver) {
-S             Some(Request.Increment(n)) ->
-S                 count + n
-S
-S             Some(Request.Get{reply}) -> {
-S                 // Best-effort: a caller that gave up is not worth crashing over.
-S                 _ = Sender.send(reply.sender, count)
-S                 count
-S             }
-S
-S             // Stands in for a handler with a bug in it.
-S             Some(Request.Explode) ->
-S                 count / 0
-S
-S             // The inbox closed and drained: no more work is coming.
-S             None ->
-S                 break count
-S         }
-S     )
-S
-S     Unit
-S }
-S
-S /// Fire-and-forget: returns as soon as the message is queued.
-S pub fn increment(counter: Counter, n: Int): Unit {
-S     case Sender.send(counter.inbox.sender, Request.Increment(n)) {
-S         Ok(_) -> Unit
-S         Err(_) -> Unit
-S     }
-S }
-S
-S /// Ask and wait. The reply channel is made per call, so two callers in
-S /// flight can never take each other's answer.
-S ///
-S /// Capacity 1 so the worker never blocks handing the reply back, even
-S /// if this caller has already given up and stopped listening.
-S pub fn get(counter: Counter): Int {
-S     reply = Channel.buffered<Int>(1)
-S     _ = Sender.send(counter.inbox.sender, Request.Get{reply})
-S
-S     case Receiver.receive(reply.receiver) {
-S         Some(v) -> v
-S         None -> 0
-S     }
-S }
-S
-S pub fn explode(counter: Counter): Unit {
-S     case Sender.send(counter.inbox.sender, Request.Explode) {
-S         Ok(_) -> Unit
-S         Err(_) -> Unit
-S     }
-S }
-S
-S // There is deliberately no `flush` here.
-S //
-S // `Supervisor.flush` waits for a group's tasks to *finish*, and a
-S // permanent worker never does — waiting on this server's group blocks
-S // until shutdown cancels it, which under a virtual clock is reported as
-S // a deadlock. It is the right answer to the wrong question.
-S //
-S // `get` is the synchronisation point instead: it round-trips through
-S // the worker, so everything queued before it has necessarily been
-S // handled by the time it returns. A request that wants an answer is
-S // also a barrier.
-S pub struct Config {
-S     context: Context
-S
-S     // One field. The server owns its inbox, its group, and its policy, so
-S     // adding a second server adds one more field and nothing else.
-S     counter: Counter
-S }
-S
-S pub fn boot(): Config {
-S     Config{context: Context.root(), counter: start()}
-S }
-S
-S fn main() {
-S     increment(Config.counter, 5)
-S     increment(Config.counter, 7)
-S     io.print("count=${get(Config.counter)}")
-S }
-S
-S -- group_test.nomi 2354 --
-S // Exercises the message-driven counter in counter_app.nomi, booted as that
-S // entry file boots it.
-S import {
-S     std/testing.Clock
-S     counter_app.{self, Config, explode, get, increment}
-S }
-S
-S tests "a message-driven worker" {
-S     // Nothing here sleeps, but the worker blocks on its inbox and the group
-S     // drains at the end of every case — all of which a virtual clock makes
-S     // instant and repeatable.
-S     clock Clock.Virtual
-S
-S     boot counter_app.boot()
-S
-S     test "messages accumulate into state a caller can read back" {
-S         increment(Config.counter, 5)
-S         increment(Config.counter, 7)
-S
-S         assert get(Config.counter) == 12
-S     }
-S
-S     test "each caller gets its own reply" {
-S         increment(Config.counter, 1)
-S         first = get(Config.counter)
-S         increment(Config.counter, 1)
-S         second = get(Config.counter)
-S
-S         assert first == 1
-S         assert second == 2
-S     }
-S
-S     test "a handler that breaks restarts the worker with fresh state" {
-S         increment(Config.counter, 5)
-S         explode(Config.counter) // the handler divides by zero
-S         increment(Config.counter, 7)
-S
-S         // The group re-invoked the spawn's closure, so the loop started over
-S         // from 0 and only the message after the crash counts. Restarting
-S         // rebuilds state, exactly as re-running the function would — there is
-S         // nothing else it could do, since the closure is the only description
-S         // of the work.
-S         //
-S         // Note what survived: the inbox. The closure captured it, so the
-S         // restarted worker reads the same channel and messages queued during
-S         // the crash are still there. The failed message itself is gone,
-S         // consumed before the handler broke, so a poison message cannot loop.
-S         assert get(Config.counter) == 7
-S     }
-S
-S     test "a call observes every cast queued before it" {
-S         // Casts return as soon as the message is queued, so nothing here has
-S         // necessarily run yet.
-S         increment(Config.counter, 1)
-S         increment(Config.counter, 2)
-S         increment(Config.counter, 3)
-S
-S         // The inbox is FIFO and one worker drains it, so this reply cannot
-S         // come back before all three have been applied. That ordering is the
-S         // whole reason to put state behind a single task.
-S         assert get(Config.counter) == 6
-S     }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: a message-driven worker / messages accumulate into state a caller can read back
-T ok <dir>/group_test.nomi :: a message-driven worker / each caller gets its own reply
-T ok <dir>/group_test.nomi :: a message-driven worker / a handler that breaks restarts the worker with fresh state
-T ok <dir>/group_test.nomi :: a message-driven worker / a call observes every cast queued before it
-T test result: ok. 4 passed, 0 failed
-T --- stderr ---
-T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
-T
-C group_test.nomi@b904b2db89bc1c7f
-E 0
-N 0
-H 1a684ae52eb5443ab1db810b2a2cf2e83c63f6f03504a22e0e59cb410a2c70c0
-S -- group_test.nomi 547 --
-S pub struct App {
-S   context: Context
-S   label: String
-S }
-S
-S pub fn boot(): App {
-S   App{context: Context.root(), label: "booted"}
-S }
-S
-S fn main() {}
-S
-S fn label(): String {
-S   App.label
-S }
-S
-S tests "group" {
-S   boot boot()
-S
-S   test "plain" {
-S     assert App.label == "booted"
-S   }
-S }
-S
-S tests "overridden" {
-S   boot boot()
-S   setup {
-S     with App.label = "set up"
-S   }
-S
-S   test "reads the setup's override" {
-S     assert App.label == "set up"
-S     assert label() == "set up"
-S   }
-S
-S   test "reads its own override" {
-S     with App.label = "own"
-S     assert label() == "own"
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: group / plain
-T ok <dir>/group_test.nomi :: overridden / reads the setup's override
-T ok <dir>/group_test.nomi :: overridden / reads its own override
-T test result: ok. 3 passed, 0 failed
-T
-C group_test.nomi@c539380e2ff7e115
-E 0
-N 0
-H 0a5fde324db6f998faf15d5b5166759a09335b74e58d8dd0afe02f5bdbacb723
-S -- group_test.nomi 704 --
-S import std/io
-S
-S pub struct App {
-S   context: Context
-S   label: String
-S }
-S
-S pub fn boot(startup: Startup): App {
-S   io.print("boot ${startup.args}")
-S   App{context: Context.root(), label: "booted"}
-S }
-S
-S fn main() {}
-S
-S fn show(suffix: String): String {
-S   App.label + suffix
-S }
-S
-S tests "group" {
-S   boot boot(Startup{args: ["group"]})
-S   setup {n: 1, word: "one"}
-S
-S   test "reads the app and the setup value", {n, word} {
-S     io.print(show("!"))
-S     assert App.label == "booted"
-S     assert n == 1
-S     assert word == "one"
-S   }
-S
-S   test "binds the value with a name", value {
-S     assert value.n == 1
-S   }
-S
-S   test "binds the value with a nested pattern", {n: count, word} {
-S     assert count == 1
-S     assert word == "one"
-S   }
-S }
-S
-S
-T ok <dir>/group_test.nomi :: group / reads the app and the setup value
-T   boot [group]
-T   booted!
-T ok <dir>/group_test.nomi :: group / binds the value with a name
-T   boot [group]
-T ok <dir>/group_test.nomi :: group / binds the value with a nested pattern
-T   boot [group]
-T test result: ok. 3 passed, 0 failed
-T
-C group_test.nomi@d16d4f46a98e389b
+C group_test.nomi@b89390a169e68832
 E 0
 N 0
 H e8994ff90edd03de4b314b360c40e4b743f9aba4b4910c4f8d4b3eb54324ef10
@@ -2405,7 +2135,7 @@ S import std/io
 S
 S fn main() {}
 S
-S tests "plain return" {
+S group "plain return" {
 S   setup {
 S     x = 1
 S     return x + 1
@@ -2416,7 +2146,7 @@ S     assert v == 2
 S   }
 S }
 S
-S tests "early return" {
+S group "early return" {
 S   setup {
 S     flag = True
 S     if flag {
@@ -2433,7 +2163,7 @@ S     assert v == "early"
 S   }
 S }
 S
-S tests "falls past an early return" {
+S group "falls past an early return" {
 S   setup {
 S     flag = False
 S     if flag {
@@ -2448,7 +2178,7 @@ S     assert s == "two"
 S   }
 S }
 S
-S tests "return in a case arm" {
+S group "return in a case arm" {
 S   setup {
 S     case Some(3) {
 S       Some(n) -> return n * 10
@@ -2462,7 +2192,7 @@ S     assert v == 30
 S   }
 S }
 S
-S tests "return from a block" {
+S group "return from a block" {
 S   setup {
 S     {
 S       defer io.print("block closed")
@@ -2477,7 +2207,7 @@ S     assert v == 7
 S   }
 S }
 S
-S tests "bare return in a Unit setup" {
+S group "bare return in a Unit setup" {
 S   setup {
 S     io.print("before")
 S     if True {
@@ -2508,93 +2238,111 @@ T   before
 T   body after a bare return
 T test result: ok. 6 passed, 0 failed
 T
-C group_test.nomi@ee225614263307ee
+C group_test.nomi@c32fdd6ebcdd40f4
 E 0
 N 0
-H 236157263803fe1ce52c0756ac47ff1846250a9cdb21ccb4902b0a258d0cde29
-S -- group_test.nomi 666 --
+H 98afb7ef4d52deb592cc504b06e20f03e8c5f2f0e6be9c92f520b0554853bb20
+S -- group_test.nomi 956 --
 S import {
+S   std/channels.{Channel, Receiver, Sender}
 S   std/duration.Duration
-S   std/io
-S   std/supervisors.Supervisor
+S   std/supervisors.{Restart, Supervisor}
 S   std/testing.Clock
-S   std/timer
 S }
 S
 S pub struct App {
 S   context: Context
-S   work: Supervisor
+S   done: Channel<Int>
+S }
+S
+S fn group(timeout: Duration): Supervisor {
+S   Supervisor.new(shutdown_timeout: timeout, max_running: 2, restart: Restart.Temporary)
+S }
+S
+S fn start(done: Channel<Int>): Unit {
+S   _ = Supervisor.spawn(group(Duration.seconds(1)), || report(done, 1))
+S   _ = group(Duration.seconds(2)) |> Supervisor.spawn(|| report(done, 2))
+S   Unit
+S }
+S
+S fn report(done: Channel<Int>, n: Int): Unit {
+S   _ = Sender.send(done.sender, n)
+S   Unit
 S }
 S
 S pub fn boot(): App {
-S   App{context: Context.root(), work: Supervisor.new(max_running: 2)}
+S   done = Channel.buffered<Int>(4)
+S   start(done)
+S   App{context: Context.root(), done}
 S }
 S
 S fn main() {}
 S
-S fn slow(): Unit {
-S   timer.sleep(Duration.minutes(10))
-S   io.print("slow work done")
-S }
-S
-S tests "virtual" {
+S group "spawn over a called supervisor" {
 S   clock Clock.Virtual
 S
 S   boot boot()
 S
-S   test "an hour passes at once" {
-S     timer.sleep(Duration.minutes(60))
-S     assert 1 == 1
-S   }
-S
-S   test "a group's work is flushed in virtual time" {
-S     _ = Supervisor.spawn(App.work, || slow())
-S     _ = Supervisor.flush(App.work)
-S     assert 2 == 2
+S   test "both tasks report" {
+S     a = Receiver.receive(App.done.receiver)
+S     b = Receiver.receive(App.done.receiver)
+S     assert a != b
 S   }
 S }
 S
 S
-T ok <dir>/group_test.nomi :: virtual / an hour passes at once
-T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual time
-T   slow work done
-T test result: ok. 2 passed, 0 failed
+T ok <dir>/group_test.nomi :: spawn over a called supervisor / both tasks report
+T test result: ok. 1 passed, 0 failed
 T
-C group_test.nomi@fdc9b1f86c304117
+C group_test.nomi@f07073ac268594cb
 E 0
 N 0
-H 948b5dec549328c30d9c542c0d6ad177d80e5f6e8ade95edf28086511cc9082d
-S -- group_test.nomi 133 --
+H 350efb91cc8aa888cdfe1c8f9e305e4e5cc50526e58f2273a291512d3e7c10a0
+S -- group_test.nomi 275 --
 S import {
 S   server.{self, App}
 S }
 S
-S tests "group" {
+S group "defaulted" {
 S   boot server.boot()
 S
-S   test "reads the app" {
-S     assert App.label == "zero"
+S   test "reads the default" {
+S     assert App.first == "default"
 S   }
 S }
 S
-S -- server.nomi 128 --
+S group "given" {
+S   boot server.boot(Startup{args: ["given"]})
+S
+S   test "reads the argument" {
+S     assert App.first == "given"
+S   }
+S }
+S
+S -- server.nomi 292 --
 S import std/io
 S
 S pub struct App {
-S   label: String
+S   first: String
 S }
 S
-S pub fn boot(): App {
-S   io.print("boot")
-S   App{label: "zero"}
+S fn default_startup(): Startup {
+S   Startup{args: ["default"]}
+S }
+S
+S pub fn boot(startup: Startup = default_startup()): App {
+S   io.print("boot ${startup.args}")
+S   App{first: Iter.first(startup.args) |> Maybe.with_default("none")}
 S }
 S
 S fn main() {}
 S
 S
-T ok <dir>/group_test.nomi :: group / reads the app
-T   boot
-T test result: ok. 1 passed, 0 failed
+T ok <dir>/group_test.nomi :: defaulted / reads the default
+T   boot [default]
+T ok <dir>/group_test.nomi :: given / reads the argument
+T   boot [given]
+T test result: ok. 2 passed, 0 failed
 T
 C internal/irbuild/testdata/anon_recursive.nomi@0e9a7ac92140d8ed
 E 0
@@ -2642,7 +2390,7 @@ T       rec
 T         = {x: 1, y: 2}
 T test result: FAILED. 0 passed, 2 failed
 T
-C internal/irbuild/testdata/app_fields.nomi@f7c7c3937eb5cd5a
+C internal/irbuild/testdata/app_fields.nomi@ca6e8d55a8fea125
 E 0
 N 0
 H 7ef896e652c3cf6733ae111b5434bc308b4ca1835f7401521b811dcc7774a4e7
@@ -3576,7 +3324,7 @@ T       r
 T         = Rev{alpha: 4, zeta: 3}
 T test result: FAILED. 5 passed, 4 failed
 T
-C internal/irbuild/testdata/deadline_blocking_wait.nomi@f6b62403d7a27201
+C internal/irbuild/testdata/deadline_blocking_wait.nomi@1e81839e78e420b8
 E 0
 N 0
 H 99041651e44e3948c0b6db44037aee8b5eb003b29854425587e7c7da9631798a
@@ -7114,7 +6862,7 @@ T       double(3)
 T         = 6
 T test result: FAILED. 0 passed, 1 failed
 T
-C internal/irbuild/testdata/tests_group.nomi@20d12e58ff598584
+C internal/irbuild/testdata/tests_group.nomi@1e509f9c0a452e1b
 E 0
 N 0
 H 2dcd1622d08a6dd0c1b0d02cf6a213ac40f6443439f0868d73b06877c254f9b2
@@ -7127,7 +6875,7 @@ T ok <dir>/tests_group.nomi :: unit / a setup may answer Unit
 T ok <dir>/tests_group.nomi :: a file-scope case stands beside a group
 T test result: ok. 7 passed, 0 failed
 T
-C internal/irbuild/testdata/tests_group_failure.nomi@d4ede534de684f20
+C internal/irbuild/testdata/tests_group_failure.nomi@4e39fcb296d9c990
 E 1
 N 0
 H 14bedb17428e18b23f0aa2364d7c220464f274c915347fe7e313b4542578b600
@@ -7893,7 +7641,7 @@ T iter3 [6, 8]
 T iter filter 1
 T iter sort [1, 2, 3]
 T
-C internal/irbuild/testdata/virtual_clock.nomi@d8c9dd1e9da78897
+C internal/irbuild/testdata/virtual_clock.nomi@f3594c12238a6896
 E 0
 N 0
 H 3ddcd6dc30fe885646e6b0193751090df8929ca2e308a235c743012c94a115c2
@@ -7906,7 +7654,7 @@ T ok <dir>/virtual_clock.nomi :: back on the system clock / a tiny real sleep st
 T ok <dir>/virtual_clock.nomi :: no clause / the real clock is the default
 T test result: ok. 6 passed, 0 failed
 T
-C internal/irbuild/testdata/virtual_clock_trap.nomi@52945a5de397cdff
+C internal/irbuild/testdata/virtual_clock_trap.nomi@9fbbcbc3ceec293e
 E 1
 N 0
 H d336d73a7aefd22dc4d91ed67e0ede60a131fd45b613ca6d6af26a403dd92d6c
@@ -8449,6 +8197,92 @@ T ok <dir>/main_test.nomi :: an imported fn
 T ok <dir>/main_test.nomi :: an owner-qualified impl fn
 T test result: ok. 4 passed, 0 failed
 T
+C pattern_test.nomi@43d9cf2cd7f6b043
+E 1
+N 0
+H 06e6aaa123045012d0b879deabf75a3db216dfca6d2cfddc9c78325540f6b499
+S -- pattern_test.nomi 1266 --
+S import {
+S   std/duration.Duration
+S   std/instant.Instant
+S   std/tasks.Task
+S   std/testing.Clock
+S   std/timer
+S }
+S
+S fn long_sleep(): Unit {
+S   timer.sleep(Duration.seconds(5))
+S }
+S
+S fn short_fail(): Result<Int, String> {
+S   Err("boom")
+S }
+S
+S fn pair_of(): (Int, String) {
+S   (1, "one")
+S }
+S
+S group "sibling cancellation under a virtual clock" {
+S   clock Clock.Virtual
+S
+S   test "a short-circuit cancels its siblings instead of waiting for them" {
+S     before = Instant.now()
+S
+S     outcome = concurrent {
+S       short = Task.spawn(|| short_fail())
+S       long = Task.spawn(|| long_sleep())
+S       _l = long
+S       Ok(try Task.await(short))
+S     }
+S
+S     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
+S
+S     assert Err(e) = outcome
+S     assert e == "boom"
+S     assert elapsed == 0
+S   }
+S
+S   test "a failing pattern over a concurrent block shows its definition" {
+S     outcome = concurrent {
+S       short = Task.spawn(|| short_fail())
+S       Ok(try Task.await(short))
+S     }
+S
+S     assert Ok(n) = outcome
+S     assert n == 1
+S   }
+S
+S   test "a tuple pattern binds both parts" {
+S     pair = pair_of()
+S     assert (n, word) = pair
+S     assert n == 1
+S     assert word == "one"
+S   }
+S
+S   test "a list pattern that does not match shows the whole list" {
+S     assert [a, b] = ["one"]
+S     assert a == b
+S   }
+S }
+S
+S
+T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a short-circuit cancels its siblings instead of waiting for them
+T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a failing pattern over a concurrent block shows its definition
+T   line 47: pattern did not match
+T     assert Ok(n) = outcome
+T     defined as:
+T       concurrent {
+T           short = Task.spawn(|| short_fail())
+T           Ok(try Task.await(short))
+T       }
+T     actual: Err("boom")
+T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a tuple pattern binds both parts
+T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a list pattern that does not match shows the whole list
+T   line 59: pattern did not match
+T     assert [a, b] = ["one"]
+T     actual: ["one"]
+T test result: FAILED. 2 passed, 2 failed
+T
 C pattern_test.nomi@577f9c437ad436fb
 E 1
 N 0
@@ -8607,92 +8441,6 @@ T     defined as:
 T       3 < 4
 T ok <dir>/pattern_test.nomi :: a passing bare name
 T test result: FAILED. 4 passed, 7 failed
-T
-C pattern_test.nomi@c22dcbba632d2399
-E 1
-N 0
-H 06e6aaa123045012d0b879deabf75a3db216dfca6d2cfddc9c78325540f6b499
-S -- pattern_test.nomi 1266 --
-S import {
-S   std/duration.Duration
-S   std/instant.Instant
-S   std/tasks.Task
-S   std/testing.Clock
-S   std/timer
-S }
-S
-S fn long_sleep(): Unit {
-S   timer.sleep(Duration.seconds(5))
-S }
-S
-S fn short_fail(): Result<Int, String> {
-S   Err("boom")
-S }
-S
-S fn pair_of(): (Int, String) {
-S   (1, "one")
-S }
-S
-S tests "sibling cancellation under a virtual clock" {
-S   clock Clock.Virtual
-S
-S   test "a short-circuit cancels its siblings instead of waiting for them" {
-S     before = Instant.now()
-S
-S     outcome = concurrent {
-S       short = Task.spawn(|| short_fail())
-S       long = Task.spawn(|| long_sleep())
-S       _l = long
-S       Ok(try Task.await(short))
-S     }
-S
-S     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
-S
-S     assert Err(e) = outcome
-S     assert e == "boom"
-S     assert elapsed == 0
-S   }
-S
-S   test "a failing pattern over a concurrent block shows its definition" {
-S     outcome = concurrent {
-S       short = Task.spawn(|| short_fail())
-S       Ok(try Task.await(short))
-S     }
-S
-S     assert Ok(n) = outcome
-S     assert n == 1
-S   }
-S
-S   test "a tuple pattern binds both parts" {
-S     pair = pair_of()
-S     assert (n, word) = pair
-S     assert n == 1
-S     assert word == "one"
-S   }
-S
-S   test "a list pattern that does not match shows the whole list" {
-S     assert [a, b] = ["one"]
-S     assert a == b
-S   }
-S }
-S
-S
-T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a short-circuit cancels its siblings instead of waiting for them
-T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a failing pattern over a concurrent block shows its definition
-T   line 47: pattern did not match
-T     assert Ok(n) = outcome
-T     defined as:
-T       concurrent {
-T           short = Task.spawn(|| short_fail())
-T           Ok(try Task.await(short))
-T       }
-T     actual: Err("boom")
-T ok <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a tuple pattern binds both parts
-T FAIL <dir>/pattern_test.nomi :: sibling cancellation under a virtual clock / a list pattern that does not match shows the whole list
-T   line 59: pattern did not match
-T     assert [a, b] = ["one"]
-T     actual: ["one"]
-T test result: FAILED. 2 passed, 2 failed
 T
 C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@46bd374e0222dba8
 E 0
@@ -8945,7 +8693,7 @@ T [INFO] hello, Ada
 T [WARN] config checked
 T console ready
 T
-C tests/16-concurrency/supervisors/supervisors_test.nomi@0956e2f9fdaad93c
+C tests/16-concurrency/supervisors/supervisors_test.nomi@e72f641043ce63c6
 E 0
 N 0
 H d2caeccdfc0a9c5e2d9a1ecff6e49c162eb0c8e7eaa586b4fe9f2ddebefe06fe

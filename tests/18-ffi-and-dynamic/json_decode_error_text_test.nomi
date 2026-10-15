@@ -33,7 +33,7 @@ fn decode_error(src: String): String {
     }
 }
 
-tests "Json.decode error text (Nomi-owned contract)" {
+group "Json.decode error text (Nomi-owned contract)" {
     test "an unexpected character is named, and located at itself" {
         assert decode_error(
             "not json"

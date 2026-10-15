@@ -398,6 +398,9 @@ type gen struct {
 	// "a user file reaching std" has to be able to recognise the one file the
 	// rule cannot sensibly be applied to. See loadIter's declaresStdIter.
 	stdModule string
+	// skipLint is set on the gen lowering one module of the embedded stdlib
+	// when lintEmbeddedStdlib is off; irLint and irLintAdded then do nothing.
+	skipLint bool
 	// fa is the module's own analysis, or nil. Read for exactly one thing:
 	// the type the checker SOLVED for a construct the AST does not annotate.
 	// See inferred.go — every read goes through inferredKind, so there is one
@@ -453,7 +456,7 @@ type gen struct {
 	// irHostKeys are the extern keys this unit's Go-bound `host fn` bodies
 	// cross under. See irhostfn.go.
 	irHostKeys []string
-	// irTestBoots are the `tests` group boots this unit has offered for VM
+	// irTestBoots are the `group` boots this unit has offered for VM
 	// retention, in the order cases first staged them.
 	irTestBoots []*ir.Symbol
 	// irTestRetries are the ungrouped cases whose VM-only attempt runs

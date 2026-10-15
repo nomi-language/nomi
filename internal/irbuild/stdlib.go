@@ -805,11 +805,14 @@ func buildStdlibIndex() *stdlibIndex {
 		// against this exact context. See stdlibIndex.views for why re-deriving
 		// it is unsound rather than merely wasteful.
 		v := stdModuleContext(name, path, pkg, nodes, lib.Files[name], idx)
+		v.embedded = true
 		idx.views[name] = v
 		funcs, onces, irModule := lowerStdlibModule(v, idx)
 		// A module none of whose bodies lowered holds nothing to link.
 		if irModule != nil && (len(irModule.Funcs()) > 0 || len(irModule.Cells()) > 0) {
-			irLintFinished(irModule)
+			if lintEmbeddedStdlib {
+				irLintFinished(irModule)
+			}
 			idx.irModules[pkg] = irModule
 		}
 		if len(v.unlowered) > 0 {
@@ -1366,6 +1369,7 @@ func lowerStdlibModule(v *stdModuleView, earlier *stdlibIndex) (funcs []*stdFunc
 	cands, onces, settled, withCycles := v.cands, v.onces, v.settled, v.withCycles
 
 	g := v.gen(earlier)
+	g.skipLint = v.embedded && !lintEmbeddedStdlib
 	// The bindings before the bodies, because a body may read one and the text
 	// then reads in the order the declarations are written. An emitted binding
 	// counts as output on its own: a module with a lowerable `once` and no

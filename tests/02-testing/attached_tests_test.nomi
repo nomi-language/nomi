@@ -17,7 +17,7 @@ test "renders labels" {
     assert render(Label{text: "ready"}) == "[ready]"
 }
 
-tests "nested examples" {
+group "nested examples" {
     test "done label" {
         assert render(Label{text: "done"}) == "[done]"
     }

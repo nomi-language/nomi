@@ -19,7 +19,7 @@
     },
     "line": {
       "type": ["integer", "string"],
-      "description": "In test mode, debug only the test, `tests` group or `//!` attached test starting on this line, as `nomi test --line` selects it."
+      "description": "In test mode, debug only the test, `group` or `//!` attached test starting on this line, as `nomi test --line` selects it."
     },
     "args": {
       "type": "array",

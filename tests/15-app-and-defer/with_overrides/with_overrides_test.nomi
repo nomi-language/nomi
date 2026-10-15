@@ -31,7 +31,7 @@ fn labeller(): () -> String {
     || label()
 }
 
-tests "with" {
+group "with" {
     boot app.boot()
 
     test "a .Variant value takes the field's enum" {

@@ -50,7 +50,7 @@ func TestFormat_TrailingComment_OtherItemPositions(t *testing.T) {
 		"import block": "import {\n    std/math // m\n    std/strings // s\n}\n",
 		"binding":      "fn main() {\n    x = 1 // x\n    y: Int = x + 1 // y\n}\n",
 		"case arm":     "fn f(x: Int): Int {\n    case x {\n        1 -> 2 // one\n        _ -> 3 // other\n    }\n}\n",
-		"tests group":  "tests \"g\" {\n    clock Clock.Virtual // c\n\n    boot server.boot() // b\n    setup {name: \"x\"} // s\n\n    test \"a\", {name} {\n        assert name == \"x\" // a\n    } // end\n}\n",
+		"group":        "group \"g\" {\n    clock Clock.Virtual // c\n\n    boot server.boot() // b\n    setup {name: \"x\"} // s\n\n    test \"a\", {name} {\n        assert name == \"x\" // a\n    } // end\n}\n",
 	} {
 		t.Run(name, func(t *testing.T) { roundTrip(t, src) })
 	}

@@ -176,7 +176,7 @@ func (g *gen) loadIter() {
 		// construction rather than by a resolution this builder followed — and
 		// rule 2 still gates it, so a file with its own `impl Iter` block
 		// declines here regardless.
-		scope := g.fa.StdlibModuleScopes["iter"]
+		scope := g.fa.Program().StdlibModuleScopes["iter"]
 		if scope == nil {
 			return
 		}

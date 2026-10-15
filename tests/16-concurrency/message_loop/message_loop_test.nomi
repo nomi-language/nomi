@@ -5,7 +5,7 @@ import {
     counter_app.{self, Config, explode, get, increment}
 }
 
-tests "a message-driven worker" {
+group "a message-driven worker" {
     // Nothing here sleeps, but the worker blocks on its inbox and the group
     // drains at the end of every case — all of which a virtual clock makes
     // instant and repeatable.

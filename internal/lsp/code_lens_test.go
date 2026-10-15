@@ -34,7 +34,7 @@ test "doubles" {
     assert double(3) == 6
 }
 
-tests "boxes" {
+group "boxes" {
     test "get" {
         assert Box.get(Box{n: 2}) == 2
     }
@@ -74,8 +74,8 @@ func TestCodeLens(t *testing.T) {
 		"12:3-12:7 Debug nomi.debugMain ",
 		"16:0-16:4 Run test nomi.runTest 17",
 		"16:0-16:4 Debug test nomi.debugTest 17",
-		"20:0-20:5 Run tests nomi.runTest 21",
-		"20:0-20:5 Debug tests nomi.debugTest 21",
+		"20:0-20:5 Run group nomi.runTest 21",
+		"20:0-20:5 Debug group nomi.debugTest 21",
 		"21:4-21:8 Run test nomi.runTest 22",
 		"21:4-21:8 Debug test nomi.debugTest 22",
 		"25:4-25:8 Run test nomi.runTest 26",

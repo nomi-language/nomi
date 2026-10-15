@@ -120,7 +120,7 @@ type irScalarBuilder struct {
 	// read. See irtestgroup.go.
 	testApp bool
 	// testWalked is set for a test body the builder never reads back: one
-	// built for the VM only, such as a case under a `tests` group. Gates that
+	// built for the VM only, such as a case under a `group`. Gates that
 	// that once kept a test body narrow do not apply
 	// to it.
 	testWalked bool
@@ -917,7 +917,7 @@ func stdDeclaringSymbol(fa *analysis.FileAnalysis, origin, name string) *analysi
 		scope = fa.ModuleScope
 	}
 	if scope == nil {
-		scope = fa.StdlibModuleScopes[strings.TrimPrefix(origin, "std/")]
+		scope = fa.Program().StdlibModuleScopes[strings.TrimPrefix(origin, "std/")]
 	}
 	if scope == nil {
 		return nil
@@ -1111,7 +1111,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	// file's scope; the bare call reaches the same impl plan the qualified
 	// spelling reaches.
 	if _, local := bl.g.funcs[callee.Name]; !local && !hasNamed && bl.g.std != nil {
-		if sym := resolvedBareSymbolAt(bl.g.fa, callee); sym != nil && sym.OwningType != "" && sym.Name != "" &&
+		if sym := resolvedBareSymbolAt(bl.g.srcFA(), callee); sym != nil && sym.OwningType != "" && sym.Name != "" &&
 			len(bl.g.std.byType[sym.OwningType+"."+sym.Name]) != 0 {
 			_, localType := bl.g.types[sym.OwningType]
 			_, localIface := bl.g.ifaces[sym.OwningType]
@@ -1140,7 +1140,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	}
 	sig := bl.g.funcs[callee.Name]
 	if sig == nil && !hasNamed {
-		if key, output := stdBareOutputKey(bl.g.fa, callee); output || bl.inStdIO() && bl.ownOutputKey(callee, &key) {
+		if key, output := stdBareOutputKey(bl.g.srcFA(), callee); output || bl.inStdIO() && bl.ownOutputKey(callee, &key) {
 			// `import std/io.print` then `print(x)`: io.print itself.
 			return bl.hostOutputKey(t, key)
 		}
@@ -1151,7 +1151,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 				return v, k, mobile, ok
 			}
 		}
-		if module, name, isStd := stdBareFileFunc(bl.g.fa, callee); isStd {
+		if module, name, isStd := stdBareFileFunc(bl.g.srcFA(), callee); isStd {
 			// `import std/io.read_line` then `read_line()`: the call
 			// `io.read_line()` plans, under any alias the import gave it.
 			lower := func() (ir.Temp, kind, bool, bool) {
@@ -1171,7 +1171,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	if sig == nil && bl.g.files != nil {
-		if site, ok := bl.g.files.lookupBare(bl.g.fa, callee); ok && site.fn != nil && site.unit != bl.g.fileUnit {
+		if site, ok := bl.g.files.lookupBare(bl.g.srcFA(), callee); ok && site.fn != nil && site.unit != bl.g.fileUnit {
 			return bl.siblingCall(t, site)
 		}
 	}
@@ -1389,7 +1389,7 @@ func (bl *irScalarBuilder) bareIterLoop(id *ast.Ident) bool {
 			return false
 		}
 	}
-	sym := resolvedBareSymbolAt(bl.g.fa, id)
+	sym := resolvedBareSymbolAt(bl.g.srcFA(), id)
 	return sym != nil && sym.OwningType == "Iter" && sym.Name == "loop" && bl.g.iterOwns("Iter")
 }
 
@@ -1420,10 +1420,10 @@ func (bl *irScalarBuilder) hostOutput(t *ast.Call, fa *ast.FieldAccess) (ir.Temp
 // or inspect brought into scope by a selective import (`import std/io.print`).
 func stdBareOutputKey(fa *analysis.FileAnalysis, id *ast.Ident) (string, bool) {
 	sym := resolvedBareSymbolAt(fa, id)
-	if sym == nil || fa.StdlibModuleScopes == nil {
+	if sym == nil || fa.Program().StdlibModuleScopes == nil {
 		return "", false
 	}
-	io := fa.StdlibModuleScopes["io"]
+	io := fa.Program().StdlibModuleScopes["io"]
 	if io == nil {
 		return "", false
 	}
@@ -1445,7 +1445,7 @@ func (bl *irScalarBuilder) inStdIO() bool {
 // ownOutputKey reports, inside std/io, whether a bare name is the module's
 // own print, write or inspect, and sets key to its host key.
 func (bl *irScalarBuilder) ownOutputKey(id *ast.Ident, key *string) bool {
-	sym := resolvedBareSymbolAt(bl.g.fa, id)
+	sym := resolvedBareSymbolAt(bl.g.srcFA(), id)
 	if sym == nil {
 		return false
 	}

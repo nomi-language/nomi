@@ -30,7 +30,7 @@ type launchArgs struct {
 	// Program is the file to run or test. In run mode a directory names a
 	// project whose nomi.toml lists one entry point.
 	Program string `json:"program"`
-	// Line selects one test, a `tests` group or a `//!` attached test by a
+	// Line selects one test, a `group` or a `//!` attached test by a
 	// line it starts on, as `nomi test --line` does.
 	Line lineNumber `json:"line"`
 	// Format is a test run's report format: "text" (the default) or

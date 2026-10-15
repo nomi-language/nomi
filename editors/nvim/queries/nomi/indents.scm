@@ -28,7 +28,7 @@
   (struct_construction)
   (struct_pattern)
   (struct_update)
-  (tests_body)
+  (group_body)
   (tuple_expression)
   (tuple_pattern)
   (tuple_type)

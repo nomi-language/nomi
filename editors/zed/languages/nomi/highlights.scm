@@ -235,8 +235,8 @@
 ; Test declarations and assertions.
 (test_declaration
   "test" @keyword)
-(tests_declaration
-  "tests" @keyword)
+(group_declaration
+  "group" @keyword)
 (clock_block
   "clock" @keyword)
 (boot_block

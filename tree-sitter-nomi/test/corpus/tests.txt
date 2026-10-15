@@ -2,7 +2,7 @@
 Group with clock, boot and setup
 ================================================================================
 
-tests "math" {
+group "math" {
   clock Clock.Virtual
   boot server.boot(startup())
 
@@ -28,10 +28,10 @@ tests "math" {
 --------------------------------------------------------------------------------
 
 (source_file
-  (tests_declaration
+  (group_declaration
     (string
       (string_content))
-    (tests_body
+    (group_body
       (clock_block
         (type_field_access
           (type_identifier)
@@ -93,7 +93,7 @@ tests "math" {
 Setup expression bound by a tuple pattern and a name
 ================================================================================
 
-tests "env" {
+group "env" {
   boot boot(Startup{env: Map.empty(), args: []})
   setup (Env{mode: "test"}, 2)
 
@@ -109,10 +109,10 @@ tests "env" {
 --------------------------------------------------------------------------------
 
 (source_file
-  (tests_declaration
+  (group_declaration
     (string
       (string_content))
-    (tests_body
+    (group_body
       (boot_block
         (call_expression
           (identifier)
@@ -158,7 +158,7 @@ tests "env" {
 Setup anonymous struct value bound by a struct pattern
 ================================================================================
 
-tests "user labels" {
+group "user labels" {
   setup {name: "Ada", role: "admin"}
 
   test "uses setup", {name, role} {
@@ -169,10 +169,10 @@ tests "user labels" {
 --------------------------------------------------------------------------------
 
 (source_file
-  (tests_declaration
+  (group_declaration
     (string
       (string_content))
-    (tests_body
+    (group_body
       (setup_block
         (anon_struct
           (anon_struct_field
@@ -449,7 +449,7 @@ fn boot(startup: Startup = Startup{}): App {
   App{}
 }
 
-tests "defaulted" {
+group "defaulted" {
   boot server.boot()
 
   test "runs" {
@@ -479,10 +479,10 @@ tests "defaulted" {
     (body
       (struct_construction
         (type_identifier))))
-  (tests_declaration
+  (group_declaration
     name: (string
       (string_content))
-    (tests_body
+    (group_body
       (boot_block
         boot: (call_expression
           function: (field_access
@@ -499,7 +499,7 @@ tests "defaulted" {
 Group lines in any order, between and after tests
 ================================================================================
 
-tests "any order" {
+group "any order" {
   test "first" {
     assert True
   }
@@ -514,10 +514,10 @@ tests "any order" {
 --------------------------------------------------------------------------------
 
 (source_file
-  (tests_declaration
+  (group_declaration
     name: (string
       (string_content))
-    (tests_body
+    (group_body
       (test_declaration
         name: (string
           (string_content))
@@ -549,7 +549,7 @@ tests "any order" {
 Group setup before boot and clock
 ================================================================================
 
-tests "setup before boot" {
+group "setup before boot" {
   setup fixture()
   boot server.boot()
   clock Clock.Virtual
@@ -561,10 +561,10 @@ tests "setup before boot" {
 --------------------------------------------------------------------------------
 
 (source_file
-  (tests_declaration
+  (group_declaration
     name: (string
       (string_content))
-    (tests_body
+    (group_body
       (setup_block
         body: (call_expression
           function: (identifier)))
@@ -585,4 +585,60 @@ tests "setup before boot" {
           (assertion
             value: (binary_expression
               (identifier)
+              (integer))))))))
+
+================================================================================
+Group as an ordinary name
+================================================================================
+
+fn group(group: Int): Int {
+  tests = group
+  group(tests)
+}
+
+group(3)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (type_identifier)))
+    (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (identifier))
+      (call_expression
+        (identifier)
+        (identifier))))
+  (call_expression
+    (identifier)
+    (integer)))
+
+================================================================================
+Group without a name
+================================================================================
+
+group {
+  test "a" {
+    assert 1 == 1
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (group_declaration
+    (group_body
+      (test_declaration
+        name: (string
+          (string_content))
+        (body
+          (assertion
+            value: (binary_expression
+              (integer)
               (integer))))))))

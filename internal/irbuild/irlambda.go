@@ -350,7 +350,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		}
 	}
 	plan := &irScalarPlan{fn: f, result: k}
-	if err := ir.Lint(f); err != nil {
+	if err := bl.g.irLint(f); err != nil {
 		irDeclineNote("a lambda graph that does not lint: " + err.Error())
 		return no()
 	}
@@ -543,7 +543,7 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	sig := bl.g.funcs[t.Name]
 	if sig == nil && bl.g.files != nil {
 		// `ident` after `import span.{ident}`.
-		if site, ok := bl.g.files.lookupBare(bl.g.fa, t); ok && site.fn != nil && site.unit != bl.g.fileUnit {
+		if site, ok := bl.g.files.lookupBare(bl.g.srcFA(), t); ok && site.fn != nil && site.unit != bl.g.fileUnit {
 			return bl.siblingFuncRef(t, site.unit, site.fn, site.host)
 		}
 	}

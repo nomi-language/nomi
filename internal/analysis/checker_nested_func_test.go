@@ -57,10 +57,10 @@ func TestNestedFunc_BodyIsCheckedInsideATestBody(t *testing.T) {
 }
 
 // TestNestedFunc_BodyIsCheckedInsideAGroupedTestBody covers the recursion: a
-// `tests` group's children are TestDecls of their own, so the signature walk has
+// `group`'s children are TestDecls of their own, so the signature walk has
 // to re-enter itself rather than stop at the outer group.
 func TestNestedFunc_BodyIsCheckedInsideAGroupedTestBody(t *testing.T) {
-	src := `tests "group" {
+	src := `group "group" {
   test "t" {
     fn bad(): Int {
       "nope"

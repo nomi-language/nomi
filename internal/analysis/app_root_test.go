@@ -39,7 +39,7 @@ func TestScopedValuesAcceptBootSignatures(t *testing.T) {
 // argument for a boot with no parameter or a defaulted one, one Startup for a
 // boot that takes one.
 func TestScopedValuesBootLineChecksTheBootsSignature(t *testing.T) {
-	const group = "\ntests \"g\" {\n  boot boot(%s)\n  test \"reads\" { assert MyApp.port >= 0 }\n}"
+	const group = "\ngroup \"g\" {\n  boot boot(%s)\n  test \"reads\" { assert MyApp.port >= 0 }\n}"
 	for _, tc := range []struct{ boot, arg, want string }{
 		{"fn boot(): MyApp { MyApp{port: 3} }", "", ""},
 		{"fn boot(startup: Startup = Startup{}): MyApp { MyApp{port: Iter.count(startup.args)} }", "", ""},

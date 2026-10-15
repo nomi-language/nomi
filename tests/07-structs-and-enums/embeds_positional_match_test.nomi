@@ -41,7 +41,7 @@ fn struct_form(s: Shape): Int {
     }
 }
 
-tests "a bare struct reaching an embeds enum" {
+group "a bare struct reaching an embeds enum" {
     test "the positional pattern matches the bare spelling" {
         coerced: Shape = Circle{r: 1}
 

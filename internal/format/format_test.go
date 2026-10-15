@@ -1780,7 +1780,7 @@ struct Point {
 // A group's `boot` line follows the clock's blank line, its call formats as
 // any call does, and it keeps the author's spacing to the setup line.
 func TestFormat_TestBootLine(t *testing.T) {
-	src := `tests "env" {
+	src := `group "env" {
   clock Clock.Virtual
   boot   server.boot( startup() )
   setup Fixture{port: 3000}
@@ -1789,7 +1789,7 @@ func TestFormat_TestBootLine(t *testing.T) {
   }
 }
 `
-	want := `tests "env" {
+	want := `group "env" {
     clock Clock.Virtual
 
     boot server.boot(startup())
@@ -1806,7 +1806,7 @@ func TestFormat_TestBootLine(t *testing.T) {
 // The comments written above and after a group's `boot` and `setup` lines are
 // the lines' own, and stay where they were written.
 func TestFormat_TestGroupLinesKeepComments(t *testing.T) {
-	src := `tests "g" {
+	src := `group "g" {
     // why this boot
     boot server.boot(startup()) // trailing
     // about setup
@@ -1826,7 +1826,7 @@ func TestFormat_TestGroupLinesKeepComments(t *testing.T) {
 // separates it from its old neighbour, so it is dropped, and the group's
 // layout rules space the result.
 func TestFormat_TestGroupLinesReordered(t *testing.T) {
-	src := `tests "g" {
+	src := `group "g" {
     test "a" {
         assert true
     }
@@ -1840,7 +1840,7 @@ func TestFormat_TestGroupLinesReordered(t *testing.T) {
     clock Clock.Virtual
 }
 `
-	want := `tests "g" {
+	want := `group "g" {
     clock Clock.Virtual
 
     boot server.boot(startup())
@@ -1860,7 +1860,7 @@ func TestFormat_TestGroupLinesReordered(t *testing.T) {
 
 // The comments above a moved line, and the one after it, move with it.
 func TestFormat_TestGroupLinesReorderedKeepComments(t *testing.T) {
-	src := `tests "g" {
+	src := `group "g" {
     test "t", {a} {
         assert a == 1
     }
@@ -1876,7 +1876,7 @@ func TestFormat_TestGroupLinesReorderedKeepComments(t *testing.T) {
     // end of group
 }
 `
-	want := `tests "g" {
+	want := `group "g" {
     // which clock
     clock Clock.Virtual // virtual
 
@@ -1897,7 +1897,7 @@ func TestFormat_TestGroupLinesReorderedKeepComments(t *testing.T) {
 
 // A written setup block moves whole, with its comments.
 func TestFormat_TestGroupSetupBlockReordered(t *testing.T) {
-	src := `tests "g" {
+	src := `group "g" {
     test "t", n {
         assert n == 2
     }
@@ -1908,7 +1908,7 @@ func TestFormat_TestGroupSetupBlockReordered(t *testing.T) {
     }
 }
 `
-	want := `tests "g" {
+	want := `group "g" {
     // build the fixture
     setup {
         x = 1
@@ -1924,7 +1924,7 @@ func TestFormat_TestGroupSetupBlockReordered(t *testing.T) {
 }
 
 func TestFormat_TestSetupExpression(t *testing.T) {
-	src := `tests "fixture" {
+	src := `group "fixture" {
     setup {
         User.fixture()
     }
@@ -1934,7 +1934,7 @@ func TestFormat_TestSetupExpression(t *testing.T) {
     }
 }
 `
-	want := `tests "fixture" {
+	want := `group "fixture" {
     setup User.fixture()
 
     test "reads setup", {name} {
@@ -1949,7 +1949,7 @@ func TestFormat_TestSetupExpression(t *testing.T) {
 }
 
 func TestFormat_TestSetupStructLiteralExpression(t *testing.T) {
-	src := `tests "fixture" {
+	src := `group "fixture" {
     setup {
         User{
             name: "Ada",
@@ -1962,7 +1962,7 @@ func TestFormat_TestSetupStructLiteralExpression(t *testing.T) {
     }
 }
 `
-	want := `tests "fixture" {
+	want := `group "fixture" {
     setup User{
         name: "Ada",
         role: "admin",
@@ -1981,7 +1981,7 @@ func TestFormat_TestSetupStructLiteralExpression(t *testing.T) {
 
 // A test binds its group's setup value with any irrefutable pattern.
 func TestFormat_TestTuplePattern(t *testing.T) {
-	src := `tests "fixture" {
+	src := `group "fixture" {
     setup (1,   "ready")
 
     test "reads setup", (n,  child) {
@@ -1989,7 +1989,7 @@ func TestFormat_TestTuplePattern(t *testing.T) {
     }
 }
 `
-	want := `tests "fixture" {
+	want := `group "fixture" {
     setup (1, "ready")
 
     test "reads setup", (n, child) {

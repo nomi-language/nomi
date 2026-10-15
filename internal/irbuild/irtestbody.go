@@ -36,7 +36,7 @@ package irbuild
 //
 // # What is declined
 //
-//   - A case under a `tests` group: its boot, setup, pattern and clock are
+//   - A case under a `group`: its boot, setup, pattern and clock are
 //     irtestgroup.go's and irtestsetup.go's.
 //   - A bare name bound by a pipe whose stages were not recorded declines. See
 //     irpatternassert.go.
@@ -103,7 +103,7 @@ func (g *gen) irTestBody(c testCaseDecl, name string) *irScalarPlan {
 // irTestBodyDeclare lints a retained body and declares it at position at of
 // this module's test table.
 func (g *gen) irTestBodyDeclare(at int, name string, fn *ir.Func, group ir.TestGroup) {
-	if err := ir.Lint(fn); err != nil {
+	if err := g.irLint(fn); err != nil {
 		// `irScalarLower`'s discipline: a malformed `ir.Func` is a producer
 		// bug with no user input that reaches it, and recording a refusal
 		// instead would let a wrong graph reach a consumer while the tally
@@ -152,7 +152,7 @@ func (g *gen) irTestBodyBuild(c testCaseDecl, name string) (*irScalarPlan, ir.Te
 	}
 	group, ok := g.irTestGroup(c)
 	if !ok {
-		irDeclineNote("a `tests` group setup outside the retained shape")
+		irDeclineNote("a `group` setup outside the retained shape")
 		return nil, ir.TestGroup{}, irTestBodyDeclined
 	}
 	if irTestGrouped(c) {

@@ -258,6 +258,15 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	program := []analysis.ProgramFile{{FA: fa, Nodes: nodes}}
 	for _, key := range sibKeys {
 		sibFA := siblingFAs[key]
+		// A stdlib module the build resolved to the shared analysis was
+		// checked once, by std.Load: its diagnostics are in lib.Errors, and
+		// the build already folded its ImplManifest into the entry's.
+		// Checking it again would write to an analysis every program in the
+		// process reads.
+		if name, shared := c.sharedStdlib(key, sibFA); shared {
+			program = append(program, analysis.ProgramFile{FA: sibFA, Nodes: c.lib.Nodes[name]})
+			continue
+		}
 		own := c.buildErrors(sibFA)
 		sibErrs[key] = append(own, c.kept(analysis.CheckTypes(sibFA, siblingNodes[key]))...)
 		analysis.MergeImplManifest(fa, sibFA)
@@ -272,6 +281,9 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	var sibDiags Diagnostics
 	for _, key := range sibKeys {
 		sibFA := siblingFAs[key]
+		if _, shared := c.sharedStdlib(key, sibFA); shared {
+			continue
+		}
 		sibPath := sibFA.FilePath
 		if sibPath == "" {
 			sibPath = key + ".nomi"
@@ -279,6 +291,10 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		own := sibErrs[key]
 		if !c.cfg.AllowUnusedImports {
 			own = append(own, implImportErrs[sibFA]...)
+		}
+		// The file is read only to show a diagnostic with its source.
+		if len(own) == 0 {
+			continue
 		}
 		sibDiags = append(sibDiags, typeDiagnostics(sibPath, c.sourceOf(sibPath), own)...)
 	}
@@ -320,6 +336,17 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		return fa, modules, nil
 	}
 	return fa, modules, append(typeDiagnostics(c.diagPath, c.entrySrc, errs), sibDiags...)
+}
+
+// sharedStdlib reports whether fa, the build's analysis of the module key,
+// is the shared stdlib's analysis of that module, and answers the module's
+// name in lib.Files.
+func (c *Checker) sharedStdlib(key string, fa *analysis.FileAnalysis) (string, bool) {
+	if !analysis.IsStdlibKey(key) {
+		return "", false
+	}
+	name := strings.TrimPrefix(key, "std/")
+	return name, c.lib.Files[name] == fa
 }
 
 // sourceOf is the text of the file at path, a diagnostic's file: the

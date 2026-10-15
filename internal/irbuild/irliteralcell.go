@@ -142,7 +142,7 @@ func (g *gen) literalCell(t *ast.TaggedString, k kind) (*ir.Symbol, bool) {
 	cb.resultCopy(t, val)
 	cb.side(sh.result, irScalarSide{k: got})
 	cb.b.SetTerm(ir.NewReturn(at, sh.result))
-	if err := ir.Lint(f); err != nil {
+	if err := g.irLint(f); err != nil {
 		irDeclineNote("a backtick typed literal cell that does not lint: " + err.Error())
 		return nil, false
 	}
@@ -186,7 +186,7 @@ func (g *gen) literalRender(t *ast.TaggedString, name string, errK kind) *ir.Fun
 			return
 		}
 		g.irModule().AddFunc(f)
-		if err := ir.LintModuleAdded(g.irModule()); err != nil {
+		if err := g.irLintAdded(); err != nil {
 			panic("irbuild: literal failure: " + err.Error())
 		}
 		fn = f

@@ -19,7 +19,7 @@ import (
 // with `with MyApp.logger = value`.
 //
 // An application type is a struct some entry boot of the project returns
-// (FileAnalysis.AppTypes). `T.field` on an application type is always the
+// (Program.AppTypes). `T.field` on an application type is always the
 // field: such a type may not declare an inherent member with a field's name
 // (checkAppTypeMembers). On any other type `T.member` is owner access.
 //
@@ -83,7 +83,7 @@ func scopedField(schema Type, name string) (FieldDef, bool) {
 // a file-qualified one (`app.MyApp`). Resolution uses the builder's
 // references, so it answers for a file whose checker has not run.
 func appTypeNamedBy(fa *FileAnalysis, owner ast.Node) (*StructType, *Symbol) {
-	if fa == nil || fa.ContextType == nil {
+	if fa == nil || fa.Program().ContextType == nil {
 		return nil, nil
 	}
 	var pos Pos
@@ -114,7 +114,7 @@ func appTypeNamedBy(fa *FileAnalysis, owner ast.Node) (*StructType, *Symbol) {
 
 // appStructOfSymbol answers the application type sym declares, or nil.
 func appStructOfSymbol(fa *FileAnalysis, sym *Symbol) *StructType {
-	if fa == nil || fa.ContextType == nil || sym == nil {
+	if fa == nil || fa.Program().ContextType == nil || sym == nil {
 		return nil
 	}
 	for sym.Resolved != nil {
@@ -127,7 +127,7 @@ func appStructOfSymbol(fa *FileAnalysis, sym *Symbol) *StructType {
 	if !ok || st == nil || len(st.TypeParams) > 0 || len(st.TypeArgs) > 0 {
 		return nil
 	}
-	for _, app := range fa.AppTypes {
+	for _, app := range fa.Program().AppTypes {
 		if SameScopedType(st, app) {
 			return st
 		}
@@ -135,7 +135,7 @@ func appStructOfSymbol(fa *FileAnalysis, sym *Symbol) *StructType {
 	return nil
 }
 
-// TestGroupBoot answers the entry boot a `tests` group's `boot` line calls,
+// TestGroupBoot answers the entry boot a `group`'s `boot` line calls,
 // or nil when the group has no `boot` line or its call names no entry boot.
 func TestGroupBoot(fa *FileAnalysis, t *ast.TestDecl) *ast.FuncDef {
 	if fa == nil || t == nil {
@@ -157,7 +157,7 @@ func TestGroupBoot(fa *FileAnalysis, t *ast.TestDecl) *ast.FuncDef {
 		sym = sym.Resolved
 	}
 	fn, ok := sym.Node.(*ast.FuncDef)
-	if !ok || sym.Kind != SymbolFunction || !fa.BootFunctions[fn] {
+	if !ok || sym.Kind != SymbolFunction || !fa.Program().BootFunctions[fn] {
 		return nil
 	}
 	return fn
@@ -191,7 +191,7 @@ func appReadOf(fa *FileAnalysis, n *ast.FieldAccess) (AppRead, bool) {
 	if !ok {
 		return AppRead{}, false
 	}
-	return AppRead{App: st, Field: field, ContextField: ScopedContextField(st, fa.ContextType)}, true
+	return AppRead{App: st, Field: field, ContextField: ScopedContextField(st, fa.Program().ContextType)}, true
 }
 
 // appReadSite is a read found from an execution root, with where it is.
@@ -218,7 +218,7 @@ func (s appReadSite) where() string {
 
 // checkAppRoots checks that each execution root in this file boots the
 // application type every read reachable from it names, and that an entry
-// point's boot is called only on a `tests` group's `boot` line.
+// point's boot is called only on a `group`'s `boot` line.
 //
 // Roots are an entry's `main` (under its file's boot), each test (under its
 // group's boot, or none), each group's setup, and each boot body and group
@@ -240,8 +240,8 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		for sym.Resolved != nil {
 			sym = sym.Resolved
 		}
-		if fn, ok := sym.Node.(*ast.FuncDef); ok && sym.Kind == SymbolFunction && fa.BootFunctions[fn] && !bootLines[pos] {
-			errors = append(errors, TypeError{Line: pos.Line, Col: pos.Col, Message: "entry-point boot cannot be called or captured as an ordinary function; a `tests` group calls it on its `boot` line"})
+		if fn, ok := sym.Node.(*ast.FuncDef); ok && sym.Kind == SymbolFunction && fa.Program().BootFunctions[fn] && !bootLines[pos] {
+			errors = append(errors, TypeError{Line: pos.Line, Col: pos.Col, Message: "entry-point boot cannot be called or captured as an ordinary function; a `group` calls it on its `boot` line"})
 		}
 	}
 	w := newAppReadWalker(fa)
@@ -268,7 +268,7 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 			return bootFrame{}
 		}
 		owner := fa
-		if declaring := fa.ScopedFunctionFiles[fn]; declaring != nil {
+		if declaring := fa.Program().ScopedFunctionFiles[fn]; declaring != nil {
 			owner = declaring
 		}
 		st, _ := inferAppStruct(fn, []*FileAnalysis{owner, fa})
@@ -343,12 +343,12 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 			}
 			switch v := n.(type) {
 			case *ast.FuncDef:
-				if fa.BootFunctions[v] && v.Name == "boot" {
+				if fa.Program().BootFunctions[v] && v.Name == "boot" {
 					beforeBoot(v.Body, v.Line, v.Col)
 				}
 				if v.Name == "main" && !v.ImplFunction {
 					frame := bootFrame{}
-					if boot := findBootFunc(nodes); boot != nil && fa.BootFunctions[boot] {
+					if boot := findBootFunc(nodes); boot != nil && fa.Program().BootFunctions[boot] {
 						frame = frameOf(boot, boot.Line, boot.Col)
 					}
 					check(w.reachable(fa, v.Body), frame, "this program", v.Line, v.Col)
@@ -482,7 +482,7 @@ func (w *appReadWalker) function(c appCallee) *appWalk {
 		return walk
 	}
 	owner := c.owner
-	if actual := w.fa.ScopedFunctionFiles[c.fn]; actual != nil {
+	if actual := w.fa.Program().ScopedFunctionFiles[c.fn]; actual != nil {
 		owner = actual
 	}
 	walk := newAppWalk()
@@ -558,9 +558,9 @@ func (w *appReadWalker) invoke(aw *appWalk, owner *FileAnalysis, expr ast.Node, 
 			for factory.Resolved != nil {
 				factory = factory.Resolved
 			}
-			if fn, ok := factory.Node.(*ast.FuncDef); ok && factory.Kind == SymbolFunction && !aliases[factory] && !w.fa.BootFunctions[fn] {
+			if fn, ok := factory.Node.(*ast.FuncDef); ok && factory.Kind == SymbolFunction && !aliases[factory] && !w.fa.Program().BootFunctions[fn] {
 				aliases[factory] = true
-				if source := w.fa.ScopedFunctionFiles[fn]; source != nil {
+				if source := w.fa.Program().ScopedFunctionFiles[fn]; source != nil {
 					owner = source
 				}
 				w.contained(aw, owner, fn.Body, aliases)
@@ -579,7 +579,7 @@ func (w *appReadWalker) invoke(aw *appWalk, owner *FileAnalysis, expr ast.Node, 
 		return
 	}
 	if impl, ok := sym.DispatchImpl.(*ast.FuncDef); ok {
-		if !w.fa.BootFunctions[impl] {
+		if !w.fa.Program().BootFunctions[impl] {
 			aw.call(owner, impl)
 		}
 		return
@@ -592,7 +592,7 @@ func (w *appReadWalker) invoke(aw *appWalk, owner *FileAnalysis, expr ast.Node, 
 	}
 	aliases[sym] = true
 	if fn, ok := sym.Node.(*ast.FuncDef); ok && sym.Kind == SymbolFunction {
-		if !w.fa.BootFunctions[fn] {
+		if !w.fa.Program().BootFunctions[fn] {
 			aw.call(owner, fn)
 		}
 		return
@@ -620,8 +620,8 @@ func (w *appReadWalker) implementations(method, iface string) []appCallee {
 		return impls
 	}
 	var impls []appCallee
-	for fn, file := range w.fa.ScopedFunctionFiles {
-		k := strings.Split(file.ImplBlockInterfaceKey[fn], "<")[0]
+	for fn, file := range w.fa.Program().ScopedFunctionFiles {
+		k := strings.Split(file.Program().ImplBlockInterfaceKey[fn], "<")[0]
 		if fn.Name == method && (k == iface || strings.HasSuffix(k, "."+iface)) {
 			impls = append(impls, appCallee{owner: file, fn: fn})
 		}

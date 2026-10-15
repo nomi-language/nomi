@@ -406,7 +406,7 @@ fn parse(): Result<Int, String> {
   Result.Ok(42)
 }
 
-tests "numbers" {
+group "numbers" {
   setup {
     42
   }
@@ -426,7 +426,7 @@ tests "numbers" {
 	analysis.CheckTypes(fa, nodes)
 
 	blocked := map[analysis.Pos]string{
-		{Line: 8, Col: 1}:   "tests",
+		{Line: 8, Col: 1}:   "group",
 		{Line: 9, Col: 3}:   "setup",
 		{Line: 13, Col: 3}:  "test",
 		{Line: 14, Col: 14}: "try",
@@ -441,7 +441,7 @@ tests "numbers" {
 }
 
 func TestCollect_MultilineTestContextBindingsUseTheirOwnLines(t *testing.T) {
-	src := `tests "setup semantics" {
+	src := `group "setup semantics" {
   setup {
     {inherited: "parent", value: "child", child_only: "ready"}
   }

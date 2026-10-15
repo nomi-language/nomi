@@ -160,7 +160,7 @@ func nodeToSymbol(node ast.Node) *protocol.DocumentSymbol {
 	return &sym
 }
 
-// testSymbol is a `test` (a function symbol) or a `tests` group (a module
+// testSymbol is a `test` (a function symbol) or a `group` (a module
 // symbol holding its tests). The selection is the quoted name.
 func testSymbol(n *ast.TestDecl) protocol.DocumentSymbol {
 	kind := protocol.SymbolKindFunction

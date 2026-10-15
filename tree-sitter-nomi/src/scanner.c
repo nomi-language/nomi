@@ -70,6 +70,10 @@ enum TokenType {
     // The contextual keyword `subtests` at the start of a statement, emitted
     // only when an expression and a comma follow it (scan_subtests_keyword).
     SUBTESTS_KEYWORD,
+    // The contextual keyword `group` that opens a test group, emitted only
+    // when the group's name string or its `{` follows it
+    // (scan_group_keyword).
+    GROUP_KEYWORD,
 };
 
 typedef struct {
@@ -546,6 +550,21 @@ static bool scan_subtests_keyword(TSLexer *lexer) {
     }
 }
 
+// The contextual keyword `group`, at the lookahead where a top-level item can
+// start. As in the Go parser, the word is the keyword only when a string, the
+// group's name, follows it on its line (`group "parsing" { ... }`), or the
+// group's `{` with the name missing (`group { ... }`, which the compiler
+// reports); `group = 3`, `group(2)` or a bare `group` leave it an
+// identifier. The token ends after the word.
+static bool scan_group_keyword(TSLexer *lexer) {
+    if (!at_word(lexer, "group")) return false;
+    lexer->mark_end(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+    if (lexer->lookahead != '"' && lexer->lookahead != '{') return false;
+    lexer->result_symbol = GROUP_KEYWORD;
+    return true;
+}
+
 // Scan a line-leading `//!` prompt, or the end of a prompt group, at the
 // position after the leading whitespace run, which held `newlines` line
 // breaks. A prompt token ends right after its `!`: the spaces after it are
@@ -661,6 +680,10 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
 
     if (valid_symbols[SUBTESTS_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 's') {
         return scan_subtests_keyword(lexer);
+    }
+
+    if (valid_symbols[GROUP_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 'g') {
+        return scan_group_keyword(lexer);
     }
 
     // The operand of `dbg`, `try`, `return`, `break` and `todo` must start on

@@ -74,8 +74,8 @@ func (g *gen) assertionBoundary(line, col int) (string, bool) {
 // three spellings for one thing.
 //
 // A `test "name"` declaration is `test %q`, a `//!` prompt case is
-// `attached test for <owner>` (testBoundaryOverride), and a `tests` group's
-// setup body is `setup of tests %q`: the setup runs inside every case it
+// `attached test for <owner>` (testBoundaryOverride), and a `group`'s
+// setup body is `setup of group %q`: the setup runs inside every case it
 // serves, so a `try` or assertion there ends that case. All three abort a case
 // the same way, so anything reading the field has to admit all three. Matching only the
 // first is a live hazard rather than a hypothetical: it reported an `assert` in
@@ -84,7 +84,7 @@ func (g *gen) assertionBoundary(line, col int) (string, bool) {
 func isTestBoundary(boundary string) bool {
 	return strings.HasPrefix(boundary, "test \"") ||
 		strings.HasPrefix(boundary, "attached test for ") ||
-		strings.HasPrefix(boundary, "setup of tests \"")
+		strings.HasPrefix(boundary, "setup of group \"")
 }
 
 // assertionFailureKind is std/assertions' `AssertionFailure` as a Nomi VALUE:

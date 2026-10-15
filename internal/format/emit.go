@@ -1453,7 +1453,7 @@ func emitTestDecl(v *ast.TestDecl) Doc {
 	if len(items) > 0 {
 		body = []Doc{emitStatementSequence(items)}
 	}
-	return Concat(Text("tests "), Text(encodeNomiString(v.Name)), Text(" "), emitDocsBlockForceBroken(body, v.Body.GetTrailing()))
+	return Concat(Text("group "), Text(encodeNomiString(v.Name)), Text(" "), emitDocsBlockForceBroken(body, v.Body.GetTrailing()))
 }
 
 // emitTestBoot renders a group's `boot server.boot(startup)` line.

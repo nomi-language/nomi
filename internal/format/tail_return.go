@@ -12,7 +12,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // default), every lambda, `then` lambdas and iteration callbacks included,
 // and every test body, and runs through the last statement of a block, both
 // branches of an `if`, every arm of a `case`, and a braced arm body.
-// Nothing else is tail position: a `tests` group's `setup`, a `once`
+// Nothing else is tail position: a `group`'s `setup`, a `once`
 // initializer, a `concurrent` block, a binding's `else` and any non-last
 // statement keep their `return`s.
 //

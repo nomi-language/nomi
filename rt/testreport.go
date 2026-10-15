@@ -581,7 +581,7 @@ type Test struct {
 	Fn   func(fr *Frame) TestFailure
 	// Bubble wraps the case, and nil means the real clock.
 	//
-	// `clock Clock.Virtual` on the declaring `tests` group sets this to
+	// `clock Clock.Virtual` on the declaring `group` sets this to
 	// nomi/rt/vclock.RunCase, which runs the body inside a testing/synctest
 	// bubble. `clock Clock.System` sets nothing, because the real clock is
 	// already what a case with no clause gets — so the System spelling costs

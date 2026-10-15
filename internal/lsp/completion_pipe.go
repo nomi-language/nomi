@@ -173,8 +173,8 @@ func (r *completionRequest) implementedInterfaces(owner string) []string {
 	for iface := range r.fa.Impls[owner] {
 		set[iface] = true
 	}
-	if r.fa.ProjectImpls != nil {
-		for iface := range r.fa.ProjectImpls.Impls[owner] {
+	if r.fa.Program().ImplIndex != nil {
+		for iface := range r.fa.Program().ImplIndex.Impls[owner] {
 			set[iface] = true
 		}
 	}

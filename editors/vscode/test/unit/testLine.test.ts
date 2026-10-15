@@ -28,7 +28,7 @@ const source = [
   /* 15 */ "    assert True",
   /* 16 */ "}",
   /* 17 */ "",
-  /* 18 */ 'tests "group" {',
+  /* 18 */ 'group "group" {',
   /* 19 */ "    setup { 1 }",
   /* 20 */ "",
   /* 21 */ '    test "inner", n {',
@@ -76,7 +76,7 @@ test("a corpus file: tests/16-concurrency/supervisors/supervisors_test.nomi", ()
   const text = fs.readFileSync(path.join(repo, "tests/16-concurrency/supervisors/supervisors_test.nomi"), "utf8");
   const lines = text.split("\n");
   const header = (prefix: string) => lines.findIndex((l) => l.startsWith(prefix)) + 1;
-  const group = header('tests "named task groups"');
+  const group = header('group "named task groups"');
   const first = header('    test "work outlives the call that started it"');
   assert.ok(group > 0 && first > group);
   assert.equal(at(text, group + 1), group);

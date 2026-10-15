@@ -131,7 +131,7 @@ func TestVariantSlot_ImportedTypeOutranksASameNamedVariant(t *testing.T) {
 	}
 	// The impl header names the real std/calendar Date, so its identity key
 	// carries that origin, not this file's.
-	idx := fa.ProjectImpls
+	idx := fa.Program().ImplIndex
 	if idx == nil {
 		t.Fatal("nil ProjectImpls")
 	}

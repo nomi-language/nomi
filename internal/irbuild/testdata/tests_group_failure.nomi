@@ -15,7 +15,7 @@
 // binding and the formatter would render the same AST, so it is two statements
 // of one rule — and the defining expression here reads a value that came out
 // of a `setup`, which is the seam this fixture exists for.
-tests "totals" {
+group "totals" {
     setup {want: 7}
 
     test "a failure names its group and its own line", {want} {
@@ -37,7 +37,7 @@ tests "totals" {
     }
 }
 
-tests "inner" {
+group "inner" {
     setup 8
 
     test "a failure names the group of a name pattern", want {

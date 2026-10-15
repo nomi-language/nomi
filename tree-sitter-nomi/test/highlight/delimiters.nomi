@@ -511,7 +511,7 @@ fn balance_lambda(xs: List<Balance>): Int {
     //                           ^ punctuation.bracket
 }
 
-tests "group" {
+group "group" {
     //        ^ punctuation.bracket
     setup (1, 2)
 

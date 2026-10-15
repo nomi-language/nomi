@@ -10,8 +10,8 @@
 (test_declaration
   (body)? @test.inside) @test.around
 
-(tests_declaration
-  (tests_body)? @test.inside) @test.around
+(group_declaration
+  (group_body)? @test.inside) @test.around
 
 (struct_definition
   (struct_body)? @class.inside) @class.around

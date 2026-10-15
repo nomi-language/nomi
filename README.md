@@ -20,7 +20,7 @@ in your browser.
 - **Pipe-oriented**: `x |> f()` keeps data flow reading top to bottom.
 - **Structured concurrency**: `concurrent { ... }` blocks, tasks, channels,
   supervisors and context-style cancellation.
-- **Built-in tests**: `test` / `tests` blocks and `//!` attached examples are
+- **Built-in tests**: `test` / `group` blocks and `//!` attached examples are
   ordinary Nomi code, run by `nomi test`.
 
 Nomi compiles programs to bytecode and runs them on its own virtual machine.

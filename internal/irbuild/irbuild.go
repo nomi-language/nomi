@@ -353,7 +353,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		irLibraries = append(irLibraries, std.irModules[pkg])
 	}
 	// The IR each unit retained, in unit order. The entry unit's module
-	// records the program boot and its `tests` group boots, retained or not.
+	// records the program boot and its `group` boots, retained or not.
 	// A unit that retained nothing has no module, and nothing to start. The
 	// VM-only test bodies are built last.
 	for _, g := range gens {

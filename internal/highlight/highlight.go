@@ -40,7 +40,7 @@ import (
 // imports and touches no disk, and the entry is the whole project.
 //
 // No AttachStdlibProjectImpls: it is the single-file path's stdlib-only
-// substitute for ProjectImpls, and its own doc says callers that went through
+// substitute for a project build's impl index, and its own doc says callers that went through
 // BuildProject have the richer index already. No explicit BuildTypes either —
 // Sweep C runs inside the project build.
 func Analyze(code string, lib *std.StdLib) *analysis.FileAnalysis {

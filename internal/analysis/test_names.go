@@ -7,7 +7,7 @@ import (
 )
 
 // CheckDuplicateTestNames reports duplicate runnable test names within a
-// module. The full name includes enclosing modules and tests groups, matching
+// module. The full name includes enclosing modules and test groups, matching
 // the runtime test runner's reporting path.
 func CheckDuplicateTestNames(nodes []ast.Node) []TypeError {
 	first := map[string]testNameSite{}

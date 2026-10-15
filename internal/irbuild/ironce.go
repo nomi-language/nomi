@@ -35,7 +35,7 @@ func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	if d == nil {
 		g := bl.g
 		if g.files != nil && g.reg != nil {
-			if site, ok := g.files.lookupBare(g.fa, t); ok && site.once != nil && site.unit < len(g.reg.gens) && g.reg.gens[site.unit] != nil {
+			if site, ok := g.files.lookupBare(g.srcFA(), t); ok && site.once != nil && site.unit < len(g.reg.gens) && g.reg.gens[site.unit] != nil {
 				return bl.siblingOnceValue(t, site.unit, g.reg.gens[site.unit].oncesByDecl[site.once])
 			}
 		}
@@ -198,7 +198,7 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 		bl.b.SetTerm(ir.NewReturn(g.irNodePos(body), sh.result))
 	}
 	p := &irScalarPlan{fn: f, result: got}
-	if err := ir.Lint(f); err != nil {
+	if err := g.irLint(f); err != nil {
 		irDeclineNote("a `once` initializer graph that does not lint: " + err.Error())
 		return kindInvalid, false
 	}

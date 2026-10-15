@@ -55,8 +55,8 @@ func TestFormat_FlattensBodyThatIsOneBlock(t *testing.T) {
 		},
 		{
 			"a group's setup",
-			"tests \"g\" {\n    setup {\n        {\n            x = 1\n            x\n        }\n    }\n\n    test \"t\", x {\n        assert x == 1\n    }\n}\n",
-			"tests \"g\" {\n    setup {\n        x = 1\n        x\n    }\n\n    test \"t\", x {\n        assert x == 1\n    }\n}\n",
+			"group \"g\" {\n    setup {\n        {\n            x = 1\n            x\n        }\n    }\n\n    test \"t\", x {\n        assert x == 1\n    }\n}\n",
+			"group \"g\" {\n    setup {\n        x = 1\n        x\n    }\n\n    test \"t\", x {\n        assert x == 1\n    }\n}\n",
 		},
 		{
 			"a binding that shadows a parameter",

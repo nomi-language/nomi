@@ -21,7 +21,7 @@ type checker struct {
 	// impl. Built once up front by indexFileImplBlocks so dispatch
 	// resolution (implMethodIfacesFor) recognizes a block method's owning
 	// interface in SINGLE-FILE analysis (LSP, BuildFileWithStdlib), where the
-	// project-wide ProjectImpls index isn't populated for the file's own
+	// project-wide Program().ImplIndex index isn't populated for the file's own
 	// impls. Block items don't carry the interface on the FuncDef directly,
 	// so the checker indexes them here.
 	blockMethodIfaces map[*ast.FuncDef][]string
@@ -96,7 +96,7 @@ type checker struct {
 	// subtestsRowAsserts is set when an assertion is checked directly in the
 	// body of subtestsRow, one whose failure ends the row (checkSubtests).
 	subtestsRowAsserts bool
-	// setupBoundary is the tryBoundary of the `tests` group setup being
+	// setupBoundary is the tryBoundary of the `group` setup being
 	// checked, or "", so a statement written directly in it can be told
 	// apart from one in a lambda or fn inside it.
 	setupBoundary string
@@ -749,8 +749,8 @@ func (c *checker) enumDeclSymbol(et *EnumType) *Symbol {
 		}
 	}
 	candidates = append(candidates, c.fileEnumDecls[et.Name]...)
-	if c.fa.ProjectImpls != nil {
-		candidates = append(candidates, c.fa.ProjectImpls.EnumDecls[et.Name]...)
+	if c.fa.Program().ImplIndex != nil {
+		candidates = append(candidates, c.fa.Program().ImplIndex.EnumDecls[et.Name]...)
 	}
 	var nominal *Symbol
 	ambiguous := false
@@ -984,21 +984,21 @@ func (c *checker) freshTypeVar() *TypeVar {
 
 // implsContext returns the interface-impl tables the unifier should consult,
 // with file-local impls taking precedence over the project-wide union.
-// The project-level table (ProjectImpls.Impls, built by buildProjectImplIndex
+// The project-level table (Program().ImplIndex.Impls, built by buildProjectImplIndex
 // over filesByKey) is the sole non-file-local source: cache write-through
 // plus the eager stdlibFAs fold in buildProjectWithCache
 // ensure every reachable stdlib FA lands in filesByKey, so the union covers
 // every (Type, Iface) pair the importing file could see.
 //
 // Single-file paths (BuildFileWithStdlib — LSP raw-document analysis, many
-// analyzer-side tests) leave ProjectImpls nil and reach the checker with
+// analyzer-side tests) leave Program().ImplIndex nil and reach the checker with
 // only c.fa.Impls populated; cross-file / stdlib conformances on those
 // paths are deferred to runtime dispatch.
 // Both tables are paired with the SAME project-wide interface-origin index:
 // `fa.Impls` is itself a broadcast union of every reachable file's impls
 // (mergeImpls), so the two are keyed in one space and a per-file origins map
 // would be a second name for identical contents. A path that leaves
-// ProjectImpls nil pairs both with a nil index and behaves exactly as it did
+// Program().ImplIndex nil pairs both with a nil index and behaves exactly as it did
 // before interfaces had an identity — see interface_identity.go.
 func (c *checker) implsContext() []ImplTables {
 	return c.fa.implsContext()
@@ -1012,10 +1012,10 @@ func (fa *FileAnalysis) implsContext() []ImplTables {
 		return tables
 	}
 	if fa.Impls != nil {
-		tables = append(tables, implTablesFor(fa.Impls, fa.ProjectImpls))
+		tables = append(tables, implTablesFor(fa.Impls, fa.Program().ImplIndex))
 	}
-	if fa.ProjectImpls != nil {
-		tables = append(tables, implTablesFor(fa.ProjectImpls.Impls, fa.ProjectImpls))
+	if fa.Program().ImplIndex != nil {
+		tables = append(tables, implTablesFor(fa.Program().ImplIndex.Impls, fa.Program().ImplIndex))
 	}
 	return tables
 }
@@ -1125,7 +1125,7 @@ func nodeLineCol(n ast.Node) (int, int) {
 
 // implTypeArgsContext returns the interface type-argument template tables the
 // unifier should consult, file-local first then project-level
-// (c.fa.ProjectImpls.ImplTypeArgs, the union of every reachable FA's
+// (c.fa.Program().ImplIndex.ImplTypeArgs, the union of every reachable FA's
 // ImplTypeArgs built by buildProjectImplIndex). File-local entries take
 // precedence so a user-defined impl with the same type name as a stdlib type
 // resolves to the user's template. These templates bind any generic interface's
@@ -1142,8 +1142,8 @@ func (fa *FileAnalysis) implTypeArgsContext() []map[string]map[string]*ImplTypeA
 	if fa.ImplTypeArgs != nil {
 		tables = append(tables, fa.ImplTypeArgs)
 	}
-	if fa.ProjectImpls != nil && fa.ProjectImpls.ImplTypeArgs != nil {
-		tables = append(tables, fa.ProjectImpls.ImplTypeArgs)
+	if idx := fa.Program().ImplIndex; idx != nil && idx.ImplTypeArgs != nil {
+		tables = append(tables, idx.ImplTypeArgs)
 	}
 	return tables
 }
@@ -1156,8 +1156,8 @@ func (c *checker) implTypeArgSetsContext() []map[string]map[string][]*ImplTypeAr
 	if c.fa.ImplTypeArgSets != nil {
 		tables = append(tables, c.fa.ImplTypeArgSets)
 	}
-	if c.fa.ProjectImpls != nil && c.fa.ProjectImpls.ImplTypeArgSets != nil {
-		tables = append(tables, c.fa.ProjectImpls.ImplTypeArgSets)
+	if idx := c.fa.Program().ImplIndex; idx != nil && idx.ImplTypeArgSets != nil {
+		tables = append(tables, idx.ImplTypeArgSets)
 	}
 	return tables
 }
@@ -1234,10 +1234,6 @@ func newChecker(fa *FileAnalysis, nodes []ast.Node) *checker {
 
 // CheckTypes walks all function bodies and validates type consistency.
 func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
-	if fa.Onces == nil {
-		fa.Onces = NewOnceTable()
-	}
-	fa.Onces.Index(fa, nodes)
 	c := newChecker(fa, nodes)
 
 	for _, node := range nodes {
@@ -2517,11 +2513,11 @@ func (c *checker) implMethodIfacesFor(fn *ast.FuncDef) []string {
 		return out
 	}
 	// Project-wide index — cross-file block impls (and stdlib) in BuildProject.
-	if c.fa == nil || c.fa.ProjectImpls == nil {
+	if c.fa == nil || c.fa.Program().ImplIndex == nil {
 		return nil
 	}
 	var out []string
-	for iface, byMethod := range c.fa.ProjectImpls.IfaceMethodImpls {
+	for iface, byMethod := range c.fa.Program().ImplIndex.IfaceMethodImpls {
 		for _, f := range byMethod[fn.Name] {
 			if f == fn {
 				out = append(out, iface)
@@ -2723,7 +2719,7 @@ func (c *checker) checkOnce(n *ast.OnceBinding) {
 		})
 	}
 	var valTy Type
-	if t := c.fa.Onces; t != nil {
+	if t := c.fa.Program().Onces; t != nil {
 		if _, ok := t.sites[n]; ok {
 			t.checking = append(t.checking, n)
 			valTy = check()
@@ -3608,7 +3604,7 @@ func (c *checker) checkTestDeclWithContext(n *ast.TestDecl, contextTy Type) Type
 		// cases', so a blank name would report nothing a reader can find.
 		msg := "a test name must not be empty; name the test for what it checks, such as `test \"parses a date\"`"
 		if n.Group {
-			msg = "a `tests` group name must not be empty; name the group for what its tests share, such as `tests \"dates\"`"
+			msg = "a `group` name must not be empty; name the group for what its tests share, such as `group \"dates\"`"
 		}
 		c.addError(n.NameLine, n.NameCol, msg)
 	}
@@ -3626,7 +3622,7 @@ func (c *checker) checkTestDeclWithContext(n *ast.TestDecl, contextTy Type) Type
 			prevBoundary := c.tryBoundary
 			prevReturns, prevReturnTy := c.returnUnwinds, c.returnTy
 			returns := []boundaryReturn{}
-			c.tryBoundary = fmt.Sprintf("setup of tests %q", n.Name)
+			c.tryBoundary = fmt.Sprintf("setup of group %q", n.Name)
 			prevSetup := c.setupBoundary
 			c.setupBoundary = c.tryBoundary
 			c.returnUnwinds, c.returnTy = &returns, nil
@@ -3688,14 +3684,14 @@ const refutableTestPatternMsg = "a test's pattern must match every setup value; 
 func (c *checker) checkTestBoot(n *ast.TestDecl) {
 	call, ok := n.Boot.(*ast.Call)
 	if !ok {
-		c.addError(n.BootLine, n.BootCol, "`boot` in a `tests` group calls an entry's boot, such as `boot server.boot(startup)`")
+		c.addError(n.BootLine, n.BootCol, "`boot` in a `group` calls an entry's boot, such as `boot server.boot(startup)`")
 		c.checkNode(n.Boot)
 		return
 	}
 	c.checkNode(call)
 	if TestGroupBoot(c.fa, n) == nil {
 		c.addError(n.BootLine, n.BootCol, fmt.Sprintf(
-			"`boot` in a `tests` group calls an entry's boot, the `fn boot` of a file that defines `fn main`, such as `boot server.boot(startup)`; %s is not one",
+			"`boot` in a `group` calls an entry's boot, the `fn boot` of a file that defines `fn main`, such as `boot server.boot(startup)`; %s is not one",
 			"`"+calleeText(call.Func)+"`"))
 	}
 }
@@ -3722,7 +3718,7 @@ func (c *checker) registerTestDeclHover(n *ast.TestDecl, inputTy, outputTy Type)
 	}
 	kw := "test"
 	if n.Group {
-		kw = "tests"
+		kw = "group"
 	}
 	c.fa.References[Pos{Line: n.Line, Col: n.Col}] = &Symbol{
 		Name: kw,
@@ -5042,7 +5038,7 @@ func (c *checker) checkImplBlock(n *ast.ImplBlock) {
 	c.registerImplBlockHover(n)
 	if IsSynthesizedLine(n.Line) {
 		prevReg := c.reg
-		c.reg = synthSupportRegistry(c.fa, c.reg)
+		c.reg = synthSupportRegistry(c.fa, c.fa.Program().StdlibModuleScopes, c.reg)
 		defer func() { c.reg = prevReg }()
 	} else {
 		c.checkImplReceiverDeclared(n)
@@ -5092,6 +5088,17 @@ func (c *checker) checkImplBlock(n *ast.ImplBlock) {
 	// them in scope; resolved without, `T` is undefined and every check below
 	// was skipped.
 	blockTP, _ := buildImplBlockTypeParams(c.fa, c.reg, n)
+	// A bare interface name that is neither a block type parameter nor a
+	// registered type ends the check here, as the failed ResolveTypeExpr
+	// below would, but without building that error's did-you-mean hint over
+	// every registered name, which nothing reads. The universal Debug impl
+	// synthesized for a type in a file that does not import Debug is this
+	// shape: 44 of them per stdlib load.
+	if st, ok := n.Interface.(*ast.SimpleType); ok {
+		if _, isParam := blockTP[st.Name]; !isParam && c.reg.Lookup(st.Name) == nil {
+			return
+		}
+	}
 	ifaceTy, err := ResolveTypeExpr(n.Interface, c.reg, blockTP, c.fa.References)
 	if err != nil || ifaceTy == nil {
 		return
@@ -7782,8 +7789,8 @@ func (c *checker) implMethodFuncType(impl ast.ImplMethodDecl) *FuncType {
 	if c == nil || c.fa == nil || impl == nil {
 		return nil
 	}
-	if fn, ok := impl.(*ast.FuncDef); ok && c.fa.ProjectImpls != nil {
-		if ft, ok := c.fa.ProjectImpls.ImplFuncTypes[fn].(*FuncType); ok {
+	if fn, ok := impl.(*ast.FuncDef); ok && c.fa.Program().ImplIndex != nil {
+		if ft, ok := c.fa.Program().ImplIndex.ImplFuncTypes[fn].(*FuncType); ok {
 			return ft
 		}
 	}
@@ -7799,8 +7806,8 @@ func (c *checker) implMethodFuncType(impl ast.ImplMethodDecl) *FuncType {
 				return ft
 			}
 		}
-		if c.fa.ProjectImpls != nil {
-			if sym := c.fa.ProjectImpls.TypeMethods[recv][implName(impl)]; sym != nil {
+		if c.fa.Program().ImplIndex != nil {
+			if sym := c.fa.Program().ImplIndex.TypeMethods[recv][implName(impl)]; sym != nil {
 				if ft, ok := sym.Type.(*FuncType); ok {
 					return ft
 				}
@@ -7835,13 +7842,13 @@ func implName(impl ast.ImplMethodDecl) string {
 func implReceiverForLookup(fa *FileAnalysis, impl ast.ImplMethodDecl) string {
 	switch v := impl.(type) {
 	case *ast.FuncDef:
-		if fa != nil && fa.ProjectImpls != nil {
-			if r := fa.ProjectImpls.ReceiverOf(v); r != "" {
+		if fa != nil && fa.Program().ImplIndex != nil {
+			if r := fa.Program().ImplIndex.ReceiverOf(v); r != "" {
 				return r
 			}
 		}
-		if fa != nil && fa.ImplBlockReceiver != nil {
-			if r := fa.ImplBlockReceiver[v]; r != "" {
+		if fa != nil && fa.Program().ImplBlockReceiver != nil {
+			if r := fa.Program().ImplBlockReceiver[v]; r != "" {
 				return r
 			}
 		}
@@ -12733,7 +12740,7 @@ func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 // checkAssertionBoundaryAt spells it for `assert` — the same question about the
 // same boundary, so it must not grow a second encoding.
 func (c *checker) checkTryBoundary(operand *EnumType, at ast.Node) {
-	if c.currentFnDecl != nil && c.fa.BootFunctions[c.currentFnDecl] && c.tryBoundary == "fn boot" {
+	if c.currentFnDecl != nil && c.fa.Program().BootFunctions[c.currentFnDecl] && c.tryBoundary == "fn boot" {
 		return
 	}
 	if c.tryUnwinds != nil {
@@ -16308,7 +16315,7 @@ func anonStructLitOf(node ast.Node) *ast.StructLit {
 //     / unknown — these are deferred to runtime),
 //   - the value type's concrete name is registered as implementing the
 //     interface in this file's local Impls or the project-wide union
-//     (c.fa.ProjectImpls.Impls, built by buildProjectImplIndex over
+//     (c.fa.Program().ImplIndex.Impls, built by buildProjectImplIndex over
 //     filesByKey — covers stdlib + every reachable sibling).
 func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos Pos, recKind RecordingKind) bool {
 	valTy = resolveTypeVar(valTy)
@@ -16369,8 +16376,8 @@ func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos P
 			return true
 		}
 	}
-	if c.fa != nil && c.fa.ProjectImpls != nil {
-		if ifaces, ok := c.fa.ProjectImpls.Impls[name]; ok {
+	if c.fa != nil && c.fa.Program().ImplIndex != nil {
+		if ifaces, ok := c.fa.Program().ImplIndex.Impls[name]; ok {
 			if ifaces[ifaceName] {
 				if !c.implReceiverMatches(valTy, ifaceName) {
 					return false
@@ -16620,8 +16627,8 @@ func (c *checker) interfacesDeclaringMethod(typeName, method string) []string {
 		}
 	}
 	consider(c.fa.Impls[typeName])
-	if c.fa.ProjectImpls != nil {
-		consider(c.fa.ProjectImpls.Impls[typeName])
+	if c.fa.Program().ImplIndex != nil {
+		consider(c.fa.Program().ImplIndex.Impls[typeName])
 	}
 	sort.Strings(out)
 	return out
@@ -16635,7 +16642,7 @@ func (c *checker) interfacesDeclaringMethod(typeName, method string) []string {
 // (QualifiedReceiver) so another file's same-named type does not.
 func (c *checker) interfacesWritingMethod(typeName, method string) []string {
 	out := c.interfacesDeclaringMethod(typeName, method)
-	idx := c.fa.ProjectImpls
+	idx := c.fa.Program().ImplIndex
 	if idx == nil {
 		return out
 	}
@@ -16696,8 +16703,8 @@ func (c *checker) interfacesImplementedBy(typeName string) []string {
 		}
 	}
 	consider(c.fa.Impls[typeName])
-	if c.fa.ProjectImpls != nil {
-		consider(c.fa.ProjectImpls.Impls[typeName])
+	if c.fa.Program().ImplIndex != nil {
+		consider(c.fa.Program().ImplIndex.Impls[typeName])
 	}
 	sort.Strings(out)
 	return out
@@ -16776,7 +16783,7 @@ func (c *checker) resolveTypeMethodSymbol(typeName, method, origin string) (*Sym
 	// Measured: leaving the per-file probe first resolved `beta.Error.to_string`
 	// to alpha's method with the origin correctly in hand, which is the original
 	// defect one table over.
-	byIdentity := c.fa.ProjectImpls.LookupTypeMethodByIdentity(origin, typeName, method)
+	byIdentity := c.fa.Program().ImplIndex.LookupTypeMethodByIdentity(origin, typeName, method)
 	local := c.fa.LookupTypeMethod(typeName, method)
 	if byIdentity != nil && byIdentity != local {
 		return byIdentity, typeMethodByIdentity
@@ -16787,10 +16794,10 @@ func (c *checker) resolveTypeMethodSymbol(typeName, method, origin string) (*Sym
 	if local != nil {
 		return local, typeMethodLocal
 	}
-	if c.fa.ProjectImpls == nil {
+	if c.fa.Program().ImplIndex == nil {
 		return nil, typeMethodUnresolved
 	}
-	if byName, ok := c.fa.ProjectImpls.TypeMethods[typeName]; ok {
+	if byName, ok := c.fa.Program().ImplIndex.TypeMethods[typeName]; ok {
 		if sym := byName[method]; sym != nil {
 			return sym, typeMethodByName
 		}
@@ -17065,10 +17072,10 @@ func quoteNames(names []string) string {
 // type-promoted method to the file's TypeMethodModules demand set, so the
 // runtime bridge force-loads it. No-op when the provider is the entry ("").
 func (c *checker) recordTypeMethodModule(typeName, method string) {
-	if c.fa == nil || c.fa.ProjectImpls == nil || c.fa.ProjectImpls.TypeMethodModule == nil {
+	if c.fa == nil || c.fa.Program().ImplIndex == nil || c.fa.Program().ImplIndex.TypeMethodModule == nil {
 		return
 	}
-	byName, ok := c.fa.ProjectImpls.TypeMethodModule[typeName]
+	byName, ok := c.fa.Program().ImplIndex.TypeMethodModule[typeName]
 	if !ok {
 		return
 	}
@@ -17088,10 +17095,10 @@ func (c *checker) recordTypeMethodModule(typeName, method string) {
 // reusing it would force-load std/random for a call that resolved to
 // std/calendar's method — the original defect displaced one table sideways.
 func (c *checker) recordTypeMethodModuleByIdentity(origin, typeName, method string) {
-	if c.fa == nil || c.fa.ProjectImpls == nil {
+	if c.fa == nil || c.fa.Program().ImplIndex == nil {
 		return
 	}
-	path := c.fa.ProjectImpls.TypeMethodModuleByIdentity[TypeMethodKey{
+	path := c.fa.Program().ImplIndex.TypeMethodModuleByIdentity[TypeMethodKey{
 		Origin: origin, Type: typeName, Method: method,
 	}]
 	if path == "" {
@@ -17114,13 +17121,13 @@ func (c *checker) recordTypeMethodModuleByIdentity(origin, typeName, method stri
 // target. No-op when there is no concrete single impl — go-to-def/hover
 // then fall back to the interface contract.
 func (c *checker) attachDispatchImpl(fa *ast.FieldAccess, ifaceName string, concrete Type) {
-	if c == nil || c.fa == nil || c.fa.ProjectImpls == nil || fa.Field == nil {
+	if c == nil || c.fa == nil || c.fa.Program().ImplIndex == nil || fa.Field == nil {
 		return
 	}
 	var impl ast.ImplMethodDecl
-	if fn := resolveConcreteImpl(c.fa.ProjectImpls, ifaceName, fa.Field.Name, concrete); fn != nil {
+	if fn := resolveConcreteImpl(c.fa.Program().ImplIndex, ifaceName, fa.Field.Name, concrete); fn != nil {
 		impl = fn
-	} else if ext := resolveConcreteImplExtern(c.fa.ProjectImpls, ifaceName, fa.Field.Name, concrete); ext != nil {
+	} else if ext := resolveConcreteImplExtern(c.fa.Program().ImplIndex, ifaceName, fa.Field.Name, concrete); ext != nil {
 		impl = ext
 	}
 	if impl == nil {
@@ -17185,11 +17192,11 @@ func (c *checker) resolveImplForInterfaceKey(ifaceName, ifaceKey, methodName str
 	if c == nil || c.fa == nil {
 		return nil
 	}
-	if c.fa.ProjectImpls != nil {
-		if fn := resolveConcreteImplForInterfaceKey(c.fa.ProjectImpls, ifaceName, ifaceKey, methodName, concrete); fn != nil {
+	if c.fa.Program().ImplIndex != nil {
+		if fn := resolveConcreteImplForInterfaceKey(c.fa.Program().ImplIndex, ifaceName, ifaceKey, methodName, concrete); fn != nil {
 			return fn
 		}
-		if ext := resolveConcreteImplExternForInterfaceKey(c.fa.ProjectImpls, ifaceName, ifaceKey, methodName, concrete); ext != nil {
+		if ext := resolveConcreteImplExternForInterfaceKey(c.fa.Program().ImplIndex, ifaceName, ifaceKey, methodName, concrete); ext != nil {
 			return ext
 		}
 	}
@@ -17202,20 +17209,20 @@ func (c *checker) resolveLocalImplForInterfaceKey(ifaceName, ifaceKey, methodNam
 		return nil
 	}
 	var match ast.ImplMethodDecl
-	for _, fn := range c.fa.IfaceMethodImpls[ifaceName][methodName] {
+	for _, fn := range c.fa.Program().IfaceMethodImpls[ifaceName][methodName] {
 		if fn == nil {
 			continue
 		}
 		recv := funcDefReceiverBaseName(fn)
-		if c.fa.ImplBlockReceiver != nil {
-			if r := c.fa.ImplBlockReceiver[fn]; r != "" {
+		if c.fa.Program().ImplBlockReceiver != nil {
+			if r := c.fa.Program().ImplBlockReceiver[fn]; r != "" {
 				recv = r
 			}
 		}
 		if recv != name {
 			continue
 		}
-		if ifaceKey != "" && c.fa.ImplBlockInterfaceKey[fn] != ifaceKey {
+		if ifaceKey != "" && c.fa.Program().ImplBlockInterfaceKey[fn] != ifaceKey {
 			continue
 		}
 		if match != nil {
@@ -17223,11 +17230,11 @@ func (c *checker) resolveLocalImplForInterfaceKey(ifaceName, ifaceKey, methodNam
 		}
 		match = fn
 	}
-	for _, ext := range c.fa.IfaceMethodImplExterns[ifaceName][methodName] {
+	for _, ext := range c.fa.Program().IfaceMethodImplExterns[ifaceName][methodName] {
 		if ext == nil || c.fa.ImplBlockReceiverExtern[ext] != name {
 			continue
 		}
-		if ifaceKey != "" && c.fa.ImplBlockInterfaceKeyExtern[ext] != ifaceKey {
+		if ifaceKey != "" && c.fa.Program().ImplBlockInterfaceKeyExtern[ext] != ifaceKey {
 			continue
 		}
 		if match != nil {
@@ -17491,7 +17498,7 @@ func (c *checker) checkTaggedString(n *ast.TaggedString) Type {
 		// interface-impl methods cross-module). The receiver type is
 		// matched by name only, so a name-bearing placeholder suffices.
 		tagType := &DistinctType{Name: n.Tag}
-		impl := resolveConcreteImpl(c.fa.ProjectImpls, "Literal", "from_fragments", tagType)
+		impl := resolveConcreteImpl(c.fa.Program().ImplIndex, "Literal", "from_fragments", tagType)
 		if impl == nil {
 			c.errors = append(c.errors, TypeError{
 				Line:    n.Line,
@@ -17508,7 +17515,7 @@ func (c *checker) checkTaggedString(n *ast.TaggedString) Type {
 			})
 			return nil
 		}
-		f, isFn := c.fa.ProjectImpls.ImplFuncTypes[impl].(*FuncType)
+		f, isFn := c.fa.Program().ImplIndex.ImplFuncTypes[impl].(*FuncType)
 		if !isFn {
 			c.errors = append(c.errors, TypeError{
 				Line:    n.Line,
@@ -17729,7 +17736,7 @@ func (c *checker) fromFragmentsRival(tag string, handler *ast.FuncDef) (fromFrag
 	// rather than by name. One rule for every interface, and no name string to
 	// get wrong.
 	for _, iface := range c.interfacesImplementedBy(tag) {
-		fd := resolveConcreteImpl(c.fa.ProjectImpls, iface, "from_fragments", &DistinctType{Name: tag})
+		fd := resolveConcreteImpl(c.fa.Program().ImplIndex, iface, "from_fragments", &DistinctType{Name: tag})
 		if fd == nil || (fd.Line == handler.Line && fd.Col == handler.Col) {
 			continue
 		}

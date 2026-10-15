@@ -13,7 +13,7 @@ import {
     app.{self, Config, drain_alerts, record_audit, send_welcome, slow_work}
 }
 
-tests "named task groups" {
+group "named task groups" {
     // Background work is what virtual time is for: every test below either
     // sleeps or waits for a group, and none of it costs real time. A
     // cancelled 30-second task unwinds at once rather than being slept

@@ -8,7 +8,7 @@
 (function_definition) @local.scope
 (lambda) @local.scope
 (test_declaration) @local.scope
-(tests_declaration) @local.scope
+(group_declaration) @local.scope
 
 ;; Definitions
 

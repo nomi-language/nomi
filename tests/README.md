@@ -47,7 +47,7 @@ triple-quoted strings.
 
 ### 02-testing
 
-The Nomi test surface itself: `test`, `tests`, setup values bound by a test's pattern,
+The Nomi test surface itself: `test`, `group`, setup values bound by a test's pattern,
 `check`, `assert`, `refute`, assertion rendering, and custom assertable values.
 
 ### 03-tooling-and-diagnostics

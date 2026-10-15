@@ -77,7 +77,7 @@ func TestSubtests_RejectedPlacementsAndExits(t *testing.T) {
 		},
 		{
 			name: "setup",
-			src: `tests "g" {
+			src: `group "g" {
     setup {
         subtests [1], x {
             assert x > 0
@@ -325,7 +325,7 @@ test "t" {
         }
     }
 }`},
-		{"assertions nested in an arm, and a test in a group whose only assertion is a subtests", `tests "g" {
+		{"assertions nested in an arm, and a test in a group whose only assertion is a subtests", `group "g" {
     test "t" {
         subtests [1, 2], n {
             if n > 1 {

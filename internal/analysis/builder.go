@@ -537,7 +537,7 @@ type FileAnalysis struct {
 	InferredTypeParamBounds map[*ast.FuncDef]map[string][]string
 	// TypeMethodModules is the set of provider module paths for cross-module
 	// type-promoted methods this file's call sites USE (resolved via the
-	// project-level ProjectImpls.TypeMethods table — e.g. `List.concat` resolves
+	// project-level Program().ImplIndex.TypeMethods table — e.g. `List.concat` resolves
 	// to std/lists). The runtime type-method bridge force-loads
 	// these so the inherent method registers even when the file never imported
 	// the provider; without it `List.concat` only works when something else
@@ -553,65 +553,18 @@ type FileAnalysis struct {
 	// interface's type params from a concrete receiver.
 	ImplTypeArgs    map[string]map[string]*ImplTypeArgs
 	ImplTypeArgSets map[string]map[string][]*ImplTypeArgs
-	// ScopedFunctionFiles maps every function of the project to the file
-	// that declares it, and BootFunctions holds every entry boot (a top-level
-	// `fn boot` in a file that defines `fn main`), so the application-field
-	// root check can follow calls across files (app_fields.go). AppTypes are
-	// the structs those boots return: `T.field` is an application-field read
-	// exactly when T is one of them.
-	ScopedFunctionFiles map[*ast.FuncDef]*FileAnalysis
-	BootFunctions       map[*ast.FuncDef]bool
-	AppTypes            []*StructType
 	// BootErrors are this file's boot errors from the project build: a
 	// `fn boot` outside an entry file, or a boot signature or application
 	// struct that is not valid. The checker reports them with the file.
 	BootErrors []TypeError
-	// Onces is the project's module-level `once` bindings, shared by every
-	// file of one project build. See OnceTable.
-	Onces *OnceTable
 	// AppReads holds each checked application-field read (`MyApp.logger`)
 	// and each `with` override's target, keyed by the *ast.FieldAccess, and
 	// AppReadsByPos the same keyed by the field name's position.
 	AppReads      map[ast.Node]AppRead
 	AppReadsByPos map[Pos]AppRead
-	// ContextType is the canonical std/context.Context identity.
-	ContextType Type
-	// StdlibModuleScopes maps each stdlib module's short name ("iter",
-	// "maps", ...) to its defining module Scope. Stdlib symbols carry no
-	// SourceFile (resolveStdlibImport returns prebuilt scopes, unlike the
-	// user-module resolveImport path), so this map is how a pass finds the
-	// scope that defines a stdlib symbol (the iter-sensitivity pass's
-	// slotsForStdlibCallbackSymbol, derive synthesis, the IR builder).
-	// Populated by BuildFileWithStdlib from the caller's stdlib modules
-	// map, and by buildProjectWithCache from the cache's "std/<name>" FAs
-	// (broadcast to every file's FA, same pattern as ContextType). Nil for
-	// raw BuildFile callers.
-	StdlibModuleScopes map[string]*Scope
-	// IfaceMethodImpls indexes every `impl Iface for T { fn method(...) }`
-	// method FuncDef
-	// in the project, keyed by interface name → method name → list of impl
-	// FuncDefs. Populated by BuildProject and broadcast across every file's
-	// FA so cross-file impl-discovery works regardless of which file's
-	// checker is running. Nil for raw BuildFile callers (tests, REPL).
-	IfaceMethodImpls map[string]map[string][]*ast.FuncDef
-	// IfaceMethodImplFiles maps each impl FuncDef pointer (from
-	// IfaceMethodImpls) to the import-form module key of the file it
-	// came from (e.g. "foo" or "sub/log"; "" for the project entry
-	// file). Stdlib FAs populate the same shape via std.Load() with
-	// "std/<name>" keys, so a consumer can split either on '/' to
-	// recover the module path segments. The LSP
-	// `textDocument/implementation` handler reconstructs the absolute
-	// path via projectRoot + key + ".nomi" — IfaceMethodImpls's FuncDef
-	// AST nodes carry only line/col, not path. Populated by BuildProject
-	// in the same pass that builds IfaceMethodImpls, broadcast to every
-	// file's FA the same way.
-	IfaceMethodImplFiles map[*ast.FuncDef]string
-	// ProjectImpls back-points to the project-level impl index so
-	// code that receives an FA can reach project-wide impl data without a
-	// separate *Project param. Populated by BuildProjectWithCache;
-	// nil for raw BuildFile / BuildFileWithStdlib callers (consumers
-	// check + fall back to per-FA Impls / IfaceMethodImpls).
-	ProjectImpls *ProjectImplIndex
+	// program is the program this file belongs to; read it with Program().
+	// A build sets it once the Program is complete, and never changes it.
+	program *Program
 	// TypeMethods is the per-file type-qualified method table:
 	// receiver-type base name → method name → Symbol. Populated by
 	// defineImplBlock for compiler-synthesized type-owned functions and
@@ -620,26 +573,25 @@ type FileAnalysis struct {
 	// receiver-specific lookup even when a module exposes one flattened name
 	// such as `users.inspect(...)` for several receiver types.
 	TypeMethods map[string]map[string]*Symbol
-	// ImplBlockReceiver records, for each impl-block item FuncDef, the receiver
-	// type base name taken from the BLOCK HEADER (not the first parameter).
-	// Coherence (detectImplCollisions / detectOrphanImpls) keys interface-impl
-	// methods on the receiver; for block forms the first parameter is the
-	// concrete receiver type. Bodyless marker impls have no function item at
-	// all, so funcDefReceiverBaseName can't recover it — this override map
-	// supplies the header receiver when a function item exists. Also lets
-	// the inherent collision check group an inherent block's methods by their
-	// owning type. Nil for files with no impl blocks.
+	// ImplBlockReceiver records, for each impl-block item FuncDef this file
+	// declares, the receiver type base name taken from the BLOCK HEADER (not
+	// the first parameter). Coherence (detectImplCollisions /
+	// detectOrphanImpls) keys interface-impl methods on the receiver; for
+	// block forms the first parameter is the concrete receiver type.
+	// Bodyless marker impls have no function item at all, so
+	// funcDefReceiverBaseName can't recover it — this override map supplies
+	// the header receiver when a function item exists. Also lets the
+	// inherent collision check group an inherent block's methods by their
+	// owning type. Nil for files with no impl blocks. These are the file's
+	// own; Program() holds the build's.
 	ImplBlockReceiver     map[*ast.FuncDef]string
 	ImplBlockInterfaceKey map[*ast.FuncDef]string
-	// IfaceMethodImplExterns / IfaceMethodImplExternFiles / ImplBlockReceiverExtern
-	// are the `host fn` parallel of IfaceMethodImpls / IfaceMethodImplFiles /
-	// ImplBlockReceiver — those three are FuncDef-typed and so exclude the
-	// `host fn` items of an `impl Iface for Type` block. Carrying externs here
-	// lets resolveConcreteImpl resolve an extern interface impl to its concrete
-	// source for go-to-def / hover (the FuncDef maps stay untouched because the
-	// type-checker and the IR builder that read them genuinely want FuncDefs).
-	IfaceMethodImplExterns      map[string]map[string][]*ast.ExternFunc
-	IfaceMethodImplExternFiles  map[*ast.ExternFunc]string
+	// ImplBlockReceiverExtern and ImplBlockInterfaceKeyExtern are the
+	// `host fn` parallel of ImplBlockReceiver and ImplBlockInterfaceKey,
+	// which are FuncDef-typed and so exclude the `host fn` items of an
+	// `impl Iface for Type` block. Carrying externs lets resolveConcreteImpl
+	// resolve an extern interface impl to its concrete source for go-to-def
+	// and hover.
 	ImplBlockReceiverExtern     map[*ast.ExternFunc]string
 	ImplBlockInterfaceKeyExtern map[*ast.ExternFunc]string
 	// TypeErrors holds type-checking errors discovered after analysis.
@@ -743,7 +695,7 @@ func (fa *FileAnalysis) RecordInferredTypeParamBound(fn *ast.FuncDef, param, ifa
 // findContextType returns the Type of `Context` exported by the `context`
 // stdlib module from a given modules map (module-name -> scope), or nil if
 // the module is absent or `Context` isn't defined. Used by both
-// BuildFileWithStdlib and BuildProject to populate FileAnalysis.ContextType.
+// BuildFileWithStdlib and BuildProject to populate Program.ContextType.
 func findContextType(modules map[string]*Scope) Type {
 	ctxMod, ok := modules["context"]
 	if !ok {
@@ -971,8 +923,8 @@ func buildFileWithStdlibAtPath(nodes []ast.Node, primitives *Scope, modules map[
 	// an alias key, removing the original) stay local to this file's builder
 	// and don't leak into the shared stdlib map.
 	localModules := make(map[string]*Scope, len(modules))
-	// Separate copy for FileAnalysis.StdlibModuleScopes: localModules is
-	// mutated by import-alias handling, and the FA field must keep naming
+	// Separate copy for Program.StdlibModuleScopes: localModules is
+	// mutated by import-alias handling, and the Program field must keep naming
 	// the defining scopes under their canonical module names.
 	stdlibScopes := make(map[string]*Scope, len(modules))
 	for name, scope := range modules {
@@ -986,23 +938,23 @@ func buildFileWithStdlibAtPath(nodes []ast.Node, primitives *Scope, modules map[
 	}
 	b := &builder{
 		file: &FileAnalysis{
-			ModuleScope:        moduleScope,
-			FilePath:           filePath,
-			Origin:             originForStandalonePath(filePath),
-			References:         make(map[Pos]*Symbol),
-			Definitions:        make(map[Pos]*Symbol),
-			ContextType:        findContextType(modules),
-			StdlibModuleScopes: stdlibScopes,
+			ModuleScope: moduleScope,
+			FilePath:    filePath,
+			Origin:      originForStandalonePath(filePath),
+			References:  make(map[Pos]*Symbol),
+			Definitions: make(map[Pos]*Symbol),
 		},
-		modules:     localModules,
-		moduleSyms:  modSyms,
-		loader:      loader,
-		projectRoot: projectRoot,
-		moduleAlias: moduleAliasForFile("", filePath),
-		cache:       make(map[string]*FileAnalysis),
-		loading:     make(map[string]bool),
+		stdlibScopes: stdlibScopes,
+		modules:      localModules,
+		moduleSyms:   modSyms,
+		loader:       loader,
+		projectRoot:  projectRoot,
+		moduleAlias:  moduleAliasForFile("", filePath),
+		cache:        make(map[string]*FileAnalysis),
+		loading:      make(map[string]bool),
 	}
 	b.buildModule(nodes, moduleScope)
+	b.file.program = standaloneProgram(b.file, nodes, nil, stdlibScopes, findContextType(modules))
 	return b.file
 }
 
@@ -1028,6 +980,10 @@ type builder struct {
 	// proj.Files = cache ∪ entry carries stdlib FAs uniformly with user-
 	// module FAs, which the project-level impl index consumes.
 	stdlibFAs map[string]*FileAnalysis
+	// stdlibScopes is the stdlib module scopes the file is built against,
+	// which become its Program's StdlibModuleScopes once the build is
+	// complete. Nil for a module loaded on demand.
+	stdlibScopes map[string]*Scope
 
 	// fileScope is the module-level scope for the file being built.
 	// Used by the const-shadow check to know where the file boundary
@@ -1260,6 +1216,7 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 	sub.file.TypeErrors = append(sub.file.TypeErrors, lowerErrs...)
 	sub.buildModule(loweredNodes, moduleScope)
 	BuildTypes(sub.file, loweredNodes)
+	sub.file.program = standaloneProgram(sub.file, loweredNodes, nil, nil, nil)
 	b.cache[cacheKey] = sub.file
 	mergeImpls(b.file, sub.file)
 	mergeImplManifest(b.file, sub.file)
@@ -1296,7 +1253,7 @@ func mergeImpls(dst, src *FileAnalysis) {
 
 // mergeTypeMethods copies an imported USER module's own public impl methods
 // into the importing file's per-file TypeMethods table, so single-file analysis
-// (the LSP path, where ProjectImpls is nil) resolves a type-qualified call to
+// (the LSP path, where Program().ImplIndex is nil) resolves a type-qualified call to
 // an imported user type's interface method.
 // It is the per-file sibling of mergeImpls, scoped narrowly to keep go-to-def
 // correct:
@@ -1330,7 +1287,7 @@ func mergeTypeMethods(dst, src *FileAnalysis, srcPath string) {
 			}
 			// Module-private methods stay callable only within their defining
 			// module. Project-wide analysis applies the same public-only filter
-			// when it builds ProjectImpls.TypeMethods.
+			// when it builds Program().ImplIndex.TypeMethods.
 			if !sym.Public {
 				continue
 			}
@@ -1617,18 +1574,10 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	// interface defaults are genuinely unmet across all impl blocks for a
 	// (type, iface).
 	b.registerImplDefaults(scope)
-	// derive field/payload bound check (spec §38.1, *Field-type
-	// requirements*). Runs AFTER
-	// defineTopLevel so b.file.Impls is fully populated; the (T, Iface)
-	// entries for the @derive'd types themselves are also registered by
-	// now (defineImplBlockStub on the synthesizer's emitted
-	// impl block), which lets recursive and mutually-recursive types
-	// pass without special-casing. Note: BuildFileWithStdlib (single-file
-	// callers, e.g. LSP raw-document analysis, white-box tests) reaches
-	// CheckDeriveBounds with fa.ProjectImpls == nil — the guard inside
-	// CheckDeriveBounds short-circuits in that case so primitive-typed
-	// fields aren't falsely flagged.
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckDeriveBounds(b.file, nodes)...)
+	// The derive field/payload bound check (CheckDeriveBounds) does not run
+	// here: a file built on its own has no impl index, and without one the
+	// check would flag every primitive-typed field. A project build runs it
+	// over its own files with the index (Sweep B-bounds).
 	// Validate inline `pub opaque type ...` / `opaque type ...`
 	// declarations — the parser preserves the keyword on whatever node it
 	// produced (TypeDef / StructDef / EnumDef); this is where the rule
@@ -3699,7 +3648,7 @@ func (b *builder) walkImplBlockBodies(n *ast.ImplBlock, scope *Scope) {
 		receiverDisplay = n.Receiver.TypeString()
 	}
 	if IsSynthesizedLine(n.Line) {
-		scope = synthSupportScope(b.file, scope)
+		scope = synthSupportScope(b.file, b.stdlibScopes, scope)
 	}
 	inner := b.defineTypeParams(mergeImplScopeTypeParams(inferReceiverTypeParams(n.Receiver, scope), n.Generics), scope)
 	if inner == scope {
@@ -4673,10 +4622,12 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 				b.definePatternIn(n.CondPattern, child, n.Then)
 				b.walkBlock(n.Then, child)
 			} else {
-				b.walkBlock(n.Then, scope)
+				b.walkScopedBlock(n.Then, scope)
 			}
 		}
 		if n.Else != nil {
+			// An `else` block goes through the Block case below, which
+			// gives it its own scope; an `else if` is an If.
 			b.walkNode(n.Else, scope)
 		}
 
@@ -4701,7 +4652,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.Block:
-		b.walkBlock(n, scope)
+		b.walkScopedBlock(n, scope)
 
 	case *ast.GroupedExpr:
 		b.walkNode(n.Expr, scope)
@@ -5269,7 +5220,7 @@ func (b *builder) synthStdFileQualifier(n *ast.TypeIdent) *Symbol {
 	if n == nil || n.Name == "" || !IsSynthesizedLine(n.Line) || !unicode.IsLower([]rune(n.Name)[0]) {
 		return nil
 	}
-	modScope := b.file.StdlibModuleScopes[n.Name]
+	modScope := b.stdlibScopes[n.Name]
 	if modScope == nil {
 		return nil
 	}
@@ -5283,6 +5234,20 @@ func moduleScopeOfSym(sym *Symbol) *Scope {
 		return nil
 	}
 	return sym.ModuleScope
+}
+
+// walkScopedBlock walks a block in a new scope nested in scope. Bindings
+// inside a block are scoped to that block (spec §33): one in an `if` arm, an
+// `else` block or a bare `{ }` does not leak into the enclosing scope, so a
+// read after the block sees the outer binding and an inner binding nothing
+// reads is reported as never read.
+func (b *builder) walkScopedBlock(block *ast.Block, scope *Scope) {
+	if block == nil {
+		return
+	}
+	child := NewScope(scope)
+	setScopeSpan(child, block.Line, block.Col, block.EndLine, block.EndCol)
+	b.walkBlock(block, child)
 }
 
 // walkBlock walks statements in a block, handling Binding specially:

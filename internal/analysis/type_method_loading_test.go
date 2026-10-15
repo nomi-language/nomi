@@ -29,10 +29,12 @@ fn use_foo(f: Foo): Int {
 		Public: true,
 		Type:   &FuncType{Params: []Type{TypeInt}, Return: TypeInt},
 	}
-	fa.ProjectImpls = &ProjectImplIndex{
+	with := *fa.Program()
+	with.ImplIndex = &ProjectImplIndex{
 		TypeMethods:      map[string]map[string]*Symbol{"Foo": {"bar": barSym}},
 		TypeMethodModule: map[string]map[string]string{"Foo": {"bar": "std/widget"}},
 	}
+	fa.program = &with
 
 	CheckTypes(fa, nodes)
 

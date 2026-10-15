@@ -110,7 +110,7 @@ import std/test.Thing
 host fn now(): Int
 // <---- keyword.declaration.nomi
 // <~~~~~~~~--- entity.name.function.nomi
-tests "group" {
+group "group" {
 // <----- keyword.declaration.nomi
 // <~~~~~~------- string.quoted.double.nomi
     clock Clock.Virtual
@@ -129,5 +129,10 @@ tests "group" {
         }
         subtests = 3
 // <~~~~~~~~-------- variable.other.nomi
+        group = subtests
+// <~~~~~~~~----- variable.other.nomi
     }
+}
+group {
+// <----- keyword.declaration.nomi
 }

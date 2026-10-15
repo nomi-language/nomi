@@ -26,12 +26,12 @@ import (
 //     InterfaceTypedParam entries into per-FA fa.ImplManifest, then
 //     internal/frontend / stdcompiler / the LSP call
 //     MergeImplManifest(entry, sib) to fold sibling recordings into the
-//     entry FA — but neither writes back into ProjectImpls.ImplManifest).
+//     entry FA — but neither writes back into Program().ImplIndex.ImplManifest).
 //   - Impls picks up struct-level impl registrations from a
 //     late pass at the bottom of BuildProjectWithCache (after the
 //     buildProjectImplIndex snapshot is taken). Those updates land in
 //     per-FA fa.Impls and the entry's fa.Impls via cross-file mergeImpls,
-//     but again don't write back into ProjectImpls.Impls.
+//     but again don't write back into Program().ImplIndex.Impls.
 //
 // We synthesize a fresh snapshot here that unions the project-level
 // Impls (covers stdlib + sibling impls) with entryFA.Impls (covers
@@ -39,15 +39,15 @@ import (
 // reads ImplManifest from entryFA directly (the post-CheckTypes union).
 // DetectMissingImpls then sees the full picture.
 func FinalizeCoherence(entryFA *FileAnalysis) []TypeError {
-	if entryFA == nil || entryFA.ProjectImpls == nil {
+	if entryFA == nil || entryFA.Program().ImplIndex == nil {
 		return nil
 	}
 	// Union project-level Impls with entry-level Impls. Project-level
 	// holds stdlib and discovery-walked siblings as of the snapshot;
 	// entry-level holds the late struct-level impl pass and any
 	// cross-file mergeImpls that happened after the snapshot.
-	impls := make(map[string]map[string]bool, len(entryFA.ProjectImpls.Impls))
-	for t, ifaces := range entryFA.ProjectImpls.Impls {
+	impls := make(map[string]map[string]bool, len(entryFA.Program().ImplIndex.Impls))
+	for t, ifaces := range entryFA.Program().ImplIndex.Impls {
 		copyIfaces := make(map[string]bool, len(ifaces))
 		for i := range ifaces {
 			copyIfaces[i] = true
@@ -57,8 +57,8 @@ func FinalizeCoherence(entryFA *FileAnalysis) []TypeError {
 	// The covered set is COPIED, not shared. Uncovering below is per-call
 	// state about this entry's extra supply, and the index it comes from is
 	// held by pointer in every FileAnalysis of the build.
-	covered := make(map[string]map[string]bool, len(entryFA.ProjectImpls.implNamesWithIdentity))
-	for t, ifaces := range entryFA.ProjectImpls.implNamesWithIdentity {
+	covered := make(map[string]map[string]bool, len(entryFA.Program().ImplIndex.implNamesWithIdentity))
+	for t, ifaces := range entryFA.Program().ImplIndex.implNamesWithIdentity {
 		copyIfaces := make(map[string]bool, len(ifaces))
 		for i := range ifaces {
 			copyIfaces[i] = true
@@ -70,7 +70,7 @@ func FinalizeCoherence(entryFA *FileAnalysis) []TypeError {
 	snapshot := &ProjectImplIndex{
 		Impls:                 impls,
 		ImplManifest:          entryFA.ImplManifest,
-		ImplsByIdentity:       entryFA.ProjectImpls.ImplsByIdentity,
+		ImplsByIdentity:       entryFA.Program().ImplIndex.ImplsByIdentity,
 		implNamesWithIdentity: covered,
 	}
 	// Supply the entry FA adds beyond the project-level snapshot has no
@@ -83,7 +83,7 @@ func FinalizeCoherence(entryFA *FileAnalysis) []TypeError {
 			impls[t] = make(map[string]bool, len(ifaces))
 		}
 		for i := range ifaces {
-			if !entryFA.ProjectImpls.Impls[t][i] {
+			if !entryFA.Program().ImplIndex.Impls[t][i] {
 				snapshot.UncoverImplIdentity(t, i)
 			}
 			impls[t][i] = true

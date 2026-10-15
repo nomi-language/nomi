@@ -116,7 +116,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "tests_declaration"
+          "name": "group_declaration"
         },
         {
           "type": "SYMBOL",
@@ -652,7 +652,7 @@
         "value": -1,
         "content": {
           "type": "PATTERN",
-          "value": "and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|tests?|then|todo|try|type(alias)?|where|with"
+          "value": "and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(alias)?|where|with"
         }
       }
     },
@@ -2981,28 +2981,41 @@
         }
       ]
     },
-    "tests_declaration": {
+    "group_declaration": {
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
-          "value": "tests"
-        },
-        {
-          "type": "FIELD",
-          "name": "name",
+          "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "string"
-          }
+            "name": "_group_keyword"
+          },
+          "named": false,
+          "value": "group"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "name",
+              "content": {
+                "type": "SYMBOL",
+                "name": "string"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
-          "name": "tests_body"
+          "name": "group_body"
         }
       ]
     },
-    "tests_body": {
+    "group_body": {
       "type": "SEQ",
       "members": [
         {
@@ -10992,6 +11005,10 @@
     {
       "type": "SYMBOL",
       "name": "_subtests_keyword"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_group_keyword"
     }
   ],
   "inline": [],

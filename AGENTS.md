@@ -91,7 +91,10 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   instantiated per type-argument tuple a program reaches; generic stdlib
   bodies are instantiated per program, never in the shared cache. Every IR
   temporary has a stored value type (`ir.ValType`), and a retained graph must
-  pass `ir.Lint`. A body the builder declines is not retained; a program that
+  pass `ir.Lint`. The shared stdlib lowering skips lint outside `go test`
+  (`lintEmbeddedStdlib`), since it is the same in every process of a binary;
+  `TestStdlibLowersTheSameWithoutLint` requires that lowering to pass lint and
+  to retain what the linted one retains. A body the builder declines is not retained; a program that
   reaches one fails before its first effect. `nomi run` prints the
   diagnostic `nomi check` gives, at the expression the builder stopped at
   and worded for the author ("this call to `f` is not supported yet, so
@@ -536,7 +539,7 @@ The spec is canonical; these are the rules most often gotten wrong.
   the end of its block, as a `defer` there would run; several fields are
   several lines, and there is no block form. A boot must return the type every
   field read reachable from its `main` or test names.
-- **Test groups.** A `tests` group holds at most one `clock`, `boot` and
+- **Test groups.** A `group` holds at most one `clock`, `boot` and
   `setup`, in that order, then its tests, and groups do not nest.
   `boot server.boot(startup)` calls an entry's boot. `setup` returns any value,
   and a test binds it with an irrefutable pattern (`test "x", db { ... }`).

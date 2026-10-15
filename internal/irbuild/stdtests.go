@@ -35,7 +35,7 @@ import (
 
 // stdModuleTestCases collects a stdlib module's cases in the order and under
 // the names frontend.CollectTestCases gives them: each declaration's prompts
-// and its items' (attachedTestCasesIn), and a top-level `test` or `tests`
+// and its items' (attachedTestCasesIn), and a top-level `test` or `group`
 // declaration through collectTestDecl.
 func stdModuleTestCases(nodes []ast.Node) []testCaseDecl {
 	var out []testCaseDecl
@@ -212,7 +212,7 @@ func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 		return no()
 	}
 	bound := 0
-	for _, sym := range g.fa.Definitions {
+	for _, sym := range g.srcFA().Definitions {
 		if sym == nil || sym.Node != n {
 			continue
 		}

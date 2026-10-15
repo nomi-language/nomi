@@ -13,12 +13,12 @@ and its forks:
   go-to-definition, formatting and the rest of what it serves.
 - Commands: **Nomi: Run File** (`nomi run <file>`), **Nomi: Test File**
   (`nomi test <file>`), **Nomi: Test at Cursor** (`nomi test <file> --line N`
-  for the `test`, `tests` group or `//!` attached test under the cursor) and
+  for the `test`, `group` or `//!` attached test under the cursor) and
   **Nomi: Restart Language Server**. Runs happen in a shared task terminal,
   from the nearest directory holding `nomi.toml` (else `.git`, else the
   workspace folder). A run still in flight is stopped first.
-- Code lenses from `nomi-lsp`: **Run test**, **Run tests** and **Run attached
-  test** above each `test`, `tests` group and `//!` test (the lens command
+- Code lenses from `nomi-lsp`: **Run test**, **Run group** and **Run attached
+  test** above each `test`, `group` and `//!` test (the lens command
   `nomi.runTest`, which runs `nomi test <file> --line N`), and **Run** above
   `fn main` (`nomi.runMain`, which runs `nomi run <file>`), in the same task
   terminal. Beside each is a **Debug** lens (`nomi.debugTest`,
@@ -67,7 +67,7 @@ launch.json configuration takes:
 |---|---|---|
 | `mode` | `"run"` | `"run"` runs `main`, as `nomi run` does; `"test"` runs the file's tests, as `nomi test` does. |
 | `program` | the active file | The `.nomi` file. In run mode, a directory names a project whose `nomi.toml` lists one entry point. |
-| `line` | none | In test mode, only the test, `tests` group or `//!` test starting on this line. |
+| `line` | none | In test mode, only the test, `group` or `//!` test starting on this line. |
 | `args` | `[]` | The program's arguments. |
 | `cwd` | the file's root | The working directory. |
 | `env` | none | Environment variables for the program. |
@@ -160,7 +160,7 @@ and `npm test`.
 What the tests cover:
 
 - `test/unit/testLine.test.ts`: finding the test under the cursor. VS Code has
-  no tree-sitter, so `src/testLine.ts` scans the text for `test` and `tests`
+  no tree-sitter, so `src/testLine.ts` scans the text for `test` and `group`
   headers and `//!` blocks, matching braces outside comments and literals.
   Zed and Neovim find the same node with tree-sitter.
 - `test/unit/attachedTests.test.ts`: which lines form an attached test (a run

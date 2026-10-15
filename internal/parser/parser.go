@@ -418,11 +418,14 @@ func attachTrivia(h ast.HasTrivia, leading, trailing []ast.Trivia) {
 
 func (p *Parser) synchronize() {
 	for !p.atEnd() {
+		if p.atGroupStart() {
+			return
+		}
 		switch p.peek().Type {
 		case token.FN, token.TYPE, token.STRUCT, token.ENUM,
 			token.TYPEALIAS, token.INTERFACE,
 			token.IMPORT, token.PUB, token.EXTERN,
-			token.EXPORT, token.ONCE, token.TEST, token.TESTS:
+			token.EXPORT, token.ONCE, token.TEST:
 			return
 		}
 		p.advance()
@@ -476,7 +479,7 @@ skip:
 		case token.FN, token.TYPE, token.STRUCT, token.ENUM,
 			token.TYPEALIAS, token.INTERFACE,
 			token.IMPORT, token.PUB, token.EXTERN,
-			token.EXPORT, token.ONCE, token.TEST, token.TESTS:
+			token.EXPORT, token.ONCE, token.TEST:
 			if depth == 0 {
 				// A top-level keyword at block depth means the block's
 				// `}` is missing. Stop here so the block can close
@@ -528,10 +531,10 @@ func (p *Parser) blockClosedByColumnOneDecl() bool {
 	case token.FN, token.TYPE, token.STRUCT, token.ENUM,
 		token.TYPEALIAS, token.INTERFACE,
 		token.IMPORT, token.PUB, token.EXTERN,
-		token.EXPORT, token.ONCE, token.TEST, token.TESTS:
+		token.EXPORT, token.ONCE, token.TEST:
 		return true
 	}
-	return false
+	return p.atGroupStart()
 }
 
 // resilientBlockEnd supplies the end position for a block whose closing
@@ -687,7 +690,7 @@ func (p *Parser) collectAttachedTestBodyTokens(openTok token.Token) ([]token.Tok
 			}
 			if tk.Line != prompt.Line &&
 				tk.Line > coveredThroughLine &&
-				(isAttachedTestPostludeStart(tk.Type) || (isHostToken(tk) && (p.peekAt(1).Type == token.FN || p.peekAt(1).Type == token.TYPE))) {
+				(isAttachedTestPostludeStart(tk.Type) || isGroupStart(tk, p.peekAt(1)) || (isHostToken(tk) && (p.peekAt(1).Type == token.FN || p.peekAt(1).Type == token.TYPE))) {
 				if !promptHadBody {
 					pendingBlankPrompts++
 				}
@@ -736,8 +739,7 @@ func isAttachedTestPostludeStart(tt token.TokenType) bool {
 		token.INTERFACE,
 		token.IMPL,
 		token.OPAQUE,
-		token.TEST,
-		token.TESTS:
+		token.TEST:
 		return true
 	default:
 		return false
@@ -1335,8 +1337,9 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		return p.parseWith()
 	}
 
-	// Test declarations: test "name" { ... } / tests "name" { ... }
-	if p.peek().Type == token.TEST || p.peek().Type == token.TESTS {
+	// Test declarations: test "name" { ... } / group "name" { ... }. `group`
+	// is a contextual keyword, read as one only at the top level.
+	if p.peek().Type == token.TEST || (p.blockDepth == 0 && p.atGroupStart()) {
 		return p.parseTestDecl()
 	}
 
@@ -3509,21 +3512,36 @@ func (p *Parser) parseConcurrentBlock() (ast.Node, error) {
 //
 //	test "name" { ... }
 //	test "name", ctx { ... }
-//	tests "name" { clock Clock.Virtual  boot server.boot(startup)  setup fixture()  test "child", ctx { ... } }
+//	group "name" { clock Clock.Virtual  boot server.boot(startup)  setup fixture()  test "child", ctx { ... } }
 func (p *Parser) parseTestDecl() (ast.Node, error) {
 	tok := p.peek()
-	group := tok.Type == token.TESTS
-	p.advance() // consume TEST / TESTS
+	group := tok.Type != token.TEST
+	p.advance() // consume `test` or the contextual `group`
 
-	if p.atEnd() || p.peek().Type != token.STRING_LITERAL {
+	var nameTok token.Token
+	var name string
+	switch {
+	case group && !p.atEnd() && p.peek().Type == token.LBRACE:
+		// `group { ... }`: the name is missing. The body is still read
+		// as a group's, so its tests are checked and an editor offers
+		// inside it what it offers inside any group. The declaration has
+		// no name position, so the checker does not report the name again.
+		brace := p.peek()
+		p.softError(ParseError{
+			Line:    brace.Line,
+			Col:     brace.Col,
+			Message: "a `group` needs a name; name the group for what its tests share, such as `group \"dates\" { ... }`",
+		})
+	case p.atEnd() || p.peek().Type != token.STRING_LITERAL:
 		if group {
-			return nil, errorAt(tok.Line, tok.Col, "expected tests name string after `tests`")
+			return nil, errorAt(tok.Line, tok.Col, "expected group name string after `group`")
 		}
 		return nil, errorAt(tok.Line, tok.Col, "expected test name string after `test`")
+	default:
+		nameTok = p.peek()
+		name = nameTok.Lexeme
+		p.advance()
 	}
-	nameTok := p.peek()
-	name := nameTok.Lexeme
-	p.advance()
 
 	var contextPattern ast.Node
 	if !group && !p.atEnd() && p.peek().Type == token.COMMA {
@@ -3537,7 +3555,7 @@ func (p *Parser) parseTestDecl() (ast.Node, error) {
 
 	if p.atEnd() || p.peek().Type != token.LBRACE {
 		if group {
-			return nil, errorAt(tok.Line, tok.Col, "expected '{' for tests body")
+			return nil, errorAt(tok.Line, tok.Col, "expected '{' for group body")
 		}
 		return nil, errorAt(tok.Line, tok.Col, "expected '{' for test body")
 	}
@@ -3556,7 +3574,7 @@ func (p *Parser) parseTestDecl() (ast.Node, error) {
 	var clockTrailing []ast.Trivia
 	var body *ast.Block
 	if group {
-		parsed, err := p.parseTestsBody()
+		parsed, err := p.parseGroupBody()
 		if err != nil {
 			return nil, err
 		}
@@ -3609,7 +3627,7 @@ func (p *Parser) parseTestDecl() (ast.Node, error) {
 	// parsers never repair, so they always run the check.
 	if !testDeclContainsAssertion(testDecl) && p.recoveries == bodyRecoveries {
 		if group {
-			return nil, errorAt(tok.Line, tok.Col, "tests block must contain at least one assert or refute")
+			return nil, errorAt(tok.Line, tok.Col, "group block must contain at least one assert or refute")
 		}
 		return nil, errorAt(tok.Line, tok.Col, "test block must contain at least one assert or refute")
 	}
@@ -3634,11 +3652,11 @@ func testDeclContainsAssertion(decl *ast.TestDecl) bool {
 	return false
 }
 
-// testsBody is what a `tests "…" { }` header block yields. A struct
+// groupBody is what a `group "…" { }` block yields. A struct
 // rather than a return list: the list had reached nine values before
 // `clock` was added, at which point every call site was positional
 // guesswork.
-type testsBody struct {
+type groupBody struct {
 	block         *ast.Block
 	boot          ast.Node
 	bootLine      int
@@ -3653,16 +3671,16 @@ type testsBody struct {
 	clockTrailing []ast.Trivia
 }
 
-// parseTestsBody parses a group's body: at most one `clock`, one `boot` and
+// parseGroupBody parses a group's body: at most one `clock`, one `boot` and
 // one `setup` line, and its `test` blocks, in any order. The lines run in a
 // fixed order whatever their position, so position means nothing; `nomi fmt`
 // moves them to the top. Groups do not nest.
-func (p *Parser) parseTestsBody() (testsBody, error) {
+func (p *Parser) parseGroupBody() (groupBody, error) {
 	tok := p.peek()
 	p.advance() // consume LBRACE
 
 	var children []ast.Node
-	var out testsBody
+	var out groupBody
 	var endTrivia []ast.Trivia
 
 	for {
@@ -3677,7 +3695,7 @@ func (p *Parser) parseTestsBody() (testsBody, error) {
 		if p.peek().Type == token.IDENT && p.peek().Lexeme == "clock" {
 			clockTok := p.peek()
 			if out.clock != nil {
-				return out, errorAt(clockTok.Line, clockTok.Col, "a `tests` group has at most one `clock` line")
+				return out, errorAt(clockTok.Line, clockTok.Col, "a `group` has at most one `clock` line")
 			}
 			p.advance() // consume contextual clock
 			if p.atEnd() || p.peek().Line != clockTok.Line || !canStartRangeOperand(p.peek().Type) {
@@ -3703,7 +3721,7 @@ func (p *Parser) parseTestsBody() (testsBody, error) {
 
 		if p.peek().Type == token.FN && p.peekAt(1).Lexeme == "boot" {
 			fnTok := p.peek()
-			return out, errorAt(fnTok.Line, fnTok.Col, "a `tests` group does not define `fn boot`; it names an entry's boot on a `boot` line, such as `boot server.boot(startup)`")
+			return out, errorAt(fnTok.Line, fnTok.Col, "a `group` does not define `fn boot`; it names an entry's boot on a `boot` line, such as `boot server.boot(startup)`")
 		}
 
 		// `boot server.boot(startup)` names the entry boot each test in
@@ -3711,7 +3729,7 @@ func (p *Parser) parseTestsBody() (testsBody, error) {
 		if p.peek().Type == token.IDENT && p.peek().Lexeme == "boot" && p.peekAt(1).Line == p.peek().Line {
 			bootTok := p.peek()
 			if out.boot != nil {
-				return out, errorAt(bootTok.Line, bootTok.Col, "a `tests` group has at most one `boot` line")
+				return out, errorAt(bootTok.Line, bootTok.Col, "a `group` has at most one `boot` line")
 			}
 			p.advance() // consume contextual boot
 			if p.atEnd() || p.peek().Line != bootTok.Line || !canStartRangeOperand(p.peek().Type) {
@@ -3734,7 +3752,7 @@ func (p *Parser) parseTestsBody() (testsBody, error) {
 		if p.peek().Type == token.IDENT && p.peek().Lexeme == "setup" {
 			setupTok := p.peek()
 			if out.setup != nil {
-				return out, errorAt(setupTok.Line, setupTok.Col, "a `tests` group has at most one `setup` line")
+				return out, errorAt(setupTok.Line, setupTok.Col, "a `group` has at most one `setup` line")
 			}
 			p.advance() // consume contextual setup
 			if p.atEnd() || p.peek().Line != setupTok.Line || !canStartRangeOperand(p.peek().Type) {
@@ -3763,13 +3781,13 @@ func (p *Parser) parseTestsBody() (testsBody, error) {
 			continue
 		}
 
-		if p.peek().Type == token.TESTS {
+		if p.atGroupStart() {
 			nested := p.peek()
-			return out, errorAt(nested.Line, nested.Col, "a `tests` group cannot contain another `tests` group; write a sibling group instead")
+			return out, errorAt(nested.Line, nested.Col, "a `group` cannot contain another `group`; write a sibling group instead")
 		}
 
 		if p.peek().Type != token.TEST {
-			return out, errorAt(p.peek().Line, p.peek().Col, "tests body may contain only clock, boot, setup, and test declarations")
+			return out, errorAt(p.peek().Line, p.peek().Col, "a group body may contain only clock, boot, setup, and test declarations")
 		}
 
 		start := p.pos
@@ -3784,7 +3802,7 @@ func (p *Parser) parseTestsBody() (testsBody, error) {
 	}
 
 	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return out, errorAt(tok.Line, tok.Col, "expected '}' to close tests body")
+		return out, errorAt(tok.Line, tok.Col, "expected '}' to close group body")
 	}
 	closeTok := p.peek()
 	p.advance() // consume RBRACE
@@ -3829,6 +3847,25 @@ func (p *Parser) parseAssertion() (ast.Node, error) {
 		Line:   tok.Line,
 		Col:    tok.Col,
 	}, nil
+}
+
+// atGroupStart reports whether the cursor is on the contextual keyword
+// `group` that opens a test group (isGroupStart).
+func (p *Parser) atGroupStart() bool {
+	return !p.atEnd() && isGroupStart(p.peek(), p.peekAt(1))
+}
+
+// isGroupStart reports whether tok is the contextual keyword `group` that
+// opens a test group: the word followed on its line by the group's name
+// string, or by the `{` of a group whose name is missing (parseTestDecl
+// reports that). No other statement puts a string right after a name, and
+// a name followed by a block declares nothing, so anywhere else `group` is
+// an ordinary identifier (`group = 3`, `group(x)`, `group.name`).
+func isGroupStart(tok, next token.Token) bool {
+	if tok.Type != token.IDENT || tok.Lexeme != "group" || next.Line != tok.Line {
+		return false
+	}
+	return next.Type == token.STRING_LITERAL || next.Type == token.STRING_START || next.Type == token.LBRACE
 }
 
 // tryParseSubtests parses `subtests rows, pattern { body }` at the start of a
@@ -6070,7 +6107,7 @@ func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams
 			}
 		case tk.Type == token.IDENT && p.peekAt(1).Type == token.COLON:
 			return nil, errorAt(tk.Line, tk.Col, "fields are not allowed in an enum body — fields belong in a struct body")
-		case tk.Type == token.TEST || tk.Type == token.TESTS || p.startsConformanceLine():
+		case tk.Type == token.TEST || p.atGroupStart() || p.startsConformanceLine():
 			if _, err := p.parseTypeBodyItem(); err != nil {
 				return nil, err
 			}
@@ -6983,7 +7020,7 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 				return nil, err
 			}
 			return nil, errorAt(tk.Line, tk.Col, "struct bodies hold only fields")
-		case tk.Type == token.TEST || tk.Type == token.TESTS || p.startsConformanceLine():
+		case tk.Type == token.TEST || p.atGroupStart() || p.startsConformanceLine():
 			if _, err := p.parseTypeBodyItem(); err != nil {
 				return nil, err
 			}
@@ -8396,7 +8433,7 @@ func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node
 			return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "`field` items are not allowed in an %s", blockNoun)
 		case p.startsConformanceLine():
 			return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "an %s holds no nested conformance line", blockNoun)
-		case tk.Type == token.TEST || tk.Type == token.TESTS:
+		case tk.Type == token.TEST || p.atGroupStart():
 			return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "tests are declarations outside impl blocks")
 		case tk.Type == token.ONCE || (tk.Type == token.PUB && p.peekAt(1).Type == token.ONCE):
 			if !allowPub {
@@ -8496,7 +8533,7 @@ func (p *Parser) parseTypeBodyItem() ([]ast.Node, error) {
 	if tk.Type == token.PUB && p.peekAt(1).Type == token.IMPL {
 		return nil, errorAt(tk.Line, tk.Col, "implementation functions do not take `pub` — visibility comes from the implemented interface")
 	}
-	if tk.Type == token.TEST || tk.Type == token.TESTS {
+	if tk.Type == token.TEST || p.atGroupStart() {
 		return nil, errorAt(tk.Line, tk.Col, "tests are declarations outside type bodies")
 	}
 	if tk.Type == token.ONCE || (tk.Type == token.PUB && p.peekAt(1).Type == token.ONCE) {
@@ -9005,12 +9042,12 @@ func (p *Parser) blankOrdinaryCommentSeparatesDocBoundary() bool {
 		case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE:
 			continue
 		default:
-			return isDocBoundaryStart(tok)
+			return isDocBoundaryStart(tok, p.peekAt(offset+1))
 		}
 	}
 }
 
-func isDocBoundaryStart(tok token.Token) bool {
+func isDocBoundaryStart(tok, next token.Token) bool {
 	switch tok.Type {
 	case token.DOC_COMMENT,
 		token.TEST_PROMPT,
@@ -9026,14 +9063,14 @@ func isDocBoundaryStart(tok token.Token) bool {
 		token.INTERFACE,
 		token.IMPL,
 		token.OPAQUE,
-		token.TEST,
-		token.TESTS:
+		token.TEST:
 		return true
 	case token.IDENT:
 		switch tok.Lexeme {
 		case "field", "embeds", "open":
 			return true
 		}
+		return isGroupStart(tok, next)
 	}
 	return false
 }

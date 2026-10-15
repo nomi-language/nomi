@@ -89,7 +89,7 @@ pub fn boot(): App {
 
 fn main() {}
 
-tests "app steps" {
+group "app steps" {
   boot boot()
 
   test "calls the field" {
