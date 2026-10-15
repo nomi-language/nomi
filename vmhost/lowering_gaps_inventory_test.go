@@ -670,29 +670,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapStructVariantRecordPayloadPattern",
-		fix:    "builder: struct variant record payload pattern. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.retainedEnumPattern | false | v.kind == \"struct\"#1",
-		reason: "a `case` enum pattern outside retained bare/positional payload tests",
-		src: `import std/io
-
-enum Shape {
-  Rec {w: Int, h: Int}
-  Dot
-}
-
-fn f(s: Shape): Int {
-  case s {
-    .Rec({w, h}) -> w + h
-    _ -> 0
-  }
-}
-
-fn main() {
-  io.inspect(f(Shape.Rec{w: 2, h: 3}))
-}
-`,
-	},
-	{
 		name:   "gapTupleDestructureRebindsFunction",
 		fix:    "builder: tuple destructure rebinds function. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.destructureBind | note | \"a rebind: \" + name#1",
 		reason: "a rebind: f",

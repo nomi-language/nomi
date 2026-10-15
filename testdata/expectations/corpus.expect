@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 284
-declared-cases 917
+declared-cases 918
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1089,11 +1089,12 @@ T test result: ok. 3 passed, 0 failed
 T
 C 08-pattern-matching/variant_payloads_test.nomi
 E 0
-N 2
-H 3ded11e505b0cafed05c33bede76d621ddf258497449cfb2bdf590ce16f090c0
+N 3
+H f5c86970bbc23e9735b91624d819fa815c8ed840d541c8d42d8b755f478a9647
 T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: variant payloads support every payload shape
 T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: variant payloads can be pattern matched by shape
-T test result: ok. 2 passed, 0 failed
+T ok <root>/tests/08-pattern-matching/variant_payloads_test.nomi :: a struct-shaped variant's payload matches a record pattern
+T test result: ok. 3 passed, 0 failed
 T
 C 08-pattern-matching/variant_resolution/test_helpers.nomi
 E 1

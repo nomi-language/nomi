@@ -11654,14 +11654,7 @@ func (c *checker) bindingFallbackPayload(pattern ast.Node, t Type) (Type, string
 			payload = Substitute(payload, subs)
 		}
 	case len(v.Fields) > 0:
-		fields := make([]FieldDef, len(v.Fields))
-		for i, f := range v.Fields {
-			fields[i] = f
-			if subs != nil && f.Type != nil {
-				fields[i].Type = Substitute(f.Type, subs)
-			}
-		}
-		payload = &AnonStructType{Fields: fields}
+		payload = variantFieldsRecord(v, subs)
 	default:
 		return nil, "", false
 	}
@@ -13934,6 +13927,12 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 				c.fa.References[variantPos] = &proxy
 			}
 		}
+		if dataType == nil && found.Kind == VariantStruct && len(found.Fields) > 0 {
+			// `.Rect(r)` and `.Rect({w, h})`: the payload is the record of
+			// the variant's fields, as a binding's `else` fallback types it
+			// (bindingFallbackPayload).
+			dataType = variantFieldsRecord(found, enumTypeArgSubs(et))
+		}
 		// Bind the inner value if present.
 		if n.Payload != nil {
 			// Flat-destructure shorthand `Variant(a, b, ...)` is now
@@ -14497,6 +14496,21 @@ func (c *checker) patternsExhaustiveOver(t Type, patterns []ast.Node) bool {
 // enumTypeArgSubs builds a TypeParam_ → TypeArg substitution for the enum so
 // each variant's DataType is concretized to the use-site instantiation
 // (Maybe<Result<Int, String>>'s Some.DataType = T → Result<Int, String>).
+// variantFieldsRecord is a struct-shaped variant's payload: the anonymous
+// struct of its fields, with the enum's type arguments substituted (subs,
+// from enumTypeArgSubs). `.Rect(r)` binds r to it and `.Rect({w, h})`
+// matches it, in a `case` arm as in a binding's `else` fallback.
+func variantFieldsRecord(v *VariantDef, subs map[*TypeParam_]Type) Type {
+	fields := make([]FieldDef, len(v.Fields))
+	for i, f := range v.Fields {
+		fields[i] = f
+		if subs != nil && f.Type != nil {
+			fields[i].Type = Substitute(f.Type, subs)
+		}
+	}
+	return &AnonStructType{Fields: fields}
+}
+
 func enumTypeArgSubs(enumTy *EnumType) map[*TypeParam_]Type {
 	if len(enumTy.TypeParamDefs) == 0 || len(enumTy.TypeArgs) != len(enumTy.TypeParamDefs) {
 		return nil

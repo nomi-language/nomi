@@ -1326,8 +1326,11 @@ func (g *gen) erasedBlock() string {
 // them as sub-patterns: inside a tuple pattern in a `case`, a destructuring
 // binding and a binding `else`, in a variant's payload, struct field and
 // `as` pattern, and a list or map pattern through the distinct, bare or by
-// its name. It draws from g.pat only and names from g.pn, so the program
-// around it is the one it would be without it.
+// its name. Or it declares an enum and a `typealias` of it, and builds and
+// matches its variants through the alias, with a record pattern over a
+// struct-shaped variant's payload (`.Rec({w, h})`). It draws from g.pat
+// only and names from g.pn, so the program around it is the one it would
+// be without it.
 func (g *gen) patternBlock() string {
 	r := g.pat
 	g.pn++
@@ -1382,8 +1385,8 @@ func (g *gen) patternBlock() string {
 			fmt.Sprintf("%s.Rec{w: %d, h: %d}", alias, a, b),
 			alias + ".Dot",
 		}
-		fmt.Fprintf(&out, "%s: %s = %s\nio.inspect(case %s {\n%s.Num(n) -> n\n%s.Rec{w, h} -> w * h\n%s.Dot -> -1\n})\n",
-			name("pa"), en, vals[r.Intn(len(vals))], name("pa"), alias, alias, alias)
+		fmt.Fprintf(&out, "%s: %s = %s\nio.inspect(case %s {\n%s.Num(n) -> n\n.Rec({w: %d, h}) -> h + 100\n%s.Rec{w, h} -> w * h\n%s.Dot -> -1\n})\n",
+			name("pa"), en, vals[r.Intn(len(vals))], name("pa"), alias, r.Intn(4), alias, alias)
 	default:
 		kvs := name("Kv")
 		fmt.Fprintf(&out, "type %s Map<String, Int>\n", kvs)

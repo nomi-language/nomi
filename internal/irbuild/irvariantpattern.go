@@ -24,10 +24,15 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 	if v.kind == "struct" {
 		// `.One(p)` over a struct-shaped variant binds the whole payload as
 		// the record of its fields, which is the checker's type for p
-		// (variantRecordBinding); `.One(_)` binds nothing.
-		switch pat.Payload.(type) {
+		// (variantRecordBinding); `.One(_)` binds nothing; `.One({w, h})`
+		// matches that record.
+		switch p := pat.Payload.(type) {
 		case nil, *ast.IdentPattern, *ast.WildcardPattern:
 			return pat, v, true
+		case *ast.StructPattern:
+			if p.TypeName == nil && pat.Binding == "" {
+				return pat, v, true
+			}
 		}
 		return nil, nil, false
 	}
@@ -234,6 +239,15 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 	bl.b.Append(match)
 	bl.side(match.Dst(), irScalarSide{k: kindBool})
 	if v.kind == "struct" {
+		if rp, isRecord := pat.Payload.(*ast.StructPattern); isRecord {
+			// `.Rec({w, h})`: the record of the variant's fields, matched
+			// as a record pattern.
+			fields := bl.f.NewBlock(bl.g.irNodePos(rp), "payload test")
+			bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(pat), match.Dst(), fields.ID(), next.ID()))
+			bl.b = fields
+			rec, rk, ok := bl.variantRecord(pat, subj, k.def, v)
+			return ok && bl.nominalCaseTest(rp, rec, rk, arm, next)
+		}
 		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(pat), match.Dst(), arm.ID(), next.ID()))
 		bl.b = arm
 		return bl.variantRecordBinding(pat, subj, k.def, v)

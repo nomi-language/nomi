@@ -224,3 +224,35 @@ test "variant payloads can be pattern matched by shape" {
     assert describe(Rect{width: 4.0, height: 5.0}) == "rect=4.0x5.0"
     assert describe(Expired) == "expired"
 }
+
+enum Box {
+    Sized {w: Int, h: Int}
+    Empty
+}
+
+fn box_area(b: Box): Int {
+    case b {
+        .Sized({w: 1, h}) -> h
+        .Sized({w, h}) -> w * h
+        .Empty -> 0
+    }
+}
+
+test "a struct-shaped variant's payload matches a record pattern" {
+    assert box_area(Box.Sized{w: 2, h: 3}) == 6
+    assert box_area(Box.Sized{w: 1, h: 3}) == 3
+    assert box_area(Box.Empty) == 0
+
+    .Sized({w, h: _}) = Box.Sized{w: 4, h: 5} else {
+        return
+    }
+
+    assert w == 4
+
+    whole = case Box.Sized{w: 2, h: 7} {
+        .Sized(r) -> r.w + r.h
+        .Empty -> 0
+    }
+
+    assert whole == 9
+}

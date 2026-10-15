@@ -846,30 +846,30 @@ a	irScalarBuilder.userOperatorCall | false | rival ¦¦ it == nil ¦¦ !it.lower
 b	gen.retainedEnumPattern | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irRetainedEnumKind(k.def)#1	irvariantpattern.go:11	-	enumCaseTest calls it only for a retained enum subject
 c	gen.retainedEnumPattern | false | !ok ¦¦ (owner != "" && !g.declaredAs(owner, k.def) && !g.preludeOwns(owner, k.def) && !g.s…#1	irvariantpattern.go:15	-	pinned as gapVariantPatternAliasQualifier (reason: a `case` enum pattern outside retained bare/positional payload tests)
 b	gen.retainedEnumPattern | false | v == nil#1	irvariantpattern.go:19	-	checker rejects an unknown variant
-c	gen.retainedEnumPattern | false | v.kind == "struct"#1	irvariantpattern.go:32	-	pinned as gapStructVariantRecordPayloadPattern (reason: a `case` enum pattern outside retained bare/positional payload tests)
-b	gen.retainedEnumPattern | false | len(v.payloads) != 1#1	irvariantpattern.go:35	-	a positional variant has one payload (a tuple for several)
-b	gen.retainedEnumPattern | false | pk != kindInt#1	irvariantpattern.go:49	-	literal-type rule
-b	gen.retainedEnumPattern | false | pk != kindString#1	irvariantpattern.go:53	-	literal-type rule
-b	gen.retainedEnumPattern | false | pk != kindFloat#1	irvariantpattern.go:57	-	literal-type rule
-b	gen.retainedEnumPattern | false | !isDecimalKind(pk)#1	irvariantpattern.go:61	-	literal-type rule
-b	gen.retainedEnumPattern | false | pk != codepointKind()#1	irvariantpattern.go:65	-	literal-type rule
-b	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !(irNestedPatternKind(pk) ¦¦ irNominalCaseKind(pk))#1	irvariantpattern.go:76	-	Binding is empty when Payload is set; a nested variant/struct payload pattern's kind is an enum, struct, record or distinct over a value (tuple distincts lower here)
-b	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ pk.tag != tagMap ¦¦ !irRetainedMapKind(pk)#1	irvariantpattern.go:82	-	a map payload of a retained enum is a retained map
-b	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !(irRetainedListKind(pk) ¦¦ irListTransportKind(pk))#1	irvariantpattern.go:88	-	a List<tuple distinct> payload makes the enum non-retained (Maybe<List<Pair>> declines as an annotation), so :11 fires first
-c	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !ok#1	irvariantpattern.go:94	-	pinned as gapVariantPayloadTupleCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
-c	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !irFieldSubPattern(pat.Payload, pk)#1	irvariantpattern.go:101	-	pinned as gapVariantPayloadAsCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
-b	gen.retainedEnumPattern | false | unguarded#1	irvariantpattern.go:104	-	every payload pattern node form the parser builds is a listed case
-b	irScalarBuilder.enumCaseTest | false | !ok#1	irvariantpattern.go:186	-	a non-variant pattern over Bool is a checker error
-b	irScalarBuilder.enumCaseTest | false | !ok ¦¦ (owner != "" && owner != "Bool") ¦¦ (member != "True" && member != "False")#1	irvariantpattern.go:190	-	checker: a Bool pattern names True or False
-b	irScalarBuilder.enumCaseTest | false | !wild && pat.Payload != nil#1	irvariantpattern.go:201	-	checker: True/False carry only a binding
-b	irScalarBuilder.enumCaseTest | false | singleton == kindInvalid#1	irvariantpattern.go:207	-	fence: std/bool's host marker rows always exist
-c	irScalarBuilder.enumCaseTest | note | "a `case` enum pattern outside retained bare/positional payload tests"#1	irvariantpattern.go:230	-	pinned as gapVariantPayloadAsCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
-b	irScalarBuilder.variantRecord | note | "a struct-shaped variant's payload outside the retained records: " + k.nomi()#1	irvariantpattern.go:395	-	the fields of a retained enum's struct-shaped variant form a retained record
-b	irScalarBuilder.structVariantCaseTest | false | pat.TypeName == nil ¦¦ k.tag != tagNamed ¦¦ !irRetainedEnumKind(k.def)#1	irvariantpattern.go:415	-	enumCaseTest calls it for a StructPattern only over a retained enum, and the checker requires the head
-c	irScalarBuilder.structVariantCaseTest | false | !ok ¦¦ (owner != "" && !bl.g.declaredAs(owner, k.def) && !bl.g.preludeOwns(owner, k.def) &…#1	irvariantpattern.go:419	-	pinned as gapStructVariantPatternAliasQualifier (reason: a `case` enum pattern outside retained bare/positional payload tests)
-b	irScalarBuilder.structVariantCaseTest | false | v == nil ¦¦ v.kind != "struct"#1	irvariantpattern.go:427	-	checker rejects a brace pattern naming a non-struct variant
-c	irScalarBuilder.structVariantCaseTest | false | idx[i] < 0 ¦¦ !irFieldSubPattern(f.Pattern, v.payloads[idx[i]].k)#1	irvariantpattern.go:438	-	pinned as gapStructVariantFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
-c	irScalarBuilder.embeddedStructCaseTest | false | fields[i] == nil ¦¦ !irFieldSubPattern(f.Pattern, fields[i].k)#1	irvariantpattern.go:578	-	pinned as gapEmbeddedStructFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+c	gen.retainedEnumPattern | false | v.kind == "struct"#1	irvariantpattern.go:37	-	pinned as gapStructVariantRecordPayloadPattern (reason: a `case` enum pattern outside retained bare/positional payload tests)
+b	gen.retainedEnumPattern | false | len(v.payloads) != 1#1	irvariantpattern.go:40	-	a positional variant has one payload (a tuple for several)
+b	gen.retainedEnumPattern | false | pk != kindInt#1	irvariantpattern.go:54	-	literal-type rule
+b	gen.retainedEnumPattern | false | pk != kindString#1	irvariantpattern.go:58	-	literal-type rule
+b	gen.retainedEnumPattern | false | pk != kindFloat#1	irvariantpattern.go:62	-	literal-type rule
+b	gen.retainedEnumPattern | false | !isDecimalKind(pk)#1	irvariantpattern.go:66	-	literal-type rule
+b	gen.retainedEnumPattern | false | pk != codepointKind()#1	irvariantpattern.go:70	-	literal-type rule
+b	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !(irNestedPatternKind(pk) ¦¦ irNominalCaseKind(pk))#1	irvariantpattern.go:81	-	Binding is empty when Payload is set; a nested variant/struct payload pattern's kind is an enum, struct, record or distinct over a value (tuple distincts lower here)
+b	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ pk.tag != tagMap ¦¦ !irRetainedMapKind(pk)#1	irvariantpattern.go:87	-	a map payload of a retained enum is a retained map
+b	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !(irRetainedListKind(pk) ¦¦ irListTransportKind(pk))#1	irvariantpattern.go:93	-	a List<tuple distinct> payload makes the enum non-retained (Maybe<List<Pair>> declines as an annotation), so :11 fires first
+c	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !ok#1	irvariantpattern.go:99	-	pinned as gapVariantPayloadTupleCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+c	gen.retainedEnumPattern | false | pat.Binding != "" ¦¦ !irFieldSubPattern(pat.Payload, pk)#1	irvariantpattern.go:106	-	pinned as gapVariantPayloadAsCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+b	gen.retainedEnumPattern | false | unguarded#1	irvariantpattern.go:109	-	every payload pattern node form the parser builds is a listed case
+b	irScalarBuilder.enumCaseTest | false | !ok#1	irvariantpattern.go:191	-	a non-variant pattern over Bool is a checker error
+b	irScalarBuilder.enumCaseTest | false | !ok ¦¦ (owner != "" && owner != "Bool") ¦¦ (member != "True" && member != "False")#1	irvariantpattern.go:195	-	checker: a Bool pattern names True or False
+b	irScalarBuilder.enumCaseTest | false | !wild && pat.Payload != nil#1	irvariantpattern.go:206	-	checker: True/False carry only a binding
+b	irScalarBuilder.enumCaseTest | false | singleton == kindInvalid#1	irvariantpattern.go:212	-	fence: std/bool's host marker rows always exist
+c	irScalarBuilder.enumCaseTest | note | "a `case` enum pattern outside retained bare/positional payload tests"#1	irvariantpattern.go:235	-	pinned as gapVariantPayloadAsCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+b	irScalarBuilder.variantRecord | note | "a struct-shaped variant's payload outside the retained records: " + k.nomi()#1	irvariantpattern.go:409	-	the fields of a retained enum's struct-shaped variant form a retained record
+b	irScalarBuilder.structVariantCaseTest | false | pat.TypeName == nil ¦¦ k.tag != tagNamed ¦¦ !irRetainedEnumKind(k.def)#1	irvariantpattern.go:429	-	enumCaseTest calls it for a StructPattern only over a retained enum, and the checker requires the head
+c	irScalarBuilder.structVariantCaseTest | false | !ok ¦¦ (owner != "" && !bl.g.declaredAs(owner, k.def) && !bl.g.preludeOwns(owner, k.def) &…#1	irvariantpattern.go:433	-	pinned as gapStructVariantPatternAliasQualifier (reason: a `case` enum pattern outside retained bare/positional payload tests)
+b	irScalarBuilder.structVariantCaseTest | false | v == nil ¦¦ v.kind != "struct"#1	irvariantpattern.go:441	-	checker rejects a brace pattern naming a non-struct variant
+c	irScalarBuilder.structVariantCaseTest | false | idx[i] < 0 ¦¦ !irFieldSubPattern(f.Pattern, v.payloads[idx[i]].k)#1	irvariantpattern.go:452	-	pinned as gapStructVariantFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+c	irScalarBuilder.embeddedStructCaseTest | false | fields[i] == nil ¦¦ !irFieldSubPattern(f.Pattern, fields[i].k)#1	irvariantpattern.go:592	-	pinned as gapEmbeddedStructFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
 a	irScalarBuilder.variantBare | false | v.kind != "bare"#1	irvariantvalues.go:666	expect,irbuild,vmhost	
 a	irScalarBuilder.genericVariantBare | false | !ok ¦¦ v.kind != "bare"#1	irvariantvalues.go:680	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.genericVariant | false | field.Field == nil#1	irvariantvalues.go:702	-	the parser always sets a FieldAccess's Field
