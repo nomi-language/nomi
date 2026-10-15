@@ -153,6 +153,9 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 		d = od
 	}
 	path, line, col := "", 0, 0
+	// derived is a body Nomi wrote for a `derive` or the universal Debug,
+	// placed at the declaration that asked for it rather than at a node.
+	derived := false
 	if d != nil && d.Line > 0 {
 		path, line, col = d.Path, d.Line, d.Col
 		if path == "" {
@@ -161,15 +164,18 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 			path = p.moduleWithNodeAt(line, col)
 		}
 	}
-	if line == 0 {
+	if line == 0 || analysis.IsSynthesizedLine(line) {
 		if once != "" {
 			path, line, col = p.declarationOf(once)
 		} else {
-			path, line, col = p.declarationOf(name)
+			if d != nil {
+				path = d.Path
+			}
+			path, line, col, derived = p.declarationIn(name, path)
 		}
 	}
 	if analysis.IsSynthesizedLine(line) {
-		// A derive-synthesized body has no source line of its own.
+		// A synthesized body none of whose declarations is source.
 		line, col = 0, 0
 	}
 	construct := "its body"
@@ -177,7 +183,7 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 		// A pattern the lowering could not test: the node found at its
 		// position may be the statement that holds it, or a literal inside.
 		construct = "this pattern"
-	} else if line > 0 {
+	} else if line > 0 && !derived {
 		mod := p.modulePath(path)
 		if n := nodeAt(mod, line, col); n != nil {
 			construct = describeConstruct(n)
@@ -323,6 +329,111 @@ func (p *Program) modulePath(path string) *irbuild.Module {
 		}
 	}
 	return nil
+}
+
+// declarationIn locates the declaration name blames, as declarationOf does,
+// except that an impl function (`Rec.equal?`) is found in the impl block for
+// its receiver, in the file prefer names first. derived reports a block Nomi
+// synthesized: its function is placed at the `derive` declaration that asked
+// for it, or at the type for the universal Debug, since its own lines are no
+// source.
+func (p *Program) declarationIn(name, prefer string) (path string, line, col int, derived bool) {
+	if owner, method, ok := implFunctionName(name); ok {
+		mods := make([]*irbuild.Module, 0, len(p.prog.Modules))
+		if m := p.modulePath(prefer); m != nil {
+			mods = append(mods, m)
+		}
+		for i := range p.prog.Modules {
+			if m := &p.prog.Modules[i]; m.Path != prefer {
+				mods = append(mods, m)
+			}
+		}
+		for _, m := range mods {
+			if line, col, derived, found := implFunctionPos(m, owner, method); found {
+				return m.Path, line, col, derived
+			}
+		}
+	}
+	path, line, col = p.declarationOf(name)
+	return path, line, col, false
+}
+
+// implFunctionName splits an impl function's attempt name, `Rec.equal?` or
+// `Box<Int>.inspect`, into its receiver's base name and the function.
+func implFunctionName(name string) (owner, method string, ok bool) {
+	if strings.HasPrefix(name, "test body: ") || strings.HasPrefix(name, "once ") {
+		return "", "", false
+	}
+	i := strings.LastIndex(name, ".")
+	if i <= 0 {
+		return "", "", false
+	}
+	owner, method = name[:i], name[i+1:]
+	if j := strings.Index(owner, "<"); j >= 0 {
+		owner = owner[:j]
+	}
+	return owner, method, owner != "" && method != ""
+}
+
+// implFunctionPos is where mod declares owner's impl function method: the
+// function itself when it was written, and for a synthesized block the
+// `derive` line that asked for it, or the type's declaration when nothing
+// did (the universal Debug).
+func implFunctionPos(mod *irbuild.Module, owner, method string) (line, col int, derived, found bool) {
+	for _, n := range mod.Nodes {
+		ib, ok := n.(*ast.ImplBlock)
+		if !ok || analysis.TypeExprBaseName(ib.Receiver) != owner {
+			continue
+		}
+		for _, item := range ib.Items {
+			fd, ok := item.(*ast.FuncDef)
+			if !ok || fd.Name != method {
+				continue
+			}
+			if !analysis.IsSynthesizedLine(fd.Line) {
+				return fd.Line, fd.Col, false, true
+			}
+			if l, c := deriveLineOf(mod, owner, analysis.TypeExprBaseName(ib.Interface)); l > 0 {
+				return l, c, true, true
+			}
+			if ib.SynthOriginLine > 0 {
+				return ib.SynthOriginLine, ib.SynthOriginCol, true, true
+			}
+		}
+	}
+	return 0, 0, false, false
+}
+
+// deriveLineOf is the position of mod's `derive iface for owner`, read from
+// the `derive` decorator the derive lowering leaves on owner's declaration
+// at that line, or 0 when there is none.
+func deriveLineOf(mod *irbuild.Module, owner, iface string) (int, int) {
+	for _, n := range mod.Nodes {
+		var name string
+		var decorators []ast.Decorator
+		switch d := n.(type) {
+		case *ast.StructDef:
+			name, decorators = d.Name, d.Decorators
+		case *ast.EnumDef:
+			name, decorators = d.Name, d.Decorators
+		case *ast.TypeDef:
+			name, decorators = d.Name, d.Decorators
+		case *ast.ExternType:
+			name, decorators = d.Name, d.Decorators
+		}
+		if name != owner {
+			continue
+		}
+		for _, dec := range decorators {
+			if dec.Name != "derive" || len(dec.Args) == 0 || dec.Line <= 0 || analysis.IsSynthesizedLine(dec.Line) {
+				continue
+			}
+			if te, ok := dec.Args[0].(ast.TypeExpr); ok && analysis.TypeExprBaseName(te) == iface {
+				return dec.Line, dec.Col
+			}
+		}
+	}
+	return 0, 0
 }
 
 // declarationOf locates the declaration name blames: a test case, a `once`
