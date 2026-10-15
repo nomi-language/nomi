@@ -923,11 +923,11 @@ d	irScalarBuilder.selfCtorFuncRef | false | d == nil ¦¦ !irCallOperandKind(d.i
 b	irScalarBuilder.selfCtorFuncRef | false | g.funcValueRefs[t]#1	ownerfuncref.go:103	-	recursion guard, as ownerfuncref.go:76
 d	irScalarBuilder.callFuncValueOf | false | !ok ¦¦ k != result ¦¦ len(child.captures) != 0#1	ownerfuncref.go:138	-	inherent, interface, ctor, generic and std owner function values all lower; not found
 d	irScalarBuilder.callFuncValueOf | note | "an owner function value that does not lint: " + err.Error()#1	ownerfuncref.go:147	-	no lint failure found
-b	gen.checkedValueKinds | false | g.fa == nil#1	ownerfuncref.go:164	-	defensive fence: g.fa always set
-b	gen.checkedValueKinds | false | sym == nil#1	ownerfuncref.go:169	-	the checker records a Reference at every owner-qualified reference
-a	gen.checkedValueKinds | false | ft == nil ¦¦ irUnsolvedType(ft)#1	ownerfuncref.go:176	irbuild	
-d	gen.checkedValueKinds | false | !irCallOperandKind(params[i])#1	ownerfuncref.go:184	-	Unit params are admitted; no out-of-domain param found
-d	gen.checkedValueKinds | false | result != kindUnit && !irCallableValueKind(result)#1	ownerfuncref.go:189	-	no out-of-domain result found
+?	gen.checkedFuncKinds | false | g.fa == nil#1	ownerfuncref.go:172	?	
+?	gen.checkedFuncKinds | false | sym == nil#1	ownerfuncref.go:177	?	
+?	gen.checkedFuncKinds | false | ft == nil ¦¦ irUnsolvedType(ft)#1	ownerfuncref.go:187	?	
+?	gen.checkedFuncKinds | false | !irCallOperandKind(params[i])#1	ownerfuncref.go:195	?	
+?	gen.checkedFuncKinds | false | result != kindUnit && !irCallableValueKind(result)#1	ownerfuncref.go:200	?	
 a	gen.rangeWalks | computed | return g.rangeOrders(elem, at) && g.rangeDiscrete(elem, at)#1	ranges.go:227	expect,irbuild,projectgen,vmhost	
 d	gen.irFileSlotRetain | note | "a parameter kind outside the call domain: " + k.nomi()#1	siblingdefault.go:109	-	needs a pub fn param kind outside the call domain before a default; not found
 b	gen.irFileSlotRetain | note | "no function shell"#1	siblingdefault.go:126	-	defensive fence: irFuncShellWithCallee returns nil only for a malformed signature the earlier checks exclude

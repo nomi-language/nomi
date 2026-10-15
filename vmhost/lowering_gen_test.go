@@ -1422,7 +1422,7 @@ func (g *gen) callBlock() string {
 	n := r.Intn(4)
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(7) {
+	switch r.Intn(8) {
 	case 6:
 		// A lambda with a default, captured by another closure and called
 		// there short, by name and partially.
@@ -1444,6 +1444,11 @@ func (g *gen) callBlock() string {
 			fmt.Fprintf(&out, "%s = || %s\n", name("cg"), call)
 		}
 		fmt.Fprintf(&out, "io.inspect(%s())\n", name("cg"))
+	case 7:
+		// A partial over a generic helper whose instantiation leaves a
+		// hole: the Result's error type.
+		fmt.Fprintf(&out, "%s = pick(%s, _, Some(Ok(%d)))\n", name("cp"), g.boolLitFrom(r), n)
+		fmt.Fprintf(&out, "io.inspect(%s(None))\n", name("cp"))
 	case 5:
 		// A generic helper with a destructuring parameter and a default
 		// that reads its names, called with named arguments. A nested fn

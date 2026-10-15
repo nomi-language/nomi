@@ -170,7 +170,7 @@ func (bl *irScalarBuilder) partialCallee(t *ast.Call) ([]ast.Param, []kind, bool
 // symbol the callee resolves to; a callee with none in view gets unnamed
 // parameters, which only positional arguments reach.
 func (bl *irScalarBuilder) partialCalleeByType(t *ast.Call) ([]ast.Param, []kind, bool) {
-	kinds, _, ok := bl.g.checkedValueKinds(t.Func)
+	kinds, _, ok := bl.g.checkedFuncKinds(t.Func, true)
 	if !ok {
 		return nil, nil, false
 	}
