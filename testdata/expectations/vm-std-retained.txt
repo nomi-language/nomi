@@ -409,4 +409,6 @@ supervisors.nomi:supervisors.Supervisor.new default 5	ran
 toml.nomi:Toml.from_fragments	ran
 toml.nomi:Toml.inspect	ran
 toml.nomi:Toml.text	ran
+unit.nomi:Unit.equal?	ran
+unit.nomi:Unit.hash	ran
 unit.nomi:Unit.inspect	ran

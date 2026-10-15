@@ -14,9 +14,9 @@ import bool.Bool
 /// NOT by `==`, which keeps the structural or direct-comparison path.
 /// `!=` is the negation of whichever path `==` takes.
 ///
-/// All four primitive types — `Int`, `Float`, `Bool`, `String` —
-/// implement `Equatable` using the underlying primitive equality. To
-/// implement it for a custom type:
+/// The primitive types `Int`, `Float`, `Bool` and `String` implement
+/// `Equatable` using the underlying primitive equality, and so does `Unit`,
+/// whose one value equals itself. To implement it for a custom type:
 ///
 /// ```nomi
 /// pub struct Point {

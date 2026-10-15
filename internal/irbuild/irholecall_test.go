@@ -11,21 +11,21 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-const irHoleHashSource = `import std/io
+const irHoleDisplaySource = `import std/io
 
 fn main() {
-  io.print(Maybe.hash(None) == Maybe.hash(None))
-  io.print(Maybe.hash(Some(4)) == Maybe.hash(Some(4)))
+  io.print(Maybe.to_string(None))
+  io.print(Maybe.to_string(Some(4)))
 }
 `
 
-// `Maybe.hash(None)` leaves T unconstrained, so the builder instantiates the
-// derived hash at a hole it fills with Unit. The Some arm's
-// `Hashable.hash(payload)` is PRESENT as the unreachable fault naming the
-// hole, and the program runs because no execution reaches it.
+// `Maybe.to_string(None)` leaves T unconstrained, so the builder instantiates
+// the derived Display at a hole it fills with Unit, which has no Display impl.
+// The Some arm's `Display.to_string(payload)` is PRESENT as the unreachable
+// fault naming the hole, and the program runs because no execution reaches it.
 func TestIRHoleCall_HoleTypedBoundCallIsPresentButUnreached(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "main.nomi")
-	if err := os.WriteFile(path, []byte(irHoleHashSource), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(irHoleDisplaySource), 0600); err != nil {
 		t.Fatal(err)
 	}
 	p, err := Analyze(path)
@@ -49,10 +49,10 @@ func TestIRHoleCall_HoleTypedBoundCallIsPresentButUnreached(t *testing.T) {
 			}
 		}
 	}
-	if len(faults) != 1 || !strings.Contains(faults[0], "Maybe.hash<Unit>") {
-		t.Fatalf("unreachable faults in %q; want exactly one, in the Maybe.hash<Unit> instance", faults)
+	if len(faults) != 1 || !strings.Contains(faults[0], "Maybe.to_string<Unit>") {
+		t.Fatalf("unreachable faults in %q; want exactly one, in the Maybe.to_string<Unit> instance", faults)
 	}
-	verifyLambdaProgram(t, irHoleHashSource, "True\nTrue\n")
+	verifyLambdaProgram(t, irHoleDisplaySource, "None\nSome(4)\n")
 }
 
 // ONLY THE BUILDER'S OWN HOLES QUALIFY. irCheckerHoles reads a type parameter
@@ -87,7 +87,7 @@ func TestIRHoleCall_ASolvedTypeWithNoImplIsRejected(t *testing.T) {
 	src := `import std/io
 
 fn main() {
-  x: Maybe<Unit> = None
+  x: Maybe<Ordering> = None
   io.print(Maybe.hash(x))
 }
 `
@@ -96,17 +96,17 @@ fn main() {
 	}
 	_, err := Analyze(path)
 	if err == nil {
-		t.Fatal("the front end now ADMITS a Hashable call on Unit, so a checker-solved " +
+		t.Fatal("the front end now ADMITS a Hashable call on Ordering, so a checker-solved " +
 			"type with no impl can reach the builder: holeBoundCall must still decline it")
 	}
 	// The derived `impl Hashable for Maybe<T>` carries `where T: Hashable`,
 	// and the bound check at the call names it.
-	if !strings.Contains(err.Error(), "Unit does not implement Hashable (required by `where T: Hashable`)") {
+	if !strings.Contains(err.Error(), "Ordering does not implement Hashable (required by `where T: Hashable`)") {
 		t.Fatalf("rejected for another reason, so the wall is not the one this test names: %v", err)
 	}
-	// It points at the call, and, since neither `Unit` nor `Hashable` is the
+	// It points at the call, and, since neither `Ordering` nor `Hashable` is the
 	// program's to extend, says only std can add the impl.
-	if !strings.Contains(err.Error(), "main.nomi:5:12:") || !strings.Contains(err.Error(), "only std can implement `Hashable` for `Unit`") {
+	if !strings.Contains(err.Error(), "main.nomi:5:12:") || !strings.Contains(err.Error(), "only std can implement `Hashable` for `Ordering`") {
 		t.Fatalf("the bound error lost its position or its help: %v", err)
 	}
 }

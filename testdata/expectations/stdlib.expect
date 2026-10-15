@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
-records 32
-declared-cases 302
+records 33
+declared-cases 303
 failing 0
 C assertions
 E 0
@@ -485,6 +485,13 @@ E 0
 N 1
 H 4d3d73bfd083894feda3a8285838bcbd255558967ffd4cfe12e92a7f6545ba10
 T ok <root>/std/toml.nomi :: impl / text //! test lines 20-30
+T test result: ok. 1 passed, 0 failed
+T
+C unit
+E 0
+N 1
+H 471bd926a46daa6cc7cb97c2c3d7972bd35e1650e91450f26149b9359031cb7e
+T ok <root>/std/unit.nomi :: Unit //! test lines 20-22
 T test result: ok. 1 passed, 0 failed
 T
 C variants

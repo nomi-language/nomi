@@ -50,9 +50,9 @@ fn key<H>(h: H): Int where H: Hashable {
 		},
 		{
 			"broad std interface, std type",
-			`key(Unit)`,
-			"Unit does not implement Hashable (required by `where H: Hashable`)",
-			"only std can implement `Hashable` for `Unit`; wrap it in a type of your own that implements `Hashable`",
+			`key(Ordering.Less)`,
+			"Ordering does not implement Hashable (required by `where H: Hashable`)",
+			"only std can implement `Hashable` for `Ordering`; wrap it in a type of your own that implements `Hashable`",
 		},
 		{
 			"own interface",

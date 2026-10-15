@@ -290,23 +290,23 @@ a	irScalarBuilder.valueEquality | false | d.rtOpaque ¦¦ !irDistinctOverValue(d
 d	irScalarBuilder.valueEquality | false | !known#2	irequality.go:87	-	same as irequality.go:36, for a value distinct; not tried with an FFI type
 a	irScalarBuilder.valueEquality | false | d.isEnum ¦¦ !irRetainedStructKind(d) ¦¦ irParamShape(k) != ir.ValStruct#1	irequality.go:101	expect,irbuild	
 b	irScalarBuilder.valueEquality | false | impl == nil#1	irequality.go:110	-	probe: answers not-owned, and compareOperands goes on to the generic routes (a std impl is stdEquality's)
-d	irScalarBuilder.structuralEqual | false | unguarded#1	irequality.go:178	-	needs a distinct whose inner kind no structuralEqual arm takes; distinct over an existential fails earlier at construction ("a type name in value position")
-d	irScalarBuilder.equatableImplCall | false | og == nil ¦¦ d == nil ¦¦ !d.lowerable#1	irequality.go:196	-	needs an Equatable impl whose implDef is unlowerable; not constructed
-b	irScalarBuilder.equatableImplCall | false | it == nil ¦¦ !it.lowerable ¦¦ len(it.params) != 2 ¦¦ it.result != kindBool#1	irequality.go:200	-	checker validates equal?'s signature (two self params, Bool) against the interface
-b	irScalarBuilder.equatableImplCall | false | p.tag != tagNamed ¦¦ p.def == nil ¦¦ k.def == nil ¦¦ p.def.decl != k.def.decl#1	irequality.go:204	-	fence: the impl found for k's declaration has params of that declaration; generic impls lowered (g5/b_eq2.nomi)
-b	irScalarBuilder.equatableImplCall | false | og != bl.g && u < 0#1	irequality.go:208	-	fence: equatableImplOf only returns og from g.reg.gens, so irGenUnit finds it; cross-file impls lowered (g5/proj1/main.nomi)
-a	irScalarBuilder.equatableImplCall | false | bl.f.Sym() == sym#1	irequality.go:213	vmhost	pinned as gapEqualImplSelfRecursion (reason: the comparison operator `==`)
-b	irScalarBuilder.bareVariantOwnKind | false | !ok#1	irequality.go:290	-	defensive: preludeValueName succeeded on the caller's bareEqualityOperand test, which already resolved the variant
-a	irScalarBuilder.bareVariantOwnKind | false | !ok ¦¦ vs.carries()#1	irequality.go:294	expect,irbuild,projectgen,vmhost	
-d	irScalarBuilder.bareVariantOwnKind | false | k.tag != tagNamed ¦¦ !irRetainedEnumKind(k.def)#1	irequality.go:311	-	needs preludeInstance over the solved or Unit arguments to give a non-retained enum; `None == None` forms lower (g5/u_none.nomi)
-a	irScalarBuilder.containerEqualCall | false | !args.ok ¦¦ len(args.kinds) != 2#1	irequality.go:376	irbuild	
-d	irScalarBuilder.containerEqualCall | false | !ok ¦¦ lk != rk ¦¦ !irEqualityListKind(lk)#1	irequality.go:385	-	List.equal? with a non-retained list kind; not constructed (checker rejects embedded mismatch for List.equal?)
-d	irScalarBuilder.containerEqualCall | false | lk != rk ¦¦ !irEqualityContainerKind(lk)#1	irequality.go:391	-	Vector.equal?/Map.equal? with differing or non-container kinds; checker rejects the embedded mismatch
-a	irScalarBuilder.containerEqualCall/maybe | computed | return k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && k.def.preludeOf.spec…#1	irequality.go:402	expect,irbuild,vmhost	
-a	irScalarBuilder.containerEqualCall | false | at == 1 && bare[1] == kindInvalid#1	irequality.go:417	vmhost	pinned as gapMaybeEqualEmbeddedWiden (reason: qualified call, Type.method: Maybe.equal?)
-a	irScalarBuilder.containerEqualCall | false | !bl.g.irPreludeEqualityKind(rk) ¦¦ lk != rk#1	irequality.go:427	vmhost	pinned as gapMaybeEqualStructPayload (reason: qualified call, Type.method: Maybe.equal?)
-b	irScalarBuilder.containerEqualCall | false | unguarded#1	irequality.go:431	-	fence: owner is one of List, Vector, Map, Maybe, Result (equatableContainerOwner)
-a	irScalarBuilder.existentialDebugImpls | computed | return len(impls) != 0#1	irequality.go:481	expect,irbuild,vmhost	
+d	irScalarBuilder.structuralEqual | false | unguarded#1	irequality.go:184	-	needs a distinct whose inner kind no structuralEqual arm takes; distinct over an existential fails earlier at construction ("a type name in value position")
+d	irScalarBuilder.equatableImplCall | false | og == nil ¦¦ d == nil ¦¦ !d.lowerable#1	irequality.go:202	-	needs an Equatable impl whose implDef is unlowerable; not constructed
+b	irScalarBuilder.equatableImplCall | false | it == nil ¦¦ !it.lowerable ¦¦ len(it.params) != 2 ¦¦ it.result != kindBool#1	irequality.go:206	-	checker validates equal?'s signature (two self params, Bool) against the interface
+b	irScalarBuilder.equatableImplCall | false | p.tag != tagNamed ¦¦ p.def == nil ¦¦ k.def == nil ¦¦ p.def.decl != k.def.decl#1	irequality.go:210	-	fence: the impl found for k's declaration has params of that declaration; generic impls lowered (g5/b_eq2.nomi)
+b	irScalarBuilder.equatableImplCall | false | og != bl.g && u < 0#1	irequality.go:214	-	fence: equatableImplOf only returns og from g.reg.gens, so irGenUnit finds it; cross-file impls lowered (g5/proj1/main.nomi)
+a	irScalarBuilder.equatableImplCall | false | bl.f.Sym() == sym#1	irequality.go:219	vmhost	pinned as gapEqualImplSelfRecursion (reason: the comparison operator `==`)
+b	irScalarBuilder.bareVariantOwnKind | false | !ok#1	irequality.go:296	-	defensive: preludeValueName succeeded on the caller's bareEqualityOperand test, which already resolved the variant
+a	irScalarBuilder.bareVariantOwnKind | false | !ok ¦¦ vs.carries()#1	irequality.go:300	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.bareVariantOwnKind | false | k.tag != tagNamed ¦¦ !irRetainedEnumKind(k.def)#1	irequality.go:317	-	needs preludeInstance over the solved or Unit arguments to give a non-retained enum; `None == None` forms lower (g5/u_none.nomi)
+a	irScalarBuilder.containerEqualCall | false | !args.ok ¦¦ len(args.kinds) != 2#1	irequality.go:382	irbuild	
+d	irScalarBuilder.containerEqualCall | false | !ok ¦¦ lk != rk ¦¦ !irEqualityListKind(lk)#1	irequality.go:391	-	List.equal? with a non-retained list kind; not constructed (checker rejects embedded mismatch for List.equal?)
+d	irScalarBuilder.containerEqualCall | false | lk != rk ¦¦ !irEqualityContainerKind(lk)#1	irequality.go:397	-	Vector.equal?/Map.equal? with differing or non-container kinds; checker rejects the embedded mismatch
+a	irScalarBuilder.containerEqualCall/maybe | computed | return k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && k.def.preludeOf.spec…#1	irequality.go:408	expect,irbuild,vmhost	
+a	irScalarBuilder.containerEqualCall | false | at == 1 && bare[1] == kindInvalid#1	irequality.go:423	vmhost	pinned as gapMaybeEqualEmbeddedWiden (reason: qualified call, Type.method: Maybe.equal?)
+a	irScalarBuilder.containerEqualCall | false | !bl.g.irPreludeEqualityKind(rk) ¦¦ lk != rk#1	irequality.go:433	vmhost	pinned as gapMaybeEqualStructPayload (reason: qualified call, Type.method: Maybe.equal?)
+b	irScalarBuilder.containerEqualCall | false | unguarded#1	irequality.go:437	-	fence: owner is one of List, Vector, Map, Maybe, Result (equatableContainerOwner)
+a	irScalarBuilder.existentialDebugImpls | computed | return len(impls) != 0#1	irequality.go:487	expect,irbuild,vmhost	
 b	irScalarBuilder.fieldAccessor | false | bl.g.fa == nil#1	irfieldaccessor.go:21	-	defensive: fa is set whenever a body is lowered from a checked file
 b	irScalarBuilder.fieldAccessor | false | !found#1	irfieldaccessor.go:25	-	checker records every accessor it accepts in FieldAccessors; a rejected one never reaches the builder
 c	irScalarBuilder.fieldAccessor | note | "a field accessor over a type outside the domain: " + pk.nomi()#1	irfieldaccessor.go:29	-	pinned as gapFieldAccessorRecordExistential (reason: a field accessor over a type outside the domain: {d: Display, x: Int})
@@ -736,8 +736,7 @@ b	irScalarBuilder.settleConcurrentTries | false | !irTryFits(boundary, p.operand
 a	irScalarBuilder.scalarEqualCall | false | method != "equal?" ¦¦ len(t.Args) != 2#1	irscalaroperator.go:43	expect,irbuild,projectgen,vmhost	
 a	irScalarBuilder.scalarEqualCall | false | unguarded#1	irscalaroperator.go:48	irbuild	
 d	irScalarBuilder.scalarEqualCall | false | !args.ok ¦¦ args.kinds[0] != args.kinds[1]#1	irscalaroperator.go:53	-	equal? over None/Some, Err/Ok and []/List lowers; operand kinds come out equal
-b	irScalarBuilder.scalarEqualCall | false | unguarded#2	irscalaroperator.go:66	-	checker: "no impl of `Equatable` for `Unit`"
-a	irScalarBuilder.scalarEqualCall | false | unguarded#3	irscalaroperator.go:68	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.scalarEqualCall | false | unguarded#2	irscalaroperator.go:73	expect,irbuild,projectgen,vmhost	
 d	irScalarBuilder.setMakeOf | false | !irRetainedSetKind(k)#1	irset.go:75	-	needs set items that join to an accepted element kind whose Set is not retained; not found
 d	irScalarBuilder.setMakeOf | false | !ok#1	irset.go:79	-	needs a Set element that mapKeyOK refuses after irSetElemKind accepted it; not found
 b	irScalarBuilder.stdFieldDefault | false | f.k != kindString#1	irstdfielddefault.go:40	-	std-only fence: the stdStringDefault anchor matches only a String default on the declared field (stdstruct.go:533)
@@ -866,7 +865,7 @@ b	irScalarBuilder.tupleBinding | note | "a tuple destructure outside the retaine
 b	irScalarBuilder.tupleBinding | false | !ok ¦¦ !irRetainedTupleKind(k) ¦¦ len(k.comp.parts) != len(t.Bindings)#1	irtuple.go:205	-	same as :212
 b	irScalarBuilder.tupleHashCall | false | len(t.Args) != 1 ¦¦ namedArgNode(t.Args) != nil#1	irtuplehash.go:29	-	probe: returns handled=false and the caller lowers the call as usual
 a	irScalarBuilder.tupleHashCall | false | ft == nil ¦¦ len(ft.Params) != 1 ¦¦ bl.g.project(ft.Params[0]).tag != tagTuple#1	irtuplehash.go:33	expect,irbuild,projectgen,vmhost	
-c	irScalarBuilder.tupleHashCall | false | !sok ¦¦ !irRetainedTupleKind(sk)#1	irtuplehash.go:37	-	pinned as gapTupleHashUnitSlot (reason: a TupleLit)
+d	irScalarBuilder.tupleHashCall | false | !sok ¦¦ !irRetainedTupleKind(sk)#1	irtuplehash.go:37	-	a Unit slot reached it before Unit implemented Hashable; a tuple the checker accepts as Hashable now lowers as a retained tuple
 b	irScalarBuilder.tupleHashCall | false | ok && k != kindInt#1	irtuplehash.go:79	-	fence: each slot's Hashable.hash answers Int, and the mix is wrapping Int arithmetic
 c	irScalarBuilder.tupleCaseTest | note | "a `case` tuple pattern outside flat Int/String tests with bindings and wildcards"#1	irtuplepattern.go:49	-	pinned as gapTuplePatternCompositeDistinct (reason: a `case` tuple pattern outside flat Int/String tests with bindings and wildcards)
 c	irScalarBuilder.turbofishDispatch | false | len(t.TypeArgs) != 1#1	irturbofish.go:33	-	pinned as gapTurbofishTwoTypeArgs (reason: a turbofish on a call)

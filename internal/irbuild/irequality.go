@@ -140,6 +140,12 @@ func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k ki
 	switch {
 	case k == kindInt || k == kindFloat || k == kindString || k == kindBool:
 		return bl.equalityCompare(t, ir.OpEq, irParamShape(k), lhs, rhs), true
+	case k == kindUnit:
+		// Unit has one value, so a Unit slot is always equal.
+		c := ir.NewBool(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), true)
+		bl.b.Append(c)
+		bl.side(c.Dst(), irScalarSide{k: kindBool})
+		return c.Dst(), true
 	case isDecimalKind(k):
 		return bl.equalityCompare(t, ir.OpEq, ir.ValDecimal, lhs, rhs), true
 	case irByteValueKind(k):

@@ -63,7 +63,12 @@ func (bl *irScalarBuilder) scalarEqualCall(t *ast.Call, args irQualArgs, owner, 
 	case kindBool:
 		shape = ir.ValBool
 	case kindUnit:
-		return ir.NoTemp, kindInvalid, false, false, true
+		// Unit has one value, so two Units are equal once both operands
+		// have run, as std's `impl Equatable for Unit` and `==` answer.
+		c := ir.NewBool(bl.g.irNodePos(t), bl.f.NewTemp(), true)
+		bl.b.Append(c)
+		bl.side(c.Dst(), irScalarSide{k: kindBool})
+		return c.Dst(), kindBool, false, true, true
 	default:
 		return ir.NoTemp, kindInvalid, false, false, false
 	}

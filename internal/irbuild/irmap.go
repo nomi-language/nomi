@@ -18,11 +18,11 @@ func irRetainedMapKind(k kind) bool {
 // irMapKeyKind is a retained map's key domain. The VM hashes and compares a
 // key as `==` does: a declared type through its hand-written Equatable and
 // Hashable (recorded by irRecordKeyImpls), everything else structurally
-// (vm/keys.go). So a key may be a scalar leaf, a Decimal (scale-insensitive:
-// rt.EqDecimal and rt.HashDecimal), a tuple, a list, or a retained
-// struct or enum (a prelude Maybe among them).
+// (vm/keys.go). So a key may be a scalar leaf, Unit (one value, rt.HashUnit),
+// a Decimal (scale-insensitive: rt.EqDecimal and rt.HashDecimal), a tuple, a
+// list, or a retained struct or enum (a prelude Maybe among them).
 func irMapKeyKind(k kind) bool {
-	if isDecimalKind(k) || irScalarLeafKind(k) || irRetainedTupleKind(k) || irRetainedListKind(k) || irRetainedLeafKind(k) || irByteValueKind(k) {
+	if k == kindUnit || isDecimalKind(k) || irScalarLeafKind(k) || irRetainedTupleKind(k) || irRetainedListKind(k) || irRetainedLeafKind(k) || irByteValueKind(k) {
 		return true
 	}
 	if elem, vector := vectorElem(k); vector && k != kindEmptyVector {

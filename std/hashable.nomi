@@ -9,8 +9,9 @@ import int.Int
 /// between runs of the runtime; it is suitable only for in-process
 /// bucketing.
 ///
-/// All four primitive types — `Int`, `Float`, `Bool`, `String` —
-/// implement `Hashable`. To implement it for a custom type:
+/// The primitive types `Int`, `Float`, `Bool` and `String` implement
+/// `Hashable`, and so does `Unit`, whose one value always hashes the same.
+/// To implement it for a custom type:
 ///
 /// ```nomi
 /// pub struct Point {

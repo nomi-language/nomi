@@ -1,3 +1,10 @@
+import {
+    bool.Bool.{self, True}
+    equatable.Equatable
+    hashable.Hashable
+    int.Int
+}
+
 //# The `Unit` type — "no meaningful value."
 //#
 //# `Unit` is the return type of side-effecting operations (`io.print`,
@@ -6,5 +13,24 @@
 //# function returning `Unit` is called for its effect.
 
 /// No meaningful value. Returned by side-effecting functions such as
-/// `io.print`.
+/// `io.print`. `Unit` is `Equatable` and `Hashable`: its one value equals
+/// itself and always hashes the same, so a tuple, struct or collection
+/// holding `Unit` can be compared, hashed, kept in a `Set` or used as a
+/// `Map` key.
+//! assert Unit == Unit
+//! assert Equatable.equal?(Unit, Unit)
+//! assert Hashable.hash(Unit) == Hashable.hash(Unit)
+//
 pub host type Unit
+
+impl Equatable for Unit {
+    fn equal?(_a: Unit, _b: Unit): Bool {
+        True
+    }
+}
+
+impl Hashable for Unit {
+    fn hash(_value: Unit): Int {
+        0
+    }
+}

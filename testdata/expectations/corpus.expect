@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 285
-declared-cases 923
+records 286
+declared-cases 927
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1731,6 +1731,16 @@ T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Se
 T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Set of structs inspects each member through its Debug
 T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Set of declared members nested in other values inspects
 T test result: ok. 3 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/unit_hashable_test.nomi
+E 0
+N 4
+H 53026442eda5b1ef38a99264fc303d01533896e814dbd17b1d4026a0ad4305b4
+T ok <root>/tests/12-derives-and-standard-interfaces/unit_hashable_test.nomi :: unit is equatable and always hashes the same
+T ok <root>/tests/12-derives-and-standard-interfaces/unit_hashable_test.nomi :: tuples holding unit hash through unit's impl
+T ok <root>/tests/12-derives-and-standard-interfaces/unit_hashable_test.nomi :: a derived hash over a struct with a unit field
+T ok <root>/tests/12-derives-and-standard-interfaces/unit_hashable_test.nomi :: unit and values holding it key sets and maps
+T test result: ok. 4 passed, 0 failed
 T
 C 12-derives-and-standard-interfaces/universal_debug/token.nomi
 E 1

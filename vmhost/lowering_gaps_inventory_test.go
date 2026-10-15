@@ -249,18 +249,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapTupleHashUnitSlot",
-		fix:    "checker or builder: the tuple now lowers, and tupleHashCall's synthesized `Hashable.hash` of the Unit part declines; the checker rejects `Hashable.hash(Unit)` itself (\"no impl of `Hashable` for `Unit`\") yet accepts a tuple holding Unit as Hashable, so either the checker should reject this tuple or Unit should hash. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.tupleHashCall | false | !sok ¦¦ !irRetainedTupleKind(sk)#1",
-		reason: "qualified call, Type.method: Hashable.hash",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.print(Hashable.hash(('a', Unit)))
-}
-`,
-	},
-	{
 		name:   "gapNestedFnDestructuringParam",
 		fix:    "builder: nested fn destructuring param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.nestedFunc/no | note | \"a nested fn: \" + why#1",
 		reason: "a nested fn: a parameter without an annotation, or a destructuring one",
