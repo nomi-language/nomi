@@ -1884,8 +1884,8 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 	lead := make([]ast.Node, 0, last)
 	for _, s := range block.Stmts[:last] {
 		switch st := s.(type) {
-		case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias:
-			// A block-local type declaration runs nothing: its values' layout
+		case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias, *ast.InterfaceDef:
+			// A block-local type or interface declaration runs nothing: its values' layout
 			// and identity come from the typeDef blocklocaltype.go resolved,
 			// visible while the block's type scope is pushed.
 			continue
@@ -2386,6 +2386,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		defer bl.g.enterBlockTypes(block)()
 		lead, tail := bl.g.irScalarBlock(block, "")
 		if tail == nil {
+			irDeclineNote(irDeclineBodyWhy)
 			return kindInvalid, false
 		}
 		scope = bl.openDeferScope(block)

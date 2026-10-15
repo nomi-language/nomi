@@ -509,8 +509,8 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 		return bl.testImport(st)
 	case *ast.Return:
 		return bl.testReturn(st)
-	case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias:
-		// A block-local type declaration runs nothing: its values' layout
+	case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias, *ast.InterfaceDef:
+		// A block-local type or interface declaration runs nothing: its values' layout
 		// and identity come from the typeDef blocklocaltype.go resolved.
 		return true
 	case *ast.ExprStmt:

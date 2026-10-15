@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 281
-declared-cases 898
+records 282
+declared-cases 900
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1308,6 +1308,14 @@ T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: type 
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: map distinct wrappers support literal attach and destructuring
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: tuple distinct wrappers support literal attach and destructuring
 T test result: ok. 4 passed, 0 failed
+T
+C 11-interfaces-and-impls/block_impl_diagnostics_test.nomi
+E 0
+N 2
+H 706d16cd65b39d135fe03375fd3e2fd411cc5888c67cad2f4f671848617c7cb8
+T ok <root>/tests/11-interfaces-and-impls/block_impl_diagnostics_test.nomi :: an impl block inside a test body is rejected
+T ok <root>/tests/11-interfaces-and-impls/block_impl_diagnostics_test.nomi :: a derive inside a lambda body is rejected
+T test result: ok. 2 passed, 0 failed
 T
 C 11-interfaces-and-impls/impl_blocks_test.nomi
 E 0

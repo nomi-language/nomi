@@ -513,6 +513,7 @@
 10-generics-and-type-wrappers/type_wrappers_test.nomi:Pair.inspect	ran
 10-generics-and-type-wrappers/type_wrappers_test.nomi:Triple.inspect	ran
 10-generics-and-type-wrappers/type_wrappers_test.nomi:run	ran
+11-interfaces-and-impls/block_impl_diagnostics_test.nomi:only	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Cat.inspect	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Cat.speak	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Describe.describe	ran

@@ -62,57 +62,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapInterfaceInBlockBinding",
-		fix:    "builder: interface in block binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.blockBinding | note | irDeclineBodyWhy#1",
-		reason: "a leading statement form outside the shape: *ast.InterfaceDef",
-		src: `import std/io
-
-fn main() {
-    x = {
-        interface Foo {
-            fn foo(v: self): Int
-        }
-        1
-    }
-    io.inspect(x)
-}
-`,
-	},
-	{
-		name:   "gapInterfaceInBlockOperand",
-		fix:    "builder: interface in block operand. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.blockValue | note | irDeclineBodyWhy#1",
-		reason: "a leading statement form outside the shape: *ast.InterfaceDef",
-		src: `import std/io
-
-fn main() {
-    io.inspect({
-        interface Foo {
-            fn foo(v: self): Int
-        }
-        1
-    })
-}
-`,
-	},
-	{
-		name:   "gapInterfaceInFnBody",
-		fix:    "builder: interface in fn body. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.irScalarBlock | note | irDeclineBodyWhy#3; gen.irScalarBuild | note | irDeclineBodyWhy#1",
-		reason: "a leading statement form outside the shape: *ast.InterfaceDef",
-		src: `import std/io
-
-fn c(x: Int): Int {
-    interface Foo {
-        fn foo(v: self): Int
-    }
-    x
-}
-
-fn main() {
-    io.inspect(c(1))
-}
-`,
-	},
-	{
 		name:   "gapLambdaReturnEmptyListFirst",
 		fix:    "builder: lambda return empty list first. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.explicitReturn | false | !ok ¦¦ k != bl.returnKind#1",
 		reason: "a value of kind List<Int> where List<_> is expected",
@@ -1459,23 +1408,6 @@ test "a block import that rebinds a module-level name" {
 `,
 	},
 	{
-		name:   "gapTestLocalImpl",
-		fix:    "builder: test local impl. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testStmt | note | fmt.Sprintf(\"a test-body statement form: %T\", s)#1",
-		reason: "a test-body statement form: *ast.ImplBlock",
-		src: `test "a local impl in a test body" {
-    struct Q {
-        a: Int
-    }
-    impl Display for Q {
-        fn to_string(_q: Q): String {
-            "q"
-        }
-    }
-    assert Q{a: 1}.a == 1
-}
-`,
-	},
-	{
 		name:   "gapTypeParamQualifiedWitness",
 		fix:    "builder: type param qualified witness. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.namesType | false | unguarded#1; irScalarBuilder.typeWitnessValue | false | !irWitnessableKind(x) ¦¦ !bl.namesType(at, x)#1",
 		reason: "an ident bound nowhere this builder can see",
@@ -2363,26 +2295,6 @@ fn main() {
     f = stop
     ys = [1, 2, 3] |> Iter.map(f) |> Iter.to_list()
     io.inspect(ys)
-}
-`,
-	},
-	{
-		name:   "gapLambdaBlockLocalDerive",
-		fix:    "builder: lambda block local derive. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.lambdaFunction | false | body == nil#1; irScalarBuilder.lambdaFunction/no | note | why#1",
-		reason: "a lambda body that is not a block ending in an expression",
-		src: `import std/io
-
-fn main() {
-    f = |x: Int| {
-        struct Q {
-            v: Int
-        }
-        derive Debug for Q
-        q = Q{v: x}
-        io.inspect(q)
-        q.v
-    }
-    io.print(f(1))
 }
 `,
 	},
