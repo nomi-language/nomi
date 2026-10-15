@@ -91,6 +91,9 @@ type irScalarBuilder struct {
 	literalCell *ast.TaggedString
 	captures    []ir.Temp
 	captured    map[string]irLambdaCapture
+	// capturedPlans are the plans of captured lambdas, by the capture's
+	// temporary (capturedPlan).
+	capturedPlans map[ir.Temp]*irLambdaPlan
 	// rebuildBody marks the body of a widening adapter (irembedsrebuild.go),
 	// and rebuildCaps the enclosing enum adapters it reaches as captures.
 	rebuildBody bool
@@ -942,6 +945,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	// no boundary decides its delivery.
 	if bl.testingCheckCall(t) {
 		return bl.testingCheck(t)
+	}
+	if fa, qualified := t.Func.(*ast.FieldAccess); qualified && bl.namedIntrinsic(t, fa) {
+		// `Task.await(task: t)`: planned as its positional form
+		// (irintrinsicnamed.go).
+		return bl.namedIntrinsicCall(t, fa)
 	}
 	if fa, qualified := t.Func.(*ast.FieldAccess); qualified && fa.Field != nil {
 		if owner := bl.stdIntrinsicOwner(fa); owner == "Channel" || owner == "Sender" || owner == "Receiver" {

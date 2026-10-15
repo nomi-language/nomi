@@ -123,7 +123,7 @@ func IdleSupervisor() any {
 }
 
 // supervisorSpawnAllHost is `Supervisor.spawn_all(sup, source, f)`: one
-// supervised task per item of the list, through rt, which enrolls each under
+// supervised task per item of the source, through rt, which enrolls each under
 // the supervisor's own limit.
 func supervisorSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	const name = "Supervisor.spawn_all"
@@ -134,18 +134,13 @@ func supervisorSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("vm: %s: the supervisor is %T", name, args[0])
 	}
-	xs, ok := args[1].(*list)
+	source, ok := args[1].(rt.Seq[any])
 	if !ok {
-		return nil, fmt.Errorf("vm: %s: the source is %T, not a list", name, args[1])
+		return nil, fmt.Errorf("vm: %s: the source is %T, not a sequence", name, args[1])
 	}
 	f, ok := args[2].(*functionValue)
 	if !ok || f.arity != 1 {
 		return nil, fmt.Errorf("vm: %s: the body must be a unary function", name)
-	}
-	items := listSlice(xs)
-	var source *rt.List[any]
-	for i := len(items) - 1; i >= 0; i-- {
-		source = rt.Cons(items[i], source)
 	}
 	var handles *rt.List[rt.Task[rt.Unit]]
 	if err := rtFault(func() {

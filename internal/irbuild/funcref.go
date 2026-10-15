@@ -53,23 +53,6 @@ import (
 // does not have. See methodref.go for the qualified spelling, which is the same
 // value through a different resolver.
 
-// funcHasDefault reports whether any parameter carries a default value.
-//
-// Read off the DECLARATION rather than the signature, because fnSig records
-// parameter KINDS and a default is an expression: sugar.go evaluates it at the
-// call site, in the callee's scope, so nothing about it survives into the kind.
-func funcHasDefault(fd *ast.FuncDef) bool {
-	if fd == nil {
-		return false
-	}
-	for _, p := range fd.Params {
-		if p.Default != nil {
-			return true
-		}
-	}
-	return false
-}
-
 // checkedRefKinds is the signature the checker instantiated a generic function
 // REFERENCE at (generic_func_ref.go records it on the reference as a call's is
 // recorded on its callee), in this gen's kinds. ok is false when the checker

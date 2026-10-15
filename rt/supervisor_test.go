@@ -465,7 +465,7 @@ func TestSupervisorSpawnAllRunsOnePerItem(t *testing.T) {
 	sup := newTestSupervisor(fr, 2, DefaultShutdownTimeout)
 	var mu sync.Mutex
 	seen := map[int64]bool{}
-	source := listFromSlice([]int64{10, 20, 30})
+	source := ListSeq(listFromSlice([]int64{10, 20, 30}))
 	handles := SupervisorSpawnAll(fr, sup, source, func(_ *Frame, n int64) Unit {
 		mu.Lock()
 		seen[n] = true

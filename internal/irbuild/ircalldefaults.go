@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"slices"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -46,6 +48,34 @@ func (bl *irScalarBuilder) callDefaults(sig *fnSig, args []ir.Temp) bool {
 		if p.Destructure == nil && !ast.IsDiscardName(p.Name) {
 			bl.bound[p.Name], bl.boundK[p.Name] = args[i], sig.params[i]
 		}
+		if p.Destructure != nil && slices.Contains(args[i+1:], ir.NoTemp) && !bl.bindParamPattern(p.Destructure, args[i], sig.params[i]) {
+			return false
+		}
 	}
+	return true
+}
+
+// bindParamPattern binds the names destructuring parameter pattern pat
+// introduces from its argument arg, as the callee's prologue binds them for
+// its body, so a later parameter's default may read them
+// (`fn area((w, h): (Int, Int), scale: Int = w)`). The pattern is
+// irrefutable, so its mismatch edge is a NoMatch no value reaches.
+func (bl *irScalarBuilder) bindParamPattern(pat ast.Node, arg ir.Temp, k kind) bool {
+	if !irHeldValue(bl.f, arg, bl.sides) {
+		c := ir.NewCopy(bl.g.irNodePos(pat), bl.f.NewTemp(), arg)
+		bl.b.Append(c)
+		bl.side(c.Dst(), irScalarSide{k: k, copy: irCopyHold})
+		arg = c.Dst()
+	}
+	pos := bl.g.irNodePos(pat)
+	cont := bl.f.NewBlock(pos, "parameter destructured")
+	nomatch := bl.f.NewBlock(pos, "pattern mismatch")
+	nomatch.Append(ir.NewNoMatch(pos))
+	nomatch.SetTerm(ir.NewJump(pos, cont.ID()))
+	if !bl.patternValueTest(pat, arg, k, cont, nomatch) {
+		irDeclineAtPattern(pat, "a destructuring parameter before a defaulted one, outside the retained case tests: "+k.nomi())
+		return false
+	}
+	bl.b = cont
 	return true
 }

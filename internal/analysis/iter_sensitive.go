@@ -733,7 +733,11 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 				inIterCallback: inIter,
 			})
 		}
-		walk(call.Func, inIter)
+		if _, named := call.Func.(*ast.Ident); !named {
+			// A bare callee is the call site recorded above, not a use of
+			// the function as a value.
+			walk(call.Func, inIter)
+		}
 		slots := s.slotsForCall(call)
 		slotOffset := 0
 		if pipeLHS != nil {
@@ -759,6 +763,7 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 						call:           call,
 						inIterCallback: true,
 					})
+					continue
 				}
 			}
 			walk(arg, argInIter)
@@ -799,6 +804,21 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 
 		case *ast.Call:
 			walkCall(node, nil, inIter)
+
+		case *ast.Ident:
+			// An iter-sensitive function named anywhere but as a callee or
+			// directly as an iteration function's callback is a value whose
+			// calls no call site records, so its break or continue could run
+			// with no iteration to control (spec §19).
+			if sym := s.resolveCalleeSym(node); sym != nil && s.sensitive[sym] {
+				s.errors = append(s.errors, TypeError{
+					Line: node.Line, Col: node.Col,
+					Message: fmt.Sprintf(
+						"'%s' uses break/continue (directly or transitively), so it can only be called from an iter-callback position or passed directly as an iteration function's callback, not used as a value here",
+						node.Name,
+					),
+				})
+			}
 
 		case *ast.Block:
 			for _, stmt := range node.Stmts {

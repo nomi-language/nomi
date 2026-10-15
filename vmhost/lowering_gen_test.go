@@ -116,8 +116,13 @@ type gen struct {
 	// itr draws the blocks iterBlock writes, and itn names their
 	// bindings apart, so the rest of each program is the one it was
 	// without them.
-	itr     *rand.Rand
-	itn     int
+	itr *rand.Rand
+	itn int
+	// call draws the blocks callBlock writes, and cn names their
+	// declarations apart, so the rest of each program is the one it was
+	// without them.
+	call    *rand.Rand
+	cn      int
 	wn      int
 	dn      int
 	n       int
@@ -1668,6 +1673,113 @@ func (g *gen) patternBlock(inTest bool) string {
 	return out.String()
 }
 
+// callBlock is a statement block of calls placed by name, functions passed
+// as values and the sources std's concurrency functions take: named
+// arguments to the concurrency functions in any order, a named function
+// spawned as a task, and `Task.spawn_all` over each kind of Iter.
+func (g *gen) callBlock() string {
+	r := g.call
+	g.cn++
+	name := func(s string) string { return fmt.Sprintf("%s%dc", s, g.cn) }
+	n := r.Intn(4)
+	var out strings.Builder
+	out.WriteString("{\n")
+	switch r.Intn(12) {
+	case 11:
+		// A partial that leaves a slot with a computed default unmentioned,
+		// before a slot it names or after the open one.
+		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = a + %d, c: Int = 0): Int {\na * 100 + b * 10 + c\n}\n", name("cpf"), n)
+		partials := []string{"%s(_, c: 1)", "%s(_)", "%s(c: 2, a: _)"}
+		fmt.Fprintf(&out, "%s = %s\n", name("cpg"), fmt.Sprintf(partials[r.Intn(len(partials))], name("cpf")))
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("cpg"), n)
+	case 10:
+		// A typed literal whose handler answers a function.
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("type %s\n\nimpl Literal for %s {\n"+
+			"fn from_fragments(fragments: List<Fragment<Int>>): (Int) -> Int {\nn = Iter.count(fragments)\n|x| x + n\n}\n}",
+			name("Adder"), name("Adder")))
+		fmt.Fprintf(&out, "%s = %s\"a${%d}\"\n", name("cl"), name("Adder"), n)
+		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("cl"), n)
+	case 9:
+		// testing.check, an intrinsic with no body, as a value.
+		fmt.Fprintf(&out, "%s: (Bool) -> Result<Bool, testing.AssertionFailure> = testing.check\n", name("cck"))
+		fmt.Fprintf(&out, "io.print(Result.ok?(%s(%d > 1)))\n", name("cck"), n)
+	case 8:
+		// A function with a default named as a value: its full parameter
+		// list.
+		fmt.Fprintf(&out, "fn %s(x: Int, y: Int = %d): Int {\nx + y\n}\n", name("cdf"), n)
+		fmt.Fprintf(&out, "%s = %s\n", name("cdv"), name("cdf"))
+		fmt.Fprintf(&out, "io.inspect(%s(1, 2))\n", name("cdv"))
+		fmt.Fprintf(&out, "io.inspect(%s(1))\n", name("cdf"))
+	case 6:
+		// A lambda with a default, captured by another closure and called
+		// there short, by name and partially.
+		calls := []string{"%s(2)", "%s(y: 3, x: 2)", "%s(_, 3)(2)", "%s(2, _)(4)"}
+		call := fmt.Sprintf(calls[r.Intn(len(calls))], name("cf"))
+		dflt := fmt.Sprintf("x + %d", n)
+		if strings.Contains(call, "_") {
+			// A partial over a slot whose default is not a literal is
+			// gapPartialOpenNonliteralDefault.
+			dflt = fmt.Sprint(n)
+		}
+		fmt.Fprintf(&out, "%s = |x: Int, y: Int = %s| x * y\n", name("cf"), dflt)
+		if strings.Contains(call, "_") {
+			// A call through a call's result is its own gap; bind first.
+			call = strings.Replace(call, ")(", ")\n"+name("cq")+"(", 1)
+			call = name("cq") + " = " + call
+			fmt.Fprintf(&out, "%s = || {\n%s\n}\n", name("cg"), call)
+		} else {
+			fmt.Fprintf(&out, "%s = || %s\n", name("cg"), call)
+		}
+		fmt.Fprintf(&out, "io.inspect(%s())\n", name("cg"))
+	case 7:
+		// A partial over a generic helper whose instantiation leaves a
+		// hole: the Result's error type.
+		fmt.Fprintf(&out, "%s = pick(%s, _, Some(Ok(%d)))\n", name("cp"), g.boolLitFrom(r), n)
+		fmt.Fprintf(&out, "io.inspect(%s(None))\n", name("cp"))
+	case 5:
+		// A generic helper with a destructuring parameter and a default
+		// that reads its names, called with named arguments. A nested fn
+		// cannot destructure yet, so a local program skips it.
+		if g.local {
+			break
+		}
+		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<A, B>((a, b): (A, B), keep: Bool = False, fallback: A = a): (B, A) {\n"+
+			"if keep {\n(b, fallback)\n} else {\n(b, a)\n}\n}", name("csw")))
+		fmt.Fprintf(&out, "io.inspect(%s(keep: True, (%d, \"x\")))\n", name("csw"), n)
+		fmt.Fprintf(&out, "io.inspect(%s((%d, %s), fallback: 9, keep: %s))\n", name("csw"), n, g.boolLitFrom(r), g.boolLitFrom(r))
+	case 0:
+		fmt.Fprintf(&out, "%s = concurrent {\n%s = Task.spawn(body: || %d)\nTask.await(task: %s)\n}\n", name("ct"), name("tk"), n, name("tk"))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
+	case 1:
+		fmt.Fprintf(&out, "%s = Channel.buffered<Int>(1)\n", name("ch"))
+		if r.Intn(2) == 0 {
+			fmt.Fprintf(&out, "_ = Sender.send(value: %d, sender: %s.sender)\n", n, name("ch"))
+		} else {
+			fmt.Fprintf(&out, "_ = Sender.send(%s.sender, value: %d)\n", name("ch"), n)
+		}
+		fmt.Fprintf(&out, "io.inspect(Receiver.receive(receiver: %s.receiver))\n", name("ch"))
+	case 2:
+		fmt.Fprintf(&out, "%s = Context.with_value(value: %d, c: Context.root())\n", name("cx"), n)
+		fmt.Fprintf(&out, "io.inspect(Context.value(value_type: Int, c: %s))\n", name("cx"))
+	case 3:
+		fmt.Fprintf(&out, "fn %s(): Int {\n%d\n}\n", name("cw"), n)
+		fmt.Fprintf(&out, "%s = concurrent {\nTask.await(Task.spawn(%s))\n}\n", name("ct"), name("cw"))
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
+	default:
+		sources := []string{fmt.Sprintf("#[%d, 2]", n), fmt.Sprintf("#{%d}", n), fmt.Sprintf("1..=%d", n+1),
+			fmt.Sprintf("[%d] |> Iter.map(|x: Int| x + 1)", n), fmt.Sprintf("[%d]", n)}
+		fmt.Fprintf(&out, "fn %s(x: Int): Int {\nx * 2\n}\n", name("cd"))
+		fmt.Fprintf(&out, "%s = concurrent {\nTask.await_all(Task.spawn_all(%s, %s, max_running: %d))\n}\n",
+			name("ct"), sources[r.Intn(len(sources))], name("cd"), n+1)
+		fmt.Fprintf(&out, "io.inspect(%s)\n", name("ct"))
+	}
+	out.WriteString("}\n")
+	return out.String()
+}
+
 // boolLitFrom is a Bool literal drawn from r.
 func (g *gen) boolLitFrom(r *rand.Rand) string {
 	return []string{"True", "False"}[r.Intn(2)]
@@ -1682,9 +1794,10 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	g := &gen{r: rand.New(rand.NewSource(int64(i))), aux: rand.New(rand.NewSource(int64(i) + 1<<32)),
 		div: rand.New(rand.NewSource(int64(i) + 2<<32)), rec: rand.New(rand.NewSource(int64(i) + 3<<32)),
 		wrap: rand.New(rand.NewSource(int64(i) + 4<<32)), dyn: rand.New(rand.NewSource(int64(i) + 5<<32)),
-		fix: rand.New(rand.NewSource(int64(i) + 6<<32)),
-		itr: rand.New(rand.NewSource(int64(i) + 11<<32)),
-		pat: rand.New(rand.NewSource(int64(i) + 20<<32))}
+		fix:  rand.New(rand.NewSource(int64(i) + 6<<32)),
+		itr:  rand.New(rand.NewSource(int64(i) + 11<<32)),
+		pat:  rand.New(rand.NewSource(int64(i) + 20<<32)),
+		call: rand.New(rand.NewSource(int64(i) + 7<<32))}
 	g.local = g.chance(0.3)
 	asTest := g.chance(0.3)
 	var body strings.Builder
@@ -1725,6 +1838,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		}
 		if g.pat.Intn(3) == 0 {
 			body.WriteString(g.patternBlock(asTest))
+		}
+		if g.call.Intn(3) == 0 {
+			body.WriteString(g.callBlock())
 		}
 	}
 	body.WriteString("io.inspect(s0)\n")
@@ -1786,6 +1902,19 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	// fixedKindBlock's Captured.
 	if strings.Contains(out, "Captured{") {
 		out = "import std/io.Captured\n" + out
+	}
+	// callBlock's std types outside the prelude.
+	if strings.Contains(out, "Task.") {
+		out = "import std/tasks.Task\n" + out
+	}
+	if strings.Contains(out, "Channel.") {
+		out = "import std/channels.{Channel, Receiver, Sender}\n" + out
+	}
+	if strings.Contains(out, "testing.check") {
+		out = "import std/testing\n" + out
+	}
+	if strings.Contains(out, "impl Literal for") {
+		out = "import std/literals.{Fragment, Literal}\n" + out
 	}
 	if strings.Contains(out, "Duration.seconds(") {
 		out = "import std/duration.Duration\n" + out
