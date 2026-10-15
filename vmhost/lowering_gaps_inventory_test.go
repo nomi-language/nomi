@@ -1036,68 +1036,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapIfaceGapDefaultCrossFile",
-		fix:    "builder: iface gap default cross file. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.ifaceGapDefaults | false | unguarded#1",
-		reason: "a named argument",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import std/io
-import shapes.{Shape, Sq}
-
-fn main() {
-    io.print(Shape.area(Sq{side: 2}, extra: 1))
-}
-// FILE: shapes.nomi
-pub interface Shape {
-    open fn area(_s: self, scale: Int = 1, extra: Int = 0): Int {
-        scale + extra
-    }
-}
-
-pub struct Sq {
-    side: Int
-}
-
-impl Shape for Sq {
-    fn area(s: Sq, scale: Int = 1, extra: Int = 0): Int {
-        s.side * scale + extra
-    }
-}
-`,
-	},
-	{
-		name:   "gapIfaceGapDefaultImplElsewhere",
-		fix:    "builder: iface gap default impl elsewhere. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.ifaceGapDefaults | false | impl == nil ¦¦ !impl.lowerable#1",
-		reason: "a named argument",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import std/io
-import sq.Sq
-
-pub interface Shape {
-    open fn area(_s: self, scale: Int = 1, extra: Int = 0): Int {
-        scale + extra
-    }
-}
-
-fn main() {
-    io.print(Shape.area(Sq{side: 2}, extra: 1))
-}
-// FILE: sq.nomi
-import main.Shape
-
-pub struct Sq {
-    side: Int
-}
-
-impl Shape for Sq {
-    fn area(s: Sq, scale: Int = 1, extra: Int = 0): Int {
-        s.side * scale + extra
-    }
-}
-`,
-	},
-	{
 		name:   "gapListSpreadFunctionTail",
 		fix:    "builder: list spread function tail. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.listMakeOf | false | !ok ¦¦ !(irRetainedListKind(k) ¦¦ irListTransportKind(k))#1",
 		reason: "a ListSpreadLit",

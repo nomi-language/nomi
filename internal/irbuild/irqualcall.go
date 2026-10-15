@@ -1131,19 +1131,12 @@ func (bl *irScalarBuilder) siblingDefaultArgs(t *ast.Call, args irQualArgs, f *f
 			return args, false
 		}
 	}
+	var slots []int
 	for i := len(args.temps); i < len(params); i++ {
-		d := f.params0[i].Default
-		if d == nil {
-			return args, false
-		}
-		names := map[string]bool{}
-		walkNames(d, names, pickAnyName)
-		for name := range names {
-			there, here := resolvedTypeSymbol(owning.fa, name), resolvedTypeSymbol(g.fa, name)
-			if (there == nil) != (here == nil) || (there != nil && there.Node != here.Node) {
-				return args, false
-			}
-		}
+		slots = append(slots, i)
+	}
+	if !bl.siblingDefaultsAgree(f, owning, slots) {
+		return args, false
 	}
 	temps := make([]ir.Temp, len(params))
 	copy(temps, args.temps)
@@ -1154,6 +1147,29 @@ func (bl *irScalarBuilder) siblingDefaultArgs(t *ast.Call, args irQualArgs, f *f
 		return args, false
 	}
 	return irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}, true
+}
+
+// siblingDefaultsAgree reports whether each of slots of f, a sibling file's
+// function, has a default whose every name resolves to the same declaration
+// in owning's file and in this one, so lowering it here means what it means
+// there.
+func (bl *irScalarBuilder) siblingDefaultsAgree(f *fileFunc, owning *gen, slots []int) bool {
+	g := bl.g
+	for _, i := range slots {
+		d := f.params0[i].Default
+		if d == nil {
+			return false
+		}
+		names := map[string]bool{}
+		walkNames(d, names, pickAnyName)
+		for name := range names {
+			there, here := resolvedTypeSymbol(owning.fa, name), resolvedTypeSymbol(g.fa, name)
+			if (there == nil) != (here == nil) || (there != nil && there.Node != here.Node) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // qualFilePlan resolves `owner.method(args)` where owner is a FILE: a sibling

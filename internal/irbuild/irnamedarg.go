@@ -230,7 +230,12 @@ func (bl *irScalarBuilder) ifaceGapDefaults(t *ast.Call, im *ast.InterfaceMethod
 			continue
 		}
 		impl := bl.g.implsByIface[d.nomi][recv]
-		if impl == nil || !impl.lowerable {
+		if impl == nil {
+			// The impl is another file's (`impl Shape for Sq` beside
+			// `Sq`).
+			break
+		}
+		if !impl.lowerable {
 			return nil, false
 		}
 		it := impl.items[im.Name]
@@ -246,5 +251,50 @@ func (bl *irScalarBuilder) ifaceGapDefaults(t *ast.Call, im *ast.InterfaceMethod
 		}
 		return &fnSig{decl: fd, params: append([]kind(nil), it.params...)}, true
 	}
-	return nil, false
+	return bl.siblingIfaceGapDefaults(t, im, recv, len(temps))
+}
+
+// siblingIfaceGapDefaults is ifaceGapDefaults for an impl another file
+// declares, of an interface declared in this file or another: the
+// declaring file's impl function, whose defaults are lowered here when
+// every name they mention resolves to the same declaration in both files
+// (siblingDefaultsAgree), as siblingDefaultArgs fills trailing ones.
+func (bl *irScalarBuilder) siblingIfaceGapDefaults(t *ast.Call, im *ast.InterfaceMethod, recv kind, arity int) (*fnSig, bool) {
+	fa, isField := t.Func.(*ast.FieldAccess)
+	if !isField || recv.tag != tagNamed || recv.def == nil {
+		return nil, false
+	}
+	owner, isType := fa.Object.(*ast.TypeIdent)
+	if !isType {
+		return nil, false
+	}
+	sym := resolvedTypeSymbol(bl.g.fa, owner.Name)
+	if sym == nil {
+		return nil, false
+	}
+	decl, isIface := sym.Node.(*ast.InterfaceDef)
+	if !isIface {
+		return nil, false
+	}
+	declares := false
+	for i := range decl.Methods {
+		declares = declares || &decl.Methods[i] == im
+	}
+	if !declares {
+		return nil, false
+	}
+	chosen, params, _, owning := bl.g.siblingImplMember(recv.def, im.Name, decl.Name)
+	if chosen == nil || len(chosen.fn.params0) != arity || len(params) != arity {
+		return nil, false
+	}
+	var slots []int
+	for i, p := range chosen.fn.params0 {
+		if p.Default != nil {
+			slots = append(slots, i)
+		}
+	}
+	if !bl.siblingDefaultsAgree(chosen.fn, owning, slots) {
+		return nil, false
+	}
+	return &fnSig{decl: &ast.FuncDef{Name: im.Name, Params: chosen.fn.params0}, params: params}, true
 }
