@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 283
-declared-cases 913
+records 284
+declared-cases 916
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1030,6 +1030,15 @@ N 1
 H 9bf2bf2aad5db4068aa73d2f6956330cfe671f305f0a1ef70b9d242e1f9cc92f
 T ok <root>/tests/08-pattern-matching/compound_patterns_test.nomi :: compound patterns can match nested maps without wrappers counting as depth
 T test result: ok. 1 passed, 0 failed
+T
+C 08-pattern-matching/distinct_sub_patterns_test.nomi
+E 0
+N 3
+H 0a862748e1181cdd4683c3b8584a764986b695fd16976b0bc9fcf034b3d6af0c
+T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: tuple distinct sub-patterns
+T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: distinct sub-patterns in variants
+T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: list and map distinct sub-patterns
+T test result: ok. 3 passed, 0 failed
 T
 C 08-pattern-matching/map_patterns_test.nomi
 E 0

@@ -236,8 +236,8 @@ b	irScalarBuilder.displayHole | false | local && bl.g.stdModule == ""#1	irdispla
 a	irScalarBuilder.displayHole | computed | return ok && rk == kindString#1	irdisplayhole.go:67	expect,irbuild,vmhost	
 a	irScalarBuilder.displayHole | false | k.tag != tagNamed ¦¦ k.def == nil#1	irdisplayhole.go:78	vmhost	
 a	irScalarBuilder.displayHole | false | plan == nil ¦¦ plan.result != kindString#1	irdisplayhole.go:82	irbuild,vmhost	
-c	irScalarBuilder.compositeDistinctMake | false | !vok ¦¦ vk != d.inner.comp.parts[i]#1	irdistinct.go:232	-	pinned as gapDistinctTupleIterWiden (reason: a value of kind List<Circle> where Iter<Shape> is expected)
-c	irScalarBuilder.compositeDistinctMake | false | !ok ¦¦ k != d.inner#1	irdistinct.go:244	-	pinned as gapDistinctTupleCallformIterWiden (reason: a value of kind List<Circle> where Iter<Shape> is expected)
+c	irScalarBuilder.compositeDistinctMake | false | !vok ¦¦ vk != d.inner.comp.parts[i]#1	irdistinct.go:239	-	pinned as gapDistinctTupleIterWiden (reason: a value of kind List<Circle> where Iter<Shape> is expected)
+c	irScalarBuilder.compositeDistinctMake | false | !ok ¦¦ k != d.inner#1	irdistinct.go:251	-	pinned as gapDistinctTupleCallformIterWiden (reason: a value of kind List<Circle> where Iter<Shape> is expected)
 a	irScalarBuilder.distinctBinding | note | "a distinct destructure without a retained named binding"#1	irdistinctbinding.go:12	expect,irbuild	
 c	irScalarBuilder.distinctBinding | note | "a rebind: " + name#1	irdistinctbinding.go:17	-	pinned as gapDistinctDestructureRebind (reason: a rebind: s)
 c	irScalarBuilder.distinctBinding | note | "a distinct destructure outside the retained wrapping domain"#1	irdistinctbinding.go:23	-	pinned as gapDistinctDestructureFileQualified (reason: a distinct destructure outside the retained wrapping domain)
@@ -557,9 +557,9 @@ b	irScalarBuilder.mapEntryGet | false | some == nil ¦¦ len(some.payloads) != 1
 b	irScalarBuilder.mapEntryGet | false | !ok#1	irmappattern.go:71	-	a retained map's key kind passes irMapKeyOK; no accepted map type found with an unkeyable key
 b	irScalarBuilder.mapCaseTest | false | !ok ¦¦ pat.TypeName != nil#1	irmappattern.go:108	-	a prefixed map pattern over a plain Map is a checker error (prefix must match the scrutinee type)
 c	irScalarBuilder.patternValueTest | note | "a nested pattern outside the retained tests: " + irNodeWord(pat) + " over " + k.nomi()#1	irmappattern.go:139	-	pinned as gapMapValueLiteralAttachDistinct (reason: a nested pattern outside the retained tests: a MapPattern over Kvs)
-b	irScalarBuilder.mapBinding | note | "a map destructure outside the retained map domain: " + mk.nomi()#1	irmappattern.go:226	-	a map destructure over a non-map is a checker error; non-retained map kinds decline before the statement
-b	irScalarBuilder.mapBinding | false | !ok ¦¦ mk.tag != tagMap ¦¦ !irRetainedMapKind(mk)#1	irmappattern.go:228	-	same as :226
-b	irScalarBuilder.mapBinding | note | "a map destructure entry outside names and wildcards"#1	irmappattern.go:242	-	the checker requires `else` for any nested entry pattern, which makes it a PatternBinding; `v as w` is rejected
+b	irScalarBuilder.mapBinding | note | "a map destructure outside the retained map domain: " + mk.nomi()#1	irmappattern.go:232	-	a map destructure over a non-map is a checker error; non-retained map kinds decline before the statement
+b	irScalarBuilder.mapBinding | false | !ok ¦¦ mk.tag != tagMap ¦¦ !irRetainedMapKind(mk)#1	irmappattern.go:234	-	same as :226
+b	irScalarBuilder.mapBinding | note | "a map destructure entry outside names and wildcards"#1	irmappattern.go:248	-	the checker requires `else` for any nested entry pattern, which makes it a PatternBinding; `v as w` is rejected
 b	irScalarBuilder.namedQualCall | false | fa.Field == nil ¦¦ bl.g.fa == nil#1	irnamedarg.go:31	-	defensive: fa is set and the parser sets Field for a qualified call
 b	irScalarBuilder.namedQualCall | false | sym == nil#1	irnamedarg.go:35	-	checker records a reference for every qualified callee it resolves
 b	irScalarBuilder.namedQualCall | false | unguarded#1	irnamedarg.go:62	-	checker rejects named arguments to anything but a fn, host fn or interface method ("no parameter named", positional payloads)
@@ -737,11 +737,11 @@ b	irScalarBuilder.nominalCaseTest | false | k.tag != tagNamed ¦¦ k.def == nil#
 b	irScalarBuilder.nominalCaseTest | false | !irRetainedStructKind(k.def)#1	irstructpattern.go:46	-	checker: struct pattern requires a struct type
 b	irScalarBuilder.nominalCaseTest | false | fd == nil#1	irstructpattern.go:54	-	checker rejects an unknown field
 b	irScalarBuilder.nominalCaseTest | false | !irCompositeDistinct(k.def) ¦¦ k.def.inner.tag != tagMap ¦¦ (p.TypeName != nil && typeText…#1	irstructpattern.go:80	-	checker rejects a mismatched or aliased map prefix (`KvsAlias{...}`: prefix does not match scrutinee type)
-c	irScalarBuilder.nominalCaseTest | false | !irCompositeDistinct(k.def) ¦¦ k.def.inner.tag != tagList ¦¦ p.TypeName == nil ¦¦ typeText…#1	irstructpattern.go:89	-	pinned as gapListDistinctUntypedListPattern (reason: a struct or distinct case pattern outside retained field and payload patterns)
-b	irScalarBuilder.nominalCaseTest | false | !irDistinctOverValue(k.def) ¦¦ (p.Binding != "" && p.Payload != nil)#1	irstructpattern.go:97	-	the parser never sets both Binding and Payload; irNominalCaseKind only admits distincts over values
-b	irScalarBuilder.nominalCaseTest | false | !ok ¦¦ owner != "" ¦¦ member != k.def.nomi#1	irstructpattern.go:100	-	the checker rejects a qualified distinct head in a case pattern (`shapes.Id(...)`: module, not a type) and an aliased one
-b	irScalarBuilder.nominalCaseTest | false | unguarded#1	irstructpattern.go:114	-	other pattern forms over a struct/record/distinct are checker errors (tuple pattern requires a tuple type, etc.)
-b	irScalarBuilder.recordCaseFields | false | !found#1	irstructpattern.go:127	-	checker rejects an unknown record field
+?	irScalarBuilder.nominalCaseTest | false | !irCompositeDistinct(k.def) ¦¦ k.def.inner.tag != tagList ¦¦ (p.TypeName != nil && typeTex…#1	irstructpattern.go:90	?	
+b	irScalarBuilder.nominalCaseTest | false | !irDistinctOverValue(k.def) ¦¦ (p.Binding != "" && p.Payload != nil)#1	irstructpattern.go:98	-	the parser never sets both Binding and Payload; irNominalCaseKind only admits distincts over values
+b	irScalarBuilder.nominalCaseTest | false | !ok ¦¦ owner != "" ¦¦ member != k.def.nomi#1	irstructpattern.go:101	-	the checker rejects a qualified distinct head in a case pattern (`shapes.Id(...)`: module, not a type) and an aliased one
+b	irScalarBuilder.nominalCaseTest | false | unguarded#1	irstructpattern.go:115	-	other pattern forms over a struct/record/distinct are checker errors (tuple pattern requires a tuple type, etc.)
+b	irScalarBuilder.recordCaseFields | false | !found#1	irstructpattern.go:128	-	checker rejects an unknown record field
 b	irScalarBuilder.subtests | note | "a `subtests` statement in a body the builder reads back"#1	irsubtests.go:35	-	defensive fence: testWalked is always true (irTestBodyAttempt is only called with walked=true) and testStmt never runs while an assertion subject is recording
 b	irScalarBuilder.subtests | note | "a `subtests` statement inside a `subtests` row"#1	irsubtests.go:39	-	checker rejects: "`subtests` cannot be written inside another `subtests` body"
 b	irScalarBuilder.subtests | note | "a `subtests` statement whose row type the checker did not record"#1	irsubtests.go:44	-	defensive fence: the checker records SubtestsRowTypes for every subtests statement it accepts
@@ -868,7 +868,7 @@ b	irScalarBuilder.structVariantCaseTest | false | pat.TypeName == nil ¦¦ k.tag
 c	irScalarBuilder.structVariantCaseTest | false | !ok ¦¦ (owner != "" && !bl.g.declaredAs(owner, k.def) && !bl.g.preludeOwns(owner, k.def) &…#1	irvariantpattern.go:419	-	pinned as gapStructVariantPatternAliasQualifier (reason: a `case` enum pattern outside retained bare/positional payload tests)
 b	irScalarBuilder.structVariantCaseTest | false | v == nil ¦¦ v.kind != "struct"#1	irvariantpattern.go:427	-	checker rejects a brace pattern naming a non-struct variant
 c	irScalarBuilder.structVariantCaseTest | false | idx[i] < 0 ¦¦ !irFieldSubPattern(f.Pattern, v.payloads[idx[i]].k)#1	irvariantpattern.go:438	-	pinned as gapStructVariantFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
-c	irScalarBuilder.embeddedStructCaseTest | false | fields[i] == nil ¦¦ !irFieldSubPattern(f.Pattern, fields[i].k)#1	irvariantpattern.go:577	-	pinned as gapEmbeddedStructFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
+c	irScalarBuilder.embeddedStructCaseTest | false | fields[i] == nil ¦¦ !irFieldSubPattern(f.Pattern, fields[i].k)#1	irvariantpattern.go:578	-	pinned as gapEmbeddedStructFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
 a	irScalarBuilder.variantBare | false | v.kind != "bare"#1	irvariantvalues.go:666	expect,irbuild,vmhost	
 a	irScalarBuilder.genericVariantBare | false | !ok ¦¦ v.kind != "bare"#1	irvariantvalues.go:680	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.genericVariant | false | field.Field == nil#1	irvariantvalues.go:702	-	the parser always sets a FieldAccess's Field

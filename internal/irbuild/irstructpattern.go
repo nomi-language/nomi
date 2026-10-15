@@ -84,8 +84,9 @@ func (bl *irScalarBuilder) nominalCaseTest(pattern ast.Node, subj ir.Temp, k kin
 		anon.TypeName = nil
 		return bl.mapCaseTest(&anon, inner, k.def.inner, arm, next)
 	case *ast.ListPattern:
-		// `Items[a, b]` over a distinct of a list: the inner list's pattern.
-		if !irCompositeDistinct(k.def) || k.def.inner.tag != tagList || p.TypeName == nil || typeText(p.TypeName) != k.def.nomi {
+		// `Items[a, b]` over a distinct of a list, or the bare `[a, b]`
+		// that matches against the inner list: the inner list's pattern.
+		if !irCompositeDistinct(k.def) || k.def.inner.tag != tagList || (p.TypeName != nil && typeText(p.TypeName) != k.def.nomi) {
 			return false
 		}
 		inner := bl.distinctProjection(p, subj, k, true, "irstructpattern.go nominalCaseTest")

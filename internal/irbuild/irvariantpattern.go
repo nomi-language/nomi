@@ -484,16 +484,17 @@ func irFieldSubPattern(p ast.Node, k kind) bool {
 		return k == codepointKind()
 	case *ast.EnumPattern:
 		// `retryable: True`, `kind: .Some(n)`: a variant test on the field,
-		// which patternValueTest builds; `Id(n)` over a distinct unwraps it.
-		return k == kindBool || (k.tag == tagNamed && irRetainedEnumKind(k.def)) || (k.tag == tagNamed && irWrappingDistinct(k.def))
+		// which patternValueTest builds; `Id(n)` or `Pair(a, _)` over a
+		// distinct unwraps it.
+		return k == kindBool || (k.tag == tagNamed && (irRetainedEnumKind(k.def) || irDistinctOverValue(k.def)))
 	case *ast.StructPattern:
 		return irNominalCaseKind(k) || (k.tag == tagNamed && irRetainedEnumKind(k.def))
 	case *ast.TuplePattern:
 		return irRetainedTupleKind(k)
 	case *ast.MapPattern:
-		return k.tag == tagMap && irRetainedMapKind(k)
+		return (k.tag == tagMap && irRetainedMapKind(k)) || irDistinctOverKind(k, tagMap)
 	case *ast.ListPattern:
-		return irRetainedListKind(k) || irListTransportKind(k)
+		return irRetainedListKind(k) || irListTransportKind(k) || irDistinctOverKind(k, tagList)
 	case *ast.AsPattern:
 		// The name binds the field; its pattern decides the test.
 		return irFieldSubPattern(ast.WithoutAs(p), k)

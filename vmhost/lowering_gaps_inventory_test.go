@@ -623,55 +623,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapAssertTupleCompositeDistinct",
-		fix:    "builder: assert tuple composite distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.patternAssert | note | \"an `assert pattern = value` tuple pattern outside the retained case tests\"#1",
-		reason: "a `case` tuple pattern outside flat Int/String tests with bindings and wildcards",
-		src: `type Pair (Int, String)
-
-test "assert a tuple pattern holding a tuple distinct" {
-  t = (Pair(1, "a"), 2)
-  assert (Pair(x, _), 2) = t
-  assert x == 1
-}
-`,
-	},
-	{
-		name:   "gapBindingElseTupleCompositeDistinct",
-		fix:    "builder: binding else tuple composite distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.patternBindingStmt | note | \"a pattern binding outside the retained case tests: \" + sk.nomi()#2",
-		reason: "a `case` tuple pattern outside flat Int/String tests with bindings and wildcards",
-		src: `import std/io
-
-type Pair (Int, String)
-
-fn f(t: (Pair, Int)): Int {
-  (Pair(x, _), 2) = t else { return 0 }
-  x
-}
-
-fn main() {
-  io.inspect(f((Pair(1, "a"), 2)))
-}
-`,
-	},
-	{
-		name:   "gapBindingTupleCompositeDistinct",
-		fix:    "builder: binding tuple composite distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.patternBindingStmt | note | \"a pattern binding outside the retained case tests: \" + sk.nomi()#1",
-		reason: "a `case` tuple pattern outside flat Int/String tests with bindings and wildcards",
-		src: `import std/io
-
-type Pair (Int, String)
-
-fn f(t: (Pair, Int)): Int {
-  (Pair(x, _), y) = t
-  x + y
-}
-
-fn main() {
-  io.inspect(f((Pair(1, "a"), 2)))
-}
-`,
-	},
-	{
 		name:   "gapDistinctDestructureFileQualified",
 		fix:    "builder: distinct destructure file qualified. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.distinctBinding | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irDistinctOverValue(k.def) ¦¦ t.TypeName != k.def.nomi#1; irScalarBuilder.distinctBinding | note | \"a distinct destructure outside the retained wrapping domain\"#1",
 		reason: "a distinct destructure outside the retained wrapping domain",
@@ -704,73 +655,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapElseFallbackTupleCompositeDistinct",
-		fix:    "builder: else fallback tuple composite distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.fallbackBinding | note | \"a binding else payload pattern outside the retained case tests: \" + pk.nomi()#1",
-		reason: "a `case` tuple pattern outside flat Int/String tests with bindings and wildcards",
-		src: `import std/io
-
-type Pair (Int, String)
-
-fn f(m: Maybe<(Pair, Int)>): Int {
-  Some((Pair(x, _), y)) = m else { (Pair(0, ""), 0) }
-  x + y
-}
-
-fn main() {
-  io.inspect(f(None))
-}
-`,
-	},
-	{
-		name:   "gapEmbeddedStructFieldCompositeDistinct",
-		fix:    "builder: embedded struct field composite distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.embeddedStructCaseTest | false | fields[i] == nil ¦¦ !irFieldSubPattern(f.Pattern, fields[i].k)#1",
-		reason: "a `case` enum pattern outside retained bare/positional payload tests",
-		src: `import std/io
-
-type Pair (Int, String)
-
-struct Circle {
-  p: Pair
-}
-
-enum E {
-  embeds Circle
-  Other
-}
-
-fn f(e: E): Int {
-  case e {
-    .Circle{p: Pair(a, _)} -> a
-    _ -> 0
-  }
-}
-
-fn main() {
-  io.inspect(f(Circle{p: Pair(1, "a")}))
-}
-`,
-	},
-	{
-		name:   "gapListDistinctUntypedListPattern",
-		fix:    "builder: list distinct untyped list pattern. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.casePatternTest | note | \"a struct or distinct case pattern outside retained field and payload patterns\"#1; irScalarBuilder.nominalCaseTest | false | !irCompositeDistinct(k.def) ¦¦ k.def.inner.tag != tagList ¦¦ p.TypeName == nil ¦¦ typeText…#1",
-		reason: "a struct or distinct case pattern outside retained field and payload patterns",
-		src: `import std/io
-
-type Stack List<Int>
-
-fn top(s: Stack): Int {
-  case s {
-    [a, .._] -> a
-    _ -> 0
-  }
-}
-
-fn main() {
-  io.inspect(top(Stack([1, 2])))
-}
-`,
-	},
-	{
 		name:   "gapListPatternOverEmptyLiteral",
 		fix:    "builder: list pattern over empty literal. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.listCaseTest | false | k.comp == nil && (spread ¦¦ len(pat.Heads) != 0)#1",
 		reason: "a list case pattern outside flat bindings and wildcards",
@@ -782,69 +666,6 @@ fn main() {
     _ -> 0
   }
   io.inspect(n)
-}
-`,
-	},
-	{
-		name:   "gapMapValueLiteralAttachDistinct",
-		fix:    "builder: map value literal attach distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.casePatternTest | note | \"a map case pattern outside retained keys and value patterns\"#1; irScalarBuilder.patternValueTest | note | \"a nested pattern outside the retained tests: \" + irNodeWord(pat) + \" over \" + k.nomi()#1",
-		reason: "a nested pattern outside the retained tests: a MapPattern over Kvs",
-		src: `import std/io
-
-type Kvs Map<String, Int>
-
-fn f(m: Map<String, Kvs>): Int {
-  case m {
-    {"k" => Kvs{"a" => v}} -> v
-    _ -> 0
-  }
-}
-
-fn main() {
-  io.inspect(f({"k" => Kvs{"a" => 1}}))
-}
-`,
-	},
-	{
-		name:   "gapRecordFieldLiteralAttachDistinct",
-		fix:    "builder: record field literal attach distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.nominalCaseTest | false | p.TypeName != nil ¦¦ !bl.recordCaseFields(p, subj, k, next)#1",
-		reason: "a nested pattern outside the retained tests: a ListPattern over Stack",
-		src: `import std/io
-
-type Stack List<Int>
-
-fn main() {
-  c = {r: 1, q: Stack([1])}
-  n = case c {
-    {q: Stack[a, .._]} -> a
-    _ -> 0
-  }
-  io.inspect(n)
-}
-`,
-	},
-	{
-		name:   "gapStructVariantFieldCompositeDistinct",
-		fix:    "builder: struct variant field composite distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.casePatternTest | note | \"a `case` enum pattern outside retained bare/positional payload tests\"#1; irScalarBuilder.structVariantCaseTest | false | idx[i] < 0 ¦¦ !irFieldSubPattern(f.Pattern, v.payloads[idx[i]].k)#1",
-		reason: "a `case` enum pattern outside retained bare/positional payload tests",
-		src: `import std/io
-
-type Pair (Int, String)
-
-enum E {
-  Rec {p: Pair}
-  Other
-}
-
-fn f(e: E): Int {
-  case e {
-    .Rec{p: Pair(a, _)} -> a
-    _ -> 0
-  }
-}
-
-fn main() {
-  io.inspect(f(E.Rec{p: Pair(1, "a")}))
 }
 `,
 	},
@@ -911,26 +732,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapTuplePatternCompositeDistinct",
-		fix:    "builder: tuple pattern composite distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.tupleCaseTest | note | \"a `case` tuple pattern outside flat Int/String tests with bindings and wildcards\"#1",
-		reason: "a `case` tuple pattern outside flat Int/String tests with bindings and wildcards",
-		src: `import std/io
-
-type Pair (Int, String)
-
-fn f(t: (Pair, Int)): Int {
-  case t {
-    (Pair(1, _), 2) -> 1
-    _ -> 0
-  }
-}
-
-fn main() {
-  io.inspect(f((Pair(1, "a"), 2)))
-}
-`,
-	},
-	{
 		name:   "gapVariantPatternAliasQualifier",
 		fix:    "builder: variant pattern alias qualifier. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.retainedEnumPattern | false | !ok ¦¦ (owner != \"\" && !g.declaredAs(owner, k.def) && !g.preludeOwns(owner, k.def) && !g.s…#1",
 		reason: "a `case` enum pattern outside retained bare/positional payload tests",
@@ -952,56 +753,6 @@ fn f(s: Shape): Int {
 
 fn main() {
   io.inspect(f(Shape.Num(2)))
-}
-`,
-	},
-	{
-		name:   "gapVariantPayloadAsCompositeDistinct",
-		fix:    "builder: variant payload as composite distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.retainedEnumPattern | false | pat.Binding != \"\" ¦¦ !irFieldSubPattern(pat.Payload, pk)#1; irScalarBuilder.enumCaseTest | note | \"a `case` enum pattern outside retained bare/positional payload tests\"#1",
-		reason: "a `case` enum pattern outside retained bare/positional payload tests",
-		src: `import std/io
-
-type Pair (Int, String)
-
-enum E {
-  Dist Pair
-  Other
-}
-
-fn f(e: E): Int {
-  case e {
-    .Dist(Pair(a, _) as _whole) -> a
-    _ -> 0
-  }
-}
-
-fn main() {
-  io.inspect(f(E.Dist(Pair(1, "a"))))
-}
-`,
-	},
-	{
-		name:   "gapVariantPayloadTupleCompositeDistinct",
-		fix:    "builder: variant payload tuple composite distinct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.retainedEnumPattern | false | pat.Binding != \"\" ¦¦ !ok#1",
-		reason: "a `case` enum pattern outside retained bare/positional payload tests",
-		src: `import std/io
-
-type Pair (Int, String)
-
-enum E {
-  TP (Pair, Int)
-  Other
-}
-
-fn f(e: E): Int {
-  case e {
-    .TP((Pair(a, _), _)) -> a
-    _ -> 0
-  }
-}
-
-fn main() {
-  io.inspect(f(E.TP((Pair(1, "a"), 2))))
 }
 `,
 	},
