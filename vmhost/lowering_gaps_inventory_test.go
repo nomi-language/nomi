@@ -1739,38 +1739,6 @@ pub struct B {
 `,
 	},
 	{
-		name:   "gapForeignFnIter",
-		fix:    "builder: foreign fn iter. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.importKind | false | unguarded#2",
-		reason: "qualified call, file.fn: nums.",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    nums
-}
-
-fn main() {
-    io.print("${nums.sum_of([1, 2])}")
-}
-
-test "record param" {
-    assert nums.px({x: 1, y: 2}) == 1
-}
-// FILE: nums.nomi
-pub fn evens(): Iter<Int> {
-    [2, 4, 6]
-}
-
-pub fn sum_of(xs: Iter<Int>): Int {
-    Iter.reduce(xs, |acc = 0, x| acc + x)
-}
-
-pub fn px(p: {x: Int, y: Int}): Int {
-    p.x
-}
-`,
-	},
-	{
 		name:   "gapGoFnDefaultedParam",
 		fix:    "builder: go fn defaulted param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.hostFnReject | note | reason#1",
 		reason: "a direct callee that is not lowerable: upper",

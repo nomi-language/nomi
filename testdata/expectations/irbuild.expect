@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 365
+records 366
 declared-cases 0
 failing 74
 C assert_subject_test.nomi@76e4dc034f8c1f74
@@ -8264,6 +8264,63 @@ T ok <dir>/main_test.nomi :: a top-level fn as an adapter
 T ok <dir>/main_test.nomi :: an imported fn
 T ok <dir>/main_test.nomi :: an owner-qualified impl fn
 T test result: ok. 4 passed, 0 failed
+T
+C main_test.nomi@fc4b5bb49bb69614
+E 0
+N 0
+H e3ff9fd0dd286eaa2caa9003b080eb9b08af37d0886182f47ca76cc95e6f7ada
+S -- main_test.nomi 331 --
+S import shapes.{self, sum_of}
+S
+S test "a list into another file's Iter parameter" {
+S   assert shapes.sum_of([1, 2, 3]) == 6
+S   assert sum_of([4, 5]) == 9
+S   assert [1, 2] |> shapes.sum_of() == 3
+S }
+S
+S test "an Iter from another file" {
+S   assert shapes.sum_of(shapes.evens(4)) == 12
+S   assert shapes.evens(3) |> Iter.to_list() == [0, 2, 4]
+S }
+S
+S -- shapes.nomi 479 --
+S pub struct Box {
+S   at: {x: Int, y: Int}
+S   size: Int = 1
+S }
+S
+S pub fn make(x: Int): Box {
+S   Box{at: {x, y: x * 2}}
+S }
+S
+S pub fn width(b: Box): Int {
+S   b.at.x + b.size
+S }
+S
+S pub fn corner(b: Box): {x: Int, y: Int} {
+S   b.at
+S }
+S
+S pub fn px(p: {x: Int, y: Int}): Int {
+S   p.x * 10 + p.y
+S }
+S
+S pub fn ok_only(n: Int): Result<Int, Infallible> {
+S   Ok(n)
+S }
+S
+S pub fn evens(n: Int): Iter<Int> {
+S   0..n |> Iter.map(|x| x * 2)
+S }
+S
+S pub fn sum_of(xs: Iter<Int>): Int {
+S   Iter.reduce(xs, |acc = 0, x| acc + x)
+S }
+S
+S
+T ok <dir>/main_test.nomi :: a list into another file's Iter parameter
+T ok <dir>/main_test.nomi :: an Iter from another file
+T test result: ok. 2 passed, 0 failed
 T
 C pattern_test.nomi@43d9cf2cd7f6b043
 E 1

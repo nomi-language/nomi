@@ -70,3 +70,25 @@ test "Infallible in another file's signature" {
 `,
 	}, "main_test.nomi", 3)
 }
+
+// A qualified call to another file's function lowers each argument at its
+// parameter's kind, as a bare call to it does: a list enters an `Iter<Int>`
+// parameter, qualified, bare and piped.
+func TestCrossFileSignature_IterParameters(t *testing.T) {
+	irBacklogProgramVM(t, map[string]string{
+		"shapes.nomi": crossFileShapes,
+		"main_test.nomi": `import shapes.{self, sum_of}
+
+test "a list into another file's Iter parameter" {
+  assert shapes.sum_of([1, 2, 3]) == 6
+  assert sum_of([4, 5]) == 9
+  assert [1, 2] |> shapes.sum_of() == 3
+}
+
+test "an Iter from another file" {
+  assert shapes.sum_of(shapes.evens(4)) == 12
+  assert shapes.evens(3) |> Iter.to_list() == [0, 2, 4]
+}
+`,
+	}, "main_test.nomi", 2)
+}

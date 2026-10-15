@@ -1010,12 +1010,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 				return v, k, mobile, ok
 			}
 		}
-		if site, ok := bl.siblingQualSite(fa); ok && (hasNamed || site.fn.defaults || site.fn.generic && !site.host && irUnsolvedType(bl.g.checkedCallSignature(t))) {
+		if site, ok := bl.siblingQualSite(fa); ok {
 			// `lib.add(1)` or `lib.add(1, b: 5)`: placed and filled as a
-			// bare call to the same function is (siblingdefault.go). So is
-			// a generic call with a type argument nothing determines
-			// (`lib.shown(None)`), whose arguments are lowered at the
-			// filled instance's parameters.
+			// bare call to the same function is (siblingdefault.go), with
+			// each argument lowered at its parameter's kind, so a list
+			// enters an `Iter<Int>` parameter as it does in a local call.
 			return bl.siblingCall(t, site)
 		}
 		if hasNamed {
