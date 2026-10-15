@@ -1327,11 +1327,19 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	// bodies), and CheckTypes hasn't yet replaced any entry with proxy
 	// copies — so this is the one correct point on the single-file path.
 	// Project builds run the same checks as a sweep in buildProjectWithCache.
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckUnusedImports(b.file, nodes)...)
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckRedundantPreludeImports(b.file, nodes)...)
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckUnusedBindings(b.file)...)
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckUselessReturns(nodes)...)
-	b.file.TypeErrors = append(b.file.TypeErrors, CheckRepeatedFields(nodes)...)
+	b.file.TypeErrors = append(b.file.TypeErrors, checkUnused(b.file, nodes)...)
+}
+
+// checkUnused runs the checks that read the references a file's bodies walk
+// records before CheckTypes replaces any: unused imports and bindings,
+// redundant prelude imports, useless returns and repeated fields.
+func checkUnused(fa *FileAnalysis, nodes []ast.Node) []TypeError {
+	var errs []TypeError
+	errs = append(errs, CheckUnusedImports(fa, nodes)...)
+	errs = append(errs, CheckRedundantPreludeImports(fa, nodes)...)
+	errs = append(errs, CheckUnusedBindings(fa)...)
+	errs = append(errs, CheckUselessReturns(nodes)...)
+	return append(errs, CheckRepeatedFields(nodes)...)
 }
 
 func moduleAliasForFile(key, filePath string) string {

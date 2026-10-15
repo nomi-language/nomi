@@ -1,24 +1,32 @@
 package analysis
 
-import "github.com/nomi-language/nomi/internal/ast"
+import (
+	"maps"
+	"slices"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // FileAnalysis holds the analysis results for a single file, in two parts.
 //
 // FileDecls is what the file declares: its module scope and the symbols in
-// it, its types and signatures, its impl headers and the methods they bring,
-// and its imports. A project build makes it before it walks any function
-// body (Sweep A, Sweep B-ann and B-bounds, the type shells and BuildTypes),
-// and checking a body never changes it.
+// it, its types and signatures, its impl headers and the methods they bring.
+// A project build makes it in Sweep A, Sweep B-ann and B-bounds, and then,
+// after Sweep B-bodies has walked the bodies, in the type shells and
+// BuildTypes' work on declarations. Walking and checking a body never
+// changes it.
 //
 // FileBodies is what walking and checking the file's bodies found: every
 // reference and definition inside a body, the type the checker gave every
-// expression, the demands for impls the bodies make, and the diagnostics they
-// draw.
+// expression, the demands for impls the bodies make, the imports nothing
+// names, and the diagnostics they draw. It can be thrown away and made again
+// against FileDecls and the program's other files (rebuildBodies).
 //
-// Six fields of FileBodies hold facts of both kinds: References,
-// Definitions, PunnedFieldLabels, ImplManifest and TypeErrors start with the
-// declarations' share, which the bodies then add to. ImportedModules does the
-// same, since an import at the top of a block records the module it reaches.
+// Six fields of FileBodies start with the declarations' share, which the
+// bodies then add to: References, Definitions, PunnedFieldLabels,
+// ImplManifest (a derive's demands), TypeErrors, and ImportedModules (an
+// import at the top of a block records the module it reaches). A project
+// build keeps each share (keptDecls) for a rebuild to start from.
 type FileAnalysis struct {
 	FileDecls
 	FileBodies
@@ -93,12 +101,10 @@ type FileDecls struct {
 	// and hover.
 	ImplBlockReceiverExtern     map[*ast.ExternFunc]string
 	ImplBlockInterfaceKeyExtern map[*ast.ExternFunc]string
-	// ImplImports are this file's imports of whole project files that no
-	// name in the file uses. Such an import may still be needed for the
-	// impl blocks the file brings into the program, and that is decided
-	// over the whole program once every file is type-checked
-	// (CheckImplImports). See unused_imports.go.
-	ImplImports []*ImplImport
+	// kept is what a project build kept of the declarations for
+	// rebuildBodies; nil for a file built any other way and for a stdlib
+	// file.
+	kept *keptDecls
 }
 
 // FileBodies is the body part of a file's analysis. See FileAnalysis.
@@ -230,6 +236,184 @@ type FileBodies struct {
 	// to an imported module's public function resolves through it
 	// (LookupVisibleTypeMethod).
 	ImportedModules []string
+	// ImplImports are this file's imports of whole project files that no
+	// name in the file uses. Such an import may still be needed for the
+	// impl blocks the file brings into the program, and that is decided
+	// over the whole program once every file is type-checked
+	// (CheckImplImports). See unused_imports.go. Whether a name is used
+	// depends on the bodies, so these are found with the bodies' references.
+	ImplImports []*ImplImport
 	// TypeErrors holds type-checking errors discovered after analysis.
 	TypeErrors []TypeError
+}
+
+// keptDecls is what a project build keeps of a file's declarations so its
+// bodies can be rebuilt (rebuildBodies): the declarations' share of each
+// FileBodies field that mixes the two, taken when the declarations are done
+// and before any body is walked (keepDecls), the facts BuildTypes later works
+// out from declarations about what the bodies walk defines, and the builder
+// and type registry the bodies are walked and typed with.
+type keptDecls struct {
+	// The declarations' share of the mixed fields, and of the module scope:
+	// a file-level statement, an error the checker reports, binds its names
+	// there while its bodies are walked.
+	references   map[Pos]*Symbol
+	definitions  map[Pos]*Symbol
+	punned       map[Pos]*Symbol
+	manifest     map[string]map[string][]Recording
+	imported     []string
+	errors       []TypeError
+	blockImports map[*ast.ImportStmt]*Scope
+	symbols      map[string]*Symbol
+	scopes       int
+	// builder built the file. builderImported and builderBlockImports are its
+	// tables the bodies walk adds to: a block's `import m.{self}` binds m in
+	// imported, and every block import is noted in blockImports.
+	builder             *builder
+	builderImported     map[string]*Scope
+	builderBlockImports map[*ast.ImportStmt]bool
+	// typing is set while BuildTypes works on the declarations, after the
+	// bodies are walked: what it writes then is recorded here, so a rebuild
+	// can write it again over bodies walked anew.
+	typing bool
+	// typeRefs are the references BuildTypes records for the fields of an
+	// anonymous struct type written in a declaration.
+	typeRefs []keptRef
+	// typed are the types BuildTypes gives symbols the bodies walk defines:
+	// a function's parameters and type parameters, which are defined again,
+	// as new symbols, where the body is walked.
+	typed []keptType
+	// typeErrors are BuildTypes' errors about declarations, and types the
+	// registry it built the file's types with, which types the bodies.
+	typeErrors []TypeError
+	types      *TypeRegistry
+}
+
+// keptRef is one reference BuildTypes recorded.
+type keptRef struct {
+	pos Pos
+	sym *Symbol
+}
+
+// keptType is one type BuildTypes gave the symbol at pos with a name and
+// kind.
+type keptType struct {
+	pos  Pos
+	name string
+	kind SymbolKind
+	typ  Type
+}
+
+// keepDecls keeps fa's declarations, built by b, for rebuildBodies. A
+// project build calls it for each of its own files once Sweep B-bounds is
+// done, just before Sweep B-bodies.
+func (fa *FileAnalysis) keepDecls(b *builder) {
+	fa.kept = &keptDecls{
+		references:          maps.Clone(fa.References),
+		definitions:         maps.Clone(fa.Definitions),
+		punned:              maps.Clone(fa.PunnedFieldLabels),
+		manifest:            cloneManifest(fa.ImplManifest),
+		imported:            slices.Clone(fa.ImportedModules),
+		errors:              slices.Clone(fa.TypeErrors),
+		blockImports:        maps.Clone(fa.BlockImportScopes),
+		symbols:             maps.Clone(fa.ModuleScope.Symbols),
+		scopes:              len(fa.ModuleScope.Children),
+		builder:             b,
+		builderImported:     maps.Clone(b.imported),
+		builderBlockImports: maps.Clone(b.blockImports),
+	}
+}
+
+// cloneManifest copies an ImplManifest down to its recording lists.
+func cloneManifest(m map[string]map[string][]Recording) map[string]map[string][]Recording {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]map[string][]Recording, len(m))
+	for iface, byType := range m {
+		inner := make(map[string][]Recording, len(byType))
+		for typeName, recs := range byType {
+			inner[typeName] = slices.Clone(recs)
+		}
+		out[iface] = inner
+	}
+	return out
+}
+
+// typingDecls runs typeDecls, BuildTypes' work on fa's declarations, and
+// when fa is kept records the references it writes. They go in a map of
+// their own, which is then laid over fa.References: nothing typeDecls does
+// reads References.
+func (fa *FileAnalysis) typingDecls(typeDecls func()) {
+	k := fa.kept
+	if k == nil {
+		typeDecls()
+		return
+	}
+	refs := fa.References
+	fa.References = map[Pos]*Symbol{}
+	k.typing = true
+	typeDecls()
+	k.typing = false
+	for pos, sym := range fa.References {
+		k.typeRefs = append(k.typeRefs, keptRef{pos, sym})
+		refs[pos] = sym
+	}
+	fa.References = refs
+}
+
+// attachDeclType gives sym, the symbol at pos in fa.Definitions, the type
+// BuildTypes worked out for it from a declaration, and records it when the
+// symbol is one the bodies walk defined.
+func (fa *FileAnalysis) attachDeclType(pos Pos, sym *Symbol, typ Type) {
+	sym.Type = typ
+	if k := fa.kept; k != nil && k.typing && k.definitions[pos] != sym {
+		k.typed = append(k.typed, keptType{pos, sym.Name, sym.Kind, typ})
+	}
+}
+
+// rebuildBodies throws away fa's body part and makes it again from its kept
+// declarations and the program's other files as they are: it walks the
+// bodies (Sweep B-bodies), runs the unused checks, types what the bodies
+// declare (BuildTypes' pass 2b), and type-checks the file, as the build and
+// the check did for nodes, the file's nodes. It answers CheckTypes' errors,
+// and false when fa was not built by a project build that kept it.
+//
+// What the program reduces over every file's bodies is not redone:
+// CheckAppRoots, CheckImplImports and FinalizeCoherence, and an entry's
+// iteration and concurrency checks, read the rebuilt bodies and have to run
+// again, and so does MarkTailCalls on nodes.
+func (fa *FileAnalysis) rebuildBodies(nodes []ast.Node) ([]TypeError, bool) {
+	k := fa.kept
+	if k == nil {
+		return nil, false
+	}
+	fa.FileBodies = FileBodies{
+		References:        maps.Clone(k.references),
+		Definitions:       maps.Clone(k.definitions),
+		PunnedFieldLabels: maps.Clone(k.punned),
+		ImplManifest:      cloneManifest(k.manifest),
+		ImportedModules:   slices.Clone(k.imported),
+		TypeErrors:        slices.Clone(k.errors),
+		BlockImportScopes: maps.Clone(k.blockImports),
+	}
+	fa.ModuleScope.Symbols = maps.Clone(k.symbols)
+	fa.ModuleScope.Children = fa.ModuleScope.Children[:k.scopes]
+	b := k.builder
+	b.imported = maps.Clone(k.builderImported)
+	b.blockImports = maps.Clone(k.builderBlockImports)
+	b.fileScope = fa.ModuleScope
+	b.buildModuleBodies(nodes, fa.ModuleScope)
+	fa.TypeErrors = append(fa.TypeErrors, checkUnused(fa, nodes)...)
+	for _, r := range k.typeRefs {
+		fa.References[r.pos] = r.sym
+	}
+	for _, t := range k.typed {
+		if sym := fa.Definitions[t.pos]; sym != nil && sym.Name == t.name && sym.Kind == t.kind {
+			sym.Type = t.typ
+		}
+	}
+	fa.TypeErrors = append(fa.TypeErrors, k.typeErrors...)
+	fa.TypeErrors = append(fa.TypeErrors, buildBodyTypes(fa, k.types, nodes)...)
+	return CheckTypes(fa, nodes), true
 }

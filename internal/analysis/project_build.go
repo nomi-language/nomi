@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"slices"
 	"sort"
 	"strings"
 
@@ -674,6 +675,16 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes, implIndex)...)
 	}
 
+	// The declarations are done. Each of the build's own files keeps what
+	// they left in the fields its bodies add to, so its bodies can be thrown
+	// away and walked and checked again (rebuildBodies). The stdlib's files
+	// are checked once and never rebuilt.
+	for _, fb := range all {
+		if !IsStdlibKey(fb.key) {
+			fb.fa.keepDecls(fb.builder)
+		}
+	}
+
 	// Sweep B-bodies: walk function bodies. By now every file's
 	// symbols and impls are visible, so cross-file references in
 	// expressions resolve cleanly.
@@ -690,11 +701,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// on-demand resolveImport loads go through buildModule too, so files
 	// in `cache` but not `all` are already covered.
 	for _, fb := range all {
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUnusedImports(fb.fa, fb.nodes)...)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckRedundantPreludeImports(fb.fa, fb.nodes)...)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUnusedBindings(fb.fa)...)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckUselessReturns(fb.nodes)...)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckRepeatedFields(fb.nodes)...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, checkUnused(fb.fa, fb.nodes)...)
 	}
 
 	// Sweep C-shells: pre-populate every type symbol's `.Type` with a
@@ -719,8 +726,13 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// them here. Callers that layer CheckTypes / AnalyzeIterSensitivity
 	// on top should append to fa.TypeErrors rather than overwrite it.
 	for _, fb := range all {
-		typeErrs := buildTypes(fb.fa, fb.nodes, stdlibScopes)
-		fb.fa.TypeErrors = append(fb.fa.TypeErrors, typeErrs...)
+		from := len(fb.fa.TypeErrors)
+		declErrs, bodyErrs := buildTypeHalves(fb.fa, fb.nodes, stdlibScopes)
+		if k := fb.fa.kept; k != nil {
+			k.typeErrors = append(slices.Clone(fb.fa.TypeErrors[from:]), declErrs...)
+		}
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, declErrs...)
+		fb.fa.TypeErrors = append(fb.fa.TypeErrors, bodyErrs...)
 	}
 
 	// The build's files now have their types, and with them the primitives

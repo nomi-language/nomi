@@ -225,6 +225,17 @@ func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 // buildTypes is BuildTypes against the stdlib module scopes stdlib, which a
 // project build passes before its files have their Program.
 func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []TypeError {
+	declErrs, bodyErrs := buildTypeHalves(fa, nodes, stdlib)
+	return append(declErrs, bodyErrs...)
+}
+
+// buildTypeHalves is buildTypes with its errors in two halves: those about
+// the file's declarations, and those about what its bodies declare
+// (buildBodyTypes). The impl type-argument pass appends its own errors to
+// fa.TypeErrors, which come before both. When fa is kept (keepDecls), the
+// work on declarations is recorded (typingDecls), and so is the registry the
+// bodies are typed with.
+func buildTypeHalves(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) (declErrs, bodyErrs []TypeError) {
 	reg := NewTypeRegistry()
 
 	// Pre-populate registry with types from parent scopes (e.g. primitives types
@@ -353,6 +364,30 @@ func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []
 	// Pass 2: resolve details and attach to symbols. An alias is built at
 	// its declaration or at the first lookup of its name, whichever comes
 	// first (newAliasBuilder).
+	fa.typingDecls(func() { declErrs = buildDeclTypes(fa, reg, nodes, stdlib, unnamed) })
+
+	bodyErrs = buildBodyTypes(fa, reg, nodes)
+
+	// Pass 3: after all impl/extend method signatures are resolved, solve the
+	// interface type-argument template for each `impl Iface for T` block. The
+	// unifier consults these templates to bind any generic interface's type
+	// parameters from a concrete receiver — `Iter<T>` against std/iter's `Seq`
+	// or a user iterator binds `T` from `each_while`'s `yield: (T) -> Bool`
+	// parameter, and a user `Chooser<T>` binds `T` from whichever
+	// method carries it. See recordImplTypeArgsFromBlock + the
+	// general-interface-typearg-inference design.
+	fa.typingDecls(func() { recordImplTypeArgsInNodes(fa, reg, nodes) })
+
+	if fa.kept != nil {
+		fa.kept.types = reg
+	}
+	return declErrs, bodyErrs
+}
+
+// buildDeclTypes is BuildTypes' pass 2: it types the file's declarations
+// against reg, each declaration whose name belongs to something else in the
+// file (unnamed) against a registry of its own.
+func buildDeclTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node, stdlib map[string]*Scope, unnamed map[string]bool) []TypeError {
 	var errs []TypeError
 	aliases := newAliasBuilder(fa, nodes, func(n *ast.TypeAlias) (*TypeRegistry, bool) {
 		_, owns := typeDeclSymbol(fa, fa.ModuleScope, n.Name, n.Line, n.Col)
@@ -396,8 +431,13 @@ func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []
 		}
 	}
 
-	errs = append(errs, aliases.errs...)
+	return append(errs, aliases.errs...)
+}
 
+// buildBodyTypes is BuildTypes' pass 2b, which types what the file's bodies
+// declare against reg, the registry of the file's own types.
+func buildBodyTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node) []TypeError {
+	var errs []TypeError
 	// Pass 2b: resolve nested fn signatures inside function bodies. Their
 	// Symbols were registered by the builder; we just need to attach FuncType.
 	// Also reject declarations that only make sense at module level.
@@ -436,17 +476,6 @@ func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []
 		}
 		errs = append(errs, buildAttachedTestTypes(fa, reg, node)...)
 	}
-
-	// Pass 3: after all impl/extend method signatures are resolved, solve the
-	// interface type-argument template for each `impl Iface for T` block. The
-	// unifier consults these templates to bind any generic interface's type
-	// parameters from a concrete receiver — `Iter<T>` against std/iter's `Seq`
-	// or a user iterator binds `T` from `each_while`'s `yield: (T) -> Bool`
-	// parameter, and a user `Chooser<T>` binds `T` from whichever
-	// method carries it. See recordImplTypeArgsFromBlock + the
-	// general-interface-typearg-inference design.
-	recordImplTypeArgsInNodes(fa, reg, nodes)
-
 	return errs
 }
 
@@ -914,8 +943,9 @@ func buildTypeParamsWithFA(tps []ast.TypeParam, reg *TypeRegistry, fa *FileAnaly
 		entry := &TypeParam_{Name_: tp.Name}
 		m[tp.Name] = entry
 		if fa != nil {
-			if sym, ok := fa.Definitions[Pos{Line: tp.Line, Col: tp.Col}]; ok && sym != nil {
-				sym.Type = entry
+			pos := Pos{Line: tp.Line, Col: tp.Col}
+			if sym, ok := fa.Definitions[pos]; ok && sym != nil {
+				fa.attachDeclType(pos, sym, entry)
 			}
 		}
 	}
@@ -2094,7 +2124,7 @@ func buildImplBlockTypes(fa *FileAnalysis, stdlib map[string]*Scope, reg *TypeRe
 func attachParamType(fa *FileAnalysis, name string, line, col int, typ Type) {
 	pos := Pos{Line: line, Col: col}
 	if sym, ok := fa.Definitions[pos]; ok && sym.Kind == SymbolParam && sym.Name == name {
-		sym.Type = typ
+		fa.attachDeclType(pos, sym, typ)
 	}
 }
 
@@ -2110,9 +2140,9 @@ func recordLambdaPatternType(fa *FileAnalysis, pat ast.Node, typ Type) {
 // attachFieldType finds field symbols in Definitions matching the given name
 // that are on or after the given struct line.
 func attachFieldType(fa *FileAnalysis, name string, structLine int, typ Type) {
-	for _, sym := range fa.Definitions {
+	for pos, sym := range fa.Definitions {
 		if sym.Kind == SymbolField && sym.Name == name && sym.Pos.Line >= structLine {
-			sym.Type = typ
+			fa.attachDeclType(pos, sym, typ)
 		}
 	}
 }

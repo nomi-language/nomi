@@ -3,6 +3,7 @@ package analysis
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -26,7 +27,8 @@ type ProgramEdit struct {
 // type-checked, has its application-field roots checked, and has its
 // whole-file imports settled, and the entry then gets the coherence, iteration
 // and concurrency checks. It is the state an incremental check starts from
-// (DocumentManager.Recheck). Nothing writes it after CheckProgram returns it.
+// (DocumentManager.Recheck). Nothing writes it after CheckProgram returns it,
+// except the test-only RebuildBodiesForTest, which rebuilds one file in place.
 type CheckedProgram struct {
 	// Root is the project root imports resolve against, and Entry the entry
 	// file's module key.
@@ -46,6 +48,8 @@ type CheckedProgram struct {
 	// front end reports them. The program's own (Program.Errors, coherence)
 	// are with the entry's, where the front end reports them.
 	Errors map[string][]TypeError
+	// checks holds the diagnostics Errors is assembled from.
+	checks *programChecks
 }
 
 // Keys answers the program's module keys, the entry first and then the
@@ -152,17 +156,19 @@ func (dm *DocumentManager) CheckProgram(root, entry string, texts map[string]str
 	entryFA, siblings, siblingNodes := BuildProjectFromEntryWithManifest(entryPath, prog, primitives, modules, stdlibFAs, root, loader, nil, entry, true)
 
 	// What the front end runs, in its order (frontend.Checker.Analyze).
-	errs := append([]TypeError{}, entryFA.TypeErrors...)
-	errs = append(errs, entryFA.Program().Errors...)
-	errs = append(errs, CheckTypes(entryFA, prog)...)
+	c := &programChecks{
+		entry:   entryFA,
+		build:   map[string][]TypeError{entry: slices.Clone(entryFA.TypeErrors)},
+		check:   map[string][]TypeError{},
+		program: []ProgramFile{{FA: entryFA, Nodes: prog}},
+	}
+	c.check[entry] = CheckTypes(entryFA, prog)
 	p.Files[entry], p.Nodes[entry] = entryFA, prog
-	program := []ProgramFile{{FA: entryFA, Nodes: prog}}
 	sibKeys := make([]string, 0, len(siblings))
 	for key := range siblings {
 		sibKeys = append(sibKeys, key)
 	}
 	sort.Strings(sibKeys)
-	var checked []string
 	for _, key := range sibKeys {
 		fa := siblings[key]
 		if fa == nil {
@@ -170,42 +176,110 @@ func (dm *DocumentManager) CheckProgram(root, entry string, texts map[string]str
 		}
 		if IsStdlibKey(key) && stdlibFAs[strings.TrimPrefix(key, "std/")] == fa {
 			// The shared stdlib's analysis, which std.Load checked once.
-			program = append(program, ProgramFile{FA: fa, Nodes: siblingNodes[key]})
+			c.program = append(c.program, ProgramFile{FA: fa, Nodes: siblingNodes[key]})
 			continue
 		}
-		p.Errors[key] = append(append([]TypeError{}, fa.TypeErrors...), CheckTypes(fa, siblingNodes[key])...)
-		program = append(program, ProgramFile{FA: fa, Nodes: siblingNodes[key]})
-		checked = append(checked, key)
+		c.build[key] = slices.Clone(fa.TypeErrors)
+		c.check[key] = CheckTypes(fa, siblingNodes[key])
+		c.program = append(c.program, ProgramFile{FA: fa, Nodes: siblingNodes[key]})
+		c.checked = append(c.checked, key)
 		if !IsStdlibKey(key) {
 			p.Files[key], p.Nodes[key] = fa, siblingNodes[key]
 		}
 	}
-	errs = append(errs, CheckAppRoots(entryFA, prog)...)
-	for _, key := range checked {
-		p.Errors[key] = append(p.Errors[key], CheckAppRoots(siblings[key], siblingNodes[key])...)
-	}
-	implImportErrs := CheckImplImports(program)
-	errs = append(errs, implImportErrs[entryFA]...)
-	for _, key := range checked {
-		p.Errors[key] = append(p.Errors[key], implImportErrs[siblings[key]]...)
-	}
-	errs = append(errs, FinalizeCoherence(entryFA)...)
-	errs = append(errs, AnalyzeIterSensitivity(entryFA, prog)...)
-	errs = append(errs, CheckConcurrentScope(entryFA, prog)...)
-	errs = append(errs, CheckBootScope(entryFA, prog)...)
-	errs = append(errs, CheckTaskLifetime(entryFA, prog)...)
+	c.siblings, c.siblingNodes = siblings, siblingNodes
+	p.checks = c
+	c.reduce(p)
+	c.checkEntry(p)
 	MarkTailCalls(prog)
-	for _, key := range checked {
+	for _, key := range c.checked {
 		MarkTailCalls(siblingNodes[key])
 	}
 	// The front end reports these before analysis; the language server
 	// adds them to the entry's.
-	errs = append(errs, lowerErrs...)
-	p.Errors[entry] = append(errs, testNameErrs...)
-	for _, key := range checked {
-		if IsStdlibKey(key) {
-			delete(p.Errors, key)
-		}
-	}
+	c.frontEnd = append(lowerErrs, testNameErrs...)
+	c.assemble(p)
 	return p
+}
+
+// programChecks holds the diagnostics CheckProgram assembles each file's
+// from, by the check that found them, so that the checks over one file's
+// bodies can run again (RebuildBodiesForTest).
+type programChecks struct {
+	entry *FileAnalysis
+	// checked holds the keys of the files other than the entry that
+	// CheckTypes ran on, in key order, siblings and siblingNodes every file
+	// the build reached but the entry, and program every file of the
+	// program with its nodes, the entry first.
+	checked      []string
+	siblings     map[string]*FileAnalysis
+	siblingNodes map[string][]ast.Node
+	program      []ProgramFile
+	// Each checked file's build errors, CheckTypes errors, application-field
+	// root errors and unused whole-file imports, by key.
+	build, check, appRoots, implImports map[string][]TypeError
+	// The program's coherence errors and the entry's own checks: iteration
+	// sensitivity, then the concurrency, boot-scope and task-lifetime rules.
+	coherence, entryChecks []TypeError
+	// frontEnd holds the derive-lowering and duplicate test name errors the
+	// front end reports before analysis.
+	frontEnd []TypeError
+}
+
+// fileOf answers the analysis and nodes of the checked file with key.
+func (c *programChecks) fileOf(p *CheckedProgram, key string) (*FileAnalysis, []ast.Node) {
+	if key == p.Entry {
+		return c.entry, p.Nodes[p.Entry]
+	}
+	return c.siblings[key], c.siblingNodes[key]
+}
+
+// reduce runs what the program reduces over every checked file's bodies:
+// each file's application-field roots, the whole-file imports nothing
+// names, and coherence.
+func (c *programChecks) reduce(p *CheckedProgram) {
+	c.appRoots = map[string][]TypeError{}
+	for _, key := range append([]string{p.Entry}, c.checked...) {
+		fa, nodes := c.fileOf(p, key)
+		c.appRoots[key] = CheckAppRoots(fa, nodes)
+	}
+	unused := CheckImplImports(c.program)
+	c.implImports = map[string][]TypeError{}
+	for _, key := range append([]string{p.Entry}, c.checked...) {
+		fa, _ := c.fileOf(p, key)
+		c.implImports[key] = unused[fa]
+	}
+	c.coherence = FinalizeCoherence(c.entry)
+}
+
+// checkEntry runs the entry's own checks over its bodies.
+func (c *programChecks) checkEntry(p *CheckedProgram) {
+	nodes := p.Nodes[p.Entry]
+	c.entryChecks = AnalyzeIterSensitivity(c.entry, nodes)
+	c.entryChecks = append(c.entryChecks, CheckConcurrentScope(c.entry, nodes)...)
+	c.entryChecks = append(c.entryChecks, CheckBootScope(c.entry, nodes)...)
+	c.entryChecks = append(c.entryChecks, CheckTaskLifetime(c.entry, nodes)...)
+}
+
+// assemble sets p.Errors from the checks, in the order the front end reports
+// them.
+func (c *programChecks) assemble(p *CheckedProgram) {
+	p.Errors = map[string][]TypeError{}
+	errs := slices.Clone(c.build[p.Entry])
+	errs = append(errs, c.entry.Program().Errors...)
+	errs = append(errs, c.check[p.Entry]...)
+	errs = append(errs, c.appRoots[p.Entry]...)
+	errs = append(errs, c.implImports[p.Entry]...)
+	errs = append(errs, c.coherence...)
+	errs = append(errs, c.entryChecks...)
+	p.Errors[p.Entry] = append(errs, c.frontEnd...)
+	for _, key := range c.checked {
+		if IsStdlibKey(key) {
+			continue
+		}
+		errs := slices.Clone(c.build[key])
+		errs = append(errs, c.check[key]...)
+		errs = append(errs, c.appRoots[key]...)
+		p.Errors[key] = append(errs, c.implImports[key]...)
+	}
 }
