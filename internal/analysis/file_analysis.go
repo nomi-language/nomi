@@ -142,6 +142,13 @@ type FileBodies struct {
 	// for the rest of that block, as it registers a file-level import's for
 	// the whole file. Nil until a block import is walked.
 	BlockImportScopes map[*ast.ImportStmt]*Scope
+	// receiverMembers maps each reference the builder recorded for a member
+	// named through an imported type (`Settings.tag`, `Color.Red`) to the
+	// member it copies (symbolWithCallReceiver). The copy is made when the
+	// file is walked, which may be before or after the declaring file's
+	// types are built, so CheckTypes gives each its member's type then
+	// (refreshReceiverMembers). Nil until the first record.
+	receiverMembers map[*Symbol]*Symbol
 	// LambdaPatternTypes maps a lambda's destructuring parameter, keyed by
 	// its pattern node (`(_, v)` in `|(_, v)| v`), to the type the checker
 	// gave the whole parameter. The parameter has no name and so no symbol

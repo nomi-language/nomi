@@ -1647,21 +1647,28 @@ func (b *builder) recordImportedTypeQualifiedAccess(n *ast.FieldAccess, scope *S
 	}
 	if real.Members != nil {
 		if member := real.Members[n.Field.Name]; member != nil {
-			b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = symbolWithCallReceiver(member, obj.Name)
+			b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = b.symbolWithCallReceiver(member, obj.Name)
 			return
 		}
 	}
 	if method := b.lookupVisibleTypeMethod(real.Name, n.Field.Name); method != nil {
-		b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = symbolWithCallReceiver(method, obj.Name)
+		b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = b.symbolWithCallReceiver(method, obj.Name)
 	}
 }
 
-func symbolWithCallReceiver(sym *Symbol, receiver string) *Symbol {
+// symbolWithCallReceiver answers a copy of sym, a member of an imported
+// type, that names receiver as the type it was reached through. The file
+// notes which member the copy is of (FileBodies.receiverMembers).
+func (b *builder) symbolWithCallReceiver(sym *Symbol, receiver string) *Symbol {
 	if sym == nil || receiver == "" {
 		return sym
 	}
 	proxy := *sym
 	proxy.CallReceiver = receiver
+	if b.file.receiverMembers == nil {
+		b.file.receiverMembers = map[*Symbol]*Symbol{}
+	}
+	b.file.receiverMembers[&proxy] = sym
 	return &proxy
 }
 

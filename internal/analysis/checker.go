@@ -1237,12 +1237,25 @@ func newChecker(fa *FileAnalysis, nodes []ast.Node) *checker {
 	return c
 }
 
+// refreshReceiverMembers gives each reference the builder copied from a
+// member of an imported type that member's type. The builder walked this
+// file before the declaring file's types were built when both were checked
+// afresh, and after when the declaring file's analysis was kept, so the
+// copy's own type says only which happened. Every file's types are built
+// before any file is checked.
+func refreshReceiverMembers(fa *FileAnalysis) {
+	for proxy, member := range fa.receiverMembers {
+		proxy.Type = member.Type
+	}
+}
+
 // CheckTypes walks all function bodies and validates type consistency.
 func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	noteBodyCheck(fa)
 	// Every unannotated `once` of the program gets its type before the first
 	// file is checked (OnceTable).
 	fa.Program().Onces.infer()
+	refreshReceiverMembers(fa)
 	c := newChecker(fa, nodes)
 
 	for _, node := range nodes {
@@ -12047,14 +12060,21 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 	// this path is unambiguous: if Step 1's field access didn't apply,
 	// the object is a module/enum reference and References gives the
 	// answer.
+	//
+	// A struct field named through its type (`Settings.tag`) is no member
+	// of the type: it is an application-field read, resolved above, or the
+	// error below. The builder records the field there for the editor, with
+	// the field's type, which does not make `Settings.tag` a value.
+	typeQualifiedField := false
 	if sym, ok := c.fa.References[fieldPos]; ok {
 		real := sym
 		for real.Resolved != nil {
 			real = real.Resolved
 		}
 		c.ensureOnceType(real)
+		typeQualifiedField = tqTypeName != "" && real.Kind == SymbolField
 	}
-	if sym, ok := c.fa.References[fieldPos]; ok && sym.Type != nil {
+	if sym, ok := c.fa.References[fieldPos]; ok && sym.Type != nil && !typeQualifiedField {
 		c.checkModuleMemberVisibility(n.Object, n.Field, sym)
 		// Nullary variant qualified access (`Maybe.None`, `Color.Red`)
 		// carries the enum's original TypeParam_ pointers in its Type. At

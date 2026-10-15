@@ -70,8 +70,11 @@ func implsFingerprint(nodes []ast.Node) string {
 // directly or through others, afresh, and keeps the analyses of the rest
 // (checkProgramFrom). It answers false with the reason when the edits need
 // a full check. It writes nothing until it has decided; once it has, prev
-// is consumed, since the kept analyses join the answer. parsed holds the
-// edited texts parsed, by module key; nil, or a missing key, parses again.
+// is consumed, since the kept analyses join the answer. One thing it can
+// only decide after checking: when the application types a kept file may
+// name changed (keptAppTypes), it answers false with prev consumed. parsed
+// holds the edited texts parsed, by module key; nil, or a missing key,
+// parses again.
 //
 // prev may be a program whose edited files' bodies rebuildEditedBodies
 // rebuilt in place before it found that a `once` changed type: that writes
@@ -187,12 +190,38 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 	}
 
 	// Decided: the kept analyses join the answer.
+	freshOrigins := map[string]bool{}
+	for key := range fresh {
+		freshOrigins[prev.Files[key].Origin] = true
+	}
+	wasApps := keptAppTypes(prev.Files[prev.Entry].Program(), freshOrigins)
 	prev.consumed = true
 	texts := maps.Clone(prev.Texts)
 	for _, e := range edits {
 		texts[e.Key] = e.Text
 	}
-	return dm.checkProgramFrom(prev.Root, prev.Entry, texts, prev, keep, parsed), ""
+	next := dm.checkProgramFrom(prev.Root, prev.Entry, texts, prev, keep, parsed)
+	if !maps.Equal(keptAppTypes(next.Files[next.Entry].Program(), freshOrigins), wasApps) {
+		// A kept file's bodies were checked knowing which of its types are
+		// application types, which the entry boots decide: `Settings.tag`
+		// is a read of one, or an error. The answer is a full check's,
+		// which the caller makes from the texts alone.
+		return nil, "the application types a kept file may name changed"
+	}
+	return next, ""
+}
+
+// keptAppTypes answers the application types of program declared outside
+// the files whose origins fresh names: the ones a file a dependents recheck
+// keeps may name.
+func keptAppTypes(program *Program, fresh map[string]bool) map[*StructType]bool {
+	apps := map[*StructType]bool{}
+	for _, st := range program.AppTypes {
+		if !fresh[st.Origin] {
+			apps[st] = true
+		}
+	}
+	return apps
 }
 
 // exportsFunctions reports whether nodes declare an `export fn`.

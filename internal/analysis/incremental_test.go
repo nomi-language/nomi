@@ -5,6 +5,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -567,6 +568,21 @@ var dispatchEdits = []editStep{
 	restore("declaration removed, a file the entry imports calls its impl", "main"),
 }
 
+// appTypeBoot is the entry boot of the corpus project app_field_permission,
+// which makes `Settings`, declared in a file the entry imports, the
+// application type that project's other files read fields of.
+const appTypeBoot = "pub fn boot(): Settings {\n    Settings{context: Context.root(), tag: \"the-real-root\"}\n}\n"
+
+// appTypeEdits remove the entry's boot and put it back. The files that read
+// `Settings.tag` do not import the entry, and what their bodies say turns on
+// whether some entry boot returns `Settings`.
+var appTypeEdits = []editStep{
+	{"boot removed", "main", func(cur, _ string) (string, bool) {
+		return strings.Replace(cur, appTypeBoot, "", 1), strings.Contains(cur, appTypeBoot)
+	}},
+	restore("boot back", "main"),
+}
+
 func TestIncrementalMatchesFull(t *testing.T) {
 	dm := newManager()
 	recheck := dm.RecheckWithOutcome
@@ -617,6 +633,23 @@ func TestIncrementalMatchesFull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Run("app types", func(t *testing.T) {
+		i := slices.IndexFunc(projects, func(p incrementalProject) bool {
+			return p.name == "15-app-and-defer/app_field_permission"
+		})
+		if i < 0 {
+			t.Fatal("the corpus has no 15-app-and-defer/app_field_permission")
+		}
+		diff, outcomes := runEdits(t, projects[i], appTypeEdits, recheck, true)
+		if diff != "" {
+			t.Fatal(diff)
+		}
+		for i, o := range outcomes {
+			if o.Path != analysis.RecheckFull || o.Reason != "the application types a kept file may name changed" {
+				t.Errorf("step %d (%s) went %s (%s), want a full check because the files that read `Settings.tag` are kept", i+1, appTypeEdits[i].kind, o.Path, o.Reason)
+			}
+		}
+	})
 	if len(projects) < 20 {
 		t.Fatalf("found %d multi-file corpus projects, want at least 20", len(projects))
 	}
