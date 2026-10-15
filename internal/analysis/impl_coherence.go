@@ -187,6 +187,7 @@ func PopulateEnumDecls(idx *ProjectImplIndex, filesByKey map[string]*FileAnalysi
 	seen := make(map[*Symbol]bool)
 	for _, key := range keys {
 		fa := filesByKey[key]
+		noteStdlibWork(key)
 		if fa == nil {
 			continue
 		}
@@ -291,7 +292,14 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 	// folded once.
 	foldedTables := make(map[*implTables]bool)
 	foldedFiles := make(map[*FileAnalysis]bool)
-	for _, fa := range filesByKey {
+	// The stdlib's files first, then the program's, each in key order: where
+	// two files contend for one first-write-wins slot (TypeMethods), the
+	// answer is the same on every build, and the same one a build over the
+	// stdlib's base (StdBase) gives.
+	keys := stdlibFirstKeys(filesByKey)
+	for _, key := range keys {
+		fa := filesByKey[key]
+		noteStdlibWork(key)
 		if foldedFiles[fa] {
 			continue
 		}
@@ -362,7 +370,8 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 			}
 		}
 	}
-	for key, fa := range filesByKey {
+	for _, key := range keys {
+		fa := filesByKey[key]
 		for typeName, ifaces := range fa.Impls {
 			if idx.Impls[typeName] == nil {
 				idx.Impls[typeName] = make(map[string]bool)
@@ -494,6 +503,12 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 // and `Bool` is an *EnumType, which does carry an Origin; that asymmetry is
 // what the probe measured.
 func PopulateQualifiedReceivers(idx *ProjectImplIndex, filesByKey map[string]*FileAnalysis) {
+	populateQualifiedReceivers(idx, filesByKey, primitiveOriginIndex(filesByKey))
+}
+
+// populateQualifiedReceivers is PopulateQualifiedReceivers with the
+// primitive-origin index (primitiveOriginIndex over filesByKey) given.
+func populateQualifiedReceivers(idx *ProjectImplIndex, filesByKey map[string]*FileAnalysis, primitives map[string]string) {
 	if idx == nil {
 		return
 	}
@@ -501,16 +516,24 @@ func PopulateQualifiedReceivers(idx *ProjectImplIndex, filesByKey map[string]*Fi
 		idx.QualifiedReceiver = make(map[*ast.FuncDef]string, len(idx.ImplBlockReceiver))
 	}
 	entry := entryOriginOf(filesByKey)
-	primitives := primitiveOriginIndex(filesByKey)
 	populate := func(fn *ast.FuncDef) {
 		if fn == nil {
 			return
 		}
+		// An inherent-block function has no home file here (ImplFiles holds
+		// interface impls only). Resolved through filesByKey[""] it would be
+		// read in the entry's scope, an answer that depends on which file is
+		// the entry; nothing reads one, so it gets none.
+		home, ok := idx.ImplFiles[fn]
+		if !ok {
+			return
+		}
+		noteStdlibWork(home)
 		recv := idx.ReceiverOf(fn)
 		if recv == "" {
 			return
 		}
-		idx.QualifiedReceiver[fn] = qualifyReceiver(filesByKey[idx.ImplFiles[fn]], recv, primitives, entry)
+		idx.QualifiedReceiver[fn] = qualifyReceiver(filesByKey[home], recv, primitives, entry)
 	}
 	for fn := range idx.ImplBlockReceiver {
 		populate(fn)
@@ -546,6 +569,7 @@ func primitiveOriginIndex(filesByKey map[string]*FileAnalysis) map[string]string
 	out := map[string]string{}
 	for _, key := range keys {
 		fa := filesByKey[key]
+		noteStdlibWork(key)
 		if fa == nil || fa.ModuleScope == nil || fa.Origin == "" {
 			continue
 		}
@@ -684,6 +708,36 @@ func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalys
 	for name, sfa := range stdlibFAs {
 		filesByKey["std/"+name] = sfa
 	}
+	// The stdlib's base holds this index already, worked out once.
+	base := stdBaseOf(stdlibFAs)
+	var idx *ProjectImplIndex
+	if base != nil {
+		idx = base.index
+	} else {
+		idx = stdlibOnlyImplIndex(filesByKey)
+	}
+	// A new Program in place of the old one, which other code may hold. It
+	// reaches the stdlib files the index folds as well as its own.
+	with := *fa.Program()
+	with.ImplIndex = idx
+	with.stdBase = base
+	files := make(map[string]*FileAnalysis, len(filesByKey)+len(with.filesByKey))
+	for key, sfa := range filesByKey {
+		files[key] = sfa
+	}
+	for key, own := range with.filesByKey {
+		files[key] = own
+	}
+	if len(with.filesByKey) == 0 {
+		files[""] = fa
+	}
+	with.setFiles(files)
+	fa.program = &with
+}
+
+// stdlibOnlyImplIndex answers the impl index of the stdlib analyses
+// filesByKey, which are typed: their fold and every identity pass over it.
+func stdlibOnlyImplIndex(filesByKey map[string]*FileAnalysis) *ProjectImplIndex {
 	idx := buildProjectImplIndex(filesByKey, nil, nil)
 	// PopulateProjectImplFuncTypes fills the post-BuildTypes
 	// ImplFuncTypes index — the stdlib FAs have already been through
@@ -713,22 +767,7 @@ func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalys
 	// is a user's own `Error` is judged satisfied by std/calendar's
 	// `derive Equatable for Error`. See missing_impl_identity.go.
 	PopulateImplsByIdentity(idx, filesByKey)
-	// A new Program in place of the old one, which other code may hold. It
-	// reaches the stdlib files the index folds as well as its own.
-	with := *fa.Program()
-	with.ImplIndex = idx
-	files := make(map[string]*FileAnalysis, len(filesByKey)+len(with.filesByKey))
-	for key, sfa := range filesByKey {
-		files[key] = sfa
-	}
-	for key, own := range with.filesByKey {
-		files[key] = own
-	}
-	if len(with.filesByKey) == 0 {
-		files[""] = fa
-	}
-	with.setFiles(files)
-	fa.program = &with
+	return idx
 }
 
 // PopulateProjectImplFuncTypes fills idx.ImplFuncTypes from every reachable
@@ -745,6 +784,7 @@ func PopulateProjectImplFuncTypes(idx *ProjectImplIndex, filesByKey map[string]*
 		return
 	}
 	for fn, path := range idx.ImplFiles {
+		noteStdlibWork(path)
 		ownerFA, ok := filesByKey[path]
 		if !ok || ownerFA == nil {
 			continue
@@ -766,7 +806,9 @@ func PopulateProjectTypeMethodSymbols(idx *ProjectImplIndex, filesByKey map[stri
 	if idx == nil {
 		return
 	}
-	for key, fa := range filesByKey {
+	for _, key := range stdlibFirstKeys(filesByKey) {
+		fa := filesByKey[key]
+		noteStdlibWork(key)
 		if fa == nil {
 			continue
 		}
@@ -885,15 +927,10 @@ func detectImplCollisions(
 			// slot, which is the collision.
 			byReceiver := map[string][]*ast.FuncDef{}
 			for _, fn := range fns {
-				recv := receiverBaseName(fn, receivers)
-				if recv == "" {
+				key := collisionGroupKey(iface, fn, receivers, interfaceKeys)
+				if key == "" {
 					continue // unkeyable — skip, don't mis-group
 				}
-				ifaceKey := iface
-				if interfaceKeys != nil && interfaceKeys[fn] != "" {
-					ifaceKey = interfaceKeys[fn]
-				}
-				key := recv + "\x00" + DispatchImplKey(iface, ifaceKey)
 				byReceiver[key] = append(byReceiver[key], fn)
 			}
 			receivers := make([]string, 0, len(byReceiver))
@@ -932,6 +969,21 @@ func detectImplCollisions(
 		}
 	}
 	return errs
+}
+
+// collisionGroupKey is the group detectImplCollisions puts fn, an impl of
+// iface, in: its receiver's base name and its DISPATCH key. Empty when the
+// receiver is unkeyable.
+func collisionGroupKey(iface string, fn *ast.FuncDef, receivers, interfaceKeys map[*ast.FuncDef]string) string {
+	recv := receiverBaseName(fn, receivers)
+	if recv == "" {
+		return ""
+	}
+	ifaceKey := iface
+	if interfaceKeys != nil && interfaceKeys[fn] != "" {
+		ifaceKey = interfaceKeys[fn]
+	}
+	return recv + "\x00" + DispatchImplKey(iface, ifaceKey)
 }
 
 // CollisionImplIndex unions the reachable-set impl index with the project
@@ -993,6 +1045,7 @@ func CollisionImplIndex(
 			if fn == nil {
 				continue
 			}
+			noteStdlibWork(files[fn])
 			k := declKey{home: files[fn], name: fn.Name, line: fn.Line, col: fn.Col}
 			if seen[k] {
 				continue

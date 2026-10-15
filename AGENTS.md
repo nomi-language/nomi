@@ -139,9 +139,13 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   standard library, `uniseg` and itself (`TestRuntimeImportsOnlyItsAllowlist`).
   Its internal organization may change freely to serve the VM.
 - **Stdlib.** `std/` is one Nomi module embedded into the binaries. Each
-  process analyzes it once (`std.Shared`) and lowers it once. Stdlib files
-  import each other with bare paths (`import iter.Iter`); code outside writes
-  `std/iter`.
+  process analyzes it once (`std.Shared`) and lowers it once. The analysis
+  also works out the stdlib's share of a program's impl index and coherence
+  facts once (`analysis.StdBase`, `std.StdLib.Base`); a build given those
+  analyses folds only its own files and lays them over the base, which no
+  build writes (`TestStdBase_*` in `internal/analysis` and `vmhost` hold it
+  to a build that folds every file). Stdlib files import each other with
+  bare paths (`import iter.Iter`); code outside writes `std/iter`.
 - **Host functions.** A stdlib `host fn` is answered either by a VM intrinsic
   (tasks, channels, collection kernels, `io.print`) or by a generated adapter.
   `internal/stdlibbindings` is the one hand-maintained table: `Funcs()` for the

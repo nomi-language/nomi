@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -37,35 +38,40 @@ func MissingImpls(p *Program, demanders []*FileAnalysis) []TypeError {
 		return nil
 	}
 	idx := p.ImplIndex
-	impls := make(map[string]map[string]bool, len(idx.Impls))
-	for t, ifaces := range idx.Impls {
-		copyIfaces := make(map[string]bool, len(ifaces))
-		for i := range ifaces {
-			copyIfaces[i] = true
+	demands := unionDemandsOver(demanders, p.stdBase)
+	// DetectMissingImpls reads the supply of the demanded types only, so
+	// only theirs is copied. The covered set is COPIED, not shared.
+	// Uncovering below is per-call state, and the index it comes from is
+	// held by every file of the program.
+	impls := map[string]map[string]bool{}
+	covered := map[string]map[string]bool{}
+	for _, byType := range demands {
+		for t := range byType {
+			if _, done := impls[t]; !done {
+				impls[t] = maps.Clone(idx.Impls[t])
+				covered[t] = maps.Clone(idx.implNamesWithIdentity[t])
+			}
 		}
-		impls[t] = copyIfaces
-	}
-	// The covered set is COPIED, not shared. Uncovering below is per-call
-	// state, and the index it comes from is held by every file of the
-	// program.
-	covered := make(map[string]map[string]bool, len(idx.implNamesWithIdentity))
-	for t, ifaces := range idx.implNamesWithIdentity {
-		copyIfaces := make(map[string]bool, len(ifaces))
-		for i := range ifaces {
-			copyIfaces[i] = true
-		}
-		covered[t] = copyIfaces
 	}
 	// The identity index travels with the snapshot, or DetectMissingImpls'
 	// supply check has nothing to consult and every bare-name hit stands.
 	snapshot := &ProjectImplIndex{
 		Impls:                 impls,
-		ImplManifest:          unionDemands(demanders),
+		ImplManifest:          demands,
 		ImplsByIdentity:       idx.ImplsByIdentity,
 		implNamesWithIdentity: covered,
 	}
 	for _, file := range p.Files() {
+		// An index laid over the stdlib's base holds every impl of the
+		// base's files.
+		if p.stdBase.Owns(file) {
+			continue
+		}
+		noteStdlibWork(file.Origin)
 		for t, ifaces := range file.Impls {
+			if _, demanded := impls[t]; !demanded {
+				continue
+			}
 			if impls[t] == nil {
 				impls[t] = make(map[string]bool, len(ifaces))
 			}
@@ -87,17 +93,36 @@ func MissingImpls(p *Program, demanders []*FileAnalysis) []TypeError {
 // Each bucket's recordings are deduplicated and sorted by position, so the
 // order does not depend on the order the files were checked or given in.
 func unionDemands(files []*FileAnalysis) map[string]map[string][]Recording {
-	type bucket struct{ iface, typeName string }
+	return unionDemandsOver(files, nil)
+}
+
+// unionDemandsOver is unionDemands that takes the demands of base's files
+// from base when files holds every one of them.
+func unionDemandsOver(files []*FileAnalysis, base *StdBase) map[string]map[string][]Recording {
+	if !base.ownsAll(files) {
+		base = nil
+	}
+	type bucket = implPair
 	var wanted []bucket
 	seen := map[bucket]bool{}
+	if base != nil {
+		for _, b := range base.wanted {
+			seen[b] = true
+			wanted = append(wanted, b)
+		}
+	}
 	for _, file := range files {
+		if base.Owns(file) {
+			continue
+		}
+		noteStdlibWork(file.Origin)
 		if isStdlibRecording(Recording{Pos: Pos{File: file.FilePath}}) {
 			// A file's checker records at the file's own path.
 			continue
 		}
 		for iface, byType := range file.ImplManifest {
 			for typeName, recs := range byType {
-				b := bucket{iface, typeName}
+				b := bucket{typeName: typeName, iface: iface}
 				if seen[b] {
 					continue
 				}
@@ -115,13 +140,21 @@ func unionDemands(files []*FileAnalysis) map[string]map[string][]Recording {
 	for _, b := range wanted {
 		var recs []Recording
 		dup := map[Recording]bool{}
-		for _, file := range files {
-			for _, rec := range file.ImplManifest[b.iface][b.typeName] {
+		add := func(from []Recording) {
+			for _, rec := range from {
 				if !dup[rec] {
 					dup[rec] = true
 					recs = append(recs, rec)
 				}
 			}
+		}
+		for _, file := range files {
+			if !base.Owns(file) {
+				add(file.ImplManifest[b.iface][b.typeName])
+			}
+		}
+		if base != nil {
+			add(base.demands[b.iface][b.typeName])
 		}
 		sortRecordings(recs)
 		if out[b.iface] == nil {

@@ -73,11 +73,16 @@ package analysis
 // the records in place; `inherents` is a slice of values, so the caller's
 // backing array is the one updated.
 func PopulateInherentReceiverOrigins(inherents []InherentMethodRecord, filesByKey map[string]*FileAnalysis) {
+	populateInherentReceiverOrigins(inherents, filesByKey, primitiveOriginIndex(filesByKey))
+}
+
+// populateInherentReceiverOrigins is PopulateInherentReceiverOrigins with the
+// primitive-origin index (primitiveOriginIndex over filesByKey) given.
+func populateInherentReceiverOrigins(inherents []InherentMethodRecord, filesByKey map[string]*FileAnalysis, primitives map[string]string) {
 	// One lookup per (home file, receiver head) pair rather than per record:
 	// a type body with twenty functions asks the same question twenty times.
 	type originKey struct{ module, head string }
 	memo := make(map[originKey]string, len(inherents))
-	primitives := primitiveOriginIndex(filesByKey)
 	for i := range inherents {
 		recv := inherents[i].Receiver
 		if recv == "" {
