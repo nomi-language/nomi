@@ -90,7 +90,7 @@ func installCountingLowering(t *testing.T) *countingLowering {
 	t.Helper()
 	cl := &countingLowering{block: map[string]chan struct{}{}}
 	saved := checkLoweringFn
-	checkLoweringFn = func(path, src string, _ *analyzedlowering.Analyzed) (error, error) {
+	checkLoweringFn = func(path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (error, error) {
 		cl.mu.Lock()
 		if path != cl.path {
 			cl.mu.Unlock()

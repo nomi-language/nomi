@@ -132,6 +132,30 @@ func ops() []op {
 				}
 			}
 		}},
+		op{"lsp lowering, again after a save with no change", func(tb testing.TB, p *project) func(testing.TB, int) {
+			// The language server's run after a save of the text its last
+			// run lowered: the memo answers (analyzedlowering.Memo).
+			dm := newManager(p.dir)
+			uri := p.uri(p.gen.Entry)
+			src := p.gen.Files[p.gen.Entry]
+			dm.Open(uri, src)
+			dm.AnalyzeLatest(context.Background(), uri)
+			a := analyzedOf(dm.Snapshot(uri))
+			if a == nil {
+				tb.Fatal("the entry's analysis is not the program nomi check builds")
+			}
+			var memo analyzedlowering.Memo
+			problems, ok, err := analyzedlowering.Check(p.entry, src, a)
+			if !ok {
+				tb.Fatal("the entry was not lowered from its analysis")
+			}
+			memo.Store(p.entry, src, a, problems, err)
+			return func(tb testing.TB, _ int) {
+				if _, _, ok := memo.Lookup(p.entry, src, a); !ok {
+					tb.Fatal("the memo does not answer the same input")
+				}
+			}
+		}},
 		op{"lsp lowering, from the text", func(tb testing.TB, p *project) func(testing.TB, int) {
 			src := p.gen.Files[p.gen.Entry]
 			return func(tb testing.TB, _ int) {

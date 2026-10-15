@@ -41,7 +41,22 @@ func CheckLowering(path, src string, opts ...Option) (problems, err error) {
 }
 
 func init() {
-	analyzedlowering.SetCheck(checkLoweringAnalyzed)
+	analyzedlowering.SetCheck(checkLoweringAnalyzed, offeredAnalyzed)
+}
+
+// offeredAnalyzed is analyzedlowering.Offered: whether
+// checkLoweringAnalyzed would lower a.
+func offeredAnalyzed(path, src string, a *analyzedlowering.Analyzed) bool {
+	if _, _, ok := frontend.StdlibFile(path); ok {
+		return true
+	}
+	cfg := newConfig(nil)
+	fc, err := cfg.frontendConfig()
+	if err != nil {
+		return true
+	}
+	fc.SourceBoundProvided = true
+	return analyzedProgram(path, src, a, fc) != nil
 }
 
 // checkLoweringAnalyzed is analyzedlowering.Check: CheckLowering for a

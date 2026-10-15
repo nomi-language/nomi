@@ -261,7 +261,7 @@ func BenchmarkLoweringDiagnostics(b *testing.B) {
 // keeps running.
 func TestLoweringDiagnostics_InternalErrorIsOneDiagnostic(t *testing.T) {
 	saved := checkLoweringFn
-	checkLoweringFn = func(path, src string, _ *analyzedlowering.Analyzed) (error, error) {
+	checkLoweringFn = func(path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (error, error) {
 		return nil, &vmhost.InternalError{Panic: "boom"}
 	}
 	defer func() { checkLoweringFn = saved }()

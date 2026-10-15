@@ -180,11 +180,11 @@ func recordLoweringInput(t *testing.T) func(text string) (*analyzedlowering.Anal
 	var mu sync.Mutex
 	got := map[string]*analyzedlowering.Analyzed{}
 	saved := checkLoweringFn
-	checkLoweringFn = func(path, src string, a *analyzedlowering.Analyzed) (error, error) {
+	checkLoweringFn = func(path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (error, error) {
 		mu.Lock()
 		got[src] = a
 		mu.Unlock()
-		return saved(path, src, a)
+		return saved(path, src, a, memo)
 	}
 	t.Cleanup(func() { checkLoweringFn = saved })
 	return func(text string) (*analyzedlowering.Analyzed, bool) {

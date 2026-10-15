@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -40,6 +41,12 @@ import (
 // `nomi check` does, its own front end included: 10 to 38 ms. The first
 // run in a process lowers the whole stdlib, about 120 ms. Hence a longer
 // quiet period than analysisDelay.
+//
+// A run that lowers from the analysis keeps what it found
+// (analyzedlowering.Memo), keyed by every text the lowering read. The next
+// run of the document whose analysis was built from the same texts, which
+// its files still hold on disk, answers that without lowering: the save
+// after an edit's run lowers nothing.
 //
 // A document has one run at a time. An open, save or edit during a run
 // queues one more run of the newest text, which replaces any text queued
@@ -80,6 +87,12 @@ type loweringChecks struct {
 	gen map[string]int
 	// last is the most recent run's duration, for measurement.
 	last time.Duration
+	// memo keeps each document's last lowering from its analysis, which a
+	// run of the same input answers again (analyzedlowering.Memo).
+	memo analyzedlowering.Memo
+	// lowered counts the runs that lowered, and reused those the memo
+	// answered.
+	lowered, reused atomic.Int64
 	// delay replaces loweringDelay when set (tests).
 	delay time.Duration
 }
@@ -99,14 +112,28 @@ var checkLoweringFn = lowerFromAnalysis
 
 // lowerFromAnalysis lowers the file at path whose text is src from a, the
 // document's analysis of src, when a is the program `nomi check` builds,
-// and otherwise from the text (vmhost.CheckLowering). a may be nil.
-func lowerFromAnalysis(path, src string, a *analyzedlowering.Analyzed) (problems, err error) {
+// and keeps what it found in memo; otherwise it lowers the text
+// (vmhost.CheckLowering). a and memo may be nil.
+func lowerFromAnalysis(path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (problems, err error) {
 	if a != nil {
 		if problems, ok, err := analyzedlowering.Check(path, src, a); ok {
+			memo.Store(path, src, a, problems, err)
 			return problems, err
 		}
 	}
 	return vmhost.CheckLowering(path, src)
+}
+
+// lower is what lowering the file at path whose text is src from a finds:
+// the memo's answer when the document's last lowering read the same texts,
+// else checkLoweringFn's.
+func (c *loweringChecks) lower(path, src string, a *analyzedlowering.Analyzed) (problems, err error) {
+	if problems, err, ok := c.memo.Lookup(path, src, a); ok {
+		c.reused.Add(1)
+		return problems, err
+	}
+	c.lowered.Add(1)
+	return checkLoweringFn(path, src, a, &c.memo)
 }
 
 // analysisWaitForLowering bounds how long a run waits for the analysis of
@@ -156,6 +183,7 @@ func (c *loweringChecks) forget(uri string) {
 	delete(c.queued, uri)
 	c.stopTimer(uri)
 	c.gen[uri]++
+	c.memo.Forget(uriToPath(uri))
 }
 
 // lowers reports whether the server lowers uri: a file on disk, whose
@@ -244,7 +272,7 @@ func (s *Server) runLoweringChecks(uri, content string, gen int) {
 			// a recheck from rewriting it while it is lowered.
 			release := s.docs.View()
 			if a, latest := s.installedLoweringAnalysis(uri, content); latest {
-				diags = safeLoweringDiagnostics(uri, content, a)
+				diags = s.safeLoweringDiagnostics(uri, content, a)
 			}
 			release()
 		}
@@ -351,25 +379,34 @@ func (s *Server) finishLowering(uri, content string, gen int, diags []protocol.D
 	s.publishSnapshot(s.notify, snap)
 }
 
-// safeLoweringDiagnostics is loweringDiagnostics, with a panic in the
-// server around the lowering (one vmhost does not already answer as an
-// InternalError) answered as one diagnostic at the top of the file
-// (recover.go).
-func safeLoweringDiagnostics(uri, content string, a *analyzedlowering.Analyzed) (diags []protocol.Diagnostic) {
+// safeLoweringDiagnostics is the server's loweringDiagnostics, through
+// its memo (loweringChecks.lower), with a panic in the server around the
+// lowering (one vmhost does not already answer as an InternalError)
+// answered as one diagnostic at the top of the file (recover.go).
+func (s *Server) safeLoweringDiagnostics(uri, content string, a *analyzedlowering.Analyzed) (diags []protocol.Diagnostic) {
 	defer recoverPanic("lowering "+uri, func(p *serverPanic) {
 		diags = []protocol.Diagnostic{p.diagnostic()}
 	})
 	fault("lowering")
-	return loweringDiagnostics(uriToPath(uri), content, a)
+	path := uriToPath(uri)
+	problems, err := s.lowering.lower(path, content, a)
+	return problemDiagnostics(path, content, problems, err)
 }
 
 // loweringDiagnostics lowers the file at path whose text is content, from
 // a, its analysis, when that is not nil (lowerFromAnalysis), and answers
 // what `nomi check` would report beyond the front end, as protocol
-// diagnostics in content's UTF-16 columns. A blocker in another file of the
-// program is reported at the top of this one, naming where it is.
+// diagnostics in content's UTF-16 columns (problemDiagnostics).
 func loweringDiagnostics(path, content string, a *analyzedlowering.Analyzed) []protocol.Diagnostic {
-	problems, err := checkLoweringFn(path, content, a)
+	problems, err := checkLoweringFn(path, content, a, nil)
+	return problemDiagnostics(path, content, problems, err)
+}
+
+// problemDiagnostics are a lowering's problems and err for the file at
+// path whose text is content, as protocol diagnostics in content's UTF-16
+// columns. A blocker in another file of the program is reported at the top
+// of this one, naming where it is.
+func problemDiagnostics(path, content string, problems, err error) []protocol.Diagnostic {
 	var internal *vmhost.InternalError
 	if errors.As(err, &internal) {
 		return []protocol.Diagnostic{internalErrorDiagnostic(internal)}

@@ -33,11 +33,17 @@ type Analyzed struct {
 // CheckFunc is the lowering Check runs.
 type CheckFunc func(path, src string, a *Analyzed) (problems error, ok bool, err error)
 
-var check CheckFunc
+// OfferedFunc is the test Offered runs.
+type OfferedFunc func(path, src string, a *Analyzed) bool
 
-// SetCheck installs the lowering Check runs. nomi/vmhost calls it from its
-// package initializer.
-func SetCheck(f CheckFunc) { check = f }
+var (
+	check   CheckFunc
+	offered OfferedFunc
+)
+
+// SetCheck installs the lowering Check runs and the test Offered runs.
+// nomi/vmhost calls it from its package initializer.
+func SetCheck(f CheckFunc, o OfferedFunc) { check, offered = f, o }
 
 // Check is vmhost.CheckLowering for a file whose text src the caller has
 // already analyzed as a: the program is lowered from a, with no second
@@ -54,4 +60,10 @@ func SetCheck(f CheckFunc) { check = f }
 // caller must import nomi/vmhost, which installs the lowering.
 func Check(path, src string, a *Analyzed) (problems error, ok bool, err error) {
 	return check(path, src, a)
+}
+
+// Offered reports whether Check would lower a, the ok Check answers,
+// without lowering it.
+func Offered(path, src string, a *Analyzed) bool {
+	return offered(path, src, a)
 }
