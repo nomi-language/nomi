@@ -52,18 +52,19 @@ b	typeRegistry.ensureTypes | false | unit < 0 ¦¦ unit >= len(r.gens)#1	foreign
 b	typeRegistry.ensureTypes | false | g == nil#1	foreign.go:205	-	every registry unit has a gen (defensive fence)
 c	typeRegistry.ensureTypes | false | g.typesBusy#1	foreign.go:211	-	pinned as gapCrossFileTypeCycle (reason: a struct literal: A)
 b	gen.importKind | false | unguarded#1	foreign.go:627	-	importKind is only fed kinds of lowerable defs and lowerable signatures, which carry no tagInvalid component (an invalid field makes src.lowerable false, caught at foreign.go:550)
-c	gen.importKind | false | unguarded#2	foreign.go:686	-	pinned as gapForeignFnIter (reason: qualified call, file.fn: nums.)
-b	gen.importNamed | false | !anchored#1	foreign.go:708	-	preludeSpecAnchor always anchors Maybe/Result from std's own declaration (defensive fence)
-b	gen.importNamed | false | k == kindInvalid#1	foreign.go:723	-	preludeInstance returns kindInvalid only for an invalid arg, and every arg was just imported ok
-b	gen.importNamed | false | !ok#1	foreign.go:752	-	genStructInstance with imported args fails only where the owner's own instance failed, which makes the owner def unlowerable first
-b	gen.importNamed | false | !ok#2	foreign.go:770	-	genHostInstance with imported args fails only for a nil spec or g == nil, neither of which occurs here
-a	gen.importNamed | computed | return src.lowerable#1	foreign.go:807	expect,irbuild,projectgen,vmhost	
-b	gen.importNamed | false | o == nil#1	foreign.go:815	-	only a synthesized declaration is missing from the registry, and none is nameable across files
-a	gen.importNamed | computed | return local.lowerable#1	foreign.go:822	expect,irbuild,vmhost	
-b	gen.importNamed | false | o.unit == g.fileUnit#1	foreign.go:825	-	a component declared in this file always has its def in g.types under its name (duplicates are front-end errors)
-c	gen.importNamed | false | !d.lowerable#1	foreign.go:830	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
-b	gen.importNamed | false | inner == nil#1	foreign.go:841	-	inner == nil only for a duplicate declaration its own file refuses, a front-end error
-c	gen.importNamed | false | !d.lowerable#2	foreign.go:846	-	pinned as gapSiblingFnReturnsStructWithRecordField (reason: qualified call, file.fn: shapes.make)
+b	gen.importKind | false | rk == kindInvalid#1	foreign.go:649	-	anonStructKind over imported parts fails only where the owner's own record kind failed (no fields, or two names on one identifier), and the owner's kind was built
+c	gen.importKind | false | unguarded#2	foreign.go:707	-	pinned as gapForeignFnIter (reason: qualified call, file.fn: nums.)
+b	gen.importNamed | false | !anchored#1	foreign.go:729	-	preludeSpecAnchor always anchors Maybe/Result from std's own declaration (defensive fence)
+b	gen.importNamed | false | k == kindInvalid#1	foreign.go:744	-	preludeInstance returns kindInvalid only for an invalid arg, and every arg was just imported ok
+b	gen.importNamed | false | !ok#1	foreign.go:773	-	genStructInstance with imported args fails only where the owner's own instance failed, which makes the owner def unlowerable first
+b	gen.importNamed | false | !ok#2	foreign.go:791	-	genHostInstance with imported args fails only for a nil spec or g == nil, neither of which occurs here
+a	gen.importNamed | computed | return src.lowerable#1	foreign.go:828	expect,irbuild,projectgen,vmhost	
+b	gen.importNamed | false | o == nil#1	foreign.go:836	-	only a synthesized declaration is missing from the registry, and none is nameable across files
+a	gen.importNamed | computed | return local.lowerable#1	foreign.go:843	expect,irbuild,vmhost	
+b	gen.importNamed | false | o.unit == g.fileUnit#1	foreign.go:846	-	a component declared in this file always has its def in g.types under its name (duplicates are front-end errors)
+-	gen.importNamed | false | !d.lowerable#1	foreign.go:851	-	gapSiblingFnReturnsStructWithRecordField no longer reaches it (importKind imports a record); reclassify on the next coverage run
+b	gen.importNamed | false | inner == nil#1	foreign.go:862	-	inner == nil only for a duplicate declaration its own file refuses, a front-end error
+-	gen.importNamed | false | !d.lowerable#2	foreign.go:867	-	gapSiblingFnReturnsStructWithRecordField no longer reaches it (importKind imports a record); reclassify on the next coverage run
 b	irScalarBuilder.foreignFieldDefault | false | src == nil ¦¦ g.reg == nil ¦¦ !irCallOperandKind(want)#1	foreignfielddefault.go:57	-	a mirror always carries ownerDef and a registry; a lowerable struct's field kinds are call-operand kinds (tried 15 default shapes cross-file, all lower)
 b	irScalarBuilder.foreignFieldDefault | false | o == nil#1	foreignfielddefault.go:65	-	the mirror's owner decl is always in the registry (generic instances map to genericOf.decl)
 b	irScalarBuilder.foreignFieldDefault | false | owner == nil ¦¦ owner == g#1	foreignfielddefault.go:69	-	a mirror's owner is another unit by construction

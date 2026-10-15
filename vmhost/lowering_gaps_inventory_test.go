@@ -1787,34 +1787,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapSiblingFnReturnsStructWithRecordField",
-		fix:    "builder: sibling fn returns struct with record field. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.importNamed | false | !d.lowerable#1; gen.importNamed | false | !d.lowerable#2",
-		reason: "qualified call, file.fn: shapes.make",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    shapes
-}
-
-fn main() {
-    io.print("${shapes.width(shapes.make())}")
-}
-// FILE: shapes.nomi
-pub struct Box {
-    at: {x: Int, y: Int}
-}
-
-pub fn make(): Box {
-    Box{at: {x: 1, y: 2}}
-}
-
-pub fn width(b: Box): Int {
-    b.at.x
-}
-`,
-	},
-	{
 		name:   "gapTypedLiteralFnResult",
 		fix:    "builder: typed literal fn result. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.taggedLiteral | false | len(h.params) != 1 ¦¦ !irListTransportKind(h.params[0]) ¦¦ !irRetainedValueKind(h.result)#1",
 		reason: "a typed literal: a handler signature outside the retained domain",
