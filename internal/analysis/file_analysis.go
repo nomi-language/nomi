@@ -31,6 +31,9 @@ import (
 type FileAnalysis struct {
 	FileDecls
 	FileBodies
+	// imports is importsOf of the file's nodes for one body part, once a
+	// build or a discovery walk found it (importPaths).
+	imports *fileImports
 }
 
 // FileDecls is the declaration part of a file's analysis. See FileAnalysis.

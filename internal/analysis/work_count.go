@@ -74,3 +74,17 @@ func noteDiskRead(path string) {
 	diskReadsMu.Unlock()
 }
 
+// countingImportsWalks turns on importsWalks, which counts the files whose
+// nodes importsOf walks. Only a test counts.
+var (
+	countingImportsWalks atomic.Bool
+	importsWalks         atomic.Int64
+)
+
+// noteImportsWalk counts one file's nodes walked for imports, when
+// counting is on.
+func noteImportsWalk() {
+	if countingImportsWalks.Load() {
+		importsWalks.Add(1)
+	}
+}

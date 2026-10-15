@@ -47,3 +47,16 @@ func DiskReadsForTest(f func()) []string {
 	return out
 }
 
+// ImportsWalksForTest runs f with the imports-walk counter on and answers
+// how many files' nodes importsOf walked while it ran (noteImportsWalk).
+func ImportsWalksForTest(f func()) int64 {
+	countingImportsWalks.Store(true)
+	defer countingImportsWalks.Store(false)
+	n0 := importsWalks.Load()
+	f()
+	return importsWalks.Load() - n0
+}
+
+func init() {
+	checkKeptImports = true
+}

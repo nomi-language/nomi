@@ -275,6 +275,10 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// None, Some}`) is what lets the variant names land in user scope
 	// without tripping the "cannot import variant 'X' directly" check.
 	preludeStmts, preludeErr := preludeImports(proj.ModuleIndex["std"], loader)
+	var preludePaths [][]string
+	for _, stmt := range preludeStmts {
+		preludePaths = append(preludePaths, importStmtPath(stmt))
+	}
 	if len(preludeStmts) > 0 {
 		for key, nodes := range proj.Files {
 			if IsStdlibKey(key) {
@@ -411,7 +415,14 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 			all = append(all, &fileBuilder{key: key, nodes: r.nodes, fa: r.fa, reused: true})
 			continue
 		}
-		all = append(all, makeBuilder(proj.Files[key], key))
+		fb := makeBuilder(proj.Files[key], key)
+		if paths, ok := proj.imports[key]; ok && !IsStdlibKey(key) {
+			// What importsOf finds in the nodes the file is built from: the
+			// prelude's imports put before the loaded ones, and none in
+			// what derive lowering and synthesis make.
+			fb.fa.keepImports(append(slices.Clip(preludePaths), paths...))
+		}
+		all = append(all, fb)
 	}
 	entryFB := makeBuilder(entryNodes, "")
 	if entryModRel != "" {

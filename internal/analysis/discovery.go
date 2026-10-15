@@ -2,6 +2,8 @@ package analysis
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -35,6 +37,9 @@ type Project struct {
 	// the build was handed (reusedFile): it neither loaded nor parsed them,
 	// and walked their imports from the nodes it was handed.
 	reused map[string]bool
+	// imports holds the import paths of each file the walk loaded, as
+	// importsOf found them in the nodes the loader answered, by key.
+	imports map[string][][]string
 }
 
 // DiscoverProjectWithManifest BFS-walks the import graph starting from
@@ -187,7 +192,7 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 		if analyzed != nil && analyzed(wi.key) {
 			continue
 		}
-		var nodes []ast.Node
+		var imports [][]string
 		if r, ok := reused[wi.key]; ok && wi.root == projectRoot {
 			if p.reused[wi.key] {
 				continue
@@ -197,15 +202,19 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 			}
 			p.reused[wi.key] = true
 			p.FilePaths[wi.key] = r.fa.FilePath
-			nodes = r.nodes
+			imports = r.fa.importPaths(r.nodes)
 		} else {
-			var err error
-			nodes, err = loader(wi.root, wi.modPath)
+			nodes, err := loader(wi.root, wi.modPath)
 			if err != nil || nodes == nil {
 				continue
 			}
 			p.Files[wi.key] = nodes
 			p.FilePaths[wi.key] = ResolveModulePath(wi.root, wi.modPath)
+			imports = importsOf(nodes)
+			if p.imports == nil {
+				p.imports = map[string][][]string{}
+			}
+			p.imports[wi.key] = imports
 		}
 		// Sibling-module imports inside a freshly-loaded sibling
 		// module are walked relative to ITS module index, not the
@@ -217,7 +226,7 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 		// any sibling-of-sibling listed in the entry's go.mod, and
 		// any import outside that union falls through to intra-module
 		// resolution against the sibling's own root.
-		for _, mp := range importsOf(nodes) {
+		for _, mp := range imports {
 			// A stdlib file names its siblings bare; they are the same
 			// module and every key in the toolchain spells it `std/<name>`.
 			child, ok := classify(QualifyIntraStdlibImport(wi.key, mp))
@@ -246,6 +255,12 @@ func discoverProject(entryNodes []ast.Node, projectRoot string, loader FileLoade
 // post-cutover, stdlib walks the same BFS path as any other cross-module
 // dep.
 func importsOf(nodes []ast.Node) [][]string {
+	noteImportsWalk()
+	return walkImports(nodes)
+}
+
+// walkImports is importsOf without the count.
+func walkImports(nodes []ast.Node) [][]string {
 	var paths [][]string
 	for _, n := range nodes {
 		paths = append(paths, importPathsOf(n)...)
@@ -322,4 +337,54 @@ func SelfNameImport(modPath []string, currentModuleName string) ([]string, bool)
 		return nil, false
 	}
 	return modPath[1:], true
+}
+
+// fileImports is importsOf of a file's nodes, kept with its analysis
+// (FileAnalysis.importPaths) for the body part it was found for.
+type fileImports struct {
+	generation uint64
+	paths      [][]string
+}
+
+// importPaths is importsOf(nodes), where nodes are the nodes fa was built
+// from, as they are now: a dependents recheck walks the imports of every
+// file it keeps from the program before, and their nodes have not changed
+// since the last walk. The answer is kept with the analysis for its body
+// part (FileBodies.generation), since a recheck that rebuilds the file's
+// bodies rewrites its nodes in place, and the build that made fa keeps the
+// imports its discovery found (keepImports).
+func (fa *FileAnalysis) importPaths(nodes []ast.Node) [][]string {
+	if m := fa.imports; m != nil && m.generation == fa.generation {
+		if checkKeptImports {
+			if walked := walkImports(nodes); !slices.EqualFunc(walked, m.paths, slices.Equal) {
+				panic(fmt.Sprintf("analysis: the kept imports of %s are %v, and its nodes import %v", fa.FilePath, m.paths, walked))
+			}
+		}
+		return m.paths
+	}
+	paths := importsOf(nodes)
+	fa.imports = &fileImports{generation: fa.generation, paths: paths}
+	return paths
+}
+
+// checkKeptImports makes importPaths walk the nodes on every answer it
+// keeps and panic when the kept answer differs. This package's tests turn
+// it on, so the incremental harness (TestIncrementalMatchesFull,
+// FuzzIncrementalMatchesFull) holds the kept imports to the nodes; the
+// scale benchmarks, which time the dependents path, leave it off.
+var checkKeptImports bool
+
+// keepImports keeps paths as importsOf of the nodes of fa, a build's
+// analysis, for importPaths.
+func (fa *FileAnalysis) keepImports(paths [][]string) {
+	fa.imports = &fileImports{generation: fa.generation, paths: paths}
+}
+
+// carryImports keeps the imports fa's body part generation had for its
+// current one: a recheck rebuilt its bodies, and the old and the new bodies
+// import the same paths in the same order.
+func (fa *FileAnalysis) carryImports(generation uint64) {
+	if m := fa.imports; m != nil && m.generation == generation {
+		fa.imports = &fileImports{generation: fa.generation, paths: m.paths}
+	}
 }
