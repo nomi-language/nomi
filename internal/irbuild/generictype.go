@@ -437,6 +437,15 @@ func (g *gen) genericSubstKind(name string) (kind, bool) {
 	return kindInvalid, false
 }
 
+// isBoundTypeParam reports whether name is a type parameter of the instance
+// being built (`Struct` in `fn bump<Struct>(p: Struct)`), which a qualified
+// call spells as that instance's argument, never as the std name it
+// shadows (`Struct.update`).
+func (g *gen) isBoundTypeParam(name string) bool {
+	_, bound := g.genericSubstKind(name)
+	return bound
+}
+
 // --- reading an annotation, an inferred type and a literal -------------------
 
 // userGenericTypeOf reads the annotation `Box<Inner>`, declining when the name
@@ -566,7 +575,9 @@ func (g *gen) templateInstanceOf(instantiate func([]kind) (kind, bool), t analys
 	}
 	args := make([]kind, len(typeArgs))
 	for i, a := range typeArgs {
-		args[i] = g.project(a)
+		// An argument nothing determines (`E.X(1)`'s other parameter) is
+		// filled as a user template's argument is (irFillHolesByPosition).
+		args[i] = g.project(irFillHolesByPosition(a, true))
 	}
 	k, ok := instantiate(args)
 	if !ok {
@@ -631,6 +642,7 @@ func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, decla
 		}
 		g.unifyTypeParams(ann, k, params, solved)
 	}
+	g.solveFromLiteralType(t, tpl, solved)
 	args, ok := templateArgs(tpl, solved)
 	if !ok {
 		return nil, false
@@ -710,6 +722,32 @@ func (g *gen) unifyTypeParams(ann ast.TypeExpr, actual kind, params map[string]b
 		}
 		if a.Return != nil {
 			g.unifyTypeParams(a.Return, parts[len(parts)-1], params, solved)
+		}
+	}
+}
+
+// solveFromLiteralType solves each of tpl's parameters no field fixed from
+// the type the checker gave the literal t. A parameter nothing determines
+// (`Either.L{a: 1}`'s B: spec, "Determined type arguments") has no value
+// in the literal, and its hole is filled by its position
+// (irFillHolesByPosition), as a generic call's is.
+func (g *gen) solveFromLiteralType(t *ast.StructLit, tpl *genericTemplate, solved map[string]kind) {
+	if len(solved) == len(tpl.params) {
+		return
+	}
+	var typeArgs []analysis.Type
+	switch ty := irFillHolesByPosition(analysis.ResolveTypeVar(g.checkedExprType(t)), false).(type) {
+	case *analysis.EnumType:
+		typeArgs = ty.TypeArgs
+	case *analysis.StructType:
+		typeArgs = ty.TypeArgs
+	}
+	if len(typeArgs) != len(tpl.params) {
+		return
+	}
+	for i, p := range tpl.params {
+		if _, found := solved[p]; !found {
+			solved[p] = g.project(typeArgs[i])
 		}
 	}
 }

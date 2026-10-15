@@ -960,22 +960,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if v, k, mobile, ok, handled := bl.returnSelfDispatch(t); handled {
 		return v, k, mobile, ok
 	}
-	if len(t.TypeArgs) != 0 {
-		if _, qualified := t.Func.(*ast.FieldAccess); qualified {
-			return bl.turbofishDispatch(t)
-		}
-		id, direct := t.Func.(*ast.Ident)
-		if !direct || bl.g.irMonoTemplate(bl.g.funcs[id.Name]) == nil {
-			return no()
-		}
-		if _, bound := bl.g.lookup(id.Name); bound {
-			return no()
-		}
-		for scope := bl; scope != nil; scope = scope.parent {
-			if _, bound := scope.boundK[id.Name]; bound {
-				return no()
-			}
-		}
+	if len(t.TypeArgs) != 0 && bl.turbofishOnInterface(t) {
+		// `FromJson.from_json<Int>(j)`: the type argument selects the impl.
+		// Any other call's type arguments are already in the signature
+		// the checker instantiated it at, which every route below reads.
+		return bl.turbofishDispatch(t)
 	}
 	// TAIL POSITION IS A FACT AND NOT A SHAPE, which is `ir/call.go`'s own
 	// division: `analysis/tail_position.go` computes it, `ast.Call.IsTailCall`
@@ -1021,9 +1010,12 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 				return v, k, mobile, ok
 			}
 		}
-		if site, ok := bl.siblingQualSite(fa); ok && (hasNamed || site.fn.defaults) {
+		if site, ok := bl.siblingQualSite(fa); ok && (hasNamed || site.fn.defaults || site.fn.generic && !site.host && irUnsolvedType(bl.g.checkedCallSignature(t))) {
 			// `lib.add(1)` or `lib.add(1, b: 5)`: placed and filled as a
-			// bare call to the same function is (siblingdefault.go).
+			// bare call to the same function is (siblingdefault.go). So is
+			// a generic call with a type argument nothing determines
+			// (`lib.shown(None)`), whose arguments are lowered at the
+			// filled instance's parameters.
 			return bl.siblingCall(t, site)
 		}
 		if hasNamed {
@@ -1040,7 +1032,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// `import std/iter.Iter.{loop}` then `loop(...)`: Iter.loop.
 		return bl.iterLoop(t)
 	}
-	if id, ok := t.Func.(*ast.Ident); ok && !hasNamed && len(t.TypeArgs) == 0 {
+	if id, ok := t.Func.(*ast.Ident); ok && !hasNamed {
 		if v, k, mobile, lowered, handled := bl.genericNestedCall(t, id); handled {
 			return v, k, mobile, lowered
 		}

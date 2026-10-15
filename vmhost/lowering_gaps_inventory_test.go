@@ -151,21 +151,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapTurbofishNested",
-		fix:    "builder: turbofish nested. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.call | false | !direct ¦¦ bl.g.irMonoTemplate(bl.g.funcs[id.Name]) == nil#1",
-		reason: "a turbofish on a call",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fn ident<T>(x: T): T {
-        x
-    }
-    io.inspect(ident<Int>(3))
-}
-`,
-	},
-	{
 		name:   "gapCChunksFnList",
 		fix:    "builder: c chunks fn list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !irRetainedListKind(chunk) && !irListTransportKind(chunk)#1",
 		reason: "qualified call, Type.method: Iter.chunks",
@@ -1067,21 +1052,6 @@ pub type Token Int
 `,
 	},
 	{
-		name:   "gapContextValueTurbofish",
-		fix:    "builder: context value turbofish. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.contextValueCall | false | len(t.Args) != 2 ¦¦ len(t.TypeArgs) != 0#1",
-		reason: "a turbofish on a call",
-		noSkip: true,
-		src: `import std/io
-
-type TraceId String
-
-fn main() {
-    c = Context.with_value(Context.root(), TraceId("t"))
-    io.inspect(Context.value<TraceId>(c, TraceId))
-}
-`,
-	},
-	{
 		name:   "gapContextValueUnwitnessable",
 		fix:    "builder: context value unwitnessable. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.contextValueCall | note | \"a Context.value witness whose type has no single-name identity\"#1",
 		reason: "a Context.value witness whose type has no single-name identity",
@@ -1390,21 +1360,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapDefaultGenericLambda",
-		fix:    "builder: default generic lambda. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.callDefaults | false | !ok ¦¦ k != sig.params[i] ¦¦ !irCallOperandKind(k)#1",
-		reason: "a lambda parameter outside the domain: an unsupported type",
-		src: `import std/io
-
-fn apply<T>(x: T, f: (T) -> T = |y| y): T {
-    f(x)
-}
-
-fn main() {
-    io.print(apply(3))
-}
-`,
-	},
-	{
 		name:   "gapDistinctTupleCallformIterWiden",
 		fix:    "builder: distinct tuple callform iter widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.compositeDistinctMake | false | !ok ¦¦ k != d.inner#1",
 		reason: "a value of kind List<Circle> where Iter<Shape> is expected",
@@ -1451,23 +1406,6 @@ fn main() {
     p = P([c], 1)
     P(it, n) = p
     io.print(Iter.count(it) + n)
-}
-`,
-	},
-	{
-		name:   "gapDottedGenericStructLiteral",
-		fix:    "builder: dotted generic struct literal. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structMake | false | tn.Member == nil ¦¦ bl.g.genericTemplates[tn.Module+\".\"+tn.Member.TypeString()] != nil#1",
-		reason: "a struct literal: Tree.Node",
-		noSkip: true,
-		src: `import std/io
-
-struct Tree.Node<T> {
-    v: T
-}
-
-fn main() {
-    n = Tree.Node{v: 1}
-    io.print(n.v)
 }
 `,
 	},
@@ -1761,31 +1699,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapNamedGapGenericParam",
-		fix:    "builder: named gap generic param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.namedQualCall | false | !irCallOperandKind(kinds[i])#1",
-		reason: "a named argument",
-		noSkip: true,
-		src: `import std/io
-
-struct Box<T> {
-    v: T
-}
-
-impl Box<T> {
-    fn pick<T>(_b: Box<T>, other: Maybe<T> = None, n: Int = 0): Int {
-        case other {
-            Some(_) -> n + 1
-            None -> n
-        }
-    }
-}
-
-fn main() {
-    io.print(Box.pick(Box{v: 1}, n: 2))
-}
-`,
-	},
-	{
 		name:   "gapSenderEquality",
 		fix:    "builder: sender equality. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.compareOperands | false | (!irScalarLeafKind(lk) ¦¦ lk.def != nil) && !prelude && !decimal && !list && !structural#1",
 		reason: "the comparison operator `==`",
@@ -1917,36 +1830,6 @@ fn main() {
 
 fn main() {
     io.print(Hashable.hash(('a', Unit)))
-}
-`,
-	},
-	{
-		name:   "gapTypeParamNamedStruct",
-		fix:    "builder: type param named struct. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | bound#1",
-		reason: "qualified call, Type.method: Struct.update",
-		noSkip: true,
-		src: `import std/io
-
-interface Up {
-    fn update(a: self, b: {x: Int}): self
-}
-
-struct P {
-    x: Int
-}
-
-impl Up for P {
-    fn update(_a: P, b: {x: Int}): P {
-        P{x: b.x}
-    }
-}
-
-fn bump<Struct>(p: Struct): Struct where Struct: Up {
-    Struct.update(p, {x: 2})
-}
-
-fn main() {
-    io.print(bump(P{x: 1}).x)
 }
 `,
 	},
@@ -2083,92 +1966,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapGenericBoundCallAtTuple",
-		fix:    "builder: generic bound call at tuple. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.qualCallLowered | false | bound#1",
-		reason: "qualified call, Type.method: T.to_string",
-		noSkip: true,
-		src: `import std/io
-
-fn txt<T>(x: T): String where T: Display {
-    T.to_string(x)
-}
-
-fn main() {
-    io.print(txt((1, "a")))
-}
-`,
-	},
-	{
-		name:   "gapGenericBoundImplOtherFile",
-		fix:    "builder: generic bound impl other file. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.kindImplCall | false | plan == nil#1",
-		reason: "qualified call, Type.method: T.to_string",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    lib
-}
-
-impl Display for lib.Dog {
-    fn to_string(d: lib.Dog): String {
-        "dog " + d.name
-    }
-}
-
-fn show<T>(x: T): String where T: Display {
-    T.to_string(x)
-}
-
-fn main() {
-    io.print(show(lib.Dog{name: "d"}))
-}
-// FILE: lib.nomi
-pub struct Dog {
-    name: String
-}
-`,
-	},
-	{
-		name:   "gapGenericCallBareNone",
-		fix:    "builder: generic call bare none. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.checkedMonoTypeArgsFilled | false | unguarded#1",
-		reason: "a direct callee that is not lowerable: is_some",
-		noSkip: true,
-		src: `import std/io
-
-fn is_some<T>(m: Maybe<T>): Bool {
-    case m {
-        Some(_) -> True
-        None -> False
-    }
-}
-
-fn main() {
-    io.print(is_some(None))
-}
-`,
-	},
-	{
-		name:   "gapGenericVariantUnsolvedParam",
-		fix:    "builder: generic variant unsolved param. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.checkedFieldTypeArgs | false | !ok#1",
-		reason: "a struct literal: Either2.L",
-		noSkip: true,
-		src: `import std/io
-
-enum Either2<A, B> {
-    L {
-        a: A
-    }
-    R {
-        b: B
-    }
-}
-
-fn main() {
-    io.inspect(Either2.L{a: 1})
-}
-`,
-	},
-	{
 		name:   "gapIterSensitiveFnValue",
 		fix:    "builder: iter sensitive fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.funcRef | note | \"an iter-sensitive function passed where its break or continue cannot be caught: \" + t.Nam…#1",
 		reason: "an iter-sensitive function passed where its break or continue cannot be caught: stop",
@@ -2232,21 +2029,6 @@ fn main() {
         []
     }
     io.inspect(none_list(1))
-}
-`,
-	},
-	{
-		name:   "gapNestedGenericBoundCallTuple",
-		fix:    "builder: nested generic bound call tuple. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.stdKindQualCall | false | base == \"\"#1",
-		reason: "qualified call, Type.method: T.to_string",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fn txt<T>(x: T): String where T: Display {
-        T.to_string(x)
-    }
-    io.print(txt((1, "a")))
 }
 `,
 	},
@@ -2342,53 +2124,6 @@ pub fn greet(name: String, punct: String = "!"): String {
 `,
 	},
 	{
-		name:   "gapSiblingDefaultGenericHole",
-		fix:    "builder: sibling default generic hole. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.irFileSlotRetain | note | \"a default that does not lower\"#1",
-		reason: "a direct callee that is not lowerable: is_some",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    lib
-}
-
-fn main() {
-    io.print(lib.show(1))
-}
-// FILE: lib.nomi
-fn is_some<T>(m: Maybe<T>): Bool {
-    case m {
-        Some(_) -> True
-        None -> False
-    }
-}
-
-pub fn show(x: Int, flag: Bool = is_some(None)): String {
-    "${x} ${flag}"
-}
-`,
-	},
-	{
-		name:   "gapSiblingGenericEmptyList",
-		fix:    "builder: sibling generic empty list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.siblingCall | false | !ok ¦¦ len(params) != len(f.decl.Params) ¦¦ (!irCallableValueKind(result) && result != kin…#1",
-		reason: "a direct callee outside this module's fn table: cnt",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    lib.{cnt}
-}
-
-fn main() {
-    io.print(cnt([]))
-}
-// FILE: lib.nomi
-pub fn cnt<T>(xs: List<T>): Int {
-    Iter.count(xs)
-}
-`,
-	},
-	{
 		name:   "gapStdGenericHostFnValue",
 		fix:    "builder: std generic host fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.stdFileFuncRef | false | generic == nil && (g.std == nil ¦¦ g.std.byFile[module+\".\"+name] == nil)#1",
 		reason: "a field access on an unbound name testing: .check",
@@ -2401,64 +2136,6 @@ pub fn cnt<T>(xs: List<T>): Int {
 fn main() {
     c: (Bool) -> Result<Bool, testing.AssertionFailure> = testing.check
     io.inspect(c(True))
-}
-`,
-	},
-	{
-		name:   "gapTurbofishFileQualified",
-		fix:    "builder: turbofish file qualified. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.turbofishDispatch | false | !isType ¦¦ bl.g.fa == nil#1",
-		reason: "a turbofish on a call",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    c = io.capture<Int>("", || 1)
-    io.inspect(c.value)
-}
-`,
-	},
-	{
-		name:   "gapTurbofishStdOwner",
-		fix:    "builder: turbofish std owner. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.turbofishDispatch | false | !found ¦¦ sym.Kind != analysis.SymbolInterface#1",
-		reason: "a turbofish on a call",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.inspect(Maybe.collect<Int>([None, None]))
-}
-`,
-	},
-	{
-		name:   "gapTurbofishTwoTypeArgs",
-		fix:    "builder: turbofish two type args. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.turbofishDispatch | false | len(t.TypeArgs) != 1#1",
-		reason: "a turbofish on a call",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.inspect(Maybe.map<Int, String>(Some(1), |x| "${x}"))
-}
-`,
-	},
-	{
-		name:   "gapUnitParamGenericFnValue",
-		fix:    "builder: unit param generic fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.funcTypeKinds | false | !irCallableValueKind(params[i])#1",
-		reason: "an ident bound nowhere this builder can see",
-		noSkip: true,
-		src: `import std/io
-
-fn ident<T>(x: T): T {
-    x
-}
-
-fn u() {
-}
-
-fn main() {
-    f: (Unit) -> Unit = ident
-    f(u())
-    io.print("done")
 }
 `,
 	},
@@ -2542,27 +2219,6 @@ fn upper(s: String = "abc"): String go strs.ToUpper
 
 fn main() {
     io.print(upper())
-}
-`,
-	},
-	{
-		name:   "gapImportedVariantUnsolved",
-		fix:    "builder: imported variant unsolved. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.importedVariantAt | false | !isEnum ¦¦ irUnsolvedType(et)#1",
-		reason: "a type name in value position: Empty",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    shapes.Holder.{Empty}
-}
-
-fn main() {
-    io.inspect(Empty)
-}
-// FILE: shapes.nomi
-pub enum Holder<T> {
-    Of T
-    Empty
 }
 `,
 	},

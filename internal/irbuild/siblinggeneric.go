@@ -47,10 +47,19 @@ func (g *gen) siblingGenericInstance(t *ast.Call, to int, f *fileFunc) ([]kind, 
 	// A call may omit defaulted parameters or name its arguments: the
 	// checker's instantiated signature has every parameter either way.
 	here, result, ok := g.checkedMonoCallKinds(t, len(tpl.decl.Params))
+	if ok {
+		return g.siblingInstanceAt(owner, tpl, f, here, result)
+	}
+	// A hole the checker left open (`cnt([])`): filled here, as a call to
+	// this file's own generic is (checkedMonoTypeArgsFilled), and solved
+	// in the owner.
+	args, ok := g.solveFilled(t, tpl, func(tpl *monoTemplate, here []kind, result kind) ([]kind, bool) {
+		return g.siblingSolve(owner, tpl, here, result)
+	})
 	if !ok {
 		return no()
 	}
-	return g.siblingInstanceAt(owner, tpl, f, here, result)
+	return g.siblingResolve(owner, tpl, f, args)
 }
 
 // siblingGenericRef is siblingGenericInstance for a REFERENCE to unit `to`'s
@@ -83,12 +92,21 @@ func (g *gen) siblingGenericRef(ref ast.Node, to int, f *fileFunc) ([]kind, kind
 // siblingInstanceAt asks owner for the instance of tpl at the parameter and
 // result kinds here, which are this gen's, and translates its signature back.
 func (g *gen) siblingInstanceAt(owner *gen, tpl *monoTemplate, f *fileFunc, here []kind, result kind) ([]kind, kind, *ir.Symbol, bool) {
-	no := func() ([]kind, kind, *ir.Symbol, bool) { return nil, kindInvalid, nil, false }
+	args, ok := g.siblingSolve(owner, tpl, here, result)
+	if !ok {
+		return nil, kindInvalid, nil, false
+	}
+	return g.siblingResolve(owner, tpl, f, args)
+}
+
+// siblingSolve solves owner's template tpl at the parameter and result
+// kinds here, which are this gen's: the type arguments, in owner's kinds.
+func (g *gen) siblingSolve(owner *gen, tpl *monoTemplate, here []kind, result kind) ([]kind, bool) {
 	there := make([]kind, len(here))
 	for i, k := range here {
 		ik, ok := owner.importKind(k)
 		if !ok {
-			return no()
+			return nil, false
 		}
 		there[i] = ik
 	}
@@ -96,14 +114,17 @@ func (g *gen) siblingInstanceAt(owner *gen, tpl *monoTemplate, f *fileFunc, here
 	if result != kindInvalid {
 		ik, ok := owner.importKind(result)
 		if !ok {
-			return no()
+			return nil, false
 		}
 		result = ik
 	}
-	args, ok := owner.monoSolve(tpl, there, result)
-	if !ok {
-		return no()
-	}
+	return owner.monoSolve(tpl, there, result)
+}
+
+// siblingResolve is owner's instance of tpl at args, its signature
+// translated back into this gen's kinds.
+func (g *gen) siblingResolve(owner *gen, tpl *monoTemplate, f *fileFunc, args []kind) ([]kind, kind, *ir.Symbol, bool) {
+	no := func() ([]kind, kind, *ir.Symbol, bool) { return nil, kindInvalid, nil, false }
 	// The chain is measured from the caller's instance, so two files whose
 	// generics instantiate each other at growing arguments still meet
 	// monoInstCap.

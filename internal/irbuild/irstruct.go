@@ -642,13 +642,13 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	switch tn := t.TypeName.(type) {
 	case *ast.QualifiedType:
 		// A namespaced struct's whole dotted name wins over the variant
-		// reading. A generic template's dotted name declines.
-		if tn.Member == nil || bl.g.genericTemplates[tn.Module+"."+tn.Member.TypeString()] != nil {
+		// reading.
+		if tn.Member == nil {
 			return no()
 		}
 		if _, isSimple := tn.Member.(*ast.SimpleType); isSimple {
 			// `span.Span{...}`: another file's generic struct, named through
-			// its module.
+			// its module, or this file's dotted one (`Tree.Node{v: 1}`).
 			if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module + "." + tn.Member.TypeString()); isTemplate && tpl.structDecl() != nil {
 				return bl.genericStructMake(t, tpl, instantiate)
 			}

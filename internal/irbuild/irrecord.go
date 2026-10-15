@@ -225,9 +225,6 @@ func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, b
 	if _, local := bl.g.ifaceNamed("Struct"); local {
 		return no()
 	}
-	if _, bound := bl.g.genericSubstKind("Struct"); bound {
-		return no()
-	}
 	ops, ok := structUpdateOperands(t.Args)
 	if !ok {
 		return no()

@@ -9279,6 +9279,28 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		retTy = Substitute(ft.Return, subs)
 	}
 
+	// A type parameter no argument solves and the result names
+	// (`fn first<T>(): Maybe<T>`) is solved by where the result goes, as a
+	// return-only self is above: `c: Maybe<Coin> = first()` calls first at
+	// Coin. Solved here, the parameter's bounds are checked below and the
+	// call's instantiation is recorded, as an argument-solved one's is.
+	// Only parameters still open are taken: what the arguments solved
+	// stands.
+	if len(openSlots) == 0 && !skipReturnInfer && concreteExpected(expected) && c.containsForeignTypeParam(Substitute(ft.Return, subs)) {
+		trial := make(map[*TypeParam_]Type, len(subs))
+		for k, v := range subs {
+			trial[k] = v
+		}
+		if c.unifyInto(expected, ft.Return, trial) == nil {
+			for tp, t := range trial {
+				if _, solved := subs[tp]; !solved && !ContainsTypeParam(t) && !containsTypeVar(t) {
+					subs[tp] = t
+				}
+			}
+			retTy = Substitute(ft.Return, subs)
+		}
+	}
+
 	// The return-only self, now solved, gets the records an argument-solved
 	// self gets above: its conformance demand and the dispatch it selects,
 	// which is what tells the IR builder which impl the call names.
@@ -10409,13 +10431,16 @@ func (c *checker) checkStructLitAgainstStruct(lit *ast.StructLit, st *StructType
 	// For generic structs, return the substituted instance carrying the
 	// inferred TypeArgs (e.g. `Box<Int>` instead of bare `Box`). Mirrors
 	// the shape checkStructLit returns for the literal-attach form.
-	if canInferArgs && len(subs) > 0 {
+	// A parameter no field solved (`Tag{n: 3}` for `struct Tag<T>`) is a
+	// fresh inference variable, as a struct variant's is
+	// (instantiateVariantLit), so a later use solves it.
+	if canInferArgs {
 		args := make([]Type, len(st.TypeParamDefs))
 		for i, def := range st.TypeParamDefs {
 			if t, ok := subs[def]; ok {
 				args[i] = t
 			} else {
-				args[i] = def
+				args[i] = c.freshTypeVar()
 			}
 		}
 		return &StructType{
@@ -16019,7 +16044,7 @@ func (c *checker) checkStructVariantLit(n *ast.StructLit, et *EnumType, variantN
 	// while `Box{value: 1}` hovered `value: Int`.
 	c.recordLitFieldLabelTypes(n, fields, subs)
 
-	return instantiateVariantEnum(et, subs)
+	return c.instantiateVariantLit(et, subs)
 }
 
 // seedVariantTypeArgs is the start of a variant construction's inference,
@@ -16046,9 +16071,18 @@ func (c *checker) seedVariantTypeArgs(et *EnumType) (subs map[*TypeParam_]Type, 
 		return subs, true
 	}
 	for i, def := range et.TypeParamDefs {
+		if c.containsForeignTypeParam(args[i]) {
+			// An expected argument that is a generic callee's own
+			// parameter (`left(Either2.R{b: "s"})` for
+			// `fn left<A, B>(e: Either2<A, B>)`) is the call's to solve,
+			// not an answer: the payload's values bind it, or it stays a
+			// fresh variable (instantiateVariantLit).
+			canInfer = true
+			continue
+		}
 		subs[def] = args[i]
 	}
-	return subs, false
+	return subs, canInfer
 }
 
 // instantiateVariantEnum is the end of a variant construction's inference:

@@ -34,7 +34,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	if sym == nil {
 		return no()
 	}
-	if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Struct" && fa.Field.Name == "update" {
+	if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Struct" && fa.Field.Name == "update" && !bl.g.isBoundTypeParam("Struct") {
 		// `Struct.update(updates: {x: 1}, original: p)`: the patch must stay
 		// a literal the merge reads, which a stand-in for an evaluated
 		// temporary is not, so the update places its own arguments.
@@ -130,13 +130,23 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		// `Date.new(2026, day: 5)`: a slot omitted before a supplied one
 		// takes its default here, evaluated in the callee's scope after the
 		// written operands, as a direct call's is (callDefaults). The
-		// planners then see every slot up to the last supplied one.
+		// planners then see every slot up to the last supplied one. A
+		// generic callee's slot (`other: Maybe<T> = None`) is read at the
+		// call's instantiation, which the checker recorded.
+		checked := bl.g.checkedCallSignature(t)
+		if checked != nil && len(checked.Params) != len(fd.Params) {
+			checked = nil
+		}
 		for i, p := range fd.Params {
 			if p.TypeAnnotation == nil {
 				return no()
 			}
 			if temps[i] == ir.NoTemp {
-				kinds[i] = bl.g.typeOf(p.TypeAnnotation)
+				if checked != nil {
+					kinds[i] = bl.g.projectFilledHoles(checked.Params[i])
+				} else {
+					kinds[i] = bl.g.typeOf(p.TypeAnnotation)
+				}
 				if !irCallOperandKind(kinds[i]) {
 					return no()
 				}

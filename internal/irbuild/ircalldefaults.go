@@ -21,6 +21,12 @@ func (bl *irScalarBuilder) callDefaults(sig *fnSig, args []ir.Temp) bool {
 		bl.bound, bl.boundK, bl.parent, bl.defaultScope = bound, kinds, parent, defaults
 		bl.g.scopes = scopes
 	}()
+	if inst := sig.instance; inst != nil {
+		// A generic callee's default is lowered at the instance's type
+		// arguments: `f: (T) -> T = |y| y` takes its parameter type from T.
+		bl.g.pushMonoSubst(inst.tpl, inst.args)
+		defer bl.g.popMonoSubst()
+	}
 	for i, p := range sig.decl.Params {
 		if args[i] == ir.NoTemp {
 			if p.Default == nil {
