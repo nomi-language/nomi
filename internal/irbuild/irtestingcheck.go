@@ -78,8 +78,6 @@ func (bl *irScalarBuilder) testingCheck(t *ast.Call) (ir.Temp, kind, bool, bool)
 	var k kind
 	var mobile, lowered bool
 	var stages []ir.AssertStage
-	witnessRow := bl.witnessRow
-	bl.witnessRow = false
 	bl.recording++
 	root := bl.assertRoot
 	bl.assertRoot = subject
@@ -99,11 +97,6 @@ func (bl *irScalarBuilder) testingCheck(t *ast.Call) (ir.Temp, kind, bool, bool)
 		subj, k, mobile, lowered = bl.lower(subject)
 	}
 	bl.recording--
-	if bl.witnessRow {
-		irDeclineNote("a testing.check row over a Type witness")
-		return no()
-	}
-	bl.witnessRow = witnessRow
 	if !lowered {
 		return no()
 	}

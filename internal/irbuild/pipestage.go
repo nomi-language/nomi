@@ -46,12 +46,12 @@ import (
 // admitted here are the ones whose stage sequence is a function of the SPINE
 // alone. Two things break that and both are refused rather than approximated:
 //
-//   - A nested pipe. A pipe inside the chain would interleave its own stages
-//     into this list — `x |> f(y |> g())` would record four — and whether one
-//     inside a lambda body records is a question of which scope collects. A
-//     parenthesised left operand is the same hazard wearing a disguise:
-//     `(a |> b()) |> c()` would record `a` and `a |> b()` from the inner pipe
-//     and then `(a |> b())` again from the outer.
+//   - A parenthesised left operand: `(a |> b()) |> c()` is two chains, and
+//     its list would hold `(a |> b())` where the reader expects `a` and
+//     `a |> b()`. A pipe inside a stage (`x |> f(y |> g())`, or one in a
+//     lambda argument) is not on the spine: pipeStageValues keeps a stage
+//     per spine prefix only, so `x |> f(y |> g())` records `x` and the
+//     whole chain.
 //   - A stage that is not a call, a `then`, a `tap`, an `if` or a `case`. `|> try`
 //     and `|> dbg` are what is left, and both are refused as pipe stages in
 //     their own right.
@@ -128,9 +128,6 @@ func pipeStagesRecordable(prefixes []ast.Node) bool {
 		switch stage.(type) {
 		case *ast.Call, *ast.Then, *ast.Tap, *ast.If, *ast.Case:
 		default:
-			return false
-		}
-		if containsPipe(stage) {
 			return false
 		}
 	}

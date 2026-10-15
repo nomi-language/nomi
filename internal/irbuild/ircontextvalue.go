@@ -144,7 +144,7 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 		if id, isIdent := arg.(*ast.Ident); isIdent && bl.isBoundName(id.Name) {
 			// A `Type<T>` parameter or binding is already a witness.
 			v, k, _, ok := bl.lower(arg)
-			if !ok || !irTypeWitnessKind(k) || bl.recording > 0 {
+			if !ok || !irTypeWitnessKind(k) {
 				return no()
 			}
 			w, wk = v, k

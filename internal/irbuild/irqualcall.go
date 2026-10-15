@@ -432,7 +432,7 @@ func (bl *irScalarBuilder) qualCall(t *ast.Call, fa *ast.FieldAccess) (ir.Temp, 
 	if bl.recording > 0 {
 		// Inside an assertion subject the call's rows are recorded after the
 		// call (recordedQualCall).
-		if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Iter" && fa.Field != nil && fa.Field.Name == "loop" && bl.inTest {
+		if ti, isType := fa.Object.(*ast.TypeIdent); isType && ti.Name == "Iter" && fa.Field != nil && fa.Field.Name == "loop" {
 			// The callback is inlined and records nothing; the loop's
 			// answer is the row its enclosing operand records.
 			return bl.iterLoop(t)

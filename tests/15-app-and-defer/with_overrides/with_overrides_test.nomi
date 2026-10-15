@@ -56,4 +56,15 @@ group "with" {
         assert labelled(True) == "branch"
         assert labelled(False) == "base"
     }
+
+    test "a with in an assertion subject's arm ends with the arm" {
+        assert if label() == "base" {
+            with App.label = "arm"
+            label() == "arm"
+        } else {
+            False
+        }
+
+        assert label() == "base"
+    }
 }

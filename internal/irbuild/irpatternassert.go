@@ -17,9 +17,10 @@ package irbuild
 //
 // The patterns are the ones a retained `case` already tests: a scalar
 // literal, an enum variant with a flat payload (irvariantpattern.go), a list
-// (irlistpattern.go) and a tuple (irtuplepattern.go). A pattern name that
-// rebinds a name the body already bound, and a bare-name value bound by a
-// pipe whose `pipeline values:` stages were not recorded, decline.
+// (irlistpattern.go) and a tuple (irtuplepattern.go). A pattern name may
+// rebind a name the body already bound: it is a fresh identity. A bare-name
+// value bound by a pipe whose `pipeline values:` stages were not recorded
+// declines.
 //
 // NEITHER FORM IS READ BACK. The test-body reader spells one straight block
 // and passes no binding to the site it writes, so a body holding either is
@@ -42,10 +43,6 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 	def, ok := bl.assertDefinedAs(t.Value, subj)
 	if !ok {
 		return false
-	}
-	before := make(map[string]ir.Temp, len(bl.bound))
-	for name, temp := range bl.bound {
-		before[name] = temp
 	}
 	pos := bl.g.irPos(t.Line, t.Col)
 	var matched, failed *ir.Block
@@ -124,12 +121,6 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		}
 	}
 	bl.bindAsNames(t.Pattern, subj, sk)
-	for name, temp := range before {
-		if bl.bound[name] != temp {
-			irDeclineNote("an `assert pattern = value` that rebinds " + name)
-			return false
-		}
-	}
 	if refutable && !irBlockTargeted(bl.f, failed.ID()) {
 		// The tests built no failure edge: every nested sub-pattern only
 		// binds (`Holder{r: {a, b}}`, a record inside a struct). The
@@ -158,15 +149,16 @@ func (bl *irScalarBuilder) assertDefinedAs(at ast.Node, val ir.Temp) (*ir.Assert
 	if !bare {
 		return nil, true
 	}
-	b := bl.testDefs[id.Name]
-	if b == nil {
+	held, isBound := bl.bound[id.Name]
+	b := bl.testDefs[held]
+	if !isBound || b == nil {
 		// A name a pattern or a context pattern bound: debug information
 		// is recorded only for an ordinary binding.
 		return nil, true
 	}
 	def := &ir.AssertBinding{Name: id.Name, Expr: renderNode(b.Value), Val: val}
 	if pipe, isBinary := b.Value.(*ast.Binary); isBinary && pipe.Op == "|>" {
-		stages, recorded := bl.testStages[id.Name]
+		stages, recorded := bl.testStages[held]
 		if !recorded {
 			irDeclineNote("a defined-as block over a pipe binding")
 			return nil, false

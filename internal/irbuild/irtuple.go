@@ -110,10 +110,6 @@ func (bl *irScalarBuilder) destructureBind(t ast.Node, name string, line, col in
 			irDeclineNote("a rebind: " + name)
 			return false
 		}
-		if bl.inTest {
-			delete(bl.testStages, name)
-			delete(bl.testDefs, name)
-		}
 		sym = ir.NewSymbol(name)
 		bl.sh.syms[name] = sym
 	}

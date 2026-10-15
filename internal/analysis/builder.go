@@ -5113,6 +5113,24 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 				b.define(sym.Pos, sym)
 			}
 
+		case *ast.ImplBlock, *ast.ImplConformance:
+			// Behavior is declared at module top level (spec §5): a block
+			// may declare a type or an interface, never an impl of one.
+			// Its references are still walked for hover and navigation.
+			form, line, col := "an `impl` block", 0, 0
+			if c, isDerive := s.(*ast.ImplConformance); isDerive {
+				form, line, col = "a `derive` declaration", c.Line, c.Col
+			} else {
+				ib := s.(*ast.ImplBlock)
+				line, col = ib.Line, ib.Col
+			}
+			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
+				Line:    line,
+				Col:     col,
+				Message: form + " must appear at module top-level, not inside a body",
+			})
+			b.walkNode(stmt, scope)
+
 		default:
 			b.walkNode(stmt, scope)
 		}

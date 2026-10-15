@@ -423,10 +423,12 @@ func (bl *irScalarBuilder) testLeaving(s ast.Node) (leaves, ok bool) {
 	if _, isStmt := s.(*ast.ExprStmt); isStmt && region == e && !endless {
 		return false, false
 	}
-	if bl.setupExit != nil || bl.recording > 0 {
-		// A setup's value or an assertion subject reads what it lowers.
+	if bl.recording > 0 {
+		// An assertion subject reads what it lowers.
 		return true, false
 	}
+	// In a setup, an arm's `return` ends the setup with its value
+	// (testReturn), as it would ending a statement.
 	for _, p := range prefix {
 		val, k, _, lowered := bl.lower(p)
 		if !lowered {
@@ -507,8 +509,8 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 		return bl.testImport(st)
 	case *ast.Return:
 		return bl.testReturn(st)
-	case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias:
-		// A block-local type declaration runs nothing: its values' layout
+	case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias, *ast.InterfaceDef:
+		// A block-local type or interface declaration runs nothing: its values' layout
 		// and identity come from the typeDef blocklocaltype.go resolved.
 		return true
 	case *ast.ExprStmt:
@@ -664,7 +666,7 @@ func (bl *irScalarBuilder) testArm(exit *ir.Block, body ast.Node) (kind, bool) {
 	}()
 	// The arm is a lexical scope: its deferred calls run at its exit, and a
 	// `with` in it holds to its exit.
-	scope := &irDeferScope{block: nil}
+	scope := &irDeferScope{}
 	bl.testDeferScope = scope
 	ws := &irWithScope{saved: ir.NoTemp}
 	bl.testWithScope = ws
@@ -731,19 +733,23 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 	// A VM-only body's annotation is a coercion target exactly as in a named
 	// function's body; bindingExpression is that path. A block-valued
 	// binding takes a named function's typed block delivery.
-	if rebind {
-		// The previous binding's pipeline rows describe a value no later
-		// assertion can name.
-		delete(bl.testStages, b.Name)
-	}
 	var src ir.Temp
 	var k kind
 	var ok bool
+	var stages []ir.AssertStage
 	_, block := b.Value.(*ast.Block)
 	_, conditional := b.Value.(*ast.If)
 	_, match := b.Value.(*ast.Case)
-	if prefixes := pipeStagePrefixes(b.Value); b.TypeAnnotation == nil && prefixes != nil && bl.testStagesRead(b.Name) {
-		src, k, ok = bl.testPipeStages(b.Name, prefixes)
+	if prefixes := pipeStagePrefixes(b.Value); prefixes != nil && bl.testStagesRead(b.Name) {
+		src, k, stages, ok = bl.testPipeStages(prefixes)
+		if ok && b.TypeAnnotation != nil {
+			// The whole pipe's value is the binding's; an annotation that
+			// would convert it is not a stage the list can show.
+			if want := bl.g.typeOf(b.TypeAnnotation); k != want {
+				irDeclineNote("an annotated pipe binding whose value is not the annotation's type: " + k.nomi() + " vs " + want.nomi())
+				ok = false
+			}
+		}
 	} else if (block || conditional || match) && bl.inTest {
 		// The checker's binding type is the region's destination, so an arm
 		// answering `[]` takes the other arm's list type.
@@ -767,16 +773,24 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 	bl.bound[b.Name], bl.boundK[b.Name] = bind.Dst(), k
 	bl.declareBind(bind, k)
 	if bl.testDefs == nil {
-		bl.testDefs = map[string]*ast.Binding{}
+		bl.testDefs = map[ir.Temp]*ast.Binding{}
 	}
-	bl.testDefs[b.Name] = b
+	bl.testDefs[bind.Dst()] = b
+	if stages != nil {
+		if bl.testStages == nil {
+			bl.testStages = map[ir.Temp][]ir.AssertStage{}
+		}
+		bl.testStages[bind.Dst()] = stages
+	}
 	return true
 }
 
 // testAssertionBinding lowers `name = assert e` / `name = refute e`: the
 // assertion, then a binding of its value, which is the judged subject.
 func (bl *irScalarBuilder) testAssertionBinding(b *ast.Binding, a *ast.Assertion) bool {
-	if _, shadows := bl.g.lookup(b.Name); shadows || bl.bound[b.Name] != ir.NoTemp {
+	_, shadows := bl.g.lookup(b.Name)
+	rebind := bl.bound[b.Name] != ir.NoTemp
+	if shadows {
 		irDeclineNote("a test-body binding that shadows or rebinds: " + b.Name)
 		return false
 	}
@@ -784,15 +798,21 @@ func (bl *irScalarBuilder) testAssertionBinding(b *ast.Binding, a *ast.Assertion
 	if !ok {
 		return false
 	}
-	bind := ir.NewBind(bl.g.irPos(b.Line, b.Col), bl.f.NewTemp(), subj, bl.sh.localSym(b.Name))
+	sym := bl.sh.localSym(b.Name)
+	if rebind {
+		// The subject read the previous identity; later reads see this one.
+		sym = ir.NewSymbol(b.Name)
+		bl.sh.syms[b.Name] = sym
+	}
+	bind := ir.NewBind(bl.g.irPos(b.Line, b.Col), bl.f.NewTemp(), subj, sym)
 	bl.b.Append(bind)
 	bl.side(bind.Dst(), irScalarSide{k: k})
 	bl.bound[b.Name], bl.boundK[b.Name] = bind.Dst(), k
 	bl.declareBind(bind, k)
 	if bl.testDefs == nil {
-		bl.testDefs = map[string]*ast.Binding{}
+		bl.testDefs = map[ir.Temp]*ast.Binding{}
 	}
-	bl.testDefs[b.Name] = b
+	bl.testDefs[bind.Dst()] = b
 	return true
 }
 
@@ -813,20 +833,12 @@ func (bl *irScalarBuilder) testStagesRead(name string) bool {
 // Each later stage is the pipe with its left operand replaced by the previous
 // prefix's held value, so every prefix is evaluated once. A chain whose stage
 // list is not a function of its spine declines.
-func (bl *irScalarBuilder) testPipeStages(name string, prefixes []ast.Node) (ir.Temp, kind, bool) {
+func (bl *irScalarBuilder) testPipeStages(prefixes []ast.Node) (ir.Temp, kind, []ir.AssertStage, bool) {
 	if !pipeStagesRecordable(prefixes) {
 		irDeclineNote("a defined-as block over a pipe whose stages are not its spine")
-		return ir.NoTemp, kindInvalid, false
+		return ir.NoTemp, kindInvalid, nil, false
 	}
-	cur, k, stages, ok := bl.pipeStageValues(prefixes)
-	if !ok {
-		return ir.NoTemp, kindInvalid, false
-	}
-	if bl.testStages == nil {
-		bl.testStages = map[string][]ir.AssertStage{}
-	}
-	bl.testStages[name] = stages
-	return cur, k, true
+	return bl.pipeStageValues(prefixes)
 }
 
 // pipeStageValues lowers a recordable pipe one cumulative prefix at a time and
@@ -897,19 +909,12 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 	if t.Refute {
 		kw = ir.KeywordRefute
 	}
-	witnessRow := bl.witnessRow
-	bl.witnessRow = false
 	bl.recording++
 	root := bl.assertRoot
 	bl.assertRoot = t.Expr
 	subj, k, mobile, ok := bl.lower(t.Expr)
 	bl.assertRoot = root
 	bl.recording--
-	if bl.witnessRow {
-		irDeclineNote("an assertion row over a Type witness")
-		return ir.NoTemp, kindInvalid, false
-	}
-	bl.witnessRow = witnessRow
 	if !ok {
 		return ir.NoTemp, kindInvalid, false
 	}
@@ -972,10 +977,6 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 // does not decide that.
 func (bl *irScalarBuilder) record(at ast.Node, val ir.Temp, k kind, suppressRedundantLiteral bool) {
 	if bl.recording == 0 || isNilNode(at) || val == ir.NoTemp {
-		return
-	}
-	if _, witness := typeWitnessArg(k); witness {
-		bl.witnessRow = true
 		return
 	}
 	// THE ROW'S GO RENDERING IS THE READER'S, AND THE KIND DECIDES WHETHER

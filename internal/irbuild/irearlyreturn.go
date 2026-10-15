@@ -46,7 +46,7 @@ func (bl *irScalarBuilder) guardReturn(t *ast.If) bool {
 	// Every path through the arm leaves the activation, which restores
 	// what a `with` in it replaced.
 	bl.openWithScope(true)
-	if !bl.leading(lead) || bl.b != arm {
+	if !bl.leading(lead) {
 		return false
 	}
 	bl.markStmt(tail, ir.StmtStatement)

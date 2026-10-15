@@ -44,136 +44,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapBlockInAssertSubjectTest",
-		fix:    "builder: block in assert subject test. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.blockValue | false | bl.recording > 0#1",
-		reason: "a Block",
-		noSkip: true,
-		src: `fn id(x: Int): Int {
-    x
-}
-
-test "a block operand in an assertion subject" {
-    assert id({
-        y = 2
-        y + 1
-    }) == 3
-}
-`,
-	},
-	{
-		name:   "gapCaseInAssertSubjectFn",
-		fix:    "builder: case in assert subject fn. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.inferredRegionValue | false | bl.recording > 0 && !bl.inTest#1",
-		reason: "a Case",
-		noSkip: true,
-		src: `import {
-    std/io
-    std/assertions.AssertionFailure
-}
-
-fn f(x: Int): Result<Bool, AssertionFailure> {
-    assert case x {
-        1 -> False
-        _ -> x > 0
-    }
-    Ok(True)
-}
-
-fn main() {
-    io.inspect(f(1))
-}
-`,
-	},
-	{
-		name:   "gapEmptyCaseInfallible",
-		fix:    "builder: empty case infallible. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.caseRegion | note | \"a tail `case` with no branches\"#1",
-		reason: "a tail `case` with no branches",
-		src: `import std/io
-
-fn unwrap(r: Result<Int, Infallible>): Int {
-    case r {
-        Ok(v) -> v
-        Err(e) -> case e {}
-    }
-}
-
-fn main() {
-    io.inspect(unwrap(Ok(1)))
-}
-`,
-	},
-	{
-		name:   "gapGuardWithInnerIf",
-		fix:    "builder: guard with inner if. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.guardReturn | false | !bl.leading(lead) ¦¦ bl.b != arm#1; irScalarBuilder.leading | note | \"a leading conditional outside a straight return guard\"#1",
-		reason: "a leading conditional outside a straight return guard",
-		src: `import std/io
-
-fn f(x: Int): Int {
-    if x > 0 {
-        if x > 5 {
-            io.print("big")
-        }
-        return 1
-    }
-    0
-}
-
-fn main() {
-    io.inspect(f(7))
-}
-`,
-	},
-	{
-		name:   "gapInterfaceInBlockBinding",
-		fix:    "builder: interface in block binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.blockBinding | note | irDeclineBodyWhy#1",
-		reason: "a leading statement form outside the shape: *ast.InterfaceDef",
-		src: `import std/io
-
-fn main() {
-    x = {
-        interface Foo {
-            fn foo(v: self): Int
-        }
-        1
-    }
-    io.inspect(x)
-}
-`,
-	},
-	{
-		name:   "gapInterfaceInBlockOperand",
-		fix:    "builder: interface in block operand. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.blockValue | note | irDeclineBodyWhy#1",
-		reason: "a leading statement form outside the shape: *ast.InterfaceDef",
-		src: `import std/io
-
-fn main() {
-    io.inspect({
-        interface Foo {
-            fn foo(v: self): Int
-        }
-        1
-    })
-}
-`,
-	},
-	{
-		name:   "gapInterfaceInFnBody",
-		fix:    "builder: interface in fn body. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.irScalarBlock | note | irDeclineBodyWhy#3; gen.irScalarBuild | note | irDeclineBodyWhy#1",
-		reason: "a leading statement form outside the shape: *ast.InterfaceDef",
-		src: `import std/io
-
-fn c(x: Int): Int {
-    interface Foo {
-        fn foo(v: self): Int
-    }
-    x
-}
-
-fn main() {
-    io.inspect(c(1))
-}
-`,
-	},
-	{
 		name:   "gapLambdaReturnEmptyListFirst",
 		fix:    "builder: lambda return empty list first. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.explicitReturn | false | !ok ¦¦ k != bl.returnKind#1",
 		reason: "a value of kind List<Int> where List<_> is expected",
@@ -277,20 +147,6 @@ fn main() {
 fn main() {
     x = 5 |> (dbg 1)
     io.inspect(x)
-}
-`,
-	},
-	{
-		name:   "gapTestRebindTest",
-		fix:    "builder: test rebind test. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.leading | note | \"a test-body rebind: \" + b.Name#1",
-		reason: "a test-body rebind: x",
-		src: `test "a name rebound inside a block in a test body" {
-    x = 1
-    z = {
-        x = x + 4
-        x
-    }
-    assert z == 5
 }
 `,
 	},
@@ -551,21 +407,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCLoopInAssertMain",
-		fix:    "builder: c loop in assert main. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterLoop | note | \"an Iter.loop inside a recorded assertion subject outside a test\"#1",
-		reason: "an Iter.loop inside a recorded assertion subject outside a test",
-		src: `import std/assertions.AssertionFailure
-
-fn main(): Result<Unit, AssertionFailure> {
-    assert Iter.loop(|n = 0| {
-        if n > 3 { break n }
-        n + 1
-    }) == 4
-    Ok(Unit)
-}
-`,
-	},
-	{
 		name:   "gapCLoopNamedCallback",
 		fix:    "builder: c loop named callback. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterLoop | note | \"an Iter.loop callback that is not a lambda literal of at most one parameter\"#1",
 		reason: "an Iter.loop callback that is not a lambda literal of at most one parameter",
@@ -786,28 +627,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapAssertPatternAnnotatedPipe",
-		fix:    "builder: assert pattern annotated pipe. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.assertDefinedAs | note | \"a defined-as block over a pipe binding\"#1",
-		reason: "a defined-as block over a pipe binding",
-		src: `test "assert pattern over an annotated pipe binding" {
-  xs: List<Int> = [1, 2] |> Iter.map(|x| x + 1) |> Iter.to_list()
-  assert [2, _] = xs
-}
-`,
-	},
-	{
-		name:   "gapAssertPatternRebind",
-		fix:    "builder: assert pattern rebind. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.patternAssert | note | \"an `assert pattern = value` that rebinds \" + name#1",
-		reason: "an `assert pattern = value` that rebinds x",
-		src: `test "assert pattern rebinds a name" {
-  x = 1
-  assert x == 1
-  assert Some(x) = Some(2)
-  assert x == 2
-}
-`,
-	},
-	{
 		name:   "gapAssertPatternStringPrefix",
 		fix:    "builder: assert pattern string prefix. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.patternAssert | note | \"an `assert pattern = value` pattern outside the retained case tests: \" + sk.nomi()#1",
 		reason: "an `assert pattern = value` pattern outside the retained case tests: String",
@@ -978,74 +797,6 @@ fn main() {
     _ -> 0
   }
   io.inspect(n)
-}
-`,
-	},
-	{
-		name:   "gapLoopElseBranchingStatement",
-		fix:    "builder: loop else branching statement. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopElsePath | note | \"an Iter.loop binding else whose statements branch\"#1",
-		reason: "an Iter.loop binding else whose statements branch",
-		src: `import std/iter.Iter.loop
-import std/io
-
-fn find(n: Int): Maybe<Int> {
-  if n > 3 { None } else { Some(n) }
-}
-
-fn main() {
-  r = loop(|n = 0| {
-    Some(v) = find(n) else {
-      if n > 10 { io.print("big") }
-      break n
-    }
-    v + 1
-  })
-  io.inspect(r)
-}
-`,
-	},
-	{
-		name:   "gapLoopElseFallbackIf",
-		fix:    "builder: loop else fallback if. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopElsePath | note | \"an Iter.loop binding else fallback outside a straight value of the payload kind\"#1",
-		reason: "an Iter.loop binding else fallback outside a straight value of the payload kind",
-		src: `import std/iter.Iter.loop
-import std/io
-
-fn find(n: Int): Maybe<Int> {
-  if n > 3 { None } else { Some(n) }
-}
-
-fn main() {
-  r = loop(|n = 0| {
-    Some(v) = find(n) else {
-      if n > 5 { 10 } else { 20 }
-    }
-    if v > 2 { break v }
-    n + 1
-  })
-  io.inspect(r)
-}
-`,
-	},
-	{
-		name:   "gapLoopElseIfBothBreak",
-		fix:    "builder: loop else if both break. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.loopElsePath | note | \"an Iter.loop binding else path that neither leaves nor falls back\"#1",
-		reason: "an Iter.loop binding else path that neither leaves nor falls back",
-		src: `import std/iter.Iter.loop
-import std/io
-
-fn find(n: Int): Maybe<Maybe<Int>> {
-  if n > 3 { None } else { Some(Some(n)) }
-}
-
-fn main() {
-  r = loop(|n = 0| {
-    Some(Some(v)) = find(n) else {
-      if n > 10 { break 1 } else { break 2 }
-    }
-    v + n + 1
-  })
-  io.inspect(r)
 }
 `,
 	},
@@ -1270,27 +1021,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapAssertTypeWitnessRow",
-		fix:    "builder: assert type witness row. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.assertionValue | note | \"an assertion row over a Type witness\"#1",
-		reason: "an assertion row over a Type witness",
-		src: `type TraceId String
-
-fn has(c: Context, t: Type<TraceId>): Bool {
-    Context.value(c, t) != None
-}
-
-fn witness(): Type<TraceId> {
-    TraceId
-}
-
-test "an assertion over a call taking a Type witness binding" {
-    c = Context.with_value(Context.root(), TraceId("x"))
-    t = witness()
-    assert has(c, t)
-}
-`,
-	},
-	{
 		name:   "gapChannelNamedArg",
 		fix:    "builder: channel named arg. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.channelCall | false | bl.rowsUnrecorded(t) ¦¦ namedArgNode(t.Args) != nil#1",
 		reason: "a named argument",
@@ -1302,21 +1032,6 @@ fn main() {
     ch = Channel.buffered<Int>(2)
     _ = Sender.send(sender: ch.sender, value: 1)
     io.inspect(Receiver.receive(ch.receiver))
-}
-`,
-	},
-	{
-		name:   "gapConcurrentInAssert",
-		fix:    "builder: concurrent in assert. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.concurrent | false | bl.recording > 0 ¦¦ t.Body == nil#1",
-		reason: "a ConcurrentBlock",
-		noSkip: true,
-		src: `import std/tasks.Task
-
-test "concurrent in an assertion subject" {
-    assert concurrent {
-        t = Task.spawn(|| 1)
-        Task.await(t)
-    } == 1
 }
 `,
 	},
@@ -1379,23 +1094,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapContextValueWitnessParamAssert",
-		fix:    "builder: context value witness param assert. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.contextValueCall | false | !ok ¦¦ !irTypeWitnessKind(k) ¦¦ bl.recording > 0#1",
-		reason: "qualified call, Type.method: Context.value",
-		noSkip: true,
-		src: `type TraceId String
-
-fn witness(): Type<TraceId> {
-    TraceId
-}
-
-test "a Type binding witness in an assertion subject" {
-    t = witness()
-    assert Context.value(Context.root(), t) == None
-}
-`,
-	},
-	{
 		name:   "gapDeferLambda",
 		fix:    "builder: defer lambda. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.deferCall | note | \"a defer inside a lambda\"#1",
 		reason: "a defer inside a lambda",
@@ -1430,80 +1128,6 @@ fn main() {
         if n == 2 { break n }
         n + 1
     })
-}
-`,
-	},
-	{
-		name:   "gapDeferTest",
-		fix:    "builder: defer test. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.deferCall | note | \"a defer in a test-body arm\"#1",
-		reason: "a defer in a test-body arm",
-		src: `import std/io
-
-fn close(name: String): Unit {
-    io.print("close " + name)
-}
-
-fn id(n: Int): Int {
-    n
-}
-
-test "defer in a test" {
-    defer close("t")
-    assert id(1) == 1
-}
-
-test "defer in a test arm" {
-    if id(1) == 1 {
-        defer close("arm")
-        assert id(1) == 1
-    } else {
-        assert id(2) == 2
-    }
-}
-`,
-	},
-	{
-		name:   "gapScopedBlockInAssertArm",
-		fix:    "builder: scoped block in assert arm. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.scopedBlock | note | \"a scoped block inside an assertion subject\"#1",
-		reason: "a scoped block inside an assertion subject",
-		src: `import std/io
-
-fn id(n: Int): Int {
-    n
-}
-
-test "a block statement in an assertion's if arm" {
-    assert if id(1) == 1 {
-        {
-            io.print("inner")
-        }
-        True
-    } else {
-        False
-    }
-}
-`,
-	},
-	{
-		name:   "gapSetupLeavingBinding",
-		fix:    "builder: setup leaving binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testLeaving | false | bl.setupExit != nil ¦¦ bl.recording > 0#1; irScalarBuilder.testStmts | note | \"a test-body region that leaves, outside the shape\"#1",
-		reason: "a test-body region that leaves, outside the shape",
-		src: `fn id(n: Int): Int {
-    n
-}
-
-group "a setup binding whose every arm returns" {
-    setup {
-        v = case id(1) {
-            1 -> return 5
-            _ -> return 6
-        }
-        v
-    }
-
-    test "v", v {
-        assert v == 5
-    }
 }
 `,
 	},
@@ -1686,21 +1310,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapTestAssertionBindingRebind",
-		fix:    "builder: test assertion binding rebind. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testAssertionBinding | note | \"a test-body binding that shadows or rebinds: \" + b.Name#1",
-		reason: "a test-body binding that shadows or rebinds: v",
-		src: `fn double(n: Int): Int {
-    n * 2
-}
-
-test "an assertion binding that rebinds a name" {
-    v = 1
-    v = assert double(v) == 2
-    assert v
-}
-`,
-	},
-	{
 		name:   "gapTestImportRebind",
 		fix:    "builder: test import rebind. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testImport/no | note | \"an `import` in a block that rebinds a name the module scope binds differently\"#1",
 		reason: "an `import` in a block that rebinds a name the module scope binds differently",
@@ -1717,75 +1326,6 @@ fn main() {
 test "a block import that rebinds a module-level name" {
     import std/duration.Duration
     assert Duration.seconds(1) == Duration.milliseconds(1000)
-}
-`,
-	},
-	{
-		name:   "gapTestLocalImpl",
-		fix:    "builder: test local impl. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testStmt | note | fmt.Sprintf(\"a test-body statement form: %T\", s)#1",
-		reason: "a test-body statement form: *ast.ImplBlock",
-		src: `test "a local impl in a test body" {
-    struct Q {
-        a: Int
-    }
-    impl Display for Q {
-        fn to_string(_q: Q): String {
-            "q"
-        }
-    }
-    assert Q{a: 1}.a == 1
-}
-`,
-	},
-	{
-		name:   "gapTestPipeBindingNestedPipe",
-		fix:    "builder: test pipe binding nested pipe. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testPipeStages | note | \"a defined-as block over a pipe whose stages are not its spine\"#1",
-		reason: "a defined-as block over a pipe whose stages are not its spine",
-		src: `fn double(n: Int): Int {
-    n * 2
-}
-
-test "a pipe binding whose stage holds a pipe" {
-    ok = [1, 2] |> Iter.any?(|x: Int| x |> double() > 2)
-    assert ok
-}
-`,
-	},
-	{
-		name:   "gapTestingCheckNestedPipe",
-		fix:    "builder: testing check nested pipe. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testingCheck | note | \"a testing.check over a pipe whose stages are not its spine\"#1",
-		reason: "a testing.check over a pipe whose stages are not its spine",
-		src: `import std/testing
-
-fn double(n: Int): Int {
-    n * 2
-}
-
-test "testing.check over a pipe whose stage holds a pipe" {
-    assert testing.check([1, 2] |> Iter.any?(|x: Int| x |> double() > 2))
-}
-`,
-	},
-	{
-		name:   "gapTestingCheckTypeWitnessRow",
-		fix:    "builder: testing check type witness row. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.testingCheck | note | \"a testing.check row over a Type witness\"#1",
-		reason: "a testing.check row over a Type witness",
-		src: `import std/testing
-
-type TraceId String
-
-fn has(c: Context, t: Type<TraceId>): Bool {
-    Context.value(c, t) != None
-}
-
-fn witness(): Type<TraceId> {
-    TraceId
-}
-
-test "a testing.check over a call taking a Type witness binding" {
-    c = Context.with_value(Context.root(), TraceId("x"))
-    t = witness()
-    assert testing.check(has(c, t))
 }
 `,
 	},
@@ -1808,41 +1348,6 @@ fn main() {
 }
 // FILE: domain.nomi
 pub type Token Int
-`,
-	},
-	{
-		name:   "gapWithInAssertArm",
-		fix:    "builder: with in assert arm. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.withStmt | note | \"a `with` inside an assertion subject\"#1",
-		reason: "a `with` inside an assertion subject",
-		src: `struct App {
-    context: Context
-    label: String
-}
-
-fn boot(): App {
-    App{context: Context.root(), label: "base"}
-}
-
-fn label(): String {
-    App.label
-}
-
-fn main() {
-    _ = label()
-}
-
-group "g" {
-    boot boot()
-
-    test "a with in an assertion's if arm" {
-        assert if label() == "base" {
-            with App.label = "arm"
-            label() == "arm"
-        } else {
-            False
-        }
-    }
-}
 `,
 	},
 	{
@@ -2682,26 +2187,6 @@ fn main() {
     f = stop
     ys = [1, 2, 3] |> Iter.map(f) |> Iter.to_list()
     io.inspect(ys)
-}
-`,
-	},
-	{
-		name:   "gapLambdaBlockLocalDerive",
-		fix:    "builder: lambda block local derive. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.lambdaFunction | false | body == nil#1; irScalarBuilder.lambdaFunction/no | note | why#1",
-		reason: "a lambda body that is not a block ending in an expression",
-		src: `import std/io
-
-fn main() {
-    f = |x: Int| {
-        struct Q {
-            v: Int
-        }
-        derive Debug for Q
-        q = Q{v: x}
-        io.inspect(q)
-        q.v
-    }
-    io.print(f(1))
 }
 `,
 	},

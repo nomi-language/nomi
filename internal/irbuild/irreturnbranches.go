@@ -50,7 +50,7 @@ func (bl *irScalarBuilder) returnBranch(arm *ir.Block, body *ast.Block, ret *ast
 	// The arm ends in `return`, which leaves the activation and so restores
 	// what a `with` in it replaced.
 	bl.openWithScope(true)
-	if !bl.leading(lead) || bl.b != arm {
+	if !bl.leading(lead) {
 		return kindInvalid, false
 	}
 	return bl.explicitReturn(ret)

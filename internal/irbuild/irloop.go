@@ -128,17 +128,12 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	}
 	// The loop's blocks go into the builder's own function, whatever body
 	// that function is: a named function, a test, a `once` initializer, a
-	// boot, a default accessor, or a lambda nested in any of them. Inside an
-	// assertion subject only a test body records the loop as one row.
-	root := bl
-	for root.parent != nil {
-		root = root.parent
-	}
-	if (bl.recording > 0 && !root.inTest) || !bl.g.iterOwns("Iter") {
-		return no("an Iter.loop inside a recorded assertion subject outside a test")
+	// boot, a default accessor, or a lambda nested in any of them.
+	if !bl.g.iterOwns("Iter") {
+		return no("an Iter.loop with std/iter not loaded")
 	}
 	if bl.recording > 0 {
-		// Inside a VM-only assertion subject the loop is one row, the
+		// Inside an assertion subject the loop is one row, the
 		// answer the enclosing operand records; the callback's seed and body
 		// record nothing, as nothing is recorded inside a lambda.
 		saved := bl.recording

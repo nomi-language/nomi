@@ -14804,6 +14804,11 @@ func (c *checker) checkCaseWithScrutineeType(n *ast.Case, scrutineeTy Type, expe
 			c.settleTodo(branch.Body, resultTy)
 		}
 	}
+	if len(n.Branches) == 0 {
+		// `case e {}` over a type with no values: no arm runs and no value
+		// is produced, so it is the bottom type, as `todo` is.
+		resultTy = TypeInfallible
+	}
 	c.registerControlFlowHover(n.Line, n.Col, "case", scrutineeTy, resultTy, scrutineeTy != nil, false)
 	return resultTy
 }

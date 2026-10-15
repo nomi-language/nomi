@@ -1,0 +1,312 @@
+// Statements nested below a body's first statement list: a guard's body, an
+// arm block, a block operand, a binding's else, an assertion subject, and a
+// test body's nested blocks and setups. Each runs as it would at the top.
+import {
+    std/assertions.AssertionFailure
+    std/io
+    std/iter.Iter.loop
+    std/tasks.Task
+    std/testing
+}
+
+type TraceId String
+
+fn id(n: Int): Int {
+    n
+}
+
+fn double(n: Int): Int {
+    n * 2
+}
+
+// A guard whose body branches before its `return`.
+fn guarded(x: Int): Int {
+    if x > 0 {
+        if x > 5 { io.print("big") }
+
+        y = case x {
+            7 -> 70
+            _ -> 0
+        }
+
+        if y > 100 { return 2 }
+        return y + 1
+    }
+
+    0
+}
+
+// Both arms return after statements that branch.
+fn returning_arms(x: Int): Int {
+    if x > 0 {
+        case x {
+            1 -> io.print("one")
+            _ -> io.print("more")
+        }
+
+        1
+    } else {
+        if x < -5 { io.print("very negative") }
+        2
+    }
+}
+
+fn find(n: Int): Maybe<Int> {
+    if n > 3 { None } else { Some(n) }
+}
+
+fn find_nested(n: Int): Maybe<Maybe<Int>> {
+    if n > 3 { None } else { Some(Some(n)) }
+}
+
+// An Iter.loop binding else whose statements branch before it leaves.
+fn loop_else_branches(): Int {
+    loop(|n = 0| {
+        Some(v) = find(n) else {
+            if n > 10 { io.print("big") }
+            break n
+        }
+
+        v + 1
+    })
+}
+
+// An Iter.loop binding else whose fallback is an `if`.
+fn loop_else_fallback(): Int {
+    loop(|n = 0| {
+        Some(v) = find(n) else {
+            if n > 5 { 10 } else { 20 }
+        }
+
+        if v > 2 { break v }
+        n + 1
+    })
+}
+
+// An Iter.loop binding else that ends in an `if` whose arms both break.
+fn loop_else_both_break(): Int {
+    loop(|n = 0| {
+        Some(Some(v)) = find_nested(n) else {
+            if n > 10 { break 1 } else { break 2 }
+        }
+
+        v + n + 1
+    })
+}
+
+fn unwrap(r: Result<Int, Infallible>): Int {
+    case r {
+        Ok(v) ->
+            v
+
+        Err(e) ->
+            case e {
+            }
+    }
+}
+
+fn with_local_interface(x: Int): Int {
+    interface Sized {
+        fn size(v: self): Int
+    }
+
+    y = {
+        interface Named {
+            fn name(v: self): String
+        }
+
+        x + 1
+    }
+
+    if y > 0 {
+        interface Ranked {
+            fn rank(v: self): Int
+        }
+
+        y * 2
+    } else {
+        0
+    }
+}
+
+fn case_subject(x: Int): Result<Bool, AssertionFailure> {
+    assert case x {
+        1 -> False
+        _ -> x > 0
+    }
+
+    Ok(True)
+}
+
+fn loop_subject(limit: Int): Result<Unit, AssertionFailure> {
+    assert loop(|n = 0| {
+        if n > limit { break n }
+        n + 1
+    }) == 4
+
+    Ok(Unit)
+}
+
+fn has(c: Context, t: Type<TraceId>): Bool {
+    Context.value(c, t) != None
+}
+
+fn witness(): Type<TraceId> {
+    TraceId
+}
+
+test "a guard's body may branch before it returns" {
+    assert guarded(7) == 71
+    assert guarded(3) == 1
+    assert guarded(-1) == 0
+    assert returning_arms(1) == 1
+    assert returning_arms(-9) == 2
+}
+
+test "an Iter.loop binding else may branch" {
+    assert loop_else_branches() == 4
+    assert loop_else_fallback() == 3
+    assert loop_else_both_break() == 2
+}
+
+test "an empty case over Infallible is never reached" {
+    assert unwrap(Ok(1)) == 1
+}
+
+test "a block may declare an interface" {
+    assert with_local_interface(3) == 8
+}
+
+test "regions and blocks inside an assertion subject" {
+    assert id(
+        {
+            y = 2
+            y + 1
+        }
+    ) == 3
+
+    assert if id(1) == 1 {
+        { io.print("inner") }
+        True
+    } else {
+        False
+    }
+
+    assert concurrent {
+        t = Task.spawn(|| 1)
+        Task.await(t)
+    } == 1
+
+    assert loop_subject(3) == Ok(Unit)
+}
+
+test "a case subject in a function reports its rows" {
+    assert Err(failure) = case_subject(1)
+
+    assert AssertionFailure.format(failure) == """
+        line 133: assertion failed
+          assert case x {
+              1 -> False
+              _ -> x > 0
+          }
+          values:
+            x
+              = 1
+        """
+}
+
+test "a Type witness is a row" {
+    c = Context.with_value(Context.root(), TraceId("x"))
+    t = witness()
+    assert has(c, t)
+    assert Context.value(Context.root(), t) == None
+    assert Err(failure) = testing.check(has(Context.root(), t))
+
+    assert AssertionFailure.format(failure) == """
+        line 223: check failed
+          check has(Context.root(), t)
+          values:
+            Context.root()
+              = <context>
+            t
+              = Type
+        """
+}
+
+test "a nested block may rebind a name, and the outer one keeps its definition" {
+    ok = id(1) == 2
+
+    z = {
+        ok = id(2) == 2
+        assert ok
+        ok
+    }
+
+    assert z
+    assert Err(failure) = testing.check(ok)
+
+    assert AssertionFailure.format(failure) == """
+        line 246: check failed
+          check ok
+          defined as:
+            id(1) == 2
+        """
+}
+
+test "an assertion binding and a pattern may rebind a name" {
+    v = id(1) == 1
+    v = assert v
+    assert v
+    x = Some(1)
+    assert Some(x) = x
+    assert x == 1
+}
+
+test "a pipe binding whose stage holds a pipe records its spine" {
+    ok = [1, 2] |> Iter.any?(|x: Int| x |> double() > 10)
+    assert Err(failure) = testing.check(ok)
+
+    assert AssertionFailure.format(failure) == """
+        line 267: check failed
+          check ok
+          defined as:
+            [1, 2] |> Iter.any?(|x: Int| x |> double() > 10)
+          pipeline values:
+            [1, 2]
+              = [1, 2]
+            [1, 2] |> Iter.any?(|x: Int| x |> double() > 10)
+              = False
+        """
+}
+
+test "an annotated pipe binding" {
+    xs: List<Int> = [1, 2] |> Iter.map(|x| x + 1) |> Iter.to_list()
+    assert [2, _] = xs
+}
+
+test "a defer in a test arm runs at the arm's end" {
+    if id(1) == 1 {
+        defer io.print("arm done")
+        assert id(2) == 2
+        io.print("arm")
+    } else {
+        io.print("other")
+    }
+
+    io.print("after")
+}
+
+group "a setup binding whose every arm returns" {
+    setup {
+        v = case id(1) {
+            1 -> return 5
+            _ -> return 6
+        }
+
+        v
+    }
+
+    test "the setup's value is the returned one", v {
+        assert v == 5
+    }
+}

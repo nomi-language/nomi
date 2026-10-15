@@ -369,7 +369,7 @@ fn classify_all(xs: List<Int>): List<Int> {
     xs |> Iter.map(classify) |> Iter.to_list()
 }
   ```
-- A `struct`, `enum`, `type`, `typealias` or `interface` may also be declared inside a function body, scoped as a nested `fn` is. Its name is a type in every annotation in that block and its inner blocks: a binding's (`m: Meters = Meters(3)`), a lambda parameter's and its default's, a function type, and a type argument (`ident<Meters>(m)`).
+- A `struct`, `enum`, `type`, `typealias` or `interface` may also be declared inside a function body, scoped as a nested `fn` is. Its name is a type in every annotation in that block and its inner blocks: a binding's (`m: Meters = Meters(3)`), a lambda parameter's and its default's, a function type, and a type argument (`ident<Meters>(m)`). An `impl` block or a `derive` declaration may not: behavior is declared at module top level, and one inside a body is the error `` an `impl` block must appear at module top-level, not inside a body `` (or `` a `derive` declaration ... ``).
 
 ### Default Arguments
 

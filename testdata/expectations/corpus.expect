@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 281
-declared-cases 897
+records 283
+declared-cases 913
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1155,6 +1155,32 @@ T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a nes
 T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a recursive nested fn with try
 T test result: ok. 4 passed, 0 failed
 T
+C 09-functions-and-control-flow/nested_statements_test.nomi
+E 0
+N 13
+H 14a5e7171aee32372057bf559481e4a06eae4299f855c9b740c16816ffe08d9f
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a guard's body may branch before it returns
+T   big
+T   one
+T   very negative
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an Iter.loop binding else may branch
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an empty case over Infallible is never reached
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a block may declare an interface
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: regions and blocks inside an assertion subject
+T   inner
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a case subject in a function reports its rows
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a Type witness is a row
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a nested block may rebind a name, and the outer one keeps its definition
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an assertion binding and a pattern may rebind a name
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a pipe binding whose stage holds a pipe records its spine
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: an annotated pipe binding
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a defer in a test arm runs at the arm's end
+T   arm
+T   arm done
+T   after
+T ok <root>/tests/09-functions-and-control-flow/nested_statements_test.nomi :: a setup binding whose every arm returns / the setup's value is the returned one
+T test result: ok. 13 passed, 0 failed
+T
 C 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi
 E 0
 N 3
@@ -1308,6 +1334,14 @@ T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: type 
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: map distinct wrappers support literal attach and destructuring
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: tuple distinct wrappers support literal attach and destructuring
 T test result: ok. 4 passed, 0 failed
+T
+C 11-interfaces-and-impls/block_impl_diagnostics_test.nomi
+E 0
+N 2
+H 706d16cd65b39d135fe03375fd3e2fd411cc5888c67cad2f4f671848617c7cb8
+T ok <root>/tests/11-interfaces-and-impls/block_impl_diagnostics_test.nomi :: an impl block inside a test body is rejected
+T ok <root>/tests/11-interfaces-and-impls/block_impl_diagnostics_test.nomi :: a derive inside a lambda body is rejected
+T test result: ok. 2 passed, 0 failed
 T
 C 11-interfaces-and-impls/impl_blocks_test.nomi
 E 0
@@ -2429,13 +2463,14 @@ T base
 T
 C 15-app-and-defer/with_overrides/with_overrides_test.nomi
 E 0
-N 4
-H cff594e117a44a75b05decf92b8fe32dcc792fc9d628f346a61ce5d1916d0f29
+N 5
+H 614c8ffea68a0ea84ad66e66ba77ff067908457c204057c6c1662608ce93f054
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a .Variant value takes the field's enum
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a later with line sees the overrides above it
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a closure reads the fields in force when it is called
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in a branch ends with the branch
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in an assertion subject's arm ends with the arm
+T test result: ok. 5 passed, 0 failed
 T
 C 16-concurrency/concurrent_diagnostics/concurrent_diagnostics_test.nomi
 E 0
