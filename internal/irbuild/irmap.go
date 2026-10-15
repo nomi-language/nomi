@@ -122,8 +122,8 @@ func irMapValueKind(k kind) bool {
 		irHeldValueKind(k)
 }
 
-// irHeldValueKind is a function value, or a List or Vector of any value the
-// callable domain holds (`(Int) -> Int`, `group_by`'s `List<(Int) -> Int>`
+// irHeldValueKind is a function value, an Iter, a map of such values, or a
+// List or Vector of any value the callable domain holds (`(Int) -> Int`, `group_by`'s `List<(Int) -> Int>`
 // groups), as a container's element or a map's value. The VM's containers
 // hold values of every kind, and nothing a container does with an element
 // it only carries looks at one: the checker rejects `==` over functions,
@@ -131,6 +131,16 @@ func irMapValueKind(k kind) bool {
 func irHeldValueKind(k kind) bool {
 	if k.tag == tagFunc {
 		return irCallableValueKind(k)
+	}
+	if irRetainedSeqKind(k) {
+		// An Iter, held as the closure over its source (`Map<String,
+		// Iter<Int>>`), as a binding or a field holds one.
+		return true
+	}
+	if k.tag == tagMap && k != kindEmptyMap && irRetainedMapKind(k) {
+		// A map of held values (`Map<String, Map<String, Iter<Int>>>`),
+		// which has no equality to be a key with.
+		return true
 	}
 	if k == kindEmptyList || k == kindEmptyVector {
 		return false

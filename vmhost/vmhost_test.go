@@ -45,7 +45,7 @@ test "fails" {
 }
 
 struct Node {
-  f: Map<String, Iter<Int>>
+  f: Map<String, {a: Iter<Int>}>
 }
 
 fn weigh(_d: Node): Int {
