@@ -721,6 +721,10 @@ type gen struct {
 	// them by (interface spelling, receiver kind) for dispatch.
 	implOrder    []*implDef
 	implsByIface map[string]map[kind]*implDef
+	// erasedInstances are the generic struct instances this unit holds as
+	// an interface's existential (irErases), whose per-instance impls
+	// irInstanceImpls records for the VM's dispatch.
+	erasedInstances map[kind]bool
 	// ownerImpls is the owner functions of each inherent block on a generic
 	// type or an interface, by the owner's name: the functions whose
 	// signature names none of the block's type parameters, built once with

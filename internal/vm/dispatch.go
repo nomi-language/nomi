@@ -95,7 +95,7 @@ func (m *Machine) displayErased(fr *frame, v any) (string, error) {
 	case *rt.Record:
 		switch x.Desc.Kind {
 		case rt.KindStruct, rt.KindEnum, rt.KindDistinct:
-			sym := m.displays[x.Desc.Name]
+			sym := implOf(m.displays, x)
 			if sym == nil {
 				break
 			}
@@ -132,7 +132,7 @@ func (m *Machine) displayStructural(fr *frame, v any) (string, error) {
 			return ""
 		}
 		if r, ok := x.(*rt.Record); ok {
-			if sym := m.displays[r.Desc.Name]; sym != nil {
+			if sym := implOf(m.displays, r); sym != nil {
 				s, err := m.displayErased(fr, x)
 				if err != nil {
 					failed = err
@@ -146,11 +146,29 @@ func (m *Machine) displayStructural(fr *frame, v any) (string, error) {
 	return s, failed
 }
 
+// implOf is the body a table of impls keyed by type name holds for record
+// r: an instance of a generic type's own body, recorded under its instance
+// key (rt.TypeDesc.Inst, `main.Box<Int>`), else its declaration's.
+func implOf(byType map[string]*ir.Symbol, r *rt.Record) *ir.Symbol {
+	if r.Desc.Inst != "" {
+		if sym := byType[r.Desc.Inst]; sym != nil {
+			return sym
+		}
+	}
+	return byType[r.Desc.Name]
+}
+
 // dispatchTarget selects a dispatched call's body by the declared type of its
 // receiver operand.
 func (m *Machine) dispatchTarget(fr *frame, n *ir.Call, args []any) (*ir.Func, error) {
-	typ := runtimeTypeName(args[n.KeyAt()])
-	impl := m.dispatch[n.Callee()][typ]
+	recv := args[n.KeyAt()]
+	typ := runtimeTypeName(recv)
+	var impl *ir.Symbol
+	if r, isRecord := recv.(*rt.Record); isRecord && r != nil {
+		impl = implOf(m.dispatch[n.Callee()], r)
+	} else {
+		impl = m.dispatch[n.Callee()][typ]
+	}
 	if impl == nil {
 		return nil, fmt.Errorf("vm: %s: %s dispatches on %s, and this program's modules did not "+
 			"retain an implementation for it", fr.fn.Name(), n.Callee().Name(), typ)
