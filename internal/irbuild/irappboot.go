@@ -570,7 +570,10 @@ func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 		irDeclineNote("an app-field write of an unretained field")
 		return false
 	}
-	val, vk, _, ok := bl.lower(w.Value)
+	val, vk, _, ok := bl.lowerTypedOperand(w.Value, k)
+	if ok && vk != k && !bl.g.irErases(k, vk) {
+		irDeclineNote("an app-field write of kind " + vk.nomi() + " where " + k.nomi() + " is the field's")
+	}
 	if !ok || (vk != k && !bl.g.irErases(k, vk)) {
 		return false
 	}

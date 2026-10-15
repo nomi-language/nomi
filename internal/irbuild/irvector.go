@@ -143,6 +143,7 @@ func (bl *irScalarBuilder) lowerSameKindItems(at ast.Node, of tag, items []ast.N
 	// kindInvalid: sentinel — no element kind is given.
 	if want != kindInvalid {
 		if !accept(want) {
+			irDeclineNote("a literal whose element kind is outside its collection's domain: " + want.nomi())
 			return nil, kindInvalid, false
 		}
 		for i, item := range items {
