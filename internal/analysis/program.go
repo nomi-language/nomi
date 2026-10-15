@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"sort"
+	"sync"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -84,6 +85,17 @@ type Program struct {
 	// decide about the program, and only that: no file's analysis records
 	// it. Those checks write it; nothing else does.
 	results *programResults
+
+	// demands is FinalizeCoherence's cache of what each file demands and
+	// the diagnostics the demands draw, which it keeps up to date as files'
+	// bodies are rebuilt (programDemands), and entryDemands the language
+	// server's for its entry document (Program.entryCoherence). implUses
+	// is CheckImplImports' kept the same way (checkImplImportsKept).
+	// demandsMu guards the three.
+	demandsMu    sync.Mutex
+	demands      *programDemands
+	entryDemands *programDemands
+	implUses     *keptImplUses
 
 	// stdBase is the stdlib's share of the program's facts when the program
 	// takes it from a base rather than from its stdlib files (StdBase): its

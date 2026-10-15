@@ -133,6 +133,43 @@ func UnionDemandsForTest(files []*FileAnalysis) map[string]map[string][]Recordin
 	return unionDemands(files)
 }
 
+// KeepStaleDemandsForTest runs f with FinalizeCoherence's cache keeping
+// each file's part after the file's bodies are rebuilt (staleDemands).
+func KeepStaleDemandsForTest(f func()) {
+	staleDemands.Store(true)
+	defer staleDemands.Store(false)
+	f()
+}
+
+// KeptImplImportsForTest answers the unused whole-file imports of p's files
+// as the program's kept uses find them (checkImplImportsKept), and as
+// CheckImplImports finds them from scratch.
+func KeptImplImportsForTest(p *CheckedProgram) (kept, fresh map[*FileAnalysis][]TypeError) {
+	program := p.checks.program
+	kept = p.Files[p.Entry].Program().checkImplImportsKept(program)
+	return kept, CheckImplImports(program)
+}
+
+// KeptCoherenceForTest answers, for p's entry program, what the cached
+// coherence checks answer (FinalizeCoherence and the entry document's
+// entryCoherence) and the same checks worked out from scratch by
+// MissingImpls: over every file's demands, and over the entry's with only
+// the declarations' demands of the other files a project build kept.
+func KeptCoherenceForTest(p *CheckedProgram) (kept, fresh, keptEntry, freshEntry []TypeError) {
+	entry := p.Files[p.Entry]
+	prog := entry.Program()
+	var demanders []*FileAnalysis
+	for _, f := range prog.Files() {
+		if f != entry && f.kept != nil {
+			decls := *f
+			decls.ImplManifest = f.kept.manifest
+			f = &decls
+		}
+		demanders = append(demanders, f)
+	}
+	return FinalizeCoherence(entry), MissingImpls(prog, prog.Files()), entryCoherence(p), MissingImpls(prog, demanders)
+}
+
 // ProgramDemandsForTest answers the union of every ImplManifest of fa's
 // program, each file's own, bucket by bucket.
 func ProgramDemandsForTest(fa *FileAnalysis) map[string]map[string][]Recording {

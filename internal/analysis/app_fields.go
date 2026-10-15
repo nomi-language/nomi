@@ -231,14 +231,22 @@ func (s appReadSite) where() string {
 // between two files' CheckTypes. Then what it reports does not depend on the
 // order the files were checked in.
 func CheckAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
-	errs := checkAppRoots(fa, nodes)
-	// A boot's signature and placement are checked once per project build,
-	// and reported with the file that declares the boot.
-	return append(errs, fa.BootErrors...)
+	errs, _ := checkAppRootsOf(fa, nodes)
+	return errs
 }
 
-func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
-	var errors []TypeError
+// checkAppRootsOf is CheckAppRoots, and reports whether the file has a root
+// whose reads it followed. A file with none reads nothing of another file's
+// bodies: its errors are the calls of an entry boot its own references make
+// and its boot errors, so they change only when its own bodies do.
+func checkAppRootsOf(fa *FileAnalysis, nodes []ast.Node) ([]TypeError, bool) {
+	errs, rooted := checkAppRoots(fa, nodes)
+	// A boot's signature and placement are checked once per project build,
+	// and reported with the file that declares the boot.
+	return append(errs, fa.BootErrors...), rooted
+}
+
+func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) (errors []TypeError, rooted bool) {
 	// The one place an entry boot may be called: a group's `boot` line.
 	bootLines := map[Pos]bool{}
 	for _, n := range nodes {
@@ -261,7 +269,7 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	// Every other error names an application-field read, and a program with
 	// no application type has none to find.
 	if len(fa.Program().AppTypes) == 0 || fa.Program().ContextType == nil {
-		return errors
+		return errors, false
 	}
 	w := newAppReadWalker(fa)
 	reported := map[string]bool{}
@@ -298,6 +306,7 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	// program"); anchorLine/anchorCol is where an error goes when there is no
 	// boot to blame.
 	check := func(sites []appReadSite, frame bootFrame, subject string, anchorLine, anchorCol int) {
+		rooted = true
 		if len(sites) == 0 {
 			return
 		}
@@ -324,6 +333,7 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	// beforeBoot checks code that runs before any application field is
 	// published: a boot body, or a group `boot` line's argument.
 	beforeBoot := func(body ast.Node, line, col int) {
+		rooted = true
 		sites := w.reachable(fa, body)
 		if len(sites) == 0 {
 			return
@@ -392,7 +402,7 @@ func checkAppRoots(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		}
 	}
 	roots(nodes)
-	return errors
+	return errors, rooted
 }
 
 // typeLabel names a boot's result type in a diagnostic.

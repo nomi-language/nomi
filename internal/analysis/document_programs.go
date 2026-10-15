@@ -391,19 +391,13 @@ func (dm *DocumentManager) documentBuild(p *CheckedProgram, key, content, manife
 // their declarations (a derive's), as before programs were kept, when the
 // other files' bodies were not checked for the entry's analysis. A demand a
 // body of another file makes is reported with that file.
+//
+// Every other file kept by the project build contributes its declarations'
+// demands (keptDecls.manifest). The program keeps each file's part, so a
+// call after a recheck rebuilt some files' bodies reads only those again.
 func entryCoherence(p *CheckedProgram) []TypeError {
 	entry := p.Files[p.Entry]
-	prog := entry.Program()
-	var demanders []*FileAnalysis
-	for _, f := range prog.Files() {
-		if f != entry && f.kept != nil {
-			decls := *f
-			decls.ImplManifest = f.kept.manifest
-			f = &decls
-		}
-		demanders = append(demanders, f)
-	}
-	return MissingImpls(prog, demanders)
+	return entry.Program().entryCoherence(entry)
 }
 
 // entryProgramOf is the EntryProgram of p's entry, or nil when it is not
