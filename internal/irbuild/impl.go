@@ -926,11 +926,18 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 // orphan rule as long as the interface is local, and it is precisely the case a
 // Go method could not express.
 func (g *gen) receiverKind(te ast.TypeExpr) (kind, bool) {
-	st, ok := te.(*ast.SimpleType)
-	if !ok {
+	switch q := te.(type) {
+	case *ast.SimpleType:
+	case *ast.QualifiedType:
+		// `impl Display for lib.Dog`: another file's type, which this file
+		// may give an impl of an interface it declares or std declares.
+		if _, simple := q.Member.(*ast.SimpleType); !simple {
+			return kindInvalid, false
+		}
+	default:
 		return kindInvalid, false
 	}
-	k := g.typeOf(st)
+	k := g.typeOf(te)
 	// kindInvalid: reports — returns false; registerImpl rejects `impl for an unlowered type`.
 	if k == kindInvalid || k.tag == tagIface {
 		return kindInvalid, false

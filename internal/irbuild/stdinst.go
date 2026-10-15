@@ -935,13 +935,17 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 				// type no std module's scope names, so the call is the
 				// bound interface's at that receiver, which stdIfacePlan
 				// selects by the receiver's kind.
-				call := *t
-				call.TypeArgs = nil
-				call.Func = &ast.FieldAccess{Object: &ast.TypeIdent{Name: iface, Line: fa.Line, Col: fa.Col},
-					Field: fa.Field, Line: fa.Line, Col: fa.Col}
-				v, rk, mobile, ok := bl.lower(&call)
+				v, rk, mobile, ok := bl.lower(ifaceQualified(t, fa, iface))
 				return v, rk, mobile, ok, true
 			}
+		}
+		if iface := bl.boundCallIface(fa); iface != "" {
+			// `T.to_string(x)` at a tuple or record: a type with no owner
+			// to spell the call by, so it is the bound interface's
+			// (`Display.to_string(x)`), which renders or dispatches by the
+			// argument's kind.
+			v, rk, mobile, ok := bl.lower(ifaceQualified(t, fa, iface))
+			return v, rk, mobile, ok, true
 		}
 		return no()
 	}
@@ -1030,11 +1034,48 @@ func (bl *irScalarBuilder) kindImplCall(t *ast.Call, k kind, method string) (ir.
 		}
 	} else {
 		plan = bl.qualSiblingImplPlanFor(t, args, k.def, method)
+		if plan == nil {
+			// The impl is not beside the type: `impl Display for
+			// lib.Dog` in the file that calls `T.to_string`. The bound
+			// interface's call finds it, as `Display.to_string(d)` does.
+			if fa, qualified := t.Func.(*ast.FieldAccess); qualified {
+				if iface := bl.boundCallIface(fa); iface != "" {
+					plan = bl.qualImplPlan(t, args, iface, method)
+				}
+			}
+		}
 	}
 	if plan == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	return bl.qualEmit(t, args, plan)
+}
+
+// boundCallIface is the interface the checker resolved a bounded
+// `T.method` call to (`Display` for `T.to_string` under `T: Display`), or ""
+// when the call is not an interface function's.
+func (bl *irScalarBuilder) boundCallIface(fa *ast.FieldAccess) string {
+	if bl.g.fa == nil || fa.Field == nil {
+		return ""
+	}
+	sym := bl.g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil || sym.Kind != analysis.SymbolInterfaceMethod {
+		return ""
+	}
+	return sym.OwningInterface
+}
+
+// ifaceQualified is the call t spelled through iface: `Display.to_string(x)`
+// for `T.to_string(x)`.
+func ifaceQualified(t *ast.Call, fa *ast.FieldAccess, iface string) *ast.Call {
+	call := *t
+	call.TypeArgs = nil
+	call.Func = &ast.FieldAccess{Object: &ast.TypeIdent{Name: iface, Line: fa.Line, Col: fa.Col},
+		Field: fa.Field, Line: fa.Line, Col: fa.Col}
+	return &call
 }
 
 // callerKindIface is the one interface whose impl for k, among the program's

@@ -2668,52 +2668,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapGenericBoundCallAtTuple",
-		fix:    "builder: generic bound call at tuple. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.qualCallLowered | false | bound#1",
-		reason: "qualified call, Type.method: T.to_string",
-		noSkip: true,
-		src: `import std/io
-
-fn txt<T>(x: T): String where T: Display {
-    T.to_string(x)
-}
-
-fn main() {
-    io.print(txt((1, "a")))
-}
-`,
-	},
-	{
-		name:   "gapGenericBoundImplOtherFile",
-		fix:    "builder: generic bound impl other file. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.kindImplCall | false | plan == nil#1",
-		reason: "qualified call, Type.method: T.to_string",
-		noSkip: true,
-		src: `// FILE: main.nomi
-import {
-    std/io
-    lib
-}
-
-impl Display for lib.Dog {
-    fn to_string(d: lib.Dog): String {
-        "dog " + d.name
-    }
-}
-
-fn show<T>(x: T): String where T: Display {
-    T.to_string(x)
-}
-
-fn main() {
-    io.print(show(lib.Dog{name: "d"}))
-}
-// FILE: lib.nomi
-pub struct Dog {
-    name: String
-}
-`,
-	},
-	{
 		name:   "gapIterSensitiveFnValue",
 		fix:    "builder: iter sensitive fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.funcRef | note | \"an iter-sensitive function passed where its break or continue cannot be caught: \" + t.Nam…#1",
 		reason: "an iter-sensitive function passed where its break or continue cannot be caught: stop",
@@ -2797,21 +2751,6 @@ fn main() {
         []
     }
     io.inspect(none_list(1))
-}
-`,
-	},
-	{
-		name:   "gapNestedGenericBoundCallTuple",
-		fix:    "builder: nested generic bound call tuple. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.stdKindQualCall | false | base == \"\"#1",
-		reason: "qualified call, Type.method: T.to_string",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fn txt<T>(x: T): String where T: Display {
-        T.to_string(x)
-    }
-    io.print(txt((1, "a")))
 }
 `,
 	},
