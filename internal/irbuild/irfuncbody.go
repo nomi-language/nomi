@@ -91,6 +91,9 @@ type irScalarBuilder struct {
 	literalCell *ast.TaggedString
 	captures    []ir.Temp
 	captured    map[string]irLambdaCapture
+	// capturedPlans are the plans of captured lambdas, by the capture's
+	// temporary (capturedPlan).
+	capturedPlans map[ir.Temp]*irLambdaPlan
 	// rebuildBody marks the body of a widening adapter (irembedsrebuild.go),
 	// and rebuildCaps the enclosing enum adapters it reaches as captures.
 	rebuildBody bool

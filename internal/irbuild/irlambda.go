@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"strconv"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -377,6 +379,9 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 type irLambdaCapture struct {
 	temp ir.Temp
 	k    kind
+	// src is the enclosing builder's temporary the capture is supplied
+	// from, by which capturedPlan finds the captured value's plan.
+	src ir.Temp
 }
 
 // capture makes name a parameter of this closure, supplied by the value the
@@ -397,14 +402,15 @@ func (bl *irScalarBuilder) capture(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	if bl.captured == nil {
 		bl.captured = map[string]irLambdaCapture{}
 	}
-	bl.captured[t.Name] = irLambdaCapture{temp: dst, k: k}
+	bl.captured[t.Name] = irLambdaCapture{temp: dst, k: k, src: src}
 	bl.bound[t.Name], bl.boundK[t.Name] = dst, k
 	bl.declareCapture(t.Name, dst, k, bl.capturedDecl(t.Name, src))
 	return dst, k, true, true
 }
 
-// callablePlan follows only plain local aliases. Callable parameters and
-// branch-selected or returned values carry no statically recoverable defaults.
+// callablePlan follows only plain local aliases and captures. Callable
+// parameters and branch-selected or returned values carry no statically
+// recoverable defaults.
 func (bl *irScalarBuilder) callablePlan(temp ir.Temp) *irLambdaPlan {
 	for {
 		switch n := bl.f.Def(temp).(type) {
@@ -417,10 +423,59 @@ func (bl *irScalarBuilder) callablePlan(temp ir.Temp) *irLambdaPlan {
 			temp = n.Src()
 		case *ir.FuncValue:
 			return bl.sides[n.Dst()].lambda
+		case nil:
+			return bl.capturedPlan(temp)
 		default:
 			return nil
 		}
 	}
+}
+
+// capturedPlan is the plan of a lambda this closure captured, as the
+// enclosing builder holds it: `g = || f(1)` calls the f its parent built.
+// The plan's names carry over. Its default suppliers are closures of the
+// parent's graph, so each is captured too, beside the value, and the copy's
+// suppliers are those captures. nil when temp is no capture, or the parent
+// has no plan for the value.
+func (bl *irScalarBuilder) capturedPlan(temp ir.Temp) *irLambdaPlan {
+	if bl.parent == nil {
+		return nil
+	}
+	for name, held := range bl.captured {
+		if held.temp != temp {
+			continue
+		}
+		if plan, done := bl.capturedPlans[temp]; done {
+			return plan
+		}
+		outer := bl.parent.callablePlan(held.src)
+		if outer == nil {
+			return nil
+		}
+		plan := *outer
+		if outer.group != nil {
+			group := &irLambdaGroup{params: outer.group.params, suppliers: make([]ir.Temp, len(outer.group.suppliers))}
+			for i, s := range outer.group.suppliers {
+				group.suppliers[i] = ir.NoTemp
+				if s == ir.NoTemp {
+					continue
+				}
+				// A supplier takes the parameters before its slot and
+				// answers the slot's value.
+				sk := funcKindIn(bl.g, outer.group.params[:i], outer.group.params[i])
+				dst := bl.g.irAddParam(bl.f, bl.sh.localSym(name+"\x00default"+strconv.Itoa(i)), sk)
+				bl.captures = append(bl.captures, s)
+				group.suppliers[i] = dst
+			}
+			plan.group = group
+		}
+		if bl.capturedPlans == nil {
+			bl.capturedPlans = map[ir.Temp]*irLambdaPlan{}
+		}
+		bl.capturedPlans[temp] = &plan
+		return &plan
+	}
+	return nil
 }
 
 func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool) {

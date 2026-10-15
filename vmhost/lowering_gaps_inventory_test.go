@@ -1157,34 +1157,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCapturedDefaultLambdaCall",
-		fix:    "builder: captured default lambda call. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.indirectCall | false | defaulted && metadata == nil#1",
-		reason: "a direct callee outside this module's fn table: f",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    f = |x: Int, y: Int = 2| x + y
-    g = || f(1)
-    io.print(g())
-}
-`,
-	},
-	{
-		name:   "gapCapturedLambdaNamedArgs",
-		fix:    "builder: captured lambda named args. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.indirectCall | false | !planned#1",
-		reason: "a named argument",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    f = |x: Int, y: Int| x - y
-    g = || f(y: 1, x: 5)
-    io.print(g())
-}
-`,
-	},
-	{
 		name:   "gapIterSensitiveFnValue",
 		fix:    "builder: iter sensitive fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.funcRef | note | \"an iter-sensitive function passed where its break or continue cannot be caught: \" + t.Nam…#1",
 		reason: "an iter-sensitive function passed where its break or continue cannot be caught: stop",
@@ -1217,19 +1189,6 @@ fn main() {
         a + b
     }
     io.print(sum((1, 2)))
-}
-`,
-	},
-	{
-		name:   "gapPartialCapturedLambda",
-		fix:    "builder: partial captured lambda. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.partialApplication | false | !ok ¦¦ len(params) != len(kinds)#1; irScalarBuilder.partialCallee | false | plan == nil ¦¦ plan.source == nil ¦¦ len(plan.names) != len(plan.source.Params)#1",
-		reason: "a partial application over a callee whose parameters the builder cannot see, or with a non-literal default",
-		src: `import std/io
-
-fn main() {
-    f = |a: Int, b: Int| a * b
-    g = || f(2, _)
-    io.print(g()(3))
 }
 `,
 	},

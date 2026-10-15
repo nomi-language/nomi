@@ -1422,7 +1422,28 @@ func (g *gen) callBlock() string {
 	n := r.Intn(4)
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(6) {
+	switch r.Intn(7) {
+	case 6:
+		// A lambda with a default, captured by another closure and called
+		// there short, by name and partially.
+		calls := []string{"%s(2)", "%s(y: 3, x: 2)", "%s(_, 3)(2)", "%s(2, _)(4)"}
+		call := fmt.Sprintf(calls[r.Intn(len(calls))], name("cf"))
+		dflt := fmt.Sprintf("x + %d", n)
+		if strings.Contains(call, "_") {
+			// A partial over a slot whose default is not a literal is
+			// gapPartialOpenNonliteralDefault.
+			dflt = fmt.Sprint(n)
+		}
+		fmt.Fprintf(&out, "%s = |x: Int, y: Int = %s| x * y\n", name("cf"), dflt)
+		if strings.Contains(call, "_") {
+			// A call through a call's result is its own gap; bind first.
+			call = strings.Replace(call, ")(", ")\n"+name("cq")+"(", 1)
+			call = name("cq") + " = " + call
+			fmt.Fprintf(&out, "%s = || {\n%s\n}\n", name("cg"), call)
+		} else {
+			fmt.Fprintf(&out, "%s = || %s\n", name("cg"), call)
+		}
+		fmt.Fprintf(&out, "io.inspect(%s())\n", name("cg"))
 	case 5:
 		// A generic helper with a destructuring parameter and a default
 		// that reads its names, called with named arguments. A nested fn
