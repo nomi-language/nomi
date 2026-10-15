@@ -91,22 +91,17 @@ func (bl *irScalarBuilder) tupleProjection(at ast.Node, subj ir.Temp, index int,
 
 // destructureBind binds one name a destructuring statement introduces to the
 // value read produces, under the plain binding's rebind rule: a fresh
-// identity, declined where a callable is rebound.
+// identity of any kind, a function value included. A test body may rebind
+// only a name it bound itself, under the test-body binding's rule
+// (testBinding).
 // The subject is read before any component binds.
 // The name is written at (line, col).
 func (bl *irScalarBuilder) destructureBind(t ast.Node, name string, line, col int, part kind, read func() ir.Temp) bool {
 	sym := bl.sh.localSym(name)
-	previous, shadows := bl.g.lookup(name)
+	_, shadows := bl.g.lookup(name)
 	_, bound := bl.bound[name]
 	if shadows || bound {
-		oldKind := previous.k
-		if bound {
-			oldKind = bl.boundK[name]
-		}
-		// A VM-only test body may rebind a name it bound itself, under
-		// the test-body binding's rule (testBinding).
-		testRebind := bl.inTest && bound && !shadows
-		if (bl.inTest && !testRebind) || oldKind.tag == tagFunc || part.tag == tagFunc {
+		if bl.inTest && (shadows || !bound) {
 			irDeclineNote("a rebind: " + name)
 			return false
 		}

@@ -239,10 +239,9 @@ a	irScalarBuilder.displayHole | false | k.tag != tagNamed ¦¦ k.def == nil#1	ir
 a	irScalarBuilder.displayHole | false | plan == nil ¦¦ plan.result != kindString#1	irdisplayhole.go:82	irbuild,vmhost	
 c	irScalarBuilder.compositeDistinctMake | false | !vok ¦¦ vk != d.inner.comp.parts[i]#1	irdistinct.go:239	-	pinned as gapDistinctTupleIterWiden (reason: a value of kind List<Circle> where Iter<Shape> is expected)
 c	irScalarBuilder.compositeDistinctMake | false | !ok ¦¦ k != d.inner#1	irdistinct.go:251	-	pinned as gapDistinctTupleCallformIterWiden (reason: a value of kind List<Circle> where Iter<Shape> is expected)
-a	irScalarBuilder.distinctBinding | note | "a distinct destructure without a retained named binding"#1	irdistinctbinding.go:12	expect,irbuild	
-c	irScalarBuilder.distinctBinding | note | "a rebind: " + name#1	irdistinctbinding.go:17	-	pinned as gapDistinctDestructureRebind (reason: a rebind: s)
+a	irScalarBuilder.distinctBinding | note | "a distinct destructure without a retained named binding"#1	irdistinctbinding.go:17	expect,irbuild	
 c	irScalarBuilder.distinctBinding | note | "a distinct destructure outside the retained wrapping domain"#1	irdistinctbinding.go:23	-	pinned as gapDistinctDestructureFileQualified (reason: a distinct destructure outside the retained wrapping domain)
-c	irScalarBuilder.distinctBinding | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irDistinctOverValue(k.def) ¦¦ t.TypeName != k.def.nomi#1	irdistinctbinding.go:25	-	pinned as gapDistinctDestructureFileQualified (reason: a distinct destructure outside the retained wrapping domain)
+?	irScalarBuilder.distinctBinding | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irDistinctOverValue(k.def)#1	irdistinctbinding.go:25	?	
 a	irScalarBuilder.guardShape | false | bl.inTest ¦¦ (bl.returnKind == kindInvalid && bl.inferReturn == nil) ¦¦ t.Else != nil ¦¦ t…#1	irearlyreturn.go:18	irbuild	
 a	irScalarBuilder.guardShape | computed | return isReturn ¦¦ (bl.ctl != irCtlNone && (isBreak ¦¦ isContinue))#1	irearlyreturn.go:24	expect,irbuild,vmhost	
 b	irScalarBuilder.guardReturn | false | !ok ¦¦ ck != kindBool#1	irearlyreturn.go:36	-	propagation only: the condition's own lowering names any decline; the checker requires a Bool condition
@@ -821,13 +820,13 @@ b	irScalarBuilder.setupValue | note | "a bare return in a setup whose value is n
 b	irScalarBuilder.tupleMakeWant | false | len(t.Items) < 2#1	irtuple.go:42	-	the parser builds no tuple of fewer than two items
 c	irScalarBuilder.tupleMakeWant | false | !ok ¦¦ !irCompositePartKind(k)#1	irtuple.go:57	-	pinned as gapTupleUnitPart (reason: a TupleLit)
 b	irScalarBuilder.tupleRead | false | !ok ¦¦ !irRetainedTupleKind(k) ¦¦ index >= len(k.comp.parts)#1	irtuple.go:79	-	a tuple with a non-retained part cannot be built (irtuple.go:57) and a parameter of that type declines its function before the body
-c	irScalarBuilder.destructureBind | note | "a rebind: " + name#1	irtuple.go:110	-	pinned as gapTupleDestructureRebindsFunction (reason: a rebind: f)
-b	irScalarBuilder.structBinding | note | "a struct destructure outside retained records and structs"#1	irtuple.go:134	-	a struct destructure over a non-struct is a checker error; `{} = set` goes through PatternBinding
-b	irScalarBuilder.structBinding | note | "a struct destructure with a field sub-pattern"#1	irtuple.go:146	-	the parser builds StructDestructure only for flat name/rename fields; nested fields go to PatternBinding
-b	irScalarBuilder.structBinding | false | !found#1	irtuple.go:160	-	checker rejects an unknown record field
-b	irScalarBuilder.structBinding | false | f == nil#1	irtuple.go:166	-	checker rejects an unknown struct field
-b	irScalarBuilder.tupleBinding | note | "a tuple destructure outside the retained tuple domain"#1	irtuple.go:208	-	arity mismatch is a checker error; a non-retained tuple cannot be built or passed (see irtuple.go:79)
-b	irScalarBuilder.tupleBinding | false | !ok ¦¦ !irRetainedTupleKind(k) ¦¦ len(k.comp.parts) != len(t.Bindings)#1	irtuple.go:210	-	same as :212
+c	irScalarBuilder.destructureBind | note | "a rebind: " + name#1	irtuple.go:105	-	pinned as gapTupleDestructureRebindsFunction (reason: a rebind: f)
+b	irScalarBuilder.structBinding | note | "a struct destructure outside retained records and structs"#1	irtuple.go:129	-	a struct destructure over a non-struct is a checker error; `{} = set` goes through PatternBinding
+b	irScalarBuilder.structBinding | note | "a struct destructure with a field sub-pattern"#1	irtuple.go:141	-	the parser builds StructDestructure only for flat name/rename fields; nested fields go to PatternBinding
+b	irScalarBuilder.structBinding | false | !found#1	irtuple.go:155	-	checker rejects an unknown record field
+b	irScalarBuilder.structBinding | false | f == nil#1	irtuple.go:161	-	checker rejects an unknown struct field
+b	irScalarBuilder.tupleBinding | note | "a tuple destructure outside the retained tuple domain"#1	irtuple.go:203	-	arity mismatch is a checker error; a non-retained tuple cannot be built or passed (see irtuple.go:79)
+b	irScalarBuilder.tupleBinding | false | !ok ¦¦ !irRetainedTupleKind(k) ¦¦ len(k.comp.parts) != len(t.Bindings)#1	irtuple.go:205	-	same as :212
 b	irScalarBuilder.tupleHashCall | false | len(t.Args) != 1 ¦¦ namedArgNode(t.Args) != nil#1	irtuplehash.go:29	-	probe: returns handled=false and the caller lowers the call as usual
 a	irScalarBuilder.tupleHashCall | false | ft == nil ¦¦ len(ft.Params) != 1 ¦¦ bl.g.project(ft.Params[0]).tag != tagTuple#1	irtuplehash.go:33	expect,irbuild,projectgen,vmhost	
 c	irScalarBuilder.tupleHashCall | false | !sok ¦¦ !irRetainedTupleKind(sk)#1	irtuplehash.go:37	-	pinned as gapTupleHashUnitSlot (reason: a TupleLit)

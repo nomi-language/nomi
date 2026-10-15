@@ -612,38 +612,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapDistinctDestructureFileQualified",
-		fix:    "builder: distinct destructure file qualified. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.distinctBinding | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irDistinctOverValue(k.def) ¦¦ t.TypeName != k.def.nomi#1; irScalarBuilder.distinctBinding | note | \"a distinct destructure outside the retained wrapping domain\"#1",
-		reason: "a distinct destructure outside the retained wrapping domain",
-		src: `import std/io
-import std/calendar
-import std/calendar.Days
-
-fn main() {
-  calendar.Days(n) = Days(4)
-  io.inspect(n)
-}
-`,
-	},
-	{
-		name:   "gapDistinctDestructureRebind",
-		fix:    "builder: distinct destructure rebind. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.distinctBinding | note | \"a rebind: \" + name#1",
-		reason: "a rebind: s",
-		src: `import std/io
-
-type Id String
-
-fn name_length(s: String): Int {
-  Id(s) = Id(s + "!")
-  String.length(s)
-}
-
-fn main() {
-  io.inspect(name_length("ab"))
-}
-`,
-	},
-	{
 		name:   "gapListPatternOverEmptyLiteral",
 		fix:    "builder: list pattern over empty literal. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.listCaseTest | false | k.comp == nil && (spread ¦¦ len(pat.Heads) != 0)#1",
 		reason: "a list case pattern outside flat bindings and wildcards",
@@ -655,20 +623,6 @@ fn main() {
     _ -> 0
   }
   io.inspect(n)
-}
-`,
-	},
-	{
-		name:   "gapTupleDestructureRebindsFunction",
-		fix:    "builder: tuple destructure rebinds function. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.destructureBind | note | \"a rebind: \" + name#1",
-		reason: "a rebind: f",
-		src: `import std/io
-
-fn main() {
-  f = |x: Int| x
-  io.inspect(f(1))
-  (f, n) = (|x: Int| x + 1, 1)
-  io.inspect(f(n))
 }
 `,
 	},

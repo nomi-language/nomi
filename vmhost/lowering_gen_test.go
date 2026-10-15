@@ -1330,7 +1330,8 @@ func (g *gen) erasedBlock() string {
 // matches its variants through the alias, with a record pattern over a
 // struct-shaped variant's payload (`.Rec({w, h})`). Or it matches a string
 // prefix, by `assert pattern = value` in a test (inTest) and by a `case`
-// elsewhere. It draws from g.pat
+// elsewhere. Or it rebinds a name through a distinct destructure and a
+// function value through a tuple destructure. It draws from g.pat
 // only and names from g.pn, so the program around it is the one it would
 // be without it.
 func (g *gen) patternBlock(inTest bool) string {
@@ -1342,7 +1343,7 @@ func (g *gen) patternBlock(inTest bool) string {
 	str := []string{`"a"`, `"b"`}[r.Intn(2)]
 	var out strings.Builder
 	out.WriteString("{\n")
-	shape := r.Intn(8)
+	shape := r.Intn(9)
 	if shape < 4 {
 		fmt.Fprintf(&out, "type %s (Int, String)\n", pair)
 	}
@@ -1389,6 +1390,10 @@ func (g *gen) patternBlock(inTest bool) string {
 		}
 		fmt.Fprintf(&out, "%s: %s = %s\nio.inspect(case %s {\n%s.Num(n) -> n\n.Rec({w: %d, h}) -> h + 100\n%s.Rec{w, h} -> w * h\n%s.Dot -> -1\n})\n",
 			name("pa"), en, vals[r.Intn(len(vals))], name("pa"), alias, r.Intn(4), alias, alias)
+	case 8:
+		id, f, v := name("Pid"), name("pf"), name("pn")
+		fmt.Fprintf(&out, "type %s Int\n%s = |x: Int| x + %d\n%s = %d\nio.inspect(%s(%s))\n%s(%s) = %s(%s + 1)\n(%s, %s) = (|x: Int| x * 2, %s)\nio.inspect(%s(%s))\n",
+			id, f, a, v, b, f, v, id, v, id, v, f, v, v, f, v)
 	case 7:
 		subject := fmt.Sprintf(`"/p/%d"`, a)
 		if inTest {

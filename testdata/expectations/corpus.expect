@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 284
-declared-cases 919
+records 285
+declared-cases 921
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -36,6 +36,14 @@ N 1
 H 0df4e18e55ebb0e72e613dc4dd41522d5a6f9b3763a032f34c8cd7cd1d42590e
 T ok <root>/tests/01-foundations/comment_positions_test.nomi :: comments are accepted around declarations and expressions
 T test result: ok. 1 passed, 0 failed
+T
+C 01-foundations/destructure_rebind_test.nomi
+E 0
+N 2
+H 0df1280a587c17d475beb14289ad2a0fb8d7b0064aa002e22167a600f9a65fe6
+T ok <root>/tests/01-foundations/destructure_rebind_test.nomi :: a destructure can rebind a parameter or a function value
+T ok <root>/tests/01-foundations/destructure_rebind_test.nomi :: a distinct destructure may name its type through its file
+T test result: ok. 2 passed, 0 failed
 T
 C 01-foundations/if_else/if_else_test.nomi
 E 0
