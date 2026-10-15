@@ -155,6 +155,30 @@ func buildPublishedDiagnostics(uri string, content string, nodes []ast.Node, par
 	return buildPublishedDiagnosticsFor(uri, content, diskContent, nil, nodes, parseErrs, typeErrs, true)
 }
 
+// errorsInDocument drops the errors whose position is in another file
+// (TypeError.File): the entry's analysis carries a missing impl a derive in
+// an imported file demands, and that file's own analysis reports it where
+// the derive is.
+func errorsInDocument(uri string, errs []analysis.TypeError) []analysis.TypeError {
+	path := uriToPath(uri)
+	var out []analysis.TypeError
+	for i, e := range errs {
+		if e.File == "" || e.File == path || filepath.Clean(e.File) == filepath.Clean(path) {
+			if out != nil {
+				out = append(out, e)
+			}
+			continue
+		}
+		if out == nil {
+			out = append(make([]analysis.TypeError, 0, len(errs)), errs[:i]...)
+		}
+	}
+	if out == nil {
+		return errs
+	}
+	return out
+}
+
 // buildPublishedDiagnosticsFor is uri's diagnostics: the parser's, the
 // analysis's, and the dbg and todo warnings. A point error spans the token it
 // names (analysis.CompleteSpans). related reports whether the client reads
@@ -177,6 +201,7 @@ func buildPublishedDiagnosticsFor(uri string, content string, contentOf func(pro
 		return toks
 	}
 	typeErrs = filterExpectedFixtureTypeErrors(uri, content, typeErrs)
+	typeErrs = errorsInDocument(uri, typeErrs)
 	if content != "" {
 		typeErrs = analysis.CompleteSpansFrom(lexed, typeErrs)
 	}

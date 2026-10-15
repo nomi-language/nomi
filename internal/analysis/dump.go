@@ -285,8 +285,18 @@ type printedDiagnostic struct {
 func printedDiagnostics(p *CheckedProgram) []printedDiagnostic {
 	var out []printedDiagnostic
 	keys := p.Keys()
+	keyOf := map[string]string{}
+	for key, fa := range p.Files {
+		keyOf[fa.FilePath] = key
+	}
 	add := func(key string, errs []TypeError) {
 		for _, e := range errs {
+			// The front end prints an error with the file its position
+			// is in (TypeError.File).
+			if k, ok := keyOf[e.File]; ok && e.File != "" {
+				out = append(out, printedDiagnostic{k, e})
+				continue
+			}
 			out = append(out, printedDiagnostic{key, e})
 		}
 	}

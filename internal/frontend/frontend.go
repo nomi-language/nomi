@@ -347,7 +347,45 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	if len(errs) == 0 && len(sibDiags) == 0 {
 		return fa, modules, nil
 	}
-	return fa, modules, append(typeDiagnostics(c.diagPath, c.entrySrc, errs), sibDiags...)
+	return fa, modules, append(c.entryDiagnostics(fa, errs), sibDiags...)
+}
+
+// entryDiagnostics renders the errors reported with the entry fa, each in
+// the file its position is in: the entry's own, or another file's when the
+// error says so (TypeError.File), as a derive's missing impl in an imported
+// file does. The order is kept.
+func (c *Checker) entryDiagnostics(fa *analysis.FileAnalysis, errs []analysis.TypeError) Diagnostics {
+	fileOf := func(e analysis.TypeError) string {
+		if e.File == "" || e.File == fa.FilePath || samePath(e.File, c.diagPath) {
+			return ""
+		}
+		return e.File
+	}
+	var out Diagnostics
+	for i := 0; i < len(errs); {
+		file := fileOf(errs[i])
+		j := i + 1
+		for j < len(errs) && fileOf(errs[j]) == file {
+			j++
+		}
+		if file == "" {
+			out = append(out, typeDiagnostics(c.diagPath, c.entrySrc, errs[i:j])...)
+		} else {
+			out = append(out, typeDiagnostics(file, c.sourceOf(file), errs[i:j])...)
+		}
+		i = j
+	}
+	return out
+}
+
+// samePath reports whether a and b name one file.
+func samePath(a, b string) bool {
+	if a == b {
+		return true
+	}
+	aa, err1 := filepath.Abs(a)
+	bb, err2 := filepath.Abs(b)
+	return err1 == nil && err2 == nil && aa == bb
 }
 
 // sharedStdlib reports whether fa, the build's analysis of the module key,
