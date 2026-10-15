@@ -350,6 +350,38 @@ fn demo(): Result<Int, String> {
 	expectNoConcurrentError(t, errs, "mismatch")
 }
 
+// A callback whose body only `continue`s produces no value, but its result
+// is still the one its callee declares: Unit for `Iter.each`, which a `try`
+// cannot propagate into (spec §9, clause 1).
+func TestTryBoundary_ContinueOnlyLambdaBodyHasTheCallbacksResult(t *testing.T) {
+	src := `fn parse(n: Int): Result<Int, String> {
+  Ok(n)
+}
+fn demo(): Unit {
+  Iter.each([1, 2], |x| {
+    _ = try parse(x)
+    continue
+  })
+}`
+	expectConcurrentError(t, analyzeConcurrentRaw(src),
+		"`try` cannot propagate a Result out of a lambda whose result is Unit")
+}
+
+// The same body in a callback whose declared result is a Result holds the
+// `try`.
+func TestTryBoundary_ContinueOnlyLambdaBodyWithAResultHoldsTheTry(t *testing.T) {
+	src := `fn parse(n: Int): Result<Int, String> {
+  Ok(n)
+}
+fn demo(): Result<Int, String> {
+  Iter.loop(|acc: Result<Int, String> = Ok(0)| {
+    _ = try parse(Result.with_default(acc, 0))
+    continue
+  })
+}`
+	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "cannot propagate")
+}
+
 // An `assert` inside a `concurrent` block exits the block as
 // Err(AssertionFailure), like a `try`, so a block whose value is not a
 // Result has nowhere to send the failure and is an error at the assertion.

@@ -3103,6 +3103,15 @@ func (c *checker) checkBoundaryBody(body *ast.Block, expected Type, line, col in
 	c.tryUnwinds = prev
 	c.returnUnwinds = prevReturns
 	bodyTy = c.resolveBoundaryReturns(bodyTy, returns, line, col)
+	// A callback body that produces no value, one that only `continue`s,
+	// still has the result its callee declares, so its `try` sites must fit
+	// that: a `try` in an `Iter.each` callback ending in `continue` has a
+	// Unit result to propagate into, which spec §9 rejects.
+	if bodyTy != nil && resolveTypeVar(bodyTy) == Type(TypeInfallible) &&
+		c.returnTy != nil && !ContainsTypeParam(c.returnTy) && !containsTypeVar(c.returnTy) {
+		c.resolveBoundaryErr(c.returnTy, acc, line, col)
+		return bodyTy
+	}
 	return c.resolveBoundaryErr(bodyTy, acc, line, col)
 }
 
@@ -3264,9 +3273,11 @@ func (c *checker) resolveBoundaryErr(bodyTy Type, unwinds []tryUnwind, line, col
 //   - a result that is still an unresolved inference variable or a type
 //     parameter — nothing has pinned it yet, and reporting here would beat
 //     the position that will;
-//   - `TypeInfallible`, which is what a body that only ever diverges produces.
-//     Such a body has no result to disagree with. Explicit return values have
-//     already contributed to the result through resolveBoundaryReturns.
+//   - `TypeInfallible`, which is what a body that only ever diverges produces
+//     when nothing declares its result. Explicit return and break values have
+//     already contributed to the result through resolveBoundaryReturns, and a
+//     callback whose callee declares a concrete result is checked against that
+//     result instead (checkBoundaryBody).
 //
 // The Infallible test is POINTER IDENTITY and not TypesEqual, and that is the
 // bug this function shipped with for one build: `TypesEqual` implements
