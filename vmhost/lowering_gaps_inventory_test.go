@@ -2158,54 +2158,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapVectorCapturedElemWiden",
-		fix:    "builder: vector captured elem widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.lowerSameKindItems | false | !ok ¦¦ k != want#1",
-		reason: "a value of kind Captured<Circle> where Captured<Shape> is expected",
-		src: `import std/io
-import std/io.Captured
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-fn main() {
-    c = Circle{r: 1}
-    v: Vector<Captured<Shape>> = #[Captured{value: c, output: "", transcript: ""}]
-    io.print(Vector.length(v))
-}
-`,
-	},
-	{
-		name:   "gapVectorItemsJoinCaptured",
-		fix:    "builder: vector items join captured. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.literalItemsCoerced | false | !ok ¦¦ k != want#1",
-		reason: "a VectorLit",
-		noSkip: true,
-		src: `import std/io
-import std/io.Captured
-
-struct Circle {
-    r: Int
-}
-
-enum Shape {
-    embeds Circle
-    Dot
-}
-
-fn main() {
-    a = Captured{value: Circle{r: 1}, output: "", transcript: ""}
-    b = Captured{value: Shape.Dot, output: "", transcript: ""}
-    v = #[a, b]
-    io.print(Vector.length(v))
-}
-`,
-	},
-	{
 		name:   "gapVectorOfFunctions",
 		fix:    "builder: vector of functions. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.lowerSameKindItems | false | !joined ¦¦ !accept(elem) ¦¦ !bl.widenEmbedded(typedItems, typedValues, typedKinds, elem)#1",
 		reason: "a VectorLit",
