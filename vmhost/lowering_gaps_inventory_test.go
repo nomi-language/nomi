@@ -1211,22 +1211,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapStdGenericHostFnValue",
-		fix:    "builder: std generic host fn value. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.stdFileFuncRef | false | generic == nil && (g.std == nil ¦¦ g.std.byFile[module+\".\"+name] == nil)#1",
-		reason: "a field access on an unbound name testing: .check",
-		noSkip: true,
-		src: `import {
-    std/io
-    std/testing
-}
-
-fn main() {
-    c: (Bool) -> Result<Bool, testing.AssertionFailure> = testing.check
-    io.inspect(c(True))
-}
-`,
-	},
-	{
 		name:   "gapCrossFileTypeCycle",
 		fix:    "builder: cross file type cycle. Found unreached by the decline inventory (testdata/lowering-declines.txt) at typeRegistry.ensureTypes | false | g.typesBusy#1",
 		reason: "a struct literal: A",

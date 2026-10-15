@@ -39,15 +39,16 @@ d	gen.importIfaceKind | false | !d.lowerable#1	existential.go:308	-	mirror unlow
 a	irScalarBuilder.fileFuncRef | false | t.Field == nil ¦¦ irQualIsLocal(bl, owner.Name)#1	filefuncref.go:35	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.fileFuncRef | false | f == nil#1	filefuncref.go:41	-	probe: handled=false falls back to the field read; a non-fn sibling member (`lib.base`, a once) lowers there (tested)
 a	irScalarBuilder.fileFuncRef | false | unguarded#1	filefuncref.go:57	irbuild	
-c	irScalarBuilder.stdFileFuncRef | false | generic == nil && (g.std == nil ¦¦ g.std.byFile[module+"."+name] == nil)#1	filefuncref.go:84	-	pinned as gapStdGenericHostFnValue (reason: a field access on an unbound name testing: .check)
-c	irScalarBuilder.outputRef | false | !ok ¦¦ result != kindUnit#1	filefuncref.go:116	-	pinned as gapUnitElemOutputRef (reason: a field access on an unbound name io: .inspect)
-d	irScalarBuilder.wrapperRef | false | !ok ¦¦ k != result ¦¦ len(child.captures) != 0#1	filefuncref.go:150	-	tried io.read_file/read_line/write_file/capture/replay, json.shape_error_root, timer.sleep, compiler.* as values: all lower
-d	irScalarBuilder.wrapperRef | note | "a function value over " + name + " that does not lint: " + err.Error()#1	filefuncref.go:154	-	no lint failure found for wrapper function values
-b	gen.checkedRefValueKinds | false | ft == nil#1	filefuncref.go:169	-	the checker records a function type for every reference used as a function value (CallType or ExprTypes)
-?	irScalarBuilder.siblingFuncRef | false | !f.lowerable()#1	filefuncref.go:207	?	
-d	irScalarBuilder.siblingFuncRef | false | host && !irHostFnHasVMBody(params, result)#1	filefuncref.go:215	-	needs a Go-bound sibling host fn returning a function; Go FFI not exercisable from `nomi check` here (user host fns need an embedder host table)
-b	irScalarBuilder.siblingFuncRef | false | sym == nil#1	filefuncref.go:220	-	defensive fence: irSiblingCalleeSym is nil only without a registry, and g.files implies one
-b	irScalarBuilder.siblingFuncRef | false | !irCallableValueKind(fk)#1	filefuncref.go:224	-	a lowerable sibling signature's params/result are already in the callable domain (Unit params allowed by irCallableValueKind)
+?	irScalarBuilder.stdFileFuncRef | false | !ok ¦¦ len(params) != 1#1	filefuncref.go:85	?	
+c	irScalarBuilder.stdFileFuncRef | false | generic == nil && (g.std == nil ¦¦ g.std.byFile[module+"."+name] == nil)#1	filefuncref.go:98	-	pinned as gapStdGenericHostFnValue (reason: a field access on an unbound name testing: .check)
+c	irScalarBuilder.outputRef | false | !ok ¦¦ result != kindUnit#1	filefuncref.go:130	-	pinned as gapUnitElemOutputRef (reason: a field access on an unbound name io: .inspect)
+d	irScalarBuilder.wrapperRef | false | !ok ¦¦ k != result ¦¦ len(child.captures) != 0#1	filefuncref.go:164	-	tried io.read_file/read_line/write_file/capture/replay, json.shape_error_root, timer.sleep, compiler.* as values: all lower
+d	irScalarBuilder.wrapperRef | note | "a function value over " + name + " that does not lint: " + err.Error()#1	filefuncref.go:168	-	no lint failure found for wrapper function values
+b	gen.checkedRefValueKinds | false | ft == nil#1	filefuncref.go:183	-	the checker records a function type for every reference used as a function value (CallType or ExprTypes)
+?	irScalarBuilder.siblingFuncRef | false | !f.lowerable()#1	filefuncref.go:221	?	
+d	irScalarBuilder.siblingFuncRef | false | host && !irHostFnHasVMBody(params, result)#1	filefuncref.go:229	-	needs a Go-bound sibling host fn returning a function; Go FFI not exercisable from `nomi check` here (user host fns need an embedder host table)
+b	irScalarBuilder.siblingFuncRef | false | sym == nil#1	filefuncref.go:234	-	defensive fence: irSiblingCalleeSym is nil only without a registry, and g.files implies one
+b	irScalarBuilder.siblingFuncRef | false | !irCallableValueKind(fk)#1	filefuncref.go:238	-	a lowerable sibling signature's params/result are already in the callable domain (Unit params allowed by irCallableValueKind)
 b	typeRegistry.ensureTypes | false | unit < 0 ¦¦ unit >= len(r.gens)#1	foreign.go:201	-	unit index always comes from typeOwner.unit, an index into r.gens (defensive fence)
 b	typeRegistry.ensureTypes | false | g == nil#1	foreign.go:205	-	every registry unit has a gen (defensive fence)
 c	typeRegistry.ensureTypes | false | g.typesBusy#1	foreign.go:211	-	pinned as gapCrossFileTypeCycle (reason: a struct literal: A)

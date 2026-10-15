@@ -1422,7 +1422,11 @@ func (g *gen) callBlock() string {
 	n := r.Intn(4)
 	var out strings.Builder
 	out.WriteString("{\n")
-	switch r.Intn(9) {
+	switch r.Intn(10) {
+	case 9:
+		// testing.check, an intrinsic with no body, as a value.
+		fmt.Fprintf(&out, "%s: (Bool) -> Result<Bool, testing.AssertionFailure> = testing.check\n", name("cck"))
+		fmt.Fprintf(&out, "io.print(Result.ok?(%s(%d > 1)))\n", name("cck"), n)
 	case 8:
 		// A function with a default named as a value: its full parameter
 		// list.
@@ -1614,6 +1618,9 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 	}
 	if strings.Contains(out, "Channel.") {
 		out = "import std/channels.{Channel, Receiver, Sender}\n" + out
+	}
+	if strings.Contains(out, "testing.check") {
+		out = "import std/testing\n" + out
 	}
 	if strings.Contains(out, "Duration.seconds(") {
 		out = "import std/duration.Duration\n" + out
