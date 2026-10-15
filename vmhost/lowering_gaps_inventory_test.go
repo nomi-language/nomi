@@ -319,18 +319,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCRangeToString",
-		fix:    "builder: c range to string. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.rangeCall | false | unguarded#1",
-		reason: "qualified call, Type.method: Range.to_string",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    io.print(Range.to_string(1..4))
-}
-`,
-	},
-	{
 		name:   "gapAssertPatternStringPrefix",
 		fix:    "builder: assert pattern string prefix. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.patternAssert | note | \"an `assert pattern = value` pattern outside the retained case tests: \" + sk.nomi()#1",
 		reason: "an `assert pattern = value` pattern outside the retained case tests: String",

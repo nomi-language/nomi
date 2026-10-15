@@ -222,6 +222,14 @@ b	irScalarBuilder.structUpdateHoles | false | !irRetainedRecordKind(rk)#1	ircurr
 b	irScalarBuilder.vectorUpdate | false | bk != kindEmptyVector#1	ircurrentvalue.go:341	-	checker requires a vector base for a vector spread
 b	irScalarBuilder.vectorUpdate | false | !ok ¦¦ lk != bk#1	ircurrentvalue.go:355	-	vector elements are checked against the base's element type by the checker
 b	irScalarBuilder.dbgOf | false | isNilNode(operand)#1	irdbg.go:183	-	fence: `dbg` always has an operand from the parser, and the pipe form passes t.Left
+?	irScalarBuilder.nestedDebugImpls/register | false | site == nil ¦¦ len(params) != 1 ¦¦ params[0] != k ¦¦ result != kindString#1	irdbg.go:355	?	
+?	irScalarBuilder.nestedDebugImpls/register | computed | return site.synth#1	irdbg.go:358	?	
+?	irScalarBuilder.nestedDebugImpls/register | false | d == nil ¦¦ !d.lowerable#1	irdbg.go:361	?	
+?	irScalarBuilder.nestedDebugImpls/register | false | it == nil ¦¦ !it.lowerable ¦¦ irImplSource(it) == nil ¦¦ len(it.params) != 1 ¦¦ it.params[…#1	irdbg.go:365	?	
+?	irScalarBuilder.nestedDebugImpls/register | computed | return d.synth#1	irdbg.go:368	?	
+?	irScalarBuilder.nestedDebugImpls/walk | false | part.tag != tagFunc && !walk(part)#1	irdbg.go:488	?	
+?	irScalarBuilder.nestedDebugImpls/walk | computed | return irDebugValueKind(k)#1	irdbg.go:493	?	
+?	irScalarBuilder.nestedDebugImpls | false | !walk(k) ¦¦ (len(impls) == 0 && !sawSeq && !sawStructural)#1	irdbg.go:496	?	
 c	irScalarBuilder.decimalLiteral | false | err != nil#1	irdecimal.go:12	-	pinned as gapDecimalDoubledUnderscore (reason: a DecimalLit)
 c	irScalarBuilder.deferCall | note | "a defer outside a named function's body or scoped block"#1	irdefer.go:52	-	pinned as gapDeferLoop (reason: a defer outside a named function's body or scoped block)
 c	irScalarBuilder.deferCall | note | "a defer inside a lambda"#1	irdefer.go:55	-	pinned as gapDeferLambda (reason: a defer inside a lambda)
@@ -242,6 +250,14 @@ a	irScalarBuilder.distinctBinding | note | "a distinct destructure without a ret
 c	irScalarBuilder.distinctBinding | note | "a rebind: " + name#1	irdistinctbinding.go:17	-	pinned as gapDistinctDestructureRebind (reason: a rebind: s)
 c	irScalarBuilder.distinctBinding | note | "a distinct destructure outside the retained wrapping domain"#1	irdistinctbinding.go:23	-	pinned as gapDistinctDestructureFileQualified (reason: a distinct destructure outside the retained wrapping domain)
 c	irScalarBuilder.distinctBinding | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irDistinctOverValue(k.def) ¦¦ t.TypeName != k.def.nomi#1	irdistinctbinding.go:25	-	pinned as gapDistinctDestructureFileQualified (reason: a distinct destructure outside the retained wrapping domain)
+?	irScalarBuilder.distinctDebugPlan | false | !irWrappingDistinct(k.def) && !irRetainedMarker(k.def)#1	irdistinctdebug.go:19	?	
+?	irScalarBuilder.distinctDebugPlan | false | d == nil ¦¦ !d.lowerable#1	irdistinctdebug.go:23	?	
+?	irScalarBuilder.distinctDebugPlan | false | it == nil ¦¦ !it.lowerable ¦¦ len(it.params) != 1 ¦¦ it.params[0] != k ¦¦ it.result != kin…#1	irdistinctdebug.go:27	?	
+?	irScalarBuilder.distinctDebugPlan | false | !ok#1	irdistinctdebug.go:32	?	
+?	irScalarBuilder.distinctDebugPlan | false | !ok#2	irdistinctdebug.go:43	?	
+?	irScalarBuilder.structDebugPlan | false | d == nil ¦¦ !d.lowerable#1	irdistinctdebug.go:53	?	
+?	irScalarBuilder.structDebugPlan | false | it == nil ¦¦ !it.lowerable ¦¦ irImplSource(it) == nil#1	irdistinctdebug.go:57	?	
+?	irScalarBuilder.structDebugPlan | false | !ok#1	irdistinctdebug.go:61	?	
 a	irScalarBuilder.guardShape | false | bl.inTest ¦¦ (bl.returnKind == kindInvalid && bl.inferReturn == nil) ¦¦ t.Else != nil ¦¦ t…#1	irearlyreturn.go:18	irbuild	
 a	irScalarBuilder.guardShape | computed | return isReturn ¦¦ (bl.ctl != irCtlNone && (isBreak ¦¦ isContinue))#1	irearlyreturn.go:24	expect,irbuild,vmhost	
 b	irScalarBuilder.guardReturn | false | !ok ¦¦ ck != kindBool#1	irearlyreturn.go:36	-	propagation only: the condition's own lowering names any decline; the checker requires a Bool condition
@@ -285,6 +301,7 @@ a	irScalarBuilder.containerEqualCall/maybe | computed | return k.tag == tagNamed
 c	irScalarBuilder.containerEqualCall | false | at == 1 && bare[1] == kindInvalid#1	irequality.go:417	-	pinned as gapMaybeEqualEmbeddedWiden (reason: qualified call, Type.method: Maybe.equal?)
 c	irScalarBuilder.containerEqualCall | false | !bl.g.irPreludeEqualityKind(rk) ¦¦ lk != rk#1	irequality.go:427	-	pinned as gapMaybeEqualStructPayload (reason: qualified call, Type.method: Maybe.equal?)
 b	irScalarBuilder.containerEqualCall | false | unguarded#1	irequality.go:431	-	fence: owner is one of List, Vector, Map, Maybe, Result (equatableContainerOwner)
+?	irScalarBuilder.existentialDebugImpls | computed | return len(impls) != 0#1	irequality.go:481	?	
 b	irScalarBuilder.fieldAccessor | false | bl.g.fa == nil#1	irfieldaccessor.go:21	-	defensive: fa is set whenever a body is lowered from a checked file
 b	irScalarBuilder.fieldAccessor | false | !found#1	irfieldaccessor.go:25	-	checker records every accessor it accepts in FieldAccessors; a rejected one never reaches the builder
 c	irScalarBuilder.fieldAccessor | note | "a field accessor over a type outside the domain: " + pk.nomi()#1	irfieldaccessor.go:29	-	pinned as gapFieldAccessorRecordExistential (reason: a field accessor over a type outside the domain: {d: Display, x: Int})
@@ -648,6 +665,10 @@ d	irScalarBuilder.siblingCall | false | !ok ¦¦ !irCallOperandKind(k)#1	irqualc
 d	irScalarBuilder.siblingCall | false | !ok ¦¦ k != params[slot]#1	irqualcall.go:1339	-	same as 1334; not found
 d	irScalarBuilder.siblingCall | false | len(t.Args) != len(params) && (site.host ¦¦ !bl.siblingFill(t, bl.g.unitGen(site.unit), pl…#1	irqualcall.go:1350	-	non-literal and lambda defaults across files fill; a failing accessor is reported under the accessor's own name instead
 b	irScalarBuilder.scalarTextCall | false | !args.ok ¦¦ len(args.kinds) != 1 ¦¦ !irScalarLeafKind(args.kinds[0]) ¦¦ args.kinds[0] != b…#1	irqualcall.go:1466	-	checker requires the operand to be the owner's type ("argument 1: expected Float, got Int")
+?	irScalarBuilder.synthDebugRender | false | method != "inspect" ¦¦ !args.ok ¦¦ len(args.kinds) != 1#1	irqualcall.go:1482	?	
+?	irScalarBuilder.synthDebugRender | false | base == "" ¦¦ base != owner ¦¦ base == "Range"#1	irqualcall.go:1490	?	
+?	irScalarBuilder.synthDebugRender | false | local#1	irqualcall.go:1493	?	
+?	irScalarBuilder.synthDebugRender | false | bl.g.implsByIface["Debug"][k] != nil#1	irqualcall.go:1523	?	
 a	irScalarBuilder.qualDottedOwner | false | !isFA ¦¦ inner.Field == nil#1	irqualcall.go:1585	expect,irbuild,projectgen,vmhost	
 a	irScalarBuilder.qualDottedOwner | false | !isIdent ¦¦ irQualIsLocal(bl, mod.Name)#1	irqualcall.go:1592	expect,irbuild,projectgen,vmhost	
 a	irScalarBuilder.qualDottedOwner | false | !isStd#1	irqualcall.go:1596	irbuild	
@@ -656,21 +677,22 @@ b	irScalarBuilder.rangeMake | false | !ok ¦¦ ek != elem#1	irrange.go:30	-	chec
 c	irScalarBuilder.rangeMake | false | !irRetainedRangeKind(k)#1	irrange.go:34	-	pinned as gapCRangeBool (reason: a RangeLit)
 a	irScalarBuilder.rangeCall | false | !args.ok ¦¦ len(args.kinds) == 0 ¦¦ !irRetainedRangeKind(args.kinds[0])#1	irrange.go:53	irbuild	
 b	irScalarBuilder.rangeCall | false | len(args.kinds) != 1#1	irrange.go:59	-	checker types Range.bounded?(r) with one argument
-b	irScalarBuilder.rangeCall | false | len(args.kinds) != 2 ¦¦ args.kinds[1] != elem#1	irrange.go:66	-	checker types Range.contains?(r, n: T)
-c	irScalarBuilder.rangeCall | false | unguarded#1	irrange.go:81	-	pinned as gapCRangeToString (reason: qualified call, Type.method: Range.to_string)
-b	irScalarBuilder.rangeFrom | false | !args.ok ¦¦ len(args.kinds) != want ¦¦ (want == 1 && args.kinds[0] != kindInt)#1	irrange.go:95	-	checker types Range.from(n: Int) and Range.naturals()
-b	irScalarBuilder.rangeFrom | false | !irRetainedRangeKind(k)#1	irrange.go:99	-	Range<Int> is always a retained range kind
-b	irScalarBuilder.rangeStructLit | false | len(t.Fields) != 3#1	irrange.go:124	-	std-only fence: Range is an opaque struct, its literal lowers only in std/ranges, whose two bodies have three fields
-b	irScalarBuilder.rangeStructLit | false | !bare ¦¦ name != "None"#1	irrange.go:133	-	std-only fence: std/ranges' Range.from/naturals write `end: None`
-b	irScalarBuilder.rangeStructLit | false | !bare ¦¦ name != "False"#1	irrange.go:137	-	std-only fence: std/ranges' bodies write `inclusive: False`
-b	irScalarBuilder.rangeStructLit | false | unguarded#1	irrange.go:140	-	std-only fence: std/ranges' bodies name only start/end/inclusive
-b	irScalarBuilder.rangeStructLit | false | start == nil#1	irrange.go:144	-	std-only fence: std/ranges' bodies set start
-b	irScalarBuilder.rangeStructLit | false | !ok ¦¦ k != kindInt#1	irrange.go:148	-	std-only fence: std/ranges' start is an Int (n or 0)
-b	irScalarBuilder.rangeStructLit | false | !irRetainedRangeKind(rk)#1	irrange.go:152	-	std-only fence: Range<Int> is always retained
-b	irScalarBuilder.rangeStepBy | false | len(args.kinds) != 2 ¦¦ !irRetainedValueKind(args.kinds[1])#1	irrange.go:167	-	checker requires T: Steppable<S>; std impls step Int/Decimal/Codepoint by retained kinds, Float is rejected
-b	irScalarBuilder.elemStepper | false | !shared#1	irrange.go:214	-	a program Steppable impl takes the impl branch first (user struct Range.step_by lowers); std Steppable elements Int, Decimal, Codepoint have a shared Maybe
-b	irScalarBuilder.elemStepper | false | step == nil ¦¦ step.irBody == nil#1	irrange.go:218	-	std's Steppable.step_by bodies exist for Int, Decimal and Codepoint
-?	irScalarBuilder.discreteRef | false | f == nil ¦¦ f.irBody == nil#1	irrange.go:273	?	
+?	irScalarBuilder.rangeCall | false | len(args.kinds) != 1#2	irrange.go:71	?	
+b	irScalarBuilder.rangeCall | false | len(args.kinds) != 2 ¦¦ args.kinds[1] != elem#1	irrange.go:80	-	checker types Range.contains?(r, n: T)
+c	irScalarBuilder.rangeCall | false | unguarded#1	irrange.go:95	-	pinned as gapCRangeToString (reason: qualified call, Type.method: Range.to_string)
+b	irScalarBuilder.rangeFrom | false | !args.ok ¦¦ len(args.kinds) != want ¦¦ (want == 1 && args.kinds[0] != kindInt)#1	irrange.go:109	-	checker types Range.from(n: Int) and Range.naturals()
+b	irScalarBuilder.rangeFrom | false | !irRetainedRangeKind(k)#1	irrange.go:113	-	Range<Int> is always a retained range kind
+b	irScalarBuilder.rangeStructLit | false | len(t.Fields) != 3#1	irrange.go:138	-	std-only fence: Range is an opaque struct, its literal lowers only in std/ranges, whose two bodies have three fields
+b	irScalarBuilder.rangeStructLit | false | !bare ¦¦ name != "None"#1	irrange.go:147	-	std-only fence: std/ranges' Range.from/naturals write `end: None`
+b	irScalarBuilder.rangeStructLit | false | !bare ¦¦ name != "False"#1	irrange.go:151	-	std-only fence: std/ranges' bodies write `inclusive: False`
+b	irScalarBuilder.rangeStructLit | false | unguarded#1	irrange.go:154	-	std-only fence: std/ranges' bodies name only start/end/inclusive
+b	irScalarBuilder.rangeStructLit | false | start == nil#1	irrange.go:158	-	std-only fence: std/ranges' bodies set start
+b	irScalarBuilder.rangeStructLit | false | !ok ¦¦ k != kindInt#1	irrange.go:162	-	std-only fence: std/ranges' start is an Int (n or 0)
+b	irScalarBuilder.rangeStructLit | false | !irRetainedRangeKind(rk)#1	irrange.go:166	-	std-only fence: Range<Int> is always retained
+b	irScalarBuilder.rangeStepBy | false | len(args.kinds) != 2 ¦¦ !irRetainedValueKind(args.kinds[1])#1	irrange.go:181	-	checker requires T: Steppable<S>; std impls step Int/Decimal/Codepoint by retained kinds, Float is rejected
+b	irScalarBuilder.elemStepper | false | !shared#1	irrange.go:228	-	a program Steppable impl takes the impl branch first (user struct Range.step_by lowers); std Steppable elements Int, Decimal, Codepoint have a shared Maybe
+b	irScalarBuilder.elemStepper | false | step == nil ¦¦ step.irBody == nil#1	irrange.go:232	-	std's Steppable.step_by bodies exist for Int, Decimal and Codepoint
+?	irScalarBuilder.discreteRef | false | f == nil ¦¦ f.irBody == nil#1	irrange.go:287	?	
 b	irScalarBuilder.recordMakeOf | false | t.Spread != nil ¦¦ len(t.Fields) == 0#1	irrecord.go:34	-	parser builds `{}` as a block, never an empty StructLit; a spread returned above
 a	irScalarBuilder.recordMakeOf | false | !ok ¦¦ !irCompositePartKind(k)#1	irrecord.go:50	irbuild	
 b	irScalarBuilder.recordMakeOf | false | !irRetainedRecordKind(k)#1	irrecord.go:60	-	fence: every field passed irCompositePartKind, which is what irRetainedRecordKind checks

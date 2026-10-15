@@ -60,6 +60,20 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		}
 	case "step_by":
 		return bl.rangeStepBy(t, args)
+	case "known_count", "each_while":
+		// `impl Iter for Range<T>`'s members, named by the type: the Iter
+		// protocol over the Range's view.
+		return bl.iterCall(t, args, method)
+	case "to_string", "inspect":
+		// std's Debug impl for a Range is its Display (`to_string(r)`), so
+		// both render as `Debug.inspect(r)` does.
+		if len(args.kinds) != 1 {
+			return no()
+		}
+		if v, k, mobile, ok := bl.synthDebugRender(t, args, "Debug", "inspect"); ok {
+			return v, k, mobile, true
+		}
+		return no()
 	case "contains?":
 		elem, _ := rangeElem(args.kinds[0])
 		if len(args.kinds) != 2 || args.kinds[1] != elem {
