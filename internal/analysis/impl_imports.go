@@ -97,6 +97,14 @@ type implPair struct {
 type implUses struct {
 	decls map[ast.Node]map[*FileAnalysis]bool
 	pairs map[implPair]bool
+	// base, when the program's demanders include every file of a stdlib
+	// base, holds those files' pairs, which pairs then leaves out.
+	base *StdBase
+}
+
+// demanded reports whether some file demands pair.
+func (u implUses) demanded(pair implPair) bool {
+	return u.pairs[pair] || (u.base != nil && u.base.pairs[pair])
 }
 
 func (u implUses) addDecl(n ast.Node, from *FileAnalysis) {
@@ -111,16 +119,37 @@ func collectImplUses(program []ProgramFile) implUses {
 	// The demands are every file's of the program the files belong to, the
 	// stdlib's included, and those of the files themselves.
 	demanders := map[*FileAnalysis]bool{}
+	programs := map[*Program]bool{}
+	var base *StdBase
 	for _, f := range program {
 		if f.FA == nil {
 			continue
 		}
 		demanders[f.FA] = true
-		for _, file := range f.FA.Program().Files() {
+		programs[f.FA.Program()] = true
+		if b := f.FA.Program().stdBase; b != nil {
+			base = b
+		}
+	}
+	for p := range programs {
+		for _, file := range p.Files() {
 			demanders[file] = true
 		}
 	}
+	// A stdlib base's files demand what the base records, and no reference
+	// in one of them reaches a program file's impl.
+	files := make([]*FileAnalysis, 0, len(demanders))
 	for fa := range demanders {
+		files = append(files, fa)
+	}
+	if base.ownsAll(files) {
+		u.base = base
+	}
+	for fa := range demanders {
+		if u.base.Owns(fa) {
+			continue
+		}
+		noteStdlibWork(fa.Origin)
 		for iface, byType := range fa.ImplManifest {
 			for typeName := range byType {
 				u.pairs[implPair{typeName: typeName, iface: iface}] = true
@@ -129,9 +158,10 @@ func collectImplUses(program []ProgramFile) implUses {
 	}
 	for _, f := range program {
 		fa := f.FA
-		if fa == nil {
+		if fa == nil || base.Owns(fa) {
 			continue
 		}
+		noteStdlibWork(fa.Origin)
 		for _, ref := range fa.References {
 			if ref == nil {
 				continue
@@ -176,7 +206,7 @@ func (u implUses) usesImplIn(target ProgramFile) bool {
 				}
 			}
 		}
-		if block.Interface != nil && u.pairs[implPair{typeName: recv, iface: TypeExprBaseName(block.Interface)}] {
+		if block.Interface != nil && u.demanded(implPair{typeName: recv, iface: TypeExprBaseName(block.Interface)}) {
 			return true
 		}
 	}

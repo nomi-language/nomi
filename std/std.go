@@ -98,6 +98,11 @@ type StdLib struct {
 	// front end and the language server report these ahead of anything else
 	// (SyntaxError).
 	SyntaxErrors map[string][]parser.ParseError
+	// Base is the stdlib's share of a program's whole-program facts
+	// (analysis.StdBase), which a build given Files takes rather than
+	// folding the stdlib's files itself. Nil when the stdlib does not fit
+	// one, and every build then folds them.
+	Base *analysis.StdBase
 }
 
 // SyntaxError answers every parse error in the embedded stdlib, one
@@ -561,6 +566,11 @@ func Load() *StdLib {
 			fa.ModuleScope.MarkShared()
 		}
 	}
+
+	// The stdlib's share of every program's whole-program facts, worked out
+	// once now that every module is checked. A program built against these
+	// analyses folds only its own files over it.
+	lib.Base = analysis.BuildStdBase(lib.Files)
 
 	return lib
 }

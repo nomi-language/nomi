@@ -94,6 +94,15 @@ type TypeMethodKey struct {
 // PopulateProjectTypeMethodSymbols), then the earlier source position. A
 // contest that reaches the last tier is a genuine duplicate and is recorded.
 func PopulateTypeMethodIdentities(idx *ProjectImplIndex, filesByKey map[string]*FileAnalysis) {
+	populateTypeMethodIdentities(idx, filesByKey, primitiveOriginIndex(filesByKey))
+}
+
+// populateTypeMethodIdentities is PopulateTypeMethodIdentities with the
+// primitive-origin index given. It adds filesByKey's methods to whatever idx
+// already holds, contending with it by the same rule, and visits the stdlib's
+// files first and then the rest in key order, so the recorded conflicts come
+// out in one order.
+func populateTypeMethodIdentities(idx *ProjectImplIndex, filesByKey map[string]*FileAnalysis, primitives map[string]string) {
 	if idx == nil {
 		return
 	}
@@ -103,8 +112,9 @@ func PopulateTypeMethodIdentities(idx *ProjectImplIndex, filesByKey map[string]*
 	if idx.TypeMethodModuleByIdentity == nil {
 		idx.TypeMethodModuleByIdentity = make(map[TypeMethodKey]string)
 	}
-	primitives := primitiveOriginIndex(filesByKey)
-	for provider, fa := range filesByKey {
+	for _, provider := range stdlibFirstKeys(filesByKey) {
+		fa := filesByKey[provider]
+		noteStdlibWork(provider)
 		if fa == nil {
 			continue
 		}

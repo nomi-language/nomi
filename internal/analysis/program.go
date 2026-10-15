@@ -78,6 +78,17 @@ type Program struct {
 	// decide about the program, and only that: no file's analysis records
 	// it. Those checks write it; nothing else does.
 	results *programResults
+
+	// stdBase is the stdlib's share of the program's facts when the program
+	// takes it from a base rather than from its stdlib files (StdBase): its
+	// ImplIndex holds every impl of the base's files, and the checks that
+	// fold every file's facts after checking (MissingImpls,
+	// CheckImplImports) take the base's files' part from it.
+	stdBase *StdBase
+
+	// formsBase is set on the stdlib's own program only: the base its files
+	// form (BuildStdBase), which a build given those files takes.
+	formsBase *StdBase
 }
 
 // programResults are the program-wide decisions made after every file is
