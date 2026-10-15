@@ -63,8 +63,5 @@ func ImplementsInterface(fa *FileAnalysis, t Type, iface string) bool {
 	if name == "" {
 		return false
 	}
-	if fa.Impls[name][iface] {
-		return true
-	}
-	return fa.Program().ImplIndex != nil && fa.Program().ImplIndex.Impls[name][iface]
+	return fa.HasImpl(name, iface)
 }

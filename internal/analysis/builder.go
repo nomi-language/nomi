@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -541,7 +542,7 @@ type FileAnalysis struct {
 	// to std/lists). The runtime type-method bridge force-loads
 	// these so the inherent method registers even when the file never imported
 	// the provider; without it `List.concat` only works when something else
-	// happens to load std/lists. Unioned across siblings by mergeImplManifest.
+	// happens to load std/lists. Each file records its own call sites'.
 	// Keyed by the loadable module path (the filesByKey key); never "" (the
 	// entry's own methods need no provider).
 	TypeMethodModules map[string]bool
@@ -565,6 +566,11 @@ type FileAnalysis struct {
 	// program is the program this file belongs to; read it with Program().
 	// A build sets it once the Program is complete, and never changes it.
 	program *Program
+	// ImportedModules is the module key of every user file this file
+	// imports, in the order its imports reach them. A type-qualified call
+	// to an imported module's public function resolves through it
+	// (LookupVisibleTypeMethod).
+	ImportedModules []string
 	// TypeMethods is the per-file type-qualified method table:
 	// receiver-type base name → method name → Symbol. Populated by
 	// defineImplBlock for compiler-synthesized type-owned functions and
@@ -616,6 +622,65 @@ func (fa *FileAnalysis) LookupTypeMethod(typeName, methodName string) *Symbol {
 		return byName[methodName]
 	}
 	return nil
+}
+
+// LookupVisibleTypeMethod is LookupTypeMethod over what the file can name:
+// its own type-method table, then the public functions each user module it
+// imports declares (ImportedModules), the first import that has one winning.
+// A stdlib module's functions are not among them; the program's impl index
+// answers for those.
+func (fa *FileAnalysis) LookupVisibleTypeMethod(typeName, methodName string) *Symbol {
+	return fa.lookupVisibleTypeMethod(typeName, methodName, fa.Program().File)
+}
+
+func (fa *FileAnalysis) lookupVisibleTypeMethod(typeName, methodName string, module func(key string) *FileAnalysis) *Symbol {
+	if sym := fa.LookupTypeMethod(typeName, methodName); sym != nil {
+		return sym
+	}
+	if fa == nil {
+		return nil
+	}
+	for _, key := range fa.ImportedModules {
+		if sym := importedTypeMethod(module(key), typeName, methodName); sym != nil {
+			return sym
+		}
+	}
+	return nil
+}
+
+// importedTypeMethod is the function an importer reaches as
+// `typeName.methodName` in the module file declares: a public one.
+func importedTypeMethod(file *FileAnalysis, typeName, methodName string) *Symbol {
+	if sym := file.LookupTypeMethod(typeName, methodName); sym != nil && sym.Public {
+		return sym
+	}
+	return nil
+}
+
+// VisibleTypeMethods answers every function LookupVisibleTypeMethod reaches
+// on typeName, by name.
+func (fa *FileAnalysis) VisibleTypeMethods(typeName string) map[string]*Symbol {
+	out := map[string]*Symbol{}
+	if fa == nil {
+		return out
+	}
+	for name, sym := range fa.TypeMethods[typeName] {
+		if sym != nil {
+			out[name] = sym
+		}
+	}
+	for _, key := range fa.ImportedModules {
+		file := fa.Program().File(key)
+		if file == nil {
+			continue
+		}
+		for name, sym := range file.TypeMethods[typeName] {
+			if _, present := out[name]; !present && sym != nil && sym.Public {
+				out[name] = sym
+			}
+		}
+	}
+	return out
 }
 
 // RecordManifest appends `rec` to the file's ImplManifest entry for
@@ -1159,9 +1224,7 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 
 	// Check cache first
 	if cached, ok := b.cache[cacheKey]; ok {
-		mergeImpls(b.file, cached)
-		mergeImplManifest(b.file, cached)
-		mergeTypeMethods(b.file, cached, filePath)
+		b.recordImportedModule(cacheKey, filePath)
 		return cached.ModuleScope, filePath, nil
 	}
 
@@ -1218,154 +1281,34 @@ func (b *builder) resolveImportOrMiss(modulePath []string) (*Scope, string, *imp
 	BuildTypes(sub.file, loweredNodes)
 	sub.file.program = standaloneProgram(sub.file, loweredNodes, nil, nil, nil, sub.cache)
 	b.cache[cacheKey] = sub.file
-	mergeImpls(b.file, sub.file)
-	mergeImplManifest(b.file, sub.file)
-	mergeTypeMethods(b.file, sub.file, filePath)
+	b.recordImportedModule(cacheKey, filePath)
 	return moduleScope, filePath, nil
 }
 
-// mergeImpls copies the source file's Impls table into the destination's,
-// so an importing file sees the impls declared in any imported file.
-// Without this, the type checker rejects assignments like
-// `Effects { logger: ProdLogger {} }` whenever the impl
-// `impl Logger for ProdLogger` lives in a different file from the
-// Effects struct definition. Stdlib impls reach files the same way
-// (post-stdlib-as-package they flow through the regular import path),
-// supplemented by the project-level ImplIndex for impls the importing
-// file never imported directly. Idempotent — repeated calls leave the
-// dst table unchanged.
-func mergeImpls(dst, src *FileAnalysis) {
-	if dst == nil || src == nil || src.Impls == nil {
+// recordImportedModule records that this file imports the user module cached
+// under key, whose file is at filePath, for the type-qualified lookups that
+// reach an imported module's public functions (LookupVisibleTypeMethod). A
+// stdlib module is not recorded: its functions are reached through the
+// program's impl index, and go-to-definition finds them through the stdlib's
+// own module scopes.
+func (b *builder) recordImportedModule(key, filePath string) {
+	if key == "" || filePath == "" {
 		return
 	}
-	if dst.Impls == nil {
-		dst.Impls = make(map[string]map[string]bool)
+	if _, std := stdlibModuleForPath(filePath); std {
+		return
 	}
-	for typeName, ifaces := range src.Impls {
-		if dst.Impls[typeName] == nil {
-			dst.Impls[typeName] = make(map[string]bool)
-		}
-		for ifaceName := range ifaces {
-			dst.Impls[typeName][ifaceName] = true
-		}
+	if slices.Contains(b.file.ImportedModules, key) {
+		return
 	}
+	b.file.ImportedModules = append(b.file.ImportedModules, key)
 }
 
-// mergeTypeMethods copies an imported USER module's own public impl methods
-// into the importing file's per-file TypeMethods table, so single-file analysis
-// (the LSP path, where Program().ImplIndex is nil) resolves a type-qualified call to
-// an imported user type's interface method.
-// It is the per-file sibling of mergeImpls, scoped narrowly to keep go-to-def
-// correct:
-//
-//   - Stdlib modules are skipped. Their type-qualified methods already resolve
-//     in single-file mode via the References table / prebuilt scopes, and
-//     go-to-def routes stdlib symbols through the embedded-stdlib FileURI
-//     machinery — which requires SourceFile to stay empty. Merging them would
-//     inject a competing TypeMethods entry that mis-attributes go-to-def
-//     (e.g. `List.head` → lists.nomi).
-//   - Only a module's OWN methods are merged — SourceFile empty, or already
-//     equal to srcPath — not ones it transitively merged from its own imports
-//     (those reach the importer through its own direct import of the defining
-//     module). This keeps first-wins from picking a non-authoritative source.
-//   - A merged symbol's SourceFile is stamped with srcPath when empty, so
-//     cross-file go-to-def lands in the defining user file.
-//
-// Idempotent; an existing entry (the importing file's own method) is not
-// overwritten, matching mergeImpls.
-func mergeTypeMethods(dst, src *FileAnalysis, srcPath string) {
-	if dst == nil || src == nil || src.TypeMethods == nil || srcPath == "" {
-		return
-	}
-	if _, std := stdlibModuleForPath(srcPath); std {
-		return
-	}
-	for typeName, byName := range src.TypeMethods {
-		for method, sym := range byName {
-			if sym == nil {
-				continue
-			}
-			// Module-private methods stay callable only within their defining
-			// module. Project-wide analysis applies the same public-only filter
-			// when it builds Program().ImplIndex.TypeMethods.
-			if !sym.Public {
-				continue
-			}
-			// Non-transitive: skip a method the source itself merged from
-			// elsewhere (its SourceFile, which the declaring file set,
-			// names a different file).
-			if sym.SourceFile != srcPath {
-				continue
-			}
-			if dst.TypeMethods == nil {
-				dst.TypeMethods = make(map[string]map[string]*Symbol)
-			}
-			if dst.TypeMethods[typeName] == nil {
-				dst.TypeMethods[typeName] = make(map[string]*Symbol)
-			}
-			if _, present := dst.TypeMethods[typeName][method]; !present {
-				dst.TypeMethods[typeName][method] = sym
-			}
-		}
-	}
-}
-
-// MergeImplManifest is the exported alias of mergeImplManifest, used by
-// internal/frontend's Checker.Analyze and the stdcompiler package to fold each
-// sibling's manifest (populated by per-sibling CheckTypes runs) into
-// the entry's manifest. The export contract is intentionally narrow:
-// merge ImplManifest only — no error fold-in, no Impls fold-in (those
-// already happen inside BuildProject's sweeps).
-func MergeImplManifest(dst, src *FileAnalysis) { mergeImplManifest(dst, src) }
-
-// mergeImplManifest copies the source file's ImplManifest into the
-// destination's, unioning Recording slices on collision and
-// deduplicating by full Recording equality. Used during cross-file
-// analysis the same way mergeImpls is used to fold static "type
-// implements interface" facts. Idempotent — re-merging the same src
-// leaves dst unchanged.
-func mergeImplManifest(dst, src *FileAnalysis) {
-	if dst == nil || src == nil {
-		return
-	}
-	// Type-method provider demands union independently of ImplManifest — a
-	// file may use cross-module type-promoted methods without any interface
-	// dispatch (so src.ImplManifest could be nil while TypeMethodModules isn't).
-	if src.TypeMethodModules != nil {
-		if dst.TypeMethodModules == nil {
-			dst.TypeMethodModules = make(map[string]bool)
-		}
-		for path := range src.TypeMethodModules {
-			dst.TypeMethodModules[path] = true
-		}
-	}
-	if src.ImplManifest == nil {
-		return
-	}
-	if dst.ImplManifest == nil {
-		dst.ImplManifest = make(map[string]map[string][]Recording)
-	}
-	for ifaceName, types := range src.ImplManifest {
-		if dst.ImplManifest[ifaceName] == nil {
-			dst.ImplManifest[ifaceName] = make(map[string][]Recording)
-		}
-		for typeName, recs := range types {
-			existing := dst.ImplManifest[ifaceName][typeName]
-			for _, rec := range recs {
-				dup := false
-				for _, prev := range existing {
-					if prev == rec {
-						dup = true
-						break
-					}
-				}
-				if !dup {
-					existing = append(existing, rec)
-				}
-			}
-			dst.ImplManifest[ifaceName][typeName] = existing
-		}
-	}
+// lookupVisibleTypeMethod is FileAnalysis.LookupVisibleTypeMethod while the
+// file is being built, before it has a Program: the modules it imports are
+// read from the build's cache.
+func (b *builder) lookupVisibleTypeMethod(typeName, methodName string) *Symbol {
+	return b.file.lookupVisibleTypeMethod(typeName, methodName, func(key string) *FileAnalysis { return b.cache[key] })
 }
 
 // stdlibSiblingPath is QualifyIntraStdlibImport bound to the file this
@@ -1905,7 +1848,7 @@ func (b *builder) recordImportedTypeQualifiedAccess(n *ast.FieldAccess, scope *S
 			return
 		}
 	}
-	if method := b.file.LookupTypeMethod(real.Name, n.Field.Name); method != nil {
+	if method := b.lookupVisibleTypeMethod(real.Name, n.Field.Name); method != nil {
 		b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = symbolWithCallReceiver(method, obj.Name)
 	}
 }
@@ -4199,9 +4142,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 					return nameOwnerSym.ModuleScope.LookupLocal(lookupName)
 				}
 				if nameOwnerSym != nil {
-					if byMethod := b.file.TypeMethods[nameOwnerSym.Name]; byMethod != nil {
-						return byMethod[lookupName]
-					}
+					return b.lookupVisibleTypeMethod(nameOwnerSym.Name, lookupName)
 				}
 				return nil
 			}

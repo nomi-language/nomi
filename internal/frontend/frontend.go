@@ -243,12 +243,12 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	c.projectFiles = collectProjectFiles(siblingFAs, siblingNodes)
 	errs := c.buildErrors(fa)
 	errs = append(errs, c.kept(analysis.CheckTypes(fa, nodes))...)
-	// A sibling's CheckTypes records the conformance its bodies demand, which
-	// the entry's ImplManifest needs, and reports the sibling's own
-	// diagnostics at the sibling's position, after its build-phase errors
-	// (sibFA.TypeErrors), as the entry's are ordered. siblingFAs holds one
-	// analysis per file, so a file imported by several others is reported
-	// once. Keyed order so the text is stable.
+	// A sibling's CheckTypes records the conformance its bodies demand in its
+	// own ImplManifest, which the missing-impl check folds, and reports the
+	// sibling's own diagnostics at the sibling's position, after its
+	// build-phase errors (sibFA.TypeErrors), as the entry's are ordered.
+	// siblingFAs holds one analysis per file, so a file imported by several
+	// others is reported once. Keyed order so the text is stable.
 	sibKeys := make([]string, 0, len(siblingFAs))
 	for key := range siblingFAs {
 		sibKeys = append(sibKeys, key)
@@ -260,16 +260,14 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		sibFA := siblingFAs[key]
 		// A stdlib module the build resolved to the shared analysis was
 		// checked once, by std.Load: its diagnostics are in lib.Errors, and
-		// the build already folded its ImplManifest into the entry's.
-		// Checking it again would write to an analysis every program in the
-		// process reads.
+		// its ImplManifest holds what its bodies demand. Checking it again
+		// would write to an analysis every program in the process reads.
 		if name, shared := c.sharedStdlib(key, sibFA); shared {
 			program = append(program, analysis.ProgramFile{FA: sibFA, Nodes: c.lib.Nodes[name]})
 			continue
 		}
 		own := c.buildErrors(sibFA)
 		sibErrs[key] = append(own, c.kept(analysis.CheckTypes(sibFA, siblingNodes[key]))...)
-		analysis.MergeImplManifest(fa, sibFA)
 		program = append(program, analysis.ProgramFile{FA: sibFA, Nodes: siblingNodes[key]})
 	}
 	// The application-field roots of every file, now that every file is
@@ -308,8 +306,9 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		}
 		sibDiags = append(sibDiags, typeDiagnostics(sibPath, c.sourceOf(sibPath), own)...)
 	}
-	// After every sibling's manifest is merged, so the missing-impl check
-	// sees every recording site.
+	// After every file is checked, so the missing-impl check sees every
+	// recording site. Its errors are the program's; they are reported with
+	// the entry's.
 	errs = append(errs, analysis.FinalizeCoherence(fa)...)
 	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
 	errs = append(errs, analysis.CheckConcurrentScope(fa, nodes)...)

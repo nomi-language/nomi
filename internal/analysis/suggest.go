@@ -193,7 +193,7 @@ func (c *checker) typeMemberNames(typeName string) []string {
 		names = variantNames(et)
 	}
 	if c.fa != nil {
-		for name := range c.fa.TypeMethods[typeName] {
+		for name := range c.fa.VisibleTypeMethods(typeName) {
 			names = append(names, name)
 		}
 	}

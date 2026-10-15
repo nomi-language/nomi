@@ -10,7 +10,7 @@ import (
 // A non-entry file's checker diagnostics are part of the program.
 //
 // The front end runs `CheckTypes` on every sibling module because the
-// recordings it produces feed the entry's ImplManifest, and a sibling's
+// recordings it produces feed the missing-impl check, and a sibling's
 // diagnostics fail the program: a sibling file is compiled and run, and
 // nothing else ever checks it. If the result were discarded, all three of
 // these would pass `nomi check` and run:

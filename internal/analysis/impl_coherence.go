@@ -329,7 +329,7 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 		// ImplFuncTypes is populated separately in a post-BuildTypes pass
 		// (see PopulateProjectImplFuncTypes), since sym.Type isn't set on
 		// impl FuncDef Symbols until BuildTypes runs — buildProjectImplIndex
-		// executes earlier in the build pipeline (post Sweep B-impls, pre
+		// executes earlier in the build pipeline (post Sweep B-ann, pre
 		// Sweep C-types).
 		for fn, path := range tables.IfaceMethodImplFiles {
 			idx.ImplFiles[fn] = path

@@ -52,7 +52,6 @@ func RunFrontEnd(source, root string, virtualFiles map[string]string) ([]ast.Nod
 	program := []analysis.ProgramFile{{FA: fa, Nodes: nodes}}
 	for key, sibFA := range siblingFAs {
 		_ = analysis.CheckTypes(sibFA, siblingNodes[key])
-		analysis.MergeImplManifest(fa, sibFA)
 		program = append(program, analysis.ProgramFile{FA: sibFA, Nodes: siblingNodes[key]})
 	}
 	// The entry's application-field roots, once every file is checked.

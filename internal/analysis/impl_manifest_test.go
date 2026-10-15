@@ -102,36 +102,27 @@ func TestImplManifestRecordingIdempotent(t *testing.T) {
 	}
 }
 
-// TestImplManifestMergePreservesRecordings asserts that merging two FAs
+// TestImplManifestUnionPreservesRecordings asserts that folding two FAs
 // with distinct Recordings for the same (Iface, Type) pair unions both
-// recordings into the destination slice — not collapsing them to one.
-// The missing-impl diagnostic needs every demand site to render the full list,
-// so the merge must preserve provenance even for duplicate pairs.
-func TestImplManifestMergePreservesRecordings(t *testing.T) {
-	dst := &analysis.FileAnalysis{}
-	srcA := &analysis.FileAnalysis{}
-	srcB := &analysis.FileAnalysis{}
+// recordings — not collapsing them to one — in position order, whichever
+// file comes first. The missing-impl diagnostic needs every demand site to
+// render the full list, so the fold must preserve provenance even for
+// duplicate pairs.
+func TestImplManifestUnionPreservesRecordings(t *testing.T) {
+	srcA := &analysis.FileAnalysis{FilePath: "a.nomi"}
+	srcB := &analysis.FileAnalysis{FilePath: "b.nomi"}
 	recA := analysis.Recording{Pos: analysis.Pos{File: "a.nomi", Line: 7, Col: 12}, Kind: analysis.RecordingKindCallSite}
 	recB := analysis.Recording{Pos: analysis.Pos{File: "b.nomi", Line: 3, Col: 5}, Kind: analysis.RecordingKindTypedLiteralSlot}
 	srcA.RecordManifest("Int", "Display", recA)
 	srcB.RecordManifest("Int", "Display", recB)
-	analysis.MergeImplManifestForTest(dst, srcA)
-	analysis.MergeImplManifestForTest(dst, srcB)
-	recs := dst.ImplManifest["Display"]["Int"]
-	if len(recs) != 2 {
-		t.Fatalf("expected 2 recordings (union), got %d: %+v", len(recs), recs)
-	}
-	gotA, gotB := false, false
-	for _, r := range recs {
-		if r == recA {
-			gotA = true
-		}
-		if r == recB {
-			gotB = true
+	for _, files := range [][]*analysis.FileAnalysis{{srcA, srcB}, {srcB, srcA}} {
+		recs := analysis.UnionDemandsForTest(files)["Display"]["Int"]
+		if len(recs) != 2 || recs[0] != recA || recs[1] != recB {
+			t.Fatalf("want [recA recB], got %+v", recs)
 		}
 	}
-	if !gotA || !gotB {
-		t.Errorf("missing recordings after merge: gotA=%v gotB=%v, recs=%+v", gotA, gotB, recs)
+	if len(srcA.ImplManifest["Display"]["Int"]) != 1 || len(srcB.ImplManifest["Display"]["Int"]) != 1 {
+		t.Errorf("the fold wrote a file's own manifest: a=%v b=%v", srcA.ImplManifest, srcB.ImplManifest)
 	}
 }
 
@@ -165,12 +156,11 @@ func buildProjectManifest(t *testing.T, entrySrc string, siblings map[string]str
 	// Mirror internal/frontend's Checker.Analyze: run
 	// CheckTypes over each sibling FA + nodes pair so conformance recordings
 	// inside sibling function bodies (e.g. `${name}` interpolation) reach
-	// the entry's ImplManifest. Sibling diagnostics are discarded — the
+	// their own ImplManifests. Sibling diagnostics are discarded — the
 	// entry's CheckTypes is the authoritative diagnostics path here.
 	for key, sibFA := range cache {
 		nodes := siblingNodes[key]
 		_ = analysis.CheckTypes(sibFA, nodes)
-		analysis.MergeImplManifestForTest(entryFA, sibFA)
 	}
 	checkErrs := analysis.CheckTypes(entryFA, entryNodes)
 	all := append([]analysis.TypeError{}, entryFA.TypeErrors...)
@@ -182,7 +172,8 @@ func buildProjectManifest(t *testing.T, entrySrc string, siblings map[string]str
 		}
 		t.Fatalf("expected clean check, got %d errors:\n  %s", len(all), strings.Join(msgs, "\n  "))
 	}
-	return entryFA
+	// The assertions read the program's demands: every file's own, folded.
+	return &analysis.FileAnalysis{ImplManifest: analysis.ProgramDemandsForTest(entryFA)}
 }
 
 // A Dynamic slot in a typed literal triggers an interface-conformance check
@@ -225,23 +216,22 @@ fn main() {
 	}
 }
 
-func TestImplManifestMerges(t *testing.T) {
-	dst := &analysis.FileAnalysis{}
+func TestImplManifestUnion(t *testing.T) {
 	src := &analysis.FileAnalysis{}
 	src.RecordManifest("Int", "Display", analysis.Recording{})
 	src.RecordManifest("String", "Display", analysis.Recording{})
 	src.RecordManifest("Int", "Hashable", analysis.Recording{})
 
-	analysis.MergeImplManifestForTest(dst, src)
+	dst := analysis.UnionDemandsForTest([]*analysis.FileAnalysis{src})
 
-	if len(dst.ImplManifest["Display"]["Int"]) == 0 {
-		t.Errorf("expected (Int, Display) merged into dst")
+	if len(dst["Display"]["Int"]) == 0 {
+		t.Errorf("expected (Int, Display) in the union")
 	}
-	if len(dst.ImplManifest["Display"]["String"]) == 0 {
-		t.Errorf("expected (String, Display) merged into dst")
+	if len(dst["Display"]["String"]) == 0 {
+		t.Errorf("expected (String, Display) in the union")
 	}
-	if len(dst.ImplManifest["Hashable"]["Int"]) == 0 {
-		t.Errorf("expected (Int, Hashable) merged into dst")
+	if len(dst["Hashable"]["Int"]) == 0 {
+		t.Errorf("expected (Int, Hashable) in the union")
 	}
 }
 
@@ -442,10 +432,10 @@ fn demo(): Maybe2<Int> {
 
 // A `${...}` interpolation inside a sibling module's function body
 // triggers a Display recording on that sibling's FileAnalysis. The
-// recording must reach the entry's ImplManifest so a program whose
+// recording must reach the program's demands so a program whose
 // entry imports the sibling and calls into it doesn't need to also
 // import std/strings explicitly. Without per-sibling CheckTypes, the
-// recording stays trapped on the sibling's FA and never propagates.
+// sibling's FA never records it.
 func TestManifestRecordsSiblingModuleBodyConformance(t *testing.T) {
 	siblings := map[string]string{
 		"greeter": `pub fn greet(name: String): String {
@@ -628,9 +618,8 @@ fn main() {
 }
 
 // Simplest possible program (single file, no siblings, no tag module) that
-// exercises the BuildProject pipeline. It checks mergeImplManifest's
-// wiring: the entry FileAnalysis returned by BuildProject must carry the
-// program-wide manifest.
+// exercises the BuildProject pipeline. It checks that the
+// program's demands, every file's own folded, carry the entry's.
 func TestImplManifestVisibleViaBuildProject(t *testing.T) {
 	src := `import std/io
 

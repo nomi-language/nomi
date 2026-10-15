@@ -2285,9 +2285,8 @@ func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName st
 // hasInterfaceImpl reports whether the named type has an Iface impl
 // visible from this file's analysis. Consults two sources in order:
 //
-//   - fa.Impls — the file's local impl table (already absorbs imports'
-//     impls via mergeImpls and carries the @derive synthesizer's own emitted
-//     entries from the earlier build pass.
+//   - fa.Impls — the file's own impl table, which carries the @derive
+//     synthesizer's own emitted entries from the earlier build pass.
 //   - impls.Impls — the project-level impl index built by
 //     buildProjectImplIndex (covers stdlib + sibling impls). In
 //     BuildProjectWithCache it is built BEFORE CheckDeriveBounds

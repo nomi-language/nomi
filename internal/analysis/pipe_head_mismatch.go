@@ -169,11 +169,7 @@ func (c *checker) hasImpl(t Type, iface string) bool {
 	if name == "" || c.fa == nil {
 		return false
 	}
-	declared := c.fa.Impls[name][iface]
-	if !declared && c.fa.Program().ImplIndex != nil {
-		declared = c.fa.Program().ImplIndex.Impls[name][iface]
-	}
-	return declared && c.implReceiverMatches(t, iface)
+	return c.fa.HasImpl(name, iface) && c.implReceiverMatches(t, iface)
 }
 
 // typePair renders two types for one message, qualified as typef qualifies

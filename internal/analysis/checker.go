@@ -982,24 +982,25 @@ func (c *checker) freshTypeVar() *TypeVar {
 	return &TypeVar{ID: c.typeVarID}
 }
 
-// implsContext returns the interface-impl tables the unifier should consult,
-// with file-local impls taking precedence over the project-wide union.
-// The project-level table (Program().ImplIndex.Impls, built by buildProjectImplIndex
-// over filesByKey) is the sole non-file-local source: cache write-through
-// plus the eager stdlibFAs fold in buildProjectWithCache
-// ensure every reachable stdlib FA lands in filesByKey, so the union covers
-// every (Type, Iface) pair the importing file could see.
+// implsContext returns the interface-impl tables the unifier should consult:
+// the file's own impls, then the program's. The program-level table
+// (Program().ImplIndex.Impls, built by buildProjectImplIndex over filesByKey)
+// covers every file the program reaches: cache write-through plus the eager
+// stdlibFAs fold in buildProjectWithCache ensure every reachable stdlib FA
+// lands in filesByKey. Program().unindexedImpls covers the files the index
+// does not fold: modules a function body's import loaded after it was built,
+// and the user modules a single-file analysis loaded.
 //
 // Single-file paths (BuildFileWithStdlib — LSP raw-document analysis, many
-// analyzer-side tests) leave Program().ImplIndex nil and reach the checker with
-// only c.fa.Impls populated; cross-file / stdlib conformances on those
-// paths are deferred to runtime dispatch.
-// Both tables are paired with the SAME project-wide interface-origin index:
-// `fa.Impls` is itself a broadcast union of every reachable file's impls
-// (mergeImpls), so the two are keyed in one space and a per-file origins map
-// would be a second name for identical contents. A path that leaves
-// Program().ImplIndex nil pairs both with a nil index and behaves exactly as it did
-// before interfaces had an identity — see interface_identity.go.
+// analyzer-side tests) leave Program().ImplIndex nil unless a stdlib index is
+// attached; cross-file stdlib conformances on those paths are deferred to
+// runtime dispatch.
+// Every table is paired with the SAME project-wide interface-origin index:
+// the file's own impls are a subset of the program's, so the tables are keyed
+// in one space and a per-file origins map would be a second name for
+// identical contents. A path that leaves Program().ImplIndex nil pairs them
+// with a nil index and behaves exactly as it did before interfaces had an
+// identity — see interface_identity.go.
 func (c *checker) implsContext() []ImplTables {
 	return c.fa.implsContext()
 }
@@ -1007,15 +1008,19 @@ func (c *checker) implsContext() []ImplTables {
 // implsContext is the file's impl tables in lookup order: the file's own,
 // then the project's (the standard library's included).
 func (fa *FileAnalysis) implsContext() []ImplTables {
-	tables := make([]ImplTables, 0, 2)
+	tables := make([]ImplTables, 0, 3)
 	if fa == nil {
 		return tables
 	}
+	p := fa.Program()
 	if fa.Impls != nil {
-		tables = append(tables, implTablesFor(fa.Impls, fa.Program().ImplIndex))
+		tables = append(tables, implTablesFor(fa.Impls, p.ImplIndex))
 	}
-	if fa.Program().ImplIndex != nil {
-		tables = append(tables, implTablesFor(fa.Program().ImplIndex.Impls, fa.Program().ImplIndex))
+	if p.ImplIndex != nil {
+		tables = append(tables, implTablesFor(p.ImplIndex.Impls, p.ImplIndex))
+	}
+	if p.unindexedImpls != nil {
+		tables = append(tables, implTablesFor(p.unindexedImpls, p.ImplIndex))
 	}
 	return tables
 }
@@ -5443,10 +5448,10 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 // method of the given name. Used to turn a bare "missing method" diagnostic
 // into a "put this method in the interface implementation block" hint.
 func (c *checker) hasUntaggedMethod(recvName, methodName string) bool {
-	if c.fa == nil || c.fa.TypeMethods == nil {
+	if c.fa == nil {
 		return false
 	}
-	sym := c.fa.TypeMethods[recvName][methodName]
+	sym := c.fa.LookupVisibleTypeMethod(recvName, methodName)
 	return sym != nil && !sym.IsImplMethod
 }
 
@@ -7804,7 +7809,7 @@ func (c *checker) implMethodFuncType(impl ast.ImplMethodDecl) *FuncType {
 		}
 	}
 	if recv := implReceiverForLookup(c.fa, impl); recv != "" && implName(impl) != "" {
-		if sym := c.fa.LookupTypeMethod(recv, implName(impl)); sym != nil {
+		if sym := c.fa.LookupVisibleTypeMethod(recv, implName(impl)); sym != nil {
 			if ft, ok := sym.Type.(*FuncType); ok {
 				return ft
 			}
@@ -16369,29 +16374,12 @@ func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos P
 	if origin, ok := nominalOrigin(valTy); ok {
 		recOrigin = origin
 	}
-	if ifaces, ok := c.fa.Impls[name]; ok {
-		if ifaces[ifaceName] {
-			if !c.implReceiverMatches(valTy, ifaceName) {
-				return false
-			}
-			c.fa.RecordManifest(name, ifaceName, Recording{Pos: recPos, Kind: recKind, TypeOrigin: recOrigin})
-			c.recordImplReceiverBoundConformances(valTy, ifaceName, recPos, recKind)
-			return true
-		}
+	if !c.fa.HasImpl(name, ifaceName) || !c.implReceiverMatches(valTy, ifaceName) {
+		return false
 	}
-	if c.fa != nil && c.fa.Program().ImplIndex != nil {
-		if ifaces, ok := c.fa.Program().ImplIndex.Impls[name]; ok {
-			if ifaces[ifaceName] {
-				if !c.implReceiverMatches(valTy, ifaceName) {
-					return false
-				}
-				c.fa.RecordManifest(name, ifaceName, Recording{Pos: recPos, Kind: recKind, TypeOrigin: recOrigin})
-				c.recordImplReceiverBoundConformances(valTy, ifaceName, recPos, recKind)
-				return true
-			}
-		}
-	}
-	return false
+	c.fa.RecordManifest(name, ifaceName, Recording{Pos: recPos, Kind: recKind, TypeOrigin: recOrigin})
+	c.recordImplReceiverBoundConformances(valTy, ifaceName, recPos, recKind)
+	return true
 }
 
 // recordConformanceIfConcrete records a (typeName, ifaceName) entry in
@@ -16629,9 +16617,8 @@ func (c *checker) interfacesDeclaringMethod(typeName, method string) []string {
 			}
 		}
 	}
-	consider(c.fa.Impls[typeName])
-	if c.fa.Program().ImplIndex != nil {
-		consider(c.fa.Program().ImplIndex.Impls[typeName])
+	for _, ifaces := range c.fa.implsOf(typeName) {
+		consider(ifaces)
 	}
 	sort.Strings(out)
 	return out
@@ -16705,9 +16692,8 @@ func (c *checker) interfacesImplementedBy(typeName string) []string {
 			out = append(out, iface)
 		}
 	}
-	consider(c.fa.Impls[typeName])
-	if c.fa.Program().ImplIndex != nil {
-		consider(c.fa.Program().ImplIndex.Impls[typeName])
+	for _, ifaces := range c.fa.implsOf(typeName) {
+		consider(ifaces)
 	}
 	sort.Strings(out)
 	return out
@@ -16779,15 +16765,15 @@ func (c *checker) resolveTypeMethodSymbol(typeName, method, origin string) (*Sym
 	if c == nil || c.fa == nil {
 		return nil, typeMethodUnresolved
 	}
-	// Identity first, and that ordering is the fix. The per-file table is
-	// bare-keyed too: `mergeTypeMethods` copies an imported module's methods
-	// into the importer, so two SIBLING modules each declaring `Error` land
-	// their `to_string` in the importer's single `TypeMethods["Error"]` slot.
+	// Identity first, and that ordering is the fix. The visible table is
+	// bare-keyed too: it reaches the public functions of every user module
+	// the file imports, so two SIBLING modules each declaring `Error` answer
+	// one `Error.to_string` lookup with whichever import comes first.
 	// Measured: leaving the per-file probe first resolved `beta.Error.to_string`
 	// to alpha's method with the origin correctly in hand, which is the original
 	// defect one table over.
 	byIdentity := c.fa.Program().ImplIndex.LookupTypeMethodByIdentity(origin, typeName, method)
-	local := c.fa.LookupTypeMethod(typeName, method)
+	local := c.fa.LookupVisibleTypeMethod(typeName, method)
 	if byIdentity != nil && byIdentity != local {
 		return byIdentity, typeMethodByIdentity
 	}

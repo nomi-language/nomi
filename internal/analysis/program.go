@@ -59,6 +59,110 @@ type Program struct {
 	// program-wide reductions fold. filesByKey holds them by module key.
 	files      []*FileAnalysis
 	filesByKey map[string]*FileAnalysis
+
+	// unindexedImpls is the union of the Impls of the program's files that
+	// ImplIndex does not fold: a project build's modules a function body's
+	// import loaded after the index was built, and a file analyzed on its own
+	// with the user modules its imports loaded. A file holds only its own
+	// impls, so this is how such a file sees another's.
+	unindexedImpls map[string]map[string]bool
+
+	// results holds what the checks that run once every file is checked
+	// decide about the program, and only that: no file's analysis records
+	// it. Those checks write it; nothing else does.
+	results *programResults
+}
+
+// programResults are the program-wide decisions made after every file is
+// checked.
+type programResults struct {
+	// implImportsUnused holds each whole-file import CheckImplImports
+	// settled, and whether the program uses none of its file's impl blocks.
+	implImportsUnused map[*ImplImport]bool
+}
+
+// newProgramResults answers an empty set of results.
+func newProgramResults() *programResults {
+	return &programResults{implImportsUnused: map[*ImplImport]bool{}}
+}
+
+// settleImplImport records CheckImplImports' decision on ii.
+func (p *Program) settleImplImport(ii *ImplImport, unused bool) {
+	if p.results == nil {
+		return
+	}
+	p.results.implImportsUnused[ii] = unused
+}
+
+// ImplImportUnused reports whether CheckImplImports found that the program
+// uses none of the impl blocks of the file ii imports. An import it has not
+// settled counts as used.
+func (p *Program) ImplImportUnused(ii *ImplImport) bool {
+	return p.results != nil && p.results.implImportsUnused[ii]
+}
+
+// unionImpls answers the union of files' own Impls, or nil when they have
+// none.
+func unionImpls(files []*FileAnalysis) map[string]map[string]bool {
+	var out map[string]map[string]bool
+	for _, fa := range files {
+		for typeName, ifaces := range fa.Impls {
+			if out == nil {
+				out = make(map[string]map[string]bool)
+			}
+			if out[typeName] == nil {
+				out[typeName] = make(map[string]bool, len(ifaces))
+			}
+			for iface := range ifaces {
+				out[typeName][iface] = true
+			}
+		}
+	}
+	return out
+}
+
+// HasImpl reports whether an impl fa can see supplies (typeName, iface), by
+// bare name: one fa declares, one the program's impl index holds, or one of
+// a file of the program the index does not fold.
+func (fa *FileAnalysis) HasImpl(typeName, iface string) bool {
+	if fa == nil {
+		return false
+	}
+	if fa.Impls[typeName][iface] {
+		return true
+	}
+	p := fa.Program()
+	return (p.ImplIndex != nil && p.ImplIndex.Impls[typeName][iface]) || p.unindexedImpls[typeName][iface]
+}
+
+// ImplementedInterfaces answers, sorted, every interface HasImpl sees an impl
+// of for typeName.
+func (fa *FileAnalysis) ImplementedInterfaces(typeName string) []string {
+	if fa == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, ifaces := range fa.implsOf(typeName) {
+		for iface := range ifaces {
+			if !seen[iface] {
+				seen[iface] = true
+				out = append(out, iface)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// implsOf answers the impl tables HasImpl reads, each narrowed to typeName.
+func (fa *FileAnalysis) implsOf(typeName string) []map[string]bool {
+	p := fa.Program()
+	out := []map[string]bool{fa.Impls[typeName]}
+	if p.ImplIndex != nil {
+		out = append(out, p.ImplIndex.Impls[typeName])
+	}
+	return append(out, p.unindexedImpls[typeName])
 }
 
 // setFiles records byKey as the program's files.
@@ -137,9 +241,13 @@ func standaloneProgram(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 	onces := NewOnceTable()
 	onces.Index(fa, nodes)
 	files := map[string]*FileAnalysis{"": fa}
+	users := []*FileAnalysis{fa}
 	for key, file := range loaded {
 		if file != fa {
 			files[key] = file
+			if !IsStdlibKey(key) {
+				users = append(users, file)
+			}
 		}
 	}
 	p := &Program{
@@ -148,6 +256,10 @@ func standaloneProgram(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 		Onces:              onces,
 		ContextType:        contextType,
 		StdlibModuleScopes: stdlibScopes,
+		// The user modules' impls. The stdlib's are not among them: an
+		// index over the stdlib, when one is attached, holds those.
+		unindexedImpls: unionImpls(users),
+		results:        newProgramResults(),
 	}
 	p.setFiles(files)
 	return p

@@ -8,46 +8,37 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// FinalizeCoherence runs the post-CheckTypes coherence checks that need
-// to see the manifest after every recording site has fired. Today this
-// is just DetectMissingImpls; future post-Check coherence checks (e.g.
-// a tighter missing-impl variant once typeDecls is populated) join here.
+// FinalizeCoherence runs the post-CheckTypes coherence checks over the
+// whole of fa's program: MissingImpls with every file of the program as a
+// demander. Callers run it once at the end of their analyze pipeline, after
+// every file whose demands it reads has been checked: the checker records a
+// file's demands (RecordingKindCallSite / GenericBoundCheck /
+// TypedLiteralSlot / InterfaceTypedParam) in that file's own ImplManifest
+// while it checks the file. The errors are the program's, whichever file
+// the caller reports them with.
+func FinalizeCoherence(fa *FileAnalysis) []TypeError {
+	p := fa.Program()
+	return MissingImpls(p, p.Files())
+}
+
+// MissingImpls reports each (interface, type) pair the demanders' own
+// ImplManifests demand and no impl of program p supplies (DetectMissingImpls).
+// It reads only facts each file holds about itself, folded here: the impl
+// index's supply, every file's own Impls, and each demander's own demands.
+// Nil when p has no impl index.
 //
-// Callers run this once at the end of their analyze pipeline, after every
-// FA has been CheckTypes'd and their manifests merged into the entry FA.
-// Returns errors to be appended to the entry FA's TypeErrors.
-//
-// Why the entry FA, not the ProjectImplIndex pointer directly: the index
-// is a snapshot taken at BuildProjectWithCache time. Two pieces of it
-// drift after that snapshot:
-//
-//   - ImplManifest grows during CheckTypes (the checker writes
-//     RecordingKindCallSite / GenericBoundCheck / TypedLiteralSlot /
-//     InterfaceTypedParam entries into per-FA fa.ImplManifest, then
-//     internal/frontend / stdcompiler / the LSP call
-//     MergeImplManifest(entry, sib) to fold sibling recordings into the
-//     entry FA — but neither writes back into Program().ImplIndex.ImplManifest).
-//   - Impls picks up struct-level impl registrations from a
-//     late pass at the bottom of BuildProjectWithCache (after the
-//     buildProjectImplIndex snapshot is taken). Those updates land in
-//     per-FA fa.Impls and the entry's fa.Impls via cross-file mergeImpls,
-//     but again don't write back into Program().ImplIndex.Impls.
-//
-// We synthesize a fresh snapshot here that unions the project-level
-// Impls (covers stdlib + sibling impls) with entryFA.Impls (covers
-// late-pass struct-level impls and post-merge user-side impls), and
-// reads ImplManifest from entryFA directly (the post-CheckTypes union).
-// DetectMissingImpls then sees the full picture.
-func FinalizeCoherence(entryFA *FileAnalysis) []TypeError {
-	if entryFA == nil || entryFA.Program().ImplIndex == nil {
+// The supply is the index's, plus any file's own impls the index does not
+// hold (a module a function body's import loaded after the index was built).
+// Those pairs have no identity entry — PopulateImplsByIdentity ran over the
+// index — so they fall back to the bare-name answer; leaving them covered
+// would read a real impl as another module's.
+func MissingImpls(p *Program, demanders []*FileAnalysis) []TypeError {
+	if p == nil || p.ImplIndex == nil {
 		return nil
 	}
-	// Union project-level Impls with entry-level Impls. Project-level
-	// holds stdlib and discovery-walked siblings as of the snapshot;
-	// entry-level holds the late struct-level impl pass and any
-	// cross-file mergeImpls that happened after the snapshot.
-	impls := make(map[string]map[string]bool, len(entryFA.Program().ImplIndex.Impls))
-	for t, ifaces := range entryFA.Program().ImplIndex.Impls {
+	idx := p.ImplIndex
+	impls := make(map[string]map[string]bool, len(idx.Impls))
+	for t, ifaces := range idx.Impls {
 		copyIfaces := make(map[string]bool, len(ifaces))
 		for i := range ifaces {
 			copyIfaces[i] = true
@@ -55,10 +46,10 @@ func FinalizeCoherence(entryFA *FileAnalysis) []TypeError {
 		impls[t] = copyIfaces
 	}
 	// The covered set is COPIED, not shared. Uncovering below is per-call
-	// state about this entry's extra supply, and the index it comes from is
-	// held by pointer in every FileAnalysis of the build.
-	covered := make(map[string]map[string]bool, len(entryFA.Program().ImplIndex.implNamesWithIdentity))
-	for t, ifaces := range entryFA.Program().ImplIndex.implNamesWithIdentity {
+	// state, and the index it comes from is held by every file of the
+	// program.
+	covered := make(map[string]map[string]bool, len(idx.implNamesWithIdentity))
+	for t, ifaces := range idx.implNamesWithIdentity {
 		copyIfaces := make(map[string]bool, len(ifaces))
 		for i := range ifaces {
 			copyIfaces[i] = true
@@ -69,27 +60,93 @@ func FinalizeCoherence(entryFA *FileAnalysis) []TypeError {
 	// supply check has nothing to consult and every bare-name hit stands.
 	snapshot := &ProjectImplIndex{
 		Impls:                 impls,
-		ImplManifest:          entryFA.ImplManifest,
-		ImplsByIdentity:       entryFA.Program().ImplIndex.ImplsByIdentity,
+		ImplManifest:          unionDemands(demanders),
+		ImplsByIdentity:       idx.ImplsByIdentity,
 		implNamesWithIdentity: covered,
 	}
-	// Supply the entry FA adds beyond the project-level snapshot has no
-	// identity entry — PopulateImplsByIdentity ran over the project index,
-	// before the late struct-level pass and the post-snapshot cross-file
-	// merges. Those pairs fall back to the bare-name answer; leaving them
-	// covered would read a real entry-declared impl as another module's.
-	for t, ifaces := range entryFA.Impls {
-		if impls[t] == nil {
-			impls[t] = make(map[string]bool, len(ifaces))
-		}
-		for i := range ifaces {
-			if !entryFA.Program().ImplIndex.Impls[t][i] {
-				snapshot.UncoverImplIdentity(t, i)
+	for _, file := range p.Files() {
+		for t, ifaces := range file.Impls {
+			if impls[t] == nil {
+				impls[t] = make(map[string]bool, len(ifaces))
 			}
-			impls[t][i] = true
+			for i := range ifaces {
+				if !idx.Impls[t][i] {
+					snapshot.UncoverImplIdentity(t, i)
+				}
+				impls[t][i] = true
+			}
 		}
 	}
 	return DetectMissingImpls(snapshot, nil)
+}
+
+// unionDemands answers the union of files' own ImplManifests, keeping only
+// the (interface, type) buckets some recording outside the stdlib demands:
+// DetectMissingImpls reports nothing for a bucket every recording of which
+// is the stdlib's, so the stdlib's demands matter only beside a program's.
+// Each bucket's recordings are deduplicated and sorted by position, so the
+// order does not depend on the order the files were checked or given in.
+func unionDemands(files []*FileAnalysis) map[string]map[string][]Recording {
+	type bucket struct{ iface, typeName string }
+	var wanted []bucket
+	seen := map[bucket]bool{}
+	for _, file := range files {
+		if isStdlibRecording(Recording{Pos: Pos{File: file.FilePath}}) {
+			// A file's checker records at the file's own path.
+			continue
+		}
+		for iface, byType := range file.ImplManifest {
+			for typeName, recs := range byType {
+				b := bucket{iface, typeName}
+				if seen[b] {
+					continue
+				}
+				for _, rec := range recs {
+					if !isStdlibRecording(rec) {
+						seen[b] = true
+						wanted = append(wanted, b)
+						break
+					}
+				}
+			}
+		}
+	}
+	out := make(map[string]map[string][]Recording)
+	for _, b := range wanted {
+		var recs []Recording
+		dup := map[Recording]bool{}
+		for _, file := range files {
+			for _, rec := range file.ImplManifest[b.iface][b.typeName] {
+				if !dup[rec] {
+					dup[rec] = true
+					recs = append(recs, rec)
+				}
+			}
+		}
+		sortRecordings(recs)
+		if out[b.iface] == nil {
+			out[b.iface] = make(map[string][]Recording)
+		}
+		out[b.iface][b.typeName] = recs
+	}
+	return out
+}
+
+// sortRecordings orders recordings by source location, (Pos.File, Pos.Line,
+// Pos.Col), with Kind as the final tiebreaker for two at one position.
+func sortRecordings(recs []Recording) {
+	sort.SliceStable(recs, func(i, j int) bool {
+		if recs[i].Pos.File != recs[j].Pos.File {
+			return recs[i].Pos.File < recs[j].Pos.File
+		}
+		if recs[i].Pos.Line != recs[j].Pos.Line {
+			return recs[i].Pos.Line < recs[j].Pos.Line
+		}
+		if recs[i].Pos.Col != recs[j].Pos.Col {
+			return recs[i].Pos.Col < recs[j].Pos.Col
+		}
+		return recs[i].Kind < recs[j].Kind
+	})
 }
 
 // DetectMissingImpls reports a TypeError for every (Iface, T) pair the

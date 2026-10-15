@@ -6,12 +6,11 @@ import "github.com/nomi-language/nomi/internal/ast"
 // importing file uses. Importing a file also puts its impl blocks into the
 // program: an impl block declared in a file nothing imports does not exist.
 // So such an import is used when the program uses one of those impl blocks,
-// and CheckImplImports decides that once every file is type-checked.
+// and CheckImplImports decides that once every file is type-checked. The
+// decision is the program's (Program.ImplImportUnused); until it is made the
+// import counts as used.
 type ImplImport struct {
 	UnusedImport
-	// Unused is set by CheckImplImports when the program uses none of the
-	// file's impl blocks. Until then the import counts as used.
-	Unused bool
 }
 
 // ProgramFile is one analyzed, type-checked file of a program with its tree.
@@ -43,9 +42,12 @@ type ProgramFile struct {
 // Every import of F counts as used once one of F's impls is: which import
 // brought F in is not a question the program can answer.
 //
-// The ImplManifest demands are not attributed to a file (the entry's manifest
-// holds every file's), so a demand made inside F for F's own impl counts. A
-// call inside F to F's own impl, such as recursion, does not.
+// The ImplManifest demands are not attributed to a file (they are the union
+// of every file of the program's own), so a demand made inside F for F's own
+// impl counts. A call inside F to F's own impl, such as recursion, does not.
+//
+// It records what it decides on the program (Program.ImplImportUnused) and
+// writes no file's analysis.
 func CheckImplImports(program []ProgramFile) map[*FileAnalysis][]TypeError {
 	pending := false
 	for _, f := range program {
@@ -71,8 +73,9 @@ func CheckImplImports(program []ProgramFile) map[*FileAnalysis][]TypeError {
 		}
 		for _, ii := range f.FA.ImplImports {
 			target, ok := byScope[ii.module]
-			ii.Unused = !ok || !uses.usesImplIn(target)
-			if !ii.Unused {
+			unused := !ok || !uses.usesImplIn(target)
+			f.FA.Program().settleImplImport(ii, unused)
+			if !unused {
 				continue
 			}
 			if out == nil {
@@ -105,6 +108,25 @@ func (u implUses) addDecl(n ast.Node, from *FileAnalysis) {
 
 func collectImplUses(program []ProgramFile) implUses {
 	u := implUses{decls: make(map[ast.Node]map[*FileAnalysis]bool), pairs: make(map[implPair]bool)}
+	// The demands are every file's of the program the files belong to, the
+	// stdlib's included, and those of the files themselves.
+	demanders := map[*FileAnalysis]bool{}
+	for _, f := range program {
+		if f.FA == nil {
+			continue
+		}
+		demanders[f.FA] = true
+		for _, file := range f.FA.Program().Files() {
+			demanders[file] = true
+		}
+	}
+	for fa := range demanders {
+		for iface, byType := range fa.ImplManifest {
+			for typeName := range byType {
+				u.pairs[implPair{typeName: typeName, iface: iface}] = true
+			}
+		}
+	}
 	for _, f := range program {
 		fa := f.FA
 		if fa == nil {
@@ -125,11 +147,6 @@ func collectImplUses(program []ProgramFile) implUses {
 				case *ast.FuncDef, *ast.ExternFunc:
 					u.addDecl(r.Node, fa)
 				}
-			}
-		}
-		for iface, byType := range fa.ImplManifest {
-			for typeName := range byType {
-				u.pairs[implPair{typeName: typeName, iface: iface}] = true
 			}
 		}
 	}

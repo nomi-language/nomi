@@ -69,11 +69,10 @@ pub struct B {
 	}
 }
 
-// TestBuildProject_PropagatesCrossFileImpls exercises Sweep B-impls:
-// when one file declares an impl and a sibling depends on the
-// conformance through a struct field typed as the interface, both
-// files must end up with the impl propagated into their merged Impls
-// table — regardless of the (random) order Sweep B-ann visited them.
+// TestBuildProject_PropagatesCrossFileImpls: when one file declares an
+// impl and a sibling depends on the conformance through a struct field
+// typed as the interface, both files see the impl through the program —
+// regardless of the order Sweep B-ann visited them.
 //
 // Topology:
 //
@@ -85,12 +84,10 @@ pub struct B {
 //	                inside effects.make() is the conformance site
 //	                that needs log's impl visible in effects.fa.
 //	main.nomi     — imports both, constructs a Holder via the
-//	                cross-file impl, and asserts the impl is in
-//	                main.fa.Impls.
+//	                cross-file impl, and asserts main sees the impl.
 //
-// The assertion is on the merged table directly (rather than purely
-// through CheckTypes) so the test is explicit about *what* the new
-// sweep produces, and surfaces the bug regardless of which file
+// The assertion is on HasImpl directly (rather than purely through
+// CheckTypes) so the test says where the impl is found, whichever file
 // CheckTypes happens to run on.
 func TestBuildProject_PropagatesCrossFileImpls(t *testing.T) {
 	tmp := t.TempDir()
@@ -155,13 +152,14 @@ pub fn make(): Holder {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
 
-	// Direct assertion on the merged Impls table: main.fa.Impls must
-	// contain ProdImpl→Iface, propagated from log.nomi. The legacy
-	// merge-during-resolveImport path could miss this when
-	// log.nomi's annotations hadn't run yet at the moment effects.nomi
-	// processed its log import (Go map iteration order is random).
-	if fa.Impls == nil || !fa.Impls["ProdImpl"]["Iface"] {
-		t.Errorf("expected main.fa.Impls to contain ProdImpl as Iface (propagated from log.nomi), got: %v", fa.Impls)
+	// main sees log.nomi's impl through the program, whatever order the
+	// sweeps visited the files in, and its own table holds only its own
+	// impls.
+	if !fa.HasImpl("ProdImpl", "Iface") {
+		t.Errorf("expected main to see ProdImpl as Iface (declared in log.nomi)")
+	}
+	if fa.Impls["ProdImpl"]["Iface"] {
+		t.Errorf("main.fa.Impls holds log.nomi's impl: %v", fa.Impls)
 	}
 
 	// And, since CheckTypes is the consumer that turns Impls into

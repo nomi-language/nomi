@@ -485,11 +485,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	}
 
 	// Sweep B-ann: walk type annotations across every file. This
-	// populates each file's local Impls table via
-	// defineImplBlockAnnotations. Cross-file `mergeImpls` calls that
-	// happen during defineImport→resolveImport may see partial Impls
-	// for siblings whose annotations haven't run yet — Sweep B-impls
-	// below corrects that.
+	// populates each file's own Impls table via
+	// defineImplBlockAnnotations. A file holds only its own impls; the
+	// program's impl index (below) is where every file's are looked up.
 	for _, fb := range all {
 		for _, node := range fb.nodes {
 			fb.builder.defineSymbolAnnotations(node, fb.fa.ModuleScope)
@@ -501,51 +499,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		fb.builder.registerImplDefaults(fb.fa.ModuleScope)
 	}
 
-	// Sweep B-impls: propagate impls across import edges. Every file's
-	// local Impls is now fully populated, so re-merging each file's
-	// imports' Impls produces the full transitive conformance graph
-	// regardless of the order Sweep B-ann processed files. Stdlib
-	// imports are looked up the same way as any other import — when a
-	// stdlib file is present in `cache` (either because the user wrote
-	// `import std/X` and discovery loaded it, or because Sweep A/B
-	// pulled it in on-demand), its impls fold in here too. Stdlib
-	// impls that don't reach the cache via this transitive merge are
-	// still picked up downstream — the project-level ProjectImpls
-	// index folds every reachable stdlib FA via the eager fold
-	// below, so the checker's Program().ImplIndex branch covers the gap.
-	//
-	// Cache-key normalization mirrors resolveImport: a self-name
-	// import (head == currentModuleName) caches under the stripped
-	// rest-of-path; cross-module and intra-module bare imports cache
-	// under the raw import path. Walking imports through the same
-	// classifier keeps this loop's lookup in lockstep with what
-	// resolveImport actually wrote to cache.
 	currentModuleName := ""
 	if proj != nil && proj.Manifest != nil {
 		currentModuleName = proj.Manifest.Name
-	}
-	for _, fb := range all {
-		for _, node := range fb.nodes {
-			for _, modPath := range importPathsOf(node) {
-				if len(modPath) == 0 {
-					continue
-				}
-				// A stdlib file's bare sibling import is the same
-				// module; resolveImport keyed it `std/<name>`.
-				modPath = QualifyIntraStdlibImport(fb.key, modPath)
-				key := strings.Join(modPath, "/")
-				if rest, self := SelfNameImport(modPath, currentModuleName); self {
-					key = strings.Join(rest, "/")
-				}
-				if key == "" {
-					continue
-				}
-				if cached, ok := cache[key]; ok {
-					mergeImpls(fb.fa, cached)
-					mergeImplManifest(fb.fa, cached)
-				}
-			}
-		}
 	}
 
 	// Project-wide IfaceMethodImpls index. Walks every file's `impl Iface for
@@ -667,9 +623,9 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// stdlib FA the prelude chain didn't touch).
 	//
 	// Order matters: this runs BEFORE Sweep B-bounds below, which is
-	// given it. Inputs (fa.Impls, fa.ImplManifest, the impl tables) are all
-	// populated by Sweep B-impls (just above) plus std.Load() for
-	// stdlib FAs.
+	// given it. Inputs (each file's own fa.Impls and fa.ImplManifest, the
+	// impl tables) are all populated by Sweep B-ann (above) plus std.Load()
+	// for stdlib FAs.
 	implIndex := buildProjectImplIndex(filesByKey, own, owned)
 	// A module this build loaded on demand (resolveImport) has a Program of
 	// its own with no index; it gets one holding this index when the build
@@ -692,7 +648,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 
 	// Sweep B-bounds: the derive field/payload bound check (spec §38.1,
 	// *Field-type requirements*). Runs
-	// after Sweep B-impls so every file's local Impls is fully
+	// after Sweep B-ann so every file's own Impls is fully
 	// populated, and AFTER the project impl index has been built
 	// so CheckDeriveBounds can consult it
 	// for cross-file / stdlib impl knowledge. The (T, Iface) entries
@@ -778,7 +734,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// `impl Iface for T { ... }` template (`recordImplTypeArgsFromBlock`,
 	// type_builder.go Pass 3) is populated only here in Sweep C-types. The
 	// index's OTHER unions (Impls, ImplManifest, IfaceMethodImpls) are fine:
-	// they're recorded in the earlier Sweep B-impls. The files get the index
+	// they're recorded in the earlier Sweep B-ann. The files get the index
 	// only with their Program, below, so every consumer sees the merged maps —
 	// notably the checker's CheckTypes pass, which runs after this function
 	// returns and uses ImplTypeArgs to bind a generic
@@ -982,42 +938,11 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// placed here because they only depend on impl declarations (Sweep
 	// B output), not on CheckTypes recordings.
 	//
-	// Instead, callers that layer CheckTypes + MergeImplManifest on top
-	// of BuildProjectWithCache (internal/frontend's Checker.Analyze,
-	// stdcompiler, analysis/document.go's LSP path) call
-	// analysis.FinalizeCoherence(entryFA) at the end of their pipeline,
-	// once the entry FA's ImplManifest holds every recording.
-
-	// Re-merge Impls + ImplManifest across files so the entry FA sees every
-	// file's impl registrations (each file's own impls are recorded during
-	// buildModule; this catch-up pass folds siblings into the entry FA).
-	for _, fb := range all {
-		if fb == entryFB {
-			continue
-		}
-		mergeImpls(entryFB.fa, fb.fa)
-		mergeImplManifest(entryFB.fa, fb.fa)
-	}
-	// Fold every stdlib FA's ImplManifest into the entry FA. The per-FA
-	// mergeImplManifest chain in Sweep B-impls (above) only folds
-	// manifests from FAs the entry transitively imports; the auto-
-	// prepended prelude chain reaches a handful of stdlib modules
-	// but stops short of others whose `impl` block bodies record
-	// conformance pairs the program ultimately needs at runtime (e.g.
-	// std/strings's Debug impl calling `Iter.each_while(s, …)` records
-	// (Iter, String) on std/strings's FA, but a program that only
-	// uses prelude-promoted names never imports std/strings and so
-	// never merges that recording in). Without this fold the entry's
-	// manifest is missing those pairs.
-	// stdlibFAs (lib.Files) already carries every analyzed stdlib FA
-	// with its manifest populated by std.Load(); this loop unconditionally
-	// folds them all into the entry manifest.
-	if entryFB.fa.ImplManifest == nil {
-		entryFB.fa.ImplManifest = make(map[string]map[string][]Recording)
-	}
-	for _, fa := range stdlibFAs {
-		mergeImplManifest(entryFB.fa, fa)
-	}
+	// Instead, callers that layer CheckTypes on top of BuildProjectWithCache
+	// (internal/frontend's Checker.Analyze, stdcompiler, analysis/document.go's
+	// LSP path) call analysis.FinalizeCoherence at the end of their pipeline,
+	// once every file it reads has been checked. It folds each file's own
+	// ImplManifest; nothing copies one file's demands into another's.
 
 	// Build the per-sibling nodes map for callers that need to layer
 	// CheckTypes onto each sibling. proj.Files is already keyed by the
@@ -1042,9 +967,11 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// The Program is complete: hand it to every file of the build. Nothing
 	// writes it from here on. Its files are those the impl index folded and
 	// any module a function body's import loaded since.
+	var unindexed []*FileAnalysis
 	for key, fa := range cache {
 		if _, present := filesByKey[key]; !present {
 			filesByKey[key] = fa
+			unindexed = append(unindexed, fa)
 		}
 	}
 	program := &Program{
@@ -1056,6 +983,8 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		AppTypes:            appTypes,
 		ContextType:         contextType,
 		StdlibModuleScopes:  stdlibScopes,
+		unindexedImpls:      unionImpls(unindexed),
+		results:             newProgramResults(),
 	}
 	program.setFiles(filesByKey)
 	for _, fb := range all {

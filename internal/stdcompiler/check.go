@@ -119,7 +119,6 @@ func ProjectDiagnostics(entryNodes []ast.Node, root string, loader analysis.File
 	sibCheckErrs := make(map[*analysis.FileAnalysis][]analysis.TypeError, len(siblingFAs))
 	for key, sibFA := range siblingFAs {
 		sibCheckErrs[sibFA] = append(sibCheckErrs[sibFA], analysis.CheckTypes(sibFA, siblingNodes[key])...)
-		analysis.MergeImplManifest(fa, sibFA)
 		program = append(program, analysis.ProgramFile{FA: sibFA, Nodes: siblingNodes[key]})
 		sibFAs = append(sibFAs, sibFA)
 	}

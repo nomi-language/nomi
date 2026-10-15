@@ -952,12 +952,11 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 				fa.TypeErrors = append(fa.TypeErrors, CheckTaskLifetime(fa, nodes)...)
 				// Post-CheckTypes coherence: missing-impl diagnostic et
 				// al. Must come AFTER CheckTypes — the LSP runs
-				// CheckTypes only on the focused doc here (no
-				// per-sibling fold), so the manifest carries the
-				// focused doc's recordings. Diagnostics for missing
-				// impls demanded only by sibling files won't surface
-				// until those siblings are opened.
-				fa.TypeErrors = append(fa.TypeErrors, FinalizeCoherence(fa)...)
+				// CheckTypes only on the focused doc here, so it checks
+				// the focused doc's demands against the program's impls.
+				// Diagnostics for missing impls demanded only by other
+				// files won't surface until those files are opened.
+				fa.TypeErrors = append(fa.TypeErrors, MissingImpls(fa.Program(), []*FileAnalysis{fa})...)
 				fa.TypeErrors = append(fa.TypeErrors, checkDocImplImports(fa, nodes, entryFA, mainNodes, cache, siblingNodes)...)
 				return
 			}
@@ -1035,9 +1034,8 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 // runs (frontend.Checker.Analyze), in its order: each file's
 // CheckTypes, then whole-file imports settled over every file, then
 // coherence over every file's demands. It answers the entry's whole-file
-// import errors and whether nothing else reported an error. The entry's own
-// analysis is left as it is but for its whole-file imports: coherence runs
-// over a copy holding the merged demands.
+// import errors and whether nothing else reported an error. Coherence reads
+// every file's own demands, so no analysis is changed but by its own check.
 func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*FileAnalysis, fileNodes map[string][]ast.Node) (entryImplErrs []TypeError, clean bool) {
 	clean = true
 	keys := make([]string, 0, len(files))
@@ -1056,8 +1054,6 @@ func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*Fil
 			settles = true
 		}
 	}
-	merged := &FileAnalysis{program: fa.program, Impls: fa.Impls}
-	mergeImplManifest(merged, fa)
 	program := []ProgramFile{{FA: fa, Nodes: nodes}}
 	var checked []ProgramFile
 	for _, key := range keys {
@@ -1080,7 +1076,6 @@ func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*Fil
 			}
 			checked = append(checked, ProgramFile{FA: sibFA, Nodes: fileNodes[key]})
 		}
-		mergeImplManifest(merged, sibFA)
 		program = append(program, ProgramFile{FA: sibFA, Nodes: fileNodes[key]})
 	}
 	// Their application-field roots, once every file is checked.
@@ -1096,7 +1091,7 @@ func checkProgramFiles(fa *FileAnalysis, nodes []ast.Node, files map[string]*Fil
 			clean = false
 		}
 	}
-	if len(FinalizeCoherence(merged)) > 0 {
+	if len(FinalizeCoherence(fa)) > 0 {
 		clean = false
 	}
 	return entryImplErrs, clean

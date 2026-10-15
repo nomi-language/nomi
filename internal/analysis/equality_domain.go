@@ -124,10 +124,7 @@ func (c *checker) hasEquatableImpl(t Type) bool {
 	if name == "" {
 		return false
 	}
-	if c.fa.Impls[name]["Equatable"] {
-		return true
-	}
-	return c.fa.Program().ImplIndex != nil && c.fa.Program().ImplIndex.Impls[name]["Equatable"]
+	return c.fa.HasImpl(name, "Equatable")
 }
 
 // isStdIterType reports whether t is std's `Iter<T>` interface. A program

@@ -426,16 +426,8 @@ func implementedInterfaceNames(sym *analysis.Symbol, fa *analysis.FileAnalysis) 
 	}
 	typeName := sym.Name
 	seen := make(map[string]bool)
-	collect := func(ifaces map[string]bool) {
-		for iface := range ifaces {
-			seen[iface] = true
-		}
-	}
-	if fa.Impls != nil {
-		collect(fa.Impls[typeName])
-	}
-	if fa.Program().ImplIndex != nil && fa.Program().ImplIndex.Impls != nil {
-		collect(fa.Program().ImplIndex.Impls[typeName])
+	for _, iface := range fa.ImplementedInterfaces(typeName) {
+		seen[iface] = true
 	}
 	if seen["Debug"] && !hasExplicitDebugImpl(typeName, fa) {
 		delete(seen, "Debug")

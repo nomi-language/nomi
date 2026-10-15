@@ -169,21 +169,7 @@ func (r *completionRequest) firstParamAccepts(fn *analysis.Symbol, t analysis.Ty
 // implementedInterfaces lists the interfaces the type named owner
 // implements, from the file's impl table and the project's, in name order.
 func (r *completionRequest) implementedInterfaces(owner string) []string {
-	set := map[string]bool{}
-	for iface := range r.fa.Impls[owner] {
-		set[iface] = true
-	}
-	if r.fa.Program().ImplIndex != nil {
-		for iface := range r.fa.Program().ImplIndex.Impls[owner] {
-			set[iface] = true
-		}
-	}
-	out := make([]string, 0, len(set))
-	for iface := range set {
-		out = append(out, iface)
-	}
-	sort.Strings(out)
-	return out
+	return r.fa.ImplementedInterfaces(owner)
 }
 
 // interfaceSymbol finds the interface declaration named name: visible at
