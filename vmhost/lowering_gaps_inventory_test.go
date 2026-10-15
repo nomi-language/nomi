@@ -1174,20 +1174,6 @@ pub type Token Int
 `,
 	},
 	{
-		name:   "gapAndLeftDeclines",
-		fix:    "builder: and left declines. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.shortCircuit | false | !ok ¦¦ lk != kindBool#1",
-		reason: "the comparison operator `==`",
-		noSkip: true,
-		src: `import std/io
-import std/channels.Channel
-
-fn main() {
-    ch: Channel<Int> = Channel.unbuffered()
-    io.print(ch.sender == ch.sender and True)
-}
-`,
-	},
-	{
 		name:   "gapDecimalDoubledUnderscore",
 		fix:    "builder: decimal doubled underscore. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.decimalLiteral | false | err != nil#1",
 		reason: "a DecimalLit",
@@ -1417,64 +1403,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapNamedArgValueDeclines",
-		fix:    "builder: named arg value declines. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.namedQualCall | false | !ok ¦¦ !irCallOperandKind(k)#1",
-		reason: "the comparison operator `==`",
-		noSkip: true,
-		src: `import std/io
-import std/channels.Channel
-
-struct P {
-    x: Int
-}
-
-impl P {
-    fn show(p: P, flag: Bool): String {
-        "${p.x} ${flag}"
-    }
-}
-
-fn main() {
-    ch: Channel<Int> = Channel.unbuffered()
-    io.print(P.show(P{x: 1}, flag: ch.sender == ch.sender))
-}
-`,
-	},
-	{
-		name:   "gapSenderEquality",
-		fix:    "builder: sender equality. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.compareOperands | false | (!irScalarLeafKind(lk) ¦¦ lk.def != nil) && !prelude && !decimal && !list && !structural#1",
-		reason: "the comparison operator `==`",
-		noSkip: true,
-		src: `import std/io
-import std/channels.Channel
-
-fn main() {
-    ch: Channel<Int> = Channel.unbuffered()
-    io.print(ch.sender == ch.sender)
-}
-`,
-	},
-	{
-		name:   "gapSpreadBaseDeclines",
-		fix:    "builder: spread base declines. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structSpread | false | !ok ¦¦ !irRetainedUpdateKind(k)#1",
-		reason: "the comparison operator `==`",
-		noSkip: true,
-		src: `import std/io
-import std/channels.Channel
-
-struct P {
-    x: Int
-}
-
-fn main() {
-    ch: Channel<Int> = Channel.unbuffered()
-    p = P{x: 1}
-    q = {..(if ch.sender == ch.sender { p } else { p }), x: 2}
-    io.print(q.x)
-}
-`,
-	},
-	{
 		name:   "gapStructUpdatePatchBinding",
 		fix:    "builder: struct update patch binding. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | !isLit ¦¦ lit.TypeName != nil ¦¦ lit.Spread != nil#1",
 		reason: "qualified call, Type.method: Struct.update",
@@ -1502,46 +1430,6 @@ fn main() {
 
 fn main() {
     io.print(Hashable.hash(('a', Unit)))
-}
-`,
-	},
-	{
-		name:   "gapUpdateBaseDeclines",
-		fix:    "builder: update base declines. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | !ok ¦¦ !irRetainedUpdateKind(k)#2",
-		reason: "the comparison operator `==`",
-		noSkip: true,
-		src: `import std/io
-import std/channels.Channel
-
-struct P {
-    x: Int
-}
-
-fn main() {
-    ch: Channel<Int> = Channel.unbuffered()
-    p = P{x: 1}
-    q = Struct.update(if ch.sender == ch.sender { p } else { p }, {x: 2})
-    io.print(q.x)
-}
-`,
-	},
-	{
-		name:   "gapUpdateNamedBaseDeclines",
-		fix:    "builder: update named base declines. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structUpdateCall | false | !ok ¦¦ !irRetainedUpdateKind(k)#1",
-		reason: "the comparison operator `==`",
-		noSkip: true,
-		src: `import std/io
-import std/channels.Channel
-
-struct P {
-    x: Int
-}
-
-fn main() {
-    ch: Channel<Int> = Channel.unbuffered()
-    p = P{x: 1}
-    q = Struct.update(updates: {x: 2}, original: if ch.sender == ch.sender { p } else { p })
-    io.print(q.x)
 }
 `,
 	},
