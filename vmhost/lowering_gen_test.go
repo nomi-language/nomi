@@ -1337,7 +1337,7 @@ func (g *gen) patternBlock() string {
 	str := []string{`"a"`, `"b"`}[r.Intn(2)]
 	var out strings.Builder
 	out.WriteString("{\n")
-	shape := r.Intn(6)
+	shape := r.Intn(7)
 	if shape < 4 {
 		fmt.Fprintf(&out, "type %s (Int, String)\n", pair)
 	}
@@ -1374,6 +1374,16 @@ func (g *gen) patternBlock() string {
 		}
 		fmt.Fprintf(&out, "%s = {r: %d, q: %s([%d, %d])}\nio.inspect(case %s {\n{q: %s} -> h\n_ -> 0\n})\n", name("pr"), a, stack, b, a, name("pr"), head)
 		fmt.Fprintf(&out, "io.inspect(case %s([%d]) {\n%s -> h\n_ -> 0\n})\n", stack, b, head)
+	case 6:
+		en, alias := name("Pa"), name("PaAlias")
+		fmt.Fprintf(&out, "enum %s {\nNum Int\nRec {w: Int, h: Int}\nDot\n}\ntypealias %s %s\n", en, alias, en)
+		vals := []string{
+			fmt.Sprintf("%s.Num(%d)", alias, a),
+			fmt.Sprintf("%s.Rec{w: %d, h: %d}", alias, a, b),
+			alias + ".Dot",
+		}
+		fmt.Fprintf(&out, "%s: %s = %s\nio.inspect(case %s {\n%s.Num(n) -> n\n%s.Rec{w, h} -> w * h\n%s.Dot -> -1\n})\n",
+			name("pa"), en, vals[r.Intn(len(vals))], name("pa"), alias, alias, alias)
 	default:
 		kvs := name("Kv")
 		fmt.Fprintf(&out, "type %s Map<String, Int>\n", kvs)

@@ -670,31 +670,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapStructVariantPatternAliasQualifier",
-		fix:    "builder: struct variant pattern alias qualifier. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.structVariantCaseTest | false | !ok ¦¦ (owner != \"\" && !bl.g.declaredAs(owner, k.def) && !bl.g.preludeOwns(owner, k.def) &…#1",
-		reason: "a `case` enum pattern outside retained bare/positional payload tests",
-		src: `import std/io
-
-enum Shape {
-  Rec {w: Int, h: Int}
-  Dot
-}
-
-typealias S Shape
-
-fn f(s: Shape): Int {
-  case s {
-    S.Rec{w} -> w
-    _ -> 0
-  }
-}
-
-fn main() {
-  io.inspect(f(Shape.Rec{w: 2, h: 3}))
-}
-`,
-	},
-	{
 		name:   "gapStructVariantRecordPayloadPattern",
 		fix:    "builder: struct variant record payload pattern. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.retainedEnumPattern | false | v.kind == \"struct\"#1",
 		reason: "a `case` enum pattern outside retained bare/positional payload tests",
@@ -728,31 +703,6 @@ fn main() {
   io.inspect(f(1))
   (f, n) = (|x: Int| x + 1, 1)
   io.inspect(f(n))
-}
-`,
-	},
-	{
-		name:   "gapVariantPatternAliasQualifier",
-		fix:    "builder: variant pattern alias qualifier. Found unreached by the decline inventory (testdata/lowering-declines.txt) at gen.retainedEnumPattern | false | !ok ¦¦ (owner != \"\" && !g.declaredAs(owner, k.def) && !g.preludeOwns(owner, k.def) && !g.s…#1",
-		reason: "a `case` enum pattern outside retained bare/positional payload tests",
-		src: `import std/io
-
-enum Shape {
-  Num Int
-  Dot
-}
-
-typealias S Shape
-
-fn f(s: Shape): Int {
-  case s {
-    S.Num(n) -> n
-    S.Dot -> 0
-  }
-}
-
-fn main() {
-  io.inspect(f(Shape.Num(2)))
 }
 `,
 	},

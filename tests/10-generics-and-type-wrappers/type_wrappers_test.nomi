@@ -82,3 +82,35 @@ test "tuple distinct wrappers support literal attach and destructuring" {
     assert nested == "nested: 1, hello"
     assert triple == "triple: 1, 2, 3"
 }
+
+enum Shape {
+    Num Int
+    Rect {w: Int, h: Int}
+    Dot
+}
+
+typealias S Shape
+
+typealias Count Maybe<Int>
+
+fn shape_size(s: Shape): Int {
+    case s {
+        S.Num(n) -> n
+        S.Rect{w, h} -> w * h
+        S.Dot -> 0
+    }
+}
+
+test "an enum alias qualifies variants in patterns and constructors" {
+    assert shape_size(S.Num(2)) == 2
+    assert shape_size(S.Rect{w: 2, h: 3}) == 6
+    assert shape_size(S.Dot) == 0
+    c: Count = Count.Some(4)
+
+    n = case c {
+        Count.Some(k) -> k
+        Count.None -> 0
+    }
+
+    assert n == 4
+}

@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 284
-declared-cases 916
+declared-cases 917
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1336,13 +1336,14 @@ T test result: ok. 3 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/type_wrappers_test.nomi
 E 0
-N 4
-H 4210d8f0885ba9a1d9a30bb278b2b228845559750446a28f23839186e83f0c3d
+N 5
+H f31934a702a01cb1520674cd898d250c63d1e133df05edbe4819fef419ec38b1
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: distinct types construct unwrap destructure and compare
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: type aliases can name function shapes
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: map distinct wrappers support literal attach and destructuring
 T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: tuple distinct wrappers support literal attach and destructuring
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/10-generics-and-type-wrappers/type_wrappers_test.nomi :: an enum alias qualifies variants in patterns and constructors
+T test result: ok. 5 passed, 0 failed
 T
 C 11-interfaces-and-impls/block_impl_diagnostics_test.nomi
 E 0

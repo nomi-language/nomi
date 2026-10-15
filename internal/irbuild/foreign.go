@@ -416,6 +416,11 @@ func (g *gen) siblingOwner(origin, name string) *typeOwner {
 // `Point` is a front-end error, and if it ever stops being one the local
 // declaration is the one the checker resolves.
 func (g *gen) namedType(name string) (*typeDef, bool) {
+	// A `typealias` names its target's declaration (`typealias S Shape`).
+	// See typealias.go.
+	if d, isAlias := g.aliasNamedDef(name); isAlias {
+		return d, d != nil
+	}
 	// A type declared in an enclosing BLOCK, which the name-keyed table below
 	// cannot hold: two bodies may each declare `Point`. Innermost-first, which
 	// is the analyzer's own resolution order. See blocklocaltype.go.
