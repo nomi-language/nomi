@@ -119,7 +119,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		return bl.rangeKnownCount(t, src, rangeElem)
 	}
 	vecElem, isVector := vectorElem(sk)
-	isVector = isVector && (irRetainedVectorKind(sk) || (irRetainedValueKind(vecElem)))
+	isVector = isVector && (irRetainedVectorKind(sk) || irCallableValueKind(vecElem))
 	// A Map pushes `(K, V)` pairs and a Set its members.
 	isMap := sk.tag == tagMap && sk != kindEmptyMap && irRetainedMapKind(sk)
 	setMember, isSet := setElem(sk)
@@ -701,7 +701,7 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 	}
 	if vecElem, isVector := vectorElem(sk); isVector {
 		erased := irExistentialKind(elem) && bl.g.irErases(elem, vecElem)
-		if (vecElem != elem && !erased) || !(irRetainedVectorKind(sk) || irRetainedValueKind(vecElem)) {
+		if (vecElem != elem && !erased) || !(irRetainedVectorKind(sk) || irCallableValueKind(vecElem)) {
 			return ir.NoTemp, false
 		}
 		return view(ir.IterOverVector, src), true
@@ -1017,7 +1017,7 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 		bl.side(n.Dst(), irScalarSide{k: seqKindIn(bl.g, elem)})
 		return n.Dst(), elem, true
 	}
-	if vecElem, isVector := vectorElem(sk); isVector && irRetainedVectorKind(sk) {
+	if vecElem, isVector := vectorElem(sk); isVector && irRetainedValueKind(sk) {
 		return view(ir.IterOverVector, vecElem)
 	}
 	if member, isSet := setElem(sk); isSet && sk != kindEmptySet && irRetainedSetKind(sk) {
@@ -1046,7 +1046,7 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 		return view(ir.IterOverString, kindString)
 	case sk == irBytesKind():
 		return view(ir.IterOverBytes, irByteKind())
-	case (sk.tag == tagSeq || sk.tag == tagList) && sk.comp != nil && len(sk.comp.parts) == 1 && irRetainedValueKind(sk.comp.parts[0]):
+	case (sk.tag == tagSeq || sk.tag == tagList) && sk.comp != nil && len(sk.comp.parts) == 1 && irCallableValueKind(sk.comp.parts[0]):
 		if sk.tag == tagSeq {
 			return src, sk.comp.parts[0], true
 		}

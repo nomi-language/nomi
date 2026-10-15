@@ -22,12 +22,13 @@ func irRetainedListKind(k kind) bool {
 
 // irListTransportKind admits represented scalar wrappers as list elements,
 // tuples of retained values (`Iter.to_map`'s entries), Dynamic
-// (`Dynamic.as_list`), and a local interface's existential (`List<Display>`),
-// which the VM holds as the concrete values.
+// (`Dynamic.as_list`), a local interface's existential (`List<Display>`),
+// which the VM holds as the concrete values, and a function value
+// (`List<(Int) -> Int>`).
 // Debug, equality and patterns keep their narrower scalar-list checks.
 func irListTransportKind(k kind) bool {
 	return k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 &&
-		(irRetainedLeafKind(k.comp.parts[0]) || irListTransportKind(k.comp.parts[0]) || irRetainedVectorKind(k.comp.parts[0]) || irRetainedSetKind(k.comp.parts[0]) || irRetainedRecordKind(k.comp.parts[0]) || isDecimalKind(k.comp.parts[0]) || irNominalElemKind(k.comp.parts[0]) || irPreludeElemKind(k.comp.parts[0]) || irLeafTupleKind(k.comp.parts[0]) || irRetainedTupleKind(k.comp.parts[0]) || irListMapElemKind(k.comp.parts[0]) || irDynamicKind(k.comp.parts[0]) || irByteElemKind(k.comp.parts[0]) || irExistentialKind(k.comp.parts[0]) || irConcHandleKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit)
+		(irRetainedLeafKind(k.comp.parts[0]) || irListTransportKind(k.comp.parts[0]) || irRetainedVectorKind(k.comp.parts[0]) || irRetainedSetKind(k.comp.parts[0]) || irRetainedRecordKind(k.comp.parts[0]) || isDecimalKind(k.comp.parts[0]) || irNominalElemKind(k.comp.parts[0]) || irPreludeElemKind(k.comp.parts[0]) || irLeafTupleKind(k.comp.parts[0]) || irRetainedTupleKind(k.comp.parts[0]) || irListMapElemKind(k.comp.parts[0]) || irDynamicKind(k.comp.parts[0]) || irByteElemKind(k.comp.parts[0]) || irExistentialKind(k.comp.parts[0]) || irConcHandleKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit || (k.comp.parts[0].tag == tagFunc && irCallableValueKind(k.comp.parts[0])))
 }
 
 // irByteElemKind is std's Byte as a list element (`Bytes.to_list`, a list

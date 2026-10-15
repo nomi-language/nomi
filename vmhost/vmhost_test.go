@@ -12,7 +12,7 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// A literal of a struct whose field is a Map of function values is a body
+// A literal of a struct whose field is a Map of Iters is a body
 // the IR builder declines, so a caller that reaches it is the fixture for
 // a blocked program. If the builder learns that
 // shape these tests fail on their positive controls and need another
@@ -45,7 +45,7 @@ test "fails" {
 }
 
 struct Node {
-  f: Map<String, (Int) -> Int>
+  f: Map<String, Iter<Int>>
 }
 
 fn weigh(_d: Node): Int {

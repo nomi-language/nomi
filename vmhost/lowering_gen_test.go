@@ -1016,11 +1016,6 @@ func recursiveHelperCalled(src string) bool {
 func (g *gen) recursiveCall(sc []gvar) string {
 	r := g.rec
 	v := sc[r.Intn(len(sc))]
-	if hasFn(v.t) {
-		// gapListPatternOverFunctions: the helpers' list patterns over a
-		// list of functions decline.
-		v = sc[0]
-	}
 	list := "[" + v.name + ", " + v.name + "]"
 	if v.t.k == "List" && r.Intn(2) == 0 {
 		list = v.name

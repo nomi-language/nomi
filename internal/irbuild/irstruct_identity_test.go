@@ -400,9 +400,9 @@ func TestIRStruct_ThePredicateEdges(t *testing.T) {
 // TestIRStruct_WhichShapesAreRetained is the witness set for the struct rule,
 // over real source, in both directions.
 //
-// A row that lowers and is not retained is a decline the rule makes on
-// purpose: a Map of function values is outside the field domain. A field
-// that reaches the struct itself is inside it (irKindReaches).
+// A row that lowers and is not retained is a decline the rule makes: a Map
+// of Iters is outside the field domain. A Map of function values, and a
+// field that reaches the struct itself (irKindReaches), are inside it.
 func TestIRStruct_WhichShapesAreRetained(t *testing.T) {
 	const point = "struct Point {\n  x: Int\n  y: Int\n}"
 	for _, c := range []struct {
@@ -429,6 +429,8 @@ func TestIRStruct_WhichShapesAreRetained(t *testing.T) {
 		{"a field that reaches the struct itself", point + "\n\nstruct Outer {\n  p: Point\n  back: Maybe<Outer> = None\n}",
 			"fn f(p: Point): Outer {\n  Outer{p: p}\n}\n", true},
 		{"a Map of function values", point + "\n\nstruct Outer {\n  p: Point\n  hooks: Map<String, (Int) -> Int> = Map.empty()\n}",
+			"fn f(p: Point): Outer {\n  Outer{p: p}\n}\n", true},
+		{"a Map of Iters", point + "\n\nstruct Outer {\n  p: Point\n  runs: Map<String, Iter<Int>> = Map.empty()\n}",
 			"fn f(p: Point): Outer {\n  Outer{p: p}\n}\n", false},
 		{"an anonymous struct", "",
 			"fn f(n: Int): {x: Int} {\n  {x: n}\n}\n", true},

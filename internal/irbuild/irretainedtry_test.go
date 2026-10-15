@@ -4,8 +4,10 @@ import (
 	"testing"
 )
 
-func TestIRRetainedTry_DeclinedBuildKeepsNativeEmission(t *testing.T) {
-	const src = `import std/io
+// A `try` runs before a struct whose field holds a Map of function values
+// is built from its value.
+func TestIRRetainedTry_BesideAFunctionMapFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
 struct Point { x: Int }
 struct Outer {
   p: List<Point>
@@ -14,25 +16,11 @@ struct Outer {
 fn get(): Result<Int, String> { Ok(42) }
 fn work(): Result<Int, String> {
   n = try get()
-  dbg Outer{p: [Point{x: n}]}
+  io.inspect(Outer{p: [Point{x: n}]})
   Ok(n)
 }
-fn main() { io.inspect(work()) }`
-	p, err := AnalyzeSource("main.nomi", src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	retained, _, err := GenerateIR(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, mod := range retained.IR {
-		for _, fn := range mod.Funcs() {
-			if fn.Name() == "work" {
-				t.Fatal("nominal Debug must decline after try lowering")
-			}
-		}
-	}
+fn main() { io.inspect(work()) }
+`, "Outer{p: [Point{x: 42}], hooks: {=>}}\nOk(42)\n")
 }
 
 func TestIRRetainedTry_CompletePrograms(t *testing.T) {

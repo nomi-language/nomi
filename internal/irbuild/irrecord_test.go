@@ -4,31 +4,22 @@ import (
 	"testing"
 )
 
-func TestIRRecord_UnsupportedBodiesDecline(t *testing.T) {
-	for _, src := range []string{
-		// A struct that reaches itself through a field is outside the
-		// retained domain.
-		"struct Point { x: Int }\nstruct Outer { p: List<Point>\n hooks: Map<String, (Int) -> Int> = Map.empty() }\nfn main() { record = {outer: Outer{p: [Point{x: 1}]}} dbg record return }",
-		// A nested patch over a struct outside the retained domain keeps
-		// native lowering.
-		"struct Point { x: Int }\nstruct Outer { ps: List<Point>\n n: Int\n hooks: Map<String, (Int) -> Int> = Map.empty() }\nfn main() { o = Outer{ps: [Point{x: 1}], n: 1} updated = {..o, n: 2} record = {o: o} dbg {..record, o: {.., n: 3}} dbg updated return }",
-	} {
-		p, err := AnalyzeSource("main.nomi", src)
-		if err != nil {
-			t.Fatal(err)
-		}
-		res, _, err := GenerateIR(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, mod := range res.IR {
-			for _, fn := range mod.Funcs() {
-				if fn.Name() == "main" {
-					t.Fatal("unsupported record body retained")
-				}
-			}
-		}
-	}
+// A record holding a struct whose field holds a Map of function values, and
+// a nested patch over one, run.
+func TestIRRecord_OverAFunctionMapFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+struct Point { x: Int }
+struct Outer { p: List<Point>
+ hooks: Map<String, (Int) -> Int> = Map.empty() }
+fn main() { record = {outer: Outer{p: [Point{x: 1}]}} io.inspect(record) }
+`, "{outer: Outer{p: [Point{x: 1}], hooks: {=>}}}\n")
+	verifyLambdaProgram(t, `import std/io
+struct Point { x: Int }
+struct Outer { ps: List<Point>
+ n: Int
+ hooks: Map<String, (Int) -> Int> = Map.empty() }
+fn main() { o = Outer{ps: [Point{x: 1}], n: 1} updated = {..o, n: 2} record = {o: o} io.inspect({..record, o: {.., n: 3}}) io.inspect(updated) }
+`, "{o: Outer{ps: [Point{x: 1}], n: 3, hooks: {=>}}}\nOuter{ps: [Point{x: 1}], n: 2, hooks: {=>}}\n")
 }
 
 func TestIRRecord_CompletePrograms(t *testing.T) {

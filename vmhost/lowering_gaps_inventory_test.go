@@ -166,45 +166,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCChunksFnList",
-		fix:    "builder: c chunks fn list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !irRetainedListKind(chunk) && !irListTransportKind(chunk)#1",
-		reason: "qualified call, Type.method: Iter.chunks",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = [|x: Int| x + 1, |x: Int| x * 2]
-    io.inspect(Iter.chunks(fs, 1) |> Iter.count())
-}
-`,
-	},
-	{
-		name:   "gapCConcatFnList",
-		fix:    "builder: c concat fn list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterCall | false | !ok ¦¦ relem != elem#1",
-		reason: "qualified call, Type.method: Iter.concat",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = [|x: Int| x + 1]
-    io.inspect(Iter.concat(fs, fs) |> Iter.count())
-}
-`,
-	},
-	{
-		name:   "gapCFlatMapFnList",
-		fix:    "builder: c flat map fn list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | unguarded#1",
-		reason: "qualified call, Type.method: Iter.flat_map",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = [1, 2] |> Iter.flat_map(|x| [|y: Int| y + x]) |> Iter.to_list()
-    io.inspect(Iter.count(fs))
-}
-`,
-	},
-	{
 		name:   "gapCFlatMapString",
 		fix:    "builder: c flat map string. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !ok ¦¦ r.comp == nil ¦¦ len(r.comp.parts) != 1#1",
 		reason: "qualified call, Type.method: Iter.flat_map",
@@ -217,19 +178,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCFlattenFnLists",
-		fix:    "builder: c flatten fn lists. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !irRetainedListKind(k) && !irListTransportKind(k)#1",
-		reason: "qualified call, Type.method: Iter.flatten",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = [[|y: Int| y + 1], [|y: Int| y]]
-    io.inspect(Iter.count(Iter.flatten(fs)))
-}
-`,
-	},
-	{
 		name:   "gapCFlattenStrings",
 		fix:    "builder: c flatten strings. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | elem.comp == nil ¦¦ len(elem.comp.parts) != 1#1",
 		reason: "qualified call, Type.method: Iter.flatten",
@@ -238,20 +186,6 @@ fn main() {
 
 fn main() {
     io.inspect(Iter.flatten(["ab", "cd"]))
-}
-`,
-	},
-	{
-		name:   "gapCGroupByFnList",
-		fix:    "builder: c group by fn list. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterGroupBy | false | result.tag != tagMap ¦¦ !irRetainedMapKind(result)#1",
-		reason: "qualified call, Type.method: Iter.group_by",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = [|x: Int| x + 1, |x: Int| x * 2]
-    g = Iter.group_by(fs, |f| f(1))
-    io.inspect(Map.keys(g))
 }
 `,
 	},
@@ -299,19 +233,6 @@ fn total(xs: Iter<Int>): Int {
 
 fn main() {
     io.inspect(total(Pair{a: 1, b: 2}))
-}
-`,
-	},
-	{
-		name:   "gapCIterateFn",
-		fix:    "builder: c iterate fn. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterConstructor | false | len(args.temps) != 2 ¦¦ !irRetainedValueKind(args.kinds[0])#1",
-		reason: "qualified call, Type.method: Iter.iterate",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = Iter.iterate(|x: Int| x, |f| |x: Int| f(x) + 1) |> Iter.take(2) |> Iter.to_list()
-    io.inspect(Iter.count(fs))
 }
 `,
 	},
@@ -508,32 +429,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapCRepeatFn",
-		fix:    "builder: c repeat fn. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterConstructor | false | len(args.temps) != 1 ¦¦ !irRetainedValueKind(args.kinds[0])#1",
-		reason: "qualified call, Type.method: Iter.repeat",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = Iter.repeat(|x: Int| x + 1) |> Iter.take(2) |> Iter.to_list()
-    io.inspect(Iter.count(fs))
-}
-`,
-	},
-	{
-		name:   "gapCToMapFnValues",
-		fix:    "builder: c to map fn values. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !irRetainedMapKind(k)#1",
-		reason: "qualified call, Type.method: Iter.to_map",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    m = Iter.to_map([(1, |x: Int| x)])
-    io.inspect(Map.keys(m))
-}
-`,
-	},
-	{
 		name:   "gapCToSetRanges",
 		fix:    "builder: c to set ranges. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !irRetainedSetKind(k)#1",
 		reason: "qualified call, Type.method: Iter.to_set",
@@ -542,20 +437,6 @@ fn main() {
 
 fn main() {
     io.inspect(Iter.to_set([1..2, 3..4]))
-}
-`,
-	},
-	{
-		name:   "gapCToVectorFn",
-		fix:    "builder: c to vector fn. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterStage | false | !irRetainedVectorKind(k) && !bl.g.irVectorValueKind(k)#1",
-		reason: "qualified call, Type.method: Iter.to_vector",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = [|x: Int| x + 1]
-    v = Iter.to_vector(fs)
-    io.inspect(Vector.length(v))
 }
 `,
 	},
@@ -583,19 +464,6 @@ impl Iter for Pair {
 
 fn main() {
     io.inspect(Pair{a: 1, b: 2} |> Iter.map(|x| x + 1) |> Iter.to_list())
-}
-`,
-	},
-	{
-		name:   "gapCZipFnListRight",
-		fix:    "builder: c zip fn list right. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.iterPlainView | false | unguarded#1",
-		reason: "qualified call, Type.method: Iter.zip",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = [|x: Int| x + 1]
-    io.inspect(Iter.zip([1], fs) |> Iter.count())
 }
 `,
 	},
@@ -1640,36 +1508,6 @@ fn main() {
 `,
 	},
 	{
-		name:   "gapListSpreadFunctionTail",
-		fix:    "builder: list spread function tail. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.listMakeOf | false | !ok ¦¦ !(irRetainedListKind(k) ¦¦ irListTransportKind(k))#1",
-		reason: "a ListSpreadLit",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = [|x: Int| x + 1]
-    gs = [|x: Int| x * 2, ..fs]
-    io.print(Iter.count(gs))
-}
-`,
-	},
-	{
-		name:   "gapMapOfFunctions",
-		fix:    "builder: map of functions. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.mapEntriesOver | false | !joined ¦¦ (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructu…#1",
-		reason: "a MapLit",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    ops = {"inc" => |x: Int| x + 1}
-    case Map.get(ops, "inc") {
-        Some(f) -> io.print(f(1))
-        None -> io.print(0)
-    }
-}
-`,
-	},
-	{
 		name:   "gapMaybeEqualEmbeddedWiden",
 		fix:    "builder: maybe equal embedded widen. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.containerEqualCall | false | at == 1 && bare[1] == kindInvalid#1",
 		reason: "qualified call, Type.method: Maybe.equal?",
@@ -2035,22 +1873,6 @@ fn main() {
     b = Captured{value: Shape.Dot, output: "", transcript: ""}
     v = #[a, b]
     io.print(Vector.length(v))
-}
-`,
-	},
-	{
-		name:   "gapVectorOfFunctions",
-		fix:    "builder: vector of functions. Found unreached by the decline inventory (testdata/lowering-declines.txt) at irScalarBuilder.lowerSameKindItems | false | !joined ¦¦ !accept(elem) ¦¦ !bl.widenEmbedded(typedItems, typedValues, typedKinds, elem)#1",
-		reason: "a VectorLit",
-		noSkip: true,
-		src: `import std/io
-
-fn main() {
-    fs = #[|x: Int| x + 1, |x: Int| x * 2]
-    case Vector.at(fs, 1) {
-        Some(f) -> io.print(f(5))
-        None -> io.print(0)
-    }
 }
 `,
 	},

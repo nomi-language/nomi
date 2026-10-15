@@ -132,7 +132,7 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		return bl.iterAppend(t, ir.IterToSet, ir.IterOverSeq, k, src), k, true, true
 	case "to_vector":
 		k := bl.g.vectorKindOf(elem)
-		if !irRetainedVectorKind(k) && !bl.g.irVectorValueKind(k) {
+		if !irRetainedValueKind(k) && !bl.g.irVectorValueKind(k) {
 			return no()
 		}
 		return bl.iterAppend(t, ir.IterToVector, ir.IterOverSeq, k, src), k, true, true
@@ -155,7 +155,7 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 		switch {
 		case r.tag == tagList && (irRetainedListKind(r) || irListTransportKind(r)):
 			return bl.iterAppendSignalling(t, ir.IterFlatMapList, signalling, k, src, args.temps[1]), k, true, true
-		case r.tag == tagSeq && irRetainedValueKind(inner):
+		case irRetainedSeqKind(r):
 			return bl.iterAppendSignalling(t, ir.IterFlatMap, signalling, k, src, args.temps[1]), k, true, true
 		}
 		return no()
@@ -200,13 +200,13 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 func (bl *irScalarBuilder) iterConstructor(t *ast.Call, args irQualArgs, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if method == "repeat" {
-		if len(args.temps) != 1 || !irRetainedValueKind(args.kinds[0]) {
+		if len(args.temps) != 1 || !irCallableValueKind(args.kinds[0]) {
 			return no()
 		}
 		k := seqKindIn(bl.g, args.kinds[0])
 		return bl.iterAppend(t, ir.IterRepeat, ir.IterOverNothing, k, args.temps[0]), k, false, true
 	}
-	if len(args.temps) != 2 || !irRetainedValueKind(args.kinds[0]) {
+	if len(args.temps) != 2 || !irCallableValueKind(args.kinds[0]) {
 		return no()
 	}
 	elem := args.kinds[0]

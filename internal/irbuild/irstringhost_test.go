@@ -4,28 +4,17 @@ import (
 	"testing"
 )
 
-func TestIRStringHost_DiscardedBuildKeepsNativeEmission(t *testing.T) {
-	p, err := AnalyzeSource("main.nomi", `struct Point { x: String }
+// A String host call's result builds a struct whose field holds a Map of
+// function values.
+func TestIRStringHost_BesideAFunctionMapFieldRuns(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+struct Point { x: String }
 struct Outer {
   p: List<Point>
   hooks: Map<String, (Int) -> Int> = Map.empty()
 }
-fn main() { s = String.trim(" x ") dbg Outer{p: [Point{x: s}]} return }
-`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, _, err := GenerateIR(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, m := range got.IR {
-		for _, f := range m.Funcs() {
-			if f.Name() == "main" {
-				t.Fatal("nominal Debug should decline retention")
-			}
-		}
-	}
+fn main() { s = String.trim(" x ") io.inspect(Outer{p: [Point{x: s}]}) }
+`, "Outer{p: [Point{x: \"x\"}], hooks: {=>}}\n")
 }
 
 func TestIRStringHost_PipelineConstructors(t *testing.T) {

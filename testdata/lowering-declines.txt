@@ -428,7 +428,7 @@ d	irScalarBuilder.seqView | false | !irCallableValueKind(elem) && elem != kindUn
 b	irScalarBuilder.seqView | false | rangeElem != elem#1	iriterbody.go:681	-	checker unifies Range<T> with the wanted Iter<T>
 b	irScalarBuilder.seqView | false | !shared#1	iriterbody.go:691	-	Maybe<Int> is always in the process-wide table
 b	irScalarBuilder.seqView | false | steps == nil ¦¦ steps.irBody == nil#1	iriterbody.go:695	-	irIterRangeElem admits Int and wrapping distincts; a user distinct stops at rangeView's std compare (735) first, and std's Int/Codepoint have steps_between
-?	irScalarBuilder.seqView | false | (vecElem != elem && !erased) ¦¦ !(irRetainedVectorKind(sk) ¦¦ irRetainedValueKind(vecElem)…#1	iriterbody.go:705	?	
+?	irScalarBuilder.seqView | false | (vecElem != elem && !erased) ¦¦ !(irRetainedVectorKind(sk) ¦¦ irCallableValueKind(vecElem)…#1	iriterbody.go:705	?	
 b	irScalarBuilder.seqView | false | pair != elem ¦¦ !irRetainedTupleKind(pair)#1	iriterbody.go:712	-	checker types the Map's (K, V) pair as the wanted element; retained maps give retained pairs
 c	irScalarBuilder.seqView | false | sk == kindEmptySet ¦¦ !irRetainedSetKind(sk) ¦¦ member != elem#1	iriterbody.go:718	-	pinned as gapCIterParamEmptySet (reason: a direct call's operand: total)
 c	irScalarBuilder.seqView | false | !(it != nil && userElem == elem)#1	iriterbody.go:725	-	pinned as gapCIterParamUserSourceKnownCount (reason: a direct call's operand: total)
@@ -452,7 +452,7 @@ b	irScalarBuilder.iterStage | false | args.kinds[1] != kindInt#1	iriterstage.go:
 b	irScalarBuilder.iterStage | false | !ok ¦¦ r != kindBool#1	iriterstage.go:110	-	checker types take_while's predicate as (T) -> Bool
 b	irScalarBuilder.iterStage | false | !ok ¦¦ r != kindBool#2	iriterstage.go:116	-	checker types drop_while's predicate as (T) -> Bool
 c	irScalarBuilder.iterStage | false | !irRetainedSetKind(k)#1	iriterstage.go:130	-	pinned as gapCToSetRanges (reason: qualified call, Type.method: Iter.to_set)
-c	irScalarBuilder.iterStage | false | !irRetainedVectorKind(k) && !bl.g.irVectorValueKind(k)#1	iriterstage.go:136	-	pinned as gapCToVectorFn (reason: qualified call, Type.method: Iter.to_vector)
+?	irScalarBuilder.iterStage | false | !irRetainedValueKind(k) && !bl.g.irVectorValueKind(k)#1	iriterstage.go:136	?	
 b	irScalarBuilder.iterStage | false | elem.tag != tagTuple ¦¦ elem.comp == nil ¦¦ len(elem.comp.parts) != 2#1	iriterstage.go:141	-	checker types to_map's source as Iter<(K, V)>
 c	irScalarBuilder.iterStage | false | !irRetainedMapKind(k)#1	iriterstage.go:145	-	pinned as gapCToMapFnValues (reason: qualified call, Type.method: Iter.to_map)
 c	irScalarBuilder.iterStage | false | !ok ¦¦ r.comp == nil ¦¦ len(r.comp.parts) != 1#1	iriterstage.go:151	-	pinned as gapCFlatMapString (reason: qualified call, Type.method: Iter.flat_map)
@@ -464,8 +464,8 @@ c	irScalarBuilder.iterStage | false | !irRetainedListKind(chunk) && !irListTrans
 b	irScalarBuilder.iterStage | false | args.kinds[1] != kindInt#2	iriterstage.go:186	-	checker types Iter.chunks(size: Int)
 b	irScalarBuilder.iterStage | false | !ok ¦¦ !irRetainedValueKind(key)#1	iriterstage.go:191	-	checker rejects break/continue in chunk_by and function keys (K: Equatable)
 a	irScalarBuilder.iterStage | false | unguarded#3	iriterstage.go:195	expect,irbuild,projectgen,vmhost	
-c	irScalarBuilder.iterConstructor | false | len(args.temps) != 1 ¦¦ !irRetainedValueKind(args.kinds[0])#1	iriterstage.go:204	-	pinned as gapCRepeatFn (reason: qualified call, Type.method: Iter.repeat)
-c	irScalarBuilder.iterConstructor | false | len(args.temps) != 2 ¦¦ !irRetainedValueKind(args.kinds[0])#1	iriterstage.go:210	-	pinned as gapCIterateFn (reason: qualified call, Type.method: Iter.iterate)
+?	irScalarBuilder.iterConstructor | false | len(args.temps) != 1 ¦¦ !irCallableValueKind(args.kinds[0])#1	iriterstage.go:204	?	
+?	irScalarBuilder.iterConstructor | false | len(args.temps) != 2 ¦¦ !irCallableValueKind(args.kinds[0])#1	iriterstage.go:210	?	
 b	irScalarBuilder.iterConstructor | false | !ok ¦¦ r != elem#1	iriterstage.go:215	-	checker types step as (T) -> T; an empty-list seed is coerced (Iter.iterate([], |l: List<Int>| ...) lowers)
 a	irScalarBuilder.lambda | note | "a lambda parameter outside the domain: " + params[i].nomi()#1	irlambda.go:61	irbuild	
 a	irScalarBuilder.lambda | note | "a lambda parameter default outside the parameter's kind: " + params[i].nomi()#1	irlambda.go:78	irbuild	
@@ -489,16 +489,16 @@ b	irScalarBuilder.indirectCall | false | supplier == ir.NoTemp#1	irlambda.go:481
 c	irScalarBuilder.funcRef | note | "an iter-sensitive function passed where its break or continue cannot be caught: " + t.Nam…#1	irlambda.go:576	-	pinned as gapIterSensitiveFnValue (reason: an iter-sensitive function passed where its break or continue cannot be caught: stop)
 d	irScalarBuilder.patternParams | note | "a lambda destructuring parameter the prologue did not build"#1	irlambdapattern.go:103	-	tuple/struct/nested/as/distinct/embedded-variant/anon-record lambda patterns all lower; generic-head patterns decline earlier (irlambda.go parameter domain)
 d	irScalarBuilder.patternParams | note | "a destructured lambda name's kind outside the domain: " + k.nomi()#1	irlambdapattern.go:115	-	no destructured name with an out-of-domain kind found
-c	irScalarBuilder.listMakeOf | false | !ok ¦¦ !(irRetainedListKind(k) ¦¦ irListTransportKind(k))#1	irlist.go:113	-	pinned as gapListSpreadFunctionTail (reason: a ListSpreadLit)
-a	irScalarBuilder.listMakeOf | false | !ok ¦¦ (!irRetainedLeafKind(k) && !irRetainedListKind(k) && !irNominalElemKind(k) && !irLe…#1	irlist.go:151	irbuild	
-d	irScalarBuilder.listMakeOf | false | !ok ¦¦ k != elem#1	irlist.go:175	-	needs a deferred bare None whose typed lowering does not give the joined element kind; not found
-d	irScalarBuilder.literalItemsCoerced | false | j >= len(parts) ¦¦ untypedLiteral(parts[j])#1	irlist.go:382	-	needs a collection literal whose checked type is untyped; the callers then decline at their own return
-c	irScalarBuilder.literalItemsCoerced | false | !ok ¦¦ k != want#1	irlist.go:389	-	pinned as gapVectorItemsJoinCaptured (reason: a VectorLit)
-b	irScalarBuilder.widenEmbedded | false | !widens#1	irlist.go:430	-	fence: widenEmbedded runs only after irEmbedsJoin or literalItemsCoerced, which leave every item either the element kind or embedded in it
-d	irScalarBuilder.coerceEmpty | false | want.tag == tagFunc && have.tag == tagFunc#1	irlist.go:474	-	needs a function value whose kind funcWiden cannot adapt to an accepted expected function type; result covariance is rejected by the checker
-c	irScalarBuilder.coerceEmpty | false | want.tag == tagSeq && want.comp != nil#1	irlist.go:482	-	pinned as gapIterOfEmbeddingEnumFromList (reason: a value of kind List<Circle> where Iter<Shape> is expected)
-c	irScalarBuilder.coerceEmpty | false | !bl.g.emptyRetypes(have, want)#1	irlist.go:491	-	pinned as gapListExistentialField (reason: a ListLit)
-c	irScalarBuilder.lowerWant | note | "a value of kind " + have.nomi() + " where " + want.nomi() + " is expected"#1	irlist.go:554	-	pinned as gapCapturedEmptyList (reason: a value of kind Captured<List<_>> where Captured<List<Int>> is expected)
+c	irScalarBuilder.listMakeOf | false | !ok ¦¦ !(irRetainedListKind(k) ¦¦ irListTransportKind(k))#1	irlist.go:114	-	pinned as gapListSpreadFunctionTail (reason: a ListSpreadLit)
+a	irScalarBuilder.listMakeOf | false | !ok ¦¦ (!irRetainedLeafKind(k) && !irRetainedListKind(k) && !irNominalElemKind(k) && !irLe…#1	irlist.go:152	irbuild	
+d	irScalarBuilder.listMakeOf | false | !ok ¦¦ k != elem#1	irlist.go:176	-	needs a deferred bare None whose typed lowering does not give the joined element kind; not found
+d	irScalarBuilder.literalItemsCoerced | false | j >= len(parts) ¦¦ untypedLiteral(parts[j])#1	irlist.go:383	-	needs a collection literal whose checked type is untyped; the callers then decline at their own return
+c	irScalarBuilder.literalItemsCoerced | false | !ok ¦¦ k != want#1	irlist.go:390	-	pinned as gapVectorItemsJoinCaptured (reason: a VectorLit)
+b	irScalarBuilder.widenEmbedded | false | !widens#1	irlist.go:431	-	fence: widenEmbedded runs only after irEmbedsJoin or literalItemsCoerced, which leave every item either the element kind or embedded in it
+d	irScalarBuilder.coerceEmpty | false | want.tag == tagFunc && have.tag == tagFunc#1	irlist.go:475	-	needs a function value whose kind funcWiden cannot adapt to an accepted expected function type; result covariance is rejected by the checker
+c	irScalarBuilder.coerceEmpty | false | want.tag == tagSeq && want.comp != nil#1	irlist.go:483	-	pinned as gapIterOfEmbeddingEnumFromList (reason: a value of kind List<Circle> where Iter<Shape> is expected)
+c	irScalarBuilder.coerceEmpty | false | !bl.g.emptyRetypes(have, want)#1	irlist.go:492	-	pinned as gapListExistentialField (reason: a ListLit)
+c	irScalarBuilder.lowerWant | note | "a value of kind " + have.nomi() + " where " + want.nomi() + " is expected"#1	irlist.go:555	-	pinned as gapCapturedEmptyList (reason: a value of kind Captured<List<_>> where Captured<List<Int>> is expected)
 d	irScalarBuilder.listCallPlan | note | "a List function without a retained typed list operand"#1	irlistops.go:32	-	needs a List.head/tail/concat operand with no stored type; lists of functions, existentials and Iters all have one (g5/l_list.nomi)
 d	irScalarBuilder.listCallPlan | note | "a List function result outside the retained domain: " + result.nomi()#1	irlistops.go:49	-	needs a Maybe of an element with no stored type; not found
 b	irScalarBuilder.listCaseTest | false | !ok ¦¦ pat.TypeName != nil#1	irlistpattern.go:13	-	only a List subject reaches here and the checker allows no prefix on a list pattern over a plain List (a prefix needs a distinct, which goes to nominalCaseTest)
@@ -548,10 +548,10 @@ d	irScalarBuilder.loopGuard | false | !ok ¦¦ (t.CondPattern == nil && ck != ki
 b	irScalarBuilder.loopGuard | false | unguarded#1	irloop.go:533	-	loopGuardShape and the final-if path admit only break/return/continue exits
 b	irScalarBuilder.loopValue | false | isNilNode(value)#1	irloop.go:558	-	checker rejects a bare `return` in a non-Unit loop guard ("return type mismatch: expected Int, got Unit")
 c	irScalarBuilder.loopValue | false | !ok ¦¦ vk != k#1	irloop.go:562	-	pinned as gapCLoopGuardReturnEmptyList (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
-b	irScalarBuilder.mapMakeOf | false | t.TypeName != nil ¦¦ len(t.Entries) == 0#1	irmap.go:151	-	parser builds `{}` as a block, never an empty MapLit; a typed MapLit returns before this line
-d	irScalarBuilder.mapUpdate | false | bk != lk ¦¦ !irRetainedMapKind(lk)#1	irmap.go:192	-	needs a map spread whose entries lower but whose kind differs from the base or is not a retained map; not found
-c	irScalarBuilder.mapEntriesOver | false | !joined ¦¦ (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructu…#1	irmap.go:276	-	pinned as gapMapOfFunctions (reason: a MapLit)
-b	irScalarBuilder.mapEntriesOver | false | !ok#1	irmap.go:286	-	fence: the key test at irmap.go:273 already admits only kinds irMapKeyOK admits
+b	irScalarBuilder.mapMakeOf | false | t.TypeName != nil ¦¦ len(t.Entries) == 0#1	irmap.go:169	-	parser builds `{}` as a block, never an empty MapLit; a typed MapLit returns before this line
+d	irScalarBuilder.mapUpdate | false | bk != lk ¦¦ !irRetainedMapKind(lk)#1	irmap.go:210	-	needs a map spread whose entries lower but whose kind differs from the base or is not a retained map; not found
+c	irScalarBuilder.mapEntriesOver | false | !joined ¦¦ (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructu…#1	irmap.go:294	-	pinned as gapMapOfFunctions (reason: a MapLit)
+b	irScalarBuilder.mapEntriesOver | false | !ok#1	irmap.go:304	-	fence: the key test at irmap.go:273 already admits only kinds irMapKeyOK admits
 b	irScalarBuilder.mapEntryGet | false | mk.tag != tagMap ¦¦ !irRetainedMapKind(mk)#1	irmappattern.go:38	-	every caller passes a retained map kind; a map pattern over a non-map is a checker error
 b	irScalarBuilder.mapEntryGet | note | "a map pattern key of kind " + kk.nomi() + " over " + mk.nomi()#1	irmappattern.go:57	-	tried enum, tuple, struct, record, list, Float and Unit keys over String/Bool-keyed maps: all lower (irMapKeyKind admits them)
 b	irScalarBuilder.mapEntryGet | false | !ok ¦¦ (kk != keyK && !irMapKeyKind(kk))#1	irmappattern.go:59	-	same as :57; !ok propagates the key expression's own decline

@@ -113,7 +113,25 @@ func irMapValueKind(k kind) bool {
 		// concrete value (`Map<String, Display>`).
 		irExistentialKind(k) ||
 		// Any value a key may be, a nested map among them.
-		(k != kindEmptyMap && k != kindEmptyList && irMapKeyKind(k))
+		(k != kindEmptyMap && k != kindEmptyList && irMapKeyKind(k)) ||
+		irHeldValueKind(k)
+}
+
+// irHeldValueKind is a function value, or a List or Vector of any value the
+// callable domain holds (`(Int) -> Int`, `group_by`'s `List<(Int) -> Int>`
+// groups), as a container's element or a map's value. The VM's containers
+// hold values of every kind, and nothing a container does with an element
+// it only carries looks at one: the checker rejects `==` over functions,
+// and Debug keeps its own checks.
+func irHeldValueKind(k kind) bool {
+	if k.tag == tagFunc {
+		return irCallableValueKind(k)
+	}
+	if k == kindEmptyList || k == kindEmptyVector {
+		return false
+	}
+	_, vector := vectorElem(k)
+	return (k.tag == tagList || vector) && irRetainedValueKind(k)
 }
 
 // irSelfContainerEnum is a retained std enum whose payloads include its own

@@ -47,7 +47,7 @@ func (bl *irScalarBuilder) vectorMakeOf(t *ast.VectorLit, elem kind) (ir.Temp, k
 		want = parts[0]
 	}
 	values, elem, ok := bl.lowerSameKindItems(t, tagEmptyVector, t.Items, want, func(k kind) bool {
-		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k)
+		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k) || irHeldValueKind(k)
 	})
 	if !ok {
 		return no()
@@ -95,7 +95,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 	if !ok {
 		return nil
 	}
-	if !irScalarLeafKind(elem) && !bl.g.irStructuralValueKind(elem) {
+	if !irScalarLeafKind(elem) && !bl.g.irStructuralValueKind(elem) && !irHeldValueKind(elem) {
 		return nil
 	}
 	for i, have := range args.kinds {
