@@ -1,0 +1,83 @@
+/// Why a question has no answer.
+pub enum Error {
+    UnknownOperation
+    SyntaxError
+    DivisionByZero
+}
+
+/// Answers a word problem such as `What is 3 plus 2 multiplied by 3?`,
+/// working left to right with no operator precedence.
+pub fn answer(question: String): Result<Int, Error> {
+    Some(problem) =
+        question
+        |> String.strip_prefix("What is")
+        |> Maybe.flat_map(|rest| String.strip_suffix(rest, "?"))
+    else {
+        return Err(.UnknownOperation)
+    }
+
+    [first, ..rest] = String.words(problem) else {
+        return Err(.SyntaxError)
+    }
+
+    Some(total) = String.to_int(first) else {
+        return Err(.SyntaxError)
+    }
+
+    evaluate(total, rest)
+}
+
+enum Operation {
+    Plus
+    Minus
+    Times
+    DividedBy
+}
+
+/// Applies each operation in `words` to the running total in turn.
+fn evaluate(total: Int, words: List<String>): Result<Int, Error> {
+    case words {
+        [] -> Ok(total)
+        ["plus", ..rest] -> operand(total, .Plus, rest)
+        ["minus", ..rest] -> operand(total, .Minus, rest)
+        ["multiplied", "by", ..rest] -> operand(total, .Times, rest)
+        ["divided", "by", ..rest] -> operand(total, .DividedBy, rest)
+        [word, .._] when String.to_int(word) |> Maybe.some?() -> Err(.SyntaxError)
+        _ -> Err(.UnknownOperation)
+    }
+}
+
+/// Reads the number after an operation, applies it and carries on.
+fn operand(total: Int, operation: Operation, words: List<String>): Result<Int, Error> {
+    [word, ..rest] = words else {
+        return Err(.SyntaxError)
+    }
+
+    Some(n) = String.to_int(word) else {
+        return Err(.SyntaxError)
+    }
+
+    total = try apply(operation, total, n)
+    evaluate(total, rest)
+}
+
+fn apply(operation: Operation, a: Int, b: Int): Result<Int, Error> {
+    case operation {
+        .Plus ->
+            Ok(a + b)
+
+        .Minus ->
+            Ok(a - b)
+
+        .Times ->
+            Ok(a * b)
+
+        .DividedBy -> {
+            Some(divisor) = Int.to_non_zero(b) else {
+                return Err(.DivisionByZero)
+            }
+
+            Ok(Int.divide(a, divisor))
+        }
+    }
+}

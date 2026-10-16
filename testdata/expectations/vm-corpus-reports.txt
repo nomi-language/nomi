@@ -129,3 +129,13 @@
 18-ffi-and-dynamic/json_derive_test.nomi
 18-ffi-and-dynamic/json_enum_derive_test.nomi
 18-ffi-and-dynamic/json_test.nomi
+exercism/allergies/allergies_test.nomi
+exercism/clock/clock_test.nomi
+exercism/list-ops/list_ops_test.nomi
+exercism/luhn/luhn_test.nomi
+exercism/minesweeper/minesweeper_test.nomi
+exercism/phone-number/phone_number_test.nomi
+exercism/queen-attack/queen_attack_test.nomi
+exercism/robot-simulator/robot_simulator_test.nomi
+exercism/triangle/triangle_test.nomi
+exercism/wordy/wordy_test.nomi

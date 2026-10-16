@@ -988,8 +988,25 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 		// an `Iter<T>`, or a struct whose field is a Set).
 		return true
 	}
+	if strings.Contains(err.Error(), "list test reads rt.Context") || strings.Contains(err.Error(), "list tail is rt.Context") {
+		// A list pattern on the leaf the probe supplied for a list whose
+		// shape only a callee more than four call edges away states, as in
+		// a fold whose callback recurses (exercism/list-ops' concat).
+		return true
+	}
 	for _, p := range fn.Params() {
-		if t := fn.TempType(p.Temp); t != nil && t.Kind() == ir.KindIface {
+		t := fn.TempType(p.Temp)
+		if t == nil {
+			continue
+		}
+		if t.Kind() == ir.KindIface {
+			return true
+		}
+		// A function parameter the body only passes on, captured in a
+		// lambda or as an argument, states no call for the probe to build
+		// a callback from, so it holds a leaf when a callee calls it
+		// (exercism/list-ops' filter and map, through foldr).
+		if t.Kind() == ir.KindFunc && strings.Contains(err.Error(), "indirect callee is not a function") {
 			return true
 		}
 	}

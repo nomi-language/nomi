@@ -1179,3 +1179,76 @@
 18-ffi-and-dynamic/time_ffi_app/ffi.nomi:created_at	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/time_ffi_app/ffi.nomi:plus_second	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/time_ffi_app/main.nomi:main	UNLINKED: a project Go binding this process does not link
+exercism/allergies/allergies.nomi:Allergen.inspect	ran
+exercism/allergies/allergies.nomi:Allergen.variants	ran
+exercism/allergies/allergies.nomi:allergic_to?	ran
+exercism/allergies/allergies.nomi:list	ran
+exercism/allergies/allergies.nomi:value	ran
+exercism/clock/clock.nomi:Clock.add	ran
+exercism/clock/clock.nomi:Clock.inspect	ran
+exercism/clock/clock.nomi:Clock.new	ran
+exercism/clock/clock.nomi:Clock.subtract	ran
+exercism/clock/clock.nomi:Clock.to_string	ran
+exercism/clock/clock.nomi:two_digits	ran
+exercism/clock/clock.nomi:wrap	ran
+exercism/list-ops/list_ops.nomi:append	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:append	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:concat	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:concat	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:filter	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldl	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:length	ran
+exercism/list-ops/list_ops.nomi:map	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:reverse	ran
+exercism/list-ops/list_ops.nomi:reverse	ran
+exercism/list-ops/list_ops.nomi:reverse	ran
+exercism/list-ops/list_ops.nomi:reverse	ran
+exercism/luhn/luhn.nomi:checksum	ran
+exercism/luhn/luhn.nomi:double	ran
+exercism/luhn/luhn.nomi:valid?	ran
+exercism/minesweeper/minesweeper.nomi:annotate	ran
+exercism/minesweeper/minesweeper.nomi:annotate_square	PROBE: a synthesized argument is not a value of the declared type
+exercism/minesweeper/minesweeper.nomi:mines_in_row	ran
+exercism/phone-number/phone_number.nomi:Error.inspect	ran
+exercism/phone-number/phone_number.nomi:clean	ran
+exercism/phone-number/phone_number.nomi:digit?	ran
+exercism/phone-number/phone_number.nomi:letter?	ran
+exercism/phone-number/phone_number.nomi:national	ran
+exercism/phone-number/phone_number.nomi:separator?	ran
+exercism/queen-attack/queen_attack.nomi:Error.inspect	ran
+exercism/queen-attack/queen_attack.nomi:Queen.can_attack?	ran
+exercism/queen-attack/queen_attack.nomi:Queen.inspect	ran
+exercism/queen-attack/queen_attack.nomi:Queen.new	ran
+exercism/queen-attack/queen_attack.nomi:distance	ran
+exercism/robot-simulator/robot_simulator.nomi:Direction.inspect	ran
+exercism/robot-simulator/robot_simulator.nomi:Direction.left	ran
+exercism/robot-simulator/robot_simulator.nomi:Direction.right	ran
+exercism/robot-simulator/robot_simulator.nomi:Error.inspect	ran
+exercism/robot-simulator/robot_simulator.nomi:Position.inspect	ran
+exercism/robot-simulator/robot_simulator.nomi:Robot.inspect	ran
+exercism/robot-simulator/robot_simulator.nomi:Robot.move	ran
+exercism/robot-simulator/robot_simulator.nomi:advance	ran
+exercism/robot-simulator/robot_simulator.nomi:step	ran
+exercism/triangle/triangle.nomi:Kind.inspect	ran
+exercism/triangle/triangle.nomi:equilateral?	ran
+exercism/triangle/triangle.nomi:isosceles?	ran
+exercism/triangle/triangle.nomi:kind	ran
+exercism/triangle/triangle.nomi:scalene?	ran
+exercism/wordy/wordy.nomi:Error.inspect	ran
+exercism/wordy/wordy.nomi:Operation.inspect	ran
+exercism/wordy/wordy.nomi:answer	ran
+exercism/wordy/wordy.nomi:apply	ran
+exercism/wordy/wordy.nomi:evaluate	ran
+exercism/wordy/wordy.nomi:operand	ran

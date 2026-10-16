@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 286
-declared-cases 927
+records 306
+declared-cases 991
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -2797,5 +2797,199 @@ N 2
 H f6aed4f1296b2ae2d5f4c1ee9b973692d81678385d8fb423610cca4d9632996d
 T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Go time.Time projects to Nomi Instant
 T ok <root>/tests/18-ffi-and-dynamic/time_ffi_app/main_test.nomi :: Nomi Instant passes back to Go time.Time
+T test result: ok. 2 passed, 0 failed
+T
+C exercism/allergies/allergies.nomi
+E 1
+N 0
+H 90a543cabf065a7f6d7fa046494a73abe30dfba936c7ab1aa7a57838eb147f79
+T --- stderr ---
+T nomi run: <root>/tests/exercism/allergies/allergies.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/allergies/allergies_test.nomi
+E 0
+N 9
+H ed771278ab6f3f2a2ecd44e3d33f8b2864d05486e95b384a54fef7f424a7d8bb
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for eggs allergy / allergic_to? eggs
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for peanuts allergy / allergic_to? peanuts
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for shellfish allergy / allergic_to? shellfish
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for strawberries allergy / allergic_to? strawberries
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for tomatoes allergy / allergic_to? tomatoes
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for chocolate allergy / allergic_to? chocolate
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for pollen allergy / allergic_to? pollen
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for cats allergy / allergic_to? cats
+T ok <root>/tests/exercism/allergies/allergies_test.nomi :: list when: / list
+T test result: ok. 9 passed, 0 failed
+T
+C exercism/clock/clock.nomi
+E 1
+N 0
+H 93a0a741f0173b8d691aa94a81c242a6ed528ac6f57b4925d3c2c9e5b40b90c3
+T --- stderr ---
+T nomi run: <root>/tests/exercism/clock/clock.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/clock/clock_test.nomi
+E 0
+N 4
+H ad17de0ffdd8c31058582e13486f029072aacd2d583252a0f42796590296430a
+T ok <root>/tests/exercism/clock/clock_test.nomi :: Create a new clock with an initial time / create
+T ok <root>/tests/exercism/clock/clock_test.nomi :: Add minutes / add
+T ok <root>/tests/exercism/clock/clock_test.nomi :: Subtract minutes / subtract
+T ok <root>/tests/exercism/clock/clock_test.nomi :: Compare two clocks for equality / equal
+T test result: ok. 4 passed, 0 failed
+T
+C exercism/list-ops/list_ops.nomi
+E 1
+N 0
+H cd80c430eb636ba3ba69cbd7db8741bd6a7486f134d64054c131f789dc089473
+T --- stderr ---
+T nomi run: <root>/tests/exercism/list-ops/list_ops.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/list-ops/list_ops_test.nomi
+E 0
+N 23
+H 19775c046f34f001ceea08f317c667bb604783072d365eeacfb7803bc06ecff1
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: append entries to a list and return the new list / empty lists
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: append entries to a list and return the new list / list to empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: append entries to a list and return the new list / empty list to list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: append entries to a list and return the new list / non-empty lists
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: concatenate a list of lists / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: concatenate a list of lists / list of lists
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: concatenate a list of lists / list of nested lists
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: filter list returning only values that satisfy the filter function / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: filter list returning only values that satisfy the filter function / non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: returns the length of a list / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: returns the length of a list / non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: return a list of elements whose values equal the list value transformed by the mapping function / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: return a list of elements whose values equal the list value transformed by the mapping function / non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the left with a function / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the left with a function / direction independent function applied to non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the left with a function / direction dependent function applied to non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the right with a function / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the right with a function / direction independent function applied to non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: folds (reduces) the given list from the right with a function / direction dependent function applied to non-empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: reverse the elements of the list / empty list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: reverse the elements of the list / non-empty even-length list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: reverse the elements of the list / non-empty odd-length list
+T ok <root>/tests/exercism/list-ops/list_ops_test.nomi :: reverse the elements of the list / list of lists is not flattened
+T test result: ok. 23 passed, 0 failed
+T
+C exercism/luhn/luhn.nomi
+E 1
+N 0
+H 3c0f23d944f81e2bfc53b11bc55eb2e28ef076a3367f15d44ecd7996c6cad9b2
+T --- stderr ---
+T nomi run: <root>/tests/exercism/luhn/luhn.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/luhn/luhn_test.nomi
+E 0
+N 1
+H ebb44fde48d1f33938a94f7721b043735e4ac4aef14e48380e8ca61f3ff143e7
+T ok <root>/tests/exercism/luhn/luhn_test.nomi :: validates numbers with the Luhn checksum
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/minesweeper/minesweeper.nomi
+E 1
+N 0
+H ceb45506af099edfea7b6be89e981e80a26b25a1e54db04b6095ecd207d5d209
+T --- stderr ---
+T nomi run: <root>/tests/exercism/minesweeper/minesweeper.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/minesweeper/minesweeper_test.nomi
+E 0
+N 12
+H 1283dbc9d4848609ec88ba49e88c8a8751e05ddf4797fc6a3359abdc3af70549
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: no rows
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: no columns
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: no mines
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: minefield with only mines
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: mine surrounded by spaces
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: space surrounded by mines
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: horizontal line
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: horizontal line, mines at edges
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: vertical line
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: vertical line, mines at edges
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: cross
+T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: large minefield
+T test result: ok. 12 passed, 0 failed
+T
+C exercism/phone-number/phone_number.nomi
+E 1
+N 0
+H 5e52987f5ea441ec912a0d936ff307aa1d8bd21beed33853833c095fd0a093e6
+T --- stderr ---
+T nomi run: <root>/tests/exercism/phone-number/phone_number.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/phone-number/phone_number_test.nomi
+E 0
+N 1
+H 71f8196d669d5e931c5a8025cad286c81b3f149a198d8003997a750b1bfab6f6
+T ok <root>/tests/exercism/phone-number/phone_number_test.nomi :: cleans phone numbers
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/queen-attack/queen_attack.nomi
+E 1
+N 0
+H b34c612bbcfc41ca62a3e3f7866f9f964be80fd748f310f6f22d0c501b0fe0ab
+T --- stderr ---
+T nomi run: <root>/tests/exercism/queen-attack/queen_attack.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/queen-attack/queen_attack_test.nomi
+E 0
+N 3
+H 5d0d9d9be66f150e9214d58f018c8affc3ba8d08660fd8e430ffaae22e519d48
+T ok <root>/tests/exercism/queen-attack/queen_attack_test.nomi :: Test creation of Queens with valid and invalid positions / queen with a valid position
+T ok <root>/tests/exercism/queen-attack/queen_attack_test.nomi :: Test creation of Queens with valid and invalid positions / invalid positions
+T ok <root>/tests/exercism/queen-attack/queen_attack_test.nomi :: Test the ability of one queen to attack another / can_attack?
+T test result: ok. 3 passed, 0 failed
+T
+C exercism/robot-simulator/robot_simulator.nomi
+E 1
+N 0
+H 2aa33119e124ba52084288b13a76fa37ffd9710c9394576b1aab12bf29435741
+T --- stderr ---
+T nomi run: <root>/tests/exercism/robot-simulator/robot_simulator.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/robot-simulator/robot_simulator_test.nomi
+E 0
+N 6
+H f416eeb741989989001de65ea590edf2918ae8b6b083f12fe7c38e755958d48c
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Create robot / at origin facing north
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Create robot / at negative position facing south
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Rotating clockwise / move
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Rotating counter-clockwise / move
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Moving forward one / move
+T ok <root>/tests/exercism/robot-simulator/robot_simulator_test.nomi :: Follow series of instructions / move
+T test result: ok. 6 passed, 0 failed
+T
+C exercism/triangle/triangle.nomi
+E 1
+N 0
+H 362fb344e0138f051fbbdeef9a011989ec25c5e4876f23da06237529edeb7cc2
+T --- stderr ---
+T nomi run: <root>/tests/exercism/triangle/triangle.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/triangle/triangle_test.nomi
+E 0
+N 3
+H 9f46cf02c9d07239bae33614d6d6ad9abb89ca2d904faca3d73b47092f701045
+T ok <root>/tests/exercism/triangle/triangle_test.nomi :: equilateral triangle / equilateral?
+T ok <root>/tests/exercism/triangle/triangle_test.nomi :: isosceles triangle / isosceles?
+T ok <root>/tests/exercism/triangle/triangle_test.nomi :: scalene triangle / scalene?
+T test result: ok. 3 passed, 0 failed
+T
+C exercism/wordy/wordy.nomi
+E 1
+N 0
+H 983ca45838a6e83cdd25b2febf0f673a691fc75da37ed521bceba3d1a0420a26
+T --- stderr ---
+T nomi run: <root>/tests/exercism/wordy/wordy.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/wordy/wordy_test.nomi
+E 0
+N 2
+H e7bd9bc1a1a3d5263fdc24dccc61cb4673cc0111322329d8a57d9c1f76eff56d
+T ok <root>/tests/exercism/wordy/wordy_test.nomi :: answers word problems
+T ok <root>/tests/exercism/wordy/wordy_test.nomi :: division by zero
 T test result: ok. 2 passed, 0 failed
 T
