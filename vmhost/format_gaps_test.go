@@ -22,21 +22,7 @@ type formatGap struct {
 	src    string
 }
 
-var knownFormatGaps = []formatGap{
-	{
-		// A binding annotated with a function type whose value is a lambda
-		// with a block body, too long for its line: the first format keeps
-		// the annotation on one line and breaks the lambda's body, and a
-		// second format breaks the annotation's parameter list instead.
-		// Found by FuzzFormatKeepsMeaning; it involves no `subtests`
-		// statement, the only construct whose layout the change that found
-		// it touched.
-		name:   "function-typed binding of a long lambda",
-		kind:   "idempotence",
-		reason: "first at line \\d+: `\\w+: \\(\\w+\\) -> \\w+ = \\|\\w+\\| \\{` became `\\w+: \\(`",
-		src:    "{a00000000000000000000000000:(A00)->A00=|A000000000000000000000000000000000000000000000000|\"\"}",
-	},
-}
+var knownFormatGaps = []formatGap{}
 
 func (gap *formatGap) matches(f formatFailure) bool {
 	return gap.kind == f.kind && regexp.MustCompile(gap.reason).MatchString(f.msg)
