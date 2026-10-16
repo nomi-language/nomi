@@ -329,7 +329,8 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.If, *ast.Case:
 		return bl.inferredRegionValue(n, false)
 	case *ast.Block:
-		return bl.blockValue(t)
+		// kindInvalid: sentinel — no expected type; the tail's own kind.
+		return bl.blockValue(t, kindInvalid)
 	case *ast.With:
 		irDeclineNote("a `with` statement in an operand position")
 		return ir.NoTemp, kindInvalid, false, false
