@@ -191,7 +191,7 @@ var mxFeatures = []mxFeature{
 	{name: "embedded struct", decls: mxShape, typ: "Shape", expr: "Spot{n: 3}", want: "Spot{n: 3}", tags: tagWidens},
 	{name: "embedded distinct", decls: mxShape, typ: "Shape", expr: `Tag("t")`, want: `Tag("t")`, tags: tagWidens},
 	{name: "dot variant", decls: mxShape, typ: "Shape", expr: ".Circle(2.0)", want: "Circle(2.0)", tags: tagExpects,
-		reject: "requires a determinable enum type|resolves only to enum variants|is not determined"},
+		reject: "requires a determinable enum type|resolves only to enum variants|cannot be resolved here|is not determined"},
 	{name: "distinct", decls: "type Meters Int", typ: "Meters", expr: "Meters(3)", want: "Meters(3)"},
 	{name: "unit", typ: "Unit", expr: "Unit", want: "Unit", tags: tagUnit},
 	{name: "generic struct", decls: mxBox, typ: "Box<Int>", expr: "Box{v: 1}", want: "Box{v: 1}"},

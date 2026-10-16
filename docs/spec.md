@@ -1931,7 +1931,7 @@ Concrete consequences:
 
 **Diagnostics.** Three failure modes:
 
-- *No determinable enum type at this position.* The position has no annotation/signature to walk to, and no enclosing call/case/binding determines an enum. Example: `c = .Red` with `c` never used in a typed position. Resolution: annotate the binding, or qualify the variant.
+- *No determinable enum type at this position.* The position has no annotation/signature to walk to, and no enclosing call/case/binding determines an enum. Example: `c = .Red` with `c` never used in a typed position. Resolution: annotate the binding, or qualify the variant. An argument whose parameter type is a type parameter of the called function that nothing has solved determines no enum either: in `total = String.to_int(s) |> Maybe.to_result(.SyntaxError) |> try`, `to_result`'s error type is fixed only by the later `try`. The error says no enum is known there and names the qualified variant (`Error.SyntaxError`) when one enum in scope declares it.
 - *Expected type isn't an enum.* The walk found an expected type, but it's not an enum. Example: `b: Box = .Red`. Resolution: check the binding's type, or qualify.
 - *No such variant on the enum.* The expected type is an enum, but the named variant doesn't exist on it. Example: `c: Color = .Purple`. Resolution: pick a valid variant.
 

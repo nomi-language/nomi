@@ -589,11 +589,7 @@ func (c *checker) resolveVariantPrefixInValuePos(typeExpr ast.TypeExpr, line, co
 		// user sees the same message whether they wrote a bare `.Variant`
 		// or a literal-attach `.Variant{...}`.
 		if c.expectedEnum == nil {
-			c.errors = append(c.errors, TypeError{
-				Line:    t.Line,
-				Col:     t.Col,
-				Message: dotVariantNoEnumMessage(t.Name, c.expectedAt),
-			})
+			c.errors = append(c.errors, c.dotVariantNoEnumError(t.Name, t.Line, t.Col))
 			return nil, nil, "", false
 		}
 		et := c.expectedEnum
@@ -831,6 +827,43 @@ func dotVariantNoEnumMessage(variantName string, expectedAt Type) string {
 	return "." + variantName + " resolves only to enum variants, but the expected type at this position is " + expectedAt.String()
 }
 
+// dotVariantNoEnumError is the error for a `.Variant` at line and col that no
+// expected enum resolves. A position whose expected type is still open, a
+// type parameter of the function being called that nothing has solved
+// (`Maybe.to_result(.SyntaxError)`, whose E only a later use could fix) or
+// an inference variable, determines no enum. The message says so rather
+// than naming that parameter, which is not a type the program wrote, and
+// the hint names the qualified variant when one enum in scope declares it.
+func (c *checker) dotVariantNoEnumError(variantName string, line, col int) TypeError {
+	if !c.expectedTypeIsOpen() {
+		return TypeError{Line: line, Col: col, Message: dotVariantNoEnumMessage(variantName, c.expectedAt)}
+	}
+	e := TypeError{Line: line, Col: col,
+		Message: "." + variantName + " cannot be resolved here: nothing at this position determines its enum"}
+	enumName := "Enum"
+	if sym := c.findOwningEnumSymForVariant(variantName); sym != nil {
+		for sym.Resolved != nil {
+			sym = sym.Resolved
+		}
+		enumName = sym.Name
+	}
+	return e.WithHint(fmt.Sprintf("qualify the variant with its enum: `%s.%s`", enumName, variantName))
+}
+
+// expectedTypeIsOpen reports whether the expected type staged for a
+// dot-leading variant is a type nothing has determined yet: an unsolved
+// inference variable, or a type parameter that is not one of the enclosing
+// function's own.
+func (c *checker) expectedTypeIsOpen() bool {
+	switch t := resolveTypeVar(c.expectedAt).(type) {
+	case *TypeVar:
+		return true
+	case *TypeParam_:
+		return c.fnTypeParams[t.Name_] != t
+	}
+	return false
+}
+
 func enumHasVariant(et *EnumType, name string) bool {
 	for _, v := range et.Variants {
 		if v.Name == name {
@@ -858,11 +891,7 @@ func enumHasVariant(et *EnumType, name string) bool {
 // the staged expected, not from the AST.
 func (c *checker) checkDotVariant(n *ast.DotVariant) Type {
 	if c.expectedEnum == nil {
-		e := TypeError{
-			Line:    n.Line,
-			Col:     n.Col,
-			Message: dotVariantNoEnumMessage(n.Name, c.expectedAt),
-		}
+		e := c.dotVariantNoEnumError(n.Name, n.Line, n.Col)
 		// `f: (Float) -> Shape = .Circle`: a dot-leading variant is never a
 		// function value, since only an expected enum resolves it. The
 		// qualified name is.
@@ -15918,11 +15947,7 @@ func (c *checker) checkStructLit(n *ast.StructLit) Type {
 	// as the call-form / list-form dot-leading paths.
 	if dvt, ok := n.TypeName.(*ast.DotVariantType); ok {
 		if c.expectedEnum == nil {
-			c.errors = append(c.errors, TypeError{
-				Line:    dvt.Line,
-				Col:     dvt.Col,
-				Message: dotVariantNoEnumMessage(dvt.Name, c.expectedAt),
-			})
+			c.errors = append(c.errors, c.dotVariantNoEnumError(dvt.Name, dvt.Line, dvt.Col))
 			for _, f := range n.Fields {
 				c.checkNode(f.Value)
 			}
