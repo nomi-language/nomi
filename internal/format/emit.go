@@ -1043,6 +1043,9 @@ func pipeAfterEquals(chain Doc) Doc {
 func emitPatternBinding(v *ast.PatternBinding) Doc {
 	target := emitPattern(v.Pattern)
 	if v.Else == nil {
+		if bareStartsDestructure(v.Pattern) {
+			target = Concat(Text("("), target, Text(")"))
+		}
 		return emitBindingValue(target, v.Value)
 	}
 	// head is everything up to the else's `{`, `else ` included.
@@ -1071,6 +1074,74 @@ func emitPatternBinding(v *ast.PatternBinding) Doc {
 		HardLine(),
 		Text("}"),
 	)
+}
+
+// bareStartsDestructure reports whether pattern, written bare at the start
+// of a statement `pattern = value` with no `else`, is read as one of the
+// destructuring statements rather than as a pattern binding: a tuple of
+// two or more names (TupleDestructure), a struct pattern without a type
+// whose fields each bind a name (StructDestructure), a map pattern whose
+// entries each bind a name or `_` (MapDestructure), or a variant named
+// by a type, `T(n)`, `m.T(n)` or `T(_)` (DistinctDestructure). The author
+// parenthesized such a pattern to get the pattern binding, so the
+// formatter keeps one pair of parentheses around it. A name or `_` alone
+// needs none: `(a) = v` is the binding `a = v`.
+func bareStartsDestructure(pattern ast.Node) bool {
+	isName := func(n ast.Node) bool {
+		switch n.(type) {
+		case *ast.IdentPattern, *ast.WildcardPattern:
+			return true
+		}
+		return false
+	}
+	switch p := pattern.(type) {
+	case *ast.TuplePattern:
+		if len(p.Patterns) < 2 {
+			return false
+		}
+		for _, e := range p.Patterns {
+			if !isName(e) {
+				return false
+			}
+		}
+		return true
+	case *ast.StructPattern:
+		if p.TypeName != nil || len(p.Fields) == 0 {
+			return false
+		}
+		for _, f := range p.Fields {
+			if f.Pattern != nil {
+				if _, ok := f.Pattern.(*ast.IdentPattern); !ok {
+					return false
+				}
+			}
+		}
+		return true
+	case *ast.MapPattern:
+		if p.TypeName != nil || len(p.Entries) == 0 {
+			return false
+		}
+		for _, e := range p.Entries {
+			if !isName(e.Pattern) {
+				return false
+			}
+		}
+		return true
+	case *ast.EnumPattern:
+		if p.Binding == "" && (p.Payload == nil || !isName(p.Payload)) {
+			return false
+		}
+		switch t := p.Variant.(type) {
+		case *ast.SimpleType:
+			// `.Some(n)` starts with a dot, and a lower-case single name
+			// is no type the destructure reads.
+			return t.Name != "" && unicode.IsUpper([]rune(t.Name)[0])
+		case *ast.QualifiedType:
+			_, simple := t.Member.(*ast.SimpleType)
+			return simple
+		}
+	}
+	return false
 }
 
 // emitStringInterp renders an interpolated string. The lexer decoded escape

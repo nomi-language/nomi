@@ -24,17 +24,6 @@ type formatGap struct {
 
 var knownFormatGaps = []formatGap{
 	{
-		// `(A(a)) = v` parses as a PatternBinding, whose pattern the
-		// parentheses only group; the formatter drops them, and `A(a) = v`
-		// parses as the DistinctDestructure statement. Both bind `a` the
-		// same way, but the syntax tree differs. Found by
-		// FuzzFormatKeepsMeaning; present on `next` before `or` patterns.
-		name:   "parenthesized variant pattern binding",
-		kind:   "meaning",
-		reason: `\*ast\.PatternBinding became \*ast\.DistinctDestructure`,
-		src:    "fn main() {\n    (A(a)) = 0\n}\n",
-	},
-	{
 		// A binding annotated with a function type whose value is a lambda
 		// with a block body, too long for its line: the first format keeps
 		// the annotation on one line and breaks the lambda's body, and a
@@ -46,19 +35,6 @@ var knownFormatGaps = []formatGap{
 		kind:   "idempotence",
 		reason: "first at line \\d+: `\\w+: \\(\\w+\\) -> \\w+ = \\|\\w+\\| \\{` became `\\w+: \\(`",
 		src:    "{a00000000000000000000000000:(A00)->A00=|A000000000000000000000000000000000000000000000000|\"\"}",
-	},
-	{
-		// `((// c` then `a, a)) = v` parses as a PatternBinding of a
-		// parenthesized tuple pattern holding a comment; the formatter
-		// drops the outer parentheses, and `(// c` then `a, a) = v`
-		// parses as a TupleDestructure. The same shape as the variant
-		// gap above, through a tuple. Found by FuzzFormatKeepsMeaning
-		// while checking the change that keeps a literal broken after its
-		// bracket; `next` before that change fails it the same way.
-		name:   "parenthesized tuple pattern binding holding a comment",
-		kind:   "meaning",
-		reason: `\*ast\.PatternBinding became \*ast\.TupleDestructure`,
-		src:    "{((//\na,a))=\"\"}",
 	},
 }
 

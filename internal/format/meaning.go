@@ -205,9 +205,13 @@ func bindGroupedNames(v reflect.Value) {
 		for i := 0; i < v.Len(); i++ {
 			if e := v.Index(i); e.Kind() == reflect.Interface && e.CanSet() && !e.IsNil() {
 				if pb, ok := e.Interface().(*ast.PatternBinding); ok && pb.Else == nil {
-					// `(a) = v` is the binding `a = v`.
-					if id, ok := pb.Pattern.(*ast.IdentPattern); ok {
+					// `(a) = v` is the binding `a = v`, and `(_) = v`
+					// is `_ = v`.
+					switch id := pb.Pattern.(type) {
+					case *ast.IdentPattern:
 						e.Set(reflect.ValueOf(&ast.Binding{Name: id.Name, Value: pb.Value}))
+					case *ast.WildcardPattern:
+						e.Set(reflect.ValueOf(&ast.Binding{Name: "_", Value: pb.Value}))
 					}
 				}
 			}
