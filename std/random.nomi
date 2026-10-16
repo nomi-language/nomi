@@ -15,6 +15,7 @@ import {
     lists.List
     results.Result.{self, Err, Ok}
     strings.String
+    vectors.Vector
 }
 
 /// Errors returned when constructing a generator whose invariants can be
@@ -171,15 +172,9 @@ impl Generator<T> {
     //! assert choice == "paper" or choice == "rock" or choice == "scissors"
     //
     pub fn uniform<T>(first: T, rest: List<T>): Generator<T> {
-        all = [first, ..rest]
+        all = [first, ..rest] |> Iter.to_vector()
 
-        unsafe_int(0, Iter.count(rest))
-        |> map(|i| {
-            case Iter.get(all, i) {
-                .Some(x) -> x
-                .None -> first
-            }
-        })
+        unsafe_int(0, Iter.count(rest)) |> map(|i| Vector.at(all, i))
     }
 
     /// Weighted choice; each option carries a relative weight. Non-empty.

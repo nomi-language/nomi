@@ -378,18 +378,18 @@ T
 C random
 E 0
 N 11
-H 27bfef5047f89994e1d2795935dd8944a13045fc513d46a3277ce4d48fee2b43
-T ok <root>/std/random.nomi :: impl / from_int //! test lines 51-54
-T ok <root>/std/random.nomi :: impl / step //! test lines 108-110
-T ok <root>/std/random.nomi :: impl / int //! test lines 118-121
-T ok <root>/std/random.nomi :: impl / float //! test lines 133-136
-T ok <root>/std/random.nomi :: impl / bool //! test lines 147-148
-T ok <root>/std/random.nomi :: impl / constant //! test lines 155-156
-T ok <root>/std/random.nomi :: impl / uniform //! test lines 167-171
-T ok <root>/std/random.nomi :: impl / weighted //! test lines 188-191
-T ok <root>/std/random.nomi :: impl / map //! test lines 203-206
-T ok <root>/std/random.nomi :: impl / flat_map //! test lines 225-230
-T ok <root>/std/random.nomi :: impl / list //! test lines 243-246
+H 96f0fc07d7b46d4f46a45b4e2abc457cb193ddff766dc39d59e6e2722571de53
+T ok <root>/std/random.nomi :: impl / from_int //! test lines 52-55
+T ok <root>/std/random.nomi :: impl / step //! test lines 109-111
+T ok <root>/std/random.nomi :: impl / int //! test lines 119-122
+T ok <root>/std/random.nomi :: impl / float //! test lines 134-137
+T ok <root>/std/random.nomi :: impl / bool //! test lines 148-149
+T ok <root>/std/random.nomi :: impl / constant //! test lines 156-157
+T ok <root>/std/random.nomi :: impl / uniform //! test lines 168-172
+T ok <root>/std/random.nomi :: impl / weighted //! test lines 183-186
+T ok <root>/std/random.nomi :: impl / map //! test lines 198-201
+T ok <root>/std/random.nomi :: impl / flat_map //! test lines 220-225
+T ok <root>/std/random.nomi :: impl / list //! test lines 238-241
 T test result: ok. 11 passed, 0 failed
 T
 C ranges
