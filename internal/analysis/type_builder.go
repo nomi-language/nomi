@@ -465,6 +465,15 @@ func buildBodyTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node) []Typ
 			}
 		case *ast.TestDecl:
 			errs = append(errs, buildTestDeclFuncTypes(fa, reg, n)...)
+		case *ast.StructDef:
+			// A field's default may declare a `fn` in a block, as a `once`
+			// may; without its signature its body went unchecked and its
+			// call had no type.
+			errs = append(errs, buildFieldDefaultFuncTypes(fa, reg, n.Fields)...)
+		case *ast.EnumDef:
+			for _, v := range n.Variants {
+				errs = append(errs, buildFieldDefaultFuncTypes(fa, reg, v.Fields)...)
+			}
 		}
 		// A module-level `once`'s value may declare a `fn` in a block,
 		// `once g = { fn h(x: Int): Int { x + 1 } \n h(4) }`; without its
@@ -475,6 +484,18 @@ func buildBodyTypes(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node) []Typ
 			}
 		}
 		errs = append(errs, buildAttachedTestTypes(fa, reg, node)...)
+	}
+	return errs
+}
+
+// buildFieldDefaultFuncTypes resolves the signatures of the `fn`s declared in
+// struct or record-variant field defaults.
+func buildFieldDefaultFuncTypes(fa *FileAnalysis, reg *TypeRegistry, fields []ast.StructField) []TypeError {
+	var errs []TypeError
+	for _, f := range fields {
+		if f.Default != nil {
+			errs = append(errs, buildNestedFuncTypes(fa, reg, f.Default)...)
+		}
 	}
 	return errs
 }

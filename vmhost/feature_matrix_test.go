@@ -922,7 +922,6 @@ var mxKnown = []struct {
 	gap   string
 	match func(c mxCell) bool
 }{
-	{"gapNestedFnInFieldDefault", func(c mxCell) bool { return mxWithin(c, "nested function", "field default") }},
 	{"gapRangeStructField", func(c mxCell) bool {
 		return c.f.name == "range" && (mxHas(c, "struct field") || mxHas(c, "generic struct field") || mxHas(c, "field default"))
 	}},
@@ -953,17 +952,6 @@ var mxKnown = []struct {
 func mxHas(c mxCell, name string) bool {
 	for _, w := range c.wraps {
 		if w.name == name {
-			return true
-		}
-	}
-	return false
-}
-
-// mxWithin reports whether c's wrapping context inner sits directly inside
-// outer.
-func mxWithin(c mxCell, inner, outer string) bool {
-	for i := 0; i+1 < len(c.wraps); i++ {
-		if c.wraps[i].name == inner && c.wraps[i+1].name == outer {
 			return true
 		}
 	}

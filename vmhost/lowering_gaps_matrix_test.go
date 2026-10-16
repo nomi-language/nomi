@@ -299,30 +299,6 @@ fn main() {
 }
 `,
 	},
-	{
-		name: "gapNestedFnInFieldDefault",
-		fix: "a `fn` declared inside a struct field's default leaves its body's tail and the call " +
-			"of it without a type when the tail is Unit, a function value, a `case`, a call with " +
-			"named arguments and more (30 matrix features; an Int literal is typed), and the " +
-			"builder declines what they hold. The same block as a function body, a binding or " +
-			"a `once` initializer is checked",
-		match: regexp.MustCompile(`^main\.nomi:(6:13: TypeIdent in ExprStmt has no type recorded: .Unit.|8:9: Call in ExprStmt has no type recorded: .inner\(\).)$`),
-		src: `import std/io
-
-struct D {
-    v: Unit = {
-        fn inner(): Unit {
-            Unit
-        }
-        inner()
-    }
-}
-
-fn main() {
-    io.inspect(D{}.v)
-}
-`,
-	},
 }
 
 func init() {
