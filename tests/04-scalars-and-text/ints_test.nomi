@@ -41,3 +41,28 @@ test "positive integers can be used as non-zero divisors" {
 test "positive refinement rejects zero divisors" {
     assert divide_by_positive(20, 0) == 0
 }
+
+test "int abs and sign" {
+    assert Int.abs(-5) == 5
+    assert Int.abs(5) == 5
+    assert Int.abs(0) == 0
+    assert Int.abs(Int.max_value) == Int.max_value
+    assert Int.abs(Int.min_value + 1) == Int.max_value
+
+    assert Int.sign(-5) == -1
+    assert Int.sign(0) == 0
+    assert Int.sign(5) == 1
+    assert Int.sign(Int.min_value) == -1
+    assert Int.sign(Int.max_value) == 1
+}
+
+test "int min and max" {
+    assert Int.min(3, -2) == -2
+    assert Int.max(3, -2) == 3
+    assert Int.min(-2, 3) == -2
+    assert Int.max(-2, 3) == 3
+    assert Int.min(4, 4) == 4
+    assert Int.max(4, 4) == 4
+    assert Int.min(Int.min_value, Int.max_value) == Int.min_value
+    assert Int.max(Int.min_value, Int.max_value) == Int.max_value
+}

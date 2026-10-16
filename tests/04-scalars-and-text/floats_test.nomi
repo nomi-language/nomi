@@ -75,3 +75,57 @@ test "float special values propagate through arithmetic and rounding" {
         |> Float.floor()
         |> Float.infinite?()
 }
+
+// True for -0.0 alone: `==` cannot tell the zeros apart, but dividing by them
+// gives infinities of opposite signs.
+fn negative_zero?(x: Float): Bool {
+    x == 0.0 and 1.0 / x < 0.0
+}
+
+test "float abs clears the sign" {
+    assert Float.abs(-2.5) == 2.5
+    assert Float.abs(2.5) == 2.5
+    assert Float.abs(0.0) == 0.0
+    refute negative_zero?(Float.abs(-0.0))
+    refute negative_zero?(Float.abs(0.0))
+    assert Float.abs(Float.negative_infinity()) == Float.positive_infinity()
+    assert Float.abs(Float.positive_infinity()) == Float.positive_infinity()
+    assert Float.nan?(Float.abs(Float.nan()))
+    assert Float.nan?(Float.abs(-Float.nan()))
+}
+
+test "float sign is -1, 0 or 1, and 0 for both zeros and NaN" {
+    assert Float.sign(-2.5) == -1
+    assert Float.sign(2.5) == 1
+    assert Float.sign(0.0) == 0
+    assert Float.sign(-0.0) == 0
+    assert Float.sign(Float.negative_infinity()) == -1
+    assert Float.sign(Float.positive_infinity()) == 1
+    assert Float.sign(Float.nan()) == 0
+}
+
+test "float min and max order the two zeros and propagate NaN" {
+    assert Float.min(1.5, -2.0) == -2.0
+    assert Float.max(1.5, -2.0) == 1.5
+    assert Float.min(-2.0, 1.5) == -2.0
+    assert Float.max(-2.0, 1.5) == 1.5
+    assert Float.min(3.0, 3.0) == 3.0
+    assert Float.max(3.0, 3.0) == 3.0
+
+    assert negative_zero?(Float.min(-0.0, 0.0))
+    assert negative_zero?(Float.min(0.0, -0.0))
+    refute negative_zero?(Float.max(-0.0, 0.0))
+    refute negative_zero?(Float.max(0.0, -0.0))
+    assert negative_zero?(Float.min(-0.0, -0.0))
+    assert negative_zero?(Float.max(-0.0, -0.0))
+
+    assert Float.min(Float.negative_infinity(), -1.0) == Float.negative_infinity()
+    assert Float.max(Float.positive_infinity(), 1.0) == Float.positive_infinity()
+
+    assert Float.nan?(Float.min(Float.nan(), 1.0))
+    assert Float.nan?(Float.min(1.0, Float.nan()))
+    assert Float.nan?(Float.max(Float.nan(), 1.0))
+    assert Float.nan?(Float.max(1.0, Float.nan()))
+    assert Float.nan?(Float.min(Float.nan(), Float.negative_infinity()))
+    assert Float.nan?(Float.max(Float.positive_infinity(), Float.nan()))
+}

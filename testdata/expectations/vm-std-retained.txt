@@ -301,12 +301,16 @@ dynamic.nomi:DecodeError.inspect	ran
 dynamic.nomi:DecodeError.to_string	ran
 dynamic.nomi:PathSegment.inspect	ran
 dynamic.nomi:PathSegment.to_string	ran
+float.nomi:Float.abs	ran
 float.nomi:Float.compare	ran
 float.nomi:Float.equal?	ran
 float.nomi:Float.finite?	ran
 float.nomi:Float.hash	ran
 float.nomi:Float.infinite?	ran
 float.nomi:Float.inspect	ran
+float.nomi:Float.max	ran
+float.nomi:Float.min	ran
+float.nomi:Float.sign	ran
 instant.nomi:Instant.Add<Duration, Instant>.add	ran
 instant.nomi:Instant.Subtract<Duration, Instant>.subtract	ran
 instant.nomi:Instant.Subtract<Instant, Duration>.subtract	ran
@@ -318,12 +322,16 @@ instant.nomi:Instant.from_seconds	ran
 instant.nomi:Instant.inspect	ran
 instant.nomi:Instant.to_seconds	ran
 int.nomi:Int.Divide<NonZeroInt, Int>.divide	ran
+int.nomi:Int.abs	ran
 int.nomi:Int.compare	ran
 int.nomi:Int.equal?	ran
 int.nomi:Int.hash	ran
 int.nomi:Int.inspect	ran
+int.nomi:Int.max	ran
+int.nomi:Int.min	ran
 int.nomi:Int.modulo	ran
 int.nomi:Int.next	ran
+int.nomi:Int.sign	ran
 int.nomi:Int.step_by	ran
 int.nomi:Int.steps_between	ran
 int.nomi:Int.to_non_zero	ran

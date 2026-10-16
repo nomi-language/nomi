@@ -18,14 +18,10 @@ impl Queen {
 
     /// Reports whether two queens share a row, a column or a diagonal.
     pub fn can_attack?(white: Queen, black: Queen): Bool {
-        rows = distance(white.row, black.row)
-        columns = distance(white.column, black.column)
+        rows = Int.abs(white.row - black.row)
+        columns = Int.abs(white.column - black.column)
         rows == 0 or columns == 0 or rows == columns
     }
-}
-
-fn distance(a: Int, b: Int): Int {
-    if a > b { a - b } else { b - a }
 }
 
 /// Why a queen cannot be placed.

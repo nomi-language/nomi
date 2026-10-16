@@ -101,6 +101,71 @@ impl Float {
     //! assert Float.trunc(-3.7) == -3.0
     //
     pub host fn trunc(x: Float): Float
+
+    /// Returns |x|, with the sign bit cleared: `-0.0` gives `0.0`, either
+    /// infinity gives +Infinity, and NaN gives NaN.
+    //! assert Float.abs(-1.5) == 1.5
+    //! assert Float.to_string(Float.abs(-0.0)) == "0.0"
+    //! assert Float.abs(Float.negative_infinity()) == Float.positive_infinity()
+    //! assert Float.nan?(Float.abs(Float.nan()))
+    //
+    pub fn abs(x: Float): Float {
+        if float_bits(x) < 0 { -x } else { x }
+    }
+
+    /// Returns the sign of `x` as -1, 0, or +1. Both zeros give 0, and so does
+    /// NaN, which is neither less than nor greater than zero; test for it with
+    /// `Float.nan?` first when it must be told apart from zero.
+    //! assert Float.sign(-1.5) == -1
+    //! assert Float.sign(-0.0) == 0
+    //! assert Float.sign(Float.positive_infinity()) == 1
+    //! assert Float.sign(Float.nan()) == 0
+    //
+    pub fn sign(x: Float): Int {
+        case {
+            x < 0.0 -> -1
+            x > 0.0 -> 1
+            _ -> 0
+        }
+    }
+
+    /// Returns the lesser of `a` and `b`: NaN if either is NaN, and `-0.0` as
+    /// the lesser of the two zeros (IEEE 754-2019 `minimum`). Other ties return
+    /// `a`.
+    //! assert Float.min(1.5, -2.0) == -2.0
+    //! assert Float.to_string(Float.min(0.0, -0.0)) == "-0.0"
+    //! assert Float.nan?(Float.min(Float.nan(), 1.0))
+    //
+    pub fn min(a: Float, b: Float): Float {
+        case {
+            Float.nan?(a) -> a
+            Float.nan?(b) -> b
+            a < b -> a
+            a > b -> b
+            // Equal, so either the same value or the two zeros.
+            float_bits(b) < 0 -> b
+            _ -> a
+        }
+    }
+
+    /// Returns the greater of `a` and `b`: NaN if either is NaN, and `0.0` as
+    /// the greater of the two zeros (IEEE 754-2019 `maximum`). Other ties
+    /// return `a`.
+    //! assert Float.max(1.5, -2.0) == 1.5
+    //! assert Float.to_string(Float.max(-0.0, 0.0)) == "0.0"
+    //! assert Float.nan?(Float.max(1.0, Float.nan()))
+    //
+    pub fn max(a: Float, b: Float): Float {
+        case {
+            Float.nan?(a) -> a
+            Float.nan?(b) -> b
+            a > b -> a
+            a < b -> b
+            // Equal, so either the same value or the two zeros.
+            float_bits(a) < 0 -> b
+            _ -> a
+        }
+    }
 }
 
 /// Returns the IEEE 754 bit-pattern of `x` reinterpreted as an Int (as if by
