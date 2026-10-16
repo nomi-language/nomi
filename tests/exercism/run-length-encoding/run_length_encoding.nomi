@@ -1,0 +1,29 @@
+/// `text` with each run of a repeated character written as its length and
+/// the character once. A character that is not repeated keeps no count.
+pub fn encode(text: String): String {
+    text
+    |> Iter.chunk_by(|letter| letter)
+    |> Iter.map(encode_run)
+    |> String.join()
+}
+
+fn encode_run(run: List<String>): String {
+    case run {
+        [letter] -> letter
+        [letter, .._] -> "${Iter.count(run)}${letter}"
+        [] -> ""
+    }
+}
+
+/// The text `encode` was given for `encoded`: each character is repeated as
+/// many times as the number before it says, or once when there is none.
+pub fn decode(encoded: String): String {
+    (_, text) = Iter.reduce(encoded, |(count, text) = (0, ""), letter| {
+        case String.to_int(letter) {
+            Some(digit) -> (count * 10 + digit, text)
+            None -> (0, text + String.repeat(letter, if count == 0 { 1 } else { count }))
+        }
+    })
+
+    text
+}

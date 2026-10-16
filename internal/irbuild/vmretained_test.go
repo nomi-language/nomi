@@ -982,10 +982,13 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 		return false
 	}
 	if strings.Contains(err.Error(), "reads a field off") || strings.Contains(err.Error(), "variant test reads rt.Context") ||
-		strings.Contains(err.Error(), "iteration reads rt.Context") || strings.Contains(err.Error(), "set receiver is rt.Context") {
-		// A field read, variant test, iteration or Set operation on the leaf
-		// the probe supplied for a parameter it cannot build (a nominal type,
-		// an `Iter<T>`, or a struct whose field is a Set).
+		strings.Contains(err.Error(), "iteration reads rt.Context") || strings.Contains(err.Error(), "set receiver is rt.Context") ||
+		strings.Contains(err.Error(), "list test reads rt.Context") || strings.Contains(err.Error(), "is rt.Context, want Vector") {
+		// A field read, variant test, iteration, Set operation, list test or
+		// Vector operation on the leaf the probe supplied for a parameter it
+		// cannot build (a nominal type, an `Iter<T>`, a struct whose field is
+		// a Set, a list matched as part of a tuple the body builds, or a
+		// generic Vector only a host call reads).
 		return true
 	}
 	for _, p := range fn.Params() {

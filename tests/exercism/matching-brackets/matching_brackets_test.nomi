@@ -1,0 +1,34 @@
+import matching_brackets
+
+test "checks bracket pairing" {
+    cases = [
+        ("paired square brackets", "[]", True),
+        ("empty string", "", True),
+        ("unpaired brackets", "[[", False),
+        ("wrong ordered brackets", "}{", False),
+        ("wrong closing bracket", "{]", False),
+        ("paired with whitespace", "{ }", True),
+        ("partially paired brackets", "{[])", False),
+        ("simple nested brackets", "{[]}", True),
+        ("several paired brackets", "{}[]", True),
+        ("paired and nested brackets", "([{}({}[])])", True),
+        ("unopened closing brackets", "{[)][]}", False),
+        ("unpaired and nested brackets", "([{])", False),
+        ("paired and wrong nested brackets", "[({]})", False),
+        ("paired and wrong nested brackets but innermost are correct", "[({}])", False),
+        ("paired and incomplete brackets", "{}[", False),
+        ("too many closing brackets", "[]]", False),
+        ("early unexpected brackets", ")()", False),
+        ("early mismatched brackets", "{)()", False),
+        ("math expression", "(((185 + 223.85) * 15) - 543)/2", True),
+        (
+            "complex latex expression",
+            "\\left(\\begin{array}{cc} \\frac{1}{3} & x\\\\ \\mathrm{e}^{x} &... x^2 \\end{array}\\right)",
+            True,
+        ),
+    ]
+
+    subtests cases, (_description, text, expected) {
+        assert matching_brackets.paired?(text) == expected
+    }
+}

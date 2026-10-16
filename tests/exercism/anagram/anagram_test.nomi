@@ -1,0 +1,68 @@
+import anagram
+
+test "finds anagrams" {
+    cases = [
+        ("no matches", "diaper", ["hello", "world", "zombies", "pants"], []),
+        ("detects two anagrams", "solemn", ["lemons", "cherry", "melons"], ["lemons", "melons"]),
+        ("does not detect anagram subsets", "good", ["dog", "goody"], []),
+        ("detects anagram", "listen", ["enlists", "google", "inlets", "banana"], ["inlets"]),
+        (
+            "detects three anagrams",
+            "allergy",
+            ["gallery", "ballerina", "regally", "clergy", "largely", "leading"],
+            ["gallery", "regally", "largely"],
+        ),
+        (
+            "detects multiple anagrams with different case",
+            "nose",
+            ["Eons", "ONES"],
+            ["Eons", "ONES"],
+        ),
+        ("does not detect non-anagrams with identical checksum", "mass", ["last"], []),
+        (
+            "detects anagrams case-insensitively",
+            "Orchestra",
+            ["cashregister", "Carthorse", "radishes"],
+            ["Carthorse"],
+        ),
+        (
+            "detects anagrams using case-insensitive subject",
+            "Orchestra",
+            ["cashregister", "carthorse", "radishes"],
+            ["carthorse"],
+        ),
+        (
+            "detects anagrams using case-insensitive possible matches",
+            "orchestra",
+            ["cashregister", "Carthorse", "radishes"],
+            ["Carthorse"],
+        ),
+        ("does not detect an anagram if the original word is repeated", "go", ["goGoGO"], []),
+        ("anagrams must use all letters exactly once", "tapper", ["patter"], []),
+        ("words are not anagrams of themselves", "BANANA", ["BANANA"], []),
+        (
+            "words are not anagrams of themselves even if letter case is partially different",
+            "BANANA",
+            ["Banana"],
+            [],
+        ),
+        (
+            "words are not anagrams of themselves even if letter case is completely different",
+            "BANANA",
+            ["banana"],
+            [],
+        ),
+        ("words other than themselves can be anagrams", "LISTEN", ["LISTEN", "Silent"], ["Silent"]),
+        (
+            "handles case of greek letters",
+            "ΑΒΓ",
+            ["ΒΓΑ", "ΒΓΔ", "γβα", "αβγ"],
+            ["ΒΓΑ", "γβα"],
+        ),
+        ("different characters may have the same bytes", "a⬂", ["€a"], []),
+    ]
+
+    subtests cases, (_description, subject, candidates, expected) {
+        assert anagram.find(subject, candidates) == expected
+    }
+}
