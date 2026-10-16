@@ -44,7 +44,7 @@ func TestGenerator_FieldKindAnswersAtTheNilGenBoundary(t *testing.T) {
 // arm itself.
 func TestTupleSigKind_AStdSignatureCanNameATuple(t *testing.T) {
 	idx := stdlibLowering()
-	for _, name := range []string{"random.below_state", "random.unit_float_state"} {
+	for _, name := range []string{"random.between_state", "random.unit_float_state"} {
 		f, known := idx.byKey[name]
 		if !known {
 			t.Fatalf("%s is not in the stdlib index at all, so this witness "+
