@@ -85,13 +85,15 @@ func (bl *irScalarBuilder) partialApplication(t *ast.Call) (ir.Temp, kind, bool,
 		return no()
 	}
 	lam := &ast.Lambda{Line: t.Line, Col: t.Col, EndLine: t.Line, EndCol: t.Col}
-	slots := partialSlots{kinds: make([]kind, 0, len(open)), names: make([]string, 0, len(open))}
+	calleeOrder := bl.partialCalleeOrder(t, len(params))
+	slots := partialSlots{kinds: make([]kind, 0, len(open)), names: make([]string, 0, len(open)),
+		order: partialFillOrder(open, calleeOrder)}
 	openName := make([]string, len(params))
 	for _, slot := range open {
 		p := params[slot]
 		dflt := p.Default
 		if dflt != nil && !irClosedLiteral(dflt) {
-			fill, ok := bl.partialCalleeDefault(t, params, sig, slot, kinds, written, filled, openName)
+			fill, ok := bl.partialCalleeDefault(t, params, sig, slot, kinds, written, filled, openName, calleeOrder)
 			if !ok {
 				return no()
 			}
@@ -178,6 +180,57 @@ type partialSlots struct {
 	// the slot's supplier (the builder it is given), in the callee's
 	// scope, from the arguments before the slot (partialCalleeDefault).
 	defaults map[int]func(*irScalarBuilder) (ir.Temp, bool)
+	// order is the lambda's parameters in the order a call fills the ones
+	// it omits (irLambdaGroup.order): its placeholders in the order the
+	// callee fills their slots, nil when that is the written order.
+	order []int
+}
+
+// partialCalleeOrder is the order a call of the partial's callee fills the
+// slots it omits: a function value's group order, or the slots' own.
+func (bl *irScalarBuilder) partialCalleeOrder(t *ast.Call, n int) []int {
+	if callee, direct := t.Func.(*ast.Ident); direct && bl.isLocalCallable(callee.Name) {
+		if v, _, _, ok := bl.lower(callee); ok {
+			if plan := bl.callablePlan(v); plan != nil && plan.group != nil && len(plan.group.params) == n {
+				return plan.group.fillOrder()
+			}
+		}
+	}
+	order := make([]int, n)
+	for i := range order {
+		order[i] = i
+	}
+	return order
+}
+
+// partialFillOrder is the partial's parameters, its placeholders in written
+// order (open holds each one's callee slot), in the order the callee fills
+// their slots; nil when that is the written order.
+func partialFillOrder(open, calleeOrder []int) []int {
+	var order []int
+	for _, slot := range calleeOrder {
+		for j, s := range open {
+			if s == slot {
+				order = append(order, j)
+			}
+		}
+	}
+	for j, p := range order {
+		if p != j {
+			return order
+		}
+	}
+	return nil
+}
+
+// slotsBefore is the slots before slot in order.
+func slotsBefore(order []int, slot int) []int {
+	for at, s := range order {
+		if s == slot {
+			return order[:at]
+		}
+	}
+	return nil
 }
 
 // partialCalleeDefault is how a partial's supplier for the open slot slot
@@ -194,7 +247,7 @@ type partialSlots struct {
 // does (indirectCall). An earlier slot the partial leaves unmentioned must
 // have a literal default, since the call in the partial's body evaluates
 // that default again.
-func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param, sig *fnSig, slot int, kinds []kind, written []string, filled []bool, openName []string) (func(*irScalarBuilder) (ir.Temp, bool), bool) {
+func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param, sig *fnSig, slot int, kinds []kind, written []string, filled []bool, openName []string, calleeOrder []int) (func(*irScalarBuilder) (ir.Temp, bool), bool) {
 	callee, direct := t.Func.(*ast.Ident)
 	value := direct && bl.isLocalCallable(callee.Name)
 	if sig == nil && !value {
@@ -216,16 +269,14 @@ func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param,
 		irDeclineNote("a partial's open slot whose default is not a literal, over a callee outside this file's functions")
 		return nil, false
 	}
-	for s, p := range params[:slot] {
-		if !filled[s] && p.Default != nil && !irClosedLiteral(p.Default) {
+	// The slots the callee fills before this one. A placeholder among them
+	// may be written after this one (`span(b: _, _)`): the partial fills
+	// its parameters in the callee's order (partialFillOrder), so this
+	// slot's supplier takes it.
+	before := slotsBefore(calleeOrder, slot)
+	for _, s := range before {
+		if p := params[s]; !filled[s] && p.Default != nil && !irClosedLiteral(p.Default) {
 			irDeclineNote("a partial's open slot whose default is not a literal, after an unmentioned slot whose default is not either")
-			return nil, false
-		}
-		if filled[s] && written[s] == "" && openName[s] == "" {
-			// `span(b: _, _)`: the slot before is a placeholder written
-			// after this one, so it is a later parameter of the partial,
-			// and a supplier takes only the parameters before its own.
-			irDeclineNote("a partial's open slot whose default is not a literal, before a placeholder for an earlier slot")
 			return nil, false
 		}
 	}
@@ -234,7 +285,7 @@ func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param,
 		for s := range args {
 			args[s] = ir.NoTemp
 		}
-		for s := range slot {
+		for _, s := range before {
 			name := written[s]
 			if name == "" && filled[s] {
 				name = openName[s]
@@ -265,7 +316,7 @@ func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param,
 		if !ok || plan == nil || plan.group == nil || len(plan.group.suppliers) != len(args) {
 			return ir.NoTemp, false
 		}
-		for s := range slot + 1 {
+		for _, s := range append(before[:len(before):len(before)], slot) {
 			if args[s] != ir.NoTemp {
 				continue
 			}
@@ -273,7 +324,7 @@ func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param,
 			if supplier == ir.NoTemp {
 				return ir.NoTemp, false
 			}
-			call := ir.NewIndirectCall(child.g.irNodePos(t), child.f.NewTemp(), irCallSite(t), supplier, args[:s]...)
+			call := ir.NewIndirectCall(child.g.irNodePos(t), child.f.NewTemp(), irCallSite(t), supplier, argsAt(args, plan.group.before(s))...)
 			child.b.Append(call)
 			child.side(call.Dst(), irScalarSide{k: kinds[s], deferrable: true})
 			args[s] = call.Dst()

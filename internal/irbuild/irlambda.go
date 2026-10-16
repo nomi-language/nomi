@@ -33,6 +33,61 @@ type irLambdaPlan struct {
 type irLambdaGroup struct {
 	params    []kind
 	suppliers []ir.Temp
+	// order is the parameters in the order a call fills the ones it omits,
+	// nil for their own order. A supplier takes the parameters before its
+	// slot in this order (before). A partial application's lambda takes its
+	// placeholders in written order but fills them in the callee's order,
+	// since a callee's default reads the callee's earlier parameters:
+	// `span(b: _, _)` over `fn span(a: Int, b: Int = a * 2)` is `(b, a)`,
+	// and b's supplier takes a.
+	order []int
+}
+
+// fillOrder is the parameters in the order a call fills the ones it omits.
+func (g *irLambdaGroup) fillOrder() []int {
+	if g.order != nil {
+		return g.order
+	}
+	order := make([]int, len(g.params))
+	for i := range order {
+		order[i] = i
+	}
+	return order
+}
+
+// before is the parameters slot i's supplier takes, in the order it takes
+// them: the ones before i in fillOrder.
+func (g *irLambdaGroup) before(i int) []int {
+	order := g.fillOrder()
+	for at, p := range order {
+		if p == i {
+			return order[:at]
+		}
+	}
+	return nil
+}
+
+// supplierKind is slot i's supplier's function kind.
+func (g *irLambdaGroup) supplierKind(gen *gen, i int) kind {
+	return funcKindIn(gen, g.kindsAt(g.before(i)), g.params[i])
+}
+
+// kindsAt is the parameters' kinds at slots.
+func (g *irLambdaGroup) kindsAt(slots []int) []kind {
+	out := make([]kind, len(slots))
+	for j, s := range slots {
+		out[j] = g.params[s]
+	}
+	return out
+}
+
+// argsAt is args at slots, the arguments a supplier takes.
+func argsAt(args []ir.Temp, slots []int) []ir.Temp {
+	out := make([]ir.Temp, len(slots))
+	for j, s := range slots {
+		out[j] = args[s]
+	}
+	return out
 }
 
 func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
@@ -64,7 +119,7 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 			return no()
 		}
 	}
-	group := &irLambdaGroup{params: params, suppliers: make([]ir.Temp, len(params))}
+	group := &irLambdaGroup{params: params, suppliers: make([]ir.Temp, len(params)), order: bl.partialOpen[t].order}
 	for i := range group.suppliers {
 		group.suppliers[i] = ir.NoTemp
 	}
@@ -75,7 +130,7 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 		if i == 0 && bl.reduceSeeds[t] {
 			continue
 		}
-		supplier, fk, _, ok := bl.lambdaFunction(t, params[:i], p.Default, group, i)
+		supplier, fk, _, ok := bl.lambdaFunction(t, group.kindsAt(group.before(i)), p.Default, group, i)
 		if !ok || funcResult(fk) != params[i] {
 			irDeclineNote("a lambda parameter default outside the parameter's kind: " + params[i].nomi())
 			return no()
@@ -143,7 +198,16 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		child.ctl = bl.ctlCallbacks[t]
 	}
 	var patterned []irPatternParam
-	for i, p := range t.Params[:len(params)] {
+	// A supplier takes the parameters before its slot in the group's fill
+	// order (irLambdaGroup.before).
+	taken := t.Params[:len(params)]
+	if supplier >= 0 {
+		taken = make([]ast.Param, len(params))
+		for j, s := range group.before(supplier) {
+			taken[j] = t.Params[s]
+		}
+	}
+	for i, p := range taken {
 		temp := bl.g.irAddParam(f, sh.paramSym(p), params[i])
 		if i == 0 && child.ctl == irCtlReduce {
 			child.ctlAcc = temp
@@ -463,15 +527,15 @@ func (bl *irScalarBuilder) capturedPlan(temp ir.Temp) *irLambdaPlan {
 		}
 		plan := *outer
 		if outer.group != nil {
-			group := &irLambdaGroup{params: outer.group.params, suppliers: make([]ir.Temp, len(outer.group.suppliers))}
+			group := &irLambdaGroup{params: outer.group.params, suppliers: make([]ir.Temp, len(outer.group.suppliers)), order: outer.group.order}
 			for i, s := range outer.group.suppliers {
 				group.suppliers[i] = ir.NoTemp
 				if s == ir.NoTemp {
 					continue
 				}
-				// A supplier takes the parameters before its slot and
-				// answers the slot's value.
-				sk := funcKindIn(bl.g, outer.group.params[:i], outer.group.params[i])
+				// A supplier takes the parameters before its slot in
+				// the group's fill order and answers the slot's value.
+				sk := outer.group.supplierKind(bl.g, i)
 				dst := bl.g.irAddParam(bl.f, bl.sh.localSym(name+"\x00default"+strconv.Itoa(i)), sk)
 				bl.captures = append(bl.captures, s)
 				group.suppliers[i] = dst
@@ -536,7 +600,11 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 		}
 		args[slot] = v
 	}
-	for i := range args {
+	var order []int
+	if defaulted {
+		order = metadata.group.fillOrder()
+	}
+	for _, i := range order {
 		if args[i] != ir.NoTemp {
 			continue
 		}
@@ -544,7 +612,7 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 		if supplier == ir.NoTemp {
 			return no()
 		}
-		call := ir.NewIndirectCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), supplier, args[:i]...)
+		call := ir.NewIndirectCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), supplier, argsAt(args, metadata.group.before(i))...)
 		bl.b.Append(call)
 		bl.side(call.Dst(), irScalarSide{k: params[i], deferrable: true})
 		args[i] = call.Dst()

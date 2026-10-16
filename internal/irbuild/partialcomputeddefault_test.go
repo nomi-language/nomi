@@ -88,3 +88,44 @@ pub fn dial(host: String, port: Int = base() + 2): String {
 }
 `})
 }
+
+// A partial whose open slot's computed default reads a slot left open by a
+// placeholder written after it, `span(b: _, _)`: the partial's parameters
+// are its placeholders in written order, `(b, a)`, and a call omitting b
+// fills it after a, as the callee does. So do a partial of that partial,
+// a closure calling it, a three-slot callee whose placeholders are written
+// in reverse, and a lambda callee.
+func TestPartialComputedDefault_ALaterPlaceholderFillsFirst(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	verifyLambdaProgram(t, `import std/io
+
+fn span(a: Int, b: Int = a * 2): (Int, Int) {
+    (a, b)
+}
+
+fn three(a: Int, b: Int = a + 1, c: Int = a + b): (Int, Int, Int) {
+    (a, b, c)
+}
+
+fn main() {
+    u = span(b: _, _)
+    io.inspect(u(1, 2))
+    io.inspect(u(a: 5))
+    w = u(_, 7)
+    io.inspect(w(3))
+    io.inspect(w())
+    f = || u(a: 9)
+    io.inspect(f())
+    t = three(c: _, b: _, _)
+    io.inspect(t(a: 1))
+    io.inspect(t(b: 10, a: 1))
+    io.inspect(t(100, a: 1))
+    cf = |x: Int, y: Int = x + 1| x * 10 + y
+    q = cf(y: _, _)
+    io.inspect(q(x: 4))
+    io.inspect(q(0, 4))
+}
+`, "(2, 1)\n(5, 10)\n(7, 3)\n(7, 14)\n(9, 18)\n(1, 2, 3)\n(1, 10, 11)\n(1, 2, 100)\n45\n40\n")
+}
