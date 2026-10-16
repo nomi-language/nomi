@@ -1,0 +1,39 @@
+once minutes_per_day = 24 * 60
+
+/// A time of day without a date, held as minutes past midnight. Two clocks
+/// that show the same time are equal.
+pub opaque type Clock Int
+
+impl Clock {
+    /// Builds the clock that `hour` hours and `minute` minutes past midnight
+    /// shows. Either may be negative or past a day; the clock wraps.
+    pub fn new(hour: Int, minute: Int): Clock {
+        Clock(wrap(hour * 60 + minute))
+    }
+
+    /// Moves the clock forward by `minutes`.
+    pub fn add(Clock(time), minutes: Int): Clock {
+        Clock(wrap(time + minutes))
+    }
+
+    /// Moves the clock back by `minutes`.
+    pub fn subtract(Clock(time), minutes: Int): Clock {
+        Clock(wrap(time - minutes))
+    }
+}
+
+impl Display for Clock {
+    fn to_string(Clock(time)): String {
+        "${two_digits(time / 60)}:${two_digits(time % 60)}"
+    }
+}
+
+/// Brings any count of minutes into one day, rounding toward the past, so
+/// `-1` is `23:59`.
+fn wrap(minutes: Int): Int {
+    (minutes % minutes_per_day + minutes_per_day) % minutes_per_day
+}
+
+fn two_digits(n: Int): String {
+    Int.to_string(n) |> String.pad_start(2, "0")
+}

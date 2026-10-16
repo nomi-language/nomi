@@ -983,16 +983,29 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 	}
 	if strings.Contains(err.Error(), "reads a field off") || strings.Contains(err.Error(), "variant test reads rt.Context") ||
 		strings.Contains(err.Error(), "iteration reads rt.Context") || strings.Contains(err.Error(), "set receiver is rt.Context") ||
-		strings.Contains(err.Error(), "list test reads rt.Context") || strings.Contains(err.Error(), "is rt.Context, want Vector") {
-		// A field read, variant test, iteration, Set operation, list test or
-		// Vector operation on the leaf the probe supplied for a parameter it
-		// cannot build (a nominal type, an `Iter<T>`, a struct whose field is
-		// a Set, a list matched as part of a tuple the body builds, or a
+		strings.Contains(err.Error(), "list test reads rt.Context") || strings.Contains(err.Error(), "is rt.Context, want Vector") ||
+		strings.Contains(err.Error(), "list tail is rt.Context") {
+		// A field read, variant test, iteration, Set operation, list pattern
+		// or Vector operation on the leaf the probe supplied for a parameter
+		// it cannot build (a nominal type, an `Iter<T>`, a struct whose field
+		// is a Set, a list matched as part of a tuple the body builds or whose
+		// shape only a callee more than four call edges away states, or a
 		// generic Vector only a host call reads).
 		return true
 	}
 	for _, p := range fn.Params() {
-		if t := fn.TempType(p.Temp); t != nil && t.Kind() == ir.KindIface {
+		t := fn.TempType(p.Temp)
+		if t == nil {
+			continue
+		}
+		if t.Kind() == ir.KindIface {
+			return true
+		}
+		// A function parameter the body only passes on, captured in a
+		// lambda or as an argument, states no call for the probe to build
+		// a callback from, so it holds a leaf when a callee calls it
+		// (exercism/list-ops' filter and map, through foldr).
+		if t.Kind() == ir.KindFunc && strings.Contains(err.Error(), "indirect callee is not a function") {
 			return true
 		}
 	}

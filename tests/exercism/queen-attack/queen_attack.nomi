@@ -1,0 +1,37 @@
+/// A queen on an 8 by 8 board, at a zero-based row and column.
+pub opaque struct Queen {
+    row: Int
+    column: Int
+}
+
+impl Queen {
+    /// Places a queen, or says which coordinate is off the board.
+    pub fn new(row: Int, column: Int): Result<Queen, Error> {
+        case {
+            row < 0 -> Err(.RowNotPositive)
+            row > 7 -> Err(.RowNotOnBoard)
+            column < 0 -> Err(.ColumnNotPositive)
+            column > 7 -> Err(.ColumnNotOnBoard)
+            _ -> Ok(Queen{row, column})
+        }
+    }
+
+    /// Reports whether two queens share a row, a column or a diagonal.
+    pub fn can_attack?(white: Queen, black: Queen): Bool {
+        rows = distance(white.row, black.row)
+        columns = distance(white.column, black.column)
+        rows == 0 or columns == 0 or rows == columns
+    }
+}
+
+fn distance(a: Int, b: Int): Int {
+    if a > b { a - b } else { b - a }
+}
+
+/// Why a queen cannot be placed.
+pub enum Error {
+    RowNotPositive
+    RowNotOnBoard
+    ColumnNotPositive
+    ColumnNotOnBoard
+}

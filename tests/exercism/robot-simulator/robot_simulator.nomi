@@ -1,0 +1,76 @@
+/// A compass direction, in clockwise order.
+pub enum Direction {
+    North
+    East
+    South
+    West
+}
+
+impl Direction {
+    /// The direction a quarter turn clockwise.
+    pub fn right(direction: Direction): Direction {
+        case direction {
+            .North -> .East
+            .East -> .South
+            .South -> .West
+            .West -> .North
+        }
+    }
+
+    /// The direction a quarter turn counter-clockwise.
+    pub fn left(direction: Direction): Direction {
+        case direction {
+            .North -> .West
+            .West -> .South
+            .South -> .East
+            .East -> .North
+        }
+    }
+}
+
+/// A point on the grid; `x` grows to the east and `y` to the north.
+pub struct Position {
+    x: Int
+    y: Int
+}
+
+/// A robot on the grid, facing one way.
+pub struct Robot {
+    position: Position
+    direction: Direction
+}
+
+impl Robot {
+    /// Runs a string of instructions, one letter each: `R` turns right, `L`
+    /// turns left and `A` advances one step. Stops at the first letter it
+    /// does not know.
+    pub fn move(robot: Robot, instructions: String): Result<Robot, Error> {
+        Iter.reduce(instructions, |result = Ok(robot), letter| {
+            robot = try result
+            step(robot, letter)
+        })
+    }
+}
+
+/// Why a string of instructions could not be run.
+pub enum Error {
+    UnknownInstruction String
+}
+
+fn step(robot: Robot, letter: String): Result<Robot, Error> {
+    case letter {
+        "R" -> Ok({..robot, direction: Direction.right(robot.direction)})
+        "L" -> Ok({..robot, direction: Direction.left(robot.direction)})
+        "A" -> Ok({..robot, position: advance(robot.position, robot.direction)})
+        _ -> Err(.UnknownInstruction(letter))
+    }
+}
+
+fn advance(Position{x, y}, direction: Direction): Position {
+    case direction {
+        .North -> {x, y: y + 1}
+        .East -> {x: x + 1, y}
+        .South -> {x, y: y - 1}
+        .West -> {x: x - 1, y}
+    }
+}

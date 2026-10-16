@@ -10,23 +10,34 @@ The problem descriptions and canonical data come from
 MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 
 - [acronym](acronym/NOTES.md): clean
+- [allergies](allergies/NOTES.md): clean
+- [anagram](anagram/NOTES.md): friction
 - [binary-search](binary-search/NOTES.md): friction
 - [bob](bob/NOTES.md): friction
+- [clock](clock/NOTES.md): friction
 - [collatz-conjecture](collatz-conjecture/NOTES.md): clean
 - [etl](etl/NOTES.md): clean
 - [hamming](hamming/NOTES.md): clean
 - [isogram](isogram/NOTES.md): friction
 - [leap](leap/NOTES.md): friction
+- [list-ops](list-ops/NOTES.md): bug
+- [luhn](luhn/NOTES.md): friction
 - [matching-brackets](matching-brackets/NOTES.md): friction
+- [minesweeper](minesweeper/NOTES.md): friction
 - [nucleotide-count](nucleotide-count/NOTES.md): clean
 - [pangram](pangram/NOTES.md): clean
+- [phone-number](phone-number/NOTES.md): friction
 - [prime-factors](prime-factors/NOTES.md): clean
+- [queen-attack](queen-attack/NOTES.md): friction
 - [raindrops](raindrops/NOTES.md): clean
 - [reverse-string](reverse-string/NOTES.md): bug
 - [rna-transcription](rna-transcription/NOTES.md): friction
+- [robot-simulator](robot-simulator/NOTES.md): friction
 - [roman-numerals](roman-numerals/NOTES.md): clean
 - [run-length-encoding](run-length-encoding/NOTES.md): friction
 - [sieve](sieve/NOTES.md): friction
 - [sum-of-multiples](sum-of-multiples/NOTES.md): friction
+- [triangle](triangle/NOTES.md): friction
 - [two-fer](two-fer/NOTES.md): clean
 - [word-count](word-count/NOTES.md): clean
+- [wordy](wordy/NOTES.md): friction
