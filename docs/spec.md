@@ -746,8 +746,8 @@ fn area(shape: Shape): Float {
 - **Reason.** The reason is a string literal: `"..."`, `"""..."""` or a raw
   backtick string. It is fixed text that tools list without running anything,
   so an interpolated or tagged string is a parse error.
-- **Running it.** A program that reaches a `todo` stops, as a runtime fault
-  does, with `todo reached at <file>:<line>` and then `: <reason>` when there
+- **Running it.** A program that reaches a `todo` traps (§17 *Traps, `Maybe` and `Result`*)
+  with `todo reached at <file>:<line>` and then `: <reason>` when there
   is one. The file is shown relative to the working directory. A `todo` on a
   path the run does not take does nothing. As a pipe stage, the piped value is
   computed first.
@@ -5452,6 +5452,46 @@ fn process(id: Int): Result<Bool, String> {
 }
 ```
 
+### Traps, `Maybe` and `Result`
+
+An operation that cannot give the answer asked for either returns a `Maybe` or
+`Result`, or traps. One rule decides which, for the standard library and for
+APIs written in Nomi:
+
+- **`Maybe` or `Result`** when the outcome depends on data the caller does not
+  control or cannot cheaply check: a key that may be absent (`Map.get`),
+  parsing (`String.to_int`), input, I/O, or a position that may legitimately be
+  off the edge (`Vector.get`, `Iter.first`).
+- **A trap** when the caller broke a promise it could have checked: a divisor
+  it chose (`/`, §22), arithmetic past 64 bits (§22 *Integer overflow traps*),
+  an index it computed (`Vector.at`, `Vector.set`), or a `todo` it left in
+  (§5 *Unwritten Code*). A trap means the program has a bug. It is not a
+  situation to handle.
+- **Every trapping operation has a total way around it**: a sibling that
+  returns `Maybe`, or a cheap check the caller can make first. `Int.divide`
+  takes a `NonZeroInt` that `Int.to_non_zero` makes, `Decimal.divide` takes a
+  scale and a rounding mode where `/` would trap on a quotient that does not
+  terminate, `Vector.get` answers `None` where `Vector.at` traps, and
+  `Vector.length` is the check before `Vector.set`. When wrapping is the
+  intent, `Int.wrapping_add`, `Int.wrapping_sub` and `Int.wrapping_mul` never
+  overflow.
+- **A trap is never caught inside the program.** It ends the task it happens
+  in. `nomi run` prints it and exits with status 1, `nomi test` fails the case
+  and goes on to the next, and a spawned task's trap is its `Failed` outcome
+  (§20 *Failures And Restarts*), which a supervisor may restart. A program
+  handles what it expects with `Maybe` and `Result`, through `try`, `case` and
+  a binding `else`.
+
+A trap's text names the broken promise: `line 4: division by zero`,
+`line 7: integer overflow: 9223372036854775807 + 1`,
+`index 7 is out of range for a Vector of length 5`.
+
+The naming convention follows from the rule. A function named **`get`**
+returns a `Maybe`, because what it looks for may not be there (`Map.get`,
+`Vector.get`, `Bytes.get`, `Iter.get`). A function named **`at`** returns the
+value itself and traps when the position does not exist (`Vector.at`,
+`Bytes.at`): the caller is promising it does.
+
 ## 18. Comments
 
 Line comments:
@@ -6467,7 +6507,7 @@ enum Outcome<T> {
 }
 ```
 
-A body returning `Err(e)` is still `Completed(Err(e))`; it produced a value. `Failed` is for unplanned breakage such as a panic or runtime error.
+A body returning `Err(e)` is still `Completed(Err(e))`; it produced a value. `Failed` is for a trap, breakage the program did not plan for (§17 *Traps, `Maybe` and `Result`*).
 
 Supervisors can restart failed work according to their restart policy. Cancellation is not a failure, so cancelling a task does not fight shutdown or restart loops.
 
@@ -6637,13 +6677,13 @@ default or "unset" value: a type with no `+` over its own values (`Bool`,
 extend one another (§13), so code that sums names both bounds: `where T:
 Add<T, T> and Summable`. `Iter.sum` (§*`std/iter`*) is that code.
 
-**Integer overflow traps.** `Int` is 64-bit. The arithmetic operators `+`, `-`, `*` (and `/` in the single `MinInt64 / -1` case) raise a runtime error on signed overflow rather than wrapping silently — the same fail-loud stance as division by zero. When modular (wrapping) arithmetic is the intent — hashing, checksums, ring counters — use the explicit `Int.wrapping_add` / `Int.wrapping_sub` / `Int.wrapping_mul` functions, which wrap two's-complement. `derive Hashable` uses wrapping multiply internally for exactly this reason. Unary `-` traps on `Int.min_value`, whose magnitude is one past `Int.max_value`, and so does `Int.abs(Int.min_value)`, with the same error.
+**Integer overflow traps.** `Int` is 64-bit. The arithmetic operators `+`, `-`, `*` (and `/` in the single `MinInt64 / -1` case) raise a runtime error on signed overflow rather than wrapping silently — the same fail-loud stance as division by zero. When modular (wrapping) arithmetic is the intent — hashing, checksums, ring counters — use the explicit `Int.wrapping_add` / `Int.wrapping_sub` / `Int.wrapping_mul` functions, which wrap two's-complement. `derive Hashable` uses wrapping multiply internally for exactly this reason. Unary `-` traps on `Int.min_value`, whose magnitude is one past `Int.max_value`, and so does `Int.abs(Int.min_value)`, with the same error. An overflow is a trap, by the rule in §17 *Traps, `Maybe` and `Result`*: the program asked for a number that does not fit.
 
 **No implicit numeric conversion.** `Int`, `Float`, and `Decimal` are three non-mixing islands — none mixes implicitly with either of the others. Mixed-operand arithmetic (`1 + 2.0`, `1 + 1.50d`, `2.0 + 1.50d`), comparison (`1 < 2.0`, `1 < 2.50d`), and equality (`1 == 1.0`, `1.0 == 1d`) are all compile errors; convert explicitly across the boundary with `Int.to_float` / `Float.to_int` / `Decimal.from_int` / `Decimal.to_float` / `Decimal.from_float`. This avoids the silent precision loss that implicit `Int`→`Float` widening causes for magnitudes above 2^53. More generally, `==` / `!=` require operands of the same type — comparing unrelated types (e.g. `String` to `Int`) is a compile error, not a silent `false`.
 
-**Integer division and modulo.** `/` truncates toward zero and `%` takes the sign of the dividend, so the identity `(a / b) * b + (a % b) == a` holds (`-7 / 3 == -2`, `-7 % 3 == -1`). `%` is the remainder of that division. `Int.modulo(a, b)` is floored modulo: its result is zero or takes the sign of the divisor, which wraps a value into a range (`Int.modulo(-7, 3) == 2`, `Int.modulo(-1, 1440) == 1439`, `Int.modulo(7, -3) == -2`). The two agree when the operands have the same sign, and both answer `0` for `Int.min_value` and `-1`. `/`, `%` and `Int.modulo` raise a runtime error on a zero divisor. When the divisor is proven non-zero, `Int.divide` takes a `NonZeroInt` and is total. `Int.divide` is a `Divide<NonZeroInt, Int>` impl; the ordinary `/` operator uses `Divide<Int, Int>`. Modulo is not defined on `Float`.
+**Integer division and modulo.** `/` truncates toward zero and `%` takes the sign of the dividend, so the identity `(a / b) * b + (a % b) == a` holds (`-7 / 3 == -2`, `-7 % 3 == -1`). `%` is the remainder of that division. `Int.modulo(a, b)` is floored modulo: its result is zero or takes the sign of the divisor, which wraps a value into a range (`Int.modulo(-7, 3) == 2`, `Int.modulo(-1, 1440) == 1439`, `Int.modulo(7, -3) == -2`). The two agree when the operands have the same sign, and both answer `0` for `Int.min_value` and `-1`. `/`, `%` and `Int.modulo` raise a runtime error on a zero divisor. A zero divisor is a promise the caller broke, so it traps (§17 *Traps, `Maybe` and `Result`*). When the divisor is proven non-zero, `Int.divide` takes a `NonZeroInt` and is total; `Int.to_non_zero(d)` is the check that makes one. `Int.divide` is a `Divide<NonZeroInt, Int>` impl; the ordinary `/` operator uses `Divide<Int, Int>`. Modulo is not defined on `Float`.
 
-**Decimal arithmetic.** `Decimal` is the third blessed operator type (§*Primitive Types*): `+ - * /` and `< > <= >= == !=` work on two `Decimal` operands and yield a `Decimal` / `Bool`. `+ - *` are always **exact** — they never round; the scale grows as needed (`1.50d + 1.5d == 3.00d`, `1.50d * 1.5d == 2.250d`). The `/` operator is **exact-or-trap**: a quotient that terminates in base 10 just works at its preferred scale (`10.00d / 4d == 2.50d`), but a non-terminating quotient (`10d / 3d`) raises a runtime error pointing at `Decimal.divide(a, b, scale, mode)` — the explicit-rounding division path — rather than silently rounding. Division by zero is a runtime error (no Infinity). There is **no `%`** on `Decimal`. Equality and comparison are value-based and scale-insensitive (`1.50d == 1.5d` is `True`); scale is preserved only for display (`Decimal.scale(1.50d) == 2`, `Decimal.to_string(1.50d) == "1.50"`). Decimal literals carry the `1.50d` / `1.50D` suffix.
+**Decimal arithmetic.** `Decimal` is the third blessed operator type (§*Primitive Types*): `+ - * /` and `< > <= >= == !=` work on two `Decimal` operands and yield a `Decimal` / `Bool`. `+ - *` are always **exact** — they never round; the scale grows as needed (`1.50d + 1.5d == 3.00d`, `1.50d * 1.5d == 2.250d`). The `/` operator is **exact-or-trap**: a quotient that terminates in base 10 just works at its preferred scale (`10.00d / 4d == 2.50d`), but a non-terminating quotient (`10d / 3d`) raises a runtime error pointing at `Decimal.divide(a, b, scale, mode)` — the explicit-rounding division path — rather than silently rounding. Division by zero is a runtime error (no Infinity). Both are traps by the rule in §17 *Traps, `Maybe` and `Result`*, and `Decimal.divide` is the total route for a quotient that may not terminate. There is **no `%`** on `Decimal`. Equality and comparison are value-based and scale-insensitive (`1.50d == 1.5d` is `True`); scale is preserved only for display (`Decimal.scale(1.50d) == 2`, `Decimal.to_string(1.50d) == "1.50"`). Decimal literals carry the `1.50d` / `1.50D` suffix.
 
 **Comparison:**
 `==` `!=` `<` `>` `<=` `>=`

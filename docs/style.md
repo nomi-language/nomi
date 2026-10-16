@@ -1457,3 +1457,36 @@ not `Iter.reduce(|total = 0, n| total + n)`, which spells out the starting
 value and the step the type's `Summable` and `Add` impls already name. Keep
 `Iter.reduce` when the fold does more than add (`total + n * weight`), starts
 from another value, or breaks early.
+
+## 27. Return `Maybe` for data, trap for a broken promise
+
+When a function you write cannot give the answer asked for, decide by who
+could have known (spec §17, *Traps, `Maybe` and `Result`*):
+
+- Return `Maybe` or `Result` when the answer depends on data the caller does
+  not control or cannot cheaply check: a lookup that may miss, a parse, input,
+  a file, a position that may legitimately fall off the edge.
+- Trap when the caller broke a promise it could have checked: an index it
+  computed, a divisor it chose, a count that must not be negative. A trap
+  reports a bug; nothing in the program catches it.
+- Give every trapping function a total way around it: a sibling that returns
+  `Maybe`, or a cheap check the caller can run first.
+
+Name the pair by the convention std uses: `get` returns a `Maybe`, and `at`
+returns the value and traps when the position does not exist.
+
+```nomi
+// the index comes from data: the miss is an answer
+case Vector.get(row, column) {
+    Some(cell) -> cell
+    None -> blank
+}
+
+// the index is within bounds by construction: a miss is a bug
+middle = Vector.at(sorted, Vector.length(sorted) / 2)
+```
+
+Don't return a `Maybe` whose `None` every caller must unwrap with an
+"impossible" arm: that arm is untested code, and it hides the bug a trap would
+report at its line. Don't trap on data from outside the program either; a
+missing key in a config file is something to report, not a crash.
