@@ -937,9 +937,6 @@ var mxKnown = []struct {
 		return c.f.tags.has(tagUntyped) && c.shell.name == "assert subject" && len(c.wraps) > 0 &&
 			(c.wraps[0].name == "generic struct field" || c.wraps[0].name == "map value" || c.wraps[0].name == "list element")
 	}},
-	{"gapNestedFnExistentialLint", func(c mxCell) bool {
-		return c.f.name == "existential widening" && mxHas(c, "nested function")
-	}},
 	{"gapUnitVariantParameterPattern", func(c mxCell) bool {
 		return c.f.name == "unit" && mxHas(c, "variant parameter pattern")
 	}},

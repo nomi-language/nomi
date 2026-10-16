@@ -359,10 +359,10 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			}
 		}
 	case *ast.If:
-		sh.result = f.NewTemp()
+		sh.result = child.lambdaResultSlot(sig)
 		k, ok = child.tailIf(t, sig)
 	case *ast.Case:
-		sh.result = f.NewTemp()
+		sh.result = child.lambdaResultSlot(sig)
 		k, ok = child.tailCase(t, sig)
 	default:
 		if supplier < 0 && bl.g.neverFinishes(body) {
@@ -446,6 +446,19 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	}
 	bl.side(n.Dst(), irScalarSide{k: fk, lambda: &irLambdaPlan{ctl: child.ctl, source: t, names: names, body: plan, params: params, group: group, supplier: supplier}})
 	return n.Dst(), fk, true, true
+}
+
+// lambdaResultSlot is the temporary a lambda's tail `if` or `case` writes.
+// A declared result types it, so an arm whose value enters the result by
+// erasure (a Pt where a Named is declared) is copied into the declared
+// type's storage, as a module function's result slot is, and an arm that
+// produces the declared type itself (a `todo`) agrees with it.
+func (bl *irScalarBuilder) lambdaResultSlot(sig irFuncSig) ir.Temp {
+	t := bl.f.NewTemp()
+	if !sig.inferResult {
+		bl.g.irTypeTemp(bl.f, t, sig.result)
+	}
+	return t
 }
 
 // A captured parent binding has one parameter identity across all arm scopes.

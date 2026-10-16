@@ -134,42 +134,6 @@ fn main() {
 `,
 	},
 	{
-		name: "gapNestedFnExistentialLint",
-		fix: "builder: a nested `fn` that returns an interface value from a `case` arm binding an " +
-			"implementor taken from a list, `fn inner(): Named { case [Pt{x: 5}] { [p] -> p ... } }`. " +
-			"The lowered graph copies the Pt into a temporary typed as the existential, which " +
-			"ir.Lint rejects; the arm needs the boxing a top-level function's return gets",
-		reason: "a lambda graph that does not lint",
-		noSkip: true,
-		src: `import std/io
-
-interface Named {
-    fn name(value: self): String
-}
-
-struct Pt {
-    x: Int
-}
-
-impl Named for Pt {
-    fn name(p: Pt): String {
-        "pt${p.x}"
-    }
-}
-
-fn main() {
-    fn inner(): Named {
-        case [Pt{x: 5}] {
-            [p] -> p
-            _ -> todo
-        }
-    }
-
-    io.print(Named.name(inner()))
-}
-`,
-	},
-	{
 		name: "gapRangeStructField",
 		fix: "builder: a struct literal with a field of type Range<Int> (`Hold{v: 1..4}`), and the " +
 			"same Range as a generic struct's field or a field default. A Range in a binding, a " +
