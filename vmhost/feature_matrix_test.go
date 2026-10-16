@@ -940,9 +940,6 @@ var mxKnown = []struct {
 	{"gapNestedFnExistentialLint", func(c mxCell) bool {
 		return c.f.name == "existential widening" && mxHas(c, "nested function")
 	}},
-	{"gapUnitVariantParameterPattern", func(c mxCell) bool {
-		return c.f.name == "unit" && mxHas(c, "variant parameter pattern")
-	}},
 	{"gapExistentialListInNestedFn", func(c mxCell) bool {
 		return c.f.name == "existential list" &&
 			(mxHas(c, "nested function") || len(c.wraps) > 0 && c.wraps[0].name == "block tail")

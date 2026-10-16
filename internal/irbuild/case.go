@@ -26,16 +26,35 @@ import (
 //
 // The last two are `ir.ProjPayload` and then `ir.ProjInner`, chained, which is
 // what the unwrap IS.
-func (g *gen) payloadValue(at ast.Node, d *typeDef, v *variantDef, i int, subj expr) expr {
+func (g *gen) payloadValue(at ast.Node, d *typeDef, v *variantDef, i int, subj expr) (expr, bool) {
 	p := &v.payloads[i]
 	if p.slot < 0 {
-		return expr{k: p.k}
+		return g.irSlotlessPayloadValue(at, p.k)
 	}
 	out := g.irProjPayload(at, subj, d, v, i, p.k)
 	if payloadUnwrapsDistinct(v) {
 		out = g.irProjInner(at, out, v.embeds, v.embeds.inner)
 	}
-	return out
+	return out, true
+}
+
+// irSlotlessPayloadValue materializes a payload that has no slot from its
+// type, in the open prologue, as variantPayload does in a body: Unit, or the
+// marker itself. Another zero-sized type (an empty struct) is refused.
+func (g *gen) irSlotlessPayloadValue(at ast.Node, k kind) (expr, bool) {
+	if !irSlotlessPayload(k) {
+		g.reject("destructuring parameter", "a zero-sized payload of type "+k.nomi(), at)
+		return expr{}, false
+	}
+	var c *ir.Const
+	if k == kindUnit {
+		c = ir.NewUnit(g.irNodePos(at), g.irMint())
+	} else {
+		c = ir.NewMarker(g.irNodePos(at), g.irMint(), g.irTypeSym(k.def))
+	}
+	g.irAppend(c)
+	irSideSet(&g.irPro.sides, c.Dst(), irScalarSide{k: k})
+	return g.irBind(c.Dst(), k), true
 }
 
 // payloadUnwrapsDistinct reports whether reading this variant's payload has to

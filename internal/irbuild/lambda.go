@@ -345,7 +345,12 @@ func (g *gen) destructureVariantBraces(p *ast.StructPattern, d *typeDef, src exp
 			g.probeStructFields(p)
 			return false
 		}
-		return g.destructureFields(v.embeds, g.payloadValue(at, d, v, 0, src), p, at)
+		payload, ok := g.payloadValue(at, d, v, 0, src)
+		if !ok {
+			g.probeStructFields(p)
+			return false
+		}
+		return g.destructureFields(v.embeds, payload, p, at)
 
 	case "struct":
 		return g.destructureVariantFields(d, v, src, p, at)
@@ -438,7 +443,8 @@ func (g *gen) destructureVariantFields(d *typeDef, v *variantDef, src expr, p *a
 			ok = false
 			continue
 		}
-		if !g.destructureField(f, g.payloadValue(at, d, v, idx, src), at) {
+		fe, fine := g.payloadValue(at, d, v, idx, src)
+		if !fine || !g.destructureField(f, fe, at) {
 			ok = false
 		}
 	}
@@ -540,7 +546,10 @@ func (g *gen) destructureEnum(p *ast.EnumPattern, src expr, at ast.Node) bool {
 			g.probePattern(p.Payload)
 			return false
 		}
-		inner = g.payloadValue(at, d, v, 0, src)
+		if inner, fine = g.payloadValue(at, d, v, 0, src); !fine {
+			g.probePattern(p.Payload)
+			return false
+		}
 
 	default:
 		g.reject("variant pattern on a struct", d.nomi+" against "+member, at)

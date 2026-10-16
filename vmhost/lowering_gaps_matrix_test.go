@@ -209,29 +209,6 @@ fn main() {
 `,
 	},
 	{
-		name: "gapUnitVariantParameterPattern",
-		fix: "builder: a parameter that takes apart a single-variant enum whose payload is Unit, " +
-			"`fn open(Only.One(p)): Unit`. The builder binds `p` to a temporary it never " +
-			"defines, and ir.Lint panics; a payload of any other type lowers",
-		reason: "temp defined before use",
-		panics: true,
-		noSkip: true,
-		src: `import std/io
-
-enum Only {
-    One Unit
-}
-
-fn open(Only.One(p)): Unit {
-    p
-}
-
-fn main() {
-    io.inspect(open(Only.One(Unit)))
-}
-`,
-	},
-	{
 		name: "gapUnsolvedGenericLiteral",
 		fix: "builder: a generic struct literal, a `Map.get` over a map literal or a list of empty " +
 			"vectors or sets, whose type argument stays unsolved because no value has it: " +
