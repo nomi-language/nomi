@@ -20,7 +20,7 @@ test "iter constructors produce lazy values that can be bounded" {
 test "iter terminals inspect positions and size" {
     xs = [1, 2, 3, 4, 5]
 
-    assert Iter.at(xs, 2) == Some(3)
+    assert Iter.get(xs, 2) == Some(3)
     assert Iter.first(xs) == Some(1)
     assert Iter.last(xs) == Some(5)
     assert Iter.count(xs) == 5

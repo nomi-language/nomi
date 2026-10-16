@@ -47,9 +47,9 @@ fn main() {
 
 fn main() {
   xs = [4, 7, 9, 10]
-  Iter.at(xs, 2) |> io.inspect()
-  Iter.at(xs, 9) |> io.inspect()
-  Iter.at(xs, -1) |> io.inspect()
+  Iter.get(xs, 2) |> io.inspect()
+  Iter.get(xs, 9) |> io.inspect()
+  Iter.get(xs, -1) |> io.inspect()
   parts = Iter.partition(xs, |x| x % 2 == 0)
   parts.0 |> io.inspect()
   parts.1 |> io.inspect()

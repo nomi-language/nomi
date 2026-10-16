@@ -19,23 +19,23 @@ test "vectors convert from lists" {
 test "vectors support random access" {
     v = #["a", "b", "c"]
 
-    assert Vector.at(v, 0) == Some("a")
-    assert Vector.at(v, 2) == Some("c")
-    assert Vector.at(v, -1) == None
-    assert Vector.at(v, 3) == None
+    assert Vector.get(v, 0) == Some("a")
+    assert Vector.get(v, 2) == Some("c")
+    assert Vector.get(v, -1) == None
+    assert Vector.get(v, 3) == None
+    assert Vector.at(v, 1) == "b"
 }
 
 test "vectors push set and concat return new vectors" {
     original = #[1, 2]
     pushed = Vector.push(original, 3)
-    assert Some(updated) = Vector.set(pushed, 1, 20)
+    updated = Vector.set(pushed, 1, 20)
     concatenated = Vector.concat(updated, #[4, 5])
 
     assert original == #[1, 2]
     assert pushed == #[1, 2, 3]
     assert updated == #[1, 20, 3]
     assert concatenated == #[1, 20, 3, 4, 5]
-    assert Vector.set(pushed, 9, 99) == None
 }
 
 test "empty vectors need type context" {
@@ -43,7 +43,7 @@ test "empty vectors need type context" {
 
     assert empty == #[]
     assert Vector.length(empty) == 0
-    assert Vector.at(empty, 0) == None
+    assert Vector.get(empty, 0) == None
 }
 
 test "vectors iterate with generic Iter operations" {

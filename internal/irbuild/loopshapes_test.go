@@ -21,7 +21,7 @@ fn main() {
     io.inspect(n)
     xs = [5, 6, 7]
     found = Iter.loop(|i = 0| {
-        if Some(x) = Iter.at(xs, i) {
+        if Some(x) = Iter.get(xs, i) {
             if x == 6 { break i }
             i + 1
         } else {
@@ -30,7 +30,7 @@ fn main() {
     })
     io.inspect(found)
     k = Iter.loop(|i = 0| {
-        if Some(x) = Iter.at(xs, i) { break x * 10 } else { i + 1 }
+        if Some(x) = Iter.get(xs, i) { break x * 10 } else { i + 1 }
     })
     io.inspect(k)
     f = Iter.loop(|g = |x: Int| x| {

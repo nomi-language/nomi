@@ -34,22 +34,33 @@ impl Vector<T> {
     //
     pub host fn length<T>(vector: Vector<T>): Int
 
-    /// Returns the element at zero-based `index`, or None when out of bounds.
-    //! assert Vector.at(#["a", "b"], 1) == Some("b")
-    //! assert Vector.at(#["a", "b"], 9) == None
+    /// Returns the element at zero-based `index`, or None when the index is
+    /// outside the vector. Use it when the index comes from data and may miss;
+    /// `Vector.at` is for an index that must exist.
+    //! assert Vector.get(#["a", "b"], 1) == Some("b")
+    //! assert Vector.get(#["a", "b"], 9) == None
+    //! assert Vector.get(#["a", "b"], -1) == None
     //
-    pub host fn at<T>(vector: Vector<T>, index: Int): Maybe<T>
+    pub host fn get<T>(vector: Vector<T>, index: Int): Maybe<T>
+
+    /// Returns the element at zero-based `index`, which must be in
+    /// `0 <= index < length`. Any other index traps: `index 7 is out of range
+    /// for a Vector of length 5`. `Vector.get` answers None instead.
+    //! assert Vector.at(#["a", "b"], 1) == "b"
+    //
+    pub host fn at<T>(vector: Vector<T>, index: Int): T
 
     /// Returns a new vector with `item` appended to the end.
     //! assert Vector.push(#[1, 2], 3) == #[1, 2, 3]
     //
     pub host fn push<T>(vector: Vector<T>, item: T): Vector<T>
 
-    /// Returns a new vector with `item` replacing the element at `index`, or None
-    /// when the index is out of bounds.
-    //! assert Vector.set(#["a", "b"], 1, "z") == Some(#["a", "z"])
+    /// Returns a new vector with `item` replacing the element at `index`, which
+    /// must be in `0 <= index < length`. Any other index traps, as `Vector.at`
+    /// does; check the index against `Vector.length` first when it may be out.
+    //! assert Vector.set(#["a", "b"], 1, "z") == #["a", "z"]
     //
-    pub host fn set<T>(vector: Vector<T>, index: Int, item: T): Maybe<Vector<T>>
+    pub host fn set<T>(vector: Vector<T>, index: Int, item: T): Vector<T>
 
     /// Concatenates two vectors.
     //! assert Vector.concat(#[1, 2], #[3]) == #[1, 2, 3]

@@ -152,13 +152,15 @@ T
 C collections.md:L105
 E 0
 N 0
-H f2f292ead10e888e5db89734fb84c6a4571cd6558752529ae34071e42e1d41ee
+H 066faad5a4bc97f6db2b1aee91ec69a2f83a2e3617c7b4bd4e907a5b9b23cdcd
 T dbg line 6: names = #["Ada", "Grace", "Katherine"]
 T dbg line 7: Vector.length(names) = 3
-T dbg line 8: Vector.at(names, 1) = Some("Grace")
-T dbg line 9: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
+T dbg line 8: Vector.get(names, 1) = Some("Grace")
+T dbg line 9: Vector.get(names, 5) = None
+T dbg line 10: Vector.at(names, 1) = "Grace"
+T dbg line 11: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
 T
-C collections.md:L139
+C collections.md:L151
 E 0
 N 0
 H 7d90e5de8b76c61050edf03e6d430c195aac01f1562239e64b40859a8699b5c4
@@ -166,7 +168,7 @@ T dbg line 4: Map.size(config) = 2
 T dbg line 5: Map.get(config, "host") = Some("localhost")
 T dbg line 6: Map.get(config, "user") = None
 T
-C collections.md:L167
+C collections.md:L179
 E 0
 N 0
 H 1c913026c1529d24461785db441534a115009fde72f64b7352951816886e3437
@@ -176,7 +178,7 @@ T dbg line 6: Set.contains?(s, 9) = False
 T dbg line 7: s + #{4, 5} = #{1, 2, 3, 4, 5}
 T dbg line 8: s - #{1} = #{2, 3}
 T
-C collections.md:L207
+C collections.md:L219
 E 0
 N 0
 H 980f2b0c1091047fe11e3aecf7ac7a95eab7c7db8b8774a806250811667bbf4a
@@ -186,7 +188,7 @@ T dbg line 9: #["Ada", ..v] = #["Ada", "Bo"]
 T dbg line 10: #{..s, "blue"} = #{"red", "blue"}
 T dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
 T
-C collections.md:L240
+C collections.md:L252
 E 0
 N 0
 H 86aa770d3eea4710509c105a2cd7cce4ee1e6c814c9c72c7caef1f70049a04b7
@@ -194,7 +196,7 @@ T dbg line 9: {..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: #{.., "b
 T dbg line 13: {..teams, "hawks" => {.., "city" => "Atlanta"}, "kites" => {.., "city" => "Leeds"}} = {"hawks" => {"name" => "Hawks", "city" => "Atlanta"}, "kites" => {"city" => "Leeds"}}
 T dbg line 14: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
 T
-C collections.md:L281
+C collections.md:L293
 E 0
 N 0
 H 48f4f538f70bf0c6d1657f46f634c215ca968617f50a7ed2393b0b89347d5c5c
@@ -218,7 +220,7 @@ T squaring 4
 T squaring 5
 T dbg line 14: result = [16, 25]
 T
-C collections.md:L308
+C collections.md:L320
 E 0
 N 0
 H bbbf1aebc5d22a08b3e3cf28439beb79c4a286b179f64c381b2f3049483e95ee
@@ -228,14 +230,14 @@ T   |> Iter.map(Codepoint.to_string)
 T   |> Iter.to_list()
 T   = ["a", "b", "c", "d"]
 T
-C collections.md:L329
+C collections.md:L341
 E 0
 N 0
 H 1ff324bcbd4b480cb8e2658ba66e55daf1682cc823b821251fb37478e104b2a2
 T dbg line 2: Range.contains?("a".."m", "h") = True
 T dbg line 3: Range.contains?(0.0..=1.0, 1.0) = True
 T
-C collections.md:L346
+C collections.md:L358
 E 0
 N 0
 H 4f0bc3c39691320e70722484e57aa754e382d71d460b84477ce557632ad7943e
@@ -245,7 +247,7 @@ T   |> Range.step_by(0.1d)
 T   |> Iter.to_list()
 T   = [1.0d, 1.1d, 1.2d, 1.3d]
 T
-C collections.md:L365
+C collections.md:L377
 E 0
 N 0
 H 43ef97883b36e821c8071cb694da0395cd0bae2256969f3bddb2b4125730ba46

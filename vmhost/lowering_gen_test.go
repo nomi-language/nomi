@@ -1095,7 +1095,7 @@ var genLeafInners = []struct {
 }{
 	{typ: "Decimal", val: func(n int) string { return fmt.Sprintf("%d.%dd", n, n+1) }},
 	{typ: "Bytes", val: func(n int) string { return fmt.Sprintf("String.to_bytes(\"b%d\")", n) }},
-	{typ: "Maybe<Byte>", val: func(n int) string { return fmt.Sprintf("Bytes.at(String.to_bytes(\"b%d\"), 0)", n) }},
+	{typ: "Maybe<Byte>", val: func(n int) string { return fmt.Sprintf("Bytes.get(String.to_bytes(\"b%d\"), 0)", n) }},
 	{typ: "Codepoint", val: func(n int) string { return fmt.Sprintf("'%c'", 'a'+rune(n%26)) }},
 	{typ: "Unit", val: func(int) string { return "Unit" }},
 	{typ: "Regex", val: func(n int) string { return fmt.Sprintf("Regex`a{%d}`", n+1) }},
@@ -1542,7 +1542,7 @@ func (g *gen) iterBlock() string {
 		fmt.Fprintf(&out, "%s = %s\n", fs, lambdas)
 		fmt.Fprintf(&out, "case %s {\n[] -> io.inspect(0)\n[f, .._] -> io.inspect(f(%d))\n}\n", fs, k)
 		fmt.Fprintf(&out, "%s = #[|x: Int| x + %d, |x: Int| x * %d]\n", name("iv"), a, b)
-		fmt.Fprintf(&out, "case Vector.at(%s, 1) {\nSome(f) -> io.inspect(f(%d))\nNone -> io.inspect(0)\n}\n", name("iv"), k)
+		fmt.Fprintf(&out, "case Vector.get(%s, 1) {\nSome(f) -> io.inspect(f(%d))\nNone -> io.inspect(0)\n}\n", name("iv"), k)
 		fmt.Fprintf(&out, "%s = {\"a\" => |x: Int| x + %d}\n", name("im"), a)
 		fmt.Fprintf(&out, "case Map.get(%s, \"a\") {\nSome(f) -> io.inspect(f(%d))\nNone -> io.inspect(0)\n}\n", name("im"), k)
 	case 2:

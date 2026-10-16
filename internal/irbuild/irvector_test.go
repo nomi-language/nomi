@@ -13,11 +13,11 @@ fn main() {
   io.inspect(names)
   io.inspect(more)
   io.print(Vector.length(more))
-  io.inspect(Vector.at(more, 1))
-  io.inspect(Vector.at(more, -1))
-  io.inspect(Vector.at(more, 3))
-  io.inspect(Vector.at(more, 4294967296))
-  get = |i: Int| Vector.at(more, i)
+  io.inspect(Vector.get(more, 1))
+  io.inspect(Vector.get(more, -1))
+  io.inspect(Vector.get(more, 3))
+  io.inspect(Vector.get(more, 4294967296))
+  get = |i: Int| Vector.get(more, i)
   io.inspect(get(2))
 }
 `, "#[\"Ada\", \"Grace\"]\n#[\"Ada\", \"Grace\", \"Katherine\"]\n3\nSome(\"Grace\")\nNone\nNone\nNone\nSome(\"Katherine\")\n")
@@ -36,7 +36,7 @@ fn main() {
   io.inspect(b)
   io.inspect(Vector.concat(#[], a))
   io.inspect(Vector.concat(a, #[]))
-  io.inspect(Vector.at(v, 0))
+  io.inspect(Vector.get(v, 0))
   io.inspect(#["a\nb", "quoted \"text\""])
 }
 `, "#[]\n0\n#[1]\n#[1, 2, 3]\n#[1]\n#[1]\nNone\n#[\"a\nb\", \"quoted \\\"text\\\"\"]\n")
@@ -58,7 +58,7 @@ func TestIRVector_OfFunctionValuesRuns(t *testing.T) {
 fn main() {
   v = #[|x: Int| x + 1, |x: Int| x * 2]
   io.print(Vector.length(v))
-  case Vector.at(v, 1) {
+  case Vector.get(v, 1) {
     Some(f) -> io.print(f(5))
     None -> io.print(0)
   }
@@ -73,7 +73,7 @@ fn vector(v: Vector<Int>): Vector<Int> { io.print("vector") v }
 fn main() {
   a = #[mark(1), mark(2)]
   b = Vector.push(vector(a), mark(3))
-  io.inspect(Vector.at(vector(b), mark(1)))
+  io.inspect(Vector.get(vector(b), mark(1)))
   io.inspect(a)
 }
 `, "1\n2\nvector\n3\nvector\n1\nSome(2)\n#[1, 2]\n")

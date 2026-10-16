@@ -175,7 +175,7 @@ impl Generator<T> {
 
         unsafe_int(0, Iter.count(rest))
         |> map(|i| {
-            case Iter.at(all, i) {
+            case Iter.get(all, i) {
                 .Some(x) -> x
                 .None -> first
             }

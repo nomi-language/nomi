@@ -71,15 +71,31 @@ func SeqToVector[T any](fr *Frame, src Seq[T]) Vector[T] {
 // complexity explicitly. See the header.
 func VectorLength[T any](v Vector[T]) int64 { return int64(v.Len) }
 
-// VectorAt is `Vector.at`: the element at a zero-based index, or None out of
+// VectorGet is `Vector.get`: the element at a zero-based index, or None out of
 // bounds.
 //
-// A negative index is None rather than a wrap-around, and the corpus reads it: `Vector.at(v, -1) == None`.
-func VectorAt[T any](v Vector[T], index int64) Maybe[T] {
-	if index < 0 || index >= int64(v.Len) {
+// A negative index is None rather than a wrap-around, and the corpus reads it: `Vector.get(v, -1) == None`.
+func VectorGet[T any](v Vector[T], index int64) Maybe[T] {
+	if !vectorInRange(v, index) {
 		return None[T]()
 	}
 	return Some(v.Items[v.Start+int(index)])
+}
+
+// VectorAt is `Vector.at`: the element at a zero-based index. An index outside
+// the vector traps with IndexOutOfRangeText: the caller promised the position
+// exists, and `Vector.get` is the total sibling.
+func VectorAt[T any](v Vector[T], index int64) T {
+	if !vectorInRange(v, index) {
+		Trap(IndexOutOfRangeText("Vector", index, int64(v.Len)))
+	}
+	return v.Items[v.Start+int(index)]
+}
+
+// vectorInRange is the bounds rule `get`, `at` and `set` share, so the three
+// agree about what "in range" is.
+func vectorInRange[T any](v Vector[T], index int64) bool {
+	return index >= 0 && index < int64(v.Len)
 }
 
 // --- structural updates -----------------------------------------------------
@@ -97,20 +113,18 @@ func VectorPush[T any](v Vector[T], item T) Vector[T] {
 	return Vector[T]{Items: out, Len: len(out)}
 }
 
-// VectorSet is `Vector.set`: a new vector with `index` replaced, or None when
-// out of bounds.
+// VectorSet is `Vector.set`: a new vector with `index` replaced. An index
+// outside the vector traps with IndexOutOfRangeText, as `Vector.at` does.
 //
-// Copies for VectorPush's reason. The bounds rule is VectorAt's, shared through
-// the same test rather than restated — an in-range `set` and an in-range `at`
-// must agree about what "in range" is.
-func VectorSet[T any](v Vector[T], index int64, item T) Maybe[Vector[T]] {
-	if index < 0 || index >= int64(v.Len) {
-		return None[Vector[T]]()
+// Copies for VectorPush's reason. The bounds rule is vectorInRange.
+func VectorSet[T any](v Vector[T], index int64, item T) Vector[T] {
+	if !vectorInRange(v, index) {
+		Trap(IndexOutOfRangeText("Vector", index, int64(v.Len)))
 	}
 	out := make([]T, v.Len)
 	copy(out, v.Items[v.Start:v.Start+v.Len])
 	out[int(index)] = item
-	return Some(Vector[T]{Items: out, Len: len(out)})
+	return Vector[T]{Items: out, Len: len(out)}
 }
 
 // VectorConcat is `Vector.concat`: a followed by b.

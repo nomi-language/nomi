@@ -26,7 +26,7 @@ fn main() {
 }
 
 // A Maybe or Result holds a List or Vector of any value: a grid's
-// `Vector.set` answer, a vector of lists, sets or maps, and a list of
+// `Vector.get` answer, a vector of lists, sets or maps, and a list of
 // vectors of vectors, at every position a wrapper stands.
 func TestIRContainerOfCollectionsInAPreludeWrapper_Runs(t *testing.T) {
 	if testing.Short() {
@@ -39,9 +39,8 @@ struct Board {
 }
 
 fn put(grid: Vector<Vector<Int>>, row: Int, column: Int, value: Int): Maybe<Vector<Vector<Int>>> {
-    cells = try Vector.at(grid, row)
-    cells = try Vector.set(cells, column, value)
-    Vector.set(grid, row, cells)
+    cells = try Vector.get(grid, row)
+    Some(Vector.set(grid, row, Vector.set(cells, column, value)))
 }
 
 fn sets(): Result<Vector<Set<Int>>, String> {
@@ -63,9 +62,9 @@ fn main() {
     grid = #[#[0, 0], #[0, 0]]
     io.inspect(put(grid, 1, 0, 7))
     io.inspect(put(grid, 2, 0, 7))
-    Some(written) = Vector.set(grid, 0, #[5]) else { return }
+    written = Vector.set(grid, 0, #[5])
     io.inspect(written)
-    io.inspect(Maybe.flat_map(Vector.at(grid, 0), |cells| Vector.set(grid, 1, cells)))
+    io.inspect(Maybe.map(Vector.get(grid, 0), |cells| Vector.set(grid, 1, cells)))
     io.inspect(Board{rows: put(grid, 0, 1, 3)})
     io.inspect(sets())
     io.inspect(lists())

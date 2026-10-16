@@ -42,14 +42,13 @@ fn empty?(grid: Grid, position: (Int, Int)): Bool {
 }
 
 fn cell_at(grid: Grid, (row, column): (Int, Int)): Maybe<Int> {
-    cells = try Vector.at(grid, row)
-    Vector.at(cells, column)
+    cells = try Vector.get(grid, row)
+    Vector.get(cells, column)
 }
 
 /// `grid` with `value` at `position`, or `None` if `position` is off the
 /// grid.
 fn set_cell(grid: Grid, (row, column): (Int, Int), value: Int): Maybe<Grid> {
-    cells = try Vector.at(grid, row)
-    cells = try Vector.set(cells, column, value)
-    Vector.set(grid, row, cells)
+    cells = try Vector.get(grid, row)
+    Some(Vector.set(grid, row, Vector.set(cells, column, value)))
 }

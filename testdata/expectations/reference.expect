@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
 records 34
-declared-cases 329
+declared-cases 331
 failing 0
 C assertions
 E 0
@@ -26,11 +26,12 @@ H c38eff71742a56683ebc1beaadb1f546559e2f2ee154e3040c583e73d9c11969
 T ok enum Bool
 C bytes
 E 0
-N 15
-H c6f54acf2395cb17c011d455f1e7a28ce1387c1ced722e6c600426735b3f9998
+N 16
+H 3824b2e545a9688ab5a5353607a56cba799e6251bcbdf1ffa731251b63de9c81
 T ok Byte.from_int
 T ok Byte.to_int
 T ok Bytes.length
+T ok Bytes.get
 T ok Bytes.at
 T ok Bytes.slice
 T ok Bytes.concat
@@ -234,7 +235,7 @@ T ok io.replay
 C iter
 E 0
 N 45
-H 4f4eab10789fb57336caefbe72bb7f235caa3e4800477d719db50924fecd86e9
+H 4ff39a4bd7bc557cca94ba1a038310deff345cd672c1569efc7771dedac1d231
 T ok Iter.loop
 T ok Iter.reduce
 T ok Iter.find
@@ -248,7 +249,7 @@ T ok Iter.empty?
 T ok Iter.not_empty?
 T ok Iter.first
 T ok Iter.last
-T ok Iter.at
+T ok Iter.get
 T ok Iter.partition
 T ok Iter.group_by
 T ok Iter.frequencies
@@ -468,10 +469,11 @@ H f01ff405457379af3a290ce9aab350978e30af5a10358920b9a8ea7d31e0eafb
 T ok interface Variants
 C vectors
 E 0
-N 9
-H 274fd8060f7e2d3d89a4acd525ed1bea3aefb1d59139a3c9a4b9f98891477810
+N 10
+H b31a77d2036a86b950a6494e355c97b3f934ba824e710b751c1a170c7596b57a
 T ok Vector.empty
 T ok Vector.length
+T ok Vector.get
 T ok Vector.at
 T ok Vector.push
 T ok Vector.set

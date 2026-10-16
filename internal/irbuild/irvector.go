@@ -69,7 +69,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 		return nil
 	}
 	switch method {
-	case "length", "at", "push", "concat", "set", "next_item":
+	case "length", "get", "at", "push", "concat", "set", "next_item":
 	default:
 		return nil
 	}
@@ -116,7 +116,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 		}
 		args.temps[i], args.kinds[i] = v, got
 	}
-	if method == "at" || method == "set" || method == "next_item" {
+	if method == "get" || method == "next_item" {
 		if _, anchored := bl.g.preludeNamed("Maybe"); !anchored {
 			return nil
 		}

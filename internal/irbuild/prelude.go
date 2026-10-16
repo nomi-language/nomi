@@ -300,12 +300,12 @@ func preludeAnchorsOf(fa *analysis.FileAnalysis) (map[*ast.EnumDef]*preludeAncho
 			// name, so importing it would be an unused-import error.
 			//
 			// `std/random`'s `uniform` body does
-			// `case Iter.at(all, i) { .Some(x) -> … }` with no `Maybe` anywhere
-			// in the file. `Iter.at`'s own declaration in std/iter says the
+			// `case Iter.get(all, i) { .Some(x) -> … }` with no `Maybe` anywhere
+			// in the file. `Iter.get`'s own declaration in std/iter says the
 			// result IS std/maybe's `Maybe`, so the identity is not in doubt —
 			// it simply is not written down in THIS module — and without an
 			// anchor `iterMaybe` would refuse
-			// `Iter terminal without the prelude Maybe | Iter.at`.
+			// `Iter terminal without the prelude Maybe | Iter.get`.
 			//
 			// The fallback is SHAPE-VALIDATED, which is what makes it safe to
 			// authorize a layout. preludeSpecFor exists for the same

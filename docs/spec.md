@@ -2898,7 +2898,7 @@ Iter.each(items, |item| io.print(item.name))
 Iter.each(ages, |(k, v)| io.print("${k}: ${v}"))
 ```
 
-The one rule: **generic over any iterable → `Iter.X`; specific to a container's structure → that container's owner.** A `List` back from a `List` is always the explicit `Iter.map(xs, f) |> Iter.to_list()` — the lazy adapter plus a visible materialize step is what makes the cost (one allocation) explicit at the call site. Container-specific ops that read or rebuild structure live on the relevant owner: `Map.map_values`, `Set.union`, `List.concat`, `Vector.at`, `String.split`, `Map.size`/`Set.size`, and native `String.reverse`.
+The one rule: **generic over any iterable → `Iter.X`; specific to a container's structure → that container's owner.** A `List` back from a `List` is always the explicit `Iter.map(xs, f) |> Iter.to_list()` — the lazy adapter plus a visible materialize step is what makes the cost (one allocation) explicit at the call site. Container-specific ops that read or rebuild structure live on the relevant owner: `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `String.split`, `Map.size`/`Set.size`, and native `String.reverse`.
 
 **A collection is an `Iter`; an `Iter` is not a collection.** A `List<T>`, `Set<T>`, `Vector<T>` or `Map<K, V>` stands wherever an `Iter<T>` is expected. An `Iter<T>` where a collection is expected (an annotation, an argument, a field, a list element, a result) is a type error at the expression, `type mismatch: expected List<Student>, got Iter<Student>`, whose help names the materializer to append: `|> Iter.to_list()`, `Iter.to_set`, `Iter.to_vector` or `Iter.to_map`. The same holds for every interface: a value of an interface type never stands where one of its implementers is expected.
 
@@ -3401,7 +3401,7 @@ An interface body is an item list. Each item's *form* determines its role, on tw
 
 Every bodied/host item is part of the contract (a default), reachable both interface-qualified (`Iter.known_count(xs)`) and type-qualified on an implementor (`List.known_count(xs)`) with full generic inference — the two are the *same* function, selected by the concrete type bound to `self`. Operations that take no `self` are **not** interface functions — put them in an inherent `impl Iface { ... }` block beside the interface and call them owner-qualified (`Iter.from(0)`).
 
-> The example uses `known_count` because, for `Iter`, that is the *only* default — the interface is pure protocol, just `each_while` (required) plus the lone `open` default `known_count`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`at`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.at`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` is the single op that's a dispatched default rather than an owner function, because it's the protocol hook `Iter.count` consults for an O(1) count (see §19).
+> The example uses `known_count` because, for `Iter`, that is the *only* default — the interface is pure protocol, just `each_while` (required) plus the lone `open` default `known_count`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` is the single op that's a dispatched default rather than an owner function, because it's the protocol hook `Iter.count` consults for an O(1) count (see §19).
 
 A Nomi-bodied default function may give its **trailing parameters default values**, exactly like a free `fn` (`fn announce(value: self, loud: Bool = False): String { … }`); a caller omitting the trailing argument gets the default. Defaults are rejected on a required or host-backed function — only a Nomi default body carries the value at runtime.
 
@@ -4015,7 +4015,7 @@ struct Shelf<T> {
 
 impl Container for Shelf<T> {
     fn get(shelf: Shelf<T>, index: Int): Maybe<T> {
-        Iter.at(shelf.items, index)
+        Iter.get(shelf.items, index)
     }
 
     fn size(shelf: Shelf<T>): Int {
@@ -5281,7 +5281,8 @@ Owner functions on `Byte` (`from_int`, `to_int`) and `Bytes` (the rest):
 fn from_int(n: Int): Maybe<Byte>                 // 0..255 only
 fn to_int(b: Byte): Int
 fn length(data: Bytes): Int
-fn at(data: Bytes, index: Int): Maybe<Byte>
+fn get(data: Bytes, index: Int): Maybe<Byte>     // None outside the buffer
+fn at(data: Bytes, index: Int): Byte             // traps outside the buffer
 fn slice(data: Bytes, start: Int, end: Int): Bytes
 fn concat(a: Bytes, b: Bytes): Bytes
 fn to_list(data: Bytes): List<Byte>
@@ -5644,7 +5645,7 @@ Plus the `Iter` protocol — `each_while`, and `known_count` (O(1), read from th
 ```nomi
 Iter.count(xs) // O(1) via known_count
 
-Iter.first(xs) / Iter.last(xs) / Iter.at(xs, i)
+Iter.first(xs) / Iter.last(xs) / Iter.get(xs, i)
 
 Iter.empty?(xs) / Iter.not_empty?(xs)
 
@@ -5689,10 +5690,15 @@ empty: Vector<Int> = #[]
 - Literal syntax: `#[1, 2, 3]`
 - Homogeneous — all elements must be the same type
 - Immutable — operations return new vectors
-- `Vector.at`, `Vector.push`, `Vector.set` (returns `Maybe<Vector<T>>`,
-  `None` for an index out of range), `Vector.concat` and `Vector.length` are
-  container-specific operations. Converting is `Iter`'s job: `Iter.to_list(v)`
-  and `Iter.to_vector(xs)`
+- `Vector.get`, `Vector.at`, `Vector.push`, `Vector.set`, `Vector.concat` and
+  `Vector.length` are container-specific operations. Converting is `Iter`'s
+  job: `Iter.to_list(v)` and `Iter.to_vector(xs)`
+- Indexes start at 0. `Vector.get(v, i)` answers `None` for an index outside
+  `0 <= i < length`; `Vector.at(v, i)` returns the element and traps on such an
+  index, and so does `Vector.set(v, i, x)`, which returns the new vector. The
+  trap's text is `index 7 is out of range for a Vector of length 5`. Use `get`
+  when the index comes from data and may miss, and `at` and `set` when the
+  program guarantees it (§17 *Traps, `Maybe` and `Result`*)
 - `#[..v, x]` is `Vector.concat(v, #[x])` and `#[x, ..v]` is
   `Vector.concat(#[x], v)`, written as a literal. A vector takes its spread at
   either end, since appending and prepending are both a concatenation; a list
@@ -6003,7 +6009,7 @@ Nomi separates iteration by one rule:
 > **Generic over any iterable → `Iter.X`. Specific to a container's structure → that container's owner.**
 
 1. **Generic ops** live on `Iter` over any `Iter<T>` — every transform, filter, reduce, sort, count, index access, and materializer. The adapters (`map`/`filter`/`take`/…) are lazy: each returns a new iterator so pipelines fuse without building intermediate collections. The terminals (`reduce`/`find`/`sort`/`count`/…) and materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`) consume the iterator. Strings are joined with `String.join`, which takes any `Iter<String>`.
-2. **Container-specific ops** stay on the container owner — exactly the work a generic adapter can't express because it reads or rebuilds the container's structure: `Map.map_values`/`map_keys`/`merge`/`get`/`put`/`size`, `Set.union`/`intersection`/`difference`/`insert`/`size`, `List.concat`/`head`/`tail`, `Vector.at`/`push`/`set`/`concat`/`length`, `String.split`/`replace`/`slice`/`join`, native `String.reverse`.
+2. **Container-specific ops** stay on the container owner — exactly the work a generic adapter can't express because it reads or rebuilds the container's structure: `Map.map_values`/`map_keys`/`merge`/`get`/`put`/`size`, `Set.union`/`intersection`/`difference`/`insert`/`size`, `List.concat`/`head`/`tail`, `Vector.get`/`at`/`push`/`set`/`concat`/`length`, `String.split`/`replace`/`slice`/`join`, native `String.reverse`.
 
 There are **no eager collection-adapter functions** (`List.map`, `Set.filter`, … don't exist): to get a container back from a chain, append an explicit materialize step — `Iter.map(xs, f) |> Iter.to_list()`, `Iter.filter(s, p) |> Iter.to_set()`. The cost (one allocation) is then visible at the call site.
 
@@ -6012,7 +6018,7 @@ There are **no eager collection-adapter functions** (`List.map`, `Set.filter`, �
 The `std/iter` file hosts the `Iter<T>` interface and its owner functions. The protocol surface is only `each_while` (required) and the lone `open` default `known_count` (`Maybe<Int>`; `None` unless a type stores its size). Every generic iteration op lives on `Iter`, reached `Iter.X(...)`:
 
 - **Adapters** (lazy, return `Iter<...>` — one closure over the upstream's push loop, allocated when the chain is built rather than rebuilt per element, so pipelines fuse): `map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`/`chunks`/`chunk_by`.
-- **Terminals** (consume, produce a scalar): `reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`not_empty?`/`first`/`last`/`at`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`sort_with`/`partition`/`group_by`/`frequencies`.
+- **Terminals** (consume, produce a scalar): `reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`not_empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`sort_with`/`partition`/`group_by`/`frequencies`.
 - **Materializers / constructors** (consume or seed): `to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`from`/`repeat`/`iterate`.
 
 Because they're owner functions, `Iter.map` / `Iter.reduce` are not dispatch calls — the protocol functions remain `Iter.each_while` and `Iter.known_count`. `Iter.count` is O(1) on any source that stores or can compute its count (`List`/`Vector`/`Map`/`Set`/bounded countable ranges, via `known_count`) and an O(n) fold otherwise; like every full-consuming terminal it **does not terminate on an infinite source** — bound it with `Iter.take(n)` first.
@@ -6055,7 +6061,7 @@ fn empty?(source: Iter<T>): Bool
 fn not_empty?(source: Iter<T>): Bool
 fn first(source: Iter<T>): Maybe<T>
 fn last(source: Iter<T>): Maybe<T>
-fn at(source: Iter<T>, index: Int): Maybe<T>
+fn get(source: Iter<T>, index: Int): Maybe<T>   // O(index); None past the end
 fn count(source: Iter<T>): Int                   // O(1) via known_count; else O(n) fold
 fn min<T>(source: Iter<T>): Maybe<T> where T: Comparable   // None when empty; the first of equal least elements
 fn max<T>(source: Iter<T>): Maybe<T> where T: Comparable   // None when empty; the first of equal greatest elements

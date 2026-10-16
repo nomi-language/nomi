@@ -77,12 +77,21 @@ func ByteToInt(b Byte) int64 { return int64(b) }
 // `[]rune` answers 2 and every other row still passes.
 func BytesLength(data Bytes) int64 { return int64(len(data)) }
 
-// BytesAt is `Bytes.at`: the byte at index, or None when out of range.
-func BytesAt(data Bytes, index int64) Maybe[Byte] {
+// BytesGet is `Bytes.get`: the byte at index, or None when out of range.
+func BytesGet(data Bytes, index int64) Maybe[Byte] {
 	if index < 0 || index >= int64(len(data)) {
 		return None[Byte]()
 	}
 	return Some(Byte(data[index]))
+}
+
+// BytesAt is `Bytes.at`: the byte at index. An index outside the buffer traps
+// with IndexOutOfRangeText; `Bytes.get` is the total sibling.
+func BytesAt(data Bytes, index int64) Byte {
+	if index < 0 || index >= int64(len(data)) {
+		Trap(IndexOutOfRangeText("Bytes", index, int64(len(data))))
+	}
+	return Byte(data[index])
 }
 
 // BytesSliceBounds is `Bytes.slice`'s clamp, resolved against a length.

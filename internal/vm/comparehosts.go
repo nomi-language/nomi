@@ -29,7 +29,7 @@ func containerCompareHost(key string) hostFn {
 				items = listSlice(v)
 			case rt.Vector[any]:
 				for j := int64(0); j < rt.VectorLength(v); j++ {
-					items = append(items, rt.VectorAt(v, j).Some)
+					items = append(items, rt.VectorAt(v, j))
 				}
 			case nil:
 			default:

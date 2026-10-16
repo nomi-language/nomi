@@ -73,14 +73,25 @@ impl Bytes {
     //
     pub host fn length(data: Bytes): Int
 
-    /// Returns the byte at index, or None when index is out of range.
+    /// Returns the byte at zero-based `index`, or None when the index is
+    /// outside the buffer.
     //! a = try Byte.from_int(97)
     //! b = try Byte.from_int(98)
     //! data = Bytes.from_list([a, b])
-    //! assert data |> Bytes.at(0) |> Maybe.map(Byte.to_int) == Some(97)
-    //! assert Bytes.at(data, 2) == None
+    //! assert data |> Bytes.get(0) |> Maybe.map(Byte.to_int) == Some(97)
+    //! assert Bytes.get(data, 2) == None
     //
-    pub host fn at(data: Bytes, index: Int): Maybe<Byte>
+    pub host fn get(data: Bytes, index: Int): Maybe<Byte>
+
+    /// Returns the byte at zero-based `index`, which must be in
+    /// `0 <= index < length`. Any other index traps: `index 2 is out of range
+    /// for a Bytes of length 2`. `Bytes.get` answers None instead.
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! data = Bytes.from_list([a, b])
+    //! assert data |> Bytes.at(1) |> Byte.to_int() == 98
+    //
+    pub host fn at(data: Bytes, index: Int): Byte
 
     /// Returns bytes from start index to end index (start inclusive, end
     /// exclusive). Out-of-range bounds are clamped.

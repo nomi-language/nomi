@@ -227,6 +227,7 @@ func RtFuncs() []Binding {
 		{Name: "bytes.Byte.from_int", Fn: rt.ByteFromInt},
 		{Name: "bytes.Byte.to_int", Fn: rt.ByteToInt},
 		{Name: "bytes.Bytes.length", Fn: rt.BytesLength},
+		{Name: "bytes.Bytes.get", Fn: rt.BytesGet},
 		{Name: "bytes.Bytes.at", Fn: rt.BytesAt},
 		{Name: "bytes.Bytes.slice", Fn: rt.BytesSlice},
 		{Name: "bytes.Bytes.concat", Fn: rt.BytesConcat},

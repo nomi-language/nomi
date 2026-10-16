@@ -57,7 +57,7 @@ fn dump_from(data: Bytes, i: Int): String {
     } else {
         sep = if i == 0 { "" } else { " " }
 
-        case Bytes.at(data, i) {
+        case Bytes.get(data, i) {
             Some(b) -> "${sep}${Byte.to_int(b)}${dump_from(data, i + 1)}"
             None -> "${sep}?"
         }
@@ -79,7 +79,7 @@ fn byte_of(n: Int): String {
 }
 
 fn at_or(data: Bytes, i: Int): String {
-    case Bytes.at(data, i) {
+    case Bytes.get(data, i) {
         Some(b) -> "${Byte.to_int(b)}"
         None -> "none"
     }

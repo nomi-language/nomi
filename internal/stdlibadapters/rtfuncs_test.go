@@ -376,6 +376,7 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"bytes.Byte.to_int":                unary(hByte(0), hByte(127), hByte(255)),
 		"bytes.Bytes.length":               unary(blobs...),
 		"bytes.Bytes.to_string":            unary(blobs...),
+		"bytes.Bytes.get":                  at,
 		"bytes.Bytes.at":                   at,
 		"bytes.Bytes.slice":                bslice,
 		"bytes.Bytes.concat":               pairs(blobs...),

@@ -48,6 +48,6 @@ test "positional terminals answer a declared element type" {
 
     assert Iter.first(rows) == Some(a)
     assert Iter.last(rows) == Some(b)
-    assert Iter.at(rows, 1) == Some(b)
+    assert Iter.get(rows, 1) == Some(b)
     assert Iter.find(rows, |r| r.tags == ["t"]) == Some(b)
 }

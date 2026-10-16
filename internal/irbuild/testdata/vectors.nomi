@@ -69,7 +69,7 @@ import std/io
 // The three `Maybe`-returning rows are read through these rather than
 // interpolated, for the reason stated at their call sites.
 fn at_or(v: Vector<Int>, i: Int): Int {
-    case Vector.at(v, i) {
+    case Vector.get(v, i) {
         Some(n) -> n
         None -> -1
     }
@@ -83,9 +83,10 @@ fn head_or(v: Vector<Int>): Int {
 }
 
 fn set_or(v: Vector<Int>, i: Int, n: Int): Vector<Int> {
-    case Vector.set(v, i, n) {
-        Some(out) -> out
-        None -> #[]
+    if i >= 0 and i < Vector.length(v) {
+        Vector.set(v, i, n)
+    } else {
+        #[]
     }
 }
 
@@ -199,9 +200,9 @@ fn main() {
     // --- a Vector inside a PRELUDE PAYLOAD, and a Vector as a MAP KEY --------
     //
     // These are the rows the CORPUS needs and the recovered fixture did not have.
-    // `06-collections/vectors_test.nomi:38` is `Vector.set(pushed, 9, 99) == None`,
-    // and with the recovery alone that whole file was left refusing exactly one
-    // position: `equality on a named type | Maybe<Vector<Int>>`. So `==` reached
+    // The corpus compares a `Maybe<Vector<Int>>` with `==`, and with the
+    // recovery alone that was left refusing exactly one position:
+    // `equality on a named type | Maybe<Vector<Int>>`. So `==` reached
     // `valueEqual` over the PAYLOAD kind, which declined for a Vector by design.
     //
     // The MAP KEY rows are here because widening `valueEqual` without widening
@@ -220,10 +221,11 @@ fn main() {
     // row above passes. `key window` is the mirror: a vector built by `concat` has
     // `Start == 0` and must land in the same bucket as the literal.
     keys = {#[1, 2] => "a", #[3] => "b"}
-    io.print("maybe eq none ${Vector.set(pushed, 9, 99) == None}")
-    io.print("maybe eq some ${Vector.set(pushed, 1, 20) == Some(#[1, 20, 3])}")
-    io.print("maybe eq no ${Vector.set(pushed, 1, 20) == Some(#[9, 9, 9])}")
-    io.print("maybe scalar ${Vector.at(v, 0) == Some(1)}")
+    grid = #[Vector.set(pushed, 1, 20)]
+    io.print("maybe eq none ${Vector.get(grid, 9) == None}")
+    io.print("maybe eq some ${Vector.get(grid, 0) == Some(#[1, 20, 3])}")
+    io.print("maybe eq no ${Vector.get(grid, 0) == Some(#[9, 9, 9])}")
+    io.print("maybe scalar ${Vector.get(v, 0) == Some(1)}")
     io.print("key hit ${Map.get(keys, #[1, 2]) == Some("a")}")
     io.print("key miss ${Map.get(keys, #[9]) == None}")
     io.print("key window ${Map.get(keys, Vector.concat(#[1], #[2])) == Some("a")}")

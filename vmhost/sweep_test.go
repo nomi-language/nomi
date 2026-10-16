@@ -86,7 +86,7 @@ var sweepConstructs = []sweepConstruct{
 	{"once", sweepAll, "assert shared == $A"},
 	{"concurrent", sweepAll, "v = concurrent {\n    t = Task.spawn(|| $A)\n    Task.await(t)\n  }\n  assert v == $A"},
 	{"map value", sweepAll, "m = {\"k\" => $A}\n  assert Map.get(m, \"k\") == Some($A)"},
-	{"vector", sweepAll, "v = #[$A, $B]\n  assert Vector.at(v, 1) == Some($B)"},
+	{"vector", sweepAll, "v = #[$A, $B]\n  assert Vector.get(v, 1) == Some($B)"},
 	{"struct holding", sweepAll, "h = Holder{item: $A}\n  assert h.item == $A"},
 	{"field default none", sweepAll, "o = Opt{}\n  assert o.v == None\n  assert Opt{v: Some($A)}.v == Some($A)"},
 	{"enum payload", sweepAll, "w = Wrap.One($A)\n  case w {\n    .One(x) -> assert x == $A\n    .Zero -> assert False\n  }"},

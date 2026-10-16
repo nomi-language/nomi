@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 361
-declared-cases 1098
+records 362
+declared-cases 1103
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -747,6 +747,17 @@ T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time equality uses tim
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: times sort chronologically
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time construction rejects invalid components
 T test result: ok. 6 passed, 0 failed
+T
+C 06-collections/index_traps_test.nomi
+E 0
+N 5
+H ba41531774a571806f9b7b6204d00b23d236333d4220ae76afd210cadc28d19e
+T ok <root>/tests/06-collections/index_traps_test.nomi :: vector at traps on an index past the end
+T ok <root>/tests/06-collections/index_traps_test.nomi :: vector at traps on a negative index
+T ok <root>/tests/06-collections/index_traps_test.nomi :: vector set traps on an index outside the vector
+T ok <root>/tests/06-collections/index_traps_test.nomi :: bytes at traps on an index outside the buffer
+T ok <root>/tests/06-collections/index_traps_test.nomi :: the get siblings answer None where at traps
+T test result: ok. 5 passed, 0 failed
 T
 C 06-collections/lists_test.nomi
 E 0

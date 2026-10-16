@@ -26,8 +26,8 @@ fn live_neighbours(board: Board, row: Int, column: Int): Int {
 
 /// The cell at `row` and `column`, or None off the board.
 fn cell_at(board: Board, row: Int, column: Int): Maybe<Int> {
-    cells = try Vector.at(board, row)
-    Vector.at(cells, column)
+    cells = try Vector.get(board, row)
+    Vector.get(cells, column)
 }
 
 fn next_state(cell: Int, live_neighbours: Int): Int {

@@ -221,13 +221,13 @@ func SeqLast[T any](fr *Frame, src Seq[T]) Maybe[T] {
 	return out
 }
 
-// SeqAt is `pub fn at<T>(source: Iter<T>, index: Int): Maybe<T>`.
+// SeqGet is `pub fn get<T>(source: Iter<T>, index: Int): Maybe<T>`.
 //
 // A negative index is None without touching the source, which is std's own
 // `if index < 0 { None }` guard and is observable: the source may have effects.
 // Otherwise the walk stops as soon as the element is found, which is std's
 // `break (0, Some(item))`.
-func SeqAt[T any](fr *Frame, src Seq[T], index int64) Maybe[T] {
+func SeqGet[T any](fr *Frame, src Seq[T], index int64) Maybe[T] {
 	if index < 0 {
 		return None[T]()
 	}

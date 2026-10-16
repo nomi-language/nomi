@@ -9,7 +9,7 @@ pub fn transpose(lines: List<String>): List<String> {
     0..width
     |> Iter.map(|column| {
         rows
-        |> Iter.map(|row| Vector.at(row, column))
+        |> Iter.map(|row| Vector.get(row, column))
         |> Maybe.values()
         |> String.join()
     })

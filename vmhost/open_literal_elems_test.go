@@ -92,7 +92,7 @@ fn main() {
     io.print(Debug.inspect((i, j, k, l)))
     io.print(Debug.inspect((m, n, o)))
     io.print(Debug.inspect((p, q)))
-    io.print("${Set.contains?(a, [])} ${Set.contains?(i, #{[1]})} ${Vector.at(b, 1)}")
+    io.print("${Set.contains?(a, [])} ${Set.contains?(i, #{[1]})} ${Vector.get(b, 1)}")
 }
 `
 	want := strings.Join([]string{

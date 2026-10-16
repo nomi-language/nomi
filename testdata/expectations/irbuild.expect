@@ -3401,7 +3401,7 @@ T
 C internal/irbuild/testdata/dbg_shapes.nomi@48cd5d580f98664f
 E 0
 N 0
-H 2645c2b58d64009be28728f51bb1bb0a5529ec2bef759aa5dba8676af80be3ca
+H d9182e35076712294dcdcf1a8c1b7fd39d3e28583042c00736e50444f8084ccb
 T dbg line 47: 41 + 1 = 42
 T a=42
 T dbg line 51: r = Rev{zeta: 1, alpha: 2}
@@ -3411,16 +3411,8 @@ T dbg line 56: 21 |> double() = 42
 T d=42
 T dbg line 60:
 T   [
-T       100000001,
-T       100000002,
-T       100000003,
-T       100000004,
-T       100000005,
-T       100000006,
-T       100000007,
-T       100000008,
-T       100000009,
-T       100000010,
+T       100000001, 100000002, 100000003, 100000004, 100000005, 100000006, 100000007, 100000008,
+T       100000009, 100000010,
 T   ]
 T   = [100000001, 100000002, 100000003, 100000004, 100000005, 100000006, 100000007, 100000008, 100000009, 100000010]
 T dbg line 73:
@@ -4876,7 +4868,7 @@ T   src 2
 T   seed 100
 T 103
 T
-C internal/irbuild/testdata/iter_sources.nomi@b51b66cd4692c4a5
+C internal/irbuild/testdata/iter_sources.nomi@363e25760b0a7396
 E 0
 N 0
 H 285081a4d3cc774ee97a0daddd0f23768896ace7c5f530874da19f3ea631c7a1
@@ -6572,7 +6564,7 @@ T       chosen()
 T         = HalfEven
 T test result: FAILED. 4 passed, 1 failed
 T
-C internal/irbuild/testdata/std_host_type_boundary.nomi@dd7125688a864a64
+C internal/irbuild/testdata/std_host_type_boundary.nomi@19936c10369ec25a
 E 0
 N 0
 H 1443bb69a564d63f4641fa5649efc849a3536ee4271f71b1a306f63b8b410c97
@@ -7761,7 +7753,7 @@ T 5/1
 T lib
 T entry
 T
-C internal/irbuild/testdata/vectors.nomi@a0c051575c171d7d
+C internal/irbuild/testdata/vectors.nomi@3edb8fc805bf956c
 E 0
 N 0
 H 46f2348481122360191e51fa5a00dfe8e0fbfb3fee487894c34ce08f2a98b717

@@ -103,21 +103,21 @@ fn main() {
     io.print(
         show(
             [10, 20, 30]
-            |> Iter.at(1)
+            |> Iter.get(1)
         )
     )
 
     io.print(
         show(
             [10, 20, 30]
-            |> Iter.at(9)
+            |> Iter.get(9)
         )
     )
 
     io.print(
         show(
             [10, 20, 30]
-            |> Iter.at(-1)
+            |> Iter.get(-1)
         )
     )
 

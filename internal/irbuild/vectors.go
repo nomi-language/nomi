@@ -54,7 +54,7 @@ import (
 // refusal and this file answers with an implementation, which is listCall's,
 // mapCall's and setCall's arrangement reached by the same route.
 //
-// # `Vector.length` is O(1) and `Vector.at` is indexed, and that is the type's
+// # `Vector.length` is O(1) and `Vector.get` is indexed, and that is the type's
 // whole reason for existing
 //
 // std's module comment: "use `List<T>` for cons-style recursion and cheap
@@ -62,8 +62,8 @@ import (
 // operations." Those two are precisely the operations a generic `Iter` adapter
 // cannot express, because `Iter` has no index. rt/vector.go's header carries the
 // representation argument; what this file must not do is route either through a
-// walk. `length` reaches `rt.VectorLength` (a field read) and `at` reaches
-// `rt.VectorAt` (one bounds test and one index).
+// walk. `length` reaches `rt.VectorLength` (a field read) and `get` and `at`
+// reach `rt.VectorGet` and `rt.VectorAt` (one bounds test and one index).
 //
 // # Every lowering here is std's own body with the pipeline removed
 //
@@ -92,7 +92,7 @@ import (
 // The argument SHAPE is `vecs` vector-typed leading arguments followed by the
 // rest, whose wanted kinds are named per row rather than assumed to be the
 // element type. `Set`'s table could say "the rest are elements" because every one
-// of its rows is; `Vector.at(v, index)` and `Vector.set(v, index, item)` take an
+// of its rows is; `Vector.get(v, index)` and `Vector.set(v, index, item)` take an
 // `Int` in a non-leading position, so the shape has to be spelled out.
 type vectorFn struct {
 	rtCall string
@@ -103,8 +103,8 @@ type vectorFn struct {
 	vecs int
 	// result is how the result kind is derived. "vector" is `Vector<T>`, "int"
 	// `Int`, "bool" `Bool`, "string" `String`, "ordering" the
-	// shared `Ordering`, "maybeElem" `Maybe<T>`, "maybeVector"
-	// `Maybe<Vector<T>>`, "nextItem" `Maybe<(T, Vector<T>)>`.
+	// shared `Ordering`, "elem" `T`, "maybeElem" `Maybe<T>`,
+	// "nextItem" `Maybe<(T, Vector<T>)>`.
 	result string
 	// ops records which element operation the rt call needs appended: "" none,
 	// "eq", "hash", "cmp", or "render" for a rendering.
@@ -127,9 +127,10 @@ type vectorFn struct {
 // same split lists.go describes for `List.equal?`.
 var vectorFuncs = map[string]vectorFn{
 	"length":    {rtCall: "rt.VectorLength", vecs: 1, result: "int"},
-	"at":        {rtCall: "rt.VectorAt", vecs: 1, rest: []string{"int"}, result: "maybeElem"},
+	"get":       {rtCall: "rt.VectorGet", vecs: 1, rest: []string{"int"}, result: "maybeElem"},
+	"at":        {rtCall: "rt.VectorAt", vecs: 1, rest: []string{"int"}, result: "elem"},
 	"push":      {rtCall: "rt.VectorPush", vecs: 1, rest: []string{"elem"}, result: "vector"},
-	"set":       {rtCall: "rt.VectorSet", vecs: 1, rest: []string{"int", "elem"}, result: "maybeVector"},
+	"set":       {rtCall: "rt.VectorSet", vecs: 1, rest: []string{"int", "elem"}, result: "vector"},
 	"concat":    {rtCall: "rt.VectorConcat", vecs: 2, result: "vector"},
 	"next_item": {rtCall: "rt.VectorNextItem", vecs: 1, result: "nextItem"},
 
@@ -193,8 +194,8 @@ func (g *gen) vectorResultKind(tag string, vk, elem kind, at ast.Node) (kind, bo
 		return stdEnumKind(stdEnumOrdering), true
 	case "maybeElem":
 		return g.maybeOf(elem, at)
-	case "maybeVector":
-		return g.maybeOf(vk, at)
+	case "elem":
+		return elem, true
 	case "nextItem":
 		pair := g.tupleKind([]kind{elem, vk})
 		// kindInvalid: reports — an unrepresentable tuple part, named by tupleKind.

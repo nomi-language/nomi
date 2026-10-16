@@ -6,7 +6,7 @@ import "testing"
 // Iter stage that builds a container or a tuple from them runs: `concat`,
 // `zip` (on either side), `chunks`, `flatten`, `flat_map`, `to_vector`,
 // `to_map`, `group_by`, `repeat` and `iterate`, a vector and a map literal
-// of lambdas read back with `Vector.at` and `Map.get`, Debug over each, a
+// of lambdas read back with `Vector.get` and `Map.get`, Debug over each, a
 // list spread over a list of functions, and a list pattern over one.
 func TestIRHeldFunctionValues_Run(t *testing.T) {
 	if testing.Short() {
@@ -33,7 +33,7 @@ fn main() {
     v = Iter.to_vector(fs)
     io.inspect(v)
     io.inspect(Vector.length(v))
-    case Vector.at(v, 1) {
+    case Vector.get(v, 1) {
         Some(f) -> io.inspect(f(7))
         None -> io.inspect(0)
     }

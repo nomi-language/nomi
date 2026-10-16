@@ -25,9 +25,9 @@ fn echo(data: Bytes): Bytes { data }
 fn main() {
  raw = echo(String.to_bytes("café"))
  io.inspect(raw)
- io.inspect(Bytes.at(raw, 3))
- io.inspect(Bytes.at(raw, -1))
- io.inspect(Bytes.at(raw, 5))
+ io.inspect(Bytes.get(raw, 3))
+ io.inspect(Bytes.get(raw, -1))
+ io.inspect(Bytes.get(raw, 5))
  io.inspect(Byte.from_int(255))
  io.inspect(Byte.from_int(-1))
  io.inspect(Byte.from_int(256))
@@ -64,7 +64,7 @@ struct Request {
  flag: Byte
 }
 fn first(data: Bytes): Byte {
- case Bytes.at(data, 0) {
+ case Bytes.get(data, 0) {
   Some(b) -> b
   None -> first(String.to_bytes("?"))
  }

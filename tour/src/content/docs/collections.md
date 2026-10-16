@@ -110,6 +110,8 @@ fn main() {
 
     dbg names
     dbg Vector.length(names)
+    dbg Vector.get(names, 1)
+    dbg Vector.get(names, 5)
     dbg Vector.at(names, 1)
     dbg names + #["Dorothy"]
     Unit
@@ -119,8 +121,10 @@ fn main() {
 <!-- expect
 dbg line 6: names = #["Ada", "Grace", "Katherine"]
 dbg line 7: Vector.length(names) = 3
-dbg line 8: Vector.at(names, 1) = Some("Grace")
-dbg line 9: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
+dbg line 8: Vector.get(names, 1) = Some("Grace")
+dbg line 9: Vector.get(names, 5) = None
+dbg line 10: Vector.at(names, 1) = "Grace"
+dbg line 11: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
 -->
 
 You write a vector as `#[a, b, c]`.
@@ -129,6 +133,14 @@ You write a vector as `#[a, b, c]`.
 A vector is a sequence you can read by position. Use a vector when you look
 items up by index or add them at the end. Use a list when you add items at the
 front or take it apart with patterns.
+
+Indexes start at 0.
+[`Vector.get`](/reference/vectors/#vectorget) answers `None` when the index is
+outside the vector, so use it when the index comes from data.
+[`Vector.at`](/reference/vectors/#vectorat) returns the item itself and stops
+the program when the index is outside, so use it when your code guarantees the
+index. [`Vector.set`](/reference/vectors/#vectorset) replaces the item at an
+index and stops the program the same way.
 
 `xs + ys` joins two lists, or two vectors.
 [`List.concat`](/reference/lists/#listconcat) and

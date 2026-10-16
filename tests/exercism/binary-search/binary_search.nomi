@@ -17,7 +17,7 @@ fn search<T>(
 
     middle = (low + high) / 2
 
-    Some(item) = Vector.at(items, middle) else {
+    Some(item) = Vector.get(items, middle) else {
         return Err("value not in array")
     }
 

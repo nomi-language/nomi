@@ -6,7 +6,7 @@ test "strings implement Iter over graphemes" {
 
     assert Iter.first("hello") == Some("h")
     assert Iter.last("hello") == Some("o")
-    assert Iter.at("hello", 1) == Some("e")
+    assert Iter.get("hello", 1) == Some("e")
     assert indexed == [(0, "a"), (1, "b"), (2, "c")]
 }
 

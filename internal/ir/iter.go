@@ -223,7 +223,7 @@ const (
 	IterNotEmpty
 	IterFirst
 	IterLast
-	IterAt
+	IterGet
 	IterEach
 	IterAny
 	IterAll
@@ -315,7 +315,7 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	IterNotEmpty: {name: "not_empty?", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
 	IterFirst:    {name: "first", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
 	IterLast:     {name: "last", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterAt:       {name: "at", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
+	IterGet:      {name: "get", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
 	IterEach:     {name: "each", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
 	IterAny:      {name: "any?", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
 	IterAll:      {name: "all?", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},

@@ -535,7 +535,7 @@ func irRetainedPreludePayload(k kind) bool {
 	if elem, vector := vectorElem(k); vector && k != kindEmptyVector && irCallableValueKind(elem) ||
 		k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallableValueKind(k.comp.parts[0]) {
 		// A List or Vector of any value the callable domain holds
-		// (`Maybe<Vector<Vector<Int>>>`, what `Vector.set` answers over a
+		// (`Maybe<Vector<Int>>`, what `Vector.get` answers over a
 		// grid; `Ok([f, g])`), as irRetainedValueKind admits one: the VM's
 		// containers hold values of every kind.
 		return true

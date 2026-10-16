@@ -196,7 +196,7 @@ func (s *stdHostSpec) declaredHostType(decl *ast.ExternType) bool {
 var stdHostSpecs = []stdHostSpec{
 	// Two rows for two types: `Byte` is one octet and `Bytes` a buffer of
 	// them, and they are separate Nomi types, so a single row would collapse
-	// `Bytes.at(data, i): Maybe<Byte>`'s two positions onto one.
+	// `Bytes.get(data, i): Maybe<Byte>`'s two positions onto one.
 	{prim: analysis.TypeByte, nomi: "Byte", goType: reflect.TypeFor[rt.Byte]()},
 	{prim: analysis.TypeBytes, nomi: "Bytes", goType: reflect.TypeFor[rt.Bytes]()},
 	// `Decimal` differs from its two neighbours in one way that matters to the

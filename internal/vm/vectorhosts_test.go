@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -9,7 +10,7 @@ import (
 )
 
 func TestVectorHostsValidateOperands(t *testing.T) {
-	for key, arity := range map[string]int{"Vector.length": 1, "Vector.at": 2, "Vector.push": 2, "Vector.concat": 2} {
+	for key, arity := range map[string]int{"Vector.length": 1, "Vector.get": 2, "Vector.at": 2, "Vector.push": 2, "Vector.concat": 2} {
 		t.Run(key, func(t *testing.T) {
 			host := vectorHost(key)
 			if _, err := host(nil, ir.Pos{}, nil); err == nil || !strings.Contains(err.Error(), "expected") {
@@ -20,7 +21,7 @@ func TestVectorHostsValidateOperands(t *testing.T) {
 			if _, err := host(nil, ir.Pos{}, args); err == nil || !strings.Contains(err.Error(), "want Vector") {
 				t.Fatalf("invalid receiver: %v", err)
 			}
-			if key == "Vector.at" || key == "Vector.concat" {
+			if key == "Vector.get" || key == "Vector.concat" {
 				args[0], args[1] = rt.VectorOf[any](nil), "bad"
 				if _, err := host(nil, ir.Pos{}, args); err == nil || !strings.Contains(err.Error(), "operand 2") {
 					t.Fatalf("invalid second operand: %v", err)
@@ -43,14 +44,21 @@ func TestVectorDebugPropagatesUnsupportedElement(t *testing.T) {
 }
 
 // TestVectorSet: Vector.set over the machine's vectors, leaving the receiver
-// unchanged and answering None out of range.
+// unchanged and faulting with rt's index trap out of range.
 func TestVectorSet(t *testing.T) {
 	v := rt.VectorOf([]any{int64(1), int64(2), int64(3)})
 	set, err := vectorHost("Vector.set")(nil, ir.Pos{}, []any{v, int64(1), int64(20)})
-	if err != nil || rt.RowText(set) != "Some(#[1, 20, 3])" || rt.RowText(v) != "#[1, 2, 3]" {
+	if err != nil || rt.RowText(set) != "#[1, 20, 3]" || rt.RowText(v) != "#[1, 2, 3]" {
 		t.Fatalf("set(v, 1, 20) = %v, v = %v, %v", rt.RowText(set), rt.RowText(v), err)
 	}
-	if out, err := vectorHost("Vector.set")(nil, ir.Pos{}, []any{v, int64(9), int64(99)}); err != nil || rt.RowText(out) != "None" {
-		t.Fatalf("set out of range = %v, %v", rt.RowText(out), err)
+	for key, args := range map[string][]any{
+		"Vector.set": {v, int64(9), int64(99)},
+		"Vector.at":  {v, int64(9)},
+	} {
+		_, err := vectorHost(key)(nil, ir.Pos{}, args)
+		var fault *Fault
+		if !errors.As(err, &fault) || err.Error() != "index 9 is out of range for a Vector of length 3" {
+			t.Fatalf("%s out of range: %v", key, err)
+		}
 	}
 }

@@ -344,6 +344,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Set.difference":       setHost("Set.difference"),
 		"Set.subset?":          setHost("Set.subset?"),
 		"Vector.length":        vectorHost("Vector.length"),
+		"Vector.get":           vectorHost("Vector.get"),
 		"Vector.at":            vectorHost("Vector.at"),
 		"Vector.push":          vectorHost("Vector.push"),
 		"Vector.concat":        vectorHost("Vector.concat"),

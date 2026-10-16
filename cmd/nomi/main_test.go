@@ -2887,7 +2887,7 @@ fn main() {
 // `Iter.map` over `List<List<String>>` with an inferred lambda parameter hits
 // an unrelated open gap (`lambda parameter with no inferred type`, then `Iter
 // over an unlowered source`). Writing
-// the row walk with `Iter.at` and `case` keeps the test aimed at the handle
+// the row walk with `Iter.get` and `case` keeps the test aimed at the handle
 // instead of failing for a reason it does not measure.
 func stageCrossModuleSqliteFixture(t *testing.T) (string, string) {
 	t.Helper()
@@ -2944,10 +2944,10 @@ pub fn cell(store: Store, query: String): Result<String, String> {
   case sqlite.query_all(store.conn, query, []) {
     Err(e) -> Err(e)
     Ok(rows) ->
-      case Iter.at(rows, 0) {
+      case Iter.get(rows, 0) {
         None -> Err("no rows")
         Some(row) ->
-          case Iter.at(row, 0) {
+          case Iter.get(row, 0) {
             None -> Err("no columns")
             Some(c) -> Ok(c)
           }

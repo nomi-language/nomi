@@ -336,16 +336,16 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			}
 			return b
 		})))
-	case ir.IterAt:
+	case ir.IterGet:
 		arg, err := fr.read(n.Arg(1))
 		if err != nil {
 			return err
 		}
 		index, ok := arg.(int64)
 		if !ok {
-			return fmt.Errorf("vm: Iter.at requires an Int index")
+			return fmt.Errorf("vm: Iter.get requires an Int index")
 		}
-		fr.write(n.Dst(), maybeOf(rt.SeqAt(fr.runtime, seq, index)))
+		fr.write(n.Dst(), maybeOf(rt.SeqGet(fr.runtime, seq, index)))
 	case ir.IterPartition:
 		callback, err := fr.read(n.Arg(1))
 		if err != nil {

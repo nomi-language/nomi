@@ -437,7 +437,7 @@ b	irScalarBuilder.iterCall | false | funcResult(fk) != kindBool#1	iriterbody.go:
 b	irScalarBuilder.iterCall | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 1 ¦¦ funcParams(fk)[0] != elem ¦¦ funcResult(f…#1	iriterbody.go:212	-	checker types any?/all?/each_while/find/partition predicates as (T) -> Bool
 b	irScalarBuilder.iterCall | false | fk.tag != tagFunc ¦¦ len(funcParams(fk)) != 2 ¦¦ funcParams(fk)[1] != elem ¦¦ funcParams(f…#1	iriterbody.go:226	-	checker fixes (U, T) -> U; function-valued and Maybe<fn> accumulators lower
 b	irScalarBuilder.iterCall | false | reduceSeed(t) == nil#1	iriterbody.go:231	-	checker rejects a reduce with no seed: "`Iter.reduce` needs a starting value"
-b	irScalarBuilder.iterCall | false | !ok ¦¦ args.kinds[1] != kindInt#1	iriterbody.go:322	-	checker types the index as Int; Maybe<elem> answers for fn, Unit and existential elements (Iter.at over List<fn> lowers)
+b	irScalarBuilder.iterCall | false | !ok ¦¦ args.kinds[1] != kindInt#1	iriterbody.go:322	-	checker types the index as Int; Maybe<elem> answers for fn, Unit and existential elements (Iter.get over List<fn> lowers)
 b	irScalarBuilder.iterCall | false | !irRetainedTupleKind(pair)#1	iriterbody.go:329	-	(List<T>, List<T>) is a retained tuple for every element that passes line 152 (fn, Unit, existential lists all partition)
 c	irScalarBuilder.iterCall | false | !irRetainedTupleKind(pair)#2	iriterbody.go:339	-	pinned as gapCWithIndexExistential (reason: qualified call, Type.method: Iter.with_index)
 c	irScalarBuilder.iterCall | false | !irRetainedTupleKind(pair)#3	iriterbody.go:350	-	pinned as gapCZipExistential (reason: qualified call, Type.method: Iter.zip)

@@ -18,7 +18,7 @@ import (
 // bodies as any generic std function is (`Iter.frequencies`).
 func irIterOwnArity(method string) (int, bool) {
 	switch method {
-	case "map", "filter", "reduce", "take", "sort_with", "sort_by", "any?", "all?", "each_while", "find", "zip", "concat", "at", "partition", "group_by",
+	case "map", "filter", "reduce", "take", "sort_with", "sort_by", "any?", "all?", "each_while", "find", "zip", "concat", "get", "partition", "group_by",
 		"drop", "take_while", "drop_while", "each", "flat_map", "chunks", "chunk_by", "join":
 		return 2, true
 	case "to_list", "count", "empty?", "not_empty?", "sort", "first", "last", "reverse", "with_index", "known_count",
@@ -316,12 +316,12 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		// through the view.
 		mk, _ := bl.iterMaybeKind(kindInt)
 		return appendOp(t, ir.IterKnownCount, ir.IterOverSeq, mk, src), mk, false, true
-	case "at":
+	case "get":
 		mk, ok := bl.iterMaybeKind(elem)
 		if !ok || args.kinds[1] != kindInt {
 			return no()
 		}
-		return appendOp(t, ir.IterAt, ir.IterOverSeq, mk, src, args.temps[1]), mk, false, true
+		return appendOp(t, ir.IterGet, ir.IterOverSeq, mk, src, args.temps[1]), mk, false, true
 	case "partition":
 		list := listKindIn(bl.g, elem)
 		pair := bl.g.tupleKind([]kind{list, list})

@@ -17,7 +17,7 @@ pub fn saddle_points(matrix: Vector<Vector<Int>>): List<Position> {
         heights
         |> Iter.with_index()
         |> Iter.filter(|(column, height)| {
-            Some(height) == tallest and Vector.at(minima, column) == Some(height)
+            Some(height) == tallest and Vector.get(minima, column) == Some(height)
         })
         |> Iter.map(|(column, _height)| Position{row: row + 1, column: column + 1})
     })
@@ -39,7 +39,7 @@ fn column_minima(matrix: Vector<Vector<Int>>): Vector<Int> {
 fn column_minimum(matrix: Vector<Vector<Int>>, column: Int): Maybe<Int> {
     heights =
         matrix
-        |> Iter.map(|cells| Vector.at(cells, column))
+        |> Iter.map(|cells| Vector.get(cells, column))
         |> try Maybe.collect()
 
     Iter.min(heights)

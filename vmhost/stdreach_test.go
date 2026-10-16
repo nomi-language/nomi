@@ -54,7 +54,7 @@ fn main() {
 
 fn main() {
   io.inspect(Iter.sort([2.50d, 1.5d, 10d]))
-  io.inspect(Vector.at(#[1.5d, 2.5d], 1))
+  io.inspect(Vector.get(#[1.5d, 2.5d], 1))
 }
 `, "[1.5d, 2.50d, 10d]\nSome(2.5d)\n"},
 		{"Hashable.hash on a tuple is the derive mix", `import std/io
