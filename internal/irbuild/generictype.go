@@ -692,7 +692,14 @@ func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, decla
 		if sym == nil || sym.Kind != analysis.SymbolField {
 			return nil, false
 		}
-		k := g.project(sym.Type)
+		ty := sym.Type
+		if irUnsolvedType(ty) {
+			// `Gbox{v: []}` where nothing fixes the list's element: an
+			// unsolved type argument no value has is filled as a generic
+			// call's is (spec, "Determined type arguments").
+			ty = irFillHolesByPosition(ty, false)
+		}
+		k := g.project(ty)
 		if k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k) {
 			return nil, false
 		}

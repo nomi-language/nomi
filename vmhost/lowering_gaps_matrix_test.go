@@ -146,27 +146,6 @@ fn main() {
 }
 `,
 	},
-	{
-		name: "gapUnsolvedGenericLiteral",
-		fix: "builder: a generic struct literal, a `Map.get` over a map literal or a list of empty " +
-			"vectors or sets, whose type argument stays unsolved because no value has it: " +
-			"`io.inspect(Gbox{v: []})`, `io.inspect([#{}])`, where " +
-			"the element type of `[]` is never fixed. The checker accepts it, as it accepts " +
-			"`io.inspect([])` (§2, an unsolved type argument no value has is not an error), " +
-			"and the builder lowers `io.inspect([])` but not the literal around it",
-		reason: "a struct literal: Gbox",
-		noSkip: true,
-		src: `import std/io
-
-struct Gbox<A> {
-    v: A
-}
-
-fn main() {
-    io.inspect(Gbox{v: []})
-}
-`,
-	},
 }
 
 // matrixCheckerGaps are the expressions the matrix found the checker

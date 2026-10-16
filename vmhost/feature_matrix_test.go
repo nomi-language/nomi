@@ -926,10 +926,6 @@ var mxKnown = []struct {
 	{"gapRangeStructField", func(c mxCell) bool {
 		return c.f.name == "range" && (mxHas(c, "struct field") || mxHas(c, "generic struct field") || mxHas(c, "field default"))
 	}},
-	{"gapUnsolvedGenericLiteral", func(c mxCell) bool {
-		return c.f.tags.has(tagUntyped) && c.shell.name == "assert subject" && len(c.wraps) > 0 &&
-			(c.wraps[0].name == "generic struct field" || c.wraps[0].name == "map value" || c.wraps[0].name == "list element")
-	}},
 	{"gapUnitVariantParameterPattern", func(c mxCell) bool {
 		return c.f.name == "unit" && mxHas(c, "variant parameter pattern")
 	}},
