@@ -161,7 +161,7 @@ Some(n) = None else { 0 } // ✓ the fallback makes n an Int
 
 #### Determined type arguments
 
-A generic function runs at the type arguments of each call (§13), so a call must determine every type argument its function makes values of, wherever the call appears: an argument, a `dbg`, an `assert`, a pipe stage. A function makes values of a type parameter that its signature mentions inside a function type, or two levels inside a parameter type when its result holds that parameter in a collection: `Result.collect` takes `Iter<Result<T, E>>` and returns `Result<List<T>, E>`, so it makes Ts. A type argument nothing in the enclosing declaration fixes, by the end of it, is a compile error at the argument that carries it:
+A generic function runs at the type arguments of each call (§13), so a call must determine every type argument its function makes values of, wherever the call appears: an argument, a `dbg`, an `assert`, a pipe stage. A function makes values of a type parameter that its signature mentions inside a function type, or two levels inside a parameter type when its result holds that parameter in a collection: `Result.collect` takes `Iter<Result<T, E>>` and returns `Result<List<T>, E>`, so it makes Ts. It also makes values of a type parameter whose bound declares a function that takes no value of the type: `Iter.sum` is bounded by `Summable`, whose `empty_sum()` makes a T from nothing, so `Iter.sum([])` makes a T with no element in hand. A bound whose every function takes a value of the type, such as `Comparable`, is called only on the elements, so `Iter.max([])` makes none. A type argument nothing in the enclosing declaration fixes, by the end of it, is a compile error at the argument that carries it:
 
 ```nomi
 dbg Result.collect([]) // ✗ the element type of `[]` is not determined
@@ -169,9 +169,11 @@ dbg Result.collect([]) // ✗ the element type of `[]` is not determined
 dbg Maybe.values([None]) // ✗ the type argument T of `Maybe.values` is not determined
 
 dbg Iter.map([], |x| x) // ✗ the element type of `[]` is not determined: x has it
+
+dbg Iter.sum([]) // ✗ the element type of `[]` is not determined: `empty_sum()` makes a T
 ```
 
-An unsolved type argument that no value has is not an error: the element of an empty collection (`dbg []`, `Iter.to_list([])`, `List.head([])`, `Vector.empty()`) or the variant a value is not (`Ok(1)`, `Result.collect([Ok(1)])`, whose E only passes an error through). Fix the error as a binding: annotate the empty value (`xs: List<Result<Int, String>> = []`) or give the call its type arguments (`Result.collect<Int, String>([])`).
+An unsolved type argument that no value has is not an error: the element of an empty collection (`dbg []`, `Iter.to_list([])`, `List.head([])`, `Vector.empty()`, and `Iter.sum([[]])`, whose T is a `List` and whose sum is `[]`) or the variant a value is not (`Ok(1)`, `Result.collect([Ok(1)])`, whose E only passes an error through). Fix the error as a binding: annotate the empty value (`xs: List<Result<Int, String>> = []`) or give the call its type arguments (`Result.collect<Int, String>([])`).
 
 ### `once` Bindings
 

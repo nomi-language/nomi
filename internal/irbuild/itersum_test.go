@@ -82,3 +82,18 @@ impl Summable for Point {
 }
 `})
 }
+
+// A sum of empty lists is checked at `Iter<List<?>>`, the element of the
+// inner lists left open. No element is built or observed, so the hole is
+// filled as an empty list's is.
+func TestIterSum_OfEmptyLists(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+
+fn main() {
+    io.print(Iter.sum([[]]) == [])
+    io.print(Iter.sum([[], []]) == [])
+    io.print(Iter.sum([[[]], []]) == [[]])
+    io.print(Iter.count(Iter.sum([[]])))
+}
+`, "True\nTrue\nTrue\n0\n")
+}
