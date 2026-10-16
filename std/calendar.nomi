@@ -467,12 +467,12 @@ pub opaque struct NaiveDateTime {
 impl NaiveDateTime {
     /// Combine a `Date` and a `Time`. Both parts are already valid, so
     /// this is infallible.
-    //! assert NaiveDateTime.at(
+    //! assert NaiveDateTime.of(
     //!     try Date"2026-05-04",
     //!     try Time"14:30:00",
     //! ) == try NaiveDateTime"2026-05-04T14:30:00"
     //
-    pub fn at(d: Date, t: Time): NaiveDateTime {
+    pub fn of(d: Date, t: Time): NaiveDateTime {
         NaiveDateTime{
             year: Date.year(d),
             month: Date.month(d),
@@ -554,7 +554,7 @@ impl NaiveDateTime {
 
     /// Parse an ISO naive datetime string (`YYYY-MM-DDTHH:MM:SS[.fff…]`).
     /// Allows a single space instead of `T` between the date and time.
-    //! assert try NaiveDateTime.parse("2026-05-04T14:30:00") == NaiveDateTime.at(
+    //! assert try NaiveDateTime.parse("2026-05-04T14:30:00") == NaiveDateTime.of(
     //!     try Date"2026-05-04",
     //!     try Time"14:30:00",
     //! )

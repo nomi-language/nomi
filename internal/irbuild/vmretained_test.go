@@ -586,7 +586,7 @@ func (s *vmShaper) argFor(f *ir.Func, t ir.Temp, leaf *probeLeaf, depth int) any
 		// shapes of one argument is a graph the checker would have refused,
 		// so there is nothing to reconcile.
 		//
-		// EXCEPT FIELD DEMANDS, which compose: `NaiveDateTime.at` forwards
+		// EXCEPT FIELD DEMANDS, which compose: `NaiveDateTime.of` forwards
 		// one Date to `Date.year` and `Date.month`, and each reads its own
 		// field of the same struct. Their fields are merged into one value.
 		var found any = leaf

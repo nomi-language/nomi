@@ -10,7 +10,7 @@
 // The rest are Nomi bodies: the four `Date.Subtract<Unit, Date>`
 // rungs, `Add<Weeks, Date>`, `Subtract<Duration, Time>`, `impl Literal` for both
 // types, every `DateParts`/`TimeParts` accessor, `Time.new`, `Time.between`,
-// `NaiveDateTime.at` and `at_midnight`, and the three derived
+// `NaiveDateTime.of` and `at_midnight`, and the three derived
 // `Equatable`/`Comparable` impls. A `- Days(3)` that reached the wrong
 // `+ Days(-3)`, or an accessor that read the wrong field, prints a wrong
 // value here.
@@ -152,11 +152,11 @@ fn run(): Result<Unit, Error> {
 
     // --- COMBINING AND SPLITTING ---------------------------------------------
     //
-    // `NaiveDateTime.at` / `at_midnight` are Nomi bodies that read all seven
+    // `NaiveDateTime.of` / `at_midnight` are Nomi bodies that read all seven
     // components through the accessors, and `to_date` / `to_time` are the rt
     // projections back. A round trip through both is what catches a projection
     // that dropped or duplicated a field.
-    combined = NaiveDateTime.at(d, t)
+    combined = NaiveDateTime.of(d, t)
     io.print("combined = " + NaiveDateTime.to_string(combined))
     io.print("split_date = " + Date.to_string(NaiveDateTime.to_date(combined)))
     io.print("split_time = " + Time.to_string(NaiveDateTime.to_time(combined)))

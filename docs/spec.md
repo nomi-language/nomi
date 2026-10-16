@@ -9277,7 +9277,7 @@ gap/fold failures.
 ```
                                 Date  ──────┐
                                             │
-                                Time  ──────┤  at / at_midnight
+                                Time  ──────┤  of / at_midnight
                                             ▼
 Instant  ◄─────────────►  OffsetDateTime ◄────►  NaiveDateTime
    │                            ▲                    │

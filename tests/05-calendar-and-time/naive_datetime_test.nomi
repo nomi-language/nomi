@@ -27,7 +27,7 @@ test "dates and times combine into naive datetimes" {
     assert Ok(d) = Date"2026-05-04"
     assert Ok(t) = Time"14:30:00"
 
-    dt = NaiveDateTime.at(d, t)
+    dt = NaiveDateTime.of(d, t)
 
     assert NaiveDateTime.to_string(dt) == "2026-05-04T14:30:00"
     assert NaiveDateTime.to_date(dt) == d

@@ -148,7 +148,6 @@ calendar.nomi:NaiveDateTime.Subtract<Nanoseconds, NaiveDateTime>.subtract	ran
 calendar.nomi:NaiveDateTime.Subtract<Seconds, NaiveDateTime>.subtract	ran
 calendar.nomi:NaiveDateTime.Subtract<Weeks, NaiveDateTime>.subtract	ran
 calendar.nomi:NaiveDateTime.Subtract<Years, NaiveDateTime>.subtract	ran
-calendar.nomi:NaiveDateTime.at	ran
 calendar.nomi:NaiveDateTime.at_midnight	ran
 calendar.nomi:NaiveDateTime.between	ran
 calendar.nomi:NaiveDateTime.compare	ran
@@ -163,6 +162,7 @@ calendar.nomi:NaiveDateTime.month	ran
 calendar.nomi:NaiveDateTime.nanosecond	ran
 calendar.nomi:NaiveDateTime.new	ran
 calendar.nomi:NaiveDateTime.new_exact	ran
+calendar.nomi:NaiveDateTime.of	ran
 calendar.nomi:NaiveDateTime.parse	ran
 calendar.nomi:NaiveDateTime.second	ran
 calendar.nomi:NaiveDateTime.year	ran

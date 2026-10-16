@@ -2835,7 +2835,7 @@ T zoned_micros = 2026-03-07T12:00:00.0015-05:00[America/New_York]
 T zoned_nanos = 2026-03-07T12:00:00.0000015-05:00[America/New_York]
 T zoned_sub = 2026-03-07T10:30:00-05:00[America/New_York]
 T
-C internal/irbuild/testdata/calendar_date_time.nomi@bb972d0f1607a978
+C internal/irbuild/testdata/calendar_date_time.nomi@0b53fcba04eddf0c
 E 0
 N 0
 H 1bbbe2ef1977f614ef394ea76c581555fae4f6e80fd707f5dbc44865e2ad2b29
@@ -8824,7 +8824,7 @@ T ok <dir>/dates_test.nomi :: date year shifts clamp leap days when needed
 T ok <dir>/dates_test.nomi :: date adds calendar units with plus
 T test result: ok. 10 passed, 0 failed
 T
-C tests/05-calendar-and-time/naive_datetime_test.nomi@e51fd48e091759bf
+C tests/05-calendar-and-time/naive_datetime_test.nomi@e2f833ddc4dc7044
 E 0
 N 0
 H cb08e1d67f70b7fa59f6682f4b65eaaebd5ed5df7d51a316f99f53adf0015d30

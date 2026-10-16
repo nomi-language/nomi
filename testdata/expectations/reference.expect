@@ -47,7 +47,7 @@ T ok Bytes.hash (impl Hashable for Bytes)
 C calendar
 E 0
 N 27
-H 78d532e3b3dddbd4558bde840e4c8a41be1b1c99733ccd0f36c0feec46a638f9
+H e1eb54a450bdc2b95c75c97950a673b0237fb973cd903f98a6f41556d5f93764
 T ok Date.new
 T ok Date.parse
 T ok Date.days_between
@@ -57,7 +57,7 @@ T ok Time.parse
 T ok Time.between
 T ok Time.add (impl Add<Duration, Time> for Time)
 T ok Time.subtract (impl Subtract<Duration, Time> for Time)
-T ok NaiveDateTime.at
+T ok NaiveDateTime.of
 T ok NaiveDateTime.at_midnight
 T ok NaiveDateTime.to_date
 T ok NaiveDateTime.to_time

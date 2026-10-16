@@ -53,7 +53,7 @@ T
 C calendar
 E 0
 N 28
-H be77f0cde3b45e5df8747d655087768c361b4966c2bd8e92ee4ef6029dfef342
+H 9df2b1224fc86107f25b47fa03bca84fb5c39588779c7cef155390b7f67879e4
 T ok <root>/std/calendar.nomi :: impl / new //! test lines 179-180
 T ok <root>/std/calendar.nomi :: impl / parse //! test lines 195-196
 T ok <root>/std/calendar.nomi :: impl / days_between //! test lines 211-212
@@ -64,7 +64,7 @@ T ok <root>/std/calendar.nomi :: impl / between //! test line 368
 T ok <root>/std/calendar.nomi :: day_nanos //! test line 376
 T ok <root>/std/calendar.nomi :: impl / add //! test line 431
 T ok <root>/std/calendar.nomi :: impl / subtract //! test line 440
-T ok <root>/std/calendar.nomi :: impl / at //! test lines 470-473
+T ok <root>/std/calendar.nomi :: impl / of //! test lines 470-473
 T ok <root>/std/calendar.nomi :: impl / at_midnight //! test line 488
 T ok <root>/std/calendar.nomi :: impl / to_date //! test line 503
 T ok <root>/std/calendar.nomi :: impl / to_time //! test line 508
