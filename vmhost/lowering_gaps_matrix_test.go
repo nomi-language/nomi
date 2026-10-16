@@ -89,22 +89,6 @@ fn main() {
 `,
 	},
 	{
-		name: "gapTodoArmBesideUnit",
-		fix: "builder: a `case` whose arms are a Unit value and a `todo`, used as an argument. " +
-			"`todo` is Infallible and fits any arm type, as it does beside an Int arm, but the " +
-			"builder joins the arms' kinds and finds Infallible and Unit disagree",
-		reason: "two `case` arms disagree: Infallible vs",
-		src: `import std/io
-
-fn main() {
-    io.inspect(case [Unit] {
-        [p] -> p
-        _ -> todo
-    })
-}
-`,
-	},
-	{
 		name: "gapRangeStructField",
 		fix: "builder: a struct literal with a field of type Range<Int> (`Hold{v: 1..4}`), and the " +
 			"same Range as a generic struct's field or a field default. A Range in a binding, a " +
