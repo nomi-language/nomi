@@ -49,7 +49,8 @@ func TestCompletion_StructPatternOffersUnwrittenFields(t *testing.T) {
 		{"assert pattern", "fn f(p: Point): Result<Int, AssertionFailure> {\n    assert Point{z, ‸} = p\n    Ok(1)\n}\n", []string{"x", "y"}},
 		{"function parameter", "fn f(Point{x, ‸}): Int {\n    x\n}\n", []string{"y", "z"}},
 		{"lambda parameter", "fn f(ps: List<Point>): Int {\n    g = |Point{‸}| 1\n    0\n}\n", []string{"x", "y", "z"}},
-		{"typed prefix", "fn f(p: Point): Int {\n    case p {\n        Point{x, y‸} -> 1\n    }\n}\n", []string{"y"}},
+		{"anonymous, an `or` alternative", "fn f(m: Maybe<Point>): Int {\n    case m {\n        Some({x: 0, y}) or Some({‸}) -> 1\n        _ -> 0\n    }\n}\n", []string{"x", "y", "z"}},
+		{"typed prefix","fn f(p: Point): Int {\n    case p {\n        Point{x, y‸} -> 1\n    }\n}\n", []string{"y"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

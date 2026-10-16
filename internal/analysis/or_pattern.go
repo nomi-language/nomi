@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -97,6 +98,28 @@ func (c *checker) checkOrPattern(n *ast.OrPattern, expectedTy Type) {
 // (CoveringOrPatterns).
 func (fa *FileAnalysis) OrPatternCovers(or *ast.OrPattern) bool {
 	return fa != nil && fa.CoveringOrPatterns[or]
+}
+
+// DefinitionSites returns every position sym is defined at in fa, in source
+// order. A name an `or` pattern binds is one symbol with a site in each
+// alternative (builder.bindPatternName); every other symbol has at most one.
+func (fa *FileAnalysis) DefinitionSites(sym *Symbol) []Pos {
+	if fa == nil || sym == nil || sym.Kind != SymbolBinding {
+		return nil
+	}
+	var sites []Pos
+	for pos, s := range fa.Definitions {
+		if s == sym {
+			sites = append(sites, pos)
+		}
+	}
+	sort.Slice(sites, func(i, j int) bool {
+		if sites[i].Line != sites[j].Line {
+			return sites[i].Line < sites[j].Line
+		}
+		return sites[i].Col < sites[j].Col
+	})
+	return sites
 }
 
 // orMissingBindingMessage is the error for an alternative of an `or`
