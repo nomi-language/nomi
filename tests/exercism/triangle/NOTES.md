@@ -10,7 +10,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/triangle.
 - `kind` answers `Maybe<Kind>` over a `Kind` enum, `None` for a non-triangle; the three canonical predicates are thin wrappers over it.
 - The kind comes from the size of the set of sides (1, 2 or 3 distinct lengths) rather than pairwise comparisons.
 - Each canonical group is a `group` holding one `subtests` table.
+- `isosceles?` matches `Some(.Equilateral or .Isosceles)`: the `or` sits inside the payload, so one arm says both kinds count.
 
 ## Friction
 
-- [feature] No `or` between patterns (the spec marks it not yet implemented). `isosceles?` needs two arms with the same body where `Some(.Equilateral) or Some(.Isosceles) -> True` would say it once.
+None.

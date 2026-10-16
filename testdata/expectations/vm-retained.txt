@@ -298,6 +298,20 @@
 08-pattern-matching/map_patterns_test.nomi:lookup_negative_int	ran
 08-pattern-matching/map_patterns_test.nomi:lookup_nested	ran
 08-pattern-matching/maybe_result_test.nomi:double	ran
+08-pattern-matching/or_patterns_test.nomi:Reading.inspect	ran
+08-pattern-matching/or_patterns_test.nomi:Shape.inspect	ran
+08-pattern-matching/or_patterns_test.nomi:Side.inspect	ran
+08-pattern-matching/or_patterns_test.nomi:Tri.inspect	ran
+08-pattern-matching/or_patterns_test.nomi:answer	ran
+08-pattern-matching/or_patterns_test.nomi:closer	ran
+08-pattern-matching/or_patterns_test.nomi:off_axis	ran
+08-pattern-matching/or_patterns_test.nomi:opener?	ran
+08-pattern-matching/or_patterns_test.nomi:reading	ran
+08-pattern-matching/or_patterns_test.nomi:side	ran
+08-pattern-matching/or_patterns_test.nomi:size	ran
+08-pattern-matching/or_patterns_test.nomi:small?	ran
+08-pattern-matching/or_patterns_test.nomi:two_equal?	ran
+08-pattern-matching/or_patterns_test.nomi:value	ran
 08-pattern-matching/try_error_conversion_test.nomi:ParseError.inspect	ran
 08-pattern-matching/try_error_conversion_test.nomi:describe	ran
 08-pattern-matching/try_error_conversion_test.nomi:describe_twice	ran
@@ -1232,7 +1246,6 @@ exercism/luhn/luhn.nomi:checksum	ran
 exercism/luhn/luhn.nomi:double	ran
 exercism/luhn/luhn.nomi:valid?	ran
 exercism/matching-brackets/matching_brackets.nomi:balanced?	PROBE: a synthesized argument is not a value of the declared type
-exercism/matching-brackets/matching_brackets.nomi:closer?	ran
 exercism/matching-brackets/matching_brackets.nomi:paired?	ran
 exercism/minesweeper/minesweeper.nomi:annotate	ran
 exercism/minesweeper/minesweeper.nomi:annotate_square	PROBE: a synthesized argument is not a value of the declared type

@@ -371,7 +371,13 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 		add(func() string { return "case " + n + " {\nMeters(k) -> k\n}" },
 			func() string { return "{\nMeters(n) = " + n + "\nn\n}" })
 	case t.k == "Int" && v.t.k == "Shape":
-		add(func() string { return "case " + n + " {\n.Circle(r) -> r\n.Square(s) -> s * s\n.Dot -> 0\n}" })
+		add(func() string {
+			if g.aux.Intn(2) == 0 {
+				// An `or` pattern: one arm for both payload variants.
+				return "case " + n + " {\n.Circle(r) or .Square(r) when r > 2 -> r\n.Circle(_) or .Square(_) or .Dot -> 0\n}"
+			}
+			return "case " + n + " {\n.Circle(r) -> r\n.Square(s) -> s * s\n.Dot -> 0\n}"
+		})
 	case t.k == "Bool" && v.t.k == "Maybe":
 		add(func() string { return "Maybe.some?(" + n + ")" })
 	case t.k == "Bool" && v.t.k == "Result":

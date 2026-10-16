@@ -122,6 +122,58 @@ the value it names, so `square` is a `Shape`.
 `as` works anywhere a pattern does, including `if`, bindings, parameters and
 inside other patterns.
 
+### Matching alternatives with `or`
+
+`A or B` matches a value that either pattern matches, so one arm can handle
+several shapes:
+
+```nomi-run
+enum Shape {
+    Circle Float
+    Square Float
+    Rectangle {width: Float, height: Float}
+}
+
+fn size(s: Shape): String {
+    case s {
+        .Circle(r) or .Square(r) when r > 10.0 -> "big, ${r} across"
+        .Circle(r) or .Square(r) -> "${r} across"
+        .Rectangle{width, height} -> "${width} by ${height}"
+    }
+}
+
+fn closes(c: Codepoint): Bool {
+    case c {
+        ')' or ']' or '}' -> True
+        _ -> False
+    }
+}
+
+fn main() {
+    dbg size(.Square(12.0))
+    dbg size(.Circle(2.0))
+    dbg closes(']')
+    dbg closes('x')
+}
+```
+<!-- expect
+dbg line 23: size(.Square(12.0)) = "big, 12.0 across"
+dbg line 24: size(.Circle(2.0)) = "2.0 across"
+dbg line 25: closes(']') = True
+dbg line 26: closes('x') = False
+-->
+
+Every alternative must bind the same names, with the same types. Here both
+bind `r` as a `Float`, and `r` holds the value from whichever one matched.
+The `when` guard applies to the whole arm: if it is false, matching goes on to
+the next arm.
+
+`or` works inside other patterns too, as in `Some(.Circle(_) or .Square(_))`
+or `[')' or ']' as closer, ..rest]`. A trailing `as` names the whole value
+whichever alternative matched. Together, the alternatives count toward
+covering every value, so `.Red or .Green` and `.Blue` cover a three-color enum
+without `_`.
+
 ## `Maybe<T>` and `Result<T, E>`
 
 Nomi uses two enums for operations that might not have an answer:

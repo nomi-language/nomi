@@ -1407,3 +1407,19 @@ impl Balance {
 
 An opaque distinct needs one, since code outside its file cannot destructure
 it.
+
+## 25. Join arms with one body by `or`
+
+Arms that answer the same thing are one arm with alternatives:
+
+```nomi
+case cp {
+    ' ' or '(' or ')' or '-' -> True
+    _ -> False
+}
+```
+
+not one arm per value repeating `-> True`. Put the `or` where the arms
+differ: `Some(.Equilateral or .Isosceles) -> True` rather than
+`Some(.Equilateral) or Some(.Isosceles) -> True`. Keep separate arms when
+their bodies only happen to agree today and are expected to diverge.

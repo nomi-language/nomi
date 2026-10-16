@@ -17,7 +17,6 @@ Spec sections with a "Status: not yet implemented" callout.
 
 - [§8 Variants as Parameter Types](spec.md) — a struct variant declared inline is not a type: `fn f(r: Rectangle)` and `fn f(r: Shape.Rectangle)` are both `unknown type`. Embedded structs work.
 - [§16 Strings: Display for Iters](spec.md) — `"${it}"` or `io.print(it)` on a lazy `Iter` passes the checker, and the program is refused before it runs with a "not supported yet" error rather than a type error.
-- [§10 Pattern Matching: `or` between patterns](spec.md) — `when` guards work; `a or b` in a `case` arm is a parse error, and no alternative-pattern node exists.
 - [§15 Type Aliases: generic aliases](spec.md) — `typealias Name Target` works; `typealias Name<T> ...` is a parse error at the `<`.
 - [§31 CLI surface (`nomi add`, `nomi publish`)](spec.md) — `nomi run`, `nomi build`, `nomi test`, `nomi check` and `nomi fmt` ship; `add` and `publish` wait on the registry question below.
 - [§31 Project config: dependencies without a local `replace`](spec.md) — a `require` with no local `replace` is skipped, so a dependency is not fetched through the Go module proxy yet.

@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 350
-declared-cases 1031
+records 351
+declared-cases 1037
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1069,6 +1069,18 @@ T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: maybe and result
 T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: maybe helpers map and default values
 T ok <root>/tests/08-pattern-matching/maybe_result_test.nomi :: result helpers map and default values
 T test result: ok. 3 passed, 0 failed
+T
+C 08-pattern-matching/or_patterns_test.nomi
+E 0
+N 6
+H c10a05faa3dfd7bce285c16369487465c91801254676b9fe44e88614d9b2e430
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: alternatives at the top of an arm share one body
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: a guard applies to the arm whichever alternative matched
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: literal alternatives
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: alternatives nested in a payload, a tuple, a field and a list
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: alternatives in each binding position
+T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: a binding's fallback stands in for a payload whose alternatives always match
+T test result: ok. 6 passed, 0 failed
 T
 C 08-pattern-matching/try_error_conversion_test.nomi
 E 0

@@ -28,8 +28,7 @@ pub fn equilateral?(sides: (Float, Float, Float)): Bool {
 /// At least two sides are equal, so every equilateral triangle is isosceles.
 pub fn isosceles?(sides: (Float, Float, Float)): Bool {
     case kind(sides) {
-        Some(.Equilateral) -> True
-        Some(.Isosceles) -> True
+        Some(.Equilateral or .Isosceles) -> True
         _ -> False
     }
 }

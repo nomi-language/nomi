@@ -12,16 +12,7 @@ fn balanced?(rest: List<Codepoint>, awaited: List<Codepoint>): Bool {
         (['[', ..rest], _) -> balanced?(rest, [']', ..awaited])
         (['{', ..rest], _) -> balanced?(rest, ['}', ..awaited])
         ([cp, ..rest], [next, ..awaited]) when cp == next -> balanced?(rest, awaited)
-        ([cp, .._], _) when closer?(cp) -> False
+        ([')' or ']' or '}', .._], _) -> False
         ([_, ..rest], _) -> balanced?(rest, awaited)
-    }
-}
-
-fn closer?(cp: Codepoint): Bool {
-    case cp {
-        ')' -> True
-        ']' -> True
-        '}' -> True
-        _ -> False
     }
 }

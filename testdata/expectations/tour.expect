@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 141
+records 142
 declared-cases 20
 failing 0
 C bindings-and-expressions.md:L116
@@ -622,19 +622,14 @@ N 0
 H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
 T 14
 T
-C pattern-matching.md:L136
+C pattern-matching.md:L130
 E 0
 N 0
-H 2f9fad64f9bcd06c7589a49c63a2fdd88b0a7c4670b943c88235d67ca3663969
-T dbg line 17: name_for(1) = "Alice"
-T dbg line 18: name_for(99) = "unknown"
-T
-C pattern-matching.md:L165
-E 0
-N 0
-H 99f6dad58a710c81eb9be6bbcbaa0e2ae21b6ab0fdd9e004db51dbc67ec0f135
-T dbg line 17: label_for(1) = "Alice"
-T dbg line 18: label_for(9) = "unknown"
+H 668f39db329d8e235c72160a1e290f545822e4978ddc325320a25fd9efb2cba2
+T dbg line 23: size(.Square(12.0)) = "big, 12.0 across"
+T dbg line 24: size(.Circle(2.0)) = "2.0 across"
+T dbg line 25: closes(']') = True
+T dbg line 26: closes('x') = False
 T
 C pattern-matching.md:L18
 E 0
@@ -645,14 +640,28 @@ T dbg line 12: classify(-5) = "negative"
 T dbg line 13: classify(500) = "huge"
 T dbg line 14: classify(42) = "regular"
 T
-C pattern-matching.md:L193
+C pattern-matching.md:L188
+E 0
+N 0
+H 2f9fad64f9bcd06c7589a49c63a2fdd88b0a7c4670b943c88235d67ca3663969
+T dbg line 17: name_for(1) = "Alice"
+T dbg line 18: name_for(99) = "unknown"
+T
+C pattern-matching.md:L217
+E 0
+N 0
+H 99f6dad58a710c81eb9be6bbcbaa0e2ae21b6ab0fdd9e004db51dbc67ec0f135
+T dbg line 17: label_for(1) = "Alice"
+T dbg line 18: label_for(9) = "unknown"
+T
+C pattern-matching.md:L245
 E 0
 N 0
 H 6e61b645b40d3f423638ce3d21fe8639e0278494df8dc771e9a5963b8661fdd5
 T dbg line 16: calculate(100, 5) = Ok(11)
 T dbg line 17: calculate(100, 0) = Err("div by zero")
 T
-C pattern-matching.md:L251
+C pattern-matching.md:L303
 E 0
 N 0
 H d58bc165cf46b3def1a714a99a1e99d66ea16ca542b74ba4ba2eacdd77010347
@@ -661,7 +670,7 @@ T dbg line 13: total(["1", "x", "y"]) = Err("not a number: x")
 T dbg line 16: numbers = [1]
 T dbg line 17: errors = ["not a number: x", "not a number: y"]
 T
-C pattern-matching.md:L291
+C pattern-matching.md:L343
 E 0
 N 0
 H a2bf7852263729ec6b4793e45d0b1b95e3643441a10db5cf5670a4da1e2cd33f

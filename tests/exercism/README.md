@@ -22,7 +22,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [leap](leap/NOTES.md): friction
 - [list-ops](list-ops/NOTES.md): friction
 - [luhn](luhn/NOTES.md): friction
-- [matching-brackets](matching-brackets/NOTES.md): friction
+- [matching-brackets](matching-brackets/NOTES.md): clean
 - [minesweeper](minesweeper/NOTES.md): friction
 - [nucleotide-count](nucleotide-count/NOTES.md): clean
 - [pangram](pangram/NOTES.md): clean
@@ -37,7 +37,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [run-length-encoding](run-length-encoding/NOTES.md): friction
 - [sieve](sieve/NOTES.md): friction
 - [sum-of-multiples](sum-of-multiples/NOTES.md): friction
-- [triangle](triangle/NOTES.md): friction
+- [triangle](triangle/NOTES.md): clean
 - [two-fer](two-fer/NOTES.md): clean
 - [word-count](word-count/NOTES.md): clean
 - [wordy](wordy/NOTES.md): friction

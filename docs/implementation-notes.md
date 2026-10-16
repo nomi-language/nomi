@@ -129,9 +129,21 @@ A generic `typealias Name<T> ...` stops in the parser. The AST has no field for
 a type-parameter list: `ast.TypeAlias` carries `Name`, `Public`,
 `TargetTypeExpr` and `Bounds`.
 
-There is no partial implementation of `or` between patterns: no
-alternative-pattern node exists in `internal/ast`, `internal/parser` or
-`internal/analysis`.
+## `or` patterns
+
+`A or B` is `ast.OrPattern`. The builder makes each name the alternatives
+bind one symbol, defined at every alternative's site
+(`builder.bindPatternName`), and the checker compares the alternatives' name
+sets and types (`internal/analysis/or_pattern.go`). Coverage expands an `or`
+into its alternatives in each column of the constructor matrix.
+
+The IR builder tests the alternatives in order against one value
+(`internal/irbuild/irorpattern.go`). An alternative that matches copies each
+name into a join temporary and jumps to the pattern's success block, where
+each name gets its one `ir.Bind`; so an arm's guard and body are lowered once.
+A parameter's straight-line destructuring prologue cannot branch, so it holds
+the value an `or` inside a parameter matches, and the body's builder tests it
+before the body.
 
 ## Go FFI wrapper
 

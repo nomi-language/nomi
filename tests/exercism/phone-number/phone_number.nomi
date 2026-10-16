@@ -64,12 +64,7 @@ fn digit?(cp: Codepoint): Bool {
 
 fn separator?(cp: Codepoint): Bool {
     case cp {
-        ' ' -> True
-        '(' -> True
-        ')' -> True
-        '-' -> True
-        '.' -> True
-        '+' -> True
+        ' ' or '(' or ')' or '-' or '.' or '+' -> True
         _ -> False
     }
 }

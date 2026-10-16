@@ -1,0 +1,168 @@
+//# `A or B`: a pattern that matches a value either alternative matches.
+
+enum Shape {
+    Circle {r: Float}
+    Square {r: Float}
+    Rect {w: Float, h: Float}
+    Point
+}
+
+enum Side {
+    L Int
+    R Int
+}
+
+enum Tri {
+    Equilateral
+    Isosceles
+    Scalene
+}
+
+struct Reading {
+    kind: Tri
+    n: Int
+}
+
+fn size(s: Shape): String {
+    case s {
+        .Circle{r} or .Square{r} when r > 10.0 -> "big"
+        .Circle{r} or .Square{r} -> "radius ${r}"
+        .Rect{w: 0.0} or .Rect{h: 0.0} or .Point -> "flat"
+        .Rect{w, h} -> "${w} by ${h}"
+    }
+}
+
+fn side(s: Side): String {
+    case s {
+        .L(n) or .R(n) when n > 0 -> "positive ${n}"
+        .L(n) -> "left ${n}"
+        .R(n) -> "right ${n}"
+    }
+}
+
+fn small?(n: Int): Bool {
+    case n {
+        1 or 2 or 3 -> True
+        _ -> False
+    }
+}
+
+fn answer(s: String): Maybe<Bool> {
+    case s {
+        "yes" or "y" -> Some(True)
+        "no" or "n" -> Some(False)
+        _ -> None
+    }
+}
+
+fn opener?(c: Codepoint): Bool {
+    case c {
+        '(' or '[' or '{' -> True
+        _ -> False
+    }
+}
+
+fn two_equal?(m: Maybe<Tri>): Bool {
+    case m {
+        Some(.Equilateral or .Isosceles) -> True
+        Some(.Scalene) or None -> False
+    }
+}
+
+fn off_axis(p: (Int, Int)): Int {
+    case p {
+        (0, x) or (x, 0) -> x
+        (x, y) -> x * y
+    }
+}
+
+fn reading(r: Reading): String {
+    case r {
+        Reading{kind: .Equilateral or .Isosceles, n} -> "equal sides ${n}"
+        Reading{n: 1 or 2} -> "small"
+        _ -> "other"
+    }
+}
+
+fn closer(cs: List<Codepoint>): String {
+    case cs {
+        [')' or ']' or '}' as c, ..rest] -> "${c} then ${Iter.count(rest)}"
+        [] or [_] -> "short"
+        _ -> "other"
+    }
+}
+
+fn value(.L(n) or .R(n): Side): Int {
+    n
+}
+
+test "alternatives at the top of an arm share one body" {
+    assert size(Shape.Circle{r: 2.0}) == "radius 2.0"
+    assert size(Shape.Square{r: 3.0}) == "radius 3.0"
+    assert size(Shape.Rect{w: 0.0, h: 4.0}) == "flat"
+    assert size(Shape.Point) == "flat"
+    assert size(Shape.Rect{w: 2.0, h: 4.0}) == "2.0 by 4.0"
+}
+
+test "a guard applies to the arm whichever alternative matched" {
+    assert size(Shape.Square{r: 12.0}) == "big"
+    assert side(Side.R(3)) == "positive 3"
+    assert side(Side.L(-1)) == "left -1"
+    assert side(Side.R(-2)) == "right -2"
+}
+
+test "literal alternatives" {
+    assert small?(2)
+    refute small?(4)
+    assert answer("y") == Some(True)
+    assert answer("n") == Some(False)
+    assert answer("maybe") == None
+    assert opener?('[')
+    refute opener?(')')
+}
+
+test "alternatives nested in a payload, a tuple, a field and a list" {
+    assert two_equal?(Some(Tri.Isosceles))
+    refute two_equal?(Some(Tri.Scalene))
+    refute two_equal?(None)
+    assert off_axis((0, 5)) == 5
+    assert off_axis((6, 0)) == 6
+    assert off_axis((2, 3)) == 6
+    assert reading(Reading{kind: Tri.Equilateral, n: 9}) == "equal sides 9"
+    assert reading(Reading{kind: Tri.Scalene, n: 2}) == "small"
+    assert reading(Reading{kind: Tri.Scalene, n: 7}) == "other"
+    assert closer([']', 'a', 'b']) == "] then 2"
+    assert closer(['a']) == "short"
+    assert closer(['a', 'b']) == "other"
+}
+
+test "alternatives in each binding position" {
+    .L(n) or .R(n) = Side.R(4)
+    assert n == 4
+
+    .Circle{r} or .Square{r} = Shape.Square{r: 1.5} else {
+        return
+    }
+
+    assert r == 1.5
+
+    found = if Some(1 or 2) = Some(2) {
+        "low"
+    } else {
+        "other"
+    }
+
+    assert found == "low"
+
+    assert .L(k) or .R(k) = Side.L(7)
+    assert k == 7
+
+    assert value(Side.R(8)) == 8
+    assert [Side.L(1), Side.R(2)] |> Iter.map(|.L(m) or .R(m)| m) |> Iter.to_list() == [1, 2]
+}
+
+test "a binding's fallback stands in for a payload whose alternatives always match" {
+    r: Result<Side, String> = Err("none")
+    Ok(.L(n) or .R(n)) = r else { Side.L(0) }
+    assert n == 0
+}

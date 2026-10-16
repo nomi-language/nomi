@@ -2392,6 +2392,7 @@ Every `case` must be exhaustive: its unguarded arms together must match every va
 - A tuple, struct or distinct value is covered when its components are, taken together. `(Some(_), _)`, `(None, Some(_))` and `(None, None)` cover a `(Maybe<A>, Maybe<B>)`; a struct pattern that only binds its fields covers the struct.
 - A list is covered by length: `[]` and `[head, ..tail]` cover every list, while `[]` and `[x]` miss lists of two or more.
 - A literal (`0`, `"a"`, `'x'`), a string prefix (`"a" + rest`) or a map pattern never covers its type, since the compiler does not enumerate the values of `Int`, `Float`, `Decimal`, `String`, `Byte`, `Codepoint` or `Map`. Where one of those decides the match, some arm needs `_` or a binding in that position.
+- An `or` pattern covers what its alternatives cover together: `Some(.Red or .Green)`, `Some(.Blue)` and `None` cover a `Maybe<Color>`.
 - An arm with a `when` guard never counts toward coverage.
 
 A subject-less `case` (§*Ad Hoc Conditionals*) needs an unguarded `_` arm.
@@ -2400,7 +2401,7 @@ A `case` that misses something is a compile error. When the compiler can name a 
 
 ### Guards
 
-Use `when` to add conditions to a pattern. `or` between patterns matches either:
+Use `when` to add a condition to an arm. The arm runs when its pattern matches and the guard is `True`; otherwise matching continues with the next arm:
 
 ```nomi
 case shape {
@@ -2411,17 +2412,57 @@ case shape {
 }
 ```
 
-A guard is a Bool expression: `n when n + 1 -> ...` is the error `` `when` guard must be Bool, got Int ``.
+A guard is a Bool expression: `n when n + 1 -> ...` is the error `` `when` guard must be Bool, got Int ``. In a guard, `or` is the boolean operator: `.Circle{r} when r < 1.0 or r > 9.0 -> ...`.
 
-`or` between patterns requires all patterns to bind the same variables. An `as` after the last alternative names the whole value whichever alternative matched (*Naming the Whole Match*).
+### Alternatives: `or`
 
-> **Status: not yet implemented.** `when` guards work; `or` between patterns
-> does not. The parser reports `expected '->' in case branch` at the `or`,
-> for both payload-carrying and bare variants. The feature needs semantics
-> nothing else in the language needs: binding-set equality
-> across alternatives (the rule above), an interaction with variant
-> exhaustiveness, an answer for `when` combined with `or`, and a
-> decision-tree shape in the IR. Track via `feature-status.md`.
+`A or B` is a pattern that matches a value either `A` or `B` matches. One arm then handles values of several shapes with one body:
+
+```nomi
+import std/io
+
+enum Shape {
+    Circle {r: Float}
+    Square {side: Float}
+    Rect {w: Float, h: Float}
+    Point
+}
+
+fn describe(shape: Shape): String {
+    case shape {
+        .Circle{r} or .Square{side: r} when r > 10.0 -> "big, ${r} across"
+        .Circle{r} or .Square{side: r} -> "${r} across"
+        .Rect{w: 0.0} or .Rect{h: 0.0} or .Point -> "flat"
+        .Rect{w, h} -> "${w} by ${h}"
+    }
+}
+
+fn closer(text: List<Codepoint>): String {
+    case text {
+        [')' or ']' or '}' as c, ..rest] -> "${c} closes, ${Iter.count(rest)} left"
+        _ -> "no closer"
+    }
+}
+
+fn main() {
+    io.print(describe(Shape.Circle{r: 12.0})) // big, 12.0 across
+    io.print(describe(Shape.Square{side: 2.0})) // 2.0 across
+    io.print(describe(Shape.Rect{w: 0.0, h: 3.0})) // flat
+    io.print(describe(Shape.Rect{w: 2.0, h: 3.0})) // 2.0 by 3.0
+    io.print(closer([']', 'x'])) // ] closes, 1 left
+}
+```
+
+The rules:
+
+- **Every alternative binds the same names, each at one type.** `.Circle{r} or .Square{side: r}` binds `r` from whichever alternative matched. A name one alternative lacks is the error ``` `r` is bound by `.Circle{r}` but not by `.Point`; every alternative of an `or` pattern must bind the same names ```, and a name bound at two types names both: ``` `v` is an Int in `.N(v)` but a String in `.S(v)`; a name an `or` pattern binds has one type in every alternative ```. A discard name (`_`, `_rest`) binds nothing and need not appear in every alternative. The name is one binding: it is read, renamed and reported unused as one, and go-to-definition shows each alternative's site.
+- **Alternatives are tried left to right**, and the first that matches binds the names.
+- **`or` nests** inside any pattern that holds subpatterns: a variant's payload (`Some(.Equilateral or .Isosceles)`), a tuple element (`(0, x) or (x, 0)`), a struct field (`P{kind: .A or .B, n}`), a list element (`[')' or ']' as c, ..rest]`) and a map value (`{"k" => 1 or 2}`). Alternatives may be literals of any type a literal pattern takes (`1 or 2 or 3`, `"yes" or "y"`, `'a' or 'b'`).
+- **`or` binds looser than every pattern construct but `as`.** `A or B as x` names the whole value whichever alternative matched (*Naming the Whole Match*). Parentheses group: `(.A(n) as a) or (.B(n) as a)` names each alternative's value, and `.A(n) as a or .B(n)` is the parse error ``` an `as` names the whole `or` pattern, so it goes after the last alternative; to name one alternative, parenthesize it: `(P as a) or ...` ```. A parenthesized `or` among alternatives is the same pattern as without the parentheses: `(A or B) or C` is `A or B or C`.
+- **A guard applies to the whole arm.** `.A(n) or .B(n) when n > 0 -> ...` matches either alternative, then tests `n > 0`. When the guard is `False`, matching continues with the next arm, not with the next alternative.
+- **Coverage is the union of the alternatives.** `.Red or .Green -> ...` and `.Blue -> ...` cover a three-variant `Color` with no `_` (*Exhaustiveness Checking*).
+- **`or` is allowed wherever a pattern is.** In a position that may fail (a `case` arm, `if P = v`, a binding with `else`, `assert P = v`) any alternatives do. In a position that must match every value (a binding without `else`, a parameter or lambda-parameter pattern, a test's setup pattern, a `subtests` pattern) the alternatives must together match every value of its type, by the coverage rules: `fn value(.L(n) or .R(n): Side)` over a two-variant `Side` is fine, and `fn f(.Red or .Green: Color)` is ``refutable pattern in parameter; bind the parameter and use a `case` in the body``. A binding's `else` fallback stands in for one variant's payload (*Bindings with `else`*), so `Ok(.L(n) or .R(n)) = r else { Side.L(0) }` takes a fallback, and `.A(n) or .B(n) = e else { return 0 }`, which names two variants, must leave.
+- A long `or` pattern breaks after each `or`, one alternative per line, the later alternatives indented one level.
 
 ### Struct Destructuring
 
@@ -2498,7 +2539,7 @@ The rules:
 
 A binding's `else` fallback stands in for the payload of the variant the pattern names (*Bindings with `else`*), so an `as` around the whole pattern rules a fallback out: in `Some(n) as m = find() else { 0 }` the fallback supplies `n` but there is no `Maybe` to bind to `m`, and the error is the one for a pattern with no single payload. An `as` inside the payload is fine: `Ok((w, h) as size) = r else { (80, 24) }` binds `size` to the fallback when `r` is an `Err`.
 
-With `or` between patterns (*Guards*), `as` binds looser than `or`: `.Circle{r} or .Square{r} as s` names the whole value either alternative matched.
+With `or` between patterns (*Alternatives: `or`*), `as` binds looser than `or`: `.Circle{r} or .Square{r} as s` names the whole value either alternative matched.
 
 ### Type Narrowing
 
