@@ -3,7 +3,23 @@ package format
 import (
 	"bytes"
 	"strings"
+
+	"github.com/rivo/uniseg"
 )
+
+// textWidth is the number of columns s takes on a line, as a terminal or
+// editor shows it: one per grapheme cluster, two for an East Asian wide
+// or emoji one (uniseg.StringWidth). Every width the formatter measures
+// goes through it, so a line of non-ASCII text breaks where it reaches
+// the width, not where its bytes do. ASCII text is its byte length.
+func textWidth(s string) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return uniseg.StringWidth(s)
+		}
+	}
+	return len(s)
+}
 
 // Render produces the final string for a Doc, given a max line width.
 // The algorithm: for each Group, try rendering it flat (Line -> alt,
@@ -298,14 +314,14 @@ func render(sb *renderOut, d Doc, col, indent, localBase int, tail Doc, width in
 		} else {
 			sb.text(v.s)
 		}
-		return col + len(v.s)
+		return col + textWidth(v.s)
 	case docLine:
 		if broken {
 			sb.lineBreak(indent)
 			return indent
 		}
 		sb.WriteString(v.alt)
-		return col + len(v.alt)
+		return col + textWidth(v.alt)
 	case docHard:
 		sb.lineBreak(indent)
 		return indent
@@ -445,13 +461,13 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 	case docNil:
 		return true
 	case docText:
-		*rem -= len(v.s)
+		*rem -= textWidth(v.s)
 		return *rem >= 0
 	case docLine:
 		if inTail {
 			return true
 		}
-		*rem -= len(v.alt)
+		*rem -= textWidth(v.alt)
 		return *rem >= 0
 	case docHard:
 		return inTail

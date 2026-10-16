@@ -4882,7 +4882,7 @@ func emitPackedConformanceList(keyword string, entries []string) Doc {
 		return Text(keyword)
 	}
 	flat := keyword + " " + strings.Join(entries, ", ")
-	if len(flat) <= conformanceWrapWidth {
+	if textWidth(flat) <= conformanceWrapWidth {
 		return Text(flat)
 	}
 
@@ -4901,17 +4901,17 @@ func emitPackedConformanceList(keyword string, entries []string) Doc {
 func packConformanceEntries(keyword string, entries []string) [][]string {
 	var lines [][]string
 	line := []string{}
-	lineLen := len(keyword) + 1
+	lineLen := textWidth(keyword) + 1
 	limit := conformanceWrapWidth
 	for _, entry := range entries {
-		addLen := len(entry)
+		addLen := textWidth(entry)
 		if len(line) > 0 {
 			addLen += 2
 		}
 		if len(line) > 0 && lineLen+addLen > limit {
 			lines = append(lines, line)
 			line = []string{entry}
-			lineLen = len(entry)
+			lineLen = textWidth(entry)
 			continue
 		}
 		line = append(line, entry)

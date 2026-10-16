@@ -10,11 +10,7 @@ test "reverses strings" {
         ("an even-sized word", "drawer", "reward"),
         ("wide characters", "子猫", "猫子"),
         ("grapheme cluster with pre-combined form", "Würstchenstand", "dnatsnehctsrüW"),
-        (
-            "grapheme clusters",
-            "ผู้เขียนโปรแกรม",
-            "มรกแรปโนยขีเผู้",
-        ),
+        ("grapheme clusters", "ผู้เขียนโปรแกรม", "มรกแรปโนยขีเผู้"),
     ]
 
     subtests cases, (_description, text, expected) {

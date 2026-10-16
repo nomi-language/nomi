@@ -53,12 +53,7 @@ test "finds anagrams" {
             [],
         ),
         ("words other than themselves can be anagrams", "LISTEN", ["LISTEN", "Silent"], ["Silent"]),
-        (
-            "handles case of greek letters",
-            "ΑΒΓ",
-            ["ΒΓΑ", "ΒΓΔ", "γβα", "αβγ"],
-            ["ΒΓΑ", "γβα"],
-        ),
+        ("handles case of greek letters", "ΑΒΓ", ["ΒΓΑ", "ΒΓΔ", "γβα", "αβγ"], ["ΒΓΑ", "γβα"]),
         ("different characters may have the same bytes", "a⬂", ["€a"], []),
     ]
 

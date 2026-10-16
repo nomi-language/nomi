@@ -30,7 +30,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [prime-factors](prime-factors/NOTES.md): clean
 - [queen-attack](queen-attack/NOTES.md): friction
 - [raindrops](raindrops/NOTES.md): clean
-- [reverse-string](reverse-string/NOTES.md): bug
+- [reverse-string](reverse-string/NOTES.md): clean
 - [rna-transcription](rna-transcription/NOTES.md): friction
 - [robot-simulator](robot-simulator/NOTES.md): friction
 - [roman-numerals](roman-numerals/NOTES.md): clean

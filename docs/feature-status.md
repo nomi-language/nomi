@@ -234,7 +234,7 @@ Two phases: `BuildTypes` registers and resolves type definitions, `CheckTypes` w
 
 ## Formatter
 
-- [x] `nomi fmt`: zero-config Wadler pretty-printer, 100 columns, 4-space indent, idempotent and semantics-preserving (property tests over `tests/` and `std/`). `-w` writes, `-l` lists changed files, no path reads stdin. `-d` prints each changed file's formatted text under a `--- path` line; it is not a unified diff yet.
+- [x] `nomi fmt`: zero-config Wadler pretty-printer, 100 display columns (grapheme clusters, a wide character counting two), 4-space indent, idempotent and semantics-preserving (property tests over `tests/` and `std/`). `-w` writes, `-l` lists changed files, no path reads stdin. `-d` prints each changed file's formatted text under a `--- path` line; it is not a unified diff yet.
 - [x] String escapes: one table (`nomi/strlit`) backs the lexer's decode and the formatter's encode; unknown or malformed escapes are compile errors.
 
 ## Execution, embedding and FFI
