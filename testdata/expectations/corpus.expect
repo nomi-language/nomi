@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 353
-declared-cases 1060
+declared-cases 1065
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -499,10 +499,11 @@ T test result: ok. 10 passed, 0 failed
 T
 C 04-scalars-and-text/int_overflow_test.nomi
 E 0
-N 1
-H 28e0121d0f2dfa16ccab3b6b8d2d5f2f0566cc0699b7f78935b1fc22e2fd5ee4
+N 2
+H 6fb8980603da57b9e60f54d48fab15b28e615b09d354b6e950e27b7bffded421
 T ok <root>/tests/04-scalars-and-text/int_overflow_test.nomi :: int abs of the minimum overflows as negating it does
-T test result: ok. 1 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/int_overflow_test.nomi :: int modulo by zero traps as the remainder does
+T test result: ok. 2 passed, 0 failed
 T
 C 04-scalars-and-text/interpolate_composite_test.nomi
 E 0
@@ -530,17 +531,21 @@ T test result: ok. 4 passed, 0 failed
 T
 C 04-scalars-and-text/ints_test.nomi
 E 0
-N 8
-H 256df0f54a6854481877d856b3e55d40a4160982b511065d45dfd9a3213267b1
+N 12
+H 03e56c4b392aabe234173689797c97bfd8422a30eae1467a238029e2bffa1a29
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: ints convert to floats
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero refinement validates divisors
-T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero integers make division and modulo total
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero integers make division total
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo takes the sign of the divisor
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: remainder takes the sign of the dividend
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo of the minimum by minus one is zero
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo is the dividend less the divisor times the floored quotient
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement is stricter than non-zero
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive integers can be used as non-zero divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement rejects zero divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: int abs and sign
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: int min and max
-T test result: ok. 8 passed, 0 failed
+T test result: ok. 12 passed, 0 failed
 T
 C 04-scalars-and-text/matcher_test.nomi
 E 0

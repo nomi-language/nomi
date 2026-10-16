@@ -18,9 +18,9 @@ import {
     summable.Summable
 }
 
-//# Operations on the 64-bit signed `Int` type: total division/modulo gated on
-//# the refinement types `NonZeroInt`/`PositiveInt`, conversion to `Float`,
-//# wrapping (modular) arithmetic, bit operations, and the `Int` limits. The
+//# Operations on the 64-bit signed `Int` type: total division gated on the
+//# refinement types `NonZeroInt`/`PositiveInt`, floored modulo, conversion to
+//# `Float`, wrapping (modular) arithmetic, bit operations, and the `Int` limits. The
 //# arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/`Comparable` impls give `Int` its
 //# string form, hashing, and total order.
 
@@ -121,14 +121,29 @@ impl Int {
     //
     pub host fn shift_right(a: Int, n: Int): Int
 
-    /// Integer modulo. Total — same shape as `Int.divide`, requires
-    /// `y: NonZeroInt`.
-    //! nz = try Int.to_non_zero(3)
-    //! assert Int.modulo(10, nz) == 1
+    /// Floored modulo: the result is zero or has the sign of the divisor `y`,
+    /// as Python's `%`, Elixir's `Integer.mod/2` and Gleam's `int.modulo`
+    /// answer, so it wraps a value into a range: `Int.modulo(-1, 1440)` is
+    /// `1439`. `x % y` differs for operands of opposite signs: it is the
+    /// remainder, takes the sign of the dividend `x`, and matches `/`
+    /// (`-1 % 1440` is `-1`). `Int.modulo(x, y)` is `x - y * floor(x / y)`.
+    /// A zero `y` traps with the division-by-zero error `%` gives, and
+    /// `Int.modulo(Int.min_value, -1)` is `0`.
+    //! assert Int.modulo(7, 3) == 1
+    //! assert Int.modulo(-7, 3) == 2
+    //! assert Int.modulo(7, -3) == -2
+    //! assert Int.modulo(-7, -3) == -1
+    //! assert Int.modulo(-1, 1440) == 1439
+    //! assert -1 % 1440 == -1
     //
-    pub fn modulo(x: Int, y: NonZeroInt): Int {
-        NonZeroInt(n) = y
-        x % n
+    pub fn modulo(x: Int, y: Int): Int {
+        r = x % y
+
+        if r != 0 and (r < 0) != (y < 0) {
+            r + y
+        } else {
+            r
+        }
     }
 
     /// Returns |n|. `Int.abs(Int.min_value)` traps with the integer overflow
@@ -280,8 +295,8 @@ impl Steppable for Int {
 }
 
 /// An Int proven to be non-zero. The smart constructor `Int.to_non_zero` is
-/// the only way to obtain a value; once you have one, dividing or modding
-/// by it cannot fail.
+/// the only way to obtain a value; once you have one, `Int.divide` by it
+/// cannot fail.
 pub opaque type NonZeroInt Int
 
 derive Debug for NonZeroInt

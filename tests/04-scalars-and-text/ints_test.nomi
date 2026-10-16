@@ -12,13 +12,62 @@ test "non-zero refinement validates divisors" {
     assert Int.to_non_zero(0) == None
 }
 
-test "non-zero integers make division and modulo total" {
+test "non-zero integers make division total" {
     assert Some(divisor) = Int.to_non_zero(3)
     assert Some(negative_divisor) = Int.to_non_zero(2)
 
     assert Int.divide(10, divisor) == 3
     assert Int.divide(-7, negative_divisor) == -3
-    assert Int.modulo(10, divisor) == 1
+}
+
+test "modulo takes the sign of the divisor" {
+    assert Int.modulo(7, 3) == 1
+    assert Int.modulo(-7, 3) == 2
+    assert Int.modulo(7, -3) == -2
+    assert Int.modulo(-7, -3) == -1
+    assert Int.modulo(-1, 1440) == 1439
+    assert Int.modulo(6, -3) == 0
+    assert Int.modulo(-6, 3) == 0
+}
+
+test "remainder takes the sign of the dividend" {
+    assert 7 % 3 == 1
+    assert -7 % 3 == -1
+    assert 7 % -3 == 1
+    assert -7 % -3 == -1
+}
+
+test "modulo of the minimum by minus one is zero" {
+    assert Int.modulo(Int.min_value, -1) == 0
+    assert Int.min_value % -1 == 0
+    assert Int.modulo(Int.min_value, Int.max_value) == Int.max_value - 1
+    assert Int.modulo(Int.max_value, Int.min_value) == -1
+}
+
+fn floor_divide(x: Int, y: Int): Int {
+    q = x / y
+
+    if x % y != 0 and (x < 0) != (y < 0) {
+        q - 1
+    } else {
+        q
+    }
+}
+
+test "modulo is the dividend less the divisor times the floored quotient" {
+    values = [-7, -6, -5, -1, 0, 1, 5, 6, 7]
+    divisors = [-3, -2, -1, 1, 2, 3]
+
+    mismatches =
+        values
+        |> Iter.flat_map(|x| {
+            divisors
+            |> Iter.filter(|y| Int.modulo(x, y) != x - y * floor_divide(x, y))
+            |> Iter.map(|y| (x, y))
+        })
+        |> Iter.to_list()
+
+    assert mismatches == []
 }
 
 test "positive refinement is stricter than non-zero" {

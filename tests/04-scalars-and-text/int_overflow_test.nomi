@@ -22,3 +22,26 @@ test "int abs of the minimum overflows as negating it does" {
     assert String.contains?(negated_message, "integer overflow: 0 - -9223372036854775808")
     assert String.contains?(absolute_message, "integer overflow: 0 - -9223372036854775808")
 }
+
+test "int modulo by zero traps as the remainder does" {
+    remainder =
+        """
+            fn main() {
+              _ = 7 % 0
+            }
+            """
+        |> compiler.run()
+
+    modulo =
+        """
+            fn main() {
+              _ = Int.modulo(7, 0)
+            }
+            """
+        |> compiler.run()
+
+    assert Err(remainder_message) = remainder
+    assert Err(modulo_message) = modulo
+    assert String.contains?(remainder_message, "division by zero")
+    assert String.contains?(modulo_message, "division by zero")
+}

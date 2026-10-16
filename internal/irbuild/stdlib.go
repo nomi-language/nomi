@@ -53,12 +53,10 @@ import (
 //
 // # Refusals from inside the stdlib are SILENT, and that is deliberate
 //
-// std/strings contains `String.split` (returns List<String>), and std/int
-// contains `Int.modulo` (takes a NonZeroInt). Reporting those as
-// blockers would blame every user program in the corpus for constructs in a file
-// the user did not write. So a stdlib function is lowered SPECULATIVELY: one
-// that refuses is
-// discarded along with its refusals and marked unlowerable, and a CALL SITE to it
+// Reporting a std function the builder declines as a blocker would blame every
+// user program in the corpus for constructs in a file the user did not write.
+// So a stdlib function is lowered SPECULATIVELY: one that refuses is discarded
+// along with its refusals and marked unlowerable, and a CALL SITE to it
 // refuses at its own position, which is a position somebody wrote. Same mechanism
 // impl.go uses for front-end-synthesized impl blocks, applied to a whole module.
 

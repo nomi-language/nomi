@@ -226,7 +226,7 @@ T
 C int
 E 0
 N 23
-H 8bd39c2d7aa0ae6382a65d231945f04bdffd708728d36ea68a4214047cc08d1f
+H 539dce3127e54ca69316a2098faab4a02307c5302d6f5545f1c2d9de9c7a83ec
 T ok <root>/std/int.nomi :: impl / max_value //! test line 32
 T ok <root>/std/int.nomi :: impl / min_value //! test line 39
 T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 44-46
@@ -241,15 +241,15 @@ T ok <root>/std/int.nomi :: impl / bitwise_xor //! test line 102
 T ok <root>/std/int.nomi :: impl / bitwise_not //! test line 107
 T ok <root>/std/int.nomi :: impl / shift_left //! test line 113
 T ok <root>/std/int.nomi :: impl / shift_right //! test line 120
-T ok <root>/std/int.nomi :: impl / modulo //! test lines 126-127
-T ok <root>/std/int.nomi :: impl / abs //! test lines 136-138
-T ok <root>/std/int.nomi :: impl / sign //! test lines 145-147
-T ok <root>/std/int.nomi :: impl / min //! test lines 158-159
-T ok <root>/std/int.nomi :: impl / max //! test lines 166-167
-T ok <root>/std/int.nomi :: impl / to_string //! test lines 177-178
-T ok <root>/std/int.nomi :: impl / empty_sum //! test lines 189-190
-T ok <root>/std/int.nomi :: impl / divide //! test lines 215-216
-T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 299-301
+T ok <root>/std/int.nomi :: impl / modulo //! test lines 132-137
+T ok <root>/std/int.nomi :: impl / abs //! test lines 151-153
+T ok <root>/std/int.nomi :: impl / sign //! test lines 160-162
+T ok <root>/std/int.nomi :: impl / min //! test lines 173-174
+T ok <root>/std/int.nomi :: impl / max //! test lines 181-182
+T ok <root>/std/int.nomi :: impl / to_string //! test lines 192-193
+T ok <root>/std/int.nomi :: impl / empty_sum //! test lines 204-205
+T ok <root>/std/int.nomi :: impl / divide //! test lines 230-231
+T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 314-316
 T test result: ok. 23 passed, 0 failed
 T
 C io
