@@ -968,7 +968,7 @@ func (x *stdlibIndex) add(f *stdFunc) {
 		// would not have rejected first.
 		//
 		// A gate would make every module-private extern unreachable however
-		// carefully it was bound: std/random's `below_state`, `unit_float_state`
+		// carefully it was bound: std/random's `between_state`, `unit_float_state`
 		// and `os_state`, and std/calendar's boundary, where the public API is
 		// Nomi bodies over private externs because the FFI cannot cross a
 		// `Result<_, Error>` or a `Duration`.
@@ -1906,7 +1906,7 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 		// constructor would collapse. The identity travels in the components.
 		return stdIfaceKind(i)
 	}
-	// A TUPLE — `random.below_state(...): (Int, Int)`. Placed before the
+	// A TUPLE — `random.between_state(...): (Int, Int)`. Placed before the
 	// GenericType block because a tuple is spelled neither nominally nor
 	// generically: the parser gives it as an *ast.FuncType with a nil Return.
 	// Admitted on the List and Map arms' terms; see tupleSigKind.

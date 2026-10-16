@@ -261,7 +261,7 @@ func sharedTupleKind(parts []kind) (kind, bool) {
 // `*ast.FuncType` with a NIL Return, reusing one node for `(Int, Int)` and
 // `(Int) -> String` with the arrow as the only difference (collections.go's
 // structuralTypeOf says so). Without this arm a tuple annotation such as
-// `random.below_state(state: Int, n: Int): (Int, Int)`'s would match nothing
+// `random.between_state(state: Int, from: Int, to: Int): (Int, Int)`'s would match nothing
 // and refuse as `stdlib function outside the scalar subset`, though tuples are
 // an interned `tagTuple` over flat `F0`/`F1` fields.
 //
