@@ -222,4 +222,3 @@ func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k k
 	}
 	return false
 }
-
