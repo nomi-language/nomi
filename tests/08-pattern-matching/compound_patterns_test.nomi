@@ -11,11 +11,7 @@ test "compound patterns can match nested maps without wrappers counting as depth
     wrapped = Some(JV.Obj{"k" => JV.Num(7)})
 
     three = Ok(JV.Obj{
-        "a" => JV.Obj{
-            "b" => JV.Obj{
-                "c" => JV.Num(99),
-            },
-        },
+        "a" => JV.Obj{"b" => JV.Obj{"c" => JV.Num(99)}},
     })
 
     one_result = case one {
@@ -36,11 +32,7 @@ test "compound patterns can match nested maps without wrappers counting as depth
 
     three_result = case three {
         Ok(.Obj{
-            "a" => .Obj{
-                "b" => .Obj{
-                    "c" => .Num(n),
-                },
-            },
+            "a" => .Obj{"b" => .Obj{"c" => .Num(n)}},
         }) -> n
         _ -> 0
     }

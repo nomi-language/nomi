@@ -10,7 +10,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/spiral-matrix.
 - `0` marks an unwritten square, so "free" is `cell_at(grid, position) == Some(0)`, which is `False` both off the grid and on a written square. One comparison does both checks.
 - The walk is a tail-recursive `fn fill` with the position and heading as tuples; turning clockwise is `(dr, dc) -> (dc, -dr)`. It stops after writing `size * size`, so size 0 needs no special case.
 - `set_cell` returns `Maybe<Grid>`, `None` for a position off the grid. `fill` passes that on with `try`, and `spiral_matrix` ends in `Maybe.with_default(grid)`. The walk never steps off the grid, so the default is never used.
-- Plain `test` blocks rather than a `subtests` table, because `nomi fmt` breaks a table of grids one number per line (see game-of-life's NOTES).
+- The cases are one `subtests` table of `(description, size, expected)` rows. The 4x4 and 5x5 grids are written one grid row per line, which `nomi fmt` keeps because each breaks after its `#[`.
 
 ## Friction
 

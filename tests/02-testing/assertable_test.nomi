@@ -18,13 +18,10 @@ impl Assertable for EqualsAssertion {
         } else {
             Some(AssertionDetails{
                 reason: "values were not equal",
-                details: [AssertionDetail{
-                    label: "actual",
-                    value: Debug.inspect(assertion.actual),
-                }, AssertionDetail{
-                    label: "expected",
-                    value: Debug.inspect(assertion.expected),
-                }],
+                details: [
+                    AssertionDetail{label: "actual", value: Debug.inspect(assertion.actual)},
+                    AssertionDetail{label: "expected", value: Debug.inspect(assertion.expected)},
+                ],
             })
         }
     }
@@ -49,7 +46,7 @@ test "custom Assertable failures use the standard report shape" {
     observed_failure: AssertionFailure = failure
 
     assert AssertionFailure.format(observed_failure) == """
-        line 48: values were not equal
+        line 45: values were not equal
           check my_equals(x, y)
           values:
             x

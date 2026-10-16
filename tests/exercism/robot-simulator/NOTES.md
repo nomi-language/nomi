@@ -11,8 +11,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/robot-simulator.
 - `Robot.move` answers `Result<Robot, Error>` and stops at an unknown letter. The canonical data has no such case; the alternative was to ignore unknown letters.
 - `move` is an `Iter.reduce` over the instruction string whose accumulator is the `Result`; `try result` inside the lambda passes an `Err` along unchanged.
 - Updates use spreads (`{..robot, direction: ...}`) and target-typed struct literals (`{x, y: y + 1}` as a `Position`).
-- Test rows carry positions as `(Int, Int)` tuples and build each `Robot` in the body, because a table of nested struct literals is unreadable after `nomi fmt` (below).
+- Test rows are `(description, robot, instructions, expected)` with each `Robot` a target-typed struct literal, so the body is one assertion. A row is too wide for one line, so `nomi fmt` writes its four parts one per line, each robot on one line.
 
 ## Friction
 
-- [verbose] `nomi fmt` breaks any literal three compounds deep onto one field per line, even when it fits, and the break reaches every nested literal (`maxCompoundDepth` in `internal/format/emit.go`). A first version of the table wrote rows as `("changes north to east", {position: {x: 0, y: 0}, direction: .North}, "R", {position: {x: 0, y: 0}, direction: .East})`; each became about 20 lines. The smallest case is `[R{p: P{x: 0, y: 0}, n: 1}]`, which becomes 9 lines. Prettier keeps a short nested object literal on one line when it fits.
+None.

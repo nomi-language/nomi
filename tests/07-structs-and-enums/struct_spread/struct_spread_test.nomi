@@ -304,10 +304,7 @@ test "a nested spread is a value, and its own head is the base" {
 
 test "the patch reaches three levels down" {
     d = Deep{
-        person: Person{
-            name: "Ada",
-            address: Address{street: "1 Main", city: "Boston"},
-        },
+        person: Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}},
         n: 7,
     }
 
@@ -317,13 +314,7 @@ test "the patch reaches three levels down" {
     }
 
     patch = Struct.update(d, {
-        person: {
-            ..,
-            address: {
-                ..,
-                city: "NYC",
-            },
-        },
+        person: {.., address: {.., city: "NYC"}},
     })
 
     assert spread.person.address.city == "NYC"

@@ -11,27 +11,59 @@ test "no columns" {
 }
 
 test "no mines" {
-    minefield = ["   ", "   ", "   "]
+    minefield = [
+        "   ",
+        "   ",
+        "   ",
+    ]
 
-    assert minesweeper.annotate(minefield) == ["   ", "   ", "   "]
+    assert minesweeper.annotate(minefield) == [
+        "   ",
+        "   ",
+        "   ",
+    ]
 }
 
 test "minefield with only mines" {
-    minefield = ["***", "***", "***"]
+    minefield = [
+        "***",
+        "***",
+        "***",
+    ]
 
-    assert minesweeper.annotate(minefield) == ["***", "***", "***"]
+    assert minesweeper.annotate(minefield) == [
+        "***",
+        "***",
+        "***",
+    ]
 }
 
 test "mine surrounded by spaces" {
-    minefield = ["   ", " * ", "   "]
+    minefield = [
+        "   ",
+        " * ",
+        "   ",
+    ]
 
-    assert minesweeper.annotate(minefield) == ["111", "1*1", "111"]
+    assert minesweeper.annotate(minefield) == [
+        "111",
+        "1*1",
+        "111",
+    ]
 }
 
 test "space surrounded by mines" {
-    minefield = ["***", "* *", "***"]
+    minefield = [
+        "***",
+        "* *",
+        "***",
+    ]
 
-    assert minesweeper.annotate(minefield) == ["***", "*8*", "***"]
+    assert minesweeper.annotate(minefield) == [
+        "***",
+        "*8*",
+        "***",
+    ]
 }
 
 test "horizontal line" {
@@ -47,25 +79,68 @@ test "horizontal line, mines at edges" {
 }
 
 test "vertical line" {
-    minefield = [" ", "*", " ", "*", " "]
+    minefield = [
+        " ",
+        "*",
+        " ",
+        "*",
+        " ",
+    ]
 
-    assert minesweeper.annotate(minefield) == ["1", "*", "2", "*", "1"]
+    assert minesweeper.annotate(minefield) == [
+        "1",
+        "*",
+        "2",
+        "*",
+        "1",
+    ]
 }
 
 test "vertical line, mines at edges" {
-    minefield = ["*", " ", " ", " ", "*"]
+    minefield = [
+        "*",
+        " ",
+        " ",
+        " ",
+        "*",
+    ]
 
-    assert minesweeper.annotate(minefield) == ["*", "1", " ", "1", "*"]
+    assert minesweeper.annotate(minefield) == [
+        "*",
+        "1",
+        " ",
+        "1",
+        "*",
+    ]
 }
 
 test "cross" {
-    minefield = ["  *  ", "  *  ", "*****", "  *  ", "  *  "]
+    minefield = [
+        "  *  ",
+        "  *  ",
+        "*****",
+        "  *  ",
+        "  *  ",
+    ]
 
-    assert minesweeper.annotate(minefield) == [" 2*2 ", "25*52", "*****", "25*52", " 2*2 "]
+    assert minesweeper.annotate(minefield) == [
+        " 2*2 ",
+        "25*52",
+        "*****",
+        "25*52",
+        " 2*2 ",
+    ]
 }
 
 test "large minefield" {
-    minefield = [" *  * ", "  *   ", "    * ", "   * *", " *  * ", "      "]
+    minefield = [
+        " *  * ",
+        "  *   ",
+        "    * ",
+        "   * *",
+        " *  * ",
+        "      ",
+    ]
 
     assert minesweeper.annotate(minefield) == [
         "1*22*1",
@@ -76,4 +151,3 @@ test "large minefield" {
         "111111",
     ]
 }
-

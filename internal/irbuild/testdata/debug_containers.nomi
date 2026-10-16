@@ -75,12 +75,7 @@ fn main() {
     io.print(Debug.inspect([[1, 2], [3]]))
 
     io.print(Debug.inspect([
-            [
-                Pt{
-                    zz: 5,
-                    a: 6,
-                },
-            ],
+            [Pt{zz: 5, a: 6}],
         ]))
 
     // A tuple, and a tuple inside a list.

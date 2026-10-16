@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 361
-declared-cases 1098
+declared-cases 1078
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -2998,17 +2998,10 @@ T nomi run: <root>/tests/exercism/game-of-life/game_of_life.nomi declares no `fn
 T
 C exercism/game-of-life/game_of_life_test.nomi
 E 0
-N 8
-H 833bcfca4a2774be0094005abb020a083926a67ebc7b14d2b822c5272d7c50a8
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: empty matrix
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with zero live neighbors die
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with only one live neighbor die
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with two live neighbors stay alive
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with three live neighbors stay alive
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: dead cells with three live neighbors become alive
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: live cells with four or more neighbors die
-T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: bigger matrix
-T test result: ok. 8 passed, 0 failed
+N 1
+H f95e3f021198b177627985f0a1e4dabcf28309ef832e76ce8bc866cb500641e0
+T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: tick
+T test result: ok. 1 passed, 0 failed
 T
 C exercism/hamming/hamming.nomi
 E 1
@@ -3317,18 +3310,10 @@ T nomi run: <root>/tests/exercism/saddle-points/saddle_points.nomi declares no `
 T
 C exercism/saddle-points/saddle_points_test.nomi
 E 0
-N 9
-H 9c5f53068ba6b2b5a053872674180e52018ca939a46fbb3baecf2c8600fffb08
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify single saddle point
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify that empty matrix has no saddle points
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify lack of saddle points when there are none
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify multiple saddle points in a column
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify multiple saddle points in a row
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify saddle point in bottom right corner
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify saddle points in a non square matrix
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify that saddle points in a single column matrix are those with the minimum value
-T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: Can identify that saddle points in a single row matrix are those with the maximum value
-T test result: ok. 9 passed, 0 failed
+N 1
+H dea91f4895297838c6cbfc575e6bd98f2e285ab18d798a68ca407e2525bb5d16
+T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: saddle_points
+T test result: ok. 1 passed, 0 failed
 T
 C exercism/sieve/sieve.nomi
 E 1
@@ -3357,15 +3342,10 @@ T nomi run: <root>/tests/exercism/spiral-matrix/spiral_matrix.nomi declares no `
 T
 C exercism/spiral-matrix/spiral_matrix_test.nomi
 E 0
-N 6
-H 7ee2b5f82afe5509676c9da4380a6dbcbe8f3e848bc32eac31de378e7ce85459
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: empty spiral
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: trivial spiral
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 2
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 3
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 4
-T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral of size 5
-T test result: ok. 6 passed, 0 failed
+N 1
+H e56f9e33a2797064afa139d0efc109bf01addd230efe45dda19fedea18a8e927
+T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral_matrix
+T test result: ok. 1 passed, 0 failed
 T
 C exercism/sum-of-multiples/sum_of_multiples.nomi
 E 1

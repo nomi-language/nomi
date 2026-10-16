@@ -80,21 +80,12 @@ test "a value already widened to the interface is still admitted" {
 
 test "the widening applies at depth in a nested patch" {
     base = Outer{
-        inner: Inner{
-            clock: FakeClock{t: 1},
-            tag: "a",
-        },
+        inner: Inner{clock: FakeClock{t: 1}, tag: "a"},
         port: 80,
     }
 
     patched = Struct.update(base, {
-        inner: {
-            ..,
-            clock: RealClock{
-                base: 100,
-                offset: 5,
-            },
-        },
+        inner: {.., clock: RealClock{base: 100, offset: 5}},
     })
 
     assert Clock.at(patched.inner.clock) == 105
@@ -102,20 +93,12 @@ test "the widening applies at depth in a nested patch" {
 
 test "a nested patch preserves the sibling field it does not name" {
     base = Outer{
-        inner: Inner{
-            clock: FakeClock{t: 1},
-            tag: "keep",
-        },
+        inner: Inner{clock: FakeClock{t: 1}, tag: "keep"},
         port: 80,
     }
 
     patched = Struct.update(base, {
-        inner: {
-            ..,
-            clock: FakeClock{
-                t: 2,
-            },
-        },
+        inner: {.., clock: FakeClock{t: 2}},
     })
 
     assert patched.inner.tag == "keep"

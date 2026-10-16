@@ -46,10 +46,7 @@ fn main() {
     poly = Shape.Poly([Point{x: 1, y: 2}, Point{x: 3, y: 4}])
 
     path = Shape.Path{
-        points: [Point{
-            x: 5,
-            y: 6,
-        }],
+        points: [Point{x: 5, y: 6}],
         name: "ab",
     }
 
@@ -60,20 +57,11 @@ fn main() {
     io.print("${poly == Shape.Poly([])}")
 
     tree = Tree.Branch([
-        Grove{
-            trees: [
-                Tree.Leaf(1),
-                Tree.Leaf(2),
-            ],
-        },
+        Grove{trees: [Tree.Leaf(1), Tree.Leaf(2)]},
         Grove{
             trees: [
                 Tree.Branch([
-                    Grove{
-                        trees: [
-                            Tree.Leaf(4),
-                        ],
-                    },
+                    Grove{trees: [Tree.Leaf(4)]},
                 ]),
             ],
         },
