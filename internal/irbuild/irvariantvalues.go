@@ -244,7 +244,7 @@ func irCyclicNominal(k kind, boxed bool, outer []*typeDef) bool {
 // walk is deciding (`Neg(Boxed)` for `type Boxed Expr` inside Expr), which
 // irDistinctCoinductive decides with the walk's stack.
 func irCyclicDistinct(k kind, deciding []*typeDef) bool {
-	return k.tag == tagNamed && k.def != nil && k.def.isDistinct && irKindReaches(k, deciding)
+	return irDeclaredDistinct(k) && irKindReaches(k, deciding)
 }
 
 // irNominalCoinductive decides a user struct or enum co-inductively: one the

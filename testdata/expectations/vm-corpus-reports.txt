@@ -52,6 +52,7 @@
 07-structs-and-enums/enums_test.nomi
 07-structs-and-enums/recursive_structs_test.nomi
 07-structs-and-enums/struct_call_form_record_test.nomi
+07-structs-and-enums/vector_trees_test.nomi
 08-pattern-matching/as_patterns_test.nomi
 08-pattern-matching/binding_else_test.nomi
 08-pattern-matching/case_patterns_test.nomi

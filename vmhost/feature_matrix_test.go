@@ -159,6 +159,8 @@ const (
 	mxBox   = "struct Box<T> {\n    v: T\n}"
 	mxTree  = "enum Tree<T> {\n    Leaf T\n    Nil\n}"
 	mxCoin  = "enum Coin {\n    Penny\n    Dime\n}"
+	mxVTree = "enum VTree {\n    Leaf Int\n    Node Vector<VTree>\n}\n\nderive Equatable for VTree"
+	mxVDir  = "struct VDir {\n    name: String\n    kids: Vector<VDir>\n}"
 )
 
 var mxFeatures = []mxFeature{
@@ -197,6 +199,10 @@ var mxFeatures = []mxFeature{
 	{name: "generic struct", decls: mxBox, typ: "Box<Int>", expr: "Box{v: 1}", want: "Box{v: 1}"},
 	{name: "generic enum", decls: mxTree, typ: "Tree<String>", expr: `Tree.Leaf("a")`, want: `Leaf("a")`},
 	{name: "generic bare variant", decls: mxTree, typ: "Tree<Int>", expr: "Tree.Nil", want: "Nil", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
+	{name: "recursive vector enum", decls: mxVTree, typ: "VTree", expr: "VTree.Node(#[VTree.Leaf(1), VTree.Node(#[])])",
+		obs: `"${Debug.inspect($v)} ${$v == $v}"`, want: "Node(#[Leaf(1), Node(#[])]) True"},
+	{name: "recursive vector struct", decls: mxVDir, typ: "VDir", expr: `VDir{name: "r", kids: #[VDir{name: "a", kids: #[]}]}`,
+		want: `VDir{name: "r", kids: #[VDir{name: "a", kids: #[]}]}`},
 
 	// Function values.
 	{name: "named function", decls: "fn twice(n: Int): Int {\n    n * 2\n}", typ: "(Int) -> Int", expr: "twice",
