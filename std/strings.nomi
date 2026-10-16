@@ -14,6 +14,7 @@ import {
     lists.List
     matcher.Matcher
     maybe.Maybe.{self, None, Some}
+    regex.Regex
     summable.Summable
 }
 
@@ -216,6 +217,31 @@ impl String {
     pub fn find<M>(s: String, needle: M): Maybe<String> where M: Matcher {
         M.find_in(needle, s)
     }
+
+    /// The capture groups of the first match of `re` in `s`, the leftmost, or
+    /// `None` when there is none. The list holds one entry per group in the
+    /// order the pattern opens them, from group 1: the whole match (group 0)
+    /// is not in it, so `String.find` gives that. A group that took part in
+    /// the match is `Some` of its text, which may be empty; one that did not,
+    /// such as the unused side of `(a)|(b)`, is `None`.
+    //! import std/regex.Regex
+    //!
+    //! assert String.captures("ann@home", Regex`(\w+)@(\w+)`) == Some([Some("ann"), Some("home")])
+    //! assert String.captures("b", Regex`(a)|(b)`) == Some([None, Some("b")])
+    //! assert String.captures("no address", Regex`(\w+)@(\w+)`) == None
+    //
+    pub host fn captures(s: String, re: Regex): Maybe<List<Maybe<String>>>
+
+    /// The capture groups of every non-overlapping match of `re` in `s`, left
+    /// to right, each as `String.captures` gives them; `[]` when nothing
+    /// matches. The matches are the ones `String.find_all` returns.
+    //! import std/regex.Regex
+    //!
+    //! pairs = String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`)
+    //! assert pairs == [[Some("a"), Some("1")], [Some("b"), Some("22")]]
+    //! assert String.captures_all("none", Regex`(\d)`) == []
+    //
+    pub host fn captures_all(s: String, re: Regex): List<List<Maybe<String>>>
 
     /// The words of `s`: the pieces between runs of Unicode whitespace, which
     /// includes U+00A0 NO-BREAK SPACE and U+3000. Unlike `split`, leading,

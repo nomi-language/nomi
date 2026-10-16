@@ -23,6 +23,15 @@ func FFICompile(pattern string) (*Regex, error) {
 	return &Regex{re: re}, nil
 }
 
+// Regexp is the compiled Go regexp behind re, or nil for a nil handle. It is
+// for the std/strings functions that take a Regex (internal/stdstrings).
+func (re *Regex) Regexp() *regexp.Regexp {
+	if re == nil {
+		return nil
+	}
+	return re.re
+}
+
 func FFIPattern(re *Regex) string {
 	if re == nil || re.re == nil {
 		return ""

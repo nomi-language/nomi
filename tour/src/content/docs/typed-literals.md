@@ -177,6 +177,26 @@ pass it to `String.contains?`, `String.find`, `String.find_all` and
 `String.find` returns the first match. `Regex.replace_all` replaces each
 match, and `$1` in the replacement stands for the first capture group.
 
+`String.captures` takes only a `Regex`, because only a regex has capture
+groups. It returns the groups of the first match, from group 1, and
+`String.captures_all` returns them for every match. A group that did not
+take part in the match is `None`:
+
+```nomi-run
+import std/regex.Regex
+
+fn main() {
+    dbg String.captures("ann@home", Regex`(\w+)@(\w+)`)
+    dbg String.captures("b", Regex`(a)|(b)`)
+    dbg "a=1, b=22" |> String.captures_all(Regex`(\w)=(\d+)`)
+}
+```
+<!-- expect
+dbg line 4: String.captures("ann@home", Regex`(\w+)@(\w+)`) = Some([Some("ann"), Some("home")])
+dbg line 5: String.captures("b", Regex`(a)|(b)`) = Some([None, Some("b")])
+dbg line 6: "a=1, b=22" |> String.captures_all(Regex`(\w)=(\d+)`) = [[Some("a"), Some("1")], [Some("b"), Some("22")]]
+-->
+
 The next chapter, [FFI & Dynamic](/ffi-and-dynamic/), shows how Nomi calls
 Go code, and how to handle a value whose shape you don't know yet with
 [`Dynamic`](/reference/dynamic/).

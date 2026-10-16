@@ -1301,6 +1301,7 @@ exercism/robot-simulator/robot_simulator.nomi:advance	ran
 exercism/robot-simulator/robot_simulator.nomi:step	ran
 exercism/roman-numerals/roman_numerals.nomi:roman	ran
 exercism/run-length-encoding/run_length_encoding.nomi:decode	ran
+exercism/run-length-encoding/run_length_encoding.nomi:decode_run	ran
 exercism/run-length-encoding/run_length_encoding.nomi:encode	ran
 exercism/run-length-encoding/run_length_encoding.nomi:encode_run	ran
 exercism/sieve/sieve.nomi:primes	ran

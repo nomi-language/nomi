@@ -210,6 +210,7 @@ var pureCrossings = map[string]bool{
 	"Regex.pattern": true, "Regex.replace_all": true,
 	"Regex.contained_in?": true, "Regex.prefix_of?": true, "Regex.suffix_of?": true,
 	"Regex.split_in": true, "Regex.replace_in": true, "Regex.find_all_in": true,
+	"String.captures": true, "String.captures_all": true,
 
 	"strings.String.contained_in?": true, "strings.String.prefix_of?": true,
 	"strings.String.suffix_of?": true, "strings.String.find_all_in": true,

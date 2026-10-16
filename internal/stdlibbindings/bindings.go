@@ -3,8 +3,10 @@
 // lists.
 //
 //   - Funcs: the three stdlib modules whose implementation is Go
-//     (std/calendar, std/random and std/regex), in their FFI-shaped surface. The
-//     VM calls them through generated adapters (internal/stdlibadapters).
+//     (std/calendar, std/random and std/regex), in their FFI-shaped surface,
+//     plus std/strings' `String.captures` and `String.captures_all`, which
+//     take a `Regex` handle and so cannot be RtFuncs rows. The VM calls them
+//     through generated adapters (internal/stdlibadapters).
 //   - RtFuncs: the rt functions the VM reaches for std's scalar, text, byte,
 //     JSON, Decimal and concurrency primitives. The VM calls every row
 //     through a generated adapter, and internal/irbuild's IR builder retains a
@@ -196,6 +198,8 @@ func Funcs() []Binding {
 		{Name: "Regex.replace_in", Fn: stdregex.FFIReplaceLiteral},
 		{Name: "Regex.split_in", Fn: stdregex.FFISplit},
 		{Name: "Regex.suffix_of?", Fn: stdregex.FFISuffixOf},
+		{Name: "String.captures", Fn: stdstrings.FFICaptures},
+		{Name: "String.captures_all", Fn: stdstrings.FFICapturesAll},
 	}
 }
 

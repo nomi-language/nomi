@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover.
-records 144
+records 145
 declared-cases 21
 failing 0
 C bindings-and-expressions.md:L116
@@ -1147,6 +1147,14 @@ T dbg line 13: String.contains?(text, digits) = True
 T dbg line 14: String.find(text, digits) = Some("42")
 T dbg line 15: String.find_all(text, digits) = ["42", "7"]
 T dbg line 16: String.contains?(text, prefixed) = True
+T
+C typed-literals.md:L185
+E 0
+N 0
+H 724d3ec84aec8d73182fc079908a139da41fc60650d529fe691868e9fecf4b9a
+T dbg line 4: String.captures("ann@home", Regex`(\w+)@(\w+)`) = Some([Some("ann"), Some("home")])
+T dbg line 5: String.captures("b", Regex`(a)|(b)`) = Some([None, Some("b")])
+T dbg line 6: "a=1, b=22" |> String.captures_all(Regex`(\w)=(\d+)`) = [[Some("a"), Some("1")], [Some("b"), Some("22")]]
 T
 C typed-literals.md:L24
 E 0

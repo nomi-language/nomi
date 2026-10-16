@@ -181,6 +181,9 @@ func TestEveryHostDeclarationInAGoBackedModuleIsRegistered(t *testing.T) {
 	report := checkRegistration(stdHostDeclsByModule(t), stdlibbindings.Funcs(), stdlibbindings.Types())
 
 	for _, u := range report.Unregistered {
+		if mixedBackingModules[unregisteredModule(u)] {
+			continue
+		}
 		t.Errorf("%s is a host declaration in a Go-backed std module with no row in "+
 			"internal/stdlibbindings. Add one. Nothing else will tell you: the call fails "+
 			"at RUN TIME with a message that does not name the declaration — `cannot access "+
@@ -208,13 +211,31 @@ func TestEveryHostDeclarationInAGoBackedModuleIsRegistered(t *testing.T) {
 			"the walk is not reaching most of the stdlib and the Go-backed set below is a lower bound",
 			report.Silent)
 	}
-	if got, want := strings.Join(report.GoBacked, " "), "calendar random regex"; got != want {
+	if got, want := strings.Join(report.GoBacked, " "), "calendar random regex strings"; got != want {
 		t.Errorf("Go-backed std modules derived as %q, want %q. A NEW module here is fine — "+
 			"update this control. A MISSING one means its rows stopped matching its declarations.",
 			got, want)
 	}
 	t.Logf("%d row(s) across %d Go-backed module(s) (%s); %d host declaration(s) in the rest of std have no Go row",
 		report.Registered, len(report.GoBacked), strings.Join(report.GoBacked, ", "), report.Silent)
+}
+
+// mixedBackingModules are the std modules whose host declarations are answered
+// three ways: a few by Funcs rows, the rest by RtFuncs rows and by VM
+// intrinsics, which this check does not see. std/strings is one:
+// `String.captures` and `String.captures_all` take a `Regex` handle, which
+// only an FFI-shaped Funcs row can carry, while `String.trim` is an rt row and
+// `String.join` an intrinsic. Its Funcs rows must still each claim a
+// declaration (the orphan check), but its other declarations are not missing
+// rows.
+var mixedBackingModules = map[string]bool{"strings": true}
+
+// unregisteredModule is the module of a report.Unregistered entry, which reads
+// "func <module>.<key>" or "type <module>.<name>".
+func unregisteredModule(entry string) string {
+	_, key, _ := strings.Cut(entry, " ")
+	module, _, _ := strings.Cut(key, ".")
+	return module
 }
 
 // TestTheRegistrationCheckCanFail plants each way the table can go wrong and
