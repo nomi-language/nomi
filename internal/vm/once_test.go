@@ -85,7 +85,7 @@ func TestOnceCycleThroughHostCallbackKeepsLineage(t *testing.T) {
 	m := New(mod, io.Discard)
 	m.hosts["callback"] = func(m *Machine, _ ir.Pos, _ []any) (any, error) { return m.call(reader, nil) }
 	_, err := m.Run("read")
-	if err == nil || err.Error() != "cyclic 'once' binding: 'seed' depends on itself" {
+	if err == nil || err.Error() != "line 1: cyclic 'once' binding: 'seed' depends on itself" {
 		t.Fatalf("cycle: %v", err)
 	}
 }

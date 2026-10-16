@@ -88,11 +88,24 @@ func (e *assertFailure) Unwrap() error { return e.failure }
 // edge to take, is a fault leaving the function.
 type Fault struct {
 	err error
+	// at is the trap as reported at the program's call into the stdlib it
+	// arose in, or nil when it is reported where it arose. seen says the
+	// fault has passed its first site, and placed that its reported line is
+	// settled. See stdlibfault.go.
+	at           *rt.Error
+	seen, placed bool
 }
 
-func (f *Fault) Error() string { return f.err.Error() }
+func (f *Fault) Error() string {
+	if f.at != nil {
+		return f.at.Error()
+	}
+	return f.err.Error()
+}
 
-// Unwrap is the underlying error, whose text `rt` owns.
+// Unwrap is the underlying error, whose text `rt` owns. It is the trap as
+// raised, also when Error reports it at another line, so a debugger that
+// stopped for it recognizes it on the way out.
 func (f *Fault) Unwrap() error { return f.err }
 
 // assertInstr judges one assertion and either continues or unwinds.

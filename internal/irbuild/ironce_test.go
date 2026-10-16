@@ -27,7 +27,7 @@ func TestIROnce_FixtureSemantics(t *testing.T) {
 				t.Fatalf("VM stdout %q, want %q", out.String(), want.stdout)
 			}
 			if name == "once_cycle.nomi" {
-				if err == nil || err.Error() != "cyclic 'once' binding: 'seed' depends on itself" {
+				if err == nil || err.Error() != "line 16: cyclic 'once' binding: 'seed' depends on itself" {
 					t.Fatalf("VM cycle: %v", err)
 				}
 			} else if err != nil {

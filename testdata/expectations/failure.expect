@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
-records 51
-declared-cases 242
-failing 51
+records 52
+declared-cases 247
+failing 52
 C anon_struct.nomi
 E 1
 N 1
@@ -980,6 +980,21 @@ T     values:
 T       chosen()
 T         = HalfEven
 T test result: FAILED. 4 passed, 1 failed
+T
+C stdlib_trap_tests.nomi
+E 1
+N 5
+H 9d5b8e81b4a385860d80cc3b6237d24fbbb75faaa442b19c0239f3a7db5503cc
+T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a stdlib trap in a test body
+T   line 11: division by zero
+T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a stdlib trap through a program function
+T   line 7: integer overflow: 0 - -9223372036854775808
+T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a lambda the stdlib runs
+T   line 19: division by zero
+T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a host function's trap
+T   line 24: strings.String.repeat: negative count -2
+T ok <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: the next case still runs
+T test result: FAILED. 1 passed, 4 failed
 T
 C subtests_names_report.nomi
 E 1

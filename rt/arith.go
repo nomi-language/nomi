@@ -1,7 +1,6 @@
 package rt
 
 import (
-	"errors"
 	"fmt"
 	"math"
 )
@@ -52,12 +51,12 @@ func QuoOverflows(a, b int64) bool { return a == math.MinInt64 && b == -1 }
 // OverflowError is the error a trapping Int operation reports. op is spelled the
 // way the source spells it ("+", "-", "*", "/").
 func OverflowError(line int, op string, a, b int64) error {
-	return errors.New(overflowText(line, op, a, b))
+	return positioned(line, overflowText(line, op, a, b))
 }
 
 // DivByZeroError is the error `/` and `%` report for a zero divisor. It carries
 // no operands: which value was zero is not in doubt.
-func DivByZeroError(line int) error { return errors.New(divByZeroText(line)) }
+func DivByZeroError(line int) error { return positioned(line, divByZeroText(line)) }
 
 func overflowText(line int, op string, a, b int64) string {
 	return fmt.Sprintf("line %d: integer overflow: %d %s %d", line, a, op, b)
@@ -107,6 +106,9 @@ func WrapMulInt(a, b int64) int64 { return a * b }
 func FloatModuloText(line int) string {
 	return fmt.Sprintf("line %d: modulo not supported on floats", line)
 }
+
+// FloatModuloError is FloatModuloText as the fault the VM returns.
+func FloatModuloError(line int) error { return positioned(line, FloatModuloText(line)) }
 
 // --- Decimal arithmetic ----------------------------------------------------
 //
@@ -163,11 +165,11 @@ func MulDecimal(a, b Decimal) Decimal { return a.Mul(b) }
 // which fails only on a zero divisor or the one overflowing pair.
 func DivDecimal(a, b Decimal, line int) Decimal {
 	if b.IsZero() {
-		Trap(DecimalDivByZeroText(line))
+		trapAt(line, DecimalDivByZeroText(line))
 	}
 	q, exact := a.DivExact(b)
 	if !exact {
-		Trap(DecimalNonTerminatingText(line))
+		trapAt(line, DecimalNonTerminatingText(line))
 	}
 	return q
 }
@@ -183,7 +185,7 @@ func NegDecimal(v Decimal) Decimal { return v.Negate() }
 
 // ModDecimal is Nomi's `%` on Decimal, which is not defined: it always traps.
 func ModDecimal(a, b Decimal, line int) Decimal {
-	Trap(DecimalModuloText(line))
+	trapAt(line, DecimalModuloText(line))
 	return Decimal{}
 }
 

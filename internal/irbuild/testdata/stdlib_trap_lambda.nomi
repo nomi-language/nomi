@@ -1,0 +1,17 @@
+// A program lambda that traps while `Iter.map` runs it is the program's
+// code, so the report names the lambda's line, not the `Iter.map` call.
+import std/io
+
+fn main() {
+    io.print("before")
+
+    quotients =
+        [5, 0, 1]
+        |> Iter.map(|x| {
+            divisor = x
+            10 / divisor
+        })
+        |> Iter.to_list()
+
+    io.print(quotients)
+}

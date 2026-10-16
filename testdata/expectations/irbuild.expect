@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 373
+records 377
 declared-cases 0
 failing 77
 C assert_subject_test.nomi@76e4dc034f8c1f74
@@ -3332,14 +3332,14 @@ T
 C internal/irbuild/testdata/context_render_fault.nomi@724629b654a83365
 E 1
 N 0
-H b925a3af9b168467743a41270172099694a3e5ab2887231fc8384e09a129bf45
+H fd96a4c8f5e2d0789bfd78bbdc48fe6ad865e9b6ed1760d72245e4fe977cb8e7
 T bare:   <context>
 T nested: [<context>, <context>]
 T valued: <context>
 T value:  Some(TraceId("t-1"))
 T spent:  Some(0s)
 T --- stderr ---
-T deadline exceeded: the context in force when `main` blocked ran out, so the remaining work was not run
+T line 70: deadline exceeded: the context in force when `main` blocked ran out, so the remaining work was not run
 T
 C internal/irbuild/testdata/context_values_report.nomi@4ce27418a761e37f
 E 1
@@ -5557,18 +5557,18 @@ T
 C internal/irbuild/testdata/once_cycle.nomi@79eb15e606bb9960
 E 1
 N 0
-H 7863cadca037e7ffd885ad370e7e41a3c3fc677ae011ee1b2f9736ff16e4d20f
+H 6b5fa7343b6e61aa3ccd291bb9df43e5d961d7b9c9211d47e93f935388b64314
 T start
 T --- stderr ---
-T cyclic 'once' binding: 'seed' depends on itself
+T line 16: cyclic 'once' binding: 'seed' depends on itself
 T
 C internal/irbuild/testdata/once_cycle_files/main.nomi@59eeee697f49a866
 E 1
 N 0
-H 7863cadca037e7ffd885ad370e7e41a3c3fc677ae011ee1b2f9736ff16e4d20f
+H 81a16f11488ffc2cfb16747d31a8c631d84e5f30ace37f09dd8a59a61c0993da
 T start
 T --- stderr ---
-T cyclic 'once' binding: 'seed' depends on itself
+T line 8: cyclic 'once' binding: 'seed' depends on itself
 T
 C internal/irbuild/testdata/once_sibling/main.nomi@c184384ed6a004f7
 E 0
@@ -6749,21 +6749,53 @@ T inspect float: 2.5
 T hash zero: 0
 T hash int: 7
 T
-C internal/irbuild/testdata/stdlib_trap_repeat.nomi@8b465ff026b32ced
+C internal/irbuild/testdata/stdlib_trap_abs.nomi@02fc409d7ebd67e6
 E 1
 N 0
-H 96800cfc515c69d26f0f9897a61a38d78bc835fec072cbccd9ff3312dc0bfe1f
+H 5757fff89f3dd9104847d8e80186702d66a61d5849deca855bfec3f049c3b301
 T before
 T --- stderr ---
-T strings.String.repeat: negative count -2
+T line 9: integer overflow: 0 - -9223372036854775808
+T
+C internal/irbuild/testdata/stdlib_trap_deep.nomi@57da136fcd2c346e
+E 1
+N 0
+H 0f45e27b6c6d223c15b16f7307929dbf2365fb6d17d4fde42fe10b320d4ff7ce
+T before
+T --- stderr ---
+T line 14: integer overflow: 9223372036854775807 + 1
+T
+C internal/irbuild/testdata/stdlib_trap_lambda.nomi@a30161870e403ddd
+E 1
+N 0
+H 6c29e338d06ebb3fb4731e9a9806b54731c8d32d7ad07ab142de062bbe91fd98
+T before
+T --- stderr ---
+T line 12: division by zero
+T
+C internal/irbuild/testdata/stdlib_trap_modulo.nomi@1f2c653ad928a5c6
+E 1
+N 0
+H 31ba65aaa5c5fdbd99c2f0de3ae8195a919f4d3b7ec32d57427d8c0617c7e03e
+T before
+T --- stderr ---
+T line 7: division by zero
+T
+C internal/irbuild/testdata/stdlib_trap_repeat.nomi@65fdc14b4717ce3b
+E 1
+N 0
+H 44db7036b251cb691a4e33863129713dc42ea8e12c349d1af0103e9cfb6b6e3c
+T before
+T --- stderr ---
+T line 17: strings.String.repeat: negative count -2
 T
 C internal/irbuild/testdata/stdlib_trap_shift.nomi@5cddb798b70d4080
 E 1
 N 0
-H 5b7366312ad9b49e58dcc1299df0c7f35477e28cf1603fbf9c86b8fb347cf8ff
+H 2bc1dc22a43a3b8f1d6e54687d28d1c5bcae0e6922dac1d22aa87441baf76065
 T before
 T --- stderr ---
-T Int.shift_left: negative shift count -1
+T line 9: Int.shift_left: negative shift count -1
 T
 C internal/irbuild/testdata/stdstruct_defaults.nomi@ad540090b25fe523
 E 0

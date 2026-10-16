@@ -21,7 +21,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Image]():         "Modules Entry HostKeys HasMain Root Exports",
 	reflect.TypeFor[ir.Export]():        "Name Func Params Result Encode",
 	reflect.TypeFor[ir.ExportParam]():   "Name Type Decode",
-	reflect.TypeFor[ir.Pos]():           "file line col endLine endCol synth",
+	reflect.TypeFor[ir.Pos]():           "file line col endLine endCol synth stdlib",
 	reflect.TypeFor[ir.Symbol]():        "name",
 	reflect.TypeFor[ir.Block]():         "pos id label instrs term owner fault faultPos hasFault stmts",
 	reflect.TypeFor[ir.Region]():        "pos label blocks owner",

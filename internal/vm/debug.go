@@ -1330,7 +1330,7 @@ func (d *Debugger) fault(m *Machine, fr *frame, pc int, err error) error {
 			// A machine limit, not the program's fault.
 			return nil
 		}
-		stop.Reason, stop.Text = StopTrap, positioned.Error()
+		stop.Reason, stop.Text = StopTrap, reportedText(fr, pc, st, positioned)
 	}
 	th.lastFault = err
 	if stop.Reason == StopTrap {

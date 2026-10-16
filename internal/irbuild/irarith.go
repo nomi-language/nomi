@@ -73,9 +73,18 @@ func (g *gen) irBind(t ir.Temp, k kind) expr {
 // crash.
 func (g *gen) irPos(line, col int) ir.Pos {
 	if analysis.IsSynthesizedLine(line) {
-		return ir.AtSynthesized(g.nomiPath, line, col)
+		return g.ownPos(ir.AtSynthesized(g.nomiPath, line, col))
 	}
-	return ir.At(g.nomiPath, line, col)
+	return g.ownPos(ir.At(g.nomiPath, line, col))
+}
+
+// ownPos is p, a position in this gen's file, marked as a stdlib position
+// when this gen lowers a stdlib module (ir.Pos.WithStdlib).
+func (g *gen) ownPos(p ir.Pos) ir.Pos {
+	if g.stdModule != "" {
+		return p.WithStdlib()
+	}
+	return p
 }
 
 // irArithKind is the IR operand domain and whatever that domain needs, for an
