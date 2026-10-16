@@ -9642,6 +9642,16 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 			attached = true
 		}
 	}
+	// A call with no parameters solves nothing here unless its result has an
+	// expected type: `[1] + List.empty_sum()` and `List.empty_sum() == [1]`
+	// are operands, which have none, so retTy holds the fresh variables
+	// instantiateUnboundCalleeParams made. The operator solves them, and the
+	// call is recorded at those variables, which the IR builder reads once
+	// they are solved, as it reads a partial application's below.
+	if !attached && len(ft.Params) == 0 && len(openSlots) == 0 && containsTypeVar(retTy) && !c.containsForeignTypeParam(retTy) {
+		c.attachCallType(n.Func, &FuncType{Return: retTy})
+		attached = true
+	}
 	c.recordInstantiation(n, subs, instArgs)
 
 	// Partial application: a function of the open slots, in the order the
