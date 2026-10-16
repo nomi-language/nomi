@@ -64,6 +64,11 @@ module.exports = grammar({
     // when the group's name string follows it, as the Go parser reads it.
     // Anywhere else it is an identifier.
     $._group_keyword,
+    // The contextual keyword `host`: the word that opens a host declaration
+    // when `fn` or `type` follows it on its line, as the Go parser reads it.
+    // Anywhere else it is an identifier, so a binding, parameter or field
+    // named `host` reads as one in every position.
+    $.host_keyword,
   ],
 
   word: $ => $.identifier,
@@ -71,6 +76,9 @@ module.exports = grammar({
   conflicts: $ => [
     [$.struct_construction, $._simple_type],
     [$.struct_construction, $.struct_pattern],
+    // `if P{x, y} = p {`: a punned field is a construction's field or a
+    // pattern's until the `=` after the `}` decides.
+    [$.struct_construction, $.pattern_field],
     [$.map_construction, $._simple_type],
     [$.map_construction, $.struct_pattern],
     [$._expression, $._expression_or_statement],
@@ -444,8 +452,6 @@ module.exports = grammar({
     )),
 
     parameters: $ => seq('(', commaSep($.parameter), ')'),
-
-    host_keyword: _ => 'host',
 
     // A function-definition parameter is either a plain name or an
     // irrefutable destructuring pattern (tuple, struct/typed-struct,
@@ -1379,6 +1385,18 @@ module.exports = grammar({
       $.struct_construction,
       $.anon_struct,
       $.map_literal,
+      // A literal or a bare variant a field must equal, `{x: 0, y} = p else
+      // { ... }` or `{done: True, n} = s else { ... }`, which only a binding
+      // with `else` can use.
+      $.integer,
+      $.float,
+      $.decimal,
+      $.codepoint,
+      $.string,
+      $.boolean,
+      $.type_identifier,
+      $.type_field_access,
+      $.dot_variant,
     ),
 
     return_statement: $ => prec.right(seq('return', optional(seq($._same_line, $._expression)))),
@@ -1865,7 +1883,10 @@ module.exports = grammar({
 
     pattern_field: $ => choice(
       seq(field('name', $._field_identifier), ':', $._case_pattern),
-      field('name', $._field_identifier),
+      // A punned field. Its precedence is struct_construction's, so at the
+      // `,` after `x` in `if P{x, y} = p` neither reading wins statically and
+      // both stay alive (the conflict above) until the `=` decides.
+      prec(10, field('name', $._field_identifier)),
     ),
 
     tuple_pattern: $ => seq('(', $._case_pattern, repeat1(seq(',', $._case_pattern)), ')'),
@@ -2063,7 +2084,7 @@ module.exports = grammar({
     ),
 
     // Identifiers
-    _field_identifier: $ => prec(1, choice($.identifier, alias($.host_keyword, $.identifier))),
+    _field_identifier: $ => prec(1, $.identifier),
     identifier: $ => /[a-z_][a-zA-Z0-9_]*\??/,
     type_identifier: $ => /[A-Z][a-zA-Z0-9_]*/,
 

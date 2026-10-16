@@ -23,6 +23,14 @@ fn mode(config: Map<String, String>): String {
     }
 }
 
+fn host_or(config: Map<String, String>, fallback: String): String {
+    if {"host" => host} = config {
+        host
+    } else {
+        fallback
+    }
+}
+
 test "a map binding with else binds every key it names" {
     assert address({"host" => "localhost", "port" => "8080"}) == "localhost:8080"
 }
@@ -42,4 +50,29 @@ test "a map pattern in a case arm falls through to the next arm" {
     assert mode({"mode" => "debug"}) == "debugging"
     assert mode({"mode" => "release"}) == "release"
     assert mode({"host" => "localhost"}) == "no mode"
+}
+
+test "a map pattern in an if binds when every key is present" {
+    assert host_or({"host" => "example.org"}, "localhost") == "example.org"
+    assert host_or({"port" => "8080"}, "localhost") == "localhost"
+}
+
+test "a map pattern in an if inside a test body" {
+    config = {"mode" => "debug", "level" => "2"}
+
+    found = if {"mode" => mode, "level" => level} = config {
+        "${mode}/${level}"
+    } else {
+        "none"
+    }
+
+    assert found == "debug/2"
+
+    missing = if {"missing" => value} = config {
+        value
+    } else {
+        "none"
+    }
+
+    assert missing == "none"
 }

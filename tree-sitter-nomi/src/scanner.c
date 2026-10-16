@@ -39,6 +39,9 @@
 //   ATTACHED_TEST_PROMPT_GROUP_END — zero-width end of a contiguous `//!`
 //                                attached-test group.
 //   SAME_LINE                  — zero-width mark before a keyword's operand.
+//   SUBTESTS_KEYWORD, GROUP_KEYWORD, HOST_KEYWORD — the contextual keywords
+//                                `subtests`, `group` and `host`, each emitted
+//                                only where what follows makes it one.
 //
 // Each string scanner emits at least one character; if the first character
 // is already a boundary, the scanner returns false and lets the main
@@ -74,6 +77,9 @@ enum TokenType {
     // when the group's name string or its `{` follows it
     // (scan_group_keyword).
     GROUP_KEYWORD,
+    // The contextual keyword `host` that opens a host declaration, emitted
+    // only when `fn` or `type` follows it on its line (scan_host_keyword).
+    HOST_KEYWORD,
 };
 
 typedef struct {
@@ -565,6 +571,23 @@ static bool scan_group_keyword(TSLexer *lexer) {
     return true;
 }
 
+// The contextual keyword `host`, at the lookahead where a declaration can
+// start. As in the Go parser (startsHostDecl), the word is the keyword only
+// when `fn` or `type` follows it: `host fn now(): Instant`, `pub host type
+// Regex`. A `host` binding, parameter or field (`host = "localhost"`, `{host:
+// h}`) leaves it an identifier. The token ends after the word.
+static bool scan_host_keyword(TSLexer *lexer) {
+    if (!at_word(lexer, "host")) return false;
+    lexer->mark_end(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+    bool declares = lexer->lookahead == 'f' ? at_word(lexer, "fn")
+        : lexer->lookahead == 't' ? at_word(lexer, "type")
+        : false;
+    if (!declares) return false;
+    lexer->result_symbol = HOST_KEYWORD;
+    return true;
+}
+
 // Scan a line-leading `//!` prompt, or the end of a prompt group, at the
 // position after the leading whitespace run, which held `newlines` line
 // breaks. A prompt token ends right after its `!`: the spaces after it are
@@ -684,6 +707,10 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
 
     if (valid_symbols[GROUP_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 'g') {
         return scan_group_keyword(lexer);
+    }
+
+    if (valid_symbols[HOST_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 'h') {
+        return scan_host_keyword(lexer);
     }
 
     // The operand of `dbg`, `try`, `return`, `break` and `todo` must start on

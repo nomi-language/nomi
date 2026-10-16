@@ -4461,7 +4461,31 @@
             "named": true
           },
           {
+            "type": "boolean",
+            "named": true
+          },
+          {
             "type": "call_expression",
+            "named": true
+          },
+          {
+            "type": "codepoint",
+            "named": true
+          },
+          {
+            "type": "decimal",
+            "named": true
+          },
+          {
+            "type": "dot_variant",
+            "named": true
+          },
+          {
+            "type": "float",
+            "named": true
+          },
+          {
+            "type": "integer",
             "named": true
           },
           {
@@ -4473,11 +4497,23 @@
             "named": true
           },
           {
+            "type": "string",
+            "named": true
+          },
+          {
             "type": "struct_construction",
             "named": true
           },
           {
             "type": "tuple_expression",
+            "named": true
+          },
+          {
+            "type": "type_field_access",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
             "named": true
           }
         ]

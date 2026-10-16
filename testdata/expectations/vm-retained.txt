@@ -302,6 +302,7 @@
 08-pattern-matching/distinct_sub_patterns_test.nomi:tuple_case	ran
 08-pattern-matching/distinct_sub_patterns_test.nomi:variant	ran
 08-pattern-matching/map_binding_else_test.nomi:address	ran
+08-pattern-matching/map_binding_else_test.nomi:host_or	ran
 08-pattern-matching/map_binding_else_test.nomi:mode	ran
 08-pattern-matching/map_binding_else_test.nomi:port_or_default	ran
 08-pattern-matching/map_patterns_test.nomi:Color.inspect	ran

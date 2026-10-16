@@ -195,11 +195,13 @@ fn f(s: Shape): Int {
         (identifier)
         (case_branch
           (as_pattern
-            (struct_construction
+            (struct_pattern
               (dot_variant
                 (type_identifier))
-              (identifier)
-              (identifier))
+              (pattern_field
+                (identifier))
+              (pattern_field
+                (identifier)))
             (identifier))
           (binary_expression
             (identifier)

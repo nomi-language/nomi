@@ -1620,10 +1620,6 @@
         }
       ]
     },
-    "host_keyword": {
-      "type": "STRING",
-      "value": "host"
-    },
     "parameter": {
       "type": "SEQ",
       "members": [
@@ -6486,6 +6482,42 @@
         {
           "type": "SYMBOL",
           "name": "map_literal"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "integer"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "float"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "decimal"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "codepoint"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "string"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "boolean"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "type_identifier"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "type_field_access"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "dot_variant"
         }
       ]
     },
@@ -9090,11 +9122,15 @@
           ]
         },
         {
-          "type": "FIELD",
-          "name": "name",
+          "type": "PREC",
+          "value": 10,
           "content": {
-            "type": "SYMBOL",
-            "name": "_field_identifier"
+            "type": "FIELD",
+            "name": "name",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_field_identifier"
+            }
           }
         }
       ]
@@ -11093,22 +11129,8 @@
       "type": "PREC",
       "value": 1,
       "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SYMBOL",
-            "name": "identifier"
-          },
-          {
-            "type": "ALIAS",
-            "content": {
-              "type": "SYMBOL",
-              "name": "host_keyword"
-            },
-            "named": true,
-            "value": "identifier"
-          }
-        ]
+        "type": "SYMBOL",
+        "name": "identifier"
       }
     },
     "identifier": {
@@ -11212,6 +11234,10 @@
     [
       "struct_construction",
       "struct_pattern"
+    ],
+    [
+      "struct_construction",
+      "pattern_field"
     ],
     [
       "map_construction",
@@ -11423,6 +11449,10 @@
     {
       "type": "SYMBOL",
       "name": "_group_keyword"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "host_keyword"
     }
   ],
   "inline": [],

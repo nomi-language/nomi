@@ -12,7 +12,7 @@
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
 records 366
-declared-cases 1105
+declared-cases 1107
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1119,13 +1119,15 @@ T test result: ok. 3 passed, 0 failed
 T
 C 08-pattern-matching/map_binding_else_test.nomi
 E 0
-N 4
-H 7cf6deca0cf0d6e956bc91508ba59a1af36dd52f86e198b7b9cf9d3b1b2c38b2
+N 6
+H 4144aa0f4d797cfac63165f6165e49024eb24c5e656299a93002831201895900
 T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map binding with else binds every key it names
 T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map binding runs its else when a key is missing
 T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map binding's else arms match the map that missed
 T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map pattern in a case arm falls through to the next arm
-T test result: ok. 4 passed, 0 failed
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map pattern in an if binds when every key is present
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map pattern in an if inside a test body
+T test result: ok. 6 passed, 0 failed
 T
 C 08-pattern-matching/map_patterns_test.nomi
 E 0
