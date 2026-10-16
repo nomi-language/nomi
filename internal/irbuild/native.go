@@ -855,6 +855,10 @@ type gen struct {
 	// unitFnLambda is the lambda a nested Unit `fn` is lowering as: its
 	// body may end in a `dbg` observation, whose value is discarded.
 	unitFnLambda *ast.Lambda
+	// declaredFnLambda is the lambda a nested `fn` with a declared result
+	// is lowering as: its result is that type (lambdaWant), never the
+	// body's own.
+	declaredFnLambda *ast.Lambda
 	// rebuilding is the path of (have, want) pairs whose widening adapter is
 	// being built (irembedsrebuild.go), each with the adapter's function and
 	// its self parameter, so a generic enum that holds itself calls its own

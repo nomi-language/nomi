@@ -18,6 +18,14 @@ func irRetainedRecordKind(k kind) bool {
 }
 
 func (bl *irScalarBuilder) recordMake(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
+	// `{f: #{}, g: 0}` whose set a later use fixes (`r.f` stored in a
+	// `Set<Int>` field): the checker's type of the record types each
+	// field, as a tuple's does (tupleMake).
+	if k := bl.g.project(bl.g.checkedExprType(t)); t.Spread == nil && len(t.Fields) != 0 && k.tag == tagAnonStruct && irNestedCollection(k) && irFullyTyped(k) {
+		if _, typed := irRecordField(k, t.Fields[0].Name, len(t.Fields)); typed {
+			return bl.recordMakeOf(t, k)
+		}
+	}
 	// kindInvalid: sentinel — no expected record type.
 	return bl.recordMakeOf(t, kindInvalid)
 }

@@ -925,24 +925,6 @@ var mxKnown = []struct {
 	match func(c mxCell) bool
 }{
 	{"gapNestedFnInFieldDefault", func(c mxCell) bool { return mxWithin(c, "nested function", "field default") }},
-	{"gapEmptyLiteralSolvedLater", func(c mxCell) bool {
-		switch c.f.name {
-		case "empty vector", "empty set", "empty map":
-			return len(c.wraps) > 0 && c.wraps[0].typing != mxGives && mxLaterGives(c, 1)
-		}
-		return false
-	}},
-	{"gapUnsolvedGenericLiteral", func(c mxCell) bool {
-		return c.f.tags.has(tagUntyped) && c.shell.name == "assert subject" && len(c.wraps) > 0 &&
-			(c.wraps[0].name == "generic struct field" || c.wraps[0].name == "map value" || c.wraps[0].name == "list element")
-	}},
-	{"gapNestedFnExistentialLint", func(c mxCell) bool {
-		return c.f.name == "existential widening" && mxHas(c, "nested function")
-	}},
-	{"gapExistentialListInNestedFn", func(c mxCell) bool {
-		return c.f.name == "existential list" &&
-			(mxHas(c, "nested function") || len(c.wraps) > 0 && c.wraps[0].name == "block tail")
-	}},
 }
 
 // mxHas reports whether one of c's wrapping contexts is named name.

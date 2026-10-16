@@ -10,7 +10,13 @@ import (
 // statements in their own lexical scope, then its tail's value, then its
 // deferred calls. The tail's temporary is the block's value; the block's
 // names do not escape.
-func (bl *irScalarBuilder) blockValue(block *ast.Block) (ir.Temp, kind, bool, bool) {
+//
+// want, when it is not kindInvalid, is the position's expected type, which
+// types the tail as it would type the block's value written there:
+// `Hold{v: { io.print("x")  #{} }}` builds its set at the field's
+// `Set<Int>`, and `[1, "a"]` as a tail where a `List<Display>` is expected
+// holds each element as the existential.
+func (bl *irScalarBuilder) blockValue(block *ast.Block, want kind) (ir.Temp, kind, bool, bool) {
 	defer bl.keepOpenDefers()()
 	defer bl.g.enterBlockTypes(block)()
 	lead, tail := bl.g.irScalarBlock(block, "")
@@ -27,7 +33,20 @@ func (bl *irScalarBuilder) blockValue(block *ast.Block) (ir.Temp, kind, bool, bo
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	bl.markStmt(tail, ir.StmtStatement)
-	val, k, _, ok := bl.lower(tail)
+	var val ir.Temp
+	var k kind
+	var ok bool
+	// kindInvalid: sentinel — no expected type was passed.
+	if want == kindInvalid {
+		val, k, _, ok = bl.lower(tail)
+	} else {
+		val, k, _, ok = bl.lowerTypedOperand(tail, want)
+		if ok && k != want && untypedLiteral(k) {
+			// An empty literal takes the expected type where it sits; it
+			// has no effect, so typing it here moves nothing.
+			val, k, ok = bl.coerceEmpty(tail, val, k, want)
+		}
+	}
 	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
 	}

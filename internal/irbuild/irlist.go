@@ -3,6 +3,7 @@ package irbuild
 import (
 	"slices"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -256,15 +257,26 @@ func irNestedEmbeds(k kind) bool {
 // literalParts is the checker's type of an unannotated collection literal,
 // projected, when one of its type arguments holds, below its top, an
 // embedded type's enum (`[(1, c), (2, shape)]` is a `List<(Int, Shape)>`)
-// or a collection (`[(1, []), (2, [3])]` is a `List<(Int, List<Int>)>`):
-// its items are then lowered against those parts, so each embedded value
-// is widened, and each empty collection typed, where it sits. It answers
-// nil otherwise; a top-level join (`[c, shape]`, `[[], [1]]`) is found from
-// the lowered items (irEmbedsJoin, literalItemsCoerced).
+// or a collection (`[(1, []), (2, [3])]` is a `List<(Int, List<Int>)>`), or
+// is a fully typed collection (`[#{}]` is a `List<Set<Int>>` where a later
+// use fixes the set's element): its items are then lowered against those
+// parts, so each embedded value is widened, and each empty collection
+// typed, where it sits. It answers nil otherwise; a top-level join of
+// embedded values (`[c, shape]`) is found from the lowered items
+// (irEmbedsJoin, literalItemsCoerced).
+//
+// A type argument the checker left unsolved (`io.inspect([#{}])`, where
+// nothing fixes the set's element) is one no value has, filled as a generic
+// call's is (spec, "Determined type arguments"), so the empty literal in
+// the item is typed at the filled part.
 func (bl *irScalarBuilder) literalParts(at ast.Node, of tag) []kind {
-	parts := bl.checkedLiteralParts(at, of)
+	ty := bl.g.checkedExprType(at)
+	if ty != nil && irUnsolvedType(ty) {
+		ty = irFillHolesByPosition(ty, false)
+	}
+	parts := bl.literalPartsOf(ty, of)
 	for _, p := range parts {
-		if irNestedEmbeds(p) || (irNestedCollection(p) && irFullyTyped(p)) {
+		if irNestedEmbeds(p) || ((irIsCollection(p) || irNestedCollection(p)) && irFullyTyped(p)) {
 			return parts
 		}
 	}
@@ -362,7 +374,12 @@ func irFullyTyped(k kind) bool {
 // (tagEmptySet) or vector (tagEmptyVector), or a map's key and value
 // (tagMap). It answers nil when the checked type is not that collection.
 func (bl *irScalarBuilder) checkedLiteralParts(at ast.Node, of tag) []kind {
-	k := bl.g.project(bl.g.checkedExprType(at))
+	return bl.literalPartsOf(bl.g.checkedExprType(at), of)
+}
+
+// literalPartsOf is checkedLiteralParts of the checked type ty.
+func (bl *irScalarBuilder) literalPartsOf(ty analysis.Type, of tag) []kind {
+	k := bl.g.project(ty)
 	switch {
 	case of == tagList && k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1:
 		return k.comp.parts
@@ -623,6 +640,10 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 				}
 			}()
 		}
+	}
+	// kindInvalid: sentinel — no wanted kind passed; the block's tail then has its own.
+	if block, isBlock := at.(*ast.Block); isBlock && want != kindInvalid {
+		return bl.blockValue(block, want)
 	}
 	// kindInvalid: sentinel — no wanted kind passed; todo() then reads the checker's.
 	if td, isTodo := at.(*ast.Todo); isTodo && want != kindInvalid {

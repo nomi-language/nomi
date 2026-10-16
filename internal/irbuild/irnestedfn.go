@@ -71,17 +71,19 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 		bl.g.unitFnLambda = lam
 		defer func() { bl.g.unitFnLambda = savedUnit }()
 	}
+	if fd.ReturnTypeExpr != nil {
+		if want := bl.g.typeOf(fd.ReturnTypeExpr); want != kindUnit && irCallableValueKind(want) {
+			// `fn f(): Shape { Spot{n: 3} }`, `fn f(): Display { 5 }`,
+			// `fn f(): Set<Int> { #{} }`: the body and each `return`
+			// answer the declared type, widened to it as a module
+			// function's result is (lambdaFunction's declaredFnLambda).
+			prevFor, prev, prevDecl := bl.g.lambdaWantFor, bl.g.lambdaWant, bl.g.declaredFnLambda
+			bl.g.lambdaWantFor, bl.g.lambdaWant, bl.g.declaredFnLambda = lam, want, lam
+			defer func() { bl.g.lambdaWantFor, bl.g.lambdaWant, bl.g.declaredFnLambda = prevFor, prev, prevDecl }()
+		}
+	}
 	if astNamesIdent(fd.Body, fd.Name) {
 		return bl.recursiveNestedFunc(fd, lam, name)
-	}
-	if fd.ReturnTypeExpr != nil {
-		if want := bl.g.typeOf(fd.ReturnTypeExpr); irExistentialKind(want) {
-			// `fn f(): Display { 5 }`: the body and each `return` enter
-			// the declared existential, as a module function's do.
-			prevFor, prev := bl.g.lambdaWantFor, bl.g.lambdaWant
-			bl.g.lambdaWantFor, bl.g.lambdaWant = lam, want
-			defer func() { bl.g.lambdaWantFor, bl.g.lambdaWant = prevFor, prev }()
-		}
 	}
 	val, fk, _, ok := bl.lambda(lam)
 	if !ok {

@@ -329,7 +329,8 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.If, *ast.Case:
 		return bl.inferredRegionValue(n, false)
 	case *ast.Block:
-		return bl.blockValue(t)
+		// kindInvalid: sentinel — no expected type; the tail's own kind.
+		return bl.blockValue(t, kindInvalid)
 	case *ast.With:
 		irDeclineNote("a `with` statement in an operand position")
 		return ir.NoTemp, kindInvalid, false, false
@@ -2274,7 +2275,7 @@ var kindDiverged = kind{tag: tagNamed, def: &typeDef{nomi: "<diverged>"}}
 func (bl *irScalarBuilder) laterArmSig(sig irFuncSig, prior kind) irFuncSig {
 	// kindInvalid: sentinel — an earlier arm that settled no kind gives no expected type.
 	unsettled := prior == kindInvalid
-	if !sig.inferResult || bl.ctl != irCtlNone || prior == kindDiverged || prior == kindEmptyList ||
+	if !sig.inferResult || bl.ctl != irCtlNone || prior == kindDiverged || prior == kindEmptyList || prior == kindNever ||
 		unsettled || !irCallableValueKind(prior) {
 		return sig
 	}
@@ -2285,9 +2286,15 @@ func (bl *irScalarBuilder) laterArmSig(sig irFuncSig, prior kind) irFuncSig {
 // irJoinArms is the kind of a region with arms of kinds a and b, where an
 // arm that diverged takes the other's. When every arm diverged the region's
 // exit is unreachable and it answers the declared result, or kindDiverged
-// when the result is inferred.
+// when the result is inferred. In an inferred region an Infallible arm (a
+// `todo`) takes the other's kind too: it writes a value no run produces,
+// which every slot accepts, as the checker lets `todo` fit any arm type.
 func irJoinArms(a, b kind, sig irFuncSig) (kind, bool) {
 	switch {
+	case sig.inferResult && a == kindNever:
+		return b, true
+	case sig.inferResult && b == kindNever:
+		return a, true
 	case a == kindDiverged && b == kindDiverged:
 		if sig.inferResult {
 			return kindDiverged, true
@@ -2632,9 +2639,13 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 					result = k
 				}
 			}
-			if have && k != result {
-				irDeclineNote("two `case` arms disagree: " + k.nomi() + " vs " + result.nomi())
-				return kindInvalid, false
+			if have {
+				joined, agree := irJoinArms(result, k, sig)
+				if !agree {
+					irDeclineNote("two `case` arms disagree: " + k.nomi() + " vs " + result.nomi())
+					return kindInvalid, false
+				}
+				k = joined
 			}
 			result, have = k, true
 		}
