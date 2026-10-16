@@ -106,24 +106,12 @@ test "a brace without `..` replaces the field whole" {
 test "updates nest three deep" {
     b = Building{
         name: "HQ",
-        floor: Floor{
-            geo: Geo{
-                lat: 5,
-                city: "Oslo",
-            },
-            rooms: 9,
-        },
+        floor: Floor{geo: Geo{lat: 5, city: "Oslo"}, rooms: 9},
     }
 
     moved = {
         ..b,
-        floor: {
-            ..,
-            geo: {
-                ..,
-                city: "Bergen",
-            },
-        },
+        floor: {.., geo: {.., city: "Bergen"}},
     }
 
     assert Display.to_string(
@@ -193,29 +181,15 @@ test "a missing key builds a struct from the fields written and the defaults" {
 
 test "a whole missing chain is built" {
     sites = {
-        "hq" => {
-            "f1" => Floor{},
-        },
+        "hq" => {"f1" => Floor{}},
     }
 
     grown = {
         ..sites,
-        "hq" => {
-            ..,
-            "f1" => {
-                ..,
-                rooms: 4,
-            },
-        },
+        "hq" => {.., "f1" => {.., rooms: 4}},
         "lab" => {
             ..,
-            "f1" => {
-                ..,
-                geo: {
-                    ..,
-                    lat: 7,
-                },
-            },
+            "f1" => {.., geo: {.., lat: 7}},
         },
     }
 
@@ -263,7 +237,7 @@ test "a failing assertion shows the updated value" {
 
     // The patch's row shows each `..` field as the value it became.
     assert AssertionFailure.format(failure) == """
-        line 262: check failed
+        line 236: check failed
           check Struct.update(w, {p: {.., a: 5}}) == w
           values:
             w

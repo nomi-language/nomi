@@ -110,8 +110,25 @@ func TestFormat_NumberListFills(t *testing.T) {
 		},
 		{
 			"fits on one line",
-			"fn main() {\n    xs = [\n        1,\n        2,\n        3,\n    ]\n}\n",
+			"fn main() {\n    xs = [1,\n        2,\n        3,\n    ]\n}\n",
 			"fn main() {\n    xs = [1, 2, 3]\n}\n",
+		},
+		{
+			// A line break after the `[` keeps the list broken, and a
+			// broken list of numbers is filled, whoever broke it.
+			"written broken after the bracket",
+			"fn main() {\n    xs = [\n        1,\n        2,\n        3,\n    ]\n}\n",
+			"fn main() {\n    xs = [\n        1, 2, 3,\n    ]\n}\n",
+		},
+		{
+			"written broken after the bracket, too wide",
+			"fn main() {\n    xs = [\n" + sevens + "]\n}\n",
+			"fn main() {\n    xs = [\n" + sevensAt[8] + "    ]\n}\n",
+		},
+		{
+			"vector and set written broken after the bracket",
+			"fn main() {\n    v = #[\n1, 2]\n    s = #{\n1, 2}\n}\n",
+			"fn main() {\n    v = #[\n        1, 2,\n    ]\n\n    s = #{\n        1, 2,\n    }\n}\n",
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) { formatsKeepingMeaning(t, c.src, c.want) })

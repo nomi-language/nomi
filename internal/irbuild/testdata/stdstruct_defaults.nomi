@@ -102,13 +102,10 @@ fn main() {
     // --- The corpus's exact spelling: reason + details, `actual` defaulted ---
     with_details = AssertionDetails{
         reason: "values were not equal",
-        details: [AssertionDetail{
-            label: "actual",
-            value: "41",
-        }, AssertionDetail{
-            label: "expected",
-            value: "42",
-        }],
+        details: [
+            AssertionDetail{label: "actual", value: "41"},
+            AssertionDetail{label: "expected", value: "42"},
+        ],
     }
 
     io.print("with_details.reason = " + with_details.reason)

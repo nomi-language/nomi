@@ -3401,7 +3401,7 @@ T
 C internal/irbuild/testdata/dbg_shapes.nomi@48cd5d580f98664f
 E 0
 N 0
-H 2645c2b58d64009be28728f51bb1bb0a5529ec2bef759aa5dba8676af80be3ca
+H d9182e35076712294dcdcf1a8c1b7fd39d3e28583042c00736e50444f8084ccb
 T dbg line 47: 41 + 1 = 42
 T a=42
 T dbg line 51: r = Rev{zeta: 1, alpha: 2}
@@ -3411,16 +3411,8 @@ T dbg line 56: 21 |> double() = 42
 T d=42
 T dbg line 60:
 T   [
-T       100000001,
-T       100000002,
-T       100000003,
-T       100000004,
-T       100000005,
-T       100000006,
-T       100000007,
-T       100000008,
-T       100000009,
-T       100000010,
+T       100000001, 100000002, 100000003, 100000004, 100000005, 100000006, 100000007, 100000008,
+T       100000009, 100000010,
 T   ]
 T   = [100000001, 100000002, 100000003, 100000004, 100000005, 100000006, 100000007, 100000008, 100000009, 100000010]
 T dbg line 73:
@@ -3490,7 +3482,7 @@ T met: completed 2
 T plain: completed 2
 T after: completed 2
 T
-C internal/irbuild/testdata/debug_containers.nomi@2feb446ee0b229f8
+C internal/irbuild/testdata/debug_containers.nomi@fe714b0e8be42724
 E 0
 N 0
 H 4892b11d68b1c92fbd3c4bfdc82584786e20b0e5b915e426f7c5445322d5ca40
@@ -4368,10 +4360,10 @@ T 42
 T #[Pt{zz: 1, a: 2}]
 T #[Pt{zz: 1, a: 2}]
 T
-C internal/irbuild/testdata/generic_struct.nomi@c72450c69356d0d3
+C internal/irbuild/testdata/generic_struct.nomi@da6bf689d1950916
 E 1
 N 0
-H 7b74ef5f7a769f590fa3c3dbb7183f1009454d66cb041a7af4cc6f816cb89358
+H f8c71f94619cd526676dc0910e938d0dc7591e08fab7fa263c00a54119579c90
 T FAIL <dir>/generic_struct.nomi :: a second instantiation of one template renders as the same Nomi type
 T   line 88: assertion failed
 T     assert no_box_text(Box{item: "s"})
@@ -4381,19 +4373,11 @@ T         = Box{item: "s"}
 T FAIL <dir>/generic_struct.nomi :: and a nested instantiation renders as its own declaration
 T   line 92: assertion failed
 T     assert no_crate(Crate{
-T         box: Box{
-T             item: Inner{
-T                 value: 7,
-T             },
-T         },
+T         box: Box{item: Inner{value: 7}},
 T     })
 T     values:
 T       Crate{
-T           box: Box{
-T               item: Inner{
-T                   value: 7,
-T               },
-T           },
+T           box: Box{item: Inner{value: 7}},
 T       }
 T         = Crate{box: Box{item: Inner{value: 7}}}
 T ok <dir>/generic_struct.nomi :: a nested instantiation resolves through an annotation
@@ -4401,19 +4385,19 @@ T   41
 T ok <dir>/generic_struct.nomi :: the argument keeps its own dispatch through the instance
 T   inner:7
 T FAIL <dir>/generic_struct.nomi :: type arguments come from field names and not from field order
-T   line 122: assertion failed
+T   line 114: assertion failed
 T     assert no_pair(p)
 T     values:
 T       p
 T         = Pair{first: 7, second: "s"}
 T FAIL <dir>/generic_struct.nomi :: a same-shaped monomorphic twin stays a different type
-T   line 126: assertion failed
+T   line 118: assertion failed
 T     assert no_box(Box{item: 1})
 T     values:
 T       Box{item: 1}
 T         = Box{item: 1}
 T FAIL <dir>/generic_struct.nomi :: and the twin says so too
-T   line 130: assertion failed
+T   line 122: assertion failed
 T     assert no_twin(Twin{item: 1})
 T     values:
 T       Twin{item: 1}
@@ -4656,10 +4640,10 @@ T Whiskers says meow
 T Rex says woof
 T n=42
 T
-C internal/irbuild/testdata/inspect_through_list.nomi@6e3b924c92a83227
+C internal/irbuild/testdata/inspect_through_list.nomi@c32d1483b44fb3df
 E 1
 N 0
-H 493baa6f09fa0eddbf5f6a4257182533a118272d78da90c061d1d90c3bfce495
+H 42b291b18a1489d4640df1c1203251d4189fe8edd1ad4aded536890cafeceb14
 T FAIL <dir>/inspect_through_list.nomi :: a List of a user struct renders in a failure row
 T   line 35: assertion failed
 T     assert b.label == "right"
@@ -4675,7 +4659,7 @@ T         = Bag{items: [Point{x: 7}], label: "solo"}
 T       other
 T         = Bag{items: [], label: "empty"}
 T FAIL <dir>/inspect_through_list.nomi :: nesting a list inside a list inside a struct
-T   line 67: assertion failed
+T   line 63: assertion failed
 T     assert d == empty
 T     values:
 T       d
@@ -5216,7 +5200,7 @@ T [3]
 T []
 T ["w", "x", "y", "z"]
 T
-C internal/irbuild/testdata/lists.nomi@c25f2c3f7dca2304
+C internal/irbuild/testdata/lists.nomi@bc13b7cac0bffd05
 E 0
 N 0
 H 5d476b57dcba1d9a23468a9b6113d8068c857c9b21feb5b90ed7f1f2d62db204
@@ -6797,7 +6781,7 @@ T before
 T --- stderr ---
 T line 9: Int.shift_left: negative shift count -1
 T
-C internal/irbuild/testdata/stdstruct_defaults.nomi@ad540090b25fe523
+C internal/irbuild/testdata/stdstruct_defaults.nomi@74aa20e643d58680
 E 0
 N 0
 H 711d554bb553c14b7038c5d50a2bdd180c8cdac309b74f4c0577073c9548c4a0
@@ -6856,7 +6840,7 @@ T   (built)
 T once Point{x: 1, y: 6}
 T stacked Point{x: 11, y: 12}
 T
-C internal/irbuild/testdata/struct_spread_deep.nomi@596602b26dc89114
+C internal/irbuild/testdata/struct_spread_deep.nomi@72ecb469168b98cc
 E 0
 N 0
 H a3b86857f401fda091b4b2adaaeed68817eac9da60e4b0a7d49ac70e6678f5f8
@@ -7595,7 +7579,7 @@ T row=disk:3
 T some=7
 T none=9
 T
-C internal/irbuild/testdata/typed_attach.nomi@141e06914fc09d2a
+C internal/irbuild/testdata/typed_attach.nomi@8f7350a0b4553c47
 E 0
 N 0
 H ff2b695a412c2ef78153619728335082ab0b5a45e1cff78279296cb2a6f0f8cc
@@ -8884,7 +8868,7 @@ T ok <dir>/anonymous_structs_test.nomi :: anonymous struct parameters match by f
 T ok <dir>/anonymous_structs_test.nomi :: anonymous struct parameter mismatches report diagnostics
 T test result: ok. 4 passed, 0 failed
 T
-C tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi@b89ddaa59f6d1b7d
+C tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi@06987ee96bb5915d
 E 0
 N 0
 H 92bd0d2641b7a03171076b0eb9cd1cf113633622fe3964569279c3ae641cb339

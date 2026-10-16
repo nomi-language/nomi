@@ -12,11 +12,11 @@ Adapted from Exercism problem-specifications (MIT), exercises/game-of-life.
 - The eight offsets are a `once` literal, as in minesweeper.
 - `next_state` is one `case` on `(cell, live_neighbours)` with the or-pattern `(1, 2) or (_, 3)`.
 - `Iter.sum` totals the neighbours (style §26).
-- Plain `test` blocks rather than a `subtests` table: see Friction.
+- The cases are one `subtests` table of `(description, board, expected)` rows. The table is three compound levels deep, so `nomi fmt` breaks it one row per line; each row is too wide for one line and breaks into its three parts, and a 3x3 grid fits on one line inside it. The 8x8 grids are written one board row per line, which `nomi fmt` keeps because each breaks after its `#[`.
 
 ## Friction
 
-- [verbose] A `subtests` table of grids is unreadable after `nomi fmt`. A list of `(description, board, expected)` tuples holding `#[#[...]]` grids is three compound levels deep, and the formatter breaks any literal that deep one element per line regardless of width, and pushes the break into every nested literal (`maxCompoundDepth`, `internal/format/emit.go:2092`). So `("live cells with zero live neighbors die", #[#[0, 0, 0], #[0, 1, 0], #[0, 0, 0]], ...)` becomes 36 lines with one `0` per line, and the eight-case table took about 400 lines. Even `[[[1, 2]]]` becomes nine lines. The test file uses one `test` per case instead, with the board bound to `board` (two levels deep, so rows stay on one line). Breaking only the outer levels and keeping a short innermost row on one line would let a table of grids stay a table.
+None.
 
 ## Indexing
 

@@ -13,9 +13,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/list-ops.
 - The functions are file-level and called `list_ops.map(...)`; the names do not clash with `Iter.map` because file qualification keeps them apart.
 - The file comment is `//#`: a plain `//` comment above the first declaration is joined to it by `nomi fmt`.
 - `concat([])` needs a typed empty list (`List<List<Int>>`), which the checker asks for by name; `append([], [])` and the other empty cases need nothing.
-- The "list of nested lists" input is bound in four parts, because the literal is three lists deep and `nomi fmt` would lay it out one number per line.
+- The "list of nested lists" input is one literal. It is three lists deep, so `nomi fmt` writes it one inner list per line, each on one line.
 
 ## Friction
 
-- [verbose] The depth-3 formatter rule (see robot-simulator) turns `[[[1], [2]], [[3]]]` into 16 lines.
 - [idiom] A plain `//` file comment followed by a blank line and a `///` doc comment loses the blank line under `nomi fmt` and reads as part of the doc. `//#` keeps it, but `style.md` does not say that `//#` is the file-comment form for files outside `std/`.

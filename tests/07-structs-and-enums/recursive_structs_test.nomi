@@ -51,17 +51,11 @@ test "a struct holds itself through a List" {
     tree = Node{
         name: "root",
         children: [
-            Node{
-                name: "a",
-                children: [],
-            },
+            Node{name: "a", children: []},
             Node{
                 name: "b",
                 children: [
-                    Node{
-                        name: "c",
-                        children: [],
-                    },
+                    Node{name: "c", children: []},
                 ],
             },
         ],
@@ -84,10 +78,7 @@ test "a struct holds itself through a Maybe" {
 test "a struct holds itself through a Map" {
     root = Dir{
         name: "/",
-        entries: {"usr" => Dir{
-            name: "usr",
-            entries: Map.empty(),
-        }},
+        entries: {"usr" => Dir{name: "usr", entries: Map.empty()}},
     }
 
     assert Map.size(root.entries) == 1
@@ -105,10 +96,7 @@ test "two structs hold each other through lists" {
     team = Team{
         name: "core",
         members: [
-            Member{
-                name: "ada",
-                teams: [],
-            },
+            Member{name: "ada", teams: []},
         ],
     }
 

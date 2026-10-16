@@ -47,6 +47,19 @@ var knownFormatGaps = []formatGap{
 		reason: "first at line \\d+: `\\w+: \\(\\w+\\) -> \\w+ = \\|\\w+\\| \\{` became `\\w+: \\(`",
 		src:    "{a00000000000000000000000000:(A00)->A00=|A000000000000000000000000000000000000000000000000|\"\"}",
 	},
+	{
+		// `((// c` then `a, a)) = v` parses as a PatternBinding of a
+		// parenthesized tuple pattern holding a comment; the formatter
+		// drops the outer parentheses, and `(// c` then `a, a) = v`
+		// parses as a TupleDestructure. The same shape as the variant
+		// gap above, through a tuple. Found by FuzzFormatKeepsMeaning
+		// while checking the change that keeps a literal broken after its
+		// bracket; `next` before that change fails it the same way.
+		name:   "parenthesized tuple pattern binding holding a comment",
+		kind:   "meaning",
+		reason: `\*ast\.PatternBinding became \*ast\.TupleDestructure`,
+		src:    "{((//\na,a))=\"\"}",
+	},
 }
 
 func (gap *formatGap) matches(f formatFailure) bool {

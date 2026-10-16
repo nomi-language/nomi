@@ -101,13 +101,7 @@ fn main() {
 
     // THREE LEVELS, with the untouched siblings printed at every level.
     tall = L1{
-        l2: L2{
-            l3: L3{
-                v: 1,
-                w: 2,
-            },
-            m: 3,
-        },
+        l2: L2{l3: L3{v: 1, w: 2}, m: 3},
         n: 4,
     }
 
@@ -117,13 +111,7 @@ fn main() {
     }
 
     sunk_update = Struct.update(tall, {
-        l2: {
-            ..,
-            l3: {
-                ..,
-                v: 9,
-            },
-        },
+        l2: {.., l3: {.., v: 9}},
     })
 
     io.print("sunk ${Display.to_string(sunk)}")

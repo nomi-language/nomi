@@ -44,13 +44,7 @@ test "a brace literal builds a struct field, an argument and a return value" {
 
 test "a brace literal builds the element type of a typed list" {
     people: List<Person> = [
-        {
-            name: "Ada",
-            address: {
-                street: "1 Main",
-                city: "Bath",
-            },
-        },
+        {name: "Ada", address: {street: "1 Main", city: "Bath"}},
     ]
 
     assert Iter.map(people, .address.city) |> Iter.to_list() == ["Bath"]
