@@ -42,20 +42,6 @@ type loweringGap struct {
 
 var knownLoweringGaps = []loweringGap{
 	{
-		name: "gapSumOfEmptyListsElementOpen",
-		fix: "builder: `Iter.sum([[]]) == []` checks Iter.sum at `Iter<List<?>>` with the element " +
-			"open, and the operand is a list of empty lists, which stdInstCallAt's empty-literal " +
-			"fill (irOnlyEmptyListsUnsolved) does not take. No element is built or observed, so " +
-			"the hole can be filled as an empty list's is",
-		reason: "a generic stdlib call whose type arguments are unsolved or outside the domain: iter.Iter.sum",
-		src: `import std/io
-
-fn main() {
-    io.print(Iter.sum([[]]) == [])
-}
-`,
-	},
-	{
 		name: "gapSumAtAnOpenType",
 		fix: "checker: in `Iter.sum([]) == Iter.sum([])` nothing determines T, so its `Summable` " +
 			"bound is never checked and the builder reads the hole as Unit, which has no `+`. " +
