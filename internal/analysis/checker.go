@@ -2181,6 +2181,14 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 					matched = true
 				}
 			}
+			// The declared result is the tail's expected type, as an
+			// annotation is a binding's and as it is a `return`'s value
+			// (checkReturn): what `t: (Int, Named) = (1, Pt{x: 5})`
+			// accepts, `fn pair(): (Int, Named) { (1, Pt{x: 5}) }`
+			// accepts.
+			if !matched && c.unifiesAsResult(c.returnTy, bodyTy, c.fnTypeParams) {
+				matched = true
+			}
 			// Interface subtyping at the return-type boundary: a
 			// concrete struct that `impl`s the declared interface type
 			// satisfies the declaration, including the interface's type
@@ -5678,6 +5686,9 @@ func (c *checker) checkInterfaceDefaults(n *ast.InterfaceDef) {
 				if err := c.unifyInto(ft.Return, bodyTy, nil); err == nil {
 					matched = true
 				}
+			}
+			if !matched && c.unifiesAsResult(ft.Return, bodyTy, collectTypeParamsByName(ft)) {
+				matched = true
 			}
 			if !matched && c.argMatchesParam(bodyTy, ft.Return, c.recPos(m.Line, m.Col), RecordingKindInterfaceTypedParam) {
 				matched = true
@@ -13139,6 +13150,25 @@ func (c *checker) tryErrTypesAgree(want, got Type, line, col int) bool {
 	return c.argMatchesParam(got, want, c.recPos(line, col), RecordingKindInterfaceTypedParam)
 }
 
+// unifiesAsResult reports whether a function's result of type got fits its
+// declared result type, by the unification an annotated binding's value
+// gets: a tuple, list or generic argument widens to an interface or an
+// enum its element implements or embeds. The function's own type
+// parameters stay rigid: unification treats a type parameter as a hole, so
+// each is replaced on both sides by a type that equals only itself, and
+// `fn wrap<T>(x: T): List<T> { x }` stays a mismatch.
+func (c *checker) unifiesAsResult(declared, got Type, own map[string]*TypeParam_) bool {
+	var rigid map[*TypeParam_]Type
+	for _, tp := range own {
+		if rigid == nil {
+			rigid = map[*TypeParam_]Type{}
+		}
+		rigid[tp] = &StructType{Origin: "\x00rigid type parameter", Name: tp.Name_}
+	}
+	declared, got = Substitute(declared, rigid), Substitute(got, rigid)
+	return c.unifyInto(declared, got, map[*TypeParam_]Type{}) == nil
+}
+
 func (c *checker) checkReturn(n *ast.Return) Type {
 	if c.rejectExitlessExit("return", n.Line, n.Col) {
 		if n.Value != nil {
@@ -13165,8 +13195,7 @@ func (c *checker) checkReturn(n *ast.Return) Type {
 	valTy := c.checkNodeExpecting(n.Value, c.returnTy)
 	c.recordBoundaryReturn(n, valTy)
 	if valTy != nil && c.returnTy != nil && !TypeAssignable(c.returnTy, valTy) {
-		subs := map[*TypeParam_]Type{}
-		if !containsProtectedTypeParam(c.returnTy, c.fnTypeParams) && c.unifyInto(c.returnTy, valTy, subs) == nil {
+		if c.unifiesAsResult(c.returnTy, valTy, c.fnTypeParams) {
 			return TypeInfallible
 		}
 		if !c.argMatchesParam(valTy, c.returnTy, c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {

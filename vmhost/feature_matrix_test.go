@@ -868,12 +868,7 @@ func (r mxCheckerRule) applies(c mxCell) bool {
 	return c.shell.name == r.context || c.place.name == r.context
 }
 
-var mxCheckerRules = []mxCheckerRule{
-	{feature: "existential widening", context: "generic function body", before: true, want: "return type mismatch",
-		why: "a function's result does not widen a tuple element to an interface (`fn pair(): (Int, Named) { (1, Pt{x: 5}) }`), " +
-			"though an annotated binding does (`t: (Int, Named) = (1, Pt{x: 5})`) and an enum's embedded type widens in both: " +
-			"a checker inconsistency, reported, not a design rule"},
-}
+var mxCheckerRules = []mxCheckerRule{}
 
 // mxOutcome is what checking and running one cell found.
 type mxOutcome struct {
