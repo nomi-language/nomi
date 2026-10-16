@@ -129,6 +129,9 @@ func DumpFileForTest(fa *FileAnalysis, errs []TypeError, root string) string {
 	for n, t := range fa.SubtestsRowTypes {
 		lines = append(lines, fmt.Sprintf("subtests %s = %s", at(n), typ(t)))
 	}
+	for n := range fa.CoveringOrPatterns {
+		lines = append(lines, fmt.Sprintf("covering or %s", at(n)))
+	}
 	for n, r := range fa.AppReads {
 		lines = append(lines, fmt.Sprintf("app read %s = %s.%s %s", at(n), typ(r.App), r.Field.Name, r.ContextField))
 	}

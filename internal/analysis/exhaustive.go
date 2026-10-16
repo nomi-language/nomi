@@ -48,8 +48,9 @@ func (c *checker) uncoveredValue(tys []Type, rows [][]ast.Node) ([]string, bool)
 		return []string{}, len(rows) == 0
 	}
 	t := resolveTypeVar(tys[0])
-	// An `as` name never changes what its pattern matches.
-	rows = withoutAsColumn(rows)
+	// An `as` name never changes what its pattern matches, and a row whose
+	// first pattern is an `or` is one row per alternative.
+	rows = withoutAsColumn(expandOrColumn(rows))
 	column := make([]ast.Node, len(rows))
 	for i, r := range rows {
 		column[i] = r[0]
@@ -128,6 +129,32 @@ func (c *checker) uncoveredValue(tys []Type, rows [][]ast.Node) ([]string, bool)
 		return nil, false
 	}
 	return append([]string{"_"}, w...), true
+}
+
+// expandOrColumn returns rows with each row whose first pattern is an `or`
+// pattern replaced by one row per alternative (orAlternatives), copying
+// only when some row changes.
+func expandOrColumn(rows [][]ast.Node) [][]ast.Node {
+	var out [][]ast.Node
+	for i, r := range rows {
+		alts := orAlternatives(r[0])
+		if len(alts) == 1 && alts[0] == r[0] {
+			if out != nil {
+				out = append(out, r)
+			}
+			continue
+		}
+		if out == nil {
+			out = append(make([][]ast.Node, 0, len(rows)+len(alts)), rows[:i]...)
+		}
+		for _, alt := range alts {
+			out = append(out, append([]ast.Node{alt}, r[1:]...))
+		}
+	}
+	if out == nil {
+		return rows
+	}
+	return out
 }
 
 // withoutAsColumn returns rows with each first pattern seen through its

@@ -160,6 +160,13 @@ type FileBodies struct {
 	// to the type of its rows: the element type of what it iterates, which
 	// its pattern binds. Nil until the first record.
 	SubtestsRowTypes map[*ast.Subtests]Type
+	// CoveringOrPatterns holds each `or` pattern whose alternatives together
+	// match every value of the type at its position (`.L(n) or .R(n)` over a
+	// two-variant enum), by the coverage rules a `case` applies. The IR
+	// builder reads it where it needs to know a pattern cannot fail: a
+	// binding's `else` fallback stands in for a payload whose pattern always
+	// matches. Nil until the first record.
+	CoveringOrPatterns map[*ast.OrPattern]bool
 	// ExprTypes maps every node the checker checked to the type it gave the
 	// node, and ExpectedTypes maps every node checked against an expected
 	// type to that expected type: the declared parameter type at an argument,

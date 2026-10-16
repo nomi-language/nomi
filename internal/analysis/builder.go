@@ -879,6 +879,11 @@ type builder struct {
 	// patternBodyOf is the body an arm or condition pattern definePattern is
 	// binding scopes over, and nil otherwise (Symbol.PatternBody).
 	patternBodyOf ast.Node
+	// orBound holds, while definePattern is inside an `or` pattern, the
+	// symbol each name its alternatives bind so far. A later alternative's
+	// site for the name is another definition site of the same symbol
+	// (bindPatternName), so the name is one binding with several sites.
+	orBound map[string]*Symbol
 }
 
 // typeMethodSlot is one (receiver, method) key of FileAnalysis.TypeMethods.
@@ -4806,7 +4811,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	// TypeAlias/InterfaceDef/ImportStmt are handled above for nested-decl support.)
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit, *ast.Placeholder,
 		*ast.WildcardPattern,
-		*ast.IdentPattern, *ast.AsPattern, *ast.EnumPattern, *ast.StructPattern,
+		*ast.IdentPattern, *ast.AsPattern, *ast.OrPattern, *ast.EnumPattern, *ast.StructPattern,
 		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern,
 		*ast.ExternPackage:
 		// nothing to walk
@@ -5315,6 +5320,32 @@ func (b *builder) defineParamPattern(node ast.Node, scope *Scope, fn ast.Node) {
 	b.definePattern(node, scope)
 }
 
+// bindPatternName defines the name a pattern binds at pos. Inside an `or`
+// pattern whose earlier alternative already bound the name, pos is another
+// definition site of that symbol instead (builder.orBound).
+func (b *builder) bindPatternName(name string, pos Pos, bindingNode ast.Node, scope *Scope) {
+	if sym := b.orBound[name]; sym != nil {
+		b.define(pos, sym)
+		return
+	}
+	sym := &Symbol{
+		Name:            name,
+		Kind:            SymbolBinding,
+		Pos:             pos,
+		Node:            bindingNode,
+		ReceiverDisplay: scope.ReceiverTypeDisplay(),
+		ParamOf:         b.paramPatternOf,
+		PatternBody:     b.patternBodyOf,
+	}
+	if !ast.IsDiscardName(name) {
+		scope.Define(sym)
+	}
+	b.define(sym.Pos, sym)
+	if b.orBound != nil {
+		b.orBound[name] = sym
+	}
+}
+
 func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node) {
 	if node == nil {
 		return
@@ -5326,37 +5357,34 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 
 	switch n := node.(type) {
 	case *ast.IdentPattern:
-		sym := &Symbol{
-			Name:            n.Name,
-			Kind:            SymbolBinding,
-			Pos:             Pos{Line: n.Line, Col: n.Col},
-			Node:            bindingNode,
-			ReceiverDisplay: scope.ReceiverTypeDisplay(),
-			ParamOf:         b.paramPatternOf,
-			PatternBody:     b.patternBodyOf,
-		}
-		if !ast.IsDiscardName(n.Name) {
-			scope.Define(sym)
-		}
-		b.define(sym.Pos, sym)
+		b.bindPatternName(n.Name, Pos{Line: n.Line, Col: n.Col}, bindingNode, scope)
 
 	case *ast.AsPattern:
 		// The inner pattern's names first, then the name for the whole
 		// value: source order, so a duplicate reports at the later one.
 		b.definePatternOwned(n.Pattern, scope, owner)
-		sym := &Symbol{
-			Name:            n.Name,
-			Kind:            SymbolBinding,
-			Pos:             Pos{Line: n.NameLine, Col: n.NameCol},
-			Node:            bindingNode,
-			ReceiverDisplay: scope.ReceiverTypeDisplay(),
-			ParamOf:         b.paramPatternOf,
-			PatternBody:     b.patternBodyOf,
+		b.bindPatternName(n.Name, Pos{Line: n.NameLine, Col: n.NameCol}, bindingNode, scope)
+
+	case *ast.OrPattern:
+		// Each name the alternatives bind is one symbol: the first site
+		// defines it, and every later alternative's site for the name is
+		// another definition site of it. The checker requires every
+		// alternative to bind the same names (checkOrPattern).
+		outer := b.orBound
+		bound := make(map[string]*Symbol, len(outer))
+		for k, v := range outer {
+			bound[k] = v
 		}
-		if !ast.IsDiscardName(n.Name) {
-			scope.Define(sym)
+		b.orBound = bound
+		for _, alt := range n.Alternatives {
+			b.definePatternOwned(alt, scope, owner)
 		}
-		b.define(sym.Pos, sym)
+		b.orBound = outer
+		if outer != nil {
+			for k, v := range bound {
+				outer[k] = v
+			}
+		}
 
 	case *ast.Binary:
 		b.definePatternOwned(n.Left, scope, owner)
@@ -5367,19 +5395,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		if n.Payload != nil {
 			b.definePatternOwned(n.Payload, scope, owner)
 		} else if n.Binding != "" {
-			sym := &Symbol{
-				Name:            n.Binding,
-				Kind:            SymbolBinding,
-				Pos:             Pos{Line: n.Line, Col: n.BindingCol},
-				Node:            bindingNode,
-				ReceiverDisplay: scope.ReceiverTypeDisplay(),
-				ParamOf:         b.paramPatternOf,
-				PatternBody:     b.patternBodyOf,
-			}
-			if !ast.IsDiscardName(n.Binding) {
-				scope.Define(sym)
-			}
-			b.define(sym.Pos, sym)
+			b.bindPatternName(n.Binding, Pos{Line: n.Line, Col: n.BindingCol}, bindingNode, scope)
 		}
 
 	case *ast.StructPattern:
@@ -5389,19 +5405,7 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 				b.definePatternOwned(f.Pattern, scope, owner)
 			} else if f.Binding != "" {
 				line := structPatternFieldBindingLine(f, n.Line)
-				sym := &Symbol{
-					Name:            f.Binding,
-					Kind:            SymbolBinding,
-					Pos:             Pos{Line: line, Col: f.BindingCol},
-					Node:            bindingNode,
-					ReceiverDisplay: scope.ReceiverTypeDisplay(),
-					ParamOf:         b.paramPatternOf,
-					PatternBody:     b.patternBodyOf,
-				}
-				if !ast.IsDiscardName(f.Binding) {
-					scope.Define(sym)
-				}
-				b.define(sym.Pos, sym)
+				b.bindPatternName(f.Binding, Pos{Line: line, Col: f.BindingCol}, bindingNode, scope)
 			}
 		}
 

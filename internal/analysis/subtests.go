@@ -62,7 +62,7 @@ func (c *checker) checkSubtests(n *ast.Subtests) Type {
 	}
 	if n.Pattern != nil {
 		if rowTy != nil {
-			checkParamPatternRefutable(n.Pattern, rowTy, c.reg, func(line, col int, _ string) {
+			c.checkParamPatternRefutable(n.Pattern, rowTy, func(line, col int, _ string) {
 				c.addError(line, col, refutableSubtestsPatternMsg)
 			})
 		}

@@ -2280,7 +2280,7 @@ func (c *checker) checkDestructureParams(params []ast.Param, ft *FuncType) {
 			c.checkPattern(p.Destructure, nil)
 			continue
 		}
-		checkParamPatternRefutable(p.Destructure, ty, c.reg, c.addError)
+		c.checkParamPatternRefutable(p.Destructure, ty, c.addError)
 		c.checkPattern(p.Destructure, ty)
 	}
 }
@@ -3809,7 +3809,7 @@ func (c *checker) checkTestDeclWithContext(n *ast.TestDecl, contextTy Type) Type
 	if n.ContextPattern != nil {
 		// The pattern binds the group's setup value, which has one shape,
 		// so it must match whatever that value is.
-		checkParamPatternRefutable(n.ContextPattern, contextTy, c.reg, func(line, col int, _ string) {
+		c.checkParamPatternRefutable(n.ContextPattern, contextTy, func(line, col int, _ string) {
 			c.addError(line, col, refutableTestPatternMsg)
 		})
 		c.checkPattern(n.ContextPattern, contextTy)
@@ -11166,6 +11166,13 @@ func patternSites(pattern ast.Node) []patternSite {
 		case *ast.AsPattern:
 			walk(n.Pattern)
 			out = append(out, patternSite{n.Name, Pos{Line: n.NameLine, Col: n.NameCol}})
+		case *ast.OrPattern:
+			// Every alternative binds the same names, as one symbol each
+			// (builder.bindPatternName); the first alternative's sites
+			// stand for them.
+			if len(n.Alternatives) > 0 {
+				walk(n.Alternatives[0])
+			}
 		case *ast.Binary:
 			walk(n.Left)
 			walk(n.Right)
@@ -14021,6 +14028,8 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		}
 	case *ast.AsPattern:
 		c.checkAsPattern(n, expectedTy)
+	case *ast.OrPattern:
+		c.checkOrPattern(n, expectedTy)
 	case *ast.CodepointLit:
 		c.registerCodepointHover(n)
 		c.checkLiteralPattern("'"+n.Lexeme+"'", n.Line, n.Col, TypeCodepoint, expectedTy)
@@ -14671,6 +14680,8 @@ func (c *checker) checkPatternCoverage(line, col int, subject ast.Node, what str
 	if t == nil {
 		return
 	}
+	// An `or` pattern covers what its alternatives cover together.
+	patterns = expandOrPatterns(patterns)
 	// The error spans the construct's head through its subject, `case c`,
 	// when the subject ends on the line the construct starts.
 	at := func(msg string) TypeError {
@@ -15038,6 +15049,13 @@ func isUnconstrainedPattern(p ast.Node) bool {
 		return true
 	case *ast.WildcardPattern, *ast.IdentPattern:
 		return true
+	case *ast.OrPattern:
+		for _, alt := range v.Alternatives {
+			if isUnconstrainedPattern(alt) {
+				return true
+			}
+		}
+		return false
 	case *ast.TuplePattern:
 		for _, elem := range v.Patterns {
 			if !isUnconstrainedPattern(elem) {
@@ -15579,7 +15597,7 @@ func (c *checker) checkLambda(n *ast.Lambda, undeterminedErr bool) Type {
 			}
 			params[i] = ty
 			recordLambdaPatternType(c.fa, p.Destructure, ty)
-			checkParamPatternRefutable(p.Destructure, ty, c.reg, c.addError)
+			c.checkParamPatternRefutable(p.Destructure, ty, c.addError)
 			c.checkPattern(p.Destructure, ty)
 			c.checkParamDefault(p, ty)
 			continue
@@ -15820,7 +15838,7 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 				params[i] = resolved
 				if p.Destructure != nil {
 					recordLambdaPatternType(c.fa, p.Destructure, resolved)
-					checkParamPatternRefutable(p.Destructure, resolved, c.reg, c.addError)
+					c.checkParamPatternRefutable(p.Destructure, resolved, c.addError)
 					c.checkPattern(p.Destructure, resolved)
 				} else {
 					attachParamType(c.fa, p.Name, p.Line, p.Col, resolved)
@@ -15869,7 +15887,7 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 				// this, bindings like `k` in `{ (k, _) -> ... }` end up with a
 				// nil Type and the body's Ident lookup defaults to Unit.
 				recordLambdaPatternType(c.fa, p.Destructure, paramTy)
-				checkParamPatternRefutable(p.Destructure, paramTy, c.reg, c.addError)
+				c.checkParamPatternRefutable(p.Destructure, paramTy, c.addError)
 				c.checkPattern(p.Destructure, paramTy)
 			} else {
 				attachParamType(c.fa, p.Name, p.Line, p.Col, paramTy)
