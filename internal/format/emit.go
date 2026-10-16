@@ -773,6 +773,9 @@ func emitNode(n ast.Node) Doc {
 		if hasEndTrivia || nodesHaveComments(v.Items) {
 			return forceBrokenItems(open, "]", elems, v.Items, v.EndTrivia)
 		}
+		if texts, ok := fillTexts(v.Items); ok {
+			return filledList(open, "]", texts)
+		}
 		return emitBracedListKeepingBreaks(open, "]", elems, keepsBrokenList(v.Line, v.Items, elems))
 	case *ast.VectorLit:
 		// A `..` written last ends the literal: the parser takes no comma
@@ -790,6 +793,9 @@ func emitNode(n ast.Node) Doc {
 			cs, _ := nodesComments(items)
 			return commentedList("#[", "]", elems, cs, v.EndTrivia, lastComma)
 		}
+		if texts, ok := fillTexts(items); ok && v.Spread == nil {
+			return filledList("#[", "]", texts)
+		}
 		if keepsBrokenList(v.Line, items, elems) {
 			return brokenList("#[", "]", elems, lastComma)
 		}
@@ -804,6 +810,9 @@ func emitNode(n ast.Node) Doc {
 		elems := setLitElems(v, emit)
 		if hasEndTrivia || nodesHaveComments(items) {
 			return forceBrokenItems("#{", "}", elems, items, v.EndTrivia)
+		}
+		if texts, ok := fillTexts(items); ok && v.Spread == nil {
+			return filledList("#{", "}", texts)
 		}
 		return emitBracedListKeepingBreaks("#{", "}", elems, keepsBrokenList(v.Line, items, elems))
 	case *ast.ListSpreadLit:
@@ -4983,26 +4992,15 @@ func emitPackedConformanceList(keyword string, entries []string) Doc {
 }
 
 func packConformanceEntries(keyword string, entries []string) [][]string {
-	var lines [][]string
-	line := []string{}
-	lineLen := textWidth(keyword) + 1
-	limit := conformanceWrapWidth
-	for _, entry := range entries {
-		addLen := textWidth(entry)
-		if len(line) > 0 {
-			addLen += 2
-		}
-		if len(line) > 0 && lineLen+addLen > limit {
-			lines = append(lines, line)
-			line = []string{entry}
-			lineLen = textWidth(entry)
-			continue
-		}
-		line = append(line, entry)
-		lineLen += addLen
+	widths := make([]int, len(entries))
+	for i, entry := range entries {
+		widths[i] = textWidth(entry)
 	}
-	if len(line) > 0 {
-		lines = append(lines, line)
+	var lines [][]string
+	i := 0
+	for _, line := range packGreedy(widths, textWidth(keyword)+1, 0, conformanceWrapWidth, 0) {
+		lines = append(lines, entries[i:i+len(line)])
+		i += len(line)
 	}
 	return lines
 }

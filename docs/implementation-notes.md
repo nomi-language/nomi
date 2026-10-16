@@ -72,6 +72,28 @@ formatter adds stay on later runs, even after the body shrinks to fit the
 parameters' line; delete the line break after the `{` to let it go back.
 A block as a call's last argument hugs its `)` (`})`).
 
+## Formatter: filled literal lists
+
+A list, vector (`#[...]`) or set (`#{...}`) literal too wide for its line
+breaks after its opening bracket. When every element is a number literal
+(an Int, Float or Decimal literal, alone, after a unary `-` or in
+parentheses the formatter drops), the formatter then fills: it packs as
+many elements on each line as fit the width, each followed by `,` (the
+last one too), and puts the closing bracket on a line of its own. Any other
+element keeps the one-element-per-line layout: a string, codepoint or
+boolean (a list of those is usually read one element at a time, as
+messages or the rows of a grid), a name, a dot variant (`.Red`), a call, a
+compound literal or a lambda. So does a spread, a comment anywhere in the
+list, and every map literal. The packing is greedy, measured in display
+columns (`textWidth`), with no alignment into columns; an element wider
+than a line takes a line of its own. It is decided when the list renders,
+from the indent its elements start at (`filledList` in
+`internal/format/fill_list.go`), so it depends on the syntax tree and the
+list's position, never on how the input laid the list out. A list in a
+compound-depth cascade (`emitChildMustBreak`) is still written one element
+per line. The derive and impl conformance lists pack their entries with the
+same function (`packGreedy`).
+
 ## Formatter: comments in lists
 
 A comment inside a bracketed, comma-separated list belongs to one of its
