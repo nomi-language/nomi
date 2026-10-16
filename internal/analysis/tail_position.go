@@ -88,8 +88,6 @@ func mark(n ast.Node, tail bool) {
 		mark(x.Value, false)
 	case *ast.StructDestructure:
 		mark(x.Value, false)
-	case *ast.MapDestructure:
-		mark(x.Value, false)
 	case *ast.DistinctDestructure:
 		mark(x.Value, false)
 	case *ast.PatternBinding:

@@ -564,8 +564,6 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 		return r.mustRecurse(x.Value, false, clean)
 	case *ast.StructDestructure:
 		return r.mustRecurse(x.Value, false, clean)
-	case *ast.MapDestructure:
-		return r.mustRecurse(x.Value, false, clean)
 	case *ast.DistinctDestructure:
 		return r.mustRecurse(x.Value, false, clean)
 	case *ast.PatternBinding:

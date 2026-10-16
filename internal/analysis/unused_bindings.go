@@ -100,7 +100,6 @@ func isUnusedBindingCandidate(node ast.Node) bool {
 	case *ast.Binding,
 		*ast.TupleDestructure,
 		*ast.StructDestructure,
-		*ast.MapDestructure,
 		*ast.DistinctDestructure,
 		*ast.PatternDestructure,
 		*ast.PatternBinding,

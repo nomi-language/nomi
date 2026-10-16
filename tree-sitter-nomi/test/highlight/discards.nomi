@@ -106,7 +106,7 @@ fn wildcard_binding(pair: (Int, Int)): Int {
 }
 
 fn map_binding(m: Map<String, Int>, key: String): Int {
-    {"a" => _a, key => b} = m
+    {"a" => _a, key => b} = m else { return 0 }
     //      ^ comment
     //          ^ variable
     b

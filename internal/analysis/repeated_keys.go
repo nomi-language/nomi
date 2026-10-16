@@ -77,8 +77,6 @@ func (c *checker) checkRepeatedKeys(nodes []ast.Node) {
 				check(v.Items, setLit)
 			case *ast.MapPattern:
 				check(patternKeys(v.Entries), mapPat)
-			case *ast.MapDestructure:
-				check(patternKeys(v.Entries), mapPat)
 			}
 			return true
 		})

@@ -982,10 +982,6 @@ func emitNode(n ast.Node) Doc {
 		// Reuse emitPattern by wrapping in a StructPattern with no TypeName.
 		pat := &ast.StructPattern{Fields: v.Fields}
 		return emitBindingValue(emitPattern(pat), v.Value)
-	case *ast.MapDestructure:
-		// {"k" => binding, ...} = expr.
-		pat := &ast.MapPattern{Entries: v.Entries}
-		return emitBindingValue(emitPattern(pat), v.Value)
 	case *ast.PatternBinding:
 		return emitPatternBinding(v)
 	case *ast.PatternDestructure:

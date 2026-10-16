@@ -504,8 +504,6 @@ func (s *iterSensitivity) walkBody(owner *Symbol, n ast.Node, caughtHere bool) {
 		s.walkBody(owner, node.Value, caughtHere)
 	case *ast.StructDestructure:
 		s.walkBody(owner, node.Value, caughtHere)
-	case *ast.MapDestructure:
-		s.walkBody(owner, node.Value, caughtHere)
 	case *ast.DistinctDestructure:
 		s.walkBody(owner, node.Value, caughtHere)
 	case *ast.PatternBinding:
@@ -850,8 +848,6 @@ func (s *iterSensitivity) collectCallSites(nodes []ast.Node) map[*Symbol][]callS
 			walk(node.Value, inIter)
 		case *ast.StructDestructure:
 			walk(node.Value, inIter)
-		case *ast.MapDestructure:
-			walk(node.Value, inIter)
 		case *ast.DistinctDestructure:
 			walk(node.Value, inIter)
 		case *ast.PatternBinding:
@@ -1057,8 +1053,6 @@ func (s *iterSensitivity) findFirstDirectBC(n ast.Node) (int, int, bool) {
 			walk(node.Value, caught)
 		case *ast.StructDestructure:
 			walk(node.Value, caught)
-		case *ast.MapDestructure:
-			walk(node.Value, caught)
 		case *ast.DistinctDestructure:
 			walk(node.Value, caught)
 		case *ast.PatternBinding:
@@ -1262,8 +1256,6 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 		case *ast.TupleDestructure:
 			walk(node.Value, enclosing, immediateIter)
 		case *ast.StructDestructure:
-			walk(node.Value, enclosing, immediateIter)
-		case *ast.MapDestructure:
 			walk(node.Value, enclosing, immediateIter)
 		case *ast.DistinctDestructure:
 			walk(node.Value, enclosing, immediateIter)

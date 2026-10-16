@@ -43,10 +43,10 @@ test "map patterns match keys literals and wildcard values" {
     assert has_key == "mode key present"
 }
 
-test "map destructuring binds requested keys" {
+test "an asserted map pattern binds requested keys" {
     config = {"host" => "localhost", "port" => "8080", "mode" => "debug"}
 
-    {"host" => host, "port" => port} = config
+    assert {"host" => host, "port" => port} = config
 
     assert host == "localhost"
     assert port == "8080"

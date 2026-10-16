@@ -389,14 +389,14 @@ d	irScalarBuilder.litFor | false | unguarded#1	irfuncbody.go:2691	-	negative, Fl
 b	irScalarBuilder.leading | note | "a lead statement on a synthesized line"#1	irfuncbody.go:2724	-	fence: synthesized lead statements appear only in synthesized declarations
 c	irScalarBuilder.leading | note | "an Iter.loop guard outside `if c { break v ¦ return v ¦ continue }`"#1	irfuncbody.go:2732	-	pinned as gapLoopNestedGuardReturnEmpty (reason: an Iter.loop guard outside `if c { break v | return v | continue }`)
 c	irScalarBuilder.leading | note | "a leading conditional outside a straight return guard"#1	irfuncbody.go:2739	-	pinned as gapGuardWithInnerIf (reason: a leading conditional outside a straight return guard)
--	irScalarBuilder.leading | note | "a test-body binding that shadows a module-level name: " + b.Name#1	irfuncbody.go:2879	-	
-d	irScalarBuilder.bindingValue | note | "a branch or block binding with no checked definition"#1	irfuncbody.go:2919	-	every if/case/block binding I wrote has a checker Definition; could not find one without
-a	irScalarBuilder.typedRegionValue | note | "a branch or block value kind with no IR type: " + k.nomi()#1	irfuncbody.go:2936	irbuild	
--	irScalarBuilder.typedRegionValue | note | "an `if` or `case` whose every arm leaves the body, used as an operand"#1	irfuncbody.go:2963	-	
-a	irScalarBuilder.typedRegionValue | computed | return ok#1	irfuncbody.go:2970	expect,irbuild,projectgen,vmhost	
-a	irScalarBuilder.bindingExpression | note | "a binding annotation outside the retained value domain: " + want.nomi()#1	irfuncbody.go:2990	irbuild	
--	irScalarBuilder.bindingExpression | note | "a value of kind " + k.nomi() + " held as the existential " + want.nomi()#1	irfuncbody.go:3004	-	
-c	irScalarBuilder.bindingExpression | false | !ok ¦¦ (k != want && !bl.g.irErases(want, k))#1	irfuncbody.go:3007	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([main] the builder declined without naming a reason (a compiler bug; please report it))
+-	irScalarBuilder.leading | note | "a test-body binding that shadows a module-level name: " + b.Name#1	irfuncbody.go:2873	-	
+d	irScalarBuilder.bindingValue | note | "a branch or block binding with no checked definition"#1	irfuncbody.go:2913	-	every if/case/block binding I wrote has a checker Definition; could not find one without
+a	irScalarBuilder.typedRegionValue | note | "a branch or block value kind with no IR type: " + k.nomi()#1	irfuncbody.go:2930	irbuild	
+-	irScalarBuilder.typedRegionValue | note | "an `if` or `case` whose every arm leaves the body, used as an operand"#1	irfuncbody.go:2957	-	
+a	irScalarBuilder.typedRegionValue | computed | return ok#1	irfuncbody.go:2964	expect,irbuild,projectgen,vmhost	
+a	irScalarBuilder.bindingExpression | note | "a binding annotation outside the retained value domain: " + want.nomi()#1	irfuncbody.go:2984	irbuild	
+-	irScalarBuilder.bindingExpression | note | "a value of kind " + k.nomi() + " held as the existential " + want.nomi()#1	irfuncbody.go:2998	-	
+c	irScalarBuilder.bindingExpression | false | !ok ¦¦ (k != want && !bl.g.irErases(want, k))#1	irfuncbody.go:3001	-	not pinned: TestKnownLoweringGaps refuses a decline with no named reason or position; reproducer in the report ([main] the builder declined without naming a reason (a compiler bug; please report it))
 a	irScalarBuilder.holeBoundCall | false | len(names) == 0 ¦¦ len(t.Args) == 0#1	irholecall.go:36	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.holeBoundCall | false | bl.g.std == nil#1	irholecall.go:45	-	defensive fence: g.std is always set when building a std instance with holes
 a	irScalarBuilder.holeBoundCall | false | !isIface#1	irholecall.go:49	expect,irbuild	
@@ -573,7 +573,7 @@ b	irScalarBuilder.mapMakeOf | false | t.TypeName != nil ¦¦ len(t.Entries) == 0
 d	irScalarBuilder.mapUpdate | false | bk != lk ¦¦ !irRetainedMapKind(lk)#1	irmap.go:225	-	needs a map spread whose entries lower but whose kind differs from the base or is not a retained map; not found
 c	irScalarBuilder.mapEntriesOver | false | !joined ¦¦ (j == 0 && !irMapKeyKind(k) && !bl.g.irStructEqualityKind(k) && !bl.g.irStructu…#1	irmap.go:309	-	pinned as gapMapOfFunctions (reason: a MapLit)
 b	irScalarBuilder.mapEntriesOver | false | !ok#1	irmap.go:319	-	fence: the key test at irmap.go:273 already admits only kinds irMapKeyOK admits
-b	irScalarBuilder.mapEntryGet | false | mk.tag != tagMap ¦¦ !irRetainedMapKind(mk)#1	irmappattern.go:38	-	every caller passes a retained map kind; a map pattern over a non-map is a checker error
+b	irScalarBuilder.mapEntryGet | false | mk.tag != tagMap ¦¦ !irRetainedMapKind(mk)#1	irmappattern.go:37	-	every caller passes a retained map kind; a map pattern over a non-map is a checker error
 b	irScalarBuilder.mapEntryGet | note | "a map pattern key of kind " + kk.nomi() + " over " + mk.nomi()#1	irmappattern.go:57	-	tried enum, tuple, struct, record, list, Float and Unit keys over String/Bool-keyed maps: all lower (irMapKeyKind admits them)
 b	irScalarBuilder.mapEntryGet | false | !ok ¦¦ (kk != keyK && !irMapKeyKind(kk))#1	irmappattern.go:59	-	same as :57; !ok propagates the key expression's own decline
 b	irScalarBuilder.mapEntryGet | note | "a map pattern over values outside the retained Maybe payloads: " + mk.nomi()#1	irmappattern.go:63	-	Maybe of a retained map's value is a retained enum; tried Int, function, Set and Vector values
@@ -581,9 +581,6 @@ b	irScalarBuilder.mapEntryGet | false | some == nil ¦¦ len(some.payloads) != 1
 b	irScalarBuilder.mapEntryGet | false | !ok#1	irmappattern.go:71	-	a retained map's key kind passes irMapKeyOK; no accepted map type found with an unkeyable key
 b	irScalarBuilder.mapCaseTest | false | !ok ¦¦ pat.TypeName != nil#1	irmappattern.go:108	-	a prefixed map pattern over a plain Map is a checker error (prefix must match the scrutinee type)
 c	irScalarBuilder.patternValueTest | note | "a nested pattern outside the retained tests: " + irNodeWord(pat) + " over " + k.nomi()#1	irmappattern.go:139	-	pinned as gapMapValueLiteralAttachDistinct (reason: a nested pattern outside the retained tests: a MapPattern over Kvs)
-b	irScalarBuilder.mapBinding | note | "a map destructure outside the retained map domain: " + mk.nomi()#1	irmappattern.go:234	-	a map destructure over a non-map is a checker error; non-retained map kinds decline before the statement
-b	irScalarBuilder.mapBinding | false | !ok ¦¦ mk.tag != tagMap ¦¦ !irRetainedMapKind(mk)#1	irmappattern.go:236	-	same as :226
-b	irScalarBuilder.mapBinding | note | "a map destructure entry outside names and wildcards"#1	irmappattern.go:250	-	the checker requires `else` for any nested entry pattern, which makes it a PatternBinding; `v as w` is rejected
 b	irScalarBuilder.namedQualCall | false | fa.Field == nil ¦¦ bl.g.fa == nil#1	irnamedarg.go:31	-	defensive: fa is set and the parser sets Field for a qualified call
 b	irScalarBuilder.namedQualCall | false | sym == nil#1	irnamedarg.go:35	-	checker records a reference for every qualified callee it resolves
 b	irScalarBuilder.namedQualCall | false | unguarded#1	irnamedarg.go:62	-	checker rejects named arguments to anything but a fn, host fn or interface method ("no parameter named", positional payloads)
@@ -829,18 +826,18 @@ a	irScalarBuilder.testLeaving | false | unguarded#1	irtestbody.go:421	expect,irb
 a	irScalarBuilder.testLeaving | false | isStmt && region == e && !endless#1	irtestbody.go:429	irbuild	
 -	irScalarBuilder.testLeaving | false | bl.recording > 0#1	irtestbody.go:433	-	
 b	irScalarBuilder.testStmt | false | !emittableLine(line)#1	irtestbody.go:478	-	defensive fence: source statements always carry an emittable line
-b	irScalarBuilder.testStmt | false | isNilNode(st.Expr)#1	irtestbody.go:523	-	defensive fence: the parser never builds an ExprStmt with a nil expression
-c	irScalarBuilder.testStmt | note | fmt.Sprintf("a test-body statement form: %T", s)#1	irtestbody.go:546	-	pinned as gapTestLocalImpl (reason: a test-body statement form: *ast.ImplBlock)
-b	irScalarBuilder.testReturn | note | "a return in a test body the builder reads back"#1	irtestbody.go:563	-	defensive fence: testStmt is only reached from test-body statement runs, never while an assertion subject is recording (subject blocks go through leading, not testStmt)
-b	irScalarBuilder.testRegion | note | "an `if` or `case` statement in a test body the builder reads back"#1	irtestbody.go:616	-	defensive fence: same as line 556
-b	irScalarBuilder.testBlock | note | "a test-body block in a body the builder reads back"#1	irtestbody.go:635	-	defensive fence: same as line 556
-b	irScalarBuilder.testBinding | note | "an annotated or discarded test-body binding"#1	irtestbody.go:724	-	defensive fence: testBinding is only reached from testStmt, whose builders (test body, setup, subtests row) all have inTest set, and a discard is handled above
-d	irScalarBuilder.testBinding | note | "a test-body binding that shadows or rebinds: " + b.Name#1	irtestbody.go:735	-	shadowing a `once` and rebinding setup/row pattern names all lowered; could not find a name g.lookup sees that the checker lets a test binding reuse
--	irScalarBuilder.testBinding | note | "an annotated pipe binding whose value is not the annotation's type: " + k.nomi() + " vs "…#1	irtestbody.go:754	-	
-c	irScalarBuilder.testAssertionBinding | note | "a test-body binding that shadows or rebinds: " + b.Name#1	irtestbody.go:799	-	pinned as gapTestAssertionBindingRebind (reason: a test-body binding that shadows or rebinds: v)
-c	irScalarBuilder.testPipeStages | note | "a defined-as block over a pipe whose stages are not its spine"#1	irtestbody.go:843	-	pinned as gapTestPipeBindingNestedPipe (reason: a defined-as block over a pipe whose stages are not its spine)
-b	irScalarBuilder.assertionValue | false | t.Check ¦¦ isNilNode(t.Expr)#1	irtestbody.go:907	-	defensive fence: nothing in the parser or analysis sets Assertion.Check, and the parser requires an expression
-d	irScalarBuilder.assertionValue | note | "an assertion subject that is not a Bool, Maybe, Result or retained Assertable"#1	irtestbody.go:935	-	could not find an Assertable subject type that is not retained
+b	irScalarBuilder.testStmt | false | isNilNode(st.Expr)#1	irtestbody.go:521	-	defensive fence: the parser never builds an ExprStmt with a nil expression
+c	irScalarBuilder.testStmt | note | fmt.Sprintf("a test-body statement form: %T", s)#1	irtestbody.go:544	-	pinned as gapTestLocalImpl (reason: a test-body statement form: *ast.ImplBlock)
+b	irScalarBuilder.testReturn | note | "a return in a test body the builder reads back"#1	irtestbody.go:561	-	defensive fence: testStmt is only reached from test-body statement runs, never while an assertion subject is recording (subject blocks go through leading, not testStmt)
+b	irScalarBuilder.testRegion | note | "an `if` or `case` statement in a test body the builder reads back"#1	irtestbody.go:614	-	defensive fence: same as line 556
+b	irScalarBuilder.testBlock | note | "a test-body block in a body the builder reads back"#1	irtestbody.go:633	-	defensive fence: same as line 556
+b	irScalarBuilder.testBinding | note | "an annotated or discarded test-body binding"#1	irtestbody.go:722	-	defensive fence: testBinding is only reached from testStmt, whose builders (test body, setup, subtests row) all have inTest set, and a discard is handled above
+d	irScalarBuilder.testBinding | note | "a test-body binding that shadows or rebinds: " + b.Name#1	irtestbody.go:733	-	shadowing a `once` and rebinding setup/row pattern names all lowered; could not find a name g.lookup sees that the checker lets a test binding reuse
+-	irScalarBuilder.testBinding | note | "an annotated pipe binding whose value is not the annotation's type: " + k.nomi() + " vs "…#1	irtestbody.go:752	-	
+c	irScalarBuilder.testAssertionBinding | note | "a test-body binding that shadows or rebinds: " + b.Name#1	irtestbody.go:797	-	pinned as gapTestAssertionBindingRebind (reason: a test-body binding that shadows or rebinds: v)
+c	irScalarBuilder.testPipeStages | note | "a defined-as block over a pipe whose stages are not its spine"#1	irtestbody.go:841	-	pinned as gapTestPipeBindingNestedPipe (reason: a defined-as block over a pipe whose stages are not its spine)
+b	irScalarBuilder.assertionValue | false | t.Check ¦¦ isNilNode(t.Expr)#1	irtestbody.go:905	-	defensive fence: nothing in the parser or analysis sets Assertion.Check, and the parser requires an expression
+d	irScalarBuilder.assertionValue | note | "an assertion subject that is not a Bool, Maybe, Result or retained Assertable"#1	irtestbody.go:933	-	could not find an Assertable subject type that is not retained
 a	gen.irTestGroup | note | "a test boot that names no entry boot this program lowers"#1	irtestgroup.go:44	irbuild	
 b	gen.irTestStartup | note | "a test boot line that does not pass at most one Startup"#1	irtestgroup.go:105	-	checker rejects: a boot line must call an entry's boot ("`boot` in a `group` calls an entry's boot"), and boot takes at most one Startup
 b	gen.irTestStartup | note | "a test boot line that passes no Startup to a boot whose parameter has no default"#1	irtestgroup.go:120	-	checker rejects: "expected 1 arguments, got 0" for `boot app.boot()` when the parameter has no default
@@ -914,33 +911,33 @@ c	irScalarBuilder.structVariantCaseTest | false | !ok ¦¦ (owner != "" && !bl.g
 b	irScalarBuilder.structVariantCaseTest | false | v == nil ¦¦ v.kind != "struct"#1	irvariantpattern.go:498	-	checker rejects a brace pattern naming a non-struct variant
 c	irScalarBuilder.structVariantCaseTest | false | idx[i] < 0 ¦¦ !irFieldSubPattern(f.Pattern, v.payloads[idx[i]].k)#1	irvariantpattern.go:509	-	pinned as gapStructVariantFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
 c	irScalarBuilder.embeddedStructCaseTest | false | fields[i] == nil ¦¦ !irFieldSubPattern(f.Pattern, fields[i].k)#1	irvariantpattern.go:657	-	pinned as gapEmbeddedStructFieldCompositeDistinct (reason: a `case` enum pattern outside retained bare/positional payload tests)
-a	irScalarBuilder.variantBare | false | v.kind != "bare"#1	irvariantvalues.go:674	expect,irbuild,vmhost	
-a	irScalarBuilder.genericVariantBare | false | !ok ¦¦ v.kind != "bare"#1	irvariantvalues.go:688	expect,irbuild,projectgen,vmhost	
-b	irScalarBuilder.genericVariant | false | field.Field == nil#1	irvariantvalues.go:710	-	the parser always sets a FieldAccess's Field
-a	irScalarBuilder.genericVariant | false | !isTemplate ¦¦ tpl.enumDecl() == nil#1	irvariantvalues.go:722	expect,irbuild,projectgen,vmhost	
-d	irScalarBuilder.genericVariant | false | !(ty != nil)#1	irvariantvalues.go:735	-	needs a generic variant call with neither a recorded signature nor a checked type; did not find one
-b	irScalarBuilder.genericVariant | false | bl.g.fa == nil#1	irvariantvalues.go:743	-	fence: fa is nil only outside a checked file
-a	irScalarBuilder.genericVariant | false | sym == nil ¦¦ sym.VariantType == nil#1	irvariantvalues.go:747	irbuild	
-a	irScalarBuilder.genericVariant | false | k.tag != tagNamed ¦¦ k.def == nil ¦¦ k.def.genericOf != tpl ¦¦ !irRetainedEnumKind(k.def)#1	irvariantvalues.go:752	expect,irbuild	
-a	irScalarBuilder.genericVariant | computed | return v != nil#1	irvariantvalues.go:755	expect,irbuild,vmhost	
-b	irScalarBuilder.variantCallOf | false | !vok ¦¦ k != v.embeds.inner#1	irvariantvalues.go:857	-	the checker types an embedded distinct's argument as its inner value; tried E.W(circle) widening, lowers
-b	irScalarBuilder.variantCallOf | false | v.kind != "positional" ¦¦ len(call.Args) == 0#1	irvariantvalues.go:867	-	checker: bare variants take no call, positional ones take arguments
-b	irScalarBuilder.variantCallOf | false | pk.tag != tagTuple ¦¦ pk.comp == nil ¦¦ len(pk.comp.parts) != len(call.Args)#1	irvariantvalues.go:874	-	checker arity for a flat tuple payload
-b	irScalarBuilder.variantCallOf | false | !ok ¦¦ k != v.payloads[0].k#1	irvariantvalues.go:885	-	tried embedded-struct, list, Maybe, function-value and tuple payloads that widen: coerceEmpty covers them
-b	irScalarBuilder.variantCallForm | false | len(call.Args) != 1#1	irvariantvalues.go:901	-	checker arity for the record call form
-b	irScalarBuilder.variantFromLit | false | !ok ¦¦ k != named(v.embeds)#1	irvariantvalues.go:917	-	the embedded struct literal is typed by the checker; tried literal and record forms
-d	irScalarBuilder.variantStructLit | false | !ok ¦¦ k.tag != tagNamed ¦¦ k.def == nil#1	irvariantvalues.go:940	-	generic struct variant whose args the checker did not record; `Box.Named({value: 5})` is rejected by the checker (expected T, got Int), so not reached
-a	irScalarBuilder.variantStructLit | false | !found#1	irvariantvalues.go:951	irbuild	
-d	irScalarBuilder.variantStructLitOf | false | !irRetainedEnumKind(d)#1	irvariantvalues.go:960	-	`S.Rec{w: 1, n: 2}` with `typealias S Shape` declines as `a struct literal: S.Rec`; could not tell whether here or at variantStructLit's unlisted !found
-d	irScalarBuilder.variantStructLitOf | false | v == nil ¦¦ !irStructShapedVariant(v)#1	irvariantvalues.go:963	-	same as :952
-b	irScalarBuilder.variantFields | false | target == nil#1	irvariantvalues.go:982	-	checker rejects an unknown field
-b	irScalarBuilder.variantFields | false | dup#1	irvariantvalues.go:985	-	checker rejects a repeated field
-b	irScalarBuilder.variantFields | false | !ok ¦¦ k != target.k#1	irvariantvalues.go:1001	-	tried widening field values (Circle into Shape, Some(c), [c]): coerceEmpty covers them
-b	irScalarBuilder.variantFromRecord | false | len(call.Args) != 1 ¦¦ namedArgNode(call.Args) != nil#1	irvariantvalues.go:1017	-	the checker gives the record call form one positional argument
-b	irScalarBuilder.variantFromRecord | false | !ok ¦¦ !irRetainedRecordKind(k)#1	irvariantvalues.go:1021	-	checker rejects a non-record argument (`Shape.Circle(c)`: already a Circle, use it where a Shape is expected)
-b	irScalarBuilder.variantFinish | false | args[i] == ir.NoTemp#1	irvariantvalues.go:1049	-	std-only: goDefault for a Go-declared default
-b	irScalarBuilder.variantFinish | false | p.goDeflt != "" ¦¦ p.deflt == nil ¦¦ d.foreign != ""#1	irvariantvalues.go:1062	-	std-only fence: goDeflt/foreign defaults are handled above
-a	irScalarBuilder.importedVariantCall | false | !ok ¦¦ !irRetainedEnumKind(d) ¦¦ v.kind != "positional" ¦¦ hasNamedArg(call.Args)#1	irvariantvalues.go:1080	irbuild	
+a	irScalarBuilder.variantBare | false | v.kind != "bare"#1	irvariantvalues.go:678	expect,irbuild,vmhost	
+a	irScalarBuilder.genericVariantBare | false | !ok ¦¦ v.kind != "bare"#1	irvariantvalues.go:692	expect,irbuild,projectgen,vmhost	
+b	irScalarBuilder.genericVariant | false | field.Field == nil#1	irvariantvalues.go:714	-	the parser always sets a FieldAccess's Field
+a	irScalarBuilder.genericVariant | false | !isTemplate ¦¦ tpl.enumDecl() == nil#1	irvariantvalues.go:726	expect,irbuild,projectgen,vmhost	
+d	irScalarBuilder.genericVariant | false | !(ty != nil)#1	irvariantvalues.go:739	-	needs a generic variant call with neither a recorded signature nor a checked type; did not find one
+b	irScalarBuilder.genericVariant | false | bl.g.fa == nil#1	irvariantvalues.go:747	-	fence: fa is nil only outside a checked file
+a	irScalarBuilder.genericVariant | false | sym == nil ¦¦ sym.VariantType == nil#1	irvariantvalues.go:751	irbuild	
+a	irScalarBuilder.genericVariant | false | k.tag != tagNamed ¦¦ k.def == nil ¦¦ k.def.genericOf != tpl ¦¦ !irRetainedEnumKind(k.def)#1	irvariantvalues.go:756	expect,irbuild	
+a	irScalarBuilder.genericVariant | computed | return v != nil#1	irvariantvalues.go:759	expect,irbuild,vmhost	
+b	irScalarBuilder.variantCallOf | false | !vok ¦¦ k != v.embeds.inner#1	irvariantvalues.go:861	-	the checker types an embedded distinct's argument as its inner value; tried E.W(circle) widening, lowers
+b	irScalarBuilder.variantCallOf | false | v.kind != "positional" ¦¦ len(call.Args) == 0#1	irvariantvalues.go:871	-	checker: bare variants take no call, positional ones take arguments
+b	irScalarBuilder.variantCallOf | false | pk.tag != tagTuple ¦¦ pk.comp == nil ¦¦ len(pk.comp.parts) != len(call.Args)#1	irvariantvalues.go:878	-	checker arity for a flat tuple payload
+b	irScalarBuilder.variantCallOf | false | !ok ¦¦ k != v.payloads[0].k#1	irvariantvalues.go:889	-	tried embedded-struct, list, Maybe, function-value and tuple payloads that widen: coerceEmpty covers them
+b	irScalarBuilder.variantCallForm | false | len(call.Args) != 1#1	irvariantvalues.go:905	-	checker arity for the record call form
+b	irScalarBuilder.variantFromLit | false | !ok ¦¦ k != named(v.embeds)#1	irvariantvalues.go:921	-	the embedded struct literal is typed by the checker; tried literal and record forms
+d	irScalarBuilder.variantStructLit | false | !ok ¦¦ k.tag != tagNamed ¦¦ k.def == nil#1	irvariantvalues.go:944	-	generic struct variant whose args the checker did not record; `Box.Named({value: 5})` is rejected by the checker (expected T, got Int), so not reached
+a	irScalarBuilder.variantStructLit | false | !found#1	irvariantvalues.go:955	irbuild	
+d	irScalarBuilder.variantStructLitOf | false | !irRetainedEnumKind(d)#1	irvariantvalues.go:964	-	`S.Rec{w: 1, n: 2}` with `typealias S Shape` declines as `a struct literal: S.Rec`; could not tell whether here or at variantStructLit's unlisted !found
+d	irScalarBuilder.variantStructLitOf | false | v == nil ¦¦ !irStructShapedVariant(v)#1	irvariantvalues.go:967	-	same as :952
+b	irScalarBuilder.variantFields | false | target == nil#1	irvariantvalues.go:986	-	checker rejects an unknown field
+b	irScalarBuilder.variantFields | false | dup#1	irvariantvalues.go:989	-	checker rejects a repeated field
+b	irScalarBuilder.variantFields | false | !ok ¦¦ k != target.k#1	irvariantvalues.go:1005	-	tried widening field values (Circle into Shape, Some(c), [c]): coerceEmpty covers them
+b	irScalarBuilder.variantFromRecord | false | len(call.Args) != 1 ¦¦ namedArgNode(call.Args) != nil#1	irvariantvalues.go:1021	-	the checker gives the record call form one positional argument
+b	irScalarBuilder.variantFromRecord | false | !ok ¦¦ !irRetainedRecordKind(k)#1	irvariantvalues.go:1025	-	checker rejects a non-record argument (`Shape.Circle(c)`: already a Circle, use it where a Shape is expected)
+b	irScalarBuilder.variantFinish | false | args[i] == ir.NoTemp#1	irvariantvalues.go:1053	-	std-only: goDefault for a Go-declared default
+b	irScalarBuilder.variantFinish | false | p.goDeflt != "" ¦¦ p.deflt == nil ¦¦ d.foreign != ""#1	irvariantvalues.go:1066	-	std-only fence: goDeflt/foreign defaults are handled above
+a	irScalarBuilder.importedVariantCall | false | !ok ¦¦ !irRetainedEnumKind(d) ¦¦ v.kind != "positional" ¦¦ hasNamedArg(call.Args)#1	irvariantvalues.go:1084	irbuild	
 d	irScalarBuilder.vectorMakeOf | false | !irRetainedVectorKind(k) && bl.g.irValType(k) == nil#1	irvector.go:59	-	needs vector items accepted as one element kind whose Vector has no stored type; not found
 -	irScalarBuilder.lowerSameKindItems | note | "a literal whose element kind is outside its collection's domain: " + want.nomi()#1	irvector.go:150	-	
 c	irScalarBuilder.lowerSameKindItems | false | !ok ¦¦ k != want#1	irvector.go:156	-	pinned as gapVectorCapturedElemWiden (reason: a value of kind Captured<Circle> where Captured<Shape> is expected)

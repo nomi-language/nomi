@@ -159,7 +159,7 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 		if n.Binding != nil {
 			w.skip[n.Binding] = true
 		}
-	case *ast.StructDestructure, *ast.MapDestructure:
+	case *ast.StructDestructure:
 		w.skipPatternFields(n)
 	case *ast.With:
 		w.skip[n.Target] = true
@@ -203,14 +203,12 @@ func (w *unresolvedWalk) skipParamPatterns(params []ast.Param) {
 	}
 }
 
-// skipPatternFields marks the patterns of a struct or map destructuring,
+// skipPatternFields marks the patterns of a struct destructuring,
 // leaving its value.
 func (w *unresolvedWalk) skipPatternFields(n ast.Node) {
 	var value ast.Node
 	switch d := n.(type) {
 	case *ast.StructDestructure:
-		value = d.Value
-	case *ast.MapDestructure:
 		value = d.Value
 	}
 	ast.Children(n, func(c ast.Node) {

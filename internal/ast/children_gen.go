@@ -176,10 +176,6 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfListSpreadLit(n, fn)
 		}
-	case *MapDestructure:
-		if n != nil {
-			childrenOfMapDestructure(n, fn)
-		}
 	case *MapLit:
 		if n != nil {
 			childrenOfMapLit(n, fn)
@@ -422,8 +418,6 @@ func absent(n Node) bool {
 	case *ListPattern:
 		return n == nil
 	case *ListSpreadLit:
-		return n == nil
-	case *MapDestructure:
 		return n == nil
 	case *MapLit:
 		return n == nil
@@ -1107,15 +1101,6 @@ func childrenOfListSpreadLit(x *ListSpreadLit, fn func(Node)) {
 	}
 }
 
-func childrenOfMapDestructure(x *MapDestructure, fn func(Node)) {
-	for i1 := range x.Entries {
-		childrenOfMapPatternEntry(&x.Entries[i1], fn)
-	}
-	if !absent(x.Value) {
-		fn(x.Value)
-	}
-}
-
 func childrenOfMapEntry(x *MapEntry, fn func(Node)) {
 	if !absent(x.Key) {
 		fn(x.Key)
@@ -1622,7 +1607,6 @@ var generatedTypes = []any{
 	(*ListLit)(nil),
 	(*ListPattern)(nil),
 	(*ListSpreadLit)(nil),
-	(*MapDestructure)(nil),
 	(*MapLit)(nil),
 	(*MapPattern)(nil),
 	(*NamedArg)(nil),

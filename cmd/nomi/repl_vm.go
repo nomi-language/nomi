@@ -501,10 +501,6 @@ func replBoundNames(n ast.Node) []string {
 		for _, f := range s.Fields {
 			names = append(names, replStructFieldNames(f)...)
 		}
-	case *ast.MapDestructure:
-		for _, e := range s.Entries {
-			names = append(names, replPatternNames(e.Pattern)...)
-		}
 	case *ast.DistinctDestructure:
 		if s.Binding != nil {
 			names = append(names, s.Binding.Name)

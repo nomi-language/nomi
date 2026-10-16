@@ -2640,22 +2640,38 @@ case scores {
 }
 ```
 
-Map destructuring also works in bindings. All specified keys must exist or it's a runtime error:
+A map pattern is refutable. Whether a key is present is data the program does
+not control, so a missing key is a pattern that does not match, never a trap
+(§17 *Traps, `Maybe` and `Result`). In a `case` arm the next arm is tried, and
+`if Pattern = expr` takes its `else` branch. A map pattern never matches every
+map, so a `case` over a map needs a `_` arm (`` non-exhaustive case: add a `_` arm ``).
+
+In a binding, a map pattern takes an `else` as `Some(x) = maybe` does (§10
+*Bindings with `else`*). A map pattern has no single payload a fallback could
+stand in for, so every path through the `else` leaves:
 
 ```nomi
-config = {"host" => "localhost", "port" => 8080}
+fn address(config: Map<String, String>): String {
+    {"host" => host, "port" => port} = config else { return "no address" }
+    "${host}:${port}"
+}
 
-{"host" => host, "port" => port} = config
-
-io.print(host) // "localhost"
-
-io.print(port) // 8080
-
-// missing key is a runtime error
-{"missing" => x} = config // runtime error: key missing not found in map
+fn port_of(config: Map<String, Int>): Int {
+    {"port" => port} = config else {
+        {"fallback" => fallback} -> return fallback
+        _ -> return 80
+    }
+    port
+}
 ```
 
-Map patterns are refutable — a `_` catch-all is required for exhaustiveness unless the map type is known to have exactly the matched keys.
+Without `else`, `{"port" => port} = config` is the error `` this pattern can fail
+to match a value of type Map<String, Int>; add `else { ... }` to handle a value
+it does not match, or match it with `case` or `if Pattern = expr` ``, with the
+help `` a map pattern does not match a map that lacks one of its keys. Handle a
+missing key with `else { ... }`, or read one key with `Map.get`, which returns
+a `Maybe` ``. In a test, `assert {"port" => port} = config` fails the assertion
+when a key is missing and binds `port` when none is.
 
 A map pattern that names the same constant key twice (`{"k" => a, "k" => b}`) is a compile error at the second key, `` key `"k"` is given twice in this map pattern; match its value once ``, by the rule for map literals (§19, Map, *Repeated keys*). Keys equal only at run time (`{target => a, other => b}`) both look up the one entry, and both patterns must match its value.
 
@@ -2758,7 +2774,7 @@ The braces hold case arms when their first item is `pattern ->` (or `pattern whe
 - If it does not match, the `else` runs. Arms match the value that failed, which has the right-hand side's type. The binding's pattern and the arms together must be exhaustive, by `case`'s rules (§*Exhaustiveness Checking*), including its `_` requirements; the error is `non-exhaustive `else` on Result: missing Err`.
 - Every path through the `else` either **leaves** — `return`, `break` or `continue` (inside an iteration callback, §12), or a branch every path of which leaves — or **produces a fallback**.
 - A fallback is allowed only when the pattern names one variant with a payload, `Variant(inner)` or `.Variant{fields}`, whose own pattern always matches. The fallback's type is the payload's (for a struct-shaped variant, the anonymous struct of its fields), and the inner pattern binds from it exactly as it would from a match: `Some(email) = m else { "none" }` binds `email` to `"none"`, and `Ok((w, h)) = r else { (80, 24) }` binds `w` to 80 and `h` to 24. A fallback of another type is the error `the fallback stands in for Some's payload of type String, got Int`.
-- A pattern with no single payload to stand in for — a list pattern such as `[first, ..rest]`, a nested refutable pattern such as `Ok(Some(x))`, a literal, a tuple with a refutable part — requires every path to leave. A path that produces a value is the error `this pattern has no single payload a fallback could stand in for; every path through `else` must return, break or continue`.
+- A pattern with no single payload to stand in for — a list pattern such as `[first, ..rest]`, a map pattern such as `{"port" => p}`, a nested refutable pattern such as `Ok(Some(x))`, a literal, a tuple with a refutable part — requires every path to leave. A path that produces a value is the error `this pattern has no single payload a fallback could stand in for; every path through `else` must return, break or continue`.
 - A pattern that always matches takes no `else`: `(x, y) = pair else { ... }` is the error `this pattern always matches; remove the else`.
 - A single-variant enum's pattern always matches, as it does as a parameter (§5 *Parameter Destructuring*): for `enum Only { One Int }`, `Only.One(p) = only` binds `p` to the Int with no `else`, and over a struct-shaped variant `Rec.Fields(r) = rec` binds `r` to the anonymous struct of its fields.
 - A pattern that can fail requires one. `Some(n) = maybe` alone is the error `this pattern can fail to match a value of type Maybe<Int>; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr``. On `Ok(x)` over a `Result` or `Some(x)` over a `Maybe` its help points at `try`, which unwraps the value and returns early on `Err` or `None`: write `x = try ...`, or, when the value is a pipe, end it with `|> try`.
@@ -5492,6 +5508,10 @@ returns a `Maybe`, because what it looks for may not be there (`Map.get`,
 `Vector.get`, `Bytes.get`, `Iter.get`). A function named **`at`** returns the
 value itself and traps when the position does not exist (`Vector.at`,
 `Bytes.at`): the caller is promising it does.
+
+A map pattern follows the rule too. Whether a key is present is data, so
+`{"port" => p} = config` is refutable: it needs an `else`, a `case` or an
+`if` (§10 *Map Destructuring*).
 
 ## 18. Comments
 

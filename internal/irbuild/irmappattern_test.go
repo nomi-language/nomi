@@ -29,7 +29,7 @@ fn describe(m: Map<String, Int>): String {
 }
 
 fn pick(m: Map<Int, String>): String {
-  {1 => one, 2 => _} = m
+  {1 => one, 2 => _} = m else { return "missing" }
   one
 }
 
@@ -95,54 +95,27 @@ func TestIRMapPattern_CaseDestructureAndAttach(t *testing.T) {
 			"Obj({\"k\" => Arr([Num(1), Pos(2, 3)])})\n")
 }
 
-// A destructured key the map lacks faults with rt.MapKeyMissingError's text
-// at the statement's line, the key rendered by Display.
-func TestIRMapPattern_MissingDestructuredKeyFaults(t *testing.T) {
-	src := `import std/io
+// A map binding whose key the map lacks runs its `else`: a map pattern is
+// refutable, and a missing key is a miss, not a trap. Each key is a
+// side-effecting call evaluated once, on the hit and on the miss.
+func TestIRMapPattern_MissingBoundKeyRunsElse(t *testing.T) {
+	irRunSource(t, `import std/io
+
+fn note(k: Int): Int {
+  io.print("key ${k}")
+  k
+}
 
 fn pick(m: Map<Int, String>): String {
-  {1 => one, 2 => _} = m
+  {note(1) => one, note(2) => _} = m else { return "missing" }
   one
 }
 
 fn main() {
   io.print(pick({1 => "x"}))
+  io.print(pick({1 => "x", 2 => "y"}))
 }
-`
-	path := filepath.Join(t.TempDir(), "main.nomi")
-	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
-		t.Fatal(err)
-	}
-	p, err := Analyze(path)
-	if err != nil {
-		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
-	}
-	res, _, err := GenerateIR(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var entry *ir.Module
-	for _, m := range res.IR {
-		if m.Name() == path {
-			entry = m
-		}
-	}
-	if entry == nil {
-		t.Fatal("no module for the program")
-	}
-	var out bytes.Buffer
-	booted, err := vm.NewProgram(entry, res.IRModules(), &out).Boot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, runErr := booted.Run("main")
-	const want = "line 4: key 2 not found in map"
-	if runErr == nil || !strings.Contains(runErr.Error(), want) {
-		t.Fatalf("VM error %v; want %q", runErr, want)
-	}
-	if got := vmReference(path); got.exit == 0 || !strings.Contains(got.stderr, want) {
-		t.Fatalf("vm command: %s; want %q", got, want)
-	}
+`, "key 1\nkey 2\nmissing\nkey 1\nkey 2\nx\n")
 }
 
 const irMapFuncsSource = `import std/io

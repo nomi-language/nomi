@@ -270,7 +270,7 @@ func (c *checker) rowTailCannotFail(n ast.Node) bool {
 func isRowStatement(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.Binding, *ast.Defer, *ast.With, *ast.TupleDestructure, *ast.StructDestructure,
-		*ast.MapDestructure, *ast.DistinctDestructure, *ast.PatternBinding:
+		*ast.DistinctDestructure, *ast.PatternBinding:
 		return true
 	}
 	return false

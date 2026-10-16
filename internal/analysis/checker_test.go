@@ -2166,13 +2166,13 @@ func TestCheckStructDestructureAnonymous(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// checkMapDestructure
+// map pattern bindings
 // ---------------------------------------------------------------------------
 
 func TestCheckMapDestructureValid(t *testing.T) {
 	src := `fn main() {
   m = {"name" => "Alice", "age" => "30"}
-  {"name" => name} = m
+  {"name" => name} = m else { return }
 }`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2193,10 +2193,49 @@ func TestCheckMapDestructureValid(t *testing.T) {
 
 func TestCheckMapDestructureNotMap(t *testing.T) {
 	src := `fn main(): () {
-  {"key" => v} = 42
+  {"key" => v} = 42 else { return }
 }`
 	_, errs := checkSource(src)
-	expectError(t, errs, "map destructure requires a map type")
+	expectError(t, errs, "map pattern requires a map type, got Int")
+}
+
+// A map pattern bound with no `else` is refutable: a key may be absent, so
+// the binding is the refutable-pattern error with the help for maps. The
+// test fails if the binding starts being admitted.
+func TestCheckMapBindingWithoutElseIsRefutable(t *testing.T) {
+	src := `fn main() {
+  config = {"host" => "localhost"}
+  {"host" => host} = config
+  _ = host
+}`
+	_, errs := checkSource(src)
+	var found *TypeError
+	for i := range errs {
+		if errs[i].Line == 3 {
+			found = &errs[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("the front end admits a map pattern bound with no else; errors: %v", errs)
+	}
+	const want = "this pattern can fail to match a value of type Map<String, String>; " +
+		"add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr`"
+	if found.Message != want {
+		t.Errorf("message = %q, want %q", found.Message, want)
+	}
+	if len(found.Hints) != 1 || found.Hints[0] != mapBindingHint {
+		t.Errorf("hints = %q, want the map binding hint", found.Hints)
+	}
+}
+
+// The same binding with an `else` that leaves is accepted.
+func TestCheckMapBindingWithElseIsAccepted(t *testing.T) {
+	src := `fn host(config: Map<String, String>): String {
+  {"host" => host} = config else { return "none" }
+  host
+}`
+	_, errs := checkSource(src)
+	expectNoErrors(t, errs)
 }
 
 // ---------------------------------------------------------------------------

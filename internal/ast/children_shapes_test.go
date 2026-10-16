@@ -53,7 +53,7 @@ func TestChildrenMatchTheReflectiveWalkOnEveryShape(t *testing.T) {
 			t.Fatalf("the dynamic walks of a %T differ:\ngenerated  %v\nreflective %v", v, names(gen), names(ref))
 		}
 	}
-	if nodes < 10_000 {
+	if nodes < 9_000 {
 		t.Fatalf("only %d nodes were built", nodes)
 	}
 	t.Logf("%d types, %d nodes", len(generatedTypes), nodes)

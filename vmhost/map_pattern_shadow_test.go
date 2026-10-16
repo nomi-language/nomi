@@ -8,12 +8,11 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// A map destructure whose pattern binds a name already in scope runs, and a
+// A map binding whose pattern binds a name already in scope runs, and a
 // map pattern's key sees the names in scope before the pattern, never one the
 // pattern binds, as the checker resolves it. In `{"mode" => a, a => b}` the
 // second key is the `a` bound before the pattern ("host"), so b is the host's
-// value, in a destructure, a `case` arm, a pattern `if` and a binding with
-// `else`. A key that names the shadowed parameter is evaluated once.
+// value, in a binding with `else`, a `case` arm and a pattern `if`. A key that names the shadowed parameter is evaluated once.
 func TestRun_MapPatternKeySeesTheScopeBeforeThePattern(t *testing.T) {
 	out, err := runVM(t, `import std/io
 
@@ -25,31 +24,31 @@ fn note(s: String): String {
 fn constant_key(cfg: Map<String, String>) {
   a = "outer"
   io.print(a)
-  {"host" => a} = cfg
+  {"host" => a} = cfg else { return }
   io.print("constant: ${a}")
 }
 
 fn computed_key(cfg: Map<String, String>) {
   a = "outer"
   io.print(a)
-  {note("host") => a} = cfg
+  {note("host") => a} = cfg else { return }
   io.print("computed: ${a}")
 }
 
 fn self_key(m: Map<String, String>) {
   a = "host"
-  {a => a} = m
+  {a => a} = m else { return }
   io.print("self key: ${a}")
 }
 
 fn later_key(m: Map<String, String>) {
   a = "host"
-  {"mode" => a, a => b} = m
+  {"mode" => a, a => b} = m else { return }
   io.print("later key: ${a} ${b}")
 }
 
 fn param(a: String, m: Map<String, String>) {
-  {note(a) => a, a => b} = m
+  {note(a) => a, a => b} = m else { return }
   io.print("param: ${a} ${b}")
 }
 
@@ -97,9 +96,10 @@ fn main() {
 	}
 }
 
-// A destructure with a missing key still faults after rebinding names, and
-// the earlier entries' keys ran first.
-func TestRun_MapDestructureRebindMissingKeyFaults(t *testing.T) {
+// A map binding with a missing key runs its else after the earlier entries'
+// keys ran, and the else sees the names bound before the pattern, not the
+// pattern's own.
+func TestRun_MapDestructureRebindMissingKeyRunsElse(t *testing.T) {
 	out, err := runVM(t, `import std/io
 
 fn note(s: String): String {
@@ -111,12 +111,15 @@ fn main() {
   cfg = {"host" => "h1"}
   a = "outer"
   io.print(a)
-  {note("host") => a, note("port") => b} = cfg
+  {note("host") => a, note("port") => b} = cfg else {
+    io.print("missing: ${a}")
+    return
+  }
   io.print("${a} ${b}")
 }
 `)
-	if err == nil || !strings.Contains(err.Error(), "port") || out != "outer\nkey host\nkey port\n" {
-		t.Fatalf("output %q, error %v; want the two keys and a missing-key fault naming port", out, err)
+	if err != nil || out != "outer\nkey host\nkey port\nmissing: outer\n" {
+		t.Fatalf("output %q, error %v; want the two keys and the else", out, err)
 	}
 }
 
@@ -130,7 +133,7 @@ test "map rebind" {
   m = {"host" => "h1", "mode" => "debug", "debug" => "D"}
   a = "host"
   io.print(a)
-  {"mode" => a, a => b} = m
+  assert {"mode" => a, a => b} = m
   io.print("${a} ${b}")
   assert b == "h1"
 }

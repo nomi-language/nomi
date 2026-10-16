@@ -1455,26 +1455,6 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 				}
 			}
 
-		case *ast.MapDestructure:
-			b.walkNode(s.Value, scope)
-			for _, entry := range s.Entries {
-				b.walkNode(entry.Key, scope)
-			}
-			for _, entry := range s.Entries {
-				if ip, ok := entry.Pattern.(*ast.IdentPattern); ok {
-					sym := &Symbol{
-						Name: ip.Name,
-						Kind: SymbolBinding,
-						Pos:  Pos{Line: ip.Line, Col: ip.Col},
-						Node: s,
-					}
-					if !ast.IsDiscardName(ip.Name) {
-						scope.Define(sym)
-					}
-					b.define(sym.Pos, sym)
-				}
-			}
-
 		case *ast.DistinctDestructure:
 			// Register a Reference at the type-name position (`Id` in
 			// `Id(unwrapped) = id`) so hover shows the distinct type.
@@ -4463,9 +4443,6 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.StructDestructure:
 		b.walkNode(n.Value, scope)
 
-	case *ast.MapDestructure:
-		b.walkNode(n.Value, scope)
-
 	case *ast.DistinctDestructure:
 		// Register a Reference at the type-name position (`Id` in
 		// `Id(unwrapped) = id`) so hover shows the distinct type.
@@ -5088,26 +5065,6 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 
 		case *ast.PatternBinding:
 			b.walkPatternBinding(s, scope)
-
-		case *ast.MapDestructure:
-			b.walkNode(s.Value, scope)
-			for _, entry := range s.Entries {
-				b.walkNode(entry.Key, scope)
-			}
-			for _, entry := range s.Entries {
-				if ip, ok := entry.Pattern.(*ast.IdentPattern); ok {
-					sym := &Symbol{
-						Name: ip.Name,
-						Kind: SymbolBinding,
-						Pos:  Pos{Line: ip.Line, Col: ip.Col},
-						Node: s,
-					}
-					if !ast.IsDiscardName(ip.Name) {
-						scope.Define(sym)
-					}
-					b.define(sym.Pos, sym)
-				}
-			}
 
 		case *ast.DistinctDestructure:
 			// Register a Reference at the type-name position (`Id` in

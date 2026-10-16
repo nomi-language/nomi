@@ -395,7 +395,6 @@ var constructNames = map[string]string{
 	"Lambda":             "lambda",
 	"ListLit":            "list literal",
 	"ListSpreadLit":      "list spread literal",
-	"MapDestructure":     "map destructuring",
 	"MapLit":             "map literal",
 	"NamedArg":           "named argument",
 	"OnceBinding":        "once binding",

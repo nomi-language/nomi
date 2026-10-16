@@ -122,17 +122,17 @@ test "map patterns match composite expression keys" {
     assert fallthrough == "fallthrough"
 }
 
-test "map destructuring binds composite expression keys" {
+test "an asserted map pattern binds composite expression keys" {
     flags = {True => "yes", False => "no"}
     points = {(1, 2) => "a", (3, 4) => "b"}
     ids = {Id(5) => "five"}
     numbers = {2 => "computed"}
     shift = 1
 
-    {True => bound_bool} = flags
-    {(3, 4) => bound_tuple} = points
-    {Id(5) => bound_id} = ids
-    {shift + 1 => bound_computed} = numbers
+    assert {True => bound_bool} = flags
+    assert {(3, 4) => bound_tuple} = points
+    assert {Id(5) => bound_id} = ids
+    assert {shift + 1 => bound_computed} = numbers
 
     assert bound_bool == "yes"
     assert bound_tuple == "b"
@@ -162,7 +162,7 @@ fn lookup_nested(x: Maybe<Map<Int, String>>): String {
 }
 
 test "negative numeric literals can be map pattern keys" {
-    {-2 => destructured} = {-2 => "via destructure"}
+    assert {-2 => destructured} = {-2 => "via destructure"}
 
     negative = {-2 => "found neg"}
 

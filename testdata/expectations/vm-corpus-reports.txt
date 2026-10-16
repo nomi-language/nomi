@@ -57,6 +57,7 @@
 08-pattern-matching/case_patterns_test.nomi
 08-pattern-matching/compound_patterns_test.nomi
 08-pattern-matching/distinct_sub_patterns_test.nomi
+08-pattern-matching/map_binding_else_test.nomi
 08-pattern-matching/map_patterns_test.nomi
 08-pattern-matching/maybe_result_test.nomi
 08-pattern-matching/or_patterns_test.nomi

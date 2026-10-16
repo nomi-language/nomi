@@ -52,27 +52,6 @@ func noCaseMatchText(line int) string {
 	return fmt.Sprintf("line %d: no matching case branch", line)
 }
 
-// MapKeyMissingError is the failure a map destructuring reports when a key it
-// names is absent.
-//
-// Here for the reason NoCaseMatchError is: an observable string has one owner.
-//
-// A map destructuring is refutable and this is its miss, which is what makes it
-// a trap rather than an assertion failure — the sibling statement form
-// `assert {"a" => v} = m` reports through the assertion channel instead, and
-// nothing but the two call sites keeps the exits apart.
-//
-// `key` arrives already rendered, by Display and not by Debug, so a String key
-// prints bare with no quotes. Taking the text rather than a value is what lets
-// one function serve every caller whatever the key's Go type.
-func MapKeyMissingError(line int, key string) error {
-	return errors.New(mapKeyMissingText(line, key))
-}
-
-func mapKeyMissingText(line int, key string) string {
-	return fmt.Sprintf("line %d: key %s not found in map", line, key)
-}
-
 // IndexOutOfRangeText is the trap a positional access whose caller promised
 // the position exists (`Vector.at`, `Vector.set`, `Bytes.at`) raises when it
 // does not: `index 7 is out of range for a Vector of length 5`. A negative

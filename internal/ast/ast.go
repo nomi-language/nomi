@@ -1415,19 +1415,6 @@ type StructDestructure struct {
 func (*StructDestructure) NodeType() string { return "StructDestructure" }
 func (n *StructDestructure) LineNum() int   { return n.Line }
 
-// MapDestructure binds map values to names: {"key" => name} = expr
-type MapDestructure struct {
-	TriviaCarrier
-	SpanCarrier
-	Entries []MapPatternEntry // key => binding pairs
-	Value   Node
-	Line    int
-	Col     int
-}
-
-func (*MapDestructure) NodeType() string { return "MapDestructure" }
-func (n *MapDestructure) LineNum() int   { return n.Line }
-
 // PatternDestructure binds a general pattern using assertion semantics:
 //
 //	assert pattern = expr

@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 362
-declared-cases 1103
+records 363
+declared-cases 1107
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -774,10 +774,10 @@ T
 C 06-collections/maps_test.nomi
 E 0
 N 6
-H cef0c5a511198a092394ec41a2e917a578cf39746d5de559a0a475a0b892d2f2
+H 68dadc83458398a7ec9217376e5a99dda4c9cb88530f86f8221cb713a74ae620
 T ok <root>/tests/06-collections/maps_test.nomi :: maps expose size lookup insert keys and empty construction
 T ok <root>/tests/06-collections/maps_test.nomi :: map patterns match keys literals and wildcard values
-T ok <root>/tests/06-collections/maps_test.nomi :: map destructuring binds requested keys
+T ok <root>/tests/06-collections/maps_test.nomi :: an asserted map pattern binds requested keys
 T ok <root>/tests/06-collections/maps_test.nomi :: maps iterate as key value tuples
 T ok <root>/tests/06-collections/maps_test.nomi :: map bulk construction and transforms preserve insertion behavior
 T ok <root>/tests/06-collections/maps_test.nomi :: maps merge with +
@@ -1095,14 +1095,24 @@ T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: distinc
 T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: list and map distinct sub-patterns
 T test result: ok. 3 passed, 0 failed
 T
+C 08-pattern-matching/map_binding_else_test.nomi
+E 0
+N 4
+H 7cf6deca0cf0d6e956bc91508ba59a1af36dd52f86e198b7b9cf9d3b1b2c38b2
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map binding with else binds every key it names
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map binding runs its else when a key is missing
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map binding's else arms match the map that missed
+T ok <root>/tests/08-pattern-matching/map_binding_else_test.nomi :: a map pattern in a case arm falls through to the next arm
+T test result: ok. 4 passed, 0 failed
+T
 C 08-pattern-matching/map_patterns_test.nomi
 E 0
 N 5
-H 1074a0dfdf82c852231489e732902d02f3b1884c30b20a168216250da19c695e
+H 5068c7fea146b4bb4e9ab599344f3d91ce070f71076083e8dbdb0248f57804af
 T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: maps can use structurally keyable values
 T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: map literals support composite expression keys
 T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: map patterns match composite expression keys
-T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: map destructuring binds composite expression keys
+T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: an asserted map pattern binds composite expression keys
 T ok <root>/tests/08-pattern-matching/map_patterns_test.nomi :: negative numeric literals can be map pattern keys
 T test result: ok. 5 passed, 0 failed
 T

@@ -666,7 +666,7 @@ func (d *decoder) instr(r *rbuf) Instr {
 			kind: MatchKind(r.byte1()), sym: d.sym(r.uv()), text: d.str(r.uv()),
 			idx: int(r.sv()), embeds: d.sym(r.uv())}
 	case tagNoMatch:
-		return &NoMatch{pos: d.pos(r), key: r.temp()}
+		return &NoMatch{pos: d.pos(r)}
 	case tagTodo:
 		return &Todo{pos: d.pos(r), dst: r.temp(), reason: d.str(r.uv())}
 	case tagSubtests:

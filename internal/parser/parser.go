@@ -914,8 +914,6 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 		return firstNestedAssertion(v.Value)
 	case *ast.StructDestructure:
 		return firstNestedAssertion(v.Value)
-	case *ast.MapDestructure:
-		return firstNestedAssertion(v.Value)
 	case *ast.DistinctDestructure:
 		return firstNestedAssertion(v.Value)
 	case *ast.PatternBinding:
@@ -1353,82 +1351,6 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	// `subtests` keeps working everywhere else.
 	if node, ok, err := p.tryParseSubtests(); ok || err != nil {
 		return node, err
-	}
-
-	// Map destructuring: {keyExpr => ident, ...} = expr
-	if p.peek().Type == token.LBRACE {
-		savedPos := p.pos
-		line := p.peek().Line
-		col := p.peek().Col
-		p.advance() // consume LBRACE
-		var lc listComments
-		p.listGap(&lc)
-
-		// Speculatively parse the first key as an expression; map destructure
-		// iff it's followed by '=>'.
-		isMapDestructure := !p.atEnd() && p.detectMapPatternEntry()
-
-		if isMapDestructure {
-			var entries []ast.MapPatternEntry
-			valid := true
-			for valid && !p.atEnd() && p.peek().Type != token.RBRACE {
-				// The key is an arbitrary expression (same parser map literals
-				// use for keys). A parse failure means this isn't a map
-				// destructure — restore below and try struct destructure.
-				keyNode, kerr := p.parseExpr(1)
-				if kerr != nil {
-					valid = false
-					break
-				}
-				if p.atEnd() || p.peek().Type != token.FAT_ARROW {
-					valid = false
-					break
-				}
-				p.advance() // consume FAT_ARROW
-				bindTok, inner, ok := p.parseDestructureName()
-				if !ok {
-					valid = false
-					break
-				}
-				if len(inner) > 0 {
-					c := nodeComments(keyNode)()
-					c.After = append(c.After, inner...)
-				}
-				var pat ast.Node
-				if bindTok.Type == token.UNDERSCORE {
-					pat = &ast.WildcardPattern{Line: bindTok.Line, Col: bindTok.Col}
-				} else {
-					pat = &ast.IdentPattern{Name: bindTok.Lexeme, Line: bindTok.Line, Col: bindTok.Col}
-				}
-				entries = append(entries, ast.MapPatternEntry{Key: keyNode, Pattern: pat})
-				lc.item(nodeComments(keyNode))
-				p.listAfter(&lc)
-
-				if !p.atEnd() && (p.peek().Type == token.COMMA || p.peek().Type == token.NEWLINE) {
-					p.advance()
-					p.listGap(&lc)
-				}
-			}
-
-			if valid && len(entries) > 0 && !p.atEnd() && p.peek().Type == token.RBRACE {
-				lc.close()
-				p.advance() // consume RBRACE
-				if !p.atEnd() && p.peek().Type == token.EQ {
-					p.advance() // consume EQ
-					val, err := p.parseExpr(1)
-					if err != nil {
-						return nil, err
-					}
-					return p.withBindingElse(savedPos, &ast.MapDestructure{Entries: entries, Value: val, Line: line, Col: col}, val, line, col)
-				}
-			}
-
-			// Not a map destructure — restore position
-			p.pos = savedPos
-		} else {
-			// Restore position so struct destructure can try
-			p.pos = savedPos
-		}
 	}
 
 	// Struct destructuring: {ident, ident} = expr  or  {ident: ident, ...} = expr

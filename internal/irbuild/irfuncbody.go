@@ -1875,7 +1875,7 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 			// and identity come from the typeDef blocklocaltype.go resolved,
 			// visible while the block's type scope is pushed.
 			continue
-		case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.MapDestructure, *ast.Defer, *ast.With, *ast.Block, *ast.FuncDef, *ast.ImportStmt,
+		case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.Defer, *ast.With, *ast.Block, *ast.FuncDef, *ast.ImportStmt,
 			// An assertion in an ordinary `fn`, whose failure is the
 			// function's `Err(AssertionFailure)`; `leading` checks the
 			// checker's boundary.
@@ -1944,7 +1944,7 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		return append(lead, b), &ast.TypeIdent{Name: "Unit", Line: b.Line, Col: b.Col}
 	}
 	switch st := n.(type) {
-	case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.MapDestructure, *ast.PatternBinding:
+	case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.PatternBinding:
 		// A destructuring binding ending a block, `(_, _) = pair`: the value
 		// is evaluated and matched, and the block answers Unit, as it does
 		// after any binding statement.
@@ -2796,12 +2796,6 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		}
 		if destructure, ok := s.(*ast.StructDestructure); ok {
 			if !bl.structBinding(destructure) {
-				return false
-			}
-			continue
-		}
-		if destructure, ok := s.(*ast.MapDestructure); ok {
-			if !bl.mapBinding(destructure) {
 				return false
 			}
 			continue

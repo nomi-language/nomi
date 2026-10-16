@@ -498,8 +498,6 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 		return bl.structBinding(st)
 	case *ast.With:
 		return bl.withStmt(st, bl.testWithScope)
-	case *ast.MapDestructure:
-		return bl.mapBinding(st)
 	case *ast.DistinctDestructure:
 		return bl.distinctBinding(st)
 	case *ast.FuncDef:

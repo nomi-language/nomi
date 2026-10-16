@@ -31,12 +31,12 @@ func TestFormat_ParenthesizedDestructureNameIsTheName(t *testing.T) {
 		{
 			"fn main() {\n    {\"host\" => (host)} = config\n}\n",
 			"fn main() {\n    {\"host\" => host} = config\n}\n",
-			&ast.MapDestructure{},
+			&ast.PatternBinding{},
 		},
 		{
 			"fn main() {\n    {\"host\" => ((_))} = config\n}\n",
 			"fn main() {\n    {\"host\" => _} = config\n}\n",
-			&ast.MapDestructure{},
+			&ast.PatternBinding{},
 		},
 		{
 			"fn main() {\n    {x: (a), y} = p\n}\n",

@@ -276,12 +276,16 @@ func TestCaseBraceMultiFieldStaysStruct(t *testing.T) {
 }
 
 // Disambiguation in the destructure-binding form: `{x} = expr` stays a struct
-// destructure, while `{k => v} = expr` is a map destructure.
+// destructure, while `{k => v} = expr` is a binding of a map pattern.
 func TestMapDestructureExpressionKey(t *testing.T) {
 	nodes := parse(t, "{(1, 2) => v} = m")
-	md, ok := nodes[0].(*ast.MapDestructure)
+	pb, ok := nodes[0].(*ast.PatternBinding)
 	if !ok {
-		t.Fatalf("expected MapDestructure, got %T", nodes[0])
+		t.Fatalf("expected PatternBinding, got %T", nodes[0])
+	}
+	md, ok := pb.Pattern.(*ast.MapPattern)
+	if !ok {
+		t.Fatalf("expected a MapPattern, got %T", pb.Pattern)
 	}
 	if _, ok := md.Entries[0].Key.(*ast.TupleLit); !ok {
 		t.Fatalf("entry[0] key: expected TupleLit, got %T", md.Entries[0].Key)

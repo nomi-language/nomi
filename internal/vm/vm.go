@@ -726,15 +726,6 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 		//
 		// THE LINE IS THE INSTRUCTION'S: `n.Pos().Line()`, since this
 		// consumer has no AST node to read it off.
-		if n.Key() != ir.NoTemp {
-			// A map destructuring's absent key, in rt's text with the key
-			// rendered by Display.
-			key, err := fr.read(n.Key())
-			if err != nil {
-				return err
-			}
-			return rt.MapKeyMissingError(n.Pos().Line(), rt.DisplayText(key))
-		}
 		return rt.NoCaseMatchError(n.Pos().Line())
 
 	case *ir.Todo:

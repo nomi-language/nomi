@@ -61,19 +61,18 @@ func TestMapPatternKeyIsTypeChecked(t *testing.T) {
 	}
 }
 
-// TestMapDestructureKeyIsTypeChecked is the same firing at the second position.
-// checkMapDestructure had the identical loop, and a fix to one arm would not
-// have reached the other.
+// TestMapDestructureKeyIsTypeChecked is the same firing at a map pattern bound
+// with `else`.
 func TestMapDestructureKeyIsTypeChecked(t *testing.T) {
 	got := j6KeyErrors(`fn f(m: Map<Int, String>): String {
-  {Int.to_string(1, 2, 3) => v} = m
+  {Int.to_string(1, 2, 3) => v} = m else { return "" }
   v
 }
 `)
 	if !strings.Contains(got, "arguments") {
 		t.Errorf("an arity error inside a map DESTRUCTURE key went unreported.\n"+
 			"got: %q\n"+
-			"checkMapDestructure must reach entry.Key through "+
+			"a map pattern binding must reach entry.Key through "+
 			"checkMapPatternEntries.", got)
 	}
 }
@@ -143,11 +142,8 @@ fn f(m: Map<Bool, String>): String {
 }
 
 // TestMapDestructureKeyOfAnUnrelatedTypeStaysLegal pins the same permission at
-// the destructure position, which is where imposing K would be most tempting:
-// a destructure has no `_` arm to fall through to, so a mismatched key there
-// traps at run time instead of missing quietly. That is still a RUN-TIME
-// outcome and not a type error, and the two positions must not diverge on the
-// question just because their failure modes differ.
+// a map pattern binding: a mismatched key there runs the `else`. That is a
+// RUN-TIME outcome and not a type error, as it is in a `case`.
 func TestMapDestructureKeyOfAnUnrelatedTypeStaysLegal(t *testing.T) {
 	got := j6KeyErrors(`enum Color {
   Red
@@ -155,7 +151,7 @@ func TestMapDestructureKeyOfAnUnrelatedTypeStaysLegal(t *testing.T) {
 }
 
 fn f(m: Map<Bool, String>): String {
-  {Color.Blue => v} = m
+  {Color.Blue => v} = m else { return "" }
   v
 }
 `)

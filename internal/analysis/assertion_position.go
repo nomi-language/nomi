@@ -62,8 +62,6 @@ func (c *checker) rejectValueAssertions(nodes []ast.Node) {
 				allowStmt(v.Value)
 			case *ast.StructDestructure:
 				allowStmt(v.Value)
-			case *ast.MapDestructure:
-				allowStmt(v.Value)
 			case *ast.DistinctDestructure:
 				allowStmt(v.Value)
 			case *ast.PatternDestructure:

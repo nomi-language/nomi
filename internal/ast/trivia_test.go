@@ -11,7 +11,7 @@ func TestTriviaCarrier_Interface(t *testing.T) {
 		&Unary{}, &Binary{}, &GroupedExpr{}, &If{}, &Block{}, &Call{}, &FieldAccess{},
 		&StructDef{}, &StructLit{}, &EnumDef{}, &TypeDef{}, &TypeAlias{},
 		&OnceBinding{}, &Binding{}, &TupleDestructure{}, &StructDestructure{},
-		&MapDestructure{}, &PatternDestructure{}, &PatternBinding{}, &BindingElse{}, &DistinctDestructure{}, &ExprStmt{},
+		&PatternDestructure{}, &PatternBinding{}, &BindingElse{}, &DistinctDestructure{}, &ExprStmt{},
 		&InterfaceMethod{}, &InterfaceDef{},
 		&ImportStmt{}, &FuncDef{}, &ExternFunc{}, &ExternType{}, &Lambda{},
 		&Return{}, &Break{}, &Continue{}, &TryOp{}, &Placeholder{},

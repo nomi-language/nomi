@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 373
+records 371
 declared-cases 0
 failing 77
 C assert_subject_test.nomi@76e4dc034f8c1f74
@@ -4449,14 +4449,6 @@ N 0
 H d9014c4624844aa5bac314773d6b689ad467fa4e1d1a50a1b8a99d5a95f72ff5
 T Hello, world!
 T
-C internal/irbuild/testdata/i6_map_key_display.nomi@88a8bd997c52e1e2
-E 1
-N 0
-H 00ba4b829ed55b809123f63f5ce7c620e906a3ec8f218776f8a70e6ee45f7fa7
-T hit = 9.5m
-T --- stderr ---
-T line 41: key Meters(2.5) not found in map
-T
 C internal/irbuild/testdata/i6_std_named_arg_order.nomi@b2f78742fc692444
 E 0
 N 0
@@ -5269,16 +5261,6 @@ T slot/b
 T slot/c
 T <[a][b][c]>
 T
-C internal/irbuild/testdata/map_destructure_missing.nomi@d149bbc80dd446c4
-E 1
-N 0
-H 45330c150d134e58868fc5fb9044cfeae6600d1e14a7e42745ba407c221e200a
-T evaluating a
-T present = 1
-T evaluating z
-T --- stderr ---
-T line 31: key z not found in map
-T
 C internal/irbuild/testdata/map_pattern_key_class.nomi@99139770539f06d4
 E 0
 N 0
@@ -5340,7 +5322,7 @@ T distinct call = b=2
 T distinct bare = bare a=1
 T distinct bare miss = bare miss
 T
-C internal/irbuild/testdata/map_surface.nomi@8b7265d9a1109457
+C internal/irbuild/testdata/map_surface.nomi@5ee6bd8f34806e7f
 E 0
 N 0
 H 5e81c4f0565a76968cc72d714de70164ec21ede281141d909f3c093edf100525

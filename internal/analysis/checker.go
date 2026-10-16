@@ -1356,7 +1356,7 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 			c.checkTestDecl(n)
 		case *ast.With:
 			c.addError(n.Line, n.Col, "a `with` statement belongs in a block, such as a function body: it replaces the field until that block ends")
-		case *ast.Binding, *ast.TupleDestructure, *ast.StructDestructure, *ast.MapDestructure,
+		case *ast.Binding, *ast.TupleDestructure, *ast.StructDestructure,
 			*ast.PatternDestructure, *ast.DistinctDestructure, *ast.PatternBinding,
 			*ast.ExprStmt, *ast.Assertion, *ast.Defer, *ast.Return:
 			c.fileLevelStatement(n)
@@ -4546,9 +4546,6 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 
 	case *ast.StructDestructure:
 		return c.checkStructDestructure(n)
-
-	case *ast.MapDestructure:
-		return c.checkMapDestructure(n)
 
 	case *ast.PatternDestructure:
 		return c.checkPatternDestructure(n)
@@ -11658,38 +11655,6 @@ func (c *checker) checkMapPatternEntries(entries []ast.MapPatternEntry, valTy Ty
 	}
 }
 
-// mapPatternSites is every name a map pattern's entries bind.
-func mapPatternSites(entries []ast.MapPatternEntry) []patternSite {
-	var out []patternSite
-	for _, e := range entries {
-		out = append(out, patternSites(e.Pattern)...)
-	}
-	return out
-}
-
-func (c *checker) checkMapDestructure(n *ast.MapDestructure) Type {
-	valTy := c.checkNode(n.Value)
-
-	if valTy == nil {
-		return TypeUnit
-	}
-
-	mt, ok := valTy.(*MapType)
-	if !ok {
-		c.addError(n.Line, n.Col, fmt.Sprintf("map destructure requires a map type, got %s", valTy))
-		return TypeUnit
-	}
-
-	// The two early returns above deliberately still do not descend, which is
-	// pre-existing: they report one error about the destructured VALUE and a
-	// second error from inside a key would be noise about a construct whose
-	// type is already wrong. Only the loop that already ran is rerouted.
-	c.checkMapPatternEntries(n.Entries, mt.Val)
-	c.notePatternBindings(mapPatternSites(n.Entries), n.Value)
-
-	return TypeUnit
-}
-
 func (c *checker) checkPatternDestructure(n *ast.PatternDestructure) Type {
 	valTy := c.checkNode(n.Value)
 	c.checkPattern(n.Pattern, valTy)
@@ -11717,6 +11682,12 @@ func refutableBindingMessage(t Type) string {
 	return fmt.Sprintf("this pattern can fail to match a value of type %s; "+
 		"add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr`", t)
 }
+
+// mapBindingHint is the help on a map pattern bound with no `else`: whether
+// a key is present is data, so the pattern can fail (spec §17, *Traps, `Maybe`
+// and `Result`).
+const mapBindingHint = "a map pattern does not match a map that lacks one of its keys. " +
+	"Handle a missing key with `else { ... }`, or read one key with `Map.get`, which returns a `Maybe`"
 
 // tryUnwrapHint is the help on a refutable binding `Ok(x) = r` or
 // `Some(x) = m`, whose author usually wants `try`: it unwraps the value and
@@ -11781,6 +11752,9 @@ func (c *checker) checkPatternBinding(n *ast.PatternBinding) Type {
 						e.Hints = []string{hint}
 					}
 				}
+			}
+			if _, ok := ast.WithoutAs(n.Pattern).(*ast.MapPattern); ok {
+				e.Hints = []string{mapBindingHint}
 			}
 			c.report(e)
 		}
