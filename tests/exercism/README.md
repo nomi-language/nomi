@@ -40,7 +40,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [sieve](sieve/NOTES.md): friction
 - [spiral-matrix](spiral-matrix/NOTES.md): friction
 - [sum-of-multiples](sum-of-multiples/NOTES.md): clean
-- [transpose](transpose/NOTES.md): friction
+- [transpose](transpose/NOTES.md): clean
 - [triangle](triangle/NOTES.md): clean
 - [two-fer](two-fer/NOTES.md): clean
 - [word-count](word-count/NOTES.md): clean
