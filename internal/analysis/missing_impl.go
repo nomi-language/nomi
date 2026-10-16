@@ -445,12 +445,12 @@ func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 			}
 		}
 	}
-	if _, ok := operatorInterfaceByName(bound.Name); ok {
-		return missingImplHelp(bound.Name, name)
-	}
 	ownsType := programDeclares(concrete)
 	if !ownsType && IsStdlibKey(bound.Origin) {
 		return stdOnlyHelp(name, bound.Name, c.implementersOf(bound.Name))
+	}
+	if _, ok := operatorInterfaceByName(bound.Name); ok {
+		return missingImplHelp(bound.Name, name)
 	}
 	impl := fmt.Sprintf("write an `impl %s for %s` block", bound, name)
 	if sigs := c.requiredSignatures(bound, concrete); len(sigs) > 0 {
@@ -619,7 +619,27 @@ func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType,
 	}
 	c.report(TypeError{Line: line, Col: col, EndLine: end.EndLine, EndCol: end.EndCol, Message: fmt.Sprintf(
 		"%s does not implement %s (required by `where %s: %s`)",
-		concrete, bound.Name, param, bound.Name)}.WithHint(c.boundHelp(concrete, bound)))
+		concrete, boundAt(bound, param, concrete), param, bound)}.WithHint(c.boundHelp(concrete, bound)))
+}
+
+// boundAt is bound with the bounded parameter param read as concrete, as
+// the call needs it implemented: `where T: Add<T, T>` at Bool is
+// `Add<Bool, Bool>`. Another parameter the bound names stays as written.
+func boundAt(bound *InterfaceType, param string, concrete Type) *InterfaceType {
+	subs := map[*TypeParam_]Type{}
+	for _, a := range bound.TypeArgs {
+		if tp, ok := a.(*TypeParam_); ok && tp.Name_ == param {
+			subs[tp] = concrete
+		}
+	}
+	if len(subs) == 0 {
+		return bound
+	}
+	args := make([]Type, len(bound.TypeArgs))
+	for i, a := range bound.TypeArgs {
+		args[i] = Substitute(a, subs)
+	}
+	return &InterfaceType{Name: bound.Name, TypeArgs: args}
 }
 
 // formatRecordingLoc renders "file:line:col" with an "<unknown>"

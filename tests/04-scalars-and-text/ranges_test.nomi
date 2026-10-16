@@ -60,7 +60,7 @@ test "bounded range predicate distinguishes bounded and unbounded ranges" {
 }
 
 test "ranges compose with iterator pipelines" {
-    assert Iter.reduce(1..=10, |acc = 0, x| acc + x) == 55
+    assert Iter.sum(1..=10) == 55
 
     assert 0..10
         |> Iter.filter(|x| x % 2 == 0)

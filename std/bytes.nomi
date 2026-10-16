@@ -12,6 +12,7 @@ import {
     maybe.Maybe.{None, Some}
     results.Result
     results.Result.Ok
+    summable.Summable
 }
 
 //# Immutable byte buffers and their `Byte` element type. `Bytes` is the FFI
@@ -152,6 +153,20 @@ impl Add<Bytes, Bytes> for Bytes {
     //
     fn add(lhs: Bytes, rhs: Bytes): Bytes {
         Bytes.concat(lhs, rhs)
+    }
+}
+
+impl Summable for Bytes {
+    /// The sum of no byte buffers: the empty buffer. Summing Bytes
+    /// concatenates them in order.
+    //! assert Bytes.length(Bytes.empty_sum()) == 0
+    //! a = try Byte.from_int(97)
+    //! b = try Byte.from_int(98)
+    //! assert Bytes.from_list([a]) + Bytes.empty_sum() == Bytes.from_list([a])
+    //! assert Iter.sum([Bytes.from_list([a]), Bytes.from_list([b])]) == Bytes.from_list([a, b])
+    //
+    fn empty_sum(): Bytes {
+        Bytes.from_list([])
     }
 }
 

@@ -10,6 +10,7 @@ import {
     multiply.Multiply
     strings.String
     subtract.Subtract
+    summable.Summable
 }
 
 /// A length of time — a fixed span, independent of any wall clock or
@@ -124,6 +125,16 @@ impl Add<Duration, Duration> for Duration {
     //
     fn add(Duration(a), Duration(b)): Duration {
         Duration(a + b)
+    }
+}
+
+impl Summable for Duration {
+    /// The sum of no Durations: zero length.
+    //! assert Duration.empty_sum() == Duration.seconds(0)
+    //! assert Duration.seconds(3) + Duration.empty_sum() == Duration.seconds(3)
+    //
+    fn empty_sum(): Duration {
+        Duration(0)
     }
 }
 

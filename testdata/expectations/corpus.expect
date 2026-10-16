@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the declared case count vmcmd.Tester.File answers.
-records 352
-declared-cases 1051
+records 353
+declared-cases 1060
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1763,6 +1763,21 @@ T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Se
 T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Set of structs inspects each member through its Debug
 T ok <root>/tests/12-derives-and-standard-interfaces/set_debug_test.nomi :: a Set of declared members nested in other values inspects
 T test result: ok. 3 passed, 0 failed
+T
+C 12-derives-and-standard-interfaces/summable_test.nomi
+E 0
+N 9
+H 45b2e63f43cb87b81933980e541714e888260fd9edb813a101965caf097e2f50
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: each std implementor's empty_sum
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: adding empty_sum changes nothing
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: a Decimal sum keeps the widest scale
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: Iter.sum over each kind of value
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: summing maps lets a later map win on a shared key
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: Iter.sum over a Range and a lazy chain
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: an empty source sums to empty_sum
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: a sum past the Int range traps as + does
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: summing a type that is not Summable is a compile error
+T test result: ok. 9 passed, 0 failed
 T
 C 12-derives-and-standard-interfaces/unit_hashable_test.nomi
 E 0

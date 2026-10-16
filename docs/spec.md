@@ -3401,7 +3401,7 @@ An interface body is an item list. Each item's *form* determines its role, on tw
 
 Every bodied/host item is part of the contract (a default), reachable both interface-qualified (`Iter.known_count(xs)`) and type-qualified on an implementor (`List.known_count(xs)`) with full generic inference — the two are the *same* function, selected by the concrete type bound to `self`. Operations that take no `self` are **not** interface functions — put them in an inherent `impl Iface { ... }` block beside the interface and call them owner-qualified (`Iter.from(0)`).
 
-> The example uses `known_count` because, for `Iter`, that is the *only* default — the interface is pure protocol, just `each_while` (required) plus the lone `open` default `known_count`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`at`/`count`/`min`/`max`/`min_by`/`max_by`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.at`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` is the single op that's a dispatched default rather than an owner function, because it's the protocol hook `Iter.count` consults for an O(1) count (see §19).
+> The example uses `known_count` because, for `Iter`, that is the *only* default — the interface is pure protocol, just `each_while` (required) plus the lone `open` default `known_count`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`at`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.at`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` is the single op that's a dispatched default rather than an owner function, because it's the protocol hook `Iter.count` consults for an O(1) count (see §19).
 
 A Nomi-bodied default function may give its **trailing parameters default values**, exactly like a free `fn` (`fn announce(value: self, loud: Bool = False): String { … }`); a caller omitting the trailing argument gets the default. Defaults are rejected on a required or host-backed function — only a Nomi default body carries the value at runtime.
 
@@ -3672,7 +3672,7 @@ interface Aggregate {
 
     fn mean(it: self): Float {
         xs = values(it)
-        Iter.reduce(xs, |sum = 0.0, x| sum + x) / Int.to_float(Iter.count(xs))
+        Iter.sum(xs) / Int.to_float(Iter.count(xs))
     }
 }
 
@@ -4242,7 +4242,7 @@ Name collisions between specific imports are a compiler error.
 - File API aliases use `as`: `import http/request as req`, then `req.get(...)`.
 - Stdlib files use the `std/` prefix: `import std/io`, `import std/iter`. The `std/` prefix routes to the embedded stdlib filesystem and prevents user modules from shadowing stdlib names. `std` alone, like any other module's short name alone, is a directory and names no file: `import std` and `import std.io` (which selects `io` from a file `std`) are errors whose hint spells `import std/io`.
 - Variants must come through their enum. `import shape.Circle` (a flat selective variant import) is rejected with a clear error pointing at the owner selector form (`import shape.Shape.Circle`) or the qualified form (`import shape.Shape` then `Shape.Circle`). The owner selector path makes the originating enum visible at the import line, so cross-module collisions are caught at the import rather than silently shadowed.
-- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
+- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
 - Imports may appear inside a function body. A nested `import` binds names in the enclosing block's scope only and shadows any file-level binding of the same name. The file load itself is cached, so a nested import has no per-call cost beyond the first.
 
 ```nomi
@@ -5578,7 +5578,7 @@ names = ["Carol", ..names]
 [1, 2, 3, 4, 5]
 |> Iter.filter(|x| x > 2)
 |> Iter.map(|x| x * 2)
-|> Iter.reduce(|acc = 0, x| acc + x)
+|> Iter.sum()
 
 // lazy pipeline, materialize back to a List
 [1, 2, 3, 4, 5]
@@ -5621,7 +5621,7 @@ Iter.chunks(xs, n) / Iter.chunk_by(xs, key)
 
 Iter.reduce(xs, |acc = start, x| f(acc, x)) / Iter.each(xs, f) / Iter.find(xs, p)
 
-Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key)
+Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
 
 Iter.any?(xs, p) / Iter.all?(xs, p)
 
@@ -5969,7 +5969,7 @@ There are **no eager collection-adapter functions** (`List.map`, `Set.filter`, �
 The `std/iter` file hosts the `Iter<T>` interface and its owner functions. The protocol surface is only `each_while` (required) and the lone `open` default `known_count` (`Maybe<Int>`; `None` unless a type stores its size). Every generic iteration op lives on `Iter`, reached `Iter.X(...)`:
 
 - **Adapters** (lazy, return `Iter<...>` — one closure over the upstream's push loop, allocated when the chain is built rather than rebuilt per element, so pipelines fuse): `map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`/`chunks`/`chunk_by`.
-- **Terminals** (consume, produce a scalar): `reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`not_empty?`/`first`/`last`/`at`/`count`/`min`/`max`/`min_by`/`max_by`/`sort`/`sort_by`/`sort_with`/`partition`/`group_by`/`frequencies`.
+- **Terminals** (consume, produce a scalar): `reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`not_empty?`/`first`/`last`/`at`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`sort_with`/`partition`/`group_by`/`frequencies`.
 - **Materializers / constructors** (consume or seed): `to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`from`/`repeat`/`iterate`.
 
 Because they're owner functions, `Iter.map` / `Iter.reduce` are not dispatch calls — the protocol functions remain `Iter.each_while` and `Iter.known_count`. `Iter.count` is O(1) on any source that stores or can compute its count (`List`/`Vector`/`Map`/`Set`/bounded countable ranges, via `known_count`) and an O(n) fold otherwise; like every full-consuming terminal it **does not terminate on an infinite source** — bound it with `Iter.take(n)` first.
@@ -6018,6 +6018,7 @@ fn min<T>(source: Iter<T>): Maybe<T> where T: Comparable   // None when empty; t
 fn max<T>(source: Iter<T>): Maybe<T> where T: Comparable   // None when empty; the first of equal greatest elements
 fn min_by<T, K>(source: Iter<T>, key: (T) -> K): Maybe<T> where K: Comparable   // least key; ties as min
 fn max_by<T, K>(source: Iter<T>, key: (T) -> K): Maybe<T> where K: Comparable   // greatest key; ties as max
+fn sum<T>(source: Iter<T>): T where T: Add<T, T> and Summable   // T.empty_sum() when empty
 fn sort<T>(source: Iter<T>, direction: Direction = Direction.Ascending): List<T> where T: Comparable
 fn sort_by<T, K>(source: Iter<T>, direction: Direction = Direction.Ascending, key: (T) -> K): List<T> where K: Comparable
 fn sort_with(source: Iter<T>, compare: (T, T) -> Ordering): List<T>
@@ -6041,8 +6042,19 @@ To join an `Iter<String>` into one `String`, use `String.join(parts, separator)`
 
 `Iter.reduce` starts from the default of its callback lambda's first parameter: `Iter.reduce(xs, |sum = 0, x| sum + x)` is 0 for an empty `xs`. That default is the only starting value. A callback without one is a compile error at the callback, "`Iter.reduce` needs a starting value": a function value (`Iter.reduce(xs, Int.add)`, `xs |> Iter.reduce(add)`), a lambda whose first parameter has no default (`|a, b| a + b`), a partial application, a callback slot left open (`Iter.reduce(xs, _)`) and `Iter.reduce` named as a value. There is no first-element fallback, so a reduction never fails at run time for an empty source. For the least or greatest element, which has no answer for an empty source, use `Iter.min` and `Iter.max`: each answers a `Maybe`, `None` when the source is empty.
 
+`Iter.sum(xs)` adds the elements with `+`, left to right, from
+`T.empty_sum()`, so it is `Iter.reduce(xs, |total = T.empty_sum(), x| total +
+x)` exactly, Float rounding included, and an Int total past the Int range traps
+as `+` does. Its bound is `where T: Add<T, T> and Summable` (§22), so an empty
+source sums to the type's empty sum, and a type without the two impls is a
+compile error at the call: `Iter.sum([True])` reports `` Bool does not implement
+Summable (required by `where T: Summable`) ``. Summing Maps follows Map's `+`:
+a later map wins on a shared key.
+
 ```nomi
 Iter.reduce([3, 1, 2], |sum = 0, n| sum + n) // 6
+Iter.sum([3, 1, 2]) // 6
+Iter.sum(["a", "b"]) // "ab"
 Iter.min([3, 1, 2]) // Some(1)
 Iter.max(["b", "c", "a"]) // Some("c")
 Iter.max([]) // None
@@ -6103,7 +6115,7 @@ countdown.new(5) |> Iter.map(|n| n * 10) |> Iter.to_list() // [50, 40, 30, 20, 1
 
 countdown.new(4) |> Iter.filter(|n| n > 2) |> Iter.to_list() // [4, 3]
 
-countdown.new(3) |> Iter.reduce(|sum = 0, n| sum + n) // 6
+countdown.new(3) |> Iter.sum() // 6
 
 countdown.new(5)
 |> Iter.filter(|n| n % 2 == 0)
@@ -6604,6 +6616,24 @@ impl Add<Set<T>, Set<T>> for Set<T> {
 The same holds for a user type (`impl Add<T, Box<T>> for Box<T>`) and inside
 generic code, where `a + b` with `a: Set<T>` and `b: Set<T>` is `Set<T>`.
 
+**Summable.** A type whose `+` takes two of its values and returns one can
+also implement the prelude interface `Summable`, which names the sum of no
+values: the one value `+` leaves alone, so `T.add(x, T.empty_sum()) == x`.
+
+```nomi
+interface Summable {
+    fn empty_sum(): self
+}
+```
+
+The stdlib implements it for `Int` (`0`), `Float` (`0.0`), `Decimal` (`0d`, at
+scale 0, so `x + 0d` keeps `x`'s scale), `Duration` (zero length), `String`
+(`""`), `List`, `Vector`, `Set`, `Map` and `Bytes` (each empty). It is not a
+default or "unset" value: a type with no `+` over its own values (`Bool`,
+`Maybe`, an enum, `Date`, `Instant`) does not implement it. Interfaces do not
+extend one another (§13), so code that sums names both bounds: `where T:
+Add<T, T> and Summable`. `Iter.sum` (§*`std/iter`*) is that code.
+
 **Integer overflow traps.** `Int` is 64-bit. The arithmetic operators `+`, `-`, `*` (and `/` in the single `MinInt64 / -1` case) raise a runtime error on signed overflow rather than wrapping silently — the same fail-loud stance as division by zero. When modular (wrapping) arithmetic is the intent — hashing, checksums, ring counters — use the explicit `Int.wrapping_add` / `Int.wrapping_sub` / `Int.wrapping_mul` functions, which wrap two's-complement. `derive Hashable` uses wrapping multiply internally for exactly this reason. Unary `-` traps on `Int.min_value`, whose magnitude is one past `Int.max_value`, and so does `Int.abs(Int.min_value)`, with the same error.
 
 **No implicit numeric conversion.** `Int`, `Float`, and `Decimal` are three non-mixing islands — none mixes implicitly with either of the others. Mixed-operand arithmetic (`1 + 2.0`, `1 + 1.50d`, `2.0 + 1.50d`), comparison (`1 < 2.0`, `1 < 2.50d`), and equality (`1 == 1.0`, `1.0 == 1d`) are all compile errors; convert explicitly across the boundary with `Int.to_float` / `Float.to_int` / `Decimal.from_int` / `Decimal.to_float` / `Decimal.from_float`. This avoids the silent precision loss that implicit `Int`→`Float` widening causes for magnitudes above 2^53. More generally, `==` / `!=` require operands of the same type — comparing unrelated types (e.g. `String` to `Int`) is a compile error, not a silent `false`.
@@ -6703,7 +6733,7 @@ The stdlib `.nomi` files are embedded in the compiler binary and analyzed once p
 
 ### Prelude
 
-One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Variants`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
+One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Variants`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
 
 Stdlib files themselves do **not** receive the prelude — they each import their dependencies by hand. The "is this a stdlib file?" check is the only place that distinguishes who gets the implicit imports. A stdlib file's `//!` prompts are part of the file and see the file's scope, as its bodies do: a prompt that writes a bare `False` or `Some` needs the file to import it (`import bool.Bool.False`). `nomi test`, `nomi check`, the language server and the reference editors all check a prompt in that scope.
 
@@ -8672,7 +8702,7 @@ development-only instrumentation:
 total =
     items
     |> Iter.map(price)
-    |> Iter.reduce(|sum = 0, value| sum + value)
+    |> Iter.sum()
     |> dbg
 ```
 

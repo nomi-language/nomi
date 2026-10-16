@@ -255,12 +255,12 @@ T
 C collections.md:L73
 E 0
 N 0
-H 4d8a3e38fa857d66ed39814ed876179b0f9c6838a9d7642afb9d8148cf409b7b
+H 5b82168a712e1031ae1de76f0da1d7aab2dd9bf1853e45a15f53e3a41de492b3
 T dbg line 8:
 T   xs
 T   |> Iter.filter(|n| n > 2)
 T   |> Iter.map(|n| n * n)
-T   |> Iter.reduce(|acc = 0, n| acc + n)
+T   |> Iter.sum()
 T   = 50
 T
 C concurrency.md:L1079

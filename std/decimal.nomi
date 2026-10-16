@@ -14,6 +14,7 @@ import {
     steppable.Steppable
     strings.String
     subtract.Subtract
+    summable.Summable
 }
 
 //# Operations on the arbitrary-precision, exact base-10 `Decimal` type:
@@ -173,6 +174,17 @@ impl Display for Decimal {
 
 impl Add<Decimal, Decimal> for Decimal {
     host fn add(lhs: Decimal, rhs: Decimal): Decimal
+}
+
+impl Summable for Decimal {
+    /// The sum of no Decimals: `0d`, at scale 0. A sum takes the larger
+    /// scale of its operands, so `x + 0d` keeps `x`'s scale.
+    //! assert Decimal.empty_sum() == 0d
+    //! assert Decimal.to_string(1.50d + Decimal.empty_sum()) == "1.50"
+    //
+    fn empty_sum(): Decimal {
+        0d
+    }
 }
 
 impl Subtract<Decimal, Decimal> for Decimal {

@@ -10,6 +10,7 @@ import {
     lists.List
     maybe.Maybe.{self, None, Some}
     strings.String
+    summable.Summable
 }
 
 //# Operations on the insertion-ordered `Map<K, V>` type. Map-specific ops
@@ -182,5 +183,18 @@ impl Add<Map<K, V>, Map<K, V>> for Map<K, V> {
     //
     fn add(a: Map<K, V>, rhs: Map<K, V>): Map<K, V> {
         Map.merge(a, rhs)
+    }
+}
+
+impl Summable for Map<K, V> {
+    /// The sum of no Maps: the empty Map. Summing Maps merges them in order
+    /// with `+`, so on a shared key the later map's value wins.
+    //! empty: Map<String, Int> = Map.empty_sum()
+    //! assert Map.size(empty) == 0
+    //! assert {"a" => 1} + Map.empty_sum() == {"a" => 1}
+    //! assert Iter.sum([{"a" => 1}, {"a" => 9, "b" => 2}]) == {"a" => 9, "b" => 2}
+    //
+    fn empty_sum(): Map<K, V> {
+        Map.empty()
     }
 }

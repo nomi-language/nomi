@@ -30,6 +30,7 @@ bytes.nomi:Byte.hash	ran
 bytes.nomi:Byte.inspect	ran
 bytes.nomi:Byte.to_string	ran
 bytes.nomi:Bytes.Add<Bytes, Bytes>.add	ran
+bytes.nomi:Bytes.empty_sum	ran
 bytes.nomi:Bytes.equal?	ran
 bytes.nomi:Bytes.inspect	ran
 bytes.nomi:join_debug_parts	ran
@@ -268,6 +269,7 @@ compiler.nomi:Project.inspect	ran
 compiler.nomi:RunFile.inspect	ran
 context.nomi:Context.inspect	ran
 decimal.nomi:Decimal.abs	ran
+decimal.nomi:Decimal.empty_sum	ran
 decimal.nomi:Decimal.inspect	ran
 decimal.nomi:Decimal.max	ran
 decimal.nomi:Decimal.min	ran
@@ -288,6 +290,7 @@ duration.nomi:Duration.as_minutes	ran
 duration.nomi:Duration.as_nanos	ran
 duration.nomi:Duration.as_seconds	ran
 duration.nomi:Duration.compare	ran
+duration.nomi:Duration.empty_sum	ran
 duration.nomi:Duration.equal?	ran
 duration.nomi:Duration.hash	ran
 duration.nomi:Duration.hours	ran
@@ -303,6 +306,7 @@ dynamic.nomi:PathSegment.inspect	ran
 dynamic.nomi:PathSegment.to_string	ran
 float.nomi:Float.abs	ran
 float.nomi:Float.compare	ran
+float.nomi:Float.empty_sum	ran
 float.nomi:Float.equal?	ran
 float.nomi:Float.finite?	ran
 float.nomi:Float.hash	ran
@@ -324,6 +328,7 @@ instant.nomi:Instant.to_seconds	ran
 int.nomi:Int.Divide<NonZeroInt, Int>.divide	ran
 int.nomi:Int.abs	ran
 int.nomi:Int.compare	ran
+int.nomi:Int.empty_sum	ran
 int.nomi:Int.equal?	ran
 int.nomi:Int.hash	ran
 int.nomi:Int.inspect	ran
@@ -388,6 +393,7 @@ startup.nomi:Startup.inspect	ran
 strings.nomi:NormalForm.inspect	ran
 strings.nomi:NormalForm.to_string	ran
 strings.nomi:String.compare	ran
+strings.nomi:String.empty_sum	ran
 strings.nomi:String.equal?	ran
 strings.nomi:String.inspect	ran
 strings.nomi:String.pad_end	ran

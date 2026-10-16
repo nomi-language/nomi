@@ -925,7 +925,7 @@ In a pipeline, use `dbg` as a transparent stage:
 total =
     items
     |> Iter.map(price)
-    |> Iter.reduce(|sum = 0, value| sum + value)
+    |> Iter.sum()
     |> dbg
 ```
 
@@ -1444,3 +1444,16 @@ not one arm per value repeating `-> True`. Put the `or` where the arms
 differ: `Some(.Equilateral or .Isosceles) -> True` rather than
 `Some(.Equilateral) or Some(.Isosceles) -> True`. Keep separate arms when
 their bodies only happen to agree today and are expected to diverge.
+
+## 26. Total with `Iter.sum`, not a `reduce` from zero
+
+A fold that starts from the empty sum and adds each element is `Iter.sum`:
+
+```nomi
+total = prices |> Iter.map(.cents) |> Iter.sum()
+```
+
+not `Iter.reduce(|total = 0, n| total + n)`, which spells out the starting
+value and the step the type's `Summable` and `Add` impls already name. Keep
+`Iter.reduce` when the fold does more than add (`total + n * weight`), starts
+from another value, or breaks early.

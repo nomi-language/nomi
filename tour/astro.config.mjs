@@ -47,6 +47,7 @@ const referenceItems = [
 		'strings',
 		'structs',
 		'subtract',
+		'summable',
 		'supervisors',
 		'tasks',
 		'testing',

@@ -308,7 +308,7 @@ fn parse(text: String): Result<Int, String> {
 fn total(inputs: List<String>): Result<Int, String> {
     numbers = inputs |> Iter.map(|s| parse(s)) |> try Result.collect()
 
-    Ok(Iter.reduce(numbers, |acc = 0, n| acc + n))
+    Ok(Iter.sum(numbers))
 }
 
 fn main() {

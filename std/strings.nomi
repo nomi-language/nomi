@@ -14,6 +14,7 @@ import {
     lists.List
     matcher.Matcher
     maybe.Maybe.{self, None, Some}
+    summable.Summable
 }
 
 //# String operations including text-specific ops (`split`, `replace`, `join`,
@@ -354,6 +355,18 @@ impl Display for String {
 
 impl Add<String, String> for String {
     host fn add(lhs: String, rhs: String): String
+}
+
+impl Summable for String {
+    /// The sum of no Strings: `""`. Summing Strings concatenates them in
+    /// order; to put a separator between them, use `String.join`.
+    //! assert String.empty_sum() == ""
+    //! assert "ab" + String.empty_sum() == "ab"
+    //! assert Iter.sum(["no", "m", "i"]) == "nomi"
+    //
+    fn empty_sum(): String {
+        ""
+    }
 }
 
 impl Debug for String {
