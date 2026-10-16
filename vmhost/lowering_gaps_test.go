@@ -32,9 +32,10 @@ type loweringGap struct {
 	alsoSkip []string
 	// noSkip marks a reason the builder derives from the node alone
 	// (declineReason: "a named argument", "a ListLit", "qualified call,
-	// Type.method: Iter.map"), which unrelated declines share. The fuzz
-	// target does not excuse a decline by it, so a new cause behind the
-	// same node still fails there.
+	// Type.method: Iter.map"), which unrelated declines share, or a panic
+	// text any lint violation of its kind shares. The fuzz target does not
+	// excuse a decline or a panic by it, so a new cause behind the same node
+	// still fails there.
 	noSkip bool
 	src    string
 }
@@ -72,7 +73,7 @@ func knownGapFor(reasons []string) *loweringGap {
 // or stack holds, or nil.
 func knownPanicFor(internal string) *loweringGap {
 	for i := range knownLoweringGaps {
-		if knownLoweringGaps[i].panics && strings.Contains(internal, knownLoweringGaps[i].reason) {
+		if knownLoweringGaps[i].panics && !knownLoweringGaps[i].noSkip && strings.Contains(internal, knownLoweringGaps[i].reason) {
 			return &knownLoweringGaps[i]
 		}
 	}

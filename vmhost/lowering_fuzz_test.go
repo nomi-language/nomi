@@ -158,7 +158,14 @@ const lowerReasonHint = "the lowering's reason: "
 // check` does (Check): the front end, then the lowering, then
 // Program.Unsupported. NOMI_DEBUG_LOWERING must be set for the builder's
 // reasons to be recorded.
-func checkLowers(dir, src string) (out lowerOutcome) {
+func checkLowers(dir, src string) lowerOutcome {
+	return checkLowersKeeping(dir, src, nil)
+}
+
+// checkLowersKeeping is checkLowers that also stores the lowered program in
+// *keep, when keep is not nil, the front end accepted src and nothing
+// panicked, so a caller can run what lowered.
+func checkLowersKeeping(dir, src string, keep **Program) (out lowerOutcome) {
 	entry, err := writeInput(dir, src)
 	if err != nil {
 		return lowerOutcome{rejection: err.Error()}
@@ -166,6 +173,9 @@ func checkLowers(dir, src string) (out lowerOutcome) {
 	defer func() {
 		if r := recover(); r != nil {
 			out = lowerOutcome{accepted: true, internal: fmt.Sprintf("%v\n%s", r, debug.Stack())}
+			if keep != nil {
+				*keep = nil
+			}
 		}
 	}()
 	cfg := newConfig(nil)
@@ -189,6 +199,9 @@ func checkLowers(dir, src string) (out lowerOutcome) {
 	}
 	out.accepted = true
 	out.unresolved = unresolvedIn(dir, analyzed)
+	if keep != nil {
+		*keep = p
+	}
 	u := p.Unsupported()
 	if u == nil {
 		return out
