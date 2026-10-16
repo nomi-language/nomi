@@ -1221,6 +1221,7 @@ exercism/list-ops/list_ops.nomi:foldr	ran
 exercism/list-ops/list_ops.nomi:foldr	ran
 exercism/list-ops/list_ops.nomi:foldr	ran
 exercism/list-ops/list_ops.nomi:foldr	ran
+exercism/list-ops/list_ops.nomi:foldr	ran
 exercism/list-ops/list_ops.nomi:length	ran
 exercism/list-ops/list_ops.nomi:map	PROBE: a synthesized argument is not a value of the declared type
 exercism/list-ops/list_ops.nomi:reverse	ran

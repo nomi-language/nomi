@@ -20,7 +20,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [hamming](hamming/NOTES.md): clean
 - [isogram](isogram/NOTES.md): friction
 - [leap](leap/NOTES.md): friction
-- [list-ops](list-ops/NOTES.md): bug
+- [list-ops](list-ops/NOTES.md): friction
 - [luhn](luhn/NOTES.md): friction
 - [matching-brackets](matching-brackets/NOTES.md): friction
 - [minesweeper](minesweeper/NOTES.md): friction

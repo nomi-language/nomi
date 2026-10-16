@@ -1223,7 +1223,7 @@ func (c *checker) unify(a, b Type, subs map[*TypeParam_]Type) error {
 // it flows into, admitting a function value whose type is assignable to want
 // (UnifyInto). Every position with a direction uses it; unify is for joins.
 func (c *checker) unifyInto(want, have Type, subs map[*TypeParam_]Type) error {
-	return UnifyInto(want, have, subs, c.implsContext(), c.implTypeArgsContext())
+	return UnifyInto(want, have, subs, c.implsContext(), c.implTypeArgsContext(), c.fnTypeParams)
 }
 
 // newChecker answers a checker for one file: a registry of every type the

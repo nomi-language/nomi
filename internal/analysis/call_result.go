@@ -95,7 +95,7 @@ func (fa *FileAnalysis) solveCallShape(ft *FuncType, call CallShape, skip int) (
 		if containsTypeVar(argTy) {
 			return false
 		}
-		return UnifyInto(ft.Params[slot], argTy, subs, impls, implTypeArgs) == nil
+		return UnifyInto(ft.Params[slot], argTy, subs, impls, implTypeArgs, nil) == nil
 	}
 	var slots []int
 	if call.Piped {

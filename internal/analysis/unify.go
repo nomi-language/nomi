@@ -32,7 +32,7 @@ func UnifyWithImpls(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, im
 }
 
 func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
-	return unifyIn(unifySym, a, b, subs, impls, implTypeArgs)
+	return unifyIn(unifySym, a, b, subs, impls, implTypeArgs, nil)
 }
 
 // UnifyInto unifies have, the type of a value, with want, the type of the
@@ -45,9 +45,10 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 // List where an Iter is, an Int where a Display is), or an embedded type where
 // its enum is, or a function type by this same rule: the conversions the IR
 // builder's adapter closure performs (irbuild/irfuncwiden.go). Outside
-// function types it is unifyFull.
-func UnifyInto(want, have Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
-	return unifyIn(unifyAssign, want, have, subs, impls, implTypeArgs)
+// function types it is unifyFull. rigid holds the type parameters of the
+// function being checked, by name: types there, never solved in subs.
+func UnifyInto(want, have Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
+	return unifyIn(unifyAssign, want, have, subs, impls, implTypeArgs, rigid)
 }
 
 // unifyMode is how unifyIn compares two types.
@@ -104,7 +105,7 @@ func (m unifyMode) rebound(existing Type) unifyMode {
 	return m
 }
 
-func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
+func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
 	if a == nil || b == nil {
 		return nil
 	}
@@ -167,6 +168,19 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 	// TypeParam_ on either side: bind or check in subs map. Keyed by pointer
 	// identity so distinct TypeParam_ nodes with the same name (e.g. callee T
 	// vs caller T) each get their own binding.
+	//
+	// A type parameter of the function being checked (rigid) is a type
+	// there, not something the unification solves, so where it meets
+	// another parameter that one is bound to it. A function argument's
+	// parameters meet the callee's the other way round (contravariant,
+	// below), so a generic caller's own `E` arrives as a against the
+	// callee's `T` as b: `call(item, list, |rest, _item| rest)` inside `fn
+	// b<E>` solves T to E and is recorded at `List<E>`, the type it runs at.
+	if tpa, ok := a.(*TypeParam_); ok && subs != nil && rigid[tpa.Name_] == tpa {
+		if tpb, ok := b.(*TypeParam_); ok && rigid[tpb.Name_] != tpb {
+			return bindParam(m, tpb, a, subs, impls, implTypeArgs, rigid)
+		}
+	}
 	if tp, ok := a.(*TypeParam_); ok && subs != nil {
 		if existing, bound := subs[tp]; bound {
 			// A parameter solved to an embedded type, met by a value of
@@ -180,7 +194,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			// Already bound — pass nil subs so TypeVar binding (via the
 			// nil-subs reorder above) takes precedence when unifying the
 			// existing binding against the new side.
-			return unifyIn(m.rebound(existing), existing, b, nil, impls, implTypeArgs)
+			return unifyIn(m.rebound(existing), existing, b, nil, impls, implTypeArgs, rigid)
 		}
 		if occursInIdent(tp, b) {
 			return nil // occurs check: would create infinite type
@@ -189,14 +203,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 		return nil
 	}
 	if tp, ok := b.(*TypeParam_); ok && subs != nil {
-		if existing, bound := subs[tp]; bound {
-			return unifyIn(m.rebound(existing), a, existing, nil, impls, implTypeArgs)
-		}
-		if occursInIdent(tp, a) {
-			return nil // occurs check: would create infinite type
-		}
-		subs[tp] = a
-		return nil
+		return bindParam(m, tp, a, subs, impls, implTypeArgs, rigid)
 	}
 
 	// True/False as values are members of the Bool enum: accept `True` or
@@ -279,7 +286,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 				return typeErrorf("cannot unify %s with %s", a, b)
 			}
 			for i := range ifaceA.TypeArgs {
-				if err := unifyIn(m.nested(), ifaceA.TypeArgs[i], ifaceB.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
+				if err := unifyIn(m.nested(), ifaceA.TypeArgs[i], ifaceB.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
 					return err
 				}
 			}
@@ -288,7 +295,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 		if m == unifyStrict {
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
-		return unifyInterfaceAgainstConcrete(m, ifaceA, b, subs, impls, implTypeArgs)
+		return unifyInterfaceAgainstConcrete(m, ifaceA, b, subs, impls, implTypeArgs, rigid)
 	}
 	if ifaceB, ok := b.(*InterfaceType); ok {
 		// The actual side never narrows from an interface to a concrete
@@ -297,7 +304,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 		if m != unifySym {
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
-		return unifyInterfaceAgainstConcrete(m, ifaceB, a, subs, impls, implTypeArgs)
+		return unifyInterfaceAgainstConcrete(m, ifaceB, a, subs, impls, implTypeArgs, rigid)
 	}
 
 	// Both are concrete — structural comparison.
@@ -314,17 +321,17 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 		if !ok {
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
-		return unifyIn(m.nested(), at.Elem, bt.Elem, subs, impls, implTypeArgs)
+		return unifyIn(m.nested(), at.Elem, bt.Elem, subs, impls, implTypeArgs, rigid)
 
 	case *MapType:
 		bt, ok := b.(*MapType)
 		if !ok {
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
-		if err := unifyIn(m.nested(), at.Key, bt.Key, subs, impls, implTypeArgs); err != nil {
+		if err := unifyIn(m.nested(), at.Key, bt.Key, subs, impls, implTypeArgs, rigid); err != nil {
 			return err
 		}
-		return unifyIn(m.nested(), at.Val, bt.Val, subs, impls, implTypeArgs)
+		return unifyIn(m.nested(), at.Val, bt.Val, subs, impls, implTypeArgs, rigid)
 
 	case *FuncType:
 		bt, ok := b.(*FuncType)
@@ -336,18 +343,18 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			// parameters flows into b's (contravariant), and b's result
 			// into a's (covariant).
 			for i := range at.Params {
-				if err := unifyIn(unifyAssignIn, bt.Params[i], at.Params[i], subs, impls, implTypeArgs); err != nil {
+				if err := unifyIn(unifyAssignIn, bt.Params[i], at.Params[i], subs, impls, implTypeArgs, rigid); err != nil {
 					return err
 				}
 			}
-			return unifyIn(unifyAssignIn, normalizeReturn(at.Return), normalizeReturn(bt.Return), subs, impls, implTypeArgs)
+			return unifyIn(unifyAssignIn, normalizeReturn(at.Return), normalizeReturn(bt.Return), subs, impls, implTypeArgs, rigid)
 		}
 		for i := range at.Params {
-			if err := unifyIn(unifyStrict, at.Params[i], bt.Params[i], subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(unifyStrict, at.Params[i], bt.Params[i], subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
-		return unifyIn(unifyStrict, normalizeReturn(at.Return), normalizeReturn(bt.Return), subs, impls, implTypeArgs)
+		return unifyIn(unifyStrict, normalizeReturn(at.Return), normalizeReturn(bt.Return), subs, impls, implTypeArgs, rigid)
 
 	case *TupleType:
 		bt, ok := b.(*TupleType)
@@ -355,7 +362,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		for i := range at.Elems {
-			if err := unifyIn(m.nested(), at.Elems[i], bt.Elems[i], subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(m.nested(), at.Elems[i], bt.Elems[i], subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
@@ -367,7 +374,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		for i := range at.TypeArgs {
-			if err := unifyIn(m.nested(), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(m.nested(), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
@@ -387,7 +394,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			if !ok {
 				return typeErrorf("cannot unify %s with %s", a, b)
 			}
-			if err := unifyIn(m.nested(), f.Type, bTy, subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(m.nested(), f.Type, bTy, subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
@@ -399,7 +406,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		for i := range at.TypeArgs {
-			if err := unifyIn(m.nested(), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(m.nested(), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
@@ -424,7 +431,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			return nil
 		}
 		for i := range at.TypeArgs {
-			if err := unifyIn(m.nested(), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs); err != nil {
+			if err := unifyIn(m.nested(), at.TypeArgs[i], bt.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
@@ -451,7 +458,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 // returns bare `T`. Non-generic interfaces (no type args) and pairs with no
 // recorded template fall through to accepting the conformance without binding
 // — the same permissive fallback as the prior "unknown element" path.
-func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs) error {
+func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
 	// Universal struct interface: `Struct` is satisfied structurally by every
 	// struct — named or anonymous — with no impl-table entry. Handled before
 	// the impl-table lookups below, both because there is no entry to find and
@@ -471,7 +478,7 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 	// type wraps (distinct_self.go).
 	if isStdDistinct(iface) {
 		if distinctConforms(concrete, iface, func(want, inner Type) bool {
-			return unifyIn(m.nested(), want, inner, subs, impls, implTypeArgs) == nil
+			return unifyIn(m.nested(), want, inner, subs, impls, implTypeArgs, rigid) == nil
 		}) {
 			return nil
 		}
@@ -500,7 +507,7 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 	cargs := concreteTypeArgs(concrete)
 	for i := range iface.TypeArgs {
 		arg := substituteTypeParamDefs(info.TypeParamDefs, cargs, info.Args[i])
-		if err := unifyIn(m.nested(), iface.TypeArgs[i], arg, subs, impls, implTypeArgs); err != nil {
+		if err := unifyIn(m.nested(), iface.TypeArgs[i], arg, subs, impls, implTypeArgs, rigid); err != nil {
 			return err
 		}
 	}
@@ -1256,6 +1263,19 @@ func embedsJoin(have, next Type) (Type, bool) {
 		return next, true
 	}
 	return have, false
+}
+
+// bindParam binds tp, a type parameter subs solves, to other, or checks other
+// against tp's binding when it has one.
+func bindParam(m unifyMode, tp *TypeParam_, other Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
+	if existing, bound := subs[tp]; bound {
+		return unifyIn(m.rebound(existing), other, existing, nil, impls, implTypeArgs, rigid)
+	}
+	if occursInIdent(tp, other) {
+		return nil // occurs check: would create infinite type
+	}
+	subs[tp] = other
+	return nil
 }
 
 // widenToEnum reports the enum a type parameter's binding widens to when a
