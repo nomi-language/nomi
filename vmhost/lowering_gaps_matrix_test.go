@@ -40,25 +40,6 @@ fn main() {
 `,
 	},
 	{
-		name: "gapCaseOverListOfIters",
-		fix: "builder: a `case` whose scrutinee is a list of values a list pattern cannot compare, " +
-			"an Iter, a Range or a Map whose type a later use solves (`case [it] { [p] -> ... }` " +
-			"with `it` an Iter<Int>). The arms bind the elements and compare nothing, so the " +
-			"scrutinee's element kind need not be one of the literal-pattern kinds",
-		reason: "a tail `case` scrutinee outside retained literal-pattern kinds",
-		src: `import std/io
-
-fn main() {
-    it = [1, 2] |> Iter.map(|n| n * 2)
-    got = case [it] {
-        [p] -> p
-        _ -> it
-    }
-    io.inspect(Iter.to_list(got))
-}
-`,
-	},
-	{
 		name: "gapTodoArmBesideUnit",
 		fix: "builder: a `case` whose arms are a Unit value and a `todo`, used as an argument. " +
 			"`todo` is Infallible and fits any arm type, as it does beside an Int arm, but the " +

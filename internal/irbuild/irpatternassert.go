@@ -99,7 +99,7 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		switch {
 		case sk == kindBool || (sk.tag == tagNamed && irRetainedEnumKind(sk.def)):
 			tested = bl.enumCaseTest(p, subj, sk, matched, failed)
-		case irRetainedListKind(sk) || irListTransportKind(sk):
+		case irCaseListKind(sk):
 			// Nominal elements too: the body is retained for the VM only,
 			// whose list projections do not depend on the element.
 			tested = bl.listCaseTest(p, subj, sk, matched, failed)

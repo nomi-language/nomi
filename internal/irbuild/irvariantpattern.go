@@ -525,7 +525,7 @@ func irFieldSubPattern(p ast.Node, k kind) bool {
 	case *ast.MapPattern:
 		return (k.tag == tagMap && irRetainedMapKind(k)) || irDistinctOverKind(k, tagMap)
 	case *ast.ListPattern:
-		return irRetainedListKind(k) || irListTransportKind(k) || irDistinctOverKind(k, tagList)
+		return irCaseListKind(k) || irDistinctOverKind(k, tagList)
 	case *ast.AsPattern:
 		// The name binds the field; its pattern decides the test.
 		return irFieldSubPattern(ast.WithoutAs(p), k)

@@ -756,26 +756,26 @@ a	irScalarBuilder.stdGenericOperatorCall | false | !found ¦¦ lk.tag == tagList
 a	irScalarBuilder.stdGenericOperatorCall | false | base == "" ¦¦ bl.g.stdGenericTemplate(base, spec.method) == nil#1	irstdoperator.go:35	expect,irbuild,projectgen,vmhost	
 b	irScalarBuilder.strPrefixTest | false | !ok ¦¦ k != kindString#1	irstrprefix.go:30	-	checker rejects a string prefix pattern over a non-String subject; nested prefix patterns lower (g5/m_pat.nomi)
 b	irScalarBuilder.strPrefixTest | false | !ok ¦¦ lk != kindString#1	irstrprefix.go:34	-	defensive: the prefix is a String literal, which litFor lowers at String
-b	irScalarBuilder.structMake | false | k.tag != tagNamed ¦¦ k.def == nil#1	irstruct.go:630	-	fence: TargetStructs holds only StructTypes, which project to named kinds
-b	irScalarBuilder.structMake | false | t.Spread != nil#1	irstruct.go:639	-	checker: "struct spread `..` has no named form"
--	irScalarBuilder.structMake | false | tn.Member == nil#1	irstruct.go:647	-	
-b	irScalarBuilder.structMake | false | tn.ResolvedEnum == ""#1	irstruct.go:663	-	checker resolves every `.Variant{...}` literal it accepts (ResolvedEnum set)
-b	irScalarBuilder.structMake | false | !isSimple#1	irstruct.go:673	-	parser builds a struct literal's type name only as a simple, qualified or dot-variant name; `Box<Int>{v: 1}` does not parse as one
-d	irScalarBuilder.genericStructMake | false | !ok ¦¦ k.tag != tagNamed#1	irstruct.go:710	-	needs a user generic struct literal whose checked type arguments do not instantiate; generic literals lowered everywhere tried
-a	irScalarBuilder.structMakeOf | false | !(irRetainedStructKind(d) ¦¦ bl.boot && irBootStructKind(d))#1	irstruct.go:719	irbuild	
-b	irScalarBuilder.structMakeOf | false | fd == nil#1	irstruct.go:727	-	checker rejects an unknown field in a struct literal
-b	irScalarBuilder.structMakeOf | false | dup#1	irstruct.go:730	-	checker: "field 'name' is given twice in this ... literal"
-a	irScalarBuilder.structMakeOf | false | !ok ¦¦ (k != fd.k && !erased)#1	irstruct.go:743	irbuild	
-b	irScalarBuilder.structMakeOf | false | len(vals) != len(d.fields)#1	irstruct.go:775	-	fence: written fields plus defaulted ones fill d.fields exactly once each
-b	irScalarBuilder.fieldDefault | false | f.deflt == nil ¦¦ f.stdDeflt != nil#1	irstruct.go:820	-	checker rejects an omitted field with no default ("missing field")
-c	irScalarBuilder.declDefault | false | !ok ¦¦ k != want#1	irstruct.go:855	-	pinned as gapFieldDefaultIterWiden (reason: a struct literal: H)
-b	irScalarBuilder.stdGenStructMake | false | len(t.Fields) != len(a.decl.Fields)#1	irstruct.go:884	-	checker rejects a std generic struct literal missing a field without a default
-b	irScalarBuilder.stdGenStructMake | false | ann == nil#1	irstruct.go:900	-	checker rejects an unknown field
-b	irScalarBuilder.stdGenStructMake | false | dup#1	irstruct.go:903	-	checker rejects a repeated field
-d	irScalarBuilder.stdGenStructMake | false | !ok ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	irstruct.go:924	-	needs a Captured/Channel literal whose value leaves T unsolved or non-callable; None, [], Unit, lambdas, Iters, existentials all lowered (g5/g_stdgen*.nomi)
-d	irScalarBuilder.stdGenStructMake | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irRetainedStructKind(k.def)#1	irstruct.go:930	-	needs a std generic struct instance that is not retained; not found
-b	irScalarBuilder.stdGenStructMake | false | len(d.fields) != len(vals)#1	irstruct.go:934	-	fence: genStructInstance's fields are the declaration's, already matched by count at irstruct.go:884
-d	irScalarBuilder.stdGenStructMake | false | !given ¦¦ fk != d.fields[i].k#1	irstruct.go:938	-	needs a field value whose kind differs from the instance's field after unification; not found
+b	irScalarBuilder.structMake | false | k.tag != tagNamed ¦¦ k.def == nil#1	irstruct.go:634	-	fence: TargetStructs holds only StructTypes, which project to named kinds
+b	irScalarBuilder.structMake | false | t.Spread != nil#1	irstruct.go:643	-	checker: "struct spread `..` has no named form"
+-	irScalarBuilder.structMake | false | tn.Member == nil#1	irstruct.go:651	-	
+b	irScalarBuilder.structMake | false | tn.ResolvedEnum == ""#1	irstruct.go:667	-	checker resolves every `.Variant{...}` literal it accepts (ResolvedEnum set)
+b	irScalarBuilder.structMake | false | !isSimple#1	irstruct.go:677	-	parser builds a struct literal's type name only as a simple, qualified or dot-variant name; `Box<Int>{v: 1}` does not parse as one
+d	irScalarBuilder.genericStructMake | false | !ok ¦¦ k.tag != tagNamed#1	irstruct.go:714	-	needs a user generic struct literal whose checked type arguments do not instantiate; generic literals lowered everywhere tried
+a	irScalarBuilder.structMakeOf | false | !(irRetainedStructKind(d) ¦¦ bl.boot && irBootStructKind(d))#1	irstruct.go:723	irbuild	
+b	irScalarBuilder.structMakeOf | false | fd == nil#1	irstruct.go:731	-	checker rejects an unknown field in a struct literal
+b	irScalarBuilder.structMakeOf | false | dup#1	irstruct.go:734	-	checker: "field 'name' is given twice in this ... literal"
+a	irScalarBuilder.structMakeOf | false | !ok ¦¦ (k != fd.k && !erased)#1	irstruct.go:747	irbuild	
+b	irScalarBuilder.structMakeOf | false | len(vals) != len(d.fields)#1	irstruct.go:779	-	fence: written fields plus defaulted ones fill d.fields exactly once each
+b	irScalarBuilder.fieldDefault | false | f.deflt == nil ¦¦ f.stdDeflt != nil#1	irstruct.go:824	-	checker rejects an omitted field with no default ("missing field")
+c	irScalarBuilder.declDefault | false | !ok ¦¦ k != want#1	irstruct.go:859	-	pinned as gapFieldDefaultIterWiden (reason: a struct literal: H)
+b	irScalarBuilder.stdGenStructMake | false | len(t.Fields) != len(a.decl.Fields)#1	irstruct.go:888	-	checker rejects a std generic struct literal missing a field without a default
+b	irScalarBuilder.stdGenStructMake | false | ann == nil#1	irstruct.go:904	-	checker rejects an unknown field
+b	irScalarBuilder.stdGenStructMake | false | dup#1	irstruct.go:907	-	checker rejects a repeated field
+d	irScalarBuilder.stdGenStructMake | false | !ok ¦¦ (k != kindUnit && !irCallableValueKind(k))#1	irstruct.go:928	-	needs a Captured/Channel literal whose value leaves T unsolved or non-callable; None, [], Unit, lambdas, Iters, existentials all lowered (g5/g_stdgen*.nomi)
+d	irScalarBuilder.stdGenStructMake | false | !ok ¦¦ k.tag != tagNamed ¦¦ !irRetainedStructKind(k.def)#1	irstruct.go:934	-	needs a std generic struct instance that is not retained; not found
+b	irScalarBuilder.stdGenStructMake | false | len(d.fields) != len(vals)#1	irstruct.go:938	-	fence: genStructInstance's fields are the declaration's, already matched by count at irstruct.go:884
+d	irScalarBuilder.stdGenStructMake | false | !given ¦¦ fk != d.fields[i].k#1	irstruct.go:942	-	needs a field value whose kind differs from the instance's field after unification; not found
 c	irScalarBuilder.nominalCaseTest | false | p.TypeName != nil ¦¦ !bl.recordCaseFields(p, subj, k, next)#1	irstructpattern.go:34	-	pinned as gapRecordFieldLiteralAttachDistinct (reason: a nested pattern outside the retained tests: a ListPattern over Stack)
 b	irScalarBuilder.nominalCaseTest | false | k.tag != tagNamed ¦¦ k.def == nil#1	irstructpattern.go:41	-	irNominalCaseKind admits only records (handled above) and named kinds
 b	irScalarBuilder.nominalCaseTest | false | !irRetainedStructKind(k.def)#1	irstructpattern.go:46	-	checker: struct pattern requires a struct type
@@ -961,9 +961,9 @@ d	irScalarBuilder.callFuncValueOf | false | !ok ¦¦ k != result ¦¦ len(child.
 d	irScalarBuilder.callFuncValueOf | note | "an owner function value that does not lint: " + err.Error()#1	ownerfuncref.go:147	-	no lint failure found
 -	gen.checkedFuncKinds | false | g.fa == nil#1	ownerfuncref.go:172	-	
 -	gen.checkedFuncKinds | false | sym == nil#1	ownerfuncref.go:177	-	
-a	gen.checkedFuncKinds | false | ft == nil ¦¦ irUnsolvedType(ft)#1	ownerfuncref.go:187	irbuild	
--	gen.checkedFuncKinds | false | !irCallOperandKind(params[i])#1	ownerfuncref.go:195	-	
--	gen.checkedFuncKinds | false | result != kindUnit && !irCallableValueKind(result)#1	ownerfuncref.go:200	-	
+a	gen.checkedFuncKinds | false | ft == nil ¦¦ irUnsolvedType(ft)#1	ownerfuncref.go:192	irbuild	
+-	gen.checkedFuncKinds | false | !irCallOperandKind(params[i])#1	ownerfuncref.go:200	-	
+-	gen.checkedFuncKinds | false | result != kindUnit && !irCallableValueKind(result)#1	ownerfuncref.go:205	-	
 a	gen.rangeWalks | computed | return g.rangeOrders(elem, at) && g.rangeDiscrete(elem, at)#1	ranges.go:227	expect,irbuild,projectgen,vmhost	
 d	gen.irFileSlotRetain | note | "a parameter kind outside the call domain: " + k.nomi()#1	siblingdefault.go:109	-	needs a pub fn param kind outside the call domain before a default; not found
 b	gen.irFileSlotRetain | note | "no function shell"#1	siblingdefault.go:126	-	defensive fence: irFuncShellWithCallee returns nil only for a malformed signature the earlier checks exclude

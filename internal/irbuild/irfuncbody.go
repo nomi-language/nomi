@@ -2570,7 +2570,7 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 		var ok bool
 		subj, sk, _, ok = bl.lower(t.Value)
 		if !ok || (sk != kindInt && sk != kindString && sk != kindBool && !irLiteralCaseKind(sk, bl) &&
-			(!irRetainedTupleKind(sk) && !irRetainedListKind(sk) && !irListTransportKind(sk) && !(sk.tag == tagNamed && irRetainedEnumKind(sk.def)) && !(sk.tag == tagMap && irRetainedMapKind(sk)) && !irNominalCaseKind(sk))) {
+			(!irRetainedTupleKind(sk) && !irCaseListKind(sk) && !(sk.tag == tagNamed && irRetainedEnumKind(sk.def)) && !(sk.tag == tagMap && irRetainedMapKind(sk)) && !irNominalCaseKind(sk))) {
 			if ok {
 				irDeclineNote("a tail `case` scrutinee outside retained literal-pattern kinds: " + sk.nomi())
 			}
@@ -3002,6 +3002,18 @@ func isContinueNode(n ast.Node) bool {
 // irLiteralCaseKind is a `case` scrutinee whose only patterns are literals
 // the VM tests with rt.Equal beside the Int, String and Bool ones: Float and
 // Decimal, whose equality is EqFloat's and EqDecimal's.
+// irCaseListKind is a list a list pattern takes apart: a retained or
+// transported list, or a list of any value the callable domain holds, an
+// Iter, a Range or a Map among them (`case [it] { [p] -> p ... }`). The
+// pattern tests the list's length and binds its elements; an element
+// pattern that compares is lowered, or declined, by the element's own kind.
+func irCaseListKind(k kind) bool {
+	if irRetainedListKind(k) || irListTransportKind(k) {
+		return true
+	}
+	return k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallableValueKind(k.comp.parts[0])
+}
+
 func irLiteralCaseKind(k kind, bl *irScalarBuilder) bool {
 	return (k == kindFloat || isDecimalKind(k))
 }

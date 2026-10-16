@@ -108,7 +108,7 @@ func (bl *irScalarBuilder) casePatternTest(br *ast.CaseBranch, adHoc bool, subj 
 		return true
 	}
 	switch {
-	case irRetainedListKind(sk) || irListTransportKind(sk):
+	case irCaseListKind(sk):
 		if !bl.listCaseTest(br.Pattern, subj, sk, target, next) {
 			irDeclineNote("a list case pattern outside flat bindings and wildcards")
 			return false
